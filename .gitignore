@@ -1,0 +1,12 @@
+# Terraform
+.terraform/
+terraform.tfstate
+terraform.tfstate.backup
+.terraform.tfstate.lock.info
+backend_override.tf
+
+# Kubernetes
+.kube/
+
+# Talos
+.talos/
