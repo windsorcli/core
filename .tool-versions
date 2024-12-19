@@ -1,4 +1,4 @@
-terraform 1.10.2
+terraform 1.10.3
 kubectl 1.30.8
 talos 1.8.4
 colima 0.7.5
