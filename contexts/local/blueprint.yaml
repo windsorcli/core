@@ -1,0 +1,8 @@
+kind: Blueprint
+apiVersion: blueprints.windsorcli.dev/v1alpha1
+metadata:
+  name: local
+  description: This blueprint outlines resources in the local context
+sources: []
+terraform:
+- path: cluster/talos
