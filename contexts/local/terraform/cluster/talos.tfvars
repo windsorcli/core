@@ -1,5 +1,5 @@
 kubernetes_version = "1.30.8"
-talos_version = "1.7.6"
+talos_version = "1.8.4"
 cluster_name = "talos"
 cluster_endpoint = "https://10.5.0.3:6443"
 controlplanes = [
@@ -7,14 +7,14 @@ controlplanes = [
     hostname = "controlplane-1.test"
     node     = "10.5.0.3"
     endpoint = "10.5.0.3:50000"
-  }
+  },
 ]
 workers = [
   {
     hostname = "worker-1.test"
-    node     = "10.5.0.12"
-    endpoint = "10.5.0.12:50000"
-  }
+    node     = "10.5.0.14"
+    endpoint = "10.5.0.14:50000"
+  },
 ]
 
 common_config_patches = <<-EOT

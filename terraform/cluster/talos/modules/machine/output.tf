@@ -1,4 +1,7 @@
-output "machine_configuration" {
-  value = data.talos_machine_configuration.this.machine_configuration
-  sensitive = true
+output "node" {
+  value = var.node
+}
+
+output "endpoint" {
+  value = var.endpoint
 }

@@ -64,3 +64,13 @@ resource "talos_machine_configuration_apply" "this" {
   node                        = var.node  # Node identifier for the machine
   endpoint                    = var.endpoint  # Endpoint for the machine
 }
+
+// Bootstrap the first control plane node
+resource "talos_machine_bootstrap" "bootstrap" {
+  count      = var.bootstrap ? 1 : 0
+  depends_on = [talos_machine_configuration_apply.this]
+
+  node                 = var.node
+  endpoint             = var.endpoint
+  client_configuration = var.client_configuration
+}

@@ -106,3 +106,9 @@ variable "config_patches" {
   type        = list(string)
   default     = []
 }
+
+variable "bootstrap" {
+  description = "Indicates whether to bootstrap the machine."
+  type        = bool
+  default     = false
+}
