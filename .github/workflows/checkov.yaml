@@ -27,5 +27,3 @@ jobs:
       - name: Run Checkov
         run: checkov -d ./terraform --framework terraform -v
         
-      - name: Report
-        run: cat checkov_results.csv
