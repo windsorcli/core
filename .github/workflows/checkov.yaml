@@ -4,6 +4,7 @@ on:
   push:
     branches:
       - main
+      - checkov
   pull_request:
     branches:
       - main
@@ -24,5 +25,5 @@ jobs:
         run: pip install checkov
 
       - name: Run Checkov
-        run: checkov -d ./ --framework terraform
+        run: checkov -d ./ --framework terraform --verbose
         
