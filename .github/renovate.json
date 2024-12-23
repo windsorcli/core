@@ -1,3 +1,6 @@
 {
-  "extends": ["config:recommended"]
+  "extends": [
+    "config:recommended",
+    "github>aquaproj/aqua-renovate-config#2.2.1"
+  ]
 }
