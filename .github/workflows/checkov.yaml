@@ -25,5 +25,7 @@ jobs:
         run: pip install checkov
 
       - name: Run Checkov
-        run: checkov -d ./terraform --framework terraform 
+        run: checkov -d ./terraform --framework terraform -o csv --output-file checkov_results.csv
         
+      - name: Report
+        run: cat checkov_results.csv
