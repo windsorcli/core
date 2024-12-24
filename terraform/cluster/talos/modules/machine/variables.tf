@@ -20,7 +20,7 @@ variable "node" {
 variable "disk_selector" {
   description = "The disk selector to use for the machine."
   type = object({
-    busPath = string
+    busPath  = string
     modalias = string
     model    = string
     name     = string
@@ -53,7 +53,7 @@ variable "extra_kernel_args" {
 
 variable "extensions" {
   description = "The extensions to use for the machine."
-  type        = list(object({image = string}))
+  type        = list(object({ image = string }))
   default     = []
 }
 
