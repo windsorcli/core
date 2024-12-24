@@ -6,13 +6,16 @@
   "packageRules": [
     {
       "matchUpdateTypes": ["minor", "patch", "pin", "digest"],
-      "automerge": true
+      "automerge": true,
+      "addLabels": ["dependencies"]
     },
     {
       "matchDepTypes": ["devDependencies"],
-      "automerge": true
+      "automerge": true,
+      "addLabels": ["dependencies"]
     }
   ],
   "platformAutomerge": true,
-  "ignoreTests": false
+  "ignoreTests": false,
+  "automerge": true
 }
