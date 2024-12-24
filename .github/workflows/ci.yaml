@@ -4,7 +4,6 @@ on:
   push:
     branches:
       - main
-      - checkov
   pull_request:
     branches:
       - main
