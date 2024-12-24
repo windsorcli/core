@@ -16,22 +16,11 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v3
 
-      # - name: Set up Python
-      #   uses: actions/setup-python@v4
-      #   with:
-      #     python-version: '3.x'
-
-      # - name: Install Checkov
-      #   run: pip install checkov
-
-      # - name: Run Checkov
-      #   run: checkov -d ./terraform --framework terraform -v
-
       - name: Checkov GitHub Action
         uses: bridgecrewio/checkov-action@v12
         with:
           # This will add both a CLI output to the console and create a results.sarif file
-          directory: ./terraform  # Specify the directory to scan
+          directory: ./terraform  # Directory to scan
           output_format: cli,sarif
           output_file_path: console,results.sarif
         
