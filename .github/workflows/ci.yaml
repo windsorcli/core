@@ -1,4 +1,4 @@
-name: Checkov Scan
+name: CI
 
 on:
   push:
