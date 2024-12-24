@@ -1,7 +1,7 @@
 kubernetes_version = "1.30.8"
-talos_version = "1.8.4"
-cluster_name = "talos"
-cluster_endpoint = "https://10.5.0.3:6443"
+talos_version      = "1.8.4"
+cluster_name       = "talos"
+cluster_endpoint   = "https://10.5.0.3:6443"
 controlplanes = [
   {
     hostname = "controlplane-1.test"
