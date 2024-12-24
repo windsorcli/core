@@ -1,3 +1,4 @@
+---
 services:
   aws.test:
     container_name: aws.test
