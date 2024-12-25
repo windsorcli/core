@@ -2,5 +2,20 @@
   "extends": [
     "config:recommended",
     "github>aquaproj/aqua-renovate-config#2.2.1"
-  ]
+  ],
+  "packageRules": [
+    {
+      "matchUpdateTypes": ["minor", "patch", "pin", "digest"],
+      "automerge": true,
+      "addLabels": ["dependencies"]
+    },
+    {
+      "matchDepTypes": ["devDependencies"],
+      "automerge": true,
+      "addLabels": ["dependencies"]
+    }
+  ],
+  "platformAutomerge": true,
+  "ignoreTests": false,
+  "automerge": true
 }
