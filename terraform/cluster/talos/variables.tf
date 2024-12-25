@@ -59,10 +59,10 @@ variable "cluster_endpoint" {
 variable "controlplanes" {
   description = "A list of machine configuration details for control planes."
   type = list(object({
-    hostname          = optional(string)
-    endpoint          = string
-    node              = string
-    disk_selector     = optional(object({
+    hostname = optional(string)
+    endpoint = string
+    node     = string
+    disk_selector = optional(object({
       busPath  = optional(string)
       modalias = optional(string)
       model    = optional(string)
@@ -88,10 +88,10 @@ variable "controlplanes" {
 variable "workers" {
   description = "A list of machine configuration details"
   type = list(object({
-    hostname          = optional(string)
-    endpoint          = string
-    node              = string
-    disk_selector     = optional(object({
+    hostname = optional(string)
+    endpoint = string
+    node     = string
+    disk_selector = optional(object({
       busPath  = optional(string)
       modalias = optional(string)
       model    = optional(string)
