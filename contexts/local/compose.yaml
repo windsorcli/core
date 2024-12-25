@@ -8,7 +8,7 @@ services:
       IAM_SOFT_MODE: "0"
       PERSISTENCE: "1"
       SERVICES: ""
-    image: localstack/localstack:3.8.1
+    image: localstack/localstack:4.0.3
     labels:
       managed_by: windsor
       role: localstack
