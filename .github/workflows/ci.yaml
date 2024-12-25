@@ -18,7 +18,7 @@ jobs:
       - name: Checkov GitHub Action
         uses: bridgecrewio/checkov-action@v12.2940.0
         with:
-          # This will a/dd both a CLI output to the console and create a results.sarif file
+          # This will add CLI output to the console and create a results.sarif file
           directory: ./terraform  # Directory to scan
           output_format: cli,sarif
           output_file_path: console,results.sarif
