@@ -43,36 +43,14 @@
       "matchFileNames": ["aqua.yaml"],
       "managers": ["aqua"],
       "labels": ["aqua", "dependencies"],
+      "enabled": true,
       "automerge": true,
       "automergeType": "pr",
       "automergeStrategy": "squash"
     }
   ],
   "platformAutomerge": true,
-  "customManagers": [
-    {
-      "customType": "regex",
-      "fileMatch": [
-        "^Taskfile.yaml$"
-      ],
-      "matchStrings": [
-        "go install (?<depName>\\S+)@(?<currentValue>\\S+)"
-      ],
-      "datasourceTemplate": "go",
-      "versioningTemplate": "semver"
-    },
-    {
-      "customType": "regex",
-      "fileMatch": [
-        "^Taskfile.yaml$"
-      ],
-      "matchStrings": [
-        "choco install (?<depName>\\S+) --version=(?<currentValue>\\S+)"
-      ],
-      "datasourceTemplate": "chocolatey",
-      "versioningTemplate": "semver"
-    }
-  ],
+  "customManagers": [  ],
   "labels": [
     "dependencies"
   ]
