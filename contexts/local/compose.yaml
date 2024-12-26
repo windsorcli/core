@@ -1,32 +1,14 @@
----
 services:
-  aws.test:
-    container_name: aws.test
-    environment:
-      DEBUG: "0"
-      ENFORCE_IAM: "1"
-      IAM_SOFT_MODE: "0"
-      PERSISTENCE: "1"
-      SERVICES: ""
-    image: localstack/localstack:4.0.3
-    labels:
-      managed_by: windsor
-      role: localstack
-      wildcard: "true"
-    networks:
-      windsor-local:
-        ipv4_address: 10.5.0.2
-    restart: always
   controlplane-1.test:
     container_name: controlplane-1.test
     environment:
       PLATFORM: container
       TALOSSKU: 2CPU-2048RAM
     hostname: controlplane-1.test
-    image: ghcr.io/siderolabs/talos:v1.9.0
+    image: ghcr.io/siderolabs/talos:v1.7.6
     networks:
       windsor-local:
-        ipv4_address: 10.5.0.3
+        ipv4_address: 10.5.0.2
     privileged: true
     read_only: true
     restart: always
@@ -54,14 +36,14 @@ services:
       - -conf
       - /etc/coredns/Corefile
     container_name: dns.test
-    image: coredns/coredns:1.12.0
+    image: coredns/coredns:1.11.3
     labels:
       context: local
       managed_by: windsor
       role: dns
     networks:
       windsor-local:
-        ipv4_address: 10.5.0.4
+        ipv4_address: 10.5.0.3
     restart: always
     volumes:
       - type: bind
@@ -78,7 +60,7 @@ services:
       role: registry
     networks:
       windsor-local:
-        ipv4_address: 10.5.0.5
+        ipv4_address: 10.5.0.4
     restart: always
   ghcr.test:
     container_name: ghcr.test
@@ -91,7 +73,7 @@ services:
       role: registry
     networks:
       windsor-local:
-        ipv4_address: 10.5.0.6
+        ipv4_address: 10.5.0.5
     restart: always
   git.test:
     container_name: git.test
@@ -109,7 +91,7 @@ services:
       role: git-repository
     networks:
       windsor-local:
-        ipv4_address: 10.5.0.7
+        ipv4_address: 10.5.0.6
     restart: always
     volumes:
       - type: bind
@@ -126,7 +108,7 @@ services:
       role: registry
     networks:
       windsor-local:
-        ipv4_address: 10.5.0.8
+        ipv4_address: 10.5.0.7
     restart: always
   registry-1.docker.test:
     container_name: registry-1.docker.test
@@ -140,7 +122,7 @@ services:
       role: registry
     networks:
       windsor-local:
-        ipv4_address: 10.5.0.10
+        ipv4_address: 10.5.0.9
     restart: always
   registry.k8s.test:
     container_name: registry.k8s.test
@@ -153,7 +135,7 @@ services:
       role: registry
     networks:
       windsor-local:
-        ipv4_address: 10.5.0.11
+        ipv4_address: 10.5.0.10
     restart: always
   registry.test:
     container_name: registry.test
@@ -164,7 +146,7 @@ services:
       role: registry
     networks:
       windsor-local:
-        ipv4_address: 10.5.0.9
+        ipv4_address: 10.5.0.8
     restart: always
   worker-1.test:
     container_name: worker-1.test
@@ -172,10 +154,10 @@ services:
       PLATFORM: container
       TALOSSKU: 4CPU-4096RAM
     hostname: worker-1.test
-    image: ghcr.io/siderolabs/talos:v1.9.0
+    image: ghcr.io/siderolabs/talos:v1.7.6
     networks:
       windsor-local:
-        ipv4_address: 10.5.0.12
+        ipv4_address: 10.5.0.11
     privileged: true
     read_only: true
     restart: always
