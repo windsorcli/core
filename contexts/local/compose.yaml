@@ -5,7 +5,7 @@ services:
       PLATFORM: container
       TALOSSKU: 2CPU-2048RAM
     hostname: controlplane-1.test
-    image: ghcr.io/siderolabs/talos:v1.7.6
+    image: ghcr.io/siderolabs/talos:v1.9.1
     networks:
       windsor-local:
         ipv4_address: 10.5.0.2
@@ -154,7 +154,7 @@ services:
       PLATFORM: container
       TALOSSKU: 4CPU-4096RAM
     hostname: worker-1.test
-    image: ghcr.io/siderolabs/talos:v1.7.6
+    image: ghcr.io/siderolabs/talos:v1.9.1
     networks:
       windsor-local:
         ipv4_address: 10.5.0.11
