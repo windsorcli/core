@@ -16,7 +16,7 @@
       "enabled": true,
       "automerge": true,
       "automergeType": "pr",
-      "automergeStrategy": "squash",
+      "automergeStrategy": "squash"
     },
     {
       "matchUpdateTypes": ["major", "minor", "patch"],
