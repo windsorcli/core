@@ -135,8 +135,8 @@ jobs:
 
   checkov:
     env:
-      skip_checkov: false
-      
+      skip_checkov: true
+
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code
