@@ -87,7 +87,7 @@ jobs:
 
       - name: Install Windsor CLI
         run: |
-          go install github.com/windsor-hotel/cli/cmd/windsor@v0.1.1
+          go install github.com/windsor-hotel/cli/cmd/windsor@${{ env.WINDSOR_VERSION }}
                   
       - name: Run Windsor CLI
         run: |
