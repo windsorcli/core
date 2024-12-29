@@ -37,7 +37,7 @@ jobs:
       TALOSCONFIG: ${{ github.workspace }}/contexts/local/.talos/config
       PRIVATE_DOMAIN_NAME: private.test
       DNS_SERVER_IP: "10.5.255.200"
-      WINDSOR_VERSION: "0.1.0"
+      WINDSOR_VERSION: "v0.1.0"
 
     steps:
       - name: Checkout code
