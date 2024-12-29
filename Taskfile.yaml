@@ -1,0 +1,298 @@
+version: "3"
+
+vars:
+  PROJECT_ROOT:
+    sh: git rev-parse --show-toplevel
+  CONTEXT: 
+    sh: windsor context get | cut -d'=' -f2
+  CONFIG_DIR: "{{.PROJECT_ROOT}}/{{.CONTEXT}}"
+
+dotenv: ['.env']
+
+env:
+  VIRTUAL_ENV: "{{.PROJECT_ROOT}}/.venv"
+  PATH: "{{.PROJECT_ROOT}}/.venv/bin:{{.PATH}}"
+  PRIVATE_TLD: test
+  PRIVATE_DOMAIN_NAME: private.test
+  PUBLIC_DOMAIN_NAME: public.test
+  GOPRIVATE: github.com/windsor-hotel/*
+
+includes:
+  website: ./website
+
+tasks:
+
+  #---------------------------------------------------------------------------------------------------------------------
+  # Terraform
+  #---------------------------------------------------------------------------------------------------------------------
+
+  terraform:fmt:
+    desc: Runs 'terraform fmt' against all Terraform projects
+    cmds:
+      - terraform fmt -recursive -diff
+    silent: true
+
+  #---------------------------------------------------------------------------------------------------------------------
+  # Setup
+  #---------------------------------------------------------------------------------------------------------------------
+
+  bootstrap:
+    desc: Bootstraps environment      
+    cmds:
+      - command -v caffeinate && caffeinate -t 600 & # Stay awake for 10 minutes
+      - go install github.com/windsor-hotel/cli/cmd/windsor@latest
+      - windsor init local --aws-profile local --backend local --vm-driver colima
+      - task: dockerdesktop
+      - task: terraform:up
+    silent: true
+
+  ansible:secrets:
+    cmds:
+      - "{{.PROJECT_ROOT}}/bin/set-ansible-secrets.sh"
+    silent: true
+
+  dockerdesktop:
+    desc: Detect if Docker desktop is running
+    cmds:
+      - >
+        if [ $(ps aux | grep -v grep | grep -c -i Docker.app) -gt 0 ]; then
+          echo "Docker desktop is running, please stop it before running the project again";
+          exit 1
+        fi
+    silent: true
+
+  ansible:playbook:
+    desc: Run ansible-playbook
+    vars:
+      HOST_OS:
+        sh: uname -s | tr '[:upper:]' '[:lower:]'
+    cmds:
+      - >
+        if [ -f "{{.CONFIG_DIR}}/ansible.yaml" ]; then
+          EXTRAS="-e @{{.CONFIG_DIR}}/ansible.yaml";
+        else
+          EXTRAS="";
+        fi &&
+        ansible-playbook ansible/playbooks/provision_{{.HOST_OS}}.yaml $EXTRAS {{.CLI_ARGS}}
+    silent: true
+
+  terraform:up:
+    desc: Brings up all resources for a particular blueprint
+    cmds:
+      - |
+      - >
+        if [ "{{.CONTEXT}}" = "local" ]; then
+          task ansible:playbook;
+        fi    
+      - |
+        declare -a paths=(
+          "/terraform/cluster/talos"
+          "/terraform/gitops/flux"
+          "/terraform/blueprint/windsor"
+        )
+
+        for path in "${paths[@]}"; do
+          cd "{{.PROJECT_ROOT}}${path}"
+          eval "$(windsor env)"
+          terraform init
+          terraform plan
+          terraform apply
+        done
+    silent: true
+
+  terraform:down:
+    desc: Takes down all terraform resources
+    cmds:
+      - |
+        declare -a paths=(
+          "/terraform/cluster/talos"
+        )
+
+        for path in "${paths[@]}"; do
+          cd "{{.PROJECT_ROOT}}${path}"
+          eval "$(windsor env)"
+          terraform init
+          terraform destroy
+        done
+    silent: true
+
+#-----------------------------------------------------------------------------------------------------------------------
+# Start
+#-----------------------------------------------------------------------------------------------------------------------
+
+  start:
+    desc: Start all resources
+    cmds:
+      - task: dockerdesktop
+      - colima start --profile blueprint
+      - task: ansible:playbook
+    silent: true
+
+#-----------------------------------------------------------------------------------------------------------------------
+# Stop
+#-----------------------------------------------------------------------------------------------------------------------
+
+  stop:
+    desc: Stop all resources
+    cmds:
+      - colima stop --profile blueprint
+    silent: true
+
+#-----------------------------------------------------------------------------------------------------------------------
+# Teardown
+#-----------------------------------------------------------------------------------------------------------------------
+
+  teardown:
+    desc: "Tears down the local environment"
+    vars:
+      HOST_OS:
+        sh: uname -s | tr '[:upper:]' '[:lower:]'
+    cmds:
+      - echo "Tearing down docker containers and their volumes"
+      - >
+        if [ -f "{{.CONFIG_DIR}}/ansible.yaml" ]; then
+          EXTRAS="-e @{{.CONFIG_DIR}}/ansible.yaml";
+        else
+          EXTRAS="";
+        fi &&
+        ansible-playbook ansible/playbooks/teardown_{{.HOST_OS}}.yaml $EXTRAS {{.CLI_ARGS}}
+      - if [ -d "{{.PROJECT_ROOT}}/data" ]; then rm -r "{{.PROJECT_ROOT}}/data"; fi
+      - find {{.PROJECT_ROOT}}/contexts/local -type f \( -name "terraform.tfstate" -o -name "*terraform.tfstate*" \) -exec rm -f {} \; 2>/dev/null || true
+      - find {{.PROJECT_ROOT}}/contexts/local -type d -name ".terraform" -exec rm -fr {} \; 2>/dev/null || true
+      - find {{.PROJECT_ROOT}}/contexts/local -type d -name ".kube" -exec rm -fr {} \; 2>/dev/null || true
+      - find {{.PROJECT_ROOT}}/contexts/local -type d -name ".talos" -exec rm -fr {} \; 2>/dev/null || true
+      - find {{.PROJECT_ROOT}}/contexts/local -type d -name ".tfstate" -exec rm -fr {} \; 2>/dev/null || true
+      - find {{.PROJECT_ROOT}}/contexts/local -type f -name "backend_override.tf" -exec rm -fr {} \; 2>/dev/null || true
+      - find {{.PROJECT_ROOT}}/contexts/local -type f -name "*_generated.*" -exec rm -fr {} \; 2>/dev/null || true
+    silent: true
+
+#-----------------------------------------------------------------------------------------------------------------------
+# Tests
+#-----------------------------------------------------------------------------------------------------------------------
+
+  test:
+    desc: "Run all tests"
+    deps:
+      - task: test:e2e
+
+  test:e2e:
+    desc: "Run tests against a specified blueprint on docker. Usage: task test"
+    cmds:
+      - |
+        bats --show-output-of-passing-tests -t {{.PROJECT_ROOT}}/test/unit/ \
+          --filter-tags baseline:full \
+          --filter-tags platform:docker \
+          --filter-tags security:dev \
+          --filter-tags network:web \
+          --filter-tags network:metal \
+          --filter-tags monitoring:prometheus \
+          --filter-tags monitoring:grafana \
+          --filter-tags monitoring:fluent \
+          --filter-tags monitoring:quickwit \
+          --filter-tags network:service-mesh \
+          --filter-tags network:service-mesh:kiali \
+          --filter-tags gitops:flux \
+          --filter-tags security:vulns
+
+#-----------------------------------------------------------------------------------------------------------------------
+# Dashboards
+#-----------------------------------------------------------------------------------------------------------------------
+
+  dashboard:grafana:
+    desc: "Open Grafana dashboard"
+    cmds:
+      - |
+        open https://grafana.${PRIVATE_DOMAIN_NAME}
+        kubectl get secret grafana -o jsonpath="{.data.admin-password}" -n system-observability | base64 --decode | pbcopy
+        echo "Username: $(kubectl get secret grafana -o jsonpath="{.data.admin-user}" -n system-observability | base64 --decode)"
+        echo "The Grafana admin password has been copied to your clipboard."
+    silent: true
+
+  dashboard:kiali:
+    desc: "Open Kiali dashboard"
+    cmds:
+      - |
+        open https://kiali.${PRIVATE_DOMAIN_NAME}
+        kubectl -n network create token kiali-service-account | pbcopy
+        echo "The Kiali token has been copied to your clipboard."
+    silent: true
+
+  dashboard:minio:
+    desc: "Open MinIO dashboard"
+    cmds:
+      - |
+        open https://console.minio.${PRIVATE_DOMAIN_NAME}
+        kubectl -n system-object-store create token console-sa | pbcopy
+        echo "The MinIO token has been copied to your clipboard."
+    silent: true
+
+#-----------------------------------------------------------------------------------------------------------------------
+# Default (help)
+#-----------------------------------------------------------------------------------------------------------------------
+
+  default:
+    desc: "Shows help"
+    cmds:
+      - |
+        echo "
+        Usage: task [command]
+
+        Commands:
+
+          terraform:fmt
+            Description: Runs 'terraform fmt' against all Terraform projects
+            Usage: task terraform:fmt
+
+          ansible:secrets
+            Description: Sets Ansible secrets using the provided script
+            Usage: task ansible:secrets
+
+          ansible:playbook
+            Description: Run ansible-playbook with optional override configuration
+            Usage: task ansible:playbook -- [CLI_ARGS]
+
+          terraform:apply
+            Description: Applies the terraform stack
+            Usage: task terraform:apply
+
+          bootstrap
+            Description: Brings up all resources
+            Usage: task bootstrap
+
+          start
+            Description: Starts all resources
+            Usage: task start
+
+          stop
+            Description: Stops all resources
+            Usage: task stop
+
+          teardown
+            Description: Tears down all resources
+            Usage: task teardown
+
+          test
+            Description: Run tests against a specified blueprint on docker
+            Usage: task test
+
+          test:charts
+            Description: Run tests against helm charts
+            Usage: task test:charts
+
+          test:e2e
+            Description: Run e2e tests against the local cluster
+            Usage: task test:e2e
+            
+          dashboard:capacitor
+            Description: Loads the capacitor dashboard
+            Usage: task dashboard:capacitor
+
+          dashboard:grafana
+            Description: Loads the grafana dashboard and copies the password to the clipboard
+            Usage: task dashboard:grafana
+
+          dashboard:kiali
+            Description: Loads the kiali dashboard
+            Usage: task dashboard:kiali
+        "
+    silent: true
