@@ -29,8 +29,8 @@ jobs:
             arch: amd64
           - os: self-hosted-ubuntu
             arch: arm64    
-          - os: self-hosted-ubuntu
-            arch: amd64    
+          # - os: self-hosted-ubuntu
+          #   arch: amd64    
 
     env:
       KUBECONFIG: ${{ github.workspace }}/contexts/local/.kube/config
