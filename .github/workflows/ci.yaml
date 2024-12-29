@@ -58,30 +58,10 @@ jobs:
 
       - name: Install tools using Aqua
         run: aqua install
-                        
-      - name: Install Python and create a virtual environment
-        run: |
-          python -m venv .venv
-          echo "PATH=${{ github.workspace }}/.venv/bin:$PATH" >> $GITHUB_ENV
-          pip install -r requirements.txt
-
-      - name: Create arbitrary ansible secret file
-        run: |
-          mkdir -p $HOME/.ansible
-          echo "pwd123" >> $HOME/.ansible/secret
-
-      - name: Set up Go
-        uses: actions/setup-go@0a12ed9d6a96ab950c8f026ed9f722fe0da7ef32 # v5
-        with:
-          go-version: '1.22.8'
-    
+                            
       - name: Authenticate with PAT
         run: |
           git config --global url."https://${{ secrets.GH_PAT }}:x-oauth-basic@github.com/".insteadOf "https://github.com/"
-
-      - name: Set GOPRIVATE to prevent checking sum.golang.org
-        run: |
-          echo "GOPRIVATE=github.com/windsor-hotel/*" >> $GITHUB_ENV
 
       - name: Install Windsor CLI
         run: |
