@@ -28,3 +28,4 @@ packages:
   - name: hashicorp/vault@v1.18.3
   - name: derailed/k9s@v0.32.7
   - name: getsops/sops@v3.9.2
+  - name: kyverno/kyverno@v1.13.2
