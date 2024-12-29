@@ -13,25 +13,27 @@ on:
 jobs:
   ci:
     # if: github.ref == 'refs/heads/main' || github.event.pull_request.draft == false
-    runs-on: ${{ matrix.os }}
-    strategy:
-      matrix:
-        os: [self-hosted-ubuntu, ubuntu-latest, windows-latest]
-        arch: [amd64, arm64]
-        exclude:
-          - os: ubuntu-latest
-            arch: arm64
-          - os: ubuntu-latest
-            arch: amd64
-          - os: windows-latest
-            arch: arm64
-          - os: windows-latest
-            arch: amd64
-          - os: self-hosted-ubuntu
-            arch: arm64    
-          # - os: self-hosted-ubuntu
-          #   arch: amd64    
+    # runs-on: ${{ matrix.os }}
+    # strategy:
+    #   matrix:
+    #     os: [self-hosted-ubuntu, ubuntu-latest, windows-latest]
+    #     arch: [amd64, arm64]
+    #     exclude:
+    #       - os: ubuntu-latest
+    #         arch: arm64
+    #       - os: ubuntu-latest
+    #         arch: amd64
+    #       - os: windows-latest
+    #         arch: arm64
+    #       - os: windows-latest
+    #         arch: amd64
+    #       - os: self-hosted-ubuntu
+    #         arch: arm64    
+    #       # - os: self-hosted-ubuntu
+    #       #   arch: amd64    
 
+    runs-on: self-hosted
+    
     env:
       KUBECONFIG: ${{ github.workspace }}/contexts/local/.kube/config
       TALOSCONFIG: ${{ github.workspace }}/contexts/local/.talos/config
