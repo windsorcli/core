@@ -32,7 +32,7 @@ jobs:
     #       # - os: self-hosted-ubuntu
     #       #   arch: amd64    
 
-    runs-on: self-hosted-ubuntu
+    runs-on: self-hosted
 
     env:
       KUBECONFIG: ${{ github.workspace }}/contexts/local/.kube/config
@@ -106,49 +106,6 @@ jobs:
       - name: Kubectl get nodes
         run: |
           kubectl get nodes
-    
-
-      # - name: Bootstrap the cluster
-      #   env:
-      #     TF_VAR_blueprints_deploy_key: ${{ secrets.BLUEPRINTS_DEPLOY_KEY }}
-      #   run: |
-      #     trap '[[ $? -ne 0 ]] && ./bin/k8s-diagnose' EXIT
-      #     ./windsor up
-      #     trap - EXIT
-
-      # - name: Wait for Grafana to be ready
-      #   run: |
-      #     # Disable exit on error
-      #     set +e
-
-      #     trap '[[ $? -ne 0 ]] && ./bin/k8s-diagnose' EXIT
-
-      #     # Run curl check up to 10 times
-      #     for i in {1..10}; do
-      #       status_code=$(curl -k -o /dev/null -s -w "%{http_code}" https://grafana.${PRIVATE_DOMAIN_NAME}/login)
-
-      #       if [ "$status_code" -eq 200 ]; then
-      #         echo "Grafana is ready."
-      #         exit 0  # Exit the script successfully if the endpoint returns 200
-      #       else
-      #         echo "Attempt $i: Grafana not ready. HTTP status code: $status_code."
-      #       fi
-
-      #       if [ $i -eq 10 ]; then
-      #         echo "Grafana did not return 200 OK after 10 attempts."
-      #         exit 1  # Exit with failure after 10 unsuccessful attempts
-      #       fi
-            
-      #       sleep 5  # Wait 5 seconds before the next attempt
-      #     done
-
-      #     trap - EXIT
-
-      # - name: Run Tests
-      #   run: |
-      #     trap '[[ $? -ne 0 ]] && ./bin/k8s-diagnose' EXIT
-      #     task test
-      #     trap - EXIT
 
   checkov:
     env:
