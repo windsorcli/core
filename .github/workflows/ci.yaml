@@ -83,11 +83,11 @@ jobs:
 
       - name: Set GOPRIVATE to prevent checking sum.golang.org
         run: |
-          echo "GOPRIVATE=github.com/windsor-hotel/*" >> $GITHUB_ENV
+          echo "GOPRIVATE=github.com/windsorcli/*" >> $GITHUB_ENV
 
       - name: Install Windsor CLI
         run: |
-          go install github.com/windsor-hotel/cli/cmd/windsor@${{ env.WINDSOR_VERSION }}
+          go install github.com/windsorcli/cli/cmd/windsor@${{ env.WINDSOR_VERSION }}
                   
       - name: Run Windsor CLI
         run: |
