@@ -32,8 +32,8 @@ jobs:
     #       # - os: self-hosted-ubuntu
     #       #   arch: amd64    
 
-    runs-on: self-hosted
-    
+    runs-on: forest-shadows-runner
+
     env:
       KUBECONFIG: ${{ github.workspace }}/contexts/local/.kube/config
       TALOSCONFIG: ${{ github.workspace }}/contexts/local/.talos/config
