@@ -16,12 +16,12 @@ jobs:
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
-        os: [self-hosted-ubuntu, ubuntu-latest-8-cores, windows-latest]
+        os: [self-hosted-ubuntu, ubuntu-latest, windows-latest]
         arch: [amd64, arm64]
         exclude:
-          - os: ubuntu-latest-8-cores
+          - os: ubuntu-latest
             arch: arm64
-          # - os: ubuntu-latest-8-cores
+          # - os: ubuntu-latest
           #   arch: amd64
           - os: windows-latest
             arch: arm64
