@@ -37,6 +37,8 @@ jobs:
       TALOSCONFIG: ${{ github.workspace }}/contexts/local/.talos/config
       PRIVATE_DOMAIN_NAME: private.test
       DNS_SERVER_IP: "10.5.255.200"
+      WINDSOR_VERSION: "0.1.0"
+
     steps:
       - name: Checkout code
         uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
@@ -65,7 +67,21 @@ jobs:
 
       - name: Install Windsor CLI
         run: |
-          curl -L -o windsor https://github.com/windsorcli/cli/releases/download/v0.1.0/windsor-darwin-arm64
+          if [[ "${{ matrix.os }}" == "ubuntu-latest" || "${{ matrix.os }}" == "self-hosted-ubuntu" ]]; then
+            if [[ "${{ matrix.arch }}" == "amd64" ]]; then
+              curl -L -o windsor https://github.com/windsorcli/cli/releases/download/${{ env.WINDSOR_VERSION }}/windsor-linux-amd64
+            else
+              curl -L -o windsor https://github.com/windsorcli/cli/releases/download/${{ env.WINDSOR_VERSION }}/windsor-linux-arm64
+            fi
+          elif [[ "${{ matrix.os }}" == "windows-latest" ]]; then
+            curl -L -o windsor.exe https://github.com/windsorcli/cli/releases/download/${{ env.WINDSOR_VERSION }}/windsor.exe
+          else
+            if [[ "${{ matrix.arch }}" == "amd64" ]]; then
+              curl -L -o windsor https://github.com/windsorcli/cli/releases/download/${{ env.WINDSOR_VERSION }}/windsor-darwin-amd64
+            else
+              curl -L -o windsor https://github.com/windsorcli/cli/releases/download/${{ env.WINDSOR_VERSION }}/windsor-darwin-arm64
+            fi
+          fi
           chmod +x ./windsor
                   
       - name: Set Windsor context to local
