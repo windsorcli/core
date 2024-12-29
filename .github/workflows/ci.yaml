@@ -91,7 +91,7 @@ jobs:
                   
       - name: Run Windsor CLI
         run: |
-          $GOPATH/bin/windsor --version
+          windsor version
 
       # - name: Install Windsor CLI
       #   run: |
@@ -114,10 +114,6 @@ jobs:
                   
       - name: Set Windsor context to local
         run: |
-          echo "list contents ls -al"
-          ls -al
-          echo "start windsor"
-
           windsor init local 
               
       # - name: Bootstrap the cluster
