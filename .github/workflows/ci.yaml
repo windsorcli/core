@@ -32,7 +32,7 @@ jobs:
     #       # - os: self-hosted-ubuntu
     #       #   arch: amd64    
 
-    runs-on: forest-shadows-runner
+    runs-on: self-hosted-ubuntu
 
     env:
       KUBECONFIG: ${{ github.workspace }}/contexts/local/.kube/config
