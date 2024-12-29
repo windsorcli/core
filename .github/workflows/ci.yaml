@@ -114,8 +114,17 @@ jobs:
                   
       - name: Set Windsor context to local
         run: |
-          windsor init local 
+          windsor init local --vm-driver colima 
               
+      - name: Windsor Up
+        run: |
+          windsor up
+
+      - name: Kubectl get nodes
+        run: |
+          kubectl get nodes
+    
+
       # - name: Bootstrap the cluster
       #   env:
       #     TF_VAR_blueprints_deploy_key: ${{ secrets.BLUEPRINTS_DEPLOY_KEY }}
