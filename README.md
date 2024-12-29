@@ -13,3 +13,19 @@ curl -L -o /usr/local/bin/windsor https://github.com/windsorcli/cli/releases/dow
 chmod +x /usr/local/bin/windsor
 ```
 
+# Self Hosted Runner
+
+## Local ubuntu server
+```
+ssh forest-shadows-runner
+```
+
+## GitHub Runner Setup
+
+https://github.com/organizations/windsorcli/settings/actions/runners/new?arch=x64&os=linux
+
+
+### Start the runner
+```
+cd actions-runner;run.sh
+```
