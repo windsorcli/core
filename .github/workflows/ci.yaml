@@ -72,7 +72,7 @@ jobs:
 
       - name: Install Windsor CLI using Go
         run: |
-          go install github.com/windsorcli/cli/cmd/windsor@${{ env.WINDSOR_VERSION }}
+          go install github.com/windsorcli/cli/cmd/windsor@latest
           echo "Windsor CLI installed successfully"
 
       - name: Run Windsor CLI
