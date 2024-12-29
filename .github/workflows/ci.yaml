@@ -65,31 +65,45 @@ jobs:
         run: |
           git config --global url."https://${{ secrets.GH_PAT }}:x-oauth-basic@github.com/".insteadOf "https://github.com/"
 
-      - name: Install Windsor CLI
+      - name: Install Go
+        uses: actions/setup-go@v3
+        with:
+          go-version: '1.17'
+
+      - name: Install Windsor CLI using Go
         run: |
-          if [[ "${{ matrix.os }}" == "ubuntu-latest" || "${{ matrix.os }}" == "self-hosted-ubuntu" ]]; then
-            if [[ "${{ matrix.arch }}" == "amd64" ]]; then
-              curl -L -o windsor https://github.com/windsorcli/cli/releases/download/${{ env.WINDSOR_VERSION }}/windsor-linux-amd64
-            else
-              curl -L -o windsor https://github.com/windsorcli/cli/releases/download/${{ env.WINDSOR_VERSION }}/windsor-linux-arm64
-            fi
-          elif [[ "${{ matrix.os }}" == "windows-latest" ]]; then
-            curl -L -o windsor.exe https://github.com/windsorcli/cli/releases/download/${{ env.WINDSOR_VERSION }}/windsor.exe
-          else
-            if [[ "${{ matrix.arch }}" == "amd64" ]]; then
-              curl -L -o windsor https://github.com/windsorcli/cli/releases/download/${{ env.WINDSOR_VERSION }}/windsor-darwin-amd64
-            else
-              curl -L -o windsor https://github.com/windsorcli/cli/releases/download/${{ env.WINDSOR_VERSION }}/windsor-darwin-arm64
-            fi
-          fi
-          chmod +x ./windsor
+          go install github.com/windsorcli/cli/cmd/windsor@${{ env.WINDSOR_VERSION }}
+          echo "Windsor CLI installed successfully"
+
+      - name: Run Windsor CLI
+        run: |
+          $GOPATH/bin/windsor --version
+
+      # - name: Install Windsor CLI
+      #   run: |
+      #     if [[ "${{ matrix.os }}" == "ubuntu-latest" || "${{ matrix.os }}" == "self-hosted-ubuntu" ]]; then
+      #       if [[ "${{ matrix.arch }}" == "amd64" ]]; then
+      #         curl -L -o windsor https://github.com/windsorcli/cli/releases/download/${{ env.WINDSOR_VERSION }}/windsor-linux-amd64
+      #       else
+      #         curl -L -o windsor https://github.com/windsorcli/cli/releases/download/${{ env.WINDSOR_VERSION }}/windsor-linux-arm64
+      #       fi
+      #     elif [[ "${{ matrix.os }}" == "windows-latest" ]]; then
+      #       curl -L -o windsor.exe https://github.com/windsorcli/cli/releases/download/${{ env.WINDSOR_VERSION }}/windsor.exe
+      #     else
+      #       if [[ "${{ matrix.arch }}" == "amd64" ]]; then
+      #         curl -L -o windsor https://github.com/windsorcli/cli/releases/download/${{ env.WINDSOR_VERSION }}/windsor-darwin-amd64
+      #       else
+      #         curl -L -o windsor https://github.com/windsorcli/cli/releases/download/${{ env.WINDSOR_VERSION }}/windsor-darwin-arm64
+      #       fi
+      #     fi
+      #     chmod +x ./windsor
                   
       - name: Set Windsor context to local
         run: |
           echo "list contents ls -al"
           ls -al
           echo "start windsor"
-          
+
           ./windsor init local 
               
       # - name: Bootstrap the cluster
