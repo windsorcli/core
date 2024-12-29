@@ -65,18 +65,19 @@ jobs:
 
       - name: Install Windsor CLI
         run: |
-          go install github.com/windsor-hotel/cli/cmd/windsor@main
+          curl -L -o windsor https://github.com/windsorcli/cli/releases/download/v0.1.0/windsor-darwin-arm64
+          chmod +x ./windsor
                   
       - name: Set Windsor context to local
         run: |
-          windsor init local 
+          ./windsor init local 
               
       - name: Bootstrap the cluster
         env:
           TF_VAR_blueprints_deploy_key: ${{ secrets.BLUEPRINTS_DEPLOY_KEY }}
         run: |
           trap '[[ $? -ne 0 ]] && ./bin/k8s-diagnose' EXIT
-          windsor up
+          ./windsor up
           trap - EXIT
 
       - name: Wait for Grafana to be ready
