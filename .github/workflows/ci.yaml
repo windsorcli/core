@@ -106,7 +106,8 @@ jobs:
 
       - name: Print test variables
         run: |
-          colima version          
+          colima version  
+          colima ls        
 
       - name: Windsor Up
         run: |
