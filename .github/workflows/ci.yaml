@@ -55,10 +55,6 @@ jobs:
           key: docker-cache-${{ runner.os }}-${{ github.sha }}
           restore-keys: docker-cache-${{ runner.os }}-
 
-      - name: Install qemu
-        run: |
-          apt install qemu-system qemu-utils
-    
       - name: Install Aqua
         uses: aquaproj/aqua-installer@f13c5d2f0357708d85477aabe50fd3f725528745 # v3.1.0
         with:
