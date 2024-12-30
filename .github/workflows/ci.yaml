@@ -108,9 +108,9 @@ jobs:
         run: |
           colima version          
 
-  #     - name: Windsor Up
-  #       run: |
-  #         windsor up
+      - name: Windsor Up
+        run: |
+          windsor up
 
   #     - name: Kubectl get nodes
   #       run: |
