@@ -63,6 +63,17 @@ jobs:
       - name: Install tools using Aqua
         run: aqua install
 
+      - name: Install Poetry
+        run: |
+          curl -sSL https://install.python-poetry.org | python3 -
+  
+      - name: Add Poetry Bin to PATH
+        run: echo "$HOME/.local/bin" >> $GITHUB_PATH
+  
+      - name: Install dependencies
+        run: |
+          poetry install
+  
       - name: Install Python and create a virtual environment
         run: |
           python -m venv .venv
