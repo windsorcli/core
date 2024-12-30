@@ -74,11 +74,11 @@ jobs:
         run: |
           poetry install
   
-      - name: Install Python and create a virtual environment
-        run: |
-          python -m venv .venv
-          echo "PATH=${{ github.workspace }}/.venv/bin:$PATH" >> $GITHUB_ENV
-          pip install -r requirements.txt
+      # - name: Install Python and create a virtual environment
+      #   run: |
+      #     python3 -m venv .venv
+      #     echo "PATH=${{ github.workspace }}/.venv/bin:$PATH" >> $GITHUB_ENV
+      #     pip install -r requirements.txt
 
       - name: Create arbitrary ansible secret file
         run: |
