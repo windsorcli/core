@@ -114,8 +114,8 @@ jobs:
 
       - name: Colima Logs
         run: |
-          colima logs
-          
+          colima status
+
   #     - name: Kubectl get nodes
   #       run: |
   #         kubectl get nodes
