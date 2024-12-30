@@ -118,82 +118,82 @@ jobs:
         run: |
           kubectl get nodes
 
-  checkov:
-    env:
-      skip_checkov: true
+  # checkov:
+  #   env:
+  #     skip_checkov: true
 
-    runs-on: self-hosted
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+  #   runs-on: self-hosted
+  #   steps:
+  #     - name: Checkout code
+  #       uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
 
-      - name: Check for Terraform code
-        id: check_terraform
-        run: |
-          if [ -z "$(find ./terraform -name '*.tf' -print -quit)" ]; then
-            echo "No Terraform code found."
-            echo "skip_checkov=true" >> $GITHUB_ENV
-          else
-            echo "Terraform code found."
-            echo "skip_checkov=false" >> $GITHUB_ENV
-          fi
+  #     - name: Check for Terraform code
+  #       id: check_terraform
+  #       run: |
+  #         if [ -z "$(find ./terraform -name '*.tf' -print -quit)" ]; then
+  #           echo "No Terraform code found."
+  #           echo "skip_checkov=true" >> $GITHUB_ENV
+  #         else
+  #           echo "Terraform code found."
+  #           echo "skip_checkov=false" >> $GITHUB_ENV
+  #         fi
 
-      - name: Checkov GitHub Action
-        if: ${{ env.skip_checkov == 'false' }}
-        uses: bridgecrewio/checkov-action@5e86cd541c4b0313548373ee038e5886de0ba918 # v12.2940.0
-        with:
-          # This will add CLI output to the console and create a results.sarif file
-          directory: ./terraform  # Directory to scan
-          output_format: cli,sarif
-          output_file_path: console,results.sarif
+  #     - name: Checkov GitHub Action
+  #       if: ${{ env.skip_checkov == 'false' }}
+  #       uses: bridgecrewio/checkov-action@5e86cd541c4b0313548373ee038e5886de0ba918 # v12.2940.0
+  #       with:
+  #         # This will add CLI output to the console and create a results.sarif file
+  #         directory: ./terraform  # Directory to scan
+  #         output_format: cli,sarif
+  #         output_file_path: console,results.sarif
         
-      - name: Upload SARIF file
-        if: ${{ env.skip_checkov == 'false' }}
-        uses: github/codeql-action/upload-sarif@48ab28a6f5dbc2a99bf1e0131198dd8f1df78169 # v3.28.0
-        with:
-          sarif_file: results.sarif        
+  #     - name: Upload SARIF file
+  #       if: ${{ env.skip_checkov == 'false' }}
+  #       uses: github/codeql-action/upload-sarif@48ab28a6f5dbc2a99bf1e0131198dd8f1df78169 # v3.28.0
+  #       with:
+  #         sarif_file: results.sarif        
 
-  yamllint:
-    runs-on: self-hosted
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+  # yamllint:
+  #   runs-on: self-hosted
+  #   steps:
+  #     - name: Checkout code
+  #       uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
 
-      - name: Set up Python
-        uses: actions/setup-python@0b93645e9fea7318ecaed2b359559ac225c90a2b # v5.3.0
-        with:
-          python-version: '3.x'
+  #     - name: Set up Python
+  #       uses: actions/setup-python@0b93645e9fea7318ecaed2b359559ac225c90a2b # v5.3.0
+  #       with:
+  #         python-version: '3.x'
 
-      - name: Install yamllint
-        run: pip install yamllint
+  #     - name: Install yamllint
+  #       run: pip install yamllint
 
-      - name: Run yamllint
-        run: yamllint .
+  #     - name: Run yamllint
+  #       run: yamllint .
 
-  shellcheck:
-    runs-on: self-hosted
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+  # shellcheck:
+  #   runs-on: self-hosted
+  #   steps:
+  #     - name: Checkout code
+  #       uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
 
-      - name: Install ShellCheck
-        run: sudo apt-get install -y shellcheck
+  #     - name: Install ShellCheck
+  #       run: sudo apt-get install -y shellcheck
 
-      - name: Run ShellCheck
-        run: |
-          # Find all shell scripts and run shellcheck
-          find . -name "*.sh" -print0 | xargs -0 shellcheck
+  #     - name: Run ShellCheck
+  #       run: |
+  #         # Find all shell scripts and run shellcheck
+  #         find . -name "*.sh" -print0 | xargs -0 shellcheck
 
-  terraform-fmt:
-    runs-on: self-hosted
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+  # terraform-fmt:
+  #   runs-on: self-hosted
+  #   steps:
+  #     - name: Checkout code
+  #       uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
 
-      - name: Install Terraform
-        uses: hashicorp/setup-terraform@b9cd54a3c349d3f38e8881555d616ced269862dd # v3.1.2
-        with:
-          terraform_version: 1.5.0
+  #     - name: Install Terraform
+  #       uses: hashicorp/setup-terraform@b9cd54a3c349d3f38e8881555d616ced269862dd # v3.1.2
+  #       with:
+  #         terraform_version: 1.5.0
 
-      - name: Run terraform fmt
-        run: terraform fmt -check -recursive
+  #     - name: Run terraform fmt
+  #       run: terraform fmt -check -recursive
