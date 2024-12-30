@@ -2,6 +2,11 @@
 
 # GitHub Runner
 
+## Give runner user access rights to kvm
+
+```
+sudo usermod -aG kvm todd
+```
 ## Install Aqua
 curl -sSfL https://raw.githubusercontent.com/aquaproj/aqua-installer/v3.0.1/aqua-installer | bash
 

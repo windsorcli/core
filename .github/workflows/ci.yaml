@@ -112,6 +112,10 @@ jobs:
         run: |
           windsor up
 
+      - name: Colima Logs
+        run: |
+          colima logs
+          
   #     - name: Kubectl get nodes
   #       run: |
   #         kubectl get nodes
