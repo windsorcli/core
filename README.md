@@ -1,8 +1,21 @@
 # core
 
+# GitHub Runner
+
+## Install Aqua
+curl -sSfL https://raw.githubusercontent.com/aquaproj/aqua-installer/v3.0.1/aqua-installer | bash
+
+### Add this to .bashrc
+export PATH=$PATH:~/.local/share/aquaproj-aqua/bin
+
+## Install QEMU
+```
+sudo apt install qemu-system qemu-utils
+ ```
+
 Core configurations used as the basis for most blueprints
 
-### Install Windsor on MacOS
+## Install Windsor on MacOS
 
 To install Windsor, use the following commands:
 
