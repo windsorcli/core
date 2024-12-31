@@ -6,10 +6,6 @@ terraform {
       source  = "siderolabs/talos"
       version = "0.7.0"
     }
-    kubernetes = {
-      source  = "hashicorp/kubernetes"
-      version = "2.35.1"
-    }
   }
 }
 
@@ -184,8 +180,7 @@ resource "null_resource" "healthcheck_unix" {
   count = var.os_type == "unix" ? 1 : 0
 
   triggers = {
-    controlplane_count = length(var.controlplanes)
-    worker_count       = length(var.workers)
+    always_run = timestamp() // Ensures the resource runs every time
   }
 
   depends_on = [
@@ -211,8 +206,7 @@ resource "null_resource" "healthcheck_windows" {
   count = var.os_type == "windows" ? 1 : 0
 
   triggers = {
-    controlplane_count = length(var.controlplanes)
-    worker_count       = length(var.workers)
+    always_run = timestamp() // Ensures the resource runs every time
   }
 
   depends_on = [

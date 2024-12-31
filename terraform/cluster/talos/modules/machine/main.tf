@@ -6,7 +6,7 @@
 terraform {
   required_providers {
     talos = {
-      source = "siderolabs/talos" # Specify the source for the Talos provider
+      source = "siderolabs/talos"
     }
   }
 }
