@@ -10,3 +10,14 @@ backend_override.tf
 
 # Talos
 .talos/
+
+# managed by windsor cli
+.volumes/
+.tf_modules/
+.docker-cache/
+terraform/**/backend_override.tf
+contexts/**/.terraform/
+contexts/**/.tfstate/
+contexts/**/.kube/
+contexts/**/.talos/
+contexts/**/.aws/

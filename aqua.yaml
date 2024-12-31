@@ -18,3 +18,5 @@ packages:
 - name: kubernetes/kubectl@v1.32.0
 - name: abiosoft/colima@v0.8.1
 - name: lima-vm/lima@v1.0.2
+- name: docker/cli@v27.4.1
+- name: docker/compose@v2.32.1
