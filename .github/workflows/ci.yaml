@@ -39,8 +39,7 @@ jobs:
       TALOSCONFIG: ${{ github.workspace }}/contexts/local/.talos/config
       PRIVATE_DOMAIN_NAME: private.test
       DNS_SERVER_IP: "10.5.255.200"
-      # WINDSOR_VERSION: "v0.2.0"
-      WINDSOR_VERSION: "main"
+      WINDSOR_VERSION: "v0.2.0"
 
     steps:
       - name: Checkout code
@@ -96,10 +95,11 @@ jobs:
         run: |
           echo "GOPRIVATE=github.com/windsorcli/*" >> $GITHUB_ENV
 
-      - name: Install Windsor CLI
+      - name: Install Windsor CLI from Main Branch
         run: |
-          curl -L -o $HOME/.local/bin/windsor https://github.com/windsorcli/cli/releases/download/${{ env.WINDSOR_VERSION }}/windsor-linux-amd64
-          chmod +x $HOME/.local/bin/windsor
+          go install github.com/windsorcli/cli/windsor@main
+          chmod +x $GOPATH/bin/cli/windsor
+          mv $GOPATH/bin/cli/windsor $HOME/.local/bin/windsor
           
       - name: Add Windsor to PATH
         run: echo "$HOME/.local/bin" >> $GITHUB_PATH
