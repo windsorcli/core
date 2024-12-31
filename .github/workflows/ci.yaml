@@ -73,7 +73,7 @@ jobs:
       - name: Install dependencies
         run: |
           poetry install
-          poetry list
+          poetry show --tree
   
       - name: Create arbitrary ansible secret file
         run: |
