@@ -95,11 +95,6 @@ jobs:
         run: |
           echo "GOPRIVATE=github.com/windsorcli/*" >> $GITHUB_ENV
 
-      # - name: Install Windsor CLI from Main Branch
-      #   run: |
-      #     curl -L -o $HOME/.local/bin/windsor https://github.com/windsorcli/cli/releases/download/${{ env.WINDSOR_VERSION }}/windsor-linux-amd64
-      #     chmod +x $HOME/.local/bin/windsor
-
       - name: Install Windsor CLI from Main Branch
         run: |
           git clone https://github.com/windsorcli/cli.git
@@ -135,6 +130,13 @@ jobs:
   #     - name: Kubectl get nodes
   #       run: |
   #         kubectl get nodes
+
+      # - name: Windsor Down
+      #   run: |
+      #     colima status
+      #     windsor down --clean
+      #     colima stop windsor-local
+      #     colima delete windsor-local
 
   # # checkov:
   # #   env:
