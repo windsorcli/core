@@ -98,7 +98,7 @@ jobs:
       - name: Install Windsor CLI from Main Branch
         run: |
           git clone https://github.com/windsorcli/cli.git
-          cd cli/windsor
+          cd cli/cmd/windsor
           go build -o windsor
           chmod +x windsor
           mv windsor $HOME/.local/bin/windsor
