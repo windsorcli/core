@@ -118,7 +118,7 @@ jobs:
 
       - name: Windsor Up
         run: |
-          windsor up
+          windsor up --verbose
 
       - name: Colima Logs
         run: |
