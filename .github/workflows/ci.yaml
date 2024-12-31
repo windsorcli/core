@@ -97,9 +97,13 @@ jobs:
 
       - name: Install Windsor CLI from Main Branch
         run: |
-          go install github.com/windsorcli/cli@main
-          chmod +x $GOPATH/bin/cli
-          mv $GOPATH/bin/cli $HOME/.local/bin/windsor
+          git clone https://github.com/windsorcli/cli.git
+          cd cli/windsor
+          go build -o windsor
+          chmod +x windsor
+          mv windsor $HOME/.local/bin/windsor
+          cd ..
+          rm -rf cli
           
       - name: Add Windsor to PATH
         run: echo "$HOME/.local/bin" >> $GITHUB_PATH
