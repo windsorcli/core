@@ -61,7 +61,9 @@ jobs:
           aqua_version: v2.40.0
 
       - name: Install tools using Aqua
-        run: aqua install
+        run: |
+          aqua install
+          aqua list
 
       - name: Install Poetry
         run: |
