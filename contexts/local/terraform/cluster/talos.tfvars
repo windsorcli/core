@@ -1,41 +1,58 @@
-kubernetes_version = "1.30.8"
-talos_version = "1.8.4"
-cluster_name = "talos"
-cluster_endpoint = "https://10.5.0.3:6443"
-controlplanes = [
-  {
-    hostname = "controlplane-1.test"
-    node     = "10.5.0.3"
-    endpoint = "10.5.0.3:50000"
-  },
-]
-workers = [
-  {
-    hostname = "worker-1.test"
-    node     = "10.5.0.12"
-    endpoint = "10.5.0.12:50000"
-  },
-]
+// Managed by Windsor CLI: This file is partially managed by the windsor CLI. Your changes will not be overwritten.
 
-common_config_patches = <<-EOT
+// The external controlplane API endpoint of the kubernetes API
+cluster_endpoint = "https://10.5.0.2:6443"
+
+// The name of the cluster
+cluster_name = "talos"
+
+// A YAML string of common config patches to apply
+common_config_patches = <<EOF
 cluster:
   apiServer:
     certSANs:
-    - "localhost"
-    - "10.5.0.3"
+    - localhost
+    - 10.5.0.2
 machine:
   certSANs:
-  - "localhost"
-  - "10.5.0.3"
+  - localhost
+  - 10.5.0.2
   features:
     hostDNS:
       forwardKubeDNSToHost: true
   network:
     interfaces:
-      - ignore: true
-        interface: eth0
-  install:
-      disk: /dev/sda # The disk used for installations.
-      image: ghcr.io/siderolabs/installer:v1.7.0 # Allows for supplying the image used to perform the installation.
-      wipe: true
-EOT
+    - ignore: true
+      interface: eth0
+  registries:
+    mirrors:
+      gcr.test:
+        endpoints:
+        - https://gcr.io
+      ghcr.test:
+        endpoints:
+        - https://ghcr.io
+      quay.test:
+        endpoints:
+        - https://quay.io
+      registry-1.docker.test:
+        endpoints:
+        - https://docker.io
+      registry.k8s.test:
+        endpoints:
+        - https://registry.k8s.io
+EOF
+
+// Machine config details for control planes
+controlplanes = [{
+  endpoint = "10.5.0.2:50000"
+  hostname = "controlplane-1.test"
+  node     = "10.5.0.2"
+}]
+
+// Machine config details for workers
+workers = [{
+  endpoint = "10.5.0.11:50000"
+  hostname = "worker-1.test"
+  node     = "10.5.0.11"
+}]

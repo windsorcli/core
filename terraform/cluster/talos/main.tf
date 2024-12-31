@@ -6,10 +6,6 @@ terraform {
       source  = "siderolabs/talos"
       version = "0.7.0"
     }
-    kubernetes = {
-      source  = "hashicorp/kubernetes"
-      version = "2.33.0"
-    }
   }
 }
 
@@ -93,7 +89,7 @@ module "controlplanes" {
 
 module "workers" {
   count      = length(var.workers)
-  depends_on = [module.controlplane_bootstrap]  // Depends on the first control plane completing
+  depends_on = [module.controlplane_bootstrap] // Depends on the first control plane completing
 
   source               = "./modules/machine"
   hostname             = var.workers[count.index].hostname
@@ -136,28 +132,28 @@ data "talos_client_configuration" "this" {
 
 // Write kubeconfig to a local file
 resource "local_sensitive_file" "kubeconfig" {
-  count      = local.kubeconfig_path != "" ? 1 : 0  // Create file only if path is specified
+  count      = local.kubeconfig_path != "" ? 1 : 0 // Create file only if path is specified
   depends_on = [local_sensitive_file.talosconfig]  // Ensure Talos config is written first
 
   content         = talos_cluster_kubeconfig.this.kubeconfig_raw
   filename        = local.kubeconfig_path
-  file_permission = "0600"  // Set file permissions to read/write for owner only
+  file_permission = "0600" // Set file permissions to read/write for owner only
 
   lifecycle {
-    ignore_changes = [content]  // Ignore changes to content to prevent unnecessary updates
+    ignore_changes = [content] // Ignore changes to content to prevent unnecessary updates
   }
 }
 
 // Write Talos config to a local file
 resource "local_sensitive_file" "talosconfig" {
-  count = local.talosconfig_path != "" ? 1 : 0  // Create file only if path is specified
+  count = local.talosconfig_path != "" ? 1 : 0 // Create file only if path is specified
 
   content         = data.talos_client_configuration.this.talos_config
   filename        = local.talosconfig_path
-  file_permission = "0600"  // Set file permissions to read/write for owner only
+  file_permission = "0600" // Set file permissions to read/write for owner only
 
   lifecycle {
-    ignore_changes = [content]  // Ignore changes to content to prevent unnecessary updates
+    ignore_changes = [content] // Ignore changes to content to prevent unnecessary updates
   }
 }
 
@@ -184,8 +180,7 @@ resource "null_resource" "healthcheck_unix" {
   count = var.os_type == "unix" ? 1 : 0
 
   triggers = {
-    controlplane_count = length(var.controlplanes)
-    worker_count       = length(var.workers)
+    always_run = timestamp() // Ensures the resource runs every time
   }
 
   depends_on = [
@@ -194,7 +189,7 @@ resource "null_resource" "healthcheck_unix" {
   ]
 
   provisioner "local-exec" {
-    command = <<-EOT
+    command     = <<-EOT
       bash ${path.module}/resources/healthcheck.sh
     EOT
     interpreter = ["bash", "-c"]
@@ -202,7 +197,7 @@ resource "null_resource" "healthcheck_unix" {
       KUBECONFIG = local.kubeconfig_path
       NODE_COUNT = length(var.controlplanes) + length(var.workers)
       TIMEOUT    = 300 # 5 minutes
-      INTERVAL   = 5 # 5 seconds
+      INTERVAL   = 5   # 5 seconds
     }
   }
 }
@@ -211,8 +206,7 @@ resource "null_resource" "healthcheck_windows" {
   count = var.os_type == "windows" ? 1 : 0
 
   triggers = {
-    controlplane_count = length(var.controlplanes)
-    worker_count       = length(var.workers)
+    always_run = timestamp() // Ensures the resource runs every time
   }
 
   depends_on = [
@@ -221,7 +215,7 @@ resource "null_resource" "healthcheck_windows" {
   ]
 
   provisioner "local-exec" {
-    command = <<-EOT
+    command     = <<-EOT
       powershell -File ${path.module}/resources/healthcheck.ps1
     EOT
     interpreter = ["powershell", "-Command"]
@@ -229,7 +223,7 @@ resource "null_resource" "healthcheck_windows" {
       KUBECONFIG = local.kubeconfig_path
       NODE_COUNT = length(var.controlplanes) + length(var.workers)
       TIMEOUT    = 300 # 5 minutes
-      INTERVAL   = 5 # 5 seconds
+      INTERVAL   = 5   # 5 seconds
     }
   }
 }
