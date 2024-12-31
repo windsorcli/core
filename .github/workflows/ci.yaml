@@ -97,7 +97,7 @@ jobs:
 
       - name: Install Windsor CLI
         run: |
-          curl -L -o $HOME/.local/bin/windsor https://github.com/windsorcli/cli/releases/download/v0.2.0/windsor-linux-amd64; \
+          curl -L -o $HOME/.local/bin/windsor https://github.com/windsorcli/cli/releases/download/v0.2.0/windsor-linux-amd64
           chmod +x $HOME/.local/bin/windsor
           
       - name: Add Windsor to PATH
