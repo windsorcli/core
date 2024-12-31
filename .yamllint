@@ -1,0 +1,5 @@
+ignore: |
+  ci.yaml
+  enforce-pr-labels.yaml
+  release-drafter.yaml
+  release-drafter.yml
