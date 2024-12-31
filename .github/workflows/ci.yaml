@@ -73,6 +73,7 @@ jobs:
       - name: Install dependencies
         run: |
           poetry install
+          poetry list
   
       - name: Create arbitrary ansible secret file
         run: |
@@ -100,8 +101,6 @@ jobs:
       - name: Add Windsor to PATH
         run: echo "$HOME/.local/bin" >> $GITHUB_PATH
 
-          # go install github.com/windsorcli/cli/cmd/windsor@${{ env.WINDSOR_VERSION }}
-                  
       - name: Print Windsor Version
         run: |
           windsor version
