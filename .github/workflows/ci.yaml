@@ -129,8 +129,11 @@ jobs:
           ls -al
 
           echo $pwd
-          
-          # docker-compose -f compose.yaml up
+          echo ""
+          echo "RUN: docker-compose"
+          echo ""
+          cd contexts/local
+          docker-compose -f compose.yaml up
 
           # windsor up --verbose
 
