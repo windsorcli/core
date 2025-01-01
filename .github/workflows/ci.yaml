@@ -122,11 +122,15 @@ jobs:
 
       - name: Windsor Up
         run: |
-          windsor up --verbose
+          cd contexts/local
+          docker-compose -f compose.yaml up
+          
+          # windsor up --verbose
 
-      - name: Colima Logs
-        run: |
-          colima status
+      # - name: Colima Logs
+      #   run: |
+      #     colima status
+
   #     - name: Kubectl get nodes
   #       run: |
   #         kubectl get nodes
