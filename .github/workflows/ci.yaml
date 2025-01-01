@@ -124,7 +124,6 @@ jobs:
         env:
           WINDSOR_PROJECT_ROOT: ${{ github.workspace }}/../../
         run: |
-          cd $WINDSOR_PROJECT_ROOT/contexts/local
           docker-compose -f compose.yaml up
 
           # windsor up --verbose
