@@ -136,7 +136,6 @@ jobs:
           docker-compose -f compose.yaml up
 
           # windsor up --verbose
-
       # - name: Colima Logs
       #   run: |
       #     colima status
