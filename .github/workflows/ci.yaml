@@ -120,6 +120,10 @@ jobs:
         run: |
           colima version  
 
+      - name: Docker Network ls
+        run: |
+           docker network ls
+           
       - name: Windsor Up
         env:
           WINDSOR_PROJECT_ROOT: ${{ github.workspace }}/../../
