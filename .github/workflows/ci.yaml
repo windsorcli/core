@@ -63,7 +63,7 @@ jobs:
       - name: Install tools using Aqua
         run: |
           aqua install
-          aqua list
+          # aqua list
 
       - name: Install Poetry
         run: |
@@ -75,7 +75,7 @@ jobs:
       - name: Install dependencies
         run: |
           poetry install
-          poetry show --tree
+          # poetry show --tree
   
       - name: Create arbitrary ansible secret file
         run: |
@@ -135,10 +135,10 @@ jobs:
         env:
           WINDSOR_PROJECT_ROOT: ${{ github.workspace }}/../../
         run: |
-          # cd contexts/local
-          # docker-compose -f compose.yaml up
+          cd contexts/local
+          docker-compose -f compose.yaml up
 
-          windsor up --verbose
+          # windsor up --verbose
 
   #     - name: Kubectl get nodes
   #       run: |
