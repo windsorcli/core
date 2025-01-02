@@ -135,10 +135,10 @@ jobs:
         env:
           WINDSOR_PROJECT_ROOT: ${{ github.workspace }}/../../
         run: |
-          # cd contexts/local
-          # docker-compose -f compose.yaml up
+          cd contexts/local
+          docker-compose -f compose.yaml up
 
-          windsor up --verbose
+          # windsor up --verbose
 
   #     - name: Kubectl get nodes
   #       run: |
