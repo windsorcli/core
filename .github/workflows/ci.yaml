@@ -116,29 +116,29 @@ jobs:
         run: |
           windsor init local --vm-driver colima 
 
-      - name: Print test variables
-        run: |
-          colima version  
+      # - name: Print test variables
+      #   run: |
+      #     colima version  
 
-      - name: Start Docker Daemon
-        run: |
-          sudo systemctl start docker
+      # - name: Start Docker Daemon
+      #   run: |
+      #     sudo systemctl start docker
 
-      - name: Docker Network ls
-        run: |
-           docker network ls
-           echo "Inspect bridge"
-           docker network inspect bridge
-           echo "Inspect host"
-           docker network inspect host
+      # - name: Docker Network ls
+      #   run: |
+      #      docker network ls
+      #      echo "Inspect bridge"
+      #      docker network inspect bridge
+      #      echo "Inspect host"
+      #      docker network inspect host
       - name: Windsor Up
         env:
           WINDSOR_PROJECT_ROOT: ${{ github.workspace }}/../../
         run: |
-          cd contexts/local
-          docker-compose -f compose.yaml up
+          # cd contexts/local
+          # docker-compose -f compose.yaml up
 
-          # windsor up --verbose
+          windsor up --verbose
 
   #     - name: Kubectl get nodes
   #       run: |
