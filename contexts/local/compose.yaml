@@ -8,7 +8,7 @@ services:
     image: ghcr.io/siderolabs/talos:v1.7.6
     networks:
       windsor-local:
-        ipv4_address: 10.6.0.2
+        ipv4_address: 10.5.0.2
 
     privileged: true
     read_only: true
@@ -50,7 +50,7 @@ services:
       role: dns
     networks:
       windsor-local:
-        ipv4_address: 10.6.0.3
+        ipv4_address: 10.5.0.3
     restart: always
     volumes:
       - type: bind
@@ -67,7 +67,7 @@ services:
       role: registry
     networks:
       windsor-local:
-        ipv4_address: 10.6.0.4
+        ipv4_address: 10.5.0.4
     restart: always
     volumes:
       - type: bind
@@ -84,7 +84,7 @@ services:
       role: registry
     networks:
       windsor-local:
-        ipv4_address: 10.6.0.5
+        ipv4_address: 10.5.0.5
     restart: always
     volumes:
       - type: bind
@@ -106,7 +106,7 @@ services:
       role: git-repository
     networks:
       windsor-local:
-        ipv4_address: 10.6.0.6
+        ipv4_address: 10.5.0.6
     restart: always
     volumes:
       - type: bind
@@ -123,7 +123,7 @@ services:
       role: registry
     networks:
       windsor-local:
-        ipv4_address: 10.6.0.7
+        ipv4_address: 10.5.0.7
     restart: always
     volumes:
       - type: bind
@@ -141,7 +141,7 @@ services:
       role: registry
     networks:
       windsor-local:
-        ipv4_address: 10.6.0.9
+        ipv4_address: 10.5.0.9
     restart: always
     volumes:
       - type: bind
@@ -158,7 +158,7 @@ services:
       role: registry
     networks:
       windsor-local:
-        ipv4_address: 10.6.0.10
+        ipv4_address: 10.5.0.10
     restart: always
     volumes:
       - type: bind
@@ -173,7 +173,7 @@ services:
       role: registry
     networks:
       windsor-local:
-        ipv4_address: 10.6.0.8
+        ipv4_address: 10.5.0.8
     restart: always
     volumes:
       - type: bind
@@ -188,7 +188,7 @@ services:
     image: ghcr.io/siderolabs/talos:v1.7.6
     networks:
       windsor-local:
-        ipv4_address: 10.6.0.11
+        ipv4_address: 10.5.0.11
     privileged: true
     read_only: true
     restart: always
@@ -226,7 +226,7 @@ networks:
     ipam:
       driver: default
       config:
-        - subnet: 10.6.0.0/16
+        - subnet: 10.5.0.0/16
 volumes:
   controlplane_1_etc_cni: {}
   controlplane_1_etc_kubernetes: {}

@@ -114,7 +114,8 @@ jobs:
                   
       - name: Set Windsor context to local
         run: |
-          windsor init local --vm-driver colima 
+          windsor init local
+          # windsor init local --vm-driver colima 
 
       # - name: Print test variables
       #   run: |
