@@ -9,6 +9,7 @@ services:
     networks:
       windsor-local:
         ipv4_address: 10.5.0.2
+        
     privileged: true
     read_only: true
     restart: always
