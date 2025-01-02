@@ -120,9 +120,9 @@ jobs:
       #   run: |
       #     colima version  
 
-      # - name: Start Docker Daemon
-      #   run: |
-      #     sudo systemctl start docker
+      - name: Start Docker Daemon
+        run: |
+          sudo systemctl start docker
 
       # - name: Docker Network ls
       #   run: |
