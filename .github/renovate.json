@@ -49,8 +49,20 @@
       "labels": ["dependencies"]
     }
   ],
+  "customManagers": [
+    {
+      "fileMatch": ["^\\.github/workflows/ci\\.yaml$"],
+      "matchStrings": [
+        "windsorblueprint_version:\\s*(?<currentValue>v[\\d\\.]+)"
+      ],
+      "depNameTemplate": "windsorblueprint_version",
+      "datasourceTemplate": "github-tags",
+      "packageNameTemplate": "windsorcli/blueprint",
+      "lookupNameTemplate": "windsorcli/blueprint",
+      "versioningTemplate": "semver"
+    }
+  ],
   "platformAutomerge": true,
-  "customManagers": [  ],
   "labels": [
     "dependencies"
   ]

@@ -9,6 +9,9 @@ on:
     branches:
       - main
 
+env:
+  windsorblueprint_version: latest
+
 jobs:
   # Blueprint Checks
   blueprint-checks:
