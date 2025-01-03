@@ -79,6 +79,7 @@ jobs:
             echo "pyproject_exists=true" >> $GITHUB_ENV
           else
             echo "pyproject_exists=false" >> $GITHUB_ENV
+          fi
 
       - name: Install Poetry
         if: ${{ env.pyproject_exists == 'true' }}
