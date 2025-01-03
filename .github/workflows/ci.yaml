@@ -120,40 +120,42 @@ jobs:
           cd cli/cmd/windsor
           go build -o windsor
           chmod +x windsor
-          mv windsor $HOME/.local/bin/windsor
-          cd ..
-          rm -rf cli
+
+          ls -al
+          # mv windsor $HOME/.local/bin/windsor
+          # cd ..
+          # rm -rf cli
           
-      - name: Add Windsor to PATH
-        run: echo "$HOME/.local/bin" >> $GITHUB_PATH
+      # - name: Add Windsor to PATH
+      #   run: echo "$HOME/.local/bin" >> $GITHUB_PATH
 
-      - name: Print Windsor Version
-        run: |
-          windsor version
+      # - name: Print Windsor Version
+      #   run: |
+      #     windsor version
                   
-      - name: Set Windsor context to local
-        run: |
-          windsor init local --vm-driver colima 
-
-      - name: Print test variables
-        run: |
-          colima version  
-
-      # - name: Windsor Up
+      # - name: Set Windsor context to local
       #   run: |
-      #     windsor up --verbose
+      #     windsor init local --vm-driver colima 
 
-      # - name: Colima Logs
+      # - name: Print test variables
       #   run: |
-      #     colima status
+      #     colima version  
+
+      # # - name: Windsor Up
+      # #   run: |
+      # #     windsor up --verbose
+
+      # # - name: Colima Logs
+      # #   run: |
+      # #     colima status
   
-      # - name: Kubectl get nodes
-      #   run: |
-      #     kubectl get nodes
+      # # - name: Kubectl get nodes
+      # #   run: |
+      # #     kubectl get nodes
 
-      # - name: Windsor Down
-      #   run: |
-      #     colima status
-      #     windsor down --clean
-      #     colima stop windsor-local
-      #     colima delete windsor-local
+      # # - name: Windsor Down
+      # #   run: |
+      # #     colima status
+      # #     windsor down --clean
+      # #     colima stop windsor-local
+      # #     colima delete windsor-local
