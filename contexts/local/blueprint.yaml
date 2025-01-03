@@ -8,5 +8,5 @@ sources:
   url: github.com/windsorcli/core
   ref: v0.1.0
 terraform:
-- source: core
-  path: cluster/talos
+- path: cluster/talos
+- path: gitops/flux
