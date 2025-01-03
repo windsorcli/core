@@ -15,9 +15,6 @@ jobs:
   blueprint-checks:
       uses: windsorcli/blueprint/.github/workflows/blueprint-checks.yaml@main
 
-  blueprint-ci:
-      uses: windsorcli/blueprint/.github/workflows/blueprint-ci.yaml@main
-
   blueprint-checkov:
       uses: windsorcli/blueprint/.github/workflows/blueprint-checkov.yaml@main
         
