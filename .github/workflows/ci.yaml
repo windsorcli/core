@@ -10,7 +10,6 @@ on:
       - main
 
 jobs:
-
   # Blueprint Checks
   blueprint-checks:
       uses: windsorcli/blueprint/.github/workflows/blueprint-checks.yaml@main
