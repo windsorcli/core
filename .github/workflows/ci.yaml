@@ -4,230 +4,31 @@ on:
   push:
     branches:
       - main
-      - kyverno-chainsaw
-      
+      - workflows
   pull_request:
     branches:
       - main
 
 jobs:
-  ci:
-    # if: github.ref == 'refs/heads/main' || github.event.pull_request.draft == false
-    # runs-on: ${{ matrix.os }}
-    # strategy:
-    #   matrix:
-    #     os: [self-hosted-ubuntu, ubuntu-latest, windows-latest]
-    #     arch: [amd64, arm64]
-    #     exclude:
-    #       - os: ubuntu-latest
-    #         arch: arm64
-    #       - os: ubuntu-latest
-    #         arch: amd64
-    #       - os: windows-latest
-    #         arch: arm64
-    #       - os: windows-latest
-    #         arch: amd64
-    #       - os: self-hosted-ubuntu
-    #         arch: arm64    
-    #       # - os: self-hosted-ubuntu
-    #       #   arch: amd64    
 
-    runs-on: self-hosted
+  blueprint-checks:
+      uses: windsorcli/blueprint/.github/workflows/blueprint-checks.yaml@main
+      # with:
+      #   config-path: .github/labeler.yml
+      # secrets:
+      #   envPAT: ${{ secrets.envPAT }}
 
-    env:
-      KUBECONFIG: ${{ github.workspace }}/contexts/local/.kube/config
-      TALOSCONFIG: ${{ github.workspace }}/contexts/local/.talos/config
-      PRIVATE_DOMAIN_NAME: private.test
-      DNS_SERVER_IP: "10.5.255.200"
-      WINDSOR_VERSION: "v0.2.0"
+  blueprint-ci:
+      uses: windsorcli/blueprint/.github/workflows/blueprint-ci.yaml@main
+      # with:
+      #   config-path: .github/labeler.yml
+      # secrets:
+      #   envPAT: ${{ secrets.envPAT }}
 
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
-
-      - name: Create .docker-cache directory
-        run: mkdir -p .docker-cache
-
-      - name: Cache .docker-cache
-        uses: actions/cache@6849a6489940f00c2f30c0fb92c6274307ccb58a # v4.1.2
-        with:
-          path: .docker-cache
-          key: docker-cache-${{ runner.os }}-${{ github.sha }}
-          restore-keys: docker-cache-${{ runner.os }}-
-
-      - name: Install Aqua
-        uses: aquaproj/aqua-installer@f13c5d2f0357708d85477aabe50fd3f725528745 # v3.1.0
-        with:
-          aqua_version: v2.40.0
-
-      - name: Install tools using Aqua
-        run: |
-          aqua install
-          # aqua list
-
-      - name: Install Poetry
-        run: |
-          curl -sSL https://install.python-poetry.org | python3 -
-  
-      - name: Add Poetry Bin to PATH
-        run: echo "$HOME/.local/bin" >> $GITHUB_PATH
-  
-      - name: Install dependencies
-        run: |
-          poetry install
-          # poetry show --tree
-  
-      - name: Create arbitrary ansible secret file
-        run: |
-          mkdir -p $HOME/.ansible
-          echo "pwd123" >> $HOME/.ansible/secret
-
-      - name: Set up Go
-        uses: actions/setup-go@0a12ed9d6a96ab950c8f026ed9f722fe0da7ef32 # v5
-        with:
-          go-version: '1.22.8'
-    
-      - name: Authenticate with PAT
-        run: |
-          git config --global url."https://${{ secrets.GH_PAT }}:x-oauth-basic@github.com/".insteadOf "https://github.com/"
-
-      - name: Set GOPRIVATE to prevent checking sum.golang.org
-        run: |
-          echo "GOPRIVATE=github.com/windsorcli/*" >> $GITHUB_ENV
-
-      - name: Install Windsor CLI from Main Branch
-        run: |
-          git clone https://github.com/windsorcli/cli.git
-          cd cli/cmd/windsor
-          go build -o windsor
-          chmod +x windsor
-          mv windsor $HOME/.local/bin/windsor
-          cd ..
-          rm -rf cli
-          
-      - name: Add Windsor to PATH
-        run: echo "$HOME/.local/bin" >> $GITHUB_PATH
-
-      - name: Print Windsor Version
-        run: |
-          windsor version
-                  
-      - name: Set Windsor context to local
-        run: |
-          windsor init local
-          # windsor init local --vm-driver colima 
-
-      # - name: Print test variables
-      #   run: |
-      #     colima version  
-
-      # - name: Start Docker Daemon
-      #   run: |
-          # sudo systemctl start docker
-
-      # - name: Docker Network ls
-      #   run: |
-      #      docker network ls
-      #      echo "Inspect bridge"
-      #      docker network inspect bridge
-      #      echo "Inspect host"
-      #      docker network inspect host
-      - name: Windsor Up
-        env:
-          WINDSOR_PROJECT_ROOT: ${{ github.workspace }}/../../
-        run: |
-          cd contexts/local
-          docker-compose -f compose.yaml up
-
-          # windsor up --verbose
-
-  #     - name: Kubectl get nodes
-  #       run: |
-  #         kubectl get nodes
-
-      # - name: Windsor Down
-      #   run: |
-      #     colima status
-      #     windsor down --clean
-      #     colima stop windsor-local
-      #     colima delete windsor-local
-
-  # checkov:
-  #   env:
-  #     skip_checkov: true
-
-  #   runs-on: self-hosted
-  #   steps:
-  #     - name: Checkout code
-  #       uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
-
-  #     - name: Check for Terraform code
-  #       id: check_terraform
-  #       run: |
-  #         if [ -z "$(find ./terraform -name '*.tf' -print -quit)" ]; then
-  #           echo "No Terraform code found."
-  #           echo "skip_checkov=true" >> $GITHUB_ENV
-  #         else
-  #           echo "Terraform code found."
-  #           echo "skip_checkov=false" >> $GITHUB_ENV
-  #         fi
-
-  #     - name: Checkov GitHub Action
-  #       if: ${{ env.skip_checkov == 'false' }}
-  #       uses: bridgecrewio/checkov-action@5e86cd541c4b0313548373ee038e5886de0ba918 # v12.2940.0
-  #       with:
-  #         # This will add CLI output to the console and create a results.sarif file
-  #         directory: ./terraform  # Directory to scan
-  #         output_format: cli,sarif
-  #         output_file_path: console,results.sarif
+  # blueprint-checkov:
+  #     uses: windsorcli/blueprint/.github/workflows/blueprint-checkov.yaml@main
+  #     # with:
+  #     #   config-path: .github/labeler.yml
+  #     # secrets:
+  #     #   envPAT: ${{ secrets.envPAT }}
         
-  #     - name: Upload SARIF file
-  #       if: ${{ env.skip_checkov == 'false' }}
-  #       uses: github/codeql-action/upload-sarif@48ab28a6f5dbc2a99bf1e0131198dd8f1df78169 # v3.28.0
-  #       with:
-  #         sarif_file: results.sarif        
-
-  # yamllint:
-  #   runs-on: self-hosted
-  #   steps:
-  #     - name: Checkout code
-  #       uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
-
-  #     - name: Set up Python
-  #       uses: actions/setup-python@0b93645e9fea7318ecaed2b359559ac225c90a2b # v5.3.0
-  #       with:
-  #         python-version: '3.x'
-
-  #     - name: Install yamllint
-  #       run: pip install yamllint
-
-  #     - name: Run yamllint
-  #       run: yamllint .
-
-  # shellcheck:
-  #   runs-on: self-hosted
-  #   steps:
-  #     - name: Checkout code
-  #       uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
-
-  #     - name: Install ShellCheck
-  #       run: sudo apt-get install -y shellcheck
-
-  #     - name: Run ShellCheck
-  #       run: |
-  #         # Find all shell scripts and run shellcheck
-  #         find . -name "*.sh" -print0 | xargs -0 shellcheck
-
-  # terraform-fmt:
-  #   runs-on: self-hosted
-  #   steps:
-  #     - name: Checkout code
-  #       uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
-
-  #     - name: Install Terraform
-  #       uses: hashicorp/setup-terraform@b9cd54a3c349d3f38e8881555d616ced269862dd # v3.1.2
-  #       with:
-  #         terraform_version: 1.5.0
-
-  #     - name: Run terraform fmt
-  #       run: terraform fmt -check -recursive

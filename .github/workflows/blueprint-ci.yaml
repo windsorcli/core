@@ -1,0 +1,141 @@
+name: BLUEPRINT-CI
+
+on:
+  workflow_call:
+    # inputs:  # Defines the inputs that can be passed from the caller workflow
+    #   config-path:  # Name of the input
+    #     required: true  # Specifies that this input is mandatory
+    #     type: string  # Specifies the type of the input
+    # secrets:  # Defines the secrets that can be passed from the caller workflow
+    #   envPAT:  # Name of the secret
+    #     required: true  # Specifies that this secret is mandatory
+
+jobs:
+  ci:
+    # if: github.ref == 'refs/heads/main' || github.event.pull_request.draft == false
+
+    # runs-on: self-hosted
+    runs-on: ${{ matrix.os }}
+
+    strategy:
+      matrix:
+        os: [self-hosted-ubuntu, ubuntu-latest, windows-latest]
+        arch: [amd64, arm64]
+        exclude:
+          # - os: ubuntu-latest
+          #   arch: arm64
+          - os: ubuntu-latest
+            arch: amd64
+          - os: windows-latest
+            arch: arm64
+          - os: windows-latest
+            arch: amd64
+          - os: self-hosted-ubuntu
+            arch: arm64    
+          - os: self-hosted-ubuntu
+            arch: amd64    
+
+    env:
+      KUBECONFIG: ${{ github.workspace }}/contexts/local/.kube/config
+      TALOSCONFIG: ${{ github.workspace }}/contexts/local/.talos/config
+      PRIVATE_DOMAIN_NAME: private.test
+      DNS_SERVER_IP: "10.5.255.200"
+      WINDSOR_VERSION: "v0.2.0"
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+
+      - name: Create .docker-cache directory
+        run: mkdir -p .docker-cache
+
+      - name: Cache .docker-cache
+        uses: actions/cache@6849a6489940f00c2f30c0fb92c6274307ccb58a # v4.1.2
+        with:
+          path: .docker-cache
+          key: docker-cache-${{ runner.os }}-${{ github.sha }}
+          restore-keys: docker-cache-${{ runner.os }}-
+
+      - name: Install Aqua
+        uses: aquaproj/aqua-installer@f13c5d2f0357708d85477aabe50fd3f725528745 # v3.1.0
+        with:
+          aqua_version: v2.40.0
+
+      - name: Install tools using Aqua
+        run: |
+          aqua install
+          aqua list
+
+      - name: Install Poetry
+        run: |
+          curl -sSL https://install.python-poetry.org | python3 -
+  
+      - name: Add Poetry Bin to PATH
+        run: echo "$HOME/.local/bin" >> $GITHUB_PATH
+  
+      - name: Install dependencies
+        run: |
+          poetry install
+          poetry show --tree
+  
+      - name: Create arbitrary ansible secret file
+        run: |
+          mkdir -p $HOME/.ansible
+          echo "pwd123" >> $HOME/.ansible/secret
+
+      - name: Set up Go
+        uses: actions/setup-go@0a12ed9d6a96ab950c8f026ed9f722fe0da7ef32 # v5
+        with:
+          go-version: '1.22.8'
+    
+      - name: Authenticate with PAT
+        run: |
+          git config --global url."https://${{ secrets.GH_PAT }}:x-oauth-basic@github.com/".insteadOf "https://github.com/"
+
+      - name: Set GOPRIVATE to prevent checking sum.golang.org
+        run: |
+          echo "GOPRIVATE=github.com/windsorcli/*" >> $GITHUB_ENV
+
+      - name: Install Windsor CLI from Main Branch
+        run: |
+          git clone https://github.com/windsorcli/cli.git
+          cd cli/cmd/windsor
+          go build -o windsor
+          chmod +x windsor
+          mv windsor $HOME/.local/bin/windsor
+          cd ..
+          rm -rf cli
+          
+      - name: Add Windsor to PATH
+        run: echo "$HOME/.local/bin" >> $GITHUB_PATH
+
+      - name: Print Windsor Version
+        run: |
+          windsor version
+                  
+      - name: Set Windsor context to local
+        run: |
+          windsor init local --vm-driver colima 
+
+      - name: Print test variables
+        run: |
+          colima version  
+
+      # - name: Windsor Up
+      #   run: |
+      #     windsor up --verbose
+
+      # - name: Colima Logs
+      #   run: |
+      #     colima status
+  
+      # - name: Kubectl get nodes
+      #   run: |
+      #     kubectl get nodes
+
+      # - name: Windsor Down
+      #   run: |
+      #     colima status
+      #     windsor down --clean
+      #     colima stop windsor-local
+      #     colima delete windsor-local
