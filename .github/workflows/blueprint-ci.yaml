@@ -1,22 +1,13 @@
-name: CI
+# This file is intended to be used only by the "blueprint template" repository.
+# It is left here solely for reference purposes. If you wish, feel free to delete this file.
+# Calls to these files should be made using the "uses" statement from the ci.yaml.
+
+name: BLUEPRINT-CI
 
 on:
-  push:
-    branches:
-      - main
-  pull_request:
-    branches:
-      - main
+  workflow_call:
 
 jobs:
-
-  # Blueprint Checks
-  blueprint-checks:
-      uses: windsorcli/blueprint/.github/workflows/blueprint-checks.yaml@v0.0.1
-
-  blueprint-checkov:
-      uses: windsorcli/blueprint/.github/workflows/blueprint-checkov.yaml@v0.0.1
-        
   ci:
 
     # runs-on: self-hosted
@@ -71,26 +62,14 @@ jobs:
           aqua install
           aqua list
 
-      - name: Check for pyproject.toml
-        id: check_pyproject
-        run: |
-          if [ -f "pyproject.toml" ]; then
-            echo "pyproject_exists=true" >> $GITHUB_ENV
-          else
-            echo "pyproject_exists=false" >> $GITHUB_ENV
-          fi
-
       - name: Install Poetry
-        if: ${{ env.pyproject_exists == 'true' }}
         run: |
           curl -sSL https://install.python-poetry.org | python3 -
   
       - name: Add Poetry Bin to PATH
-        if: ${{ env.pyproject_exists == 'true' }}
         run: echo "$HOME/.local/bin" >> $GITHUB_PATH
   
       - name: Install dependencies
-        if: ${{ env.pyproject_exists == 'true' }}
         run: |
           poetry install
           poetry show --tree
@@ -119,42 +98,40 @@ jobs:
           cd cli/cmd/windsor
           go build -o windsor
           chmod +x windsor
-
-          ls -al
-          # mv windsor $HOME/.local/bin/windsor
-          # cd ..
-          # rm -rf cli
+          mv windsor $HOME/.local/bin/windsor
+          cd ..
+          rm -rf cli
           
-      # - name: Add Windsor to PATH
-      #   run: echo "$HOME/.local/bin" >> $GITHUB_PATH
+      - name: Add Windsor to PATH
+        run: echo "$HOME/.local/bin" >> $GITHUB_PATH
 
-      # - name: Print Windsor Version
-      #   run: |
-      #     windsor version
+      - name: Print Windsor Version
+        run: |
+          windsor version
                   
-      # - name: Set Windsor context to local
+      - name: Set Windsor context to local
+        run: |
+          windsor init local --vm-driver colima 
+
+      - name: Print test variables
+        run: |
+          colima version  
+
+      # - name: Windsor Up
       #   run: |
-      #     windsor init local --vm-driver colima 
+      #     windsor up --verbose
 
-      # - name: Print test variables
+      # - name: Colima Logs
       #   run: |
-      #     colima version  
-
-      # # - name: Windsor Up
-      # #   run: |
-      # #     windsor up --verbose
-
-      # # - name: Colima Logs
-      # #   run: |
-      # #     colima status
+      #     colima status
   
-      # # - name: Kubectl get nodes
-      # #   run: |
-      # #     kubectl get nodes
+      # - name: Kubectl get nodes
+      #   run: |
+      #     kubectl get nodes
 
-      # # - name: Windsor Down
-      # #   run: |
-      # #     colima status
-      # #     windsor down --clean
-      # #     colima stop windsor-local
-      # #     colima delete windsor-local
+      # - name: Windsor Down
+      #   run: |
+      #     colima status
+      #     windsor down --clean
+      #     colima stop windsor-local
+      #     colima delete windsor-local

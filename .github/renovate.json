@@ -49,9 +49,18 @@
       "labels": ["dependencies"]
     }
   ],
-  "platformAutomerge": true,
-  "customManagers": [  ],
-  "labels": [
-    "dependencies"
+  "customManagers": [
+    {
+      "fileMatch": ["^\\.github/workflows/ci\\.yaml$"],
+      "matchStrings": [
+        "uses:\\s*windsorcli/blueprint/.github/workflows/blueprint-checks\\.yaml@(?<currentValue>v[\\d\\.]+)",
+        "uses:\\s*windsorcli/blueprint/.github/workflows/blueprint-checkov\\.yaml@(?<currentValue>v[\\d\\.]+)"
+      ],
+      "depNameTemplate": "windsorcli/blueprint",
+      "datasourceTemplate": "github-tags",
+      "packageNameTemplate": "windsorcli/blueprint",
+      "lookupNameTemplate": "windsorcli/blueprint",
+      "versioningTemplate": "semver"
+    }
   ]
 }

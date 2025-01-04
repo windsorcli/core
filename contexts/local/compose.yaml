@@ -5,10 +5,11 @@ services:
       PLATFORM: container
       TALOSSKU: 2CPU-2048RAM
     hostname: controlplane-1.test
-    image: ghcr.io/siderolabs/talos:v1.9.1
+    image: ghcr.io/siderolabs/talos:v1.7.6
     networks:
       windsor-local:
         ipv4_address: 10.5.0.2
+
     privileged: true
     read_only: true
     restart: always
@@ -70,7 +71,7 @@ services:
     restart: always
     volumes:
       - type: bind
-        source: /Users/ryanvangundy/Developer/windsorcli/core/.docker-cache
+        source: /Users/todd/Developer/core/.docker-cache
         target: /var/lib/registry
   ghcr.test:
     container_name: ghcr.test
@@ -87,7 +88,7 @@ services:
     restart: always
     volumes:
       - type: bind
-        source: /Users/ryanvangundy/Developer/windsorcli/core/.docker-cache
+        source: /Users/todd/Developer/core/.docker-cache
         target: /var/lib/registry
   git.test:
     container_name: git.test
@@ -126,7 +127,7 @@ services:
     restart: always
     volumes:
       - type: bind
-        source: /Users/ryanvangundy/Developer/windsorcli/core/.docker-cache
+        source: /Users/todd/Developer/core/.docker-cache
         target: /var/lib/registry
   registry-1.docker.test:
     container_name: registry-1.docker.test
@@ -144,7 +145,7 @@ services:
     restart: always
     volumes:
       - type: bind
-        source: /Users/ryanvangundy/Developer/windsorcli/core/.docker-cache
+        source: /Users/todd/Developer/core/.docker-cache
         target: /var/lib/registry
   registry.k8s.test:
     container_name: registry.k8s.test
@@ -161,7 +162,7 @@ services:
     restart: always
     volumes:
       - type: bind
-        source: /Users/ryanvangundy/Developer/windsorcli/core/.docker-cache
+        source: /Users/todd/Developer/core/.docker-cache
         target: /var/lib/registry
   registry.test:
     container_name: registry.test
@@ -176,7 +177,7 @@ services:
     restart: always
     volumes:
       - type: bind
-        source: /Users/ryanvangundy/Developer/windsorcli/core/.docker-cache
+        source: /Users/todd/Developer/core/.docker-cache
         target: /var/lib/registry
   worker-1.test:
     container_name: worker-1.test
@@ -184,7 +185,7 @@ services:
       PLATFORM: container
       TALOSSKU: 4CPU-4096RAM
     hostname: worker-1.test
-    image: ghcr.io/siderolabs/talos:v1.9.1
+    image: ghcr.io/siderolabs/talos:v1.7.6
     networks:
       windsor-local:
         ipv4_address: 10.5.0.11
