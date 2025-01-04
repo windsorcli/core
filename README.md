@@ -1,4 +1,4 @@
-# The Windsor Blueprint
+# The Windsor Core Blueprint
 
 <p align="center">
   <img src="docs/img/windsor-logo.png" alt="Windsor CLI Logo" style="width: 20%; height: auto;">
@@ -13,11 +13,11 @@
 
 ## Purpose
 
-The Windsor Blueprint repository is a repository that serves as both a github template repository for creating new blueprints and a base level test source for testing blueprints.  New repositories can be created using this repository as the template while the github actions that are part of the initial template refer back to the template to run many base level checks.  Because of this relationship, the newly created repository will also include a backwards watch to the blueprint repository to automatically kick off new tests and update when this repository (base class) is changed.
+The Core Blueprint repository is a repository that serves as both a github template repository for creating new blueprints and a base level test source for testing blueprints.  New repositories can be created using this repository as the template while the github actions that are part of the initial template refer back to the template to run many base level checks.  Because of this relationship, the newly created repository will also include a backwards watch to the blueprint repository to automatically kick off new tests and update when this repository (base class) is changed.
 
-## Blueprint Guidelines
+## Windsor Core Development Guidelines
 
-See the [Blueprint Guidelines Document](./docs/guides/blueprint.md) for detailed description of the blueprint
+See the [Windsor Core Guidelines Document](./docs/guides/core.md) for detailed description and usage of the Windsor Core Blueprint.  Also see the [Windsor Blueprint Guidelines Document](./docs/guides/blueprint.md) for detailed description of the base blueprint.
 
 ## Quick Start
 

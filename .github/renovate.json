@@ -58,7 +58,7 @@
         "checkov\\.yaml@(?<currentValue>v[\\d\\.]+)"
       ],
       "depNameTemplate": "windsorcli/blueprint",
-      "datasourceTemplate": "github-releases",
+      "datasourceTemplate": "github-tags",
       "packageNameTemplate": "windsorcli/blueprint",
       "lookupNameTemplate": "windsorcli/blueprint",
       "versioningTemplate": "semver"
@@ -67,5 +67,5 @@
   "platformAutomerge": true,
   "labels": [
     "dependencies"
-  ]
+  ]  
 }
