@@ -1,0 +1,51 @@
+# This file is intended to be used only by the "blueprint template" repository.
+# It is left here solely for reference purposes. If you wish, feel free to delete this file.
+# Calls to these files should be made using the "uses" statement from the ci.yaml.
+
+name: BLUEPRINT-CHECKS
+
+on:
+  workflow_call:
+    # inputs:  # Defines the inputs that can be passed from the caller workflow
+    #   config-path:  # Name of the input
+    #     required: true  # Specifies that this input is mandatory
+    #     type: string  # Specifies the type of the input
+    # secrets:  # Defines the secrets that can be passed from the caller workflow
+    #   envPAT:  # Name of the secret
+    #     required: true  # Specifies that this secret is mandatory
+
+jobs:
+  checkov:
+    env:
+      skip_checkov: true
+
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+
+      - name: Check for Terraform code
+        id: check_terraform
+        run: |
+          if [ -z "$(find ./terraform -name '*.tf' -print -quit)" ]; then
+            echo "No Terraform code found.  Skipping Checkov"
+            echo "skip_checkov=true" >> $GITHUB_ENV
+          else
+            echo "skip_checkov=false" >> $GITHUB_ENV
+          fi
+
+      - name: Checkov GitHub Action
+        if: ${{ env.skip_checkov == 'false' }}
+        uses: bridgecrewio/checkov-action@4ad414b100f8415d05d88b6be40d7aa7aa38c057 # v12.2941.0
+        with:
+          # This will add CLI output to the console and create a results.sarif file
+          directory: ./terraform  # Directory to scan
+          output_format: cli,sarif
+          output_file_path: console,results.sarif
+        
+      - name: Upload SARIF file
+        if: ${{ env.skip_checkov == 'false' }}
+        uses: github/codeql-action/upload-sarif@48ab28a6f5dbc2a99bf1e0131198dd8f1df78169 # v3.28.0
+        with:
+          sarif_file: results.sarif        
+

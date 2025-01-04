@@ -1,0 +1,32 @@
+---
+# yaml-language-server: $schema=https://raw.githubusercontent.com/aquaproj/aqua/main/json-schema/aqua-yaml.json
+# aqua - Declarative CLI Version Manager
+# https://aquaproj.github.io/
+# checksum:
+#   enabled: true
+#   require_checksum: true
+#   supported_envs:
+#   - all
+registries:
+  - type: standard
+    ref: v4.290.0 # renovate: depName=aquaproj/aqua-registry
+packages:
+  - name: hashicorp/terraform@v1.10.3
+  - name: siderolabs/talos@v1.9.1
+  - name: siderolabs/omni/omnictl@v0.45.1
+  - name: siderolabs/omni/omni@v0.45.1
+  - name: kubernetes/kubectl@v1.32.0
+  - name: go-task/task@v3.40.1
+  - name: golang/go@go1.23.4
+  - name: abiosoft/colima@v0.8.1
+  - name: lima-vm/lima@v1.0.3
+  - name: docker/cli@v27.4.1
+  - name: docker/compose@v2.32.1
+  - name: aws/aws-cli@2.22.28
+  - name: helm/helm@v3.16.4
+  - name: fluxcd/flux2@v2.4.0
+  - name: hashicorp/vault@v1.18.3
+  - name: derailed/k9s@v0.32.7
+  - name: getsops/sops@v3.9.3
+  - name: kyverno/kyverno@v1.13.2
+  - name: cli/cli@v2.64.0

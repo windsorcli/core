@@ -1,0 +1,28 @@
+--- 
+
+version: "3"
+
+vars:
+  PROJECT_ROOT:
+    sh: git rev-parse --show-toplevel
+
+env:
+  PRIVATE_DOMAIN_NAME: private.test
+  PUBLIC_DOMAIN_NAME: public.test
+
+includes:
+  website: ./website
+
+tasks:
+
+  #---------------------------------------------------------------------------------------------------------------------
+  # Terraform
+  #---------------------------------------------------------------------------------------------------------------------
+
+  terraform:fmt:
+    desc: Runs 'terraform fmt' against all Terraform projects
+    cmds:
+      - terraform fmt -recursive -diff
+    silent: true
+
+

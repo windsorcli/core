@@ -1,0 +1,71 @@
+{
+  "$schema": "https://docs.renovatebot.com/renovate-schema.json",
+
+  "extends": [
+    "config:recommended",
+    "github>aquaproj/aqua-renovate-config#2.6.0",
+    ":dependencyDashboard"
+  ],
+  "packageRules": [
+    {
+      "description": "Pin GitHub Actions to specific commit SHAs",
+      "matchManagers": ["github-actions"],
+      "matchPackagePatterns": [".*"],
+      "versioning": "github-tags",
+      "pinDigests": true,
+      "enabled": true,
+      "automerge": true,
+      "automergeType": "pr",
+      "automergeStrategy": "squash"
+    },
+    {
+      "matchUpdateTypes": ["major", "minor", "patch"],
+      "enabled": true,
+      "automerge": true,
+      "automergeType": "pr",
+      "automergeStrategy": "squash",
+      "labels": ["dependencies"]
+    },
+    {
+      "description": "Update Go modules",
+      "matchManagers": [
+        "gomod"
+      ],
+      "enabled": true,
+      "automerge": true,
+      "automergeType": "pr",
+      "automergeStrategy": "squash",
+      "labels": ["go", "dependencies"]
+    },
+    {
+      "description": "Update Taskfile dependencies",
+      "matchFileNames": [
+        "Taskfile.yaml"
+      ],
+      "enabled": true,
+      "automerge": true,
+      "automergeType": "pr",
+      "automergeStrategy": "squash",
+      "labels": ["dependencies"]
+    }
+  ],
+  "customManagers": [
+    {
+      "customType": "regex",
+      "fileMatch": ["^\\.github/workflows/ci\\.yaml$"],
+      "matchStrings": [
+        "checks\\.yaml@(?<currentValue>v[\\d\\.]+)",
+        "checkov\\.yaml@(?<currentValue>v[\\d\\.]+)"
+      ],
+      "depNameTemplate": "windsorcli/blueprint",
+      "datasourceTemplate": "github-releases",
+      "packageNameTemplate": "windsorcli/blueprint",
+      "lookupNameTemplate": "windsorcli/blueprint",
+      "versioningTemplate": "semver"
+    }
+  ],
+  "platformAutomerge": true,
+  "labels": [
+    "dependencies"
+  ]
+}
