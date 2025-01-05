@@ -42,7 +42,7 @@ services:
       - -conf
       - /etc/coredns/Corefile
     container_name: dns.test
-    image: coredns/coredns:1.11.3
+    image: coredns/coredns:1.12.0
     labels:
       context: local
       managed_by: windsor
