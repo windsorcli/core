@@ -9,73 +9,103 @@ on:
       - main
 
 jobs:
+  # Blueprint Checks
+  checks:
+    uses: windsorcli/blueprint/.github/workflows/checks.yaml@main
+
   checkov:
+    uses: windsorcli/blueprint/.github/workflows/checkov.yaml@main
+
+  ci:
+
     runs-on: ubuntu-latest
+
+    env:
+      KUBECONFIG: ${{ github.workspace }}/contexts/local/.kube/config
+      TALOSCONFIG: ${{ github.workspace }}/contexts/local/.talos/config
+      PRIVATE_DOMAIN_NAME: private.test
+      DNS_SERVER_IP: "10.5.255.200"
+      WINDSOR_VERSION: "v0.2.0"
+
     steps:
       - name: Checkout code
         uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
 
-      - name: Checkov GitHub Action
-        uses: bridgecrewio/checkov-action@4ad414b100f8415d05d88b6be40d7aa7aa38c057 # v12.2941.0
+      - name: Create .docker-cache directory
+        run: mkdir -p .docker-cache
+
+      - name: Cache .docker-cache
+        uses: actions/cache@6849a6489940f00c2f30c0fb92c6274307ccb58a # v4.1.2
         with:
-          # This will add CLI output to the console and create a results.sarif file
-          directory: ./terraform  # Directory to scan
-          output_format: cli,sarif
-          output_file_path: console,results.sarif
-        
-      - name: Upload SARIF file
-        uses: github/codeql-action/upload-sarif@48ab28a6f5dbc2a99bf1e0131198dd8f1df78169 # v3.28.0
-        
-        # Results are generated only on a success or failure
-        # this is required since GitHub by default won't run the next step
-        # when the previous one has failed. Security checks that do not pass will 'fail'.
-        # An alternative is to add `continue-on-error: true` to the previous step
-        # Or 'soft_fail: true' to checkov.
-        if: success() || failure()
+          path: .docker-cache
+          key: docker-cache-${{ runner.os }}-${{ github.sha }}
+          restore-keys: docker-cache-${{ runner.os }}-
+
+      - name: Install Aqua
+        uses: aquaproj/aqua-installer@f13c5d2f0357708d85477aabe50fd3f725528745 # v3.1.0
         with:
-          sarif_file: results.sarif        
+          aqua_version: v2.40.0
 
-  yamllint:
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
-
-      - name: Set up Python
-        uses: actions/setup-python@0b93645e9fea7318ecaed2b359559ac225c90a2b # v5.3.0
-        with:
-          python-version: '3.x'
-
-      - name: Install yamllint
-        run: pip install yamllint
-
-      - name: Run yamllint
-        run: yamllint .
-
-  shellcheck:
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
-
-      - name: Install ShellCheck
-        run: sudo apt-get install -y shellcheck
-
-      - name: Run ShellCheck
+      - name: Install tools using Aqua
         run: |
-          # Find all shell scripts and run shellcheck
-          find . -name "*.sh" -print0 | xargs -0 shellcheck
+          aqua install
+          aqua list
 
-  terraform-fmt:
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
-
-      - name: Install Terraform
-        uses: hashicorp/setup-terraform@b9cd54a3c349d3f38e8881555d616ced269862dd # v3.1.2
+      - name: Set up Go
+        uses: actions/setup-go@0a12ed9d6a96ab950c8f026ed9f722fe0da7ef32 # v5
         with:
-          terraform_version: 1.5.0
+          go-version: '1.22.8'
+    
+      - name: Authenticate with PAT
+        run: |
+          git config --global url."https://${{ secrets.GH_PAT }}:x-oauth-basic@github.com/".insteadOf "https://github.com/"
 
-      - name: Run terraform fmt
-        run: terraform fmt -check -recursive
+      - name: Set GOPRIVATE to prevent checking sum.golang.org
+        run: |
+          echo "GOPRIVATE=github.com/windsorcli/*" >> $GITHUB_ENV
+
+      - name: Install Windsor CLI from Main Branch
+        run: |
+          git clone https://github.com/windsorcli/cli.git
+          cd cli/cmd/windsor
+          go build -o windsor
+          chmod +x windsor
+
+          ls -al
+          # mv windsor $HOME/.local/bin/windsor
+          # cd ..
+          # rm -rf cli
+          
+      # - name: Add Windsor to PATH
+      #   run: echo "$HOME/.local/bin" >> $GITHUB_PATH
+
+      # - name: Print Windsor Version
+      #   run: |
+      #     windsor version
+                  
+      # - name: Set Windsor context to local
+      #   run: |
+      #     windsor init local --vm-driver colima 
+
+      # - name: Print test variables
+      #   run: |
+      #     colima version  
+
+      # # - name: Windsor Up
+      # #   run: |
+      # #     windsor up --verbose
+
+      # # - name: Colima Logs
+      # #   run: |
+      # #     colima status
+  
+      # # - name: Kubectl get nodes
+      # #   run: |
+      # #     kubectl get nodes
+
+      # # - name: Windsor Down
+      # #   run: |
+      # #     colima status
+      # #     windsor down --clean
+      # #     colima stop windsor-local
+      # #     colima delete windsor-local
