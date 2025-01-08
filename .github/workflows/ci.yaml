@@ -55,42 +55,26 @@ jobs:
           cd cli/cmd/windsor
           go build -o windsor
           chmod +x windsor
-
-          ls -al
-          # mv windsor $HOME/.local/bin/windsor
-          # cd ..
-          # rm -rf cli
           
-      # - name: Add Windsor to PATH
-      #   run: echo "$HOME/.local/bin" >> $GITHUB_PATH
+      - name: Add Windsor to PATH
+        run: echo "$HOME/.local/bin" >> $GITHUB_PATH
 
-      # - name: Print Windsor Version
-      #   run: |
-      #     windsor version
+      - name: Print Windsor Version
+        run: |
+          windsor version
                   
       # - name: Set Windsor context to local
       #   run: |
-      #     windsor init local --vm-driver colima 
+      #     windsor init local --vm-driver docker-desktop
 
-      # - name: Print test variables
+      # - name: Windsor Up
       #   run: |
-      #     colima version  
+      #     windsor up --verbose
 
-      # # - name: Windsor Up
-      # #   run: |
-      # #     windsor up --verbose
+      # - name: Kubectl get nodes
+      #   run: |
+      #     kubectl get nodes
 
-      # # - name: Colima Logs
-      # #   run: |
-      # #     colima status
-  
-      # # - name: Kubectl get nodes
-      # #   run: |
-      # #     kubectl get nodes
-
-      # # - name: Windsor Down
-      # #   run: |
-      # #     colima status
-      # #     windsor down --clean
-      # #     colima stop windsor-local
-      # #     colima delete windsor-local
+      # - name: Windsor Down
+      #   run: |
+      #     windsor down --clean
