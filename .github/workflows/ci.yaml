@@ -64,7 +64,7 @@ jobs:
                   
       - name: Set Windsor context to local
         run: |
-          windsor init local --vm-driver docker-desktop
+          windsor init local
 
       - name: Windsor Up
         run: |
