@@ -54,9 +54,9 @@ jobs:
           cd cli/cmd/windsor
           go build -o windsor
           chmod +x windsor
-          
-      - name: Add Windsor to PATH
-        run: echo "$HOME/.local/bin" >> $GITHUB_PATH
+          mkdir -p $HOME/.local/bin
+          mv windsor $HOME/.local/bin
+          echo "$HOME/.local/bin" >> $GITHUB_PATH
 
       - name: Print Windsor Version
         run: |
