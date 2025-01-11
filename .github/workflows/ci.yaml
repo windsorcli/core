@@ -62,18 +62,18 @@ jobs:
         run: |
           windsor version
                   
-      # - name: Set Windsor context to local
-      #   run: |
-      #     windsor init local --vm-driver docker-desktop
+      - name: Set Windsor context to local
+        run: |
+          windsor init local --vm-driver docker-desktop
 
-      # - name: Windsor Up
-      #   run: |
-      #     windsor up --verbose
+      - name: Windsor Up
+        run: |
+          windsor up --verbose
 
-      # - name: Kubectl get nodes
-      #   run: |
-      #     kubectl get nodes
+      - name: Kubectl get nodes
+        run: |
+          kubectl get nodes
 
-      # - name: Windsor Down
-      #   run: |
-      #     windsor down --clean
+      - name: Windsor Down
+        run: |
+          windsor down --clean
