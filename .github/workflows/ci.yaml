@@ -11,10 +11,10 @@ on:
 jobs:
   # Blueprint Checks
   checks:
-    uses: windsorcli/blueprint/.github/workflows/checks.yaml@v0.1.0
+    uses: windsorcli/blueprint/.github/workflows/checks.yaml@37a5386198caa29f87531d09003512adc5407702 # v0.1.0
 
   checkov:
-    uses: windsorcli/blueprint/.github/workflows/checkov.yaml@v0.1.0
+    uses: windsorcli/blueprint/.github/workflows/checkov.yaml@37a5386198caa29f87531d09003512adc5407702 # v0.1.0
 
   ci:
     runs-on: ubuntu-latest
