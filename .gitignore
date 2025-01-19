@@ -1,20 +1,7 @@
-# Terraform
-.terraform/
-terraform.tfstate
-terraform.tfstate.backup
-.terraform.tfstate.lock.info
-backend_override.tf
-
-# Kubernetes
-.kube/
-
-# Talos
-.talos/
 
 # managed by windsor cli
+.windsor/
 .volumes/
-.tf_modules/
-.docker-cache/
 terraform/**/backend_override.tf
 contexts/**/.terraform/
 contexts/**/.tfstate/
