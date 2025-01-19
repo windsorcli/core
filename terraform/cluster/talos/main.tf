@@ -216,7 +216,7 @@ resource "null_resource" "healthcheck_windows" {
 
   provisioner "local-exec" {
     command     = <<-EOT
-      powershell -File ${path.module}/resources/healthcheck.ps1
+      -File "${path.module}/resources/healthcheck.ps1"
     EOT
     interpreter = ["powershell", "-Command"]
     environment = {
