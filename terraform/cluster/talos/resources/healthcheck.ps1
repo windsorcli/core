@@ -1,8 +1,8 @@
 # Number of nodes to check for readiness
 param(
-    [int]$NODE_COUNT = $env:NODE_COUNT -or (kubectl get nodes --no-headers 2>$null | Where-Object { $_.Trim() -ne "" } | Measure-Object | Select-Object -ExpandProperty Count),
-    [int]$TIMEOUT = $env:TIMEOUT -or 300,  # Default timeout of 300 seconds
-    [int]$INTERVAL = $env:INTERVAL -or 10  # Default check interval of 10 seconds
+    [int]$NODE_COUNT = $env:NODE_COUNT -ne $null ? [int]$env:NODE_COUNT : (kubectl get nodes --no-headers 2>$null | Where-Object { $_.Trim() -ne "" } | Measure-Object | Select-Object -ExpandProperty Count),
+    [int]$TIMEOUT = $env:TIMEOUT -ne $null ? [int]$env:TIMEOUT : 300,  # Default timeout of 300 seconds
+    [int]$INTERVAL = $env:INTERVAL -ne $null ? [int]$env:INTERVAL : 10  # Default check interval of 10 seconds
 )
 
 $start_time = Get-Date
