@@ -1,4 +1,4 @@
-#!/usr/bin/env bash
+#!/usr/bin/env sh
 
 # Set the number of nodes to check for readiness. If not provided, default to the current number of nodes.
 NODE_COUNT=${NODE_COUNT:-$(kubectl get nodes --no-headers 2>/dev/null | awk 'NF' | wc -l)}

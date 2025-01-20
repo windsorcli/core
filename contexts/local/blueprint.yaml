@@ -3,10 +3,19 @@ apiVersion: blueprints.windsorcli.dev/v1alpha1
 metadata:
   name: local
   description: This blueprint outlines resources in the local context
+repository:
+  url: http://git.test/git/core
+  ref:
+    branch: main
+  secretName: flux-system
 sources:
 - name: core
   url: github.com/windsorcli/core
-  ref: v0.1.0
+  ref:
+    tag: v0.1.1
 terraform:
 - path: cluster/talos
 - path: gitops/flux
+kustomize:
+- name: local
+  path: ""

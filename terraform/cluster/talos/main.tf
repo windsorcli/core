@@ -176,35 +176,12 @@ resource "local_sensitive_file" "talosconfig" {
 #   endpoints            = var.controlplanes.*.endpoint
 # }
 
-resource "null_resource" "healthcheck_unix" {
-  count = var.os_type == "unix" ? 1 : 0
-
-  triggers = {
-    always_run = timestamp() // Ensures the resource runs every time
-  }
-
-  depends_on = [
-    local_sensitive_file.kubeconfig,
-    local_sensitive_file.talosconfig
-  ]
-
-  provisioner "local-exec" {
-    command     = <<-EOT
-      bash ${path.module}/resources/healthcheck.sh
-    EOT
-    interpreter = ["bash", "-c"]
-    environment = {
-      KUBECONFIG = local.kubeconfig_path
-      NODE_COUNT = length(var.controlplanes) + length(var.workers)
-      TIMEOUT    = 300 # 5 minutes
-      INTERVAL   = 5   # 5 seconds
-    }
-  }
+locals {
+  healthcheck_command     = var.os_type == "unix" ? "${path.module}/resources/healthcheck.sh" : "& { & '${path.module}/resources/healthcheck.ps1' }"
+  healthcheck_interpreter = var.os_type == "unix" ? ["sh", "-c"] : ["powershell", "-Command"]
 }
 
-resource "null_resource" "healthcheck_windows" {
-  count = var.os_type == "windows" ? 1 : 0
-
+resource "null_resource" "healthcheck" {
   triggers = {
     always_run = timestamp() // Ensures the resource runs every time
   }
@@ -215,10 +192,8 @@ resource "null_resource" "healthcheck_windows" {
   ]
 
   provisioner "local-exec" {
-    command     = <<-EOT
-      powershell -File ${path.module}/resources/healthcheck.ps1
-    EOT
-    interpreter = ["powershell", "-Command"]
+    command     = local.healthcheck_command
+    interpreter = local.healthcheck_interpreter
     environment = {
       KUBECONFIG = local.kubeconfig_path
       NODE_COUNT = length(var.controlplanes) + length(var.workers)

@@ -1,14 +1,12 @@
 # Number of nodes to check for readiness
-param(
-    [int]$NODE_COUNT = $env:NODE_COUNT -or (kubectl get nodes --no-headers 2>$null | Where-Object { $_.Trim() -ne "" } | Measure-Object | Select-Object -ExpandProperty Count),
-    [int]$TIMEOUT = $env:TIMEOUT -or 300,  # Default timeout of 300 seconds
-    [int]$INTERVAL = $env:INTERVAL -or 10  # Default check interval of 10 seconds
-)
+[int]$NODE_COUNT = if ($env:NODE_COUNT -ne $null) { [int]$env:NODE_COUNT } else { (kubectl get nodes --no-headers 2>$null | Where-Object { $_.Trim() -ne "" } | Measure-Object | Select-Object -ExpandProperty Count) }
+[int]$TIMEOUT = if ($env:TIMEOUT -ne $null) { [int]$env:TIMEOUT } else { 300 }  # Default timeout of 300 seconds
+[int]$INTERVAL = if ($env:INTERVAL -ne $null) { [int]$env:INTERVAL } else { 10 }  # Default check interval of 10 seconds
 
 $start_time = Get-Date
 $previous_ready_count = 0
 
-Write-Host "Waiting for $NODE_COUNT nodes to be ready"
+Write-Host "Waiting for $NODE_COUNT nodes to be ready..."
 
 while ($true) {
     $ready_nodes = kubectl get nodes --no-headers 2>$null | Where-Object { $_ -match '\sReady\s' } | ForEach-Object { $_.Split(' ')[0] }
