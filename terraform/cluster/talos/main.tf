@@ -177,8 +177,8 @@ resource "local_sensitive_file" "talosconfig" {
 # }
 
 locals {
-  healthcheck_command     = var.os_type == "unix" ? "${path.module}/resources/healthcheck.sh" : "${path.module}/resources/healthcheck.ps1"
-  healthcheck_interpreter = var.os_type == "unix" ? ["sh", "-c"] : ["powershell", "-Command"]
+  healthcheck_command     = var.os_type == "unix" ? "${path.module}/resources/healthcheck.sh" : "\"${path.module}/resources/healthcheck.ps1\""
+  healthcheck_interpreter = var.os_type == "unix" ? ["sh", "-c"] : ["powershell", "-File"]
 }
 
 resource "null_resource" "healthcheck" {
