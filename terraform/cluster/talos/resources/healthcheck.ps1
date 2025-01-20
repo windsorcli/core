@@ -11,8 +11,17 @@ $previous_ready_count = 0
 Write-Host "Waiting for $NODE_COUNT nodes to be ready"
 
 while ($true) {
+    # Debug: Log the command being executed
+    Write-Host "Executing: kubectl get nodes --no-headers"
     $ready_nodes = kubectl get nodes --no-headers 2>$null | Where-Object { $_ -match '\sReady\s' } | ForEach-Object { $_.Split(' ')[0] }
+    
+    # Debug: Log the raw output of the kubectl command
+    Write-Host "Raw output of kubectl command: $ready_nodes"
+    
     $ready_count = $ready_nodes.Count
+
+    # Debug: Log the current ready count
+    Write-Host "Current ready count: $ready_count"
 
     if ($ready_count -ne $previous_ready_count) {
         Write-Host "$ready_count / $NODE_COUNT nodes are ready"
@@ -26,6 +35,9 @@ while ($true) {
 
     $current_time = Get-Date
     $elapsed_time = ($current_time - $start_time).TotalSeconds
+
+    # Debug: Log the elapsed time
+    Write-Host "Elapsed time: $elapsed_time seconds"
 
     if ($elapsed_time -ge $TIMEOUT) {
         Write-Host "Timeout reached: Not all nodes are ready"
