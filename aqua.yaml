@@ -22,7 +22,7 @@ packages:
   - name: lima-vm/lima@v1.0.4
   - name: docker/cli@v27.4.1
   - name: docker/compose@v2.32.4
-  - name: aws/aws-cli@2.23.3
+  - name: aws/aws-cli@2.23.4
   - name: helm/helm@v3.17.0
   - name: fluxcd/flux2@v2.4.0
   - name: hashicorp/vault@v1.18.3
