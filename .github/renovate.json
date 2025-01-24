@@ -62,6 +62,18 @@
       "packageNameTemplate": "windsorcli/blueprint",
       "lookupNameTemplate": "windsorcli/blueprint",
       "versioningTemplate": "semver"
+    },
+    {
+      "customType": "regex",
+      "fileMatch": ["^.*\\.ya?ml$", "^.*\\.tf$", "^.*\\.tfvars$"],
+      "matchStrings": [
+        "\\s*#\\s*renovate:\\s*datasource=(?<datasource>[^\\s]+)\\s*depName=(?<depName>[^\\s]+)\\s*package=(?<package>[^\\s]+)(\\s*helmRepo=(?<helmRepo>[^\\s]+))?.*\n.*(?<currentValue>\\d+\\.\\d+\\.\\d+(-[a-zA-Z0-9]+)?)"
+      ],
+      "versioningTemplate": "semver",
+      "datasourceTemplate": "{{datasource}}",
+      "registryUrlTemplate": "{{#if helmRepo}}{{helmRepo}}{{/if}}",
+      "packageNameTemplate": "{{package}}",
+      "depNameTemplate": "{{depName}}"
     }
   ],
   "platformAutomerge": true,
