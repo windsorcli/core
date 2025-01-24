@@ -12,10 +12,17 @@ sources:
 - name: core
   url: github.com/windsorcli/core
   ref:
-    tag: v0.1.1
+    tag: v0.1.2
 terraform:
-- path: cluster/talos
-- path: gitops/flux
+- source: core
+  path: cluster/talos
+- source: core
+  path: gitops/flux
 kustomize:
 - name: local
   path: ""
+- name: ingress-base
+  path: ingress/base
+  components:
+  - nginx
+  - nginx/nodeport
