@@ -1,0 +1,25 @@
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: flux-webhook-ingress
+  namespace: system-gitops
+spec:
+  ingressClassName: nginx
+  rules:
+  - host: webhook.your-domain.com
+    http:
+      paths:
+      - path: /
+        pathType: Prefix
+        backend:
+          service:
+            name: webhook-receiver
+            port:
+              number: 80
+      - path: /
+        pathType: Prefix
+        backend:
+          service:
+            name: webhook-receiver
+            port:
+              number: 443
