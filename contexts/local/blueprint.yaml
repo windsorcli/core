@@ -19,3 +19,8 @@ terraform:
 kustomize:
 - name: local
   path: ""
+- name: gitops
+  path: gitops/flux
+  components:
+  - webhook
+  - webhook/nodeport

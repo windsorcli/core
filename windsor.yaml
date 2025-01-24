@@ -25,12 +25,12 @@ contexts:
         password: local
         webhook_url: http://flux-webhook.private.test
         verify_ssl: false
-        image: ghcr.io/windsorcli/git-livereload:v0.1.0
+        image: ghcr.io/windsorcli/git-livereload:v0.1.1
     terraform:
       enabled: true
       backend: local
     vm:
-      driver: docker-desktop
+      driver: colima
     cluster:
       enabled: true
       driver: talos

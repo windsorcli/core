@@ -1,0 +1,10 @@
+apiVersion: kustomize.config.k8s.io/v1alpha1
+kind: Component
+patches:
+  - path: patches/service.yaml
+    target:
+      version: v1
+      kind: Service
+      name: flux-webhook-receiver
+      namespace: system-gitops
+    
