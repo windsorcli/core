@@ -103,3 +103,18 @@ resource "kubernetes_secret" "git_auth" {
     "known_hosts" = local.known_hosts_content
   }
 }
+
+#-----------------------------------------------------------------------------------------------------------------------
+# Set up webhook token
+#-----------------------------------------------------------------------------------------------------------------------
+
+resource "kubernetes_secret" "webhook_token" {
+  metadata {
+    name      = "webhook-token"
+    namespace = var.flux_namespace
+  }
+
+  data = {
+    token = var.webhook_token
+  }
+}

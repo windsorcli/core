@@ -1,0 +1,10 @@
+apiVersion: v1
+kind: Pod
+metadata:
+  name: hello-world-pod
+  namespace: default
+spec:
+  containers:
+  - name: hello-world-container
+    image: busybox
+    command: ["echo", "Hello, World!"]

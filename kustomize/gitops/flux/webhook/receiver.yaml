@@ -1,0 +1,14 @@
+  apiVersion: notification.toolkit.fluxcd.io/v1
+  kind: Receiver
+  metadata:
+    name: flux-webhook
+    namespace: system-gitops
+  spec:
+    type: generic
+    events: []
+    secretRef:
+      name: webhook-token
+    resources:
+      - apiVersion: source.toolkit.fluxcd.io/v1
+        kind: GitRepository
+        name: ${CONTEXT}

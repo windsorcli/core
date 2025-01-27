@@ -6,3 +6,6 @@ git_password = "local"
 
 // The git user to use to authenticate with the git provider
 git_username = "local"
+
+// The token to use for the webhook
+webhook_token = "abcdef123456"

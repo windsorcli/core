@@ -67,3 +67,10 @@ variable "git_password" {
   default     = ""
   sensitive   = true
 }
+
+variable "webhook_token" {
+  description = "The token to use for the webhook"
+  type        = string
+  sensitive   = true
+  default     = ""
+}

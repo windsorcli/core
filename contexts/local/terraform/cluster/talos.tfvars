@@ -8,49 +8,7 @@ cluster_endpoint = "https://127.0.0.1:6443"
 cluster_name = "talos"
 
 // A YAML string of common config patches to apply
-common_config_patches = <<EOF
-cluster:
-  apiServer:
-    certSANs:
-    - localhost
-    - 127.0.0.1
-  extraManifests:
-  - https://raw.githubusercontent.com/alex1989hu/kubelet-serving-cert-approver/v0.8.7/deploy/standalone-install.yaml
-machine:
-  certSANs:
-  - localhost
-  - 127.0.0.1
-  features:
-    hostDNS:
-      forwardKubeDNSToHost: true
-  kubelet:
-    extraArgs:
-      rotate-server-certificates: "true"
-  network:
-    interfaces:
-    - ignore: true
-      interface: eth0
-  registries:
-    mirrors:
-      gcr.io:
-        endpoints:
-        - http://gcr.test:5000
-      ghcr.io:
-        endpoints:
-        - http://ghcr.test:5000
-      quay.io:
-        endpoints:
-        - http://quay.test:5000
-      registry-1.docker.io:
-        endpoints:
-        - http://registry-1.docker.test:5000
-      registry.k8s.io:
-        endpoints:
-        - http://registry.k8s.test:5000
-      registry.test:
-        endpoints:
-        - http://registry.test:5000
-EOF
+common_config_patches = "\"cluster\":\n  \"apiServer\":\n    \"certSANs\":\n    - \"localhost\"\n    - \"127.0.0.1\"\n  \"extraManifests\":\n  - \"https://raw.githubusercontent.com/alex1989hu/kubelet-serving-cert-approver/v0.8.7/deploy/standalone-install.yaml\"\n\"machine\":\n  \"certSANs\":\n  - \"localhost\"\n  - \"127.0.0.1\"\n  \"features\":\n    \"hostDNS\":\n      \"forwardKubeDNSToHost\": true\n  \"kubelet\":\n    \"extraArgs\":\n      \"rotate-server-certificates\": \"true\"\n  \"network\":\n    \"interfaces\":\n    - \"ignore\": true\n      \"interface\": \"eth0\"\n  \"registries\":\n    \"mirrors\":\n      \"gcr.io\":\n        \"endpoints\":\n        - \"http://gcr.test:5000\"\n      \"ghcr.io\":\n        \"endpoints\":\n        - \"http://ghcr.test:5000\"\n      \"quay.io\":\n        \"endpoints\":\n        - \"http://quay.test:5000\"\n      \"registry-1.docker.io\":\n        \"endpoints\":\n        - \"http://registry-1.docker.test:5000\"\n      \"registry.k8s.io\":\n        \"endpoints\":\n        - \"http://registry.k8s.test:5000\"\n      \"registry.test\":\n        \"endpoints\":\n        - \"http://registry.test:5000\""
 
 // Machine config details for control planes
 controlplanes = [{

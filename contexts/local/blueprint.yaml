@@ -32,5 +32,4 @@ kustomize:
   - ingress-base
   components:
   - webhook
-  - webhook/nodeport
-
+  - webhook/ingress-nginx
