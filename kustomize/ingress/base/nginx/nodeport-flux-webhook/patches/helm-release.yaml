@@ -10,5 +10,7 @@ spec:
       service:
         type: NodePort
         nodePorts:
-          http: 30080
-          https: 30443
+          tcp:
+            "9292": 30292
+    tcp:
+      "9292": "system-gitops/webhook-receiver:80"

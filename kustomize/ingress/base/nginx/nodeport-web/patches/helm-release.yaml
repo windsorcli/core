@@ -1,0 +1,16 @@
+---
+apiVersion: helm.toolkit.fluxcd.io/v2
+kind: HelmRelease
+metadata:
+  name: ingress-nginx-controller
+  namespace: system-ingress
+spec:
+  values:
+    controller:
+      service:
+        type: NodePort
+        enableHttp: true
+        nodePorts:
+          http: 30080
+          https: 30443
+

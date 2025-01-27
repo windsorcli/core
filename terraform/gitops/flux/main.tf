@@ -49,7 +49,7 @@ resource "helm_release" "flux_system" {
         ]
         resources = {
           limits = {
-            memory = "512Gi"
+            memory = "512Mi"
           }
         }
       }
@@ -90,7 +90,7 @@ locals {
 resource "kubernetes_secret" "git_auth" {
   metadata {
     name      = var.git_auth_secret
-    namespace = var.flux_namespace
+    namespace = kubernetes_namespace.flux_system.metadata[0].name
   }
 
   data = var.ssh_public_key != "" ? {
@@ -101,5 +101,20 @@ resource "kubernetes_secret" "git_auth" {
     username      = var.git_username
     password      = var.git_password
     "known_hosts" = local.known_hosts_content
+  }
+}
+
+#-----------------------------------------------------------------------------------------------------------------------
+# Set up webhook token
+#-----------------------------------------------------------------------------------------------------------------------
+
+resource "kubernetes_secret" "webhook_token" {
+  metadata {
+    name      = "webhook-token"
+    namespace = kubernetes_namespace.flux_system.metadata[0].name
+  }
+
+  data = {
+    token = var.webhook_token
   }
 }
