@@ -23,7 +23,7 @@ contexts:
         rsync_protect: flux-system
         username: local
         password: local
-        webhook_url: http://flux-webhook.test:8080/hook/216e5ada00ea684e0f694bcccf491d204baba6840e615c4f065ac085552af878
+        webhook_url: http://worker-1.test:30292/hook/5dc88e45e809fb0872b749c0969067e2c1fd142e17aed07573fad20553cc0c59
         verify_ssl: false
         image: ghcr.io/windsorcli/git-livereload:v0.1.1
     terraform:
@@ -45,8 +45,7 @@ contexts:
       nodeports:
       - 8080:30080/tcp
       - 8443:30443/tcp
+      - 9292:30292/tcp
     dns:
       enabled: true
       domain: test
-      records:
-      - 127.0.0.1 flux-webhook.test

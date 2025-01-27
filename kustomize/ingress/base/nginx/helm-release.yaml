@@ -16,3 +16,7 @@ spec:
         kind: HelmRepository
         name: ingress-nginx
         namespace: system-ingress
+  values:
+    controller:
+      service:
+        enableHttp: false
