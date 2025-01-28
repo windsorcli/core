@@ -1,6 +1,6 @@
 version: v1alpha1
 contexts:
-  local:
+  default:
     docker:
       enabled: true
       registries:
@@ -42,10 +42,10 @@ contexts:
         count: 1
         cpu: 4
         memory: 4
-      nodeports:
-      - 8080:30080/tcp
-      - 8443:30443/tcp
-      - 9292:30292/tcp
+        nodeports:
+        - 8080:30080/tcp
+        - 8443:30443/tcp
+        - 9292:30292/tcp
     dns:
       enabled: true
       domain: test
