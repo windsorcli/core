@@ -1,7 +1,7 @@
 kind: Blueprint
 apiVersion: blueprints.windsorcli.dev/v1alpha1
 metadata:
-  name: local
+  name: default
   description: This blueprint outlines resources in the local context
 repository:
   url: http://git.test/git/core
@@ -17,8 +17,20 @@ terraform:
 - path: cluster/talos
 - path: gitops/flux
 kustomize:
+- name: pki-base
+  path: pki/base
+  components:
+  - cert-manager
+- name: pki-resources
+  path: pki/resources
+  dependsOn:
+  - pki-base
+  components:
+  - public-issuer/selfsigned
 - name: ingress-base
   path: ingress/base
+  dependsOn:
+  - pki-resources
   components:
   - nginx
   - nginx/nodeport-web

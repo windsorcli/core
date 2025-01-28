@@ -25,7 +25,7 @@ machine:
       forwardKubeDNSToHost: true
   kubelet:
     extraArgs:
-      rotate-server-certificates: true
+      rotate-server-certificates: "true"
   network:
     interfaces:
     - ignore: true
@@ -54,7 +54,7 @@ EOF
 
 // Machine config details for control planes
 controlplanes = [{
-  endpoint = "127.0.0.1:50001"
+  endpoint = "127.0.0.1:50000"
   hostname = "controlplane-1.test"
   node     = "127.0.0.1"
 }]
