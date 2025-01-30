@@ -9,7 +9,7 @@ on:
     branches:
       - main
 env:
-  windsorcli_version: v0.3.2 
+  windsorcli_version: ubuntu-fixes 
 
 jobs:
 
@@ -55,7 +55,7 @@ jobs:
         run: |
           aqua install
 
-      - name: Install Windsor CLI from Main Branch
+      - name: Install Windsor CLI from ${windsorcli_version} Branch
         run: |
           git clone --branch ${windsorcli_version} https://github.com/windsorcli/cli.git
           cd cli/cmd/windsor
