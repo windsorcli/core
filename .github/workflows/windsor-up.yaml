@@ -55,9 +55,9 @@ jobs:
         run: |
           aqua install
 
-      - name: Install Windsor CLI from ${windsorcli_version} Branch
+      - name: Install Windsor CLI from ${{ env.windsorcli_version }} Branch
         run: |
-          git clone --branch ${windsorcli_version} https://github.com/windsorcli/cli.git
+          git clone --branch ${{ env.windsorcli_version }} https://github.com/windsorcli/cli.git
           cd cli/cmd/windsor
           go build -o windsor
           chmod +x windsor
