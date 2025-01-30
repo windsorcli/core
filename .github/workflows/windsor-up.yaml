@@ -63,18 +63,6 @@ jobs:
       #     curl -L -o windsor_${windsorcli_version#v}_linux_amd64.tar.gz https://github.com/windsorcli/cli/releases/download/${windsorcli_version}/windsor_${windsorcli_version#v}_linux_amd64.tar.gz && \
       #     tar -xzf windsor_${windsorcli_version#v}_linux_amd64.tar.gz -C /usr/local/bin && \
       #     chmod +x /usr/local/bin/windsor
-      # - name: Windsor CLI Version Check
-      #   run: |
-      #     which windsor
-      #     windsor version
-      #     expected_version=${windsorcli_version#v}
-      #     actual_version=$(windsor version | grep -o '[0-9]\+\.[0-9]\+\.[0-9]\+')
-      #     echo "Expected version: $expected_version"
-      #     echo "Actual version: $actual_version"
-      #     if [ "$actual_version" != "$expected_version" ]; then
-      #       echo "Version mismatch: expected $expected_version but got $actual_version"
-      #       false
-      #     fi
 
 # END OF WINDSOR FROM A RELEASE INSTALLATION          
 
@@ -107,7 +95,8 @@ jobs:
       - name: Disable DNS
         run: |
           echo "Disabling DNS in windsor.yaml"
-          sed -i '/dns:/!b;n;c\      enabled: false' windsor.yaml
+          # sed -i '/dns:/!b;n;c\      enabled: false' windsor.yaml
+          yq e '.dns.enabled = false' -i windsor.yaml
           cat windsor.yaml
       - name: Windsor Up
         run: |
