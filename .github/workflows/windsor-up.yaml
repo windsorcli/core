@@ -10,9 +10,6 @@ on:
       - main
 env:
   windsorcli_version: v0.3.2 
-  target_repo_owner: windsorcli
-  target_repo_name: cli
-  public_key_id: 05519B202F65EE4F
 
 jobs:
 
@@ -60,7 +57,7 @@ jobs:
 
       - name: Install Windsor CLI from Main Branch
         run: |
-          git clone https://github.com/windsorcli/cli.git
+          git clone --branch ${windsorcli_version} https://github.com/windsorcli/cli.git
           cd cli/cmd/windsor
           go build -o windsor
           chmod +x windsor
