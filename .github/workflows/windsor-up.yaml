@@ -78,16 +78,11 @@ jobs:
       - name: Windsor Cleanup (REMOVE THIS STEP)
         if: always()
         run: |
-          rm -rf /usr/local/bin/windsor
-          rm -rf windsor_${windsorcli_version#v}_linux_amd64.tar.gz
-          rm -rf *
-          sudo rm -rf .windsor
-          rm -rf .git
-          rm -rf .github
-          rm -rf .gitignore
-          rm -rf .yamllint
-          rm -rf ~/.config/windsor
-
+          rm -rf contexts
+          rm -rf kustomize
+          rm -rf terraform 
+          rm windsor.yaml
+          
       - name: Windsor Init
         run: |
           windsor init local
