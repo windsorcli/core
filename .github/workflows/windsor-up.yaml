@@ -58,26 +58,26 @@ jobs:
         run: |
           aqua install
 # THIS INSTALLS WINDSOR FROM A RELEASE          
-      # - name: Install Windsor CLI
-      #   run: |
-      #     curl -L -o windsor_${windsorcli_version#v}_linux_amd64.tar.gz https://github.com/windsorcli/cli/releases/download/${windsorcli_version}/windsor_${windsorcli_version#v}_linux_amd64.tar.gz && \
-      #     tar -xzf windsor_${windsorcli_version#v}_linux_amd64.tar.gz -C /usr/local/bin && \
-      #     chmod +x /usr/local/bin/windsor
+      - name: Install Windsor CLI
+        run: |
+          curl -L -o windsor_${windsorcli_version#v}_linux_amd64.tar.gz https://github.com/windsorcli/cli/releases/download/${windsorcli_version}/windsor_${windsorcli_version#v}_linux_amd64.tar.gz && \
+          sudo tar -xzf windsor_${windsorcli_version#v}_linux_amd64.tar.gz -C /usr/local/bin && \
+          sudo chmod +x /usr/local/bin/windsor
 
 # END OF WINDSOR FROM A RELEASE INSTALLATION          
 
 # THIS INSTALLS WINDSOR FROM A BRANCH          
 
-      - name: Install Windsor CLI from ${{ env.windsorcli_version }} Branch
-        run: |
-          git clone --branch ${{ env.windsorcli_version }} https://github.com/windsorcli/cli.git
-          cd cli
-          cd cmd/windsor
-          go build -o windsor
-          chmod +x windsor
-          mkdir -p $HOME/.local/bin
-          mv windsor $HOME/.local/bin
-          echo "$HOME/.local/bin" >> $GITHUB_PATH  
+      # - name: Install Windsor CLI from ${{ env.windsorcli_version }} Branch
+      #   run: |
+      #     git clone --branch ${{ env.windsorcli_version }} https://github.com/windsorcli/cli.git
+      #     cd cli
+      #     cd cmd/windsor
+      #     go build -o windsor
+      #     chmod +x windsor
+      #     mkdir -p $HOME/.local/bin
+      #     mv windsor $HOME/.local/bin
+      #     echo "$HOME/.local/bin" >> $GITHUB_PATH  
 # END OF WINDSOR FROM A BRANCH INSTALLATION 
 
       - name: REMOVE THIS STEP TO TEST WITH CORE FILES
@@ -95,8 +95,7 @@ jobs:
       - name: Disable DNS
         run: |
           echo "Disabling DNS in windsor.yaml"
-          # sed -i '/dns:/!b;n;c\      enabled: false' windsor.yaml
-          yq e '.dns.enabled = false' -i windsor.yaml
+          sed -i '/dns:/!b;n;c\      enabled: false' windsor.yaml
           cat windsor.yaml
       - name: Windsor Up
         run: |
