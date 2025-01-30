@@ -74,6 +74,20 @@ jobs:
             echo "Version mismatch: expected $expected_version but got $actual_version"
             false
           fi
+
+      - name: Windsor Cleanup (REMOVE THIS STEP)
+        if: always()
+        run: |
+          rm -rf /usr/local/bin/windsor
+          rm -rf windsor_${windsorcli_version#v}_linux_amd64.tar.gz
+          rm -rf *
+          sudo rm -rf .windsor
+          rm -rf .git
+          rm -rf .github
+          rm -rf .gitignore
+          rm -rf .yamllint
+          rm -rf ~/.config/windsor
+
       - name: Windsor Init
         run: |
           windsor init local
