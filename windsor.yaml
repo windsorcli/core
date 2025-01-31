@@ -46,6 +46,11 @@ contexts:
         - 8080:30080/tcp
         - 8443:30443/tcp
         - 9292:30292/tcp
+    network:
+      cidr_block: 10.5.0.0/16
+      loadbalancer_ips:
+        start: 10.5.1.1
+        end: 10.5.1.10
     dns:
       enabled: true
       domain: test
