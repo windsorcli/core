@@ -24,7 +24,7 @@ jobs:
       TALOSCONFIG: ${{ github.workspace }}/contexts/local/.talos/config
       PRIVATE_DOMAIN_NAME: private.test
       DNS_SERVER_IP: "10.5.255.200"
-      WINDSOR_VERSION: "v0.2.0"
+      WINDSOR_VERSION: "v0.3.2"
 
     steps:
       - name: Checkout code
@@ -48,17 +48,36 @@ jobs:
       - name: Install tools
         run: aqua install
       
-      - name: Install Windsor CLI from Main Branch
+      - name: Install Windsor CLI
         run: |
-          git clone https://github.com/windsorcli/cli.git
-          cd cli/cmd/windsor
-          go build -o windsor
-          chmod +x windsor
-          mkdir -p $HOME/.local/bin
-          mv windsor $HOME/.local/bin
-          echo "$HOME/.local/bin" >> $GITHUB_PATH
-
-      - name: Print Windsor Version
+          curl -L -o windsor_${WINDSOR_VERSION#v}_linux_amd64.tar.gz https://github.com/windsorcli/cli/releases/download/${WINDSOR_VERSION}/windsor_${WINDSOR_VERSION#v}_linux_amd64.tar.gz && \
+          sudo tar -xzf windsor_${WINDSOR_VERSION#v}_linux_amd64.tar.gz -C /usr/local/bin && \
+          sudo chmod +x /usr/local/bin/windsor
+          
+      - name: Windsor Init
         run: |
           windsor version
+          windsor init local
+
+      - name: Disable DNS
+        run: |
+          echo "Disabling DNS in windsor.yaml"
+          sed -i '/dns:/!b;n;c\      enabled: false' windsor.yaml
+          cat windsor.yaml
+
+      - name: Windsor Up
+        run: |
+          windsor context get
+          windsor up --verbose
+          
+      - name: Verify Kubernetes Nodes
+        run: |
+          windsor exec -- kubectl get nodes
+          windsor exec -- kubectl get pods -A
+          windsor exec -- bash -c 'kubectl get pods -A -o json | jq -r ".items[] | select(.status.phase != \"Running\") | .metadata.name" | wc -l' | grep -q '^0$' || (echo "Not all pods are in ready state" && exit 1)
+
+      - name: Windsor Down
+        run: |
+          windsor down --clean
+
           
