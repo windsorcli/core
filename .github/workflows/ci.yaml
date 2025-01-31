@@ -50,34 +50,40 @@ jobs:
       
       - name: Install Windsor CLI
         run: |
+          set -e
           curl -L -o windsor_${WINDSOR_VERSION#v}_linux_amd64.tar.gz https://github.com/windsorcli/cli/releases/download/${WINDSOR_VERSION}/windsor_${WINDSOR_VERSION#v}_linux_amd64.tar.gz && \
           sudo tar -xzf windsor_${WINDSOR_VERSION#v}_linux_amd64.tar.gz -C /usr/local/bin && \
           sudo chmod +x /usr/local/bin/windsor
           
       - name: Windsor Init
         run: |
+          set -e
           windsor version
           windsor init local
 
       - name: Disable DNS
         run: |
+          set -e
           echo "Disabling DNS in windsor.yaml"
           sed -i '/dns:/!b;n;c\      enabled: false' windsor.yaml
           cat windsor.yaml
 
       - name: Windsor Up
         run: |
+          set -e
           windsor context get
           windsor up --verbose
           
       - name: Verify Kubernetes Nodes
         run: |
+          set -e
           windsor exec -- kubectl get nodes
           windsor exec -- kubectl get pods -A
           windsor exec -- bash -c 'kubectl get pods -A -o json | jq -r ".items[] | select(.status.phase != \"Running\") | .metadata.name" | wc -l' | grep -q '^0$' || (echo "Not all pods are in ready state" && exit 1)
 
       - name: Windsor Down
         run: |
+          set -e
           windsor down --clean
 
           
