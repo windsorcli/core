@@ -73,12 +73,7 @@ jobs:
         run: |
           set -e
           windsor context get
-          windsor up --verbose || {
-            exit_code=$?
-            echo "Windsor up command failed with exit code: $exit_code"
-            echo "Fetching logs..."
-            exit $exit_code
-          }
+          windsor up --verbose
           
       - name: Verify Kubernetes Nodes
         run: |
