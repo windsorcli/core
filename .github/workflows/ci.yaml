@@ -25,6 +25,7 @@ jobs:
       PRIVATE_DOMAIN_NAME: private.test
       DNS_SERVER_IP: "10.5.255.200"
       WINDSOR_VERSION: "v0.3.2"
+      WINDSOR_PROJECT_ROOT: 
 
     steps:
       - name: Checkout code
@@ -72,7 +73,12 @@ jobs:
         run: |
           set -e
           windsor context get
-          windsor up --verbose
+          windsor up --verbose || {
+            exit_code=$?
+            echo "Windsor up command failed with exit code: $exit_code"
+            echo "Fetching logs..."
+            exit $exit_code
+          }
           
       - name: Verify Kubernetes Nodes
         run: |
