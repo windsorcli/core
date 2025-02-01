@@ -27,6 +27,13 @@ kustomize:
   - pki-base
   components:
   - public-issuer/selfsigned
+- name: dns
+  path: dns
+  dependsOn:
+  - pki-base
+  components:
+  - coredns
+  - coredns/etcd
 - name: lb-base
   path: lb/base
   components:
