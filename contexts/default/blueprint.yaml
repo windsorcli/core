@@ -27,6 +27,16 @@ kustomize:
   - pki-base
   components:
   - public-issuer/selfsigned
+- name: lb-base
+  path: lb/base
+  components:
+  - metallb
+- name: lb-resources
+  path: lb/resources
+  dependsOn:
+  - lb-base
+  components:
+  - metallb/layer2
 - name: ingress-base
   path: ingress/base
   dependsOn:

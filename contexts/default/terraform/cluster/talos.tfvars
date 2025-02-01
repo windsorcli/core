@@ -61,7 +61,7 @@ controlplanes = [{
 
 // Machine config details for workers
 workers = [{
-  endpoint = "127.0.0.1:50002"
+  endpoint = "127.0.0.1:50001"
   hostname = "worker-1.test"
   node     = "127.0.0.1"
 }]
