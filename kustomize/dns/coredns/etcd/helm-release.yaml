@@ -1,0 +1,59 @@
+apiVersion: helm.toolkit.fluxcd.io/v2
+kind: HelmRelease
+metadata:
+  name: etcd-coredns
+  namespace: system-dns
+spec:
+  interval: 5m
+  timeout: 10m
+  chart:
+    spec:
+      chart: etcd
+      # renovate: datasource=helm depName=etcd package=etcd helmRepo=https://charts.bitnami.com/bitnami
+      version: 10.2.6
+      sourceRef:
+        kind: HelmRepository
+        name: coredns-etcd-bitnami
+        namespace: system-gitops
+  values:      
+    global:
+      storageClass: single
+    replicaCount: 3
+    securityContext:
+      fsGroup: 1000
+    # Modifies the liveness probe to behave like the other probes. Endpoint healthchecks with mTLS are not supported by k8s.
+    customLivenessProbe:
+      exec:
+        command:
+        - /opt/bitnami/scripts/etcd/healthcheck.sh
+      initialDelaySeconds: 60
+      periodSeconds: 10
+      timeoutSeconds: 5
+      successThreshold: 1
+      failureThreshold: 5
+    auth:
+      rbac:
+        create: false
+        allowNoneAuthentication: true
+      peer:
+        useAutoTLS: false
+        secureTransport: true
+        enableAuthentication: true
+        certFilename: tls.crt
+        certKeyFilename: tls.key
+        caFilename: ca.crt
+        existingSecret: etcd-peer-tls
+      client:
+        secureTransport: true
+        enableAuthentication: true
+        certFilename: tls.crt
+        certKeyFilename: tls.key
+        caFilename: ca.crt
+        existingSecret: etcd-server-tls
+    persistence:
+      enabled: true
+      size: 256Mi
+    resources:
+      requests:
+        cpu: 200m
+        memory: 256Mi

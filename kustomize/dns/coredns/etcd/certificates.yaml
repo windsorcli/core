@@ -1,0 +1,56 @@
+---
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: etcd-peer
+  namespace: system-dns
+spec:
+  secretName: etcd-peer-tls
+  issuerRef:
+    name: private
+    kind: ClusterIssuer
+  commonName: etcd-peer-coredns
+  dnsNames:
+    - "etcd-coredns.system-dns.svc.cluster.local"
+    - "*.etcd-coredns.system-dns.svc.cluster.local"
+    - "etcd-coredns-headless.system-dns.svc.cluster.local"
+    - "*.etcd-coredns-headless.system-dns.svc.cluster.local"
+  usages:
+    - digital signature
+    - key encipherment
+    - server auth
+    - client auth
+---
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: etcd-server
+  namespace: system-dns
+spec:
+  secretName: etcd-server-tls
+  issuerRef:
+    name: private
+    kind: ClusterIssuer
+  commonName: etcd-coredns
+  dnsNames:
+    - "etcd-coredns.system-dns.svc.cluster.local"
+    - "*.etcd-coredns.system-dns.svc.cluster.local"
+    - "etcd-coredns-headless.system-dns.svc.cluster.local"
+    - "*.etcd-coredns-headless.system-dns.svc.cluster.local"
+  usages:
+    - server auth
+    - client auth
+---
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: etcd-client
+  namespace: system-dns
+spec:
+  secretName: etcd-client-tls
+  issuerRef:
+    name: private
+    kind: ClusterIssuer
+  commonName: etcd-coredns
+  usages:
+    - client auth
