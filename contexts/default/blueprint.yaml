@@ -19,42 +19,52 @@ terraform:
 kustomize:
 - name: pki-base
   path: pki/base
+  force: true
   components:
   - cert-manager
 - name: pki-resources
   path: pki/resources
   dependsOn:
   - pki-base
+  force: true
   components:
+  - private-issuer/selfsigned
   - public-issuer/selfsigned
 - name: dns
   path: dns
   dependsOn:
   - pki-base
+  force: true
   components:
   - coredns
   - coredns/etcd
 - name: lb-base
   path: lb/base
+  force: true
   components:
   - metallb
 - name: lb-resources
   path: lb/resources
   dependsOn:
   - lb-base
+  force: true
   components:
   - metallb/layer2
 - name: ingress-base
   path: ingress/base
   dependsOn:
   - pki-resources
+  force: true
   components:
   - nginx
   - nginx/nodeport-web
   - nginx/nodeport-flux-webhook
+  - nginx/coredns
+  - nginx/coredns/nodeport
 - name: gitops
   path: gitops/flux
   dependsOn:
   - ingress-base
+  force: true
   components:
   - webhook

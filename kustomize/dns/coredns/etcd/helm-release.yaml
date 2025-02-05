@@ -16,8 +16,8 @@ spec:
         name: coredns-etcd-bitnami
         namespace: system-gitops
   values:      
-    global:
-      storageClass: single
+    # global:
+    #   storageClass: single
     replicaCount: 3
     securityContext:
       fsGroup: 1000
@@ -49,10 +49,10 @@ spec:
         certFilename: tls.crt
         certKeyFilename: tls.key
         caFilename: ca.crt
+        # The server certificate is what etcd serves to clients
         existingSecret: etcd-server-tls
     persistence:
-      enabled: true
-      size: 256Mi
+      enabled: false
     resources:
       requests:
         cpu: 200m

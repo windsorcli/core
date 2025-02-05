@@ -1,0 +1,15 @@
+---
+apiVersion: helm.toolkit.fluxcd.io/v2
+kind: HelmRelease
+metadata:
+  name: ingress-nginx-controller
+  namespace: system-ingress
+spec:
+  values:
+    controller:
+      service:
+        enableUDP: true
+    udp:
+      "53": "system-dns/coredns:53"
+    tcp:
+      "53": "system-dns/coredns:53"
