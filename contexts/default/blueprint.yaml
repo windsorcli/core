@@ -17,30 +17,45 @@ terraform:
 - path: cluster/talos
 - path: gitops/flux
 kustomize:
+- name: policy-base
+  path: policy/base
+  components:
+  - kyverno
+- name: policy-resources
+  path: policy/resources
+  dependsOn:
+  - policy-base
 - name: pki-base
   path: pki/base
+  dependsOn:
+  - policy-resources
   components:
   - cert-manager
 - name: pki-resources
   path: pki/resources
   dependsOn:
   - pki-base
+  - policy-resources
   components:
   - public-issuer/selfsigned
 - name: lb-base
   path: lb/base
+  dependsOn:
+  - policy-resources
   components:
   - metallb
 - name: lb-resources
   path: lb/resources
   dependsOn:
   - lb-base
+  - policy-resources
   components:
   - metallb/layer2
 - name: ingress-base
   path: ingress/base
   dependsOn:
   - pki-resources
+  - policy-resources
   components:
   - nginx
   - nginx/nodeport-web
@@ -49,5 +64,6 @@ kustomize:
   path: gitops/flux
   dependsOn:
   - ingress-base
+  - policy-resources
   components:
   - webhook

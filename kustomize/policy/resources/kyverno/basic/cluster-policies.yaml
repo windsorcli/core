@@ -1,0 +1,29 @@
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: audit-resource-limits-requests
+spec:
+  validationFailureAction: audit
+  background: false
+  rules:
+    - name: check-resource-limits-requests
+      match:
+        resources:
+          kinds:
+            - Pod
+      preconditions:
+        all:
+          - key: "{{request.namespace}}"
+            operator: NotEquals
+            value: "kube-system"
+      validate:
+        message: "Resource limits and requests must be set on all containers."
+        anyPattern:
+          - spec:
+              containers:
+                - resources:
+                    requests:
+                      memory: "?*"
+                      cpu: "?*"
+                    limits:
+                      memory: "?*"
