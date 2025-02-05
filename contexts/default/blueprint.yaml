@@ -31,12 +31,14 @@ kustomize:
   - policy-resources
   components:
   - cert-manager
+  - trust-manager
 - name: pki-resources
   path: pki/resources
   dependsOn:
   - pki-base
   - policy-resources
   components:
+  - private-issuer/ca
   - public-issuer/selfsigned
 - name: lb-base
   path: lb/base
