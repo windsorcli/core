@@ -38,6 +38,9 @@ kustomize:
   components:
   - coredns
   - coredns/etcd
+  - external-dns
+  - external-dns/coredns
+  - external-dns/ingress
 - name: lb-base
   path: lb/base
   force: true
