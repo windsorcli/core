@@ -17,6 +17,8 @@ terraform:
 - path: cluster/talos
 - path: gitops/flux
 kustomize:
+
+# Policy
 - name: policy-base
   path: policy/base
   components:
@@ -25,6 +27,8 @@ kustomize:
   path: policy/resources
   dependsOn:
   - policy-base
+
+# PKI
 - name: pki-base
   path: pki/base
   dependsOn:
@@ -41,6 +45,8 @@ kustomize:
   components:
   - private-issuer/ca
   - public-issuer/selfsigned
+
+# DNS
 - name: dns
   path: dns
   dependsOn:
@@ -59,13 +65,8 @@ kustomize:
   force: true
   components:
   - metallb
-- name: lb-resources
-  path: lb/resources
-  dependsOn:
-  - lb-base
-  force: true
-  components:
-  - metallb/layer2
+
+# Ingress
 - name: ingress-base
   path: ingress/base
   dependsOn:
@@ -77,6 +78,17 @@ kustomize:
   - nginx/nodeport-flux-webhook
   - nginx/coredns
   - nginx/coredns/nodeport
+
+# Load Balancer
+- name: lb-resources
+  path: lb/resources
+  dependsOn:
+  - lb-base
+  force: true
+  components:
+  - metallb/layer2
+
+# GitOps
 - name: gitops
   path: gitops/flux
   dependsOn:
