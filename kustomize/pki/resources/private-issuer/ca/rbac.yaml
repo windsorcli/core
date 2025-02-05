@@ -1,0 +1,48 @@
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: copy-root-cert-role
+  namespace: system-pki
+rules:
+- apiGroups: [""]
+  resources: ["secrets"]
+  verbs: ["get"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: copy-root-cert
+  namespace: system-pki
+subjects:
+- kind: ServiceAccount
+  name: copy-root-cert
+  namespace: system-pki
+roleRef:
+  kind: Role
+  name: copy-root-cert-role
+  apiGroup: rbac.authorization.k8s.io
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  namespace: system-pki-trust
+  name: copy-root-cert-role-trust
+rules:
+- apiGroups: [""]
+  resources: ["configmaps"]
+  verbs: ["get", "create", "update"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: copy-root-cert-trust
+  namespace: system-pki-trust
+subjects:
+- kind: ServiceAccount
+  name: copy-root-cert
+  namespace: system-pki
+roleRef:
+  kind: Role
+  name: copy-root-cert-role-trust
+  apiGroup: rbac.authorization.k8s.io

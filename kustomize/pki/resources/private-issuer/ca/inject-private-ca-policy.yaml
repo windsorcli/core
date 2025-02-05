@@ -1,0 +1,38 @@
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: inject-private-ca
+spec:
+  background: false
+  rules:
+    - name: inject-private-ca
+      match:
+        resources:
+          kinds:
+            - Pod
+          selector:
+            matchLabels:
+              use-custom-ca: "true"
+      mutate:
+        patchStrategicMerge:
+          spec:
+            volumes:
+              - name: private-ca-bundle
+                configMap:
+                  name: private-ca
+                  defaultMode: 0644
+                  optional: false
+                  items:
+                    - key: trust-bundle.pem
+                      path: ca.crt
+            containers:
+              - (name): "*"
+                volumeMounts:
+                  - name: private-ca-bundle
+                    mountPath: /usr/local/share/ca-certificates/ca.crt
+                    subPath: ca.crt
+                env:
+                  - name: SSL_CERT_FILE
+                    value: /usr/local/share/ca-certificates/ca.crt
+                  - name: REQUESTS_CA_BUNDLE
+                    value: /usr/local/share/ca-certificates/ca.crt

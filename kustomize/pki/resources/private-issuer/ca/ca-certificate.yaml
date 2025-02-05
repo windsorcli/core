@@ -1,0 +1,19 @@
+---
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: private-ca
+  namespace: system-pki
+spec:
+  isCA: true
+  commonName: Private CA
+  secretName: private-ca-cert
+  duration: 8760h
+  renewBefore: 720h
+  issuerRef:
+    name: private-ca
+    kind: ClusterIssuer
+  usages:
+    - digital signature
+    - cert sign
+    - crl sign
