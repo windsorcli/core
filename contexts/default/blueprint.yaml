@@ -17,18 +17,29 @@ terraform:
 - path: cluster/talos
 - path: gitops/flux
 kustomize:
+- name: policy-base
+  path: policy/base
+  components:
+  - kyverno
+- name: policy-resources
+  path: policy/resources
+  dependsOn:
+  - policy-base
 - name: pki-base
   path: pki/base
+  dependsOn:
+  - policy-resources
   force: true
   components:
   - cert-manager
+  - trust-manager
 - name: pki-resources
   path: pki/resources
   dependsOn:
   - pki-base
   force: true
   components:
-  - private-issuer/selfsigned
+  - private-issuer/ca
   - public-issuer/selfsigned
 - name: dns
   path: dns
@@ -43,6 +54,8 @@ kustomize:
   - external-dns/ingress
 - name: lb-base
   path: lb/base
+  dependsOn:
+  - policy-resources
   force: true
   components:
   - metallb
