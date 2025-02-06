@@ -8,8 +8,8 @@ spec:
   values:
     controller:
       service:
-        type: NodePort
         enableHttp: true
+        enableTls: true
         nodePorts:
           http: 30080
           https: 30443

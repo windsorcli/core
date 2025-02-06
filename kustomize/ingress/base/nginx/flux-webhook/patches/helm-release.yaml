@@ -8,7 +8,6 @@ spec:
   values:
     controller:
       service:
-        type: NodePort
         nodePorts:
           tcp:
             "9292": 30292

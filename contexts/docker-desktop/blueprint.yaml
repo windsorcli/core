@@ -1,8 +1,8 @@
 kind: Blueprint
 apiVersion: blueprints.windsorcli.dev/v1alpha1
 metadata:
-  name: default
-  description: This blueprint outlines resources in the local context
+  name: docker-desktop
+  description: This blueprint configures core for running on Docker Desktop
 repository:
   url: http://git.test/git/core
   ref:
@@ -17,8 +17,6 @@ terraform:
 - path: cluster/talos
 - path: gitops/flux
 kustomize:
-
-# Policy
 - name: policy-base
   path: policy/base
   components:
@@ -27,8 +25,6 @@ kustomize:
   path: policy/resources
   dependsOn:
   - policy-base
-
-# PKI
 - name: pki-base
   path: pki/base
   dependsOn:
@@ -45,28 +41,6 @@ kustomize:
   components:
   - private-issuer/ca
   - public-issuer/selfsigned
-
-# DNS
-- name: dns
-  path: dns
-  dependsOn:
-  - pki-base
-  force: true
-  components:
-  - coredns
-  - coredns/etcd
-  - external-dns
-  - external-dns/coredns
-  - external-dns/ingress
-- name: lb-base
-  path: lb/base
-  dependsOn:
-  - policy-resources
-  force: true
-  components:
-  - metallb
-
-# Ingress
 - name: ingress-base
   path: ingress/base
   dependsOn:
@@ -74,21 +48,9 @@ kustomize:
   force: true
   components:
   - nginx
-  - nginx/nodeport-web
-  - nginx/nodeport-flux-webhook
-  - nginx/coredns
-  - nginx/coredns/nodeport
-
-# Load Balancer
-- name: lb-resources
-  path: lb/resources
-  dependsOn:
-  - lb-base
-  force: true
-  components:
-  - metallb/layer2
-
-# GitOps
+  - nginx/nodeport
+  - nginx/flux-webhook
+  - nginx/web
 - name: gitops
   path: gitops/flux
   dependsOn:

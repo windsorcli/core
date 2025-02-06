@@ -8,9 +8,5 @@ spec:
   values:
     controller:
       service:
-        type: NodePort
-        nodePorts:
-          udp:
-            "53": 30053
-          tcp:
-            "53": 30053
+        type: LoadBalancer
+        loadBalancerIP: ${LOADBALANCER_IP_START}

@@ -9,6 +9,11 @@ spec:
     controller:
       service:
         enableUDP: true
+        nodePorts:
+          udp:
+            "53": 30053
+          tcp:
+            "53": 30053
     udp:
       "53": "system-dns/coredns:53"
     tcp:
