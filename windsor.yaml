@@ -96,7 +96,7 @@ contexts:
         count: 1
         cpu: 4
         memory: 4
-        nodeports:
+        hostports:
         - 8080:30080/tcp
         - 8443:30443/tcp
         - 9292:30292/tcp
