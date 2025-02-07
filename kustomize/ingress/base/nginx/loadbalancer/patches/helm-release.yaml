@@ -8,9 +8,5 @@ spec:
   values:
     controller:
       service:
-        type: NodePort
-        nodePorts:
-          tcp:
-            "9292": 30292
-    tcp:
-      "9292": "system-gitops/webhook-receiver:80"
+        type: LoadBalancer
+        loadBalancerIP: ${LOADBALANCER_IP_START}

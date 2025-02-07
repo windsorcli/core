@@ -1,0 +1,15 @@
+---
+apiVersion: helm.toolkit.fluxcd.io/v2
+kind: HelmRelease
+metadata:
+  name: ingress-nginx-controller
+  namespace: system-ingress
+spec:
+  values:
+    controller:
+      service:
+        nodePorts:
+          tcp:
+            "9292": 30292
+    tcp:
+      "9292": "system-gitops/webhook-receiver:80"

@@ -1,8 +1,8 @@
 kind: Blueprint
 apiVersion: blueprints.windsorcli.dev/v1alpha1
 metadata:
-  name: default
-  description: This blueprint outlines resources in the local context
+  name: docker-desktop
+  description: This blueprint configures core for running on Docker Desktop
 repository:
   url: http://git.test/git/core
   ref:
@@ -29,6 +29,7 @@ kustomize:
   path: pki/base
   dependsOn:
   - policy-resources
+  force: true
   components:
   - cert-manager
   - trust-manager
@@ -36,36 +37,24 @@ kustomize:
   path: pki/resources
   dependsOn:
   - pki-base
-  - policy-resources
+  force: true
   components:
   - private-issuer/ca
   - public-issuer/selfsigned
-- name: lb-base
-  path: lb/base
-  dependsOn:
-  - policy-resources
-  components:
-  - metallb
-- name: lb-resources
-  path: lb/resources
-  dependsOn:
-  - lb-base
-  - policy-resources
-  components:
-  - metallb/layer2
 - name: ingress-base
   path: ingress/base
   dependsOn:
   - pki-resources
-  - policy-resources
+  force: true
   components:
   - nginx
-  - nginx/nodeport-web
-  - nginx/nodeport-flux-webhook
+  - nginx/nodeport
+  - nginx/flux-webhook
+  - nginx/web
 - name: gitops
   path: gitops/flux
   dependsOn:
   - ingress-base
-  - policy-resources
+  force: true
   components:
   - webhook
