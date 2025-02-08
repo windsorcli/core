@@ -1,0 +1,32 @@
+---
+apiVersion: helm.toolkit.fluxcd.io/v2
+kind: HelmRelease
+metadata:
+  name: coredns
+  namespace: system-dns
+spec:
+  values:
+    servers:
+      - zones:
+          - zone: .
+        port: 53
+        plugins:
+          - name: log
+            parameters: stdout
+          - name: errors
+          - name: health
+            configBlock: |-
+              lameduck 5s
+          - name: ready
+          - name: etcd
+            configBlock: |
+              path /skydns
+              endpoint etcd-coredns.system-dns.svc.cluster.local:2379
+              tls /etc/coredns/tls/tls.crt /etc/coredns/tls/tls.key /etc/coredns/tls/ca.crt
+              fallthrough
+          - name: forward
+            parameters: . /etc/resolv.conf
+          - name: loop
+          - name: reload
+          - name: prometheus
+            parameters: 0.0.0.0:9153

@@ -12,3 +12,4 @@ patches:
       kind: HelmRelease
       name: coredns
       namespace: system-dns
+  - path: patches/helm-release.yaml

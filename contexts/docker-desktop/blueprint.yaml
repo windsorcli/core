@@ -25,6 +25,17 @@ kustomize:
   path: policy/resources
   dependsOn:
   - policy-base
+- name: ingress-base
+  path: ingress/base
+  dependsOn:
+  - pki-resources
+  force: true
+  components:
+  - nginx
+  - nginx/nodeport
+  - nginx/coredns
+  - nginx/flux-webhook
+  - nginx/web
 - name: pki-base
   path: pki/base
   dependsOn:
@@ -41,16 +52,19 @@ kustomize:
   components:
   - private-issuer/ca
   - public-issuer/selfsigned
-- name: ingress-base
-  path: ingress/base
+- name: dns
+  path: dns
   dependsOn:
-  - pki-resources
+  - ingress-base
+  - pki-base
   force: true
   components:
-  - nginx
-  - nginx/nodeport
-  - nginx/flux-webhook
-  - nginx/web
+  - coredns
+  - coredns/etcd
+  - external-dns
+  - external-dns/localhost
+  - external-dns/coredns
+  - external-dns/ingress
 - name: gitops
   path: gitops/flux
   dependsOn:
@@ -58,3 +72,10 @@ kustomize:
   force: true
   components:
   - webhook
+- name: demo
+  path: demo/bookinfo
+  dependsOn:
+  - ingress-base
+  force: true
+  components:
+  - ingress

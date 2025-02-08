@@ -52,8 +52,6 @@ contexts:
       domain: test
       forward:
       - 10.5.1.1
-      - 1.1.1.1
-      - 8.8.8.8
   docker-desktop:
     docker:
       enabled: true
@@ -100,6 +98,11 @@ contexts:
         - 8080:30080/tcp
         - 8443:30443/tcp
         - 9292:30292/tcp
+        - 8053:30053/udp
+    network:
+      cidr_block: 10.5.0.0/16
     dns:
       enabled: true
       domain: test
+      forward:
+      - 10.5.0.1:8053
