@@ -21,3 +21,5 @@ spec:
       service:
         enableHttp: false
         enableTls: false
+      ingressClassResource:
+        default: true
