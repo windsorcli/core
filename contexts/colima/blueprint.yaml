@@ -25,6 +25,13 @@ kustomize:
   path: policy/resources
   dependsOn:
   - policy-base
+- name: csi
+  path: csi
+  dependsOn:
+  - policy-resources
+  components:
+  - openebs
+  - openebs/dynamic-localpv
 - name: lb-base
   path: lb/base
   dependsOn:
