@@ -1,0 +1,12 @@
+---
+apiVersion: helm.toolkit.fluxcd.io/v2
+kind: HelmRelease
+metadata:
+  name: openebs
+  namespace: system-csi
+spec:
+  values:
+    localpv-provisioner:
+      localpv:
+        enabled: true
+        basePath: ${LOCAL_VOLUME_PATH}

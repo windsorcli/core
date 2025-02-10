@@ -17,6 +17,9 @@ controlplanes = [{
   node     = "10.5.0.2"
 }]
 
+// A YAML string of worker config patches to apply
+worker_config_patches = "\"machine\":\n  \"kubelet\":\n    \"extraMounts\":\n    - \"destination\": \"/var/local\"\n      \"options\":\n      - \"rbind\"\n      - \"rw\"\n      \"source\": \"/var/local\"\n      \"type\": \"bind\""
+
 // Machine config details for workers
 workers = [{
   endpoint = "10.5.0.11:50000"
