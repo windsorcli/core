@@ -1,0 +1,5 @@
+services:
+  demo:
+    build:
+      context: .
+    image: ${REGISTRY_URL}/demo:1.0.6

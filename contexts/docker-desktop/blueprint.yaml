@@ -80,9 +80,10 @@ kustomize:
   components:
   - webhook
 - name: demo
-  path: demo/bookinfo
+  path: demo
   dependsOn:
   - ingress-base
   force: true
   components:
-  - ingress
+  - bookinfo
+  - bookinfo/ingress

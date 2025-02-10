@@ -97,8 +97,8 @@ contexts:
         cpu: 4
         memory: 4
         hostports:
-        - 8080:30080/tcp
-        - 8443:30443/tcp
+        - 80:30080/tcp
+        - 443:30443/tcp
         - 9292:30292/tcp
         - 8053:30053/udp
         volumes:

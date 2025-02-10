@@ -1,0 +1,16 @@
+{
+  "name": "demo-static",
+  "version": "1.0.0",
+  "description": "Demo project to run server.js using express and livereload",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "dependencies": {
+    "connect-livereload": "^0.6.1",
+    "express": "^4.21.1",
+    "livereload": "^0.9.3"
+  },
+  "author": "",
+  "license": "ISC"
+}
