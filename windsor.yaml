@@ -28,7 +28,8 @@ contexts:
         image: ghcr.io/windsorcli/git-livereload:v0.1.1
     terraform:
       enabled: true
-      backend: local
+      backend:
+        type: local
     vm:
       driver: colima
     cluster:
@@ -82,7 +83,8 @@ contexts:
         image: ghcr.io/windsorcli/git-livereload:v0.1.1
     terraform:
       enabled: true
-      backend: local
+      backend:
+        type: local
     vm:
       driver: docker-desktop
     cluster:
