@@ -34,7 +34,7 @@ jobs:
         run: mkdir -p .docker-cache
 
       - name: Cache .docker-cache
-        uses: actions/cache@6849a6489940f00c2f30c0fb92c6274307ccb58a # v4.1.2
+        uses: actions/cache@0c907a75c2c80ebcb7f088228285e798b750cf8f # v4.2.1
         with:
           path: .docker-cache
           key: docker-cache-${{ runner.os }}-${{ github.sha }}
@@ -44,7 +44,7 @@ jobs:
       - name: Install Aqua on Linux/macOS
         uses: aquaproj/aqua-installer@e2d0136abcf70b7a2f6f505720640750557c4b33 # v3.1.1
         with:
-          aqua_version: v2.28.0
+          aqua_version: v2.44.1
           
       - name: Set aqua path on Linux/macOS
         run: |
@@ -84,59 +84,3 @@ jobs:
 
           # Windsor Down
           windsor down --clean
-
-      # Docker Clean
-      - name: Docker Clean on Linux/macOS
-        run: |
-          # Check for running containers and remove them
-          containers=$(docker ps -aq)
-          if [ -n "$containers" ]; then
-            echo "Removing containers..."
-            docker rm -f "$containers"
-          else
-            echo "No containers to remove."
-          fi
-
-          # Prune system, volumes, and networks
-          echo "Pruning Docker system, volumes, and networks..."
-          docker system prune -a -f
-          docker volume prune -f
-          docker network prune -f
-          docker system prune -a -f
-
-
-      # Windsor Clean
-      - name: Windsor Clean on Linux/macOS
-        run: |
-          if [ "$GITHUB_WORKSPACE" == "/" ]; then
-            echo "Error: GITHUB_WORKSPACE is the root folder. Aborting cleanup."
-            exit 1
-          fi
-
-          if [ ! -d "$GITHUB_WORKSPACE" ]; then
-            echo "Error: GITHUB_WORKSPACE is not a directory. Aborting cleanup."
-            exit 1
-          fi
-          sudo rm -rf $GITHUB_WORKSPACE/.windsor
-          sudo rm -rf $GITHUB_WORKSPACE/*.*
-          sudo rm -rf $GITHUB_WORKSPACE/terraform
-          sudo rm -rf $GITHUB_WORKSPACE/kustomize
-          rm -rf ./.yamllint
-          rm -rf ./.gitignore
-          rm -rf ./.editorconfig
-          rm -rf ./LICENSE
-
-      # Remove Tools
-      - name: Remove tools
-        run: |
-          aqua rm --all 2>&1
-      
-      # Check if any files still exist in the workspace and report them if found (Linux/macOS)
-      - name: Check for remaining files on Linux/macOS
-        run: |
-          remainingFiles=$(find . -maxdepth 1 -type f)
-          if [ -n "$remainingFiles" ]; then
-            echo "Error: Found files in the workspace that should be removed:"
-            echo "$remainingFiles"
-            exit 1
-          fi
