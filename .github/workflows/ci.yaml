@@ -8,6 +8,9 @@ on:
     branches:
       - main
 
+env:
+  WINDSOR_PROJECT_ROOT: ${{ github.workspace }}
+
 jobs:
   # Blueprint Checks
   checks:
@@ -24,7 +27,7 @@ jobs:
       TALOSCONFIG: ${{ github.workspace }}/contexts/local/.talos/config
       PRIVATE_DOMAIN_NAME: private.test
       DNS_SERVER_IP: "10.5.255.200"
-      windsorcli_version: "v0.5.1"
+      WINDSORCLI_VERSION: "v0.5.1"
 
     steps:
       - name: Checkout code
@@ -59,28 +62,18 @@ jobs:
       - name: Install Windsor CLI
         uses: windsorcli/action/.github/actions/windsorcli@078842a08b468bd2278563bbc929e9d968095988 # v0.2.0
         with:
-          version: ${{ env.windsorcli_version }}
+          version: ${{ env.WINDSORCLI_VERSION }}
           install_folder: ${{ github.workspace }}/bin
           context: local
 
       # Windsor Up
       - name: Windsor Up on Linux/macOS
         run: |
-          # Set WINDSOR_PROJECT_ROOT
-          export WINDSOR_PROJECT_ROOT="${{ github.workspace }}"
-
-          # Windsor Init
           windsor init local
 
-          # Windsor Up
-          windsor context get
           windsor up --install --verbose
 
       # Windsor Down
       - name: Windsor Down on Linux/macOS
         run: |
-          # Set WINDSOR_PROJECT_ROOT
-          export WINDSOR_PROJECT_ROOT="${{ github.workspace }}"
-
-          # Windsor Down
           windsor down --clean
