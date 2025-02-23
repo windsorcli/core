@@ -20,8 +20,8 @@ jobs:
   ci:
     strategy:
       matrix:
-        os: [ubuntu-latest]
-        # os: [ubuntu-latest, macos-latest]
+        # os: [ubuntu-latest]
+        os: [ubuntu-latest, macos-latest]
         # os: [ubuntu-latest, windows-latest, macos-latest]
     runs-on: ${{ matrix.os }}
 
@@ -46,11 +46,10 @@ jobs:
           key: docker-cache-${{ runner.os }}-${{ github.sha }}
           restore-keys: docker-cache-${{ runner.os }}-
 
-      - name: Install Docker on macOS
+      - name: Set up Docker
         if: runner.os == 'macOS'
-        run: |
-          brew install --cask docker
-
+        uses: docker/setup-buildx-action@v2
+      
       # Install Aqua
       - name: Install Aqua on Linux/macOS
         if: runner.os == 'Linux' || runner.os == 'macOS'
