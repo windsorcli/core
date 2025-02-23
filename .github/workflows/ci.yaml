@@ -25,7 +25,7 @@ jobs:
       TALOSCONFIG: ${{ github.workspace }}/contexts/local/.talos/config
       PRIVATE_DOMAIN_NAME: private.test
       DNS_SERVER_IP: "10.5.255.200"
-      WINDSOR_VERSION: "v0.5.1"
+      windsorcli_version: "v0.5.1"
 
     steps:
       - name: Checkout code
@@ -62,7 +62,7 @@ jobs:
       - name: Install Windsor CLI
         uses: windsorcli/action/.github/actions/windsorcli@078842a08b468bd2278563bbc929e9d968095988 # v0.2.0
         with:
-          version: ${{ env.WINDSOR_VERSION }}
+          version: ${{ env.windsorcli_version }}
           install_folder: ${{ github.workspace }}/bin
           context: local
 
@@ -177,6 +177,7 @@ jobs:
           rm -rf ./.yamllint
           rm -rf ./.gitignore
           rm -rf ./.editorconfig
+          rm -rf ./LICENSE
 
       - name: Windsor Clean on Windows
         if: always() && runner.os == 'Windows'
