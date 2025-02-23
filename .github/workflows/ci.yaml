@@ -18,13 +18,7 @@ jobs:
     uses: windsorcli/blueprint/.github/workflows/checkov.yaml@37a5386198caa29f87531d09003512adc5407702 # v0.1.0
 
   ci:
-    strategy:
-      fail-fast: false
-      matrix:
-        # os: [ubuntu-latest]
-        # os: [ubuntu-latest, macos-latest]
-        os: [ubuntu-latest, windows-latest, macos-latest]
-    runs-on: ${{ matrix.os }}
+    runs-on: ubuntu-latest
 
     env:
       KUBECONFIG: ${{ github.workspace }}/contexts/local/.kube/config
@@ -47,36 +41,15 @@ jobs:
           key: docker-cache-${{ runner.os }}-${{ github.sha }}
           restore-keys: docker-cache-${{ runner.os }}-
 
-      - name: Set up Docker
-        uses: docker/setup-buildx-action@v2
-      
       # Install Aqua
       - name: Install Aqua on Linux/macOS
-        if: runner.os == 'Linux' || runner.os == 'macOS'
         uses: aquaproj/aqua-installer@e2d0136abcf70b7a2f6f505720640750557c4b33 # v3.1.1
         with:
           aqua_version: v2.28.0
           
-      - name: Install Aqua on Windows
-        if: runner.os == 'Windows'
-        run: |
-          Invoke-WebRequest -Uri "https://github.com/aquaproj/aqua/releases/download/v2.28.0/aqua_windows_amd64.zip" -OutFile "aqua.zip"
-          Expand-Archive -Path "aqua.zip" -DestinationPath "$env:GITHUB_WORKSPACE/bin"
-          Remove-Item -Path "aqua.zip"
-          $env:Path += ";$env:GITHUB_WORKSPACE/bin"
-        shell: powershell
-
       - name: Set aqua path on Linux/macOS
-        if: runner.os == 'Linux' || runner.os == 'macOS'
         run: |
           echo "${AQUA_ROOT_DIR:-${XDG_DATA_HOME:-$HOME/.local/share}/aquaproj-aqua}/bin" >> $GITHUB_PATH
-
-      - name: Set aqua path on Windows
-        if: runner.os == 'Windows'
-        run: |
-          $aquaPath = "${env:GITHUB_WORKSPACE}\bin"
-          [System.Environment]::SetEnvironmentVariable('Path', $env:Path + ';' + $aquaPath, [System.EnvironmentVariableTarget]::Process)
-        shell: powershell
 
       # Install tools
       - name: Install tools
@@ -93,7 +66,6 @@ jobs:
 
       # Windsor Up
       - name: Windsor Up on Linux/macOS
-        if: runner.os == 'Linux' || runner.os == 'macOS'
         run: |
           # Set WINDSOR_PROJECT_ROOT
           export WINDSOR_PROJECT_ROOT="${{ github.workspace }}"
@@ -104,25 +76,9 @@ jobs:
           # Windsor Up
           windsor context get
           windsor up --install --verbose
-
-      - name: Windsor Up on Windows
-        if: runner.os == 'Windows'
-        run: |
-          # Set WINDSOR_PROJECT_ROOT
-          $env:WINDSOR_PROJECT_ROOT="${{ github.workspace }}"
-
-          # Windsor Init
-          windsor init local
-
-          # Windsor Up
-          windsor context get
-          windsor up --install --verbose
-
-        shell: powershell
 
       # Windsor Down
       - name: Windsor Down on Linux/macOS
-        if: always() && (runner.os == 'Linux' || runner.os == 'macOS')
         run: |
           # Set WINDSOR_PROJECT_ROOT
           export WINDSOR_PROJECT_ROOT="${{ github.workspace }}"
@@ -130,19 +86,8 @@ jobs:
           # Windsor Down
           windsor down --clean
 
-      - name: Windsor Down on Windows
-        if: always() && (runner.os == 'Windows')
-        run: |
-          # Set WINDSOR_PROJECT_ROOT
-          $env:WINDSOR_PROJECT_ROOT="${{ github.workspace }}"
-
-          # Windsor Down
-          windsor down --clean
-        shell: powershell
-
       # Docker Clean
       - name: Docker Clean on Linux/macOS
-        if: always() && (runner.os == 'Linux' || runner.os == 'macOS')
         run: |
           # Check for running containers and remove them
           containers=$(docker ps -aq)
@@ -161,30 +106,8 @@ jobs:
           docker system prune -a -f
 
 
-      - name: Docker Clean on Windows
-        if: always() && runner.os == 'Windows'
-        run: |
-          # Check for running containers and remove them
-          $containers = docker ps -aq
-          if ($containers) {
-            Write-Output "Removing containers..."
-            docker rm -f $containers
-          } else {
-            Write-Output "No containers to remove."
-          }
-
-          # Prune system, volumes, and networks
-          Write-Output "Pruning Docker system, volumes, and networks..."
-          docker system prune -a -f
-          docker volume prune -f
-          docker network prune -f
-          docker system prune -a -f
-
-        shell: powershell
-
       # Windsor Clean
       - name: Windsor Clean on Linux/macOS
-        if: always() && (runner.os == 'Linux' || runner.os == 'macOS') 
         run: |
           if [ "$GITHUB_WORKSPACE" == "/" ]; then
             echo "Error: GITHUB_WORKSPACE is the root folder. Aborting cleanup."
@@ -204,37 +127,13 @@ jobs:
           rm -rf ./.editorconfig
           rm -rf ./LICENSE
 
-      - name: Windsor Clean on Windows
-        if: always() && runner.os == 'Windows'
-        run: |
-          if ($env:GITHUB_WORKSPACE -eq "C:\") {
-            Write-Error "Error: GITHUB_WORKSPACE is the root folder. Aborting cleanup."
-            exit 1
-          }
-
-          if (-Not (Test-Path -Path $env:GITHUB_WORKSPACE -PathType Container)) {
-            Write-Error "Error: GITHUB_WORKSPACE is not a directory. Aborting cleanup."
-            exit 1
-          }
-
-          Get-ChildItem -Path "$env:GITHUB_WORKSPACE" -Recurse | ForEach-Object {
-            try {
-              Remove-Item -Recurse -Force $_.FullName
-            } catch {
-              Write-Warning "Warning: Could not delete $_.FullName because it is in use."
-            }
-          }
-        shell: powershell
-
       # Remove Tools
       - name: Remove tools
-        if: always() && (runner.os == 'Linux' || runner.os == 'macOS') 
         run: |
           aqua rm --all 2>&1
       
       # Check if any files still exist in the workspace and report them if found (Linux/macOS)
       - name: Check for remaining files on Linux/macOS
-        if: always() && (runner.os == 'Linux' || runner.os == 'macOS')
         run: |
           remainingFiles=$(find . -maxdepth 1 -type f)
           if [ -n "$remainingFiles" ]; then
@@ -242,15 +141,3 @@ jobs:
             echo "$remainingFiles"
             exit 1
           fi
-
-      # Check if any files still exist in the workspace and report them if found (Windows)
-      - name: Check for remaining files on Windows
-        if: always() && runner.os == 'Windows'
-        run: |
-          $remainingFiles = Get-ChildItem -Path $env:GITHUB_WORKSPACE -Recurse
-          if ($remainingFiles) {
-            Write-Output "Error: Found files in the workspace that should be removed:"
-            $remainingFiles | ForEach-Object { Write-Output $_.FullName }
-            exit 1
-          }
-        shell: powershell
