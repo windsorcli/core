@@ -68,7 +68,7 @@
         "^\\.github/workflows/ci\\.yaml$"
       ],
       "matchStrings": [
-        "(^|\\s)windsorcli_version:\\s*(?<currentValue>v[\\d\\.]+)"
+        "(^|\\s)WINDSORCLI_VERSION:\\s*(?<currentValue>v[\\d\\.]+)"
       ],
       "depNameTemplate": "version",
       "datasourceTemplate": "github-tags",
