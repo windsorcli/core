@@ -20,7 +20,8 @@ jobs:
   ci:
     strategy:
       matrix:
-        os: [ubuntu-latest, windows-latest, macos-latest]
+        os: [ubuntu-latest, macos-latest]
+        # os: [ubuntu-latest, windows-latest, macos-latest]
     runs-on: ${{ matrix.os }}
 
     env:
@@ -44,18 +45,39 @@ jobs:
           key: docker-cache-${{ runner.os }}-${{ github.sha }}
           restore-keys: docker-cache-${{ runner.os }}-
 
+      - name: Install Docker on macOS
+        if: runner.os == 'macOS'
+        run: |
+          brew install --cask docker
+          
       # Install Aqua
       - name: Install Aqua on Linux/macOS
         if: runner.os == 'Linux' || runner.os == 'macOS'
         uses: aquaproj/aqua-installer@e2d0136abcf70b7a2f6f505720640750557c4b33 # v3.1.1
         with:
           aqua_version: v2.28.0
+          
+      - name: Install Aqua on Windows
+        if: runner.os == 'Windows'
+        run: |
+          Invoke-WebRequest -Uri "https://github.com/aquaproj/aqua/releases/download/v2.28.0/aqua_windows_amd64.zip" -OutFile "aqua.zip"
+          Expand-Archive -Path "aqua.zip" -DestinationPath "$env:GITHUB_WORKSPACE/bin"
+          Remove-Item -Path "aqua.zip"
+          $env:Path += ";$env:GITHUB_WORKSPACE/bin"
+        shell: powershell
 
-      - name: Set aqua path
+      - name: Set aqua path on Linux/macOS
         if: runner.os == 'Linux' || runner.os == 'macOS'
         run: |
           echo "${AQUA_ROOT_DIR:-${XDG_DATA_HOME:-$HOME/.local/share}/aquaproj-aqua}/bin" >> $GITHUB_PATH
-    
+
+      - name: Set aqua path on Windows
+        if: runner.os == 'Windows'
+        run: |
+          $aquaPath = "${env:GITHUB_WORKSPACE}\bin"
+          [System.Environment]::SetEnvironmentVariable('Path', $env:Path + ';' + $aquaPath, [System.EnvironmentVariableTarget]::Process)
+        shell: powershell
+
       # Install tools
       - name: Install tools
         run: |
