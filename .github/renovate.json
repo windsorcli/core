@@ -52,6 +52,31 @@
   "customManagers": [
     {
       "customType": "regex",
+      "fileMatch": [
+        "^\\.github/workflows/ci\\.yaml$"
+      ],
+      "datasourceTemplate": "github-commits",
+      "packageNameTemplate": "windsorcli/cli",
+      "versioningTemplate": "semver",
+      "matchStrings": [
+        "ref:\\s*(?<currentValue>main)"
+      ]
+    },
+    {
+      "customType": "regex",
+      "fileMatch": [
+        "^\\.github/workflows/ci\\.yaml$"
+      ],
+      "matchStrings": [
+        "(^|\\s)WINDSORCLI_VERSION:\\s*(?<currentValue>v[\\d\\.]+)"
+      ],
+      "depNameTemplate": "version",
+      "datasourceTemplate": "github-tags",
+      "packageNameTemplate": "windsorcli/cli",
+      "versioningTemplate": "semver"
+    },
+    {
+      "customType": "regex",
       "fileMatch": ["^\\.github/workflows/ci\\.yaml$"],
       "matchStrings": [
         "checks\\.yaml@(?<currentValue>v[\\d\\.]+)",
