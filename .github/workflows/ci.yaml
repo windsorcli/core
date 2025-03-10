@@ -60,7 +60,7 @@ jobs:
 
       # Install Windsor CLI
       - name: Install Windsor CLI
-        uses: windsorcli/action/.github/actions/windsorcli@078842a08b468bd2278563bbc929e9d968095988 # v0.2.0
+        uses: windsorcli/action/.github/actions/windsorcli@ec6a69d88b451c4d6d4dc7f905ae56a70863e3cb # v0.2.1
         with:
           version: ${{ env.WINDSORCLI_VERSION }}
           install_folder: ${{ github.workspace }}/bin
