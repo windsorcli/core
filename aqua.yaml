@@ -26,5 +26,5 @@ packages:
   - name: helm/helm@v3.17.1
   - name: fluxcd/flux2@v2.5.1
   - name: hashicorp/vault@v1.19.0
-  - name: derailed/k9s@v0.40.7
+  - name: derailed/k9s@v0.40.8
   - name: getsops/sops@v3.9.4
