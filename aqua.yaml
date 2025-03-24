@@ -28,3 +28,4 @@ packages:
   - name: hashicorp/vault@v1.19.0
   - name: derailed/k9s@v0.40.10
   - name: getsops/sops@v3.9.4
+  - name: 1password/cli@v2.30.3

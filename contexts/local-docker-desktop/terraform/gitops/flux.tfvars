@@ -1,5 +1,5 @@
 // Managed by Windsor CLI: This file is partially managed by the windsor CLI. Your changes will not be overwritten.
-// Module source: github.com/windsorcli/core//terraform/gitops/flux?ref=v0.1.2
+// Module source: github.com/windsorcli/core//terraform/gitops/flux?ref=main
 
 // The git password or PAT used to authenticate with the git provider
 git_password = "local"
