@@ -1,0 +1,5 @@
+# Exclude the .docker-cache directory
+.docker-cache
+
+# Exclude Git repository files
+.git
