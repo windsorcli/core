@@ -1,18 +1,14 @@
 kind: Blueprint
 apiVersion: blueprints.windsorcli.dev/v1alpha1
 metadata:
-  name: docker-desktop
-  description: This blueprint configures core for running on Docker Desktop
+  name: local
+  description: This blueprint outlines resources in the local context
 repository:
   url: http://git.test/git/core
   ref:
     branch: main
   secretName: flux-system
-sources:
-- name: core
-  url: github.com/windsorcli/core
-  ref:
-    branch: main
+sources: []
 terraform:
 - path: cluster/talos
 - path: gitops/flux
@@ -29,9 +25,24 @@ kustomize:
   path: csi
   dependsOn:
   - policy-resources
+  force: true
   components:
   - openebs
   - openebs/dynamic-localpv
+- name: lb-base
+  path: lb/base
+  dependsOn:
+  - policy-resources
+  force: true
+  components:
+  - metallb
+- name: lb-resources
+  path: lb/resources
+  dependsOn:
+  - lb-base
+  force: true
+  components:
+  - metallb/layer2
 - name: ingress-base
   path: ingress/base
   dependsOn:
@@ -39,7 +50,7 @@ kustomize:
   force: true
   components:
   - nginx
-  - nginx/nodeport
+  - nginx/loadbalancer
   - nginx/coredns
   - nginx/flux-webhook
   - nginx/web
@@ -69,7 +80,6 @@ kustomize:
   - coredns
   - coredns/etcd
   - external-dns
-  - external-dns/localhost
   - external-dns/coredns
   - external-dns/ingress
 - name: gitops
@@ -80,10 +90,9 @@ kustomize:
   components:
   - webhook
 - name: demo
-  path: demo
+  path: demo/bookinfo
   dependsOn:
   - ingress-base
   force: true
   components:
-  - bookinfo
-  - bookinfo/ingress
+  - ingress
