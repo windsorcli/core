@@ -5,7 +5,8 @@
     namespace: system-dns
 - op: add
   path: /spec/values/provider
-  value: coredns
+  value:
+    name: coredns
 - op: add
   path: /spec/values/env/-
   value:

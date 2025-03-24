@@ -15,10 +15,8 @@ spec:
         kind: HelmRepository
         name: coredns-etcd-bitnami
         namespace: system-gitops
-  values:      
-    # global:
-    #   storageClass: single
-    replicaCount: 3
+  values:
+    replicaCount: 1
     securityContext:
       fsGroup: 1000
     # Modifies the liveness probe to behave like the other probes. Endpoint healthchecks with mTLS are not supported by k8s.
