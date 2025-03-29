@@ -1,0 +1,19 @@
+apiVersion: fluentbit.fluent.io/v1alpha2
+kind: ClusterInput
+metadata:
+  labels:
+    fluentbit.fluent.io/component: logging
+    fluentbit.fluent.io/enabled: "true"
+  name: tail
+spec:
+  tail:
+    db: /fluent-bit/tail/pos.db
+    dbSync: Normal
+    memBufLimit: 100MB
+    parser: cri
+    path: /var/log/containers/*.log
+    readFromHead: false
+    refreshIntervalSeconds: 10
+    skipLongLines: true
+    storageType: memory
+    tag: kube.*
