@@ -1,0 +1,10 @@
+
+apiVersion: source.toolkit.fluxcd.io/v1beta1
+kind: HelmRepository
+metadata:
+  name: metrics-server
+  namespace: system-gitops
+spec:
+  interval: 10m
+  timeout: 3m
+  url: https://kubernetes-sigs.github.io/metrics-server/
