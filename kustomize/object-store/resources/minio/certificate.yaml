@@ -1,0 +1,15 @@
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: minio-private
+  namespace: system-object-store
+spec:
+  secretName: minio-private-tls
+  issuerRef:
+    name: private
+    kind: ClusterIssuer
+  dnsNames:
+    - "common-hl.system-object-store.svc.cluster.local"
+    - "*.common-hl.system-object-store.svc.cluster.local"
+    - "minio.system-object-store.svc.cluster.local"
+    - "*.minio.system-object-store.svc.cluster.local"
