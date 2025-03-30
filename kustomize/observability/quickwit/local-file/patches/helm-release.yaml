@@ -1,0 +1,46 @@
+---
+# SECURITY NOTE: This approach uses a hostPath volume to store the indexes on the host machine.
+# It also requires elevated privileges. Do not use in production. For a more secure setup,
+# integrate with backing services such as Postgres, Minio, or S3.
+apiVersion: helm.toolkit.fluxcd.io/v2
+kind: HelmRelease
+metadata:
+  name: quickwit
+  namespace: system-observability
+spec:
+  values:
+    environment:
+      QW_METASTORE_URI: file:///quickwit/qwdata/indexes
+    config:
+      default_index_root_uri: file:///quickwit/qwdata/indexes
+    podSecurityContext:
+      runAsNonRoot: false
+      runAsUser: 0
+      runAsGroup: 0
+      allowPrivilegeEscalation: true
+    securityContext:
+      runAsNonRoot: false
+      runAsUser: 0
+      runAsGroup: 0
+      allowPrivilegeEscalation: true
+    searcher:
+      replicaCount: 1
+      extraVolumes:
+        - name: quickwit-indexes
+          hostPath:
+            path: /var/lib/quickwit/indexes
+            type: DirectoryOrCreate
+      extraVolumeMounts:
+        - name: quickwit-indexes
+          mountPath: /quickwit/qwdata/indexes
+          readOnly: true
+    indexer:
+      extraVolumes:
+        - name: quickwit-indexes
+          hostPath:
+            path: /var/lib/quickwit/indexes
+            type: DirectoryOrCreate
+      extraVolumeMounts:
+        - name: quickwit-indexes
+          mountPath: /quickwit/qwdata/indexes
+          readOnly: false
