@@ -1,6 +1,6 @@
 version: v1alpha1
 contexts:
-  local-colima:
+  colima:
     docker:
       enabled: true
       registries:
@@ -43,11 +43,6 @@ contexts:
         count: 1
         cpu: 4
         memory: 4
-        hostports:
-        - 8080:30080/tcp
-        - 8443:30443/tcp
-        - 9292:30292/tcp
-        - 8053:30053/udp
         volumes:
         - ${WINDSOR_PROJECT_ROOT}/.volumes:/var/local
     network:
@@ -58,6 +53,8 @@ contexts:
     dns:
       enabled: true
       domain: test
+      forward:
+      - 10.5.1.1
   local-docker-desktop:
     docker:
       enabled: true
