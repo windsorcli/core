@@ -8,21 +8,30 @@ repository:
   ref:
     branch: main
   secretName: flux-system
-sources: []
+sources:
+- name: core
+  url: github.com/windsorcli/core
+  ref:
+    branch: main
 terraform:
-- path: cluster/talos
-- path: gitops/flux
+- source: core
+  path: cluster/talos
+- source: core
+  path: gitops/flux
 kustomize:
 - name: policy-base
   path: policy/base
+  source: core
   components:
   - kyverno
 - name: policy-resources
   path: policy/resources
+  source: core
   dependsOn:
   - policy-base
 - name: csi
   path: csi
+  source: core
   dependsOn:
   - policy-resources
   force: true
@@ -31,6 +40,7 @@ kustomize:
   - openebs/dynamic-localpv
 - name: lb-base
   path: lb/base
+  source: core
   dependsOn:
   - policy-resources
   force: true
@@ -38,6 +48,7 @@ kustomize:
   - metallb
 - name: lb-resources
   path: lb/resources
+  source: core
   dependsOn:
   - lb-base
   force: true
@@ -45,6 +56,7 @@ kustomize:
   - metallb/layer2
 - name: ingress-base
   path: ingress/base
+  source: core
   dependsOn:
   - pki-resources
   force: true
@@ -56,6 +68,7 @@ kustomize:
   - nginx/web
 - name: pki-base
   path: pki/base
+  source: core
   dependsOn:
   - policy-resources
   force: true
@@ -64,6 +77,7 @@ kustomize:
   - trust-manager
 - name: pki-resources
   path: pki/resources
+  source: core
   dependsOn:
   - pki-base
   force: true
@@ -72,6 +86,7 @@ kustomize:
   - public-issuer/selfsigned
 - name: dns
   path: dns
+  source: core
   dependsOn:
   - ingress-base
   - pki-base
@@ -84,6 +99,7 @@ kustomize:
   - external-dns/ingress
 - name: gitops
   path: gitops/flux
+  source: core
   dependsOn:
   - ingress-base
   force: true
@@ -91,6 +107,7 @@ kustomize:
   - webhook
 - name: demo
   path: demo/bookinfo
+  source: core
   dependsOn:
   - ingress-base
   force: true

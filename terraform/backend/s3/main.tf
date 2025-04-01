@@ -175,6 +175,7 @@ resource "aws_s3_bucket_public_access_block" "this" {
 #---------------------------------------------------------------------------------------------------
 
 resource "aws_dynamodb_table" "terraform_locks" {
+  # checkov:skip=CKV_AWS_119:Encryption is not necessary for this DynamoDB table as it is used solely for Terraform state locking, which does not involve sensitive data.
   count        = var.enable_dynamodb ? 1 : 0
 
   name         = var.dynamodb_table_name != "" ? var.dynamodb_table_name : "terraform-state-locks-${local.account_id_hash}"
@@ -194,12 +195,13 @@ resource "aws_dynamodb_table" "terraform_locks" {
 #---------------------------------------------------------------------------------------------------
 # KMS Key Policy Document for Terraform State Encryption
 # This section defines the IAM policy document for the KMS key used to encrypt the Terraform state.
-# It grants necessary permissions to the AWS account root user for managing the KMS key.
+# It grants necessary permissions to the AWS account root user for managing the KMS key,
+# while ensuring that write access is constrained to specific actions.
 #---------------------------------------------------------------------------------------------------
 
 data "aws_iam_policy_document" "terraform_state_kms_policy" {
   statement {
-    sid    = "EnableIAMUserPermissions"
+    sid    = "AllowKeyAdministration"
     effect = "Allow"
 
     principals {
@@ -207,8 +209,49 @@ data "aws_iam_policy_document" "terraform_state_kms_policy" {
       identifiers = [ "arn:aws:iam::${data.aws_caller_identity.current.account_id}:root" ]
     }
 
-    actions   = [ "kms:*" ]
-    resources = [ "*" ]
+    actions   = [
+      "kms:Create*",
+      "kms:Describe*",
+      "kms:Enable*",
+      "kms:List*",
+      "kms:Put*",
+      "kms:Update*",
+      "kms:Revoke*",
+      "kms:Disable*",
+      "kms:Get*",
+      "kms:Delete*",
+      "kms:TagResource",
+      "kms:UntagResource",
+      "kms:ScheduleKeyDeletion",
+      "kms:CancelKeyDeletion"
+    ]
+    resources = [ "${aws_kms_key.terraform_state[0].arn}" ]
+  }
+
+  statement {
+    sid    = "AllowKeyUsage"
+    effect = "Allow"
+
+    principals {
+      type        = "AWS"
+      identifiers = [
+        "arn:aws:iam::${data.aws_caller_identity.current.account_id}:root"
+      ]
+    }
+
+    actions   = [
+      "kms:Encrypt",
+      "kms:Decrypt",
+      "kms:ReEncrypt*",
+      "kms:GenerateDataKey*",
+      "kms:DescribeKey"
+    ]
+    resources = [ "${aws_kms_key.terraform_state[0].arn}" ]
+    condition {
+      test     = "StringEquals"
+      variable = "kms:CallerAccount"
+      values   = [ "${data.aws_caller_identity.current.account_id}" ]
+    }
   }
 }
 
@@ -245,8 +288,8 @@ resource "local_file" "backend_config" {
   content = <<EOF
 bucket         = "${var.s3_bucket_name != "" ? var.s3_bucket_name : local.default_s3_bucket_name}"
 region         = "${var.region}"
-kms_key_id     = "${var.enable_kms && length(aws_kms_key.terraform_state) > 0 ? aws_kms_key.terraform_state[0].arn : ""}"
-dynamodb_table = "${var.dynamodb_table_name != "" ? var.dynamodb_table_name : "terraform-state-locks-${local.account_id_hash}"}"
+${var.enable_kms && length(aws_kms_key.terraform_state) > 0 ? "kms_key_id     = \"" + aws_kms_key.terraform_state[0].arn + "\"" : ""}
+${var.dynamodb_table_name != "" ? "dynamodb_table = \"" + var.dynamodb_table_name + "\"" : ""}
 EOF
 
   filename = "${var.context_path}/terraform/backend.tfvars"
