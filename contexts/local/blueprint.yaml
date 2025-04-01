@@ -8,11 +8,28 @@ repository:
   ref:
     branch: main
   secretName: flux-system
-sources: []
+sources:
+- name: core
+  url: github.com/windsorcli/core
+  ref:
+    branch: main
 terraform:
 - path: cluster/talos
 - path: gitops/flux
 kustomize:
+- name: telemetry-base
+  path: telemetry/base
+  components:
+  - prometheus
+  - prometheus/flux
+- name: telemetry-resources
+  path: telemetry/resources
+  dependsOn:
+  - telemetry-base
+- name: policy-base
+  path: policy/base
+  components:
+  - kyverno
 - name: policy-base
   path: policy/base
   components:
