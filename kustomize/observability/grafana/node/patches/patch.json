@@ -1,0 +1,17 @@
+[
+  {
+    "op": "add",
+    "path": "/spec/values/dashboardProviders/dashboardproviders.yaml/providers/-",
+    "value": {
+      "name": "grafana-dashboards-node",
+      "orgId": 1,
+      "folder": "Node",
+      "type": "file",
+      "disableDeletion": true,
+      "editable": false,
+      "options": {
+        "path": "/var/lib/grafana/dashboards/default"
+      }
+    }
+  }
+]

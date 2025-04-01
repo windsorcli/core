@@ -31,7 +31,7 @@ contexts:
       backend:
         type: local
     vm:
-      driver: docker-desktop
+      driver: colima
     cluster:
       enabled: true
       driver: talos
@@ -43,15 +43,15 @@ contexts:
         count: 1
         cpu: 4
         memory: 4
-        hostports:
-        - 8080:30080/tcp
-        - 8443:30443/tcp
-        - 9292:30292/tcp
-        - 8053:30053/udp
         volumes:
         - ${WINDSOR_PROJECT_ROOT}/.volumes:/var/local
     network:
       cidr_block: 10.5.0.0/16
+      loadbalancer_ips:
+        start: 10.5.1.1
+        end: 10.5.1.10
     dns:
-      enabled: false
+      enabled: true
       domain: test
+      forward:
+      - 10.5.1.1

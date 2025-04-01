@@ -14,10 +14,8 @@ sources:
   ref:
     branch: main
 terraform:
-- source: core
-  path: cluster/talos
-- source: core
-  path: gitops/flux
+- path: cluster/talos
+- path: gitops/flux
 kustomize:
 - name: policy-base
   path: policy/base
@@ -38,6 +36,22 @@ kustomize:
   components:
   - openebs
   - openebs/dynamic-localpv
+- name: lb-base
+  path: lb/base
+  source: core
+  dependsOn:
+  - policy-resources
+  force: true
+  components:
+  - metallb
+- name: lb-resources
+  path: lb/resources
+  source: core
+  dependsOn:
+  - lb-base
+  force: true
+  components:
+  - metallb/layer2
 - name: ingress-base
   path: ingress/base
   source: core
@@ -46,7 +60,7 @@ kustomize:
   force: true
   components:
   - nginx
-  - nginx/nodeport
+  - nginx/loadbalancer
   - nginx/coredns
   - nginx/flux-webhook
   - nginx/web
@@ -79,7 +93,6 @@ kustomize:
   - coredns
   - coredns/etcd
   - external-dns
-  - external-dns/localhost
   - external-dns/coredns
   - external-dns/ingress
 - name: gitops
@@ -100,16 +113,22 @@ kustomize:
   - ingress
 - name: telemetry-base
   path: telemetry/base
-  source: core
   components:
   - prometheus
   - prometheus/flux
 - name: telemetry-resources
   path: telemetry/resources
-  source: core
   dependsOn:
   - telemetry-base
   components:
   - metrics-server
   - prometheus
   - prometheus/flux
+- name: observability
+  path: observability
+  dependsOn:
+  - telemetry-resources
+  components:
+  - grafana
+  - grafana/ingress
+  - grafana/kubernetes
