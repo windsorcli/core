@@ -10,7 +10,7 @@
       "disableDeletion": true,
       "editable": false,
       "options": {
-        "path": "/var/lib/grafana/dashboards/default"
+        "path": "/var/lib/grafana/dashboards/grafana-dashboards-prometheus"
       }
     }
   },
@@ -22,7 +22,7 @@
       "type": "prometheus",
       "url": "http://kube-prometheus-stack-prometheus.system-telemetry.svc.cluster.local:9090",
       "access": "proxy",
-      "isDefault": false
+      "isDefault": true
     }
   }
 ]

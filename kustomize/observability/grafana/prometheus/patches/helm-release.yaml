@@ -10,10 +10,6 @@ spec:
   values:
     serviceMonitor:
       enabled: true
-    sidecar:
-      datasources:
-        enabled: true
-        defaultDatasourceEnabled: true
     dashboards:
       grafana-dashboards-prometheus:
         k8s-addons-prometheus:

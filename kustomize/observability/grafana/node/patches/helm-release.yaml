@@ -5,8 +5,8 @@ metadata:
   namespace: system-observability
 spec:
   values:
-    sidecar:
-      dashboards:
-        enabled: true
-        provider:
-          folder: "Node"
+    dashboards:
+      grafana-dashboards-node:
+        node-exporter-full:
+          url: https://raw.githubusercontent.com/rfmoz/grafana-dashboards/d33a10c268e5081aa5de33ec8ffdfb2741109498/prometheus/node-exporter-full.json
+          token: ''

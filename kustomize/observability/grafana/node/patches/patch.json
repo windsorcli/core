@@ -5,12 +5,12 @@
     "value": {
       "name": "grafana-dashboards-node",
       "orgId": 1,
-      "folder": "Node",
+      "folder": "Nodes",
       "type": "file",
       "disableDeletion": true,
       "editable": false,
       "options": {
-        "path": "/var/lib/grafana/dashboards/default"
+        "path": "/var/lib/grafana/dashboards/grafana-dashboards-node"
       }
     }
   }
