@@ -98,18 +98,3 @@ kustomize:
   force: true
   components:
   - ingress
-- name: telemetry-base
-  path: telemetry/base
-  source: core
-  components:
-  - prometheus
-  - prometheus/flux
-- name: telemetry-resources
-  path: telemetry/resources
-  source: core
-  dependsOn:
-  - telemetry-base
-  components:
-  - metrics-server
-  - prometheus
-  - prometheus/flux

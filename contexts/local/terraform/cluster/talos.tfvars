@@ -1,5 +1,5 @@
 // Managed by Windsor CLI: This file is partially managed by the windsor CLI. Your changes will not be overwritten.
-// Module source: github.com/windsorcli/core//terraform/cluster/talos?ref=main
+// Module source: github.com/windsorcli/core//terraform/cluster/talos?ref=v0.2.0
 
 // The external controlplane API endpoint of the kubernetes API
 cluster_endpoint = "https://127.0.0.1:6443"
