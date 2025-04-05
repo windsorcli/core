@@ -1,0 +1,10 @@
+# This does nothing important until https://github.com/quickwit-oss/quickwit/issues/5199 is resolved
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: minio-sts-env
+  namespace: system-observability
+data:
+  AWS_WEB_IDENTITY_TOKEN_FILE: "/var/run/secrets/kubernetes.io/serviceaccount/token"
+  AWS_S3_ENDPOINT: "https://minio.system-object-store.svc.cluster.local"
