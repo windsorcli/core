@@ -1,0 +1,33 @@
+apiVersion: helm.toolkit.fluxcd.io/v2
+kind: HelmRelease
+metadata:
+  name: minio-operator
+  namespace: system-object-store
+spec:
+  interval: 5m
+  timeout: 10m
+  chart:
+    spec:
+      chart: operator
+      # renovate: datasource=helm depName=minio-operator package=operator helmRepo=https://operator.min.io
+      version: 6.0.4
+      sourceRef:
+        kind: HelmRepository
+        name: minio
+        namespace: system-gitops
+  values:
+    operator:
+      resources:
+        requests:
+          cpu: 250m
+          memory: 512Mi
+      securityContext:
+        runAsUser: 1000
+        fsGroup: 1000
+      additionalLabels:
+        use-custom-ca: "true"
+    console:
+      resources:
+        requests:
+          cpu: 0.25
+          memory: 512Mi
