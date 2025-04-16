@@ -52,6 +52,3 @@ contexts:
         - ${WINDSOR_PROJECT_ROOT}/.volumes:/var/local
     network:
       cidr_block: 10.5.0.0/16
-    dns:
-      enabled: false
-      domain: test
