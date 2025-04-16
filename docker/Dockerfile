@@ -17,8 +17,8 @@ RUN apt-get update && \
 
 # Install Windsor CLI
 RUN curl -L -o windsor_0.5.6_linux_amd64.tar.gz https://github.com/windsorcli/cli/releases/download/v0.5.6/windsor_0.5.6_linux_amd64.tar.gz && \
-sudo tar -xzf windsor_0.5.6_linux_amd64.tar.gz -C /usr/local/bin && \
-sudo chmod +x /usr/local/bin/windsor
+tar -xzf windsor_0.5.6_linux_amd64.tar.gz -C /usr/local/bin && \
+chmod +x /usr/local/bin/windsor
 
 # Set Windsor to use manual DNS by default
 ENV WINDSOR_DNS_MODE=manual
