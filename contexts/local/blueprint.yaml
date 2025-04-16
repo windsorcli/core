@@ -68,20 +68,6 @@ kustomize:
   components:
   - private-issuer/ca
   - public-issuer/selfsigned
-- name: dns
-  path: dns
-  source: core
-  dependsOn:
-  - ingress-base
-  - pki-base
-  force: true
-  components:
-  - coredns
-  - coredns/etcd
-  - external-dns
-  - external-dns/localhost
-  - external-dns/coredns
-  - external-dns/ingress
 - name: gitops
   path: gitops/flux
   source: core
