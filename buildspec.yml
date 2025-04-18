@@ -7,11 +7,7 @@ phases:
         sudo tar -xzf windsor_0.5.6_linux_amd64.tar.gz -C /usr/local/bin && \
         sudo chmod +x /usr/local/bin/windsor"
       - "export HOME=$(pwd)"
-      - "curl -sSfL -O https://raw.githubusercontent.com/aquaproj/aqua-installer/v3.1.1/aqua-installer && \
-        echo 'e9d4c99577c6b2ce0b62edf61f089e9b9891af1708e88c6592907d2de66e3714  aqua-installer' | sha256sum -c - && \
-        chmod +x aqua-installer && \
-        ./aqua-installer"
-      # - "curl -sSfL https://raw.githubusercontent.com/aquaproj/aqua-installer/v3.1.1/aqua-installer | bash"
+      - "curl -sSfL https://raw.githubusercontent.com/aquaproj/aqua-installer/v3.1.1/aqua-installer | bash"
   pre_build:
     commands:
       - "export PATH=${AQUA_ROOT_DIR:-${XDG_DATA_HOME:-$HOME/.local/share}/aquaproj-aqua}/bin:$PATH"
