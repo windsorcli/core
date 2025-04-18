@@ -1,0 +1,13 @@
+version: 0.2
+
+phases:
+  install:
+    commands:
+      - "echo 'Installing dependencies...'"
+  pre_build:
+    commands:
+      - "echo 'Running pre-build tasks...'"
+  build:
+    commands:
+      - "echo 'Building the project...'"
+
