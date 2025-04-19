@@ -12,10 +12,11 @@ phases:
       - "tar -xzf aqua_linux_amd64.tar.gz -C aqua"
       - "rm aqua_linux_amd64.tar.gz"
       - "PATH=$(pwd)/aqua:$PATH"
-      - "aqua i"
+      - "aqua install"
   pre_build:
     commands:
       - "windsor version"
+      - "terraform version"
   build:
     commands:
       - "export DOCKER_HOST=unix:///var/run/docker.sock"
