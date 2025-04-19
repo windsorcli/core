@@ -25,6 +25,12 @@ phases:
   build:
     commands:
       - |
-        echo "NOT IMPLEMENTED: windsor up"
+        windsor up
         aws s3 ls
-
+  post_build:
+    commands:
+      - |
+        windsor down
+        echo "HACK: deleting bucket"
+        aws s3 rb s3://mtv-backend-bucket --force
+        aws s3 ls
