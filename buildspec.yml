@@ -12,6 +12,8 @@ phases:
       - "tar -xzf aqua_linux_amd64.tar.gz -C aqua"
       - "rm aqua_linux_amd64.tar.gz"
       - "ls -la"
+      - "echo 'Aqua path'"
+      - "ls -la aqua"
   pre_build:
     commands:
       - "windsor version"
