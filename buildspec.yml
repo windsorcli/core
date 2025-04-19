@@ -11,10 +11,7 @@ phases:
       - "mkdir -p aqua"
       - "tar -xzf aqua_linux_amd64.tar.gz -C aqua"
       - "rm aqua_linux_amd64.tar.gz"
-      - "ls -la"
-      - "echo 'Aqua path'"
       - "PATH=$(pwd)/aqua:$PATH"
-      - "ls -la aqua"
       - "aqua i"
   pre_build:
     commands:
