@@ -12,7 +12,9 @@ phases:
       - "tar -xzf aqua_linux_amd64.tar.gz -C aqua"
       - "rm aqua_linux_amd64.tar.gz"
       - "PATH=$(pwd)/aqua:$PATH"
-      - "aqua install"
+      - |
+        aqua install
+        export PATH=${AQUA_ROOT_DIR:-${XDG_DATA_HOME:-$HOME/.local/share}/aquaproj-aqua}/bin:$PATH
   pre_build:
     commands:
       - "windsor version"
