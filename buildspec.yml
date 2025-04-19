@@ -21,8 +21,10 @@ phases:
       - |
         windsor version
         terraform version
-        windsor init local
+        windsor init aws
   build:
     commands:
       - |
         echo "NOT IMPLEMENTED: windsor up"
+        aws s3 ls
+
