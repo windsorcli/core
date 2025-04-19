@@ -4,7 +4,6 @@ contexts:
     blueprint: full
     aws:
       enabled: true
-      aws_profile: public
     terraform:
       enabled: true
       backend:
