@@ -12,7 +12,9 @@ phases:
       - "tar -xzf aqua_linux_amd64.tar.gz -C aqua"
       - "rm aqua_linux_amd64.tar.gz"
       - "export PATH=$(pwd)/aqua/bin:$PATH"
-      - "aqua i"
+      - "echo Printing Aqua path"
+      - "which aqua"
+      - "ls -la"
   pre_build:
     commands:
       - "windsor version"
