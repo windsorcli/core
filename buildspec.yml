@@ -13,7 +13,7 @@ phases:
       - "rm aqua_linux_amd64.tar.gz"
       - "export PATH=$(pwd)/aqua/bin:$PATH"
       - "echo Printing Aqua path"
-      - "which aqua"
+      - "ls -al $(pwd)/aqua/bin"
       - "ls -la"
   pre_build:
     commands:
