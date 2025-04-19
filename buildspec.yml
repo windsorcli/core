@@ -10,7 +10,6 @@ phases:
   pre_build:
     commands:
       - "export PATH=${AQUA_ROOT_DIR:-${XDG_DATA_HOME:-$HOME/.local/share}/aquaproj-aqua}/bin:$PATH"
-      - "aqua i"
       - "windsor version"
   build:
     commands:
