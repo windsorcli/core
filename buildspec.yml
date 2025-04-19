@@ -25,4 +25,4 @@ phases:
   build:
     commands:
       - |
-        windsor run
+        echo "NOT IMPLEMENTED: windsor up"
