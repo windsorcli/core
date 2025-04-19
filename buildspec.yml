@@ -7,9 +7,14 @@ phases:
         sudo tar -xzf windsor_0.5.6_linux_amd64.tar.gz -C /usr/local/bin && \
         sudo chmod +x /usr/local/bin/windsor"
       - "export HOME=$(pwd)"
+      - "curl -L -o aqua_linux_amd64.tar.gz https://github.com/aquaproj/aqua/releases/download/v2.49.0-0/aqua_linux_amd64.tar.gz"
+      - "mkdir -p aqua"
+      - "tar -xzf aqua_linux_amd64.tar.gz -C aqua"
+      - "rm aqua_linux_amd64.tar.gz"
+      - "export PATH=$(pwd)/aqua/bin:$PATH"
+      - "aqua i"
   pre_build:
     commands:
-      - "export PATH=${AQUA_ROOT_DIR:-${XDG_DATA_HOME:-$HOME/.local/share}/aquaproj-aqua}/bin:$PATH"
       - "windsor version"
   build:
     commands:
