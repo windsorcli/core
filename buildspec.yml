@@ -21,6 +21,3 @@ phases:
       - "export DOCKER_HOST=unix:///var/run/docker.sock"
       - "export WINDSOR_PROJECT_ROOT=$(pwd)"
       - "windsor init local"
-      - "docker images"
-      - "docker ps"
-      - "aqua -h"
