@@ -26,3 +26,4 @@ phases:
       - "windsor init local"
       - "docker images"
       - "docker ps"
+      - "aqua -h"
