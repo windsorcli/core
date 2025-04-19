@@ -1,8 +1,21 @@
 version: v1alpha1
 contexts:
-  local:
-    docker:
+  aws:
+    blueprint: full
+    aws:
       enabled: true
+      aws_profile: public
+    terraform:
+      enabled: true
+      backend:
+        type: local
+  local:
+    blueprint: full
+    aws:
+      enabled: true
+      aws_profile: public
+    docker:
+      enabled: false
       registries:
         gcr.io:
           remote: https://gcr.io
@@ -33,7 +46,8 @@ contexts:
     vm:
       driver: docker-desktop
     cluster:
-      enabled: true
+      enabled: false
+      platform: local
       driver: talos
       controlplanes:
         count: 1
@@ -52,3 +66,8 @@ contexts:
         - ${WINDSOR_PROJECT_ROOT}/.volumes:/var/local
     network:
       cidr_block: 10.5.0.0/16
+    dns:
+      enabled: false
+      domain: test
+      forward:
+      - 10.5.0.1:8053
