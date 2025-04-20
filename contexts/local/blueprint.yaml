@@ -98,12 +98,27 @@ kustomize:
   force: true
   components:
   - ingress
-- name: logs
-  path: logs
+- name: elasticsearch
+  path: observability
+  source: core
   dependsOn:
-  - csi
+  - pki-base
   force: true
   components:
-  - efk/elasticsearch
-  - efk/filebeat
-  - efk/kibana
+  - elasticsearch
+- name: filebeat
+  path: telemetry
+  source: core
+  dependsOn:
+  - elasticsearch 
+  force: true
+  components:
+  - filebeat
+- name: kibana
+  path: observability
+  source: core
+  dependsOn:
+  - elasticsearch
+  force: true
+  components:
+  - kibana
