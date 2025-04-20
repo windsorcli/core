@@ -100,15 +100,13 @@ kustomize:
   - ingress
 - name: elasticsearch
   path: observability
-  source: core
   dependsOn:
   - pki-base
   force: true
   components:
   - elasticsearch
 - name: filebeat
-  path: telemetry
-  source: core
+  path: telemetry/base
   dependsOn:
   - elasticsearch 
   force: true
@@ -116,7 +114,6 @@ kustomize:
   - filebeat
 - name: kibana
   path: observability
-  source: core
   dependsOn:
   - elasticsearch
   force: true
