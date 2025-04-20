@@ -98,3 +98,12 @@ kustomize:
   force: true
   components:
   - ingress
+- name: logs
+  path: logs
+  dependsOn:
+  - csi
+  force: true
+  components:
+  - efk/elasticsearch
+  - efk/filebeat
+  - efk/kibana
