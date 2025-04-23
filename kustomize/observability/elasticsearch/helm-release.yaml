@@ -14,6 +14,12 @@ spec:
         name: elastic-elasticsearch
         namespace: system-observability
   values:
+    createCert: false
+    secretMounts:
+    - name: elastic-certificates
+      secretName: elasticsearch-master-certs
+      path: /usr/share/elasticsearch/config/certificates
+      defaultMode: 0755
     antiAffinity: "soft"
     replicas: 1
     sysctlInitContainer:

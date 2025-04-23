@@ -3,3 +3,4 @@ kind: Component
 resources:
 - helm-release.yaml
 - helm-repository.yaml
+- certificates.yaml

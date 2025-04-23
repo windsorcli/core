@@ -108,7 +108,7 @@ kustomize:
 - name: filebeat
   path: telemetry/base
   dependsOn:
-  - elasticsearch 
+  - elasticsearch
   force: true
   components:
   - filebeat

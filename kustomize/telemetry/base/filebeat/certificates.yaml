@@ -1,0 +1,14 @@
+---
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: filebeat
+  namespace: system-telemetry
+spec:
+  secretName: filebeat-tls
+  issuerRef:
+    name: private
+    kind: ClusterIssuer
+  commonName: filebeat
+  usages:
+    - client auth
