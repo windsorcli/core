@@ -16,10 +16,31 @@ spec:
   values:
     createCert: false
     secretMounts:
-    - name: elastic-certificates
+    - name: elasticsearch-certificates
       secretName: elasticsearch-master-certs
       path: /usr/share/elasticsearch/config/certificates
       defaultMode: 0755
+    extraEnvs:
+      - name: xpack.security.enabled
+        value: "true"
+      - name: xpack.security.transport.ssl.enabled
+        value: "true"
+      - name: xpack.security.http.ssl.enabled
+        value: "true"
+      - name: xpack.security.transport.ssl.verification_mode
+        value: "certificate"
+      - name: xpack.security.transport.ssl.key
+        value: "/usr/share/elasticsearch/config/certificates/tls.key"
+      - name: xpack.security.transport.ssl.certificate
+        value: "/usr/share/elasticsearch/config/certificates/tls.crt"
+      - name: xpack.security.transport.ssl.certificate_authorities
+        value: "/usr/share/elasticsearch/config/certificates/ca.crt"
+      - name: xpack.security.http.ssl.key
+        value: "/usr/share/elasticsearch/config/certificates/tls.key"
+      - name: xpack.security.http.ssl.certificate
+        value: "/usr/share/elasticsearch/config/certificates/tls.crt"
+      - name: xpack.security.http.ssl.certificate_authorities
+        value: "/usr/share/elasticsearch/config/certificates/ca.crt"
     antiAffinity: "soft"
     replicas: 1
     sysctlInitContainer:
