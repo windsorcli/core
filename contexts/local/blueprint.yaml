@@ -14,19 +14,24 @@ sources:
   ref:
     branch: main
 terraform:
-- path: cluster/talos
-- path: gitops/flux
+- source: core
+  path: cluster/talos
+- source: core
+  path: gitops/flux
 kustomize:
 - name: policy-base
   path: policy/base
+  source: core
   components:
   - kyverno
 - name: policy-resources
   path: policy/resources
+  source: core
   dependsOn:
   - policy-base
 - name: csi
   path: csi
+  source: core
   dependsOn:
   - policy-resources
   force: true
@@ -35,6 +40,7 @@ kustomize:
   - openebs/dynamic-localpv
 - name: ingress-base
   path: ingress/base
+  source: core
   dependsOn:
   - pki-resources
   force: true
@@ -46,6 +52,7 @@ kustomize:
   - nginx/web
 - name: pki-base
   path: pki/base
+  source: core
   dependsOn:
   - policy-resources
   force: true
@@ -54,6 +61,7 @@ kustomize:
   - trust-manager
 - name: pki-resources
   path: pki/resources
+  source: core
   dependsOn:
   - pki-base
   force: true
@@ -62,6 +70,7 @@ kustomize:
   - public-issuer/selfsigned
 - name: dns
   path: dns
+  source: core
   dependsOn:
   - ingress-base
   - pki-base
@@ -75,34 +84,17 @@ kustomize:
   - external-dns/ingress
 - name: gitops
   path: gitops/flux
+  source: core
   dependsOn:
   - ingress-base
   force: true
   components:
   - webhook
-- name: telemetry-base
-  path: telemetry/base
+- name: demo
+  path: demo/bookinfo
+  source: core
   dependsOn:
-  - pki-base
+  - ingress-base
   force: true
   components:
-  - prometheus
-  - filebeat
-- name: telemetry-resources
-  path: telemetry/resources
-  dependsOn:
-  - telemetry-base
-  force: true
-  components:
-  - metrics-server
-  - prometheus
-- name: observability
-  path: observability
-  dependsOn:
-  - pki-base
-  force: true
-  components:
-  - elasticsearch
-  - kibana
-  - kibana/ingress
-  - grafana
+  - ingress
