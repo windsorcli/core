@@ -1,0 +1,10 @@
+---
+apiVersion: source.toolkit.fluxcd.io/v1beta2
+kind: HelmRepository
+metadata:
+  name: fluxcd-community
+  namespace: system-gitops
+spec:
+  interval: 10m
+  timeout: 3m
+  url: https://fluxcd-community.github.io/helm-charts

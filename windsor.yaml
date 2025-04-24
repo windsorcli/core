@@ -1,64 +1,6 @@
 version: v1alpha1
 contexts:
-  local-colima:
-    docker:
-      enabled: true
-      registries:
-        gcr.io:
-          remote: https://gcr.io
-        ghcr.io:
-          remote: https://ghcr.io
-        quay.io:
-          remote: https://quay.io
-        registry-1.docker.io:
-          remote: https://registry-1.docker.io
-          local: https://docker.io
-        registry.k8s.io:
-          remote: https://registry.k8s.io
-        registry.test: {}
-    git:
-      livereload:
-        enabled: true
-        rsync_exclude: .windsor,.terraform,data,.volumes,.venv
-        rsync_protect: flux-system
-        username: local
-        password: local
-        webhook_url: http://worker-1.test:30292/hook/5dc88e45e809fb0872b749c0969067e2c1fd142e17aed07573fad20553cc0c59
-        verify_ssl: false
-        image: ghcr.io/windsorcli/git-livereload:v0.1.1
-    terraform:
-      enabled: true
-      backend:
-        type: local
-    vm:
-      driver: colima
-    cluster:
-      enabled: true
-      driver: talos
-      controlplanes:
-        count: 1
-        cpu: 2
-        memory: 2
-      workers:
-        count: 1
-        cpu: 4
-        memory: 4
-        hostports:
-        - 8080:30080/tcp
-        - 8443:30443/tcp
-        - 9292:30292/tcp
-        - 8053:30053/udp
-        volumes:
-        - ${WINDSOR_PROJECT_ROOT}/.volumes:/var/local
-    network:
-      cidr_block: 10.5.0.0/16
-      loadbalancer_ips:
-        start: 10.5.1.1
-        end: 10.5.1.10
-    dns:
-      enabled: true
-      domain: test
-  local-docker-desktop:
+  local:
     docker:
       enabled: true
       registries:
@@ -111,5 +53,5 @@ contexts:
     network:
       cidr_block: 10.5.0.0/16
     dns:
-      enabled: true
+      enabled: false
       domain: test
