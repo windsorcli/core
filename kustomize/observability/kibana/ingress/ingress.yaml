@@ -5,8 +5,8 @@ metadata:
   namespace: system-observability
   annotations:
     cert-manager.io/cluster-issuer: private
-    nginx.ingress.kubernetes.io/backend-protocol: "HTTPS"
 spec:
+  ingressClassName: nginx
   rules:
   - host: kibana.${DOMAIN}
     http:

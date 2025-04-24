@@ -57,5 +57,7 @@ contexts:
     network:
       cidr_block: 10.5.0.0/16
     dns:
-      enabled: false
+      enabled: true
       domain: test
+      forward:
+      - 10.5.0.1:8053
