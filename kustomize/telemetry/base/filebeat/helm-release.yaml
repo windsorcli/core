@@ -8,6 +8,7 @@ spec:
   chart:
     spec:
       chart: filebeat
+      # renovate: datasource=helm depName=filebeat package=filebeat helmRepo=https://helm.elastic.co
       version: "8.5.1"
       sourceRef:
         kind: HelmRepository
