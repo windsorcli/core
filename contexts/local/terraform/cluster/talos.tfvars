@@ -26,3 +26,6 @@ workers = [{
   hostname = "worker-1.test"
   node     = "127.0.0.1"
 }]
+
+// A YAML string of controlplane config patches to apply
+controlplane_config_patches = ""

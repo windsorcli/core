@@ -1,6 +1,9 @@
 version: v1alpha1
 contexts:
   local:
+    blueprint: full
+    environment:
+      FLUX_SYSTEM_NAMESPACE: system-gitops
     docker:
       enabled: true
       registries:
@@ -34,6 +37,7 @@ contexts:
       driver: docker-desktop
     cluster:
       enabled: true
+      platform: local
       driver: talos
       controlplanes:
         count: 1
@@ -53,5 +57,7 @@ contexts:
     network:
       cidr_block: 10.5.0.0/16
     dns:
-      enabled: false
+      enabled: true
       domain: test
+      forward:
+      - 10.5.0.1:8053
