@@ -55,3 +55,11 @@ contexts:
     dns:
       enabled: false
       domain: test
+  aws-example:
+    aws:
+      enabled: true
+      region: us-east-2
+    terraform:
+      enabled: true
+      backend:
+        type: local
