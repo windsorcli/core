@@ -209,7 +209,7 @@ data "aws_eks_addon_version" "default" {
 
 resource "aws_iam_role" "vpc_cni" {
   count = contains(keys(var.addons), "vpc-cni") ? 1 : 0
-  name = "${var.cluster_name}-vpc-cni-role"
+  name  = "${var.cluster_name}-vpc-cni-role"
 
   assume_role_policy = jsonencode({
     Version = "2012-10-17"
@@ -230,7 +230,7 @@ resource "aws_iam_role" "vpc_cni" {
 }
 
 resource "aws_iam_role_policy_attachment" "vpc_cni" {
-  count = contains(keys(var.addons), "vpc-cni") ? 1 : 0
+  count      = contains(keys(var.addons), "vpc-cni") ? 1 : 0
   policy_arn = "arn:aws:iam::aws:policy/AmazonEKS_CNI_Policy"
   role       = aws_iam_role.vpc_cni[0].name
 }
@@ -417,7 +417,7 @@ resource "aws_iam_role_policy_attachment" "pod_identity_agent" {
 locals {
   addon_configuration = {
     for name, addon in var.addons : name => {
-      version                  = lookup(addon, "version", data.aws_eks_addon_version.default[name].version)
+      version = lookup(addon, "version", data.aws_eks_addon_version.default[name].version)
       role_arn = (
         name == "vpc-cni" ? try(aws_iam_role.vpc_cni[0].arn, null) :
         name == "aws-ebs-csi-driver" ? try(aws_iam_role.ebs_csi[0].arn, null) :
@@ -431,7 +431,7 @@ locals {
         name == "aws-efs-csi-driver" ? "efs-csi-controller-sa" :
         null
       )
-      tags                     = lookup(addon, "tags", {})
+      tags = lookup(addon, "tags", {})
     }
   }
 }
@@ -439,24 +439,24 @@ locals {
 resource "aws_eks_addon" "this" {
   for_each = var.addons
 
-  cluster_name             = aws_eks_cluster.this.name
-  addon_name               = each.key
-  addon_version            = local.addon_configuration[each.key].version
+  cluster_name  = aws_eks_cluster.this.name
+  addon_name    = each.key
+  addon_version = local.addon_configuration[each.key].version
   service_account_role_arn = (
     each.key == "eks-pod-identity-agent" ? local.addon_configuration[each.key].role_arn : null
   )
 
   dynamic "pod_identity_association" {
     for_each = (
-      each.key != "eks-pod-identity-agent" && 
+      each.key != "eks-pod-identity-agent" &&
       local.addon_configuration[each.key].role_arn != null
     ) ? [1] : []
     content {
-      role_arn = local.addon_configuration[each.key].role_arn
+      role_arn        = local.addon_configuration[each.key].role_arn
       service_account = local.addon_configuration[each.key].service_account_name
     }
   }
-  tags                     = local.addon_configuration[each.key].tags
+  tags = local.addon_configuration[each.key].tags
 }
 
 #-----------------------------------------------------------------------------------------------------------------------

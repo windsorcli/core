@@ -44,7 +44,7 @@ variable "node_groups" {
     desired_size   = number
     disk_size      = optional(number, 20)
     labels         = optional(map(string), {})
-    taints         = optional(list(object({
+    taints = optional(list(object({
       key    = string
       value  = string
       effect = string
@@ -75,13 +75,13 @@ variable "fargate_profiles" {
 variable "addons" {
   description = "Map of EKS add-ons"
   type = map(object({
-    version                  = optional(string)
-    tags                     = optional(map(string), {})
+    version = optional(string)
+    tags    = optional(map(string), {})
   }))
   default = {
-    vpc-cni                 = {}
-    aws-efs-csi-driver      = {}
-    aws-ebs-csi-driver      = {}
-    eks-pod-identity-agent  = {}
+    vpc-cni                = {}
+    aws-efs-csi-driver     = {}
+    aws-ebs-csi-driver     = {}
+    eks-pod-identity-agent = {}
   }
 }

@@ -18,7 +18,7 @@ variable "availability_zones" {
   description = "Number of availability zones to use for the subnets"
   type        = number
   default     = 3
-  }
+}
 
 variable "subnet_newbits" {
   description = "Number of new bits for the subnet"
