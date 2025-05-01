@@ -8,6 +8,9 @@ on:
     branches:
       - main
 
+permissions:
+  contents: read
+
 env:
   WINDSOR_PROJECT_ROOT: ${{ github.workspace }}
 
