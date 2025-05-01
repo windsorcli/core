@@ -4,7 +4,7 @@ metadata:
   name: aws-example
   description: This blueprint outlines resources in the aws-example context
 repository:
-  url: github.com/windsorcli/core
+  url: https://github.com/windsorcli/core
   ref:
     branch: aws-eks
   secretName: flux-system
