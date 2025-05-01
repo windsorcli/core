@@ -13,6 +13,7 @@ permissions:
 
 env:
   WINDSOR_PROJECT_ROOT: ${{ github.workspace }}
+  DOCKER_HOST: unix:///var/run/docker.sock
 
 jobs:
   # Blueprint Checks
@@ -23,7 +24,7 @@ jobs:
     uses: windsorcli/blueprint/.github/workflows/checkov.yaml@37a5386198caa29f87531d09003512adc5407702 # v0.1.0
 
   ci:
-    runs-on: ubuntu-latest-8-cores
+    runs-on: ubuntu-latest
 
     env:
       KUBECONFIG: ${{ github.workspace }}/contexts/local/.kube/config
