@@ -23,7 +23,7 @@ jobs:
     uses: windsorcli/blueprint/.github/workflows/checkov.yaml@37a5386198caa29f87531d09003512adc5407702 # v0.1.0
 
   ci:
-    runs-on: ubuntu-latest-8-cores
+    runs-on: ubuntu-latest-4-cores
 
     env:
       KUBECONFIG: ${{ github.workspace }}/contexts/local/.kube/config
