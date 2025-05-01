@@ -23,13 +23,7 @@ jobs:
     uses: windsorcli/blueprint/.github/workflows/checkov.yaml@37a5386198caa29f87531d09003512adc5407702 # v0.1.0
 
   ci:
-    runs-on: ubuntu-latest
-    services:
-      docker:
-        image: docker:dind
-        options: --privileged --shm-size=2g
-        volumes:
-          - /var/run/docker.sock:/var/run/docker.sock:ro
+    runs-on: ubuntu-latest-8-cores
 
     env:
       KUBECONFIG: ${{ github.workspace }}/contexts/local/.kube/config
@@ -41,25 +35,23 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
 
-      - uses: docker/setup-buildx-action@b5ca514318bd6ebac0fb2aedd5d36ec1b5c232a2 # v3.10.0
-
       - name: Create .docker-cache directory
-        run: mkdir -p .docker-cache
+        run: mkdir -p .windsor/.docker-cache
 
       - name: Cache .docker-cache
         uses: actions/cache@5a3ec84eff668545956fd18022155c47e93e2684 # v4.2.3
         with:
-          path: .docker-cache
+          path: .windsor/.docker-cache
           key: docker-cache-${{ runner.os }}-${{ github.sha }}
           restore-keys: docker-cache-${{ runner.os }}-
 
       # Install Aqua
-      - name: Install Aqua on Linux/macOS
+      - name: Install Aqua
         uses: aquaproj/aqua-installer@5e54e5cee8a95ee2ce7c04cb993da6dfad13e59c # v3.1.2
         with:
           aqua_version: v2.50.0
           
-      - name: Set aqua path on Linux/macOS
+      - name: Set aqua path
         run: |
           echo "${AQUA_ROOT_DIR:-${XDG_DATA_HOME:-$HOME/.local/share}/aquaproj-aqua}/bin" >> $GITHUB_PATH
 
@@ -76,12 +68,12 @@ jobs:
           context: local
 
       # Windsor Up
-      - name: Windsor Up on Linux/macOS
+      - name: Windsor Up
         run: |
-          windsor init local --set dns.enabled=false
+          windsor init local
           windsor up --install --verbose
 
       # Windsor Down
-      - name: Windsor Down on Linux/macOS
+      - name: Windsor Down
         run: |
           windsor down --clean
