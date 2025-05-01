@@ -71,7 +71,7 @@ jobs:
       # Windsor Up
       - name: Windsor Up
         run: |
-          windsor init local
+          windsor init local --set dns.enabled=false
           windsor up --install --verbose
 
       # Windsor Down
