@@ -6,10 +6,6 @@ terraform {
       source  = "hashicorp/aws"
       version = "~> 5.0"
     }
-    kubernetes = {
-      source  = "hashicorp/kubernetes"
-      version = "~> 2.23"
-    }
   }
 }
 
@@ -193,6 +189,274 @@ resource "aws_eks_fargate_profile" "this" {
   }
 
   tags = lookup(each.value, "tags", {})
+}
+
+#-----------------------------------------------------------------------------------------------------------------------
+# Add-On Versions
+#-----------------------------------------------------------------------------------------------------------------------
+
+data "aws_eks_addon_version" "default" {
+  for_each = var.addons
+
+  addon_name         = each.key
+  kubernetes_version = aws_eks_cluster.this.version
+  most_recent        = true
+}
+
+#-----------------------------------------------------------------------------------------------------------------------
+# VPC CNI IAM Role
+#-----------------------------------------------------------------------------------------------------------------------
+
+resource "aws_iam_role" "vpc_cni" {
+  count = contains(keys(var.addons), "vpc-cni") ? 1 : 0
+  name = "${var.cluster_name}-vpc-cni-role"
+
+  assume_role_policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Action = ["sts:AssumeRole", "sts:TagSession"]
+        Effect = "Allow"
+        Principal = {
+          Service = "pods.eks.amazonaws.com"
+        }
+      }
+    ]
+  })
+
+  tags = {
+    Name = "${var.cluster_name}-vpc-cni-role"
+  }
+}
+
+resource "aws_iam_role_policy_attachment" "vpc_cni" {
+  count = contains(keys(var.addons), "vpc-cni") ? 1 : 0
+  policy_arn = "arn:aws:iam::aws:policy/AmazonEKS_CNI_Policy"
+  role       = aws_iam_role.vpc_cni[0].name
+}
+
+
+#-----------------------------------------------------------------------------------------------------------------------
+# EBS CSI Driver IAM Role
+#-----------------------------------------------------------------------------------------------------------------------
+
+resource "aws_iam_role" "ebs_csi" {
+  count = contains(keys(var.addons), "aws-ebs-csi-driver") ? 1 : 0
+  name  = "${var.cluster_name}-aws-ebs-csi-driver-role"
+
+  assume_role_policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Action = ["sts:AssumeRole", "sts:TagSession"]
+        Effect = "Allow"
+        Principal = {
+          Service = "pods.eks.amazonaws.com"
+        }
+      }
+    ]
+  })
+
+  tags = {
+    Name = "${var.cluster_name}-aws-ebs-csi-driver-role"
+  }
+}
+
+resource "aws_iam_role_policy_attachment" "ebs_csi" {
+  count      = contains(keys(var.addons), "aws-ebs-csi-driver") ? 1 : 0
+  policy_arn = "arn:aws:iam::aws:policy/service-role/AmazonEBSCSIDriverPolicy"
+  role       = aws_iam_role.ebs_csi[0].name
+}
+
+#-----------------------------------------------------------------------------------------------------------------------
+# EFS CSI Driver IAM Role
+#-----------------------------------------------------------------------------------------------------------------------
+
+resource "aws_iam_role" "efs_csi" {
+  count = contains(keys(var.addons), "aws-efs-csi-driver") ? 1 : 0
+  name  = "${var.cluster_name}-aws-efs-csi-driver-role"
+
+  assume_role_policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Action = ["sts:AssumeRole", "sts:TagSession"]
+        Effect = "Allow"
+        Principal = {
+          Service = "pods.eks.amazonaws.com"
+        }
+      }
+    ]
+  })
+
+  tags = {
+    Name = "${var.cluster_name}-aws-efs-csi-driver-role"
+  }
+}
+
+resource "aws_iam_policy" "efs_csi" {
+  count       = contains(keys(var.addons), "aws-efs-csi-driver") ? 1 : 0
+  name        = "${var.cluster_name}-aws-efs-csi-driver-policy"
+  description = "IAM policy for EFS CSI Driver"
+
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Effect = "Allow"
+        Action = [
+          "elasticfilesystem:DescribeAccessPoints",
+          "elasticfilesystem:DescribeFileSystems",
+          "elasticfilesystem:DescribeMountTargets",
+          "ec2:DescribeAvailabilityZones"
+        ]
+        Resource = "*"
+      },
+      {
+        Effect = "Allow"
+        Action = [
+          "elasticfilesystem:CreateAccessPoint"
+        ]
+        Resource = "*"
+        Condition = {
+          StringLike = {
+            "aws:RequestTag/efs.csi.aws.com/cluster" = "true"
+          }
+        }
+      },
+      {
+        Effect = "Allow"
+        Action = [
+          "elasticfilesystem:DeleteAccessPoint"
+        ]
+        Resource = "*"
+        Condition = {
+          StringLike = {
+            "aws:ResourceTag/efs.csi.aws.com/cluster" = "true"
+          }
+        }
+      }
+    ]
+  })
+
+  tags = {
+    Name = "${var.cluster_name}-aws-efs-csi-driver-policy"
+  }
+}
+
+resource "aws_iam_role_policy_attachment" "efs_csi" {
+  count      = contains(keys(var.addons), "aws-efs-csi-driver") ? 1 : 0
+  policy_arn = aws_iam_policy.efs_csi[0].arn
+  role       = aws_iam_role.efs_csi[0].name
+}
+
+#-----------------------------------------------------------------------------------------------------------------------
+# Pod Identity Agent IAM Role
+#-----------------------------------------------------------------------------------------------------------------------
+
+resource "aws_iam_role" "pod_identity_agent" {
+  count = contains(keys(var.addons), "pod-identity-agent") ? 1 : 0
+  name  = "${var.cluster_name}-pod-identity-agent-role"
+
+  assume_role_policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Effect = "Allow"
+        Principal = {
+          Service = "eks.amazonaws.com"
+        }
+        Action = "sts:AssumeRole"
+      }
+    ]
+  })
+
+  tags = {
+    Name = "${var.cluster_name}-pod-identity-agent-role"
+  }
+}
+
+resource "aws_iam_policy" "pod_identity_agent" {
+  count       = contains(keys(var.addons), "pod-identity-agent") ? 1 : 0
+  name        = "${var.cluster_name}-pod-identity-agent-policy"
+  description = "IAM policy for EKS Pod Identity Agent"
+
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Effect = "Allow"
+        Action = [
+          "iam:CreateServiceLinkedRole"
+        ]
+        Resource = "*"
+        Condition = {
+          StringEquals = {
+            "iam:AWSServiceName" = "eks-auth.amazonaws.com"
+          }
+        }
+      }
+    ]
+  })
+
+  tags = {
+    Name = "${var.cluster_name}-pod-identity-agent-policy"
+  }
+}
+
+resource "aws_iam_role_policy_attachment" "pod_identity_agent" {
+  count      = contains(keys(var.addons), "pod-identity-agent") ? 1 : 0
+  policy_arn = aws_iam_policy.pod_identity_agent[0].arn
+  role       = aws_iam_role.pod_identity_agent[0].name
+}
+
+#-----------------------------------------------------------------------------------------------------------------------
+# Create Add-Ons
+#-----------------------------------------------------------------------------------------------------------------------
+
+locals {
+  addon_configuration = {
+    for name, addon in var.addons : name => {
+      version                  = lookup(addon, "version", data.aws_eks_addon_version.default[name].version)
+      role_arn = (
+        name == "vpc-cni" ? try(aws_iam_role.vpc_cni[0].arn, null) :
+        name == "aws-ebs-csi-driver" ? try(aws_iam_role.ebs_csi[0].arn, null) :
+        name == "aws-efs-csi-driver" ? try(aws_iam_role.efs_csi[0].arn, null) :
+        name == "eks-pod-identity-agent" ? try(aws_iam_role.pod_identity_agent[0].arn, null) :
+        null
+      )
+      service_account_name = (
+        name == "vpc-cni" ? "aws-node" :
+        name == "aws-ebs-csi-driver" ? "ebs-csi-controller-sa" :
+        name == "aws-efs-csi-driver" ? "efs-csi-controller-sa" :
+        null
+      )
+      tags                     = lookup(addon, "tags", {})
+    }
+  }
+}
+
+resource "aws_eks_addon" "this" {
+  for_each = var.addons
+
+  cluster_name             = aws_eks_cluster.this.name
+  addon_name               = each.key
+  addon_version            = local.addon_configuration[each.key].version
+  service_account_role_arn = (
+    each.key == "eks-pod-identity-agent" ? local.addon_configuration[each.key].role_arn : null
+  )
+
+  dynamic "pod_identity_association" {
+    for_each = (
+      each.key != "eks-pod-identity-agent" && 
+      local.addon_configuration[each.key].role_arn != null
+    ) ? [1] : []
+    content {
+      role_arn = local.addon_configuration[each.key].role_arn
+      service_account = local.addon_configuration[each.key].service_account_name
+    }
+  }
+  tags                     = local.addon_configuration[each.key].tags
 }
 
 #-----------------------------------------------------------------------------------------------------------------------

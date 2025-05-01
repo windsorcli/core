@@ -9,3 +9,6 @@ contexts/**/.tfstate/
 contexts/**/.kube/
 contexts/**/.talos/
 contexts/**/.aws/
+
+# macOS system files
+**/.DS_Store

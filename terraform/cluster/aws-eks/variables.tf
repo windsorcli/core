@@ -71,3 +71,17 @@ variable "fargate_profiles" {
   }))
   default = {}
 }
+
+variable "addons" {
+  description = "Map of EKS add-ons"
+  type = map(object({
+    version                  = optional(string)
+    tags                     = optional(map(string), {})
+  }))
+  default = {
+    vpc-cni                 = {}
+    aws-efs-csi-driver      = {}
+    aws-ebs-csi-driver      = {}
+    eks-pod-identity-agent  = {}
+  }
+}
