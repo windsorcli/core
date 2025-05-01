@@ -27,7 +27,6 @@ jobs:
       TALOSCONFIG: ${{ github.workspace }}/contexts/local/.talos/config
       PRIVATE_DOMAIN_NAME: private.test
       DNS_SERVER_IP: "10.5.255.200"
-      WINDSORCLI_VERSION: "v0.5.1"
 
     steps:
       - name: Checkout code
@@ -69,8 +68,7 @@ jobs:
       # Windsor Up
       - name: Windsor Up on Linux/macOS
         run: |
-          windsor init local
-
+          windsor init local --set dns.enabled=false
           windsor up --install --verbose
 
       # Windsor Down
