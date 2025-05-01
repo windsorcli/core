@@ -63,7 +63,7 @@ jobs:
 
       # Install Windsor CLI
       - name: Install Windsor CLI
-        uses: windsorcli/action@8473f4294ee3f10b81b229f8c67079cb685d3136 # main
+        uses: windsorcli/action@main
         with:
           ref: main
           context: local
