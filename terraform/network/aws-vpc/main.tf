@@ -179,3 +179,16 @@ resource "aws_route_table_association" "data" {
   subnet_id      = aws_subnet.data[count.index].id
   route_table_id = aws_route_table.data[count.index].id
 }
+
+#-----------------------------------------------------------------------------------------------------------------------
+# Route53 Hosted Zone
+#-----------------------------------------------------------------------------------------------------------------------
+
+resource "aws_route53_zone" "main" {
+  count = var.domain_name != null ? 1 : 0
+  name  = var.domain_name
+
+  vpc {
+    vpc_id = aws_vpc.main.id
+  }
+}

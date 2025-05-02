@@ -55,3 +55,9 @@ variable "tags" {
   type        = map(string)
   default     = {}
 }
+
+variable "domain_name" {
+  description = "The domain name for the Route53 hosted zone"
+  type        = string
+  default     = null
+}
