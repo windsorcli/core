@@ -20,7 +20,7 @@ variable "vpc_cidr" {
 
 variable "vpc_subnets" {
   description = "Subnets to create in the VPC"
-  type = map(list(string))
+  type        = map(list(string))
   # example: {
   #   public  = ["10.20.1.0/24", "10.20.2.0/24", "10.20.3.0/24"]
   #   private = ["10.20.11.0/24", "10.20.12.0/24", "10.20.13.0/24"] 

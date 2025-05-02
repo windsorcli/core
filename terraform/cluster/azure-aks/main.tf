@@ -29,7 +29,7 @@ provider "azurerm" {
 #-----------------------------------------------------------------------------------------------------------------------
 
 locals {
-  kubeconfig_path  = "${var.context_path}/.kube/config"
+  kubeconfig_path = "${var.context_path}/.kube/config"
 }
 
 #-----------------------------------------------------------------------------------------------------------------------
@@ -48,11 +48,11 @@ data "azurerm_subnet" "private" {
 }
 
 resource "azurerm_kubernetes_cluster" "main" {
-  name                = "${var.prefix}-${var.cluster_name}"
-  location            = azurerm_resource_group.aks.location
-  resource_group_name = azurerm_resource_group.aks.name
-  dns_prefix          = "${var.prefix}-${var.cluster_name}"
-  kubernetes_version  = var.kubernetes_version
+  name                              = "${var.prefix}-${var.cluster_name}"
+  location                          = azurerm_resource_group.aks.location
+  resource_group_name               = azurerm_resource_group.aks.name
+  dns_prefix                        = "${var.prefix}-${var.cluster_name}"
+  kubernetes_version                = var.kubernetes_version
   role_based_access_control_enabled = var.role_based_access_control_enabled
 
   default_node_pool {
@@ -81,5 +81,5 @@ resource "azurerm_kubernetes_cluster" "main" {
 
 resource "local_file" "kube_config" {
   content  = azurerm_kubernetes_cluster.main.kube_config_raw
-  filename = "${local.kubeconfig_path}"
+  filename = local.kubeconfig_path
 }
