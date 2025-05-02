@@ -51,7 +51,6 @@ kustomize:
   force: true
   components:
   - nginx
-  - nginx/aws-loadbalancer
   - nginx/coredns
   - nginx/flux-webhook
   - nginx/web
