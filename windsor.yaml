@@ -63,3 +63,5 @@ contexts:
       enabled: true
       backend:
         type: local
+    dns:
+      domain: aws-test.internal

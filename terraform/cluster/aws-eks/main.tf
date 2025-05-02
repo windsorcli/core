@@ -451,6 +451,72 @@ resource "aws_iam_role_policy_attachment" "pod_identity_agent" {
   role       = aws_iam_role.pod_identity_agent[0].name
 }
 
+
+#-----------------------------------------------------------------------------------------------------------------------
+# External DNS IAM Role
+#-----------------------------------------------------------------------------------------------------------------------
+
+resource "aws_iam_role" "external_dns" {
+  count       = contains(keys(var.addons), "external-dns") ? 1 : 0
+  name  = "${var.cluster_name}-external-dns-role"
+
+  assume_role_policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Action = ["sts:AssumeRole", "sts:TagSession"]
+        Effect = "Allow"
+        Principal = {
+          Service = "pods.eks.amazonaws.com"
+        }
+      }
+    ]
+  })
+
+  tags = {
+    Name = "${var.cluster_name}-external-dns-role"
+  }
+}
+
+resource "aws_iam_policy" "external_dns" {
+  count       = contains(keys(var.addons), "external-dns") ? 1 : 0
+  name        = "${var.cluster_name}-external-dns-policy"
+  description = "IAM policy for External DNS"
+
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Effect = "Allow"
+        Action = [
+          "route53:ChangeResourceRecordSets"
+        ]
+        Resource = [
+          "arn:aws:route53:::hostedzone/*"
+        ]
+      },
+      {
+        Effect = "Allow"
+        Action = [
+          "route53:ListHostedZones",
+          "route53:ListResourceRecordSets"
+        ]
+        Resource = ["*"]
+      }
+    ]
+  })
+
+  tags = {
+    Name = "${var.cluster_name}-external-dns-policy"
+  }
+}
+
+resource "aws_iam_role_policy_attachment" "external_dns" {
+  count      = contains(keys(var.addons), "external-dns") ? 1 : 0
+  policy_arn = aws_iam_policy.external_dns[0].arn
+  role       = aws_iam_role.external_dns[0].name
+}
+
 #-----------------------------------------------------------------------------------------------------------------------
 # Create Add-Ons
 #-----------------------------------------------------------------------------------------------------------------------
@@ -464,12 +530,15 @@ locals {
         name == "aws-ebs-csi-driver" ? try(aws_iam_role.ebs_csi[0].arn, null) :
         name == "aws-efs-csi-driver" ? try(aws_iam_role.efs_csi[0].arn, null) :
         name == "eks-pod-identity-agent" ? try(aws_iam_role.pod_identity_agent[0].arn, null) :
+        name == "external-dns" ? try(aws_iam_role.external_dns[0].arn, null) :
         null
       )
       service_account_name = (
         name == "vpc-cni" ? "aws-node" :
         name == "aws-ebs-csi-driver" ? "ebs-csi-controller-sa" :
         name == "aws-efs-csi-driver" ? "efs-csi-controller-sa" :
+        name == "eks-pod-identity-agent" ? "pod-identity-agent" :
+        name == "external-dns" ? "external-dns" :
         null
       )
       tags = lookup(addon, "tags", {})
@@ -483,6 +552,8 @@ resource "aws_eks_addon" "this" {
   cluster_name  = aws_eks_cluster.this.name
   addon_name    = each.key
   addon_version = local.addon_configuration[each.key].version
+  resolve_conflicts_on_create = "OVERWRITE"
+  resolve_conflicts_on_update = "OVERWRITE"
   service_account_role_arn = (
     each.key == "eks-pod-identity-agent" ? local.addon_configuration[each.key].role_arn : null
   )
