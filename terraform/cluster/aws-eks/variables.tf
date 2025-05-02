@@ -106,5 +106,7 @@ variable "addons" {
     aws-efs-csi-driver     = {}
     aws-ebs-csi-driver     = {}
     eks-pod-identity-agent = {}
+    coredns                = {}
+    external-dns           = {}
   }
 }
