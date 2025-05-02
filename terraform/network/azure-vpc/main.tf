@@ -30,7 +30,7 @@ provider "azurerm" {
 
 resource "azurerm_resource_group" "main" {
   name     = "${var.prefix}-vpc-rg"
-  location = "eastus"
+  location = var.region
 }
 
 #-----------------------------------------------------------------------------------------------------------------------

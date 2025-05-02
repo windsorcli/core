@@ -6,6 +6,12 @@ variable "prefix" {
   default     = "windsor"
 }
 
+variable "region" {
+  description = "Region for the resources"
+  type        = string
+  default     = "eastus"
+}
+
 variable "zones" {
   description = "Number of availability zones to create"
   type        = number
