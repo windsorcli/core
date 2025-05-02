@@ -1,0 +1,17 @@
+---
+apiVersion: helm.toolkit.fluxcd.io/v2
+kind: HelmRelease
+metadata:
+  name: ingress-nginx-controller
+  namespace: system-ingress
+spec:
+  values:
+    controller:
+      service:
+        type: LoadBalancer
+        loadBalancerIP: ${LOADBALANCER_IP_START}
+        enableHttp: true
+        enableTls: false
+        ports:
+          http: 80
+          https: 443

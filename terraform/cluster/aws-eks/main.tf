@@ -120,7 +120,6 @@ resource "aws_eks_node_group" "this" {
   node_role_arn   = aws_iam_role.node_group.arn
   subnet_ids      = data.aws_subnets.private.ids
   instance_types  = each.value.instance_types
-  disk_size       = each.value.disk_size
 
   scaling_config {
     desired_size = each.value.desired_size
@@ -139,11 +138,53 @@ resource "aws_eks_node_group" "this" {
 
   labels = each.value.labels
 
+  # Set max pods per node to 64
+  launch_template {
+    name    = aws_launch_template.node_group[each.key].name
+    version = aws_launch_template.node_group[each.key].latest_version
+  }
+
   depends_on = [
     aws_iam_role_policy_attachment.node_group_AmazonEKSWorkerNodePolicy,
     aws_iam_role_policy_attachment.node_group_AmazonEKS_CNI_Policy,
     aws_iam_role_policy_attachment.node_group_AmazonEC2ContainerRegistryReadOnly,
   ]
+}
+
+resource "aws_launch_template" "node_group" {
+  for_each = var.node_groups
+
+  name = "${var.cluster_name}-${each.key}"
+
+  block_device_mappings {
+    device_name = "/dev/xvda"
+    ebs {
+      volume_size = each.value.disk_size
+      volume_type = "gp3"
+      delete_on_termination = true
+    }
+  }
+
+  network_interfaces {
+    associate_public_ip_address = false
+    delete_on_termination = true
+    security_groups = [aws_eks_cluster.this.vpc_config[0].cluster_security_group_id]
+  }
+
+  user_data = base64encode(<<-EOT
+MIME-Version: 1.0
+Content-Type: multipart/mixed; boundary="==BOUNDARY=="
+
+--==BOUNDARY==
+Content-Type: text/x-shellscript; charset="us-ascii"
+
+#!/bin/bash
+set -o xtrace
+/etc/eks/bootstrap.sh ${aws_eks_cluster.this.name} --use-max-pods false --kubelet-extra-args '--max-pods=110'
+
+--==BOUNDARY==--
+EOT
+  )
 }
 
 #-----------------------------------------------------------------------------------------------------------------------
@@ -445,6 +486,16 @@ resource "aws_eks_addon" "this" {
   service_account_role_arn = (
     each.key == "eks-pod-identity-agent" ? local.addon_configuration[each.key].role_arn : null
   )
+
+  # Configure VPC CNI to allow more max pods per node
+  configuration_values = each.key == "vpc-cni" ? jsonencode({
+    env = {
+      ENABLE_PREFIX_DELEGATION = tostring(var.vpc_cni_config.enable_prefix_delegation)
+      WARM_PREFIX_TARGET       = tostring(var.vpc_cni_config.warm_prefix_target)
+      WARM_IP_TARGET           = tostring(var.vpc_cni_config.warm_ip_target)
+      MINIMUM_IP_TARGET        = tostring(var.vpc_cni_config.minimum_ip_target)
+    }
+  }) : null
 
   dynamic "pod_identity_association" {
     for_each = (

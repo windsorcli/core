@@ -42,7 +42,7 @@ variable "node_groups" {
     min_size       = number
     max_size       = number
     desired_size   = number
-    disk_size      = optional(number, 20)
+    disk_size      = optional(number, 64)
     labels         = optional(map(string), {})
     taints = optional(list(object({
       key    = string
@@ -59,6 +59,29 @@ variable "node_groups" {
     }
   }
 }
+
+variable "max_pods_per_node" {
+  description = "Maximum number of pods that can run on a single node"
+  type        = number
+  default     = 64
+}
+
+variable "vpc_cni_config" {
+  description = "Configuration for the VPC CNI addon"
+  type = object({
+    enable_prefix_delegation = bool
+    warm_prefix_target      = number
+    warm_ip_target          = number
+    minimum_ip_target       = number
+  })
+  default = {
+    enable_prefix_delegation = true
+    warm_prefix_target      = 1
+    warm_ip_target          = 1
+    minimum_ip_target       = 1
+  }
+}
+
 
 variable "fargate_profiles" {
   description = "Map of EKS Fargate profile definitions to create."
