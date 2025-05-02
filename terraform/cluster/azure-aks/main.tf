@@ -56,16 +56,29 @@ resource "azurerm_kubernetes_cluster" "main" {
   role_based_access_control_enabled = var.role_based_access_control_enabled
 
   default_node_pool {
-    name           = "default"
+    name           = "system"
     node_count     = 1
-    vm_size        = "Standard_D2_v2"
+    vm_size        = "Standard_D2s_v3"
     vnet_subnet_id = data.azurerm_subnet.private.id
+    orchestrator_version = var.kubernetes_version
+    only_critical_addons_enabled = true
+  }
 
-    upgrade_settings {
-      drain_timeout_in_minutes      = 0
-      max_surge                     = "10%"
-      node_soak_duration_in_minutes = 0
-    }
+  auto_scaler_profile {
+    balance_similar_node_groups = var.auto_scaler_profile["balance_similar_node_groups"]
+    max_graceful_termination_sec = var.auto_scaler_profile["max_graceful_termination_sec"]
+    scale_down_delay_after_add = var.auto_scaler_profile["scale_down_delay_after_add"]
+    scale_down_delay_after_delete = var.auto_scaler_profile["scale_down_delay_after_delete"]
+    scale_down_delay_after_failure = var.auto_scaler_profile["scale_down_delay_after_failure"]
+    scan_interval = var.auto_scaler_profile["scan_interval"]
+    scale_down_unneeded = var.auto_scaler_profile["scale_down_unneeded"]
+    scale_down_unready = var.auto_scaler_profile["scale_down_unready"]
+    scale_down_utilization_threshold = var.auto_scaler_profile["scale_down_utilization_threshold"]
+  }
+
+  workload_autoscaler_profile {
+    keda_enabled = var.workload_autoscaler_profile["keda_enabled"]
+    vertical_pod_autoscaler_enabled = var.workload_autoscaler_profile["vertical_pod_autoscaler_enabled"]
   }
 
   identity {
@@ -76,6 +89,21 @@ resource "azurerm_kubernetes_cluster" "main" {
     ignore_changes = [
       default_node_pool[0].node_count
     ]
+  }
+}
+
+resource "azurerm_kubernetes_cluster_node_pool" "autoscaled" {
+  name                  = "autoscaled"
+  kubernetes_cluster_id = azurerm_kubernetes_cluster.main.id
+  vm_size               = "Standard_D2s_v3"
+  mode                  = "User"
+  auto_scaling_enabled  = true
+  min_count             = 1
+  max_count             = 3
+  vnet_subnet_id        = data.azurerm_subnet.private.id
+  orchestrator_version  = var.kubernetes_version
+  node_labels = {
+    role = "app"
   }
 }
 
