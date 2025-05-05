@@ -9,6 +9,10 @@ terraform {
   }
 }
 
+data "aws_caller_identity" "current" {}
+
+data "aws_region" "current" {}
+
 #-----------------------------------------------------------------------------------------------------------------------
 # AWS VPC Configuration
 #-----------------------------------------------------------------------------------------------------------------------
@@ -34,11 +38,48 @@ resource "aws_flow_log" "vpc_flow_logs" {
 
 resource "aws_cloudwatch_log_group" "vpc_flow_logs" {
   name              = "/aws/vpc-flow-logs/${var.name}"
-  retention_in_days = 30
+  retention_in_days = 365
+  kms_key_id        = aws_kms_key.cloudwatch_logs_encryption.arn
 
   tags = {
     Name = "${var.name}-vpc-flow-logs"
   }
+}
+
+resource "aws_kms_key" "cloudwatch_logs_encryption" {
+  description             = "KMS key for CloudWatch Logs encryption"
+  deletion_window_in_days = 7
+  enable_key_rotation     = true
+
+  policy = jsonencode({
+    Version = "2012-10-17",
+    Statement = [
+      {
+        Sid    = "Enable IAM User Permissions",
+        Effect = "Allow",
+        Principal = {
+          AWS = "arn:aws:iam::${data.aws_caller_identity.current.account_id}:root"
+        },
+        Action   = "kms:*",
+        Resource = "*"
+      },
+      {
+        Sid    = "Allow CloudWatch Logs to use the key",
+        Effect = "Allow",
+        Principal = {
+          Service = "logs.${data.aws_region.current.name}.amazonaws.com"
+        },
+        Action = [
+          "kms:Encrypt",
+          "kms:Decrypt",
+          "kms:ReEncrypt*",
+          "kms:GenerateDataKey*",
+          "kms:DescribeKey"
+        ],
+        Resource = "*"
+      }
+    ]
+  })
 }
 
 resource "aws_iam_role" "vpc_flow_logs" {
@@ -250,7 +291,7 @@ resource "aws_cloudwatch_log_group" "route53_query_logs" {
   count = var.domain_name != null ? 1 : 0
   name  = "/aws/route53/${var.domain_name}"
 
-  retention_in_days = 30
+  retention_in_days = 365
 
   tags = {
     Name = "${var.name}-route53-query-logs"
@@ -280,3 +321,20 @@ resource "aws_cloudwatch_log_resource_policy" "route53_query_logging" {
     }]
   })
 }
+
+# Enable DNSSEC for the hosted zone
+resource "aws_route53_hosted_zone_dnssec" "main" {
+  count = var.domain_name != null ? 1 : 0
+
+  hosted_zone_id = aws_route53_zone.main[0].zone_id
+}
+
+# Optionally, define a key signing key (KSK) for DNSSEC
+resource "aws_route53_key_signing_key" "main" {
+  count                      = var.domain_name != null ? 1 : 0
+  hosted_zone_id             = aws_route53_zone.main[0].zone_id
+  name                       = "${var.name}-ksk"
+  key_management_service_arn = aws_kms_key.cloudwatch_logs_encryption.arn
+  status                     = "ACTIVE"
+}
+
