@@ -56,6 +56,7 @@ locals {
 #-----------------------------------------------------------------------------------------------------------------------
 
 resource "azurerm_key_vault" "key_vault" {
+  # checkov:skip=CKV2_AZURE_32: We are using a public cluster for testing, there is no need for private endpoints.
   name                        = "${var.prefix}-keyvault"
   location                    = azurerm_resource_group.aks.location
   resource_group_name         = azurerm_resource_group.aks.name
