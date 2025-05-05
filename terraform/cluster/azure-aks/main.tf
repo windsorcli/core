@@ -56,20 +56,22 @@ locals {
 #-----------------------------------------------------------------------------------------------------------------------
 
 resource "azurerm_key_vault" "key_vault" {
+  name                        = "${var.prefix}-keyvault"
+  location                    = azurerm_resource_group.aks.location
+  resource_group_name         = azurerm_resource_group.aks.name
+  tenant_id                   = data.azurerm_client_config.current.tenant_id
+  sku_name                    = "premium"
+  enabled_for_disk_encryption = true
+  purge_protection_enabled    = true
+  soft_delete_retention_days  = 7
   # checkov:skip=CKV2_AZURE_32: We are using a public cluster for testing
-  # private clusters are encouraged for production
-  name                          = "${var.prefix}-keyvault"
-  location                      = azurerm_resource_group.aks.location
-  resource_group_name           = azurerm_resource_group.aks.name
-  tenant_id                     = data.azurerm_client_config.current.tenant_id
-  sku_name                      = "premium"
-  enabled_for_disk_encryption   = true
-  purge_protection_enabled      = true
-  soft_delete_retention_days    = 7
-  public_network_access_enabled = false
+  # private services are encouraged for production
+  public_network_access_enabled = var.public_network_access_enabled
 
+  # checkov:skip=CKV_AZURE_109: We are using a public cluster for testing
+  # private services are encouraged for production. Change to "Deny" for production.
   network_acls {
-    default_action = "Deny"
+    default_action = var.network_acls_default_action
     bypass         = "AzureServices"
   }
 

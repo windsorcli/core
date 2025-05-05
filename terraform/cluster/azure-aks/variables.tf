@@ -149,3 +149,15 @@ variable "max_count" {
   description = "The maximum number of nodes for the AKS cluster"
   default     = 3
 }
+
+variable "public_network_access_enabled" {
+  type        = bool
+  description = "Whether to enable public network access for the AKS cluster"
+  default     = true
+}
+
+variable "network_acls_default_action" {
+  type        = string
+  description = "The default action for the AKS cluster's network ACLs"
+  default     = "Allow"
+}
