@@ -32,7 +32,7 @@ variable "kubernetes_version" {
 variable "vpc_id" {
   description = "The ID of the VPC where the EKS cluster will be created."
   type        = string
-  default     = "vpc-0c2bbc3cc4734c126"
+  default     = null
 }
 
 variable "node_groups" {

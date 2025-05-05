@@ -13,6 +13,14 @@ terraform {
 # Data
 #-----------------------------------------------------------------------------------------------------------------------
 
+data "aws_vpc" "default" {
+  count = var.vpc_id == null ? 1 : 0
+  filter {
+    name   = "tag:Name"
+    values = ["${var.cluster_name}-vpc"]
+  }
+}
+
 data "aws_subnets" "private" {
   filter {
     name   = "tag:Tier"
@@ -20,7 +28,7 @@ data "aws_subnets" "private" {
   }
   filter {
     name   = "vpc-id"
-    values = [var.vpc_id]
+    values = [var.vpc_id != null ? var.vpc_id : data.aws_vpc.default[0].id]
   }
 }
 

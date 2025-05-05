@@ -5,7 +5,7 @@
 variable "name" {
   description = "Name prefix for all resources in the VPC"
   type        = string
-  default     = "main"
+  default     = "windsor-core"
 }
 
 variable "cidr_block" {
