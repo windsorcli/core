@@ -83,3 +83,69 @@ variable "workload_autoscaler_profile" {
     vertical_pod_autoscaler_enabled = false
   }
 }
+
+variable "automatic_upgrade_channel" {
+  type        = string
+  description = "The automatic upgrade channel for the AKS cluster"
+  default     = "stable"
+}
+
+variable "sku_tier" {
+  type        = string
+  description = "The SKU tier for the AKS cluster"
+  default     = "Standard"
+}
+
+variable "api_server_authorized_ip_ranges" {
+  type        = list(string)
+  description = "The API server authorized IP ranges for the AKS cluster"
+  default     = ["0.0.0.0/0"]
+}
+
+variable "private_cluster_enabled" {
+  type        = bool
+  description = "Whether to enable private cluster for the AKS cluster"
+  default     = false
+}
+
+variable "azure_policy_enabled" {
+  type        = bool
+  description = "Whether to enable Azure Policy for the AKS cluster"
+  default     = true
+}
+
+variable "local_account_disabled" {
+  type        = bool
+  description = "Whether to disable local accounts for the AKS cluster"
+  default     = false
+}
+
+variable "os_disk_type" {
+  type        = string
+  description = "The type of OS disk for the AKS cluster"
+  default     = "Managed"
+}
+
+variable "host_encryption_enabled" {
+  type        = bool
+  description = "Whether to enable host encryption for the AKS cluster"
+  default     = true
+}
+
+variable "max_pods" {
+  type        = number
+  description = "The maximum number of pods for the AKS cluster"
+  default     = 50
+}
+
+variable "min_count" {
+  type        = number
+  description = "The minimum number of nodes for the AKS cluster"
+  default     = 1
+}
+
+variable "max_count" {
+  type        = number
+  description = "The maximum number of nodes for the AKS cluster"
+  default     = 3
+}
