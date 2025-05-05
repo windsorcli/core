@@ -23,6 +23,59 @@ resource "aws_vpc" "main" {
   }
 }
 
+# Enable VPC Flow Logs
+resource "aws_flow_log" "vpc_flow_logs" {
+  log_destination      = aws_cloudwatch_log_group.vpc_flow_logs.arn
+  log_destination_type = "cloud-watch-logs"
+  traffic_type         = "ALL"
+  vpc_id               = aws_vpc.main.id
+  iam_role_arn         = aws_iam_role.vpc_flow_logs.arn
+}
+
+resource "aws_cloudwatch_log_group" "vpc_flow_logs" {
+  name              = "/aws/vpc-flow-logs/${var.name}"
+  retention_in_days = 30
+
+  tags = {
+    Name = "${var.name}-vpc-flow-logs"
+  }
+}
+
+resource "aws_iam_role" "vpc_flow_logs" {
+  name = "${var.name}-vpc-flow-logs-role"
+
+  assume_role_policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [{
+      Action = "sts:AssumeRole"
+      Effect = "Allow"
+      Principal = {
+        Service = "vpc-flow-logs.amazonaws.com"
+      }
+    }]
+  })
+}
+
+resource "aws_iam_role_policy" "vpc_flow_logs" {
+  name = "${var.name}-vpc-flow-logs-policy"
+  role = aws_iam_role.vpc_flow_logs.id
+
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [{
+      Action = [
+        "logs:CreateLogGroup",
+        "logs:CreateLogStream",
+        "logs:PutLogEvents",
+        "logs:DescribeLogGroups",
+        "logs:DescribeLogStreams"
+      ]
+      Effect   = "Allow"
+      Resource = "arn:aws:logs:*:*:log-group:/aws/vpc-flow-logs/*"
+    }]
+  })
+}
+
 #-----------------------------------------------------------------------------------------------------------------------
 # Subnets
 #-----------------------------------------------------------------------------------------------------------------------
@@ -36,7 +89,7 @@ resource "aws_subnet" "public" {
   cidr_block        = cidrsubnet(var.cidr_block, var.subnet_newbits, count.index)
   availability_zone = data.aws_availability_zones.available.names[count.index]
 
-  map_public_ip_on_launch = false  # Disable automatic public IP assignment for security
+  map_public_ip_on_launch = false # Disable automatic public IP assignment for security
 
   tags = {
     Name = "${var.name}-public-${data.aws_availability_zones.available.names[count.index]}"
@@ -183,7 +236,6 @@ resource "aws_route_table_association" "data" {
 #-----------------------------------------------------------------------------------------------------------------------
 # Route53 Hosted Zone
 #-----------------------------------------------------------------------------------------------------------------------
-
 resource "aws_route53_zone" "main" {
   count = var.domain_name != null ? 1 : 0
   name  = var.domain_name
@@ -191,4 +243,40 @@ resource "aws_route53_zone" "main" {
   vpc {
     vpc_id = aws_vpc.main.id
   }
+}
+
+# Enable DNS query logging for Route53 hosted zone
+resource "aws_cloudwatch_log_group" "route53_query_logs" {
+  count = var.domain_name != null ? 1 : 0
+  name  = "/aws/route53/${var.domain_name}"
+
+  retention_in_days = 30
+
+  tags = {
+    Name = "${var.name}-route53-query-logs"
+  }
+}
+
+resource "aws_route53_query_log" "main" {
+  count                    = var.domain_name != null ? 1 : 0
+  depends_on               = [aws_cloudwatch_log_resource_policy.route53_query_logging]
+  cloudwatch_log_group_arn = aws_cloudwatch_log_group.route53_query_logs[0].arn
+  zone_id                  = aws_route53_zone.main[0].zone_id
+}
+
+resource "aws_cloudwatch_log_resource_policy" "route53_query_logging" {
+  count       = var.domain_name != null ? 1 : 0
+  policy_name = "route53-query-logging-policy"
+  policy_document = jsonencode({
+    Version = "2012-10-17"
+    Statement = [{
+      Action = [
+        "logs:CreateLogStream",
+        "logs:PutLogEvents",
+      ]
+      Effect    = "Allow"
+      Principal = { Service = "route53.amazonaws.com" }
+      Resource  = "arn:aws:logs:*:*:log-group:/aws/route53/*"
+    }]
+  })
 }

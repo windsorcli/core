@@ -37,7 +37,7 @@ resource "aws_eks_cluster" "this" {
   vpc_config {
     subnet_ids              = data.aws_subnets.private.ids
     endpoint_private_access = true
-    endpoint_public_access  = false  # Disable public endpoint for security
+    endpoint_public_access  = false # Disable public endpoint for security
   }
 
   # Enable secrets encryption using AWS KMS
@@ -68,7 +68,39 @@ resource "aws_kms_key" "eks_encryption_key" {
   description             = "KMS key for EKS cluster ${var.cluster_name} secrets encryption"
   deletion_window_in_days = 7
   enable_key_rotation     = true
+
+  policy = jsonencode({
+    Version = "2012-10-17",
+    Statement = [
+      {
+        Sid    = "Enable IAM User Permissions",
+        Effect = "Allow",
+        Principal = {
+          AWS = "arn:aws:iam::${data.aws_caller_identity.current.account_id}:root"
+        },
+        Action   = "kms:*",
+        Resource = "*"
+      },
+      {
+        Sid    = "Allow EKS to use the key for secrets encryption",
+        Effect = "Allow",
+        Principal = {
+          Service = "eks.amazonaws.com"
+        },
+        Action = [
+          "kms:Encrypt",
+          "kms:Decrypt",
+          "kms:ReEncrypt*",
+          "kms:GenerateDataKey*",
+          "kms:DescribeKey"
+        ],
+        Resource = "*"
+      }
+    ]
+  })
 }
+
+data "aws_caller_identity" "current" {}
 
 #-----------------------------------------------------------------------------------------------------------------------
 # IAM Roles
