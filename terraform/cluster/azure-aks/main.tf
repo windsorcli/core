@@ -125,12 +125,14 @@ resource "random_string" "key_vault_key_name" {
   numeric = false
 }
 
+resource "time_static" "expiry" {}
+
 resource "azurerm_key_vault_key" "key_vault_key" {
   name            = "${var.prefix}-key-${random_string.key_vault_key_name.result}"
   key_vault_id    = azurerm_key_vault.key_vault.id
   key_type        = "RSA-HSM"
   key_size        = 2048
-  expiration_date = timeadd(timestamp(), "8760h")
+  expiration_date = var.expiration_date != null ? var.expiration_date : timeadd(time_static.expiry.rfc3339, "8760h")
 
   key_opts = [
     "decrypt",

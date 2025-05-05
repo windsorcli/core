@@ -161,3 +161,9 @@ variable "network_acls_default_action" {
   description = "The default action for the AKS cluster's network ACLs"
   default     = "Allow"
 }
+
+variable "expiration_date" {
+  type        = string
+  description = "The expiration date for the AKS cluster's key vault"
+  default     = null
+}
