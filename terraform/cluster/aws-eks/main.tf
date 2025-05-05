@@ -29,20 +29,45 @@ data "aws_region" "current" {}
 #-----------------------------------------------------------------------------------------------------------------------
 # EKS Cluster
 #-----------------------------------------------------------------------------------------------------------------------
-
 resource "aws_eks_cluster" "this" {
   name     = var.cluster_name
   role_arn = aws_iam_role.cluster.arn
   version  = var.kubernetes_version
 
   vpc_config {
-    subnet_ids = data.aws_subnets.private.ids
+    subnet_ids              = data.aws_subnets.private.ids
+    endpoint_private_access = true
+    endpoint_public_access  = false  # Disable public endpoint for security
   }
+
+  # Enable secrets encryption using AWS KMS
+  encryption_config {
+    provider {
+      key_arn = aws_kms_key.eks_encryption_key.arn
+    }
+    resources = ["secrets"]
+  }
+
+  # Enable control plane logging for all log types
+  enabled_cluster_log_types = [
+    "api",
+    "audit",
+    "authenticator",
+    "controllerManager",
+    "scheduler"
+  ]
 
   depends_on = [
     aws_iam_role_policy_attachment.cluster_AmazonEKSClusterPolicy,
     aws_iam_role_policy_attachment.cluster_AmazonEKSVPCResourceController,
+    aws_kms_key.eks_encryption_key,
   ]
+}
+
+resource "aws_kms_key" "eks_encryption_key" {
+  description             = "KMS key for EKS cluster ${var.cluster_name} secrets encryption"
+  deletion_window_in_days = 7
+  enable_key_rotation     = true
 }
 
 #-----------------------------------------------------------------------------------------------------------------------
@@ -111,7 +136,6 @@ resource "aws_iam_role_policy_attachment" "node_group_AmazonEC2ContainerRegistry
 #-----------------------------------------------------------------------------------------------------------------------
 # Node Groups
 #-----------------------------------------------------------------------------------------------------------------------
-
 resource "aws_eks_node_group" "this" {
   for_each = var.node_groups
 
@@ -169,6 +193,14 @@ resource "aws_launch_template" "node_group" {
     associate_public_ip_address = false
     delete_on_termination       = true
     security_groups             = [aws_eks_cluster.this.vpc_config[0].cluster_security_group_id]
+  }
+
+  # Disable IMDSv1 and require IMDSv2
+  metadata_options {
+    http_endpoint               = "enabled"
+    http_tokens                 = "required"
+    http_put_response_hop_limit = 1
+    instance_metadata_tags      = "enabled"
   }
 
   user_data = base64encode(<<-EOT
@@ -351,14 +383,14 @@ resource "aws_iam_policy" "efs_csi" {
           "elasticfilesystem:DescribeMountTargets",
           "ec2:DescribeAvailabilityZones"
         ]
-        Resource = "*"
+        Resource = "arn:aws:elasticfilesystem:${data.aws_region.current.name}:${data.aws_caller_identity.current.account_id}:*"
       },
       {
         Effect = "Allow"
         Action = [
           "elasticfilesystem:CreateAccessPoint"
         ]
-        Resource = "*"
+        Resource = "arn:aws:elasticfilesystem:${data.aws_region.current.name}:${data.aws_caller_identity.current.account_id}:*"
         Condition = {
           StringLike = {
             "aws:RequestTag/efs.csi.aws.com/cluster" = "true"
@@ -370,7 +402,7 @@ resource "aws_iam_policy" "efs_csi" {
         Action = [
           "elasticfilesystem:DeleteAccessPoint"
         ]
-        Resource = "*"
+        Resource = "arn:aws:elasticfilesystem:${data.aws_region.current.name}:${data.aws_caller_identity.current.account_id}:*"
         Condition = {
           StringLike = {
             "aws:ResourceTag/efs.csi.aws.com/cluster" = "true"
@@ -430,7 +462,7 @@ resource "aws_iam_policy" "pod_identity_agent" {
         Action = [
           "iam:CreateServiceLinkedRole"
         ]
-        Resource = "*"
+        Resource = "arn:aws:iam::${data.aws_caller_identity.current.account_id}:role/eks-auth.amazonaws.com"
         Condition = {
           StringEquals = {
             "iam:AWSServiceName" = "eks-auth.amazonaws.com"
@@ -501,7 +533,7 @@ resource "aws_iam_policy" "external_dns" {
           "route53:ListHostedZones",
           "route53:ListResourceRecordSets"
         ]
-        Resource = ["*"]
+        Resource = ["arn:aws:route53:::hostedzone/*"]
       }
     ]
   })
