@@ -70,15 +70,15 @@ variable "vpc_cni_config" {
   description = "Configuration for the VPC CNI addon"
   type = object({
     enable_prefix_delegation = bool
-    warm_prefix_target      = number
-    warm_ip_target          = number
-    minimum_ip_target       = number
+    warm_prefix_target       = number
+    warm_ip_target           = number
+    minimum_ip_target        = number
   })
   default = {
     enable_prefix_delegation = true
-    warm_prefix_target      = 1
-    warm_ip_target          = 1
-    minimum_ip_target       = 1
+    warm_prefix_target       = 1
+    warm_ip_target           = 1
+    minimum_ip_target        = 1
   }
 }
 

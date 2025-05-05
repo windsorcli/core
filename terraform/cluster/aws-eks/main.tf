@@ -159,16 +159,16 @@ resource "aws_launch_template" "node_group" {
   block_device_mappings {
     device_name = "/dev/xvda"
     ebs {
-      volume_size = each.value.disk_size
-      volume_type = "gp3"
+      volume_size           = each.value.disk_size
+      volume_type           = "gp3"
       delete_on_termination = true
     }
   }
 
   network_interfaces {
     associate_public_ip_address = false
-    delete_on_termination = true
-    security_groups = [aws_eks_cluster.this.vpc_config[0].cluster_security_group_id]
+    delete_on_termination       = true
+    security_groups             = [aws_eks_cluster.this.vpc_config[0].cluster_security_group_id]
   }
 
   user_data = base64encode(<<-EOT
@@ -457,7 +457,7 @@ resource "aws_iam_role_policy_attachment" "pod_identity_agent" {
 #-----------------------------------------------------------------------------------------------------------------------
 
 resource "aws_iam_role" "external_dns" {
-  count       = contains(keys(var.addons), "external-dns") ? 1 : 0
+  count = contains(keys(var.addons), "external-dns") ? 1 : 0
   name  = "${var.cluster_name}-external-dns-role"
 
   assume_role_policy = jsonencode({
@@ -549,9 +549,9 @@ locals {
 resource "aws_eks_addon" "this" {
   for_each = var.addons
 
-  cluster_name  = aws_eks_cluster.this.name
-  addon_name    = each.key
-  addon_version = local.addon_configuration[each.key].version
+  cluster_name                = aws_eks_cluster.this.name
+  addon_name                  = each.key
+  addon_version               = local.addon_configuration[each.key].version
   resolve_conflicts_on_create = "OVERWRITE"
   resolve_conflicts_on_update = "OVERWRITE"
   service_account_role_arn = (
