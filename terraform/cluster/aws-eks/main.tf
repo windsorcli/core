@@ -661,6 +661,16 @@ locals {
   kubeconfig_path = "${var.context_path}/.kube/config"
 }
 
+# Create the kubeconfig directory if it doesn't exist
+resource "null_resource" "create_kubeconfig_dir" {
+  count = local.kubeconfig_path != "" ? 1 : 0
+
+  provisioner "local-exec" {
+    command = "mkdir -p $(dirname ${local.kubeconfig_path})"
+  }
+}
+
+
 resource "local_sensitive_file" "kubeconfig" {
   count = local.kubeconfig_path != "" ? 1 : 0
 
