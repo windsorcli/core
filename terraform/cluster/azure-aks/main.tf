@@ -64,7 +64,7 @@ resource "azurerm_key_vault" "key_vault" {
   enabled_for_disk_encryption = true
   purge_protection_enabled    = true
   soft_delete_retention_days  = 7
-  # checkov:skip=CKV2_AZURE_32: We are using a public cluster for testing
+  # checkov:skip=CKV_AZURE_189: We are using a public cluster for testing
   # private services are encouraged for production
   public_network_access_enabled = var.public_network_access_enabled
 
