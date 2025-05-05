@@ -201,9 +201,9 @@ resource "azurerm_kubernetes_cluster" "main" {
     orchestrator_version         = var.kubernetes_version
     only_critical_addons_enabled = true
     # checkov:skip=CKV_AZURE_226: we are using the managed disk type to reduce costs
-    os_disk_type                 = var.os_disk_type
-    host_encryption_enabled      = var.host_encryption_enabled
-    max_pods                     = var.max_pods
+    os_disk_type            = var.os_disk_type
+    host_encryption_enabled = var.host_encryption_enabled
+    max_pods                = var.max_pods
   }
 
   auto_scaler_profile {
@@ -244,15 +244,15 @@ resource "azurerm_kubernetes_cluster" "main" {
 }
 
 resource "azurerm_kubernetes_cluster_node_pool" "autoscaled" {
-  name                    = "autoscaled"
-  kubernetes_cluster_id   = azurerm_kubernetes_cluster.main.id
-  vm_size                 = "Standard_D2s_v3"
-  mode                    = "User"
-  auto_scaling_enabled    = true
-  min_count               = var.min_count
-  max_count               = var.max_count
-  vnet_subnet_id          = data.azurerm_subnet.private.id
-  orchestrator_version    = var.kubernetes_version
+  name                  = "autoscaled"
+  kubernetes_cluster_id = azurerm_kubernetes_cluster.main.id
+  vm_size               = "Standard_D2s_v3"
+  mode                  = "User"
+  auto_scaling_enabled  = true
+  min_count             = var.min_count
+  max_count             = var.max_count
+  vnet_subnet_id        = data.azurerm_subnet.private.id
+  orchestrator_version  = var.kubernetes_version
   # checkov:skip=CKV_AZURE_226: we are using the managed disk type to reduce costs
   os_disk_type            = var.os_disk_type
   max_pods                = var.max_pods
