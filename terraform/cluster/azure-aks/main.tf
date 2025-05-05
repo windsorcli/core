@@ -58,14 +58,14 @@ locals {
 resource "azurerm_key_vault" "key_vault" {
   # checkov:skip=CKV2_AZURE_32: We are using a public cluster for testing
   # private clusters are encouraged for production
-  name                        = "${var.prefix}-keyvault"
-  location                    = azurerm_resource_group.aks.location
-  resource_group_name         = azurerm_resource_group.aks.name
-  tenant_id                   = data.azurerm_client_config.current.tenant_id
-  sku_name                    = "premium"
-  enabled_for_disk_encryption = true
-  purge_protection_enabled    = true
-  soft_delete_retention_days  = 7
+  name                          = "${var.prefix}-keyvault"
+  location                      = azurerm_resource_group.aks.location
+  resource_group_name           = azurerm_resource_group.aks.name
+  tenant_id                     = data.azurerm_client_config.current.tenant_id
+  sku_name                      = "premium"
+  enabled_for_disk_encryption   = true
+  purge_protection_enabled      = true
+  soft_delete_retention_days    = 7
   public_network_access_enabled = false
 
   network_acls {
@@ -123,10 +123,10 @@ resource "random_string" "key_vault_key_name" {
 }
 
 resource "azurerm_key_vault_key" "key_vault_key" {
-  name         = "${var.prefix}-key-${random_string.key_vault_key_name.result}"
-  key_vault_id = azurerm_key_vault.key_vault.id
-  key_type     = "RSA-HSM"
-  key_size     = 2048
+  name            = "${var.prefix}-key-${random_string.key_vault_key_name.result}"
+  key_vault_id    = azurerm_key_vault.key_vault.id
+  key_type        = "RSA-HSM"
+  key_size        = 2048
   expiration_date = timeadd(timestamp(), "8760h")
 
   key_opts = [
@@ -197,7 +197,7 @@ resource "azurerm_kubernetes_cluster" "main" {
   private_cluster_enabled = var.private_cluster_enabled
   disk_encryption_set_id  = azurerm_disk_encryption_set.main.id
   # checkov:skip=CKV_AZURE_116: This replaces the addon_profile
-  azure_policy_enabled   = var.azure_policy_enabled
+  azure_policy_enabled = var.azure_policy_enabled
   # checkov:skip=CKV_AZURE_141: We are setting this to false to avoid the creation of an AD
   local_account_disabled = var.local_account_disabled
 
