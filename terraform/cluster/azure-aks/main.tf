@@ -36,8 +36,8 @@ data "azurerm_client_config" "current" {}
 
 locals {
   kubeconfig_path = "${var.context_path}/.kube/config"
-  rg_name         = var.resource_group_name == null ? "${var.context_id}-aks-rg" : var.resource_group_name
-  cluster_name    = var.cluster_name == null ? "${var.context_id}-aks-cluster" : var.cluster_name
+  rg_name         = var.resource_group_name == null ? "windsor-aks-rg-${var.context_id}" : var.resource_group_name
+  cluster_name    = var.cluster_name == null ? "windsor-aks-cluster-${var.context_id}" : var.cluster_name
 }
 
 #-----------------------------------------------------------------------------------------------------------------------
@@ -186,8 +186,8 @@ resource "azurerm_kubernetes_cluster" "main" {
   role_based_access_control_enabled = var.role_based_access_control_enabled
   automatic_upgrade_channel         = var.automatic_upgrade_channel
   sku_tier                          = var.sku_tier
-  # checkov:skip=CKV_AZURE_6: This feature is in preview
-  # api_server_authorized_ip_ranges   = var.api_server_authorized_ip_ranges
+  # checkov:skip=CKV_AZURE_6: This feature is in preview, we are using a public cluster for testing
+  # api_server_authorized_ip_ranges   = [0.0.0.0/0]
   # checkov:skip=CKV_AZURE_115: We are using a public cluster for testing
   # private clusters are encouraged for production
   private_cluster_enabled = var.private_cluster_enabled
@@ -202,33 +202,33 @@ resource "azurerm_kubernetes_cluster" "main" {
   }
 
   default_node_pool {
-    name                         = "system"
-    node_count                   = 1
-    vm_size                      = "Standard_D2s_v3"
+    name                         = var.default_node_pool.name
+    node_count                   = var.default_node_pool.node_count
+    vm_size                      = var.default_node_pool.vm_size
     vnet_subnet_id               = data.azurerm_subnet.private.id
     orchestrator_version         = var.kubernetes_version
     only_critical_addons_enabled = true
     # checkov:skip=CKV_AZURE_226: we are using the managed disk type to reduce costs
-    os_disk_type            = var.os_disk_type
-    host_encryption_enabled = var.host_encryption_enabled
-    max_pods                = var.max_pods
+    os_disk_type            = var.default_node_pool.os_disk_type
+    host_encryption_enabled = var.default_node_pool.host_encryption_enabled
+    max_pods                = var.default_node_pool.max_pods
   }
 
   auto_scaler_profile {
-    balance_similar_node_groups      = var.auto_scaler_profile["balance_similar_node_groups"]
-    max_graceful_termination_sec     = var.auto_scaler_profile["max_graceful_termination_sec"]
-    scale_down_delay_after_add       = var.auto_scaler_profile["scale_down_delay_after_add"]
-    scale_down_delay_after_delete    = var.auto_scaler_profile["scale_down_delay_after_delete"]
-    scale_down_delay_after_failure   = var.auto_scaler_profile["scale_down_delay_after_failure"]
-    scan_interval                    = var.auto_scaler_profile["scan_interval"]
-    scale_down_unneeded              = var.auto_scaler_profile["scale_down_unneeded"]
-    scale_down_unready               = var.auto_scaler_profile["scale_down_unready"]
-    scale_down_utilization_threshold = var.auto_scaler_profile["scale_down_utilization_threshold"]
+    balance_similar_node_groups      = var.auto_scaler_profile.balance_similar_node_groups
+    max_graceful_termination_sec     = var.auto_scaler_profile.max_graceful_termination_sec
+    scale_down_delay_after_add       = var.auto_scaler_profile.scale_down_delay_after_add
+    scale_down_delay_after_delete    = var.auto_scaler_profile.scale_down_delay_after_delete
+    scale_down_delay_after_failure   = var.auto_scaler_profile.scale_down_delay_after_failure
+    scan_interval                    = var.auto_scaler_profile.scan_interval
+    scale_down_unneeded              = var.auto_scaler_profile.scale_down_unneeded
+    scale_down_unready               = var.auto_scaler_profile.scale_down_unready
+    scale_down_utilization_threshold = var.auto_scaler_profile.scale_down_utilization_threshold
   }
 
   workload_autoscaler_profile {
-    keda_enabled                    = var.workload_autoscaler_profile["keda_enabled"]
-    vertical_pod_autoscaler_enabled = var.workload_autoscaler_profile["vertical_pod_autoscaler_enabled"]
+    keda_enabled                    = var.workload_autoscaler_profile.keda_enabled
+    vertical_pod_autoscaler_enabled = var.workload_autoscaler_profile.vertical_pod_autoscaler_enabled
   }
 
   network_profile {
@@ -252,19 +252,20 @@ resource "azurerm_kubernetes_cluster" "main" {
 }
 
 resource "azurerm_kubernetes_cluster_node_pool" "autoscaled" {
-  name                  = "autoscaled"
+  count                 = var.autoscaled_node_pool.enabled ? 1 : 0
+  name                  = var.autoscaled_node_pool.name
   kubernetes_cluster_id = azurerm_kubernetes_cluster.main.id
-  vm_size               = "Standard_D2s_v3"
-  mode                  = "User"
+  vm_size               = var.autoscaled_node_pool.vm_size
+  mode                  = var.autoscaled_node_pool.mode
   auto_scaling_enabled  = true
-  min_count             = var.min_count
-  max_count             = var.max_count
+  min_count             = var.autoscaled_node_pool.min_count
+  max_count             = var.autoscaled_node_pool.max_count
   vnet_subnet_id        = data.azurerm_subnet.private.id
   orchestrator_version  = var.kubernetes_version
   # checkov:skip=CKV_AZURE_226: we are using the managed disk type to reduce costs
-  os_disk_type            = var.os_disk_type
-  max_pods                = var.max_pods
-  host_encryption_enabled = var.host_encryption_enabled
+  os_disk_type            = var.autoscaled_node_pool.os_disk_type
+  max_pods                = var.autoscaled_node_pool.max_pods
+  host_encryption_enabled = var.autoscaled_node_pool.host_encryption_enabled
 }
 
 resource "local_file" "kube_config" {
