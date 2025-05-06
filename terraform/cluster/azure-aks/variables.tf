@@ -53,50 +53,50 @@ variable "context_id" {
 variable "default_node_pool" {
   description = "Configuration for the default node pool"
   type = object({
-    name = string
-    vm_size = string
-    os_disk_type = string
-    max_pods = number
+    name                    = string
+    vm_size                 = string
+    os_disk_type            = string
+    max_pods                = number
     host_encryption_enabled = bool
-    min_count = number
-    max_count = number
-    node_count = number
+    min_count               = number
+    max_count               = number
+    node_count              = number
   })
   default = {
-    name = "system"
-    vm_size = "Standard_D2s_v3"
-    os_disk_type = "Managed"
-    max_pods = 30
+    name                    = "system"
+    vm_size                 = "Standard_D2s_v3"
+    os_disk_type            = "Managed"
+    max_pods                = 30
     host_encryption_enabled = true
-    min_count = 1
-    max_count = 3
-    node_count = 1
+    min_count               = 1
+    max_count               = 3
+    node_count              = 1
   }
 }
 
 variable "autoscaled_node_pool" {
   description = "Configuration for the autoscaled node pool"
   type = object({
-    enabled  = bool
-    name     = string 
-    vm_size  = string
-    mode     = string
-    os_disk_type = string
-    max_pods = number
+    enabled                 = bool
+    name                    = string
+    vm_size                 = string
+    mode                    = string
+    os_disk_type            = string
+    max_pods                = number
     host_encryption_enabled = bool
-    min_count = number
-    max_count = number
+    min_count               = number
+    max_count               = number
   })
   default = {
-    enabled  = true
-    name     = "autoscaled"
-    vm_size  = "Standard_D2s_v3"
-    mode     = "User"
-    os_disk_type = "Managed"
-    max_pods = 30
+    enabled                 = true
+    name                    = "autoscaled"
+    vm_size                 = "Standard_D2s_v3"
+    mode                    = "User"
+    os_disk_type            = "Managed"
+    max_pods                = 30
     host_encryption_enabled = true
-    min_count = 1
-    max_count = 3
+    min_count               = 1
+    max_count               = 3
   }
 }
 
@@ -115,7 +115,7 @@ variable "auto_scaler_profile" {
     scale_down_delay_after_failure   = string
     scan_interval                    = string
     scale_down_unneeded              = string
-    scale_down_unready              = string
+    scale_down_unready               = string
     scale_down_utilization_threshold = string
   })
   description = "Configuration for the AKS cluster's auto-scaler"
@@ -127,7 +127,7 @@ variable "auto_scaler_profile" {
     scale_down_delay_after_failure   = "3m"
     scan_interval                    = "10s"
     scale_down_unneeded              = "10m"
-    scale_down_unready              = "20m"
+    scale_down_unready               = "20m"
     scale_down_utilization_threshold = "0.5"
   }
 }
