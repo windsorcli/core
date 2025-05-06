@@ -2,10 +2,22 @@
 # Variables
 #-----------------------------------------------------------------------------------------------------------------------
 
-variable "prefix" {
-  description = "Prefix for the resources"
+variable "resource_group_name" {
+  description = "Name of the resource group"
   type        = string
-  default     = "windsor"
+  default     = null
+}
+
+variable "vnet_resource_group_name" {
+  description = "Name of the VNET resource group"
+  type        = string
+  default     = null
+}
+
+variable "vnet_name" {
+  description = "Name of the VNET"
+  type        = string
+  default     = null
 }
 
 variable "region" {
@@ -17,7 +29,7 @@ variable "region" {
 variable "cluster_name" {
   description = "Name of the AKS cluster"
   type        = string
-  default     = "aks-cluster"
+  default     = null
 }
 
 variable "kubernetes_version" {
@@ -32,9 +44,10 @@ variable "context_path" {
   default     = ""
 }
 
-variable "azure_subscription_id" {
+variable "context_id" {
+  description = "Context ID for the resources"
   type        = string
-  description = "Subscription ID for the AKS cluster"
+  default     = null
 }
 
 variable "role_based_access_control_enabled" {

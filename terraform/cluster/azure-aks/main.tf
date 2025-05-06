@@ -17,7 +17,6 @@ terraform {
 #-----------------------------------------------------------------------------------------------------------------------
 
 provider "azurerm" {
-  subscription_id = var.azure_subscription_id
   features {
     resource_group {
       prevent_deletion_if_contains_resources = false
@@ -32,20 +31,22 @@ provider "azurerm" {
 data "azurerm_client_config" "current" {}
 
 #-----------------------------------------------------------------------------------------------------------------------
-# Resource Groups
-#-----------------------------------------------------------------------------------------------------------------------
-
-resource "azurerm_resource_group" "aks" {
-  name     = "${var.prefix}-aks-rg"
-  location = var.region
-}
-
-#-----------------------------------------------------------------------------------------------------------------------
 # Locals
 #-----------------------------------------------------------------------------------------------------------------------
 
 locals {
   kubeconfig_path = "${var.context_path}/.kube/config"
+  rg_name         = var.resource_group_name == null ? "${var.context_id}-aks-rg" : var.resource_group_name
+  cluster_name    = var.cluster_name == null ? "${var.context_id}-aks-cluster" : var.cluster_name
+}
+
+#-----------------------------------------------------------------------------------------------------------------------
+# Resource Groups
+#-----------------------------------------------------------------------------------------------------------------------
+
+resource "azurerm_resource_group" "aks" {
+  name     = local.rg_name
+  location = var.region
 }
 
 #-----------------------------------------------------------------------------------------------------------------------
@@ -54,7 +55,7 @@ locals {
 
 resource "azurerm_key_vault" "key_vault" {
   # checkov:skip=CKV2_AZURE_32: We are using a public cluster for testing, there is no need for private endpoints.
-  name                        = "${var.prefix}-keyvault"
+  name                        = "aks-keyvault-${var.context_id}"
   location                    = azurerm_resource_group.aks.location
   resource_group_name         = azurerm_resource_group.aks.name
   tenant_id                   = data.azurerm_client_config.current.tenant_id
@@ -115,17 +116,10 @@ resource "azurerm_key_vault_access_policy" "key_vault_access_policy_disk" {
   ]
 }
 
-resource "random_string" "key_vault_key_name" {
-  length  = 6
-  special = false
-  upper   = false
-  numeric = false
-}
-
 resource "time_static" "expiry" {}
 
 resource "azurerm_key_vault_key" "key_vault_key" {
-  name            = "${var.prefix}-key-${random_string.key_vault_key_name.result}"
+  name            = "aks-key-${var.context_id}"
   key_vault_id    = azurerm_key_vault.key_vault.id
   key_type        = "RSA-HSM"
   key_size        = 2048
@@ -151,7 +145,7 @@ resource "azurerm_key_vault_key" "key_vault_key" {
 }
 
 resource "azurerm_disk_encryption_set" "main" {
-  name                = "${var.prefix}-des-${random_string.key_vault_key_name.result}"
+  name                = "des-${var.context_id}"
   resource_group_name = azurerm_resource_group.aks.name
   location            = azurerm_resource_group.aks.location
   key_vault_key_id    = azurerm_key_vault_key.key_vault_key.id
@@ -166,7 +160,7 @@ resource "azurerm_disk_encryption_set" "main" {
 #-----------------------------------------------------------------------------------------------------------------------
 
 resource "azurerm_log_analytics_workspace" "aks_logs" {
-  name                = "${var.prefix}-aks-logs"
+  name                = "aks-logs-${var.context_id}"
   location            = azurerm_resource_group.aks.location
   resource_group_name = azurerm_resource_group.aks.name
   sku                 = "PerGB2018"
@@ -178,16 +172,16 @@ resource "azurerm_log_analytics_workspace" "aks_logs" {
 #-----------------------------------------------------------------------------------------------------------------------
 
 data "azurerm_subnet" "private" {
-  name                 = "${var.prefix}-priv-subnet-1"
-  resource_group_name  = "${var.prefix}-vpc-rg"
-  virtual_network_name = "${var.prefix}-vpc"
+  name                 = "${var.context_id}-private-1"
+  resource_group_name  = var.vnet_resource_group_name == null ? "windsor-vnet-rg-${var.context_id}" : var.vnet_resource_group_name
+  virtual_network_name = var.vnet_name == null ? "windsor-vnet-${var.context_id}" : var.vnet_name
 }
 
 resource "azurerm_kubernetes_cluster" "main" {
-  name                              = "${var.prefix}-${var.cluster_name}"
+  name                              = var.cluster_name == null ? "aks-cluster-${var.context_id}" : var.cluster_name
   location                          = azurerm_resource_group.aks.location
   resource_group_name               = azurerm_resource_group.aks.name
-  dns_prefix                        = "${var.prefix}-${var.cluster_name}"
+  dns_prefix                        = var.cluster_name == null ? "aks-cluster-${var.context_id}" : var.cluster_name
   kubernetes_version                = var.kubernetes_version
   role_based_access_control_enabled = var.role_based_access_control_enabled
   automatic_upgrade_channel         = var.automatic_upgrade_channel

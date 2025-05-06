@@ -1,31 +1,37 @@
 
 # Variables
-variable "prefix" {
-  description = "Prefix for the resources"
-  type        = string
-  default     = "windsor"
-}
-
 variable "region" {
   description = "Region for the resources"
   type        = string
   default     = "eastus"
 }
 
-variable "zones" {
+variable "resource_group_name" {
+  description = "Name of the resource group"
+  type        = string
+  default     = null
+}
+
+variable "vnet_name" {
+  description = "Name of the VNET"
+  type        = string
+  default     = null
+}
+
+variable "vnet_zones" {
   description = "Number of availability zones to create"
   type        = number
   default     = 1
 }
 
-variable "vpc_cidr" {
-  description = "CIDR block for VPC"
+variable "vnet_cidr" {
+  description = "CIDR block for VNET"
   type        = string
   default     = "10.20.0.0/16"
 }
 
-variable "vpc_subnets" {
-  description = "Subnets to create in the VPC"
+variable "vnet_subnets" {
+  description = "Subnets to create in the VNET"
   type        = map(list(string))
   # example: {
   #   public  = ["10.20.1.0/24", "10.20.2.0/24", "10.20.3.0/24"]
@@ -39,7 +45,8 @@ variable "vpc_subnets" {
   }
 }
 
-variable "azure_subscription_id" {
+variable "context_id" {
+  description = "Context ID for the resources"
   type        = string
-  description = "Subscription ID for the AKS cluster"
+  default     = null
 }
