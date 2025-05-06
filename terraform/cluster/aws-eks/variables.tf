@@ -3,7 +3,7 @@
 # Variables
 #-----------------------------------------------------------------------------------------------------------------------
 
-variable "context_path_override" {
+variable "something" {
   type        = string
   description = "The path to the context folder, where kubeconfig is stored"
   default     = ""
