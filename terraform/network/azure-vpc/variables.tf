@@ -39,22 +39,6 @@ variable "vpc_subnets" {
   }
 }
 
-variable "azure_use_oidc" {
-  type        = bool
-  description = "Whether to use OIDC for the AKS cluster"
-  default     = false
-}
-
-variable "azure_client_id" {
-  type        = string
-  description = "Client ID for the AKS cluster"
-}
-
-variable "azure_tenant_id" {
-  type        = string
-  description = "Tenant ID for the AKS cluster"
-}
-
 variable "azure_subscription_id" {
   type        = string
   description = "Subscription ID for the AKS cluster"

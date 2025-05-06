@@ -17,9 +17,6 @@ terraform {
 #-----------------------------------------------------------------------------------------------------------------------
 
 provider "azurerm" {
-  use_oidc        = var.azure_use_oidc
-  client_id       = var.azure_client_id
-  tenant_id       = var.azure_tenant_id
   subscription_id = var.azure_subscription_id
   features {}
 }
