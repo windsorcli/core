@@ -20,6 +20,12 @@ variable "vnet_name" {
   default     = null
 }
 
+variable "vnet_subnet_id" {
+  description = "ID of the subnet"
+  type        = string
+  default     = null
+}
+
 variable "region" {
   description = "Region for the resources"
   type        = string
