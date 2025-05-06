@@ -172,7 +172,7 @@ resource "azurerm_log_analytics_workspace" "aks_logs" {
 #-----------------------------------------------------------------------------------------------------------------------
 
 data "azurerm_subnet" "private" {
-  count = var.vnet_subnet_id == null ? 1 : 0
+  count                = var.vnet_subnet_id == null ? 1 : 0
   name                 = "${var.context_id}-private-1"
   resource_group_name  = var.vnet_resource_group_name == null ? "windsor-vnet-rg-${var.context_id}" : var.vnet_resource_group_name
   virtual_network_name = var.vnet_name == null ? "windsor-vnet-${var.context_id}" : var.vnet_name
@@ -212,7 +212,8 @@ resource "azurerm_kubernetes_cluster" "main" {
     # checkov:skip=CKV_AZURE_226: we are using the managed disk type to reduce costs
     os_disk_type            = var.default_node_pool.os_disk_type
     host_encryption_enabled = var.default_node_pool.host_encryption_enabled
-    max_pods                = var.default_node_pool.max_pods
+    # checkov:skip=CKV_AZURE_168: This is set in the variable by default to 50
+    max_pods = var.default_node_pool.max_pods
   }
 
   auto_scaler_profile {
@@ -263,8 +264,9 @@ resource "azurerm_kubernetes_cluster_node_pool" "autoscaled" {
   max_count             = var.autoscaled_node_pool.max_count
   vnet_subnet_id        = coalesce(var.vnet_subnet_id, try(data.azurerm_subnet.private[0].id, null))
   orchestrator_version  = var.kubernetes_version
-  # checkov:skip=CKV_AZURE_226: we are using the managed disk type to reduce costs
-  os_disk_type            = var.autoscaled_node_pool.os_disk_type
+  # checkov:skip=CKV_AZURE_226: We are using the managed disk type to reduce costs
+  os_disk_type = var.autoscaled_node_pool.os_disk_type
+  # checkov:skip=CKV_AZURE_168: This is set in the variable by default to 50
   max_pods                = var.autoscaled_node_pool.max_pods
   host_encryption_enabled = var.autoscaled_node_pool.host_encryption_enabled
 }
