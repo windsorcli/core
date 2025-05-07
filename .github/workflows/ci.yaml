@@ -8,8 +8,14 @@ on:
     branches:
       - main
 
+permissions:
+  contents: read
+  security-events: write
+  checks: write
+
 env:
   WINDSOR_PROJECT_ROOT: ${{ github.workspace }}
+  DOCKER_HOST: unix:///var/run/docker.sock
 
 jobs:
   # Blueprint Checks
@@ -27,29 +33,28 @@ jobs:
       TALOSCONFIG: ${{ github.workspace }}/contexts/local/.talos/config
       PRIVATE_DOMAIN_NAME: private.test
       DNS_SERVER_IP: "10.5.255.200"
-      WINDSORCLI_VERSION: "v0.5.1"
 
     steps:
       - name: Checkout code
         uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
 
       - name: Create .docker-cache directory
-        run: mkdir -p .docker-cache
+        run: mkdir -p .windsor/.docker-cache
 
       - name: Cache .docker-cache
         uses: actions/cache@5a3ec84eff668545956fd18022155c47e93e2684 # v4.2.3
         with:
-          path: .docker-cache
+          path: .windsor/.docker-cache
           key: docker-cache-${{ runner.os }}-${{ github.sha }}
           restore-keys: docker-cache-${{ runner.os }}-
 
       # Install Aqua
-      - name: Install Aqua on Linux/macOS
+      - name: Install Aqua
         uses: aquaproj/aqua-installer@5e54e5cee8a95ee2ce7c04cb993da6dfad13e59c # v3.1.2
         with:
-          aqua_version: v2.50.0
+          aqua_version: v2.51.1
           
-      - name: Set aqua path on Linux/macOS
+      - name: Set aqua path
         run: |
           echo "${AQUA_ROOT_DIR:-${XDG_DATA_HOME:-$HOME/.local/share}/aquaproj-aqua}/bin" >> $GITHUB_PATH
 
@@ -60,20 +65,18 @@ jobs:
 
       # Install Windsor CLI
       - name: Install Windsor CLI
-        uses: windsorcli/action/.github/actions/windsorcli@078842a08b468bd2278563bbc929e9d968095988 # v0.2.0
+        uses: windsorcli/action@main
         with:
-          version: ${{ env.WINDSORCLI_VERSION }}
-          install_folder: ${{ github.workspace }}/bin
+          ref: main
           context: local
 
       # Windsor Up
-      - name: Windsor Up on Linux/macOS
+      - name: Windsor Up
         run: |
-          windsor init local
-
+          windsor init local --set dns.enabled=false
           windsor up --install --verbose
 
       # Windsor Down
-      - name: Windsor Down on Linux/macOS
+      - name: Windsor Down
         run: |
           windsor down --clean
