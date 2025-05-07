@@ -1,0 +1,54 @@
+---
+apiVersion: helm.toolkit.fluxcd.io/v2
+kind: HelmRelease
+metadata:
+  name: openebs
+  namespace: system-csi
+spec:
+  values:
+    engines:
+      replicated:
+        mayastor:
+          enabled: true
+    localpv-provisioner:
+      localpv:
+        enabled: true
+        basePath: ${WORKER_VOLUME_PATH}
+    mayastor:
+      enabled: true
+      localpv-provisioner:
+        enabled: false
+      crds:
+        enabled: false
+      nodeSelector:
+        kubernetes.io/arch: ${ARCH:-amd64}
+      loki-stack:
+        enabled: false
+      csi:
+        node:
+          initContainers:
+            enabled: false
+      etcd:
+        localpvScConfig:
+          enabled: false
+        persistence:
+          enabled: true
+          storageClass: local
+      storageClass:
+        enabled: false
+      io_engine:
+        envcontext: iova-mode=pa
+        nodeSelector:
+          openebs.io/engine: mayastor
+          kubernetes.io/arch: ${ARCH:-amd64}
+      operators:
+        pool:
+          resources:
+            limits:
+              memory: "64Mi"
+            requests:
+              cpu: "50m"
+              memory: "64Mi"
+      obs:
+        callhome:
+          enabled: false
