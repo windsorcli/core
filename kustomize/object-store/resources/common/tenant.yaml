@@ -10,7 +10,7 @@ spec:
     spec:
       chart: tenant
       # renovate: datasource=helm depName=minio-tenant package=tenant helmRepo=https://operator.min.io/
-      version: 6.0.3
+      version: 7.1.1
       sourceRef:
         kind: HelmRepository
         name: minio
@@ -21,8 +21,6 @@ spec:
       configSecret:
           name: myminio-root-creds
           existingSecret: true
-      image:
-        tag: RELEASE.2024-08-17T01-24-54Z
       configuration:
         name: minio-root-creds
       pools:

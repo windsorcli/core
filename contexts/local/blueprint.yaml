@@ -100,4 +100,4 @@ kustomize:
   - object-store-base
   force: true
   components:
-  - minio
+  - common
