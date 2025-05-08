@@ -19,7 +19,7 @@ spec:
     tenant:
       name: common
       configSecret:
-          name: myminio-root-creds
+          name: minio-root-creds
           existingSecret: true
       pools:
         - name: pool-0
