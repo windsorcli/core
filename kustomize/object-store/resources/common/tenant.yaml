@@ -21,8 +21,6 @@ spec:
       configSecret:
           name: myminio-root-creds
           existingSecret: true
-      configuration:
-        name: minio-root-creds
       pools:
         - name: pool-0
           servers: 1
