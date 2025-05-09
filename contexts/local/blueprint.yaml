@@ -87,3 +87,17 @@ kustomize:
   force: true
   components:
   - ingress
+- name: object-store-base
+  path: object-store/base
+  dependsOn:
+  - pki-base
+  force: true
+  components:
+  - minio
+- name: object-store-resources
+  path: object-store/resources
+  dependsOn:
+  - object-store-base
+  force: true
+  components:
+  - common
