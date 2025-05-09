@@ -658,7 +658,7 @@ resource "aws_eks_addon" "this" {
 #-----------------------------------------------------------------------------------------------------------------------
 
 locals {
-  kubeconfig_path = "${var.something}/.kube/config"
+  kubeconfig_path = "${var.context_path}/.kube/config"
 }
 
 # Create the kubeconfig directory if it doesn't exist
