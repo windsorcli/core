@@ -10,3 +10,6 @@ contexts/**/.kube/
 contexts/**/.talos/
 contexts/**/.aws/
 contexts/**/.omni/
+
+# macOS system files
+**/.DS_Store
