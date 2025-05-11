@@ -38,7 +38,7 @@ jobs:
         uses: actions/setup-python@0b93645e9fea7318ecaed2b359559ac225c90a2b # v5.3.0
         with:
           python-version: '3.x'
-    
+
       - name: Setup Terraform
         uses: hashicorp/setup-terraform@b9cd54a3c349d3f38e8881555d616ced269862dd # v3.1.2
         with:
@@ -66,7 +66,7 @@ jobs:
         run: |
           sudo apt-get install -y shellcheck
           find . -name "*.sh" -print0 | xargs -0 shellcheck
-  
+
       - name: Run terraform fmt
         run: terraform fmt -check -recursive
 
@@ -101,7 +101,7 @@ jobs:
           directory: ./terraform
           output_format: cli,sarif
           output_file_path: console,results.sarif
-        
+
       - name: Upload SARIF file
         uses: github/codeql-action/upload-sarif@48ab28a6f5dbc2a99bf1e0131198dd8f1df78169 # v3.28.0
         with:
