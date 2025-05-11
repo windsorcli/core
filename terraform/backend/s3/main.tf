@@ -50,9 +50,8 @@ resource "aws_s3_bucket" "this" {
 #---------------------------------------------------------------------------------------------------
 
 locals {
-  account_id_hash         = substr(md5(data.aws_caller_identity.current.account_id), 0, 8)
-  default_s3_bucket_name  = "terraform-state-${local.account_id_hash}"
-  log_bucket_name         = var.s3_log_bucket_name != "" ? var.s3_log_bucket_name : (var.s3_bucket_name != "" ? "${var.s3_bucket_name}-logs" : "terraform-state-logs-${local.account_id_hash}")
+  default_s3_bucket_name  = var.s3_bucket_name != "" ? var.s3_bucket_name : "terraform-state-${var.context_id}"
+  log_bucket_name         = var.s3_log_bucket_name != "" ? var.s3_log_bucket_name : (var.s3_bucket_name != "" ? "${var.s3_bucket_name}-logs" : "terraform-state-logs-${var.context_id}")
 
   bucket_policy_statements = flatten([
     var.bucket_policy_enforce_https ? [
@@ -178,7 +177,7 @@ resource "aws_dynamodb_table" "terraform_locks" {
   # checkov:skip=CKV_AWS_119:Encryption is not necessary for this DynamoDB table as it is used solely for Terraform state locking, which does not involve sensitive data.
   count        = var.enable_dynamodb ? 1 : 0
 
-  name         = var.dynamodb_table_name != "" ? var.dynamodb_table_name : "terraform-state-locks-${local.account_id_hash}"
+  name         = var.dynamodb_table_name != "" ? var.dynamodb_table_name : "terraform-state-locks-${var.context_id}"
   billing_mode = var.dynamodb_billing_mode
   hash_key     = var.dynamodb_lock_key
 
@@ -273,7 +272,7 @@ resource "aws_kms_key" "terraform_state" {
 resource "aws_kms_alias" "terraform_state_alias" {
   count = var.enable_kms && var.kms_key_alias == "" ? 1 : 0
 
-  name          = var.kms_key_alias != "" ? var.kms_key_alias : "alias/terraform-state-${local.account_id_hash}"
+  name          = var.kms_key_alias != "" ? var.kms_key_alias : "alias/terraform-state-${var.context_id}"
   target_key_id = aws_kms_key.terraform_state[0].key_id
 }
 
@@ -293,8 +292,4 @@ ${var.dynamodb_table_name != "" ? "dynamodb_table = \"" + var.dynamodb_table_nam
 EOF
 
   filename = "${var.context_path}/terraform/backend.tfvars"
-
-  lifecycle {
-    ignore_changes = []
-  }
 }

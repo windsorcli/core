@@ -4,6 +4,12 @@ variable "context_path" {
   default     = ""
 }
 
+variable "context_id" {
+  description = "Context ID for the resources"
+  type        = string
+  default     = null
+}
+
 #---------------------------------------------------------------------------------------------------
 # AWS Account Details
 #---------------------------------------------------------------------------------------------------
