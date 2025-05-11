@@ -11,7 +11,7 @@ spec:
       containers:
       - name: copy-root-cert
         # renovate: datasource=docker depName=kubectl package=bitnami/kubectl
-        image: bitnami/kubectl:1.32.3
+        image: bitnami/kubectl:1.33.0
         command:
           - /bin/sh
           - -c
