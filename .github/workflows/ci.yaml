@@ -80,7 +80,7 @@ jobs:
         run: |
           windsor down --clean
 
-  sast-scan:
+  checkov:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code
