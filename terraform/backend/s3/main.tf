@@ -52,46 +52,46 @@ resource "aws_s3_bucket" "this" {
 locals {
   default_s3_bucket_name  = var.s3_bucket_name != "" ? var.s3_bucket_name : "terraform-state-${var.context_id}"
   log_bucket_name         = var.s3_log_bucket_name != "" ? var.s3_log_bucket_name : (var.s3_bucket_name != "" ? "${var.s3_bucket_name}-logs" : "terraform-state-logs-${var.context_id}")
+  kms_key_id             = var.enable_kms && var.kms_key_alias == "" ? aws_kms_key.terraform_state[0].arn : ""
 
   bucket_policy_statements = flatten([
-    var.bucket_policy_enforce_https ? [
-      {
-        Sid       = "enforceHttps",
-        Effect    = "Deny",
-        Principal = "*",
-        Action    = "s3:*",
-        Resource  = [
-          aws_s3_bucket.this.arn,
-          "${aws_s3_bucket.this.arn}/*"
-        ],
-        Condition = {
-          Bool = {
-            "aws:SecureTransport" = "false"
-          }
+    {
+      Sid       = "AllowAdminAccess",
+      Effect    = "Allow",
+      Principal = {
+        AWS = "arn:aws:iam::${data.aws_caller_identity.current.account_id}:root"
+      },
+      Action    = [
+        "s3:ListBucket",
+        "s3:GetObject",
+        "s3:PutObject",
+        "s3:DeleteObject"
+      ],
+      Resource  = [
+        aws_s3_bucket.this.arn,
+        "${aws_s3_bucket.this.arn}/*"
+      ],
+      Condition = {
+        Bool = {
+          "aws:SecureTransport" = "true"
         }
       }
-    ] : [],
-    var.bucket_policy_enforce_encryption ? [
-      {
-        Sid       = "enforceEncryptionMethod",
-        Principal = "*",
-        Effect    = "Deny",
-        Action    = [
-          "s3:PutObject"
-        ],
-        Resource  = [
-          "${aws_s3_bucket.this.arn}/*"
-        ],
-        Condition = {
-          StringNotEquals = {
-            "s3:x-amz-server-side-encryption" = [
-              "AES256",
-              "aws:kms"
-            ]
-          }
+    },
+    {
+      Sid       = "EnforceHttps",
+      Effect    = "Deny",
+      Principal = "*",
+      Action    = "s3:*",
+      Resource  = [
+        aws_s3_bucket.this.arn,
+        "${aws_s3_bucket.this.arn}/*"
+      ],
+      Condition = {
+        Bool = {
+          "aws:SecureTransport" = "false"
         }
       }
-    ] : []
+    }
   ])
 }
 
@@ -224,7 +224,12 @@ data "aws_iam_policy_document" "terraform_state_kms_policy" {
       "kms:ScheduleKeyDeletion",
       "kms:CancelKeyDeletion"
     ]
-    resources = [ "${aws_kms_key.terraform_state[0].arn}" ]
+    resources = [ "arn:aws:kms:${var.region}:${data.aws_caller_identity.current.account_id}:key/*" ]
+    condition {
+      test     = "StringEquals"
+      variable = "kms:CallerAccount"
+      values   = [ "${data.aws_caller_identity.current.account_id}" ]
+    }
   }
 
   statement {
@@ -245,7 +250,7 @@ data "aws_iam_policy_document" "terraform_state_kms_policy" {
       "kms:GenerateDataKey*",
       "kms:DescribeKey"
     ]
-    resources = [ "${aws_kms_key.terraform_state[0].arn}" ]
+    resources = [ "arn:aws:kms:${var.region}:${data.aws_caller_identity.current.account_id}:key/*" ]
     condition {
       test     = "StringEquals"
       variable = "kms:CallerAccount"
@@ -287,8 +292,8 @@ resource "local_file" "backend_config" {
   content = <<EOF
 bucket         = "${var.s3_bucket_name != "" ? var.s3_bucket_name : local.default_s3_bucket_name}"
 region         = "${var.region}"
-${var.enable_kms && length(aws_kms_key.terraform_state) > 0 ? "kms_key_id     = \"" + aws_kms_key.terraform_state[0].arn + "\"" : ""}
-${var.dynamodb_table_name != "" ? "dynamodb_table = \"" + var.dynamodb_table_name + "\"" : ""}
+${var.enable_kms && var.kms_key_alias == "" ? "kms_key_id     = \"${aws_kms_key.terraform_state[0].arn}\"" : ""}
+${var.enable_dynamodb ? "dynamodb_table = \"${var.dynamodb_table_name != "" ? var.dynamodb_table_name : "terraform-state-locks-${var.context_id}"}\"" : ""}
 EOF
 
   filename = "${var.context_path}/terraform/backend.tfvars"
