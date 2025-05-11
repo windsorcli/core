@@ -1,0 +1,7 @@
+version: '3'
+
+tasks:
+  scan:
+    desc: Scan for security vulnerabilities
+    cmds:
+      - checkov -d terraform/
