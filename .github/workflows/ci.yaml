@@ -18,25 +18,48 @@ env:
   DOCKER_HOST: unix:///var/run/docker.sock
 
 jobs:
-  # Blueprint Checks
-  checks:
-    uses: windsorcli/blueprint/.github/workflows/checks.yaml@37a5386198caa29f87531d09003512adc5407702 # v0.1.0
-
-  checkov:
-    uses: windsorcli/blueprint/.github/workflows/checkov.yaml@37a5386198caa29f87531d09003512adc5407702 # v0.1.0
-
   ci:
     runs-on: ubuntu-latest
-
-    env:
-      KUBECONFIG: ${{ github.workspace }}/contexts/local/.kube/config
-      TALOSCONFIG: ${{ github.workspace }}/contexts/local/.talos/config
-      PRIVATE_DOMAIN_NAME: private.test
-      DNS_SERVER_IP: "10.5.255.200"
 
     steps:
       - name: Checkout code
         uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+
+      - name: Set up Python
+        uses: actions/setup-python@0b93645e9fea7318ecaed2b359559ac225c90a2b # v5.3.0
+        with:
+          python-version: '3.x'
+    
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@b9cd54a3c349d3f38e8881555d616ced269862dd # v3.1.2
+        with:
+          # renovate: datasource=github-releases depName=terraform package=hashicorp/terraform
+          terraform_version: 1.11.4
+  
+      - name: Setup kubectl
+        uses: azure/setup-kubectl@3e0aec4d80787158d308d7b364cb1b702e7feb7f # v4.0.0
+        with:
+          # renovate: datasource=github-releases depName=kubectl package=kubernetes/kubectl
+          version: v1.33.0
+
+      - name: Install Windsor CLI
+        uses: windsorcli/action@main
+        with:
+          ref: main
+          context: local
+
+      - name: Run yamllint
+        run: |
+          pip install yamllint
+          yamllint .
+
+      - name: Run shellcheck
+        run: |
+          sudo apt-get install -y shellcheck
+          find . -name "*.sh" -print0 | xargs -0 shellcheck
+  
+      - name: Run terraform fmt
+        run: terraform fmt -check -recursive
 
       - name: Create .docker-cache directory
         run: mkdir -p .windsor/.docker-cache
@@ -48,35 +71,29 @@ jobs:
           key: docker-cache-${{ runner.os }}-${{ github.sha }}
           restore-keys: docker-cache-${{ runner.os }}-
 
-      # Install Aqua
-      - name: Install Aqua
-        uses: aquaproj/aqua-installer@5e54e5cee8a95ee2ce7c04cb993da6dfad13e59c # v3.1.2
-        with:
-          aqua_version: v2.51.1
-          
-      - name: Set aqua path
-        run: |
-          echo "${AQUA_ROOT_DIR:-${XDG_DATA_HOME:-$HOME/.local/share}/aquaproj-aqua}/bin" >> $GITHUB_PATH
-
-      # Install tools
-      - name: Install tools
-        run: |
-          aqua install     
-
-      # Install Windsor CLI
-      - name: Install Windsor CLI
-        uses: windsorcli/action@main
-        with:
-          ref: main
-          context: local
-
-      # Windsor Up
       - name: Windsor Up
         run: |
           windsor init local --set dns.enabled=false
           windsor up --install --verbose
 
-      # Windsor Down
       - name: Windsor Down
         run: |
           windsor down --clean
+
+  sast-scan:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+
+      - name: Checkov GitHub Action
+        uses: bridgecrewio/checkov-action@4ad414b100f8415d05d88b6be40d7aa7aa38c057 # v12.2941.0
+        with:
+          directory: ./terraform
+          output_format: cli,sarif
+          output_file_path: console,results.sarif
+        
+      - name: Upload SARIF file
+        uses: github/codeql-action/upload-sarif@48ab28a6f5dbc2a99bf1e0131198dd8f1df78169 # v3.28.0
+        with:
+          sarif_file: results.sarif         
