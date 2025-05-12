@@ -147,9 +147,9 @@ variable "enable_versioning" {
 variable "public_access_block" {
   description = "Public access block configuration for the S3 bucket"
   type = object({
-    block_public_acls       : bool,
-    block_public_policy     : bool,
-    ignore_public_acls      : bool,
+    block_public_acls : bool,
+    block_public_policy : bool,
+    ignore_public_acls : bool,
     restrict_public_buckets : bool,
   })
   default = {

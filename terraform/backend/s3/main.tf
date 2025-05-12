@@ -50,24 +50,24 @@ resource "aws_s3_bucket" "this" {
 #---------------------------------------------------------------------------------------------------
 
 locals {
-  default_s3_bucket_name  = var.s3_bucket_name != "" ? var.s3_bucket_name : "terraform-state-${var.context_id}"
-  log_bucket_name         = var.s3_log_bucket_name != "" ? var.s3_log_bucket_name : (var.s3_bucket_name != "" ? "${var.s3_bucket_name}-logs" : "terraform-state-logs-${var.context_id}")
+  default_s3_bucket_name = var.s3_bucket_name != "" ? var.s3_bucket_name : "terraform-state-${var.context_id}"
+  log_bucket_name        = var.s3_log_bucket_name != "" ? var.s3_log_bucket_name : (var.s3_bucket_name != "" ? "${var.s3_bucket_name}-logs" : "terraform-state-logs-${var.context_id}")
   kms_key_id             = var.enable_kms && var.kms_key_alias == "" ? aws_kms_key.terraform_state[0].arn : ""
 
   bucket_policy_statements = flatten([
     {
-      Sid       = "AllowAdminAccess",
-      Effect    = "Allow",
+      Sid    = "AllowAdminAccess",
+      Effect = "Allow",
       Principal = {
         AWS = "arn:aws:iam::${data.aws_caller_identity.current.account_id}:root"
       },
-      Action    = [
+      Action = [
         "s3:ListBucket",
         "s3:GetObject",
         "s3:PutObject",
         "s3:DeleteObject"
       ],
-      Resource  = [
+      Resource = [
         aws_s3_bucket.this.arn,
         "${aws_s3_bucket.this.arn}/*"
       ],
@@ -82,7 +82,7 @@ locals {
       Effect    = "Deny",
       Principal = "*",
       Action    = "s3:*",
-      Resource  = [
+      Resource = [
         aws_s3_bucket.this.arn,
         "${aws_s3_bucket.this.arn}/*"
       ],
@@ -121,7 +121,7 @@ resource "aws_s3_bucket_server_side_encryption_configuration" "this" {
 
   rule {
     apply_server_side_encryption_by_default {
-      sse_algorithm = var.enable_kms && length(aws_kms_key.terraform_state) > 0 ? "aws:kms" : "AES256"
+      sse_algorithm     = var.enable_kms && length(aws_kms_key.terraform_state) > 0 ? "aws:kms" : "AES256"
       kms_master_key_id = var.enable_kms && length(aws_kms_key.terraform_state) > 0 ? aws_kms_key.terraform_state[0].arn : null
     }
   }
@@ -175,7 +175,7 @@ resource "aws_s3_bucket_public_access_block" "this" {
 
 resource "aws_dynamodb_table" "terraform_locks" {
   # checkov:skip=CKV_AWS_119:Encryption is not necessary for this DynamoDB table as it is used solely for Terraform state locking, which does not involve sensitive data.
-  count        = var.enable_dynamodb ? 1 : 0
+  count = var.enable_dynamodb ? 1 : 0
 
   name         = var.dynamodb_table_name != "" ? var.dynamodb_table_name : "terraform-state-locks-${var.context_id}"
   billing_mode = var.dynamodb_billing_mode
@@ -205,10 +205,10 @@ data "aws_iam_policy_document" "terraform_state_kms_policy" {
 
     principals {
       type        = "AWS"
-      identifiers = [ "arn:aws:iam::${data.aws_caller_identity.current.account_id}:root" ]
+      identifiers = ["arn:aws:iam::${data.aws_caller_identity.current.account_id}:root"]
     }
 
-    actions   = [
+    actions = [
       "kms:Create*",
       "kms:Describe*",
       "kms:Enable*",
@@ -224,11 +224,11 @@ data "aws_iam_policy_document" "terraform_state_kms_policy" {
       "kms:ScheduleKeyDeletion",
       "kms:CancelKeyDeletion"
     ]
-    resources = [ "arn:aws:kms:${var.region}:${data.aws_caller_identity.current.account_id}:key/*" ]
+    resources = ["arn:aws:kms:${var.region}:${data.aws_caller_identity.current.account_id}:key/*"]
     condition {
       test     = "StringEquals"
       variable = "kms:CallerAccount"
-      values   = [ "${data.aws_caller_identity.current.account_id}" ]
+      values   = ["${data.aws_caller_identity.current.account_id}"]
     }
   }
 
@@ -237,24 +237,24 @@ data "aws_iam_policy_document" "terraform_state_kms_policy" {
     effect = "Allow"
 
     principals {
-      type        = "AWS"
+      type = "AWS"
       identifiers = [
         "arn:aws:iam::${data.aws_caller_identity.current.account_id}:root"
       ]
     }
 
-    actions   = [
+    actions = [
       "kms:Encrypt",
       "kms:Decrypt",
       "kms:ReEncrypt*",
       "kms:GenerateDataKey*",
       "kms:DescribeKey"
     ]
-    resources = [ "arn:aws:kms:${var.region}:${data.aws_caller_identity.current.account_id}:key/*" ]
+    resources = ["arn:aws:kms:${var.region}:${data.aws_caller_identity.current.account_id}:key/*"]
     condition {
       test     = "StringEquals"
       variable = "kms:CallerAccount"
-      values   = [ "${data.aws_caller_identity.current.account_id}" ]
+      values   = ["${data.aws_caller_identity.current.account_id}"]
     }
   }
 }
