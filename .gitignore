@@ -10,3 +10,4 @@ contexts/**/.kube/
 contexts/**/.talos/
 contexts/**/.aws/
 contexts/**/.omni/
+contexts/**/.azure/
