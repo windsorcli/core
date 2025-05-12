@@ -182,6 +182,18 @@ variable "enable_log_bucket" {
   default     = true
 }
 
+variable "enable_replication" {
+  description = "Enable cross-region replication for the S3 bucket"
+  type        = bool
+  default     = false
+}
+
+variable "replication_destination_region" {
+  description = "The AWS region for the replication destination bucket"
+  type        = string
+  default     = "us-west-2"
+}
+
 variable "tags" {
   description = "Additional tags to apply to resources (default is empty)."
   type        = map(string)
