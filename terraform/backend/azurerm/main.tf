@@ -44,7 +44,7 @@ resource "azurerm_storage_account" "this" {
   dynamic "identity" {
     for_each = var.enable_cmk ? [1] : []
     content {
-      type = "UserAssigned"
+      type         = "UserAssigned"
       identity_ids = [azurerm_user_assigned_identity.storage.id]
     }
   }
@@ -53,7 +53,7 @@ resource "azurerm_storage_account" "this" {
   dynamic "customer_managed_key" {
     for_each = var.enable_cmk && var.key_vault_key_id != "" ? [1] : []
     content {
-      key_vault_key_id = var.key_vault_key_id
+      key_vault_key_id          = var.key_vault_key_id
       user_assigned_identity_id = azurerm_user_assigned_identity.storage[0].principal_id
     }
   }
@@ -108,7 +108,7 @@ resource "azurerm_storage_container" "this" {
 locals {
   default_storage_account_name = var.storage_account_name != "" ? var.storage_account_name : replace(lower("tfstate${var.context_id}"), "/[^a-z0-9]/", "")
   resource_group_name          = var.resource_group_name != "" ? var.resource_group_name : "rg-tfstate-${var.context_id}"
-  container_name              = var.container_name != "" ? var.container_name : "tfstate-${var.context_id}"
+  container_name               = var.container_name != "" ? var.container_name : "tfstate-${var.context_id}"
 }
 
 #---------------------------------------------------------------------------------------------------
