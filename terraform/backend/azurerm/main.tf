@@ -2,7 +2,7 @@ terraform {
   required_providers {
     azurerm = {
       source  = "hashicorp/azurerm"
-      version = "3.90.0"
+      version = "4.28.0"
     }
   }
 }
@@ -25,6 +25,7 @@ resource "azurerm_resource_group" "this" {
 
 resource "azurerm_storage_account" "this" {
   # checkov:skip=CKV_AZURE_33:Not needed for terraform backend
+  # checkov:skip=CKV_AZURE_35:Network rules are configured via network_rules block
   # checkov:skip=CKV_AZURE_43:Storage account name is managed by variables
   # checkov:skip=CKV_AZURE_206:Using LRS for terraform state is acceptable
   # checkov:skip=CKV2_AZURE_33:Private endpoint not needed for terraform backend
