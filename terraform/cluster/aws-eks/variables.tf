@@ -9,14 +9,16 @@ variable "context_path" {
   default     = ""
 }
 
+variable "context_id" {
+  type        = string
+  description = "The windsor context id for this deployment"
+  default     = ""
+}
+
 variable "cluster_name" {
   description = "The name of the EKS cluster."
   type        = string
-  default     = "windsor-core"
-  validation {
-    condition     = length(var.cluster_name) > 0
-    error_message = "The cluster name must not be empty."
-  }
+  default     = ""
 }
 
 variable "kubernetes_version" {

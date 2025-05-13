@@ -9,6 +9,10 @@ terraform {
   }
 }
 
+locals {
+  name = var.cluster_name != "" ? var.cluster_name : "windsor-core-${var.context_id}"
+}
+
 #-----------------------------------------------------------------------------------------------------------------------
 # Data
 #-----------------------------------------------------------------------------------------------------------------------
@@ -16,8 +20,8 @@ terraform {
 data "aws_vpc" "default" {
   count = var.vpc_id == null ? 1 : 0
   filter {
-    name   = "tag:Name"
-    values = ["${var.cluster_name}-vpc"]
+    name   = "tag:WindsorContextID"
+    values = [var.context_id]
   }
 }
 
@@ -38,7 +42,7 @@ data "aws_region" "current" {}
 # EKS Cluster
 #-----------------------------------------------------------------------------------------------------------------------
 resource "aws_eks_cluster" "this" {
-  name     = var.cluster_name
+  name     = local.name
   role_arn = aws_iam_role.cluster.arn
   version  = var.kubernetes_version
 
@@ -73,7 +77,7 @@ resource "aws_eks_cluster" "this" {
 }
 
 resource "aws_kms_key" "eks_encryption_key" {
-  description             = "KMS key for EKS cluster ${var.cluster_name} secrets encryption"
+  description             = "KMS key for EKS cluster ${local.name} secrets encryption"
   deletion_window_in_days = 7
   enable_key_rotation     = true
 
@@ -115,7 +119,7 @@ data "aws_caller_identity" "current" {}
 #-----------------------------------------------------------------------------------------------------------------------
 
 resource "aws_iam_role" "cluster" {
-  name = "${var.cluster_name}-cluster-role"
+  name = "${local.name}-cluster-role"
 
   assume_role_policy = jsonencode({
     Version = "2012-10-17"
@@ -142,7 +146,7 @@ resource "aws_iam_role_policy_attachment" "cluster_AmazonEKSVPCResourceControlle
 }
 
 resource "aws_iam_role" "node_group" {
-  name = "${var.cluster_name}-node-group-role"
+  name = "${local.name}-node-group-role"
 
   assume_role_policy = jsonencode({
     Version = "2012-10-17"
@@ -218,7 +222,7 @@ resource "aws_eks_node_group" "this" {
 resource "aws_launch_template" "node_group" {
   for_each = var.node_groups
 
-  name = "${var.cluster_name}-${each.key}"
+  name = "${local.name}-${each.key}"
 
   block_device_mappings {
     device_name = "/dev/xvda"
@@ -264,7 +268,7 @@ EOT
 #-----------------------------------------------------------------------------------------------------------------------
 
 resource "aws_iam_role" "fargate" {
-  name = "${var.cluster_name}-fargate-profile"
+  name = "${local.name}-fargate-profile"
 
   assume_role_policy = jsonencode({
     Version = "2012-10-17"
@@ -322,7 +326,7 @@ data "aws_eks_addon_version" "default" {
 
 resource "aws_iam_role" "vpc_cni" {
   count = contains(keys(var.addons), "vpc-cni") ? 1 : 0
-  name  = "${var.cluster_name}-vpc-cni-role"
+  name  = "${local.name}-vpc-cni-role"
 
   assume_role_policy = jsonencode({
     Version = "2012-10-17"
@@ -338,7 +342,7 @@ resource "aws_iam_role" "vpc_cni" {
   })
 
   tags = {
-    Name = "${var.cluster_name}-vpc-cni-role"
+    Name = "${local.name}-vpc-cni-role"
   }
 }
 
@@ -355,7 +359,7 @@ resource "aws_iam_role_policy_attachment" "vpc_cni" {
 
 resource "aws_iam_role" "ebs_csi" {
   count = contains(keys(var.addons), "aws-ebs-csi-driver") ? 1 : 0
-  name  = "${var.cluster_name}-aws-ebs-csi-driver-role"
+  name  = "${local.name}-aws-ebs-csi-driver-role"
 
   assume_role_policy = jsonencode({
     Version = "2012-10-17"
@@ -371,7 +375,7 @@ resource "aws_iam_role" "ebs_csi" {
   })
 
   tags = {
-    Name = "${var.cluster_name}-aws-ebs-csi-driver-role"
+    Name = "${local.name}-aws-ebs-csi-driver-role"
   }
 }
 
@@ -387,7 +391,7 @@ resource "aws_iam_role_policy_attachment" "ebs_csi" {
 
 resource "aws_iam_role" "efs_csi" {
   count = contains(keys(var.addons), "aws-efs-csi-driver") ? 1 : 0
-  name  = "${var.cluster_name}-aws-efs-csi-driver-role"
+  name  = "${local.name}-aws-efs-csi-driver-role"
 
   assume_role_policy = jsonencode({
     Version = "2012-10-17"
@@ -403,13 +407,13 @@ resource "aws_iam_role" "efs_csi" {
   })
 
   tags = {
-    Name = "${var.cluster_name}-aws-efs-csi-driver-role"
+    Name = "${local.name}-aws-efs-csi-driver-role"
   }
 }
 
 resource "aws_iam_policy" "efs_csi" {
   count       = contains(keys(var.addons), "aws-efs-csi-driver") ? 1 : 0
-  name        = "${var.cluster_name}-aws-efs-csi-driver-policy"
+  name        = "${local.name}-aws-efs-csi-driver-policy"
   description = "IAM policy for EFS CSI Driver"
 
   policy = jsonencode({
@@ -453,7 +457,7 @@ resource "aws_iam_policy" "efs_csi" {
   })
 
   tags = {
-    Name = "${var.cluster_name}-aws-efs-csi-driver-policy"
+    Name = "${local.name}-aws-efs-csi-driver-policy"
   }
 }
 
@@ -469,7 +473,7 @@ resource "aws_iam_role_policy_attachment" "efs_csi" {
 
 resource "aws_iam_role" "pod_identity_agent" {
   count = contains(keys(var.addons), "pod-identity-agent") ? 1 : 0
-  name  = "${var.cluster_name}-pod-identity-agent-role"
+  name  = "${local.name}-pod-identity-agent-role"
 
   assume_role_policy = jsonencode({
     Version = "2012-10-17"
@@ -485,13 +489,13 @@ resource "aws_iam_role" "pod_identity_agent" {
   })
 
   tags = {
-    Name = "${var.cluster_name}-pod-identity-agent-role"
+    Name = "${local.name}-pod-identity-agent-role"
   }
 }
 
 resource "aws_iam_policy" "pod_identity_agent" {
   count       = contains(keys(var.addons), "pod-identity-agent") ? 1 : 0
-  name        = "${var.cluster_name}-pod-identity-agent-policy"
+  name        = "${local.name}-pod-identity-agent-policy"
   description = "IAM policy for EKS Pod Identity Agent"
 
   policy = jsonencode({
@@ -513,7 +517,7 @@ resource "aws_iam_policy" "pod_identity_agent" {
   })
 
   tags = {
-    Name = "${var.cluster_name}-pod-identity-agent-policy"
+    Name = "${local.name}-pod-identity-agent-policy"
   }
 }
 
@@ -530,7 +534,7 @@ resource "aws_iam_role_policy_attachment" "pod_identity_agent" {
 
 resource "aws_iam_role" "external_dns" {
   count = contains(keys(var.addons), "external-dns") ? 1 : 0
-  name  = "${var.cluster_name}-external-dns-role"
+  name  = "${local.name}-external-dns-role"
 
   assume_role_policy = jsonencode({
     Version = "2012-10-17"
@@ -546,13 +550,13 @@ resource "aws_iam_role" "external_dns" {
   })
 
   tags = {
-    Name = "${var.cluster_name}-external-dns-role"
+    Name = "${local.name}-external-dns-role"
   }
 }
 
 resource "aws_iam_policy" "external_dns" {
   count       = contains(keys(var.addons), "external-dns") ? 1 : 0
-  name        = "${var.cluster_name}-external-dns-policy"
+  name        = "${local.name}-external-dns-policy"
   description = "IAM policy for External DNS"
 
   policy = jsonencode({
@@ -579,7 +583,7 @@ resource "aws_iam_policy" "external_dns" {
   })
 
   tags = {
-    Name = "${var.cluster_name}-external-dns-policy"
+    Name = "${local.name}-external-dns-policy"
   }
 }
 

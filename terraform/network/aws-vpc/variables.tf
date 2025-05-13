@@ -2,10 +2,16 @@
 # Variables
 #-----------------------------------------------------------------------------------------------------------------------
 
+variable "context_id" {
+  type        = string
+  description = "The windsor context id for this deployment"
+  default     = ""
+}
+
 variable "name" {
   description = "Name prefix for all resources in the VPC"
   type        = string
-  default     = "windsor-core"
+  default     = ""
 }
 
 variable "cidr_block" {
