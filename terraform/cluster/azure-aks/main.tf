@@ -53,16 +53,22 @@ resource "azurerm_resource_group" "aks" {
 # Key Vault
 #-----------------------------------------------------------------------------------------------------------------------
 
+resource "random_string" "key" {
+  length  = 3
+  special = false
+  upper   = false
+}
+
 resource "azurerm_key_vault" "key_vault" {
   # checkov:skip=CKV2_AZURE_32: We are using a public cluster for testing, there is no need for private endpoints.
-  name                        = "aks-keyvault-${var.context_id}"
+  name                        = "keyvault-${var.context_id}-${random_string.key.result}"
   location                    = azurerm_resource_group.aks.location
   resource_group_name         = azurerm_resource_group.aks.name
   tenant_id                   = data.azurerm_client_config.current.tenant_id
   sku_name                    = "premium"
   enabled_for_disk_encryption = true
   purge_protection_enabled    = true
-  soft_delete_retention_days  = 7
+  soft_delete_retention_days  = var.soft_delete_retention_days
   # checkov:skip=CKV_AZURE_189: We are using a public cluster for testing
   # private services are encouraged for production
   public_network_access_enabled = var.public_network_access_enabled
@@ -73,26 +79,28 @@ resource "azurerm_key_vault" "key_vault" {
     default_action = var.network_acls_default_action
     bypass         = "AzureServices"
   }
+}
 
-  access_policy {
-    tenant_id = data.azurerm_client_config.current.tenant_id
-    object_id = data.azurerm_client_config.current.object_id
+resource "azurerm_key_vault_access_policy" "key_vault_access_policy" {
+  key_vault_id = azurerm_key_vault.key_vault.id
 
-    key_permissions = [
-      "Create",
-      "Delete",
-      "Get",
-      "Purge",
-      "Recover",
-      "Update",
-      "GetRotationPolicy",
-      "SetRotationPolicy"
-    ]
+  tenant_id = data.azurerm_client_config.current.tenant_id
+  object_id = data.azurerm_client_config.current.object_id
 
-    secret_permissions = [
-      "Set",
-    ]
-  }
+  key_permissions = [
+    "Create",
+    "Delete",
+    "Get",
+    "Purge",
+    "Recover",
+    "Update",
+    "GetRotationPolicy",
+    "SetRotationPolicy"
+  ]
+
+  secret_permissions = [
+    "Set",
+  ]
 }
 
 resource "azurerm_key_vault_access_policy" "key_vault_access_policy_disk" {
@@ -119,7 +127,7 @@ resource "azurerm_key_vault_access_policy" "key_vault_access_policy_disk" {
 resource "time_static" "expiry" {}
 
 resource "azurerm_key_vault_key" "key_vault_key" {
-  name            = "aks-key-${var.context_id}"
+  name            = "key-${var.context_id}-${random_string.key.result}"
   key_vault_id    = azurerm_key_vault.key_vault.id
   key_type        = "RSA-HSM"
   key_size        = 2048
@@ -145,7 +153,7 @@ resource "azurerm_key_vault_key" "key_vault_key" {
 }
 
 resource "azurerm_disk_encryption_set" "main" {
-  name                = "des-${var.context_id}"
+  name                = "des-${var.context_id}-${random_string.key.result}"
   resource_group_name = azurerm_resource_group.aks.name
   location            = azurerm_resource_group.aks.location
   key_vault_key_id    = azurerm_key_vault_key.key_vault_key.id
@@ -176,6 +184,12 @@ data "azurerm_subnet" "private" {
   name                 = "${var.context_id}-private-1"
   resource_group_name  = var.vnet_resource_group_name == null ? "windsor-vnet-rg-${var.context_id}" : var.vnet_resource_group_name
   virtual_network_name = var.vnet_name == null ? "windsor-vnet-${var.context_id}" : var.vnet_name
+}
+
+resource "azurerm_user_assigned_identity" "cluster" {
+  name                = "${var.context_id}-cluster-identity"
+  location            = var.region
+  resource_group_name = azurerm_resource_group.aks.name
 }
 
 resource "azurerm_kubernetes_cluster" "main" {
@@ -243,12 +257,17 @@ resource "azurerm_kubernetes_cluster" "main" {
   }
 
   identity {
-    type = "SystemAssigned"
+    type = "UserAssigned"
+    identity_ids = concat(
+      [azurerm_user_assigned_identity.cluster.id],
+      var.additional_cluster_identity_ids
+    )
   }
 
   lifecycle {
     ignore_changes = [
-      default_node_pool[0].node_count
+      default_node_pool[0].upgrade_settings,
+      workload_autoscaler_profile
     ]
   }
 }
@@ -269,6 +288,12 @@ resource "azurerm_kubernetes_cluster_node_pool" "autoscaled" {
   # checkov:skip=CKV_AZURE_168: This is set in the variable by default to 50
   max_pods                = var.autoscaled_node_pool.max_pods
   host_encryption_enabled = var.autoscaled_node_pool.host_encryption_enabled
+
+  lifecycle {
+    ignore_changes = [
+      upgrade_settings
+    ]
+  }
 }
 
 resource "local_file" "kube_config" {
