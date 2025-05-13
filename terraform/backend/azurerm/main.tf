@@ -79,6 +79,12 @@ resource "azurerm_storage_account" "this" {
       ManagedBy = "Terraform"
     }
   )
+
+  network_rules {
+    default_action = var.allow_public_access ? "Allow" : "Deny"
+    bypass         = ["AzureServices"]
+    ip_rules       = var.allowed_ip_ranges
+  }
 }
 
 #---------------------------------------------------------------------------------------------------

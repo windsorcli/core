@@ -64,7 +64,7 @@ variable "tags" {
 #---------------------------------------------------------------------------------------------------
 
 variable "enable_cmk" {
-  description = "Enable Customer Managed Key encryption for the storage account"
+  description = "Enable customer managed key encryption"
   type        = bool
   default     = false
 }
@@ -73,4 +73,16 @@ variable "key_vault_key_id" {
   description = "The ID of the Key Vault Key to use for CMK encryption"
   type        = string
   default     = ""
+}
+
+variable "allow_public_access" {
+  description = "Allow public access to the storage account"
+  type        = bool
+  default     = false
+}
+
+variable "allowed_ip_ranges" {
+  description = "List of IP ranges to allow access to the storage account"
+  type        = list(string)
+  default     = []
 }
