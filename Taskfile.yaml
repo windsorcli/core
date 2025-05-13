@@ -4,4 +4,4 @@ tasks:
   scan:
     desc: Scan for security vulnerabilities
     cmds:
-      - checkov -d terraform/
+      - source .venv/bin/activate && checkov -d {{.CLI_ARGS | default "terraform/"}} 2>/dev/null

@@ -26,19 +26,6 @@ provider "aws" {
   }
 }
 
-provider "aws" {
-  alias  = "replication"
-  region = var.replication_destination_region
-  default_tags {
-    tags = merge(
-      var.tags,
-      {
-        ManagedBy = "Terraform"
-      }
-    )
-  }
-}
-
 data "aws_caller_identity" "current" {}
 
 #---------------------------------------------------------------------------------------------------
@@ -49,6 +36,7 @@ data "aws_caller_identity" "current" {}
 
 resource "aws_s3_bucket" "this" {
   # checkov:skip=CKV2_AWS_62:Event notifications are not needed for terraform state bucket
+  # checkov:skip=CKV_AWS_144:Cross-region replication is not required for Terraform state bucket
   # checkov:skip=CKV_AWS_19:Server-side encryption is configured via aws_s3_bucket_server_side_encryption_configuration
   # checkov:skip=CKV_AWS_145:KMS encryption is configured via aws_s3_bucket_server_side_encryption_configuration
   bucket = var.s3_bucket_name != "" ? var.s3_bucket_name : local.default_s3_bucket_name
@@ -65,142 +53,10 @@ resource "aws_s3_bucket_lifecycle_configuration" "this" {
     id     = "cleanup"
     status = "Enabled"
 
-    expiration {
-      days = 90
-    }
-
-    noncurrent_version_expiration {
-      noncurrent_days = 90
+    abort_incomplete_multipart_upload {
+      days_after_initiation = 7
     }
   }
-}
-
-resource "aws_s3_bucket_replication_configuration" "this" {
-  count = var.enable_replication ? 1 : 0
-
-  bucket = aws_s3_bucket.this.id
-  role   = aws_iam_role.replication[0].arn
-
-  rule {
-    id     = "replication"
-    status = "Enabled"
-
-    destination {
-      bucket        = aws_s3_bucket.replication[0].arn
-      storage_class = "STANDARD"
-    }
-  }
-}
-
-resource "aws_s3_bucket" "replication" {
-  count  = var.enable_replication ? 1 : 0
-  provider = aws.replication
-
-  bucket = "${var.s3_bucket_name != "" ? var.s3_bucket_name : local.default_s3_bucket_name}-replication"
-
-  tags = {
-    Name = "${var.s3_bucket_name != "" ? var.s3_bucket_name : local.default_s3_bucket_name}-replication"
-  }
-}
-
-resource "aws_s3_bucket_versioning" "replication" {
-  count  = var.enable_replication ? 1 : 0
-  provider = aws.replication
-
-  bucket = aws_s3_bucket.replication[0].id
-  versioning_configuration {
-    status = "Enabled"
-  }
-}
-
-resource "aws_s3_bucket_server_side_encryption_configuration" "replication" {
-  count  = var.enable_replication ? 1 : 0
-  provider = aws.replication
-
-  bucket = aws_s3_bucket.replication[0].id
-
-  rule {
-    apply_server_side_encryption_by_default {
-      sse_algorithm     = var.enable_kms && length(aws_kms_key.terraform_state) > 0 ? "aws:kms" : "AES256"
-      kms_master_key_id = var.enable_kms && length(aws_kms_key.terraform_state) > 0 ? aws_kms_key.terraform_state[0].arn : null
-    }
-  }
-}
-
-resource "aws_s3_bucket_public_access_block" "replication" {
-  count  = var.enable_replication ? 1 : 0
-  provider = aws.replication
-
-  bucket = aws_s3_bucket.replication[0].id
-
-  block_public_acls       = var.public_access_block.block_public_acls
-  block_public_policy     = var.public_access_block.block_public_policy
-  ignore_public_acls      = var.public_access_block.ignore_public_acls
-  restrict_public_buckets = var.public_access_block.restrict_public_buckets
-}
-
-resource "aws_iam_role" "replication" {
-  count = var.enable_replication ? 1 : 0
-
-  name = "s3-replication-role-${var.context_id}"
-
-  assume_role_policy = jsonencode({
-    Version = "2012-10-17"
-    Statement = [
-      {
-        Action = "sts:AssumeRole"
-        Effect = "Allow"
-        Principal = {
-          Service = "s3.amazonaws.com"
-        }
-      }
-    ]
-  })
-}
-
-resource "aws_iam_policy" "replication" {
-  count = var.enable_replication ? 1 : 0
-
-  name = "s3-replication-policy-${var.context_id}"
-
-  policy = jsonencode({
-    Version = "2012-10-17"
-    Statement = [
-      {
-        Effect = "Allow"
-        Action = [
-          "s3:GetReplicationConfiguration",
-          "s3:ListBucket"
-        ]
-        Resource = aws_s3_bucket.this.arn
-      },
-      {
-        Effect = "Allow"
-        Action = [
-          "s3:GetObjectVersionForReplication",
-          "s3:GetObjectVersionAcl",
-          "s3:GetObjectVersionTagging"
-        ]
-        Resource = "${aws_s3_bucket.this.arn}/*"
-      },
-      {
-        Effect = "Allow"
-        Action = [
-          "s3:ReplicateObject",
-          "s3:ReplicateDelete",
-          "s3:ReplicateTags"
-        ]
-        Resource = "${aws_s3_bucket.replication[0].arn}/*"
-      }
-    ]
-  })
-}
-
-resource "aws_iam_role_policy_attachment" "replication" {
-  count = var.enable_replication ? 1 : 0
-
-  role       = aws_iam_role.replication[0].name
-  policy_arn = aws_iam_policy.replication[0].arn
 }
 
 #---------------------------------------------------------------------------------------------------
@@ -212,7 +68,6 @@ resource "aws_iam_role_policy_attachment" "replication" {
 
 locals {
   default_s3_bucket_name = var.s3_bucket_name != "" ? var.s3_bucket_name : "terraform-state-${var.context_id}"
-  log_bucket_name        = var.s3_log_bucket_name != "" ? var.s3_log_bucket_name : (var.s3_bucket_name != "" ? "${var.s3_bucket_name}-logs" : "terraform-state-logs-${var.context_id}")
   kms_key_id             = var.enable_kms && var.kms_key_alias == "" ? aws_kms_key.terraform_state[0].arn : ""
 
   bucket_policy_statements = flatten([
@@ -220,13 +75,19 @@ locals {
       Sid    = "AllowAdminAccess",
       Effect = "Allow",
       Principal = {
-        AWS = "arn:aws:iam::${data.aws_caller_identity.current.account_id}:root"
+        AWS = concat(
+          ["arn:aws:iam::${data.aws_caller_identity.current.account_id}:root"],
+          var.terraform_state_iam_roles
+        )
       },
       Action = [
         "s3:ListBucket",
         "s3:GetObject",
         "s3:PutObject",
-        "s3:DeleteObject"
+        "s3:DeleteObject",
+        "s3:GetBucketVersioning",
+        "s3:GetEncryptionConfiguration",
+        "s3:GetBucketLocation"
       ],
       Resource = [
         aws_s3_bucket.this.arn,
@@ -235,21 +96,6 @@ locals {
       Condition = {
         Bool = {
           "aws:SecureTransport" = "true"
-        }
-      }
-    },
-    {
-      Sid       = "EnforceHttps",
-      Effect    = "Deny",
-      Principal = "*",
-      Action    = "s3:*",
-      Resource = [
-        aws_s3_bucket.this.arn,
-        "${aws_s3_bucket.this.arn}/*"
-      ],
-      Condition = {
-        Bool = {
-          "aws:SecureTransport" = "false"
         }
       }
     }
@@ -264,11 +110,12 @@ locals {
 #---------------------------------------------------------------------------------------------------
 
 resource "aws_s3_bucket_logging" "this" {
-  count  = var.enable_log_bucket ? 1 : 0
+  count = var.s3_log_bucket_name != "" ? 1 : 0
+
   bucket = aws_s3_bucket.this.id
 
-  target_bucket = aws_s3_bucket.this.id
-  target_prefix = aws_s3_bucket.this.id
+  target_bucket = var.s3_log_bucket_name
+  target_prefix = "${aws_s3_bucket.this.id}/"
 }
 
 #---------------------------------------------------------------------------------------------------
@@ -289,10 +136,9 @@ resource "aws_s3_bucket_server_side_encryption_configuration" "this" {
 }
 
 resource "aws_s3_bucket_policy" "this" {
-  count  = var.enable_bucket_policy ? 1 : 0
   bucket = aws_s3_bucket.this.id
 
-  policy = var.custom_bucket_policy != "" ? var.custom_bucket_policy : jsonencode({
+  policy = jsonencode({
     Version   = "2012-10-17",
     Statement = local.bucket_policy_statements
   })
@@ -305,8 +151,6 @@ resource "aws_s3_bucket_policy" "this" {
 #---------------------------------------------------------------------------------------------------
 
 resource "aws_s3_bucket_versioning" "this" {
-  count = var.enable_versioning ? 1 : 0
-
   bucket = aws_s3_bucket.this.id
   versioning_configuration {
     status = "Enabled"
@@ -322,10 +166,10 @@ resource "aws_s3_bucket_versioning" "this" {
 resource "aws_s3_bucket_public_access_block" "this" {
   bucket = aws_s3_bucket.this.id
 
-  block_public_acls       = var.public_access_block.block_public_acls
-  block_public_policy     = var.public_access_block.block_public_policy
-  ignore_public_acls      = var.public_access_block.ignore_public_acls
-  restrict_public_buckets = var.public_access_block.restrict_public_buckets
+  block_public_acls       = true
+  block_public_policy     = true
+  ignore_public_acls      = true
+  restrict_public_buckets = true
 }
 
 #---------------------------------------------------------------------------------------------------
@@ -338,17 +182,17 @@ resource "aws_dynamodb_table" "terraform_locks" {
   # checkov:skip=CKV_AWS_119:Encryption is not necessary for this DynamoDB table as it is used solely for Terraform state locking, which does not involve sensitive data.
   count = var.enable_dynamodb ? 1 : 0
 
-  name         = var.dynamodb_table_name != "" ? var.dynamodb_table_name : "terraform-state-locks-${var.context_id}"
-  billing_mode = var.dynamodb_billing_mode
-  hash_key     = var.dynamodb_lock_key
+  name         = "terraform-state-locks-${var.context_id}"
+  billing_mode = "PAY_PER_REQUEST"
+  hash_key     = "LockID"
 
   attribute {
-    name = var.dynamodb_lock_key
+    name = "LockID"
     type = "S"
   }
 
   point_in_time_recovery {
-    enabled = var.dynamodb_pti_enabled
+    enabled = true
   }
 }
 
@@ -430,8 +274,8 @@ resource "aws_kms_key" "terraform_state" {
   count = var.enable_kms && var.kms_key_alias == "" ? 1 : 0
 
   description             = "KMS key for encrypting Terraform state file in S3"
-  enable_key_rotation     = var.kms_enable_key_rotation
-  deletion_window_in_days = var.kms_deletion_window
+  enable_key_rotation     = true
+  deletion_window_in_days = 7
   policy                  = data.aws_iam_policy_document.terraform_state_kms_policy.json
 }
 
@@ -454,7 +298,7 @@ resource "local_file" "backend_config" {
 bucket         = "${var.s3_bucket_name != "" ? var.s3_bucket_name : local.default_s3_bucket_name}"
 region         = "${var.region}"
 ${var.enable_kms && var.kms_key_alias == "" ? "kms_key_id     = \"${aws_kms_key.terraform_state[0].arn}\"" : ""}
-${var.enable_dynamodb ? "dynamodb_table = \"${var.dynamodb_table_name != "" ? var.dynamodb_table_name : "terraform-state-locks-${var.context_id}"}\"" : ""}
+${var.enable_dynamodb ? "dynamodb_table = \"terraform-state-locks-${var.context_id}\"" : ""}
 EOF
 
   filename = "${var.context_path}/terraform/backend.tfvars"
