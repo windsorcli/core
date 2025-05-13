@@ -1,0 +1,7 @@
+version: '3'
+
+tasks:
+  scan:
+    desc: Scan for security vulnerabilities
+    cmds:
+      - source .venv/bin/activate && checkov -d {{.CLI_ARGS | default "terraform/"}} 2>/dev/null
