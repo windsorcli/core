@@ -49,7 +49,7 @@ resource "aws_eks_cluster" "this" {
   vpc_config {
     subnet_ids              = data.aws_subnets.private.ids
     endpoint_private_access = true
-    endpoint_public_access  = false # Disable public endpoint for security
+    endpoint_public_access  = true # Disable public endpoint for security
   }
 
   # Enable secrets encryption using AWS KMS
