@@ -33,6 +33,7 @@ resource "azurerm_storage_account" "this" {
   # checkov:skip=CKV_AZURE_190:Public access is disabled via network rules
   # checkov:skip=CKV2_AZURE_41:SAS expiration not needed for terraform backend
   # checkov:skip=CKV2_AZURE_1:CMK not needed for terraform state
+  # checkov:skip=CKV_AZURE_59:Public access needed for terraform backend
   name                     = var.storage_account_name != "" ? var.storage_account_name : local.default_storage_account_name
   resource_group_name      = azurerm_resource_group.this.name
   location                 = var.location
