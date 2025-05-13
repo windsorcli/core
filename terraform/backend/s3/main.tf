@@ -53,6 +53,10 @@ resource "aws_s3_bucket_lifecycle_configuration" "this" {
     id     = "cleanup"
     status = "Enabled"
 
+    filter {
+      prefix = ""
+    }
+
     abort_incomplete_multipart_upload {
       days_after_initiation = 7
     }
@@ -287,19 +291,17 @@ resource "aws_kms_alias" "terraform_state_alias" {
 }
 
 #---------------------------------------------------------------------------------------------------
-# Backend Configuration Output
-# This section outputs the backend configuration to a local file in tfvars format
+# Backend Configuration File
+# This section generates the backend configuration file for Terraform using a template.
 #---------------------------------------------------------------------------------------------------
 
 resource "local_file" "backend_config" {
-  count = 1
-
-  content = <<EOF
-bucket         = "${var.s3_bucket_name != "" ? var.s3_bucket_name : local.default_s3_bucket_name}"
-region         = "${var.region}"
-${var.enable_kms && var.kms_key_alias == "" ? "kms_key_id     = \"${aws_kms_key.terraform_state[0].arn}\"" : ""}
-${var.enable_dynamodb ? "dynamodb_table = \"terraform-state-locks-${var.context_id}\"" : ""}
-EOF
-
-  filename = "${var.context_path}/terraform/backend.tfvars"
+  count = var.context_path != "" ? 1 : 0
+  content = templatefile("${path.module}/templates/backend.tftpl", {
+    bucket         = var.s3_bucket_name != "" ? var.s3_bucket_name : local.default_s3_bucket_name
+    region         = var.region
+    dynamodb_table = var.enable_dynamodb ? "terraform-state-locks-${var.context_id}" : ""
+    kms_key_id     = var.enable_kms && var.kms_key_alias == "" ? aws_kms_key.terraform_state[0].arn : ""
+  })
+  filename = "${var.context_path}/terraform/backend.tf"
 }
