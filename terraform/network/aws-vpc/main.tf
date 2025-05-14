@@ -27,7 +27,7 @@ resource "aws_vpc" "main" {
   enable_dns_hostnames = true
 
   tags = {
-    Name = local.name
+    Name             = local.name
     WindsorContextID = var.context_id
   }
 }
@@ -42,7 +42,7 @@ resource "aws_default_security_group" "default" {
   egress = []
 
   tags = {
-    Name = "${local.name}-default-sg"
+    Name        = "${local.name}-default-sg"
     Description = "Default security group with all traffic restricted"
   }
 }
@@ -160,9 +160,9 @@ resource "aws_subnet" "public" {
 
 # Private Subnets
 resource "aws_subnet" "private" {
-  count             = var.availability_zones
-  vpc_id            = aws_vpc.main.id
-  cidr_block        = cidrsubnet(
+  count  = var.availability_zones
+  vpc_id = aws_vpc.main.id
+  cidr_block = cidrsubnet(
     var.cidr_block, var.subnet_newbits, count.index + length(data.aws_availability_zones.available.names)
   )
   availability_zone = data.aws_availability_zones.available.names[count.index]
@@ -175,9 +175,9 @@ resource "aws_subnet" "private" {
 
 # Data Subnets
 resource "aws_subnet" "data" {
-  count             = var.availability_zones
-  vpc_id            = aws_vpc.main.id
-  cidr_block        = cidrsubnet(
+  count  = var.availability_zones
+  vpc_id = aws_vpc.main.id
+  cidr_block = cidrsubnet(
     var.cidr_block, var.subnet_newbits, count.index + 2 * length(data.aws_availability_zones.available.names)
   )
   availability_zone = data.aws_availability_zones.available.names[count.index]

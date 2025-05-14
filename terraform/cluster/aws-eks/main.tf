@@ -80,9 +80,9 @@ resource "aws_eks_cluster" "this" {
 }
 
 resource "aws_security_group" "cluster_api_access" {
-  name = "${local.name}-cluster-api-access"
+  name        = "${local.name}-cluster-api-access"
   description = "Security group for EKS cluster API access"
-  vpc_id = data.aws_vpc.default[0].id
+  vpc_id      = data.aws_vpc.default[0].id
 
   ingress {
     from_port   = 443
