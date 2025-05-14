@@ -25,3 +25,19 @@ tasks:
     desc: Check Terraform formatting
     cmds:
       - terraform fmt -recursive
+
+  docs:
+    desc: Generate Terraform documentation
+    cmds:
+      - rm -rf docs/terraform/*
+      - |
+        find terraform -type d -exec test -e '{}/main.tf' -a -e '{}/variables.tf' \; -print | while read -r dir; do
+          rel_path="${dir#terraform/}"
+          output_file="docs/terraform/$rel_path/$(basename "$dir").md"
+          mkdir -p "$(dirname "$output_file")"
+          if [ -f "$dir/README.md" ]; then
+            cat "$dir/README.md" > "$output_file"
+            echo >> "$output_file"
+          fi
+          docker run --rm -v "$(pwd):/src" -w "/src/$dir" quay.io/terraform-docs/terraform-docs:0.20.0 markdown . >> "$output_file"
+        done
