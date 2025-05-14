@@ -32,8 +32,11 @@ tasks:
       - rm -rf docs/terraform/*
       - |
         find terraform -type d -exec test -e '{}/main.tf' -a -e '{}/variables.tf' \; -print | while read -r dir; do
+          if [[ "$dir" == *"/modules/"* ]]; then
+            continue
+          fi
           rel_path="${dir#terraform/}"
-          output_file="docs/terraform/$rel_path/$(basename "$dir").md"
+          output_file="docs/terraform/$rel_path.md"
           mkdir -p "$(dirname "$output_file")"
           if [ -f "$dir/README.md" ]; then
             cat "$dir/README.md" > "$output_file"
