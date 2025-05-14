@@ -2,6 +2,10 @@ name: Generate terraform docs
 on:
   push:
 
+permissions:
+  contents: write
+  pull-requests: write
+
 jobs:
   docs:
     runs-on: ubuntu-latest
@@ -18,13 +22,45 @@ jobs:
     - name: Generate Terraform docs
       run: task docs
 
-    - name: Commit changes
+    - name: Create or update PR
       if: success()
-      run: |
-        git config --local user.name "GitHub Action"
-        git config --local user.email "action@github.com"
-        git add docs/terraform/
-        if ! git diff --staged --quiet; then
-          git commit -m "docs: update terraform documentation"
-          git push
-        fi 
+      uses: actions/github-script@v7
+      with:
+        script: |
+          const branchName = `docs/${context.ref.replace('refs/heads/', '')}`;
+          
+          // Configure git
+          await exec.exec('git', ['config', '--local', 'user.name', 'GitHub Action']);
+          await exec.exec('git', ['config', '--local', 'user.email', 'action@github.com']);
+          
+          // Create or update branch
+          await exec.exec('git', ['checkout', '-B', branchName]);
+          await exec.exec('git', ['add', 'docs/terraform/']);
+          
+          const { stdout: diffOutput } = await exec.exec('git', ['diff', '--staged', '--quiet'], { ignoreReturnCode: true });
+          if (diffOutput !== '') {
+            await exec.exec('git', ['commit', '-m', 'docs: update terraform documentation']);
+            await exec.exec('git', ['push', '-f', 'origin', branchName]);
+            
+            // Create PR if it doesn't exist
+            const { data: existingPRs } = await github.rest.pulls.list({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              head: `${context.repo.owner}:${branchName}`,
+              base: context.ref.replace('refs/heads/', '')
+            });
+            
+            if (existingPRs.length === 0) {
+              await github.rest.pulls.create({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                title: 'docs: update terraform documentation',
+                body: 'Automated documentation update',
+                head: branchName,
+                base: context.ref.replace('refs/heads/', ''),
+                labels: ['documentation']
+              });
+            }
+          } else {
+            console.log('No changes to commit');
+          } 
