@@ -56,6 +56,24 @@ variable "single_nat_gateway" {
   default     = false
 }
 
+variable "enable_flow_logs" {
+  description = "Enable flow logs for the VPC"
+  type        = bool
+  default     = true
+}
+
+variable "create_flow_logs_kms_key" {
+  description = "Create a KMS key for flow logs"
+  type        = bool
+  default     = true
+}
+
+variable "flow_logs_kms_key_id" {
+  description = "The KMS key ID for flow logs"
+  type        = string
+  default     = null
+}
+
 variable "tags" {
   description = "Additional tags for all resources"
   type        = map(string)

@@ -24,12 +24,14 @@ variable "cluster_name" {
 variable "kubernetes_version" {
   description = "The kubernetes version to deploy."
   type        = string
-  default     = "1.32"
+  # renovate: datasource=github-releases depName=kubernetes package=kubernetes/kubernetes
+  default = "1.32"
   validation {
-    condition     = can(regex("^\\d+\\.\\d+$", var.kubernetes_version))
-    error_message = "The Kubernetes version should be in format like '1.32'."
+    condition     = can(regex("^1\\.\\d+\\$", var.kubernetes_version))
+    error_message = "The Kubernetes version should be in version format like '1.32'."
   }
 }
+
 
 variable "endpoint_public_access" {
   description = "Whether to enable public access to the EKS cluster."

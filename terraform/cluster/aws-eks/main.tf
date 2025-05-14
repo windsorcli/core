@@ -4,13 +4,13 @@ terraform {
   required_providers {
     aws = {
       source  = "hashicorp/aws"
-      version = "~> 5.0"
+      version = "5.97.0"
     }
   }
 }
 
 locals {
-  name = var.cluster_name != "" ? var.cluster_name : "windsor-core-${var.context_id}"
+  name = var.cluster_name != "" ? var.cluster_name : "cluster-${var.context_id}"
 }
 
 #-----------------------------------------------------------------------------------------------------------------------
