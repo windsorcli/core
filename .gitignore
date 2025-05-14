@@ -1,3 +1,4 @@
+.terraform/
 
 # managed by windsor cli
 .windsor/

@@ -70,6 +70,13 @@ jobs:
       - name: Run terraform fmt
         run: terraform fmt -check -recursive
 
+      - name: Run Terraform Tests
+        run: |
+          find terraform -type f -name '*.tftest.hcl' | while read testfile; do
+            testdir=$(dirname "$testfile")
+            (cd "$testdir" && terraform init -input=false && terraform test)
+          done
+
       - name: Create .docker-cache directory
         run: mkdir -p .windsor/.docker-cache
 

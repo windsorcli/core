@@ -46,7 +46,7 @@ resource "azurerm_storage_account" "this" {
     for_each = var.enable_cmk ? [1] : []
     content {
       type         = "UserAssigned"
-      identity_ids = [azurerm_user_assigned_identity.storage.id]
+      identity_ids = [azurerm_user_assigned_identity.storage[0].id]
     }
   }
 
@@ -118,7 +118,7 @@ locals {
 #---------------------------------------------------------------------------------------------------
 
 resource "local_file" "backend_config" {
-  count = var.context_path != "" ? 1 : 0
+  count = trim(var.context_path, " ") != "" ? 1 : 0
   content = templatefile("${path.module}/templates/backend.tftpl", {
     resource_group_name  = local.resource_group_name
     storage_account_name = azurerm_storage_account.this.name

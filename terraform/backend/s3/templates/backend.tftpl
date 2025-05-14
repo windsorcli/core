@@ -1,4 +1,3 @@
-bucket         = "${bucket}"
-region         = "${region}"
-${dynamodb_table != "" ? "dynamodb_table = \"${dynamodb_table}\"" : ""}
-${kms_key_id != "" ? "kms_key_id     = \"${kms_key_id}\"" : ""} 
+bucket = "${bucket}"
+region = "${region}"
+${dynamodb_table != "" ? "dynamodb_table = \"${dynamodb_table}\"\n" : ""}${kms_key_id != "" ? "kms_key_id = \"${kms_key_id}\"\n" : ""}

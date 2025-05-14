@@ -301,6 +301,7 @@ resource "azurerm_kubernetes_cluster_node_pool" "autoscaled" {
 }
 
 resource "local_file" "kube_config" {
+  count    = var.context_path != "" ? 1 : 0
   content  = azurerm_kubernetes_cluster.main.kube_config_raw
   filename = local.kubeconfig_path
 }

@@ -1,0 +1,31 @@
+# CRITICAL PLATFORM ENGINEERING RULES
+
+## CODE STYLE GUIDELINES
+When writing terraform code, you must follow Windsor Core style guidelines in terraform/STYLE.md:
+1. Module Structure
+2. Documentation Style
+3. Testing Patterns
+4. Code Organization
+
+## TERRAFORM TEST ENGINEERING
+When developing Terraform tests:
+1. Start with empty mock providers: `mock_provider "provider" {}` and run tests immediately to identify validation failures.
+2. Add mocks only for failing validations, starting with data sources and mocking at the lowest level possible (data sources over resources). Keep mock values minimal and focused on test requirements.
+3. For count-based resources, use `length()` in assertions.
+4. Only assert on resource values that are directly controlled by input variables, or on the impact of module default values in minimal configs. Do not assert on arbitrary resource values or implementation details.
+5. Prioritize validating locals and complex logic, especially for naming, computed values, and conditional logic, to ensure module correctness.
+6. When testing naming logic or locals, validate default and override behaviors in the minimal and full configuration tests, not in a separate test block.
+7. Expand test comments to be descriptive, following the style of the most detailed test suites in the repo.
+8. Combine negative tests for validation rules into a single test case using `expect_failures`, rather than creating separate tests for each validation rule.
+
+Reference:
+- Internal: See "Testing Patterns" section in terraform/STYLE.md
+- External: https://developer.hashicorp.com/terraform/language/tests
+
+## AUDIO NOTIFICATIONS
+Must use `say` command with Samantha voice for:
+- Test Completion: "All tests are now passing"
+- Test Failure: "Test failure detected in [test name]"
+- Source Code Bug: "Source code bug detected in [function]. Please review."
+- User Input Needed: "User input required for [specific issue]"
+- Work Complete: "Platform engineering work complete"
