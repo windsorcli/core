@@ -304,9 +304,3 @@ resource "local_file" "kube_config" {
   content  = azurerm_kubernetes_cluster.main.kube_config_raw
   filename = local.kubeconfig_path
 }
-
-resource "azurerm_role_assignment" "cluster_identity_node_rg_contributor" {
-  scope                = azurerm_kubernetes_cluster.main.node_resource_group_id
-  role_definition_name = "Contributor"
-  principal_id         = azurerm_user_assigned_identity.cluster.principal_id
-}
