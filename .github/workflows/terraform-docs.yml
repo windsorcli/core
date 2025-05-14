@@ -21,13 +21,12 @@ jobs:
       run: task docs
 
     - name: Commit changes
+      if: success()
       run: |
-        git config --local user.email "action@github.com"
         git config --local user.name "GitHub Action"
+        git config --local user.email "action@github.com"
         git add docs/terraform/
-        if git diff --staged --quiet; then
-          echo "No changes to commit"
-          exit 0
-        fi
-        git commit -m "docs: regenerate terraform documentation [skip ci]"
-        git push 
+        if ! git diff --staged --quiet; then
+          git commit -m "docs: update terraform documentation"
+          git push
+        fi 
