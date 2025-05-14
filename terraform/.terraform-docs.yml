@@ -28,7 +28,7 @@ content: |-
   {{ .Resources }}
 
 output:
-  file: "docs/terraform/{{ .Path }}.md"
+  file: "docs/terraform/{{ dir .Path }}/{{ .Name }}.md"
   mode: replace
 
 settings:
