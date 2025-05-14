@@ -1,6 +1,6 @@
 name: Generate terraform docs
 on:
-  push:
+  pull_request:
 
 permissions:
   contents: write
@@ -24,10 +24,11 @@ jobs:
 
     - name: Create or update PR
       if: success()
-      uses: actions/github-script@v7
+      uses: actions/github-script@60a0d83039c74a4aee543508d2ffcb1c3799cdea # v7.0.1
       with:
         script: |
-          const branchName = `docs/${context.ref.replace('refs/heads/', '')}`;
+          const sourcePR = context.payload.pull_request;
+          const branchName = `docs/${sourcePR.head.ref}`;
           
           // Configure git
           await exec.exec('git', ['config', '--local', 'user.name', 'GitHub Action']);
@@ -39,7 +40,7 @@ jobs:
           
           const { stdout: diffOutput } = await exec.exec('git', ['diff', '--staged', '--quiet'], { ignoreReturnCode: true });
           if (diffOutput !== '') {
-            await exec.exec('git', ['commit', '-m', 'docs: update terraform documentation']);
+            await exec.exec('git', ['commit', '-m', `docs: update terraform documentation for #${sourcePR.number}`]);
             await exec.exec('git', ['push', '-f', 'origin', branchName]);
             
             // Create PR if it doesn't exist
@@ -47,17 +48,17 @@ jobs:
               owner: context.repo.owner,
               repo: context.repo.repo,
               head: `${context.repo.owner}:${branchName}`,
-              base: context.ref.replace('refs/heads/', '')
+              base: 'main'
             });
             
             if (existingPRs.length === 0) {
               await github.rest.pulls.create({
                 owner: context.repo.owner,
                 repo: context.repo.repo,
-                title: 'docs: update terraform documentation',
-                body: 'Automated documentation update',
+                title: `docs: update terraform documentation for #${sourcePR.number}`,
+                body: `Automated documentation update for PR #${sourcePR.number}: ${sourcePR.title}\n\n${sourcePR.html_url}`,
                 head: branchName,
-                base: context.ref.replace('refs/heads/', ''),
+                base: 'main',
                 labels: ['documentation']
               });
             }

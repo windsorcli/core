@@ -11,7 +11,9 @@ categories:
       - 'bugfix'
       - 'bug'
   - title: 'Maintenance'
-    label: 'chore'
+    labels: 
+      - 'chore'
+      - 'documentation'
   - title: 'Dependencies'
     label: 'dependencies'
 change-template: '- $TITLE @$AUTHOR (#$NUMBER)'
@@ -32,6 +34,7 @@ version-resolver:
       - 'chore'
       - 'dependencies'
       - 'enhancement'
+      - 'documentation'
   default: patch
 template: |
   ## Changes
