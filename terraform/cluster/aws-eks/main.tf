@@ -42,6 +42,7 @@ data "aws_region" "current" {}
 # EKS Cluster
 #-----------------------------------------------------------------------------------------------------------------------
 resource "aws_eks_cluster" "this" {
+  # checkov:skip=CKV_AWS_38: Public access set via a variable.
   name     = local.name
   role_arn = aws_iam_role.cluster.arn
   version  = var.kubernetes_version
@@ -50,6 +51,7 @@ resource "aws_eks_cluster" "this" {
     subnet_ids              = data.aws_subnets.private.ids
     endpoint_private_access = true
     endpoint_public_access  = var.endpoint_public_access
+    security_group_ids      = [aws_security_group.cluster_api_access.id]
   }
 
   # Enable secrets encryption using AWS KMS
@@ -74,6 +76,19 @@ resource "aws_eks_cluster" "this" {
     aws_iam_role_policy_attachment.cluster_AmazonEKSVPCResourceController,
     aws_kms_key.eks_encryption_key,
   ]
+}
+
+resource "aws_security_group" "cluster_api_access" {
+  name = "${local.name}-cluster-api-access"
+  description = "Security group for EKS cluster API access"
+  vpc_id = data.aws_vpc.default[0].id
+
+  ingress {
+    from_port   = 443
+    to_port     = 443
+    protocol    = "tcp"
+    cidr_blocks = [var.cluster_api_access_cidr_block]
+  }
 }
 
 resource "aws_kms_key" "eks_encryption_key" {

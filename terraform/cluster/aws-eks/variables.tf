@@ -37,6 +37,12 @@ variable "endpoint_public_access" {
   default     = true
 }
 
+variable "cluster_api_access_cidr_block" {
+  description = "The CIDR block for the cluster API access."
+  type        = string
+  default     = "0.0.0.0/0"
+}
+
 variable "vpc_id" {
   description = "The ID of the VPC where the EKS cluster will be created."
   type        = string
