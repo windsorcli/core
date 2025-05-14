@@ -1,10 +1,9 @@
-name: Generate terraform docs
+name: Validate terraform docs
 on:
-  pull_request:
+  push:
 
 permissions:
-  contents: write
-  pull-requests: write
+  contents: read
 
 jobs:
   docs:
@@ -22,46 +21,10 @@ jobs:
     - name: Generate Terraform docs
       run: task docs
 
-    - name: Create or update PR
-      if: success()
-      uses: actions/github-script@60a0d83039c74a4aee543508d2ffcb1c3799cdea # v7.0.1
-      with:
-        script: |
-          const sourcePR = context.payload.pull_request;
-          const branchName = `docs/${sourcePR.head.ref}`;
-          
-          // Configure git
-          await exec.exec('git', ['config', '--local', 'user.name', 'GitHub Action']);
-          await exec.exec('git', ['config', '--local', 'user.email', 'action@github.com']);
-          
-          // Create or update branch
-          await exec.exec('git', ['checkout', '-B', branchName]);
-          await exec.exec('git', ['add', 'docs/terraform/']);
-          
-          const { stdout: diffOutput } = await exec.exec('git', ['diff', '--staged', '--quiet'], { ignoreReturnCode: true });
-          if (diffOutput !== '') {
-            await exec.exec('git', ['commit', '-m', `docs: update terraform documentation for #${sourcePR.number}`]);
-            await exec.exec('git', ['push', '-f', 'origin', branchName]);
-            
-            // Create PR if it doesn't exist
-            const { data: existingPRs } = await github.rest.pulls.list({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              head: `${context.repo.owner}:${branchName}`,
-              base: 'main'
-            });
-            
-            if (existingPRs.length === 0) {
-              await github.rest.pulls.create({
-                owner: context.repo.owner,
-                repo: context.repo.repo,
-                title: `docs: update terraform documentation for #${sourcePR.number}`,
-                body: `Automated documentation update for PR #${sourcePR.number}: ${sourcePR.title}\n\n${sourcePR.html_url}`,
-                head: branchName,
-                base: 'main',
-                labels: ['documentation']
-              });
-            }
-          } else {
-            console.log('No changes to commit');
-          } 
+    - name: Check for changes
+      run: |
+        if [[ -n "$(git status --porcelain)" ]]; then
+          echo "::error::Terraform documentation is out of date. Please run 'task docs' in the repository."
+          git diff
+          exit 1
+        fi 
