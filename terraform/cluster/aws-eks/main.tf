@@ -411,59 +411,9 @@ resource "aws_iam_role" "efs_csi" {
   }
 }
 
-resource "aws_iam_policy" "efs_csi" {
-  count       = contains(keys(var.addons), "aws-efs-csi-driver") ? 1 : 0
-  name        = "${local.name}-aws-efs-csi-driver-policy"
-  description = "IAM policy for EFS CSI Driver"
-
-  policy = jsonencode({
-    Version = "2012-10-17"
-    Statement = [
-      {
-        Effect = "Allow"
-        Action = [
-          "elasticfilesystem:DescribeAccessPoints",
-          "elasticfilesystem:DescribeFileSystems",
-          "elasticfilesystem:DescribeMountTargets",
-          "ec2:DescribeAvailabilityZones"
-        ]
-        Resource = "*"
-      },
-      {
-        Effect = "Allow"
-        Action = [
-          "elasticfilesystem:CreateAccessPoint"
-        ]
-        Resource = "*"
-        Condition = {
-          StringLike = {
-            "aws:RequestTag/efs.csi.aws.com/cluster" = "true"
-          }
-        }
-      },
-      {
-        Effect = "Allow"
-        Action = [
-          "elasticfilesystem:DeleteAccessPoint"
-        ]
-        Resource = "*"
-        Condition = {
-          StringLike = {
-            "aws:ResourceTag/efs.csi.aws.com/cluster" = "true"
-          }
-        }
-      }
-    ]
-  })
-
-  tags = {
-    Name = "${local.name}-aws-efs-csi-driver-policy"
-  }
-}
-
 resource "aws_iam_role_policy_attachment" "efs_csi" {
   count      = contains(keys(var.addons), "aws-efs-csi-driver") ? 1 : 0
-  policy_arn = aws_iam_policy.efs_csi[0].arn
+  policy_arn = "arn:aws:iam::aws:policy/service-role/AmazonEFSCSIDriverPolicy"
   role       = aws_iam_role.efs_csi[0].name
 }
 
