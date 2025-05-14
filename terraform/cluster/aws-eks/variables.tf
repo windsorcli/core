@@ -31,6 +31,12 @@ variable "kubernetes_version" {
   }
 }
 
+variable "endpoint_public_access" {
+  description = "Whether to enable public access to the EKS cluster."
+  type        = bool
+  default     = true
+}
+
 variable "vpc_id" {
   description = "The ID of the VPC where the EKS cluster will be created."
   type        = string

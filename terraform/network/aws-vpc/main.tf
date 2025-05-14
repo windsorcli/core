@@ -32,6 +32,21 @@ resource "aws_vpc" "main" {
   }
 }
 
+resource "aws_default_security_group" "default" {
+  vpc_id = aws_vpc.main.id
+
+  # Ensure no ingress rules are defined (restricting all inbound traffic)
+  ingress = []
+
+  # Ensure no egress rules are defined (restricting all outbound traffic)
+  egress = []
+
+  tags = {
+    Name = "${local.name}-default-sg"
+    Description = "Default security group with all traffic restricted"
+  }
+}
+
 # Enable VPC Flow Logs
 resource "aws_flow_log" "vpc_flow_logs" {
   log_destination      = aws_cloudwatch_log_group.vpc_flow_logs.arn

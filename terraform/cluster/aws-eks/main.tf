@@ -49,7 +49,7 @@ resource "aws_eks_cluster" "this" {
   vpc_config {
     subnet_ids              = data.aws_subnets.private.ids
     endpoint_private_access = true
-    endpoint_public_access  = true # Disable public endpoint for security
+    endpoint_public_access  = var.endpoint_public_access
   }
 
   # Enable secrets encryption using AWS KMS
@@ -505,6 +505,9 @@ resource "aws_iam_role" "external_dns" {
 }
 
 resource "aws_iam_policy" "external_dns" {
+  # This policy is based on the official External DNS documentation for AWS
+  # https://kubernetes-sigs.github.io/external-dns/v0.17.0/docs/tutorials/aws/#iam-policy
+  # checkov:skip=CKV_AWS_355: This policy is straight from the External DNS documentation
   count       = contains(keys(var.addons), "external-dns") ? 1 : 0
   name        = "${local.name}-external-dns-policy"
   description = "IAM policy for External DNS"
@@ -517,15 +520,20 @@ resource "aws_iam_policy" "external_dns" {
         Action = [
           "route53:ChangeResourceRecordSets"
         ]
-        Resource = ["*"]
+        Resource = [
+          "arn:aws:route53:::hostedzone/*"
+        ]
       },
       {
         Effect = "Allow"
         Action = [
           "route53:ListHostedZones",
-          "route53:ListResourceRecordSets"
+          "route53:ListResourceRecordSets",
+          "route53:ListTagsForResource"
         ]
-        Resource = ["*"]
+        Resource = [
+          "*"
+        ]
       }
     ]
   })
