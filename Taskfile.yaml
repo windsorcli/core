@@ -1,0 +1,27 @@
+version: '3'
+
+tasks:
+  scan:
+    desc: Scan for security vulnerabilities
+    cmds:
+      - source .venv/bin/activate && checkov -d {{.CLI_ARGS | default "terraform/"}} 2>/dev/null
+
+  test:
+    desc: Run Terraform tests (all or specific module)
+    cmds:
+      - |
+        MODULE={{.CLI_ARGS | default "terraform"}}
+        if [ -d "$MODULE" ]; then
+          find "$MODULE" -type f -name '*.tftest.hcl' | while read testfile; do
+            testdir=$(dirname "$testfile")
+            (cd "$testdir" && terraform init -input=false && terraform test)
+          done
+        else
+          echo "Module path '$MODULE' does not exist."
+          exit 1
+        fi
+
+  fmt:
+    desc: Check Terraform formatting
+    cmds:
+      - terraform fmt -recursive

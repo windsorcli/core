@@ -197,3 +197,15 @@ variable "expiration_date" {
   description = "The expiration date for the AKS cluster's key vault"
   default     = null
 }
+
+variable "additional_cluster_identity_ids" {
+  type        = list(string)
+  description = "Additional user assigned identity IDs for the AKS cluster"
+  default     = []
+}
+
+variable "soft_delete_retention_days" {
+  type        = number
+  description = "The number of days to retain the AKS cluster's key vault"
+  default     = 7
+}
