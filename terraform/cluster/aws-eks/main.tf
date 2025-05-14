@@ -427,14 +427,14 @@ resource "aws_iam_policy" "efs_csi" {
           "elasticfilesystem:DescribeMountTargets",
           "ec2:DescribeAvailabilityZones"
         ]
-        Resource = "arn:aws:elasticfilesystem:${data.aws_region.current.name}:${data.aws_caller_identity.current.account_id}:*"
+        Resource = "*"
       },
       {
         Effect = "Allow"
         Action = [
           "elasticfilesystem:CreateAccessPoint"
         ]
-        Resource = "arn:aws:elasticfilesystem:${data.aws_region.current.name}:${data.aws_caller_identity.current.account_id}:*"
+        Resource = "*"
         Condition = {
           StringLike = {
             "aws:RequestTag/efs.csi.aws.com/cluster" = "true"
@@ -446,7 +446,7 @@ resource "aws_iam_policy" "efs_csi" {
         Action = [
           "elasticfilesystem:DeleteAccessPoint"
         ]
-        Resource = "arn:aws:elasticfilesystem:${data.aws_region.current.name}:${data.aws_caller_identity.current.account_id}:*"
+        Resource = "*"
         Condition = {
           StringLike = {
             "aws:ResourceTag/efs.csi.aws.com/cluster" = "true"
