@@ -43,6 +43,7 @@ data "aws_region" "current" {}
 #-----------------------------------------------------------------------------------------------------------------------
 resource "aws_eks_cluster" "this" {
   # checkov:skip=CKV_AWS_38: Public access set via a variable.
+  # checkov:skip=CKV_AWS_39: Public access set via a variable.
   name     = local.name
   role_arn = aws_iam_role.cluster.arn
   version  = var.kubernetes_version
@@ -88,6 +89,7 @@ resource "aws_security_group" "cluster_api_access" {
     to_port     = 443
     protocol    = "tcp"
     cidr_blocks = [var.cluster_api_access_cidr_block]
+    description = "Allow K8s API access from the specified CIDR block"
   }
 }
 
