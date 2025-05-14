@@ -150,6 +150,10 @@ resource "azurerm_key_vault_key" "key_vault_key" {
     expire_after         = "P90D"
     notify_before_expiry = "P29D"
   }
+
+  depends_on = [
+    azurerm_key_vault_access_policy.key_vault_access_policy
+  ]
 }
 
 resource "azurerm_disk_encryption_set" "main" {
