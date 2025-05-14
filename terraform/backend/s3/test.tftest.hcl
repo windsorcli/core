@@ -208,9 +208,9 @@ run "multiple_invalid_inputs" {
     var.kms_key_alias,
   ]
   variables {
-    context_id = "test"
-    s3_bucket_name = "a" # Too short
+    context_id         = "test"
+    s3_bucket_name     = "a"                                                                # Too short
     s3_log_bucket_name = "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa" # Too long
-    kms_key_alias = "invalid-alias" # Invalid format
+    kms_key_alias      = "invalid-alias"                                                    # Invalid format
   }
 }

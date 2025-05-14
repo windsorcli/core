@@ -232,25 +232,25 @@ run "multiple_invalid_inputs" {
     var.workers,
   ]
   variables {
-    os_type = "macos"
-    kubernetes_version = "v1.33"
-    talos_version = "v1.10.1"
-    cluster_name = ""
-    cluster_endpoint = "http://localhost:6443"
-    common_config_patches = "not: valid: yaml: ["
+    os_type                     = "macos"
+    kubernetes_version          = "v1.33"
+    talos_version               = "v1.10.1"
+    cluster_name                = ""
+    cluster_endpoint            = "http://localhost:6443"
+    common_config_patches       = "not: valid: yaml: ["
     controlplane_config_patches = "not: valid: yaml: ["
-    worker_config_patches = "not: valid: yaml: ["
+    worker_config_patches       = "not: valid: yaml: ["
     controlplanes = [
       {
-        endpoint = "http://localhost:6443"
-        node     = "192.168.1.10"
+        endpoint       = "http://localhost:6443"
+        node           = "192.168.1.10"
         config_patches = "not: valid: yaml: ["
       }
     ]
     workers = [
       {
-        endpoint = "http://localhost:6443"
-        node     = "192.168.1.20"
+        endpoint       = "http://localhost:6443"
+        node           = "192.168.1.20"
         config_patches = "not: valid: yaml: ["
       }
     ]

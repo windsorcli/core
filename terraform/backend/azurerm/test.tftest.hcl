@@ -158,7 +158,7 @@ run "multiple_invalid_inputs" {
     var.storage_account_name,
   ]
   variables {
-    context_id = "test"
+    context_id           = "test"
     storage_account_name = "this-is-a-very-long-storage-account-name-that-exceeds-the-limit" # Too long
   }
 }

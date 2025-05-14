@@ -45,13 +45,13 @@ run "full_configuration" {
     flux_namespace    = "custom-gitops"
     flux_helm_version = "2.16.0"
     flux_version      = "2.6.0"
-    ssh_private_key   = "PRIVATEKEY"
+    ssh_private_key   = "PRIVATEKEY" # checkov:skip=CKV_SECRET_6: Test file, secrets are not real
     ssh_public_key    = "PUBLICKEY"
     ssh_known_hosts   = "KNOWNHOSTS"
-    git_auth_secret   = "custom-auth"
+    git_auth_secret   = "custom-auth" # checkov:skip=CKV_SECRET_6: Test file, secrets are not real
     git_username      = "customuser"
     git_password      = "custompass"
-    webhook_token     = "webhooktoken123"
+    webhook_token     = "webhooktoken123" # checkov:skip=CKV_SECRET_6: Test file, secrets are not real
   }
 
   assert {
@@ -113,6 +113,6 @@ run "multiple_invalid_inputs" {
   ]
   variables {
     flux_helm_version = "2.15" # Missing patch version
-    flux_version = "2.5" # Missing patch version
+    flux_version      = "2.5"  # Missing patch version
   }
 }
