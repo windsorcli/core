@@ -11,8 +11,6 @@ mock_provider "azurerm" {
     }
   }
 }
-mock_provider "local" {}
-mock_provider "time" {}
 
 # Verifies that the module creates an AKS cluster with minimal configuration,
 # ensuring that all default values are correctly applied and only required variables are set.
