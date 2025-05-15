@@ -36,8 +36,8 @@ run "minimal_configuration" {
   }
 
   assert {
-    condition     = length(azurerm_subnet.data) == 1
-    error_message = "One data subnet should be created by default"
+    condition     = length(azurerm_subnet.isolated) == 1
+    error_message = "One isolated subnet should be created by default"
   }
 
   assert {
@@ -60,7 +60,7 @@ run "full_configuration" {
     vnet_subnets = {
       public  = ["10.30.1.0/24", "10.30.2.0/24"]
       private = ["10.30.11.0/24", "10.30.12.0/24"]
-      data    = ["10.30.21.0/24", "10.30.22.0/24"]
+      isolated = ["10.30.21.0/24", "10.30.22.0/24"]
     }
     context_id = "test"
     name       = "custom"
@@ -92,8 +92,8 @@ run "full_configuration" {
   }
 
   assert {
-    condition     = length(azurerm_subnet.data) == 2
-    error_message = "Two data subnets should be created"
+    condition     = length(azurerm_subnet.isolated) == 2
+    error_message = "Two isolated subnets should be created"
   }
 
   assert {
