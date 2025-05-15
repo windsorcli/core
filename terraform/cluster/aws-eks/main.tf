@@ -41,7 +41,7 @@ data "aws_region" "current" {}
 #-----------------------------------------------------------------------------------------------------------------------
 # EKS Cluster
 #-----------------------------------------------------------------------------------------------------------------------
-resource "aws_eks_cluster" "this" {
+resource "aws_eks_cluster" "main" {
   # checkov:skip=CKV_AWS_38: Public access set via a variable.
   # checkov:skip=CKV_AWS_39: Public access set via a variable.
   name     = local.name
@@ -136,7 +136,7 @@ data "aws_caller_identity" "current" {}
 #-----------------------------------------------------------------------------------------------------------------------
 
 resource "aws_iam_role" "cluster" {
-  name = "${local.name}-cluster"
+  name = local.name
 
   assume_role_policy = jsonencode({
     Version = "2012-10-17"
@@ -197,10 +197,10 @@ resource "aws_iam_role_policy_attachment" "node_group_AmazonEC2ContainerRegistry
 #-----------------------------------------------------------------------------------------------------------------------
 # Node Groups
 #-----------------------------------------------------------------------------------------------------------------------
-resource "aws_eks_node_group" "this" {
+resource "aws_eks_node_group" "main" {
   for_each = var.node_groups
 
-  cluster_name    = aws_eks_cluster.this.name
+  cluster_name    = aws_eks_cluster.main.name
   node_group_name = each.key
   node_role_arn   = aws_iam_role.node_group.arn
   subnet_ids      = data.aws_subnets.private.ids
@@ -253,7 +253,7 @@ resource "aws_launch_template" "node_group" {
   network_interfaces {
     associate_public_ip_address = false
     delete_on_termination       = true
-    security_groups             = [aws_eks_cluster.this.vpc_config[0].cluster_security_group_id]
+    security_groups             = [aws_eks_cluster.main.vpc_config[0].cluster_security_group_id]
   }
 
   # Disable IMDSv1 and require IMDSv2
@@ -273,7 +273,7 @@ Content-Type: text/x-shellscript; charset="us-ascii"
 
 #!/bin/bash
 set -o xtrace
-/etc/eks/bootstrap.sh ${aws_eks_cluster.this.name} --use-max-pods false --kubelet-extra-args '--max-pods=110'
+/etc/eks/bootstrap.sh ${aws_eks_cluster.main.name} --use-max-pods false --kubelet-extra-args '--max-pods=110'
 
 --==BOUNDARY==--
 EOT
@@ -306,10 +306,10 @@ resource "aws_iam_role_policy_attachment" "fargate_pod_execution_role_policy" {
   role       = aws_iam_role.fargate.name
 }
 
-resource "aws_eks_fargate_profile" "this" {
+resource "aws_eks_fargate_profile" "main" {
   for_each = var.fargate_profiles != null ? var.fargate_profiles : {}
 
-  cluster_name           = aws_eks_cluster.this.name
+  cluster_name           = aws_eks_cluster.main.name
   fargate_profile_name   = each.key
   pod_execution_role_arn = aws_iam_role.fargate.arn
   subnet_ids             = data.aws_subnets.private.ids
@@ -333,7 +333,7 @@ data "aws_eks_addon_version" "default" {
   for_each = var.addons
 
   addon_name         = each.key
-  kubernetes_version = aws_eks_cluster.this.version
+  kubernetes_version = aws_eks_cluster.main.version
   most_recent        = true
 }
 
@@ -595,10 +595,10 @@ locals {
   }
 }
 
-resource "aws_eks_addon" "this" {
+resource "aws_eks_addon" "main" {
   for_each = var.addons
 
-  cluster_name                = aws_eks_cluster.this.name
+  cluster_name                = aws_eks_cluster.main.name
   addon_name                  = each.key
   addon_version               = local.addon_configuration[each.key].version
   resolve_conflicts_on_create = "OVERWRITE"
@@ -652,9 +652,9 @@ resource "local_sensitive_file" "kubeconfig" {
   count = local.kubeconfig_path != "" ? 1 : 0
 
   content = templatefile("${path.module}/templates/kubeconfig.tpl", {
-    cluster_name     = aws_eks_cluster.this.name
-    cluster_endpoint = aws_eks_cluster.this.endpoint
-    cluster_ca       = aws_eks_cluster.this.certificate_authority[0].data
+    cluster_name     = aws_eks_cluster.main.name
+    cluster_endpoint = aws_eks_cluster.main.endpoint
+    cluster_ca       = aws_eks_cluster.main.certificate_authority[0].data
     region           = data.aws_region.current.name
   })
   filename        = local.kubeconfig_path
