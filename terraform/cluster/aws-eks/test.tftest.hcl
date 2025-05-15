@@ -52,9 +52,8 @@ run "minimal_configuration" {
     condition     = aws_eks_node_group.main["default"].scaling_config[0].desired_size == 2
     error_message = "Default node group should have 2 nodes"
   }
-
   assert {
-    condition     = aws_eks_cluster.main.encryption_config[0].resources[0] == "secrets"
+    condition     = contains(aws_eks_cluster.main.encryption_config[0].resources, "secrets")
     error_message = "Secrets encryption should be enabled by default"
   }
 
