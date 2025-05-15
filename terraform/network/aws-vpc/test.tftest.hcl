@@ -1,4 +1,24 @@
-mock_provider "aws" {}
+mock_provider "aws" {
+  mock_data "aws_caller_identity" {
+    defaults = {
+      account_id = "123456789012"
+      arn        = "arn:aws:iam::123456789012:user/test-user"
+      user_id    = "AIDAJQABLZS4A3QDU576Q"
+    }
+  }
+  mock_data "aws_region" {
+    defaults = {
+      name = "us-east-1"
+    }
+  }
+  mock_data "aws_availability_zones" {
+    defaults = {
+      names = ["us-east-1a", "us-east-1b", "us-east-1c"]
+      zone_ids = ["use1-az1", "use1-az2", "use1-az3"]
+      id = "us-east-1"
+    }
+  }
+}
 
 # Verifies that the module creates the VPC and subnets with minimal configuration.
 # Tests default values for naming, CIDR, and subnet creation.
