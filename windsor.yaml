@@ -59,3 +59,15 @@ contexts:
       domain: test
       forward:
       - 10.5.0.1:8053
+  aws-example:
+    environment:
+      TF_VAR_domain_name: aws-test.internal
+    aws:
+      enabled: true
+      region: us-east-2
+    terraform:
+      enabled: true
+      backend:
+        type: local
+    dns:
+      domain: aws-test.internal
