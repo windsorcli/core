@@ -36,8 +36,8 @@ data "azurerm_client_config" "current" {}
 
 locals {
   kubeconfig_path = "${var.context_path}/.kube/config"
-  rg_name         = var.resource_group_name == null ? "windsor-aks-rg-${var.context_id}" : var.resource_group_name
-  cluster_name    = var.cluster_name == null ? "windsor-aks-cluster-${var.context_id}" : var.cluster_name
+  rg_name         = var.resource_group_name == null ? "aks-${var.context_id}" : var.resource_group_name
+  cluster_name    = var.cluster_name == null ? "aks-${var.context_id}" : var.cluster_name
 }
 
 #-----------------------------------------------------------------------------------------------------------------------
@@ -47,6 +47,10 @@ locals {
 resource "azurerm_resource_group" "aks" {
   name     = local.rg_name
   location = var.region
+  tags = {
+    WindsorContextID = var.context_id
+    Name             = local.rg_name
+  }
 }
 
 #-----------------------------------------------------------------------------------------------------------------------
@@ -61,7 +65,7 @@ resource "random_string" "key" {
 
 resource "azurerm_key_vault" "key_vault" {
   # checkov:skip=CKV2_AZURE_32: We are using a public cluster for testing, there is no need for private endpoints.
-  name                        = "keyvault-${var.context_id}-${random_string.key.result}"
+  name                        = "vault-${var.context_id}-${random_string.key.result}"
   location                    = azurerm_resource_group.aks.location
   resource_group_name         = azurerm_resource_group.aks.name
   tenant_id                   = data.azurerm_client_config.current.tenant_id
@@ -78,6 +82,10 @@ resource "azurerm_key_vault" "key_vault" {
   network_acls {
     default_action = var.network_acls_default_action
     bypass         = "AzureServices"
+  }
+  tags = {
+    WindsorContextID = var.context_id
+    Name             = "vault-${var.context_id}-${random_string.key.result}"
   }
 }
 
@@ -172,11 +180,15 @@ resource "azurerm_disk_encryption_set" "main" {
 #-----------------------------------------------------------------------------------------------------------------------
 
 resource "azurerm_log_analytics_workspace" "aks_logs" {
-  name                = "aks-logs-${var.context_id}"
+  name                = "aks-${var.context_id}"
   location            = azurerm_resource_group.aks.location
   resource_group_name = azurerm_resource_group.aks.name
   sku                 = "PerGB2018"
   retention_in_days   = 30
+  tags = {
+    WindsorContextID = var.context_id
+    Name             = "aks-${var.context_id}"
+  }
 }
 
 #-----------------------------------------------------------------------------------------------------------------------
@@ -185,15 +197,19 @@ resource "azurerm_log_analytics_workspace" "aks_logs" {
 
 data "azurerm_subnet" "private" {
   count                = var.vnet_subnet_id == null ? 1 : 0
-  name                 = "${var.context_id}-private-1"
-  resource_group_name  = var.vnet_resource_group_name == null ? "windsor-vnet-rg-${var.context_id}" : var.vnet_resource_group_name
-  virtual_network_name = var.vnet_name == null ? "windsor-vnet-${var.context_id}" : var.vnet_name
+  name                 = "private-1-${var.context_id}"
+  resource_group_name  = var.vnet_resource_group_name == null ? "vnet-${var.context_id}" : var.vnet_resource_group_name
+  virtual_network_name = var.vnet_name == null ? "vnet-${var.context_id}" : var.vnet_name
 }
 
 resource "azurerm_user_assigned_identity" "cluster" {
-  name                = "${var.context_id}-cluster-identity"
+  name                = "cluster-${var.context_id}"
   location            = var.region
   resource_group_name = azurerm_resource_group.aks.name
+  tags = {
+    WindsorContextID = var.context_id
+    Name             = "cluster-${var.context_id}"
+  }
 }
 
 resource "azurerm_kubernetes_cluster" "main" {
@@ -226,7 +242,7 @@ resource "azurerm_kubernetes_cluster" "main" {
     vm_size                      = var.default_node_pool.vm_size
     vnet_subnet_id               = coalesce(var.vnet_subnet_id, try(data.azurerm_subnet.private[0].id, null))
     orchestrator_version         = var.kubernetes_version
-    only_critical_addons_enabled = true
+    only_critical_addons_enabled = var.default_node_pool.only_critical_addons_enabled
     # checkov:skip=CKV_AZURE_226: we are using the managed disk type to reduce costs
     os_disk_type            = var.default_node_pool.os_disk_type
     host_encryption_enabled = var.default_node_pool.host_encryption_enabled
@@ -280,6 +296,10 @@ resource "azurerm_kubernetes_cluster" "main" {
       workload_autoscaler_profile
     ]
   }
+  tags = {
+    WindsorContextID = var.context_id
+    Name             = local.cluster_name
+  }
 }
 
 resource "azurerm_kubernetes_cluster_node_pool" "autoscaled" {
@@ -303,6 +323,10 @@ resource "azurerm_kubernetes_cluster_node_pool" "autoscaled" {
     ignore_changes = [
       upgrade_settings
     ]
+  }
+  tags = {
+    WindsorContextID = var.context_id
+    Name             = var.autoscaled_node_pool.name
   }
 }
 

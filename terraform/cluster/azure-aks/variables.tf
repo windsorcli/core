@@ -83,26 +83,28 @@ variable "default_node_pool" {
 variable "autoscaled_node_pool" {
   description = "Configuration for the autoscaled node pool"
   type = object({
-    enabled                 = bool
-    name                    = string
-    vm_size                 = string
-    mode                    = string
-    os_disk_type            = string
-    max_pods                = number
-    host_encryption_enabled = bool
-    min_count               = number
-    max_count               = number
+    enabled                      = bool
+    name                         = string
+    vm_size                      = string
+    mode                         = string
+    os_disk_type                 = string
+    max_pods                     = number
+    host_encryption_enabled      = bool
+    min_count                    = number
+    max_count                    = number
+    only_critical_addons_enabled = bool
   })
   default = {
-    enabled                 = true
-    name                    = "autoscaled"
-    vm_size                 = "Standard_D2s_v3"
-    mode                    = "User"
-    os_disk_type            = "Managed"
-    max_pods                = 30
-    host_encryption_enabled = true
-    min_count               = 1
-    max_count               = 3
+    enabled                      = true
+    name                         = "autoscaled"
+    vm_size                      = "Standard_D2s_v3"
+    mode                         = "User"
+    os_disk_type                 = "Managed"
+    max_pods                     = 30
+    host_encryption_enabled      = true
+    min_count                    = 1
+    max_count                    = 3
+    only_critical_addons_enabled = true
   }
 }
 
