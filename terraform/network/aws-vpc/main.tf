@@ -42,7 +42,7 @@ resource "aws_default_security_group" "default" {
   egress = []
 
   tags = {
-    Name        = "${local.name}-default-sg"
+    Name        = "${local.name}-default"
     Description = "Default security group with all traffic restricted"
   }
 }
@@ -107,7 +107,7 @@ resource "aws_kms_key" "cloudwatch_logs_encryption" {
 
 resource "aws_iam_role" "vpc_flow_logs" {
   count = var.enable_flow_logs ? 1 : 0
-  name  = "${local.name}-vpc-flow-logs-role"
+  name  = "${local.name}-vpc-flow-logs"
 
   assume_role_policy = jsonencode({
     Version = "2012-10-17"
@@ -123,7 +123,7 @@ resource "aws_iam_role" "vpc_flow_logs" {
 
 resource "aws_iam_role_policy" "vpc_flow_logs" {
   count = var.enable_flow_logs ? 1 : 0
-  name  = "${local.name}-vpc-flow-logs-policy"
+  name  = "${local.name}-vpc-flow-logs"
   role  = aws_iam_role.vpc_flow_logs[0].id
 
   policy = jsonencode({
@@ -178,8 +178,8 @@ resource "aws_subnet" "private" {
   }
 }
 
-# Data Subnets
-resource "aws_subnet" "data" {
+# Isolated Subnets
+resource "aws_subnet" "isolated" {
   count  = var.availability_zones
   vpc_id = aws_vpc.main.id
   cidr_block = cidrsubnet(
@@ -188,8 +188,8 @@ resource "aws_subnet" "data" {
   availability_zone = data.aws_availability_zones.available.names[count.index]
 
   tags = {
-    Name = "${local.name}-data-${data.aws_availability_zones.available.names[count.index]}"
-    Tier = "data"
+    Name = "${local.name}-isolated-${data.aws_availability_zones.available.names[count.index]}"
+    Tier = "isolated"
   }
 }
 
@@ -201,7 +201,7 @@ resource "aws_internet_gateway" "main" {
   vpc_id = aws_vpc.main.id
 
   tags = {
-    Name = "${local.name}-igw"
+    Name = local.name
   }
 }
 
@@ -214,7 +214,7 @@ resource "aws_eip" "nat" {
   domain = "vpc"
 
   tags = {
-    Name = "${local.name}-nat-eip-${data.aws_availability_zones.available.names[count.index]}"
+    Name = "${local.name}-nat-${data.aws_availability_zones.available.names[count.index]}"
   }
 }
 
@@ -244,7 +244,7 @@ resource "aws_route_table" "public" {
   }
 
   tags = {
-    Name = "${local.name}-public-rt"
+    Name = "${local.name}-public"
   }
 }
 
@@ -259,22 +259,7 @@ resource "aws_route_table" "private" {
   }
 
   tags = {
-    Name = "${local.name}-private-rt-${data.aws_availability_zones.available.names[count.index]}"
-  }
-}
-
-# Data Route Tables (one per AZ)
-resource "aws_route_table" "data" {
-  count  = var.availability_zones
-  vpc_id = aws_vpc.main.id
-
-  route {
-    cidr_block     = "0.0.0.0/0"
-    nat_gateway_id = aws_nat_gateway.main[count.index].id
-  }
-
-  tags = {
-    Name = "${local.name}-data-rt-${data.aws_availability_zones.available.names[count.index]}"
+    Name = "${local.name}-private-${data.aws_availability_zones.available.names[count.index]}"
   }
 }
 

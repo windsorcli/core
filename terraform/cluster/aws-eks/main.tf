@@ -136,7 +136,7 @@ data "aws_caller_identity" "current" {}
 #-----------------------------------------------------------------------------------------------------------------------
 
 resource "aws_iam_role" "cluster" {
-  name = "${local.name}-cluster-role"
+  name = "${local.name}-cluster"
 
   assume_role_policy = jsonencode({
     Version = "2012-10-17"
@@ -163,7 +163,7 @@ resource "aws_iam_role_policy_attachment" "cluster_AmazonEKSVPCResourceControlle
 }
 
 resource "aws_iam_role" "node_group" {
-  name = "${local.name}-node-group-role"
+  name = "${local.name}-node-group"
 
   assume_role_policy = jsonencode({
     Version = "2012-10-17"
@@ -343,7 +343,7 @@ data "aws_eks_addon_version" "default" {
 
 resource "aws_iam_role" "vpc_cni" {
   count = contains(keys(var.addons), "vpc-cni") ? 1 : 0
-  name  = "${local.name}-vpc-cni-role"
+  name  = "${local.name}-vpc-cni"
 
   assume_role_policy = jsonencode({
     Version = "2012-10-17"
@@ -359,7 +359,7 @@ resource "aws_iam_role" "vpc_cni" {
   })
 
   tags = {
-    Name = "${local.name}-vpc-cni-role"
+    Name = "${local.name}-vpc-cni"
   }
 }
 
@@ -376,7 +376,7 @@ resource "aws_iam_role_policy_attachment" "vpc_cni" {
 
 resource "aws_iam_role" "ebs_csi" {
   count = contains(keys(var.addons), "aws-ebs-csi-driver") ? 1 : 0
-  name  = "${local.name}-aws-ebs-csi-driver-role"
+  name  = "${local.name}-aws-ebs-csi-driver"
 
   assume_role_policy = jsonencode({
     Version = "2012-10-17"
@@ -392,7 +392,7 @@ resource "aws_iam_role" "ebs_csi" {
   })
 
   tags = {
-    Name = "${local.name}-aws-ebs-csi-driver-role"
+    Name = "${local.name}-aws-ebs-csi-driver"
   }
 }
 
@@ -408,7 +408,7 @@ resource "aws_iam_role_policy_attachment" "ebs_csi" {
 
 resource "aws_iam_role" "efs_csi" {
   count = contains(keys(var.addons), "aws-efs-csi-driver") ? 1 : 0
-  name  = "${local.name}-aws-efs-csi-driver-role"
+  name  = "${local.name}-aws-efs-csi-driver"
 
   assume_role_policy = jsonencode({
     Version = "2012-10-17"
@@ -424,7 +424,7 @@ resource "aws_iam_role" "efs_csi" {
   })
 
   tags = {
-    Name = "${local.name}-aws-efs-csi-driver-role"
+    Name = "${local.name}-aws-efs-csi-driver"
   }
 }
 
@@ -440,7 +440,7 @@ resource "aws_iam_role_policy_attachment" "efs_csi" {
 
 resource "aws_iam_role" "pod_identity_agent" {
   count = contains(keys(var.addons), "pod-identity-agent") ? 1 : 0
-  name  = "${local.name}-pod-identity-agent-role"
+  name  = "${local.name}-pod-identity-agent"
 
   assume_role_policy = jsonencode({
     Version = "2012-10-17"
@@ -456,13 +456,13 @@ resource "aws_iam_role" "pod_identity_agent" {
   })
 
   tags = {
-    Name = "${local.name}-pod-identity-agent-role"
+    Name = "${local.name}-pod-identity-agent"
   }
 }
 
 resource "aws_iam_policy" "pod_identity_agent" {
   count       = contains(keys(var.addons), "pod-identity-agent") ? 1 : 0
-  name        = "${local.name}-pod-identity-agent-policy"
+  name        = "${local.name}-pod-identity-agent"
   description = "IAM policy for EKS Pod Identity Agent"
 
   policy = jsonencode({
@@ -484,7 +484,7 @@ resource "aws_iam_policy" "pod_identity_agent" {
   })
 
   tags = {
-    Name = "${local.name}-pod-identity-agent-policy"
+    Name = "${local.name}-pod-identity-agent"
   }
 }
 
@@ -501,7 +501,7 @@ resource "aws_iam_role_policy_attachment" "pod_identity_agent" {
 
 resource "aws_iam_role" "external_dns" {
   count = contains(keys(var.addons), "external-dns") ? 1 : 0
-  name  = "${local.name}-external-dns-role"
+  name  = "${local.name}-external-dns"
 
   assume_role_policy = jsonencode({
     Version = "2012-10-17"
@@ -517,7 +517,7 @@ resource "aws_iam_role" "external_dns" {
   })
 
   tags = {
-    Name = "${local.name}-external-dns-role"
+    Name = "${local.name}-external-dns"
   }
 }
 
@@ -526,7 +526,7 @@ resource "aws_iam_policy" "external_dns" {
   # https://kubernetes-sigs.github.io/external-dns/v0.17.0/docs/tutorials/aws/#iam-policy
   # checkov:skip=CKV_AWS_355: This policy is straight from the External DNS documentation
   count       = contains(keys(var.addons), "external-dns") ? 1 : 0
-  name        = "${local.name}-external-dns-policy"
+  name        = "${local.name}-external-dns"
   description = "IAM policy for External DNS"
 
   policy = jsonencode({
@@ -556,7 +556,7 @@ resource "aws_iam_policy" "external_dns" {
   })
 
   tags = {
-    Name = "${local.name}-external-dns-policy"
+    Name = "${local.name}-external-dns"
   }
 }
 

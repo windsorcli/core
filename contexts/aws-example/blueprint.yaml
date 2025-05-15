@@ -6,13 +6,13 @@ metadata:
 repository:
   url: https://github.com/windsorcli/core
   ref:
-    branch: aws-eks
+    branch: main
   secretName: flux-system
 sources:
 - name: core
   url: github.com/windsorcli/core
   ref:
-    branch: aws-eks
+    branch: main
 terraform:
 - path: network/aws-vpc
 - path: cluster/aws-eks
