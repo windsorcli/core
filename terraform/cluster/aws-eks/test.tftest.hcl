@@ -69,28 +69,28 @@ run "full_configuration" {
   command = plan
 
   variables {
-    context_id   = "test"
-    cluster_name = "test-cluster"
-    k8s_version  = "1.30"
-    default_node_group = {
-      name          = "system"
-      instance_type = "m5.large"
-      disk_size     = 50
-      min_size      = 2
-      max_size      = 5
-      desired_size  = 3
+    context_id         = "test"
+    cluster_name       = "test-cluster"
+    kubernetes_version = "1.30"
+    node_groups = {
+      system = {
+        instance_types = ["m5.large"]
+        disk_size      = 50
+        min_size       = 2
+        max_size       = 5
+        desired_size   = 3
+      }
+      workload = {
+        instance_types = ["c5.large"]
+        disk_size      = 100
+        min_size       = 1
+        max_size       = 10
+        desired_size   = 3
+      }
     }
-    additional_node_groups = [{
-      name          = "workload"
-      instance_type = "c5.large"
-      disk_size     = 100
-      min_size      = 1
-      max_size      = 10
-      desired_size  = 3
-    }]
-    endpoint_private_access = true
-    endpoint_public_access  = true
-    public_access_cidrs     = ["10.0.0.0/8"]
+    endpoint_private_access       = true
+    endpoint_public_access        = true
+    cluster_api_access_cidr_block = ["10.0.0.0/8"]
   }
 
   assert {
