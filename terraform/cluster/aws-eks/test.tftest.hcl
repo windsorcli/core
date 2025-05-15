@@ -154,7 +154,11 @@ run "full_configuration" {
   }
 
   assert {
-    condition     = aws_security_group.cluster_api_access.ingress[0].cidr_blocks[0] == var.cluster_api_access_cidr_block
+    condition = alltrue([
+      for ingress in aws_security_group.cluster_api_access.ingress :
+      contains(ingress.cidr_blocks, var.cluster_api_access_cidr_block)
+      if ingress.from_port == 443 && ingress.to_port == 443
+    ])
     error_message = "Cluster API access security group should use the specified CIDR block"
   }
 
@@ -164,10 +168,10 @@ run "full_configuration" {
   }
 
   assert {
-    condition = (
-      aws_security_group.cluster_api_access.ingress[0].from_port == 443 &&
-      aws_security_group.cluster_api_access.ingress[0].to_port == 443
-    )
+    condition = anytrue([
+      for ingress in aws_security_group.cluster_api_access.ingress :
+      ingress.from_port == 443 && ingress.to_port == 443
+    ])
     error_message = "Security group should allow port 443 for Kubernetes API access"
   }
 }
