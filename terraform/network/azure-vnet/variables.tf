@@ -57,3 +57,9 @@ variable "vnet_zones" {
   type        = number
   default     = 1
 }
+
+variable "tags" {
+  description = "Tags to apply to the resources"
+  type        = map(string)
+  default     = {}
+}

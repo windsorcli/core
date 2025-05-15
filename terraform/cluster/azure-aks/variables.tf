@@ -216,3 +216,9 @@ variable "soft_delete_retention_days" {
   description = "The number of days to retain the AKS cluster's key vault"
   default     = 7
 }
+
+variable "tags" {
+  description = "Tags to apply to the resources"
+  type        = map(string)
+  default     = {}
+}

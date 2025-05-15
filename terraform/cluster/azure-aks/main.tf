@@ -38,6 +38,9 @@ locals {
   kubeconfig_path = "${var.context_path}/.kube/config"
   rg_name         = var.resource_group_name == null ? "${var.name}-${var.context_id}" : var.resource_group_name
   cluster_name    = var.cluster_name == null ? "${var.name}-${var.context_id}" : var.cluster_name
+  tags = merge({
+    WindsorContextID = var.context_id
+  }, var.tags)
 }
 
 #-----------------------------------------------------------------------------------------------------------------------
@@ -47,10 +50,9 @@ locals {
 resource "azurerm_resource_group" "aks" {
   name     = local.rg_name
   location = var.region
-  tags = {
-    WindsorContextID = var.context_id
-    Name             = local.rg_name
-  }
+  tags = merge({
+    Name = local.rg_name
+  }, local.tags)
 }
 
 #-----------------------------------------------------------------------------------------------------------------------
@@ -83,10 +85,9 @@ resource "azurerm_key_vault" "key_vault" {
     default_action = var.network_acls_default_action
     bypass         = "AzureServices"
   }
-  tags = {
-    WindsorContextID = var.context_id
-    Name             = "${var.name}-${var.context_id}-${random_string.key.result}"
-  }
+  tags = merge({
+    Name = "${var.name}-${var.context_id}-${random_string.key.result}"
+  }, local.tags)
 }
 
 resource "azurerm_key_vault_access_policy" "key_vault_access_policy" {
@@ -185,10 +186,9 @@ resource "azurerm_log_analytics_workspace" "aks_logs" {
   resource_group_name = azurerm_resource_group.aks.name
   sku                 = "PerGB2018"
   retention_in_days   = 30
-  tags = {
-    WindsorContextID = var.context_id
-    Name             = "${var.name}-${var.context_id}"
-  }
+  tags = merge({
+    Name = "${var.name}-${var.context_id}"
+  }, local.tags)
 }
 
 #-----------------------------------------------------------------------------------------------------------------------
@@ -206,10 +206,9 @@ resource "azurerm_user_assigned_identity" "cluster" {
   name                = "${var.name}-${var.context_id}"
   location            = var.region
   resource_group_name = azurerm_resource_group.aks.name
-  tags = {
-    WindsorContextID = var.context_id
-    Name             = "${var.name}-${var.context_id}"
-  }
+  tags = merge({
+    Name = "${var.name}-${var.context_id}"
+  }, local.tags)
 }
 
 resource "azurerm_kubernetes_cluster" "main" {
@@ -296,10 +295,9 @@ resource "azurerm_kubernetes_cluster" "main" {
       workload_autoscaler_profile
     ]
   }
-  tags = {
-    WindsorContextID = var.context_id
-    Name             = local.cluster_name
-  }
+  tags = merge({
+    Name = local.cluster_name
+  }, local.tags)
 }
 
 resource "azurerm_kubernetes_cluster_node_pool" "autoscaled" {
@@ -324,10 +322,9 @@ resource "azurerm_kubernetes_cluster_node_pool" "autoscaled" {
       upgrade_settings
     ]
   }
-  tags = {
-    WindsorContextID = var.context_id
-    Name             = var.autoscaled_node_pool.name
-  }
+  tags = merge({
+    Name = var.autoscaled_node_pool.name
+  }, local.tags)
 }
 
 resource "local_file" "kube_config" {
