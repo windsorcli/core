@@ -198,8 +198,8 @@ resource "azurerm_log_analytics_workspace" "aks_logs" {
 data "azurerm_subnet" "private" {
   count                = var.vnet_subnet_id == null ? 1 : 0
   name                 = "private-1-${var.context_id}"
-  resource_group_name  = var.vnet_resource_group_name == null ? "vnet-${var.context_id}" : var.vnet_resource_group_name
-  virtual_network_name = var.vnet_name == null ? "vnet-${var.context_id}" : var.vnet_name
+  resource_group_name  = var.vnet_resource_group_name == null ? "network-${var.context_id}" : var.vnet_resource_group_name
+  virtual_network_name = var.vnet_name == null ? "network-${var.context_id}" : var.vnet_name
 }
 
 resource "azurerm_user_assigned_identity" "cluster" {
