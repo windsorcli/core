@@ -201,20 +201,20 @@ run "private_cluster" {
   }
 }
 
-# Verifies that no kubeconfig file is generated when context_path is empty,
-# preventing unnecessary file creation in the root directory.
-run "no_config_files" {
+# Verifies that a kubeconfig file is generated,
+# ensuring proper cluster access configuration.
+run "config_file_created" {
   command = plan
 
   variables {
     context_id   = "test"
     name         = "windsor-aks"
     cluster_name = "test-cluster"
-    context_path = ""
+    context_path = "/tmp"
   }
 
   assert {
-    condition     = length(local_file.kube_config) == 0
-    error_message = "No kubeconfig file should be generated without context path"
+    condition     = length(local_file.kube_config) >= 1
+    error_message = "Kubeconfig file should be generated when context path is provided"
   }
 }
