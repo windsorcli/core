@@ -1,9 +1,21 @@
 
 # Variables
+variable "context_id" {
+  description = "Context ID for the resources"
+  type        = string
+  default     = null
+}
+
 variable "region" {
   description = "Region for the resources"
   type        = string
   default     = "eastus"
+}
+
+variable "name" {
+  description = "Name of the resource"
+  type        = string
+  default     = "network"
 }
 
 variable "resource_group_name" {
@@ -16,12 +28,6 @@ variable "vnet_name" {
   description = "Name of the VNET"
   type        = string
   default     = null
-}
-
-variable "vnet_zones" {
-  description = "Number of availability zones to create"
-  type        = number
-  default     = 1
 }
 
 variable "vnet_cidr" {
@@ -45,8 +51,9 @@ variable "vnet_subnets" {
   }
 }
 
-variable "context_id" {
-  description = "Context ID for the resources"
-  type        = string
-  default     = null
+# Only used if vnet_subnets is not defined
+variable "vnet_zones" {
+  description = "Number of availability zones to create"
+  type        = number
+  default     = 1
 }

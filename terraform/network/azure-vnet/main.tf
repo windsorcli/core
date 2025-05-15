@@ -25,8 +25,8 @@ provider "azurerm" {
 #-----------------------------------------------------------------------------------------------------------------------
 
 locals {
-  vnet_name = var.vnet_name == null ? "vnet-${var.context_id}" : var.vnet_name
-  rg_name   = var.resource_group_name == null ? "vnet-${var.context_id}" : var.resource_group_name
+  vnet_name = var.vnet_name == null ? "${var.name}-${var.context_id}" : var.vnet_name
+  rg_name   = var.resource_group_name == null ? "${var.name}-${var.context_id}" : var.resource_group_name
 }
 
 #-----------------------------------------------------------------------------------------------------------------------
@@ -95,27 +95,27 @@ resource "azurerm_subnet" "isolated" {
 # Public IP for NAT Gateway
 resource "azurerm_public_ip" "nat" {
   count               = var.vnet_zones
-  name                = "nat-gw-${count.index + 1}-${var.context_id}"
+  name                = "${var.name}-${count.index + 1}-${var.context_id}"
   location            = azurerm_resource_group.main.location
   resource_group_name = azurerm_resource_group.main.name
   allocation_method   = "Static"
   sku                 = "Standard"
   tags = {
     WindsorContextID = var.context_id
-    Name             = "nat-gw-${count.index + 1}-${var.context_id}"
+    Name             = "${var.name}-${count.index + 1}-${var.context_id}"
   }
 }
 
 # NAT Gateway
 resource "azurerm_nat_gateway" "main" {
   count               = var.vnet_zones
-  name                = "nat-${count.index + 1}-${var.context_id}"
+  name                = "${var.name}-${count.index + 1}-${var.context_id}"
   location            = azurerm_resource_group.main.location
   resource_group_name = azurerm_resource_group.main.name
   sku_name            = "Standard"
   tags = {
     WindsorContextID = var.context_id
-    Name             = "nat-${count.index + 1}-${var.context_id}"
+    Name             = "${var.name}-${count.index + 1}-${var.context_id}"
   }
 }
 

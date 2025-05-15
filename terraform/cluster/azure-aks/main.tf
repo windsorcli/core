@@ -36,8 +36,8 @@ data "azurerm_client_config" "current" {}
 
 locals {
   kubeconfig_path = "${var.context_path}/.kube/config"
-  rg_name         = var.resource_group_name == null ? "aks-${var.context_id}" : var.resource_group_name
-  cluster_name    = var.cluster_name == null ? "aks-${var.context_id}" : var.cluster_name
+  rg_name         = var.resource_group_name == null ? "${var.name}-${var.context_id}" : var.resource_group_name
+  cluster_name    = var.cluster_name == null ? "${var.name}-${var.context_id}" : var.cluster_name
 }
 
 #-----------------------------------------------------------------------------------------------------------------------
@@ -65,7 +65,7 @@ resource "random_string" "key" {
 
 resource "azurerm_key_vault" "key_vault" {
   # checkov:skip=CKV2_AZURE_32: We are using a public cluster for testing, there is no need for private endpoints.
-  name                        = "vault-${var.context_id}-${random_string.key.result}"
+  name                        = "${var.name}-${var.context_id}-${random_string.key.result}"
   location                    = azurerm_resource_group.aks.location
   resource_group_name         = azurerm_resource_group.aks.name
   tenant_id                   = data.azurerm_client_config.current.tenant_id
@@ -85,7 +85,7 @@ resource "azurerm_key_vault" "key_vault" {
   }
   tags = {
     WindsorContextID = var.context_id
-    Name             = "vault-${var.context_id}-${random_string.key.result}"
+    Name             = "${var.name}-${var.context_id}-${random_string.key.result}"
   }
 }
 
@@ -135,7 +135,7 @@ resource "azurerm_key_vault_access_policy" "key_vault_access_policy_disk" {
 resource "time_static" "expiry" {}
 
 resource "azurerm_key_vault_key" "key_vault_key" {
-  name            = "key-${var.context_id}-${random_string.key.result}"
+  name            = "${var.name}-${var.context_id}-${random_string.key.result}"
   key_vault_id    = azurerm_key_vault.key_vault.id
   key_type        = "RSA-HSM"
   key_size        = 2048
@@ -165,7 +165,7 @@ resource "azurerm_key_vault_key" "key_vault_key" {
 }
 
 resource "azurerm_disk_encryption_set" "main" {
-  name                = "des-${var.context_id}-${random_string.key.result}"
+  name                = "${var.name}-${var.context_id}-${random_string.key.result}"
   resource_group_name = azurerm_resource_group.aks.name
   location            = azurerm_resource_group.aks.location
   key_vault_key_id    = azurerm_key_vault_key.key_vault_key.id
@@ -180,14 +180,14 @@ resource "azurerm_disk_encryption_set" "main" {
 #-----------------------------------------------------------------------------------------------------------------------
 
 resource "azurerm_log_analytics_workspace" "aks_logs" {
-  name                = "aks-${var.context_id}"
+  name                = "${var.name}-${var.context_id}"
   location            = azurerm_resource_group.aks.location
   resource_group_name = azurerm_resource_group.aks.name
   sku                 = "PerGB2018"
   retention_in_days   = 30
   tags = {
     WindsorContextID = var.context_id
-    Name             = "aks-${var.context_id}"
+    Name             = "${var.name}-${var.context_id}"
   }
 }
 
@@ -203,12 +203,12 @@ data "azurerm_subnet" "private" {
 }
 
 resource "azurerm_user_assigned_identity" "cluster" {
-  name                = "cluster-${var.context_id}"
+  name                = "${var.name}-${var.context_id}"
   location            = var.region
   resource_group_name = azurerm_resource_group.aks.name
   tags = {
     WindsorContextID = var.context_id
-    Name             = "cluster-${var.context_id}"
+    Name             = "${var.name}-${var.context_id}"
   }
 }
 
@@ -331,7 +331,6 @@ resource "azurerm_kubernetes_cluster_node_pool" "autoscaled" {
 }
 
 resource "local_file" "kube_config" {
-  count    = var.context_path != "" ? 1 : 0
   content  = azurerm_kubernetes_cluster.main.kube_config_raw
   filename = local.kubeconfig_path
 }

@@ -1,9 +1,32 @@
 #-----------------------------------------------------------------------------------------------------------------------
 # Variables
 #-----------------------------------------------------------------------------------------------------------------------
+variable "context_path" {
+  type        = string
+  description = "The path to the context folder, where kubeconfig is stored"
+  default     = ""
+}
+
+variable "context_id" {
+  description = "Context ID for the resources"
+  type        = string
+  default     = null
+}
+
+variable "name" {
+  description = "Name of the resource"
+  type        = string
+  default     = "cluster"
+}
 
 variable "resource_group_name" {
   description = "Name of the resource group"
+  type        = string
+  default     = null
+}
+
+variable "cluster_name" {
+  description = "Name of the AKS cluster"
   type        = string
   default     = null
 }
@@ -32,28 +55,10 @@ variable "region" {
   default     = "eastus"
 }
 
-variable "cluster_name" {
-  description = "Name of the AKS cluster"
-  type        = string
-  default     = null
-}
-
 variable "kubernetes_version" {
   description = "Version of Kubernetes to use"
   type        = string
   default     = "1.32"
-}
-
-variable "context_path" {
-  type        = string
-  description = "The path to the context folder, where kubeconfig is stored"
-  default     = ""
-}
-
-variable "context_id" {
-  description = "Context ID for the resources"
-  type        = string
-  default     = null
 }
 
 variable "default_node_pool" {
