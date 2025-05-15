@@ -90,7 +90,7 @@ run "full_configuration" {
     }
     endpoint_private_access       = true
     endpoint_public_access        = true
-    cluster_api_access_cidr_block = ["10.0.0.0/8"]
+    cluster_api_access_cidr_block = "10.0.0.0/8"
   }
 
   assert {
