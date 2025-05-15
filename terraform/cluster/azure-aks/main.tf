@@ -268,6 +268,12 @@ resource "azurerm_kubernetes_cluster" "main" {
     )
   }
 
+  kubelet_identity {
+    client_id                 = azurerm_user_assigned_identity.cluster.client_id
+    object_id                 = azurerm_user_assigned_identity.cluster.principal_id
+    user_assigned_identity_id = azurerm_user_assigned_identity.cluster.id
+  }
+
   lifecycle {
     ignore_changes = [
       default_node_pool[0].upgrade_settings,
@@ -304,4 +310,34 @@ resource "local_file" "kube_config" {
   count    = var.context_path != "" ? 1 : 0
   content  = azurerm_kubernetes_cluster.main.kube_config_raw
   filename = local.kubeconfig_path
+}
+
+resource "azurerm_role_assignment" "aks_vmss_contributor" {
+  scope                = azurerm_resource_group.aks.id
+  role_definition_name = "Virtual Machine Contributor"
+  principal_id         = azurerm_user_assigned_identity.cluster.principal_id
+}
+
+resource "azurerm_role_assignment" "azurerm_disk_encryption_set_key_vault_access" {
+  scope                = azurerm_key_vault.key_vault.id
+  role_definition_name = "Key Vault Crypto Service Encryption User"
+  principal_id         = azurerm_user_assigned_identity.cluster.principal_id
+}
+
+resource "azurerm_role_assignment" "aks_network_contributor" {
+  scope                = azurerm_resource_group.aks.id
+  role_definition_name = "Network Contributor"
+  principal_id         = azurerm_user_assigned_identity.cluster.principal_id
+}
+
+resource "azurerm_role_assignment" "des_reader" {
+  scope                = azurerm_disk_encryption_set.main.id
+  role_definition_name = "Reader"
+  principal_id         = azurerm_user_assigned_identity.cluster.principal_id
+}
+
+resource "azurerm_role_assignment" "control_plane_managed_identity_operator_on_kubelet" {
+  scope                = azurerm_user_assigned_identity.cluster.id
+  role_definition_name = "Managed Identity Operator"
+  principal_id         = azurerm_user_assigned_identity.cluster.principal_id
 }
