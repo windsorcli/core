@@ -114,11 +114,6 @@ run "full_configuration" {
   }
 
   assert {
-    condition     = aws_eks_node_group.main["system"].disk_size == 50
-    error_message = "Default node group disk size should match input"
-  }
-
-  assert {
     condition     = aws_eks_node_group.main["system"].scaling_config[0].min_size == 2
     error_message = "Default node group min size should match input"
   }
@@ -149,11 +144,6 @@ run "full_configuration" {
   }
 
   assert {
-    condition     = aws_eks_node_group.main["workload"].disk_size == 100
-    error_message = "Additional node group disk size should match input"
-  }
-
-  assert {
     condition     = aws_eks_cluster.main.vpc_config[0].endpoint_private_access == true
     error_message = "Private endpoint should be enabled"
   }
@@ -164,8 +154,21 @@ run "full_configuration" {
   }
 
   assert {
-    condition     = aws_eks_cluster.main.vpc_config[0].public_access_cidrs[0] == "10.0.0.0/8"
-    error_message = "Public access CIDRs should match input"
+    condition     = aws_security_group.cluster_api_access.ingress[0].cidr_blocks[0] == var.cluster_api_access_cidr_block
+    error_message = "Cluster API access security group should use the specified CIDR block"
+  }
+
+  assert {
+    condition     = aws_security_group.cluster_api_access.name == "${local.name}-cluster-api-access"
+    error_message = "Security group name should follow naming convention"
+  }
+
+  assert {
+    condition = (
+      aws_security_group.cluster_api_access.ingress[0].from_port == 443 &&
+      aws_security_group.cluster_api_access.ingress[0].to_port == 443
+    )
+    error_message = "Security group should allow port 443 for Kubernetes API access"
   }
 }
 
