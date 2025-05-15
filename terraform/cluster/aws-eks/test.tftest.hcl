@@ -80,9 +80,9 @@ run "full_configuration" {
   command = plan
 
   variables {
-    context_id    = "test"
-    cluster_name  = "test-cluster"
-    k8s_version   = "1.30"
+    context_id   = "test"
+    cluster_name = "test-cluster"
+    k8s_version  = "1.30"
     default_node_group = {
       name          = "system"
       instance_type = "m5.large"
