@@ -13,9 +13,9 @@ mock_provider "aws" {
   }
   mock_data "aws_availability_zones" {
     defaults = {
-      names = ["us-east-1a", "us-east-1b", "us-east-1c"]
+      names    = ["us-east-1a", "us-east-1b", "us-east-1c"]
       zone_ids = ["use1-az1", "use1-az2", "use1-az3"]
-      id = "us-east-1"
+      id       = "us-east-1"
     }
   }
 }
