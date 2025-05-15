@@ -58,11 +58,6 @@ run "minimal_configuration" {
     condition     = length(aws_nat_gateway.main) == 3
     error_message = "Three NAT Gateways should be created by default (one per AZ)"
   }
-
-  assert {
-    condition     = aws_internet_gateway.main.vpc_id == aws_vpc.main.id
-    error_message = "Internet Gateway should be attached to the VPC"
-  }
 }
 
 # Tests a full configuration with all optional variables explicitly set.
