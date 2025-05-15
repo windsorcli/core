@@ -27,7 +27,7 @@ variable "kubernetes_version" {
   # renovate: datasource=github-releases depName=kubernetes package=kubernetes/kubernetes
   default = "1.32"
   validation {
-    condition     = can(regex("^1\\.\\d+\\$", var.kubernetes_version))
+    condition     = can(regex("^1\\.\\d+$", var.kubernetes_version))
     error_message = "The Kubernetes version should be in version format like '1.32'."
   }
 }
