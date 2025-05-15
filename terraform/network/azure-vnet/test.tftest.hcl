@@ -58,8 +58,8 @@ run "full_configuration" {
     vnet_zones          = 2
     vnet_cidr           = "10.30.0.0/16"
     vnet_subnets = {
-      public  = ["10.30.1.0/24", "10.30.2.0/24"]
-      private = ["10.30.11.0/24", "10.30.12.0/24"]
+      public   = ["10.30.1.0/24", "10.30.2.0/24"]
+      private  = ["10.30.11.0/24", "10.30.12.0/24"]
       isolated = ["10.30.21.0/24", "10.30.22.0/24"]
     }
     context_id = "test"
