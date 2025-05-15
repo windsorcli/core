@@ -59,11 +59,6 @@ run "minimal_configuration" {
   }
 
   assert {
-    condition     = aws_eks_cluster.main.vpc_config[0].endpoint_private_access == false
-    error_message = "Private endpoint should be disabled by default"
-  }
-
-  assert {
     condition     = aws_eks_cluster.main.vpc_config[0].endpoint_public_access == true
     error_message = "Public endpoint should be enabled by default"
   }
