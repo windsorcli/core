@@ -7,10 +7,11 @@ run "minimal_configuration" {
 
   variables {
     context_id = "test"
+    name       = "windsor-vnet"
   }
 
   assert {
-    condition     = azurerm_resource_group.main.name == "windsor-vnet-rg-test"
+    condition     = azurerm_resource_group.main.name == "windsor-vnet-test"
     error_message = "Resource group name should follow default naming convention"
   }
 
@@ -62,6 +63,7 @@ run "full_configuration" {
       data    = ["10.30.21.0/24", "10.30.22.0/24"]
     }
     context_id = "test"
+    name       = "custom"
   }
 
   assert {

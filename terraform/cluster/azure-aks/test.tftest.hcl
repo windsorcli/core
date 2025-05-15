@@ -19,16 +19,17 @@ run "minimal_configuration" {
 
   variables {
     context_id = "test"
+    name       = "windsor-aks"
   }
 
   assert {
-    condition     = azurerm_kubernetes_cluster.main.name == "windsor-aks-cluster-test"
-    error_message = "Cluster name should default to 'windsor-aks-cluster-test' when cluster_name is omitted"
+    condition     = azurerm_kubernetes_cluster.main.name == "windsor-aks-test"
+    error_message = "Cluster name should default to 'windsor-aks-test' when cluster_name is omitted"
   }
 
   assert {
-    condition     = azurerm_resource_group.aks.name == "windsor-aks-rg-test"
-    error_message = "Resource group name should default to 'windsor-aks-rg-test' when resource_group_name is omitted"
+    condition     = azurerm_resource_group.aks.name == "windsor-aks-test"
+    error_message = "Resource group name should default to 'windsor-aks-test' when resource_group_name is omitted"
   }
 
   assert {
@@ -74,18 +75,20 @@ run "full_configuration" {
 
   variables {
     context_id          = "test"
+    name                = "windsor-aks"
     cluster_name        = "test-cluster"
     resource_group_name = "test-rg"
     kubernetes_version  = "1.32"
     default_node_pool = {
-      name                    = "system"
-      vm_size                 = "Standard_D2s_v3"
-      os_disk_type            = "Managed"
-      max_pods                = 30
-      host_encryption_enabled = true
-      min_count               = 1
-      max_count               = 3
-      node_count              = 1
+      name                         = "system"
+      vm_size                      = "Standard_D2s_v3"
+      os_disk_type                 = "Managed"
+      max_pods                     = 30
+      host_encryption_enabled      = true
+      min_count                    = 1
+      max_count                    = 3
+      node_count                   = 1
+      only_critical_addons_enabled = false
     }
     autoscaled_node_pool = {
       enabled                 = true
@@ -187,6 +190,7 @@ run "private_cluster" {
 
   variables {
     context_id              = "test"
+    name                    = "windsor-aks"
     cluster_name            = "test-cluster"
     private_cluster_enabled = true
   }
@@ -204,6 +208,7 @@ run "no_config_files" {
 
   variables {
     context_id   = "test"
+    name         = "windsor-aks"
     cluster_name = "test-cluster"
     context_path = ""
   }
