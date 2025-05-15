@@ -59,52 +59,52 @@ variable "context_id" {
 variable "default_node_pool" {
   description = "Configuration for the default node pool"
   type = object({
-    name                    = string
-    vm_size                 = string
-    os_disk_type            = string
-    max_pods                = number
-    host_encryption_enabled = bool
-    min_count               = number
-    max_count               = number
-    node_count              = number
+    name                         = string
+    vm_size                      = string
+    os_disk_type                 = string
+    max_pods                     = number
+    host_encryption_enabled      = bool
+    min_count                    = number
+    max_count                    = number
+    node_count                   = number
+    only_critical_addons_enabled = bool
   })
   default = {
-    name                    = "system"
-    vm_size                 = "Standard_D2s_v3"
-    os_disk_type            = "Managed"
-    max_pods                = 30
-    host_encryption_enabled = true
-    min_count               = 1
-    max_count               = 3
-    node_count              = 1
+    name                         = "system"
+    vm_size                      = "Standard_D2s_v3"
+    os_disk_type                 = "Managed"
+    max_pods                     = 30
+    host_encryption_enabled      = true
+    min_count                    = 1
+    max_count                    = 3
+    node_count                   = 1
+    only_critical_addons_enabled = true
   }
 }
 
 variable "autoscaled_node_pool" {
   description = "Configuration for the autoscaled node pool"
   type = object({
-    enabled                      = bool
-    name                         = string
-    vm_size                      = string
-    mode                         = string
-    os_disk_type                 = string
-    max_pods                     = number
-    host_encryption_enabled      = bool
-    min_count                    = number
-    max_count                    = number
-    only_critical_addons_enabled = bool
+    enabled                 = bool
+    name                    = string
+    vm_size                 = string
+    mode                    = string
+    os_disk_type            = string
+    max_pods                = number
+    host_encryption_enabled = bool
+    min_count               = number
+    max_count               = number
   })
   default = {
-    enabled                      = true
-    name                         = "autoscaled"
-    vm_size                      = "Standard_D2s_v3"
-    mode                         = "User"
-    os_disk_type                 = "Managed"
-    max_pods                     = 30
-    host_encryption_enabled      = true
-    min_count                    = 1
-    max_count                    = 3
-    only_critical_addons_enabled = true
+    enabled                 = true
+    name                    = "autoscaled"
+    vm_size                 = "Standard_D2s_v3"
+    mode                    = "User"
+    os_disk_type            = "Managed"
+    max_pods                = 30
+    host_encryption_enabled = true
+    min_count               = 1
+    max_count               = 3
   }
 }
 
