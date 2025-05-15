@@ -281,11 +281,11 @@ resource "aws_route_table_association" "private" {
   route_table_id = aws_route_table.private[count.index].id
 }
 
-# Data Subnet Associations
-resource "aws_route_table_association" "data" {
+# Isolated Subnet Associations
+resource "aws_route_table_association" "isolated" {
   count          = var.availability_zones
-  subnet_id      = aws_subnet.data[count.index].id
-  route_table_id = aws_route_table.data[count.index].id
+  subnet_id      = aws_subnet.isolated[count.index].id
+  route_table_id = aws_route_table.isolated[count.index].id
 }
 
 #-----------------------------------------------------------------------------------------------------------------------
