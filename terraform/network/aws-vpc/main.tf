@@ -50,7 +50,7 @@ resource "aws_default_security_group" "default" {
 # Enable VPC Flow Logs
 resource "aws_flow_log" "vpc_flow_logs" {
   count                = var.enable_flow_logs ? 1 : 0
-  log_destination      = aws_cloudwatch_log_group.vpc_flow_logs.arn
+  log_destination      = aws_cloudwatch_log_group.vpc_flow_logs[0].arn
   log_destination_type = "cloud-watch-logs"
   traffic_type         = "ALL"
   vpc_id               = aws_vpc.main.id
@@ -260,6 +260,16 @@ resource "aws_route_table" "private" {
 
   tags = {
     Name = "${local.name}-private-${data.aws_availability_zones.available.names[count.index]}"
+  }
+}
+
+# Isolated Route Tables (one per AZ)
+resource "aws_route_table" "isolated" {
+  count  = var.availability_zones
+  vpc_id = aws_vpc.main.id
+
+  tags = {
+    Name = "${local.name}-isolated-${data.aws_availability_zones.available.names[count.index]}"
   }
 }
 
