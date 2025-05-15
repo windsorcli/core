@@ -31,16 +31,10 @@ variable "cluster_name" {
   default     = null
 }
 
-variable "vnet_resource_group_name" {
-  description = "Name of the VNET resource group"
+variable "vnet_module_name" {
+  description = "Name on the VNET module"
   type        = string
-  default     = null
-}
-
-variable "vnet_name" {
-  description = "Name of the VNET"
-  type        = string
-  default     = null
+  default     = "network"
 }
 
 variable "vnet_subnet_id" {
