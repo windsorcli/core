@@ -14,7 +14,7 @@
 #   value       = azurerm_subnet.private[*].id
 # }
 
-# output "data_subnet_ids" {
-#   description = "IDs of created data subnets"
-#   value       = azurerm_subnet.data[*].id
+# output "isolated_subnet_ids" {
+#   description = "IDs of created isolated subnets"
+#   value       = azurerm_subnet.isolated[*].id
 # }

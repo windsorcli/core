@@ -28,7 +28,18 @@ provider "azurerm" {
   }
 }
 
+#-----------------------------------------------------------------------------------------------------------------------
+# Data Sources
+#-----------------------------------------------------------------------------------------------------------------------
+
 data "azurerm_client_config" "current" {}
+
+data "azurerm_subnet" "private" {
+  count                = var.vnet_subnet_id == null ? 1 : 0
+  name                 = "private-1-${var.context_id}"
+  resource_group_name  = "${var.vnet_module_name}-${var.context_id}"
+  virtual_network_name = "${var.vnet_module_name}-${var.context_id}"
+}
 
 #-----------------------------------------------------------------------------------------------------------------------
 # Locals
@@ -36,8 +47,11 @@ data "azurerm_client_config" "current" {}
 
 locals {
   kubeconfig_path = "${var.context_path}/.kube/config"
-  rg_name         = var.resource_group_name == null ? "windsor-aks-rg-${var.context_id}" : var.resource_group_name
-  cluster_name    = var.cluster_name == null ? "windsor-aks-cluster-${var.context_id}" : var.cluster_name
+  rg_name         = var.resource_group_name == null ? "${var.name}-${var.context_id}" : var.resource_group_name
+  cluster_name    = var.cluster_name == null ? "${var.name}-${var.context_id}" : var.cluster_name
+  tags = merge({
+    WindsorContextID = var.context_id
+  }, var.tags)
 }
 
 #-----------------------------------------------------------------------------------------------------------------------
@@ -47,6 +61,9 @@ locals {
 resource "azurerm_resource_group" "aks" {
   name     = local.rg_name
   location = var.region
+  tags = merge({
+    Name = local.rg_name
+  }, local.tags)
 }
 
 #-----------------------------------------------------------------------------------------------------------------------
@@ -61,7 +78,7 @@ resource "random_string" "key" {
 
 resource "azurerm_key_vault" "key_vault" {
   # checkov:skip=CKV2_AZURE_32: We are using a public cluster for testing, there is no need for private endpoints.
-  name                        = "keyvault-${var.context_id}-${random_string.key.result}"
+  name                        = "${var.name}-${var.context_id}-${random_string.key.result}"
   location                    = azurerm_resource_group.aks.location
   resource_group_name         = azurerm_resource_group.aks.name
   tenant_id                   = data.azurerm_client_config.current.tenant_id
@@ -79,6 +96,9 @@ resource "azurerm_key_vault" "key_vault" {
     default_action = var.network_acls_default_action
     bypass         = "AzureServices"
   }
+  tags = merge({
+    Name = "${var.name}-${var.context_id}-${random_string.key.result}"
+  }, local.tags)
 }
 
 resource "azurerm_key_vault_access_policy" "key_vault_access_policy" {
@@ -127,7 +147,7 @@ resource "azurerm_key_vault_access_policy" "key_vault_access_policy_disk" {
 resource "time_static" "expiry" {}
 
 resource "azurerm_key_vault_key" "key_vault_key" {
-  name            = "key-${var.context_id}-${random_string.key.result}"
+  name            = "${var.name}-${var.context_id}-${random_string.key.result}"
   key_vault_id    = azurerm_key_vault.key_vault.id
   key_type        = "RSA-HSM"
   key_size        = 2048
@@ -157,7 +177,7 @@ resource "azurerm_key_vault_key" "key_vault_key" {
 }
 
 resource "azurerm_disk_encryption_set" "main" {
-  name                = "des-${var.context_id}-${random_string.key.result}"
+  name                = "${var.name}-${var.context_id}-${random_string.key.result}"
   resource_group_name = azurerm_resource_group.aks.name
   location            = azurerm_resource_group.aks.location
   key_vault_key_id    = azurerm_key_vault_key.key_vault_key.id
@@ -172,28 +192,27 @@ resource "azurerm_disk_encryption_set" "main" {
 #-----------------------------------------------------------------------------------------------------------------------
 
 resource "azurerm_log_analytics_workspace" "aks_logs" {
-  name                = "aks-logs-${var.context_id}"
+  name                = "${var.name}-${var.context_id}"
   location            = azurerm_resource_group.aks.location
   resource_group_name = azurerm_resource_group.aks.name
   sku                 = "PerGB2018"
   retention_in_days   = 30
+  tags = merge({
+    Name = "${var.name}-${var.context_id}"
+  }, local.tags)
 }
 
 #-----------------------------------------------------------------------------------------------------------------------
 # AKS Cluster
 #-----------------------------------------------------------------------------------------------------------------------
 
-data "azurerm_subnet" "private" {
-  count                = var.vnet_subnet_id == null ? 1 : 0
-  name                 = "${var.context_id}-private-1"
-  resource_group_name  = var.vnet_resource_group_name == null ? "windsor-vnet-rg-${var.context_id}" : var.vnet_resource_group_name
-  virtual_network_name = var.vnet_name == null ? "windsor-vnet-${var.context_id}" : var.vnet_name
-}
-
 resource "azurerm_user_assigned_identity" "cluster" {
-  name                = "${var.context_id}-cluster-identity"
+  name                = "${var.name}-${var.context_id}"
   location            = var.region
   resource_group_name = azurerm_resource_group.aks.name
+  tags = merge({
+    Name = "${var.name}-${var.context_id}"
+  }, local.tags)
 }
 
 resource "azurerm_kubernetes_cluster" "main" {
@@ -226,7 +245,7 @@ resource "azurerm_kubernetes_cluster" "main" {
     vm_size                      = var.default_node_pool.vm_size
     vnet_subnet_id               = coalesce(var.vnet_subnet_id, try(data.azurerm_subnet.private[0].id, null))
     orchestrator_version         = var.kubernetes_version
-    only_critical_addons_enabled = true
+    only_critical_addons_enabled = var.default_node_pool.only_critical_addons_enabled
     # checkov:skip=CKV_AZURE_226: we are using the managed disk type to reduce costs
     os_disk_type            = var.default_node_pool.os_disk_type
     host_encryption_enabled = var.default_node_pool.host_encryption_enabled
@@ -280,6 +299,9 @@ resource "azurerm_kubernetes_cluster" "main" {
       workload_autoscaler_profile
     ]
   }
+  tags = merge({
+    Name = local.cluster_name
+  }, local.tags)
 }
 
 resource "azurerm_kubernetes_cluster_node_pool" "autoscaled" {
@@ -304,10 +326,12 @@ resource "azurerm_kubernetes_cluster_node_pool" "autoscaled" {
       upgrade_settings
     ]
   }
+  tags = merge({
+    Name = var.autoscaled_node_pool.name
+  }, local.tags)
 }
 
 resource "local_file" "kube_config" {
-  count    = var.context_path != "" ? 1 : 0
   content  = azurerm_kubernetes_cluster.main.kube_config_raw
   filename = local.kubeconfig_path
 }

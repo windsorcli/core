@@ -1,9 +1,21 @@
 
 # Variables
+variable "context_id" {
+  description = "Context ID for the resources"
+  type        = string
+  default     = null
+}
+
 variable "region" {
   description = "Region for the resources"
   type        = string
   default     = "eastus"
+}
+
+variable "name" {
+  description = "Name of the resource"
+  type        = string
+  default     = "network"
 }
 
 variable "resource_group_name" {
@@ -18,12 +30,6 @@ variable "vnet_name" {
   default     = null
 }
 
-variable "vnet_zones" {
-  description = "Number of availability zones to create"
-  type        = number
-  default     = 1
-}
-
 variable "vnet_cidr" {
   description = "CIDR block for VNET"
   type        = string
@@ -36,17 +42,24 @@ variable "vnet_subnets" {
   # example: {
   #   public  = ["10.20.1.0/24", "10.20.2.0/24", "10.20.3.0/24"]
   #   private = ["10.20.11.0/24", "10.20.12.0/24", "10.20.13.0/24"] 
-  #   data    = ["10.20.21.0/24", "10.20.22.0/24", "10.20.23.0/24"]
+  #   isolated    = ["10.20.21.0/24", "10.20.22.0/24", "10.20.23.0/24"]
   # }
   default = {
-    public  = []
-    private = []
-    data    = []
+    public   = []
+    private  = []
+    isolated = []
   }
 }
 
-variable "context_id" {
-  description = "Context ID for the resources"
-  type        = string
-  default     = null
+# Only used if vnet_subnets is not defined
+variable "vnet_zones" {
+  description = "Number of availability zones to create"
+  type        = number
+  default     = 1
+}
+
+variable "tags" {
+  description = "Tags to apply to the resources"
+  type        = map(string)
+  default     = {}
 }

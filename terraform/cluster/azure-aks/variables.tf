@@ -1,6 +1,23 @@
 #-----------------------------------------------------------------------------------------------------------------------
 # Variables
 #-----------------------------------------------------------------------------------------------------------------------
+variable "context_path" {
+  type        = string
+  description = "The path to the context folder, where kubeconfig is stored"
+  default     = ""
+}
+
+variable "context_id" {
+  description = "Context ID for the resources"
+  type        = string
+  default     = null
+}
+
+variable "name" {
+  description = "Name of the resource"
+  type        = string
+  default     = "cluster"
+}
 
 variable "resource_group_name" {
   description = "Name of the resource group"
@@ -8,16 +25,16 @@ variable "resource_group_name" {
   default     = null
 }
 
-variable "vnet_resource_group_name" {
-  description = "Name of the VNET resource group"
+variable "cluster_name" {
+  description = "Name of the AKS cluster"
   type        = string
   default     = null
 }
 
-variable "vnet_name" {
-  description = "Name of the VNET"
+variable "vnet_module_name" {
+  description = "Name on the VNET module"
   type        = string
-  default     = null
+  default     = "network"
 }
 
 variable "vnet_subnet_id" {
@@ -32,51 +49,35 @@ variable "region" {
   default     = "eastus"
 }
 
-variable "cluster_name" {
-  description = "Name of the AKS cluster"
-  type        = string
-  default     = null
-}
-
 variable "kubernetes_version" {
   description = "Version of Kubernetes to use"
   type        = string
   default     = "1.32"
 }
 
-variable "context_path" {
-  type        = string
-  description = "The path to the context folder, where kubeconfig is stored"
-  default     = ""
-}
-
-variable "context_id" {
-  description = "Context ID for the resources"
-  type        = string
-  default     = null
-}
-
 variable "default_node_pool" {
   description = "Configuration for the default node pool"
   type = object({
-    name                    = string
-    vm_size                 = string
-    os_disk_type            = string
-    max_pods                = number
-    host_encryption_enabled = bool
-    min_count               = number
-    max_count               = number
-    node_count              = number
+    name                         = string
+    vm_size                      = string
+    os_disk_type                 = string
+    max_pods                     = number
+    host_encryption_enabled      = bool
+    min_count                    = number
+    max_count                    = number
+    node_count                   = number
+    only_critical_addons_enabled = bool
   })
   default = {
-    name                    = "system"
-    vm_size                 = "Standard_D2s_v3"
-    os_disk_type            = "Managed"
-    max_pods                = 30
-    host_encryption_enabled = true
-    min_count               = 1
-    max_count               = 3
-    node_count              = 1
+    name                         = "system"
+    vm_size                      = "Standard_D2s_v3"
+    os_disk_type                 = "Managed"
+    max_pods                     = 30
+    host_encryption_enabled      = true
+    min_count                    = 1
+    max_count                    = 3
+    node_count                   = 1
+    only_critical_addons_enabled = true
   }
 }
 
@@ -208,4 +209,10 @@ variable "soft_delete_retention_days" {
   type        = number
   description = "The number of days to retain the AKS cluster's key vault"
   default     = 7
+}
+
+variable "tags" {
+  description = "Tags to apply to the resources"
+  type        = map(string)
+  default     = {}
 }
