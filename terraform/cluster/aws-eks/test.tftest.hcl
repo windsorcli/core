@@ -29,27 +29,27 @@ run "minimal_configuration" {
   }
 
   assert {
-    condition     = aws_eks_cluster.main.name == "windsor-eks-cluster-test"
-    error_message = "Cluster name should default to 'windsor-eks-cluster-test' when cluster_name is omitted"
+    condition     = aws_eks_cluster.main.name == "cluster-test"
+    error_message = "Cluster name should default to 'cluster-test' when cluster_name is omitted"
   }
 
   assert {
-    condition     = aws_iam_role.cluster.name == "windsor-eks-cluster-role-test"
+    condition     = aws_iam_role.cluster.name == "cluster-test"
     error_message = "Cluster IAM role name should follow default naming convention"
   }
 
   assert {
-    condition     = aws_eks_node_group.system.node_group_name == "system"
-    error_message = "Default node group should use 'system' name"
+    condition     = aws_eks_node_group.main["default"].node_group_name == "default"
+    error_message = "Default node group should use 'default' name"
   }
 
   assert {
-    condition     = aws_eks_node_group.system.instance_types[0] == "t3.medium"
+    condition     = aws_eks_node_group.main["default"].instance_types[0] == "t3.medium"
     error_message = "Default node group should use t3.medium instance type"
   }
 
   assert {
-    condition     = aws_eks_node_group.system.scaling_config[0].desired_size == 2
+    condition     = aws_eks_node_group.main["default"].scaling_config[0].desired_size == 2
     error_message = "Default node group should have 2 nodes"
   }
 
@@ -110,52 +110,52 @@ run "full_configuration" {
   }
 
   assert {
-    condition     = aws_eks_node_group.system.node_group_name == "system"
+    condition     = aws_eks_node_group.main["system"].node_group_name == "system"
     error_message = "Default node group name should match input"
   }
 
   assert {
-    condition     = aws_eks_node_group.system.instance_types[0] == "m5.large"
+    condition     = aws_eks_node_group.main["system"].instance_types[0] == "m5.large"
     error_message = "Default node group instance type should match input"
   }
 
   assert {
-    condition     = aws_eks_node_group.system.disk_size == 50
+    condition     = aws_eks_node_group.main["system"].disk_size == 50
     error_message = "Default node group disk size should match input"
   }
 
   assert {
-    condition     = aws_eks_node_group.system.scaling_config[0].min_size == 2
+    condition     = aws_eks_node_group.main["system"].scaling_config[0].min_size == 2
     error_message = "Default node group min size should match input"
   }
 
   assert {
-    condition     = aws_eks_node_group.system.scaling_config[0].max_size == 5
+    condition     = aws_eks_node_group.main["system"].scaling_config[0].max_size == 5
     error_message = "Default node group max size should match input"
   }
 
   assert {
-    condition     = aws_eks_node_group.system.scaling_config[0].desired_size == 3
+    condition     = aws_eks_node_group.main["system"].scaling_config[0].desired_size == 3
     error_message = "Default node group desired size should match input"
   }
 
   assert {
-    condition     = length(aws_eks_node_group.additional) == 1
+    condition     = length(aws_eks_node_group.main) == 2
     error_message = "Additional node group should be created when specified"
   }
 
   assert {
-    condition     = aws_eks_node_group.additional[0].node_group_name == "workload"
+    condition     = aws_eks_node_group.main["workload"].node_group_name == "workload"
     error_message = "Additional node group name should match input"
   }
 
   assert {
-    condition     = aws_eks_node_group.additional[0].instance_types[0] == "c5.large"
+    condition     = aws_eks_node_group.main["workload"].instance_types[0] == "c5.large"
     error_message = "Additional node group instance type should match input"
   }
 
   assert {
-    condition     = aws_eks_node_group.additional[0].disk_size == 100
+    condition     = aws_eks_node_group.main["workload"].disk_size == 100
     error_message = "Additional node group disk size should match input"
   }
 
