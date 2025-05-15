@@ -104,6 +104,61 @@ locals {
       }
     }
   ])
+
+  terraform_state_kms_policy_json = var.kms_policy_override != null ? var.kms_policy_override : jsonencode({
+    Version = "2012-10-17",
+    Statement = [
+      {
+        Sid    = "AllowKeyAdministration",
+        Effect = "Allow",
+        Principal = {
+          AWS = ["arn:aws:iam::${data.aws_caller_identity.current.account_id}:root"]
+        },
+        Action = [
+          "kms:Create*",
+          "kms:Describe*",
+          "kms:Enable*",
+          "kms:List*",
+          "kms:Put*",
+          "kms:Update*",
+          "kms:Revoke*",
+          "kms:Disable*",
+          "kms:Get*",
+          "kms:Delete*",
+          "kms:TagResource",
+          "kms:UntagResource",
+          "kms:ScheduleKeyDeletion",
+          "kms:CancelKeyDeletion"
+        ],
+        Resource = ["arn:aws:kms:${var.region}:${data.aws_caller_identity.current.account_id}:key/*"],
+        Condition = {
+          StringEquals = {
+            "kms:CallerAccount" = data.aws_caller_identity.current.account_id
+          }
+        }
+      },
+      {
+        Sid    = "AllowKeyUsage",
+        Effect = "Allow",
+        Principal = {
+          AWS = ["arn:aws:iam::${data.aws_caller_identity.current.account_id}:root"]
+        },
+        Action = [
+          "kms:Encrypt",
+          "kms:Decrypt",
+          "kms:ReEncrypt*",
+          "kms:GenerateDataKey*",
+          "kms:DescribeKey"
+        ],
+        Resource = ["arn:aws:kms:${var.region}:${data.aws_caller_identity.current.account_id}:key/*"],
+        Condition = {
+          StringEquals = {
+            "kms:CallerAccount" = data.aws_caller_identity.current.account_id
+          }
+        }
+      }
+    ]
+  })
 }
 
 #---------------------------------------------------------------------------------------------------
@@ -201,74 +256,6 @@ resource "aws_dynamodb_table" "terraform_locks" {
 }
 
 #---------------------------------------------------------------------------------------------------
-# KMS Key Policy Document for Terraform State Encryption
-# This section defines the IAM policy document for the KMS key used to encrypt the Terraform state.
-# It grants necessary permissions to the AWS account root user for managing the KMS key,
-# while ensuring that write access is constrained to specific actions.
-#---------------------------------------------------------------------------------------------------
-
-data "aws_iam_policy_document" "terraform_state_kms_policy" {
-  statement {
-    sid    = "AllowKeyAdministration"
-    effect = "Allow"
-
-    principals {
-      type        = "AWS"
-      identifiers = ["arn:aws:iam::${data.aws_caller_identity.current.account_id}:root"]
-    }
-
-    actions = [
-      "kms:Create*",
-      "kms:Describe*",
-      "kms:Enable*",
-      "kms:List*",
-      "kms:Put*",
-      "kms:Update*",
-      "kms:Revoke*",
-      "kms:Disable*",
-      "kms:Get*",
-      "kms:Delete*",
-      "kms:TagResource",
-      "kms:UntagResource",
-      "kms:ScheduleKeyDeletion",
-      "kms:CancelKeyDeletion"
-    ]
-    resources = ["arn:aws:kms:${var.region}:${data.aws_caller_identity.current.account_id}:key/*"]
-    condition {
-      test     = "StringEquals"
-      variable = "kms:CallerAccount"
-      values   = ["${data.aws_caller_identity.current.account_id}"]
-    }
-  }
-
-  statement {
-    sid    = "AllowKeyUsage"
-    effect = "Allow"
-
-    principals {
-      type = "AWS"
-      identifiers = [
-        "arn:aws:iam::${data.aws_caller_identity.current.account_id}:root"
-      ]
-    }
-
-    actions = [
-      "kms:Encrypt",
-      "kms:Decrypt",
-      "kms:ReEncrypt*",
-      "kms:GenerateDataKey*",
-      "kms:DescribeKey"
-    ]
-    resources = ["arn:aws:kms:${var.region}:${data.aws_caller_identity.current.account_id}:key/*"]
-    condition {
-      test     = "StringEquals"
-      variable = "kms:CallerAccount"
-      values   = ["${data.aws_caller_identity.current.account_id}"]
-    }
-  }
-}
-
-#---------------------------------------------------------------------------------------------------
 # KMS Key for Terraform State Encryption (if not provided externally)
 # This section creates a KMS key for encrypting the Terraform state file in S3,
 # if an external KMS key is not provided. It includes key rotation and deletion settings.
@@ -280,7 +267,7 @@ resource "aws_kms_key" "terraform_state" {
   description             = "KMS key for encrypting Terraform state file in S3"
   enable_key_rotation     = true
   deletion_window_in_days = 7
-  policy                  = data.aws_iam_policy_document.terraform_state_kms_policy.json
+  policy                  = local.terraform_state_kms_policy_json
 }
 
 resource "aws_kms_alias" "terraform_state_alias" {

@@ -132,8 +132,8 @@ data "talos_client_configuration" "this" {
 
 // Write kubeconfig to a local file
 resource "local_sensitive_file" "kubeconfig" {
-  count      = local.kubeconfig_path != "" ? 1 : 0 // Create file only if path is specified
-  depends_on = [local_sensitive_file.talosconfig]  // Ensure Talos config is written first
+  count      = trim(var.context_path, " ") != "" ? 1 : 0 // Create file only if path is specified and not empty/whitespace
+  depends_on = [local_sensitive_file.talosconfig]        // Ensure Talos config is written first
 
   content         = talos_cluster_kubeconfig.this.kubeconfig_raw
   filename        = local.kubeconfig_path
@@ -146,7 +146,7 @@ resource "local_sensitive_file" "kubeconfig" {
 
 // Write Talos config to a local file
 resource "local_sensitive_file" "talosconfig" {
-  count = local.talosconfig_path != "" ? 1 : 0 // Create file only if path is specified
+  count = trim(var.context_path, " ") != "" ? 1 : 0 // Create file only if path is specified and not empty/whitespace
 
   content         = data.talos_client_configuration.this.talos_config
   filename        = local.talosconfig_path

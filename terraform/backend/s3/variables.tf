@@ -33,8 +33,16 @@ variable "s3_bucket_name" {
   type        = string
   default     = ""
   validation {
-    condition     = length(var.s3_bucket_name) <= 63
-    error_message = "The S3 bucket name must be 63 characters or less."
+    condition = (
+      length(var.s3_bucket_name) == 0 || (
+        length(var.s3_bucket_name) >= 3 &&
+        length(var.s3_bucket_name) <= 63 &&
+        can(regex("^[a-z0-9][a-z0-9.-]*[a-z0-9]$", var.s3_bucket_name)) &&
+        !can(regex("\\.\\.", var.s3_bucket_name)) &&
+        !can(regex("[.-]$|^[.-]", var.s3_bucket_name))
+      )
+    )
+    error_message = "S3 bucket name must be 3-63 characters, lowercase letters, numbers, hyphens, periods, no consecutive periods, and cannot start/end with period or hyphen."
   }
 }
 
@@ -56,6 +64,12 @@ variable "kms_key_alias" {
   description = "The KMS key ID for encrypting the S3 bucket"
   type        = string
   default     = ""
+  validation {
+    condition = (
+      var.kms_key_alias == "" || can(regex("^alias\\/[a-zA-Z0-9/_-]+$", var.kms_key_alias))
+    )
+    error_message = "KMS key alias must be empty or match ^alias/[a-zA-Z0-9/_-]+$"
+  }
 }
 
 #---------------------------------------------------------------------------------------------------
@@ -72,6 +86,12 @@ variable "enable_kms" {
   description = "Feature flag to enable KMS encryption"
   type        = bool
   default     = true
+}
+
+variable "kms_policy_override" {
+  description = "Override for the KMS policy document (for testing)"
+  type        = string
+  default     = null
 }
 
 #---------------------------------------------------------------------------------------------------

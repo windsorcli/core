@@ -70,6 +70,13 @@ jobs:
       - name: Run terraform fmt
         run: terraform fmt -check -recursive
 
+      - name: Run Terraform Tests
+        run: |
+          find terraform -type f -name '*.tftest.hcl' | while read testfile; do
+            testdir=$(dirname "$testfile")
+            (cd "$testdir" && terraform init -input=false && terraform test)
+          done
+
       - name: Create .docker-cache directory
         run: mkdir -p .windsor/.docker-cache
 
@@ -96,7 +103,7 @@ jobs:
         uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
 
       - name: Checkov GitHub Action
-        uses: bridgecrewio/checkov-action@6bb1aec72ebdc28a351cccc5e80c7c5cfd6f0890 # v12.3010.0
+        uses: bridgecrewio/checkov-action@de75ec2538b4dee22a8d1db76c8bb759d015e18d # v12.3012.0
         with:
           directory: ./terraform
           output_format: cli,sarif
@@ -106,3 +113,27 @@ jobs:
         uses: github/codeql-action/upload-sarif@60168efe1c415ce0f5521ea06d5c2062adbeed1b # v3.28.17
         with:
           sarif_file: results.sarif
+
+  check-docs:
+      runs-on: ubuntu-latest
+      steps:
+      - name: Checkout code
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+  
+      - name: Install Task
+        uses: arduino/setup-task@b91d5d2c96a56797b48ac1e0e89220bf64044611 # v2.0.0
+        with:
+          version: '3.43.3'
+          repo-token: ${{ secrets.GITHUB_TOKEN }}
+  
+      - name: Generate Terraform docs
+        run: task docs
+  
+      - name: Check for changes
+        run: |
+          if [[ -n "$(git status --porcelain)" ]]; then
+            echo "::error::Terraform documentation is out of date. Please run 'task docs' in the repository."
+            git diff
+            exit 1
+          fi 
+  

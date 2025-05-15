@@ -5,3 +5,42 @@ tasks:
     desc: Scan for security vulnerabilities
     cmds:
       - source .venv/bin/activate && checkov -d {{.CLI_ARGS | default "terraform/"}} 2>/dev/null
+
+  test:
+    desc: Run Terraform tests (all or specific module)
+    cmds:
+      - |
+        MODULE={{.CLI_ARGS | default "terraform"}}
+        if [ -d "$MODULE" ]; then
+          find "$MODULE" -type f -name '*.tftest.hcl' | while read testfile; do
+            testdir=$(dirname "$testfile")
+            (cd "$testdir" && terraform init -input=false && terraform test)
+          done
+        else
+          echo "Module path '$MODULE' does not exist."
+          exit 1
+        fi
+
+  fmt:
+    desc: Check Terraform formatting
+    cmds:
+      - terraform fmt -recursive
+
+  docs:
+    desc: Generate Terraform documentation
+    cmds:
+      - rm -rf docs/terraform/*
+      - |
+        find terraform -type d -exec test -e '{}/main.tf' -a -e '{}/variables.tf' \; -print | while read -r dir; do
+          if [[ "$dir" == *"/modules/"* ]]; then
+            continue
+          fi
+          rel_path="${dir#terraform/}"
+          output_file="docs/terraform/$rel_path.md"
+          mkdir -p "$(dirname "$output_file")"
+          if [ -f "$dir/README.md" ]; then
+            cat "$dir/README.md" > "$output_file"
+            echo >> "$output_file"
+          fi
+          docker run --rm -v "$(pwd):/src" -w "/src/$dir" quay.io/terraform-docs/terraform-docs:0.20.0 markdown . >> "$output_file"
+        done
