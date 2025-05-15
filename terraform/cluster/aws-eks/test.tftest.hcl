@@ -12,12 +12,7 @@ mock_provider "aws" {
       cidr_block = "10.0.0.0/16"
     }
   }
-  mock_data "aws_subnet" {
-    defaults = {
-      id = "subnet-12345678"
-    }
-  }
-  mock_data "aws_subnet_ids" {
+  mock_data "aws_subnets" {
     defaults = {
       ids = ["subnet-12345678", "subnet-87654321", "subnet-11223344"]
     }
