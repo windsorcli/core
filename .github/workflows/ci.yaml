@@ -94,7 +94,7 @@ jobs:
 
       - name: Windsor Down
         run: |
-          windsor down --clean
+          windsor down
 
   checkov:
     runs-on: ubuntu-latest
