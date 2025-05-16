@@ -18,6 +18,7 @@ terraform:
   path: cluster/talos
 - source: core
   path: gitops/flux
+  destroy: false
 kustomize:
 - name: policy-base
   path: policy/base
