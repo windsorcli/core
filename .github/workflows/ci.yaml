@@ -9,7 +9,7 @@ on:
       - main
 
 permissions:
-  contents: read
+  contents: write
   security-events: write
   checks: write
 
@@ -22,8 +22,8 @@ env:
   SUPPORT_BUNDLE_VERSION: v0.119.0
 
 jobs:
-  static-checks:
-    name: Static Analysis
+  code-checks:
+    name: Code Quality
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code
@@ -72,8 +72,8 @@ jobs:
         with:
           sarif_file: results.sarif
 
-  integration-tests:
-    name: Windsor Integration Tests
+  integration:
+    name: Windsor Integration
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code
