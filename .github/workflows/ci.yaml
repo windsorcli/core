@@ -73,7 +73,7 @@ jobs:
           sarif_file: results.sarif
 
   integration:
-    name: Windsor Integration
+    name: Integration Tests
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code
