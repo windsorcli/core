@@ -34,6 +34,13 @@ jobs:
             docker-compose --version
         continue-on-error: false
 
+      # This module is not loaded by default and is required to run Kubernetes on Docker
+      - name: Load br_netfilter kernel module
+        run: |
+          sudo modprobe br_netfilter
+          echo "1" | sudo tee /proc/sys/net/bridge/bridge-nf-call-iptables
+          echo "1" | sudo tee /proc/sys/net/bridge/bridge-nf-call-ip6tables
+
       - name: Set up Python
         uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5.6.0
         with:
