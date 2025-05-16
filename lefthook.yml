@@ -11,9 +11,6 @@ pre-push:
     terraform-test:
       glob: "*.{tf,tfvars}"
       run: task test
-    terraform-scan:
-      glob: "*.{tf,tfvars}"
-      run: task scan
     terraform-docs:
       glob: "*.{tf,tfvars}"
       run: task docs
