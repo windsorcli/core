@@ -132,10 +132,15 @@ jobs:
           windsor init local --set dns.enabled=false
           windsor up --install --verbose
 
+      - name: Collect Windsor State
+        if: always()
+        run: |
+          tar --exclude='.docker-cache' -czf support-bundles/windsor-state.tar.gz contexts/local .windsor
+
       - name: Collect support bundle
         if: always()
         run: |
-          support-bundle --interactive=false --output=support-bundles/bundle-${{ github.workflow }}-${{ github.run_id }}-${{ github.run_number }}.json .github/support-bundle.yaml
+          support-bundle --interactive=false --output=support-bundles/bundle-${{ github.workflow }}-${{ github.run_id }}-${{ github.run_number }} .github/support-bundle.yaml
 
       - name: Upload support bundle
         if: always()
