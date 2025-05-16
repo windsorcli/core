@@ -94,9 +94,12 @@ locals {
         "s3:GetBucketLocation"
       ],
       Resource = [
-        aws_s3_bucket.this.arn,
-        "${aws_s3_bucket.this.arn}/*"
+        "*"
       ],
+      # Resource = [
+      #   aws_s3_bucket.this.arn,
+      #   "${aws_s3_bucket.this.arn}/*"
+      # ],
       Condition = {
         Bool = {
           "aws:SecureTransport" = "true"

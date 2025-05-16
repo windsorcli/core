@@ -29,3 +29,5 @@ packages:
   - name: derailed/k9s@v0.50.6
   - name: getsops/sops@v3.10.2
   - name: 1password/cli@v2.30.3
+  - name: evilmartians/lefthook@v1.6.7
+  - name: bridgecrewio/checkov@3.2.424
