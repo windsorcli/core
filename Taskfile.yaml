@@ -3,64 +3,67 @@ version: '3'
 tasks:
   scan:
     desc: Scan for security vulnerabilities
+    silent: true
     cmds:
-      - source .venv/bin/activate && checkov -d {{.CLI_ARGS | default "terraform/"}} 2>/dev/null
+      - cmd: source .venv/bin/activate && checkov -d {{.CLI_ARGS | default "terraform/"}} 2>/dev/null
 
   test:
     desc: Run Terraform tests (all or specific module)
+    silent: true
     cmds:
-      - |
-        MODULE={{.CLI_ARGS | default "terraform"}}
-        if [ -d "$MODULE" ]; then
-          # Create a temporary directory for test results
-          TEMP_DIR=$(mktemp -d)
-          # Find all test files and run them in parallel
-          find "$MODULE" -type f -name '*.tftest.hcl' | while read testfile; do
-            testdir=$(dirname "$testfile")
-            (
-              cd "$testdir" && \
-              terraform init -input=false -reconfigure && \
-              terraform test > "$TEMP_DIR/$(basename "$testfile").log" 2>&1 || \
-              echo "FAILED: $testfile" >> "$TEMP_DIR/failures"
-            ) &
-          done
-          # Wait for all background jobs to complete
-          wait
-          # Check if any tests failed
-          if [ -f "$TEMP_DIR/failures" ]; then
-            echo "Test failures:"
-            cat "$TEMP_DIR/failures"
-            echo "Test logs:"
-            find "$TEMP_DIR" -name "*.log" -type f -exec echo "=== {} ===" \; -exec cat {} \;
+      - cmd: |
+          MODULE={{.CLI_ARGS | default "terraform"}}
+          if [ -d "$MODULE" ]; then
+            # Create a temporary directory for test results
+            TEMP_DIR=$(mktemp -d)
+            # Find all test files and run them in parallel
+            find "$MODULE" -type f -name '*.tftest.hcl' | while read testfile; do
+              testdir=$(dirname "$testfile")
+              (
+                cd "$testdir" && \
+                echo "Running tests in $testdir..." && \
+                terraform init -input=false -reconfigure && \
+                terraform test || \
+                echo "FAILED: $testfile" >> "$TEMP_DIR/failures"
+              ) &
+            done
+            # Wait for all background jobs to complete
+            wait
+            # Check if any tests failed
+            if [ -f "$TEMP_DIR/failures" ]; then
+              echo "Test failures:"
+              cat "$TEMP_DIR/failures"
+              rm -rf "$TEMP_DIR"
+              exit 1
+            fi
             rm -rf "$TEMP_DIR"
+          else
+            echo "Module path '$MODULE' does not exist."
             exit 1
           fi
-          rm -rf "$TEMP_DIR"
-        else
-          echo "Module path '$MODULE' does not exist."
-          exit 1
-        fi
 
   fmt:
     desc: Check Terraform formatting
+    silent: true
     cmds:
-      - terraform fmt -recursive
+      - cmd: terraform fmt -recursive
 
   docs:
     desc: Generate Terraform documentation
+    silent: true
     cmds:
-      - rm -rf docs/terraform/*
-      - |
-        find terraform -type d -exec test -e '{}/main.tf' -a -e '{}/variables.tf' \; -print | while read -r dir; do
-          if [[ "$dir" == *"/modules/"* ]]; then
-            continue
-          fi
-          rel_path="${dir#terraform/}"
-          output_file="docs/terraform/$rel_path.md"
-          mkdir -p "$(dirname "$output_file")"
-          if [ -f "$dir/README.md" ]; then
-            cat "$dir/README.md" > "$output_file"
-            echo >> "$output_file"
-          fi
-          docker run --rm -v "$(pwd):/src" -w "/src/$dir" quay.io/terraform-docs/terraform-docs:0.20.0 markdown . >> "$output_file"
-        done
+      - cmd: rm -rf docs/terraform/*
+      - cmd: |
+          find terraform -type d -exec test -e '{}/main.tf' -a -e '{}/variables.tf' \; -print | while read -r dir; do
+            if [[ "$dir" == *"/modules/"* ]]; then
+              continue
+            fi
+            rel_path="${dir#terraform/}"
+            output_file="docs/terraform/$rel_path.md"
+            mkdir -p "$(dirname "$output_file")"
+            if [ -f "$dir/README.md" ]; then
+              cat "$dir/README.md" > "$output_file"
+              echo >> "$output_file"
+            fi
+            docker run --rm -v "$(pwd):/src" -w "/src/$dir" quay.io/terraform-docs/terraform-docs:0.20.0 markdown . >> "$output_file"
+          done
