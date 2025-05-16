@@ -22,7 +22,7 @@ packages:
   - name: lima-vm/lima@v1.0.7
   - name: docker/cli@v27.4.1
   - name: docker/compose@v2.36.0
-  - name: aws/aws-cli@2.27.16
+  - name: aws/aws-cli@2.27.17
   - name: helm/helm@v3.17.3
   - name: fluxcd/flux2@v2.5.1
   - name: hashicorp/vault@v1.19.3
@@ -31,3 +31,4 @@ packages:
   - name: 1password/cli@v2.30.3
   - name: evilmartians/lefthook@v1.6.7
   - name: bridgecrewio/checkov@3.2.424
+  - name: kubernetes-sigs/krew@v0.4.5

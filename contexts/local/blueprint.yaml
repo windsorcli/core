@@ -18,7 +18,22 @@ terraform:
   path: cluster/talos
 - source: core
   path: gitops/flux
+  destroy: false
 kustomize:
+- name: telemetry-base
+  path: telemetry/base
+  source: core
+  components:
+  - prometheus
+  - prometheus/flux
+- name: telemetry-resources
+  path: telemetry/resources
+  source: core
+  dependsOn:
+  - telemetry-base
+  components:
+  - prometheus
+  - prometheus/flux
 - name: policy-base
   path: policy/base
   source: core
@@ -72,7 +87,6 @@ kustomize:
   path: dns
   source: core
   dependsOn:
-  - ingress-base
   - pki-base
   force: true
   components:
@@ -90,25 +104,3 @@ kustomize:
   force: true
   components:
   - webhook
-- name: demo
-  path: demo/bookinfo
-  source: core
-  dependsOn:
-  - ingress-base
-  force: true
-  components:
-  - ingress
-- name: object-store-base
-  path: object-store/base
-  dependsOn:
-  - pki-base
-  force: true
-  components:
-  - minio
-- name: object-store-resources
-  path: object-store/resources
-  dependsOn:
-  - object-store-base
-  force: true
-  components:
-  - common
