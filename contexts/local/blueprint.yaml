@@ -14,39 +14,33 @@ sources:
   ref:
     branch: main
 terraform:
-- source: core
-  path: cluster/talos
-- source: core
-  path: gitops/flux
+- path: cluster/talos
+- path: gitops/flux
   destroy: false
 kustomize:
 - name: telemetry-base
   path: telemetry/base
-  source: core
   components:
   - prometheus
   - prometheus/flux
 - name: telemetry-resources
   path: telemetry/resources
-  source: core
   dependsOn:
   - telemetry-base
   components:
+  - metrics-server
   - prometheus
   - prometheus/flux
 - name: policy-base
   path: policy/base
-  source: core
   components:
   - kyverno
 - name: policy-resources
   path: policy/resources
-  source: core
   dependsOn:
   - policy-base
 - name: csi
   path: csi
-  source: core
   dependsOn:
   - policy-resources
   force: true
@@ -55,7 +49,6 @@ kustomize:
   - openebs/dynamic-localpv
 - name: ingress-base
   path: ingress/base
-  source: core
   dependsOn:
   - pki-resources
   force: true
@@ -67,7 +60,6 @@ kustomize:
   - nginx/web
 - name: pki-base
   path: pki/base
-  source: core
   dependsOn:
   - policy-resources
   force: true
@@ -76,7 +68,6 @@ kustomize:
   - trust-manager
 - name: pki-resources
   path: pki/resources
-  source: core
   dependsOn:
   - pki-base
   force: true
@@ -85,7 +76,6 @@ kustomize:
   - public-issuer/selfsigned
 - name: dns
   path: dns
-  source: core
   dependsOn:
   - pki-base
   force: true
@@ -98,7 +88,6 @@ kustomize:
   - external-dns/ingress
 - name: gitops
   path: gitops/flux
-  source: core
   dependsOn:
   - ingress-base
   force: true

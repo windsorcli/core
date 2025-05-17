@@ -150,7 +150,7 @@ jobs:
       - name: Windsor Up
         run: |
           windsor init local --set dns.enabled=false
-          windsor up --install --verbose
+          windsor up --install --verbose --wait
 
       - name: Collect Windsor State
         if: always()

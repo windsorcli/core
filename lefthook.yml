@@ -4,6 +4,11 @@ pre-commit:
     terraform-fmt:
       glob: "*.{tf,tfvars}"
       run: terraform fmt {staged_files}
+      stage_fixed: true
+    terraform-docs:
+      glob: "*.{tf,tfvars}"
+      run: task docs
+      stage_fixed: true
 
 pre-push:
   parallel: true
@@ -11,6 +16,3 @@ pre-push:
     terraform-test:
       glob: "*.{tf,tfvars}"
       run: task test
-    terraform-docs:
-      glob: "*.{tf,tfvars}"
-      run: task docs
