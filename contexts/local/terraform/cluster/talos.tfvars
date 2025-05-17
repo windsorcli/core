@@ -32,10 +32,15 @@ common_config_patches = <<EOF
     "certSANs":
     - "localhost"
     - "127.0.0.1"
+  "extraManifests":
+  - "https://raw.githubusercontent.com/alex1989hu/kubelet-serving-cert-approver/v0.8.7/deploy/standalone-install.yaml"
 "machine":
   "certSANs":
   - "localhost"
   - "127.0.0.1"
+  "kubelet":
+    "extraArgs":
+      "rotate-server-certificates": "true"
   "network":
     "interfaces":
     - "ignore": true
@@ -78,4 +83,3 @@ worker_config_patches = <<EOF
       "source": "/var/local"
       "type": "bind"
 EOF
-
