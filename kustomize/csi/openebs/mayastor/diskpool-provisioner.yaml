@@ -1,0 +1,24 @@
+---
+apiVersion: helm.toolkit.fluxcd.io/v2
+kind: HelmRelease
+metadata:
+  name: diskpool-provisioner
+  namespace: system-csi
+spec:
+  interval: 5m
+  timeout: 10m
+  dependsOn:
+    - name: openebs
+  chart:
+    spec:
+      chart: charts/diskpool-provisioner
+      reconcileStrategy: Revision
+      sourceRef:
+        kind: GitRepository
+        name: blueprints
+        namespace: system-gitops
+  values:
+    diskPools:
+      - nodeLabel: openebs.io/engine=mayastor
+        disks:
+          - "${WORKER_DEVICE_PATH:-/dev/nvme0n1}"
