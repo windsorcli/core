@@ -21,23 +21,23 @@ run "minimal_configuration" {
   }
 
   assert {
-    condition     = [for space in azurerm_virtual_network.main.address_space : space][0] == "10.20.0.0/16"
-    error_message = "VNet CIDR should default to '10.20.0.0/16'"
+    condition     = [for space in azurerm_virtual_network.main.address_space : space][0] == "10.0.0.0/16"
+    error_message = "VNet CIDR should default to '10.0.0.0/16'"
   }
 
   assert {
-    condition     = length(azurerm_subnet.public) == 1
-    error_message = "One public subnet should be created by default"
+    condition     = length(azurerm_subnet.public) == 3
+    error_message = "Three public subnets should be created by default"
   }
 
   assert {
-    condition     = length(azurerm_subnet.private) == 1
-    error_message = "One private subnet should be created by default"
+    condition     = length(azurerm_subnet.private) == 3
+    error_message = "Three private subnets should be created by default"
   }
 
   assert {
-    condition     = length(azurerm_subnet.isolated) == 1
-    error_message = "One isolated subnet should be created by default"
+    condition     = length(azurerm_subnet.isolated) == 3
+    error_message = "Three isolated subnets should be created by default"
   }
 
   assert {
@@ -58,9 +58,9 @@ run "full_configuration" {
     vnet_zones          = 2
     vnet_cidr           = "10.30.0.0/16"
     vnet_subnets = {
-      public   = ["10.30.1.0/24", "10.30.2.0/24"]
-      private  = ["10.30.11.0/24", "10.30.12.0/24"]
-      isolated = ["10.30.21.0/24", "10.30.22.0/24"]
+      public   = [{ name = "public-1", address_prefixes = ["10.30.1.0/24"] }, { name = "public-2", address_prefixes = ["10.30.2.0/24"] }]
+      private  = [{ name = "private-1", address_prefixes = ["10.30.11.0/24"] }, { name = "private-2", address_prefixes = ["10.30.12.0/24"] }]
+      isolated = [{ name = "isolated-1", address_prefixes = ["10.30.21.0/24"] }, { name = "isolated-2", address_prefixes = ["10.30.22.0/24"] }]
     }
     context_id = "test"
     name       = "custom"
@@ -77,27 +77,43 @@ run "full_configuration" {
   }
 
   assert {
-    condition     = [for space in azurerm_virtual_network.main.address_space : space][0] == "10.30.0.0/16"
-    error_message = "VNet CIDR should match input"
+    condition     = tolist(azurerm_virtual_network.main.address_space)[0] == "10.30.0.0/16"
+    error_message = "VNet CIDR should match input value"
   }
 
   assert {
     condition     = length(azurerm_subnet.public) == 2
-    error_message = "Two public subnets should be created"
+    error_message = "Should create 2 public subnets"
   }
 
   assert {
     condition     = length(azurerm_subnet.private) == 2
-    error_message = "Two private subnets should be created"
+    error_message = "Should create 2 private subnets"
   }
 
   assert {
     condition     = length(azurerm_subnet.isolated) == 2
-    error_message = "Two isolated subnets should be created"
+    error_message = "Should create 2 isolated subnets"
   }
 
   assert {
     condition     = length(azurerm_nat_gateway.main) == 2
     error_message = "Two NAT Gateways should be created"
+  }
+}
+
+# Tests NAT Gateway configuration
+run "nat_gateway_configuration" {
+  command = plan
+
+  variables {
+    context_id         = "test"
+    name               = "windsor-vnet"
+    enable_nat_gateway = false
+  }
+
+  assert {
+    condition     = length(azurerm_subnet_nat_gateway_association.private) == 0
+    error_message = "No NAT Gateway associations should be created when disabled"
   }
 }

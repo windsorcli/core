@@ -72,7 +72,7 @@ variable "default_node_pool" {
     name                         = "system"
     vm_size                      = "Standard_D2s_v3"
     os_disk_type                 = "Managed"
-    max_pods                     = 30
+    max_pods                     = 110
     host_encryption_enabled      = true
     min_count                    = 1
     max_count                    = 3
@@ -100,7 +100,7 @@ variable "autoscaled_node_pool" {
     vm_size                 = "Standard_D2s_v3"
     mode                    = "User"
     os_disk_type            = "Managed"
-    max_pods                = 30
+    max_pods                = 110
     host_encryption_enabled = true
     min_count               = 1
     max_count               = 3
@@ -215,4 +215,22 @@ variable "tags" {
   description = "Tags to apply to the resources"
   type        = map(string)
   default     = {}
+}
+
+variable "temporary_name_for_rotation" {
+  description = "Temporary name for node pool rotation"
+  type        = string
+  default     = null
+}
+
+variable "service_cidr" {
+  description = "The CIDR block for Kubernetes services"
+  type        = string
+  default     = "10.0.0.0/16"
+}
+
+variable "dns_service_ip" {
+  description = "The IP address for the Kubernetes DNS service"
+  type        = string
+  default     = "10.0.0.10"
 }
