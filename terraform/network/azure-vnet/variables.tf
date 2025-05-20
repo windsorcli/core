@@ -59,6 +59,20 @@ variable "vnet_subnets" {
       "10.0.53.0/24"  # 10.0.53.0 - 10.0.53.255
     ]
   }
+  validation {
+    condition     = alltrue([for subnet in var.vnet_subnets["private"] : can(cidrhost(subnet, 0))])
+    error_message = "Each private subnet must be a valid CIDR block"
+  }
+
+  validation {
+    condition     = alltrue([for subnet in var.vnet_subnets["isolated"] : can(cidrhost(subnet, 0))])
+    error_message = "Each isolated subnet must be a valid CIDR block"
+  }
+
+  validation {
+    condition     = alltrue([for subnet in var.vnet_subnets["public"] : can(cidrhost(subnet, 0))])
+    error_message = "Each public subnet must be a valid CIDR block"
+  }
 }
 
 # Only used if vnet_subnets is not defined

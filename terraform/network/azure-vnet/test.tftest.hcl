@@ -122,11 +122,28 @@ run "nat_gateway_configuration" {
 run "multiple_invalid_inputs" {
   command = plan
 
-  expect_failures = [
-    var.context_id,
-  ]
-
   variables {
-    name = "windsor-vnet"
+    context_id = "test"
+    vnet_subnets = {
+      private = [
+        "10.0.0.0/20",
+        "invalid-cidr",
+        "10.0.32.0/20"
+      ]
+      isolated = [
+        "10.0.48.0/24",
+        "10.0.49.0/24",
+        "10.0.50.0/24"
+      ]
+      public = [
+        "10.0.51.0/24",
+        "10.0.52.0/24",
+        "10.0.53.0/24"
+      ]
+    }
   }
+
+  expect_failures = [
+    var.vnet_subnets,
+  ]
 }
