@@ -41,8 +41,8 @@ No modules.
 | <a name="input_tags"></a> [tags](#input\_tags) | Tags to apply to the resources | `map(string)` | `{}` | no |
 | <a name="input_vnet_cidr"></a> [vnet\_cidr](#input\_vnet\_cidr) | CIDR block for the VNET | `string` | `"10.0.0.0/16"` | no |
 | <a name="input_vnet_name"></a> [vnet\_name](#input\_vnet\_name) | Name of the VNET | `string` | `null` | no |
-| <a name="input_vnet_subnets"></a> [vnet\_subnets](#input\_vnet\_subnets) | Subnets to create in the VNET | `map(list(string))` | <pre>{<br/>  "isolated": [<br/>    "10.0.48.0/24",<br/>    "10.0.49.0/24",<br/>    "10.0.50.0/24"<br/>  ],<br/>  "private": [<br/>    "10.0.0.0/20",<br/>    "10.0.16.0/20",<br/>    "10.0.32.0/20"<br/>  ],<br/>  "public": [<br/>    "10.0.51.0/24",<br/>    "10.0.52.0/24",<br/>    "10.0.53.0/24"<br/>  ]<br/>}</pre> | no |
-| <a name="input_vnet_zones"></a> [vnet\_zones](#input\_vnet\_zones) | Number of availability zones to create | `number` | `1` | no |
+| <a name="input_vnet_subnets"></a> [vnet\_subnets](#input\_vnet\_subnets) | Subnets to create in the VNET | `map(list(string))` | <pre>{<br/>  "isolated": [],<br/>  "private": [],<br/>  "public": []<br/>}</pre> | no |
+| <a name="input_vnet_zones"></a> [vnet\_zones](#input\_vnet\_zones) | Number of availability zones to create. Only used if vnet\_subnets is not defined | `number` | `1` | no |
 
 ## Outputs
 
