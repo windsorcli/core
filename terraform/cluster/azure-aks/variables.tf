@@ -217,12 +217,6 @@ variable "tags" {
   default     = {}
 }
 
-variable "temporary_name_for_rotation" {
-  description = "Temporary name for node pool rotation"
-  type        = string
-  default     = null
-}
-
 variable "service_cidr" {
   description = "CIDR block for Kubernetes services"
   type        = string
