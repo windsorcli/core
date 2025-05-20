@@ -3,13 +3,13 @@
 | Name | Version |
 |------|---------|
 | <a name="requirement_terraform"></a> [terraform](#requirement\_terraform) | >=1.8 |
-| <a name="requirement_azurerm"></a> [azurerm](#requirement\_azurerm) | ~> 4.28.0 |
+| <a name="requirement_azurerm"></a> [azurerm](#requirement\_azurerm) | ~> 4.29.0 |
 
 ## Providers
 
 | Name | Version |
 |------|---------|
-| <a name="provider_azurerm"></a> [azurerm](#provider\_azurerm) | 4.28.0 |
+| <a name="provider_azurerm"></a> [azurerm](#provider\_azurerm) | 4.29.0 |
 
 ## Modules
 
@@ -34,13 +34,14 @@ No modules.
 | Name | Description | Type | Default | Required |
 |------|-------------|------|---------|:--------:|
 | <a name="input_context_id"></a> [context\_id](#input\_context\_id) | Context ID for the resources | `string` | `null` | no |
+| <a name="input_enable_nat_gateway"></a> [enable\_nat\_gateway](#input\_enable\_nat\_gateway) | Enable NAT Gateway for private subnets | `bool` | `true` | no |
 | <a name="input_name"></a> [name](#input\_name) | Name of the resource | `string` | `"network"` | no |
 | <a name="input_region"></a> [region](#input\_region) | Region for the resources | `string` | `"eastus"` | no |
 | <a name="input_resource_group_name"></a> [resource\_group\_name](#input\_resource\_group\_name) | Name of the resource group | `string` | `null` | no |
 | <a name="input_tags"></a> [tags](#input\_tags) | Tags to apply to the resources | `map(string)` | `{}` | no |
-| <a name="input_vnet_cidr"></a> [vnet\_cidr](#input\_vnet\_cidr) | CIDR block for VNET | `string` | `"10.20.0.0/16"` | no |
+| <a name="input_vnet_cidr"></a> [vnet\_cidr](#input\_vnet\_cidr) | CIDR block for the VNET | `string` | `"10.0.0.0/16"` | no |
 | <a name="input_vnet_name"></a> [vnet\_name](#input\_vnet\_name) | Name of the VNET | `string` | `null` | no |
-| <a name="input_vnet_subnets"></a> [vnet\_subnets](#input\_vnet\_subnets) | Subnets to create in the VNET | `map(list(string))` | <pre>{<br/>  "isolated": [],<br/>  "private": [],<br/>  "public": []<br/>}</pre> | no |
+| <a name="input_vnet_subnets"></a> [vnet\_subnets](#input\_vnet\_subnets) | Map of subnet configurations | <pre>map(list(object({<br/>    name             = string<br/>    address_prefixes = list(string)<br/>  })))</pre> | <pre>{<br/>  "isolated": [<br/>    {<br/>      "address_prefixes": [<br/>        "10.0.48.0/24"<br/>      ],<br/>      "name": "isolated-1"<br/>    },<br/>    {<br/>      "address_prefixes": [<br/>        "10.0.49.0/24"<br/>      ],<br/>      "name": "isolated-2"<br/>    },<br/>    {<br/>      "address_prefixes": [<br/>        "10.0.50.0/24"<br/>      ],<br/>      "name": "isolated-3"<br/>    }<br/>  ],<br/>  "private": [<br/>    {<br/>      "address_prefixes": [<br/>        "10.0.0.0/20"<br/>      ],<br/>      "name": "private-1"<br/>    },<br/>    {<br/>      "address_prefixes": [<br/>        "10.0.16.0/20"<br/>      ],<br/>      "name": "private-2"<br/>    },<br/>    {<br/>      "address_prefixes": [<br/>        "10.0.32.0/20"<br/>      ],<br/>      "name": "private-3"<br/>    }<br/>  ],<br/>  "public": [<br/>    {<br/>      "address_prefixes": [<br/>        "10.0.51.0/24"<br/>      ],<br/>      "name": "public-1"<br/>    },<br/>    {<br/>      "address_prefixes": [<br/>        "10.0.52.0/24"<br/>      ],<br/>      "name": "public-2"<br/>    },<br/>    {<br/>      "address_prefixes": [<br/>        "10.0.53.0/24"<br/>      ],<br/>      "name": "public-3"<br/>    }<br/>  ]<br/>}</pre> | no |
 | <a name="input_vnet_zones"></a> [vnet\_zones](#input\_vnet\_zones) | Number of availability zones to create | `number` | `1` | no |
 
 ## Outputs

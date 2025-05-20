@@ -247,10 +247,13 @@ resource "azurerm_kubernetes_cluster" "main" {
     orchestrator_version         = var.kubernetes_version
     only_critical_addons_enabled = var.default_node_pool.only_critical_addons_enabled
     # checkov:skip=CKV_AZURE_226: we are using the managed disk type to reduce costs
+
     os_disk_type            = var.default_node_pool.os_disk_type
     host_encryption_enabled = var.default_node_pool.host_encryption_enabled
     # checkov:skip=CKV_AZURE_168: This is set in the variable by default to 50
-    max_pods = var.default_node_pool.max_pods
+
+    max_pods                    = var.default_node_pool.max_pods
+    temporary_name_for_rotation = "rotate"
   }
 
   auto_scaler_profile {
@@ -271,8 +274,10 @@ resource "azurerm_kubernetes_cluster" "main" {
   }
 
   network_profile {
-    network_policy = "azure"
     network_plugin = "azure"
+    network_policy = "azure"
+    service_cidr   = var.service_cidr
+    dns_service_ip = var.dns_service_ip
   }
 
   oms_agent {
@@ -293,12 +298,6 @@ resource "azurerm_kubernetes_cluster" "main" {
     user_assigned_identity_id = azurerm_user_assigned_identity.cluster.id
   }
 
-  lifecycle {
-    ignore_changes = [
-      default_node_pool[0].upgrade_settings,
-      workload_autoscaler_profile
-    ]
-  }
   tags = merge({
     Name = local.cluster_name
   }, local.tags)
@@ -318,14 +317,10 @@ resource "azurerm_kubernetes_cluster_node_pool" "autoscaled" {
   # checkov:skip=CKV_AZURE_226: We are using the managed disk type to reduce costs
   os_disk_type = var.autoscaled_node_pool.os_disk_type
   # checkov:skip=CKV_AZURE_168: This is set in the variable by default to 50
-  max_pods                = var.autoscaled_node_pool.max_pods
-  host_encryption_enabled = var.autoscaled_node_pool.host_encryption_enabled
+  max_pods                    = var.autoscaled_node_pool.max_pods
+  host_encryption_enabled     = var.autoscaled_node_pool.host_encryption_enabled
+  temporary_name_for_rotation = "rotate"
 
-  lifecycle {
-    ignore_changes = [
-      upgrade_settings
-    ]
-  }
   tags = merge({
     Name = var.autoscaled_node_pool.name
   }, local.tags)

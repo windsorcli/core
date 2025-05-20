@@ -1,4 +1,3 @@
-
 # Variables
 variable "context_id" {
   description = "Context ID for the resources"
@@ -31,23 +30,60 @@ variable "vnet_name" {
 }
 
 variable "vnet_cidr" {
-  description = "CIDR block for VNET"
+  description = "CIDR block for the VNET"
   type        = string
-  default     = "10.20.0.0/16"
+  default     = "10.0.0.0/16"
 }
 
 variable "vnet_subnets" {
-  description = "Subnets to create in the VNET"
-  type        = map(list(string))
-  # example: {
-  #   public  = ["10.20.1.0/24", "10.20.2.0/24", "10.20.3.0/24"]
-  #   private = ["10.20.11.0/24", "10.20.12.0/24", "10.20.13.0/24"] 
-  #   isolated    = ["10.20.21.0/24", "10.20.22.0/24", "10.20.23.0/24"]
-  # }
+  description = "Map of subnet configurations"
+  type = map(list(object({
+    name             = string
+    address_prefixes = list(string)
+  })))
   default = {
-    public   = []
-    private  = []
-    isolated = []
+    private = [
+      {
+        name             = "private-1"
+        address_prefixes = ["10.0.0.0/20"] # 10.0.0.0 - 10.0.15.255
+      },
+      {
+        name             = "private-2"
+        address_prefixes = ["10.0.16.0/20"] # 10.0.16.0 - 10.0.31.255
+      },
+      {
+        name             = "private-3"
+        address_prefixes = ["10.0.32.0/20"] # 10.0.32.0 - 10.0.47.255
+      }
+    ]
+    isolated = [
+      {
+        name             = "isolated-1"
+        address_prefixes = ["10.0.48.0/24"] # 10.0.48.0 - 10.0.48.255
+      },
+      {
+        name             = "isolated-2"
+        address_prefixes = ["10.0.49.0/24"] # 10.0.49.0 - 10.0.49.255
+      },
+      {
+        name             = "isolated-3"
+        address_prefixes = ["10.0.50.0/24"] # 10.0.50.0 - 10.0.50.255
+      }
+    ]
+    public = [
+      {
+        name             = "public-1"
+        address_prefixes = ["10.0.51.0/24"] # 10.0.51.0 - 10.0.51.255
+      },
+      {
+        name             = "public-2"
+        address_prefixes = ["10.0.52.0/24"] # 10.0.52.0 - 10.0.52.255
+      },
+      {
+        name             = "public-3"
+        address_prefixes = ["10.0.53.0/24"] # 10.0.53.0 - 10.0.53.255
+      }
+    ]
   }
 }
 
@@ -56,6 +92,12 @@ variable "vnet_zones" {
   description = "Number of availability zones to create"
   type        = number
   default     = 1
+}
+
+variable "enable_nat_gateway" {
+  description = "Enable NAT Gateway for private subnets"
+  type        = bool
+  default     = true
 }
 
 variable "tags" {

@@ -1,10 +1,10 @@
 kind: Blueprint
 apiVersion: blueprints.windsorcli.dev/v1alpha1
 metadata:
-  name: local
-  description: This blueprint outlines resources in the local context
+  name: cloud
+  description: This blueprint outlines resources in the cloud context
 repository:
-  url: http://git.test/git/core
+  url: ""
   ref:
     branch: main
   secretName: flux-system
@@ -14,76 +14,80 @@ sources:
   ref:
     branch: main
 terraform:
-- path: cluster/talos
+- path: network/azure-vnet
+- path: cluster/azure-aks
 - path: gitops/flux
   destroy: false
 kustomize:
 - name: telemetry-base
   path: telemetry/base
+  source: core
   components:
   - prometheus
   - prometheus/flux
 - name: telemetry-resources
   path: telemetry/resources
+  source: core
   dependsOn:
   - telemetry-base
   components:
-  - metrics-server
   - prometheus
   - prometheus/flux
 - name: policy-base
   path: policy/base
+  source: core
   components:
   - kyverno
 - name: policy-resources
   path: policy/resources
+  source: core
   dependsOn:
   - policy-base
-- name: csi
-  path: csi
-  dependsOn:
-  - policy-resources
-  components:
-  - openebs
-  - openebs/dynamic-localpv
-- name: ingress-base
-  path: ingress/base
-  dependsOn:
-  - pki-resources
-  components:
-  - nginx
-  - nginx/nodeport
-  - nginx/coredns
-  - nginx/flux-webhook
-  - nginx/web
 - name: pki-base
   path: pki/base
+  source: core
   dependsOn:
   - policy-resources
+  force: true
   components:
   - cert-manager
   - trust-manager
 - name: pki-resources
   path: pki/resources
+  source: core
   dependsOn:
   - pki-base
+  force: true
   components:
   - private-issuer/ca
   - public-issuer/selfsigned
-- name: dns
-  path: dns
+- name: ingress-base
+  path: ingress/base
+  source: core
   dependsOn:
-  - pki-base
+  - pki-resources
+  force: true
   components:
-  - coredns
-  - coredns/etcd
-  - external-dns
-  - external-dns/localhost
-  - external-dns/coredns
-  - external-dns/ingress
+  - nginx
+  - nginx/flux-webhook
+  - nginx/web
 - name: gitops
   path: gitops/flux
+  source: core
+  dependsOn:
+  - ingress-base
+  force: true
+  components:
+  - webhook
+- name: observability
+  path: observability
+  source: core
   dependsOn:
   - ingress-base
   components:
-  - webhook
+  - grafana
+  - grafana/ingress
+  - grafana/prometheus
+  - grafana/node
+  - grafana/kubernetes
+  - grafana/flux
