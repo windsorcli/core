@@ -223,7 +223,7 @@ run "network_configuration" {
   command = plan
 
   variables {
-    context_id      = "test"
+    context_id     = "test"
     service_cidr   = "10.0.0.0/16"
     dns_service_ip = "10.0.0.10"
   }
