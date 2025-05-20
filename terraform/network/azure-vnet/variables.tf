@@ -43,21 +43,9 @@ variable "vnet_subnets" {
   description = "Subnets to create in the VNET"
   type        = map(list(string))
   default = {
-    private = [
-      "10.0.0.0/20",  # 10.0.0.0 - 10.0.15.255
-      "10.0.16.0/20", # 10.0.16.0 - 10.0.31.255
-      "10.0.32.0/20"  # 10.0.32.0 - 10.0.47.255
-    ]
-    isolated = [
-      "10.0.48.0/24", # 10.0.48.0 - 10.0.48.255
-      "10.0.49.0/24", # 10.0.49.0 - 10.0.49.255
-      "10.0.50.0/24"  # 10.0.50.0 - 10.0.50.255
-    ]
-    public = [
-      "10.0.51.0/24", # 10.0.51.0 - 10.0.51.255
-      "10.0.52.0/24", # 10.0.52.0 - 10.0.52.255
-      "10.0.53.0/24"  # 10.0.53.0 - 10.0.53.255
-    ]
+    private  = []
+    isolated = []
+    public   = []
   }
   validation {
     condition     = alltrue([for subnet in var.vnet_subnets["private"] : can(cidrhost(subnet, 0))])
@@ -75,9 +63,8 @@ variable "vnet_subnets" {
   }
 }
 
-# Only used if vnet_subnets is not defined
 variable "vnet_zones" {
-  description = "Number of availability zones to create"
+  description = "Number of availability zones to create. Only used if vnet_subnets is not defined"
   type        = number
   default     = 1
 }

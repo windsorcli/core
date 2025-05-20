@@ -26,18 +26,18 @@ run "minimal_configuration" {
   }
 
   assert {
-    condition     = length(azurerm_subnet.public) == 3
-    error_message = "Three public subnets should be created by default"
+    condition     = length(azurerm_subnet.public) == 1
+    error_message = "One public subnet should be created by default"
   }
 
   assert {
-    condition     = length(azurerm_subnet.private) == 3
-    error_message = "Three private subnets should be created by default"
+    condition     = length(azurerm_subnet.private) == 1
+    error_message = "One private subnet should be created by default"
   }
 
   assert {
-    condition     = length(azurerm_subnet.isolated) == 3
-    error_message = "Three isolated subnets should be created by default"
+    condition     = length(azurerm_subnet.isolated) == 1
+    error_message = "One isolated subnet should be created by default"
   }
 
   assert {
@@ -115,6 +115,81 @@ run "nat_gateway_configuration" {
   assert {
     condition     = length(azurerm_subnet_nat_gateway_association.private) == 0
     error_message = "No NAT Gateway associations should be created when disabled"
+  }
+}
+
+run "automatic_subnet_creation" {
+  command = plan
+
+  variables {
+    context_id = "test"
+    name       = "test-network"
+    vnet_zones = 3
+    vnet_subnets = {
+      private  = []
+      isolated = []
+      public   = []
+    }
+  }
+
+  assert {
+    condition     = length(azurerm_subnet.private) == 3
+    error_message = "Should create 3 private subnets"
+  }
+
+  assert {
+    condition     = azurerm_subnet.private[0].address_prefixes[0] == "10.0.0.0/20"
+    error_message = "First private subnet should be 10.0.0.0/20"
+  }
+
+  assert {
+    condition     = azurerm_subnet.private[1].address_prefixes[0] == "10.0.16.0/20"
+    error_message = "Second private subnet should be 10.0.16.0/20"
+  }
+
+  assert {
+    condition     = azurerm_subnet.private[2].address_prefixes[0] == "10.0.32.0/20"
+    error_message = "Third private subnet should be 10.0.32.0/20"
+  }
+
+  assert {
+    condition     = length(azurerm_subnet.isolated) == 3
+    error_message = "Should create 3 isolated subnets"
+  }
+
+  assert {
+    condition     = azurerm_subnet.isolated[0].address_prefixes[0] == "10.0.48.0/24"
+    error_message = "First isolated subnet should be 10.0.48.0/24"
+  }
+
+  assert {
+    condition     = azurerm_subnet.isolated[1].address_prefixes[0] == "10.0.49.0/24"
+    error_message = "Second isolated subnet should be 10.0.49.0/24"
+  }
+
+  assert {
+    condition     = azurerm_subnet.isolated[2].address_prefixes[0] == "10.0.50.0/24"
+    error_message = "Third isolated subnet should be 10.0.50.0/24"
+  }
+
+  assert {
+    condition     = length(azurerm_subnet.public) == 3
+    error_message = "Should create 3 public subnets"
+  }
+
+  assert {
+    condition     = azurerm_subnet.public[0].address_prefixes[0] == "10.0.51.0/24"
+    error_message = "First public subnet should be 10.0.51.0/24"
+  }
+
+  assert {
+    condition     = azurerm_subnet.public[1].address_prefixes[0] == "10.0.52.0/24"
+    error_message = "Second public subnet should be 10.0.52.0/24"
+  }
+
+  assert {
+    condition     = azurerm_subnet.public[2].address_prefixes[0] == "10.0.53.0/24"
+    error_message = "Third public subnet should be 10.0.53.0/24"
   }
 }
 
