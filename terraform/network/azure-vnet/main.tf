@@ -64,29 +64,29 @@ resource "azurerm_virtual_network" "main" {
 
 # Public subnets
 resource "azurerm_subnet" "public" {
-  count                = length(var.vnet_subnets["public"])
+  count                = length(var.vnet_subnets["public"]) > 0 ? length(var.vnet_subnets["public"]) : var.vnet_zones
   name                 = "public-${count.index + 1}-${var.context_id}"
   resource_group_name  = azurerm_resource_group.main.name
   virtual_network_name = azurerm_virtual_network.main.name
-  address_prefixes     = [var.vnet_subnets["public"][count.index]]
+  address_prefixes     = length(var.vnet_subnets["public"]) > 0 ? [var.vnet_subnets["public"][count.index]] : ["${join(".", slice(split(".", var.vnet_cidr), 0, 2))}.${51 + count.index}.0/24"]
 }
 
 # Private subnets
 resource "azurerm_subnet" "private" {
-  count                = length(var.vnet_subnets["private"])
+  count                = length(var.vnet_subnets["private"]) > 0 ? length(var.vnet_subnets["private"]) : var.vnet_zones
   name                 = "private-${count.index + 1}-${var.context_id}"
   resource_group_name  = azurerm_resource_group.main.name
   virtual_network_name = azurerm_virtual_network.main.name
-  address_prefixes     = [var.vnet_subnets["private"][count.index]]
+  address_prefixes     = length(var.vnet_subnets["private"]) > 0 ? [var.vnet_subnets["private"][count.index]] : ["${join(".", slice(split(".", var.vnet_cidr), 0, 2))}.${count.index * 16}.0/20"]
 }
 
 # Isolated subnets
 resource "azurerm_subnet" "isolated" {
-  count                = length(var.vnet_subnets["isolated"])
+  count                = length(var.vnet_subnets["isolated"]) > 0 ? length(var.vnet_subnets["isolated"]) : var.vnet_zones
   name                 = "isolated-${count.index + 1}-${var.context_id}"
   resource_group_name  = azurerm_resource_group.main.name
   virtual_network_name = azurerm_virtual_network.main.name
-  address_prefixes     = [var.vnet_subnets["isolated"][count.index]]
+  address_prefixes     = length(var.vnet_subnets["isolated"]) > 0 ? [var.vnet_subnets["isolated"][count.index]] : ["${join(".", slice(split(".", var.vnet_cidr), 0, 2))}.${48 + count.index}.0/24"]
 }
 
 #-----------------------------------------------------------------------------------------------------------------------
