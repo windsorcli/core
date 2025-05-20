@@ -93,7 +93,6 @@ No modules.
 | <a name="input_sku_tier"></a> [sku\_tier](#input\_sku\_tier) | The SKU tier for the AKS cluster | `string` | `"Standard"` | no |
 | <a name="input_soft_delete_retention_days"></a> [soft\_delete\_retention\_days](#input\_soft\_delete\_retention\_days) | The number of days to retain the AKS cluster's key vault | `number` | `7` | no |
 | <a name="input_tags"></a> [tags](#input\_tags) | Tags to apply to the resources | `map(string)` | `{}` | no |
-| <a name="input_temporary_name_for_rotation"></a> [temporary\_name\_for\_rotation](#input\_temporary\_name\_for\_rotation) | Temporary name for node pool rotation | `string` | `null` | no |
 | <a name="input_vnet_module_name"></a> [vnet\_module\_name](#input\_vnet\_module\_name) | Name on the VNET module | `string` | `"network"` | no |
 | <a name="input_vnet_subnet_id"></a> [vnet\_subnet\_id](#input\_vnet\_subnet\_id) | ID of the subnet | `string` | `null` | no |
 | <a name="input_workload_autoscaler_profile"></a> [workload\_autoscaler\_profile](#input\_workload\_autoscaler\_profile) | Configuration for the AKS cluster's workload autoscaler | <pre>object({<br/>    keda_enabled                    = bool<br/>    vertical_pod_autoscaler_enabled = bool<br/>  })</pre> | <pre>{<br/>  "keda_enabled": false,<br/>  "vertical_pod_autoscaler_enabled": false<br/>}</pre> | no |
