@@ -68,7 +68,7 @@ resource "azurerm_subnet" "public" {
   name                 = "public-${count.index + 1}-${var.context_id}"
   resource_group_name  = azurerm_resource_group.main.name
   virtual_network_name = azurerm_virtual_network.main.name
-  address_prefixes     = length(var.vnet_subnets["public"]) > 0 ? [var.vnet_subnets["public"][count.index]] : ["${join(".", slice(split(".", var.vnet_cidr), 0, 2))}.${count.index + 1}.0/24"]
+  address_prefixes     = length(var.vnet_subnets["public"]) > 0 ? [var.vnet_subnets["public"][count.index]] : ["${join(".", slice(split(".", var.vnet_cidr), 0, 2))}.${51 + count.index}.0/24"]
 }
 
 # Private subnets
@@ -77,7 +77,7 @@ resource "azurerm_subnet" "private" {
   name                 = "private-${count.index + 1}-${var.context_id}"
   resource_group_name  = azurerm_resource_group.main.name
   virtual_network_name = azurerm_virtual_network.main.name
-  address_prefixes     = length(var.vnet_subnets["private"]) > 0 ? [var.vnet_subnets["private"][count.index]] : ["${join(".", slice(split(".", var.vnet_cidr), 0, 2))}.1${count.index + 1}.0/24"]
+  address_prefixes     = length(var.vnet_subnets["private"]) > 0 ? [var.vnet_subnets["private"][count.index]] : ["${join(".", slice(split(".", var.vnet_cidr), 0, 2))}.${count.index * 16}.0/20"]
 }
 
 # Isolated subnets
@@ -86,7 +86,7 @@ resource "azurerm_subnet" "isolated" {
   name                 = "isolated-${count.index + 1}-${var.context_id}"
   resource_group_name  = azurerm_resource_group.main.name
   virtual_network_name = azurerm_virtual_network.main.name
-  address_prefixes     = length(var.vnet_subnets["isolated"]) > 0 ? [var.vnet_subnets["isolated"][count.index]] : ["${join(".", slice(split(".", var.vnet_cidr), 0, 2))}.2${count.index + 1}.0/24"]
+  address_prefixes     = length(var.vnet_subnets["isolated"]) > 0 ? [var.vnet_subnets["isolated"][count.index]] : ["${join(".", slice(split(".", var.vnet_cidr), 0, 2))}.${48 + count.index}.0/24"]
 }
 
 #-----------------------------------------------------------------------------------------------------------------------
@@ -127,7 +127,7 @@ resource "azurerm_nat_gateway_public_ip_association" "main" {
 
 # Associate NAT Gateway with private subnet
 resource "azurerm_subnet_nat_gateway_association" "private" {
-  count          = var.vnet_zones
+  count          = var.enable_nat_gateway ? var.vnet_zones : 0
   subnet_id      = azurerm_subnet.private[count.index].id
   nat_gateway_id = azurerm_nat_gateway.main[count.index].id
 }

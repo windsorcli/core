@@ -218,3 +218,23 @@ run "config_file_created" {
     error_message = "Kubeconfig file should be generated when context path is provided"
   }
 }
+
+run "network_configuration" {
+  command = plan
+
+  variables {
+    context_id     = "test"
+    service_cidr   = "10.0.0.0/16"
+    dns_service_ip = "10.0.0.10"
+  }
+
+  assert {
+    condition     = azurerm_kubernetes_cluster.main.network_profile[0].service_cidr == "10.0.0.0/16"
+    error_message = "Service CIDR should match input value"
+  }
+
+  assert {
+    condition     = azurerm_kubernetes_cluster.main.network_profile[0].dns_service_ip == "10.0.0.10"
+    error_message = "DNS service IP should match input value"
+  }
+}

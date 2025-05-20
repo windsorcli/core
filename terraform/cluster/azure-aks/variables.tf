@@ -72,7 +72,7 @@ variable "default_node_pool" {
     name                         = "system"
     vm_size                      = "Standard_D2s_v3"
     os_disk_type                 = "Managed"
-    max_pods                     = 30
+    max_pods                     = 110
     host_encryption_enabled      = true
     min_count                    = 1
     max_count                    = 3
@@ -100,7 +100,7 @@ variable "autoscaled_node_pool" {
     vm_size                 = "Standard_D2s_v3"
     mode                    = "User"
     os_disk_type            = "Managed"
-    max_pods                = 30
+    max_pods                = 110
     host_encryption_enabled = true
     min_count               = 1
     max_count               = 3
@@ -215,4 +215,22 @@ variable "tags" {
   description = "Tags to apply to the resources"
   type        = map(string)
   default     = {}
+}
+
+variable "service_cidr" {
+  description = "CIDR block for Kubernetes services"
+  type        = string
+  default     = "10.96.0.0/16"
+}
+
+variable "dns_service_ip" {
+  description = "IP address for Kubernetes DNS service"
+  type        = string
+  default     = "10.96.0.10"
+}
+
+variable "endpoint_private_access" {
+  description = "Whether to enable private access to the Kubernetes API server"
+  type        = bool
+  default     = false
 }

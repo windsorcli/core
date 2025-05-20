@@ -5,7 +5,7 @@
 # kubernetes_version = "1.33.1"
 
 # The talos version to deploy.
-# talos_version = "1.10.1"
+# talos_version = "1.10.2"
 
 # The name of the cluster.
 cluster_name = "talos"
@@ -32,12 +32,16 @@ common_config_patches = <<EOF
     "certSANs":
     - "localhost"
     - "127.0.0.1"
+    - "controlplane-1"
+    - "controlplane-1.test"
   "extraManifests":
   - "https://raw.githubusercontent.com/alex1989hu/kubelet-serving-cert-approver/v0.8.7/deploy/standalone-install.yaml"
 "machine":
   "certSANs":
   - "localhost"
   - "127.0.0.1"
+  - "controlplane-1"
+  - "controlplane-1.test"
   "kubelet":
     "extraArgs":
       "rotate-server-certificates": "true"

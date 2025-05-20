@@ -9,8 +9,9 @@ run "minimal_configuration" {
   command = plan
 
   variables {
-    context_id = "test"
-    location   = "eastus2"
+    context_id     = "test"
+    location       = "eastus2"
+    container_name = "tfstate-test"
   }
 
   assert {
@@ -112,9 +113,10 @@ run "backend_config_generation" {
   command = plan
 
   variables {
-    context_id   = "test"
-    location     = "eastus2"
-    context_path = "test"
+    context_id     = "test"
+    location       = "eastus2"
+    context_path   = "test"
+    container_name = "tfstate-test"
   }
 
   assert {
@@ -139,9 +141,10 @@ run "backend_config_without_context_path" {
   command = plan
 
   variables {
-    context_id   = "test-nopath"
-    location     = "eastus2"
-    context_path = ""
+    context_id     = "test-nopath"
+    location       = "eastus2"
+    context_path   = ""
+    container_name = "tfstate-test-nopath"
   }
 
   assert {

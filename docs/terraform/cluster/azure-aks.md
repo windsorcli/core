@@ -1,15 +1,36 @@
+# Azure AKS Module
+
+This module creates an Azure Kubernetes Service (AKS) cluster with configurable node pools, networking, and security settings.
+
+## Prerequisites
+
+The following features must be enabled in your Azure subscription before using this module:
+
+- EncryptionAtHost feature for Microsoft.Compute provider
+  ```bash
+  az feature register --namespace Microsoft.Compute --name EncryptionAtHost
+  az provider register --namespace Microsoft.Compute
+  ```
+
+### Subscription Requirements
+
+This module requires a paid Azure subscription. Free tier subscriptions are not supported due to:
+- Insufficient vCPU quotas
+- Restricted VM sizes
+- Limited node pool operations
+
 ## Requirements
 
 | Name | Version |
 |------|---------|
 | <a name="requirement_terraform"></a> [terraform](#requirement\_terraform) | >=1.8 |
-| <a name="requirement_azurerm"></a> [azurerm](#requirement\_azurerm) | ~> 4.28.0 |
+| <a name="requirement_azurerm"></a> [azurerm](#requirement\_azurerm) | ~> 4.29.0 |
 
 ## Providers
 
 | Name | Version |
 |------|---------|
-| <a name="provider_azurerm"></a> [azurerm](#provider\_azurerm) | 4.28.0 |
+| <a name="provider_azurerm"></a> [azurerm](#provider\_azurerm) | 4.29.0 |
 | <a name="provider_local"></a> [local](#provider\_local) | 2.5.3 |
 | <a name="provider_random"></a> [random](#provider\_random) | 3.7.2 |
 | <a name="provider_time"></a> [time](#provider\_time) | 0.13.1 |
@@ -50,12 +71,14 @@ No modules.
 | <a name="input_additional_cluster_identity_ids"></a> [additional\_cluster\_identity\_ids](#input\_additional\_cluster\_identity\_ids) | Additional user assigned identity IDs for the AKS cluster | `list(string)` | `[]` | no |
 | <a name="input_auto_scaler_profile"></a> [auto\_scaler\_profile](#input\_auto\_scaler\_profile) | Configuration for the AKS cluster's auto-scaler | <pre>object({<br/>    balance_similar_node_groups      = bool<br/>    max_graceful_termination_sec     = number<br/>    scale_down_delay_after_add       = string<br/>    scale_down_delay_after_delete    = string<br/>    scale_down_delay_after_failure   = string<br/>    scan_interval                    = string<br/>    scale_down_unneeded              = string<br/>    scale_down_unready               = string<br/>    scale_down_utilization_threshold = string<br/>  })</pre> | <pre>{<br/>  "balance_similar_node_groups": true,<br/>  "max_graceful_termination_sec": 600,<br/>  "scale_down_delay_after_add": "10m",<br/>  "scale_down_delay_after_delete": "10s",<br/>  "scale_down_delay_after_failure": "3m",<br/>  "scale_down_unneeded": "10m",<br/>  "scale_down_unready": "20m",<br/>  "scale_down_utilization_threshold": "0.5",<br/>  "scan_interval": "10s"<br/>}</pre> | no |
 | <a name="input_automatic_upgrade_channel"></a> [automatic\_upgrade\_channel](#input\_automatic\_upgrade\_channel) | The automatic upgrade channel for the AKS cluster | `string` | `"stable"` | no |
-| <a name="input_autoscaled_node_pool"></a> [autoscaled\_node\_pool](#input\_autoscaled\_node\_pool) | Configuration for the autoscaled node pool | <pre>object({<br/>    enabled                 = bool<br/>    name                    = string<br/>    vm_size                 = string<br/>    mode                    = string<br/>    os_disk_type            = string<br/>    max_pods                = number<br/>    host_encryption_enabled = bool<br/>    min_count               = number<br/>    max_count               = number<br/>  })</pre> | <pre>{<br/>  "enabled": true,<br/>  "host_encryption_enabled": true,<br/>  "max_count": 3,<br/>  "max_pods": 30,<br/>  "min_count": 1,<br/>  "mode": "User",<br/>  "name": "autoscaled",<br/>  "os_disk_type": "Managed",<br/>  "vm_size": "Standard_D2s_v3"<br/>}</pre> | no |
+| <a name="input_autoscaled_node_pool"></a> [autoscaled\_node\_pool](#input\_autoscaled\_node\_pool) | Configuration for the autoscaled node pool | <pre>object({<br/>    enabled                 = bool<br/>    name                    = string<br/>    vm_size                 = string<br/>    mode                    = string<br/>    os_disk_type            = string<br/>    max_pods                = number<br/>    host_encryption_enabled = bool<br/>    min_count               = number<br/>    max_count               = number<br/>  })</pre> | <pre>{<br/>  "enabled": true,<br/>  "host_encryption_enabled": true,<br/>  "max_count": 3,<br/>  "max_pods": 110,<br/>  "min_count": 1,<br/>  "mode": "User",<br/>  "name": "autoscaled",<br/>  "os_disk_type": "Managed",<br/>  "vm_size": "Standard_D2s_v3"<br/>}</pre> | no |
 | <a name="input_azure_policy_enabled"></a> [azure\_policy\_enabled](#input\_azure\_policy\_enabled) | Whether to enable Azure Policy for the AKS cluster | `bool` | `true` | no |
 | <a name="input_cluster_name"></a> [cluster\_name](#input\_cluster\_name) | Name of the AKS cluster | `string` | `null` | no |
 | <a name="input_context_id"></a> [context\_id](#input\_context\_id) | Context ID for the resources | `string` | `null` | no |
 | <a name="input_context_path"></a> [context\_path](#input\_context\_path) | The path to the context folder, where kubeconfig is stored | `string` | `""` | no |
-| <a name="input_default_node_pool"></a> [default\_node\_pool](#input\_default\_node\_pool) | Configuration for the default node pool | <pre>object({<br/>    name                         = string<br/>    vm_size                      = string<br/>    os_disk_type                 = string<br/>    max_pods                     = number<br/>    host_encryption_enabled      = bool<br/>    min_count                    = number<br/>    max_count                    = number<br/>    node_count                   = number<br/>    only_critical_addons_enabled = bool<br/>  })</pre> | <pre>{<br/>  "host_encryption_enabled": true,<br/>  "max_count": 3,<br/>  "max_pods": 30,<br/>  "min_count": 1,<br/>  "name": "system",<br/>  "node_count": 1,<br/>  "only_critical_addons_enabled": true,<br/>  "os_disk_type": "Managed",<br/>  "vm_size": "Standard_D2s_v3"<br/>}</pre> | no |
+| <a name="input_default_node_pool"></a> [default\_node\_pool](#input\_default\_node\_pool) | Configuration for the default node pool | <pre>object({<br/>    name                         = string<br/>    vm_size                      = string<br/>    os_disk_type                 = string<br/>    max_pods                     = number<br/>    host_encryption_enabled      = bool<br/>    min_count                    = number<br/>    max_count                    = number<br/>    node_count                   = number<br/>    only_critical_addons_enabled = bool<br/>  })</pre> | <pre>{<br/>  "host_encryption_enabled": true,<br/>  "max_count": 3,<br/>  "max_pods": 110,<br/>  "min_count": 1,<br/>  "name": "system",<br/>  "node_count": 1,<br/>  "only_critical_addons_enabled": true,<br/>  "os_disk_type": "Managed",<br/>  "vm_size": "Standard_D2s_v3"<br/>}</pre> | no |
+| <a name="input_dns_service_ip"></a> [dns\_service\_ip](#input\_dns\_service\_ip) | IP address for Kubernetes DNS service | `string` | `"10.96.0.10"` | no |
+| <a name="input_endpoint_private_access"></a> [endpoint\_private\_access](#input\_endpoint\_private\_access) | Whether to enable private access to the Kubernetes API server | `bool` | `false` | no |
 | <a name="input_expiration_date"></a> [expiration\_date](#input\_expiration\_date) | The expiration date for the AKS cluster's key vault | `string` | `null` | no |
 | <a name="input_kubernetes_version"></a> [kubernetes\_version](#input\_kubernetes\_version) | Version of Kubernetes to use | `string` | `"1.32"` | no |
 | <a name="input_local_account_disabled"></a> [local\_account\_disabled](#input\_local\_account\_disabled) | Whether to disable local accounts for the AKS cluster | `bool` | `false` | no |
@@ -66,6 +89,7 @@ No modules.
 | <a name="input_region"></a> [region](#input\_region) | Region for the resources | `string` | `"eastus"` | no |
 | <a name="input_resource_group_name"></a> [resource\_group\_name](#input\_resource\_group\_name) | Name of the resource group | `string` | `null` | no |
 | <a name="input_role_based_access_control_enabled"></a> [role\_based\_access\_control\_enabled](#input\_role\_based\_access\_control\_enabled) | Whether to enable role-based access control for the AKS cluster | `bool` | `true` | no |
+| <a name="input_service_cidr"></a> [service\_cidr](#input\_service\_cidr) | CIDR block for Kubernetes services | `string` | `"10.96.0.0/16"` | no |
 | <a name="input_sku_tier"></a> [sku\_tier](#input\_sku\_tier) | The SKU tier for the AKS cluster | `string` | `"Standard"` | no |
 | <a name="input_soft_delete_retention_days"></a> [soft\_delete\_retention\_days](#input\_soft\_delete\_retention\_days) | The number of days to retain the AKS cluster's key vault | `number` | `7` | no |
 | <a name="input_tags"></a> [tags](#input\_tags) | Tags to apply to the resources | `map(string)` | `{}` | no |
