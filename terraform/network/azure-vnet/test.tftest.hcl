@@ -58,9 +58,9 @@ run "full_configuration" {
     vnet_zones          = 2
     vnet_cidr           = "10.30.0.0/16"
     vnet_subnets = {
-      public   = [{ name = "public-1", address_prefixes = ["10.30.1.0/24"] }, { name = "public-2", address_prefixes = ["10.30.2.0/24"] }]
-      private  = [{ name = "private-1", address_prefixes = ["10.30.11.0/24"] }, { name = "private-2", address_prefixes = ["10.30.12.0/24"] }]
-      isolated = [{ name = "isolated-1", address_prefixes = ["10.30.21.0/24"] }, { name = "isolated-2", address_prefixes = ["10.30.22.0/24"] }]
+      public   = ["10.30.1.0/24", "10.30.2.0/24"]
+      private  = ["10.30.11.0/24", "10.30.12.0/24"]
+      isolated = ["10.30.21.0/24", "10.30.22.0/24"]
     }
     context_id = "test"
     name       = "custom"
@@ -115,5 +115,18 @@ run "nat_gateway_configuration" {
   assert {
     condition     = length(azurerm_subnet_nat_gateway_association.private) == 0
     error_message = "No NAT Gateway associations should be created when disabled"
+  }
+}
+
+# Tests validation rules for required variables
+run "multiple_invalid_inputs" {
+  command = plan
+
+  expect_failures = [
+    var.context_id,
+  ]
+
+  variables {
+    name = "windsor-vnet"
   }
 }

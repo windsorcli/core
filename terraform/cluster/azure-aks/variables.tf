@@ -224,13 +224,19 @@ variable "temporary_name_for_rotation" {
 }
 
 variable "service_cidr" {
-  description = "The CIDR block for Kubernetes services"
+  description = "CIDR block for Kubernetes services"
   type        = string
-  default     = "10.0.0.0/16"
+  default     = "10.96.0.0/16"
 }
 
 variable "dns_service_ip" {
-  description = "The IP address for the Kubernetes DNS service"
+  description = "IP address for Kubernetes DNS service"
   type        = string
-  default     = "10.0.0.10"
+  default     = "10.96.0.10"
+}
+
+variable "endpoint_private_access" {
+  description = "Whether to enable private access to the Kubernetes API server"
+  type        = bool
+  default     = false
 }

@@ -65,28 +65,28 @@ resource "azurerm_virtual_network" "main" {
 # Public subnets
 resource "azurerm_subnet" "public" {
   count                = length(var.vnet_subnets["public"]) > 0 ? length(var.vnet_subnets["public"]) : var.vnet_zones
-  name                 = length(var.vnet_subnets["public"]) > 0 ? "${var.vnet_subnets["public"][count.index].name}-${var.context_id}" : "public-${count.index + 1}-${var.context_id}"
+  name                 = length(var.vnet_subnets["public"]) > 0 ? "public-${count.index + 1}-${var.context_id}" : "public-${count.index + 1}-${var.context_id}"
   resource_group_name  = azurerm_resource_group.main.name
   virtual_network_name = azurerm_virtual_network.main.name
-  address_prefixes     = length(var.vnet_subnets["public"]) > 0 ? var.vnet_subnets["public"][count.index].address_prefixes : ["${join(".", slice(split(".", var.vnet_cidr), 0, 2))}.${count.index + 1}.0/24"]
+  address_prefixes     = length(var.vnet_subnets["public"]) > 0 ? [var.vnet_subnets["public"][count.index]] : ["${join(".", slice(split(".", var.vnet_cidr), 0, 2))}.${count.index + 1}.0/24"]
 }
 
 # Private subnets
 resource "azurerm_subnet" "private" {
   count                = length(var.vnet_subnets["private"]) > 0 ? length(var.vnet_subnets["private"]) : var.vnet_zones
-  name                 = length(var.vnet_subnets["private"]) > 0 ? "${var.vnet_subnets["private"][count.index].name}-${var.context_id}" : "private-${count.index + 1}-${var.context_id}"
+  name                 = length(var.vnet_subnets["private"]) > 0 ? "private-${count.index + 1}-${var.context_id}" : "private-${count.index + 1}-${var.context_id}"
   resource_group_name  = azurerm_resource_group.main.name
   virtual_network_name = azurerm_virtual_network.main.name
-  address_prefixes     = length(var.vnet_subnets["private"]) > 0 ? var.vnet_subnets["private"][count.index].address_prefixes : ["${join(".", slice(split(".", var.vnet_cidr), 0, 2))}.1${count.index + 1}.0/24"]
+  address_prefixes     = length(var.vnet_subnets["private"]) > 0 ? [var.vnet_subnets["private"][count.index]] : ["${join(".", slice(split(".", var.vnet_cidr), 0, 2))}.1${count.index + 1}.0/24"]
 }
 
 # Isolated subnets
 resource "azurerm_subnet" "isolated" {
   count                = length(var.vnet_subnets["isolated"]) > 0 ? length(var.vnet_subnets["isolated"]) : var.vnet_zones
-  name                 = length(var.vnet_subnets["isolated"]) > 0 ? "${var.vnet_subnets["isolated"][count.index].name}-${var.context_id}" : "isolated-${count.index + 1}-${var.context_id}"
+  name                 = length(var.vnet_subnets["isolated"]) > 0 ? "isolated-${count.index + 1}-${var.context_id}" : "isolated-${count.index + 1}-${var.context_id}"
   resource_group_name  = azurerm_resource_group.main.name
   virtual_network_name = azurerm_virtual_network.main.name
-  address_prefixes     = length(var.vnet_subnets["isolated"]) > 0 ? var.vnet_subnets["isolated"][count.index].address_prefixes : ["${join(".", slice(split(".", var.vnet_cidr), 0, 2))}.2${count.index + 1}.0/24"]
+  address_prefixes     = length(var.vnet_subnets["isolated"]) > 0 ? [var.vnet_subnets["isolated"][count.index]] : ["${join(".", slice(split(".", var.vnet_cidr), 0, 2))}.2${count.index + 1}.0/24"]
 }
 
 #-----------------------------------------------------------------------------------------------------------------------

@@ -77,7 +77,8 @@ No modules.
 | <a name="input_context_id"></a> [context\_id](#input\_context\_id) | Context ID for the resources | `string` | `null` | no |
 | <a name="input_context_path"></a> [context\_path](#input\_context\_path) | The path to the context folder, where kubeconfig is stored | `string` | `""` | no |
 | <a name="input_default_node_pool"></a> [default\_node\_pool](#input\_default\_node\_pool) | Configuration for the default node pool | <pre>object({<br/>    name                         = string<br/>    vm_size                      = string<br/>    os_disk_type                 = string<br/>    max_pods                     = number<br/>    host_encryption_enabled      = bool<br/>    min_count                    = number<br/>    max_count                    = number<br/>    node_count                   = number<br/>    only_critical_addons_enabled = bool<br/>  })</pre> | <pre>{<br/>  "host_encryption_enabled": true,<br/>  "max_count": 3,<br/>  "max_pods": 110,<br/>  "min_count": 1,<br/>  "name": "system",<br/>  "node_count": 1,<br/>  "only_critical_addons_enabled": true,<br/>  "os_disk_type": "Managed",<br/>  "vm_size": "Standard_D2s_v3"<br/>}</pre> | no |
-| <a name="input_dns_service_ip"></a> [dns\_service\_ip](#input\_dns\_service\_ip) | The IP address for the Kubernetes DNS service | `string` | `"10.0.0.10"` | no |
+| <a name="input_dns_service_ip"></a> [dns\_service\_ip](#input\_dns\_service\_ip) | IP address for Kubernetes DNS service | `string` | `"10.96.0.10"` | no |
+| <a name="input_endpoint_private_access"></a> [endpoint\_private\_access](#input\_endpoint\_private\_access) | Whether to enable private access to the Kubernetes API server | `bool` | `false` | no |
 | <a name="input_expiration_date"></a> [expiration\_date](#input\_expiration\_date) | The expiration date for the AKS cluster's key vault | `string` | `null` | no |
 | <a name="input_kubernetes_version"></a> [kubernetes\_version](#input\_kubernetes\_version) | Version of Kubernetes to use | `string` | `"1.32"` | no |
 | <a name="input_local_account_disabled"></a> [local\_account\_disabled](#input\_local\_account\_disabled) | Whether to disable local accounts for the AKS cluster | `bool` | `false` | no |
@@ -88,7 +89,7 @@ No modules.
 | <a name="input_region"></a> [region](#input\_region) | Region for the resources | `string` | `"eastus"` | no |
 | <a name="input_resource_group_name"></a> [resource\_group\_name](#input\_resource\_group\_name) | Name of the resource group | `string` | `null` | no |
 | <a name="input_role_based_access_control_enabled"></a> [role\_based\_access\_control\_enabled](#input\_role\_based\_access\_control\_enabled) | Whether to enable role-based access control for the AKS cluster | `bool` | `true` | no |
-| <a name="input_service_cidr"></a> [service\_cidr](#input\_service\_cidr) | The CIDR block for Kubernetes services | `string` | `"10.0.0.0/16"` | no |
+| <a name="input_service_cidr"></a> [service\_cidr](#input\_service\_cidr) | CIDR block for Kubernetes services | `string` | `"10.96.0.0/16"` | no |
 | <a name="input_sku_tier"></a> [sku\_tier](#input\_sku\_tier) | The SKU tier for the AKS cluster | `string` | `"Standard"` | no |
 | <a name="input_soft_delete_retention_days"></a> [soft\_delete\_retention\_days](#input\_soft\_delete\_retention\_days) | The number of days to retain the AKS cluster's key vault | `number` | `7` | no |
 | <a name="input_tags"></a> [tags](#input\_tags) | Tags to apply to the resources | `map(string)` | `{}` | no |

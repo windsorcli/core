@@ -3,6 +3,10 @@ variable "context_id" {
   description = "Context ID for the resources"
   type        = string
   default     = null
+  validation {
+    condition     = var.context_id != null && var.context_id != ""
+    error_message = "context_id must be provided and cannot be empty."
+  }
 }
 
 variable "region" {
@@ -36,53 +40,23 @@ variable "vnet_cidr" {
 }
 
 variable "vnet_subnets" {
-  description = "Map of subnet configurations"
-  type = map(list(object({
-    name             = string
-    address_prefixes = list(string)
-  })))
+  description = "Subnets to create in the VNET"
+  type        = map(list(string))
   default = {
     private = [
-      {
-        name             = "private-1"
-        address_prefixes = ["10.0.0.0/20"] # 10.0.0.0 - 10.0.15.255
-      },
-      {
-        name             = "private-2"
-        address_prefixes = ["10.0.16.0/20"] # 10.0.16.0 - 10.0.31.255
-      },
-      {
-        name             = "private-3"
-        address_prefixes = ["10.0.32.0/20"] # 10.0.32.0 - 10.0.47.255
-      }
+      "10.0.0.0/20",  # 10.0.0.0 - 10.0.15.255
+      "10.0.16.0/20", # 10.0.16.0 - 10.0.31.255
+      "10.0.32.0/20"  # 10.0.32.0 - 10.0.47.255
     ]
     isolated = [
-      {
-        name             = "isolated-1"
-        address_prefixes = ["10.0.48.0/24"] # 10.0.48.0 - 10.0.48.255
-      },
-      {
-        name             = "isolated-2"
-        address_prefixes = ["10.0.49.0/24"] # 10.0.49.0 - 10.0.49.255
-      },
-      {
-        name             = "isolated-3"
-        address_prefixes = ["10.0.50.0/24"] # 10.0.50.0 - 10.0.50.255
-      }
+      "10.0.48.0/24", # 10.0.48.0 - 10.0.48.255
+      "10.0.49.0/24", # 10.0.49.0 - 10.0.49.255
+      "10.0.50.0/24"  # 10.0.50.0 - 10.0.50.255
     ]
     public = [
-      {
-        name             = "public-1"
-        address_prefixes = ["10.0.51.0/24"] # 10.0.51.0 - 10.0.51.255
-      },
-      {
-        name             = "public-2"
-        address_prefixes = ["10.0.52.0/24"] # 10.0.52.0 - 10.0.52.255
-      },
-      {
-        name             = "public-3"
-        address_prefixes = ["10.0.53.0/24"] # 10.0.53.0 - 10.0.53.255
-      }
+      "10.0.51.0/24", # 10.0.51.0 - 10.0.51.255
+      "10.0.52.0/24", # 10.0.52.0 - 10.0.52.255
+      "10.0.53.0/24"  # 10.0.53.0 - 10.0.53.255
     ]
   }
 }
