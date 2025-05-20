@@ -15,3 +15,5 @@ spec:
         kind: HelmRepository
         name: metrics-server
         namespace: system-gitops
+  values:
+    args: []
