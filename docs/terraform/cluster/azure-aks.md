@@ -57,7 +57,6 @@ No modules.
 | [azurerm_role_assignment.azurerm_disk_encryption_set_key_vault_access](https://registry.terraform.io/providers/hashicorp/azurerm/latest/docs/resources/role_assignment) | resource |
 | [azurerm_role_assignment.control_plane_managed_identity_operator_on_kubelet](https://registry.terraform.io/providers/hashicorp/azurerm/latest/docs/resources/role_assignment) | resource |
 | [azurerm_role_assignment.des_reader](https://registry.terraform.io/providers/hashicorp/azurerm/latest/docs/resources/role_assignment) | resource |
-| [azurerm_user_assigned_identity.cluster](https://registry.terraform.io/providers/hashicorp/azurerm/latest/docs/resources/user_assigned_identity) | resource |
 | [local_file.kube_config](https://registry.terraform.io/providers/hashicorp/local/latest/docs/resources/file) | resource |
 | [random_string.key](https://registry.terraform.io/providers/hashicorp/random/latest/docs/resources/string) | resource |
 | [time_static.expiry](https://registry.terraform.io/providers/hashicorp/time/latest/docs/resources/static) | resource |
