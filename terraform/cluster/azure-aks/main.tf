@@ -276,48 +276,22 @@ resource "azurerm_kubernetes_cluster" "main" {
   }
 
   identity {
-    type         = length(var.additional_cluster_identity_ids) > 0 ? "SystemAssigned, UserAssigned" : "SystemAssigned"
-    identity_ids = var.additional_cluster_identity_ids
+    type         = length(var.user_assigned_identity_ids) > 0 ? "UserAssigned" : "SystemAssigned"
+    identity_ids = var.user_assigned_identity_ids
   }
 
-  kubelet_identity {
-    client_id                 = length(var.additional_cluster_identity_ids) > 0 ? var.additional_cluster_identity_ids[0] : null
-    user_assigned_identity_id = length(var.additional_cluster_identity_ids) > 0 ? var.additional_cluster_identity_ids[0] : null
+  dynamic "kubelet_identity" {
+    for_each = var.kubelet_user_assigned_identity_id != null ? [1] : []
+    content {
+      client_id                 = var.kubelet_client_id
+      object_id                 = var.kubelet_object_id
+      user_assigned_identity_id = var.kubelet_user_assigned_identity_id
+    }
   }
 
   tags = merge({
     Name = local.cluster_name
   }, local.tags)
-}
-
-resource "azurerm_role_assignment" "aks_vmss_contributor" {
-  scope                = azurerm_resource_group.aks.id
-  role_definition_name = "Virtual Machine Contributor"
-  principal_id         = azurerm_kubernetes_cluster.main.identity[0].principal_id
-}
-
-resource "azurerm_role_assignment" "azurerm_disk_encryption_set_key_vault_access" {
-  scope                = azurerm_key_vault.key_vault.id
-  role_definition_name = "Key Vault Crypto Service Encryption User"
-  principal_id         = azurerm_kubernetes_cluster.main.identity[0].principal_id
-}
-
-resource "azurerm_role_assignment" "aks_network_contributor" {
-  scope                = azurerm_resource_group.aks.id
-  role_definition_name = "Network Contributor"
-  principal_id         = azurerm_kubernetes_cluster.main.identity[0].principal_id
-}
-
-resource "azurerm_role_assignment" "des_reader" {
-  scope                = azurerm_disk_encryption_set.main.id
-  role_definition_name = "Reader"
-  principal_id         = azurerm_kubernetes_cluster.main.identity[0].principal_id
-}
-
-resource "azurerm_role_assignment" "control_plane_managed_identity_operator_on_kubelet" {
-  scope                = azurerm_kubernetes_cluster.main.id
-  role_definition_name = "Managed Identity Operator"
-  principal_id         = azurerm_kubernetes_cluster.main.identity[0].principal_id
 }
 
 resource "azurerm_kubernetes_cluster_node_pool" "autoscaled" {

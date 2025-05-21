@@ -199,9 +199,9 @@ variable "expiration_date" {
   default     = null
 }
 
-variable "additional_cluster_identity_ids" {
+variable "user_assigned_identity_ids" {
   type        = list(string)
-  description = "Additional user assigned identity IDs for the AKS cluster"
+  description = "User assigned identity IDs for the AKS cluster. If provided, the cluster will use only user-assigned identities."
   default     = []
 }
 
@@ -233,4 +233,22 @@ variable "endpoint_private_access" {
   description = "Whether to enable private access to the Kubernetes API server"
   type        = bool
   default     = false
+}
+
+variable "kubelet_client_id" {
+  description = "Client ID of the user-assigned identity to use for the kubelet. If not provided, the cluster will use the system-assigned identity."
+  type        = string
+  default     = null
+}
+
+variable "kubelet_object_id" {
+  description = "Object ID of the user-assigned identity to use for the kubelet. If not provided, the cluster will use the system-assigned identity."
+  type        = string
+  default     = null
+}
+
+variable "kubelet_user_assigned_identity_id" {
+  description = "Resource ID of the user-assigned identity to use for the kubelet. If not provided, the cluster will use the system-assigned identity."
+  type        = string
+  default     = null
 }
