@@ -206,15 +206,6 @@ resource "azurerm_log_analytics_workspace" "aks_logs" {
 # AKS Cluster
 #-----------------------------------------------------------------------------------------------------------------------
 
-resource "azurerm_user_assigned_identity" "cluster" {
-  name                = "${var.name}-${var.context_id}"
-  location            = var.region
-  resource_group_name = azurerm_resource_group.aks.name
-  tags = merge({
-    Name = "${var.name}-${var.context_id}"
-  }, local.tags)
-}
-
 resource "azurerm_kubernetes_cluster" "main" {
   name                              = local.cluster_name
   location                          = azurerm_resource_group.aks.location
@@ -246,12 +237,12 @@ resource "azurerm_kubernetes_cluster" "main" {
     vnet_subnet_id               = coalesce(var.vnet_subnet_id, try(data.azurerm_subnet.private[0].id, null))
     orchestrator_version         = var.kubernetes_version
     only_critical_addons_enabled = var.default_node_pool.only_critical_addons_enabled
-    # checkov:skip=CKV_AZURE_226: we are using the managed disk type to reduce costs
 
+    # checkov:skip=CKV_AZURE_226: we are using the managed disk type to reduce costs
     os_disk_type            = var.default_node_pool.os_disk_type
     host_encryption_enabled = var.default_node_pool.host_encryption_enabled
-    # checkov:skip=CKV_AZURE_168: This is set in the variable by default to 50
 
+    # checkov:skip=CKV_AZURE_168: This is set in the variable by default to 50
     max_pods                    = var.default_node_pool.max_pods
     temporary_name_for_rotation = "rotate"
   }
@@ -285,22 +276,48 @@ resource "azurerm_kubernetes_cluster" "main" {
   }
 
   identity {
-    type = "UserAssigned"
-    identity_ids = concat(
-      [azurerm_user_assigned_identity.cluster.id],
-      var.additional_cluster_identity_ids
-    )
+    type         = length(var.additional_cluster_identity_ids) > 0 ? "SystemAssigned, UserAssigned" : "SystemAssigned"
+    identity_ids = var.additional_cluster_identity_ids
   }
 
   kubelet_identity {
-    client_id                 = azurerm_user_assigned_identity.cluster.client_id
-    object_id                 = azurerm_user_assigned_identity.cluster.principal_id
-    user_assigned_identity_id = azurerm_user_assigned_identity.cluster.id
+    client_id                 = length(var.additional_cluster_identity_ids) > 0 ? var.additional_cluster_identity_ids[0] : null
+    user_assigned_identity_id = length(var.additional_cluster_identity_ids) > 0 ? var.additional_cluster_identity_ids[0] : null
   }
 
   tags = merge({
     Name = local.cluster_name
   }, local.tags)
+}
+
+resource "azurerm_role_assignment" "aks_vmss_contributor" {
+  scope                = azurerm_resource_group.aks.id
+  role_definition_name = "Virtual Machine Contributor"
+  principal_id         = azurerm_kubernetes_cluster.main.identity[0].principal_id
+}
+
+resource "azurerm_role_assignment" "azurerm_disk_encryption_set_key_vault_access" {
+  scope                = azurerm_key_vault.key_vault.id
+  role_definition_name = "Key Vault Crypto Service Encryption User"
+  principal_id         = azurerm_kubernetes_cluster.main.identity[0].principal_id
+}
+
+resource "azurerm_role_assignment" "aks_network_contributor" {
+  scope                = azurerm_resource_group.aks.id
+  role_definition_name = "Network Contributor"
+  principal_id         = azurerm_kubernetes_cluster.main.identity[0].principal_id
+}
+
+resource "azurerm_role_assignment" "des_reader" {
+  scope                = azurerm_disk_encryption_set.main.id
+  role_definition_name = "Reader"
+  principal_id         = azurerm_kubernetes_cluster.main.identity[0].principal_id
+}
+
+resource "azurerm_role_assignment" "control_plane_managed_identity_operator_on_kubelet" {
+  scope                = azurerm_kubernetes_cluster.main.id
+  role_definition_name = "Managed Identity Operator"
+  principal_id         = azurerm_kubernetes_cluster.main.identity[0].principal_id
 }
 
 resource "azurerm_kubernetes_cluster_node_pool" "autoscaled" {
@@ -329,34 +346,4 @@ resource "azurerm_kubernetes_cluster_node_pool" "autoscaled" {
 resource "local_file" "kube_config" {
   content  = azurerm_kubernetes_cluster.main.kube_config_raw
   filename = local.kubeconfig_path
-}
-
-resource "azurerm_role_assignment" "aks_vmss_contributor" {
-  scope                = azurerm_resource_group.aks.id
-  role_definition_name = "Virtual Machine Contributor"
-  principal_id         = azurerm_user_assigned_identity.cluster.principal_id
-}
-
-resource "azurerm_role_assignment" "azurerm_disk_encryption_set_key_vault_access" {
-  scope                = azurerm_key_vault.key_vault.id
-  role_definition_name = "Key Vault Crypto Service Encryption User"
-  principal_id         = azurerm_user_assigned_identity.cluster.principal_id
-}
-
-resource "azurerm_role_assignment" "aks_network_contributor" {
-  scope                = azurerm_resource_group.aks.id
-  role_definition_name = "Network Contributor"
-  principal_id         = azurerm_user_assigned_identity.cluster.principal_id
-}
-
-resource "azurerm_role_assignment" "des_reader" {
-  scope                = azurerm_disk_encryption_set.main.id
-  role_definition_name = "Reader"
-  principal_id         = azurerm_user_assigned_identity.cluster.principal_id
-}
-
-resource "azurerm_role_assignment" "control_plane_managed_identity_operator_on_kubelet" {
-  scope                = azurerm_user_assigned_identity.cluster.id
-  role_definition_name = "Managed Identity Operator"
-  principal_id         = azurerm_user_assigned_identity.cluster.principal_id
 }
