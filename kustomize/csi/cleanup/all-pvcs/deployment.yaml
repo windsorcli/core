@@ -1,0 +1,136 @@
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: volume-cleanup
+  namespace: system-cleanup
+spec:
+  replicas: 1
+  progressDeadlineSeconds: 900
+  selector:
+    matchLabels:
+      app: volume-cleanup
+  template:
+    metadata:
+      labels:
+        app: volume-cleanup
+    spec:
+      serviceAccountName: volume-cleanup
+      volumes:
+      - name: completion
+        emptyDir: {}
+      initContainers:
+      - name: cleanup
+        # renovate: datasource=docker depName=kubectl package=bitnami/kubectl
+        image: bitnami/kubectl:1.33.1
+        env:
+        - name: RESOURCE_WAIT_TIMEOUT
+          value: "300"
+        - name: RESOURCE_CHECK_INTERVAL
+          value: "10"
+        resources:
+          limits:
+            cpu: "100m"
+            memory: "64Mi"
+          requests:
+            cpu: "50m"
+            memory: "32Mi"
+        volumeMounts:
+        - name: completion
+          mountPath: /tmp/cleanup
+        command:
+        - /bin/sh
+        - -c
+        - |
+          # First handle PVCs
+          echo "Processing PVCs..."
+          echo "Found PVCs:"
+          kubectl get pvc --all-namespaces -o name || exit 1
+          
+          # Delete all PVCs
+          echo "Deleting all PVCs..."
+          kubectl delete pvc --all --all-namespaces || exit 1
+          
+          # Wait for PVCs to be deleted
+          echo "Waiting for PVCs to be deleted..."
+          while true; do
+            remaining=$(kubectl get pvc --all-namespaces --no-headers 2>/dev/null | wc -l)
+            if [ "$remaining" = "0" ]; then
+              echo "All PVCs deleted"
+              break
+            fi
+            echo "Still waiting for $remaining PVCs to be deleted..."
+            # Try to wait for each remaining PVC
+            for pvc in $(kubectl get pvc --all-namespaces -o name); do
+              kubectl wait --for=delete $pvc --timeout=${RESOURCE_WAIT_TIMEOUT}s || exit 1
+            done
+            sleep ${RESOURCE_CHECK_INTERVAL}
+          done
+          
+          # Now handle PVs based on their reclaim policy
+          echo "Processing PVs..."
+          echo "Found PVs:"
+          kubectl get pv -o name || exit 1
+          
+          # Process each PV
+          for pv in $(kubectl get pv -o name); do
+            reclaim_policy=$(kubectl get $pv -o jsonpath='{.spec.persistentVolumeReclaimPolicy}')
+            echo "Processing $pv with reclaim policy: $reclaim_policy"
+            
+            if [ "$reclaim_policy" = "Retain" ]; then
+              echo "PV $pv has Retain policy - removing finalizers to allow deletion"
+              kubectl patch $pv -p '{"metadata":{"finalizers":null}}' --type=merge || exit 1
+            fi
+            
+            kubectl delete $pv || exit 1
+            kubectl wait --for=delete $pv --timeout=${RESOURCE_WAIT_TIMEOUT}s || exit 1
+          done
+          
+          # Wait for PVs to be deleted
+          echo "Waiting for PVs to be deleted..."
+          while true; do
+            remaining=$(kubectl get pv --no-headers 2>/dev/null | wc -l)
+            if [ "$remaining" = "0" ]; then
+              echo "All PVs deleted"
+              break
+            fi
+            echo "Still waiting for $remaining PVs to be deleted..."
+            # Try to wait for each remaining PV
+            for pv in $(kubectl get pv -o name); do
+              kubectl wait --for=delete $pv --timeout=${RESOURCE_WAIT_TIMEOUT}s || exit 1
+            done
+            sleep ${RESOURCE_CHECK_INTERVAL}
+          done
+          
+          # Final verification
+          echo "Verifying cleanup..."
+          echo "Remaining PVCs:"
+          kubectl get pvc --all-namespaces -o name || exit 1
+          echo "Remaining PVs:"
+          kubectl get pv -o name || exit 1
+          echo "Volume cleanup completed successfully"
+          
+          # Create success file
+          touch /tmp/cleanup/success
+      containers:
+      - name: status
+        # renovate: datasource=docker depName=alpine package=alpine
+        image: alpine:3.19.1
+        resources:
+          limits:
+            cpu: "10m"
+            memory: "16Mi"
+          requests:
+            cpu: "10m"
+            memory: "16Mi"
+        volumeMounts:
+        - name: completion
+          mountPath: /tmp/cleanup
+        command:
+        - /bin/sh
+        - -c
+        - |
+          if [ ! -f /tmp/cleanup/success ]; then
+            exit 1
+          fi
+          sleep infinity
