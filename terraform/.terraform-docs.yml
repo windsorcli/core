@@ -1,4 +1,4 @@
-formatter: markdown
+formatter: markdown table
 
 recursive:
   enabled: true
@@ -7,7 +7,6 @@ recursive:
 
 sections:
   show:
-    - header
     - requirements
     - providers
     - inputs
@@ -15,8 +14,6 @@ sections:
     - resources
 
 content: |-
-  {{ .Header }}
-
   {{ .Requirements }}
 
   {{ .Providers }}
@@ -28,8 +25,8 @@ content: |-
   {{ .Resources }}
 
 output:
-  file: "docs/terraform/{{ dir .Path }}/{{ .Name }}.md"
-  mode: replace
+  file: "README.md"
+  mode: inject
 
 settings:
   anchor: true
