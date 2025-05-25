@@ -197,6 +197,7 @@ resource "aws_iam_role_policy_attachment" "node_group_AmazonEC2ContainerRegistry
 #-----------------------------------------------------------------------------------------------------------------------
 # Node Groups
 #-----------------------------------------------------------------------------------------------------------------------
+
 resource "aws_eks_node_group" "main" {
   for_each = var.node_groups
 
@@ -597,6 +598,9 @@ locals {
 
 resource "aws_eks_addon" "main" {
   for_each = var.addons
+  depends_on = [
+    aws_eks_node_group.main
+  ]
 
   cluster_name                = aws_eks_cluster.main.name
   addon_name                  = each.key
@@ -647,7 +651,6 @@ resource "null_resource" "create_kubeconfig_dir" {
   }
 }
 
-
 resource "local_sensitive_file" "kubeconfig" {
   count = local.kubeconfig_path != "" ? 1 : 0
 
@@ -661,6 +664,6 @@ resource "local_sensitive_file" "kubeconfig" {
   file_permission = "0600"
 
   lifecycle {
-    ignore_changes = [content] // Ignore changes to content to prevent unnecessary updates
+    ignore_changes = [content]
   }
 }

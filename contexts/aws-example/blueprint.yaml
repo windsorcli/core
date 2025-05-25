@@ -4,7 +4,7 @@ metadata:
   name: aws-example
   description: This blueprint outlines resources in the aws-example context
 repository:
-  url: https://github.com/windsorcli/core
+  url: ""
   ref:
     branch: main
   secretName: flux-system
@@ -12,11 +12,12 @@ sources:
 - name: core
   url: github.com/windsorcli/core
   ref:
-    branch: main
+    branch: aws-lifecycle
 terraform:
 - path: network/aws-vpc
 - path: cluster/aws-eks
 - path: gitops/flux
+  destroy: false
 kustomize:
 - name: telemetry-base
   path: telemetry/base
@@ -71,14 +72,6 @@ kustomize:
   components:
   - private-issuer/ca
   - public-issuer/selfsigned
-- name: gitops
-  path: gitops/flux
-  source: core
-  dependsOn:
-  - ingress-base
-  force: true
-  components:
-  - webhook
 - name: observability
   path: observability
   source: core

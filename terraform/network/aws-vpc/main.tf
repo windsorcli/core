@@ -6,6 +6,10 @@ terraform {
       source  = "hashicorp/aws"
       version = "5.97.0"
     }
+    random = {
+      source  = "hashicorp/random"
+      version = "3.6.0"
+    }
   }
 }
 
@@ -57,9 +61,16 @@ resource "aws_flow_log" "vpc_flow_logs" {
   iam_role_arn         = aws_iam_role.vpc_flow_logs[0].arn
 }
 
+resource "random_string" "log_group_suffix" {
+  count   = var.enable_flow_logs ? 1 : 0
+  length  = 3
+  special = false
+  upper   = false
+}
+
 resource "aws_cloudwatch_log_group" "vpc_flow_logs" {
   count             = var.enable_flow_logs ? 1 : 0
-  name              = "/aws/vpc-flow-logs/${local.name}"
+  name              = "/aws/vpc-flow-logs/${local.name}-${random_string.log_group_suffix[0].result}"
   retention_in_days = 365
   kms_key_id        = var.create_flow_logs_kms_key ? aws_kms_key.cloudwatch_logs_encryption[0].arn : var.flow_logs_kms_key_id
 
