@@ -67,7 +67,7 @@ variable "node_groups" {
   }))
   default = {
     default = {
-      instance_types = ["t3.medium"]
+      instance_types = ["t3.xlarge"]
       min_size       = 1
       max_size       = 3
       desired_size   = 2
