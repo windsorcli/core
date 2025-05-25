@@ -74,6 +74,12 @@ variable "flow_logs_kms_key_id" {
   default     = null
 }
 
+variable "enable_cloudwatch_logs" {
+  description = "Whether to enable CloudWatch log group creation for VPC flow logs"
+  type        = bool
+  default     = true
+}
+
 variable "tags" {
   description = "Additional tags for all resources"
   type        = map(string)

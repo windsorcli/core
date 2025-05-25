@@ -13,6 +13,18 @@ terraform {
   }
 }
 
+provider "aws" {
+  default_tags {
+    tags = merge(
+      var.tags,
+      {
+        WindsorContextID = var.context_id
+        ManagedBy        = "Terraform"
+      }
+    )
+  }
+}
+
 data "aws_caller_identity" "current" {}
 
 data "aws_region" "current" {}
@@ -31,8 +43,7 @@ resource "aws_vpc" "main" {
   enable_dns_hostnames = true
 
   tags = {
-    Name             = local.name
-    WindsorContextID = var.context_id
+    Name = local.name
   }
 }
 
@@ -52,13 +63,18 @@ resource "aws_default_security_group" "default" {
 }
 
 # Enable VPC Flow Logs
-resource "aws_flow_log" "vpc_flow_logs" {
-  count                = var.enable_flow_logs ? 1 : 0
-  log_destination      = aws_cloudwatch_log_group.vpc_flow_logs[0].arn
-  log_destination_type = "cloud-watch-logs"
-  traffic_type         = "ALL"
-  vpc_id               = aws_vpc.main.id
-  iam_role_arn         = aws_iam_role.vpc_flow_logs[0].arn
+resource "aws_flow_log" "main" {
+  count                    = var.enable_cloudwatch_logs ? 1 : 0
+  log_destination_type     = "cloud-watch-logs"
+  log_destination          = aws_cloudwatch_log_group.vpc_flow_logs[0].arn
+  iam_role_arn             = aws_iam_role.vpc_flow_logs[0].arn
+  traffic_type             = "ALL"
+  vpc_id                   = aws_vpc.main.id
+  max_aggregation_interval = 60
+
+  tags = {
+    Name = "${local.name}-flow-logs"
+  }
 }
 
 resource "random_string" "log_group_suffix" {
@@ -69,17 +85,17 @@ resource "random_string" "log_group_suffix" {
 }
 
 resource "aws_cloudwatch_log_group" "vpc_flow_logs" {
-  count             = var.enable_flow_logs ? 1 : 0
-  name              = "/aws/vpc-flow-logs/${local.name}-${random_string.log_group_suffix[0].result}"
+  count             = var.enable_cloudwatch_logs ? 1 : 0
+  name              = "/aws/vpc/flow-logs/${local.name}"
   retention_in_days = 365
-  kms_key_id        = var.create_flow_logs_kms_key ? aws_kms_key.cloudwatch_logs_encryption[0].arn : var.flow_logs_kms_key_id
+  kms_key_id        = var.create_flow_logs_kms_key ? aws_kms_key.vpc_flow_logs[0].arn : var.flow_logs_kms_key_id
 
   tags = {
-    Name = "${local.name}-vpc-flow-logs"
+    Name = "${local.name}-flow-logs"
   }
 }
 
-resource "aws_kms_key" "cloudwatch_logs_encryption" {
+resource "aws_kms_key" "vpc_flow_logs" {
   count                   = var.create_flow_logs_kms_key ? 1 : 0
   description             = "KMS key for CloudWatch Logs encryption"
   deletion_window_in_days = 7
@@ -116,40 +132,56 @@ resource "aws_kms_key" "cloudwatch_logs_encryption" {
   })
 }
 
+resource "aws_kms_alias" "vpc_flow_logs" {
+  count         = var.create_flow_logs_kms_key ? 1 : 0
+  name          = "alias/${local.name}-flow-logs"
+  target_key_id = aws_kms_key.vpc_flow_logs[0].key_id
+}
+
 resource "aws_iam_role" "vpc_flow_logs" {
-  count = var.enable_flow_logs ? 1 : 0
+  count = var.enable_cloudwatch_logs ? 1 : 0
   name  = "${local.name}-vpc-flow-logs"
 
   assume_role_policy = jsonencode({
     Version = "2012-10-17"
-    Statement = [{
-      Action = "sts:AssumeRole"
-      Effect = "Allow"
-      Principal = {
-        Service = "vpc-flow-logs.amazonaws.com"
+    Statement = [
+      {
+        Action = "sts:AssumeRole"
+        Effect = "Allow"
+        Principal = {
+          Service = "vpc-flow-logs.amazonaws.com"
+        }
       }
-    }]
+    ]
   })
+
+  tags = {
+    Name = "${local.name}-vpc-flow-logs"
+  }
 }
 
 resource "aws_iam_role_policy" "vpc_flow_logs" {
-  count = var.enable_flow_logs ? 1 : 0
+  count = var.enable_cloudwatch_logs ? 1 : 0
   name  = "${local.name}-vpc-flow-logs"
   role  = aws_iam_role.vpc_flow_logs[0].id
 
   policy = jsonencode({
     Version = "2012-10-17"
-    Statement = [{
-      Action = [
-        "logs:CreateLogGroup",
-        "logs:CreateLogStream",
-        "logs:PutLogEvents",
-        "logs:DescribeLogGroups",
-        "logs:DescribeLogStreams"
-      ]
-      Effect   = "Allow"
-      Resource = "arn:aws:logs:*:*:log-group:/aws/vpc-flow-logs/*"
-    }]
+    Statement = [
+      {
+        Effect = "Allow"
+        Action = [
+          "logs:CreateLogGroup",
+          "logs:CreateLogStream",
+          "logs:PutLogEvents",
+          "logs:DescribeLogGroups",
+          "logs:DescribeLogStreams"
+        ]
+        Resource = [
+          "arn:aws:logs:${data.aws_region.current.name}:${data.aws_caller_identity.current.account_id}:log-group:/aws/vpc/flow-logs/${local.name}-*"
+        ]
+      }
+    ]
   })
 }
 
@@ -170,7 +202,6 @@ resource "aws_subnet" "public" {
 
   tags = {
     Name = "${local.name}-public-${data.aws_availability_zones.available.names[count.index]}"
-    Tier = "public"
   }
 }
 
@@ -185,7 +216,6 @@ resource "aws_subnet" "private" {
 
   tags = {
     Name = "${local.name}-private-${data.aws_availability_zones.available.names[count.index]}"
-    Tier = "private"
   }
 }
 
@@ -200,7 +230,6 @@ resource "aws_subnet" "isolated" {
 
   tags = {
     Name = "${local.name}-isolated-${data.aws_availability_zones.available.names[count.index]}"
-    Tier = "isolated"
   }
 }
 
