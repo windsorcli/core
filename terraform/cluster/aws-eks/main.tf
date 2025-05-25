@@ -235,6 +235,10 @@ resource "aws_eks_node_group" "main" {
     aws_iam_role_policy_attachment.node_group_AmazonEKS_CNI_Policy,
     aws_iam_role_policy_attachment.node_group_AmazonEC2ContainerRegistryReadOnly,
   ]
+
+  lifecycle {
+    create_before_destroy = true
+  }
 }
 
 resource "aws_launch_template" "node_group" {
@@ -324,6 +328,10 @@ resource "aws_eks_fargate_profile" "main" {
   }
 
   tags = lookup(each.value, "tags", {})
+
+  lifecycle {
+    create_before_destroy = true
+  }
 }
 
 #-----------------------------------------------------------------------------------------------------------------------
