@@ -1,0 +1,98 @@
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: ingress-cleanup
+  namespace: system-cleanup
+spec:
+  replicas: 1
+  progressDeadlineSeconds: 900
+  selector:
+    matchLabels:
+      app: ingress-cleanup
+  template:
+    metadata:
+      labels:
+        app: ingress-cleanup
+    spec:
+      serviceAccountName: ingress-cleanup
+      volumes:
+      - name: completion
+        emptyDir: {}
+      initContainers:
+      - name: cleanup
+        # renovate: datasource=docker depName=kubectl package=bitnami/kubectl
+        image: bitnami/kubectl:1.33.1
+        env:
+        - name: RESOURCE_WAIT_TIMEOUT
+          value: "300"
+        - name: RESOURCE_CHECK_INTERVAL
+          value: "10"
+        resources:
+          limits:
+            cpu: "100m"
+            memory: "64Mi"
+          requests:
+            cpu: "50m"
+            memory: "32Mi"
+        volumeMounts:
+        - name: completion
+          mountPath: /tmp/cleanup
+        command:
+        - /bin/sh
+        - -c
+        - |
+          echo "Processing Ingresses..."
+          echo "Found Ingresses:"
+          kubectl get ingress --all-namespaces -o name || exit 1
+          
+          # Delete all Ingresses
+          echo "Deleting all Ingresses..."
+          kubectl delete ingress --all --all-namespaces || exit 1
+          
+          # Wait for Ingresses to be deleted
+          echo "Waiting for Ingresses to be deleted..."
+          while true; do
+            remaining=$(kubectl get ingress --all-namespaces --no-headers 2>/dev/null | wc -l)
+            if [ "$remaining" = "0" ]; then
+              echo "All Ingresses deleted"
+              break
+            fi
+            echo "Still waiting for $remaining Ingresses to be deleted..."
+            # Try to wait for each remaining Ingress
+            for ingress in $(kubectl get ingress --all-namespaces -o name); do
+              kubectl wait --for=delete $ingress --timeout=${RESOURCE_WAIT_TIMEOUT}s || exit 1
+            done
+            sleep ${RESOURCE_CHECK_INTERVAL}
+          done
+          
+          # Final verification
+          echo "Verifying cleanup..."
+          echo "Remaining Ingresses:"
+          kubectl get ingress --all-namespaces -o name || exit 1
+          echo "Ingress cleanup completed successfully"
+          
+          # Create success file
+          touch /tmp/cleanup/success
+      containers:
+      - name: status
+        # renovate: datasource=docker depName=alpine package=alpine
+        image: alpine:3.21.3
+        resources:
+          limits:
+            cpu: "10m"
+            memory: "16Mi"
+          requests:
+            cpu: "10m"
+            memory: "16Mi"
+        volumeMounts:
+        - name: completion
+          mountPath: /tmp/cleanup
+        command:
+        - /bin/sh
+        - -c
+        - |
+          if [ ! -f /tmp/cleanup/success ]; then
+            exit 1
+          fi
+          sleep infinity 
