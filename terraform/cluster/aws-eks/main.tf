@@ -9,8 +9,21 @@ terraform {
   }
 }
 
+provider "aws" {
+  default_tags {
+    tags = merge(
+      var.tags,
+      {
+        WindsorContextID = var.context_id
+        ManagedBy        = "Terraform"
+      }
+    )
+  }
+}
+
 locals {
-  name = var.cluster_name != "" ? var.cluster_name : "cluster-${var.context_id}"
+  name        = var.cluster_name != "" ? var.cluster_name : "cluster-${var.context_id}"
+  kms_key_arn = var.enable_secrets_encryption ? (var.secrets_encryption_kms_key_id != null ? var.secrets_encryption_kms_key_id : (length(aws_kms_key.eks_encryption_key) > 0 ? aws_kms_key.eks_encryption_key[0].arn : null)) : null
 }
 
 #-----------------------------------------------------------------------------------------------------------------------
@@ -41,6 +54,23 @@ data "aws_region" "current" {}
 #-----------------------------------------------------------------------------------------------------------------------
 # EKS Cluster
 #-----------------------------------------------------------------------------------------------------------------------
+
+# Create CloudWatch log group for EKS control plane logs with proper tags
+resource "aws_cloudwatch_log_group" "eks_cluster" {
+  count             = var.enable_cloudwatch_logs ? 1 : 0
+  name              = "/aws/eks/${local.name}/cluster"
+  retention_in_days = 365
+  kms_key_id        = local.kms_key_arn
+
+  tags = merge(
+    var.tags,
+    {
+      Name             = "${local.name}-cluster-logs"
+      WindsorContextID = var.context_id
+    }
+  )
+}
+
 resource "aws_eks_cluster" "main" {
   # checkov:skip=CKV_AWS_38: Public access set via a variable.
   # checkov:skip=CKV_AWS_39: Public access set via a variable.
@@ -50,32 +80,35 @@ resource "aws_eks_cluster" "main" {
 
   vpc_config {
     subnet_ids              = data.aws_subnets.private.ids
-    endpoint_private_access = true
+    endpoint_private_access = var.endpoint_private_access
     endpoint_public_access  = var.endpoint_public_access
     security_group_ids      = [aws_security_group.cluster_api_access.id]
   }
 
-  # Enable secrets encryption using AWS KMS
-  encryption_config {
-    provider {
-      key_arn = aws_kms_key.eks_encryption_key.arn
-    }
-    resources = ["secrets"]
-  }
-
   # Enable control plane logging for all log types
-  enabled_cluster_log_types = [
+  enabled_cluster_log_types = var.enable_cloudwatch_logs ? [
     "api",
     "audit",
     "authenticator",
     "controllerManager",
     "scheduler"
-  ]
+  ] : []
+
+  dynamic "encryption_config" {
+    for_each = local.kms_key_arn != null ? [1] : []
+    content {
+      provider {
+        key_arn = local.kms_key_arn
+      }
+      resources = ["secrets"]
+    }
+  }
 
   depends_on = [
     aws_iam_role_policy_attachment.cluster_AmazonEKSClusterPolicy,
     aws_iam_role_policy_attachment.cluster_AmazonEKSVPCResourceController,
     aws_kms_key.eks_encryption_key,
+    aws_cloudwatch_log_group.eks_cluster
   ]
 }
 
@@ -94,6 +127,7 @@ resource "aws_security_group" "cluster_api_access" {
 }
 
 resource "aws_kms_key" "eks_encryption_key" {
+  count                   = var.enable_secrets_encryption && var.secrets_encryption_kms_key_id == null ? 1 : 0
   description             = "KMS key for EKS cluster ${local.name} secrets encryption"
   deletion_window_in_days = 7
   enable_key_rotation     = true
@@ -127,6 +161,12 @@ resource "aws_kms_key" "eks_encryption_key" {
       }
     ]
   })
+}
+
+resource "aws_kms_alias" "eks_encryption_key" {
+  count         = var.enable_secrets_encryption && var.secrets_encryption_kms_key_id == null ? 1 : 0
+  name          = "alias/${local.name}-eks-encryption"
+  target_key_id = aws_kms_key.eks_encryption_key[0].key_id
 }
 
 data "aws_caller_identity" "current" {}
@@ -638,6 +678,7 @@ resource "aws_eks_addon" "main" {
       role_arn        = local.addon_configuration[each.key].role_arn
       service_account = local.addon_configuration[each.key].service_account_name
     }
+
   }
   tags = local.addon_configuration[each.key].tags
 }
@@ -675,3 +716,4 @@ resource "local_sensitive_file" "kubeconfig" {
     ignore_changes = [content]
   }
 }
+

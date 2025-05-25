@@ -38,6 +38,12 @@ variable "endpoint_public_access" {
   default     = true
 }
 
+variable "endpoint_private_access" {
+  description = "Whether to enable private access to the EKS cluster."
+  type        = bool
+  default     = false
+}
+
 variable "cluster_api_access_cidr_block" {
   description = "The CIDR block for the cluster API access."
   type        = string
@@ -123,5 +129,37 @@ variable "addons" {
     eks-pod-identity-agent = {}
     coredns                = {}
     external-dns           = {}
+  }
+}
+
+variable "tags" {
+  description = "Additional tags to apply to all resources"
+  type        = map(string)
+  default     = {}
+}
+
+variable "enable_cloudwatch_logs" {
+  description = "Whether to enable CloudWatch log group creation for EKS control plane logs"
+  type        = bool
+  default     = true
+}
+
+variable "enable_secrets_encryption" {
+  description = "Whether to enable EKS secrets encryption at all. If false, no encryption_config is set. If true, use internal or external key."
+  type        = bool
+  default     = true
+  validation {
+    condition     = !(var.enable_secrets_encryption == false && var.secrets_encryption_kms_key_id != null)
+    error_message = "If enable_secrets_encryption is false, secrets_encryption_kms_key_id must be null."
+  }
+}
+
+variable "secrets_encryption_kms_key_id" {
+  description = "ID of an existing KMS key to use for EKS secrets encryption. If enable_secrets_encryption is true and this is null, an internal key is created."
+  type        = string
+  default     = null
+  validation {
+    condition     = var.secrets_encryption_kms_key_id == null || can(regex("^arn:aws:kms:[a-z0-9-]+:\\d{12}:key/[a-f0-9-]+$", var.secrets_encryption_kms_key_id))
+    error_message = "If secrets_encryption_kms_key_id is set, it must be a valid KMS key ARN."
   }
 }

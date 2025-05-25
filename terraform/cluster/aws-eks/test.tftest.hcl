@@ -52,14 +52,43 @@ run "minimal_configuration" {
     condition     = aws_eks_node_group.main["default"].scaling_config[0].desired_size == 2
     error_message = "Default node group should have 2 nodes"
   }
+
   assert {
-    condition     = contains(aws_eks_cluster.main.encryption_config[0].resources, "secrets")
-    error_message = "Secrets encryption should be enabled by default"
+    condition     = var.enable_secrets_encryption == true
+    error_message = "enable_secrets_encryption should default to true"
+  }
+
+  assert {
+    condition     = var.secrets_encryption_kms_key_id == null
+    error_message = "secrets_encryption_kms_key_id should default to null"
+  }
+
+  assert {
+    condition     = length(aws_kms_key.eks_encryption_key) == 1
+    error_message = "Internal KMS key should be created when enable_secrets_encryption is true and secrets_encryption_kms_key_id is null"
   }
 
   assert {
     condition     = aws_eks_cluster.main.vpc_config[0].endpoint_public_access == true
     error_message = "Public endpoint should be enabled by default"
+  }
+}
+
+run "minimal_configuration_cloudwatch_logs_disabled" {
+  command = plan
+
+  variables {
+    context_id = "test"
+    enable_cloudwatch_logs = false
+  }
+
+  assert {
+    condition     = length(aws_cloudwatch_log_group.eks_cluster) == 0
+    error_message = "No CloudWatch log group should be created when logging is disabled"
+  }
+  assert {
+    condition     = length(aws_eks_cluster.main.enabled_cluster_log_types) == 0
+    error_message = "No log types should be enabled when logging is disabled"
   }
 }
 
@@ -91,6 +120,9 @@ run "full_configuration" {
     endpoint_private_access       = true
     endpoint_public_access        = true
     cluster_api_access_cidr_block = "10.0.0.0/8"
+    enable_secrets_encryption     = true
+    create_secrets_encryption_kms_key = false
+    secrets_encryption_kms_key_id = "arn:aws:kms:us-west-2:123456789012:key/abcd1234-5678-90ab-cdef-1234567890ab"
   }
 
   assert {
@@ -174,6 +206,31 @@ run "full_configuration" {
     ])
     error_message = "Security group should allow port 443 for Kubernetes API access"
   }
+
+  assert {
+    condition     = var.enable_secrets_encryption == true
+    error_message = "enable_secrets_encryption should be true"
+  }
+
+  assert {
+    condition     = var.create_secrets_encryption_kms_key == false
+    error_message = "create_secrets_encryption_kms_key should be false"
+  }
+
+  assert {
+    condition     = var.secrets_encryption_kms_key_id == "arn:aws:kms:us-west-2:123456789012:key/abcd1234-5678-90ab-cdef-1234567890ab"
+    error_message = "secrets_encryption_kms_key_id should match input"
+  }
+
+  assert {
+    condition     = length(aws_kms_key.eks_encryption_key) == 0
+    error_message = "No internal KMS key should be created when create_secrets_encryption_kms_key is false"
+  }
+
+  assert {
+    condition     = aws_eks_cluster.main.encryption_config[0].provider[0].key_arn == var.secrets_encryption_kms_key_id
+    error_message = "Cluster encryption_config should use the provided external KMS key ARN"
+  }
 }
 
 # Tests the private cluster configuration, ensuring that enabling the endpoint_private_access
@@ -216,5 +273,26 @@ run "no_config_files" {
   assert {
     condition     = var.context_path == ""
     error_message = "Context path should be empty for this test"
+  }
+}
+
+# Test for using an existing KMS key for EKS secrets encryption
+run "use_existing_kms_key" {
+  command = plan
+
+  variables {
+    context_id              = "test"
+    enable_secrets_encryption = true
+    secrets_encryption_kms_key_id   = "arn:aws:kms:us-west-2:123456789012:key/abcd1234-5678-90ab-cdef-1234567890ab"
+  }
+
+  assert {
+    condition     = length(aws_kms_key.eks_encryption_key) == 0
+    error_message = "No KMS key should be created when using an existing key"
+  }
+
+  assert {
+    condition     = length(aws_eks_cluster.main.encryption_config) == 1 ? aws_eks_cluster.main.encryption_config[0].provider[0].key_arn == var.secrets_encryption_kms_key_id : true
+    error_message = "Cluster should use the provided KMS key ARN if encryption_config is present"
   }
 }
