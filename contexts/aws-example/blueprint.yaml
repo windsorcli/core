@@ -84,7 +84,7 @@ kustomize:
   path: observability
   source: core
   dependsOn:
-  - ingress-base
+  - ingress
   components:
   - grafana
   - grafana/ingress

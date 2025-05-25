@@ -75,7 +75,7 @@ kustomize:
   path: gitops/flux
   source: core
   dependsOn:
-  - ingress-base
+  - ingress
   force: true
   components:
   - webhook
@@ -83,7 +83,7 @@ kustomize:
   path: observability
   source: core
   dependsOn:
-  - ingress-base
+  - ingress
   components:
   - grafana
   - grafana/ingress

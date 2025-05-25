@@ -46,8 +46,8 @@ kustomize:
   components:
   - openebs
   - openebs/dynamic-localpv
-- name: ingress-base
-  path: ingress/base
+- name: ingress
+  path: ingress
   dependsOn:
   - pki-resources
   components:
@@ -84,6 +84,6 @@ kustomize:
 - name: gitops
   path: gitops/flux
   dependsOn:
-  - ingress-base
+  - ingress
   components:
   - webhook
