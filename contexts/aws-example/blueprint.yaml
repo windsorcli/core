@@ -44,6 +44,11 @@ kustomize:
   source: core
   dependsOn:
   - policy-base
+- name: csi
+  path: csi
+  source: core
+  cleanup:
+  - pvcs
 - name: ingress-base
   path: ingress/base
   source: core
@@ -54,6 +59,9 @@ kustomize:
   - nginx
   - nginx/flux-webhook
   - nginx/web
+  cleanup:
+  - loadbalancers
+  - ingresses
 - name: pki-base
   path: pki/base
   source: core

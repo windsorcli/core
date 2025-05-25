@@ -1,0 +1,97 @@
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: loadbalancer-cleanup
+  namespace: system-cleanup
+spec:
+  replicas: 1
+  progressDeadlineSeconds: 900
+  selector:
+    matchLabels:
+      app: loadbalancer-cleanup
+  template:
+    metadata:
+      labels:
+        app: loadbalancer-cleanup
+    spec:
+      serviceAccountName: loadbalancer-cleanup
+      volumes:
+      - name: status
+        emptyDir: {}
+      initContainers:
+      - name: cleanup
+        # renovate: datasource=docker depName=kubectl package=bitnami/kubectl
+        image: bitnami/kubectl:1.33.1
+        env:
+        - name: RESOURCE_WAIT_TIMEOUT
+          value: "300"
+        - name: RESOURCE_CHECK_INTERVAL
+          value: "10"
+        resources:
+          limits:
+            cpu: "100m"
+            memory: "64Mi"
+          requests:
+            cpu: "50m"
+            memory: "32Mi"
+        volumeMounts:
+        - name: status
+          mountPath: /tmp/status
+        command:
+        - /bin/sh
+        - -c
+        - |
+          echo "Processing LoadBalancer Services in system-ingress namespace..."
+          echo "Found LoadBalancer Services:"
+          kubectl get services -n system-ingress -o jsonpath='{.items[?(@.spec.type=="LoadBalancer")].metadata.name}' || exit 1
+          
+          # Delete all LoadBalancer Services
+          echo "Deleting all LoadBalancer Services..."
+          kubectl delete services -n system-ingress --field-selector spec.type=LoadBalancer || exit 1
+          
+          # Wait for LoadBalancer Services to be deleted
+          echo "Waiting for LoadBalancer Services to be deleted..."
+          while true; do
+            remaining=$(kubectl get services -n system-ingress --field-selector spec.type=LoadBalancer --no-headers 2>/dev/null | wc -l)
+            if [ "$remaining" = "0" ]; then
+              echo "All LoadBalancer Services deleted"
+              break
+            fi
+            echo "Still waiting for $remaining LoadBalancer Services to be deleted..."
+            # Try to wait for each remaining Service
+            for svc in $(kubectl get services -n system-ingress --field-selector spec.type=LoadBalancer -o name); do
+              kubectl wait --for=delete $svc --timeout=${RESOURCE_WAIT_TIMEOUT}s || exit 1
+            done
+            sleep ${RESOURCE_CHECK_INTERVAL}
+          done
+          
+          # Final verification
+          echo "Verifying cleanup..."
+          echo "Remaining LoadBalancer Services:"
+          kubectl get services -n system-ingress --field-selector spec.type=LoadBalancer -o name || exit 1
+          echo "LoadBalancer cleanup completed successfully"
+          
+          # Create success file
+          touch /tmp/status/success
+      containers:
+      - name: pause
+        image: gcr.io/google_containers/pause:3.2
+        resources:
+          limits:
+            cpu: "10m"
+            memory: "16Mi"
+          requests:
+            cpu: "10m"
+            memory: "16Mi"
+        volumeMounts:
+        - name: status
+          mountPath: /tmp/status
+        command:
+        - /bin/sh
+        - -c
+        - |
+          if [ ! -f /tmp/status/success ]; then
+            exit 1
+          fi
+          exec /pause 
