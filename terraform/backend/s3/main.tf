@@ -20,7 +20,8 @@ provider "aws" {
     tags = merge(
       var.tags,
       {
-        ManagedBy = "Terraform"
+        ManagedBy        = "Terraform"
+        WindsorContextID = var.context_id
       }
     )
   }
