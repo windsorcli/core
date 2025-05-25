@@ -44,8 +44,8 @@ run "minimal_configuration" {
   }
 
   assert {
-    condition     = aws_eks_node_group.main["default"].instance_types[0] == "t3.medium"
-    error_message = "Default node group should use t3.medium instance type"
+    condition     = aws_eks_node_group.main["default"].instance_types[0] == "t3.xlarge"
+    error_message = "Default node group should use t3.xlarge instance type"
   }
 
   assert {
