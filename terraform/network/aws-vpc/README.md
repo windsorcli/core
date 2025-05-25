@@ -25,11 +25,12 @@ No modules.
 | [aws_cloudwatch_log_group.vpc_flow_logs](https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudwatch_log_group) | resource |
 | [aws_default_security_group.default](https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/default_security_group) | resource |
 | [aws_eip.nat](https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/eip) | resource |
-| [aws_flow_log.vpc_flow_logs](https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/flow_log) | resource |
+| [aws_flow_log.main](https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/flow_log) | resource |
 | [aws_iam_role.vpc_flow_logs](https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/iam_role) | resource |
 | [aws_iam_role_policy.vpc_flow_logs](https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/iam_role_policy) | resource |
 | [aws_internet_gateway.main](https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/internet_gateway) | resource |
-| [aws_kms_key.cloudwatch_logs_encryption](https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/kms_key) | resource |
+| [aws_kms_alias.vpc_flow_logs](https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/kms_alias) | resource |
+| [aws_kms_key.vpc_flow_logs](https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/kms_key) | resource |
 | [aws_nat_gateway.main](https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/nat_gateway) | resource |
 | [aws_route53_zone.main](https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/route53_zone) | resource |
 | [aws_route_table.isolated](https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/route_table) | resource |
@@ -56,6 +57,7 @@ No modules.
 | <a name="input_context_id"></a> [context\_id](#input\_context\_id) | The windsor context id for this deployment | `string` | `""` | no |
 | <a name="input_create_flow_logs_kms_key"></a> [create\_flow\_logs\_kms\_key](#input\_create\_flow\_logs\_kms\_key) | Create a KMS key for flow logs | `bool` | `true` | no |
 | <a name="input_domain_name"></a> [domain\_name](#input\_domain\_name) | The domain name for the Route53 hosted zone | `string` | `null` | no |
+| <a name="input_enable_cloudwatch_logs"></a> [enable\_cloudwatch\_logs](#input\_enable\_cloudwatch\_logs) | Whether to enable CloudWatch log group creation for VPC flow logs | `bool` | `true` | no |
 | <a name="input_enable_dns_hostnames"></a> [enable\_dns\_hostnames](#input\_enable\_dns\_hostnames) | Enable DNS hostnames in the VPC | `bool` | `true` | no |
 | <a name="input_enable_dns_support"></a> [enable\_dns\_support](#input\_enable\_dns\_support) | Enable DNS support in the VPC | `bool` | `true` | no |
 | <a name="input_enable_flow_logs"></a> [enable\_flow\_logs](#input\_enable\_flow\_logs) | Enable flow logs for the VPC | `bool` | `true` | no |

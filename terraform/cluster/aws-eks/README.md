@@ -22,6 +22,7 @@ No modules.
 
 | Name | Type |
 |------|------|
+| [aws_cloudwatch_log_group.eks_cluster](https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudwatch_log_group) | resource |
 | [aws_eks_addon.main](https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/eks_addon) | resource |
 | [aws_eks_cluster.main](https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/eks_cluster) | resource |
 | [aws_eks_fargate_profile.main](https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/eks_fargate_profile) | resource |
@@ -47,6 +48,7 @@ No modules.
 | [aws_iam_role_policy_attachment.node_group_AmazonEKS_CNI_Policy](https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/iam_role_policy_attachment) | resource |
 | [aws_iam_role_policy_attachment.pod_identity_agent](https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/iam_role_policy_attachment) | resource |
 | [aws_iam_role_policy_attachment.vpc_cni](https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/iam_role_policy_attachment) | resource |
+| [aws_kms_alias.eks_encryption_key](https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/kms_alias) | resource |
 | [aws_kms_key.eks_encryption_key](https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/kms_key) | resource |
 | [aws_launch_template.node_group](https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/launch_template) | resource |
 | [aws_security_group.cluster_api_access](https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/security_group) | resource |
@@ -67,11 +69,16 @@ No modules.
 | <a name="input_cluster_name"></a> [cluster\_name](#input\_cluster\_name) | The name of the EKS cluster. | `string` | `""` | no |
 | <a name="input_context_id"></a> [context\_id](#input\_context\_id) | The windsor context id for this deployment | `string` | `""` | no |
 | <a name="input_context_path"></a> [context\_path](#input\_context\_path) | The path to the context folder, where kubeconfig is stored | `string` | `""` | no |
+| <a name="input_enable_cloudwatch_logs"></a> [enable\_cloudwatch\_logs](#input\_enable\_cloudwatch\_logs) | Whether to enable CloudWatch log group creation for EKS control plane logs | `bool` | `true` | no |
+| <a name="input_enable_secrets_encryption"></a> [enable\_secrets\_encryption](#input\_enable\_secrets\_encryption) | Whether to enable EKS secrets encryption at all. If false, no encryption\_config is set. If true, use internal or external key. | `bool` | `true` | no |
+| <a name="input_endpoint_private_access"></a> [endpoint\_private\_access](#input\_endpoint\_private\_access) | Whether to enable private access to the EKS cluster. | `bool` | `false` | no |
 | <a name="input_endpoint_public_access"></a> [endpoint\_public\_access](#input\_endpoint\_public\_access) | Whether to enable public access to the EKS cluster. | `bool` | `true` | no |
 | <a name="input_fargate_profiles"></a> [fargate\_profiles](#input\_fargate\_profiles) | Map of EKS Fargate profile definitions to create. | <pre>map(object({<br/>    selectors = list(object({<br/>      namespace = string<br/>      labels    = optional(map(string), {})<br/>    }))<br/>    tags = optional(map(string), {})<br/>  }))</pre> | `{}` | no |
 | <a name="input_kubernetes_version"></a> [kubernetes\_version](#input\_kubernetes\_version) | The kubernetes version to deploy. | `string` | `"1.32"` | no |
 | <a name="input_max_pods_per_node"></a> [max\_pods\_per\_node](#input\_max\_pods\_per\_node) | Maximum number of pods that can run on a single node | `number` | `64` | no |
 | <a name="input_node_groups"></a> [node\_groups](#input\_node\_groups) | Map of EKS managed node group definitions to create. | <pre>map(object({<br/>    instance_types = list(string)<br/>    min_size       = number<br/>    max_size       = number<br/>    desired_size   = number<br/>    disk_size      = optional(number, 64)<br/>    labels         = optional(map(string), {})<br/>    taints = optional(list(object({<br/>      key    = string<br/>      value  = string<br/>      effect = string<br/>    })), [])<br/>  }))</pre> | <pre>{<br/>  "default": {<br/>    "desired_size": 2,<br/>    "instance_types": [<br/>      "t3.xlarge"<br/>    ],<br/>    "max_size": 3,<br/>    "min_size": 1<br/>  }<br/>}</pre> | no |
+| <a name="input_secrets_encryption_kms_key_id"></a> [secrets\_encryption\_kms\_key\_id](#input\_secrets\_encryption\_kms\_key\_id) | ID of an existing KMS key to use for EKS secrets encryption. If enable\_secrets\_encryption is true and this is null, an internal key is created. | `string` | `null` | no |
+| <a name="input_tags"></a> [tags](#input\_tags) | Additional tags to apply to all resources | `map(string)` | `{}` | no |
 | <a name="input_vpc_cni_config"></a> [vpc\_cni\_config](#input\_vpc\_cni\_config) | Configuration for the VPC CNI addon | <pre>object({<br/>    enable_prefix_delegation = bool<br/>    warm_prefix_target       = number<br/>    warm_ip_target           = number<br/>    minimum_ip_target        = number<br/>  })</pre> | <pre>{<br/>  "enable_prefix_delegation": true,<br/>  "minimum_ip_target": 3,<br/>  "warm_ip_target": 1,<br/>  "warm_prefix_target": 1<br/>}</pre> | no |
 | <a name="input_vpc_id"></a> [vpc\_id](#input\_vpc\_id) | The ID of the VPC where the EKS cluster will be created. | `string` | `null` | no |
 
