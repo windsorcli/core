@@ -49,8 +49,8 @@ kustomize:
   source: core
   cleanup:
   - pvcs
-- name: ingress-base
-  path: ingress/base
+- name: ingress
+  path: ingress
   source: core
   dependsOn:
   - pki-resources

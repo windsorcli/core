@@ -134,7 +134,7 @@ resource "aws_kms_key" "eks_encryption_key" {
 
   policy = jsonencode({
     Version = "2012-10-17",
-    Statement = [
+    Statement = concat([
       {
         Sid    = "Enable IAM User Permissions",
         Effect = "Allow",
@@ -159,7 +159,24 @@ resource "aws_kms_key" "eks_encryption_key" {
         ],
         Resource = "*"
       }
-    ]
+      ],
+      var.enable_cloudwatch_logs ? [
+        {
+          Sid    = "Allow CloudWatch Logs to use the key",
+          Effect = "Allow",
+          Principal = {
+            Service = "logs.${data.aws_region.current.name}.amazonaws.com"
+          },
+          Action = [
+            "kms:Encrypt",
+            "kms:Decrypt",
+            "kms:ReEncrypt*",
+            "kms:GenerateDataKey*",
+            "kms:DescribeKey"
+          ],
+          Resource = "*"
+        }
+    ] : [])
   })
 }
 

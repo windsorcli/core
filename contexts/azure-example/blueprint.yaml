@@ -61,8 +61,8 @@ kustomize:
   components:
   - private-issuer/ca
   - public-issuer/selfsigned
-- name: ingress-base
-  path: ingress/base
+- name: ingress
+  path: ingress
   source: core
   dependsOn:
   - pki-resources

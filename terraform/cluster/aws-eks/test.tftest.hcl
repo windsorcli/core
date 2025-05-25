@@ -90,6 +90,18 @@ run "minimal_configuration_cloudwatch_logs_disabled" {
     condition     = length(aws_eks_cluster.main.enabled_cluster_log_types) == 0
     error_message = "No log types should be enabled when logging is disabled"
   }
+  assert {
+    condition     = length(aws_kms_key.eks_encryption_key) == 1
+    error_message = "KMS key should be created when enable_secrets_encryption is true"
+  }
+  assert {
+    condition     = length(jsondecode(aws_kms_key.eks_encryption_key[0].policy).Statement) == 2
+    error_message = "KMS key policy should only have 2 statements when CloudWatch logs are disabled"
+  }
+  assert {
+    condition     = alltrue([for s in jsondecode(aws_kms_key.eks_encryption_key[0].policy).Statement : s.Sid != "Allow CloudWatch Logs to use the key"])
+    error_message = "KMS key policy should not include CloudWatch Logs permissions when disabled"
+  }
 }
 
 # Tests a full configuration with all optional variables explicitly set,

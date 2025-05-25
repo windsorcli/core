@@ -202,6 +202,7 @@ resource "aws_subnet" "public" {
 
   tags = {
     Name = "${local.name}-public-${data.aws_availability_zones.available.names[count.index]}"
+    Tier = "public"
   }
 }
 
@@ -216,6 +217,7 @@ resource "aws_subnet" "private" {
 
   tags = {
     Name = "${local.name}-private-${data.aws_availability_zones.available.names[count.index]}"
+    Tier = "private"
   }
 }
 
@@ -230,6 +232,7 @@ resource "aws_subnet" "isolated" {
 
   tags = {
     Name = "${local.name}-isolated-${data.aws_availability_zones.available.names[count.index]}"
+    Tier = "isolated"
   }
 }
 
