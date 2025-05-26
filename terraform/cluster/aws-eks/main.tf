@@ -754,4 +754,3 @@ resource "local_sensitive_file" "kubeconfig" {
     ignore_changes = [content]
   }
 }
-
