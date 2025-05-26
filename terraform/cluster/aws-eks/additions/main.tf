@@ -65,7 +65,6 @@ resource "kubernetes_config_map" "external_dns" {
   }
 
   data = {
-    aws_role_arn = var.external_dns_role_arn != null ? var.external_dns_role_arn : "arn:aws:iam::${data.aws_caller_identity.current.account_id}:role/${local.cluster_name}-external-dns"
     aws_region   = var.route53_region != null ? var.route53_region : data.aws_region.current.name
     txt_owner_id = local.cluster_name
   }

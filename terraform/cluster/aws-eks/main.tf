@@ -687,9 +687,6 @@ resource "aws_eks_addon" "main" {
   addon_version               = local.addon_configuration[each.key].version
   resolve_conflicts_on_create = "OVERWRITE"
   resolve_conflicts_on_update = "OVERWRITE"
-  service_account_role_arn = (
-    each.key == "eks-pod-identity-agent" ? local.addon_configuration[each.key].role_arn : null
-  )
 
   # Configure VPC CNI to allow more max pods per node
   configuration_values = each.key == "vpc-cni" ? jsonencode({
@@ -710,9 +707,18 @@ resource "aws_eks_addon" "main" {
       role_arn        = local.addon_configuration[each.key].role_arn
       service_account = local.addon_configuration[each.key].service_account_name
     }
-
   }
+
   tags = local.addon_configuration[each.key].tags
+}
+
+resource "aws_eks_pod_identity_association" "external_dns" {
+  count = var.create_external_dns_role && !contains(keys(var.addons), "external-dns") ? 1 : 0
+
+  cluster_name    = aws_eks_cluster.main.name
+  namespace       = "system-dns"
+  service_account = "external-dns"
+  role_arn        = aws_iam_role.external_dns[0].arn
 }
 
 #-----------------------------------------------------------------------------------------------------------------------

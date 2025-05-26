@@ -17,6 +17,7 @@ terraform:
 - path: network/aws-vpc
 - path: cluster/aws-eks
 - path: cluster/aws-eks/additions
+  destroy: false
 - path: gitops/flux
   destroy: false
 kustomize:
