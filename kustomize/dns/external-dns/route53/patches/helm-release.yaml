@@ -8,10 +8,6 @@ spec:
   valuesFrom:
     - kind: ConfigMap
       name: external-dns
-      valuesKey: aws_role_arn
-      targetPath: aws.role_arn
-    - kind: ConfigMap
-      name: external-dns
       valuesKey: aws_region
       targetPath: aws.region
     - kind: ConfigMap
@@ -26,4 +22,8 @@ spec:
     policy: sync
     registry: txt
     domainFilters:
-      - ${DOMAIN} 
+      - ${DOMAIN}
+    serviceAccount:
+      create: true
+      name: external-dns
+      annotations: {} 
