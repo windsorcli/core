@@ -1,4 +1,3 @@
-
 #-----------------------------------------------------------------------------------------------------------------------
 # Variables
 #-----------------------------------------------------------------------------------------------------------------------
@@ -32,6 +31,11 @@ variable "kubernetes_version" {
   }
 }
 
+variable "create_external_dns_role" {
+  description = "Whether to create IAM role and policy for external-dns. Set to true if external-dns will be used in the cluster, even if not installed as an EKS addon."
+  type        = bool
+  default     = true
+}
 
 variable "endpoint_public_access" {
   description = "Whether to enable public access to the EKS cluster."
@@ -74,7 +78,7 @@ variable "node_groups" {
   }))
   default = {
     default = {
-      instance_types = ["t3.medium"]
+      instance_types = ["t3.xlarge"]
       min_size       = 1
       max_size       = 3
       desired_size   = 2
@@ -100,10 +104,9 @@ variable "vpc_cni_config" {
     enable_prefix_delegation = true
     warm_prefix_target       = 1
     warm_ip_target           = 1
-    minimum_ip_target        = 1
+    minimum_ip_target        = 3
   }
 }
-
 
 variable "fargate_profiles" {
   description = "Map of EKS Fargate profile definitions to create."
@@ -129,6 +132,37 @@ variable "addons" {
     aws-ebs-csi-driver     = {}
     eks-pod-identity-agent = {}
     coredns                = {}
-    external-dns           = {}
+  }
+}
+
+variable "tags" {
+  description = "Additional tags to apply to all resources"
+  type        = map(string)
+  default     = {}
+}
+
+variable "enable_cloudwatch_logs" {
+  description = "Whether to enable CloudWatch log group creation for EKS control plane logs"
+  type        = bool
+  default     = true
+}
+
+variable "enable_secrets_encryption" {
+  description = "Whether to enable EKS secrets encryption at all. If false, no encryption_config is set. If true, use internal or external key."
+  type        = bool
+  default     = true
+  validation {
+    condition     = !(var.enable_secrets_encryption == false && var.secrets_encryption_kms_key_id != null)
+    error_message = "If enable_secrets_encryption is false, secrets_encryption_kms_key_id must be null."
+  }
+}
+
+variable "secrets_encryption_kms_key_id" {
+  description = "ID of an existing KMS key to use for EKS secrets encryption. If enable_secrets_encryption is true and this is null, an internal key is created."
+  type        = string
+  default     = null
+  validation {
+    condition     = var.secrets_encryption_kms_key_id == null || can(regex("^arn:aws:kms:[a-z0-9-]+:\\d{12}:key/[a-f0-9-]+$", var.secrets_encryption_kms_key_id))
+    error_message = "If secrets_encryption_kms_key_id is set, it must be a valid KMS key ARN."
   }
 }
