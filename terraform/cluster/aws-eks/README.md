@@ -27,6 +27,7 @@ No modules.
 | [aws_eks_cluster.main](https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/eks_cluster) | resource |
 | [aws_eks_fargate_profile.main](https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/eks_fargate_profile) | resource |
 | [aws_eks_node_group.main](https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/eks_node_group) | resource |
+| [aws_eks_pod_identity_association.external_dns](https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/eks_pod_identity_association) | resource |
 | [aws_iam_policy.external_dns](https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/iam_policy) | resource |
 | [aws_iam_policy.pod_identity_agent](https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/iam_policy) | resource |
 | [aws_iam_role.cluster](https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/iam_role) | resource |
