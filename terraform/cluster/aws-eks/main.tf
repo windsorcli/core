@@ -741,7 +741,7 @@ resource "null_resource" "create_kubeconfig_dir" {
 resource "local_sensitive_file" "kubeconfig" {
   count = local.kubeconfig_path != "" ? 1 : 0
 
-  content = templatefile("${path.module}/templates/kubeconfig.tpl", {
+  content = templatefile("${path.module}/_templates/kubeconfig.tpl", {
     cluster_name     = aws_eks_cluster.main.name
     cluster_endpoint = aws_eks_cluster.main.endpoint
     cluster_ca       = aws_eks_cluster.main.certificate_authority[0].data
