@@ -9,8 +9,21 @@ terraform {
   }
 }
 
+provider "aws" {
+  default_tags {
+    tags = merge(
+      var.tags,
+      {
+        WindsorContextID = var.context_id
+        ManagedBy        = "Terraform"
+      }
+    )
+  }
+}
+
 locals {
-  name = var.cluster_name != "" ? var.cluster_name : "cluster-${var.context_id}"
+  name        = var.cluster_name != "" ? var.cluster_name : "cluster-${var.context_id}"
+  kms_key_arn = var.enable_secrets_encryption ? (var.secrets_encryption_kms_key_id != null ? var.secrets_encryption_kms_key_id : (length(aws_kms_key.eks_encryption_key) > 0 ? aws_kms_key.eks_encryption_key[0].arn : null)) : null
 }
 
 #-----------------------------------------------------------------------------------------------------------------------
@@ -41,6 +54,38 @@ data "aws_region" "current" {}
 #-----------------------------------------------------------------------------------------------------------------------
 # EKS Cluster
 #-----------------------------------------------------------------------------------------------------------------------
+
+# Create CloudWatch log group for EKS control plane logs with proper tags
+resource "aws_cloudwatch_log_group" "eks_cluster" {
+  count             = var.enable_cloudwatch_logs ? 1 : 0
+  name              = "/aws/eks/${local.name}/cluster"
+  retention_in_days = 365
+  kms_key_id        = local.kms_key_arn
+
+  tags = merge(
+    var.tags,
+    {
+      Name             = "${local.name}-cluster-logs"
+      WindsorContextID = var.context_id
+    }
+  )
+}
+
+resource "null_resource" "delete_eks_log_group" {
+  count = var.enable_cloudwatch_logs ? 1 : 0
+
+  triggers = {
+    log_group_name = aws_cloudwatch_log_group.eks_cluster[0].name
+  }
+
+  provisioner "local-exec" {
+    when    = destroy
+    command = "aws logs delete-log-group --log-group-name \"${self.triggers.log_group_name}\""
+  }
+
+  depends_on = [aws_eks_cluster.main]
+}
+
 resource "aws_eks_cluster" "main" {
   # checkov:skip=CKV_AWS_38: Public access set via a variable.
   # checkov:skip=CKV_AWS_39: Public access set via a variable.
@@ -50,32 +95,35 @@ resource "aws_eks_cluster" "main" {
 
   vpc_config {
     subnet_ids              = data.aws_subnets.private.ids
-    endpoint_private_access = true
+    endpoint_private_access = var.endpoint_private_access
     endpoint_public_access  = var.endpoint_public_access
     security_group_ids      = [aws_security_group.cluster_api_access.id]
   }
 
-  # Enable secrets encryption using AWS KMS
-  encryption_config {
-    provider {
-      key_arn = aws_kms_key.eks_encryption_key.arn
-    }
-    resources = ["secrets"]
-  }
-
   # Enable control plane logging for all log types
-  enabled_cluster_log_types = [
+  enabled_cluster_log_types = var.enable_cloudwatch_logs ? [
     "api",
     "audit",
     "authenticator",
     "controllerManager",
     "scheduler"
-  ]
+  ] : []
+
+  dynamic "encryption_config" {
+    for_each = local.kms_key_arn != null ? [1] : []
+    content {
+      provider {
+        key_arn = local.kms_key_arn
+      }
+      resources = ["secrets"]
+    }
+  }
 
   depends_on = [
     aws_iam_role_policy_attachment.cluster_AmazonEKSClusterPolicy,
     aws_iam_role_policy_attachment.cluster_AmazonEKSVPCResourceController,
     aws_kms_key.eks_encryption_key,
+    aws_cloudwatch_log_group.eks_cluster
   ]
 }
 
@@ -94,13 +142,14 @@ resource "aws_security_group" "cluster_api_access" {
 }
 
 resource "aws_kms_key" "eks_encryption_key" {
+  count                   = var.enable_secrets_encryption && var.secrets_encryption_kms_key_id == null ? 1 : 0
   description             = "KMS key for EKS cluster ${local.name} secrets encryption"
   deletion_window_in_days = 7
   enable_key_rotation     = true
 
   policy = jsonencode({
     Version = "2012-10-17",
-    Statement = [
+    Statement = concat([
       {
         Sid    = "Enable IAM User Permissions",
         Effect = "Allow",
@@ -125,8 +174,31 @@ resource "aws_kms_key" "eks_encryption_key" {
         ],
         Resource = "*"
       }
-    ]
+      ],
+      var.enable_cloudwatch_logs ? [
+        {
+          Sid    = "Allow CloudWatch Logs to use the key",
+          Effect = "Allow",
+          Principal = {
+            Service = "logs.${data.aws_region.current.name}.amazonaws.com"
+          },
+          Action = [
+            "kms:Encrypt",
+            "kms:Decrypt",
+            "kms:ReEncrypt*",
+            "kms:GenerateDataKey*",
+            "kms:DescribeKey"
+          ],
+          Resource = "*"
+        }
+    ] : [])
   })
+}
+
+resource "aws_kms_alias" "eks_encryption_key" {
+  count         = var.enable_secrets_encryption && var.secrets_encryption_kms_key_id == null ? 1 : 0
+  name          = "alias/${local.name}-eks-encryption"
+  target_key_id = aws_kms_key.eks_encryption_key[0].key_id
 }
 
 data "aws_caller_identity" "current" {}
@@ -197,6 +269,7 @@ resource "aws_iam_role_policy_attachment" "node_group_AmazonEC2ContainerRegistry
 #-----------------------------------------------------------------------------------------------------------------------
 # Node Groups
 #-----------------------------------------------------------------------------------------------------------------------
+
 resource "aws_eks_node_group" "main" {
   for_each = var.node_groups
 
@@ -234,6 +307,10 @@ resource "aws_eks_node_group" "main" {
     aws_iam_role_policy_attachment.node_group_AmazonEKS_CNI_Policy,
     aws_iam_role_policy_attachment.node_group_AmazonEC2ContainerRegistryReadOnly,
   ]
+
+  lifecycle {
+    create_before_destroy = true
+  }
 }
 
 resource "aws_launch_template" "node_group" {
@@ -323,6 +400,10 @@ resource "aws_eks_fargate_profile" "main" {
   }
 
   tags = lookup(each.value, "tags", {})
+
+  lifecycle {
+    create_before_destroy = true
+  }
 }
 
 #-----------------------------------------------------------------------------------------------------------------------
@@ -500,7 +581,7 @@ resource "aws_iam_role_policy_attachment" "pod_identity_agent" {
 #-----------------------------------------------------------------------------------------------------------------------
 
 resource "aws_iam_role" "external_dns" {
-  count = contains(keys(var.addons), "external-dns") ? 1 : 0
+  count = var.create_external_dns_role || contains(keys(var.addons), "external-dns") ? 1 : 0
   name  = "${local.name}-external-dns"
 
   assume_role_policy = jsonencode({
@@ -525,7 +606,7 @@ resource "aws_iam_policy" "external_dns" {
   # This policy is based on the official External DNS documentation for AWS
   # https://kubernetes-sigs.github.io/external-dns/v0.17.0/docs/tutorials/aws/#iam-policy
   # checkov:skip=CKV_AWS_355: This policy is straight from the External DNS documentation
-  count       = contains(keys(var.addons), "external-dns") ? 1 : 0
+  count       = var.create_external_dns_role || contains(keys(var.addons), "external-dns") ? 1 : 0
   name        = "${local.name}-external-dns"
   description = "IAM policy for External DNS"
 
@@ -561,7 +642,7 @@ resource "aws_iam_policy" "external_dns" {
 }
 
 resource "aws_iam_role_policy_attachment" "external_dns" {
-  count      = contains(keys(var.addons), "external-dns") ? 1 : 0
+  count      = var.create_external_dns_role || contains(keys(var.addons), "external-dns") ? 1 : 0
   policy_arn = aws_iam_policy.external_dns[0].arn
   role       = aws_iam_role.external_dns[0].name
 }
@@ -597,15 +678,15 @@ locals {
 
 resource "aws_eks_addon" "main" {
   for_each = var.addons
+  depends_on = [
+    aws_eks_node_group.main
+  ]
 
   cluster_name                = aws_eks_cluster.main.name
   addon_name                  = each.key
   addon_version               = local.addon_configuration[each.key].version
   resolve_conflicts_on_create = "OVERWRITE"
   resolve_conflicts_on_update = "OVERWRITE"
-  service_account_role_arn = (
-    each.key == "eks-pod-identity-agent" ? local.addon_configuration[each.key].role_arn : null
-  )
 
   # Configure VPC CNI to allow more max pods per node
   configuration_values = each.key == "vpc-cni" ? jsonencode({
@@ -627,7 +708,17 @@ resource "aws_eks_addon" "main" {
       service_account = local.addon_configuration[each.key].service_account_name
     }
   }
+
   tags = local.addon_configuration[each.key].tags
+}
+
+resource "aws_eks_pod_identity_association" "external_dns" {
+  count = var.create_external_dns_role && !contains(keys(var.addons), "external-dns") ? 1 : 0
+
+  cluster_name    = aws_eks_cluster.main.name
+  namespace       = "system-dns"
+  service_account = "external-dns"
+  role_arn        = aws_iam_role.external_dns[0].arn
 }
 
 #-----------------------------------------------------------------------------------------------------------------------
@@ -647,11 +738,10 @@ resource "null_resource" "create_kubeconfig_dir" {
   }
 }
 
-
 resource "local_sensitive_file" "kubeconfig" {
   count = local.kubeconfig_path != "" ? 1 : 0
 
-  content = templatefile("${path.module}/templates/kubeconfig.tpl", {
+  content = templatefile("${path.module}/_templates/kubeconfig.tpl", {
     cluster_name     = aws_eks_cluster.main.name
     cluster_endpoint = aws_eks_cluster.main.endpoint
     cluster_ca       = aws_eks_cluster.main.certificate_authority[0].data
@@ -661,6 +751,6 @@ resource "local_sensitive_file" "kubeconfig" {
   file_permission = "0600"
 
   lifecycle {
-    ignore_changes = [content] // Ignore changes to content to prevent unnecessary updates
+    ignore_changes = [content]
   }
 }
