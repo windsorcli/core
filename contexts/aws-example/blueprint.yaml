@@ -16,7 +16,10 @@ sources:
 terraform:
 - path: network/aws-vpc
 - path: cluster/aws-eks
+- path: cluster/aws-eks/additions
+  destroy: false
 - path: gitops/flux
+  destroy: false
 kustomize:
 - name: telemetry-base
   path: telemetry/base
@@ -53,7 +56,6 @@ kustomize:
   source: core
   dependsOn:
   - pki-resources
-  force: true
   components:
   - nginx
   - nginx/flux-webhook
@@ -66,7 +68,6 @@ kustomize:
   source: core
   dependsOn:
   - policy-resources
-  force: true
   components:
   - cert-manager
   - trust-manager
@@ -75,18 +76,15 @@ kustomize:
   source: core
   dependsOn:
   - pki-base
-  force: true
   components:
   - private-issuer/ca
   - public-issuer/selfsigned
-- name: gitops
-  path: gitops/flux
+- name: dns
+  path: dns
   source: core
-  dependsOn:
-  - ingress-base
-  force: true
   components:
-  - webhook
+  - external-dns
+  - external-dns/route53
 - name: observability
   path: observability
   source: core
