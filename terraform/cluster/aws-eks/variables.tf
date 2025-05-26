@@ -39,6 +39,12 @@ variable "endpoint_public_access" {
   default     = true
 }
 
+variable "endpoint_private_access" {
+  description = "Whether to enable private access to the EKS cluster."
+  type        = bool
+  default     = false
+}
+
 variable "cluster_api_access_cidr_block" {
   description = "The CIDR block for the cluster API access."
   type        = string
