@@ -39,11 +39,6 @@ run "minimal_configuration" {
   }
 
   assert {
-    condition     = kubernetes_config_map.external_dns.data.aws_role_arn == "arn:aws:iam::123456789012:role/cluster-test-external-dns"
-    error_message = "ConfigMap should have correct role ARN"
-  }
-
-  assert {
     condition     = kubernetes_config_map.external_dns.data.aws_region == "us-west-2"
     error_message = "ConfigMap should have correct AWS region"
   }
@@ -59,20 +54,14 @@ run "full_configuration" {
   command = plan
 
   variables {
-    context_id            = "test"
-    cluster_name          = "custom-cluster"
-    external_dns_role_arn = "arn:aws:iam::123456789012:role/custom-role"
-    route53_region        = "us-east-1"
+    context_id     = "test"
+    cluster_name   = "custom-cluster"
+    route53_region = "us-east-1"
   }
 
   assert {
     condition     = kubernetes_config_map.external_dns.metadata[0].name == "external-dns"
     error_message = "ConfigMap should be created with name 'external-dns'"
-  }
-
-  assert {
-    condition     = kubernetes_config_map.external_dns.data.aws_role_arn == "arn:aws:iam::123456789012:role/custom-role"
-    error_message = "ConfigMap should use provided role ARN"
   }
 
   assert {
@@ -83,19 +72,5 @@ run "full_configuration" {
   assert {
     condition     = kubernetes_config_map.external_dns.data.txt_owner_id == "custom-cluster"
     error_message = "ConfigMap should have correct txt owner ID"
-  }
-}
-
-# Verifies that the module correctly handles the external-dns role ARN lookup
-run "external_dns_role_lookup" {
-  command = plan
-
-  variables {
-    context_id = "test"
-  }
-
-  assert {
-    condition     = kubernetes_config_map.external_dns.data.aws_role_arn == "arn:aws:iam::123456789012:role/cluster-test-external-dns"
-    error_message = "ConfigMap should construct role ARN from cluster name"
   }
 }
