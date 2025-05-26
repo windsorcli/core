@@ -76,7 +76,8 @@ spec:
           touch /tmp/status/success
       containers:
       - name: pause
-        image: gcr.io/google_containers/pause:3.2
+        # renovate: datasource=docker depName=alpine package=alpine
+        image: alpine:3.21.3
         resources:
           limits:
             cpu: "10m"
@@ -94,4 +95,4 @@ spec:
           if [ ! -f /tmp/status/success ]; then
             exit 1
           fi
-          exec /pause 
+          sleep infinity 

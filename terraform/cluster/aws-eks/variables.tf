@@ -31,6 +31,11 @@ variable "kubernetes_version" {
   }
 }
 
+variable "create_external_dns_role" {
+  description = "Whether to create IAM role and policy for external-dns. Set to true if external-dns will be used in the cluster, even if not installed as an EKS addon."
+  type        = bool
+  default     = true
+}
 
 variable "endpoint_public_access" {
   description = "Whether to enable public access to the EKS cluster."
@@ -103,7 +108,6 @@ variable "vpc_cni_config" {
   }
 }
 
-
 variable "fargate_profiles" {
   description = "Map of EKS Fargate profile definitions to create."
   type = map(object({
@@ -128,7 +132,6 @@ variable "addons" {
     aws-ebs-csi-driver     = {}
     eks-pod-identity-agent = {}
     coredns                = {}
-    external-dns           = {}
   }
 }
 

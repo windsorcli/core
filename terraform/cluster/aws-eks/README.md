@@ -54,6 +54,7 @@ No modules.
 | [aws_security_group.cluster_api_access](https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/security_group) | resource |
 | [local_sensitive_file.kubeconfig](https://registry.terraform.io/providers/hashicorp/local/latest/docs/resources/sensitive_file) | resource |
 | [null_resource.create_kubeconfig_dir](https://registry.terraform.io/providers/hashicorp/null/latest/docs/resources/resource) | resource |
+| [null_resource.delete_eks_log_group](https://registry.terraform.io/providers/hashicorp/null/latest/docs/resources/resource) | resource |
 | [aws_caller_identity.current](https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/data-sources/caller_identity) | data source |
 | [aws_eks_addon_version.default](https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/data-sources/eks_addon_version) | data source |
 | [aws_region.current](https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/data-sources/region) | data source |
@@ -64,11 +65,12 @@ No modules.
 
 | Name | Description | Type | Default | Required |
 |------|-------------|------|---------|:--------:|
-| <a name="input_addons"></a> [addons](#input\_addons) | Map of EKS add-ons | <pre>map(object({<br/>    version = optional(string)<br/>    tags    = optional(map(string), {})<br/>  }))</pre> | <pre>{<br/>  "aws-ebs-csi-driver": {},<br/>  "aws-efs-csi-driver": {},<br/>  "coredns": {},<br/>  "eks-pod-identity-agent": {},<br/>  "external-dns": {},<br/>  "vpc-cni": {}<br/>}</pre> | no |
+| <a name="input_addons"></a> [addons](#input\_addons) | Map of EKS add-ons | <pre>map(object({<br/>    version = optional(string)<br/>    tags    = optional(map(string), {})<br/>  }))</pre> | <pre>{<br/>  "aws-ebs-csi-driver": {},<br/>  "aws-efs-csi-driver": {},<br/>  "coredns": {},<br/>  "eks-pod-identity-agent": {},<br/>  "vpc-cni": {}<br/>}</pre> | no |
 | <a name="input_cluster_api_access_cidr_block"></a> [cluster\_api\_access\_cidr\_block](#input\_cluster\_api\_access\_cidr\_block) | The CIDR block for the cluster API access. | `string` | `"0.0.0.0/0"` | no |
 | <a name="input_cluster_name"></a> [cluster\_name](#input\_cluster\_name) | The name of the EKS cluster. | `string` | `""` | no |
 | <a name="input_context_id"></a> [context\_id](#input\_context\_id) | The windsor context id for this deployment | `string` | `""` | no |
 | <a name="input_context_path"></a> [context\_path](#input\_context\_path) | The path to the context folder, where kubeconfig is stored | `string` | `""` | no |
+| <a name="input_create_external_dns_role"></a> [create\_external\_dns\_role](#input\_create\_external\_dns\_role) | Whether to create IAM role and policy for external-dns. Set to true if external-dns will be used in the cluster, even if not installed as an EKS addon. | `bool` | `true` | no |
 | <a name="input_enable_cloudwatch_logs"></a> [enable\_cloudwatch\_logs](#input\_enable\_cloudwatch\_logs) | Whether to enable CloudWatch log group creation for EKS control plane logs | `bool` | `true` | no |
 | <a name="input_enable_secrets_encryption"></a> [enable\_secrets\_encryption](#input\_enable\_secrets\_encryption) | Whether to enable EKS secrets encryption at all. If false, no encryption\_config is set. If true, use internal or external key. | `bool` | `true` | no |
 | <a name="input_endpoint_private_access"></a> [endpoint\_private\_access](#input\_endpoint\_private\_access) | Whether to enable private access to the EKS cluster. | `bool` | `false` | no |
@@ -84,5 +86,13 @@ No modules.
 
 ## Outputs
 
-No outputs.
+| Name | Description |
+|------|-------------|
+| <a name="output_cluster_arn"></a> [cluster\_arn](#output\_cluster\_arn) | The Amazon Resource Name (ARN) of the cluster. |
+| <a name="output_cluster_endpoint"></a> [cluster\_endpoint](#output\_cluster\_endpoint) | The endpoint for the Kubernetes API server. |
+| <a name="output_cluster_id"></a> [cluster\_id](#output\_cluster\_id) | The name/id of the EKS cluster. |
+| <a name="output_cluster_name"></a> [cluster\_name](#output\_cluster\_name) | Name of the EKS cluster |
+| <a name="output_cluster_security_group_id"></a> [cluster\_security\_group\_id](#output\_cluster\_security\_group\_id) | The security group ID attached to the EKS cluster. |
+| <a name="output_external_dns_role_arn"></a> [external\_dns\_role\_arn](#output\_external\_dns\_role\_arn) | ARN of the IAM role for external-dns |
+| <a name="output_kubeconfig_certificate_authority_data"></a> [kubeconfig\_certificate\_authority\_data](#output\_kubeconfig\_certificate\_authority\_data) | The base64 encoded certificate data required to communicate with the cluster. |
 <!-- END_TF_DOCS -->

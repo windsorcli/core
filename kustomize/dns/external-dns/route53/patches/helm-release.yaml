@@ -1,0 +1,29 @@
+---
+apiVersion: helm.toolkit.fluxcd.io/v2
+kind: HelmRelease
+metadata:
+  name: external-dns
+  namespace: system-dns
+spec:
+  valuesFrom:
+    - kind: ConfigMap
+      name: external-dns
+      valuesKey: aws_role_arn
+      targetPath: aws.role_arn
+    - kind: ConfigMap
+      name: external-dns
+      valuesKey: aws_region
+      targetPath: aws.region
+    - kind: ConfigMap
+      name: external-dns
+      valuesKey: txt_owner_id
+      targetPath: txtOwnerId
+  values:
+    provider: aws
+    sources:
+      - ingress
+      - service
+    policy: sync
+    registry: txt
+    domainFilters:
+      - ${DOMAIN} 

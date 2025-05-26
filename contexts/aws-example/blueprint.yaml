@@ -16,6 +16,7 @@ sources:
 terraform:
 - path: network/aws-vpc
 - path: cluster/aws-eks
+- path: cluster/aws-eks/additions
 - path: gitops/flux
   destroy: false
 kustomize:
@@ -80,6 +81,12 @@ kustomize:
   components:
   - private-issuer/ca
   - public-issuer/selfsigned
+- name: dns
+  path: dns
+  source: core
+  components:
+  - external-dns
+  - external-dns/route53
 - name: observability
   path: observability
   source: core

@@ -78,7 +78,7 @@ run "minimal_configuration_cloudwatch_logs_disabled" {
   command = plan
 
   variables {
-    context_id = "test"
+    context_id             = "test"
     enable_cloudwatch_logs = false
   }
 
@@ -129,12 +129,12 @@ run "full_configuration" {
         desired_size   = 3
       }
     }
-    endpoint_private_access       = true
-    endpoint_public_access        = true
-    cluster_api_access_cidr_block = "10.0.0.0/8"
-    enable_secrets_encryption     = true
+    endpoint_private_access           = true
+    endpoint_public_access            = true
+    cluster_api_access_cidr_block     = "10.0.0.0/8"
+    enable_secrets_encryption         = true
     create_secrets_encryption_kms_key = false
-    secrets_encryption_kms_key_id = "arn:aws:kms:us-west-2:123456789012:key/abcd1234-5678-90ab-cdef-1234567890ab"
+    secrets_encryption_kms_key_id     = "arn:aws:kms:us-west-2:123456789012:key/abcd1234-5678-90ab-cdef-1234567890ab"
   }
 
   assert {
@@ -293,9 +293,9 @@ run "use_existing_kms_key" {
   command = plan
 
   variables {
-    context_id              = "test"
-    enable_secrets_encryption = true
-    secrets_encryption_kms_key_id   = "arn:aws:kms:us-west-2:123456789012:key/abcd1234-5678-90ab-cdef-1234567890ab"
+    context_id                    = "test"
+    enable_secrets_encryption     = true
+    secrets_encryption_kms_key_id = "arn:aws:kms:us-west-2:123456789012:key/abcd1234-5678-90ab-cdef-1234567890ab"
   }
 
   assert {

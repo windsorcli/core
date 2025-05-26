@@ -71,6 +71,21 @@ resource "aws_cloudwatch_log_group" "eks_cluster" {
   )
 }
 
+resource "null_resource" "delete_eks_log_group" {
+  count = var.enable_cloudwatch_logs ? 1 : 0
+
+  triggers = {
+    log_group_name = aws_cloudwatch_log_group.eks_cluster[0].name
+  }
+
+  provisioner "local-exec" {
+    when    = destroy
+    command = "aws logs delete-log-group --log-group-name \"${self.triggers.log_group_name}\""
+  }
+
+  depends_on = [aws_eks_cluster.main]
+}
+
 resource "aws_eks_cluster" "main" {
   # checkov:skip=CKV_AWS_38: Public access set via a variable.
   # checkov:skip=CKV_AWS_39: Public access set via a variable.
@@ -566,7 +581,7 @@ resource "aws_iam_role_policy_attachment" "pod_identity_agent" {
 #-----------------------------------------------------------------------------------------------------------------------
 
 resource "aws_iam_role" "external_dns" {
-  count = contains(keys(var.addons), "external-dns") ? 1 : 0
+  count = var.create_external_dns_role || contains(keys(var.addons), "external-dns") ? 1 : 0
   name  = "${local.name}-external-dns"
 
   assume_role_policy = jsonencode({
@@ -591,7 +606,7 @@ resource "aws_iam_policy" "external_dns" {
   # This policy is based on the official External DNS documentation for AWS
   # https://kubernetes-sigs.github.io/external-dns/v0.17.0/docs/tutorials/aws/#iam-policy
   # checkov:skip=CKV_AWS_355: This policy is straight from the External DNS documentation
-  count       = contains(keys(var.addons), "external-dns") ? 1 : 0
+  count       = var.create_external_dns_role || contains(keys(var.addons), "external-dns") ? 1 : 0
   name        = "${local.name}-external-dns"
   description = "IAM policy for External DNS"
 
@@ -627,7 +642,7 @@ resource "aws_iam_policy" "external_dns" {
 }
 
 resource "aws_iam_role_policy_attachment" "external_dns" {
-  count      = contains(keys(var.addons), "external-dns") ? 1 : 0
+  count      = var.create_external_dns_role || contains(keys(var.addons), "external-dns") ? 1 : 0
   policy_arn = aws_iam_policy.external_dns[0].arn
   role       = aws_iam_role.external_dns[0].name
 }

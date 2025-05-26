@@ -95,6 +95,21 @@ resource "aws_cloudwatch_log_group" "vpc_flow_logs" {
   }
 }
 
+resource "null_resource" "delete_vpc_flow_logs" {
+  count = var.enable_cloudwatch_logs ? 1 : 0
+
+  triggers = {
+    log_group_name = aws_cloudwatch_log_group.vpc_flow_logs[0].name
+  }
+
+  provisioner "local-exec" {
+    when    = destroy
+    command = "aws logs delete-log-group --log-group-name \"${self.triggers.log_group_name}\""
+  }
+
+  depends_on = [aws_vpc.main]
+}
+
 resource "aws_kms_key" "vpc_flow_logs" {
   count                   = var.create_flow_logs_kms_key ? 1 : 0
   description             = "KMS key for CloudWatch Logs encryption"
