@@ -15,7 +15,9 @@ spec:
       valuesKey: txt_owner_id
       targetPath: txtOwnerId
   values:
-    provider: aws
+    provider:
+      aws:
+        usePodIdentity: true
     sources:
       - ingress
       - service
