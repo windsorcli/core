@@ -309,3 +309,5 @@ resource "aws_route53_zone" "main" {
     vpc_id = aws_vpc.main.id
   }
 }
+
+# Trigger CI checks
