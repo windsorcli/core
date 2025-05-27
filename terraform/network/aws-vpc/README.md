@@ -4,16 +4,16 @@
 | Name | Version |
 |------|---------|
 | <a name="requirement_terraform"></a> [terraform](#requirement\_terraform) | >=1.8 |
-| <a name="requirement_aws"></a> [aws](#requirement\_aws) | 5.97.0 |
-| <a name="requirement_random"></a> [random](#requirement\_random) | 3.6.0 |
+| <a name="requirement_aws"></a> [aws](#requirement\_aws) | 5.98.0 |
+| <a name="requirement_random"></a> [random](#requirement\_random) | 3.7.2 |
 
 ## Providers
 
 | Name | Version |
 |------|---------|
-| <a name="provider_aws"></a> [aws](#provider\_aws) | 5.97.0 |
+| <a name="provider_aws"></a> [aws](#provider\_aws) | 5.98.0 |
 | <a name="provider_null"></a> [null](#provider\_null) | 3.2.4 |
-| <a name="provider_random"></a> [random](#provider\_random) | 3.6.0 |
+| <a name="provider_random"></a> [random](#provider\_random) | 3.7.2 |
 
 ## Modules
 
@@ -23,32 +23,32 @@ No modules.
 
 | Name | Type |
 |------|------|
-| [aws_cloudwatch_log_group.vpc_flow_logs](https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/cloudwatch_log_group) | resource |
-| [aws_default_security_group.default](https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/default_security_group) | resource |
-| [aws_eip.nat](https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/eip) | resource |
-| [aws_flow_log.main](https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/flow_log) | resource |
-| [aws_iam_role.vpc_flow_logs](https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/iam_role) | resource |
-| [aws_iam_role_policy.vpc_flow_logs](https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/iam_role_policy) | resource |
-| [aws_internet_gateway.main](https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/internet_gateway) | resource |
-| [aws_kms_alias.vpc_flow_logs](https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/kms_alias) | resource |
-| [aws_kms_key.vpc_flow_logs](https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/kms_key) | resource |
-| [aws_nat_gateway.main](https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/nat_gateway) | resource |
-| [aws_route53_zone.main](https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/route53_zone) | resource |
-| [aws_route_table.isolated](https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/route_table) | resource |
-| [aws_route_table.private](https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/route_table) | resource |
-| [aws_route_table.public](https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/route_table) | resource |
-| [aws_route_table_association.isolated](https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/route_table_association) | resource |
-| [aws_route_table_association.private](https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/route_table_association) | resource |
-| [aws_route_table_association.public](https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/route_table_association) | resource |
-| [aws_subnet.isolated](https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/subnet) | resource |
-| [aws_subnet.private](https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/subnet) | resource |
-| [aws_subnet.public](https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/subnet) | resource |
-| [aws_vpc.main](https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/resources/vpc) | resource |
+| [aws_cloudwatch_log_group.vpc_flow_logs](https://registry.terraform.io/providers/hashicorp/aws/5.98.0/docs/resources/cloudwatch_log_group) | resource |
+| [aws_default_security_group.default](https://registry.terraform.io/providers/hashicorp/aws/5.98.0/docs/resources/default_security_group) | resource |
+| [aws_eip.nat](https://registry.terraform.io/providers/hashicorp/aws/5.98.0/docs/resources/eip) | resource |
+| [aws_flow_log.main](https://registry.terraform.io/providers/hashicorp/aws/5.98.0/docs/resources/flow_log) | resource |
+| [aws_iam_role.vpc_flow_logs](https://registry.terraform.io/providers/hashicorp/aws/5.98.0/docs/resources/iam_role) | resource |
+| [aws_iam_role_policy.vpc_flow_logs](https://registry.terraform.io/providers/hashicorp/aws/5.98.0/docs/resources/iam_role_policy) | resource |
+| [aws_internet_gateway.main](https://registry.terraform.io/providers/hashicorp/aws/5.98.0/docs/resources/internet_gateway) | resource |
+| [aws_kms_alias.vpc_flow_logs](https://registry.terraform.io/providers/hashicorp/aws/5.98.0/docs/resources/kms_alias) | resource |
+| [aws_kms_key.vpc_flow_logs](https://registry.terraform.io/providers/hashicorp/aws/5.98.0/docs/resources/kms_key) | resource |
+| [aws_nat_gateway.main](https://registry.terraform.io/providers/hashicorp/aws/5.98.0/docs/resources/nat_gateway) | resource |
+| [aws_route53_zone.main](https://registry.terraform.io/providers/hashicorp/aws/5.98.0/docs/resources/route53_zone) | resource |
+| [aws_route_table.isolated](https://registry.terraform.io/providers/hashicorp/aws/5.98.0/docs/resources/route_table) | resource |
+| [aws_route_table.private](https://registry.terraform.io/providers/hashicorp/aws/5.98.0/docs/resources/route_table) | resource |
+| [aws_route_table.public](https://registry.terraform.io/providers/hashicorp/aws/5.98.0/docs/resources/route_table) | resource |
+| [aws_route_table_association.isolated](https://registry.terraform.io/providers/hashicorp/aws/5.98.0/docs/resources/route_table_association) | resource |
+| [aws_route_table_association.private](https://registry.terraform.io/providers/hashicorp/aws/5.98.0/docs/resources/route_table_association) | resource |
+| [aws_route_table_association.public](https://registry.terraform.io/providers/hashicorp/aws/5.98.0/docs/resources/route_table_association) | resource |
+| [aws_subnet.isolated](https://registry.terraform.io/providers/hashicorp/aws/5.98.0/docs/resources/subnet) | resource |
+| [aws_subnet.private](https://registry.terraform.io/providers/hashicorp/aws/5.98.0/docs/resources/subnet) | resource |
+| [aws_subnet.public](https://registry.terraform.io/providers/hashicorp/aws/5.98.0/docs/resources/subnet) | resource |
+| [aws_vpc.main](https://registry.terraform.io/providers/hashicorp/aws/5.98.0/docs/resources/vpc) | resource |
 | [null_resource.delete_vpc_flow_logs](https://registry.terraform.io/providers/hashicorp/null/latest/docs/resources/resource) | resource |
-| [random_string.log_group_suffix](https://registry.terraform.io/providers/hashicorp/random/3.6.0/docs/resources/string) | resource |
-| [aws_availability_zones.available](https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/data-sources/availability_zones) | data source |
-| [aws_caller_identity.current](https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/data-sources/caller_identity) | data source |
-| [aws_region.current](https://registry.terraform.io/providers/hashicorp/aws/5.97.0/docs/data-sources/region) | data source |
+| [random_string.log_group_suffix](https://registry.terraform.io/providers/hashicorp/random/3.7.2/docs/resources/string) | resource |
+| [aws_availability_zones.available](https://registry.terraform.io/providers/hashicorp/aws/5.98.0/docs/data-sources/availability_zones) | data source |
+| [aws_caller_identity.current](https://registry.terraform.io/providers/hashicorp/aws/5.98.0/docs/data-sources/caller_identity) | data source |
+| [aws_region.current](https://registry.terraform.io/providers/hashicorp/aws/5.98.0/docs/data-sources/region) | data source |
 
 ## Inputs
 
