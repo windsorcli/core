@@ -19,7 +19,27 @@
       "automergeStrategy": "squash",
       "matchPackageNames": [
         "/.*/"
+      ],
+      "labels": [
+        "dependencies"
       ]
+    },
+    {
+      "description": "Update Terraform providers and lock files",
+      "matchManagers": [
+        "terraform"
+      ],
+      "enabled": true,
+      "automerge": true,
+      "automergeType": "pr",
+      "automergeStrategy": "squash",
+      "labels": [
+        "terraform",
+        "dependencies"
+      ],
+      "lockFileMaintenance": {
+        "enabled": true
+      }
     },
     {
       "matchUpdateTypes": [

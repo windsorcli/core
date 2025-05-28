@@ -43,15 +43,13 @@ kustomize:
   path: csi
   dependsOn:
   - policy-resources
-  force: true
   components:
   - openebs
   - openebs/dynamic-localpv
-- name: ingress-base
-  path: ingress/base
+- name: ingress
+  path: ingress
   dependsOn:
   - pki-resources
-  force: true
   components:
   - nginx
   - nginx/nodeport
@@ -62,7 +60,6 @@ kustomize:
   path: pki/base
   dependsOn:
   - policy-resources
-  force: true
   components:
   - cert-manager
   - trust-manager
@@ -70,7 +67,6 @@ kustomize:
   path: pki/resources
   dependsOn:
   - pki-base
-  force: true
   components:
   - private-issuer/ca
   - public-issuer/selfsigned
@@ -78,7 +74,6 @@ kustomize:
   path: dns
   dependsOn:
   - pki-base
-  force: true
   components:
   - coredns
   - coredns/etcd
@@ -89,7 +84,6 @@ kustomize:
 - name: gitops
   path: gitops/flux
   dependsOn:
-  - ingress-base
-  force: true
+  - ingress
   components:
   - webhook

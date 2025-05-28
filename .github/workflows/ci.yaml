@@ -17,7 +17,7 @@ env:
   WINDSOR_PROJECT_ROOT: ${{ github.workspace }}
   DOCKER_HOST: unix:///var/run/docker.sock
   # renovate: datasource=github-releases depName=docker-compose package=docker/compose
-  DOCKER_COMPOSE_VERSION: v2.36.0
+  DOCKER_COMPOSE_VERSION: v2.36.2
   # renovate: datasource=github-releases depName=troubleshoot package=replicatedhq/troubleshoot
   SUPPORT_BUNDLE_VERSION: v0.119.0
 
@@ -62,7 +62,7 @@ jobs:
         uses: hashicorp/setup-terraform@b9cd54a3c349d3f38e8881555d616ced269862dd # v3.1.2
         with:
           # renovate: datasource=github-releases depName=terraform package=hashicorp/terraform
-          terraform_version: 1.12.0
+          terraform_version: 1.12.1
 
       - name: Run terraform fmt
         run: terraform fmt -check -recursive
@@ -75,7 +75,7 @@ jobs:
           done
 
       - name: Checkov GitHub Action
-        uses: bridgecrewio/checkov-action@360818f2ad44468d3294cfddae854a8c9036dfee # v12.3014.0
+        uses: bridgecrewio/checkov-action@16c078443ac4b4b1f694817dff28944de3d2a1ca # v12.3025.0
         with:
           directory: ./terraform
           output_format: cli,sarif
@@ -110,7 +110,7 @@ jobs:
         uses: hashicorp/setup-terraform@b9cd54a3c349d3f38e8881555d616ced269862dd # v3.1.2
         with:
           # renovate: datasource=github-releases depName=terraform package=hashicorp/terraform
-          terraform_version: 1.12.0
+          terraform_version: 1.12.1
 
       - name: Setup kubectl
         uses: azure/setup-kubectl@3e0aec4d80787158d308d7b364cb1b702e7feb7f # v4.0.0

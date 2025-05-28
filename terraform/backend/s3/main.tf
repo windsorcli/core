@@ -9,7 +9,7 @@ terraform {
   required_providers {
     aws = {
       source  = "hashicorp/aws"
-      version = "5.97.0"
+      version = "5.98.0"
     }
   }
 }
@@ -20,7 +20,8 @@ provider "aws" {
     tags = merge(
       var.tags,
       {
-        ManagedBy = "Terraform"
+        ManagedBy        = "Terraform"
+        WindsorContextID = var.context_id
       }
     )
   }

@@ -11,6 +11,10 @@ variable "context_path" {
 variable "context_id" {
   description = "Context ID for the resources"
   type        = string
+  validation {
+    condition     = var.context_id != null && var.context_id != ""
+    error_message = "context_id must be provided and cannot be empty."
+  }
 }
 
 #---------------------------------------------------------------------------------------------------

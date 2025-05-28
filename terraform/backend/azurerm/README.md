@@ -1,14 +1,15 @@
+<!-- BEGIN_TF_DOCS -->
 ## Requirements
 
 | Name | Version |
 |------|---------|
-| <a name="requirement_azurerm"></a> [azurerm](#requirement\_azurerm) | 4.28.0 |
+| <a name="requirement_azurerm"></a> [azurerm](#requirement\_azurerm) | 4.30.0 |
 
 ## Providers
 
 | Name | Version |
 |------|---------|
-| <a name="provider_azurerm"></a> [azurerm](#provider\_azurerm) | 4.28.0 |
+| <a name="provider_azurerm"></a> [azurerm](#provider\_azurerm) | 4.30.0 |
 | <a name="provider_local"></a> [local](#provider\_local) | 2.5.3 |
 
 ## Modules
@@ -19,10 +20,10 @@ No modules.
 
 | Name | Type |
 |------|------|
-| [azurerm_resource_group.this](https://registry.terraform.io/providers/hashicorp/azurerm/4.28.0/docs/resources/resource_group) | resource |
-| [azurerm_storage_account.this](https://registry.terraform.io/providers/hashicorp/azurerm/4.28.0/docs/resources/storage_account) | resource |
-| [azurerm_storage_container.this](https://registry.terraform.io/providers/hashicorp/azurerm/4.28.0/docs/resources/storage_container) | resource |
-| [azurerm_user_assigned_identity.storage](https://registry.terraform.io/providers/hashicorp/azurerm/4.28.0/docs/resources/user_assigned_identity) | resource |
+| [azurerm_resource_group.this](https://registry.terraform.io/providers/hashicorp/azurerm/4.30.0/docs/resources/resource_group) | resource |
+| [azurerm_storage_account.this](https://registry.terraform.io/providers/hashicorp/azurerm/4.30.0/docs/resources/storage_account) | resource |
+| [azurerm_storage_container.this](https://registry.terraform.io/providers/hashicorp/azurerm/4.30.0/docs/resources/storage_container) | resource |
+| [azurerm_user_assigned_identity.storage](https://registry.terraform.io/providers/hashicorp/azurerm/4.30.0/docs/resources/user_assigned_identity) | resource |
 | [local_file.backend_config](https://registry.terraform.io/providers/hashicorp/local/latest/docs/resources/file) | resource |
 
 ## Inputs
@@ -44,3 +45,4 @@ No modules.
 ## Outputs
 
 No outputs.
+<!-- END_TF_DOCS -->

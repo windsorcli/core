@@ -1,9 +1,12 @@
-
 # Variables
 variable "context_id" {
   description = "Context ID for the resources"
   type        = string
   default     = null
+  validation {
+    condition     = var.context_id != null && var.context_id != ""
+    error_message = "context_id must be provided and cannot be empty."
+  }
 }
 
 variable "region" {
@@ -31,31 +34,45 @@ variable "vnet_name" {
 }
 
 variable "vnet_cidr" {
-  description = "CIDR block for VNET"
+  description = "CIDR block for the VNET"
   type        = string
-  default     = "10.20.0.0/16"
+  default     = "10.0.0.0/16"
 }
 
 variable "vnet_subnets" {
   description = "Subnets to create in the VNET"
   type        = map(list(string))
-  # example: {
-  #   public  = ["10.20.1.0/24", "10.20.2.0/24", "10.20.3.0/24"]
-  #   private = ["10.20.11.0/24", "10.20.12.0/24", "10.20.13.0/24"] 
-  #   isolated    = ["10.20.21.0/24", "10.20.22.0/24", "10.20.23.0/24"]
-  # }
   default = {
-    public   = []
     private  = []
     isolated = []
+    public   = []
+  }
+  validation {
+    condition     = alltrue([for subnet in var.vnet_subnets["private"] : can(cidrhost(subnet, 0))])
+    error_message = "Each private subnet must be a valid CIDR block"
+  }
+
+  validation {
+    condition     = alltrue([for subnet in var.vnet_subnets["isolated"] : can(cidrhost(subnet, 0))])
+    error_message = "Each isolated subnet must be a valid CIDR block"
+  }
+
+  validation {
+    condition     = alltrue([for subnet in var.vnet_subnets["public"] : can(cidrhost(subnet, 0))])
+    error_message = "Each public subnet must be a valid CIDR block"
   }
 }
 
-# Only used if vnet_subnets is not defined
 variable "vnet_zones" {
-  description = "Number of availability zones to create"
+  description = "Number of availability zones to create. Only used if vnet_subnets is not defined"
   type        = number
   default     = 1
+}
+
+variable "enable_nat_gateway" {
+  description = "Enable NAT Gateway for private subnets"
+  type        = bool
+  default     = true
 }
 
 variable "tags" {
