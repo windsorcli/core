@@ -1,0 +1,38 @@
+{{- range .Values.diskPools }}
+{{- $diskPool := . }}
+{{- $nodeLabelParts := splitList "=" $diskPool.nodeLabel }}
+{{- if ne (len $nodeLabelParts) 2 }}
+{{- fail "nodeLabel must be in format key=value" }}
+{{- end }}
+{{- $labelKey := index $nodeLabelParts 0 }}
+{{- $labelValue := index $nodeLabelParts 1 }}
+{{- if not $diskPool.disks }}
+{{- fail "at least one disk must be specified" }}
+{{- end }}
+{{- range $disk := $diskPool.disks }}
+{{- if not (or (hasPrefix "aio://" $disk) (hasPrefix "uring://" $disk) (hasPrefix "/dev/disk/by-id/" $disk) (hasPrefix "/dev/disk/by-path/" $disk)) }}
+{{- fail "disk path must use aio:// or uring:// protocol, or use /dev/disk/by-id/ or /dev/disk/by-path/ for persistent device links" }}
+{{- end }}
+{{- end }}
+{{- range $node := (lookup "v1" "Node" "" "").items }}
+  {{- if and (hasKey $node.metadata.labels $labelKey) (eq (get $node.metadata.labels $labelKey) $labelValue) }}
+apiVersion: openebs.io/v1beta2
+kind: DiskPool
+metadata:
+  name: {{ $diskPool.poolNamePrefix | default "pool-on-" }}{{ $node.metadata.name }}
+  namespace: {{ $.Release.Namespace }}
+spec:
+  node: {{ $node.metadata.name }}
+  protocol: {{ $diskPool.protocol | default "nvmf" }}
+  fsType: {{ $diskPool.fsType | default "xfs" }}
+  thinProvisioning: {{ $diskPool.thinProvisioning | default false }}
+  stsAffinityGroup: {{ $diskPool.stsAffinityGroup | default false }}
+  cloneFsIdAsVolumeId: {{ $diskPool.cloneFsIdAsVolumeId | default false }}
+  disks:
+    {{- range $disk := $diskPool.disks }}
+    - {{ $disk }}
+    {{- end }}
+---
+  {{- end }}
+{{- end }}
+{{- end }}

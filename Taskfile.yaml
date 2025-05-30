@@ -7,7 +7,7 @@ tasks:
     cmds:
       - cmd: source .venv/bin/activate && checkov -d {{.CLI_ARGS | default "terraform/"}} 2>/dev/null
 
-  test:
+  terraform-test:
     desc: Run Terraform tests (all or specific module)
     silent: true
     cmds:
@@ -42,6 +42,10 @@ tasks:
             exit 1
           fi
 
+  test:
+    desc: Run all tests
+    deps: [terraform-test]
+
   fmt:
     desc: Check Terraform formatting
     silent: true
@@ -59,4 +63,24 @@ tasks:
             fi
             echo "Generating docs for $dir"
             docker run --rm -v "$(pwd):/src" -w "/src/$dir" quay.io/terraform-docs/terraform-docs:0.20.0 markdown table --output-file README.md --output-mode inject .
+          done
+
+  helm-test:
+    desc: Lint and render Helm chart with full CI values, comparing with expected output
+    silent: true
+    cmds:
+      - cmd: |
+          for chart in charts/*/; do
+            if [ -f "${chart}Chart.yaml" ]; then
+              echo "Linting chart: $chart"
+              helm lint "$chart" || exit 1
+              if [ -f "${chart}ci/values.yaml" ]; then
+                echo "Rendering chart: $chart with ci/values.yaml"
+                rendered=$(helm template "$chart" -f "${chart}ci/values.yaml" --debug)
+                if [ -f "${chart}ci/expected.yaml" ]; then
+                  echo "Comparing rendered output with ci/expected.yaml"
+                  diff <(echo "$rendered") "${chart}ci/expected.yaml" || exit 1
+                fi
+              fi
+            fi
           done

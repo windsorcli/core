@@ -1,0 +1,46 @@
+# Default configuration for mayastor-diskpool-provisioner
+# This chart manages disk pools for Mayastor storage
+
+diskPools:
+  # List of disk pools to create
+  -
+    # Node label selector to identify nodes where pools should be created
+    # Format: key=value
+    nodeLabel: "openebs.io/engine=mayastor"
+
+    # List of disk paths to use for this pool
+    # Each disk path must use one of these formats:
+    # - aio:///dev/disk/by-id/nvme-eui.ace42e00164f0290
+    # - uring:///dev/disk/by-id/nvme-eui.ace42e00164f0290
+    # - /dev/disk/by-id/nvme-eui.ace42e00164f0290
+    # - /dev/disk/by-path/pci-0000:31:00.0-nvme-1
+    # Optionally include block size parameter: ?blk_size=4096
+    disks: []
+
+    # Prefix for pool names. The final name will be {prefix}{node-name}
+    poolNamePrefix: "pool-"
+
+    # Storage protocol to use for the pool
+    # Options: nvmf, iscsi
+    protocol: "nvmf"
+
+    # Enable thin provisioning for volumes created from this pool
+    # When enabled, volumes are allocated on-demand rather than upfront
+    # Note: Monitor pool capacity when using thin provisioning
+    thinProvisioning: false
+
+    # Filesystem type to use for the pool
+    # Options: ext4, xfs, btrfs
+    # Recommended: xfs for better performance
+    fsType: "xfs"
+
+    # StatefulSet affinity group name
+    # Used to ensure proper replica distribution for StatefulSet volumes
+    # Enforces anti-affinity rules for replicas and targets
+    stsAffinityGroup: false
+
+    # Use filesystem ID as volume ID for clones/restores
+    # Required for btrfs when original and restored volumes are on same node
+    # When true: clone/restore's filesystem uuid matches restore volume's uuid
+    # When false: clone/restore's filesystem uuid matches original volume's uuid
+    cloneFsIdAsVolumeId: false
