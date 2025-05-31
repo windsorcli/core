@@ -83,7 +83,7 @@ run "full_configuration" {
     name                = "windsor-aks"
     cluster_name        = "test-cluster"
     resource_group_name = "test-rg"
-    kubernetes_version  = "1.32"
+    kubernetes_version  = "1.32.0"
     user_assigned_identity_ids = [
       "/subscriptions/12345678-1234-9876-4563-123456789012/resourceGroups/example-resource-group/providers/Microsoft.ManagedIdentity/userAssignedIdentities/test-identity-1",
       "/subscriptions/12345678-1234-9876-4563-123456789012/resourceGroups/example-resource-group/providers/Microsoft.ManagedIdentity/userAssignedIdentities/test-identity-2"

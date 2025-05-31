@@ -81,6 +81,13 @@
       "labels": [
         "dependencies"
       ]
+    },
+    {
+      "description": "Extracts Kubernetes versions from prefixed CSP tags",
+      "matchDatasources": ["github-tags"],
+      "matchPackageNames": ["windsorcli/k8s-versions"],
+      "extractVersion": "^(?<depName>.*)-(?<version>\\d+\\.\\d+\\.\\d+)$",
+      "versioning": "semver"
     }
   ],
   "customManagers": [
