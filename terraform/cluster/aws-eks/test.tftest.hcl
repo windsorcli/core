@@ -25,7 +25,9 @@ run "minimal_configuration" {
   command = plan
 
   variables {
-    context_id = "test"
+    context_id         = "test"
+    name               = "windsor-eks"
+    kubernetes_version = "1.32"
   }
 
   assert {
@@ -79,6 +81,8 @@ run "minimal_configuration_cloudwatch_logs_disabled" {
 
   variables {
     context_id             = "test"
+    name                   = "windsor-eks"
+    kubernetes_version     = "1.32"
     enable_cloudwatch_logs = false
   }
 
@@ -306,5 +310,15 @@ run "use_existing_kms_key" {
   assert {
     condition     = length(aws_eks_cluster.main.encryption_config) == 1 ? aws_eks_cluster.main.encryption_config[0].provider[0].key_arn == var.secrets_encryption_kms_key_id : true
     error_message = "Cluster should use the provided KMS key ARN if encryption_config is present"
+  }
+}
+
+run "multiple_invalid_inputs" {
+  command = plan
+  expect_failures = [
+    var.kubernetes_version,
+  ]
+  variables {
+    kubernetes_version = "v1.32"
   }
 }

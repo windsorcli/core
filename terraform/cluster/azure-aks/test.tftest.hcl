@@ -18,8 +18,9 @@ run "minimal_configuration" {
   command = plan
 
   variables {
-    context_id = "test"
-    name       = "windsor-aks"
+    context_id         = "test"
+    name               = "windsor-aks"
+    kubernetes_version = "1.32"
   }
 
   assert {
@@ -230,6 +231,7 @@ run "private_cluster" {
     name                    = "windsor-aks"
     cluster_name            = "test-cluster"
     private_cluster_enabled = true
+    kubernetes_version      = "1.32"
   }
 
   assert {
@@ -273,5 +275,16 @@ run "network_configuration" {
   assert {
     condition     = azurerm_kubernetes_cluster.main.network_profile[0].dns_service_ip == "10.0.0.10"
     error_message = "DNS service IP should match input value"
+  }
+}
+
+run "multiple_invalid_inputs" {
+  command = plan
+  expect_failures = [
+    var.kubernetes_version,
+  ]
+  variables {
+    context_id         = "test"
+    kubernetes_version = "v1.32"
   }
 }

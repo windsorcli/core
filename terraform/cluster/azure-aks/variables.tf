@@ -1,6 +1,7 @@
 #-----------------------------------------------------------------------------------------------------------------------
 # Variables
 #-----------------------------------------------------------------------------------------------------------------------
+
 variable "context_path" {
   type        = string
   description = "The path to the context folder, where kubeconfig is stored"
@@ -52,7 +53,12 @@ variable "region" {
 variable "kubernetes_version" {
   description = "Version of Kubernetes to use"
   type        = string
-  default     = "1.32"
+  # renovate: datasource=github-tags depName=aks-kubernetes package=windsorcli/k8s-versions
+  default = "1.32"
+  validation {
+    condition     = can(regex("^1\\.\\d+$", var.kubernetes_version))
+    error_message = "The Kubernetes version should be in version format like '1.32'."
+  }
 }
 
 variable "default_node_pool" {
