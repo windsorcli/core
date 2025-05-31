@@ -81,6 +81,18 @@
       "labels": [
         "dependencies"
       ]
+    },
+    {
+      "matchPackageNames": ["windsorcli/k8s-versions"],
+      "matchDepNames": ["aks-kubernetes"],
+      "extractVersion": "^aks-kubernetes-(?<version>\\d+\\.\\d+\\.\\d+)$",
+      "versioning": "semver"
+    },
+    {
+      "matchPackageNames": ["windsorcli/k8s-versions"],
+      "matchDepNames": ["eks-kubernetes"],
+      "extractVersion": "^eks-kubernetes-(?<version>\\d+\\.\\d+\\.\\d+)$",
+      "versioning": "semver"
     }
   ],
   "customManagers": [
