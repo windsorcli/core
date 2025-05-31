@@ -24,7 +24,7 @@ variable "kubernetes_version" {
   description = "The kubernetes version to deploy."
   type        = string
   # renovate: datasource=github-tags depName=eks-kubernetes package=windsorcli/k8s-versions
-  default = "1.32.0"
+  default = "1.33.1"
   validation {
     condition     = can(regex("^1\\.\\d+\\.\\d+$", var.kubernetes_version))
     error_message = "The Kubernetes version should be in version format like '1.32.0'."
