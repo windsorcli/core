@@ -23,11 +23,11 @@ variable "cluster_name" {
 variable "kubernetes_version" {
   description = "The kubernetes version to deploy."
   type        = string
-  # renovate: datasource=github-releases depName=kubernetes package=kubernetes/kubernetes
-  default = "1.32"
+  # renovate: datasource=github-tags depName=eks-kubernetes package=windsorcli/k8s-versions
+  default = "1.32.0"
   validation {
-    condition     = can(regex("^1\\.\\d+$", var.kubernetes_version))
-    error_message = "The Kubernetes version should be in version format like '1.32'."
+    condition     = can(regex("^1\\.\\d+\\.\\d+$", var.kubernetes_version))
+    error_message = "The Kubernetes version should be in version format like '1.32.0'."
   }
 }
 

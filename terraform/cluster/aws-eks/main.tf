@@ -89,6 +89,7 @@ resource "null_resource" "delete_eks_log_group" {
 resource "aws_eks_cluster" "main" {
   # checkov:skip=CKV_AWS_38: Public access set via a variable.
   # checkov:skip=CKV_AWS_39: Public access set via a variable.
+  # checkov:skip=CKV_AWS_339: Kubernetes version is populated from the cloud provider's stable version via Renovate.
   name     = local.name
   role_arn = aws_iam_role.cluster.arn
   version  = var.kubernetes_version
