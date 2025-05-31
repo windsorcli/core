@@ -84,11 +84,17 @@
     },
     {
       "description": "Manage CSP Kubernetes versions",
-      "matchDatasources": ["github-tags"],
-      "matchPackageNames": ["windsorcli/k8s-versions"],
-      "matchDepPatterns": ["^[a-z]+-kubernetes$"],
+      "matchDatasources": [
+        "github-tags"
+      ],
+      "matchPackageNames": [
+        "windsorcli/k8s-versions"
+      ],
       "extractVersion": "^{{depName}}-(?<version>\\d+\\.\\d+\\.\\d+)$",
-      "versioning": "semver"
+      "versioning": "semver",
+      "matchDepNames": [
+        "/^[a-z]+-kubernetes$/"
+      ]
     }
   ],
   "customManagers": [
