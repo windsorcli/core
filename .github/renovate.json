@@ -81,6 +81,13 @@
       "labels": [
         "dependencies"
       ]
+    },
+    {
+      "description": "Manage Kubernetes versions for all cloud providers",
+      "matchDatasources": ["github-tags"],
+      "matchPackageNames": ["windsorcli/k8s-versions"],
+      "extractVersion": "^(?<depName>[a-z]+)-kubernetes-(?<version>\\d+\\.\\d+\\.\\d+)$",
+      "groupName": "{{depName}}"
     }
   ],
   "customManagers": [

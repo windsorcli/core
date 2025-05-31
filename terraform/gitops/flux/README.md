@@ -32,7 +32,7 @@ No modules.
 |------|-------------|------|---------|:--------:|
 | <a name="input_flux_helm_version"></a> [flux\_helm\_version](#input\_flux\_helm\_version) | The version of Flux Helm chart to install | `string` | `"2.15.0"` | no |
 | <a name="input_flux_namespace"></a> [flux\_namespace](#input\_flux\_namespace) | The namespace in which Flux will be installed | `string` | `"system-gitops"` | no |
-| <a name="input_flux_version"></a> [flux\_version](#input\_flux\_version) | The version of Flux to install | `string` | `"2.5.1"` | no |
+| <a name="input_flux_version"></a> [flux\_version](#input\_flux\_version) | The version of Flux to install | `string` | `"2.6.0"` | no |
 | <a name="input_git_auth_secret"></a> [git\_auth\_secret](#input\_git\_auth\_secret) | The name of the secret to store the git authentication details | `string` | `"flux-system"` | no |
 | <a name="input_git_password"></a> [git\_password](#input\_git\_password) | The git password or PAT used to authenticte with the git provider | `string` | `""` | no |
 | <a name="input_git_username"></a> [git\_username](#input\_git\_username) | The git user to use to authenticte with the git provider | `string` | `"git"` | no |

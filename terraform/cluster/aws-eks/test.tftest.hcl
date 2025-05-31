@@ -112,7 +112,7 @@ run "full_configuration" {
   variables {
     context_id         = "test"
     cluster_name       = "test-cluster"
-    kubernetes_version = "1.30"
+    kubernetes_version = "1.30.0"
     node_groups = {
       system = {
         instance_types = ["m5.large"]
@@ -143,7 +143,7 @@ run "full_configuration" {
   }
 
   assert {
-    condition     = aws_eks_cluster.main.version == "1.30"
+    condition     = aws_eks_cluster.main.version == "1.30.0"
     error_message = "Kubernetes version should match input"
   }
 
