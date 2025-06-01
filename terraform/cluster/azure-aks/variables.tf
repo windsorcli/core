@@ -49,6 +49,7 @@ variable "region" {
   type        = string
   default     = "eastus"
 }
+
 variable "kubernetes_version" {
   description = "Version of Kubernetes to use"
   type        = string
