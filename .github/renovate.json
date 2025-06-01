@@ -25,11 +25,7 @@
       ]
     },
     {
-      "description": "Update Terraform providers and lock files",
-      "matchManagers": [
-        "terraform"
-      ],
-      "enabled": true,
+      "matchDatasources": ["terraform-provider"],
       "automerge": true,
       "automergeType": "pr",
       "automergeStrategy": "squash",
