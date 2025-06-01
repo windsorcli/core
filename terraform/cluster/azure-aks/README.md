@@ -77,7 +77,7 @@ No modules.
 | <a name="input_kubelet_client_id"></a> [kubelet\_client\_id](#input\_kubelet\_client\_id) | Client ID of the user-assigned identity to use for the kubelet. If not provided, the cluster will use the system-assigned identity. | `string` | `null` | no |
 | <a name="input_kubelet_object_id"></a> [kubelet\_object\_id](#input\_kubelet\_object\_id) | Object ID of the user-assigned identity to use for the kubelet. If not provided, the cluster will use the system-assigned identity. | `string` | `null` | no |
 | <a name="input_kubelet_user_assigned_identity_id"></a> [kubelet\_user\_assigned\_identity\_id](#input\_kubelet\_user\_assigned\_identity\_id) | Resource ID of the user-assigned identity to use for the kubelet. If not provided, the cluster will use the system-assigned identity. | `string` | `null` | no |
-| <a name="input_kubernetes_version"></a> [kubernetes\_version](#input\_kubernetes\_version) | Version of Kubernetes to use | `string` | `"1.32.0"` | no |
+| <a name="input_kubernetes_version"></a> [kubernetes\_version](#input\_kubernetes\_version) | Version of Kubernetes to use | `string` | `"1.32.4"` | no |
 | <a name="input_local_account_disabled"></a> [local\_account\_disabled](#input\_local\_account\_disabled) | Whether to disable local accounts for the AKS cluster | `bool` | `false` | no |
 | <a name="input_name"></a> [name](#input\_name) | Name of the resource | `string` | `"cluster"` | no |
 | <a name="input_network_acls_default_action"></a> [network\_acls\_default\_action](#input\_network\_acls\_default\_action) | The default action for the AKS cluster's network ACLs | `string` | `"Allow"` | no |
