@@ -19,3 +19,10 @@ spec:
   values:
     crds:
       enabled: true
+    webhook:
+      startupProbe:
+        enabled: true
+        initialDelaySeconds: 10
+        periodSeconds: 5
+        timeoutSeconds: 1
+        failureThreshold: 12
