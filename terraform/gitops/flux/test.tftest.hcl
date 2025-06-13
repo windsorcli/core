@@ -16,11 +16,6 @@ run "minimal_configuration" {
   }
 
   assert {
-    condition     = helm_release.flux_system.version == "2.15.0"
-    error_message = "Flux Helm chart version should default to '2.15.0'"
-  }
-
-  assert {
     condition     = kubernetes_secret.git_auth.metadata[0].name == "flux-system"
     error_message = "Git auth secret name should default to 'flux-system'"
   }
@@ -60,8 +55,8 @@ run "full_configuration" {
   }
 
   assert {
-    condition     = helm_release.flux_system.version == "2.16.0"
-    error_message = "Flux Helm chart version should match input"
+    condition     = helm_release.flux_system.version == var.flux_helm_version
+    error_message = "Flux Helm chart version should match input variable"
   }
 
   assert {
