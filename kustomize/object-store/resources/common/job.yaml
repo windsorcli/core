@@ -1,0 +1,32 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: generate-minio-root-creds
+  namespace: system-object-store
+spec:
+  template:
+    spec:
+      restartPolicy: Never
+      serviceAccountName: minio-config
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1000
+        runAsGroup: 1000
+      containers:
+      - name: generate-creds
+        # renovate: datasource=docker depName=kubectl package=bitnami/kubectl
+        image: bitnami/kubectl:1.33.1
+        command: ["/bin/bash", "-c"]
+        args:
+        - |
+          MINIO_ACCESS_KEY=$(openssl rand -hex 12);
+          MINIO_SECRET_KEY=$(openssl rand -hex 16);
+          echo -ne "export MINIO_ROOT_USER=$MINIO_ACCESS_KEY\nexport MINIO_ROOT_PASSWORD=$MINIO_SECRET_KEY" > /tmp/encoded_creds.env;
+          kubectl create secret generic minio-root-creds -n system-object-store --from-file=config.env=/tmp/encoded_creds.env --dry-run=client -o yaml | kubectl apply -f -;
+        securityContext:
+          allowPrivilegeEscalation: false
+          capabilities:
+            drop:
+              - ALL
+          seccompProfile:
+            type: RuntimeDefault

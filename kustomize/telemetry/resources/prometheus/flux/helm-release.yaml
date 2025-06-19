@@ -1,0 +1,38 @@
+apiVersion: helm.toolkit.fluxcd.io/v2
+kind: HelmRelease
+metadata:
+  name: flux-pod-monitor
+  namespace: system-gitops
+spec:
+  interval: 5m
+  timeout: 10m
+  chart:
+    spec:
+      chart: flux2
+      # renovate: datasource=helm depName=flux package=flux2 helmRepo=https://fluxcd-community.github.io/helm-charts
+      version: 2.16.0
+      sourceRef:
+        kind: HelmRepository
+        name: fluxcd-community
+        namespace: system-gitops
+  values:
+    prometheus:
+      podMonitor:
+        create: true
+    helmController:
+      create: false
+    imageAutomationController:
+      create: false
+    imageReflectionController:
+      create: false
+    kustomizeController:
+      create: false
+    notificationController:
+      create: false
+    sourceController:
+      create: false
+    policies:
+      create: false
+    rbac:
+      create: false
+      createAggregation: false

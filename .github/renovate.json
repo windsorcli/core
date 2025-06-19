@@ -1,30 +1,55 @@
 {
   "$schema": "https://docs.renovatebot.com/renovate-schema.json",
-
   "extends": [
     "config:recommended",
-    "github>aquaproj/aqua-renovate-config#2.7.5",
+    "github>aquaproj/aqua-renovate-config#2.8.1",
     ":dependencyDashboard"
   ],
   "packageRules": [
     {
       "description": "Pin GitHub Actions to specific commit SHAs",
-      "matchManagers": ["github-actions"],
-      "matchPackagePatterns": [".*"],
+      "matchManagers": [
+        "github-actions"
+      ],
       "versioning": "github-tags",
       "pinDigests": true,
       "enabled": true,
       "automerge": true,
       "automergeType": "pr",
-      "automergeStrategy": "squash"
+      "automergeStrategy": "squash",
+      "matchPackageNames": [
+        "/.*/"
+      ],
+      "labels": [
+        "dependencies"
+      ]
     },
     {
-      "matchUpdateTypes": ["major", "minor", "patch"],
+      "matchDatasources": ["terraform-provider"],
+      "automerge": true,
+      "automergeType": "pr",
+      "automergeStrategy": "squash",
+      "labels": [
+        "terraform",
+        "dependencies"
+      ],
+      "lockFileMaintenance": {
+        "enabled": true
+      }
+    },
+    {
+      "matchUpdateTypes": [
+        "major",
+        "minor",
+        "patch"
+      ],
       "enabled": true,
       "automerge": true,
       "automergeType": "pr",
       "automergeStrategy": "squash",
-      "labels": ["dependencies"]
+      "labels": [
+        "dependencies"
+      ]
     },
     {
       "description": "Update Go modules",
@@ -35,7 +60,10 @@
       "automerge": true,
       "automergeType": "pr",
       "automergeStrategy": "squash",
-      "labels": ["go", "dependencies"]
+      "labels": [
+        "go",
+        "dependencies"
+      ]
     },
     {
       "description": "Update Taskfile dependencies",
@@ -46,14 +74,28 @@
       "automerge": true,
       "automergeType": "pr",
       "automergeStrategy": "squash",
-      "labels": ["dependencies"]
+      "labels": [
+        "dependencies"
+      ]
+    },
+    {
+      "matchPackageNames": ["windsorcli/k8s-versions"],
+      "matchDepNames": ["aks-kubernetes"],
+      "extractVersion": "^aks-kubernetes-(?<version>\\d+\\.\\d+\\.\\d+)$",
+      "versioning": "semver"
+    },
+    {
+      "matchPackageNames": ["windsorcli/k8s-versions"],
+      "matchDepNames": ["eks-kubernetes"],
+      "extractVersion": "^eks-kubernetes-(?<version>\\d+\\.\\d+\\.\\d+)$",
+      "versioning": "semver"
     }
   ],
   "customManagers": [
     {
       "customType": "regex",
-      "fileMatch": [
-        "^\\.github/workflows/ci\\.yaml$"
+      "managerFilePatterns": [
+        "/^\\.github/workflows/ci\\.yaml$/"
       ],
       "datasourceTemplate": "github-commits",
       "packageNameTemplate": "windsorcli/cli",
@@ -64,8 +106,8 @@
     },
     {
       "customType": "regex",
-      "fileMatch": [
-        "^\\.github/workflows/ci\\.yaml$"
+      "managerFilePatterns": [
+        "/^\\.github/workflows/ci\\.yaml$/"
       ],
       "matchStrings": [
         "(^|\\s)WINDSORCLI_VERSION:\\s*(?<currentValue>v[\\d\\.]+)"
@@ -77,7 +119,9 @@
     },
     {
       "customType": "regex",
-      "fileMatch": ["^\\.github/workflows/ci\\.yaml$"],
+      "managerFilePatterns": [
+        "/^\\.github/workflows/ci\\.yaml$/"
+      ],
       "matchStrings": [
         "checks\\.yaml@(?<currentValue>v[\\d\\.]+)",
         "checkov\\.yaml@(?<currentValue>v[\\d\\.]+)"
@@ -85,12 +129,15 @@
       "depNameTemplate": "windsorcli/blueprint",
       "datasourceTemplate": "github-tags",
       "packageNameTemplate": "windsorcli/blueprint",
-      "lookupNameTemplate": "windsorcli/blueprint",
       "versioningTemplate": "semver"
     },
     {
       "customType": "regex",
-      "fileMatch": ["^.*\\.ya?ml$", "^.*\\.tf$", "^.*\\.tfvars$"],
+      "managerFilePatterns": [
+        "/^.*\\.ya?ml$/",
+        "/^.*\\.tf$/",
+        "/^.*\\.tfvars$/"
+      ],
       "matchStrings": [
         "\\s*#\\s*renovate:\\s*datasource=(?<datasource>[^\\s]+)\\s*depName=(?<depName>[^\\s]+)\\s*package=(?<package>[^\\s]+)(\\s*helmRepo=(?<helmRepo>[^\\s]+))?.*\n.*(?<currentValue>\\d+\\.\\d+\\.\\d+(-[a-zA-Z0-9]+)?)"
       ],
@@ -104,5 +151,5 @@
   "platformAutomerge": true,
   "labels": [
     "dependencies"
-  ]  
+  ]
 }

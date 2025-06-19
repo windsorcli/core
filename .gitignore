@@ -1,3 +1,4 @@
+.terraform/
 
 # managed by windsor cli
 .windsor/
@@ -9,3 +10,8 @@ contexts/**/.tfstate/
 contexts/**/.kube/
 contexts/**/.talos/
 contexts/**/.aws/
+contexts/**/.omni/
+contexts/**/.azure/
+
+# macOS system files
+**/.DS_Store

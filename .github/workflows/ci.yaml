@@ -8,72 +8,169 @@ on:
     branches:
       - main
 
+permissions:
+  contents: write
+  security-events: write
+  checks: write
+
 env:
   WINDSOR_PROJECT_ROOT: ${{ github.workspace }}
+  DOCKER_HOST: unix:///var/run/docker.sock
+  # renovate: datasource=github-releases depName=docker-compose package=docker/compose
+  DOCKER_COMPOSE_VERSION: v2.37.1
+  # renovate: datasource=github-releases depName=troubleshoot package=replicatedhq/troubleshoot
+  SUPPORT_BUNDLE_VERSION: v0.119.1
 
 jobs:
-  # Blueprint Checks
-  checks:
-    uses: windsorcli/blueprint/.github/workflows/checks.yaml@37a5386198caa29f87531d09003512adc5407702 # v0.1.0
-
-  checkov:
-    uses: windsorcli/blueprint/.github/workflows/checkov.yaml@37a5386198caa29f87531d09003512adc5407702 # v0.1.0
-
-  ci:
+  code-checks:
+    name: Code Quality
     runs-on: ubuntu-latest
-
-    env:
-      KUBECONFIG: ${{ github.workspace }}/contexts/local/.kube/config
-      TALOSCONFIG: ${{ github.workspace }}/contexts/local/.talos/config
-      PRIVATE_DOMAIN_NAME: private.test
-      DNS_SERVER_IP: "10.5.255.200"
-      WINDSORCLI_VERSION: "v0.5.1"
-
     steps:
       - name: Checkout code
         uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
 
+      - name: Install Docker Compose
+        run: |
+            sudo curl -L "https://github.com/docker/compose/releases/download/${DOCKER_COMPOSE_VERSION}/docker-compose-$(uname -s)-$(uname -m)" -o /usr/local/bin/docker-compose
+            sudo chmod +x /usr/local/bin/docker-compose
+            docker-compose --version
+        continue-on-error: false
+
+      # This module is not loaded by default and is required to run Kubernetes on Docker
+      - name: Load br_netfilter kernel module
+        run: |
+          sudo modprobe br_netfilter
+          echo "1" | sudo tee /proc/sys/net/bridge/bridge-nf-call-iptables
+          echo "1" | sudo tee /proc/sys/net/bridge/bridge-nf-call-ip6tables
+
+      - name: Set up Python
+        uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5.6.0
+        with:
+          python-version: '3.x'
+
+      - name: Run yamllint
+        run: |
+          pip install yamllint
+          yamllint .
+
+      - name: Run shellcheck
+        run: |
+          sudo apt-get install -y shellcheck
+          find . -name "*.sh" -print0 | xargs -0 shellcheck
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@b9cd54a3c349d3f38e8881555d616ced269862dd # v3.1.2
+        with:
+          # renovate: datasource=github-releases depName=terraform package=hashicorp/terraform
+          terraform_version: 1.12.2
+
+      - name: Run terraform fmt
+        run: terraform fmt -check -recursive
+
+      - name: Run Terraform Tests
+        run: |
+          find terraform -type f -name '*.tftest.hcl' | while read testfile; do
+            testdir=$(dirname "$testfile")
+            (cd "$testdir" && terraform init -input=false && terraform test)
+          done
+
+      - name: Checkov GitHub Action
+        uses: bridgecrewio/checkov-action@594e103431e5e5e10d46d818d57e34cfa8fb3f4a # v12.3031.0
+        with:
+          directory: ./terraform
+          output_format: cli,sarif
+          output_file_path: console,results.sarif
+
+      - name: Upload SARIF file
+        uses: github/codeql-action/upload-sarif@ce28f5bb42b7a9f2c824e633a3f6ee835bab6858 # v3.29.0
+        with:
+          sarif_file: results.sarif
+
+  integration:
+    name: Integration Tests
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+
+      - name: Install Docker Compose
+        run: |
+            sudo curl -L "https://github.com/docker/compose/releases/download/${DOCKER_COMPOSE_VERSION}/docker-compose-$(uname -s)-$(uname -m)" -o /usr/local/bin/docker-compose
+            sudo chmod +x /usr/local/bin/docker-compose
+            docker-compose --version
+        continue-on-error: false
+
+      - name: Load br_netfilter kernel module
+        run: |
+          sudo modprobe br_netfilter
+          echo "1" | sudo tee /proc/sys/net/bridge/bridge-nf-call-iptables
+          echo "1" | sudo tee /proc/sys/net/bridge/bridge-nf-call-ip6tables
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@b9cd54a3c349d3f38e8881555d616ced269862dd # v3.1.2
+        with:
+          # renovate: datasource=github-releases depName=terraform package=hashicorp/terraform
+          terraform_version: 1.12.2
+
+      - name: Setup kubectl
+        uses: azure/setup-kubectl@3e0aec4d80787158d308d7b364cb1b702e7feb7f # v4.0.0
+        with:
+          # renovate: datasource=github-releases depName=kubectl package=kubernetes/kubectl
+          version: v1.33.0
+
+      - name: Install support-bundle CLI
+        run: |
+          cd "$(mktemp -d)" &&
+          curl -fsSLO "https://github.com/replicatedhq/troubleshoot/releases/download/${SUPPORT_BUNDLE_VERSION}/support-bundle_linux_amd64.tar.gz" &&
+          tar xzf support-bundle_linux_amd64.tar.gz &&
+          sudo install -m 0755 -o root -g root support-bundle /usr/local/bin/ &&
+          cd - &&
+          rm -rf "$OLDPWD" &&
+          support-bundle version
+
+      - name: Create bundle directory
+        run: mkdir -p support-bundles
+
+      - name: Install Windsor CLI
+        uses: windsorcli/action@main
+        with:
+          ref: main
+          context: local
+
       - name: Create .docker-cache directory
-        run: mkdir -p .docker-cache
+        run: mkdir -p .windsor/.docker-cache
 
       - name: Cache .docker-cache
         uses: actions/cache@5a3ec84eff668545956fd18022155c47e93e2684 # v4.2.3
         with:
-          path: .docker-cache
+          path: .windsor/.docker-cache
           key: docker-cache-${{ runner.os }}-${{ github.sha }}
           restore-keys: docker-cache-${{ runner.os }}-
 
-      # Install Aqua
-      - name: Install Aqua on Linux/macOS
-        uses: aquaproj/aqua-installer@e2d0136abcf70b7a2f6f505720640750557c4b33 # v3.1.1
+      - name: Windsor Up
+        run: |
+          windsor init local --set dns.enabled=false
+          windsor up --install --verbose --wait
+
+      - name: Collect Windsor State
+        if: always()
+        run: |
+          tar --exclude='.docker-cache' --exclude='.terraform' -czf support-bundles/windsor-state.tar.gz contexts/local .windsor
+
+      - name: Collect support bundle
+        if: always()
+        run: |
+          support-bundle --interactive=false --output=support-bundles/bundle-${{ github.workflow }}-${{ github.run_id }}-${{ github.run_number }} .github/support-bundle.yaml
+
+      - name: Upload support bundle
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
-          aqua_version: v2.46.0
-          
-      - name: Set aqua path on Linux/macOS
+          name: support-bundle-local
+          path: support-bundles/
+          retention-days: 30
+
+      - name: Windsor Down
+        if: always()
         run: |
-          echo "${AQUA_ROOT_DIR:-${XDG_DATA_HOME:-$HOME/.local/share}/aquaproj-aqua}/bin" >> $GITHUB_PATH
-
-      # Install tools
-      - name: Install tools
-        run: |
-          aqua install     
-
-      # Install Windsor CLI
-      - name: Install Windsor CLI
-        uses: windsorcli/action/.github/actions/windsorcli@078842a08b468bd2278563bbc929e9d968095988 # v0.2.0
-        with:
-          version: ${{ env.WINDSORCLI_VERSION }}
-          install_folder: ${{ github.workspace }}/bin
-          context: local
-
-      # Windsor Up
-      - name: Windsor Up on Linux/macOS
-        run: |
-          windsor init local
-
-          windsor up --install --verbose
-
-      # Windsor Down
-      - name: Windsor Down on Linux/macOS
-        run: |
-          windsor down --clean
+          windsor down
