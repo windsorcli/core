@@ -47,9 +47,11 @@ module "controlplane_bootstrap" {
   cluster_endpoint     = var.cluster_endpoint
   kubernetes_version   = var.kubernetes_version
   talos_version        = var.talos_version
+  installer_image      = var.installer_image
   machine_type         = "controlplane"
   endpoint             = var.controlplanes[0].endpoint
   bootstrap            = true // Bootstrap the first control plane node
+  platform             = var.platform
   config_patches = compact(concat([
     var.common_config_patches,
     var.controlplane_config_patches,
@@ -73,9 +75,11 @@ module "controlplanes" {
   cluster_endpoint     = var.cluster_endpoint
   kubernetes_version   = var.kubernetes_version
   talos_version        = var.talos_version
+  installer_image      = var.installer_image
   machine_type         = "controlplane"
   endpoint             = var.controlplanes[count.index + 1].endpoint
   bootstrap            = false // Do not bootstrap other control plane nodes
+  platform             = var.platform
   config_patches = compact(concat([
     var.common_config_patches,
     var.controlplane_config_patches,
@@ -103,8 +107,10 @@ module "workers" {
   cluster_endpoint     = var.cluster_endpoint
   kubernetes_version   = var.kubernetes_version
   talos_version        = var.talos_version
+  installer_image      = var.installer_image
   machine_type         = "worker"
   endpoint             = var.workers[count.index].endpoint
+  platform             = var.platform
   config_patches = compact(concat([
     var.common_config_patches,
     var.worker_config_patches,
@@ -154,51 +160,5 @@ resource "local_sensitive_file" "talosconfig" {
 
   lifecycle {
     ignore_changes = [content] // Ignore changes to content to prevent unnecessary updates
-  }
-}
-
-#-----------------------------------------------------------------------------------------------------------------------
-# Cluster Health
-#-----------------------------------------------------------------------------------------------------------------------
-
-# The following workaround is required until resolution of https://github.com/siderolabs/terraform-provider-talos/issues/221
-
-# data "talos_cluster_health" "this" {
-#   depends_on = [
-#     module.controlplane_bootstrap,
-#     module.controlplanes,
-#     module.workers
-#   ]
-
-#   client_configuration = talos_machine_secrets.this.client_configuration
-#   control_plane_nodes  = var.controlplanes.*.node
-#   worker_nodes         = var.workers.*.node
-#   endpoints            = var.controlplanes.*.endpoint
-# }
-
-locals {
-  healthcheck_command     = var.os_type == "unix" ? "${path.module}/resources/healthcheck.sh" : "& { & '${path.module}/resources/healthcheck.ps1' }"
-  healthcheck_interpreter = var.os_type == "unix" ? ["sh", "-c"] : ["powershell", "-Command"]
-}
-
-resource "null_resource" "healthcheck" {
-  triggers = {
-    always_run = timestamp() // Ensures the resource runs every time
-  }
-
-  depends_on = [
-    local_sensitive_file.kubeconfig,
-    local_sensitive_file.talosconfig
-  ]
-
-  provisioner "local-exec" {
-    command     = local.healthcheck_command
-    interpreter = local.healthcheck_interpreter
-    environment = {
-      KUBECONFIG = local.kubeconfig_path
-      NODE_COUNT = length(var.controlplanes) + length(var.workers)
-      TIMEOUT    = 300 # 5 minutes
-      INTERVAL   = 5   # 5 seconds
-    }
   }
 }

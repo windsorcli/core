@@ -17,6 +17,7 @@ contexts:
     dns:
       domain: aws-test.internal
   local:
+    id: woec53g1
     blueprint: full
     docker:
       enabled: true
@@ -53,6 +54,7 @@ contexts:
       enabled: true
       platform: local
       driver: talos
+      image: ghcr.io/siderolabs/talos:v1.10.4
       controlplanes:
         count: 1
         cpu: 2

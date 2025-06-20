@@ -12,39 +12,62 @@ terraform {
 }
 
 #-----------------------------------------------------------------------------------------------------------------------
-# Disks
+# Locals
 #-----------------------------------------------------------------------------------------------------------------------
 
 locals {
+  # Build the installer image URL based on Talos version and platform
+  # For local platform (Docker), use the direct installer image
+  # For other platforms with vanilla installations, use the factory pattern
+  # If installer_image is explicitly provided, use that instead
+  installer_image = var.installer_image != "" ? var.installer_image : (
+    var.platform == "local" ? "ghcr.io/siderolabs/installer:v${var.talos_version}" : "factory.talos.dev/${var.platform}-installer:v${var.talos_version}"
+  )
 
   # Conditionally create the machine configuration patch based on disk_selector and hostname
   machine_config_patch = yamlencode({
     machine = merge(
-      # Include network block only if hostname is not null or empty
+      # Include hostname if provided
       var.hostname != null && var.hostname != "" ? {
         network = {
           hostname = var.hostname
         }
       } : {},
-      # Include install block only if disk_selector is not null
-      var.disk_selector != null ? {
-        install = {
-          diskSelector    = var.disk_selector     # Disk selector to use for the machine
-          wipe            = var.wipe_disk         # Whether to wipe the disk before installation
-          extraKernelArgs = var.extra_kernel_args # Additional kernel arguments
-          image           = var.image             # Image to be used for installation
-          extensions      = var.extensions        # Extensions to be used for installation
-        }
+      # Build install block only for non-local platforms (Docker doesn't use installers)
+      var.platform != "local" ? {
+        install = merge(
+          # Base install configuration
+          {
+            image = local.installer_image
+            wipe  = var.wipe_disk
+          },
+          # Add disk selector if provided
+          var.disk_selector != null ? {
+            diskSelector = var.disk_selector
+          } : {},
+          # Add extra kernel args if provided
+          length(var.extra_kernel_args) > 0 ? {
+            extraKernelArgs = var.extra_kernel_args
+          } : {},
+          # Add extensions if provided
+          length(var.extensions) > 0 ? {
+            extensions = var.extensions
+          } : {}
+        )
       } : {}
     )
   })
 
-  # Combine machine configuration patch with additional configuration patches
-  config_patches = concat(
+  # Combine all configuration patches into one list, filtering out empty strings
+  config_patches = compact(concat(
     [local.machine_config_patch],
-    [for patch in var.config_patches : patch]
-  )
+    var.config_patches
+  ))
 }
+
+#-----------------------------------------------------------------------------------------------------------------------
+# Machine Configuration
+#-----------------------------------------------------------------------------------------------------------------------
 
 # Data source to generate the machine configuration for Talos
 data "talos_machine_configuration" "this" {
@@ -65,12 +88,27 @@ resource "talos_machine_configuration_apply" "this" {
   endpoint                    = var.endpoint                                                # Endpoint for the machine
 }
 
-// Bootstrap the first control plane node
-resource "talos_machine_bootstrap" "bootstrap" {
-  count      = var.bootstrap ? 1 : 0
+resource "talos_machine_bootstrap" "this" {
+  count = var.bootstrap ? 1 : 0
+
   depends_on = [talos_machine_configuration_apply.this]
 
+  client_configuration = var.client_configuration
   node                 = var.node
   endpoint             = var.endpoint
-  client_configuration = var.client_configuration
+}
+
+# Health check to ensure node is ready before dependent resources proceed
+resource "null_resource" "node_health_check" {
+  depends_on = [talos_machine_configuration_apply.this]
+
+  triggers = {
+    node_ip       = var.node
+    talos_version = var.talos_version
+    config_hash   = sha256(data.talos_machine_configuration.this.machine_configuration)
+  }
+
+  provisioner "local-exec" {
+    command = "windsor check node-health --nodes ${var.node} --version ${var.talos_version} --timeout 300s"
+  }
 }

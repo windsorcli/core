@@ -36,13 +36,32 @@ variable "talos_version" {
   }
 }
 
+variable "platform" {
+  description = "The target platform for the Talos installer image (e.g., metal, aws, gcp, azure, local)."
+  type        = string
+  default     = "metal"
+  validation {
+    condition = contains([
+      "metal", "aws", "gcp", "azure", "vmware", "equinixMetal", "hcloud", "digitalocean",
+      "scaleway", "upcloud", "vultr", "exoscale", "oracle", "nocloud", "local"
+    ], var.platform)
+    error_message = "Platform must be one of: metal, aws, gcp, azure, vmware, equinixMetal, hcloud, digitalocean, scaleway, upcloud, vultr, exoscale, oracle, nocloud, local."
+  }
+}
+
+variable "installer_image" {
+  description = "Optional override for the Talos installer image. If not specified, will be automatically generated based on platform and talos_version. Examples: 'factory.talos.dev/metal-installer/376567988ad370138ad8b2698212367b8edcb69b5fd68c80be1f2ec7d603b4ba:v1.8.2', 'ghcr.io/myorg/custom-installer:v1.8.2'"
+  type        = string
+  default     = ""
+}
+
 variable "cluster_name" {
   description = "The name of the cluster."
   type        = string
   default     = "talos"
   validation {
     condition     = length(var.cluster_name) > 0
-    error_message = "The cluster name must not be empty."
+    error_message = "Cluster name cannot be empty."
   }
 }
 

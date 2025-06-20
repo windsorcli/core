@@ -4,6 +4,10 @@ mock_provider "talos" {
   mock_resource "talos_machine_bootstrap" {}
 }
 
+mock_provider "null" {
+  mock_resource "null_resource" {}
+}
+
 variables {
   machine_type = "controlplane"
   endpoint     = "dummy"
@@ -51,9 +55,12 @@ variables {
   cluster_endpoint   = "https://dummy"
   kubernetes_version = "dummy"
   talos_version      = "1.10.1"
+  platform           = "metal"
 }
 
 run "machine_config_patch_with_disk_and_hostname" {
+  command = plan
+  
   variables {
     disk_selector = {
       busPath  = ""
@@ -69,7 +76,6 @@ run "machine_config_patch_with_disk_and_hostname" {
     wipe_disk         = true
     hostname          = "test-node"
     extra_kernel_args = ["console=tty0"]
-    image             = "test-image"
     extensions        = [{ image = "test-extension" }]
   }
   assert {
@@ -85,8 +91,8 @@ run "machine_config_patch_with_disk_and_hostname" {
     error_message = "Should include extra kernel arg console=tty0"
   }
   assert {
-    condition     = strcontains(local.machine_config_patch, "\"image\": \"test-image\"")
-    error_message = "Should include image test-image"
+    condition     = strcontains(local.machine_config_patch, "factory.talos.dev/metal-installer:v1.10.1")
+    error_message = "Should include versioned installer image URL"
   }
   assert {
     condition     = strcontains(local.machine_config_patch, "- \"image\": \"test-extension\"")
@@ -95,6 +101,8 @@ run "machine_config_patch_with_disk_and_hostname" {
 }
 
 run "machine_config_patch_without_disk" {
+  command = plan
+  
   variables {
     disk_selector = null
     hostname      = "test-node"
@@ -110,6 +118,8 @@ run "machine_config_patch_without_disk" {
 }
 
 run "machine_config_patch_without_hostname" {
+  command = plan
+  
   variables {
     disk_selector = {
       busPath  = ""
@@ -135,6 +145,8 @@ run "machine_config_patch_without_hostname" {
 }
 
 run "config_patches_includes_extra" {
+  command = plan
+  
   variables {
     disk_selector = null
     hostname      = "test-node"
@@ -154,5 +166,27 @@ run "config_patches_includes_extra" {
   assert {
     condition     = strcontains(local.config_patches[1], "- 8.8.8.8")
     error_message = "Should include nameservers in extra patch"
+  }
+}
+
+run "custom_installer_image" {
+  command = plan
+
+  variables {
+    machine_type       = "controlplane"
+    endpoint           = "172.20.0.10"
+    node               = "172.20.0.10"
+    cluster_name       = "test-cluster"
+    cluster_endpoint   = "https://172.20.0.10:6443"
+    kubernetes_version = "1.31.0"
+    talos_version      = "1.8.2"
+    platform           = "metal"
+    installer_image    = "factory.talos.dev/metal-installer/376567988ad370138ad8b2698212367b8edcb69b5fd68c80be1f2ec7d603b4ba:v1.8.2"
+  }
+
+  # Validate that the installer_image local uses the custom image when provided
+  assert {
+    condition     = local.installer_image == "factory.talos.dev/metal-installer/376567988ad370138ad8b2698212367b8edcb69b5fd68c80be1f2ec7d603b4ba:v1.8.2"
+    error_message = "installer_image local should use the custom image when installer_image variable is provided. Got: ${local.installer_image}"
   }
 }
