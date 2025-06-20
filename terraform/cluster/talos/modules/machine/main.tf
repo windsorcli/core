@@ -98,7 +98,7 @@ resource "talos_machine_bootstrap" "this" {
 
 # Health check to ensure node is ready before dependent resources proceed
 resource "null_resource" "node_health_check" {
-  depends_on = [talos_machine_configuration_apply.this]
+  depends_on = [talos_machine_configuration_apply.this, talos_machine_bootstrap.this]
 
   triggers = {
     node_ip       = var.node
