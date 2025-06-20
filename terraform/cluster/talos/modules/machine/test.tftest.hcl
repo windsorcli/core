@@ -91,7 +91,7 @@ run "machine_config_patch_with_disk_and_hostname" {
     error_message = "Should include extra kernel arg console=tty0"
   }
   assert {
-    condition     = strcontains(local.machine_config_patch, "factory.talos.dev/metal-installer:v1.10.1")
+    condition     = strcontains(local.machine_config_patch, "ghcr.io/siderolabs/installer:v1.10.1")
     error_message = "Should include versioned installer image URL"
   }
   assert {
