@@ -20,9 +20,7 @@ locals {
   # For local platform (Docker), use the direct installer image
   # For other platforms with vanilla installations, use the factory pattern
   # If installer_image is explicitly provided, use that instead
-  installer_image = var.installer_image != "" ? var.installer_image : (
-    var.platform == "local" ? "ghcr.io/siderolabs/installer:v${var.talos_version}" : "factory.talos.dev/${var.platform}-installer:v${var.talos_version}"
-  )
+  installer_image = var.installer_image != "" ? var.installer_image : "ghcr.io/siderolabs/installer:v${var.talos_version}"
 
   # Conditionally create the machine configuration patch based on disk_selector and hostname
   machine_config_patch = yamlencode({
