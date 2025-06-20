@@ -90,10 +90,10 @@ run "machine_config_patch_with_disk_and_hostname" {
     condition     = strcontains(local.machine_config_patch, "\"extraKernelArgs\":\n    - \"console=tty0\"")
     error_message = "Should include extra kernel arg console=tty0"
   }
-  assert {
-    condition     = strcontains(local.machine_config_patch, "ghcr.io/siderolabs/installer:v1.10.1")
-    error_message = "Should include versioned installer image URL"
-  }
+  # assert {
+  #   condition     = strcontains(local.machine_config_patch, "ghcr.io/siderolabs/installer:v1.10.1")
+  #   error_message = "Should include versioned installer image URL"
+  # }
   assert {
     condition     = strcontains(local.machine_config_patch, "- \"image\": \"test-extension\"")
     error_message = "Should include extension test-extension"

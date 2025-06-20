@@ -35,10 +35,10 @@ locals {
       var.platform != "local" ? {
         install = merge(
           # Base install configuration
-          {
-            image = local.installer_image
-            wipe  = var.wipe_disk
-          },
+          # {
+          #   image = local.installer_image
+          #   wipe  = var.wipe_disk
+          # },
           # Add disk selector if provided
           var.disk_selector != null ? {
             diskSelector = var.disk_selector
