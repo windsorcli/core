@@ -149,7 +149,7 @@ jobs:
 
       - name: Windsor Up
         run: |
-          windsor init local --set dns.enabled=false
+          windsor init local --set dns.enabled=false --reset
           windsor up --install --verbose --wait
 
       - name: Collect Windsor State
