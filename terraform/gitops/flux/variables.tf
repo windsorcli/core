@@ -20,7 +20,7 @@ variable "flux_version" {
   description = "The version of Flux to install"
   type        = string
   # renovate: datasource=github-releases depName=flux package=fluxcd/flux2
-  default = "2.6.2"
+  default = "2.6.3"
 
   validation {
     condition     = can(regex("^[0-9]+\\.[0-9]+\\.[0-9]+$", var.flux_version))
