@@ -19,7 +19,7 @@ env:
   # renovate: datasource=github-releases depName=docker-compose package=docker/compose
   DOCKER_COMPOSE_VERSION: v2.38.1
   # renovate: datasource=github-releases depName=troubleshoot package=replicatedhq/troubleshoot
-  SUPPORT_BUNDLE_VERSION: v0.119.1
+  SUPPORT_BUNDLE_VERSION: v0.120.0
 
 jobs:
   code-checks:
