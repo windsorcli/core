@@ -17,7 +17,7 @@ env:
   WINDSOR_PROJECT_ROOT: ${{ github.workspace }}
   DOCKER_HOST: unix:///var/run/docker.sock
   # renovate: datasource=github-releases depName=docker-compose package=docker/compose
-  DOCKER_COMPOSE_VERSION: v2.37.3
+  DOCKER_COMPOSE_VERSION: v2.38.1
   # renovate: datasource=github-releases depName=troubleshoot package=replicatedhq/troubleshoot
   SUPPORT_BUNDLE_VERSION: v0.119.1
 
@@ -82,7 +82,7 @@ jobs:
           output_file_path: console,results.sarif
 
       - name: Upload SARIF file
-        uses: github/codeql-action/upload-sarif@39edc492dbe16b1465b0cafca41432d857bdb31a # v3.29.1
+        uses: github/codeql-action/upload-sarif@181d5eefc20863364f96762470ba6f862bdef56b # v3.29.2
         with:
           sarif_file: results.sarif
 
