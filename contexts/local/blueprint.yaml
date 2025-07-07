@@ -87,3 +87,22 @@ kustomize:
   - ingress
   components:
   - webhook
+- name: observability
+  path: observability
+  dependsOn:
+    - csi
+    - ingress
+  components:
+    - grafana
+    - grafana/ingress
+    - grafana/prometheus
+    - grafana/node
+    - grafana/kubernetes
+    - grafana/flux
+    - grafana/quickwit
+- name: quickwit
+  path: observability/quickwit
+  dependsOn:
+  - pki-base
+  components:
+  - pvc

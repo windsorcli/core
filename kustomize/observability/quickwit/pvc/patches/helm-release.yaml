@@ -27,9 +27,8 @@ spec:
       replicaCount: 1
       extraVolumes:
         - name: quickwit-indexes
-          hostPath:
-            path: /var/lib/quickwit/indexes
-            type: DirectoryOrCreate
+          persistentVolumeClaim:
+            claimName: quickwit-indexes
       extraVolumeMounts:
         - name: quickwit-indexes
           mountPath: /quickwit/qwdata/indexes
@@ -37,9 +36,8 @@ spec:
     indexer:
       extraVolumes:
         - name: quickwit-indexes
-          hostPath:
-            path: /var/lib/quickwit/indexes
-            type: DirectoryOrCreate
+          persistentVolumeClaim:
+            claimName: quickwit-indexes
       extraVolumeMounts:
         - name: quickwit-indexes
           mountPath: /quickwit/qwdata/indexes

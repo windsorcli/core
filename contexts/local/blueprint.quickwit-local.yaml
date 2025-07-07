@@ -8,11 +8,29 @@ repository:
   ref:
     branch: main
   secretName: flux-system
-sources: []
+sources:
+- name: core
+  url: github.com/windsorcli/core
+  ref:
+    branch: main
 terraform:
 - path: cluster/talos
 - path: gitops/flux
+  destroy: false
 kustomize:
+- name: telemetry-base
+  path: telemetry/base
+  components:
+  - prometheus
+  - prometheus/flux
+- name: telemetry-resources
+  path: telemetry/resources
+  dependsOn:
+  - telemetry-base
+  components:
+  - metrics-server
+  - prometheus
+  - prometheus/flux
 - name: policy-base
   path: policy/base
   components:
@@ -25,15 +43,13 @@ kustomize:
   path: csi
   dependsOn:
   - policy-resources
-  force: true
   components:
   - openebs
   - openebs/dynamic-localpv
-- name: ingress-base
-  path: ingress/base
+- name: ingress
+  path: ingress
   dependsOn:
   - pki-resources
-  force: true
   components:
   - nginx
   - nginx/nodeport
@@ -44,7 +60,6 @@ kustomize:
   path: pki/base
   dependsOn:
   - policy-resources
-  force: true
   components:
   - cert-manager
   - trust-manager
@@ -52,16 +67,13 @@ kustomize:
   path: pki/resources
   dependsOn:
   - pki-base
-  force: true
   components:
   - private-issuer/ca
   - public-issuer/selfsigned
 - name: dns
   path: dns
   dependsOn:
-  - ingress-base
   - pki-base
-  force: true
   components:
   - coredns
   - coredns/etcd
@@ -72,21 +84,25 @@ kustomize:
 - name: gitops
   path: gitops/flux
   dependsOn:
-  - ingress-base
-  force: true
+  - ingress
   components:
   - webhook
-- name: demo
-  path: demo/bookinfo
+- name: observability
+  path: observability
   dependsOn:
-  - ingress-base
-  force: true
+    - csi
+    - ingress
   components:
-  - ingress
+    - grafana
+    - grafana/ingress
+    - grafana/prometheus
+    - grafana/node
+    - grafana/kubernetes
+    - grafana/flux
+    - grafana/quickwit
 - name: quickwit
   path: observability/quickwit
   dependsOn:
-  - observability-base
   - pki-base
   components:
-  - local-file
+  - pvc
