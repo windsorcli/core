@@ -11,7 +11,7 @@ spec:
       containers:
       - name: copy-root-cert
         # renovate: datasource=docker depName=kubectl package=bitnami/kubectl
-        image: bitnami/kubectl:1.32.3
+        image: bitnami/kubectl:1.33.1
         command:
           - /bin/sh
           - -c
@@ -22,7 +22,9 @@ spec:
             while [ $i -le 10 ]; do
               if kubectl get secret private-ca-cert -n system-pki; then
                 kubectl get secret private-ca-cert -n system-pki -o jsonpath='{.data.ca\.crt}' | base64 --decode > /mnt/ca.crt;
-                kubectl create configmap private-ca-cert --from-file=ca.crt=/mnt/ca.crt -n system-pki-trust --dry-run=client -o yaml | kubectl apply -f -;
+                if ! kubectl get configmap private-ca-cert -n system-pki-trust >/dev/null 2>&1; then
+                  kubectl create configmap private-ca-cert --from-file=ca.crt=/mnt/ca.crt -n system-pki-trust --dry-run=client -o yaml | kubectl apply -f -;
+                fi;
                 break;
               else
                 echo "waiting for secret";

@@ -1,0 +1,99 @@
+kind: Blueprint
+apiVersion: blueprints.windsorcli.dev/v1alpha1
+metadata:
+  name: aws-example
+  description: This blueprint outlines resources in the aws-example context
+repository:
+  url: ""
+  ref:
+    branch: main
+  secretName: flux-system
+sources:
+- name: core
+  url: github.com/windsorcli/core
+  ref:
+    branch: aws-lifecycle
+terraform:
+- path: network/aws-vpc
+- path: cluster/aws-eks
+- path: cluster/aws-eks/additions
+  destroy: false
+- path: gitops/flux
+  destroy: false
+kustomize:
+- name: telemetry-base
+  path: telemetry/base
+  source: core
+  components:
+  - prometheus
+  - prometheus/flux
+- name: telemetry-resources
+  path: telemetry/resources
+  source: core
+  dependsOn:
+  - telemetry-base
+  components:
+  - metrics-server
+  - prometheus
+  - prometheus/flux
+- name: policy-base
+  path: policy/base
+  source: core
+  components:
+  - kyverno
+- name: policy-resources
+  path: policy/resources
+  source: core
+  dependsOn:
+  - policy-base
+- name: csi
+  path: csi
+  source: core
+  cleanup:
+  - pvcs
+- name: ingress
+  path: ingress
+  source: core
+  dependsOn:
+  - pki-resources
+  components:
+  - nginx
+  - nginx/flux-webhook
+  - nginx/web
+  cleanup:
+  - loadbalancers
+  - ingresses
+- name: pki-base
+  path: pki/base
+  source: core
+  dependsOn:
+  - policy-resources
+  components:
+  - cert-manager
+  - trust-manager
+- name: pki-resources
+  path: pki/resources
+  source: core
+  dependsOn:
+  - pki-base
+  components:
+  - private-issuer/ca
+  - public-issuer/selfsigned
+- name: dns
+  path: dns
+  source: core
+  components:
+  - external-dns
+  - external-dns/route53
+- name: observability
+  path: observability
+  source: core
+  dependsOn:
+  - ingress
+  components:
+  - grafana
+  - grafana/ingress
+  - grafana/prometheus
+  - grafana/node
+  - grafana/kubernetes
+  - grafana/flux

@@ -1,0 +1,238 @@
+apiVersion: troubleshoot.sh/v1beta2
+kind: SupportBundle
+metadata:
+  name: full-diagnostics
+spec:
+  collectors:
+    # Everything in the cluster
+    - clusterInfo: {}
+    - clusterResources: {}
+    - customResourceDefinition: {}
+    
+    # System logs
+    - logs:
+        namespace: default
+        limits:
+          maxAge: 24h
+          maxLines: 10000
+    - logs:
+        namespace: demo-bookinfo
+        limits:
+          maxAge: 24h
+          maxLines: 10000
+    - logs:
+        namespace: kube-node-lease
+        limits:
+          maxAge: 24h
+          maxLines: 10000
+    - logs:
+        namespace: kube-public
+        limits:
+          maxAge: 24h
+          maxLines: 10000
+    - logs:
+        namespace: kube-system
+        limits:
+          maxAge: 24h
+          maxLines: 10000
+    - logs:
+        namespace: kubelet-serving-cert-approver
+        limits:
+          maxAge: 24h
+          maxLines: 10000
+    - logs:
+        namespace: system-csi
+        limits:
+          maxAge: 24h
+          maxLines: 10000
+    - logs:
+        namespace: system-dns
+        limits:
+          maxAge: 24h
+          maxLines: 10000
+    - logs:
+        namespace: system-gitops
+        limits:
+          maxAge: 24h
+          maxLines: 10000
+    - logs:
+        namespace: system-ingress
+        limits:
+          maxAge: 24h
+          maxLines: 10000
+    - logs:
+        namespace: system-object-store
+        limits:
+          maxAge: 24h
+          maxLines: 10000
+    - logs:
+        namespace: system-pki
+        limits:
+          maxAge: 24h
+          maxLines: 10000
+    - logs:
+        namespace: system-pki-trust
+        limits:
+          maxAge: 24h
+          maxLines: 10000
+    - logs:
+        namespace: system-policy
+        limits:
+          maxAge: 24h
+          maxLines: 10000
+
+    # All events from all namespaces
+    - events: {}
+    
+    # All node info
+    - nodeInfo: {}
+    - nodeResources: {}
+    
+    # All network resources
+    - networkPolicy: {}
+    - service: {}
+    - ingress: {}
+    
+    # All storage resources
+    - persistentVolumeClaim: {}
+    - persistentVolume: {}
+    - storageClass: {}
+    
+    # All deployments, statefulsets, daemonsets
+    - deployment: {}
+    - statefulSet: {}
+    - daemonSet: {}
+    
+    # All pods and their status
+    - pod: {}
+    
+    # All configmaps from all namespaces
+    - configMap:
+        namespace: system-gitops
+        name: blueprint
+
+    # All service accounts and RBAC
+    - serviceAccount: {}
+    - clusterRole: {}
+    - clusterRoleBinding: {}
+    - role: {}
+    - roleBinding: {}
+
+  analyzers:
+    # Cluster health
+    - clusterVersion:
+        outcomes:
+          - fail:
+              when: "< 1.21.0"
+              message: "Kubernetes version is too old for supported blueprints."
+          - pass:
+              message: "Kubernetes version is supported."
+
+    # Pod and container health
+    - clusterPodStatuses:
+        outcomes:
+          - fail:
+              when: "count > 0"
+              message: "There are pods not running or pending."
+          - pass:
+              message: "All pods are running."
+
+    - clusterContainerStatuses:
+        outcomes:
+          - fail:
+              when: "count > 0"
+              message: "Some containers are not ready or are restarting."
+          - pass:
+              message: "All containers are healthy."
+
+    # All CRDs
+    - customResourceDefinition: {}
+
+    # Deployment, StatefulSet, DaemonSet health
+    - deploymentStatus:
+        outcomes:
+          - fail:
+              when: "status.availableReplicas < 1"
+              message: "Some deployments are not available."
+          - pass:
+              message: "All deployments are available."
+    - statefulSetStatus:
+        outcomes:
+          - fail:
+              when: "status.readyReplicas < 1"
+              message: "Some statefulsets are not ready."
+          - pass:
+              message: "All statefulsets are ready."
+    - daemonSetStatus:
+        outcomes:
+          - fail:
+              when: "status.numberAvailable < 1"
+              message: "Some daemonsets are not available."
+          - pass:
+              message: "All daemonsets are available."
+
+    # Storage class presence
+    - storageClass:
+        outcomes:
+          - fail:
+              message: "No storage class found."
+          - pass:
+              message: "Storage class is present."
+
+    # Ingress presence
+    - ingress:
+        outcomes:
+          - fail:
+              message: "No ingress resources found."
+          - pass:
+              message: "Ingress resources are present."
+
+    # Event warnings
+    - event:
+        outcomes:
+          - fail:
+              when: "count > 0"
+              message: "There are warning events in the cluster."
+          - pass:
+              message: "No warning events found."
+
+    # Events analysis
+    - event:
+        name: "Warning Events"
+        when: "count > 0"
+        outcomes:
+          - fail:
+              message: "Found warning events in the cluster"
+              uri: "events"
+          - pass:
+              message: "No warning events found"
+
+    # Network analysis
+    - service:
+        outcomes:
+          - fail:
+              when: "status.loadBalancer.ingress == null"
+              message: "LoadBalancer service has no ingress IP"
+          - pass:
+              message: "LoadBalancer service is properly configured"
+
+    # Storage analysis
+    - persistentVolumeClaim:
+        outcomes:
+          - fail:
+              when: "status.phase != Bound"
+              message: "PVC is not bound"
+          - pass:
+              message: "PVC is bound"
+
+    # Node analysis
+    - nodeResources:
+        outcomes:
+          - fail:
+              when: "status.allocatable.cpu < 2"
+              message: "Node has insufficient CPU resources"
+          - fail:
+              when: "status.allocatable.memory < 4Gi"
+              message: "Node has insufficient memory resources"
+          - pass:
+              message: "Node resources are sufficient" 

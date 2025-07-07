@@ -1,0 +1,57 @@
+apiVersion: helm.toolkit.fluxcd.io/v2
+kind: HelmRelease
+metadata:
+  name: cluster-tenant
+  namespace: system-object-store
+spec:
+  interval: 10m
+  timeout: 10m
+  chart:
+    spec:
+      chart: tenant
+      # renovate: datasource=helm depName=minio-tenant package=tenant helmRepo=https://operator.min.io/
+      version: 7.1.1
+      sourceRef:
+        kind: HelmRepository
+        name: minio
+        namespace: system-gitops
+  values:
+    tenant:
+      name: common
+      configSecret:
+          name: minio-root-creds
+          existingSecret: true
+      pools:
+        - name: pool-0
+          servers: 1
+          volumesPerServer: 1
+          storageClassName: single
+          size: 1Gi
+      mountPath: /export
+      subPath: /data
+      buckets: []
+      users: []
+      liveness:
+        httpGet:
+          path: /minio/health/live
+          port: 9000
+          scheme: HTTPS
+        initialDelaySeconds: 120
+        periodSeconds: 20
+      readiness:
+        httpGet:
+          path: /minio/health/ready
+          port: 9000
+          scheme: HTTPS
+        initialDelaySeconds: 20
+        periodSeconds: 10
+      certificate:
+        requestAutoCert: false
+        externalCertSecret:
+          - name: minio-private-tls
+            type: kubernetes.io/tls
+    ingress:
+      api:
+        enabled: false
+      console:
+        enabled: false

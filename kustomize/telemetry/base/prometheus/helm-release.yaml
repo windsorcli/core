@@ -1,0 +1,35 @@
+apiVersion: helm.toolkit.fluxcd.io/v2
+kind: HelmRelease
+metadata:
+  name: kube-prometheus-stack
+  namespace: system-telemetry
+spec:
+  interval: 5m
+  timeout: 5m
+  chart:
+    spec:
+      chart: kube-prometheus-stack
+      # renovate: datasource=helm depName=kube-prometheus-stack package=kube-prometheus-stack helmRepo=https://prometheus-community.github.io/helm-charts
+      version: 57.0.3
+      sourceRef:
+        kind: HelmRepository
+        name: prometheus-community
+        namespace: system-gitops
+  values:
+    grafana:
+      enabled: false
+    kubeStateMetrics:
+      enabled: true
+    prometheus:
+      prometheusSpec:
+        ruleSelectorNilUsesHelmValues: false
+        serviceMonitorSelectorNilUsesHelmValues: false
+        podMonitorSelectorNilUsesHelmValues: false
+        probeSelectorNilUsesHelmValues: false
+        serviceMonitorNamespaceSelector: { }
+        serviceMonitorSelector: { }
+        podMonitorNamespaceSelector: { }
+        podMonitorSelector: { }
+    nodeExporter:
+      enabled: true
+      replicas: 1
