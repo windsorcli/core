@@ -1,0 +1,67 @@
+apiVersion: fluentbit.fluent.io/v1alpha2
+kind: FluentBit
+metadata:
+  labels:
+    app.kubernetes.io/name: fluent-bit
+  name: fluent-bit
+  namespace: system-telemetry
+spec:
+  affinity:
+    nodeAffinity:
+      requiredDuringSchedulingIgnoredDuringExecution:
+        nodeSelectorTerms:
+        - matchExpressions:
+          - key: node-role.kubernetes.io/edge
+            operator: DoesNotExist
+  fluentBitConfigName: fluent-bit-config
+  image: ghcr.io/fluent/fluent-operator/fluent-bit:3.1.4
+  namespaceFluentBitCfgSelector: {}
+  positionDB:
+    hostPath:
+      path: /var/lib/fluent-bit/
+  rbacRules:
+  - apiGroups:
+    - ""
+    resources:
+    - events
+    verbs:
+    - list
+  resources:
+    limits:
+      cpu: 500m
+      memory: 200Mi
+    requests:
+      cpu: 10m
+      memory: 25Mi
+  service: {}
+  tolerations:
+  - operator: Exists
+status: {}
+---
+apiVersion: fluentbit.fluent.io/v1alpha2
+kind: ClusterFluentBitConfig
+metadata:
+  labels:
+    app.kubernetes.io/name: fluent-bit
+  name: fluent-bit-config
+spec:
+  filterSelector:
+    matchLabels:
+      fluentbit.fluent.io/enabled: "true"
+  inputSelector:
+    matchLabels:
+      fluentbit.fluent.io/enabled: "true"
+  multilineParserSelector:
+    matchLabels:
+      fluentbit.fluent.io/enabled: "true"
+  outputSelector:
+    matchLabels:
+      fluentbit.fluent.io/enabled: "true"
+  parserSelector:
+    matchLabels:
+      fluentbit.fluent.io/enabled: "true"
+  service:
+    httpServer: true
+    parsersFiles:
+    - /fluent-bit/etc/parsers.conf
+    - /fluent-bit/config/parsers_multiline.conf
