@@ -10,9 +10,8 @@ spec:
   chart:
     spec:
       chart: charts/fluent-operator
-      # chart: fluent-operator
       # renovate: datasource=helm depName=fluent-operator package=fluent-operator helmRepo=https://fluent.github.io/helm-charts
-      # version: 3.2.0
+      version: 3.4.2
       sourceRef:
         kind: GitRepository
         name: fluent-operator
