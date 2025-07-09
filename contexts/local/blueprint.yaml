@@ -35,7 +35,7 @@ kustomize:
   - prometheus/flux
   - fluentbit
   - fluentbit/containerd
-  - fluentbit/fluentd
+  - fluentbit/quickwit
   - fluentbit/kubernetes
   - fluentbit/systemd
 - name: policy-base
@@ -100,6 +100,7 @@ kustomize:
     - csi
     - ingress
   components:
+    - quickwit
     - grafana
     - grafana/ingress
     - grafana/prometheus
@@ -107,9 +108,9 @@ kustomize:
     - grafana/kubernetes
     - grafana/flux
     - grafana/quickwit
-- name: quickwit
+- name: quickwit-backend
   path: observability/quickwit
   dependsOn:
-  - pki-base
+  - observability
   components:
   - pvc
