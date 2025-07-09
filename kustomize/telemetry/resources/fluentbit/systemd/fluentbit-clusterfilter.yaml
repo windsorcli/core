@@ -1,0 +1,16 @@
+apiVersion: fluentbit.fluent.io/v1alpha2
+kind: ClusterFilter
+metadata:
+  labels:
+    fluentbit.fluent.io/component: logging
+    fluentbit.fluent.io/enabled: "true"
+  name: systemd
+spec:
+  filters:
+  - lua:
+      call: add_time
+      script:
+        key: systemd.lua
+        name: fluent-bit-lua
+      timeAsTable: true
+  match: service.*

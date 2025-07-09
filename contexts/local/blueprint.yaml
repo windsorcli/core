@@ -23,6 +23,8 @@ kustomize:
   components:
   - prometheus
   - prometheus/flux
+  - fluentbit
+  - fluentbit/prometheus
 - name: telemetry-resources
   path: telemetry/resources
   dependsOn:
@@ -31,6 +33,11 @@ kustomize:
   - metrics-server
   - prometheus
   - prometheus/flux
+  - fluentbit
+  - fluentbit/containerd
+  - fluentbit/fluentd
+  - fluentbit/kubernetes
+  - fluentbit/systemd
 - name: policy-base
   path: policy/base
   components:
