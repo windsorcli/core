@@ -7,7 +7,9 @@ metadata:
     fluentbit.fluent.io/enabled: "true"
   name: quickwit
 spec:
-  forward:
+  http:
     host: quickwit-indexer.system-observability.svc.cluster.local
     port: 7280
+    uri: /api/v1/fluentbit-logs/ingest
+    format: json
   matchRegex: (?:kube|service)\.(.*)

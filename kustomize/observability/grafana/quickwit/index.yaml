@@ -1,0 +1,37 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: create-quickwit-index
+  namespace: system-observability
+spec:
+  template:
+    spec:
+      containers:
+      - name: create-index
+        image: curlimages/curl:8.14.1
+        command:
+        - /bin/sh
+        - -c
+        - |
+          cat <<EOF > /tmp/index.yaml
+          version: 0.7
+
+          index_id: fluentbit-logs
+
+          doc_mapping:
+            mode: dynamic
+            field_mappings:
+              - name: timestamp
+                type: datetime
+                input_formats:
+                  - unix_timestamp
+                output_format: unix_timestamp_secs
+                fast: true
+            timestamp_field: timestamp
+
+          indexing_settings:
+            commit_timeout_secs: 10
+          EOF
+
+          curl -X POST http://quickwit-indexer.system-observability.svc.cluster.local:7280/api/v1/indexes -H "Content-Type: application/yaml" --data-binary @/tmp/index.yaml
+      restartPolicy: OnFailure
