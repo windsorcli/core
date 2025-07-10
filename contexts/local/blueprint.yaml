@@ -35,7 +35,7 @@ kustomize:
   - prometheus/flux
   - fluentbit
   - fluentbit/containerd
-  - fluentbit/quickwit
+  - fluentbit/fluentd
   - fluentbit/kubernetes
   - fluentbit/systemd
 - name: policy-base
@@ -101,6 +101,8 @@ kustomize:
     - ingress
   components:
     - quickwit
+    - fluentd
+    - fluentd/quickwit
     - grafana
     - grafana/ingress
     - grafana/prometheus

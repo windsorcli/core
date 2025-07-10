@@ -1,0 +1,51 @@
+apiVersion: fluentd.fluent.io/v1alpha1
+kind: Fluentd
+metadata:
+  labels:
+    app.kubernetes.io/name: fluentd
+  name: fluentd
+  namespace: system-observability
+spec:
+  fluentdCfgSelector:
+    matchLabels:
+      config.fluentd.fluent.io/enabled: "true"
+  globalInputs:
+  - forward:
+      bind: 0.0.0.0
+      port: 24224
+  image: ghcr.io/fluent/fluent-operator/fluentd:v1.17.0
+  logLevel: info
+  mode: collector
+  positionDB: {}
+  replicas: 1
+  resources:
+    limits:
+      cpu: 500m
+      memory: 500Mi
+    requests:
+      cpu: 100m
+      memory: 128Mi
+  service: {}
+status:
+  messages: all matched cfgs is valid
+  state: active
+---
+apiVersion: fluentd.fluent.io/v1alpha1
+kind: ClusterFluentdConfig
+metadata:
+  labels:
+    config.fluentd.fluent.io/enabled: "true"
+  name: fluentd-config
+spec:
+  clusterFilterSelector:
+    matchLabels:
+      filter.fluentd.fluent.io/enabled: "true"
+  clusterOutputSelector:
+    matchLabels:
+      output.fluentd.fluent.io/enabled: "true"
+  watchedNamespaces:
+  - kube-system
+  - default
+status:
+  messages: Generate fluentd configs successfully
+  state: valid
