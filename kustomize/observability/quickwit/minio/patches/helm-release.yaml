@@ -1,0 +1,41 @@
+---
+apiVersion: helm.toolkit.fluxcd.io/v2
+kind: HelmRelease
+metadata:
+  name: quickwit
+  namespace: system-observability
+spec:
+  dependsOn:
+    - name: minio-quickwit-bucket
+      namespace: system-object-store
+  values:
+    additionalLabels:
+      use-custom-ca: "true"
+    config:
+      default_index_root_uri: s3://quickwit/indexes
+      storage:
+        s3:
+          endpoint: https://minio.system-object-store.svc.cluster.local
+          flavor: minio
+          region: "us-east-1"
+  valuesFrom:
+    - kind: Secret
+      name: minio-quickwit-keys
+      valuesKey: access_key
+      targetPath: config.storage.s3.access_key_id
+    - kind: Secret
+      name: minio-quickwit-keys
+      valuesKey: secret_key
+      targetPath: config.storage.s3.secret_access_key
+
+    # NOTE: Reinstate this after resolution of https://github.com/quickwit-oss/quickwit/issues/5199
+    # indexer:
+    #   extraEnvFrom:
+    #     - configMapRef:
+    #         name: minio-sts-env
+    # searcher:
+    #   extraEnvFrom:
+    #     - configMapRef:
+    #         name: minio-sts-env
+    # serviceAccount:
+    #   name: quickwit

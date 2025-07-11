@@ -23,8 +23,6 @@ kustomize:
   components:
   - prometheus
   - prometheus/flux
-  - fluentbit
-  - fluentbit/prometheus
 - name: telemetry-resources
   path: telemetry/resources
   dependsOn:
@@ -33,11 +31,6 @@ kustomize:
   - metrics-server
   - prometheus
   - prometheus/flux
-  - fluentbit
-  - fluentbit/containerd
-  - fluentbit/fluentd
-  - fluentbit/kubernetes
-  - fluentbit/systemd
 - name: policy-base
   path: policy/base
   components:
@@ -100,9 +93,6 @@ kustomize:
     - csi
     - ingress
   components:
-    - quickwit
-    - fluentd
-    - fluentd/quickwit
     - grafana
     - grafana/ingress
     - grafana/prometheus
@@ -110,9 +100,9 @@ kustomize:
     - grafana/kubernetes
     - grafana/flux
     - grafana/quickwit
-- name: quickwit-backend
+- name: quickwit
   path: observability/quickwit
   dependsOn:
-  - observability
+  - pki-base
   components:
   - pvc
