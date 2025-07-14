@@ -110,9 +110,3 @@ kustomize:
     - grafana/kubernetes
     - grafana/flux
     - grafana/quickwit
-- name: quickwit-backend
-  path: observability/quickwit
-  dependsOn:
-  - observability
-  components:
-  - pvc
