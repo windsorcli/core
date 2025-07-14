@@ -110,3 +110,20 @@ kustomize:
     - grafana/kubernetes
     - grafana/flux
     - grafana/quickwit
+- name: object-store-base
+  path: object-store/base
+  components:
+  - minio
+- name: object-store-resources
+  path: object-store/resources
+  dependsOn:
+  - object-store-base
+  components:
+  - minio
+- name: quickwit
+  path: observability/quickwit
+  dependsOn:
+  - observability
+  - object-store-resources
+  components:
+  - minio

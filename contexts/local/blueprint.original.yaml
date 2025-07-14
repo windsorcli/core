@@ -8,36 +8,11 @@ repository:
   ref:
     branch: main
   secretName: flux-system
-sources:
-- name: core
-  url: github.com/windsorcli/core
-  ref:
-    branch: main
+sources: []
 terraform:
 - path: cluster/talos
 - path: gitops/flux
-  destroy: false
 kustomize:
-- name: telemetry-base
-  path: telemetry/base
-  components:
-  - prometheus
-  - prometheus/flux
-  - fluentbit
-  - fluentbit/prometheus
-- name: telemetry-resources
-  path: telemetry/resources
-  dependsOn:
-  - telemetry-base
-  components:
-  - metrics-server
-  - prometheus
-  - prometheus/flux
-  - fluentbit
-  - fluentbit/containerd
-  - fluentbit/fluentd
-  - fluentbit/kubernetes
-  - fluentbit/systemd
 - name: policy-base
   path: policy/base
   components:
@@ -50,13 +25,15 @@ kustomize:
   path: csi
   dependsOn:
   - policy-resources
+  force: true
   components:
   - openebs
   - openebs/dynamic-localpv
-- name: ingress
-  path: ingress
+- name: ingress-base
+  path: ingress/base
   dependsOn:
   - pki-resources
+  force: true
   components:
   - nginx
   - nginx/nodeport
@@ -67,6 +44,7 @@ kustomize:
   path: pki/base
   dependsOn:
   - policy-resources
+  force: true
   components:
   - cert-manager
   - trust-manager
@@ -74,13 +52,16 @@ kustomize:
   path: pki/resources
   dependsOn:
   - pki-base
+  force: true
   components:
   - private-issuer/ca
   - public-issuer/selfsigned
 - name: dns
   path: dns
   dependsOn:
+  - ingress-base
   - pki-base
+  force: true
   components:
   - coredns
   - coredns/etcd
@@ -91,22 +72,14 @@ kustomize:
 - name: gitops
   path: gitops/flux
   dependsOn:
-  - ingress
+  - ingress-base
+  force: true
   components:
   - webhook
-- name: observability
-  path: observability
+- name: demo
+  path: demo/bookinfo
   dependsOn:
-    - csi
-    - ingress
+  - ingress-base
+  force: true
   components:
-    - quickwit
-    - fluentd
-    - fluentd/quickwit
-    - grafana
-    - grafana/ingress
-    - grafana/prometheus
-    - grafana/node
-    - grafana/kubernetes
-    - grafana/flux
-    - grafana/quickwit
+  - ingress
