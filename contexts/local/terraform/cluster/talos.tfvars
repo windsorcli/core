@@ -1,11 +1,10 @@
 # Managed by Windsor CLI: This file is partially managed by the windsor CLI. Your changes will not be overwritten.
-# Module source: github.com/windsorcli/core//terraform/cluster/talos?ref=main
 
 # The kubernetes version to deploy.
-# kubernetes_version = "1.33.1"
+# kubernetes_version = "1.33.2"
 
 # The talos version to deploy.
-# talos_version = "1.10.2"
+# talos_version = "1.10.5"
 
 # The name of the cluster.
 cluster_name = "talos"
@@ -73,7 +72,7 @@ EOF
 
 
 # A YAML string of controlplane config patches to apply. Can be an empty string or valid YAML.
-controlplane_config_patches = ""
+# controlplane_config_patches = ""
 
 # A YAML string of worker config patches to apply. Can be an empty string or valid YAML.
 worker_config_patches = <<EOF
