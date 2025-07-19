@@ -4,6 +4,8 @@ on:
   push:
     branches:
       - main
+    tags:
+      - 'v*.*.*'
   pull_request:
     branches:
       - main
@@ -12,6 +14,7 @@ permissions:
   contents: write
   security-events: write
   checks: write
+  packages: write
 
 env:
   WINDSOR_PROJECT_ROOT: ${{ github.workspace }}
@@ -174,3 +177,30 @@ jobs:
         if: always()
         run: |
           windsor down
+
+  publish:
+    name: Publish OCI Package
+    runs-on: ubuntu-latest
+    if: startsWith(github.ref, 'refs/tags/v')
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+
+      - name: Install Windsor CLI
+        uses: windsorcli/action@main
+        with:
+          ref: main
+          context: local
+
+      - name: Login to GitHub Container Registry
+        uses: docker/login-action@9780b0c442fbb1117ed29e0efdff1e18412f7567 # v3.3.0
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Publish to OCI Registry
+        env:
+          TAG: ${{ github.ref_name }}
+        run: |
+          windsor push oci://ghcr.io/windsorcli/core:${TAG}
