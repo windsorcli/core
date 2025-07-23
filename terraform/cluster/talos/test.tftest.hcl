@@ -21,10 +21,7 @@ run "minimal_configuration" {
     error_message = "Talos config file should be generated"
   }
 
-  assert {
-    condition     = length(local_sensitive_file.kubeconfig) == 1
-    error_message = "Kubeconfig file should be generated"
-  }
+
 
   assert {
     condition     = module.controlplane_bootstrap.node == "192.168.1.10"
@@ -208,10 +205,7 @@ run "no_config_files" {
     error_message = "No Talos config file should be generated without context path"
   }
 
-  assert {
-    condition     = length(local_sensitive_file.kubeconfig) == 0
-    error_message = "No Kubeconfig file should be generated without context path"
-  }
+
 }
 
 # Verifies that all input validation rules are enforced simultaneously, ensuring that

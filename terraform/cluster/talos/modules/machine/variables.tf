@@ -123,3 +123,9 @@ variable "enable_health_check" {
   type        = bool
   default     = true
 }
+
+variable "kubeconfig_path" {
+  description = "Path where the kubeconfig file should be written when bootstrap is true."
+  type        = string
+  default     = ""
+}
