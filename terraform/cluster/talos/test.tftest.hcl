@@ -215,12 +215,11 @@ run "no_config_files" {
 }
 
 # Verifies that all input validation rules are enforced simultaneously, ensuring that
-# invalid values for os_type, kubernetes_version, talos_version, cluster_name,
+# invalid values for kubernetes_version, talos_version, cluster_name,
 # cluster_endpoint, and YAML configs are properly caught and reported
 run "multiple_invalid_inputs" {
   command = plan
   expect_failures = [
-    var.os_type,
     var.kubernetes_version,
     var.talos_version,
     var.cluster_name,
@@ -232,7 +231,6 @@ run "multiple_invalid_inputs" {
     var.workers,
   ]
   variables {
-    os_type                     = "macos"
     kubernetes_version          = "v1.33"
     talos_version               = "v1.10.1"
     cluster_name                = ""

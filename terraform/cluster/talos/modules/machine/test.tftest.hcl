@@ -4,6 +4,10 @@ mock_provider "talos" {
   mock_resource "talos_machine_bootstrap" {}
 }
 
+mock_provider "null" {
+  mock_resource "null_resource" {}
+}
+
 variables {
   machine_type = "controlplane"
   endpoint     = "dummy"
@@ -47,10 +51,12 @@ variables {
       token = "dummy"
     }
   }
-  cluster_name       = "dummy"
-  cluster_endpoint   = "https://dummy"
-  kubernetes_version = "dummy"
-  talos_version      = "1.10.1"
+  cluster_name        = "dummy"
+  cluster_endpoint    = "https://dummy"
+  kubernetes_version  = "dummy"
+  talos_version       = "1.10.1"
+  talosconfig_path    = "/tmp/dummy-talosconfig"
+  enable_health_check = false
 }
 
 run "machine_config_patch_with_disk_and_hostname" {
