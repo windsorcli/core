@@ -4,16 +4,6 @@ variable "context_path" {
   default     = ""
 }
 
-variable "os_type" {
-  description = "The operating system type, must be either 'unix' or 'windows'"
-  type        = string
-  default     = "unix"
-  validation {
-    condition     = var.os_type == "unix" || var.os_type == "windows"
-    error_message = "The operating system type must be either 'unix' or 'windows'."
-  }
-}
-
 variable "kubernetes_version" {
   description = "The kubernetes version to deploy."
   type        = string
