@@ -105,6 +105,7 @@ kustomize:
     - quickwit/minio
     - fluentd
     - fluentd/quickwit
+    - fluentd/stdout
     - grafana
     - grafana/ingress
     - grafana/prometheus
