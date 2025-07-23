@@ -3,3 +3,5 @@ kind: Component
 resources:
   - clusterfilter.yaml
   - clusteroutput.yaml
+patches:
+  - path: patches/helm-release.yaml

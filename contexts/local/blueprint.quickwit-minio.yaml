@@ -99,8 +99,10 @@ kustomize:
   dependsOn:
     - csi
     - ingress
+    - object-store-resources
   components:
     - quickwit
+    - quickwit/minio
     - fluentd
     - fluentd/quickwit
     - grafana
@@ -118,12 +120,5 @@ kustomize:
   path: object-store/resources
   dependsOn:
   - object-store-base
-  components:
-  - minio
-- name: quickwit
-  path: observability/quickwit
-  dependsOn:
-  - observability
-  - object-store-resources
   components:
   - minio

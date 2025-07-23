@@ -101,6 +101,7 @@ kustomize:
     - ingress
   components:
     - quickwit
+    - quickwit/pvc
     - fluentd
     - fluentd/quickwit
     - grafana
@@ -110,9 +111,3 @@ kustomize:
     - grafana/kubernetes
     - grafana/flux
     - grafana/quickwit
-- name: quickwit
-  path: observability/quickwit
-  dependsOn:
-  - pki-base
-  components:
-  - pvc

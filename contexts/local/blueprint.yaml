@@ -101,6 +101,7 @@ kustomize:
     - ingress
   components:
     - quickwit
+    - quickwit/pvc
     - fluentd
     - fluentd/quickwit
     - grafana
