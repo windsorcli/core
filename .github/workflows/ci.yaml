@@ -59,7 +59,12 @@ jobs:
       - name: Run shellcheck
         run: |
           sudo apt-get install -y shellcheck
-          find . -name "*.sh" -print0 | xargs -0 shellcheck
+          shell_files=$(find . -name "*.sh" -print)
+          if [ -n "$shell_files" ]; then
+            echo "$shell_files" | xargs shellcheck
+          else
+            echo "No shell scripts found to check"
+          fi
 
       - name: Setup Terraform
         uses: hashicorp/setup-terraform@b9cd54a3c349d3f38e8881555d616ced269862dd # v3.1.2

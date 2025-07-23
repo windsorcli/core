@@ -112,3 +112,14 @@ variable "bootstrap" {
   type        = bool
   default     = false
 }
+
+variable "talosconfig_path" {
+  description = "Path to the talosconfig file for health checking."
+  type        = string
+}
+
+variable "enable_health_check" {
+  description = "Whether to enable health checking for this node."
+  type        = bool
+  default     = true
+}
