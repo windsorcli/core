@@ -239,8 +239,8 @@ run "health_check_command_bootstrap_mode" {
   }
   
   assert {
-    condition     = !strcontains(local.health_check_command, "--k8s-endpoint")
-    error_message = "Should not include --k8s-endpoint flag during bootstrap"
+    condition     = strcontains(local.health_check_command, "--k8s-endpoint")
+    error_message = "Should include --k8s-endpoint flag during bootstrap"
   }
   
   assert {
@@ -257,8 +257,8 @@ run "health_check_command_non_bootstrap_mode" {
   }
   
   assert {
-    condition     = strcontains(local.health_check_command, "--k8s-endpoint")
-    error_message = "Should include --k8s-endpoint flag after bootstrap"
+    condition     = !strcontains(local.health_check_command, "--k8s-endpoint")
+    error_message = "Should not include --k8s-endpoint flag after bootstrap"
   }
   
   assert {
