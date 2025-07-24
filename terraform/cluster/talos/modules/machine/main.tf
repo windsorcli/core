@@ -8,6 +8,9 @@ terraform {
     talos = {
       source = "siderolabs/talos"
     }
+    null = {
+      source = "hashicorp/null"
+    }
   }
 }
 
@@ -73,4 +76,31 @@ resource "talos_machine_bootstrap" "bootstrap" {
   node                 = var.node
   endpoint             = var.endpoint
   client_configuration = var.client_configuration
+}
+
+#-----------------------------------------------------------------------------------------------------------------------
+# Node Health Check
+#-----------------------------------------------------------------------------------------------------------------------
+
+locals {
+  # Use hostname if available, otherwise fall back to node address
+  node_name = var.hostname != null && var.hostname != "" ? var.hostname : var.node
+}
+
+resource "null_resource" "node_healthcheck" {
+  triggers = {
+    node_id = var.node
+  }
+
+  depends_on = [
+    talos_machine_configuration_apply.this,
+    talos_machine_bootstrap.bootstrap
+  ]
+
+  provisioner "local-exec" {
+    command = var.enable_health_check ? "windsor check node-health --nodes ${local.node_name} --timeout 5m" : "echo 'Health check disabled for testing'"
+    environment = var.enable_health_check ? {
+      TALOSCONFIG = var.talosconfig_path
+    } : {}
+  }
 }
