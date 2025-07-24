@@ -11,6 +11,9 @@ terraform {
     null = {
       source = "hashicorp/null"
     }
+    local = {
+      source = "hashicorp/local"
+    }
   }
 }
 
@@ -79,12 +82,41 @@ resource "talos_machine_bootstrap" "bootstrap" {
 }
 
 #-----------------------------------------------------------------------------------------------------------------------
+# Kubeconfig Generation
+#-----------------------------------------------------------------------------------------------------------------------
+
+resource "talos_cluster_kubeconfig" "this" {
+  count      = var.bootstrap ? 1 : 0
+  depends_on = [talos_machine_bootstrap.bootstrap]
+
+  client_configuration = var.client_configuration
+  node                 = var.node
+  endpoint             = var.endpoint
+}
+
+// Write kubeconfig to a local file when bootstrap is true
+resource "local_sensitive_file" "kubeconfig" {
+  count = var.bootstrap && trim(var.kubeconfig_path, " ") != "" ? 1 : 0
+
+  content         = talos_cluster_kubeconfig.this[0].kubeconfig_raw
+  filename        = var.kubeconfig_path
+  file_permission = "0600" // Set file permissions to read/write for owner only
+
+  lifecycle {
+    ignore_changes = [content] // Ignore changes to content to prevent unnecessary updates
+  }
+}
+
+#-----------------------------------------------------------------------------------------------------------------------
 # Node Health Check
 #-----------------------------------------------------------------------------------------------------------------------
 
 locals {
   # Use hostname if available, otherwise fall back to node address
   node_name = var.hostname != null && var.hostname != "" ? var.hostname : var.node
+
+  # Always use Talos API; during bootstrap also check Kubernetes API
+  health_check_command = var.bootstrap ? "windsor check node-health --nodes ${local.node_name} --timeout 5m --k8s-endpoint" : "windsor check node-health --nodes ${local.node_name} --timeout 5m"
 }
 
 resource "null_resource" "node_healthcheck" {
@@ -94,13 +126,15 @@ resource "null_resource" "node_healthcheck" {
 
   depends_on = [
     talos_machine_configuration_apply.this,
-    talos_machine_bootstrap.bootstrap
+    talos_machine_bootstrap.bootstrap,
+    local_sensitive_file.kubeconfig
   ]
 
   provisioner "local-exec" {
-    command = var.enable_health_check ? "windsor check node-health --nodes ${local.node_name} --timeout 5m" : "echo 'Health check disabled for testing'"
+    command = var.enable_health_check ? local.health_check_command : "echo 'Health check disabled'"
     environment = var.enable_health_check ? {
       TALOSCONFIG = var.talosconfig_path
+      KUBECONFIG  = var.bootstrap ? var.kubeconfig_path : ""
     } : {}
   }
 }

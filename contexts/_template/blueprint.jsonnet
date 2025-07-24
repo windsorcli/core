@@ -53,15 +53,16 @@ local terraformConfigs = {
   "local": [
     {
       path: "cluster/talos",
+      parallelism: 1,
     },
     {
       path: "gitops/flux",
       destroy: false,
-      values: {
+      values: if rawProvider == "local" then {
         git_username: "local",
-        git_password: "local", 
+        git_password: "local",
         webhook_token: "abcdef123456",
-      },
+      } else {},
     }
   ]
 };
@@ -431,15 +432,7 @@ local blueprintMetadata = {
 };
 
 // Source configuration
-local sourceConfig = [
-  {
-    name: "core",
-    url: "github.com/windsorcli/core",
-    ref: {
-      branch: "main",
-    },
-  },
-];
+local sourceConfig = [];
 
 // Start of Blueprint
 blueprintMetadata + {
