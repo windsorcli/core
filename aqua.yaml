@@ -25,7 +25,7 @@ packages:
   - name: aws/aws-cli@2.27.58
   - name: helm/helm@v3.18.4
   - name: fluxcd/flux2@v2.6.4
-  - name: hashicorp/vault@v1.20.0
+  - name: hashicorp/vault@v1.20.1
   - name: derailed/k9s@v0.50.9
   - name: getsops/sops@v3.10.2
   - name: 1password/cli@v2.30.3
