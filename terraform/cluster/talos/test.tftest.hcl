@@ -21,10 +21,7 @@ run "minimal_configuration" {
     error_message = "Talos config file should be generated"
   }
 
-  assert {
-    condition     = length(local_sensitive_file.kubeconfig) == 1
-    error_message = "Kubeconfig file should be generated"
-  }
+
 
   assert {
     condition     = module.controlplane_bootstrap.node == "192.168.1.10"
@@ -208,19 +205,15 @@ run "no_config_files" {
     error_message = "No Talos config file should be generated without context path"
   }
 
-  assert {
-    condition     = length(local_sensitive_file.kubeconfig) == 0
-    error_message = "No Kubeconfig file should be generated without context path"
-  }
+
 }
 
 # Verifies that all input validation rules are enforced simultaneously, ensuring that
-# invalid values for os_type, kubernetes_version, talos_version, cluster_name,
+# invalid values for kubernetes_version, talos_version, cluster_name,
 # cluster_endpoint, and YAML configs are properly caught and reported
 run "multiple_invalid_inputs" {
   command = plan
   expect_failures = [
-    var.os_type,
     var.kubernetes_version,
     var.talos_version,
     var.cluster_name,
@@ -232,7 +225,6 @@ run "multiple_invalid_inputs" {
     var.workers,
   ]
   variables {
-    os_type                     = "macos"
     kubernetes_version          = "v1.33"
     talos_version               = "v1.10.1"
     cluster_name                = ""

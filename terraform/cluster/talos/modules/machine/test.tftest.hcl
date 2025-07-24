@@ -2,6 +2,15 @@ mock_provider "talos" {
   mock_resource "talos_machine_configuration" {}
   mock_resource "talos_machine_configuration_apply" {}
   mock_resource "talos_machine_bootstrap" {}
+  mock_resource "talos_cluster_kubeconfig" {}
+}
+
+mock_provider "null" {
+  mock_resource "null_resource" {}
+}
+
+mock_provider "local" {
+  mock_resource "local_sensitive_file" {}
 }
 
 variables {
@@ -47,10 +56,13 @@ variables {
       token = "dummy"
     }
   }
-  cluster_name       = "dummy"
-  cluster_endpoint   = "https://dummy"
-  kubernetes_version = "dummy"
-  talos_version      = "1.10.1"
+  cluster_name        = "dummy"
+  cluster_endpoint    = "https://dummy"
+  kubernetes_version  = "dummy"
+  talos_version       = "1.10.1"
+  talosconfig_path    = "/tmp/dummy-talosconfig"
+  kubeconfig_path     = ""
+  enable_health_check = false
 }
 
 run "machine_config_patch_with_disk_and_hostname" {
@@ -154,5 +166,116 @@ run "config_patches_includes_extra" {
   assert {
     condition     = strcontains(local.config_patches[1], "- 8.8.8.8")
     error_message = "Should include nameservers in extra patch"
+  }
+}
+
+run "bootstrap_mode_generates_kubeconfig" {
+  variables {
+    bootstrap       = true
+    kubeconfig_path = "/tmp/test-kubeconfig"
+    disk_selector   = null
+    hostname        = "test-node"
+  }
+
+  assert {
+    condition     = length(talos_cluster_kubeconfig.this) == 1
+    error_message = "Should create kubeconfig resource when bootstrap is true"
+  }
+
+  assert {
+    condition     = length(local_sensitive_file.kubeconfig) == 1
+    error_message = "Should create kubeconfig file when bootstrap is true and path is provided"
+  }
+
+  assert {
+    condition     = local_sensitive_file.kubeconfig[0].filename == "/tmp/test-kubeconfig"
+    error_message = "Should write kubeconfig to specified path"
+  }
+}
+
+run "non_bootstrap_mode_no_kubeconfig" {
+  variables {
+    bootstrap       = false
+    kubeconfig_path = "/tmp/test-kubeconfig"
+    disk_selector   = null
+    hostname        = "test-node"
+  }
+
+  assert {
+    condition     = length(talos_cluster_kubeconfig.this) == 0
+    error_message = "Should not create kubeconfig resource when bootstrap is false"
+  }
+
+  assert {
+    condition     = length(local_sensitive_file.kubeconfig) == 0
+    error_message = "Should not create kubeconfig file when bootstrap is false"
+  }
+}
+
+run "bootstrap_mode_empty_kubeconfig_path" {
+  variables {
+    bootstrap       = true
+    kubeconfig_path = ""
+    disk_selector   = null
+    hostname        = "test-node"
+  }
+
+  assert {
+    condition     = length(talos_cluster_kubeconfig.this) == 1
+    error_message = "Should create kubeconfig resource when bootstrap is true"
+  }
+
+  assert {
+    condition     = length(local_sensitive_file.kubeconfig) == 0
+    error_message = "Should not create kubeconfig file when path is empty"
+  }
+}
+
+run "health_check_command_bootstrap_mode" {
+  variables {
+    bootstrap     = true
+    hostname      = "test-node"
+    disk_selector = null
+  }
+
+  assert {
+    condition     = strcontains(local.health_check_command, "--k8s-endpoint")
+    error_message = "Should include --k8s-endpoint flag during bootstrap"
+  }
+
+  assert {
+    condition     = strcontains(local.health_check_command, "test-node")
+    error_message = "Should include node name in health check command"
+  }
+}
+
+run "health_check_command_non_bootstrap_mode" {
+  variables {
+    bootstrap     = false
+    hostname      = "test-node"
+    disk_selector = null
+  }
+
+  assert {
+    condition     = !strcontains(local.health_check_command, "--k8s-endpoint")
+    error_message = "Should not include --k8s-endpoint flag after bootstrap"
+  }
+
+  assert {
+    condition     = strcontains(local.health_check_command, "test-node")
+    error_message = "Should include node name in health check command"
+  }
+}
+
+run "health_check_command_without_hostname" {
+  variables {
+    bootstrap     = true
+    hostname      = ""
+    disk_selector = null
+  }
+
+  assert {
+    condition     = strcontains(local.health_check_command, "dummy")
+    error_message = "Should use node address when hostname is empty"
   }
 }

@@ -22,7 +22,7 @@ spec:
       initContainers:
       - name: cleanup
         # renovate: datasource=docker depName=kubectl package=bitnami/kubectl
-        image: bitnami/kubectl:1.33.1
+        image: bitnami/kubectl:1.33.3
         env:
         - name: RESOURCE_WAIT_TIMEOUT
           value: "300"
@@ -77,7 +77,7 @@ spec:
       containers:
       - name: status
         # renovate: datasource=docker depName=alpine package=alpine
-        image: alpine:3.22.0
+        image: alpine:3.22.1
         resources:
           limits:
             cpu: "10m"

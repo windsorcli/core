@@ -6,6 +6,9 @@ terraform {
       source  = "siderolabs/talos"
       version = "0.8.1"
     }
+    local = {
+      source = "hashicorp/local"
+    }
   }
 }
 
@@ -24,7 +27,6 @@ resource "talos_machine_secrets" "this" {
 locals {
   // Local variables for configuration paths and data
   talosconfig = data.talos_client_configuration.this.talos_config
-  kubeconfig  = talos_cluster_kubeconfig.this.kubeconfig_raw
 
   talosconfig_path = "${var.context_path}/.talos/config"
   kubeconfig_path  = "${var.context_path}/.kube/config"
@@ -50,6 +52,9 @@ module "controlplane_bootstrap" {
   machine_type         = "controlplane"
   endpoint             = var.controlplanes[0].endpoint
   bootstrap            = true // Bootstrap the first control plane node
+  talosconfig_path     = local.talosconfig_path
+  kubeconfig_path      = local.kubeconfig_path
+  enable_health_check  = true
   config_patches = compact(concat([
     var.common_config_patches,
     var.controlplane_config_patches,
@@ -76,6 +81,9 @@ module "controlplanes" {
   machine_type         = "controlplane"
   endpoint             = var.controlplanes[count.index + 1].endpoint
   bootstrap            = false // Do not bootstrap other control plane nodes
+  talosconfig_path     = local.talosconfig_path
+  kubeconfig_path      = local.kubeconfig_path
+  enable_health_check  = true
   config_patches = compact(concat([
     var.common_config_patches,
     var.controlplane_config_patches,
@@ -105,6 +113,9 @@ module "workers" {
   talos_version        = var.talos_version
   machine_type         = "worker"
   endpoint             = var.workers[count.index].endpoint
+  talosconfig_path     = local.talosconfig_path
+  kubeconfig_path      = local.kubeconfig_path
+  enable_health_check  = true
   config_patches = compact(concat([
     var.common_config_patches,
     var.worker_config_patches,
@@ -116,32 +127,10 @@ module "workers" {
 # Config Files
 #-----------------------------------------------------------------------------------------------------------------------
 
-resource "talos_cluster_kubeconfig" "this" {
-  depends_on = [module.controlplane_bootstrap]
-
-  client_configuration = talos_machine_secrets.this.client_configuration
-  node                 = var.controlplanes[0].node
-  endpoint             = var.controlplanes[0].endpoint
-}
-
 data "talos_client_configuration" "this" {
   cluster_name         = var.cluster_name
   client_configuration = talos_machine_secrets.this.client_configuration
   endpoints            = var.controlplanes.*.endpoint
-}
-
-// Write kubeconfig to a local file
-resource "local_sensitive_file" "kubeconfig" {
-  count      = trim(var.context_path, " ") != "" ? 1 : 0 // Create file only if path is specified and not empty/whitespace
-  depends_on = [local_sensitive_file.talosconfig]        // Ensure Talos config is written first
-
-  content         = talos_cluster_kubeconfig.this.kubeconfig_raw
-  filename        = local.kubeconfig_path
-  file_permission = "0600" // Set file permissions to read/write for owner only
-
-  lifecycle {
-    ignore_changes = [content] // Ignore changes to content to prevent unnecessary updates
-  }
 }
 
 // Write Talos config to a local file
@@ -157,48 +146,4 @@ resource "local_sensitive_file" "talosconfig" {
   }
 }
 
-#-----------------------------------------------------------------------------------------------------------------------
-# Cluster Health
-#-----------------------------------------------------------------------------------------------------------------------
 
-# The following workaround is required until resolution of https://github.com/siderolabs/terraform-provider-talos/issues/221
-
-# data "talos_cluster_health" "this" {
-#   depends_on = [
-#     module.controlplane_bootstrap,
-#     module.controlplanes,
-#     module.workers
-#   ]
-
-#   client_configuration = talos_machine_secrets.this.client_configuration
-#   control_plane_nodes  = var.controlplanes.*.node
-#   worker_nodes         = var.workers.*.node
-#   endpoints            = var.controlplanes.*.endpoint
-# }
-
-locals {
-  healthcheck_command     = var.os_type == "unix" ? "${path.module}/resources/healthcheck.sh" : "& { & '${path.module}/resources/healthcheck.ps1' }"
-  healthcheck_interpreter = var.os_type == "unix" ? ["sh", "-c"] : ["powershell", "-Command"]
-}
-
-resource "null_resource" "healthcheck" {
-  triggers = {
-    always_run = timestamp() // Ensures the resource runs every time
-  }
-
-  depends_on = [
-    local_sensitive_file.kubeconfig,
-    local_sensitive_file.talosconfig
-  ]
-
-  provisioner "local-exec" {
-    command     = local.healthcheck_command
-    interpreter = local.healthcheck_interpreter
-    environment = {
-      KUBECONFIG = local.kubeconfig_path
-      NODE_COUNT = length(var.controlplanes) + length(var.workers)
-      TIMEOUT    = 300 # 5 minutes
-      INTERVAL   = 5   # 5 seconds
-    }
-  }
-}
