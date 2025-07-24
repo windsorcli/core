@@ -13,6 +13,10 @@ mock_provider "local" {
   mock_resource "local_sensitive_file" {}
 }
 
+mock_provider "null" {
+  mock_resource "null_resource" {}
+}
+
 variables {
   machine_type = "controlplane"
   endpoint     = "dummy"
