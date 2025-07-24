@@ -86,7 +86,7 @@ resource "talos_machine_bootstrap" "bootstrap" {
 #-----------------------------------------------------------------------------------------------------------------------
 
 resource "talos_cluster_kubeconfig" "this" {
-  count = var.bootstrap ? 1 : 0
+  count      = var.bootstrap ? 1 : 0
   depends_on = [talos_machine_bootstrap.bootstrap]
 
   client_configuration = var.client_configuration
@@ -114,7 +114,7 @@ resource "local_sensitive_file" "kubeconfig" {
 locals {
   # Use hostname if available, otherwise fall back to node address
   node_name = var.hostname != null && var.hostname != "" ? var.hostname : var.node
-  
+
   # Always use Talos API; during bootstrap also check Kubernetes API
   health_check_command = var.bootstrap ? "windsor check node-health --nodes ${local.node_name} --timeout 5m --k8s-endpoint" : "windsor check node-health --nodes ${local.node_name} --timeout 5m"
 }

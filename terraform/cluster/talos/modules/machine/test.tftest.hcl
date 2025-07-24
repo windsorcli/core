@@ -171,22 +171,22 @@ run "config_patches_includes_extra" {
 
 run "bootstrap_mode_generates_kubeconfig" {
   variables {
-    bootstrap        = true
-    kubeconfig_path  = "/tmp/test-kubeconfig"
-    disk_selector    = null
-    hostname         = "test-node"
+    bootstrap       = true
+    kubeconfig_path = "/tmp/test-kubeconfig"
+    disk_selector   = null
+    hostname        = "test-node"
   }
-  
+
   assert {
     condition     = length(talos_cluster_kubeconfig.this) == 1
     error_message = "Should create kubeconfig resource when bootstrap is true"
   }
-  
+
   assert {
     condition     = length(local_sensitive_file.kubeconfig) == 1
     error_message = "Should create kubeconfig file when bootstrap is true and path is provided"
   }
-  
+
   assert {
     condition     = local_sensitive_file.kubeconfig[0].filename == "/tmp/test-kubeconfig"
     error_message = "Should write kubeconfig to specified path"
@@ -195,17 +195,17 @@ run "bootstrap_mode_generates_kubeconfig" {
 
 run "non_bootstrap_mode_no_kubeconfig" {
   variables {
-    bootstrap        = false
-    kubeconfig_path  = "/tmp/test-kubeconfig"
-    disk_selector    = null
-    hostname         = "test-node"
+    bootstrap       = false
+    kubeconfig_path = "/tmp/test-kubeconfig"
+    disk_selector   = null
+    hostname        = "test-node"
   }
-  
+
   assert {
     condition     = length(talos_cluster_kubeconfig.this) == 0
     error_message = "Should not create kubeconfig resource when bootstrap is false"
   }
-  
+
   assert {
     condition     = length(local_sensitive_file.kubeconfig) == 0
     error_message = "Should not create kubeconfig file when bootstrap is false"
@@ -214,17 +214,17 @@ run "non_bootstrap_mode_no_kubeconfig" {
 
 run "bootstrap_mode_empty_kubeconfig_path" {
   variables {
-    bootstrap        = true
-    kubeconfig_path  = ""
-    disk_selector    = null
-    hostname         = "test-node"
+    bootstrap       = true
+    kubeconfig_path = ""
+    disk_selector   = null
+    hostname        = "test-node"
   }
-  
+
   assert {
     condition     = length(talos_cluster_kubeconfig.this) == 1
     error_message = "Should create kubeconfig resource when bootstrap is true"
   }
-  
+
   assert {
     condition     = length(local_sensitive_file.kubeconfig) == 0
     error_message = "Should not create kubeconfig file when path is empty"
@@ -233,16 +233,16 @@ run "bootstrap_mode_empty_kubeconfig_path" {
 
 run "health_check_command_bootstrap_mode" {
   variables {
-    bootstrap        = true
-    hostname         = "test-node"
-    disk_selector    = null
+    bootstrap     = true
+    hostname      = "test-node"
+    disk_selector = null
   }
-  
+
   assert {
     condition     = strcontains(local.health_check_command, "--k8s-endpoint")
     error_message = "Should include --k8s-endpoint flag during bootstrap"
   }
-  
+
   assert {
     condition     = strcontains(local.health_check_command, "test-node")
     error_message = "Should include node name in health check command"
@@ -251,16 +251,16 @@ run "health_check_command_bootstrap_mode" {
 
 run "health_check_command_non_bootstrap_mode" {
   variables {
-    bootstrap        = false
-    hostname         = "test-node"
-    disk_selector    = null
+    bootstrap     = false
+    hostname      = "test-node"
+    disk_selector = null
   }
-  
+
   assert {
     condition     = !strcontains(local.health_check_command, "--k8s-endpoint")
     error_message = "Should not include --k8s-endpoint flag after bootstrap"
   }
-  
+
   assert {
     condition     = strcontains(local.health_check_command, "test-node")
     error_message = "Should include node name in health check command"
@@ -269,11 +269,11 @@ run "health_check_command_non_bootstrap_mode" {
 
 run "health_check_command_without_hostname" {
   variables {
-    bootstrap        = true
-    hostname         = ""
-    disk_selector    = null
+    bootstrap     = true
+    hostname      = ""
+    disk_selector = null
   }
-  
+
   assert {
     condition     = strcontains(local.health_check_command, "dummy")
     error_message = "Should use node address when hostname is empty"
