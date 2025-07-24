@@ -78,7 +78,9 @@ local kustomizeConfigs = {
       path: "telemetry/base",
       components: [
         "prometheus",
-        "prometheus/flux"
+        "prometheus/flux",
+        "fluentbit",
+        "fluentbit/prometheus"
       ],
     },
     {
@@ -90,7 +92,12 @@ local kustomizeConfigs = {
       components: [
         "metrics-server",
         "prometheus",
-        "prometheus/flux"
+        "prometheus/flux",
+        "fluentbit",
+        "fluentbit/containerd",
+        "fluentbit/fluentd",
+        "fluentbit/kubernetes",
+        "fluentbit/systemd"
       ],
     },
     {
@@ -167,12 +174,17 @@ local kustomizeConfigs = {
         "ingress"
       ],
       components: [
+        "fluentd",
+        "fluentd/quickwit",
+        "quickwit",
+        "quickwit/pvc",
         "grafana",
         "grafana/ingress",
         "grafana/prometheus",
         "grafana/node",
         "grafana/kubernetes",
-        "grafana/flux"
+        "grafana/flux",
+        "grafana/quickwit"
       ],
     }
   ],
@@ -182,7 +194,9 @@ local kustomizeConfigs = {
       path: "telemetry/base",
       components: [
         "prometheus",
-        "prometheus/flux"
+        "prometheus/flux",
+        "fluentbit",
+        "fluentbit/prometheus"
       ],
     },
     {
@@ -266,11 +280,10 @@ local kustomizeConfigs = {
         "ingress"
       ],
       components: [
-        "quickwit",
-        "quickwit/pvc",
         "fluentd",
         "fluentd/quickwit",
-        "fluentd/stdout",
+        "quickwit",
+        "quickwit/pvc",
         "grafana",
         "grafana/ingress",
         "grafana/prometheus",
@@ -427,6 +440,26 @@ local kustomizeConfigs = {
       ],
       components: [
         "webhook"
+      ],
+    },
+    {
+      name: "observability",
+      path: "observability",
+      dependsOn: [
+        "ingress"
+      ],
+      components: [
+        "fluentd",
+        "fluentd/quickwit",
+        "quickwit",
+        "quickwit/pvc",
+        "grafana",
+        "grafana/ingress",
+        "grafana/prometheus",
+        "grafana/node",
+        "grafana/kubernetes",
+        "grafana/flux",
+        "grafana/quickwit"
       ],
     }
   ]
