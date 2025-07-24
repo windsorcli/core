@@ -25,9 +25,7 @@
 
 | Name | Type |
 |------|------|
-| [local_sensitive_file.kubeconfig](https://registry.terraform.io/providers/hashicorp/local/latest/docs/resources/sensitive_file) | resource |
 | [local_sensitive_file.talosconfig](https://registry.terraform.io/providers/hashicorp/local/latest/docs/resources/sensitive_file) | resource |
-| [talos_cluster_kubeconfig.this](https://registry.terraform.io/providers/siderolabs/talos/0.8.1/docs/resources/cluster_kubeconfig) | resource |
 | [talos_machine_secrets.this](https://registry.terraform.io/providers/siderolabs/talos/0.8.1/docs/resources/machine_secrets) | resource |
 | [talos_client_configuration.this](https://registry.terraform.io/providers/siderolabs/talos/0.8.1/docs/data-sources/client_configuration) | data source |
 
