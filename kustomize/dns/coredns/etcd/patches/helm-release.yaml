@@ -25,7 +25,7 @@ spec:
               tls /etc/coredns/tls/tls.crt /etc/coredns/tls/tls.key /etc/coredns/tls/ca.crt
               fallthrough
           - name: forward
-            parameters: . /etc/resolv.conf
+            parameters: . 1.1.1.1 8.8.8.8
           - name: loop
           - name: reload
           - name: prometheus
