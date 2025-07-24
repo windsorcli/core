@@ -21,7 +21,7 @@ packages:
   - name: abiosoft/colima@v0.8.1
   - name: lima-vm/lima@v1.2.1
   - name: docker/cli@v27.4.1
-  - name: docker/compose@v2.38.2
+  - name: docker/compose@v2.39.1
   - name: aws/aws-cli@2.27.58
   - name: helm/helm@v3.18.4
   - name: fluxcd/flux2@v2.6.4
