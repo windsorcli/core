@@ -193,7 +193,12 @@ local kustomizeConfigs = {
       ],
       components: [
         "prometheus",
-        "prometheus/flux"
+        "prometheus/flux",
+        "fluentbit",
+        "fluentbit/containerd",
+        "fluentbit/fluentd",
+        "fluentbit/kubernetes",
+        "fluentbit/systemd"
       ],
     },
     {
@@ -261,12 +266,18 @@ local kustomizeConfigs = {
         "ingress"
       ],
       components: [
+        "quickwit",
+        "quickwit/pvc",
+        "fluentd",
+        "fluentd/quickwit",
+        "fluentd/stdout",
         "grafana",
         "grafana/ingress",
         "grafana/prometheus",
         "grafana/node",
         "grafana/kubernetes",
-        "grafana/flux"
+        "grafana/flux",
+        "grafana/quickwit"
       ],
     }
   ],
