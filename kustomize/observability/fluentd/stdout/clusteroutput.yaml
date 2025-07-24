@@ -1,0 +1,9 @@
+apiVersion: fluentd.fluent.io/v1alpha1
+kind: ClusterOutput
+metadata:
+  name: stdout
+  labels:
+    output.fluentd.fluent.io/enabled: "true"
+spec:
+  outputs:
+    - stdout: {}
