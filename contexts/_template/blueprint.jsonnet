@@ -18,9 +18,6 @@ local repositoryConfig = {
 local terraformConfigs = {
   "aws": [
     {
-      path: "backend/s3",
-    },
-    {
       path: "network/aws-vpc",
     },
     {
@@ -36,9 +33,6 @@ local terraformConfigs = {
     }
   ],
   "azure": [
-    {
-      path: "backend/azurerm",
-    },
     {
       path: "network/azure-vnet",
     },
