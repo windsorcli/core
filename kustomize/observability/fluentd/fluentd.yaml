@@ -13,10 +13,8 @@ spec:
   - forward:
       bind: 0.0.0.0
       port: 24224
-  image: ghcr.io/fluent/fluent-operator/fluentd:v1.17.0
-  logLevel: info
-  mode: collector
-  positionDB: {}
+  # renovate: datasource=docker depName=ghcr.io/fluent/fluent-operator/fluentd package=ghcr.io/fluent/fluent-operator/fluentd
+  image: ghcr.io/fluent/fluent-operator/fluentd:v1.17.1
   replicas: 1
   resources:
     limits:
@@ -25,10 +23,6 @@ spec:
     requests:
       cpu: 100m
       memory: 128Mi
-  service: {}
-status:
-  messages: all matched cfgs is valid
-  state: active
 ---
 apiVersion: fluentd.fluent.io/v1alpha1
 kind: ClusterFluentdConfig
@@ -43,9 +37,3 @@ spec:
   clusterOutputSelector:
     matchLabels:
       output.fluentd.fluent.io/enabled: "true"
-  watchedNamespaces:
-  - kube-system
-  - default
-status:
-  messages: Generate fluentd configs successfully
-  state: valid
