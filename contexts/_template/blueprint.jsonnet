@@ -175,7 +175,8 @@ local kustomizeConfigs = {
       ],
       components: [
         "fluentd",
-        "fluentd/quickwit",
+        "fluentd/filters/otel",
+        "fluentd/outputs/quickwit",
         "quickwit",
         "quickwit/pvc",
         "grafana",
@@ -281,7 +282,8 @@ local kustomizeConfigs = {
       ],
       components: [
         "fluentd",
-        "fluentd/quickwit",
+        "fluentd/filters/otel",
+        "fluentd/outputs/quickwit",
         "quickwit",
         "quickwit/pvc",
         "grafana",
@@ -450,7 +452,8 @@ local kustomizeConfigs = {
       ],
       components: [
         "fluentd",
-        "fluentd/quickwit",
+        "fluentd/filters/otel",
+        "fluentd/outputs/quickwit",
         "quickwit",
         "quickwit/pvc",
         "grafana",
