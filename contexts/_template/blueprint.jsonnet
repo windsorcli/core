@@ -175,12 +175,17 @@ local kustomizeConfigs = {
       ],
       components: [
         "fluentd",
+        "fluentd/filters/otel",
+        "fluentd/outputs/quickwit",
+        "quickwit",
+        "quickwit/pvc",
         "grafana",
         "grafana/ingress",
         "grafana/prometheus",
         "grafana/node",
         "grafana/kubernetes",
-        "grafana/flux"
+        "grafana/flux",
+        "grafana/quickwit"
       ],
     }
   ],
@@ -277,12 +282,17 @@ local kustomizeConfigs = {
       ],
       components: [
         "fluentd",
+        "fluentd/filters/otel",
+        "fluentd/outputs/quickwit",
+        "quickwit",
+        "quickwit/pvc",
         "grafana",
         "grafana/ingress",
         "grafana/prometheus",
         "grafana/node",
         "grafana/kubernetes",
-        "grafana/flux"
+        "grafana/flux",
+        "grafana/quickwit"
       ],
     }
   ],
@@ -442,12 +452,17 @@ local kustomizeConfigs = {
       ],
       components: [
         "fluentd",
+        "fluentd/filters/otel",
+        "fluentd/outputs/quickwit",
+        "quickwit",
+        "quickwit/pvc",
         "grafana",
         "grafana/ingress",
         "grafana/prometheus",
         "grafana/node",
         "grafana/kubernetes",
-        "grafana/flux"
+        "grafana/flux",
+        "grafana/quickwit"
       ],
     }
   ]

@@ -1,1 +1,4 @@
+# Ignore all directories in contexts/
+*/
+# But allow _template directory
 !/_template/

@@ -1,0 +1,22 @@
+apiVersion: fluentd.fluent.io/v1alpha1
+kind: ClusterFilter
+metadata:
+  name: otel
+  labels:
+    filter.fluentd.fluent.io/enabled: "true"
+spec:
+  filters:
+    - recordTransformer:
+        enableRuby: true
+        renewRecord: false
+        removeKeys: "logtag,time,log,kubernetes"
+        records:
+          - key: timestamp_nanos
+            value: |
+              $${Time.parse(record["time"]).to_i * 1_000_000_000 + Time.parse(record["time"]).nsec}
+          - key: body
+            value: |
+              $${{"message" => record["log"]}}
+          - key: resource_attributes
+            value: |
+              $${{"pod_name" => record["kubernetes"]["pod_name"], "namespace_name" => record["kubernetes"]["namespace_name"], "container_name" => record["kubernetes"]["container_name"], "container_image_id" => record["kubernetes"]["docker_id"], "container_image" => record["kubernetes"]["container_image"]}}

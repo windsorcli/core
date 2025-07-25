@@ -1,0 +1,11 @@
+apiVersion: fluentd.fluent.io/v1alpha1
+kind: ClusterOutput
+metadata:
+  name: quickwit
+  labels:
+    output.fluentd.fluent.io/enabled: "true"
+spec:
+  outputs:
+    - http:
+        endpoint: http://quickwit-indexer.system-observability.svc.cluster.local:7280/api/v1/otel-logs-v0_7/ingest
+        contentType: application/json

@@ -1,0 +1,15 @@
+[
+  {
+    "op": "add",
+    "path": "/spec/values/datasources/datasources.yaml/datasources/-",
+    "value": {
+      "name": "Quickwit Logs",
+      "uid": "quickwit-logs",
+      "type": "quickwit-quickwit-datasource",
+      "url": "http://quickwit-searcher.system-observability.svc.cluster.local:7280/api/v1",
+      "jsonData": {
+        "index": "otel-logs-v0_7"
+      }
+    }
+  }
+]
