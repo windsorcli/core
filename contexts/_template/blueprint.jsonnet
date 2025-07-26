@@ -202,7 +202,8 @@ local repositoryUrl = if rawProvider == "local" then "http://git.test/git/" + hl
     {
       name: "csi",
       path: "csi",
-      cleanup: ["pvcs"]
+      cleanup: ["pvcs"],
+      components: ["aws-ebs"]
     }
   ] else if provider == "local" then [
     {
