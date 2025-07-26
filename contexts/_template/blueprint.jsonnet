@@ -1,27 +1,44 @@
 local context = std.extVar("context");
 local hlp = std.extVar("helpers");
 
-// Map "metal" provider to "local" for template purposes
+// =============================================================================
+// VARIABLE RESOLUTION
+// =============================================================================
+
+// Provider mapping
 local rawProvider = hlp.getString(context, "provider", "local");
 local provider = if rawProvider == "metal" then "local" else rawProvider;
+local vmDriver = hlp.getString(context, "vm.driver", "");
 
-// Repository configuration
-local repositoryConfig = {
-  url: if rawProvider == "local" then "http://git.test/git/" + hlp.getString(context, "projectName", "core") else "",
-  ref: {
-    branch: "main",
+// Basic configuration
+local blueprintName = hlp.getString(context, "name", "template");
+local repositoryUrl = if rawProvider == "local" then "http://git.test/git/" + hlp.getString(context, "projectName", "core") else "";
+
+// =============================================================================
+// BLUEPRINT
+// =============================================================================
+
+{
+  kind: "Blueprint",
+  apiVersion: "blueprints.windsorcli.dev/v1alpha1",
+  metadata: {
+    name: blueprintName,
+    description: "This blueprint outlines resources in the " + blueprintName + " context",
   },
-  secretName: "flux-system",
-};
-
-// Platform-specific terraform configurations
-local terraformConfigs = {
-  "aws": [
+  repository: {
+    url: repositoryUrl,
+    ref: {
+      branch: "main",
+    },
+    secretName: "flux-system",
+  },
+  sources: [],
+  terraform: if provider == "aws" then [
     {
-      path: "network/aws-vpc",
+      path: "network/aws-vpc"
     },
     {
-      path: "cluster/aws-eks",
+      path: "cluster/aws-eks"
     },
     {
       path: "cluster/aws-eks/additions",
@@ -29,25 +46,23 @@ local terraformConfigs = {
     },
     {
       path: "gitops/flux",
-      destroy: false,
+      destroy: false
     }
-  ],
-  "azure": [
+  ] else if provider == "azure" then [
     {
-      path: "network/azure-vnet",
+      path: "network/azure-vnet"
     },
     {
-      path: "cluster/azure-aks",
+      path: "cluster/azure-aks"
     },
     {
       path: "gitops/flux",
-      destroy: false,
+      destroy: false
     }
-  ],
-  "local": [
+  ] else [
     {
       path: "cluster/talos",
-      parallelism: 1,
+      parallelism: 1
     },
     {
       path: "gitops/flux",
@@ -56,17 +71,10 @@ local terraformConfigs = {
         git_username: "local",
         git_password: "local",
         webhook_token: "abcdef123456",
-      } else {},
+      } else {}
     }
-  ]
-};
-
-// Determine the vmDriver for conditional logic in local configs
-local vmDriver = hlp.getString(context, "vm.driver", "");
-
-// Platform-specific kustomize configurations
-local kustomizeConfigs = {
-  "aws": [
+  ],
+  kustomize: [
     {
       name: "telemetry-base",
       path: "telemetry/base",
@@ -75,14 +83,11 @@ local kustomizeConfigs = {
         "prometheus/flux",
         "fluentbit",
         "fluentbit/prometheus"
-      ],
+      ]
     },
     {
       name: "telemetry-resources",
       path: "telemetry/resources",
-      dependsOn: [
-        "telemetry-base"
-      ],
       components: [
         "metrics-server",
         "prometheus",
@@ -93,285 +98,44 @@ local kustomizeConfigs = {
         "fluentbit/kubernetes",
         "fluentbit/systemd"
       ],
+      dependsOn: ["telemetry-base"]
     },
     {
       name: "policy-base",
       path: "policy/base",
-      components: [
-        "kyverno"
-      ],
+      components: ["kyverno"]
     },
     {
       name: "policy-resources",
       path: "policy/resources",
-      dependsOn: [
-        "policy-base"
-      ],
-    },
-    {
-      name: "csi",
-      path: "csi",
-      cleanup: [
-        "pvcs"
-      ],
-    },
-    {
-      name: "ingress",
-      path: "ingress",
-      dependsOn: [
-        "pki-resources"
-      ],
-      components: [
-        "nginx",
-        "nginx/flux-webhook",
-        "nginx/web"
-      ],
-      cleanup: [
-        "loadbalancers",
-        "ingresses"
-      ],
+      dependsOn: ["policy-base"]
     },
     {
       name: "pki-base",
       path: "pki/base",
-      dependsOn: [
-        "policy-resources"
-      ],
       components: [
         "cert-manager",
         "trust-manager"
       ],
+      dependsOn: ["policy-resources"]
     },
     {
       name: "pki-resources",
       path: "pki/resources",
-      dependsOn: [
-        "pki-base"
-      ],
       components: [
         "private-issuer/ca",
         "public-issuer/selfsigned"
       ],
-    },
-    {
-      name: "dns",
-      path: "dns",
-      components: [
-        "external-dns",
-        "external-dns/route53"
-      ],
-    },
-    {
-      name: "observability",
-      path: "observability",
-      dependsOn: [
-        "ingress"
-      ],
-      components: [
-        "fluentd",
-        "fluentd/filters/otel",
-        "fluentd/outputs/quickwit",
-        "quickwit",
-        "quickwit/pvc",
-        "grafana",
-        "grafana/ingress",
-        "grafana/prometheus",
-        "grafana/node",
-        "grafana/kubernetes",
-        "grafana/flux",
-        "grafana/quickwit"
-      ],
-    }
-  ],
-  "azure": [
-    {
-      name: "telemetry-base",
-      path: "telemetry/base",
-      components: [
-        "prometheus",
-        "prometheus/flux",
-        "fluentbit",
-        "fluentbit/prometheus"
-      ],
-    },
-    {
-      name: "telemetry-resources",
-      path: "telemetry/resources",
-      dependsOn: [
-        "telemetry-base"
-      ],
-      components: [
-        "prometheus",
-        "prometheus/flux",
-        "fluentbit",
-        "fluentbit/containerd",
-        "fluentbit/fluentd",
-        "fluentbit/kubernetes",
-        "fluentbit/systemd"
-      ],
-    },
-    {
-      name: "policy-base",
-      path: "policy/base",
-      components: [
-        "kyverno"
-      ],
-    },
-    {
-      name: "policy-resources",
-      path: "policy/resources",
-      dependsOn: [
-        "policy-base"
-      ],
-    },
-    {
-      name: "pki-base",
-      path: "pki/base",
-      dependsOn: [
-        "policy-resources"
-      ],
-      components: [
-        "cert-manager",
-        "trust-manager"
-      ],
-    },
-    {
-      name: "pki-resources",
-      path: "pki/resources",
-      dependsOn: [
-        "pki-base"
-      ],
-      components: [
-        "private-issuer/ca",
-        "public-issuer/selfsigned"
-      ],
+      dependsOn: ["pki-base"]
     },
     {
       name: "ingress",
       path: "ingress",
-      dependsOn: [
-        "pki-resources"
-      ],
-      components: [
+      components: if provider == "aws" then [
         "nginx",
         "nginx/flux-webhook",
         "nginx/web"
-      ],
-    },
-    {
-      name: "gitops",
-      path: "gitops/flux",
-      dependsOn: [
-        "ingress"
-      ],
-      components: [
-        "webhook"
-      ],
-    },
-    {
-      name: "observability",
-      path: "observability",
-      dependsOn: [
-        "ingress"
-      ],
-      components: [
-        "fluentd",
-        "fluentd/filters/otel",
-        "fluentd/outputs/quickwit",
-        "quickwit",
-        "quickwit/pvc",
-        "grafana",
-        "grafana/ingress",
-        "grafana/prometheus",
-        "grafana/node",
-        "grafana/kubernetes",
-        "grafana/flux",
-        "grafana/quickwit"
-      ],
-    }
-  ],
-  "local": [
-    {
-      name: "telemetry-base",
-      path: "telemetry/base",
-      components: [
-        "prometheus",
-        "prometheus/flux",
-        "fluentbit",
-        "fluentbit/prometheus"
-      ],
-    },
-    {
-      name: "telemetry-resources",
-      path: "telemetry/resources",
-      dependsOn: [
-        "telemetry-base"
-      ],
-      components: [
-        "metrics-server",
-        "prometheus",
-        "prometheus/flux",
-        "fluentbit",
-        "fluentbit/containerd",
-        "fluentbit/fluentd",
-        "fluentbit/kubernetes",
-        "fluentbit/systemd"
-      ],
-    },
-    {
-      name: "policy-base",
-      path: "policy/base",
-      components: [
-        "kyverno"
-      ],
-    },
-    {
-      name: "policy-resources",
-      path: "policy/resources",
-      dependsOn: [
-        "policy-base"
-      ],
-    },
-    {
-      name: "csi",
-      path: "csi",
-      dependsOn: [
-        "policy-resources"
-      ],
-      components: [
-        "openebs",
-        "openebs/dynamic-localpv"
-      ],
-    },
-  ] + (if vmDriver != "docker-desktop" then [
-    {
-      name: "lb-base",
-      path: "lb/base",
-      dependsOn: [
-        "policy-resources"
-      ],
-      components: [
-        "metallb"
-      ],
-    },
-    {
-      name: "lb-resources",
-      path: "lb/resources",
-      dependsOn: [
-        "lb-base"
-      ],
-      components: [
-        "metallb/layer2"
-      ],
-    }
-  ] else []) + [
-    {
-      name: "ingress",
-      path: "ingress",
-      dependsOn: [
-        "pki-resources"
-      ],
-      components: if vmDriver == "docker-desktop" then [
+      ] else if vmDriver == "docker-desktop" then [
         "nginx",
         "nginx/nodeport",
         "nginx/coredns",
@@ -384,36 +148,16 @@ local kustomizeConfigs = {
         "nginx/flux-webhook",
         "nginx/web"
       ],
-    },
-    {
-      name: "pki-base",
-      path: "pki/base",
-      dependsOn: [
-        "policy-resources"
-      ],
-      components: [
-        "cert-manager",
-        "trust-manager"
-      ],
-    },
-    {
-      name: "pki-resources",
-      path: "pki/resources",
-      dependsOn: [
-        "pki-base"
-      ],
-      components: [
-        "private-issuer/ca",
-        "public-issuer/selfsigned"
-      ],
+      dependsOn: ["pki-resources"],
+      cleanup: if provider == "aws" then ["loadbalancers", "ingresses"] else []
     },
     {
       name: "dns",
       path: "dns",
-      dependsOn: [
-        "pki-base"
-      ],
-      components: if vmDriver == "docker-desktop" then [
+      components: if provider == "aws" then [
+        "external-dns",
+        "external-dns/route53"
+      ] else if vmDriver == "docker-desktop" then [
         "coredns",
         "coredns/etcd",
         "external-dns",
@@ -427,23 +171,17 @@ local kustomizeConfigs = {
         "external-dns/coredns",
         "external-dns/ingress"
       ],
+      dependsOn: if provider == "aws" then [] else ["pki-base"]
     },
     {
       name: "gitops",
       path: "gitops/flux",
-      dependsOn: [
-        "ingress"
-      ],
-      components: [
-        "webhook"
-      ],
+      components: ["webhook"],
+      dependsOn: ["ingress"]
     },
     {
       name: "observability",
       path: "observability",
-      dependsOn: [
-        "ingress"
-      ],
       components: [
         "fluentd",
         "fluentd/filters/otel",
@@ -458,27 +196,36 @@ local kustomizeConfigs = {
         "grafana/flux",
         "grafana/quickwit"
       ],
+      dependsOn: ["ingress"]
     }
-  ]
-};
-
-// Blueprint metadata
-local blueprintMetadata = {
-  kind: "Blueprint",
-  apiVersion: "blueprints.windsorcli.dev/v1alpha1",
-  metadata: {
-    name: hlp.getString(context, "name", "template"),
-    description: "This blueprint outlines resources in the " + hlp.getString(context, "name", "template") + " context",
-  },
-};
-
-// Source configuration
-local sourceConfig = [];
-
-// Start of Blueprint
-blueprintMetadata + {
-  repository: repositoryConfig,
-  sources: sourceConfig,
-  terraform: terraformConfigs[provider],
-  kustomize: kustomizeConfigs[provider],
+  ] + (if provider == "aws" then [
+    {
+      name: "csi",
+      path: "csi",
+      cleanup: ["pvcs"]
+    }
+  ] else if provider == "local" then [
+    {
+      name: "csi",
+      path: "csi",
+      components: [
+        "openebs",
+        "openebs/dynamic-localpv"
+      ],
+      dependsOn: ["policy-resources"]
+    }
+  ] + (if vmDriver != "docker-desktop" then [
+    {
+      name: "lb-base",
+      path: "lb/base",
+      components: ["metallb"],
+      dependsOn: ["policy-resources"]
+    },
+    {
+      name: "lb-resources",
+      path: "lb/resources",
+      components: ["metallb/layer2"],
+      dependsOn: ["lb-base"]
+    }
+  ] else []) else []),
 } 
