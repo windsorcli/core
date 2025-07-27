@@ -209,17 +209,21 @@ local repositoryUrl = if rawProvider == "local" then "http://git.test/git/" + hl
       components: [
         "fluentd",
         "fluentd/filters/otel",
+        "fluentd/outputs/stdout"
+      ] + (if provider == "local" then [
         "fluentd/outputs/quickwit",
         "quickwit",
-        "quickwit/pvc",
+        "quickwit/pvc"
+      ] else []) + [
         "grafana",
         "grafana/ingress",
         "grafana/prometheus",
         "grafana/node",
         "grafana/kubernetes",
-        "grafana/flux",
+        "grafana/flux"
+      ] + (if provider == "local" then [
         "grafana/quickwit"
-      ],
+      ] else []),
       dependsOn: ["csi", "ingress"]
     }
   ],
