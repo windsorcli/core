@@ -3,7 +3,7 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: volume-cleanup
-  namespace: system-cleanup
+  namespace: system-csi
 spec:
   replicas: 1
   progressDeadlineSeconds: 900

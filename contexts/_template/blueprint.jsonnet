@@ -149,7 +149,7 @@ local repositoryUrl = if rawProvider == "local" then "http://git.test/git/" + hl
         "nginx/web"
       ],
       dependsOn: ["pki-resources"],
-      cleanup: if provider == "aws" then ["loadbalancers", "ingresses"] else []
+      cleanup: ["loadbalancers", "ingresses"]
     },
     {
       name: "dns",
@@ -178,7 +178,40 @@ local repositoryUrl = if rawProvider == "local" then "http://git.test/git/" + hl
       path: "gitops/flux",
       components: ["webhook"],
       dependsOn: ["ingress"]
+    }
+  ] + (if provider == "aws" then [
+    {
+      name: "csi",
+      path: "csi",
+      cleanup: ["pvcs"],
+      components: ["aws-ebs"],
+      dependsOn: ["gitops"]
+    }
+  ] else if provider == "local" then [
+    {
+      name: "csi",
+      path: "csi",
+      components: [
+        "openebs",
+        "openebs/dynamic-localpv"
+      ],
+      dependsOn: ["policy-resources"],
+      cleanup: ["pvcs"]
+    }
+  ] + (if vmDriver != "docker-desktop" then [
+    {
+      name: "lb-base",
+      path: "lb/base",
+      components: ["metallb"],
+      dependsOn: ["policy-resources"]
     },
+    {
+      name: "lb-resources",
+      path: "lb/resources",
+      components: ["metallb/layer2"],
+      dependsOn: ["lb-base"]
+    }
+  ] else []) else []) + [
     {
       name: "observability",
       path: "observability",
@@ -196,37 +229,7 @@ local repositoryUrl = if rawProvider == "local" then "http://git.test/git/" + hl
         "grafana/flux",
         "grafana/quickwit"
       ],
-      dependsOn: ["ingress"]
+      dependsOn: ["csi"]
     }
-  ] + (if provider == "aws" then [
-    {
-      name: "csi",
-      path: "csi",
-      cleanup: ["pvcs"],
-      components: ["aws-ebs"]
-    }
-  ] else if provider == "local" then [
-    {
-      name: "csi",
-      path: "csi",
-      components: [
-        "openebs",
-        "openebs/dynamic-localpv"
-      ],
-      dependsOn: ["policy-resources"]
-    }
-  ] + (if vmDriver != "docker-desktop" then [
-    {
-      name: "lb-base",
-      path: "lb/base",
-      components: ["metallb"],
-      dependsOn: ["policy-resources"]
-    },
-    {
-      name: "lb-resources",
-      path: "lb/resources",
-      components: ["metallb/layer2"],
-      dependsOn: ["lb-base"]
-    }
-  ] else []) else []),
-} 
+  ],
+}

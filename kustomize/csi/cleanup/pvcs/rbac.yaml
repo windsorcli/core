@@ -19,10 +19,10 @@ roleRef:
 subjects:
 - kind: ServiceAccount
   name: volume-cleanup
-  namespace: system-cleanup
+  namespace: system-csi
 ---
 apiVersion: v1
 kind: ServiceAccount
 metadata:
   name: volume-cleanup
-  namespace: system-cleanup
+  namespace: system-csi
