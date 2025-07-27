@@ -19,10 +19,10 @@ roleRef:
 subjects:
 - kind: ServiceAccount
   name: loadbalancer-cleanup
-  namespace: system-cleanup
+  namespace: system-ingress
 ---
 apiVersion: v1
 kind: ServiceAccount
 metadata:
   name: loadbalancer-cleanup
-  namespace: system-cleanup 
+  namespace: system-ingress 
