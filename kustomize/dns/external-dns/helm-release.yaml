@@ -23,4 +23,4 @@ spec:
     extraVolumeMounts: []
     sources: []
     domainFilters:
-      - "${DOMAIN}"
+      - "${external_domain:-test}"

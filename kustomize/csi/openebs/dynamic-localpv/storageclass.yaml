@@ -9,7 +9,7 @@ metadata:
       - name: StorageType
         value: hostpath
       - name: BasePath
-        value: ${LOCAL_VOLUME_PATH}
+        value: ${local_volume_path:-/var/local}
 provisioner: openebs.io/local
 reclaimPolicy: Delete
 volumeBindingMode: WaitForFirstConsumer
@@ -25,7 +25,7 @@ metadata:
       - name: StorageType
         value: hostpath
       - name: BasePath
-        value: ${LOCAL_VOLUME_PATH}
+        value: ${local_volume_path:-/var/local}
 provisioner: openebs.io/local
 reclaimPolicy: Delete
 volumeBindingMode: WaitForFirstConsumer

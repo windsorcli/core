@@ -5,7 +5,7 @@ metadata:
   namespace: demo-bookinfo
 spec:
   rules:
-  - host: bookinfo.${DOMAIN}
+  - host: bookinfo.${external_domain:-test}
     http:
       paths:
       - path: /

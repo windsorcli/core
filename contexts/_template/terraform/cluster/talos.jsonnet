@@ -105,14 +105,18 @@ local commonConfig = {
 };
 
 // Helper for volume mounts
-local createMount(volume) = 
-  local parts = std.split(volume, ":");
-  {
-    destination: parts[1],
-    type: "bind",
-    source: parts[1],
-    options: ["rbind", "rw"]
-  };
+local createMount(volume) =
+  if std.type(volume) == "string" then
+    local parts = std.split(volume, ":");
+    local dest = parts[std.length(parts) - 1];
+    {
+      destination: dest,
+      type: "bind",
+      source: dest,
+      options: ["rbind", "rw"]
+    }
+  else
+    error "Volume must be a string";
 
 // Worker config patches using helpers
 local workerVolumes = hlp.getArray(context, "cluster.workers.volumes", []);
