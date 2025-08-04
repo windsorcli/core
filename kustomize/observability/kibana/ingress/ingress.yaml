@@ -8,7 +8,7 @@ metadata:
 spec:
   ingressClassName: nginx
   rules:
-  - host: kibana.${DOMAIN}
+  - host: kibana.${external_domain:-test}
     http:
       paths:
       - path: /
