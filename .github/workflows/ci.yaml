@@ -22,7 +22,7 @@ env:
   # renovate: datasource=github-releases depName=docker-compose package=docker/compose
   DOCKER_COMPOSE_VERSION: v2.39.1
   # renovate: datasource=github-releases depName=troubleshoot package=replicatedhq/troubleshoot
-  SUPPORT_BUNDLE_VERSION: v0.120.3
+  SUPPORT_BUNDLE_VERSION: v0.121.2
 
 jobs:
   code-checks:
@@ -83,14 +83,14 @@ jobs:
           done
 
       - name: Checkov GitHub Action
-        uses: bridgecrewio/checkov-action@555b1fe117f21ed74b66d7d0182824d382e3c5ef # v12.3045.0
+        uses: bridgecrewio/checkov-action@c903af70b3b45a75049af3b64f5e15db11ea76de # v12.3046.0
         with:
           directory: ./terraform
           output_format: cli,sarif
           output_file_path: console,results.sarif
 
       - name: Upload SARIF file
-        uses: github/codeql-action/upload-sarif@4e828ff8d448a8a6e532957b1811f387a63867e8 # v3.29.4
+        uses: github/codeql-action/upload-sarif@51f77329afa6477de8c49fc9c7046c15b9a4e79d # v3.29.5
         with:
           sarif_file: results.sarif
 
