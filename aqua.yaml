@@ -30,5 +30,5 @@ packages:
   - name: getsops/sops@v3.10.2
   - name: 1password/cli@v2.30.3
   - name: evilmartians/lefthook@v1.12.3
-  - name: bridgecrewio/checkov@3.2.460
+  - name: bridgecrewio/checkov@3.2.461
   - name: kubernetes-sigs/krew@v0.4.5
