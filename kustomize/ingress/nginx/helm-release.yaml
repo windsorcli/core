@@ -11,7 +11,7 @@ spec:
     spec:
       chart: ingress-nginx
       # renovate: datasource=helm depName=ingress-nginx package=ingress-nginx helmRepo=https://kubernetes.github.io/ingress-nginx
-      version: 4.13.0
+      version: 4.13.1
       sourceRef:
         kind: HelmRepository
         name: ingress-nginx
