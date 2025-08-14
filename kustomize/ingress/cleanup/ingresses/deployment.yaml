@@ -22,7 +22,7 @@ spec:
       initContainers:
       - name: cleanup
         # renovate: datasource=docker depName=kubectl package=bitnami/kubectl
-        image: bitnami/kubectl:1.33.3
+        image: bitnami/kubectl:1.33.4
         env:
         - name: RESOURCE_WAIT_TIMEOUT
           value: "300"
