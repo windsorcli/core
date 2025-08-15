@@ -70,11 +70,6 @@ local concat(arrays) = std.foldl(function(x, y) x + y, arrays, []);
     {
       path: "gitops/flux",
       destroy: false,
-      values: if rawProvider == "local" then {
-        git_username: "local",
-        git_password: "local",
-        webhook_token: "abcdef123456",
-      } else {},
     },
   ],
   kustomize:

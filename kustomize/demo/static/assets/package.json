@@ -9,7 +9,7 @@
   "dependencies": {
     "connect-livereload": "^0.6.1",
     "express": "^5.0.0",
-    "livereload": "^0.9.3"
+    "livereload": "^0.10.0"
   },
   "author": "",
   "license": "ISC"
