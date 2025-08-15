@@ -4,7 +4,9 @@ resources:
   - ca-certificate.yaml
   - ca-issuer.yaml
   - inject-private-ca-policy.yaml
-  - copy-root-cert-job.yaml
+  - cert-sync-script.yaml
+  - cert-init.yaml
+  - cert-sync.yaml
   - rbac.yaml
   - serviceaccount.yaml
   - trust-bundle.yaml

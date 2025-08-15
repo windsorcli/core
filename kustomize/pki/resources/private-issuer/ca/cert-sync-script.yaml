@@ -1,0 +1,49 @@
+---
+# Shared certificate sync script
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: cert-sync-script
+  namespace: system-pki
+  labels:
+    app: cert-sync
+data:
+  sync.sh: |
+    #!/bin/sh
+    set -e
+    
+    echo "Starting certificate sync..."
+    
+    # Check if secret exists
+    if kubectl get secret private-ca-cert -n system-pki >/dev/null 2>&1; then
+      # Get current CA cert
+      kubectl get secret private-ca-cert -n system-pki -o jsonpath='{.data.ca\.crt}' | base64 --decode > /tmp/current_ca.crt
+      
+      # Check if configmap exists and compare
+      if kubectl get configmap private-ca-cert -n system-pki-trust >/dev/null 2>&1; then
+        kubectl get configmap private-ca-cert -n system-pki-trust -o jsonpath='{.data.ca\.crt}' > /tmp/existing_ca.crt
+        
+        if cmp -s /tmp/current_ca.crt /tmp/existing_ca.crt; then
+          echo "Certificates match, no update needed"
+          exit 0
+        else
+          echo "Certificates differ, updating configmap..."
+          kubectl create configmap private-ca-cert \
+            --from-file=ca.crt=/tmp/current_ca.crt \
+            -n system-pki-trust \
+            --dry-run=client -o yaml | kubectl apply -f -
+          echo "ConfigMap updated successfully"
+          exit 0
+        fi
+      else
+        echo "ConfigMap does not exist, creating..."
+        kubectl create configmap private-ca-cert \
+          --from-file=ca.crt=/tmp/current_ca.crt \
+          -n system-pki-trust
+        echo "ConfigMap created successfully"
+        exit 0
+      fi
+    else
+      echo "Secret not found"
+      exit 1
+    fi 

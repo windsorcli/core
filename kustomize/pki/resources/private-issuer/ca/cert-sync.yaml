@@ -1,0 +1,49 @@
+---
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: cert-sync
+  namespace: system-pki
+  annotations:
+    fluxcd.io/automated: "true"
+  labels:
+    app: cert-sync
+spec:
+  # Run daily at 2 AM
+  schedule: "0 2 * * *"
+  concurrencyPolicy: Replace
+  successfulJobsHistoryLimit: 3
+  failedJobsHistoryLimit: 3
+  jobTemplate:
+    spec:
+      backoffLimit: 3
+      template:
+        metadata:
+          labels:
+            app: cert-sync
+        spec:
+          serviceAccountName: copy-root-cert
+          containers:
+          - name: cert-sync
+            # renovate: datasource=docker depName=kubectl package=bitnami/kubectl
+            image: bitnami/kubectl:1.33.4
+            command:
+              - /bin/sh
+              - -c
+              - |
+                echo "Checking for certificate changes..."
+                /scripts/sync.sh
+            volumeMounts:
+            - name: script-volume
+              mountPath: /scripts
+              readOnly: true
+            - name: temp-volume
+              mountPath: /tmp
+          restartPolicy: OnFailure
+          volumes:
+          - name: script-volume
+            configMap:
+              name: cert-sync-script
+              defaultMode: 0755
+          - name: temp-volume
+            emptyDir: {} 
