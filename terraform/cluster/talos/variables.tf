@@ -19,7 +19,7 @@ variable "talos_version" {
   description = "The talos version to deploy."
   type        = string
   # renovate: datasource=github-releases depName=talos package=siderolabs/talos
-  default = "1.11.0"
+  default = "1.11.1"
   validation {
     condition     = can(regex("^\\d+\\.\\d+\\.\\d+$", var.talos_version))
     error_message = "The Talos version should be in semantic version format like '1.7.6'."
