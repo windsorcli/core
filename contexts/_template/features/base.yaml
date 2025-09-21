@@ -1,0 +1,76 @@
+kind: Feature
+apiVersion: blueprints.windsorcli.dev/v1alpha1
+metadata:
+  name: base
+  description: "Foundational components for all Windsor platforms"
+
+when: true
+
+kustomize:
+
+# Policy
+- name: policy-base
+  path: policy/base
+  source: core
+  components:
+  - kyverno
+- name: policy-resources
+  path: policy/resources
+  source: core
+  dependsOn:
+  - policy-base
+
+# PKI
+- name: pki-base
+  path: pki/base
+  source: core
+  dependsOn:
+  - policy-resources
+  components:
+  - cert-manager
+
+# Telemetry
+- name: telemetry-base
+  path: telemetry/base
+  source: core
+  components:
+  - prometheus
+  - prometheus/flux
+- name: telemetry-resources
+  path: telemetry/resources
+  source: core
+  dependsOn:
+  - telemetry-base
+  components:
+  - metrics-server
+  - prometheus
+  - prometheus/flux
+
+# FluentBit log collection
+- name: telemetry-base
+  path: telemetry/base
+  source: core
+  when: addons.observability.logs_driver != 'elasticsearch'
+  components:
+  - fluentbit
+  - fluentbit/prometheus
+- name: telemetry-resources
+  path: telemetry/resources
+  source: core
+  when: addons.observability.logs_driver != 'elasticsearch'
+  dependsOn:
+  - telemetry-base
+  components:
+  - fluentbit
+  - fluentbit/containerd
+  - fluentbit/fluentd
+  - fluentbit/kubernetes
+  - fluentbit/systemd
+
+# Filebeat log collection
+- name: telemetry-base
+  path: telemetry/base
+  source: core
+  when: addons.observability.enabled == true && addons.observability.logs_driver == 'elasticsearch'
+  components:
+  - filebeat

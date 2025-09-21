@@ -1,0 +1,42 @@
+kind: Feature
+apiVersion: blueprints.windsorcli.dev/v1alpha1
+metadata:
+  name: aws
+  description: "AWS provider basic infrastructure"
+
+when: provider == 'aws'
+
+terraform:
+- path: network/aws-vpc
+- path: cluster/aws-eks
+- path: cluster/aws-eks/additions
+  destroy: false
+- path: gitops/flux
+  destroy: false
+
+kustomize:
+
+# Ingress
+- name: ingress
+  path: ingress
+  source: core
+  dependsOn:
+  - pki-base
+  components:
+  - nginx
+  - nginx/flux-webhook
+  - nginx/web
+  cleanup:
+  - loadbalancers
+  - ingresses
+
+# CSI
+- name: csi
+  path: csi
+  source: core
+  dependsOn:
+  - policy-resources
+  components:
+  - aws-ebs
+  cleanup:
+  - pvcs

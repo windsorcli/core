@@ -1,0 +1,57 @@
+kind: Feature
+apiVersion: blueprints.windsorcli.dev/v1alpha1
+metadata:
+  name: observability
+  description: "Observability stack with multiple log storage drivers"
+
+when: addons.observability.enabled == true
+
+kustomize:
+  # Dashboards
+  - name: observability
+    path: observability
+    dependsOn:
+      - ingress
+    components:
+      - grafana
+      - grafana/ingress
+      - grafana/prometheus
+      - grafana/node
+      - grafana/kubernetes
+      - grafana/flux
+
+  # FluentD outputs (log collection handled by base.yaml)
+  - name: observability
+    path: observability
+    when: addons.observability.logs_driver == 'stdout'
+    components:
+      - fluentd
+      - fluentd/filters/otel
+      - fluentd/outputs/stdout
+
+  # Quickwit log storage (requires persistent storage)
+  - name: observability
+    path: observability
+    when: addons.observability.logs_driver == 'quickwit'
+    dependsOn:
+      - csi
+      - ingress
+    components:
+      - fluentd
+      - fluentd/filters/otel
+      - fluentd/outputs/quickwit
+      - quickwit
+      - quickwit/pvc
+      - grafana/quickwit
+
+  # Elasticsearch + Kibana (log collection handled by base.yaml)
+  - name: observability
+    path: observability
+    when: addons.observability.logs_driver == 'elasticsearch'
+    dependsOn:
+      - csi
+      - ingress
+    components:
+      - elasticsearch
+      - kibana
+      - kibana/ingress
