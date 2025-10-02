@@ -14,8 +14,8 @@ spec:
         runAsGroup: 1000
       containers:
       - name: generate-creds
-        # renovate: datasource=docker depName=kubectl package=bitnami/kubectl
-        image: bitnami/kubectl:1.33.4
+        # renovate: datasource=docker depName=kubectl package=alpine/k8s
+        image: alpine/k8s:1.33.4
         command: ["/bin/bash", "-c"]
         args:
         - |
