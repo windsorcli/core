@@ -17,7 +17,7 @@ data:
     # Check if secret exists
     if kubectl get secret private-ca-cert -n system-pki >/dev/null 2>&1; then
       # Get current CA cert
-      kubectl get secret private-ca-cert -n system-pki -o jsonpath='{.data.ca\.crt}' | base64 --decode > /tmp/current_ca.crt
+      kubectl get secret private-ca-cert -n system-pki -o jsonpath='{.data.ca\.crt}' | base64 -d > /tmp/current_ca.crt
       
       # Check if configmap exists and compare
       if kubectl get configmap private-ca-cert -n system-pki-trust >/dev/null 2>&1; then
