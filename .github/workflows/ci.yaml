@@ -140,9 +140,9 @@ jobs:
         run: mkdir -p support-bundles
 
       - name: Install Windsor CLI
-        uses: windsorcli/action@main
+        uses: windsorcli/action@v0.5.0
         with:
-          ref: main
+          ref: v0.7.1
           context: local
 
       - name: Create .docker-cache directory
