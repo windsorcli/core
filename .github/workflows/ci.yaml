@@ -140,9 +140,9 @@ jobs:
         run: mkdir -p support-bundles
 
       - name: Install Windsor CLI
-        uses: windsorcli/action@main
+        uses: windsorcli/action@v0.5.0
         with:
-          ref: main
+          ref: v0.7.1
           context: local
 
       - name: Create .docker-cache directory
@@ -157,6 +157,11 @@ jobs:
 
       - name: Windsor Up
         run: |
+          # Clean up any existing configuration
+          rm -f contexts/local/windsor.yaml
+          rm -rf .windsor
+          
+          # Initialize and start Windsor
           windsor init local --set dns.enabled=false --reset
           windsor up --install --verbose --wait
 
@@ -164,6 +169,23 @@ jobs:
         if: always()
         run: |
           tar --exclude='.docker-cache' --exclude='.terraform' -czf support-bundles/windsor-state.tar.gz contexts/local .windsor
+
+      - name: Collect Talos Diagnostics
+        if: always()
+        run: |
+          # Install talosctl if not available
+          if ! command -v talosctl &> /dev/null; then
+            echo "Installing talosctl..."
+            cd "$(mktemp -d)" &&
+            curl -fsSLO "https://github.com/siderolabs/talos/releases/latest/download/talosctl-linux-amd64" &&
+            chmod +x talosctl-linux-amd64 &&
+            sudo mv talosctl-linux-amd64 /usr/local/bin/talosctl &&
+            cd - &&
+            rm -rf "$OLDPWD"
+          fi
+          
+          # Run talos diagnostics collection within Windsor environment
+          windsor exec -- .github/scripts/collect-talos-diagnostics.sh support-bundles/talos-diagnostics
 
       - name: Collect support bundle
         if: always()
