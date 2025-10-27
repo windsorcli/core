@@ -8,6 +8,9 @@ when: provider == 'aws'
 
 terraform:
 - path: network/aws-vpc
+  inputs:
+    cidr_block: ${network.cidr_block}
+    domain_name: ${dns.domain}
 - path: cluster/aws-eks
 - path: cluster/aws-eks/additions
   destroy: false
@@ -19,12 +22,11 @@ kustomize:
 # Ingress
 - name: ingress
   path: ingress
-  source: core
+  when: ingress.enabled == true && ingress.driver == 'nginx'
   dependsOn:
   - pki-base
   components:
   - nginx
-  - nginx/flux-webhook
   - nginx/web
   cleanup:
   - loadbalancers
@@ -33,7 +35,6 @@ kustomize:
 # CSI
 - name: csi
   path: csi
-  source: core
   dependsOn:
   - policy-resources
   components:

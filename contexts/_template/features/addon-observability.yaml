@@ -4,7 +4,7 @@ metadata:
   name: observability
   description: "Observability stack with multiple log storage drivers"
 
-when: addons.observability.enabled == true
+when: addons.observability.enabled == true || dev == true
 
 kustomize:
   # Dashboards
@@ -19,6 +19,8 @@ kustomize:
       - grafana/node
       - grafana/kubernetes
       - grafana/flux
+    substitutions:
+      external_domain: ${dns.domain}
 
   # FluentD outputs (log collection handled by base.yaml)
   - name: observability
@@ -55,3 +57,5 @@ kustomize:
       - elasticsearch
       - kibana
       - kibana/ingress
+    substitutions:
+      external_domain: ${dns.domain}

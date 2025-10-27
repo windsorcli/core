@@ -4,7 +4,7 @@ metadata:
   name: private-dns
   description: Self-hosted CoreDNS for private DNS zones
 
-when: addons.private_dns.enabled == true
+when: addons.private_dns.enabled == true || dev == true
 
 kustomize:
   # CoreDNS server for private DNS zones
@@ -18,3 +18,13 @@ kustomize:
       - external-dns
       - external-dns/coredns
       - external-dns/ingress
+    substitutions:
+      external_domain: ${dns.domain}
+
+  - name: ingress
+    path: ingress
+    when: ingress.enabled == true && ingress.driver == 'nginx'
+    dependsOn:
+      - pki-base
+    components:
+      - nginx/coredns

@@ -8,6 +8,8 @@ when: provider == 'azure'
 
 terraform:
 - path: network/azure-vnet
+  inputs:
+    vnet_cidr: ${network.cidr_block}
 - path: cluster/azure-aks
 - path: gitops/flux
   destroy: false
@@ -17,13 +19,12 @@ kustomize:
 # Ingress
 - name: ingress
   path: ingress
-  source: core
+  when: ingress.enabled == true && ingress.driver == 'nginx'
   dependsOn:
   - pki-base
   components:
   - nginx
   - nginx/coredns
-  - nginx/flux-webhook
   - nginx/web
   cleanup:
   - loadbalancers
@@ -32,7 +33,6 @@ kustomize:
 # CSI
 - name: csi
   path: csi
-  source: core
   dependsOn:
   - policy-resources
   cleanup:

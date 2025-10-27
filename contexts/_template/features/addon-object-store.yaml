@@ -7,6 +7,7 @@ metadata:
 when: addons.object_store.enabled == true
 
 kustomize:
+
   # MinIO object storage base
   - name: object-store-base
     path: object-store/base
