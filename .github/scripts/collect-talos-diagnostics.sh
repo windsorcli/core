@@ -16,11 +16,16 @@ run_talosctl() {
     local description="$3"
     
     echo "Collecting: $description"
+    echo "Command: $cmd"
     if eval "$cmd" > "$output_file" 2>&1; then
         echo "✓ Successfully collected: $description"
     else
-        echo "⚠ Failed to collect: $description (exit code: $?)"
+        local exit_code=$?
+        echo "⚠ Failed to collect: $description (exit code: $exit_code)"
         echo "Command failed: $cmd" > "$output_file"
+        echo "Exit code: $exit_code" >> "$output_file"
+        echo "Error output:" >> "$output_file"
+        eval "$cmd" >> "$output_file" 2>&1 || true
     fi
 }
 
@@ -52,9 +57,16 @@ fi
 echo "Collecting Talos diagnostics to: $TALOS_DIAGNOSTICS_DIR"
 echo "Target nodes: ${NODES:-'auto-detect'}"
 
+# Debug: Show talosctl version and available commands
+echo "Talosctl version:"
+talosctl version --client 2>/dev/null || echo "Failed to get version"
+echo "Available talosctl commands:"
+talosctl --help 2>/dev/null | grep -A 100 "Available Commands:" | head -20 || echo "Failed to get help"
+
 # 1. Comprehensive support bundle (most important)
-run_talosctl "talosctl support $NODE_FLAG --output $TALOS_DIAGNOSTICS_DIR/talos-support-bundle.tar.gz" \
-    "$TALOS_DIAGNOSTICS_DIR/talos-support-bundle.tar.gz" \
+# Note: talosctl support requires specific node targeting, so we'll try without --output first
+run_talosctl "talosctl support $NODE_FLAG" \
+    "$TALOS_DIAGNOSTICS_DIR/talos-support-bundle.txt" \
     "Complete Talos support bundle"
 
 # 2. Cluster health check
@@ -93,8 +105,8 @@ if [ -n "$NODES" ]; then
             "$node_dir/netstat.txt" \
             "Network connections for node $node"
         
-        # Disk usage
-        run_talosctl "talosctl usage --nodes $node" \
+        # Disk usage (using df instead of usage which might not be available)
+        run_talosctl "talosctl df --nodes $node" \
             "$node_dir/disk-usage.txt" \
             "Disk usage for node $node"
         
@@ -120,10 +132,15 @@ run_talosctl "talosctl etcd status $NODE_FLAG" \
     "$TALOS_DIAGNOSTICS_DIR/etcd-status.txt" \
     "etcd cluster status"
 
-# 6. Cluster configuration
+# 6. Cluster configuration (try different approaches)
 run_talosctl "talosctl get config $NODE_FLAG -o yaml" \
     "$TALOS_DIAGNOSTICS_DIR/talos-config.yaml" \
     "Talos cluster configuration"
+
+# Alternative: try to get machine config
+run_talosctl "talosctl get machineconfig $NODE_FLAG -o yaml" \
+    "$TALOS_DIAGNOSTICS_DIR/talos-machine-config.yaml" \
+    "Talos machine configuration"
 
 # 7. Available resource definitions
 run_talosctl "talosctl get rd $NODE_FLAG" \
@@ -134,6 +151,11 @@ run_talosctl "talosctl get rd $NODE_FLAG" \
 run_talosctl "talosctl get machines $NODE_FLAG -o yaml" \
     "$TALOS_DIAGNOSTICS_DIR/machines.yaml" \
     "Machine resources"
+
+# Alternative: try to get nodes
+run_talosctl "talosctl get nodes $NODE_FLAG -o yaml" \
+    "$TALOS_DIAGNOSTICS_DIR/nodes.yaml" \
+    "Node resources"
 
 # 9. Events (if accessible)
 run_talosctl "talosctl events $NODE_FLAG --duration 1h" \
