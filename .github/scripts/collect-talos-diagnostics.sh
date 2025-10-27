@@ -5,6 +5,9 @@
 
 set -euo pipefail
 
+# Handle script interruption gracefully
+trap 'echo "Script interrupted, cleaning up..."; exit 130' INT TERM
+
 # Create output directory
 TALOS_DIAGNOSTICS_DIR="${1:-/tmp/talos-diagnostics}"
 mkdir -p "$TALOS_DIAGNOSTICS_DIR"
@@ -29,29 +32,80 @@ run_talosctl() {
     fi
 }
 
+# Function to run commands with timeout (fallback if timeout command not available)
+run_with_timeout() {
+    local timeout_seconds="$1"
+    local cmd="$2"
+    local output_file="$3"
+    local description="$4"
+    
+    echo "Collecting: $description"
+    echo "Command: $cmd"
+    
+    # Try to use timeout command if available
+    if command -v timeout >/dev/null 2>&1; then
+        if timeout "$timeout_seconds" bash -c "$cmd" > "$output_file" 2>&1; then
+            echo "✓ Successfully collected: $description"
+        else
+            local exit_code=$?
+            echo "⚠ Failed to collect: $description (exit code: $exit_code)"
+            echo "Command failed: $cmd" > "$output_file"
+            echo "Exit code: $exit_code" >> "$output_file"
+        fi
+    else
+        # Fallback: run without timeout but with background process and kill
+        echo "Warning: timeout command not available, using background process with kill"
+        (
+            eval "$cmd" > "$output_file" 2>&1 &
+            local pid=$!
+            sleep "$timeout_seconds"
+            if kill -0 "$pid" 2>/dev/null; then
+                echo "Command timed out, killing process"
+                kill -TERM "$pid" 2>/dev/null
+                sleep 2
+                kill -KILL "$pid" 2>/dev/null
+                echo "Command timed out after ${timeout_seconds}s" >> "$output_file"
+                echo "⚠ Failed to collect: $description (timeout)"
+            else
+                wait "$pid"
+                local wait_exit_code=$?
+                if [ $wait_exit_code -eq 0 ]; then
+                    echo "✓ Successfully collected: $description"
+                else
+                    echo "⚠ Failed to collect: $description (exit code: $wait_exit_code)"
+                fi
+            fi
+        )
+    fi
+}
+
 # Check if talosctl is available
 if ! command -v talosctl &> /dev/null; then
     echo "talosctl not found, skipping talos diagnostics"
     exit 0
 fi
 
-# Get cluster nodes (if available)
-NODES=""
-if kubectl get nodes -o jsonpath='{.items[*].status.addresses[?(@.type=="InternalIP")].address}' 2>/dev/null | grep -q .; then
-    NODES=$(kubectl get nodes -o jsonpath='{.items[*].status.addresses[?(@.type=="InternalIP")].address}' 2>/dev/null | tr ' ' ',')
-fi
-
-# If no nodes found via kubectl, try to get from talosctl config
-if [ -z "$NODES" ]; then
-    if talosctl config info 2>/dev/null | grep -q "endpoints:"; then
-        NODES=$(talosctl config info 2>/dev/null | grep "endpoints:" | cut -d: -f2 | tr -d ' ' | tr ',' ' ')
-    fi
-fi
-
-# Set node flag if we have nodes
+# Determine node targeting strategy based on environment
 NODE_FLAG=""
-if [ -n "$NODES" ]; then
-    NODE_FLAG="--nodes $NODES"
+NODES=""
+
+# Check if we're in a local Docker Desktop environment (has controlplane-1 node)
+if talosctl get nodes 2>/dev/null | grep -q "controlplane-1"; then
+    echo "Detected local Docker Desktop environment, using node names"
+    NODE_FLAG="-n controlplane-1"
+    NODES="controlplane-1"
+# Check if we have specific node IPs from kubectl (CI environment)
+elif kubectl get nodes -o jsonpath='{.items[*].status.addresses[?(@.type=="InternalIP")].address}' 2>/dev/null | grep -q .; then
+    NODES=$(kubectl get nodes -o jsonpath='{.items[*].status.addresses[?(@.type=="InternalIP")].address}' 2>/dev/null | tr ' ' ',')
+    NODE_FLAG="-n $NODES"
+    echo "Detected CI environment, using node IPs: $NODES"
+# Fallback: try to get from talosctl config
+elif talosctl config info 2>/dev/null | grep -q "endpoints:"; then
+    NODES=$(talosctl config info 2>/dev/null | grep "endpoints:" | cut -d: -f2 | tr -d ' ' | tr ',' ' ')
+    NODE_FLAG="-n $NODES"
+    echo "Using endpoints from talosctl config: $NODES"
+else
+    echo "No nodes detected, will attempt commands without node targeting"
 fi
 
 echo "Collecting Talos diagnostics to: $TALOS_DIAGNOSTICS_DIR"
@@ -63,104 +117,57 @@ talosctl version --client 2>/dev/null || echo "Failed to get version"
 echo "Available talosctl commands:"
 talosctl --help 2>/dev/null | grep -A 100 "Available Commands:" | head -20 || echo "Failed to get help"
 
-# 1. Comprehensive support bundle (most important)
-# Note: talosctl support requires specific node targeting, so we'll try without --output first
-run_talosctl "talosctl support $NODE_FLAG" \
-    "$TALOS_DIAGNOSTICS_DIR/talos-support-bundle.txt" \
-    "Complete Talos support bundle"
-
-# 2. Cluster health check
-run_talosctl "talosctl health $NODE_FLAG" \
-    "$TALOS_DIAGNOSTICS_DIR/talos-health.txt" \
-    "Cluster health status"
-
-# 3. Version information
-run_talosctl "talosctl version $NODE_FLAG" \
-    "$TALOS_DIAGNOSTICS_DIR/talos-version.txt" \
-    "Talos version information"
-
-# 4. Node information (if we have specific nodes)
+# Test connectivity to nodes before proceeding
 if [ -n "$NODES" ]; then
+    echo "Testing connectivity to nodes..."
     for node in $(echo "$NODES" | tr ',' ' '); do
-        node_dir="$TALOS_DIAGNOSTICS_DIR/node-$node"
-        mkdir -p "$node_dir"
-        
-        # Kernel logs
-        run_talosctl "talosctl dmesg --nodes $node" \
-            "$node_dir/dmesg.txt" \
-            "Kernel logs for node $node"
-        
-        # Running processes
-        run_talosctl "talosctl processes --nodes $node" \
-            "$node_dir/processes.txt" \
-            "Running processes for node $node"
-        
-        # Memory usage
-        run_talosctl "talosctl memory --nodes $node" \
-            "$node_dir/memory.txt" \
-            "Memory usage for node $node"
-        
-        # Network connections
-        run_talosctl "talosctl netstat --nodes $node" \
-            "$node_dir/netstat.txt" \
-            "Network connections for node $node"
-        
-        # Disk usage (using df instead of usage which might not be available)
-        run_talosctl "talosctl df --nodes $node" \
-            "$node_dir/disk-usage.txt" \
-            "Disk usage for node $node"
-        
-        # Running containers
-        run_talosctl "talosctl containers --nodes $node" \
-            "$node_dir/containers.txt" \
-            "Running containers for node $node"
-        
-        # Service status
-        run_talosctl "talosctl service --nodes $node" \
-            "$node_dir/services.txt" \
-            "Service status for node $node"
-        
-        # Mount information
-        run_talosctl "talosctl mounts --nodes $node" \
-            "$node_dir/mounts.txt" \
-            "Mount information for node $node"
+        echo "Testing node: $node"
+        if timeout 10s talosctl version --nodes "$node" >/dev/null 2>&1; then
+            echo "✓ Node $node is reachable"
+        else
+            echo "⚠ Node $node is not reachable or not responding"
+        fi
     done
 fi
 
-# 5. etcd status (control plane nodes)
-run_talosctl "talosctl etcd status $NODE_FLAG" \
-    "$TALOS_DIAGNOSTICS_DIR/etcd-status.txt" \
-    "etcd cluster status"
+# 1. Comprehensive support bundle (most important)
+# This creates a complete tar.gz file with all diagnostics
+echo "Collecting comprehensive Talos support bundle..."
 
-# 6. Cluster configuration (try different approaches)
-run_talosctl "talosctl get config $NODE_FLAG -o yaml" \
-    "$TALOS_DIAGNOSTICS_DIR/talos-config.yaml" \
-    "Talos cluster configuration"
+# Change to the diagnostics directory to avoid conflicts with existing support.zip
+cd "$TALOS_DIAGNOSTICS_DIR"
 
-# Alternative: try to get machine config
-run_talosctl "talosctl get machineconfig $NODE_FLAG -o yaml" \
-    "$TALOS_DIAGNOSTICS_DIR/talos-machine-config.yaml" \
-    "Talos machine configuration"
+if [ -n "$NODE_FLAG" ]; then
+    echo "Using node targeting: $NODE_FLAG"
+    echo "Running: talosctl support $NODE_FLAG --output talos-support-bundle.tar.gz"
+    if talosctl support $NODE_FLAG --output talos-support-bundle.tar.gz; then
+        echo "✓ Successfully created talos-support-bundle.tar.gz"
+    else
+        exit_code=$?
+        echo "⚠ Support bundle creation failed (exit code: $exit_code)"
+        echo "Command failed: talosctl support $NODE_FLAG --output talos-support-bundle.tar.gz" > support-bundle-output.txt
+        echo "Exit code: $exit_code" >> support-bundle-output.txt
+    fi
+else
+    echo "No node targeting available, attempting support bundle without targeting"
+    echo "Running: talosctl support --output talos-support-bundle.tar.gz"
+    if talosctl support --output talos-support-bundle.tar.gz; then
+        echo "✓ Successfully created talos-support-bundle.tar.gz"
+    else
+        exit_code=$?
+        echo "⚠ Support bundle creation failed (exit code: $exit_code)"
+        echo "Command failed: talosctl support --output talos-support-bundle.tar.gz" > support-bundle-output.txt
+        echo "Exit code: $exit_code" >> support-bundle-output.txt
+    fi
+fi
 
-# 7. Available resource definitions
-run_talosctl "talosctl get rd $NODE_FLAG" \
-    "$TALOS_DIAGNOSTICS_DIR/resource-definitions.txt" \
-    "Available resource definitions"
+# Change back to original directory
+cd - > /dev/null
 
-# 8. COSI resources (if accessible)
-run_talosctl "talosctl get machines $NODE_FLAG -o yaml" \
-    "$TALOS_DIAGNOSTICS_DIR/machines.yaml" \
-    "Machine resources"
-
-# Alternative: try to get nodes
-run_talosctl "talosctl get nodes $NODE_FLAG -o yaml" \
-    "$TALOS_DIAGNOSTICS_DIR/nodes.yaml" \
-    "Node resources"
-
-# 9. Events (if accessible)
-run_talosctl "talosctl events $NODE_FLAG --duration 1h" \
-    "$TALOS_DIAGNOSTICS_DIR/talos-events.txt" \
-    "Talos events (last hour)"
+# 2. Basic version info (always works)
+run_talosctl "talosctl version $NODE_FLAG" \
+    "$TALOS_DIAGNOSTICS_DIR/talos-version.txt" \
+    "Talos version information"
 
 echo "Talos diagnostics collection completed"
 echo "Output directory: $TALOS_DIAGNOSTICS_DIR"
@@ -169,5 +176,12 @@ ls -la "$TALOS_DIAGNOSTICS_DIR"
 # Create tar.gz archive in the parent directory (same pattern as Windsor state)
 TAR_FILE="$(dirname "$TALOS_DIAGNOSTICS_DIR")/talos-diagnostics.tar.gz"
 echo "Creating archive: $TAR_FILE"
+
+# Include the talos support bundle if it was created
+if [ -f "$TALOS_DIAGNOSTICS_DIR/talos-support-bundle.tar.gz" ]; then
+    echo "Including talos support bundle in archive"
+    cp "$TALOS_DIAGNOSTICS_DIR/talos-support-bundle.tar.gz" "$(dirname "$TALOS_DIAGNOSTICS_DIR")/"
+fi
+
 tar -czf "$TAR_FILE" -C "$(dirname "$TALOS_DIAGNOSTICS_DIR")" "$(basename "$TALOS_DIAGNOSTICS_DIR")"
 echo "✓ Talos diagnostics archived to: $TAR_FILE"

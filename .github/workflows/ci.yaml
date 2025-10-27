@@ -179,8 +179,8 @@ jobs:
             rm -rf "$OLDPWD"
           fi
           
-          # Run talos diagnostics collection
-          .github/scripts/collect-talos-diagnostics.sh support-bundles/talos-diagnostics
+          # Run talos diagnostics collection within Windsor environment
+          windsor exec -- .github/scripts/collect-talos-diagnostics.sh support-bundles/talos-diagnostics
 
       - name: Collect support bundle
         if: always()
