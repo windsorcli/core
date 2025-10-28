@@ -187,7 +187,11 @@ echo "Creating archive: $TAR_FILE"
 if [ -f "$TALOS_DIAGNOSTICS_DIR/talos-support-bundle.tar.gz" ]; then
     echo "Including talos support bundle in archive"
     cp "$TALOS_DIAGNOSTICS_DIR/talos-support-bundle.tar.gz" "$(dirname "$TALOS_DIAGNOSTICS_DIR")/"
+    # Create archive with both the diagnostics directory and the support bundle
+    tar -czf "$TAR_FILE" -C "$(dirname "$TALOS_DIAGNOSTICS_DIR")" "$(basename "$TALOS_DIAGNOSTICS_DIR")" "talos-support-bundle.tar.gz"
+else
+    # Create archive with just the diagnostics directory
+    tar -czf "$TAR_FILE" -C "$(dirname "$TALOS_DIAGNOSTICS_DIR")" "$(basename "$TALOS_DIAGNOSTICS_DIR")"
 fi
 
-tar -czf "$TAR_FILE" -C "$(dirname "$TALOS_DIAGNOSTICS_DIR")" "$(basename "$TALOS_DIAGNOSTICS_DIR")"
 echo "✓ Talos diagnostics archived to: $TAR_FILE"
