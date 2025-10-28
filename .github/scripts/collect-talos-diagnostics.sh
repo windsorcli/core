@@ -175,6 +175,30 @@ else
         "Talos version information"
 fi
 
+# 3. Collect Docker logs from Talos nodes
+echo "Collecting Docker logs from Talos nodes..."
+docker_logs_dir="$TALOS_DIAGNOSTICS_DIR/docker-logs"
+mkdir -p "$docker_logs_dir"
+
+# Get list of Talos containers
+talos_containers=$(docker ps --format "table {{.Names}}\t{{.Image}}" | grep -E "(talos|controlplane|worker)" | awk '{print $1}')
+
+if [ -n "$talos_containers" ]; then
+    echo "Found Talos containers: $talos_containers"
+    for container in $talos_containers; do
+        echo "Collecting logs for container: $container"
+        if docker logs "$container" > "$docker_logs_dir/${container}.log" 2>&1; then
+            echo "✓ Successfully collected logs for $container"
+        else
+            echo "⚠ Failed to collect logs for $container"
+            echo "Failed to collect logs for container: $container" > "$docker_logs_dir/${container}.log"
+        fi
+    done
+else
+    echo "No Talos containers found"
+    echo "No Talos containers found" > "$docker_logs_dir/no-containers.txt"
+fi
+
 echo "Talos diagnostics collection completed"
 echo "Output directory: $TALOS_DIAGNOSTICS_DIR"
 ls -la "$TALOS_DIAGNOSTICS_DIR"
