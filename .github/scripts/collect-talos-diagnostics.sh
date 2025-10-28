@@ -86,23 +86,23 @@ if ! command -v talosctl &> /dev/null; then
 fi
 
 # Determine node targeting strategy based on environment
-NODE_FLAG=""
+NODE_ARGS=()
 NODES=""
 
 # Check if we're in a local Docker Desktop environment (has controlplane-1 node)
 if talosctl get nodes 2>/dev/null | grep -q "controlplane-1"; then
     echo "Detected local Docker Desktop environment, using node names"
-    NODE_FLAG="-n controlplane-1"
+    NODE_ARGS=(-n controlplane-1)
     NODES="controlplane-1"
 # Check if we have specific node IPs from kubectl (CI environment)
 elif kubectl get nodes -o jsonpath='{.items[*].status.addresses[?(@.type=="InternalIP")].address}' 2>/dev/null | grep -q .; then
     NODES=$(kubectl get nodes -o jsonpath='{.items[*].status.addresses[?(@.type=="InternalIP")].address}' 2>/dev/null | tr ' ' ',')
-    NODE_FLAG="-n $NODES"
+    NODE_ARGS=(-n "$NODES")
     echo "Detected CI environment, using node IPs: $NODES"
 # Fallback: try to get from talosctl config
 elif talosctl config info 2>/dev/null | grep -q "endpoints:"; then
     NODES=$(talosctl config info 2>/dev/null | grep "endpoints:" | cut -d: -f2 | tr -d ' ' | tr ',' ' ')
-    NODE_FLAG="-n $NODES"
+    NODE_ARGS=(-n "$NODES")
     echo "Using endpoints from talosctl config: $NODES"
 else
     echo "No nodes detected, will attempt commands without node targeting"
@@ -137,15 +137,15 @@ echo "Collecting comprehensive Talos support bundle..."
 # Change to the diagnostics directory to avoid conflicts with existing support.zip
 cd "$TALOS_DIAGNOSTICS_DIR"
 
-if [ -n "$NODE_FLAG" ]; then
-    echo "Using node targeting: $NODE_FLAG"
-    echo "Running: talosctl support $NODE_FLAG --output talos-support-bundle.tar.gz"
-    if talosctl support $NODE_FLAG --output talos-support-bundle.tar.gz; then
+if [ ${#NODE_ARGS[@]} -gt 0 ]; then
+    echo "Using node targeting: ${NODE_ARGS[*]}"
+    echo "Running: talosctl support ${NODE_ARGS[*]} --output talos-support-bundle.tar.gz"
+    if talosctl support "${NODE_ARGS[@]}" --output talos-support-bundle.tar.gz; then
         echo "✓ Successfully created talos-support-bundle.tar.gz"
     else
         exit_code=$?
         echo "⚠ Support bundle creation failed (exit code: $exit_code)"
-        echo "Command failed: talosctl support $NODE_FLAG --output talos-support-bundle.tar.gz" > support-bundle-output.txt
+        echo "Command failed: talosctl support ${NODE_ARGS[*]} --output talos-support-bundle.tar.gz" > support-bundle-output.txt
         echo "Exit code: $exit_code" >> support-bundle-output.txt
     fi
 else
@@ -165,9 +165,15 @@ fi
 cd - > /dev/null
 
 # 2. Basic version info (always works)
-run_talosctl "talosctl version $NODE_FLAG" \
-    "$TALOS_DIAGNOSTICS_DIR/talos-version.txt" \
-    "Talos version information"
+if [ ${#NODE_ARGS[@]} -gt 0 ]; then
+    run_talosctl "talosctl version ${NODE_ARGS[*]}" \
+        "$TALOS_DIAGNOSTICS_DIR/talos-version.txt" \
+        "Talos version information"
+else
+    run_talosctl "talosctl version" \
+        "$TALOS_DIAGNOSTICS_DIR/talos-version.txt" \
+        "Talos version information"
+fi
 
 echo "Talos diagnostics collection completed"
 echo "Output directory: $TALOS_DIAGNOSTICS_DIR"
