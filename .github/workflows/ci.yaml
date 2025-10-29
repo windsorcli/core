@@ -227,6 +227,17 @@ jobs:
       - name: Collect Talos Diagnostics
         if: always()
         run: |
+          echo "=== DEBUG: Before talosctl installation ==="
+          echo "Checking docker-compose.yaml before talosctl installation:"
+          if [ -f .windsor/docker-compose.yaml ]; then
+            if grep -q "dns:" .windsor/docker-compose.yaml; then
+              echo "WARNING: DNS service found before talosctl installation!"
+              grep -A 5 -B 2 "dns:" .windsor/docker-compose.yaml
+            else
+              echo "No DNS service found before talosctl installation"
+            fi
+          fi
+          
           # Install talosctl if not available
           if ! command -v talosctl &> /dev/null; then
             echo "Installing talosctl..."
@@ -238,8 +249,34 @@ jobs:
             rm -rf "$OLDPWD"
           fi
           
+          echo "=== DEBUG: Before windsor exec ==="
+          echo "Checking docker-compose.yaml before windsor exec:"
+          if [ -f .windsor/docker-compose.yaml ]; then
+            if grep -q "dns:" .windsor/docker-compose.yaml; then
+              echo "WARNING: DNS service found before windsor exec!"
+              grep -A 5 -B 2 "dns:" .windsor/docker-compose.yaml
+            else
+              echo "No DNS service found before windsor exec"
+            fi
+            echo "File timestamp: $(stat -c %y .windsor/docker-compose.yaml 2>/dev/null || stat -f %Sm .windsor/docker-compose.yaml 2>/dev/null || echo 'unknown')"
+          fi
+          
           # Run talos diagnostics collection within Windsor environment
+          echo "=== DEBUG: Running windsor exec ==="
           windsor exec -- .github/scripts/collect-talos-diagnostics.sh support-bundles/talos-diagnostics
+          
+          echo "=== DEBUG: After windsor exec ==="
+          echo "Checking docker-compose.yaml after windsor exec:"
+          if [ -f .windsor/docker-compose.yaml ]; then
+            if grep -q "dns:" .windsor/docker-compose.yaml; then
+              echo "ERROR: DNS service found after windsor exec!"
+              grep -A 10 -B 2 "dns:" .windsor/docker-compose.yaml
+            else
+              echo "No DNS service found after windsor exec"
+            fi
+            echo "File timestamp: $(stat -c %y .windsor/docker-compose.yaml 2>/dev/null || stat -f %Sm .windsor/docker-compose.yaml 2>/dev/null || echo 'unknown')"
+            echo "File size: $(wc -l < .windsor/docker-compose.yaml) lines"
+          fi
 
       - name: Collect support bundle
         if: always()
