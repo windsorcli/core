@@ -160,9 +160,15 @@ jobs:
           echo "=== DEBUG: Starting Windsor Up process ==="
           echo "Current working directory: $(pwd)"
           echo "WINDSOR_PROJECT_ROOT: $WINDSOR_PROJECT_ROOT"
+          echo "Windsor CLI version:"
+          windsor --version || echo "Failed to get Windsor version"
+          echo "Environment variables:"
+          env | grep -E "(WINDSOR|DOCKER)" | sort || echo "No Windsor/Docker env vars found"
           
           echo "=== DEBUG: Running windsor init ==="
+          echo "Command: windsor init local --set dns.enabled=false --reset"
           windsor init local --set dns.enabled=false --reset
+          echo "windsor init exit code: $?"
           
           echo "=== DEBUG: Checking windsor.yaml after init ==="
           echo "windsor.yaml content:"
@@ -193,7 +199,9 @@ jobs:
           fi
           
           echo "=== DEBUG: Running windsor up ==="
+          echo "Command: windsor up --install --verbose --wait"
           windsor up --install --verbose --wait
+          echo "windsor up exit code: $?"
           
           echo "=== DEBUG: Checking docker-compose.yaml after windsor up ==="
           if [ -f .windsor/docker-compose.yaml ]; then
