@@ -165,6 +165,27 @@ jobs:
           echo "Environment variables:"
           env | grep -E "(WINDSOR|DOCKER)" | sort || echo "No Windsor/Docker env vars found"
           
+          echo "=== DEBUG: Cleaning up existing configuration ==="
+          echo "Removing existing windsor.yaml if it exists:"
+          if [ -f contexts/local/windsor.yaml ]; then
+            echo "Found existing windsor.yaml, removing it:"
+            cat contexts/local/windsor.yaml
+            rm -f contexts/local/windsor.yaml
+            echo "windsor.yaml removed"
+          else
+            echo "No existing windsor.yaml found"
+          fi
+          
+          echo "Removing existing .windsor directory if it exists:"
+          if [ -d .windsor ]; then
+            echo "Found existing .windsor directory, removing it:"
+            ls -la .windsor/
+            rm -rf .windsor
+            echo ".windsor directory removed"
+          else
+            echo "No existing .windsor directory found"
+          fi
+          
           echo "=== DEBUG: Running windsor init ==="
           echo "Command: windsor init local --set dns.enabled=false --reset"
           windsor init local --set dns.enabled=false --reset
