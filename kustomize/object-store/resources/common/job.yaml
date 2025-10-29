@@ -16,7 +16,7 @@ spec:
       - name: generate-creds
         # renovate: datasource=docker depName=kubectl package=alpine/k8s
         image: alpine/k8s:1.33.4
-        command: ["/bin/bash", "-c"]
+        command: ["/bin/sh", "-c"]
         args:
         - |
           MINIO_ACCESS_KEY=$(openssl rand -hex 12);
