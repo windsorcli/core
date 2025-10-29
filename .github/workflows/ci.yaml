@@ -157,8 +157,67 @@ jobs:
 
       - name: Windsor Up
         run: |
+          echo "=== DEBUG: Starting Windsor Up process ==="
+          echo "Current working directory: $(pwd)"
+          echo "WINDSOR_PROJECT_ROOT: $WINDSOR_PROJECT_ROOT"
+          
+          echo "=== DEBUG: Running windsor init ==="
           windsor init local --set dns.enabled=false --reset
+          
+          echo "=== DEBUG: Checking windsor.yaml after init ==="
+          echo "windsor.yaml content:"
+          cat contexts/local/windsor.yaml
+          echo ""
+          
+          echo "=== DEBUG: Checking if DNS is disabled ==="
+          if grep -q "dns:" contexts/local/windsor.yaml; then
+            echo "DNS section found in windsor.yaml:"
+            grep -A 5 "dns:" contexts/local/windsor.yaml
+          else
+            echo "No DNS section found in windsor.yaml"
+          fi
+          
+          echo "=== DEBUG: Checking docker-compose.yaml after init ==="
+          if [ -f .windsor/docker-compose.yaml ]; then
+            echo "docker-compose.yaml exists, checking for DNS services:"
+            if grep -q "dns:" .windsor/docker-compose.yaml; then
+              echo "WARNING: DNS service found in docker-compose.yaml after init!"
+              grep -A 10 -B 2 "dns:" .windsor/docker-compose.yaml
+            else
+              echo "No DNS service found in docker-compose.yaml after init"
+            fi
+            echo "Services in docker-compose.yaml:"
+            grep "container_name:" .windsor/docker-compose.yaml || echo "No container_name found"
+          else
+            echo "docker-compose.yaml does not exist after init"
+          fi
+          
+          echo "=== DEBUG: Running windsor up ==="
           windsor up --install --verbose --wait
+          
+          echo "=== DEBUG: Checking docker-compose.yaml after windsor up ==="
+          if [ -f .windsor/docker-compose.yaml ]; then
+            echo "docker-compose.yaml exists after windsor up, checking for DNS services:"
+            if grep -q "dns:" .windsor/docker-compose.yaml; then
+              echo "ERROR: DNS service found in docker-compose.yaml after windsor up!"
+              grep -A 10 -B 2 "dns:" .windsor/docker-compose.yaml
+            else
+              echo "No DNS service found in docker-compose.yaml after windsor up"
+            fi
+            echo "All services in docker-compose.yaml:"
+            grep "container_name:" .windsor/docker-compose.yaml || echo "No container_name found"
+            echo "File size: $(wc -l < .windsor/docker-compose.yaml) lines"
+          else
+            echo "docker-compose.yaml does not exist after windsor up"
+          fi
+          
+          echo "=== DEBUG: Checking IP addresses ==="
+          if [ -f .windsor/docker-compose.yaml ]; then
+            echo "IP addresses in docker-compose.yaml:"
+            grep -A 1 "ipv4_address:" .windsor/docker-compose.yaml || echo "No ipv4_address found"
+          fi
+          
+          echo "=== DEBUG: Windsor Up process complete ==="
 
       - name: Collect Windsor State
         if: always()
