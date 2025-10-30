@@ -8,7 +8,7 @@ variable "flux_helm_version" {
   description = "The version of Flux Helm chart to install"
   type        = string
   # renovate: datasource=helm depName=flux package=flux2 helmRepo=https://fluxcd-community.github.io/helm-charts
-  default = "2.16.4"
+  default = "2.17.0"
 
   validation {
     condition     = can(regex("^[0-9]+\\.[0-9]+\\.[0-9]+$", var.flux_helm_version))
@@ -20,7 +20,7 @@ variable "flux_version" {
   description = "The version of Flux to install"
   type        = string
   # renovate: datasource=github-releases depName=flux package=fluxcd/flux2
-  default = "2.6.4"
+  default = "2.7.3"
 
   validation {
     condition     = can(regex("^[0-9]+\\.[0-9]+\\.[0-9]+$", var.flux_version))
