@@ -99,11 +99,11 @@ run "minimal_configuration_cloudwatch_logs_disabled" {
     error_message = "KMS key should be created when enable_secrets_encryption is true"
   }
   assert {
-    condition     = length(jsondecode(aws_kms_key.eks_encryption_key[0].policy).Statement) == 2
+    condition     = length(jsondecode(aws_kms_key_policy.eks_encryption_key[0].policy).Statement) == 2
     error_message = "KMS key policy should only have 2 statements when CloudWatch logs are disabled"
   }
   assert {
-    condition     = alltrue([for s in jsondecode(aws_kms_key.eks_encryption_key[0].policy).Statement : s.Sid != "Allow CloudWatch Logs to use the key"])
+    condition     = alltrue([for s in jsondecode(aws_kms_key_policy.eks_encryption_key[0].policy).Statement : s.Sid != "Allow CloudWatch Logs to use the key"])
     error_message = "KMS key policy should not include CloudWatch Logs permissions when disabled"
   }
 }

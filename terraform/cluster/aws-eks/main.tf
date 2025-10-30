@@ -147,6 +147,11 @@ resource "aws_kms_key" "eks_encryption_key" {
   description             = "KMS key for EKS cluster ${local.name} secrets encryption"
   deletion_window_in_days = 7
   enable_key_rotation     = true
+}
+
+resource "aws_kms_key_policy" "eks_encryption_key" {
+  count  = var.enable_secrets_encryption && var.secrets_encryption_kms_key_id == null ? 1 : 0
+  key_id = aws_kms_key.eks_encryption_key[0].key_id
 
   policy = jsonencode({
     Version = "2012-10-17",
@@ -181,7 +186,7 @@ resource "aws_kms_key" "eks_encryption_key" {
           Sid    = "Allow CloudWatch Logs to use the key",
           Effect = "Allow",
           Principal = {
-            Service = "logs.${data.aws_region.current.name}.amazonaws.com"
+            Service = "logs.${data.aws_region.current.id}.amazonaws.com"
           },
           Action = [
             "kms:Encrypt",
