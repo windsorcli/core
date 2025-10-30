@@ -83,7 +83,7 @@ jobs:
           done
 
       - name: Checkov GitHub Action
-        uses: bridgecrewio/checkov-action@68260132005eaae0e6f84c7a73cc3b1532f678bf # v12.3058.0
+        uses: bridgecrewio/checkov-action@d146511ffb733a9a456c9ffc05cd462122037354 # v12.3069.0
         with:
           directory: ./terraform
           output_format: cli,sarif
