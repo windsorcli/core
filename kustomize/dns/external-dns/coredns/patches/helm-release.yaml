@@ -1,9 +1,4 @@
 - op: add
-  path: /spec/dependsOn/-
-  value:
-    name: etcd-coredns
-    namespace: system-dns
-- op: add
   path: /spec/values/provider
   value:
     name: coredns
@@ -11,7 +6,7 @@
   path: /spec/values/env/-
   value:
     name: ETCD_URLS
-    value: https://etcd-coredns.system-dns.svc.${CLUSTER_DOMAIN:-cluster.local}:2379
+    value: https://etcd.system-dns.svc.${CLUSTER_DOMAIN:-cluster.local}:2379
 - op: add
   path: /spec/values/env/-
   value:
@@ -31,7 +26,7 @@
   path: /spec/values/env/-
   value:
     name: ETCD_TLS_SERVER_NAME
-    value: etcd-coredns.system-dns.svc.${CLUSTER_DOMAIN:-cluster.local}
+    value: etcd.system-dns.svc.${CLUSTER_DOMAIN:-cluster.local}
 - op: add
   path: /spec/values/extraVolumes/-
   value:

@@ -6,27 +6,36 @@ metadata:
   namespace: system-dns
 spec:
   values:
+    extraVolumes:
+      - name: etcd-client-tls
+        secret:
+          secretName: etcd-client-tls
+    extraVolumeMounts:
+      - name: etcd-client-tls
+        mountPath: /etc/etcd/tls
+        readOnly: true
     servers:
       - zones:
           - zone: .
         port: 53
         plugins:
-          - name: log
-            parameters: stdout
           - name: errors
           - name: health
             configBlock: |-
               lameduck 5s
-          - name: ready
           - name: etcd
             configBlock: |
               path /skydns
-              endpoint etcd-coredns.system-dns.svc.cluster.local:2379
-              tls /etc/coredns/tls/tls.crt /etc/coredns/tls/tls.key /etc/coredns/tls/ca.crt
+              endpoint etcd.system-dns.svc.cluster.local:2379
+              tls /etc/etcd/tls/tls.crt /etc/etcd/tls/tls.key /etc/etcd/tls/ca.crt
               fallthrough
           - name: forward
             parameters: . 1.1.1.1 8.8.8.8
-          - name: loop
-          - name: reload
+          - name: ready
           - name: prometheus
             parameters: 0.0.0.0:9153
+          - name: cache
+            parameters: 30
+          - name: loop
+          - name: reload
+          - name: loadbalance

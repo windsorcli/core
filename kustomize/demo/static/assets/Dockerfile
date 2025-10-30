@@ -1,4 +1,4 @@
-FROM node:22-alpine
+FROM node:24-alpine
 
 # Set the working directory for building and running the server
 WORKDIR /usr/src/server
