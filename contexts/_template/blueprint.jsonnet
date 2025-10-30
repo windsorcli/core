@@ -155,7 +155,7 @@ local concat(arrays) = std.foldl(function(x, y) x + y, arrays, []);
                 [
                   "nginx",
                   if vmDriver == "docker-desktop" then "nginx/nodeport" else null,
-                  // "nginx/coredns",
+                  "nginx/coredns",
                   "nginx/flux-webhook",
                   "nginx/web",
                 ]
@@ -163,31 +163,31 @@ local concat(arrays) = std.foldl(function(x, y) x + y, arrays, []);
           dependsOn: ["pki-resources"],
           cleanup: ["loadbalancers", "ingresses"],
         },
-        // {
-        //   name: "dns",
-        //   path: "dns",
-        //   components:
-        //     if provider == "aws" then [
-        //       "external-dns",
-        //       "external-dns/route53",
-        //     ]
-        //     else if vmDriver == "docker-desktop" then [
-        //       "coredns",
-        //       "coredns/etcd",
-        //       "external-dns",
-        //       "external-dns/localhost",
-        //       "external-dns/coredns",
-        //       "external-dns/ingress",
-        //     ]
-        //     else [
-        //       "coredns",
-        //       "coredns/etcd",
-        //       "external-dns",
-        //       "external-dns/coredns",
-        //       "external-dns/ingress",
-        //     ],
-        //   dependsOn: if provider == "aws" then [] else ["pki-base"],
-        // },
+        {
+          name: "dns",
+          path: "dns",
+          components:
+            if provider == "aws" then [
+              "external-dns",
+              "external-dns/route53",
+            ]
+            else if vmDriver == "docker-desktop" then [
+              "coredns",
+              "coredns/etcd",
+              "external-dns",
+              "external-dns/localhost",
+              "external-dns/coredns",
+              "external-dns/ingress",
+            ]
+            else [
+              "coredns",
+              "coredns/etcd",
+              "external-dns",
+              "external-dns/coredns",
+              "external-dns/ingress",
+            ],
+          dependsOn: if provider == "aws" then [] else ["pki-base"],
+        },
         {
           name: "gitops",
           path: "gitops/flux",

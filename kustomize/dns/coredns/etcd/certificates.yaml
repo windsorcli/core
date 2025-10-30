@@ -9,12 +9,12 @@ spec:
   issuerRef:
     name: private
     kind: ClusterIssuer
-  commonName: etcd-peer-coredns
+  commonName: etcd-peer
   dnsNames:
-    - "etcd-coredns.system-dns.svc.${CLUSTER_DOMAIN:-cluster.local}"
-    - "*.etcd-coredns.system-dns.svc.${CLUSTER_DOMAIN:-cluster.local}"
-    - "etcd-coredns-headless.system-dns.svc.${CLUSTER_DOMAIN:-cluster.local}"
-    - "*.etcd-coredns-headless.system-dns.svc.${CLUSTER_DOMAIN:-cluster.local}"
+    - "etcd.system-dns.svc.${CLUSTER_DOMAIN:-cluster.local}"
+    - "*.etcd.system-dns.svc.${CLUSTER_DOMAIN:-cluster.local}"
+    - "etcd-headless.system-dns.svc.${CLUSTER_DOMAIN:-cluster.local}"
+    - "*.etcd-headless.system-dns.svc.${CLUSTER_DOMAIN:-cluster.local}"
   usages:
     - digital signature
     - key encipherment
@@ -31,12 +31,12 @@ spec:
   issuerRef:
     name: private
     kind: ClusterIssuer
-  commonName: etcd-coredns
+  commonName: etcd
   dnsNames:
-    - "etcd-coredns.system-dns.svc.${CLUSTER_DOMAIN:-cluster.local}"
-    - "*.etcd-coredns.system-dns.svc.${CLUSTER_DOMAIN:-cluster.local}"
-    - "etcd-coredns-headless.system-dns.svc.${CLUSTER_DOMAIN:-cluster.local}"
-    - "*.etcd-coredns-headless.system-dns.svc.${CLUSTER_DOMAIN:-cluster.local}"
+    - "etcd.system-dns.svc.${CLUSTER_DOMAIN:-cluster.local}"
+    - "*.etcd.system-dns.svc.${CLUSTER_DOMAIN:-cluster.local}"
+    - "etcd-headless.system-dns.svc.${CLUSTER_DOMAIN:-cluster.local}"
+    - "*.etcd-headless.system-dns.svc.${CLUSTER_DOMAIN:-cluster.local}"
   usages:
     - server auth
     - client auth
@@ -51,6 +51,6 @@ spec:
   issuerRef:
     name: private
     kind: ClusterIssuer
-  commonName: etcd-coredns
+  commonName: etcd-client
   usages:
     - client auth
