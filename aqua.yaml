@@ -27,7 +27,7 @@ packages:
   - name: fluxcd/flux2@v2.6.4
   - name: hashicorp/vault@v1.20.3
   - name: derailed/k9s@v0.50.12
-  - name: getsops/sops@v3.10.2
+  - name: getsops/sops@v3.11.0
   - name: 1password/cli@v2.30.3
   - name: evilmartians/lefthook@v1.13.4
   - name: bridgecrewio/checkov@3.2.471
