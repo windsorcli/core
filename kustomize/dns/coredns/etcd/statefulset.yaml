@@ -57,7 +57,6 @@ spec:
         - --initial-advertise-peer-urls=https://etcd-0.etcd:2380
         - --initial-cluster=etcd-0=https://etcd-0.etcd:2380
         - --initial-cluster-state=new
-        - --initial-cluster-token=etcd-cluster-1
         - --client-cert-auth
         - --trusted-ca-file=/etc/etcd/tls/ca.crt
         - --cert-file=/etc/etcd/tls/tls.crt
@@ -66,13 +65,8 @@ spec:
         - --peer-trusted-ca-file=/etc/etcd/tls/ca.crt
         - --peer-cert-file=/etc/etcd/tls/tls.crt
         - --peer-key-file=/etc/etcd/tls/tls.key
-        - --auto-compaction-retention=1
-        - --quota-backend-bytes=8589934592
-        - --max-request-bytes=33554432
-        - --grpc-keepalive-min-time=5s
-        - --grpc-keepalive-interval=2h
-        - --grpc-keepalive-timeout=20s
-        - --enable-grpc-gateway
+        - --auto-compaction-retention=24h
+        - --quota-backend-bytes=1073741824
         env: []
         livenessProbe:
           tcpSocket:
@@ -92,11 +86,10 @@ spec:
           failureThreshold: 3
         resources:
           requests:
-            cpu: 200m
+            cpu: 100m
             memory: 256Mi
           limits:
-            cpu: 500m
-            memory: 512Mi
+            memory: 256Mi
         volumeMounts:
         - name: etcd-data
           mountPath: /var/lib/etcd
