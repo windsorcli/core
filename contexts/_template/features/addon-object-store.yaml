@@ -2,7 +2,7 @@ kind: Feature
 apiVersion: blueprints.windsorcli.dev/v1alpha1
 metadata:
   name: object-store
-  description: "Object storage service with multiple drivers"
+  description: Object storage service with multiple drivers
 
 when: addons.object_store.enabled == true
 

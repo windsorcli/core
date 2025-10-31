@@ -2,7 +2,7 @@ kind: Feature
 apiVersion: blueprints.windsorcli.dev/v1alpha1
 metadata:
   name: observability
-  description: "Observability stack with multiple log storage drivers"
+  description: Observability stack with multiple log storage drivers
 
 when: addons.observability.enabled == true || dev == true
 
@@ -22,7 +22,7 @@ kustomize:
     substitutions:
       external_domain: ${dns.domain}
 
-  # FluentD outputs (log collection handled by base.yaml)
+  # FluentD outputs
   - name: observability
     path: observability
     when: addons.observability.logs_driver == 'stdout'
@@ -31,7 +31,7 @@ kustomize:
       - fluentd/filters/otel
       - fluentd/outputs/stdout
 
-  # Quickwit log storage (requires persistent storage)
+  # Quickwit log storage
   - name: observability
     path: observability
     when: addons.observability.logs_driver == 'quickwit'
@@ -46,7 +46,7 @@ kustomize:
       - quickwit/pvc
       - grafana/quickwit
 
-  # Elasticsearch + Kibana (log collection handled by base.yaml)
+  # Elasticsearch + Kibana
   - name: observability
     path: observability
     when: addons.observability.logs_driver == 'elasticsearch'

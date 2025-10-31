@@ -45,7 +45,7 @@ properties:
         additionalProperties: false
     additionalProperties: false
 
-  # Cluster configuration (used by terraform templates)
+  # Cluster configuration
   cluster:
     type: object
     properties:
@@ -182,7 +182,7 @@ properties:
         description: VM driver for local clusters
     additionalProperties: false
 
-  # Optional addons (individual controls)
+  # Optional addons
   addons:
     type: object
     properties:
