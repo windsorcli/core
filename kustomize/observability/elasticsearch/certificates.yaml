@@ -14,13 +14,13 @@ spec:
     - "elasticsearch-master"
     - "elasticsearch-master.system-observability"
     - "elasticsearch-master.system-observability.svc"
-    - "elasticsearch-master.system-observability.svc.${CLUSTER_DOMAIN:-cluster.local}"
-    - "*.elasticsearch-master.system-observability.svc.${CLUSTER_DOMAIN:-cluster.local}"
+    - "elasticsearch-master.system-observability.svc.${DOMAIN:-cluster.local}"
+    - "*.elasticsearch-master.system-observability.svc.${DOMAIN:-cluster.local}"
     - "elasticsearch-master-headless"
     - "elasticsearch-master-headless.system-observability"
     - "elasticsearch-master-headless.system-observability.svc"
-    - "elasticsearch-master-headless.system-observability.svc.${CLUSTER_DOMAIN:-cluster.local}"
-    - "*.elasticsearch-master-headless.system-observability.svc.${CLUSTER_DOMAIN:-cluster.local}"
+    - "elasticsearch-master-headless.system-observability.svc.${DOMAIN:-cluster.local}"
+    - "*.elasticsearch-master-headless.system-observability.svc.${DOMAIN:-cluster.local}"
   usages:
     - server auth
     - client auth
