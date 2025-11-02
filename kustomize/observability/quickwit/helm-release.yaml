@@ -11,7 +11,7 @@ spec:
     spec:
       chart: quickwit
       # renovate: datasource=helm depName=quickwit package=quickwit helmRepo=https://helm.quickwit.io
-      version: 0.7.18
+      version: 0.7.19
       sourceRef: 
         kind: HelmRepository
         name: quickwit
