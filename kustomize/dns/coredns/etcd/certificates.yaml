@@ -11,10 +11,10 @@ spec:
     kind: ClusterIssuer
   commonName: etcd-peer
   dnsNames:
-    - "etcd.system-dns.svc.${DOMAIN:-cluster.local}"
-    - "*.etcd.system-dns.svc.${DOMAIN:-cluster.local}"
-    - "etcd-headless.system-dns.svc.${DOMAIN:-cluster.local}"
-    - "*.etcd-headless.system-dns.svc.${DOMAIN:-cluster.local}"
+    - "etcd.system-dns.svc.cluster.local"
+    - "*.etcd.system-dns.svc.cluster.local"
+    - "etcd-headless.system-dns.svc.cluster.local"
+    - "*.etcd-headless.system-dns.svc.cluster.local"
   usages:
     - digital signature
     - key encipherment
@@ -33,10 +33,10 @@ spec:
     kind: ClusterIssuer
   commonName: etcd
   dnsNames:
-    - "etcd.system-dns.svc.${DOMAIN:-cluster.local}"
-    - "*.etcd.system-dns.svc.${DOMAIN:-cluster.local}"
-    - "etcd-headless.system-dns.svc.${DOMAIN:-cluster.local}"
-    - "*.etcd-headless.system-dns.svc.${DOMAIN:-cluster.local}"
+    - "etcd.system-dns.svc.cluster.local"
+    - "*.etcd.system-dns.svc.cluster.local"
+    - "etcd-headless.system-dns.svc.cluster.local"
+    - "*.etcd-headless.system-dns.svc.cluster.local"
   usages:
     - server auth
     - client auth

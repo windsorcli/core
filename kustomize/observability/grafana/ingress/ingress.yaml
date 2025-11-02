@@ -5,7 +5,7 @@ metadata:
   namespace: system-observability
 spec:
   rules:
-  - host: grafana.${external_domain:-test}
+  - host: grafana.${DOMAIN:-test}
     http:
       paths:
       - path: /

@@ -5,7 +5,7 @@ metadata:
   namespace: demo-static
 spec:
   rules:
-  - host: static.${external_domain:-test}
+  - host: static.${DOMAIN:-test}
     http:
       paths:
       - path: /
