@@ -18,37 +18,44 @@ spec:
         matchLabels:
           app: etcd
     ports:
-    - protocol: TCP
-      port: 2380
-  # Allow client connections from CoreDNS
+    - port: 2380
+      protocol: TCP
+  # Allow CoreDNS to connect to etcd client endpoint
   - from:
     - podSelector:
         matchLabels:
-          app: coredns
+          app.kubernetes.io/name: coredns
     ports:
-    - protocol: TCP
-      port: 2379
+    - port: 2379
+      protocol: TCP
+  # Allow external-dns to connect to etcd client endpoint
+  - from:
+    - podSelector:
+        matchLabels:
+          app.kubernetes.io/name: external-dns
+    ports:
+    - port: 2379
+      protocol: TCP
   egress:
   # Allow DNS resolution
-  - to: []
-    ports:
-    - protocol: UDP
-      port: 53
-    - protocol: TCP
-      port: 53
+  - ports:
+    - port: 53
+      protocol: UDP
+    - port: 53
+      protocol: TCP
   # Allow etcd peer communication
-  - to:
+  - ports:
+    - port: 2380
+      protocol: TCP
+    to:
     - podSelector:
         matchLabels:
           app: etcd
-    ports:
-    - protocol: TCP
-      port: 2380
-  # Allow client connections to other etcd instances
-  - to:
+  # Allow etcd client communication (for cluster operations)
+  - ports:
+    - port: 2379
+      protocol: TCP
+    to:
     - podSelector:
         matchLabels:
           app: etcd
-    ports:
-    - protocol: TCP
-      port: 2379
