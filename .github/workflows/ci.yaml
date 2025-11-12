@@ -22,7 +22,7 @@ env:
   # renovate: datasource=github-releases depName=docker-compose package=docker/compose
   DOCKER_COMPOSE_VERSION: v2.40.3
   # renovate: datasource=github-releases depName=troubleshoot package=replicatedhq/troubleshoot
-  SUPPORT_BUNDLE_VERSION: v0.123.11
+  SUPPORT_BUNDLE_VERSION: v0.123.12
 
 jobs:
   code-checks:
@@ -70,7 +70,7 @@ jobs:
         uses: hashicorp/setup-terraform@b9cd54a3c349d3f38e8881555d616ced269862dd # v3.1.2
         with:
           # renovate: datasource=github-releases depName=terraform package=hashicorp/terraform
-          terraform_version: 1.13.4
+          terraform_version: 1.13.5
 
       - name: Run terraform fmt
         run: terraform fmt -check -recursive
@@ -90,7 +90,7 @@ jobs:
           output_file_path: console,results.sarif
 
       - name: Upload SARIF file
-        uses: github/codeql-action/upload-sarif@8a06050a8c0348fb4738f28e0cfbb6727cf054ce # v4.31.2
+        uses: github/codeql-action/upload-sarif@0499de31b99561a6d14a36a5f662c2a54f91beee # v4.31.2
         with:
           sarif_file: results.sarif
 
@@ -118,7 +118,7 @@ jobs:
         uses: hashicorp/setup-terraform@b9cd54a3c349d3f38e8881555d616ced269862dd # v3.1.2
         with:
           # renovate: datasource=github-releases depName=terraform package=hashicorp/terraform
-          terraform_version: 1.13.4
+          terraform_version: 1.13.5
 
       - name: Setup kubectl
         uses: azure/setup-kubectl@776406bce94f63e41d621b960d78ee25c8b76ede # v4.0.1
