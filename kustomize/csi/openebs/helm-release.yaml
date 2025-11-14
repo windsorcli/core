@@ -18,15 +18,27 @@ spec:
         namespace: system-gitops
   values:
     localpv-provisioner:
+      image:
+        # renovate: datasource=docker depName=openebs/provisioner-localpv package=openebs/provisioner-localpv
+        tag: 4.3.0
       localpv:
         enabled: false
       hostpathClass:
         enabled: false
     zfs-localpv:
+      image:
+        # renovate: datasource=docker depName=openebs/zfs-driver package=openebs/zfs-driver
+        tag: 2.8.0
       enabled: false
     lvm-localpv:
+      image:
+        # renovate: datasource=docker depName=openebs/lvm-driver package=openebs/lvm-driver
+        tag: 1.7.0
       enabled: false
     mayastor:
+      image:
+        # renovate: datasource=docker depName=openebs/mayastor-io-engine package=openebs/mayastor-io-engine
+        tag: v2.9.2
       enabled: false
       base:
         metrics:
@@ -34,15 +46,18 @@ spec:
     engines:
       local:
         lvm:
+          image:
+            # renovate: datasource=docker depName=openebs/lvm-driver package=openebs/lvm-driver
+            tag: 1.7.0
           enabled: false
         zfs:
+          image:
+            # renovate: datasource=docker depName=openebs/zfs-driver package=openebs/zfs-driver
+            tag: 2.8.0
           enabled: false
       replicated:
         mayastor:
+          image:
+            # renovate: datasource=docker depName=openebs/mayastor-io-engine package=openebs/mayastor-io-engine
+            tag: v2.9.2
           enabled: false
-    loki:
-      enabled: false
-    minio:
-      enabled: false
-    alloy:
-      enabled: false
