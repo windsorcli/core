@@ -114,6 +114,28 @@ jobs:
           echo "1" | sudo tee /proc/sys/net/bridge/bridge-nf-call-iptables
           echo "1" | sudo tee /proc/sys/net/bridge/bridge-nf-call-ip6tables
 
+      - name: Configure Docker for increased storage
+        run: |
+          # Move Docker's data root to /mnt which has 66GB available (vs ~10GB on default location)
+          # This increases Docker's storage capacity from ~10GB to ~66GB
+          sudo mkdir -p /mnt/docker-data
+          sudo mkdir -p /etc/docker
+          # Configure Docker to use /mnt for data storage and limit log growth
+          echo '{
+            "data-root": "/mnt/docker-data",
+            "log-driver": "json-file",
+            "log-opts": {
+              "max-size": "10m",
+              "max-file": "3"
+            }
+          }' | sudo tee /etc/docker/daemon.json
+          # Restart Docker to apply new data-root configuration
+          sudo systemctl restart docker || sudo service docker restart || true
+          # Wait for Docker to be ready
+          timeout 30 bash -c 'until docker info > /dev/null 2>&1; do sleep 1; done' || true
+          # Verify Docker is using the new data-root
+          docker info | grep "Docker Root Dir" || true
+
       - name: Setup Terraform
         uses: hashicorp/setup-terraform@b9cd54a3c349d3f38e8881555d616ced269862dd # v3.1.2
         with:
