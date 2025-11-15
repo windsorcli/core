@@ -26,7 +26,6 @@ lefthook install
 ```
 
 ### Development Workflow
-
 - `task fmt` - Format Terraform code
 - `task test` - Run Terraform tests
 - `task docs` - Generate Terraform documentation
