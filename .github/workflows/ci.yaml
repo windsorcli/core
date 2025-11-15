@@ -108,11 +108,55 @@ jobs:
             docker-compose --version
         continue-on-error: false
 
+      - name: Free up disk space
+        run: |
+          # Remove unnecessary pre-installed software to free up ephemeral storage
+          # This workflow uses: Docker, Terraform, kubectl, Python, shellcheck
+          # Safe to remove: .NET, Android, Haskell, CodeQL (not used in this workflow)
+          echo "Checking and removing unnecessary pre-installed software..."
+          
+          # Only remove if directories exist to avoid errors
+          [ -d /usr/share/dotnet ] && sudo rm -rf /usr/share/dotnet && echo "Removed .NET SDK" || true
+          [ -d /usr/local/lib/android ] && sudo rm -rf /usr/local/lib/android && echo "Removed Android SDK" || true
+          [ -d /opt/ghc ] && sudo rm -rf /opt/ghc && echo "Removed Haskell GHC" || true
+          [ -d /opt/hostedtoolcache/CodeQL ] && sudo rm -rf /opt/hostedtoolcache/CodeQL && echo "Removed CodeQL toolcache" || true
+          
+          # Clean up package manager caches (shellcheck is installed fresh via apt-get)
+          echo "Cleaning package manager caches..."
+          sudo apt-get clean || true
+          sudo apt-get autoclean || true
+          
+          # Clean up Docker resources - CRITICAL for ephemeral storage
+          # Docker containers/images consume the ephemeral storage that kubelet monitors
+          echo "Cleaning up Docker resources..."
+          docker system prune -af --volumes || true
+          
+          # Show available disk space
+          echo "Available disk space:"
+          df -h
+
       - name: Load br_netfilter kernel module
         run: |
           sudo modprobe br_netfilter
           echo "1" | sudo tee /proc/sys/net/bridge/bridge-nf-call-iptables
           echo "1" | sudo tee /proc/sys/net/bridge/bridge-nf-call-ip6tables
+
+      - name: Configure Docker log rotation
+        run: |
+          # Configure Docker daemon to limit log growth and prevent ephemeral storage exhaustion
+          # Note: In GitHub Actions, Docker is managed by the runner, so we configure per-container
+          # log limits via environment variables and clean up existing resources
+          sudo mkdir -p /etc/docker
+          # Set default log driver configuration (applies to new containers)
+          echo '{
+            "log-driver": "json-file",
+            "log-opts": {
+              "max-size": "10m",
+              "max-file": "3"
+            }
+          }' | sudo tee /etc/docker/daemon.json
+          # Clean up Docker to free space before starting
+          docker system prune -af --volumes || true
 
       - name: Setup Terraform
         uses: hashicorp/setup-terraform@b9cd54a3c349d3f38e8881555d616ced269862dd # v3.1.2
