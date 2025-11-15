@@ -61,3 +61,9 @@ spec:
             # renovate: datasource=docker depName=openebs/mayastor-io-engine package=openebs/mayastor-io-engine
             tag: v2.9.2
           enabled: false
+    loki:
+      enabled: false
+    minio:
+      enabled: false
+    alloy:
+      enabled: false
