@@ -19,6 +19,6 @@ spec:
   values:
     image:
       # renovate: datasource=docker depName=quickwit/quickwit package=quickwit/quickwit
-      tag: 0.7.20@sha256:89a052af62c612d0e05d2596f03edba77d7d904c4478b387a5dc6305821fe0a1
+      tag: v0.8.2@sha256:363ff56ce45614e46eba1c308e420f56a9f2fd8ab5788cbca0ec6b68a2e0ef92
     searcher:
       replicaCount: 1
