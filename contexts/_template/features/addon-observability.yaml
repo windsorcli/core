@@ -59,3 +59,23 @@ kustomize:
       - kibana/ingress
     substitutions:
       external_domain: ${dns.domain}
+
+  # Elasticsearch telemetry
+  - name: telemetry-base
+    path: telemetry/base
+    when: addons.observability.logs_driver == 'elasticsearch'
+    strategy: replace
+    components:
+      - prometheus
+      - prometheus/flux
+      - filebeat
+  - name: telemetry-resources
+    path: telemetry/resources
+    when: addons.observability.logs_driver == 'elasticsearch'
+    strategy: replace
+    dependsOn:
+      - telemetry-base
+    components:
+      - metrics-server
+      - prometheus
+      - prometheus/flux

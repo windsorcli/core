@@ -26,12 +26,14 @@ kustomize:
   components:
   - cert-manager
 
-# Telemetry
+# Telemetry (metrics + logs with fluentbit by default)
 - name: telemetry-base
   path: telemetry/base
   components:
   - prometheus
   - prometheus/flux
+  - fluentbit
+  - fluentbit/prometheus
 - name: telemetry-resources
   path: telemetry/resources
   dependsOn:
@@ -40,29 +42,8 @@ kustomize:
   - metrics-server
   - prometheus
   - prometheus/flux
-
-# FluentBit log collection
-- name: telemetry-base
-  path: telemetry/base
-  when: addons.observability.logs_driver != 'elasticsearch'
-  components:
-  - fluentbit
-  - fluentbit/prometheus
-- name: telemetry-resources
-  path: telemetry/resources
-  when: addons.observability.logs_driver != 'elasticsearch'
-  dependsOn:
-  - telemetry-base
-  components:
   - fluentbit
   - fluentbit/containerd
   - fluentbit/fluentd
   - fluentbit/kubernetes
   - fluentbit/systemd
-
-# Filebeat log collection
-- name: telemetry-base
-  path: telemetry/base
-  when: addons.observability.enabled == true && addons.observability.logs_driver == 'elasticsearch'
-  components:
-  - filebeat
