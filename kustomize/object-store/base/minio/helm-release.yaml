@@ -17,6 +17,9 @@ spec:
         namespace: system-gitops
   values:
     operator:
+      image:
+        # renovate: datasource=docker depName=minio/operator package=minio/operator
+        tag: v7.1.1@sha256:cd587f60c43dab75799370ad7b6c55f53cfa2188e85f4c5eda939591f8769f47
       resources:
         requests:
           cpu: 250m
@@ -26,8 +29,3 @@ spec:
         fsGroup: 1000
       additionalLabels:
         use-custom-ca: "true"
-    console:
-      resources:
-        requests:
-          cpu: 0.25
-          memory: 512Mi

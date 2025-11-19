@@ -16,4 +16,7 @@ spec:
         name: metrics-server
         namespace: system-gitops
   values:
+    image:
+      # renovate: datasource=docker depName=registry.k8s.io/metrics-server/metrics-server package=registry.k8s.io/metrics-server/metrics-server
+      tag: v0.8.0@sha256:89258156d0e9af60403eafd44da9676fd66f600c7934d468ccc17e42b199aee2
     args: []

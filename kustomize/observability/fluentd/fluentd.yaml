@@ -14,7 +14,7 @@ spec:
       bind: 0.0.0.0
       port: 24224
   # renovate: datasource=docker depName=ghcr.io/fluent/fluent-operator/fluentd package=ghcr.io/fluent/fluent-operator/fluentd
-  image: ghcr.io/fluent/fluent-operator/fluentd:v1.17.1
+  image: ghcr.io/fluent/fluent-operator/fluentd:v1.17.1@sha256:ac31887c898b6dde2f038495257564d88659f9bf8df426aa48167aa7737e90c6
   replicas: 1
   resources:
     limits:
