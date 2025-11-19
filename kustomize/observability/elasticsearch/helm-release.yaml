@@ -15,6 +15,7 @@ spec:
         name: elastic-elasticsearch
         namespace: system-observability
   values:
+    image: docker.elastic.co/elasticsearch/elasticsearch:8.5.1@sha256:dd4cd0943aae9b4b881fa578eca46015af399a309c0d3b5dc86a30adc932f434
     createCert: false
     secretMounts:
     - name: elasticsearch-certificates

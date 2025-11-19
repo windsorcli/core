@@ -155,7 +155,38 @@
       "versioningTemplate": "semver",
       "datasourceTemplate": "{{datasource}}",
       "packageNameTemplate": "{{package}}",
-      "depNameTemplate": "{{depName}}"
+      "depNameTemplate": "{{depName}}",
+      "pinDigests": true
+    },
+    {
+      "description": "Handle date-based Docker image tags (e.g., trust-pkg-debian-bookworm)",
+      "customType": "regex",
+      "managerFilePatterns": [
+        "/^.*\\.ya?ml$/"
+      ],
+      "matchStrings": [
+        "\\s*#\\s*renovate:\\s*datasource=(?<datasource>[^\\s]+)\\s*depName=(?<depName>[^\\s]+)\\s*package=(?<package>[^\\s]+).*\\n.*tag:\\s*(?<currentValue>\\d{8}(-\\w+)?(@sha256:[a-f0-9]+)?)"
+      ],
+      "versioningTemplate": "loose",
+      "datasourceTemplate": "{{datasource}}",
+      "packageNameTemplate": "{{package}}",
+      "depNameTemplate": "{{depName}}",
+      "pinDigests": true
+    },
+    {
+      "description": "Handle complex date-based tags with controller versions (e.g., kube-webhook-certgen)",
+      "customType": "regex",
+      "managerFilePatterns": [
+        "/^.*\\.ya?ml$/"
+      ],
+      "matchStrings": [
+        "\\s*#\\s*renovate:\\s*datasource=(?<datasource>[^\\s]+)\\s*depName=(?<depName>[^\\s]+)\\s*package=(?<package>[^\\s]+).*\\n.*tag:\\s*(?<currentValue>v[0-9]{8}-controller-v[0-9]+\\.[0-9]+\\.[0-9]+-[0-9]+-g[0-9a-f]+(@sha256:[a-f0-9]+)?)"
+      ],
+      "versioningTemplate": "loose",
+      "datasourceTemplate": "{{datasource}}",
+      "packageNameTemplate": "{{package}}",
+      "depNameTemplate": "{{depName}}",
+      "pinDigests": true
     }
   ],
   "platformAutomerge": true,

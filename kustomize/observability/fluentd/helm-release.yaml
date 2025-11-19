@@ -18,10 +18,19 @@ spec:
         name: fluent-operator
         namespace: system-gitops
   values:
+    image:
+      # renovate: datasource=docker depName=ghcr.io/fluent/fluent-operator/fluent-operator package=ghcr.io/fluent/fluent-operator/fluent-operator
+      tag: v3.5.0@sha256:a5ace7bc1a33d33dfbda2136ccddb6f95bb4165f5f91daadb8f2dd8230854aa1
     containerRuntime: containerd
     fluentd:
+      image:
+        # renovate: datasource=docker depName=ghcr.io/fluent/fluent-operator/fluentd package=ghcr.io/fluent/fluent-operator/fluentd
+        tag: v1.19.0@sha256:b715c91b0bad14537fb9b70d7b75a98f5b17ecd932f9d08e4d7fcb5422d9bb4f
       enable: true
       crdsEnable: false
     fluentbit:
+      image:
+        # renovate: datasource=docker depName=ghcr.io/fluent/fluent-operator/fluent-bit package=ghcr.io/fluent/fluent-operator/fluent-bit
+        tag: 4.1.1@sha256:b27c78cef2b1ec386474da1970be1a1fbd951d6cde9c422a2f68aff616d874c0
       enable: true
       crdsEnable: false

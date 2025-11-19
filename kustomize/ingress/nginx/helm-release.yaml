@@ -18,6 +18,11 @@ spec:
         namespace: system-ingress
   values:
     controller:
+      image:
+        # renovate: datasource=docker depName=registry.k8s.io/ingress-nginx/controller package=registry.k8s.io/ingress-nginx/controller
+        tag: v1.14.0@sha256:e4127065d0317bd11dc64c4dd38dcf7fb1c3d72e468110b4086e636dbaac943d
+        digest: ""
+        digestChroot: ""
       service:
         enableHttp: false
         enableTls: false

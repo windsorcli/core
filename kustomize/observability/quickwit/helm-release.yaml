@@ -17,5 +17,8 @@ spec:
         name: quickwit
         namespace: system-gitops
   values:
+    image:
+      # renovate: datasource=docker depName=quickwit/quickwit package=quickwit/quickwit
+      tag: 0.7.20@sha256:89a052af62c612d0e05d2596f03edba77d7d904c4478b387a5dc6305821fe0a1
     searcher:
       replicaCount: 1

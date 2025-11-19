@@ -20,8 +20,24 @@ spec:
       enabled: false
     kubeStateMetrics:
       enabled: true
+    kube-state-metrics:
+      image:
+        # renovate: datasource=docker depName=registry.k8s.io/kube-state-metrics/kube-state-metrics package=registry.k8s.io/kube-state-metrics/kube-state-metrics
+        tag: v2.13.0@sha256:639a1e2da549210adddc0391ff91e270e83f7873014aec53258462812f741e6f
+    prometheusOperator:
+      image:
+        # renovate: datasource=docker depName=quay.io/prometheus-operator/prometheus-operator package=quay.io/prometheus-operator/prometheus-operator
+        tag: v0.72.0@sha256:804d9569455dc278e378456106431a44a70b1342a0837dbacc85429c95cc72c6
+      admissionWebhooks:
+        patch:
+          image:
+            # renovate: datasource=docker depName=registry.k8s.io/ingress-nginx/kube-webhook-certgen package=registry.k8s.io/ingress-nginx/kube-webhook-certgen
+            tag: v20221220-controller-v1.5.1-58-g787ea74b6@sha256:4d99688e557396f5baa150e019ff7d5b7334f9b9f9a8dab64038c5c2a006f6b5
     prometheus:
       prometheusSpec:
+        image:
+          # renovate: datasource=docker depName=quay.io/prometheus/prometheus package=quay.io/prometheus/prometheus
+          tag: v2.54.0@sha256:497fe921f22fea8535fa2bcb1c193dacc6ce98c08274257b3d18a4eaae0f9647
         ruleSelectorNilUsesHelmValues: false
         serviceMonitorSelectorNilUsesHelmValues: false
         podMonitorSelectorNilUsesHelmValues: false
@@ -33,3 +49,9 @@ spec:
     nodeExporter:
       enabled: true
       replicas: 1
+    prometheus-node-exporter:
+      version: "1.8.2"
+      image:
+        # renovate: datasource=docker depName=quay.io/prometheus/node-exporter package=quay.io/prometheus/node-exporter
+        tag: v1.8.2@sha256:4032c6d5bfd752342c3e631c2f1de93ba6b86c41db6b167b9a35372c139e7706
+        digest: ""

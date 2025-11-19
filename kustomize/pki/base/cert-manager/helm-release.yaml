@@ -17,5 +17,20 @@ spec:
         name: jetstack
         namespace: system-gitops
   values:
+    image:
+      # renovate: datasource=docker depName=quay.io/jetstack/cert-manager-controller package=quay.io/jetstack/cert-manager-controller
+      tag: v1.19.1@sha256:cd49e769e18ada1fd7b9a9bacc87c90db24c65cbfd4bf71694dda7ed40e91187
+    webhook:
+      image:
+        # renovate: datasource=docker depName=quay.io/jetstack/cert-manager-webhook package=quay.io/jetstack/cert-manager-webhook
+        tag: v1.19.1@sha256:f5bfe77541e38978aec53cc6eb924d190e1fe923c98b2582e6ccf5edf6c02cce
+    cainjector:
+      image:
+        # renovate: datasource=docker depName=quay.io/jetstack/cert-manager-cainjector package=quay.io/jetstack/cert-manager-cainjector
+        tag: v1.19.1@sha256:c7898aece8fb08102fca0b37683e37cb94e0a77c0d15b8e3c9128f6c04c868e0
+    startupapicheck:
+      image:
+        # renovate: datasource=docker depName=quay.io/jetstack/cert-manager-startupapicheck package=quay.io/jetstack/cert-manager-startupapicheck
+        tag: v1.19.1@sha256:96a82fa28b14fa0307377111f17adeb5888e313c60445074a775b495dbb07d08
     crds:
       enabled: true
