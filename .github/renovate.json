@@ -98,9 +98,7 @@
       "automerge": true,
       "automergeType": "pr",
       "automergeStrategy": "squash",
-      "labels": [
-        "dependencies"
-      ]
+      "labels": ["dependencies"]
     }
   ],
   "customManagers": [
@@ -151,11 +149,11 @@
         "/^.*\\.tfvars$/"
       ],
       "matchStrings": [
-        "\\s*#\\s*renovate:\\s*datasource=(?<datasource>[^\\s]+)\\s*depName=(?<depName>[^\\s]+)\\s*package=(?<package>[^\\s]+)(\\s*helmRepo=(?<helmRepo>[^\\s]+))?.*\n.*tag:\\s*(?<currentValue>v?\\d+\\.\\d+(\\.\\d+)?(-[a-zA-Z0-9]+)?(@sha256:[a-f0-9]+)?)"
+        "\\s*#\\s*renovate:\\s*datasource=(?<datasource>[^\\s]+)\\s*depName=(?<depName>[^\\s]+)\\s*package=(?<package>[^\\s]+)(\\s+helmRepo=(?<helmRepo>[^\\s]+))?[^\\n]*\\n[^\\n]*tag:\\s*(?<currentValue>v?\\d+\\.\\d+(\\.\\d+)?(-[a-zA-Z0-9]+)?)(@sha256:[a-f0-9]+)?",
+        "\\s*#\\s*renovate:\\s*datasource=(?<datasource>[^\\s]+)\\s*depName=(?<depName>[^\\s]+)\\s*package=(?<package>[^\\s]+)[^\\n]*\\n[^\\n]*image:\\s*[^:]+:(?<currentValue>[^\\s@]+)(@sha256:[a-f0-9]+)?"
       ],
       "versioningTemplate": "semver",
       "datasourceTemplate": "{{datasource}}",
-      "registryUrlTemplate": "{{#if helmRepo}}{{helmRepo}}{{/if}}",
       "packageNameTemplate": "{{package}}",
       "depNameTemplate": "{{depName}}",
       "pinDigests": true
