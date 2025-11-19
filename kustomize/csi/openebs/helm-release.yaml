@@ -18,16 +18,34 @@ spec:
         namespace: system-gitops
   values:
     localpv-provisioner:
+      enabled: false
       localpv:
-        enabled: false
+        image:
+          # renovate: datasource=docker depName=openebs/provisioner-localpv package=openebs/provisioner-localpv
+          tag: 4.4.0@sha256:a9f0aa574700379fd56f7597be4493fab1bd2423e8a5eaca4eeafd377763e9df
+      helperPod:
+        image:
+          # renovate: datasource=docker depName=openebs/linux-utils package=openebs/linux-utils
+          tag: 4.1.0@sha256:f085850f69fdb278416d353a1bc1174613251ca9c471f5acd0e627eeb43e5d9e
       hostpathClass:
         enabled: false
     zfs-localpv:
       enabled: false
+      zfsPlugin:
+        image:
+          # renovate: datasource=docker depName=openebs/zfs-driver package=openebs/zfs-driver
+          tag: 2.9.0@sha256:66535204312df4f91fab45fe5cf7770b5aaf5203343220ab8f97c81645aa85cd
     lvm-localpv:
       enabled: false
+      lvmPlugin:
+        image:
+          # renovate: datasource=docker depName=openebs/lvm-driver package=openebs/lvm-driver
+          tag: 1.8.0@sha256:a3a34ef3e290f0ef004f444b56bd2bc36887d26503939998677cb124e42a321d
     mayastor:
       enabled: false
+      image:
+        # renovate: datasource=docker depName=openebs/mayastor-io-engine package=openebs/mayastor-io-engine
+        tag: v2.9.3@sha256:c0ed974eef65e6001e75c510bf9b33c27f086097f90edbebc4ae969f5e780a21
       base:
         metrics:
           enabled: false
@@ -46,3 +64,7 @@ spec:
       enabled: false
     alloy:
       enabled: false
+    preUpgradeHook:
+      image:
+        # renovate: datasource=docker depName=openebs/kubectl package=openebs/kubectl
+        tag: 1.25.15@sha256:7a8d6955f40da47707896368ec4e7f9029ca643986af4ebcf4cbeb7798f0f896

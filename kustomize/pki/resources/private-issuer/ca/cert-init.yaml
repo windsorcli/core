@@ -10,6 +10,7 @@ metadata:
     app: cert-init
 spec:
   backoffLimit: 10
+  ttlSecondsAfterFinished: 86400
   template:
     metadata:
       labels:
@@ -19,7 +20,7 @@ spec:
       containers:
       - name: cert-init
         # renovate: datasource=docker depName=kubectl package=alpine/k8s
-        image: alpine/k8s:1.34.1
+        image: alpine/k8s:1.34.1@sha256:ec714df3813b5405292860f8a1c55c5727bf8c33c88992f1e981efad8065547f
         command:
           - /bin/sh
           - -c
@@ -27,6 +28,13 @@ spec:
             set -e
             
             echo "Initializing certificate sync for trust-manager..."
+            
+            # Check if initialization has already been completed
+            # Look for the ConfigMap that indicates successful initialization
+            if kubectl get configmap private-ca-cert -n system-pki-trust >/dev/null 2>&1; then
+              echo "Certificate ConfigMap already exists - initialization appears complete. Skipping."
+              exit 0
+            fi
             
             # Wait for secret to be available
             i=1

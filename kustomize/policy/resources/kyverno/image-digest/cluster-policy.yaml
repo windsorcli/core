@@ -1,0 +1,36 @@
+---
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: require-image-digest
+  annotations:
+    policies.kyverno.io/title: Require Image Digest
+    policies.kyverno.io/category: Best Practices
+    policies.kyverno.io/severity: medium
+    policies.kyverno.io/subject: Pod
+    policies.kyverno.io/description: >-
+      Ensures that all container images use SHA256 digests to promote immutability
+      and security. Images must be in the format: repository:tag@sha256:digest or
+      repository@sha256:digest. Applies to Pods in system-* namespaces.
+spec:
+  validationFailureAction: Enforce
+  background: true
+  rules:
+    - name: validate-containers
+      match:
+        any:
+          - resources:
+              kinds:
+                - Pod
+              namespaces:
+                - "system-*"
+      validate:
+        message: "All container images must include a SHA256 digest (e.g., image:tag@sha256:digest or image@sha256:digest)."
+        pattern:
+          spec:
+            containers:
+              - image: "*@sha256:*"
+            =(initContainers):
+              - image: "*@sha256:*"
+            =(ephemeralContainers):
+              - image: "*@sha256:*"

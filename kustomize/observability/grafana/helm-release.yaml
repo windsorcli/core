@@ -17,6 +17,12 @@ spec:
         name: grafana
         namespace: system-gitops
   values:
+    image:
+      # renovate: datasource=docker depName=grafana/grafana package=grafana/grafana
+      tag: 10.4.5@sha256:c2f484c66179ddd2acae789ecaf8f283359a5ebc597e28253c794a229eb2d3f6
+    downloadDashboardsImage:
+      # renovate: datasource=docker depName=curlimages/curl package=curlimages/curl
+      tag: 8.9.1@sha256:8addc281f0ea517409209f76832b6ddc2cabc3264feb1ebbec2a2521ffad24e4
     dashboardProviders:
       dashboardproviders.yaml:
         apiVersion: 1
