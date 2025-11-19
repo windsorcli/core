@@ -108,6 +108,7 @@ local concat(arrays) = std.foldl(function(x, y) x + y, arrays, []);
         {
           name: "policy-resources",
           path: "policy/resources",
+          components: ["kyverno/require-image-digest"],
           dependsOn: ["policy-base"],
         },
         {
