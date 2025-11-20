@@ -27,7 +27,7 @@ spec:
     prometheusOperator:
       image:
         # renovate: datasource=docker depName=quay.io/prometheus-operator/prometheus-operator package=quay.io/prometheus-operator/prometheus-operator
-        tag: v0.72.0@sha256:804d9569455dc278e378456106431a44a70b1342a0837dbacc85429c95cc72c6
+        tag: v0.86.2@sha256:92757e4b90027e153dc09f2e01254c8402fd5268827d95532760836c2a117062
       admissionWebhooks:
         patch:
           image:
