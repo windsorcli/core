@@ -45,7 +45,7 @@ spec:
       enabled: false
       image:
         # renovate: datasource=docker depName=openebs/mayastor-io-engine package=openebs/mayastor-io-engine
-        tag: v2.9.3@sha256:c0ed974eef65e6001e75c510bf9b33c27f086097f90edbebc4ae969f5e780a21
+        tag: v2.10.0@sha256:2e7bedf7b67f2a3e4de1b90424a6b54493050f32b8f708c543b590e488074d34
       base:
         metrics:
           enabled: false
