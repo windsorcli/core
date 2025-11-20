@@ -23,7 +23,7 @@ spec:
     kube-state-metrics:
       image:
         # renovate: datasource=docker depName=registry.k8s.io/kube-state-metrics/kube-state-metrics package=registry.k8s.io/kube-state-metrics/kube-state-metrics
-        tag: v2.13.0@sha256:639a1e2da549210adddc0391ff91e270e83f7873014aec53258462812f741e6f
+        tag: v2.17.0@sha256:2bbc915567334b13632bf62c0a97084aff72a36e13c4dabd5f2f11c898c5bacd
     prometheusOperator:
       image:
         # renovate: datasource=docker depName=quay.io/prometheus-operator/prometheus-operator package=quay.io/prometheus-operator/prometheus-operator
