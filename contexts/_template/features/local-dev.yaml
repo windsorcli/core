@@ -23,14 +23,6 @@ kustomize:
   - pki-base
   components:
   - public-issuer/selfsigned
-  patches:
-  - patch: |
-      apiVersion: cert-manager.io/v1
-      kind: ClusterIssuer
-      metadata:
-        name: selfsigned-issuer
-        labels:
-          local-dev: "true"
 
 # Ingress
 - name: ingress
@@ -40,12 +32,3 @@ kustomize:
   - pki-base
   components:
   - nginx/nodeport
-  patches:
-  - patch: |
-      apiVersion: v1
-      kind: Service
-      metadata:
-        name: ingress-nginx-controller
-        namespace: ingress-nginx
-        annotations:
-          local-dev/override: "enabled"
