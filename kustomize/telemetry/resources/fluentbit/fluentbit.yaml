@@ -14,7 +14,8 @@ spec:
           - key: node-role.kubernetes.io/edge
             operator: DoesNotExist
   fluentBitConfigName: fluent-bit-config
-  image: ghcr.io/fluent/fluent-operator/fluent-bit:3.1.4
+  # renovate: datasource=docker depName=ghcr.io/fluent/fluent-operator/fluent-bit package=ghcr.io/fluent/fluent-operator/fluent-bit
+  image: ghcr.io/fluent/fluent-operator/fluent-bit:3.1.4@sha256:7821c6e468af02b80bc3e129e93e780fc3961e939dfc84cf78251872491d2513
   namespaceFluentBitCfgSelector: {}
   positionDB:
     hostPath:

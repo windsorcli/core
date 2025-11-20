@@ -16,6 +16,9 @@ spec:
         name: fluxcd-community
         namespace: system-gitops
   values:
+    cli:
+      # renovate: datasource=docker depName=ghcr.io/fluxcd/flux-cli package=ghcr.io/fluxcd/flux-cli
+      tag: v2.7.2@sha256:c10e77794dc4519322cbc58e75c7f612125e4276b726c6cb019d87e9dadb08dd
     prometheus:
       podMonitor:
         create: true
