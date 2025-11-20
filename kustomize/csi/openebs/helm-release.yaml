@@ -26,7 +26,7 @@ spec:
       helperPod:
         image:
           # renovate: datasource=docker depName=openebs/linux-utils package=openebs/linux-utils
-          tag: 4.1.0@sha256:f085850f69fdb278416d353a1bc1174613251ca9c471f5acd0e627eeb43e5d9e
+          tag: 4.3.0@sha256:834e45ca87b252151127e3d643f9f06ca2c7e5c1bb7e620ab6451162705e9d69
       hostpathClass:
         enabled: false
     zfs-localpv:
