@@ -22,7 +22,7 @@ spec:
       tag: 12.3.0@sha256:70d9599b186ce287be0d2c5ba9a78acb2e86c1a68c9c41449454d0fc3eeb84e8
     downloadDashboardsImage:
       # renovate: datasource=docker depName=curlimages/curl package=curlimages/curl
-      tag: 8.9.1@sha256:8addc281f0ea517409209f76832b6ddc2cabc3264feb1ebbec2a2521ffad24e4
+      tag: 8.17.0@sha256:935d9100e9ba842cdb060de42472c7ca90cfe9a7c96e4dacb55e79e560b3ff40
     dashboardProviders:
       dashboardproviders.yaml:
         apiVersion: 1
