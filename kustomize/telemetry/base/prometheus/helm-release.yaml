@@ -53,5 +53,5 @@ spec:
       version: "1.8.2"
       image:
         # renovate: datasource=docker depName=quay.io/prometheus/node-exporter package=quay.io/prometheus/node-exporter
-        tag: v1.8.2@sha256:4032c6d5bfd752342c3e631c2f1de93ba6b86c41db6b167b9a35372c139e7706
+        tag: v1.10.2@sha256:337ff1d356b68d39cef853e8c6345de11ce7556bb34cda8bd205bcf2ed30b565
         digest: ""
