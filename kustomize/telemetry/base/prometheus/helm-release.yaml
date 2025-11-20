@@ -27,7 +27,7 @@ spec:
     prometheusOperator:
       image:
         # renovate: datasource=docker depName=quay.io/prometheus-operator/prometheus-operator package=quay.io/prometheus-operator/prometheus-operator
-        tag: v0.72.0@sha256:804d9569455dc278e378456106431a44a70b1342a0837dbacc85429c95cc72c6
+        tag: v0.86.2@sha256:92757e4b90027e153dc09f2e01254c8402fd5268827d95532760836c2a117062
       admissionWebhooks:
         patch:
           image:
@@ -37,7 +37,7 @@ spec:
       prometheusSpec:
         image:
           # renovate: datasource=docker depName=quay.io/prometheus/prometheus package=quay.io/prometheus/prometheus
-          tag: v2.54.0@sha256:497fe921f22fea8535fa2bcb1c193dacc6ce98c08274257b3d18a4eaae0f9647
+          tag: v3.7.3@sha256:49214755b6153f90a597adcbff0252cc61069f8ab69ce8411285cd4a560e8038
         ruleSelectorNilUsesHelmValues: false
         serviceMonitorSelectorNilUsesHelmValues: false
         podMonitorSelectorNilUsesHelmValues: false
@@ -53,5 +53,5 @@ spec:
       version: "1.8.2"
       image:
         # renovate: datasource=docker depName=quay.io/prometheus/node-exporter package=quay.io/prometheus/node-exporter
-        tag: v1.8.2@sha256:4032c6d5bfd752342c3e631c2f1de93ba6b86c41db6b167b9a35372c139e7706
+        tag: v1.10.2@sha256:337ff1d356b68d39cef853e8c6345de11ce7556bb34cda8bd205bcf2ed30b565
         digest: ""

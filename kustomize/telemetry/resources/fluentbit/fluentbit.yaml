@@ -15,7 +15,7 @@ spec:
             operator: DoesNotExist
   fluentBitConfigName: fluent-bit-config
   # renovate: datasource=docker depName=ghcr.io/fluent/fluent-operator/fluent-bit package=ghcr.io/fluent/fluent-operator/fluent-bit
-  image: ghcr.io/fluent/fluent-operator/fluent-bit:3.1.4@sha256:7821c6e468af02b80bc3e129e93e780fc3961e939dfc84cf78251872491d2513
+  image: ghcr.io/fluent/fluent-operator/fluent-bit:v4.1.1@sha256:b27c78cef2b1ec386474da1970be1a1fbd951d6cde9c422a2f68aff616d874c0
   namespaceFluentBitCfgSelector: {}
   positionDB:
     hostPath:

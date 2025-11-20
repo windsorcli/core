@@ -155,7 +155,8 @@
       "versioningTemplate": "semver",
       "datasourceTemplate": "{{datasource}}",
       "packageNameTemplate": "{{package}}",
-      "depNameTemplate": "{{depName}}"
+      "depNameTemplate": "{{depName}}",
+      "registryUrlTemplate": "{{helmRepo}}"
     },
     {
       "description": "Handle date-based Docker image tags (e.g., trust-pkg-debian-bookworm)",
