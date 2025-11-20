@@ -10,7 +10,7 @@ spec:
     spec:
       chart: kube-prometheus-stack
       # renovate: datasource=helm depName=kube-prometheus-stack package=kube-prometheus-stack helmRepo=https://prometheus-community.github.io/helm-charts
-      version: 57.0.3
+      version: 57.2.1
       sourceRef:
         kind: HelmRepository
         name: prometheus-community
