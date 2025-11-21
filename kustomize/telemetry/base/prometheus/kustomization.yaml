@@ -3,3 +3,22 @@ kind: Component
 resources:
   - helm-repository.yaml
   - helm-release.yaml
+replacements:
+  # Extract version from tag@sha256:digest format for Prometheus
+  # Source: image.tag = v3.7.3@sha256:...
+  # Target: version = v3.7.3 (everything before @)
+  - source:
+      kind: HelmRelease
+      name: kube-prometheus-stack
+      fieldPath: spec.values.prometheus.prometheusSpec.image.tag
+    targets:
+      - select:
+          kind: HelmRelease
+          name: kube-prometheus-stack
+        fieldPaths:
+          - spec.values.prometheus.prometheusSpec.version
+        options:
+          create: true
+          # Extract part before @ delimiter
+          delimiter: "@"
+          index: 0

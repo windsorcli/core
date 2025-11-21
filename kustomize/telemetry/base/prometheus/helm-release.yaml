@@ -50,7 +50,6 @@ spec:
       enabled: true
       replicas: 1
     prometheus-node-exporter:
-      version: "1.8.2"
       image:
         # renovate: datasource=docker depName=quay.io/prometheus/node-exporter package=quay.io/prometheus/node-exporter
         tag: v1.10.2@sha256:337ff1d356b68d39cef853e8c6345de11ce7556bb34cda8bd205bcf2ed30b565
