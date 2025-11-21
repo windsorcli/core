@@ -21,6 +21,12 @@ kustomize:
     substitutions:
       external_domain: ${dns.domain}
 
+  - name: dns
+    path: dns
+    when: vm.driver == 'docker-desktop'
+    components:
+      - external-dns/localhost
+
   - name: ingress
     path: ingress
     when: ingress.enabled == true && ingress.driver == 'nginx'
