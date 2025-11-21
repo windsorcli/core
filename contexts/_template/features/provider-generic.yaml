@@ -18,6 +18,8 @@ terraform:
     worker_config_patches: ${jsonnet("../configs/talos-generic.jsonnet").worker_config_patches}
     controlplane_config_patches: ${jsonnet("../configs/talos-generic.jsonnet").controlplane_config_patches}
 - path: gitops/flux
+  dependsOn:
+  - cluster/talos
   destroy: false
 
 kustomize:
