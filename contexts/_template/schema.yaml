@@ -215,7 +215,7 @@ properties:
               - stdout
               - quickwit
               - elasticsearch
-            default: stdout
+            default: quickwit
             description: Log storage driver for FluentD
         additionalProperties: false
       object_store:
