@@ -1,0 +1,84 @@
+kind: Feature
+apiVersion: blueprints.windsorcli.dev/v1alpha1
+metadata:
+  name: talos
+  description: "Talos provider basic infrastructure"
+
+when: provider == 'generic'
+
+terraform:
+- path: cluster/talos
+  parallelism: 1
+  inputs:
+    cluster_endpoint: ${cluster.endpoint ?? ("https://" + split(values(cluster.controlplanes.nodes)[0].endpoint, ":")[0] + ":6443")}
+    cluster_name: talos
+    controlplanes: ${values(cluster.controlplanes.nodes)}
+    workers: ${values(cluster.workers.nodes)}
+    common_config_patches: ${jsonnet("../configs/talos-generic.jsonnet").common_config_patches}
+    worker_config_patches: ${jsonnet("../configs/talos-generic.jsonnet").worker_config_patches}
+    controlplane_config_patches: ${jsonnet("../configs/talos-generic.jsonnet").controlplane_config_patches}
+- path: gitops/flux
+  dependsOn:
+  - cluster/talos
+  destroy: false
+
+kustomize:
+
+# CSI
+- name: csi
+  path: csi
+  dependsOn:
+  - policy-resources
+  components:
+  - openebs
+  - openebs/dynamic-localpv
+  cleanup:
+  - pvcs
+  substitutions:
+    local_volume_path: ${cluster.workers.volumes[0]}
+
+# Load Balancer
+- name: lb-base
+  path: lb/base
+  when: vm.driver != 'docker-desktop'
+  dependsOn:
+  - policy-resources
+  components:
+  - metallb
+
+- name: lb-resources
+  path: lb/resources
+  when: vm.driver != 'docker-desktop'
+  dependsOn:
+  - lb-base
+  components:
+  - metallb/layer2
+  substitutions:
+    loadbalancer_ip: ${network.loadbalancer_ips.start}
+
+# Ingress
+- name: ingress
+  path: ingress
+  when: vm.driver != 'docker-desktop'
+  dependsOn:
+  - pki-base
+  components:
+  - nginx
+  - nginx/web
+  cleanup:
+  - loadbalancers
+  - ingresses
+
+# Ingress
+- name: ingress
+  path: ingress
+  when: ingress.enabled == true && ingress.driver == 'nginx'
+  dependsOn:
+  - pki-base
+  components:
+  - nginx
+  - nginx/coredns
+  - nginx/web
+  cleanup:
+  - loadbalancers
+  - ingresses

@@ -59,7 +59,7 @@ local registryMirrors = std.foldl(
 );
 
 // Build network config
-local needsNetworkConfig = provider == "local" && vmDriver == "docker-desktop";
+local needsNetworkConfig = provider == "generic" && vmDriver == "docker-desktop";
 local networkConfig = if needsNetworkConfig then
   {
     interfaces: [
@@ -146,26 +146,9 @@ local controlplaneConfig = if std.length(controlplaneMounts) > 0 then
 else
   {};
 
-// Build node lists
-local controlplaneList = std.map(
-  function(v) { endpoint: v.endpoint, node: v.node },
-  std.objectValues(controlplaneNodes)
-);
-
-local workerList = std.map(
-  function(v) { endpoint: v.endpoint, node: v.node },
-  std.objectValues(workerNodes)
-);
-
-// Final output
+// Export config patches as YAML documents
 {
-  cluster_endpoint: if endpoint != "" then "https://" + baseUrl + ":6443" else "",
-  cluster_name: "talos",
-  controlplanes: controlplaneList,
-  workers: workerList,
-  common_config_patches: std.manifestYamlDoc(commonConfig)
-} + (if std.length(std.objectFields(workerConfig)) > 0 then {
-  worker_config_patches: std.manifestYamlDoc(workerConfig)
-} else {}) + (if std.length(std.objectFields(controlplaneConfig)) > 0 then {
-  controlplane_config_patches: std.manifestYamlDoc(controlplaneConfig)
-} else {}) 
+  common_config_patches: if std.length(std.objectFields(commonConfig)) > 0 then std.manifestYamlDoc(commonConfig) else "",
+  worker_config_patches: if std.length(std.objectFields(workerConfig)) > 0 then std.manifestYamlDoc(workerConfig) else "",
+  controlplane_config_patches: if std.length(std.objectFields(controlplaneConfig)) > 0 then std.manifestYamlDoc(controlplaneConfig) else ""
+}

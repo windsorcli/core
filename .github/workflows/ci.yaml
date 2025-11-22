@@ -164,7 +164,7 @@ jobs:
       - name: Install Windsor CLI
         uses: windsorcli/action@f6a3c821cd1bcdfe895ef515df45b1f5390e90a2 # v0.5.0
         with:
-          ref: v0.7.1
+          ref: main
           context: local
 
       - name: Create .docker-cache directory
@@ -245,7 +245,7 @@ jobs:
       - name: Install Windsor CLI
         uses: windsorcli/action@f6a3c821cd1bcdfe895ef515df45b1f5390e90a2 # v0.5.0
         with:
-          ref: v0.7.1
+          ref: main
           context: local
 
       - name: Login to GitHub Container Registry

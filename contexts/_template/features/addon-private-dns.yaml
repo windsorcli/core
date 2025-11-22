@@ -1,0 +1,36 @@
+kind: Feature
+apiVersion: blueprints.windsorcli.dev/v1alpha1
+metadata:
+  name: private-dns
+  description: Self-hosted CoreDNS for private DNS zones
+
+when: addons.private_dns.enabled == true || dev == true
+
+kustomize:
+  # CoreDNS server for private DNS zones
+  - name: dns
+    path: dns
+    dependsOn:
+      - pki-base
+    components:
+      - coredns
+      - coredns/etcd
+      - external-dns
+      - external-dns/coredns
+      - external-dns/ingress
+    substitutions:
+      external_domain: ${dns.domain}
+
+  - name: dns
+    path: dns
+    when: vm.driver == 'docker-desktop'
+    components:
+      - external-dns/localhost
+
+  - name: ingress
+    path: ingress
+    when: ingress.enabled == true && ingress.driver == 'nginx'
+    dependsOn:
+      - pki-base
+    components:
+      - nginx/coredns

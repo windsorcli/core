@@ -1,0 +1,43 @@
+kind: Feature
+apiVersion: blueprints.windsorcli.dev/v1alpha1
+metadata:
+  name: aws
+  description: "AWS provider basic infrastructure"
+
+when: provider == 'aws'
+
+terraform:
+- path: network/aws-vpc
+  inputs:
+    cidr_block: ${network.cidr_block}
+    domain_name: ${dns.domain}
+- path: cluster/aws-eks
+- path: cluster/aws-eks/additions
+  destroy: false
+- path: gitops/flux
+  destroy: false
+
+kustomize:
+
+# Ingress
+- name: ingress
+  path: ingress
+  when: ingress.enabled == true && ingress.driver == 'nginx'
+  dependsOn:
+  - pki-base
+  components:
+  - nginx
+  - nginx/web
+  cleanup:
+  - loadbalancers
+  - ingresses
+
+# CSI
+- name: csi
+  path: csi
+  dependsOn:
+  - policy-resources
+  components:
+  - aws-ebs
+  cleanup:
+  - pvcs

@@ -1,0 +1,39 @@
+kind: Feature
+apiVersion: blueprints.windsorcli.dev/v1alpha1
+metadata:
+  name: azure
+  description: "Azure provider basic infrastructure"
+
+when: provider == 'azure'
+
+terraform:
+- path: network/azure-vnet
+  inputs:
+    vnet_cidr: ${network.cidr_block}
+- path: cluster/azure-aks
+- path: gitops/flux
+  destroy: false
+
+kustomize:
+
+# Ingress
+- name: ingress
+  path: ingress
+  when: ingress.enabled == true && ingress.driver == 'nginx'
+  dependsOn:
+  - pki-base
+  components:
+  - nginx
+  - nginx/coredns
+  - nginx/web
+  cleanup:
+  - loadbalancers
+  - ingresses
+
+# CSI
+- name: csi
+  path: csi
+  dependsOn:
+  - policy-resources
+  cleanup:
+  - pvcs

@@ -1,0 +1,238 @@
+$schema: https://json-schema.org/draft/2020-12/schema
+title: Windsor Core Blueprint Configuration Schema
+description: Schema for configuring Windsor platform blueprints
+type: object
+
+properties:
+  # Development mode
+  dev:
+    type: boolean
+    default: false
+    description: Enable development mode with additional observability and debugging tools
+
+  # Core infrastructure provider (determines basic stack)
+  provider:
+    type: string
+    enum:
+      - aws
+      - azure
+      - generic
+    default: generic
+    description: Infrastructure provider - includes policy, PKI, telemetry, ingress, and storage
+
+  # Network configuration (used by terraform templates)
+  network:
+    type: object
+    properties:
+      cidr_block:
+        type: string
+        pattern: "^([0-9]{1,3}\\.){3}[0-9]{1,3}/[0-9]{1,2}$"
+        default: "10.0.0.0/16"
+        description: Primary network CIDR block
+      loadbalancer_ips:
+        type: object
+        properties:
+          start:
+            type: string
+            pattern: "^([0-9]{1,3}\\.){3}[0-9]{1,3}$"
+            default: "10.0.0.100"
+            description: Load balancer IP pool start
+          end:
+            type: string
+            pattern: "^([0-9]{1,3}\\.){3}[0-9]{1,3}$"
+            default: "10.0.0.200"
+            description: Load balancer IP pool end
+        additionalProperties: false
+    additionalProperties: false
+
+  # Cluster configuration
+  cluster:
+    type: object
+    properties:
+      endpoint:
+        type: string
+        description: External controlplane API endpoint
+      controlplanes:
+        type: object
+        properties:
+          count:
+            type: integer
+            minimum: 1
+            default: 1
+            description: Number of control plane nodes
+          instance_type:
+            type: string
+            description: Cloud provider instance type for control planes
+          cpu:
+            type: integer
+            description: CPU cores per control plane node
+          memory:
+            type: integer
+            description: Memory in GB per control plane node
+          nodes:
+            type: object
+            additionalProperties:
+              type: object
+              properties:
+                endpoint:
+                  type: string
+                  description: Node endpoint/IP address
+                hostname:
+                  type: string
+                  description: Node hostname
+                node:
+                  type: string
+                  description: Node identifier
+              required:
+                - endpoint
+                - node
+            description: Named control plane node configurations
+          volumes:
+            type: array
+            items:
+              type: string
+            description: Additional volume mounts for control planes
+        additionalProperties: false
+      workers:
+        type: object
+        properties:
+          count:
+            type: integer
+            minimum: 0
+            default: 2
+            description: Number of worker nodes
+          instance_type:
+            type: string
+            description: Cloud provider instance type for workers
+          cpu:
+            type: integer
+            description: CPU cores per worker node
+          memory:
+            type: integer
+            description: Memory in GB per worker node
+          hostports:
+            type: array
+            items:
+              type: string
+              pattern: "^[0-9]+:[0-9]+/(tcp|udp)$"
+            description: Host port mappings (format "host:container/protocol")
+          nodes:
+            type: object
+            additionalProperties:
+              type: object
+              properties:
+                endpoint:
+                  type: string
+                  description: Node endpoint/IP address
+                hostname:
+                  type: string
+                  description: Node hostname
+                node:
+                  type: string
+                  description: Node identifier
+              required:
+                - endpoint
+                - node
+            description: Named worker node configurations
+          volumes:
+            type: array
+            items:
+              type: string
+            description: Additional volume mounts for workers
+        additionalProperties: false
+    additionalProperties: false
+
+  # DNS configuration
+  dns:
+    type: object
+    properties:
+      public_domain:
+        type: string
+        description: Public domain name
+      private_domain:
+        type: string
+        description: Private domain name
+    additionalProperties: false
+
+  # Ingress configuration
+  ingress:
+    type: object
+    properties:
+      enabled:
+        type: boolean
+        default: true
+        description: Enable ingress controller
+      driver:
+        type: string
+        enum:
+          - nginx
+        default: nginx
+        description: Ingress controller driver
+    additionalProperties: false
+
+  # VM configuration
+  vm:
+    type: object
+    properties:
+      driver:
+        type: string
+        enum:
+          - docker-desktop
+          - colima
+        description: VM driver for local clusters
+    additionalProperties: false
+
+  # Optional addons
+  addons:
+    type: object
+    properties:
+      private_ca:
+        type: object
+        properties:
+          enabled:
+            type: boolean
+            default: false
+            description: Enable private certificate authority with trust-manager
+        additionalProperties: false
+      private_dns:
+        type: object
+        properties:
+          enabled:
+            type: boolean
+            default: false
+            description: Enable self-hosted CoreDNS for private DNS zones
+        additionalProperties: false
+      observability:
+        type: object
+        properties:
+          enabled:
+            type: boolean
+            default: false
+            description: Enable observability stack with Grafana dashboards
+          logs_driver:
+            type: string
+            enum:
+              - stdout
+              - quickwit
+              - elasticsearch
+            default: quickwit
+            description: Log storage driver for FluentD
+        additionalProperties: false
+      object_store:
+        type: object
+        properties:
+          enabled:
+            type: boolean
+            default: false
+            description: Enable object storage service
+          driver:
+            type: string
+            enum:
+              - minio
+            default: minio
+            description: Object storage driver
+        additionalProperties: false
+    additionalProperties: false
+
+required: []
+additionalProperties: false

@@ -1,0 +1,21 @@
+kind: Feature
+apiVersion: blueprints.windsorcli.dev/v1alpha1
+metadata:
+  name: private-ca
+  description: Private Certificate Authority with trust-manager integration
+
+when: addons.private_ca.enabled == true || dev == true
+
+kustomize:
+
+# PKI
+- name: pki-base
+  path: pki/base
+  components:
+  - trust-manager
+- name: pki-resources
+  path: pki/resources
+  dependsOn:
+  - pki-base
+  components:
+  - private-issuer/ca

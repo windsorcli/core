@@ -1,0 +1,49 @@
+kind: Feature
+apiVersion: blueprints.windsorcli.dev/v1alpha1
+metadata:
+  name: base
+  description: "Foundational components for all Windsor platforms"
+
+when: true
+
+kustomize:
+
+# Policy
+- name: policy-base
+  path: policy/base
+  components:
+  - kyverno
+- name: policy-resources
+  path: policy/resources
+  dependsOn:
+  - policy-base
+
+# PKI
+- name: pki-base
+  path: pki/base
+  dependsOn:
+  - policy-resources
+  components:
+  - cert-manager
+
+# Telemetry (metrics + logs with fluentbit by default)
+- name: telemetry-base
+  path: telemetry/base
+  components:
+  - prometheus
+  - prometheus/flux
+  - fluentbit
+  - fluentbit/prometheus
+- name: telemetry-resources
+  path: telemetry/resources
+  dependsOn:
+  - telemetry-base
+  components:
+  - metrics-server
+  - prometheus
+  - prometheus/flux
+  - fluentbit
+  - fluentbit/containerd
+  - fluentbit/fluentd
+  - fluentbit/kubernetes
+  - fluentbit/systemd

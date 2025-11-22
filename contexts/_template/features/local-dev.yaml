@@ -1,0 +1,34 @@
+kind: Feature
+apiVersion: blueprints.windsorcli.dev/v1alpha1
+metadata:
+  name: local-dev
+  description: Local development overrides for VM environments
+
+when: dev == true && provider == 'generic'
+
+terraform:
+- path: gitops/flux
+  destroy: false
+  dependsOn:
+  - cluster/talos
+  inputs:
+    git_username: ${git.livereload.username}
+    git_password: ${git.livereload.password}
+    webhook_token: abcdef123456
+
+kustomize:
+- name: pki-resources
+  path: pki/resources
+  dependsOn:
+  - pki-base
+  components:
+  - public-issuer/selfsigned
+
+# Ingress
+- name: ingress
+  path: ingress
+  when: ingress.enabled == true && ingress.driver == 'nginx' && vm.driver == 'docker-desktop'
+  dependsOn:
+  - pki-base
+  components:
+  - nginx/nodeport
