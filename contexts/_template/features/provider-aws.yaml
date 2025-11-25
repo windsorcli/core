@@ -10,7 +10,7 @@ terraform:
 - path: network/aws-vpc
   inputs:
     cidr_block: ${network.cidr_block}
-    domain_name: ${dns.domain}
+    domain_name: ${dns?.domain ?? ""}
 - path: cluster/aws-eks
 - path: cluster/aws-eks/additions
   destroy: false
