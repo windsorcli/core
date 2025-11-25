@@ -14,10 +14,11 @@ properties:
   provider:
     type: string
     enum:
+      - none
       - aws
       - azure
       - generic
-    default: generic
+    default: none
     description: Infrastructure provider - includes policy, PKI, telemetry, ingress, and storage
 
   # Network configuration (used by terraform templates)
@@ -71,6 +72,11 @@ properties:
             description: Memory in GB per control plane node
           nodes:
             type: object
+            default:
+              controlplane-1:
+                endpoint: 10.5.0.1
+                node: 10.5.0.1
+                hostname: controlplane-1
             additionalProperties:
               type: object
               properties:
@@ -118,6 +124,11 @@ properties:
             description: Host port mappings (format "host:container/protocol")
           nodes:
             type: object
+            default:
+              worker-1:
+                endpoint: 10.5.0.2
+                node: 10.5.0.2
+                hostname: worker-1
             additionalProperties:
               type: object
               properties:
@@ -138,6 +149,7 @@ properties:
             type: array
             items:
               type: string
+            default: ["/var/mnt/local"]
             description: Additional volume mounts for workers
         additionalProperties: false
     additionalProperties: false

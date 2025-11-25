@@ -27,7 +27,7 @@ kustomize:
 # Ingress
 - name: ingress
   path: ingress
-  when: ingress.enabled == true && ingress.driver == 'nginx' && vm.driver == 'docker-desktop'
+  when: ingress.enabled == true && ingress.driver == 'nginx' && vm?.driver == 'docker-desktop'
   dependsOn:
   - pki-base
   components:

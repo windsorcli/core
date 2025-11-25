@@ -4,7 +4,7 @@ metadata:
   name: base
   description: "Foundational components for all Windsor platforms"
 
-when: true
+when: provider != 'none'
 
 kustomize:
 

@@ -23,7 +23,7 @@ kustomize:
 
   - name: dns
     path: dns
-    when: vm.driver == 'docker-desktop'
+    when: vm?.driver == 'docker-desktop'
     components:
       - external-dns/localhost
 
