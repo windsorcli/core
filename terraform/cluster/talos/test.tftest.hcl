@@ -44,7 +44,7 @@ run "full_configuration" {
   variables {
     cluster_name                = "test-cluster"
     cluster_endpoint            = "https://test.example.com:6443"
-    kubernetes_version          = "1.33.0"
+    kubernetes_version          = "1.34.1"
     talos_version               = "1.10.1"
     common_config_patches       = <<-EOT
       machine:
@@ -122,7 +122,7 @@ run "multi_node_configuration" {
   variables {
     cluster_name       = "test-cluster"
     cluster_endpoint   = "https://test.example.com:6443"
-    kubernetes_version = "1.33.0"
+    kubernetes_version = "1.34.1"
     talos_version      = "1.10.1"
     controlplanes = [
       {
@@ -188,7 +188,7 @@ run "no_config_files" {
     context_path       = ""
     cluster_name       = "test-cluster"
     cluster_endpoint   = "https://test.example.com:6443"
-    kubernetes_version = "1.33.0"
+    kubernetes_version = "1.34.1"
     talos_version      = "1.10.1"
     controlplanes = [
       {
@@ -225,7 +225,7 @@ run "multiple_invalid_inputs" {
     var.workers,
   ]
   variables {
-    kubernetes_version          = "v1.33"
+    kubernetes_version          = "v1.34"
     talos_version               = "v1.10.1"
     cluster_name                = ""
     cluster_endpoint            = "http://localhost:6443"

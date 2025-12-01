@@ -146,7 +146,7 @@ jobs:
         uses: azure/setup-kubectl@776406bce94f63e41d621b960d78ee25c8b76ede # v4.0.1
         with:
           # renovate: datasource=github-releases depName=kubectl package=kubernetes/kubectl
-          version: v1.33.0
+          version: v1.34.1
 
       - name: Install support-bundle CLI
         run: |
