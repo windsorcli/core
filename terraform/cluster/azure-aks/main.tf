@@ -266,8 +266,8 @@ resource "azurerm_kubernetes_cluster" "main" {
   }
 
   network_profile {
-    network_plugin = "azure"
-    network_policy = "azure"
+    network_plugin = "cilium"
+    network_policy = "cilium"
     service_cidr   = var.service_cidr
     dns_service_ip = var.dns_service_ip
   }
