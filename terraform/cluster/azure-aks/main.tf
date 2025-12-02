@@ -35,7 +35,7 @@ provider "azurerm" {
 data "azurerm_client_config" "current" {}
 
 data "azurerm_subnet" "private" {
-  for_each = var.vnet_subnet_id == null ? toset([for i in range(1, 4) : tostring(i)]) : toset([])
+  for_each             = var.vnet_subnet_id == null ? toset([for i in range(1, 4) : tostring(i)]) : toset([])
   name                 = "private-${each.value}-${var.context_id}"
   resource_group_name  = "${var.vnet_module_name}-${var.context_id}"
   virtual_network_name = "${var.vnet_module_name}-${var.context_id}"
