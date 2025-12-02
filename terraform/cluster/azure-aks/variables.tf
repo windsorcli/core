@@ -78,7 +78,7 @@ variable "default_node_pool" {
     name                         = "system"
     vm_size                      = "Standard_D2s_v3"
     os_disk_type                 = "Managed"
-    max_pods                     = 110
+    max_pods                     = 48
     host_encryption_enabled      = true
     min_count                    = 1
     max_count                    = 3
@@ -106,7 +106,7 @@ variable "autoscaled_node_pool" {
     vm_size                 = "Standard_D2s_v3"
     mode                    = "User"
     os_disk_type            = "Managed"
-    max_pods                = 110
+    max_pods                = 48
     host_encryption_enabled = true
     min_count               = 1
     max_count               = 3
