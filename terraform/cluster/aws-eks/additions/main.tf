@@ -65,7 +65,7 @@ resource "kubernetes_config_map" "external_dns" {
   }
 
   data = {
-    aws_region   = var.route53_region != null ? var.route53_region : data.aws_region.current.name
+    aws_region   = var.route53_region != null ? var.route53_region : data.aws_region.current.region
     txt_owner_id = local.cluster_name
   }
 }

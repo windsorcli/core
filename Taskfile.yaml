@@ -23,8 +23,16 @@ tasks:
                 cd "$testdir" && \
                 echo "Running tests in $testdir..." && \
                 terraform init -input=false -reconfigure && \
-                terraform test || \
-                echo "FAILED: $testfile" >> "$TEMP_DIR/failures"
+                OUTPUT=$(terraform test -no-color 2>&1)
+                TEST_EXIT=$?
+                echo "$OUTPUT"
+                if [ $TEST_EXIT -ne 0 ]; then
+                  echo "FAILED: $testfile" >> "$TEMP_DIR/failures"
+                fi
+                # Check for warnings (case-insensitive)
+                if echo "$OUTPUT" | grep -qi "Warning:"; then
+                  echo "WARNINGS: $testfile" >> "$TEMP_DIR/warnings"
+                fi
               ) &
             done
             # Wait for all background jobs to complete
@@ -33,6 +41,13 @@ tasks:
             if [ -f "$TEMP_DIR/failures" ]; then
               echo "Test failures:"
               cat "$TEMP_DIR/failures"
+              rm -rf "$TEMP_DIR"
+              exit 1
+            fi
+            # Check if any warnings were found
+            if [ -f "$TEMP_DIR/warnings" ]; then
+              echo "Tests completed with warnings:"
+              cat "$TEMP_DIR/warnings"
               rm -rf "$TEMP_DIR"
               exit 1
             fi
