@@ -237,10 +237,10 @@ resource "azurerm_kubernetes_cluster" "main" {
   }
 
   default_node_pool {
-    name                         = var.default_node_pool.name
-    node_count                   = var.default_node_pool.node_count
-    vm_size                      = var.default_node_pool.vm_size
-    vnet_subnet_id               = coalesce(
+    name       = var.default_node_pool.name
+    node_count = var.default_node_pool.node_count
+    vm_size    = var.default_node_pool.vm_size
+    vnet_subnet_id = coalesce(
       var.vnet_subnet_id,
       try(element([for s in data.azurerm_subnet.private : s.id], 0), null)
     )
