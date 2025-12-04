@@ -57,7 +57,6 @@ locals {
   tags = merge({
     WindsorContextID = var.context_id
   }, var.tags)
-  private_subnets_count = length(data.azurerm_subnet.private)
 }
 
 #-----------------------------------------------------------------------------------------------------------------------
@@ -241,7 +240,10 @@ resource "azurerm_kubernetes_cluster" "main" {
     name                         = var.default_node_pool.name
     node_count                   = var.default_node_pool.node_count
     vm_size                      = var.default_node_pool.vm_size
-    vnet_subnet_id               = coalesce(var.vnet_subnet_id, try(data.azurerm_subnet.private[0].id, null))
+    vnet_subnet_id               = coalesce(
+      var.vnet_subnet_id,
+      try(element([for s in data.azurerm_subnet.private : s.id], 0), null)
+    )
     orchestrator_version         = var.kubernetes_version
     only_critical_addons_enabled = var.default_node_pool.only_critical_addons_enabled
 
@@ -314,7 +316,7 @@ resource "azurerm_kubernetes_cluster_node_pool" "autoscaled" {
     var.vnet_subnet_id,
     # Always pick the last private subnet in the list. If there is only one it will simply pick that one.
     # If there are multiple, it will put this group in a different subnet from the system group.
-    try(data.azurerm_subnet.private[local.private_subnets_count - 1].id, null)
+    try(element([for s in data.azurerm_subnet.private : s.id], length(data.azurerm_subnet.private) - 1), null)
   )
   orchestrator_version = var.kubernetes_version
   # checkov:skip=CKV_AZURE_226: We are using the managed disk type to reduce costs
