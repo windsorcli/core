@@ -23,7 +23,7 @@ spec:
     speaker:
       image:
         # renovate: datasource=docker depName=quay.io/metallb/speaker package=quay.io/metallb/speaker
-        tag: v0.15.2@sha256:260c9406f957c0830d4e6cd2e9ac8c05e51ac959dd2462c4c2269ac43076665a
+        tag: v0.15.3@sha256:c6a5b25b2e1fba610a57b2db4bb8141d7c133569d561a8cc29e38ca5113efbc4
       frr:
         image:
           # renovate: datasource=docker depName=quay.io/frrouting/frr package=quay.io/frrouting/frr
