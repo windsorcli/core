@@ -40,7 +40,7 @@ data "azurerm_virtual_network" "vnet" {
 }
 
 data "azurerm_subnet" "private" {
-  for_each = { for subnet in data.azurerm_virtual_network.vnet.subnets : subnet => subnet if contains(split("-", subnet), "private") }
+  for_each             = { for subnet in data.azurerm_virtual_network.vnet.subnets : subnet => subnet if contains(split("-", subnet), "private") }
   name                 = each.value
   resource_group_name  = data.azurerm_virtual_network.vnet.resource_group_name
   virtual_network_name = data.azurerm_virtual_network.vnet.name
@@ -309,13 +309,13 @@ resource "azurerm_kubernetes_cluster_node_pool" "autoscaled" {
   auto_scaling_enabled  = true
   min_count             = var.autoscaled_node_pool.min_count
   max_count             = var.autoscaled_node_pool.max_count
-  vnet_subnet_id        = coalesce(
+  vnet_subnet_id = coalesce(
     var.vnet_subnet_id,
     length(data.azurerm_subnet.private) > 1 ? (
       try(data.azurerm_subnet.private[1].id, null)) : (
-        try(data.azurerm_subnet.private[0].id, null))
+    try(data.azurerm_subnet.private[0].id, null))
   )
-  orchestrator_version  = var.kubernetes_version
+  orchestrator_version = var.kubernetes_version
   # checkov:skip=CKV_AZURE_226: We are using the managed disk type to reduce costs
   os_disk_type = var.autoscaled_node_pool.os_disk_type
   # checkov:skip=CKV_AZURE_168: This is set in the variable by default to 50
