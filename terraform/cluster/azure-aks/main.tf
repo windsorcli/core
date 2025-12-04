@@ -39,9 +39,13 @@ data "azurerm_virtual_network" "vnet" {
   resource_group_name = "${var.name}-${var.context_id}"
 }
 
+locals {
+  private_subnets = [for subnet in data.azurerm_virtual_network.vnet.subnets : subnet if contains(split("-", subnet), "private")]
+}
+
 data "azurerm_subnet" "private" {
-  for_each             = { for subnet in data.azurerm_virtual_network.vnet.subnets : subnet => subnet if contains(split("-", subnet), "private") }
-  name                 = each.value
+  count                = length(local.private_subnets)
+  name                 = "private-${count.index + 1}-${var.context_id}"
   resource_group_name  = data.azurerm_virtual_network.vnet.resource_group_name
   virtual_network_name = data.azurerm_virtual_network.vnet.name
 }
@@ -237,13 +241,10 @@ resource "azurerm_kubernetes_cluster" "main" {
   }
 
   default_node_pool {
-    name       = var.default_node_pool.name
-    node_count = var.default_node_pool.node_count
-    vm_size    = var.default_node_pool.vm_size
-    vnet_subnet_id = coalesce(
-      var.vnet_subnet_id,
-      try(element([for s in data.azurerm_subnet.private : s.id], 0), null)
-    )
+    name                         = var.default_node_pool.name
+    node_count                   = var.default_node_pool.node_count
+    vm_size                      = var.default_node_pool.vm_size
+    vnet_subnet_id               = coalesce(var.vnet_subnet_id, try(data.azurerm_subnet.private[0].id, null))
     orchestrator_version         = var.kubernetes_version
     only_critical_addons_enabled = var.default_node_pool.only_critical_addons_enabled
 
@@ -314,9 +315,7 @@ resource "azurerm_kubernetes_cluster_node_pool" "autoscaled" {
   max_count             = var.autoscaled_node_pool.max_count
   vnet_subnet_id = coalesce(
     var.vnet_subnet_id,
-    # Always pick the last private subnet in the list. If there is only one it will simply pick that one.
-    # If there are multiple, it will put this group in a different subnet from the system group.
-    try(element([for s in data.azurerm_subnet.private : s.id], length(data.azurerm_subnet.private) - 1), null)
+    try(data.azurerm_subnet.private[length(local.private_subnets) - 1].id, null)
   )
   orchestrator_version = var.kubernetes_version
   # checkov:skip=CKV_AZURE_226: We are using the managed disk type to reduce costs
