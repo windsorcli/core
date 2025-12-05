@@ -35,8 +35,8 @@ provider "azurerm" {
 data "azurerm_client_config" "current" {}
 
 data "azurerm_virtual_network" "vnet" {
-  name                = "${var.name}-${var.context_id}"
-  resource_group_name = "${var.name}-${var.context_id}"
+  name                = "${var.vnet_module_name}-${var.context_id}"
+  resource_group_name = "${var.vnet_module_name}-${var.context_id}"
 }
 
 locals {
