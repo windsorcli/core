@@ -6,7 +6,8 @@ mock_provider "aws" {
   }
   mock_data "aws_region" {
     defaults = {
-      name = "us-west-2"
+      name   = "us-west-2"
+      region = "us-west-2"
     }
   }
   mock_data "aws_eks_cluster" {
