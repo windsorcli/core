@@ -26,7 +26,6 @@ run "minimal_configuration" {
 
   variables {
     context_id         = "test"
-    cluster_name       = "windsor-eks"
     kubernetes_version = "1.32"
   }
 
