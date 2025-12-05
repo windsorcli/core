@@ -30,22 +30,22 @@ run "minimal_configuration" {
   }
 
   assert {
-    condition     = kubernetes_namespace.system_dns.metadata[0].name == "system-dns"
+    condition     = kubernetes_namespace_v1.system_dns.metadata[0].name == "system-dns"
     error_message = "Namespace should be created with default name 'system-dns'"
   }
 
   assert {
-    condition     = kubernetes_config_map.external_dns.metadata[0].name == "external-dns"
+    condition     = kubernetes_config_map_v1.external_dns.metadata[0].name == "external-dns"
     error_message = "ConfigMap should be created with name 'external-dns'"
   }
 
   assert {
-    condition     = kubernetes_config_map.external_dns.data.aws_region == "us-west-2"
+    condition     = kubernetes_config_map_v1.external_dns.data.aws_region == "us-west-2"
     error_message = "ConfigMap should have correct AWS region"
   }
 
   assert {
-    condition     = kubernetes_config_map.external_dns.data.txt_owner_id == "cluster-test"
+    condition     = kubernetes_config_map_v1.external_dns.data.txt_owner_id == "cluster-test"
     error_message = "ConfigMap should have correct txt owner ID"
   }
 }
@@ -61,17 +61,17 @@ run "full_configuration" {
   }
 
   assert {
-    condition     = kubernetes_config_map.external_dns.metadata[0].name == "external-dns"
+    condition     = kubernetes_config_map_v1.external_dns.metadata[0].name == "external-dns"
     error_message = "ConfigMap should be created with name 'external-dns'"
   }
 
   assert {
-    condition     = kubernetes_config_map.external_dns.data.aws_region == "us-east-1"
+    condition     = kubernetes_config_map_v1.external_dns.data.aws_region == "us-east-1"
     error_message = "ConfigMap should use provided AWS region"
   }
 
   assert {
-    condition     = kubernetes_config_map.external_dns.data.txt_owner_id == "custom-cluster"
+    condition     = kubernetes_config_map_v1.external_dns.data.txt_owner_id == "custom-cluster"
     error_message = "ConfigMap should have correct txt owner ID"
   }
 }

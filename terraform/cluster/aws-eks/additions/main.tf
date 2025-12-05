@@ -35,7 +35,7 @@ data "aws_eks_cluster" "current" {
 
 # The system-dns namespace hosts DNS-related components
 # It provides isolation and security context for DNS services
-resource "kubernetes_namespace" "system_dns" {
+resource "kubernetes_namespace_v1" "system_dns" {
   metadata {
     name = "system-dns"
     labels = {
@@ -58,10 +58,10 @@ resource "kubernetes_namespace" "system_dns" {
 
 # The external-dns configmap provides configuration for the external-dns service
 # It contains AWS-specific settings and credentials
-resource "kubernetes_config_map" "external_dns" {
+resource "kubernetes_config_map_v1" "external_dns" {
   metadata {
     name      = "external-dns"
-    namespace = kubernetes_namespace.system_dns.metadata[0].name
+    namespace = kubernetes_namespace_v1.system_dns.metadata[0].name
   }
 
   data = {
