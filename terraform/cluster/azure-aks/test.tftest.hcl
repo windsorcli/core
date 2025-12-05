@@ -5,9 +5,21 @@ mock_provider "azurerm" {
       object_id = "22222222-2222-2222-2222-222222222222"
     }
   }
+  mock_data "azurerm_virtual_network" {
+    defaults = {
+      subnets             = ["private-1-test", "private-2-test", "private-3-test", "public-1-test", "public-2-test", "isolated-1-test", "isolated-2-test"]
+      resource_group_name = "example-resource-group"
+      name                = "vnet-test"
+      id                  = "/subscriptions/12345678-1234-9876-4563-123456789012/resourceGroups/example-resource-group/providers/Microsoft.Network/virtualNetworks/vnet-test"
+    }
+  }
   mock_data "azurerm_subnet" {
     defaults = {
-      id = "/subscriptions/12345678-1234-9876-4563-123456789012/resourceGroups/example-resource-group/providers/Microsoft.Network/virtualNetworks/vnet-test/subnets/subnet-test"
+      name                 = "private-1-test"
+      resource_group_name  = "example-resource-group"
+      virtual_network_name = "vnet-test"
+      address_prefixes     = ["10.0.0.0/24"]
+      id                   = "/subscriptions/12345678-1234-9876-4563-123456789012/resourceGroups/example-resource-group/providers/Microsoft.Network/virtualNetworks/vnet-test/subnets/subnet-test"
     }
   }
 }
