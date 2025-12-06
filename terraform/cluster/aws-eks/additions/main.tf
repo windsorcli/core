@@ -69,3 +69,17 @@ resource "kubernetes_config_map_v1" "external_dns" {
     txt_owner_id = local.cluster_name
   }
 }
+
+# =============================================================================
+# State migration blocks
+# =============================================================================
+
+moved {
+  from = kubernetes_namespace.system_dns
+  to   = kubernetes_namespace_v1.system_dns
+}
+
+moved {
+  from = kubernetes_config_map.external_dns
+  to   = kubernetes_config_map_v1.external_dns
+}

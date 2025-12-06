@@ -122,3 +122,22 @@ resource "kubernetes_secret_v1" "webhook_token" {
     token = var.webhook_token
   }
 }
+
+#-----------------------------------------------------------------------------------------------------------------------
+# State migration blocks
+#-----------------------------------------------------------------------------------------------------------------------
+
+moved {
+  from = kubernetes_namespace.flux_system
+  to   = kubernetes_namespace_v1.flux_system
+}
+
+moved {
+  from = kubernetes_secret.git_auth
+  to   = kubernetes_secret_v1.git_auth
+}
+
+moved {
+  from = kubernetes_secret.webhook_token
+  to   = kubernetes_secret_v1.webhook_token
+}
