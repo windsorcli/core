@@ -7,7 +7,7 @@ terraform {
   required_providers {
     kubernetes = {
       source  = "hashicorp/kubernetes"
-      version = "2.38.0"
+      version = "3.0.0"
     }
     helm = {
       source  = "hashicorp/helm"
@@ -20,7 +20,7 @@ terraform {
 # Set up Flux
 #-----------------------------------------------------------------------------------------------------------------------
 
-resource "kubernetes_namespace" "flux_system" {
+resource "kubernetes_namespace_v1" "flux_system" {
   metadata {
     name = var.flux_namespace
     labels = {
@@ -41,7 +41,7 @@ resource "helm_release" "flux_system" {
   chart            = "flux2"
   name             = "flux2"
   version          = var.flux_helm_version
-  namespace        = kubernetes_namespace.flux_system.metadata[0].name
+  namespace        = kubernetes_namespace_v1.flux_system.metadata[0].name
   create_namespace = false
   wait             = true
   values = [yamlencode({
@@ -91,10 +91,10 @@ locals {
   known_hosts_content = "${var.ssh_known_hosts}\n${local.known_hosts.github}"
 }
 
-resource "kubernetes_secret" "git_auth" {
+resource "kubernetes_secret_v1" "git_auth" {
   metadata {
     name      = var.git_auth_secret
-    namespace = kubernetes_namespace.flux_system.metadata[0].name
+    namespace = kubernetes_namespace_v1.flux_system.metadata[0].name
   }
 
   data = var.ssh_public_key != "" ? {
@@ -112,13 +112,32 @@ resource "kubernetes_secret" "git_auth" {
 # Set up webhook token
 #-----------------------------------------------------------------------------------------------------------------------
 
-resource "kubernetes_secret" "webhook_token" {
+resource "kubernetes_secret_v1" "webhook_token" {
   metadata {
     name      = "webhook-token"
-    namespace = kubernetes_namespace.flux_system.metadata[0].name
+    namespace = kubernetes_namespace_v1.flux_system.metadata[0].name
   }
 
   data = {
     token = var.webhook_token
   }
+}
+
+#-----------------------------------------------------------------------------------------------------------------------
+# State migration blocks
+#-----------------------------------------------------------------------------------------------------------------------
+
+moved {
+  from = kubernetes_namespace.flux_system
+  to   = kubernetes_namespace_v1.flux_system
+}
+
+moved {
+  from = kubernetes_secret.git_auth
+  to   = kubernetes_secret_v1.git_auth
+}
+
+moved {
+  from = kubernetes_secret.webhook_token
+  to   = kubernetes_secret_v1.webhook_token
 }
