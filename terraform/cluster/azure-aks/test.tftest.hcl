@@ -94,6 +94,16 @@ run "minimal_configuration" {
     condition     = azurerm_kubernetes_cluster.main.workload_identity_enabled == true
     error_message = "Workload Identity should be enabled by default"
   }
+
+  assert {
+    condition     = contains(azurerm_role_definition.aks_kubelet_vmss_disk_manager.permissions[0].actions, "Microsoft.Compute/snapshots/read")
+    error_message = "Snapshot permissions should be included when enable_volume_snapshots is true (default)"
+  }
+
+  assert {
+    condition     = contains(azurerm_role_definition.aks_kubelet_vmss_disk_manager.permissions[0].actions, "Microsoft.Compute/snapshots/write")
+    error_message = "Snapshot write permissions should be included when enable_volume_snapshots is true (default)"
+  }
 }
 
 # Tests a full configuration with all optional variables explicitly set,
@@ -135,6 +145,7 @@ run "full_configuration" {
     private_cluster_enabled           = false
     azure_policy_enabled              = true
     local_account_disabled            = false
+    enable_volume_snapshots            = true
   }
 
   assert {
@@ -226,6 +237,16 @@ run "full_configuration" {
     condition     = azurerm_kubernetes_cluster.main.workload_identity_enabled == true
     error_message = "Workload Identity should be enabled"
   }
+
+  assert {
+    condition     = contains(azurerm_role_definition.aks_kubelet_vmss_disk_manager.permissions[0].actions, "Microsoft.Compute/snapshots/read")
+    error_message = "Snapshot permissions should be included when enable_volume_snapshots is true"
+  }
+
+  assert {
+    condition     = contains(azurerm_role_definition.aks_kubelet_vmss_disk_manager.permissions[0].actions, "Microsoft.Compute/snapshots/write")
+    error_message = "Snapshot write permissions should be included when enable_volume_snapshots is true"
+  }
 }
 
 # Tests the private cluster configuration, ensuring that enabling the private_cluster_enabled
@@ -293,5 +314,38 @@ run "multiple_invalid_inputs" {
   variables {
     context_id         = "test"
     kubernetes_version = "v1.32"
+  }
+}
+
+# Tests that when enable_volume_snapshots is false, snapshot permissions are not included in the role definition.
+# This verifies the conditional logic that excludes snapshot operations when volume snapshots are disabled.
+run "volume_snapshots_disabled" {
+  command = plan
+
+  variables {
+    context_id             = "test"
+    name                   = "windsor-aks"
+    kubernetes_version     = "1.32"
+    enable_volume_snapshots = false
+  }
+
+  assert {
+    condition     = !contains(azurerm_role_definition.aks_kubelet_vmss_disk_manager.permissions[0].actions, "Microsoft.Compute/snapshots/read")
+    error_message = "Snapshot read permissions should not be included when enable_volume_snapshots is false"
+  }
+
+  assert {
+    condition     = !contains(azurerm_role_definition.aks_kubelet_vmss_disk_manager.permissions[0].actions, "Microsoft.Compute/snapshots/write")
+    error_message = "Snapshot write permissions should not be included when enable_volume_snapshots is false"
+  }
+
+  assert {
+    condition     = !contains(azurerm_role_definition.aks_kubelet_vmss_disk_manager.permissions[0].actions, "Microsoft.Compute/snapshots/delete")
+    error_message = "Snapshot delete permissions should not be included when enable_volume_snapshots is false"
+  }
+
+  assert {
+    condition     = contains(azurerm_role_definition.aks_kubelet_vmss_disk_manager.permissions[0].actions, "Microsoft.Compute/disks/read")
+    error_message = "Core disk permissions should still be included when enable_volume_snapshots is false"
   }
 }

@@ -235,6 +235,12 @@ variable "endpoint_private_access" {
   default     = false
 }
 
+variable "enable_volume_snapshots" {
+  description = "Enable volume snapshot permissions for the kubelet identity. Set to false to use minimal permissions if volume snapshots are not needed."
+  type        = bool
+  default     = true
+}
+
 variable "oidc_issuer_enabled" {
   description = "Enable OIDC issuer for the AKS cluster"
   type        = bool
