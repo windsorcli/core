@@ -358,10 +358,10 @@ run "authorized_ip_ranges" {
   command = plan
 
   variables {
-    context_id          = "test"
-    name                = "windsor-aks"
-    cluster_name        = "test-cluster"
-    kubernetes_version  = "1.32"
+    context_id           = "test"
+    name                 = "windsor-aks"
+    cluster_name         = "test-cluster"
+    kubernetes_version   = "1.32"
     authorized_ip_ranges = ["10.0.0.0/8", "192.168.0.0/16"]
   }
 
@@ -388,12 +388,12 @@ run "azure_rbac_with_admin_object_ids" {
   command = plan
 
   variables {
-    context_id          = "test"
-    name                = "windsor-aks"
-    cluster_name        = "test-cluster"
-    kubernetes_version  = "1.32"
+    context_id             = "test"
+    name                   = "windsor-aks"
+    cluster_name           = "test-cluster"
+    kubernetes_version     = "1.32"
     local_account_disabled = true
-    admin_object_ids    = ["33333333-3333-3333-3333-333333333333", "44444444-4444-4444-4444-444444444444"]
+    admin_object_ids       = ["33333333-3333-3333-3333-333333333333", "44444444-4444-4444-4444-444444444444"]
   }
 
   assert {
