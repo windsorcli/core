@@ -2,6 +2,12 @@
 # Variables
 #-----------------------------------------------------------------------------------------------------------------------
 
+variable "admin_object_ids" {
+  type        = list(string)
+  description = "List of Azure AD Object IDs (User or Group) to assign 'Azure Kubernetes Service RBAC Cluster Admin' role. Required when local_account_disabled is true to ensure access."
+  default     = []
+}
+
 variable "context_path" {
   type        = string
   description = "The path to the context folder, where kubeconfig is stored"
@@ -50,6 +56,12 @@ variable "region" {
   default     = "eastus"
 }
 
+variable "disk_encryption_enabled" {
+  description = "Enable Customer-Managed Keys (CMK) disk encryption for the AKS cluster. When enabled, creates a Key Vault, encryption key, and Disk Encryption Set."
+  type        = bool
+  default     = true
+}
+
 variable "kubernetes_version" {
   description = "Version of Kubernetes to use"
   type        = string
@@ -73,6 +85,12 @@ variable "default_node_pool" {
     max_count                    = number
     node_count                   = number
     only_critical_addons_enabled = bool
+    availability_zones           = optional(list(string))
+    upgrade_settings = optional(object({
+      drain_timeout_in_minutes      = optional(number, 0)
+      max_surge                     = optional(string, "10%")
+      node_soak_duration_in_minutes = optional(number, 0)
+    }))
   })
   default = {
     name                         = "system"
@@ -84,6 +102,11 @@ variable "default_node_pool" {
     max_count                    = 3
     node_count                   = 1
     only_critical_addons_enabled = true
+    upgrade_settings = {
+      drain_timeout_in_minutes      = 0
+      max_surge                     = "10%"
+      node_soak_duration_in_minutes = 0
+    }
   }
 }
 
@@ -99,6 +122,12 @@ variable "autoscaled_node_pool" {
     host_encryption_enabled = bool
     min_count               = number
     max_count               = number
+    availability_zones      = optional(list(string))
+    upgrade_settings = optional(object({
+      drain_timeout_in_minutes      = optional(number, 0)
+      max_surge                     = optional(string, "10%")
+      node_soak_duration_in_minutes = optional(number, 0)
+    }))
   })
   default = {
     enabled                 = true
@@ -110,6 +139,11 @@ variable "autoscaled_node_pool" {
     host_encryption_enabled = true
     min_count               = 1
     max_count               = 3
+    upgrade_settings = {
+      drain_timeout_in_minutes      = 0
+      max_surge                     = "10%"
+      node_soak_duration_in_minutes = 0
+    }
   }
 }
 
@@ -184,7 +218,13 @@ variable "azure_policy_enabled" {
 variable "local_account_disabled" {
   type        = bool
   description = "Whether to disable local accounts for the AKS cluster"
-  default     = false
+  default     = true
+}
+
+variable "authorized_ip_ranges" {
+  type        = set(string)
+  description = "Set of authorized IP ranges to allow access to the API server. If null, allows all (0.0.0.0/0)."
+  default     = null
 }
 
 variable "public_network_access_enabled" {
@@ -203,12 +243,6 @@ variable "expiration_date" {
   type        = string
   description = "The expiration date for the AKS cluster's key vault"
   default     = null
-}
-
-variable "user_assigned_identity_ids" {
-  type        = list(string)
-  description = "User assigned identity IDs for the AKS cluster. If provided, the cluster will use only user-assigned identities."
-  default     = []
 }
 
 variable "soft_delete_retention_days" {
@@ -241,20 +275,66 @@ variable "endpoint_private_access" {
   default     = false
 }
 
-variable "kubelet_client_id" {
-  description = "Client ID of the user-assigned identity to use for the kubelet. If not provided, the cluster will use the system-assigned identity."
+variable "enable_volume_snapshots" {
+  description = "Enable volume snapshot permissions for the kubelet identity. Set to false to use minimal permissions if volume snapshots are not needed."
+  type        = bool
+  default     = true
+}
+
+variable "outbound_type" {
+  description = "The outbound (egress) routing method which should be used for this Kubernetes Cluster."
   type        = string
+  default     = "userAssignedNATGateway"
+  validation {
+    condition     = contains(["loadBalancer", "userDefinedRouting", "managedNATGateway", "userAssignedNATGateway"], var.outbound_type)
+    error_message = "The outbound_type must be one of: loadBalancer, userDefinedRouting, managedNATGateway, userAssignedNATGateway."
+  }
+}
+
+variable "oidc_issuer_enabled" {
+  description = "Enable OIDC issuer for the AKS cluster"
+  type        = bool
+  default     = true
+}
+
+variable "workload_identity_enabled" {
+  description = "Enable Workload Identity for the AKS cluster"
+  type        = bool
+  default     = true
+}
+
+variable "image_cleaner_enabled" {
+  description = "Enable Image Cleaner for the AKS cluster"
+  type        = bool
+  default     = true
+}
+
+variable "image_cleaner_interval_hours" {
+  description = "Interval in hours for Image Cleaner to run"
+  type        = number
+  default     = 48
+}
+
+variable "diagnostic_log_categories" {
+  type        = set(string)
+  description = "Set of log categories to send to Log Analytics. Default excludes expensive 'kube-audit'"
+  default = [
+    "kube-audit-admin",
+    "kube-controller-manager",
+    "cluster-autoscaler",
+    "guard",
+    "kube-scheduler"
+  ]
+}
+
+variable "diagnostic_log_retention_days" {
+  type        = number
+  description = "Number of days to retain diagnostic logs. If null, uses the Log Analytics Workspace default retention period."
   default     = null
 }
 
-variable "kubelet_object_id" {
-  description = "Object ID of the user-assigned identity to use for the kubelet. If not provided, the cluster will use the system-assigned identity."
-  type        = string
-  default     = null
-}
-
-variable "kubelet_user_assigned_identity_id" {
-  description = "Resource ID of the user-assigned identity to use for the kubelet. If not provided, the cluster will use the system-assigned identity."
-  type        = string
-  default     = null
+variable "container_insights_enabled" {
+  type        = bool
+  description = "Enable Azure Monitor Container Insights for collecting container logs, Kubernetes events, and pod/node inventory. Disable for cost-sensitive dev/test environments or when using alternative monitoring solutions."
+  default     = true
 }
