@@ -94,6 +94,16 @@ run "minimal_configuration" {
     condition     = azurerm_kubernetes_cluster.main.workload_identity_enabled == true
     error_message = "Workload Identity should be enabled by default"
   }
+
+  assert {
+    condition     = length(azurerm_key_vault_key.key_vault_key) == 1
+    error_message = "Key Vault key should be created when disk_encryption_enabled is true and key_vault_key_id is null (default)"
+  }
+
+  assert {
+    condition     = length(azurerm_disk_encryption_set.main) == 1
+    error_message = "Disk encryption set should be created when disk_encryption_enabled is true (default)"
+  }
 }
 
 # Tests a full configuration with all optional variables explicitly set,
@@ -135,6 +145,8 @@ run "full_configuration" {
     private_cluster_enabled           = false
     azure_policy_enabled              = true
     local_account_disabled            = false
+    disk_encryption_enabled           = true
+    key_vault_key_id                  = null
   }
 
   assert {
@@ -226,6 +238,21 @@ run "full_configuration" {
     condition     = azurerm_kubernetes_cluster.main.workload_identity_enabled == true
     error_message = "Workload Identity should be enabled"
   }
+
+  assert {
+    condition     = length(azurerm_key_vault_key.key_vault_key) == 1
+    error_message = "Key Vault key should be created when disk_encryption_enabled is true and key_vault_key_id is null"
+  }
+
+  assert {
+    condition     = length(azurerm_disk_encryption_set.main) == 1
+    error_message = "Disk encryption set should be created when disk_encryption_enabled is true"
+  }
+
+  assert {
+    condition     = azurerm_disk_encryption_set.main[0].key_vault_key_id == azurerm_key_vault_key.key_vault_key[0].id
+    error_message = "Disk encryption set should use the created key when key_vault_key_id is null"
+  }
 }
 
 # Tests the private cluster configuration, ensuring that enabling the private_cluster_enabled
@@ -293,5 +320,34 @@ run "multiple_invalid_inputs" {
   variables {
     context_id         = "test"
     kubernetes_version = "v1.32"
+  }
+}
+
+# Tests that when key_vault_key_id is provided, no key is created and the provided key ID is used.
+# This verifies the conditional logic that skips key creation when an external key is specified.
+run "disk_encryption_with_provided_key" {
+  command = plan
+
+  variables {
+    context_id            = "test"
+    name                  = "windsor-aks"
+    kubernetes_version    = "1.32"
+    disk_encryption_enabled = true
+    key_vault_key_id      = "/subscriptions/12345678-1234-9876-4563-123456789012/resourceGroups/test-rg/providers/Microsoft.KeyVault/vaults/test-kv/keys/test-key"
+  }
+
+  assert {
+    condition     = length(azurerm_key_vault_key.key_vault_key) == 0
+    error_message = "Key Vault key should not be created when key_vault_key_id is provided"
+  }
+
+  assert {
+    condition     = length(azurerm_disk_encryption_set.main) == 1
+    error_message = "Disk encryption set should be created when disk_encryption_enabled is true"
+  }
+
+  assert {
+    condition     = azurerm_disk_encryption_set.main[0].key_vault_key_id == "/subscriptions/12345678-1234-9876-4563-123456789012/resourceGroups/test-rg/providers/Microsoft.KeyVault/vaults/test-kv/keys/test-key"
+    error_message = "Disk encryption set should use the provided key_vault_key_id when specified"
   }
 }
