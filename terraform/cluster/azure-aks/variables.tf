@@ -252,3 +252,16 @@ variable "workload_identity_enabled" {
   type        = bool
   default     = true
 }
+
+variable "image_cleaner_enabled" {
+  description = "Enable Image Cleaner for the AKS cluster"
+  type        = bool
+  default     = true
+}
+
+variable "image_cleaner_interval_hours" {
+  description = "Interval in hours for Image Cleaner to run"
+  type        = number
+  default     = 48
+}
+

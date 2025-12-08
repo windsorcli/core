@@ -263,6 +263,15 @@ resource "azurerm_kubernetes_cluster" "main" {
     # checkov:skip=CKV_AZURE_168: This is set in the variable by default to 50
     max_pods                    = var.default_node_pool.max_pods
     temporary_name_for_rotation = "rotate"
+
+    dynamic "upgrade_settings" {
+      for_each = var.default_node_pool.upgrade_settings != null ? [var.default_node_pool.upgrade_settings] : []
+      content {
+        drain_timeout_in_minutes      = upgrade_settings.value.drain_timeout_in_minutes
+        max_surge                     = upgrade_settings.value.max_surge
+        node_soak_duration_in_minutes = upgrade_settings.value.node_soak_duration_in_minutes
+      }
+    }
   }
 
   auto_scaler_profile {
@@ -282,8 +291,10 @@ resource "azurerm_kubernetes_cluster" "main" {
     vertical_pod_autoscaler_enabled = var.workload_autoscaler_profile.vertical_pod_autoscaler_enabled
   }
 
-  oidc_issuer_enabled       = var.oidc_issuer_enabled
-  workload_identity_enabled = var.workload_identity_enabled
+  oidc_issuer_enabled          = var.oidc_issuer_enabled
+  workload_identity_enabled    = var.workload_identity_enabled
+  image_cleaner_enabled        = var.image_cleaner_enabled
+  image_cleaner_interval_hours = var.image_cleaner_interval_hours
 
   network_profile {
     network_plugin = "azure"
