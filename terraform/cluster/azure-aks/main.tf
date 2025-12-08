@@ -227,8 +227,12 @@ resource "azurerm_kubernetes_cluster" "main" {
   role_based_access_control_enabled = var.role_based_access_control_enabled
   automatic_upgrade_channel         = var.automatic_upgrade_channel
   sku_tier                          = var.sku_tier
-  # checkov:skip=CKV_AZURE_6: This feature is in preview, we are using a public cluster for testing
-  # api_server_authorized_ip_ranges   = [0.0.0.0/0]
+
+  # checkov:skip=CKV_AZURE_6: We allow user to restrict IPs or default to open (null)
+  api_server_access_profile {
+    authorized_ip_ranges = var.authorized_ip_ranges
+  }
+
   # checkov:skip=CKV_AZURE_115: We are using a public cluster for testing
   # private clusters are encouraged for production
   private_cluster_enabled = var.private_cluster_enabled
