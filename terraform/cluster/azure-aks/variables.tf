@@ -2,6 +2,12 @@
 # Variables
 #-----------------------------------------------------------------------------------------------------------------------
 
+variable "admin_object_ids" {
+  type        = list(string)
+  description = "List of Azure AD Object IDs (User or Group) to assign 'Azure Kubernetes Service RBAC Cluster Admin' role. Required when local_account_disabled is true to ensure access."
+  default     = []
+}
+
 variable "context_path" {
   type        = string
   description = "The path to the context folder, where kubeconfig is stored"
@@ -184,7 +190,13 @@ variable "azure_policy_enabled" {
 variable "local_account_disabled" {
   type        = bool
   description = "Whether to disable local accounts for the AKS cluster"
-  default     = false
+  default     = true
+}
+
+variable "authorized_ip_ranges" {
+  type        = set(string)
+  description = "Set of authorized IP ranges to allow access to the API server. If null, allows all (0.0.0.0/0)."
+  default     = null
 }
 
 variable "public_network_access_enabled" {

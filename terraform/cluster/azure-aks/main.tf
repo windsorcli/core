@@ -34,6 +34,8 @@ provider "azurerm" {
 
 data "azurerm_client_config" "current" {}
 
+data "azurerm_subscription" "current" {}
+
 data "azurerm_virtual_network" "vnet" {
   name                = "${var.vnet_module_name}-${var.context_id}"
   resource_group_name = "${var.vnet_module_name}-${var.context_id}"
@@ -236,6 +238,11 @@ resource "azurerm_kubernetes_cluster" "main" {
   # checkov:skip=CKV_AZURE_141: We are setting this to false to avoid the creation of an AD
   local_account_disabled = var.local_account_disabled
 
+  azure_active_directory_role_based_access_control {
+    azure_rbac_enabled     = true
+    admin_group_object_ids = var.admin_object_ids
+  }
+
   key_vault_secrets_provider {
     secret_rotation_enabled = true
   }
@@ -333,4 +340,18 @@ resource "azurerm_kubernetes_cluster_node_pool" "autoscaled" {
 resource "local_file" "kube_config" {
   content  = azurerm_kubernetes_cluster.main.kube_config_raw
   filename = local.kubeconfig_path
+}
+
+# Automatically assign "Azure Kubernetes Service RBAC Cluster Admin" to the
+# identity running Terraform (the deployer) and any additional admins provided.
+# This ensures immediate access when local_account_disabled is set to true.
+resource "azurerm_role_assignment" "aks_rbac_admin" {
+  for_each = toset(concat(
+    [data.azurerm_client_config.current.object_id],
+    var.admin_object_ids
+  ))
+
+  scope                = azurerm_kubernetes_cluster.main.id
+  role_definition_name = "Azure Kubernetes Service RBAC Cluster Admin"
+  principal_id         = each.value
 }
