@@ -104,6 +104,16 @@ run "minimal_configuration" {
     condition     = contains(azurerm_role_definition.aks_kubelet_vmss_disk_manager.permissions[0].actions, "Microsoft.Compute/snapshots/write")
     error_message = "Snapshot write permissions should be included when enable_volume_snapshots is true (default)"
   }
+
+  assert {
+    condition     = azurerm_kubernetes_cluster.main.image_cleaner_enabled == true
+    error_message = "Image Cleaner should be enabled by default"
+  }
+
+  assert {
+    condition     = azurerm_kubernetes_cluster.main.image_cleaner_interval_hours == 48
+    error_message = "Image Cleaner interval should default to 48 hours"
+  }
 }
 
 # Tests a full configuration with all optional variables explicitly set,
@@ -146,6 +156,8 @@ run "full_configuration" {
     azure_policy_enabled              = true
     local_account_disabled            = false
     enable_volume_snapshots           = true
+    image_cleaner_enabled            = true
+    image_cleaner_interval_hours     = 24
   }
 
   assert {
@@ -246,6 +258,16 @@ run "full_configuration" {
   assert {
     condition     = contains(azurerm_role_definition.aks_kubelet_vmss_disk_manager.permissions[0].actions, "Microsoft.Compute/snapshots/write")
     error_message = "Snapshot write permissions should be included when enable_volume_snapshots is true"
+  }
+
+  assert {
+    condition     = azurerm_kubernetes_cluster.main.image_cleaner_enabled == true
+    error_message = "Image Cleaner should be enabled"
+  }
+
+  assert {
+    condition     = azurerm_kubernetes_cluster.main.image_cleaner_interval_hours == 24
+    error_message = "Image Cleaner interval should match input value"
   }
 }
 
