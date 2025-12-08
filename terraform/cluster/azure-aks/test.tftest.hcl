@@ -102,12 +102,12 @@ run "full_configuration" {
   command = plan
 
   variables {
-    context_id          = "test"
-    name                = "windsor-aks"
-    cluster_name        = "test-cluster"
-    resource_group_name = "test-rg"
-    kubernetes_version  = "1.32"
-    oidc_issuer_enabled  = true
+    context_id                = "test"
+    name                      = "windsor-aks"
+    cluster_name              = "test-cluster"
+    resource_group_name       = "test-rg"
+    kubernetes_version        = "1.32"
+    oidc_issuer_enabled       = true
     workload_identity_enabled = true
     default_node_pool = {
       name                         = "system"
