@@ -73,6 +73,11 @@ variable "default_node_pool" {
     max_count                    = number
     node_count                   = number
     only_critical_addons_enabled = bool
+    upgrade_settings = optional(object({
+      drain_timeout_in_minutes      = number
+      max_surge                     = string
+      node_soak_duration_in_minutes = number
+    }))
   })
   default = {
     name                         = "system"
@@ -84,6 +89,11 @@ variable "default_node_pool" {
     max_count                    = 3
     node_count                   = 1
     only_critical_addons_enabled = true
+    upgrade_settings = {
+      drain_timeout_in_minutes      = 30
+      max_surge                     = "10%"
+      node_soak_duration_in_minutes = 10
+    }
   }
 }
 

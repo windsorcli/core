@@ -156,8 +156,8 @@ run "full_configuration" {
     azure_policy_enabled              = true
     local_account_disabled            = false
     enable_volume_snapshots           = true
-    image_cleaner_enabled            = true
-    image_cleaner_interval_hours     = 24
+    image_cleaner_enabled             = true
+    image_cleaner_interval_hours      = 24
   }
 
   assert {
