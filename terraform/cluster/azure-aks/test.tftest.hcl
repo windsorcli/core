@@ -94,6 +94,26 @@ run "minimal_configuration" {
     condition     = azurerm_kubernetes_cluster.main.workload_identity_enabled == true
     error_message = "Workload Identity should be enabled by default"
   }
+
+  assert {
+    condition     = azurerm_key_vault_key.key_vault_key.id != null
+    error_message = "Key Vault key should always be created"
+  }
+
+  assert {
+    condition     = azurerm_disk_encryption_set.main.id != null
+    error_message = "Disk encryption set should always be created"
+  }
+
+  assert {
+    condition     = azurerm_disk_encryption_set.main.key_vault_key_id == azurerm_key_vault_key.key_vault_key.id
+    error_message = "Disk encryption set should use the created key"
+  }
+
+  assert {
+    condition     = azurerm_kubernetes_cluster.main.disk_encryption_set_id == azurerm_disk_encryption_set.main.id
+    error_message = "Cluster should use the disk encryption set"
+  }
 }
 
 # Tests a full configuration with all optional variables explicitly set,
@@ -225,6 +245,26 @@ run "full_configuration" {
   assert {
     condition     = azurerm_kubernetes_cluster.main.workload_identity_enabled == true
     error_message = "Workload Identity should be enabled"
+  }
+
+  assert {
+    condition     = azurerm_key_vault_key.key_vault_key.id != null
+    error_message = "Key Vault key should always be created"
+  }
+
+  assert {
+    condition     = azurerm_disk_encryption_set.main.id != null
+    error_message = "Disk encryption set should always be created"
+  }
+
+  assert {
+    condition     = azurerm_disk_encryption_set.main.key_vault_key_id == azurerm_key_vault_key.key_vault_key.id
+    error_message = "Disk encryption set should use the created key"
+  }
+
+  assert {
+    condition     = azurerm_kubernetes_cluster.main.disk_encryption_set_id == azurerm_disk_encryption_set.main.id
+    error_message = "Cluster should use the disk encryption set"
   }
 }
 

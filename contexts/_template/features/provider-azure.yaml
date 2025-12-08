@@ -37,3 +37,19 @@ kustomize:
   - policy-resources
   cleanup:
   - pvcs
+
+# Telemetry - exclude metrics-server as AKS provides it natively
+- name: telemetry-resources
+  path: telemetry/resources
+  strategy: replace
+  dependsOn:
+  - telemetry-base
+  - csi
+  components:
+  - prometheus
+  - prometheus/flux
+  - fluentbit
+  - fluentbit/containerd
+  - fluentbit/fluentd
+  - fluentbit/kubernetes
+  - fluentbit/systemd
