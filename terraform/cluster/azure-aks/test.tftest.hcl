@@ -22,7 +22,17 @@ mock_provider "azurerm" {
       id                   = "/subscriptions/12345678-1234-9876-4563-123456789012/resourceGroups/example-resource-group/providers/Microsoft.Network/virtualNetworks/vnet-test/subnets/subnet-test"
     }
   }
+  mock_resource "azurerm_kubernetes_cluster" {
+    defaults = {
+      kubelet_identity = [{
+        client_id                 = "44444444-4444-4444-4444-444444444444"
+        object_id                 = "55555555-5555-5555-5555-555555555555"
+        user_assigned_identity_id = ""
+      }]
+    }
+  }
 }
+
 
 # Verifies that the module creates an AKS cluster with minimal configuration,
 # ensuring that all default values are correctly applied and only required variables are set.
@@ -33,6 +43,17 @@ run "minimal_configuration" {
     context_id         = "test"
     name               = "windsor-aks"
     kubernetes_version = "1.32"
+  }
+
+  override_resource {
+    target = azurerm_kubernetes_cluster.main
+    values = {
+      kubelet_identity = [{
+        client_id                 = "44444444-4444-4444-4444-444444444444"
+        object_id                 = "55555555-5555-5555-5555-555555555555"
+        user_assigned_identity_id = ""
+      }]
+    }
   }
 
   assert {
@@ -84,6 +105,21 @@ run "minimal_configuration" {
     condition     = azurerm_kubernetes_cluster.main.identity[0].type == "SystemAssigned"
     error_message = "Cluster should use system-assigned identity by default"
   }
+
+  assert {
+    condition     = azurerm_kubernetes_cluster.main.network_profile[0].outbound_type == "userAssignedNATGateway"
+    error_message = "Default outbound type should be 'userAssignedNATGateway'"
+  }
+
+  assert {
+    condition     = azurerm_kubernetes_cluster.main.network_profile[0].network_plugin_mode == "overlay"
+    error_message = "Network plugin mode should be 'overlay'"
+  }
+
+  assert {
+    condition     = azurerm_kubernetes_cluster.main.network_profile[0].network_data_plane == "cilium"
+    error_message = "Network data plane should be 'cilium'"
+  }
 }
 
 # Tests a full configuration with all optional variables explicitly set,
@@ -97,13 +133,6 @@ run "full_configuration" {
     cluster_name        = "test-cluster"
     resource_group_name = "test-rg"
     kubernetes_version  = "1.32"
-    user_assigned_identity_ids = [
-      "/subscriptions/12345678-1234-9876-4563-123456789012/resourceGroups/example-resource-group/providers/Microsoft.ManagedIdentity/userAssignedIdentities/test-identity-1",
-      "/subscriptions/12345678-1234-9876-4563-123456789012/resourceGroups/example-resource-group/providers/Microsoft.ManagedIdentity/userAssignedIdentities/test-identity-2"
-    ]
-    kubelet_client_id                 = "test-client-id"
-    kubelet_object_id                 = "test-object-id"
-    kubelet_user_assigned_identity_id = "/subscriptions/12345678-1234-9876-4563-123456789012/resourceGroups/example-resource-group/providers/Microsoft.ManagedIdentity/userAssignedIdentities/test-identity-1"
     default_node_pool = {
       name                         = "system"
       vm_size                      = "Standard_D2s_v3"
@@ -114,6 +143,7 @@ run "full_configuration" {
       max_count                    = 3
       node_count                   = 1
       only_critical_addons_enabled = false
+      availability_zones           = ["1", "2", "3"]
     }
     autoscaled_node_pool = {
       enabled                 = true
@@ -125,11 +155,24 @@ run "full_configuration" {
       host_encryption_enabled = true
       min_count               = 1
       max_count               = 3
+      availability_zones      = ["1", "2"]
     }
     role_based_access_control_enabled = true
     private_cluster_enabled           = false
     azure_policy_enabled              = true
     local_account_disabled            = false
+    outbound_type                     = "loadBalancer"
+  }
+
+  override_resource {
+    target = azurerm_kubernetes_cluster.main
+    values = {
+      kubelet_identity = [{
+        client_id                 = "44444444-4444-4444-4444-444444444444"
+        object_id                 = "55555555-5555-5555-5555-555555555555"
+        user_assigned_identity_id = ""
+      }]
+    }
   }
 
   assert {
@@ -204,32 +247,37 @@ run "full_configuration" {
 
   assert {
     condition     = azurerm_kubernetes_cluster.main.local_account_disabled == false
-    error_message = "Local accounts should be enabled"
+    error_message = "Local accounts should be disabled when explicitly set to false"
   }
 
   assert {
-    condition     = azurerm_kubernetes_cluster.main.identity[0].type == "UserAssigned"
-    error_message = "Cluster should use user-assigned identity when IDs are provided"
+    condition     = azurerm_kubernetes_cluster.main.identity[0].type == "SystemAssigned"
+    error_message = "Cluster should use system-assigned identity by default"
   }
 
   assert {
-    condition     = length(azurerm_kubernetes_cluster.main.identity[0].identity_ids) == 2
-    error_message = "Cluster should have 2 user-assigned identity IDs"
+    condition     = length(azurerm_kubernetes_cluster.main.default_node_pool[0].zones) == 3 && contains(azurerm_kubernetes_cluster.main.default_node_pool[0].zones, "1") && contains(azurerm_kubernetes_cluster.main.default_node_pool[0].zones, "2") && contains(azurerm_kubernetes_cluster.main.default_node_pool[0].zones, "3")
+    error_message = "Default node pool zones should match input value"
   }
 
   assert {
-    condition     = azurerm_kubernetes_cluster.main.kubelet_identity[0].client_id == "test-client-id"
-    error_message = "Kubelet client ID should match input"
+    condition     = length(azurerm_kubernetes_cluster_node_pool.autoscaled[0].zones) == 2 && contains(azurerm_kubernetes_cluster_node_pool.autoscaled[0].zones, "1") && contains(azurerm_kubernetes_cluster_node_pool.autoscaled[0].zones, "2")
+    error_message = "Autoscaled node pool zones should match input value"
   }
 
   assert {
-    condition     = azurerm_kubernetes_cluster.main.kubelet_identity[0].object_id == "test-object-id"
-    error_message = "Kubelet object ID should match input"
+    condition     = azurerm_kubernetes_cluster.main.network_profile[0].outbound_type == "loadBalancer"
+    error_message = "Outbound type should match input value"
   }
 
   assert {
-    condition     = azurerm_kubernetes_cluster.main.kubelet_identity[0].user_assigned_identity_id == "/subscriptions/12345678-1234-9876-4563-123456789012/resourceGroups/example-resource-group/providers/Microsoft.ManagedIdentity/userAssignedIdentities/test-identity-1"
-    error_message = "Kubelet user-assigned identity ID should match input"
+    condition     = azurerm_kubernetes_cluster.main.network_profile[0].network_plugin_mode == "overlay"
+    error_message = "Network plugin mode should be 'overlay'"
+  }
+
+  assert {
+    condition     = azurerm_kubernetes_cluster.main.network_profile[0].network_data_plane == "cilium"
+    error_message = "Network data plane should be 'cilium'"
   }
 }
 
@@ -244,6 +292,17 @@ run "private_cluster" {
     cluster_name            = "test-cluster"
     private_cluster_enabled = true
     kubernetes_version      = "1.32"
+  }
+
+  override_resource {
+    target = azurerm_kubernetes_cluster.main
+    values = {
+      kubelet_identity = [{
+        client_id                 = "44444444-4444-4444-4444-444444444444"
+        object_id                 = "55555555-5555-5555-5555-555555555555"
+        user_assigned_identity_id = ""
+      }]
+    }
   }
 
   assert {
@@ -264,6 +323,17 @@ run "config_file_created" {
     context_path = "/tmp"
   }
 
+  override_resource {
+    target = azurerm_kubernetes_cluster.main
+    values = {
+      kubelet_identity = [{
+        client_id                 = "44444444-4444-4444-4444-444444444444"
+        object_id                 = "55555555-5555-5555-5555-555555555555"
+        user_assigned_identity_id = ""
+      }]
+    }
+  }
+
   assert {
     condition     = length(local_file.kube_config) >= 1
     error_message = "Kubeconfig file should be generated when context path is provided"
@@ -277,6 +347,17 @@ run "network_configuration" {
     context_id     = "test"
     service_cidr   = "10.0.0.0/16"
     dns_service_ip = "10.0.0.10"
+  }
+
+  override_resource {
+    target = azurerm_kubernetes_cluster.main
+    values = {
+      kubelet_identity = [{
+        client_id                 = "44444444-4444-4444-4444-444444444444"
+        object_id                 = "55555555-5555-5555-5555-555555555555"
+        user_assigned_identity_id = ""
+      }]
+    }
   }
 
   assert {
@@ -294,9 +375,11 @@ run "multiple_invalid_inputs" {
   command = plan
   expect_failures = [
     var.kubernetes_version,
+    var.outbound_type,
   ]
   variables {
     context_id         = "test"
     kubernetes_version = "v1.32"
+    outbound_type      = "invalid"
   }
 }

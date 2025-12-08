@@ -247,6 +247,7 @@ resource "azurerm_kubernetes_cluster" "main" {
     vnet_subnet_id               = coalesce(var.vnet_subnet_id, try(data.azurerm_subnet.private[0].id, null))
     orchestrator_version         = var.kubernetes_version
     only_critical_addons_enabled = var.default_node_pool.only_critical_addons_enabled
+    zones                        = var.default_node_pool.availability_zones
 
     # checkov:skip=CKV_AZURE_226: we are using the managed disk type to reduce costs
     os_disk_type            = var.default_node_pool.os_disk_type
@@ -275,10 +276,13 @@ resource "azurerm_kubernetes_cluster" "main" {
   }
 
   network_profile {
-    network_plugin = "azure"
-    network_policy = "cilium"
-    service_cidr   = var.service_cidr
-    dns_service_ip = var.dns_service_ip
+    network_plugin      = "azure"
+    network_plugin_mode = "overlay"
+    network_policy      = "cilium"
+    network_data_plane  = "cilium"
+    outbound_type       = var.outbound_type
+    service_cidr        = var.service_cidr
+    dns_service_ip      = var.dns_service_ip
   }
 
   oms_agent {
@@ -313,6 +317,7 @@ resource "azurerm_kubernetes_cluster_node_pool" "autoscaled" {
   auto_scaling_enabled  = true
   min_count             = var.autoscaled_node_pool.min_count
   max_count             = var.autoscaled_node_pool.max_count
+  zones                 = var.autoscaled_node_pool.availability_zones
   vnet_subnet_id = coalesce(
     var.vnet_subnet_id,
     try(data.azurerm_subnet.private[length(local.private_subnets) - 1].id, null)
