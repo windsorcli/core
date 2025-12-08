@@ -228,6 +228,7 @@ resource "azurerm_kubernetes_cluster" "main" {
   resource_group_name = azurerm_resource_group.aks.name
   dns_prefix          = local.cluster_name
   # checkov:skip=CKV_AZURE_339: Kubernetes version is populated from the cloud provider's stable version via Renovate.
+  # checkov:skip=CKV_AZURE_4: Log Analytics workspace is created but diagnostic settings are configured separately or via alternative monitoring solutions
   kubernetes_version                = var.kubernetes_version
   role_based_access_control_enabled = var.role_based_access_control_enabled
   automatic_upgrade_channel         = var.automatic_upgrade_channel
