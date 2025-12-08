@@ -207,12 +207,6 @@ variable "expiration_date" {
   default     = null
 }
 
-variable "user_assigned_identity_ids" {
-  type        = list(string)
-  description = "User assigned identity IDs for the AKS cluster. If provided, the cluster will use only user-assigned identities."
-  default     = []
-}
-
 variable "soft_delete_retention_days" {
   type        = number
   description = "The number of days to retain the AKS cluster's key vault"
@@ -253,14 +247,20 @@ variable "outbound_type" {
   }
 }
 
-variable "kubelet_object_id" {
-  description = "Object ID of the user-assigned identity to use for the kubelet. If not provided, the cluster will use the system-assigned identity."
-  type        = string
-  default     = null
+variable "enable_volume_snapshots" {
+  description = "Enable volume snapshot permissions for the kubelet identity. Set to false to use minimal permissions if volume snapshots are not needed."
+  type        = bool
+  default     = true
 }
 
-variable "kubelet_user_assigned_identity_id" {
-  description = "Resource ID of the user-assigned identity to use for the kubelet. If not provided, the cluster will use the system-assigned identity."
-  type        = string
-  default     = null
+variable "oidc_issuer_enabled" {
+  description = "Enable OIDC issuer for the AKS cluster"
+  type        = bool
+  default     = true
+}
+
+variable "workload_identity_enabled" {
+  description = "Enable Workload Identity for the AKS cluster"
+  type        = bool
+  default     = true
 }

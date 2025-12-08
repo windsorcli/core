@@ -107,6 +107,16 @@ run "minimal_configuration" {
   }
 
   assert {
+    condition     = azurerm_kubernetes_cluster.main.oidc_issuer_enabled == true
+    error_message = "OIDC issuer should be enabled by default"
+  }
+
+  assert {
+    condition     = azurerm_kubernetes_cluster.main.workload_identity_enabled == true
+    error_message = "Workload Identity should be enabled by default"
+  }
+
+  assert {
     condition     = azurerm_kubernetes_cluster.main.network_profile[0].outbound_type == "userAssignedNATGateway"
     error_message = "Default outbound type should be 'userAssignedNATGateway'"
   }
@@ -120,6 +130,16 @@ run "minimal_configuration" {
     condition     = azurerm_kubernetes_cluster.main.network_profile[0].network_data_plane == "cilium"
     error_message = "Network data plane should be 'cilium'"
   }
+
+  assert {
+    condition     = contains(azurerm_role_definition.aks_kubelet_vmss_disk_manager.permissions[0].actions, "Microsoft.Compute/snapshots/read")
+    error_message = "Snapshot permissions should be included when enable_volume_snapshots is true (default)"
+  }
+
+  assert {
+    condition     = contains(azurerm_role_definition.aks_kubelet_vmss_disk_manager.permissions[0].actions, "Microsoft.Compute/snapshots/write")
+    error_message = "Snapshot write permissions should be included when enable_volume_snapshots is true (default)"
+  }
 }
 
 # Tests a full configuration with all optional variables explicitly set,
@@ -128,11 +148,13 @@ run "full_configuration" {
   command = plan
 
   variables {
-    context_id          = "test"
-    name                = "windsor-aks"
-    cluster_name        = "test-cluster"
-    resource_group_name = "test-rg"
-    kubernetes_version  = "1.32"
+    context_id                = "test"
+    name                      = "windsor-aks"
+    cluster_name              = "test-cluster"
+    resource_group_name       = "test-rg"
+    kubernetes_version        = "1.32"
+    oidc_issuer_enabled       = true
+    workload_identity_enabled = true
     default_node_pool = {
       name                         = "system"
       vm_size                      = "Standard_D2s_v3"
@@ -162,6 +184,7 @@ run "full_configuration" {
     azure_policy_enabled              = true
     local_account_disabled            = false
     outbound_type                     = "loadBalancer"
+    enable_volume_snapshots           = true
   }
 
   override_resource {
@@ -279,6 +302,26 @@ run "full_configuration" {
     condition     = azurerm_kubernetes_cluster.main.network_profile[0].network_data_plane == "cilium"
     error_message = "Network data plane should be 'cilium'"
   }
+
+  assert {
+    condition     = azurerm_kubernetes_cluster.main.oidc_issuer_enabled == true
+    error_message = "OIDC issuer should be enabled"
+  }
+
+  assert {
+    condition     = azurerm_kubernetes_cluster.main.workload_identity_enabled == true
+    error_message = "Workload Identity should be enabled"
+  }
+
+  assert {
+    condition     = contains(azurerm_role_definition.aks_kubelet_vmss_disk_manager.permissions[0].actions, "Microsoft.Compute/snapshots/read")
+    error_message = "Snapshot permissions should be included when enable_volume_snapshots is true"
+  }
+
+  assert {
+    condition     = contains(azurerm_role_definition.aks_kubelet_vmss_disk_manager.permissions[0].actions, "Microsoft.Compute/snapshots/write")
+    error_message = "Snapshot write permissions should be included when enable_volume_snapshots is true"
+  }
 }
 
 # Tests the private cluster configuration, ensuring that enabling the private_cluster_enabled
@@ -381,5 +424,49 @@ run "multiple_invalid_inputs" {
     context_id         = "test"
     kubernetes_version = "v1.32"
     outbound_type      = "invalid"
+  }
+}
+
+# Tests that when enable_volume_snapshots is false, snapshot permissions are not included in the role definition.
+# This verifies the conditional logic that excludes snapshot operations when volume snapshots are disabled.
+run "volume_snapshots_disabled" {
+  command = plan
+
+  variables {
+    context_id              = "test"
+    name                    = "windsor-aks"
+    kubernetes_version      = "1.32"
+    enable_volume_snapshots = false
+  }
+
+  override_resource {
+    target = azurerm_kubernetes_cluster.main
+    values = {
+      kubelet_identity = [{
+        client_id                 = "44444444-4444-4444-4444-444444444444"
+        object_id                 = "55555555-5555-5555-5555-555555555555"
+        user_assigned_identity_id = ""
+      }]
+    }
+  }
+
+  assert {
+    condition     = !contains(azurerm_role_definition.aks_kubelet_vmss_disk_manager.permissions[0].actions, "Microsoft.Compute/snapshots/read")
+    error_message = "Snapshot read permissions should not be included when enable_volume_snapshots is false"
+  }
+
+  assert {
+    condition     = !contains(azurerm_role_definition.aks_kubelet_vmss_disk_manager.permissions[0].actions, "Microsoft.Compute/snapshots/write")
+    error_message = "Snapshot write permissions should not be included when enable_volume_snapshots is false"
+  }
+
+  assert {
+    condition     = !contains(azurerm_role_definition.aks_kubelet_vmss_disk_manager.permissions[0].actions, "Microsoft.Compute/snapshots/delete")
+    error_message = "Snapshot delete permissions should not be included when enable_volume_snapshots is false"
+  }
+
+  assert {
+    condition     = contains(azurerm_role_definition.aks_kubelet_vmss_disk_manager.permissions[0].actions, "Microsoft.Compute/disks/read")
+    error_message = "Core disk permissions should still be included when enable_volume_snapshots is false"
   }
 }
