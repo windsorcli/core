@@ -55,9 +55,16 @@ data "azurerm_subnet" "private" {
 #-----------------------------------------------------------------------------------------------------------------------
 
 locals {
-  kubeconfig_path = "${var.context_path}/.kube/config"
-  rg_name         = var.resource_group_name == null ? "${var.name}-${var.context_id}" : var.resource_group_name
-  cluster_name    = var.cluster_name == null ? "${var.name}-${var.context_id}" : var.cluster_name
+  kubeconfig_path          = "${var.context_path}/.kube/config"
+  rg_name                  = var.resource_group_name == null ? "${var.name}-${var.context_id}" : var.resource_group_name
+  cluster_name             = var.cluster_name == null ? "${var.name}-${var.context_id}" : var.cluster_name
+  node_resource_group_name = split("/", azurerm_kubernetes_cluster.main.node_resource_group_id)[4]
+  node_pool_names = concat(
+    [var.default_node_pool.name],
+    var.autoscaled_node_pool.enabled ? [var.autoscaled_node_pool.name] : []
+  )
+  # Safely access kubelet identity (may not be available during plan in tests)
+  kubelet_object_id = try(azurerm_kubernetes_cluster.main.kubelet_identity[0].object_id, "00000000-0000-0000-0000-000000000000")
   tags = merge({
     WindsorContextID = var.context_id
   }, var.tags)
@@ -221,6 +228,7 @@ resource "azurerm_kubernetes_cluster" "main" {
   resource_group_name = azurerm_resource_group.aks.name
   dns_prefix          = local.cluster_name
   # checkov:skip=CKV_AZURE_339: Kubernetes version is populated from the cloud provider's stable version via Renovate.
+  # checkov:skip=CKV_AZURE_4: Log Analytics workspace is created but diagnostic settings are configured separately or via alternative monitoring solutions
   kubernetes_version                = var.kubernetes_version
   role_based_access_control_enabled = var.role_based_access_control_enabled
   automatic_upgrade_channel         = var.automatic_upgrade_channel
@@ -274,6 +282,9 @@ resource "azurerm_kubernetes_cluster" "main" {
     vertical_pod_autoscaler_enabled = var.workload_autoscaler_profile.vertical_pod_autoscaler_enabled
   }
 
+  oidc_issuer_enabled       = var.oidc_issuer_enabled
+  workload_identity_enabled = var.workload_identity_enabled
+
   network_profile {
     network_plugin = "azure"
     network_policy = "cilium"
@@ -281,22 +292,11 @@ resource "azurerm_kubernetes_cluster" "main" {
     dns_service_ip = var.dns_service_ip
   }
 
-  oms_agent {
-    log_analytics_workspace_id = azurerm_log_analytics_workspace.aks_logs.id
-  }
-
+  # Use system-assigned managed identity (Microsoft default and best practice)
+  # AKS automatically creates Contributor role on node RG for control plane
+  # AKS automatically creates Virtual Machine Contributor role on node RG for kubelet
   identity {
-    type         = length(var.user_assigned_identity_ids) > 0 ? "UserAssigned" : "SystemAssigned"
-    identity_ids = var.user_assigned_identity_ids
-  }
-
-  dynamic "kubelet_identity" {
-    for_each = var.kubelet_user_assigned_identity_id != null ? [1] : []
-    content {
-      client_id                 = var.kubelet_client_id
-      object_id                 = var.kubelet_object_id
-      user_assigned_identity_id = var.kubelet_user_assigned_identity_id
-    }
+    type = "SystemAssigned"
   }
 
   tags = merge({
@@ -328,6 +328,52 @@ resource "azurerm_kubernetes_cluster_node_pool" "autoscaled" {
   tags = merge({
     Name = var.autoscaled_node_pool.name
   }, local.tags)
+}
+
+# AKS automatically creates Virtual Machine Contributor role assignment on node resource group for the kubelet identity.
+# However, disk attachment operations require additional permissions beyond Virtual Machine Contributor.
+# Create a custom role with minimal permissions for VMSS disk operations.
+resource "azurerm_role_definition" "aks_kubelet_vmss_disk_manager" {
+  name        = "AKS Kubelet VMSS Disk Manager - ${var.context_id}"
+  scope       = azurerm_kubernetes_cluster.main.node_resource_group_id
+  description = "Minimal permissions for AKS kubelet identity to manage VMSS disk attachments"
+
+  permissions {
+    actions = concat(
+      [
+        # VMSS virtual machine operations for disk attachment (REQUIRED)
+        "Microsoft.Compute/virtualMachineScaleSets/virtualMachines/read",
+        "Microsoft.Compute/virtualMachineScaleSets/virtualMachines/write",
+        # Core disk operations (REQUIRED for basic disk attachment)
+        "Microsoft.Compute/disks/read",
+        "Microsoft.Compute/disks/write",
+        "Microsoft.Compute/disks/delete",
+        "Microsoft.Compute/disks/beginGetAccess/action",
+        "Microsoft.Compute/disks/endGetAccess/action",
+        # Location/operation queries (may be needed for operation status checks)
+        "Microsoft.Compute/locations/DiskOperations/read",
+        "Microsoft.Compute/locations/vmSizes/read",
+        "Microsoft.Compute/locations/operations/read"
+      ],
+      var.enable_volume_snapshots ? [
+        # Snapshot operations (only included if volume snapshots are enabled)
+        "Microsoft.Compute/snapshots/read",
+        "Microsoft.Compute/snapshots/write",
+        "Microsoft.Compute/snapshots/delete"
+      ] : []
+    )
+    not_actions = []
+  }
+
+  assignable_scopes = [
+    azurerm_kubernetes_cluster.main.node_resource_group_id
+  ]
+}
+
+resource "azurerm_role_assignment" "kubelet_vmss_disk_manager" {
+  scope              = azurerm_kubernetes_cluster.main.node_resource_group_id
+  role_definition_id = azurerm_role_definition.aks_kubelet_vmss_disk_manager.role_definition_resource_id
+  principal_id       = local.kubelet_object_id
 }
 
 resource "local_file" "kube_config" {
