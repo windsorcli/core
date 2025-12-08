@@ -84,6 +84,16 @@ run "minimal_configuration" {
     condition     = azurerm_kubernetes_cluster.main.identity[0].type == "SystemAssigned"
     error_message = "Cluster should use system-assigned identity by default"
   }
+
+  assert {
+    condition     = azurerm_kubernetes_cluster.main.oidc_issuer_enabled == true
+    error_message = "OIDC issuer should be enabled by default"
+  }
+
+  assert {
+    condition     = azurerm_kubernetes_cluster.main.workload_identity_enabled == true
+    error_message = "Workload Identity should be enabled by default"
+  }
 }
 
 # Tests a full configuration with all optional variables explicitly set,
@@ -97,13 +107,8 @@ run "full_configuration" {
     cluster_name        = "test-cluster"
     resource_group_name = "test-rg"
     kubernetes_version  = "1.32"
-    user_assigned_identity_ids = [
-      "/subscriptions/12345678-1234-9876-4563-123456789012/resourceGroups/example-resource-group/providers/Microsoft.ManagedIdentity/userAssignedIdentities/test-identity-1",
-      "/subscriptions/12345678-1234-9876-4563-123456789012/resourceGroups/example-resource-group/providers/Microsoft.ManagedIdentity/userAssignedIdentities/test-identity-2"
-    ]
-    kubelet_client_id                 = "test-client-id"
-    kubelet_object_id                 = "test-object-id"
-    kubelet_user_assigned_identity_id = "/subscriptions/12345678-1234-9876-4563-123456789012/resourceGroups/example-resource-group/providers/Microsoft.ManagedIdentity/userAssignedIdentities/test-identity-1"
+    oidc_issuer_enabled  = true
+    workload_identity_enabled = true
     default_node_pool = {
       name                         = "system"
       vm_size                      = "Standard_D2s_v3"
@@ -208,28 +213,18 @@ run "full_configuration" {
   }
 
   assert {
-    condition     = azurerm_kubernetes_cluster.main.identity[0].type == "UserAssigned"
-    error_message = "Cluster should use user-assigned identity when IDs are provided"
+    condition     = azurerm_kubernetes_cluster.main.identity[0].type == "SystemAssigned"
+    error_message = "Cluster should use system-assigned identity"
   }
 
   assert {
-    condition     = length(azurerm_kubernetes_cluster.main.identity[0].identity_ids) == 2
-    error_message = "Cluster should have 2 user-assigned identity IDs"
+    condition     = azurerm_kubernetes_cluster.main.oidc_issuer_enabled == true
+    error_message = "OIDC issuer should be enabled"
   }
 
   assert {
-    condition     = azurerm_kubernetes_cluster.main.kubelet_identity[0].client_id == "test-client-id"
-    error_message = "Kubelet client ID should match input"
-  }
-
-  assert {
-    condition     = azurerm_kubernetes_cluster.main.kubelet_identity[0].object_id == "test-object-id"
-    error_message = "Kubelet object ID should match input"
-  }
-
-  assert {
-    condition     = azurerm_kubernetes_cluster.main.kubelet_identity[0].user_assigned_identity_id == "/subscriptions/12345678-1234-9876-4563-123456789012/resourceGroups/example-resource-group/providers/Microsoft.ManagedIdentity/userAssignedIdentities/test-identity-1"
-    error_message = "Kubelet user-assigned identity ID should match input"
+    condition     = azurerm_kubernetes_cluster.main.workload_identity_enabled == true
+    error_message = "Workload Identity should be enabled"
   }
 }
 
