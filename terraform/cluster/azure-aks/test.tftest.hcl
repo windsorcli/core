@@ -22,15 +22,6 @@ mock_provider "azurerm" {
       id                   = "/subscriptions/12345678-1234-9876-4563-123456789012/resourceGroups/example-resource-group/providers/Microsoft.Network/virtualNetworks/vnet-test/subnets/subnet-test"
     }
   }
-  mock_resource "azurerm_kubernetes_cluster" {
-    defaults = {
-      kubelet_identity = [{
-        client_id                 = "44444444-4444-4444-4444-444444444444"
-        object_id                 = "55555555-5555-5555-5555-555555555555"
-        user_assigned_identity_id = ""
-      }]
-    }
-  }
 }
 
 
@@ -43,17 +34,6 @@ run "minimal_configuration" {
     context_id         = "test"
     name               = "windsor-aks"
     kubernetes_version = "1.32"
-  }
-
-  override_resource {
-    target = azurerm_kubernetes_cluster.main
-    values = {
-      kubelet_identity = [{
-        client_id                 = "44444444-4444-4444-4444-444444444444"
-        object_id                 = "55555555-5555-5555-5555-555555555555"
-        user_assigned_identity_id = ""
-      }]
-    }
   }
 
   assert {
@@ -185,17 +165,6 @@ run "full_configuration" {
     local_account_disabled            = false
     outbound_type                     = "loadBalancer"
     enable_volume_snapshots           = true
-  }
-
-  override_resource {
-    target = azurerm_kubernetes_cluster.main
-    values = {
-      kubelet_identity = [{
-        client_id                 = "44444444-4444-4444-4444-444444444444"
-        object_id                 = "55555555-5555-5555-5555-555555555555"
-        user_assigned_identity_id = ""
-      }]
-    }
   }
 
   assert {
@@ -337,17 +306,6 @@ run "private_cluster" {
     kubernetes_version      = "1.32"
   }
 
-  override_resource {
-    target = azurerm_kubernetes_cluster.main
-    values = {
-      kubelet_identity = [{
-        client_id                 = "44444444-4444-4444-4444-444444444444"
-        object_id                 = "55555555-5555-5555-5555-555555555555"
-        user_assigned_identity_id = ""
-      }]
-    }
-  }
-
   assert {
     condition     = azurerm_kubernetes_cluster.main.private_cluster_enabled == true
     error_message = "Private cluster should be enabled"
@@ -366,17 +324,6 @@ run "config_file_created" {
     context_path = "/tmp"
   }
 
-  override_resource {
-    target = azurerm_kubernetes_cluster.main
-    values = {
-      kubelet_identity = [{
-        client_id                 = "44444444-4444-4444-4444-444444444444"
-        object_id                 = "55555555-5555-5555-5555-555555555555"
-        user_assigned_identity_id = ""
-      }]
-    }
-  }
-
   assert {
     condition     = length(local_file.kube_config) >= 1
     error_message = "Kubeconfig file should be generated when context path is provided"
@@ -390,17 +337,6 @@ run "network_configuration" {
     context_id     = "test"
     service_cidr   = "10.0.0.0/16"
     dns_service_ip = "10.0.0.10"
-  }
-
-  override_resource {
-    target = azurerm_kubernetes_cluster.main
-    values = {
-      kubelet_identity = [{
-        client_id                 = "44444444-4444-4444-4444-444444444444"
-        object_id                 = "55555555-5555-5555-5555-555555555555"
-        user_assigned_identity_id = ""
-      }]
-    }
   }
 
   assert {
@@ -437,17 +373,6 @@ run "volume_snapshots_disabled" {
     name                    = "windsor-aks"
     kubernetes_version      = "1.32"
     enable_volume_snapshots = false
-  }
-
-  override_resource {
-    target = azurerm_kubernetes_cluster.main
-    values = {
-      kubelet_identity = [{
-        client_id                 = "44444444-4444-4444-4444-444444444444"
-        object_id                 = "55555555-5555-5555-5555-555555555555"
-        user_assigned_identity_id = ""
-      }]
-    }
   }
 
   assert {
