@@ -145,7 +145,7 @@ run "full_configuration" {
     private_cluster_enabled           = false
     azure_policy_enabled              = true
     local_account_disabled            = false
-    enable_volume_snapshots            = true
+    enable_volume_snapshots           = true
   }
 
   assert {
@@ -323,9 +323,9 @@ run "volume_snapshots_disabled" {
   command = plan
 
   variables {
-    context_id             = "test"
-    name                   = "windsor-aks"
-    kubernetes_version     = "1.32"
+    context_id              = "test"
+    name                    = "windsor-aks"
+    kubernetes_version      = "1.32"
     enable_volume_snapshots = false
   }
 
