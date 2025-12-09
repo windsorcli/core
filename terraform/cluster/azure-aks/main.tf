@@ -34,6 +34,8 @@ provider "azurerm" {
 
 data "azurerm_client_config" "current" {}
 
+data "azurerm_subscription" "current" {}
+
 data "azurerm_virtual_network" "vnet" {
   name                = "${var.vnet_module_name}-${var.context_id}"
   resource_group_name = "${var.vnet_module_name}-${var.context_id}"
@@ -65,7 +67,7 @@ locals {
   )
   # Safely access kubelet identity (may not be available during plan in tests)
   kubelet_object_id      = try(azurerm_kubernetes_cluster.main.kubelet_identity[0].object_id, "00000000-0000-0000-0000-000000000000")
-  disk_encryption_key_id = var.key_vault_key_id != null ? var.key_vault_key_id : azurerm_key_vault_key.key_vault_key[0].id
+  disk_encryption_key_id = var.key_vault_key_id != null ? var.key_vault_key_id : try(azurerm_key_vault_key.key_vault_key[0].id, null)
   tags = merge({
     WindsorContextID = var.context_id
   }, var.tags)
@@ -258,8 +260,12 @@ resource "azurerm_kubernetes_cluster" "main" {
   role_based_access_control_enabled = var.role_based_access_control_enabled
   automatic_upgrade_channel         = var.automatic_upgrade_channel
   sku_tier                          = var.sku_tier
-  # checkov:skip=CKV_AZURE_6: This feature is in preview, we are using a public cluster for testing
-  # api_server_authorized_ip_ranges   = [0.0.0.0/0]
+
+  # checkov:skip=CKV_AZURE_6: We allow user to restrict IPs or default to open (null)
+  api_server_access_profile {
+    authorized_ip_ranges = var.authorized_ip_ranges
+  }
+
   # checkov:skip=CKV_AZURE_115: We are using a public cluster for testing
   private_cluster_enabled = var.private_cluster_enabled
   disk_encryption_set_id  = var.disk_encryption_enabled ? azurerm_disk_encryption_set.main[0].id : null
@@ -267,6 +273,11 @@ resource "azurerm_kubernetes_cluster" "main" {
   azure_policy_enabled = var.azure_policy_enabled
   # checkov:skip=CKV_AZURE_141: We are setting this to false to avoid the creation of an AD
   local_account_disabled = var.local_account_disabled
+
+  azure_active_directory_role_based_access_control {
+    azure_rbac_enabled     = true
+    admin_group_object_ids = var.admin_object_ids
+  }
 
   key_vault_secrets_provider {
     secret_rotation_enabled = true
@@ -279,6 +290,7 @@ resource "azurerm_kubernetes_cluster" "main" {
     vnet_subnet_id               = coalesce(var.vnet_subnet_id, try(data.azurerm_subnet.private[0].id, null))
     orchestrator_version         = var.kubernetes_version
     only_critical_addons_enabled = var.default_node_pool.only_critical_addons_enabled
+    zones                        = var.default_node_pool.availability_zones
 
     # checkov:skip=CKV_AZURE_226: we are using the managed disk type to reduce costs
     os_disk_type            = var.default_node_pool.os_disk_type
@@ -310,10 +322,13 @@ resource "azurerm_kubernetes_cluster" "main" {
   workload_identity_enabled = var.workload_identity_enabled
 
   network_profile {
-    network_plugin = "azure"
-    network_policy = "cilium"
-    service_cidr   = var.service_cidr
-    dns_service_ip = var.dns_service_ip
+    network_plugin      = "azure"
+    network_plugin_mode = "overlay"
+    network_policy      = "cilium"
+    network_data_plane  = "cilium"
+    outbound_type       = var.outbound_type
+    service_cidr        = var.service_cidr
+    dns_service_ip      = var.dns_service_ip
   }
 
   # Use system-assigned managed identity (Microsoft default and best practice)
@@ -337,6 +352,7 @@ resource "azurerm_kubernetes_cluster_node_pool" "autoscaled" {
   auto_scaling_enabled  = true
   min_count             = var.autoscaled_node_pool.min_count
   max_count             = var.autoscaled_node_pool.max_count
+  zones                 = var.autoscaled_node_pool.availability_zones
   vnet_subnet_id = coalesce(
     var.vnet_subnet_id,
     try(data.azurerm_subnet.private[length(local.private_subnets) - 1].id, null)
@@ -350,7 +366,7 @@ resource "azurerm_kubernetes_cluster_node_pool" "autoscaled" {
   temporary_name_for_rotation = "rotate"
 
   dynamic "upgrade_settings" {
-    for_each = var.autoscaled_node_pool.upgrade_settings != null ? [var.autoscaled_node_pool.upgrade_settings] : []
+    for_each = try(var.autoscaled_node_pool.upgrade_settings, null) != null ? [var.autoscaled_node_pool.upgrade_settings] : []
     content {
       drain_timeout_in_minutes      = upgrade_settings.value.drain_timeout_in_minutes
       max_surge                     = upgrade_settings.value.max_surge
@@ -442,4 +458,18 @@ resource "azurerm_role_assignment" "node_pool_disk_encryption_set_reader" {
 resource "local_file" "kube_config" {
   content  = azurerm_kubernetes_cluster.main.kube_config_raw
   filename = local.kubeconfig_path
+}
+
+# Automatically assign "Azure Kubernetes Service RBAC Cluster Admin" to the
+# identity running Terraform (the deployer) and any additional admins provided.
+# This ensures immediate access when local_account_disabled is set to true.
+resource "azurerm_role_assignment" "aks_rbac_admin" {
+  for_each = toset(concat(
+    [data.azurerm_client_config.current.object_id],
+    var.admin_object_ids
+  ))
+
+  scope                = azurerm_kubernetes_cluster.main.id
+  role_definition_name = "Azure Kubernetes Service RBAC Cluster Admin"
+  principal_id         = each.value
 }
