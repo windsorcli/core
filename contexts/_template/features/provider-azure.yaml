@@ -35,8 +35,6 @@ kustomize:
   path: csi
   dependsOn:
   - policy-resources
-  cleanup:
-  - pvcs
   components:
   - azure-disk
   substitutions:
