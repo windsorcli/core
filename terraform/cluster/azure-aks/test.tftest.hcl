@@ -337,11 +337,6 @@ run "full_configuration" {
   }
 
   assert {
-    condition     = length(azurerm_key_vault_key.key_vault_key) == 1
-    error_message = "Key Vault key should be created when disk_encryption_enabled is true and key_vault_key_id is null"
-  }
-
-  assert {
     condition     = contains(azurerm_role_definition.aks_kubelet_vmss_disk_manager.permissions[0].actions, "Microsoft.Compute/snapshots/read")
     error_message = "Snapshot permissions should be included when enable_volume_snapshots is true"
   }

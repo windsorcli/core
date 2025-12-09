@@ -245,6 +245,80 @@ resource "azurerm_log_analytics_workspace" "aks_logs" {
   }, local.tags)
 }
 
+resource "azurerm_monitor_diagnostic_setting" "aks_cluster" {
+  name                       = "${var.name}-${var.context_id}-aks-diag"
+  target_resource_id         = azurerm_kubernetes_cluster.main.id
+  log_analytics_workspace_id = azurerm_log_analytics_workspace.aks_logs.id
+
+  dynamic "enabled_log" {
+    for_each = var.diagnostic_log_categories
+    content {
+      category = enabled_log.value
+
+      dynamic "retention_policy" {
+        for_each = var.diagnostic_log_retention_days != null ? [1] : []
+        content {
+          enabled = true
+          days    = var.diagnostic_log_retention_days
+        }
+      }
+    }
+  }
+
+  enabled_metric {
+    category = "AllMetrics"
+  }
+}
+
+#-----------------------------------------------------------------------------------------------------------------------
+# Data Collection Rule (DCR)
+#-----------------------------------------------------------------------------------------------------------------------
+
+resource "azurerm_monitor_data_collection_rule" "container_insights" {
+  count               = var.container_insights_enabled ? 1 : 0
+  name                = "${var.name}-${var.context_id}-dcr"
+  resource_group_name = azurerm_resource_group.aks.name
+  location            = azurerm_resource_group.aks.location
+
+  destinations {
+    log_analytics {
+      workspace_resource_id = azurerm_log_analytics_workspace.aks_logs.id
+      name                  = "ciworkspace"
+    }
+  }
+
+  data_flow {
+    streams      = ["Microsoft-ContainerLogV2", "Microsoft-KubeEvents", "Microsoft-KubePodInventory"]
+    destinations = ["ciworkspace"]
+  }
+
+  data_sources {
+    extension {
+      streams        = ["Microsoft-ContainerLogV2", "Microsoft-KubeEvents", "Microsoft-KubePodInventory"]
+      extension_name = "ContainerInsights"
+      extension_json = jsonencode({
+        dataCollectionSettings = {
+          interval               = "1m",
+          namespaceFilteringMode = "Off",
+          enableContainerLogV2   = true
+        }
+      })
+      name = "ContainerInsightsExtension"
+    }
+  }
+
+  description = "DCR for Azure Monitor Container Insights"
+  tags        = local.tags
+}
+
+resource "azurerm_monitor_data_collection_rule_association" "aks_dcr" {
+  count                   = var.container_insights_enabled ? 1 : 0
+  name                    = "${var.name}-${var.context_id}-dcr-assoc"
+  target_resource_id      = azurerm_kubernetes_cluster.main.id
+  data_collection_rule_id = azurerm_monitor_data_collection_rule.container_insights[0].id
+  description             = "Association of DCR to AKS Cluster"
+}
+
 #-----------------------------------------------------------------------------------------------------------------------
 # AKS Cluster
 #-----------------------------------------------------------------------------------------------------------------------

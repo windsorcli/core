@@ -293,3 +293,27 @@ variable "workload_identity_enabled" {
   type        = bool
   default     = true
 }
+
+variable "diagnostic_log_categories" {
+  type        = set(string)
+  description = "Set of log categories to send to Log Analytics. Default excludes expensive 'kube-audit'"
+  default = [
+    "kube-audit-admin",
+    "kube-controller-manager",
+    "cluster-autoscaler",
+    "guard",
+    "kube-scheduler"
+  ]
+}
+
+variable "diagnostic_log_retention_days" {
+  type        = number
+  description = "Number of days to retain diagnostic logs. If null, uses the Log Analytics Workspace default retention period."
+  default     = null
+}
+
+variable "container_insights_enabled" {
+  type        = bool
+  description = "Enable Azure Monitor Container Insights for collecting container logs, Kubernetes events, and pod/node inventory. Disable for cost-sensitive dev/test environments or when using alternative monitoring solutions."
+  default     = false
+}

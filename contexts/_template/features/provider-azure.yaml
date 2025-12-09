@@ -39,3 +39,19 @@ kustomize:
   - azure-disk
   substitutions:
     single_storage_type: ${cluster.storage?.single_storage_type ?? "StandardSSD_LRS"}
+
+# Telemetry - exclude metrics-server as AKS provides it natively
+- name: telemetry-resources
+  path: telemetry/resources
+  strategy: replace
+  dependsOn:
+  - telemetry-base
+  - csi
+  components:
+  - prometheus
+  - prometheus/flux
+  - fluentbit
+  - fluentbit/containerd
+  - fluentbit/fluentd
+  - fluentbit/kubernetes
+  - fluentbit/systemd
