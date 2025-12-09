@@ -576,11 +576,11 @@ run "disk_encryption_with_provided_key" {
   command = plan
 
   variables {
-    context_id            = "test"
-    name                  = "windsor-aks"
-    kubernetes_version    = "1.32"
+    context_id              = "test"
+    name                    = "windsor-aks"
+    kubernetes_version      = "1.32"
     disk_encryption_enabled = true
-    key_vault_key_id      = "https://test-kv.vault.azure.net/keys/test-key/abc123"
+    key_vault_key_id        = "https://test-kv.vault.azure.net/keys/test-key/abc123"
   }
 
   assert {
