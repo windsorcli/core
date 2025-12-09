@@ -39,5 +39,5 @@ kustomize:
   - policy-resources
   components:
   - aws-ebs
-  cleanup:
-  - pvcs
+  substitutions:
+    single_storage_type: ${cluster.storage?.single_storage_type ?? "gp3"}

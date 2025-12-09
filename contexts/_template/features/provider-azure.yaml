@@ -35,5 +35,7 @@ kustomize:
   path: csi
   dependsOn:
   - policy-resources
-  cleanup:
-  - pvcs
+  components:
+  - azure-disk
+  substitutions:
+    single_storage_type: ${cluster.storage?.single_storage_type ?? "StandardSSD_LRS"}
