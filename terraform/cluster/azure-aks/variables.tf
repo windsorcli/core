@@ -79,6 +79,7 @@ variable "default_node_pool" {
     max_count                    = number
     node_count                   = number
     only_critical_addons_enabled = bool
+    availability_zones           = optional(list(string))
   })
   default = {
     name                         = "system"
@@ -105,6 +106,7 @@ variable "autoscaled_node_pool" {
     host_encryption_enabled = bool
     min_count               = number
     max_count               = number
+    availability_zones      = optional(list(string))
   })
   default = {
     enabled                 = true
@@ -245,6 +247,16 @@ variable "endpoint_private_access" {
   description = "Whether to enable private access to the Kubernetes API server"
   type        = bool
   default     = false
+}
+
+variable "outbound_type" {
+  description = "The outbound (egress) routing method which should be used for this Kubernetes Cluster."
+  type        = string
+  default     = "userAssignedNATGateway"
+  validation {
+    condition     = contains(["loadBalancer", "userDefinedRouting", "managedNATGateway", "userAssignedNATGateway"], var.outbound_type)
+    error_message = "The outbound_type must be one of: loadBalancer, userDefinedRouting, managedNATGateway, userAssignedNATGateway."
+  }
 }
 
 variable "enable_volume_snapshots" {

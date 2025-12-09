@@ -29,6 +29,7 @@ mock_provider "azurerm" {
   }
 }
 
+
 # Verifies that the module creates an AKS cluster with minimal configuration,
 # ensuring that all default values are correctly applied and only required variables are set.
 run "minimal_configuration" {
@@ -126,6 +127,21 @@ run "minimal_configuration" {
   }
 
   assert {
+    condition     = azurerm_kubernetes_cluster.main.network_profile[0].outbound_type == "userAssignedNATGateway"
+    error_message = "Default outbound type should be 'userAssignedNATGateway'"
+  }
+
+  assert {
+    condition     = azurerm_kubernetes_cluster.main.network_profile[0].network_plugin_mode == "overlay"
+    error_message = "Network plugin mode should be 'overlay'"
+  }
+
+  assert {
+    condition     = azurerm_kubernetes_cluster.main.network_profile[0].network_data_plane == "cilium"
+    error_message = "Network data plane should be 'cilium'"
+  }
+
+  assert {
     condition     = contains(azurerm_role_definition.aks_kubelet_vmss_disk_manager.permissions[0].actions, "Microsoft.Compute/snapshots/read")
     error_message = "Snapshot permissions should be included when enable_volume_snapshots is true (default)"
   }
@@ -159,6 +175,7 @@ run "full_configuration" {
       max_count                    = 3
       node_count                   = 1
       only_critical_addons_enabled = false
+      availability_zones           = ["1", "2", "3"]
     }
     autoscaled_node_pool = {
       enabled                 = true
@@ -170,11 +187,13 @@ run "full_configuration" {
       host_encryption_enabled = true
       min_count               = 1
       max_count               = 3
+      availability_zones      = ["1", "2"]
     }
     role_based_access_control_enabled = true
     private_cluster_enabled           = false
     azure_policy_enabled              = true
     local_account_disabled            = false
+    outbound_type                     = "loadBalancer"
     authorized_ip_ranges              = ["10.0.0.0/8"]
     admin_object_ids                  = ["55555555-5555-5555-5555-555555555555"]
     enable_volume_snapshots           = true
@@ -252,12 +271,37 @@ run "full_configuration" {
 
   assert {
     condition     = azurerm_kubernetes_cluster.main.local_account_disabled == false
-    error_message = "Local accounts should be enabled"
+    error_message = "Local accounts should be disabled when explicitly set to false"
   }
 
   assert {
     condition     = azurerm_kubernetes_cluster.main.identity[0].type == "SystemAssigned"
     error_message = "Cluster should use system-assigned identity"
+  }
+
+  assert {
+    condition     = length(azurerm_kubernetes_cluster.main.default_node_pool[0].zones) == 3 && contains(azurerm_kubernetes_cluster.main.default_node_pool[0].zones, "1") && contains(azurerm_kubernetes_cluster.main.default_node_pool[0].zones, "2") && contains(azurerm_kubernetes_cluster.main.default_node_pool[0].zones, "3")
+    error_message = "Default node pool zones should match input value"
+  }
+
+  assert {
+    condition     = length(azurerm_kubernetes_cluster_node_pool.autoscaled[0].zones) == 2 && contains(azurerm_kubernetes_cluster_node_pool.autoscaled[0].zones, "1") && contains(azurerm_kubernetes_cluster_node_pool.autoscaled[0].zones, "2")
+    error_message = "Autoscaled node pool zones should match input value"
+  }
+
+  assert {
+    condition     = azurerm_kubernetes_cluster.main.network_profile[0].outbound_type == "loadBalancer"
+    error_message = "Outbound type should match input value"
+  }
+
+  assert {
+    condition     = azurerm_kubernetes_cluster.main.network_profile[0].network_plugin_mode == "overlay"
+    error_message = "Network plugin mode should be 'overlay'"
+  }
+
+  assert {
+    condition     = azurerm_kubernetes_cluster.main.network_profile[0].network_data_plane == "cilium"
+    error_message = "Network data plane should be 'cilium'"
   }
 
   assert {
@@ -457,10 +501,12 @@ run "multiple_invalid_inputs" {
   command = plan
   expect_failures = [
     var.kubernetes_version,
+    var.outbound_type,
   ]
   variables {
     context_id         = "test"
     kubernetes_version = "v1.32"
+    outbound_type      = "invalid"
   }
 }
 
