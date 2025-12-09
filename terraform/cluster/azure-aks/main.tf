@@ -34,6 +34,8 @@ provider "azurerm" {
 
 data "azurerm_client_config" "current" {}
 
+data "azurerm_subscription" "current" {}
+
 data "azurerm_virtual_network" "vnet" {
   name                = "${var.vnet_module_name}-${var.context_id}"
   resource_group_name = "${var.vnet_module_name}-${var.context_id}"
@@ -233,8 +235,12 @@ resource "azurerm_kubernetes_cluster" "main" {
   role_based_access_control_enabled = var.role_based_access_control_enabled
   automatic_upgrade_channel         = var.automatic_upgrade_channel
   sku_tier                          = var.sku_tier
-  # checkov:skip=CKV_AZURE_6: This feature is in preview, we are using a public cluster for testing
-  # api_server_authorized_ip_ranges   = [0.0.0.0/0]
+
+  # checkov:skip=CKV_AZURE_6: We allow user to restrict IPs or default to open (null)
+  api_server_access_profile {
+    authorized_ip_ranges = var.authorized_ip_ranges
+  }
+
   # checkov:skip=CKV_AZURE_115: We are using a public cluster for testing
   # private clusters are encouraged for production
   private_cluster_enabled = var.private_cluster_enabled
@@ -243,6 +249,11 @@ resource "azurerm_kubernetes_cluster" "main" {
   azure_policy_enabled = var.azure_policy_enabled
   # checkov:skip=CKV_AZURE_141: We are setting this to false to avoid the creation of an AD
   local_account_disabled = var.local_account_disabled
+
+  azure_active_directory_role_based_access_control {
+    azure_rbac_enabled     = true
+    admin_group_object_ids = var.admin_object_ids
+  }
 
   key_vault_secrets_provider {
     secret_rotation_enabled = true
@@ -384,4 +395,18 @@ resource "azurerm_role_assignment" "kubelet_vmss_disk_manager" {
 resource "local_file" "kube_config" {
   content  = azurerm_kubernetes_cluster.main.kube_config_raw
   filename = local.kubeconfig_path
+}
+
+# Automatically assign "Azure Kubernetes Service RBAC Cluster Admin" to the
+# identity running Terraform (the deployer) and any additional admins provided.
+# This ensures immediate access when local_account_disabled is set to true.
+resource "azurerm_role_assignment" "aks_rbac_admin" {
+  for_each = toset(concat(
+    [data.azurerm_client_config.current.object_id],
+    var.admin_object_ids
+  ))
+
+  scope                = azurerm_kubernetes_cluster.main.id
+  role_definition_name = "Azure Kubernetes Service RBAC Cluster Admin"
+  principal_id         = each.value
 }
