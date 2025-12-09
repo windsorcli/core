@@ -152,6 +152,13 @@ properties:
             default: ["/var/mnt/local"]
             description: Additional volume mounts for workers
         additionalProperties: false
+      storage:
+        type: object
+        properties:
+          single_storage_type:
+            type: string
+            description: Storage type for the single storage class (e.g., gp3 for AWS, StandardSSD_LRS for Azure)
+        additionalProperties: false
     additionalProperties: false
 
   # DNS configuration

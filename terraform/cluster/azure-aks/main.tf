@@ -34,6 +34,8 @@ provider "azurerm" {
 
 data "azurerm_client_config" "current" {}
 
+data "azurerm_subscription" "current" {}
+
 data "azurerm_virtual_network" "vnet" {
   name                = "${var.vnet_module_name}-${var.context_id}"
   resource_group_name = "${var.vnet_module_name}-${var.context_id}"
@@ -64,7 +66,8 @@ locals {
     var.autoscaled_node_pool.enabled ? [var.autoscaled_node_pool.name] : []
   )
   # Safely access kubelet identity (may not be available during plan in tests)
-  kubelet_object_id = try(azurerm_kubernetes_cluster.main.kubelet_identity[0].object_id, "00000000-0000-0000-0000-000000000000")
+  kubelet_object_id      = try(azurerm_kubernetes_cluster.main.kubelet_identity[0].object_id, "00000000-0000-0000-0000-000000000000")
+  disk_encryption_key_id = var.key_vault_key_id != null ? var.key_vault_key_id : try(azurerm_key_vault_key.key_vault_key[0].id, null)
   tags = merge({
     WindsorContextID = var.context_id
   }, var.tags)
@@ -99,7 +102,7 @@ resource "azurerm_key_vault" "key_vault" {
   resource_group_name         = azurerm_resource_group.aks.name
   tenant_id                   = data.azurerm_client_config.current.tenant_id
   sku_name                    = "premium"
-  enabled_for_disk_encryption = true
+  enabled_for_disk_encryption = var.disk_encryption_enabled
   purge_protection_enabled    = true
   soft_delete_retention_days  = var.soft_delete_retention_days
   # checkov:skip=CKV_AZURE_189: We are using a public cluster for testing
@@ -140,10 +143,12 @@ resource "azurerm_key_vault_access_policy" "key_vault_access_policy" {
 }
 
 resource "azurerm_key_vault_access_policy" "key_vault_access_policy_disk" {
+  count = var.disk_encryption_enabled ? 1 : 0
+
   key_vault_id = azurerm_key_vault.key_vault.id
 
   tenant_id = data.azurerm_client_config.current.tenant_id
-  object_id = azurerm_disk_encryption_set.main.identity.0.principal_id
+  object_id = azurerm_disk_encryption_set.main[0].identity.0.principal_id
 
   key_permissions = [
     "Get",
@@ -160,9 +165,17 @@ resource "azurerm_key_vault_access_policy" "key_vault_access_policy_disk" {
   ]
 }
 
+# Moved block to handle transition from single instance to count-based resource
+moved {
+  from = azurerm_key_vault_access_policy.key_vault_access_policy_disk
+  to   = azurerm_key_vault_access_policy.key_vault_access_policy_disk[0]
+}
+
 resource "time_static" "expiry" {}
 
 resource "azurerm_key_vault_key" "key_vault_key" {
+  count = var.disk_encryption_enabled && var.key_vault_key_id == null ? 1 : 0
+
   name            = "${var.name}-${var.context_id}-${random_string.key.result}"
   key_vault_id    = azurerm_key_vault.key_vault.id
   key_type        = "RSA-HSM"
@@ -192,15 +205,29 @@ resource "azurerm_key_vault_key" "key_vault_key" {
   ]
 }
 
+# Moved block to handle transition from single instance to count-based resource
+moved {
+  from = azurerm_key_vault_key.key_vault_key
+  to   = azurerm_key_vault_key.key_vault_key[0]
+}
+
 resource "azurerm_disk_encryption_set" "main" {
+  count = var.disk_encryption_enabled ? 1 : 0
+
   name                = "${var.name}-${var.context_id}-${random_string.key.result}"
   resource_group_name = azurerm_resource_group.aks.name
   location            = azurerm_resource_group.aks.location
-  key_vault_key_id    = azurerm_key_vault_key.key_vault_key.id
+  key_vault_key_id    = local.disk_encryption_key_id
 
   identity {
     type = "SystemAssigned"
   }
+}
+
+# Moved block to handle transition from single instance to count-based resource
+moved {
+  from = azurerm_disk_encryption_set.main
+  to   = azurerm_disk_encryption_set.main[0]
 }
 
 #-----------------------------------------------------------------------------------------------------------------------
@@ -302,20 +329,29 @@ resource "azurerm_kubernetes_cluster" "main" {
   resource_group_name = azurerm_resource_group.aks.name
   dns_prefix          = local.cluster_name
   # checkov:skip=CKV_AZURE_339: Kubernetes version is populated from the cloud provider's stable version via Renovate.
+  # checkov:skip=CKV_AZURE_4: Diagnostic settings are configured via azurerm_monitor_diagnostic_setting.aks_cluster resource
   kubernetes_version                = var.kubernetes_version
   role_based_access_control_enabled = var.role_based_access_control_enabled
   automatic_upgrade_channel         = var.automatic_upgrade_channel
   sku_tier                          = var.sku_tier
-  # checkov:skip=CKV_AZURE_6: This feature is in preview, we are using a public cluster for testing
-  # api_server_authorized_ip_ranges   = [0.0.0.0/0]
+
+  # checkov:skip=CKV_AZURE_6: We allow user to restrict IPs or default to open (null)
+  api_server_access_profile {
+    authorized_ip_ranges = var.authorized_ip_ranges
+  }
+
   # checkov:skip=CKV_AZURE_115: We are using a public cluster for testing
-  # private clusters are encouraged for production
   private_cluster_enabled = var.private_cluster_enabled
-  disk_encryption_set_id  = azurerm_disk_encryption_set.main.id
+  disk_encryption_set_id  = var.disk_encryption_enabled ? azurerm_disk_encryption_set.main[0].id : null
   # checkov:skip=CKV_AZURE_116: This replaces the addon_profile
   azure_policy_enabled = var.azure_policy_enabled
   # checkov:skip=CKV_AZURE_141: We are setting this to false to avoid the creation of an AD
   local_account_disabled = var.local_account_disabled
+
+  azure_active_directory_role_based_access_control {
+    azure_rbac_enabled     = true
+    admin_group_object_ids = var.admin_object_ids
+  }
 
   key_vault_secrets_provider {
     secret_rotation_enabled = true
@@ -328,6 +364,7 @@ resource "azurerm_kubernetes_cluster" "main" {
     vnet_subnet_id               = coalesce(var.vnet_subnet_id, try(data.azurerm_subnet.private[0].id, null))
     orchestrator_version         = var.kubernetes_version
     only_critical_addons_enabled = var.default_node_pool.only_critical_addons_enabled
+    zones                        = var.default_node_pool.availability_zones
 
     # checkov:skip=CKV_AZURE_226: we are using the managed disk type to reduce costs
     os_disk_type            = var.default_node_pool.os_disk_type
@@ -359,10 +396,13 @@ resource "azurerm_kubernetes_cluster" "main" {
   workload_identity_enabled = var.workload_identity_enabled
 
   network_profile {
-    network_plugin = "azure"
-    network_policy = "cilium"
-    service_cidr   = var.service_cidr
-    dns_service_ip = var.dns_service_ip
+    network_plugin      = "azure"
+    network_plugin_mode = "overlay"
+    network_policy      = "cilium"
+    network_data_plane  = "cilium"
+    outbound_type       = var.outbound_type
+    service_cidr        = var.service_cidr
+    dns_service_ip      = var.dns_service_ip
   }
 
   # Use system-assigned managed identity (Microsoft default and best practice)
@@ -386,6 +426,7 @@ resource "azurerm_kubernetes_cluster_node_pool" "autoscaled" {
   auto_scaling_enabled  = true
   min_count             = var.autoscaled_node_pool.min_count
   max_count             = var.autoscaled_node_pool.max_count
+  zones                 = var.autoscaled_node_pool.availability_zones
   vnet_subnet_id = coalesce(
     var.vnet_subnet_id,
     try(data.azurerm_subnet.private[length(local.private_subnets) - 1].id, null)
@@ -398,9 +439,28 @@ resource "azurerm_kubernetes_cluster_node_pool" "autoscaled" {
   host_encryption_enabled     = var.autoscaled_node_pool.host_encryption_enabled
   temporary_name_for_rotation = "rotate"
 
+  dynamic "upgrade_settings" {
+    for_each = try(var.autoscaled_node_pool.upgrade_settings, null) != null ? [var.autoscaled_node_pool.upgrade_settings] : []
+    content {
+      drain_timeout_in_minutes      = upgrade_settings.value.drain_timeout_in_minutes
+      max_surge                     = upgrade_settings.value.max_surge
+      node_soak_duration_in_minutes = upgrade_settings.value.node_soak_duration_in_minutes
+    }
+  }
+
   tags = merge({
     Name = var.autoscaled_node_pool.name
   }, local.tags)
+}
+
+# Assign Network Contributor role on subnet to control plane identity (required for custom VNet).
+# Azure CLI auto-assigns this, but Terraform requires manual assignment.
+# This is needed for the control plane to manage load balancers and network resources in the custom VNet.
+# Reference: https://learn.microsoft.com/azure/aks/configure-kubenet
+resource "azurerm_role_assignment" "subnet_network_contributor_cp" {
+  scope                = coalesce(var.vnet_subnet_id, try(data.azurerm_subnet.private[0].id, null))
+  role_definition_name = "Network Contributor"
+  principal_id         = azurerm_kubernetes_cluster.main.identity[0].principal_id
 }
 
 # AKS automatically creates Virtual Machine Contributor role assignment on node resource group for the kubelet identity.
@@ -449,7 +509,41 @@ resource "azurerm_role_assignment" "kubelet_vmss_disk_manager" {
   principal_id       = local.kubelet_object_id
 }
 
+# Assign Reader role on the disk encryption set to the control plane identity.
+# Required when using Customer-Managed Keys (CMK) for disk encryption.
+resource "azurerm_role_assignment" "cp_disk_encryption_set_reader" {
+  count = var.disk_encryption_enabled ? 1 : 0
+
+  scope                = azurerm_disk_encryption_set.main[0].id
+  role_definition_name = "Reader"
+  principal_id         = azurerm_kubernetes_cluster.main.identity[0].principal_id
+}
+
+# Assign Reader role on the disk encryption set to the kubelet identity.
+# Required when using Customer-Managed Keys (CMK) for disk encryption.
+resource "azurerm_role_assignment" "node_pool_disk_encryption_set_reader" {
+  count = var.disk_encryption_enabled ? 1 : 0
+
+  scope                = azurerm_disk_encryption_set.main[0].id
+  role_definition_name = "Reader"
+  principal_id         = local.kubelet_object_id
+}
+
 resource "local_file" "kube_config" {
   content  = azurerm_kubernetes_cluster.main.kube_config_raw
   filename = local.kubeconfig_path
+}
+
+# Automatically assign "Azure Kubernetes Service RBAC Cluster Admin" to the
+# identity running Terraform (the deployer) and any additional admins provided.
+# This ensures immediate access when local_account_disabled is set to true.
+resource "azurerm_role_assignment" "aks_rbac_admin" {
+  for_each = toset(concat(
+    [data.azurerm_client_config.current.object_id],
+    var.admin_object_ids
+  ))
+
+  scope                = azurerm_kubernetes_cluster.main.id
+  role_definition_name = "Azure Kubernetes Service RBAC Cluster Admin"
+  principal_id         = each.value
 }

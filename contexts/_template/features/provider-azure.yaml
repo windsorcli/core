@@ -37,6 +37,10 @@ kustomize:
   - policy-resources
   cleanup:
   - pvcs
+  components:
+  - azure-disk
+  substitutions:
+    single_storage_type: ${cluster.storage?.single_storage_type ?? "StandardSSD_LRS"}
 
 # Telemetry - exclude metrics-server as AKS provides it natively
 - name: telemetry-resources
