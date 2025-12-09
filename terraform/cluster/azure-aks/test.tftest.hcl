@@ -5,6 +5,11 @@ mock_provider "azurerm" {
       object_id = "22222222-2222-2222-2222-222222222222"
     }
   }
+  mock_data "azurerm_subscription" {
+    defaults = {
+      subscription_id = "12345678-1234-9876-4563-123456789012"
+    }
+  }
   mock_data "azurerm_virtual_network" {
     defaults = {
       subnets             = ["private-1-test", "private-2-test", "private-3-test", "public-1-test", "public-2-test", "isolated-1-test", "isolated-2-test"]
@@ -76,13 +81,38 @@ run "minimal_configuration" {
   }
 
   assert {
-    condition     = azurerm_kubernetes_cluster.main.local_account_disabled == false
-    error_message = "Local accounts should be enabled by default"
+    condition     = azurerm_kubernetes_cluster.main.local_account_disabled == true
+    error_message = "Local accounts should be disabled by default"
   }
 
   assert {
     condition     = azurerm_kubernetes_cluster.main.identity[0].type == "SystemAssigned"
     error_message = "Cluster should use system-assigned identity by default"
+  }
+
+  assert {
+    condition     = azurerm_kubernetes_cluster.main.azure_active_directory_role_based_access_control[0].azure_rbac_enabled == true
+    error_message = "Azure RBAC should be enabled by default"
+  }
+
+  assert {
+    condition     = length(azurerm_kubernetes_cluster.main.azure_active_directory_role_based_access_control[0].admin_group_object_ids) == 0
+    error_message = "Admin group object IDs should be empty by default"
+  }
+
+  assert {
+    condition     = azurerm_kubernetes_cluster.main.api_server_access_profile[0].authorized_ip_ranges == null
+    error_message = "Authorized IP ranges should be null by default (allowing all)"
+  }
+
+  assert {
+    condition     = length(azurerm_role_assignment.aks_rbac_admin) == 1
+    error_message = "Role assignment should be created for the deployer identity by default"
+  }
+
+  assert {
+    condition     = azurerm_role_assignment.aks_rbac_admin["22222222-2222-2222-2222-222222222222"].role_definition_name == "Azure Kubernetes Service RBAC Cluster Admin"
+    error_message = "Role assignment should use 'Azure Kubernetes Service RBAC Cluster Admin' role"
   }
 
   assert {
@@ -145,6 +175,8 @@ run "full_configuration" {
     private_cluster_enabled           = false
     azure_policy_enabled              = true
     local_account_disabled            = false
+    authorized_ip_ranges              = ["10.0.0.0/8"]
+    admin_object_ids                  = ["55555555-5555-5555-5555-555555555555"]
     enable_volume_snapshots           = true
   }
 
@@ -247,6 +279,36 @@ run "full_configuration" {
     condition     = contains(azurerm_role_definition.aks_kubelet_vmss_disk_manager.permissions[0].actions, "Microsoft.Compute/snapshots/write")
     error_message = "Snapshot write permissions should be included when enable_volume_snapshots is true"
   }
+
+  assert {
+    condition     = length(azurerm_kubernetes_cluster.main.api_server_access_profile[0].authorized_ip_ranges) == 1
+    error_message = "Authorized IP ranges should contain 1 entry"
+  }
+
+  assert {
+    condition     = contains(azurerm_kubernetes_cluster.main.api_server_access_profile[0].authorized_ip_ranges, "10.0.0.0/8")
+    error_message = "Authorized IP ranges should include 10.0.0.0/8"
+  }
+
+  assert {
+    condition     = azurerm_kubernetes_cluster.main.azure_active_directory_role_based_access_control[0].azure_rbac_enabled == true
+    error_message = "Azure RBAC should be enabled"
+  }
+
+  assert {
+    condition     = length(azurerm_kubernetes_cluster.main.azure_active_directory_role_based_access_control[0].admin_group_object_ids) == 1
+    error_message = "Admin group object IDs should contain 1 entry"
+  }
+
+  assert {
+    condition     = contains(azurerm_kubernetes_cluster.main.azure_active_directory_role_based_access_control[0].admin_group_object_ids, "55555555-5555-5555-5555-555555555555")
+    error_message = "Admin group object IDs should include the specified object ID"
+  }
+
+  assert {
+    condition     = length(azurerm_role_assignment.aks_rbac_admin) == 2
+    error_message = "Role assignments should be created for deployer plus 1 admin object ID (2 total)"
+  }
 }
 
 # Tests the private cluster configuration, ensuring that enabling the private_cluster_enabled
@@ -303,6 +365,91 @@ run "network_configuration" {
   assert {
     condition     = azurerm_kubernetes_cluster.main.network_profile[0].dns_service_ip == "10.0.0.10"
     error_message = "DNS service IP should match input value"
+  }
+}
+
+# Tests the authorized IP ranges configuration, ensuring that setting authorized_ip_ranges
+# results in the API server access profile being configured with the specified IP ranges.
+run "authorized_ip_ranges" {
+  command = plan
+
+  variables {
+    context_id           = "test"
+    name                 = "windsor-aks"
+    cluster_name         = "test-cluster"
+    kubernetes_version   = "1.32"
+    authorized_ip_ranges = ["10.0.0.0/8", "192.168.0.0/16"]
+  }
+
+  assert {
+    condition     = length(azurerm_kubernetes_cluster.main.api_server_access_profile[0].authorized_ip_ranges) == 2
+    error_message = "Authorized IP ranges should contain 2 entries"
+  }
+
+  assert {
+    condition     = contains(azurerm_kubernetes_cluster.main.api_server_access_profile[0].authorized_ip_ranges, "10.0.0.0/8")
+    error_message = "Authorized IP ranges should include 10.0.0.0/8"
+  }
+
+  assert {
+    condition     = contains(azurerm_kubernetes_cluster.main.api_server_access_profile[0].authorized_ip_ranges, "192.168.0.0/16")
+    error_message = "Authorized IP ranges should include 192.168.0.0/16"
+  }
+}
+
+# Tests the Azure RBAC configuration with admin object IDs, ensuring that the
+# azure_active_directory_role_based_access_control block is configured correctly and
+# role assignments are created for all specified admin object IDs plus the deployer.
+run "azure_rbac_with_admin_object_ids" {
+  command = plan
+
+  variables {
+    context_id             = "test"
+    name                   = "windsor-aks"
+    cluster_name           = "test-cluster"
+    kubernetes_version     = "1.32"
+    local_account_disabled = true
+    admin_object_ids       = ["33333333-3333-3333-3333-333333333333", "44444444-4444-4444-4444-444444444444"]
+  }
+
+  assert {
+    condition     = azurerm_kubernetes_cluster.main.azure_active_directory_role_based_access_control[0].azure_rbac_enabled == true
+    error_message = "Azure RBAC should be enabled"
+  }
+
+  assert {
+    condition     = length(azurerm_kubernetes_cluster.main.azure_active_directory_role_based_access_control[0].admin_group_object_ids) == 2
+    error_message = "Admin group object IDs should contain 2 entries"
+  }
+
+  assert {
+    condition     = contains(azurerm_kubernetes_cluster.main.azure_active_directory_role_based_access_control[0].admin_group_object_ids, "33333333-3333-3333-3333-333333333333")
+    error_message = "Admin group object IDs should include the first specified object ID"
+  }
+
+  assert {
+    condition     = contains(azurerm_kubernetes_cluster.main.azure_active_directory_role_based_access_control[0].admin_group_object_ids, "44444444-4444-4444-4444-444444444444")
+    error_message = "Admin group object IDs should include the second specified object ID"
+  }
+
+  assert {
+    condition     = length(azurerm_role_assignment.aks_rbac_admin) == 3
+    error_message = "Role assignments should be created for deployer plus 2 admin object IDs (3 total)"
+  }
+
+  assert {
+    condition     = azurerm_role_assignment.aks_rbac_admin["22222222-2222-2222-2222-222222222222"].role_definition_name == "Azure Kubernetes Service RBAC Cluster Admin"
+    error_message = "Role assignment for deployer should use 'Azure Kubernetes Service RBAC Cluster Admin' role"
+  }
+
+  assert {
+    condition     = azurerm_role_assignment.aks_rbac_admin["33333333-3333-3333-3333-333333333333"].role_definition_name == "Azure Kubernetes Service RBAC Cluster Admin"
+    error_message = "Role assignment for first admin should use 'Azure Kubernetes Service RBAC Cluster Admin' role"
+  }
+
+  assert {
+    condition     = azurerm_role_assignment.aks_rbac_admin["44444444-4444-4444-4444-444444444444"].role_definition_name == "Azure Kubernetes Service RBAC Cluster Admin"
+    error_message = "Role assignment for second admin should use 'Azure Kubernetes Service RBAC Cluster Admin' role"
   }
 }
 
