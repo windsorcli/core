@@ -107,6 +107,11 @@ variable "autoscaled_node_pool" {
     min_count               = number
     max_count               = number
     availability_zones      = optional(list(string))
+    upgrade_settings = optional(object({
+      drain_timeout_in_minutes      = number
+      max_surge                     = string
+      node_soak_duration_in_minutes = number
+    }))
   })
   default = {
     enabled                 = true
@@ -247,6 +252,18 @@ variable "endpoint_private_access" {
   description = "Whether to enable private access to the Kubernetes API server"
   type        = bool
   default     = false
+}
+
+variable "disk_encryption_enabled" {
+  description = "Whether to enable disk encryption using Customer-Managed Keys (CMK) for the AKS cluster"
+  type        = bool
+  default     = true
+}
+
+variable "key_vault_key_id" {
+  description = "The ID of an existing Key Vault key to use for disk encryption. If null, a new key will be created."
+  type        = string
+  default     = null
 }
 
 variable "outbound_type" {
