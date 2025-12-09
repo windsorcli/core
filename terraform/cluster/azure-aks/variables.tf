@@ -2,6 +2,12 @@
 # Variables
 #-----------------------------------------------------------------------------------------------------------------------
 
+variable "admin_object_ids" {
+  type        = list(string)
+  description = "List of Azure AD Object IDs (User or Group) to assign 'Azure Kubernetes Service RBAC Cluster Admin' role. Required when local_account_disabled is true to ensure access."
+  default     = []
+}
+
 variable "context_path" {
   type        = string
   description = "The path to the context folder, where kubeconfig is stored"
@@ -73,6 +79,7 @@ variable "default_node_pool" {
     max_count                    = number
     node_count                   = number
     only_critical_addons_enabled = bool
+    availability_zones           = optional(list(string))
     upgrade_settings = optional(object({
       drain_timeout_in_minutes      = number
       max_surge                     = string
@@ -109,6 +116,12 @@ variable "autoscaled_node_pool" {
     host_encryption_enabled = bool
     min_count               = number
     max_count               = number
+    availability_zones      = optional(list(string))
+    upgrade_settings = optional(object({
+      drain_timeout_in_minutes      = number
+      max_surge                     = string
+      node_soak_duration_in_minutes = number
+    }))
   })
   default = {
     enabled                 = true
@@ -194,7 +207,13 @@ variable "azure_policy_enabled" {
 variable "local_account_disabled" {
   type        = bool
   description = "Whether to disable local accounts for the AKS cluster"
-  default     = false
+  default     = true
+}
+
+variable "authorized_ip_ranges" {
+  type        = set(string)
+  description = "Set of authorized IP ranges to allow access to the API server. If null, allows all (0.0.0.0/0)."
+  default     = null
 }
 
 variable "public_network_access_enabled" {
@@ -245,6 +264,28 @@ variable "endpoint_private_access" {
   default     = false
 }
 
+variable "disk_encryption_enabled" {
+  description = "Whether to enable disk encryption using Customer-Managed Keys (CMK) for the AKS cluster"
+  type        = bool
+  default     = true
+}
+
+variable "key_vault_key_id" {
+  description = "The ID of an existing Key Vault key to use for disk encryption. If null, a new key will be created."
+  type        = string
+  default     = null
+}
+
+variable "outbound_type" {
+  description = "The outbound (egress) routing method which should be used for this Kubernetes Cluster."
+  type        = string
+  default     = "userAssignedNATGateway"
+  validation {
+    condition     = contains(["loadBalancer", "userDefinedRouting", "managedNATGateway", "userAssignedNATGateway"], var.outbound_type)
+    error_message = "The outbound_type must be one of: loadBalancer, userDefinedRouting, managedNATGateway, userAssignedNATGateway."
+  }
+}
+
 variable "enable_volume_snapshots" {
   description = "Enable volume snapshot permissions for the kubelet identity. Set to false to use minimal permissions if volume snapshots are not needed."
   type        = bool
@@ -261,6 +302,30 @@ variable "workload_identity_enabled" {
   description = "Enable Workload Identity for the AKS cluster"
   type        = bool
   default     = true
+}
+
+variable "diagnostic_log_categories" {
+  type        = set(string)
+  description = "Set of log categories to send to Log Analytics. Default excludes expensive 'kube-audit'"
+  default = [
+    "kube-audit-admin",
+    "kube-controller-manager",
+    "cluster-autoscaler",
+    "guard",
+    "kube-scheduler"
+  ]
+}
+
+variable "diagnostic_log_retention_days" {
+  type        = number
+  description = "Number of days to retain diagnostic logs. If null, uses the Log Analytics Workspace default retention period."
+  default     = null
+}
+
+variable "container_insights_enabled" {
+  type        = bool
+  description = "Enable Azure Monitor Container Insights for collecting container logs, Kubernetes events, and pod/node inventory. Disable for cost-sensitive dev/test environments or when using alternative monitoring solutions."
+  default     = false
 }
 
 variable "image_cleaner_enabled" {

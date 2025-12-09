@@ -4,11 +4,11 @@ metadata:
   name: single
   annotations:
     storageclass.kubernetes.io/is-default-class: "true"
-provisioner: ebs.csi.aws.com
+provisioner: disk.csi.azure.com
 volumeBindingMode: WaitForFirstConsumer
 allowVolumeExpansion: true
 parameters:
-  type: ${single_storage_type:-gp3}
-  encrypted: "true"
+  skuName: ${single_storage_type:-StandardSSD_LRS}
+  cachingMode: ReadWrite
   fsType: ext4
 reclaimPolicy: Delete
