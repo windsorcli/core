@@ -114,6 +114,26 @@ run "minimal_configuration" {
     condition     = azurerm_role_assignment.aks_rbac_admin["22222222-2222-2222-2222-222222222222"].role_definition_name == "Azure Kubernetes Service RBAC Cluster Admin"
     error_message = "Role assignment should use 'Azure Kubernetes Service RBAC Cluster Admin' role"
   }
+
+  assert {
+    condition     = azurerm_kubernetes_cluster.main.oidc_issuer_enabled == true
+    error_message = "OIDC issuer should be enabled by default"
+  }
+
+  assert {
+    condition     = azurerm_kubernetes_cluster.main.workload_identity_enabled == true
+    error_message = "Workload Identity should be enabled by default"
+  }
+
+  assert {
+    condition     = contains(azurerm_role_definition.aks_kubelet_vmss_disk_manager.permissions[0].actions, "Microsoft.Compute/snapshots/read")
+    error_message = "Snapshot permissions should be included when enable_volume_snapshots is true (default)"
+  }
+
+  assert {
+    condition     = contains(azurerm_role_definition.aks_kubelet_vmss_disk_manager.permissions[0].actions, "Microsoft.Compute/snapshots/write")
+    error_message = "Snapshot write permissions should be included when enable_volume_snapshots is true (default)"
+  }
 }
 
 # Tests a full configuration with all optional variables explicitly set,
@@ -122,18 +142,13 @@ run "full_configuration" {
   command = plan
 
   variables {
-    context_id          = "test"
-    name                = "windsor-aks"
-    cluster_name        = "test-cluster"
-    resource_group_name = "test-rg"
-    kubernetes_version  = "1.32"
-    user_assigned_identity_ids = [
-      "/subscriptions/12345678-1234-9876-4563-123456789012/resourceGroups/example-resource-group/providers/Microsoft.ManagedIdentity/userAssignedIdentities/test-identity-1",
-      "/subscriptions/12345678-1234-9876-4563-123456789012/resourceGroups/example-resource-group/providers/Microsoft.ManagedIdentity/userAssignedIdentities/test-identity-2"
-    ]
-    kubelet_client_id                 = "test-client-id"
-    kubelet_object_id                 = "test-object-id"
-    kubelet_user_assigned_identity_id = "/subscriptions/12345678-1234-9876-4563-123456789012/resourceGroups/example-resource-group/providers/Microsoft.ManagedIdentity/userAssignedIdentities/test-identity-1"
+    context_id                = "test"
+    name                      = "windsor-aks"
+    cluster_name              = "test-cluster"
+    resource_group_name       = "test-rg"
+    kubernetes_version        = "1.32"
+    oidc_issuer_enabled       = true
+    workload_identity_enabled = true
     default_node_pool = {
       name                         = "system"
       vm_size                      = "Standard_D2s_v3"
@@ -162,6 +177,7 @@ run "full_configuration" {
     local_account_disabled            = false
     authorized_ip_ranges              = ["10.0.0.0/8"]
     admin_object_ids                  = ["55555555-5555-5555-5555-555555555555"]
+    enable_volume_snapshots           = true
   }
 
   assert {
@@ -240,28 +256,28 @@ run "full_configuration" {
   }
 
   assert {
-    condition     = azurerm_kubernetes_cluster.main.identity[0].type == "UserAssigned"
-    error_message = "Cluster should use user-assigned identity when IDs are provided"
+    condition     = azurerm_kubernetes_cluster.main.identity[0].type == "SystemAssigned"
+    error_message = "Cluster should use system-assigned identity"
   }
 
   assert {
-    condition     = length(azurerm_kubernetes_cluster.main.identity[0].identity_ids) == 2
-    error_message = "Cluster should have 2 user-assigned identity IDs"
+    condition     = azurerm_kubernetes_cluster.main.oidc_issuer_enabled == true
+    error_message = "OIDC issuer should be enabled"
   }
 
   assert {
-    condition     = azurerm_kubernetes_cluster.main.kubelet_identity[0].client_id == "test-client-id"
-    error_message = "Kubelet client ID should match input"
+    condition     = azurerm_kubernetes_cluster.main.workload_identity_enabled == true
+    error_message = "Workload Identity should be enabled"
   }
 
   assert {
-    condition     = azurerm_kubernetes_cluster.main.kubelet_identity[0].object_id == "test-object-id"
-    error_message = "Kubelet object ID should match input"
+    condition     = contains(azurerm_role_definition.aks_kubelet_vmss_disk_manager.permissions[0].actions, "Microsoft.Compute/snapshots/read")
+    error_message = "Snapshot permissions should be included when enable_volume_snapshots is true"
   }
 
   assert {
-    condition     = azurerm_kubernetes_cluster.main.kubelet_identity[0].user_assigned_identity_id == "/subscriptions/12345678-1234-9876-4563-123456789012/resourceGroups/example-resource-group/providers/Microsoft.ManagedIdentity/userAssignedIdentities/test-identity-1"
-    error_message = "Kubelet user-assigned identity ID should match input"
+    condition     = contains(azurerm_role_definition.aks_kubelet_vmss_disk_manager.permissions[0].actions, "Microsoft.Compute/snapshots/write")
+    error_message = "Snapshot write permissions should be included when enable_volume_snapshots is true"
   }
 
   assert {
@@ -445,5 +461,38 @@ run "multiple_invalid_inputs" {
   variables {
     context_id         = "test"
     kubernetes_version = "v1.32"
+  }
+}
+
+# Tests that when enable_volume_snapshots is false, snapshot permissions are not included in the role definition.
+# This verifies the conditional logic that excludes snapshot operations when volume snapshots are disabled.
+run "volume_snapshots_disabled" {
+  command = plan
+
+  variables {
+    context_id              = "test"
+    name                    = "windsor-aks"
+    kubernetes_version      = "1.32"
+    enable_volume_snapshots = false
+  }
+
+  assert {
+    condition     = !contains(azurerm_role_definition.aks_kubelet_vmss_disk_manager.permissions[0].actions, "Microsoft.Compute/snapshots/read")
+    error_message = "Snapshot read permissions should not be included when enable_volume_snapshots is false"
+  }
+
+  assert {
+    condition     = !contains(azurerm_role_definition.aks_kubelet_vmss_disk_manager.permissions[0].actions, "Microsoft.Compute/snapshots/write")
+    error_message = "Snapshot write permissions should not be included when enable_volume_snapshots is false"
+  }
+
+  assert {
+    condition     = !contains(azurerm_role_definition.aks_kubelet_vmss_disk_manager.permissions[0].actions, "Microsoft.Compute/snapshots/delete")
+    error_message = "Snapshot delete permissions should not be included when enable_volume_snapshots is false"
+  }
+
+  assert {
+    condition     = contains(azurerm_role_definition.aks_kubelet_vmss_disk_manager.permissions[0].actions, "Microsoft.Compute/disks/read")
+    error_message = "Core disk permissions should still be included when enable_volume_snapshots is false"
   }
 }
