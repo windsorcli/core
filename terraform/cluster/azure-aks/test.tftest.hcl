@@ -160,6 +160,16 @@ run "minimal_configuration" {
     condition     = contains(azurerm_role_definition.aks_kubelet_vmss_disk_manager.permissions[0].actions, "Microsoft.Compute/snapshots/write")
     error_message = "Snapshot write permissions should be included when enable_volume_snapshots is true (default)"
   }
+
+  assert {
+    condition     = azurerm_kubernetes_cluster.main.image_cleaner_enabled == true
+    error_message = "Image Cleaner should be enabled by default"
+  }
+
+  assert {
+    condition     = azurerm_kubernetes_cluster.main.image_cleaner_interval_hours == 48
+    error_message = "Image Cleaner interval should default to 48 hours"
+  }
 }
 
 # Tests a full configuration with all optional variables explicitly set,
@@ -209,6 +219,8 @@ run "full_configuration" {
     authorized_ip_ranges              = ["10.0.0.0/8"]
     admin_object_ids                  = ["55555555-5555-5555-5555-555555555555"]
     enable_volume_snapshots           = true
+    image_cleaner_enabled             = true
+    image_cleaner_interval_hours      = 24
   }
 
   assert {
@@ -375,6 +387,16 @@ run "full_configuration" {
     condition     = length(azurerm_role_assignment.aks_rbac_admin) == 2
     error_message = "Role assignments should be created for deployer plus 1 admin object ID (2 total)"
   }
+
+  assert {
+    condition     = azurerm_kubernetes_cluster.main.image_cleaner_enabled == true
+    error_message = "Image Cleaner should be enabled"
+  }
+
+  assert {
+    condition     = azurerm_kubernetes_cluster.main.image_cleaner_interval_hours == 24
+    error_message = "Image Cleaner interval should match input value"
+  }
 }
 
 # Tests the private cluster configuration, ensuring that enabling the private_cluster_enabled
@@ -532,6 +554,35 @@ run "multiple_invalid_inputs" {
   }
 }
 
+# Tests that when key_vault_key_id is provided, no key is created and the provided key ID is used.
+# This verifies the conditional logic that skips key creation when an external key is specified.
+run "disk_encryption_with_provided_key" {
+  command = plan
+
+  variables {
+    context_id              = "test"
+    name                    = "windsor-aks"
+    kubernetes_version      = "1.32"
+    disk_encryption_enabled = true
+    key_vault_key_id        = "https://test-kv.vault.azure.net/keys/test-key/abc123"
+  }
+
+  assert {
+    condition     = length(azurerm_key_vault_key.key_vault_key) == 0
+    error_message = "Key Vault key should not be created when key_vault_key_id is provided"
+  }
+
+  assert {
+    condition     = length(azurerm_disk_encryption_set.main) == 1
+    error_message = "Disk encryption set should be created when disk_encryption_enabled is true"
+  }
+
+  assert {
+    condition     = azurerm_disk_encryption_set.main[0].key_vault_key_id == "https://test-kv.vault.azure.net/keys/test-key/abc123"
+    error_message = "Disk encryption set should use the provided key_vault_key_id when specified"
+  }
+}
+
 # Tests that when enable_volume_snapshots is false, snapshot permissions are not included in the role definition.
 # This verifies the conditional logic that excludes snapshot operations when volume snapshots are disabled.
 run "volume_snapshots_disabled" {
@@ -562,34 +613,5 @@ run "volume_snapshots_disabled" {
   assert {
     condition     = contains(azurerm_role_definition.aks_kubelet_vmss_disk_manager.permissions[0].actions, "Microsoft.Compute/disks/read")
     error_message = "Core disk permissions should still be included when enable_volume_snapshots is false"
-  }
-}
-
-# Tests that when key_vault_key_id is provided, no key is created and the provided key ID is used.
-# This verifies the conditional logic that skips key creation when an external key is specified.
-run "disk_encryption_with_provided_key" {
-  command = plan
-
-  variables {
-    context_id              = "test"
-    name                    = "windsor-aks"
-    kubernetes_version      = "1.32"
-    disk_encryption_enabled = true
-    key_vault_key_id        = "https://test-kv.vault.azure.net/keys/test-key/abc123"
-  }
-
-  assert {
-    condition     = length(azurerm_key_vault_key.key_vault_key) == 0
-    error_message = "Key Vault key should not be created when key_vault_key_id is provided"
-  }
-
-  assert {
-    condition     = length(azurerm_disk_encryption_set.main) == 1
-    error_message = "Disk encryption set should be created when disk_encryption_enabled is true"
-  }
-
-  assert {
-    condition     = azurerm_disk_encryption_set.main[0].key_vault_key_id == "https://test-kv.vault.azure.net/keys/test-key/abc123"
-    error_message = "Disk encryption set should use the provided key_vault_key_id when specified"
   }
 }

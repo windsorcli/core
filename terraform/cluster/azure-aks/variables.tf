@@ -80,6 +80,11 @@ variable "default_node_pool" {
     node_count                   = number
     only_critical_addons_enabled = bool
     availability_zones           = optional(list(string))
+    upgrade_settings = optional(object({
+      drain_timeout_in_minutes      = number
+      max_surge                     = string
+      node_soak_duration_in_minutes = number
+    }))
   })
   default = {
     name                         = "system"
@@ -91,6 +96,11 @@ variable "default_node_pool" {
     max_count                    = 3
     node_count                   = 1
     only_critical_addons_enabled = true
+    upgrade_settings = {
+      drain_timeout_in_minutes      = 30
+      max_surge                     = "10%"
+      node_soak_duration_in_minutes = 10
+    }
   }
 }
 
@@ -317,3 +327,16 @@ variable "container_insights_enabled" {
   description = "Enable Azure Monitor Container Insights for collecting container logs, Kubernetes events, and pod/node inventory. Disable for cost-sensitive dev/test environments or when using alternative monitoring solutions."
   default     = false
 }
+
+variable "image_cleaner_enabled" {
+  description = "Enable Image Cleaner for the AKS cluster"
+  type        = bool
+  default     = true
+}
+
+variable "image_cleaner_interval_hours" {
+  description = "Interval in hours for Image Cleaner to run"
+  type        = number
+  default     = 48
+}
+
