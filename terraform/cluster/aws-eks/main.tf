@@ -4,7 +4,7 @@ terraform {
   required_providers {
     aws = {
       source  = "hashicorp/aws"
-      version = "6.23.0"
+      version = "6.25.0"
     }
   }
 }
@@ -181,7 +181,7 @@ resource "aws_kms_key" "eks_encryption_key" {
           Sid    = "Allow CloudWatch Logs to use the key",
           Effect = "Allow",
           Principal = {
-            Service = "logs.${data.aws_region.current.name}.amazonaws.com"
+            Service = "logs.${data.aws_region.current.region}.amazonaws.com"
           },
           Action = [
             "kms:Encrypt",
@@ -746,7 +746,7 @@ resource "local_sensitive_file" "kubeconfig" {
     cluster_name     = aws_eks_cluster.main.name
     cluster_endpoint = aws_eks_cluster.main.endpoint
     cluster_ca       = aws_eks_cluster.main.certificate_authority[0].data
-    region           = data.aws_region.current.name
+    region           = data.aws_region.current.region
   })
   filename        = local.kubeconfig_path
   file_permission = "0600"

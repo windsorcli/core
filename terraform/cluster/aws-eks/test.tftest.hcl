@@ -26,7 +26,6 @@ run "minimal_configuration" {
 
   variables {
     context_id         = "test"
-    name               = "windsor-eks"
     kubernetes_version = "1.32"
   }
 
@@ -81,7 +80,7 @@ run "minimal_configuration_cloudwatch_logs_disabled" {
 
   variables {
     context_id             = "test"
-    name                   = "windsor-eks"
+    cluster_name           = "windsor-eks"
     kubernetes_version     = "1.32"
     enable_cloudwatch_logs = false
   }

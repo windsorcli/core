@@ -7,7 +7,7 @@ terraform {
   required_providers {
     azurerm = {
       source  = "hashicorp/azurerm"
-      version = "~> 4.54.0"
+      version = "~> 4.56.0"
     }
   }
 }
@@ -125,7 +125,22 @@ resource "azurerm_nat_gateway_public_ip_association" "main" {
   public_ip_address_id = azurerm_public_ip.nat[count.index].id
 }
 
-# Associate NAT Gateway with private subnet
+resource "azurerm_route_table" "private" {
+  count               = var.vnet_zones
+  name                = "${var.name}-private-${count.index + 1}-${var.context_id}"
+  location            = azurerm_resource_group.main.location
+  resource_group_name = azurerm_resource_group.main.name
+  tags = merge({
+    Name = "${var.name}-private-${count.index + 1}-${var.context_id}"
+  }, local.tags)
+}
+
+resource "azurerm_subnet_route_table_association" "private" {
+  count          = var.vnet_zones
+  subnet_id      = azurerm_subnet.private[count.index].id
+  route_table_id = azurerm_route_table.private[count.index].id
+}
+
 resource "azurerm_subnet_nat_gateway_association" "private" {
   count          = var.enable_nat_gateway ? var.vnet_zones : 0
   subnet_id      = azurerm_subnet.private[count.index].id
