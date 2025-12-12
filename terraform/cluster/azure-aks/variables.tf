@@ -340,3 +340,23 @@ variable "image_cleaner_interval_hours" {
   default     = 48
 }
 
+variable "kubelogin_mode" {
+  description = "Login mode for kubelogin convert-kubeconfig. If set, converts the kubeconfig to use this login mode. Valid values: devicecode, interactive, spn, ropc, msi, azurecli, azd, workloadidentity, azurepipelines. Leave empty to skip conversion and use the default devicecode mode from Azure."
+  type        = string
+  default     = ""
+  validation {
+    condition = var.kubelogin_mode == "" || contains([
+      "devicecode",
+      "interactive",
+      "spn",
+      "ropc",
+      "msi",
+      "azurecli",
+      "azd",
+      "workloadidentity",
+      "azurepipelines"
+    ], var.kubelogin_mode)
+    error_message = "kubelogin_mode must be empty or one of: devicecode, interactive, spn, ropc, msi, azurecli, azd, workloadidentity, azurepipelines."
+  }
+}
+
