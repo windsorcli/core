@@ -170,6 +170,11 @@ run "minimal_configuration" {
     condition     = azurerm_kubernetes_cluster.main.image_cleaner_interval_hours == 48
     error_message = "Image Cleaner interval should default to 48 hours"
   }
+
+  assert {
+    condition     = length(null_resource.convert_kubeconfig) == 0
+    error_message = "convert_kubeconfig resource should not be created when kubelogin_mode is empty (default)"
+  }
 }
 
 # Tests a full configuration with all optional variables explicitly set,
@@ -221,6 +226,8 @@ run "full_configuration" {
     enable_volume_snapshots           = true
     image_cleaner_enabled             = true
     image_cleaner_interval_hours      = 24
+    context_path                      = "/tmp"
+    kubelogin_mode                    = "azurecli"
   }
 
   assert {
@@ -397,6 +404,16 @@ run "full_configuration" {
     condition     = azurerm_kubernetes_cluster.main.image_cleaner_interval_hours == 24
     error_message = "Image Cleaner interval should match input value"
   }
+
+  assert {
+    condition     = length(null_resource.convert_kubeconfig) == 1
+    error_message = "convert_kubeconfig resource should be created when kubelogin_mode is set"
+  }
+
+  assert {
+    condition     = null_resource.convert_kubeconfig[0].triggers.login_mode == "azurecli"
+    error_message = "convert_kubeconfig trigger should include login_mode set to azurecli"
+  }
 }
 
 # Tests the private cluster configuration, ensuring that enabling the private_cluster_enabled
@@ -431,7 +448,7 @@ run "config_file_created" {
   }
 
   assert {
-    condition     = length(local_file.kube_config) >= 1
+    condition     = length(local_sensitive_file.kubeconfig) >= 1
     error_message = "Kubeconfig file should be generated when context path is provided"
   }
 }
