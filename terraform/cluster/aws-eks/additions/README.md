@@ -4,15 +4,15 @@
 | Name | Version |
 |------|---------|
 | <a name="requirement_terraform"></a> [terraform](#requirement\_terraform) | >=1.8 |
-| <a name="requirement_aws"></a> [aws](#requirement\_aws) | 6.23.0 |
-| <a name="requirement_kubernetes"></a> [kubernetes](#requirement\_kubernetes) | 2.38.0 |
+| <a name="requirement_aws"></a> [aws](#requirement\_aws) | 6.25.0 |
+| <a name="requirement_kubernetes"></a> [kubernetes](#requirement\_kubernetes) | 3.0.1 |
 
 ## Providers
 
 | Name | Version |
 |------|---------|
-| <a name="provider_aws"></a> [aws](#provider\_aws) | 6.23.0 |
-| <a name="provider_kubernetes"></a> [kubernetes](#provider\_kubernetes) | 2.38.0 |
+| <a name="provider_aws"></a> [aws](#provider\_aws) | 6.25.0 |
+| <a name="provider_kubernetes"></a> [kubernetes](#provider\_kubernetes) | 3.0.1 |
 
 ## Modules
 
@@ -22,11 +22,11 @@ No modules.
 
 | Name | Type |
 |------|------|
-| [kubernetes_config_map.external_dns](https://registry.terraform.io/providers/hashicorp/kubernetes/2.38.0/docs/resources/config_map) | resource |
-| [kubernetes_namespace.system_dns](https://registry.terraform.io/providers/hashicorp/kubernetes/2.38.0/docs/resources/namespace) | resource |
-| [aws_caller_identity.current](https://registry.terraform.io/providers/hashicorp/aws/6.23.0/docs/data-sources/caller_identity) | data source |
-| [aws_eks_cluster.current](https://registry.terraform.io/providers/hashicorp/aws/6.23.0/docs/data-sources/eks_cluster) | data source |
-| [aws_region.current](https://registry.terraform.io/providers/hashicorp/aws/6.23.0/docs/data-sources/region) | data source |
+| [kubernetes_config_map_v1.external_dns](https://registry.terraform.io/providers/hashicorp/kubernetes/3.0.1/docs/resources/config_map_v1) | resource |
+| [kubernetes_namespace_v1.system_dns](https://registry.terraform.io/providers/hashicorp/kubernetes/3.0.1/docs/resources/namespace_v1) | resource |
+| [aws_caller_identity.current](https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/data-sources/caller_identity) | data source |
+| [aws_eks_cluster.current](https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/data-sources/eks_cluster) | data source |
+| [aws_region.current](https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/data-sources/region) | data source |
 
 ## Inputs
 
