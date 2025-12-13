@@ -185,7 +185,7 @@ jobs:
         run: mkdir -p .windsor/.docker-cache
 
       - name: Cache .docker-cache
-        uses: actions/cache@9255dc7a253b0ccc959486e2bca901246202afeb # v5
+        uses: actions/cache@9255dc7a253b0ccc959486e2bca901246202afeb # v5.0.1
         with:
           path: .windsor/.docker-cache
           key: docker-cache-${{ runner.os }}-${{ github.sha }}
