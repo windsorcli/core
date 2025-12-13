@@ -23,7 +23,7 @@ packages:
   - name: docker/cli@v27.4.1
   - name: docker/compose@v5.0.0
   - name: aws/aws-cli@2.32.16
-  - name: helm/helm@v4.0.2
+  - name: helm/helm@v4.0.4
   - name: fluxcd/flux2@v2.7.5
   - name: hashicorp/vault@v1.21.1
   - name: derailed/k9s@v0.50.16
