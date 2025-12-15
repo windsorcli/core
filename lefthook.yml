@@ -1,14 +1,14 @@
 pre-commit:
   parallel: true
   commands:
-    terraform-fmt:
+    tofu-fmt:
       glob: "*.{tf,tfvars}"
-      run: terraform fmt {staged_files}
+      run: tofu fmt {staged_files}
       stage_fixed: true
 
 pre-push:
   parallel: true
   commands:
-    terraform-test:
+    tofu-test:
       glob: "*.{tf,tfvars}"
       run: task test

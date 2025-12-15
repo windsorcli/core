@@ -1,5 +1,5 @@
 # core
-Core Terraform modules and Kubernetes configurations used by [Windsor CLI](https://github.com/windsorcli/cli) to provision and manage infrastructure across multiple cloud providers.
+Core OpenTofu modules and Kubernetes configurations used by [Windsor CLI](https://github.com/windsorcli/cli) to provision and manage infrastructure across multiple cloud providers.
 
 ![CI Workflow](https://github.com/your-repo/core/actions/workflows/ci.yaml/badge.svg)
   
@@ -27,9 +27,9 @@ lefthook install
 
 ### Development Workflow
 
-- `task fmt` - Format Terraform code
-- `task test` - Run Terraform tests
-- `task docs` - Generate Terraform documentation
+- `task fmt` - Format OpenTofu code
+- `task test` - Run OpenTofu tests
+- `task docs` - Generate OpenTofu documentation
 - `task scan` - Run security scans
 
 Git hooks will automatically:

@@ -8,7 +8,7 @@ tasks:
       - cmd: source .venv/bin/activate && checkov -d {{.CLI_ARGS | default "terraform/"}} 2>/dev/null
 
   test:
-    desc: Run Terraform tests (all or specific module)
+    desc: Run OpenTofu tests (all or specific module)
     silent: true
     cmds:
       - cmd: |
@@ -22,8 +22,8 @@ tasks:
               (
                 cd "$testdir" && \
                 echo "Running tests in $testdir..." && \
-                terraform init -input=false -reconfigure && \
-                OUTPUT=$(terraform test -no-color 2>&1)
+                tofu init -input=false -reconfigure && \
+                OUTPUT=$(tofu test -no-color 2>&1)
                 TEST_EXIT=$?
                 echo "$OUTPUT"
                 if [ $TEST_EXIT -ne 0 ]; then
@@ -58,10 +58,10 @@ tasks:
           fi
 
   fmt:
-    desc: Check Terraform formatting
+    desc: Check OpenTofu formatting
     silent: true
     cmds:
-      - cmd: terraform fmt -recursive
+      - cmd: tofu fmt -recursive
 
   docs:
     desc: Generate Terraform documentation

@@ -66,14 +66,15 @@ jobs:
             echo "No shell scripts found to check"
           fi
 
-      - name: Setup Terraform
-        uses: hashicorp/setup-terraform@b9cd54a3c349d3f38e8881555d616ced269862dd # v3.1.2
+      - name: Setup OpenTofu
+        uses: opentofu/setup-opentofu@000eeb8522f0572907c393e8151076c205fdba1b # v1.0.6
         with:
-          # renovate: datasource=github-releases depName=terraform package=hashicorp/terraform
-          terraform_version: 1.14.1
+          # renovate: datasource=github-releases depName=opentofu/opentofu
+          tofu_version: 1.11.1
+          tofu_wrapper: false
 
-      - name: Run terraform fmt
-        run: terraform fmt -check -recursive
+      - name: Run tofu fmt
+        run: tofu fmt -check -recursive
 
       - name: Checkov GitHub Action
         uses: bridgecrewio/checkov-action@68260132005eaae0e6f84c7a73cc3b1532f678bf # v12.3058.0
@@ -88,24 +89,25 @@ jobs:
           sarif_file: results.sarif
 
   terraform-tests:
-    name: Terraform Tests
+    name: OpenTofu Tests
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code
         uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
 
-      - name: Setup Terraform
-        uses: hashicorp/setup-terraform@b9cd54a3c349d3f38e8881555d616ced269862dd # v3.1.2
+      - name: Setup OpenTofu
+        uses: opentofu/setup-opentofu@000eeb8522f0572907c393e8151076c205fdba1b # v1.0.6
         with:
-          # renovate: datasource=github-releases depName=terraform package=hashicorp/terraform
-          terraform_version: 1.14.1
+          # renovate: datasource=github-releases depName=opentofu/opentofu
+          tofu_version: 1.11.1
+          tofu_wrapper: false
 
       - name: Install Task
         uses: go-task/setup-task@0ab1b2a65bc55236a3bc64cde78f80e20e8885c2 # v1.0.0
         with:
           version: 3.x
 
-      - name: Run Terraform Tests
+      - name: Run OpenTofu Tests
         run: task test
 
   integration:
@@ -150,11 +152,12 @@ jobs:
           # Verify Docker is using the new data-root
           docker info | grep "Docker Root Dir" || true
 
-      - name: Setup Terraform
-        uses: hashicorp/setup-terraform@b9cd54a3c349d3f38e8881555d616ced269862dd # v3.1.2
+      - name: Setup OpenTofu
+        uses: opentofu/setup-opentofu@000eeb8522f0572907c393e8151076c205fdba1b # v1.0.6
         with:
-          # renovate: datasource=github-releases depName=terraform package=hashicorp/terraform
-          terraform_version: 1.14.1
+          # renovate: datasource=github-releases depName=opentofu/opentofu
+          tofu_version: 1.11.1
+          tofu_wrapper: false
 
       - name: Setup kubectl
         uses: azure/setup-kubectl@776406bce94f63e41d621b960d78ee25c8b76ede # v4.0.1
@@ -250,11 +253,12 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
 
-      - name: Setup Terraform
-        uses: hashicorp/setup-terraform@b9cd54a3c349d3f38e8881555d616ced269862dd # v3.1.2
+      - name: Setup OpenTofu
+        uses: opentofu/setup-opentofu@000eeb8522f0572907c393e8151076c205fdba1b # v1.0.6
         with:
-          # renovate: datasource=github-releases depName=terraform package=hashicorp/terraform
-          terraform_version: 1.14.1
+          # renovate: datasource=github-releases depName=opentofu/opentofu
+          tofu_version: 1.11.1
+          tofu_wrapper: false
 
       - name: Install Windsor CLI
         uses: windsorcli/action@f6a3c821cd1bcdfe895ef515df45b1f5390e90a2 # v0.5.0

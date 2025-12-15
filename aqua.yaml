@@ -34,3 +34,4 @@ packages:
   - name: kubernetes-sigs/krew@v0.4.5
   - name: Azure/kubelogin@v0.2.13
   - name: twistedpair/google-cloud-sdk@549.0.1
+  - name: opentofu/opentofu@v1.11.1

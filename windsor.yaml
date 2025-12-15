@@ -1,1 +1,3 @@
 version: v1alpha1
+terraform:
+  driver: opentofu
