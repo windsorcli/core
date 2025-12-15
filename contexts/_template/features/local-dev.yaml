@@ -7,10 +7,8 @@ metadata:
 when: dev == true && provider == 'generic'
 
 terraform:
-- path: gitops/flux
-  destroy: false
-  dependsOn:
-  - cluster/talos
+- name: gitops
+  path: gitops/flux
   inputs:
     git_username: ${git.livereload.username}
     git_password: ${git.livereload.password}
