@@ -7,14 +7,24 @@ metadata:
 when: provider == 'aws'
 
 terraform:
-- path: network/aws-vpc
+- name: network
+  path: network/aws-vpc
   inputs:
     cidr_block: ${network.cidr_block}
     domain_name: ${dns?.domain ?? ""}
-- path: cluster/aws-eks
-- path: cluster/aws-eks/additions
+- name: cluster
+  path: cluster/aws-eks
+  dependsOn:
+  - network
+- name: cluster-additions
+  path: cluster/aws-eks/additions
+  dependsOn:
+  - cluster
   destroy: false
-- path: gitops/flux
+- name: gitops
+  path: gitops/flux
+  dependsOn:
+  - cluster
   destroy: false
 
 kustomize:
