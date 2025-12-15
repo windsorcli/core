@@ -176,7 +176,7 @@ jobs:
         run: mkdir -p support-bundles
 
       - name: Install Windsor CLI
-        uses: windsorcli/action@f6a3c821cd1bcdfe895ef515df45b1f5390e90a2 # v0.5.0
+        uses: windsorcli/action@a829ee3c5d9826fd0b31d5e730edcd515644d866 # v0.5.1
         with:
           ref: main
           context: local
@@ -257,7 +257,7 @@ jobs:
           terraform_version: 1.14.1
 
       - name: Install Windsor CLI
-        uses: windsorcli/action@f6a3c821cd1bcdfe895ef515df45b1f5390e90a2 # v0.5.0
+        uses: windsorcli/action@a829ee3c5d9826fd0b31d5e730edcd515644d866 # v0.5.1
         with:
           ref: main
           context: local
