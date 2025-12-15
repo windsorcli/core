@@ -9,7 +9,7 @@
 #   - all
 registries:
   - type: standard
-    ref: v4.444.2 # renovate: depName=aquaproj/aqua-registry
+    ref: v4.446.0 # renovate: depName=aquaproj/aqua-registry
 packages:
   - name: hashicorp/terraform@v1.14.1
   - name: siderolabs/talos@v1.11.5
@@ -22,8 +22,8 @@ packages:
   - name: lima-vm/lima@v2.0.2
   - name: docker/cli@v27.4.1
   - name: docker/compose@v5.0.0
-  - name: aws/aws-cli@2.32.15
-  - name: helm/helm@v4.0.2
+  - name: aws/aws-cli@2.32.16
+  - name: helm/helm@v4.0.4
   - name: fluxcd/flux2@v2.7.5
   - name: hashicorp/vault@v1.21.1
   - name: derailed/k9s@v0.50.16

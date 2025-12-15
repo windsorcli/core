@@ -188,7 +188,7 @@ jobs:
         run: mkdir -p .windsor/.docker-cache
 
       - name: Cache .docker-cache
-        uses: actions/cache@a7833574556fa59680c1b7cb190c1735db73ebf0 # v5
+        uses: actions/cache@9255dc7a253b0ccc959486e2bca901246202afeb # v5.0.1
         with:
           path: .windsor/.docker-cache
           key: docker-cache-${{ runner.os }}-${{ github.sha }}
@@ -233,7 +233,7 @@ jobs:
 
       - name: Upload support bundle
         if: always()
-        uses: actions/upload-artifact@330a01c490aca151604b8cf639adc76d48f6c5d4 # v5
+        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6
         with:
           name: support-bundle-local
           path: support-bundles/
