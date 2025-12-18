@@ -16,7 +16,7 @@ spec:
         namespace: system-observability
   values:
     # renovate: datasource=docker depName=docker.elastic.co/kibana/kibana package=docker.elastic.co/kibana/kibana
-    image: docker.elastic.co/kibana/kibana:9.2.2@sha256:7cba87aa3efa410d2f7bca149b7c03c41aa523265339e0cc2bcc84d68f7082fc
+    image: docker.elastic.co/kibana/kibana:9.2.3@sha256:d9629c58a2c02242eaaa2a7c953df3c89f5cf4c7dc856a973b1fd3afea0cd820
     kibanaConfig:
       kibana.yml: |
         elasticsearch.ssl.certificateAuthorities: ["/usr/share/kibana/config/certs/ca.crt"]
