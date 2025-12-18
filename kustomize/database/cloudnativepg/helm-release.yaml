@@ -1,0 +1,46 @@
+---
+apiVersion: helm.toolkit.fluxcd.io/v2
+kind: HelmRelease
+metadata:
+  name: cloudnativepg
+  namespace: system-database
+spec:
+  interval: 5m
+  timeout: 10m
+  chart:
+    spec:
+      chart: cloudnative-pg
+      # renovate: datasource=helm depName=cloudnative-pg package=cloudnative-pg helmRepo=https://cloudnative-pg.github.io/charts
+      version: "0.25.0"
+      sourceRef:
+        kind: HelmRepository
+        name: cloudnativepg
+        namespace: system-gitops
+  values:
+    config:
+      clusterWide: true
+    operator:
+      image:
+        # renovate: datasource=docker depName=ghcr.io/cloudnative-pg/cloudnative-pg package=ghcr.io/cloudnative-pg/cloudnative-pg
+        tag: v1.27.1@sha256:613668dc869777a9ef1c9954642ba9378f54838ed80db91eba39a6ad7ad5cb4a
+      resources:
+        requests:
+          cpu: 250m
+          memory: 256Mi
+        limits:
+          memory: 256Mi
+      securityContext:
+        runAsNonRoot: true
+        allowPrivilegeEscalation: false
+        capabilities:
+          drop:
+            - ALL
+        seccompProfile:
+          type: RuntimeDefault
+      webhook:
+        enabled: true
+        failurePolicy: Fail
+      updateStrategy:
+        type: RollingUpdate
+        rollingUpdate:
+          maxUnavailable: 0

@@ -1,0 +1,27 @@
+---
+apiVersion: helm.toolkit.fluxcd.io/v2
+kind: HelmRelease
+metadata:
+  name: cloudnativepg
+  namespace: system-database
+spec:
+  values:
+    operator:
+      replicaCount: 2
+      affinity:
+        podAntiAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+            - labelSelector:
+                matchExpressions:
+                  - key: app.kubernetes.io/name
+                    operator: In
+                    values:
+                      - cloudnative-pg
+              topologyKey: kubernetes.io/hostname
+      podDisruptionBudget:
+        enabled: true
+        minAvailable: 1
+      updateStrategy:
+        rollingUpdate:
+          maxUnavailable: 1
+
