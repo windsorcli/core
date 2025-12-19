@@ -1,0 +1,15 @@
+---
+apiVersion: postgresql.cnpg.io/v1
+kind: Cluster
+metadata:
+  name: demo-cluster
+  namespace: demo-database
+spec:
+  instances: 1
+  postgresql:
+    parameters:
+      max_connections: "100"
+  storage:
+    size: 1Gi
+  monitoring:
+    enablePodMonitor: true

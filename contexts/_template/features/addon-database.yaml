@@ -1,0 +1,33 @@
+kind: Feature
+apiVersion: blueprints.windsorcli.dev/v1alpha1
+metadata:
+  name: database
+  description: PostgreSQL database service with CloudNativePG
+
+when: addons.database.postgres.enabled == true || dev == true
+
+kustomize:
+
+  # CloudNativePG operator base
+  - name: database
+    path: database
+    when: addons.database.postgres.driver == 'cloudnativepg' || dev == true
+    dependsOn:
+      - csi
+    components:
+      - cloudnativepg
+      - cloudnativepg/prometheus
+
+  # High availability configuration
+  - name: database
+    path: database
+    when: addons.database.postgres.driver == 'cloudnativepg' && ha == true
+    components:
+      - cloudnativepg/ha
+
+  # CloudNativePG Grafana dashboard
+  - name: observability
+    path: observability
+    when: addons.database.postgres.driver == 'cloudnativepg' && addons.observability.enabled == true
+    components:
+      - grafana/cloudnativepg
