@@ -32,7 +32,7 @@ kustomize:
 # Ingress
 - name: ingress
   path: ingress
-  when: ingress.enabled == true && ingress.driver == 'nginx'
+  when: ingress?.enabled == true && ingress?.driver == 'nginx'
   dependsOn:
   - pki-base
   components:

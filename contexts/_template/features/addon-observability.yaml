@@ -4,7 +4,7 @@ metadata:
   name: observability
   description: Observability stack with multiple log storage drivers
 
-when: addons.observability.enabled == true || dev == true
+when: addons?.observability?.enabled == true || dev == true
 
 kustomize:
   # Dashboards
@@ -20,12 +20,12 @@ kustomize:
       - grafana/kubernetes
       - grafana/flux
     substitutions:
-      external_domain: ${dns.domain}
+      external_domain: ${dns?.domain}
 
   # FluentD outputs
   - name: observability
     path: observability
-    when: addons.observability.logs_driver == 'stdout'
+    when: addons?.observability?.logs_driver == 'stdout'
     dependsOn:
       - telemetry-base
     components:
@@ -36,7 +36,7 @@ kustomize:
   # Quickwit log storage
   - name: observability
     path: observability
-    when: addons.observability.logs_driver == 'quickwit'
+    when: addons?.observability?.logs_driver == 'quickwit'
     dependsOn:
       - csi
       - telemetry-base
@@ -51,7 +51,7 @@ kustomize:
   # Elasticsearch + Kibana
   - name: observability
     path: observability
-    when: addons.observability.logs_driver == 'elasticsearch'
+    when: addons?.observability?.logs_driver == 'elasticsearch'
     dependsOn:
       - csi
       - ingress
@@ -60,12 +60,12 @@ kustomize:
       - kibana
       - kibana/ingress
     substitutions:
-      external_domain: ${dns.domain}
+      external_domain: ${dns?.domain}
 
   # Elasticsearch telemetry
   - name: telemetry-base
     path: telemetry/base
-    when: addons.observability.logs_driver == 'elasticsearch'
+    when: addons?.observability?.logs_driver == 'elasticsearch'
     strategy: replace
     components:
       - prometheus
@@ -73,7 +73,7 @@ kustomize:
       - filebeat
   - name: telemetry-resources
     path: telemetry/resources
-    when: addons.observability.logs_driver == 'elasticsearch'
+    when: addons?.observability?.logs_driver == 'elasticsearch'
     strategy: replace
     dependsOn:
       - telemetry-base
