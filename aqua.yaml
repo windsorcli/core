@@ -19,7 +19,7 @@ packages:
   - name: go-task/task@v3.46.4
   - name: golang/go@go1.25.5
   - name: abiosoft/colima@v0.9.1
-  - name: lima-vm/lima@v2.0.2
+  - name: lima-vm/lima@v2.0.3
   - name: docker/cli@v27.4.1
   - name: docker/compose@v5.0.1
   - name: aws/aws-cli@2.32.23
