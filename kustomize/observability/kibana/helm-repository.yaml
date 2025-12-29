@@ -4,5 +4,5 @@ metadata:
   name: elastic-kibana
   namespace: system-observability
 spec:
-  interval: 1h
+  interval: 10m
   url: https://helm.elastic.co

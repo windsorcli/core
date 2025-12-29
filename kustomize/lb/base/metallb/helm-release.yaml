@@ -5,7 +5,7 @@ metadata:
   namespace: system-lb
 spec:
   interval: 5m
-  timeout: 5m
+  timeout: 10m
   chart:
     spec:
       chart: metallb

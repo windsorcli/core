@@ -8,26 +8,28 @@ when: addons?.database?.postgres?.enabled == true || dev == true
 
 kustomize:
 
-  # CloudNativePG operator base
-  - name: database
-    path: database
-    when: addons?.database?.postgres?.driver == 'cloudnativepg' || dev == true
-    dependsOn:
-      - csi
-    components:
-      - cloudnativepg
-      - cloudnativepg/prometheus
+# CloudNativePG operator base
+- name: database
+  path: database
+  when: addons?.database?.postgres?.driver == 'cloudnativepg' || dev == true
+  timeout: 15m
+  interval: 10m
+  dependsOn:
+    - csi
+  components:
+    - cloudnativepg
+    - cloudnativepg/prometheus
 
-  # High availability configuration
-  - name: database
-    path: database
-    when: addons?.database?.postgres?.driver == 'cloudnativepg' && ha == true
-    components:
-      - cloudnativepg/ha
+# High availability configuration
+- name: database
+  path: database
+  when: addons?.database?.postgres?.driver == 'cloudnativepg' && ha == true
+  components:
+    - cloudnativepg/ha
 
-  # CloudNativePG Grafana dashboard
-  - name: observability
-    path: observability
-    when: addons?.database?.postgres?.driver == 'cloudnativepg' && addons?.observability?.enabled == true
-    components:
-      - grafana/cloudnativepg
+# CloudNativePG Grafana dashboard
+- name: observability
+  path: observability
+  when: addons?.database?.postgres?.driver == 'cloudnativepg' && addons?.observability?.enabled == true
+  components:
+    - grafana/cloudnativepg

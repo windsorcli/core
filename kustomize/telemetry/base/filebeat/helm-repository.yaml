@@ -4,5 +4,5 @@ metadata:
   name: elastic-filebeat
   namespace: system-telemetry
 spec:
-  interval: 1h
+  interval: 10m
   url: https://helm.elastic.co
