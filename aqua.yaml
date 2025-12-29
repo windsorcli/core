@@ -30,7 +30,7 @@ packages:
   - name: getsops/sops@v3.11.0
   - name: 1password/cli@v2.30.3
   - name: evilmartians/lefthook@v2.0.13
-  - name: bridgecrewio/checkov@3.2.495
+  - name: bridgecrewio/checkov@3.2.496
   - name: kubernetes-sigs/krew@v0.4.5
   - name: Azure/kubelogin@v0.2.13
   - name: twistedpair/google-cloud-sdk@550.0.0
