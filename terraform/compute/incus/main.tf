@@ -348,5 +348,5 @@ module "instances" {
   # Local files are created via incus_image resource and have fingerprints
   # Remote images are passed directly to instances (they pull on demand, may have concurrent pulls)
   # Network will be destroyed after all instances are destroyed
-  depends_on = [incus_storage_volume.disks, incus_image.local]
+  depends_on = [incus_network.main, incus_storage_volume.disks, incus_image.local]
 }
