@@ -193,14 +193,15 @@ locals {
             )
           )
         ) : instance.ipv4
-        limits        = instance.limits
-        profiles      = instance.profiles
-        devices       = instance.devices
-        proxy_devices = instance.proxy_devices
-        secureboot    = instance.secureboot
-        qemu_args     = instance.qemu_args
-        disks         = instance.disks
-        config        = instance.config
+        limits         = instance.limits
+        profiles       = instance.profiles
+        devices        = instance.devices
+        proxy_devices  = instance.proxy_devices
+        secureboot     = instance.secureboot
+        qemu_args      = instance.qemu_args
+        root_disk_size = instance.root_disk_size
+        disks          = instance.disks
+        config         = instance.config
       }
     ]
   ])
