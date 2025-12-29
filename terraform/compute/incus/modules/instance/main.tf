@@ -30,7 +30,8 @@ locals {
           var.network_config,
           # Add static IPv4 if specified (requires security.ipv4_filtering when DHCP is disabled)
           # Device ipv4.address expects IP only, not CIDR notation
-          var.ipv4 != null ? {
+          # Only apply IPv4 to primary interface (eth0)
+          var.ipv4 != null && idx == 0 ? {
             "ipv4.address"            = split("/", var.ipv4)[0] # Extract IP address only (remove /prefix)
             "security.ipv4_filtering" = "true"                  # Required to allow static IP when DHCP is disabled
           } : {}
