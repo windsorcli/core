@@ -358,3 +358,25 @@ run "ipv4_conflict_detection" {
   }
 }
 
+# Verifies that IP address octet overflow is detected when count > 1 would increment beyond 255.
+# Tests that an instance with count > 1 and explicit IP that would overflow the last octet is rejected.
+run "ipv4_octet_overflow_detection" {
+  command = plan
+  expect_failures = [
+    check.ipv4_octet_overflow,
+  ]
+
+  variables {
+    context_id   = "test"
+    network_cidr = "10.80.0.0/24"
+    instances = [
+      {
+        name  = "overflow-instance"
+        count = 10
+        image = "ubuntu/22.04"
+        ipv4  = "10.80.0.250/24" # This would create IPs: 10.80.0.250 through 10.80.0.259 (last octet 259 > 255)
+      }
+    ]
+  }
+}
+

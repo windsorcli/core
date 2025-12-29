@@ -152,6 +152,19 @@ locals {
   # Calculate starting IP offset (skip gateway, typically .1)
   ip_start_offset = 2 # Start from .2 (assuming .1 is gateway)
 
+  # Validate IP octet overflow before expansion
+  # Check that instances with count > 1 and explicit ipv4 won't overflow the last octet
+  ip_octet_overflow_instances = [
+    for instance in var.instances : {
+      name       = instance.name
+      ipv4       = instance.ipv4
+      count      = instance.count
+      last_octet = instance.ipv4 != null ? tonumber(split(".", split("/", instance.ipv4)[0])[3]) : null
+      max_octet  = instance.ipv4 != null && instance.count > 1 ? tonumber(split(".", split("/", instance.ipv4)[0])[3]) + (instance.count - 1) : null
+    }
+    if instance.ipv4 != null && instance.count > 1 && tonumber(split(".", split("/", instance.ipv4)[0])[3]) + (instance.count - 1) > 255
+  ]
+
   # Expand instances: when count > 1, name becomes prefix with -0, -1, etc.
   expanded_instances = flatten([
     for instance in var.instances : [
@@ -278,6 +291,27 @@ locals {
     if length(instances) > 1
   }
 
+}
+
+# Validate that IP address octet overflow doesn't occur when incrementing with count > 1
+# Prevents invalid IPs like 10.0.0.260 when base IP is 10.0.0.250 with count=10
+check "ipv4_octet_overflow" {
+  assert {
+    condition = length(local.ip_octet_overflow_instances) == 0
+    error_message = <<-EOT
+      IPv4 address octet overflow detected. The following instances would generate invalid IP addresses:
+      ${join("\n", [
+    for inst in local.ip_octet_overflow_instances : "  Instance '${inst.name}' with ipv4='${inst.ipv4}' and count=${inst.count} would overflow last octet (max would be ${inst.max_octet}, valid range is 0-255)"
+])}
+      
+      This occurs when an instance with count > 1 and an explicit ipv4 address would increment the last octet beyond 255.
+      For example, ipv4="10.0.0.250/24" with count=10 would try to create IPs up to 10.0.0.259, which is invalid.
+      
+      Solution: Ensure that (last_octet + count - 1) <= 255. For example:
+      - ipv4="10.0.0.250/24" with count=6 is valid (250 + 5 = 255)
+      - ipv4="10.0.0.250/24" with count=10 is invalid (250 + 9 = 259 > 255)
+      EOT
+}
 }
 
 # Validate that no IP addresses are assigned to multiple instances
