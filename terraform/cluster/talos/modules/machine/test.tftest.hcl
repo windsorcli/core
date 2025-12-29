@@ -235,6 +235,8 @@ run "health_check_command_bootstrap_mode" {
   variables {
     bootstrap     = true
     hostname      = "test-node"
+    node          = "192.168.1.10"
+    endpoint      = "192.168.1.10:50000"
     disk_selector = null
   }
 
@@ -244,8 +246,13 @@ run "health_check_command_bootstrap_mode" {
   }
 
   assert {
-    condition     = strcontains(local.health_check_command, "test-node")
-    error_message = "Should include node name in health check command"
+    condition     = strcontains(local.health_check_command, "--skip-services dashboard")
+    error_message = "Should include --skip-services dashboard flag to skip dashboard health check"
+  }
+
+  assert {
+    condition     = strcontains(local.health_check_command, "192.168.1.10")
+    error_message = "Should use IP address (var.node when it's an IP, otherwise var.endpoint) instead of hostname for health check to avoid DNS resolution issues"
   }
 }
 
@@ -253,6 +260,8 @@ run "health_check_command_non_bootstrap_mode" {
   variables {
     bootstrap     = false
     hostname      = "test-node"
+    node          = "192.168.1.20"
+    endpoint      = "192.168.1.20:50000"
     disk_selector = null
   }
 
@@ -262,8 +271,13 @@ run "health_check_command_non_bootstrap_mode" {
   }
 
   assert {
-    condition     = strcontains(local.health_check_command, "test-node")
-    error_message = "Should include node name in health check command"
+    condition     = strcontains(local.health_check_command, "--skip-services dashboard")
+    error_message = "Should include --skip-services dashboard flag to skip dashboard health check"
+  }
+
+  assert {
+    condition     = strcontains(local.health_check_command, "192.168.1.20")
+    error_message = "Should use IP address (var.node when it's an IP, otherwise var.endpoint) instead of hostname for health check to avoid DNS resolution issues"
   }
 }
 
@@ -271,11 +285,32 @@ run "health_check_command_without_hostname" {
   variables {
     bootstrap     = true
     hostname      = ""
+    endpoint      = "dummy:50000"
     disk_selector = null
   }
 
   assert {
     condition     = strcontains(local.health_check_command, "dummy")
     error_message = "Should use node address when hostname is empty"
+  }
+}
+
+run "health_check_command_with_hostname_as_node" {
+  variables {
+    bootstrap     = false
+    hostname      = "test-node"
+    node          = "test-node"  # Hostname instead of IP
+    endpoint      = "192.168.1.30:50000"  # Endpoint is always IP
+    disk_selector = null
+  }
+
+  assert {
+    condition     = strcontains(local.health_check_command, "192.168.1.30")
+    error_message = "Should use endpoint IP address when node is a hostname to avoid DNS resolution issues"
+  }
+
+  assert {
+    condition     = !strcontains(local.health_check_command, "test-node")
+    error_message = "Should not use hostname in health check command"
   }
 }
