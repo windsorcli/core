@@ -299,8 +299,8 @@ run "health_check_command_with_hostname_as_node" {
   variables {
     bootstrap     = false
     hostname      = "test-node"
-    node          = "test-node"  # Hostname instead of IP
-    endpoint      = "192.168.1.30:50000"  # Endpoint is always IP
+    node          = "test-node"          # Hostname instead of IP
+    endpoint      = "192.168.1.30:50000" # Endpoint is always IP
     disk_selector = null
   }
 

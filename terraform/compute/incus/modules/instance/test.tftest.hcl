@@ -8,8 +8,8 @@ run "minimal_configuration" {
   command = plan
 
   variables {
-    name        = "test-instance"
-    image       = "ubuntu/22.04"
+    name         = "test-instance"
+    image        = "ubuntu/22.04"
     network_name = "test-network"
   }
 
@@ -110,10 +110,10 @@ run "custom_networks_override_default" {
   command = plan
 
   variables {
-    name        = "multi-net-instance"
-    image       = "ubuntu/22.04"
+    name         = "multi-net-instance"
+    image        = "ubuntu/22.04"
     network_name = "default-network"
-    networks    = ["network1", "network2"]
+    networks     = ["network1", "network2"]
   }
 
   assert {
@@ -166,8 +166,8 @@ run "file_path_bind_mount" {
   command = plan
 
   variables {
-    name        = "bind-mount-instance"
-    image       = "ubuntu/22.04"
+    name         = "bind-mount-instance"
+    image        = "ubuntu/22.04"
     network_name = "test-network"
     disks = [
       {
@@ -213,10 +213,10 @@ run "invalid_instance_type" {
   ]
 
   variables {
-    name        = "invalid-instance"
-    image       = "ubuntu/22.04"
+    name         = "invalid-instance"
+    image        = "ubuntu/22.04"
     network_name = "test-network"
-    type        = "invalid-type"
+    type         = "invalid-type"
   }
 }
 

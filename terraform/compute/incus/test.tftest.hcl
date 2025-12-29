@@ -49,14 +49,14 @@ run "full_configuration" {
   command = plan
 
   variables {
-    context_id        = "test"
-    network_name      = "custom-network"
-    create_network    = true
+    context_id          = "test"
+    network_name        = "custom-network"
+    create_network      = true
     network_description = "Custom network description"
-    network_type      = "bridge"
-    network_cidr      = "10.10.0.0/24"
-    enable_dhcp       = false
-    enable_nat        = false
+    network_type        = "bridge"
+    network_cidr        = "10.10.0.0/24"
+    enable_dhcp         = false
+    enable_nat          = false
     network_config = {
       "ipv4.routes" = "10.0.0.0/8"
     }
@@ -150,9 +150,9 @@ run "no_network_creation" {
   command = plan
 
   variables {
-    context_id   = "test"
+    context_id     = "test"
     create_network = false
-    network_name = "existing-network"
+    network_name   = "existing-network"
   }
 
   assert {
@@ -172,7 +172,7 @@ run "network_cidr_configuration" {
   command = plan
 
   variables {
-    context_id  = "test"
+    context_id   = "test"
     network_cidr = "10.20.0.0/24"
   }
 
@@ -188,7 +188,7 @@ run "instance_expansion_with_count" {
   command = plan
 
   variables {
-    context_id = "test"
+    context_id   = "test"
     network_cidr = "10.30.0.0/24"
     instances = [
       {
@@ -347,19 +347,19 @@ run "ipv4_conflict_detection" {
   ]
 
   variables {
-    context_id  = "test"
+    context_id   = "test"
     network_cidr = "10.70.0.0/24"
     instances = [
       {
         name  = "pool-instance"
         count = 3
         image = "ubuntu/22.04"
-        ipv4  = "10.70.0.10/24"  # This creates IPs: 10.70.0.10, 10.70.0.11, 10.70.0.12
+        ipv4  = "10.70.0.10/24" # This creates IPs: 10.70.0.10, 10.70.0.11, 10.70.0.12
       },
       {
         name  = "conflicting-instance"
         image = "ubuntu/22.04"
-        ipv4  = "10.70.0.11/24"  # This conflicts with pool-instance-1's IP
+        ipv4  = "10.70.0.11/24" # This conflicts with pool-instance-1's IP
       }
     ]
   }
