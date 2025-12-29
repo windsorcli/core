@@ -81,20 +81,6 @@ resource "incus_network" "main" {
 # Image Resources
 # =============================================================================
 
-locals {
-  # Create image manifest map keyed by alias (for resolving instance image aliases)
-  images_map = {
-    for img in var.images : img.alias => img
-  }
-
-  # Collect all local file paths from manifest (for creating incus_image resources)
-  # Only create resources for local files that exist
-  image_local_files = {
-    for alias, img in local.images_map : img.source_file => img.source_file
-    if lookup(img, "source_file", null) != null && fileexists(img.source_file)
-  }
-}
-
 # Import local files via incus_image resource - returns fingerprint
 resource "incus_image" "local" {
   for_each = local.image_local_files
@@ -243,23 +229,24 @@ locals {
     )
   ]
 
-  # Map instance images: resolve aliases from manifest
-  # Local files: get fingerprints from incus_image resource
-  # Remote images: resolve alias to "remote:image" format - instances will pull on demand
-  # Direct paths/refs: pass through as-is
+  # Collect local file paths from all instances (after expansion)
+  # Detects both Unix (/path) and Windows (C:\path or C:/path) file paths
+  # Only includes files that actually exist
+  image_local_files = {
+    for instance in local.all_instances : instance.image => instance.image
+    if fileexists(instance.image)
+  }
+
+  # Map instance images: resolve local files to fingerprints, pass through others as-is
+  # Local files (detected from instances): get fingerprints from incus_image resource
+  # Remote images, fingerprints, or other refs: pass through as-is
   # Note: This may cause concurrent pull issues for remote images, but incus_image resource doesn't work for remotes
   instance_images = {
     for instance in local.all_instances : instance.name => (
-      # If instance.image is an alias in manifest, resolve it
-      contains(keys(local.images_map), instance.image)
-      ? (
-        # If manifest entry has source_file, it's a local file - use fingerprint
-        lookup(local.images_map[instance.image], "source_file", null) != null && fileexists(local.images_map[instance.image].source_file)
-        ? incus_image.local[local.images_map[instance.image].source_file].fingerprint
-        # Otherwise it's a remote - build "remote:image" format
-        : "${local.images_map[instance.image].remote}:${local.images_map[instance.image].image}"
-      )
-      # Not in manifest - pass through as-is (could be direct file path, remote ref, or fingerprint)
+      # If instance.image is a local file path (Unix or Windows), use fingerprint
+      fileexists(instance.image)
+      ? incus_image.local[instance.image].fingerprint
+      # Otherwise pass through as-is (could be remote ref, fingerprint, or alias)
       : instance.image
     )
   }

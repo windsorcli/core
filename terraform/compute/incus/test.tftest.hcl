@@ -44,7 +44,7 @@ run "minimal_configuration" {
 }
 
 # Tests a full configuration with all optional variables explicitly set.
-# Validates that user-supplied values override defaults for network, images, and instances.
+# Validates that user-supplied values override defaults for network and instances.
 run "full_configuration" {
   command = plan
 
@@ -60,17 +60,10 @@ run "full_configuration" {
     network_config = {
       "ipv4.routes" = "10.0.0.0/8"
     }
-    images = [
-      {
-        alias  = "test-image"
-        remote = "ghcr"
-        image  = "ubuntu/22.04"
-      }
-    ]
     instances = [
       {
         name        = "test-instance"
-        image       = "test-image"
+        image       = "ghcr:ubuntu/22.04"
         type        = "container"
         description = "Test instance"
         ephemeral   = true

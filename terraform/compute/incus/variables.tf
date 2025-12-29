@@ -66,19 +66,6 @@ variable "network_target" {
   default     = null
 }
 
-variable "images" {
-  description = "Image manifest - list of images to load. Instances reference images by alias. Local files are imported, remote images are pulled via incus_image resource. Protocol is automatically inferred from remote name, but can be overridden."
-  type = list(object({
-    alias    = string           # Alias/name to reference this image (e.g., "registry", "coredns")
-    remote   = optional(string) # Remote to pull image from (e.g., "docker", "ghcr", "windsor"). Required for remote images.
-    image    = optional(string) # Image name/identifier on the remote (e.g., "registry:3.0.0", "coredns/coredns:1.13.2"). Required for remote images.
-    protocol = optional(string) # Remote protocol type: "oci" or "simplestreams". If not specified, inferred from remote name based on provider configuration.
-    # OR for local files:
-    source_file = optional(string) # Local file path for importing image files
-  }))
-  default = []
-}
-
 variable "instances" {
   description = "List of instances. Use count > 1 to create pools (instances named {name}-0, {name}-1, etc.)"
   type = list(object({
