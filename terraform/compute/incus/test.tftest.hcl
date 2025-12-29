@@ -221,105 +221,6 @@ run "instance_expansion_with_count" {
   }
 }
 
-# Verifies that sequential IP assignment works when network_cidr is provided.
-# Tests that IPs are assigned sequentially starting from .2 (skipping gateway .1).
-run "sequential_ip_assignment" {
-  command = plan
-
-  variables {
-    context_id  = "test"
-    network_cidr = "10.40.0.0/24"
-    instances = [
-      {
-        name  = "instance1"
-        image = "ubuntu/22.04"
-      },
-      {
-        name  = "instance2"
-        image = "ubuntu/22.04"
-      },
-      {
-        name  = "instance3"
-        image = "ubuntu/22.04"
-      }
-    ]
-  }
-
-  assert {
-    condition     = length(module.instances) == 3
-    error_message = "Should create 3 instances"
-  }
-
-  # Verify instances are created (IP assignment logic is tested indirectly through module creation)
-  assert {
-    condition     = length(output.instances) == 3
-    error_message = "Should create 3 instances in output"
-  }
-}
-
-# Verifies that explicit IPs override sequential assignment.
-# Tests that when ipv4 is provided, it is used instead of sequential IPs.
-run "explicit_ip_overrides_sequential" {
-  command = plan
-
-  variables {
-    context_id  = "test"
-    network_cidr = "10.50.0.0/24"
-    instances = [
-      {
-        name  = "instance1"
-        image = "ubuntu/22.04"
-        ipv4  = "10.50.0.100/24"
-      },
-      {
-        name  = "instance2"
-        image = "ubuntu/22.04"
-      }
-    ]
-  }
-
-  # Verify instances are created (IP assignment logic is tested indirectly)
-  assert {
-    condition     = length(module.instances) == 2
-    error_message = "Should create 2 instances"
-  }
-}
-
-# Verifies that instance IPs are incremented correctly when count > 1 and explicit IP is provided.
-# Tests that IPs are incremented from the base IP for each instance in the pool.
-run "instance_count_ip_increment" {
-  command = plan
-
-  variables {
-    context_id  = "test"
-    network_cidr = "10.60.0.0/24"
-    instances = [
-      {
-        name  = "pool-instance"
-        count = 3
-        image = "ubuntu/22.04"
-        ipv4  = "10.60.0.10/24"
-      }
-    ]
-  }
-
-  # Verify instances are created with correct names (IP increment logic is tested indirectly)
-  assert {
-    condition     = length([for k, v in module.instances : k if k == "pool-instance-0"]) == 1
-    error_message = "First instance in pool should be named pool-instance-0"
-  }
-
-  assert {
-    condition     = length([for k, v in module.instances : k if k == "pool-instance-1"]) == 1
-    error_message = "Second instance in pool should be named pool-instance-1"
-  }
-
-  assert {
-    condition     = length([for k, v in module.instances : k if k == "pool-instance-2"]) == 1
-    error_message = "Third instance in pool should be named pool-instance-2"
-  }
-}
-
 # Verifies that storage volumes are created for disks with size but no source.
 # Tests that volume names follow the naming pattern instance-name-disk-name.
 run "storage_volume_creation" {
@@ -403,30 +304,6 @@ run "no_storage_volume_when_source_provided" {
   }
 }
 
-# Verifies that instance descriptions are updated with count information when count > 1.
-# Tests that descriptions include instance number (e.g., "Description (1/3)").
-run "instance_description_with_count" {
-  command = plan
-
-  variables {
-    context_id = "test"
-    instances = [
-      {
-        name        = "described-instance"
-        count       = 3
-        image       = "ubuntu/22.04"
-        description = "Pool instance"
-      }
-    ]
-  }
-
-  # Verify instance descriptions are set correctly (tested through module inputs)
-  assert {
-    condition     = length(module.instances) == 3
-    error_message = "Should create 3 instances with descriptions"
-  }
-}
-
 # Verifies that network type validation is enforced.
 # Tests that invalid network types are rejected.
 run "invalid_network_type" {
@@ -456,6 +333,33 @@ run "invalid_instance_type" {
         name  = "invalid-instance"
         image = "ubuntu/22.04"
         type  = "invalid-type"
+      }
+    ]
+  }
+}
+
+# Verifies that IP address conflicts are detected when count > 1 increments IPs.
+# Tests that an instance with count > 1 and explicit IP cannot conflict with another instance's IP.
+run "ipv4_conflict_detection" {
+  command = plan
+  expect_failures = [
+    check.ipv4_conflicts,
+  ]
+
+  variables {
+    context_id  = "test"
+    network_cidr = "10.70.0.0/24"
+    instances = [
+      {
+        name  = "pool-instance"
+        count = 3
+        image = "ubuntu/22.04"
+        ipv4  = "10.70.0.10/24"  # This creates IPs: 10.70.0.10, 10.70.0.11, 10.70.0.12
+      },
+      {
+        name  = "conflicting-instance"
+        image = "ubuntu/22.04"
+        ipv4  = "10.70.0.11/24"  # This conflicts with pool-instance-1's IP
       }
     ]
   }

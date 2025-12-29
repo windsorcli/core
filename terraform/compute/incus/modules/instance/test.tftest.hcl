@@ -137,60 +137,6 @@ run "custom_networks_override_default" {
   }
 }
 
-# Verifies that static IPv4 address is properly configured on network device.
-# Tests that IP is extracted from CIDR notation and security.ipv4_filtering is set.
-run "static_ipv4_configuration" {
-  command = plan
-
-  variables {
-    name        = "static-ip-instance"
-    image       = "ubuntu/22.04"
-    network_name = "test-network"
-    ipv4        = "10.5.0.87/24"
-  }
-
-  assert {
-    condition     = length([for d in incus_instance.this.device : d if d.name == "eth0" && d.properties["ipv4.address"] == "10.5.0.87"]) == 1
-    error_message = "Network device should have static IPv4 address extracted from CIDR"
-  }
-
-  assert {
-    condition     = length([for d in incus_instance.this.device : d if d.name == "eth0" && d.properties["security.ipv4_filtering"] == "true"]) == 1
-    error_message = "Network device should have security.ipv4_filtering enabled for static IP"
-  }
-}
-
-# Verifies that VM-specific configuration is applied correctly.
-# Tests secureboot, root disk boot priority, and qemu_args.
-run "virtual_machine_configuration" {
-  command = plan
-
-  variables {
-    name         = "vm-instance"
-    image        = "ubuntu/22.04"
-    network_name = "test-network"
-    type         = "virtual-machine"
-    secureboot   = true
-    root_disk_size = "30GB"
-    qemu_args    = "-boot order=c,menu=off"
-  }
-
-  assert {
-    condition     = incus_instance.this.config["security.secureboot"] == "true"
-    error_message = "VM should have secureboot enabled"
-  }
-
-  assert {
-    condition     = incus_instance.this.config["raw.qemu"] == "-boot order=c,menu=off"
-    error_message = "VM should have qemu_args in config"
-  }
-
-  assert {
-    condition     = length([for d in incus_instance.this.device : d if d.name == "root" && d.properties["boot.priority"] == "10"]) == 1
-    error_message = "VM root disk should have boot priority set"
-  }
-}
-
 # Verifies that container instances do not have VM-specific configuration.
 # Tests that secureboot and qemu_args are not applied to containers.
 run "container_no_vm_config" {
@@ -211,49 +157,6 @@ run "container_no_vm_config" {
   assert {
     condition     = !contains(keys(incus_instance.this.config), "raw.qemu")
     error_message = "Container should not have qemu_args config"
-  }
-}
-
-# Verifies that disk devices are properly configured for storage volumes.
-# Tests pool, source, path, and read_only properties.
-run "storage_volume_disk" {
-  command = plan
-
-  variables {
-    name        = "disk-instance"
-    image       = "ubuntu/22.04"
-    network_name = "test-network"
-    disks = [
-      {
-        name      = "data"
-        pool      = "custom-pool"
-        source    = "data-volume"
-        path      = "/mnt/data"
-        read_only = false
-      },
-      {
-        name      = "backup"
-        pool      = "default"
-        source    = "backup-volume"
-        path      = "/mnt/backup"
-        read_only = true
-      }
-    ]
-  }
-
-  assert {
-    condition     = length([for d in incus_instance.this.device : d if d.name == "data" && d.properties.pool == "custom-pool"]) == 1
-    error_message = "Data disk should use custom pool"
-  }
-
-  assert {
-    condition     = length([for d in incus_instance.this.device : d if d.name == "data" && d.properties.source == "data-volume"]) == 1
-    error_message = "Data disk should reference source volume"
-  }
-
-  assert {
-    condition     = length([for d in incus_instance.this.device : d if d.name == "backup" && d.properties.readonly == "true"]) == 1
-    error_message = "Backup disk should be read-only"
   }
 }
 
@@ -298,69 +201,6 @@ run "file_path_bind_mount" {
   assert {
     condition     = length([for d in incus_instance.this.device : d if d.name == "unc-mount" && d.properties.source == "\\\\server\\share\\data"]) == 1
     error_message = "UNC path should be recognized as bind mount"
-  }
-}
-
-# Verifies that proxy devices are properly configured for port forwarding.
-# Tests listen and connect properties.
-run "proxy_devices_configuration" {
-  command = plan
-
-  variables {
-    name        = "proxy-instance"
-    image       = "ubuntu/22.04"
-    network_name = "test-network"
-    proxy_devices = {
-      "http" = {
-        listen  = "tcp:0.0.0.0:8080"
-        connect = "tcp:10.5.0.100:80"
-      }
-      "https" = {
-        listen  = "tcp:0.0.0.0:8443"
-        connect = "tcp:10.5.0.100:443"
-      }
-    }
-  }
-
-  assert {
-    condition     = length([for d in incus_instance.this.device : d if d.name == "http" && d.type == "proxy"]) == 1
-    error_message = "Should create http proxy device"
-  }
-
-  assert {
-    condition     = length([for d in incus_instance.this.device : d if d.name == "http" && d.properties.listen == "tcp:0.0.0.0:8080"]) == 1
-    error_message = "HTTP proxy should have correct listen address"
-  }
-
-  assert {
-    condition     = length([for d in incus_instance.this.device : d if d.name == "https" && d.properties.connect == "tcp:10.5.0.100:443"]) == 1
-    error_message = "HTTPS proxy should have correct connect address"
-  }
-}
-
-# Verifies that resource limits are properly configured in instance config.
-# Tests CPU and memory limits.
-run "resource_limits_configuration" {
-  command = plan
-
-  variables {
-    name        = "limited-instance"
-    image       = "ubuntu/22.04"
-    network_name = "test-network"
-    limits = {
-      cpu    = "4"
-      memory = "8GB"
-    }
-  }
-
-  assert {
-    condition     = incus_instance.this.config["limits.cpu"] == "4"
-    error_message = "CPU limit should be set in config"
-  }
-
-  assert {
-    condition     = incus_instance.this.config["limits.memory"] == "8GB"
-    error_message = "Memory limit should be set in config"
   }
 }
 

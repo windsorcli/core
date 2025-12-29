@@ -107,12 +107,6 @@ resource "incus_image" "local" {
   }
 }
 
-# Note: incus_image resource with source_image doesn't work for remote images
-# - OCI remotes require skopeo
-# - Simplestreams remotes fail with "image not found" errors
-# So we only use incus_image for local files, and pass remote refs directly to instances
-
-
 # =============================================================================
 # Storage Volume Resources
 # =============================================================================
@@ -274,6 +268,49 @@ locals {
     for instance in local.all_instances : instance.name => instance
   }
 
+  # Calculate all assigned IP addresses (extract IP from CIDR notation)
+  # This includes IPs from count expansion (e.g., 10.5.0.1/24 with count=3 creates 10.5.0.1, 10.5.0.2, 10.5.0.3)
+  assigned_ips = {
+    for instance in local.all_instances : instance.name => (
+      instance.ipv4 != null ? split("/", instance.ipv4)[0] : null
+    )
+  }
+
+  # Group instances by IP address to find conflicts
+  ip_to_instances = {
+    for ip, names in {
+      for name, ip_addr in local.assigned_ips : ip_addr => name...
+      if ip_addr != null
+    } : ip => names
+  }
+
+  # Find IP conflicts: IPs assigned to multiple instances
+  ip_conflicts = {
+    for ip, instances in local.ip_to_instances : ip => instances
+    if length(instances) > 1
+  }
+
+}
+
+# Validate that no IP addresses are assigned to multiple instances
+# This prevents conflicts when count > 1 increments IPs (e.g., instance with ipv4="10.5.0.1/24" and count=3
+# creates IPs 10.5.0.1, 10.5.0.2, 10.5.0.3, which could conflict with another instance using 10.5.0.2)
+check "ipv4_conflicts" {
+  assert {
+    condition = length(local.ip_conflicts) == 0
+    error_message = <<-EOT
+      IPv4 address conflicts detected. The following IP addresses are assigned to multiple instances:
+      ${join("\n", [
+    for ip, instances in local.ip_conflicts : "  IP ${ip} is assigned to: ${join(", ", instances)}"
+])}
+      
+      This can occur when:
+      1. An instance with count > 1 and an explicit ipv4 increments IPs (e.g., ipv4="10.5.0.1/24" with count=3 creates 10.5.0.1, 10.5.0.2, 10.5.0.3)
+      2. Another instance explicitly uses one of those incremented IPs
+      
+      Solution: Ensure all IP addresses are unique across all instances, accounting for count-based IP increments.
+      EOT
+}
 }
 
 # Create instances using the instance sub-module
