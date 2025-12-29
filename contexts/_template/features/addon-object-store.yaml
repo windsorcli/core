@@ -12,6 +12,8 @@ kustomize:
   - name: object-store-base
     path: object-store/base
     when: addons?.object_store?.driver == 'minio'
+    timeout: 10m
+    interval: 5m
     dependsOn:
       - csi
       - ingress

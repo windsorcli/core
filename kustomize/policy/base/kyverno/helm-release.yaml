@@ -5,7 +5,7 @@ metadata:
   namespace: system-policy
 spec:
   interval: 5m
-  timeout: 5m
+  timeout: 30m
   chart:
     spec:
       chart: kyverno

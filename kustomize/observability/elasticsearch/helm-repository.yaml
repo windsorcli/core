@@ -4,5 +4,5 @@ metadata:
   name: elastic-elasticsearch
   namespace: system-observability
 spec:
-  interval: 1h
+  interval: 10m
   url: https://helm.elastic.co
