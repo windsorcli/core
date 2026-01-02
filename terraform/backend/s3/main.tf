@@ -294,5 +294,5 @@ resource "local_file" "backend_config" {
     dynamodb_table = var.enable_dynamodb ? "terraform-state-locks-${var.context_id}" : ""
     kms_key_id     = var.enable_kms && var.kms_key_alias == "" ? aws_kms_key.terraform_state[0].arn : ""
   })
-  filename = "${var.context_path}/terraform/backend.tf"
+  filename = "${var.context_path}/backend.tfvars"
 }
