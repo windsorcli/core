@@ -100,12 +100,12 @@ variable "devices" {
 }
 
 variable "disks" {
-  description = "Additional disk devices to attach to the instance"
+  description = "Additional disk devices to attach to the instance. Expects Incus format: size as string (e.g., '50GB'), pool for storage pool."
   type = list(object({
     name      = string
-    pool      = optional(string) # Optional - only needed for storage volumes, not file path bind mounts
+    pool      = string           # Storage pool name
     source    = optional(string) # Optional - file path (starts with "/") or volume name, or omit to create new volume
-    size      = optional(string) # Optional - required when creating new volume (source not provided)
+    size      = string           # Volume size as string (e.g., "50GB")
     path      = optional(string) # Optional - mount point inside instance
     read_only = optional(bool, false)
   }))

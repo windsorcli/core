@@ -109,14 +109,33 @@ locals {
     ]
   ])
 
+  # Transform disks from generic schema format (size as integer GB, type for pool) to Incus format
+  expanded_instances_with_transformed_disks = [
+    for expanded in local.expanded_instances_for_volumes : merge(
+      expanded,
+      {
+        disks = [
+          for disk in expanded.disks : {
+            name      = disk.name
+            pool      = lookup(disk, "type", "default") # Map type to pool for Incus
+            size      = "${disk.size}GB"                # Convert integer GB to string with "GB" suffix
+            source    = lookup(disk, "source", null)
+            path      = lookup(disk, "path", null)
+            read_only = lookup(disk, "read_only", false)
+          }
+        ]
+      }
+    )
+  ]
+
   disks_needing_volumes = flatten([
-    for expanded in local.expanded_instances_for_volumes : [
+    for expanded in local.expanded_instances_with_transformed_disks : [
       for disk in expanded.disks : {
         instance_name = expanded.instance_name
         disk_name     = disk.name
-        pool          = lookup(disk, "pool", "default")
+        pool          = disk.pool
         volume_name   = lookup(disk, "source", null) != null ? disk.source : "${expanded.instance_name}-${disk.name}"
-        size          = lookup(disk, "size", null)
+        size          = disk.size
       }
       if lookup(disk, "size", null) != null && lookup(disk, "source", null) == null
     ]
@@ -170,6 +189,7 @@ locals {
     for instance in var.instances : [
       for i in range(instance.count) : {
         name           = instance.count > 1 ? "${instance.name}-${i}" : instance.name
+        role           = lookup(instance, "role", null)
         image          = instance.image
         type           = instance.type
         description    = instance.count > 1 && instance.description != null ? "${instance.description} (${i + 1}/${instance.count})" : instance.description
@@ -218,17 +238,35 @@ locals {
     )
   }
 
-  # Add sequential IPs to instances that don't have explicit IPs
-  # Also resolve disk source names (use created volume names if size was specified)
-  all_instances = [
+  # Merge transformed disks back into expanded instances
+  # Transform disks from generic schema format (size as integer GB, type for pool) to Incus format (size as string, pool)
+  expanded_instances_with_disks = [
     for instance in local.expanded_instances : merge(
       instance,
       {
-        ipv4 = instance.ipv4 != null ? instance.ipv4 : (
-          local.instance_sequential_ips[instance.name]
-        ),
         disks = [
-          for disk in lookup(instance, "disks", []) : merge(
+          for disk in lookup(instance, "disks", []) : {
+            name      = disk.name
+            pool      = lookup(disk, "type", "default") # Map type to pool for Incus
+            size      = "${disk.size}GB"                # Convert integer GB to string with "GB" suffix
+            source    = lookup(disk, "source", null)
+            path      = lookup(disk, "path", null)
+            read_only = lookup(disk, "read_only", false)
+          }
+        ]
+      }
+    )
+  ]
+
+  # Resolve disk source names (use created volume names if size was specified)
+  # Note: If ipv4 is not specified, DHCP will assign an available IP automatically
+  all_instances = [
+    for instance in local.expanded_instances_with_disks : merge(
+      instance,
+      {
+        ipv4 = instance.ipv4, # Only use explicit IPs, let DHCP handle the rest
+        disks = [
+          for disk in instance.disks : merge(
             disk,
             {
               source = lookup(disk, "source", null) != null ? disk.source : (
@@ -293,49 +331,56 @@ locals {
 
 }
 
-# Validate that IP address octet overflow doesn't occur when incrementing with count > 1
-# Prevents invalid IPs like 10.0.0.260 when base IP is 10.0.0.250 with count=10
-check "ipv4_octet_overflow" {
-  assert {
-    condition = length(local.ip_octet_overflow_instances) == 0
-    error_message = <<-EOT
-      IPv4 address octet overflow detected. The following instances would generate invalid IP addresses:
-      ${join("\n", [
-    for inst in local.ip_octet_overflow_instances : "  Instance '${inst.name}' with ipv4='${inst.ipv4}' and count=${inst.count} would overflow last octet (max would be ${inst.max_octet}, valid range is 0-255)"
+
+# Validate IP address configurations before creating instances
+# Use terraform_data with lifecycle preconditions to fail plan/apply on validation errors
+resource "terraform_data" "ip_validation" {
+  # Validate that IP address octet overflow doesn't occur when incrementing with count > 1
+  # Prevents invalid IPs like 10.0.0.260 when base IP is 10.0.0.250 with count=10
+  lifecycle {
+    precondition {
+      condition = length(local.ip_octet_overflow_instances) == 0
+      error_message = <<-EOT
+        IPv4 address octet overflow detected. The following instances would generate invalid IP addresses:
+        ${join("\n", [
+      for inst in local.ip_octet_overflow_instances : "  Instance '${inst.name}' with ipv4='${inst.ipv4}' and count=${inst.count} would overflow last octet (max would be ${inst.max_octet}, valid range is 0-255)"
 ])}
-      
-      This occurs when an instance with count > 1 and an explicit ipv4 address would increment the last octet beyond 255.
-      For example, ipv4="10.0.0.250/24" with count=10 would try to create IPs up to 10.0.0.259, which is invalid.
-      
-      Solution: Ensure that (last_octet + count - 1) <= 255. For example:
-      - ipv4="10.0.0.250/24" with count=6 is valid (250 + 5 = 255)
-      - ipv4="10.0.0.250/24" with count=10 is invalid (250 + 9 = 259 > 255)
-      EOT
-}
+        
+        This occurs when an instance with count > 1 and an explicit ipv4 address would increment the last octet beyond 255.
+        For example, ipv4="10.0.0.250/24" with count=10 would try to create IPs up to 10.0.0.259, which is invalid.
+        
+        Solution: Ensure that (last_octet + count - 1) <= 255. For example:
+        - ipv4="10.0.0.250/24" with count=6 is valid (250 + 5 = 255)
+        - ipv4="10.0.0.250/24" with count=10 is invalid (250 + 9 = 259 > 255)
+        EOT
 }
 
 # Validate that no IP addresses are assigned to multiple instances
 # This prevents conflicts when count > 1 increments IPs (e.g., instance with ipv4="10.5.0.1/24" and count=3
 # creates IPs 10.5.0.1, 10.5.0.2, 10.5.0.3, which could conflict with another instance using 10.5.0.2)
-check "ipv4_conflicts" {
-  assert {
-    condition = length(local.ip_conflicts) == 0
-    error_message = <<-EOT
-      IPv4 address conflicts detected. The following IP addresses are assigned to multiple instances:
-      ${join("\n", [
-    for ip, instances in local.ip_conflicts : "  IP ${ip} is assigned to: ${join(", ", instances)}"
+precondition {
+  condition = length(local.ip_conflicts) == 0
+  error_message = <<-EOT
+        IPv4 address conflicts detected. The following IP addresses are assigned to multiple instances:
+        ${join("\n", [
+  for ip, instances in local.ip_conflicts : "  IP ${ip} is assigned to: ${join(", ", instances)}"
 ])}
-      
-      This can occur when:
-      1. An instance with count > 1 and an explicit ipv4 increments IPs (e.g., ipv4="10.5.0.1/24" with count=3 creates 10.5.0.1, 10.5.0.2, 10.5.0.3)
-      2. Another instance explicitly uses one of those incremented IPs
-      
-      Solution: Ensure all IP addresses are unique across all instances, accounting for count-based IP increments.
-      EOT
+        
+        This can occur when:
+        1. An instance with count > 1 and an explicit ipv4 increments IPs (e.g., ipv4="10.5.0.1/24" with count=3 creates 10.5.0.1, 10.5.0.2, 10.5.0.3)
+        2. Another instance explicitly uses one of those incremented IPs
+        
+        Solution: Ensure all IP addresses are unique across all instances, accounting for count-based IP increments.
+        EOT
 }
 }
 
+# This resource doesn't actually do anything, it's just a vehicle for preconditions
+input = md5(jsonencode(local.all_instances))
+}
+
 # Create instances using the instance sub-module
+# Depends on validation resource to ensure IP conflicts are caught before instance creation
 module "instances" {
   source   = "./modules/instance"
   for_each = { for idx, instance in local.all_instances : instance.name => instance }
@@ -365,9 +410,9 @@ module "instances" {
   qemu_args      = lookup(each.value, "qemu_args", "-boot order=c,menu=off")
   config         = lookup(each.value, "config", {})
 
-  # Explicitly depend on network (if creating), storage volumes, and local images to ensure proper creation order
+  # Explicitly depend on validation, network (if creating), storage volumes, and local images to ensure proper creation order
   # Local files are created via incus_image resource and have fingerprints
   # Remote images are passed directly to instances (they pull on demand, may have concurrent pulls)
   # Network will be destroyed after all instances are destroyed
-  depends_on = [incus_network.main, incus_storage_volume.disks, incus_image.local]
+  depends_on = [terraform_data.ip_validation, incus_network.main, incus_storage_volume.disks, incus_image.local]
 }

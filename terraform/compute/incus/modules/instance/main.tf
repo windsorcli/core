@@ -93,9 +93,12 @@ locals {
             source = disk.source
             } : {
             # Storage volume - include pool, source is volume name (or empty if creating new volume)
-            pool   = disk.pool != null ? disk.pool : "default"
+            pool   = disk.pool
             source = disk.source
           },
+          disk.size != null ? {
+            size = disk.size
+          } : {},
           disk.path != null ? {
             path = disk.path
           } : {},

@@ -71,6 +71,7 @@ variable "instances" {
   type = list(object({
     name           = string              # Instance name (becomes prefix when count > 1)
     count          = optional(number, 1) # Number of instances. If > 1, creates pool with -0, -1 suffixes
+    role           = optional(string)    # Role identifier for grouping instances (e.g., "controlplane", "worker"). If not specified, uses instance name as role.
     image          = string              # Image alias from images manifest, or direct image reference (remote ref, fingerprint, or local file)
     type           = optional(string, "container")
     description    = optional(string)
@@ -100,13 +101,14 @@ variable "instances" {
     # Root disk size for virtual machines (OS disk)
     root_disk_size = optional(string, "10GB") # Size of root/OS disk (default: "10GB")
     # Additional disk devices to attach to the instance
+    # Uses generic schema format: size as integer (GB), type maps to pool for Incus
     disks = optional(list(object({
-      name      = string                # Device name (e.g., "data-disk", "backup-disk")
-      pool      = optional(string)      # Storage pool name (only for storage volumes, not file path bind mounts)
-      source    = optional(string)      # File path (starts with "/") for bind mount, or storage volume name, or omit to create new volume
-      size      = optional(string)      # Volume size (e.g., "10GB") - required when creating new volume (source not provided)
-      path      = optional(string)      # Mount point inside instance (e.g., "/mnt/data")
-      read_only = optional(bool, false) # Mount as read-only (default: false)
+      name      = string                      # Device name (e.g., "data-disk", "backup-disk")
+      type      = optional(string, "default") # Disk type - maps to storage pool for Incus (e.g., "default", "gp3", "StandardSSD_LRS")
+      source    = optional(string)            # File path (starts with "/") for bind mount, or storage volume name, or omit to create new volume
+      size      = number                      # Volume size in GB (integer)
+      path      = optional(string)            # Mount point inside instance (e.g., "/mnt/data")
+      read_only = optional(bool, false)       # Mount as read-only (default: false)
     })), [])
     config = optional(map(string), {})
   }))
