@@ -30,3 +30,5 @@ kustomize:
   - pki-base
   components:
   - nginx/nodeport
+  timeout: 10m
+  interval: 5m

@@ -7,77 +7,85 @@ metadata:
 when: addons?.observability?.enabled == true || dev == true
 
 kustomize:
-  # Dashboards
-  - name: observability
-    path: observability
-    dependsOn:
-      - ingress
-    components:
-      - grafana
-      - grafana/ingress
-      - grafana/prometheus
-      - grafana/node
-      - grafana/kubernetes
-      - grafana/flux
-    substitutions:
-      external_domain: ${dns?.domain}
 
-  # FluentD outputs
-  - name: observability
-    path: observability
-    when: addons?.observability?.logs_driver == 'stdout'
-    dependsOn:
-      - telemetry-base
-    components:
-      - fluentd
-      - fluentd/filters/otel
-      - fluentd/outputs/stdout
+# Dashboards
+- name: observability
+  path: observability
+  timeout: 15m
+  interval: 10m
+  dependsOn:
+    - ingress
+  components:
+    - grafana
+    - grafana/ingress
+    - grafana/prometheus
+    - grafana/node
+    - grafana/kubernetes
+    - grafana/flux
+  substitutions:
+    external_domain: ${dns?.domain}
 
-  # Quickwit log storage
-  - name: observability
-    path: observability
-    when: addons?.observability?.logs_driver == 'quickwit'
-    dependsOn:
-      - csi
-      - telemetry-base
-    components:
-      - fluentd
-      - fluentd/filters/otel
-      - fluentd/outputs/quickwit
-      - quickwit
-      - quickwit/pvc
-      - grafana/quickwit
+# FluentD outputs
+- name: observability
+  path: observability
+  when: addons?.observability?.logs_driver == 'stdout'
+  dependsOn:
+    - telemetry-base
+  components:
+    - fluentd
+    - fluentd/filters/otel
+    - fluentd/outputs/stdout
 
-  # Elasticsearch + Kibana
-  - name: observability
-    path: observability
-    when: addons?.observability?.logs_driver == 'elasticsearch'
-    dependsOn:
-      - csi
-      - ingress
-    components:
-      - elasticsearch
-      - kibana
-      - kibana/ingress
-    substitutions:
-      external_domain: ${dns?.domain}
+# Quickwit log storage
+- name: observability
+  path: observability
+  when: addons?.observability?.logs_driver == 'quickwit'
+  dependsOn:
+    - csi
+    - telemetry-base
+  components:
+    - fluentd
+    - fluentd/filters/otel
+    - fluentd/outputs/quickwit
+    - quickwit
+    - quickwit/pvc
+    - grafana/quickwit
 
-  # Elasticsearch telemetry
-  - name: telemetry-base
-    path: telemetry/base
-    when: addons?.observability?.logs_driver == 'elasticsearch'
-    strategy: replace
-    components:
-      - prometheus
-      - prometheus/flux
-      - filebeat
-  - name: telemetry-resources
-    path: telemetry/resources
-    when: addons?.observability?.logs_driver == 'elasticsearch'
-    strategy: replace
-    dependsOn:
-      - telemetry-base
-    components:
-      - metrics-server
-      - prometheus
-      - prometheus/flux
+# Elasticsearch + Kibana
+- name: observability
+  path: observability
+  when: addons?.observability?.logs_driver == 'elasticsearch'
+  dependsOn:
+    - csi
+    - ingress
+  components:
+    - elasticsearch
+    - kibana
+    - kibana/ingress
+  substitutions:
+    external_domain: ${dns?.domain}
+
+# Elasticsearch telemetry
+- name: telemetry-base
+  path: telemetry/base
+  when: addons?.observability?.logs_driver == 'elasticsearch'
+  timeout: 30m
+  interval: 10m
+  strategy: replace
+  components:
+    - prometheus
+    - prometheus/flux
+    - filebeat
+
+- name: telemetry-resources
+  path: telemetry/resources
+  when: addons?.observability?.logs_driver == 'elasticsearch'
+  timeout: 10m
+  interval: 5m
+  strategy: replace
+  dependsOn:
+    - telemetry-base
+  components:
+    - metrics-server
+    - prometheus
+    - prometheus/flux

@@ -12,38 +12,49 @@ kustomize:
 - name: policy-base
   path: policy/base
   components:
-  - kyverno
+    - kyverno
+  timeout: 30m
+  interval: 5m
+
 - name: policy-resources
   path: policy/resources
   dependsOn:
-  - policy-base
+    - policy-base
+  timeout: 5m
+  interval: 5m
 
 # PKI
 - name: pki-base
   path: pki/base
   dependsOn:
-  - policy-resources
+    - policy-resources
   components:
-  - cert-manager
+    - cert-manager
+  timeout: 20m
+  interval: 5m
 
 # Telemetry (metrics + logs with fluentbit by default)
 - name: telemetry-base
   path: telemetry/base
   components:
-  - prometheus
-  - prometheus/flux
-  - fluentbit
-  - fluentbit/prometheus
+    - prometheus
+    - prometheus/flux
+    - fluentbit
+    - fluentbit/prometheus
+  timeout: 30m
+  interval: 10m
 - name: telemetry-resources
   path: telemetry/resources
   dependsOn:
-  - telemetry-base
+    - telemetry-base
   components:
-  - metrics-server
-  - prometheus
-  - prometheus/flux
-  - fluentbit
-  - fluentbit/containerd
-  - fluentbit/fluentd
-  - fluentbit/kubernetes
-  - fluentbit/systemd
+    - metrics-server
+    - prometheus
+    - prometheus/flux
+    - fluentbit
+    - fluentbit/containerd
+    - fluentbit/fluentd
+    - fluentbit/kubernetes
+    - fluentbit/systemd
+  timeout: 10m
+  interval: 5m

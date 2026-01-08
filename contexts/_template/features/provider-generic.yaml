@@ -21,7 +21,7 @@ terraform:
 - name: gitops
   path: gitops/flux
   dependsOn:
-  - cluster
+    - cluster
   destroy: false
 
 kustomize:
@@ -30,57 +30,67 @@ kustomize:
 - name: csi
   path: csi
   dependsOn:
-  - policy-resources
+    - policy-resources
   components:
-  - openebs
-  - openebs/dynamic-localpv
-  cleanup:
-  - pvcs
+    - openebs
+    - openebs/dynamic-localpv
   substitutions:
     local_volume_path: ${cluster.workers.volumes[0]}
+  cleanup:
+    - pvcs
+  timeout: 20m
+  interval: 5m
 
 # Load Balancer
 - name: lb-base
   path: lb/base
   when: vm?.driver != 'docker-desktop'
   dependsOn:
-  - policy-resources
+    - policy-resources
   components:
   - metallb
+  timeout: 10m
+  interval: 5m
 
 - name: lb-resources
   path: lb/resources
   when: vm?.driver != 'docker-desktop'
   dependsOn:
-  - lb-base
+    - lb-base
   components:
-  - metallb/layer2
+    - metallb/layer2
   substitutions:
     loadbalancer_ip: ${network.loadbalancer_ips.start}
+  timeout: 5m
+  interval: 5m
 
 # Ingress
 - name: ingress
   path: ingress
   when: vm?.driver != 'docker-desktop'
   dependsOn:
-  - pki-base
+    - pki-base
   components:
-  - nginx
-  - nginx/web
+    - nginx
+    - nginx/web
+  timeout: 10m
+  interval: 5m
   cleanup:
-  - loadbalancers
-  - ingresses
+    - loadbalancers
+    - ingresses
 
 # Ingress
 - name: ingress
   path: ingress
   when: ingress?.enabled == true && ingress?.driver == 'nginx'
   dependsOn:
-  - pki-base
+    - pki-base
   components:
-  - nginx
-  - nginx/coredns
-  - nginx/web
+    - nginx
+    - nginx/coredns
+    - nginx/web
   cleanup:
-  - loadbalancers
-  - ingresses
+    - loadbalancers
+    - ingresses
+  timeout: 10m
+  interval: 5m

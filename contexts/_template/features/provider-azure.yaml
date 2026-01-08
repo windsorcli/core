@@ -14,12 +14,12 @@ terraform:
 - name: cluster
   path: cluster/azure-aks
   dependsOn:
-  - network
+    - network
 - name: gitops
   path: gitops/flux
   destroy: false
   dependsOn:
-  - cluster
+    - cluster
 
 kustomize:
 
@@ -28,22 +28,26 @@ kustomize:
   path: ingress
   when: ingress?.enabled == true && ingress?.driver == 'nginx'
   dependsOn:
-  - pki-base
+    - pki-base
   components:
-  - nginx
-  - nginx/coredns
-  - nginx/web
+    - nginx
+    - nginx/coredns
+    - nginx/web
   cleanup:
-  - loadbalancers
-  - ingresses
+    - loadbalancers
+    - ingresses
+  timeout: 10m
+  interval: 5m
 
 # CSI
 - name: csi
   path: csi
   dependsOn:
-  - policy-resources
+    - policy-resources
   components:
-  - azure-disk
+    - azure-disk
+  timeout: 5m
+  interval: 5m
   substitutions:
     single_storage_type: ${cluster.storage?.single_storage_type ?? "StandardSSD_LRS"}
 
@@ -52,4 +56,6 @@ kustomize:
   path: telemetry/resources
   strategy: remove
   components:
-  - metrics-server
+    - metrics-server
+  timeout: 5m
+  interval: 5m

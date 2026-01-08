@@ -5,7 +5,7 @@ metadata:
   namespace: system-telemetry
 spec:
   interval: 5m
-  timeout: 5m
+  timeout: 30m
   chart:
     spec:
       chart: kube-prometheus-stack
@@ -36,7 +36,7 @@ spec:
     prometheus:
       prometheusSpec:
         # renovate: datasource=github-releases depName=prometheus/prometheus package=prometheus/prometheus
-        version: v3.8.1
+        version: v3.9.1
         image:
           # renovate: datasource=docker depName=quay.io/prometheus/prometheus package=quay.io/prometheus/prometheus
           tag: v3.8.1@sha256:2b6f734e372c1b4717008f7d0a0152316aedd4d13ae17ef1e3268dbfaf68041b

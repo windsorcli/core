@@ -11,11 +11,15 @@ kustomize:
 # PKI
 - name: pki-base
   path: pki/base
+  timeout: 10m
+  interval: 5m
   components:
-  - trust-manager
+    - trust-manager
 - name: pki-resources
   path: pki/resources
   dependsOn:
-  - pki-base
+    - pki-base
+  timeout: 5m
+  interval: 5m
   components:
-  - private-issuer/ca
+    - private-issuer/ca
