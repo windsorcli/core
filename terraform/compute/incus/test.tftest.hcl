@@ -188,10 +188,10 @@ run "network_config_merge_precedence" {
     enable_dhcp  = true
     enable_nat   = false
     network_config = {
-      "ipv4.dhcp"    = "false"  # Should be overridden by enable_dhcp=true
-      "ipv4.nat"     = "true"   # Should be overridden by enable_nat=false
-      "ipv4.routes"  = "10.0.0.0/8"  # Should be preserved
-      "bridge.mode"  = "fan"    # Should be preserved
+      "ipv4.dhcp"   = "false"      # Should be overridden by enable_dhcp=true
+      "ipv4.nat"    = "true"       # Should be overridden by enable_nat=false
+      "ipv4.routes" = "10.0.0.0/8" # Should be preserved
+      "bridge.mode" = "fan"        # Should be preserved
     }
   }
 
