@@ -23,7 +23,7 @@ run "minimal_configuration" {
   }
 
   assert {
-    condition     = incus_network.main[0].name == "network-test"
+    condition     = incus_network.main[0].name == "net-test"
     error_message = "Network name should follow default naming convention with context_id"
   }
 
@@ -89,6 +89,7 @@ run "full_configuration" {
             name      = "data"
             pool      = "default"
             source    = "data-volume"
+            size      = 10
             path      = "/mnt/data"
             read_only = false
           }
@@ -175,6 +176,51 @@ run "network_cidr_configuration" {
   }
 }
 
+# Verifies that network config merge precedence is correct.
+# Tests that enable_dhcp and enable_nat override network_config values (last merge wins),
+# while other network_config values are preserved and network_cidr adds ipv4.address.
+run "network_config_merge_precedence" {
+  command = plan
+
+  variables {
+    context_id   = "test"
+    network_cidr = "10.25.0.0/24"
+    enable_dhcp  = true
+    enable_nat   = false
+    network_config = {
+      "ipv4.dhcp"    = "false"  # Should be overridden by enable_dhcp=true
+      "ipv4.nat"     = "true"   # Should be overridden by enable_nat=false
+      "ipv4.routes"  = "10.0.0.0/8"  # Should be preserved
+      "bridge.mode"  = "fan"    # Should be preserved
+    }
+  }
+
+  assert {
+    condition     = incus_network.main[0].config["ipv4.dhcp"] == "true"
+    error_message = "enable_dhcp should override network_config ipv4.dhcp value"
+  }
+
+  assert {
+    condition     = incus_network.main[0].config["ipv4.nat"] == "false"
+    error_message = "enable_nat should override network_config ipv4.nat value"
+  }
+
+  assert {
+    condition     = incus_network.main[0].config["ipv4.address"] == "10.25.0.1/24"
+    error_message = "network_cidr should add ipv4.address gateway"
+  }
+
+  assert {
+    condition     = incus_network.main[0].config["ipv4.routes"] == "10.0.0.0/8"
+    error_message = "Other network_config values should be preserved"
+  }
+
+  assert {
+    condition     = incus_network.main[0].config["bridge.mode"] == "fan"
+    error_message = "Other network_config values should be preserved"
+  }
+}
+
 # Verifies that instance expansion works correctly with count > 1.
 # Tests that instances are named with -0, -1 suffixes and IPs are incremented.
 run "instance_expansion_with_count" {
@@ -228,14 +274,14 @@ run "storage_volume_creation" {
         disks = [
           {
             name = "data"
-            pool = "default"
-            size = "10GB"
+            type = "default"
+            size = 10
             path = "/mnt/data"
           },
           {
             name = "backup"
-            pool = "custom-pool"
-            size = "20GB"
+            type = "custom-pool"
+            size = 20
             path = "/mnt/backup"
           }
         ]
@@ -279,11 +325,13 @@ run "no_storage_volume_when_source_provided" {
           {
             name   = "data"
             source = "existing-volume"
+            size   = 10
             path   = "/mnt/data"
           },
           {
             name   = "bind"
             source = "/host/path"
+            size   = 10
             path   = "/mnt/bind"
           }
         ]
@@ -336,7 +384,7 @@ run "invalid_instance_type" {
 run "ipv4_conflict_detection" {
   command = plan
   expect_failures = [
-    check.ipv4_conflicts,
+    terraform_data.ip_validation,
   ]
 
   variables {
@@ -363,7 +411,7 @@ run "ipv4_conflict_detection" {
 run "ipv4_octet_overflow_detection" {
   command = plan
   expect_failures = [
-    check.ipv4_octet_overflow,
+    terraform_data.ip_validation,
   ]
 
   variables {

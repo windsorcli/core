@@ -52,10 +52,11 @@ locals {
   ]
 
   # K8s-specific outputs for Talos (controlplanes and workers with endpoint)
+  # Endpoint is the Talos API endpoint (port 50000) for both controlplanes and workers
   controlplanes = [
     for k, v in module.instances : {
       hostname = local.instance_hostnames[k]
-      endpoint = local.instance_ips[k] != null ? "${local.instance_ips[k]}:6443" : null
+      endpoint = local.instance_ips[k] != null ? "${local.instance_ips[k]}:50000" : null
       node     = local.instance_ips[k]
       name     = v.name
       ipv4     = local.instance_ips[k]
@@ -70,6 +71,7 @@ locals {
   workers = [
     for k, v in module.instances : {
       hostname = local.instance_hostnames[k]
+      endpoint = local.instance_ips[k] != null ? "${local.instance_ips[k]}:50000" : null
       node     = local.instance_ips[k]
       name     = v.name
       ipv4     = local.instance_ips[k]
@@ -112,6 +114,6 @@ output "controlplanes" {
 }
 
 output "workers" {
-  description = "List of worker instances formatted for Talos (hostname, node). Returns empty list if no worker instances exist or IPs are not yet assigned."
+  description = "List of worker instances formatted for Talos (hostname, endpoint, node). Returns empty list if no worker instances exist or IPs are not yet assigned."
   value       = local.workers
 }

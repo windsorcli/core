@@ -1,19 +1,19 @@
 kind: Feature
 apiVersion: blueprints.windsorcli.dev/v1alpha1
 metadata:
-  name: platform-incus
+  name: incus
   description: Incus compute platform infrastructure
 
-when: vm?.runtime == 'incus' && cluster?.enabled == true
+when: provider == 'incus'
 
 terraform:
 
 - name: compute
   path: compute/incus
   inputs:
-    remote: ${providers?.incus?.remote ?? null}
+    remote: ${providers?.incus?.remote ?? ""}
     network_name: "${vm?.driver == 'colima' ? 'incusbr0' : ''}"
-    create_network: ${dev != true}
+    create_network: "${vm?.driver != 'colima'}"
     network_cidr: ${network.cidr_block}
     instances:
       - name: controlplane
@@ -55,7 +55,7 @@ terraform:
   - compute
   parallelism: 1
   inputs:
-    cluster_endpoint: ${cluster.endpoint ?? ("https://" + terraform_output("compute", "controlplanes")[0].endpoint)}
+    cluster_endpoint: ${cluster.endpoint ?? ("https://" + split(terraform_output("compute", "controlplanes")[0].endpoint, ":")[0] + ":6443")}
     cluster_name: talos
     controlplanes: ${terraform_output("compute", "controlplanes") ?? values(cluster.controlplanes.nodes)}
     workers: ${terraform_output("compute", "workers") ?? values(cluster.workers.nodes)}
@@ -67,3 +67,71 @@ terraform:
   dependsOn:
   - cluster
   destroy: false
+
+kustomize:
+
+# CSI
+- name: csi
+  path: csi
+  dependsOn:
+    - policy-resources
+  components:
+  - openebs
+  - openebs/dynamic-localpv
+  substitutions:
+    local_volume_path: ${split(cluster.workers.volumes[0] ?? "/var/local", ":")[1] ?? split(cluster.workers.volumes[0] ?? "/var/local", ":")[0]}
+  cleanup:
+    - pvcs
+  timeout: 20m
+  interval: 5m
+
+# Load Balancer
+- name: lb-base
+  path: lb/base
+  dependsOn:
+  - policy-resources
+  components:
+  - metallb
+  timeout: 10m
+  interval: 5m
+
+- name: lb-resources
+  path: lb/resources
+  dependsOn:
+  - lb-base
+  components:
+  - metallb/layer2
+  substitutions:
+    loadbalancer_ip: ${network.loadbalancer_ips.start}
+  timeout: 5m
+  interval: 5m
+
+# Ingress
+- name: ingress
+  path: ingress
+  dependsOn:
+  - pki-base
+  components:
+  - nginx
+  - nginx/web
+  timeout: 10m
+  interval: 5m
+  cleanup:
+  - loadbalancers
+  - ingresses
+
+# Ingress
+- name: ingress
+  path: ingress
+  when: ingress?.enabled == true
+  dependsOn:
+  - pki-base
+  components:
+  - nginx
+  - nginx/coredns
+  - nginx/web
+  cleanup:
+  - loadbalancers
+  - ingresses
+  timeout: 10m
+  interval: 5m

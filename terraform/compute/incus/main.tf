@@ -41,7 +41,7 @@ provider "incus" {
 # =============================================================================
 
 locals {
-  network_name = var.network_name != "" ? var.network_name : "network-${var.context_id}"
+  network_name = var.network_name != "" ? var.network_name : "net-${var.context_id}"
 
   # Build network config: enable DHCP and NAT by default (configurable)
   # Static IPs on device ipv4.address act as static DHCP leases when DHCP is enabled
@@ -86,7 +86,7 @@ resource "incus_image" "local" {
   for_each = local.image_local_files
 
   project = var.project
-  remote  = var.remote != null ? var.remote : "local"
+  remote  = var.remote != null && var.remote != "" ? var.remote : "local"
 
   source_file = {
     data_path = each.value
