@@ -23,6 +23,7 @@ properties:
       - none
       - aws
       - azure
+      - incus
       - generic
     default: none
     description: Infrastructure provider - includes policy, PKI, telemetry, ingress, and storage
@@ -76,6 +77,37 @@ properties:
           memory:
             type: integer
             description: Memory in GB per control plane node
+          root_disk_size:
+            type: integer
+            description: Root/OS disk size in GB
+          disks:
+            type: array
+            items:
+              type: object
+              properties:
+                name:
+                  type: string
+                  description: Disk device name (e.g., "data-disk", "backup-disk")
+                size:
+                  type: integer
+                  description: Disk size in GB
+                type:
+                  type: string
+                  description: Disk type (platform-specific, e.g., "gp3" for AWS, "StandardSSD_LRS" for Azure, "default" for Incus)
+                path:
+                  type: string
+                  description: Mount point inside instance (e.g., "/mnt/data", "/var/local")
+                source:
+                  type: string
+                  description: Source path for bind mounts (local/Incus) or volume name
+                read_only:
+                  type: boolean
+                  default: false
+                  description: Mount as read-only
+              required:
+                - name
+                - size
+            description: Additional data disks to attach to control plane nodes
           nodes:
             type: object
             default:
@@ -122,6 +154,37 @@ properties:
           memory:
             type: integer
             description: Memory in GB per worker node
+          root_disk_size:
+            type: integer
+            description: Root/OS disk size in GB
+          disks:
+            type: array
+            items:
+              type: object
+              properties:
+                name:
+                  type: string
+                  description: Disk device name (e.g., "data-disk", "backup-disk")
+                size:
+                  type: integer
+                  description: Disk size in GB
+                type:
+                  type: string
+                  description: Disk type (platform-specific, e.g., "gp3" for AWS, "StandardSSD_LRS" for Azure, "default" for Incus)
+                path:
+                  type: string
+                  description: Mount point inside instance (e.g., "/mnt/data", "/var/local")
+                source:
+                  type: string
+                  description: Source path for bind mounts (local/Incus) or volume name
+                read_only:
+                  type: boolean
+                  default: false
+                  description: Mount as read-only
+              required:
+                - name
+                - size
+            description: Additional data disks to attach to worker nodes
           hostports:
             type: array
             items:
@@ -205,6 +268,25 @@ properties:
           - docker-desktop
           - colima
         description: VM driver for local clusters
+      runtime:
+        type: string
+        enum:
+          - docker
+          - incus
+        description: Container/VM runtime
+    additionalProperties: false
+
+  # Provider-specific configuration
+  providers:
+    type: object
+    properties:
+      incus:
+        type: object
+        properties:
+          remote:
+            type: string
+            description: Incus remote name (e.g., "colima-windsor-local" for Colima, "local" for direct Incus)
+        additionalProperties: false
     additionalProperties: false
 
   # Optional addons

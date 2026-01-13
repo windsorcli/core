@@ -4,7 +4,7 @@ metadata:
   name: local-dev
   description: Local development overrides for VM environments
 
-when: dev == true && provider == 'generic'
+when: dev == true
 
 terraform:
 - name: gitops
