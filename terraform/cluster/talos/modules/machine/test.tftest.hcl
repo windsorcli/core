@@ -314,3 +314,57 @@ run "health_check_command_with_hostname_as_node" {
     error_message = "Should not use hostname in health check command"
   }
 }
+
+# Verifies that endpoint IP extraction correctly handles URLs with paths and no port.
+# Tests that IP is extracted correctly from URLs like https://192.168.1.10/api without corrupting the IP.
+run "endpoint_ip_extraction_with_path_no_port" {
+  variables {
+    bootstrap     = false
+    hostname      = "test-node"
+    node          = "test-node"
+    endpoint      = "https://192.168.1.10/api" # URL with path but no port
+    disk_selector = null
+  }
+
+  assert {
+    condition     = local.endpoint_ip == "192.168.1.10"
+    error_message = "Should extract IP correctly from URL with path and no port"
+  }
+
+  assert {
+    condition     = strcontains(local.health_check_command, "192.168.1.10")
+    error_message = "Health check should use extracted IP address"
+  }
+
+  assert {
+    condition     = !strcontains(local.health_check_command, "api")
+    error_message = "Health check should not include path segments"
+  }
+}
+
+# Verifies that endpoint IP extraction correctly handles URLs with paths and port.
+# Tests that IP is extracted correctly from URLs like https://192.168.1.10:50000/api.
+run "endpoint_ip_extraction_with_path_and_port" {
+  variables {
+    bootstrap     = false
+    hostname      = "test-node"
+    node          = "test-node"
+    endpoint      = "https://192.168.1.10:50000/api" # URL with path and port
+    disk_selector = null
+  }
+
+  assert {
+    condition     = local.endpoint_ip == "192.168.1.10"
+    error_message = "Should extract IP correctly from URL with path and port"
+  }
+
+  assert {
+    condition     = strcontains(local.health_check_command, "192.168.1.10")
+    error_message = "Health check should use extracted IP address"
+  }
+
+  assert {
+    condition     = !strcontains(local.health_check_command, "api")
+    error_message = "Health check should not include path segments"
+  }
+}

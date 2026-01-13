@@ -119,7 +119,8 @@ locals {
   # Use IP address for health check to avoid DNS resolution issues
   # If node is already an IP, use it; otherwise extract IP from endpoint (endpoint may include port)
   # Hostnames may not be resolvable during initial setup, but IP addresses always work
-  endpoint_ip          = can(regex("^https?://", var.endpoint)) ? split(":", replace(split("://", var.endpoint)[1], "/", ""))[0] : split(":", var.endpoint)[0]
+  # Extract IP by: removing protocol, taking first path segment (host:port or host), then extracting IP before port
+  endpoint_ip          = can(regex("^https?://", var.endpoint)) ? split(":", split("/", split("://", var.endpoint)[1])[0])[0] : split(":", var.endpoint)[0]
   health_check_node    = can(regex("^[0-9]+\\.[0-9]+\\.[0-9]+\\.[0-9]+", var.node)) ? var.node : local.endpoint_ip
   health_check_command = var.bootstrap ? "windsor check node-health --nodes ${local.health_check_node} --timeout 5m --k8s-endpoint --skip-services dashboard" : "windsor check node-health --nodes ${local.health_check_node} --timeout 5m --skip-services dashboard"
 }
