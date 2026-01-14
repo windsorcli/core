@@ -10,12 +10,6 @@ properties:
     default: false
     description: Enable development mode with additional observability and debugging tools
 
-  # High availability mode
-  ha:
-    type: boolean
-    default: false
-    description: Enable high availability mode for all components (multiple replicas, PDBs, etc.)
-
   # Core infrastructure provider (determines basic stack)
   provider:
     type: string
@@ -27,6 +21,12 @@ properties:
       - generic
     default: none
     description: Infrastructure provider - includes policy, PKI, telemetry, ingress, and storage
+
+  # High availability mode
+  ha:
+    type: boolean
+    default: false
+    description: Enable high availability mode for all components (multiple replicas, PDBs, etc.)
 
   # Network configuration (used by terraform templates)
   network:
@@ -51,6 +51,13 @@ properties:
             default: "10.5.1.100"
             description: Load balancer IP pool end
         additionalProperties: false
+      loadbalancer_driver:
+        type: string
+        enum:
+          - metallb
+          - kube-vip
+        default: kube-vip
+        description: Load balancer driver
     additionalProperties: false
 
   # Cluster configuration

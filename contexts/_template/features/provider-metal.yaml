@@ -44,7 +44,7 @@ kustomize:
 # Load Balancer
 - name: lb-base
   path: lb/base
-  when: vm?.driver != 'docker-desktop'
+  when: vm?.driver != 'docker-desktop' && (network.loadbalancer_driver ?? 'kube-vip') == 'metallb'
   dependsOn:
     - policy-resources
   components:
@@ -56,11 +56,13 @@ kustomize:
   path: lb/resources
   when: vm?.driver != 'docker-desktop'
   dependsOn:
-    - lb-base
+    - ${(network.loadbalancer_driver ?? 'kube-vip') == 'metallb' ? 'lb-base' : 'policy-resources'}
   components:
-    - metallb/layer2
+    - ${network.loadbalancer_driver ?? 'kube-vip'}/${network.loadbalancer_driver == 'kube-vip' ? 'kube-vip' : 'layer2'}
   substitutions:
-    loadbalancer_ip: ${network.loadbalancer_ips.start}
+    loadbalancer_ip_start: ${network.loadbalancer_ips.start}
+    loadbalancer_ip_end: ${network.loadbalancer_ips.end}
+    loadbalancer_ip_range: ${network.loadbalancer_ips.start + '-' + network.loadbalancer_ips.end}
   timeout: 5m
   interval: 5m
 
