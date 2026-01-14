@@ -17,6 +17,11 @@ mock_provider "aws" {
       ids = ["subnet-12345678", "subnet-87654321", "subnet-11223344"]
     }
   }
+  mock_data "aws_region" {
+    defaults = {
+      name = "us-west-2"
+    }
+  }
 }
 
 # Verifies that the module creates an EKS cluster with minimal configuration,
@@ -72,6 +77,26 @@ run "minimal_configuration" {
   assert {
     condition     = aws_eks_cluster.main.vpc_config[0].endpoint_public_access == true
     error_message = "Public endpoint should be enabled by default"
+  }
+
+  assert {
+    condition     = var.enable_ebs_encryption == true
+    error_message = "enable_ebs_encryption should default to true"
+  }
+
+  assert {
+    condition     = aws_launch_template.node_group["default"].block_device_mappings[0].ebs[0].encrypted == true
+    error_message = "EBS volumes should be encrypted by default"
+  }
+
+  assert {
+    condition     = length(aws_kms_key.ebs_encryption_key) == 1
+    error_message = "EBS encryption key should be created when enable_ebs_encryption is true and no key is provided"
+  }
+
+  assert {
+    condition     = aws_launch_template.node_group["default"].block_device_mappings[0].ebs[0].kms_key_id != null
+    error_message = "EBS volumes should have a KMS key ID specified when encryption is enabled"
   }
 }
 
@@ -132,12 +157,13 @@ run "full_configuration" {
         desired_size   = 3
       }
     }
-    endpoint_private_access           = true
-    endpoint_public_access            = true
-    cluster_api_access_cidr_block     = "10.0.0.0/8"
-    enable_secrets_encryption         = true
-    create_secrets_encryption_kms_key = false
-    secrets_encryption_kms_key_id     = "arn:aws:kms:us-west-2:123456789012:key/abcd1234-5678-90ab-cdef-1234567890ab"
+    endpoint_private_access       = true
+    endpoint_public_access        = true
+    cluster_api_access_cidr_block = "10.0.0.0/8"
+    enable_secrets_encryption     = true
+    secrets_encryption_kms_key_id  = "arn:aws:kms:us-west-2:123456789012:key/abcd1234-5678-90ab-cdef-1234567890ab"
+    enable_ebs_encryption          = true
+    ebs_volume_kms_key_id          = "arn:aws:kms:us-west-2:123456789012:key/abcd1234-5678-90ab-cdef-1234567890ab"
   }
 
   assert {
@@ -228,23 +254,33 @@ run "full_configuration" {
   }
 
   assert {
-    condition     = var.create_secrets_encryption_kms_key == false
-    error_message = "create_secrets_encryption_kms_key should be false"
-  }
-
-  assert {
     condition     = var.secrets_encryption_kms_key_id == "arn:aws:kms:us-west-2:123456789012:key/abcd1234-5678-90ab-cdef-1234567890ab"
     error_message = "secrets_encryption_kms_key_id should match input"
   }
 
   assert {
     condition     = length(aws_kms_key.eks_encryption_key) == 0
-    error_message = "No internal KMS key should be created when create_secrets_encryption_kms_key is false"
+    error_message = "No internal KMS key should be created when secrets_encryption_kms_key_id is provided"
   }
 
   assert {
     condition     = aws_eks_cluster.main.encryption_config[0].provider[0].key_arn == var.secrets_encryption_kms_key_id
     error_message = "Cluster encryption_config should use the provided external KMS key ARN"
+  }
+
+  assert {
+    condition     = aws_launch_template.node_group["system"].block_device_mappings[0].ebs[0].encrypted == true
+    error_message = "EBS volumes should be encrypted when enable_ebs_encryption is true"
+  }
+
+  assert {
+    condition     = aws_launch_template.node_group["system"].block_device_mappings[0].ebs[0].kms_key_id == var.ebs_volume_kms_key_id
+    error_message = "EBS volumes should use the provided KMS key"
+  }
+
+  assert {
+    condition     = length(aws_kms_key.ebs_encryption_key) == 0
+    error_message = "No EBS encryption key should be created when a key is provided"
   }
 }
 
