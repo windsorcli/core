@@ -398,6 +398,9 @@ module "instances" {
   networks       = lookup(each.value, "networks", [])
   network_config = lookup(each.value, "network_config", {})
   ipv4           = lookup(each.value, "ipv4", null)
+  ipv6           = lookup(each.value, "ipv6", null)
+  wait_for_ipv4  = lookup(each.value, "wait_for_ipv4", true)
+  wait_for_ipv6  = lookup(each.value, "wait_for_ipv6", null)
 
   limits        = lookup(each.value, "limits", null)
   profiles      = lookup(each.value, "profiles", [])

@@ -80,6 +80,9 @@ variable "instances" {
     networks       = optional(list(string), [])
     network_config = optional(map(string), {})
     ipv4           = optional(string)
+    ipv6           = optional(string)
+    wait_for_ipv4  = optional(bool, true)
+    wait_for_ipv6  = optional(bool)
     limits = optional(object({
       cpu    = optional(string)
       memory = optional(string)

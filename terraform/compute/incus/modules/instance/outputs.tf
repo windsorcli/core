@@ -12,14 +12,14 @@ output "type" {
   value       = incus_instance.this.type
 }
 
-output "ipv4_address" {
-  description = "The primary IPv4 address of the instance"
-  value       = try(incus_instance.this.ipv4_address, null)
+output "ipv4" {
+  description = "The primary IPv4 address of the instance. Falls back to input ipv4 if instance address is not yet available"
+  value       = try(incus_instance.this.ipv4_address, var.ipv4 != null ? split("/", var.ipv4)[0] : null)
 }
 
-output "ipv6_address" {
-  description = "The primary IPv6 address of the instance"
-  value       = try(incus_instance.this.ipv6_address, null)
+output "ipv6" {
+  description = "The primary IPv6 address of the instance. Falls back to input ipv6 if instance address is not yet available"
+  value       = try(incus_instance.this.ipv6_address, var.ipv6 != null ? split("/", var.ipv6)[0] : null)
 }
 
 output "image" {
