@@ -212,6 +212,9 @@ locals {
             )
           )
         ) : instance.ipv4
+        ipv6           = lookup(instance, "ipv6", null)
+        wait_for_ipv4  = lookup(instance, "wait_for_ipv4", true)
+        wait_for_ipv6  = lookup(instance, "wait_for_ipv6", null)
         limits         = instance.limits
         profiles       = instance.profiles
         devices        = instance.devices
