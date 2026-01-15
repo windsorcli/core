@@ -56,9 +56,10 @@ kustomize:
   path: lb/resources
   when: vm?.driver != 'docker-desktop'
   dependsOn:
-    - ${(network.loadbalancer_driver ?? 'kube-vip') == 'metallb' ? 'lb-base' : 'policy-resources'}
+    - policy-resources
   components:
-    - ${network.loadbalancer_driver ?? 'kube-vip'}/${network.loadbalancer_driver == 'kube-vip' ? 'kube-vip' : 'layer2'}
+    - metallb
+    - metallb/layer2
   substitutions:
     loadbalancer_ip_start: ${network.loadbalancer_ips.start}
     loadbalancer_ip_end: ${network.loadbalancer_ips.end}

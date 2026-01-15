@@ -58,6 +58,13 @@ properties:
           - kube-vip
         default: kube-vip
         description: Load balancer driver
+      loadbalancer_mode:
+        type: string
+        enum:
+          - arp
+          - bgp
+        default: arp
+        description: Load balancer mode (arp for flat L2 networks using ARP broadcasts, bgp for BGP-capable infrastructure)
     additionalProperties: false
 
   # Cluster configuration

@@ -19,12 +19,6 @@ spec:
     image:
       repository: ghcr.io/kube-vip/kube-vip
       # renovate: datasource=docker depName=ghcr.io/kube-vip/kube-vip package=ghcr.io/kube-vip/kube-vip
-      tag: v1.0.3@sha256:682e231fd0759906b65ed56ac124cc8ae093b9506aac00063c66c2ffa7fb5d9e
+      tag: v1.0.3@sha256:4e2791cc0238ae01b3986d827f4d568a25d846c94bab51238fe6241281a27113
     env:
-      vip_arp: "true"
-      lb_enable: "true"
       svc_enable: "true"
-      vip_leaderelection: "true"
-      cp_enable: "false"
-      svc_range: ${loadbalancer_ip_range}
-
