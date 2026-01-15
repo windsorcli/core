@@ -90,17 +90,20 @@ kustomize:
   path: lb/base
   dependsOn:
     - policy-resources
+  components:
+    - "${network.loadbalancer_driver == 'metallb' ? 'metallb' : ''}"
   timeout: 5m
   interval: 5m
+
 - name: lb-resources
   path: lb/resources
   dependsOn:
-  - lb-base
+    - lb-base
   components:
-  - kube-vip
-  - "kube-vip/${network.loadbalancer_mode ?? 'arp'}"
+    - ${network.loadbalancer_driver}
+    - "${network.loadbalancer_driver}/${network.loadbalancer_mode}"
   substitutions:
-    loadbalancer_ip_range: ${network.loadbalancer_ips.start + '-' + network.loadbalancer_ips.end}
+    loadbalancer_ip_range: "${network.loadbalancer_ips.start + '-' + network.loadbalancer_ips.end}"
   timeout: 5m
   interval: 5m
 

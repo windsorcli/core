@@ -62,9 +62,8 @@ properties:
         type: string
         enum:
           - arp
-          - bgp
         default: arp
-        description: Load balancer mode (arp for flat L2 networks using ARP broadcasts, bgp for BGP-capable infrastructure)
+        description: Load balancer mode (only 'arp' is currently supported; use for flat L2 networks with ARP broadcasts)
     additionalProperties: false
 
   # Cluster configuration
