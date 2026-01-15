@@ -161,9 +161,9 @@ run "full_configuration" {
     endpoint_public_access        = true
     cluster_api_access_cidr_block = "10.0.0.0/8"
     enable_secrets_encryption     = true
-    secrets_encryption_kms_key_id  = "arn:aws:kms:us-west-2:123456789012:key/abcd1234-5678-90ab-cdef-1234567890ab"
-    enable_ebs_encryption          = true
-    ebs_volume_kms_key_id          = "arn:aws:kms:us-west-2:123456789012:key/abcd1234-5678-90ab-cdef-1234567890ab"
+    secrets_encryption_kms_key_id = "arn:aws:kms:us-west-2:123456789012:key/abcd1234-5678-90ab-cdef-1234567890ab"
+    enable_ebs_encryption         = true
+    ebs_volume_kms_key_id         = "arn:aws:kms:us-west-2:123456789012:key/abcd1234-5678-90ab-cdef-1234567890ab"
   }
 
   assert {
