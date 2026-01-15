@@ -213,6 +213,11 @@ resource "aws_kms_key" "ebs_encryption_key" {
   description             = "KMS key for EKS cluster ${local.name} EBS volume encryption"
   deletion_window_in_days = var.kms_key_deletion_window_in_days
   enable_key_rotation     = true
+}
+
+resource "aws_kms_key_policy" "ebs_encryption_key" {
+  count  = var.enable_ebs_encryption && var.ebs_volume_kms_key_id == null ? 1 : 0
+  key_id = aws_kms_key.ebs_encryption_key[0].id
 
   policy = jsonencode({
     Version = "2012-10-17",
@@ -240,6 +245,25 @@ resource "aws_kms_key" "ebs_encryption_key" {
           "kms:DescribeKey"
         ],
         Resource = "*"
+      },
+      {
+        Sid    = "Allow Auto Scaling service-linked roles to create grants",
+        Effect = "Allow",
+        Principal = {
+          AWS = [
+            "arn:aws:iam::${data.aws_caller_identity.current.account_id}:role/aws-service-role/autoscaling.amazonaws.com/AWSServiceRoleForAutoScaling",
+            "arn:aws:iam::${data.aws_caller_identity.current.account_id}:role/aws-service-role/eks.amazonaws.com/AWSServiceRoleForAmazonEKSNodegroup"
+          ]
+        },
+        Action = [
+          "kms:CreateGrant"
+        ],
+        Resource = "*",
+        Condition = {
+          StringEquals = {
+            "kms:ViaService" = "ec2.${data.aws_region.current.region}.amazonaws.com"
+          }
+        }
       }
     ]
   })
