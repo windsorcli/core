@@ -212,7 +212,19 @@ locals {
             )
           )
         ) : instance.ipv4
-        ipv6           = lookup(instance, "ipv6", null)
+        ipv6 = lookup(instance, "ipv6", null) != null && instance.count > 1 ? (
+          # Increment IPv6 address: extract last hextet, add index, reconstruct
+          # Split address and prefix
+          format("%s%s",
+            # Reconstruct IP with incremented last hextet
+            join(":", concat(
+              slice(split(":", split("/", lookup(instance, "ipv6", null))[0]), 0, length(split(":", split("/", lookup(instance, "ipv6", null))[0])) - 1),
+              [lower(format("%x", try(parseint(split(":", split("/", lookup(instance, "ipv6", null))[0])[length(split(":", split("/", lookup(instance, "ipv6", null))[0])) - 1], 16), 0) + i))]
+            )),
+            # Add prefix if present
+            length(split("/", lookup(instance, "ipv6", null))) > 1 ? "/${split("/", lookup(instance, "ipv6", null))[1]}" : ""
+          )
+        ) : lookup(instance, "ipv6", null)
         wait_for_ipv4  = lookup(instance, "wait_for_ipv4", true)
         wait_for_ipv6  = lookup(instance, "wait_for_ipv6", null)
         limits         = instance.limits
@@ -318,6 +330,14 @@ locals {
     )
   }
 
+  # Calculate all assigned IPv6 addresses (extract IP from CIDR notation)
+  # This includes IPv6s from count expansion (e.g., 2001:db8::1/64 with count=3 creates 2001:db8::1, 2001:db8::2, 2001:db8::3)
+  assigned_ipv6s = {
+    for instance in local.all_instances : instance.name => (
+      instance.ipv6 != null ? split("/", instance.ipv6)[0] : null
+    )
+  }
+
   # Group instances by IP address to find conflicts
   ip_to_instances = {
     for ip, names in {
@@ -326,9 +346,23 @@ locals {
     } : ip => names
   }
 
+  # Group instances by IPv6 address to find conflicts
+  ipv6_to_instances = {
+    for ip, names in {
+      for name, ip_addr in local.assigned_ipv6s : ip_addr => name...
+      if ip_addr != null
+    } : ip => names
+  }
+
   # Find IP conflicts: IPs assigned to multiple instances
   ip_conflicts = {
     for ip, instances in local.ip_to_instances : ip => instances
+    if length(instances) > 1
+  }
+
+  # Find IPv6 conflicts: IPv6s assigned to multiple instances
+  ipv6_conflicts = {
+    for ip, instances in local.ipv6_to_instances : ip => instances
     if length(instances) > 1
   }
 
@@ -374,6 +408,25 @@ precondition {
         2. Another instance explicitly uses one of those incremented IPs
         
         Solution: Ensure all IP addresses are unique across all instances, accounting for count-based IP increments.
+        EOT
+}
+
+# Validate that no IPv6 addresses are assigned to multiple instances
+# This prevents conflicts when count > 1 increments IPv6s (e.g., instance with ipv6="2001:db8::1/64" and count=3
+# creates IPv6s 2001:db8::1, 2001:db8::2, 2001:db8::3, which could conflict with another instance using 2001:db8::2)
+precondition {
+  condition = length(local.ipv6_conflicts) == 0
+  error_message = <<-EOT
+        IPv6 address conflicts detected. The following IPv6 addresses are assigned to multiple instances:
+        ${join("\n", [
+  for ip, instances in local.ipv6_conflicts : "  IPv6 ${ip} is assigned to: ${join(", ", instances)}"
+])}
+        
+        This can occur when:
+        1. An instance with count > 1 and an explicit ipv6 increments IPv6s (e.g., ipv6="2001:db8::1/64" with count=3 creates 2001:db8::1, 2001:db8::2, 2001:db8::3)
+        2. Another instance explicitly uses one of those incremented IPv6s
+        
+        Solution: Ensure all IPv6 addresses are unique across all instances, accounting for count-based IPv6 increments.
         EOT
 }
 }
