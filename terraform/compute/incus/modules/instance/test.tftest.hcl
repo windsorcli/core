@@ -173,8 +173,8 @@ run "file_path_bind_mount" {
     disks = [
       {
         name   = "unix-mount"
-        pool   = "default"  # Required by schema, but not used for bind mounts
-        size   = 1          # Required by schema, but not used for bind mounts
+        pool   = "default" # Required by schema, but not used for bind mounts
+        size   = 1         # Required by schema, but not used for bind mounts
         source = "/host/path/data"
         path   = "/mnt/data"
       },
@@ -270,11 +270,11 @@ run "wait_for_ipv4_with_static_address" {
   command = plan
 
   variables {
-    name         = "static-ipv4-instance"
-    image        = "ubuntu/22.04"
-    network_name = "test-network"
-    ipv4         = "10.5.0.100/24"
-    wait_for_ipv4 = false  # Should still wait because static IP is set
+    name          = "static-ipv4-instance"
+    image         = "ubuntu/22.04"
+    network_name  = "test-network"
+    ipv4          = "10.5.0.100/24"
+    wait_for_ipv4 = false # Should still wait because static IP is set
   }
 
   assert {
@@ -294,9 +294,9 @@ run "wait_for_ipv4_with_dhcp" {
   command = plan
 
   variables {
-    name         = "dhcp-ipv4-instance"
-    image        = "ubuntu/22.04"
-    network_name = "test-network"
+    name          = "dhcp-ipv4-instance"
+    image         = "ubuntu/22.04"
+    network_name  = "test-network"
     wait_for_ipv4 = true
   }
 
@@ -312,11 +312,11 @@ run "wait_for_ipv6_with_static_address" {
   command = plan
 
   variables {
-    name         = "static-ipv6-instance"
-    image        = "ubuntu/22.04"
-    network_name = "test-network"
-    ipv6         = "2001:db8::100/64"
-    wait_for_ipv6 = false  # Should still wait because static IP is set
+    name          = "static-ipv6-instance"
+    image         = "ubuntu/22.04"
+    network_name  = "test-network"
+    ipv6          = "2001:db8::100/64"
+    wait_for_ipv6 = false # Should still wait because static IP is set
   }
 
   assert {
@@ -331,9 +331,9 @@ run "wait_for_ipv6_with_dhcp" {
   command = plan
 
   variables {
-    name         = "dhcp-ipv6-instance"
-    image        = "ubuntu/22.04"
-    network_name = "test-network"
+    name          = "dhcp-ipv6-instance"
+    image         = "ubuntu/22.04"
+    network_name  = "test-network"
     wait_for_ipv6 = true
   }
 
@@ -373,7 +373,7 @@ run "invalid_ipv4_address_format" {
     name         = "invalid-ipv4-instance"
     image        = "ubuntu/22.04"
     network_name = "test-network"
-    ipv4         = "999.999.999.999"  # Invalid: octets out of range
+    ipv4         = "999.999.999.999" # Invalid: octets out of range
   }
 }
 
@@ -389,7 +389,7 @@ run "invalid_ipv4_address_format_wrong_structure" {
     name         = "invalid-ipv4-format-instance"
     image        = "ubuntu/22.04"
     network_name = "test-network"
-    ipv4         = "not-an-ip"  # Invalid: not an IP address format
+    ipv4         = "not-an-ip" # Invalid: not an IP address format
   }
 }
 
@@ -405,7 +405,7 @@ run "invalid_ipv6_address_format" {
     name         = "invalid-ipv6-instance"
     image        = "ubuntu/22.04"
     network_name = "test-network"
-    ipv6         = "not-an-ipv6"  # Invalid: no colons, not IPv6 format
+    ipv6         = "not-an-ipv6" # Invalid: no colons, not IPv6 format
   }
 }
 
