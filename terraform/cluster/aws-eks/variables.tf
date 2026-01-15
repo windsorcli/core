@@ -166,3 +166,33 @@ variable "secrets_encryption_kms_key_id" {
     error_message = "If secrets_encryption_kms_key_id is set, it must be a valid KMS key ARN."
   }
 }
+
+variable "enable_ebs_encryption" {
+  description = "Whether to enable EBS volume encryption for node group instances. If true and ebs_volume_kms_key_id is null, a cluster-specific KMS key will be created."
+  type        = bool
+  default     = true
+  validation {
+    condition     = !(var.enable_ebs_encryption == false && var.ebs_volume_kms_key_id != null)
+    error_message = "If enable_ebs_encryption is false, ebs_volume_kms_key_id must be null."
+  }
+}
+
+variable "ebs_volume_kms_key_id" {
+  description = "KMS key ARN or ID to use for EBS volume encryption in node group launch templates. ARN is preferred for cross-account scenarios. If enable_ebs_encryption is true and this is null, a cluster-specific key is created."
+  type        = string
+  default     = null
+  validation {
+    condition     = var.ebs_volume_kms_key_id == null || can(regex("^(arn:aws:kms:[a-z0-9-]+:\\d{12}:key/[a-f0-9-]+|[a-f0-9-]+)$", var.ebs_volume_kms_key_id))
+    error_message = "ebs_volume_kms_key_id must be a valid KMS key ARN or key ID."
+  }
+}
+
+variable "kms_key_deletion_window_in_days" {
+  description = "The waiting period, specified in number of days, after which the KMS key is deleted. Valid values are 7-30. Default is 7. For compliance requirements (PCI DSS, SOC 2, HIPAA), 30 days is often required for critical keys to allow time for audit and recovery."
+  type        = number
+  default     = 7
+  validation {
+    condition     = var.kms_key_deletion_window_in_days >= 7 && var.kms_key_deletion_window_in_days <= 30
+    error_message = "kms_key_deletion_window_in_days must be between 7 and 30 days."
+  }
+}
