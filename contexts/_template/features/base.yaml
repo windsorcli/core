@@ -30,6 +30,9 @@ kustomize:
   path: policy/resources
   dependsOn:
     - policy-base
+  components:
+    - kyverno/audit-resource-limits-requests
+    - kyverno/require-image-digest
   timeout: 5m
   interval: 5m
 
