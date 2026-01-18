@@ -1,0 +1,24 @@
+apiVersion: helm.toolkit.fluxcd.io/v2
+kind: HelmRelease
+metadata:
+  name: kube-vip
+  namespace: system-lb
+spec:
+  interval: 5m
+  timeout: 10m
+  chart:
+    spec:
+      chart: kube-vip
+      # renovate: datasource=helm depName=kube-vip package=kube-vip helmRepo=https://kube-vip.github.io/helm-charts
+      version: 0.9.5
+      sourceRef:
+        kind: HelmRepository
+        name: kube-vip
+        namespace: system-gitops
+  values:
+    image:
+      repository: ghcr.io/kube-vip/kube-vip
+      # renovate: datasource=docker depName=ghcr.io/kube-vip/kube-vip package=ghcr.io/kube-vip/kube-vip
+      tag: v1.0.3@sha256:4e2791cc0238ae01b3986d827f4d568a25d846c94bab51238fe6241281a27113
+    env:
+      svc_enable: "true"

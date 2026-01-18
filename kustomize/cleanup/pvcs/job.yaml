@@ -1,0 +1,126 @@
+---
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: pvc-cleanup
+  namespace: system-cleanup
+spec:
+  backoffLimit: 3
+  ttlSecondsAfterFinished: 300
+  template:
+    metadata:
+      labels:
+        app: pvc-cleanup
+    spec:
+      restartPolicy: OnFailure
+      serviceAccountName: pvc-cleanup
+      containers:
+        - name: cleanup
+          # renovate: datasource=docker depName=kubectl package=alpine/k8s
+          image: alpine/k8s:1.35.0@sha256:18bc02c1e0df04451f4f9194eb7b7341c1165da5495459b52f85f72fb9545032
+          env:
+            - name: POD_NAMESPACE
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.namespace
+            - name: CONTEXT_ID
+              value: "${CONTEXT_ID}"
+            - name: RESOURCE_WAIT_TIMEOUT
+              value: "600"
+            - name: RESOURCE_CHECK_INTERVAL
+              value: "5"
+            - name: AUTH_WAIT_TIMEOUT
+              value: "300"
+            - name: AUTH_CHECK_INTERVAL
+              value: "5"
+          resources:
+            limits:
+              cpu: "100m"
+              memory: "64Mi"
+            requests:
+              cpu: "50m"
+              memory: "32Mi"
+          command:
+            - /bin/sh
+            - -c
+            - |
+              set -e
+
+              # Wait for authorization
+              echo "Waiting for authorization..."
+              elapsed=0
+              while [ "$$elapsed" -lt "$$AUTH_WAIT_TIMEOUT" ]; do
+                kubectl get cm cleanup-authorized -n "$$POD_NAMESPACE" >/dev/null 2>&1 && break
+                sleep "$$AUTH_CHECK_INTERVAL"
+                elapsed=$$((elapsed + AUTH_CHECK_INTERVAL))
+              done
+              kubectl get cm cleanup-authorized -n "$$POD_NAMESPACE" >/dev/null 2>&1 || { echo "ERROR: Auth timeout"; exit 1; }
+              echo "Authorized. Starting cleanup for context: $$CONTEXT_ID"
+
+              # Get namespaces belonging to this context
+              TARGET_NS=$$(kubectl get ns -l "windsorcli.dev/context-id=$$CONTEXT_ID" -o jsonpath='{.items[*].metadata.name}' 2>/dev/null)
+              [ -z "$$TARGET_NS" ] && { echo "No namespaces found for context $$CONTEXT_ID"; exit 0; }
+              echo "Target namespaces: $$TARGET_NS"
+
+              # Delete PVCs in target namespaces
+              for ns in $$TARGET_NS; do
+                kubectl delete pvc -n "$$ns" -l 'windsorcli.dev/cleanup!=skip' --wait=false 2>/dev/null || true
+              done
+
+              # Delete PVs bound to PVCs in target namespaces
+              kubectl get pv -o json 2>/dev/null | jq -r --arg ns_list "$$TARGET_NS" '.items[] | select(.spec.claimRef.namespace as $$ns | $$ns_list | split(" ") | index($$ns)) | .metadata.name' | \
+              while read -r pvname; do
+                [ -n "$$pvname" ] && kubectl delete pv "$$pvname" --wait=false 2>/dev/null || true
+              done
+
+              # Wait loop
+              elapsed=0
+              while [ "$$elapsed" -lt "$$RESOURCE_WAIT_TIMEOUT" ]; do
+                pvc_count=0
+                for ns in $$TARGET_NS; do
+                  c=$$(kubectl get pvc -n "$$ns" -l 'windsorcli.dev/cleanup!=skip' --no-headers 2>/dev/null | wc -l)
+                  pvc_count=$$((pvc_count + c))
+                done
+
+                # Count PVs bound to target namespaces
+                pv_count=$$(kubectl get pv -o json 2>/dev/null | jq -r --arg ns_list "$$TARGET_NS" '[.items[] | select(.spec.claimRef.namespace as $$ns | $$ns_list | split(" ") | index($$ns))] | length')
+
+                [ "$$pvc_count" -eq 0 ] && [ "$$pv_count" -eq 0 ] && break
+
+                # Process stuck PVCs in target namespaces
+                for ns in $$TARGET_NS; do
+                  kubectl get pvc -n "$$ns" -l 'windsorcli.dev/cleanup!=skip' -o json 2>/dev/null | \
+                  jq -c '.items[] | select(.metadata.deletionTimestamp) | select(.metadata.finalizers | index("kubernetes.io/pvc-protection")) | {name:.metadata.name, finalizers:[.metadata.finalizers[] | select(. != "kubernetes.io/pvc-protection")]}' | \
+                  while read -r item; do
+                    name=$$(echo "$$item" | jq -r '.name')
+                    fins=$$(echo "$$item" | jq -c '.finalizers')
+                    echo "PVC $$ns/$$name: removing pvc-protection"
+                    kubectl patch pvc "$$name" -n "$$ns" --type=merge -p="{\"metadata\":{\"finalizers\":$$fins}}" 2>/dev/null || true
+                  done
+                done
+
+                # Process stuck PVs bound to target namespaces
+                kubectl get pv -o json 2>/dev/null | \
+                jq -c --arg ns_list "$$TARGET_NS" '.items[] | select(.spec.claimRef.namespace as $$ns | $$ns_list | split(" ") | index($$ns)) | select(.metadata.deletionTimestamp) | select(.metadata.finalizers | index("kubernetes.io/pv-protection")) | {name:.metadata.name, finalizers:[.metadata.finalizers[] | select(. != "kubernetes.io/pv-protection")]}' | \
+                while read -r item; do
+                  name=$$(echo "$$item" | jq -r '.name')
+                  fins=$$(echo "$$item" | jq -c '.finalizers')
+                  echo "PV $$name: removing pv-protection"
+                  kubectl patch pv "$$name" --type=merge -p="{\"metadata\":{\"finalizers\":$$fins}}" 2>/dev/null || true
+                done
+
+                echo "Waiting... PVCs:$$pvc_count PVs:$$pv_count"
+                sleep "$$RESOURCE_CHECK_INTERVAL"
+                elapsed=$$((elapsed + RESOURCE_CHECK_INTERVAL))
+              done
+
+              # Final check
+              r=0
+              for ns in $$TARGET_NS; do
+                c=$$(kubectl get pvc -n "$$ns" -l 'windsorcli.dev/cleanup!=skip' --no-headers 2>/dev/null | wc -l)
+                r=$$((r + c))
+              done
+              pv_r=$$(kubectl get pv -o json 2>/dev/null | jq -r --arg ns_list "$$TARGET_NS" '[.items[] | select(.spec.claimRef.namespace as $$ns | $$ns_list | split(" ") | index($$ns))] | length')
+              r=$$((r + pv_r))
+              [ "$$r" -gt 0 ] && { echo "ERROR: $$r resources remaining"; exit 1; }
+              echo "PVC cleanup complete"

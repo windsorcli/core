@@ -5,4 +5,4 @@ metadata:
   namespace: system-lb
 spec:
   addresses:
-  - ${LOADBALANCER_IP_RANGE}
+  - ${loadbalancer_ip_range}

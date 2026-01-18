@@ -21,10 +21,6 @@ provider "aws" {
   }
 }
 
-locals {
-  name        = var.cluster_name != "" ? var.cluster_name : "cluster-${var.context_id}"
-  kms_key_arn = var.enable_secrets_encryption ? (var.secrets_encryption_kms_key_id != null ? var.secrets_encryption_kms_key_id : (length(aws_kms_key.eks_encryption_key) > 0 ? aws_kms_key.eks_encryption_key[0].arn : null)) : null
-}
 
 #-----------------------------------------------------------------------------------------------------------------------
 # Data
@@ -50,6 +46,16 @@ data "aws_subnets" "private" {
 }
 
 data "aws_region" "current" {}
+
+locals {
+  name        = var.cluster_name != "" ? var.cluster_name : "cluster-${var.context_id}"
+  kms_key_arn = var.enable_secrets_encryption ? (var.secrets_encryption_kms_key_id != null ? var.secrets_encryption_kms_key_id : (length(aws_kms_key.eks_encryption_key) > 0 ? aws_kms_key.eks_encryption_key[0].arn : null)) : null
+  ebs_kms_key_id = var.enable_ebs_encryption ? (
+    var.ebs_volume_kms_key_id != null ? var.ebs_volume_kms_key_id : (
+      length(aws_kms_key.ebs_encryption_key) > 0 ? aws_kms_key.ebs_encryption_key[0].key_id : null
+    )
+  ) : null
+}
 
 #-----------------------------------------------------------------------------------------------------------------------
 # EKS Cluster
@@ -145,7 +151,7 @@ resource "aws_security_group" "cluster_api_access" {
 resource "aws_kms_key" "eks_encryption_key" {
   count                   = var.enable_secrets_encryption && var.secrets_encryption_kms_key_id == null ? 1 : 0
   description             = "KMS key for EKS cluster ${local.name} secrets encryption"
-  deletion_window_in_days = 7
+  deletion_window_in_days = var.kms_key_deletion_window_in_days
   enable_key_rotation     = true
 
   policy = jsonencode({
@@ -200,6 +206,80 @@ resource "aws_kms_alias" "eks_encryption_key" {
   count         = var.enable_secrets_encryption && var.secrets_encryption_kms_key_id == null ? 1 : 0
   name          = "alias/${local.name}-eks-encryption"
   target_key_id = aws_kms_key.eks_encryption_key[0].key_id
+}
+
+resource "aws_kms_key" "ebs_encryption_key" {
+  count                   = var.enable_ebs_encryption && var.ebs_volume_kms_key_id == null ? 1 : 0
+  description             = "KMS key for EKS cluster ${local.name} EBS volume encryption"
+  deletion_window_in_days = var.kms_key_deletion_window_in_days
+  enable_key_rotation     = true
+}
+
+resource "aws_kms_key_policy" "ebs_encryption_key" {
+  count  = var.enable_ebs_encryption && var.ebs_volume_kms_key_id == null ? 1 : 0
+  key_id = aws_kms_key.ebs_encryption_key[0].id
+
+  policy = jsonencode({
+    Version = "2012-10-17",
+    Statement = [
+      {
+        Sid    = "Enable IAM User Permissions",
+        Effect = "Allow",
+        Principal = {
+          AWS = "arn:aws:iam::${data.aws_caller_identity.current.account_id}:root"
+        },
+        Action   = "kms:*",
+        Resource = "*"
+      },
+      {
+        Sid    = "Allow EC2 to use the key for EBS volume encryption",
+        Effect = "Allow",
+        Principal = {
+          Service = "ec2.amazonaws.com"
+        },
+        Action = [
+          "kms:Encrypt",
+          "kms:Decrypt",
+          "kms:ReEncrypt*",
+          "kms:GenerateDataKey*",
+          "kms:DescribeKey"
+        ],
+        Resource = "*"
+      },
+      {
+        Sid    = "Allow Auto Scaling service-linked roles to create grants",
+        Effect = "Allow",
+        Principal = {
+          AWS = "*"
+        },
+        Action = [
+          "kms:CreateGrant"
+        ],
+        Resource = "*",
+        Condition = {
+          StringEquals = {
+            "kms:ViaService" = "ec2.${data.aws_region.current.region}.amazonaws.com"
+          },
+          StringLike = {
+            "aws:PrincipalArn" = [
+              "arn:aws:iam::${data.aws_caller_identity.current.account_id}:role/aws-service-role/autoscaling.amazonaws.com/*",
+              "arn:aws:iam::${data.aws_caller_identity.current.account_id}:role/aws-service-role/eks.amazonaws.com/*",
+              "arn:aws:iam::${data.aws_caller_identity.current.account_id}:role/aws-service-role/eks-nodegroup.amazonaws.com/*"
+            ]
+          },
+          Bool = {
+            "kms:GrantIsForAWSResource" = "true"
+          }
+        }
+      }
+    ]
+  })
+}
+
+resource "aws_kms_alias" "ebs_encryption_key" {
+  count         = var.enable_ebs_encryption && var.ebs_volume_kms_key_id == null ? 1 : 0
+  name          = "alias/${local.name}-ebs-encryption"
+  target_key_id = aws_kms_key.ebs_encryption_key[0].key_id
 }
 
 data "aws_caller_identity" "current" {}
@@ -324,6 +404,8 @@ resource "aws_launch_template" "node_group" {
     ebs {
       volume_size           = each.value.disk_size
       volume_type           = "gp3"
+      encrypted             = var.enable_ebs_encryption
+      kms_key_id            = local.ebs_kms_key_id
       delete_on_termination = true
     }
   }
@@ -356,6 +438,10 @@ set -o xtrace
 --==BOUNDARY==--
 EOT
   )
+
+  depends_on = [
+    aws_kms_key_policy.ebs_encryption_key
+  ]
 }
 
 #-----------------------------------------------------------------------------------------------------------------------

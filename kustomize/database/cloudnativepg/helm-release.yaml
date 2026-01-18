@@ -19,28 +19,29 @@ spec:
   values:
     config:
       clusterWide: true
-    operator:
-      image:
-        # renovate: datasource=docker depName=ghcr.io/cloudnative-pg/cloudnative-pg package=ghcr.io/cloudnative-pg/cloudnative-pg
-        tag: 1.28.0@sha256:34198e85b6e6dd81471cb1c3ee222ca5231b685220e7ae38a634d35ed4826a40
-      resources:
-        requests:
-          cpu: 250m
-          memory: 256Mi
-        limits:
-          memory: 256Mi
-      securityContext:
-        runAsNonRoot: true
-        allowPrivilegeEscalation: false
-        capabilities:
-          drop:
-            - ALL
-        seccompProfile:
-          type: RuntimeDefault
-      webhook:
-        enabled: true
+    image:
+      # renovate: datasource=docker depName=ghcr.io/cloudnative-pg/cloudnative-pg package=ghcr.io/cloudnative-pg/cloudnative-pg
+      tag: 1.28.0@sha256:34198e85b6e6dd81471cb1c3ee222ca5231b685220e7ae38a634d35ed4826a40
+    resources:
+      requests:
+        cpu: 250m
+        memory: 256Mi
+      limits:
+        memory: 256Mi
+    containerSecurityContext:
+      runAsNonRoot: true
+      allowPrivilegeEscalation: false
+      capabilities:
+        drop:
+          - ALL
+      seccompProfile:
+        type: RuntimeDefault
+    webhook:
+      mutating:
         failurePolicy: Fail
-      updateStrategy:
-        type: RollingUpdate
-        rollingUpdate:
-          maxUnavailable: 0
+      validating:
+        failurePolicy: Fail
+    updateStrategy:
+      type: RollingUpdate
+      rollingUpdate:
+        maxUnavailable: 0

@@ -36,8 +36,6 @@ kustomize:
     - openebs/dynamic-localpv
   substitutions:
     local_volume_path: ${cluster.workers.volumes[0]}
-  cleanup:
-    - pvcs
   timeout: 20m
   interval: 5m
 
@@ -48,8 +46,8 @@ kustomize:
   dependsOn:
     - policy-resources
   components:
-  - metallb
-  timeout: 10m
+    - "${network.loadbalancer_driver == 'metallb' ? 'metallb' : ''}"
+  timeout: 5m
   interval: 5m
 
 - name: lb-resources
@@ -58,9 +56,10 @@ kustomize:
   dependsOn:
     - lb-base
   components:
-    - metallb/layer2
+    - ${network.loadbalancer_driver}
+    - "${network.loadbalancer_driver}/${network.loadbalancer_mode}"
   substitutions:
-    loadbalancer_ip: ${network.loadbalancer_ips.start}
+    loadbalancer_ip_range: ${network.loadbalancer_ips.start + '-' + network.loadbalancer_ips.end}
   timeout: 5m
   interval: 5m
 
@@ -75,9 +74,6 @@ kustomize:
     - nginx/web
   timeout: 10m
   interval: 5m
-  cleanup:
-    - loadbalancers
-    - ingresses
 
 # Ingress
 - name: ingress
@@ -89,8 +85,5 @@ kustomize:
     - nginx
     - nginx/coredns
     - nginx/web
-  cleanup:
-    - loadbalancers
-    - ingresses
   timeout: 10m
   interval: 5m

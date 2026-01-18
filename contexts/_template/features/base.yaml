@@ -8,6 +8,16 @@ when: provider != 'none'
 
 kustomize:
 
+- name: cleanup
+  path: cleanup
+  destroyOnly: true
+  components:
+  - ingresses
+  - loadbalancers
+  - pvcs
+  timeout: 10m
+  interval: 5m
+
 # Policy
 - name: policy-base
   path: policy/base
@@ -20,6 +30,9 @@ kustomize:
   path: policy/resources
   dependsOn:
     - policy-base
+  components:
+    - kyverno/audit-resource-limits-requests
+    - kyverno/require-image-digest
   timeout: 5m
   interval: 5m
 
@@ -33,7 +46,7 @@ kustomize:
   timeout: 20m
   interval: 5m
 
-# Telemetry (metrics + logs with fluentbit by default)
+# Telemetry
 - name: telemetry-base
   path: telemetry/base
   components:

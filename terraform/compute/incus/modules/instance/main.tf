@@ -38,12 +38,14 @@ locals {
           # Add static IPv4/IPv6 if specified
           # Device ipv4.address/ipv6.address expects IP only, not CIDR notation
           # Only apply to primary interface (eth0)
+          # security.ipv4_filtering prevents ARP spoofing but blocks LoadBalancer VIPs (kube-vip, MetalLB)
           merge(
             var.ipv4 != null && idx == 0 ? {
-              "ipv4.address" = split("/", var.ipv4)[0] # Extract IP address only (remove /prefix)
+              "ipv4.address"            = split("/", var.ipv4)[0]
+              "security.ipv4_filtering" = tostring(var.ipv4_filtering_enabled)
             } : {},
             var.ipv6 != null && idx == 0 ? {
-              "ipv6.address" = split("/", var.ipv6)[0] # Extract IP address only (remove /prefix)
+              "ipv6.address" = split("/", var.ipv6)[0]
             } : {}
           )
         )
@@ -58,12 +60,14 @@ locals {
           var.network_config,
           # Add static IPv4/IPv6 if specified
           # Device ipv4.address/ipv6.address expects IP only, not CIDR notation
+          # security.ipv4_filtering prevents ARP spoofing but blocks LoadBalancer VIPs (kube-vip, MetalLB)
           merge(
             var.ipv4 != null ? {
-              "ipv4.address" = split("/", var.ipv4)[0] # Extract IP address only (remove /prefix)
+              "ipv4.address"            = split("/", var.ipv4)[0]
+              "security.ipv4_filtering" = tostring(var.ipv4_filtering_enabled)
             } : {},
             var.ipv6 != null ? {
-              "ipv6.address" = split("/", var.ipv6)[0] # Extract IP address only (remove /prefix)
+              "ipv6.address" = split("/", var.ipv6)[0]
             } : {}
           )
         )
