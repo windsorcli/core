@@ -1,31 +1,25 @@
-kind: Feature
+kind: Facet
 apiVersion: blueprints.windsorcli.dev/v1alpha1
 metadata:
-  name: aws
-  description: "AWS provider basic infrastructure"
+  name: azure
+  description: "Azure provider basic infrastructure"
 
-when: provider == 'aws'
+when: provider == 'azure'
 
 terraform:
 - name: network
-  path: network/aws-vpc
+  path: network/azure-vnet
   inputs:
-    cidr_block: ${network.cidr_block}
-    domain_name: ${dns?.domain ?? ""}
+    vnet_cidr: ${network.cidr_block}
 - name: cluster
-  path: cluster/aws-eks
+  path: cluster/azure-aks
   dependsOn:
     - network
-- name: cluster-additions
-  path: cluster/aws-eks/additions
-  dependsOn:
-    - cluster
-  destroy: false
 - name: gitops
   path: gitops/flux
+  destroy: false
   dependsOn:
     - cluster
-  destroy: false
 
 kustomize:
 
@@ -37,6 +31,7 @@ kustomize:
     - pki-base
   components:
     - nginx
+    - nginx/coredns
     - nginx/web
   timeout: 10m
   interval: 5m
@@ -47,8 +42,17 @@ kustomize:
   dependsOn:
     - policy-resources
   components:
-    - aws-ebs
+    - azure-disk
   timeout: 5m
   interval: 5m
   substitutions:
-    single_storage_type: ${cluster.storage?.single_storage_type ?? "gp3"}
+    single_storage_type: ${cluster.storage?.single_storage_type ?? "StandardSSD_LRS"}
+
+# Telemetry - exclude metrics-server as AKS provides it natively
+- name: telemetry-resources
+  path: telemetry/resources
+  strategy: remove
+  components:
+    - metrics-server
+  timeout: 5m
+  interval: 5m
