@@ -250,10 +250,7 @@ resource "aws_kms_key_policy" "ebs_encryption_key" {
         Sid    = "Allow Auto Scaling service-linked roles to create grants",
         Effect = "Allow",
         Principal = {
-          AWS = [
-            "arn:aws:iam::${data.aws_caller_identity.current.account_id}:role/aws-service-role/autoscaling.amazonaws.com/AWSServiceRoleForAutoScaling",
-            "arn:aws:iam::${data.aws_caller_identity.current.account_id}:role/aws-service-role/eks.amazonaws.com/AWSServiceRoleForAmazonEKSNodegroup"
-          ]
+          AWS = "*"
         },
         Action = [
           "kms:CreateGrant"
@@ -262,6 +259,16 @@ resource "aws_kms_key_policy" "ebs_encryption_key" {
         Condition = {
           StringEquals = {
             "kms:ViaService" = "ec2.${data.aws_region.current.region}.amazonaws.com"
+          },
+          StringLike = {
+            "aws:PrincipalArn" = [
+              "arn:aws:iam::${data.aws_caller_identity.current.account_id}:role/aws-service-role/autoscaling.amazonaws.com/*",
+              "arn:aws:iam::${data.aws_caller_identity.current.account_id}:role/aws-service-role/eks.amazonaws.com/*",
+              "arn:aws:iam::${data.aws_caller_identity.current.account_id}:role/aws-service-role/eks-nodegroup.amazonaws.com/*"
+            ]
+          },
+          Bool = {
+            "kms:GrantIsForAWSResource" = "true"
           }
         }
       }
