@@ -17,6 +17,13 @@ terraform {
 #-----------------------------------------------------------------------------------------------------------------------
 
 locals {
+  # Determine wait behavior for network addresses
+  # - IPv4: wait if static IPv4 is set, or if wait_for_ipv4 is true (DHCP case, default true)
+  # - IPv6: wait if static IPv6 is set, or if wait_for_ipv6 is explicitly true (DHCP case, default false)
+  # - This allows fine-grained control: IPv4-only, IPv6-only, or both
+  wait_for_ipv4 = var.ipv4 != null || var.wait_for_ipv4
+  wait_for_ipv6 = var.ipv6 != null || (var.wait_for_ipv6 != null && var.wait_for_ipv6)
+
   # Build device map for this instance, including network devices
   instance_devices = merge(
     var.devices,
@@ -28,14 +35,19 @@ locals {
             network = network_name
           },
           var.network_config,
-          # Add static IPv4 if specified
-          # Device ipv4.address expects IP only, not CIDR notation
-          # Only apply IPv4 to primary interface (eth0)
+          # Add static IPv4/IPv6 if specified
+          # Device ipv4.address/ipv6.address expects IP only, not CIDR notation
+          # Only apply to primary interface (eth0)
           # security.ipv4_filtering prevents ARP spoofing but blocks LoadBalancer VIPs (kube-vip, MetalLB)
-          var.ipv4 != null && idx == 0 ? {
-            "ipv4.address"            = split("/", var.ipv4)[0]
-            "security.ipv4_filtering" = tostring(var.ipv4_filtering_enabled)
-          } : {}
+          merge(
+            var.ipv4 != null && idx == 0 ? {
+              "ipv4.address"            = split("/", var.ipv4)[0]
+              "security.ipv4_filtering" = tostring(var.ipv4_filtering_enabled)
+            } : {},
+            var.ipv6 != null && idx == 0 ? {
+              "ipv6.address" = split("/", var.ipv6)[0]
+            } : {}
+          )
         )
       }
       } : {
@@ -46,13 +58,18 @@ locals {
             network = var.network_name
           },
           var.network_config,
-          # Add static IPv4 if specified
-          # Device ipv4.address expects IP only, not CIDR notation
+          # Add static IPv4/IPv6 if specified
+          # Device ipv4.address/ipv6.address expects IP only, not CIDR notation
           # security.ipv4_filtering prevents ARP spoofing but blocks LoadBalancer VIPs (kube-vip, MetalLB)
-          var.ipv4 != null ? {
-            "ipv4.address"            = split("/", var.ipv4)[0]
-            "security.ipv4_filtering" = tostring(var.ipv4_filtering_enabled)
-          } : {}
+          merge(
+            var.ipv4 != null ? {
+              "ipv4.address"            = split("/", var.ipv4)[0]
+              "security.ipv4_filtering" = tostring(var.ipv4_filtering_enabled)
+            } : {},
+            var.ipv6 != null ? {
+              "ipv6.address" = split("/", var.ipv6)[0]
+            } : {}
+          )
         )
       }
     },
@@ -132,6 +149,28 @@ resource "incus_instance" "this" {
   remote      = var.remote
   target      = var.target
   ephemeral   = var.ephemeral
+
+  # Wait for network addresses on primary interface (eth0)
+  # - IPv4: waits if static IPv4 is set, or if wait_for_network is true (DHCP)
+  # - IPv6: waits if static IPv6 is set, or if wait_for_ipv6 is explicitly true (DHCP)
+  # - Allows scenarios: IPv4-only DHCP, IPv6-only DHCP, both, or neither
+  # - For multi-homed instances, eth0 is always the primary interface where static IPs are assigned
+  # Note: eth0 is stable in Incus - it's always the first interface (eth0, eth1, etc. for multi-homed)
+  dynamic "wait_for" {
+    for_each = local.wait_for_ipv4 ? [1] : []
+    content {
+      type = "ipv4"
+      nic  = "eth0"
+    }
+  }
+
+  dynamic "wait_for" {
+    for_each = local.wait_for_ipv6 ? [1] : []
+    content {
+      type = "ipv6"
+      nic  = "eth0"
+    }
+  }
 
   dynamic "device" {
     for_each = local.instance_devices

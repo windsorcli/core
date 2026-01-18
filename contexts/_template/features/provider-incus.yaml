@@ -19,7 +19,7 @@ terraform:
       - name: controlplane
         role: controlplane
         count: ${cluster.controlplanes.count ?? 1}
-        ipv4: 10.5.0.10/16
+        ipv4: ${cidrhost(network.cidr_block, 10)}
         image: windsor:talos/v1.12.0/arm64
         type: virtual-machine
         description: Talos control plane node
@@ -35,7 +35,7 @@ terraform:
       - name: worker
         role: worker
         count: ${cluster.workers.count ?? 2}
-        ipv4: 10.5.0.20/16
+        ipv4: ${cidrhost(network.cidr_block, 20)}
         image: windsor:talos/v1.12.0/arm64
         type: virtual-machine
         description: Talos worker node

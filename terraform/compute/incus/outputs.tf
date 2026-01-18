@@ -18,7 +18,7 @@ locals {
   # Get IP address for each instance (prefer actual assigned IP, fallback to calculated)
   instance_ips = {
     for k, v in module.instances : k => (
-      v.ipv4_address != null && v.ipv4_address != "" ? v.ipv4_address : (
+      v.ipv4 != null && v.ipv4 != "" ? v.ipv4 : (
         try(local.all_instances_by_name[k].ipv4 != null ? split("/", local.all_instances_by_name[k].ipv4)[0] : null, null)
       )
     )
@@ -43,7 +43,7 @@ locals {
       name     = v.name
       hostname = local.instance_hostnames[k]
       ipv4     = local.instance_ips[k]
-      ipv6     = v.ipv6_address
+      ipv6     = v.ipv6
       status   = v.status
       type     = v.type
       image    = v.image
@@ -60,7 +60,7 @@ locals {
       node     = local.instance_ips[k]
       name     = v.name
       ipv4     = local.instance_ips[k]
-      ipv6     = v.ipv6_address
+      ipv6     = v.ipv6
       status   = v.status
       type     = v.type
       image    = v.image
@@ -75,7 +75,7 @@ locals {
       node     = local.instance_ips[k]
       name     = v.name
       ipv4     = local.instance_ips[k]
-      ipv6     = v.ipv6_address
+      ipv6     = v.ipv6
       status   = v.status
       type     = v.type
       image    = v.image

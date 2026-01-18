@@ -65,6 +65,7 @@ run "full_configuration" {
         name      = "data-disk"
         pool      = "default"
         source    = "data-volume"
+        size      = 10
         path      = "/mnt/data"
         read_only = false
       }
@@ -172,16 +173,22 @@ run "file_path_bind_mount" {
     disks = [
       {
         name   = "unix-mount"
+        pool   = "default" # Required by schema, but not used for bind mounts
+        size   = 1         # Required by schema, but not used for bind mounts
         source = "/host/path/data"
         path   = "/mnt/data"
       },
       {
         name   = "windows-mount"
+        pool   = "default"
+        size   = 1
         source = "C:\\host\\path\\data"
         path   = "/mnt/windows"
       },
       {
         name   = "unc-mount"
+        pool   = "default"
+        size   = 1
         source = "\\\\server\\share\\data"
         path   = "/mnt/unc"
       }
@@ -217,6 +224,188 @@ run "invalid_instance_type" {
     image        = "ubuntu/22.04"
     network_name = "test-network"
     type         = "invalid-type"
+  }
+}
+
+# Verifies that IPv6 static address is configured correctly on the primary interface.
+# Tests that IPv6 address is added to device properties and CIDR notation is stripped.
+run "ipv6_static_address_configuration" {
+  command = plan
+
+  variables {
+    name         = "ipv6-instance"
+    image        = "ubuntu/22.04"
+    network_name = "test-network"
+    ipv6         = "2001:db8::100/64"
+  }
+
+  assert {
+    condition     = length([for d in incus_instance.this.device : d if d.name == "eth0" && d.properties["ipv6.address"] == "2001:db8::100"]) == 1
+    error_message = "IPv6 address should be configured on eth0 with CIDR notation stripped"
+  }
+}
+
+# Verifies that both IPv4 and IPv6 static addresses can be configured simultaneously.
+# Tests dual-stack configuration with both addresses on the primary interface.
+run "dual_stack_static_addresses" {
+  command = plan
+
+  variables {
+    name         = "dual-stack-instance"
+    image        = "ubuntu/22.04"
+    network_name = "test-network"
+    ipv4         = "10.5.0.100/24"
+    ipv6         = "2001:db8::100/64"
+  }
+
+  assert {
+    condition     = length([for d in incus_instance.this.device : d if d.name == "eth0" && d.properties["ipv4.address"] == "10.5.0.100" && d.properties["ipv6.address"] == "2001:db8::100"]) == 1
+    error_message = "Both IPv4 and IPv6 addresses should be configured on eth0"
+  }
+}
+
+# Verifies that wait_for_ipv4 logic correctly waits when static IPv4 is set.
+# Tests that wait_for block is created for IPv4 when static IP is configured.
+run "wait_for_ipv4_with_static_address" {
+  command = plan
+
+  variables {
+    name          = "static-ipv4-instance"
+    image         = "ubuntu/22.04"
+    network_name  = "test-network"
+    ipv4          = "10.5.0.100/24"
+    wait_for_ipv4 = false # Should still wait because static IP is set
+  }
+
+  assert {
+    condition     = length(incus_instance.this.wait_for) > 0
+    error_message = "Should wait for IPv4 when static IPv4 is configured, even if wait_for_ipv4 is false"
+  }
+
+  assert {
+    condition     = length([for w in incus_instance.this.wait_for : w if w.type == "ipv4" && w.nic == "eth0"]) > 0
+    error_message = "Should wait for IPv4 on eth0 when static IPv4 is configured"
+  }
+}
+
+# Verifies that wait_for_ipv4 logic correctly waits for DHCP when enabled.
+# Tests that wait_for block is created for IPv4 when wait_for_ipv4 is true and no static IP.
+run "wait_for_ipv4_with_dhcp" {
+  command = plan
+
+  variables {
+    name          = "dhcp-ipv4-instance"
+    image         = "ubuntu/22.04"
+    network_name  = "test-network"
+    wait_for_ipv4 = true
+  }
+
+  assert {
+    condition     = length([for w in incus_instance.this.wait_for : w if w.type == "ipv4" && w.nic == "eth0"]) > 0
+    error_message = "Should wait for IPv4 on eth0 when wait_for_ipv4 is true (DHCP case)"
+  }
+}
+
+# Verifies that wait_for_ipv6 logic correctly waits when static IPv6 is set.
+# Tests that wait_for block is created for IPv6 when static IP is configured.
+run "wait_for_ipv6_with_static_address" {
+  command = plan
+
+  variables {
+    name          = "static-ipv6-instance"
+    image         = "ubuntu/22.04"
+    network_name  = "test-network"
+    ipv6          = "2001:db8::100/64"
+    wait_for_ipv6 = false # Should still wait because static IP is set
+  }
+
+  assert {
+    condition     = length([for w in incus_instance.this.wait_for : w if w.type == "ipv6" && w.nic == "eth0"]) > 0
+    error_message = "Should wait for IPv6 on eth0 when static IPv6 is configured, even if wait_for_ipv6 is false"
+  }
+}
+
+# Verifies that wait_for_ipv6 logic correctly waits for DHCP when explicitly enabled.
+# Tests that wait_for block is created for IPv6 when wait_for_ipv6 is true and no static IP.
+run "wait_for_ipv6_with_dhcp" {
+  command = plan
+
+  variables {
+    name          = "dhcp-ipv6-instance"
+    image         = "ubuntu/22.04"
+    network_name  = "test-network"
+    wait_for_ipv6 = true
+  }
+
+  assert {
+    condition     = length([for w in incus_instance.this.wait_for : w if w.type == "ipv6" && w.nic == "eth0"]) > 0
+    error_message = "Should wait for IPv6 on eth0 when wait_for_ipv6 is explicitly true (DHCP case)"
+  }
+}
+
+# Verifies that wait_for_ipv6 does not wait by default when no static IPv6 is set.
+# Tests that wait_for block is not created for IPv6 when wait_for_ipv6 is not explicitly set.
+run "wait_for_ipv6_default_behavior" {
+  command = plan
+
+  variables {
+    name         = "no-ipv6-wait-instance"
+    image        = "ubuntu/22.04"
+    network_name = "test-network"
+    # wait_for_ipv6 not set (defaults to null)
+  }
+
+  assert {
+    condition     = length([for w in incus_instance.this.wait_for : w if w.type == "ipv6"]) == 0
+    error_message = "Should not wait for IPv6 by default when no static IPv6 is configured and wait_for_ipv6 is not set"
+  }
+}
+
+# Verifies that IPv4 address validation rejects invalid formats.
+# Tests that invalid IPv4 addresses (wrong format, out of range octets) are rejected.
+run "invalid_ipv4_address_format" {
+  command = plan
+  expect_failures = [
+    var.ipv4,
+  ]
+
+  variables {
+    name         = "invalid-ipv4-instance"
+    image        = "ubuntu/22.04"
+    network_name = "test-network"
+    ipv4         = "999.999.999.999" # Invalid: octets out of range
+  }
+}
+
+# Verifies that IPv4 address validation rejects invalid formats.
+# Tests that invalid IPv4 addresses (wrong format) are rejected.
+run "invalid_ipv4_address_format_wrong_structure" {
+  command = plan
+  expect_failures = [
+    var.ipv4,
+  ]
+
+  variables {
+    name         = "invalid-ipv4-format-instance"
+    image        = "ubuntu/22.04"
+    network_name = "test-network"
+    ipv4         = "not-an-ip" # Invalid: not an IP address format
+  }
+}
+
+# Verifies that IPv6 address validation rejects invalid formats.
+# Tests that invalid IPv6 addresses (missing colons, invalid characters) are rejected.
+run "invalid_ipv6_address_format" {
+  command = plan
+  expect_failures = [
+    var.ipv6,
+  ]
+
+  variables {
+    name         = "invalid-ipv6-instance"
+    image        = "ubuntu/22.04"
+    network_name = "test-network"
+    ipv6         = "not-an-ipv6" # Invalid: no colons, not IPv6 format
   }
 }
 

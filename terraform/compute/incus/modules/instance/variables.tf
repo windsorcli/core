@@ -73,6 +73,40 @@ variable "ipv4" {
   description = "Static IPv4 address for the primary network interface (e.g., '10.5.0.87' or '10.5.0.87/24'). CIDR notation is optional; prefix length is derived from network_cidr when incrementing for count > 1. If not specified, DHCP will be used"
   type        = string
   default     = null
+  validation {
+    condition = var.ipv4 == null || (
+      can(regex("^([0-9]{1,3}\\.){3}[0-9]{1,3}(/[0-9]{1,2})?$", var.ipv4)) &&
+      # Validate octets are in valid range (0-255)
+      alltrue([
+        for octet in split(".", split("/", var.ipv4)[0]) : tonumber(octet) >= 0 && tonumber(octet) <= 255
+      ])
+    )
+    error_message = "IPv4 address must be in format 'x.x.x.x' or 'x.x.x.x/prefix' with octets in range 0-255 (e.g., '10.5.0.87' or '10.5.0.87/24')"
+  }
+}
+
+variable "ipv6" {
+  description = "Static IPv6 address for the primary network interface (e.g., '2001:db8::1' or '2001:db8::1/64'). CIDR notation is optional. If not specified, IPv6 will be auto-assigned if the network supports it"
+  type        = string
+  default     = null
+  validation {
+    # Validate IPv6 format: must contain colons and hex digits, optional CIDR prefix
+    # This catches common errors while being permissive enough for various IPv6 formats
+    condition     = var.ipv6 == null || (can(regex(":", var.ipv6)) && can(regex("^[0-9a-fA-F:]+(/[0-9]{1,3})?$", var.ipv6)))
+    error_message = "IPv6 address must be in valid IPv6 format with colons and hex digits (e.g., '2001:db8::1' or '2001:db8::1/64')"
+  }
+}
+
+variable "wait_for_ipv4" {
+  description = "Wait for IPv4 address to be assigned on eth0. Useful for DHCP instances to ensure IPv4 is available before proceeding. Defaults to true. Set to false to disable waiting for IPv4."
+  type        = bool
+  default     = true
+}
+
+variable "wait_for_ipv6" {
+  description = "Wait for IPv6 address to be assigned on eth0. Useful for IPv6-only or dual-stack instances. Defaults to false unless static IPv6 is configured. Set to true to wait for DHCP-assigned IPv6."
+  type        = bool
+  default     = null
 }
 
 variable "limits" {
