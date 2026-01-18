@@ -1,35 +1,30 @@
 ---
-apiVersion: apps/v1
-kind: Deployment
+apiVersion: batch/v1
+kind: Job
 metadata:
   name: pvc-cleanup
   namespace: system-cleanup
 spec:
-  replicas: 1
-  progressDeadlineSeconds: 900
-  selector:
-    matchLabels:
-      app: pvc-cleanup
+  backoffLimit: 3
+  ttlSecondsAfterFinished: 300
   template:
     metadata:
       labels:
         app: pvc-cleanup
     spec:
+      restartPolicy: OnFailure
       serviceAccountName: pvc-cleanup
-      volumes:
-        - name: completion
-          emptyDir: {}
-      initContainers:
+      containers:
         - name: cleanup
           # renovate: datasource=docker depName=kubectl package=alpine/k8s
           image: alpine/k8s:1.35.0@sha256:18bc02c1e0df04451f4f9194eb7b7341c1165da5495459b52f85f72fb9545032
           env:
             - name: RESOURCE_WAIT_TIMEOUT
-              value: "300"
-            - name: RESOURCE_CHECK_INTERVAL
-              value: "10"
-            - name: AUTH_WAIT_TIMEOUT
               value: "600"
+            - name: RESOURCE_CHECK_INTERVAL
+              value: "5"
+            - name: AUTH_WAIT_TIMEOUT
+              value: "300"
             - name: AUTH_CHECK_INTERVAL
               value: "5"
           resources:
@@ -39,9 +34,6 @@ spec:
             requests:
               cpu: "50m"
               memory: "32Mi"
-          volumeMounts:
-            - name: completion
-              mountPath: /tmp/cleanup
           command:
             - /bin/sh
             - -c
@@ -91,11 +83,17 @@ spec:
                   ns=$$(echo "$$pvc" | cut -d'/' -f1)
                   name=$$(echo "$$pvc" | cut -d'/' -f2)
                   
-                  finalizers=$$(kubectl get pvc "$$name" -n "$$ns" -o jsonpath='{.metadata.finalizers}' 2>/dev/null || echo "[]")
-                  if echo "$$finalizers" | grep -q "kubernetes.io/pvc-protection"; then
+                  # Get current finalizers and filter out pvc-protection (atomic operation)
+                  current=$$(kubectl get pvc "$$name" -n "$$ns" -o json 2>/dev/null)
+                  if [ -z "$$current" ]; then
+                    continue  # PVC already deleted
+                  fi
+                  
+                  has_protection=$$(echo "$$current" | jq -r '.metadata.finalizers // [] | any(. == "kubernetes.io/pvc-protection")')
+                  if [ "$$has_protection" = "true" ]; then
                     echo "PVC $$ns/$$name - removing protection finalizer"
-                    idx=$$(kubectl get pvc "$$name" -n "$$ns" -o json | jq -r '.metadata.finalizers | to_entries | .[] | select(.value == "kubernetes.io/pvc-protection") | .key')
-                    kubectl patch pvc "$$name" -n "$$ns" --type=json -p="[{\"op\": \"remove\", \"path\": \"/metadata/finalizers/$$idx\"}]" || true
+                    new_finalizers=$$(echo "$$current" | jq -c '[.metadata.finalizers[] | select(. != "kubernetes.io/pvc-protection")]')
+                    kubectl patch pvc "$$name" -n "$$ns" --type=merge -p="{\"metadata\":{\"finalizers\":$$new_finalizers}}" 2>/dev/null || true
                   else
                     echo "PVC $$ns/$$name waiting for controller cleanup..."
                   fi
@@ -130,12 +128,17 @@ spec:
 
                 # Check for stuck PVs and remove only the protection finalizer
                 for pv in $$(kubectl get pv -o json | jq -r '.items[] | select(.metadata.deletionTimestamp != null) | .metadata.name'); do
-                  finalizers=$$(kubectl get pv "$$pv" -o jsonpath='{.metadata.finalizers}' 2>/dev/null || echo "[]")
+                  # Get current finalizers and filter out pv-protection (atomic operation)
+                  current=$$(kubectl get pv "$$pv" -o json 2>/dev/null)
+                  if [ -z "$$current" ]; then
+                    continue  # PV already deleted
+                  fi
                   
-                  if echo "$$finalizers" | grep -q "kubernetes.io/pv-protection"; then
+                  has_protection=$$(echo "$$current" | jq -r '.metadata.finalizers // [] | any(. == "kubernetes.io/pv-protection")')
+                  if [ "$$has_protection" = "true" ]; then
                     echo "PV $$pv - removing protection finalizer"
-                    idx=$$(kubectl get pv "$$pv" -o json | jq -r '.metadata.finalizers | to_entries | .[] | select(.value == "kubernetes.io/pv-protection") | .key')
-                    kubectl patch pv "$$pv" --type=json -p="[{\"op\": \"remove\", \"path\": \"/metadata/finalizers/$$idx\"}]" || true
+                    new_finalizers=$$(echo "$$current" | jq -c '[.metadata.finalizers[] | select(. != "kubernetes.io/pv-protection")]')
+                    kubectl patch pv "$$pv" --type=merge -p="{\"metadata\":{\"finalizers\":$$new_finalizers}}" 2>/dev/null || true
                   else
                     echo "PV $$pv waiting for controller cleanup..."
                   fi
@@ -151,32 +154,10 @@ spec:
               remaining_pvcs=$$(kubectl get pvc --all-namespaces --no-headers 2>/dev/null | wc -l | tr -d ' ')
               remaining_pvs=$$(kubectl get pv --no-headers 2>/dev/null | wc -l | tr -d ' ')
               if [ "$$remaining_pvcs" -gt 0 ] || [ "$$remaining_pvs" -gt 0 ]; then
-                echo "WARNING: Cleanup incomplete - $$remaining_pvcs PVCs and $$remaining_pvs PVs remaining"
-                echo "Controllers may still be processing. Remaining resources:"
+                echo "ERROR: Cleanup incomplete - $$remaining_pvcs PVCs and $$remaining_pvs PVs remaining"
+                echo "Remaining resources:"
                 kubectl get pvc --all-namespaces 2>/dev/null || true
                 kubectl get pv 2>/dev/null || true
-              fi
-              echo "PVC cleanup completed"
-              touch /tmp/cleanup/success
-      containers:
-        - name: status
-          # renovate: datasource=docker depName=alpine package=alpine
-          image: alpine:3.23.2@sha256:865b95f46d98cf867a156fe4a135ad3fe50d2056aa3f25ed31662dff6da4eb62
-          resources:
-            limits:
-              cpu: "10m"
-              memory: "16Mi"
-            requests:
-              cpu: "10m"
-              memory: "16Mi"
-          volumeMounts:
-            - name: completion
-              mountPath: /tmp/cleanup
-          command:
-            - /bin/sh
-            - -c
-            - |
-              if [ ! -f /tmp/cleanup/success ]; then
                 exit 1
               fi
-              sleep infinity
+              echo "PVC cleanup completed successfully"
