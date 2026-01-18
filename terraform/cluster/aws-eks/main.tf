@@ -213,11 +213,6 @@ resource "aws_kms_key" "ebs_encryption_key" {
   description             = "KMS key for EKS cluster ${local.name} EBS volume encryption"
   deletion_window_in_days = var.kms_key_deletion_window_in_days
   enable_key_rotation     = true
-}
-
-resource "aws_kms_key_policy" "ebs_encryption_key" {
-  count  = var.enable_ebs_encryption && var.ebs_volume_kms_key_id == null ? 1 : 0
-  key_id = aws_kms_key.ebs_encryption_key[0].id
 
   policy = jsonencode({
     Version = "2012-10-17",
@@ -242,33 +237,29 @@ resource "aws_kms_key_policy" "ebs_encryption_key" {
           "kms:Decrypt",
           "kms:ReEncrypt*",
           "kms:GenerateDataKey*",
-          "kms:DescribeKey"
+          "kms:DescribeKey",
+          "kms:CreateGrant"
         ],
         Resource = "*"
       },
       {
-        Sid    = "Allow Auto Scaling service-linked roles to create grants",
+        Sid    = "Allow service-linked roles to use the key",
         Effect = "Allow",
         Principal = {
           AWS = "*"
         },
         Action = [
+          "kms:Encrypt",
+          "kms:Decrypt",
+          "kms:ReEncrypt*",
+          "kms:GenerateDataKey*",
+          "kms:DescribeKey",
           "kms:CreateGrant"
         ],
         Resource = "*",
         Condition = {
-          StringEquals = {
-            "kms:ViaService" = "ec2.${data.aws_region.current.region}.amazonaws.com"
-          },
           StringLike = {
-            "aws:PrincipalArn" = [
-              "arn:aws:iam::${data.aws_caller_identity.current.account_id}:role/aws-service-role/autoscaling.amazonaws.com/*",
-              "arn:aws:iam::${data.aws_caller_identity.current.account_id}:role/aws-service-role/eks.amazonaws.com/*",
-              "arn:aws:iam::${data.aws_caller_identity.current.account_id}:role/aws-service-role/eks-nodegroup.amazonaws.com/*"
-            ]
-          },
-          Bool = {
-            "kms:GrantIsForAWSResource" = "true"
+            "aws:PrincipalArn" = "arn:aws:iam::${data.aws_caller_identity.current.account_id}:role/aws-service-role/*"
           }
         }
       }
@@ -354,11 +345,11 @@ resource "aws_iam_role_policy_attachment" "node_group_AmazonEC2ContainerRegistry
 resource "aws_eks_node_group" "main" {
   for_each = var.node_groups
 
-  cluster_name    = aws_eks_cluster.main.name
-  node_group_name = each.key
-  node_role_arn   = aws_iam_role.node_group.arn
-  subnet_ids      = data.aws_subnets.private.ids
-  instance_types  = each.value.instance_types
+  cluster_name           = aws_eks_cluster.main.name
+  node_group_name_prefix = "${each.key}-"
+  node_role_arn          = aws_iam_role.node_group.arn
+  subnet_ids             = data.aws_subnets.private.ids
+  instance_types         = each.value.instance_types
 
   scaling_config {
     desired_size = each.value.desired_size
@@ -377,9 +368,8 @@ resource "aws_eks_node_group" "main" {
 
   labels = each.value.labels
 
-  # Set max pods per node to 64
   launch_template {
-    name    = aws_launch_template.node_group[each.key].name
+    id      = aws_launch_template.node_group[each.key].id
     version = aws_launch_template.node_group[each.key].latest_version
   }
 
@@ -391,13 +381,17 @@ resource "aws_eks_node_group" "main" {
 
   lifecycle {
     create_before_destroy = true
+    ignore_changes = [
+      scaling_config[0].desired_size,
+    ]
   }
 }
 
 resource "aws_launch_template" "node_group" {
   for_each = var.node_groups
 
-  name = "${local.name}-${each.key}"
+  name_prefix            = "${local.name}-${each.key}-"
+  update_default_version = true
 
   block_device_mappings {
     device_name = "/dev/xvda"
@@ -438,10 +432,6 @@ set -o xtrace
 --==BOUNDARY==--
 EOT
   )
-
-  depends_on = [
-    aws_kms_key_policy.ebs_encryption_key
-  ]
 }
 
 #-----------------------------------------------------------------------------------------------------------------------

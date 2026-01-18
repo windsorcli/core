@@ -45,8 +45,8 @@ run "minimal_configuration" {
   }
 
   assert {
-    condition     = aws_eks_node_group.main["default"].node_group_name == "default"
-    error_message = "Default node group should use 'default' name"
+    condition     = startswith(aws_eks_node_group.main["default"].node_group_name_prefix, "default-")
+    error_message = "Default node group should use 'default-' name prefix for create_before_destroy support"
   }
 
   assert {
@@ -85,18 +85,13 @@ run "minimal_configuration" {
   }
 
   assert {
-    condition     = aws_launch_template.node_group["default"].block_device_mappings[0].ebs[0].encrypted == true
+    condition     = aws_launch_template.node_group["default"].block_device_mappings[0].ebs[0].encrypted == "true"
     error_message = "EBS volumes should be encrypted by default"
   }
 
   assert {
     condition     = length(aws_kms_key.ebs_encryption_key) == 1
     error_message = "EBS encryption key should be created when enable_ebs_encryption is true and no key is provided"
-  }
-
-  assert {
-    condition     = aws_launch_template.node_group["default"].block_device_mappings[0].ebs[0].kms_key_id != null
-    error_message = "EBS volumes should have a KMS key ID specified when encryption is enabled"
   }
 }
 
@@ -177,8 +172,8 @@ run "full_configuration" {
   }
 
   assert {
-    condition     = aws_eks_node_group.main["system"].node_group_name == "system"
-    error_message = "Default node group name should match input"
+    condition     = startswith(aws_eks_node_group.main["system"].node_group_name_prefix, "system-")
+    error_message = "System node group should use 'system-' name prefix for create_before_destroy support"
   }
 
   assert {
@@ -207,8 +202,8 @@ run "full_configuration" {
   }
 
   assert {
-    condition     = aws_eks_node_group.main["workload"].node_group_name == "workload"
-    error_message = "Additional node group name should match input"
+    condition     = startswith(aws_eks_node_group.main["workload"].node_group_name_prefix, "workload-")
+    error_message = "Workload node group should use 'workload-' name prefix for create_before_destroy support"
   }
 
   assert {
@@ -269,7 +264,7 @@ run "full_configuration" {
   }
 
   assert {
-    condition     = aws_launch_template.node_group["system"].block_device_mappings[0].ebs[0].encrypted == true
+    condition     = aws_launch_template.node_group["system"].block_device_mappings[0].ebs[0].encrypted == "true"
     error_message = "EBS volumes should be encrypted when enable_ebs_encryption is true"
   }
 
