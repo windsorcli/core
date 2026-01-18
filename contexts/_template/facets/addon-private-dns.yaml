@@ -1,4 +1,4 @@
-kind: Feature
+kind: Facet
 apiVersion: blueprints.windsorcli.dev/v1alpha1
 metadata:
   name: private-dns
