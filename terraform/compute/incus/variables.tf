@@ -110,7 +110,8 @@ variable "instances" {
       path      = optional(string)            # Mount point inside instance (e.g., "/mnt/data")
       read_only = optional(bool, false)       # Mount as read-only (default: false)
     })), [])
-    config = optional(map(string), {})
+    config                 = optional(map(string), {})
+    ipv4_filtering_enabled = optional(bool, false) # Enable IPv4 filtering (prevents ARP spoofing, blocks LoadBalancer VIPs)
   }))
   default = []
   validation {

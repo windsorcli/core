@@ -405,10 +405,11 @@ module "instances" {
   disks         = lookup(each.value, "disks", [])
   proxy_devices = lookup(each.value, "proxy_devices", {})
 
-  secureboot     = lookup(each.value, "secureboot", false)
-  root_disk_size = lookup(each.value, "root_disk_size", null)
-  qemu_args      = lookup(each.value, "qemu_args", "-boot order=c,menu=off")
-  config         = lookup(each.value, "config", {})
+  secureboot             = lookup(each.value, "secureboot", false)
+  root_disk_size         = lookup(each.value, "root_disk_size", null)
+  qemu_args              = lookup(each.value, "qemu_args", "-boot order=c,menu=off")
+  config                 = lookup(each.value, "config", {})
+  ipv4_filtering_enabled = lookup(each.value, "ipv4_filtering_enabled", false)
 
   # Explicitly depend on validation, network (if creating), storage volumes, and local images to ensure proper creation order
   # Local files are created via incus_image resource and have fingerprints

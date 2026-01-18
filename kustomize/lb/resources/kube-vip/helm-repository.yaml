@@ -1,0 +1,11 @@
+---
+apiVersion: source.toolkit.fluxcd.io/v1beta2
+kind: HelmRepository
+metadata:
+  name: kube-vip
+  namespace: system-gitops
+spec:
+  interval: 10m
+  timeout: 3m
+  url: https://kube-vip.github.io/helm-charts
+

@@ -89,20 +89,21 @@ kustomize:
 - name: lb-base
   path: lb/base
   dependsOn:
-  - policy-resources
+    - policy-resources
   components:
-  - metallb
-  timeout: 10m
+    - "${network.loadbalancer_driver == 'metallb' ? 'metallb' : ''}"
+  timeout: 5m
   interval: 5m
 
 - name: lb-resources
   path: lb/resources
   dependsOn:
-  - lb-base
+    - lb-base
   components:
-  - metallb/layer2
+    - ${network.loadbalancer_driver}
+    - "${network.loadbalancer_driver}/${network.loadbalancer_mode}"
   substitutions:
-    loadbalancer_ip: ${network.loadbalancer_ips.start}
+    loadbalancer_ip_range: "${network.loadbalancer_ips.start + '-' + network.loadbalancer_ips.end}"
   timeout: 5m
   interval: 5m
 

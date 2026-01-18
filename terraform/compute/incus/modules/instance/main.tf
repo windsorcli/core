@@ -28,12 +28,13 @@ locals {
             network = network_name
           },
           var.network_config,
-          # Add static IPv4 if specified (requires security.ipv4_filtering when DHCP is disabled)
+          # Add static IPv4 if specified
           # Device ipv4.address expects IP only, not CIDR notation
           # Only apply IPv4 to primary interface (eth0)
+          # security.ipv4_filtering prevents ARP spoofing but blocks LoadBalancer VIPs (kube-vip, MetalLB)
           var.ipv4 != null && idx == 0 ? {
-            "ipv4.address"            = split("/", var.ipv4)[0] # Extract IP address only (remove /prefix)
-            "security.ipv4_filtering" = "true"                  # Required to allow static IP when DHCP is disabled
+            "ipv4.address"            = split("/", var.ipv4)[0]
+            "security.ipv4_filtering" = tostring(var.ipv4_filtering_enabled)
           } : {}
         )
       }
@@ -45,11 +46,12 @@ locals {
             network = var.network_name
           },
           var.network_config,
-          # Add static IPv4 if specified (requires security.ipv4_filtering when DHCP is disabled)
+          # Add static IPv4 if specified
           # Device ipv4.address expects IP only, not CIDR notation
+          # security.ipv4_filtering prevents ARP spoofing but blocks LoadBalancer VIPs (kube-vip, MetalLB)
           var.ipv4 != null ? {
-            "ipv4.address"            = split("/", var.ipv4)[0] # Extract IP address only (remove /prefix)
-            "security.ipv4_filtering" = "true"                  # Required to allow static IP when DHCP is disabled
+            "ipv4.address"            = split("/", var.ipv4)[0]
+            "security.ipv4_filtering" = tostring(var.ipv4_filtering_enabled)
           } : {}
         )
       }
