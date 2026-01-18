@@ -67,8 +67,23 @@ spec:
                 kubectl delete pvc -n "$$ns" -l 'windsorcli.dev/cleanup!=skip' --wait=false 2>/dev/null || true
               done
 
-              # Delete PVs bound to PVCs in target namespaces
-              kubectl get pv -o json 2>/dev/null | jq -r --arg ns_list "$$TARGET_NS" '.items[] | select(.spec.claimRef.namespace as $$ns | $$ns_list | split(" ") | index($$ns)) | .metadata.name' | \
+              # Build list of skipped PVCs (namespace/name pairs) to exclude their PVs
+              SKIPPED_PVCS=""
+              for ns in $$TARGET_NS; do
+                skipped=$$(kubectl get pvc -n "$$ns" -l 'windsorcli.dev/cleanup=skip' -o jsonpath='{range .items[*]}{.metadata.namespace}/{.metadata.name} {end}' 2>/dev/null)
+                SKIPPED_PVCS="$$SKIPPED_PVCS$$skipped"
+              done
+
+              # Delete PVs bound to PVCs in target namespaces (excluding PVs bound to skipped PVCs)
+              kubectl get pv -o json 2>/dev/null | \
+                jq -r \
+                  --arg ns_list "$$TARGET_NS" \
+                  --arg skip_list "$$SKIPPED_PVCS" \
+                  '.items[]
+                   | select(.spec.claimRef.namespace as $$ns | $$ns_list | split(" ") | index($$ns))
+                   | select((.spec.claimRef.namespace + "/" + .spec.claimRef.name) as $$pvc
+                            | $$skip_list | split(" ") | index($$pvc) | not)
+                   | .metadata.name' | \
               while read -r pvname; do
                 [ -n "$$pvname" ] && kubectl delete pv "$$pvname" --wait=false 2>/dev/null || true
               done
@@ -82,15 +97,28 @@ spec:
                   pvc_count=$$((pvc_count + c))
                 done
 
-                # Count PVs bound to target namespaces
-                pv_count=$$(kubectl get pv -o json 2>/dev/null | jq -r --arg ns_list "$$TARGET_NS" '[.items[] | select(.spec.claimRef.namespace as $$ns | $$ns_list | split(" ") | index($$ns))] | length')
+                # Count PVs bound to target namespaces (excluding PVs bound to skipped PVCs)
+                pv_count=$$(kubectl get pv -o json 2>/dev/null | \
+                  jq -r \
+                    --arg ns_list "$$TARGET_NS" \
+                    --arg skip_list "$$SKIPPED_PVCS" \
+                    '[.items[]
+                     | select(.spec.claimRef.namespace as $$ns | $$ns_list | split(" ") | index($$ns))
+                     | select((.spec.claimRef.namespace + "/" + .spec.claimRef.name) as $$pvc
+                              | $$skip_list | split(" ") | index($$pvc) | not)]
+                     | length')
 
                 [ "$$pvc_count" -eq 0 ] && [ "$$pv_count" -eq 0 ] && break
 
                 # Process stuck PVCs in target namespaces
                 for ns in $$TARGET_NS; do
                   kubectl get pvc -n "$$ns" -l 'windsorcli.dev/cleanup!=skip' -o json 2>/dev/null | \
-                  jq -c '.items[] | select(.metadata.deletionTimestamp) | select(.metadata.finalizers | index("kubernetes.io/pvc-protection")) | {name:.metadata.name, finalizers:[.metadata.finalizers[] | select(. != "kubernetes.io/pvc-protection")]}' | \
+                    jq -c '.items[]
+                           | select(.metadata.deletionTimestamp)
+                           | select(.metadata.finalizers | index("kubernetes.io/pvc-protection"))
+                           | {name:.metadata.name,
+                              finalizers:[.metadata.finalizers[]
+                                          | select(. != "kubernetes.io/pvc-protection")]}' | \
                   while read -r item; do
                     name=$$(echo "$$item" | jq -r '.name')
                     fins=$$(echo "$$item" | jq -c '.finalizers')
@@ -99,9 +127,20 @@ spec:
                   done
                 done
 
-                # Process stuck PVs bound to target namespaces
+                # Process stuck PVs bound to target namespaces (excluding PVs bound to skipped PVCs)
                 kubectl get pv -o json 2>/dev/null | \
-                jq -c --arg ns_list "$$TARGET_NS" '.items[] | select(.spec.claimRef.namespace as $$ns | $$ns_list | split(" ") | index($$ns)) | select(.metadata.deletionTimestamp) | select(.metadata.finalizers | index("kubernetes.io/pv-protection")) | {name:.metadata.name, finalizers:[.metadata.finalizers[] | select(. != "kubernetes.io/pv-protection")]}' | \
+                  jq -c \
+                    --arg ns_list "$$TARGET_NS" \
+                    --arg skip_list "$$SKIPPED_PVCS" \
+                    '.items[]
+                     | select(.spec.claimRef.namespace as $$ns | $$ns_list | split(" ") | index($$ns))
+                     | select((.spec.claimRef.namespace + "/" + .spec.claimRef.name) as $$pvc
+                              | $$skip_list | split(" ") | index($$pvc) | not)
+                     | select(.metadata.deletionTimestamp)
+                     | select(.metadata.finalizers | index("kubernetes.io/pv-protection"))
+                     | {name:.metadata.name,
+                        finalizers:[.metadata.finalizers[]
+                                    | select(. != "kubernetes.io/pv-protection")]}' | \
                 while read -r item; do
                   name=$$(echo "$$item" | jq -r '.name')
                   fins=$$(echo "$$item" | jq -c '.finalizers')
@@ -120,7 +159,15 @@ spec:
                 c=$$(kubectl get pvc -n "$$ns" -l 'windsorcli.dev/cleanup!=skip' --no-headers 2>/dev/null | wc -l)
                 r=$$((r + c))
               done
-              pv_r=$$(kubectl get pv -o json 2>/dev/null | jq -r --arg ns_list "$$TARGET_NS" '[.items[] | select(.spec.claimRef.namespace as $$ns | $$ns_list | split(" ") | index($$ns))] | length')
+              pv_r=$$(kubectl get pv -o json 2>/dev/null | \
+                jq -r \
+                  --arg ns_list "$$TARGET_NS" \
+                  --arg skip_list "$$SKIPPED_PVCS" \
+                  '[.items[]
+                   | select(.spec.claimRef.namespace as $$ns | $$ns_list | split(" ") | index($$ns))
+                   | select((.spec.claimRef.namespace + "/" + .spec.claimRef.name) as $$pvc
+                            | $$skip_list | split(" ") | index($$pvc) | not)]
+                   | length')
               r=$$((r + pv_r))
               [ "$$r" -gt 0 ] && { echo "ERROR: $$r resources remaining"; exit 1; }
               echo "PVC cleanup complete"
