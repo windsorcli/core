@@ -117,9 +117,6 @@ kustomize:
   - nginx/web
   timeout: 10m
   interval: 5m
-  cleanup:
-  - loadbalancers
-  - ingresses
 
 # Ingress
 - name: ingress
@@ -131,8 +128,5 @@ kustomize:
   - nginx
   - nginx/coredns
   - nginx/web
-  cleanup:
-  - loadbalancers
-  - ingresses
   timeout: 10m
   interval: 5m

@@ -1,0 +1,56 @@
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: loadbalancer-cleanup
+  namespace: system-cleanup
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: loadbalancer-cleanup
+rules:
+  - apiGroups: [""]
+    resources: ["services"]
+    verbs: ["get", "list", "delete", "watch", "patch"]
+  - apiGroups: [""]
+    resources: ["namespaces"]
+    verbs: ["list"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: loadbalancer-cleanup
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: loadbalancer-cleanup
+subjects:
+  - kind: ServiceAccount
+    name: loadbalancer-cleanup
+    namespace: system-cleanup
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: loadbalancer-cleanup-auth
+  namespace: system-cleanup
+rules:
+  - apiGroups: [""]
+    resources: ["configmaps"]
+    verbs: ["get"]
+    resourceNames: ["cleanup-authorized"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: loadbalancer-cleanup-auth
+  namespace: system-cleanup
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: loadbalancer-cleanup-auth
+subjects:
+  - kind: ServiceAccount
+    name: loadbalancer-cleanup
+    namespace: system-cleanup

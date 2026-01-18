@@ -20,10 +20,17 @@ spec:
     image:
       # renovate: datasource=docker depName=grafana/grafana package=grafana/grafana
       tag: 12.3.1@sha256:2175aaa91c96733d86d31cf270d5310b278654b03f5718c59de12a865380a31f
+    initChownData:
+      image:
+        # renovate: datasource=docker depName=library/busybox package=library/busybox
+        tag: 1.31.1@sha256:95cf004f559831017cdf4628aaf1bb30133677be8702a8c5f2994629f637a209
     downloadDashboardsImage:
       # renovate: datasource=docker depName=curlimages/curl package=curlimages/curl
       tag: 8.18.0@sha256:d94d07ba9e7d6de898b6d96c1a072f6f8266c687af78a74f380087a0addf5d17
     sidecar:
+      image:
+        # renovate: datasource=docker depName=kiwigrid/k8s-sidecar package=kiwigrid/k8s-sidecar
+        tag: 2.2.1@sha256:a36a5946ea215ca6435a2a7e155a17cc360ac35664ad33fa8f640a1d6786100e
       dashboards:
         enabled: true
         label: grafana_dashboard

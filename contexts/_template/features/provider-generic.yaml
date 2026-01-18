@@ -36,8 +36,6 @@ kustomize:
     - openebs/dynamic-localpv
   substitutions:
     local_volume_path: ${cluster.workers.volumes[0]}
-  cleanup:
-    - pvcs
   timeout: 20m
   interval: 5m
 
@@ -76,9 +74,6 @@ kustomize:
     - nginx/web
   timeout: 10m
   interval: 5m
-  cleanup:
-    - loadbalancers
-    - ingresses
 
 # Ingress
 - name: ingress
@@ -90,8 +85,5 @@ kustomize:
     - nginx
     - nginx/coredns
     - nginx/web
-  cleanup:
-    - loadbalancers
-    - ingresses
   timeout: 10m
   interval: 5m
