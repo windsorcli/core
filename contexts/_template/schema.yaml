@@ -149,6 +149,10 @@ properties:
             items:
               type: string
             description: Additional volume mounts for control planes
+          schedulable:
+            type: boolean
+            default: false
+            description: Allow scheduling workloads on control plane nodes (useful for single-node clusters or resource-constrained environments)
         additionalProperties: false
       workers:
         type: object
@@ -299,6 +303,13 @@ properties:
           remote:
             type: string
             description: Incus remote name (e.g., "colima-windsor-local" for Colima, "local" for direct Incus)
+          storage_pool:
+            type: string
+            description: Name of the storage pool to use for VM root disks. Defaults to 'local' for Colima (dir-backed), 'default' otherwise
+          storage_driver:
+            type: string
+            enum: [dir, zfs, btrfs, lvm, ceph]
+            description: Storage driver for pool creation. Only set if you want Terraform to create the pool. Omit to use existing pool. "dir" recommended for nested virtualization
         additionalProperties: false
     additionalProperties: false
 
