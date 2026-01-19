@@ -74,3 +74,9 @@ variable "webhook_token" {
   sensitive   = true
   default     = ""
 }
+
+variable "concurrency" {
+  description = "Number of concurrent reconciliations per Flux controller"
+  type        = number
+  default     = 2
+}

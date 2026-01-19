@@ -66,6 +66,8 @@ terraform:
   path: gitops/flux
   dependsOn:
   - cluster
+  inputs:
+    concurrency: ${max(2, min(floor((cluster.controlplanes.cpu ?? 4) / 2), floor((cluster.controlplanes.memory ?? 4) / 2), 10))}
   destroy: false
 
 kustomize:

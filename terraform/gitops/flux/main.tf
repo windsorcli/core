@@ -17,6 +17,16 @@ terraform {
 }
 
 #-----------------------------------------------------------------------------------------------------------------------
+# Locals
+#-----------------------------------------------------------------------------------------------------------------------
+
+locals {
+  # Requeue dependency interval scales inversely with concurrency
+  # Higher concurrency = shorter interval, lower = longer to reduce pressure
+  requeue_interval = var.concurrency <= 3 ? "15s" : (var.concurrency <= 5 ? "10s" : "5s")
+}
+
+#-----------------------------------------------------------------------------------------------------------------------
 # Set up Flux
 #-----------------------------------------------------------------------------------------------------------------------
 
@@ -48,8 +58,8 @@ resource "helm_release" "flux_system" {
     kustomizeController = {
       container = {
         additionalArgs = [
-          "--concurrent=10",
-          "--requeue-dependency=5s"
+          "--concurrent=${var.concurrency}",
+          "--requeue-dependency=${local.requeue_interval}"
         ]
         resources = {
           limits = {
@@ -61,16 +71,16 @@ resource "helm_release" "flux_system" {
     helmController = {
       container = {
         additionalArgs = [
-          "--concurrent=10",
-          "--requeue-dependency=5s"
+          "--concurrent=${max(2, var.concurrency - 1)}",
+          "--requeue-dependency=${local.requeue_interval}"
         ]
       }
     }
     sourceController = {
       container = {
         additionalArgs = [
-          "--concurrent=10",
-          "--requeue-dependency=5s",
+          "--concurrent=${var.concurrency}",
+          "--requeue-dependency=${local.requeue_interval}",
           "--helm-cache-max-size=10",
           "--helm-cache-ttl=60m",
           "--helm-cache-purge-interval=5m"

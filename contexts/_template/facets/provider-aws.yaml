@@ -25,6 +25,8 @@ terraform:
   path: gitops/flux
   dependsOn:
     - cluster
+  inputs:
+    concurrency: 5
   destroy: false
 
 kustomize:
