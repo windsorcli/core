@@ -94,6 +94,18 @@ resource "incus_image" "local" {
 }
 
 # =============================================================================
+# Storage Pool Resources
+# =============================================================================
+
+# Create storage pool if storage_driver is specified
+# If storage_driver is null, assumes pool already exists
+resource "incus_storage_pool" "main" {
+  count  = var.storage_driver != null ? 1 : 0
+  name   = var.storage_pool
+  driver = var.storage_driver
+}
+
+# =============================================================================
 # Storage Volume Resources
 # =============================================================================
 
@@ -235,7 +247,12 @@ locals {
         qemu_args      = instance.qemu_args
         root_disk_size = instance.root_disk_size
         disks          = instance.disks
-        config         = instance.config
+        config = instance.count > 1 ? merge(
+          instance.config,
+          lookup(instance.config, "user.hostname", null) != null ? {
+            "user.hostname" = "${instance.name}-${i + 1}"
+          } : {}
+        ) : instance.config
       }
     ]
   ])
@@ -365,7 +382,6 @@ locals {
     for ip, instances in local.ipv6_to_instances : ip => instances
     if length(instances) > 1
   }
-
 }
 
 
@@ -469,10 +485,11 @@ module "instances" {
   qemu_args              = lookup(each.value, "qemu_args", "-boot order=c,menu=off")
   config                 = lookup(each.value, "config", {})
   ipv4_filtering_enabled = lookup(each.value, "ipv4_filtering_enabled", false)
+  storage_pool           = var.storage_pool
 
-  # Explicitly depend on validation, network (if creating), storage volumes, and local images to ensure proper creation order
+  # Explicitly depend on validation, network (if creating), storage pools, storage volumes, and local images to ensure proper creation order
   # Local files are created via incus_image resource and have fingerprints
   # Remote images are passed directly to instances (they pull on demand, may have concurrent pulls)
   # Network will be destroyed after all instances are destroyed
-  depends_on = [terraform_data.ip_validation, incus_network.main, incus_storage_volume.disks, incus_image.local]
+  depends_on = [terraform_data.ip_validation, incus_network.main, incus_storage_pool.main, incus_storage_volume.disks, incus_image.local]
 }

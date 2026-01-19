@@ -15,12 +15,14 @@ terraform:
     network_name: "${vm?.driver == 'colima' ? 'incusbr0' : ''}"
     create_network: "${vm?.driver != 'colima'}"
     network_cidr: ${network.cidr_block}
+    storage_pool: "${providers?.incus?.storage_pool ?? (vm?.driver == 'colima' ? 'local' : 'default')}"
+    storage_driver: "${providers?.incus?.storage_driver ?? (vm?.driver == 'colima' ? 'dir' : null)}"
     instances:
       - name: controlplane
         role: controlplane
         count: ${cluster.controlplanes.count ?? 1}
         ipv4: ${cidrhost(network.cidr_block, 10)}
-        image: windsor:talos/v1.12.0/arm64
+        image: windsor:talos/v1.12.1/arm64
         type: virtual-machine
         description: Talos control plane node
         root_disk_size: ${string(cluster.controlplanes.root_disk_size ?? 30) + "GB"}
@@ -36,17 +38,17 @@ terraform:
         role: worker
         count: ${cluster.workers.count ?? 0}
         ipv4: ${cidrhost(network.cidr_block, 20)}
-        image: windsor:talos/v1.12.0/arm64
+        image: windsor:talos/v1.12.1/arm64
         type: virtual-machine
         description: Talos worker node
-        root_disk_size: ${string(cluster.workers.root_disk_size ?? 50) + "GB"}
+        root_disk_size: ${string(cluster.workers?.root_disk_size ?? 50) + "GB"}
         limits:
-          cpu: ${string(cluster.workers.cpu ?? 4)}
-          memory: ${string(cluster.workers.memory ?? 4) + "GB"}
-        disks: ${cluster.workers.disks ?? []}
+          cpu: ${string(cluster.workers?.cpu ?? 4)}
+          memory: ${string(cluster.workers?.memory ?? 4) + "GB"}
+        disks: ${cluster.workers?.disks ?? []}
         config:
-          user.hostname: ${values(cluster.workers.nodes)[0].hostname ?? "worker-1"}
-          environment.TALOSSKU: ${string(cluster.workers.cpu ?? 4) + "CPU-" + string(cluster.workers.memory ?? 4) + "GB"}
+          user.hostname: "${cluster.workers?.nodes != null ? (values(cluster.workers.nodes)[0].hostname ?? 'worker-1') : 'worker-1'}"
+          environment.TALOSSKU: "${string(cluster.workers?.cpu ?? 4) + 'CPU-' + string(cluster.workers?.memory ?? 4) + 'GB'}"
           raw.qemu: -boot order=c,menu=off
 
 - name: cluster
@@ -58,7 +60,7 @@ terraform:
     cluster_endpoint: ${cluster.endpoint ?? ("https://" + split(terraform_output("compute", "controlplanes")[0].endpoint, ":")[0] + ":6443")}
     cluster_name: talos
     controlplanes: ${terraform_output("compute", "controlplanes") ?? values(cluster.controlplanes.nodes)}
-    workers: ${terraform_output("compute", "workers") ?? values(cluster.workers.nodes)}
+    workers: "${terraform_output('compute', 'workers') ?? (cluster.workers?.nodes != null ? values(cluster.workers.nodes) : [])}"
     common_config_patches: ${jsonnet("../configs/talos-generic.jsonnet").common_config_patches}
     worker_config_patches: ${jsonnet("../configs/talos-generic.jsonnet").worker_config_patches}
     controlplane_config_patches: ${jsonnet("../configs/talos-generic.jsonnet").controlplane_config_patches}
@@ -81,9 +83,7 @@ kustomize:
   - openebs
   - openebs/dynamic-localpv
   substitutions:
-    local_volume_path: ${split(cluster.workers.volumes[0] ?? "/var/local", ":")[1] ?? split(cluster.workers.volumes[0] ?? "/var/local", ":")[0]}
-  cleanup:
-    - pvcs
+    local_volume_path: "${cluster.controlplanes?.schedulable == true ? split(cluster.controlplanes?.volumes[0] ?? '/var/local', ':')[len(split(cluster.controlplanes?.volumes[0] ?? '/var/local', ':')) - 1] : split(cluster.workers?.volumes[0] ?? '/var/local', ':')[len(split(cluster.workers?.volumes[0] ?? '/var/local', ':')) - 1]}"
   timeout: 20m
   interval: 5m
 

@@ -134,3 +134,19 @@ variable "remote" {
   type        = string
   default     = null
 }
+
+variable "storage_pool" {
+  description = "Name of the storage pool to use for instance root disks"
+  type        = string
+  default     = "default"
+}
+
+variable "storage_driver" {
+  description = "Storage driver to use when creating the pool. Set to null to use an existing pool. Valid drivers: dir, zfs, btrfs, lvm, ceph"
+  type        = string
+  default     = null
+  validation {
+    condition     = var.storage_driver == null || contains(["dir", "zfs", "btrfs", "lvm", "ceph"], var.storage_driver)
+    error_message = "Storage driver must be one of: dir, zfs, btrfs, lvm, ceph (or null to skip pool creation)"
+  }
+}
