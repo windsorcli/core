@@ -20,6 +20,8 @@ terraform:
   destroy: false
   dependsOn:
     - cluster
+  inputs:
+    concurrency: 5
 
 kustomize:
 
