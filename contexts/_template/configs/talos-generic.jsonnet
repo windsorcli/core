@@ -10,6 +10,7 @@ local provider = hlp.getString(context, "provider", "");
 local cluster = hlp.getObject(context, "cluster", {});
 local controlplaneNodes = hlp.getObject(context, "cluster.controlplanes.nodes", {});
 local workerNodes = hlp.getObject(context, "cluster.workers.nodes", {});
+local controlplaneSchedulable = hlp.getBool(context, "cluster.controlplanes.schedulable", false);
 
 // Get first controlplane node safely
 local nodeList = std.objectValues(controlplaneNodes);
@@ -100,7 +101,7 @@ local commonConfig = {
     extraManifests: [
       "https://raw.githubusercontent.com/alex1989hu/kubelet-serving-cert-approver/v0.8.7/deploy/standalone-install.yaml"
     ]
-  },
+  } + (if controlplaneSchedulable then { allowSchedulingOnControlPlanes: true } else {}),
   machine: machineConfig
 };
 
