@@ -34,7 +34,7 @@ terraform:
           raw.qemu: -boot order=c,menu=off
       - name: worker
         role: worker
-        count: ${cluster.workers.count ?? 2}
+        count: ${cluster.workers.count ?? 0}
         ipv4: ${cidrhost(network.cidr_block, 20)}
         image: windsor:talos/v1.12.0/arm64
         type: virtual-machine
