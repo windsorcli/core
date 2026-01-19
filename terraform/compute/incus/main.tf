@@ -173,6 +173,8 @@ resource "incus_storage_volume" "disks" {
   }
 
   project = var.project
+
+  depends_on = [incus_storage_pool.main]
 }
 
 # =============================================================================
