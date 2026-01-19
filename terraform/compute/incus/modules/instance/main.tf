@@ -22,7 +22,7 @@ locals {
   # - IPv6: wait if static IPv6 is set, or if wait_for_ipv6 is explicitly true (DHCP case, default false)
   # - This allows fine-grained control: IPv4-only, IPv6-only, or both
   wait_for_ipv4 = var.ipv4 != null || var.wait_for_ipv4
-  wait_for_ipv6 = var.ipv6 != null || (var.wait_for_ipv6 != null && var.wait_for_ipv6)
+  wait_for_ipv6 = var.ipv6 != null || coalesce(var.wait_for_ipv6, false)
 
   # Build device map for this instance, including network devices
   instance_devices = merge(
