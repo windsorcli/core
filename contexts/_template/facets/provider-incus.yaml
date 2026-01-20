@@ -14,7 +14,9 @@ terraform:
     network_name: "${vm?.driver == 'colima' ? 'incusbr0' : ''}"
     create_network: "${vm?.driver != 'colima'}"
     network_cidr: ${network.cidr_block}
-    storage_pools: "${vm?.driver == 'colima' ? {local: {driver: 'dir'}} : {}}"
+    storage_pools:
+      local:
+        driver: "${vm?.driver == 'colima' ? 'dir' : null}"
     instances:
       - name: controlplane
         role: controlplane

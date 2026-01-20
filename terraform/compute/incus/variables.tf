@@ -138,9 +138,9 @@ variable "remote" {
 }
 
 variable "storage_pools" {
-  description = "Map of storage pools to create. Key is pool name, value contains driver, optional source, and config. Instances reference pools via storage_pool field, disks via type field. The 'default' pool is assumed to exist and need not be defined."
+  description = "Map of storage pools to create. Key is pool name, value contains driver, optional source, and config. Pools with null driver are skipped (allows conditional pool creation). The 'default' pool is assumed to exist."
   type = map(object({
-    driver = string                    # Storage driver: dir, zfs, btrfs, lvm, ceph
+    driver = optional(string)          # Storage driver: dir, zfs, btrfs, lvm, ceph. Null = skip pool creation.
     source = optional(string)          # Source device/path for the pool (driver-specific)
     size   = optional(string)          # Pool size (for loop-file backed pools)
     config = optional(map(string), {}) # Driver-specific configuration options
@@ -148,8 +148,8 @@ variable "storage_pools" {
   default = {}
   validation {
     condition = alltrue([
-      for name, pool in var.storage_pools : contains(["dir", "zfs", "btrfs", "lvm", "ceph"], pool.driver)
+      for name, pool in var.storage_pools : pool.driver == null || contains(["dir", "zfs", "btrfs", "lvm", "ceph"], pool.driver)
     ])
-    error_message = "All storage pool drivers must be one of: dir, zfs, btrfs, lvm, ceph"
+    error_message = "Storage pool drivers must be one of: dir, zfs, btrfs, lvm, ceph (or null to skip)"
   }
 }

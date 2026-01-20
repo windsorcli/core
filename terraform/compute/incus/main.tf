@@ -100,7 +100,7 @@ resource "incus_image" "local" {
 # Create storage pools from configuration
 # The "default" pool is assumed to exist and need not be defined
 resource "incus_storage_pool" "pools" {
-  for_each = var.storage_pools
+  for_each = { for name, pool in var.storage_pools : name => pool if pool.driver != null }
 
   name   = each.key
   driver = each.value.driver
@@ -395,9 +395,10 @@ locals {
 
   # Collect all storage pool references from instances (root disk) and disks (type field)
   # The "default" pool is always valid (assumed to exist)
+  # Only pools with non-null drivers are valid (null driver = conditional skip)
   valid_pool_names = merge(
     { "default" = true },
-    { for name, _ in var.storage_pools : name => true }
+    { for name, pool in var.storage_pools : name => true if pool.driver != null }
   )
 
   # Find invalid pool references in instance storage_pool fields
