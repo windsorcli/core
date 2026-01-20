@@ -80,7 +80,7 @@ locals {
         properties = merge(
           {
             path = "/"
-            pool = "default"
+            pool = var.storage_pool
           },
           # VM-specific root disk properties
           var.type == "virtual-machine" ? {

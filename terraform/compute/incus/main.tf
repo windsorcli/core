@@ -94,6 +94,25 @@ resource "incus_image" "local" {
 }
 
 # =============================================================================
+# Storage Pool Resources
+# =============================================================================
+
+# Create storage pools from configuration
+# The "default" pool is assumed to exist and need not be defined
+resource "incus_storage_pool" "pools" {
+  for_each = { for name, pool in var.storage_pools : name => pool if pool.driver != null }
+
+  name   = each.key
+  driver = each.value.driver
+
+  config = merge(
+    each.value.config,
+    each.value.source != null ? { source = each.value.source } : {},
+    each.value.size != null ? { size = each.value.size } : {}
+  )
+}
+
+# =============================================================================
 # Storage Volume Resources
 # =============================================================================
 
@@ -161,6 +180,8 @@ resource "incus_storage_volume" "disks" {
   }
 
   project = var.project
+
+  depends_on = [incus_storage_pool.pools]
 }
 
 # =============================================================================
@@ -234,8 +255,14 @@ locals {
         secureboot     = instance.secureboot
         qemu_args      = instance.qemu_args
         root_disk_size = instance.root_disk_size
+        storage_pool   = lookup(instance, "storage_pool", "default")
         disks          = instance.disks
-        config         = instance.config
+        config = instance.count > 1 ? merge(
+          instance.config,
+          lookup(instance.config, "user.hostname", null) != null ? {
+            "user.hostname" = "${instance.name}-${i + 1}"
+          } : {}
+        ) : instance.config
       }
     ]
   ])
@@ -366,6 +393,34 @@ locals {
     if length(instances) > 1
   }
 
+  # Collect all storage pool references from instances (root disk) and disks (type field)
+  # The "default" pool is always valid (assumed to exist)
+  # Only pools with non-null drivers are valid (null driver = conditional skip)
+  valid_pool_names = merge(
+    { "default" = true },
+    { for name, pool in var.storage_pools : name => true if pool.driver != null }
+  )
+
+  # Find invalid pool references in instance storage_pool fields
+  invalid_instance_pools = [
+    for instance in local.all_instances : {
+      instance_name = instance.name
+      pool          = lookup(instance, "storage_pool", "default")
+    }
+    if !lookup(local.valid_pool_names, lookup(instance, "storage_pool", "default"), false)
+  ]
+
+  # Find invalid pool references in disk type fields
+  invalid_disk_pools = flatten([
+    for instance in local.all_instances : [
+      for disk in lookup(instance, "disks", []) : {
+        instance_name = instance.name
+        disk_name     = disk.name
+        pool          = lookup(disk, "pool", "default")
+      }
+      if !lookup(local.valid_pool_names, lookup(disk, "pool", "default"), false)
+    ]
+  ])
 }
 
 
@@ -429,6 +484,34 @@ precondition {
         Solution: Ensure all IPv6 addresses are unique across all instances, accounting for count-based IPv6 increments.
         EOT
 }
+
+# Validate that all storage pool references exist in storage_pools (or are "default")
+# This prevents errors when instances reference undefined pools
+precondition {
+  condition = length(local.invalid_instance_pools) == 0
+  error_message = <<-EOT
+        Invalid storage pool references detected. The following instances reference undefined pools:
+        ${join("\n", [
+  for ref in local.invalid_instance_pools : "  Instance '${ref.instance_name}' references pool '${ref.pool}'"
+])}
+        
+        Solution: Either define the pool in storage_pools, or use "default" (which is assumed to exist).
+        EOT
+}
+
+# Validate that all disk type (pool) references exist in storage_pools (or are "default")
+# This prevents errors when disks reference undefined pools
+precondition {
+  condition = length(local.invalid_disk_pools) == 0
+  error_message = <<-EOT
+        Invalid storage pool references in disk configurations. The following disks reference undefined pools:
+        ${join("\n", [
+  for ref in local.invalid_disk_pools : "  Instance '${ref.instance_name}' disk '${ref.disk_name}' references pool '${ref.pool}'"
+])}
+        
+        Solution: Either define the pool in storage_pools, or use "default" (which is assumed to exist).
+        EOT
+}
 }
 
 # This resource doesn't actually do anything, it's just a vehicle for preconditions
@@ -469,10 +552,7 @@ module "instances" {
   qemu_args              = lookup(each.value, "qemu_args", "-boot order=c,menu=off")
   config                 = lookup(each.value, "config", {})
   ipv4_filtering_enabled = lookup(each.value, "ipv4_filtering_enabled", false)
+  storage_pool           = lookup(each.value, "storage_pool", "default")
 
-  # Explicitly depend on validation, network (if creating), storage volumes, and local images to ensure proper creation order
-  # Local files are created via incus_image resource and have fingerprints
-  # Remote images are passed directly to instances (they pull on demand, may have concurrent pulls)
-  # Network will be destroyed after all instances are destroyed
-  depends_on = [terraform_data.ip_validation, incus_network.main, incus_storage_volume.disks, incus_image.local]
+  depends_on = [terraform_data.ip_validation, incus_network.main, incus_storage_pool.pools, incus_storage_volume.disks, incus_image.local]
 }

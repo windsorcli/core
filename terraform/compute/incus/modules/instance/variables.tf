@@ -167,6 +167,12 @@ variable "root_disk_size" {
   default     = "10GB"
 }
 
+variable "storage_pool" {
+  description = "Storage pool to use for the root disk. Default: 'default'."
+  type        = string
+  default     = "default"
+}
+
 variable "qemu_args" {
   description = "QEMU command-line arguments for virtual machines (default: boot from disk, disable menu). Set to empty string to disable."
   type        = string
