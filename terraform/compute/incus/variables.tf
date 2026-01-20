@@ -103,11 +103,13 @@ variable "instances" {
     qemu_args  = optional(string, "-boot order=c,menu=off")
     # Root disk size for virtual machines (OS disk)
     root_disk_size = optional(string, "10GB") # Size of root/OS disk (default: "10GB")
+    # Storage pool for root disk. Must exist in storage_pools or be "default" (assumed to exist)
+    storage_pool = optional(string, "default")
     # Additional disk devices to attach to the instance
     # Uses generic schema format: size as integer (GB), type maps to pool for Incus
     disks = optional(list(object({
       name      = string                      # Device name (e.g., "data-disk", "backup-disk")
-      type      = optional(string, "default") # Disk type - maps to storage pool for Incus (e.g., "default", "gp3", "StandardSSD_LRS")
+      type      = optional(string, "default") # Disk type - maps to storage pool for Incus. Must exist in storage_pools or be "default"
       source    = optional(string)            # File path (starts with "/") for bind mount, or storage volume name, or omit to create new volume
       size      = number                      # Volume size in GB (integer)
       path      = optional(string)            # Mount point inside instance (e.g., "/mnt/data")
@@ -135,18 +137,19 @@ variable "remote" {
   default     = null
 }
 
-variable "storage_pool" {
-  description = "Name of the storage pool to use for instance root disks"
-  type        = string
-  default     = "default"
-}
-
-variable "storage_driver" {
-  description = "Storage driver to use when creating the pool. Set to null to use an existing pool. Valid drivers: dir, zfs, btrfs, lvm, ceph"
-  type        = string
-  default     = null
+variable "storage_pools" {
+  description = "Map of storage pools to create. Key is pool name, value contains driver, optional source, and config. Instances reference pools via storage_pool field, disks via type field. The 'default' pool is assumed to exist and need not be defined."
+  type = map(object({
+    driver = string                    # Storage driver: dir, zfs, btrfs, lvm, ceph
+    source = optional(string)          # Source device/path for the pool (driver-specific)
+    size   = optional(string)          # Pool size (for loop-file backed pools)
+    config = optional(map(string), {}) # Driver-specific configuration options
+  }))
+  default = {}
   validation {
-    condition     = var.storage_driver == null || contains(["dir", "zfs", "btrfs", "lvm", "ceph"], var.storage_driver)
-    error_message = "Storage driver must be one of: dir, zfs, btrfs, lvm, ceph (or null to skip pool creation)"
+    condition = alltrue([
+      for name, pool in var.storage_pools : contains(["dir", "zfs", "btrfs", "lvm", "ceph"], pool.driver)
+    ])
+    error_message = "All storage pool drivers must be one of: dir, zfs, btrfs, lvm, ceph"
   }
 }

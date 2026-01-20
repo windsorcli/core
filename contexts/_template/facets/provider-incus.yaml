@@ -11,12 +11,10 @@ terraform:
 - name: compute
   path: compute/incus
   inputs:
-    remote: ${providers?.incus?.remote ?? ""}
     network_name: "${vm?.driver == 'colima' ? 'incusbr0' : ''}"
     create_network: "${vm?.driver != 'colima'}"
     network_cidr: ${network.cidr_block}
-    storage_pool: "${providers?.incus?.storage_pool ?? (vm?.driver == 'colima' ? 'local' : 'default')}"
-    storage_driver: "${providers?.incus?.storage_driver ?? (vm?.driver == 'colima' ? 'dir' : null)}"
+    storage_pools: "${vm?.driver == 'colima' ? {local: {driver: 'dir'}} : {}}"
     instances:
       - name: controlplane
         role: controlplane
@@ -25,6 +23,7 @@ terraform:
         image: windsor:talos/v1.12.1/arm64
         type: virtual-machine
         description: Talos control plane node
+        storage_pool: "${vm?.driver == 'colima' ? 'local' : 'default'}"
         root_disk_size: ${string(cluster.controlplanes.root_disk_size ?? 30) + "GB"}
         limits:
           cpu: ${string(cluster.controlplanes.cpu ?? 2)}
@@ -41,6 +40,7 @@ terraform:
         image: windsor:talos/v1.12.1/arm64
         type: virtual-machine
         description: Talos worker node
+        storage_pool: "${vm?.driver == 'colima' ? 'local' : 'default'}"
         root_disk_size: ${string(cluster.workers?.root_disk_size ?? 50) + "GB"}
         limits:
           cpu: ${string(cluster.workers?.cpu ?? 4)}

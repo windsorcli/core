@@ -1,6 +1,7 @@
 mock_provider "incus" {
   mock_resource "incus_network" {}
   mock_resource "incus_image" {}
+  mock_resource "incus_storage_pool" {}
   mock_resource "incus_storage_volume" {}
 }
 
@@ -41,10 +42,15 @@ run "minimal_configuration" {
     condition     = incus_network.main[0].config["ipv4.nat"] == "true"
     error_message = "NAT should be enabled by default"
   }
+
+  assert {
+    condition     = length(incus_storage_pool.pools) == 0
+    error_message = "No storage pools should be created when storage_pools is empty"
+  }
 }
 
 # Tests a full configuration with all optional variables explicitly set.
-# Validates that user-supplied values override defaults for network and instances.
+# Validates that user-supplied values override defaults for network, storage pools, and instances.
 run "full_configuration" {
   command = plan
 
@@ -60,15 +66,25 @@ run "full_configuration" {
     network_config = {
       "ipv4.routes" = "10.0.0.0/8"
     }
+    storage_pools = {
+      "fast-ssd" = {
+        driver = "zfs"
+      }
+      "slow-hdd" = {
+        driver = "dir"
+        source = "/mnt/storage"
+      }
+    }
     instances = [
       {
-        name        = "test-instance"
-        image       = "ghcr:ubuntu/22.04"
-        type        = "container"
-        description = "Test instance"
-        ephemeral   = true
-        target      = "node1"
-        networks    = ["network1", "network2"]
+        name         = "test-instance"
+        image        = "ghcr:ubuntu/22.04"
+        type         = "container"
+        description  = "Test instance"
+        storage_pool = "fast-ssd"
+        ephemeral    = true
+        target       = "node1"
+        networks     = ["network1", "network2"]
         network_config = {
           "ipv4.routes" = "10.0.0.0/8"
         }
@@ -87,7 +103,7 @@ run "full_configuration" {
         disks = [
           {
             name      = "data"
-            pool      = "default"
+            type      = "slow-hdd"
             source    = "data-volume"
             size      = 10
             path      = "/mnt/data"
@@ -130,6 +146,21 @@ run "full_configuration" {
   assert {
     condition     = incus_network.main[0].config["ipv4.nat"] == "false"
     error_message = "NAT should be disabled when set"
+  }
+
+  assert {
+    condition     = length(incus_storage_pool.pools) == 2
+    error_message = "Should create 2 storage pools"
+  }
+
+  assert {
+    condition     = incus_storage_pool.pools["fast-ssd"].driver == "zfs"
+    error_message = "fast-ssd pool should use zfs driver"
+  }
+
+  assert {
+    condition     = incus_storage_pool.pools["slow-hdd"].driver == "dir"
+    error_message = "slow-hdd pool should use dir driver"
   }
 
   assert {
@@ -262,11 +293,17 @@ run "instance_expansion_with_count" {
 
 # Verifies that storage volumes are created for disks with size but no source.
 # Tests that volume names follow the naming pattern instance-name-disk-name.
+# Also validates that disks can reference pools defined in storage_pools.
 run "storage_volume_creation" {
   command = plan
 
   variables {
     context_id = "test"
+    storage_pools = {
+      "custom-pool" = {
+        driver = "dir"
+      }
+    }
     instances = [
       {
         name  = "volume-instance"
@@ -307,6 +344,11 @@ run "storage_volume_creation" {
   assert {
     condition     = incus_storage_volume.disks["volume-instance-backup"].pool == "custom-pool"
     error_message = "Volume should use specified pool"
+  }
+
+  assert {
+    condition     = length(incus_storage_pool.pools) == 1
+    error_message = "Should create the custom-pool storage pool"
   }
 }
 
@@ -423,6 +465,44 @@ run "ipv4_octet_overflow_detection" {
         count = 10
         image = "ubuntu/22.04"
         ipv4  = "10.80.0.250/24" # This would create IPs: 10.80.0.250 through 10.80.0.259 (last octet 259 > 255)
+      }
+    ]
+  }
+}
+
+# Verifies that invalid storage pool configurations are rejected.
+# Tests validation of driver values and pool reference validation.
+run "invalid_storage_pool_configurations" {
+  command = plan
+  expect_failures = [
+    var.storage_pools,
+  ]
+
+  variables {
+    context_id = "test"
+    storage_pools = {
+      "invalid-pool" = {
+        driver = "invalid-driver"
+      }
+    }
+  }
+}
+
+# Verifies that referencing undefined storage pools fails validation.
+# Tests that instance storage_pool and disk type fields must reference defined pools or "default".
+run "invalid_pool_references" {
+  command = plan
+  expect_failures = [
+    terraform_data.ip_validation,
+  ]
+
+  variables {
+    context_id = "test"
+    instances = [
+      {
+        name         = "bad-instance"
+        image        = "ubuntu/22.04"
+        storage_pool = "nonexistent-pool"
       }
     ]
   }
