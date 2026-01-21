@@ -74,7 +74,8 @@ tasks:
     silent: true
     cmds:
       - cmd: |
-          ERRORS=0
+          ERROR_FILE=$(mktemp)
+          echo 0 > "$ERROR_FILE"
           
           # Find all source.yaml files in the repo
           find . -name 'source.yaml' -type f | while read source_file; do
@@ -86,9 +87,10 @@ tasks:
             for json_file in "$vendor_dir"*.json; do
               [ -f "$json_file" ] || continue
               filename=$(basename "$json_file")
-              if ! jq empty "$json_file" 2>/dev/null; then
+              jq_err=$(jq . "$json_file" 2>&1 >/dev/null)
+              if [ -n "$jq_err" ]; then
                 echo "  ERROR: Invalid JSON in $filename"
-                ERRORS=$((ERRORS + 1))
+                echo $(( $(cat "$ERROR_FILE") + 1 )) > "$ERROR_FILE"
               else
                 echo "  ✓ $filename: valid JSON"
               fi
@@ -100,7 +102,7 @@ tasks:
               filename=$(basename "$patch_file")
               if ! jq -e 'type == "array"' "$patch_file" >/dev/null 2>&1; then
                 echo "  ERROR: Patch must be JSON array: $filename"
-                ERRORS=$((ERRORS + 1))
+                echo $(( $(cat "$ERROR_FILE") + 1 )) > "$ERROR_FILE"
               else
                 ops=$(jq 'length' "$patch_file")
                 echo "  ✓ $filename: $ops operations"
@@ -108,7 +110,10 @@ tasks:
             done
           done
           
-          if [ $ERRORS -gt 0 ]; then
+          ERRORS=$(cat "$ERROR_FILE")
+          rm -f "$ERROR_FILE"
+          
+          if [ "$ERRORS" -gt 0 ]; then
             echo "Validation failed with $ERRORS errors"
             exit 1
           fi
