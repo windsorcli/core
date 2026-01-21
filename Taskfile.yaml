@@ -3,121 +3,13 @@ version: '3'
 tasks:
   dashboards:
     desc: Download and patch vendored assets from source.yaml files
-    silent: true
     cmds:
-      - cmd: |
-          # Find all source.yaml files in the repo
-          find . -name 'source.yaml' -type f | while read source_file; do
-            vendor_dir="$(dirname "$source_file")/"
-            
-            echo "Processing ${vendor_dir#./}..."
-            
-            # Parse upstream base URL
-            base_url=$(grep '^[[:space:]]*url:' "$source_file" | head -1 | awk '{print $2}')
-            [ -n "$base_url" ] && echo "  Upstream: $base_url"
-            
-            # Parse files and process each (export base_url for subshell)
-            export base_url vendor_dir
-            awk 'BEGIN { OFS="|" }
-              /^[[:space:]]+-[[:space:]]+name:/ { 
-                if (name) print name, (url ? url : "-"), (patch ? patch : "-")
-                name=$NF; url=""; patch=""
-              }
-              /^[[:space:]]+url:/ { url=$2 }
-              /^[[:space:]]+patch:/ { patch=$2 }
-              END { if (name) print name, (url ? url : "-"), (patch ? patch : "-") }
-            ' "$source_file" | while IFS='|' read file url patch; do
-              [ "$url" = "-" ] && url=""
-              [ "$patch" = "-" ] && patch=""
-              [ -z "$file" ] && continue
-              output="${vendor_dir}${file}"
-              
-              # Use explicit URL or construct from base
-              if [ -n "$url" ]; then
-                fetch_url="$url"
-              elif [ -n "$base_url" ]; then
-                fetch_url="${base_url}/${file}"
-              else
-                echo "  ERROR: No URL for $file"
-                continue
-              fi
-              
-              echo "  Fetching $file..."
-              upstream=$(curl -sL "$fetch_url")
-              
-              if [ -n "$patch" ] && [ -f "${vendor_dir}${patch}" ]; then
-                echo "  Applying ${patch}..."
-                echo "$upstream" | jq --argjson ops "$(cat "${vendor_dir}${patch}")" '
-                  reduce $ops[] as $op (.;
-                    ($op.path | split("/") | .[1:] | map(if test("^[0-9]+$") then tonumber else . end)) as $path |
-                    if $op.op == "replace" then setpath($path; $op.value)
-                    elif $op.op == "add" then setpath($path; $op.value)
-                    elif $op.op == "remove" then delpaths([$path])
-                    else .
-                    end
-                  )
-                ' > "$output"
-              else
-                echo "$upstream" > "$output"
-              fi
-              
-              # Escape Grafana variables to prevent Flux substitution
-              # $${var} becomes ${var} after Flux processing
-              sed -i '' 's/\${\([^}]*\)}/$\${\1}/g' "$output" 2>/dev/null || \
-              sed -i 's/\${\([^}]*\)}/$\${\1}/g' "$output"
-            done
-          done
-          echo "Done."
+      - scripts/vendor-dashboards.sh
 
   dashboards:lint:
     desc: Validate vendored JSON files and patch integrity
-    silent: true
     cmds:
-      - cmd: |
-          ERROR_FILE=$(mktemp)
-          echo 0 > "$ERROR_FILE"
-          
-          # Find all source.yaml files in the repo
-          find . -name 'source.yaml' -type f | while read source_file; do
-            vendor_dir="$(dirname "$source_file")/"
-            
-            echo "Validating ${vendor_dir#./}..."
-            
-            # Check all JSON files are valid
-            for json_file in "$vendor_dir"*.json; do
-              [ -f "$json_file" ] || continue
-              filename=$(basename "$json_file")
-              jq_err=$(jq . "$json_file" 2>&1 >/dev/null)
-              if [ -n "$jq_err" ]; then
-                echo "  ERROR: Invalid JSON in $filename"
-                echo $(( $(cat "$ERROR_FILE") + 1 )) > "$ERROR_FILE"
-              else
-                echo "  ✓ $filename: valid JSON"
-              fi
-            done
-            
-            # Check all patch files are valid JSON arrays
-            for patch_file in "$vendor_dir"patches/*.patch.json; do
-              [ -f "$patch_file" ] || continue
-              filename=$(basename "$patch_file")
-              if ! jq -e 'type == "array"' "$patch_file" >/dev/null 2>&1; then
-                echo "  ERROR: Patch must be JSON array: $filename"
-                echo $(( $(cat "$ERROR_FILE") + 1 )) > "$ERROR_FILE"
-              else
-                ops=$(jq 'length' "$patch_file")
-                echo "  ✓ $filename: $ops operations"
-              fi
-            done
-          done
-          
-          ERRORS=$(cat "$ERROR_FILE")
-          rm -f "$ERROR_FILE"
-          
-          if [ "$ERRORS" -gt 0 ]; then
-            echo "Validation failed with $ERRORS errors"
-            exit 1
-          fi
-          echo "All dashboards validated successfully"
+      - scripts/lint-dashboards.sh
 
   scan:
     desc: Scan for security vulnerabilities
