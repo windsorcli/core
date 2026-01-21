@@ -85,12 +85,12 @@ jobs:
           # Regenerate vendored files from source.yaml definitions
           task dashboards
           
-          # Check if any files changed
-          if ! git diff --quiet; then
+          # Check if any files changed or new files created
+          if ! git diff --quiet || [ -n "$(git status --porcelain)" ]; then
             echo "::error::Vendored files are out of sync with source.yaml"
             echo ""
-            echo "Changed files:"
-            git diff --name-only
+            echo "Changed/untracked files:"
+            git status --short
             echo ""
             echo "Run 'task dashboards' locally and commit the changes."
             exit 1
