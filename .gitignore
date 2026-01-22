@@ -15,3 +15,7 @@ contexts/**/.gcp/
 
 # macOS system files
 **/.DS_Store
+
+# IDE user config
+.cursor/
+.vscode/*.local.*

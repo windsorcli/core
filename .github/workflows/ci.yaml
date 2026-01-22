@@ -75,6 +75,30 @@ jobs:
       - name: Run terraform fmt
         run: terraform fmt -check -recursive
 
+      - name: Install Task
+        uses: go-task/setup-task@0ab1b2a65bc55236a3bc64cde78f80e20e8885c2 # v1.0.0
+        with:
+          version: 3.x
+
+      - name: Validate vendored assets
+        run: |
+          # Regenerate vendored files from source.yaml definitions
+          task dashboards
+          
+          # Check if any files changed or new files created
+          if ! git diff --quiet || [ -n "$(git status --porcelain)" ]; then
+            echo "::error::Vendored files are out of sync with source.yaml"
+            echo ""
+            echo "Changed/untracked files:"
+            git status --short
+            echo ""
+            echo "Run 'task dashboards' locally and commit the changes."
+            exit 1
+          fi
+          
+          # Validate JSON and patch integrity
+          task dashboards:lint
+
       - name: Checkov GitHub Action
         uses: bridgecrewio/checkov-action@68260132005eaae0e6f84c7a73cc3b1532f678bf # v12.3058.0
         with:
