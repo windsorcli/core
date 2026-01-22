@@ -74,6 +74,7 @@ kustomize:
   components:
     - nginx
     - nginx/web
+    - nginx/prometheus
   timeout: 10m
   interval: 5m
 
@@ -87,5 +88,6 @@ kustomize:
     - nginx
     - nginx/coredns
     - nginx/web
+    - nginx/prometheus
   timeout: 10m
   interval: 5m

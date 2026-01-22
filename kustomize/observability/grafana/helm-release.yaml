@@ -17,6 +17,17 @@ spec:
         name: grafana
         namespace: system-gitops
   values:
+    grafana.ini:
+      date_formats:
+        full_date: ${date_full:-YYYY-MM-DD HH:mm:ss}
+        interval_second: ${date_interval_second:-HH:mm:ss}
+        interval_minute: ${date_interval_minute:-HH:mm}
+        interval_hour: ${date_interval_hour:-MM/DD HH:mm}
+        interval_day: ${date_interval_day:-MM/DD}
+        interval_month: YYYY-MM
+        interval_year: YYYY
+      default:
+        timezone: ${timezone:-utc}
     image:
       # renovate: datasource=docker depName=grafana/grafana package=grafana/grafana
       tag: 12.3.1@sha256:2175aaa91c96733d86d31cf270d5310b278654b03f5718c59de12a865380a31f
@@ -36,6 +47,9 @@ spec:
         label: grafana_dashboard
         labelValue: "1"
         folder: /var/lib/grafana/dashboards/sidecar
+        folderAnnotation: grafana_folder
+        provider:
+          foldersFromFilesStructure: true
     dashboardProviders:
       dashboardproviders.yaml:
         apiVersion: 1

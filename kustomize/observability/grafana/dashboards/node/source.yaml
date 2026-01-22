@@ -1,0 +1,12 @@
+# Node Exporter Grafana Dashboards
+# Run: task dashboards
+#
+# Note: rfmoz/grafana-dashboards does not publish semver releases.
+# Tracking master branch commit SHA. Review changes on update.
+
+upstream:
+  # renovate: datasource=git-refs depName=rfmoz/grafana-dashboards packageName=https://github.com/rfmoz/grafana-dashboards
+  url: https://raw.githubusercontent.com/rfmoz/grafana-dashboards/0ea0f0652e41f73bd41b82769baa32912184152b/prometheus
+
+files:
+  - name: node-exporter-full.json

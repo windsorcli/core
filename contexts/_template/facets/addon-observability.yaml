@@ -19,11 +19,19 @@ kustomize:
     - grafana
     - grafana/ingress
     - grafana/prometheus
-    - grafana/node
-    - grafana/kubernetes
-    - grafana/flux
+    - grafana/dashboards/node
+    - grafana/dashboards/kubernetes
+    - grafana/dashboards/flux
+    - grafana/dashboards/cert-manager
+    - grafana/dashboards/nginx
   substitutions:
-    external_domain: ${dns?.domain}
+    external_domain: "${dns?.domain}"
+    timezone: "${timezone}"
+    date_full: "${time_format == '12h' ? 'MMM DD, YYYY @ hh:mm:ss a' : 'YYYY-MM-DD HH:mm:ss'}"
+    date_interval_second: "${time_format == '12h' ? 'hh:mm:ss a' : 'HH:mm:ss'}"
+    date_interval_minute: "${time_format == '12h' ? 'hh:mm a' : 'HH:mm'}"
+    date_interval_hour: "${time_format == '12h' ? 'MMM DD hh:mm a' : 'MM/DD HH:mm'}"
+    date_interval_day: "${time_format == '12h' ? 'MMM DD' : 'MM/DD'}"
 
 # FluentD outputs
 - name: observability
@@ -49,6 +57,7 @@ kustomize:
     - fluentd/outputs/quickwit
     - quickwit
     - quickwit/pvc
+    - quickwit/prometheus
     - grafana/quickwit
 
 # Elasticsearch + Kibana

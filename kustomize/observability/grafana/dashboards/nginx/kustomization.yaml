@@ -1,0 +1,19 @@
+apiVersion: kustomize.config.k8s.io/v1alpha1
+kind: Component
+
+# NGINX Ingress dashboards - vendored
+# Run: task dashboards
+# See: source.yaml for provenance
+
+configMapGenerator:
+  - name: grafana-dashboards-ingress
+    namespace: system-observability
+    files:
+      - nginx.json
+      - request-handling-performance.json
+    options:
+      disableNameSuffixHash: true
+      labels:
+        grafana_dashboard: "1"
+      annotations:
+        grafana_folder: "Ingress"

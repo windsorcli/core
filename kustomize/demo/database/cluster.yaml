@@ -5,11 +5,21 @@ metadata:
   name: demo-cluster
   namespace: demo-database
 spec:
-  instances: 1
+  instances: 2
   postgresql:
     parameters:
       max_connections: "100"
   storage:
     size: 1Gi
+  resources:
+    requests:
+      cpu: 100m
+      memory: 256Mi
+    limits:
+      memory: 512Mi
   monitoring:
     enablePodMonitor: true
+    podMonitorRelabelings:
+      - sourceLabels: [__meta_kubernetes_pod_label_cnpg_io_cluster]
+        targetLabel: cluster
+        action: replace
