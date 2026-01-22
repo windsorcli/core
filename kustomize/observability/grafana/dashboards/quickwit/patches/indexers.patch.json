@@ -1,0 +1,48 @@
+[
+  {
+    "op": "replace",
+    "path": "/templating/list/2/query/query",
+    "value": "label_values(quickwit_indexing_processed_bytes,index)"
+  },
+  {
+    "op": "replace",
+    "path": "/templating/list/2/definition",
+    "value": "label_values(quickwit_indexing_processed_bytes,index)"
+  },
+  {
+    "op": "replace",
+    "path": "/panels/3/targets/0/expr",
+    "value": "rate(quickwit_write_bytes{pod=~\"$pod\", namespace=\"$namespace\"}[$quickwit_rate_interval])"
+  },
+  {
+    "op": "replace",
+    "path": "/panels/4/targets/0/expr",
+    "value": "quickwit_memory_allocated_bytes{namespace=\"$namespace\", pod=~\"$pod\"}"
+  },
+  {
+    "op": "replace",
+    "path": "/templating/list/5/current",
+    "value": {"selected": true, "text": "5m", "value": "5m"}
+  },
+  {
+    "op": "replace",
+    "path": "/templating/list/5/query",
+    "value": "5m,10m,30m,1h,6h,12h,1d,7d,14d,30d"
+  },
+  {
+    "op": "replace",
+    "path": "/templating/list/5/options",
+    "value": [
+      {"selected": true, "text": "5m", "value": "5m"},
+      {"selected": false, "text": "10m", "value": "10m"},
+      {"selected": false, "text": "30m", "value": "30m"},
+      {"selected": false, "text": "1h", "value": "1h"},
+      {"selected": false, "text": "6h", "value": "6h"},
+      {"selected": false, "text": "12h", "value": "12h"},
+      {"selected": false, "text": "1d", "value": "1d"},
+      {"selected": false, "text": "7d", "value": "7d"},
+      {"selected": false, "text": "14d", "value": "14d"},
+      {"selected": false, "text": "30d", "value": "30d"}
+    ]
+  }
+]

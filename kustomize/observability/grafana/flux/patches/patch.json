@@ -5,7 +5,7 @@
     "value": {
       "name": "grafana-dashboards-flux",
       "orgId": 1,
-      "folder": "Flux",
+      "folder": "GitOps",
       "type": "file",
       "disableDeletion": true,
       "editable": false,

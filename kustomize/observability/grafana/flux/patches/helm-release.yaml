@@ -8,8 +8,8 @@ spec:
     dashboards:
       grafana-dashboards-flux:
         control-plane:
-          url: https://raw.githubusercontent.com/fluxcd/flux2-monitoring-example/b99583d3614af7f69ec04214e813eb0364244cc3/monitoring/configs/dashboards/control-plane.json
+          url: https://raw.githubusercontent.com/fluxcd/flux2-monitoring-example/82c37257787bba13a40b17bed9bd8191ee7aa049/monitoring/configs/dashboards/control-plane.json
           token: ''
         cluster:
-          url: https://raw.githubusercontent.com/fluxcd/flux2-monitoring-example/b99583d3614af7f69ec04214e813eb0364244cc3/monitoring/configs/dashboards/cluster.json
+          url: https://raw.githubusercontent.com/fluxcd/flux2-monitoring-example/82c37257787bba13a40b17bed9bd8191ee7aa049/monitoring/configs/dashboards/cluster.json
           token: ''

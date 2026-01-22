@@ -35,6 +35,7 @@ kustomize:
     - nginx
     - nginx/coredns
     - nginx/web
+    - nginx/prometheus
   timeout: 10m
   interval: 5m
 

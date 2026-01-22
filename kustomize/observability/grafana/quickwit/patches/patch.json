@@ -11,5 +11,20 @@
         "index": "otel-logs-v0_7"
       }
     }
+  },
+  {
+    "op": "add",
+    "path": "/spec/values/dashboardProviders/dashboardproviders.yaml/providers/-",
+    "value": {
+      "name": "grafana-dashboards-observability",
+      "orgId": 1,
+      "folder": "Observability",
+      "type": "file",
+      "disableDeletion": true,
+      "editable": false,
+      "options": {
+        "path": "/var/lib/grafana/dashboards/grafana-dashboards-observability"
+      }
+    }
   }
 ]

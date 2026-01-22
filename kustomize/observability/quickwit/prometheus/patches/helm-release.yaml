@@ -2,14 +2,14 @@
 apiVersion: helm.toolkit.fluxcd.io/v2
 kind: HelmRelease
 metadata:
-  name: cloudnativepg
-  namespace: system-database
+  name: quickwit
+  namespace: system-observability
 spec:
   dependsOn:
     - name: kube-prometheus-stack
       namespace: system-telemetry
   values:
-    monitoring:
-      podMonitorEnabled: true
-      podMonitorAdditionalLabels:
+    serviceMonitor:
+      enabled: true
+      additionalLabels:
         release: kube-prometheus-stack

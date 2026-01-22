@@ -1,0 +1,17 @@
+apiVersion: helm.toolkit.fluxcd.io/v2
+kind: HelmRelease
+metadata:
+  name: grafana
+  namespace: system-observability
+spec:
+  values:
+    dashboards:
+      grafana-dashboards-ingress:
+        nginx-ingress:
+          # renovate: datasource=github-releases depName=kubernetes/ingress-nginx
+          url: https://raw.githubusercontent.com/kubernetes/ingress-nginx/252a9561dd16b93a0d82dee227691ab045371ef5/deploy/grafana/dashboards/nginx.json
+          token: ''
+        nginx-request-handling:
+          # renovate: datasource=github-releases depName=kubernetes/ingress-nginx
+          url: https://raw.githubusercontent.com/kubernetes/ingress-nginx/252a9561dd16b93a0d82dee227691ab045371ef5/deploy/grafana/dashboards/request-handling-performance.json
+          token: ''

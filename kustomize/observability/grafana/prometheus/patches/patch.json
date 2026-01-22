@@ -5,7 +5,7 @@
     "value": {
       "name": "grafana-dashboards-prometheus",
       "orgId": 1,
-      "folder": "Prometheus",
+      "folder": "Observability",
       "type": "file",
       "disableDeletion": true,
       "editable": false,

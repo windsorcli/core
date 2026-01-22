@@ -41,8 +41,10 @@ kustomize:
   path: pki/base
   dependsOn:
     - policy-resources
+    - telemetry-base
   components:
     - cert-manager
+    - cert-manager/prometheus
   timeout: 20m
   interval: 5m
 

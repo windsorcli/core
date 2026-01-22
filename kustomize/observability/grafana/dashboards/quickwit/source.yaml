@@ -1,0 +1,25 @@
+# Quickwit Grafana Dashboards
+# Run: task dashboards
+#
+# Patches address metric naming mismatches between Quickwit's official
+# dashboards and actual metrics exported by Quickwit:
+# - indexers: $index variable, memory panel, writes rate, rate interval
+# - searchers: $namespace variable, cache metrics (hits/misses plural)
+# - ingesters: WAL metrics (_used_), gRPC duration (_seconds_), datasource var
+# - metastore: _grpc_ prefix, rpc label, datasource var
+#
+# Note: Grafana variables are escaped ($${var}) to prevent Flux substitution
+
+upstream:
+  # renovate: datasource=github-releases depName=quickwit-oss/quickwit versioning=semver
+  url: https://raw.githubusercontent.com/quickwit-oss/quickwit/v0.8.2/monitoring/grafana/dashboards
+
+files:
+  - name: indexers.json
+    patch: patches/indexers.patch.json
+  - name: searchers.json
+    patch: patches/searchers.patch.json
+  - name: metastore.json
+    patch: patches/metastore.patch.json
+  - name: ingesters.json
+    patch: patches/ingesters.patch.json

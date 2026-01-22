@@ -23,6 +23,14 @@ kustomize:
   components:
   - public-issuer/selfsigned
 
+# Grafana dev credentials
+- name: observability
+  path: observability
+  components:
+  - grafana/dev
+  substitutions:
+    admin_password: ${addons?.observability?.admin_password ?? "grafana"}
+
 # Ingress
 - name: ingress
   path: ingress
@@ -31,5 +39,15 @@ kustomize:
   - pki-base
   components:
   - nginx/nodeport
+  - nginx/prometheus
   timeout: 10m
   interval: 5m
+
+# Demo database cluster
+- name: demo-database
+  path: demo
+  when: demo == true
+  dependsOn:
+  - database
+  components:
+  - database

@@ -10,3 +10,5 @@ spec:
   values:
     plugins:
       - quickwit-quickwit-datasource
+    # Dashboards are deployed via ConfigMap from vendored files
+    # See: kustomize/observability/grafana/dashboards/quickwit/

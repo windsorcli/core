@@ -5,7 +5,7 @@
     "value": {
       "name": "grafana-dashboards-node",
       "orgId": 1,
-      "folder": "Nodes",
+      "folder": "System",
       "type": "file",
       "disableDeletion": true,
       "editable": false,

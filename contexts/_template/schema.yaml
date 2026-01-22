@@ -10,6 +10,27 @@ properties:
     default: false
     description: Enable development mode with additional observability and debugging tools
 
+  # Demo mode
+  demo:
+    type: boolean
+    default: false
+    description: Enable demo resources (sample databases, example applications)
+
+  # Timezone
+  timezone:
+    type: string
+    default: utc
+    description: Default timezone for Grafana dashboards (utc, browser, or IANA zone like America/New_York)
+
+  # Time format
+  time_format:
+    type: string
+    enum:
+      - 12h
+      - 24h
+    default: 24h
+    description: Time format for Grafana dashboards (12h or 24h)
+
   # Core infrastructure provider (determines basic stack)
   provider:
     type: string
@@ -328,6 +349,8 @@ properties:
               - elasticsearch
             default: quickwit
             description: Log storage driver for FluentD
+          admin_password:
+            type: string
         additionalProperties: false
       object_store:
         type: object
