@@ -55,7 +55,7 @@ find . -name 'source.yaml' -type f | while read -r source_file; do
           if $op.op == "replace" then setpath($path; $op.value)
           elif $op.op == "add" then setpath($path; $op.value)
           elif $op.op == "remove" then delpaths([$path])
-          else .
+          else error("Unsupported patch operation: \($op.op) at path \($op.path)")
           end
         )
       ' > "$output"
