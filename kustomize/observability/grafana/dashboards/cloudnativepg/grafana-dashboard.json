@@ -1232,7 +1232,7 @@
                   "index": 0,
                   "text": "Invalid date"
                 },
-                "to": 1e+42
+                "to": 1E+42
               },
               "type": "range"
             },
@@ -1497,7 +1497,7 @@
             },
             {
               "options": {
-                "from": -1e+22,
+                "from": -1E+22,
                 "result": {
                   "color": "text",
                   "index": 1,
@@ -2235,7 +2235,7 @@
             "uid": "$${DS_PROMETHEUS}"
           },
           "editorMode": "code",
-          "expr": "sum(kube_pod_status_ready{namespace=\"$operatorNamespace\", pod=~\"cloudnative-pg.+|cnpg-controller-manager.+\", condition=\"true\"})",
+          "expr": "sum(kube_pod_status_ready{namespace=\"$operatorNamespace\", pod=~\"cloudnativepg.+|cnpg-controller-manager.+\", condition=\"true\"})",
           "hide": false,
           "instant": true,
           "legendFormat": "Operator Status",
@@ -7374,7 +7374,7 @@
               "color": "rgba(255,0,255,0.7)"
             },
             "filterValues": {
-              "le": 1e-9
+              "le": 1E-9
             },
             "legend": {
               "show": false
@@ -8153,7 +8153,7 @@
               },
               "editorMode": "code",
               "exemplar": false,
-              "expr": "sum(kube_pod_status_ready{namespace=\"$operatorNamespace\", pod=~\"cloudnative-pg.+|cnpg-controller-manager.+\", condition=\"true\"})",
+              "expr": "sum(kube_pod_status_ready{namespace=\"$operatorNamespace\", pod=~\"cloudnativepg.+|cnpg-controller-manager.+\", condition=\"true\"})",
               "hide": false,
               "instant": true,
               "legendFormat": "Ready Operator Pods",
@@ -8674,7 +8674,7 @@
                 "uid": "$${DS_PROMETHEUS}"
               },
               "editorMode": "code",
-              "expr": "sum(kube_pod_status_ready{namespace=\"$operatorNamespace\", pod=~\"cloudnative-pg.+|cnpg-controller-manager.+\", condition=\"true\"})",
+              "expr": "sum(kube_pod_status_ready{namespace=\"$operatorNamespace\", pod=~\"cloudnativepg.+|cnpg-controller-manager.+\", condition=\"true\"})",
               "hide": false,
               "instant": false,
               "legendFormat": "Ready Operator Pods",

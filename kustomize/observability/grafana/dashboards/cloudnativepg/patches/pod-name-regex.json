@@ -1,0 +1,17 @@
+[
+  {
+    "op": "replace",
+    "path": "/panels/23/targets/0/expr",
+    "value": "sum(kube_pod_status_ready{namespace=\"$operatorNamespace\", pod=~\"cloudnativepg.+|cnpg-controller-manager.+\", condition=\"true\"})"
+  },
+  {
+    "op": "replace",
+    "path": "/panels/65/panels/0/targets/0/expr",
+    "value": "sum(kube_pod_status_ready{namespace=\"$operatorNamespace\", pod=~\"cloudnativepg.+|cnpg-controller-manager.+\", condition=\"true\"})"
+  },
+  {
+    "op": "replace",
+    "path": "/panels/65/panels/5/targets/0/expr",
+    "value": "sum(kube_pod_status_ready{namespace=\"$operatorNamespace\", pod=~\"cloudnativepg.+|cnpg-controller-manager.+\", condition=\"true\"})"
+  }
+]

@@ -7,3 +7,4 @@ upstream:
 
 files:
   - name: grafana-dashboard.json
+    patch: patches/pod-name-regex.json
