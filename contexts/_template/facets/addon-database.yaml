@@ -32,4 +32,4 @@ kustomize:
   path: observability
   when: (addons?.database?.postgres?.driver == 'cloudnativepg' && addons?.observability?.enabled == true) || dev == true
   components:
-    - grafana/cloudnativepg
+    - grafana/dashboards/cloudnativepg

@@ -19,11 +19,11 @@ kustomize:
     - grafana
     - grafana/ingress
     - grafana/prometheus
-    - grafana/node
-    - grafana/kubernetes
-    - grafana/flux
-    - grafana/cert-manager
-    - grafana/nginx
+    - grafana/dashboards/node
+    - grafana/dashboards/kubernetes
+    - grafana/dashboards/flux
+    - grafana/dashboards/cert-manager
+    - grafana/dashboards/nginx
   substitutions:
     external_domain: "${dns?.domain}"
     timezone: "${timezone}"
@@ -59,7 +59,6 @@ kustomize:
     - quickwit/pvc
     - quickwit/prometheus
     - grafana/quickwit
-    - grafana/dashboards/quickwit
 
 # Elasticsearch + Kibana
 - name: observability

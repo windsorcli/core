@@ -1,0 +1,9 @@
+# CloudNativePG Grafana Dashboards
+# Run: task dashboards
+
+upstream:
+  # renovate: datasource=github-releases depName=cloudnative-pg/grafana-dashboards versioning=semver
+  url: https://raw.githubusercontent.com/cloudnative-pg/grafana-dashboards/cluster-v0.0.5/charts/cluster
+
+files:
+  - name: grafana-dashboard.json

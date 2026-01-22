@@ -1,0 +1,9 @@
+# Prometheus Grafana Dashboards
+# Run: task dashboards
+
+upstream:
+  # renovate: datasource=github-releases depName=dotdc/grafana-dashboards-kubernetes versioning=semver
+  url: https://raw.githubusercontent.com/dotdc/grafana-dashboards-kubernetes/v3.0.1/dashboards
+
+files:
+  - name: k8s-addons-prometheus.json

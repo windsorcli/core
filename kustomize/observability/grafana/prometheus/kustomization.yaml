@@ -1,5 +1,13 @@
 apiVersion: kustomize.config.k8s.io/v1alpha1
 kind: Component
+
+# DEPRECATED: Dashboard location will change in v0.8.0
+# Dashboards moved to: dashboards/prometheus/
+# See: MOVED.md for migration details
+
+components:
+  - ../dashboards/prometheus
+
 patches:
   - path: patches/helm-release.yaml
   - target:
