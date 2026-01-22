@@ -5,7 +5,7 @@
 set -euo pipefail
 
 # Find all source.yaml files in the repo
-find . -name 'source.yaml' -type f | while read source_file; do
+find . -name 'source.yaml' -type f | while read -r source_file; do
   vendor_dir="$(dirname "$source_file")/"
   
   echo "Processing ${vendor_dir#./}..."
@@ -24,7 +24,7 @@ find . -name 'source.yaml' -type f | while read source_file; do
     /^[[:space:]]+url:/ { url=$2 }
     /^[[:space:]]+patch:/ { patch=$2 }
     END { if (name) print name, (url ? url : "-"), (patch ? patch : "-") }
-  ' "$source_file" | while IFS='|' read file url patch; do
+  ' "$source_file" | while IFS='|' read -r file url patch; do
     [ "$url" = "-" ] && url=""
     [ "$patch" = "-" ] && patch=""
     [ -z "$file" ] && continue
@@ -43,7 +43,11 @@ find . -name 'source.yaml' -type f | while read source_file; do
     echo "  Fetching $file..."
     upstream=$(curl -sL "$fetch_url")
     
-    if [ -n "$patch" ] && [ -f "${vendor_dir}${patch}" ]; then
+    if [ -n "$patch" ]; then
+      if [ ! -f "${vendor_dir}${patch}" ]; then
+        echo "  ERROR: Patch file not found: ${patch}"
+        exit 1
+      fi
       echo "  Applying ${patch}..."
       echo "$upstream" | jq --argjson ops "$(cat "${vendor_dir}${patch}")" '
         reduce $ops[] as $op (.;

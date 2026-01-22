@@ -9,7 +9,7 @@ echo 0 > "$ERROR_FILE"
 trap 'rm -f "$ERROR_FILE"' EXIT
 
 # Find all source.yaml files in the repo
-find . -name 'source.yaml' -type f | while read source_file; do
+find . -name 'source.yaml' -type f | while read -r source_file; do
   vendor_dir="$(dirname "$source_file")/"
   
   echo "Validating ${vendor_dir#./}..."
@@ -37,6 +37,15 @@ find . -name 'source.yaml' -type f | while read source_file; do
     else
       ops=$(jq 'length' "$patch_file")
       echo "  ✓ $filename: $ops operations"
+    fi
+  done
+  
+  # Check patch file references in source.yaml exist
+  awk '/^[[:space:]]+patch:/ { print $2 }' "$source_file" | while read -r patch_ref; do
+    [ -z "$patch_ref" ] && continue
+    if [ ! -f "${vendor_dir}${patch_ref}" ]; then
+      echo "  ERROR: Referenced patch file not found: $patch_ref"
+      echo $(( $(cat "$ERROR_FILE") + 1 )) > "$ERROR_FILE"
     fi
   done
 done
