@@ -59,6 +59,7 @@ kustomize:
     - quickwit/pvc
     - quickwit/prometheus
     - grafana/quickwit
+    - grafana/dashboards/logs/quickwit
 
 # Elasticsearch + Kibana
 - name: observability
