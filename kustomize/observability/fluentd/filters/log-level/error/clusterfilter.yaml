@@ -1,0 +1,12 @@
+apiVersion: fluentd.fluent.io/v1alpha1
+kind: ClusterFilter
+metadata:
+  name: log-level
+  labels:
+    filter.fluentd.fluent.io/enabled: "true"
+spec:
+  filters:
+    - grep:
+        exclude:
+          - key: severity_text
+            pattern: "^(TRACE|DEBUG|INFO|WARN)$"

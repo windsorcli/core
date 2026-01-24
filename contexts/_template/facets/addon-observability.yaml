@@ -33,7 +33,16 @@ kustomize:
     date_interval_hour: "${time_format == '12h' ? 'MMM DD hh:mm a' : 'MM/DD HH:mm'}"
     date_interval_day: "${time_format == '12h' ? 'MMM DD' : 'MM/DD'}"
 
-# FluentD outputs
+# FluentBit → FluentD forwarding
+- name: telemetry-resources
+  path: telemetry/resources
+  when: addons?.observability?.logs_driver in ['stdout', 'quickwit']
+  dependsOn:
+    - telemetry-base
+  components:
+    - fluentbit/fluentd
+
+# FluentD stdout output
 - name: observability
   path: observability
   when: addons?.observability?.logs_driver == 'stdout'
@@ -60,6 +69,15 @@ kustomize:
     - quickwit/prometheus
     - grafana/quickwit
     - grafana/dashboards/logs/quickwit
+
+# Log level filtering for FluentD (default: info)
+- name: observability
+  path: observability
+  when: addons?.observability?.logs_driver in ['stdout', 'quickwit'] && log_level != 'trace'
+  dependsOn:
+    - telemetry-resources
+  components:
+    - fluentd/filters/log-level/${log_level ?? 'info'}
 
 # Elasticsearch + Kibana
 - name: observability

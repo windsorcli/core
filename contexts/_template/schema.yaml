@@ -31,6 +31,18 @@ properties:
     default: 24h
     description: Time format for Grafana dashboards (12h or 24h)
 
+  # Log level
+  log_level:
+    type: string
+    enum:
+      - trace
+      - debug
+      - info
+      - warn
+      - error
+    default: info
+    description: Minimum log level to retain (logs below this level are dropped)
+
   # Core infrastructure provider (determines basic stack)
   provider:
     type: string
