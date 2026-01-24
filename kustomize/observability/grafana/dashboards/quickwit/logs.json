@@ -282,7 +282,7 @@
         "showTime": true,
         "sortOrder": "Descending",
         "wrapLogMessage": true,
-        "displayedFields": ["severity_text", "service_name", "resource_attributes.k8s.namespace.name", "body.message"]
+        "displayedFields": ["severity_text", "resource_attributes.k8s.namespace.name", "service_name", "body.message"]
       },
       "pluginVersion": "10.0.0",
       "targets": [
