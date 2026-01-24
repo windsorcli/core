@@ -4,15 +4,15 @@ metadata:
   labels:
     fluentbit.fluent.io/component: logging
     fluentbit.fluent.io/enabled: "true"
-  name: upstream-warnings
+  name: suppress
 spec:
   # Run after service-name filter (ordinal 100) since we match on service_name
   ordinal: 105
   match: kube.*
   filters:
   - lua:
-      call: suppress_upstream_warnings
+      call: suppress
       script:
-        key: upstream-warnings.lua
-        name: fluent-bit-upstream-warnings-config
+        key: suppress.lua
+        name: fluent-bit-suppress-config
       timeAsTable: true
