@@ -1,7 +1,10 @@
 apiVersion: kustomize.config.k8s.io/v1alpha1
 kind: Component
 
-# Quickwit dashboards - vendored with patches
+# Quickwit dashboards
+# Infrastructure: indexers, searchers, metastore, ingesters (vendored)
+# Logs: logs.json (custom OTEL logs viewer)
+#
 # Run: task dashboards
 # See: source.yaml for provenance
 
@@ -19,3 +22,14 @@ configMapGenerator:
         grafana_dashboard: "1"
       annotations:
         grafana_folder: "Observability"
+  - name: grafana-dashboards-logs
+    namespace: system-observability
+    files:
+      - logs.json
+      - logs-stats.json
+    options:
+      disableNameSuffixHash: true
+      labels:
+        grafana_dashboard: "1"
+      annotations:
+        grafana_folder: "Logs"

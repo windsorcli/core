@@ -1,0 +1,26 @@
+apiVersion: kustomize.config.k8s.io/v1alpha1
+kind: Component
+
+# gRPC-Go log parser
+# Matches: any kubernetes pod log containing grpc messages
+# Format: [core] [Channel #N SubChannel #M]grpc: message
+#
+# Runs after klog/fallback have extracted body from raw log.
+# Parses grpc-specific structure from body and extracts:
+#   - attributes.rpc.system: "grpc"
+#   - attributes.rpc.grpc.component: core, transport, balancer, etc.
+#   - attributes.rpc.grpc.channel_id: channel number
+#   - attributes.rpc.grpc.subchannel_id: subchannel number
+#   - attributes.rpc.grpc.target: target address
+#   - body: cleaned message without grpc prefixes
+
+resources:
+  - fluentbit-clusterfilter.yaml
+
+configMapGenerator:
+  - name: fluent-bit-grpc-config
+    namespace: system-telemetry
+    files:
+      - grpc.lua
+    options:
+      disableNameSuffixHash: true

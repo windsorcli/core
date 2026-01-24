@@ -1,0 +1,18 @@
+apiVersion: fluentbit.fluent.io/v1alpha2
+kind: ClusterFilter
+metadata:
+  labels:
+    fluentbit.fluent.io/component: logging
+    fluentbit.fluent.io/enabled: "true"
+  name: grpc
+spec:
+  # Runs after format parsers to clean gRPC prefixes from body
+  ordinal: 60
+  match: kube.*
+  filters:
+  - lua:
+      call: parse_grpc
+      script:
+        key: grpc.lua
+        name: fluent-bit-grpc-config
+      timeAsTable: true
