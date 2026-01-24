@@ -59,7 +59,7 @@ spec:
 Set `interval: 10m` in all `kustomize/*/helm-repository.yaml` files:
 
 ```yaml
-apiVersion: source.toolkit.fluxcd.io/v1beta2
+apiVersion: source.toolkit.fluxcd.io/v1
 kind: HelmRepository
 spec:
   interval: 10m
