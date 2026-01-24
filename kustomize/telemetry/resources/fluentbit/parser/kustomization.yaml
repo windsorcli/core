@@ -16,6 +16,7 @@ kind: Component
 #   - fluentbit/parser/nginx-access
 #   - fluentbit/parser/grpc
 #   - fluentbit/parser/fallback
+#   - fluentbit/parser/upstream-warnings
 #   - fluentbit/parser/service-name
 #
 # Format-specific parsers extract structured OTEL fields from known log formats.
@@ -35,4 +36,5 @@ components:
   - nginx-access
   - grpc
   - fallback
+  - upstream-warnings
   - service-name

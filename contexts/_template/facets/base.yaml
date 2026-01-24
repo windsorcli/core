@@ -79,6 +79,7 @@ kustomize:
     - fluentbit/parser/nginx-access
     - fluentbit/parser/grpc
     - fluentbit/parser/fallback
+    - fluentbit/parser/upstream-warnings
     - fluentbit/parser/service-name
     - fluentbit/systemd
   timeout: 10m
