@@ -1,9 +1,9 @@
 -- Zerolog log parser (Go logging library)
 -- Format: TIMESTAMP LEVEL caller/path.go:line > message key=value key2=value2
 -- Examples:
---   2026-01-23T22:21:37Z TRC github.com/kyverno/.../validation.go:123 > validation passed action=validate
+--   2026-01-23T22:21:37.123Z TRC github.com/kyverno/.../validation.go:123 > validation passed action=validate
 --   2026-01-23T22:21:37Z INF pkg/engine/validate.go:45 > policy applied policy=require-labels
---   2026-01-23T22:21:37Z ERR pkg/webhooks/server.go:89 > webhook failed error="timeout"
+--   2026-01-23T22:21:37.456789Z ERR pkg/webhooks/server.go:89 > webhook failed error="timeout"
 --
 -- Common in: Kyverno, and other Go services using zerolog
 
@@ -38,8 +38,8 @@ function parse_zerolog(tag, timestamp, record)
   log = strip_ansi(log)
 
   -- Match zerolog format: TIMESTAMP LEVEL caller > message
-  -- Pattern: timestamp followed by 3-letter level code
-  local level = log:match('^%d%d%d%d%-%d%d%-%d%dT[%d:]+Z%s+(%u%u%u)%s+')
+  -- Pattern: timestamp followed by 3-letter level code (supports fractional seconds)
+  local level = log:match('^%d%d%d%d%-%d%d%-%d%dT[%d:.]+Z%s+(%u%u%u)%s+')
 
   if not level then
     return 0, timestamp, record
