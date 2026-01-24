@@ -22,7 +22,7 @@ configMapGenerator:
         grafana_dashboard: "1"
       annotations:
         grafana_folder: "Observability"
-  - name: grafana-dashboards-logs
+  - name: grafana-dashboards-quickwit-logs
     namespace: system-observability
     files:
       - logs.json
