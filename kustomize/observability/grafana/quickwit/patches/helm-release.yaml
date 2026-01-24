@@ -8,7 +8,97 @@ spec:
     - name: quickwit
       namespace: system-observability
   values:
-    plugins:
-      - quickwit-quickwit-datasource
-    # Dashboards are deployed via ConfigMap from vendored files
-    # See: kustomize/observability/grafana/dashboards/quickwit/
+    # Quickwit plugin installed via init container (not yet in Grafana catalog)
+    extraInitContainers:
+      - name: install-quickwit-plugin
+        # renovate: datasource=docker depName=alpine
+        image: alpine:3.21.5@sha256:5405e8f36ce1878720f71217d664aa3dea32e5e5df11acbf07fc78ef5661465b
+        env:
+          - name: PLUGIN_NAME
+            value: quickwit-quickwit-datasource
+          # renovate: datasource=github-releases depName=quickwit-oss/quickwit-datasource
+          - name: PLUGIN_VERSION
+            value: "0.5.0"
+          # SHA256 of quickwit-quickwit-datasource-0.5.0.zip - update when version changes
+          - name: PLUGIN_SHA256
+            value: c9a8f640c13cefce60ad458c4e4d5fe50b7c6851440d36a3f99fae6f55181b6c
+        args:
+          - $(PLUGIN_NAME)
+          - $(PLUGIN_VERSION)
+          - $(PLUGIN_SHA256)
+        command:
+          - /bin/sh
+          - -c
+          - |
+            set -eu
+            PLUGIN_NAME="$$0"
+            PLUGIN_VERSION="$$1"
+            PLUGIN_SHA256="$$2"
+            
+            # Install unzip if not present
+            if ! command -v unzip >/dev/null 2>&1; then
+              echo "Installing unzip..."
+              apk add --no-cache unzip
+            fi
+            PLUGIN_URL="https://github.com/quickwit-oss/quickwit-datasource/releases/download/v$${PLUGIN_VERSION}/$${PLUGIN_NAME}-$${PLUGIN_VERSION}.zip"
+            DEST_DIR="/plugins/$${PLUGIN_NAME}"
+            MAX_RETRIES=5
+
+            # Skip if already installed
+            if [ -d "$${DEST_DIR}" ]; then
+              echo "Plugin already installed, skipping"
+              exit 0
+            fi
+
+            # Download with retry and exponential backoff
+            attempt=1
+            delay=2
+            while [ $$attempt -le $$MAX_RETRIES ]; do
+              echo "Downloading $${PLUGIN_NAME} v$${PLUGIN_VERSION} (attempt $${attempt}/$${MAX_RETRIES})..."
+              if wget -q -O /tmp/plugin.zip "$${PLUGIN_URL}"; then
+                break
+              fi
+              if [ $$attempt -eq $$MAX_RETRIES ]; then
+                echo "ERROR: Download failed after $$MAX_RETRIES attempts"
+                exit 1
+              fi
+              echo "Download failed, retrying in $${delay}s..."
+              sleep $$delay
+              delay=$$((delay * 2))
+              attempt=$$((attempt + 1))
+            done
+
+            # Verify checksum
+            echo "Verifying SHA256 checksum..."
+            ACTUAL_SHA256=$$(sha256sum /tmp/plugin.zip | cut -d' ' -f1)
+            if [ "$${ACTUAL_SHA256}" != "$${PLUGIN_SHA256}" ]; then
+              echo "ERROR: Checksum mismatch!"
+              echo "Expected: $${PLUGIN_SHA256}"
+              echo "Actual:   $${ACTUAL_SHA256}"
+              exit 1
+            fi
+            echo "Checksum verified"
+
+            # Extract plugin
+            echo "Extracting plugin..."
+            unzip -q /tmp/plugin.zip -d /plugins
+            rm /tmp/plugin.zip
+            echo "Plugin installed successfully"
+        volumeMounts:
+          - name: plugins
+            mountPath: /plugins
+        securityContext:
+          allowPrivilegeEscalation: false
+          readOnlyRootFilesystem: false
+          runAsNonRoot: true
+          runAsUser: 472
+          runAsGroup: 472
+          capabilities:
+            drop:
+              - ALL
+    extraVolumeMounts:
+      - name: plugins
+        mountPath: /var/lib/grafana/plugins
+    extraVolumes:
+      - name: plugins
+        emptyDir: {}

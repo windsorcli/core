@@ -1,0 +1,17 @@
+apiVersion: kustomize.config.k8s.io/v1alpha1
+kind: Component
+
+# JSON structured log parser
+# Matches: Flux controllers, operators, and modern cloud-native apps
+# Format: {"level":"info","ts":"...","msg":"...","key":"value"}
+
+resources:
+  - fluentbit-clusterfilter.yaml
+
+configMapGenerator:
+  - name: fluent-bit-json-structured-config
+    namespace: system-telemetry
+    files:
+      - json-structured.lua
+    options:
+      disableNameSuffixHash: true

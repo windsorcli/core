@@ -38,7 +38,7 @@ kustomize:
   path: observability
   when: addons?.observability?.logs_driver == 'stdout'
   dependsOn:
-    - telemetry-base
+    - telemetry-resources
   components:
     - fluentd
     - fluentd/filters/otel
@@ -50,7 +50,7 @@ kustomize:
   when: addons?.observability?.logs_driver == 'quickwit'
   dependsOn:
     - csi
-    - telemetry-base
+    - telemetry-resources
   components:
     - fluentd
     - fluentd/filters/otel

@@ -1,0 +1,23 @@
+apiVersion: kustomize.config.k8s.io/v1alpha1
+kind: Component
+
+# Zerolog parser (Go logging library)
+# Format: TIMESTAMP LEVEL caller > message key=value
+# Level codes: TRC, DBG, INF, WRN, ERR, FTL, PNC
+#
+# Extracts:
+#   - severity_text: mapped from zerolog codes (TRC->TRACE, INF->INFO, etc.)
+#   - body: message content after ">" separator
+#
+# Common in: Kyverno, and other Go services using zerolog
+
+resources:
+  - fluentbit-clusterfilter.yaml
+
+configMapGenerator:
+  - name: fluent-bit-zerolog-config
+    namespace: system-telemetry
+    files:
+      - zerolog.lua
+    options:
+      disableNameSuffixHash: true

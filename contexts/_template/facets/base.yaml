@@ -70,6 +70,16 @@ kustomize:
     - fluentbit/containerd
     - fluentbit/fluentd
     - fluentbit/kubernetes
+    - fluentbit/parser/klog
+    - fluentbit/parser/coredns
+    - fluentbit/parser/json-structured
+    - fluentbit/parser/zerolog
+    - fluentbit/parser/logfmt
+    - fluentbit/parser/rust-tracing
+    - fluentbit/parser/nginx-access
+    - fluentbit/parser/grpc
+    - fluentbit/parser/fallback
+    - fluentbit/parser/service-name
     - fluentbit/systemd
   timeout: 10m
   interval: 5m

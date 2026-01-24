@@ -19,3 +19,24 @@ spec:
     image:
       # renovate: datasource=docker depName=ghcr.io/kyverno/kyverno package=ghcr.io/kyverno/kyverno
       tag: v3.6.0@sha256:89a052af62c612d0e05d2596f03edba77d7d904c4478b387a5dc6305821fe0a1
+    # Disable ANSI color codes in logs
+    admissionController:
+      container:
+        extraEnvVars:
+        - name: NO_COLOR
+          value: "1"
+    backgroundController:
+      container:
+        extraEnvVars:
+        - name: NO_COLOR
+          value: "1"
+    cleanupController:
+      container:
+        extraEnvVars:
+        - name: NO_COLOR
+          value: "1"
+    reportsController:
+      container:
+        extraEnvVars:
+        - name: NO_COLOR
+          value: "1"
