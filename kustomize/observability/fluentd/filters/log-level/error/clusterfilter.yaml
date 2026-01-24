@@ -7,6 +7,6 @@ metadata:
 spec:
   filters:
     - grep:
-        regexp:
+        exclude:
           - key: severity_text
-            pattern: "^(ERROR|FATAL)$"
+            pattern: "^(TRACE|DEBUG|INFO|WARN)$"
