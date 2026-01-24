@@ -53,10 +53,11 @@ function parse_rust_tracing(tag, timestamp, record)
   record["severity_text"] = sev.text
   record["severity_number"] = sev.number
 
-  -- Extract message: everything after "module::path: " 
-  -- Use greedy match to find last ": " (colon-space) pattern after level
-  -- This handles nested module paths like quickwit_search::actors::collector
-  local msg = log:match(level .. '%s+.+:%s(.+)$')
+  -- Extract message: everything after "module::path: "
+  -- Module paths contain only alphanumerics, underscores, and :: separators
+  -- Using [%w_:]+ stops at first ": " (single colon-space) after module path
+  -- This preserves ": " sequences within the actual message
+  local msg = log:match(level .. '%s+[%w_:]+:%s(.+)$')
 
   if msg then
     record["body"] = msg
