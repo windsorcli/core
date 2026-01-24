@@ -1,0 +1,10 @@
+apiVersion: kustomize.config.k8s.io/v1alpha1
+kind: Component
+
+# Log level filter: DEBUG
+#
+# Drops only TRACE level logs.
+# Use this for development/debugging.
+
+resources:
+  - clusterfilter.yaml
