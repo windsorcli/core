@@ -110,29 +110,3 @@ kustomize:
     loadbalancer_ip_range: "${network.loadbalancer_ips.start + '-' + network.loadbalancer_ips.end}"
   timeout: 5m
   interval: 5m
-
-# Ingress
-- name: ingress
-  path: ingress
-  dependsOn:
-  - pki-base
-  components:
-  - nginx
-  - nginx/web
-  - nginx/prometheus
-  timeout: 10m
-  interval: 5m
-
-# Ingress
-- name: ingress
-  path: ingress
-  when: ingress.enabled == true
-  dependsOn:
-  - pki-base
-  components:
-  - nginx
-  - nginx/coredns
-  - nginx/web
-  - nginx/prometheus
-  timeout: 10m
-  interval: 5m

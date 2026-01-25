@@ -25,20 +25,6 @@ terraform:
 
 kustomize:
 
-# Ingress
-- name: ingress
-  path: ingress
-  when: ingress.enabled == true && ingress.driver == 'nginx'
-  dependsOn:
-    - pki-base
-  components:
-    - nginx
-    - nginx/coredns
-    - nginx/web
-    - nginx/prometheus
-  timeout: 10m
-  interval: 5m
-
 # CSI
 - name: csi
   path: csi

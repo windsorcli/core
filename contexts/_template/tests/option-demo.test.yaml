@@ -1,0 +1,62 @@
+# option-demo.yaml facet tests
+# Tests demo resources including sample databases
+
+# Common configurations
+x-defaults:
+  network: &default-network
+    loadbalancer_driver: kube-vip
+    loadbalancer_mode: arp
+    loadbalancer_ips:
+      start: "10.5.1.10"
+      end: "10.5.1.100"
+
+  cluster: &default-cluster
+    controlplanes:
+      nodes:
+        controlplane-1:
+          endpoint: 10.5.0.10:50000
+          node: 10.5.0.10
+          hostname: controlplane-1
+    workers:
+      volumes:
+        - /var/local
+
+cases:
+  # Minimal: Demo mode creates demo database
+  - name: demo mode creates demo database
+    values:
+      provider: metal
+      dev: true
+      demo:
+        enabled: true
+        resources:
+          database: true
+      ingress:
+        enabled: false
+        driver: nginx
+      network: *default-network
+      cluster: *default-cluster
+    expect:
+      kustomize:
+        - name: demo
+          path: demo
+          dependsOn:
+            - database
+          components:
+            - database
+
+  # Edge case: Demo disabled excludes demo database
+  - name: excludes demo database when demo disabled
+    values:
+      provider: metal
+      dev: true
+      demo:
+        enabled: false
+      ingress:
+        enabled: false
+        driver: nginx
+      network: *default-network
+      cluster: *default-cluster
+    exclude:
+      kustomize:
+        - name: demo

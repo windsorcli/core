@@ -1,10 +1,10 @@
 kind: Facet
 apiVersion: blueprints.windsorcli.dev/v1alpha1
 metadata:
-  name: talos
-  description: "Talos provider basic infrastructure"
+  name: docker
+  description: "Docker provider basic infrastructure for local development"
 
-when: provider == 'generic'
+when: provider == 'docker'
 
 terraform:
 - name: cluster
@@ -28,6 +28,30 @@ terraform:
 
 kustomize:
 
+# Load Balancer (for colima and docker, not docker-desktop)
+- name: lb-base
+  path: lb/base
+  when: vm.driver == 'colima' || vm.driver == 'colima-incus' || vm.driver == 'docker'
+  dependsOn:
+    - policy-resources
+  components:
+    - "${network.loadbalancer_driver == 'metallb' ? 'metallb' : ''}"
+  timeout: 5m
+  interval: 5m
+
+- name: lb-resources
+  path: lb/resources
+  when: vm.driver == 'colima' || vm.driver == 'colima-incus' || vm.driver == 'docker'
+  dependsOn:
+    - lb-base
+  components:
+    - ${network.loadbalancer_driver}
+    - "${network.loadbalancer_driver}/${network.loadbalancer_mode}"
+  substitutions:
+    loadbalancer_ip_range: ${network.loadbalancer_ips.start + '-' + network.loadbalancer_ips.end}
+  timeout: 5m
+  interval: 5m
+
 # CSI
 - name: csi
   path: csi
@@ -39,55 +63,4 @@ kustomize:
   substitutions:
     local_volume_path: ${cluster.workers.volumes[0]}
   timeout: 20m
-  interval: 5m
-
-# Load Balancer
-- name: lb-base
-  path: lb/base
-  when: vm.driver != 'docker-desktop'
-  dependsOn:
-    - policy-resources
-  components:
-    - "${network.loadbalancer_driver == 'metallb' ? 'metallb' : ''}"
-  timeout: 5m
-  interval: 5m
-
-- name: lb-resources
-  path: lb/resources
-  when: vm.driver != 'docker-desktop'
-  dependsOn:
-    - lb-base
-  components:
-    - ${network.loadbalancer_driver}
-    - "${network.loadbalancer_driver}/${network.loadbalancer_mode}"
-  substitutions:
-    loadbalancer_ip_range: ${network.loadbalancer_ips.start + '-' + network.loadbalancer_ips.end}
-  timeout: 5m
-  interval: 5m
-
-# Ingress
-- name: ingress
-  path: ingress
-  when: vm.driver != 'docker-desktop'
-  dependsOn:
-    - pki-base
-  components:
-    - nginx
-    - nginx/web
-    - nginx/prometheus
-  timeout: 10m
-  interval: 5m
-
-# Ingress
-- name: ingress
-  path: ingress
-  when: ingress.enabled == true && ingress.driver == 'nginx'
-  dependsOn:
-    - pki-base
-  components:
-    - nginx
-    - nginx/coredns
-    - nginx/web
-    - nginx/prometheus
-  timeout: 10m
   interval: 5m

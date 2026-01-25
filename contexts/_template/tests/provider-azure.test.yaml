@@ -30,6 +30,9 @@ cases:
       ingress:
         enabled: true
         driver: nginx
+      addons:
+        private_dns:
+          enabled: true
     expect:
       kustomize:
         - name: ingress
@@ -37,7 +40,10 @@ cases:
             - pki-base
           components:
             - nginx
+            - nginx/loadbalancer
             - nginx/coredns
+            - nginx/web
+            - nginx/prometheus
 
   - name: excludes ingress when disabled
     values:

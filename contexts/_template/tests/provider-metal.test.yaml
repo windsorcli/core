@@ -1,7 +1,7 @@
-# provider-generic.yaml facet tests
+# provider-metal.yaml facet tests
 # Tests Talos cluster infrastructure with load balancer and ingress configuration
 #
-# Note: provider: generic requires cluster.controlplanes.nodes because
+# Note: provider: metal requires cluster.controlplanes.nodes because
 # cluster_endpoint is derived from the first node.
 
 # Common configurations
@@ -32,7 +32,7 @@ cases:
   # Minimal: Test default behavior with required fields only
   - name: minimal config creates Talos cluster with kube-vip and default CSI
     values:
-      provider: generic
+      provider: metal
       ingress: *ingress-disabled
       network: *default-network
       cluster: *default-cluster
@@ -52,6 +52,64 @@ cases:
           inputs:
             concurrency: 2
       kustomize:
+        - name: cleanup
+          path: cleanup
+          destroyOnly: true
+          components:
+            - ingresses
+            - loadbalancers
+            - pvcs
+          timeout: 10m
+          interval: 5m
+        - name: policy-base
+          path: policy/base
+          components:
+            - kyverno
+          timeout: 30m
+          interval: 5m
+        - name: policy-resources
+          path: policy/resources
+          dependsOn:
+            - policy-base
+          components:
+            - kyverno/audit-resource-limits-requests
+            - kyverno/require-image-digest
+          timeout: 5m
+          interval: 5m
+        - name: pki-base
+          path: pki/base
+          dependsOn:
+            - policy-resources
+            - telemetry-base
+          components:
+            - cert-manager
+            - cert-manager/prometheus
+          timeout: 20m
+          interval: 5m
+        - name: telemetry-base
+          path: telemetry/base
+          components:
+            - prometheus
+            - prometheus/flux
+            - fluentbit
+            - fluentbit/prometheus
+          timeout: 30m
+          interval: 10m
+        - name: telemetry-resources
+          path: telemetry/resources
+          dependsOn:
+            - telemetry-base
+          components:
+            - metrics-server
+            - prometheus
+            - prometheus/flux
+            - fluentbit
+            - fluentbit/containerd
+            - fluentbit/kubernetes
+            - fluentbit/parser
+            - fluentbit/systemd
+          timeout: 10m
+          interval: 5m
         - name: csi
           path: csi
           dependsOn:
@@ -78,7 +136,7 @@ cases:
   # Full: Test all configurable options together
   - name: full config with MetalLB, custom resources, ingress, and custom worker volume
     values:
-      provider: generic
+      provider: metal
       vm:
         driver: colima
       ingress:
@@ -116,6 +174,64 @@ cases:
           inputs:
             concurrency: 10
       kustomize:
+        - name: cleanup
+          path: cleanup
+          destroyOnly: true
+          components:
+            - ingresses
+            - loadbalancers
+            - pvcs
+          timeout: 10m
+          interval: 5m
+        - name: policy-base
+          path: policy/base
+          components:
+            - kyverno
+          timeout: 30m
+          interval: 5m
+        - name: policy-resources
+          path: policy/resources
+          dependsOn:
+            - policy-base
+          components:
+            - kyverno/audit-resource-limits-requests
+            - kyverno/require-image-digest
+          timeout: 5m
+          interval: 5m
+        - name: pki-base
+          path: pki/base
+          dependsOn:
+            - policy-resources
+            - telemetry-base
+          components:
+            - cert-manager
+            - cert-manager/prometheus
+          timeout: 20m
+          interval: 5m
+        - name: telemetry-base
+          path: telemetry/base
+          components:
+            - prometheus
+            - prometheus/flux
+            - fluentbit
+            - fluentbit/prometheus
+          timeout: 30m
+          interval: 10m
+        - name: telemetry-resources
+          path: telemetry/resources
+          dependsOn:
+            - telemetry-base
+          components:
+            - metrics-server
+            - prometheus
+            - prometheus/flux
+            - fluentbit
+            - fluentbit/containerd
+            - fluentbit/kubernetes
+            - fluentbit/parser
+            - fluentbit/systemd
+          timeout: 10m
+          interval: 5m
         - name: csi
           path: csi
           dependsOn:
@@ -146,22 +262,10 @@ cases:
             loadbalancer_ip_range: 192.168.1.100-192.168.1.200
           timeout: 5m
           interval: 5m
-        - name: ingress
-          path: ingress
-          dependsOn:
-            - pki-base
-          components:
-            - nginx
-            - nginx/coredns
-            - nginx/web
-            - nginx/prometheus
-          timeout: 10m
-          interval: 5m
-
   # Edge case: Docker Desktop excludes load balancer
   - name: Docker Desktop excludes load balancer
     values:
-      provider: generic
+      provider: metal
       vm:
         driver: docker-desktop
       ingress: *ingress-disabled

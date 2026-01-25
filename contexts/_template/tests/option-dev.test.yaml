@@ -1,0 +1,56 @@
+# option-dev.yaml facet tests
+# Tests development mode configurations including selfsigned certificates
+
+# Common configurations
+x-defaults:
+  network: &default-network
+    loadbalancer_driver: kube-vip
+    loadbalancer_mode: arp
+    loadbalancer_ips:
+      start: "10.5.1.10"
+      end: "10.5.1.100"
+
+  cluster: &default-cluster
+    controlplanes:
+      nodes:
+        controlplane-1:
+          endpoint: 10.5.0.10:50000
+          node: 10.5.0.10
+          hostname: controlplane-1
+    workers:
+      volumes:
+        - /var/local
+
+cases:
+  # Minimal: Dev mode creates selfsigned issuer
+  - name: dev mode creates selfsigned issuer
+    values:
+      provider: metal
+      dev: true
+      ingress:
+        enabled: false
+        driver: nginx
+      network: *default-network
+      cluster: *default-cluster
+    expect:
+      kustomize:
+        - name: pki-resources
+          path: pki/resources
+          dependsOn:
+            - pki-base
+          components:
+            - public-issuer/selfsigned
+
+  # Edge case: Non-dev mode excludes selfsigned issuer
+  - name: excludes selfsigned issuer when dev disabled
+    values:
+      provider: metal
+      dev: false
+      ingress:
+        enabled: false
+        driver: nginx
+      network: *default-network
+      cluster: *default-cluster
+    exclude:
+      kustomize:
+        - name: pki-resources
