@@ -22,8 +22,8 @@ kustomize:
     - grafana/dashboards/cert-manager
     - grafana/dashboards/nginx
   substitutions:
-    external_domain: "${dns.domain}"
-    timezone: "${timezone}"
+    external_domain: ${dns.domain}
+    timezone: ${timezone}
     date_full: "${time_format == '12h' ? 'MMM DD, YYYY @ hh:mm:ss a' : 'YYYY-MM-DD HH:mm:ss'}"
     date_interval_second: "${time_format == '12h' ? 'hh:mm:ss a' : 'HH:mm:ss'}"
     date_interval_minute: "${time_format == '12h' ? 'hh:mm a' : 'HH:mm'}"

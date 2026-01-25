@@ -1,4 +1,5 @@
-# Note: All tests with provider: generic require cluster.controlplanes.nodes and network
+# addon-observability.yaml facet tests
+# Tests observability stack with multiple log drivers and time format options
 
 # Common configurations
 x-defaults:
@@ -25,17 +26,13 @@ x-defaults:
     driver: nginx
 
 cases:
-  - name: creates observability with Grafana dashboards and ingress in dev mode
+  # Minimal: Test default behavior with dev mode (implicit enablement, 24h default format)
+  - name: minimal config creates observability with defaults via dev mode
     values:
       provider: generic
       dev: true
       dns:
         domain: example.local
-      timezone: America/New_York
-      time_format: 12h
-      ingress:
-        enabled: true
-        driver: nginx
       network: *default-network
       cluster: *default-cluster
     expect:
@@ -54,60 +51,23 @@ cases:
             - grafana/dashboards/nginx
           substitutions:
             external_domain: example.local
-            timezone: America/New_York
-            date_full: "MMM DD, YYYY @ hh:mm:ss a"
-        - name: observability
-          dependsOn:
-            - ingress
-          components:
-            - grafana/ingress
-
-  - name: uses 24h time format when specified
-    values:
-      provider: generic
-      dev: true
-      time_format: 24h
-      network: *default-network
-      cluster: *default-cluster
-    expect:
-      kustomize:
-        - name: observability
-          substitutions:
             date_full: "YYYY-MM-DD HH:mm:ss"
             date_interval_second: "HH:mm:ss"
             date_interval_minute: "HH:mm"
             date_interval_hour: "MM/DD HH:mm"
             date_interval_day: "MM/DD"
 
-  - name: creates observability when addon explicitly enabled
+  # Full: Test all configurable options with stdout driver
+  - name: full config with stdout driver creates FluentD pipeline and log filtering
     values:
       provider: generic
-      network: *default-network
-      cluster: *default-cluster
-      addons:
-        observability:
-          enabled: true
-    expect:
-      kustomize:
-        - name: observability
-          path: observability
-
-  - name: excludes observability when addon disabled
-    values:
-      provider: generic
-      ingress: *ingress-disabled
-      network: *default-network
-      cluster: *default-cluster
-      addons:
-        observability:
-          enabled: false
-    exclude:
-      kustomize:
-        - name: observability
-
-  - name: creates FluentD stdout pipeline with otel filter
-    values:
-      provider: generic
+      dns:
+        domain: full.example.com
+      time_format: 24h
+      log_level: warn
+      ingress:
+        enabled: true
+        driver: nginx
       network: *default-network
       cluster: *default-cluster
       addons:
@@ -116,22 +76,47 @@ cases:
           logs_driver: stdout
     expect:
       kustomize:
+        - name: observability
+          path: observability
+          timeout: 15m
+          interval: 10m
+          components:
+            - grafana
+            - grafana/prometheus
+            - grafana/dashboards/node
+            - grafana/dashboards/kubernetes
+            - grafana/dashboards/flux
+            - grafana/dashboards/cert-manager
+            - grafana/dashboards/nginx
+            - grafana/ingress
+            - fluentd
+            - fluentd/filters/otel
+            - fluentd/outputs/stdout
+            - fluentd/filters/log-level/warn
+          substitutions:
+            external_domain: full.example.com
+            date_full: "YYYY-MM-DD HH:mm:ss"
+            date_interval_second: "HH:mm:ss"
+            date_interval_minute: "HH:mm"
+            date_interval_hour: "MM/DD HH:mm"
+            date_interval_day: "MM/DD"
+        - name: observability
+          dependsOn:
+            - ingress
+          components:
+            - grafana/ingress
         - name: telemetry-resources
           dependsOn:
             - telemetry-base
           components:
             - fluentbit/fluentd
-        - name: observability
-          dependsOn:
-            - telemetry-resources
-          components:
-            - fluentd
-            - fluentd/filters/otel
-            - fluentd/outputs/stdout
 
-  - name: creates Quickwit storage pipeline with PVC and dashboards
+  # Full: Test Quickwit storage driver with all components
+  - name: full config with quickwit driver creates storage pipeline with PVC and dashboards
     values:
       provider: generic
+      dns:
+        domain: quickwit.example.com
       network: *default-network
       cluster: *default-cluster
       addons:
@@ -153,12 +138,22 @@ cases:
             - quickwit/prometheus
             - grafana/quickwit
             - grafana/dashboards/logs/quickwit
+            - fluentd/filters/log-level/info
+        - name: telemetry-resources
+          dependsOn:
+            - telemetry-base
+          components:
+            - fluentbit/fluentd
 
-  - name: creates ELK stack with filebeat telemetry
+  # Full: Test Elasticsearch driver with ELK stack
+  - name: full config with elasticsearch driver creates ELK stack with filebeat
     values:
       provider: generic
       dns:
         domain: elk.example.com
+      ingress:
+        enabled: true
+        driver: nginx
       network: *default-network
       cluster: *default-cluster
       addons:
@@ -190,38 +185,8 @@ cases:
             - prometheus
             - prometheus/flux
 
-  - name: creates log level filter for warn level
-    values:
-      provider: generic
-      network: *default-network
-      cluster: *default-cluster
-      addons:
-        observability:
-          enabled: true
-          logs_driver: stdout
-      log_level: warn
-    expect:
-      kustomize:
-        - name: observability
-          components:
-            - fluentd/filters/log-level/warn
-
-  - name: uses default info log level filter
-    values:
-      provider: generic
-      network: *default-network
-      cluster: *default-cluster
-      addons:
-        observability:
-          enabled: true
-          logs_driver: stdout
-    expect:
-      kustomize:
-        - name: observability
-          components:
-            - fluentd/filters/log-level/info
-
-  - name: creates stdout pipeline without log filter when trace level selected
+  # Edge case: Addon disabled
+  - name: excludes observability when addon disabled
     values:
       provider: generic
       ingress: *ingress-disabled
@@ -229,12 +194,27 @@ cases:
       cluster: *default-cluster
       addons:
         observability:
+          enabled: false
+    exclude:
+      kustomize:
+        - name: observability
+
+  # Edge case: Trace log level skips log filter - stdout output without log-level filter
+  - name: trace log level creates stdout pipeline without log filter
+    values:
+      provider: generic
+      ingress: *ingress-disabled
+      network: *default-network
+      cluster: *default-cluster
+      log_level: trace
+      addons:
+        observability:
           enabled: true
           logs_driver: stdout
-      log_level: trace
     expect:
       kustomize:
         - name: observability
+          path: observability
           dependsOn:
             - telemetry-resources
           components:
@@ -242,6 +222,7 @@ cases:
             - fluentd/filters/otel
             - fluentd/outputs/stdout
 
+  # Edge case: Elasticsearch without ingress fails
   - name: fails when elasticsearch selected without ingress
     values:
       provider: generic

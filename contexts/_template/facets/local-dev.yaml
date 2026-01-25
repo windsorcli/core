@@ -10,8 +10,8 @@ terraform:
 - name: gitops
   path: gitops/flux
   inputs:
-    git_username: ${git.livereload.username}
-    git_password: ${git.livereload.password}
+    git_username: ${git.livereload.username ?? ""}
+    git_password: ${git.livereload.password ?? ""}
     webhook_token: abcdef123456
     concurrency: ${max(2, min(floor((cluster.controlplanes.cpu ?? 4) / 2), floor((cluster.controlplanes.memory ?? 4) / 2), 10))}
 

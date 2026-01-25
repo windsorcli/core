@@ -1,5 +1,9 @@
+# provider-aws.yaml facet tests
+# Tests AWS EKS infrastructure with VPC networking
+
 cases:
-  - name: creates VPC, EKS, and GitOps terraform chain
+  # Minimal: Test default behavior with required fields only
+  - name: minimal config creates VPC, EKS, and GitOps terraform chain
     values:
       provider: aws
       ingress:
@@ -21,27 +25,64 @@ cases:
           path: gitops/flux
           dependsOn:
             - cluster
+          inputs:
+            concurrency: 5
       kustomize:
         - name: csi
+          path: csi
           dependsOn:
             - policy-resources
+          components:
+            - aws-ebs
+          timeout: 5m
+          interval: 5m
 
-  - name: creates nginx ingress without CoreDNS when enabled
+  # Full: Test with ingress enabled
+  - name: full config creates nginx ingress without CoreDNS
     values:
       provider: aws
       ingress:
         enabled: true
         driver: nginx
     expect:
+      terraform:
+        - name: network
+          path: network/aws-vpc
+        - name: cluster
+          path: cluster/aws-eks
+          dependsOn:
+            - network
+        - name: cluster-additions
+          path: cluster/aws-eks/additions
+          dependsOn:
+            - cluster
+        - name: gitops
+          path: gitops/flux
+          dependsOn:
+            - cluster
+          inputs:
+            concurrency: 5
       kustomize:
+        - name: csi
+          path: csi
+          dependsOn:
+            - policy-resources
+          components:
+            - aws-ebs
+          timeout: 5m
+          interval: 5m
         - name: ingress
+          path: ingress
           dependsOn:
             - pki-base
           components:
             - nginx
             - nginx/web
             - nginx/prometheus
+          timeout: 10m
+          interval: 5m
 
+  # Edge case: Ingress disabled
   - name: excludes ingress when disabled
     values:
       provider: aws

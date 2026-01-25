@@ -1,4 +1,5 @@
-# Note: All tests with provider: generic require cluster.controlplanes.nodes and network
+# addon-private-ca.yaml facet tests
+# Tests private Certificate Authority with trust-manager integration
 
 # Common configurations
 x-defaults:
@@ -25,7 +26,8 @@ x-defaults:
     driver: nginx
 
 cases:
-  - name: creates private CA when dev mode enabled
+  # Minimal: Test default behavior with dev mode (implicit enablement)
+  - name: minimal config creates private CA with defaults via dev mode
     values:
       provider: generic
       dev: true
@@ -34,15 +36,22 @@ cases:
     expect:
       kustomize:
         - name: pki-base
+          path: pki/base
+          timeout: 10m
+          interval: 5m
           components:
             - trust-manager
         - name: pki-resources
+          path: pki/resources
           dependsOn:
             - pki-base
+          timeout: 5m
+          interval: 5m
           components:
             - private-issuer/ca
 
-  - name: creates private CA when addon explicitly enabled
+  # Full: Test explicit enablement (same output as minimal - no additional options)
+  - name: full config creates private CA when addon explicitly enabled
     values:
       provider: generic
       network: *default-network
@@ -53,14 +62,21 @@ cases:
     expect:
       kustomize:
         - name: pki-base
+          path: pki/base
+          timeout: 10m
+          interval: 5m
           components:
             - trust-manager
         - name: pki-resources
+          path: pki/resources
           dependsOn:
             - pki-base
+          timeout: 5m
+          interval: 5m
           components:
             - private-issuer/ca
 
+  # Edge case: Addon disabled
   - name: excludes private CA when addon disabled
     values:
       provider: generic

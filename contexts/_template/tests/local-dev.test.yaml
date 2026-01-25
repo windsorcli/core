@@ -1,4 +1,5 @@
-# Note: All tests with provider: generic require cluster.controlplanes.nodes and network
+# local-dev.yaml facet tests
+# Tests local development overrides for VM environments
 
 # Common configurations
 x-defaults:
@@ -25,10 +26,35 @@ x-defaults:
     driver: nginx
 
 cases:
-  - name: configures gitops with dev credentials and computed concurrency
+  # Minimal: Test default dev mode behavior with no optional values
+  - name: minimal dev config creates gitops with empty credentials and computed concurrency
     values:
       provider: generic
       dev: true
+      network: *default-network
+      cluster: *default-cluster
+    expect:
+      terraform:
+        - name: gitops
+          inputs:
+            git_username: ""
+            git_password: ""
+            webhook_token: abcdef123456
+            concurrency: 2
+      kustomize:
+        - name: pki-resources
+          path: pki/resources
+          dependsOn:
+            - pki-base
+          components:
+            - public-issuer/selfsigned
+
+  # Full: Test all configurable dev options together
+  - name: full dev config creates gitops with credentials, demo mode, custom Grafana password, and computed concurrency
+    values:
+      provider: generic
+      dev: true
+      demo: true
       network: *default-network
       cluster:
         controlplanes:
@@ -46,6 +72,10 @@ cases:
         livereload:
           username: devuser
           password: devpass
+      addons:
+        observability:
+          enabled: true
+          admin_password: supersecret
     expect:
       terraform:
         - name: gitops
@@ -54,28 +84,6 @@ cases:
             git_password: devpass
             webhook_token: abcdef123456
             concurrency: 4
-
-  - name: uses empty git credentials when not specified
-    values:
-      provider: generic
-      dev: true
-      network: *default-network
-      cluster: *default-cluster
-    expect:
-      terraform:
-        - name: gitops
-          inputs:
-            git_username: ""
-            git_password: ""
-            webhook_token: abcdef123456
-
-  - name: creates selfsigned issuer and Grafana dev config
-    values:
-      provider: generic
-      dev: true
-      network: *default-network
-      cluster: *default-cluster
-    expect:
       kustomize:
         - name: pki-resources
           path: pki/resources
@@ -87,32 +95,7 @@ cases:
           components:
             - grafana/dev
           substitutions:
-            admin_password: grafana
-
-  - name: uses custom Grafana admin password when specified
-    values:
-      provider: generic
-      dev: true
-      network: *default-network
-      cluster: *default-cluster
-      addons:
-        observability:
-          admin_password: supersecret
-    expect:
-      kustomize:
-        - name: observability
-          substitutions:
             admin_password: supersecret
-
-  - name: creates demo database when demo mode enabled
-    values:
-      provider: generic
-      dev: true
-      demo: true
-      network: *default-network
-      cluster: *default-cluster
-    expect:
-      kustomize:
         - name: demo-database
           path: demo
           dependsOn:
@@ -120,19 +103,8 @@ cases:
           components:
             - database
 
-  - name: excludes demo database when demo mode disabled
-    values:
-      provider: generic
-      dev: true
-      demo: false
-      ingress: *ingress-disabled
-      network: *default-network
-      cluster: *default-cluster
-    exclude:
-      kustomize:
-        - name: demo-database
-
-  - name: uses nodeport ingress on Docker Desktop
+  # Edge case: Docker Desktop uses nodeport ingress
+  - name: Docker Desktop uses nodeport ingress
     values:
       provider: generic
       dev: true
@@ -153,3 +125,16 @@ cases:
             - nginx/prometheus
           timeout: 10m
           interval: 5m
+
+  # Edge case: Demo mode disabled
+  - name: excludes demo database when demo mode disabled
+    values:
+      provider: generic
+      dev: true
+      demo: false
+      ingress: *ingress-disabled
+      network: *default-network
+      cluster: *default-cluster
+    exclude:
+      kustomize:
+        - name: demo-database
