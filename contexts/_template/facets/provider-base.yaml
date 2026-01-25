@@ -78,9 +78,10 @@ kustomize:
 
 # FluentD aggregator (log aggregation driver, runs in observability namespace for security)
 # Independent of observability addon - FluentD is part of base telemetry infrastructure
+# Excluded when elasticsearch is used (which uses filebeat instead) or when log aggregation driver is not fluentd
 - name: observability
   path: observability
-  when: (telemetry.log_aggregation.driver ?? 'fluentd') == 'fluentd'
+  when: (telemetry.log_aggregation.driver ?? 'fluentd') == 'fluentd' && (addons.observability.logs_driver ?? '') != 'elasticsearch'
   components:
     - fluentd
     - fluentd/filters/otel
