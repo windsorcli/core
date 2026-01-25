@@ -60,7 +60,7 @@ local registryMirrors = std.foldl(
 );
 
 // Build network config
-local needsNetworkConfig = provider == "generic" && vmDriver == "docker-desktop";
+local needsNetworkConfig = vmDriver == "docker-desktop";
 local networkConfig = if needsNetworkConfig then
   {
     interfaces: [
