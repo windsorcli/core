@@ -28,10 +28,10 @@ terraform:
 
 kustomize:
 
-# Load Balancer (for colima, not docker-desktop)
+# Load Balancer (for colima and docker, not docker-desktop)
 - name: lb-base
   path: lb/base
-  when: vm.driver == 'colima' || vm.driver == 'colima-incus'
+  when: vm.driver == 'colima' || vm.driver == 'colima-incus' || vm.driver == 'docker'
   dependsOn:
     - policy-resources
   components:
@@ -41,7 +41,7 @@ kustomize:
 
 - name: lb-resources
   path: lb/resources
-  when: vm.driver == 'colima' || vm.driver == 'colima-incus'
+  when: vm.driver == 'colima' || vm.driver == 'colima-incus' || vm.driver == 'docker'
   dependsOn:
     - lb-base
   components:
