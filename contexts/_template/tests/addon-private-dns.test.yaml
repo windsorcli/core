@@ -1,0 +1,110 @@
+# Note: All tests with provider: generic require cluster.controlplanes.nodes and network
+
+# Common configurations
+x-defaults:
+  network: &default-network
+    loadbalancer_driver: kube-vip
+    loadbalancer_mode: arp
+    loadbalancer_ips:
+      start: "10.5.1.10"
+      end: "10.5.1.100"
+
+  cluster: &default-cluster
+    controlplanes:
+      nodes:
+        controlplane-1:
+          endpoint: 10.5.0.10:50000
+          node: 10.5.0.10
+          hostname: controlplane-1
+    workers:
+      volumes:
+        - /var/local
+
+  ingress-disabled: &ingress-disabled
+    enabled: false
+    driver: nginx
+
+cases:
+  - name: creates CoreDNS when dev mode enabled
+    values:
+      provider: generic
+      dev: true
+      network: *default-network
+      cluster: *default-cluster
+    expect:
+      kustomize:
+        - name: dns
+          path: dns
+          dependsOn:
+            - pki-base
+          components:
+            - coredns
+            - coredns/etcd
+            - external-dns
+            - external-dns/coredns
+            - external-dns/ingress
+
+  - name: creates CoreDNS when addon explicitly enabled
+    values:
+      provider: generic
+      network: *default-network
+      cluster: *default-cluster
+      addons:
+        private_dns:
+          enabled: true
+    expect:
+      kustomize:
+        - name: dns
+          path: dns
+          dependsOn:
+            - pki-base
+          components:
+            - coredns
+            - coredns/etcd
+            - external-dns
+            - external-dns/coredns
+            - external-dns/ingress
+
+  - name: excludes DNS when addon disabled
+    values:
+      provider: generic
+      ingress: *ingress-disabled
+      network: *default-network
+      cluster: *default-cluster
+      addons:
+        private_dns:
+          enabled: false
+    exclude:
+      kustomize:
+        - name: dns
+
+  - name: adds localhost external-dns on Docker Desktop
+    values:
+      provider: generic
+      dev: true
+      vm:
+        driver: docker-desktop
+      network: *default-network
+      cluster: *default-cluster
+    expect:
+      kustomize:
+        - name: dns
+          components:
+            - external-dns/localhost
+
+  - name: adds nginx coredns when ingress and DNS enabled
+    values:
+      provider: generic
+      dev: true
+      ingress:
+        enabled: true
+        driver: nginx
+      network: *default-network
+      cluster: *default-cluster
+    expect:
+      kustomize:
+        - name: ingress
+          dependsOn:
+            - pki-base
+          components:
+            - nginx/coredns

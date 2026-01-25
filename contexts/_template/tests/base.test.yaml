@@ -1,0 +1,68 @@
+# Base facet tests - uses provider: aws to avoid cluster.controlplanes.nodes requirement
+cases:
+  - name: creates foundational components with correct dependencies and timeouts
+    values:
+      provider: aws
+      ingress:
+        enabled: false
+        driver: nginx
+    expect:
+      kustomize:
+        - name: cleanup
+          path: cleanup
+          destroyOnly: true
+          components:
+            - ingresses
+            - loadbalancers
+            - pvcs
+          timeout: 10m
+          interval: 5m
+        - name: policy-base
+          path: policy/base
+          components:
+            - kyverno
+          timeout: 30m
+          interval: 5m
+        - name: policy-resources
+          path: policy/resources
+          dependsOn:
+            - policy-base
+          components:
+            - kyverno/audit-resource-limits-requests
+            - kyverno/require-image-digest
+          timeout: 5m
+          interval: 5m
+        - name: pki-base
+          path: pki/base
+          dependsOn:
+            - policy-resources
+            - telemetry-base
+          components:
+            - cert-manager
+            - cert-manager/prometheus
+          timeout: 20m
+          interval: 5m
+        - name: telemetry-base
+          path: telemetry/base
+          components:
+            - prometheus
+            - prometheus/flux
+            - fluentbit
+            - fluentbit/prometheus
+          timeout: 30m
+          interval: 10m
+        - name: telemetry-resources
+          path: telemetry/resources
+          dependsOn:
+            - telemetry-base
+          components:
+            - metrics-server
+            - prometheus
+            - prometheus/flux
+            - fluentbit
+            - fluentbit/containerd
+            - fluentbit/kubernetes
+            - fluentbit/parser
+            - fluentbit/systemd
+          timeout: 10m
+          interval: 5m

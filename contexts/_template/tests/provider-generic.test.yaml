@@ -1,0 +1,216 @@
+# Note: All tests with provider: generic require cluster.controlplanes.nodes
+# because provider-generic derives cluster_endpoint from the first node.
+
+# Common configurations
+x-defaults:
+  network: &default-network
+    loadbalancer_driver: kube-vip
+    loadbalancer_mode: arp
+    loadbalancer_ips:
+      start: "10.5.1.10"
+      end: "10.5.1.100"
+
+  cluster: &default-cluster
+    controlplanes:
+      nodes:
+        controlplane-1: &cp1-node
+          endpoint: 10.5.0.10:50000
+          node: 10.5.0.10
+          hostname: controlplane-1
+    workers:
+      volumes:
+        - /var/local
+
+  ingress-disabled: &ingress-disabled
+    enabled: false
+    driver: nginx
+
+cases:
+  - name: creates Talos cluster with computed inputs
+    values:
+      provider: generic
+      ingress: *ingress-disabled
+      network: *default-network
+      cluster:
+        controlplanes:
+          cpu: 4
+          memory: 8
+          nodes:
+            controlplane-1: *cp1-node
+        workers:
+          volumes:
+            - /var/local
+    expect:
+      terraform:
+        - name: cluster
+          path: cluster/talos
+          parallelism: 1
+          inputs:
+            cluster_endpoint: https://10.5.0.10:6443
+            cluster_name: talos
+        - name: gitops
+          path: gitops/flux
+          dependsOn:
+            - cluster
+          destroy: false
+          inputs:
+            concurrency: 2
+      kustomize:
+        - name: csi
+          dependsOn:
+            - policy-resources
+          components:
+            - openebs
+            - openebs/dynamic-localpv
+          substitutions:
+            local_volume_path: /var/local
+          timeout: 20m
+          interval: 5m
+
+  - name: computes gitops concurrency from cluster resources
+    values:
+      provider: generic
+      ingress: *ingress-disabled
+      network: *default-network
+      cluster:
+        controlplanes:
+          cpu: 20
+          memory: 32
+          nodes:
+            controlplane-1: *cp1-node
+        workers:
+          volumes:
+            - /var/local
+    expect:
+      terraform:
+        - name: gitops
+          inputs:
+            concurrency: 10
+
+  - name: excludes load balancer on Docker Desktop
+    values:
+      provider: generic
+      vm:
+        driver: docker-desktop
+      ingress: *ingress-disabled
+      network: *default-network
+      cluster: *default-cluster
+    exclude:
+      kustomize:
+        - name: lb-base
+        - name: lb-resources
+
+  - name: computes loadbalancer IP range from network config
+    values:
+      provider: generic
+      vm:
+        driver: colima
+      ingress: *ingress-disabled
+      network:
+        loadbalancer_driver: kube-vip
+        loadbalancer_mode: arp
+        loadbalancer_ips:
+          start: "192.168.1.100"
+          end: "192.168.1.200"
+      cluster: *default-cluster
+    expect:
+      kustomize:
+        - name: lb-resources
+          dependsOn:
+            - lb-base
+          substitutions:
+            loadbalancer_ip_range: 192.168.1.100-192.168.1.200
+
+  - name: uses default loadbalancer IP range when not specified
+    values:
+      provider: generic
+      vm:
+        driver: colima
+      ingress: *ingress-disabled
+      network: *default-network
+      cluster: *default-cluster
+    expect:
+      kustomize:
+        - name: lb-resources
+          substitutions:
+            loadbalancer_ip_range: 10.5.1.10-10.5.1.100
+
+  - name: creates MetalLB when metallb driver selected
+    values:
+      provider: generic
+      vm:
+        driver: colima
+      network:
+        loadbalancer_driver: metallb
+        loadbalancer_mode: layer2
+        loadbalancer_ips:
+          start: "10.5.1.10"
+          end: "10.5.1.100"
+      ingress: *ingress-disabled
+      cluster: *default-cluster
+    expect:
+      kustomize:
+        - name: lb-base
+          components:
+            - metallb
+        - name: lb-resources
+          components:
+            - metallb
+            - metallb/layer2
+
+  - name: creates kube-vip with arp mode by default
+    values:
+      provider: generic
+      vm:
+        driver: colima
+      network: *default-network
+      ingress: *ingress-disabled
+      cluster: *default-cluster
+    expect:
+      kustomize:
+        - name: lb-resources
+          components:
+            - kube-vip
+            - kube-vip/arp
+
+  - name: creates nginx ingress with CoreDNS when enabled
+    values:
+      provider: generic
+      vm:
+        driver: colima
+      ingress:
+        enabled: true
+        driver: nginx
+      network: *default-network
+      cluster: *default-cluster
+    expect:
+      kustomize:
+        - name: ingress
+          dependsOn:
+            - pki-base
+          components:
+            - nginx
+            - nginx/coredns
+            - nginx/web
+            - nginx/prometheus
+          timeout: 10m
+          interval: 5m
+
+  - name: uses custom worker volume path for CSI
+    values:
+      provider: generic
+      ingress: *ingress-disabled
+      network: *default-network
+      cluster:
+        controlplanes:
+          nodes:
+            controlplane-1: *cp1-node
+        workers:
+          count: 1
+          volumes:
+            - /mnt/data
+    expect:
+      kustomize:
+        - name: csi
+          substitutions:
+            local_volume_path: /mnt/data

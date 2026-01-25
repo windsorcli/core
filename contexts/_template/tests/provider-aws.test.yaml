@@ -1,0 +1,53 @@
+cases:
+  - name: creates VPC, EKS, and GitOps terraform chain
+    values:
+      provider: aws
+      ingress:
+        enabled: false
+        driver: nginx
+    expect:
+      terraform:
+        - name: network
+          path: network/aws-vpc
+        - name: cluster
+          path: cluster/aws-eks
+          dependsOn:
+            - network
+        - name: cluster-additions
+          path: cluster/aws-eks/additions
+          dependsOn:
+            - cluster
+        - name: gitops
+          path: gitops/flux
+          dependsOn:
+            - cluster
+      kustomize:
+        - name: csi
+          dependsOn:
+            - policy-resources
+
+  - name: creates nginx ingress without CoreDNS when enabled
+    values:
+      provider: aws
+      ingress:
+        enabled: true
+        driver: nginx
+    expect:
+      kustomize:
+        - name: ingress
+          dependsOn:
+            - pki-base
+          components:
+            - nginx
+            - nginx/web
+            - nginx/prometheus
+
+  - name: excludes ingress when disabled
+    values:
+      provider: aws
+      ingress:
+        enabled: false
+        driver: nginx
+    exclude:
+      kustomize:
+        - name: ingress

@@ -1,0 +1,129 @@
+# Note: All tests with provider: generic require cluster.controlplanes.nodes and network
+
+# Common configurations
+x-defaults:
+  network: &default-network
+    loadbalancer_driver: kube-vip
+    loadbalancer_mode: arp
+    loadbalancer_ips:
+      start: "10.5.1.10"
+      end: "10.5.1.100"
+
+  cluster: &default-cluster
+    controlplanes:
+      nodes:
+        controlplane-1:
+          endpoint: 10.5.0.10:50000
+          node: 10.5.0.10
+          hostname: controlplane-1
+    workers:
+      volumes:
+        - /var/local
+
+  ingress-disabled: &ingress-disabled
+    enabled: false
+    driver: nginx
+
+cases:
+  - name: creates database with cloudnativepg and prometheus when dev mode enabled
+    values:
+      provider: generic
+      dev: true
+      network: *default-network
+      cluster: *default-cluster
+    expect:
+      kustomize:
+        - name: database
+          path: database
+          dependsOn:
+            - csi
+          components:
+            - cloudnativepg
+            - cloudnativepg/prometheus
+          timeout: 15m
+          interval: 10m
+
+  - name: creates database when addon explicitly enabled
+    values:
+      provider: generic
+      network: *default-network
+      cluster: *default-cluster
+      addons:
+        database:
+          postgres:
+            enabled: true
+            driver: cloudnativepg
+    expect:
+      kustomize:
+        - name: database
+          path: database
+          dependsOn:
+            - csi
+          components:
+            - cloudnativepg
+            - cloudnativepg/prometheus
+
+  - name: excludes database when addon disabled
+    values:
+      provider: generic
+      ingress: *ingress-disabled
+      network: *default-network
+      cluster: *default-cluster
+      addons:
+        database:
+          postgres:
+            enabled: false
+    exclude:
+      kustomize:
+        - name: database
+
+  - name: adds HA component when ha enabled
+    values:
+      provider: generic
+      network: *default-network
+      cluster: *default-cluster
+      addons:
+        database:
+          postgres:
+            enabled: true
+            driver: cloudnativepg
+      ha: true
+    expect:
+      kustomize:
+        - name: database
+          components:
+            - cloudnativepg/ha
+
+  - name: creates database without HA when ha disabled
+    values:
+      provider: generic
+      ingress: *ingress-disabled
+      network: *default-network
+      cluster: *default-cluster
+      addons:
+        database:
+          postgres:
+            enabled: true
+            driver: cloudnativepg
+      ha: false
+    expect:
+      kustomize:
+        - name: database
+          components:
+            - cloudnativepg
+            - cloudnativepg/prometheus
+
+  - name: includes Grafana dashboard when observability enabled
+    values:
+      provider: generic
+      dev: true
+      network: *default-network
+      cluster: *default-cluster
+      addons:
+        observability:
+          enabled: true
+    expect:
+      kustomize:
+        - name: observability
+          components:
+            - grafana/dashboards/cloudnativepg

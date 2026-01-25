@@ -111,8 +111,8 @@ jobs:
         with:
           sarif_file: results.sarif
 
-  terraform-tests:
-    name: Terraform Tests
+  tests:
+    name: Tests
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code
@@ -124,12 +124,18 @@ jobs:
           # renovate: datasource=github-releases depName=terraform package=hashicorp/terraform
           terraform_version: 1.14.3
 
+      - name: Install Windsor CLI
+        uses: windsorcli/action@a829ee3c5d9826fd0b31d5e730edcd515644d866 # v0.5.1
+        with:
+          ref: main
+          context: local
+
       - name: Install Task
         uses: go-task/setup-task@0ab1b2a65bc55236a3bc64cde78f80e20e8885c2 # v1.0.0
         with:
           version: 3.x
 
-      - name: Run Terraform Tests
+      - name: Run Tests
         run: task test
 
   integration:

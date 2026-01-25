@@ -4,7 +4,7 @@ metadata:
   name: private-ca
   description: Private Certificate Authority with trust-manager integration
 
-when: addons?.private_ca?.enabled == true || dev == true
+when: addons.private_ca.enabled == true || dev == true
 
 kustomize:
 

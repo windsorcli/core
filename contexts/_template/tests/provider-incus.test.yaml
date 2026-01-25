@@ -1,0 +1,261 @@
+# Note: Tests must provide terraformOutputs.compute to mock terraform_output() calls.
+# YAML anchors reduce duplication for common cluster and terraform output configurations.
+
+# Common configurations
+x-defaults:
+  network: &default-network
+    cidr_block: 10.5.0.0/16
+    loadbalancer_driver: kube-vip
+    loadbalancer_mode: arp
+    loadbalancer_ips:
+      start: "10.5.1.10"
+      end: "10.5.1.100"
+
+  cluster: &default-cluster
+    controlplanes:
+      nodes:
+        controlplane-1: &cp1-node
+          endpoint: 10.5.0.10:50000
+          node: 10.5.0.10
+          hostname: controlplane-1
+    workers: &default-workers
+      count: 1
+      volumes:
+        - /var/local
+      nodes:
+        worker-1: &wk1-node
+          endpoint: 10.5.0.20:50000
+          node: 10.5.0.20
+          hostname: worker-1
+
+  terraform-outputs: &default-terraform-outputs
+    compute:
+      controlplanes:
+        - endpoint: 10.5.0.10:6443
+          node: 10.5.0.10
+          hostname: controlplane-1
+      workers:
+        - endpoint: 10.5.0.20:50000
+          node: 10.5.0.20
+          hostname: worker-1
+
+  ingress-disabled: &ingress-disabled
+    enabled: false
+    driver: nginx
+
+cases:
+  - name: creates compute and cluster terraform chain with mocked outputs
+    values:
+      provider: incus
+      ingress: *ingress-disabled
+      network:
+        cidr_block: 10.10.0.0/16
+        loadbalancer_driver: kube-vip
+        loadbalancer_mode: arp
+        loadbalancer_ips:
+          start: "10.10.1.10"
+          end: "10.10.1.100"
+      cluster:
+        controlplanes:
+          count: 3
+          cpu: 4
+          memory: 8
+          root_disk_size: 50
+          nodes:
+            controlplane-1:
+              endpoint: 10.10.0.10:50000
+              node: 10.10.0.10
+              hostname: cp-1
+        workers:
+          count: 2
+          cpu: 8
+          memory: 16
+          nodes:
+            worker-1:
+              endpoint: 10.10.0.20:50000
+              node: 10.10.0.20
+              hostname: wk-1
+    terraformOutputs:
+      compute:
+        controlplanes:
+          - endpoint: 10.10.0.10:6443
+            node: 10.10.0.10
+            hostname: cp-1
+        workers:
+          - endpoint: 10.10.0.20:50000
+            node: 10.10.0.20
+            hostname: wk-1
+    expect:
+      terraform:
+        - name: compute
+          path: compute/incus
+          inputs:
+            network_name: ""
+            create_network: true
+            network_cidr: 10.10.0.0/16
+        - name: cluster
+          path: cluster/talos
+          dependsOn:
+            - compute
+          parallelism: 1
+          inputs:
+            cluster_endpoint: https://10.10.0.10:6443
+            cluster_name: talos
+        - name: gitops
+          path: gitops/flux
+          dependsOn:
+            - cluster
+          destroy: false
+          inputs:
+            concurrency: 4
+      kustomize:
+        - name: csi
+          path: csi
+          dependsOn:
+            - policy-resources
+          components:
+            - openebs
+            - openebs/dynamic-localpv
+          timeout: 20m
+          interval: 5m
+        - name: lb-base
+          path: lb/base
+          dependsOn:
+            - policy-resources
+          timeout: 5m
+          interval: 5m
+        - name: lb-resources
+          path: lb/resources
+          dependsOn:
+            - lb-base
+          components:
+            - kube-vip
+            - kube-vip/arp
+          substitutions:
+            loadbalancer_ip_range: 10.5.1.10-10.5.1.100
+          timeout: 5m
+          interval: 5m
+
+  - name: configures Colima-specific storage and network
+    values:
+      provider: incus
+      vm:
+        driver: colima
+      ingress: *ingress-disabled
+      network: *default-network
+      cluster: *default-cluster
+    terraformOutputs: *default-terraform-outputs
+    expect:
+      terraform:
+        - name: compute
+          path: compute/incus
+          inputs:
+            network_name: incusbr0
+            create_network: false
+
+  - name: uses custom loadbalancer IP range
+    values:
+      provider: incus
+      ingress: *ingress-disabled
+      network:
+        cidr_block: 10.5.0.0/16
+        loadbalancer_driver: kube-vip
+        loadbalancer_mode: arp
+        loadbalancer_ips:
+          start: "192.168.50.100"
+          end: "192.168.50.200"
+      cluster: *default-cluster
+    terraformOutputs: *default-terraform-outputs
+    expect:
+      kustomize:
+        - name: lb-resources
+          substitutions:
+            loadbalancer_ip_range: 192.168.50.100-192.168.50.200
+
+  - name: creates MetalLB when metallb driver selected
+    values:
+      provider: incus
+      ingress: *ingress-disabled
+      network:
+        cidr_block: 10.5.0.0/16
+        loadbalancer_driver: metallb
+        loadbalancer_mode: layer2
+        loadbalancer_ips:
+          start: "10.5.1.10"
+          end: "10.5.1.100"
+      cluster: *default-cluster
+    terraformOutputs: *default-terraform-outputs
+    expect:
+      kustomize:
+        - name: lb-base
+          components:
+            - metallb
+        - name: lb-resources
+          components:
+            - metallb
+            - metallb/layer2
+
+  - name: creates nginx ingress with CoreDNS when enabled
+    values:
+      provider: incus
+      ingress:
+        enabled: true
+        driver: nginx
+      network: *default-network
+      cluster: *default-cluster
+    terraformOutputs: *default-terraform-outputs
+    expect:
+      kustomize:
+        - name: ingress
+          path: ingress
+          dependsOn:
+            - pki-base
+          components:
+            - nginx
+            - nginx/coredns
+            - nginx/web
+            - nginx/prometheus
+          timeout: 10m
+          interval: 5m
+
+  - name: uses worker volume path for CSI
+    values:
+      provider: incus
+      ingress: *ingress-disabled
+      network: *default-network
+      cluster:
+        controlplanes:
+          nodes:
+            controlplane-1: *cp1-node
+        workers:
+          count: 1
+          volumes:
+            - /mnt/storage
+          nodes:
+            worker-1: *wk1-node
+    terraformOutputs: *default-terraform-outputs
+    expect:
+      kustomize:
+        - name: csi
+          substitutions:
+            local_volume_path: /mnt/storage
+
+  - name: uses controlplane volume path when schedulable
+    values:
+      provider: incus
+      ingress: *ingress-disabled
+      network: *default-network
+      cluster:
+        controlplanes:
+          schedulable: true
+          volumes:
+            - /data/local
+          nodes:
+            controlplane-1: *cp1-node
+        workers: *default-workers
+    terraformOutputs: *default-terraform-outputs
+    expect:
+      kustomize:
+        - name: csi
+          substitutions:
+            local_volume_path: /data/local
