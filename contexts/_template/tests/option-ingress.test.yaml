@@ -39,6 +39,7 @@ cases:
             - pki-base
           components:
             - nginx
+            - nginx/loadbalancer
             - nginx/web
             - nginx/prometheus
           timeout: 10m
@@ -64,6 +65,7 @@ cases:
             - pki-base
           components:
             - nginx
+            - nginx/loadbalancer
             - nginx/coredns
             - nginx/web
             - nginx/prometheus

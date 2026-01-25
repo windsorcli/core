@@ -216,6 +216,7 @@ cases:
             - pki-base
           components:
             - nginx
+            - nginx/loadbalancer
             - nginx/coredns
             - nginx/web
             - nginx/prometheus
