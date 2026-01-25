@@ -132,7 +132,7 @@ cases:
             - kube-vip
             - kube-vip/arp
           substitutions:
-            loadbalancer_ip_range: 10.5.1.10-10.5.1.100
+            loadbalancer_ip_range: 10.10.1.10-10.10.1.100
           timeout: 5m
           interval: 5m
 
