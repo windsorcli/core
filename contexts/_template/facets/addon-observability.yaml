@@ -48,7 +48,6 @@ kustomize:
     - telemetry-resources
   components:
     - fluentd/outputs/stdout
-    - "${log_level != 'trace' ? 'fluentd/filters/log-level/' + (log_level ?? 'info') : ''}"
 
 # Quickwit log storage
 - name: observability
@@ -64,7 +63,6 @@ kustomize:
     - quickwit/prometheus
     - "${(addons.observability.dashboards ?? 'grafana') == 'grafana' ? 'grafana/quickwit' : ''}"
     - "${(addons.observability.dashboards ?? 'grafana') == 'grafana' ? 'grafana/dashboards/logs/quickwit' : ''}"
-    - "${log_level != 'trace' ? 'fluentd/filters/log-level/' + (log_level ?? 'info') : ''}"
 
 # Elasticsearch + Kibana
 - name: observability
