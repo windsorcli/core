@@ -1,0 +1,120 @@
+# addon-database.yaml facet tests
+# Tests CloudNativePG database operator with HA and observability integration
+
+# Common configurations
+x-defaults:
+  network: &default-network
+    loadbalancer_driver: kube-vip
+    loadbalancer_mode: arp
+    loadbalancer_ips:
+      start: "10.5.1.10"
+      end: "10.5.1.100"
+
+  cluster: &default-cluster
+    controlplanes:
+      nodes:
+        controlplane-1:
+          endpoint: 10.5.0.10:50000
+          node: 10.5.0.10
+          hostname: controlplane-1
+    workers:
+      volumes:
+        - /var/local
+
+  ingress-disabled: &ingress-disabled
+    enabled: false
+    driver: nginx
+
+cases:
+  # Minimal: Test default behavior with dev mode (implicit enablement)
+  - name: minimal config creates database with defaults via dev mode
+    values:
+      provider: generic
+      dev: true
+      network: *default-network
+      cluster: *default-cluster
+    expect:
+      kustomize:
+        - name: database
+          path: database
+          dependsOn:
+            - csi
+          components:
+            - cloudnativepg
+            - cloudnativepg/prometheus
+          timeout: 15m
+          interval: 10m
+        - name: observability
+          path: observability
+          components:
+            - grafana/dashboards/cloudnativepg
+
+  # Full: Test all configurable options together
+  - name: full config creates database with HA and observability integration
+    values:
+      provider: generic
+      network: *default-network
+      cluster: *default-cluster
+      ha: true
+      addons:
+        database:
+          postgres:
+            enabled: true
+            driver: cloudnativepg
+        observability:
+          enabled: true
+    expect:
+      kustomize:
+        - name: database
+          path: database
+          dependsOn:
+            - csi
+          components:
+            - cloudnativepg
+            - cloudnativepg/prometheus
+            - cloudnativepg/ha
+          timeout: 15m
+          interval: 10m
+        - name: observability
+          components:
+            - grafana/dashboards/cloudnativepg
+
+  # Edge case: Explicit disable
+  - name: excludes database when addon disabled
+    values:
+      provider: generic
+      ingress: *ingress-disabled
+      network: *default-network
+      cluster: *default-cluster
+      addons:
+        database:
+          postgres:
+            enabled: false
+    exclude:
+      kustomize:
+        - name: database
+
+  # Edge case: HA disabled explicitly - database created without HA component
+  - name: creates database without HA when ha disabled
+    values:
+      provider: generic
+      ingress: *ingress-disabled
+      network: *default-network
+      cluster: *default-cluster
+      ha: false
+      addons:
+        database:
+          postgres:
+            enabled: true
+            driver: cloudnativepg
+    expect:
+      kustomize:
+        - name: database
+          path: database
+          dependsOn:
+            - csi
+          components:
+            - cloudnativepg
+            - cloudnativepg/prometheus
+          timeout: 15m
+          interval: 10m

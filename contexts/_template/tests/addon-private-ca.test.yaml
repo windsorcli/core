@@ -1,0 +1,93 @@
+# addon-private-ca.yaml facet tests
+# Tests private Certificate Authority with trust-manager integration
+
+# Common configurations
+x-defaults:
+  network: &default-network
+    loadbalancer_driver: kube-vip
+    loadbalancer_mode: arp
+    loadbalancer_ips:
+      start: "10.5.1.10"
+      end: "10.5.1.100"
+
+  cluster: &default-cluster
+    controlplanes:
+      nodes:
+        controlplane-1:
+          endpoint: 10.5.0.10:50000
+          node: 10.5.0.10
+          hostname: controlplane-1
+    workers:
+      volumes:
+        - /var/local
+
+  ingress-disabled: &ingress-disabled
+    enabled: false
+    driver: nginx
+
+cases:
+  # Minimal: Test default behavior with dev mode (implicit enablement)
+  - name: minimal config creates private CA with defaults via dev mode
+    values:
+      provider: generic
+      dev: true
+      network: *default-network
+      cluster: *default-cluster
+    expect:
+      kustomize:
+        - name: pki-base
+          path: pki/base
+          timeout: 10m
+          interval: 5m
+          components:
+            - trust-manager
+        - name: pki-resources
+          path: pki/resources
+          dependsOn:
+            - pki-base
+          timeout: 5m
+          interval: 5m
+          components:
+            - private-issuer/ca
+
+  # Full: Test explicit enablement (same output as minimal - no additional options)
+  - name: full config creates private CA when addon explicitly enabled
+    values:
+      provider: generic
+      network: *default-network
+      cluster: *default-cluster
+      addons:
+        private_ca:
+          enabled: true
+    expect:
+      kustomize:
+        - name: pki-base
+          path: pki/base
+          timeout: 10m
+          interval: 5m
+          components:
+            - trust-manager
+        - name: pki-resources
+          path: pki/resources
+          dependsOn:
+            - pki-base
+          timeout: 5m
+          interval: 5m
+          components:
+            - private-issuer/ca
+
+  # Edge case: Addon disabled
+  - name: excludes private CA when addon disabled
+    values:
+      provider: generic
+      ingress: *ingress-disabled
+      network: *default-network
+      cluster: *default-cluster
+      addons:
+        private_ca:
+          enabled: false
+    exclude:
+      kustomize:
+        - name: pki-resources
+          components:
+            - private-issuer/ca

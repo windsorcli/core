@@ -14,7 +14,7 @@ terraform:
     cluster_endpoint: ${cluster.endpoint ?? ("https://" + split(values(cluster.controlplanes.nodes)[0].endpoint, ":")[0] + ":6443")}
     cluster_name: talos
     controlplanes: ${values(cluster.controlplanes.nodes)}
-    workers: "${(cluster.workers?.count ?? 0) > 0 ? values(cluster.workers.nodes) : []}"
+    workers: "${(cluster.workers.count ?? 0) > 0 ? values(cluster.workers.nodes) : []}"
     common_config_patches: ${jsonnet("../configs/talos-generic.jsonnet").common_config_patches}
     worker_config_patches: ${jsonnet("../configs/talos-generic.jsonnet").worker_config_patches}
     controlplane_config_patches: ${jsonnet("../configs/talos-generic.jsonnet").controlplane_config_patches}
@@ -44,7 +44,7 @@ kustomize:
 # Load Balancer
 - name: lb-base
   path: lb/base
-  when: vm?.driver != 'docker-desktop'
+  when: vm.driver != 'docker-desktop'
   dependsOn:
     - policy-resources
   components:
@@ -54,7 +54,7 @@ kustomize:
 
 - name: lb-resources
   path: lb/resources
-  when: vm?.driver != 'docker-desktop'
+  when: vm.driver != 'docker-desktop'
   dependsOn:
     - lb-base
   components:
@@ -68,7 +68,7 @@ kustomize:
 # Ingress
 - name: ingress
   path: ingress
-  when: vm?.driver != 'docker-desktop'
+  when: vm.driver != 'docker-desktop'
   dependsOn:
     - pki-base
   components:
@@ -81,7 +81,7 @@ kustomize:
 # Ingress
 - name: ingress
   path: ingress
-  when: ingress?.enabled == true && ingress?.driver == 'nginx'
+  when: ingress.enabled == true && ingress.driver == 'nginx'
   dependsOn:
     - pki-base
   components:

@@ -1,0 +1,96 @@
+# addon-private-dns.yaml facet tests
+# Tests CoreDNS for private DNS zones with external-dns integration
+
+# Common configurations
+x-defaults:
+  network: &default-network
+    loadbalancer_driver: kube-vip
+    loadbalancer_mode: arp
+    loadbalancer_ips:
+      start: "10.5.1.10"
+      end: "10.5.1.100"
+
+  cluster: &default-cluster
+    controlplanes:
+      nodes:
+        controlplane-1:
+          endpoint: 10.5.0.10:50000
+          node: 10.5.0.10
+          hostname: controlplane-1
+    workers:
+      volumes:
+        - /var/local
+
+  ingress-disabled: &ingress-disabled
+    enabled: false
+    driver: nginx
+
+cases:
+  # Minimal: Test default behavior with dev mode (implicit enablement)
+  - name: minimal config creates CoreDNS with defaults via dev mode
+    values:
+      provider: generic
+      dev: true
+      network: *default-network
+      cluster: *default-cluster
+    expect:
+      kustomize:
+        - name: dns
+          path: dns
+          dependsOn:
+            - pki-base
+          timeout: 10m
+          interval: 5m
+          components:
+            - coredns
+            - coredns/etcd
+            - external-dns
+            - external-dns/coredns
+            - external-dns/ingress
+
+  # Full: Test all options with ingress and Docker Desktop
+  - name: full config creates CoreDNS with localhost external-dns on Docker Desktop
+    values:
+      provider: generic
+      dev: true
+      vm:
+        driver: docker-desktop
+      ingress:
+        enabled: true
+        driver: nginx
+      network: *default-network
+      cluster: *default-cluster
+    expect:
+      kustomize:
+        - name: dns
+          path: dns
+          dependsOn:
+            - pki-base
+          timeout: 10m
+          interval: 5m
+          components:
+            - coredns
+            - coredns/etcd
+            - external-dns
+            - external-dns/coredns
+            - external-dns/ingress
+            - external-dns/localhost
+        - name: ingress
+          dependsOn:
+            - pki-base
+          components:
+            - nginx/coredns
+
+  # Edge case: Addon disabled
+  - name: excludes DNS when addon disabled
+    values:
+      provider: generic
+      ingress: *ingress-disabled
+      network: *default-network
+      cluster: *default-cluster
+      addons:
+        private_dns:
+          enabled: false
+    exclude:
+      kustomize:
+        - name: dns

@@ -28,7 +28,7 @@ kustomize:
 # Ingress
 - name: ingress
   path: ingress
-  when: ingress?.enabled == true && ingress?.driver == 'nginx'
+  when: ingress.enabled == true && ingress.driver == 'nginx'
   dependsOn:
     - pki-base
   components:
@@ -49,7 +49,7 @@ kustomize:
   timeout: 5m
   interval: 5m
   substitutions:
-    single_storage_type: ${cluster.storage?.single_storage_type ?? "StandardSSD_LRS"}
+    single_storage_type: ${cluster.storage.single_storage_type ?? "StandardSSD_LRS"}
 
 # Telemetry - exclude metrics-server as AKS provides it natively
 - name: telemetry-resources

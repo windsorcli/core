@@ -1,0 +1,238 @@
+# addon-observability.yaml facet tests
+# Tests observability stack with multiple log drivers and time format options
+
+# Common configurations
+x-defaults:
+  network: &default-network
+    loadbalancer_driver: kube-vip
+    loadbalancer_mode: arp
+    loadbalancer_ips:
+      start: "10.5.1.10"
+      end: "10.5.1.100"
+
+  cluster: &default-cluster
+    controlplanes:
+      nodes:
+        controlplane-1:
+          endpoint: 10.5.0.10:50000
+          node: 10.5.0.10
+          hostname: controlplane-1
+    workers:
+      volumes:
+        - /var/local
+
+  ingress-disabled: &ingress-disabled
+    enabled: false
+    driver: nginx
+
+cases:
+  # Minimal: Test default behavior with dev mode (implicit enablement, 24h default format)
+  - name: minimal config creates observability with defaults via dev mode
+    values:
+      provider: generic
+      dev: true
+      dns:
+        domain: example.local
+      network: *default-network
+      cluster: *default-cluster
+    expect:
+      kustomize:
+        - name: observability
+          path: observability
+          timeout: 15m
+          interval: 10m
+          components:
+            - grafana
+            - grafana/prometheus
+            - grafana/dashboards/node
+            - grafana/dashboards/kubernetes
+            - grafana/dashboards/flux
+            - grafana/dashboards/cert-manager
+            - grafana/dashboards/nginx
+          substitutions:
+            external_domain: example.local
+            date_full: "YYYY-MM-DD HH:mm:ss"
+            date_interval_second: "HH:mm:ss"
+            date_interval_minute: "HH:mm"
+            date_interval_hour: "MM/DD HH:mm"
+            date_interval_day: "MM/DD"
+
+  # Full: Test all configurable options with stdout driver
+  - name: full config with stdout driver creates FluentD pipeline and log filtering
+    values:
+      provider: generic
+      dns:
+        domain: full.example.com
+      time_format: 24h
+      log_level: warn
+      ingress:
+        enabled: true
+        driver: nginx
+      network: *default-network
+      cluster: *default-cluster
+      addons:
+        observability:
+          enabled: true
+          logs_driver: stdout
+    expect:
+      kustomize:
+        - name: observability
+          path: observability
+          timeout: 15m
+          interval: 10m
+          components:
+            - grafana
+            - grafana/prometheus
+            - grafana/dashboards/node
+            - grafana/dashboards/kubernetes
+            - grafana/dashboards/flux
+            - grafana/dashboards/cert-manager
+            - grafana/dashboards/nginx
+            - grafana/ingress
+            - fluentd
+            - fluentd/filters/otel
+            - fluentd/outputs/stdout
+            - fluentd/filters/log-level/warn
+          substitutions:
+            external_domain: full.example.com
+            date_full: "YYYY-MM-DD HH:mm:ss"
+            date_interval_second: "HH:mm:ss"
+            date_interval_minute: "HH:mm"
+            date_interval_hour: "MM/DD HH:mm"
+            date_interval_day: "MM/DD"
+        - name: observability
+          dependsOn:
+            - ingress
+          components:
+            - grafana/ingress
+        - name: telemetry-resources
+          dependsOn:
+            - telemetry-base
+          components:
+            - fluentbit/fluentd
+
+  # Full: Test Quickwit storage driver with all components
+  - name: full config with quickwit driver creates storage pipeline with PVC and dashboards
+    values:
+      provider: generic
+      dns:
+        domain: quickwit.example.com
+      network: *default-network
+      cluster: *default-cluster
+      addons:
+        observability:
+          enabled: true
+          logs_driver: quickwit
+    expect:
+      kustomize:
+        - name: observability
+          dependsOn:
+            - csi
+            - telemetry-resources
+          components:
+            - fluentd
+            - fluentd/filters/otel
+            - fluentd/outputs/quickwit
+            - quickwit
+            - quickwit/pvc
+            - quickwit/prometheus
+            - grafana/quickwit
+            - grafana/dashboards/logs/quickwit
+            - fluentd/filters/log-level/info
+        - name: telemetry-resources
+          dependsOn:
+            - telemetry-base
+          components:
+            - fluentbit/fluentd
+
+  # Full: Test Elasticsearch driver with ELK stack
+  - name: full config with elasticsearch driver creates ELK stack with filebeat
+    values:
+      provider: generic
+      dns:
+        domain: elk.example.com
+      ingress:
+        enabled: true
+        driver: nginx
+      network: *default-network
+      cluster: *default-cluster
+      addons:
+        observability:
+          enabled: true
+          logs_driver: elasticsearch
+    expect:
+      kustomize:
+        - name: observability
+          dependsOn:
+            - csi
+            - ingress
+          components:
+            - elasticsearch
+            - kibana
+            - kibana/ingress
+          substitutions:
+            external_domain: elk.example.com
+        - name: telemetry-base
+          strategy: replace
+          components:
+            - prometheus
+            - prometheus/flux
+            - filebeat
+        - name: telemetry-resources
+          strategy: replace
+          components:
+            - metrics-server
+            - prometheus
+            - prometheus/flux
+
+  # Edge case: Addon disabled
+  - name: excludes observability when addon disabled
+    values:
+      provider: generic
+      ingress: *ingress-disabled
+      network: *default-network
+      cluster: *default-cluster
+      addons:
+        observability:
+          enabled: false
+    exclude:
+      kustomize:
+        - name: observability
+
+  # Edge case: Trace log level skips log filter - stdout output without log-level filter
+  - name: trace log level creates stdout pipeline without log filter
+    values:
+      provider: generic
+      ingress: *ingress-disabled
+      network: *default-network
+      cluster: *default-cluster
+      log_level: trace
+      addons:
+        observability:
+          enabled: true
+          logs_driver: stdout
+    expect:
+      kustomize:
+        - name: observability
+          path: observability
+          dependsOn:
+            - telemetry-resources
+          components:
+            - fluentd
+            - fluentd/filters/otel
+            - fluentd/outputs/stdout
+
+  # Edge case: Elasticsearch without ingress fails
+  - name: fails when elasticsearch selected without ingress
+    values:
+      provider: generic
+      vm:
+        driver: docker-desktop
+      ingress: *ingress-disabled
+      network: *default-network
+      cluster: *default-cluster
+      addons:
+        observability:
+          enabled: true
+          logs_driver: elasticsearch
+    expectError: true

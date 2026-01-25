@@ -4,14 +4,14 @@ metadata:
   name: object-store
   description: Object storage service with multiple drivers
 
-when: addons?.object_store?.enabled == true
+when: addons.object_store.enabled == true
 
 kustomize:
 
   # MinIO object storage base
   - name: object-store-base
     path: object-store/base
-    when: addons?.object_store?.driver == 'minio'
+    when: addons.object_store.driver == 'minio'
     timeout: 10m
     interval: 5m
     dependsOn:

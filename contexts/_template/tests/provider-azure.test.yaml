@@ -1,0 +1,50 @@
+cases:
+  - name: creates VNet, AKS, and GitOps terraform chain
+    values:
+      provider: azure
+      ingress:
+        enabled: false
+        driver: nginx
+    expect:
+      terraform:
+        - name: network
+          path: network/azure-vnet
+        - name: cluster
+          path: cluster/azure-aks
+          dependsOn:
+            - network
+        - name: gitops
+          path: gitops/flux
+          dependsOn:
+            - cluster
+      kustomize:
+        - name: csi
+          dependsOn:
+            - policy-resources
+          components:
+            - azure-disk
+
+  - name: creates nginx ingress with CoreDNS when enabled
+    values:
+      provider: azure
+      ingress:
+        enabled: true
+        driver: nginx
+    expect:
+      kustomize:
+        - name: ingress
+          dependsOn:
+            - pki-base
+          components:
+            - nginx
+            - nginx/coredns
+
+  - name: excludes ingress when disabled
+    values:
+      provider: azure
+      ingress:
+        enabled: false
+        driver: nginx
+    exclude:
+      kustomize:
+        - name: ingress

@@ -1,0 +1,82 @@
+# addon-object-store.yaml facet tests
+# Tests MinIO object storage service
+
+# Common configurations
+x-defaults:
+  network: &default-network
+    loadbalancer_driver: kube-vip
+    loadbalancer_mode: arp
+    loadbalancer_ips:
+      start: "10.5.1.10"
+      end: "10.5.1.100"
+
+  cluster: &default-cluster
+    controlplanes:
+      nodes:
+        controlplane-1:
+          endpoint: 10.5.0.10:50000
+          node: 10.5.0.10
+          hostname: controlplane-1
+    workers:
+      volumes:
+        - /var/local
+
+  ingress-disabled: &ingress-disabled
+    enabled: false
+    driver: nginx
+
+cases:
+  # Full: Test MinIO with all dependencies (no dev mode implicit enablement)
+  - name: full config creates MinIO object store with ingress dependency
+    values:
+      provider: generic
+      vm:
+        driver: colima
+      ingress:
+        enabled: true
+        driver: nginx
+      network: *default-network
+      cluster: *default-cluster
+      addons:
+        object_store:
+          enabled: true
+          driver: minio
+    expect:
+      kustomize:
+        - name: object-store-base
+          path: object-store/base
+          timeout: 10m
+          interval: 5m
+          dependsOn:
+            - csi
+            - ingress
+          components:
+            - minio
+
+  # Edge case: Addon disabled
+  - name: excludes object store when addon disabled
+    values:
+      provider: generic
+      network: *default-network
+      cluster: *default-cluster
+      addons:
+        object_store:
+          enabled: false
+    exclude:
+      kustomize:
+        - name: object-store-base
+
+  # Edge case: MinIO without ingress fails
+  - name: fails when MinIO enabled without ingress
+    values:
+      provider: generic
+      vm:
+        driver: docker-desktop
+      ingress: *ingress-disabled
+      network: *default-network
+      cluster: *default-cluster
+      addons:
+        object_store:
+          enabled: true
+          driver: minio
+    expectError: true

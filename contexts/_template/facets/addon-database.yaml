@@ -4,14 +4,14 @@ metadata:
   name: database
   description: PostgreSQL database service with CloudNativePG
 
-when: addons?.database?.postgres?.enabled == true || dev == true
+when: addons.database.postgres.enabled == true || dev == true
 
 kustomize:
 
 # CloudNativePG operator base
 - name: database
   path: database
-  when: addons?.database?.postgres?.driver == 'cloudnativepg' || dev == true
+  when: addons.database.postgres.driver == 'cloudnativepg' || dev == true
   timeout: 15m
   interval: 10m
   dependsOn:
@@ -23,13 +23,13 @@ kustomize:
 # High availability configuration
 - name: database
   path: database
-  when: addons?.database?.postgres?.driver == 'cloudnativepg' && ha == true
+  when: addons.database.postgres.driver == 'cloudnativepg' && ha == true
   components:
     - cloudnativepg/ha
 
 # CloudNativePG Grafana dashboard
 - name: observability
   path: observability
-  when: (addons?.database?.postgres?.driver == 'cloudnativepg' && addons?.observability?.enabled == true) || dev == true
+  when: (addons.database.postgres.driver == 'cloudnativepg' && addons.observability.enabled == true) || dev == true
   components:
     - grafana/dashboards/cloudnativepg

@@ -4,20 +4,17 @@ metadata:
   name: observability
   description: Observability stack with multiple log storage drivers
 
-when: addons?.observability?.enabled == true || dev == true
+when: addons.observability.enabled == true || dev == true
 
 kustomize:
 
-# Dashboards
+# Dashboards (base - no ingress dependency)
 - name: observability
   path: observability
   timeout: 15m
   interval: 10m
-  dependsOn:
-    - ingress
   components:
     - grafana
-    - grafana/ingress
     - grafana/prometheus
     - grafana/dashboards/node
     - grafana/dashboards/kubernetes
@@ -25,18 +22,27 @@ kustomize:
     - grafana/dashboards/cert-manager
     - grafana/dashboards/nginx
   substitutions:
-    external_domain: "${dns?.domain}"
-    timezone: "${timezone}"
+    external_domain: ${dns.domain}
+    timezone: ${timezone}
     date_full: "${time_format == '12h' ? 'MMM DD, YYYY @ hh:mm:ss a' : 'YYYY-MM-DD HH:mm:ss'}"
     date_interval_second: "${time_format == '12h' ? 'hh:mm:ss a' : 'HH:mm:ss'}"
     date_interval_minute: "${time_format == '12h' ? 'hh:mm a' : 'HH:mm'}"
     date_interval_hour: "${time_format == '12h' ? 'MMM DD hh:mm a' : 'MM/DD HH:mm'}"
     date_interval_day: "${time_format == '12h' ? 'MMM DD' : 'MM/DD'}"
 
+# Grafana ingress (only when ingress is enabled)
+- name: observability
+  path: observability
+  when: ingress.enabled == true
+  dependsOn:
+    - ingress
+  components:
+    - grafana/ingress
+
 # FluentBit → FluentD forwarding
 - name: telemetry-resources
   path: telemetry/resources
-  when: addons?.observability?.logs_driver in ['stdout', 'quickwit']
+  when: addons.observability.logs_driver in ['stdout', 'quickwit']
   dependsOn:
     - telemetry-base
   components:
@@ -45,7 +51,7 @@ kustomize:
 # FluentD stdout output
 - name: observability
   path: observability
-  when: addons?.observability?.logs_driver == 'stdout'
+  when: addons.observability.logs_driver == 'stdout'
   dependsOn:
     - telemetry-resources
   components:
@@ -56,7 +62,7 @@ kustomize:
 # Quickwit log storage
 - name: observability
   path: observability
-  when: addons?.observability?.logs_driver == 'quickwit'
+  when: addons.observability.logs_driver == 'quickwit'
   dependsOn:
     - csi
     - telemetry-resources
@@ -73,7 +79,7 @@ kustomize:
 # Log level filtering for FluentD (default: info)
 - name: observability
   path: observability
-  when: addons?.observability?.logs_driver in ['stdout', 'quickwit'] && log_level != 'trace'
+  when: addons.observability.logs_driver in ['stdout', 'quickwit'] && log_level != 'trace'
   dependsOn:
     - telemetry-resources
   components:
@@ -82,7 +88,7 @@ kustomize:
 # Elasticsearch + Kibana
 - name: observability
   path: observability
-  when: addons?.observability?.logs_driver == 'elasticsearch'
+  when: addons.observability.logs_driver == 'elasticsearch'
   dependsOn:
     - csi
     - ingress
@@ -91,12 +97,12 @@ kustomize:
     - kibana
     - kibana/ingress
   substitutions:
-    external_domain: ${dns?.domain}
+    external_domain: ${dns.domain}
 
 # Elasticsearch telemetry
 - name: telemetry-base
   path: telemetry/base
-  when: addons?.observability?.logs_driver == 'elasticsearch'
+  when: addons.observability.logs_driver == 'elasticsearch'
   timeout: 30m
   interval: 10m
   strategy: replace
@@ -107,7 +113,7 @@ kustomize:
 
 - name: telemetry-resources
   path: telemetry/resources
-  when: addons?.observability?.logs_driver == 'elasticsearch'
+  when: addons.observability.logs_driver == 'elasticsearch'
   timeout: 10m
   interval: 5m
   strategy: replace

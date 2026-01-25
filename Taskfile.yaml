@@ -18,6 +18,13 @@ tasks:
       - cmd: source .venv/bin/activate && checkov -d {{.CLI_ARGS | default "terraform/"}} 2>/dev/null
 
   test:
+    desc: Run all tests (Terraform and Blueprint)
+    silent: true
+    cmds:
+      - task: test:terraform
+      - task: test:blueprint
+
+  test:terraform:
     desc: Run Terraform tests (all or specific module)
     silent: true
     cmds:
@@ -66,6 +73,12 @@ tasks:
             echo "Module path '$MODULE' does not exist."
             exit 1
           fi
+
+  test:blueprint:
+    desc: Run Windsor blueprint tests
+    silent: true
+    cmds:
+      - windsor test
 
   fmt:
     desc: Check Terraform formatting
