@@ -19,13 +19,7 @@ kustomize:
   components:
     - cloudnativepg
     - cloudnativepg/prometheus
-
-# High availability configuration
-- name: database
-  path: database
-  when: addons.database.postgres.driver == 'cloudnativepg' && ha == true
-  components:
-    - cloudnativepg/ha
+    - "${addons.database.postgres.driver == 'cloudnativepg' && ha == true ? 'cloudnativepg/ha' : ''}"
 
 # CloudNativePG Grafana dashboard
 - name: observability

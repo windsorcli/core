@@ -1,0 +1,247 @@
+# provider-base.yaml facet tests
+# Tests base infrastructure components shared by all providers
+# Includes: cleanup, policy, PKI, telemetry, and log aggregation driver configuration
+
+# Common configurations
+x-defaults:
+  network: &default-network
+    loadbalancer_driver: kube-vip
+    loadbalancer_mode: arp
+    loadbalancer_ips:
+      start: "10.5.1.10"
+      end: "10.5.1.100"
+
+  cluster: &default-cluster
+    controlplanes:
+      nodes:
+        controlplane-1:
+          endpoint: 10.5.0.10:50000
+          node: 10.5.0.10
+          hostname: controlplane-1
+    workers:
+      volumes:
+        - /var/local
+
+  ingress-disabled: &ingress-disabled
+    enabled: false
+    driver: nginx
+
+cases:
+  # Minimal: Test base infrastructure with default log aggregation driver (fluentd)
+  - name: minimal config creates base infrastructure with default fluentd driver
+    values:
+      provider: metal
+      ingress: *ingress-disabled
+      network: *default-network
+      cluster: *default-cluster
+    expect:
+      kustomize:
+        - name: cleanup
+          path: cleanup
+          destroyOnly: true
+          components:
+            - ingresses
+            - loadbalancers
+            - pvcs
+          timeout: 10m
+          interval: 5m
+        - name: policy-base
+          path: policy/base
+          components:
+            - kyverno
+          timeout: 30m
+          interval: 5m
+        - name: policy-resources
+          path: policy/resources
+          dependsOn:
+            - policy-base
+          components:
+            - kyverno/audit-resource-limits-requests
+            - kyverno/require-image-digest
+          timeout: 5m
+          interval: 5m
+        - name: telemetry-base
+          path: telemetry/base
+          components:
+            - prometheus
+            - prometheus/flux
+            - fluentbit
+            - fluentbit/prometheus
+          timeout: 30m
+          interval: 10m
+        - name: telemetry-resources
+          path: telemetry/resources
+          dependsOn:
+            - telemetry-base
+          components:
+            - metrics-server
+            - prometheus
+            - prometheus/flux
+            - fluentbit
+            - fluentbit/containerd
+            - fluentbit/kubernetes
+            - fluentbit/parser
+            - fluentbit/systemd
+            - fluentbit/fluentd
+          timeout: 10m
+          interval: 5m
+        - name: pki-base
+          path: pki/base
+          dependsOn:
+            - policy-resources
+            - telemetry-base
+          components:
+            - cert-manager
+            - cert-manager/prometheus
+          timeout: 20m
+          interval: 5m
+        - name: observability
+          path: observability
+          components:
+            - fluentd
+            - fluentd/filters/otel
+          timeout: 15m
+          interval: 10m
+
+  # Full: Test with explicit fluentd driver and observability enabled
+  - name: full config with explicit fluentd driver and observability enabled
+    values:
+      provider: metal
+      ingress: *ingress-disabled
+      network: *default-network
+      cluster: *default-cluster
+      telemetry:
+        log_aggregation:
+          driver: fluentd
+      addons:
+        observability:
+          enabled: true
+          logs_driver: stdout
+    expect:
+      kustomize:
+        - name: telemetry-resources
+          path: telemetry/resources
+          dependsOn:
+            - telemetry-base
+          components:
+            - metrics-server
+            - prometheus
+            - prometheus/flux
+            - fluentbit
+            - fluentbit/containerd
+            - fluentbit/kubernetes
+            - fluentbit/parser
+            - fluentbit/systemd
+            - fluentbit/fluentd
+          timeout: 10m
+          interval: 5m
+        - name: observability
+          path: observability
+          components:
+            - fluentd
+            - fluentd/filters/otel
+          timeout: 15m
+          interval: 10m
+
+  # Edge case: FluentD included when observability addon disabled (independent of observability addon)
+  - name: fluentd included when observability addon disabled
+    values:
+      provider: metal
+      ingress: *ingress-disabled
+      network: *default-network
+      cluster: *default-cluster
+      addons:
+        observability:
+          enabled: false
+    expect:
+      kustomize:
+        - name: telemetry-resources
+          components:
+            - fluentbit/fluentd
+        - name: observability
+          components:
+            - fluentd
+            - fluentd/filters/otel
+
+  # Edge case: FluentD excluded when elasticsearch is used (filebeat driver automatically, telemetry replaced)
+  - name: fluentd excluded when elasticsearch logs driver used
+    values:
+      provider: metal
+      dns:
+        domain: elk.example.com
+      ingress:
+        enabled: true
+        driver: nginx
+      network: *default-network
+      cluster: *default-cluster
+      addons:
+        observability:
+          enabled: true
+          logs_driver: elasticsearch
+    expect:
+      kustomize:
+        - name: telemetry-base
+          path: telemetry/base
+          strategy: replace
+          components:
+            - prometheus
+            - prometheus/flux
+            - filebeat
+          timeout: 30m
+          interval: 10m
+        - name: telemetry-resources
+          path: telemetry/resources
+          strategy: replace
+          dependsOn:
+            - telemetry-base
+          components:
+            - metrics-server
+            - prometheus
+            - prometheus/flux
+          timeout: 10m
+          interval: 5m
+        - name: observability
+          path: observability
+          dependsOn:
+            - csi
+            - ingress
+          components:
+            - elasticsearch
+            - kibana
+            - kibana/ingress
+          substitutions:
+            external_domain: elk.example.com
+
+  # Edge case: None driver disables log aggregation
+  - name: none driver disables log aggregation
+    values:
+      provider: metal
+      ingress: *ingress-disabled
+      network: *default-network
+      cluster: *default-cluster
+      telemetry:
+        log_aggregation:
+          driver: none
+    expect:
+      kustomize:
+        - name: telemetry-resources
+          path: telemetry/resources
+          dependsOn:
+            - telemetry-base
+          components:
+            - metrics-server
+            - prometheus
+            - prometheus/flux
+            - fluentbit
+            - fluentbit/containerd
+            - fluentbit/kubernetes
+            - fluentbit/parser
+            - fluentbit/systemd
+          timeout: 10m
+          interval: 5m
+    exclude:
+      kustomize:
+        - name: observability
+          components:
+            - fluentd
+

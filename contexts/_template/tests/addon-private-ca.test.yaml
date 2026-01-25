@@ -29,7 +29,7 @@ cases:
   # Minimal: Test default behavior with dev mode (implicit enablement)
   - name: minimal config creates private CA with defaults via dev mode
     values:
-      provider: generic
+      provider: metal
       dev: true
       network: *default-network
       cluster: *default-cluster
@@ -53,7 +53,7 @@ cases:
   # Full: Test explicit enablement (same output as minimal - no additional options)
   - name: full config creates private CA when addon explicitly enabled
     values:
-      provider: generic
+      provider: metal
       network: *default-network
       cluster: *default-cluster
       addons:
@@ -79,7 +79,7 @@ cases:
   # Edge case: Addon disabled
   - name: excludes private CA when addon disabled
     values:
-      provider: generic
+      provider: metal
       ingress: *ingress-disabled
       network: *default-network
       cluster: *default-cluster

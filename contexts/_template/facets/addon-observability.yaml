@@ -2,15 +2,16 @@ kind: Facet
 apiVersion: blueprints.windsorcli.dev/v1alpha1
 metadata:
   name: observability
-  description: Observability stack with multiple log storage drivers
+  description: Observability stack with metrics backends, log storage drivers, and dashboarding
 
 when: addons.observability.enabled == true || dev == true
 
 kustomize:
 
-# Dashboards (base - no ingress dependency)
+# Grafana dashboards (self-hosted Grafana, typically used with prometheus metrics)
 - name: observability
   path: observability
+  when: (addons.observability.dashboards ?? 'grafana') == 'grafana'
   timeout: 15m
   interval: 10m
   components:
@@ -33,20 +34,11 @@ kustomize:
 # Grafana ingress (only when ingress is enabled)
 - name: observability
   path: observability
-  when: ingress.enabled == true
+  when: (addons.observability.dashboards ?? 'grafana') == 'grafana' && ingress.enabled == true
   dependsOn:
     - ingress
   components:
     - grafana/ingress
-
-# FluentBit → FluentD forwarding
-- name: telemetry-resources
-  path: telemetry/resources
-  when: addons.observability.logs_driver in ['stdout', 'quickwit']
-  dependsOn:
-    - telemetry-base
-  components:
-    - fluentbit/fluentd
 
 # FluentD stdout output
 - name: observability
@@ -55,9 +47,8 @@ kustomize:
   dependsOn:
     - telemetry-resources
   components:
-    - fluentd
-    - fluentd/filters/otel
     - fluentd/outputs/stdout
+    - "${log_level != 'trace' ? 'fluentd/filters/log-level/' + (log_level ?? 'info') : ''}"
 
 # Quickwit log storage
 - name: observability
@@ -67,23 +58,13 @@ kustomize:
     - csi
     - telemetry-resources
   components:
-    - fluentd
-    - fluentd/filters/otel
     - fluentd/outputs/quickwit
     - quickwit
     - quickwit/pvc
     - quickwit/prometheus
-    - grafana/quickwit
-    - grafana/dashboards/logs/quickwit
-
-# Log level filtering for FluentD (default: info)
-- name: observability
-  path: observability
-  when: addons.observability.logs_driver in ['stdout', 'quickwit'] && log_level != 'trace'
-  dependsOn:
-    - telemetry-resources
-  components:
-    - fluentd/filters/log-level/${log_level ?? 'info'}
+    - "${(addons.observability.dashboards ?? 'grafana') == 'grafana' ? 'grafana/quickwit' : ''}"
+    - "${(addons.observability.dashboards ?? 'grafana') == 'grafana' ? 'grafana/dashboards/logs/quickwit' : ''}"
+    - "${log_level != 'trace' ? 'fluentd/filters/log-level/' + (log_level ?? 'info') : ''}"
 
 # Elasticsearch + Kibana
 - name: observability
@@ -99,7 +80,7 @@ kustomize:
   substitutions:
     external_domain: ${dns.domain}
 
-# Elasticsearch telemetry
+# Elasticsearch telemetry (filebeat driver)
 - name: telemetry-base
   path: telemetry/base
   when: addons.observability.logs_driver == 'elasticsearch'

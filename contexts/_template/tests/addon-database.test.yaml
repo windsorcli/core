@@ -29,7 +29,7 @@ cases:
   # Minimal: Test default behavior with dev mode (implicit enablement)
   - name: minimal config creates database with defaults via dev mode
     values:
-      provider: generic
+      provider: metal
       dev: true
       network: *default-network
       cluster: *default-cluster
@@ -52,7 +52,7 @@ cases:
   # Full: Test all configurable options together
   - name: full config creates database with HA and observability integration
     values:
-      provider: generic
+      provider: metal
       network: *default-network
       cluster: *default-cluster
       ha: true
@@ -82,7 +82,7 @@ cases:
   # Edge case: Explicit disable
   - name: excludes database when addon disabled
     values:
-      provider: generic
+      provider: metal
       ingress: *ingress-disabled
       network: *default-network
       cluster: *default-cluster
@@ -97,7 +97,7 @@ cases:
   # Edge case: HA disabled explicitly - database created without HA component
   - name: creates database without HA when ha disabled
     values:
-      provider: generic
+      provider: metal
       ingress: *ingress-disabled
       network: *default-network
       cluster: *default-cluster

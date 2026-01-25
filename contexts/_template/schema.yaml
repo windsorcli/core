@@ -12,9 +12,29 @@ properties:
 
   # Demo mode
   demo:
-    type: boolean
-    default: false
-    description: Enable demo resources (sample databases, example applications)
+    type: object
+    properties:
+      enabled:
+        type: boolean
+        default: false
+        description: Enable demo resources
+      resources:
+        type: object
+        properties:
+          database:
+            type: boolean
+            default: true
+            description: Enable demo database cluster
+          static:
+            type: boolean
+            default: false
+            description: Enable static website demo
+          bookinfo:
+            type: boolean
+            default: false
+            description: Enable Istio bookinfo demo application
+        additionalProperties: false
+    additionalProperties: false
 
   # Timezone
   timezone:
@@ -43,6 +63,23 @@ properties:
     default: info
     description: Minimum log level to retain (logs below this level are dropped)
 
+  # Telemetry configuration
+  telemetry:
+    type: object
+    properties:
+      log_aggregation:
+        type: object
+        properties:
+          driver:
+            type: string
+            enum:
+              - fluentd
+              - none
+            default: fluentd
+            description: Log aggregation driver for FluentBit output (fluentd is default, none disables aggregation)
+        additionalProperties: false
+    additionalProperties: false
+
   # Core infrastructure provider (determines basic stack)
   provider:
     type: string
@@ -51,7 +88,8 @@ properties:
       - aws
       - azure
       - incus
-      - generic
+      - metal
+      - docker
     default: none
     description: Infrastructure provider - includes policy, PKI, telemetry, ingress, and storage
 
@@ -352,7 +390,19 @@ properties:
           enabled:
             type: boolean
             default: false
-            description: Enable observability stack with Grafana dashboards
+            description: Enable observability stack
+          metrics_backend:
+            type: string
+            enum:
+              - prometheus
+            default: prometheus
+            description: Metrics backend (prometheus is default and included in base telemetry)
+          dashboards:
+            type: string
+            enum:
+              - grafana
+            default: grafana
+            description: Dashboards provider (grafana for self-hosted Grafana)
           logs_driver:
             type: string
             enum:
@@ -360,9 +410,10 @@ properties:
               - quickwit
               - elasticsearch
             default: quickwit
-            description: Log storage driver for FluentD
+            description: Log storage driver (stdout for console output, quickwit for local storage, elasticsearch for ELK stack)
           admin_password:
             type: string
+            description: Grafana admin password
         additionalProperties: false
       object_store:
         type: object

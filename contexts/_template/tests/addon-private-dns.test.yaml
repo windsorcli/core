@@ -29,7 +29,7 @@ cases:
   # Minimal: Test default behavior with dev mode (implicit enablement)
   - name: minimal config creates CoreDNS with defaults via dev mode
     values:
-      provider: generic
+      provider: metal
       dev: true
       network: *default-network
       cluster: *default-cluster
@@ -51,7 +51,7 @@ cases:
   # Full: Test all options with ingress and Docker Desktop
   - name: full config creates CoreDNS with localhost external-dns on Docker Desktop
     values:
-      provider: generic
+      provider: metal
       dev: true
       vm:
         driver: docker-desktop
@@ -84,7 +84,7 @@ cases:
   # Edge case: Addon disabled
   - name: excludes DNS when addon disabled
     values:
-      provider: generic
+      provider: metal
       ingress: *ingress-disabled
       network: *default-network
       cluster: *default-cluster

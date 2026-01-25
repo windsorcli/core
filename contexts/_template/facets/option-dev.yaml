@@ -1,0 +1,34 @@
+kind: Facet
+apiVersion: blueprints.windsorcli.dev/v1alpha1
+metadata:
+  name: dev
+  description: "Development mode configurations including selfsigned certificates and dev-specific resources"
+
+when: dev == true
+
+terraform:
+# GitOps dev overrides for livereload support
+- name: gitops
+  path: gitops/flux
+  inputs:
+    git_username: ${git.livereload.username ?? ""}
+    git_password: ${git.livereload.password ?? ""}
+    webhook_token: ${git.livereload.webhook_token ?? "abcdef123456"}
+
+kustomize:
+
+# PKI resources for development (selfsigned issuer)
+- name: pki-resources
+  path: pki/resources
+  dependsOn:
+  - pki-base
+  components:
+  - public-issuer/selfsigned
+
+# Grafana dev credentials
+- name: observability
+  path: observability
+  components:
+    - grafana/dev
+  substitutions:
+    admin_password: ${addons.observability.admin_password ?? "grafana"}

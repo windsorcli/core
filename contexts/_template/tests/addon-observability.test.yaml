@@ -29,7 +29,7 @@ cases:
   # Minimal: Test default behavior with dev mode (implicit enablement, 24h default format)
   - name: minimal config creates observability with defaults via dev mode
     values:
-      provider: generic
+      provider: metal
       dev: true
       dns:
         domain: example.local
@@ -60,7 +60,7 @@ cases:
   # Full: Test all configurable options with stdout driver
   - name: full config with stdout driver creates FluentD pipeline and log filtering
     values:
-      provider: generic
+      provider: metal
       dns:
         domain: full.example.com
       time_format: 24h
@@ -114,7 +114,7 @@ cases:
   # Full: Test Quickwit storage driver with all components
   - name: full config with quickwit driver creates storage pipeline with PVC and dashboards
     values:
-      provider: generic
+      provider: metal
       dns:
         domain: quickwit.example.com
       network: *default-network
@@ -148,7 +148,7 @@ cases:
   # Full: Test Elasticsearch driver with ELK stack
   - name: full config with elasticsearch driver creates ELK stack with filebeat
     values:
-      provider: generic
+      provider: metal
       dns:
         domain: elk.example.com
       ingress:
@@ -185,24 +185,28 @@ cases:
             - prometheus
             - prometheus/flux
 
-  # Edge case: Addon disabled
+  # Edge case: Addon disabled (FluentD is still included as part of base telemetry)
   - name: excludes observability when addon disabled
     values:
-      provider: generic
+      provider: metal
       ingress: *ingress-disabled
       network: *default-network
       cluster: *default-cluster
       addons:
         observability:
           enabled: false
-    exclude:
+    expect:
       kustomize:
         - name: observability
+          path: observability
+          components:
+            - fluentd
+            - fluentd/filters/otel
 
   # Edge case: Trace log level skips log filter - stdout output without log-level filter
   - name: trace log level creates stdout pipeline without log filter
     values:
-      provider: generic
+      provider: metal
       ingress: *ingress-disabled
       network: *default-network
       cluster: *default-cluster
@@ -225,7 +229,7 @@ cases:
   # Edge case: Elasticsearch without ingress fails
   - name: fails when elasticsearch selected without ingress
     values:
-      provider: generic
+      provider: metal
       vm:
         driver: docker-desktop
       ingress: *ingress-disabled

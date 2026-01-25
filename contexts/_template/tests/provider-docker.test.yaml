@@ -1,0 +1,281 @@
+# provider-docker.yaml facet tests
+# Tests Talos cluster infrastructure for Docker-based dev environments
+#
+# Note: provider: docker requires cluster.controlplanes.nodes because
+# cluster_endpoint is derived from the first node.
+
+# Common configurations
+x-defaults:
+  network: &default-network
+    loadbalancer_driver: kube-vip
+    loadbalancer_mode: arp
+    loadbalancer_ips:
+      start: "10.5.1.10"
+      end: "10.5.1.100"
+
+  cluster: &default-cluster
+    controlplanes:
+      nodes:
+        controlplane-1: &cp1-node
+          endpoint: 10.5.0.10:50000
+          node: 10.5.0.10
+          hostname: controlplane-1
+    workers:
+      volumes:
+        - /var/local
+
+  ingress-disabled: &ingress-disabled
+    enabled: false
+    driver: nginx
+
+cases:
+  # Minimal: Test default behavior with required fields only
+  - name: minimal config creates Talos cluster with default CSI
+    values:
+      provider: docker
+      vm:
+        driver: colima
+      ingress: *ingress-disabled
+      network: *default-network
+      cluster: *default-cluster
+    expect:
+      terraform:
+        - name: cluster
+          path: cluster/talos
+          parallelism: 1
+          inputs:
+            cluster_endpoint: https://10.5.0.10:6443
+            cluster_name: talos
+        - name: gitops
+          path: gitops/flux
+          dependsOn:
+            - cluster
+          destroy: false
+          inputs:
+            concurrency: 2
+      kustomize:
+        - name: cleanup
+          path: cleanup
+          destroyOnly: true
+          components:
+            - ingresses
+            - loadbalancers
+            - pvcs
+          timeout: 10m
+          interval: 5m
+        - name: policy-base
+          path: policy/base
+          components:
+            - kyverno
+          timeout: 30m
+          interval: 5m
+        - name: policy-resources
+          path: policy/resources
+          dependsOn:
+            - policy-base
+          components:
+            - kyverno/audit-resource-limits-requests
+            - kyverno/require-image-digest
+          timeout: 5m
+          interval: 5m
+        - name: pki-base
+          path: pki/base
+          dependsOn:
+            - policy-resources
+            - telemetry-base
+          components:
+            - cert-manager
+            - cert-manager/prometheus
+          timeout: 20m
+          interval: 5m
+        - name: telemetry-base
+          path: telemetry/base
+          components:
+            - prometheus
+            - prometheus/flux
+            - fluentbit
+            - fluentbit/prometheus
+          timeout: 30m
+          interval: 10m
+        - name: telemetry-resources
+          path: telemetry/resources
+          dependsOn:
+            - telemetry-base
+          components:
+            - metrics-server
+            - prometheus
+            - prometheus/flux
+            - fluentbit
+            - fluentbit/containerd
+            - fluentbit/kubernetes
+            - fluentbit/parser
+            - fluentbit/systemd
+          timeout: 10m
+          interval: 5m
+        - name: lb-base
+          path: lb/base
+          dependsOn:
+            - policy-resources
+          components: []
+          timeout: 5m
+          interval: 5m
+        - name: lb-resources
+          path: lb/resources
+          dependsOn:
+            - lb-base
+          components:
+            - kube-vip
+            - kube-vip/arp
+          substitutions:
+            loadbalancer_ip_range: 10.5.1.10-10.5.1.100
+          timeout: 5m
+          interval: 5m
+        - name: csi
+          path: csi
+          dependsOn:
+            - policy-resources
+          components:
+            - openebs
+            - openebs/dynamic-localpv
+          substitutions:
+            local_volume_path: /var/local
+          timeout: 20m
+          interval: 5m
+
+  # Full: Test all configurable options together
+  - name: full config with custom resources, ingress, and custom worker volume
+    values:
+      provider: docker
+      vm:
+        driver: colima
+      ingress:
+        enabled: true
+        driver: nginx
+      network: *default-network
+      cluster:
+        controlplanes:
+          cpu: 20
+          memory: 32
+          nodes:
+            controlplane-1: *cp1-node
+        workers:
+          count: 1
+          volumes:
+            - /mnt/data
+    expect:
+      terraform:
+        - name: cluster
+          path: cluster/talos
+          parallelism: 1
+          inputs:
+            cluster_endpoint: https://10.5.0.10:6443
+            cluster_name: talos
+        - name: gitops
+          path: gitops/flux
+          dependsOn:
+            - cluster
+          destroy: false
+          inputs:
+            concurrency: 10
+      kustomize:
+        - name: cleanup
+          path: cleanup
+          destroyOnly: true
+          components:
+            - ingresses
+            - loadbalancers
+            - pvcs
+          timeout: 10m
+          interval: 5m
+        - name: policy-base
+          path: policy/base
+          components:
+            - kyverno
+          timeout: 30m
+          interval: 5m
+        - name: policy-resources
+          path: policy/resources
+          dependsOn:
+            - policy-base
+          components:
+            - kyverno/audit-resource-limits-requests
+            - kyverno/require-image-digest
+          timeout: 5m
+          interval: 5m
+        - name: pki-base
+          path: pki/base
+          dependsOn:
+            - policy-resources
+            - telemetry-base
+          components:
+            - cert-manager
+            - cert-manager/prometheus
+          timeout: 20m
+          interval: 5m
+        - name: telemetry-base
+          path: telemetry/base
+          components:
+            - prometheus
+            - prometheus/flux
+            - fluentbit
+            - fluentbit/prometheus
+          timeout: 30m
+          interval: 10m
+        - name: telemetry-resources
+          path: telemetry/resources
+          dependsOn:
+            - telemetry-base
+          components:
+            - metrics-server
+            - prometheus
+            - prometheus/flux
+            - fluentbit
+            - fluentbit/containerd
+            - fluentbit/kubernetes
+            - fluentbit/parser
+            - fluentbit/systemd
+          timeout: 10m
+          interval: 5m
+        - name: lb-base
+          path: lb/base
+          dependsOn:
+            - policy-resources
+          components: []
+          timeout: 5m
+          interval: 5m
+        - name: lb-resources
+          path: lb/resources
+          dependsOn:
+            - lb-base
+          components:
+            - kube-vip
+            - kube-vip/arp
+          substitutions:
+            loadbalancer_ip_range: 10.5.1.10-10.5.1.100
+          timeout: 5m
+          interval: 5m
+        - name: csi
+          path: csi
+          dependsOn:
+            - policy-resources
+          components:
+            - openebs
+            - openebs/dynamic-localpv
+          substitutions:
+            local_volume_path: /mnt/data
+          timeout: 20m
+          interval: 5m
+
+  # Edge case: Docker Desktop excludes load balancer
+  - name: Docker Desktop excludes load balancer
+    values:
+      provider: docker
+      vm:
+        driver: docker-desktop
+      ingress: *ingress-disabled
+      network: *default-network
+      cluster: *default-cluster
+    exclude:
+      kustomize:
+        - name: lb-base
+        - name: lb-resources

@@ -1,10 +1,10 @@
 kind: Facet
 apiVersion: blueprints.windsorcli.dev/v1alpha1
 metadata:
-  name: talos
-  description: "Talos provider basic infrastructure"
+  name: metal
+  description: "Metal provider basic infrastructure"
 
-when: provider == 'generic'
+when: provider == 'metal'
 
 terraform:
 - name: cluster
@@ -65,29 +65,3 @@ kustomize:
   timeout: 5m
   interval: 5m
 
-# Ingress
-- name: ingress
-  path: ingress
-  when: vm.driver != 'docker-desktop'
-  dependsOn:
-    - pki-base
-  components:
-    - nginx
-    - nginx/web
-    - nginx/prometheus
-  timeout: 10m
-  interval: 5m
-
-# Ingress
-- name: ingress
-  path: ingress
-  when: ingress.enabled == true && ingress.driver == 'nginx'
-  dependsOn:
-    - pki-base
-  components:
-    - nginx
-    - nginx/coredns
-    - nginx/web
-    - nginx/prometheus
-  timeout: 10m
-  interval: 5m

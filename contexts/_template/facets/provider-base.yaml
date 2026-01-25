@@ -1,13 +1,14 @@
 kind: Facet
 apiVersion: blueprints.windsorcli.dev/v1alpha1
 metadata:
-  name: base
-  description: "Foundational components for all Windsor platforms"
+  name: provider-base
+  description: "Base infrastructure components for all providers"
 
 when: provider != 'none'
 
 kustomize:
 
+# Cleanup
 - name: cleanup
   path: cleanup
   destroyOnly: true
@@ -71,6 +72,17 @@ kustomize:
     - fluentbit/kubernetes
     - fluentbit/parser
     - fluentbit/systemd
+    - "${(telemetry.log_aggregation.driver ?? 'fluentd') == 'fluentd' ? 'fluentbit/fluentd' : ''}"
   timeout: 10m
   interval: 5m
 
+# FluentD aggregator (log aggregation driver, runs in observability namespace for security)
+# Independent of observability addon - FluentD is part of base telemetry infrastructure
+- name: observability
+  path: observability
+  when: (telemetry.log_aggregation.driver ?? 'fluentd') == 'fluentd'
+  components:
+    - fluentd
+    - fluentd/filters/otel
+  timeout: 15m
+  interval: 10m
