@@ -100,6 +100,7 @@ cases:
           components:
             - fluentd
             - fluentd/filters/otel
+            - fluentd/prometheus
           timeout: 15m
           interval: 10m
 
@@ -140,6 +141,7 @@ cases:
           components:
             - fluentd
             - fluentd/filters/otel
+            - fluentd/prometheus
           timeout: 15m
           interval: 10m
 
@@ -162,6 +164,7 @@ cases:
           components:
             - fluentd
             - fluentd/filters/otel
+            - fluentd/prometheus
 
   # Edge case: FluentD excluded when elasticsearch is used (filebeat driver automatically, telemetry replaced)
   - name: fluentd excluded when elasticsearch logs driver used
