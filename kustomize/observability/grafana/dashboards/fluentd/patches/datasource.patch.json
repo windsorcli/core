@@ -1,0 +1,361 @@
+[
+  {
+    "op": "remove",
+    "path": "/__inputs"
+  },
+  {
+    "op": "add",
+    "path": "/templating/list/0",
+    "value": {
+      "current": {
+        "selected": true,
+        "text": "Prometheus",
+        "value": "prometheus"
+      },
+      "hide": 0,
+      "includeAll": false,
+      "label": "Datasource",
+      "multi": false,
+      "name": "datasource",
+      "options": [],
+      "query": "prometheus",
+      "refresh": 1,
+      "regex": "",
+      "skipUrlSync": false,
+      "type": "datasource"
+    }
+  },
+  {
+    "op": "replace",
+    "path": "/annotations/list/0/datasource",
+    "value": {
+      "type": "prometheus",
+      "uid": "${datasource}"
+    }
+  },
+  {
+    "op": "replace",
+    "path": "/annotations/list/0/datasource",
+    "value": {
+      "type": "prometheus",
+      "uid": "${datasource}"
+    }
+  },
+  {
+    "op": "replace",
+    "path": "/panels/0/datasource",
+    "value": {
+      "type": "prometheus",
+      "uid": "${datasource}"
+    }
+  },
+  {
+    "op": "replace",
+    "path": "/panels/1/datasource",
+    "value": {
+      "type": "prometheus",
+      "uid": "${datasource}"
+    }
+  },
+  {
+    "op": "replace",
+    "path": "/panels/2/datasource",
+    "value": {
+      "type": "prometheus",
+      "uid": "${datasource}"
+    }
+  },
+  {
+    "op": "replace",
+    "path": "/panels/3/datasource",
+    "value": {
+      "type": "prometheus",
+      "uid": "${datasource}"
+    }
+  },
+  {
+    "op": "replace",
+    "path": "/panels/4/datasource",
+    "value": {
+      "type": "prometheus",
+      "uid": "${datasource}"
+    }
+  },
+  {
+    "op": "replace",
+    "path": "/panels/5/datasource",
+    "value": {
+      "type": "prometheus",
+      "uid": "${datasource}"
+    }
+  },
+  {
+    "op": "replace",
+    "path": "/panels/6/datasource",
+    "value": {
+      "type": "prometheus",
+      "uid": "${datasource}"
+    }
+  },
+  {
+    "op": "replace",
+    "path": "/panels/7/datasource",
+    "value": {
+      "type": "prometheus",
+      "uid": "${datasource}"
+    }
+  },
+  {
+    "op": "replace",
+    "path": "/panels/7/panels/0/datasource",
+    "value": {
+      "type": "prometheus",
+      "uid": "${datasource}"
+    }
+  },
+  {
+    "op": "replace",
+    "path": "/panels/7/panels/1/datasource",
+    "value": {
+      "type": "prometheus",
+      "uid": "${datasource}"
+    }
+  },
+  {
+    "op": "replace",
+    "path": "/panels/7/panels/2/datasource",
+    "value": {
+      "type": "prometheus",
+      "uid": "${datasource}"
+    }
+  },
+  {
+    "op": "replace",
+    "path": "/panels/7/panels/3/datasource",
+    "value": {
+      "type": "prometheus",
+      "uid": "${datasource}"
+    }
+  },
+  {
+    "op": "replace",
+    "path": "/panels/8/datasource",
+    "value": {
+      "type": "prometheus",
+      "uid": "${datasource}"
+    }
+  },
+  {
+    "op": "replace",
+    "path": "/panels/8/panels/0/datasource",
+    "value": {
+      "type": "prometheus",
+      "uid": "${datasource}"
+    }
+  },
+  {
+    "op": "replace",
+    "path": "/panels/9/datasource",
+    "value": {
+      "type": "prometheus",
+      "uid": "${datasource}"
+    }
+  },
+  {
+    "op": "replace",
+    "path": "/panels/9/panels/0/datasource",
+    "value": {
+      "type": "prometheus",
+      "uid": "${datasource}"
+    }
+  },
+  {
+    "op": "replace",
+    "path": "/panels/9/panels/1/datasource",
+    "value": {
+      "type": "prometheus",
+      "uid": "${datasource}"
+    }
+  },
+  {
+    "op": "replace",
+    "path": "/panels/10/datasource",
+    "value": {
+      "type": "prometheus",
+      "uid": "${datasource}"
+    }
+  },
+  {
+    "op": "replace",
+    "path": "/panels/10/panels/0/datasource",
+    "value": {
+      "type": "prometheus",
+      "uid": "${datasource}"
+    }
+  },
+  {
+    "op": "replace",
+    "path": "/panels/10/panels/1/datasource",
+    "value": {
+      "type": "prometheus",
+      "uid": "${datasource}"
+    }
+  },
+  {
+    "op": "replace",
+    "path": "/panels/10/panels/2/datasource",
+    "value": {
+      "type": "prometheus",
+      "uid": "${datasource}"
+    }
+  },
+  {
+    "op": "replace",
+    "path": "/panels/10/panels/3/datasource",
+    "value": {
+      "type": "prometheus",
+      "uid": "${datasource}"
+    }
+  },
+  {
+    "op": "replace",
+    "path": "/panels/11/datasource",
+    "value": {
+      "type": "prometheus",
+      "uid": "${datasource}"
+    }
+  },
+  {
+    "op": "replace",
+    "path": "/panels/11/panels/0/datasource",
+    "value": {
+      "type": "prometheus",
+      "uid": "${datasource}"
+    }
+  },
+  {
+    "op": "replace",
+    "path": "/panels/12/datasource",
+    "value": {
+      "type": "prometheus",
+      "uid": "${datasource}"
+    }
+  },
+  {
+    "op": "replace",
+    "path": "/panels/12/panels/0/datasource",
+    "value": {
+      "type": "prometheus",
+      "uid": "${datasource}"
+    }
+  },
+  {
+    "op": "replace",
+    "path": "/panels/12/panels/1/datasource",
+    "value": {
+      "type": "prometheus",
+      "uid": "${datasource}"
+    }
+  },
+  {
+    "op": "replace",
+    "path": "/panels/12/panels/2/datasource",
+    "value": {
+      "type": "prometheus",
+      "uid": "${datasource}"
+    }
+  },
+  {
+    "op": "replace",
+    "path": "/panels/12/panels/3/datasource",
+    "value": {
+      "type": "prometheus",
+      "uid": "${datasource}"
+    }
+  },
+  {
+    "op": "replace",
+    "path": "/panels/12/panels/4/datasource",
+    "value": {
+      "type": "prometheus",
+      "uid": "${datasource}"
+    }
+  },
+  {
+    "op": "replace",
+    "path": "/panels/12/panels/5/datasource",
+    "value": {
+      "type": "prometheus",
+      "uid": "${datasource}"
+    }
+  },
+  {
+    "op": "replace",
+    "path": "/panels/12/panels/6/datasource",
+    "value": {
+      "type": "prometheus",
+      "uid": "${datasource}"
+    }
+  },
+  {
+    "op": "replace",
+    "path": "/panels/12/panels/7/datasource",
+    "value": {
+      "type": "prometheus",
+      "uid": "${datasource}"
+    }
+  },
+  {
+    "op": "replace",
+    "path": "/panels/13/datasource",
+    "value": {
+      "type": "prometheus",
+      "uid": "${datasource}"
+    }
+  },
+  {
+    "op": "replace",
+    "path": "/panels/13/panels/0/datasource",
+    "value": {
+      "type": "prometheus",
+      "uid": "${datasource}"
+    }
+  },
+  {
+    "op": "replace",
+    "path": "/panels/14/datasource",
+    "value": {
+      "type": "prometheus",
+      "uid": "${datasource}"
+    }
+  },
+  {
+    "op": "replace",
+    "path": "/panels/14/panels/0/datasource",
+    "value": {
+      "type": "prometheus",
+      "uid": "${datasource}"
+    }
+  },
+  {
+    "op": "replace",
+    "path": "/panels/14/panels/1/datasource",
+    "value": {
+      "type": "prometheus",
+      "uid": "${datasource}"
+    }
+  },
+  {
+    "op": "replace",
+    "path": "/panels/14/panels/2/datasource",
+    "value": {
+      "type": "prometheus",
+      "uid": "${datasource}"
+    }
+  },
+  {
+    "op": "replace",
+    "path": "/title",
+    "value": "Fluentd"
+  }
+]

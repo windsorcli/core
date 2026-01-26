@@ -85,6 +85,7 @@ kustomize:
   components:
     - fluentd
     - fluentd/filters/otel
+    - fluentd/prometheus
     - "${log_level != 'trace' ? 'fluentd/filters/log-level/' + (log_level ?? 'info') : ''}"
   timeout: 15m
   interval: 10m

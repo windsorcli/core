@@ -49,6 +49,8 @@ cases:
             - grafana/dashboards/flux
             - grafana/dashboards/cert-manager
             - grafana/dashboards/nginx
+            - grafana/dashboards/fluent-bit
+            - grafana/dashboards/fluentd
           substitutions:
             external_domain: example.local
             date_full: "YYYY-MM-DD HH:mm:ss"
@@ -88,6 +90,8 @@ cases:
             - grafana/dashboards/flux
             - grafana/dashboards/cert-manager
             - grafana/dashboards/nginx
+            - grafana/dashboards/fluent-bit
+            - grafana/dashboards/fluentd
             - grafana/ingress
             - fluentd
             - fluentd/filters/otel

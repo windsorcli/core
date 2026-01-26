@@ -1,0 +1,366 @@
+[
+  {
+    "op": "remove",
+    "path": "/__inputs"
+  },
+  {
+    "op": "add",
+    "path": "/templating/list/0",
+    "value": {
+      "current": {
+        "selected": true,
+        "text": "Prometheus",
+        "value": "prometheus"
+      },
+      "hide": 0,
+      "includeAll": false,
+      "label": "Datasource",
+      "multi": false,
+      "name": "datasource",
+      "options": [],
+      "query": "prometheus",
+      "refresh": 1,
+      "regex": "",
+      "skipUrlSync": false,
+      "type": "datasource"
+    }
+  },
+  {
+    "op": "replace",
+    "path": "/panels/0/datasource",
+    "value": {
+      "type": "prometheus",
+      "uid": "${datasource}"
+    }
+  },
+  {
+    "op": "replace",
+    "path": "/panels/1/datasource",
+    "value": {
+      "type": "prometheus",
+      "uid": "${datasource}"
+    }
+  },
+  {
+    "op": "replace",
+    "path": "/panels/2/datasource",
+    "value": {
+      "type": "prometheus",
+      "uid": "${datasource}"
+    }
+  },
+  {
+    "op": "replace",
+    "path": "/panels/3/datasource",
+    "value": {
+      "type": "prometheus",
+      "uid": "${datasource}"
+    }
+  },
+  {
+    "op": "replace",
+    "path": "/panels/4/datasource",
+    "value": {
+      "type": "prometheus",
+      "uid": "${datasource}"
+    }
+  },
+  {
+    "op": "replace",
+    "path": "/panels/5/datasource",
+    "value": {
+      "type": "prometheus",
+      "uid": "${datasource}"
+    }
+  },
+  {
+    "op": "replace",
+    "path": "/panels/6/datasource",
+    "value": {
+      "type": "prometheus",
+      "uid": "${datasource}"
+    }
+  },
+  {
+    "op": "replace",
+    "path": "/panels/7/datasource",
+    "value": {
+      "type": "prometheus",
+      "uid": "${datasource}"
+    }
+  },
+  {
+    "op": "replace",
+    "path": "/panels/8/datasource",
+    "value": {
+      "type": "prometheus",
+      "uid": "${datasource}"
+    }
+  },
+  {
+    "op": "replace",
+    "path": "/panels/9/datasource",
+    "value": {
+      "type": "prometheus",
+      "uid": "${datasource}"
+    }
+  },
+  {
+    "op": "replace",
+    "path": "/panels/10/datasource",
+    "value": {
+      "type": "prometheus",
+      "uid": "${datasource}"
+    }
+  },
+  {
+    "op": "replace",
+    "path": "/panels/11/datasource",
+    "value": {
+      "type": "prometheus",
+      "uid": "${datasource}"
+    }
+  },
+  {
+    "op": "replace",
+    "path": "/panels/12/datasource",
+    "value": {
+      "type": "prometheus",
+      "uid": "${datasource}"
+    }
+  },
+  {
+    "op": "replace",
+    "path": "/panels/13/datasource",
+    "value": {
+      "type": "prometheus",
+      "uid": "${datasource}"
+    }
+  },
+  {
+    "op": "replace",
+    "path": "/panels/14/datasource",
+    "value": {
+      "type": "prometheus",
+      "uid": "${datasource}"
+    }
+  },
+  {
+    "op": "replace",
+    "path": "/annotations/list/0/datasource",
+    "value": {
+      "type": "prometheus",
+      "uid": "${datasource}"
+    }
+  },
+  {
+    "op": "add",
+    "path": "/panels/11",
+    "value": {
+      "aliasColors": {},
+      "bars": false,
+      "dashLength": 10,
+      "dashes": false,
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${datasource}"
+      },
+      "fill": 1,
+      "fillGradient": 0,
+      "gridPos": {
+        "h": 6,
+        "w": 12,
+        "x": 0,
+        "y": 20
+      },
+      "hiddenSeries": false,
+      "id": 42,
+      "legend": {
+        "alignAsTable": false,
+        "avg": false,
+        "current": true,
+        "hideEmpty": true,
+        "hideZero": true,
+        "max": false,
+        "min": false,
+        "rightSide": false,
+        "show": true,
+        "sort": "current",
+        "sortDesc": true,
+        "total": false,
+        "values": true
+      },
+      "lines": true,
+      "linewidth": 1,
+      "links": [],
+      "nullPointMode": "null",
+      "options": {
+        "dataLinks": []
+      },
+      "percentage": false,
+      "pointradius": 5,
+      "points": false,
+      "renderer": "flot",
+      "seriesOverrides": [],
+      "spaceLength": 10,
+      "stack": false,
+      "steppedLine": false,
+      "targets": [
+        {
+          "expr": "sum(rate(container_cpu_usage_seconds_total{pod=~\".*fluent-bit.*\",container=\"fluent-bit\",image!=\"\"}[5m])) by (pod)",
+          "format": "time_series",
+          "hide": false,
+          "interval": "",
+          "intervalFactor": 1,
+          "legendFormat": "{{ pod }}",
+          "refId": "A"
+        }
+      ],
+      "thresholds": [],
+      "timeFrom": null,
+      "timeRegions": [],
+      "timeShift": null,
+      "title": "Fluent Bit CPU Usage",
+      "tooltip": {
+        "shared": true,
+        "sort": 2,
+        "value_type": "individual"
+      },
+      "type": "graph",
+      "xaxis": {
+        "buckets": null,
+        "mode": "time",
+        "name": null,
+        "show": true,
+        "values": []
+      },
+      "yaxes": [
+        {
+          "format": "short",
+          "label": null,
+          "logBase": 1,
+          "max": null,
+          "min": "0",
+          "show": true
+        },
+        {
+          "format": "short",
+          "label": null,
+          "logBase": 1,
+          "max": null,
+          "min": null,
+          "show": true
+        }
+      ],
+      "yaxis": {
+        "align": false,
+        "alignLevel": null
+      }
+    }
+  },
+  {
+    "op": "add",
+    "path": "/panels/12",
+    "value": {
+      "aliasColors": {},
+      "bars": false,
+      "dashLength": 10,
+      "dashes": false,
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${datasource}"
+      },
+      "fill": 1,
+      "fillGradient": 0,
+      "gridPos": {
+        "h": 6,
+        "w": 12,
+        "x": 12,
+        "y": 20
+      },
+      "hiddenSeries": false,
+      "id": 43,
+      "legend": {
+        "alignAsTable": false,
+        "avg": false,
+        "current": true,
+        "hideEmpty": true,
+        "hideZero": true,
+        "max": false,
+        "min": false,
+        "rightSide": false,
+        "show": true,
+        "sort": "current",
+        "sortDesc": true,
+        "total": false,
+        "values": true
+      },
+      "lines": true,
+      "linewidth": 1,
+      "links": [],
+      "nullPointMode": "null",
+      "options": {
+        "dataLinks": []
+      },
+      "percentage": false,
+      "pointradius": 5,
+      "points": false,
+      "renderer": "flot",
+      "seriesOverrides": [],
+      "spaceLength": 10,
+      "stack": false,
+      "steppedLine": false,
+      "targets": [
+        {
+          "expr": "sum(container_memory_working_set_bytes{pod=~\".*fluent-bit.*\",container=\"fluent-bit\",image!=\"\"}) by (pod)",
+          "format": "time_series",
+          "hide": false,
+          "interval": "",
+          "intervalFactor": 1,
+          "legendFormat": "{{ pod }}",
+          "refId": "A"
+        }
+      ],
+      "thresholds": [],
+      "timeFrom": null,
+      "timeRegions": [],
+      "timeShift": null,
+      "title": "Fluent Bit Memory Usage",
+      "tooltip": {
+        "shared": true,
+        "sort": 2,
+        "value_type": "individual"
+      },
+      "type": "graph",
+      "xaxis": {
+        "buckets": null,
+        "mode": "time",
+        "name": null,
+        "show": true,
+        "values": []
+      },
+      "yaxes": [
+        {
+          "format": "bytes",
+          "label": null,
+          "logBase": 1,
+          "max": null,
+          "min": "0",
+          "show": true
+        },
+        {
+          "format": "short",
+          "label": null,
+          "logBase": 1,
+          "max": null,
+          "min": null,
+          "show": true
+        }
+      ],
+      "yaxis": {
+        "align": false,
+        "alignLevel": null
+      }
+    }
+  }
+]
