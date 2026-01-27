@@ -42,6 +42,7 @@ find . -name 'source.yaml' -type f | while read -r source_file; do
       fetch_url="${base_url}/${file}"
     else
       echo "  ERROR: No URL for $file"
+      echo $(( $(cat "$ERROR_FILE") + 1 )) > "$ERROR_FILE"
       continue
     fi
     
