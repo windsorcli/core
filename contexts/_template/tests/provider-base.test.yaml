@@ -240,6 +240,7 @@ cases:
             - fluentbit/kubernetes
             - fluentbit/parser
             - fluentbit/systemd
+            - fluentbit/prometheus
           timeout: 10m
           interval: 5m
     exclude:
