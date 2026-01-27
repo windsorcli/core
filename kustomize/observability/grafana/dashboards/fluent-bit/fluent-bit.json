@@ -553,7 +553,7 @@
       "tableColumn": "",
       "targets": [
         {
-          "expr": "sum(kube_pod_container_resource_requests_cpu_cores) / sum(kube_node_status_allocatable_cpu_cores)",
+          "expr": "sum(kube_pod_container_resource_requests_cpu_cores{pod=~\".*fluent-bit.*\"}) / sum(kube_node_status_allocatable_cpu_cores)",
           "instant": false,
           "refId": "A"
         }
@@ -641,7 +641,7 @@
       "tableColumn": "",
       "targets": [
         {
-          "expr": "sum(kube_pod_container_resource_requests_memory_bytes) / sum(kube_node_status_allocatable_memory_bytes)",
+          "expr": "sum(kube_pod_container_resource_requests_memory_bytes{pod=~\".*fluent-bit.*\"}) / sum(kube_node_status_allocatable_memory_bytes)",
           "instant": false,
           "refId": "A"
         }
@@ -729,7 +729,7 @@
       "tableColumn": "",
       "targets": [
         {
-          "expr": "sum(kube_pod_container_resource_limits_cpu_cores) / sum(kube_node_status_allocatable_cpu_cores)",
+          "expr": "sum(kube_pod_container_resource_limits_cpu_cores{pod=~\".*fluent-bit.*\"}) / sum(kube_node_status_allocatable_cpu_cores)",
           "instant": false,
           "refId": "A"
         }
@@ -817,7 +817,7 @@
       "tableColumn": "",
       "targets": [
         {
-          "expr": "sum(kube_pod_container_resource_limits_memory_bytes) / sum(kube_node_status_allocatable_memory_bytes)",
+          "expr": "sum(kube_pod_container_resource_limits_memory_bytes{pod=~\".*fluent-bit.*\"}) / sum(kube_node_status_allocatable_memory_bytes)",
           "instant": false,
           "refId": "A"
         }
@@ -866,7 +866,7 @@
         "max": false,
         "min": false,
         "rightSide": false,
-        "show": false,
+        "show": true,
         "sort": "current",
         "sortDesc": true,
         "total": false,
@@ -889,12 +889,12 @@
       "steppedLine": false,
       "targets": [
         {
-          "expr": "sum(rate(fluentbit_input_bytes_total[5m])) by (instance, name)",
+          "expr": "sum(rate(fluentbit_input_bytes_total[5m])) by (pod, name)",
           "format": "time_series",
           "hide": false,
           "interval": "",
           "intervalFactor": 1,
-          "legendFormat": "{{ instance }}/{{name}}",
+          "legendFormat": "{{pod}}/{{name}}",
           "refId": "A"
         }
       ],
@@ -965,7 +965,7 @@
         "max": false,
         "min": false,
         "rightSide": false,
-        "show": false,
+        "show": true,
         "sort": "current",
         "sortDesc": true,
         "total": false,
@@ -988,12 +988,12 @@
       "steppedLine": false,
       "targets": [
         {
-          "expr": "sum(rate(fluentbit_output_proc_bytes_total[5m])) by (instance, name)",
+          "expr": "sum(rate(fluentbit_output_proc_bytes_total[5m])) by (pod, name)",
           "format": "time_series",
           "hide": false,
           "interval": "",
           "intervalFactor": 1,
-          "legendFormat": "{{ pod }}/{{name}}",
+          "legendFormat": "{{pod}}/{{name}}",
           "refId": "A"
         }
       ],
@@ -1047,22 +1047,20 @@
         "type": "prometheus",
         "uid": "$${datasource}"
       },
-      "fill": 1,
+      "fill": 5,
       "fillGradient": 0,
       "gridPos": {
         "h": 6,
         "w": 12,
         "x": 0,
-        "y": 20
+        "y": 8
       },
       "hiddenSeries": false,
-      "id": 42,
+      "id": 40,
       "legend": {
         "alignAsTable": false,
         "avg": false,
         "current": true,
-        "hideEmpty": true,
-        "hideZero": true,
         "max": false,
         "min": false,
         "rightSide": false,
@@ -1085,16 +1083,16 @@
       "renderer": "flot",
       "seriesOverrides": [],
       "spaceLength": 10,
-      "stack": false,
+      "stack": true,
       "steppedLine": false,
       "targets": [
         {
-          "expr": "sum(rate(container_cpu_usage_seconds_total{pod=~\".*fluent-bit.*\",container=\"fluent-bit\",image!=\"\"}[5m])) by (pod)",
+          "expr": "sum(rate(fluentbit_input_records_total[5m])) by (pod, name)",
           "format": "time_series",
           "hide": false,
           "interval": "",
           "intervalFactor": 1,
-          "legendFormat": "{{ pod }}",
+          "legendFormat": "{{pod}}/{{name}}",
           "refId": "A"
         }
       ],
@@ -1102,7 +1100,7 @@
       "timeFrom": null,
       "timeRegions": [],
       "timeShift": null,
-      "title": "Fluent Bit CPU Usage",
+      "title": "Input Records Processing Rate",
       "tooltip": {
         "shared": true,
         "sort": 2,
@@ -1118,11 +1116,11 @@
       },
       "yaxes": [
         {
-          "format": "short",
+          "format": "rps",
           "label": null,
           "logBase": 1,
           "max": null,
-          "min": "0",
+          "min": null,
           "show": true
         },
         {
@@ -1148,22 +1146,22 @@
         "type": "prometheus",
         "uid": "$${datasource}"
       },
-      "fill": 1,
+      "fill": 5,
       "fillGradient": 0,
       "gridPos": {
         "h": 6,
         "w": 12,
         "x": 12,
-        "y": 20
+        "y": 8
       },
       "hiddenSeries": false,
-      "id": 43,
+      "id": 41,
       "legend": {
         "alignAsTable": false,
         "avg": false,
         "current": true,
-        "hideEmpty": true,
-        "hideZero": true,
+        "hideEmpty": false,
+        "hideZero": false,
         "max": false,
         "min": false,
         "rightSide": false,
@@ -1186,16 +1184,16 @@
       "renderer": "flot",
       "seriesOverrides": [],
       "spaceLength": 10,
-      "stack": false,
+      "stack": true,
       "steppedLine": false,
       "targets": [
         {
-          "expr": "sum(container_memory_working_set_bytes{pod=~\".*fluent-bit.*\",container=\"fluent-bit\",image!=\"\"}) by (pod)",
+          "expr": "sum(rate(fluentbit_output_proc_records_total[5m])) by (pod, name)",
           "format": "time_series",
           "hide": false,
           "interval": "",
           "intervalFactor": 1,
-          "legendFormat": "{{ pod }}",
+          "legendFormat": "{{pod}}/{{name}}",
           "refId": "A"
         }
       ],
@@ -1203,7 +1201,7 @@
       "timeFrom": null,
       "timeRegions": [],
       "timeShift": null,
-      "title": "Fluent Bit Memory Usage",
+      "title": "Output Record Processing Rate",
       "tooltip": {
         "shared": true,
         "sort": 2,
@@ -1219,7 +1217,7 @@
       },
       "yaxes": [
         {
-          "format": "bytes",
+          "format": "rps",
           "label": null,
           "logBase": 1,
           "max": null,
@@ -1268,7 +1266,7 @@
         "max": true,
         "min": false,
         "rightSide": false,
-        "show": false,
+        "show": true,
         "sort": "current",
         "sortDesc": true,
         "total": false,
@@ -1291,20 +1289,20 @@
       "steppedLine": false,
       "targets": [
         {
-          "expr": "sum(rate(fluentbit_output_retries_total[1m])) by (instance, name)",
+          "expr": "sum(rate(fluentbit_output_retries_total[1m])) by (pod, name)",
           "format": "time_series",
           "hide": false,
           "interval": "",
           "intervalFactor": 1,
-          "legendFormat": "{{instance}} Retries to {{name}}",
+          "legendFormat": "{{pod}}/{{name}} Retries",
           "refId": "A"
         },
         {
-          "expr": "sum(rate(fluentbit_output_retries_failed_total[1m])) by (instance, name)",
+          "expr": "sum(rate(fluentbit_output_retries_failed_total[1m])) by (pod, name)",
           "format": "time_series",
           "interval": "",
           "intervalFactor": 1,
-          "legendFormat": "{{instance}} Failed Retries to {{ name }}",
+          "legendFormat": "{{pod}}/{{name}} Failed Retries",
           "refId": "B"
         }
       ],
@@ -1401,12 +1399,12 @@
       "steppedLine": false,
       "targets": [
         {
-          "expr": "sum(rate(fluentbit_output_errors_total[1m])) by (instance, name)",
+          "expr": "sum(rate(fluentbit_output_errors_total[1m])) by (pod, name)",
           "format": "time_series",
           "hide": false,
           "interval": "",
           "intervalFactor": 1,
-          "legendFormat": "{{ instance }}/{{ name }}",
+          "legendFormat": "{{pod}}/{{name}}",
           "refId": "A"
         }
       ],

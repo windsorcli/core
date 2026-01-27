@@ -82,7 +82,7 @@ jobs:
 
       - name: Validate vendored assets
         run: |
-          # Regenerate vendored files from source.yaml definitions
+          # Regenerate vendored files from source.yaml definitions and validate
           task dashboards
           
           # Check if any files changed or new files created
@@ -95,9 +95,6 @@ jobs:
             echo "Run 'task dashboards' locally and commit the changes."
             exit 1
           fi
-          
-          # Validate JSON and patch integrity
-          task dashboards:lint
 
       - name: Checkov GitHub Action
         uses: bridgecrewio/checkov-action@68260132005eaae0e6f84c7a73cc3b1532f678bf # v12.3058.0

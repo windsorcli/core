@@ -1,10 +1,14 @@
 #!/usr/bin/env bash
-# Vendor dashboards from upstream sources defined in source.yaml files
+# Vendor dashboards from upstream sources and validate patches
 # Usage: scripts/vendor-dashboards.sh
 
 set -euo pipefail
 
-# Find all source.yaml files in the repo
+ERROR_FILE=$(mktemp)
+echo 0 > "$ERROR_FILE"
+trap 'rm -f "$ERROR_FILE"' EXIT
+
+# Find all source.yaml files
 find . -name 'source.yaml' -type f | while read -r source_file; do
   vendor_dir="$(dirname "$source_file")/"
   
@@ -14,8 +18,8 @@ find . -name 'source.yaml' -type f | while read -r source_file; do
   base_url=$(grep '^[[:space:]]*url:' "$source_file" | head -1 | awk '{print $2}')
   [ -n "$base_url" ] && echo "  Upstream: $base_url"
   
-  # Parse files and process each (export base_url for subshell)
-  export base_url vendor_dir
+  # Parse files and process each
+  export base_url vendor_dir ERROR_FILE
   awk 'BEGIN { OFS="|" }
     /^[[:space:]]+-[[:space:]]+name:/ { 
       if (name) print name, (url ? url : "-"), (patch ? patch : "-")
@@ -30,6 +34,7 @@ find . -name 'source.yaml' -type f | while read -r source_file; do
     [ -z "$file" ] && continue
     output="${vendor_dir}${file}"
     
+    # Vendor: fetch and patch
     # Use explicit URL or construct from base
     if [ -n "$url" ]; then
       fetch_url="$url"
@@ -59,15 +64,55 @@ find . -name 'source.yaml' -type f | while read -r source_file; do
           end
         )
       ' > "$output"
+      
+      # Validate JSON
+      if ! jq empty "$output" 2>/dev/null; then
+        echo "  ERROR: Patch produced invalid JSON"
+        exit 1
+      fi
     else
       echo "$upstream" > "$output"
     fi
     
     # Escape Grafana variables to prevent Flux substitution
-    # $${var} becomes ${var} after Flux processing
     sed -i '' 's/\${\([^}]*\)}/$\${\1}/g' "$output" 2>/dev/null || \
     sed -i 's/\${\([^}]*\)}/$\${\1}/g' "$output"
+    
+    # Validate JSON
+    if ! jq empty "$output" 2>/dev/null; then
+      echo "  ERROR: Invalid JSON in $file"
+      echo $(( $(cat "$ERROR_FILE") + 1 )) > "$ERROR_FILE"
+      continue
+    fi
+    echo "  ✓ $file: valid JSON"
+    
+    # Validate patch file if exists
+    if [ -n "$patch" ] && [ -f "${vendor_dir}${patch}" ]; then
+      if ! jq -e 'type == "array"' "${vendor_dir}${patch}" >/dev/null 2>&1; then
+        echo "  ERROR: Invalid patch file: $patch"
+        echo $(( $(cat "$ERROR_FILE") + 1 )) > "$ERROR_FILE"
+      else
+        ops=$(jq 'length' "${vendor_dir}${patch}")
+        echo "  ✓ $patch: $ops operations"
+      fi
+    fi
+  done
+  
+  # Check patch file references in source.yaml exist
+  awk '/^[[:space:]]+patch:/ { print $2 }' "$source_file" | while read -r patch_ref; do
+    [ -z "$patch_ref" ] && continue
+    if [ ! -f "${vendor_dir}${patch_ref}" ]; then
+      echo "  ERROR: Referenced patch file not found: $patch_ref"
+      echo $(( $(cat "$ERROR_FILE") + 1 )) > "$ERROR_FILE"
+    fi
   done
 done
+
+ERRORS=$(cat "$ERROR_FILE")
+
+if [ "$ERRORS" -gt 0 ]; then
+  echo "Validation failed with $ERRORS error(s)"
+  exit 1
+fi
 
 echo "Done."

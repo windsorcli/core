@@ -357,5 +357,10 @@
     "op": "replace",
     "path": "/title",
     "value": "Fluentd"
+  },
+  {
+    "op": "replace",
+    "path": "/panels/8/title",
+    "value": "Input details"
   }
 ]

@@ -2,14 +2,9 @@ version: '3'
 
 tasks:
   dashboards:
-    desc: Download and patch vendored assets from source.yaml files
+    desc: Download, patch, and validate vendored dashboards from source.yaml files
     cmds:
       - scripts/vendor-dashboards.sh
-
-  dashboards:lint:
-    desc: Validate vendored JSON files and patch integrity
-    cmds:
-      - scripts/lint-dashboards.sh
 
   scan:
     desc: Scan for security vulnerabilities
