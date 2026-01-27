@@ -51,7 +51,8 @@ find . -name 'source.yaml' -type f | while read -r source_file; do
     if [ -n "$patch" ]; then
       if [ ! -f "${vendor_dir}${patch}" ]; then
         echo "  ERROR: Patch file not found: ${patch}"
-        exit 1
+        echo $(( $(cat "$ERROR_FILE") + 1 )) > "$ERROR_FILE"
+        continue
       fi
       echo "  Applying ${patch}..."
       echo "$upstream" | jq --argjson ops "$(cat "${vendor_dir}${patch}")" '
@@ -68,7 +69,8 @@ find . -name 'source.yaml' -type f | while read -r source_file; do
       # Validate JSON
       if ! jq empty "$output" 2>/dev/null; then
         echo "  ERROR: Patch produced invalid JSON"
-        exit 1
+        echo $(( $(cat "$ERROR_FILE") + 1 )) > "$ERROR_FILE"
+        continue
       fi
     else
       echo "$upstream" > "$output"
