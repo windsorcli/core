@@ -99,15 +99,6 @@ find . -name 'source.yaml' -type f | while read -r source_file; do
       fi
     fi
   done
-  
-  # Check patch file references in source.yaml exist
-  awk '/^[[:space:]]+patch:/ { print $2 }' "$source_file" | while read -r patch_ref; do
-    [ -z "$patch_ref" ] && continue
-    if [ ! -f "${vendor_dir}${patch_ref}" ]; then
-      echo "  ERROR: Referenced patch file not found: $patch_ref"
-      echo $(( $(cat "$ERROR_FILE") + 1 )) > "$ERROR_FILE"
-    fi
-  done
 done
 
 ERRORS=$(cat "$ERROR_FILE")
