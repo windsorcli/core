@@ -35,14 +35,6 @@
   },
   {
     "op": "replace",
-    "path": "/annotations/list/0/datasource",
-    "value": {
-      "type": "prometheus",
-      "uid": "${datasource}"
-    }
-  },
-  {
-    "op": "replace",
     "path": "/panels/0/datasource",
     "value": {
       "type": "prometheus",
