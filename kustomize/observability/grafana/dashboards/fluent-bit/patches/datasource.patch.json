@@ -276,5 +276,13 @@
     "op": "replace",
     "path": "/panels/14/legend/show",
     "value": true
+  },
+  {
+    "op": "replace",
+    "path": "/tags",
+    "value": [
+      "fluent-bit",
+      "logging"
+    ]
   }
 ]

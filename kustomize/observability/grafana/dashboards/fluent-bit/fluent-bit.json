@@ -1453,7 +1453,10 @@
   "refresh": "5s",
   "schemaVersion": 22,
   "style": "dark",
-  "tags": [],
+  "tags": [
+    "fluent-bit",
+    "logging"
+  ],
   "templating": {
     "list": [
       {
