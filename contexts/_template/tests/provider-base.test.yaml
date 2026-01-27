@@ -66,7 +66,6 @@ cases:
             - prometheus
             - prometheus/flux
             - fluentbit
-            - fluentbit/prometheus
           timeout: 30m
           interval: 10m
         - name: telemetry-resources
@@ -82,6 +81,7 @@ cases:
             - fluentbit/kubernetes
             - fluentbit/parser
             - fluentbit/systemd
+            - fluentbit/prometheus
             - fluentbit/fluentd
           timeout: 10m
           interval: 5m
@@ -100,6 +100,7 @@ cases:
           components:
             - fluentd
             - fluentd/filters/otel
+            - fluentd/prometheus
           timeout: 15m
           interval: 10m
 
@@ -140,6 +141,7 @@ cases:
           components:
             - fluentd
             - fluentd/filters/otel
+            - fluentd/prometheus
           timeout: 15m
           interval: 10m
 
@@ -162,6 +164,7 @@ cases:
           components:
             - fluentd
             - fluentd/filters/otel
+            - fluentd/prometheus
 
   # Edge case: FluentD excluded when elasticsearch is used (filebeat driver automatically, telemetry replaced)
   - name: fluentd excluded when elasticsearch logs driver used
@@ -237,6 +240,7 @@ cases:
             - fluentbit/kubernetes
             - fluentbit/parser
             - fluentbit/systemd
+            - fluentbit/prometheus
           timeout: 10m
           interval: 5m
     exclude:

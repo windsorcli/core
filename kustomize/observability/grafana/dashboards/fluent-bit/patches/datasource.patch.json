@@ -1,0 +1,288 @@
+[
+  {
+    "op": "remove",
+    "path": "/__inputs"
+  },
+  {
+    "op": "add",
+    "path": "/templating/list/0",
+    "value": {
+      "current": {
+        "selected": true,
+        "text": "Prometheus",
+        "value": "prometheus"
+      },
+      "hide": 0,
+      "includeAll": false,
+      "label": "Datasource",
+      "multi": false,
+      "name": "datasource",
+      "options": [],
+      "query": "prometheus",
+      "refresh": 1,
+      "regex": "",
+      "skipUrlSync": false,
+      "type": "datasource"
+    }
+  },
+  {
+    "op": "replace",
+    "path": "/panels/0/datasource",
+    "value": {
+      "type": "prometheus",
+      "uid": "${datasource}"
+    }
+  },
+  {
+    "op": "replace",
+    "path": "/panels/1/datasource",
+    "value": {
+      "type": "prometheus",
+      "uid": "${datasource}"
+    }
+  },
+  {
+    "op": "replace",
+    "path": "/panels/2/datasource",
+    "value": {
+      "type": "prometheus",
+      "uid": "${datasource}"
+    }
+  },
+  {
+    "op": "replace",
+    "path": "/panels/3/datasource",
+    "value": {
+      "type": "prometheus",
+      "uid": "${datasource}"
+    }
+  },
+  {
+    "op": "replace",
+    "path": "/panels/4/datasource",
+    "value": {
+      "type": "prometheus",
+      "uid": "${datasource}"
+    }
+  },
+  {
+    "op": "replace",
+    "path": "/panels/5/datasource",
+    "value": {
+      "type": "prometheus",
+      "uid": "${datasource}"
+    }
+  },
+  {
+    "op": "replace",
+    "path": "/panels/6/datasource",
+    "value": {
+      "type": "prometheus",
+      "uid": "${datasource}"
+    }
+  },
+  {
+    "op": "replace",
+    "path": "/panels/7/datasource",
+    "value": {
+      "type": "prometheus",
+      "uid": "${datasource}"
+    }
+  },
+  {
+    "op": "replace",
+    "path": "/panels/8/datasource",
+    "value": {
+      "type": "prometheus",
+      "uid": "${datasource}"
+    }
+  },
+  {
+    "op": "replace",
+    "path": "/panels/9/datasource",
+    "value": {
+      "type": "prometheus",
+      "uid": "${datasource}"
+    }
+  },
+  {
+    "op": "replace",
+    "path": "/panels/10/datasource",
+    "value": {
+      "type": "prometheus",
+      "uid": "${datasource}"
+    }
+  },
+  {
+    "op": "replace",
+    "path": "/panels/11/datasource",
+    "value": {
+      "type": "prometheus",
+      "uid": "${datasource}"
+    }
+  },
+  {
+    "op": "replace",
+    "path": "/panels/12/datasource",
+    "value": {
+      "type": "prometheus",
+      "uid": "${datasource}"
+    }
+  },
+  {
+    "op": "replace",
+    "path": "/panels/13/datasource",
+    "value": {
+      "type": "prometheus",
+      "uid": "${datasource}"
+    }
+  },
+  {
+    "op": "replace",
+    "path": "/panels/14/datasource",
+    "value": {
+      "type": "prometheus",
+      "uid": "${datasource}"
+    }
+  },
+  {
+    "op": "replace",
+    "path": "/annotations/list/0/datasource",
+    "value": {
+      "type": "prometheus",
+      "uid": "${datasource}"
+    }
+  },
+  {
+    "op": "replace",
+    "path": "/panels/5/targets/0/expr",
+    "value": "sum(kube_pod_container_resource_requests_cpu_cores{pod=~\".*fluent-bit.*\"}) / sum(kube_node_status_allocatable_cpu_cores)"
+  },
+  {
+    "op": "replace",
+    "path": "/panels/6/targets/0/expr",
+    "value": "sum(kube_pod_container_resource_requests_memory_bytes{pod=~\".*fluent-bit.*\"}) / sum(kube_node_status_allocatable_memory_bytes)"
+  },
+  {
+    "op": "replace",
+    "path": "/panels/7/targets/0/expr",
+    "value": "sum(kube_pod_container_resource_limits_cpu_cores{pod=~\".*fluent-bit.*\"}) / sum(kube_node_status_allocatable_cpu_cores)"
+  },
+  {
+    "op": "replace",
+    "path": "/panels/8/targets/0/expr",
+    "value": "sum(kube_pod_container_resource_limits_memory_bytes{pod=~\".*fluent-bit.*\"}) / sum(kube_node_status_allocatable_memory_bytes)"
+  },
+  {
+    "op": "remove",
+    "path": "/panels/8/targets/0/legendFormat"
+  },
+  {
+    "op": "replace",
+    "path": "/panels/9/targets/0/expr",
+    "value": "sum(rate(fluentbit_input_bytes_total[5m])) by (pod, name)"
+  },
+  {
+    "op": "replace",
+    "path": "/panels/9/targets/0/legendFormat",
+    "value": "{{pod}}/{{name}}"
+  },
+  {
+    "op": "replace",
+    "path": "/panels/9/legend/show",
+    "value": true
+  },
+  {
+    "op": "replace",
+    "path": "/panels/10/targets/0/expr",
+    "value": "sum(rate(fluentbit_output_proc_bytes_total[5m])) by (pod, name)"
+  },
+  {
+    "op": "replace",
+    "path": "/panels/10/targets/0/legendFormat",
+    "value": "{{pod}}/{{name}}"
+  },
+  {
+    "op": "replace",
+    "path": "/panels/10/legend/show",
+    "value": true
+  },
+  {
+    "op": "replace",
+    "path": "/panels/11/targets/0/expr",
+    "value": "sum(rate(fluentbit_input_records_total[5m])) by (pod, name)"
+  },
+  {
+    "op": "replace",
+    "path": "/panels/11/targets/0/legendFormat",
+    "value": "{{pod}}/{{name}}"
+  },
+  {
+    "op": "replace",
+    "path": "/panels/11/legend/show",
+    "value": true
+  },
+  {
+    "op": "replace",
+    "path": "/panels/12/targets/0/expr",
+    "value": "sum(rate(fluentbit_output_proc_records_total[5m])) by (pod, name)"
+  },
+  {
+    "op": "replace",
+    "path": "/panels/12/targets/0/legendFormat",
+    "value": "{{pod}}/{{name}}"
+  },
+  {
+    "op": "replace",
+    "path": "/panels/12/legend/show",
+    "value": true
+  },
+  {
+    "op": "replace",
+    "path": "/panels/13/targets/0/expr",
+    "value": "sum(rate(fluentbit_output_retries_total[1m])) by (pod, name)"
+  },
+  {
+    "op": "replace",
+    "path": "/panels/13/targets/0/legendFormat",
+    "value": "{{pod}}/{{name}} Retries"
+  },
+  {
+    "op": "replace",
+    "path": "/panels/13/targets/1/expr",
+    "value": "sum(rate(fluentbit_output_retries_failed_total[1m])) by (pod, name)"
+  },
+  {
+    "op": "replace",
+    "path": "/panels/13/targets/1/legendFormat",
+    "value": "{{pod}}/{{name}} Failed Retries"
+  },
+  {
+    "op": "replace",
+    "path": "/panels/13/legend/show",
+    "value": true
+  },
+  {
+    "op": "replace",
+    "path": "/panels/14/targets/0/expr",
+    "value": "sum(rate(fluentbit_output_errors_total[1m])) by (pod, name)"
+  },
+  {
+    "op": "replace",
+    "path": "/panels/14/targets/0/legendFormat",
+    "value": "{{pod}}/{{name}}"
+  },
+  {
+    "op": "replace",
+    "path": "/panels/14/legend/show",
+    "value": true
+  },
+  {
+    "op": "replace",
+    "path": "/tags",
+    "value": [
+      "fluent-bit",
+      "logging"
+    ]
+  }
+]

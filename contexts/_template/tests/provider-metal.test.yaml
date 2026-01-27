@@ -92,7 +92,6 @@ cases:
             - prometheus
             - prometheus/flux
             - fluentbit
-            - fluentbit/prometheus
           timeout: 30m
           interval: 10m
         - name: telemetry-resources
@@ -108,6 +107,7 @@ cases:
             - fluentbit/kubernetes
             - fluentbit/parser
             - fluentbit/systemd
+            - fluentbit/prometheus
           timeout: 10m
           interval: 5m
         - name: csi
@@ -214,7 +214,6 @@ cases:
             - prometheus
             - prometheus/flux
             - fluentbit
-            - fluentbit/prometheus
           timeout: 30m
           interval: 10m
         - name: telemetry-resources
@@ -230,6 +229,7 @@ cases:
             - fluentbit/kubernetes
             - fluentbit/parser
             - fluentbit/systemd
+            - fluentbit/prometheus
           timeout: 10m
           interval: 5m
         - name: csi

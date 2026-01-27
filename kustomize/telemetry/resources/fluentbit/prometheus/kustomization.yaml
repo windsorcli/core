@@ -1,0 +1,12 @@
+apiVersion: kustomize.config.k8s.io/v1alpha1
+kind: Component
+
+# Fluent-bit Prometheus metrics configuration
+# Creates ServiceMonitor for Prometheus to scrape metrics FROM Fluent-bit
+# We create this explicitly rather than using the Helm chart's ServiceMonitor because:
+# - The Helm chart ServiceMonitor requires Kubernetes: true and fluentbit.enable: true
+# - Those settings would create a duplicate FluentBit CR conflicting with resources/fluentbit/fluentbit.yaml
+# - We manage Fluent Bit via Custom Resources, not the Helm chart's built-in deployment
+
+resources:
+  - servicemonitor.yaml

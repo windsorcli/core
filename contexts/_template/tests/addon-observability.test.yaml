@@ -49,6 +49,8 @@ cases:
             - grafana/dashboards/flux
             - grafana/dashboards/cert-manager
             - grafana/dashboards/nginx
+            - grafana/dashboards/fluent-bit
+            - grafana/dashboards/fluentd
           substitutions:
             external_domain: example.local
             date_full: "YYYY-MM-DD HH:mm:ss"
@@ -88,9 +90,12 @@ cases:
             - grafana/dashboards/flux
             - grafana/dashboards/cert-manager
             - grafana/dashboards/nginx
+            - grafana/dashboards/fluent-bit
+            - grafana/dashboards/fluentd
             - grafana/ingress
             - fluentd
             - fluentd/filters/otel
+            - fluentd/prometheus
             - fluentd/outputs/stdout
             - fluentd/filters/log-level/warn
           substitutions:
@@ -132,6 +137,7 @@ cases:
           components:
             - fluentd
             - fluentd/filters/otel
+            - fluentd/prometheus
             - fluentd/outputs/quickwit
             - quickwit
             - quickwit/pvc
@@ -202,6 +208,7 @@ cases:
           components:
             - fluentd
             - fluentd/filters/otel
+            - fluentd/prometheus
 
   # Edge case: Trace log level skips log filter - stdout output without log-level filter
   - name: trace log level creates stdout pipeline without log filter
@@ -224,6 +231,7 @@ cases:
           components:
             - fluentd
             - fluentd/filters/otel
+            - fluentd/prometheus
             - fluentd/outputs/stdout
 
   # Edge case: Elasticsearch without ingress fails

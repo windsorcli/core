@@ -56,7 +56,6 @@ kustomize:
     - prometheus
     - prometheus/flux
     - fluentbit
-    - fluentbit/prometheus
   timeout: 30m
   interval: 10m
 - name: telemetry-resources
@@ -72,6 +71,7 @@ kustomize:
     - fluentbit/kubernetes
     - fluentbit/parser
     - fluentbit/systemd
+    - fluentbit/prometheus
     - "${(telemetry.log_aggregation.driver ?? 'fluentd') == 'fluentd' ? 'fluentbit/fluentd' : ''}"
   timeout: 10m
   interval: 5m
@@ -85,6 +85,7 @@ kustomize:
   components:
     - fluentd
     - fluentd/filters/otel
+    - fluentd/prometheus
     - "${log_level != 'trace' ? 'fluentd/filters/log-level/' + (log_level ?? 'info') : ''}"
   timeout: 15m
   interval: 10m

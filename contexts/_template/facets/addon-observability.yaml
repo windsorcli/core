@@ -22,6 +22,8 @@ kustomize:
     - grafana/dashboards/flux
     - grafana/dashboards/cert-manager
     - grafana/dashboards/nginx
+    - grafana/dashboards/fluent-bit
+    - grafana/dashboards/fluentd
   substitutions:
     external_domain: ${dns.domain}
     timezone: ${timezone}
