@@ -1,0 +1,23 @@
+apiVersion: kustomize.config.k8s.io/v1alpha1
+kind: Component
+
+# nginx-ingress access log parser
+# Matches: nginx-ingress controller pods
+# Format: Combined log format with ingress extensions
+#
+# Extracts:
+#   - severity_text: based on HTTP status (5xx=ERROR, 4xx=WARN, else INFO)
+#   - body: "METHOD /path STATUS TIME → upstream (upstream_status)"
+#
+# OTEL HTTP semantic conventions applied for filtering/querying
+
+resources:
+  - fluentbit-clusterfilter.yaml
+
+configMapGenerator:
+  - name: fluent-bit-nginx-access-config
+    namespace: system-telemetry
+    files:
+      - nginx-access.lua
+    options:
+      disableNameSuffixHash: true

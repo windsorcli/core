@@ -1,0 +1,25 @@
+kind: Facet
+apiVersion: blueprints.windsorcli.dev/v1alpha1
+metadata:
+  name: private-ca
+  description: Private Certificate Authority with trust-manager integration
+
+when: addons.private_ca.enabled == true || dev == true
+
+kustomize:
+
+# PKI
+- name: pki-base
+  path: pki/base
+  timeout: 10m
+  interval: 5m
+  components:
+    - trust-manager
+- name: pki-resources
+  path: pki/resources
+  dependsOn:
+    - pki-base
+  timeout: 5m
+  interval: 5m
+  components:
+    - private-issuer/ca

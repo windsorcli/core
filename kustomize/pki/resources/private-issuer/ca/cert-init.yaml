@@ -1,0 +1,75 @@
+---
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: cert-init
+  namespace: system-pki
+  annotations:
+    fluxcd.io/reconcile: "false"
+  labels:
+    app: cert-init
+spec:
+  backoffLimit: 10
+  ttlSecondsAfterFinished: 86400
+  template:
+    metadata:
+      labels:
+        app: cert-init
+    spec:
+      serviceAccountName: copy-root-cert
+      containers:
+      - name: cert-init
+        # renovate: datasource=docker depName=kubectl package=alpine/k8s
+        image: alpine/k8s:1.35.0@sha256:18bc02c1e0df04451f4f9194eb7b7341c1165da5495459b52f85f72fb9545032
+        command:
+          - /bin/sh
+          - -c
+          - |
+            set -e
+            
+            echo "Initializing certificate sync for trust-manager..."
+            
+            # Check if initialization has already been completed
+            # Look for the ConfigMap that indicates successful initialization
+            if kubectl get configmap private-ca-cert -n system-pki-trust >/dev/null 2>&1; then
+              echo "Certificate ConfigMap already exists - initialization appears complete. Skipping."
+              exit 0
+            fi
+            
+            # Wait for secret to be available
+            i=1
+            while [ $i -le 30 ]; do
+              if kubectl get secret private-ca-cert -n system-pki >/dev/null 2>&1; then
+                echo "Secret found, proceeding with sync..."
+                break
+              else
+                echo "Waiting for secret (attempt $i/30)..."
+                sleep 10
+              fi
+              i=$((i + 1))
+            done
+            
+            if [ $i -gt 30 ]; then
+              echo "Failed to find secret after 30 attempts" >&2
+              exit 1
+            fi
+            
+            # Execute the shared sync script
+            cp /scripts/sync.sh /tmp/sync.sh
+            /tmp/sync.sh
+            
+            echo "Certificate sync completed successfully - trust-manager can now distribute the CA cert"
+        volumeMounts:
+        - name: script-volume
+          mountPath: /scripts
+          readOnly: true
+        - name: temp-volume
+          mountPath: /tmp
+      restartPolicy: OnFailure
+      volumes:
+      - name: script-volume
+        configMap:
+          name: cert-sync-script
+          defaultMode: 0755
+      - name: temp-volume
+        emptyDir: {} 

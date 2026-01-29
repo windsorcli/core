@@ -4,21 +4,11 @@ variable "context_path" {
   default     = ""
 }
 
-variable "os_type" {
-  description = "The operating system type, must be either 'unix' or 'windows'"
-  type        = string
-  default     = "unix"
-  validation {
-    condition     = var.os_type == "unix" || var.os_type == "windows"
-    error_message = "The operating system type must be either 'unix' or 'windows'."
-  }
-}
-
 variable "kubernetes_version" {
   description = "The kubernetes version to deploy."
   type        = string
   # renovate: datasource=github-releases depName=kubernetes package=kubernetes/kubernetes
-  default = "1.33.1"
+  default = "1.34.2"
   validation {
     condition     = can(regex("^1\\.\\d+\\.\\d+$", var.kubernetes_version))
     error_message = "The Kubernetes version should be in semantic version format like '1.30.3'."
@@ -29,7 +19,7 @@ variable "talos_version" {
   description = "The talos version to deploy."
   type        = string
   # renovate: datasource=github-releases depName=talos package=siderolabs/talos
-  default = "1.10.2"
+  default = "1.11.5"
   validation {
     condition     = can(regex("^\\d+\\.\\d+\\.\\d+$", var.talos_version))
     error_message = "The Talos version should be in semantic version format like '1.7.6'."

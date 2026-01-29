@@ -1,0 +1,120 @@
+[
+  {
+    "op": "replace",
+    "path": "/templating/list/0",
+    "value": {
+      "current": {"selected": true, "text": "Prometheus", "value": "Prometheus"},
+      "hide": 0,
+      "includeAll": false,
+      "label": "Datasource",
+      "multi": false,
+      "name": "datasource",
+      "options": [],
+      "query": "prometheus",
+      "refresh": 1,
+      "regex": "",
+      "skipUrlSync": false,
+      "type": "datasource"
+    }
+  },
+  {
+    "op": "replace",
+    "path": "/panels/0/datasource/uid",
+    "value": "${datasource}"
+  },
+  {
+    "op": "replace",
+    "path": "/panels/0/targets/0/datasource/uid",
+    "value": "${datasource}"
+  },
+  {
+    "op": "replace",
+    "path": "/panels/1/datasource/uid",
+    "value": "${datasource}"
+  },
+  {
+    "op": "replace",
+    "path": "/panels/1/targets/0/datasource/uid",
+    "value": "${datasource}"
+  },
+  {
+    "op": "replace",
+    "path": "/panels/1/targets/0/expr",
+    "value": "histogram_quantile(0.95, sum by(le, operation) (rate(quickwit_ingest_grpc_request_duration_seconds_bucket{kind=\"server\"}[$__rate_interval])))"
+  },
+  {
+    "op": "replace",
+    "path": "/panels/2/datasource/uid",
+    "value": "${datasource}"
+  },
+  {
+    "op": "replace",
+    "path": "/panels/2/targets/0/datasource/uid",
+    "value": "${datasource}"
+  },
+  {
+    "op": "replace",
+    "path": "/panels/3/datasource/uid",
+    "value": "${datasource}"
+  },
+  {
+    "op": "replace",
+    "path": "/panels/3/targets/0/datasource/uid",
+    "value": "${datasource}"
+  },
+  {
+    "op": "replace",
+    "path": "/panels/3/targets/1/datasource/uid",
+    "value": "${datasource}"
+  },
+  {
+    "op": "replace",
+    "path": "/panels/4/datasource/uid",
+    "value": "${datasource}"
+  },
+  {
+    "op": "replace",
+    "path": "/panels/4/targets/0/datasource/uid",
+    "value": "${datasource}"
+  },
+  {
+    "op": "replace",
+    "path": "/panels/4/targets/1/datasource/uid",
+    "value": "${datasource}"
+  },
+  {
+    "op": "replace",
+    "path": "/panels/4/targets/0/expr",
+    "value": "quickwit_ingest_wal_disk_used_bytes / 1048576"
+  },
+  {
+    "op": "replace",
+    "path": "/panels/4/targets/1/expr",
+    "value": "quickwit_ingest_wal_memory_used_bytes / 1048576"
+  },
+  {
+    "op": "replace",
+    "path": "/panels/5/datasource/uid",
+    "value": "${datasource}"
+  },
+  {
+    "op": "replace",
+    "path": "/panels/5/targets/0/datasource/uid",
+    "value": "${datasource}"
+  },
+  {
+    "op": "replace",
+    "path": "/panels/5/targets/1/datasource/uid",
+    "value": "${datasource}"
+  },
+  {
+    "op": "replace",
+    "path": "/panels/5/targets/0/expr",
+    "value": "rate(quickwit_ingest_wal_acquire_lock_request_duration_secs_sum{type=\"read\"}[$__rate_interval])"
+  },
+  {
+    "op": "replace",
+    "path": "/panels/5/targets/1/expr",
+    "value": "rate(quickwit_ingest_wal_acquire_lock_request_duration_secs_sum{type=\"write\"}[$__rate_interval])"
+  }
+]

@@ -1,0 +1,22 @@
+apiVersion: kustomize.config.k8s.io/v1alpha1
+kind: Component
+
+# Log suppressor
+# Downgrades known noisy logs from upstream vendors to TRACE severity
+#
+# These are logs from upstream components (OpenEBS, kube-prometheus-stack, etc.)
+# that emit deprecation warnings or other noise we can't fix at the source.
+# We reduce log volume by downgrading these known patterns to TRACE level.
+#
+# To add new patterns: edit suppress.lua SUPPRESS_RULES table
+
+resources:
+  - fluentbit-clusterfilter.yaml
+
+configMapGenerator:
+  - name: fluent-bit-suppress-config
+    namespace: system-telemetry
+    files:
+      - suppress.lua
+    options:
+      disableNameSuffixHash: true

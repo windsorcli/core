@@ -1,0 +1,17 @@
+apiVersion: fluentbit.fluent.io/v1alpha2
+kind: ClusterFilter
+metadata:
+  labels:
+    fluentbit.fluent.io/component: logging
+    fluentbit.fluent.io/enabled: "true"
+  name: rust-tracing
+spec:
+  ordinal: 55
+  match: kube.*
+  filters:
+  - lua:
+      call: parse_rust_tracing
+      script:
+        key: rust-tracing.lua
+        name: fluent-bit-rust-tracing-config
+      timeAsTable: true

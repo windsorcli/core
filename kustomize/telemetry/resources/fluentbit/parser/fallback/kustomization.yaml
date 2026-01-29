@@ -1,0 +1,17 @@
+apiVersion: kustomize.config.k8s.io/v1alpha1
+kind: Component
+
+# Fallback parser for unrecognized log formats
+# Runs after all specific parsers, catches anything not yet parsed
+# Sets default OTEL fields for unstructured logs
+
+resources:
+  - fluentbit-clusterfilter.yaml
+
+configMapGenerator:
+  - name: fluent-bit-fallback-config
+    namespace: system-telemetry
+    files:
+      - fallback.lua
+    options:
+      disableNameSuffixHash: true

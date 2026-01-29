@@ -5,6 +5,7 @@ metadata:
   namespace: system-observability
 spec:
   interval: 5m
+  timeout: 10m
   chart:
     spec:
       chart: kibana
@@ -15,6 +16,8 @@ spec:
         name: elastic-kibana
         namespace: system-observability
   values:
+    # renovate: datasource=docker depName=docker.elastic.co/kibana/kibana package=docker.elastic.co/kibana/kibana
+    image: docker.elastic.co/kibana/kibana:9.2.3@sha256:d9629c58a2c02242eaaa2a7c953df3c89f5cf4c7dc856a973b1fd3afea0cd820
     kibanaConfig:
       kibana.yml: |
         elasticsearch.ssl.certificateAuthorities: ["/usr/share/kibana/config/certs/ca.crt"]

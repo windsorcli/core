@@ -11,12 +11,45 @@ spec:
     spec:
       chart: grafana
       # renovate: datasource=helm depName=grafana package=grafana helmRepo=https://grafana.github.io/helm-charts
-      version: 9.2.1
+      version: 10.5.5
       sourceRef:
         kind: HelmRepository
         name: grafana
         namespace: system-gitops
   values:
+    grafana.ini:
+      date_formats:
+        full_date: ${date_full:-YYYY-MM-DD HH:mm:ss}
+        interval_second: ${date_interval_second:-HH:mm:ss}
+        interval_minute: ${date_interval_minute:-HH:mm}
+        interval_hour: ${date_interval_hour:-MM/DD HH:mm}
+        interval_day: ${date_interval_day:-MM/DD}
+        interval_month: YYYY-MM
+        interval_year: YYYY
+      default:
+        timezone: ${timezone:-utc}
+    image:
+      # renovate: datasource=docker depName=grafana/grafana package=grafana/grafana
+      tag: 12.3.1@sha256:2175aaa91c96733d86d31cf270d5310b278654b03f5718c59de12a865380a31f
+    initChownData:
+      image:
+        # renovate: datasource=docker depName=library/busybox package=library/busybox
+        tag: 1.31.1@sha256:95cf004f559831017cdf4628aaf1bb30133677be8702a8c5f2994629f637a209
+    downloadDashboardsImage:
+      # renovate: datasource=docker depName=curlimages/curl package=curlimages/curl
+      tag: 8.18.0@sha256:d94d07ba9e7d6de898b6d96c1a072f6f8266c687af78a74f380087a0addf5d17
+    sidecar:
+      image:
+        # renovate: datasource=docker depName=kiwigrid/k8s-sidecar package=kiwigrid/k8s-sidecar
+        tag: 2.2.1@sha256:a36a5946ea215ca6435a2a7e155a17cc360ac35664ad33fa8f640a1d6786100e
+      dashboards:
+        enabled: true
+        label: grafana_dashboard
+        labelValue: "1"
+        folder: /var/lib/grafana/dashboards/sidecar
+        folderAnnotation: grafana_folder
+        provider:
+          foldersFromFilesStructure: true
     dashboardProviders:
       dashboardproviders.yaml:
         apiVersion: 1

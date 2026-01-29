@@ -1,0 +1,23 @@
+---
+apiVersion: fluentd.fluent.io/v1alpha1
+kind: ClusterFilter
+metadata:
+  name: prometheus
+  labels:
+    filter.fluentd.fluent.io/enabled: "true"
+spec:
+  filters:
+    - customPlugin:
+        config: |
+          <filter **>
+            @type prometheus
+            <metric>
+              name fluentd_input_status_num_records_total
+              type counter
+              desc The total number of incoming records
+              <labels>
+                tag ${tag}
+                hostname ${hostname}
+              </labels>
+            </metric>
+          </filter>

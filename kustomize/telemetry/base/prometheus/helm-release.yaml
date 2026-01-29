@@ -5,12 +5,12 @@ metadata:
   namespace: system-telemetry
 spec:
   interval: 5m
-  timeout: 5m
+  timeout: 30m
   chart:
     spec:
       chart: kube-prometheus-stack
       # renovate: datasource=helm depName=kube-prometheus-stack package=kube-prometheus-stack helmRepo=https://prometheus-community.github.io/helm-charts
-      version: 57.0.3
+      version: 80.0.0
       sourceRef:
         kind: HelmRepository
         name: prometheus-community
@@ -20,8 +20,30 @@ spec:
       enabled: false
     kubeStateMetrics:
       enabled: true
+    kube-state-metrics:
+      image:
+        # renovate: datasource=docker depName=registry.k8s.io/kube-state-metrics/kube-state-metrics package=registry.k8s.io/kube-state-metrics/kube-state-metrics
+        tag: v2.17.0@sha256:2bbc915567334b13632bf62c0a97084aff72a36e13c4dabd5f2f11c898c5bacd
+    prometheusOperator:
+      image:
+        # renovate: datasource=docker depName=quay.io/prometheus-operator/prometheus-operator package=quay.io/prometheus-operator/prometheus-operator
+        tag: v0.88.0@sha256:b4f51de53357a241fdcab2d956888c1cb3acb3c1f2f72ea0cd60046333ff06b0
+      prometheusConfigReloader:
+        image:
+          # renovate: datasource=docker depName=quay.io/prometheus-operator/prometheus-config-reloader package=quay.io/prometheus-operator/prometheus-config-reloader
+          tag: v0.88.0@sha256:501a47205f61acf8ad11b1caeb0bd117b135932728b17eb5cd5914a33f0ce704
+      admissionWebhooks:
+        patch:
+          image:
+            # renovate: datasource=docker depName=registry.k8s.io/ingress-nginx/kube-webhook-certgen package=registry.k8s.io/ingress-nginx/kube-webhook-certgen
+            tag: v20221220-controller-v1.5.1-58-g787ea74b6@sha256:4d99688e557396f5baa150e019ff7d5b7334f9b9f9a8dab64038c5c2a006f6b5
     prometheus:
       prometheusSpec:
+        # renovate: datasource=github-releases depName=prometheus/prometheus package=prometheus/prometheus
+        version: v3.9.1
+        image:
+          # renovate: datasource=docker depName=quay.io/prometheus/prometheus package=quay.io/prometheus/prometheus
+          tag: v3.9.1@sha256:1f0f50f06acaceb0f5670d2c8a658a599affe7b0d8e78b898c1035653849a702
         ruleSelectorNilUsesHelmValues: false
         serviceMonitorSelectorNilUsesHelmValues: false
         podMonitorSelectorNilUsesHelmValues: false
@@ -33,3 +55,10 @@ spec:
     nodeExporter:
       enabled: true
       replicas: 1
+    prometheus-node-exporter:
+      # renovate: datasource=github-releases depName=prometheus/node_exporter package=prometheus/node_exporter
+      version: v1.10.2
+      image:
+        # renovate: datasource=docker depName=quay.io/prometheus/node-exporter package=quay.io/prometheus/node-exporter
+        tag: v1.10.2@sha256:337ff1d356b68d39cef853e8c6345de11ce7556bb34cda8bd205bcf2ed30b565
+        digest: ""

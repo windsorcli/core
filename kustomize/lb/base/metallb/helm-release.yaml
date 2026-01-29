@@ -5,13 +5,26 @@ metadata:
   namespace: system-lb
 spec:
   interval: 5m
-  timeout: 5m
+  timeout: 10m
   chart:
     spec:
       chart: metallb
       # renovate: datasource=helm depName=metallb package=metallb helmRepo=https://metallb.github.io/metallb
-      version: 0.14.9
+      version: 0.15.3
       sourceRef:
         kind: HelmRepository
         name: metallb
         namespace: system-gitops
+  values:
+    controller:
+      image:
+        # renovate: datasource=docker depName=quay.io/metallb/controller package=quay.io/metallb/controller
+        tag: v0.15.3@sha256:6698ccc54c380913816ed1fd0758637ec87dd79da419c4ab170a2c26c158ab89
+    speaker:
+      image:
+        # renovate: datasource=docker depName=quay.io/metallb/speaker package=quay.io/metallb/speaker
+        tag: v0.15.3@sha256:c6a5b25b2e1fba610a57b2db4bb8141d7c133569d561a8cc29e38ca5113efbc4
+      frr:
+        image:
+          # renovate: datasource=docker depName=quay.io/frrouting/frr package=quay.io/frrouting/frr
+          tag: 10.5.1@sha256:848482643a8d6f56452b659ea68f6138472bb57414a4f295a7c4107a0416269c

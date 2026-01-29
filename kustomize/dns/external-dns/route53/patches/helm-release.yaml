@@ -24,8 +24,8 @@ spec:
     policy: sync
     registry: txt
     domainFilters:
-      - ${DOMAIN}
+      - ${DOMAIN:-test}
     serviceAccount:
       create: true
       name: external-dns
-      annotations: {} 
+      annotations: {}

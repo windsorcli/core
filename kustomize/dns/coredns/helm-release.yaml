@@ -12,12 +12,15 @@ spec:
     spec:
       chart: coredns
       # renovate: datasource=helm depName=coredns package=coredns helmRepo=https://coredns.github.io/helm
-      version: 1.42.2
+      version: 1.45.0
       sourceRef: 
         kind: HelmRepository
         name: coredns
         namespace: system-gitops
   values:
+    image:
+      # renovate: datasource=docker depName=coredns/coredns package=coredns/coredns
+      tag: 1.14.0@sha256:4fbdd8fb53c5d1748aeb98f0799798fb073bb11128c13e8415aa254ad1ae0203
     isClusterService: false
     extraVolumes: []
     extraVolumeMounts: []

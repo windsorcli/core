@@ -3,7 +3,10 @@ kind: Job
 metadata:
   name: generate-minio-root-creds
   namespace: system-object-store
+  annotations:
+    kustomize.toolkit.fluxcd.io/force: enabled
 spec:
+  ttlSecondsAfterFinished: 86400
   template:
     spec:
       restartPolicy: Never
@@ -14,9 +17,9 @@ spec:
         runAsGroup: 1000
       containers:
       - name: generate-creds
-        # renovate: datasource=docker depName=kubectl package=bitnami/kubectl
-        image: bitnami/kubectl:1.33.1
-        command: ["/bin/bash", "-c"]
+        # renovate: datasource=docker depName=kubectl package=alpine/k8s
+        image: alpine/k8s:1.35.0@sha256:18bc02c1e0df04451f4f9194eb7b7341c1165da5495459b52f85f72fb9545032
+        command: ["/bin/sh", "-c"]
         args:
         - |
           MINIO_ACCESS_KEY=$(openssl rand -hex 12);

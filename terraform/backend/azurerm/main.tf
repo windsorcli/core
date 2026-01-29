@@ -2,7 +2,7 @@ terraform {
   required_providers {
     azurerm = {
       source  = "hashicorp/azurerm"
-      version = "4.30.0"
+      version = "4.57.0"
     }
   }
 }
@@ -124,7 +124,7 @@ resource "local_file" "backend_config" {
     storage_account_name = azurerm_storage_account.this.name
     container_name       = azurerm_storage_container.this.name
   })
-  filename = "${var.context_path}/terraform/backend.tfvars"
+  filename = "${var.context_path}/backend.tfvars"
 }
 
 # User-assigned identity for CMK

@@ -4,7 +4,7 @@ terraform {
   required_providers {
     aws = {
       source  = "hashicorp/aws"
-      version = "5.98.0"
+      version = "6.28.0"
     }
   }
 }
@@ -21,10 +21,6 @@ provider "aws" {
   }
 }
 
-locals {
-  name        = var.cluster_name != "" ? var.cluster_name : "cluster-${var.context_id}"
-  kms_key_arn = var.enable_secrets_encryption ? (var.secrets_encryption_kms_key_id != null ? var.secrets_encryption_kms_key_id : (length(aws_kms_key.eks_encryption_key) > 0 ? aws_kms_key.eks_encryption_key[0].arn : null)) : null
-}
 
 #-----------------------------------------------------------------------------------------------------------------------
 # Data
@@ -50,6 +46,16 @@ data "aws_subnets" "private" {
 }
 
 data "aws_region" "current" {}
+
+locals {
+  name        = var.cluster_name != "" ? var.cluster_name : "cluster-${var.context_id}"
+  kms_key_arn = var.enable_secrets_encryption ? (var.secrets_encryption_kms_key_id != null ? var.secrets_encryption_kms_key_id : (length(aws_kms_key.eks_encryption_key) > 0 ? aws_kms_key.eks_encryption_key[0].arn : null)) : null
+  ebs_kms_key_id = var.enable_ebs_encryption ? (
+    var.ebs_volume_kms_key_id != null ? var.ebs_volume_kms_key_id : (
+      length(aws_kms_key.ebs_encryption_key) > 0 ? aws_kms_key.ebs_encryption_key[0].key_id : null
+    )
+  ) : null
+}
 
 #-----------------------------------------------------------------------------------------------------------------------
 # EKS Cluster
@@ -89,6 +95,7 @@ resource "null_resource" "delete_eks_log_group" {
 resource "aws_eks_cluster" "main" {
   # checkov:skip=CKV_AWS_38: Public access set via a variable.
   # checkov:skip=CKV_AWS_39: Public access set via a variable.
+  # checkov:skip=CKV_AWS_339: Kubernetes version is populated from the cloud provider's stable version via Renovate.
   name     = local.name
   role_arn = aws_iam_role.cluster.arn
   version  = var.kubernetes_version
@@ -144,7 +151,7 @@ resource "aws_security_group" "cluster_api_access" {
 resource "aws_kms_key" "eks_encryption_key" {
   count                   = var.enable_secrets_encryption && var.secrets_encryption_kms_key_id == null ? 1 : 0
   description             = "KMS key for EKS cluster ${local.name} secrets encryption"
-  deletion_window_in_days = 7
+  deletion_window_in_days = var.kms_key_deletion_window_in_days
   enable_key_rotation     = true
 
   policy = jsonencode({
@@ -180,7 +187,7 @@ resource "aws_kms_key" "eks_encryption_key" {
           Sid    = "Allow CloudWatch Logs to use the key",
           Effect = "Allow",
           Principal = {
-            Service = "logs.${data.aws_region.current.name}.amazonaws.com"
+            Service = "logs.${data.aws_region.current.region}.amazonaws.com"
           },
           Action = [
             "kms:Encrypt",
@@ -199,6 +206,71 @@ resource "aws_kms_alias" "eks_encryption_key" {
   count         = var.enable_secrets_encryption && var.secrets_encryption_kms_key_id == null ? 1 : 0
   name          = "alias/${local.name}-eks-encryption"
   target_key_id = aws_kms_key.eks_encryption_key[0].key_id
+}
+
+resource "aws_kms_key" "ebs_encryption_key" {
+  count                   = var.enable_ebs_encryption && var.ebs_volume_kms_key_id == null ? 1 : 0
+  description             = "KMS key for EKS cluster ${local.name} EBS volume encryption"
+  deletion_window_in_days = var.kms_key_deletion_window_in_days
+  enable_key_rotation     = true
+
+  policy = jsonencode({
+    Version = "2012-10-17",
+    Statement = [
+      {
+        Sid    = "Enable IAM User Permissions",
+        Effect = "Allow",
+        Principal = {
+          AWS = "arn:aws:iam::${data.aws_caller_identity.current.account_id}:root"
+        },
+        Action   = "kms:*",
+        Resource = "*"
+      },
+      {
+        Sid    = "Allow EC2 to use the key for EBS volume encryption",
+        Effect = "Allow",
+        Principal = {
+          Service = "ec2.amazonaws.com"
+        },
+        Action = [
+          "kms:Encrypt",
+          "kms:Decrypt",
+          "kms:ReEncrypt*",
+          "kms:GenerateDataKey*",
+          "kms:DescribeKey",
+          "kms:CreateGrant"
+        ],
+        Resource = "*"
+      },
+      {
+        Sid    = "Allow service-linked roles to use the key",
+        Effect = "Allow",
+        Principal = {
+          AWS = "*"
+        },
+        Action = [
+          "kms:Encrypt",
+          "kms:Decrypt",
+          "kms:ReEncrypt*",
+          "kms:GenerateDataKey*",
+          "kms:DescribeKey",
+          "kms:CreateGrant"
+        ],
+        Resource = "*",
+        Condition = {
+          StringLike = {
+            "aws:PrincipalArn" = "arn:aws:iam::${data.aws_caller_identity.current.account_id}:role/aws-service-role/*"
+          }
+        }
+      }
+    ]
+  })
+}
+
+resource "aws_kms_alias" "ebs_encryption_key" {
+  count         = var.enable_ebs_encryption && var.ebs_volume_kms_key_id == null ? 1 : 0
+  name          = "alias/${local.name}-ebs-encryption"
+  target_key_id = aws_kms_key.ebs_encryption_key[0].key_id
 }
 
 data "aws_caller_identity" "current" {}
@@ -273,11 +345,11 @@ resource "aws_iam_role_policy_attachment" "node_group_AmazonEC2ContainerRegistry
 resource "aws_eks_node_group" "main" {
   for_each = var.node_groups
 
-  cluster_name    = aws_eks_cluster.main.name
-  node_group_name = each.key
-  node_role_arn   = aws_iam_role.node_group.arn
-  subnet_ids      = data.aws_subnets.private.ids
-  instance_types  = each.value.instance_types
+  cluster_name           = aws_eks_cluster.main.name
+  node_group_name_prefix = "${each.key}-"
+  node_role_arn          = aws_iam_role.node_group.arn
+  subnet_ids             = data.aws_subnets.private.ids
+  instance_types         = each.value.instance_types
 
   scaling_config {
     desired_size = each.value.desired_size
@@ -296,9 +368,8 @@ resource "aws_eks_node_group" "main" {
 
   labels = each.value.labels
 
-  # Set max pods per node to 64
   launch_template {
-    name    = aws_launch_template.node_group[each.key].name
+    id      = aws_launch_template.node_group[each.key].id
     version = aws_launch_template.node_group[each.key].latest_version
   }
 
@@ -310,19 +381,25 @@ resource "aws_eks_node_group" "main" {
 
   lifecycle {
     create_before_destroy = true
+    ignore_changes = [
+      scaling_config[0].desired_size,
+    ]
   }
 }
 
 resource "aws_launch_template" "node_group" {
   for_each = var.node_groups
 
-  name = "${local.name}-${each.key}"
+  name_prefix            = "${local.name}-${each.key}-"
+  update_default_version = true
 
   block_device_mappings {
     device_name = "/dev/xvda"
     ebs {
       volume_size           = each.value.disk_size
       volume_type           = "gp3"
+      encrypted             = var.enable_ebs_encryption
+      kms_key_id            = local.ebs_kms_key_id
       delete_on_termination = true
     }
   }
@@ -745,7 +822,7 @@ resource "local_sensitive_file" "kubeconfig" {
     cluster_name     = aws_eks_cluster.main.name
     cluster_endpoint = aws_eks_cluster.main.endpoint
     cluster_ca       = aws_eks_cluster.main.certificate_authority[0].data
-    region           = data.aws_region.current.name
+    region           = data.aws_region.current.region
   })
   filename        = local.kubeconfig_path
   file_permission = "0600"

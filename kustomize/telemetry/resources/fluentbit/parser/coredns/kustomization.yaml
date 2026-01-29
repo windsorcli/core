@@ -1,0 +1,18 @@
+apiVersion: kustomize.config.k8s.io/v1alpha1
+kind: Component
+
+# CoreDNS log parser
+# Matches: coredns pods in kube-system
+# Format: [INFO] plugin/kubernetes: message
+#         [INFO] 10.244.0.56:49016 - 44622 "A IN example.com..." NXDOMAIN ...
+
+resources:
+  - fluentbit-clusterfilter.yaml
+
+configMapGenerator:
+  - name: fluent-bit-coredns-config
+    namespace: system-telemetry
+    files:
+      - coredns.lua
+    options:
+      disableNameSuffixHash: true

@@ -1,0 +1,13 @@
+# Flux Grafana Dashboards
+# Run: task dashboards
+#
+# Note: fluxcd/flux2-monitoring-example does not publish semver releases.
+# Tracking main branch commit SHA. Review changes on update.
+
+upstream:
+  # renovate: datasource=git-refs depName=fluxcd/flux2-monitoring-example packageName=https://github.com/fluxcd/flux2-monitoring-example
+  url: https://raw.githubusercontent.com/fluxcd/flux2-monitoring-example/82c37257787bba13a40b17bed9bd8191ee7aa049/monitoring/configs/dashboards
+
+files:
+  - name: control-plane.json
+  - name: cluster.json

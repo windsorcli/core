@@ -17,6 +17,11 @@ mock_provider "aws" {
       ids = ["subnet-12345678", "subnet-87654321", "subnet-11223344"]
     }
   }
+  mock_data "aws_region" {
+    defaults = {
+      name = "us-west-2"
+    }
+  }
 }
 
 # Verifies that the module creates an EKS cluster with minimal configuration,
@@ -25,7 +30,8 @@ run "minimal_configuration" {
   command = plan
 
   variables {
-    context_id = "test"
+    context_id         = "test"
+    kubernetes_version = "1.32"
   }
 
   assert {
@@ -39,8 +45,8 @@ run "minimal_configuration" {
   }
 
   assert {
-    condition     = aws_eks_node_group.main["default"].node_group_name == "default"
-    error_message = "Default node group should use 'default' name"
+    condition     = startswith(aws_eks_node_group.main["default"].node_group_name_prefix, "default-")
+    error_message = "Default node group should use 'default-' name prefix for create_before_destroy support"
   }
 
   assert {
@@ -72,6 +78,21 @@ run "minimal_configuration" {
     condition     = aws_eks_cluster.main.vpc_config[0].endpoint_public_access == true
     error_message = "Public endpoint should be enabled by default"
   }
+
+  assert {
+    condition     = var.enable_ebs_encryption == true
+    error_message = "enable_ebs_encryption should default to true"
+  }
+
+  assert {
+    condition     = aws_launch_template.node_group["default"].block_device_mappings[0].ebs[0].encrypted == "true"
+    error_message = "EBS volumes should be encrypted by default"
+  }
+
+  assert {
+    condition     = length(aws_kms_key.ebs_encryption_key) == 1
+    error_message = "EBS encryption key should be created when enable_ebs_encryption is true and no key is provided"
+  }
 }
 
 run "minimal_configuration_cloudwatch_logs_disabled" {
@@ -79,6 +100,8 @@ run "minimal_configuration_cloudwatch_logs_disabled" {
 
   variables {
     context_id             = "test"
+    cluster_name           = "windsor-eks"
+    kubernetes_version     = "1.32"
     enable_cloudwatch_logs = false
   }
 
@@ -129,12 +152,13 @@ run "full_configuration" {
         desired_size   = 3
       }
     }
-    endpoint_private_access           = true
-    endpoint_public_access            = true
-    cluster_api_access_cidr_block     = "10.0.0.0/8"
-    enable_secrets_encryption         = true
-    create_secrets_encryption_kms_key = false
-    secrets_encryption_kms_key_id     = "arn:aws:kms:us-west-2:123456789012:key/abcd1234-5678-90ab-cdef-1234567890ab"
+    endpoint_private_access       = true
+    endpoint_public_access        = true
+    cluster_api_access_cidr_block = "10.0.0.0/8"
+    enable_secrets_encryption     = true
+    secrets_encryption_kms_key_id = "arn:aws:kms:us-west-2:123456789012:key/abcd1234-5678-90ab-cdef-1234567890ab"
+    enable_ebs_encryption         = true
+    ebs_volume_kms_key_id         = "arn:aws:kms:us-west-2:123456789012:key/abcd1234-5678-90ab-cdef-1234567890ab"
   }
 
   assert {
@@ -148,8 +172,8 @@ run "full_configuration" {
   }
 
   assert {
-    condition     = aws_eks_node_group.main["system"].node_group_name == "system"
-    error_message = "Default node group name should match input"
+    condition     = startswith(aws_eks_node_group.main["system"].node_group_name_prefix, "system-")
+    error_message = "System node group should use 'system-' name prefix for create_before_destroy support"
   }
 
   assert {
@@ -178,8 +202,8 @@ run "full_configuration" {
   }
 
   assert {
-    condition     = aws_eks_node_group.main["workload"].node_group_name == "workload"
-    error_message = "Additional node group name should match input"
+    condition     = startswith(aws_eks_node_group.main["workload"].node_group_name_prefix, "workload-")
+    error_message = "Workload node group should use 'workload-' name prefix for create_before_destroy support"
   }
 
   assert {
@@ -225,23 +249,33 @@ run "full_configuration" {
   }
 
   assert {
-    condition     = var.create_secrets_encryption_kms_key == false
-    error_message = "create_secrets_encryption_kms_key should be false"
-  }
-
-  assert {
     condition     = var.secrets_encryption_kms_key_id == "arn:aws:kms:us-west-2:123456789012:key/abcd1234-5678-90ab-cdef-1234567890ab"
     error_message = "secrets_encryption_kms_key_id should match input"
   }
 
   assert {
     condition     = length(aws_kms_key.eks_encryption_key) == 0
-    error_message = "No internal KMS key should be created when create_secrets_encryption_kms_key is false"
+    error_message = "No internal KMS key should be created when secrets_encryption_kms_key_id is provided"
   }
 
   assert {
     condition     = aws_eks_cluster.main.encryption_config[0].provider[0].key_arn == var.secrets_encryption_kms_key_id
     error_message = "Cluster encryption_config should use the provided external KMS key ARN"
+  }
+
+  assert {
+    condition     = aws_launch_template.node_group["system"].block_device_mappings[0].ebs[0].encrypted == "true"
+    error_message = "EBS volumes should be encrypted when enable_ebs_encryption is true"
+  }
+
+  assert {
+    condition     = aws_launch_template.node_group["system"].block_device_mappings[0].ebs[0].kms_key_id == var.ebs_volume_kms_key_id
+    error_message = "EBS volumes should use the provided KMS key"
+  }
+
+  assert {
+    condition     = length(aws_kms_key.ebs_encryption_key) == 0
+    error_message = "No EBS encryption key should be created when a key is provided"
   }
 }
 
@@ -306,5 +340,15 @@ run "use_existing_kms_key" {
   assert {
     condition     = length(aws_eks_cluster.main.encryption_config) == 1 ? aws_eks_cluster.main.encryption_config[0].provider[0].key_arn == var.secrets_encryption_kms_key_id : true
     error_message = "Cluster should use the provided KMS key ARN if encryption_config is present"
+  }
+}
+
+run "multiple_invalid_inputs" {
+  command = plan
+  expect_failures = [
+    var.kubernetes_version,
+  ]
+  variables {
+    kubernetes_version = "v1.32"
   }
 }

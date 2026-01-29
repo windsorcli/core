@@ -7,16 +7,30 @@ terraform {
   required_providers {
     kubernetes = {
       source  = "hashicorp/kubernetes"
-      version = "2.37.1"
+      version = "3.0.1"
+    }
+    helm = {
+      source  = "hashicorp/helm"
+      version = "3.1.1"
     }
   }
+}
+
+#-----------------------------------------------------------------------------------------------------------------------
+# Locals
+#-----------------------------------------------------------------------------------------------------------------------
+
+locals {
+  # Requeue dependency interval scales inversely with concurrency
+  # Higher concurrency = shorter interval, lower = longer to reduce pressure
+  requeue_interval = var.concurrency <= 3 ? "15s" : (var.concurrency <= 5 ? "10s" : "5s")
 }
 
 #-----------------------------------------------------------------------------------------------------------------------
 # Set up Flux
 #-----------------------------------------------------------------------------------------------------------------------
 
-resource "kubernetes_namespace" "flux_system" {
+resource "kubernetes_namespace_v1" "flux_system" {
   metadata {
     name = var.flux_namespace
     labels = {
@@ -37,15 +51,15 @@ resource "helm_release" "flux_system" {
   chart            = "flux2"
   name             = "flux2"
   version          = var.flux_helm_version
-  namespace        = kubernetes_namespace.flux_system.metadata[0].name
+  namespace        = kubernetes_namespace_v1.flux_system.metadata[0].name
   create_namespace = false
   wait             = true
   values = [yamlencode({
     kustomizeController = {
       container = {
         additionalArgs = [
-          "--concurrent=10",
-          "--requeue-dependency=5s"
+          "--concurrent=${var.concurrency}",
+          "--requeue-dependency=${local.requeue_interval}"
         ]
         resources = {
           limits = {
@@ -57,16 +71,16 @@ resource "helm_release" "flux_system" {
     helmController = {
       container = {
         additionalArgs = [
-          "--concurrent=10",
-          "--requeue-dependency=5s"
+          "--concurrent=${max(2, var.concurrency - 1)}",
+          "--requeue-dependency=${local.requeue_interval}"
         ]
       }
     }
     sourceController = {
       container = {
         additionalArgs = [
-          "--concurrent=10",
-          "--requeue-dependency=5s",
+          "--concurrent=${var.concurrency}",
+          "--requeue-dependency=${local.requeue_interval}",
           "--helm-cache-max-size=10",
           "--helm-cache-ttl=60m",
           "--helm-cache-purge-interval=5m"
@@ -87,10 +101,10 @@ locals {
   known_hosts_content = "${var.ssh_known_hosts}\n${local.known_hosts.github}"
 }
 
-resource "kubernetes_secret" "git_auth" {
+resource "kubernetes_secret_v1" "git_auth" {
   metadata {
     name      = var.git_auth_secret
-    namespace = kubernetes_namespace.flux_system.metadata[0].name
+    namespace = kubernetes_namespace_v1.flux_system.metadata[0].name
   }
 
   data = var.ssh_public_key != "" ? {
@@ -108,13 +122,32 @@ resource "kubernetes_secret" "git_auth" {
 # Set up webhook token
 #-----------------------------------------------------------------------------------------------------------------------
 
-resource "kubernetes_secret" "webhook_token" {
+resource "kubernetes_secret_v1" "webhook_token" {
   metadata {
     name      = "webhook-token"
-    namespace = kubernetes_namespace.flux_system.metadata[0].name
+    namespace = kubernetes_namespace_v1.flux_system.metadata[0].name
   }
 
   data = {
     token = var.webhook_token
   }
+}
+
+#-----------------------------------------------------------------------------------------------------------------------
+# State migration blocks
+#-----------------------------------------------------------------------------------------------------------------------
+
+moved {
+  from = kubernetes_namespace.flux_system
+  to   = kubernetes_namespace_v1.flux_system
+}
+
+moved {
+  from = kubernetes_secret.git_auth
+  to   = kubernetes_secret_v1.git_auth
+}
+
+moved {
+  from = kubernetes_secret.webhook_token
+  to   = kubernetes_secret_v1.webhook_token
 }

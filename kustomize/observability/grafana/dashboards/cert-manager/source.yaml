@@ -1,0 +1,12 @@
+# Cert-Manager Grafana Dashboards
+# Run: task dashboards
+#
+# Note: monitoring-mixins/website does not publish semver releases.
+# Tracking master branch commit SHA. Review changes on update.
+
+upstream:
+  # renovate: datasource=git-refs depName=monitoring-mixins/website packageName=https://github.com/monitoring-mixins/website
+  url: https://raw.githubusercontent.com/monitoring-mixins/website/49f393535f2a88a5f5f3c1a281797beb83f3d214/assets/cert-manager/dashboards
+
+files:
+  - name: cert-manager-overview.json

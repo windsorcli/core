@@ -44,6 +44,21 @@ run "minimal_configuration" {
     condition     = length(azurerm_nat_gateway.main) == 1
     error_message = "One NAT Gateway should be created by default"
   }
+
+  assert {
+    condition     = length(azurerm_route_table.private) == 1
+    error_message = "One route table should be created for private subnets by default"
+  }
+
+  assert {
+    condition     = length(azurerm_subnet_route_table_association.private) == 1
+    error_message = "One route table association should be created for private subnets by default"
+  }
+
+  assert {
+    condition     = azurerm_route_table.private[0].name == "windsor-vnet-private-1-test"
+    error_message = "Route table name should follow naming convention"
+  }
 }
 
 # Tests a full configuration with all optional variables explicitly set.
@@ -99,6 +114,26 @@ run "full_configuration" {
   assert {
     condition     = length(azurerm_nat_gateway.main) == 2
     error_message = "Two NAT Gateways should be created"
+  }
+
+  assert {
+    condition     = length(azurerm_route_table.private) == 2
+    error_message = "Two route tables should be created for private subnets"
+  }
+
+  assert {
+    condition     = length(azurerm_subnet_route_table_association.private) == 2
+    error_message = "Two route table associations should be created for private subnets"
+  }
+
+  assert {
+    condition     = azurerm_route_table.private[0].name == "custom-private-1-test"
+    error_message = "First route table name should follow naming convention"
+  }
+
+  assert {
+    condition     = azurerm_route_table.private[1].name == "custom-private-2-test"
+    error_message = "Second route table name should follow naming convention"
   }
 }
 
@@ -190,6 +225,31 @@ run "automatic_subnet_creation" {
   assert {
     condition     = azurerm_subnet.public[2].address_prefixes[0] == "10.0.53.0/24"
     error_message = "Third public subnet should be 10.0.53.0/24"
+  }
+
+  assert {
+    condition     = length(azurerm_route_table.private) == 3
+    error_message = "Three route tables should be created for private subnets when vnet_zones is 3"
+  }
+
+  assert {
+    condition     = length(azurerm_subnet_route_table_association.private) == 3
+    error_message = "Three route table associations should be created for private subnets when vnet_zones is 3"
+  }
+
+  assert {
+    condition     = azurerm_route_table.private[0].name == "test-network-private-1-test"
+    error_message = "First route table name should follow naming convention"
+  }
+
+  assert {
+    condition     = azurerm_route_table.private[1].name == "test-network-private-2-test"
+    error_message = "Second route table name should follow naming convention"
+  }
+
+  assert {
+    condition     = azurerm_route_table.private[2].name == "test-network-private-3-test"
+    error_message = "Third route table name should follow naming convention"
   }
 }
 

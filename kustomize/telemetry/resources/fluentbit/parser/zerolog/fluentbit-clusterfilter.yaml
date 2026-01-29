@@ -1,0 +1,17 @@
+apiVersion: fluentbit.fluent.io/v1alpha2
+kind: ClusterFilter
+metadata:
+  labels:
+    fluentbit.fluent.io/component: logging
+    fluentbit.fluent.io/enabled: "true"
+  name: zerolog
+spec:
+  ordinal: 35
+  match: kube.*
+  filters:
+  - lua:
+      call: parse_zerolog
+      script:
+        key: zerolog.lua
+        name: fluent-bit-zerolog-config
+      timeAsTable: true

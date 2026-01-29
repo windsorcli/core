@@ -1,13 +1,25 @@
 version: '3'
 
 tasks:
+  dashboards:
+    desc: Download, patch, and validate vendored dashboards from source.yaml files
+    cmds:
+      - scripts/vendor-dashboards.sh
+
   scan:
     desc: Scan for security vulnerabilities
     silent: true
     cmds:
       - cmd: source .venv/bin/activate && checkov -d {{.CLI_ARGS | default "terraform/"}} 2>/dev/null
 
-  terraform-test:
+  test:
+    desc: Run all tests (Terraform and Blueprint)
+    silent: true
+    cmds:
+      - task: test:terraform
+      - task: test:blueprint
+
+  test:terraform:
     desc: Run Terraform tests (all or specific module)
     silent: true
     cmds:
@@ -23,8 +35,16 @@ tasks:
                 cd "$testdir" && \
                 echo "Running tests in $testdir..." && \
                 terraform init -input=false -reconfigure && \
-                terraform test || \
-                echo "FAILED: $testfile" >> "$TEMP_DIR/failures"
+                OUTPUT=$(terraform test -no-color 2>&1)
+                TEST_EXIT=$?
+                echo "$OUTPUT"
+                if [ $TEST_EXIT -ne 0 ]; then
+                  echo "FAILED: $testfile" >> "$TEMP_DIR/failures"
+                fi
+                # Check for warnings (case-insensitive)
+                if echo "$OUTPUT" | grep -qi "Warning:"; then
+                  echo "WARNINGS: $testfile" >> "$TEMP_DIR/warnings"
+                fi
               ) &
             done
             # Wait for all background jobs to complete
@@ -36,15 +56,24 @@ tasks:
               rm -rf "$TEMP_DIR"
               exit 1
             fi
+            # Check if any warnings were found
+            if [ -f "$TEMP_DIR/warnings" ]; then
+              echo "Tests completed with warnings:"
+              cat "$TEMP_DIR/warnings"
+              rm -rf "$TEMP_DIR"
+              exit 1
+            fi
             rm -rf "$TEMP_DIR"
           else
             echo "Module path '$MODULE' does not exist."
             exit 1
           fi
 
-  test:
-    desc: Run all tests
-    deps: [terraform-test]
+  test:blueprint:
+    desc: Run Windsor blueprint tests
+    silent: true
+    cmds:
+      - windsor test
 
   fmt:
     desc: Check Terraform formatting

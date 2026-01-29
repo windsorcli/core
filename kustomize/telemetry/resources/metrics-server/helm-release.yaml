@@ -5,15 +5,18 @@ metadata:
   namespace: system-telemetry
 spec:
   interval: 5m
-  timeout: 5m
+  timeout: 10m
   chart:
     spec:
       chart: metrics-server
       # renovate: datasource=helm depName=metrics-server package=metrics-server helmRepo=https://kubernetes-sigs.github.io/metrics-server/
-      version: 3.12.2
+      version: 3.13.0
       sourceRef:
         kind: HelmRepository
         name: metrics-server
         namespace: system-gitops
   values:
+    image:
+      # renovate: datasource=docker depName=registry.k8s.io/metrics-server/metrics-server package=registry.k8s.io/metrics-server/metrics-server
+      tag: v0.8.0@sha256:89258156d0e9af60403eafd44da9676fd66f600c7934d468ccc17e42b199aee2
     args: []

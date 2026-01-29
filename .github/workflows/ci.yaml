@@ -4,6 +4,8 @@ on:
   push:
     branches:
       - main
+    tags:
+      - 'v*.*.*'
   pull_request:
     branches:
       - main
@@ -12,14 +14,15 @@ permissions:
   contents: write
   security-events: write
   checks: write
+  packages: write
 
 env:
   WINDSOR_PROJECT_ROOT: ${{ github.workspace }}
   DOCKER_HOST: unix:///var/run/docker.sock
   # renovate: datasource=github-releases depName=docker-compose package=docker/compose
-  DOCKER_COMPOSE_VERSION: v2.36.2
+  DOCKER_COMPOSE_VERSION: v5.0.1
   # renovate: datasource=github-releases depName=troubleshoot package=replicatedhq/troubleshoot
-  SUPPORT_BUNDLE_VERSION: v0.119.0
+  SUPPORT_BUNDLE_VERSION: v0.123.16
 
 jobs:
   code-checks:
@@ -27,7 +30,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code
-        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
 
       - name: Install Docker Compose
         run: |
@@ -44,7 +47,7 @@ jobs:
           echo "1" | sudo tee /proc/sys/net/bridge/bridge-nf-call-ip6tables
 
       - name: Set up Python
-        uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5.6.0
+        uses: actions/setup-python@83679a892e2d95755f2dac6acb0bfd1e9ac5d548 # v6.1.0
         with:
           python-version: '3.x'
 
@@ -56,42 +59,88 @@ jobs:
       - name: Run shellcheck
         run: |
           sudo apt-get install -y shellcheck
-          find . -name "*.sh" -print0 | xargs -0 shellcheck
+          shell_files=$(find . -name "*.sh" -print)
+          if [ -n "$shell_files" ]; then
+            echo "$shell_files" | xargs shellcheck
+          else
+            echo "No shell scripts found to check"
+          fi
 
       - name: Setup Terraform
         uses: hashicorp/setup-terraform@b9cd54a3c349d3f38e8881555d616ced269862dd # v3.1.2
         with:
           # renovate: datasource=github-releases depName=terraform package=hashicorp/terraform
-          terraform_version: 1.12.1
+          terraform_version: 1.14.3
 
       - name: Run terraform fmt
         run: terraform fmt -check -recursive
 
-      - name: Run Terraform Tests
+      - name: Install Task
+        uses: go-task/setup-task@0ab1b2a65bc55236a3bc64cde78f80e20e8885c2 # v1.0.0
+        with:
+          version: 3.x
+
+      - name: Validate vendored assets
         run: |
-          find terraform -type f -name '*.tftest.hcl' | while read testfile; do
-            testdir=$(dirname "$testfile")
-            (cd "$testdir" && terraform init -input=false && terraform test)
-          done
+          # Regenerate vendored files from source.yaml definitions and validate
+          task dashboards
+          
+          # Check if any files changed or new files created
+          if ! git diff --quiet || [ -n "$(git status --porcelain)" ]; then
+            echo "::error::Vendored files are out of sync with source.yaml"
+            echo ""
+            echo "Changed/untracked files:"
+            git status --short
+            echo ""
+            echo "Run 'task dashboards' locally and commit the changes."
+            exit 1
+          fi
 
       - name: Checkov GitHub Action
-        uses: bridgecrewio/checkov-action@16c078443ac4b4b1f694817dff28944de3d2a1ca # v12.3025.0
+        uses: bridgecrewio/checkov-action@68260132005eaae0e6f84c7a73cc3b1532f678bf # v12.3058.0
         with:
           directory: ./terraform
           output_format: cli,sarif
           output_file_path: console,results.sarif
 
       - name: Upload SARIF file
-        uses: github/codeql-action/upload-sarif@ff0a06e83cb2de871e5a09832bc6a81e7276941f # v3.28.18
+        uses: github/codeql-action/upload-sarif@5d4e8d1aca955e8d8589aabd499c5cae939e33c7 # v4.31.9
         with:
           sarif_file: results.sarif
+
+  tests:
+    name: Tests
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@b9cd54a3c349d3f38e8881555d616ced269862dd # v3.1.2
+        with:
+          # renovate: datasource=github-releases depName=terraform package=hashicorp/terraform
+          terraform_version: 1.14.3
+
+      - name: Install Windsor CLI
+        uses: windsorcli/action@a829ee3c5d9826fd0b31d5e730edcd515644d866 # v0.5.1
+        with:
+          ref: main
+          context: local
+
+      - name: Install Task
+        uses: go-task/setup-task@0ab1b2a65bc55236a3bc64cde78f80e20e8885c2 # v1.0.0
+        with:
+          version: 3.x
+
+      - name: Run Tests
+        run: task test
 
   integration:
     name: Integration Tests
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code
-        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
 
       - name: Install Docker Compose
         run: |
@@ -106,17 +155,39 @@ jobs:
           echo "1" | sudo tee /proc/sys/net/bridge/bridge-nf-call-iptables
           echo "1" | sudo tee /proc/sys/net/bridge/bridge-nf-call-ip6tables
 
+      - name: Configure Docker for increased storage
+        run: |
+          # Move Docker's data root to /mnt which has 66GB available (vs ~10GB on default location)
+          # This increases Docker's storage capacity from ~10GB to ~66GB
+          sudo mkdir -p /mnt/docker-data
+          sudo mkdir -p /etc/docker
+          # Configure Docker to use /mnt for data storage and limit log growth
+          echo '{
+            "data-root": "/mnt/docker-data",
+            "log-driver": "json-file",
+            "log-opts": {
+              "max-size": "10m",
+              "max-file": "3"
+            }
+          }' | sudo tee /etc/docker/daemon.json
+          # Restart Docker to apply new data-root configuration
+          sudo systemctl restart docker || sudo service docker restart || true
+          # Wait for Docker to be ready
+          timeout 30 bash -c 'until docker info > /dev/null 2>&1; do sleep 1; done' || true
+          # Verify Docker is using the new data-root
+          docker info | grep "Docker Root Dir" || true
+
       - name: Setup Terraform
         uses: hashicorp/setup-terraform@b9cd54a3c349d3f38e8881555d616ced269862dd # v3.1.2
         with:
           # renovate: datasource=github-releases depName=terraform package=hashicorp/terraform
-          terraform_version: 1.12.1
+          terraform_version: 1.14.3
 
       - name: Setup kubectl
-        uses: azure/setup-kubectl@3e0aec4d80787158d308d7b364cb1b702e7feb7f # v4.0.0
+        uses: azure/setup-kubectl@776406bce94f63e41d621b960d78ee25c8b76ede # v4.0.1
         with:
           # renovate: datasource=github-releases depName=kubectl package=kubernetes/kubectl
-          version: v1.33.0
+          version: v1.34.1
 
       - name: Install support-bundle CLI
         run: |
@@ -132,7 +203,7 @@ jobs:
         run: mkdir -p support-bundles
 
       - name: Install Windsor CLI
-        uses: windsorcli/action@main
+        uses: windsorcli/action@a829ee3c5d9826fd0b31d5e730edcd515644d866 # v0.5.1
         with:
           ref: main
           context: local
@@ -141,7 +212,7 @@ jobs:
         run: mkdir -p .windsor/.docker-cache
 
       - name: Cache .docker-cache
-        uses: actions/cache@5a3ec84eff668545956fd18022155c47e93e2684 # v4.2.3
+        uses: actions/cache@9255dc7a253b0ccc959486e2bca901246202afeb # v5.0.1
         with:
           path: .windsor/.docker-cache
           key: docker-cache-${{ runner.os }}-${{ github.sha }}
@@ -149,13 +220,35 @@ jobs:
 
       - name: Windsor Up
         run: |
-          windsor init local --set dns.enabled=false
+          # Clean up any existing configuration
+          rm -f contexts/local/windsor.yaml
+          rm -rf .windsor
+          
+          # Initialize and start Windsor
+          windsor init local --set dns.enabled=false --reset
           windsor up --install --verbose --wait
 
       - name: Collect Windsor State
         if: always()
         run: |
           tar --exclude='.docker-cache' --exclude='.terraform' -czf support-bundles/windsor-state.tar.gz contexts/local .windsor
+
+      - name: Collect Talos Diagnostics
+        if: always()
+        run: |
+          # Install talosctl if not available
+          if ! command -v talosctl &> /dev/null; then
+            echo "Installing talosctl..."
+            cd "$(mktemp -d)" &&
+            curl -fsSLO "https://github.com/siderolabs/talos/releases/latest/download/talosctl-linux-amd64" &&
+            chmod +x talosctl-linux-amd64 &&
+            sudo mv talosctl-linux-amd64 /usr/local/bin/talosctl &&
+            cd - &&
+            rm -rf "$OLDPWD"
+          fi
+          
+          # Run talos diagnostics collection within Windsor environment
+          windsor exec -- .github/scripts/collect-talos-diagnostics.sh support-bundles/talos-diagnostics
 
       - name: Collect support bundle
         if: always()
@@ -164,7 +257,7 @@ jobs:
 
       - name: Upload support bundle
         if: always()
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6
         with:
           name: support-bundle-local
           path: support-bundles/
@@ -174,3 +267,44 @@ jobs:
         if: always()
         run: |
           windsor down
+
+  publish:
+    name: Publish OCI Package
+    runs-on: ubuntu-latest
+    needs: integration
+    if: (startsWith(github.ref, 'refs/tags/v') || github.ref == 'refs/heads/main') && needs.integration.result == 'success'
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@b9cd54a3c349d3f38e8881555d616ced269862dd # v3.1.2
+        with:
+          # renovate: datasource=github-releases depName=terraform package=hashicorp/terraform
+          terraform_version: 1.14.3
+
+      - name: Install Windsor CLI
+        uses: windsorcli/action@a829ee3c5d9826fd0b31d5e730edcd515644d866 # v0.5.1
+        with:
+          ref: main
+          context: local
+
+      - name: Login to GitHub Container Registry
+        uses: docker/login-action@5e57cd118135c172c3672efd75eb46360885c0ef # v3.6.0
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Publish to OCI Registry
+        env:
+          TAG: ${{ github.ref_name }}
+        run: |
+          windsor push oci://ghcr.io/windsorcli/core:${TAG}
+
+      - name: Publish Latest Tag
+        if: github.ref == 'refs/heads/main'
+        env:
+          TAG: latest
+        run: |
+          windsor push oci://ghcr.io/windsorcli/core:${TAG}

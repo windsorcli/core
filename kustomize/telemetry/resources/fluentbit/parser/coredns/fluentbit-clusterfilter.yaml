@@ -1,0 +1,17 @@
+apiVersion: fluentbit.fluent.io/v1alpha2
+kind: ClusterFilter
+metadata:
+  labels:
+    fluentbit.fluent.io/component: logging
+    fluentbit.fluent.io/enabled: "true"
+  name: coredns
+spec:
+  ordinal: 10
+  match: kube.*
+  filters:
+  - lua:
+      call: parse_coredns
+      script:
+        key: coredns.lua
+        name: fluent-bit-coredns-config
+      timeAsTable: true

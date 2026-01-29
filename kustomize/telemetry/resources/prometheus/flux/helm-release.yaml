@@ -10,12 +10,15 @@ spec:
     spec:
       chart: flux2
       # renovate: datasource=helm depName=flux package=flux2 helmRepo=https://fluxcd-community.github.io/helm-charts
-      version: 2.15.0
+      version: 2.17.2
       sourceRef:
         kind: HelmRepository
         name: fluxcd-community
         namespace: system-gitops
   values:
+    cli:
+      # renovate: datasource=docker depName=ghcr.io/fluxcd/flux-cli package=ghcr.io/fluxcd/flux-cli
+      tag: v2.7.5@sha256:3a4f9b0a26c26db8193c476e0abe33c32187eae8ce7a0a604d38a51783544946
     prometheus:
       podMonitor:
         create: true

@@ -1,0 +1,27 @@
+apiVersion: kustomize.config.k8s.io/v1alpha1
+kind: Component
+
+# Fluent Bit log parsers bundle
+#
+# Includes all format-specific parsers for structured OTEL log extraction.
+# Use `fluentbit/parser` in facets to include all parsers, or reference
+# individual parsers (e.g., `fluentbit/parser/klog`) for selective inclusion.
+#
+# Each parser sets:
+#   - body: The log message content
+#   - severity_text: String severity (INFO, WARN, ERROR, etc.)
+#   - severity_number: OTEL numeric severity (1-24)
+#   - attributes.*: Format-specific structured fields
+
+components:
+  - coredns
+  - klog
+  - json-structured
+  - zerolog
+  - logfmt
+  - rust-tracing
+  - nginx-access
+  - grpc
+  - fallback
+  - suppress
+  - service-name

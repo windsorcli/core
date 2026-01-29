@@ -1,0 +1,23 @@
+apiVersion: kustomize.config.k8s.io/v1alpha1
+kind: Component
+
+# Kubernetes dashboards - vendored
+# Run: task dashboards
+# See: source.yaml for provenance
+
+configMapGenerator:
+  - name: grafana-dashboards-kubernetes
+    namespace: system-observability
+    files:
+      - k8s-system-api-server.json
+      - k8s-system-coredns.json
+      - k8s-views-global.json
+      - k8s-views-namespaces.json
+      - k8s-views-nodes.json
+      - k8s-views-pods.json
+    options:
+      disableNameSuffixHash: true
+      labels:
+        grafana_dashboard: "1"
+      annotations:
+        grafana_folder: "System"

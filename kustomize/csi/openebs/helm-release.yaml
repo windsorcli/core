@@ -6,28 +6,46 @@ metadata:
   namespace: system-csi
 spec:
   interval: 5m
-  timeout: 5m
+  timeout: 20m
   chart:
     spec:
       chart: openebs
       # renovate: datasource=helm depName=openebs package=openebs helmRepo=https://openebs.github.io/openebs
-      version: 4.2.0
+      version: 4.4.0
       sourceRef:
         kind: HelmRepository
         name: openebs
         namespace: system-gitops
   values:
     localpv-provisioner:
+      enabled: false
       localpv:
-        enabled: false
+        image:
+          # renovate: datasource=docker depName=openebs/provisioner-localpv package=openebs/provisioner-localpv
+          tag: 4.4.0@sha256:a9f0aa574700379fd56f7597be4493fab1bd2423e8a5eaca4eeafd377763e9df
+      helperPod:
+        image:
+          # renovate: datasource=docker depName=openebs/linux-utils package=openebs/linux-utils
+          tag: 4.3.0@sha256:834e45ca87b252151127e3d643f9f06ca2c7e5c1bb7e620ab6451162705e9d69
       hostpathClass:
         enabled: false
     zfs-localpv:
       enabled: false
+      zfsPlugin:
+        image:
+          # renovate: datasource=docker depName=openebs/zfs-driver package=openebs/zfs-driver
+          tag: 2.9.0@sha256:1f74d09d6e6e2aeb10e048a5214bbadda2bf29602428a534e98bb0a4b1c3be05
     lvm-localpv:
       enabled: false
+      lvmPlugin:
+        image:
+          # renovate: datasource=docker depName=openebs/lvm-driver package=openebs/lvm-driver
+          tag: 1.8.0@sha256:e3b4bbff2d084dced44945e0b15b4451714f7eb535d0f35f79afdbecaa4942e9
     mayastor:
       enabled: false
+      image:
+        # renovate: datasource=docker depName=openebs/mayastor-io-engine package=openebs/mayastor-io-engine
+        tag: v2.10.0@sha256:2e7bedf7b67f2a3e4de1b90424a6b54493050f32b8f708c543b590e488074d34
       base:
         metrics:
           enabled: false
@@ -40,3 +58,13 @@ spec:
       replicated:
         mayastor:
           enabled: false
+    loki:
+      enabled: false
+    minio:
+      enabled: false
+    alloy:
+      enabled: false
+    preUpgradeHook:
+      image:
+        # renovate: datasource=docker depName=openebs/kubectl package=openebs/kubectl
+        tag: 1.32.4@sha256:9524faf8e3cefb47fa28244a5d15f95ec21a73d963273798e593e61f80712333

@@ -1,0 +1,10 @@
+# NGINX Ingress Grafana Dashboards
+# Run: task dashboards
+
+upstream:
+  # renovate: datasource=github-releases depName=kubernetes/ingress-nginx versioning=semver
+  url: https://raw.githubusercontent.com/kubernetes/ingress-nginx/controller-v1.14.1/deploy/grafana/dashboards
+
+files:
+  - name: nginx.json
+  - name: request-handling-performance.json

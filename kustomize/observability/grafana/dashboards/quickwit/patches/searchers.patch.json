@@ -1,0 +1,52 @@
+[
+  {
+    "op": "replace",
+    "path": "/templating/list/1/query/query",
+    "value": "label_values(quickwit_memory_allocated_bytes,namespace)"
+  },
+  {
+    "op": "replace",
+    "path": "/templating/list/1/definition",
+    "value": "label_values(quickwit_memory_allocated_bytes,namespace)"
+  },
+  {
+    "op": "replace",
+    "path": "/panels/0/targets/0/expr",
+    "value": "sum(rate(quickwit_cache_splitfooter_cache_hits_total{namespace=\"$namespace\", pod=~\"$pod\"}[$__rate_interval]))"
+  },
+  {
+    "op": "replace",
+    "path": "/panels/0/targets/1/expr",
+    "value": "sum(rate(quickwit_cache_splitfooter_cache_misses_total{namespace=\"$namespace\", pod=~\"$pod\"}[$__rate_interval]))"
+  },
+  {
+    "op": "replace",
+    "path": "/panels/2/targets/0/expr",
+    "value": "sum(rate(quickwit_cache_fastfields_cache_hits_total{namespace=\"$namespace\", pod=~\"$pod\"}[$__rate_interval]))"
+  },
+  {
+    "op": "replace",
+    "path": "/panels/2/targets/1/expr",
+    "value": "sum(rate(quickwit_cache_fastfields_cache_misses_total{namespace=\"$namespace\", pod=~\"$pod\"}[$__rate_interval]))"
+  },
+  {
+    "op": "replace",
+    "path": "/panels/9/targets/0/expr",
+    "value": "rate(quickwit_cache_splitfooter_cache_hits_total{namespace=\"$namespace\", pod=~\"$pod\"}[$__rate_interval])"
+  },
+  {
+    "op": "replace",
+    "path": "/panels/9/targets/1/expr",
+    "value": "rate(quickwit_cache_splitfooter_cache_misses_total{namespace=\"$namespace\", pod=~\"$pod\"}[$__rate_interval])"
+  },
+  {
+    "op": "replace",
+    "path": "/panels/10/targets/0/expr",
+    "value": "rate(quickwit_cache_fastfields_cache_hits_total{namespace=\"$namespace\", pod=~\"$pod\"}[$__rate_interval])"
+  },
+  {
+    "op": "replace",
+    "path": "/panels/10/targets/1/expr",
+    "value": "rate(quickwit_cache_fastfields_cache_misses_total{namespace=\"$namespace\", pod=~\"$pod\"}[$__rate_interval])"
+  }
+]

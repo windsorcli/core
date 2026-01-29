@@ -1,0 +1,42 @@
+apiVersion: fluentd.fluent.io/v1alpha1
+kind: Fluentd
+metadata:
+  labels:
+    app.kubernetes.io/name: fluentd
+  name: fluentd
+  namespace: system-observability
+spec:
+  fluentdCfgSelector:
+    matchLabels:
+      config.fluentd.fluent.io/enabled: "true"
+  globalInputs:
+  - forward:
+      bind: 0.0.0.0
+      port: 24224
+  # renovate: datasource=docker depName=ghcr.io/fluent/fluent-operator/fluentd package=ghcr.io/fluent/fluent-operator/fluentd
+  image: ghcr.io/fluent/fluent-operator/fluentd:v1.19.0@sha256:b715c91b0bad14537fb9b70d7b75a98f5b17ecd932f9d08e4d7fcb5422d9bb4f
+  replicas: 1
+  resources:
+    limits:
+      cpu: 500m
+      memory: 500Mi
+    requests:
+      cpu: 100m
+      memory: 128Mi
+---
+apiVersion: fluentd.fluent.io/v1alpha1
+kind: ClusterFluentdConfig
+metadata:
+  labels:
+    config.fluentd.fluent.io/enabled: "true"
+  name: fluentd-config
+spec:
+  clusterInputSelector:
+    matchLabels:
+      input.fluentd.fluent.io/enabled: "true"
+  clusterFilterSelector:
+    matchLabels:
+      filter.fluentd.fluent.io/enabled: "true"
+  clusterOutputSelector:
+    matchLabels:
+      output.fluentd.fluent.io/enabled: "true"

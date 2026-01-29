@@ -1,0 +1,17 @@
+apiVersion: kustomize.config.k8s.io/v1alpha1
+kind: Component
+
+# Fluentd Prometheus metrics configuration
+# Creates:
+# - ClusterInput: exposes metrics endpoint on port 24231 and monitors output status
+# - ClusterFilter: counts incoming records
+# - Service: exposes port 24231 for Prometheus scraping (avoids need to patch operator-managed StatefulSet)
+# - ServiceMonitor: tells Prometheus to scrape metrics FROM Fluentd via the Service
+# Using ServiceMonitor instead of PodMonitor because Prometheus Operator requires declared ports
+# for PodMonitor, and the Fluentd operator doesn't declare port 24231 in the pod spec
+
+resources:
+  - clusterinput.yaml
+  - clusterfilter.yaml
+  - service.yaml
+  - servicemonitor.yaml

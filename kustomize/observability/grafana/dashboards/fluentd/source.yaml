@@ -1,0 +1,12 @@
+# Fluentd Grafana Dashboard
+# Run: task dashboards
+#
+# Source: https://grafana.com/grafana/dashboards/13042-fluentd-1-x
+# Dashboard ID: 13042
+# Uses Prometheus and Elasticsearch datasources
+# Compatible with Fluentd 1.11+ in Kubernetes
+
+files:
+  - name: fluentd.json
+    url: https://grafana.com/api/dashboards/13042/revisions/1/download
+    patch: patches/datasource.patch.json

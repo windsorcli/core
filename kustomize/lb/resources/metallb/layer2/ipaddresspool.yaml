@@ -1,8 +1,0 @@
-apiVersion: metallb.io/v1beta1
-kind: IPAddressPool
-metadata:
-  name: metallb-layer2
-  namespace: system-lb
-spec:
-  addresses:
-  - ${LOADBALANCER_IP_RANGE}

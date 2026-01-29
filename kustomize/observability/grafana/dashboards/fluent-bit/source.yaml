@@ -1,0 +1,11 @@
+# Fluent Bit Grafana Dashboard
+# Run: task dashboards
+#
+# Source: https://grafana.com/grafana/dashboards/18855-fluent-bit
+# Dashboard ID: 18855
+# Uses Prometheus datasource
+
+files:
+  - name: fluent-bit.json
+    url: https://grafana.com/api/dashboards/18855/revisions/1/download
+    patch: patches/datasource.patch.json

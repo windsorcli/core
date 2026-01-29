@@ -4,7 +4,7 @@ terraform {
   required_providers {
     aws = {
       source  = "hashicorp/aws"
-      version = "5.98.0"
+      version = "6.28.0"
     }
     random = {
       source  = "hashicorp/random"
@@ -132,7 +132,7 @@ resource "aws_kms_key" "vpc_flow_logs" {
         Sid    = "Allow CloudWatch Logs to use the key",
         Effect = "Allow",
         Principal = {
-          Service = "logs.${data.aws_region.current.name}.amazonaws.com"
+          Service = "logs.${data.aws_region.current.region}.amazonaws.com"
         },
         Action = [
           "kms:Encrypt",
@@ -193,7 +193,7 @@ resource "aws_iam_role_policy" "vpc_flow_logs" {
           "logs:DescribeLogStreams"
         ]
         Resource = [
-          "arn:aws:logs:${data.aws_region.current.name}:${data.aws_caller_identity.current.account_id}:log-group:/aws/vpc/flow-logs/${local.name}-*"
+          "arn:aws:logs:${data.aws_region.current.region}:${data.aws_caller_identity.current.account_id}:log-group:/aws/vpc/flow-logs/${local.name}-*"
         ]
       }
     ]
@@ -359,6 +359,7 @@ resource "aws_route_table_association" "isolated" {
 #-----------------------------------------------------------------------------------------------------------------------
 # Route53 Hosted Zone
 #-----------------------------------------------------------------------------------------------------------------------
+
 resource "aws_route53_zone" "main" {
   count = var.domain_name != null ? 1 : 0
   name  = var.domain_name

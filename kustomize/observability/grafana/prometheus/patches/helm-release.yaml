@@ -10,8 +10,4 @@ spec:
   values:
     serviceMonitor:
       enabled: true
-    dashboards:
-      grafana-dashboards-prometheus:
-        k8s-addons-prometheus:
-          url: https://raw.githubusercontent.com/dotdc/grafana-dashboards-kubernetes/2333e8f4fa5277b0afc806b24641e221a659bfe9/dashboards/k8s-addons-prometheus.json
-          token: ''
+    # Dashboards moved to: dashboards/prometheus/

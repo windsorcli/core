@@ -1,0 +1,19 @@
+kind: Facet
+apiVersion: blueprints.windsorcli.dev/v1alpha1
+metadata:
+  name: demo
+  description: "Demo resources including sample databases and example applications"
+
+when: demo.enabled == true
+
+kustomize:
+
+# Demo resources (database, static website, bookinfo)
+- name: demo
+  path: demo
+  dependsOn:
+    - "${demo.resources.database == true ? 'database' : ''}"
+  components:
+    - "${demo.resources.database == true ? 'database' : ''}"
+    - "${demo.resources.static == true ? 'static' : ''}"
+    - "${demo.resources.bookinfo == true ? 'bookinfo' : ''}"

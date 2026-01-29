@@ -1,0 +1,37 @@
+[
+  {
+    "op": "replace",
+    "path": "/templating/list/0/current",
+    "value": {"selected": true, "text": "Prometheus", "value": "Prometheus"}
+  },
+  {
+    "op": "replace",
+    "path": "/panels/0/targets/0/expr",
+    "value": "sum by(rpc) (rate(quickwit_metastore_grpc_requests_total[$__rate_interval]))"
+  },
+  {
+    "op": "replace",
+    "path": "/panels/0/targets/0/legendFormat",
+    "value": "{{rpc}}"
+  },
+  {
+    "op": "replace",
+    "path": "/panels/1/targets/0/expr",
+    "value": "histogram_quantile(0.95, sum by(le, rpc) (rate(quickwit_metastore_grpc_request_duration_seconds_bucket[$__rate_interval])))"
+  },
+  {
+    "op": "replace",
+    "path": "/panels/1/targets/0/legendFormat",
+    "value": "{{rpc}}"
+  },
+  {
+    "op": "replace",
+    "path": "/panels/2/targets/0/expr",
+    "value": "sum by(rpc) (rate(quickwit_metastore_grpc_requests_total{status=\"error\"}[$__rate_interval]))"
+  },
+  {
+    "op": "replace",
+    "path": "/panels/2/targets/0/legendFormat",
+    "value": "{{rpc}}"
+  }
+]

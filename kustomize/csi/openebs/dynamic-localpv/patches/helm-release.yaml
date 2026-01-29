@@ -9,4 +9,4 @@ spec:
     localpv-provisioner:
       localpv:
         enabled: true
-        basePath: ${LOCAL_VOLUME_PATH}
+        basePath: ${LOCAL_VOLUME_PATH:-/var/local}

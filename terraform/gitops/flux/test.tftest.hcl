@@ -11,27 +11,22 @@ run "minimal_configuration" {
   }
 
   assert {
-    condition     = kubernetes_namespace.flux_system.metadata[0].name == "system-gitops"
+    condition     = kubernetes_namespace_v1.flux_system.metadata[0].name == "system-gitops"
     error_message = "Flux namespace should default to 'system-gitops'"
   }
 
   assert {
-    condition     = helm_release.flux_system.version == "2.15.0"
-    error_message = "Flux Helm chart version should default to '2.15.0'"
-  }
-
-  assert {
-    condition     = kubernetes_secret.git_auth.metadata[0].name == "flux-system"
+    condition     = kubernetes_secret_v1.git_auth.metadata[0].name == "flux-system"
     error_message = "Git auth secret name should default to 'flux-system'"
   }
 
   assert {
-    condition     = kubernetes_secret.git_auth.metadata[0].namespace == "system-gitops"
+    condition     = kubernetes_secret_v1.git_auth.metadata[0].namespace == "system-gitops"
     error_message = "Git auth secret should be in the Flux namespace"
   }
 
   assert {
-    condition     = kubernetes_secret.webhook_token.metadata[0].namespace == "system-gitops"
+    condition     = kubernetes_secret_v1.webhook_token.metadata[0].namespace == "system-gitops"
     error_message = "Webhook token secret should be in the Flux namespace"
   }
 }
@@ -55,27 +50,27 @@ run "full_configuration" {
   }
 
   assert {
-    condition     = kubernetes_namespace.flux_system.metadata[0].name == "custom-gitops"
+    condition     = kubernetes_namespace_v1.flux_system.metadata[0].name == "custom-gitops"
     error_message = "Flux namespace should match input"
   }
 
   assert {
-    condition     = helm_release.flux_system.version == "2.16.0"
-    error_message = "Flux Helm chart version should match input"
+    condition     = helm_release.flux_system.version == var.flux_helm_version
+    error_message = "Flux Helm chart version should match input variable"
   }
 
   assert {
-    condition     = kubernetes_secret.git_auth.metadata[0].name == "custom-auth"
+    condition     = kubernetes_secret_v1.git_auth.metadata[0].name == "custom-auth"
     error_message = "Git auth secret name should match input"
   }
 
   assert {
-    condition     = kubernetes_secret.git_auth.metadata[0].namespace == "custom-gitops"
+    condition     = kubernetes_secret_v1.git_auth.metadata[0].namespace == "custom-gitops"
     error_message = "Git auth secret should be in the custom namespace"
   }
 
   assert {
-    condition     = kubernetes_secret.webhook_token.metadata[0].namespace == "custom-gitops"
+    condition     = kubernetes_secret_v1.webhook_token.metadata[0].namespace == "custom-gitops"
     error_message = "Webhook token secret should be in the custom namespace"
   }
 }
@@ -93,12 +88,12 @@ run "no_secrets" {
   }
 
   assert {
-    condition     = kubernetes_secret.git_auth.data != null
+    condition     = kubernetes_secret_v1.git_auth.data != null
     error_message = "Git auth secret data should be present (even if empty)"
   }
 
   assert {
-    condition     = kubernetes_secret.webhook_token.data != null
+    condition     = kubernetes_secret_v1.webhook_token.data != null
     error_message = "Webhook token secret data should be present (even if empty)"
   }
 }

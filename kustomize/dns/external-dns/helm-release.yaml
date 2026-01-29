@@ -12,15 +12,18 @@ spec:
     spec:
       chart: external-dns
       # renovate: datasource=helm depName=external-dns package=external-dns helmRepo=https://kubernetes-sigs.github.io/external-dns/
-      version: 1.16.1
+      version: 1.20.0
       sourceRef: 
         kind: HelmRepository
         name: external-dns
         namespace: system-gitops
   values:
+    image:
+      # renovate: datasource=docker depName=registry.k8s.io/external-dns/external-dns package=registry.k8s.io/external-dns/external-dns
+      tag: v0.20.0@sha256:ddc7f4212ed09a21024deb1f470a05240837712e74e4b9f6d1f2632ff10672e7
     env: []
     extraVolumes: []
     extraVolumeMounts: []
     sources: []
     domainFilters:
-      - "${DOMAIN}"
+      - "${DOMAIN:-test}"

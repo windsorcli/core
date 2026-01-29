@@ -5,6 +5,7 @@ metadata:
   namespace: system-telemetry
 spec:
   interval: 5m
+  timeout: 10m
   chart:
     spec:
       chart: filebeat
@@ -15,6 +16,8 @@ spec:
         name: elastic-filebeat
         namespace: system-telemetry
   values:
+    # renovate: datasource=docker depName=docker.elastic.co/beats/filebeat package=docker.elastic.co/beats/filebeat
+    image: docker.elastic.co/beats/filebeat:9.2.3@sha256:c1963f43ee8cf5403a1786d1ead5b10c1b8b92577463132ba9f4c1ba24243588
     daemonset:
       secretMounts:
         - name: filebeat-tls

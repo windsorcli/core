@@ -2,7 +2,7 @@
 Core Terraform modules and Kubernetes configurations used by [Windsor CLI](https://github.com/windsorcli/cli) to provision and manage infrastructure across multiple cloud providers.
 
 ![CI Workflow](https://github.com/your-repo/core/actions/workflows/ci.yaml/badge.svg)
-
+  
 ## Contributing
 
 This project uses several tools to maintain code quality and consistency:

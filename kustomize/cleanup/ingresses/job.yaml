@@ -1,0 +1,102 @@
+---
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: ingress-cleanup
+  namespace: system-cleanup
+spec:
+  backoffLimit: 3
+  ttlSecondsAfterFinished: 300
+  template:
+    metadata:
+      labels:
+        app: ingress-cleanup
+    spec:
+      restartPolicy: OnFailure
+      serviceAccountName: ingress-cleanup
+      containers:
+        - name: cleanup
+          # renovate: datasource=docker depName=kubectl package=alpine/k8s
+          image: alpine/k8s:1.35.0@sha256:18bc02c1e0df04451f4f9194eb7b7341c1165da5495459b52f85f72fb9545032
+          env:
+            - name: POD_NAMESPACE
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.namespace
+            - name: CONTEXT_ID
+              value: "${CONTEXT_ID}"
+            - name: RESOURCE_WAIT_TIMEOUT
+              value: "600"
+            - name: RESOURCE_CHECK_INTERVAL
+              value: "5"
+            - name: AUTH_WAIT_TIMEOUT
+              value: "300"
+            - name: AUTH_CHECK_INTERVAL
+              value: "5"
+          resources:
+            limits:
+              cpu: "100m"
+              memory: "64Mi"
+            requests:
+              cpu: "50m"
+              memory: "32Mi"
+          command:
+            - /bin/sh
+            - -c
+            - |
+              set -e
+
+              # Wait for authorization
+              echo "Waiting for authorization..."
+              elapsed=0
+              while [ "$$elapsed" -lt "$$AUTH_WAIT_TIMEOUT" ]; do
+                kubectl get cm cleanup-authorized -n "$$POD_NAMESPACE" >/dev/null 2>&1 && break
+                sleep "$$AUTH_CHECK_INTERVAL"
+                elapsed=$$((elapsed + AUTH_CHECK_INTERVAL))
+              done
+              kubectl get cm cleanup-authorized -n "$$POD_NAMESPACE" >/dev/null 2>&1 || { echo "ERROR: Auth timeout"; exit 1; }
+              echo "Authorized. Starting cleanup for context: $$CONTEXT_ID"
+
+              # Get namespaces belonging to this context
+              TARGET_NS=$$(kubectl get ns -l "windsorcli.dev/context-id=$$CONTEXT_ID" -o jsonpath='{.items[*].metadata.name}' 2>/dev/null)
+              [ -z "$$TARGET_NS" ] && { echo "No namespaces found for context $$CONTEXT_ID"; exit 0; }
+              echo "Target namespaces: $$TARGET_NS"
+
+              # Delete ingresses in target namespaces
+              for ns in $$TARGET_NS; do
+                kubectl delete ingress -n "$$ns" -l 'windsorcli.dev/cleanup!=skip' --wait=false 2>/dev/null || true
+              done
+
+              # Wait loop
+              elapsed=0
+              while [ "$$elapsed" -lt "$$RESOURCE_WAIT_TIMEOUT" ]; do
+                count=0
+                for ns in $$TARGET_NS; do
+                  c=$$(kubectl get ingress -n "$$ns" -l 'windsorcli.dev/cleanup!=skip' --no-headers 2>/dev/null | wc -l)
+                  count=$$((count + c))
+                done
+
+                [ "$$count" -eq 0 ] && break
+
+                # Log stuck ingresses
+                for ns in $$TARGET_NS; do
+                  kubectl get ingress -n "$$ns" -l 'windsorcli.dev/cleanup!=skip' -o json 2>/dev/null | \
+                  jq -r '.items[] | select(.metadata.deletionTimestamp) | "\(.metadata.namespace)/\(.metadata.name)"' | \
+                  while read -r ing; do
+                    [ -n "$$ing" ] && echo "Waiting for controller cleanup: $$ing"
+                  done
+                done
+
+                echo "Waiting... Ingresses:$$count"
+                sleep "$$RESOURCE_CHECK_INTERVAL"
+                elapsed=$$((elapsed + RESOURCE_CHECK_INTERVAL))
+              done
+
+              # Final check
+              r=0
+              for ns in $$TARGET_NS; do
+                c=$$(kubectl get ingress -n "$$ns" -l 'windsorcli.dev/cleanup!=skip' --no-headers 2>/dev/null | wc -l)
+                r=$$((r + c))
+              done
+              [ "$$r" -gt 0 ] && { echo "ERROR: $$r ingresses remaining"; exit 1; }
+              echo "Ingress cleanup complete"
