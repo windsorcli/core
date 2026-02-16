@@ -58,10 +58,6 @@ cases:
       terraform:
         - name: compute
           path: compute/incus
-          inputs:
-            network_name: ""
-            create_network: true
-            network_cidr: 10.5.0.0/16
         - name: cluster
           path: cluster/talos
           dependsOn:
@@ -160,10 +156,6 @@ cases:
       terraform:
         - name: compute
           path: compute/incus
-          inputs:
-            network_name: ""
-            create_network: true
-            network_cidr: 10.10.0.0/16
         - name: cluster
           path: cluster/talos
           dependsOn:
