@@ -24,7 +24,7 @@ locals {
   network_name = var.network_name != "" ? var.network_name : "windsor-${var.context}"
 
   # Runtime: docker-desktop => localhost-only networking; colima/linux => advanced networking. Standardized with workstation/docker.
-  runtime                  = var.runtime == "colima" ? "linux" : var.runtime
+  runtime                  = (var.runtime == "colima" || var.runtime == "docker") ? "linux" : var.runtime
   use_localhost_networking = var.runtime == "docker-desktop"
 
   # Node shape: per-distribution (talos, future k3s) container definition:
@@ -71,15 +71,16 @@ locals {
     : p if length(split(":", split("/", p)[0])) == 1
   ]
   # hostports: first controlplane only when no workers; first worker only when workers exist (doc in cluster_nodes).
+  # User hostports first so _port_spec_deduped (first with external != null) keeps user mapping.
   _cp_ports_with_auto = { for i in range(local._cp_count) : i => concat(
+    (i == 0 && local._worker_count == 0 ? coalesce(var.cluster_nodes.controlplanes.hostports, []) : []),
     [for p in local._cp_ports_container_only : p if p != "6443/tcp" && p != "50000/tcp"],
-    ["${6443 + i}:6443/tcp", "${50000 + i}:50000/tcp"],
-    (i == 0 && local._worker_count == 0 ? coalesce(var.cluster_nodes.controlplanes.hostports, []) : [])
+    ["${6443 + i}:6443/tcp", "${50000 + i}:50000/tcp"]
   ) }
   _worker_ports_with_auto = { for i in range(local._worker_count) : i => concat(
+    (i == 0 ? coalesce(var.cluster_nodes.workers.hostports, []) : []),
     [for p in(local.shape != null ? local.shape.worker.ports : []) : p if p != "50000/tcp"],
-    ["${50000 + local._cp_count + i}:50000/tcp"],
-    (i == 0 ? coalesce(var.cluster_nodes.workers.hostports, []) : [])
+    ["${50000 + local._cp_count + i}:50000/tcp"]
   ) }
 
   # Cluster instances: controlplanes then workers. Ports override shape so auto + hostports win.
