@@ -347,21 +347,60 @@ properties:
     additionalProperties: false
 
   # VM configuration
+  # Deprecated: use workstation.runtime and workstation.enabled instead. vm.driver is still used as fallback when workstation.runtime is unset.
   vm:
     type: object
+    deprecated: true
+    description: Deprecated. Prefer workstation.runtime (and workstation.enabled). vm.driver remains as fallback for effective runtime when option-workstation is not applied.
     properties:
       driver:
         type: string
         enum:
+          - ""
           - docker-desktop
           - colima
-        description: VM driver for local clusters
+        default: ""
+        description: VM driver for local clusters (empty = not colima)
       runtime:
         type: string
         enum:
           - docker
           - incus
         description: Container/VM runtime
+    additionalProperties: false
+
+  # Workstation (Docker DNS, registries, git livereload)
+  workstation:
+    type: object
+    properties:
+      enabled:
+        type: boolean
+        default: false
+        description: Enable Docker workstation stack (DNS, registries, git livereload)
+      runtime:
+        type: string
+        enum:
+          - colima
+          - docker-desktop
+          - docker
+        description: Docker host runtime. colima/docker-desktop = VM-backed; docker = plain Docker engine (alias for linux networking). When unset, falls back to vm.driver.
+      services:
+        type: object
+        properties:
+          dns:
+            type: boolean
+            default: true
+            description: Create the DNS (CoreDNS) container
+          git:
+            type: boolean
+            default: true
+            description: Create the git livereload container
+          registries:
+            type: boolean
+            default: true
+            description: Create registry proxy containers (from docker.registries when true)
+        additionalProperties: false
+        description: Toggle workstation services
     additionalProperties: false
 
   # Optional addons
