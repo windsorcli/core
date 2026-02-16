@@ -95,7 +95,9 @@ resource "docker_network" "main" {
     subnet  = var.network_cidr
     gateway = local.gateway
   }
-  # Docker returns computed/read-only attributes (options.enable_ipv4/ipv6, ipam_config.aux_address, ipam_options) that cause perpetual replace when not ignored. scope is provider-decided so omit from ignore_changes.
+  # Provider drift: Docker returns computed/extra attrs (options, ipam_config, ipam_options) 
+  # that differ from config and cause perpetual replace. ignore_changes is standard workaround 
+  # (see kreuzwerker/docker#10). Trade-off: config changes to these blocks need recreation.
   lifecycle {
     ignore_changes = [
       ipam_options,
