@@ -209,22 +209,18 @@ jobs:
           context: local
           install-only: true
 
-      - name: Create .docker-cache directory
-        run: mkdir -p .windsor/.docker-cache
+      - name: Create docker cache directory
+        run: mkdir -p .windsor/cache/docker
 
-      - name: Cache .docker-cache
+      - name: Cache docker cache
         uses: actions/cache@9255dc7a253b0ccc959486e2bca901246202afeb # v5.0.1
         with:
-          path: .windsor/.docker-cache
+          path: .windsor/cache/docker
           key: docker-cache-${{ runner.os }}-${{ github.sha }}
           restore-keys: docker-cache-${{ runner.os }}-
 
       - name: Windsor Up
-        run: |
-          # Clean up any existing configuration
-          rm -f contexts/local/windsor.yaml
-          rm -rf .windsor
-          
+        run: |          
           # Initialize and start Windsor
           windsor init local --set dns.enabled=false --reset
           windsor up --install --verbose --wait
