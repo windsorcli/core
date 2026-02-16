@@ -219,7 +219,7 @@ resource "docker_container" "registry" {
     ipv4_address = local.registry_ips[each.key]
   }
   volumes {
-    host_path      = "${var.project_root}/.windsor/cache/docker"
+    host_path      = "${var.project_root}/.windsor/cache/docker/registries/${each.key}"
     container_path = "/var/lib/registry"
   }
 }
