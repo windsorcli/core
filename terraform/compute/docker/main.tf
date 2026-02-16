@@ -167,9 +167,8 @@ locals {
     )
   }
 
-  unique_images               = distinct([for c in local.expanded_instances : c.image])
-  image_id_map                = { for ref in local.unique_images : ref => docker_image.instances[ref].image_id }
-  instance_to_first_container = { for inst in local.instance_definitions : inst.name => inst.count > 1 ? "${inst.name}-0" : inst.name }
+  unique_images = distinct([for c in local.expanded_instances : c.image])
+  image_id_map  = { for ref in local.unique_images : ref => docker_image.instances[ref].image_id }
 
   # Ports: parse "host:container/protocol" or "container/protocol", dedup by (internal, protocol) preferring host-mapped, sort for stable plan.
   _port_spec_raw = {
