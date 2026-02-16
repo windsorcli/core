@@ -39,13 +39,13 @@ variable "network_driver" {
 }
 
 variable "runtime" {
-  description = "Docker host runtime: docker-desktop (localhost-only networking, no VM control) or colima/linux (advanced networking, IP routing). Use 'colima' as alias for 'linux'. Standardized with workstation/docker."
+  description = "Docker host runtime: docker-desktop (localhost-only networking, no VM control) or colima/docker/linux (advanced networking, IP routing). 'colima' and 'docker' are aliases for 'linux'. Standardized with workstation/docker."
   type        = string
   default     = "linux"
 
   validation {
-    condition     = contains(["docker-desktop", "linux", "colima"], var.runtime)
-    error_message = "runtime must be one of: docker-desktop, linux, colima (colima is alias for linux)"
+    condition     = contains(["docker-desktop", "linux", "colima", "docker"], var.runtime)
+    error_message = "runtime must be one of: docker-desktop, linux, colima, docker (colima and docker are aliases for linux)"
   }
 }
 
