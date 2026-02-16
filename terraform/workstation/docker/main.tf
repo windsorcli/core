@@ -21,7 +21,6 @@ terraform {
 # =============================================================================
 
 locals {
-  context_path_resolved = coalesce(var.context_path, var.project_root)
   domain_name           = coalesce(var.domain_name, var.context)
   compose_project       = "workstation-windsor-${var.context}"
   network_name_resolved = coalesce(var.network_name, "windsor-${var.context}")

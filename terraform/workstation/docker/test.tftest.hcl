@@ -69,7 +69,6 @@ run "full_configuration" {
   variables {
     project_root = "/home/user/repo"
     context      = "dev"
-    context_path = "/home/user/repo/contexts/dev"
     domain_name  = "local.dev"
     runtime      = "docker-desktop"
     network_name = "windsor-dev"
@@ -90,11 +89,6 @@ run "full_configuration" {
   assert {
     condition     = one(docker_network.main.ipam_config).subnet == "10.20.0.0/16"
     error_message = "Network CIDR should match variable"
-  }
-
-  assert {
-    condition     = local.context_path_resolved == "/home/user/repo/contexts/dev"
-    error_message = "context_path should be used when provided"
   }
 
   assert {
