@@ -202,7 +202,7 @@ run "runtime_docker_accepted" {
     create_network = true
     runtime        = "docker"
     cluster_nodes = {
-      distribution = "talos"
+      distribution  = "talos"
       controlplanes = { count = 1, image = "ghcr.io/siderolabs/talos:v1.11.5" }
       workers       = { count = 0, image = "ghcr.io/siderolabs/talos:v1.11.5" }
     }
