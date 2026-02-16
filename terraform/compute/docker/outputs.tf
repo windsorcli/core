@@ -3,11 +3,17 @@
 # -----------------------------------------------------------------------------------------------------------------------
 
 locals {
-  # IPv4 per container: computed static or from container network_data after apply
+  # IPv4 per container: computed static or from container network_data after apply.
+  # Use conditional (not coalesce) so when both static and network_data IP are null the result is null without error.
+  _static_ip = {
+    for k, v in docker_container.containers : k => try(local.container_ipv4[k] != null ? split("/", local.container_ipv4[k])[0] : null, null)
+  }
+  _network_data_ip = {
+    for k, v in docker_container.containers : k => try([for nd in v.network_data : nd.ip_address if nd.network_name == local.network_name][0], null)
+  }
   instance_ips = {
-    for k, v in docker_container.containers : k => coalesce(
-      try(local.container_ipv4[k] != null ? split("/", local.container_ipv4[k])[0] : null, null),
-      try([for nd in v.network_data : nd.ip_address if nd.network_name == local.network_name][0], null)
+    for k, v in docker_container.containers : k => (
+      local._static_ip[k] != null ? local._static_ip[k] : local._network_data_ip[k]
     )
   }
 
