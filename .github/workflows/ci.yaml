@@ -233,7 +233,7 @@ jobs:
       - name: Collect Windsor State
         if: always()
         run: |
-          tar --exclude='.docker-cache' --exclude='.terraform' -czf support-bundles/windsor-state.tar.gz contexts/local .windsor
+          tar --exclude='.windsor/cache/docker' --exclude='.terraform' -czf support-bundles/windsor-state.tar.gz contexts/local .windsor
 
       - name: Collect Talos Diagnostics
         if: always()
