@@ -130,13 +130,12 @@ resource "docker_container" "dns" {
   image   = docker_image.coredns[0].image_id
   command = ["-conf", "/etc/coredns/Corefile"]
   restart = "always"
-  labels {
-    label = "context"
-    value = var.context
-  }
-  labels {
-    label = "managed_by"
-    value = "terraform"
+  dynamic "labels" {
+    for_each = local.common_labels
+    content {
+      label = labels.value.label
+      value = labels.value.value
+    }
   }
   labels {
     label = "role"
@@ -186,13 +185,12 @@ resource "docker_container" "registry" {
   name     = "${each.key}.${local.domain_name}"
   image    = docker_image.registry[0].image_id
   restart  = "always"
-  labels {
-    label = "context"
-    value = var.context
-  }
-  labels {
-    label = "managed_by"
-    value = "terraform"
+  dynamic "labels" {
+    for_each = local.common_labels
+    content {
+      label = labels.value.label
+      value = labels.value.value
+    }
   }
   labels {
     label = "role"
@@ -242,13 +240,12 @@ resource "docker_container" "git" {
     "WEBHOOK_URL=${local.webhook_url}"
   ]
   restart = "always"
-  labels {
-    label = "context"
-    value = var.context
-  }
-  labels {
-    label = "managed_by"
-    value = "terraform"
+  dynamic "labels" {
+    for_each = local.common_labels
+    content {
+      label = labels.value.label
+      value = labels.value.value
+    }
   }
   labels {
     label = "role"
