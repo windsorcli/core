@@ -206,9 +206,9 @@ locals {
               replace(split(":", v)[0], "{container_name}", c.container_name),
               "{instance_name}", c.instance_name
             ),
-            "{index}", tostring(c.index)
+            "{index_1}", tostring(c.index + 1)
           ),
-          "{index_1}", tostring(c.index + 1)
+          "{index}", tostring(c.index)
         )
       ]
     ])
@@ -276,9 +276,9 @@ resource "docker_container" "containers" {
         replace(each.value.hostname, "{container_name}", each.key),
         "{instance_name}", each.value.instance_name
       ),
-      "{index}", tostring(each.value.index)
+      "{index_1}", tostring(each.value.index + 1)
     ),
-    "{index_1}", tostring(each.value.index + 1)
+    "{index}", tostring(each.value.index)
   ) : null
 
   env = [for k, v in coalesce(try(each.value.env, null), {}) : "${k}=${v}"]
@@ -308,9 +308,9 @@ resource "docker_container" "containers" {
             replace(split(":", volumes.value)[0], "{container_name}", each.key),
             "{instance_name}", each.value.instance_name
           ),
-          "{index}", tostring(each.value.index)
+          "{index_1}", tostring(each.value.index + 1)
         ),
-        "{index_1}", tostring(each.value.index + 1)
+        "{index}", tostring(each.value.index)
       )
       container_path = join(":", slice(split(":", volumes.value), 1, length(split(":", volumes.value))))
       read_only      = false
