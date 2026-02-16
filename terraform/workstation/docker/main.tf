@@ -95,13 +95,12 @@ resource "docker_network" "main" {
     subnet  = var.network_cidr
     gateway = local.gateway
   }
-  # Docker returns computed/read-only attributes (options.enable_ipv4/ipv6, ipam_config.aux_address, scope, ipam_options) that cause perpetual replace when not ignored.
+  # Docker returns computed/read-only attributes (options.enable_ipv4/ipv6, ipam_config.aux_address, ipam_options) that cause perpetual replace when not ignored. scope is provider-decided so omit from ignore_changes.
   lifecycle {
     ignore_changes = [
-      "ipam_options",
-      "options",
-      "ipam_config",
-      "scope",
+      ipam_options,
+      options,
+      ipam_config,
     ]
   }
 }
