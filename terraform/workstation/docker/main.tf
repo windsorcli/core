@@ -201,10 +201,7 @@ resource "docker_container" "registry" {
     label = "com.docker.compose.project"
     value = local.compose_project
   }
-  env = concat(
-    each.value.remote != null ? ["REGISTRY_PROXY_REMOTEURL=${each.value.remote}"] : [],
-    each.value.local != null ? ["REGISTRY_PROXY_LOCALURL=${each.value.local}"] : []
-  )
+  env = each.value.remote != null ? ["REGISTRY_PROXY_REMOTEURL=${each.value.remote}"] : []
   dynamic "ports" {
     for_each = each.value.hostport != null && local.publish_ports ? [1] : []
     content {
