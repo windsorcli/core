@@ -192,6 +192,28 @@ run "hostports_first_worker_only" {
   }
 }
 
+# Regression: runtime "docker" accepted and normalized to linux (aligned with workstation/docker).
+run "runtime_docker_accepted" {
+  command = plan
+
+  variables {
+    context        = "test"
+    network_cidr   = "10.5.0.0/16"
+    create_network = true
+    runtime        = "docker"
+    cluster_nodes = {
+      distribution = "talos"
+      controlplanes = { count = 1, image = "ghcr.io/siderolabs/talos:v1.11.5" }
+      workers       = { count = 0, image = "ghcr.io/siderolabs/talos:v1.11.5" }
+    }
+  }
+
+  assert {
+    condition     = length(docker_container.containers) == 1
+    error_message = "runtime=docker should plan one container (normalized to linux)"
+  }
+}
+
 # Negative: invalid cluster_nodes.distribution rejected.
 run "invalid_distribution" {
   command         = plan
