@@ -4,34 +4,141 @@ metadata:
   name: docker
   description: "Docker provider basic infrastructure for local development"
 
-when: provider == 'docker'
+when: (platform ?? provider) == 'docker' && cluster.driver == 'talos'
+
+config:
+# Fallback cluster API endpoint: compute first cp host; else no compute → localhost:6443 (docker-desktop); else colima/linux from context.
+# With provider docker, no compute implies host→container so use localhost. Referenced by cluster_endpoint input.
+- name: cluster_endpoint_fallback
+  vars:
+    endpoint: >-
+      ${len(terraform_output("compute", "controlplanes") ?? []) > 0
+        && terraform_output("compute", "controlplanes")[0].endpoint != null
+        ? "https://" + split(terraform_output("compute", "controlplanes")[0].endpoint, ":")[0] + ":6443"
+        : (len(terraform_output("compute", "controlplanes") ?? []) == 0
+          ? "https://localhost:6443"
+          : (len(values(cluster.controlplanes.nodes ?? {})) > 0
+            ? "https://" + split(values(cluster.controlplanes.nodes ?? {})[0].endpoint, ":")[0] + ":6443"
+            : "https://localhost:6443"))}
+
+# No compute: node TLS cert must include localhost (and 127.0.0.1 only for docker-desktop) so host→container verifies.
+# talos_common_docker only runs when compute runs; no-compute path (docker-desktop) needs these certSANs.
+- name: docker_desktop_common_patches
+  when: len(terraform_output("compute", "controlplanes") ?? []) == 0
+  patchVars:
+    common_config_patches: >-
+      cluster:
+        apiServer:
+          certSANs:
+            - localhost
+      ${workstation.runtime == "docker-desktop" ? "\n            - 127.0.0.1" : ""}
+        allowSchedulingOnControlPlanes: ${cluster.controlplanes.schedulable ?? ((cluster.workers.count ?? 0) == 0)}
+        extraManifests:
+          - "https://raw.githubusercontent.com/alex1989hu/kubelet-serving-cert-approver/v0.8.7/deploy/standalone-install.yaml"
+      machine:
+        certSANs:
+            - localhost
+      ${workstation.runtime == "docker-desktop" ? "\n            - 127.0.0.1" : ""}
+        kubelet:
+          extraArgs:
+            rotate-server-certificates: "true"
+
+# No compute: context/schema nodes use 10.5.0.x, unreachable from host. Rewrite endpoint to 127.0.0.1:(50000+i) and node to 127.0.0.1
+# so Terraform bootstrap/apply and health check can connect. (Provider docker + no compute = docker-desktop.)
+- name: docker_desktop_nodes
+  when: len(terraform_output("compute", "controlplanes") ?? []) == 0
+  vars:
+    controlplanes: >-
+      ${reduce(
+        take(values(cluster.controlplanes.nodes ?? {}), cluster.controlplanes.count ?? 1),
+        #acc + [fromPairs(concat(
+          filter(toPairs(#), get(#, 0) != "hostname" && get(#, 0) != "endpoint" && get(#, 0) != "node"),
+          [["hostname", null], ["endpoint", "127.0.0.1:" + string(50000 + len(#acc))], ["node", "127.0.0.1"]]
+        ))],
+        []
+      )}
+    workers: >-
+      ${(cluster.workers.count ?? 0) == 0 ? [] : reduce(
+        take(values(cluster.workers.nodes ?? {}), cluster.workers.count ?? 0),
+        #acc + [fromPairs(concat(
+          filter(toPairs(#), get(#, 0) != "hostname" && get(#, 0) != "endpoint" && get(#, 0) != "node"),
+          [["hostname", null], ["endpoint", "127.0.0.1:" + string(50000 + (cluster.controlplanes.count ?? 1) + len(#acc))], ["node", "127.0.0.1"]]
+        ))],
+        []
+      )}
 
 terraform:
+# Run cluster/talos: secrets, config apply, bootstrap, kubeconfig. Inputs from compute output or context;
+# hostname stripped for containers (Talos 1.12 rejects setting hostname when runtime already set it).
+# When workstation enabled, cluster must wait for compute (workstation → compute → cluster). Omit cluster when workstation disabled (gitops-only path).
 - name: cluster
+  when: workstation.enabled == true
   path: cluster/talos
+  dependsOn:
+    - compute
   parallelism: 1
   inputs:
-    cluster_endpoint: ${cluster.endpoint ?? ("https://" + split(values(cluster.controlplanes.nodes)[0].endpoint, ":")[0] + ":6443")}
+    cluster_endpoint: "${cluster.endpoint ?? cluster_endpoint_fallback.vars.endpoint}"
     cluster_name: talos
-    controlplanes: ${values(cluster.controlplanes.nodes)}
-    workers: "${(cluster.workers.count ?? 0) > 0 ? values(cluster.workers.nodes) : []}"
-    common_config_patches: ${jsonnet("../configs/talos-generic.jsonnet").common_config_patches}
-    worker_config_patches: ${jsonnet("../configs/talos-generic.jsonnet").worker_config_patches}
-    controlplane_config_patches: ${jsonnet("../configs/talos-generic.jsonnet").controlplane_config_patches}
+    talos_version: ${talos.talos_version}
+    # When compute output exists, strip hostname from each node (Docker sets it; Talos 1.12 rejects override).
+    # When no compute, rewrite endpoint/node to 127.0.0.1:(50000+i) inline so host can bootstrap/apply (no reliance on docker_desktop_nodes.vars scope).
+    controlplanes: >-
+      ${(len(terraform_output("compute", "controlplanes") ?? []) > 0
+        ? map(terraform_output("compute", "controlplanes"), fromPairs(concat(filter(toPairs(#), get(#, 0) != "hostname"), [["hostname", null]])))
+        : reduce(
+            take(values(cluster.controlplanes.nodes ?? {}), int(cluster.controlplanes.count ?? 1)),
+            concat(#acc, [fromPairs(concat(
+              filter(toPairs(#), get(#, 0) != "hostname" && get(#, 0) != "endpoint" && get(#, 0) != "node"),
+              [["hostname", null], ["endpoint", "127.0.0.1:" + string(50000 + len(#acc))], ["node", "127.0.0.1"]]
+            ))]),
+            []
+          ))}
+    workers: >-
+      ${(len(terraform_output("compute", "controlplanes") ?? []) > 0
+        ? map(terraform_output("compute", "workers") ?? [], fromPairs(concat(filter(toPairs(#), get(#, 0) != "hostname"), [["hostname", null]])))
+        : ((cluster.workers.count ?? 0) == 0 ? [] : reduce(
+            take(values(cluster.workers.nodes ?? {}), int(cluster.workers.count ?? 0)),
+            concat(#acc, [fromPairs(concat(
+              filter(toPairs(#), get(#, 0) != "hostname" && get(#, 0) != "endpoint" && get(#, 0) != "node"),
+              [["hostname", null], ["endpoint", "127.0.0.1:" + string(50000 + (cluster.controlplanes.count ?? 1) + len(#acc))], ["node", "127.0.0.1"]]
+            ))]),
+            []
+          )))}
+    controlplane_disks: ${cluster.controlplanes.disks ?? []}
+    worker_disks: ${cluster.workers.disks ?? []}
+    common_config_patches: >-
+      ${len(terraform_output("compute", "controlplanes") ?? []) == 0
+        ? docker_desktop_common_patches.patchVars.common_config_patches
+        : (talos_common_docker.patchVars.common_config_patches ?? talos_common.patchVars.common_config_patches)}
+    controlplane_config_patches: >-
+      ${len(terraform_output("compute", "controlplanes") ?? []) == 0 ? "" : (talos_common_docker.patchVars.controlplane_config_patches ?? "")}
+    worker_config_patches: >-
+      ${len(terraform_output("compute", "controlplanes") ?? []) == 0 ? "" : (talos_common_docker.patchVars.worker_config_patches ?? "")}
+    controlplane_volumes: ${talos_common.vars.controlplane_volumes ?? []}
+    worker_volumes: ${talos_common.vars.worker_volumes ?? []}
+
+# Run gitops/flux after cluster. Skipped when workstation enabled (workstation facet owns gitops in that mode).
 - name: gitops
   path: gitops/flux
+  when: ${workstation.enabled == false}
   dependsOn:
     - cluster
   inputs:
-    concurrency: ${max(2, min(floor((cluster.controlplanes.cpu ?? 4) / 2), floor((cluster.controlplanes.memory ?? 4) / 2), 10))}
+    concurrency: >-
+      ${max(2, min(
+        floor((cluster.controlplanes.cpu ?? 4) / 2),
+        floor((cluster.controlplanes.memory ?? 4) / 2),
+        10
+      ))}
   destroy: false
 
 kustomize:
 
-# Load Balancer (for colima and docker, not docker-desktop)
+# MetalLB base (colima, incus, docker driver). Not used for docker-desktop (no node IPs to load-balance).
 - name: lb-base
   path: lb/base
-  when: vm.driver == 'colima' || vm.driver == 'colima-incus' || vm.driver == 'docker'
+  when: workstation.runtime == 'colima' || workstation.runtime == 'colima-incus' || workstation.runtime == 'docker'
   dependsOn:
     - policy-resources
   components:
@@ -39,9 +146,10 @@ kustomize:
   timeout: 5m
   interval: 5m
 
+# MetalLB resources and mode (e.g. metallb/arp). Depends on lb-base.
 - name: lb-resources
   path: lb/resources
-  when: vm.driver == 'colima' || vm.driver == 'colima-incus' || vm.driver == 'docker'
+  when: workstation.runtime == 'colima' || workstation.runtime == 'colima-incus' || workstation.runtime == 'docker'
   dependsOn:
     - lb-base
   components:
@@ -52,7 +160,7 @@ kustomize:
   timeout: 5m
   interval: 5m
 
-# CSI
+# OpenEBS dynamic-localpv for directory-based storage. Uses talos_common csi_local_volume_path.
 - name: csi
   path: csi
   dependsOn:
@@ -61,6 +169,6 @@ kustomize:
     - openebs
     - openebs/dynamic-localpv
   substitutions:
-    local_volume_path: ${cluster.workers.volumes[0]}
+    local_volume_path: ${talos_common.vars.csi_local_volume_path}
   timeout: 20m
   interval: 5m

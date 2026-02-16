@@ -12,6 +12,8 @@ kustomize:
 - name: observability
   path: observability
   when: (addons.observability.dashboards ?? 'grafana') == 'grafana'
+  dependsOn:
+    - telemetry-base
   timeout: 15m
   interval: 10m
   components:

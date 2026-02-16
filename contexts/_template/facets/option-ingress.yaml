@@ -4,20 +4,19 @@ metadata:
   name: ingress
   description: "Configurable ingress controller"
 
-when: ingress.enabled == true && ingress.driver == 'nginx'
+when: (platform ?? provider) != 'none' && ingress.enabled == true && ingress.driver == 'nginx'
 
 kustomize:
 
-# Ingress - Docker Desktop/Colima uses nodeport, otherwise LoadBalancer with optional coredns
 - name: ingress
   path: ingress
   dependsOn:
     - pki-base
   components:
     - nginx
-    - "${vm.driver == 'docker-desktop' ? 'nginx/nodeport' : 'nginx/loadbalancer'}"
+    - "${(workstation.runtime ?? ((platform ?? provider) == 'docker' ? 'docker-desktop' : '')) == 'docker-desktop' ? 'nginx/nodeport' : 'nginx/loadbalancer'}"
     - nginx/web
-    - "${addons.private_dns.enabled == true && vm.driver != 'docker-desktop' ? 'nginx/coredns' : ''}"
+    - "${addons.private_dns.enabled == true && (workstation.runtime ?? ((platform ?? provider) == 'docker' ? 'docker-desktop' : '')) != 'docker-desktop' ? 'nginx/coredns' : ''}"
     - nginx/prometheus
   timeout: 10m
   interval: 5m

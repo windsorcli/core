@@ -4,7 +4,7 @@ metadata:
   name: aws
   description: "AWS provider basic infrastructure"
 
-when: provider == 'aws'
+when: (platform ?? provider) == 'aws'
 
 terraform:
 - name: network

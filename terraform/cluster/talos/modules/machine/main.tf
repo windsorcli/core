@@ -23,15 +23,10 @@ terraform {
 
 locals {
 
-  # Conditionally create the machine configuration patch based on disk_selector and hostname
+  # Optional hostname and install block. Set hostname only when provided; otherwise leave to host/runtime (e.g. containers).
   machine_config_patch = yamlencode({
     machine = merge(
-      # Include network block only if hostname is not null or empty
-      var.hostname != null && var.hostname != "" ? {
-        network = {
-          hostname = var.hostname
-        }
-      } : {},
+      var.hostname != null && var.hostname != "" ? { network = { hostname = var.hostname } } : {},
       # Include install block only if disk_selector is not null
       var.disk_selector != null ? {
         install = {
@@ -112,9 +107,6 @@ resource "local_sensitive_file" "kubeconfig" {
 #-----------------------------------------------------------------------------------------------------------------------
 
 locals {
-  # Use hostname if available, otherwise fall back to node address
-  node_name = var.hostname != null && var.hostname != "" ? var.hostname : var.node
-
   # Always use Talos API; during bootstrap also check Kubernetes API
   # Use IP address for health check to avoid DNS resolution issues
   # If node is already an IP, use it; otherwise extract IP from endpoint (endpoint may include port)

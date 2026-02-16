@@ -4,19 +4,30 @@ metadata:
   name: incus
   description: Incus compute platform infrastructure
 
-when: provider == 'incus'
+when: (platform ?? provider) == 'incus'
+
+config:
+- name: cluster_endpoint_fallback
+  vars:
+    endpoint: >-
+      ${
+        len(terraform_output("compute", "controlplanes") ?? []) > 0
+        && terraform_output("compute", "controlplanes")[0].endpoint != null
+          ? "https://" + split(terraform_output("compute", "controlplanes")[0].endpoint, ":")[0] + ":6443"
+          : "https://localhost:6443"
+      }
 
 terraform:
 
 - name: compute
   path: compute/incus
   inputs:
-    network_name: "${vm.driver == 'colima' ? 'incusbr0' : ''}"
-    create_network: "${vm.driver != 'colima'}"
+    network_name: "${(workstation.runtime ?? '') == 'colima' ? 'incusbr0' : ''}"
+    create_network: "${(workstation.runtime ?? '') != 'colima'}"
     network_cidr: ${network.cidr_block}
     storage_pools:
       local:
-        driver: "${vm.driver == 'colima' ? 'dir' : null}"
+        driver: "${(workstation.runtime ?? '') == 'colima' ? 'dir' : null}"
     instances:
       - name: controlplane
         role: controlplane
@@ -25,7 +36,7 @@ terraform:
         image: windsor:talos/v1.12.1/arm64
         type: virtual-machine
         description: Talos control plane node
-        storage_pool: "${vm.driver == 'colima' ? 'local' : 'default'}"
+        storage_pool: "${(workstation.runtime ?? '') == 'colima' ? 'local' : 'default'}"
         root_disk_size: ${string(cluster.controlplanes.root_disk_size ?? 30) + "GB"}
         limits:
           cpu: ${string(cluster.controlplanes.cpu ?? 2)}
@@ -42,7 +53,7 @@ terraform:
         image: windsor:talos/v1.12.1/arm64
         type: virtual-machine
         description: Talos worker node
-        storage_pool: "${vm.driver == 'colima' ? 'local' : 'default'}"
+        storage_pool: "${(workstation.runtime ?? '') == 'colima' ? 'local' : 'default'}"
         root_disk_size: ${string(cluster.workers.root_disk_size ?? 50) + "GB"}
         limits:
           cpu: ${string(cluster.workers.cpu ?? 4)}
@@ -59,13 +70,17 @@ terraform:
   - compute
   parallelism: 1
   inputs:
-    cluster_endpoint: ${cluster.endpoint ?? ("https://" + split(terraform_output("compute", "controlplanes")[0].endpoint, ":")[0] + ":6443")}
+    cluster_endpoint: "${cluster.endpoint ?? cluster_endpoint_fallback.vars.endpoint}"
     cluster_name: talos
     controlplanes: ${terraform_output("compute", "controlplanes") ?? values(cluster.controlplanes.nodes)}
-    workers: "${terraform_output('compute', 'workers') ?? (cluster.workers.nodes != null ? values(cluster.workers.nodes) : [])}"
-    common_config_patches: ${jsonnet("../configs/talos-generic.jsonnet").common_config_patches}
-    worker_config_patches: ${jsonnet("../configs/talos-generic.jsonnet").worker_config_patches}
-    controlplane_config_patches: ${jsonnet("../configs/talos-generic.jsonnet").controlplane_config_patches}
+    workers: "${terraform_output(\"compute\", \"workers\") ?? ((cluster.workers.count ?? 0) > 0 ? values(cluster.workers.nodes) : [])}"
+    controlplane_disks: ${talos_common.vars.controlplane_disks}
+    worker_disks: ${talos_common.vars.worker_disks}
+    common_config_patches: ${talos_common.patchVars.common_config_patches}
+    controlplane_config_patches: ${talos_common.patchVars.controlplane_config_patches}
+    worker_config_patches: ${talos_common.patchVars.worker_config_patches}
+    controlplane_volumes: ${talos_common.vars.controlplane_volumes ?? []}
+    worker_volumes: ${talos_common.vars.worker_volumes ?? []}
 - name: gitops
   path: gitops/flux
   dependsOn:
@@ -85,7 +100,7 @@ kustomize:
   - openebs
   - openebs/dynamic-localpv
   substitutions:
-    local_volume_path: "${cluster.controlplanes.schedulable == true ? split(cluster.controlplanes.volumes[0] ?? '/var/local', ':')[len(split(cluster.controlplanes.volumes[0] ?? '/var/local', ':')) - 1] : split(cluster.workers.volumes[0] ?? '/var/local', ':')[len(split(cluster.workers.volumes[0] ?? '/var/local', ':')) - 1]}"
+    local_volume_path: ${talos_common.vars.csi_local_volume_path}
   timeout: 20m
   interval: 5m
 
