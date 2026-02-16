@@ -23,8 +23,8 @@ output "compose_project" {
 }
 
 output "next_ip" {
-  description = "Next available IP for sequential node assignment (cidrhost(network_cidr, 10)). Use as compute/docker start_ip when attaching to this network."
-  value       = cidrhost(var.network_cidr, 10)
+  description = "Next available IP for sequential node assignment (first host after dns=2, git=3, registries=4..). Use as compute/docker start_ip when attaching to this network."
+  value       = cidrhost(var.network_cidr, 4 + length(local.registry_keys_sorted))
 }
 
 output "dns_ip" {
