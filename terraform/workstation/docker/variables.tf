@@ -12,12 +12,6 @@ variable "context" {
   type        = string
 }
 
-variable "context_path" {
-  description = "Path to the context directory. Used to resolve .windsor config (e.g. Corefile). Defaults to project_root when not set. Universal variable provided by the environment."
-  type        = string
-  default     = null
-}
-
 variable "domain_name" {
   description = "Domain name used for DNS zone and hostnames in the Corefile (e.g. dns.domain_name, git.domain_name). Defaults to context when not set."
   type        = string
