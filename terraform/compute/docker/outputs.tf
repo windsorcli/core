@@ -113,3 +113,8 @@ output "workers" {
   description = "List of worker instances for cluster/talos (hostname, endpoint, node). Consumed by provider-docker → cluster/talos when workstation enabled."
   value       = local.workers
 }
+
+output "container_ports" {
+  description = "Port list per container name (for tests: hostports only on first controlplane when no workers, first worker when workers exist)."
+  value       = { for k, c in local.containers_by_name : k => coalesce(c.ports, []) }
+}

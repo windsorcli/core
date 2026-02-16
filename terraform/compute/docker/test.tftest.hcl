@@ -135,6 +135,63 @@ run "no_cluster_nodes_no_containers" {
   }
 }
 
+# Regression: hostports applied only to first controlplane when no workers, only to first worker when workers exist (avoids port already allocated).
+run "hostports_first_node_only" {
+  command = plan
+
+  variables {
+    context        = "regress"
+    network_cidr   = "10.30.0.0/16"
+    create_network = true
+    cluster_nodes = {
+      distribution = "talos"
+      controlplanes = {
+        count     = 2
+        image     = "ghcr.io/siderolabs/talos:v1.11.5"
+        hostports = ["8443:6443/tcp"]
+      }
+      workers = {
+        count     = 0
+        image     = "ghcr.io/siderolabs/talos:v1.11.5"
+        hostports = []
+      }
+    }
+  }
+
+  assert {
+    condition     = contains(output.container_ports["controlplane-1"], "8443:6443/tcp") && !contains(output.container_ports["controlplane-2"], "8443:6443/tcp")
+    error_message = "controlplanes.hostports must apply only to first controlplane when no workers"
+  }
+}
+
+run "hostports_first_worker_only" {
+  command = plan
+
+  variables {
+    context        = "regress"
+    network_cidr   = "10.30.0.0/16"
+    create_network = true
+    cluster_nodes = {
+      distribution = "talos"
+      controlplanes = {
+        count     = 1
+        image     = "ghcr.io/siderolabs/talos:v1.11.5"
+        hostports = []
+      }
+      workers = {
+        count     = 2
+        image     = "ghcr.io/siderolabs/talos:v1.11.5"
+        hostports = ["9443:6443/tcp"]
+      }
+    }
+  }
+
+  assert {
+    condition     = contains(output.container_ports["worker-1"], "9443:6443/tcp") && !contains(output.container_ports["worker-2"], "9443:6443/tcp")
+    error_message = "workers.hostports must apply only to first worker"
+  }
+}
+
 # Negative: invalid cluster_nodes.distribution rejected.
 run "invalid_distribution" {
   command         = plan
