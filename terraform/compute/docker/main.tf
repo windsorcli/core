@@ -25,7 +25,7 @@ locals {
 
   # Runtime: docker-desktop => localhost-only networking; colima/linux => advanced networking. Standardized with workstation/docker.
   runtime                  = (var.runtime == "colima" || var.runtime == "docker") ? "linux" : var.runtime
-  use_localhost_networking = var.runtime == "docker-desktop"
+  use_localhost_networking = local.runtime == "docker-desktop"
 
   # Node shape: per-distribution (talos, future k3s) container definition:
   # ports, volume_specs, env_sku_key, privileged, security_opt, tmpfs.
