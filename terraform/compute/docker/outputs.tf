@@ -25,12 +25,13 @@ locals {
   }
 
   # docker-desktop: endpoint = 127.0.0.1:host_port (cp1=50000, ...). Colima/linux: endpoint = node_ip:50000 (host reachable via route).
-  _cp_keys_sorted     = sort([for k, v in docker_container.containers : k if local.instance_roles[k] == "controlplane"])
-  _worker_keys_sorted = sort([for k, v in docker_container.containers : k if local.instance_roles[k] == "worker"])
-  _host_port_cp       = { for i, k in local._cp_keys_sorted : k => 50000 + i }
-  _host_port_worker   = { for i, k in local._worker_keys_sorted : k => 50000 + length(local._cp_keys_sorted) + i }
-  _endpoint_cp        = { for k in local._cp_keys_sorted : k => (local.use_localhost_networking ? "127.0.0.1:${local._host_port_cp[k]}" : "${local.instance_ips[k]}:50000") }
-  _endpoint_worker    = { for k in local._worker_keys_sorted : k => (local.use_localhost_networking ? "127.0.0.1:${local._host_port_worker[k]}" : "${local.instance_ips[k]}:50000") }
+  # Ports must use creation index (ip_index_per_container), not sort() position, so controlplane-10 gets 50009 not 50001.
+  _cp_keys          = [for k, v in docker_container.containers : k if local.instance_roles[k] == "controlplane"]
+  _worker_keys      = [for k, v in docker_container.containers : k if local.instance_roles[k] == "worker"]
+  _host_port_cp     = { for k in local._cp_keys : k => 50000 + try(local.ip_index_per_container[k], 0) }
+  _host_port_worker = { for k in local._worker_keys : k => 50000 + try(local.ip_index_per_container[k], 0) }
+  _endpoint_cp      = { for k in local._cp_keys : k => (local.use_localhost_networking ? "127.0.0.1:${local._host_port_cp[k]}" : "${local.instance_ips[k]}:50000") }
+  _endpoint_worker  = { for k in local._worker_keys : k => (local.use_localhost_networking ? "127.0.0.1:${local._host_port_worker[k]}" : "${local.instance_ips[k]}:50000") }
 
   # Generic instances list (same shape as compute/incus)
   instances = [
