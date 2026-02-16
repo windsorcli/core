@@ -70,15 +70,16 @@ locals {
     for p in local.shape != null ? local.shape.controlplane.ports : []
     : p if length(split(":", split("/", p)[0])) == 1
   ]
+  # hostports: first controlplane only when no workers; first worker only when workers exist (doc in cluster_nodes).
   _cp_ports_with_auto = { for i in range(local._cp_count) : i => concat(
     [for p in local._cp_ports_container_only : p if p != "6443/tcp" && p != "50000/tcp"],
     ["${6443 + i}:6443/tcp", "${50000 + i}:50000/tcp"],
-    coalesce(var.cluster_nodes.controlplanes.hostports, [])
+    (i == 0 && local._worker_count == 0 ? coalesce(var.cluster_nodes.controlplanes.hostports, []) : [])
   ) }
   _worker_ports_with_auto = { for i in range(local._worker_count) : i => concat(
     [for p in(local.shape != null ? local.shape.worker.ports : []) : p if p != "50000/tcp"],
     ["${50000 + local._cp_count + i}:50000/tcp"],
-    coalesce(var.cluster_nodes.workers.hostports, [])
+    (i == 0 ? coalesce(var.cluster_nodes.workers.hostports, []) : [])
   ) }
 
   # Cluster instances: controlplanes then workers. Ports override shape so auto + hostports win.
