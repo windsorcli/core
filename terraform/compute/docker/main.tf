@@ -48,8 +48,15 @@ locals {
         tmpfs        = { "/run" = "", "/system" = "", "/tmp" = "" }
       }
       worker = {
-        ports        = []
-        volume_specs = []
+        ports = []
+        volume_specs = [
+          { name = "system_state", path = "/system/state" },
+          { name = "var", path = "/var" },
+          { name = "etc_cni", path = "/etc/cni" },
+          { name = "etc_kubernetes", path = "/etc/kubernetes" },
+          { name = "usr_libexec_kubernetes", path = "/usr/libexec/kubernetes" },
+          { name = "opt", path = "/opt" }
+        ]
         env_sku_key  = "TALOSSKU"
         privileged   = true
         read_only    = true
