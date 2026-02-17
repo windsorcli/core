@@ -101,7 +101,7 @@ locals {
       ports    = local._cp_ports_with_auto[i]
       env = merge(
         { PLATFORM = "container" },
-        { (local.shape.controlplane.env_sku_key) = "${var.cluster_nodes.controlplanes.cpu}CPU-${var.cluster_nodes.controlplanes.memory}GB" }
+        { (local.shape.controlplane.env_sku_key) = "${var.cluster_nodes.controlplanes.cpu}CPU-${var.cluster_nodes.controlplanes.memory * 1024}RAM" }
       )
       volumes = concat(
         [for s in local.shape.controlplane.volume_specs : "controlplane_${i + 1}_${s.name}:${s.path}"],
@@ -117,7 +117,7 @@ locals {
       ports    = local._worker_ports_with_auto[i]
       env = merge(
         { PLATFORM = "container" },
-        { (local.shape.worker.env_sku_key) = "${var.cluster_nodes.workers.cpu}CPU-${var.cluster_nodes.workers.memory}GB" }
+        { (local.shape.worker.env_sku_key) = "${var.cluster_nodes.workers.cpu}CPU-${var.cluster_nodes.workers.memory * 1024}RAM" }
       )
       volumes = concat(
         [for s in local.shape.worker.volume_specs : "worker_${i + 1}_${s.name}:${s.path}"],
