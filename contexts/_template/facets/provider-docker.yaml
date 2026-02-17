@@ -43,30 +43,6 @@ config:
           extraArgs:
             rotate-server-certificates: "true"
 
-# No compute: context/schema nodes use 10.5.0.x, unreachable from host. Rewrite endpoint to 127.0.0.1:(50000+i) and node to 127.0.0.1
-# so Terraform bootstrap/apply and health check can connect. (Provider docker + no compute = docker-desktop.)
-- name: docker_desktop_nodes
-  when: len(terraform_output("compute", "controlplanes") ?? []) == 0
-  vars:
-    controlplanes: >-
-      ${reduce(
-        take(values(cluster.controlplanes.nodes ?? {}), cluster.controlplanes.count ?? 1),
-        #acc + [fromPairs(concat(
-          filter(toPairs(#), get(#, 0) != "hostname" && get(#, 0) != "endpoint" && get(#, 0) != "node"),
-          [["hostname", null], ["endpoint", "127.0.0.1:" + string(50000 + len(#acc))], ["node", "127.0.0.1"]]
-        ))],
-        []
-      )}
-    workers: >-
-      ${(cluster.workers.count ?? 0) == 0 ? [] : reduce(
-        take(values(cluster.workers.nodes ?? {}), cluster.workers.count ?? 0),
-        #acc + [fromPairs(concat(
-          filter(toPairs(#), get(#, 0) != "hostname" && get(#, 0) != "endpoint" && get(#, 0) != "node"),
-          [["hostname", null], ["endpoint", "127.0.0.1:" + string(50000 + (cluster.controlplanes.count ?? 1) + len(#acc))], ["node", "127.0.0.1"]]
-        ))],
-        []
-      )}
-
 terraform:
 # Run cluster/talos: secrets, config apply, bootstrap, kubeconfig. Inputs from compute output or context;
 # hostname stripped for containers (Talos 1.12 rejects setting hostname when runtime already set it).
@@ -82,7 +58,7 @@ terraform:
     cluster_name: talos
     talos_version: ${talos.talos_version}
     # When compute output exists, strip hostname from each node (Docker sets it; Talos 1.12 rejects override).
-    # When no compute, rewrite endpoint/node to 127.0.0.1:(50000+i) inline so host can bootstrap/apply (no reliance on docker_desktop_nodes.vars scope).
+    # When no compute, rewrite endpoint/node to 127.0.0.1:(50000+i) so host can bootstrap/apply.
     controlplanes: >-
       ${(len(terraform_output("compute", "controlplanes") ?? []) > 0
         ? map(terraform_output("compute", "controlplanes"), fromPairs(concat(filter(toPairs(#), get(#, 0) != "hostname"), [["hostname", null]])))
