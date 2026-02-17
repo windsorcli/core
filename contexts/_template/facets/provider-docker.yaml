@@ -121,7 +121,7 @@ terraform:
 # Run gitops/flux after cluster. Skipped when workstation enabled (workstation facet owns gitops in that mode).
 - name: gitops
   path: gitops/flux
-  when: ${workstation.enabled == false}
+  when: workstation.enabled == false
   dependsOn:
     - cluster
   inputs:
