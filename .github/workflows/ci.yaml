@@ -207,7 +207,6 @@ jobs:
         with:
           ref: main
           context: local
-          install-only: true
 
       - name: Create docker cache directory
         run: mkdir -p .windsor/cache/docker
