@@ -75,6 +75,7 @@ terraform:
 # GitOps/flux with livereload credentials and webhook token. Runs when workstation enabled.
 - name: gitops
   path: gitops/flux
+  destroy: false
   dependsOn:
     - cluster
   inputs:
