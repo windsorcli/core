@@ -77,8 +77,6 @@ terraform:
     controlplane_disks: ${talos_common.vars.controlplane_disks}
     worker_disks: ${talos_common.vars.worker_disks}
     common_config_patches: ${talos_common.patchVars.common_config_patches}
-    controlplane_config_patches: ${talos_common.patchVars.controlplane_config_patches}
-    worker_config_patches: ${talos_common.patchVars.worker_config_patches}
     controlplane_volumes: ${talos_common.vars.controlplane_volumes ?? []}
     worker_volumes: ${talos_common.vars.worker_volumes ?? []}
 - name: gitops
