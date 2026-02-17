@@ -19,7 +19,7 @@ x-defaults:
           hostname: controlplane-1
     workers:
       volumes:
-        - /var/local
+        - /var/mnt/local
 
   ingress-disabled: &ingress-disabled
     enabled: false

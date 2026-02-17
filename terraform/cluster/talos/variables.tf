@@ -16,10 +16,10 @@ variable "kubernetes_version" {
 }
 
 variable "talos_version" {
-  description = "The talos version to deploy."
+  description = "The talos version to deploy. Must match the node image tag (e.g. 1.12.1 for ghcr.io/siderolabs/talos:v1.12.1)."
   type        = string
   # renovate: datasource=github-releases depName=talos package=siderolabs/talos
-  default = "1.11.5"
+  default = "1.12.1"
   validation {
     condition     = can(regex("^\\d+\\.\\d+\\.\\d+$", var.talos_version))
     error_message = "The Talos version should be in semantic version format like '1.7.6'."
@@ -52,6 +52,7 @@ variable "controlplanes" {
     hostname = optional(string)
     endpoint = string
     node     = string
+    disks    = optional(list(any), [])
     disk_selector = optional(object({
       busPath  = optional(string)
       modalias = optional(string)
@@ -81,6 +82,7 @@ variable "workers" {
     hostname = optional(string)
     endpoint = string
     node     = string
+    disks    = optional(list(any), [])
     disk_selector = optional(object({
       busPath  = optional(string)
       modalias = optional(string)
@@ -132,4 +134,28 @@ variable "worker_config_patches" {
     condition     = var.worker_config_patches == "" || can(yamldecode(var.worker_config_patches))
     error_message = "worker_config_patches must be an empty string or a valid YAML string."
   }
+}
+
+variable "worker_volumes" {
+  description = "Raw volume strings (path or host:dest). Talos extraMounts use the path (part after ':' if present)."
+  type        = list(string)
+  default     = []
+}
+
+variable "controlplane_volumes" {
+  description = "Raw volume strings (path or host:dest). Talos extraMounts use the path (part after ':' if present)."
+  type        = list(string)
+  default     = []
+}
+
+variable "controlplane_disks" {
+  description = "Pool-level disks; used when a controlplane node has no disks key. Per-node disks override."
+  type        = list(any)
+  default     = []
+}
+
+variable "worker_disks" {
+  description = "Pool-level disks; used when a worker node has no disks key. Per-node disks override."
+  type        = list(any)
+  default     = []
 }

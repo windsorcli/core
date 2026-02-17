@@ -4,7 +4,13 @@ metadata:
   name: provider-base
   description: "Base infrastructure components for all providers"
 
-when: provider != 'none'
+when: (platform ?? provider) != 'none'
+
+config:
+# Effective provider: platform ?? provider. Use this instead of provider so platform can override.
+- name: effective_provider
+  vars:
+    value: "${platform ?? provider ?? \"none\"}"
 
 kustomize:
 
@@ -79,9 +85,12 @@ kustomize:
 # FluentD aggregator (log aggregation driver, runs in observability namespace for security)
 # Independent of observability addon - FluentD is part of base telemetry infrastructure
 # Excluded when elasticsearch is used (which uses filebeat instead) or when log aggregation driver is not fluentd
+# Depends on telemetry-base so fluent-operator (and ClusterFilter/Fluentd CRDs) is installed first
 - name: observability
   path: observability
   when: (telemetry.log_aggregation.driver ?? 'fluentd') == 'fluentd' && (addons.observability.logs_driver ?? '') != 'elasticsearch'
+  dependsOn:
+    - telemetry-base
   components:
     - fluentd
     - fluentd/filters/otel

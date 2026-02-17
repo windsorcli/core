@@ -6,15 +6,6 @@ metadata:
 
 when: dev == true
 
-terraform:
-# GitOps dev overrides for livereload support
-- name: gitops
-  path: gitops/flux
-  inputs:
-    git_username: ${git.livereload.username ?? ""}
-    git_password: ${git.livereload.password ?? ""}
-    webhook_token: ${git.livereload.webhook_token ?? "abcdef123456"}
-
 kustomize:
 
 # PKI resources for development (selfsigned issuer)
@@ -28,6 +19,8 @@ kustomize:
 # Grafana dev credentials
 - name: observability
   path: observability
+  dependsOn:
+    - telemetry-base
   components:
     - grafana/dev
   substitutions:

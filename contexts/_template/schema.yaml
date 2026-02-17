@@ -3,12 +3,154 @@ title: Windsor Core Blueprint Configuration Schema
 description: Schema for configuring Windsor platform blueprints
 type: object
 
+$defs:
+  diskItem: &diskItem
+    type: object
+    properties:
+      name:
+        type: string
+        description: Disk device name (e.g., "data-disk", "backup-disk")
+      size:
+        type: integer
+        description: Disk size in GB
+      type:
+        type: string
+        description: Disk type (platform-specific; e.g. cloud disk type or "default")
+      path:
+        type: string
+        description: Mount point inside instance (e.g. /mnt/data, /var/mnt/local); used after platform attach. Optional for block storage when device is set.
+      source:
+        type: string
+        description: Source path for bind mounts or volume name
+      device:
+        type: string
+        description: Block device path or URI for block storage (e.g. /dev/sdb). When set, used for node storage pools; platform may still attach by size/type.
+      read_only:
+        type: boolean
+        default: false
+        description: Mount as read-only
+    required:
+      - name
+      - size
+  nodesSchema: &nodesSchema
+    type: object
+    additionalProperties:
+      type: object
+      properties:
+        endpoint:
+          type: string
+          description: Node endpoint/IP address
+        hostname:
+          type: string
+          description: Node hostname
+        node:
+          type: string
+          description: Node identifier
+        image:
+          type: string
+          description: Node image. Overrides pool-level image when set.
+        disks:
+          type: array
+          items: *diskItem
+          description: Data disks for this node only. Overrides pool-level disks for this node (no merge).
+        volumes:
+          type: array
+          items:
+            type: string
+          description: Reserved; only pool-level volumes (controlplanes.volumes / workers.volumes) are used today for extraMounts and compute bind mounts.
+      required:
+        - endpoint
+        - node
+    description: Named node configurations
+  nodePool: &nodePool
+    count:
+      type: integer
+      description: Number of nodes
+    image:
+      type: string
+      description: Node image for this pool. Per-node image overrides when set.
+    instance_type:
+      type: string
+      description: Cloud provider instance type
+    cpu:
+      type: integer
+      description: CPU cores per node
+    memory:
+      type: integer
+      description: Memory in GB per node
+    root_disk_size:
+      type: integer
+      description: Root/OS disk size in GB
+    disks:
+      type: array
+      items: *diskItem
+      description: Additional data disks (pool-level). Platform attach and/or block storage.
+    hostports:
+      type: array
+      items:
+        type: string
+        pattern: "^[0-9]+:[0-9]+/(tcp|udp)$"
+      description: Host port mappings (format "host:container/protocol")
+    nodes: *nodesSchema
+    volumes:
+      type: array
+      items:
+        type: string
+      description: Node directory paths for extra mounts. For directory-based storage include cluster.storage.local_base_path. Path format (e.g. /var/mnt/local); host:dest only for local dev bind mounts. Block/device storage uses disks.
+
 properties:
+  # Context identity (from windsor.yaml or values)
+  id:
+    type: string
+    description: Context id (e.g. short identifier for this deployment)
+
+  # Infrastructure provider / platform. Use platform ?? provider as effective value; facets use effective_provider (provider-base).
+  provider:
+    type: string
+    enum:
+      - none
+      - aws
+      - azure
+      - incus
+      - metal
+      - docker
+    default: none
+    description: Infrastructure provider - includes policy, PKI, telemetry, ingress, and storage
+  platform:
+    type: string
+    enum:
+      - none
+      - aws
+      - azure
+      - incus
+      - metal
+      - docker
+    description: Alias for provider; when set overrides provider. Facets use effective_provider (platform ?? provider).
+
   # Development mode
   dev:
     type: boolean
     default: false
     description: Enable development mode with additional observability and debugging tools
+
+  # Terraform execution config
+  terraform:
+    type: object
+    properties:
+      enabled:
+        type: boolean
+        default: true
+        description: Enable Terraform in stacks
+      backend:
+        type: object
+        properties:
+          type:
+            type: string
+            description: Backend type (e.g. local, s3, gcs)
+        additionalProperties: true
+        description: Terraform backend configuration
+    additionalProperties: true
+    description: Terraform execution and backend overrides
 
   # Demo mode
   demo:
@@ -80,18 +222,30 @@ properties:
         additionalProperties: false
     additionalProperties: false
 
-  # Core infrastructure provider (determines basic stack)
-  provider:
-    type: string
-    enum:
-      - none
-      - aws
-      - azure
-      - incus
-      - metal
-      - docker
-    default: none
-    description: Infrastructure provider - includes policy, PKI, telemetry, ingress, and storage
+  docker:
+    type: object
+    properties:
+      enabled:
+        type: boolean
+        default: false
+        description: "[DEPRECATED] Unused. Local dev is via terraform compute/workstation only."
+      registries:
+        type: object
+        additionalProperties:
+          type: object
+          properties:
+            remote:
+              type: string
+              description: Upstream registry URL (e.g. https://gcr.io). Proxy supports remoteurl, username, password, ttl.
+            local:
+              type: string
+              description: Client-facing registry host for mirror key (e.g. docker.io). When set, used as the mirror name so pulls to this host use the proxy. Omit to use the registry map key.
+            hostname:
+              type: string
+              description: Hostname for registry mirror config (e.g. registry.test)
+          additionalProperties: false
+        description: Registry mirror config keyed by registry host (e.g. gcr.io, ghcr.io). Used by workstation proxy registries and cluster machine config.
+    additionalProperties: false
 
   # High availability mode
   ha:
@@ -128,7 +282,7 @@ properties:
           - metallb
           - kube-vip
         default: kube-vip
-        description: Load balancer driver
+        description: In-cluster load balancer driver
       loadbalancer_mode:
         type: string
         enum:
@@ -141,85 +295,38 @@ properties:
   cluster:
     type: object
     properties:
+      enabled:
+        type: boolean
+        default: true
+        description: Enable cluster Terraform (and compute when platform is docker with workstation enabled)
+      driver:
+        type: string
+        enum:
+          - talos
+          - aks
+          - eks
+        default: talos
+        description: Cluster driver
       endpoint:
         type: string
         description: External controlplane API endpoint
       controlplanes:
         type: object
         properties:
+          <<: *nodePool
           count:
             type: integer
             minimum: 1
             default: 1
             description: Number of control plane nodes
-          instance_type:
-            type: string
-            description: Cloud provider instance type for control planes
-          cpu:
-            type: integer
-            description: CPU cores per control plane node
-          memory:
-            type: integer
-            description: Memory in GB per control plane node
-          root_disk_size:
-            type: integer
-            description: Root/OS disk size in GB
-          disks:
-            type: array
-            items:
-              type: object
-              properties:
-                name:
-                  type: string
-                  description: Disk device name (e.g., "data-disk", "backup-disk")
-                size:
-                  type: integer
-                  description: Disk size in GB
-                type:
-                  type: string
-                  description: Disk type (platform-specific, e.g., "gp3" for AWS, "StandardSSD_LRS" for Azure, "default" for Incus)
-                path:
-                  type: string
-                  description: Mount point inside instance (e.g., "/mnt/data", "/var/local")
-                source:
-                  type: string
-                  description: Source path for bind mounts (local/Incus) or volume name
-                read_only:
-                  type: boolean
-                  default: false
-                  description: Mount as read-only
-              required:
-                - name
-                - size
-            description: Additional data disks to attach to control plane nodes
           nodes:
-            type: object
+            <<: *nodesSchema
             default:
               controlplane-1:
                 endpoint: 10.5.0.1
                 node: 10.5.0.1
                 hostname: controlplane-1
-            additionalProperties:
-              type: object
-              properties:
-                endpoint:
-                  type: string
-                  description: Node endpoint/IP address
-                hostname:
-                  type: string
-                  description: Node hostname
-                node:
-                  type: string
-                  description: Node identifier
-              required:
-                - endpoint
-                - node
             description: Named control plane node configurations
-          volumes:
-            type: array
-            items:
-              type: string
-            description: Additional volume mounts for control planes
           schedulable:
             type: boolean
             default: false
@@ -228,93 +335,38 @@ properties:
       workers:
         type: object
         properties:
+          <<: *nodePool
           count:
             type: integer
             minimum: 0
             default: 0
             description: Number of worker nodes
-          instance_type:
-            type: string
-            description: Cloud provider instance type for workers
-          cpu:
-            type: integer
-            description: CPU cores per worker node
-          memory:
-            type: integer
-            description: Memory in GB per worker node
-          root_disk_size:
-            type: integer
-            description: Root/OS disk size in GB
-          disks:
-            type: array
-            items:
-              type: object
-              properties:
-                name:
-                  type: string
-                  description: Disk device name (e.g., "data-disk", "backup-disk")
-                size:
-                  type: integer
-                  description: Disk size in GB
-                type:
-                  type: string
-                  description: Disk type (platform-specific, e.g., "gp3" for AWS, "StandardSSD_LRS" for Azure, "default" for Incus)
-                path:
-                  type: string
-                  description: Mount point inside instance (e.g., "/mnt/data", "/var/local")
-                source:
-                  type: string
-                  description: Source path for bind mounts (local/Incus) or volume name
-                read_only:
-                  type: boolean
-                  default: false
-                  description: Mount as read-only
-              required:
-                - name
-                - size
-            description: Additional data disks to attach to worker nodes
-          hostports:
-            type: array
-            items:
-              type: string
-              pattern: "^[0-9]+:[0-9]+/(tcp|udp)$"
-            description: Host port mappings (format "host:container/protocol")
           nodes:
-            type: object
+            <<: *nodesSchema
             default:
               worker-1:
                 endpoint: 10.5.0.2
                 node: 10.5.0.2
                 hostname: worker-1
-            additionalProperties:
-              type: object
-              properties:
-                endpoint:
-                  type: string
-                  description: Node endpoint/IP address
-                hostname:
-                  type: string
-                  description: Node hostname
-                node:
-                  type: string
-                  description: Node identifier
-              required:
-                - endpoint
-                - node
             description: Named worker node configurations
           volumes:
             type: array
             items:
               type: string
-            default: ["/var/mnt/local"]
-            description: Additional volume mounts for workers
+            default:
+              - "/var/mnt/local"
+            description: "Node directory paths for extra mounts. For directory-based storage include cluster.storage.local_base_path. Path or host:dest for local dev bind mounts. Block/device storage uses disks."
         additionalProperties: false
       storage:
         type: object
         properties:
           single_storage_type:
             type: string
-            description: Storage type for the single storage class (e.g., gp3 for AWS, StandardSSD_LRS for Azure)
+            description: Default storage driver. Directory-based (local_base_path), cloud default, or block (cluster.*.disks).
+          local_base_path:
+            type: string
+            default: "/var/mnt/local"
+            description: Base path for directory-based storage. Must be in the volumes list of every pool that can schedule pods using this storage (controlplanes.volumes when schedulable, workers.volumes).
         additionalProperties: false
     additionalProperties: false
 
@@ -322,6 +374,9 @@ properties:
   dns:
     type: object
     properties:
+      domain:
+        type: string
+        description: Single domain for local/private DNS (used by workstation, addons when set)
       public_domain:
         type: string
         description: Public domain name
@@ -347,21 +402,60 @@ properties:
     additionalProperties: false
 
   # VM configuration
+  # Deprecated: use workstation.runtime and workstation.enabled instead. vm.driver is still used as fallback when workstation.runtime is unset.
   vm:
     type: object
+    deprecated: true
+    description: Deprecated. Prefer workstation.runtime (and workstation.enabled). vm.driver remains as fallback for effective runtime when option-workstation is not applied.
     properties:
       driver:
         type: string
         enum:
+          - ""
           - docker-desktop
           - colima
-        description: VM driver for local clusters
+        default: ""
+        description: VM driver for local clusters (empty = not colima)
       runtime:
         type: string
         enum:
           - docker
           - incus
         description: Container/VM runtime
+    additionalProperties: false
+
+  # Workstation (DNS, registries, git livereload)
+  workstation:
+    type: object
+    properties:
+      enabled:
+        type: boolean
+        default: false
+        description: Enable workstation stack (DNS, registries, git livereload)
+      runtime:
+        type: string
+        enum:
+          - colima
+          - docker-desktop
+          - docker
+        description: Host runtime for local clusters. VM-backed (colima, docker-desktop) or plain engine (docker). When unset, falls back to vm.driver.
+      services:
+        type: object
+        properties:
+          dns:
+            type: boolean
+            default: true
+            description: Create the DNS (CoreDNS) container
+          git:
+            type: boolean
+            default: true
+            description: Create the git livereload container
+          registries:
+            type: boolean
+            default: true
+            description: Create registry proxy containers (from docker.registries when true)
+        additionalProperties: false
+        description: Toggle workstation services
     additionalProperties: false
 
   # Optional addons

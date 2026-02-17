@@ -15,7 +15,10 @@ terraform {
 #-----------------------------------------------------------------------------------------------------------------------
 # Machine Secrets
 #-----------------------------------------------------------------------------------------------------------------------
-
+# When cluster state is destroyed and recreated, this resource generates a NEW CA. Container nodes keep Talos state
+# in Docker volumes; if those volumes were not removed, the node still has the OLD CA and TLS handshake fails,
+# so talos_machine_configuration_apply never succeeds (hangs or retries). Fix: full teardown including compute
+# so controlplane container and its volumes are removed, then windsor up (fresh node + fresh secrets).
 resource "talos_machine_secrets" "this" {
   talos_version = "v${var.talos_version}"
 }
@@ -25,11 +28,20 @@ resource "talos_machine_secrets" "this" {
 #-----------------------------------------------------------------------------------------------------------------------
 
 locals {
-  // Local variables for configuration paths and data
-  talosconfig = data.talos_client_configuration.this.talos_config
-
+  talosconfig      = data.talos_client_configuration.this.talos_config
   talosconfig_path = "${var.context_path}/.talos/config"
   kubeconfig_path  = "${var.context_path}/.kube/config"
+
+  # extraMounts from raw volume strings (path or host:dest; path = part after ":" if present).
+  # yamlencode() produces quoted keys (Terraform/Go); common_config_patches from blueprint is unquoted YAML. Both valid.
+  controlplane_extra_mounts       = [for v in var.controlplane_volumes : { source = length(split(":", v)) > 1 ? split(":", v)[1] : v, destination = length(split(":", v)) > 1 ? split(":", v)[1] : v, type = "bind", options = ["rbind", "rw"] }]
+  worker_extra_mounts             = [for v in var.worker_volumes : { source = length(split(":", v)) > 1 ? split(":", v)[1] : v, destination = length(split(":", v)) > 1 ? split(":", v)[1] : v, type = "bind", options = ["rbind", "rw"] }]
+  controlplane_extra_mounts_patch = length(var.controlplane_volumes) > 0 ? yamlencode({ machine = { kubelet = { extraMounts = local.controlplane_extra_mounts } } }) : ""
+  worker_extra_mounts_patch       = length(var.worker_volumes) > 0 ? yamlencode({ machine = { kubelet = { extraMounts = local.worker_extra_mounts } } }) : ""
+
+  # Per-node UserVolumeConfig block docs: node.disks if set, else pool-level (controlplane_disks / worker_disks).
+  controlplane_block_docs = [for cp in var.controlplanes : [for i, d in lookup(cp, "disks", var.controlplane_disks) : yamlencode({ apiVersion = "v1alpha1", kind = "UserVolumeConfig", name = try(d.name, "disk-${i}"), volumeType = "disk", provisioning = { diskSelector = { match = "disk.dev_path == '${d.device}'" } } }) if try(d.device, "") != ""]]
+  worker_block_docs       = [for w in var.workers : [for i, d in lookup(w, "disks", var.worker_disks) : yamlencode({ apiVersion = "v1alpha1", kind = "UserVolumeConfig", name = try(d.name, "disk-${i}"), volumeType = "disk", provisioning = { diskSelector = { match = "disk.dev_path == '${d.device}'" } } }) if try(d.device, "") != ""]]
 }
 
 #-----------------------------------------------------------------------------------------------------------------------
@@ -38,7 +50,7 @@ locals {
 
 module "controlplane_bootstrap" {
   source               = "./modules/machine"
-  hostname             = var.controlplanes[0].hostname
+  hostname             = try(var.controlplanes[0].hostname, "")
   node                 = var.controlplanes[0].node
   client_configuration = talos_machine_secrets.this.client_configuration
   machine_secrets      = try(talos_machine_secrets.this.machine_secrets, "")
@@ -55,11 +67,12 @@ module "controlplane_bootstrap" {
   talosconfig_path     = local.talosconfig_path
   kubeconfig_path      = local.kubeconfig_path
   enable_health_check  = true
-  config_patches = compact(concat([
+  config_patches = [for p in compact(concat([
     var.common_config_patches,
     var.controlplane_config_patches,
+    local.controlplane_extra_mounts_patch,
     lookup(var.controlplanes[0], "config_patches", []),
-  ]))
+  ], local.controlplane_block_docs[0])) : p if p != "null"]
 }
 
 module "controlplanes" {
@@ -67,7 +80,7 @@ module "controlplanes" {
   depends_on = [module.controlplane_bootstrap]
 
   source               = "./modules/machine"
-  hostname             = var.controlplanes[count.index + 1].hostname
+  hostname             = try(var.controlplanes[count.index + 1].hostname, "")
   node                 = var.controlplanes[count.index + 1].node
   client_configuration = talos_machine_secrets.this.client_configuration
   machine_secrets      = try(talos_machine_secrets.this.machine_secrets, "")
@@ -84,11 +97,12 @@ module "controlplanes" {
   talosconfig_path     = local.talosconfig_path
   kubeconfig_path      = local.kubeconfig_path
   enable_health_check  = true
-  config_patches = compact(concat([
+  config_patches = [for p in compact(concat([
     var.common_config_patches,
     var.controlplane_config_patches,
+    local.controlplane_extra_mounts_patch,
     lookup(var.controlplanes[count.index + 1], "config_patches", []),
-  ]))
+  ], local.controlplane_block_docs[count.index + 1])) : p if p != "null"]
 }
 
 #-----------------------------------------------------------------------------------------------------------------------
@@ -100,7 +114,7 @@ module "workers" {
   depends_on = [module.controlplane_bootstrap] // Depends on the first control plane completing
 
   source               = "./modules/machine"
-  hostname             = var.workers[count.index].hostname
+  hostname             = try(var.workers[count.index].hostname, "")
   node                 = var.workers[count.index].node
   client_configuration = try(talos_machine_secrets.this.client_configuration, "")
   machine_secrets      = try(talos_machine_secrets.this.machine_secrets, "")
@@ -116,11 +130,12 @@ module "workers" {
   talosconfig_path     = local.talosconfig_path
   kubeconfig_path      = local.kubeconfig_path
   enable_health_check  = true
-  config_patches = compact(concat([
+  config_patches = [for p in compact(concat([
     var.common_config_patches,
     var.worker_config_patches,
+    local.worker_extra_mounts_patch,
     lookup(var.workers[count.index], "config_patches", []),
-  ]))
+  ], local.worker_block_docs[count.index])) : p if p != "null"]
 }
 
 #-----------------------------------------------------------------------------------------------------------------------
@@ -133,17 +148,13 @@ data "talos_client_configuration" "this" {
   endpoints            = var.controlplanes.*.endpoint
 }
 
-// Write Talos config to a local file
+// Write Talos config to a local file. Content is updated when controlplane endpoints change (e.g. docker-desktop host-reachable 127.0.0.1).
 resource "local_sensitive_file" "talosconfig" {
   count = trim(var.context_path, " ") != "" ? 1 : 0 // Create file only if path is specified and not empty/whitespace
 
   content         = data.talos_client_configuration.this.talos_config
   filename        = local.talosconfig_path
   file_permission = "0600" // Set file permissions to read/write for owner only
-
-  lifecycle {
-    ignore_changes = [content] // Ignore changes to content to prevent unnecessary updates
-  }
 }
 
 

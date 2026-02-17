@@ -19,10 +19,10 @@ x-defaults:
           hostname: controlplane-1
     workers:
       volumes:
-        - /var/local
+        - /var/mnt/local
 
 cases:
-  # Minimal: Dev mode creates selfsigned issuer
+  # Minimal: Dev mode; addon-private-ca also applies (when dev), last-wins so pki-resources is addon's
   - name: dev mode creates selfsigned issuer
     values:
       provider: metal
@@ -34,12 +34,20 @@ cases:
       cluster: *default-cluster
     expect:
       kustomize:
+        - name: pki-base
+          path: pki/base
+          timeout: 10m
+          interval: 5m
+          components:
+            - trust-manager
         - name: pki-resources
           path: pki/resources
           dependsOn:
             - pki-base
+          timeout: 5m
+          interval: 5m
           components:
-            - public-issuer/selfsigned
+            - private-issuer/ca
 
   # Edge case: Non-dev mode excludes selfsigned issuer
   - name: excludes selfsigned issuer when dev disabled

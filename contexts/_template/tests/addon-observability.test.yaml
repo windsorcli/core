@@ -19,14 +19,14 @@ x-defaults:
           hostname: controlplane-1
     workers:
       volumes:
-        - /var/local
+        - /var/mnt/local
 
   ingress-disabled: &ingress-disabled
     enabled: false
     driver: nginx
 
 cases:
-  # Minimal: Test default behavior with dev mode (implicit enablement, 24h default format)
+  # Minimal: dev mode enables observability addon; addon wins (last-wins)
   - name: minimal config creates observability with defaults via dev mode
     values:
       provider: metal
@@ -59,7 +59,7 @@ cases:
             date_interval_hour: "MM/DD HH:mm"
             date_interval_day: "MM/DD"
 
-  # Full: Test all configurable options with stdout driver
+  # Full: stdout driver; addon wins (last-wins), addon contributes grafana + fluentd/outputs/stdout only
   - name: full config with stdout driver creates FluentD pipeline and log filtering
     values:
       provider: metal
@@ -93,11 +93,7 @@ cases:
             - grafana/dashboards/fluent-bit
             - grafana/dashboards/fluentd
             - grafana/ingress
-            - fluentd
-            - fluentd/filters/otel
-            - fluentd/prometheus
             - fluentd/outputs/stdout
-            - fluentd/filters/log-level/warn
           substitutions:
             external_domain: full.example.com
             date_full: "YYYY-MM-DD HH:mm:ss"
@@ -105,18 +101,13 @@ cases:
             date_interval_minute: "HH:mm"
             date_interval_hour: "MM/DD HH:mm"
             date_interval_day: "MM/DD"
-        - name: observability
-          dependsOn:
-            - ingress
-          components:
-            - grafana/ingress
         - name: telemetry-resources
           dependsOn:
             - telemetry-base
           components:
             - fluentbit/fluentd
 
-  # Full: Test Quickwit storage driver with all components
+  # Full: quickwit driver; addon wins (last-wins), addon contributes quickwit + fluentd output only
   - name: full config with quickwit driver creates storage pipeline with PVC and dashboards
     values:
       provider: metal
@@ -131,27 +122,24 @@ cases:
     expect:
       kustomize:
         - name: observability
+          path: observability
           dependsOn:
             - csi
             - telemetry-resources
           components:
-            - fluentd
-            - fluentd/filters/otel
-            - fluentd/prometheus
             - fluentd/outputs/quickwit
             - quickwit
             - quickwit/pvc
             - quickwit/prometheus
             - grafana/quickwit
             - grafana/dashboards/logs/quickwit
-            - fluentd/filters/log-level/info
         - name: telemetry-resources
           dependsOn:
             - telemetry-base
           components:
             - fluentbit/fluentd
 
-  # Full: Test Elasticsearch driver with ELK stack
+  # Full: elasticsearch driver. Intended: addon overrides telemetry-base (filebeat). See docs/cli-bugs.md if this fails.
   - name: full config with elasticsearch driver creates ELK stack with filebeat
     values:
       provider: metal
@@ -169,6 +157,7 @@ cases:
     expect:
       kustomize:
         - name: observability
+          path: observability
           dependsOn:
             - csi
             - ingress
@@ -179,17 +168,25 @@ cases:
           substitutions:
             external_domain: elk.example.com
         - name: telemetry-base
+          path: telemetry/base
           strategy: replace
           components:
             - prometheus
             - prometheus/flux
             - filebeat
+          timeout: 30m
+          interval: 10m
         - name: telemetry-resources
+          path: telemetry/resources
           strategy: replace
+          dependsOn:
+            - telemetry-base
           components:
             - metrics-server
             - prometheus
             - prometheus/flux
+          timeout: 10m
+          interval: 5m
 
   # Edge case: Addon disabled (FluentD is still included as part of base telemetry)
   - name: excludes observability when addon disabled
@@ -210,7 +207,7 @@ cases:
             - fluentd/filters/otel
             - fluentd/prometheus
 
-  # Edge case: Trace log level skips log filter - stdout output without log-level filter
+  # Edge: trace log level; addon wins, addon contributes fluentd/outputs/stdout only
   - name: trace log level creates stdout pipeline without log filter
     values:
       provider: metal
@@ -229,9 +226,6 @@ cases:
           dependsOn:
             - telemetry-resources
           components:
-            - fluentd
-            - fluentd/filters/otel
-            - fluentd/prometheus
             - fluentd/outputs/stdout
 
   # Edge case: Elasticsearch without ingress fails

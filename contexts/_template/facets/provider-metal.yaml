@@ -4,7 +4,7 @@ metadata:
   name: metal
   description: "Metal provider basic infrastructure"
 
-when: provider == 'metal'
+when: (platform ?? provider) == 'metal'
 
 terraform:
 - name: cluster
@@ -13,11 +13,14 @@ terraform:
   inputs:
     cluster_endpoint: ${cluster.endpoint ?? ("https://" + split(values(cluster.controlplanes.nodes)[0].endpoint, ":")[0] + ":6443")}
     cluster_name: talos
+    talos_version: ${talos.talos_version}
     controlplanes: ${values(cluster.controlplanes.nodes)}
     workers: "${(cluster.workers.count ?? 0) > 0 ? values(cluster.workers.nodes) : []}"
-    common_config_patches: ${jsonnet("../configs/talos-generic.jsonnet").common_config_patches}
-    worker_config_patches: ${jsonnet("../configs/talos-generic.jsonnet").worker_config_patches}
-    controlplane_config_patches: ${jsonnet("../configs/talos-generic.jsonnet").controlplane_config_patches}
+    controlplane_disks: ${talos_common.vars.controlplane_disks}
+    worker_disks: ${talos_common.vars.worker_disks}
+    common_config_patches: ${talos_common.patchVars.common_config_patches}
+    controlplane_volumes: ${talos_common.vars.controlplane_volumes ?? []}
+    worker_volumes: ${talos_common.vars.worker_volumes ?? []}
 - name: gitops
   path: gitops/flux
   dependsOn:
@@ -37,14 +40,14 @@ kustomize:
     - openebs
     - openebs/dynamic-localpv
   substitutions:
-    local_volume_path: ${cluster.workers.volumes[0]}
+    local_volume_path: ${talos_common.vars.csi_local_volume_path}
   timeout: 20m
   interval: 5m
 
 # Load Balancer
 - name: lb-base
   path: lb/base
-  when: vm.driver != 'docker-desktop'
+  when: workstation.runtime != 'docker-desktop'
   dependsOn:
     - policy-resources
   components:
@@ -54,7 +57,7 @@ kustomize:
 
 - name: lb-resources
   path: lb/resources
-  when: vm.driver != 'docker-desktop'
+  when: workstation.runtime != 'docker-desktop'
   dependsOn:
     - lb-base
   components:
@@ -64,4 +67,3 @@ kustomize:
     loadbalancer_ip_range: ${network.loadbalancer_ips.start + '-' + network.loadbalancer_ips.end}
   timeout: 5m
   interval: 5m
-

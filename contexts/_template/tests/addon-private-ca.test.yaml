@@ -19,14 +19,14 @@ x-defaults:
           hostname: controlplane-1
     workers:
       volumes:
-        - /var/local
+        - /var/mnt/local
 
   ingress-disabled: &ingress-disabled
     enabled: false
     driver: nginx
 
 cases:
-  # Minimal: Test default behavior with dev mode (implicit enablement)
+  # Minimal: dev mode enables private-ca addon. Intended: addon pki-base (trust-manager) overrides provider. See docs/cli-bugs.md if this fails.
   - name: minimal config creates private CA with defaults via dev mode
     values:
       provider: metal
@@ -50,7 +50,7 @@ cases:
           components:
             - private-issuer/ca
 
-  # Full: Test explicit enablement (same output as minimal - no additional options)
+  # Full: addon explicitly enabled. Intended: addon pki-base (trust-manager) overrides. See docs/cli-bugs.md if this fails.
   - name: full config creates private CA when addon explicitly enabled
     values:
       provider: metal

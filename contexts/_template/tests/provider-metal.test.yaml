@@ -22,7 +22,7 @@ x-defaults:
           hostname: controlplane-1
     workers:
       volumes:
-        - /var/local
+        - /var/mnt/local
 
   ingress-disabled: &ingress-disabled
     enabled: false
@@ -118,7 +118,7 @@ cases:
             - openebs
             - openebs/dynamic-localpv
           substitutions:
-            local_volume_path: /var/local
+            local_volume_path: /var/mnt/local
           timeout: 20m
           interval: 5m
         - name: lb-resources
@@ -158,6 +158,8 @@ cases:
           count: 1
           volumes:
             - /mnt/data
+        storage:
+          local_base_path: /mnt/data
     expect:
       terraform:
         - name: cluster
@@ -262,16 +264,3 @@ cases:
             loadbalancer_ip_range: 192.168.1.100-192.168.1.200
           timeout: 5m
           interval: 5m
-  # Edge case: Docker Desktop excludes load balancer
-  - name: Docker Desktop excludes load balancer
-    values:
-      provider: metal
-      vm:
-        driver: docker-desktop
-      ingress: *ingress-disabled
-      network: *default-network
-      cluster: *default-cluster
-    exclude:
-      kustomize:
-        - name: lb-base
-        - name: lb-resources

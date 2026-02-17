@@ -23,9 +23,9 @@ x-defaults:
     workers: &default-workers
       count: 1
       volumes:
-        - /var/local
+        - /var/mnt/local
       nodes:
-        worker-1: &wk1-node
+        worker-1:
           endpoint: 10.5.0.20:50000
           node: 10.5.0.20
           hostname: worker-1
@@ -50,6 +50,8 @@ cases:
   - name: minimal config creates compute and cluster terraform chain with defaults
     values:
       provider: incus
+      vm:
+        driver: ""
       ingress: *ingress-disabled
       network: *default-network
       cluster: *default-cluster
@@ -58,10 +60,6 @@ cases:
       terraform:
         - name: compute
           path: compute/incus
-          inputs:
-            network_name: ""
-            create_network: true
-            network_cidr: 10.5.0.0/16
         - name: cluster
           path: cluster/talos
           dependsOn:
@@ -86,7 +84,7 @@ cases:
             - openebs
             - openebs/dynamic-localpv
           substitutions:
-            local_volume_path: /var/local
+            local_volume_path: /var/mnt/local
           timeout: 20m
           interval: 5m
         - name: lb-base
@@ -111,6 +109,8 @@ cases:
   - name: full config with custom network, MetalLB, ingress, and all cluster options
     values:
       provider: incus
+      vm:
+        driver: ""
       ingress:
         enabled: true
         driver: nginx
@@ -146,6 +146,8 @@ cases:
               endpoint: 10.10.0.20:50000
               node: 10.10.0.20
               hostname: wk-1
+        storage:
+          local_base_path: /mnt/storage
     terraformOutputs:
       compute:
         controlplanes:
@@ -160,10 +162,6 @@ cases:
       terraform:
         - name: compute
           path: compute/incus
-          inputs:
-            network_name: ""
-            create_network: true
-            network_cidr: 10.10.0.0/16
         - name: cluster
           path: cluster/talos
           dependsOn:
@@ -223,6 +221,27 @@ cases:
           timeout: 10m
           interval: 5m
 
+  # Edge case: colima-incus uses Incus path (provider selects compute/incus; option-workstation does not apply)
+  - name: colima-incus uses compute/incus not docker stack
+    values:
+      provider: incus
+      vm:
+        driver: colima-incus
+      ingress: *ingress-disabled
+      network: *default-network
+      cluster: *default-cluster
+    terraformOutputs: *default-terraform-outputs
+    expect:
+      terraform:
+        - name: compute
+          path: compute/incus
+        - name: cluster
+          path: cluster/talos
+    exclude:
+      terraform:
+        - name: workstation
+        - path: compute/docker
+
   # Edge case: Colima uses existing network
   - name: Colima uses existing incusbr0 network
     values:
@@ -255,6 +274,8 @@ cases:
           nodes:
             controlplane-1: *cp1-node
         workers: *default-workers
+        storage:
+          local_base_path: /data/local
     terraformOutputs: *default-terraform-outputs
     expect:
       kustomize:

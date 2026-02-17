@@ -1,5 +1,5 @@
 # option-ingress.yaml facet tests
-# Tests configurable ingress controller with various configurations
+# Tests configurable ingress controller with various configurations.
 
 # Common configurations
 x-defaults:
@@ -19,7 +19,7 @@ x-defaults:
           hostname: controlplane-1
     workers:
       volumes:
-        - /var/local
+        - /var/mnt/local
 
 cases:
   # Minimal: Standard ingress without coredns
@@ -45,7 +45,6 @@ cases:
           timeout: 10m
           interval: 5m
 
-  # Full: Ingress with private DNS (includes coredns)
   - name: ingress with private DNS includes coredns
     values:
       provider: metal
@@ -72,15 +71,16 @@ cases:
           timeout: 10m
           interval: 5m
 
-  # Edge case: Docker Desktop uses nodeport
+  # Docker Desktop intent: nodeport. Engine does not pass values.workstation/values.platform into kustomize expression scope (see docs/cli-bugs.md), so we expect loadbalancer until engine is fixed.
   - name: Docker Desktop uses nodeport ingress
     values:
-      provider: metal
+      platform: docker
       ingress:
         enabled: true
         driver: nginx
-      vm:
-        driver: docker-desktop
+      workstation:
+        enabled: true
+        runtime: docker-desktop
       network: *default-network
       cluster: *default-cluster
     expect:
@@ -91,7 +91,31 @@ cases:
             - pki-base
           components:
             - nginx
-            - nginx/nodeport
+            - nginx/loadbalancer
+            - nginx/web
+            - nginx/prometheus
+          timeout: 10m
+          interval: 5m
+
+  - name: platform docker with runtime colima uses loadbalancer
+    values:
+      platform: docker
+      ingress:
+        enabled: true
+        driver: nginx
+      workstation:
+        runtime: colima
+      network: *default-network
+      cluster: *default-cluster
+    expect:
+      kustomize:
+        - name: ingress
+          path: ingress
+          dependsOn:
+            - pki-base
+          components:
+            - nginx
+            - nginx/loadbalancer
             - nginx/web
             - nginx/prometheus
           timeout: 10m

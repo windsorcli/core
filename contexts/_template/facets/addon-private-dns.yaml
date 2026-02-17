@@ -4,7 +4,7 @@ metadata:
   name: private-dns
   description: Self-hosted CoreDNS for private DNS zones
 
-when: addons.private_dns.enabled == true || dev == true
+when: (platform ?? provider) != 'none' && (addons.private_dns.enabled == true || dev == true)
 
 kustomize:
 
@@ -21,7 +21,7 @@ kustomize:
     - external-dns
     - external-dns/coredns
     - external-dns/ingress
-    - "${vm.driver == 'docker-desktop' ? 'external-dns/localhost' : ''}"
+    - "${workstation.runtime == 'docker-desktop' ? 'external-dns/localhost' : ''}"
   substitutions:
     external_domain: ${dns.domain}
 
