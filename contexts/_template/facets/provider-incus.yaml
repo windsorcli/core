@@ -72,6 +72,7 @@ terraform:
   inputs:
     cluster_endpoint: "${cluster.endpoint ?? cluster_endpoint_fallback.vars.endpoint}"
     cluster_name: talos
+    talos_version: ${talos.talos_version}
     controlplanes: ${terraform_output("compute", "controlplanes") ?? values(cluster.controlplanes.nodes)}
     workers: "${terraform_output(\"compute\", \"workers\") ?? ((cluster.workers.count ?? 0) > 0 ? values(cluster.workers.nodes) : [])}"
     controlplane_disks: ${talos_common.vars.controlplane_disks}
