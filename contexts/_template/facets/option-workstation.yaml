@@ -86,7 +86,8 @@ terraform:
     webhook_token: ${git.livereload.webhook_token ?? "abcdef123456"}
 
 # Workstation stack for docker-desktop: DNS, registries, git livereload. No loadbalancer; DNS forwards to
-# node hostport (e.g. first node :8053).
+# first node. Use container port 30053 (not host 8053) so the DNS container on the same network can reach the node.
+# 30053 = NodePort for DNS set in kustomize/ingress/nginx/coredns/patches/helm-release.yaml; cluster.*.hostports must use same container port (e.g. 8053:30053/udp).
 - name: workstation
   when: "platform == 'docker' && workstation.runtime == \"docker-desktop\""
   path: workstation/docker
@@ -95,12 +96,12 @@ terraform:
     domain_name: ${dns.domain}
     network_name: windsor-${context}
     network_cidr: ${network.cidr_block}
-    dns_forward_target: "${cidrhost(network.cidr_block, 4 + int(workstation_registries.vars.registry_count)) + \":8053\"}"
-    webhook_host: "${cidrhost(network.cidr_block, 4 + int(workstation_registries.vars.registry_count))}"
-    primary_node_ip: "${cidrhost(network.cidr_block, 4 + int(workstation_registries.vars.registry_count))}"
+    dns_forward_target: "${cidrhost(network.cidr_block, 4 + int(workstation_registries.vars.registry_count ?? 0)) + \":30053\"}"
+    webhook_host: "${cidrhost(network.cidr_block, 4 + int(workstation_registries.vars.registry_count ?? 0))}"
+    primary_node_ip: "${cidrhost(network.cidr_block, 4 + int(workstation_registries.vars.registry_count ?? 0))}"
     enable_dns: ${workstation.services.dns ?? true}
     enable_git: ${workstation.services.git ?? true}
-    registries: ${workstation_registries.vars.value}
+    registries: ${workstation_registries.vars.value ?? {}}
 
 # Workstation stack for colima/docker/linux: same as above but loadbalancer exists; DNS/webhook use loadbalancer IP.
 # runtime from config workstation.runtime (docker -> linux for Terraform).
