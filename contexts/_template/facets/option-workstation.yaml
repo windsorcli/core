@@ -4,7 +4,8 @@ metadata:
   name: workstation
   description: Workstation stack for local development and cluster infrastructure.
 
-when: workstation.enabled == true && (platform ?? provider) == 'docker'
+# Use context-wins expression so facet applies when context has provider: incus even if block whens see raw platform (CLI may not merge provider into scope).
+when: "platform == 'incus' || (platform == 'docker' && (workstation.enabled ?? true))"
 
 config:
   - name: workstation

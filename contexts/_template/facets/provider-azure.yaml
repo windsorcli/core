@@ -4,7 +4,7 @@ metadata:
   name: azure
   description: "Azure provider basic infrastructure"
 
-when: (platform ?? provider) == 'azure'
+when: platform == 'azure'
 
 terraform:
 - name: network

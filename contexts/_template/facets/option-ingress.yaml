@@ -4,7 +4,7 @@ metadata:
   name: ingress
   description: "Configurable ingress controller"
 
-when: (platform ?? provider) != 'none' && ingress.enabled == true && ingress.driver == 'nginx'
+when: platform != 'none' && ingress.enabled == true && ingress.driver == 'nginx'
 
 kustomize:
 
@@ -14,9 +14,9 @@ kustomize:
     - pki-base
   components:
     - nginx
-    - "${(workstation.runtime ?? ((platform ?? provider) == 'docker' ? 'docker-desktop' : '')) == 'docker-desktop' ? 'nginx/nodeport' : 'nginx/loadbalancer'}"
+    - "${(workstation.runtime ?? (platform == 'docker' ? 'docker-desktop' : '')) == 'docker-desktop' ? 'nginx/nodeport' : 'nginx/loadbalancer'}"
     - nginx/web
-    - "${addons.private_dns.enabled == true && (workstation.runtime ?? ((platform ?? provider) == 'docker' ? 'docker-desktop' : '')) != 'docker-desktop' ? 'nginx/coredns' : ''}"
+    - "${addons.private_dns.enabled == true && (workstation.runtime ?? (platform == 'docker' ? 'docker-desktop' : '')) != 'docker-desktop' ? 'nginx/coredns' : ''}"
     - nginx/prometheus
   timeout: 10m
   interval: 5m

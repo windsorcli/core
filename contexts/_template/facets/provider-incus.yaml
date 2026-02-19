@@ -4,7 +4,7 @@ metadata:
   name: incus
   description: Incus compute platform infrastructure
 
-when: (platform ?? provider) == 'incus'
+when: "platform == 'incus' && cluster.driver == 'talos'"
 
 config:
 - name: cluster_endpoint_fallback

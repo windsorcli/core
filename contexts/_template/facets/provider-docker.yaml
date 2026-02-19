@@ -4,7 +4,7 @@ metadata:
   name: docker
   description: "Docker provider basic infrastructure for local development"
 
-when: (platform ?? provider) == 'docker' && cluster.driver == 'talos'
+when: "platform == 'docker' && cluster.driver == 'talos'"
 
 config:
 # Fallback cluster API endpoint: compute first cp host; else no compute → localhost:6443 (docker-desktop); else colima/linux from context.

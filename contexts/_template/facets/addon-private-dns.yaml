@@ -4,7 +4,7 @@ metadata:
   name: private-dns
   description: Self-hosted CoreDNS for private DNS zones
 
-when: (platform ?? provider) != 'none' && (addons.private_dns.enabled == true || dev == true)
+when: platform != 'none' && (addons.private_dns.enabled == true || dev == true)
 
 kustomize:
 
