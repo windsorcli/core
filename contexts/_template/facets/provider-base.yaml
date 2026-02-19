@@ -7,9 +7,9 @@ metadata:
 when: (platform ?? provider) != 'none'
 
 config:
-- name: effective_provider
+- name: platform
   vars:
-    value: "${(platform ?? provider) ?? 'none'}"
+    value: "${platform ?? provider ?? 'none'}"
 
 kustomize:
 

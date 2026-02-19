@@ -4,8 +4,8 @@ metadata:
   name: workstation
   description: Workstation stack for local development and cluster infrastructure.
 
-# Use context-wins expression so facet applies when context has provider: incus even if block whens see raw platform (CLI may not merge provider into scope).
-when: "platform == 'incus' || (platform == 'docker' && (workstation.enabled ?? true))"
+# Docker: facet applies when workstation not disabled (default on). Incus: facet applies only when workstation enabled (default off). Workstation stack blocks are gated per block.
+when: "(platform == 'docker' && (workstation.enabled ?? true)) || (platform == 'incus' && (workstation.enabled ?? false))"
 
 config:
   - name: workstation
@@ -88,7 +88,7 @@ terraform:
 # Workstation stack for docker-desktop: DNS, registries, git livereload. No loadbalancer; DNS forwards to
 # node hostport (e.g. first node :8053).
 - name: workstation
-  when: workstation.runtime == "docker-desktop"
+  when: "platform == 'docker' && workstation.runtime == \"docker-desktop\""
   path: workstation/docker
   inputs:
     runtime: 'docker-desktop'
@@ -105,7 +105,7 @@ terraform:
 # Workstation stack for colima/docker/linux: same as above but loadbalancer exists; DNS/webhook use loadbalancer IP.
 # runtime from config workstation.runtime (docker -> linux for Terraform).
 - name: workstation
-  when: workstation.runtime != "docker-desktop"
+  when: "platform == 'docker' && workstation.runtime != \"docker-desktop\""
   path: workstation/docker
   inputs:
     runtime: >-
@@ -123,7 +123,7 @@ terraform:
 # Compute/docker: run Talos controlplane/worker containers on workstation network.
 # cluster/talos consumes compute outputs (endpoints, etc.) via provider-docker.
 - name: compute
-  when: (platform ?? provider) == 'docker' && (cluster.enabled ?? true) == true
+  when: "platform == 'docker' && (cluster.enabled ?? true) == true"
   path: compute/docker
   dependsOn:
     - workstation
