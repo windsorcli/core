@@ -8,27 +8,25 @@ when: cluster.driver == 'talos'
 
 config:
   - name: talos_common
-    vars:
+    value:
       allowSchedulingOnControlPlanes: "${cluster.controlplanes.schedulable ?? false}"
       controlplane_volumes: "${cluster.controlplanes.volumes ?? []}"
       worker_volumes: "${cluster.workers.volumes ?? []}"
       csi_local_volume_path: "${cluster.storage.local_base_path ?? \"/var/mnt/local\"}"
       controlplane_disks: "${cluster.controlplanes.disks ?? []}"
       worker_disks: "${cluster.workers.disks ?? []}"
-    patchVars:
+      common_patch:
+        cluster:
+          allowSchedulingOnControlPlanes: ${talos_common.allowSchedulingOnControlPlanes}
+          extraManifests:
+            - "https://raw.githubusercontent.com/alex1989hu/kubelet-serving-cert-approver/v0.8.7/deploy/standalone-install.yaml"
+        machine:
+          kubelet:
+            extraArgs:
+              rotate-server-certificates: "true"
       common_config_patches: "${string(talos_common.common_patch)}"
-    common_patch:
-      cluster:
-        allowSchedulingOnControlPlanes: ${talos_common.vars.allowSchedulingOnControlPlanes}
-        extraManifests:
-          - "https://raw.githubusercontent.com/alex1989hu/kubelet-serving-cert-approver/v0.8.7/deploy/standalone-install.yaml"
-      machine:
-        kubelet:
-          extraArgs:
-            rotate-server-certificates: "true"
 
   - name: talos
-    # renovate: datasource=docker depName=ghcr.io/siderolabs/talos package=ghcr.io/siderolabs/talos
-    image: ghcr.io/siderolabs/talos:v1.12.1
-    # renovate: datasource=github-releases depName=talos package=siderolabs/talos
-    talos_version: "1.12.1"
+    value:
+      image: ghcr.io/siderolabs/talos:v1.12.1
+      talos_version: "1.12.1"
