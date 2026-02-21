@@ -8,8 +8,7 @@ when: (platform ?? provider) != 'none'
 
 config:
 - name: platform
-  vars:
-    value: "${platform ?? provider ?? 'none'}"
+  value: "${platform ?? provider ?? 'none'}"
 
 kustomize:
 
