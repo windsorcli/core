@@ -8,12 +8,13 @@ when: workstation.enabled == true && (platform ?? provider) == 'docker'
 
 config:
   - name: workstation
-    runtime: "${workstation.runtime ?? vm.driver ?? \"colima\"}"
+    value:
+      runtime: "${workstation.runtime ?? vm.driver ?? \"colima\"}"
 
   # Effective registries for workstation Terraform and Talos patch: empty when services.registries false, else docker.registries or default.
   - name: workstation_registries
-    vars:
-      value: |
+    value:
+      registries: |
         ${(workstation.services.registries ?? true) == false ? {} : (docker.registries ?? {
           "gcr.io": { "remote": "https://gcr.io" },
           "ghcr.io": { "remote": "https://ghcr.io" },
@@ -25,10 +26,10 @@ config:
       registry_count: "${(workstation.services.registries ?? true) == false ? 0 : len(docker.registries ?? {\"gcr.io\": {}, \"ghcr.io\": {}, \"quay.io\": {}, \"registry-1.docker.io\": {}, \"registry.k8s.io\": {}, \"registry.test\": {}})}"
 
   # certSANs for Talos when compute runs. Include localhost/127.0.0.1 for docker-desktop so host→container works.
-  # Kept as vars so it is evaluated when building cluster inputs (after compute). Apply when docker provider + talos.
+  # Kept so it is evaluated when building cluster inputs (after compute). Apply when docker provider + talos.
   - name: certSANs_from_compute
     when: (cluster.enabled ?? true) && cluster.driver == 'talos'
-    vars:
+    value:
       list: |-
         ${(cluster.controlplanes.count ?? 1) == 0 ? ["localhost", "127.0.0.1"] : (
           let cp = terraform_output("compute", "controlplanes");
@@ -44,31 +45,31 @@ config:
   # Talos common patch when docker provider + talos: certSANs (localhost/127.0.0.1 for docker-desktop), registries, etc.
   - name: common_patch_docker
     when: (cluster.enabled ?? true) && cluster.driver == 'talos'
-    content:
+    value:
       cluster:
         apiServer:
-          certSANs: ${certSANs_from_compute.vars.list}
+          certSANs: ${certSANs_from_compute.list}
         allowSchedulingOnControlPlanes: ${cluster.controlplanes.schedulable ?? ((cluster.workers.count ?? 0) == 0)}
         extraManifests:
           - "https://raw.githubusercontent.com/alex1989hu/kubelet-serving-cert-approver/v0.8.7/deploy/standalone-install.yaml"
       machine:
-        certSANs: ${certSANs_from_compute.vars.list}
+        certSANs: ${certSANs_from_compute.list}
         kubelet:
           extraArgs:
             rotate-server-certificates: "true"
         registries:
           mirrors: |-
             ${fromPairs(map(
-              filter(toPairs(workstation_registries.vars.value), { (get(#, 1)?.hostname ?? "") != "" }),
+              filter(toPairs(workstation_registries.registries ?? {}), { (get(#, 1)?.hostname ?? "") != "" }),
               { [(get(#, 1)?.local ?? "") != "" ? get(#, 1).local : get(#, 0), { endpoints: ["http://" + get(#, 1).hostname + ":5000"] }] }
             ))}
         network: '${workstation.runtime == "docker-desktop" ? {interfaces: [{ignore: true, interface: "eth0"}]} : {}}'
 
-  # Expose common_patch_docker as patchVars for provider-docker cluster input. When no compute, provider-docker uses docker_desktop_common_patches instead.
+  # Expose common_patch_docker for provider-docker cluster input. When no compute, provider-docker uses docker_desktop_common_patches instead.
   - name: talos_common_docker
     when: (cluster.enabled ?? true) && cluster.driver == 'talos'
-    patchVars:
-      common_config_patches: ${string(common_patch_docker.content)}
+    value:
+      common_config_patches: ${string(common_patch_docker)}
       controlplane_config_patches: ""
       worker_config_patches: ""
 
@@ -85,7 +86,8 @@ terraform:
     webhook_token: ${git.livereload.webhook_token ?? "abcdef123456"}
 
 # Workstation stack for docker-desktop: DNS, registries, git livereload. No loadbalancer; DNS forwards to
-# node hostport (e.g. first node :8053).
+# first node. Use container port 30053 (not host 8053) so the DNS container on the same network can reach the node.
+# 30053 = NodePort for DNS set in kustomize/ingress/nginx/coredns/patches/helm-release.yaml; cluster.*.hostports must use same container port (e.g. 8053:30053/udp).
 - name: workstation
   when: workstation.runtime == "docker-desktop"
   path: workstation/docker
@@ -94,12 +96,12 @@ terraform:
     domain_name: ${dns.domain}
     network_name: windsor-${context}
     network_cidr: ${network.cidr_block}
-    dns_forward_target: "${cidrhost(network.cidr_block, 4 + int(workstation_registries.vars.registry_count)) + \":8053\"}"
-    webhook_host: "${cidrhost(network.cidr_block, 4 + int(workstation_registries.vars.registry_count))}"
-    primary_node_ip: "${cidrhost(network.cidr_block, 4 + int(workstation_registries.vars.registry_count))}"
+    dns_forward_target: "${cidrhost(network.cidr_block, 4 + int(workstation_registries.registry_count ?? 0)) + \":30053\"}"
+    webhook_host: "${cidrhost(network.cidr_block, 4 + int(workstation_registries.registry_count ?? 0))}"
+    primary_node_ip: "${cidrhost(network.cidr_block, 4 + int(workstation_registries.registry_count ?? 0))}"
     enable_dns: ${workstation.services.dns ?? true}
     enable_git: ${workstation.services.git ?? true}
-    registries: ${workstation_registries.vars.value}
+    registries: ${workstation_registries.registries ?? {}}
 
 # Workstation stack for colima/docker/linux: same as above but loadbalancer exists; DNS/webhook use loadbalancer IP.
 # runtime from config workstation.runtime (docker -> linux for Terraform).
@@ -117,7 +119,7 @@ terraform:
     primary_node_ip: ${network.loadbalancer_ips.start}
     enable_dns: ${workstation.services.dns ?? true}
     enable_git: ${workstation.services.git ?? true}
-    registries: ${workstation_registries.vars.value}
+    registries: ${workstation_registries.registries ?? {}}
 
 # Compute/docker: run Talos controlplane/worker containers on workstation network.
 # cluster/talos consumes compute outputs (endpoints, etc.) via provider-docker.
