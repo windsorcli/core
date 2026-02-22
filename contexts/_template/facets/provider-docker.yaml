@@ -10,7 +10,7 @@ config:
 # Fallback cluster API endpoint: compute first cp host; else no compute → localhost:6443 (docker-desktop); else colima/linux from context.
 # With provider docker, no compute implies host→container so use localhost. Referenced by cluster_endpoint input.
 - name: cluster_endpoint_fallback
-  vars:
+  value:
     endpoint: >-
       ${len(terraform_output("compute", "controlplanes") ?? []) > 0
         && terraform_output("compute", "controlplanes")[0].endpoint != null
@@ -25,7 +25,7 @@ config:
 # talos_common_docker only runs when compute runs; no-compute path (docker-desktop) needs these certSANs.
 - name: docker_desktop_common_patches
   when: len(terraform_output("compute", "controlplanes") ?? []) == 0
-  patchVars:
+  value:
     common_config_patches: >-
       cluster:
         apiServer:
@@ -46,15 +46,15 @@ config:
 terraform:
 # Run cluster/talos: secrets, config apply, bootstrap, kubeconfig. Inputs from compute output or context;
 # hostname stripped for containers (Talos 1.12 rejects setting hostname when runtime already set it).
-# When workstation enabled, cluster must wait for compute (workstation → compute → cluster). Omit cluster when workstation disabled (gitops-only path).
+# When workstation enabled and cluster enabled, cluster must wait for compute (workstation → compute → cluster). Omit when cluster disabled (no compute).
 - name: cluster
-  when: workstation.enabled == true
+  when: workstation.enabled == true && (cluster.enabled ?? true)
   path: cluster/talos
   dependsOn:
     - compute
   parallelism: 1
   inputs:
-    cluster_endpoint: "${cluster.endpoint ?? cluster_endpoint_fallback.vars.endpoint}"
+    cluster_endpoint: "${cluster.endpoint ?? cluster_endpoint_fallback.endpoint}"
     cluster_name: talos
     talos_version: ${talos.talos_version}
     # When compute output exists, strip hostname from each node (Docker sets it; Talos 1.12 rejects override).
@@ -85,29 +85,14 @@ terraform:
     worker_disks: ${cluster.workers.disks ?? []}
     common_config_patches: >-
       ${len(terraform_output("compute", "controlplanes") ?? []) == 0
-        ? docker_desktop_common_patches.patchVars.common_config_patches
-        : (talos_common_docker.patchVars.common_config_patches ?? talos_common.patchVars.common_config_patches)}
+        ? docker_desktop_common_patches.common_config_patches
+        : (talos_common_docker.common_config_patches ?? talos_common.common_config_patches)}
     controlplane_config_patches: >-
-      ${len(terraform_output("compute", "controlplanes") ?? []) == 0 ? "" : (talos_common_docker.patchVars.controlplane_config_patches ?? "")}
+      ${len(terraform_output("compute", "controlplanes") ?? []) == 0 ? "" : (talos_common_docker.controlplane_config_patches ?? "")}
     worker_config_patches: >-
-      ${len(terraform_output("compute", "controlplanes") ?? []) == 0 ? "" : (talos_common_docker.patchVars.worker_config_patches ?? "")}
-    controlplane_volumes: ${talos_common.vars.controlplane_volumes ?? []}
-    worker_volumes: ${talos_common.vars.worker_volumes ?? []}
-
-# Run gitops/flux after cluster. Skipped when workstation enabled (workstation facet owns gitops in that mode).
-- name: gitops
-  path: gitops/flux
-  when: workstation.enabled == false
-  dependsOn:
-    - cluster
-  inputs:
-    concurrency: >-
-      ${max(2, min(
-        floor((cluster.controlplanes.cpu ?? 4) / 2),
-        floor((cluster.controlplanes.memory ?? 4) / 2),
-        10
-      ))}
-  destroy: false
+      ${len(terraform_output("compute", "controlplanes") ?? []) == 0 ? "" : (talos_common_docker.worker_config_patches ?? "")}
+    controlplane_volumes: ${talos_common.controlplane_volumes ?? []}
+    worker_volumes: ${talos_common.worker_volumes ?? []}
 
 kustomize:
 
@@ -145,6 +130,6 @@ kustomize:
     - openebs
     - openebs/dynamic-localpv
   substitutions:
-    local_volume_path: ${talos_common.vars.csi_local_volume_path}
+    local_volume_path: ${talos_common.csi_local_volume_path}
   timeout: 20m
   interval: 5m

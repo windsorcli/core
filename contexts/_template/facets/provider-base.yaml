@@ -6,12 +6,6 @@ metadata:
 
 when: (platform ?? provider) != 'none'
 
-config:
-# Effective provider: platform ?? provider. Use this instead of provider so platform can override.
-- name: effective_provider
-  vars:
-    value: "${platform ?? provider ?? \"none\"}"
-
 kustomize:
 
 # Cleanup

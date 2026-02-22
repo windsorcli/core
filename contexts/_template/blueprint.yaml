@@ -1,7 +1,7 @@
 kind: Blueprint
 apiVersion: blueprints.windsorcli.dev/v1alpha1
 metadata:
-  name: template
+  name: core
   description: Base blueprint template for core services
 sources: []
 terraform: []

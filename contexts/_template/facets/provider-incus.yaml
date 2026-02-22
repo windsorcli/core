@@ -8,7 +8,7 @@ when: (platform ?? provider) == 'incus'
 
 config:
 - name: cluster_endpoint_fallback
-  vars:
+  value:
     endpoint: >-
       ${
         len(terraform_output("compute", "controlplanes") ?? []) > 0
@@ -22,12 +22,12 @@ terraform:
 - name: compute
   path: compute/incus
   inputs:
-    network_name: "${(workstation.runtime ?? '') == 'colima' ? 'incusbr0' : ''}"
-    create_network: "${(workstation.runtime ?? '') != 'colima'}"
+    network_name: "${(workstation.runtime ?? vm.driver ?? '') == 'colima' ? 'incusbr0' : ''}"
+    create_network: "${(workstation.runtime ?? vm.driver ?? '') != 'colima'}"
     network_cidr: ${network.cidr_block}
     storage_pools:
       local:
-        driver: "${(workstation.runtime ?? '') == 'colima' ? 'dir' : null}"
+        driver: "${(workstation.runtime ?? vm.driver ?? '') == 'colima' ? 'dir' : null}"
     instances:
       - name: controlplane
         role: controlplane
@@ -36,7 +36,7 @@ terraform:
         image: windsor:talos/v1.12.1/arm64
         type: virtual-machine
         description: Talos control plane node
-        storage_pool: "${(workstation.runtime ?? '') == 'colima' ? 'local' : 'default'}"
+        storage_pool: "${(workstation.runtime ?? vm.driver ?? '') == 'colima' ? 'local' : 'default'}"
         root_disk_size: ${string(cluster.controlplanes.root_disk_size ?? 30) + "GB"}
         limits:
           cpu: ${string(cluster.controlplanes.cpu ?? 2)}
@@ -53,7 +53,7 @@ terraform:
         image: windsor:talos/v1.12.1/arm64
         type: virtual-machine
         description: Talos worker node
-        storage_pool: "${(workstation.runtime ?? '') == 'colima' ? 'local' : 'default'}"
+        storage_pool: "${(workstation.runtime ?? vm.driver ?? '') == 'colima' ? 'local' : 'default'}"
         root_disk_size: ${string(cluster.workers.root_disk_size ?? 50) + "GB"}
         limits:
           cpu: ${string(cluster.workers.cpu ?? 4)}
@@ -70,16 +70,16 @@ terraform:
   - compute
   parallelism: 1
   inputs:
-    cluster_endpoint: "${cluster.endpoint ?? cluster_endpoint_fallback.vars.endpoint}"
+    cluster_endpoint: "${cluster.endpoint ?? cluster_endpoint_fallback.endpoint}"
     cluster_name: talos
     talos_version: ${talos.talos_version}
     controlplanes: ${terraform_output("compute", "controlplanes") ?? values(cluster.controlplanes.nodes)}
     workers: "${terraform_output(\"compute\", \"workers\") ?? ((cluster.workers.count ?? 0) > 0 ? values(cluster.workers.nodes) : [])}"
-    controlplane_disks: ${talos_common.vars.controlplane_disks}
-    worker_disks: ${talos_common.vars.worker_disks}
-    common_config_patches: ${talos_common.patchVars.common_config_patches}
-    controlplane_volumes: ${talos_common.vars.controlplane_volumes ?? []}
-    worker_volumes: ${talos_common.vars.worker_volumes ?? []}
+    controlplane_disks: ${talos_common.controlplane_disks}
+    worker_disks: ${talos_common.worker_disks}
+    common_config_patches: ${talos_common.common_config_patches}
+    controlplane_volumes: ${talos_common.controlplane_volumes ?? []}
+    worker_volumes: ${talos_common.worker_volumes ?? []}
 - name: gitops
   path: gitops/flux
   dependsOn:
@@ -99,7 +99,7 @@ kustomize:
   - openebs
   - openebs/dynamic-localpv
   substitutions:
-    local_volume_path: ${talos_common.vars.csi_local_volume_path}
+    local_volume_path: ${talos_common.csi_local_volume_path}
   timeout: 20m
   interval: 5m
 

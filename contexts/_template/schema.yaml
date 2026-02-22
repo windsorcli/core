@@ -104,7 +104,7 @@ properties:
     type: string
     description: Context id (e.g. short identifier for this deployment)
 
-  # Infrastructure provider / platform. Use platform ?? provider as effective value; facets use effective_provider (provider-base).
+  # Infrastructure provider / platform. Use platform ?? provider as effective value;
   provider:
     type: string
     enum:

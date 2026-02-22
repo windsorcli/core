@@ -21,7 +21,7 @@ kustomize:
     - external-dns
     - external-dns/coredns
     - external-dns/ingress
-    - "${workstation.runtime == 'docker-desktop' ? 'external-dns/localhost' : ''}"
+    - "${(workstation.runtime ?? vm.driver) == 'docker-desktop' ? 'external-dns/localhost' : ''}"
   substitutions:
     external_domain: ${dns.domain}
 
