@@ -74,13 +74,20 @@ config:
       worker_config_patches: ""
 
 terraform:
-# GitOps/flux with livereload credentials and webhook token. Runs when workstation enabled.
+# GitOps/flux with livereload credentials and webhook token. Runs when workstation + cluster enabled (depends on cluster).
 - name: gitops
+  when: (cluster.enabled ?? true)
   path: gitops/flux
   destroy: false
   dependsOn:
     - cluster
   inputs:
+    concurrency: >-
+      ${max(2, min(
+        floor((cluster.controlplanes.cpu ?? 4) / 2),
+        floor((cluster.controlplanes.memory ?? 4) / 2),
+        10
+      ))}
     git_username: ${git.livereload.username ?? "local"}
     git_password: ${git.livereload.password ?? "local"}
     webhook_token: ${git.livereload.webhook_token ?? "abcdef123456"}
@@ -124,7 +131,7 @@ terraform:
 # Compute/docker: run Talos controlplane/worker containers on workstation network.
 # cluster/talos consumes compute outputs (endpoints, etc.) via provider-docker.
 - name: compute
-  when: (platform ?? provider) == 'docker' && (cluster.enabled ?? true) == true
+  when: (platform ?? provider) == 'docker' && (cluster.enabled ?? true)
   path: compute/docker
   dependsOn:
     - workstation

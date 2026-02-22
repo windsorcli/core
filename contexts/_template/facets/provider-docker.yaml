@@ -46,9 +46,9 @@ config:
 terraform:
 # Run cluster/talos: secrets, config apply, bootstrap, kubeconfig. Inputs from compute output or context;
 # hostname stripped for containers (Talos 1.12 rejects setting hostname when runtime already set it).
-# When workstation enabled, cluster must wait for compute (workstation → compute → cluster). Omit cluster when workstation disabled (gitops-only path).
+# When workstation enabled and cluster enabled, cluster must wait for compute (workstation → compute → cluster). Omit when cluster disabled (no compute).
 - name: cluster
-  when: workstation.enabled == true
+  when: workstation.enabled == true && (cluster.enabled ?? true)
   path: cluster/talos
   dependsOn:
     - compute
@@ -93,21 +93,6 @@ terraform:
       ${len(terraform_output("compute", "controlplanes") ?? []) == 0 ? "" : (talos_common_docker.worker_config_patches ?? "")}
     controlplane_volumes: ${talos_common.controlplane_volumes ?? []}
     worker_volumes: ${talos_common.worker_volumes ?? []}
-
-# Run gitops/flux after cluster. Skipped when workstation enabled (workstation facet owns gitops in that mode).
-- name: gitops
-  path: gitops/flux
-  when: workstation.enabled == false
-  dependsOn:
-    - cluster
-  inputs:
-    concurrency: >-
-      ${max(2, min(
-        floor((cluster.controlplanes.cpu ?? 4) / 2),
-        floor((cluster.controlplanes.memory ?? 4) / 2),
-        10
-      ))}
-  destroy: false
 
 kustomize:
 
