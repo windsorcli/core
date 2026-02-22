@@ -5,6 +5,7 @@
 # Common configurations
 x-defaults:
   network: &default-network
+    cidr_block: 10.5.0.0/16
     loadbalancer_driver: kube-vip
     loadbalancer_mode: arp
     loadbalancer_ips:
@@ -12,6 +13,7 @@ x-defaults:
       end: "10.5.1.100"
 
   cluster: &default-cluster
+    driver: talos
     controlplanes:
       nodes:
         controlplane-1:

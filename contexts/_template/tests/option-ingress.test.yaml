@@ -4,6 +4,7 @@
 # Common configurations
 x-defaults:
   network: &default-network
+    cidr_block: 10.5.0.0/16
     loadbalancer_driver: kube-vip
     loadbalancer_mode: arp
     loadbalancer_ips:
@@ -11,6 +12,7 @@ x-defaults:
       end: "10.5.1.100"
 
   cluster: &default-cluster
+    driver: talos
     controlplanes:
       nodes:
         controlplane-1:
@@ -71,7 +73,7 @@ cases:
           timeout: 10m
           interval: 5m
 
-  # Docker Desktop intent: nodeport. Engine does not pass values.workstation/values.platform into kustomize expression scope (see docs/cli-bugs.md), so we expect loadbalancer until engine is fixed.
+  # Docker Desktop: nodeport (no loadbalancer); workstation.runtime in scope selects nginx/nodeport.
   - name: Docker Desktop uses nodeport ingress
     values:
       platform: docker
@@ -91,7 +93,7 @@ cases:
             - pki-base
           components:
             - nginx
-            - nginx/loadbalancer
+            - nginx/nodeport
             - nginx/web
             - nginx/prometheus
           timeout: 10m

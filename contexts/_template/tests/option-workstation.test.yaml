@@ -15,6 +15,7 @@ x-defaults:
     domain: test.local
 
   cluster: &default-cluster
+    driver: talos
     controlplanes:
       nodes:
         controlplane-1: &cp1-node
@@ -73,6 +74,7 @@ cases:
       ingress: *ingress-disabled
       network: *default-network
       cluster:
+        driver: talos
         controlplanes:
           cpu: 4
           memory: 8
@@ -95,7 +97,7 @@ cases:
           path: gitops/flux
           destroy: false
 
-  # Edge: cluster.enabled false with workstation enabled → no cluster (compute block also not run)
+  # Edge: cluster.enabled false with workstation enabled → no cluster, no flux (compute and gitops not run)
   - name: cluster disabled with workstation yields no cluster terraform
     values:
       provider: docker
@@ -107,6 +109,7 @@ cases:
       ingress: *ingress-disabled
       network: *default-network
       cluster:
+        driver: talos
         enabled: false
         controlplanes:
           nodes:
@@ -116,9 +119,8 @@ cases:
             - /var/mnt/local
     expect:
       terraform:
-        - name: gitops
-          path: gitops/flux
-          destroy: false
+        - name: workstation
+          path: workstation/docker
 
   # Edge: workstation.runtime set explicitly overrides vm.driver (config merge); runtime docker → loadbalancer present
   - name: workstation runtime override uses explicit runtime not vm.driver

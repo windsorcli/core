@@ -14,6 +14,7 @@ x-defaults:
       end: "10.5.1.100"
 
   cluster: &default-cluster
+    driver: talos
     controlplanes:
       nodes:
         controlplane-1: &cp1-node
@@ -125,6 +126,7 @@ cases:
           start: "10.10.1.10"
           end: "10.10.1.100"
       cluster:
+        driver: talos
         controlplanes:
           count: 3
           cpu: 4
@@ -267,6 +269,7 @@ cases:
       ingress: *ingress-disabled
       network: *default-network
       cluster:
+        driver: talos
         controlplanes:
           schedulable: true
           volumes:
