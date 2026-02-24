@@ -9,6 +9,9 @@ when: (platform ?? provider) != 'none'
 config:
 - name: platform
   value: "${platform ?? provider ?? 'none'}"
+- name: workstation
+  value:
+    runtime: "${workstation.runtime ?? vm.driver ?? ''}"
 
 kustomize:
 

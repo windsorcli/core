@@ -106,6 +106,7 @@ cases:
         enabled: true
         driver: nginx
       workstation:
+        enabled: true
         runtime: colima
       network: *default-network
       cluster: *default-cluster
