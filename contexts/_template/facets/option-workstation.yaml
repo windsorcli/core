@@ -4,7 +4,8 @@ metadata:
   name: workstation
   description: Workstation stack for local development and cluster infrastructure.
 
-when: workstation.enabled == true && (platform ?? provider) == 'docker'
+# Docker: facet applies when workstation not disabled (default on). Incus: facet applies only when workstation enabled (default off). Workstation stack blocks are gated per block.
+when: "(platform == 'docker' && (workstation.enabled ?? true)) || (platform == 'incus' && (workstation.enabled ?? false))"
 
 config:
   - name: workstation
@@ -96,7 +97,7 @@ terraform:
 # first node. Use container port 30053 (not host 8053) so the DNS container on the same network can reach the node.
 # 30053 = NodePort for DNS set in kustomize/ingress/nginx/coredns/patches/helm-release.yaml; cluster.*.hostports must use same container port (e.g. 8053:30053/udp).
 - name: workstation
-  when: workstation.runtime == "docker-desktop"
+  when: "platform == 'docker' && workstation.runtime == \"docker-desktop\""
   path: workstation/docker
   inputs:
     runtime: 'docker-desktop'
@@ -113,7 +114,7 @@ terraform:
 # Workstation stack for colima/docker/linux: same as above but loadbalancer exists; DNS/webhook use loadbalancer IP.
 # runtime from config workstation.runtime (docker -> linux for Terraform).
 - name: workstation
-  when: workstation.runtime != "docker-desktop"
+  when: "platform == 'docker' && workstation.runtime != \"docker-desktop\""
   path: workstation/docker
   inputs:
     runtime: >-
@@ -131,7 +132,7 @@ terraform:
 # Compute/docker: run Talos controlplane/worker containers on workstation network.
 # cluster/talos consumes compute outputs (endpoints, etc.) via provider-docker.
 - name: compute
-  when: (platform ?? provider) == 'docker' && (cluster.enabled ?? true)
+  when: "platform == 'docker' && (cluster.enabled ?? true)"
   path: compute/docker
   dependsOn:
     - workstation
@@ -160,6 +161,6 @@ terraform:
 
 # cluster/talos: run after compute so it gets controlplanes/workers from compute output. Only when docker + workstation.
 - name: cluster
-  when: cluster.enabled == true && (platform ?? provider) == 'docker'
+  when: "cluster.enabled == true && platform == 'docker'"
   dependsOn:
     - compute

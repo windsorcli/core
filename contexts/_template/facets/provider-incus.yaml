@@ -4,7 +4,7 @@ metadata:
   name: incus
   description: Incus compute platform infrastructure
 
-when: (platform ?? provider) == 'incus'
+when: "platform == 'incus' && cluster.driver == 'talos'"
 
 config:
 - name: cluster_endpoint_fallback
@@ -22,12 +22,12 @@ terraform:
 - name: compute
   path: compute/incus
   inputs:
-    network_name: "${(workstation.runtime ?? vm.driver ?? '') == 'colima' ? 'incusbr0' : ''}"
-    create_network: "${(workstation.runtime ?? vm.driver ?? '') != 'colima'}"
+    network_name: "${(workstation.runtime ?? '') == 'colima' ? 'incusbr0' : ''}"
+    create_network: "${(workstation.runtime ?? '') != 'colima'}"
     network_cidr: ${network.cidr_block}
     storage_pools:
       local:
-        driver: "${(workstation.runtime ?? vm.driver ?? '') == 'colima' ? 'dir' : null}"
+        driver: "${(workstation.runtime ?? '') == 'colima' ? 'dir' : null}"
     instances:
       - name: controlplane
         role: controlplane
@@ -36,7 +36,7 @@ terraform:
         image: windsor:talos/v1.12.1/arm64
         type: virtual-machine
         description: Talos control plane node
-        storage_pool: "${(workstation.runtime ?? vm.driver ?? '') == 'colima' ? 'local' : 'default'}"
+        storage_pool: "${(workstation.runtime ?? '') == 'colima' ? 'local' : 'default'}"
         root_disk_size: ${string(cluster.controlplanes.root_disk_size ?? 30) + "GB"}
         limits:
           cpu: ${string(cluster.controlplanes.cpu ?? 2)}
@@ -53,7 +53,7 @@ terraform:
         image: windsor:talos/v1.12.1/arm64
         type: virtual-machine
         description: Talos worker node
-        storage_pool: "${(workstation.runtime ?? vm.driver ?? '') == 'colima' ? 'local' : 'default'}"
+        storage_pool: "${(workstation.runtime ?? '') == 'colima' ? 'local' : 'default'}"
         root_disk_size: ${string(cluster.workers.root_disk_size ?? 50) + "GB"}
         limits:
           cpu: ${string(cluster.workers.cpu ?? 4)}

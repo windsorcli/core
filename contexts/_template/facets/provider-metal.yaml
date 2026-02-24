@@ -4,7 +4,7 @@ metadata:
   name: metal
   description: "Metal provider basic infrastructure"
 
-when: (platform ?? provider) == 'metal'
+when: platform == 'metal'
 
 terraform:
 - name: cluster
