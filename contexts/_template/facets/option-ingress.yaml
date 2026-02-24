@@ -4,7 +4,7 @@ metadata:
   name: ingress
   description: "Configurable ingress controller"
 
-when: platform != 'none' && ingress.enabled == true && ingress.driver == 'nginx'
+when: ingress.enabled == true && ingress.driver == 'nginx'
 
 kustomize:
 
