@@ -19,6 +19,7 @@ x-defaults:
     domain: test.local
 
   cluster: &default-cluster
+    driver: talos
     controlplanes:
       nodes:
         controlplane-1: &cp1-node
@@ -173,6 +174,7 @@ cases:
         driver: nginx
       network: *default-network
       cluster:
+        driver: talos
         controlplanes:
           cpu: 20
           memory: 32
@@ -289,7 +291,7 @@ cases:
           timeout: 20m
           interval: 5m
 
-  # Edge: docker without workstation yields no cluster (only gitops from provider-docker)
+  # Edge: docker without workstation yields no cluster and no gitops (gitops always dependsOn cluster; cluster only when workstation enabled).
   - name: docker without workstation has no cluster terraform
     values:
       provider: docker
@@ -301,10 +303,7 @@ cases:
       network: *default-network
       cluster: *default-cluster
     expect:
-      terraform:
-        - name: gitops
-          path: gitops/flux
-          destroy: false
+      terraform: []
 
   # Edge: Docker Desktop excludes load balancer (workstation enabled so cluster runs)
   - name: Docker Desktop excludes load balancer

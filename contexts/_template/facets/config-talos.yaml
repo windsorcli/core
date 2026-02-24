@@ -28,5 +28,7 @@ config:
 
   - name: talos
     value:
+      # renovate: datasource=docker depName=ghcr.io/siderolabs/talos package=ghcr.io/siderolabs/talos
       image: ghcr.io/siderolabs/talos:v1.12.1
+      # renovate: datasource=github-releases depName=talos package=siderolabs/talos
       talos_version: "1.12.1"
