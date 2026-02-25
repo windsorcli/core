@@ -34,9 +34,23 @@ All standard commands are documented in the repo `README.md` and `Taskfile.yaml`
 - `task docs` — generate Terraform docs (requires Docker)
 - `yamllint .` — lint all YAML files
 
+### Shell integration
+
+The Windsor CLI uses a shell hook for dynamic environment variable injection. This is configured in `~/.bashrc`:
+
+```bash
+eval "$(windsor hook bash)"
+```
+
+The update script installs this automatically. It sets variables like `WINDSOR_PROJECT_ROOT`, `DOCKER_HOST`, `KUBECONFIG`, etc. when you `cd` into the project.
+
 ### Environment variable
 
-Set `WINDSOR_PROJECT_ROOT=/workspace` when running Windsor or Task commands.
+Set `WINDSOR_PROJECT_ROOT=/workspace` when running Windsor or Task commands (the shell hook handles this automatically).
+
+### Docker
+
+Docker Engine is installed in the cloud VM for integration tests and `task docs`. The daemon starts via `sudo dockerd` (no systemd). Socket permissions are opened with `sudo chmod 666 /var/run/docker.sock` after daemon start.
 
 ### Gotchas
 
@@ -44,3 +58,4 @@ Set `WINDSOR_PROJECT_ROOT=/workspace` when running Windsor or Task commands.
 - Terraform tests run in parallel via `find | while read ... &`. Each module directory gets `terraform init` + `terraform test` independently.
 - Integration tests (CI `integration` job) require Docker, Docker Compose, and significant disk space. These are not part of the standard dev loop.
 - `task scan` requires a Python virtualenv at `.venv/` with `checkov` installed. This is optional for typical development.
+- Docker daemon must be started manually in the cloud VM: `sudo dockerd &>/tmp/dockerd.log &` then `sudo chmod 666 /var/run/docker.sock`.
