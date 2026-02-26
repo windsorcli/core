@@ -432,6 +432,9 @@ properties:
         type: boolean
         default: false
         description: Enable workstation stack (DNS, registries, git livereload)
+      address:
+        type: string
+        description: Address of the workstation, used for SSH to configure workstation networking
       runtime:
         type: string
         enum:
