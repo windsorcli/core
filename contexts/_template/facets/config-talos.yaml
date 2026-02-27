@@ -30,6 +30,5 @@ config:
     value:
       # renovate: datasource=github-releases depName=talos package=siderolabs/talos
       talos_version: "1.12.1"
-      incus_image_arm: "windsor:talos/v${talos.talos_version}/arm64"
-      incus_image_amd: "windsor:talos/v${talos.talos_version}/amd64"
-      image: "${platform == 'docker' ? 'ghcr.io/siderolabs/talos:v' + talos.talos_version : (workstation.enabled ? talos.incus_image_arm : talos.incus_image_amd)}"
+      docker_image: "ghcr.io/siderolabs/talos:v${talos.talos_version ?? '1.12.1'}"
+      incus_image: "${(workstation.enabled ?? false) ? 'windsor:talos/v' + (talos.talos_version ?? '1.12.1') + '/arm64' : 'windsor:talos/v' + (talos.talos_version ?? '1.12.1') + '/amd64'}"

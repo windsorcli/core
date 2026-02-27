@@ -167,7 +167,7 @@ terraform:
         role: controlplane
         count: ${cluster.controlplanes.count ?? 1}
         ipv4: ${cidrhost(network.cidr_block, 10)}
-        image: ${cluster.controlplanes.image ?? talos.image}
+        image: ${cluster.controlplanes.image ?? talos.incus_image}
         type: virtual-machine
         description: Talos control plane node
         storage_pool: "${(workstation.runtime ?? '') == 'colima' ? 'local' : 'default'}"
@@ -184,7 +184,7 @@ terraform:
         role: worker
         count: ${cluster.workers.count ?? 0}
         ipv4: ${cidrhost(network.cidr_block, 20)}
-        image: ${cluster.workers.image ?? talos.image}
+        image: ${cluster.workers.image ?? talos.incus_image}
         type: virtual-machine
         description: Talos worker node
         storage_pool: "${(workstation.runtime ?? '') == 'colima' ? 'local' : 'default'}"
@@ -245,14 +245,14 @@ terraform:
     cluster_nodes:
       controlplanes:
         count: ${cluster.controlplanes.count ?? 1}
-        image: ${cluster.controlplanes.image ?? talos.image}
+        image: ${cluster.controlplanes.image ?? talos.docker_image}
         cpu: ${cluster.controlplanes.cpu ?? 2}
         memory: ${cluster.controlplanes.memory ?? 2}
         hostports: "${workstation.runtime == \"docker-desktop\" ? (cluster.controlplanes.hostports ?? []) : []}"
         volumes: ${cluster.controlplanes.volumes ?? []}
       workers:
         count: ${cluster.workers.count ?? 0}
-        image: ${cluster.workers.image ?? talos.image}
+        image: ${cluster.workers.image ?? talos.docker_image}
         cpu: ${cluster.workers.cpu ?? 4}
         memory: ${cluster.workers.memory ?? 4}
         hostports: "${workstation.runtime == \"docker-desktop\" ? (cluster.workers.hostports ?? []) : []}"
