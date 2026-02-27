@@ -172,6 +172,57 @@ cases:
           path: gitops/flux
           destroy: false
 
+  # Incus with workstation enabled: option-workstation contributes workstation/incus, compute/incus, cluster/talos
+  - name: incus with workstation enabled creates workstation/incus compute cluster chain
+    values:
+      provider: incus
+      workstation:
+        enabled: true
+      vm:
+        driver: colima
+      dns: *default-dns
+      ingress: *ingress-disabled
+      network: *default-network
+      cluster:
+        driver: talos
+        controlplanes:
+          nodes:
+            controlplane-1:
+              endpoint: 10.5.0.10:50000
+              node: 10.5.0.10
+              hostname: controlplane-1
+        workers:
+          count: 1
+          volumes:
+            - /var/mnt/local
+          nodes:
+            worker-1:
+              endpoint: 10.5.0.20:50000
+              node: 10.5.0.20
+              hostname: worker-1
+    terraformOutputs:
+      compute:
+        controlplanes:
+          - endpoint: 10.5.0.10:6443
+            node: 10.5.0.10
+            hostname: controlplane-1
+        workers:
+          - endpoint: 10.5.0.20:50000
+            node: 10.5.0.20
+            hostname: worker-1
+    expect:
+      terraform:
+        - name: workstation
+          path: workstation/incus
+        - name: compute
+          path: compute/incus
+          dependsOn:
+            - workstation
+        - name: cluster
+          path: cluster/talos
+          dependsOn:
+            - compute
+
   # Edge: vm.driver docker-desktop — no lb kustomize components
   - name: docker-desktop workstation has node hostport dns and no lb
     values:
