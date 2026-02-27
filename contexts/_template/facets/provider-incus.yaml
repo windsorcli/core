@@ -14,12 +14,13 @@ config:
         len(terraform_output("compute", "controlplanes") ?? []) > 0
         && terraform_output("compute", "controlplanes")[0].endpoint != null
           ? "https://" + split(terraform_output("compute", "controlplanes")[0].endpoint, ":")[0] + ":6443"
-          : "https://localhost:6443"
+          : ""
       }
 
 terraform:
 
 - name: compute
+  when: "(workstation.enabled != true)"
   path: compute/incus
   inputs:
     network_name: "${(workstation.runtime ?? '') == 'colima' ? 'incusbr0' : ''}"
@@ -33,7 +34,7 @@ terraform:
         role: controlplane
         count: ${cluster.controlplanes.count ?? 1}
         ipv4: ${cidrhost(network.cidr_block, 10)}
-        image: windsor:talos/v1.12.1/arm64
+        image: ${cluster.controlplanes.image ?? talos.image}
         type: virtual-machine
         description: Talos control plane node
         storage_pool: "${(workstation.runtime ?? '') == 'colima' ? 'local' : 'default'}"
@@ -50,7 +51,7 @@ terraform:
         role: worker
         count: ${cluster.workers.count ?? 0}
         ipv4: ${cidrhost(network.cidr_block, 20)}
-        image: windsor:talos/v1.12.1/arm64
+        image: ${cluster.workers.image ?? talos.image}
         type: virtual-machine
         description: Talos worker node
         storage_pool: "${(workstation.runtime ?? '') == 'colima' ? 'local' : 'default'}"
@@ -65,6 +66,7 @@ terraform:
           raw.qemu: -boot order=c,menu=off
 
 - name: cluster
+  when: "(workstation.enabled != true)"
   path: cluster/talos
   dependsOn:
   - compute

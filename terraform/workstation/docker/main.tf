@@ -117,7 +117,8 @@ resource "docker_image" "coredns" {
 
 resource "docker_image" "git_livereload" {
   count = var.enable_git ? 1 : 0
-  name  = "ghcr.io/windsorcli/git-livereload:v0.2.1"
+  # renovate: datasource=github-releases depName=windsorcli/git-livereload
+  name = "ghcr.io/windsorcli/git-livereload:v0.2.1"
 }
 
 # =============================================================================
