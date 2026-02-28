@@ -209,7 +209,7 @@ terraform:
       ${cluster.endpoint ?? (
         len(terraform_output("compute", "controlplanes") ?? []) > 0 && terraform_output("compute", "controlplanes")[0].endpoint != null
           ? "https://" + split(terraform_output("compute", "controlplanes")[0].endpoint, ":")[0] + ":6443"
-          : "https://" + cidrhost(network.cidr_block, 10) + ":6443"
+          : ""
       )}
     cluster_name: talos
     talos_version: ${talos.talos_version}
