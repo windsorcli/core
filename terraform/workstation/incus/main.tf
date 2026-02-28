@@ -20,6 +20,21 @@ terraform {
   }
 }
 
+provider "incus" {
+  remote {
+    name     = "docker"
+    address  = "https://registry-1.docker.io/v2"
+    protocol = "oci"
+    public   = true
+  }
+  remote {
+    name     = "ghcr"
+    address  = "https://ghcr.io"
+    protocol = "oci"
+    public   = true
+  }
+}
+
 # =============================================================================
 # Locals
 # =============================================================================
