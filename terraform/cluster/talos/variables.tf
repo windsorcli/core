@@ -37,12 +37,12 @@ variable "cluster_name" {
 }
 
 variable "cluster_endpoint" {
-  description = "The external controlplane API endpoint of the kubernetes API."
+  description = "The external controlplane API endpoint (https://host:6443). If empty, derived from first controlplane's endpoint (Talos host:port → https://host:6443)."
   type        = string
   default     = "https://localhost:6443"
   validation {
-    condition     = can(regex("^https://", var.cluster_endpoint))
-    error_message = "The external controlplane API endpoint must start with 'https://'."
+    condition     = var.cluster_endpoint == "" || can(regex("^https://", var.cluster_endpoint))
+    error_message = "cluster_endpoint must be empty or start with 'https://'."
   }
 }
 

@@ -11,6 +11,13 @@ config:
   - name: workstation
     value:
       runtime: "${workstation.runtime ?? vm.driver ?? \"colima\"}"
+      arch: "${workstation.arch ?? 'amd64'}"
+
+  # Talos image refs for workstation compute (docker/incus). Only relevant when workstation stack runs; providers use talos_version fallback when not.
+  - name: talos
+    value:
+      docker_image: "ghcr.io/siderolabs/talos:v${talos.talos_version}"
+      incus_image: "windsor:talos/v${talos.talos_version}/${workstation.arch ?? 'amd64'}"
 
   # Effective registries for workstation Terraform and Talos patch: empty when services.registries false, else docker.registries or default.
   - name: workstation_registries
@@ -79,6 +86,7 @@ terraform:
 - name: gitops
   when: (cluster.enabled ?? true)
   path: gitops/flux
+  strategy: replace
   destroy: false
   dependsOn:
     - cluster
@@ -129,11 +137,112 @@ terraform:
     enable_git: ${workstation.services.git ?? true}
     registries: ${workstation_registries.registries ?? {}}
 
+
+- name: workstation
+  when: "platform == 'incus'"
+  path: workstation/incus
+  inputs:
+    domain_name: ${dns.domain}
+    network_name: "${(workstation.runtime ?? '') == 'colima' ? 'incusbr0' : ''}"
+    create_network: "${(workstation.runtime ?? '') != 'colima'}"
+    network_cidr: ${network.cidr_block}
+    loadbalancer_start_ip: ${network.loadbalancer_ips.start}
+    dns_forward_target: ${network.loadbalancer_ips.start}
+    webhook_host: ${network.loadbalancer_ips.start}
+    primary_node_ip: ${network.loadbalancer_ips.start}
+    enable_dns: ${workstation.services.dns ?? true}
+    enable_git: ${workstation.services.git ?? true}
+    registries: ${workstation_registries.registries ?? {}}
+    webhook_token: ${git.livereload.webhook_token ?? "abcdef123456"}
+    git_username: ${git.livereload.username ?? "local"}
+    git_password: ${git.livereload.password ?? "local"}
+
+- name: compute
+  when: "platform == 'incus' && (cluster.enabled ?? true)"
+  path: compute/incus
+  strategy: replace
+  dependsOn:
+    - workstation
+  inputs:
+    create_network: false
+    network_name: ${terraform_output("workstation", "network_name")}
+    network_cidr: ${terraform_output("workstation", "network_cidr")}
+    storage_pools:
+      local:
+        driver: "${(workstation.runtime ?? '') == 'colima' ? 'dir' : null}"
+    instances:
+      - name: controlplane
+        role: controlplane
+        count: ${cluster.controlplanes.count ?? 1}
+        ipv4: ${cidrhost(network.cidr_block, 10)}
+        image: ${cluster.controlplanes.image ?? talos.incus_image}
+        type: virtual-machine
+        description: Talos control plane node
+        storage_pool: "${(workstation.runtime ?? '') == 'colima' ? 'local' : 'default'}"
+        root_disk_size: ${string(cluster.controlplanes.root_disk_size ?? 30) + "GB"}
+        limits:
+          cpu: ${string(cluster.controlplanes.cpu ?? 2)}
+          memory: ${string(cluster.controlplanes.memory ?? 2) + "GB"}
+        disks: ${cluster.controlplanes.disks ?? []}
+        config:
+          user.hostname: ${values(cluster.controlplanes.nodes)[0].hostname ?? "controlplane-1"}
+          environment.TALOSSKU: ${string(cluster.controlplanes.cpu ?? 2) + "CPU-" + string((cluster.controlplanes.memory ?? 2) * 1024) + "RAM"}
+          raw.qemu: -boot order=c,menu=off
+      - name: worker
+        role: worker
+        count: ${cluster.workers.count ?? 0}
+        ipv4: ${cidrhost(network.cidr_block, 20)}
+        image: ${cluster.workers.image ?? talos.incus_image}
+        type: virtual-machine
+        description: Talos worker node
+        storage_pool: "${(workstation.runtime ?? '') == 'colima' ? 'local' : 'default'}"
+        root_disk_size: ${string(cluster.workers.root_disk_size ?? 50) + "GB"}
+        limits:
+          cpu: ${string(cluster.workers.cpu ?? 4)}
+          memory: ${string(cluster.workers.memory ?? 4) + "GB"}
+        disks: ${cluster.workers.disks ?? []}
+        config:
+          user.hostname: "${cluster.workers.nodes != null ? (values(cluster.workers.nodes)[0].hostname ?? 'worker-1') : 'worker-1'}"
+          environment.TALOSSKU: "${string(cluster.workers.cpu ?? 4) + 'CPU-' + string((cluster.workers.memory ?? 4) * 1024) + 'RAM'}"
+          raw.qemu: -boot order=c,menu=off
+
+# cluster/talos for incus: strip hostname from compute output (Incus sets it via user.hostname; Talos 1.12 rejects "static hostname is already set").
+- name: cluster
+  when: "platform == 'incus' && (cluster.enabled ?? true)"
+  path: cluster/talos
+  strategy: replace
+  dependsOn:
+    - compute
+  parallelism: 1
+  inputs:
+    cluster_endpoint: >-
+      ${cluster.endpoint ?? (
+        len(terraform_output("compute", "controlplanes") ?? []) > 0 && terraform_output("compute", "controlplanes")[0].endpoint != null
+          ? "https://" + split(terraform_output("compute", "controlplanes")[0].endpoint, ":")[0] + ":6443"
+          : ""
+      )}
+    cluster_name: talos
+    talos_version: ${talos.talos_version}
+    controlplanes: >-
+      ${len(terraform_output("compute", "controlplanes") ?? []) > 0
+        ? map(terraform_output("compute", "controlplanes"), fromPairs(concat(filter(toPairs(#), get(#, 0) != "hostname"), [["hostname", null]])))
+        : values(cluster.controlplanes.nodes)}
+    workers: >-
+      ${len(terraform_output("compute", "controlplanes") ?? []) > 0
+        ? map(terraform_output("compute", "workers") ?? [], fromPairs(concat(filter(toPairs(#), get(#, 0) != "hostname"), [["hostname", null]])))
+        : ((cluster.workers.count ?? 0) > 0 ? values(cluster.workers.nodes) : [])}
+    controlplane_disks: ${talos_common.controlplane_disks}
+    worker_disks: ${talos_common.worker_disks}
+    common_config_patches: ${talos_common.common_config_patches}
+    controlplane_volumes: ${talos_common.controlplane_volumes ?? []}
+    worker_volumes: ${talos_common.worker_volumes ?? []}
+
 # Compute/docker: run Talos controlplane/worker containers on workstation network.
 # cluster/talos consumes compute outputs (endpoints, etc.) via provider-docker.
 - name: compute
   when: "platform == 'docker' && (cluster.enabled ?? true)"
   path: compute/docker
+  strategy: replace
   dependsOn:
     - workstation
   inputs:
@@ -146,14 +255,14 @@ terraform:
     cluster_nodes:
       controlplanes:
         count: ${cluster.controlplanes.count ?? 1}
-        image: ${cluster.controlplanes.image ?? talos.image}
+        image: ${cluster.controlplanes.image ?? talos.docker_image}
         cpu: ${cluster.controlplanes.cpu ?? 2}
         memory: ${cluster.controlplanes.memory ?? 2}
         hostports: "${workstation.runtime == \"docker-desktop\" ? (cluster.controlplanes.hostports ?? []) : []}"
         volumes: ${cluster.controlplanes.volumes ?? []}
       workers:
         count: ${cluster.workers.count ?? 0}
-        image: ${cluster.workers.image ?? talos.image}
+        image: ${cluster.workers.image ?? talos.docker_image}
         cpu: ${cluster.workers.cpu ?? 4}
         memory: ${cluster.workers.memory ?? 4}
         hostports: "${workstation.runtime == \"docker-desktop\" ? (cluster.workers.hostports ?? []) : []}"

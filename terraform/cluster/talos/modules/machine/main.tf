@@ -96,10 +96,6 @@ resource "local_sensitive_file" "kubeconfig" {
   content         = talos_cluster_kubeconfig.this[0].kubeconfig_raw
   filename        = var.kubeconfig_path
   file_permission = "0600" // Set file permissions to read/write for owner only
-
-  lifecycle {
-    ignore_changes = [content] // Ignore changes to content to prevent unnecessary updates
-  }
 }
 
 #-----------------------------------------------------------------------------------------------------------------------

@@ -21,6 +21,13 @@ terraform {
 # so controlplane container and its volumes are removed, then windsor up (fresh node + fresh secrets).
 resource "talos_machine_secrets" "this" {
   talos_version = "v${var.talos_version}"
+
+  lifecycle {
+    precondition {
+      condition     = local.cluster_endpoint != "" && can(regex("^https://", local.cluster_endpoint))
+      error_message = "cluster_endpoint could not be derived: set cluster.endpoint or ensure compute is applied so controlplanes have endpoints."
+    }
+  }
 }
 
 #-----------------------------------------------------------------------------------------------------------------------
@@ -31,6 +38,8 @@ locals {
   talosconfig      = data.talos_client_configuration.this.talos_config
   talosconfig_path = "${var.context_path}/.talos/config"
   kubeconfig_path  = "${var.context_path}/.kube/config"
+
+  cluster_endpoint = var.cluster_endpoint != "" ? var.cluster_endpoint : (length(var.controlplanes) > 0 ? "https://${split(":", var.controlplanes[0].endpoint)[0]}:6443" : "")
 
   # extraMounts from raw volume strings (path or host:dest; path = part after ":" if present).
   # yamlencode() produces quoted keys (Terraform/Go); common_config_patches from blueprint is unquoted YAML. Both valid.
@@ -58,7 +67,7 @@ module "controlplane_bootstrap" {
   wipe_disk            = lookup(var.controlplanes[0], "wipe_disk", true)
   extra_kernel_args    = lookup(var.controlplanes[0], "extra_kernel_args", [])
   cluster_name         = var.cluster_name
-  cluster_endpoint     = var.cluster_endpoint
+  cluster_endpoint     = local.cluster_endpoint
   kubernetes_version   = var.kubernetes_version
   talos_version        = var.talos_version
   machine_type         = "controlplane"
@@ -88,7 +97,7 @@ module "controlplanes" {
   wipe_disk            = lookup(var.controlplanes[count.index + 1], "wipe_disk", true)
   extra_kernel_args    = lookup(var.controlplanes[count.index + 1], "extra_kernel_args", [])
   cluster_name         = var.cluster_name
-  cluster_endpoint     = var.cluster_endpoint
+  cluster_endpoint     = local.cluster_endpoint
   kubernetes_version   = var.kubernetes_version
   talos_version        = var.talos_version
   machine_type         = "controlplane"
@@ -122,7 +131,7 @@ module "workers" {
   wipe_disk            = lookup(var.workers[count.index], "wipe_disk", true)
   extra_kernel_args    = lookup(var.workers[count.index], "extra_kernel_args", [])
   cluster_name         = var.cluster_name
-  cluster_endpoint     = var.cluster_endpoint
+  cluster_endpoint     = local.cluster_endpoint
   kubernetes_version   = var.kubernetes_version
   talos_version        = var.talos_version
   machine_type         = "worker"
