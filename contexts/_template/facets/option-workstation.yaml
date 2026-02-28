@@ -11,6 +11,13 @@ config:
   - name: workstation
     value:
       runtime: "${workstation.runtime ?? vm.driver ?? \"colima\"}"
+      arch: "${workstation.arch ?? 'amd64'}"
+
+  # Talos image refs for workstation compute (docker/incus). Only relevant when workstation stack runs; providers use talos_version fallback when not.
+  - name: talos
+    value:
+      docker_image: "ghcr.io/siderolabs/talos:v${talos.talos_version}"
+      incus_image: "windsor:talos/v${talos.talos_version}/${workstation.arch ?? 'amd64'}"
 
   # Effective registries for workstation Terraform and Talos patch: empty when services.registries false, else docker.registries or default.
   - name: workstation_registries
