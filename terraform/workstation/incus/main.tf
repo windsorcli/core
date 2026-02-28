@@ -45,9 +45,8 @@ locals {
   domain_name           = coalesce(var.domain_name, var.context)
   network_name_resolved = coalesce(var.network_name, "windsor-${var.context}")
   compose_project       = "workstation-windsor-${var.context}"
-  # Incus: bridge networking only; no localhost/port-publish mode like docker-desktop
+  # Incus: bridge networking only; no localhost/port-publish mode like docker-desktop (docker uses loadbalancer_cidr for that)
   loadbalancer_start_ip = coalesce(var.loadbalancer_start_ip, cidrhost(cidrsubnet(var.network_cidr, 8, 1), 1))
-  loadbalancer_cidr     = "${join(".", concat(slice(split(".", local.loadbalancer_start_ip), 0, 3), ["0"]))}/24"
   webhook_host_derived  = local.loadbalancer_start_ip
   webhook_host          = coalesce(var.webhook_host, var.primary_node_ip, local.webhook_host_derived)
   webhook_url           = "http://${local.webhook_host}:9292/hook/${var.webhook_token}"
