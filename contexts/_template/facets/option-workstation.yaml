@@ -149,16 +149,15 @@ terraform:
     git_username: ${git.livereload.username ?? "local"}
     git_password: ${git.livereload.password ?? "local"}
 
-# Compute/incus: run after workstation (DNS, git, registries). Same pattern as compute/docker.
 - name: compute
   when: "platform == 'incus' && (cluster.enabled ?? true)"
   path: compute/incus
   dependsOn:
     - workstation
   inputs:
-    network_name: "${(workstation.runtime ?? '') == 'colima' ? 'incusbr0' : ''}"
-    create_network: "${(workstation.runtime ?? '') != 'colima'}"
-    network_cidr: ${network.cidr_block}
+    create_network: false
+    network_name: ${terraform_output("workstation", "network_name")}
+    network_cidr: ${terraform_output("workstation", "network_cidr")}
     storage_pools:
       local:
         driver: "${(workstation.runtime ?? '') == 'colima' ? 'dir' : null}"

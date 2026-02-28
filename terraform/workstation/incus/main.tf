@@ -20,10 +20,12 @@ terraform {
   }
 }
 
+# OCI remotes for image pulls so docker: and ghcr: refs resolve. If you see "Image not found", ensure the Incus
+# client has these remotes (e.g. incus remote add docker https://docker.io --protocol=oci --public).
 provider "incus" {
   remote {
     name     = "docker"
-    address  = "https://registry-1.docker.io/v2"
+    address  = "https://docker.io"
     protocol = "oci"
     public   = true
   }
@@ -121,6 +123,7 @@ resource "incus_instance" "dns" {
   count = var.enable_dns ? 1 : 0
   name  = replace("dns.${local.domain_name}", ".", "-")
   type  = "container"
+  # renovate: datasource=docker depName=coredns/coredns package=coredns/coredns
   image = "docker:coredns/coredns:1.14.1"
   config = {
     "raw.lxc"        = "lxc.apparmor.profile=unconfined"
@@ -172,10 +175,11 @@ resource "terraform_data" "registry_cache_dirs" {
 # =============================================================================
 
 resource "incus_instance" "registry" {
-  for_each   = var.registries
-  name       = replace(local.registry_hostname[each.key], ".", "-")
-  type       = "container"
-  image      = "docker:registry:3.0.0"
+  for_each = var.registries
+  name     = replace(local.registry_hostname[each.key], ".", "-")
+  type     = "container"
+  # renovate: datasource=docker depName=library/registry package=library/registry
+  image      = "docker:library/registry:3.0.0"
   depends_on = [terraform_data.registry_cache_dirs]
   config = each.value.remote != null ? {
     "environment.REGISTRY_PROXY_REMOTEURL" = each.value.remote
