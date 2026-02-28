@@ -149,7 +149,7 @@ resource "incus_instance" "dns" {
     }
   }
 
-  depends_on = [local_file.corefile]
+  depends_on = [incus_network.main, local_file.corefile]
 
   lifecycle {
     replace_triggered_by = [local_file.corefile]
@@ -180,7 +180,7 @@ resource "incus_instance" "registry" {
   type     = "container"
   # renovate: datasource=docker depName=library/registry package=library/registry
   image      = "docker:library/registry:3.0.0"
-  depends_on = [terraform_data.registry_cache_dirs]
+  depends_on = [incus_network.main, terraform_data.registry_cache_dirs]
   config = each.value.remote != null ? {
     "environment.REGISTRY_PROXY_REMOTEURL" = each.value.remote
   } : {}
@@ -209,9 +209,10 @@ resource "incus_instance" "registry" {
 # =============================================================================
 
 resource "incus_instance" "git" {
-  count = var.enable_git ? 1 : 0
-  name  = replace("git.${local.domain_name}", ".", "-")
-  type  = "container"
+  count      = var.enable_git ? 1 : 0
+  depends_on = [incus_network.main]
+  name       = replace("git.${local.domain_name}", ".", "-")
+  type       = "container"
   # renovate: datasource=github-releases depName=windsorcli/git-livereload
   image = "ghcr:windsorcli/git-livereload:v0.2.1"
   config = {
