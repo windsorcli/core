@@ -34,7 +34,7 @@ terraform:
         role: controlplane
         count: ${cluster.controlplanes.count ?? 1}
         ipv4: ${cidrhost(network.cidr_block, 10)}
-        image: ${cluster.controlplanes.image ?? talos.incus_image}
+        image: ${cluster.controlplanes.image ?? ("windsor:talos/v" + talos.talos_version + "/amd64")}
         type: virtual-machine
         description: Talos control plane node
         storage_pool: "${(workstation.runtime ?? '') == 'colima' ? 'local' : 'default'}"
@@ -51,7 +51,7 @@ terraform:
         role: worker
         count: ${cluster.workers.count ?? 0}
         ipv4: ${cidrhost(network.cidr_block, 20)}
-        image: ${cluster.workers.image ?? talos.incus_image}
+        image: ${cluster.workers.image ?? ("windsor:talos/v" + talos.talos_version + "/amd64")}
         type: virtual-machine
         description: Talos worker node
         storage_pool: "${(workstation.runtime ?? '') == 'colima' ? 'local' : 'default'}"

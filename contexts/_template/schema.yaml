@@ -432,6 +432,13 @@ properties:
         type: boolean
         default: false
         description: Enable workstation stack (DNS, registries, git livereload)
+      arch:
+        type: string
+        enum:
+          - amd64
+          - arm64
+        default: amd64
+        description: CPU architecture for Incus Talos images (host arch when workstation enabled; target arch for server deployments). Used by talos.incus_image.
       address:
         type: string
         description: Address of the workstation, used for SSH to configure workstation networking
