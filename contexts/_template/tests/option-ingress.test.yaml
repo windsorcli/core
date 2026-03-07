@@ -85,6 +85,15 @@ cases:
         runtime: docker-desktop
       network: *default-network
       cluster: *default-cluster
+    terraformOutputs:
+      compute:
+        controlplanes:
+          - endpoint: 10.5.0.10:6443
+            node: 10.5.0.10
+            hostname: controlplane-1
+        workers: []
+      workstation:
+        registries: {}
     expect:
       kustomize:
         - name: ingress
@@ -110,6 +119,15 @@ cases:
         runtime: colima
       network: *default-network
       cluster: *default-cluster
+    terraformOutputs:
+      compute:
+        controlplanes:
+          - endpoint: 10.5.0.10:6443
+            node: 10.5.0.10
+            hostname: controlplane-1
+        workers: []
+      workstation:
+        registries: {}
     expect:
       kustomize:
         - name: ingress

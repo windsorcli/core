@@ -212,7 +212,7 @@ run "health_check_command_bootstrap_mode" {
 
   assert {
     condition     = strcontains(local.health_check_command, "192.168.1.10")
-    error_message = "Should use IP address (var.node when it's an IP, otherwise var.endpoint) instead of hostname for health check to avoid DNS resolution issues"
+    error_message = "Should use endpoint host for health check so the host can reach the Talos API (e.g. 127.0.0.1 in docker-desktop)"
   }
 }
 
@@ -236,7 +236,7 @@ run "health_check_command_non_bootstrap_mode" {
 
   assert {
     condition     = strcontains(local.health_check_command, "192.168.1.20")
-    error_message = "Should use IP address (var.node when it's an IP, otherwise var.endpoint) instead of hostname for health check to avoid DNS resolution issues"
+    error_message = "Should use endpoint host for health check so the host can reach the Talos API"
   }
 }
 
@@ -250,7 +250,7 @@ run "health_check_command_uses_node_address" {
 
   assert {
     condition     = strcontains(local.health_check_command, "dummy")
-    error_message = "Should use node address in health check"
+    error_message = "Should use endpoint host (dummy) in health check"
   }
 }
 

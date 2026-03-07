@@ -77,7 +77,7 @@ variable "enable_git" {
 }
 
 variable "registries" {
-  description = "Map of registry configs (aligned with windsor docker.registries). Key is hostname prefix (e.g. gcr, registry.k8s). Each entry: remote (proxy upstream URL; Distribution supports only remoteurl, username, password, ttl), hostport (publish port on host, optional). Omit remote for local-only registry."
+  description = "Map of registry configs (aligned with windsor docker.registries). Key is hostname prefix (e.g. gcr, registry.k8s). Each entry: remote (proxy upstream URL; Distribution supports only remoteurl, username, password, ttl), hostport (publish port on host, optional). Omit remote for local-only registry. Null is coalesced to empty in the module."
   type = map(object({
     remote   = optional(string)
     local    = optional(string)
@@ -95,7 +95,7 @@ variable "registries" {
     }
     "registry-1.docker" = {
       remote = "https://registry-1.docker.io"
-      local  = "https://docker.io"
+      local  = "docker.io"
     }
     "registry.k8s" = {
       remote = "https://registry.k8s.io"
@@ -104,6 +104,7 @@ variable "registries" {
       hostport = 5001
     }
   }
+  nullable = true
 }
 
 variable "webhook_token" {

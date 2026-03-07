@@ -1,6 +1,7 @@
 # option-workstation.yaml facet tests
-# Tests workstation stack (workstation/docker, compute/docker, cluster/talos) when workstation.enabled and provider docker.
-# Facet contributes config (certSANs_from_compute, common_patch_docker, talos_common_docker) and terraform chain.
+# Tests workstation stack (workstation/docker or incus, compute, cluster/talos) when workstation.enabled.
+# Asserts cluster common_config_patches: cert_rotation (extraManifests + kubelet.extraArgs) and registries.mirrors
+# so changes to config-talos or option-workstation patch logic are caught.
 
 x-defaults:
   network: &default-network
@@ -39,7 +40,7 @@ x-defaults:
     driver: nginx
 
 cases:
-  # Minimal: workstation enabled, docker, minimal cluster/network/dns → cluster and gitops (option-workstation + provider-docker)
+  # Minimal: workstation enabled, docker (colima), minimal cluster → cluster and gitops. No certSANs (colima; only docker-desktop sets them).
   - name: minimal workstation creates terraform chain and talos config
     values:
       provider: docker
@@ -58,6 +59,18 @@ cases:
           path: cluster/talos
           inputs:
             cluster_name: talos
+            common_config_patches: |-
+              cluster:
+                allowSchedulingOnControlPlanes: true
+                extraManifests:
+                - https://raw.githubusercontent.com/alex1989hu/kubelet-serving-cert-approver/v0.8.7/deploy/standalone-install.yaml
+              machine:
+                kubelet:
+                  extraArgs:
+                    rotate-server-certificates: "true"
+                registries:
+                  config: {}
+                  mirrors: {}
         - name: gitops
           path: gitops/flux
           destroy: false
@@ -172,7 +185,8 @@ cases:
           path: gitops/flux
           destroy: false
 
-  # Incus with workstation enabled: option-workstation contributes workstation/incus, compute/incus, cluster/talos
+  # Incus with workstation enabled: option-workstation contributes workstation/incus, compute/incus, cluster/talos.
+  # Asserts cluster common_config_patches: cert_rotation + registries.mirrors; no certSANs (incus path uses common_patch_with_registries only).
   - name: incus with workstation enabled creates workstation/incus compute cluster chain
     values:
       provider: incus
@@ -222,6 +236,19 @@ cases:
           path: cluster/talos
           dependsOn:
             - compute
+          inputs:
+            common_config_patches: |-
+              cluster:
+                allowSchedulingOnControlPlanes: false
+                extraManifests:
+                - https://raw.githubusercontent.com/alex1989hu/kubelet-serving-cert-approver/v0.8.7/deploy/standalone-install.yaml
+              machine:
+                kubelet:
+                  extraArgs:
+                    rotate-server-certificates: "true"
+                registries:
+                  config: {}
+                  mirrors: {}
 
   # Edge: vm.driver docker-desktop — no lb kustomize components
   - name: docker-desktop workstation has node hostport dns and no lb
