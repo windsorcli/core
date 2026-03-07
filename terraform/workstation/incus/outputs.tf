@@ -61,3 +61,15 @@ output "containers" {
     ) : k => v if v != null
   }
 }
+
+output "registries" {
+  description = "Registry config with computed hostname per entry. Same shape as workstation/docker for cluster Talos mirrors."
+  value = {
+    for k in keys(var.registries) : k => {
+      remote   = try(var.registries[k].remote, null)
+      local    = try(trimprefix(trimprefix(var.registries[k].local, "https://"), "http://"), null)
+      hostport = try(var.registries[k].hostport, null)
+      hostname = local.registry_hostname[k]
+    }
+  }
+}

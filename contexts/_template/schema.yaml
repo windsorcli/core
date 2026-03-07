@@ -125,7 +125,7 @@ properties:
       - incus
       - metal
       - docker
-    description: Alias for provider; when set overrides provider. Facets use effective_provider (platform ?? provider).
+    description: Alias for provider; when set overrides provider.
 
   # Development mode
   dev:
@@ -236,15 +236,15 @@ properties:
           properties:
             remote:
               type: string
-              description: Upstream registry URL (e.g. https://gcr.io). Proxy supports remoteurl, username, password, ttl.
+              description: Upstream registry URL (e.g. https://gcr.io).
             local:
               type: string
-              description: Client-facing registry host for mirror key (e.g. docker.io). When set, used as the mirror name so pulls to this host use the proxy. Omit to use the registry map key.
+              description: Client-facing registry host for mirror key (e.g. docker.io). Omit to use the registry map key.
             hostname:
               type: string
-              description: Hostname for registry mirror config (e.g. registry.test)
+              description: Hostname for the mirror endpoint (e.g. registry.test).
           additionalProperties: false
-        description: Registry mirror config keyed by registry host (e.g. gcr.io, ghcr.io). Used by workstation proxy registries and cluster machine config.
+        description: Registry mirror config keyed by registry host (e.g. gcr.io, ghcr.io). Used by workstation proxy/DNS and by Talos cluster mirrors.
     additionalProperties: false
 
   # High availability mode
@@ -422,6 +422,9 @@ properties:
           - docker
           - incus
         description: Container/VM runtime
+      address:
+        type: string
+        description: Deprecated. Use workstation.address. VM/workstation host address (e.g. Colima VM IP).
     additionalProperties: false
 
   # Workstation (DNS, registries, git livereload)

@@ -38,6 +38,20 @@ x-defaults:
           hostname: controlplane-1
       workers: []
 
+  # Workstation registries with hostname so common_config_patches gets non-empty mirrors (mirror key -> endpoint).
+  terraform-outputs-with-workstation-registries: &terraform-outputs-with-workstation-registries
+    compute:
+      controlplanes:
+        - endpoint: 10.5.0.10:6443
+          node: 10.5.0.10
+          hostname: controlplane-1
+      workers: []
+    workstation:
+      registries:
+        gcr.io:
+          remote: "https://gcr.io"
+          hostname: "gcr.test"
+
   ingress-disabled: &ingress-disabled
     enabled: false
     driver: nginx
@@ -159,6 +173,45 @@ cases:
             local_volume_path: /var/mnt/local
           timeout: 20m
           interval: 5m
+
+  # Registry mirrors: when terraform_output("workstation", "registries") has hostname, common_config_patches must include non-empty mirrors. Colima: no certSANs.
+  - name: cluster common_config_patches includes registry mirrors when docker.registries have hostname
+    values:
+      provider: docker
+      workstation:
+        enabled: true
+      vm:
+        driver: colima
+      dns: *default-dns
+      ingress: *ingress-disabled
+      network: *default-network
+      cluster: *default-cluster
+      docker:
+        registries:
+          gcr.io:
+            remote: "https://gcr.io"
+            hostname: "gcr.test"
+    terraformOutputs: *terraform-outputs-with-workstation-registries
+    expect:
+      terraform:
+        - name: cluster
+          path: cluster/talos
+          inputs:
+            common_config_patches: |-
+              cluster:
+                allowSchedulingOnControlPlanes: true
+                extraManifests:
+                - https://raw.githubusercontent.com/alex1989hu/kubelet-serving-cert-approver/v0.8.7/deploy/standalone-install.yaml
+              machine:
+                kubelet:
+                  extraArgs:
+                    rotate-server-certificates: "true"
+                registries:
+                  config: {}
+                  mirrors:
+                    gcr.io:
+                      endpoints:
+                      - http://gcr.test:5000
 
   # Full: workstation path with fully populated cluster, ingress, volumes
   - name: full config creates workstation compute cluster chain with all options
@@ -318,6 +371,12 @@ cases:
       network: *default-network
       cluster: *default-cluster
     terraformOutputs: *default-terraform-outputs
+    expect:
+      terraform:
+        - name: cluster
+          path: cluster/talos
+          inputs:
+            cluster_endpoint: https://10.5.0.10:6443
     exclude:
       kustomize:
         - name: lb-base

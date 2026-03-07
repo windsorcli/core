@@ -28,8 +28,8 @@ output "next_ip" {
 }
 
 output "dns_ip" {
-  description = "IPv4 address reserved for the DNS container (cidrhost(network_cidr, 2)). Present in service_ips.dns when enable_dns is true."
-  value       = local.dns_ip
+  description = "Host-facing IP for the DNS container. For docker-desktop runtime, 127.0.0.1 (ports published to localhost); otherwise cidrhost(network_cidr, 2)."
+  value       = local.use_localhost_networking ? "127.0.0.1" : local.dns_ip
 }
 
 output "domain_name" {
@@ -64,5 +64,17 @@ output "containers" {
       { dns = try(docker_container.dns[0].name, null), git = try(docker_container.git[0].name, null) },
       { for rk, rv in docker_container.registry : rk => rv.name }
     ) : k => v if v != null
+  }
+}
+
+output "registries" {
+  description = "Registry config with computed hostname per entry. Merges var.registries with hostname (e.g. gcr.domain_name) for cluster Talos mirrors and other consumers."
+  value = {
+    for k in keys(local.registries) : k => {
+      remote   = try(local.registries[k].remote, null)
+      local    = try(trimprefix(trimprefix(local.registries[k].local, "https://"), "http://"), null)
+      hostport = try(local.registries[k].hostport, null)
+      hostname = "${local.registry_host_prefix[k]}.${local.domain_name}"
+    }
   }
 }

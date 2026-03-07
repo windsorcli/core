@@ -239,6 +239,28 @@ run "webhook_host_docker_desktop_derived" {
   }
 }
 
+# Null registries: blueprint may pass registries = null; module coalesces to {} so no registry containers.
+run "registries_null" {
+  command = plan
+
+  variables {
+    project_root = "/tmp/windsor-test"
+    context      = "test"
+    runtime      = "colima"
+    registries   = null
+  }
+
+  assert {
+    condition     = length(local.registries) == 0
+    error_message = "local.registries should be empty when var.registries is null"
+  }
+
+  assert {
+    condition     = length(docker_container.registry) == 0
+    error_message = "No registry containers when registries is null"
+  }
+}
+
 # Negative: invalid runtime rejected.
 run "invalid_runtime" {
   command         = plan

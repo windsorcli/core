@@ -15,15 +15,18 @@ config:
       csi_local_volume_path: "${cluster.storage.local_base_path ?? \"/var/mnt/local\"}"
       controlplane_disks: "${cluster.controlplanes.disks ?? []}"
       worker_disks: "${cluster.workers.disks ?? []}"
+      cert_rotation:
+        extra_manifests:
+          - "https://raw.githubusercontent.com/alex1989hu/kubelet-serving-cert-approver/v0.8.7/deploy/standalone-install.yaml"
+        kubelet_extra_args:
+          rotate-server-certificates: "true"
       common_patch:
         cluster:
           allowSchedulingOnControlPlanes: ${talos_common.allowSchedulingOnControlPlanes}
-          extraManifests:
-            - "https://raw.githubusercontent.com/alex1989hu/kubelet-serving-cert-approver/v0.8.7/deploy/standalone-install.yaml"
+          extraManifests: ${talos_common.cert_rotation.extra_manifests}
         machine:
           kubelet:
-            extraArgs:
-              rotate-server-certificates: "true"
+            extraArgs: ${talos_common.cert_rotation.kubelet_extra_args}
       common_config_patches: "${string(talos_common.common_patch)}"
 
   - name: talos
