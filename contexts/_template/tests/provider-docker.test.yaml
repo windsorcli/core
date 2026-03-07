@@ -177,7 +177,7 @@ cases:
   # Registry mirrors: when terraform_output("workstation", "registries") has hostname, common_config_patches must include non-empty mirrors. Colima: no certSANs.
   - name: cluster common_config_patches includes registry mirrors when docker.registries have hostname
     values:
-      provider: docker
+      platform: docker
       workstation:
         enabled: true
       vm:

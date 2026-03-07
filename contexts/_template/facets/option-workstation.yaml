@@ -66,11 +66,11 @@ config:
             mirrors: ${talos_registry_mirrors.mirrors}
             config: ${talos_registry_mirrors.config}
 
-  # Merge schedulable override for docker (colima + docker-desktop).
+  # Merge schedulable override for docker (colima + docker-desktop). When no workers, allow scheduling on control planes; otherwise use cluster.controlplanes.schedulable.
   - name: talos_common
     when: (cluster.enabled ?? true) && cluster.driver == 'talos' && platform == 'docker'
     value:
-      allowSchedulingOnControlPlanes: "${cluster.controlplanes.schedulable ?? ((cluster.workers.count ?? 0) == 0)}"
+      allowSchedulingOnControlPlanes: "${(cluster.workers.count ?? 0) == 0 ? true : (cluster.controlplanes.schedulable ?? false)}"
 
   # Merge network ignore (docker-desktop only).
   - name: talos_common
