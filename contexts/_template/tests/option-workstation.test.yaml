@@ -250,7 +250,7 @@ cases:
                   config: {}
                   mirrors: {}
 
-  # Edge: vm.driver docker-desktop — no lb kustomize components. Asserts workstation inputs use 4+registry_count for IPs (validates registry_count = len(workstation_registries.registries)).
+  # Edge: vm.driver docker-desktop — no lb kustomize components. Asserts workstation inputs use 4+len(registries) for IPs.
   - name: docker-desktop workstation has node hostport dns and no lb
     values:
       provider: docker

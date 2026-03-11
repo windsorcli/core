@@ -30,7 +30,6 @@ config:
           "registry-1.docker.io": { "remote": "https://registry-1.docker.io", "local": "docker.io" },
           "registry.k8s.io": { "remote": "https://registry.k8s.io" }
         })}
-      registry_count: "${(workstation.services.registries ?? true) == false ? 0 : len(workstation_registries.registries ?? {})}"
 
   # Registry mirrors: built from workstation TF output "registries"; only entries with remote are included (Talos mirrors upstream remotes).
   # config: empty for HTTP mirrors—Talos errors "TLS config specified for non-HTTPS registry" if tls is set for http:// endpoints.
