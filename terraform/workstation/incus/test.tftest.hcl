@@ -71,8 +71,8 @@ run "full_configuration" {
     enable_dns   = true
     enable_git   = true
     registries = {
-      gcr  = { remote = "https://gcr.io" }
-      ghcr = { remote = "https://ghcr.io" }
+      "gcr.io"  = { remote = "https://gcr.io" }
+      "ghcr.io" = { remote = "https://ghcr.io" }
     }
   }
 
@@ -102,7 +102,7 @@ run "full_configuration" {
   }
 
   assert {
-    condition     = local.service_ips["gcr"] == "10.20.0.4" && local.service_ips["ghcr"] == "10.20.0.5"
+    condition     = local.service_ips["gcr.io"] == "10.20.0.4" && local.service_ips["ghcr.io"] == "10.20.0.5"
     error_message = "Sequential IPs: first two registries at 4 and 5"
   }
 
@@ -213,7 +213,7 @@ run "create_network_false_uses_existing_network" {
   }
 }
 
-# Registry hostname normalization: keys with trailing TLD (e.g. gcr.io, registry.k8s.io) get single .test.
+# Registry hostname normalization: when key matches remote URL host, strip last dot-segment (TLD); local-only key used as-is.
 run "registry_hostname_normalization" {
   command = plan
 
@@ -221,19 +221,19 @@ run "registry_hostname_normalization" {
     project_root = "/tmp/windsor-test"
     context      = "test"
     registries = {
-      "gcr.io"          = { remote = "https://gcr.io" }
+      "gcr.io"         = { remote = "https://gcr.io" }
       "registry.k8s.io" = { remote = "https://registry.k8s.io" }
-      "registry.test"   = { hostport = 5001 }
+      registry         = { hostport = 5001 }
     }
   }
 
   assert {
-    condition     = local.registry_hostname["gcr.io"] == "gcr.test" && local.registry_hostname["registry.k8s.io"] == "registry.k8s.test" && local.registry_hostname["registry.test"] == "registry.test"
-    error_message = "Trailing TLD stripped from registry key so hostname has single domain: gcr.test, registry.k8s.test, registry.test"
+    condition     = local.registry_hostname["gcr.io"] == "gcr.test" && local.registry_hostname["registry.k8s.io"] == "registry.k8s.test" && local.registry_hostname["registry"] == "registry.test"
+    error_message = "Remote-match keys get TLD stripped (gcr.test, registry.k8s.test); local-only key used as-is (registry.test)"
   }
 
   assert {
-    condition     = incus_instance.registry["gcr.io"].name == "gcr-test" && incus_instance.registry["registry.k8s.io"].name == "registry-k8s-test" && incus_instance.registry["registry.test"].name == "registry-test"
+    condition     = incus_instance.registry["gcr.io"].name == "gcr-test" && incus_instance.registry["registry.k8s.io"].name == "registry-k8s-test" && incus_instance.registry["registry"].name == "registry-test"
     error_message = "Incus instance names are sanitized (dots to hyphens) from normalized hostname"
   }
 }

@@ -28,18 +28,17 @@ config:
           "ghcr.io": { "remote": "https://ghcr.io" },
           "quay.io": { "remote": "https://quay.io" },
           "registry-1.docker.io": { "remote": "https://registry-1.docker.io", "local": "docker.io" },
-          "registry.k8s.io": { "remote": "https://registry.k8s.io" },
-          "registry.test": {}
+          "registry.k8s.io": { "remote": "https://registry.k8s.io" }
         })}
       registry_count: >-
         ${(workstation.services.registries ?? true) == false
           ? 0
           : len(docker.registries ?? {
               "gcr.io": {}, "ghcr.io": {}, "quay.io": {},
-              "registry-1.docker.io": {}, "registry.k8s.io": {}, "registry.test": {}
+              "registry-1.docker.io": {}, "registry.k8s.io": {}
             })}
 
-  # Registry mirrors: built from workstation TF output "registries" (entries include hostname); nodes reach registries via DNS (hostname:5000).
+  # Registry mirrors: built from workstation TF output "registries"; only entries with remote are included (Talos mirrors upstream remotes).
   # config: empty for HTTP mirrors—Talos errors "TLS config specified for non-HTTPS registry" if tls is set for http:// endpoints.
   - name: talos_registry_mirrors
     when: (cluster.enabled ?? true) && cluster.driver == 'talos'
@@ -47,7 +46,7 @@ config:
       mirrors: >-
         ${fromPairs(map(
           filter(toPairs(terraform_output("workstation", "registries") ?? {}),
-            get(get(#, 1), "hostname") != null && get(get(#, 1), "hostname") != ""
+            get(get(#, 1), "remote") != null && get(get(#, 1), "remote") != "" && get(get(#, 1), "hostname") != null && get(get(#, 1), "hostname") != ""
           ),
           [
             (get(get(#, 1), "local") != null && get(get(#, 1), "local") != "" ? get(get(#, 1), "local") : get(#, 0)),

@@ -47,10 +47,14 @@ locals {
   dns_ip               = cidrhost(var.network_cidr, 2)
   git_ip               = cidrhost(var.network_cidr, 3)
   registry_keys_sorted = sort(keys(local.registries))
-  # Hostname prefix = key with TLD stripped (e.g. gcr.io -> gcr) so endpoint is gcr.domain not gcr.io.domain
+  # Hostname prefix: when key matches remote URL host, strip last dot-segment (TLD); else use key (e.g. local-only registry).
   registry_host_prefix = {
-    for k in keys(local.registries) : k => (
-      length(split(".", k)) > 1 ? join(".", slice(split(".", k), 0, length(split(".", k)) - 1)) : k
+    for k, v in local.registries : k => (
+      v.remote != null
+      && split(":", split("/", trimprefix(trimprefix(v.remote, "https://"), "http://"))[0])[0] == k
+      && length(split(".", k)) > 1
+      ? join(".", slice(split(".", k), 0, length(split(".", k)) - 1))
+      : k
     )
   }
   registry_ips = {

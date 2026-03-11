@@ -76,8 +76,8 @@ run "full_configuration" {
     enable_dns   = true
     enable_git   = true
     registries = {
-      gcr  = { remote = "https://gcr.io" }
-      ghcr = { remote = "https://ghcr.io" }
+      "gcr.io"  = { remote = "https://gcr.io" }
+      "ghcr.io" = { remote = "https://ghcr.io" }
     }
   }
 
@@ -117,7 +117,7 @@ run "full_configuration" {
   }
 
   assert {
-    condition     = local.service_ips["gcr"] == "10.20.0.4" && local.service_ips["ghcr"] == "10.20.0.5"
+    condition     = local.service_ips["gcr.io"] == "10.20.0.4" && local.service_ips["ghcr.io"] == "10.20.0.5"
     error_message = "Sequential IPs: first two registries at 4 and 5"
   }
 

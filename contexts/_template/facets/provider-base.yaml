@@ -4,11 +4,9 @@ metadata:
   name: provider-base
   description: "Base infrastructure components for all providers"
 
-when: (platform ?? provider) != 'none'
+when: platform != 'none'
 
 config:
-- name: platform
-  value: "${platform ?? provider ?? 'none'}"
 - name: workstation
   value:
     runtime: "${workstation.runtime ?? vm.driver ?? ''}"

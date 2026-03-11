@@ -58,11 +58,12 @@ locals {
   registry_ips = {
     for i, k in local.registry_keys_sorted : k => cidrhost(var.network_cidr, 4 + i)
   }
-  # Strip trailing TLD from registry key so hostname is registry.k8s.test not registry.k8s.io.test
-  registry_hostname_tlds = toset(["io", "com", "test", "dev", "org", "net"])
+  # Hostname prefix: when key matches remote URL host, strip last dot-segment (TLD); else use key (e.g. local-only registry).
   registry_hostname_base = {
-    for k in local.registry_keys_sorted : k => (
-      length(split(".", k)) > 1 && contains(local.registry_hostname_tlds, element(split(".", k), length(split(".", k)) - 1))
+    for k, v in var.registries : k => (
+      v.remote != null
+      && split(":", split("/", trimprefix(trimprefix(v.remote, "https://"), "http://"))[0])[0] == k
+      && length(split(".", k)) > 1
       ? join(".", slice(split(".", k), 0, length(split(".", k)) - 1))
       : k
     )
@@ -157,16 +158,14 @@ resource "incus_instance" "dns" {
 
 # =============================================================================
 # Registry cache dirs (Incus requires disk source path to exist before create)
+# Use local_file so the resource is only "created" after the path exists; provisioners
+# run after resource creation so depends_on would not wait for mkdir.
 # =============================================================================
 
-resource "terraform_data" "registry_cache_dirs" {
+resource "local_file" "registry_cache_dir" {
   for_each = var.registries
-  triggers_replace = {
-    path = "${var.project_root}/.windsor/cache/docker/registries/${each.key}"
-  }
-  provisioner "local-exec" {
-    command = "mkdir -p '${var.project_root}/.windsor/cache/docker/registries/${each.key}'"
-  }
+  content  = ""
+  filename = "${var.project_root}/.windsor/cache/docker/registries/${each.key}/.keep"
 }
 
 # =============================================================================
@@ -179,7 +178,7 @@ resource "incus_instance" "registry" {
   type     = "container"
   # renovate: datasource=docker depName=library/registry package=library/registry
   image      = "docker:library/registry:3.0.0"
-  depends_on = [incus_network.main, terraform_data.registry_cache_dirs]
+  depends_on = [incus_network.main, local_file.registry_cache_dir]
   config = each.value.remote != null ? {
     "environment.REGISTRY_PROXY_REMOTEURL" = each.value.remote
   } : {}

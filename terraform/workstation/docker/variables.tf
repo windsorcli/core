@@ -77,27 +77,27 @@ variable "enable_git" {
 }
 
 variable "registries" {
-  description = "Map of registry configs (aligned with windsor docker.registries). Key is hostname prefix (e.g. gcr, registry.k8s). Each entry: remote (proxy upstream URL; Distribution supports only remoteurl, username, password, ttl), hostport (publish port on host, optional). Omit remote for local-only registry. Null is coalesced to empty in the module."
+  description = "Map of registry configs (aligned with windsor docker.registries). Key is registry host (e.g. gcr.io, registry.k8s.io). Each entry: remote (proxy upstream URL; Distribution supports only remoteurl, username, password, ttl), hostport (publish port on host, optional). Omit remote for local-only registry. Null is coalesced to empty in the module."
   type = map(object({
     remote   = optional(string)
     local    = optional(string)
     hostport = optional(number)
   }))
   default = {
-    gcr = {
+    "gcr.io" = {
       remote = "https://gcr.io"
     }
-    ghcr = {
+    "ghcr.io" = {
       remote = "https://ghcr.io"
     }
-    quay = {
+    "quay.io" = {
       remote = "https://quay.io"
     }
-    "registry-1.docker" = {
+    "registry-1.docker.io" = {
       remote = "https://registry-1.docker.io"
       local  = "docker.io"
     }
-    "registry.k8s" = {
+    "registry.k8s.io" = {
       remote = "https://registry.k8s.io"
     }
     registry = {
