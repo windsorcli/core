@@ -76,8 +76,8 @@ run "full_configuration" {
     enable_dns   = true
     enable_git   = true
     registries = {
-      gcr  = { remote = "https://gcr.io" }
-      ghcr = { remote = "https://ghcr.io" }
+      "gcr.io"  = { remote = "https://gcr.io" }
+      "ghcr.io" = { remote = "https://ghcr.io" }
     }
   }
 
@@ -117,7 +117,7 @@ run "full_configuration" {
   }
 
   assert {
-    condition     = local.service_ips["gcr"] == "10.20.0.4" && local.service_ips["ghcr"] == "10.20.0.5"
+    condition     = local.service_ips["gcr.io"] == "10.20.0.4" && local.service_ips["ghcr.io"] == "10.20.0.5"
     error_message = "Sequential IPs: first two registries at 4 and 5"
   }
 
@@ -236,6 +236,28 @@ run "webhook_host_docker_desktop_derived" {
   assert {
     condition     = local.dns_forward_target == "10.20.0.1:8053"
     error_message = "Docker-desktop dns_forward_target should be gateway:8053"
+  }
+}
+
+# Null registries: blueprint may pass registries = null; module coalesces to {} so no registry containers.
+run "registries_null" {
+  command = plan
+
+  variables {
+    project_root = "/tmp/windsor-test"
+    context      = "test"
+    runtime      = "colima"
+    registries   = null
+  }
+
+  assert {
+    condition     = length(local.registries) == 0
+    error_message = "local.registries should be empty when var.registries is null"
+  }
+
+  assert {
+    condition     = length(docker_container.registry) == 0
+    error_message = "No registry containers when registries is null"
   }
 }
 

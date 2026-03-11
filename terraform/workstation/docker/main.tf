@@ -40,11 +40,23 @@ locals {
     { label = "context", value = var.context },
     { label = "managed_by", value = "terraform" }
   ]
+  # Registries: blueprint may pass null when workstation_registries is missing; treat as empty map.
+  registries = coalesce(var.registries, {})
   # Sequential from lowest block: 1=gateway (not a container), 2=dns, 3=git, 4+=registries
   gateway              = cidrhost(var.network_cidr, 1)
   dns_ip               = cidrhost(var.network_cidr, 2)
   git_ip               = cidrhost(var.network_cidr, 3)
-  registry_keys_sorted = sort(keys(var.registries))
+  registry_keys_sorted = sort(keys(local.registries))
+  # Keep in sync with workstation/incus registry_hostname_base (same stripping logic).
+  registry_host_prefix = {
+    for k, v in local.registries : k => (
+      v.remote != null
+      && split(":", split("/", trimprefix(trimprefix(v.remote, "https://"), "http://"))[0])[0] == k
+      && length(split(".", k)) > 1
+      ? join(".", slice(split(".", k), 0, length(split(".", k)) - 1))
+      : k
+    )
+  }
   registry_ips = {
     for i, k in local.registry_keys_sorted : k => cidrhost(var.network_cidr, 4 + i)
   }
@@ -58,7 +70,7 @@ locals {
   # Corefile hosts: localhost mode uses 127.0.0.1 (host via published ports), else CIDR-derived IPs
   corefile_host_entries = concat(
     var.enable_dns ? ["${local.use_localhost_networking ? "127.0.0.1" : local.dns_ip} dns.${local.domain_name}"] : [],
-    [for k in local.registry_keys_sorted : "${local.use_localhost_networking ? "127.0.0.1" : local.registry_ips[k]} ${k}.${local.domain_name}"],
+    [for k in local.registry_keys_sorted : "${local.use_localhost_networking ? "127.0.0.1" : local.registry_ips[k]} ${local.registry_host_prefix[k]}.${local.domain_name}"],
     var.enable_git ? ["${local.use_localhost_networking ? "127.0.0.1" : local.git_ip} git.${local.domain_name}"] : []
   )
   corefile_content = var.enable_dns ? templatefile("${path.module}/templates/Corefile.tpl", {
@@ -177,13 +189,13 @@ resource "docker_container" "dns" {
 # =============================================================================
 
 resource "docker_image" "registry" {
-  count = length(var.registries) > 0 ? 1 : 0
+  count = length(local.registries) > 0 ? 1 : 0
   name  = "registry:3.0.0"
 }
 
 resource "docker_container" "registry" {
-  for_each = var.registries
-  name     = "${each.key}.${local.domain_name}"
+  for_each = local.registries
+  name     = "${local.registry_host_prefix[each.key]}.${local.domain_name}"
   image    = docker_image.registry[0].image_id
   restart  = "always"
   dynamic "labels" {

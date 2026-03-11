@@ -104,12 +104,11 @@ resource "local_sensitive_file" "kubeconfig" {
 
 locals {
   # Always use Talos API; during bootstrap also check Kubernetes API
-  # Use IP address for health check to avoid DNS resolution issues
-  # If node is already an IP, use it; otherwise extract IP from endpoint (endpoint may include port)
-  # Hostnames may not be resolvable during initial setup, but IP addresses always work
-  # Extract IP by: removing protocol, taking first path segment (host:port or host), then extracting IP before port
+  # Use the endpoint's host for health check so the host (where the provisioner runs) can reach the Talos API.
+  # In docker-desktop, endpoint is 127.0.0.1:50000 while node is the container IP (10.5.0.10); the host must use 127.0.0.1.
+  # Extract host by: removing optional protocol, taking host from host:port or path, then stripping port
   endpoint_ip          = can(regex("^https?://", var.endpoint)) ? split(":", split("/", split("://", var.endpoint)[1])[0])[0] : split(":", var.endpoint)[0]
-  health_check_node    = can(regex("^[0-9]+\\.[0-9]+\\.[0-9]+\\.[0-9]+", var.node)) ? var.node : local.endpoint_ip
+  health_check_node    = local.endpoint_ip
   health_check_command = var.bootstrap ? "windsor check node-health --nodes ${local.health_check_node} --timeout 5m --k8s-endpoint --skip-services dashboard" : "windsor check node-health --nodes ${local.health_check_node} --timeout 5m --skip-services dashboard"
 }
 

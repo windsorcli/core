@@ -28,56 +28,57 @@ config:
           "ghcr.io": { "remote": "https://ghcr.io" },
           "quay.io": { "remote": "https://quay.io" },
           "registry-1.docker.io": { "remote": "https://registry-1.docker.io", "local": "docker.io" },
-          "registry.k8s.io": { "remote": "https://registry.k8s.io" },
-          "registry.test": {}
+          "registry.k8s.io": { "remote": "https://registry.k8s.io" }
         })}
-      registry_count: "${(workstation.services.registries ?? true) == false ? 0 : len(docker.registries ?? {\"gcr.io\": {}, \"ghcr.io\": {}, \"quay.io\": {}, \"registry-1.docker.io\": {}, \"registry.k8s.io\": {}, \"registry.test\": {}})}"
 
-  # certSANs for Talos when compute runs. Include localhost/127.0.0.1 for docker-desktop so host→container works.
-  # Kept so it is evaluated when building cluster inputs (after compute). Apply when docker provider + talos.
-  - name: certSANs_from_compute
+  # Registry mirrors: built from workstation TF output "registries"; only entries with remote are included (Talos mirrors upstream remotes).
+  # config: empty for HTTP mirrors—Talos errors "TLS config specified for non-HTTPS registry" if tls is set for http:// endpoints.
+  - name: talos_registry_mirrors
     when: (cluster.enabled ?? true) && cluster.driver == 'talos'
     value:
-      list: |-
-        ${(cluster.controlplanes.count ?? 1) == 0 ? ["localhost", "127.0.0.1"] : (
-          let cp = terraform_output("compute", "controlplanes");
-          cp == null || len(cp ?? []) == 0 ? ["localhost", "127.0.0.1"] : (
-            let hosts = map(cp, #?.node ?? split(string(#?.endpoint ?? ""), ":")[0]);
-            let names = map(cp, #?.hostname ?? "");
-            let fqdns = (dns.domain ?? "") != "" ? map(cp, (#?.hostname ?? "") != "" ? (#?.hostname ?? "") + "." + (dns.domain ?? "") : "") : [];
-            let base = concat(["localhost"], (workstation.runtime == "docker-desktop" ? ["127.0.0.1"] : []), filter(hosts, # != ""), filter(names, # != ""), filter(fqdns, # != ""));
-            uniq(base)
-          )
-        )}
+      mirrors: >-
+        ${fromPairs(map(
+          filter(toPairs(terraform_output("workstation", "registries") ?? {}),
+            get(get(#, 1), "remote") != null && get(get(#, 1), "remote") != "" && get(get(#, 1), "hostname") != null && get(get(#, 1), "hostname") != ""
+          ),
+          [
+            (get(get(#, 1), "local") != null && get(get(#, 1), "local") != "" ? get(get(#, 1), "local") : get(#, 0)),
+            { endpoints: ["http://" + get(get(#, 1), "hostname") + ":5000"] }
+          ]
+        ))}
+      config: {}
 
-  # Talos common patch when docker provider + talos: certSANs (localhost/127.0.0.1 for docker-desktop), registries, etc.
-  - name: common_patch_docker
+  # Merge registries into common_patch (all workstation + talos).
+  - name: talos_common
     when: (cluster.enabled ?? true) && cluster.driver == 'talos'
     value:
-      cluster:
-        apiServer:
-          certSANs: ${certSANs_from_compute.list}
-        allowSchedulingOnControlPlanes: ${cluster.controlplanes.schedulable ?? ((cluster.workers.count ?? 0) == 0)}
-        extraManifests:
-          - "https://raw.githubusercontent.com/alex1989hu/kubelet-serving-cert-approver/v0.8.7/deploy/standalone-install.yaml"
-      machine:
-        certSANs: ${certSANs_from_compute.list}
-        kubelet:
-          extraArgs:
-            rotate-server-certificates: "true"
-        registries:
-          mirrors: |-
-            ${fromPairs(map(
-              filter(toPairs(workstation_registries.registries ?? {}), { (get(#, 1)?.hostname ?? "") != "" }),
-              { [(get(#, 1)?.local ?? "") != "" ? get(#, 1).local : get(#, 0), { endpoints: ["http://" + get(#, 1).hostname + ":5000"] }] }
-            ))}
-        network: '${workstation.runtime == "docker-desktop" ? {interfaces: [{ignore: true, interface: "eth0"}]} : {}}'
+      common_patch:
+        machine:
+          registries:
+            mirrors: ${talos_registry_mirrors.mirrors}
+            config: ${talos_registry_mirrors.config}
 
-  # Expose common_patch_docker for provider-docker cluster input. When no compute, provider-docker uses docker_desktop_common_patches instead.
+  # Merge schedulable override for docker (colima + docker-desktop). When no workers, allow scheduling on control planes; otherwise use cluster.controlplanes.schedulable.
+  - name: talos_common
+    when: (cluster.enabled ?? true) && cluster.driver == 'talos' && platform == 'docker'
+    value:
+      allowSchedulingOnControlPlanes: "${(cluster.workers.count ?? 0) == 0 ? true : (cluster.controlplanes.schedulable ?? false)}"
+
+  # Merge network ignore (docker-desktop only).
+  - name: talos_common
+    when: (cluster.enabled ?? true) && cluster.driver == 'talos' && workstation.runtime == 'docker-desktop'
+    value:
+      common_patch:
+        machine:
+          network:
+            interfaces:
+              - ignore: true
+                interface: eth0
+
+  # Expose controlplane/worker patches for provider-docker; common_config_patches from talos_common (config-talos stringifies after merge).
   - name: talos_common_docker
     when: (cluster.enabled ?? true) && cluster.driver == 'talos'
     value:
-      common_config_patches: ${string(common_patch_docker)}
       controlplane_config_patches: ""
       worker_config_patches: ""
 
@@ -105,16 +106,16 @@ terraform:
 # first node. Use container port 30053 (not host 8053) so the DNS container on the same network can reach the node.
 # 30053 = NodePort for DNS set in kustomize/ingress/nginx/coredns/patches/helm-release.yaml; cluster.*.hostports must use same container port (e.g. 8053:30053/udp).
 - name: workstation
-  when: "platform == 'docker' && workstation.runtime == \"docker-desktop\""
+  when: "platform == 'docker' && workstation.runtime == 'docker-desktop'"
   path: workstation/docker
   inputs:
     runtime: 'docker-desktop'
     domain_name: ${dns.domain}
     network_name: windsor-${context}
     network_cidr: ${network.cidr_block}
-    dns_forward_target: "${cidrhost(network.cidr_block, 4 + int(workstation_registries.registry_count ?? 0)) + \":30053\"}"
-    webhook_host: "${cidrhost(network.cidr_block, 4 + int(workstation_registries.registry_count ?? 0))}"
-    primary_node_ip: "${cidrhost(network.cidr_block, 4 + int(workstation_registries.registry_count ?? 0))}"
+    dns_forward_target: "${cidrhost(network.cidr_block, 4 + len(workstation_registries.registries ?? {})) + \":30053\"}"
+    webhook_host: "${cidrhost(network.cidr_block, 4 + len(workstation_registries.registries ?? {}))}"
+    primary_node_ip: "${cidrhost(network.cidr_block, 4 + len(workstation_registries.registries ?? {}))}"
     enable_dns: ${workstation.services.dns ?? true}
     enable_git: ${workstation.services.git ?? true}
     registries: ${workstation_registries.registries ?? {}}
