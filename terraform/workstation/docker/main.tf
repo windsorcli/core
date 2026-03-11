@@ -47,7 +47,7 @@ locals {
   dns_ip               = cidrhost(var.network_cidr, 2)
   git_ip               = cidrhost(var.network_cidr, 3)
   registry_keys_sorted = sort(keys(local.registries))
-  # Hostname prefix: when key matches remote URL host, strip last dot-segment (TLD); else use key (e.g. local-only registry).
+  # Keep in sync with workstation/incus registry_hostname_base (same stripping logic).
   registry_host_prefix = {
     for k, v in local.registries : k => (
       v.remote != null

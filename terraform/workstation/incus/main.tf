@@ -58,7 +58,7 @@ locals {
   registry_ips = {
     for i, k in local.registry_keys_sorted : k => cidrhost(var.network_cidr, 4 + i)
   }
-  # Hostname prefix: when key matches remote URL host, strip last dot-segment (TLD); else use key (e.g. local-only registry).
+  # Keep in sync with workstation/docker registry_host_prefix (same stripping logic).
   registry_hostname_base = {
     for k, v in var.registries : k => (
       v.remote != null

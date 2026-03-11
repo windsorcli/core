@@ -221,9 +221,9 @@ run "registry_hostname_normalization" {
     project_root = "/tmp/windsor-test"
     context      = "test"
     registries = {
-      "gcr.io"         = { remote = "https://gcr.io" }
+      "gcr.io"          = { remote = "https://gcr.io" }
       "registry.k8s.io" = { remote = "https://registry.k8s.io" }
-      registry         = { hostport = 5001 }
+      registry          = { hostport = 5001 }
     }
   }
 

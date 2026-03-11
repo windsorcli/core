@@ -250,7 +250,7 @@ cases:
                   config: {}
                   mirrors: {}
 
-  # Edge: vm.driver docker-desktop — no lb kustomize components
+  # Edge: vm.driver docker-desktop — no lb kustomize components. Asserts workstation inputs use 4+registry_count for IPs (validates registry_count = len(workstation_registries.registries)).
   - name: docker-desktop workstation has node hostport dns and no lb
     values:
       provider: docker
@@ -265,6 +265,10 @@ cases:
     terraformOutputs: *default-terraform-outputs
     expect:
       terraform:
+        - name: workstation
+          path: workstation/docker
+          inputs:
+            webhook_host: "10.5.0.9"
         - name: cluster
           path: cluster/talos
         - name: gitops
