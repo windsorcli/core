@@ -163,6 +163,7 @@ resource "docker_container" "dns" {
     content {
       internal = 53
       external = 53
+      ip       = "127.0.0.1"
       protocol = "tcp"
     }
   }
@@ -171,6 +172,7 @@ resource "docker_container" "dns" {
     content {
       internal = 53
       external = 53
+      ip       = "127.0.0.1"
       protocol = "udp"
     }
   }
