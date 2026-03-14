@@ -59,10 +59,15 @@ locals {
     for i, k in local.registry_keys_sorted : k => cidrhost(var.network_cidr, 4 + i)
   }
   # Keep in sync with workstation/docker registry_host_prefix (same stripping logic).
+  registry_remote_host = {
+    for k, v in var.registries : k => try(
+      split(":", split("/", trimprefix(trimprefix(v.remote, "https://"), "http://"))[0])[0],
+      null
+    )
+  }
   registry_hostname_base = {
     for k, v in var.registries : k => (
-      v.remote != null
-      && split(":", split("/", trimprefix(trimprefix(v.remote, "https://"), "http://"))[0])[0] == k
+      local.registry_remote_host[k] == k
       && length(split(".", k)) > 1
       ? join(".", slice(split(".", k), 0, length(split(".", k)) - 1))
       : k
