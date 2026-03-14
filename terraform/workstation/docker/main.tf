@@ -48,10 +48,15 @@ locals {
   git_ip               = cidrhost(var.network_cidr, 3)
   registry_keys_sorted = sort(keys(local.registries))
   # Keep in sync with workstation/incus registry_hostname_base (same stripping logic).
+  registry_remote_host = {
+    for k, v in local.registries : k => try(
+      split(":", split("/", trimprefix(trimprefix(v.remote, "https://"), "http://"))[0])[0],
+      null
+    )
+  }
   registry_host_prefix = {
     for k, v in local.registries : k => (
-      v.remote != null
-      && split(":", split("/", trimprefix(trimprefix(v.remote, "https://"), "http://"))[0])[0] == k
+      local.registry_remote_host[k] == k
       && length(split(".", k)) > 1
       ? join(".", slice(split(".", k), 0, length(split(".", k)) - 1))
       : k
