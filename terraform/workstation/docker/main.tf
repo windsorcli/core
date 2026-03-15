@@ -129,13 +129,13 @@ resource "docker_network" "main" {
 
 resource "docker_image" "coredns" {
   count = var.enable_dns ? 1 : 0
-  name  = "coredns/coredns:1.14.1"
+  name  = "coredns/coredns:1.14.1@sha256:82b57287b29beb757c740dbbe68f2d4723da94715b563fffad5c13438b71b14a"
 }
 
 resource "docker_image" "git_livereload" {
   count = var.enable_git ? 1 : 0
   # renovate: datasource=github-releases depName=windsorcli/git-livereload
-  name = "ghcr.io/windsorcli/git-livereload:v0.2.1"
+  name = "ghcr.io/windsorcli/git-livereload:v0.2.1@sha256:6f1e3c1186e3f6c4080fe1c4eed4488cce0ef7b19bb72f9eeeda173d3547db63"
 }
 
 # =============================================================================
@@ -197,7 +197,7 @@ resource "docker_container" "dns" {
 
 resource "docker_image" "registry" {
   count = length(local.registries) > 0 ? 1 : 0
-  name  = "registry:3.0.0"
+  name  = "registry:3.0.0@sha256:6c5666b861f3505b116bb9aa9b25175e71210414bd010d92035ff64018f9457e"
 }
 
 resource "docker_container" "registry" {
