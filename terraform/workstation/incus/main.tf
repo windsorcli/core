@@ -35,6 +35,12 @@ provider "incus" {
     protocol = "oci"
     public   = true
   }
+  remote {
+    name     = "registryk8s"
+    address  = "https://registry.k8s.io"
+    protocol = "oci"
+    public   = true
+  }
 }
 
 # =============================================================================
@@ -128,8 +134,8 @@ resource "incus_instance" "dns" {
   count = var.enable_dns ? 1 : 0
   name  = replace("dns.${local.domain_name}", ".", "-")
   type  = "container"
-  # renovate: datasource=docker depName=coredns/coredns package=coredns/coredns
-  image = "docker:coredns/coredns:1.14.1"
+  # renovate: datasource=docker depName=registry.k8s.io/coredns/coredns package=registry.k8s.io/coredns/coredns
+  image = "registryk8s:coredns/coredns:v1.14.1"
   config = {
     "raw.lxc"        = "lxc.apparmor.profile=unconfined"
     "oci.entrypoint" = "/coredns -conf /etc/coredns/Corefile"
@@ -181,8 +187,8 @@ resource "incus_instance" "registry" {
   for_each = var.registries
   name     = replace(local.registry_hostname[each.key], ".", "-")
   type     = "container"
-  # renovate: datasource=docker depName=library/registry package=library/registry
-  image      = "docker:library/registry:3.0.0"
+  # renovate: datasource=docker depName=ghcr.io/distribution/distribution package=ghcr.io/distribution/distribution
+  image      = "ghcr:distribution/distribution:3.0.0@sha256:4ba3adf47f5c866e9a29288c758c5328ef03396cb8f5f6454463655fa8bc83e2"
   depends_on = [incus_network.main, local_file.registry_cache_dir]
   config = each.value.remote != null ? {
     "environment.REGISTRY_PROXY_REMOTEURL" = each.value.remote

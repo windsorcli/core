@@ -148,15 +148,33 @@
         "/^.*\\.tf$/",
         "/^.*\\.tfvars$/"
       ],
+      "description": "Parse helm annotations with explicit helmRepo",
       "matchStrings": [
-        "\\s*#\\s*renovate:\\s*datasource=(?<datasource>[^\\s]+)\\s*depName=(?<depName>[^\\s]+)\\s*package=(?<package>[^\\s]+)(\\s+helmRepo=(?<helmRepo>[^\\s]+))?[^\\n]*\\n[^\\n]*[:\\s](?<currentValue>v?\\d+\\.\\d+\\.\\d+(-[a-zA-Z0-9]+)?)(?:@(?<currentDigest>sha256:[a-f0-9]{64})|[\\s@]|$)",
-        "\\s*#\\s*renovate:\\s*datasource=(?<datasource>[^\\s]+)\\s*depName=(?<depName>[^\\s]+)\\s*package=(?<package>[^\\s]+)(\\s+helmRepo=(?<helmRepo>[^\\s]+))?[^\\n]*\\n[^\\n]*[:\\s](?<currentValue>v?\\d+\\.\\d+)(?:@(?<currentDigest>sha256:[a-f0-9]{64})|[\\s@]|$)"
+        "\\s*#\\s*renovate:\\s*datasource=(?<datasource>[^\\s]+)\\s*depName=(?<depName>[^\\s]+)\\s*package=(?<package>[^\\s]+)\\s+helmRepo=(?<helmRepo>[^\\s]+)[^\\n]*\\n[^\\n]*[:\\s][\"']?(?<currentValue>v?\\d+\\.\\d+\\.\\d+(-[a-zA-Z0-9]+)?)(?:@(?<currentDigest>sha256:[a-f0-9]{64}))?(?:[\\s\"']|$)",
+        "\\s*#\\s*renovate:\\s*datasource=(?<datasource>[^\\s]+)\\s*depName=(?<depName>[^\\s]+)\\s*package=(?<package>[^\\s]+)\\s+helmRepo=(?<helmRepo>[^\\s]+)[^\\n]*\\n[^\\n]*[:\\s][\"']?(?<currentValue>v?\\d+\\.\\d+)(?:@(?<currentDigest>sha256:[a-f0-9]{64}))?(?:[\\s\"']|$)"
       ],
       "versioningTemplate": "semver",
       "datasourceTemplate": "{{datasource}}",
       "packageNameTemplate": "{{package}}",
       "depNameTemplate": "{{depName}}",
       "registryUrlTemplate": "{{helmRepo}}"
+    },
+    {
+      "customType": "regex",
+      "managerFilePatterns": [
+        "/^.*\\.ya?ml$/",
+        "/^.*\\.tf$/",
+        "/^.*\\.tfvars$/"
+      ],
+      "description": "Parse non-helm renovate annotations",
+      "matchStrings": [
+        "\\s*#\\s*renovate:\\s*datasource=(?<datasource>[^\\s]+)\\s*depName=(?<depName>[^\\s]+)\\s*package=(?<package>[^\\s]+)\\s*\\n[^\\n]*[:\\s][\"']?(?<currentValue>v?\\d+\\.\\d+\\.\\d+(-[a-zA-Z0-9]+)?)(?:@(?<currentDigest>sha256:[a-f0-9]{64}))?(?:[\\s\"']|$)",
+        "\\s*#\\s*renovate:\\s*datasource=(?<datasource>[^\\s]+)\\s*depName=(?<depName>[^\\s]+)\\s*package=(?<package>[^\\s]+)\\s*\\n[^\\n]*[:\\s][\"']?(?<currentValue>v?\\d+\\.\\d+)(?:@(?<currentDigest>sha256:[a-f0-9]{64}))?(?:[\\s\"']|$)"
+      ],
+      "versioningTemplate": "semver",
+      "datasourceTemplate": "{{datasource}}",
+      "packageNameTemplate": "{{package}}",
+      "depNameTemplate": "{{depName}}"
     },
     {
       "description": "Handle date-based Docker image tags (e.g., trust-pkg-debian-bookworm)",
@@ -188,6 +206,9 @@
     }
   ],
   "platformAutomerge": true,
+  "addLabels": [
+    "dependencies"
+  ],
   "labels": [
     "dependencies"
   ]

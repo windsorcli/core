@@ -27,3 +27,6 @@ Descriptions (schema, docs, UI copy) state what something is or does; they do no
 
 ## BLUEPRINT DEBUGGING
 For facet/blueprint issues use: `windsor test` (blueprint tests) and `windsor show blueprint` (composed blueprint output) to inspect config and Terraform inputs. `windsor test` uses mocked terraformOutputs and does not run real composition—it can pass even when `windsor show blueprint` fails.
+
+## KUBERNETES DEBUGGING CONTEXT
+For live cluster diagnostics in local environments, run Kubernetes commands through Windsor context execution: `windsor exec -- kubectl ...` rather than direct `kubectl ...` to ensure the active Windsor context and kubeconfig are used consistently.
