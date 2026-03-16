@@ -30,7 +30,7 @@ spec:
     fluentd:
       image:
         # renovate: datasource=docker depName=ghcr.io/fluent/fluent-operator/fluentd package=ghcr.io/fluent/fluent-operator/fluentd
-        tag: v1.19.0@sha256:b715c91b0bad14537fb9b70d7b75a98f5b17ecd932f9d08e4d7fcb5422d9bb4f
+        tag: v1.19.2@sha256:fef9f961b919a56c7f11b0d6edcd55693150cc72d9728aac4b7a95937336774f
       enable: false
       crdsEnable: true
     fluentbit:
