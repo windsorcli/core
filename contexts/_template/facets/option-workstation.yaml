@@ -4,13 +4,13 @@ metadata:
   name: workstation
   description: Workstation stack for local development and cluster infrastructure.
 
-# Docker: facet applies when workstation not disabled (default on). Incus: facet applies only when workstation enabled (default off). Workstation stack blocks are gated per block.
-when: "(platform == 'docker' && (workstation.enabled ?? true)) || (platform == 'incus' && (workstation.enabled ?? false))"
+# Facet applies when workstation.runtime is set (docker-desktop, colima, docker).
+when: "workstation.runtime != null && workstation.runtime != ''"
 
 config:
   - name: workstation
     value:
-      runtime: "${workstation.runtime ?? vm.driver ?? \"colima\"}"
+      runtime: "${workstation.runtime ?? ''}"
       arch: "${workstation.arch ?? 'amd64'}"
 
   # Talos image refs for workstation compute (docker/incus). Only relevant when workstation stack runs; providers use talos_version fallback when not.

@@ -376,13 +376,13 @@ properties:
     properties:
       domain:
         type: string
-        description: Single domain for local/private DNS (used by workstation, addons when set)
+        description: Base domain; used as fallback when public_domain or private_domain are not set
       public_domain:
         type: string
-        description: Public domain name
+        description: Public DNS zone (e.g. Route53 hosted zone)
       private_domain:
         type: string
-        description: Private domain name
+        description: Private DNS zone (e.g. in-cluster CoreDNS, workstation resolver)
     additionalProperties: false
 
   # Ingress configuration
@@ -452,6 +452,19 @@ properties:
           - docker-desktop
           - docker
         description: Host runtime for local clusters. VM-backed (colima, docker-desktop) or plain engine (docker). When unset, falls back to vm.driver.
+      dns:
+        type: object
+        description: Workstation-specific DNS state (server address, forwarders)
+        properties:
+          address:
+            type: string
+            description: DNS server address resolved from workstation infrastructure
+          forward:
+            type: array
+            items:
+              type: string
+            description: Forward DNS servers
+        additionalProperties: false
       services:
         type: object
         properties:

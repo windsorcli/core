@@ -55,8 +55,8 @@ cases:
     values:
       provider: metal
       dev: true
-      vm:
-        driver: docker-desktop
+      workstation:
+        runtime: docker-desktop
       ingress:
         enabled: true
         driver: nginx

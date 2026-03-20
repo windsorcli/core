@@ -51,8 +51,6 @@ cases:
   - name: minimal config creates compute and cluster terraform chain with defaults
     values:
       provider: incus
-      vm:
-        driver: ""
       ingress: *ingress-disabled
       network: *default-network
       cluster: *default-cluster
@@ -110,8 +108,6 @@ cases:
   - name: full config with custom network, MetalLB, ingress, and all cluster options
     values:
       provider: incus
-      vm:
-        driver: ""
       ingress:
         enabled: true
         driver: nginx
@@ -227,8 +223,6 @@ cases:
   - name: colima-incus uses compute/incus not docker stack
     values:
       provider: incus
-      vm:
-        driver: colima-incus
       ingress: *ingress-disabled
       network: *default-network
       cluster: *default-cluster
@@ -244,20 +238,20 @@ cases:
         - name: workstation
         - path: compute/docker
 
-  # Edge case: Colima uses existing network
+  # Edge case: Colima uses existing incusbr0 network (workstation path sets network_name directly)
   - name: Colima uses existing incusbr0 network
     values:
       provider: incus
-      vm:
-        driver: colima
+      workstation:
+        runtime: colima
       ingress: *ingress-disabled
       network: *default-network
       cluster: *default-cluster
     terraformOutputs: *default-terraform-outputs
     expect:
       terraform:
-        - name: compute
-          path: compute/incus
+        - name: workstation
+          path: workstation/incus
           inputs:
             network_name: incusbr0
             create_network: false

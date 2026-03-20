@@ -26,7 +26,7 @@ terraform:
 # hostname stripped for containers (Talos 1.12 rejects setting hostname when runtime already set it).
 # When workstation enabled and cluster enabled, cluster must wait for compute (workstation → compute → cluster). Omit when cluster disabled (no compute).
 - name: cluster
-  when: workstation.enabled == true && (cluster.enabled ?? true)
+  when: workstation.runtime != null && workstation.runtime != '' && (cluster.enabled ?? true)
   path: cluster/talos
   dependsOn:
     - compute

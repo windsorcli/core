@@ -45,9 +45,7 @@ cases:
     values:
       provider: docker
       workstation:
-        enabled: true
-      vm:
-        driver: colima
+        runtime: colima
       dns: *default-dns
       ingress: *ingress-disabled
       network: *default-network
@@ -75,14 +73,12 @@ cases:
           path: gitops/flux
           destroy: false
 
-  # Full: fully populated cluster, vm.driver, dns, volumes
+  # Full: fully populated cluster, dns, volumes
   - name: full workstation with cluster options and colima
     values:
       provider: docker
       workstation:
-        enabled: true
-      vm:
-        driver: colima
+        runtime: colima
       dns: *default-dns
       ingress: *ingress-disabled
       network: *default-network
@@ -115,9 +111,7 @@ cases:
     values:
       provider: docker
       workstation:
-        enabled: true
-      vm:
-        driver: colima
+        runtime: colima
       dns: *default-dns
       ingress: *ingress-disabled
       network: *default-network
@@ -135,15 +129,13 @@ cases:
         - name: workstation
           path: workstation/docker
 
-  # Edge: workstation.runtime set explicitly overrides vm.driver (config merge); runtime docker → loadbalancer present
-  - name: workstation runtime override uses explicit runtime not vm.driver
+  # Edge: workstation.runtime docker → loadbalancer present
+  - name: workstation runtime docker yields loadbalancer
     values:
       provider: docker
       workstation:
         enabled: true
         runtime: docker
-      vm:
-        driver: colima
       dns: *default-dns
       ingress: *ingress-disabled
       network: *default-network
@@ -167,11 +159,9 @@ cases:
     values:
       provider: docker
       workstation:
-        enabled: true
+        runtime: colima
         services:
           registries: false
-      vm:
-        driver: colima
       dns: *default-dns
       ingress: *ingress-disabled
       network: *default-network
@@ -191,9 +181,7 @@ cases:
     values:
       provider: incus
       workstation:
-        enabled: true
-      vm:
-        driver: colima
+        runtime: colima
       dns: *default-dns
       ingress: *ingress-disabled
       network: *default-network
@@ -250,14 +238,12 @@ cases:
                   config: {}
                   mirrors: {}
 
-  # Edge: vm.driver docker-desktop — no lb kustomize components. Asserts workstation inputs use 4+len(registries) for IPs.
+  # Edge: docker-desktop — no lb kustomize components. Asserts workstation inputs use 4+len(registries) for IPs.
   - name: docker-desktop workstation has node hostport dns and no lb
     values:
       provider: docker
       workstation:
-        enabled: true
-      vm:
-        driver: docker-desktop
+        runtime: docker-desktop
       dns: *default-dns
       ingress: *ingress-disabled
       network: *default-network

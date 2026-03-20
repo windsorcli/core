@@ -32,8 +32,8 @@ cases:
   - name: full config creates MinIO object store with ingress dependency
     values:
       provider: metal
-      vm:
-        driver: colima
+      workstation:
+        runtime: colima
       ingress:
         enabled: true
         driver: nginx
@@ -72,8 +72,8 @@ cases:
   - name: fails when MinIO enabled without ingress
     values:
       provider: metal
-      vm:
-        driver: docker-desktop
+      workstation:
+        runtime: docker-desktop
       ingress: *ingress-disabled
       network: *default-network
       cluster: *default-cluster
