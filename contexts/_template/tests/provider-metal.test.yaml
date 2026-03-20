@@ -139,8 +139,8 @@ cases:
   - name: full config with MetalLB, custom resources, ingress, and custom worker volume
     values:
       provider: metal
-      vm:
-        driver: colima
+      workstation:
+        runtime: colima
       ingress:
         enabled: true
         driver: nginx

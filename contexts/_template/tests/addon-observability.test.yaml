@@ -234,8 +234,8 @@ cases:
   - name: fails when elasticsearch selected without ingress
     values:
       provider: metal
-      vm:
-        driver: docker-desktop
+      workstation:
+        runtime: docker-desktop
       ingress: *ingress-disabled
       network: *default-network
       cluster: *default-cluster

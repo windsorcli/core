@@ -20,15 +20,15 @@ config:
 terraform:
 
 - name: compute
-  when: "(workstation.enabled != true)"
+  when: "workstation.runtime == null || workstation.runtime == ''"
   path: compute/incus
   inputs:
-    network_name: "${(workstation.runtime ?? '') == 'colima' ? 'incusbr0' : ''}"
-    create_network: "${(workstation.runtime ?? '') != 'colima'}"
+    network_name: ""
+    create_network: true
     network_cidr: ${network.cidr_block}
     storage_pools:
       local:
-        driver: "${(workstation.runtime ?? '') == 'colima' ? 'dir' : null}"
+        driver: null
     instances:
       - name: controlplane
         role: controlplane
@@ -37,7 +37,7 @@ terraform:
         image: ${cluster.controlplanes.image ?? ("windsor:talos/v" + talos.talos_version + "/amd64")}
         type: virtual-machine
         description: Talos control plane node
-        storage_pool: "${(workstation.runtime ?? '') == 'colima' ? 'local' : 'default'}"
+        storage_pool: "default"
         root_disk_size: ${string(cluster.controlplanes.root_disk_size ?? 30) + "GB"}
         limits:
           cpu: ${string(cluster.controlplanes.cpu ?? 2)}
@@ -66,7 +66,7 @@ terraform:
           raw.qemu: -boot order=c,menu=off
 
 - name: cluster
-  when: "(workstation.enabled != true)"
+  when: "workstation.runtime == null || workstation.runtime == ''"
   path: cluster/talos
   dependsOn:
   - compute

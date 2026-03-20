@@ -62,9 +62,7 @@ cases:
     values:
       provider: docker
       workstation:
-        enabled: true
-      vm:
-        driver: colima
+        runtime: colima
       dns: *default-dns
       ingress: *ingress-disabled
       network: *default-network
@@ -179,9 +177,7 @@ cases:
     values:
       platform: docker
       workstation:
-        enabled: true
-      vm:
-        driver: colima
+        runtime: colima
       dns: *default-dns
       ingress: *ingress-disabled
       network: *default-network
@@ -218,9 +214,7 @@ cases:
     values:
       provider: docker
       workstation:
-        enabled: true
-      vm:
-        driver: colima
+        runtime: colima
       dns: *default-dns
       ingress:
         enabled: true
@@ -348,10 +342,6 @@ cases:
   - name: docker without workstation has no cluster terraform
     values:
       provider: docker
-      workstation:
-        enabled: false
-      vm:
-        driver: colima
       ingress: *ingress-disabled
       network: *default-network
       cluster: *default-cluster
@@ -363,9 +353,7 @@ cases:
     values:
       provider: docker
       workstation:
-        enabled: true
-      vm:
-        driver: docker-desktop
+        runtime: docker-desktop
       dns: *default-dns
       ingress: *ingress-disabled
       network: *default-network
