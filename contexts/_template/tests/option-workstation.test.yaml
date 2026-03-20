@@ -134,7 +134,6 @@ cases:
     values:
       provider: docker
       workstation:
-        enabled: true
         runtime: docker
       dns: *default-dns
       ingress: *ingress-disabled
