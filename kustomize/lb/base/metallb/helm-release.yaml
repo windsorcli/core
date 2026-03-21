@@ -27,4 +27,4 @@ spec:
       frr:
         image:
           # renovate: datasource=docker depName=quay.io/frrouting/frr package=quay.io/frrouting/frr
-          tag: 10.5.1@sha256:848482643a8d6f56452b659ea68f6138472bb57414a4f295a7c4107a0416269c
+          tag: 10.5.3@sha256:37b42d2b340c322edc5f20dc4598373adb6e813e95cc9d4a18f64f9a37c98a4c
