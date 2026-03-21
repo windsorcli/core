@@ -135,7 +135,7 @@ resource "incus_instance" "dns" {
   name  = replace("dns.${local.domain_name}", ".", "-")
   type  = "container"
   # renovate: datasource=docker depName=registry.k8s.io/coredns/coredns package=registry.k8s.io/coredns/coredns
-  image = "registryk8s:coredns/coredns:v1.14.1"
+  image = "registryk8s:coredns/coredns:v1.14.2"
   config = {
     "raw.lxc"        = "lxc.apparmor.profile=unconfined"
     "oci.entrypoint" = "/coredns -conf /etc/coredns/Corefile"
