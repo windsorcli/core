@@ -220,7 +220,7 @@ jobs:
 
       - name: Windsor Init
         run: |
-          windsor init local --set dns.enabled=false --reset
+          windsor init local --set workstation.services.dns=false --reset
 
       - name: Show blueprint
         run: |
