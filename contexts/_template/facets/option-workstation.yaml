@@ -4,8 +4,8 @@ metadata:
   name: workstation
   description: Workstation stack for local development and cluster infrastructure.
 
-# Facet applies when workstation.runtime is set (docker-desktop, colima, docker).
-when: "workstation.runtime != null && workstation.runtime != ''"
+# Facet applies only on workstation-capable platforms when runtime is set.
+when: "(platform == 'docker' || platform == 'incus') && workstation.runtime != null && workstation.runtime != ''"
 
 config:
   - name: workstation
