@@ -11,7 +11,7 @@ spec:
     spec:
       chart: kube-vip-cloud-provider
       # renovate: datasource=helm depName=kube-vip-cloud-provider package=kube-vip-cloud-provider helmRepo=https://kube-vip.github.io/helm-charts
-      version: 0.2.9
+      version: 0.2.10
       sourceRef:
         kind: HelmRepository
         name: kube-vip
