@@ -18,7 +18,7 @@ spec:
       containers:
       - name: generate-creds
         # renovate: datasource=docker depName=kubectl package=alpine/k8s
-        image: alpine/k8s:1.35.3@sha256:80cf3f1a55c19009223245c8b680156ff4e41c0a4778eb4b121c67f4946bc469
+        image: alpine/k8s:1.35.3@sha256:097aa60cbef561146757c7494468e9d7b04d843597ad1a1515ed09d0708c8014
         command: ["/bin/sh", "-c"]
         args:
         - |
