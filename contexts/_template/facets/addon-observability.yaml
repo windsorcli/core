@@ -27,7 +27,7 @@ kustomize:
     - grafana/dashboards/fluent-bit
     - grafana/dashboards/fluentd
   substitutions:
-    external_domain: ${dns.domain}
+    external_domain: ${dns.private_domain}
     timezone: ${timezone}
     date_full: "${time_format == '12h' ? 'MMM DD, YYYY @ hh:mm:ss a' : 'YYYY-MM-DD HH:mm:ss'}"
     date_interval_second: "${time_format == '12h' ? 'hh:mm:ss a' : 'HH:mm:ss'}"
@@ -80,7 +80,7 @@ kustomize:
     - kibana
     - kibana/ingress
   substitutions:
-    external_domain: ${dns.domain}
+    external_domain: ${dns.private_domain}
 
 # Elasticsearch telemetry (filebeat driver)
 - name: telemetry-base

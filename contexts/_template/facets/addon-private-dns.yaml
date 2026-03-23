@@ -23,7 +23,7 @@ kustomize:
     - external-dns/ingress
     - "${workstation.runtime == 'docker-desktop' ? 'external-dns/localhost' : ''}"
   substitutions:
-    external_domain: ${dns.domain}
+    external_domain: ${dns.private_domain}
 
 - name: ingress
   path: ingress

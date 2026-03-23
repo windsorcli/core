@@ -37,6 +37,44 @@ cases:
           timeout: 5m
           interval: 5m
 
+  # Regression: workstation.runtime must not activate option-workstation on AWS.
+  # If option-workstation applied, it would replace provider gitops inputs and set local dev defaults.
+  - name: aws with workstation runtime keeps provider gitops defaults
+    values:
+      provider: aws
+      workstation:
+        runtime: colima
+      ingress:
+        enabled: false
+        driver: nginx
+    expect:
+      terraform:
+        - name: network
+          path: network/aws-vpc
+        - name: cluster
+          path: cluster/aws-eks
+          dependsOn:
+            - network
+        - name: cluster-additions
+          path: cluster/aws-eks/additions
+          dependsOn:
+            - cluster
+        - name: gitops
+          path: gitops/flux
+          dependsOn:
+            - cluster
+          inputs:
+            concurrency: 5
+      kustomize:
+        - name: csi
+          path: csi
+          dependsOn:
+            - policy-resources
+          components:
+            - aws-ebs
+          timeout: 5m
+          interval: 5m
+
   # Full: Test with ingress enabled
   - name: full config creates nginx ingress without CoreDNS
     values:

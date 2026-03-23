@@ -11,7 +11,12 @@ config:
   value: "${platform ?? provider ?? 'none'}"
 - name: workstation
   value:
-    runtime: "${workstation.runtime ?? vm.driver ?? ''}"
+    runtime: "${workstation.runtime ?? ''}"
+- name: dns
+  value:
+    domain: "${dns.domain ?? (dev == true ? 'test' : '')}"
+    public_domain: "${dns.public_domain ?? dns.domain ?? (dev == true ? 'test' : '')}"
+    private_domain: "${dns.private_domain ?? dns.domain ?? (dev == true ? 'test' : '')}"
 
 kustomize:
 
