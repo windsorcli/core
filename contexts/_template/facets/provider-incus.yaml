@@ -54,7 +54,7 @@ terraform:
         image: ${cluster.workers.image ?? ("windsor:talos/v" + talos.talos_version + "/amd64")}
         type: virtual-machine
         description: Talos worker node
-        storage_pool: "${(workstation.runtime ?? '') == 'colima' ? 'local' : 'default'}"
+        storage_pool: "default"
         root_disk_size: ${string(cluster.workers.root_disk_size ?? 50) + "GB"}
         limits:
           cpu: ${string(cluster.workers.cpu ?? 4)}
