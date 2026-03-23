@@ -11,6 +11,7 @@ config:
   value: "${platform ?? provider ?? 'none'}"
 - name: workstation
   value:
+    runtime: "${workstation.runtime ?? ''}"
 - name: dns
   value:
     domain: "${dns.domain ?? (dev == true ? 'test' : '')}"
