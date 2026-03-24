@@ -82,7 +82,7 @@ cases:
             - cluster
           destroy: false
           inputs:
-            concurrency: 2
+            concurrency: 4
       kustomize:
         - name: cleanup
           path: cleanup
