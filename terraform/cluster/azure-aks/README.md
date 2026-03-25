@@ -99,7 +99,7 @@ No modules.
 | <a name="input_image_cleaner_interval_hours"></a> [image\_cleaner\_interval\_hours](#input\_image\_cleaner\_interval\_hours) | Interval in hours for Image Cleaner to run | `number` | `48` | no |
 | <a name="input_key_vault_key_id"></a> [key\_vault\_key\_id](#input\_key\_vault\_key\_id) | The ID of an existing Key Vault key to use for disk encryption. If null, a new key will be created. | `string` | `null` | no |
 | <a name="input_kubelogin_mode"></a> [kubelogin\_mode](#input\_kubelogin\_mode) | Login mode for kubelogin convert-kubeconfig. If set, converts the kubeconfig to use this login mode. Valid values: devicecode, interactive, spn, ropc, msi, azurecli, azd, workloadidentity, azurepipelines. Leave empty to skip conversion and use the default devicecode mode from Azure. | `string` | `""` | no |
-| <a name="input_kubernetes_version"></a> [kubernetes\_version](#input\_kubernetes\_version) | Version of Kubernetes to use | `string` | `"1.32"` | no |
+| <a name="input_kubernetes_version"></a> [kubernetes\_version](#input\_kubernetes\_version) | Version of Kubernetes to use | `string` | `"1.33"` | no |
 | <a name="input_local_account_disabled"></a> [local\_account\_disabled](#input\_local\_account\_disabled) | Whether to disable local accounts for the AKS cluster | `bool` | `true` | no |
 | <a name="input_name"></a> [name](#input\_name) | Name of the resource | `string` | `"cluster"` | no |
 | <a name="input_network_acls_default_action"></a> [network\_acls\_default\_action](#input\_network\_acls\_default\_action) | The default action for the AKS cluster's network ACLs | `string` | `"Allow"` | no |

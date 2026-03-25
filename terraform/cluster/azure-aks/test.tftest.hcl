@@ -38,7 +38,7 @@ run "minimal_configuration" {
   variables {
     context_id         = "test"
     name               = "windsor-aks"
-    kubernetes_version = "1.32"
+    kubernetes_version = "1.33"
   }
 
   assert {
@@ -187,7 +187,7 @@ run "full_configuration" {
     name                      = "windsor-aks"
     cluster_name              = "test-cluster"
     resource_group_name       = "test-rg"
-    kubernetes_version        = "1.32"
+    kubernetes_version        = "1.33"
     oidc_issuer_enabled       = true
     workload_identity_enabled = true
     default_node_pool = {
@@ -426,7 +426,7 @@ run "private_cluster" {
     name                    = "windsor-aks"
     cluster_name            = "test-cluster"
     private_cluster_enabled = true
-    kubernetes_version      = "1.32"
+    kubernetes_version      = "1.33"
   }
 
   assert {
@@ -482,7 +482,7 @@ run "authorized_ip_ranges" {
     context_id           = "test"
     name                 = "windsor-aks"
     cluster_name         = "test-cluster"
-    kubernetes_version   = "1.32"
+    kubernetes_version   = "1.33"
     authorized_ip_ranges = ["10.0.0.0/8", "192.168.0.0/16"]
   }
 
@@ -512,7 +512,7 @@ run "azure_rbac_with_admin_object_ids" {
     context_id             = "test"
     name                   = "windsor-aks"
     cluster_name           = "test-cluster"
-    kubernetes_version     = "1.32"
+    kubernetes_version     = "1.33"
     local_account_disabled = true
     admin_object_ids       = ["33333333-3333-3333-3333-333333333333", "44444444-4444-4444-4444-444444444444"]
   }
@@ -566,7 +566,7 @@ run "multiple_invalid_inputs" {
   ]
   variables {
     context_id         = "test"
-    kubernetes_version = "v1.32"
+    kubernetes_version = "v1.33"
     outbound_type      = "invalid"
   }
 }
@@ -579,7 +579,7 @@ run "disk_encryption_with_provided_key" {
   variables {
     context_id              = "test"
     name                    = "windsor-aks"
-    kubernetes_version      = "1.32"
+    kubernetes_version      = "1.33"
     disk_encryption_enabled = true
     key_vault_key_id        = "https://test-kv.vault.azure.net/keys/test-key/abc123"
   }
@@ -608,7 +608,7 @@ run "volume_snapshots_disabled" {
   variables {
     context_id              = "test"
     name                    = "windsor-aks"
-    kubernetes_version      = "1.32"
+    kubernetes_version      = "1.33"
     enable_volume_snapshots = false
   }
 
