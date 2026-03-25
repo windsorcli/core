@@ -60,10 +60,10 @@ variable "kubernetes_version" {
   description = "Version of Kubernetes to use"
   type        = string
   # renovate: datasource=github-tags depName=aks-kubernetes package=windsorcli/k8s-versions
-  default = "1.33"
+  default = "1.34"
   validation {
     condition     = can(regex("^1\\.\\d+$", var.kubernetes_version))
-    error_message = "The Kubernetes version should be in version format like '1.33'."
+    error_message = "The Kubernetes version should be in version format like '1.34'."
   }
 }
 
