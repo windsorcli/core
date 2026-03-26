@@ -49,6 +49,7 @@ provider "incus" {
 
 locals {
   domain_name           = coalesce(var.domain_name, var.context)
+  git_repo_name         = basename(var.project_root)
   network_name_resolved = coalesce(var.network_name, "windsor-${var.context}")
   compose_project       = "workstation-windsor-${var.context}"
   # Incus: bridge networking only; no localhost/port-publish mode like docker-desktop (docker uses loadbalancer_cidr for that)
@@ -248,7 +249,7 @@ resource "incus_instance" "git" {
     type = "disk"
     properties = {
       source = var.project_root
-      path   = "/repos/mount/core"
+      path   = "/repos/mount/${local.git_repo_name}"
     }
   }
 }

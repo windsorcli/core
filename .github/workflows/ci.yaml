@@ -22,7 +22,7 @@ env:
   # renovate: datasource=github-releases depName=docker-compose package=docker/compose
   DOCKER_COMPOSE_VERSION: v5.0.1
   # renovate: datasource=github-releases depName=troubleshoot package=replicatedhq/troubleshoot
-  SUPPORT_BUNDLE_VERSION: v0.123.16
+  SUPPORT_BUNDLE_VERSION: v0.125.1
 
 jobs:
   code-checks:
@@ -70,7 +70,7 @@ jobs:
         uses: hashicorp/setup-terraform@b9cd54a3c349d3f38e8881555d616ced269862dd # v3.1.2
         with:
           # renovate: datasource=github-releases depName=terraform package=hashicorp/terraform
-          terraform_version: 1.14.7
+          terraform_version: 1.14.8
 
       - name: Run terraform fmt
         run: terraform fmt -check -recursive
@@ -119,7 +119,7 @@ jobs:
         uses: hashicorp/setup-terraform@b9cd54a3c349d3f38e8881555d616ced269862dd # v3.1.2
         with:
           # renovate: datasource=github-releases depName=terraform package=hashicorp/terraform
-          terraform_version: 1.14.7
+          terraform_version: 1.14.8
 
       - name: Install Windsor CLI
         uses: windsorcli/action@a829ee3c5d9826fd0b31d5e730edcd515644d866 # v0.5.1
@@ -181,7 +181,7 @@ jobs:
         uses: hashicorp/setup-terraform@b9cd54a3c349d3f38e8881555d616ced269862dd # v3.1.2
         with:
           # renovate: datasource=github-releases depName=terraform package=hashicorp/terraform
-          terraform_version: 1.14.7
+          terraform_version: 1.14.8
 
       - name: Setup kubectl
         uses: azure/setup-kubectl@776406bce94f63e41d621b960d78ee25c8b76ede # v4.0.1
@@ -282,7 +282,7 @@ jobs:
         uses: hashicorp/setup-terraform@b9cd54a3c349d3f38e8881555d616ced269862dd # v3.1.2
         with:
           # renovate: datasource=github-releases depName=terraform package=hashicorp/terraform
-          terraform_version: 1.14.7
+          terraform_version: 1.14.8
 
       - name: Install Windsor CLI
         uses: windsorcli/action@a829ee3c5d9826fd0b31d5e730edcd515644d866 # v0.5.1
@@ -291,7 +291,7 @@ jobs:
           context: local
 
       - name: Login to GitHub Container Registry
-        uses: docker/login-action@5e57cd118135c172c3672efd75eb46360885c0ef # v3.6.0
+        uses: docker/login-action@c94ce9fb468520275223c153574b00df6fe4bcc9 # v3.7.0
         with:
           registry: ghcr.io
           username: ${{ github.actor }}

@@ -22,6 +22,7 @@ terraform {
 
 locals {
   domain_name           = coalesce(var.domain_name, var.context)
+  git_repo_name         = basename(var.project_root)
   compose_project       = "workstation-windsor-${var.context}"
   network_name_resolved = coalesce(var.network_name, "windsor-${var.context}")
   # Runtime: docker-desktop => localhost-only networking; colima/linux => advanced networking. Standardized with compute/docker.
@@ -279,6 +280,6 @@ resource "docker_container" "git" {
   }
   volumes {
     host_path      = var.project_root
-    container_path = "/repos/mount/core"
+    container_path = "/repos/mount/${local.git_repo_name}"
   }
 }

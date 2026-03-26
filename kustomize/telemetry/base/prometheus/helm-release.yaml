@@ -40,7 +40,7 @@ spec:
     prometheus:
       prometheusSpec:
         # renovate: datasource=github-releases depName=prometheus/prometheus package=prometheus/prometheus
-        version: v3.9.1
+        version: v3.10.0
         image:
           # renovate: datasource=docker depName=quay.io/prometheus/prometheus package=quay.io/prometheus/prometheus
           tag: v3.9.1@sha256:1f0f50f06acaceb0f5670d2c8a658a599affe7b0d8e78b898c1035653849a702

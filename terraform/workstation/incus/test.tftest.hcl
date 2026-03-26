@@ -56,6 +56,11 @@ run "minimal_configuration" {
     condition     = incus_instance.dns[0].name == "dns-test"
     error_message = "DNS instance name should use domain_name (dns.test when domain_name defaults to context)"
   }
+
+  assert {
+    condition     = local.git_repo_name == "windsor-test"
+    error_message = "Git repo name should use basename(project_root)"
+  }
 }
 
 # Full: all optional variables set; asserts custom network, domain_name, compose_project, custom registries, sequential IPs.
@@ -119,6 +124,11 @@ run "full_configuration" {
   assert {
     condition     = length(incus_instance.dns) == 1 && length(incus_instance.git) == 1
     error_message = "DNS and git instances should be created when enabled"
+  }
+
+  assert {
+    condition     = local.git_repo_name == "repo"
+    error_message = "Git repo name should follow basename(project_root) in full configuration"
   }
 }
 
