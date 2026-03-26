@@ -60,6 +60,11 @@ run "minimal_configuration" {
     condition     = docker_container.dns[0].name == "dns.test"
     error_message = "DNS container name should use domain_name (dns.test when domain_name defaults to context)"
   }
+
+  assert {
+    condition     = local.git_repo_name == "windsor-test" && one(docker_container.git[0].volumes).container_path == "/repos/mount/windsor-test"
+    error_message = "Git mount path should use basename(project_root) for repo naming"
+  }
 }
 
 # Full: all optional variables set; asserts custom network, domain_name, compose_project, custom registries, sequential IPs, runtime logic.
@@ -144,6 +149,11 @@ run "full_configuration" {
   assert {
     condition     = length(docker_container.dns) == 1 && length(docker_container.git) == 1
     error_message = "DNS and git containers should be created when enabled"
+  }
+
+  assert {
+    condition     = local.git_repo_name == "repo" && one(docker_container.git[0].volumes).container_path == "/repos/mount/repo"
+    error_message = "Git mount path should follow basename(project_root) in full configuration"
   }
 }
 
