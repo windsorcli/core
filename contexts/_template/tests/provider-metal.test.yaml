@@ -74,7 +74,7 @@ cases:
           dependsOn:
             - policy-base
           components:
-            - kyverno/audit-resource-limits-requests
+            - kyverno/resource-limits-requests
             - kyverno/require-image-digest
           timeout: 5m
           interval: 5m
@@ -199,7 +199,7 @@ cases:
           dependsOn:
             - policy-base
           components:
-            - kyverno/audit-resource-limits-requests
+            - kyverno/resource-limits-requests
             - kyverno/require-image-digest
           timeout: 5m
           interval: 5m

@@ -1,0 +1,54 @@
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: resource-limits-requests
+spec:
+  validationFailureAction: ${resource_limits_requests_validation_failure_action:=Enforce}
+  background: false
+  rules:
+    - name: check-resource-limits-requests
+      match:
+        any:
+          - resources:
+              kinds:
+                - Pod
+              namespaces:
+                - "${resource_limits_requests_namespace_scope:=system-*}"
+          - resources:
+              kinds:
+                - Pod
+              namespaceSelector:
+                matchExpressions:
+                  - key: policy.windsorcli.dev/resource-limits-requests
+                    operator: In
+                    values:
+                      - enforce
+                      - audit
+      exclude:
+        any:
+          - resources:
+              kinds:
+                - Pod
+              namespaceSelector:
+                matchExpressions:
+                  - key: policy.windsorcli.dev/resource-limits-requests
+                    operator: In
+                    values:
+                      - off
+      preconditions:
+        all:
+          - key: "{{request.namespace}}"
+            operator: NotEquals
+            value: "kube-system"
+      validate:
+        message: "Resource limits and requests must be set on all containers."
+        anyPattern:
+          - spec:
+              containers:
+                - resources:
+                    requests:
+                      memory: "?*"
+                      cpu: "?*"
+                    limits:
+                      memory: "?*"
+

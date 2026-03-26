@@ -222,6 +222,38 @@ properties:
         additionalProperties: false
     additionalProperties: false
 
+  policies:
+    type: object
+    description: Policy configuration
+    properties:
+      level:
+        type: string
+        enum:
+          - strict
+          - baseline
+          - permissive
+        default: baseline
+        description: Baseline policy strictness profile
+      require_image_digest:
+        type: string
+        enum:
+          - auto
+          - enforce
+          - audit
+          - disabled
+        default: auto
+        description: Validation mode for the require-image-digest policy
+      resource_limits_requests:
+        type: string
+        enum:
+          - auto
+          - enforce
+          - audit
+          - disabled
+        default: auto
+        description: Validation mode for the resource limits/requests policy
+    additionalProperties: false
+
   docker:
     type: object
     properties:
