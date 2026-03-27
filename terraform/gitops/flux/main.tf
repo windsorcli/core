@@ -95,7 +95,7 @@ resource "helm_release" "flux_system" {
     notificationController = {
       image = "ghcr.io/fluxcd/notification-controller"
       # renovate: datasource=docker depName=ghcr.io/fluxcd/notification-controller package=ghcr.io/fluxcd/notification-controller
-      tag = "v1.7.3@sha256:55813e89e49509e5a312682759b7a4d5235ecc2e13a1eb70f917faf769596b07"
+      tag = "v1.8.2@sha256:87806dc20caff40b37280ea3155cc9ef3e995402997c49a8f9f9c6bff57e1499"
     }
     sourceController = {
       image = "ghcr.io/fluxcd/source-controller"
