@@ -58,7 +58,7 @@ resource "helm_release" "flux_system" {
     imageAutomationController = {
       image = "ghcr.io/fluxcd/image-automation-controller"
       # renovate: datasource=docker depName=ghcr.io/fluxcd/image-automation-controller package=ghcr.io/fluxcd/image-automation-controller
-      tag = "v1.0.2@sha256:a28eccd31409191131377ecf888a168c59e9a72578e71139b81b146d813c8335"
+      tag = "v1.1.1@sha256:43617c9fbb4cf32aed7458647f62589575237ccb810f45bd7cb31f24126d4f22"
     }
     imageReflectionController = {
       image = "ghcr.io/fluxcd/image-reflector-controller"
