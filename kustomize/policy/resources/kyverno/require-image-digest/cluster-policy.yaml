@@ -28,23 +28,16 @@ spec:
               kinds:
                 - Pod
               namespaceSelector:
-                matchExpressions:
-                  - key: policy.windsorcli.dev/require-image-digest
-                    operator: In
-                    values:
-                      - enforce
-                      - audit
+                matchLabels:
+                  policy.windsorcli.dev/managed: "true"
       exclude:
         any:
           - resources:
               kinds:
                 - Pod
               namespaceSelector:
-                matchExpressions:
-                  - key: policy.windsorcli.dev/require-image-digest
-                    operator: In
-                    values:
-                      - off
+                matchLabels:
+                  policy.windsorcli.dev/managed: "false"
       validate:
         message: "All container images must include a SHA256 digest (e.g., image:tag@sha256:digest or image@sha256:digest)."
         pattern:

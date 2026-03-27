@@ -18,23 +18,16 @@ spec:
               kinds:
                 - Pod
               namespaceSelector:
-                matchExpressions:
-                  - key: policy.windsorcli.dev/resource-limits-requests
-                    operator: In
-                    values:
-                      - enforce
-                      - audit
+                matchLabels:
+                  policy.windsorcli.dev/managed: "true"
       exclude:
         any:
           - resources:
               kinds:
                 - Pod
               namespaceSelector:
-                matchExpressions:
-                  - key: policy.windsorcli.dev/resource-limits-requests
-                    operator: In
-                    values:
-                      - off
+                matchLabels:
+                  policy.windsorcli.dev/managed: "false"
       preconditions:
         all:
           - key: "{{request.namespace}}"
