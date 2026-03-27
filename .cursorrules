@@ -22,10 +22,11 @@ Reference:
 - Internal: See "Testing Patterns" section in terraform/STYLE.md
 - External: https://developer.hashicorp.com/terraform/language/tests
 
-## AUDIO NOTIFICATIONS
-Must use `say` command with Samantha voice for:
-- Test Completion: "All tests are now passing"
-- Test Failure: "Test failure detected in [test name]"
-- Source Code Bug: "Source code bug detected in [function]. Please review."
-- User Input Needed: "User input required for [specific issue]"
-- Work Complete: "Platform engineering work complete"
+## DESCRIPTIONS AND DOCUMENTATION
+Descriptions (schema, docs, UI copy) state what something is or does; they do not explain underlying mechanics, implementation, or justification. Keep explanations and rationale in chat or in code comments, not in user-facing descriptions.
+
+## BLUEPRINT DEBUGGING
+For facet/blueprint issues use: `windsor test` (blueprint tests) and `windsor show blueprint` (composed blueprint output) to inspect config and Terraform inputs. `windsor test` uses mocked terraformOutputs and does not run real composition—it can pass even when `windsor show blueprint` fails.
+
+## KUBERNETES DEBUGGING CONTEXT
+For live cluster diagnostics in local environments, run Kubernetes commands through Windsor context execution: `windsor exec -- kubectl ...` rather than direct `kubectl ...` to ensure the active Windsor context and kubeconfig are used consistently.

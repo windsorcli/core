@@ -1,0 +1,35 @@
+kind: Facet
+apiVersion: blueprints.windsorcli.dev/v1alpha1
+metadata:
+  name: talos
+  description: Talos common patches (cert rotation, volume mounts, allow scheduling on control planes)
+
+when: cluster.driver == 'talos'
+
+config:
+  - name: talos_common
+    value:
+      allowSchedulingOnControlPlanes: "${cluster.controlplanes.schedulable ?? false}"
+      controlplane_volumes: "${cluster.controlplanes.volumes ?? []}"
+      worker_volumes: "${cluster.workers.volumes ?? []}"
+      csi_local_volume_path: "${cluster.storage.local_base_path ?? \"/var/mnt/local\"}"
+      controlplane_disks: "${cluster.controlplanes.disks ?? []}"
+      worker_disks: "${cluster.workers.disks ?? []}"
+      cert_rotation:
+        extra_manifests:
+          - "https://raw.githubusercontent.com/alex1989hu/kubelet-serving-cert-approver/v0.8.7/deploy/standalone-install.yaml"
+        kubelet_extra_args:
+          rotate-server-certificates: "true"
+      common_patch:
+        cluster:
+          allowSchedulingOnControlPlanes: ${talos_common.allowSchedulingOnControlPlanes}
+          extraManifests: ${talos_common.cert_rotation.extra_manifests}
+        machine:
+          kubelet:
+            extraArgs: ${talos_common.cert_rotation.kubelet_extra_args}
+      common_config_patches: "${string(talos_common.common_patch)}"
+
+  - name: talos
+    value:
+      # renovate: datasource=github-releases depName=talos package=siderolabs/talos
+      talos_version: "1.12.6"

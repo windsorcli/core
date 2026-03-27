@@ -22,7 +22,7 @@ env:
   # renovate: datasource=github-releases depName=docker-compose package=docker/compose
   DOCKER_COMPOSE_VERSION: v5.0.1
   # renovate: datasource=github-releases depName=troubleshoot package=replicatedhq/troubleshoot
-  SUPPORT_BUNDLE_VERSION: v0.123.16
+  SUPPORT_BUNDLE_VERSION: v0.125.1
 
 jobs:
   code-checks:
@@ -30,7 +30,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code
-        uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
 
       - name: Install Docker Compose
         run: |
@@ -47,7 +47,7 @@ jobs:
           echo "1" | sudo tee /proc/sys/net/bridge/bridge-nf-call-ip6tables
 
       - name: Set up Python
-        uses: actions/setup-python@83679a892e2d95755f2dac6acb0bfd1e9ac5d548 # v6.1.0
+        uses: actions/setup-python@a309ff8b426b58ec0e2a45f0f869d46889d02405 # v6.2.0
         with:
           python-version: '3.x'
 
@@ -70,7 +70,7 @@ jobs:
         uses: hashicorp/setup-terraform@b9cd54a3c349d3f38e8881555d616ced269862dd # v3.1.2
         with:
           # renovate: datasource=github-releases depName=terraform package=hashicorp/terraform
-          terraform_version: 1.14.3
+          terraform_version: 1.14.8
 
       - name: Run terraform fmt
         run: terraform fmt -check -recursive
@@ -113,13 +113,13 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code
-        uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
 
       - name: Setup Terraform
         uses: hashicorp/setup-terraform@b9cd54a3c349d3f38e8881555d616ced269862dd # v3.1.2
         with:
           # renovate: datasource=github-releases depName=terraform package=hashicorp/terraform
-          terraform_version: 1.14.3
+          terraform_version: 1.14.8
 
       - name: Install Windsor CLI
         uses: windsorcli/action@a829ee3c5d9826fd0b31d5e730edcd515644d866 # v0.5.1
@@ -140,7 +140,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code
-        uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
 
       - name: Install Docker Compose
         run: |
@@ -181,7 +181,7 @@ jobs:
         uses: hashicorp/setup-terraform@b9cd54a3c349d3f38e8881555d616ced269862dd # v3.1.2
         with:
           # renovate: datasource=github-releases depName=terraform package=hashicorp/terraform
-          terraform_version: 1.14.3
+          terraform_version: 1.14.8
 
       - name: Setup kubectl
         uses: azure/setup-kubectl@776406bce94f63e41d621b960d78ee25c8b76ede # v4.0.1
@@ -208,30 +208,31 @@ jobs:
           ref: main
           context: local
 
-      - name: Create .docker-cache directory
-        run: mkdir -p .windsor/.docker-cache
+      - name: Create docker cache directory
+        run: mkdir -p .windsor/cache/docker
 
-      - name: Cache .docker-cache
-        uses: actions/cache@9255dc7a253b0ccc959486e2bca901246202afeb # v5.0.1
+      - name: Cache docker cache
+        uses: actions/cache@668228422ae6a00e4ad889ee87cd7109ec5666a7 # v5.0.4
         with:
-          path: .windsor/.docker-cache
+          path: .windsor/cache/docker
           key: docker-cache-${{ runner.os }}-${{ github.sha }}
           restore-keys: docker-cache-${{ runner.os }}-
 
-      - name: Windsor Up
+      - name: Windsor Init
         run: |
-          # Clean up any existing configuration
-          rm -f contexts/local/windsor.yaml
-          rm -rf .windsor
-          
-          # Initialize and start Windsor
-          windsor init local --set dns.enabled=false --reset
-          windsor up --install --verbose --wait
+          windsor init local --reset
+
+      - name: Show blueprint
+        run: |
+          windsor show blueprint
+
+      - name: Windsor Up
+        run: windsor up --install --verbose --wait
 
       - name: Collect Windsor State
         if: always()
         run: |
-          tar --exclude='.docker-cache' --exclude='.terraform' -czf support-bundles/windsor-state.tar.gz contexts/local .windsor
+          tar --exclude='.windsor/cache/docker' --exclude='.terraform' -czf support-bundles/windsor-state.tar.gz contexts/local .windsor
 
       - name: Collect Talos Diagnostics
         if: always()
@@ -275,13 +276,13 @@ jobs:
     if: (startsWith(github.ref, 'refs/tags/v') || github.ref == 'refs/heads/main') && needs.integration.result == 'success'
     steps:
       - name: Checkout code
-        uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
 
       - name: Setup Terraform
         uses: hashicorp/setup-terraform@b9cd54a3c349d3f38e8881555d616ced269862dd # v3.1.2
         with:
           # renovate: datasource=github-releases depName=terraform package=hashicorp/terraform
-          terraform_version: 1.14.3
+          terraform_version: 1.14.8
 
       - name: Install Windsor CLI
         uses: windsorcli/action@a829ee3c5d9826fd0b31d5e730edcd515644d866 # v0.5.1
@@ -290,7 +291,7 @@ jobs:
           context: local
 
       - name: Login to GitHub Container Registry
-        uses: docker/login-action@5e57cd118135c172c3672efd75eb46360885c0ef # v3.6.0
+        uses: docker/login-action@c94ce9fb468520275223c153574b00df6fe4bcc9 # v3.7.0
         with:
           registry: ghcr.io
           username: ${{ github.actor }}

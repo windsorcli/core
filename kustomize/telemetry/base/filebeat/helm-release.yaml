@@ -17,7 +17,7 @@ spec:
         namespace: system-telemetry
   values:
     # renovate: datasource=docker depName=docker.elastic.co/beats/filebeat package=docker.elastic.co/beats/filebeat
-    image: docker.elastic.co/beats/filebeat:9.2.3@sha256:c1963f43ee8cf5403a1786d1ead5b10c1b8b92577463132ba9f4c1ba24243588
+    image: docker.elastic.co/beats/filebeat:9.3.2@sha256:c9b06809278e994256cee8d56531341585cb77126c5f05835c6cfa59d8a1a5d7
     daemonset:
       secretMounts:
         - name: filebeat-tls

@@ -79,7 +79,6 @@ run "machine_config_patch_with_disk_and_hostname" {
       wwid     = ""
     }
     wipe_disk         = true
-    hostname          = "test-node"
     extra_kernel_args = ["console=tty0"]
     image             = "test-image"
     extensions        = [{ image = "test-extension" }]
@@ -87,10 +86,6 @@ run "machine_config_patch_with_disk_and_hostname" {
   assert {
     condition     = strcontains(local.machine_config_patch, "\"name\": \"/dev/sda\"")
     error_message = "Should include disk name /dev/sda"
-  }
-  assert {
-    condition     = strcontains(local.machine_config_patch, "\"hostname\": \"test-node\"")
-    error_message = "Should include hostname test-node"
   }
   assert {
     condition     = strcontains(local.machine_config_patch, "\"extraKernelArgs\":\n    - \"console=tty0\"")
@@ -109,47 +104,16 @@ run "machine_config_patch_with_disk_and_hostname" {
 run "machine_config_patch_without_disk" {
   variables {
     disk_selector = null
-    hostname      = "test-node"
   }
   assert {
     condition     = !can(regex("diskSelector", local.machine_config_patch))
     error_message = "Should not include diskSelector block"
-  }
-  assert {
-    condition     = can(regex("hostname", local.machine_config_patch))
-    error_message = "Should include hostname block"
-  }
-}
-
-run "machine_config_patch_without_hostname" {
-  variables {
-    disk_selector = {
-      busPath  = ""
-      modalias = ""
-      model    = ""
-      name     = "/dev/sda"
-      serial   = ""
-      size     = "0"
-      type     = ""
-      uuid     = ""
-      wwid     = ""
-    }
-    hostname = null
-  }
-  assert {
-    condition     = can(regex("diskSelector", local.machine_config_patch))
-    error_message = "Should include diskSelector block"
-  }
-  assert {
-    condition     = !can(regex("hostname", local.machine_config_patch))
-    error_message = "Should not include hostname block"
   }
 }
 
 run "config_patches_includes_extra" {
   variables {
     disk_selector = null
-    hostname      = "test-node"
     config_patches = [
       <<-EOT
       machine:
@@ -174,7 +138,6 @@ run "bootstrap_mode_generates_kubeconfig" {
     bootstrap       = true
     kubeconfig_path = "/tmp/test-kubeconfig"
     disk_selector   = null
-    hostname        = "test-node"
   }
 
   assert {
@@ -198,7 +161,6 @@ run "non_bootstrap_mode_no_kubeconfig" {
     bootstrap       = false
     kubeconfig_path = "/tmp/test-kubeconfig"
     disk_selector   = null
-    hostname        = "test-node"
   }
 
   assert {
@@ -217,7 +179,6 @@ run "bootstrap_mode_empty_kubeconfig_path" {
     bootstrap       = true
     kubeconfig_path = ""
     disk_selector   = null
-    hostname        = "test-node"
   }
 
   assert {
@@ -234,7 +195,6 @@ run "bootstrap_mode_empty_kubeconfig_path" {
 run "health_check_command_bootstrap_mode" {
   variables {
     bootstrap     = true
-    hostname      = "test-node"
     node          = "192.168.1.10"
     endpoint      = "192.168.1.10:50000"
     disk_selector = null
@@ -252,14 +212,13 @@ run "health_check_command_bootstrap_mode" {
 
   assert {
     condition     = strcontains(local.health_check_command, "192.168.1.10")
-    error_message = "Should use IP address (var.node when it's an IP, otherwise var.endpoint) instead of hostname for health check to avoid DNS resolution issues"
+    error_message = "Should use endpoint host for health check so the host can reach the Talos API (e.g. 127.0.0.1 in docker-desktop)"
   }
 }
 
 run "health_check_command_non_bootstrap_mode" {
   variables {
     bootstrap     = false
-    hostname      = "test-node"
     node          = "192.168.1.20"
     endpoint      = "192.168.1.20:50000"
     disk_selector = null
@@ -277,28 +236,27 @@ run "health_check_command_non_bootstrap_mode" {
 
   assert {
     condition     = strcontains(local.health_check_command, "192.168.1.20")
-    error_message = "Should use IP address (var.node when it's an IP, otherwise var.endpoint) instead of hostname for health check to avoid DNS resolution issues"
+    error_message = "Should use endpoint host for health check so the host can reach the Talos API"
   }
 }
 
-run "health_check_command_without_hostname" {
+run "health_check_command_uses_node_address" {
   variables {
     bootstrap     = true
-    hostname      = ""
+    node          = "dummy"
     endpoint      = "dummy:50000"
     disk_selector = null
   }
 
   assert {
     condition     = strcontains(local.health_check_command, "dummy")
-    error_message = "Should use node address when hostname is empty"
+    error_message = "Should use endpoint host (dummy) in health check"
   }
 }
 
 run "health_check_command_with_hostname_as_node" {
   variables {
     bootstrap     = false
-    hostname      = "test-node"
     node          = "test-node"          # Hostname instead of IP
     endpoint      = "192.168.1.30:50000" # Endpoint is always IP
     disk_selector = null
@@ -320,7 +278,6 @@ run "health_check_command_with_hostname_as_node" {
 run "endpoint_ip_extraction_with_path_no_port" {
   variables {
     bootstrap     = false
-    hostname      = "test-node"
     node          = "test-node"
     endpoint      = "https://192.168.1.10/api" # URL with path but no port
     disk_selector = null
@@ -347,7 +304,6 @@ run "endpoint_ip_extraction_with_path_no_port" {
 run "endpoint_ip_extraction_with_path_and_port" {
   variables {
     bootstrap     = false
-    hostname      = "test-node"
     node          = "test-node"
     endpoint      = "https://192.168.1.10:50000/api" # URL with path and port
     disk_selector = null

@@ -77,7 +77,7 @@ variable "cluster_name" {
 }
 
 variable "hostname" {
-  description = "The hostname of the machine."
+  description = "Optional hostname to set in Talos config. When null or empty, hostname is left to the host/runtime (e.g. Docker sets it on containers)."
   type        = string
   default     = ""
 }

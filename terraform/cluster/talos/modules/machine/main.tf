@@ -23,15 +23,10 @@ terraform {
 
 locals {
 
-  # Conditionally create the machine configuration patch based on disk_selector and hostname
+  # Optional hostname and install block. Set hostname only when provided; otherwise leave to host/runtime (e.g. containers).
   machine_config_patch = yamlencode({
     machine = merge(
-      # Include network block only if hostname is not null or empty
-      var.hostname != null && var.hostname != "" ? {
-        network = {
-          hostname = var.hostname
-        }
-      } : {},
+      var.hostname != null && var.hostname != "" ? { network = { hostname = var.hostname } } : {},
       # Include install block only if disk_selector is not null
       var.disk_selector != null ? {
         install = {
@@ -101,10 +96,6 @@ resource "local_sensitive_file" "kubeconfig" {
   content         = talos_cluster_kubeconfig.this[0].kubeconfig_raw
   filename        = var.kubeconfig_path
   file_permission = "0600" // Set file permissions to read/write for owner only
-
-  lifecycle {
-    ignore_changes = [content] // Ignore changes to content to prevent unnecessary updates
-  }
 }
 
 #-----------------------------------------------------------------------------------------------------------------------
@@ -112,16 +103,12 @@ resource "local_sensitive_file" "kubeconfig" {
 #-----------------------------------------------------------------------------------------------------------------------
 
 locals {
-  # Use hostname if available, otherwise fall back to node address
-  node_name = var.hostname != null && var.hostname != "" ? var.hostname : var.node
-
   # Always use Talos API; during bootstrap also check Kubernetes API
-  # Use IP address for health check to avoid DNS resolution issues
-  # If node is already an IP, use it; otherwise extract IP from endpoint (endpoint may include port)
-  # Hostnames may not be resolvable during initial setup, but IP addresses always work
-  # Extract IP by: removing protocol, taking first path segment (host:port or host), then extracting IP before port
+  # Use the endpoint's host for health check so the host (where the provisioner runs) can reach the Talos API.
+  # In docker-desktop, endpoint is 127.0.0.1:50000 while node is the container IP (10.5.0.10); the host must use 127.0.0.1.
+  # Extract host by: removing optional protocol, taking host from host:port or path, then stripping port
   endpoint_ip          = can(regex("^https?://", var.endpoint)) ? split(":", split("/", split("://", var.endpoint)[1])[0])[0] : split(":", var.endpoint)[0]
-  health_check_node    = can(regex("^[0-9]+\\.[0-9]+\\.[0-9]+\\.[0-9]+", var.node)) ? var.node : local.endpoint_ip
+  health_check_node    = local.endpoint_ip
   health_check_command = var.bootstrap ? "windsor check node-health --nodes ${local.health_check_node} --timeout 5m --k8s-endpoint --skip-services dashboard" : "windsor check node-health --nodes ${local.health_check_node} --timeout 5m --skip-services dashboard"
 }
 

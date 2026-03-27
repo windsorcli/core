@@ -7,6 +7,7 @@
 # Common configurations
 x-defaults:
   network: &default-network
+    cidr_block: 10.5.0.0/16
     loadbalancer_driver: kube-vip
     loadbalancer_mode: arp
     loadbalancer_ips:
@@ -14,6 +15,7 @@ x-defaults:
       end: "10.5.1.100"
 
   cluster: &default-cluster
+    driver: talos
     controlplanes:
       nodes:
         controlplane-1: &cp1-node
@@ -22,7 +24,7 @@ x-defaults:
           hostname: controlplane-1
     workers:
       volumes:
-        - /var/local
+        - /var/mnt/local
 
   ingress-disabled: &ingress-disabled
     enabled: false
@@ -50,7 +52,7 @@ cases:
             - cluster
           destroy: false
           inputs:
-            concurrency: 2
+            concurrency: 4
       kustomize:
         - name: cleanup
           path: cleanup
@@ -118,7 +120,7 @@ cases:
             - openebs
             - openebs/dynamic-localpv
           substitutions:
-            local_volume_path: /var/local
+            local_volume_path: /var/mnt/local
           timeout: 20m
           interval: 5m
         - name: lb-resources
@@ -137,8 +139,8 @@ cases:
   - name: full config with MetalLB, custom resources, ingress, and custom worker volume
     values:
       provider: metal
-      vm:
-        driver: colima
+      workstation:
+        runtime: colima
       ingress:
         enabled: true
         driver: nginx
@@ -149,6 +151,7 @@ cases:
           start: "192.168.1.100"
           end: "192.168.1.200"
       cluster:
+        driver: talos
         controlplanes:
           cpu: 20
           memory: 32
@@ -158,6 +161,8 @@ cases:
           count: 1
           volumes:
             - /mnt/data
+        storage:
+          local_base_path: /mnt/data
     expect:
       terraform:
         - name: cluster
@@ -262,16 +267,3 @@ cases:
             loadbalancer_ip_range: 192.168.1.100-192.168.1.200
           timeout: 5m
           interval: 5m
-  # Edge case: Docker Desktop excludes load balancer
-  - name: Docker Desktop excludes load balancer
-    values:
-      provider: metal
-      vm:
-        driver: docker-desktop
-      ingress: *ingress-disabled
-      network: *default-network
-      cluster: *default-cluster
-    exclude:
-      kustomize:
-        - name: lb-base
-        - name: lb-resources

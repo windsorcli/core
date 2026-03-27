@@ -4,6 +4,7 @@
 # Common configurations
 x-defaults:
   network: &default-network
+    cidr_block: 10.5.0.0/16
     loadbalancer_driver: kube-vip
     loadbalancer_mode: arp
     loadbalancer_ips:
@@ -11,6 +12,7 @@ x-defaults:
       end: "10.5.1.100"
 
   cluster: &default-cluster
+    driver: talos
     controlplanes:
       nodes:
         controlplane-1:
@@ -19,14 +21,14 @@ x-defaults:
           hostname: controlplane-1
     workers:
       volumes:
-        - /var/local
+        - /var/mnt/local
 
   ingress-disabled: &ingress-disabled
     enabled: false
     driver: nginx
 
 cases:
-  # Minimal: Test default behavior with dev mode (implicit enablement)
+  # Minimal: dev mode enables database addon. Intended: addon observability (grafana/dashboards/cloudnativepg) overrides. See docs/cli-bugs.md if this fails.
   - name: minimal config creates database with defaults via dev mode
     values:
       provider: metal
@@ -49,7 +51,7 @@ cases:
           components:
             - grafana/dashboards/cloudnativepg
 
-  # Full: Test all configurable options together
+  # Full: database with HA and observability. Intended: addon observability overrides. See docs/cli-bugs.md if this fails.
   - name: full config creates database with HA and observability integration
     values:
       provider: metal

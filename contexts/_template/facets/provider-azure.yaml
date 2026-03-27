@@ -4,7 +4,7 @@ metadata:
   name: azure
   description: "Azure provider basic infrastructure"
 
-when: provider == 'azure'
+when: platform == 'azure'
 
 terraform:
 - name: network
@@ -43,5 +43,3 @@ kustomize:
   strategy: remove
   components:
     - metrics-server
-  timeout: 5m
-  interval: 5m

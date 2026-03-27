@@ -20,7 +20,7 @@ spec:
     operator:
       image:
         # renovate: datasource=docker depName=ghcr.io/fluent/fluent-operator/fluent-operator package=ghcr.io/fluent/fluent-operator/fluent-operator
-        tag: v3.5.0@sha256:a5ace7bc1a33d33dfbda2136ccddb6f95bb4165f5f91daadb8f2dd8230854aa1
+        tag: v3.7.0@sha256:680714f4eccfe174305bfd187d4f7ba5c6aa24b8ce952807343c39a92d56bbed
       initcontainer:
         image:
           # renovate: datasource=docker depName=docker.io/library/docker package=docker.io/library/docker
@@ -30,12 +30,12 @@ spec:
     fluentd:
       image:
         # renovate: datasource=docker depName=ghcr.io/fluent/fluent-operator/fluentd package=ghcr.io/fluent/fluent-operator/fluentd
-        tag: v1.19.0@sha256:b715c91b0bad14537fb9b70d7b75a98f5b17ecd932f9d08e4d7fcb5422d9bb4f
+        tag: v1.19.2@sha256:fef9f961b919a56c7f11b0d6edcd55693150cc72d9728aac4b7a95937336774f
       enable: false
       crdsEnable: true
     fluentbit:
       image:
         # renovate: datasource=docker depName=ghcr.io/fluent/fluent-operator/fluent-bit package=ghcr.io/fluent/fluent-operator/fluent-bit
-        tag: v4.2.0@sha256:3a32771391b7a7fd2a5ff8da4de1f06808d9f8630bff0c79b1e63ee4b0720bcb
+        tag: v4.2.3@sha256:dbf2647ed3da5d0f034208b941057d9e1c80be73eb03279941b368926e9c6e5e
       enable: false
       crdsEnable: true

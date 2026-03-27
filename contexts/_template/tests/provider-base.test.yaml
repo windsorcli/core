@@ -5,6 +5,7 @@
 # Common configurations
 x-defaults:
   network: &default-network
+    cidr_block: 10.5.0.0/16
     loadbalancer_driver: kube-vip
     loadbalancer_mode: arp
     loadbalancer_ips:
@@ -12,6 +13,7 @@ x-defaults:
       end: "10.5.1.100"
 
   cluster: &default-cluster
+    driver: talos
     controlplanes:
       nodes:
         controlplane-1:
@@ -20,7 +22,7 @@ x-defaults:
           hostname: controlplane-1
     workers:
       volumes:
-        - /var/local
+        - /var/mnt/local
 
   ingress-disabled: &ingress-disabled
     enabled: false
@@ -95,6 +97,7 @@ cases:
             - cert-manager/prometheus
           timeout: 20m
           interval: 5m
+        # observability: facet sets dependsOn: [telemetry-base]; engine does not preserve/merge dependsOn (see OBSERVABILITY-DEPENDSON.md)
         - name: observability
           path: observability
           components:
@@ -104,7 +107,7 @@ cases:
           timeout: 15m
           interval: 10m
 
-  # Full: Test with explicit fluentd driver and observability enabled
+  # Full: observability addon enabled; addon wins for same-name observability (grafana + fluentd/outputs/stdout)
   - name: full config with explicit fluentd driver and observability enabled
     values:
       provider: metal
@@ -139,9 +142,16 @@ cases:
         - name: observability
           path: observability
           components:
-            - fluentd
-            - fluentd/filters/otel
-            - fluentd/prometheus
+            - grafana
+            - grafana/prometheus
+            - grafana/dashboards/node
+            - grafana/dashboards/kubernetes
+            - grafana/dashboards/flux
+            - grafana/dashboards/cert-manager
+            - grafana/dashboards/nginx
+            - grafana/dashboards/fluent-bit
+            - grafana/dashboards/fluentd
+            - fluentd/outputs/stdout
           timeout: 15m
           interval: 10m
 
@@ -166,7 +176,7 @@ cases:
             - fluentd/filters/otel
             - fluentd/prometheus
 
-  # Edge case: FluentD excluded when elasticsearch is used (filebeat driver automatically, telemetry replaced)
+  # Edge case: elasticsearch logs driver; addon overrides telemetry-base (filebeat). Intended: addon wins. See docs/cli-bugs.md if this fails.
   - name: fluentd excluded when elasticsearch logs driver used
     values:
       provider: metal

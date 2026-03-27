@@ -1,0 +1,265 @@
+# option-workstation.yaml facet tests
+# Tests workstation stack (workstation/docker or incus, compute, cluster/talos) when workstation.enabled.
+# Asserts cluster common_config_patches: cert_rotation (extraManifests + kubelet.extraArgs) and registries.mirrors
+# so changes to config-talos or option-workstation patch logic are caught.
+
+x-defaults:
+  network: &default-network
+    cidr_block: 10.5.0.0/16
+    loadbalancer_driver: kube-vip
+    loadbalancer_mode: arp
+    loadbalancer_ips:
+      start: "10.5.1.10"
+      end: "10.5.1.100"
+
+  dns: &default-dns
+    domain: test.local
+
+  cluster: &default-cluster
+    driver: talos
+    controlplanes:
+      nodes:
+        controlplane-1: &cp1-node
+          endpoint: 10.5.0.10:50000
+          node: 10.5.0.10
+          hostname: controlplane-1
+    workers:
+      volumes:
+        - /var/mnt/local
+
+  terraform-outputs: &default-terraform-outputs
+    compute:
+      controlplanes:
+        - endpoint: 10.5.0.10:6443
+          node: 10.5.0.10
+          hostname: controlplane-1
+      workers: []
+
+  ingress-disabled: &ingress-disabled
+    enabled: false
+    driver: nginx
+
+cases:
+  # Minimal: workstation enabled, docker (colima), minimal cluster → cluster and gitops. No certSANs (colima; only docker-desktop sets them).
+  - name: minimal workstation creates terraform chain and talos config
+    values:
+      provider: docker
+      workstation:
+        runtime: colima
+      dns: *default-dns
+      ingress: *ingress-disabled
+      network: *default-network
+      cluster: *default-cluster
+    terraformOutputs: *default-terraform-outputs
+    expect:
+      terraform:
+        - name: cluster
+          path: cluster/talos
+          inputs:
+            cluster_name: talos
+            common_config_patches: |-
+              cluster:
+                allowSchedulingOnControlPlanes: true
+                extraManifests:
+                - https://raw.githubusercontent.com/alex1989hu/kubelet-serving-cert-approver/v0.8.7/deploy/standalone-install.yaml
+              machine:
+                kubelet:
+                  extraArgs:
+                    rotate-server-certificates: "true"
+                registries:
+                  config: {}
+                  mirrors: {}
+        - name: gitops
+          path: gitops/flux
+          destroy: false
+
+  # Full: fully populated cluster, dns, volumes
+  - name: full workstation with cluster options and colima
+    values:
+      provider: docker
+      workstation:
+        runtime: colima
+      dns: *default-dns
+      ingress: *ingress-disabled
+      network: *default-network
+      cluster:
+        driver: talos
+        controlplanes:
+          cpu: 4
+          memory: 8
+          nodes:
+            controlplane-1: *cp1-node
+        workers:
+          count: 1
+          cpu: 4
+          memory: 8
+          volumes:
+            - /mnt/data
+        storage:
+          local_base_path: /mnt/data
+    terraformOutputs: *default-terraform-outputs
+    expect:
+      terraform:
+        - name: cluster
+          path: cluster/talos
+        - name: gitops
+          path: gitops/flux
+          destroy: false
+
+  # Edge: cluster.enabled false with workstation enabled → no cluster, no flux (compute and gitops not run)
+  - name: cluster disabled with workstation yields no cluster terraform
+    values:
+      provider: docker
+      workstation:
+        runtime: colima
+      dns: *default-dns
+      ingress: *ingress-disabled
+      network: *default-network
+      cluster:
+        driver: talos
+        enabled: false
+        controlplanes:
+          nodes:
+            controlplane-1: *cp1-node
+        workers:
+          volumes:
+            - /var/mnt/local
+    expect:
+      terraform:
+        - name: workstation
+          path: workstation/docker
+
+  # Edge: workstation.runtime docker → loadbalancer present
+  - name: workstation runtime docker yields loadbalancer
+    values:
+      provider: docker
+      workstation:
+        runtime: docker
+      dns: *default-dns
+      ingress: *ingress-disabled
+      network: *default-network
+      cluster: *default-cluster
+    terraformOutputs: *default-terraform-outputs
+    expect:
+      terraform:
+        - name: cluster
+          path: cluster/talos
+        - name: gitops
+          path: gitops/flux
+          destroy: false
+      kustomize:
+        - name: lb-base
+          path: lb/base
+        - name: lb-resources
+          path: lb/resources
+
+  # Edge: services.registries false → effective registries empty; terraform chain still runs
+  - name: workstation with services registries disabled still creates terraform chain
+    values:
+      provider: docker
+      workstation:
+        runtime: colima
+        services:
+          registries: false
+      dns: *default-dns
+      ingress: *ingress-disabled
+      network: *default-network
+      cluster: *default-cluster
+    terraformOutputs: *default-terraform-outputs
+    expect:
+      terraform:
+        - name: cluster
+          path: cluster/talos
+        - name: gitops
+          path: gitops/flux
+          destroy: false
+
+  # Incus with workstation enabled: option-workstation contributes workstation/incus, compute/incus, cluster/talos.
+  # Asserts cluster common_config_patches: cert_rotation + registries.mirrors; no certSANs (incus path uses common_patch_with_registries only).
+  - name: incus with workstation enabled creates workstation/incus compute cluster chain
+    values:
+      provider: incus
+      workstation:
+        runtime: colima
+      dns: *default-dns
+      ingress: *ingress-disabled
+      network: *default-network
+      cluster:
+        driver: talos
+        controlplanes:
+          nodes:
+            controlplane-1:
+              endpoint: 10.5.0.10:50000
+              node: 10.5.0.10
+              hostname: controlplane-1
+        workers:
+          count: 1
+          volumes:
+            - /var/mnt/local
+          nodes:
+            worker-1:
+              endpoint: 10.5.0.20:50000
+              node: 10.5.0.20
+              hostname: worker-1
+    terraformOutputs:
+      compute:
+        controlplanes:
+          - endpoint: 10.5.0.10:6443
+            node: 10.5.0.10
+            hostname: controlplane-1
+        workers:
+          - endpoint: 10.5.0.20:50000
+            node: 10.5.0.20
+            hostname: worker-1
+    expect:
+      terraform:
+        - name: workstation
+          path: workstation/incus
+        - name: compute
+          path: compute/incus
+          dependsOn:
+            - workstation
+        - name: cluster
+          path: cluster/talos
+          dependsOn:
+            - compute
+          inputs:
+            common_config_patches: |-
+              cluster:
+                allowSchedulingOnControlPlanes: false
+                extraManifests:
+                - https://raw.githubusercontent.com/alex1989hu/kubelet-serving-cert-approver/v0.8.7/deploy/standalone-install.yaml
+              machine:
+                kubelet:
+                  extraArgs:
+                    rotate-server-certificates: "true"
+                registries:
+                  config: {}
+                  mirrors: {}
+
+  # Edge: docker-desktop — no lb kustomize components. Asserts workstation inputs use 4+len(registries) for IPs.
+  - name: docker-desktop workstation has node hostport dns and no lb
+    values:
+      provider: docker
+      workstation:
+        runtime: docker-desktop
+      dns: *default-dns
+      ingress: *ingress-disabled
+      network: *default-network
+      cluster: *default-cluster
+    terraformOutputs: *default-terraform-outputs
+    expect:
+      terraform:
+        - name: workstation
+          path: workstation/docker
+          inputs:
+            webhook_host: "10.5.0.9"
+        - name: cluster
+          path: cluster/talos
+        - name: gitops
+          path: gitops/flux
+          destroy: false
+    exclude:
+      kustomize:
+        - name: lb-base
+        - name: lb-resources

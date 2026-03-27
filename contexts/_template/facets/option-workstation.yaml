@@ -1,0 +1,276 @@
+kind: Facet
+apiVersion: blueprints.windsorcli.dev/v1alpha1
+metadata:
+  name: workstation
+  description: Workstation stack for local development and cluster infrastructure.
+
+# Facet applies only on workstation-capable platforms when runtime is set.
+when: "(platform == 'docker' || platform == 'incus') && workstation.runtime != null && workstation.runtime != ''"
+
+config:
+  - name: workstation
+    value:
+      runtime: "${workstation.runtime ?? ''}"
+      arch: "${workstation.arch ?? 'amd64'}"
+
+  # Talos image refs for workstation compute (docker/incus). Only relevant when workstation stack runs; providers use talos_version fallback when not.
+  - name: talos
+    value:
+      docker_image: "ghcr.io/siderolabs/talos:v${talos.talos_version}"
+      incus_image: "windsor:talos/v${talos.talos_version}/${workstation.arch ?? 'amd64'}"
+
+  # Effective registries for workstation Terraform and Talos patch: empty when services.registries false, else docker.registries or default.
+  - name: workstation_registries
+    value:
+      registries: |
+        ${(workstation.services.registries ?? true) == false ? {} : (docker.registries ?? {
+          "gcr.io": { "remote": "https://gcr.io" },
+          "ghcr.io": { "remote": "https://ghcr.io" },
+          "quay.io": { "remote": "https://quay.io" },
+          "registry-1.docker.io": { "remote": "https://registry-1.docker.io", "local": "docker.io" },
+          "registry.k8s.io": { "remote": "https://registry.k8s.io" }
+        })}
+
+  # Registry mirrors: built from workstation TF output "registries"; only entries with remote are included (Talos mirrors upstream remotes).
+  # config: empty for HTTP mirrors—Talos errors "TLS config specified for non-HTTPS registry" if tls is set for http:// endpoints.
+  - name: talos_registry_mirrors
+    when: (cluster.enabled ?? true) && cluster.driver == 'talos'
+    value:
+      mirrors: >-
+        ${fromPairs(map(
+          filter(toPairs(terraform_output("workstation", "registries") ?? {}),
+            get(get(#, 1), "remote") != null && get(get(#, 1), "remote") != "" && get(get(#, 1), "hostname") != null && get(get(#, 1), "hostname") != ""
+          ),
+          [
+            (get(get(#, 1), "local") != null && get(get(#, 1), "local") != "" ? get(get(#, 1), "local") : get(#, 0)),
+            { endpoints: ["http://" + get(get(#, 1), "hostname") + ":5000"] }
+          ]
+        ))}
+      config: {}
+
+  # Merge registries into common_patch (all workstation + talos).
+  - name: talos_common
+    when: (cluster.enabled ?? true) && cluster.driver == 'talos'
+    value:
+      common_patch:
+        machine:
+          registries:
+            mirrors: ${talos_registry_mirrors.mirrors}
+            config: ${talos_registry_mirrors.config}
+
+  # Merge schedulable override for docker (colima + docker-desktop). When no workers, allow scheduling on control planes; otherwise use cluster.controlplanes.schedulable.
+  - name: talos_common
+    when: (cluster.enabled ?? true) && cluster.driver == 'talos' && platform == 'docker'
+    value:
+      allowSchedulingOnControlPlanes: "${(cluster.workers.count ?? 0) == 0 ? true : (cluster.controlplanes.schedulable ?? false)}"
+
+  # Merge network ignore (docker-desktop only).
+  - name: talos_common
+    when: (cluster.enabled ?? true) && cluster.driver == 'talos' && workstation.runtime == 'docker-desktop'
+    value:
+      common_patch:
+        machine:
+          network:
+            interfaces:
+              - ignore: true
+                interface: eth0
+
+  # Expose controlplane/worker patches for provider-docker; common_config_patches from talos_common (config-talos stringifies after merge).
+  - name: talos_common_docker
+    when: (cluster.enabled ?? true) && cluster.driver == 'talos'
+    value:
+      controlplane_config_patches: ""
+      worker_config_patches: ""
+
+terraform:
+# GitOps/flux with livereload credentials and webhook token. Runs when workstation + cluster enabled (depends on cluster).
+- name: gitops
+  when: (cluster.enabled ?? true)
+  path: gitops/flux
+  strategy: replace
+  destroy: false
+  dependsOn:
+    - cluster
+  inputs:
+    concurrency: >-
+      ${max(2, min(
+        floor((cluster.controlplanes.cpu ?? 4) / 2),
+        floor((cluster.controlplanes.memory ?? 4) / 2),
+        10
+      ))}
+    git_username: ${git.livereload.username ?? "local"}
+    git_password: ${git.livereload.password ?? "local"}
+    webhook_token: ${git.livereload.webhook_token ?? "abcdef123456"}
+
+# Workstation stack for docker-desktop: DNS, registries, git livereload. No loadbalancer; DNS forwards to
+# first node. Use container port 30053 (not host 8053) so the DNS container on the same network can reach the node.
+# 30053 = NodePort for DNS set in kustomize/ingress/nginx/coredns/patches/helm-release.yaml; cluster.*.hostports must use same container port (e.g. 8053:30053/udp).
+- name: workstation
+  when: "platform == 'docker' && workstation.runtime == 'docker-desktop'"
+  path: workstation/docker
+  inputs:
+    runtime: 'docker-desktop'
+    domain_name: ${dns.private_domain}
+    network_name: windsor-${context}
+    network_cidr: ${network.cidr_block}
+    dns_forward_target: "${cidrhost(network.cidr_block, 4 + len(workstation_registries.registries ?? {})) + \":30053\"}"
+    webhook_host: "${cidrhost(network.cidr_block, 4 + len(workstation_registries.registries ?? {}))}"
+    primary_node_ip: "${cidrhost(network.cidr_block, 4 + len(workstation_registries.registries ?? {}))}"
+    enable_dns: ${workstation.services.dns ?? true}
+    enable_git: ${workstation.services.git ?? true}
+    registries: ${workstation_registries.registries ?? {}}
+
+# Workstation stack for colima/docker/linux: same as above but loadbalancer exists; DNS/webhook use loadbalancer IP.
+# runtime from config workstation.runtime (docker -> linux for Terraform).
+- name: workstation
+  when: "platform == 'docker' && workstation.runtime != \"docker-desktop\""
+  path: workstation/docker
+  inputs:
+    runtime: >-
+      ${workstation.runtime == "docker" ? "linux" : (workstation.runtime ?? "linux")}
+    domain_name: ${dns.private_domain}
+    network_name: windsor-${context}
+    network_cidr: ${network.cidr_block}
+    dns_forward_target: ${network.loadbalancer_ips.start}
+    webhook_host: ${network.loadbalancer_ips.start}
+    primary_node_ip: ${network.loadbalancer_ips.start}
+    enable_dns: ${workstation.services.dns ?? true}
+    enable_git: ${workstation.services.git ?? true}
+    registries: ${workstation_registries.registries ?? {}}
+
+
+- name: workstation
+  when: "platform == 'incus'"
+  path: workstation/incus
+  inputs:
+    domain_name: ${dns.private_domain}
+    network_name: "${(workstation.runtime ?? '') == 'colima' ? 'incusbr0' : ''}"
+    create_network: "${(workstation.runtime ?? '') != 'colima'}"
+    network_cidr: ${network.cidr_block}
+    loadbalancer_start_ip: ${network.loadbalancer_ips.start}
+    dns_forward_target: ${network.loadbalancer_ips.start}
+    webhook_host: ${network.loadbalancer_ips.start}
+    primary_node_ip: ${network.loadbalancer_ips.start}
+    enable_dns: ${workstation.services.dns ?? true}
+    enable_git: ${workstation.services.git ?? true}
+    registries: ${workstation_registries.registries ?? {}}
+    webhook_token: ${git.livereload.webhook_token ?? "abcdef123456"}
+    git_username: ${git.livereload.username ?? "local"}
+    git_password: ${git.livereload.password ?? "local"}
+
+- name: compute
+  when: "platform == 'incus' && (cluster.enabled ?? true)"
+  path: compute/incus
+  strategy: replace
+  dependsOn:
+    - workstation
+  inputs:
+    create_network: false
+    network_name: ${terraform_output("workstation", "network_name")}
+    network_cidr: ${terraform_output("workstation", "network_cidr")}
+    storage_pools:
+      local:
+        driver: "${(workstation.runtime ?? '') == 'colima' ? 'dir' : null}"
+    instances:
+      - name: controlplane
+        role: controlplane
+        count: ${cluster.controlplanes.count ?? 1}
+        ipv4: ${cidrhost(network.cidr_block, 10)}
+        image: ${cluster.controlplanes.image ?? talos.incus_image}
+        type: virtual-machine
+        description: Talos control plane node
+        storage_pool: "${(workstation.runtime ?? '') == 'colima' ? 'local' : 'default'}"
+        root_disk_size: ${string(cluster.controlplanes.root_disk_size ?? 30) + "GB"}
+        limits:
+          cpu: ${string(cluster.controlplanes.cpu ?? 2)}
+          memory: ${string(cluster.controlplanes.memory ?? 2) + "GB"}
+        disks: ${cluster.controlplanes.disks ?? []}
+        config:
+          user.hostname: ${values(cluster.controlplanes.nodes)[0].hostname ?? "controlplane-1"}
+          environment.TALOSSKU: ${string(cluster.controlplanes.cpu ?? 2) + "CPU-" + string((cluster.controlplanes.memory ?? 2) * 1024) + "RAM"}
+          raw.qemu: -boot order=c,menu=off
+      - name: worker
+        role: worker
+        count: ${cluster.workers.count ?? 0}
+        ipv4: ${cidrhost(network.cidr_block, 20)}
+        image: ${cluster.workers.image ?? talos.incus_image}
+        type: virtual-machine
+        description: Talos worker node
+        storage_pool: "${(workstation.runtime ?? '') == 'colima' ? 'local' : 'default'}"
+        root_disk_size: ${string(cluster.workers.root_disk_size ?? 50) + "GB"}
+        limits:
+          cpu: ${string(cluster.workers.cpu ?? 4)}
+          memory: ${string(cluster.workers.memory ?? 4) + "GB"}
+        disks: ${cluster.workers.disks ?? []}
+        config:
+          user.hostname: "${cluster.workers.nodes != null ? (values(cluster.workers.nodes)[0].hostname ?? 'worker-1') : 'worker-1'}"
+          environment.TALOSSKU: "${string(cluster.workers.cpu ?? 4) + 'CPU-' + string((cluster.workers.memory ?? 4) * 1024) + 'RAM'}"
+          raw.qemu: -boot order=c,menu=off
+
+# cluster/talos for incus: strip hostname from compute output (Incus sets it via user.hostname; Talos 1.12 rejects "static hostname is already set").
+- name: cluster
+  when: "platform == 'incus' && (cluster.enabled ?? true)"
+  path: cluster/talos
+  strategy: replace
+  dependsOn:
+    - compute
+  parallelism: 1
+  inputs:
+    cluster_endpoint: >-
+      ${cluster.endpoint ?? (
+        len(terraform_output("compute", "controlplanes") ?? []) > 0 && terraform_output("compute", "controlplanes")[0].endpoint != null
+          ? "https://" + split(terraform_output("compute", "controlplanes")[0].endpoint, ":")[0] + ":6443"
+          : ""
+      )}
+    cluster_name: talos
+    talos_version: ${talos.talos_version}
+    controlplanes: >-
+      ${len(terraform_output("compute", "controlplanes") ?? []) > 0
+        ? map(terraform_output("compute", "controlplanes"), fromPairs(concat(filter(toPairs(#), get(#, 0) != "hostname"), [["hostname", null]])))
+        : values(cluster.controlplanes.nodes)}
+    workers: >-
+      ${len(terraform_output("compute", "controlplanes") ?? []) > 0
+        ? map(terraform_output("compute", "workers") ?? [], fromPairs(concat(filter(toPairs(#), get(#, 0) != "hostname"), [["hostname", null]])))
+        : ((cluster.workers.count ?? 0) > 0 ? values(cluster.workers.nodes) : [])}
+    controlplane_disks: ${talos_common.controlplane_disks}
+    worker_disks: ${talos_common.worker_disks}
+    common_config_patches: ${talos_common.common_config_patches}
+    controlplane_volumes: ${talos_common.controlplane_volumes ?? []}
+    worker_volumes: ${talos_common.worker_volumes ?? []}
+
+# Compute/docker: run Talos controlplane/worker containers on workstation network.
+# cluster/talos consumes compute outputs (endpoints, etc.) via provider-docker.
+- name: compute
+  when: "platform == 'docker' && (cluster.enabled ?? true)"
+  path: compute/docker
+  strategy: replace
+  dependsOn:
+    - workstation
+  inputs:
+    create_network: false
+    network_name: ${terraform_output("workstation", "network_name")}
+    network_cidr: ${terraform_output("workstation", "network_cidr")}
+    start_ip: ${terraform_output("workstation", "next_ip")}
+    runtime: ${workstation.runtime ?? "linux"}
+    compose_project: ${terraform_output("workstation", "compose_project")}
+    cluster_nodes:
+      controlplanes:
+        count: ${cluster.controlplanes.count ?? 1}
+        image: ${cluster.controlplanes.image ?? talos.docker_image}
+        cpu: ${cluster.controlplanes.cpu ?? 2}
+        memory: ${cluster.controlplanes.memory ?? 2}
+        hostports: "${workstation.runtime == \"docker-desktop\" ? (cluster.controlplanes.hostports ?? []) : []}"
+        volumes: ${cluster.controlplanes.volumes ?? []}
+      workers:
+        count: ${cluster.workers.count ?? 0}
+        image: ${cluster.workers.image ?? talos.docker_image}
+        cpu: ${cluster.workers.cpu ?? 4}
+        memory: ${cluster.workers.memory ?? 4}
+        hostports: "${workstation.runtime == \"docker-desktop\" ? (cluster.workers.hostports ?? []) : []}"
+        volumes: ${cluster.workers.volumes ?? []}
+
+# cluster/talos: run after compute so it gets controlplanes/workers from compute output. Only when docker + workstation.
+- name: cluster
+  when: "cluster.enabled == true && platform == 'docker'"
+  dependsOn:
+    - compute

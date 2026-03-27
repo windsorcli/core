@@ -55,7 +55,20 @@ resource "helm_release" "flux_system" {
   create_namespace = false
   wait             = true
   values = [yamlencode({
+    imageAutomationController = {
+      image = "ghcr.io/fluxcd/image-automation-controller"
+      # renovate: datasource=docker depName=ghcr.io/fluxcd/image-automation-controller package=ghcr.io/fluxcd/image-automation-controller
+      tag = "v1.0.2@sha256:a28eccd31409191131377ecf888a168c59e9a72578e71139b81b146d813c8335"
+    }
+    imageReflectionController = {
+      image = "ghcr.io/fluxcd/image-reflector-controller"
+      # renovate: datasource=docker depName=ghcr.io/fluxcd/image-reflector-controller package=ghcr.io/fluxcd/image-reflector-controller
+      tag = "v1.0.2@sha256:a2dba78aa10c1a3905652f6cea39c4fc9c9688755e63dc1f38a0a0306bda54ce"
+    }
     kustomizeController = {
+      image = "ghcr.io/fluxcd/kustomize-controller"
+      # renovate: datasource=docker depName=ghcr.io/fluxcd/kustomize-controller package=ghcr.io/fluxcd/kustomize-controller
+      tag = "v1.7.1@sha256:2b51e7a48594263ece5d86636a9b95381b19fc3091e7341a88802f4557b35a53"
       container = {
         additionalArgs = [
           "--concurrent=${var.concurrency}",
@@ -69,6 +82,9 @@ resource "helm_release" "flux_system" {
       }
     }
     helmController = {
+      image = "ghcr.io/fluxcd/helm-controller"
+      # renovate: datasource=docker depName=ghcr.io/fluxcd/helm-controller package=ghcr.io/fluxcd/helm-controller
+      tag = "v1.4.2@sha256:32dd3ec7a138245ff4cd755439099c544f4ce3a55f95aa69a97106c05a661def"
       container = {
         additionalArgs = [
           "--concurrent=${max(2, var.concurrency - 1)}",
@@ -76,12 +92,20 @@ resource "helm_release" "flux_system" {
         ]
       }
     }
+    notificationController = {
+      image = "ghcr.io/fluxcd/notification-controller"
+      # renovate: datasource=docker depName=ghcr.io/fluxcd/notification-controller package=ghcr.io/fluxcd/notification-controller
+      tag = "v1.7.3@sha256:55813e89e49509e5a312682759b7a4d5235ecc2e13a1eb70f917faf769596b07"
+    }
     sourceController = {
+      image = "ghcr.io/fluxcd/source-controller"
+      # renovate: datasource=docker depName=ghcr.io/fluxcd/source-controller package=ghcr.io/fluxcd/source-controller
+      tag = "v1.7.2@sha256:030e258b636fede22a41bcaea3ea4542035cc280b0c740f641c4c5efb904b980"
       container = {
         additionalArgs = [
           "--concurrent=${var.concurrency}",
           "--requeue-dependency=${local.requeue_interval}",
-          "--helm-cache-max-size=10",
+          "--helm-cache-max-size=200",
           "--helm-cache-ttl=60m",
           "--helm-cache-purge-interval=5m"
         ]
