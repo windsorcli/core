@@ -63,7 +63,7 @@ resource "helm_release" "flux_system" {
     imageReflectionController = {
       image = "ghcr.io/fluxcd/image-reflector-controller"
       # renovate: datasource=docker depName=ghcr.io/fluxcd/image-reflector-controller package=ghcr.io/fluxcd/image-reflector-controller
-      tag = "v1.0.2@sha256:a2dba78aa10c1a3905652f6cea39c4fc9c9688755e63dc1f38a0a0306bda54ce"
+      tag = "v1.1.1@sha256:4c12c4046dee6e32e11b7c6afeaf7910406b67ff0182d46eeedb128d367908cd"
     }
     kustomizeController = {
       image = "ghcr.io/fluxcd/kustomize-controller"
