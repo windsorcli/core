@@ -20,5 +20,6 @@ spec:
   values:
     diskPools:
       - nodeLabel: openebs.io/engine=mayastor
+        workerDisksByNode: '${worker_disks_by_node:-{}}'
         disks:
-          - "${WORKER_DEVICE_PATH:-/dev/nvme0n1}"
+          - "${worker_default_disks:-/dev/nvme0n1}"

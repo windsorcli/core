@@ -35,7 +35,7 @@ kustomize:
   timeout: 5m
   interval: 5m
   substitutions:
-    single_storage_type: ${cluster.storage.single_storage_type ?? "StandardSSD_LRS"}
+    single_storage_type: ${cluster.storage.default_storage_backend ?? "StandardSSD_LRS"}
 
 # Telemetry - exclude metrics-server as AKS provides it natively
 - name: telemetry-resources

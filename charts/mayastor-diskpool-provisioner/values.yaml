@@ -8,6 +8,11 @@ diskPools:
     # Format: key=value
     nodeLabel: "openebs.io/engine=mayastor"
 
+    # Optional YAML/JSON object that maps Kubernetes node names to disk lists.
+    # Example: {"worker-1":["/dev/disk/by-id/..."],"worker-2":["/dev/disk/by-id/..."]}
+    # When set and the node key exists, this per-node list takes precedence over disks below.
+    workerDisksByNode: "{}"
+
     # List of disk paths to use for this pool
     # Each disk path must use one of these formats:
     # - aio:///dev/disk/by-id/nvme-eui.ace42e00164f0290

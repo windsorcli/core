@@ -6,16 +6,44 @@
 {{- end }}
 {{- $labelKey := index $nodeLabelParts 0 }}
 {{- $labelValue := index $nodeLabelParts 1 }}
-{{- if not $diskPool.disks }}
+{{- $nodeDisks := dict }}
+{{- if and (hasKey $diskPool "workerDisksByNode") (ne (toString $diskPool.workerDisksByNode) "") }}
+{{- $parsedNodeDisks := fromYaml (toString $diskPool.workerDisksByNode) }}
+{{- if kindIs "map" $parsedNodeDisks }}
+{{- $nodeDisks = $parsedNodeDisks }}
+{{- end }}
+{{- end }}
+{{- $expandedDisks := list }}
+{{- range $diskEntry := $diskPool.disks }}
+{{- range $diskPart := splitList "," (toString $diskEntry) }}
+{{- $disk := trim $diskPart }}
+{{- if ne $disk "" }}
+{{- $expandedDisks = append $expandedDisks $disk }}
+{{- end }}
+{{- end }}
+{{- end }}
+{{- if not $expandedDisks }}
 {{- fail "at least one disk must be specified" }}
 {{- end }}
-{{- range $disk := $diskPool.disks }}
+{{- range $disk := $expandedDisks }}
 {{- if not (or (hasPrefix "aio://" $disk) (hasPrefix "uring://" $disk) (hasPrefix "/dev/disk/by-id/" $disk) (hasPrefix "/dev/disk/by-path/" $disk)) }}
 {{- fail "disk path must use aio:// or uring:// protocol, or use /dev/disk/by-id/ or /dev/disk/by-path/ for persistent device links" }}
 {{- end }}
 {{- end }}
 {{- range $node := (lookup "v1" "Node" "" "").items }}
   {{- if and (hasKey $node.metadata.labels $labelKey) (eq (get $node.metadata.labels $labelKey) $labelValue) }}
+{{- $effectiveDisks := $expandedDisks }}
+{{- if and (kindIs "map" $nodeDisks) (hasKey $nodeDisks $node.metadata.name) }}
+{{- $effectiveDisks = (get $nodeDisks $node.metadata.name) }}
+{{- end }}
+{{- if not $effectiveDisks }}
+{{- fail (printf "at least one disk must be specified for node %s" $node.metadata.name) }}
+{{- end }}
+{{- range $disk := $effectiveDisks }}
+{{- if not (or (hasPrefix "aio://" $disk) (hasPrefix "uring://" $disk) (hasPrefix "/dev/disk/by-id/" $disk) (hasPrefix "/dev/disk/by-path/" $disk)) }}
+{{- fail "disk path must use aio:// or uring:// protocol, or use /dev/disk/by-id/ or /dev/disk/by-path/ for persistent device links" }}
+{{- end }}
+{{- end }}
 apiVersion: openebs.io/v1beta2
 kind: DiskPool
 metadata:
@@ -29,7 +57,7 @@ spec:
   stsAffinityGroup: {{ $diskPool.stsAffinityGroup | default false }}
   cloneFsIdAsVolumeId: {{ $diskPool.cloneFsIdAsVolumeId | default false }}
   disks:
-    {{- range $disk := $diskPool.disks }}
+    {{- range $disk := $effectiveDisks }}
     - {{ $disk }}
     {{- end }}
 ---

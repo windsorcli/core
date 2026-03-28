@@ -219,6 +219,135 @@ cases:
           timeout: 10m
           interval: 5m
 
+  # Storage mode: Mayastor enables dedicated Incus data pool for worker block volumes.
+  - name: mayastor storage mode configures lvm-backed data pool
+    values:
+      provider: incus
+      ingress: *ingress-disabled
+      network: *default-network
+      cluster:
+        driver: talos
+        storage:
+          default_storage_backend: mayastor
+        workers:
+          count: 1
+          nodes:
+            worker-1:
+              endpoint: 10.5.0.20:50000
+              node: 10.5.0.20
+              hostname: worker-1
+              disks:
+                - name: mayastor-data
+                  size: 40
+                  type: data
+                  device: /dev/vdb
+                - name: mayastor-data-2
+                  size: 40
+                  type: data
+                  device: /dev/vdc
+        controlplanes:
+          nodes:
+            controlplane-1: *cp1-node
+    terraformOutputs: *default-terraform-outputs
+    expect:
+      terraform:
+        - name: compute
+          path: compute/incus
+          inputs:
+            storage_pools:
+              data:
+                driver: lvm
+                size: 60GB
+        - name: cluster
+          path: cluster/talos
+          inputs:
+            worker_config_patches: |-
+              machine:
+                kubelet:
+                  extraArgs:
+                    node-labels: openebs.io/engine=mayastor
+      kustomize:
+        - name: csi
+          components:
+            - openebs
+            - openebs/mayastor
+          substitutions:
+            worker_volume_path: /var/mnt/local
+            worker_default_disks: /dev/vdb,/dev/vdc
+            worker_disks_by_node: "worker-1:\n- /dev/vdb\n- /dev/vdc"
+
+  # Single-node: when no workers exist, controlplane participates in Mayastor disk selection and labeling.
+  - name: mayastor single-node uses controlplane disks and controlplane labels
+    values:
+      provider: incus
+      ingress: *ingress-disabled
+      network: *default-network
+      cluster:
+        driver: talos
+        storage:
+          default_storage_backend: mayastor
+        controlplanes:
+          schedulable: true
+          disks:
+            - name: cp-data
+              size: 40
+              type: data
+              device: /dev/vdb
+          nodes:
+            controlplane-1: *cp1-node
+        workers:
+          count: 0
+          nodes: {}
+    terraformOutputs:
+      compute:
+        controlplanes:
+          - endpoint: 10.5.0.10:6443
+            node: 10.5.0.10
+            hostname: controlplane-1
+        workers: []
+    expect:
+      terraform:
+        - name: cluster
+          path: cluster/talos
+          inputs:
+            controlplane_config_patches: |-
+              machine:
+                kubelet:
+                  extraArgs:
+                    node-labels: openebs.io/engine=mayastor
+      kustomize:
+        - name: csi
+          components:
+            - openebs
+            - openebs/mayastor
+          substitutions:
+            worker_default_disks: /dev/vdb
+            worker_disks_by_node: "controlplane-1:\n- /dev/vdb"
+
+  # HA mode: when global cluster.ha is true and Mayastor is selected, include the Mayastor HA component overlay.
+  - name: mayastor ha mode includes openebs mayastor ha component
+    values:
+      provider: incus
+      ingress: *ingress-disabled
+      network: *default-network
+      cluster:
+        driver: talos
+        ha: true
+        storage:
+          default_storage_backend: mayastor
+        controlplanes:
+          nodes:
+            controlplane-1: *cp1-node
+        workers: *default-workers
+    terraformOutputs: *default-terraform-outputs
+    expect:
+      kustomize:
+        - name: csi
+          components:
+            - openebs
+            - openebs/mayastor
+            - openebs/mayastor/ha
+
   # Edge case: colima-incus uses Incus path (provider selects compute/incus; option-workstation does not apply)
   - name: colima-incus uses compute/incus not docker stack
     values:

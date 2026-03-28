@@ -15,6 +15,8 @@ config:
       csi_local_volume_path: "${cluster.storage.local_base_path ?? \"/var/mnt/local\"}"
       controlplane_disks: "${cluster.controlplanes.disks ?? []}"
       worker_disks: "${cluster.workers.disks ?? []}"
+      mayastor_worker_config_patches: "${cluster.storage.default_storage_backend == 'mayastor' ? \"machine:\\n  kubelet:\\n    extraArgs:\\n      node-labels: openebs.io/engine=mayastor\" : \"\"}"
+      mayastor_controlplane_config_patches: "${cluster.storage.default_storage_backend == 'mayastor' && ((cluster.workers.count ?? 0) == 0 || (cluster.controlplanes.schedulable ?? false)) ? \"machine:\\n  kubelet:\\n    extraArgs:\\n      node-labels: openebs.io/engine=mayastor\" : \"\"}"
       cert_rotation:
         extra_manifests:
           - "https://raw.githubusercontent.com/alex1989hu/kubelet-serving-cert-approver/v0.8.7/deploy/standalone-install.yaml"

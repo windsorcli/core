@@ -16,6 +16,72 @@ spec:
         kind: HelmRepository
         name: openebs
         namespace: system-gitops
+  postRenderers:
+    - kustomize:
+        images:
+          - name: docker.io/openebs/alpine-sh
+            newTag: 4.3.0
+            digest: sha256:aeb2a6f81088e3bcb93c30a55ed7108b664f9d24e19c66a0c06ac6f463747f49
+          - name: docker.io/openebs/mayastor-agent-ha-node
+            newTag: v2.10.0
+            digest: sha256:43ab8dabe0acf1f8cbe606c69d26b57569dcb87f402917552bb4af025a11d93a
+          - name: docker.io/openebs/mayastor-csi-node
+            newTag: v2.10.0
+            digest: sha256:7a6ecf82e325d2666bd61f791e6d93eea089cea115ec5aa2671fe47d54354204
+          - name: registry.k8s.io/sig-storage/csi-node-driver-registrar
+            newTag: v2.13.0
+            digest: sha256:d7138bcc3aa5f267403d45ad4292c95397e421ea17a0035888850f424c7de25d
+          - name: docker.io/openebs/mayastor-io-engine
+            newTag: v2.10.0
+            digest: sha256:2e7bedf7b67f2a3e4de1b90424a6b54493050f32b8f708c543b590e488074d34
+          - name: docker.io/openebs/mayastor-metrics-exporter-io-engine
+            newTag: v2.10.0
+            digest: sha256:5838980e5d04c7ebd41c04b548d571cba2a943115bade47da7f76f163a650f56
+          - name: docker.io/openebs/mayastor-agent-core
+            newTag: v2.10.0
+            digest: sha256:d8e5173b57394af65f2752229aa8012a325f819bed471f80432fd351f1a8ba67
+          - name: docker.io/openebs/mayastor-agent-ha-cluster
+            newTag: v2.10.0
+            digest: sha256:fb41181a311f0e1070300d72f6b9e90e85904f890def698a2965786f4fbab196
+          - name: docker.io/openebs/mayastor-api-rest
+            newTag: v2.10.0
+            digest: sha256:32d39d82951f471209767ece4c6e8ba0d0f1761351a892a7922874b2733b3867
+          - name: docker.io/openebs/mayastor-csi-controller
+            newTag: v2.10.0
+            digest: sha256:404d1cfc100d1aed24a7755d086dbaa6d56c196102c1e583d1473f6fb1a31807
+          - name: registry.k8s.io/sig-storage/csi-provisioner
+            newTag: v5.2.0
+            digest: sha256:d5e46da8aff7d73d6f00c761dae94472bcda6e78f4f17b3802dc89d44de0111b
+          - name: registry.k8s.io/sig-storage/csi-attacher
+            newTag: v4.8.1
+            digest: sha256:69888dba58159c8bc0d7c092b9fb97900c9ca8710d088b0b7ea7bd9052df86f6
+          - name: registry.k8s.io/sig-storage/csi-snapshotter
+            newTag: v8.2.0
+            digest: sha256:dd788d79cf4c1b8edee6d9b80b8a1ebfc51a38a365c5be656986b129be9ac784
+          - name: registry.k8s.io/sig-storage/snapshot-controller
+            newTag: v8.2.0
+            digest: sha256:9dade8f2f3ab29e3919c41b343f8d77b12178ac51f25574d7ed2d45a3e3ef69d
+          - name: registry.k8s.io/sig-storage/csi-resizer
+            newTag: v1.13.2
+            digest: sha256:8ddd178ba5d08973f1607f9b84619b58320948de494b31c9d7cd5375b316d6d4
+          - name: docker.io/openebs/mayastor-operator-diskpool
+            newTag: v2.10.0
+            digest: sha256:e39d11762a20b08db61e8e73ab4935b90fe4c5a662fd88070ee057d4bf4f8ebd
+          - name: docker.io/openebs/alpine-bash
+            newTag: 4.3.0
+            digest: sha256:f667ab1c70bf64949b6a8f97a81a60a30396f9b45834169b904b220ee6940f0d
+          - name: docker.io/openebs/etcd
+            newTag: 3.6.4-debian-12-r0
+            digest: sha256:c86c06f1ce6a08b6df21eb7a9655b1818778b64c85b5cbb8413ebf7534789730
+          - name: docker.io/nats
+            newTag: 2.9.17-alpine
+            digest: sha256:1a7b320b294218d11b48ddcd1552a18a74ae8790c80ba5372726c58d0a5ee295
+          - name: docker.io/natsio/nats-server-config-reloader
+            newTag: 0.10.1
+            digest: sha256:e414cc7e6f59575d4b1001b0cae21286ffb3ae3a5d38a6ae4f74550ea638c82f
+          - name: docker.io/natsio/prometheus-nats-exporter
+            newTag: 0.11.0
+            digest: sha256:31c02aac089a0e9bc5cd9bd1726064f8c6bfa771acbef85a8be88a687e87daba
   values:
     localpv-provisioner:
       enabled: false
@@ -47,8 +113,62 @@ spec:
         # renovate: datasource=docker depName=openebs/mayastor-io-engine package=openebs/mayastor-io-engine
         tag: v2.10.0@sha256:2e7bedf7b67f2a3e4de1b90424a6b54493050f32b8f708c543b590e488074d34
       base:
+        initContainers:
+          image:
+            # renovate: datasource=docker depName=openebs/alpine-sh package=openebs/alpine-sh
+            tag: 4.3.0@sha256:aeb2a6f81088e3bcb93c30a55ed7108b664f9d24e19c66a0c06ac6f463747f49
         metrics:
           enabled: false
+      csi:
+        image:
+          # renovate: datasource=docker depName=registry.k8s.io/sig-storage/csi-provisioner package=registry.k8s.io/sig-storage/csi-provisioner
+          provisionerTag: v5.2.0@sha256:d5e46da8aff7d73d6f00c761dae94472bcda6e78f4f17b3802dc89d44de0111b
+          # renovate: datasource=docker depName=registry.k8s.io/sig-storage/csi-attacher package=registry.k8s.io/sig-storage/csi-attacher
+          attacherTag: v4.8.1@sha256:69888dba58159c8bc0d7c092b9fb97900c9ca8710d088b0b7ea7bd9052df86f6
+          # renovate: datasource=docker depName=registry.k8s.io/sig-storage/csi-snapshotter package=registry.k8s.io/sig-storage/csi-snapshotter
+          snapshotterTag: v8.2.0@sha256:dd788d79cf4c1b8edee6d9b80b8a1ebfc51a38a365c5be656986b129be9ac784
+          # renovate: datasource=docker depName=registry.k8s.io/sig-storage/snapshot-controller package=registry.k8s.io/sig-storage/snapshot-controller
+          snapshotControllerTag: v8.2.0@sha256:9dade8f2f3ab29e3919c41b343f8d77b12178ac51f25574d7ed2d45a3e3ef69d
+          # renovate: datasource=docker depName=registry.k8s.io/sig-storage/csi-node-driver-registrar package=registry.k8s.io/sig-storage/csi-node-driver-registrar
+          registrarTag: v2.13.0@sha256:d7138bcc3aa5f267403d45ad4292c95397e421ea17a0035888850f424c7de25d
+          # renovate: datasource=docker depName=registry.k8s.io/sig-storage/csi-resizer package=registry.k8s.io/sig-storage/csi-resizer
+          resizerTag: v1.13.2@sha256:8ddd178ba5d08973f1607f9b84619b58320948de494b31c9d7cd5375b316d6d4
+      etcd:
+        # Default to single-node behavior. Enable cluster HA mode via openebs/mayastor/ha component.
+        replicaCount: 1
+        podAntiAffinityPreset: ""
+        image:
+          # renovate: datasource=docker depName=openebs/etcd package=openebs/etcd
+          tag: 3.6.4-debian-12-r0@sha256:c86c06f1ce6a08b6df21eb7a9655b1818778b64c85b5cbb8413ebf7534789730
+        volumePermissions:
+          image:
+            # renovate: datasource=docker depName=openebs/alpine-bash package=openebs/alpine-bash
+            tag: 4.3.0@sha256:f667ab1c70bf64949b6a8f97a81a60a30396f9b45834169b904b220ee6940f0d
+      nats:
+        # Default to single-node behavior. Enable cluster HA mode via openebs/mayastor/ha component.
+        cluster:
+          replicas: 1
+        affinity: {}
+        nats:
+          image:
+            # renovate: datasource=docker depName=nats package=nats
+            tag: 2.9.17-alpine@sha256:1a7b320b294218d11b48ddcd1552a18a74ae8790c80ba5372726c58d0a5ee295
+        bootconfig:
+          image:
+            # renovate: datasource=docker depName=natsio/nats-boot-config package=natsio/nats-boot-config
+            tag: 0.10.1@sha256:7f0587e8deb930ff387c5d0ceb50e380fd092471308ea41e5730788d8dd0a114
+        reloader:
+          image:
+            # renovate: datasource=docker depName=natsio/nats-server-config-reloader package=natsio/nats-server-config-reloader
+            tag: 0.10.1@sha256:e414cc7e6f59575d4b1001b0cae21286ffb3ae3a5d38a6ae4f74550ea638c82f
+        exporter:
+          image:
+            # renovate: datasource=docker depName=natsio/prometheus-nats-exporter package=natsio/prometheus-nats-exporter
+            tag: 0.11.0@sha256:31c02aac089a0e9bc5cd9bd1726064f8c6bfa771acbef85a8be88a687e87daba
+      preUpgradeHook:
+        image:
+          # renovate: datasource=docker depName=openebs/kubectl package=openebs/kubectl
+          tag: 1.25.15@sha256:7a8d6955f40da47707896368ec4e7f9029ca643986af4ebcf4cbeb7798f0f896
     engines:
       local:
         lvm:

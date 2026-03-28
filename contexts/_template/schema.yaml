@@ -24,7 +24,7 @@ $defs:
         description: Source path for bind mounts or volume name
       device:
         type: string
-        description: Block device path or URI for block storage (e.g. /dev/sdb). When set, used for node storage pools; platform may still attach by size/type.
+        description: Block device path or URI for block storage (e.g. /dev/sdb). For Mayastor, set on worker disks and all configured devices are included in pool disk inputs.
       read_only:
         type: boolean
         default: false
@@ -360,9 +360,9 @@ properties:
       storage:
         type: object
         properties:
-          single_storage_type:
+          default_storage_backend:
             type: string
-            description: Default storage driver. Directory-based (local_base_path), cloud default, or block (cluster.*.disks).
+            description: Default storage backend/type for platform storage integration (for example mayastor, gp3, StandardSSD_LRS).
           local_base_path:
             type: string
             default: "/var/mnt/local"

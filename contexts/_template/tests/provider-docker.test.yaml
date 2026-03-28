@@ -58,7 +58,7 @@ x-defaults:
 
 cases:
   # Minimal: workstation path — when workstation enabled, cluster depends on compute (workstation → compute → cluster from option-workstation + provider-docker)
-  - name: minimal config creates workstation compute cluster chain with default CSI
+  - name: minimal config creates workstation compute cluster chain with csi placeholder
     values:
       provider: docker
       workstation:
@@ -164,9 +164,7 @@ cases:
           path: csi
           dependsOn:
             - policy-resources
-          components:
-            - openebs
-            - openebs/dynamic-localpv
+          components: []
           substitutions:
             local_volume_path: /var/mnt/local
           timeout: 20m
@@ -330,9 +328,7 @@ cases:
           path: csi
           dependsOn:
             - policy-resources
-          components:
-            - openebs
-            - openebs/dynamic-localpv
+          components: []
           substitutions:
             local_volume_path: /mnt/data
           timeout: 20m

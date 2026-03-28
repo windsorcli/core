@@ -8,7 +8,7 @@ metadata:
       - name: StorageType
         value: hostpath
       - name: BasePath
-        value: ${WORKER_VOLUME_PATH}
+        value: ${worker_volume_path}
 provisioner: openebs.io/local
 reclaimPolicy: Delete
 volumeBindingMode: WaitForFirstConsumer
@@ -17,6 +17,8 @@ apiVersion: storage.k8s.io/v1
 kind: StorageClass
 metadata:
   name: single
+  annotations:
+    storageclass.kubernetes.io/is-default-class: "true"
 parameters:
   ioTimeout: "30"
   protocol: nvmf
@@ -29,8 +31,6 @@ apiVersion: storage.k8s.io/v1
 kind: StorageClass
 metadata:
   name: replicated
-  annotations:
-    storageclass.kubernetes.io/is-default-class: "true"
 parameters:
   ioTimeout: "30"
   protocol: nvmf

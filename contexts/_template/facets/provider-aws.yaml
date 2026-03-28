@@ -41,4 +41,4 @@ kustomize:
   timeout: 5m
   interval: 5m
   substitutions:
-    single_storage_type: ${cluster.storage.single_storage_type ?? "gp3"}
+    single_storage_type: ${cluster.storage.default_storage_backend ?? "gp3"}

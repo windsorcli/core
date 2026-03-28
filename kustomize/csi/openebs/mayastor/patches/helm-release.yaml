@@ -13,7 +13,7 @@ spec:
     localpv-provisioner:
       localpv:
         enabled: true
-        basePath: ${WORKER_VOLUME_PATH}
+        basePath: ${worker_volume_path}
     mayastor:
       enabled: true
       localpv-provisioner:
