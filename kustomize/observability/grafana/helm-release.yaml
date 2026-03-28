@@ -30,7 +30,7 @@ spec:
         timezone: ${timezone:-utc}
     image:
       # renovate: datasource=docker depName=grafana/grafana package=grafana/grafana
-      tag: 12.3.1@sha256:2175aaa91c96733d86d31cf270d5310b278654b03f5718c59de12a865380a31f
+      tag: 12.4.2@sha256:83749231c3835e390a3144e5e940203e42b9589761f20ef3169c716e734ad505
     initChownData:
       image:
         # renovate: datasource=docker depName=library/busybox package=library/busybox
