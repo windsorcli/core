@@ -31,6 +31,6 @@ spec:
     startupapicheck:
       image:
         # renovate: datasource=docker depName=quay.io/jetstack/cert-manager-startupapicheck package=quay.io/jetstack/cert-manager-startupapicheck
-        tag: v1.19.2@sha256:677a064065a4809bb1efbd0f160d86fd07a37d72a4c2ec469dac62f663e6d610
+        tag: v1.20.1@sha256:70859153f82a241c3a40ac581fb5a25f73db16851adc801f0c8a9c9b220ae4ee
     crds:
       enabled: true
