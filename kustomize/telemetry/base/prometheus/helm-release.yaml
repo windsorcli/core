@@ -27,7 +27,7 @@ spec:
     prometheusOperator:
       image:
         # renovate: datasource=docker depName=quay.io/prometheus-operator/prometheus-operator package=quay.io/prometheus-operator/prometheus-operator
-        tag: v0.88.0@sha256:b4f51de53357a241fdcab2d956888c1cb3acb3c1f2f72ea0cd60046333ff06b0
+        tag: v0.90.1@sha256:52a6a92d915ea2fa94314748d99db7a94922e3fe63274f6182fc033b9126b573
       prometheusConfigReloader:
         image:
           # renovate: datasource=docker depName=quay.io/prometheus-operator/prometheus-config-reloader package=quay.io/prometheus-operator/prometheus-config-reloader
