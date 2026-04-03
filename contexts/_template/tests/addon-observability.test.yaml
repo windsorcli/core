@@ -231,6 +231,8 @@ cases:
             - fluentd/outputs/stdout
 
   # Edge case: Elasticsearch without nginx ingress skips ELK ingress components
+  # Edge: ingress disabled → gateway_effective.enabled is false → filebeat replacement skipped.
+  # telemetry-base keeps its default fluentbit components; elasticsearch/kibana not deployed.
   - name: excludes elasticsearch observability when ingress is disabled
     values:
       provider: metal
@@ -247,20 +249,28 @@ cases:
       kustomize:
         - name: telemetry-base
           path: telemetry/base
-          strategy: replace
           components:
-            - prometheus
-            - prometheus/flux
-            - filebeat
-        - name: telemetry-resources
-          path: telemetry/resources
-          strategy: replace
-          dependsOn:
-            - telemetry-base
+            - fluentbit
+
+  # Edge: gateway explicitly disabled with elasticsearch driver skips filebeat replacement.
+  # Without this guard, filebeat deploys but has no elasticsearch endpoint to connect to.
+  - name: elasticsearch with gateway disabled skips filebeat and ELK stack
+    values:
+      provider: metal
+      gateway:
+        enabled: false
+      network: *default-network
+      cluster: *default-cluster
+      addons:
+        observability:
+          enabled: true
+          logs_driver: elasticsearch
+    expect:
+      kustomize:
+        - name: telemetry-base
+          path: telemetry/base
           components:
-            - metrics-server
-            - prometheus
-            - prometheus/flux
+            - fluentbit
 
   # Edge: Envoy gateway mode uses Gateway API route components for Grafana and Kibana.
   - name: elasticsearch observability with envoy uses gateway routes

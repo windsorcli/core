@@ -102,7 +102,7 @@ kustomize:
 # Elasticsearch telemetry (filebeat driver)
 - name: telemetry-base
   path: telemetry/base
-  when: observability_effective.logs_driver == 'elasticsearch'
+  when: observability_effective.logs_driver == 'elasticsearch' && gateway_effective.enabled == true
   timeout: 30m
   interval: 10m
   strategy: replace
@@ -113,7 +113,7 @@ kustomize:
 
 - name: telemetry-resources
   path: telemetry/resources
-  when: observability_effective.logs_driver == 'elasticsearch'
+  when: observability_effective.logs_driver == 'elasticsearch' && gateway_effective.enabled == true
   timeout: 10m
   interval: 5m
   strategy: replace
