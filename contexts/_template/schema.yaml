@@ -404,6 +404,10 @@ properties:
             type: boolean
             default: true
             description: Enable webhook-triggered Flux source reconciliation
+          token:
+            type: string
+            sensitive: true
+            description: Token for the Flux Receiver secret. Defaults to a placeholder in workstation mode; set explicitly for production.
         additionalProperties: false
     additionalProperties: false
   # Ingress configuration
