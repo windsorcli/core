@@ -82,8 +82,8 @@ kustomize:
     - quickwit
     - quickwit/pvc
     - quickwit/prometheus
-    - "${(addons.observability.dashboards ?? 'grafana') == 'grafana' ? 'grafana/quickwit' : ''}"
-    - "${(addons.observability.dashboards ?? 'grafana') == 'grafana' ? 'grafana/dashboards/logs/quickwit' : ''}"
+    - "${observability_effective.dashboards == 'grafana' ? 'grafana/quickwit' : ''}"
+    - "${observability_effective.dashboards == 'grafana' ? 'grafana/dashboards/logs/quickwit' : ''}"
 
 # Elasticsearch + Kibana route via active gateway driver
 - name: observability
