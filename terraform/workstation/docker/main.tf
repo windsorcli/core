@@ -36,7 +36,7 @@ locals {
   # Webhook host: explicit, or primary node IP, or primary LB (localhost mode=host 10 in same /24, else loadbalancer_start_ip)
   webhook_host_derived = local.use_localhost_networking ? cidrhost(local.loadbalancer_cidr, 10) : local.loadbalancer_start_ip
   webhook_host         = coalesce(var.webhook_host, var.primary_node_ip, local.webhook_host_derived)
-  webhook_url          = "http://${local.webhook_host}:9292/hook/${var.webhook_token}"
+  webhook_url          = var.webhook_enabled ? "http://${local.webhook_host}:${var.webhook_port}/hook/${sha256("${var.webhook_token}${var.receiver_name}${var.receiver_namespace}")}" : null
   common_labels = [
     { label = "context", value = var.context },
     { label = "managed_by", value = "terraform" }
@@ -249,15 +249,17 @@ resource "docker_container" "git" {
   count = var.enable_git ? 1 : 0
   name  = "git.${local.domain_name}"
   image = docker_image.git_livereload[0].image_id
-  env = [
-    "GIT_PASSWORD=${var.git_password}",
-    "GIT_USERNAME=${var.git_username}",
-    "RSYNC_EXCLUDE=${var.git_rsync_exclude}",
-    "RSYNC_INCLUDE=${var.git_rsync_include}",
-    "RSYNC_PROTECT=${var.git_rsync_protect}",
-    "VERIFY_SSL=false",
-    "WEBHOOK_URL=${local.webhook_url}"
-  ]
+  env = concat(
+    [
+      "GIT_PASSWORD=${var.git_password}",
+      "GIT_USERNAME=${var.git_username}",
+      "RSYNC_EXCLUDE=${var.git_rsync_exclude}",
+      "RSYNC_INCLUDE=${var.git_rsync_include}",
+      "RSYNC_PROTECT=${var.git_rsync_protect}",
+      "VERIFY_SSL=false"
+    ],
+    var.webhook_enabled ? ["WEBHOOK_URL=${local.webhook_url}"] : []
+  )
   restart = "always"
   dynamic "labels" {
     for_each = local.common_labels

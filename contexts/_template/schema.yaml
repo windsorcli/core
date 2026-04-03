@@ -385,6 +385,31 @@ properties:
         description: Private DNS zone (e.g. in-cluster CoreDNS, workstation resolver)
     additionalProperties: false
 
+  # GitOps configuration
+  gitops:
+    type: object
+    properties:
+      repository:
+        type: object
+        properties:
+          name:
+            type: string
+            default: local
+            description: Flux GitRepository name used as the primary source for reconciliations
+        additionalProperties: false
+      webhook:
+        type: object
+        properties:
+          enabled:
+            type: boolean
+            default: true
+            description: Enable webhook-triggered Flux source reconciliation
+          token:
+            type: string
+            sensitive: true
+            description: Token for the Flux Receiver secret. Defaults to a placeholder in workstation mode; set explicitly for production.
+        additionalProperties: false
+    additionalProperties: false
   # Ingress configuration
   ingress:
     type: object
@@ -482,6 +507,19 @@ properties:
             description: Create registry proxy containers (from docker.registries when true)
         additionalProperties: false
         description: Toggle workstation services
+      git:
+        type: object
+        properties:
+          username:
+            type: string
+            default: local
+            description: Username for git livereload HTTP auth
+          password:
+            type: string
+            default: local
+            description: Password for git livereload HTTP auth
+        additionalProperties: false
+        description: Git livereload credentials
     additionalProperties: false
 
   # Optional addons

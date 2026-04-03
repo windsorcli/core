@@ -263,3 +263,128 @@ cases:
       kustomize:
         - name: lb-base
         - name: lb-resources
+
+  # Edge: custom webhook token propagates to all three workstation variants and gitops/flux so the sha256 hash matches.
+  - name: custom webhook token propagates to docker-desktop workstation and gitops
+    values:
+      provider: docker
+      workstation:
+        runtime: docker-desktop
+      gitops:
+        webhook:
+          token: mysecrettoken
+      dns: *default-dns
+      ingress: *ingress-disabled
+      network: *default-network
+      cluster: *default-cluster
+    terraformOutputs: *default-terraform-outputs
+    expect:
+      terraform:
+        - name: workstation
+          path: workstation/docker
+          inputs:
+            webhook_token: mysecrettoken
+        - name: gitops
+          path: gitops/flux
+          inputs:
+            webhook_token: mysecrettoken
+
+  - name: custom webhook token propagates to colima workstation and gitops
+    values:
+      provider: docker
+      workstation:
+        runtime: colima
+      gitops:
+        webhook:
+          token: mysecrettoken
+      dns: *default-dns
+      ingress: *ingress-disabled
+      network: *default-network
+      cluster: *default-cluster
+    terraformOutputs: *default-terraform-outputs
+    expect:
+      terraform:
+        - name: workstation
+          path: workstation/docker
+          inputs:
+            webhook_token: mysecrettoken
+        - name: gitops
+          path: gitops/flux
+          inputs:
+            webhook_token: mysecrettoken
+
+  - name: custom webhook token propagates to incus workstation and gitops
+    values:
+      provider: incus
+      workstation:
+        runtime: colima
+      gitops:
+        webhook:
+          token: mysecrettoken
+      dns: *default-dns
+      ingress: *ingress-disabled
+      network: *default-network
+      cluster:
+        driver: talos
+        controlplanes:
+          nodes:
+            controlplane-1: *cp1-node
+        workers:
+          count: 1
+          volumes:
+            - /var/mnt/local
+          nodes:
+            worker-1:
+              endpoint: 10.5.0.20:50000
+              node: 10.5.0.20
+              hostname: worker-1
+    terraformOutputs:
+      compute:
+        controlplanes:
+          - endpoint: 10.5.0.10:6443
+            node: 10.5.0.10
+            hostname: controlplane-1
+        workers:
+          - endpoint: 10.5.0.20:50000
+            node: 10.5.0.20
+            hostname: worker-1
+    expect:
+      terraform:
+        - name: workstation
+          path: workstation/incus
+          inputs:
+            webhook_token: mysecrettoken
+        - name: gitops
+          path: gitops/flux
+          inputs:
+            webhook_token: mysecrettoken
+
+  # Edge: gitops webhook settings are top-level and propagate to both gitops/flux and workstation modules.
+  - name: gitops webhook feature flag disables receiver component
+    values:
+      provider: docker
+      workstation:
+        runtime: docker-desktop
+      gitops:
+        repository:
+          name: flux-primary
+        webhook:
+          enabled: false
+      dns: *default-dns
+      ingress: *ingress-disabled
+      network: *default-network
+      cluster: *default-cluster
+    terraformOutputs: *default-terraform-outputs
+    expect:
+      terraform:
+        - name: workstation
+          path: workstation/docker
+          inputs:
+            webhook_enabled: false
+        - name: gitops
+          path: gitops/flux
+          destroy: false
+    exclude:
+      kustomize:
+        - name: gitops
+          path: gitops/flux
