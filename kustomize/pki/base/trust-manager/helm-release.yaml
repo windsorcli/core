@@ -14,7 +14,7 @@ spec:
     spec:
       chart: trust-manager
       # renovate: datasource=helm depName=trust-manager package=trust-manager helmRepo=https://charts.jetstack.io
-      version: 0.20.3
+      version: 0.22.0
       sourceRef: 
         kind: HelmRepository
         name: jetstack
@@ -22,7 +22,7 @@ spec:
   values:
     image:
       # renovate: datasource=docker depName=quay.io/jetstack/trust-manager package=quay.io/jetstack/trust-manager
-      tag: v0.20.3@sha256:7047bcd17f31fd381d6a6866ed991d1a21b7a4d8832cb4b11b2cdb342ffc02dd
+      tag: v0.22.0@sha256:16f8ad469b944f1b060d5fc2d391672d76ac0b11717d4af27f7dc0e7cf145066
     defaultPackageImage:
       # renovate: datasource=docker depName=quay.io/jetstack/trust-pkg-debian-bookworm package=quay.io/jetstack/trust-pkg-debian-bookworm
       tag: 20230311-deb12u1.2@sha256:f9a6f14926da740c2831a738393f061b22594ec5d47ff55f68b1f59cfb9bf543

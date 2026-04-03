@@ -58,17 +58,17 @@ resource "helm_release" "flux_system" {
     imageAutomationController = {
       image = "ghcr.io/fluxcd/image-automation-controller"
       # renovate: datasource=docker depName=ghcr.io/fluxcd/image-automation-controller package=ghcr.io/fluxcd/image-automation-controller
-      tag = "v1.0.2@sha256:a28eccd31409191131377ecf888a168c59e9a72578e71139b81b146d813c8335"
+      tag = "v1.1.1@sha256:43617c9fbb4cf32aed7458647f62589575237ccb810f45bd7cb31f24126d4f22"
     }
     imageReflectionController = {
       image = "ghcr.io/fluxcd/image-reflector-controller"
       # renovate: datasource=docker depName=ghcr.io/fluxcd/image-reflector-controller package=ghcr.io/fluxcd/image-reflector-controller
-      tag = "v1.0.2@sha256:a2dba78aa10c1a3905652f6cea39c4fc9c9688755e63dc1f38a0a0306bda54ce"
+      tag = "v1.1.1@sha256:4c12c4046dee6e32e11b7c6afeaf7910406b67ff0182d46eeedb128d367908cd"
     }
     kustomizeController = {
       image = "ghcr.io/fluxcd/kustomize-controller"
       # renovate: datasource=docker depName=ghcr.io/fluxcd/kustomize-controller package=ghcr.io/fluxcd/kustomize-controller
-      tag = "v1.7.1@sha256:2b51e7a48594263ece5d86636a9b95381b19fc3091e7341a88802f4557b35a53"
+      tag = "v1.8.2@sha256:c480b89e26e42f6c112a4f683244a7979de3a2ca299bed7d5367ddf4fed706f0"
       container = {
         additionalArgs = [
           "--concurrent=${var.concurrency}",
@@ -95,12 +95,12 @@ resource "helm_release" "flux_system" {
     notificationController = {
       image = "ghcr.io/fluxcd/notification-controller"
       # renovate: datasource=docker depName=ghcr.io/fluxcd/notification-controller package=ghcr.io/fluxcd/notification-controller
-      tag = "v1.7.3@sha256:55813e89e49509e5a312682759b7a4d5235ecc2e13a1eb70f917faf769596b07"
+      tag = "v1.8.2@sha256:87806dc20caff40b37280ea3155cc9ef3e995402997c49a8f9f9c6bff57e1499"
     }
     sourceController = {
       image = "ghcr.io/fluxcd/source-controller"
       # renovate: datasource=docker depName=ghcr.io/fluxcd/source-controller package=ghcr.io/fluxcd/source-controller
-      tag = "v1.7.2@sha256:030e258b636fede22a41bcaea3ea4542035cc280b0c740f641c4c5efb904b980"
+      tag = "v1.8.1@sha256:7382d002cffeed2d877331353f95797e89c0aa7ecb432e661eeeda3e590b3293"
       container = {
         additionalArgs = [
           "--concurrent=${var.concurrency}",

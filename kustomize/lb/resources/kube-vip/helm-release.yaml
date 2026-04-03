@@ -19,6 +19,6 @@ spec:
     image:
       repository: ghcr.io/kube-vip/kube-vip
       # renovate: datasource=docker depName=ghcr.io/kube-vip/kube-vip package=ghcr.io/kube-vip/kube-vip
-      tag: v1.0.3@sha256:4e2791cc0238ae01b3986d827f4d568a25d846c94bab51238fe6241281a27113
+      tag: v1.1.2@sha256:840305b94ef2a89abb3b7fd2b09edfbde690d90052020da4dff90679fe892da2
     env:
       svc_enable: "true"
