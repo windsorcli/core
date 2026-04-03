@@ -2,9 +2,11 @@ kind: Facet
 apiVersion: blueprints.windsorcli.dev/v1alpha1
 metadata:
   name: ingress
-  description: "Configurable ingress controller"
+  description: "Legacy ingress controller compatibility facet"
 
-when: ingress.enabled == true && ingress.driver == 'nginx'
+# Legacy-only path: keep this facet available for explicit compatibility mode,
+# but avoid deploying nginx ingress alongside the canonical gateway facet.
+when: ingress.enabled == true && ingress.driver == 'nginx' && gateway.enabled == false
 
 kustomize:
 

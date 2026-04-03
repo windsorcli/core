@@ -4,14 +4,20 @@ metadata:
   name: observability
   description: Observability stack with metrics backends, log storage drivers, and dashboarding
 
-when: addons.observability.enabled == true || dev == true
+when: addons.observability.enabled == true
+
+config:
+- name: observability_effective
+  value:
+    dashboards: "${addons.observability.dashboards ?? 'grafana'}"
+    logs_driver: "${addons.observability.logs_driver}"
 
 kustomize:
 
 # Grafana dashboards (self-hosted Grafana, typically used with prometheus metrics)
 - name: observability
   path: observability
-  when: (addons.observability.dashboards ?? 'grafana') == 'grafana'
+  when: observability_effective.dashboards == 'grafana'
   dependsOn:
     - telemetry-base
   timeout: 15m
@@ -35,19 +41,30 @@ kustomize:
     date_interval_hour: "${time_format == '12h' ? 'MMM DD hh:mm a' : 'MM/DD HH:mm'}"
     date_interval_day: "${time_format == '12h' ? 'MMM DD' : 'MM/DD'}"
 
-# Grafana ingress (only when ingress is enabled)
+# Grafana route via nginx-backed gateway-resources (path: ingress)
 - name: observability
   path: observability
-  when: (addons.observability.dashboards ?? 'grafana') == 'grafana' && ingress.enabled == true
+  when: observability_effective.dashboards == 'grafana' && gateway_effective.enabled == true && gateway_effective.driver == 'nginx'
   dependsOn:
-    - ingress
+    - gateway-resources
   components:
     - grafana/ingress
+
+# Grafana route via Envoy Gateway API resources
+- name: observability
+  path: observability
+  when: observability_effective.dashboards == 'grafana' && gateway_effective.enabled == true && gateway_effective.driver == 'envoy'
+  dependsOn:
+    - gateway-resources
+  components:
+    - grafana/gateway
+  substitutions:
+    external_domain: ${dns.private_domain}
 
 # FluentD stdout output
 - name: observability
   path: observability
-  when: addons.observability.logs_driver == 'stdout'
+  when: observability_effective.logs_driver == 'stdout'
   dependsOn:
     - telemetry-resources
   components:
@@ -56,7 +73,7 @@ kustomize:
 # Quickwit log storage
 - name: observability
   path: observability
-  when: addons.observability.logs_driver == 'quickwit'
+  when: observability_effective.logs_driver == 'quickwit'
   dependsOn:
     - csi
     - telemetry-resources
@@ -68,24 +85,24 @@ kustomize:
     - "${(addons.observability.dashboards ?? 'grafana') == 'grafana' ? 'grafana/quickwit' : ''}"
     - "${(addons.observability.dashboards ?? 'grafana') == 'grafana' ? 'grafana/dashboards/logs/quickwit' : ''}"
 
-# Elasticsearch + Kibana
+# Elasticsearch + Kibana route via active gateway driver
 - name: observability
   path: observability
-  when: addons.observability.logs_driver == 'elasticsearch'
+  when: observability_effective.logs_driver == 'elasticsearch' && gateway_effective.enabled == true
   dependsOn:
     - csi
-    - ingress
+    - gateway-resources
   components:
     - elasticsearch
     - kibana
-    - kibana/ingress
+    - "${gateway_effective.driver == 'envoy' ? 'kibana/gateway' : 'kibana/ingress'}"
   substitutions:
     external_domain: ${dns.private_domain}
 
 # Elasticsearch telemetry (filebeat driver)
 - name: telemetry-base
   path: telemetry/base
-  when: addons.observability.logs_driver == 'elasticsearch'
+  when: observability_effective.logs_driver == 'elasticsearch'
   timeout: 30m
   interval: 10m
   strategy: replace
@@ -96,7 +113,7 @@ kustomize:
 
 - name: telemetry-resources
   path: telemetry/resources
-  when: addons.observability.logs_driver == 'elasticsearch'
+  when: observability_effective.logs_driver == 'elasticsearch'
   timeout: 10m
   interval: 5m
   strategy: replace

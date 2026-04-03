@@ -162,7 +162,7 @@ cases:
           path: observability
           dependsOn:
             - csi
-            - ingress
+            - gateway-resources
           components:
             - elasticsearch
             - kibana
@@ -230,8 +230,8 @@ cases:
           components:
             - fluentd/outputs/stdout
 
-  # Edge case: Elasticsearch without ingress fails
-  - name: fails when elasticsearch selected without ingress
+  # Edge case: Elasticsearch without nginx ingress skips ELK ingress components
+  - name: excludes elasticsearch observability when ingress is disabled
     values:
       provider: metal
       workstation:
@@ -243,4 +243,48 @@ cases:
         observability:
           enabled: true
           logs_driver: elasticsearch
-    expectError: true
+    expect:
+      kustomize:
+        - name: telemetry-base
+          path: telemetry/base
+          strategy: replace
+          components:
+            - prometheus
+            - prometheus/flux
+            - filebeat
+        - name: telemetry-resources
+          path: telemetry/resources
+          strategy: replace
+          dependsOn:
+            - telemetry-base
+          components:
+            - metrics-server
+            - prometheus
+            - prometheus/flux
+
+  # Edge: Envoy gateway mode uses Gateway API route components for Grafana and Kibana.
+  - name: elasticsearch observability with envoy uses gateway routes
+    values:
+      provider: metal
+      gateway:
+        enabled: true
+        driver: envoy
+      dns:
+        domain: envoy-observability.example.com
+      network: *default-network
+      cluster: *default-cluster
+      addons:
+        observability:
+          enabled: true
+          logs_driver: elasticsearch
+    expect:
+      kustomize:
+        - name: observability
+          path: observability
+          dependsOn:
+            - csi
+            - gateway-resources
+          components:
+            - grafana/gateway
+            - kibana/gateway
+

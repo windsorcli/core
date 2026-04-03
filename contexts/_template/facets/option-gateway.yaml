@@ -1,0 +1,56 @@
+kind: Facet
+apiVersion: blueprints.windsorcli.dev/v1alpha1
+metadata:
+  name: gateway
+  description: Configurable cluster traffic entrypoint
+
+config:
+- name: gateway_effective
+  value:
+    enabled: ${gateway.enabled ?? ingress.enabled ?? true}
+    driver: "${gateway.driver ?? (ingress.driver == 'envoy-gateway' ? 'envoy' : ingress.driver) ?? 'nginx'}"
+
+kustomize:
+
+# Canonical kustomization name for traffic entrypoint resources across both drivers.
+# For nginx mode this points at the legacy ingress path so dependent facets can always
+# depend on "gateway-resources" without branching on implementation details.
+- name: gateway-resources
+  path: ingress
+  when: gateway_effective.enabled == true && gateway_effective.driver == 'nginx'
+  dependsOn:
+    - pki-base
+  components:
+    - nginx
+    - "${(workstation.runtime ?? (platform == 'docker' ? 'docker-desktop' : '')) == 'docker-desktop' ? 'nginx/nodeport' : 'nginx/loadbalancer'}"
+    - "${((addons.private_dns.enabled ?? (dev == true)) == true) ? 'nginx/coredns' : ''}"
+    - nginx/web
+    - nginx/prometheus
+  timeout: 10m
+  interval: 5m
+
+- name: gateway-base
+  path: gateway/base
+  when: gateway_effective.enabled == true && gateway_effective.driver == 'envoy'
+  dependsOn:
+    - pki-base
+  timeout: 10m
+  interval: 5m
+
+# Envoy mode uses the same canonical "gateway-resources" name as nginx mode.
+- name: gateway-resources
+  path: gateway/resources
+  when: gateway_effective.enabled == true && gateway_effective.driver == 'envoy'
+  dependsOn:
+    - gateway-base
+  components:
+    - envoy
+    - envoy/web
+    - "${(workstation.runtime ?? (platform == 'docker' ? 'docker-desktop' : '')) == 'docker-desktop' ? 'envoy/nodeport' : 'envoy/loadbalancer'}"
+    - "${((addons.private_dns.enabled ?? (dev == true)) == true) ? 'envoy/coredns' : ''}"
+    - envoy/flux-webhook
+    - envoy/prometheus
+  substitutions:
+    external_domain: ${dns.private_domain}
+  timeout: 10m
+  interval: 5m

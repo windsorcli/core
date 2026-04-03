@@ -35,7 +35,7 @@ cases:
           enabled: true
     expect:
       kustomize:
-        - name: ingress
+        - name: gateway-resources
           dependsOn:
             - pki-base
           components:
@@ -53,4 +53,4 @@ cases:
         driver: nginx
     exclude:
       kustomize:
-        - name: ingress
+        - name: gateway-resources

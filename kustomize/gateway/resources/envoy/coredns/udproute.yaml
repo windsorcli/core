@@ -1,0 +1,14 @@
+apiVersion: gateway.networking.k8s.io/v1alpha2
+kind: UDPRoute
+metadata:
+  name: coredns
+  namespace: system-dns
+spec:
+  parentRefs:
+    - name: edge
+      namespace: system-gateway
+      sectionName: dns-udp
+  rules:
+    - backendRefs:
+        - name: coredns
+          port: 53

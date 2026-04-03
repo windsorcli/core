@@ -109,7 +109,7 @@ cases:
             - aws-ebs
           timeout: 5m
           interval: 5m
-        - name: ingress
+        - name: gateway-resources
           path: ingress
           dependsOn:
             - pki-base
@@ -129,4 +129,4 @@ cases:
         driver: nginx
     exclude:
       kustomize:
-        - name: ingress
+        - name: gateway-resources

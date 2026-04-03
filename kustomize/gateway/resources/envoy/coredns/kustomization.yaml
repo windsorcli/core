@@ -1,0 +1,13 @@
+apiVersion: kustomize.config.k8s.io/v1alpha1
+kind: Component
+resources:
+  - tcproute.yaml
+  - udproute.yaml
+patches:
+  - target:
+      group: gateway.networking.k8s.io
+      version: v1
+      kind: Gateway
+      name: edge
+      namespace: system-gateway
+    path: patches/gateway.yaml
