@@ -100,7 +100,7 @@ terraform:
       ))}
     git_username: ${workstation.git.username ?? "local"}
     git_password: ${workstation.git.password ?? "local"}
-    webhook_token: ${workstation.git.webhook_token ?? "abcdef123456"}
+    webhook_token: ${gitops.webhook.token ?? "abcdef123456"}
 
 # Workstation stack for docker-desktop: DNS, registries, git livereload. No loadbalancer; DNS forwards to
 # first node. Use container port 30053 (not host 8053) so the DNS container on the same network can reach the node.
@@ -113,12 +113,12 @@ terraform:
     domain_name: ${dns.private_domain}
     network_name: windsor-${context}
     network_cidr: ${network.cidr_block}
-    dns_forward_target: "${cidrhost(network.cidr_block, 10) + \":30053\"}"
-    webhook_host: "${cidrhost(network.cidr_block, 10)}"
+    dns_forward_target: "${cidrhost(network.cidr_block, 4 + len(workstation_registries.registries ?? {})) + \":30053\"}"
+    webhook_host: "${cidrhost(network.cidr_block, 4 + len(workstation_registries.registries ?? {}))}"
     webhook_port: 30292
     webhook_enabled: ${gitops.webhook.enabled ?? true}
-    webhook_token: ${workstation.git.webhook_token ?? "abcdef123456"}
-    primary_node_ip: "${cidrhost(network.cidr_block, 10)}"
+    webhook_token: ${gitops.webhook.token ?? "abcdef123456"}
+    primary_node_ip: "${cidrhost(network.cidr_block, 4 + len(workstation_registries.registries ?? {}))}"
     enable_dns: ${workstation.services.dns ?? true}
     enable_git: ${workstation.services.git ?? true}
     registries: ${workstation_registries.registries ?? {}}
@@ -138,7 +138,7 @@ terraform:
     webhook_host: ${network.loadbalancer_ips.start}
     webhook_port: 9292
     webhook_enabled: ${gitops.webhook.enabled ?? true}
-    webhook_token: ${workstation.git.webhook_token ?? "abcdef123456"}
+    webhook_token: ${gitops.webhook.token ?? "abcdef123456"}
     primary_node_ip: ${network.loadbalancer_ips.start}
     enable_dns: ${workstation.services.dns ?? true}
     enable_git: ${workstation.services.git ?? true}
@@ -162,7 +162,7 @@ terraform:
     enable_dns: ${workstation.services.dns ?? true}
     enable_git: ${workstation.services.git ?? true}
     registries: ${workstation_registries.registries ?? {}}
-    webhook_token: ${workstation.git.webhook_token ?? "abcdef123456"}
+    webhook_token: ${gitops.webhook.token ?? "abcdef123456"}
     git_username: ${workstation.git.username ?? "local"}
     git_password: ${workstation.git.password ?? "local"}
 
