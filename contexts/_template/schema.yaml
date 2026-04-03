@@ -507,6 +507,19 @@ properties:
             description: Create registry proxy containers (from docker.registries when true)
         additionalProperties: false
         description: Toggle workstation services
+      git:
+        type: object
+        properties:
+          username:
+            type: string
+            default: local
+            description: Username for git livereload HTTP auth
+          password:
+            type: string
+            default: local
+            description: Password for git livereload HTTP auth
+        additionalProperties: false
+        description: Git livereload credentials
     additionalProperties: false
 
   # Optional addons
