@@ -24,6 +24,33 @@ x-defaults:
         - /var/mnt/local
 
 cases:
+  # Minimal: zero-config defaults to envoy (schema default: envoy)
+  - name: zero config defaults to envoy gateway
+    values:
+      provider: metal
+      network: *default-network
+      cluster: *default-cluster
+    expect:
+      kustomize:
+        - name: gateway-base
+          path: gateway/base
+          dependsOn:
+            - pki-base
+          timeout: 10m
+          interval: 5m
+        - name: gateway-resources
+          path: gateway/resources
+          dependsOn:
+            - gateway-base
+          components:
+            - envoy
+            - envoy/web
+            - envoy/loadbalancer
+            - envoy/flux-webhook
+            - envoy/prometheus
+          timeout: 10m
+          interval: 5m
+
   # Minimal: Standard nginx gateway without coredns
   - name: standard nginx gateway without coredns
     values:
