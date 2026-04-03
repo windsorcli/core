@@ -8,3 +8,4 @@ spec:
   values:
     sources:
       - ingress
+      - gateway-httproute

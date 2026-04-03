@@ -1,0 +1,47 @@
+---
+apiVersion: helm.toolkit.fluxcd.io/v2
+kind: HelmRelease
+metadata:
+  name: envoy-gateway
+  namespace: system-gateway
+spec:
+  values:
+    config:
+      envoyGateway:
+        envoyProxy:
+          provider:
+            type: Kubernetes
+            kubernetes:
+              envoyService:
+                patch:
+                  type: JSONMerge
+                  value:
+                    spec:
+                      type: NodePort
+                      externalTrafficPolicy: Local
+                      ports:
+                        - name: http-80
+                          protocol: TCP
+                          port: 80
+                          targetPort: 10080
+                          nodePort: 30080
+                        - name: https-443
+                          protocol: TCP
+                          port: 443
+                          targetPort: 10443
+                          nodePort: 30443
+                        - name: udp-53
+                          protocol: UDP
+                          port: 53
+                          targetPort: 10053
+                          nodePort: 30053
+                        - name: tcp-53
+                          protocol: TCP
+                          port: 53
+                          targetPort: 10053
+                          nodePort: 30053
+                        - name: tcp-9292
+                          protocol: TCP
+                          port: 9292
+                          targetPort: 9292
+                          nodePort: 30292

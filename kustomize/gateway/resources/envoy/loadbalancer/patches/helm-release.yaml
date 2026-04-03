@@ -1,0 +1,21 @@
+---
+apiVersion: helm.toolkit.fluxcd.io/v2
+kind: HelmRelease
+metadata:
+  name: envoy-gateway
+  namespace: system-gateway
+spec:
+  values:
+    config:
+      envoyGateway:
+        envoyProxy:
+          provider:
+            type: Kubernetes
+            kubernetes:
+              envoyService:
+                patch:
+                  type: StrategicMerge
+                  value:
+                    spec:
+                      type: LoadBalancer
+                      loadBalancerIP: ${loadbalancer_ip_start}

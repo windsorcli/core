@@ -77,11 +77,31 @@ cases:
             - external-dns/coredns
             - external-dns/ingress
             - external-dns/localhost
-        - name: ingress
+
+  # Edge: Envoy gateway path still uses the same external-dns component wiring.
+  - name: private dns works with envoy gateway mode
+    values:
+      provider: metal
+      gateway:
+        enabled: true
+        driver: envoy
+      network: *default-network
+      cluster: *default-cluster
+      addons:
+        private_dns:
+          enabled: true
+    expect:
+      kustomize:
+        - name: dns
+          path: dns
           dependsOn:
             - pki-base
           components:
-            - nginx/coredns
+            - coredns
+            - coredns/etcd
+            - external-dns
+            - external-dns/coredns
+            - external-dns/ingress
 
   # Edge case: Addon disabled
   - name: excludes DNS when addon disabled

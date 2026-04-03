@@ -51,7 +51,6 @@ cases:
           interval: 5m
           dependsOn:
             - csi
-            - ingress
           components:
             - minio
 
@@ -68,8 +67,8 @@ cases:
       kustomize:
         - name: object-store-base
 
-  # Edge case: MinIO without ingress fails
-  - name: fails when MinIO enabled without ingress
+  # Edge case: MinIO does not require ingress/gateway resources for base deployment
+  - name: creates MinIO when enabled without ingress
     values:
       provider: metal
       workstation:
@@ -81,4 +80,11 @@ cases:
         object_store:
           enabled: true
           driver: minio
-    expectError: true
+    expect:
+      kustomize:
+        - name: object-store-base
+          path: object-store/base
+          dependsOn:
+            - csi
+          components:
+            - minio

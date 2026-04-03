@@ -1,4 +1,6 @@
 apiVersion: kustomize.config.k8s.io/v1alpha1
 kind: Component
+# Historical component name; patch configures external-dns sources for both
+# Kubernetes Ingress and Gateway API HTTPRoute.
 patches:
   - path: patches/helm-release.yaml

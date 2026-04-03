@@ -4,14 +4,14 @@ metadata:
   name: database
   description: PostgreSQL database service with CloudNativePG
 
-when: addons.database.postgres.enabled == true || dev == true
+when: addons.database.postgres.enabled == true
 
 kustomize:
 
 # CloudNativePG operator base
 - name: database
   path: database
-  when: addons.database.postgres.driver == 'cloudnativepg' || dev == true
+  when: addons.database.postgres.driver == 'cloudnativepg'
   timeout: 15m
   interval: 10m
   dependsOn:
@@ -24,7 +24,7 @@ kustomize:
 # CloudNativePG Grafana dashboard
 - name: observability
   path: observability
-  when: (addons.database.postgres.driver == 'cloudnativepg' && addons.observability.enabled == true) || dev == true
+  when: addons.database.postgres.driver == 'cloudnativepg' && addons.observability.enabled == true
   dependsOn:
     - telemetry-base
   components:

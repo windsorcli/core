@@ -6,6 +6,21 @@ metadata:
 
 when: dev == true
 
+config:
+# In dev mode, auto-enable common addons unless explicitly disabled.
+- name: addons
+  value:
+    private_ca:
+      enabled: ${addons.private_ca.enabled != false}
+    private_dns:
+      enabled: ${addons.private_dns.enabled != false}
+    observability:
+      enabled: ${addons.observability.enabled != false}
+    database:
+      postgres:
+        enabled: ${addons.database.postgres.enabled != false}
+        driver: "${addons.database.postgres.driver ?? 'cloudnativepg'}"
+
 kustomize:
 
 # PKI resources for development (selfsigned issuer)
