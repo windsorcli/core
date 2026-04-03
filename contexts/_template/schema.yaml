@@ -385,6 +385,27 @@ properties:
         description: Private DNS zone (e.g. in-cluster CoreDNS, workstation resolver)
     additionalProperties: false
 
+  # GitOps configuration
+  gitops:
+    type: object
+    properties:
+      repository:
+        type: object
+        properties:
+          name:
+            type: string
+            default: local
+            description: Flux GitRepository name used as the primary source for reconciliations
+        additionalProperties: false
+      webhook:
+        type: object
+        properties:
+          enabled:
+            type: boolean
+            default: true
+            description: Enable webhook-triggered Flux source reconciliation
+        additionalProperties: false
+    additionalProperties: false
   # Ingress configuration
   ingress:
     type: object

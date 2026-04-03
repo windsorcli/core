@@ -113,9 +113,12 @@ terraform:
     domain_name: ${dns.private_domain}
     network_name: windsor-${context}
     network_cidr: ${network.cidr_block}
-    dns_forward_target: "${cidrhost(network.cidr_block, 4 + len(workstation_registries.registries ?? {})) + \":30053\"}"
-    webhook_host: "${cidrhost(network.cidr_block, 4 + len(workstation_registries.registries ?? {}))}"
-    primary_node_ip: "${cidrhost(network.cidr_block, 4 + len(workstation_registries.registries ?? {}))}"
+    dns_forward_target: "${cidrhost(network.cidr_block, 10) + \":30053\"}"
+    webhook_host: "${cidrhost(network.cidr_block, 10)}"
+    webhook_port: 30292
+    webhook_enabled: ${gitops.webhook.enabled ?? true}
+    webhook_token: ${git.livereload.webhook_token ?? "abcdef123456"}
+    primary_node_ip: "${cidrhost(network.cidr_block, 10)}"
     enable_dns: ${workstation.services.dns ?? true}
     enable_git: ${workstation.services.git ?? true}
     registries: ${workstation_registries.registries ?? {}}
@@ -133,6 +136,8 @@ terraform:
     network_cidr: ${network.cidr_block}
     dns_forward_target: ${network.loadbalancer_ips.start}
     webhook_host: ${network.loadbalancer_ips.start}
+    webhook_port: 9292
+    webhook_enabled: ${gitops.webhook.enabled ?? true}
     primary_node_ip: ${network.loadbalancer_ips.start}
     enable_dns: ${workstation.services.dns ?? true}
     enable_git: ${workstation.services.git ?? true}
@@ -150,6 +155,8 @@ terraform:
     loadbalancer_start_ip: ${network.loadbalancer_ips.start}
     dns_forward_target: ${network.loadbalancer_ips.start}
     webhook_host: ${network.loadbalancer_ips.start}
+    webhook_port: 9292
+    webhook_enabled: ${gitops.webhook.enabled ?? true}
     primary_node_ip: ${network.loadbalancer_ips.start}
     enable_dns: ${workstation.services.dns ?? true}
     enable_git: ${workstation.services.git ?? true}

@@ -48,6 +48,18 @@ variable "webhook_host" {
   default     = null
 }
 
+variable "webhook_port" {
+  description = "Port for the git livereload webhook URL."
+  type        = number
+  default     = 9292
+}
+
+variable "webhook_enabled" {
+  description = "Enable git livereload webhook notifications."
+  type        = bool
+  default     = true
+}
+
 variable "primary_node_ip" {
   description = "IP of the primary developing node (controlplane or worker) for NodePort webhook. If set and webhook_host is null, used as webhook host."
   type        = string
@@ -103,10 +115,22 @@ variable "registries" {
 }
 
 variable "webhook_token" {
-  description = "Token for the git livereload webhook URL. If not set, a placeholder is used (caller should replace or provide via env)."
+  description = "Raw token for the Flux Receiver secret. The webhook URL is derived by hashing this with the receiver name and namespace."
   type        = string
-  default     = "5dc88e45e809fb0872b749c0969067e2c1fd142e17aed07573fad20553cc0c59"
+  default     = "abcdef123456"
   sensitive   = true
+}
+
+variable "receiver_name" {
+  description = "Name of the Flux Receiver resource used to compute the webhook URL path."
+  type        = string
+  default     = "flux-webhook"
+}
+
+variable "receiver_namespace" {
+  description = "Namespace of the Flux Receiver resource used to compute the webhook URL path."
+  type        = string
+  default     = "system-gitops"
 }
 
 variable "git_username" {

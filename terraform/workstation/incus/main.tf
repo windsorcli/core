@@ -56,7 +56,7 @@ locals {
   loadbalancer_start_ip = coalesce(var.loadbalancer_start_ip, cidrhost(cidrsubnet(var.network_cidr, 8, 1), 1))
   webhook_host_derived  = local.loadbalancer_start_ip
   webhook_host          = coalesce(var.webhook_host, var.primary_node_ip, local.webhook_host_derived)
-  webhook_url           = "http://${local.webhook_host}:9292/hook/${var.webhook_token}"
+  webhook_url           = var.webhook_enabled ? "http://${local.webhook_host}:${var.webhook_port}/hook/${sha256("${var.webhook_token}${var.receiver_name}${var.receiver_namespace}")}" : null
   gateway               = cidrhost(var.network_cidr, 1)
   dns_ip                = cidrhost(var.network_cidr, 2)
   attached_network      = var.create_network ? local.network_name_resolved : var.network_name
@@ -225,15 +225,17 @@ resource "incus_instance" "git" {
   type       = "container"
   # renovate: datasource=github-releases depName=windsorcli/git-livereload
   image = "ghcr:windsorcli/git-livereload:v0.2.1"
-  config = {
-    "environment.GIT_PASSWORD"  = var.git_password
-    "environment.GIT_USERNAME"  = var.git_username
-    "environment.RSYNC_EXCLUDE" = var.git_rsync_exclude
-    "environment.RSYNC_INCLUDE" = var.git_rsync_include
-    "environment.RSYNC_PROTECT" = var.git_rsync_protect
-    "environment.VERIFY_SSL"    = "false"
-    "environment.WEBHOOK_URL"   = local.webhook_url
-  }
+  config = merge(
+    {
+      "environment.GIT_PASSWORD"  = var.git_password
+      "environment.GIT_USERNAME"  = var.git_username
+      "environment.RSYNC_EXCLUDE" = var.git_rsync_exclude
+      "environment.RSYNC_INCLUDE" = var.git_rsync_include
+      "environment.RSYNC_PROTECT" = var.git_rsync_protect
+      "environment.VERIFY_SSL"    = "false"
+    },
+    var.webhook_enabled ? { "environment.WEBHOOK_URL" = local.webhook_url } : {}
+  )
 
   device {
     name = "eth0"

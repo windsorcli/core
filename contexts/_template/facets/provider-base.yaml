@@ -104,3 +104,12 @@ kustomize:
     - "${log_level != 'trace' ? 'fluentd/filters/log-level/' + (log_level ?? 'info') : ''}"
   timeout: 15m
   interval: 10m
+
+# Flux webhook receiver for immediate source reconciliation.
+- name: gitops
+  path: gitops/flux
+  when: (gitops.webhook.enabled ?? true) == true
+  components:
+    - webhook
+  substitutions:
+    git_repository_name: ${gitops.repository.name ?? "local"}

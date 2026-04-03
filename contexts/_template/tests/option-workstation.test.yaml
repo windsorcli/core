@@ -253,7 +253,7 @@ cases:
         - name: workstation
           path: workstation/docker
           inputs:
-            webhook_host: "10.5.0.9"
+            webhook_host: "10.5.0.10"
         - name: cluster
           path: cluster/talos
         - name: gitops
@@ -263,3 +263,33 @@ cases:
       kustomize:
         - name: lb-base
         - name: lb-resources
+
+  # Edge: gitops webhook settings are top-level and propagate to both gitops/flux and workstation modules.
+  - name: gitops webhook feature flag disables receiver component
+    values:
+      provider: docker
+      workstation:
+        runtime: docker-desktop
+      gitops:
+        repository:
+          name: flux-primary
+        webhook:
+          enabled: false
+      dns: *default-dns
+      ingress: *ingress-disabled
+      network: *default-network
+      cluster: *default-cluster
+    terraformOutputs: *default-terraform-outputs
+    expect:
+      terraform:
+        - name: workstation
+          path: workstation/docker
+          inputs:
+            webhook_enabled: false
+        - name: gitops
+          path: gitops/flux
+          destroy: false
+    exclude:
+      kustomize:
+        - name: gitops
+          path: gitops/flux
