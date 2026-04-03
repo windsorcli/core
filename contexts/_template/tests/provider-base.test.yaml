@@ -217,7 +217,7 @@ cases:
           path: observability
           dependsOn:
             - csi
-            - ingress
+            - gateway-resources
           components:
             - elasticsearch
             - kibana

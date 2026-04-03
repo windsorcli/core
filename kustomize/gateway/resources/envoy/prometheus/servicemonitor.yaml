@@ -1,0 +1,18 @@
+---
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: envoy-gateway
+  namespace: system-gateway
+  labels:
+    app.kubernetes.io/name: envoy-gateway
+    release: kube-prometheus-stack
+spec:
+  selector:
+    matchLabels:
+      control-plane: envoy-gateway
+      app.kubernetes.io/name: gateway-helm
+  endpoints:
+    - port: metrics
+      path: /metrics
+      interval: 30s

@@ -442,20 +442,42 @@ properties:
             description: Token for the Flux Receiver secret. Defaults to a placeholder in workstation mode; set explicitly for production.
         additionalProperties: false
     additionalProperties: false
-  # Ingress configuration
-  ingress:
+
+  # Gateway configuration
+  gateway:
     type: object
     properties:
       enabled:
         type: boolean
         default: true
-        description: Enable ingress controller
+        description: Enable cluster traffic entrypoint
       driver:
         type: string
         enum:
           - nginx
+          - envoy
+        default: envoy
+        description: Gateway driver
+    additionalProperties: false
+
+  # Ingress configuration
+  ingress:
+    type: object
+    deprecated: true
+    description: Deprecated. Prefer gateway.enabled and gateway.driver.
+    properties:
+      enabled:
+        type: boolean
+        default: true
+        description: Enable cluster traffic entrypoint
+      driver:
+        type: string
+        enum:
+          - nginx
+          - envoy
+          - envoy-gateway
         default: nginx
-        description: Ingress controller driver
+        description: Legacy gateway driver
     additionalProperties: false
 
   # VM configuration
@@ -563,7 +585,6 @@ properties:
         properties:
           enabled:
             type: boolean
-            default: false
             description: Enable private certificate authority with trust-manager
         additionalProperties: false
       private_dns:
@@ -571,7 +592,6 @@ properties:
         properties:
           enabled:
             type: boolean
-            default: false
             description: Enable self-hosted CoreDNS for private DNS zones
         additionalProperties: false
       observability:
@@ -579,7 +599,6 @@ properties:
         properties:
           enabled:
             type: boolean
-            default: false
             description: Enable observability stack
           metrics_backend:
             type: string
@@ -627,7 +646,6 @@ properties:
             properties:
               enabled:
                 type: boolean
-                default: false
                 description: Enable PostgreSQL database service
               driver:
                 type: string

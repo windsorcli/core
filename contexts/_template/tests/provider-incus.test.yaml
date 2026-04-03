@@ -206,7 +206,7 @@ cases:
             loadbalancer_ip_range: 10.10.1.10-10.10.1.100
           timeout: 5m
           interval: 5m
-        - name: ingress
+        - name: gateway-resources
           path: ingress
           dependsOn:
             - pki-base

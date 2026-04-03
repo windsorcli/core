@@ -16,6 +16,5 @@ kustomize:
     interval: 5m
     dependsOn:
       - csi
-      - ingress
     components:
       - minio
