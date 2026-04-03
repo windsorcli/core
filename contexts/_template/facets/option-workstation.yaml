@@ -83,7 +83,7 @@ config:
       worker_config_patches: ""
 
 terraform:
-# GitOps/flux with livereload credentials and webhook token. Runs when workstation + cluster enabled (depends on cluster).
+# GitOps/flux with git livereload credentials and webhook token. Runs when workstation + cluster enabled (depends on cluster).
 - name: gitops
   when: (cluster.enabled ?? true)
   path: gitops/flux
@@ -98,9 +98,9 @@ terraform:
         floor((cluster.controlplanes.memory ?? 4) / 2),
         10
       ))}
-    git_username: ${git.livereload.username ?? "local"}
-    git_password: ${git.livereload.password ?? "local"}
-    webhook_token: ${git.livereload.webhook_token ?? "abcdef123456"}
+    git_username: ${workstation.git.username ?? "local"}
+    git_password: ${workstation.git.password ?? "local"}
+    webhook_token: ${workstation.git.webhook_token ?? "abcdef123456"}
 
 # Workstation stack for docker-desktop: DNS, registries, git livereload. No loadbalancer; DNS forwards to
 # first node. Use container port 30053 (not host 8053) so the DNS container on the same network can reach the node.
@@ -117,7 +117,7 @@ terraform:
     webhook_host: "${cidrhost(network.cidr_block, 10)}"
     webhook_port: 30292
     webhook_enabled: ${gitops.webhook.enabled ?? true}
-    webhook_token: ${git.livereload.webhook_token ?? "abcdef123456"}
+    webhook_token: ${workstation.git.webhook_token ?? "abcdef123456"}
     primary_node_ip: "${cidrhost(network.cidr_block, 10)}"
     enable_dns: ${workstation.services.dns ?? true}
     enable_git: ${workstation.services.git ?? true}
@@ -138,6 +138,7 @@ terraform:
     webhook_host: ${network.loadbalancer_ips.start}
     webhook_port: 9292
     webhook_enabled: ${gitops.webhook.enabled ?? true}
+    webhook_token: ${workstation.git.webhook_token ?? "abcdef123456"}
     primary_node_ip: ${network.loadbalancer_ips.start}
     enable_dns: ${workstation.services.dns ?? true}
     enable_git: ${workstation.services.git ?? true}
@@ -161,9 +162,9 @@ terraform:
     enable_dns: ${workstation.services.dns ?? true}
     enable_git: ${workstation.services.git ?? true}
     registries: ${workstation_registries.registries ?? {}}
-    webhook_token: ${git.livereload.webhook_token ?? "abcdef123456"}
-    git_username: ${git.livereload.username ?? "local"}
-    git_password: ${git.livereload.password ?? "local"}
+    webhook_token: ${workstation.git.webhook_token ?? "abcdef123456"}
+    git_username: ${workstation.git.username ?? "local"}
+    git_password: ${workstation.git.password ?? "local"}
 
 - name: compute
   when: "platform == 'incus' && (cluster.enabled ?? true)"
@@ -266,14 +267,14 @@ terraform:
         image: ${cluster.controlplanes.image ?? talos.docker_image}
         cpu: ${cluster.controlplanes.cpu ?? 2}
         memory: ${cluster.controlplanes.memory ?? 2}
-        hostports: "${workstation.runtime == \"docker-desktop\" ? (cluster.controlplanes.hostports ?? []) : []}"
+        hostports: "${workstation.runtime == \"docker-desktop\" ? (cluster.controlplanes.hostports ?? [\"8080:30080/tcp\", \"8443:30443/tcp\"]) : []}"
         volumes: ${cluster.controlplanes.volumes ?? []}
       workers:
         count: ${cluster.workers.count ?? 0}
         image: ${cluster.workers.image ?? talos.docker_image}
         cpu: ${cluster.workers.cpu ?? 4}
         memory: ${cluster.workers.memory ?? 4}
-        hostports: "${workstation.runtime == \"docker-desktop\" ? (cluster.workers.hostports ?? []) : []}"
+        hostports: "${workstation.runtime == \"docker-desktop\" ? (cluster.workers.hostports ?? [\"8080:30080/tcp\", \"8443:30443/tcp\"]) : []}"
         volumes: ${cluster.workers.volumes ?? []}
 
 # cluster/talos: run after compute so it gets controlplanes/workers from compute output. Only when docker + workstation.
