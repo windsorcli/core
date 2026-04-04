@@ -43,7 +43,7 @@ spec:
         version: v3.11.0
         image:
           # renovate: datasource=docker depName=quay.io/prometheus/prometheus package=quay.io/prometheus/prometheus
-          tag: v3.9.1@sha256:1f0f50f06acaceb0f5670d2c8a658a599affe7b0d8e78b898c1035653849a702
+          tag: v3.11.0@sha256:131bf4c9d8a0337782ea8b753249f4903afac01379f3cced87ceaf8ca82ab9f3
         ruleSelectorNilUsesHelmValues: false
         serviceMonitorSelectorNilUsesHelmValues: false
         podMonitorSelectorNilUsesHelmValues: false
