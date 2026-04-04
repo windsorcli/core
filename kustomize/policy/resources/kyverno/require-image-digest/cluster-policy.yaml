@@ -13,7 +13,7 @@ metadata:
       and security. Images must be in the format: repository:tag@sha256:digest or
       repository@sha256:digest.
 spec:
-  validationFailureAction: ${require_image_digest_validation_failure_action:=Enforce}
+  validationFailureAction: Enforce
   background: true
   rules:
     - name: validate-containers
@@ -23,7 +23,7 @@ spec:
               kinds:
                 - Pod
               namespaces:
-                - "${require_image_digest_namespace_scope:=system-*}"
+                - "system-*"
           - resources:
               kinds:
                 - Pod

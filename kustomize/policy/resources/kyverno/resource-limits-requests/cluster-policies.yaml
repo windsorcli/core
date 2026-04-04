@@ -3,7 +3,7 @@ kind: ClusterPolicy
 metadata:
   name: resource-limits-requests
 spec:
-  validationFailureAction: ${resource_limits_requests_validation_failure_action:=Enforce}
+  validationFailureAction: Audit
   background: false
   rules:
     - name: check-resource-limits-requests
@@ -13,7 +13,7 @@ spec:
               kinds:
                 - Pod
               namespaces:
-                - "${resource_limits_requests_namespace_scope:=system-*}"
+                - "system-*"
           - resources:
               kinds:
                 - Pod

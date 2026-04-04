@@ -44,13 +44,8 @@ kustomize:
   dependsOn:
     - policy-base
   components:
-    - "${(policies.resource_limits_requests ?? 'auto') != 'disabled' ? 'kyverno/resource-limits-requests' : ''}"
-    - "${(policies.require_image_digest ?? 'auto') != 'disabled' ? 'kyverno/require-image-digest' : ''}"
-  substitutions:
-    require_image_digest_validation_failure_action: "${(policies.require_image_digest ?? 'auto') == 'enforce' ? 'Enforce' : ((policies.require_image_digest ?? 'auto') == 'audit' ? 'Audit' : ((policies.level ?? 'baseline') == 'permissive' ? 'Audit' : 'Enforce'))}"
-    resource_limits_requests_validation_failure_action: "${(policies.resource_limits_requests ?? 'auto') == 'enforce' ? 'Enforce' : ((policies.resource_limits_requests ?? 'auto') == 'audit' ? 'Audit' : ((policies.level ?? 'baseline') == 'permissive' ? 'Audit' : 'Enforce'))}"
-    require_image_digest_namespace_scope: "${(policies.level ?? 'baseline') == 'baseline' ? 'system-*' : '*'}"
-    resource_limits_requests_namespace_scope: "${(policies.level ?? 'baseline') == 'baseline' ? 'system-*' : '*'}"
+    - "${(policies.resource_limits_requests ?? 'enabled') != 'disabled' ? 'kyverno/resource-limits-requests' : ''}"
+    - "${(policies.require_image_digest ?? 'enabled') != 'disabled' ? 'kyverno/require-image-digest' : ''}"
   timeout: 5m
   interval: 5m
 
