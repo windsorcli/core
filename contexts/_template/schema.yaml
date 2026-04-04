@@ -222,6 +222,26 @@ properties:
         additionalProperties: false
     additionalProperties: false
 
+  policies:
+    type: object
+    description: Policy configuration
+    properties:
+      require_image_digest:
+        type: string
+        enum:
+          - enabled
+          - disabled
+        default: enabled
+        description: Enable or disable the require-image-digest policy
+      resource_limits_requests:
+        type: string
+        enum:
+          - enabled
+          - disabled
+        default: enabled
+        description: Enable or disable the resource limits/requests policy
+    additionalProperties: false
+
   docker:
     type: object
     properties:

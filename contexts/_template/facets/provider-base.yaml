@@ -44,8 +44,8 @@ kustomize:
   dependsOn:
     - policy-base
   components:
-    - kyverno/audit-resource-limits-requests
-    - kyverno/require-image-digest
+    - "${(policies.resource_limits_requests ?? 'enabled') != 'disabled' ? 'kyverno/resource-limits-requests' : ''}"
+    - "${(policies.require_image_digest ?? 'enabled') != 'disabled' ? 'kyverno/require-image-digest' : ''}"
   timeout: 5m
   interval: 5m
 

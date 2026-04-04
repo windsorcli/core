@@ -1,16 +1,33 @@
 apiVersion: kyverno.io/v1
 kind: ClusterPolicy
 metadata:
-  name: audit-resource-limits-requests
+  name: resource-limits-requests
 spec:
-  validationFailureAction: audit
+  validationFailureAction: Audit
   background: false
   rules:
     - name: check-resource-limits-requests
       match:
-        resources:
-          kinds:
-            - Pod
+        any:
+          - resources:
+              kinds:
+                - Pod
+              namespaces:
+                - "system-*"
+          - resources:
+              kinds:
+                - Pod
+              namespaceSelector:
+                matchLabels:
+                  policy.windsorcli.dev/managed: "true"
+      exclude:
+        any:
+          - resources:
+              kinds:
+                - Pod
+              namespaceSelector:
+                matchLabels:
+                  policy.windsorcli.dev/managed: "false"
       preconditions:
         all:
           - key: "{{request.namespace}}"
@@ -27,3 +44,4 @@ spec:
                       cpu: "?*"
                     limits:
                       memory: "?*"
+
