@@ -115,9 +115,6 @@ locals {
             pool   = disk.pool
             source = disk.source
           },
-          disk.size != null ? {
-            size = disk.size
-          } : {},
           disk.path != null ? {
             path = disk.path
           } : {},

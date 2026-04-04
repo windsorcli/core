@@ -1,0 +1,22 @@
+---
+apiVersion: helm.toolkit.fluxcd.io/v2
+kind: HelmRelease
+metadata:
+  name: openebs
+  namespace: system-csi
+spec:
+  values:
+    mayastor:
+      etcd:
+        replicaCount: 3
+        podAntiAffinityPreset: hard
+      nats:
+        cluster:
+          replicas: 3
+        affinity:
+          podAntiAffinity:
+            requiredDuringSchedulingIgnoredDuringExecution:
+              - labelSelector:
+                  matchLabels:
+                    app.kubernetes.io/name: nats
+                topologyKey: kubernetes.io/hostname

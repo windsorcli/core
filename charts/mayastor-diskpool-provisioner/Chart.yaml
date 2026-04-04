@@ -1,0 +1,18 @@
+apiVersion: v2
+name: mayastor-diskpool-provisioner
+description: A Helm chart that creates DiskPool resources for Mayastor
+type: application
+version: 0.1.0
+appVersion: "1.0.0"
+maintainers:
+  - name: Windsor CLI Team
+    url: https://windsorcli.github.io
+keywords:
+  - storage
+  - mayastor
+  - openebs
+  - diskpool
+home: https://github.com/windsorcli/core
+sources:
+  - https://github.com/windsorcli/core
+kubeVersion: ">=1.24.0-0"

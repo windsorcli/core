@@ -237,6 +237,139 @@ cases:
                   config: {}
                   mirrors: {}
 
+  # Incus workstation + Mayastor: data pool enabled and node-specific worker disks are passed to compute.
+  - name: incus workstation mayastor enables data pool and per-node worker disks
+    values:
+      provider: incus
+      workstation:
+        runtime: colima
+      dns: *default-dns
+      ingress: *ingress-disabled
+      network: *default-network
+      cluster:
+        driver: talos
+        storage:
+          default_storage_backend: mayastor
+        controlplanes:
+          nodes:
+            controlplane-1:
+              endpoint: 10.5.0.10:50000
+              node: 10.5.0.10
+              hostname: controlplane-1
+        workers:
+          count: 1
+          disks:
+            - name: worker-fallback
+              size: 20
+              type: data
+              device: /dev/vdz
+          nodes:
+            worker-1:
+              endpoint: 10.5.0.20:50000
+              node: 10.5.0.20
+              hostname: worker-1
+              disks:
+                - name: worker-1-data
+                  size: 40
+                  type: data
+                  device: /dev/vdb
+    terraformOutputs:
+      compute:
+        controlplanes:
+          - endpoint: 10.5.0.10:6443
+            node: 10.5.0.10
+            hostname: controlplane-1
+        workers:
+          - endpoint: 10.5.0.20:50000
+            node: 10.5.0.20
+            hostname: worker-1
+    expect:
+      terraform:
+        - name: compute
+          path: compute/incus
+          inputs:
+            storage_pools:
+              data:
+                driver: lvm
+                size: 60GB
+            instances:
+              - role: controlplane
+                count: 1
+              - role: worker
+                count: 1
+                config:
+                  user.hostname: worker-1
+                disks:
+                  - name: worker-1-data
+                    size: 40
+                    type: data
+                    device: /dev/vdb
+        - name: cluster
+          path: cluster/talos
+          inputs:
+            worker_config_patches: |-
+              machine:
+                kubelet:
+                  extraArgs:
+                    node-labels: openebs.io/engine=mayastor
+
+  # Guard: if workers.count exceeds available nodes, option-workstation falls back to pooled worker definition.
+  - name: incus workstation worker count mismatch falls back to pooled worker instance
+    values:
+      provider: incus
+      workstation:
+        runtime: colima
+      dns: *default-dns
+      ingress: *ingress-disabled
+      network: *default-network
+      cluster:
+        driver: talos
+        controlplanes:
+          nodes:
+            controlplane-1:
+              endpoint: 10.5.0.10:50000
+              node: 10.5.0.10
+              hostname: controlplane-1
+        workers:
+          count: 2
+          disks:
+            - name: pooled
+              size: 20
+              type: data
+              device: /dev/vdy
+          nodes:
+            worker-1:
+              endpoint: 10.5.0.20:50000
+              node: 10.5.0.20
+              hostname: worker-1
+    terraformOutputs:
+      compute:
+        controlplanes:
+          - endpoint: 10.5.0.10:6443
+            node: 10.5.0.10
+            hostname: controlplane-1
+        workers:
+          - endpoint: 10.5.0.20:50000
+            node: 10.5.0.20
+            hostname: worker-1
+    expect:
+      terraform:
+        - name: compute
+          path: compute/incus
+          inputs:
+            instances:
+              - role: controlplane
+                count: 1
+              - role: worker
+                count: 2
+                config:
+                  user.hostname: worker-1
+                disks:
+                  - name: pooled
+                    size: 20
+                    type: data
+                    device: /dev/vdy
+
   # Edge: docker-desktop — no lb kustomize components. Asserts workstation inputs use 4+len(registries) for IPs.
   - name: docker-desktop workstation has node hostport dns and no lb
     values:

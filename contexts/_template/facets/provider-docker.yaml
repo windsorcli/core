@@ -108,8 +108,8 @@ kustomize:
   dependsOn:
     - policy-resources
   components:
-    - openebs
-    - openebs/dynamic-localpv
+    - "${workstation.runtime == null || workstation.runtime == '' ? 'openebs' : ''}"
+    - "${workstation.runtime == null || workstation.runtime == '' ? 'openebs/dynamic-localpv' : ''}"
   substitutions:
     local_volume_path: ${talos_common.csi_local_volume_path}
   timeout: 20m
