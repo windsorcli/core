@@ -4,4 +4,4 @@
 - op: add
   path: /spec/values/extraArgs
   value:
-    - --leader-election
+    - --enable-leader-election
