@@ -21,6 +21,7 @@ terraform:
     common_config_patches: ${talos_common.common_config_patches}
     controlplane_volumes: ${talos_common.controlplane_volumes ?? []}
     worker_volumes: ${talos_common.worker_volumes ?? []}
+    extensions: ${talos_common.extensions ?? []}
 - name: gitops
   path: gitops/flux
   dependsOn:

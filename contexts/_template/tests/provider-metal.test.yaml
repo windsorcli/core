@@ -267,3 +267,30 @@ cases:
             loadbalancer_ip_range: 192.168.1.100-192.168.1.200
           timeout: 5m
           interval: 5m
+
+  # Edge case: longhorn storage driver passes Talos extensions to cluster/talos module
+  - name: longhorn storage driver passes iscsi and util-linux extensions to cluster terraform
+    values:
+      provider: metal
+      ingress: *ingress-disabled
+      network: *default-network
+      cluster:
+        driver: talos
+        controlplanes:
+          nodes:
+            controlplane-1: *cp1-node
+        workers:
+          count: 1
+          volumes:
+            - /var/mnt/longhorn
+        storage:
+          driver: longhorn
+          local_base_path: /var/mnt/longhorn
+    expect:
+      terraform:
+        - name: cluster
+          path: cluster/talos
+          inputs:
+            extensions:
+              - siderolabs/iscsi-tools
+              - siderolabs/util-linux-tools
