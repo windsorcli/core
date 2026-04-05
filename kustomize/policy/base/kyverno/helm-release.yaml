@@ -20,7 +20,7 @@ spec:
       migration:
         image:
           # renovate: datasource=docker depName=reg.kyverno.io/kyverno/kyverno-cli package=reg.kyverno.io/kyverno/kyverno-cli
-          tag: v1.16.2@sha256:f1a4dd586f118ca24d1fb768b8791a506231748d41cb490dfff04b66b2738079
+          tag: v1.17.1@sha256:3a7addf83897abae291361dfccbdf63cba5926c7795fe44e527883ae2237e4b8
     # Disable ANSI color codes in logs
     admissionController:
       initContainer:
