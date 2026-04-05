@@ -188,3 +188,28 @@ Every new facet needs `contexts/_template/tests/<facet-name>.test.yaml`. See `wi
 4. Backward-compatibility alias if the facet has one
 
 Run `task test:blueprint` to verify.
+
+## Local development environment
+
+Facet changes are tested against the local Windsor cluster. The environment is created with:
+
+```bash
+windsor up local --vm-driver <driver>
+```
+
+Available VM drivers and their capabilities:
+- `colima` — standard local VM, suitable for most facet and kustomize work
+- `colima-incus` — supports disk/volume creation (use when testing CSI, PVC, or storage-related resources)
+- `docker-desktop` — uses Docker Desktop VM
+
+The environment can be fully destroyed and recreated quickly:
+
+```bash
+windsor down --clean --skip-tf --skip-k8s
+```
+
+This is the fastest way to get a clean state when validating facet changes end-to-end.
+
+### Live reload
+
+The local cluster uses `git-livereload` — **saving a file is all that's needed to trigger Flux reconciliation.** There is no need to commit, push, or manually annotate kustomizations during local development. Changes are picked up automatically within seconds of saving.
