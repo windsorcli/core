@@ -112,12 +112,11 @@ locals {
             source = disk.source
             } : {
             # Storage volume - include pool, source is volume name (or empty if creating new volume)
+            # Size is set on the storage volume resource, not on the device (Incus only allows size
+            # quotas on root and tmpfs disks; setting it here causes instance creation to fail).
             pool   = disk.pool
             source = disk.source
           },
-          disk.size != null ? {
-            size = disk.size
-          } : {},
           disk.path != null ? {
             path = disk.path
           } : {},

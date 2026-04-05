@@ -74,6 +74,7 @@ terraform:
     worker_config_patches: "${talos_common_docker.worker_config_patches ?? \"\"}"
     controlplane_volumes: ${talos_common.controlplane_volumes ?? []}
     worker_volumes: ${talos_common.worker_volumes ?? []}
+    extensions: ${talos_common.extensions ?? []}
 
 kustomize:
 
@@ -100,17 +101,4 @@ kustomize:
   substitutions:
     loadbalancer_ip_range: ${network.loadbalancer_ips.start + '-' + network.loadbalancer_ips.end}
   timeout: 5m
-  interval: 5m
-
-# OpenEBS dynamic-localpv for directory-based storage. Uses talos_common csi_local_volume_path.
-- name: csi
-  path: csi
-  dependsOn:
-    - policy-resources
-  components:
-    - openebs
-    - openebs/dynamic-localpv
-  substitutions:
-    local_volume_path: ${talos_common.csi_local_volume_path}
-  timeout: 20m
   interval: 5m

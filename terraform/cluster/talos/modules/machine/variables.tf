@@ -124,6 +124,12 @@ variable "enable_health_check" {
   default     = true
 }
 
+variable "upgrade_image" {
+  description = "Installer image URL to upgrade to after config apply (e.g. factory.talos.dev/installer/SCHEMATIC:vVERSION). When empty, no upgrade is performed."
+  type        = string
+  default     = ""
+}
+
 variable "kubeconfig_path" {
   description = "Path where the kubeconfig file should be written when bootstrap is true."
   type        = string

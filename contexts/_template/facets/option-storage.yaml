@@ -1,0 +1,44 @@
+kind: Facet
+apiVersion: blueprints.windsorcli.dev/v1alpha1
+metadata:
+  name: storage
+  description: Kubernetes storage (CSI) driver configuration
+
+when: cluster.driver == 'talos'
+
+kustomize:
+
+- name: csi
+  path: csi
+  when: talos_common.storage_driver == 'openebs'
+  dependsOn:
+    - policy-resources
+  components:
+    - openebs
+    - openebs/dynamic-localpv
+  substitutions:
+    local_volume_path: ${talos_common.csi_local_volume_path}
+  timeout: 20m
+  interval: 5m
+
+- name: csi
+  path: csi
+  when: talos_common.storage_driver == 'longhorn'
+  dependsOn:
+    - policy-resources
+  components:
+    - longhorn
+    - "${(cluster.controlplanes.schedulable ?? false) ? 'longhorn/single-node' : ''}"
+    - "${(ha ?? false) ? 'longhorn/ha' : ''}"
+    - "${addons.observability.enabled == true ? 'longhorn/prometheus' : ''}"
+  timeout: 20m
+  interval: 5m
+
+# Longhorn Grafana dashboard
+- name: observability
+  path: observability
+  when: (talos_common.storage_driver == 'longhorn' && addons.observability.enabled == true) || dev == true
+  dependsOn:
+    - telemetry-base
+  components:
+    - grafana/dashboards/longhorn

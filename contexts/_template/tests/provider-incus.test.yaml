@@ -80,10 +80,7 @@ cases:
           dependsOn:
             - policy-resources
           components:
-            - openebs
-            - openebs/dynamic-localpv
-          substitutions:
-            local_volume_path: /var/mnt/local
+            - longhorn
           timeout: 20m
           interval: 5m
         - name: lb-base
@@ -181,10 +178,7 @@ cases:
           dependsOn:
             - policy-resources
           components:
-            - openebs
-            - openebs/dynamic-localpv
-          substitutions:
-            local_volume_path: /mnt/storage
+            - longhorn
           timeout: 20m
           interval: 5m
         - name: lb-base
@@ -277,5 +271,3 @@ cases:
     expect:
       kustomize:
         - name: csi
-          substitutions:
-            local_volume_path: /data/local

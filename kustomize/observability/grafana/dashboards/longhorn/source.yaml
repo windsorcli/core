@@ -1,0 +1,13 @@
+# Longhorn Grafana Dashboard
+# Run: task dashboards
+#
+# Note: This dashboard is published on Grafana.com (gnetId: 13032) and is not
+# versioned against Longhorn releases. Review manually when upgrading Longhorn.
+
+upstream:
+  url: https://grafana.com/api/dashboards/13032/revisions/6/download
+
+files:
+  - name: longhorn.json
+    url: https://grafana.com/api/dashboards/13032/revisions/6/download
+    patch: patches/title.patch.json

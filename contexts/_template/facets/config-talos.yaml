@@ -9,12 +9,21 @@ when: cluster.driver == 'talos'
 config:
   - name: talos_common
     value:
+      # Resolved storage driver (with default). Platform-specific defaults are injected by
+      # provider facets (e.g. provider-incus.yaml sets default to longhorn for incus).
+      storage_driver: "${cluster.storage.driver ?? 'openebs'}"
+
+      # Default data disk for longhorn. Overridden by provider facets with platform-specific sizes.
+      longhorn_default_disk:
+        - name: longhorn
+          size: 30
+
       allowSchedulingOnControlPlanes: "${cluster.controlplanes.schedulable ?? false}"
       controlplane_volumes: "${cluster.controlplanes.volumes ?? []}"
       worker_volumes: "${cluster.workers.volumes ?? []}"
       csi_local_volume_path: "${cluster.storage.local_base_path ?? \"/var/mnt/local\"}"
-      controlplane_disks: "${cluster.controlplanes.disks ?? []}"
-      worker_disks: "${cluster.workers.disks ?? []}"
+      controlplane_disks: "${cluster.controlplanes.disks ?? (talos_common.storage_driver == 'longhorn' ? talos_common.longhorn_default_disk : [])}"
+      worker_disks: "${cluster.workers.disks ?? (talos_common.storage_driver == 'longhorn' ? talos_common.longhorn_default_disk : [])}"
       cert_rotation:
         extra_manifests:
           - "https://raw.githubusercontent.com/alex1989hu/kubelet-serving-cert-approver/v0.8.7/deploy/standalone-install.yaml"
@@ -28,6 +37,17 @@ config:
           kubelet:
             extraArgs: ${talos_common.cert_rotation.kubelet_extra_args}
       common_config_patches: "${string(talos_common.common_patch)}"
+
+      # Extension lookup maps: each key is a driver/feature name, each value is the list of
+      # Talos Image Factory extensions that driver requires. Add a new entry here when a driver
+      # needs system extensions — no conditionals needed anywhere else.
+      csi_extensions:
+        longhorn:
+          - siderolabs/iscsi-tools
+          - siderolabs/util-linux-tools
+
+      # Aggregated extension list passed to cluster/talos terraform.
+      extensions: "${get(talos_common.csi_extensions, talos_common.storage_driver) ?? []}"
 
   - name: talos
     value:
