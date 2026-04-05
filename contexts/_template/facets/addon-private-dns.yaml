@@ -18,8 +18,10 @@ kustomize:
   components:
     - coredns
     - coredns/etcd
+    - "${(ha ?? false) ? 'coredns/ha' : ''}"
     - external-dns
     - external-dns/coredns
+    - "${(ha ?? false) ? 'external-dns/ha' : ''}"
     # Component name remains "ingress" for compatibility, but it configures
     # both ingress and Gateway API HTTPRoute sources in external-dns.
     - external-dns/ingress

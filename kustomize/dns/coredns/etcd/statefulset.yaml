@@ -99,16 +99,10 @@ spec:
         - name: tmp
           mountPath: /tmp
       volumes:
+      - name: etcd-data
+        emptyDir: {}
       - name: etcd-tls
         secret:
           secretName: etcd-server-tls
       - name: tmp
         emptyDir: {}
-  volumeClaimTemplates:
-  - metadata:
-      name: etcd-data
-    spec:
-      accessModes: ["ReadWriteOnce"]
-      resources:
-        requests:
-          storage: 1Gi

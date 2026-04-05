@@ -1,0 +1,7 @@
+- op: add
+  path: /spec/values/replicaCount
+  value: 2
+- op: add
+  path: /spec/values/extraArgs
+  value:
+    - --leader-election
