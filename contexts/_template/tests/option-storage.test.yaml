@@ -1,0 +1,241 @@
+# option-storage.yaml facet tests
+# Tests CSI driver selection and component composition.
+# Uses provider: metal to keep tests platform-agnostic (option-storage applies to any Talos cluster).
+
+# Common configurations
+x-defaults:
+  network: &default-network
+    cidr_block: 10.5.0.0/16
+    loadbalancer_driver: kube-vip
+    loadbalancer_mode: arp
+    loadbalancer_ips:
+      start: "10.5.1.10"
+      end: "10.5.1.100"
+
+  cluster: &default-cluster
+    driver: talos
+    controlplanes:
+      nodes:
+        controlplane-1: &cp1-node
+          endpoint: 10.5.0.10:50000
+          node: 10.5.0.10
+          hostname: controlplane-1
+    workers:
+      volumes:
+        - /var/mnt/local
+
+  ingress-disabled: &ingress-disabled
+    enabled: false
+    driver: nginx
+
+  # Shared CSI assertion fields
+  csi-base: &csi-base
+    name: csi
+    path: csi
+    dependsOn:
+      - policy-resources
+    timeout: 20m
+    interval: 5m
+
+cases:
+  # Minimal: no explicit storage config — defaults to openebs
+  - name: minimal config defaults to openebs
+    values:
+      provider: metal
+      ingress: *ingress-disabled
+      network: *default-network
+      cluster: *default-cluster
+    expect:
+      kustomize:
+        - <<: *csi-base
+          components:
+            - openebs
+            - openebs/dynamic-localpv
+          substitutions:
+            local_volume_path: /var/mnt/local
+
+  # Full: longhorn with HA, custom volume path, workers
+  - name: full longhorn config with HA and custom volume path
+    values:
+      provider: metal
+      ha: true
+      ingress: *ingress-disabled
+      network: *default-network
+      cluster:
+        driver: talos
+        controlplanes:
+          nodes:
+            controlplane-1: *cp1-node
+        workers:
+          count: 3
+          volumes:
+            - /var/mnt/longhorn
+        storage:
+          driver: longhorn
+          local_base_path: /var/mnt/longhorn
+    expect:
+      kustomize:
+        - <<: *csi-base
+          components:
+            - longhorn
+            - longhorn/ha
+          substitutions:
+            local_volume_path: /var/mnt/longhorn
+
+  # Explicit openebs driver is same as default
+  - name: explicit openebs driver produces same result as default
+    values:
+      provider: metal
+      ingress: *ingress-disabled
+      network: *default-network
+      cluster:
+        driver: talos
+        controlplanes:
+          nodes:
+            controlplane-1: *cp1-node
+        workers:
+          volumes:
+            - /var/mnt/local
+        storage:
+          driver: openebs
+    expect:
+      kustomize:
+        - <<: *csi-base
+          components:
+            - openebs
+            - openebs/dynamic-localpv
+          substitutions:
+            local_volume_path: /var/mnt/local
+
+  # Custom local_base_path is passed as substitution
+  - name: custom local_base_path is passed to CSI substitution
+    values:
+      provider: metal
+      ingress: *ingress-disabled
+      network: *default-network
+      cluster:
+        driver: talos
+        controlplanes:
+          nodes:
+            controlplane-1: *cp1-node
+        workers:
+          volumes:
+            - /mnt/data
+        storage:
+          local_base_path: /mnt/data
+    expect:
+      kustomize:
+        - <<: *csi-base
+          components:
+            - openebs
+            - openebs/dynamic-localpv
+          substitutions:
+            local_volume_path: /mnt/data
+
+  # Longhorn single-node: schedulable CP with no workers gets CP toleration component
+  - name: longhorn single-node with schedulable CP adds single-node component
+    values:
+      provider: metal
+      ingress: *ingress-disabled
+      network: *default-network
+      cluster:
+        driver: talos
+        controlplanes:
+          schedulable: true
+          nodes:
+            controlplane-1: *cp1-node
+        workers:
+          count: 0
+          volumes:
+            - /var/mnt/local
+        storage:
+          driver: longhorn
+    expect:
+      kustomize:
+        - <<: *csi-base
+          components:
+            - longhorn
+            - longhorn/single-node
+          substitutions:
+            local_volume_path: /var/mnt/local
+
+  # Longhorn multi-node without HA: workers present, no ha flag — no single-node or ha component
+  - name: longhorn multi-node without ha omits topology components
+    values:
+      provider: metal
+      ingress: *ingress-disabled
+      network: *default-network
+      cluster:
+        driver: talos
+        controlplanes:
+          nodes:
+            controlplane-1: *cp1-node
+        workers:
+          count: 2
+          volumes:
+            - /var/mnt/local
+        storage:
+          driver: longhorn
+    expect:
+      kustomize:
+        - <<: *csi-base
+          components:
+            - longhorn
+          substitutions:
+            local_volume_path: /var/mnt/local
+
+  # Longhorn HA: ha=true adds ha component (non-schedulable CP — no single-node)
+  - name: longhorn ha mode adds longhorn/ha component
+    values:
+      provider: metal
+      ha: true
+      ingress: *ingress-disabled
+      network: *default-network
+      cluster:
+        driver: talos
+        controlplanes:
+          nodes:
+            controlplane-1: *cp1-node
+        workers:
+          count: 2
+          volumes:
+            - /var/mnt/local
+        storage:
+          driver: longhorn
+    expect:
+      kustomize:
+        - <<: *csi-base
+          components:
+            - longhorn
+            - longhorn/ha
+          substitutions:
+            local_volume_path: /var/mnt/local
+
+  # Longhorn single-node + HA: schedulable CP + ha=true — both topology components active
+  - name: longhorn schedulable CP with ha adds both single-node and ha components
+    values:
+      provider: metal
+      ha: true
+      ingress: *ingress-disabled
+      network: *default-network
+      cluster:
+        driver: talos
+        controlplanes:
+          schedulable: true
+          nodes:
+            controlplane-1: *cp1-node
+        workers:
+          count: 3
+          volumes:
+            - /var/mnt/local
+        storage:
+          driver: longhorn
+    expect:
+      kustomize:
+        - <<: *csi-base
+          components:
+            - longhorn
+            - longhorn/single-node
+            - longhorn/ha
+          substitutions:
+            local_volume_path: /var/mnt/local

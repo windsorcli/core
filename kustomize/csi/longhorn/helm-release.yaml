@@ -1,0 +1,101 @@
+---
+apiVersion: helm.toolkit.fluxcd.io/v2
+kind: HelmRelease
+metadata:
+  name: longhorn
+  namespace: system-csi
+spec:
+  interval: 5m
+  timeout: 30m
+  targetNamespace: system-csi
+  install:
+    createNamespace: false
+    remediation:
+      retries: 3
+  upgrade:
+    remediation:
+      retries: 3
+  chart:
+    spec:
+      chart: longhorn
+      # renovate: datasource=helm depName=longhorn package=longhorn helmRepo=https://charts.longhorn.io
+      version: 1.11.1
+      sourceRef:
+        kind: HelmRepository
+        name: longhorn
+        namespace: system-gitops
+  values:
+    image:
+      longhorn:
+        engine:
+          repository: longhornio/longhorn-engine
+          # renovate: datasource=docker depName=longhornio/longhorn-engine
+          tag: v1.11.1@sha256:5ec00ddbc8f66911b2c8154f2c7ebf15342b4ee4508d6d2f5435aec2537e596f
+        manager:
+          repository: longhornio/longhorn-manager
+          # renovate: datasource=docker depName=longhornio/longhorn-manager
+          tag: v1.11.1@sha256:a4c0870e2b1d9aad9d7233a87ae13b962d807be803fd027e0b642753a80af122
+        ui:
+          repository: longhornio/longhorn-ui
+          # renovate: datasource=docker depName=longhornio/longhorn-ui
+          tag: v1.11.1@sha256:9008cce5be4752f7fcef2d0e008076ba5c0c8a6df8f57fb6ab0285b0f49634ab
+        instanceManager:
+          repository: longhornio/longhorn-instance-manager
+          # renovate: datasource=docker depName=longhornio/longhorn-instance-manager
+          tag: v1.11.1@sha256:3ba59894a878a73273fd18cd85294e718f0c4d95981ef88b3ed71436ed1a06ac
+        shareManager:
+          repository: longhornio/longhorn-share-manager
+          # renovate: datasource=docker depName=longhornio/longhorn-share-manager
+          tag: v1.11.1@sha256:8536e403137b50b60ed0cb3268de225c26cbbe7e1fdb9e01080d3db34c7ce4c0
+        backingImageManager:
+          repository: longhornio/backing-image-manager
+          # renovate: datasource=docker depName=longhornio/backing-image-manager
+          tag: v1.11.1@sha256:dfd9f50eebc7e5e681f208bc3e2b218371ef67995c13427451ed60788777303f
+        supportBundleKit:
+          repository: longhornio/support-bundle-kit
+          # renovate: datasource=docker depName=longhornio/support-bundle-kit
+          tag: v0.0.81@sha256:888d2108b8822418349ed775f49ce4c5ddc15e9da5632959a8e623075143851f
+      csi:
+        attacher:
+          repository: longhornio/csi-attacher
+          # renovate: datasource=docker depName=longhornio/csi-attacher
+          tag: v4.11.0@sha256:f60ab9e4da75592299ece72b35ad68f4b932f183f28ea4e4042d22dca38b3ea5
+        provisioner:
+          repository: longhornio/csi-provisioner
+          # renovate: datasource=docker depName=longhornio/csi-provisioner
+          tag: v5.3.0-20260225@sha256:8486bfd58e93681e0a8fea6b7270958b45034646ce7cb94f91da5e74c72931d0
+        nodeDriverRegistrar:
+          repository: longhornio/csi-node-driver-registrar
+          # renovate: datasource=docker depName=longhornio/csi-node-driver-registrar
+          tag: v2.16.0@sha256:f3da8da8dfbb91ea43bdd4c44a7dd205f08153572fc5288a9a4a19c6daeaa69d
+        resizer:
+          repository: longhornio/csi-resizer
+          # renovate: datasource=docker depName=longhornio/csi-resizer
+          tag: v2.1.0@sha256:637ca89f08d1d39452cde190a05b91cf1cb7c2d56fd726624e4fd9149154a810
+        snapshotter:
+          repository: longhornio/csi-snapshotter
+          # renovate: datasource=docker depName=longhornio/csi-snapshotter
+          tag: v8.5.0@sha256:223eaae797c6bc29a74182b53c166be9f42bce037d113404572c8f1d90e284a0
+        livenessProbe:
+          repository: longhornio/livenessprobe
+          # renovate: datasource=docker depName=longhornio/livenessprobe
+          tag: v2.18.0@sha256:94964ab1fe4d62f14e6df321043eb19d03154a1fa4d4bb1a1ae796627790e6eb
+    defaultSettings:
+      # Default to single-node behavior. Override via longhorn/ha component.
+      # /var/mnt/longhorn is where Talos UserVolumeConfig auto-mounts the dedicated disk (name: longhorn).
+      defaultDataPath: /var/mnt/longhorn
+      defaultReplicaCount: 1
+      storageMinimalAvailablePercentage: 10
+      storageReservedPercentageForDefaultDisk: 10
+      replicaSoftAntiAffinity: true
+      allowVolumeCreationWithDegradedAvailability: true
+      nodeDownPodDeletionPolicy: delete-both-statefulset-and-deployment-pod
+    longhornUI:
+      replicas: 1
+    csi:
+      attacherReplicaCount: 1
+      provisionerReplicaCount: 1
+      resizerReplicaCount: 1
+      snapshotterReplicaCount: 1
+    persistence:
+      defaultClass: false

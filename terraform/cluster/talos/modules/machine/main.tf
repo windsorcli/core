@@ -131,3 +131,43 @@ resource "null_resource" "node_healthcheck" {
     } : {}
   }
 }
+
+#-----------------------------------------------------------------------------------------------------------------------
+# In-place Upgrade (extensions)
+#-----------------------------------------------------------------------------------------------------------------------
+# Runs after the initial health check so the node is confirmed ready before upgrading.
+# The node reboots with the new image but retains its machine config (Talos persists config across upgrades).
+# Triggers on image change so re-runs only when the schematic or Talos version changes.
+# A second health check after upgrade confirms the node came back up cleanly.
+
+resource "null_resource" "upgrade" {
+  count      = var.upgrade_image != "" ? 1 : 0
+  depends_on = [null_resource.node_healthcheck]
+
+  triggers = {
+    upgrade_image = var.upgrade_image
+    node          = var.node
+  }
+
+  provisioner "local-exec" {
+    command = "talosctl upgrade --image ${var.upgrade_image} --nodes ${var.node} --wait --talosconfig ${var.talosconfig_path}"
+  }
+}
+
+resource "null_resource" "post_upgrade_healthcheck" {
+  count      = var.upgrade_image != "" ? 1 : 0
+  depends_on = [null_resource.upgrade]
+
+  triggers = {
+    upgrade_image = var.upgrade_image
+    node          = var.node
+  }
+
+  provisioner "local-exec" {
+    command = var.enable_health_check ? local.health_check_command : "echo 'Health check disabled'"
+    environment = var.enable_health_check ? {
+      TALOSCONFIG = var.talosconfig_path
+      KUBECONFIG  = var.bootstrap ? var.kubeconfig_path : ""
+    } : {}
+  }
+}

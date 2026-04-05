@@ -34,10 +34,32 @@ resource "talos_machine_secrets" "this" {
 # Locals
 #-----------------------------------------------------------------------------------------------------------------------
 
+#-----------------------------------------------------------------------------------------------------------------------
+# Image Factory Schematic
+#-----------------------------------------------------------------------------------------------------------------------
+# When extensions are requested, create a schematic via the Talos Image Factory and derive the installer URL.
+# The installer image is multi-arch (OCI manifest list), so no architecture parameter is needed here.
+# Each machine module uses this URL to upgrade in-place after config apply and before bootstrap.
+
+resource "talos_image_factory_schematic" "this" {
+  count = length(var.extensions) > 0 ? 1 : 0
+
+  schematic = yamlencode({
+    customization = {
+      systemExtensions = {
+        officialExtensions = var.extensions
+      }
+    }
+  })
+}
+
 locals {
   talosconfig      = data.talos_client_configuration.this.talos_config
   talosconfig_path = "${var.context_path}/.talos/config"
   kubeconfig_path  = "${var.context_path}/.kube/config"
+
+  # Installer URL for talosctl upgrade. Empty when no extensions are requested (no upgrade needed).
+  upgrade_image = length(var.extensions) > 0 ? "factory.talos.dev/installer/${talos_image_factory_schematic.this[0].id}:v${var.talos_version}" : ""
 
   cluster_endpoint = var.cluster_endpoint != "" ? var.cluster_endpoint : (length(var.controlplanes) > 0 ? "https://${split(":", var.controlplanes[0].endpoint)[0]}:6443" : "")
 
@@ -48,9 +70,34 @@ locals {
   controlplane_extra_mounts_patch = length(var.controlplane_volumes) > 0 ? yamlencode({ machine = { kubelet = { extraMounts = local.controlplane_extra_mounts } } }) : ""
   worker_extra_mounts_patch       = length(var.worker_volumes) > 0 ? yamlencode({ machine = { kubelet = { extraMounts = local.worker_extra_mounts } } }) : ""
 
-  # Per-node UserVolumeConfig block docs: node.disks if set, else pool-level (controlplane_disks / worker_disks).
-  controlplane_block_docs = [for cp in var.controlplanes : [for i, d in lookup(cp, "disks", var.controlplane_disks) : yamlencode({ apiVersion = "v1alpha1", kind = "UserVolumeConfig", name = try(d.name, "disk-${i}"), volumeType = "disk", provisioning = { diskSelector = { match = "disk.dev_path == '${d.device}'" } } }) if try(d.device, "") != ""]]
-  worker_block_docs       = [for w in var.workers : [for i, d in lookup(w, "disks", var.worker_disks) : yamlencode({ apiVersion = "v1alpha1", kind = "UserVolumeConfig", name = try(d.name, "disk-${i}"), volumeType = "disk", provisioning = { diskSelector = { match = "disk.dev_path == '${d.device}'" } } }) if try(d.device, "") != ""]]
+  # Per-node UserVolumeConfig docs: node.disks if set, else pool-level (controlplane_disks / worker_disks).
+  # Three cases, all resolved at plan time — no post-boot discovery needed:
+  #   device set   → raw block volume (volumeType: disk), pinned to dev_path
+  #   selector set → filesystem volume (xfs), CEL expression provided by caller (e.g. metal per-node serial)
+  #   size only    → filesystem volume (xfs), size-based CEL (safe for provisioned platforms like Incus
+  #                  where we created exactly one disk of that size)
+  controlplane_block_docs = [for cp in var.controlplanes : [for i, d in lookup(cp, "disks", var.controlplane_disks) :
+    try(d.device, "") != "" ? yamlencode({
+      apiVersion = "v1alpha1", kind = "UserVolumeConfig", name = try(d.name, "disk-${i}"),
+      volumeType = "disk", provisioning = { diskSelector = { match = "disk.dev_path == '${d.device}'" } }
+      }) : yamlencode({
+      apiVersion   = "v1alpha1", kind = "UserVolumeConfig", name = try(d.name, "disk-${i}"),
+      provisioning = { diskSelector = { match = try(d.selector, "") != "" ? d.selector : "!system_disk && disk.size == ${d.size}u * GiB" } },
+      filesystem   = { type = "xfs" }
+    })
+    if try(d.device, "") != "" || try(d.selector, "") != "" || try(d.size, null) != null
+  ]]
+  worker_block_docs = [for w in var.workers : [for i, d in lookup(w, "disks", var.worker_disks) :
+    try(d.device, "") != "" ? yamlencode({
+      apiVersion = "v1alpha1", kind = "UserVolumeConfig", name = try(d.name, "disk-${i}"),
+      volumeType = "disk", provisioning = { diskSelector = { match = "disk.dev_path == '${d.device}'" } }
+      }) : yamlencode({
+      apiVersion   = "v1alpha1", kind = "UserVolumeConfig", name = try(d.name, "disk-${i}"),
+      provisioning = { diskSelector = { match = try(d.selector, "") != "" ? d.selector : "!system_disk && disk.size == ${d.size}u * GiB" } },
+      filesystem   = { type = "xfs" }
+    })
+    if try(d.device, "") != "" || try(d.selector, "") != "" || try(d.size, null) != null
+  ]]
 }
 
 #-----------------------------------------------------------------------------------------------------------------------
@@ -73,6 +120,7 @@ module "controlplane_bootstrap" {
   machine_type         = "controlplane"
   endpoint             = var.controlplanes[0].endpoint
   bootstrap            = true // Bootstrap the first control plane node
+  upgrade_image        = local.upgrade_image
   talosconfig_path     = local.talosconfig_path
   kubeconfig_path      = local.kubeconfig_path
   enable_health_check  = true
@@ -103,6 +151,7 @@ module "controlplanes" {
   machine_type         = "controlplane"
   endpoint             = var.controlplanes[count.index + 1].endpoint
   bootstrap            = false // Do not bootstrap other control plane nodes
+  upgrade_image        = local.upgrade_image
   talosconfig_path     = local.talosconfig_path
   kubeconfig_path      = local.kubeconfig_path
   enable_health_check  = true
@@ -136,6 +185,7 @@ module "workers" {
   talos_version        = var.talos_version
   machine_type         = "worker"
   endpoint             = var.workers[count.index].endpoint
+  upgrade_image        = local.upgrade_image
   talosconfig_path     = local.talosconfig_path
   kubeconfig_path      = local.kubeconfig_path
   enable_health_check  = true

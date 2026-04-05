@@ -1,0 +1,249 @@
+[
+  {
+    "op": "replace",
+    "path": "/title",
+    "value": "Longhorn"
+  },
+  {
+    "op": "add",
+    "path": "/templating/list/0",
+    "value": {
+      "current": {
+        "selected": false,
+        "text": "Prometheus",
+        "value": "prometheus"
+      },
+      "hide": 2,
+      "includeAll": false,
+      "label": "prometheus",
+      "multi": false,
+      "name": "DS_PROMETHEUS",
+      "options": [],
+      "query": "prometheus",
+      "refresh": 1,
+      "type": "datasource"
+    }
+  },
+  {
+    "op": "replace",
+    "path": "/panels/2/targets/0/expr",
+    "value": "count(longhorn_volume_robustness{state=\"healthy\"}==1) OR on() vector(0)"
+  },
+  {
+    "op": "replace",
+    "path": "/panels/4/targets/0/expr",
+    "value": "count(longhorn_volume_robustness{state=\"degraded\"}==1) OR on() vector(0)"
+  },
+  {
+    "op": "replace",
+    "path": "/panels/5/targets/0/expr",
+    "value": "count(longhorn_volume_robustness{state=\"faulted\"}==1) OR on() vector(0)"
+  },
+  {
+    "op": "replace",
+    "path": "/panels/7/targets/0/expr",
+    "value": "count(longhorn_volume_state{state=\"attached\"}==1) OR on() vector(0)"
+  },
+  {
+    "op": "replace",
+    "path": "/panels/8/targets/0/expr",
+    "value": "count(longhorn_volume_state{state=\"detached\"}==1) OR on() vector(0)"
+  },
+  {
+    "op": "replace",
+    "path": "/panels/16/targets/0/expr",
+    "value": "count by (node) (longhorn_volume_state{state=\"attached\"}==1)"
+  },
+  {
+    "op": "replace",
+    "path": "/panels/1/datasource",
+    "value": {
+      "type": "prometheus",
+      "uid": "${DS_PROMETHEUS}"
+    }
+  },
+  {
+    "op": "replace",
+    "path": "/panels/2/datasource",
+    "value": {
+      "type": "prometheus",
+      "uid": "${DS_PROMETHEUS}"
+    }
+  },
+  {
+    "op": "replace",
+    "path": "/panels/3/datasource",
+    "value": {
+      "type": "prometheus",
+      "uid": "${DS_PROMETHEUS}"
+    }
+  },
+  {
+    "op": "replace",
+    "path": "/panels/4/datasource",
+    "value": {
+      "type": "prometheus",
+      "uid": "${DS_PROMETHEUS}"
+    }
+  },
+  {
+    "op": "replace",
+    "path": "/panels/5/datasource",
+    "value": {
+      "type": "prometheus",
+      "uid": "${DS_PROMETHEUS}"
+    }
+  },
+  {
+    "op": "replace",
+    "path": "/panels/6/datasource",
+    "value": {
+      "type": "prometheus",
+      "uid": "${DS_PROMETHEUS}"
+    }
+  },
+  {
+    "op": "replace",
+    "path": "/panels/7/datasource",
+    "value": {
+      "type": "prometheus",
+      "uid": "${DS_PROMETHEUS}"
+    }
+  },
+  {
+    "op": "replace",
+    "path": "/panels/8/datasource",
+    "value": {
+      "type": "prometheus",
+      "uid": "${DS_PROMETHEUS}"
+    }
+  },
+  {
+    "op": "replace",
+    "path": "/panels/10/datasource",
+    "value": {
+      "type": "prometheus",
+      "uid": "${DS_PROMETHEUS}"
+    }
+  },
+  {
+    "op": "replace",
+    "path": "/panels/11/datasource",
+    "value": {
+      "type": "prometheus",
+      "uid": "${DS_PROMETHEUS}"
+    }
+  },
+  {
+    "op": "replace",
+    "path": "/panels/12/datasource",
+    "value": {
+      "type": "prometheus",
+      "uid": "${DS_PROMETHEUS}"
+    }
+  },
+  {
+    "op": "replace",
+    "path": "/panels/13/datasource",
+    "value": {
+      "type": "prometheus",
+      "uid": "${DS_PROMETHEUS}"
+    }
+  },
+  {
+    "op": "replace",
+    "path": "/panels/14/datasource",
+    "value": {
+      "type": "prometheus",
+      "uid": "${DS_PROMETHEUS}"
+    }
+  },
+  {
+    "op": "replace",
+    "path": "/panels/15/datasource",
+    "value": {
+      "type": "prometheus",
+      "uid": "${DS_PROMETHEUS}"
+    }
+  },
+  {
+    "op": "replace",
+    "path": "/panels/16/datasource",
+    "value": {
+      "type": "prometheus",
+      "uid": "${DS_PROMETHEUS}"
+    }
+  },
+  {
+    "op": "replace",
+    "path": "/panels/18/datasource",
+    "value": {
+      "type": "prometheus",
+      "uid": "${DS_PROMETHEUS}"
+    }
+  },
+  {
+    "op": "replace",
+    "path": "/panels/19/datasource",
+    "value": {
+      "type": "prometheus",
+      "uid": "${DS_PROMETHEUS}"
+    }
+  },
+  {
+    "op": "replace",
+    "path": "/panels/21/datasource",
+    "value": {
+      "type": "prometheus",
+      "uid": "${DS_PROMETHEUS}"
+    }
+  },
+  {
+    "op": "replace",
+    "path": "/panels/22/datasource",
+    "value": {
+      "type": "prometheus",
+      "uid": "${DS_PROMETHEUS}"
+    }
+  },
+  {
+    "op": "replace",
+    "path": "/panels/23/datasource",
+    "value": {
+      "type": "prometheus",
+      "uid": "${DS_PROMETHEUS}"
+    }
+  },
+  {
+    "op": "replace",
+    "path": "/panels/24/datasource",
+    "value": {
+      "type": "prometheus",
+      "uid": "${DS_PROMETHEUS}"
+    }
+  },
+  {
+    "op": "replace",
+    "path": "/panels/25/datasource",
+    "value": {
+      "type": "prometheus",
+      "uid": "${DS_PROMETHEUS}"
+    }
+  },
+  {
+    "op": "replace",
+    "path": "/panels/26/datasource",
+    "value": {
+      "type": "prometheus",
+      "uid": "${DS_PROMETHEUS}"
+    }
+  },
+  {
+    "op": "replace",
+    "path": "/panels/27/datasource",
+    "value": {
+      "type": "prometheus",
+      "uid": "${DS_PROMETHEUS}"
+    }
+  }
+]

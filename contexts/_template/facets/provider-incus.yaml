@@ -7,6 +7,15 @@ metadata:
 when: "platform == 'incus' && cluster.driver == 'talos'"
 
 config:
+- name: talos_common
+  value:
+    # On incus, VMs have dedicated block devices — default to longhorn instead of openebs.
+    storage_driver: "${cluster.storage.driver ?? 'longhorn'}"
+    # Default 30GB data disk for longhorn on incus.
+    longhorn_default_disk:
+      - name: longhorn
+        size: 30
+
 - name: cluster_endpoint_fallback
   value:
     endpoint: >-
@@ -61,7 +70,7 @@ terraform:
           memory: ${string(cluster.workers.memory ?? 4) + "GB"}
         disks: ${cluster.workers.disks ?? []}
         config:
-          user.hostname: "${cluster.workers.nodes != null ? (values(cluster.workers.nodes)[0].hostname ?? 'worker-1') : 'worker-1'}"
+          user.hostname: "${len(cluster.workers.nodes ?? {}) > 0 ? (values(cluster.workers.nodes)[0].hostname ?? 'worker-1') : 'worker-1'}"
           environment.TALOSSKU: "${string(cluster.workers.cpu ?? 4) + 'CPU-' + string((cluster.workers.memory ?? 4) * 1024) + 'RAM'}"
           raw.qemu: -boot order=c,menu=off
 
@@ -82,6 +91,7 @@ terraform:
     common_config_patches: ${talos_common.common_config_patches}
     controlplane_volumes: ${talos_common.controlplane_volumes ?? []}
     worker_volumes: ${talos_common.worker_volumes ?? []}
+    extensions: ${talos_common.extensions ?? []}
 
 - name: gitops
   path: gitops/flux
@@ -92,19 +102,6 @@ terraform:
   destroy: false
 
 kustomize:
-
-# CSI
-- name: csi
-  path: csi
-  dependsOn:
-    - policy-resources
-  components:
-  - openebs
-  - openebs/dynamic-localpv
-  substitutions:
-    local_volume_path: ${talos_common.csi_local_volume_path}
-  timeout: 20m
-  interval: 5m
 
 # Load Balancer
 - name: lb-base

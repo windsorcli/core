@@ -9,10 +9,16 @@ $defs:
     properties:
       name:
         type: string
-        description: Disk device name (e.g., "data-disk", "backup-disk")
+        description: Disk name; used as the UserVolumeConfig name and mount point (/var/mnt/<name>) on Talos.
       size:
         type: integer
-        description: Disk size in GB
+        description: Disk size in GB. Required on provisioned platforms (Incus, cloud) to create the volume. Optional on metal when selector is set.
+      selector:
+        type: string
+        description: >
+          CEL expression passed directly to Talos diskSelector.match (e.g. "disk.serial == 'WD-ABC123'",
+          "disk.wwid == '...'", "disk.bus_path == '0*:0:0:0'"). Takes precedence over size-based
+          post-boot discovery. Set per-node when disks differ between machines.
       type:
         type: string
         description: Disk type (platform-specific; e.g. cloud disk type or "default")
@@ -31,7 +37,6 @@ $defs:
         description: Mount as read-only
     required:
       - name
-      - size
   nodesSchema: &nodesSchema
     type: object
     additionalProperties:
@@ -367,6 +372,12 @@ properties:
             type: string
             default: "/var/mnt/local"
             description: Base path for directory-based storage. Must be in the volumes list of every pool that can schedule pods using this storage (controlplanes.volumes when schedulable, workers.volumes).
+          driver:
+            type: string
+            enum:
+              - openebs
+              - longhorn
+            description: CSI storage driver. openebs for directory-based local storage; longhorn for block device storage (requires a dedicated disk, mandatory on Talos). Defaults to longhorn on incus, openebs elsewhere.
         additionalProperties: false
     additionalProperties: false
 
