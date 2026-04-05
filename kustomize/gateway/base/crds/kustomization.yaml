@@ -1,0 +1,4 @@
+resources:
+  # Vendored upstream Gateway API CRDs (v1.5.1 experimental channel).
+  # Keep this pinned and update intentionally alongside controller compatibility checks.
+  - gateway-api-experimental-v1.5.1.yaml

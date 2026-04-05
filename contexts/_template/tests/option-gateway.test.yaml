@@ -1,0 +1,415 @@
+# option-gateway.yaml facet tests
+# Tests configurable gateway and legacy ingress compatibility.
+
+# Common configurations
+x-defaults:
+  network: &default-network
+    cidr_block: 10.5.0.0/16
+    loadbalancer_driver: kube-vip
+    loadbalancer_mode: arp
+    loadbalancer_ips:
+      start: "10.5.1.10"
+      end: "10.5.1.100"
+
+  cluster: &default-cluster
+    driver: talos
+    controlplanes:
+      nodes:
+        controlplane-1:
+          endpoint: 10.5.0.10:50000
+          node: 10.5.0.10
+          hostname: controlplane-1
+    workers:
+      volumes:
+        - /var/mnt/local
+
+cases:
+  # Minimal: zero-config defaults to envoy (schema default: envoy)
+  - name: zero config defaults to envoy gateway
+    values:
+      provider: metal
+      network: *default-network
+      cluster: *default-cluster
+    expect:
+      kustomize:
+        - name: gateway-base
+          path: gateway/base
+          dependsOn:
+            - pki-base
+          timeout: 10m
+          interval: 5m
+        - name: gateway-resources
+          path: gateway/resources
+          dependsOn:
+            - gateway-base
+          components:
+            - envoy
+            - envoy/web
+            - envoy/loadbalancer
+            - envoy/flux-webhook
+            - envoy/prometheus
+          timeout: 10m
+          interval: 5m
+
+  # Minimal: Standard nginx gateway without coredns
+  - name: standard nginx gateway without coredns
+    values:
+      provider: metal
+      gateway:
+        enabled: true
+        driver: nginx
+      network: *default-network
+      cluster: *default-cluster
+    expect:
+      kustomize:
+        - name: gateway-resources
+          path: ingress
+          dependsOn:
+            - pki-base
+          components:
+            - nginx
+            - nginx/loadbalancer
+            - nginx/web
+            - nginx/prometheus
+          timeout: 10m
+          interval: 5m
+
+  - name: nginx gateway with private DNS includes coredns
+    values:
+      provider: metal
+      gateway:
+        enabled: true
+        driver: nginx
+      addons:
+        private_dns:
+          enabled: true
+      network: *default-network
+      cluster: *default-cluster
+    expect:
+      kustomize:
+        - name: gateway-resources
+          path: ingress
+          dependsOn:
+            - pki-base
+          components:
+            - nginx
+            - nginx/loadbalancer
+            - nginx/coredns
+            - nginx/web
+            - nginx/prometheus
+          timeout: 10m
+          interval: 5m
+
+  # Docker Desktop: nodeport (no loadbalancer); workstation.runtime in scope selects nginx/nodeport.
+  - name: Docker Desktop uses nodeport gateway
+    values:
+      platform: docker
+      gateway:
+        enabled: true
+        driver: nginx
+      workstation:
+        enabled: true
+        runtime: docker-desktop
+      network: *default-network
+      cluster: *default-cluster
+    terraformOutputs:
+      compute:
+        controlplanes:
+          - endpoint: 10.5.0.10:6443
+            node: 10.5.0.10
+            hostname: controlplane-1
+        workers: []
+      workstation:
+        registries: {}
+    expect:
+      kustomize:
+        - name: gateway-resources
+          path: ingress
+          dependsOn:
+            - pki-base
+          components:
+            - nginx
+            - nginx/nodeport
+            - nginx/web
+            - nginx/prometheus
+          timeout: 10m
+          interval: 5m
+
+  - name: Docker Desktop with private DNS includes nginx coredns component
+    values:
+      platform: docker
+      gateway:
+        enabled: true
+        driver: nginx
+      workstation:
+        enabled: true
+        runtime: docker-desktop
+      addons:
+        private_dns:
+          enabled: true
+      network: *default-network
+      cluster: *default-cluster
+    terraformOutputs:
+      compute:
+        controlplanes:
+          - endpoint: 10.5.0.10:6443
+            node: 10.5.0.10
+            hostname: controlplane-1
+        workers: []
+      workstation:
+        registries: {}
+    expect:
+      kustomize:
+        - name: gateway-resources
+          path: ingress
+          dependsOn:
+            - pki-base
+          components:
+            - nginx
+            - nginx/nodeport
+            - nginx/coredns
+            - nginx/web
+            - nginx/prometheus
+          timeout: 10m
+          interval: 5m
+
+  - name: platform docker with runtime colima uses gateway loadbalancer
+    values:
+      platform: docker
+      gateway:
+        enabled: true
+        driver: nginx
+      workstation:
+        enabled: true
+        runtime: colima
+      network: *default-network
+      cluster: *default-cluster
+    terraformOutputs:
+      compute:
+        controlplanes:
+          - endpoint: 10.5.0.10:6443
+            node: 10.5.0.10
+            hostname: controlplane-1
+        workers: []
+      workstation:
+        registries: {}
+    expect:
+      kustomize:
+        - name: gateway-resources
+          path: ingress
+          dependsOn:
+            - pki-base
+          components:
+            - nginx
+            - nginx/loadbalancer
+            - nginx/web
+            - nginx/prometheus
+          timeout: 10m
+          interval: 5m
+
+  - name: envoy driver installs envoy component
+    values:
+      provider: metal
+      gateway:
+        enabled: true
+        driver: envoy
+      network: *default-network
+      cluster: *default-cluster
+    expect:
+      kustomize:
+        - name: gateway-base
+          path: gateway/base
+          dependsOn:
+            - pki-base
+          timeout: 10m
+          interval: 5m
+        - name: gateway-resources
+          path: gateway/resources
+          dependsOn:
+            - gateway-base
+          components:
+            - envoy
+            - envoy/web
+            - envoy/loadbalancer
+            - envoy/flux-webhook
+            - envoy/prometheus
+          timeout: 10m
+          interval: 5m
+
+  - name: envoy with private DNS includes coredns component
+    values:
+      provider: metal
+      gateway:
+        enabled: true
+        driver: envoy
+      addons:
+        private_dns:
+          enabled: true
+      network: *default-network
+      cluster: *default-cluster
+    expect:
+      kustomize:
+        - name: gateway-base
+          path: gateway/base
+          dependsOn:
+            - pki-base
+          timeout: 10m
+          interval: 5m
+        - name: gateway-resources
+          path: gateway/resources
+          dependsOn:
+            - gateway-base
+          components:
+            - envoy
+            - envoy/web
+            - envoy/loadbalancer
+            - envoy/coredns
+            - envoy/flux-webhook
+            - envoy/prometheus
+          timeout: 10m
+          interval: 5m
+
+  - name: envoy on Docker Desktop with private DNS includes coredns component
+    values:
+      platform: docker
+      gateway:
+        enabled: true
+        driver: envoy
+      workstation:
+        enabled: true
+        runtime: docker-desktop
+      addons:
+        private_dns:
+          enabled: true
+      network: *default-network
+      cluster: *default-cluster
+    terraformOutputs:
+      compute:
+        controlplanes:
+          - endpoint: 10.5.0.10:6443
+            node: 10.5.0.10
+            hostname: controlplane-1
+        workers: []
+      workstation:
+        registries: {}
+    expect:
+      kustomize:
+        - name: gateway-base
+          path: gateway/base
+          dependsOn:
+            - pki-base
+          timeout: 10m
+          interval: 5m
+        - name: gateway-resources
+          path: gateway/resources
+          dependsOn:
+            - gateway-base
+          components:
+            - envoy
+            - envoy/web
+            - envoy/nodeport
+            - envoy/coredns
+            - envoy/flux-webhook
+            - envoy/prometheus
+          timeout: 10m
+          interval: 5m
+
+  - name: dev mode enables coredns component for envoy gateway
+    values:
+      provider: metal
+      dev: true
+      gateway:
+        enabled: true
+        driver: envoy
+      network: *default-network
+      cluster: *default-cluster
+    expect:
+      kustomize:
+        - name: gateway-base
+          path: gateway/base
+          dependsOn:
+            - pki-base
+          timeout: 10m
+          interval: 5m
+        - name: gateway-resources
+          path: gateway/resources
+          dependsOn:
+            - gateway-base
+          components:
+            - envoy
+            - envoy/web
+            - envoy/loadbalancer
+            - envoy/coredns
+            - envoy/flux-webhook
+            - envoy/prometheus
+          timeout: 10m
+          interval: 5m
+
+  # Backward compatibility: ingress alias still works.
+  - name: legacy ingress alias maps envoy-gateway to envoy
+    values:
+      provider: metal
+      ingress:
+        enabled: true
+        driver: envoy-gateway
+      network: *default-network
+      cluster: *default-cluster
+    expect:
+      kustomize:
+        - name: gateway-base
+          path: gateway/base
+          dependsOn:
+            - pki-base
+          timeout: 10m
+          interval: 5m
+        - name: gateway-resources
+          path: gateway/resources
+          dependsOn:
+            - gateway-base
+          components:
+            - envoy
+            - envoy/web
+            - envoy/loadbalancer
+            - envoy/flux-webhook
+            - envoy/prometheus
+          timeout: 10m
+          interval: 5m
+
+  # Precedence: gateway wins when both gateway and ingress are set.
+  - name: gateway values take precedence over ingress alias
+    values:
+      provider: metal
+      gateway:
+        enabled: true
+        driver: nginx
+      ingress:
+        enabled: true
+        driver: envoy-gateway
+      network: *default-network
+      cluster: *default-cluster
+    expect:
+      kustomize:
+        - name: gateway-resources
+          path: ingress
+          dependsOn:
+            - pki-base
+          components:
+            - nginx
+            - nginx/loadbalancer
+            - nginx/web
+            - nginx/prometheus
+          timeout: 10m
+          interval: 5m
+
+  # Edge case: Gateway disabled
+  - name: excludes gateway when disabled
+    values:
+      provider: metal
+      gateway:
+        enabled: false
+        driver: nginx
+      network: *default-network
+      cluster: *default-cluster
+    exclude:
+      kustomize:
+        - name: gateway-resources

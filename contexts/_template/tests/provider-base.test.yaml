@@ -58,7 +58,7 @@ cases:
           dependsOn:
             - policy-base
           components:
-            - kyverno/audit-resource-limits-requests
+            - kyverno/resource-limits-requests
             - kyverno/require-image-digest
           timeout: 5m
           interval: 5m
@@ -217,7 +217,7 @@ cases:
           path: observability
           dependsOn:
             - csi
-            - ingress
+            - gateway-resources
           components:
             - elasticsearch
             - kibana
@@ -258,4 +258,24 @@ cases:
         - name: observability
           components:
             - fluentd
+
+  # Policy modes: disabled removes policy component from policy-resources stack.
+  - name: policy mode disabled excludes selected policies
+    values:
+      provider: metal
+      ingress: *ingress-disabled
+      network: *default-network
+      cluster: *default-cluster
+      policies:
+        require_image_digest: disabled
+        resource_limits_requests: disabled
+    expect:
+      kustomize:
+        - name: policy-resources
+          path: policy/resources
+          dependsOn:
+            - policy-base
+          components: []
+          timeout: 5m
+          interval: 5m
 

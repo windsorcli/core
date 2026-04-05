@@ -4,13 +4,15 @@ metadata:
   name: set-ingress-localhost-dns-target
 spec:
   validationFailureAction: audit
-  background: false
+  background: true
   rules:
     - name: add-external-dns-annotation
       match:
         resources:
           kinds:
             - Ingress
+            - Gateway
+            - HTTPRoute
       mutate:
         patchStrategicMerge:
           metadata:

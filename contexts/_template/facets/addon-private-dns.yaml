@@ -4,7 +4,7 @@ metadata:
   name: private-dns
   description: Self-hosted CoreDNS for private DNS zones
 
-when: addons.private_dns.enabled == true || dev == true
+when: addons.private_dns.enabled == true
 
 kustomize:
 
@@ -20,15 +20,9 @@ kustomize:
     - coredns/etcd
     - external-dns
     - external-dns/coredns
+    # Component name remains "ingress" for compatibility, but it configures
+    # both ingress and Gateway API HTTPRoute sources in external-dns.
     - external-dns/ingress
     - "${workstation.runtime == 'docker-desktop' ? 'external-dns/localhost' : ''}"
   substitutions:
     external_domain: ${dns.private_domain}
-
-- name: ingress
-  path: ingress
-  when: ingress.enabled == true && ingress.driver == 'nginx'
-  dependsOn:
-    - pki-base
-  components:
-    - nginx/coredns

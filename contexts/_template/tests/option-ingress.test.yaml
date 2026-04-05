@@ -28,6 +28,8 @@ cases:
   - name: standard ingress without coredns
     values:
       provider: metal
+      gateway:
+        enabled: false
       ingress:
         enabled: true
         driver: nginx
@@ -50,6 +52,8 @@ cases:
   - name: ingress with private DNS includes coredns
     values:
       provider: metal
+      gateway:
+        enabled: false
       ingress:
         enabled: true
         driver: nginx
@@ -77,6 +81,8 @@ cases:
   - name: Docker Desktop uses nodeport ingress
     values:
       platform: docker
+      gateway:
+        enabled: false
       ingress:
         enabled: true
         driver: nginx
@@ -111,6 +117,8 @@ cases:
   - name: platform docker with runtime colima uses loadbalancer
     values:
       platform: docker
+      gateway:
+        enabled: false
       ingress:
         enabled: true
         driver: nginx
@@ -146,6 +154,8 @@ cases:
   - name: excludes ingress when disabled
     values:
       provider: metal
+      gateway:
+        enabled: false
       ingress:
         enabled: false
         driver: nginx
