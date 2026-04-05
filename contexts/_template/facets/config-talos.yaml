@@ -47,7 +47,7 @@ config:
           - siderolabs/util-linux-tools
 
       # Aggregated extension list passed to cluster/talos terraform.
-      extensions: "${talos_common.storage_driver == 'longhorn' ? [\"siderolabs/iscsi-tools\", \"siderolabs/util-linux-tools\"] : []}"
+      extensions: "${get(talos_common.csi_extensions, talos_common.storage_driver) ?? []}"
 
   - name: talos
     value:
