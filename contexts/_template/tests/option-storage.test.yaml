@@ -79,8 +79,6 @@ cases:
           components:
             - longhorn
             - longhorn/ha
-          substitutions:
-            local_volume_path: /var/mnt/longhorn
 
   # Explicit openebs driver is same as default
   - name: explicit openebs driver produces same result as default
@@ -156,8 +154,6 @@ cases:
           components:
             - longhorn
             - longhorn/single-node
-          substitutions:
-            local_volume_path: /var/mnt/local
 
   # Longhorn multi-node without HA: workers present, no ha flag — no single-node or ha component
   - name: longhorn multi-node without ha omits topology components
@@ -181,8 +177,6 @@ cases:
         - <<: *csi-base
           components:
             - longhorn
-          substitutions:
-            local_volume_path: /var/mnt/local
 
   # Longhorn HA: ha=true adds ha component (non-schedulable CP — no single-node)
   - name: longhorn ha mode adds longhorn/ha component
@@ -208,8 +202,6 @@ cases:
           components:
             - longhorn
             - longhorn/ha
-          substitutions:
-            local_volume_path: /var/mnt/local
 
   # Longhorn single-node + HA: schedulable CP + ha=true — both topology components active
   - name: longhorn schedulable CP with ha adds both single-node and ha components
@@ -237,5 +229,3 @@ cases:
             - longhorn
             - longhorn/single-node
             - longhorn/ha
-          substitutions:
-            local_volume_path: /var/mnt/local

@@ -81,8 +81,8 @@ spec:
           # renovate: datasource=docker depName=longhornio/livenessprobe
           tag: v2.18.0@sha256:94964ab1fe4d62f14e6df321043eb19d03154a1fa4d4bb1a1ae796627790e6eb
     defaultSettings:
-      # Default to single-node behavior. Override via longhorn/ha component.
       # /var/mnt/longhorn is where Talos UserVolumeConfig auto-mounts the dedicated disk (name: longhorn).
+      # Multi-disk configurations require manual Longhorn Node CRD configuration.
       defaultDataPath: /var/mnt/longhorn
       defaultReplicaCount: 1
       storageMinimalAvailablePercentage: 10

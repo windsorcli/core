@@ -74,6 +74,7 @@ terraform:
     worker_config_patches: "${talos_common_docker.worker_config_patches ?? \"\"}"
     controlplane_volumes: ${talos_common.controlplane_volumes ?? []}
     worker_volumes: ${talos_common.worker_volumes ?? []}
+    extensions: ${talos_common.extensions ?? []}
 
 kustomize:
 

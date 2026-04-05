@@ -81,8 +81,6 @@ cases:
             - policy-resources
           components:
             - longhorn
-          substitutions:
-            local_volume_path: /var/mnt/local
           timeout: 20m
           interval: 5m
         - name: lb-base
@@ -181,8 +179,6 @@ cases:
             - policy-resources
           components:
             - longhorn
-          substitutions:
-            local_volume_path: /mnt/storage
           timeout: 20m
           interval: 5m
         - name: lb-base
@@ -275,5 +271,3 @@ cases:
     expect:
       kustomize:
         - name: csi
-          substitutions:
-            local_volume_path: /data/local

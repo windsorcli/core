@@ -31,8 +31,6 @@ kustomize:
     - "${(cluster.controlplanes.schedulable ?? false) ? 'longhorn/single-node' : ''}"
     - "${(ha ?? false) ? 'longhorn/ha' : ''}"
     - "${addons.observability.enabled == true ? 'longhorn/prometheus' : ''}"
-  substitutions:
-    local_volume_path: ${talos_common.csi_local_volume_path}
   timeout: 20m
   interval: 5m
 
