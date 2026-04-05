@@ -209,7 +209,7 @@ terraform:
         limits:
           cpu: ${string(cluster.workers.cpu ?? 4)}
           memory: ${string(cluster.workers.memory ?? 4) + "GB"}
-        disks: ${cluster.workers.disks ?? []}
+        disks: "${cluster.workers.disks ?? (talos_common.storage_driver == 'longhorn' ? talos_common.longhorn_default_disk : [])}"
         config:
           user.hostname: "${cluster.workers.nodes != null ? (values(cluster.workers.nodes)[0].hostname ?? 'worker-1') : 'worker-1'}"
           environment.TALOSSKU: "${string(cluster.workers.cpu ?? 4) + 'CPU-' + string((cluster.workers.memory ?? 4) * 1024) + 'RAM'}"

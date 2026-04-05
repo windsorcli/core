@@ -23,7 +23,7 @@ config:
       worker_volumes: "${cluster.workers.volumes ?? []}"
       csi_local_volume_path: "${cluster.storage.local_base_path ?? \"/var/mnt/local\"}"
       controlplane_disks: "${cluster.controlplanes.disks ?? (talos_common.storage_driver == 'longhorn' ? talos_common.longhorn_default_disk : [])}"
-      worker_disks: "${cluster.workers.disks ?? []}"
+      worker_disks: "${cluster.workers.disks ?? (talos_common.storage_driver == 'longhorn' ? talos_common.longhorn_default_disk : [])}"
       cert_rotation:
         extra_manifests:
           - "https://raw.githubusercontent.com/alex1989hu/kubelet-serving-cert-approver/v0.8.7/deploy/standalone-install.yaml"
