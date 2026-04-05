@@ -82,7 +82,7 @@ locals {
       volumeType = "disk", provisioning = { diskSelector = { match = "disk.dev_path == '${d.device}'" } }
       }) : yamlencode({
       apiVersion   = "v1alpha1", kind = "UserVolumeConfig", name = try(d.name, "disk-${i}"),
-      provisioning = { diskSelector = { match = try(d.selector, "") != "" ? d.selector : "!system_disk && disk.size == ${d.size}u * GiB" } },
+      provisioning = { diskSelector = { match = try(d.selector, "") != "" ? d.selector : "!system_disk && disk.size == ${d.size}u * GB" } },
       filesystem   = { type = "xfs" }
     })
     if try(d.device, "") != "" || try(d.selector, "") != "" || try(d.size, null) != null
@@ -93,7 +93,7 @@ locals {
       volumeType = "disk", provisioning = { diskSelector = { match = "disk.dev_path == '${d.device}'" } }
       }) : yamlencode({
       apiVersion   = "v1alpha1", kind = "UserVolumeConfig", name = try(d.name, "disk-${i}"),
-      provisioning = { diskSelector = { match = try(d.selector, "") != "" ? d.selector : "!system_disk && disk.size == ${d.size}u * GiB" } },
+      provisioning = { diskSelector = { match = try(d.selector, "") != "" ? d.selector : "!system_disk && disk.size == ${d.size}u * GB" } },
       filesystem   = { type = "xfs" }
     })
     if try(d.device, "") != "" || try(d.selector, "") != "" || try(d.size, null) != null
