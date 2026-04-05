@@ -80,8 +80,7 @@ cases:
           dependsOn:
             - policy-resources
           components:
-            - openebs
-            - openebs/dynamic-localpv
+            - longhorn
           substitutions:
             local_volume_path: /var/mnt/local
           timeout: 20m
@@ -181,8 +180,7 @@ cases:
           dependsOn:
             - policy-resources
           components:
-            - openebs
-            - openebs/dynamic-localpv
+            - longhorn
           substitutions:
             local_volume_path: /mnt/storage
           timeout: 20m
