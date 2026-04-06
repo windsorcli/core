@@ -199,7 +199,7 @@ resource "docker_container" "dns" {
 resource "docker_image" "registry" {
   count = length(local.registries) > 0 ? 1 : 0
   # renovate: datasource=docker depName=ghcr.io/distribution/distribution package=ghcr.io/distribution/distribution
-  name = "ghcr.io/distribution/distribution:3.0.0@sha256:4ba3adf47f5c866e9a29288c758c5328ef03396cb8f5f6454463655fa8bc83e2"
+  name = "ghcr.io/distribution/distribution:3.1.0@sha256:4fdc7c11dd6b58fd06e386971bf29929eebd831a074197ad1457a1aefeacf3da"
 }
 
 resource "docker_container" "registry" {
