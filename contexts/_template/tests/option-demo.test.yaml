@@ -33,9 +33,8 @@ cases:
         enabled: true
         resources:
           database: true
-      ingress:
+      gateway:
         enabled: false
-        driver: nginx
       network: *default-network
       cluster: *default-cluster
     expect:
@@ -54,9 +53,8 @@ cases:
       dev: true
       demo:
         enabled: false
-      ingress:
+      gateway:
         enabled: false
-        driver: nginx
       network: *default-network
       cluster: *default-cluster
     exclude:

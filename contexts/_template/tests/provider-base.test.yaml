@@ -24,16 +24,13 @@ x-defaults:
       volumes:
         - /var/mnt/local
 
-  ingress-disabled: &ingress-disabled
-    enabled: false
-    driver: nginx
-
 cases:
   # Minimal: Test base infrastructure with default log aggregation driver (fluentd)
   - name: minimal config creates base infrastructure with default fluentd driver
     values:
       provider: metal
-      ingress: *ingress-disabled
+      gateway:
+        enabled: false
       network: *default-network
       cluster: *default-cluster
     expect:
@@ -111,11 +108,12 @@ cases:
   - name: full config with explicit fluentd driver and observability enabled
     values:
       provider: metal
-      ingress: *ingress-disabled
+      gateway:
+        enabled: false
       network: *default-network
       cluster: *default-cluster
       telemetry:
-        log_aggregation:
+        logs:
           driver: fluentd
       addons:
         observability:
@@ -148,7 +146,6 @@ cases:
             - grafana/dashboards/kubernetes
             - grafana/dashboards/flux
             - grafana/dashboards/cert-manager
-            - grafana/dashboards/nginx
             - grafana/dashboards/fluent-bit
             - grafana/dashboards/fluentd
             - fluentd/outputs/stdout
@@ -159,7 +156,8 @@ cases:
   - name: fluentd included when observability addon disabled
     values:
       provider: metal
-      ingress: *ingress-disabled
+      gateway:
+        enabled: false
       network: *default-network
       cluster: *default-cluster
       addons:
@@ -182,9 +180,9 @@ cases:
       provider: metal
       dns:
         domain: elk.example.com
-      ingress:
+      gateway:
         enabled: true
-        driver: nginx
+        driver: envoy
       network: *default-network
       cluster: *default-cluster
       addons:
@@ -221,7 +219,7 @@ cases:
           components:
             - elasticsearch
             - kibana
-            - kibana/ingress
+            - kibana/gateway
           substitutions:
             external_domain: elk.example.com
 
@@ -229,11 +227,12 @@ cases:
   - name: none driver disables log aggregation
     values:
       provider: metal
-      ingress: *ingress-disabled
+      gateway:
+        enabled: false
       network: *default-network
       cluster: *default-cluster
       telemetry:
-        log_aggregation:
+        logs:
           driver: none
     expect:
       kustomize:
@@ -263,7 +262,8 @@ cases:
   - name: policy mode disabled excludes selected policies
     values:
       provider: metal
-      ingress: *ingress-disabled
+      gateway:
+        enabled: false
       network: *default-network
       cluster: *default-cluster
       policies:

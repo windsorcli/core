@@ -1,0 +1,13 @@
+apiVersion: helm.toolkit.fluxcd.io/v2
+kind: HelmRelease
+metadata:
+  name: cilium
+  namespace: system-cni
+spec:
+  values:
+    # Enable Cilium's built-in Gateway API controller.
+    # CRDs are installed separately via gateway/base/crds to share them
+    # across controllers and avoid duplicate CRD management.
+    gatewayAPI:
+      enabled: true
+      enableAlpn: true

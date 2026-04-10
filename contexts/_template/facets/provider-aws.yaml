@@ -21,10 +21,32 @@ terraform:
   dependsOn:
     - cluster
   destroy: false
+
+# Bootstrap Cilium before Flux so that pod networking is available when GitOps controllers start.
+# Only active when cni_effective.driver is explicitly set to 'cilium'. EKS does not use Talos mode.
+- name: cni
+  when: "cni_effective.driver == 'cilium'"
+  path: cni/cilium
+  dependsOn:
+    - cluster
+  inputs:
+    cluster_endpoint: ${cluster.endpoint ?? ""}
+
 - name: gitops
+  when: "cni_effective.driver != 'cilium'"
   path: gitops/flux
   dependsOn:
     - cluster
+  inputs:
+    concurrency: 5
+  destroy: false
+
+- name: gitops
+  when: "cni_effective.driver == 'cilium'"
+  path: gitops/flux
+  dependsOn:
+    - cluster
+    - cni
   inputs:
     concurrency: 5
   destroy: false

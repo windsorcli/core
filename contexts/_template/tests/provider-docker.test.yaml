@@ -52,9 +52,6 @@ x-defaults:
           remote: "https://gcr.io"
           hostname: "gcr.test"
 
-  ingress-disabled: &ingress-disabled
-    enabled: false
-    driver: nginx
 
 cases:
   # Minimal: workstation path — when workstation enabled, cluster depends on compute (workstation → compute → cluster from option-workstation + provider-docker)
@@ -64,7 +61,8 @@ cases:
       workstation:
         runtime: colima
       dns: *default-dns
-      ingress: *ingress-disabled
+      gateway:
+        enabled: false
       network: *default-network
       cluster: *default-cluster
     terraformOutputs: *default-terraform-outputs
@@ -76,10 +74,18 @@ cases:
           inputs:
             cluster_endpoint: https://10.5.0.10:6443
             cluster_name: talos
+        - name: cni
+          path: cni/cilium
+          dependsOn:
+            - cluster
+          inputs:
+            cluster_endpoint: https://10.5.0.10:6443
+            talos_mode: true
         - name: gitops
           path: gitops/flux
           dependsOn:
             - cluster
+            - cni
           destroy: false
           inputs:
             concurrency: 4
@@ -142,23 +148,19 @@ cases:
             - fluentbit/prometheus
           timeout: 10m
           interval: 5m
-        - name: lb-base
-          path: lb/base
+        - name: cni
+          path: cni
           dependsOn:
             - policy-resources
-          components: []
-          timeout: 5m
-          interval: 5m
-        - name: lb-resources
-          path: lb/resources
-          dependsOn:
-            - lb-base
           components:
-            - kube-vip
-            - kube-vip/arp
+            - cilium
+            - cilium/talos
+            - cilium/l2
           substitutions:
-            loadbalancer_ip_range: 10.5.1.10-10.5.1.100
-          timeout: 5m
+            k8s_service_host: "10.5.0.10"
+            loadbalancer_start_ip: "10.5.1.10"
+            loadbalancer_end_ip: "10.5.1.100"
+          timeout: 15m
           interval: 5m
         - name: csi
           path: csi
@@ -171,6 +173,10 @@ cases:
             local_volume_path: /var/mnt/local
           timeout: 20m
           interval: 5m
+    exclude:
+      kustomize:
+        - name: lb-base
+        - name: lb-resources
 
   # Registry mirrors: when terraform_output("workstation", "registries") has hostname, common_config_patches must include non-empty mirrors. Colima: no certSANs.
   - name: cluster common_config_patches includes registry mirrors when docker.registries have hostname
@@ -179,7 +185,8 @@ cases:
       workstation:
         runtime: colima
       dns: *default-dns
-      ingress: *ingress-disabled
+      gateway:
+        enabled: false
       network: *default-network
       cluster: *default-cluster
       docker:
@@ -198,6 +205,11 @@ cases:
                 allowSchedulingOnControlPlanes: true
                 extraManifests:
                 - https://raw.githubusercontent.com/alex1989hu/kubelet-serving-cert-approver/v0.8.7/deploy/standalone-install.yaml
+                network:
+                  cni:
+                    name: none
+                proxy:
+                  disabled: true
               machine:
                 kubelet:
                   extraArgs:
@@ -209,19 +221,21 @@ cases:
                       endpoints:
                       - http://gcr.test:5000
 
-  # Full: workstation path with fully populated cluster, ingress, volumes
+  # Full: workstation path with fully populated cluster, ingress, volumes (flannel + kube-vip to exercise lb path)
   - name: full config creates workstation compute cluster chain with all options
     values:
       provider: docker
       workstation:
         runtime: colima
       dns: *default-dns
-      ingress:
+      gateway:
         enabled: true
-        driver: nginx
+        driver: envoy
       network: *default-network
       cluster:
         driver: talos
+        cni:
+          driver: flannel
         controlplanes:
           cpu: 20
           memory: 32
@@ -342,20 +356,22 @@ cases:
   - name: docker without workstation has no cluster terraform
     values:
       provider: docker
-      ingress: *ingress-disabled
+      gateway:
+        enabled: false
       network: *default-network
       cluster: *default-cluster
     expect:
       terraform: []
 
-  # Edge: Docker Desktop excludes load balancer (workstation enabled so cluster runs)
-  - name: Docker Desktop excludes load balancer
+  # Edge: Docker Desktop excludes load balancer and cilium bootstrap (uses flannel)
+  - name: Docker Desktop excludes load balancer and uses flannel CNI
     values:
       provider: docker
       workstation:
         runtime: docker-desktop
       dns: *default-dns
-      ingress: *ingress-disabled
+      gateway:
+        enabled: false
       network: *default-network
       cluster: *default-cluster
     terraformOutputs: *default-terraform-outputs
@@ -366,6 +382,9 @@ cases:
           inputs:
             cluster_endpoint: https://10.5.0.10:6443
     exclude:
+      terraform:
+        - name: cni
       kustomize:
+        - name: cni
         - name: lb-base
         - name: lb-resources

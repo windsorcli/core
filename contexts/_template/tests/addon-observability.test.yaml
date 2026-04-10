@@ -23,12 +23,9 @@ x-defaults:
       volumes:
         - /var/mnt/local
 
-  ingress-disabled: &ingress-disabled
-    enabled: false
-    driver: nginx
-
 cases:
   # Minimal: dev mode enables observability addon; addon wins (last-wins)
+  # Metal defaults to cilium gateway driver, cilium dashboard included.
   - name: minimal config creates observability with defaults via dev mode
     values:
       provider: metal
@@ -50,7 +47,7 @@ cases:
             - grafana/dashboards/kubernetes
             - grafana/dashboards/flux
             - grafana/dashboards/cert-manager
-            - grafana/dashboards/nginx
+            - grafana/dashboards/cilium
             - grafana/dashboards/fluent-bit
             - grafana/dashboards/fluentd
           substitutions:
@@ -61,7 +58,7 @@ cases:
             date_interval_hour: "MM/DD HH:mm"
             date_interval_day: "MM/DD"
 
-  # Full: stdout driver; addon wins (last-wins), addon contributes grafana + fluentd/outputs/stdout only
+  # Full: stdout driver with Gateway API (envoy); grafana/gateway route included.
   - name: full config with stdout driver creates FluentD pipeline and log filtering
     values:
       provider: metal
@@ -69,9 +66,9 @@ cases:
         domain: full.example.com
       time_format: 24h
       log_level: warn
-      ingress:
+      gateway:
         enabled: true
-        driver: nginx
+        driver: envoy
       network: *default-network
       cluster: *default-cluster
       addons:
@@ -91,10 +88,9 @@ cases:
             - grafana/dashboards/kubernetes
             - grafana/dashboards/flux
             - grafana/dashboards/cert-manager
-            - grafana/dashboards/nginx
             - grafana/dashboards/fluent-bit
             - grafana/dashboards/fluentd
-            - grafana/ingress
+            - grafana/gateway
             - fluentd/outputs/stdout
           substitutions:
             external_domain: full.example.com
@@ -147,9 +143,9 @@ cases:
       provider: metal
       dns:
         domain: elk.example.com
-      ingress:
+      gateway:
         enabled: true
-        driver: nginx
+        driver: envoy
       network: *default-network
       cluster: *default-cluster
       addons:
@@ -166,7 +162,7 @@ cases:
           components:
             - elasticsearch
             - kibana
-            - kibana/ingress
+            - kibana/gateway
           substitutions:
             external_domain: elk.example.com
         - name: telemetry-base
@@ -194,7 +190,8 @@ cases:
   - name: excludes observability when addon disabled
     values:
       provider: metal
-      ingress: *ingress-disabled
+      gateway:
+        enabled: false
       network: *default-network
       cluster: *default-cluster
       addons:
@@ -209,11 +206,12 @@ cases:
             - fluentd/filters/otel
             - fluentd/prometheus
 
-  # Edge: trace log level; addon wins, addon contributes fluentd/outputs/stdout only
+  # Edge: trace log level; grafana dashboards appear without a route (gateway disabled), stdout output included.
   - name: trace log level creates stdout pipeline without log filter
     values:
       provider: metal
-      ingress: *ingress-disabled
+      gateway:
+        enabled: false
       network: *default-network
       cluster: *default-cluster
       log_level: trace
@@ -225,35 +223,19 @@ cases:
       kustomize:
         - name: observability
           path: observability
-          dependsOn:
-            - telemetry-resources
           components:
+            - grafana
+            - grafana/prometheus
+            - grafana/dashboards/node
+            - grafana/dashboards/kubernetes
+            - grafana/dashboards/flux
+            - grafana/dashboards/cert-manager
+            - grafana/dashboards/fluent-bit
+            - grafana/dashboards/fluentd
             - fluentd/outputs/stdout
 
-  # Edge case: Elasticsearch without nginx ingress skips ELK ingress components
-  # Edge: ingress disabled → gateway_effective.enabled is false → filebeat replacement skipped.
+  # Edge: gateway disabled → gateway_effective.enabled is false → filebeat replacement skipped.
   # telemetry-base keeps its default fluentbit components; elasticsearch/kibana not deployed.
-  - name: excludes elasticsearch observability when ingress is disabled
-    values:
-      provider: metal
-      workstation:
-        runtime: docker-desktop
-      ingress: *ingress-disabled
-      network: *default-network
-      cluster: *default-cluster
-      addons:
-        observability:
-          enabled: true
-          logs_driver: elasticsearch
-    expect:
-      kustomize:
-        - name: telemetry-base
-          path: telemetry/base
-          components:
-            - fluentbit
-
-  # Edge: gateway explicitly disabled with elasticsearch driver skips filebeat replacement.
-  # Without this guard, filebeat deploys but has no elasticsearch endpoint to connect to.
   - name: elasticsearch with gateway disabled skips filebeat and ELK stack
     values:
       provider: metal
@@ -297,4 +279,3 @@ cases:
           components:
             - grafana/gateway
             - kibana/gateway
-

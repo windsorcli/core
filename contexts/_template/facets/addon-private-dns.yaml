@@ -8,23 +8,25 @@ when: addons.private_dns.enabled == true
 
 kustomize:
 
-# CoreDNS server for private DNS zones
+# Cilium: depends on cni for LBIPAM readiness; CoreDNS gets a LoadBalancer IP directly.
+# Others (envoy, etc.): depend on gateway-base for TCPRoute/UDPRoute CRDs.
 - name: dns
   path: dns
   dependsOn:
     - pki-base
+    - "${gateway_effective.driver == 'cilium' ? 'cni' : 'gateway-base'}"
   timeout: 10m
   interval: 5m
   components:
     - coredns
     - coredns/etcd
     - "${(ha ?? false) ? 'coredns/ha' : ''}"
+    - "${gateway_effective.driver == 'cilium' ? 'coredns/loadbalancer' : ''}"
+    - "${gateway_effective.driver == 'envoy' && gateway_effective.enabled == true ? 'coredns/gateway' : ''}"
     - external-dns
     - external-dns/coredns
     - "${(ha ?? false) ? 'external-dns/ha' : ''}"
-    # Component name remains "ingress" for compatibility, but it configures
-    # both ingress and Gateway API HTTPRoute sources in external-dns.
-    - external-dns/ingress
     - "${workstation.runtime == 'docker-desktop' ? 'external-dns/localhost' : ''}"
   substitutions:
     external_domain: ${dns.private_domain}
+    loadbalancer_start_ip: ${network.loadbalancer_ips.start}

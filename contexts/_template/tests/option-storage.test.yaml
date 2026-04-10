@@ -24,9 +24,6 @@ x-defaults:
       volumes:
         - /var/mnt/local
 
-  ingress-disabled: &ingress-disabled
-    enabled: false
-    driver: nginx
 
   # Shared CSI assertion fields
   csi-base: &csi-base
@@ -37,12 +34,22 @@ x-defaults:
     timeout: 20m
     interval: 5m
 
+  csi-longhorn: &csi-longhorn
+    name: csi
+    path: csi
+    dependsOn:
+      - policy-resources
+      - telemetry-base
+    timeout: 20m
+    interval: 5m
+
 cases:
   # Minimal: no explicit storage config — defaults to openebs
   - name: minimal config defaults to openebs
     values:
       provider: metal
-      ingress: *ingress-disabled
+      gateway:
+        enabled: false
       network: *default-network
       cluster: *default-cluster
     expect:
@@ -59,7 +66,8 @@ cases:
     values:
       provider: metal
       ha: true
-      ingress: *ingress-disabled
+      gateway:
+        enabled: false
       network: *default-network
       cluster:
         driver: talos
@@ -75,7 +83,7 @@ cases:
           local_base_path: /var/mnt/longhorn
     expect:
       kustomize:
-        - <<: *csi-base
+        - <<: *csi-longhorn
           components:
             - longhorn
             - longhorn/ha
@@ -84,7 +92,8 @@ cases:
   - name: explicit openebs driver produces same result as default
     values:
       provider: metal
-      ingress: *ingress-disabled
+      gateway:
+        enabled: false
       network: *default-network
       cluster:
         driver: talos
@@ -109,7 +118,8 @@ cases:
   - name: custom local_base_path is passed to CSI substitution
     values:
       provider: metal
-      ingress: *ingress-disabled
+      gateway:
+        enabled: false
       network: *default-network
       cluster:
         driver: talos
@@ -134,7 +144,8 @@ cases:
   - name: longhorn single-node with schedulable CP adds single-node component
     values:
       provider: metal
-      ingress: *ingress-disabled
+      gateway:
+        enabled: false
       network: *default-network
       cluster:
         driver: talos
@@ -150,7 +161,7 @@ cases:
           driver: longhorn
     expect:
       kustomize:
-        - <<: *csi-base
+        - <<: *csi-longhorn
           components:
             - longhorn
             - longhorn/single-node
@@ -159,7 +170,8 @@ cases:
   - name: longhorn multi-node without ha omits topology components
     values:
       provider: metal
-      ingress: *ingress-disabled
+      gateway:
+        enabled: false
       network: *default-network
       cluster:
         driver: talos
@@ -174,7 +186,7 @@ cases:
           driver: longhorn
     expect:
       kustomize:
-        - <<: *csi-base
+        - <<: *csi-longhorn
           components:
             - longhorn
 
@@ -183,7 +195,8 @@ cases:
     values:
       provider: metal
       ha: true
-      ingress: *ingress-disabled
+      gateway:
+        enabled: false
       network: *default-network
       cluster:
         driver: talos
@@ -198,7 +211,7 @@ cases:
           driver: longhorn
     expect:
       kustomize:
-        - <<: *csi-base
+        - <<: *csi-longhorn
           components:
             - longhorn
             - longhorn/ha
@@ -208,7 +221,8 @@ cases:
     values:
       provider: metal
       ha: true
-      ingress: *ingress-disabled
+      gateway:
+        enabled: false
       network: *default-network
       cluster:
         driver: talos
@@ -224,7 +238,7 @@ cases:
           driver: longhorn
     expect:
       kustomize:
-        - <<: *csi-base
+        - <<: *csi-longhorn
           components:
             - longhorn
             - longhorn/single-node

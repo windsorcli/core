@@ -1,2 +1,10 @@
+apiVersion: kustomize.config.k8s.io/v1alpha1
+kind: Component
 resources:
+  - helm-repository.yaml
+  # Envoy Gateway CRDs vendored as static files (HelmRelease secret exceeds 1MB limit).
+  # Update alongside gateway-helm chart version — fetch from envoyproxy/gateway@vX.Y.Z install.yaml,
+  # extract from the first '---' before gateway.envoyproxy.io CRDs through EOF.
+  - envoy-gateway-crds-v1.7.1.yaml
+  - gatewayclass.yaml
   - helm-release.yaml

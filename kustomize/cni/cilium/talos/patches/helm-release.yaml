@@ -1,0 +1,33 @@
+---
+# Talos-specific Cilium settings:
+#   - Explicit Linux capabilities instead of full privileged mode (Talos enforces seccomp/apparmor).
+#   - Disable cgroup auto-mount: Talos mounts cgroups at boot; Cilium must not try to re-mount.
+apiVersion: helm.toolkit.fluxcd.io/v2
+kind: HelmRelease
+metadata:
+  name: cilium
+  namespace: system-cni
+spec:
+  values:
+    securityContext:
+      capabilities:
+        ciliumAgent:
+          - CHOWN
+          - KILL
+          - NET_ADMIN
+          - NET_RAW
+          - IPC_LOCK
+          - SYS_ADMIN
+          - SYS_RESOURCE
+          - DAC_OVERRIDE
+          - FOWNER
+          - SETGID
+          - SETUID
+        cleanCiliumState:
+          - NET_ADMIN
+          - SYS_ADMIN
+          - SYS_RESOURCE
+    cgroup:
+      autoMount:
+        enabled: false
+      hostRoot: /sys/fs/cgroup

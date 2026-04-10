@@ -1,0 +1,17 @@
+apiVersion: helm.toolkit.fluxcd.io/v2
+kind: HelmRelease
+metadata:
+  name: cilium
+  namespace: system-cni
+spec:
+  values:
+    operator:
+      prometheus:
+        enabled: true
+        serviceMonitor:
+          enabled: true
+
+    prometheus:
+      enabled: true
+      serviceMonitor:
+        enabled: true

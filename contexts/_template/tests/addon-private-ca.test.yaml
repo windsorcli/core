@@ -23,9 +23,6 @@ x-defaults:
       volumes:
         - /var/mnt/local
 
-  ingress-disabled: &ingress-disabled
-    enabled: false
-    driver: nginx
 
 cases:
   # Minimal: dev mode enables private-ca addon. Intended: addon pki-base (trust-manager) overrides provider. See docs/cli-bugs.md if this fails.
@@ -82,7 +79,8 @@ cases:
   - name: excludes private CA when addon disabled
     values:
       provider: metal
-      ingress: *ingress-disabled
+      gateway:
+        enabled: false
       network: *default-network
       cluster: *default-cluster
       addons:

@@ -15,6 +15,14 @@ config:
     longhorn_default_disk:
       - name: longhorn
         size: 30
+    # Incus assigns the controlplane a fixed IP at offset 10 in the network CIDR.
+    k8s_service_host: "${cidrhost(network.cidr_block, 10)}"
+
+# colima-incus: use flannel (no cilium overhead) — this setup is primarily for testing storage drivers.
+- name: cni_effective
+  when: workstation.runtime == 'colima'
+  value:
+    driver: "${cluster.cni.driver ?? 'flannel'}"
 
 - name: cluster_endpoint_fallback
   value:
@@ -91,12 +99,12 @@ terraform:
     common_config_patches: ${talos_common.common_config_patches}
     controlplane_volumes: ${talos_common.controlplane_volumes ?? []}
     worker_volumes: ${talos_common.worker_volumes ?? []}
-    extensions: ${talos_common.extensions ?? []}
 
 - name: gitops
+  when: "workstation.runtime == null || workstation.runtime == ''"
   path: gitops/flux
   dependsOn:
-  - cluster
+    - cluster
   inputs:
     concurrency: ${max(2, min(floor((cluster.controlplanes.cpu ?? 4) / 2), floor((cluster.controlplanes.memory ?? 4) / 2), 10))}
   destroy: false
@@ -106,6 +114,7 @@ kustomize:
 # Load Balancer
 - name: lb-base
   path: lb/base
+  when: lb_effective.enabled
   dependsOn:
     - policy-resources
   components:
@@ -115,6 +124,7 @@ kustomize:
 
 - name: lb-resources
   path: lb/resources
+  when: lb_effective.enabled
   dependsOn:
     - lb-base
   components:

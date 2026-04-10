@@ -26,16 +26,14 @@ x-defaults:
       volumes:
         - /var/mnt/local
 
-  ingress-disabled: &ingress-disabled
-    enabled: false
-    driver: nginx
 
 cases:
   # Minimal: Test default behavior with required fields only
-  - name: minimal config creates Talos cluster with kube-vip and default CSI
+  - name: minimal config creates Talos cluster with Cilium L2 and default CSI
     values:
       provider: metal
-      ingress: *ingress-disabled
+      gateway:
+        enabled: false
       network: *default-network
       cluster: *default-cluster
     expect:
@@ -46,10 +44,18 @@ cases:
           inputs:
             cluster_endpoint: https://10.5.0.10:6443
             cluster_name: talos
+        - name: cni
+          path: cni/cilium
+          dependsOn:
+            - cluster
+          inputs:
+            cluster_endpoint: https://10.5.0.10:6443
+            talos_mode: true
         - name: gitops
           path: gitops/flux
           dependsOn:
             - cluster
+            - cni
           destroy: false
           inputs:
             concurrency: 4
@@ -112,6 +118,20 @@ cases:
             - fluentbit/prometheus
           timeout: 10m
           interval: 5m
+        - name: cni
+          path: cni
+          dependsOn:
+            - policy-resources
+          components:
+            - cilium
+            - cilium/talos
+            - cilium/l2
+          substitutions:
+            k8s_service_host: "10.5.0.10"
+            loadbalancer_start_ip: "10.5.1.10"
+            loadbalancer_end_ip: "10.5.1.100"
+          timeout: 15m
+          interval: 5m
         - name: csi
           path: csi
           dependsOn:
@@ -123,27 +143,20 @@ cases:
             local_volume_path: /var/mnt/local
           timeout: 20m
           interval: 5m
+    exclude:
+      kustomize:
+        - name: lb-base
         - name: lb-resources
-          path: lb/resources
-          dependsOn:
-            - lb-base
-          components:
-            - kube-vip
-            - kube-vip/arp
-          substitutions:
-            loadbalancer_ip_range: 10.5.1.10-10.5.1.100
-          timeout: 5m
-          interval: 5m
 
-  # Full: Test all configurable options together
+  # Full: Test all configurable options together (explicit flannel CNI to exercise MetalLB path)
   - name: full config with MetalLB, custom resources, ingress, and custom worker volume
     values:
       provider: metal
       workstation:
         runtime: colima
-      ingress:
+      gateway:
         enabled: true
-        driver: nginx
+        driver: envoy
       network:
         loadbalancer_driver: metallb
         loadbalancer_mode: layer2
@@ -152,6 +165,8 @@ cases:
           end: "192.168.1.200"
       cluster:
         driver: talos
+        cni:
+          driver: flannel
         controlplanes:
           cpu: 20
           memory: 32
@@ -268,11 +283,12 @@ cases:
           timeout: 5m
           interval: 5m
 
-  # Edge case: longhorn storage driver passes Talos extensions to cluster/talos module
+  # Edge case: longhorn storage driver passes Talos extensions via cluster-extensions step
   - name: longhorn storage driver passes iscsi and util-linux extensions to cluster terraform
     values:
       provider: metal
-      ingress: *ingress-disabled
+      gateway:
+        enabled: false
       network: *default-network
       cluster:
         driver: talos
@@ -288,8 +304,11 @@ cases:
           local_base_path: /var/mnt/longhorn
     expect:
       terraform:
-        - name: cluster
-          path: cluster/talos
+        - name: cluster-extensions
+          path: cluster/talos/extensions
+          dependsOn:
+            - cni
+          parallelism: 1
           inputs:
             extensions:
               - siderolabs/iscsi-tools

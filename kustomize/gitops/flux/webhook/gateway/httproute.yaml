@@ -1,0 +1,18 @@
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: flux-webhook
+  namespace: system-gitops
+spec:
+  parentRefs:
+    - name: edge
+      namespace: system-gateway
+      sectionName: web-http
+  rules:
+    - matches:
+        - path:
+            type: PathPrefix
+            value: /hook/
+      backendRefs:
+        - name: webhook-receiver
+          port: 80
