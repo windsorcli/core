@@ -22,3 +22,4 @@ spec:
       tag: v1.1.2@sha256:840305b94ef2a89abb3b7fd2b09edfbde690d90052020da4dff90679fe892da2
     env:
       svc_enable: "true"
+      svc_election: "true"
