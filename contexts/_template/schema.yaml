@@ -466,7 +466,6 @@ properties:
       driver:
         type: string
         enum:
-          - nginx
           - envoy
           - cilium
         description: Gateway driver
