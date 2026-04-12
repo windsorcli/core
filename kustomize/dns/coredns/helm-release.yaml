@@ -5,8 +5,8 @@ metadata:
   name: coredns
   namespace: system-dns
 spec:
-  interval: 5m
-  timeout: 10m
+  interval: 1m
+  timeout: 15m
   dependsOn: []
   install:
     remediation:

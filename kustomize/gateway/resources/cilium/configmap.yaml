@@ -1,0 +1,7 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: cilium-lbipam-config
+  namespace: system-gateway
+data:
+  gatewayIp: "${loadbalancer_start_ip}"

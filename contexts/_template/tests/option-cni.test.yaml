@@ -1,0 +1,256 @@
+# option-cni.yaml facet tests
+# Tests Cilium CNI selection — Terraform bootstrap, Talos machine config patches, and kustomize component composition.
+# Uses provider: metal to keep tests platform-agnostic (option-cni applies to any Talos cluster).
+
+x-defaults:
+  network: &default-network
+    cidr_block: 10.5.0.0/16
+    loadbalancer_driver: kube-vip
+    loadbalancer_mode: arp
+    loadbalancer_ips:
+      start: "10.5.1.10"
+      end: "10.5.1.100"
+
+  cluster: &default-cluster
+    driver: talos
+    controlplanes:
+      nodes:
+        controlplane-1: &cp1-node
+          endpoint: 10.5.0.10:50000
+          node: 10.5.0.10
+          hostname: controlplane-1
+    workers:
+      volumes:
+        - /var/mnt/local
+
+
+  cni-base: &cni-base
+    name: cni
+    path: cni
+    dependsOn:
+      - policy-resources
+      - telemetry-base
+    timeout: 15m
+    interval: 5m
+
+cases:
+  # Default: no CNI config — cilium is the default, cni terraform + kustomize are deployed.
+  - name: default config (no cluster.cni) deploys cilium on metal
+    values:
+      provider: metal
+      gateway:
+        enabled: false
+      network: *default-network
+      cluster: *default-cluster
+    expect:
+      terraform:
+        - name: cni
+          path: cni/cilium
+          dependsOn:
+            - cluster
+          inputs:
+            cluster_endpoint: https://10.5.0.10:6443
+      kustomize:
+        - <<: *cni-base
+          components:
+            - cilium
+            - cilium/talos
+            - cilium/prometheus
+            - cilium/hubble
+            - cilium/l2
+          substitutions:
+            k8s_service_host: "10.5.0.10"
+
+  # Explicit flannel: opt-out of cilium — no cni kustomize component deployed.
+  - name: explicit flannel driver omits cni kustomize component
+    values:
+      provider: metal
+      gateway:
+        enabled: false
+      network: *default-network
+      cluster:
+        <<: *default-cluster
+        cni:
+          driver: flannel
+    exclude:
+      kustomize:
+        - name: cni
+      terraform:
+        - name: cni
+
+  # Cilium: deploys cni terraform + kustomize with k8s_service_host substitution.
+  - name: cilium driver deploys cni terraform and kustomize component
+    values:
+      provider: metal
+      gateway:
+        enabled: false
+      network: *default-network
+      cluster:
+        driver: talos
+        controlplanes:
+          nodes:
+            controlplane-1: *cp1-node
+        workers:
+          volumes:
+            - /var/mnt/local
+        cni:
+          driver: cilium
+    expect:
+      terraform:
+        - name: cni
+          path: cni/cilium
+          dependsOn:
+            - cluster
+          inputs:
+            cluster_endpoint: https://10.5.0.10:6443
+      kustomize:
+        - <<: *cni-base
+          components:
+            - cilium
+            - cilium/talos
+            - cilium/prometheus
+            - cilium/hubble
+            - cilium/l2
+          substitutions:
+            k8s_service_host: "10.5.0.10"
+
+  # Cilium + HA: adds cilium/ha component.
+  - name: cilium with ha=true adds cilium/ha component
+    values:
+      provider: metal
+      ha: true
+      gateway:
+        enabled: false
+      network: *default-network
+      cluster:
+        driver: talos
+        controlplanes:
+          nodes:
+            controlplane-1: *cp1-node
+        workers:
+          count: 2
+          volumes:
+            - /var/mnt/local
+        cni:
+          driver: cilium
+    expect:
+      kustomize:
+        - <<: *cni-base
+          components:
+            - cilium
+            - cilium/talos
+            - cilium/ha
+            - cilium/prometheus
+            - cilium/hubble
+            - cilium/l2
+          substitutions:
+            k8s_service_host: "10.5.0.10"
+
+  # Cilium + Gateway: adds cilium/gateway component and gateway-base dep (CRDs before cilium-operator).
+  - name: cilium gateway driver adds cilium/gateway component
+    values:
+      provider: metal
+      gateway:
+        enabled: true
+        driver: cilium
+      network: *default-network
+      cluster: *default-cluster
+    expect:
+      kustomize:
+        - name: cni
+          path: cni
+          dependsOn:
+            - policy-resources
+            - telemetry-base
+            - gateway-base
+          components:
+            - cilium
+            - cilium/talos
+            - cilium/gateway
+            - cilium/prometheus
+            - cilium/hubble
+            - cilium/l2
+          substitutions:
+            k8s_service_host: "10.5.0.10"
+          timeout: 15m
+          interval: 5m
+
+  # Cilium: Talos cluster terraform receives the CNI patch merged into common_config_patches.
+  - name: cilium driver merges cni patch into common_config_patches for cluster/talos terraform
+    values:
+      provider: metal
+      gateway:
+        enabled: false
+      network: *default-network
+      cluster:
+        driver: talos
+        controlplanes:
+          nodes:
+            controlplane-1: *cp1-node
+        workers:
+          volumes:
+            - /var/mnt/local
+        cni:
+          driver: cilium
+    expect:
+      terraform:
+        - name: cluster
+          path: cluster/talos
+          inputs:
+            common_config_patches: |-
+              cluster:
+                allowSchedulingOnControlPlanes: true
+                extraManifests:
+                - https://raw.githubusercontent.com/alex1989hu/kubelet-serving-cert-approver/v0.8.7/deploy/standalone-install.yaml
+                network:
+                  cni:
+                    name: none
+                proxy:
+                  disabled: true
+              machine:
+                kubelet:
+                  extraArgs:
+                    rotate-server-certificates: "true"
+
+  # Cilium + Gateway: gateway-resources depends on cni so the LBIPAM sharing policy
+  # is applied before the Gateway resource is created.
+  - name: cilium gateway driver makes gateway-resources depend on cni
+    values:
+      provider: metal
+      gateway:
+        enabled: true
+        driver: cilium
+      network: *default-network
+      cluster: *default-cluster
+    expect:
+      kustomize:
+        - name: gateway-resources
+          path: gateway/resources
+          dependsOn:
+            - gateway-base
+            - cni
+
+  # Cilium: gitops terraform depends on cni when cilium is selected.
+  - name: cilium driver makes gitops terraform depend on cni
+    values:
+      provider: metal
+      gateway:
+        enabled: false
+      network: *default-network
+      cluster:
+        driver: talos
+        controlplanes:
+          nodes:
+            controlplane-1: *cp1-node
+        workers:
+          volumes:
+            - /var/mnt/local
+        cni:
+          driver: cilium
+    expect:
+      terraform:
+        - name: gitops
+          path: gitops/flux
+          dependsOn:
+            - cluster
+            - cni

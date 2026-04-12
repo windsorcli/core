@@ -1,0 +1,17 @@
+[
+  {
+    "op": "replace",
+    "path": "/tags",
+    "value": ["cilium", "networking"]
+  },
+  { "op": "remove", "path": "/panels/29" },
+  { "op": "remove", "path": "/panels/28" },
+  { "op": "remove", "path": "/panels/27" },
+  { "op": "remove", "path": "/panels/26" },
+  { "op": "remove", "path": "/panels/25" },
+  { "op": "remove", "path": "/panels/24" },
+  { "op": "remove", "path": "/panels/20" },
+  { "op": "remove", "path": "/panels/19" },
+  { "op": "remove", "path": "/panels/18" },
+  { "op": "remove", "path": "/panels/17" }
+]

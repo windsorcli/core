@@ -23,9 +23,6 @@ x-defaults:
       volumes:
         - /var/mnt/local
 
-  ingress-disabled: &ingress-disabled
-    enabled: false
-    driver: nginx
 
 cases:
   # Full: Test MinIO with all dependencies (no dev mode implicit enablement)
@@ -34,9 +31,9 @@ cases:
       provider: metal
       workstation:
         runtime: colima
-      ingress:
+      gateway:
         enabled: true
-        driver: nginx
+        driver: envoy
       network: *default-network
       cluster: *default-cluster
       addons:
@@ -73,7 +70,8 @@ cases:
       provider: metal
       workstation:
         runtime: docker-desktop
-      ingress: *ingress-disabled
+      gateway:
+        enabled: false
       network: *default-network
       cluster: *default-cluster
       addons:

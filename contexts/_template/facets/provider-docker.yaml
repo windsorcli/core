@@ -7,6 +7,12 @@ metadata:
 when: "platform == 'docker' && cluster.driver == 'talos'"
 
 config:
+- name: talos_common
+  value:
+    # Docker compute assigns the first controlplane a fixed IP at offset 10 in the network CIDR
+    # (workstation services occupy offsets 2–9). Mirrors the incus provider convention.
+    k8s_service_host: "${cidrhost(network.cidr_block, 10)}"
+
 # Fallback cluster API endpoint: compute first cp host; else no compute → localhost:6443 (docker-desktop); else colima/linux from context.
 # With provider docker, no compute implies host→container so use localhost. Referenced by cluster_endpoint input.
 - name: cluster_endpoint_fallback
@@ -74,14 +80,13 @@ terraform:
     worker_config_patches: "${talos_common_docker.worker_config_patches ?? \"\"}"
     controlplane_volumes: ${talos_common.controlplane_volumes ?? []}
     worker_volumes: ${talos_common.worker_volumes ?? []}
-    extensions: ${talos_common.extensions ?? []}
 
 kustomize:
 
 # MetalLB base (colima, incus, docker driver). Not used for docker-desktop (no node IPs to load-balance).
 - name: lb-base
   path: lb/base
-  when: workstation.runtime == 'colima' || workstation.runtime == 'docker'
+  when: workstation.runtime != 'docker-desktop' && lb_effective.enabled
   dependsOn:
     - policy-resources
   components:
@@ -92,7 +97,7 @@ kustomize:
 # MetalLB resources and mode (e.g. metallb/arp). Depends on lb-base.
 - name: lb-resources
   path: lb/resources
-  when: workstation.runtime == 'colima' || workstation.runtime == 'docker'
+  when: workstation.runtime != 'docker-desktop' && lb_effective.enabled
   dependsOn:
     - lb-base
   components:

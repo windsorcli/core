@@ -30,6 +30,8 @@ spec:
     env: []
     extraVolumes: []
     extraVolumeMounts: []
-    sources: []
+    sources:
+      - ingress
+      - gateway-httproute
     domainFilters:
       - "${DOMAIN:-test}"

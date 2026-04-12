@@ -6,6 +6,11 @@ metadata:
 
 when: platform == 'metal'
 
+config:
+- name: cluster_endpoint_fallback
+  value:
+    endpoint: "${cluster.endpoint ?? ('https://' + split(values(cluster.controlplanes.nodes)[0].endpoint, ':')[0] + ':6443')}"
+
 terraform:
 - name: cluster
   path: cluster/talos
@@ -21,7 +26,7 @@ terraform:
     common_config_patches: ${talos_common.common_config_patches}
     controlplane_volumes: ${talos_common.controlplane_volumes ?? []}
     worker_volumes: ${talos_common.worker_volumes ?? []}
-    extensions: ${talos_common.extensions ?? []}
+
 - name: gitops
   path: gitops/flux
   dependsOn:
@@ -35,7 +40,7 @@ kustomize:
 # Load Balancer
 - name: lb-base
   path: lb/base
-  when: workstation.runtime != 'docker-desktop'
+  when: workstation.runtime != 'docker-desktop' && lb_effective.enabled
   dependsOn:
     - policy-resources
   components:
@@ -45,7 +50,7 @@ kustomize:
 
 - name: lb-resources
   path: lb/resources
-  when: workstation.runtime != 'docker-desktop'
+  when: workstation.runtime != 'docker-desktop' && lb_effective.enabled
   dependsOn:
     - lb-base
   components:

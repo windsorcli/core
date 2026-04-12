@@ -34,32 +34,11 @@ resource "talos_machine_secrets" "this" {
 # Locals
 #-----------------------------------------------------------------------------------------------------------------------
 
-#-----------------------------------------------------------------------------------------------------------------------
-# Image Factory Schematic
-#-----------------------------------------------------------------------------------------------------------------------
-# When extensions are requested, create a schematic via the Talos Image Factory and derive the installer URL.
-# The installer image is multi-arch (OCI manifest list), so no architecture parameter is needed here.
-# Each machine module uses this URL to upgrade in-place after config apply and before bootstrap.
-
-resource "talos_image_factory_schematic" "this" {
-  count = length(var.extensions) > 0 ? 1 : 0
-
-  schematic = yamlencode({
-    customization = {
-      systemExtensions = {
-        officialExtensions = var.extensions
-      }
-    }
-  })
-}
-
 locals {
   talosconfig      = data.talos_client_configuration.this.talos_config
   talosconfig_path = "${var.context_path}/.talos/config"
   kubeconfig_path  = "${var.context_path}/.kube/config"
 
-  # Installer URL for talosctl upgrade. Empty when no extensions are requested (no upgrade needed).
-  upgrade_image = length(var.extensions) > 0 ? "factory.talos.dev/installer/${talos_image_factory_schematic.this[0].id}:v${var.talos_version}" : ""
 
   cluster_endpoint = var.cluster_endpoint != "" ? var.cluster_endpoint : (length(var.controlplanes) > 0 ? "https://${split(":", var.controlplanes[0].endpoint)[0]}:6443" : "")
 
@@ -120,7 +99,6 @@ module "controlplane_bootstrap" {
   machine_type         = "controlplane"
   endpoint             = var.controlplanes[0].endpoint
   bootstrap            = true // Bootstrap the first control plane node
-  upgrade_image        = local.upgrade_image
   talosconfig_path     = local.talosconfig_path
   kubeconfig_path      = local.kubeconfig_path
   enable_health_check  = true
@@ -151,7 +129,6 @@ module "controlplanes" {
   machine_type         = "controlplane"
   endpoint             = var.controlplanes[count.index + 1].endpoint
   bootstrap            = false // Do not bootstrap other control plane nodes
-  upgrade_image        = local.upgrade_image
   talosconfig_path     = local.talosconfig_path
   kubeconfig_path      = local.kubeconfig_path
   enable_health_check  = true
@@ -185,7 +162,6 @@ module "workers" {
   talos_version        = var.talos_version
   machine_type         = "worker"
   endpoint             = var.workers[count.index].endpoint
-  upgrade_image        = local.upgrade_image
   talosconfig_path     = local.talosconfig_path
   kubeconfig_path      = local.kubeconfig_path
   enable_health_check  = true

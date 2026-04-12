@@ -51,12 +51,6 @@ variable "extra_kernel_args" {
   default     = []
 }
 
-variable "extensions" {
-  description = "The extensions to use for the machine."
-  type        = list(object({ image = string }))
-  default     = []
-}
-
 variable "client_configuration" {
   description = "The Talos client configuration."
   type        = any
@@ -122,12 +116,6 @@ variable "enable_health_check" {
   description = "Whether to enable health checking for this node."
   type        = bool
   default     = true
-}
-
-variable "upgrade_image" {
-  description = "Installer image URL to upgrade to after config apply (e.g. factory.talos.dev/installer/SCHEMATIC:vVERSION). When empty, no upgrade is performed."
-  type        = string
-  default     = ""
 }
 
 variable "kubeconfig_path" {

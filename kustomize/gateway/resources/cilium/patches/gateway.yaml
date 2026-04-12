@@ -1,0 +1,11 @@
+apiVersion: gateway.networking.k8s.io/v1
+kind: Gateway
+metadata:
+  name: external
+  namespace: system-gateway
+spec:
+  infrastructure:
+    annotations:
+      lbipam.cilium.io/ips: ${loadbalancer_start_ip}
+      lbipam.cilium.io/sharing-key: external
+      lbipam.cilium.io/sharing-cross-namespace: "*"

@@ -1,0 +1,43 @@
+---
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: cilium-gateway-lbipam-sharing
+  annotations:
+    policies.kyverno.io/title: Cilium Gateway LBIPAM Sharing
+    policies.kyverno.io/category: Cilium
+    policies.kyverno.io/severity: low
+    policies.kyverno.io/subject: Service
+    policies.kyverno.io/description: >-
+      Injects LBIPAM IP sharing annotations onto Cilium-managed gateway services
+      at admission time. The Cilium gateway controller creates services in two
+      steps (create, then patch annotations), which races with LBIPAM
+      initialization. By injecting annotations before the object is persisted,
+      LBIPAM always sees a complete sharing group from the start.
+spec:
+  rules:
+    - name: inject-lbipam-sharing-annotations
+      match:
+        any:
+          - resources:
+              kinds:
+                - Service
+              namespaces:
+                - system-gateway
+              operations:
+                - CREATE
+              selector:
+                matchLabels:
+                  io.cilium.gateway/owning-gateway: external
+      context:
+        - name: lbipamConfig
+          configMap:
+            name: cilium-lbipam-config
+            namespace: system-gateway
+      mutate:
+        patchStrategicMerge:
+          metadata:
+            annotations:
+              lbipam.cilium.io/ips: "{{ lbipamConfig.data.gatewayIp }}"
+              lbipam.cilium.io/sharing-key: external
+              lbipam.cilium.io/sharing-cross-namespace: "*"

@@ -1,0 +1,12 @@
+apiVersion: helm.toolkit.fluxcd.io/v2
+kind: HelmRelease
+metadata:
+  name: coredns
+  namespace: system-dns
+spec:
+  values:
+    service:
+      annotations:
+        lbipam.cilium.io/ips: ${loadbalancer_start_ip}
+        lbipam.cilium.io/sharing-key: external
+        lbipam.cilium.io/sharing-cross-namespace: "*"

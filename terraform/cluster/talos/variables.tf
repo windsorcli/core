@@ -160,8 +160,3 @@ variable "worker_disks" {
   default     = []
 }
 
-variable "extensions" {
-  description = "Talos Image Factory extension names to install on every node (e.g. [\"siderolabs/iscsi-tools\"]). When non-empty, a schematic is created and each node is upgraded in-place after config apply and before bootstrap."
-  type        = list(string)
-  default     = []
-}

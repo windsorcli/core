@@ -8,49 +8,59 @@ config:
 - name: gateway_effective
   value:
     enabled: ${gateway.enabled ?? ingress.enabled ?? true}
-    driver: "${gateway.driver ?? (ingress.driver == 'envoy-gateway' ? 'envoy' : ingress.driver) ?? 'envoy'}"
+    driver: "${gateway.driver ?? (ingress.driver == 'envoy-gateway' || ingress.driver == 'nginx' ? 'envoy' : ingress.driver) ?? (workstation.runtime == 'docker-desktop' || platform == 'aws' ? 'envoy' : (cni_effective.driver == 'cilium' ? 'cilium' : 'envoy'))}"
 
 kustomize:
 
-# Canonical kustomization name for traffic entrypoint resources across both drivers.
-# For nginx mode this points at the legacy ingress path so dependent facets can always
-# depend on "gateway-resources" without branching on implementation details.
-- name: gateway-resources
-  path: ingress
-  when: gateway_effective.enabled == true && gateway_effective.driver == 'nginx'
+# Gateway API CRDs + namespace + controller.
+# gateway_effective.driver selects the controller sub-component (envoy or cilium).
+# Envoy also needs a service variant (loadbalancer or nodeport) and prometheus.
+# Cilium: depends on cni so that LBIPAM and Gateway API support are ready before GatewayClass is applied.
+- name: gateway-base
+  path: gateway/base
+  when: gateway_effective.enabled == true && gateway_effective.driver != 'cilium'
   dependsOn:
     - pki-base
   components:
-    - nginx
-    - "${(workstation.runtime ?? (platform == 'docker' ? 'docker-desktop' : '')) == 'docker-desktop' ? 'nginx/nodeport' : 'nginx/loadbalancer'}"
-    - "${((addons.private_dns.enabled ?? (dev == true)) == true) ? 'nginx/coredns' : ''}"
-    - nginx/web
-    - nginx/prometheus
+    - "${gateway_effective.driver}"
+    - "${gateway_effective.driver == 'envoy' ? 'envoy/' + lb_effective.mode : ''}"
+    - "${gateway_effective.driver == 'envoy' ? 'envoy/prometheus' : ''}"
   timeout: 10m
   interval: 5m
 
 - name: gateway-base
   path: gateway/base
-  when: gateway_effective.enabled == true && gateway_effective.driver == 'envoy'
+  when: gateway_effective.enabled == true && gateway_effective.driver == 'cilium'
   dependsOn:
     - pki-base
+  components:
+    - cilium
   timeout: 10m
   interval: 5m
 
-# Envoy mode uses the same canonical "gateway-resources" name as nginx mode.
+# When Cilium is the gateway driver, Gateway API CRDs (installed by gateway-base) must
+# exist before the Cilium HelmRelease is applied. Without this, cilium-operator starts
+# with gatewayAPI.enabled but finds no CRDs and never initializes the Gateway controller.
+- name: cni
+  when: gateway_effective.enabled == true && gateway_effective.driver == 'cilium'
+  dependsOn:
+    - gateway-base
+
+# Edge Gateway CR + TLS certificate — shared across all Gateway API controllers.
+# gateway_class_name drives gatewayClassName in the Gateway spec (envoy, cilium, etc.).
+# cilium component patches Gateway spec.infrastructure.annotations to share the loadbalancer IP with CoreDNS.
+# dns component adds UDP/TCP port-53 listeners (Envoy only; Cilium uses LoadBalancer IP sharing instead).
 - name: gateway-resources
   path: gateway/resources
-  when: gateway_effective.enabled == true && gateway_effective.driver == 'envoy'
+  when: gateway_effective.enabled == true
   dependsOn:
     - gateway-base
   components:
-    - envoy
-    - envoy/web
-    - "${(workstation.runtime ?? (platform == 'docker' ? 'docker-desktop' : '')) == 'docker-desktop' ? 'envoy/nodeport' : 'envoy/loadbalancer'}"
-    - "${((addons.private_dns.enabled ?? (dev == true)) == true) ? 'envoy/coredns' : ''}"
-    - envoy/flux-webhook
-    - envoy/prometheus
+    - "${gateway_effective.driver == 'cilium' ? 'cilium' : ''}"
+    - "${gateway_effective.driver != 'cilium' && (addons.private_dns.enabled ?? (dev == true)) == true ? 'dns' : ''}"
   substitutions:
+    gateway_class_name: ${gateway_effective.driver}
     external_domain: ${dns.private_domain}
+    loadbalancer_start_ip: ${network.loadbalancer_ips.start ?? ''}
   timeout: 10m
   interval: 5m

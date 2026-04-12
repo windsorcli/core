@@ -49,6 +49,26 @@ config:
       # Aggregated extension list passed to cluster/talos terraform.
       extensions: "${get(talos_common.csi_extensions, talos_common.storage_driver) ?? []}"
 
+      # IP of the first controlplane node — used as k8sServiceHost for Cilium kube-proxy replacement.
+      # Metal: nodes are statically defined in values.yaml. Incus overrides this with cidrhost(cidr, 10).
+      # Docker/colima: requires cluster.controlplanes.nodes set in context values.yaml.
+      k8s_service_host: "${split(values(cluster.controlplanes.nodes)[0].endpoint, ':')[0]}"
+
+  # When Cilium is selected, merge the CNI patch into common_patch so it flows through
+  # common_config_patches — no separate terraform variable needed.
+  #   cluster.network.cni.name: none  → disable built-in flannel
+  #   cluster.proxy.disabled: true    → disable kube-proxy (Cilium replaces it)
+  - name: talos_common
+    when: cni_effective.driver == 'cilium'
+    value:
+      common_patch:
+        cluster:
+          network:
+            cni:
+              name: none
+          proxy:
+            disabled: true
+
   - name: talos
     value:
       # renovate: datasource=github-releases depName=talos package=siderolabs/talos

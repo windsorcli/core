@@ -1,0 +1,10 @@
+---
+apiVersion: source.toolkit.fluxcd.io/v1
+kind: HelmRepository
+metadata:
+  name: cilium
+  namespace: system-gitops
+spec:
+  interval: 10m
+  timeout: 5m
+  url: https://helm.cilium.io

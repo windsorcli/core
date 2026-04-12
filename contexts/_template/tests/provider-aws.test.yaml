@@ -6,9 +6,8 @@ cases:
   - name: minimal config creates VPC, EKS, and GitOps terraform chain
     values:
       provider: aws
-      ingress:
+      gateway:
         enabled: false
-        driver: nginx
     expect:
       terraform:
         - name: network
@@ -44,9 +43,8 @@ cases:
       provider: aws
       workstation:
         runtime: colima
-      ingress:
+      gateway:
         enabled: false
-        driver: nginx
     expect:
       terraform:
         - name: network
@@ -75,13 +73,13 @@ cases:
           timeout: 5m
           interval: 5m
 
-  # Full: Test with ingress enabled
-  - name: full config creates nginx ingress without CoreDNS
+  # Full: Test with gateway enabled (envoy)
+  - name: full config creates envoy gateway
     values:
       provider: aws
-      ingress:
+      gateway:
         enabled: true
-        driver: nginx
+        driver: envoy
     expect:
       terraform:
         - name: network
@@ -109,14 +107,14 @@ cases:
             - aws-ebs
           timeout: 5m
           interval: 5m
-        - name: gateway-resources
-          path: ingress
+        - name: gateway-base
+          path: gateway/base
           dependsOn:
             - pki-base
           components:
-            - nginx
-            - nginx/web
-            - nginx/prometheus
+            - envoy
+            - envoy/loadbalancer
+            - envoy/prometheus
           timeout: 10m
           interval: 5m
 
@@ -124,9 +122,8 @@ cases:
   - name: excludes ingress when disabled
     values:
       provider: aws
-      ingress:
+      gateway:
         enabled: false
-        driver: nginx
     exclude:
       kustomize:
         - name: gateway-resources
