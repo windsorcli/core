@@ -266,9 +266,10 @@ jobs:
 
       - name: Windsor Down
         if: always()
-        run: |
-          windsor destroy --force
-          windsor down
+        run: windsor destroy --force || true
+      - name: Windsor Down (cleanup)
+        if: always()
+        run: windsor down
 
   publish:
     name: Publish OCI Package
