@@ -88,6 +88,7 @@ cases:
             - grafana/dashboards/kubernetes
             - grafana/dashboards/flux
             - grafana/dashboards/cert-manager
+            - grafana/dashboards/cilium
             - grafana/dashboards/fluent-bit
             - grafana/dashboards/fluentd
             - grafana/gateway
@@ -230,6 +231,7 @@ cases:
             - grafana/dashboards/kubernetes
             - grafana/dashboards/flux
             - grafana/dashboards/cert-manager
+            - grafana/dashboards/cilium
             - grafana/dashboards/fluent-bit
             - grafana/dashboards/fluentd
             - fluentd/outputs/stdout
