@@ -267,6 +267,7 @@ jobs:
       - name: Windsor Down
         if: always()
         run: |
+          windsor destroy --force
           windsor down
 
   publish:

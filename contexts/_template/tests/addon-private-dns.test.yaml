@@ -46,6 +46,7 @@ cases:
             - coredns
             - coredns/etcd
             - coredns/loadbalancer
+            - coredns/cilium
             - external-dns
             - external-dns/coredns
 
@@ -146,6 +147,7 @@ cases:
             - coredns
             - coredns/etcd
             - coredns/loadbalancer
+            - coredns/cilium
             - external-dns
             - external-dns/coredns
 

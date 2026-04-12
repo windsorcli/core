@@ -15,13 +15,14 @@ kustomize:
   dependsOn:
     - pki-base
     - "${gateway_effective.driver == 'cilium' ? 'cni' : 'gateway-base'}"
-  timeout: 10m
+  timeout: 20m
   interval: 5m
   components:
     - coredns
     - coredns/etcd
     - "${(ha ?? false) ? 'coredns/ha' : ''}"
     - "${gateway_effective.driver == 'cilium' ? 'coredns/loadbalancer' : ''}"
+    - "${gateway_effective.driver == 'cilium' ? 'coredns/cilium' : ''}"
     - "${gateway_effective.driver == 'envoy' && gateway_effective.enabled == true ? 'coredns/gateway' : ''}"
     - external-dns
     - external-dns/coredns

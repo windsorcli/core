@@ -255,8 +255,6 @@ cases:
     exclude:
       kustomize:
         - name: observability
-          components:
-            - fluentd
 
   # Policy modes: disabled removes policy component from policy-resources stack.
   - name: policy mode disabled excludes selected policies

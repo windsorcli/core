@@ -76,6 +76,7 @@ x-defaults:
     path: gateway/resources
     dependsOn:
       - gateway-base
+      - cni
     substitutions:
       gateway_class_name: cilium
     timeout: 10m

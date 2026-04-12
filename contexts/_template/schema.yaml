@@ -214,7 +214,7 @@ properties:
   telemetry:
     type: object
     properties:
-      log_aggregation:
+      logs:
         type: object
         properties:
           driver:

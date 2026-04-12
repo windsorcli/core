@@ -6,6 +6,3 @@ metadata:
 spec:
   values:
     serviceType: LoadBalancer
-    service:
-      annotations:
-        lbipam.cilium.io/ips: ${loadbalancer_start_ip}

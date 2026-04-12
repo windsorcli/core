@@ -35,9 +35,18 @@ terraform:
 
 kustomize:
 
-# Merge cni dep into csi so Longhorn installs after Cilium's eBPF is fully loaded.
-# Without this, Longhorn's node-driver-registrar sees transient loopback connectivity
-# disruptions during Cilium's eBPF initialization and crashes repeatedly.
+# Merge cni dep into gateway-resources so the Kyverno LBIPAM sharing policy (in cilium/gateway)
+# is applied before the Gateway resource is created. Without this, gateway-resources and cni
+# run in parallel and the policy may not be in place when the Cilium gateway controller
+# creates the cilium-gateway-external service.
+- name: gateway-resources
+  when: gateway_effective.enabled == true && gateway_effective.driver == 'cilium'
+  dependsOn:
+    - cni
+
+# Merge cni dep into csi so CSI installs after Cilium's eBPF is fully loaded.
+# Without this, CSI node-driver-registrar may see transient loopback connectivity
+# disruptions during Cilium's eBPF initialization and crash repeatedly.
 - name: csi
   dependsOn:
     - cni

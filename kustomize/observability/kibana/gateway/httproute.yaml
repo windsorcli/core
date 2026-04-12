@@ -6,11 +6,11 @@ metadata:
 spec:
   parentRefs:
     - kind: Gateway
-      name: edge
+      name: external
       namespace: system-gateway
       sectionName: web-http
     - kind: Gateway
-      name: edge
+      name: external
       namespace: system-gateway
       sectionName: web-https
   hostnames:

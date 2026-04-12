@@ -210,6 +210,24 @@ cases:
                   extraArgs:
                     rotate-server-certificates: "true"
 
+  # Cilium + Gateway: gateway-resources depends on cni so the LBIPAM sharing policy
+  # is applied before the Gateway resource is created.
+  - name: cilium gateway driver makes gateway-resources depend on cni
+    values:
+      provider: metal
+      gateway:
+        enabled: true
+        driver: cilium
+      network: *default-network
+      cluster: *default-cluster
+    expect:
+      kustomize:
+        - name: gateway-resources
+          path: gateway/resources
+          dependsOn:
+            - gateway-base
+            - cni
+
   # Cilium: gitops terraform depends on cni when cilium is selected.
   - name: cilium driver makes gitops terraform depend on cni
     values:

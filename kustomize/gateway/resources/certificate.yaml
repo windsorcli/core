@@ -1,10 +1,10 @@
 apiVersion: cert-manager.io/v1
 kind: Certificate
 metadata:
-  name: edge-web-tls
+  name: external-web-tls
   namespace: system-gateway
 spec:
-  secretName: edge-web-tls
+  secretName: external-web-tls
   dnsNames:
     - "*.${external_domain}"
   issuerRef:

@@ -34,6 +34,7 @@ resource "kubernetes_namespace_v1" "flux_system" {
   metadata {
     name = var.flux_namespace
     labels = {
+      "app.kubernetes.io/managed-by"            = "windsor-cli"
       "app.kubernetes.io/instance"              = "flux-system"
       "app.kubernetes.io/part-of"               = "flux"
       "pod-security.kubernetes.io/warn"         = "restricted"

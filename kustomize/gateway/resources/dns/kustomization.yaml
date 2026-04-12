@@ -5,5 +5,5 @@ patches:
     target:
       group: gateway.networking.k8s.io
       kind: Gateway
-      name: edge
+      name: external
       namespace: system-gateway
