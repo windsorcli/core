@@ -29,6 +29,7 @@ x-defaults:
     path: cni
     dependsOn:
       - policy-resources
+      - telemetry-base
     timeout: 15m
     interval: 5m
 
@@ -160,6 +161,7 @@ cases:
           path: cni
           dependsOn:
             - policy-resources
+            - telemetry-base
             - gateway-base
           components:
             - cilium
