@@ -1,0 +1,14 @@
+# Envoy Gateway Grafana Dashboards
+# Run: task dashboards
+# See: https://github.com/envoyproxy/gateway/tree/main/charts/gateway-addons-helm/dashboards
+
+upstream:
+  # renovate: datasource=github-releases depName=envoyproxy/gateway versioning=semver
+  url: https://raw.githubusercontent.com/envoyproxy/gateway/v1.7.1/charts/gateway-addons-helm/dashboards
+
+files:
+  - name: envoy-clusters.json
+  - name: envoy-gateway-global.json
+  - name: envoy-proxy-global.json
+  - name: global-ratelimit.json
+  - name: resources-monitor.gen.json

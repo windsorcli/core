@@ -4,3 +4,4 @@ patches:
   - path: patches/helm-release.yaml
 resources:
   - servicemonitor.yaml
+  - podmonitor.yaml
