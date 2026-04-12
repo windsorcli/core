@@ -1514,7 +1514,7 @@
           "fullMetaSearch": false,
           "includeNullMetadata": true,
           "instant": false,
-          "legendFormat": "{{nodeID}}",
+          "legendFormat": "{{status}}",
           "range": true,
           "refId": "A",
           "useBackend": false

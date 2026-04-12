@@ -8,6 +8,8 @@ upstream:
 
 files:
   - name: envoy-clusters.json
+    patch: patches/envoy-clusters.json
   - name: envoy-gateway-global.json
+    patch: patches/envoy-gateway-global.json
   - name: envoy-proxy-global.json
   - name: resources-monitor.gen.json

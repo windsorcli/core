@@ -1,0 +1,7 @@
+[
+  {
+    "op": "replace",
+    "path": "/panels/19/targets/0/legendFormat",
+    "value": "{{status}}"
+  }
+]
