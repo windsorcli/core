@@ -10,5 +10,4 @@ files:
   - name: envoy-clusters.json
   - name: envoy-gateway-global.json
   - name: envoy-proxy-global.json
-  - name: global-ratelimit.json
   - name: resources-monitor.gen.json

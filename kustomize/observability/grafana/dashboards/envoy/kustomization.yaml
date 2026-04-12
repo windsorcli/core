@@ -12,7 +12,6 @@ configMapGenerator:
       - envoy-clusters.json
       - envoy-gateway-global.json
       - envoy-proxy-global.json
-      - global-ratelimit.json
       - resources-monitor.gen.json
     options:
       disableNameSuffixHash: true
