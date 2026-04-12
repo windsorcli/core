@@ -199,6 +199,19 @@ cases:
         - *gateway-base-envoy-lb
         - *gateway-resources-envoy
 
+  - name: legacy ingress alias maps nginx to envoy
+    values:
+      provider: metal
+      ingress:
+        enabled: true
+        driver: nginx
+      network: *default-network
+      cluster: *default-cluster
+    expect:
+      kustomize:
+        - *gateway-base-envoy-lb
+        - *gateway-resources-envoy
+
   # Gateway disabled
   - name: excludes gateway when disabled
     values:

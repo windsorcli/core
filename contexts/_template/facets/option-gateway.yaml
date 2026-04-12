@@ -8,7 +8,7 @@ config:
 - name: gateway_effective
   value:
     enabled: ${gateway.enabled ?? ingress.enabled ?? true}
-    driver: "${gateway.driver ?? (ingress.driver == 'envoy-gateway' ? 'envoy' : ingress.driver) ?? (workstation.runtime == 'docker-desktop' || platform == 'aws' ? 'envoy' : (cni_effective.driver == 'cilium' ? 'cilium' : 'envoy'))}"
+    driver: "${gateway.driver ?? (ingress.driver == 'envoy-gateway' || ingress.driver == 'nginx' ? 'envoy' : ingress.driver) ?? (workstation.runtime == 'docker-desktop' || platform == 'aws' ? 'envoy' : (cni_effective.driver == 'cilium' ? 'cilium' : 'envoy'))}"
 
 kustomize:
 
