@@ -61,6 +61,6 @@ kustomize:
   substitutions:
     gateway_class_name: ${gateway_effective.driver}
     external_domain: ${dns.private_domain}
-    loadbalancer_start_ip: ${network.loadbalancer_ips.start}
+    loadbalancer_start_ip: ${network.loadbalancer_ips.start ?? ''}
   timeout: 10m
   interval: 5m

@@ -273,3 +273,21 @@ cases:
           components:
             - webhook
             - webhook/gateway
+
+  # AWS: gateway-resources renders without loadbalancer_ips (cloud LB, no IP pool)
+  - name: aws envoy gateway-resources renders with empty loadbalancer_start_ip
+    values:
+      provider: aws
+      gateway:
+        enabled: true
+        driver: envoy
+    expect:
+      kustomize:
+        - name: gateway-resources
+          path: gateway/resources
+          dependsOn:
+            - gateway-base
+          substitutions:
+            gateway_class_name: envoy
+          timeout: 10m
+          interval: 5m
