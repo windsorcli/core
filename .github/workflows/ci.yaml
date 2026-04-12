@@ -227,7 +227,7 @@ jobs:
           windsor show blueprint
 
       - name: Windsor Up
-        run: windsor up --install --verbose --wait
+        run: windsor up --verbose --wait
 
       - name: Collect Windsor State
         if: always()
