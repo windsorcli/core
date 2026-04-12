@@ -1,0 +1,21 @@
+apiVersion: kustomize.config.k8s.io/v1alpha1
+kind: Component
+
+# Cilium / Hubble dashboards - vendored
+# Run: task dashboards
+# See: source.yaml for provenance
+
+configMapGenerator:
+  - name: grafana-dashboards-cilium
+    namespace: system-observability
+    files:
+      - cilium-dashboard.json
+      - cilium-operator-dashboard.json
+      - hubble-dashboard.json
+      - hubble-network-overview-namespace.json
+    options:
+      disableNameSuffixHash: true
+      labels:
+        grafana_dashboard: "1"
+      annotations:
+        grafana_folder: "Networking"

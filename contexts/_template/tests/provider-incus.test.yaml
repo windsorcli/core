@@ -42,16 +42,14 @@ x-defaults:
           node: 10.5.0.20
           hostname: worker-1
 
-  ingress-disabled: &ingress-disabled
-    enabled: false
-    driver: nginx
 
 cases:
   # Minimal: Test default behavior with minimal required fields
   - name: minimal config creates compute and cluster terraform chain with defaults
     values:
       provider: incus
-      ingress: *ingress-disabled
+      gateway:
+        enabled: false
       network: *default-network
       cluster: *default-cluster
     terraformOutputs: *default-terraform-outputs
@@ -67,47 +65,57 @@ cases:
           inputs:
             cluster_endpoint: https://10.5.0.10:6443
             cluster_name: talos
+        - name: cni
+          path: cni/cilium
+          dependsOn:
+            - cluster
+          inputs:
+            cluster_endpoint: https://10.5.0.10:6443
+            talos_mode: true
         - name: gitops
           path: gitops/flux
           dependsOn:
             - cluster
+            - cni
           destroy: false
           inputs:
             concurrency: 2
       kustomize:
+        - name: cni
+          path: cni
+          dependsOn:
+            - policy-resources
+          components:
+            - cilium
+            - cilium/talos
+            - cilium/l2
+          substitutions:
+            k8s_service_host: "10.5.0.10"
+            loadbalancer_start_ip: "10.5.1.10"
+            loadbalancer_end_ip: "10.5.1.100"
+          timeout: 15m
+          interval: 5m
         - name: csi
           path: csi
           dependsOn:
             - policy-resources
+            - telemetry-base
           components:
             - longhorn
           timeout: 20m
           interval: 5m
+    exclude:
+      kustomize:
         - name: lb-base
-          path: lb/base
-          dependsOn:
-            - policy-resources
-          timeout: 5m
-          interval: 5m
         - name: lb-resources
-          path: lb/resources
-          dependsOn:
-            - lb-base
-          components:
-            - kube-vip
-            - kube-vip/arp
-          substitutions:
-            loadbalancer_ip_range: 10.5.1.10-10.5.1.100
-          timeout: 5m
-          interval: 5m
 
-  # Full: Test all configurable options together
+  # Full: Test all configurable options together (explicit flannel CNI to exercise MetalLB path)
   - name: full config with custom network, MetalLB, ingress, and all cluster options
     values:
       provider: incus
-      ingress:
+      gateway:
         enabled: true
-        driver: nginx
+        driver: envoy
       addons:
         private_dns:
           enabled: true
@@ -120,6 +128,8 @@ cases:
           end: "10.10.1.100"
       cluster:
         driver: talos
+        cni:
+          driver: flannel
         controlplanes:
           count: 3
           cpu: 4
@@ -177,6 +187,7 @@ cases:
           path: csi
           dependsOn:
             - policy-resources
+            - telemetry-base
           components:
             - longhorn
           timeout: 20m
@@ -200,16 +211,22 @@ cases:
             loadbalancer_ip_range: 10.10.1.10-10.10.1.100
           timeout: 5m
           interval: 5m
-        - name: gateway-resources
-          path: ingress
+        - name: gateway-base
+          path: gateway/base
           dependsOn:
             - pki-base
           components:
-            - nginx
-            - nginx/loadbalancer
-            - nginx/coredns
-            - nginx/web
-            - nginx/prometheus
+            - envoy
+            - envoy/loadbalancer
+            - envoy/prometheus
+          timeout: 10m
+          interval: 5m
+        - name: gateway-resources
+          path: gateway/resources
+          dependsOn:
+            - gateway-base
+          components:
+            - dns
           timeout: 10m
           interval: 5m
 
@@ -217,7 +234,8 @@ cases:
   - name: colima-incus uses compute/incus not docker stack
     values:
       provider: incus
-      ingress: *ingress-disabled
+      gateway:
+        enabled: false
       network: *default-network
       cluster: *default-cluster
     terraformOutputs: *default-terraform-outputs
@@ -232,13 +250,14 @@ cases:
         - name: workstation
         - path: compute/docker
 
-  # Edge case: Colima uses existing incusbr0 network (workstation path sets network_name directly)
+  # Edge case: Colima uses existing incusbr0 network (avoids creating a new bridge)
   - name: Colima uses existing incusbr0 network
     values:
       provider: incus
       workstation:
         runtime: colima
-      ingress: *ingress-disabled
+      gateway:
+        enabled: false
       network: *default-network
       cluster: *default-cluster
     terraformOutputs: *default-terraform-outputs
@@ -249,12 +268,46 @@ cases:
           inputs:
             network_name: incusbr0
             create_network: false
+      kustomize:
+        - name: telemetry-base
+          path: telemetry/base
+          components:
+            - prometheus
+            - prometheus/flux
+            - fluentbit
+
+  # colima-incus: defaults to flannel CNI (no cilium overhead; used for storage driver testing)
+  - name: colima-incus defaults to flannel CNI and excludes lb
+    values:
+      provider: incus
+      workstation:
+        runtime: colima
+      network: *default-network
+      cluster: *default-cluster
+    terraformOutputs: *default-terraform-outputs
+    expect:
+      terraform:
+        - name: gitops
+          path: gitops/flux
+          dependsOn:
+            - cluster
+      kustomize:
+        - name: lb-base
+          path: lb/base
+        - name: lb-resources
+          path: lb/resources
+    exclude:
+      terraform:
+        - name: cni
+      kustomize:
+        - name: cni
 
   # Edge case: Schedulable controlplanes use controlplane volume path
   - name: schedulable controlplanes use controlplane volume path for CSI
     values:
       provider: incus
-      ingress: *ingress-disabled
+      gateway:
+        enabled: false
       network: *default-network
       cluster:
         driver: talos

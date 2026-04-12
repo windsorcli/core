@@ -1,0 +1,120 @@
+[
+  {
+    "op": "replace",
+    "path": "/tags",
+    "value": ["cilium", "networking"]
+  },
+  {
+    "op": "remove",
+    "path": "/__inputs"
+  },
+  {
+    "op": "replace",
+    "path": "/templating/list",
+    "value": [
+      {
+        "current": {},
+        "hide": 0,
+        "includeAll": false,
+        "label": "Prometheus",
+        "multi": false,
+        "name": "DS_PROMETHEUS",
+        "options": [],
+        "query": "prometheus",
+        "queryValue": "",
+        "refresh": 1,
+        "regex": "",
+        "skipUrlSync": false,
+        "type": "datasource"
+      }
+    ]
+  },
+  {
+    "op": "replace",
+    "path": "/panels/2/title",
+    "value": "LB IPAM"
+  },
+  {
+    "op": "replace",
+    "path": "/panels/3/title",
+    "value": "LB IP Usage"
+  },
+  {
+    "op": "replace",
+    "path": "/panels/3/targets/0/expr",
+    "value": "cilium_operator_lbipam_ips_used_total"
+  },
+  {
+    "op": "replace",
+    "path": "/panels/3/targets/0/legendFormat",
+    "value": "Used"
+  },
+  {
+    "op": "replace",
+    "path": "/panels/4/title",
+    "value": "LB Services"
+  },
+  {
+    "op": "replace",
+    "path": "/panels/4/targets/0/expr",
+    "value": "rate(cilium_operator_lbipam_services_matching_total[1m])"
+  },
+  {
+    "op": "replace",
+    "path": "/panels/4/targets/0/legendFormat",
+    "value": "Matching"
+  },
+  {
+    "op": "replace",
+    "path": "/panels/5/title",
+    "value": "LB IPs Available"
+  },
+  {
+    "op": "replace",
+    "path": "/panels/5/targets/0/expr",
+    "value": "cilium_operator_lbipam_ips_available_total"
+  },
+  {
+    "op": "replace",
+    "path": "/panels/5/targets/0/legendFormat",
+    "value": "Available"
+  },
+  {
+    "op": "replace",
+    "path": "/panels/6/title",
+    "value": "LB Services Unsatisfied"
+  },
+  {
+    "op": "replace",
+    "path": "/panels/6/targets/0/expr",
+    "value": "cilium_operator_lbipam_services_unsatisfied_total"
+  },
+  {
+    "op": "replace",
+    "path": "/panels/6/targets/0/legendFormat",
+    "value": "Unsatisfied"
+  },
+  {
+    "op": "replace",
+    "path": "/panels/7/title",
+    "value": "Conflicting IP Pools"
+  },
+  {
+    "op": "replace",
+    "path": "/panels/7/targets/0/expr",
+    "value": "cilium_operator_lbipam_conflicting_pools_total"
+  },
+  {
+    "op": "replace",
+    "path": "/panels/7/targets/0/legendFormat",
+    "value": "Conflicts"
+  },
+  {
+    "op": "remove",
+    "path": "/panels/9"
+  },
+  {
+    "op": "remove",
+    "path": "/panels/8"
+  }
+]

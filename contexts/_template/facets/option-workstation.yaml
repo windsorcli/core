@@ -34,7 +34,7 @@ config:
   # Registry mirrors: built from workstation TF output "registries"; only entries with remote are included (Talos mirrors upstream remotes).
   # config: empty for HTTP mirrors—Talos errors "TLS config specified for non-HTTPS registry" if tls is set for http:// endpoints.
   - name: talos_registry_mirrors
-    when: (cluster.enabled ?? true) && cluster.driver == 'talos'
+    when: cluster.driver == 'talos' && (cluster.enabled ?? true)
     value:
       mirrors: >-
         ${fromPairs(map(
@@ -50,7 +50,7 @@ config:
 
   # Merge registries into common_patch (all workstation + talos).
   - name: talos_common
-    when: (cluster.enabled ?? true) && cluster.driver == 'talos'
+    when: cluster.driver == 'talos' && (cluster.enabled ?? true)
     value:
       common_patch:
         machine:
@@ -60,13 +60,25 @@ config:
 
   # Merge schedulable override for docker (colima + docker-desktop). When no workers, allow scheduling on control planes; otherwise use cluster.controlplanes.schedulable.
   - name: talos_common
-    when: (cluster.enabled ?? true) && cluster.driver == 'talos' && platform == 'docker'
+    when: cluster.driver == 'talos' && (cluster.enabled ?? true) && platform == 'docker'
     value:
       allowSchedulingOnControlPlanes: "${(cluster.workers.count ?? 0) == 0 ? true : (cluster.controlplanes.schedulable ?? false)}"
 
+  # docker-desktop has no loadbalancer and uses flannel (built-in CNI; no eBPF bootstrap needed).
+  # Cilium bootstrap requires a reachable API server, which docker-desktop tunnels via localhost.
+  - name: cni_effective
+    when: workstation.runtime == 'docker-desktop'
+    value:
+      driver: "${cluster.cni.driver ?? 'flannel'}"
+
+  - name: lb_effective
+    when: workstation.runtime == 'docker-desktop'
+    value:
+      mode: nodeport
+
   # Merge network ignore (docker-desktop only).
   - name: talos_common
-    when: (cluster.enabled ?? true) && cluster.driver == 'talos' && workstation.runtime == 'docker-desktop'
+    when: cluster.driver == 'talos' && (cluster.enabled ?? true) && workstation.runtime == 'docker-desktop'
     value:
       common_patch:
         machine:
@@ -77,17 +89,17 @@ config:
 
   # Expose controlplane/worker patches for provider-docker; common_config_patches from talos_common (config-talos stringifies after merge).
   - name: talos_common_docker
-    when: (cluster.enabled ?? true) && cluster.driver == 'talos'
+    when: cluster.driver == 'talos' && (cluster.enabled ?? true)
     value:
       controlplane_config_patches: ""
       worker_config_patches: ""
 
 terraform:
-# GitOps/flux with git livereload credentials and webhook token. Runs when workstation + cluster enabled (depends on cluster).
+# GitOps/flux with git livereload credentials and webhook token. Runs when cluster enabled.
+# cni dep is merged in by option-cni; cluster-extensions dep is merged in by option-storage.
 - name: gitops
   when: (cluster.enabled ?? true)
   path: gitops/flux
-  strategy: replace
   destroy: false
   dependsOn:
     - cluster
@@ -113,12 +125,12 @@ terraform:
     domain_name: ${dns.private_domain}
     network_name: windsor-${context}
     network_cidr: ${network.cidr_block}
-    dns_forward_target: "${cidrhost(network.cidr_block, 4 + len(workstation_registries.registries ?? {})) + \":30053\"}"
-    webhook_host: "${cidrhost(network.cidr_block, 4 + len(workstation_registries.registries ?? {}))}"
+    dns_forward_target: "${cidrhost(network.cidr_block, 10) + \":30053\"}"
+    webhook_host: "${cidrhost(network.cidr_block, 10)}"
     webhook_port: 30292
     webhook_enabled: ${gitops.webhook.enabled ?? true}
     webhook_token: ${gitops.webhook.token ?? "abcdef123456"}
-    primary_node_ip: "${cidrhost(network.cidr_block, 4 + len(workstation_registries.registries ?? {}))}"
+    primary_node_ip: "${cidrhost(network.cidr_block, 10)}"
     enable_dns: ${workstation.services.dns ?? true}
     enable_git: ${workstation.services.git ?? true}
     registries: ${workstation_registries.registries ?? {}}
@@ -136,7 +148,7 @@ terraform:
     network_cidr: ${network.cidr_block}
     dns_forward_target: ${network.loadbalancer_ips.start}
     webhook_host: ${network.loadbalancer_ips.start}
-    webhook_port: 9292
+    webhook_port: "${gateway_effective.enabled == true ? 80 : 9292}"
     webhook_enabled: ${gitops.webhook.enabled ?? true}
     webhook_token: ${gitops.webhook.token ?? "abcdef123456"}
     primary_node_ip: ${network.loadbalancer_ips.start}
@@ -245,7 +257,6 @@ terraform:
     common_config_patches: ${talos_common.common_config_patches}
     controlplane_volumes: ${talos_common.controlplane_volumes ?? []}
     worker_volumes: ${talos_common.worker_volumes ?? []}
-    extensions: ${talos_common.extensions ?? []}
 
 # Compute/docker: run Talos controlplane/worker containers on workstation network.
 # cluster/talos consumes compute outputs (endpoints, etc.) via provider-docker.

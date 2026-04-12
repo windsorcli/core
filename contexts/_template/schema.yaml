@@ -214,7 +214,7 @@ properties:
   telemetry:
     type: object
     properties:
-      log_aggregation:
+      logs:
         type: object
         properties:
           driver:
@@ -399,6 +399,19 @@ properties:
               - longhorn
             description: CSI storage driver. openebs for directory-based local storage; longhorn for block device storage (requires a dedicated disk, mandatory on Talos). Defaults to longhorn on incus, openebs elsewhere.
         additionalProperties: false
+      cni:
+        type: object
+        properties:
+          driver:
+            type: string
+            enum:
+              - flannel
+              - cilium
+            description: >
+              CNI driver. flannel is the Talos built-in default and requires no extra bootstrap.
+              cilium bootstraps Cilium via terraform/cni/cilium before Flux starts (disables
+              flannel and kube-proxy in Talos machine config) and manages it via Flux GitOps.
+        additionalProperties: false
     additionalProperties: false
 
   # DNS configuration
@@ -453,9 +466,8 @@ properties:
       driver:
         type: string
         enum:
-          - nginx
           - envoy
-        default: envoy
+          - cilium
         description: Gateway driver
     additionalProperties: false
 
@@ -475,7 +487,6 @@ properties:
           - nginx
           - envoy
           - envoy-gateway
-        default: nginx
         description: Legacy gateway driver
     additionalProperties: false
 

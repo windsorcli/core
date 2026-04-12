@@ -35,9 +35,6 @@ x-defaults:
           hostname: controlplane-1
       workers: []
 
-  ingress-disabled: &ingress-disabled
-    enabled: false
-    driver: nginx
 
 cases:
   # Minimal: workstation enabled, docker (colima), minimal cluster → cluster and gitops. No certSANs (colima; only docker-desktop sets them).
@@ -47,7 +44,8 @@ cases:
       workstation:
         runtime: colima
       dns: *default-dns
-      ingress: *ingress-disabled
+      gateway:
+        enabled: false
       network: *default-network
       cluster: *default-cluster
     terraformOutputs: *default-terraform-outputs
@@ -62,6 +60,11 @@ cases:
                 allowSchedulingOnControlPlanes: true
                 extraManifests:
                 - https://raw.githubusercontent.com/alex1989hu/kubelet-serving-cert-approver/v0.8.7/deploy/standalone-install.yaml
+                network:
+                  cni:
+                    name: none
+                proxy:
+                  disabled: true
               machine:
                 kubelet:
                   extraArgs:
@@ -80,7 +83,8 @@ cases:
       workstation:
         runtime: colima
       dns: *default-dns
-      ingress: *ingress-disabled
+      gateway:
+        enabled: false
       network: *default-network
       cluster:
         driver: talos
@@ -113,7 +117,8 @@ cases:
       workstation:
         runtime: colima
       dns: *default-dns
-      ingress: *ingress-disabled
+      gateway:
+        enabled: false
       network: *default-network
       cluster:
         driver: talos
@@ -129,16 +134,26 @@ cases:
         - name: workstation
           path: workstation/docker
 
-  # Edge: workstation.runtime docker → loadbalancer present
+  # Edge: workstation.runtime docker → loadbalancer present (flannel CNI required for lb to fire)
   - name: workstation runtime docker yields loadbalancer
     values:
       provider: docker
       workstation:
         runtime: docker
       dns: *default-dns
-      ingress: *ingress-disabled
+      gateway:
+        enabled: false
       network: *default-network
-      cluster: *default-cluster
+      cluster:
+        driver: talos
+        cni:
+          driver: flannel
+        controlplanes:
+          nodes:
+            controlplane-1: *cp1-node
+        workers:
+          volumes:
+            - /var/mnt/local
     terraformOutputs: *default-terraform-outputs
     expect:
       terraform:
@@ -162,7 +177,8 @@ cases:
         services:
           registries: false
       dns: *default-dns
-      ingress: *ingress-disabled
+      gateway:
+        enabled: false
       network: *default-network
       cluster: *default-cluster
     terraformOutputs: *default-terraform-outputs
@@ -182,7 +198,8 @@ cases:
       workstation:
         runtime: colima
       dns: *default-dns
-      ingress: *ingress-disabled
+      gateway:
+        enabled: false
       network: *default-network
       cluster:
         driver: talos
@@ -244,7 +261,8 @@ cases:
       workstation:
         runtime: docker-desktop
       dns: *default-dns
-      ingress: *ingress-disabled
+      gateway:
+        enabled: false
       network: *default-network
       cluster: *default-cluster
     terraformOutputs: *default-terraform-outputs
@@ -253,7 +271,7 @@ cases:
         - name: workstation
           path: workstation/docker
           inputs:
-            webhook_host: "10.5.0.9"
+            webhook_host: "10.5.0.10"
         - name: cluster
           path: cluster/talos
         - name: gitops
@@ -274,7 +292,8 @@ cases:
         webhook:
           token: mysecrettoken
       dns: *default-dns
-      ingress: *ingress-disabled
+      gateway:
+        enabled: false
       network: *default-network
       cluster: *default-cluster
     terraformOutputs: *default-terraform-outputs
@@ -298,7 +317,8 @@ cases:
         webhook:
           token: mysecrettoken
       dns: *default-dns
-      ingress: *ingress-disabled
+      gateway:
+        enabled: false
       network: *default-network
       cluster: *default-cluster
     terraformOutputs: *default-terraform-outputs
@@ -322,7 +342,8 @@ cases:
         webhook:
           token: mysecrettoken
       dns: *default-dns
-      ingress: *ingress-disabled
+      gateway:
+        enabled: false
       network: *default-network
       cluster:
         driver: talos
@@ -371,7 +392,8 @@ cases:
         webhook:
           enabled: false
       dns: *default-dns
-      ingress: *ingress-disabled
+      gateway:
+        enabled: false
       network: *default-network
       cluster: *default-cluster
     terraformOutputs: *default-terraform-outputs

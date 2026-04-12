@@ -23,9 +23,6 @@ x-defaults:
       volumes:
         - /var/mnt/local
 
-  ingress-disabled: &ingress-disabled
-    enabled: false
-    driver: nginx
 
 cases:
   # Minimal: dev mode enables database addon. Intended: addon observability (grafana/dashboards/cloudnativepg) overrides. See docs/cli-bugs.md if this fails.
@@ -85,7 +82,8 @@ cases:
   - name: excludes database when addon disabled
     values:
       provider: metal
-      ingress: *ingress-disabled
+      gateway:
+        enabled: false
       network: *default-network
       cluster: *default-cluster
       addons:
@@ -100,7 +98,8 @@ cases:
   - name: creates database without HA when ha disabled
     values:
       provider: metal
-      ingress: *ingress-disabled
+      gateway:
+        enabled: false
       network: *default-network
       cluster: *default-cluster
       ha: false

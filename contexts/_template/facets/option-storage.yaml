@@ -6,6 +6,37 @@ metadata:
 
 when: cluster.driver == 'talos'
 
+terraform:
+
+# Install Talos extensions required by the storage driver (e.g. iscsi-tools + util-linux-tools for Longhorn).
+# When cilium is active, option-cni merges in dependsOn: [cni] so extensions wait for node networking.
+- name: cluster-extensions
+  when: "len(talos_common.extensions ?? []) > 0 && cluster_provisioned"
+  path: cluster/talos/extensions
+  dependsOn:
+    - cluster
+  parallelism: 1
+  inputs:
+    talos_version: ${talos.talos_version}
+    controlplanes: >-
+      ${len(terraform_output("compute", "controlplanes") ?? []) > 0
+        ? map(terraform_output("compute", "controlplanes"), fromPairs(filter(toPairs(#), get(#, 0) == "node" || get(#, 0) == "endpoint")))
+        : map(values(cluster.controlplanes.nodes), fromPairs(filter(toPairs(#), get(#, 0) == "node" || get(#, 0) == "endpoint")))}
+    workers: >-
+      ${len(terraform_output("compute", "workers") ?? []) > 0
+        ? map(terraform_output("compute", "workers"), fromPairs(filter(toPairs(#), get(#, 0) == "node" || get(#, 0) == "endpoint")))
+        : ((cluster.workers.count ?? 0) > 0
+          ? map(values(cluster.workers.nodes), fromPairs(filter(toPairs(#), get(#, 0) == "node" || get(#, 0) == "endpoint")))
+          : [])}
+    extensions: ${talos_common.extensions ?? []}
+
+# Merge cluster-extensions dep into gitops so Flux waits for Talos extensions before reconciling.
+- name: gitops
+  when: "len(talos_common.extensions ?? []) > 0 && cluster_provisioned"
+  path: gitops/flux
+  dependsOn:
+    - cluster-extensions
+
 kustomize:
 
 - name: csi
@@ -26,6 +57,7 @@ kustomize:
   when: talos_common.storage_driver == 'longhorn'
   dependsOn:
     - policy-resources
+    - telemetry-base
   components:
     - longhorn
     - "${(cluster.controlplanes.schedulable ?? false) ? 'longhorn/single-node' : ''}"
