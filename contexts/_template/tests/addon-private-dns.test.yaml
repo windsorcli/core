@@ -40,7 +40,7 @@ cases:
           dependsOn:
             - pki-base
             - cni
-          timeout: 10m
+          timeout: 20m
           interval: 5m
           components:
             - coredns
@@ -75,7 +75,7 @@ cases:
           dependsOn:
             - pki-base
             - gateway-base
-          timeout: 10m
+          timeout: 20m
           interval: 5m
           components:
             - coredns
@@ -111,7 +111,7 @@ cases:
           dependsOn:
             - pki-base
             - gateway-base
-          timeout: 10m
+          timeout: 20m
           interval: 5m
           components:
             - coredns
@@ -175,6 +175,28 @@ cases:
             - coredns/gateway
             - external-dns
             - external-dns/coredns
+
+  # Edge: Gateway disabled with non-cilium CNI — dns must not depend on gateway-base (it doesn't exist).
+  - name: private dns with gateway disabled does not depend on gateway-base
+    values:
+      provider: metal
+      gateway:
+        enabled: false
+        driver: envoy
+      network: *default-network
+      cluster:
+        <<: *default-cluster
+        cni:
+          driver: flannel
+      addons:
+        private_dns:
+          enabled: true
+    expect:
+      kustomize:
+        - name: dns
+          path: dns
+          dependsOn:
+            - pki-base
 
   # Edge case: Addon disabled
   - name: excludes DNS when addon disabled

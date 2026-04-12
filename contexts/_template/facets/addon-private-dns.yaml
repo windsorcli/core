@@ -9,12 +9,13 @@ when: addons.private_dns.enabled == true
 kustomize:
 
 # Cilium: depends on cni for LBIPAM readiness; CoreDNS gets a LoadBalancer IP directly.
-# Others (envoy, etc.): depend on gateway-base for TCPRoute/UDPRoute CRDs.
+# Others (envoy, etc.): depend on gateway-base for TCPRoute/UDPRoute CRDs, but only when
+# gateway is enabled — gateway-base does not exist when gateway is disabled.
 - name: dns
   path: dns
   dependsOn:
     - pki-base
-    - "${gateway_effective.driver == 'cilium' ? 'cni' : 'gateway-base'}"
+    - "${gateway_effective.driver == 'cilium' ? 'cni' : (gateway_effective.enabled == true ? 'gateway-base' : '')}"
   timeout: 20m
   interval: 5m
   components:
