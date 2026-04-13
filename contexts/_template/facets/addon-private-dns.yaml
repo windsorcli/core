@@ -31,4 +31,4 @@ kustomize:
     - "${workstation.runtime == 'docker-desktop' ? 'external-dns/localhost' : ''}"
   substitutions:
     external_domain: ${dns.private_domain}
-    loadbalancer_start_ip: ${network.loadbalancer_ips.start}
+    loadbalancer_start_ip: ${network_effective.loadbalancer_ips.start}

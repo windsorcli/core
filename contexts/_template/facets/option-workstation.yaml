@@ -124,13 +124,13 @@ terraform:
     runtime: 'docker-desktop'
     domain_name: ${dns.private_domain}
     network_name: windsor-${context}
-    network_cidr: ${network.cidr_block}
-    dns_forward_target: "${cidrhost(network.cidr_block, 10) + \":30053\"}"
-    webhook_host: "${cidrhost(network.cidr_block, 10)}"
+    network_cidr: ${network_effective.cidr_block}
+    dns_forward_target: "${cidrhost(network_effective.cidr_block, 10) + \":30053\"}"
+    webhook_host: "${cidrhost(network_effective.cidr_block, 10)}"
     webhook_port: 30292
     webhook_enabled: ${gitops.webhook.enabled ?? true}
     webhook_token: ${gitops.webhook.token ?? "abcdef123456"}
-    primary_node_ip: "${cidrhost(network.cidr_block, 10)}"
+    primary_node_ip: "${cidrhost(network_effective.cidr_block, 10)}"
     enable_dns: ${workstation.services.dns ?? true}
     enable_git: ${workstation.services.git ?? true}
     registries: ${workstation_registries.registries ?? {}}
@@ -145,13 +145,13 @@ terraform:
       ${workstation.runtime == "docker" ? "linux" : (workstation.runtime ?? "linux")}
     domain_name: ${dns.private_domain}
     network_name: windsor-${context}
-    network_cidr: ${network.cidr_block}
-    dns_forward_target: ${network.loadbalancer_ips.start}
-    webhook_host: ${network.loadbalancer_ips.start}
+    network_cidr: ${network_effective.cidr_block}
+    dns_forward_target: ${network_effective.loadbalancer_ips.start}
+    webhook_host: ${network_effective.loadbalancer_ips.start}
     webhook_port: "${gateway_effective.enabled == true ? 80 : 9292}"
     webhook_enabled: ${gitops.webhook.enabled ?? true}
     webhook_token: ${gitops.webhook.token ?? "abcdef123456"}
-    primary_node_ip: ${network.loadbalancer_ips.start}
+    primary_node_ip: ${network_effective.loadbalancer_ips.start}
     enable_dns: ${workstation.services.dns ?? true}
     enable_git: ${workstation.services.git ?? true}
     registries: ${workstation_registries.registries ?? {}}
@@ -164,13 +164,13 @@ terraform:
     domain_name: ${dns.private_domain}
     network_name: "${(workstation.runtime ?? '') == 'colima' ? 'incusbr0' : ''}"
     create_network: "${(workstation.runtime ?? '') != 'colima'}"
-    network_cidr: ${network.cidr_block}
-    loadbalancer_start_ip: ${network.loadbalancer_ips.start}
-    dns_forward_target: ${network.loadbalancer_ips.start}
-    webhook_host: ${network.loadbalancer_ips.start}
+    network_cidr: ${network_effective.cidr_block}
+    loadbalancer_start_ip: ${network_effective.loadbalancer_ips.start}
+    dns_forward_target: ${network_effective.loadbalancer_ips.start}
+    webhook_host: ${network_effective.loadbalancer_ips.start}
     webhook_port: 9292
     webhook_enabled: ${gitops.webhook.enabled ?? true}
-    primary_node_ip: ${network.loadbalancer_ips.start}
+    primary_node_ip: ${network_effective.loadbalancer_ips.start}
     enable_dns: ${workstation.services.dns ?? true}
     enable_git: ${workstation.services.git ?? true}
     registries: ${workstation_registries.registries ?? {}}
@@ -195,7 +195,7 @@ terraform:
       - name: controlplane
         role: controlplane
         count: ${cluster.controlplanes.count ?? 1}
-        ipv4: ${cidrhost(network.cidr_block, 10)}
+        ipv4: ${cidrhost(network_effective.cidr_block, 10)}
         image: ${cluster.controlplanes.image ?? talos.incus_image}
         type: virtual-machine
         description: Talos control plane node
@@ -212,7 +212,7 @@ terraform:
       - name: worker
         role: worker
         count: ${cluster.workers.count ?? 0}
-        ipv4: ${cidrhost(network.cidr_block, 20)}
+        ipv4: ${cidrhost(network_effective.cidr_block, 20)}
         image: ${cluster.workers.image ?? talos.incus_image}
         type: virtual-machine
         description: Talos worker node

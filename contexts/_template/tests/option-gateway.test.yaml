@@ -287,6 +287,28 @@ cases:
             - webhook
             - webhook/gateway
 
+  # lb-address: included when lb_effective.enabled (non-Cilium CNI + loadbalancer_driver set); IP pinned in gateway spec
+  - name: local envoy gateway-resources includes lb-address when loadbalancer IP configured
+    values:
+      provider: metal
+      gateway:
+        enabled: true
+        driver: envoy
+      network: *default-network
+      cluster:
+        <<: *default-cluster
+        cni:
+          driver: flannel
+    expect:
+      kustomize:
+        - name: gateway-resources
+          path: gateway/resources
+          components:
+            - lb-address
+          substitutions:
+            gateway_class_name: envoy
+            loadbalancer_start_ip: "10.5.1.10"
+
   # AWS: gateway-resources renders without loadbalancer_ips (cloud LB, no IP pool)
   - name: aws envoy gateway-resources renders with empty loadbalancer_start_ip
     values:

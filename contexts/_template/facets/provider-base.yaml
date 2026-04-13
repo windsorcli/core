@@ -18,8 +18,11 @@ config:
     driver: "${cluster.cni.driver ?? (cluster.driver == 'talos' ? 'cilium' : '')}"
 - name: lb_effective
   value:
-    # Cilium provides built-in L2/BGP load balancing; external LB (e.g. MetalLB) is only needed for other CNIs.
-    enabled: "${cni_effective.driver != 'cilium'}"
+    # In-cluster LB is only needed when a loadbalancer_driver is explicitly configured (local platforms).
+    # Cloud platforms (AWS, Azure) use cloud-managed LBs and do not set loadbalancer_driver.
+    # Cilium provides built-in L2/BGP LB so no external driver is needed even on local platforms.
+    enabled: "${cni_effective.driver != 'cilium' && (network.loadbalancer_driver ?? '') != ''}"
+    driver: "${network.loadbalancer_driver ?? 'kube-vip'}"
     # NodePort on docker-desktop (no loadbalancer available); loadbalancer everywhere else.
     mode: loadbalancer
 - name: dns
@@ -33,6 +36,12 @@ config:
   value: "${cluster.driver == 'talos' && (cluster.enabled ?? true)}"
 - name: talos_provisioned
   value: "${cluster.driver == 'talos' && cluster_provisioned}"
+- name: network_effective
+  value:
+    cidr_block: "${network.cidr_block ?? '10.5.0.0/16'}"
+    loadbalancer_ips:
+      start: "${network.loadbalancer_ips.start ?? cidrhost(network.cidr_block ?? '10.5.0.0/16', 266)}"
+      end: "${network.loadbalancer_ips.end ?? cidrhost(network.cidr_block ?? '10.5.0.0/16', 356)}"
 - name: telemetry_effective
   value:
     logs_driver: "${telemetry.logs.driver ?? 'fluentd'}"

@@ -230,6 +230,32 @@ cases:
             - gateway-base
             - cni
 
+  # network_effective: loadbalancer IPs derived from CIDR when not explicitly set (workstation layer active).
+  - name: loadbalancer IPs derived from cidr_block when not set
+    values:
+      provider: docker
+      workstation:
+        runtime: colima
+      gateway:
+        enabled: false
+      network:
+        cidr_block: 10.5.0.0/16
+        loadbalancer_driver: kube-vip
+        loadbalancer_mode: arp
+      cluster: *default-cluster
+    expect:
+      kustomize:
+        - <<: *cni-base
+          components:
+            - cilium
+            - cilium/talos
+            - cilium/prometheus
+            - cilium/hubble
+            - cilium/l2
+          substitutions:
+            loadbalancer_start_ip: "10.5.1.10"
+            loadbalancer_end_ip: "10.5.1.100"
+
   # Cilium: gitops terraform depends on cni when cilium is selected.
   - name: cilium driver makes gitops terraform depend on cni
     values:
