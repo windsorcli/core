@@ -114,6 +114,13 @@ terraform:
     git_password: ${workstation.git.password ?? "local"}
     webhook_token: ${gitops.webhook.token ?? "abcdef123456"}
 
+# On docker-desktop the LB IP is cluster-internal; override gateway_dns_target so external-dns
+# advertises 127.0.0.1 (reached via host-port mapping) instead of the unreachable LB IP.
+- name: gateway-resources
+  when: "platform == 'docker' && workstation.runtime == 'docker-desktop' && gateway_effective.enabled == true"
+  substitutions:
+    gateway_dns_target: "127.0.0.1"
+
 # Workstation stack for docker-desktop: DNS, registries, git livereload. No loadbalancer; DNS forwards to
 # first node. Use container port 30053 (not host 8053) so the DNS container on the same network can reach the node.
 # 30053 = NodePort for DNS set in kustomize/ingress/nginx/coredns/patches/helm-release.yaml; cluster.*.hostports must use same container port (e.g. 8053:30053/udp).

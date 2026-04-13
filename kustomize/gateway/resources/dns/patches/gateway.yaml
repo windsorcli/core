@@ -1,4 +1,7 @@
 - op: add
+  path: /metadata/annotations/external-dns.alpha.kubernetes.io~1target
+  value: "${gateway_dns_target}"
+- op: add
   path: /spec/listeners/-
   value:
     name: dns-udp
