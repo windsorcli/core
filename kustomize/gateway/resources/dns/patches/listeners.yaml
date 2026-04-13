@@ -1,0 +1,22 @@
+- op: add
+  path: /spec/listeners/-
+  value:
+    name: dns-udp
+    protocol: UDP
+    port: 53
+    allowedRoutes:
+      namespaces:
+        from: All
+      kinds:
+        - kind: UDPRoute
+- op: add
+  path: /spec/listeners/-
+  value:
+    name: dns-tcp
+    protocol: TCP
+    port: 53
+    allowedRoutes:
+      namespaces:
+        from: All
+      kinds:
+        - kind: TCPRoute
