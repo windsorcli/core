@@ -13,6 +13,12 @@ config:
       runtime: "${workstation.runtime ?? ''}"
       arch: "${workstation.arch ?? 'amd64'}"
 
+  # Default webhook enabled when workstation is active; can be overridden via gitops.webhook.enabled.
+  - name: gitops
+    value:
+      webhook:
+        enabled: ${gitops.webhook.enabled ?? true}
+
   # Talos image refs for workstation compute (docker/incus). Only relevant when workstation stack runs; providers use talos_version fallback when not.
   - name: talos
     value:

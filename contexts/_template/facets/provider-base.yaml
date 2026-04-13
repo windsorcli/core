@@ -37,6 +37,10 @@ config:
   value:
     logs_driver: "${telemetry.logs.driver ?? 'fluentd'}"
 
+substitutions:
+  private_domain: ${dns.private_domain}
+  public_domain: ${dns.public_domain}
+
 kustomize:
 
 # Cleanup
@@ -126,24 +130,15 @@ kustomize:
   interval: 10m
 
 # Flux webhook receiver for immediate source reconciliation.
-# webhook/gateway routes /hook/ via the existing port-80 HTTP listener (works for both Envoy and Cilium).
-# When Gateway API is in use, gitops must wait for gateway-base so HTTPRoute CRDs are installed first.
+# When Gateway API is in use, gitops waits for gateway-base so HTTPRoute CRDs are installed first.
 - name: gitops
   path: gitops/flux
-  when: (gitops.webhook.enabled ?? true) == true && gateway_effective.enabled != true
-  components:
-    - webhook
-  substitutions:
-    git_repository_name: ${gitops.repository.name ?? "local"}
-
-- name: gitops
-  path: gitops/flux
-  when: (gitops.webhook.enabled ?? true) == true && gateway_effective.enabled == true
+  when: (gitops.webhook.enabled ?? false) == true
   dependsOn:
-    - gateway-base
+    - "${gateway_effective.enabled == true ? 'gateway-base' : ''}"
   components:
     - webhook
-    - webhook/gateway
-    - "${gateway_effective.driver == 'cilium' ? 'webhook/gateway/cilium' : ''}"
+    - "${gateway_effective.enabled == true ? 'webhook/gateway' : ''}"
+    - "${gateway_effective.enabled == true && gateway_effective.driver == 'cilium' ? 'webhook/gateway/cilium' : ''}"
   substitutions:
     git_repository_name: ${gitops.repository.name ?? "local"}
