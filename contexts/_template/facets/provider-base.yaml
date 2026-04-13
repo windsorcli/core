@@ -144,5 +144,6 @@ kustomize:
   components:
     - webhook
     - webhook/gateway
+    - "${gateway_effective.driver == 'cilium' ? 'webhook/gateway/cilium' : ''}"
   substitutions:
     git_repository_name: ${gitops.repository.name ?? "local"}
