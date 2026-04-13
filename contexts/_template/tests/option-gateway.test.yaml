@@ -233,6 +233,9 @@ cases:
       gateway:
         enabled: true
         driver: envoy
+      gitops:
+        webhook:
+          enabled: true
       network: *default-network
       cluster: *default-cluster
     expect:
@@ -277,6 +280,9 @@ cases:
       gateway:
         enabled: true
         driver: cilium
+      gitops:
+        webhook:
+          enabled: true
       network: *default-network
       cluster: *default-cluster
     expect:
