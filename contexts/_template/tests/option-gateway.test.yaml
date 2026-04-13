@@ -309,8 +309,9 @@ cases:
             gateway_class_name: envoy
             loadbalancer_start_ip: "10.5.1.10"
 
-  # AWS: gateway-resources renders without loadbalancer_ips (cloud LB, no IP pool)
-  - name: aws envoy gateway-resources renders with empty loadbalancer_start_ip
+  # AWS: gateway-resources renders without loadbalancer_ips (cloud LB, no IP pool).
+  # gateway_dns_target and loadbalancer_start_ip evaluate to empty string and are omitted from output.
+  - name: aws envoy gateway-resources renders with empty loadbalancer_start_ip and gateway_dns_target
     values:
       provider: aws
       gateway:
