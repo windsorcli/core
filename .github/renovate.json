@@ -7,6 +7,11 @@
   ],
   "packageRules": [
     {
+      "description": "Pin ghcr.io/distribution/distribution at 3.0.0 - bug in 3.1.0",
+      "matchPackageNames": ["ghcr.io/distribution/distribution"],
+      "enabled": false
+    },
+    {
       "description": "Pin GitHub Actions to specific commit SHAs",
       "matchManagers": [
         "github-actions"
