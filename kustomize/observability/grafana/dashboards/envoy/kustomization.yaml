@@ -1,0 +1,21 @@
+apiVersion: kustomize.config.k8s.io/v1alpha1
+kind: Component
+
+# Envoy Gateway dashboards - vendored
+# Run: task dashboards
+# See: source.yaml for provenance
+
+configMapGenerator:
+  - name: grafana-dashboards-networking-envoy
+    namespace: system-observability
+    files:
+      - envoy-clusters.json
+      - envoy-gateway-global.json
+      - envoy-proxy-global.json
+      - resources-monitor.gen.json
+    options:
+      disableNameSuffixHash: true
+      labels:
+        grafana_dashboard: "1"
+      annotations:
+        grafana_folder: "Networking"

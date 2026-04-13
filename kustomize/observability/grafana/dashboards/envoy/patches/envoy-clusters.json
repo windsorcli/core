@@ -1,0 +1,12 @@
+[
+  {
+    "op": "replace",
+    "path": "/panels/10/targets/0/legendFormat",
+    "value": "in"
+  },
+  {
+    "op": "replace",
+    "path": "/panels/10/targets/1/legendFormat",
+    "value": "out"
+  }
+]
