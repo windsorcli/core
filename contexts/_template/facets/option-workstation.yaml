@@ -294,3 +294,12 @@ terraform:
   when: "cluster.enabled == true && platform == 'docker'"
   dependsOn:
     - compute
+
+kustomize:
+
+# On docker-desktop the LB IP is cluster-internal; override gateway_dns_target so external-dns
+# advertises 127.0.0.1 (reached via host-port mapping) instead of the unreachable LB IP.
+- name: gateway-resources
+  when: "platform == 'docker' && workstation.runtime == 'docker-desktop' && gateway_effective.enabled == true"
+  substitutions:
+    gateway_dns_target: "127.0.0.1"

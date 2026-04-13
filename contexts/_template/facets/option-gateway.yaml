@@ -60,6 +60,7 @@ kustomize:
     - "${gateway_effective.driver != 'cilium' && (addons.private_dns.enabled ?? (dev == true)) == true ? 'dns' : ''}"
   substitutions:
     gateway_class_name: ${gateway_effective.driver}
+    gateway_dns_target: ${network.loadbalancer_ips.start ?? ''}
     external_domain: ${dns.private_domain}
     loadbalancer_start_ip: ${network.loadbalancer_ips.start ?? ''}
   timeout: 10m
