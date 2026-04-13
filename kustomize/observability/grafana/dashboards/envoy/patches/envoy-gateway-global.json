@@ -3,5 +3,25 @@
     "op": "replace",
     "path": "/panels/19/targets/0/legendFormat",
     "value": "{{status}}"
+  },
+  {
+    "op": "replace",
+    "path": "/panels/36/targets/0/datasource/uid",
+    "value": "$datasource"
+  },
+  {
+    "op": "replace",
+    "path": "/panels/37/targets/0/datasource/uid",
+    "value": "$datasource"
+  },
+  {
+    "op": "replace",
+    "path": "/panels/38/targets/0/datasource/uid",
+    "value": "$datasource"
+  },
+  {
+    "op": "replace",
+    "path": "/templating/list/0/current",
+    "value": {}
   }
 ]
