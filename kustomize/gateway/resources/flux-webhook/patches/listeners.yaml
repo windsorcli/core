@@ -1,0 +1,11 @@
+- op: add
+  path: /spec/listeners/-
+  value:
+    name: flux-webhook
+    protocol: HTTP
+    port: 9292
+    allowedRoutes:
+      namespaces:
+        from: All
+      kinds:
+        - kind: HTTPRoute

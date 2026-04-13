@@ -8,6 +8,9 @@ spec:
     - name: external
       namespace: system-gateway
       sectionName: web-http
+    - name: external
+      namespace: system-gateway
+      sectionName: flux-webhook
   rules:
     - matches:
         - path:
