@@ -3,8 +3,11 @@ kind: Component
 resources:
   - helm-repository.yaml
   # Envoy Gateway CRDs vendored as static files (HelmRelease secret exceeds 1MB limit).
-  # Update alongside gateway-helm chart version — fetch from envoyproxy/gateway@vX.Y.Z install.yaml,
-  # extract from the first '---' before gateway.envoyproxy.io CRDs through EOF.
+  # Update alongside gateway-helm chart version. To update for a new version:
+  #   VERSION=vX.Y.Z
+  #   curl -sL https://github.com/envoyproxy/gateway/releases/download/${VERSION}/envoy-gateway-crds.yaml \
+  #     > envoy-gateway-crds-${VERSION}.yaml
+  # Use envoy-gateway-crds.yaml (NOT install.yaml — that includes the full controller deployment).
   - envoy-gateway-crds-v1.7.1.yaml
   - gatewayclass.yaml
   - helm-release.yaml
