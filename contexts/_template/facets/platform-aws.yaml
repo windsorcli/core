@@ -1,0 +1,105 @@
+kind: Facet
+apiVersion: blueprints.windsorcli.dev/v1alpha1
+metadata:
+  name: aws
+  description: "AWS provider basic infrastructure"
+
+when: platform == 'aws'
+
+# =============================================================================
+# Terraform — VPC, EKS, optional Cilium bootstrap
+# =============================================================================
+#
+# Dependency chain:
+#   network (VPC) → cluster (EKS) → cluster-additions → cni? → gitops
+#
+# Cilium is optional on EKS; when used it's a full bring-your-own-CNI
+# replacement for VPC-CNI and is bootstrapped before Flux so pod networking
+# is up when the first reconciliation runs.
+#
+terraform:
+
+  # VPC with the requested CIDR. Domain propagates to Route 53 wiring in the
+  # module when set.
+  - name: network
+    path: network/aws-vpc
+    inputs:
+      cidr_block: ${network_effective.cidr_block}
+      domain_name: ${dns.public_domain ?? ""}
+
+  # EKS cluster itself.
+  - name: cluster
+    path: cluster/aws-eks
+    dependsOn:
+      - network
+
+  # destroy: false — "additions" are IAM / IRSA / aws-auth entries that are
+  # idempotent from EKS's perspective; leave them on teardown, the cluster
+  # delete takes them.
+  - name: cluster-additions
+    path: cluster/aws-eks/additions
+    dependsOn:
+      - cluster
+    destroy: false
+
+  # ---------------------------------------------------------------------------
+  # Optional Cilium bootstrap
+  # ---------------------------------------------------------------------------
+  #
+  # Only runs when the user explicitly opts into Cilium on EKS. Unlike Talos,
+  # EKS doesn't need `talos_mode` — the Cilium module uses the EKS cluster
+  # endpoint directly.
+  #
+  - name: cni
+    when: "cni_effective.driver == 'cilium'"
+    path: cni/cilium
+    dependsOn:
+      - cluster
+    inputs:
+      cluster_endpoint: ${cluster.endpoint ?? ""}
+
+  # ---------------------------------------------------------------------------
+  # GitOps (two variants)
+  # ---------------------------------------------------------------------------
+  #
+  # Without Cilium: Flux can start as soon as EKS is up (VPC-CNI is preinstalled).
+  # With Cilium: wait for the `cni` step so pod networking is healthy first.
+  #
+  - name: gitops
+    when: "cni_effective.driver != 'cilium'"
+    path: gitops/flux
+    dependsOn:
+      - cluster
+    inputs:
+      concurrency: 5
+    destroy: false
+
+  - name: gitops
+    when: "cni_effective.driver == 'cilium'"
+    path: gitops/flux
+    dependsOn:
+      - cluster
+      - cni
+    inputs:
+      concurrency: 5
+    destroy: false
+
+# =============================================================================
+# Kustomize — AWS EBS CSI
+# =============================================================================
+#
+# EBS is the default block storage on EKS. `single_storage_type` configures
+# the StorageClass volumeType; gp3 is the current AWS recommendation.
+#
+kustomize:
+
+  - name: csi
+    path: csi
+    dependsOn:
+      - policy-resources
+    components:
+      - aws-ebs
+    timeout: 5m
+    interval: 5m
+    substitutions:
+      single_storage_type: ${cluster.storage.single_storage_type ?? "gp3"}

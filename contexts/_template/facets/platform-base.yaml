@@ -1,0 +1,351 @@
+kind: Facet
+apiVersion: blueprints.windsorcli.dev/v1alpha1
+metadata:
+  name: platform-base
+  description: "Base infrastructure components for all platforms"
+
+# Skip the entire facet when no platform/provider is selected (the "none" context
+# used for bare blueprint scaffolding and schema validation).
+when: (platform ?? provider) != 'none'
+
+# =============================================================================
+# Config — effective values
+# =============================================================================
+#
+# platform-base is the single source of truth for every `_effective` computed
+# value. Downstream facets (options, addons, platform-*) consume these values;
+# they do not re-derive or override them.
+#
+# Evaluation order matters: later entries may reference earlier ones. Keep
+# dependent values below their dependencies (e.g. gateway_effective reads
+# cni_effective, so cni_effective must come first).
+#
+config:
+
+  # ---------------------------------------------------------------------------
+  # Platform identity
+  # ---------------------------------------------------------------------------
+  #
+  # `platform` is the canonical field; `provider` is the legacy alias. Accept
+  # either and fall back to 'none' so expressions downstream can rely on a
+  # non-null string value.
+  #
+  - name: platform
+    value: "${platform ?? provider ?? 'none'}"
+
+  # Normalize workstation.runtime so `workstation.runtime == '...'` checks are
+  # safe even when the user didn't supply a workstation block at all.
+  - name: workstation
+    value:
+      runtime: "${workstation.runtime ?? ''}"
+
+  # ---------------------------------------------------------------------------
+  # CNI driver selection
+  # ---------------------------------------------------------------------------
+  #
+  # Default rules:
+  #   - Explicit cluster.cni.driver always wins.
+  #   - Talos defaults to Cilium (our standard L2/BGP + Gateway API stack).
+  #   - Managed clusters (EKS, AKS) use their own CNI; leave empty so option-cni
+  #     does not activate unless cilium is explicitly requested.
+  #
+  - name: cni_effective
+    value:
+      driver: "${cluster.cni.driver ?? (cluster.driver == 'talos' ? 'cilium' : '')}"
+
+  # Docker Desktop override: its API server is reachable only via a localhost
+  # tunnel, which Cilium's eBPF bootstrap cannot use. Fall back to the built-in
+  # flannel CNI (no bootstrap required).
+  - name: cni_effective
+    when: workstation.runtime == 'docker-desktop'
+    value:
+      driver: "${cluster.cni.driver ?? 'flannel'}"
+
+  # ---------------------------------------------------------------------------
+  # Gateway driver selection
+  # ---------------------------------------------------------------------------
+  #
+  # Resolution order (first non-null wins):
+  #   1. Explicit gateway.driver.
+  #   2. Legacy ingress.driver alias ('envoy-gateway' and 'nginx' both map to
+  #      'envoy'; anything else passes through unchanged).
+  #   3. Platform-based default:
+  #        - docker-desktop and AWS always use envoy (no cilium LB path).
+  #        - Otherwise, use cilium when it is the CNI (native Gateway API),
+  #          else envoy.
+  #
+  - name: gateway_effective
+    value:
+      enabled: ${gateway.enabled ?? ingress.enabled ?? true}
+      driver: "${gateway.driver ?? (ingress.driver == 'envoy-gateway' || ingress.driver == 'nginx' ? 'envoy' : ingress.driver) ?? (workstation.runtime == 'docker-desktop' || platform == 'aws' ? 'envoy' : (cni_effective.driver == 'cilium' ? 'cilium' : 'envoy'))}"
+
+  # ---------------------------------------------------------------------------
+  # Load balancer selection
+  # ---------------------------------------------------------------------------
+  #
+  # An in-cluster LB is only needed when:
+  #   - The CNI doesn't provide one (Cilium has built-in L2/BGP LB), AND
+  #   - A loadbalancer_driver is explicitly configured.
+  #
+  # Cloud platforms (AWS, Azure) use cloud-managed LBs and leave
+  # loadbalancer_driver unset, so this evaluates to false there.
+  #
+  - name: lb_effective
+    value:
+      enabled: "${cni_effective.driver != 'cilium' && (network.loadbalancer_driver ?? '') != ''}"
+      driver: "${network.loadbalancer_driver ?? 'kube-vip'}"
+      mode: loadbalancer
+
+  # Docker Desktop has no routable node network, so Services of type
+  # LoadBalancer cannot be reached. Gateway controllers must expose themselves
+  # via NodePort instead.
+  - name: lb_effective
+    when: workstation.runtime == 'docker-desktop'
+    value:
+      mode: nodeport
+
+  # ---------------------------------------------------------------------------
+  # DNS domains
+  # ---------------------------------------------------------------------------
+  #
+  # Three views of the same setting so callers can be specific:
+  #   - domain:         user-facing root, used when public/private aren't split.
+  #   - public_domain:  records served to the outside world (external-dns).
+  #   - private_domain: records served inside the cluster (CoreDNS).
+  #
+  # `dev: true` defaults everything to 'test' so local dev works without any
+  # DNS configuration.
+  #
+  - name: dns
+    value:
+      domain: "${dns.domain ?? (dev == true ? 'test' : '')}"
+      public_domain: "${dns.public_domain ?? dns.domain ?? (dev == true ? 'test' : '')}"
+      private_domain: "${dns.private_domain ?? dns.domain ?? (dev == true ? 'test' : '')}"
+
+  # ---------------------------------------------------------------------------
+  # Cluster provisioning flags
+  # ---------------------------------------------------------------------------
+  #
+  # cluster_provisioned: true when a cluster should actually exist. On docker,
+  # the cluster only exists when a workstation runtime is set — `provider:
+  # docker` without workstation is a no-op scaffold used for tests.
+  #
+  # talos_enabled / eks_enabled: driver-specific gates for cluster.enabled.
+  # Used by option-cni and related facets to decide whether to bootstrap.
+  #
+  # talos_provisioned: talos_enabled + cluster actually provisioned (matters
+  # on docker where provisioning requires workstation).
+  #
+  - name: cluster_provisioned
+    value: "${(cluster.enabled ?? true) && (platform != 'docker' || (workstation.runtime != null && workstation.runtime != ''))}"
+  - name: talos_enabled
+    value: "${cluster.driver == 'talos' && (cluster.enabled ?? true)}"
+  - name: talos_provisioned
+    value: "${cluster.driver == 'talos' && cluster_provisioned}"
+  - name: eks_enabled
+    value: "${cluster.driver == 'eks' && (cluster.enabled ?? true)}"
+
+  # ---------------------------------------------------------------------------
+  # Network effective values
+  # ---------------------------------------------------------------------------
+  #
+  # Compute loadbalancer IP range from the CIDR when the user doesn't supply
+  # one. Offsets 266/356 place the range well inside a /16 and clear of the
+  # first 256 addresses reserved for nodes/services.
+  #
+  - name: network_cidr_effective
+    value: "${network.cidr_block ?? '10.5.0.0/16'}"
+  - name: network_effective
+    value:
+      cidr_block: "${network_cidr_effective}"
+      loadbalancer_ips:
+        start: "${network.loadbalancer_ips.start ?? cidrhost(network_cidr_effective, 266)}"
+        end: "${network.loadbalancer_ips.end ?? cidrhost(network_cidr_effective, 356)}"
+
+  # ---------------------------------------------------------------------------
+  # Telemetry driver
+  # ---------------------------------------------------------------------------
+  #
+  # Default log aggregation driver is fluentd. Other valid values: 'none'
+  # (disable aggregation entirely), 'elasticsearch' (the observability addon
+  # runs filebeat → Elasticsearch instead). Consumed by option-telemetry and
+  # by telemetry-resources below.
+  #
+  - name: telemetry_effective
+    value:
+      logs_driver: "${telemetry.logs.driver ?? 'fluentd'}"
+
+
+# =============================================================================
+# Kustomize — base cluster resources
+# =============================================================================
+#
+# These kustomizations are always applied (subject to per-entry `when:` guards
+# where noted). Ordering below matches the dependency chain:
+#
+#   cleanup (destroyOnly) → policy → telemetry → pki → gitops webhook
+#
+kustomize:
+
+  # ---------------------------------------------------------------------------
+  # Cleanup (destroy-only)
+  # ---------------------------------------------------------------------------
+  #
+  # Runs only on `windsor destroy`. Removes ingresses, loadbalancers, and PVCs
+  # before the cluster is torn down so their underlying cloud resources
+  # (external IPs, volumes) are released cleanly.
+  #
+  - name: cleanup
+    path: cleanup
+    destroyOnly: true
+    components:
+      - ingresses
+      - loadbalancers
+      - pvcs
+    timeout: 10m
+    interval: 5m
+
+  # ---------------------------------------------------------------------------
+  # Policy (Kyverno)
+  # ---------------------------------------------------------------------------
+  #
+  # policy-base installs the Kyverno controller.
+  # policy-resources applies cluster policies; each policy is individually
+  # toggleable via the top-level `policies.*` field (defaults to enabled).
+  #
+  - name: policy-base
+    path: policy/base
+    components:
+      - kyverno
+    timeout: 30m
+    interval: 5m
+
+  - name: policy-resources
+    path: policy/resources
+    dependsOn:
+      - policy-base
+    components:
+      - "${(policies.resource_limits_requests ?? 'enabled') != 'disabled' ? 'kyverno/resource-limits-requests' : ''}"
+      - "${(policies.require_image_digest ?? 'enabled') != 'disabled' ? 'kyverno/require-image-digest' : ''}"
+    timeout: 5m
+    interval: 5m
+    retryInterval: 1m
+
+  # ---------------------------------------------------------------------------
+  # PKI (cert-manager)
+  # ---------------------------------------------------------------------------
+  #
+  # Depends on telemetry-base so cert-manager's ServiceMonitor has a working
+  # Prometheus target from the moment it's created.
+  #
+  - name: pki-base
+    path: pki/base
+    dependsOn:
+      - policy-resources
+      - telemetry-base
+    components:
+      - cert-manager
+      - cert-manager/prometheus
+    timeout: 20m
+    interval: 5m
+
+  # ---------------------------------------------------------------------------
+  # Telemetry pipeline (Prometheus + fluent-bit + fluentd aggregator)
+  # ---------------------------------------------------------------------------
+  #
+  # Full collection pipeline, always present on every cluster:
+  #
+  #   fluent-bit (per-node shipper) → fluentd (central aggregator) → sink
+  #
+  # addon-observability wires up the sink (stdout / quickwit / elasticsearch).
+  # Without observability, fluentd runs as a terminal receiver with no output
+  # — logs are buffered and dropped, but the pipeline shape stays intact so
+  # enabling observability later doesn't require reconfiguring telemetry.
+  #
+  # telemetry-base:       operators (Prometheus, fluent-bit, fluent-operator).
+  # telemetry-resources:  metrics-server, scrape jobs, fluent-bit filters,
+  #                       and the fluent-bit → fluentd shipper when fluentd
+  #                       is the chosen aggregator.
+  # observability:        fluentd aggregator (skipped when logs_driver='none').
+  #
+  - name: telemetry-base
+    path: telemetry/base
+    components:
+      - prometheus
+      - prometheus/flux
+      - fluentbit
+    timeout: 30m
+    interval: 10m
+
+  - name: telemetry-resources
+    path: telemetry/resources
+    dependsOn:
+      - telemetry-base
+    components:
+      - metrics-server
+      - prometheus
+      - prometheus/flux
+      - fluentbit
+      - fluentbit/containerd
+      - fluentbit/kubernetes
+      - fluentbit/parser
+      - fluentbit/systemd
+      - fluentbit/prometheus
+      - "${telemetry_effective.logs_driver == 'fluentd' ? 'fluentbit/fluentd' : ''}"
+    timeout: 10m
+    interval: 5m
+
+  # Central FluentD aggregator. Runs in the observability namespace (where
+  # fluent-operator has RBAC). Skipped when logs_driver='none' (aggregation
+  # disabled entirely) or when logs_driver='elasticsearch' (filebeat → ES
+  # replaces the fluentbit→fluentd path; see addon-observability).
+  #
+  # The log-level filter is attached unless log_level='trace' (trace wants
+  # every log, unfiltered).
+  - name: observability
+    path: observability
+    when: telemetry_effective.logs_driver == 'fluentd' && (addons.observability.logs_driver ?? '') != 'elasticsearch'
+    dependsOn:
+      - telemetry-base
+    components:
+      - fluentd
+      - fluentd/filters/otel
+      - fluentd/prometheus
+      - "${log_level != 'trace' ? 'fluentd/filters/log-level/' + (log_level ?? 'info') : ''}"
+    timeout: 15m
+    interval: 10m
+
+  # ---------------------------------------------------------------------------
+  # GitOps webhook receiver
+  # ---------------------------------------------------------------------------
+  #
+  # Exposes a Flux webhook for immediate source reconciliation (push-driven
+  # instead of polling). Two variants:
+  #
+  #   1. No Gateway API: plain HTTP webhook. Used when gateway_effective is
+  #      disabled (e.g. cluster.enabled=false with only workstation services).
+  #
+  #   2. With Gateway API: webhook + HTTPRoute on the port-80 listener. Works
+  #      for both Envoy and Cilium gateways. Must wait for gateway-base so the
+  #      HTTPRoute CRDs exist before the route is applied.
+  #
+  # Both variants are gated by gitops.webhook.enabled (defaults to true).
+  #
+  - name: gitops
+    path: gitops/flux
+    when: (gitops.webhook.enabled ?? true) == true && gateway_effective.enabled != true
+    components:
+      - webhook
+    substitutions:
+      git_repository_name: ${gitops.repository.name ?? "local"}
+
+  - name: gitops
+    path: gitops/flux
+    when: (gitops.webhook.enabled ?? true) == true && gateway_effective.enabled == true
+    dependsOn:
+      - gateway-base
+    components:
+      - webhook
+      - webhook/gateway
+    substitutions:
+      git_repository_name: ${gitops.repository.name ?? "local"}

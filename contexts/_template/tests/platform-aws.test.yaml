@@ -1,4 +1,4 @@
-# provider-aws.yaml facet tests
+# platform-aws.yaml facet tests
 # Tests AWS EKS infrastructure with VPC networking
 
 cases:

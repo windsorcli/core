@@ -1,0 +1,62 @@
+kind: Facet
+apiVersion: blueprints.windsorcli.dev/v1alpha1
+metadata:
+  name: azure
+  description: "Azure provider basic infrastructure"
+
+when: platform == 'azure'
+
+# =============================================================================
+# Terraform — VNet, AKS, Flux
+# =============================================================================
+#
+# Straightforward chain: VNet → AKS → GitOps. AKS brings its own CNI and
+# LB, so there's no Cilium path and no LB kustomize entries on this platform.
+#
+terraform:
+
+  - name: network
+    path: network/azure-vnet
+    inputs:
+      vnet_cidr: ${network_effective.cidr_block}
+
+  - name: cluster
+    path: cluster/azure-aks
+    dependsOn:
+      - network
+
+  # destroy: false — Flux is tied to the cluster; AKS teardown takes it.
+  - name: gitops
+    path: gitops/flux
+    destroy: false
+    dependsOn:
+      - cluster
+    inputs:
+      concurrency: 5
+
+# =============================================================================
+# Kustomize — Azure Disk CSI + AKS-specific telemetry trim
+# =============================================================================
+#
+kustomize:
+
+  # Azure Disk is the default block storage on AKS. StandardSSD_LRS is the
+  # recommended balance of cost and performance for general-purpose workloads.
+  - name: csi
+    path: csi
+    dependsOn:
+      - policy-resources
+    components:
+      - azure-disk
+    timeout: 5m
+    interval: 5m
+    substitutions:
+      single_storage_type: ${cluster.storage.single_storage_type ?? "StandardSSD_LRS"}
+
+  # AKS ships metrics-server as a managed add-on, so remove our copy to avoid
+  # running two instances fighting over the same APIService.
+  - name: telemetry-resources
+    path: telemetry/resources
+    strategy: remove
+    components:
+      - metrics-server
