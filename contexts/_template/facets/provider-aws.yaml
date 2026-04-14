@@ -10,7 +10,7 @@ terraform:
 - name: network
   path: network/aws-vpc
   inputs:
-    cidr_block: ${network.cidr_block}
+    cidr_block: ${network_effective.cidr_block}
     domain_name: ${dns.public_domain ?? ""}
 - name: cluster
   path: cluster/aws-eks

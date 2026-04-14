@@ -10,7 +10,7 @@ terraform:
 - name: network
   path: network/azure-vnet
   inputs:
-    vnet_cidr: ${network.cidr_block}
+    vnet_cidr: ${network_effective.cidr_block}
 - name: cluster
   path: cluster/azure-aks
   dependsOn:

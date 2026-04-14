@@ -58,10 +58,11 @@ kustomize:
   components:
     - "${gateway_effective.driver == 'cilium' ? 'cilium' : ''}"
     - "${gateway_effective.driver != 'cilium' && (addons.private_dns.enabled ?? (dev == true)) == true ? 'dns' : ''}"
+    - "${lb_effective.enabled == true ? 'lb-address' : ''}"
   substitutions:
     gateway_class_name: ${gateway_effective.driver}
-    gateway_dns_target: ${network.loadbalancer_ips.start ?? ''}
+    gateway_dns_target: "${lb_effective.enabled == true ? network_effective.loadbalancer_ips.start : ''}"
     external_domain: ${dns.private_domain}
-    loadbalancer_start_ip: ${network.loadbalancer_ips.start ?? ''}
+    loadbalancer_start_ip: ${network_effective.loadbalancer_ips.start}
   timeout: 10m
   interval: 5m

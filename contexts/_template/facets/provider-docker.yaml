@@ -11,7 +11,7 @@ config:
   value:
     # Docker compute assigns the first controlplane a fixed IP at offset 10 in the network CIDR
     # (workstation services occupy offsets 2–9). Mirrors the incus provider convention.
-    k8s_service_host: "${cidrhost(network.cidr_block, 10)}"
+    k8s_service_host: "${cidrhost(network_effective.cidr_block, 10)}"
 
 # Fallback cluster API endpoint: compute first cp host; else no compute → localhost:6443 (docker-desktop); else colima/linux from context.
 # With provider docker, no compute implies host→container so use localhost. Referenced by cluster_endpoint input.
@@ -90,7 +90,7 @@ kustomize:
   dependsOn:
     - policy-resources
   components:
-    - "${network.loadbalancer_driver == 'metallb' ? 'metallb' : ''}"
+    - "${lb_effective.driver == 'metallb' ? 'metallb' : ''}"
   timeout: 5m
   interval: 5m
 
@@ -101,9 +101,9 @@ kustomize:
   dependsOn:
     - lb-base
   components:
-    - ${network.loadbalancer_driver}
-    - "${network.loadbalancer_driver}/${network.loadbalancer_mode}"
+    - ${lb_effective.driver}
+    - "${lb_effective.driver}/${network.loadbalancer_mode ?? 'arp'}"
   substitutions:
-    loadbalancer_ip_range: ${network.loadbalancer_ips.start + '-' + network.loadbalancer_ips.end}
+    loadbalancer_ip_range: ${network_effective.loadbalancer_ips.start + '-' + network_effective.loadbalancer_ips.end}
   timeout: 5m
   interval: 5m

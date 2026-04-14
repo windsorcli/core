@@ -75,8 +75,8 @@ kustomize:
     - cilium/l2
   substitutions:
     k8s_service_host: ${talos_common.k8s_service_host}
-    loadbalancer_start_ip: ${network.loadbalancer_ips.start}
-    loadbalancer_end_ip: ${network.loadbalancer_ips.end}
+    loadbalancer_start_ip: ${network_effective.loadbalancer_ips.start}
+    loadbalancer_end_ip: ${network_effective.loadbalancer_ips.end}
   timeout: 15m
   interval: 5m
 
