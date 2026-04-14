@@ -187,7 +187,8 @@ cases:
           timeout: 10m
           interval: 5m
 
-  # Edge case: Addon disabled (FluentD is still included as part of base telemetry)
+  # Addon disabled: Grafana / log-storage outputs are not created, but the FluentD
+  # aggregator (part of base telemetry) still runs.
   - name: excludes observability when addon disabled
     values:
       provider: metal

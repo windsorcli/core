@@ -6,14 +6,21 @@ metadata:
 
 when: demo.enabled == true
 
+# =============================================================================
+# Kustomize — demo applications
+# =============================================================================
+#
+# Each demo.resources.* flag toggles one sample app. The database entry also
+# drives a dependency on the `database` kustomization (from addon-database)
+# so CNPG is up before the sample app tries to create its DB.
+#
 kustomize:
 
-# Demo resources (database, static website, bookinfo)
-- name: demo
-  path: demo
-  dependsOn:
-    - "${demo.resources.database == true ? 'database' : ''}"
-  components:
-    - "${demo.resources.database == true ? 'database' : ''}"
-    - "${demo.resources.static == true ? 'static' : ''}"
-    - "${demo.resources.bookinfo == true ? 'bookinfo' : ''}"
+  - name: demo
+    path: demo
+    dependsOn:
+      - "${demo.resources.database == true ? 'database' : ''}"
+    components:
+      - "${demo.resources.database == true ? 'database' : ''}"
+      - "${demo.resources.static == true ? 'static' : ''}"
+      - "${demo.resources.bookinfo == true ? 'bookinfo' : ''}"

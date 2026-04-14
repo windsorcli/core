@@ -6,26 +6,32 @@ metadata:
 
 when: addons.database.postgres.enabled == true
 
+# =============================================================================
+# Kustomize — CloudNativePG operator + Grafana dashboard
+# =============================================================================
+#
 kustomize:
 
-# CloudNativePG operator base
-- name: database
-  path: database
-  when: addons.database.postgres.driver == 'cloudnativepg'
-  timeout: 15m
-  interval: 10m
-  dependsOn:
-    - csi
-  components:
-    - cloudnativepg
-    - cloudnativepg/prometheus
-    - "${addons.database.postgres.driver == 'cloudnativepg' && ha == true ? 'cloudnativepg/ha' : ''}"
+  # CloudNativePG operator. Depends on csi because CNPG needs PVCs for WAL
+  # archives and data volumes as soon as the first Cluster is applied. `ha`
+  # adds anti-affinity and PDBs for the operator's own pods.
+  - name: database
+    path: database
+    when: addons.database.postgres.driver == 'cloudnativepg'
+    timeout: 15m
+    interval: 10m
+    dependsOn:
+      - csi
+    components:
+      - cloudnativepg
+      - cloudnativepg/prometheus
+      - "${addons.database.postgres.driver == 'cloudnativepg' && ha == true ? 'cloudnativepg/ha' : ''}"
 
-# CloudNativePG Grafana dashboard
-- name: observability
-  path: observability
-  when: addons.database.postgres.driver == 'cloudnativepg' && addons.observability.enabled == true
-  dependsOn:
-    - telemetry-base
-  components:
-    - grafana/dashboards/cloudnativepg
+  # Grafana dashboard patch — only when observability is active.
+  - name: observability
+    path: observability
+    when: addons.database.postgres.driver == 'cloudnativepg' && addons.observability.enabled == true
+    dependsOn:
+      - telemetry-base
+    components:
+      - grafana/dashboards/cloudnativepg

@@ -1,0 +1,90 @@
+kind: Facet
+apiVersion: blueprints.windsorcli.dev/v1alpha1
+metadata:
+  name: metal
+  description: "Metal provider basic infrastructure"
+
+# Bare metal: the user supplies fully-provisioned nodes with real IPs, and
+# we just run Talos apply against them. No compute terraform, no network
+# creation — everything upstream is the operator's responsibility.
+when: platform == 'metal'
+
+# =============================================================================
+# Config
+# =============================================================================
+#
+config:
+
+  # On metal we always have at least one controlplane node with a concrete
+  # endpoint, so the fallback derivation is always valid (unlike incus/docker
+  # which may have no compute output yet).
+  - name: cluster_endpoint_fallback
+    value:
+      endpoint: "${cluster.endpoint ?? ('https://' + split(values(cluster.controlplanes.nodes)[0].endpoint, ':')[0] + ':6443')}"
+
+# =============================================================================
+# Terraform — cluster/talos + gitops
+# =============================================================================
+#
+# No compute step: metal nodes exist externally. We go straight from the
+# user-supplied node list to Talos bootstrap/apply.
+#
+terraform:
+
+  - name: cluster
+    path: cluster/talos
+    parallelism: 1
+    inputs:
+      cluster_endpoint: ${cluster.endpoint ?? ("https://" + split(values(cluster.controlplanes.nodes)[0].endpoint, ":")[0] + ":6443")}
+      cluster_name: talos
+      talos_version: ${talos.talos_version}
+      controlplanes: ${values(cluster.controlplanes.nodes)}
+      workers: "${(cluster.workers.count ?? 0) > 0 ? values(cluster.workers.nodes) : []}"
+      controlplane_disks: ${talos_common.controlplane_disks}
+      worker_disks: ${talos_common.worker_disks}
+      common_config_patches: ${talos_common.common_config_patches}
+      controlplane_volumes: ${talos_common.controlplane_volumes ?? []}
+      worker_volumes: ${talos_common.worker_volumes ?? []}
+
+  # destroy: false — Flux is tied to cluster lifetime; cluster teardown
+  # takes it with it.
+  - name: gitops
+    path: gitops/flux
+    dependsOn:
+      - cluster
+    inputs:
+      concurrency: ${max(2, min(floor((cluster.controlplanes.cpu ?? 4) / 2), floor((cluster.controlplanes.memory ?? 4) / 2), 10))}
+    destroy: false
+
+# =============================================================================
+# Kustomize — MetalLB
+# =============================================================================
+#
+# Metal nodes have real IPs and routes, so MetalLB works whenever an LB is
+# requested. Cilium installations skip this (Cilium's built-in LB is
+# preferred) via lb_effective.enabled being false when Cilium is the CNI.
+#
+kustomize:
+
+  - name: lb-base
+    path: lb/base
+    when: lb_effective.enabled
+    dependsOn:
+      - policy-resources
+    components:
+      - "${lb_effective.driver == 'metallb' ? 'metallb' : ''}"
+    timeout: 5m
+    interval: 5m
+
+  - name: lb-resources
+    path: lb/resources
+    when: lb_effective.enabled
+    dependsOn:
+      - lb-base
+    components:
+      - ${lb_effective.driver}
+      - "${lb_effective.driver}/${network.loadbalancer_mode ?? 'arp'}"
+    substitutions:
+      loadbalancer_ip_range: ${network_effective.loadbalancer_ips.start + '-' + network_effective.loadbalancer_ips.end}
+    timeout: 5m
+    interval: 5m

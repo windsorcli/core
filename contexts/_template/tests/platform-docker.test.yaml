@@ -1,7 +1,8 @@
-# provider-metal.yaml facet tests
-# Tests Talos cluster infrastructure with load balancer and ingress configuration
+# platform-docker.yaml facet tests
+# Tests Talos cluster infrastructure for Docker-based dev environments (workstation path).
+# With provider: docker, cluster runs only when workstation.enabled == true; chain is workstation → compute → cluster.
 #
-# Note: provider: metal requires cluster.controlplanes.nodes because
+# Note: provider: docker requires cluster.controlplanes.nodes because
 # cluster_endpoint is derived from the first node.
 
 # Common configurations
@@ -13,6 +14,9 @@ x-defaults:
     loadbalancer_ips:
       start: "10.5.1.10"
       end: "10.5.1.100"
+
+  dns: &default-dns
+    domain: test.local
 
   cluster: &default-cluster
     driver: talos
@@ -26,16 +30,42 @@ x-defaults:
       volumes:
         - /var/mnt/local
 
+  terraform-outputs: &default-terraform-outputs
+    compute:
+      controlplanes:
+        - endpoint: 10.5.0.10:6443
+          node: 10.5.0.10
+          hostname: controlplane-1
+      workers: []
+
+  # Workstation registries with hostname so common_config_patches gets non-empty mirrors (mirror key -> endpoint).
+  terraform-outputs-with-workstation-registries: &terraform-outputs-with-workstation-registries
+    compute:
+      controlplanes:
+        - endpoint: 10.5.0.10:6443
+          node: 10.5.0.10
+          hostname: controlplane-1
+      workers: []
+    workstation:
+      registries:
+        gcr.io:
+          remote: "https://gcr.io"
+          hostname: "gcr.test"
+
 
 cases:
-  # Minimal: Test default behavior with required fields only
-  - name: minimal config creates Talos cluster with Cilium L2 and default CSI
+  # Minimal: workstation path — when workstation enabled, cluster depends on compute (workstation → compute → cluster from option-workstation + provider-docker)
+  - name: minimal config creates workstation compute cluster chain with default CSI
     values:
-      provider: metal
+      provider: docker
+      workstation:
+        runtime: colima
+      dns: *default-dns
       gateway:
         enabled: false
       network: *default-network
       cluster: *default-cluster
+    terraformOutputs: *default-terraform-outputs
     expect:
       terraform:
         - name: cluster
@@ -148,21 +178,60 @@ cases:
         - name: lb-base
         - name: lb-resources
 
-  # Full: Test all configurable options together (explicit flannel CNI to exercise MetalLB path)
-  - name: full config with MetalLB, custom resources, ingress, and custom worker volume
+  # Registry mirrors: when terraform_output("workstation", "registries") has hostname, common_config_patches must include non-empty mirrors. Colima: no certSANs.
+  - name: cluster common_config_patches includes registry mirrors when docker.registries have hostname
     values:
-      provider: metal
+      platform: docker
       workstation:
         runtime: colima
+      dns: *default-dns
+      gateway:
+        enabled: false
+      network: *default-network
+      cluster: *default-cluster
+      docker:
+        registries:
+          gcr.io:
+            remote: "https://gcr.io"
+            hostname: "gcr.test"
+    terraformOutputs: *terraform-outputs-with-workstation-registries
+    expect:
+      terraform:
+        - name: cluster
+          path: cluster/talos
+          inputs:
+            common_config_patches: |-
+              cluster:
+                allowSchedulingOnControlPlanes: true
+                extraManifests:
+                - https://raw.githubusercontent.com/alex1989hu/kubelet-serving-cert-approver/v0.8.7/deploy/standalone-install.yaml
+                network:
+                  cni:
+                    name: none
+                proxy:
+                  disabled: true
+              machine:
+                kubelet:
+                  extraArgs:
+                    rotate-server-certificates: "true"
+                registries:
+                  config: {}
+                  mirrors:
+                    gcr.io:
+                      endpoints:
+                      - http://gcr.test:5000
+
+  # Full: workstation path with fully populated cluster, ingress, volumes (flannel + kube-vip to exercise lb path)
+  - name: full config creates workstation compute cluster chain with all options
+    values:
+      provider: docker
+      workstation:
+        runtime: colima
+      dns: *default-dns
       gateway:
         enabled: true
         driver: envoy
-      network:
-        loadbalancer_driver: metallb
-        loadbalancer_mode: layer2
-        loadbalancer_ips:
-          start: "192.168.1.100"
-          end: "192.168.1.200"
+      network: *default-network
       cluster:
         driver: talos
         cni:
@@ -178,6 +247,7 @@ cases:
             - /mnt/data
         storage:
           local_base_path: /mnt/data
+    terraformOutputs: *default-terraform-outputs
     expect:
       terraform:
         - name: cluster
@@ -252,6 +322,24 @@ cases:
             - fluentbit/prometheus
           timeout: 10m
           interval: 5m
+        - name: lb-base
+          path: lb/base
+          dependsOn:
+            - policy-resources
+          components: []
+          timeout: 5m
+          interval: 5m
+        - name: lb-resources
+          path: lb/resources
+          dependsOn:
+            - lb-base
+          components:
+            - kube-vip
+            - kube-vip/arp
+          substitutions:
+            loadbalancer_ip_range: 10.5.1.10-10.5.1.100
+          timeout: 5m
+          interval: 5m
         - name: csi
           path: csi
           dependsOn:
@@ -263,53 +351,40 @@ cases:
             local_volume_path: /mnt/data
           timeout: 20m
           interval: 5m
-        - name: lb-base
-          path: lb/base
-          dependsOn:
-            - policy-resources
-          components:
-            - metallb
-          timeout: 5m
-          interval: 5m
-        - name: lb-resources
-          path: lb/resources
-          dependsOn:
-            - lb-base
-          components:
-            - metallb
-            - metallb/layer2
-          substitutions:
-            loadbalancer_ip_range: 192.168.1.100-192.168.1.200
-          timeout: 5m
-          interval: 5m
 
-  # Edge case: longhorn storage driver passes Talos extensions via cluster-extensions step
-  - name: longhorn storage driver passes iscsi and util-linux extensions to cluster terraform
+  # Edge: docker without workstation yields no cluster and no gitops (gitops always dependsOn cluster; cluster only when workstation enabled).
+  - name: docker without workstation has no cluster terraform
     values:
-      provider: metal
+      provider: docker
       gateway:
         enabled: false
       network: *default-network
-      cluster:
-        driver: talos
-        controlplanes:
-          nodes:
-            controlplane-1: *cp1-node
-        workers:
-          count: 1
-          volumes:
-            - /var/mnt/longhorn
-        storage:
-          driver: longhorn
-          local_base_path: /var/mnt/longhorn
+      cluster: *default-cluster
+    expect:
+      terraform: []
+
+  # Edge: Docker Desktop excludes load balancer and cilium bootstrap (uses flannel)
+  - name: Docker Desktop excludes load balancer and uses flannel CNI
+    values:
+      provider: docker
+      workstation:
+        runtime: docker-desktop
+      dns: *default-dns
+      gateway:
+        enabled: false
+      network: *default-network
+      cluster: *default-cluster
+    terraformOutputs: *default-terraform-outputs
     expect:
       terraform:
-        - name: cluster-extensions
-          path: cluster/talos/extensions
-          dependsOn:
-            - cni
-          parallelism: 1
+        - name: cluster
+          path: cluster/talos
           inputs:
-            extensions:
-              - siderolabs/iscsi-tools
-              - siderolabs/util-linux-tools
+            cluster_endpoint: https://10.5.0.10:6443
+    exclude:
+      terraform:
+        - name: cni
+      kustomize:
+        - name: cni
+        - name: lb-base
+        - name: lb-resources

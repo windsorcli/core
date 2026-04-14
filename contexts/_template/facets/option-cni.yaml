@@ -4,97 +4,135 @@ metadata:
   name: cni
   description: Kubernetes CNI driver configuration (Cilium)
 
-when: cni_effective.driver == 'cilium'
+# Only active when Cilium is the resolved CNI and the cluster is enabled.
+# Other CNIs (flannel on docker-desktop, managed CNIs on EKS/AKS) skip this
+# facet entirely. The cluster.enabled guard prevents dangling csi→cni
+# dependencies when someone stands up just the workstation services.
+when: cni_effective.driver == 'cilium' && (cluster.enabled ?? true)
 
+# =============================================================================
+# Terraform — Cilium pre-flight bootstrap
+# =============================================================================
+#
+# Cilium has a chicken-and-egg problem on Talos: Flux needs pod networking to
+# reconcile anything, but Flux is what normally installs the CNI HelmRelease.
+# We resolve this by bootstrapping Cilium directly via Terraform (using the
+# Talos API), then letting Flux adopt the release later via the `cni`
+# kustomization below.
+#
 terraform:
 
-# Bootstrap Cilium before Flux so that pod networking is available when GitOps controllers start.
-# Skipped for docker without workstation (no cluster is provisioned in that case).
-- name: cni
-  when: "talos_provisioned"
-  path: cni/cilium
-  dependsOn:
-    - cluster
-  inputs:
-    cluster_endpoint: "${cluster.endpoint ?? cluster_endpoint_fallback.endpoint}"
-    talos_mode: true
+  # Bootstrap Cilium before Flux so pod networking exists when GitOps controllers
+  # start. Skipped on docker without workstation (no cluster is provisioned).
+  - name: cni
+    when: "talos_provisioned"
+    path: cni/cilium
+    dependsOn:
+      - cluster
+    inputs:
+      cluster_endpoint: "${cluster.endpoint ?? cluster_endpoint_fallback.endpoint}"
+      talos_mode: true
 
-# Merge cni dep into cluster-extensions so Talos extensions install after Cilium bootstrap.
-- name: cluster-extensions
-  when: "talos_provisioned"
-  path: cluster/talos/extensions
-  dependsOn:
-    - cni
+  # Dependency merges — insert the `cni` step into the existing terraform graph
+  # so Talos extensions and Flux both wait for Cilium bootstrap to finish.
+  - name: cluster-extensions
+    when: "talos_provisioned"
+    path: cluster/talos/extensions
+    dependsOn:
+      - cni
 
-# Merge cni dep into gitops so Flux waits for Cilium bootstrap before reconciling.
-- name: gitops
-  when: "talos_provisioned"
-  path: gitops/flux
-  dependsOn:
-    - cni
+  - name: gitops
+    when: "talos_provisioned"
+    path: gitops/flux
+    dependsOn:
+      - cni
 
+# =============================================================================
+# Kustomize — Flux adoption of Cilium HelmRelease + ordering patches
+# =============================================================================
+#
 kustomize:
 
-# Merge cni dep into gateway-resources so the Kyverno LBIPAM sharing policy (in cilium/gateway)
-# is applied before the Gateway resource is created. Without this, gateway-resources and cni
-# run in parallel and the policy may not be in place when the Cilium gateway controller
-# creates the cilium-gateway-external service.
-- name: gateway-resources
-  when: gateway_effective.enabled == true && gateway_effective.driver == 'cilium'
-  dependsOn:
-    - cni
+  # ---------------------------------------------------------------------------
+  # Dependency patches
+  # ---------------------------------------------------------------------------
+  #
+  # These entries have no `path:` — they exist purely to inject dependsOn edges
+  # into kustomizations that are created in other facets.
+  #
 
-# Merge cni dep into csi so CSI installs after Cilium's eBPF is fully loaded.
-# Without this, CSI node-driver-registrar may see transient loopback connectivity
-# disruptions during Cilium's eBPF initialization and crash repeatedly.
-- name: csi
-  dependsOn:
-    - cni
+  # gateway-resources must wait for cni when Cilium is the gateway driver.
+  # Otherwise the Kyverno LBIPAM sharing policy (in cilium/gateway) may not be
+  # in place when the Cilium gateway controller creates the
+  # cilium-gateway-external Service, and the LB IP won't be shared.
+  - name: gateway-resources
+    when: gateway_effective.enabled == true && gateway_effective.driver == 'cilium'
+    dependsOn:
+      - cni
 
-# Cilium dashboards merged into the observability kustomization when Grafana is deployed.
-- name: observability
-  when: observability_effective.dashboards == 'grafana'
-  components:
-    - grafana/dashboards/cilium
+  # csi must wait for cni so it installs after Cilium's eBPF is fully loaded.
+  # Without this, CSI node-driver-registrar can see transient loopback
+  # connectivity disruptions during eBPF init and crash-loop repeatedly.
+  - name: csi
+    dependsOn:
+      - cni
 
-# Talos: bootstrap was handled by terraform/cni/cilium; Flux adopts the release here.
-# Talos-specific security context and cgroup settings are applied via the cilium/talos component.
-- name: cni
-  path: cni
-  when: cluster.driver == 'talos'
-  dependsOn:
-    - policy-resources
-    - telemetry-base
-  components:
-    - cilium
-    - cilium/talos
-    - "${(ha ?? false) ? 'cilium/ha' : ''}"
-    - "${(gateway_effective.enabled == true && gateway_effective.driver == 'cilium') ? 'cilium/gateway' : ''}"
-    - cilium/prometheus
-    - cilium/hubble
-    - cilium/l2
-  substitutions:
-    k8s_service_host: ${talos_common.k8s_service_host}
-    loadbalancer_start_ip: ${network_effective.loadbalancer_ips.start}
-    loadbalancer_end_ip: ${network_effective.loadbalancer_ips.end}
-  timeout: 15m
-  interval: 5m
+  # Add the Cilium dashboards to the observability kustomization when Grafana
+  # is the dashboard backend.
+  - name: observability
+    when: observability_effective.dashboards == 'grafana'
+    components:
+      - grafana/dashboards/cilium
 
-# EKS: bootstrap was handled by terraform/cni/cilium; Flux adopts the release here.
-# No Talos-specific settings; k8sServiceHost is the EKS control plane endpoint host.
-- name: cni
-  path: cni
-  when: cluster.driver == 'eks'
-  dependsOn:
-    - policy-resources
-    - telemetry-base
-  components:
-    - cilium
-    - "${(ha ?? false) ? 'cilium/ha' : ''}"
-    - "${(gateway_effective.enabled == true && gateway_effective.driver == 'cilium') ? 'cilium/gateway' : ''}"
-    - cilium/prometheus
-    - cilium/hubble
-  substitutions:
-    k8s_service_host: "${split(split(terraform_output(\"cluster\", \"cluster_endpoint\") ?? \"https://localhost:443\", \"://\")[1], \":\")[0]}"
-  timeout: 15m
-  interval: 5m
+  # ---------------------------------------------------------------------------
+  # cni — Flux adoption of the HelmRelease
+  # ---------------------------------------------------------------------------
+  #
+  # The bootstrap was done in Terraform; these kustomizations reconcile the
+  # same HelmRelease through Flux so day-2 config changes flow via GitOps.
+  #
+  # Two variants — they differ in Talos-specific settings and how
+  # k8s_service_host is derived:
+  #
+
+  # Talos: cilium/talos applies Talos-specific security context + cgroup
+  # settings. k8s_service_host comes from talos_common (cidrhost offset 10).
+  - name: cni
+    path: cni
+    when: talos_enabled
+    dependsOn:
+      - policy-resources
+      - telemetry-base
+    components:
+      - cilium
+      - cilium/talos
+      - "${(ha ?? false) ? 'cilium/ha' : ''}"
+      - "${(gateway_effective.enabled == true && gateway_effective.driver == 'cilium') ? 'cilium/gateway' : ''}"
+      - cilium/prometheus
+      - cilium/hubble
+      - cilium/l2
+    substitutions:
+      k8s_service_host: ${talos_common.k8s_service_host}
+      loadbalancer_start_ip: ${network_effective.loadbalancer_ips.start}
+      loadbalancer_end_ip: ${network_effective.loadbalancer_ips.end}
+    timeout: 15m
+    interval: 5m
+
+  # EKS: no Talos-specific settings, no L2 component (EKS has its own LB).
+  # k8s_service_host is parsed from the EKS cluster_endpoint terraform output.
+  - name: cni
+    path: cni
+    when: eks_enabled
+    dependsOn:
+      - policy-resources
+      - telemetry-base
+    components:
+      - cilium
+      - "${(ha ?? false) ? 'cilium/ha' : ''}"
+      - "${(gateway_effective.enabled == true && gateway_effective.driver == 'cilium') ? 'cilium/gateway' : ''}"
+      - cilium/prometheus
+      - cilium/hubble
+    substitutions:
+      k8s_service_host: "${split(split(terraform_output(\"cluster\", \"cluster_endpoint\") ?? \"https://localhost:443\", \"://\")[1], \":\")[0]}"
+    timeout: 15m
+    interval: 5m
