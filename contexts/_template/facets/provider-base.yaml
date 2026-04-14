@@ -36,12 +36,14 @@ config:
   value: "${cluster.driver == 'talos' && (cluster.enabled ?? true)}"
 - name: talos_provisioned
   value: "${cluster.driver == 'talos' && cluster_provisioned}"
+- name: network_cidr_effective
+  value: "${network.cidr_block ?? '10.5.0.0/16'}"
 - name: network_effective
   value:
-    cidr_block: "${network.cidr_block ?? '10.5.0.0/16'}"
+    cidr_block: "${network_cidr_effective}"
     loadbalancer_ips:
-      start: "${network.loadbalancer_ips.start ?? cidrhost(network.cidr_block ?? '10.5.0.0/16', 266)}"
-      end: "${network.loadbalancer_ips.end ?? cidrhost(network.cidr_block ?? '10.5.0.0/16', 356)}"
+      start: "${network.loadbalancer_ips.start ?? cidrhost(network_cidr_effective, 266)}"
+      end: "${network.loadbalancer_ips.end ?? cidrhost(network_cidr_effective, 356)}"
 - name: telemetry_effective
   value:
     logs_driver: "${telemetry.logs.driver ?? 'fluentd'}"
