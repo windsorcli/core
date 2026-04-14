@@ -6,9 +6,17 @@ metadata:
 
 when: addons.object_store.enabled == true
 
+# =============================================================================
+# Kustomize — object storage driver (MinIO)
+# =============================================================================
+#
+# `addons.object_store.driver` selects the backend. Currently only MinIO is
+# wired up; other drivers (Ceph, cloud-provider managed) can be added as
+# additional `- name: object-store-base` blocks gated on their own driver value.
+#
 kustomize:
 
-  # MinIO object storage base
+  # MinIO depends on csi for PVC-backed storage.
   - name: object-store-base
     path: object-store/base
     when: addons.object_store.driver == 'minio'

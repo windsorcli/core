@@ -99,6 +99,11 @@
       "automergeType": "pr",
       "automergeStrategy": "squash",
       "labels": ["dependencies"]
+    },
+    {
+      "description": "Pin ghcr.io/distribution/distribution at 3.0.0 - bug in 3.1.0",
+      "matchPackageNames": ["ghcr.io/distribution/distribution"],
+      "enabled": false
     }
   ],
   "customManagers": [

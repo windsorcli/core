@@ -293,12 +293,10 @@ properties:
           start:
             type: string
             pattern: "^([0-9]{1,3}\\.){3}[0-9]{1,3}$"
-            default: "10.5.1.10"
             description: Load balancer IP pool start
           end:
             type: string
             pattern: "^([0-9]{1,3}\\.){3}[0-9]{1,3}$"
-            default: "10.5.1.100"
             description: Load balancer IP pool end
         additionalProperties: false
       loadbalancer_driver:
@@ -306,13 +304,11 @@ properties:
         enum:
           - metallb
           - kube-vip
-        default: kube-vip
         description: In-cluster load balancer driver
       loadbalancer_mode:
         type: string
         enum:
           - arp
-        default: arp
         description: Load balancer mode (only 'arp' is currently supported; use for flat L2 networks with ARP broadcasts)
     additionalProperties: false
 

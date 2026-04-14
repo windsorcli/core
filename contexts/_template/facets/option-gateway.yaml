@@ -4,65 +4,98 @@ metadata:
   name: gateway
   description: Configurable cluster traffic entrypoint
 
-config:
-- name: gateway_effective
-  value:
-    enabled: ${gateway.enabled ?? ingress.enabled ?? true}
-    driver: "${gateway.driver ?? (ingress.driver == 'envoy-gateway' || ingress.driver == 'nginx' ? 'envoy' : ingress.driver) ?? (workstation.runtime == 'docker-desktop' || platform == 'aws' ? 'envoy' : (cni_effective.driver == 'cilium' ? 'cilium' : 'envoy'))}"
-
+# =============================================================================
+# Kustomize — Gateway API controller + shared Gateway resource
+# =============================================================================
+#
+# gateway_effective (resolved in platform-base) selects the driver: 'envoy' or
+# 'cilium'. All downstream facets dependsOn the canonical names `gateway-base`
+# and `gateway-resources` regardless of driver — we emit one variant of each.
+#
 kustomize:
 
-# Gateway API CRDs + namespace + controller.
-# gateway_effective.driver selects the controller sub-component (envoy or cilium).
-# Envoy also needs a service variant (loadbalancer or nodeport) and prometheus.
-# Cilium: depends on cni so that LBIPAM and Gateway API support are ready before GatewayClass is applied.
-- name: gateway-base
-  path: gateway/base
-  when: gateway_effective.enabled == true && gateway_effective.driver != 'cilium'
-  dependsOn:
-    - pki-base
-  components:
-    - "${gateway_effective.driver}"
-    - "${gateway_effective.driver == 'envoy' ? 'envoy/' + lb_effective.mode : ''}"
-    - "${gateway_effective.driver == 'envoy' ? 'envoy/prometheus' : ''}"
-  timeout: 10m
-  interval: 5m
+  # ---------------------------------------------------------------------------
+  # gateway-base — CRDs, namespace, controller
+  # ---------------------------------------------------------------------------
+  #
+  # Envoy path: install Envoy Gateway + its service variant (loadbalancer or
+  # nodeport, chosen by lb_effective.mode) + prometheus scraping.
+  #
+  # Depends on pki-base so cert-manager is available for the Gateway TLS
+  # certificate created in gateway-resources.
+  #
+  - name: gateway-base
+    path: gateway/base
+    when: gateway_effective.enabled == true && gateway_effective.driver != 'cilium'
+    dependsOn:
+      - pki-base
+    components:
+      - "${gateway_effective.driver}"
+      - "${gateway_effective.driver == 'envoy' ? 'envoy/' + lb_effective.mode : ''}"
+      - "${gateway_effective.driver == 'envoy' ? 'envoy/prometheus' : ''}"
+    timeout: 10m
+    interval: 5m
 
-- name: gateway-base
-  path: gateway/base
-  when: gateway_effective.enabled == true && gateway_effective.driver == 'cilium'
-  dependsOn:
-    - pki-base
-  components:
-    - cilium
-  timeout: 10m
-  interval: 5m
+  # Cilium path: Cilium itself provides the Gateway API implementation, so this
+  # variant only needs to install the Gateway API CRDs (via the `cilium`
+  # component). The Cilium HelmRelease is owned by option-cni.
+  - name: gateway-base
+    path: gateway/base
+    when: gateway_effective.enabled == true && gateway_effective.driver == 'cilium'
+    dependsOn:
+      - pki-base
+    components:
+      - cilium
+    timeout: 10m
+    interval: 5m
 
-# When Cilium is the gateway driver, Gateway API CRDs (installed by gateway-base) must
-# exist before the Cilium HelmRelease is applied. Without this, cilium-operator starts
-# with gatewayAPI.enabled but finds no CRDs and never initializes the Gateway controller.
-- name: cni
-  when: gateway_effective.enabled == true && gateway_effective.driver == 'cilium'
-  dependsOn:
-    - gateway-base
+  # ---------------------------------------------------------------------------
+  # cni dep merge (cilium gateway only)
+  # ---------------------------------------------------------------------------
+  #
+  # When Cilium is the gateway driver, the Gateway API CRDs (installed by
+  # gateway-base) must exist before the Cilium HelmRelease is applied.
+  # Otherwise cilium-operator starts with gatewayAPI.enabled but finds no CRDs
+  # and never initializes the Gateway controller.
+  #
+  - name: cni
+    when: gateway_effective.enabled == true && gateway_effective.driver == 'cilium'
+    dependsOn:
+      - gateway-base
 
-# Edge Gateway CR + TLS certificate — shared across all Gateway API controllers.
-# gateway_class_name drives gatewayClassName in the Gateway spec (envoy, cilium, etc.).
-# cilium component patches Gateway spec.infrastructure.annotations to share the loadbalancer IP with CoreDNS.
-# dns component adds UDP/TCP port-53 listeners (Envoy only; Cilium uses LoadBalancer IP sharing instead).
-- name: gateway-resources
-  path: gateway/resources
-  when: gateway_effective.enabled == true
-  dependsOn:
-    - gateway-base
-  components:
-    - "${gateway_effective.driver == 'cilium' ? 'cilium' : ''}"
-    - "${gateway_effective.driver != 'cilium' && (addons.private_dns.enabled ?? (dev == true)) == true ? 'dns' : ''}"
-    - "${(gitops.webhook.enabled ?? false) == true ? 'flux-webhook' : ''}"
-  substitutions:
-    gateway_class_name: ${gateway_effective.driver}
-    gateway_dns_target: ${network.loadbalancer_ips.start ?? ''}
-    external_domain: ${dns.private_domain}
-    loadbalancer_start_ip: ${network.loadbalancer_ips.start ?? ''}
-  timeout: 10m
-  interval: 5m
+  # ---------------------------------------------------------------------------
+  # gateway-resources — shared Gateway CR + TLS certificate
+  # ---------------------------------------------------------------------------
+  #
+  # Conditional components:
+  #   - cilium:       patches Gateway spec.infrastructure.annotations so the
+  #                   Cilium gateway LB IP is shared with CoreDNS (LBIPAM).
+  #   - dns:          UDP/TCP port-53 listeners for CoreDNS. Envoy only —
+  #                   Cilium shares the LB IP instead, no extra listeners
+  #                   needed.
+  #   - lb-address:   pins the Gateway to the start of the LB IP range when an
+  #                   in-cluster LB is active.
+  #   - flux-webhook: adds a dedicated port-9292 listener for the Flux
+  #                   notification receiver (gated on gitops.webhook.enabled).
+  #
+  # `gateway_class_name` drives the Gateway spec.gatewayClassName (envoy,
+  # cilium, etc.). `gateway_dns_target` is the IP external-dns advertises for
+  # Gateway-attached hostnames.
+  #
+  - name: gateway-resources
+    path: gateway/resources
+    when: gateway_effective.enabled == true
+    dependsOn:
+      - gateway-base
+    components:
+      - "${gateway_effective.driver == 'cilium' ? 'cilium' : ''}"
+      - "${gateway_effective.driver != 'cilium' && (addons.private_dns.enabled ?? (dev == true)) == true ? 'dns' : ''}"
+      - "${lb_effective.enabled == true ? 'lb-address' : ''}"
+      - "${(gitops.webhook.enabled ?? true) == true ? 'flux-webhook' : ''}"
+    substitutions:
+      gateway_class_name: ${gateway_effective.driver}
+      gateway_dns_target: "${lb_effective.enabled == true ? network_effective.loadbalancer_ips.start : ''}"
+      external_domain: ${dns.private_domain}
+      loadbalancer_start_ip: ${network_effective.loadbalancer_ips.start}
+    timeout: 10m
+    interval: 5m

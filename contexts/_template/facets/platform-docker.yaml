@@ -1,0 +1,160 @@
+kind: Facet
+apiVersion: blueprints.windsorcli.dev/v1alpha1
+metadata:
+  name: docker
+  description: "Docker provider basic infrastructure for local development"
+
+# Docker is only supported with Talos as the cluster driver. Without a
+# workstation runtime, this facet is a no-op scaffold used for schema tests.
+when: "platform == 'docker' && cluster.driver == 'talos'"
+
+# =============================================================================
+# Config — docker-specific Talos values
+# =============================================================================
+#
+config:
+
+  # The first controlplane gets a fixed IP at CIDR offset 10; offsets 2–9 are
+  # reserved for workstation services (DNS, registries, git livereload).
+  # Mirrors the incus provider convention so cross-platform logic is uniform.
+  - name: talos_common
+    value:
+      k8s_service_host: "${cidrhost(network_effective.cidr_block, 10)}"
+
+  # ---------------------------------------------------------------------------
+  # cluster_endpoint_fallback — best-effort Talos API endpoint
+  # ---------------------------------------------------------------------------
+  #
+  # Resolution order:
+  #   1. Compute output with a real endpoint → use that host on port 6443.
+  #   2. No compute output (docker-desktop bootstrap, no cluster yet)
+  #      → localhost:6443 (host port-forwarded into the control plane
+  #      container).
+  #   3. Compute exists but has empty endpoint → fall back to the first
+  #      configured controlplane node.
+  #   4. Nothing — last-ditch localhost:6443.
+  #
+  - name: cluster_endpoint_fallback
+    value:
+      endpoint: >-
+        ${len(terraform_output("compute", "controlplanes") ?? []) > 0
+          && terraform_output("compute", "controlplanes")[0].endpoint != null
+          ? "https://" + split(terraform_output("compute", "controlplanes")[0].endpoint, ":")[0] + ":6443"
+          : (len(terraform_output("compute", "controlplanes") ?? []) == 0
+            ? "https://localhost:6443"
+            : (len(values(cluster.controlplanes.nodes ?? {})) > 0
+              ? "https://" + split(values(cluster.controlplanes.nodes ?? {})[0].endpoint, ":")[0] + ":6443"
+              : "https://localhost:6443"))}
+
+# =============================================================================
+# Terraform — cluster/talos with docker-specific node rewriting
+# =============================================================================
+#
+# Runs only when workstation is up and cluster is enabled. option-workstation
+# owns `compute` and wires the workstation → compute → cluster chain; this
+# facet provides the cluster-step inputs (docker-specific endpoint rewriting
+# and certSAN patching).
+#
+terraform:
+
+  - name: cluster
+    when: workstation.runtime != null && workstation.runtime != '' && (cluster.enabled ?? true)
+    path: cluster/talos
+    dependsOn:
+      - compute
+    parallelism: 1
+    inputs:
+      cluster_endpoint: "${cluster.endpoint ?? cluster_endpoint_fallback.endpoint}"
+      cluster_name: talos
+      talos_version: ${talos.talos_version}
+
+      # controlplanes: two code paths per node —
+      #
+      # Path A (compute output present): strip hostname from each node.
+      # Docker already sets the hostname; Talos 1.12 rejects explicit
+      # overrides with "static hostname is already set".
+      #
+      # Path B (no compute output, bootstrap-from-host): rewrite
+      # endpoint/node to 127.0.0.1:(50000+i). This lets the host Talos
+      # CLI bootstrap the control plane containers via port forwards.
+      #
+      # docker-desktop extra: each controlplane also gets a per-node
+      # machine.certSANs patch including its real IP, hostname, localhost,
+      # and 127.0.0.1 — so Talos API certs work when the client is the
+      # host reaching through the docker-desktop tunnel.
+      controlplanes: >-
+        ${map(
+          len(terraform_output("compute", "controlplanes") ?? []) > 0
+            ? terraform_output("compute", "controlplanes")
+            : reduce(
+                take(values(cluster.controlplanes.nodes ?? {}), int(cluster.controlplanes.count ?? 1)),
+                concat(#acc, [fromPairs(concat(
+                  filter(toPairs(#), get(#, 0) != "hostname" && get(#, 0) != "endpoint" && get(#, 0) != "node"),
+                  [["hostname", null], ["endpoint", "127.0.0.1:" + string(50000 + len(#acc))], ["node", "127.0.0.1"]]
+                ))]),
+                []
+              ),
+          fromPairs(concat(
+            filter(toPairs(#), get(#, 0) != "hostname"),
+            [["hostname", null]],
+            workstation.runtime == 'docker-desktop' ? [["config_patches", "machine:\n  certSANs:\n  - " + (get(#, "node") != null && get(#, "node") != "" ? get(#, "node") : split(get(#, "endpoint"), ":")[0]) + (get(#, "hostname") != null && get(#, "hostname") != "" ? "\n  - " + get(#, "hostname") : "") + "\n  - localhost\n  - 127.0.0.1"]] : []
+          ))
+        )}
+
+      # workers: mirror of controlplanes. Strip hostname when compute output
+      # is present; rewrite endpoint to 127.0.0.1 offsets when bootstrapping
+      # from the host. Worker ports are offset by controlplane count.
+      workers: >-
+        ${(len(terraform_output("compute", "controlplanes") ?? []) > 0
+          ? map(terraform_output("compute", "workers") ?? [], fromPairs(concat(filter(toPairs(#), get(#, 0) != "hostname"), [["hostname", null]])))
+          : ((cluster.workers.count ?? 0) == 0 ? [] : reduce(
+              take(values(cluster.workers.nodes ?? {}), int(cluster.workers.count ?? 0)),
+              concat(#acc, [fromPairs(concat(
+                filter(toPairs(#), get(#, 0) != "hostname" && get(#, 0) != "endpoint" && get(#, 0) != "node"),
+                [["hostname", null], ["endpoint", "127.0.0.1:" + string(50000 + (cluster.controlplanes.count ?? 1) + len(#acc))], ["node", "127.0.0.1"]]
+              ))]),
+              []
+            )))}
+
+      controlplane_disks: ${cluster.controlplanes.disks ?? []}
+      worker_disks: ${cluster.workers.disks ?? []}
+      common_config_patches: ${talos_common.common_config_patches}
+      controlplane_config_patches: "${talos_common_docker.controlplane_config_patches ?? \"\"}"
+      worker_config_patches: "${talos_common_docker.worker_config_patches ?? \"\"}"
+      controlplane_volumes: ${talos_common.controlplane_volumes ?? []}
+      worker_volumes: ${talos_common.worker_volumes ?? []}
+
+# =============================================================================
+# Kustomize — MetalLB for colima / docker / linux runtimes
+# =============================================================================
+#
+# Docker Desktop has no node-level IP routing, so MetalLB can't work there —
+# skip both entries when runtime is docker-desktop. Other docker runtimes
+# (colima, native linux) have a real network and use MetalLB as the LB.
+#
+kustomize:
+
+  # MetalLB controller.
+  - name: lb-base
+    path: lb/base
+    when: workstation.runtime != 'docker-desktop' && lb_effective.enabled
+    dependsOn:
+      - policy-resources
+    components:
+      - "${lb_effective.driver == 'metallb' ? 'metallb' : ''}"
+    timeout: 5m
+    interval: 5m
+
+  # MetalLB address pool + advertisement mode (L2 ARP or BGP).
+  - name: lb-resources
+    path: lb/resources
+    when: workstation.runtime != 'docker-desktop' && lb_effective.enabled
+    dependsOn:
+      - lb-base
+    components:
+      - ${lb_effective.driver}
+      - "${lb_effective.driver}/${network.loadbalancer_mode ?? 'arp'}"
+    substitutions:
+      loadbalancer_ip_range: ${network_effective.loadbalancer_ips.start + '-' + network_effective.loadbalancer_ips.end}
+    timeout: 5m
+    interval: 5m

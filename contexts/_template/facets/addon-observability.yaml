@@ -6,110 +6,171 @@ metadata:
 
 when: addons.observability.enabled == true
 
+# =============================================================================
+# Config — dashboard backend + logs driver selection
+# =============================================================================
+#
+# observability_effective holds the resolved choices consumed by the entries
+# below and by other facets (option-cni / option-storage patch dashboards
+# into the observability kustomization when dashboards == 'grafana').
+#
+# dashboards defaults to 'grafana'; logs_driver has no default here — an
+# unset driver means "no external log storage, fluentd aggregator only".
+#
 config:
-- name: observability_effective
-  value:
-    dashboards: "${addons.observability.dashboards ?? 'grafana'}"
-    logs_driver: "${addons.observability.logs_driver}"
 
+  - name: observability_effective
+    value:
+      dashboards: "${addons.observability.dashboards ?? 'grafana'}"
+      logs_driver: "${addons.observability.logs_driver}"
+
+# =============================================================================
+# Kustomize — one entry per concern, all patched into `observability`
+# =============================================================================
+#
+# Every block below merges into a single `observability` kustomization. The
+# layering strategy is:
+#
+#   1. Base Grafana + standard dashboards (this facet, dashboards=grafana).
+#   2. Gateway route for Grafana (when gateway is up).
+#   3. Log-storage driver pick: stdout / quickwit / elasticsearch.
+#   4. Elasticsearch: also replaces telemetry-base and telemetry-resources
+#      so fluent-bit ships to filebeat instead of fluentd.
+#
+# Other facets (option-cni, option-storage, addon-database) patch in their
+# own dashboards under `- name: observability` blocks.
+#
 kustomize:
 
-- name: observability
-  path: observability
-  when: observability_effective.dashboards == 'grafana'
-  dependsOn:
-    - telemetry-base
-  timeout: 15m
-  interval: 10m
-  components:
-    - grafana
-    - grafana/prometheus
-    - grafana/dashboards/node
-    - grafana/dashboards/kubernetes
-    - grafana/dashboards/flux
-    - grafana/dashboards/cert-manager
-    - grafana/dashboards/fluent-bit
-    - grafana/dashboards/fluentd
-  substitutions:
-    external_domain: ${dns.private_domain}
-    timezone: ${timezone}
-    date_full: "${time_format == '12h' ? 'MMM DD, YYYY @ hh:mm:ss a' : 'YYYY-MM-DD HH:mm:ss'}"
-    date_interval_second: "${time_format == '12h' ? 'hh:mm:ss a' : 'HH:mm:ss'}"
-    date_interval_minute: "${time_format == '12h' ? 'hh:mm a' : 'HH:mm'}"
-    date_interval_hour: "${time_format == '12h' ? 'MMM DD hh:mm a' : 'MM/DD HH:mm'}"
-    date_interval_day: "${time_format == '12h' ? 'MMM DD' : 'MM/DD'}"
+  # ---------------------------------------------------------------------------
+  # Base: Grafana + standard dashboards
+  # ---------------------------------------------------------------------------
+  #
+  # Substitutions propagate timezone / time format to dashboard panel defs so
+  # timestamps match operator locale. 12h/24h flips all date format strings.
+  #
+  - name: observability
+    path: observability
+    when: observability_effective.dashboards == 'grafana'
+    dependsOn:
+      - telemetry-base
+    timeout: 15m
+    interval: 10m
+    components:
+      - grafana
+      - grafana/prometheus
+      - grafana/dashboards/node
+      - grafana/dashboards/kubernetes
+      - grafana/dashboards/flux
+      - grafana/dashboards/cert-manager
+      - grafana/dashboards/fluent-bit
+      - grafana/dashboards/fluentd
+    substitutions:
+      external_domain: ${dns.private_domain}
+      timezone: ${timezone}
+      date_full: "${time_format == '12h' ? 'MMM DD, YYYY @ hh:mm:ss a' : 'YYYY-MM-DD HH:mm:ss'}"
+      date_interval_second: "${time_format == '12h' ? 'hh:mm:ss a' : 'HH:mm:ss'}"
+      date_interval_minute: "${time_format == '12h' ? 'hh:mm a' : 'HH:mm'}"
+      date_interval_hour: "${time_format == '12h' ? 'MMM DD hh:mm a' : 'MM/DD HH:mm'}"
+      date_interval_day: "${time_format == '12h' ? 'MMM DD' : 'MM/DD'}"
 
-# Grafana route via Gateway API
-- name: observability
-  path: observability
-  when: observability_effective.dashboards == 'grafana' && gateway_effective.enabled == true
-  dependsOn:
-    - gateway-resources
-  components:
-    - grafana/gateway
-    - "${gateway_effective.driver == 'envoy' ? 'grafana/dashboards/envoy' : ''}"
-  substitutions:
-    external_domain: ${dns.private_domain}
+  # ---------------------------------------------------------------------------
+  # Grafana HTTPRoute (Gateway API)
+  # ---------------------------------------------------------------------------
+  #
+  # Adds the Gateway route + Envoy-specific dashboards when the cluster has a
+  # Gateway. Waits for gateway-resources so the Gateway object exists before
+  # the HTTPRoute is applied.
+  #
+  - name: observability
+    path: observability
+    when: observability_effective.dashboards == 'grafana' && gateway_effective.enabled == true
+    dependsOn:
+      - gateway-resources
+    components:
+      - grafana/gateway
+      - "${gateway_effective.driver == 'envoy' ? 'grafana/dashboards/envoy' : ''}"
+    substitutions:
+      external_domain: ${dns.private_domain}
 
-# FluentD stdout output
-- name: observability
-  path: observability
-  when: observability_effective.logs_driver == 'stdout'
-  dependsOn:
-    - telemetry-resources
-  components:
-    - fluentd/outputs/stdout
+  # ---------------------------------------------------------------------------
+  # Log storage drivers
+  # ---------------------------------------------------------------------------
+  #
+  # Exactly one driver block fires per logs_driver value. Each wires up the
+  # fluentd output plus any storage backend infrastructure.
+  #
 
-# Quickwit log storage
-- name: observability
-  path: observability
-  when: observability_effective.logs_driver == 'quickwit'
-  dependsOn:
-    - csi
-    - telemetry-resources
-  components:
-    - fluentd/outputs/quickwit
-    - quickwit
-    - quickwit/pvc
-    - quickwit/prometheus
-    - "${observability_effective.dashboards == 'grafana' ? 'grafana/quickwit' : ''}"
-    - "${observability_effective.dashboards == 'grafana' ? 'grafana/dashboards/logs/quickwit' : ''}"
+  # stdout: write logs to container stdout (no external store). Dev default.
+  - name: observability
+    path: observability
+    when: observability_effective.logs_driver == 'stdout'
+    dependsOn:
+      - telemetry-resources
+    components:
+      - fluentd/outputs/stdout
 
-# Elasticsearch + Kibana route via active gateway driver
-- name: observability
-  path: observability
-  when: observability_effective.logs_driver == 'elasticsearch' && gateway_effective.enabled == true
-  dependsOn:
-    - csi
-    - gateway-resources
-  components:
-    - elasticsearch
-    - kibana
-    - kibana/gateway
-  substitutions:
-    external_domain: ${dns.private_domain}
+  # Quickwit: lightweight search-optimized log store backed by object storage
+  # (with a PVC for staging). Depends on csi for the staging PVC.
+  - name: observability
+    path: observability
+    when: observability_effective.logs_driver == 'quickwit'
+    dependsOn:
+      - csi
+      - telemetry-resources
+    components:
+      - fluentd/outputs/quickwit
+      - quickwit
+      - quickwit/pvc
+      - quickwit/prometheus
+      - "${observability_effective.dashboards == 'grafana' ? 'grafana/quickwit' : ''}"
+      - "${observability_effective.dashboards == 'grafana' ? 'grafana/dashboards/logs/quickwit' : ''}"
 
-# Elasticsearch telemetry (filebeat driver)
-- name: telemetry-base
-  path: telemetry/base
-  when: observability_effective.logs_driver == 'elasticsearch' && gateway_effective.enabled == true
-  timeout: 30m
-  interval: 10m
-  strategy: replace
-  components:
-    - prometheus
-    - prometheus/flux
-    - filebeat
+  # Elasticsearch + Kibana. Gated on gateway_effective.enabled because Kibana
+  # needs an HTTPRoute to be externally reachable. Depends on csi for ES data
+  # PVCs and gateway-resources for the route wiring.
+  - name: observability
+    path: observability
+    when: observability_effective.logs_driver == 'elasticsearch' && gateway_effective.enabled == true
+    dependsOn:
+      - csi
+      - gateway-resources
+    components:
+      - elasticsearch
+      - kibana
+      - kibana/gateway
+    substitutions:
+      external_domain: ${dns.private_domain}
 
-- name: telemetry-resources
-  path: telemetry/resources
-  when: observability_effective.logs_driver == 'elasticsearch' && gateway_effective.enabled == true
-  timeout: 10m
-  interval: 5m
-  strategy: replace
-  dependsOn:
-    - telemetry-base
-  components:
-    - metrics-server
-    - prometheus
-    - prometheus/flux
+  # ---------------------------------------------------------------------------
+  # Elasticsearch telemetry overrides
+  # ---------------------------------------------------------------------------
+  #
+  # When Elasticsearch is the log store, replace telemetry-base and
+  # telemetry-resources entirely: swap fluent-bit for filebeat (native ES
+  # shipper) and drop the fluentbit/* component stack. `strategy: replace`
+  # tells the engine to override platform-base's definitions.
+  #
+  - name: telemetry-base
+    path: telemetry/base
+    when: observability_effective.logs_driver == 'elasticsearch' && gateway_effective.enabled == true
+    timeout: 30m
+    interval: 10m
+    strategy: replace
+    components:
+      - prometheus
+      - prometheus/flux
+      - filebeat
+
+  - name: telemetry-resources
+    path: telemetry/resources
+    when: observability_effective.logs_driver == 'elasticsearch' && gateway_effective.enabled == true
+    timeout: 10m
+    interval: 5m
+    strategy: replace
+    dependsOn:
+      - telemetry-base
+    components:
+      - metrics-server
+      - prometheus
+      - prometheus/flux
