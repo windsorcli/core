@@ -130,6 +130,27 @@ config:
       controlplane_config_patches: ""
       worker_config_patches: ""
 
+  # ---------------------------------------------------------------------------
+  # Colima-on-Incus CNI/LB overrides
+  # ---------------------------------------------------------------------------
+  #
+  # Colima running an Incus VM is primarily a storage-driver test rig —
+  # Cilium's eBPF adds overhead that confuses those tests. Force flannel here
+  # and pair it with kube-vip so LoadBalancer services still get an IP
+  # (flannel has no built-in L2 announcer like Cilium does).
+  #
+  - name: cni_effective
+    when: platform == 'incus' && workstation.runtime == 'colima'
+    value:
+      driver: "${cluster.cni.driver ?? 'flannel'}"
+
+  - name: lb_effective
+    when: platform == 'incus' && workstation.runtime == 'colima'
+    value:
+      enabled: true
+      driver: "${network.loadbalancer_driver ?? 'kube-vip'}"
+      mode: loadbalancer
+
 # =============================================================================
 # Terraform — workstation services, compute, cluster
 # =============================================================================

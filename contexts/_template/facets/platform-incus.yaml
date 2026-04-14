@@ -27,18 +27,6 @@ config:
       k8s_service_host: "${cidrhost(network_effective.cidr_block, 10)}"
 
   # ---------------------------------------------------------------------------
-  # Colima-Incus override
-  # ---------------------------------------------------------------------------
-  #
-  # Colima running an Incus VM is primarily a storage-driver test rig —
-  # Cilium adds eBPF overhead that confuses those tests. Force flannel here.
-  #
-  - name: cni_effective
-    when: workstation.runtime == 'colima'
-    value:
-      driver: "${cluster.cni.driver ?? 'flannel'}"
-
-  # ---------------------------------------------------------------------------
   # cluster_endpoint_fallback
   # ---------------------------------------------------------------------------
   #
