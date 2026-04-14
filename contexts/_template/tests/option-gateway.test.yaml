@@ -79,6 +79,7 @@ x-defaults:
       - cni
     substitutions:
       gateway_class_name: cilium
+      loadbalancer_start_ip: "10.5.1.10"
     timeout: 10m
     interval: 5m
 
