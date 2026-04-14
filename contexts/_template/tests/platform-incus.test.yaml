@@ -1,4 +1,4 @@
-# provider-incus.yaml facet tests
+# platform-incus.yaml facet tests
 # Tests Incus compute platform with Talos cluster infrastructure
 #
 # Note: Tests must provide terraformOutputs.compute to mock terraform_output() calls.

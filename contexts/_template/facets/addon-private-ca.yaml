@@ -6,20 +6,30 @@ metadata:
 
 when: addons.private_ca.enabled == true
 
+# =============================================================================
+# Kustomize — trust-manager + private CA issuer
+# =============================================================================
+#
+# Layers onto the pki-base / pki-resources stack created by platform-base:
+#   - pki-base adds trust-manager so Bundle CRDs distribute CA certs to
+#     workload namespaces (ConfigMap/Secret fan-out).
+#   - pki-resources installs the private-issuer/ca ClusterIssuer, which
+#     becomes the default issuer for workload certificates.
+#
 kustomize:
 
-# PKI
-- name: pki-base
-  path: pki/base
-  timeout: 10m
-  interval: 5m
-  components:
-    - trust-manager
-- name: pki-resources
-  path: pki/resources
-  dependsOn:
-    - pki-base
-  timeout: 5m
-  interval: 5m
-  components:
-    - private-issuer/ca
+  - name: pki-base
+    path: pki/base
+    timeout: 10m
+    interval: 5m
+    components:
+      - trust-manager
+
+  - name: pki-resources
+    path: pki/resources
+    dependsOn:
+      - pki-base
+    timeout: 5m
+    interval: 5m
+    components:
+      - private-issuer/ca

@@ -6,29 +6,51 @@ metadata:
 
 when: addons.private_dns.enabled == true
 
+# =============================================================================
+# Kustomize — CoreDNS + external-dns
+# =============================================================================
+#
+# Single kustomization with many conditional components. The dependency on
+# pki-base is unconditional (CoreDNS needs TLS for DoT/DoH); the second dep
+# depends on the gateway driver:
+#
+#   - Cilium: CoreDNS is exposed via a LoadBalancer Service with LBIPAM, so
+#     we wait for cni (Cilium's Gateway controller is part of the CNI).
+#   - Envoy / other: CoreDNS port-53 listeners are attached to the edge
+#     Gateway via UDP/TCP routes, so we wait for gateway-base to install the
+#     route CRDs — but only when the gateway is actually enabled. If no
+#     gateway exists, fall through to an empty dep (CoreDNS runs internally
+#     but isn't reachable from outside).
+#
+# Conditional components:
+#   - coredns/ha:             multi-replica + anti-affinity.
+#   - coredns/loadbalancer:   Service type LoadBalancer (Cilium only).
+#   - coredns/cilium:         LBIPAM annotation to share the gateway IP.
+#   - coredns/gateway:        TCPRoute/UDPRoute on port 53 (Envoy only).
+#   - external-dns/ha:        replicas/PDBs for external-dns.
+#   - external-dns/localhost: docker-desktop override — advertise 127.0.0.1
+#                             instead of the unreachable LB IP.
+#
 kustomize:
 
-# Cilium: depends on cni for LBIPAM readiness; CoreDNS gets a LoadBalancer IP directly.
-# Others (envoy, etc.): depend on gateway-base for TCPRoute/UDPRoute CRDs, but only when
-# gateway is enabled — gateway-base does not exist when gateway is disabled.
-- name: dns
-  path: dns
-  dependsOn:
-    - pki-base
-    - "${gateway_effective.driver == 'cilium' ? 'cni' : (gateway_effective.enabled == true ? 'gateway-base' : '')}"
-  timeout: 20m
-  interval: 5m
-  components:
-    - coredns
-    - coredns/etcd
-    - "${(ha ?? false) ? 'coredns/ha' : ''}"
-    - "${gateway_effective.driver == 'cilium' ? 'coredns/loadbalancer' : ''}"
-    - "${gateway_effective.driver == 'cilium' ? 'coredns/cilium' : ''}"
-    - "${gateway_effective.driver == 'envoy' && gateway_effective.enabled == true ? 'coredns/gateway' : ''}"
-    - external-dns
-    - external-dns/coredns
-    - "${(ha ?? false) ? 'external-dns/ha' : ''}"
-    - "${workstation.runtime == 'docker-desktop' ? 'external-dns/localhost' : ''}"
-  substitutions:
-    external_domain: ${dns.private_domain}
-    loadbalancer_start_ip: ${network_effective.loadbalancer_ips.start}
+  - name: dns
+    path: dns
+    dependsOn:
+      - pki-base
+      - "${gateway_effective.driver == 'cilium' ? 'cni' : (gateway_effective.enabled == true ? 'gateway-base' : '')}"
+    timeout: 20m
+    interval: 5m
+    components:
+      - coredns
+      - coredns/etcd
+      - "${(ha ?? false) ? 'coredns/ha' : ''}"
+      - "${gateway_effective.driver == 'cilium' ? 'coredns/loadbalancer' : ''}"
+      - "${gateway_effective.driver == 'cilium' ? 'coredns/cilium' : ''}"
+      - "${gateway_effective.driver == 'envoy' && gateway_effective.enabled == true ? 'coredns/gateway' : ''}"
+      - external-dns
+      - external-dns/coredns
+      - "${(ha ?? false) ? 'external-dns/ha' : ''}"
+      - "${workstation.runtime == 'docker-desktop' ? 'external-dns/localhost' : ''}"
+    substitutions:
+      external_domain: ${dns.private_domain}
+      loadbalancer_start_ip: ${network_effective.loadbalancer_ips.start}
