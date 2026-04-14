@@ -310,9 +310,10 @@ cases:
             gateway_class_name: envoy
             loadbalancer_start_ip: "10.5.1.10"
 
-  # AWS: gateway-resources renders without loadbalancer_ips (cloud LB, no IP pool).
-  # gateway_dns_target and loadbalancer_start_ip evaluate to empty string and are omitted from output.
-  - name: aws envoy gateway-resources renders with empty loadbalancer_start_ip and gateway_dns_target
+  # AWS: no network.loadbalancer_ips configured, so loadbalancer_start_ip falls back to the
+  # cidrhost default (10.5.1.10 from the default /16). gateway_dns_target evaluates to "" and
+  # is omitted from output because lb_effective.enabled is false on AWS (cloud-managed LB).
+  - name: aws envoy gateway-resources uses cidr-derived loadbalancer_start_ip
     values:
       provider: aws
       gateway:
@@ -326,5 +327,6 @@ cases:
             - gateway-base
           substitutions:
             gateway_class_name: envoy
+            loadbalancer_start_ip: "10.5.1.10"
           timeout: 10m
           interval: 5m
