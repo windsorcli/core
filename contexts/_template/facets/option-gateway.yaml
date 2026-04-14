@@ -88,6 +88,7 @@ kustomize:
       - "${gateway_effective.driver == 'cilium' ? 'cilium' : ''}"
       - "${gateway_effective.driver != 'cilium' && (addons.private_dns.enabled ?? (dev == true)) == true ? 'dns' : ''}"
       - "${lb_effective.enabled == true ? 'lb-address' : ''}"
+      - "${(gitops.webhook.enabled ?? true) == true ? 'flux-webhook' : ''}"
     substitutions:
       gateway_class_name: ${gateway_effective.driver}
       gateway_dns_target: "${lb_effective.enabled == true ? network_effective.loadbalancer_ips.start : ''}"

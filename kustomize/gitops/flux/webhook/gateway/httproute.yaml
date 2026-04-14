@@ -7,7 +7,7 @@ spec:
   parentRefs:
     - name: external
       namespace: system-gateway
-      sectionName: web-http
+      sectionName: flux-webhook
   rules:
     - matches:
         - path:

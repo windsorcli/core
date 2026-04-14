@@ -232,7 +232,7 @@ terraform:
       network_cidr: ${network_effective.cidr_block}
       dns_forward_target: ${network_effective.loadbalancer_ips.start}
       webhook_host: ${network_effective.loadbalancer_ips.start}
-      webhook_port: "${gateway_effective.enabled == true ? 80 : 9292}"
+      webhook_port: 9292
       webhook_enabled: ${gitops.webhook.enabled ?? true}
       webhook_token: ${gitops.webhook.token ?? "abcdef123456"}
       primary_node_ip: ${network_effective.loadbalancer_ips.start}

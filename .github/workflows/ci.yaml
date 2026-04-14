@@ -267,7 +267,7 @@ jobs:
       - name: Windsor Down
         if: always()
         run: |
-          windsor destroy --force || true
+          windsor destroy --confirm local || true
           windsor down
 
   publish:
