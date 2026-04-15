@@ -122,13 +122,13 @@ run "full_configuration" {
   }
 
   assert {
-    condition     = local.mirror_ip == "10.20.0.4"
-    error_message = "Sequential IPs: mirror=4"
+    condition     = local.service_ips["gcr.io"] == "10.20.0.4" && local.service_ips["ghcr.io"] == "10.20.0.5"
+    error_message = "Sequential IPs: first two registries at 4 and 5"
   }
 
   assert {
-    condition     = local.service_ips["gcr.io"] == "10.20.0.5" && local.service_ips["ghcr.io"] == "10.20.0.6"
-    error_message = "Sequential IPs: first two registries at 5 and 6 (after mirror=4)"
+    condition     = output.next_ip == "10.20.0.10"
+    error_message = "next_ip should be fixed at node_start_offset (default 10), independent of registry count"
   }
 
   assert {

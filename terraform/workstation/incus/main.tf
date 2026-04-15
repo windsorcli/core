@@ -61,9 +61,11 @@ locals {
   dns_ip                = cidrhost(var.network_cidr, 2)
   attached_network      = var.create_network ? local.network_name_resolved : var.network_name
   git_ip                = cidrhost(var.network_cidr, 3)
+  registry_ip_base      = 4
+  registry_ip_capacity  = var.node_start_offset - local.registry_ip_base
   registry_keys_sorted  = sort(keys(var.registries))
   registry_ips = {
-    for i, k in local.registry_keys_sorted : k => cidrhost(var.network_cidr, 4 + i)
+    for i, k in local.registry_keys_sorted : k => cidrhost(var.network_cidr, local.registry_ip_base + i)
   }
   # Keep in sync with workstation/docker registry_host_prefix (same stripping logic).
   registry_remote_host = {
@@ -191,13 +193,12 @@ resource "incus_instance" "registry" {
   # renovate: datasource=docker depName=ghcr.io/distribution/distribution package=ghcr.io/distribution/distribution
   image      = "ghcr:distribution/distribution:3.0.0@sha256:4ba3adf47f5c866e9a29288c758c5328ef03396cb8f5f6454463655fa8bc83e2"
   depends_on = [incus_network.main, local_file.registry_cache_dir]
-  # Distribution proxy mode verifies manifests against upstream on every pull
-  # by default (TTL 168h). Windsor HelmReleases pin every image by digest, so
-  # manifests are immutable — extend the TTL to 1y so cached pulls never
-  # traverse upstream and stay fast on repeat cluster cycles.
+  # Extend the proxy manifest TTL from the 168h default to 720h (30d) to reduce
+  # upstream revalidation churn on repeat cluster cycles while keeping manifests
+  # fresh enough to pick up republished tags within a reasonable window.
   config = each.value.remote != null ? {
     "environment.REGISTRY_PROXY_REMOTEURL" = each.value.remote
-    "environment.REGISTRY_PROXY_TTL"       = "8760h"
+    "environment.REGISTRY_PROXY_TTL"       = "720h"
   } : {}
 
   device {
