@@ -65,7 +65,7 @@ cases:
   - name: full longhorn config with HA and custom volume path
     values:
       provider: metal
-      topology: ha
+      ha: true
       gateway:
         enabled: false
       network: *default-network
@@ -166,8 +166,8 @@ cases:
             - longhorn
             - longhorn/single-node
 
-  # Longhorn multi-node without HA: workers present, default topology — no single-node or ha component
-  - name: longhorn multi-node topology omits topology components
+  # Longhorn multi-node without HA: workers present, no ha flag — no single-node or ha component
+  - name: longhorn multi-node without ha omits topology components
     values:
       provider: metal
       gateway:
@@ -190,11 +190,11 @@ cases:
           components:
             - longhorn
 
-  # Longhorn HA: topology=ha adds ha component (non-schedulable CP — no single-node)
-  - name: longhorn ha topology adds longhorn/ha component
+  # Longhorn HA: ha=true adds ha component (non-schedulable CP — no single-node)
+  - name: longhorn ha mode adds longhorn/ha component
     values:
       provider: metal
-      topology: ha
+      ha: true
       gateway:
         enabled: false
       network: *default-network
@@ -216,11 +216,11 @@ cases:
             - longhorn
             - longhorn/ha
 
-  # Longhorn single-node + HA: schedulable CP + topology=ha — both topology components active
-  - name: longhorn schedulable CP with ha topology adds both single-node and ha components
+  # Longhorn single-node + HA: schedulable CP + ha=true — both topology components active
+  - name: longhorn schedulable CP with ha adds both single-node and ha components
     values:
       provider: metal
-      topology: ha
+      ha: true
       gateway:
         enabled: false
       network: *default-network

@@ -98,64 +98,6 @@ run "no_secrets" {
   }
 }
 
-# Verifies leader_election=false appends --enable-leader-election=false to every
-# controller's additionalArgs (the three with pre-existing args get it appended,
-# the three without get a container block added). Default (true) is covered
-# implicitly by the minimal_configuration run above.
-run "leader_election_disabled" {
-  command = plan
-
-  variables {
-    leader_election = false
-  }
-
-  assert {
-    condition     = contains(yamldecode(helm_release.flux_system.values[0]).kustomizeController.container.additionalArgs, "--enable-leader-election=false")
-    error_message = "kustomize-controller should receive --enable-leader-election=false"
-  }
-
-  assert {
-    condition     = contains(yamldecode(helm_release.flux_system.values[0]).helmController.container.additionalArgs, "--enable-leader-election=false")
-    error_message = "helm-controller should receive --enable-leader-election=false"
-  }
-
-  assert {
-    condition     = contains(yamldecode(helm_release.flux_system.values[0]).sourceController.container.additionalArgs, "--enable-leader-election=false")
-    error_message = "source-controller should receive --enable-leader-election=false"
-  }
-
-  assert {
-    condition     = contains(yamldecode(helm_release.flux_system.values[0]).notificationController.container.additionalArgs, "--enable-leader-election=false")
-    error_message = "notification-controller should receive --enable-leader-election=false"
-  }
-
-  assert {
-    condition     = contains(yamldecode(helm_release.flux_system.values[0]).imageAutomationController.container.additionalArgs, "--enable-leader-election=false")
-    error_message = "image-automation-controller should receive --enable-leader-election=false"
-  }
-
-  assert {
-    condition     = contains(yamldecode(helm_release.flux_system.values[0]).imageReflectionController.container.additionalArgs, "--enable-leader-election=false")
-    error_message = "image-reflector-controller should receive --enable-leader-election=false"
-  }
-}
-
-# Verifies the default (leader_election=true) does not add leader-election flags
-# and leaves controllers without pre-existing additionalArgs free of a container block.
-run "leader_election_default_leaves_flags_clean" {
-  command = plan
-
-  assert {
-    condition     = !contains(yamldecode(helm_release.flux_system.values[0]).kustomizeController.container.additionalArgs, "--enable-leader-election=false")
-    error_message = "kustomize-controller should not receive leader-election flag by default"
-  }
-
-  assert {
-    condition     = !can(yamldecode(helm_release.flux_system.values[0]).notificationController.container)
-    error_message = "notification-controller should not have a container block by default"
-  }
-}
-
 # Verifies that all input validation rules are enforced simultaneously, ensuring that
 # invalid values for Flux versions are properly caught
 run "multiple_invalid_inputs" {

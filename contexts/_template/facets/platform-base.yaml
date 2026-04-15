@@ -237,8 +237,6 @@ kustomize:
     path: policy/base
     components:
       - kyverno
-      - "${(policies.reporting ?? 'disabled') == 'enabled' ? 'kyverno/reports' : ''}"
-      - "${(policies.cleanup ?? 'disabled') == 'enabled' ? 'kyverno/cleanup' : ''}"
     timeout: 30m
     interval: 5m
 

@@ -54,7 +54,7 @@ cases:
       provider: metal
       network: *default-network
       cluster: *default-cluster
-      topology: ha
+      ha: true
       addons:
         database:
           postgres:
@@ -95,14 +95,14 @@ cases:
         - name: database
 
   # Edge case: HA disabled explicitly - database created without HA component
-  - name: creates database without HA when topology is multi-node
+  - name: creates database without HA when ha disabled
     values:
       provider: metal
       gateway:
         enabled: false
       network: *default-network
       cluster: *default-cluster
-      topology: multi-node
+      ha: false
       addons:
         database:
           postgres:

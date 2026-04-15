@@ -42,13 +42,7 @@ spec:
         extraEnvVars:
         - name: NO_COLOR
           value: "1"
-    # cleanup-controller executes CleanupPolicy / ClusterCleanupPolicy CRDs
-    # on a cron. Windsor defines zero CleanupPolicy resources out of the
-    # box, so this controller sits idle — disabled by default; opt in with
-    # policies.cleanup=enabled, which layers in the kyverno/cleanup
-    # component.
     cleanupController:
-      enabled: false
       container:
         image:
           # renovate: datasource=docker depName=reg.kyverno.io/kyverno/cleanup-controller package=reg.kyverno.io/kyverno/cleanup-controller
@@ -56,13 +50,7 @@ spec:
         extraEnvVars:
         - name: NO_COLOR
           value: "1"
-    # reports-controller runs background scans and emits PolicyReport /
-    # ClusterPolicyReport resources for audit/observability. Admission-time
-    # enforcement is unaffected when this is off. Disabled by default; opt
-    # in with policies.reporting=enabled, which layers in the
-    # kyverno/reports component.
     reportsController:
-      enabled: false
       container:
         image:
           # renovate: datasource=docker depName=reg.kyverno.io/kyverno/reports-controller package=reg.kyverno.io/kyverno/reports-controller

@@ -13,8 +13,8 @@ when: addons.database.postgres.enabled == true
 kustomize:
 
   # CloudNativePG operator. Depends on csi because CNPG needs PVCs for WAL
-  # archives and data volumes as soon as the first Cluster is applied. The
-  # `ha` topology adds anti-affinity and PDBs for the operator's own pods.
+  # archives and data volumes as soon as the first Cluster is applied. `ha`
+  # adds anti-affinity and PDBs for the operator's own pods.
   - name: database
     path: database
     when: addons.database.postgres.driver == 'cloudnativepg'
@@ -25,7 +25,7 @@ kustomize:
     components:
       - cloudnativepg
       - cloudnativepg/prometheus
-      - "${addons.database.postgres.driver == 'cloudnativepg' && topology == 'ha' ? 'cloudnativepg/ha' : ''}"
+      - "${addons.database.postgres.driver == 'cloudnativepg' && ha == true ? 'cloudnativepg/ha' : ''}"
 
   # Grafana dashboard patch — only when observability is active.
   - name: observability

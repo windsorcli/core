@@ -69,7 +69,6 @@ config:
           "gcr.io": { "remote": "https://gcr.io" },
           "ghcr.io": { "remote": "https://ghcr.io" },
           "quay.io": { "remote": "https://quay.io" },
-          "reg.kyverno.io": { "remote": "https://reg.kyverno.io" },
           "registry-1.docker.io": { "remote": "https://registry-1.docker.io", "local": "docker.io" },
           "registry.k8s.io": { "remote": "https://registry.k8s.io" }
         })}
@@ -191,13 +190,8 @@ terraform:
     dependsOn:
       - cluster
     inputs:
-      # On incus-backed workstations (bare incus, or colima with the incus
-      # runtime) the cluster runs in a nested VM whose vCPUs are less
-      # performant than the host's, so the CPU-derived formula overshoots
-      # and the boot reconcile storm saturates apiserver → cert-manager/
-      # scheduler probes flap. Clamp to 2 there; docker stays CPU-derived.
       concurrency: >-
-        ${platform == 'incus' ? 2 : max(2, min(
+        ${max(2, min(
           floor((cluster.controlplanes.cpu ?? 4) / 2),
           floor((cluster.controlplanes.memory ?? 4) / 2),
           10

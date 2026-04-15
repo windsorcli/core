@@ -43,11 +43,10 @@ locals {
   ]
   # Registries: blueprint may pass null when workstation_registries is missing; treat as empty map.
   registries = coalesce(var.registries, {})
-  # Sequential from lowest block: 1=gateway (not a container), 2=dns, 3=git, 4=mirror, 5+=registries
+  # Sequential from lowest block: 1=gateway (not a container), 2=dns, 3=git, 4+=registries
   gateway              = cidrhost(var.network_cidr, 1)
   dns_ip               = cidrhost(var.network_cidr, 2)
   git_ip               = cidrhost(var.network_cidr, 3)
-  mirror_ip            = cidrhost(var.network_cidr, 4)
   registry_keys_sorted = sort(keys(local.registries))
   # Keep in sync with workstation/incus registry_hostname_base (same stripping logic).
   registry_remote_host = {
@@ -65,10 +64,10 @@ locals {
     )
   }
   registry_ips = {
-    for i, k in local.registry_keys_sorted : k => cidrhost(var.network_cidr, 5 + i)
+    for i, k in local.registry_keys_sorted : k => cidrhost(var.network_cidr, 4 + i)
   }
   service_ips = merge(
-    { dns = local.dns_ip, git = local.git_ip, mirror = local.mirror_ip },
+    { dns = local.dns_ip, git = local.git_ip },
     local.registry_ips
   )
   # Corefile forward: localhost mode = gateway:8053, else loadbalancer_start_ip
@@ -78,7 +77,6 @@ locals {
   corefile_host_entries = concat(
     var.enable_dns ? ["${local.use_localhost_networking ? "127.0.0.1" : local.dns_ip} dns.${local.domain_name}"] : [],
     [for k in local.registry_keys_sorted : "${local.use_localhost_networking ? "127.0.0.1" : local.registry_ips[k]} ${local.registry_host_prefix[k]}.${local.domain_name}"],
-    var.enable_mirror ? ["${local.use_localhost_networking ? "127.0.0.1" : local.mirror_ip} mirror.${local.domain_name}"] : [],
     var.enable_git ? ["${local.use_localhost_networking ? "127.0.0.1" : local.git_ip} git.${local.domain_name}"] : []
   )
   corefile_content = var.enable_dns ? templatefile("${path.module}/templates/Corefile.tpl", {
@@ -199,7 +197,7 @@ resource "docker_container" "dns" {
 # =============================================================================
 
 resource "docker_image" "registry" {
-  count = (length(local.registries) > 0 || var.enable_mirror) ? 1 : 0
+  count = length(local.registries) > 0 ? 1 : 0
   # renovate: datasource=docker depName=ghcr.io/distribution/distribution package=ghcr.io/distribution/distribution
   name = "ghcr.io/distribution/distribution:3.0.0@sha256:4ba3adf47f5c866e9a29288c758c5328ef03396cb8f5f6454463655fa8bc83e2"
 }
@@ -239,48 +237,6 @@ resource "docker_container" "registry" {
   }
   volumes {
     host_path      = "${var.project_root}/.windsor/cache/docker/registries/${each.key}"
-    container_path = "/var/lib/registry"
-  }
-}
-
-# =============================================================================
-# Container: mirror (local-only registry for air-gapped testing)
-# =============================================================================
-
-resource "docker_container" "mirror" {
-  count   = var.enable_mirror ? 1 : 0
-  name    = "mirror.${local.domain_name}"
-  image   = docker_image.registry[0].image_id
-  restart = "always"
-  dynamic "labels" {
-    for_each = local.common_labels
-    content {
-      label = labels.value.label
-      value = labels.value.value
-    }
-  }
-  labels {
-    label = "role"
-    value = "mirror"
-  }
-  labels {
-    label = "com.docker.compose.project"
-    value = local.compose_project
-  }
-  dynamic "ports" {
-    for_each = local.publish_ports ? [1] : []
-    content {
-      internal = 5000
-      external = var.mirror_hostport
-      protocol = "tcp"
-    }
-  }
-  networks_advanced {
-    name         = docker_network.main.name
-    ipv4_address = local.mirror_ip
-  }
-  volumes {
-    host_path      = "${var.project_root}/.windsor/cache/docker/mirror"
     container_path = "/var/lib/registry"
   }
 }
