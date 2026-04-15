@@ -18,6 +18,7 @@ permissions:
   pull-requests: write
   issues: write
   id-token: write
+  actions: read
 
 env:
   WINDSOR_PROJECT_ROOT: ${{ github.workspace }}
@@ -279,13 +280,38 @@ jobs:
           DIAGNOSIS_MARKER: "<!-- claude-cluster-diagnosis -->"
         with:
           anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
+          github_token: ${{ secrets.GITHUB_TOKEN }}
           prompt: |
             The integration test job just failed. The local Windsor cluster
             is still running on this runner and has NOT been torn down yet.
-            Your job is to inspect it live and publish a short root-cause
+            Your job is to inspect it live, cross-reference it against the
+            CI run's own failure logs, and publish a short root-cause
             diagnosis.
 
-            ## Inspect the cluster
+            ## Step 1 — Read the CI run's failure logs
+
+            Pull the failed step logs for this run so the diagnosis is
+            anchored to what CI actually saw, not just cluster state:
+
+              # Identify failed jobs and steps in the current run.
+              gh run view "$RUN_ID" --repo "$GH_REPO" --json jobs \
+                --jq '.jobs[] | select(.conclusion=="failure") |
+                  {name, html_url,
+                   failed_steps: [.steps[] | select(.conclusion=="failure") | .name]}' \
+                > /tmp/failed-jobs.json
+              cat /tmp/failed-jobs.json
+
+              # Fetch the failed-step log slices (this is the integration
+              # job that invoked us — usually `Windsor Up` or a wait step).
+              gh run view "$RUN_ID" --repo "$GH_REPO" --log-failed \
+                > /tmp/failed.log 2>&1 || true
+              tail -n 400 /tmp/failed.log
+
+            Treat the log tail as ground truth for *what* failed (timeout,
+            non-zero exit, error string). Use the live cluster to explain
+            *why*.
+
+            ## Step 2 — Inspect the cluster
 
             Use the `inspect-cluster` skill. All kubectl/talosctl/windsor
             commands must be prefixed with `windsor exec --` so they run
@@ -295,6 +321,8 @@ jobs:
             Focus on:
             - Which kustomization / helm release / pod is failing, and why
               (look at events, logs, and `status.conditions`).
+            - Whether the cluster symptom matches the CI log failure from
+              Step 1, or whether they point at different problems.
             - Whether the failure is a flake (image pull, timeout, probe)
               or a real regression in the changed code.
             - One concrete next step for whoever triages this.
@@ -358,8 +386,8 @@ jobs:
             step — the step summary and artifact are enough.
           claude_args: |
             --model claude-sonnet-4-6
-            --max-turns 30
-            --allowedTools Read,Grep,Glob,Write,Bash(windsor exec:*),Bash(windsor show:*),Bash(windsor context:*),Bash(gh api:*),Bash(jq:*),Bash(cat:*),Bash(tee:*),Bash(ls:*),Bash(head:*),Bash(tail:*)
+            --max-turns 80
+            --allowedTools Read,Grep,Glob,Write,Bash(windsor exec:*),Bash(windsor show:*),Bash(windsor context:*),Bash(gh api:*),Bash(gh run view:*),Bash(gh run list:*),Bash(jq:*),Bash(cat:*),Bash(tee:*),Bash(ls:*),Bash(head:*),Bash(tail:*),Bash(grep:*)
             --disallowedTools WebSearch,WebFetch
 
       - name: Windsor Down

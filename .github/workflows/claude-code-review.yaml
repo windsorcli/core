@@ -131,11 +131,17 @@ jobs:
 
               **{One-line title describing the problem}**
 
-              _{Low|Medium|High} Severity_
+              _{Low|Medium|High} Severity_ · `{path}:{line}`
 
               {1-3 sentences of prose explaining what's wrong and the
               concrete consequence. No bullet lists. No "Suggested fix"
               headers — if a fix is obvious, weave it into the prose.}
+
+            The `{path}:{line}` reference must match the comment's anchor
+            (`path` and `line` fields in the API payload). For multi-line
+            findings, format as `{path}:{start_line}-{line}`. This makes
+            the location greppable in notification emails and digest
+            views where the inline anchor is not rendered.
 
             Title rules: imperative or declarative, 4-10 words, no trailing
             punctuation, no file names (the anchor already shows the file).
@@ -155,7 +161,7 @@ jobs:
                 "event": "COMMENT",
                 "body": "Automated review by Claude. See inline comments and the summary comment below.",
                 "comments": [
-                  { "path": "foo.tf", "line": 42, "side": "RIGHT", "body": "**CIDR default repeated three times risks inconsistency**\n\n_Low Severity_\n\nThe fallback CIDR `10.5.0.0/16` is hardcoded three times in the `network_effective` definition — once for `cidr_block` and once each in the start and end `cidrhost` calls. If the default is updated in `cidr_block` but not in the `loadbalancer_ips` fallback expressions, the computed IPs will silently derive from a stale CIDR." }
+                  { "path": "foo.tf", "line": 42, "side": "RIGHT", "body": "**CIDR default repeated three times risks inconsistency**\n\n_Low Severity_ · `foo.tf:42`\n\nThe fallback CIDR `10.5.0.0/16` is hardcoded three times in the `network_effective` definition — once for `cidr_block` and once each in the start and end `cidrhost` calls. If the default is updated in `cidr_block` but not in the `loadbalancer_ips` fallback expressions, the computed IPs will silently derive from a stale CIDR." }
                 ]
               }
 
