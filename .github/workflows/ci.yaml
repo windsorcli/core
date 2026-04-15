@@ -17,6 +17,7 @@ permissions:
   packages: write
   pull-requests: write
   issues: write
+  id-token: write
 
 env:
   WINDSOR_PROJECT_ROOT: ${{ github.workspace }}
