@@ -17,18 +17,23 @@ jobs:
     steps:
       - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
         with:
-          fetch-depth: 0
+          fetch-depth: 1
+      - name: Fetch base ref
+        run: git fetch --depth=1 origin ${{ github.base_ref }}
       - uses: anthropics/claude-code-action@39431830520a7ae6c0c572f11a7707e7043325e3 # v1.0.95
         with:
           anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
           prompt: |
             Run the `review-pr` skill against this pull request.
 
+            Scope strictly to the diff. Do NOT read files outside the changed
+            set unless flagging a specific, concrete concern. Skip style nits
+            and focus on correctness, security, and blast-radius issues.
+
             Context adjustment: the skill is written for `git diff --staged`
             (pre-commit use). In this CI context, stage the PR diff first so
             the skill works unmodified:
 
-              git fetch origin ${{ github.base_ref }}
               git diff origin/${{ github.base_ref }}...HEAD --name-only | xargs git add -N
               git add -u
 
@@ -56,4 +61,8 @@ jobs:
             automation; High for security, data-loss, or cross-cutting
             changes. Keep the summary comment concise — it is separate from
             the detailed review comment.
-          claude_args: "--model claude-opus-4-6"
+          claude_args: |
+            --model claude-sonnet-4-6
+            --max-turns 25
+            --allowedTools Read,Grep,Glob,Bash(git:*),Bash(gh pr comment:*),Bash(gh pr edit:*),Bash(gh pr view:*),Bash(gh pr diff:*)
+            --disallowedTools Edit,Write,WebSearch,WebFetch
