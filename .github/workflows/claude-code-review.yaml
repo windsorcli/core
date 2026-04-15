@@ -166,14 +166,21 @@ jobs:
             If there are no new inline findings, skip this step (do not
             post an empty review).
 
-            ## Step 4 — Upsert the sticky summary comment
+            ## Step 4 — Upsert the sticky summary into the PR description
 
             The summary describes the **whole PR as it stands now**, not
             just this push. Read `git diff origin/$BASE_REF...HEAD` for
             context when composing it.
 
-            Body starts with the hidden marker `$STICKY_MARKER` on its own
-            line, followed by a GitHub callout in this exact shape:
+            The summary lives in the **PR body (the author's first
+            comment)**, not as a separate conversation comment. Preserve
+            whatever the author wrote; append/update only a marked block
+            at the end delimited by `$STICKY_MARKER` and a matching end
+            marker `<!-- /claude-code-review:summary -->`.
+
+            The marked block starts with `$STICKY_MARKER` on its own
+            line, then a GitHub callout in this exact shape, then the
+            end marker on its own line:
 
               > [!NOTE]
               >
@@ -196,6 +203,8 @@ jobs:
               >
               > Reviewed by Claude for commit `<short SHA of PR_HEAD_SHA>`.
 
+              <!-- /claude-code-review:summary -->
+
             Hard rules for the summary:
             - Prose paragraphs only. No bullet lists. No "Test plan"
               section. No "Summary" heading.
@@ -209,23 +218,48 @@ jobs:
             automation; High for security, data-loss, or cross-cutting
             changes.
 
-            Upsert logic (find-then-patch-or-create):
+            Upsert logic (preserve author prose, replace only the block):
 
-              EXISTING_ID=$(gh api --paginate "repos/$GH_REPO/issues/$PR_NUMBER/comments" \
+              # Write just the callout (marker + [!NOTE] block + end marker)
+              # to /tmp/summary-block.md. Then splice it into the PR body:
+
+              gh pr view "$PR_NUMBER" --json body --jq .body > /tmp/pr-body.md
+
+              # Strip any existing marked block (including the markers),
+              # then append the fresh one. Use python for a reliable
+              # non-greedy regex replace — sed multiline is fragile.
+              python3 - <<'PY'
+              import os, re, pathlib
+              marker = os.environ["STICKY_MARKER"]
+              end    = "<!-- /claude-code-review:summary -->"
+              body   = pathlib.Path("/tmp/pr-body.md").read_text()
+              block  = pathlib.Path("/tmp/summary-block.md").read_text().rstrip() + "\n"
+              pattern = re.compile(
+                  re.escape(marker) + r".*?" + re.escape(end) + r"\s*",
+                  re.DOTALL,
+              )
+              body = pattern.sub("", body).rstrip()
+              new  = (body + "\n\n" + block) if body else block
+              pathlib.Path("/tmp/pr-body.new.md").write_text(new)
+              PY
+
+              gh pr edit "$PR_NUMBER" --body-file /tmp/pr-body.new.md
+
+            Clean up any legacy sticky comment posted as a standalone
+            conversation comment by earlier runs (one-time migration):
+
+              LEGACY_ID=$(gh api --paginate "repos/$GH_REPO/issues/$PR_NUMBER/comments" \
                 --jq ".[] | select(.body | contains(\"$STICKY_MARKER\")) | .id" \
                 | head -n1)
-
-              if [ -n "$EXISTING_ID" ]; then
-                gh api -X PATCH "repos/$GH_REPO/issues/comments/$EXISTING_ID" \
-                  --field body=@/tmp/summary.md
-              else
-                gh api -X POST "repos/$GH_REPO/issues/$PR_NUMBER/comments" \
-                  --field body=@/tmp/summary.md
+              if [ -n "$LEGACY_ID" ]; then
+                gh api -X DELETE "repos/$GH_REPO/issues/comments/$LEGACY_ID"
               fi
 
             ## Notes
-            - Do NOT edit the PR description (`gh pr edit --body`). The
-              sticky comment is the only summary surface this bot owns.
+            - The PR body is the only summary surface this bot owns. Do
+              NOT post a separate top-level conversation comment.
+            - Never overwrite the author's prose — only the region
+              between `$STICKY_MARKER` and the end marker is yours.
             - Prefer fewer, higher-signal inline comments over many nits.
             - If a finding cannot be line-anchored (cross-file pattern,
               missing test, etc.), include it in the sticky summary
@@ -233,5 +267,5 @@ jobs:
           claude_args: |
             --model claude-sonnet-4-6
             --max-turns 50
-            --allowedTools Read,Grep,Glob,Bash(git:*),Bash(gh pr view:*),Bash(gh pr diff:*),Bash(gh api:*),Bash(jq:*),Bash(cat:*),Bash(tee:*),Bash(mktemp:*),Bash(head:*),Bash(xargs:*),Write
+            --allowedTools Read,Grep,Glob,Bash(git:*),Bash(gh pr view:*),Bash(gh pr edit:*),Bash(gh pr diff:*),Bash(gh api:*),Bash(jq:*),Bash(cat:*),Bash(tee:*),Bash(mktemp:*),Bash(head:*),Bash(xargs:*),Bash(python3:*),Write
             --disallowedTools WebSearch,WebFetch
