@@ -15,6 +15,8 @@ permissions:
   security-events: write
   checks: write
   packages: write
+  pull-requests: write
+  issues: write
 
 env:
   WINDSOR_PROJECT_ROOT: ${{ github.workspace }}
@@ -184,7 +186,7 @@ jobs:
           terraform_version: 1.14.8
 
       - name: Setup kubectl
-        uses: azure/setup-kubectl@15650b3ad78fff148532a140b8a4c821796b2d7b # v5
+        uses: azure/setup-kubectl@829323503d1be3d00ca8346e5391ca0b07a9ab0d # v5.1.0
         with:
           # renovate: datasource=github-releases depName=kubectl package=kubernetes/kubectl
           version: v1.34.1
@@ -263,6 +265,101 @@ jobs:
           name: support-bundle-local
           path: support-bundles/
           retention-days: 30
+
+      - name: Investigate cluster failure with Claude
+        if: failure()
+        uses: anthropics/claude-code-action@39431830520a7ae6c0c572f11a7707e7043325e3 # v1.0.95
+        env:
+          GH_REPO: ${{ github.repository }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+          RUN_ID: ${{ github.run_id }}
+          COMMIT_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+          DIAGNOSIS_MARKER: "<!-- claude-cluster-diagnosis -->"
+        with:
+          anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
+          prompt: |
+            The integration test job just failed. The local Windsor cluster
+            is still running on this runner and has NOT been torn down yet.
+            Your job is to inspect it live and publish a short root-cause
+            diagnosis.
+
+            ## Inspect the cluster
+
+            Use the `inspect-cluster` skill. All kubectl/talosctl/windsor
+            commands must be prefixed with `windsor exec --` so they run
+            inside the Windsor environment (bare kubectl will get
+            connection refused in this repo).
+
+            Focus on:
+            - Which kustomization / helm release / pod is failing, and why
+              (look at events, logs, and `status.conditions`).
+            - Whether the failure is a flake (image pull, timeout, probe)
+              or a real regression in the changed code.
+            - One concrete next step for whoever triages this.
+
+            Do NOT attempt to fix the cluster, restart pods, or mutate
+            state — read-only inspection only.
+
+            ## Write the diagnosis
+
+            Compose the report body at `/tmp/diagnosis.md` using this
+            exact shape (distinctive so humans can spot it at a glance —
+            do not deviate from the header, emoji, or sectioning):
+
+              $DIAGNOSIS_MARKER
+              > [!CAUTION]
+              >
+              > ## 🩺 Cluster diagnosis — integration tests failed
+              >
+              > **Commit:** `<short SHA of COMMIT_SHA>` · **Run:** [#$RUN_ID]($RUN_URL)
+              >
+              > **Likely cause:** {one sentence}
+              >
+              > **Evidence:** {2-4 sentences citing the specific resource,
+              > condition, and log snippet that points at the cause.
+              > Quote log lines inline with backticks.}
+              >
+              > **Suggested next step:** {one sentence, actionable.}
+              >
+              > _Live read-only inspection by Claude. Support bundle
+              > attached to the run artifacts._
+              <!-- /claude-cluster-diagnosis -->
+
+            The `$DIAGNOSIS_MARKER` and closing `<!-- /claude-cluster-diagnosis -->`
+            lines are required — they let future runs find and update
+            this comment in place.
+
+            Also save a copy to `support-bundles/claude-investigation.md`
+            (so it rides along in the uploaded artifact) and append the
+            body to `$GITHUB_STEP_SUMMARY` (so it shows on the Actions
+            run page).
+
+            ## Publish as a PR comment (upsert)
+
+            If `$PR_NUMBER` is non-empty, upsert the diagnosis as a PR
+            conversation comment — find-then-patch-or-create:
+
+              if [ -n "$PR_NUMBER" ]; then
+                EXISTING_ID=$(gh api --paginate "repos/$GH_REPO/issues/$PR_NUMBER/comments" \
+                  --jq ".[] | select(.body | contains(\"$DIAGNOSIS_MARKER\")) | .id" \
+                  | head -n1)
+                if [ -n "$EXISTING_ID" ]; then
+                  gh api -X PATCH "repos/$GH_REPO/issues/comments/$EXISTING_ID" \
+                    --field body=@/tmp/diagnosis.md
+                else
+                  gh api -X POST "repos/$GH_REPO/issues/$PR_NUMBER/comments" \
+                    --field body=@/tmp/diagnosis.md
+                fi
+              fi
+
+            On push-to-main runs (`$PR_NUMBER` empty), skip the comment
+            step — the step summary and artifact are enough.
+          claude_args: |
+            --model claude-sonnet-4-6
+            --max-turns 30
+            --allowedTools Read,Grep,Glob,Write,Bash(windsor exec:*),Bash(windsor show:*),Bash(windsor context:*),Bash(gh api:*),Bash(jq:*),Bash(cat:*),Bash(tee:*),Bash(ls:*),Bash(head:*),Bash(tail:*)
+            --disallowedTools WebSearch,WebFetch
 
       - name: Windsor Down
         if: always()
