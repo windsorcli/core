@@ -10,40 +10,77 @@ permissions:
 jobs:
   review:
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: 30
     if: >-
       github.event.pull_request.user.type != 'Bot' &&
       !contains(github.event.pull_request.labels.*.name, 'dependencies')
     steps:
       - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
         with:
-          fetch-depth: 1
+          fetch-depth: 0
       - name: Fetch base ref
         run: git fetch --depth=1 origin ${{ github.base_ref }}
       - uses: anthropics/claude-code-action@39431830520a7ae6c0c572f11a7707e7043325e3 # v1.0.95
+        env:
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          PR_HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+          BASE_REF: ${{ github.base_ref }}
+          GH_REPO: ${{ github.repository }}
+          STICKY_MARKER: "<!-- claude-code-review:summary -->"
         with:
           anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
           prompt: |
-            Run the `review-pr` skill against this pull request.
+            Run the `review-pr` skill against this pull request and publish
+            findings as a GitHub pull request review with **inline, line-anchored
+            comments** plus a single **sticky summary comment** that updates in
+            place on every run.
 
             Scope strictly to the diff. Do NOT read files outside the changed
             set unless flagging a specific, concrete concern. Skip style nits
             and focus on correctness, security, and blast-radius issues.
 
-            Context adjustment: the skill is written for `git diff --staged`
-            (pre-commit use). In this CI context, stage the PR diff first so
-            the skill works unmodified:
+            ## Step 1 — Stage the diff so the skill works unmodified
 
-              git diff origin/${{ github.base_ref }}...HEAD --name-only | xargs git add -N
+            The skill is written for `git diff --staged` (pre-commit use). In
+            CI, stage the PR diff first:
+
+              git diff origin/$BASE_REF...HEAD --name-only | xargs -r git add -N
               git add -u
 
-            Then invoke the skill. Post the aggregated report as a single PR
-            review comment. Also update the PR description with a summary and
-            test plan via `gh pr edit ${{ github.event.pull_request.number }} --body`.
+            Then invoke the skill to produce findings. Collect each finding as
+            `{path, line, side, body}` — `side` is "RIGHT" for added/modified
+            lines and "LEFT" for deleted lines. `line` must be a line that
+            actually appears in the PR diff (otherwise the GitHub API rejects
+            it). When a finding spans multiple lines, use `start_line` + `line`
+            + `start_side` + `side`.
 
-            In addition, post a separate top-level PR comment (via
-            `gh pr comment ${{ github.event.pull_request.number }} --body`) with
-            a high-level summary in this exact format:
+            ## Step 2 — Post inline comments as a single PR review
+
+            Write the findings to a JSON file and POST one review containing
+            all comments. Use `event: "COMMENT"` (do not approve or request
+            changes). Example payload at /tmp/review.json:
+
+              {
+                "commit_id": "<PR_HEAD_SHA>",
+                "event": "COMMENT",
+                "body": "Automated review by Claude. See inline comments and the summary comment below.",
+                "comments": [
+                  { "path": "foo.go", "line": 42, "side": "RIGHT", "body": "..." },
+                  { "path": "bar.tf", "start_line": 10, "line": 14, "start_side": "RIGHT", "side": "RIGHT", "body": "..." }
+                ]
+              }
+
+            Then:
+
+              gh api -X POST "repos/$GH_REPO/pulls/$PR_NUMBER/reviews" --input /tmp/review.json
+
+            If there are no inline findings, skip this step (do not post an
+            empty review).
+
+            ## Step 3 — Upsert the sticky summary comment
+
+            Build a summary comment body that starts with the hidden marker
+            `$STICKY_MARKER` on its own line, followed by:
 
               > [!NOTE]
               > **{Low|Medium|High} Risk**
@@ -55,14 +92,42 @@ jobs:
               > structural/behavioral changes, and any notable test coverage
               > or follow-ups.}
 
-            Pick the risk level based on blast radius: Low for isolated,
-            easily reversible changes; Medium for changes to shared
-            infra/CLI/workflows or anything that could break existing
-            automation; High for security, data-loss, or cross-cutting
-            changes. Keep the summary comment concise — it is separate from
-            the detailed review comment.
+            Risk level: Low for isolated, easily reversible changes; Medium
+            for changes to shared infra/CLI/workflows or anything that could
+            break existing automation; High for security, data-loss, or
+            cross-cutting changes.
+
+            Upsert logic (find-then-patch-or-create):
+
+              # List PR conversation comments and find one containing the marker
+              EXISTING_ID=$(gh api --paginate "repos/$GH_REPO/issues/$PR_NUMBER/comments" \
+                --jq ".[] | select(.body | contains(\"$STICKY_MARKER\")) | .id" \
+                | head -n1)
+
+              # Write body to /tmp/summary.md, then:
+              if [ -n "$EXISTING_ID" ]; then
+                gh api -X PATCH "repos/$GH_REPO/issues/comments/$EXISTING_ID" \
+                  --field body=@/tmp/summary.md
+              else
+                gh api -X POST "repos/$GH_REPO/issues/$PR_NUMBER/comments" \
+                  --field body=@/tmp/summary.md
+              fi
+
+            ## Step 4 — Update the PR description
+
+            Update the PR body with a short summary and test plan:
+
+              gh pr edit "$PR_NUMBER" --body "..."
+
+            ## Notes
+            - Do not post a separate non-sticky top-level comment; the sticky
+              comment replaces that.
+            - Prefer fewer, higher-signal inline comments over many nits.
+            - If a finding cannot be line-anchored (cross-file pattern,
+              missing test, etc.), include it in the sticky summary instead
+              of forcing a bogus line number.
           claude_args: |
             --model claude-sonnet-4-6
-            --max-turns 25
-            --allowedTools Read,Grep,Glob,Bash(git:*),Bash(gh pr comment:*),Bash(gh pr edit:*),Bash(gh pr view:*),Bash(gh pr diff:*)
-            --disallowedTools Edit,Write,WebSearch,WebFetch
+            --max-turns 50
+            --allowedTools Read,Grep,Glob,Bash(git:*),Bash(gh pr edit:*),Bash(gh pr view:*),Bash(gh pr diff:*),Bash(gh api:*),Bash(jq:*),Bash(cat:*),Bash(tee:*),Bash(mktemp:*),Bash(head:*),Bash(xargs:*),Write
+            --disallowedTools WebSearch,WebFetch
