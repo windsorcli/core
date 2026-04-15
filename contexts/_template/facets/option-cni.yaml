@@ -106,7 +106,7 @@ kustomize:
     components:
       - cilium
       - cilium/talos
-      - "${(ha ?? false) ? 'cilium/ha' : ''}"
+      - "${topology == 'ha' ? 'cilium/ha' : ''}"
       - "${(gateway_effective.enabled == true && gateway_effective.driver == 'cilium') ? 'cilium/gateway' : ''}"
       - cilium/prometheus
       - cilium/hubble
@@ -128,7 +128,7 @@ kustomize:
       - telemetry-base
     components:
       - cilium
-      - "${(ha ?? false) ? 'cilium/ha' : ''}"
+      - "${topology == 'ha' ? 'cilium/ha' : ''}"
       - "${(gateway_effective.enabled == true && gateway_effective.driver == 'cilium') ? 'cilium/gateway' : ''}"
       - cilium/prometheus
       - cilium/hubble

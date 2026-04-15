@@ -88,6 +88,18 @@ variable "enable_git" {
   default     = true
 }
 
+variable "enable_mirror" {
+  description = "Create the local mirror registry container (distribution/distribution, local-only) for air-gapped testing scenarios."
+  type        = bool
+  default     = true
+}
+
+variable "mirror_hostport" {
+  description = "Host port to publish the mirror registry on in docker-desktop mode. Ignored in linux/colima runtimes."
+  type        = number
+  default     = 5002
+}
+
 variable "registries" {
   description = "Map of registry configs (aligned with windsor docker.registries). Key is registry host (e.g. gcr.io, registry.k8s.io). Each entry: remote (proxy upstream URL; Distribution supports only remoteurl, username, password, ttl), hostport (publish port on host, optional). Omit remote for local-only registry. Null is coalesced to empty in the module."
   type = map(object({

@@ -191,8 +191,13 @@ resource "incus_instance" "registry" {
   # renovate: datasource=docker depName=ghcr.io/distribution/distribution package=ghcr.io/distribution/distribution
   image      = "ghcr:distribution/distribution:3.0.0@sha256:4ba3adf47f5c866e9a29288c758c5328ef03396cb8f5f6454463655fa8bc83e2"
   depends_on = [incus_network.main, local_file.registry_cache_dir]
+  # Distribution proxy mode verifies manifests against upstream on every pull
+  # by default (TTL 168h). Windsor HelmReleases pin every image by digest, so
+  # manifests are immutable — extend the TTL to 1y so cached pulls never
+  # traverse upstream and stay fast on repeat cluster cycles.
   config = each.value.remote != null ? {
     "environment.REGISTRY_PROXY_REMOTEURL" = each.value.remote
+    "environment.REGISTRY_PROXY_TTL"       = "8760h"
   } : {}
 
   device {

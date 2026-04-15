@@ -106,8 +106,8 @@ kustomize:
       - telemetry-base
     components:
       - longhorn
-      - "${(cluster.controlplanes.schedulable ?? false) ? 'longhorn/single-node' : ''}"
-      - "${(ha ?? false) ? 'longhorn/ha' : ''}"
+      - "${((cluster.controlplanes.schedulable ?? false) || topology == 'single-node') ? 'longhorn/single-node' : ''}"
+      - "${topology == 'ha' ? 'longhorn/ha' : ''}"
       - "${addons.observability.enabled == true ? 'longhorn/prometheus' : ''}"
     timeout: 20m
     interval: 5m
