@@ -80,3 +80,9 @@ variable "concurrency" {
   type        = number
   default     = 2
 }
+
+variable "leader_election" {
+  description = "Enable leader election on Flux controllers. Disable on single-node clusters to eliminate lease-renewal traffic against etcd."
+  type        = bool
+  default     = true
+}

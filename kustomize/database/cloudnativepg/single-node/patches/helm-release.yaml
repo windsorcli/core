@@ -1,0 +1,13 @@
+---
+apiVersion: helm.toolkit.fluxcd.io/v2
+kind: HelmRelease
+metadata:
+  name: cloudnativepg
+  namespace: system-database
+spec:
+  values:
+    # The chart unconditionally passes --leader-elect (bare = true) to the
+    # manager. Appending --leader-elect=false via additionalArgs lets Go's
+    # flag parser apply last-wins and disables the election.
+    additionalArgs:
+      - --leader-elect=false

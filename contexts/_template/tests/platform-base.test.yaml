@@ -276,3 +276,59 @@ cases:
           timeout: 5m
           interval: 5m
 
+  # Kyverno reports-controller opt-in layers in the kyverno/reports component.
+  - name: policies.reporting enabled adds kyverno/reports component
+    values:
+      provider: metal
+      gateway:
+        enabled: false
+      network: *default-network
+      cluster: *default-cluster
+      policies:
+        reporting: enabled
+    expect:
+      kustomize:
+        - name: policy-base
+          path: policy/base
+          components:
+            - kyverno
+            - kyverno/reports
+
+  # Kyverno cleanup-controller opt-in layers in the kyverno/cleanup component.
+  - name: policies.cleanup enabled adds kyverno/cleanup component
+    values:
+      provider: metal
+      gateway:
+        enabled: false
+      network: *default-network
+      cluster: *default-cluster
+      policies:
+        cleanup: enabled
+    expect:
+      kustomize:
+        - name: policy-base
+          path: policy/base
+          components:
+            - kyverno
+            - kyverno/cleanup
+
+  # Both opt-in flags compose.
+  - name: policies.reporting and policies.cleanup enabled adds both components
+    values:
+      provider: metal
+      gateway:
+        enabled: false
+      network: *default-network
+      cluster: *default-cluster
+      policies:
+        reporting: enabled
+        cleanup: enabled
+    expect:
+      kustomize:
+        - name: policy-base
+          path: policy/base
+          components:
+            - kyverno
+            - kyverno/reports
+            - kyverno/cleanup
+

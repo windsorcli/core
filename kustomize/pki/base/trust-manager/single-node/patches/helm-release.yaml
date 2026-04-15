@@ -1,0 +1,11 @@
+---
+apiVersion: helm.toolkit.fluxcd.io/v2
+kind: HelmRelease
+metadata:
+  name: trust-manager
+  namespace: system-pki-trust
+spec:
+  values:
+    app:
+      leaderElection:
+        enabled: false

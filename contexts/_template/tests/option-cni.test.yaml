@@ -115,10 +115,10 @@ cases:
             k8s_service_host: "10.5.0.10"
 
   # Cilium + HA: adds cilium/ha component.
-  - name: cilium with ha=true adds cilium/ha component
+  - name: cilium with topology=ha adds cilium/ha component
     values:
       provider: metal
-      ha: true
+      topology: ha
       gateway:
         enabled: false
       network: *default-network

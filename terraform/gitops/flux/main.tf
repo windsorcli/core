@@ -24,6 +24,10 @@ locals {
   # Requeue dependency interval scales inversely with concurrency
   # Higher concurrency = shorter interval, lower = longer to reduce pressure
   requeue_interval = var.concurrency <= 3 ? "15s" : (var.concurrency <= 5 ? "10s" : "5s")
+
+  # Appended to every controller's additionalArgs. Default (leader_election=true)
+  # is an empty list so the rendered Helm values stay byte-identical to before.
+  leader_election_args = var.leader_election ? [] : ["--enable-leader-election=false"]
 }
 
 #-----------------------------------------------------------------------------------------------------------------------
@@ -56,25 +60,29 @@ resource "helm_release" "flux_system" {
   create_namespace = false
   wait             = true
   values = [yamlencode({
-    imageAutomationController = {
+    imageAutomationController = merge({
       image = "ghcr.io/fluxcd/image-automation-controller"
       # renovate: datasource=docker depName=ghcr.io/fluxcd/image-automation-controller package=ghcr.io/fluxcd/image-automation-controller
       tag = "v1.1.1@sha256:43617c9fbb4cf32aed7458647f62589575237ccb810f45bd7cb31f24126d4f22"
-    }
-    imageReflectionController = {
+      }, var.leader_election ? {} : {
+      container = { additionalArgs = local.leader_election_args }
+    })
+    imageReflectionController = merge({
       image = "ghcr.io/fluxcd/image-reflector-controller"
       # renovate: datasource=docker depName=ghcr.io/fluxcd/image-reflector-controller package=ghcr.io/fluxcd/image-reflector-controller
       tag = "v1.1.1@sha256:4c12c4046dee6e32e11b7c6afeaf7910406b67ff0182d46eeedb128d367908cd"
-    }
+      }, var.leader_election ? {} : {
+      container = { additionalArgs = local.leader_election_args }
+    })
     kustomizeController = {
       image = "ghcr.io/fluxcd/kustomize-controller"
       # renovate: datasource=docker depName=ghcr.io/fluxcd/kustomize-controller package=ghcr.io/fluxcd/kustomize-controller
       tag = "v1.8.3@sha256:c59e81059330a55203bf60806229a052617134d8b557c1bd83cdc69a8ece7ea2"
       container = {
-        additionalArgs = [
+        additionalArgs = concat([
           "--concurrent=${var.concurrency}",
           "--requeue-dependency=${local.requeue_interval}"
-        ]
+        ], local.leader_election_args)
         resources = {
           limits = {
             memory = "512Mi"
@@ -87,29 +95,31 @@ resource "helm_release" "flux_system" {
       # renovate: datasource=docker depName=ghcr.io/fluxcd/helm-controller package=ghcr.io/fluxcd/helm-controller
       tag = "v1.4.2@sha256:32dd3ec7a138245ff4cd755439099c544f4ce3a55f95aa69a97106c05a661def"
       container = {
-        additionalArgs = [
+        additionalArgs = concat([
           "--concurrent=${max(2, var.concurrency - 1)}",
           "--requeue-dependency=${local.requeue_interval}"
-        ]
+        ], local.leader_election_args)
       }
     }
-    notificationController = {
+    notificationController = merge({
       image = "ghcr.io/fluxcd/notification-controller"
       # renovate: datasource=docker depName=ghcr.io/fluxcd/notification-controller package=ghcr.io/fluxcd/notification-controller
       tag = "v1.8.3@sha256:a9e22d4aeec507abb3abc0e6ad3aeb3b672fd03d5776c785399aedec263a603f"
-    }
+      }, var.leader_election ? {} : {
+      container = { additionalArgs = local.leader_election_args }
+    })
     sourceController = {
       image = "ghcr.io/fluxcd/source-controller"
       # renovate: datasource=docker depName=ghcr.io/fluxcd/source-controller package=ghcr.io/fluxcd/source-controller
       tag = "v1.8.1@sha256:7382d002cffeed2d877331353f95797e89c0aa7ecb432e661eeeda3e590b3293"
       container = {
-        additionalArgs = [
+        additionalArgs = concat([
           "--concurrent=${var.concurrency}",
           "--requeue-dependency=${local.requeue_interval}",
           "--helm-cache-max-size=200",
           "--helm-cache-ttl=60m",
           "--helm-cache-purge-interval=5m"
-        ]
+        ], local.leader_election_args)
       }
     }
   })]
