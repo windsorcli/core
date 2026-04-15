@@ -253,46 +253,6 @@ cases:
                 registries:
                   config: {}
                   mirrors: {}
-        - name: gitops
-          path: gitops/flux
-          inputs:
-            concurrency: 2
-
-  # Edge: flux concurrency derived from cluster CPU on docker workstation (not clamped).
-  - name: docker workstation derives flux concurrency from cpu/memory
-    values:
-      provider: docker
-      workstation:
-        runtime: colima
-      dns: *default-dns
-      gateway:
-        enabled: false
-      network: *default-network
-      cluster:
-        driver: talos
-        controlplanes:
-          cpu: 8
-          memory: 8
-          nodes:
-            controlplane-1:
-              endpoint: 10.5.0.10:50000
-              node: 10.5.0.10
-              hostname: controlplane-1
-    terraformOutputs:
-      compute:
-        controlplanes:
-          - endpoint: 10.5.0.10:6443
-            node: 10.5.0.10
-            hostname: controlplane-1
-        workers: []
-      workstation:
-        registries: {}
-    expect:
-      terraform:
-        - name: gitops
-          path: gitops/flux
-          inputs:
-            concurrency: 4
 
   # Edge: docker-desktop — no lb kustomize components. Asserts workstation inputs use 4+len(registries) for IPs.
   - name: docker-desktop workstation has node hostport dns and no lb

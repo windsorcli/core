@@ -39,9 +39,7 @@ config:
         - name: longhorn
           size: 30
 
-      # topology=single-node implies the control plane must schedule workloads,
-      # so flip this on automatically even if the user didn't set schedulable.
-      allowSchedulingOnControlPlanes: "${(cluster.controlplanes.schedulable ?? false) || topology == 'single-node'}"
+      allowSchedulingOnControlPlanes: "${cluster.controlplanes.schedulable ?? false}"
       controlplane_volumes: "${cluster.controlplanes.volumes ?? []}"
       worker_volumes: "${cluster.workers.volumes ?? []}"
       csi_local_volume_path: "${cluster.storage.local_base_path ?? \"/var/mnt/local\"}"
@@ -116,37 +114,6 @@ config:
               name: none
           proxy:
             disabled: true
-
-  # ---------------------------------------------------------------------------
-  # Single-node topology: shrink control-plane footprint
-  # ---------------------------------------------------------------------------
-  #
-  # With one control plane there are no peers to coordinate with, so leader
-  # election is pure overhead — KCM and scheduler otherwise hit etcd with a
-  # lease write every ~2s. We also enable etcd auto-compaction (upstream
-  # default is off, which lets the DB grow unboundedly).
-  #
-  - name: talos_common
-    when: topology == 'single-node'
-    value:
-      common_patch:
-        cluster:
-          controllerManager:
-            extraArgs:
-              leader-elect: "false"
-          scheduler:
-            extraArgs:
-              leader-elect: "false"
-          etcd:
-            extraArgs:
-              auto-compaction-mode: "revision"
-              auto-compaction-retention: "1000"
-              # Retain fewer historical snapshots and WAL segments on disk.
-              # Defaults are 5/5; on a single-node cluster there are no peers
-              # that need to catch up from older snapshots, so 3/3 is safe
-              # and shaves ~128 MiB off the etcd data directory.
-              max-snapshots: "3"
-              max-wals: "3"
 
   # ---------------------------------------------------------------------------
   # Pinned Talos version

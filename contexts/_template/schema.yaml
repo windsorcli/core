@@ -231,20 +231,6 @@ properties:
     type: object
     description: Policy configuration
     properties:
-      reporting:
-        type: string
-        enum:
-          - enabled
-          - disabled
-        default: disabled
-        description: Run Kyverno's reports-controller to emit PolicyReport / ClusterPolicyReport resources (background audit scans). Admission enforcement is unaffected when this is disabled.
-      cleanup:
-        type: string
-        enum:
-          - enabled
-          - disabled
-        default: disabled
-        description: Run Kyverno's cleanup-controller to execute CleanupPolicy / ClusterCleanupPolicy resources on a cron. Windsor ships no CleanupPolicy resources by default, so this is off unless you provide your own.
       require_image_digest:
         type: string
         enum:
@@ -286,19 +272,11 @@ properties:
         description: Registry mirror config keyed by registry host (e.g. gcr.io, ghcr.io). Used by workstation proxy/DNS and by Talos cluster mirrors.
     additionalProperties: false
 
-  # Cluster topology preset — selects between a single-node cluster, a
-  # multi-node cluster without HA guarantees, and a fully HA cluster
-  # (3+ control planes, multi-replica components, PDBs, anti-affinity).
-  # The precise node/pool layout is defined by the blueprint; this knob
-  # just picks which cross-cutting HA components get layered in.
-  topology:
-    type: string
-    enum:
-      - single-node
-      - multi-node
-      - ha
-    default: multi-node
-    description: Cluster topology preset (single-node, multi-node, or ha).
+  # High availability mode
+  ha:
+    type: boolean
+    default: false
+    description: Enable high availability mode for all components (multiple replicas, PDBs, etc.)
 
   # Network configuration (used by terraform templates)
   network:

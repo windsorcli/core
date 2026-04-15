@@ -101,9 +101,6 @@ variable "registries" {
     "quay.io" = {
       remote = "https://quay.io"
     }
-    "reg.kyverno.io" = {
-      remote = "https://reg.kyverno.io"
-    }
     "registry-1.docker.io" = {
       remote = "https://registry-1.docker.io"
       local  = "docker.io"

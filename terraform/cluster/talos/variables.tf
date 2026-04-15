@@ -26,17 +26,6 @@ variable "talos_version" {
   }
 }
 
-# talos_node_image is a literal mirror pin for the Talos node image. Windsor's
-# mirror scanner follows this exact docker reference so `windsor mirror`
-# includes the Talos image in the air-gapped registry. Renovate's docker
-# manager keeps it in sync with talos_version via the annotation below.
-variable "talos_node_image" {
-  description = "Literal Talos node image reference used to pin the image for mirror hydration. Kept in sync with talos_version by Renovate."
-  type        = string
-  # renovate: datasource=docker depName=ghcr.io/siderolabs/talos packageName=ghcr.io/siderolabs/talos
-  default = "ghcr.io/siderolabs/talos:v1.12.6"
-}
-
 variable "cluster_name" {
   description = "The name of the cluster."
   type        = string
