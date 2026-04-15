@@ -43,13 +43,13 @@ kustomize:
     components:
       - coredns
       - coredns/etcd
-      - "${(ha ?? false) ? 'coredns/ha' : ''}"
+      - "${topology == 'ha' ? 'coredns/ha' : ''}"
       - "${gateway_effective.driver == 'cilium' ? 'coredns/loadbalancer' : ''}"
       - "${gateway_effective.driver == 'cilium' ? 'coredns/cilium' : ''}"
       - "${gateway_effective.driver == 'envoy' && gateway_effective.enabled == true ? 'coredns/gateway' : ''}"
       - external-dns
       - external-dns/coredns
-      - "${(ha ?? false) ? 'external-dns/ha' : ''}"
+      - "${topology == 'ha' ? 'external-dns/ha' : ''}"
       - "${workstation.runtime == 'docker-desktop' ? 'external-dns/localhost' : ''}"
     substitutions:
       external_domain: ${dns.private_domain}

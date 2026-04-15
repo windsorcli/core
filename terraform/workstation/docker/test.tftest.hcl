@@ -127,6 +127,11 @@ run "full_configuration" {
   }
 
   assert {
+    condition     = output.next_ip == "10.20.0.10"
+    error_message = "next_ip should be fixed at node_start_offset (default 10), independent of registry count"
+  }
+
+  assert {
     condition     = length(docker_container.registry) == 2
     error_message = "Exactly two registry containers for custom registries map"
   }

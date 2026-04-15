@@ -43,10 +43,13 @@ locals {
   ]
   # Registries: blueprint may pass null when workstation_registries is missing; treat as empty map.
   registries = coalesce(var.registries, {})
-  # Sequential from lowest block: 1=gateway (not a container), 2=dns, 3=git, 4+=registries
+  # Fixed layout: 1=gateway, 2=dns, 3=git, 4..(node_start_offset-1)=registries, node_start_offset=first node.
+  # Registries fill a reserved block so adding/removing one never shifts the first-node IP returned by next_ip.
   gateway              = cidrhost(var.network_cidr, 1)
   dns_ip               = cidrhost(var.network_cidr, 2)
   git_ip               = cidrhost(var.network_cidr, 3)
+  registry_ip_base     = 4
+  registry_ip_capacity = var.node_start_offset - local.registry_ip_base
   registry_keys_sorted = sort(keys(local.registries))
   # Keep in sync with workstation/incus registry_hostname_base (same stripping logic).
   registry_remote_host = {
@@ -64,7 +67,7 @@ locals {
     )
   }
   registry_ips = {
-    for i, k in local.registry_keys_sorted : k => cidrhost(var.network_cidr, 4 + i)
+    for i, k in local.registry_keys_sorted : k => cidrhost(var.network_cidr, local.registry_ip_base + i)
   }
   service_ips = merge(
     { dns = local.dns_ip, git = local.git_ip },
@@ -222,7 +225,13 @@ resource "docker_container" "registry" {
     label = "com.docker.compose.project"
     value = local.compose_project
   }
-  env = each.value.remote != null ? ["REGISTRY_PROXY_REMOTEURL=${each.value.remote}"] : []
+  # Extend the proxy manifest TTL from the 168h default to 720h (30d) to reduce
+  # upstream revalidation churn on repeat cluster cycles while keeping manifests
+  # fresh enough to pick up republished tags within a reasonable window.
+  env = each.value.remote != null ? [
+    "REGISTRY_PROXY_REMOTEURL=${each.value.remote}",
+    "REGISTRY_PROXY_TTL=720h",
+  ] : []
   dynamic "ports" {
     for_each = each.value.hostport != null && local.publish_ports ? [1] : []
     content {

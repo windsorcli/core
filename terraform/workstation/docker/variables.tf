@@ -88,8 +88,18 @@ variable "enable_git" {
   default     = true
 }
 
+variable "node_start_offset" {
+  description = "Host index in network_cidr at which compute nodes begin (exposed via next_ip for compute/docker start_ip). Registries fill the fixed reserved block [4, node_start_offset) so adding or removing a registry never shifts node IPs. Default 10 matches compute/docker's own sequential base for attached networks."
+  type        = number
+  default     = 10
+  validation {
+    condition     = var.node_start_offset >= 5
+    error_message = "node_start_offset must be >= 5 to leave at least one registry slot (hosts 1=gateway, 2=dns, 3=git, 4+=registries)."
+  }
+}
+
 variable "registries" {
-  description = "Map of registry configs (aligned with windsor docker.registries). Key is registry host (e.g. gcr.io, registry.k8s.io). Each entry: remote (proxy upstream URL; Distribution supports only remoteurl, username, password, ttl), hostport (publish port on host, optional). Omit remote for local-only registry. Null is coalesced to empty in the module."
+  description = "Map of registry configs (aligned with windsor docker.registries). Key is registry host (e.g. gcr.io, registry.k8s.io). Each entry: remote (proxy upstream URL; Distribution supports only remoteurl, username, password, ttl), hostport (publish port on host, optional). Omit remote for local-only registry. Null is coalesced to empty in the module. Count must fit in the reserved block (node_start_offset - 4); raise node_start_offset if you need more."
   type = map(object({
     remote   = optional(string)
     local    = optional(string)
@@ -105,15 +115,15 @@ variable "registries" {
     "quay.io" = {
       remote = "https://quay.io"
     }
+    "reg.kyverno.io" = {
+      remote = "https://reg.kyverno.io"
+    }
     "registry-1.docker.io" = {
       remote = "https://registry-1.docker.io"
       local  = "docker.io"
     }
     "registry.k8s.io" = {
       remote = "https://registry.k8s.io"
-    }
-    registry = {
-      hostport = 5001
     }
   }
   nullable = true

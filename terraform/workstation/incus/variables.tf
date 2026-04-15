@@ -36,6 +36,16 @@ variable "network_cidr" {
   default     = "10.5.0.0/16"
 }
 
+variable "node_start_offset" {
+  description = "Host index in network_cidr at which compute nodes begin (exposed via next_ip for compute/incus). Registries fill the fixed reserved block [4, node_start_offset) so adding or removing a registry never shifts node IPs. Default 10 matches the hardcoded controlplane offset used by option-workstation."
+  type        = number
+  default     = 10
+  validation {
+    condition     = var.node_start_offset >= 5
+    error_message = "node_start_offset must be >= 5 to leave at least one registry slot (hosts 1=gateway, 2=dns, 3=git, 4+=registries)."
+  }
+}
+
 variable "loadbalancer_start_ip" {
   description = "First IP in the load balancer range (e.g. 10.5.1.1). Used to derive webhook_host and dns_forward_target when not overridden. If null, derived as first host of next /24 from network_cidr."
   type        = string
@@ -101,15 +111,15 @@ variable "registries" {
     "quay.io" = {
       remote = "https://quay.io"
     }
+    "reg.kyverno.io" = {
+      remote = "https://reg.kyverno.io"
+    }
     "registry-1.docker.io" = {
       remote = "https://registry-1.docker.io"
       local  = "docker.io"
     }
     "registry.k8s.io" = {
       remote = "https://registry.k8s.io"
-    }
-    registry = {
-      hostport = 5001
     }
   }
 }

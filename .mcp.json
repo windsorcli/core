@@ -1,0 +1,20 @@
+{
+  "mcpServers": {
+    "kubernetes": {
+      "command": "kubernetes-mcp-server",
+      "args": [],
+      "env": {
+        "KUBECONFIG": "contexts/local/.kube/config"
+      }
+    },
+    "grafana": {
+      "command": "mcp-grafana",
+      "args": ["-t", "stdio", "-tls-skip-verify"],
+      "env": {
+        "GRAFANA_URL": "${GRAFANA_URL:-https://grafana.test}",
+        "GRAFANA_USERNAME": "${GRAFANA_USERNAME:-admin}",
+        "GRAFANA_PASSWORD": "${GRAFANA_PASSWORD:-grafana}"
+      }
+    }
+  }
+}

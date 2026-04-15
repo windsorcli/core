@@ -18,8 +18,12 @@ output "compose_project" {
 }
 
 output "next_ip" {
-  description = "Next available IP for sequential node assignment (first host after dns=2, git=3, registries=4..). Use as compute/incus start offset when attaching to this network."
-  value       = cidrhost(var.network_cidr, 4 + length(local.registry_keys_sorted))
+  description = "First IP for sequential node assignment. Fixed at host index var.node_start_offset (default 10); stable across registry add/remove because registries fill the reserved block [4, node_start_offset). Use as compute/incus start offset when attaching to this network."
+  value       = cidrhost(var.network_cidr, var.node_start_offset)
+  precondition {
+    condition     = length(local.registry_keys_sorted) <= local.registry_ip_capacity
+    error_message = "Too many registries (${length(local.registry_keys_sorted)}) for the reserved block of ${local.registry_ip_capacity} slots (hosts 4..${var.node_start_offset - 1}). Raise node_start_offset or drop registries."
+  }
 }
 
 output "dns_ip" {
