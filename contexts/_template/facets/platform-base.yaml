@@ -175,6 +175,26 @@ config:
     value:
       logs_driver: "${telemetry.logs.driver ?? 'fluentd'}"
 
+# =============================================================================
+# Global substitutions
+# =============================================================================
+#
+# Variables exposed to every kustomization's postBuild via Flux variable
+# substitution. Declared here (rather than per-kustomization) because they
+# are consumed across many components — HTTPRoutes, certificates, external-dns
+# annotations — and hardcoding them in each would mean chasing down every
+# site on a domain change. Add new globals here only when they are truly
+# cross-cutting; per-kustomization values belong on the kustomization.
+#
+substitutions:
+  # FQDN suffix for internal/cluster-local resources (e.g. grafana.test,
+  # flux-webhook.test). Resolved by the in-cluster CoreDNS and the workstation
+  # DNS forwarder.
+  private_domain: ${dns.private_domain}
+
+  # FQDN suffix for externally-reachable resources on cloud platforms. Unused
+  # on local/workstation contexts where private_domain covers everything.
+  public_domain: ${dns.public_domain}
 
 # =============================================================================
 # Kustomize — base cluster resources
@@ -349,5 +369,6 @@ kustomize:
     components:
       - webhook
       - webhook/gateway
+      - "${gateway_effective.driver == 'cilium' ? 'webhook/gateway/cilium' : ''}"
     substitutions:
       git_repository_name: ${gitops.repository.name ?? "local"}

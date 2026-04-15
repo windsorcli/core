@@ -1,0 +1,12 @@
+apiVersion: cilium.io/v2
+kind: CiliumNetworkPolicy
+metadata:
+  name: allow-gateway-webhooks
+  namespace: system-gitops
+spec:
+  endpointSelector:
+    matchLabels:
+      app: notification-controller
+  ingress:
+    - fromEntities:
+        - ingress

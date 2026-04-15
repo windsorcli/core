@@ -68,12 +68,15 @@ kustomize:
   # ---------------------------------------------------------------------------
   #
   # Conditional components:
-  #   - cilium:    patches Gateway spec.infrastructure.annotations so the
-  #                Cilium gateway LB IP is shared with CoreDNS (LBIPAM).
-  #   - dns:       UDP/TCP port-53 listeners for CoreDNS. Envoy only — Cilium
-  #                shares the LB IP instead, no extra listeners needed.
-  #   - lb-address: pins the Gateway to the start of the LB IP range when an
-  #                in-cluster LB is active.
+  #   - cilium:       patches Gateway spec.infrastructure.annotations so the
+  #                   Cilium gateway LB IP is shared with CoreDNS (LBIPAM).
+  #   - dns:          UDP/TCP port-53 listeners for CoreDNS. Envoy only —
+  #                   Cilium shares the LB IP instead, no extra listeners
+  #                   needed.
+  #   - lb-address:   pins the Gateway to the start of the LB IP range when an
+  #                   in-cluster LB is active.
+  #   - flux-webhook: adds a dedicated port-9292 listener for the Flux
+  #                   notification receiver (gated on gitops.webhook.enabled).
   #
   # `gateway_class_name` drives the Gateway spec.gatewayClassName (envoy,
   # cilium, etc.). `gateway_dns_target` is the IP external-dns advertises for
@@ -88,6 +91,7 @@ kustomize:
       - "${gateway_effective.driver == 'cilium' ? 'cilium' : ''}"
       - "${gateway_effective.driver != 'cilium' && (addons.private_dns.enabled ?? (dev == true)) == true ? 'dns' : ''}"
       - "${lb_effective.enabled == true ? 'lb-address' : ''}"
+      - "${(gitops.webhook.enabled ?? true) == true ? 'flux-webhook' : ''}"
     substitutions:
       gateway_class_name: ${gateway_effective.driver}
       gateway_dns_target: "${lb_effective.enabled == true ? network_effective.loadbalancer_ips.start : ''}"

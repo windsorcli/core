@@ -234,6 +234,9 @@ cases:
       gateway:
         enabled: true
         driver: envoy
+      gitops:
+        webhook:
+          enabled: true
       network: *default-network
       cluster: *default-cluster
     expect:
@@ -272,12 +275,15 @@ cases:
         - *gateway-base-cilium
         - *gateway-resources-cilium
 
-  - name: cilium driver includes webhook/gateway in gitops component
+  - name: cilium driver includes webhook/gateway and webhook/gateway/cilium in gitops component
     values:
       provider: metal
       gateway:
         enabled: true
         driver: cilium
+      gitops:
+        webhook:
+          enabled: true
       network: *default-network
       cluster: *default-cluster
     expect:
@@ -287,6 +293,7 @@ cases:
           components:
             - webhook
             - webhook/gateway
+            - webhook/gateway/cilium
 
   # lb-address: included when lb_effective.enabled (non-Cilium CNI + loadbalancer_driver set); IP pinned in gateway spec
   - name: local envoy gateway-resources includes lb-address when loadbalancer IP configured
