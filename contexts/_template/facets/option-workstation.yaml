@@ -28,6 +28,18 @@ config:
       arch: "${workstation.arch ?? 'amd64'}"
 
   # ---------------------------------------------------------------------------
+  # Gitops webhook default
+  # ---------------------------------------------------------------------------
+  #
+  # Enable the Flux webhook by default when the workstation stack is active
+  # (git-livereload needs it). Users can override via `gitops.webhook.enabled`.
+  #
+  - name: gitops
+    value:
+      webhook:
+        enabled: ${gitops.webhook.enabled ?? true}
+
+  # ---------------------------------------------------------------------------
   # Talos image references
   # ---------------------------------------------------------------------------
   #
