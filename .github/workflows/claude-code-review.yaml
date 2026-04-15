@@ -10,6 +10,9 @@ permissions:
 jobs:
   review:
     runs-on: ubuntu-latest
+    if: >-
+      github.event.pull_request.user.type != 'Bot' &&
+      !contains(github.event.pull_request.labels.*.name, 'dependencies')
     steps:
       - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
         with:
@@ -52,4 +55,4 @@ jobs:
             automation; High for security, data-loss, or cross-cutting
             changes. Keep the summary comment concise — it is separate from
             the detailed review comment.
-          claude_args: "--model claude-opus-4-6 --max-turns 15"
+          claude_args: "--model claude-opus-4-6 --max-turns 40"
