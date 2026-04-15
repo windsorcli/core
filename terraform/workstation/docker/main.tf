@@ -224,7 +224,14 @@ resource "docker_container" "registry" {
     label = "com.docker.compose.project"
     value = local.compose_project
   }
-  env = each.value.remote != null ? ["REGISTRY_PROXY_REMOTEURL=${each.value.remote}"] : []
+  # Distribution proxy mode verifies manifests against upstream on every pull
+  # by default (TTL 168h). Windsor HelmReleases pin every image by digest, so
+  # manifests are immutable — extend the TTL to 1y so cached pulls never
+  # traverse upstream and stay fast on repeat cluster cycles.
+  env = each.value.remote != null ? [
+    "REGISTRY_PROXY_REMOTEURL=${each.value.remote}",
+    "REGISTRY_PROXY_TTL=8760h",
+  ] : []
   dynamic "ports" {
     for_each = each.value.hostport != null && local.publish_ports ? [1] : []
     content {
