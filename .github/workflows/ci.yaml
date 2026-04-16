@@ -231,6 +231,7 @@ jobs:
           windsor show blueprint
 
       - name: Windsor Up
+        id: windsor_up
         run: windsor up --verbose --wait
 
       - name: Collect Windsor State
@@ -269,7 +270,7 @@ jobs:
           retention-days: 30
 
       - name: Investigate cluster failure with Claude
-        if: failure()
+        if: always() && steps.windsor_up.outcome == 'failure'
         uses: anthropics/claude-code-action@5fb899572b81d2bb648d4d187173a2f423a9677c # v1.0.96
         env:
           GH_REPO: ${{ github.repository }}
@@ -281,6 +282,7 @@ jobs:
         with:
           anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
           github_token: ${{ secrets.GITHUB_TOKEN }}
+          allowed_bots: "renovate"
           prompt: |
             The integration test job just failed. The local Windsor cluster
             is still running on this runner and has NOT been torn down yet.
