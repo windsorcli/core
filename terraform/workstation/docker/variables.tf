@@ -98,6 +98,18 @@ variable "node_start_offset" {
   }
 }
 
+variable "enable_mirror" {
+  description = "Create a local mirror registry container (no pull-through proxy). The mirror mounts .windsor/cache/docker/mirror and serves pre-loaded images. When true, pull-through registry containers are typically not created (pass registries = {} from the facet)."
+  type        = bool
+  default     = false
+}
+
+variable "mirror_hostport" {
+  description = "Host port to publish for the mirror container. Only published in docker-desktop mode (where bridge IPs are not routable from the host). Set to null to skip port publishing."
+  type        = number
+  default     = null
+}
+
 variable "registries" {
   description = "Map of registry configs (aligned with windsor docker.registries). Key is registry host (e.g. gcr.io, registry.k8s.io). Each entry: remote (proxy upstream URL; Distribution supports only remoteurl, username, password, ttl), hostport (publish port on host, optional). Omit remote for local-only registry. Null is coalesced to empty in the module. Count must fit in the reserved block (node_start_offset - 4); raise node_start_offset if you need more."
   type = map(object({

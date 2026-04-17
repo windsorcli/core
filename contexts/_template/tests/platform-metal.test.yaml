@@ -283,6 +283,67 @@ cases:
           timeout: 5m
           interval: 5m
 
+  # Edge: cluster.mirror on metal configures Talos mirrors without workstation
+  # and sets helm_registry/helm_repo_type substitutions for air-gap Helm OCI.
+  - name: cluster mirror on metal configures talos registry mirrors
+    values:
+      provider: metal
+      gateway:
+        enabled: false
+      network: *default-network
+      cluster:
+        <<: *default-cluster
+        mirror: "10.0.0.5:5000"
+    expect:
+      terraform:
+        - name: cluster
+          path: cluster/talos
+          inputs:
+            common_config_patches: |-
+              cluster:
+                allowSchedulingOnControlPlanes: true
+                extraManifests:
+                - https://raw.githubusercontent.com/alex1989hu/kubelet-serving-cert-approver/v0.8.7/deploy/standalone-install.yaml
+                network:
+                  cni:
+                    name: none
+                proxy:
+                  disabled: true
+              machine:
+                kubelet:
+                  extraArgs:
+                    rotate-server-certificates: "true"
+                registries:
+                  config: {}
+                  mirrors:
+                    docker.io:
+                      endpoints:
+                      - http://10.0.0.5:5000/v2/docker.io
+                      overridePath: true
+                    gcr.io:
+                      endpoints:
+                      - http://10.0.0.5:5000/v2/gcr.io
+                      overridePath: true
+                    ghcr.io:
+                      endpoints:
+                      - http://10.0.0.5:5000/v2/ghcr.io
+                      overridePath: true
+                    quay.io:
+                      endpoints:
+                      - http://10.0.0.5:5000/v2/quay.io
+                      overridePath: true
+                    reg.kyverno.io:
+                      endpoints:
+                      - http://10.0.0.5:5000/v2/reg.kyverno.io
+                      overridePath: true
+                    registry.k8s.io:
+                      endpoints:
+                      - http://10.0.0.5:5000/v2/registry.k8s.io
+                      overridePath: true
+      config:
+        mirror_effective:
+          active: true
+
   # Edge case: longhorn storage driver passes Talos extensions via cluster-extensions step
   - name: longhorn storage driver passes iscsi and util-linux extensions to cluster terraform
     values:

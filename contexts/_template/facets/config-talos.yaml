@@ -20,6 +20,32 @@ when: cluster.driver == 'talos'
 config:
 
   # ---------------------------------------------------------------------------
+  # Default registries
+  # ---------------------------------------------------------------------------
+  #
+  # Canonical list of upstream registries. User-supplied docker.registries
+  # entries are merged on top (augment, not replace) so adding a private
+  # registry doesn't lose the defaults.
+  #
+  # Referenced by config-talos (mirror mode) and option-workstation
+  # (pull-through mode + local mirror mode).
+  #
+  - name: default_registries
+    value:
+      registries: >-
+        ${fromPairs(concat(
+          toPairs({
+            "gcr.io": { "remote": "https://gcr.io" },
+            "ghcr.io": { "remote": "https://ghcr.io" },
+            "quay.io": { "remote": "https://quay.io" },
+            "reg.kyverno.io": { "remote": "https://reg.kyverno.io" },
+            "registry-1.docker.io": { "remote": "https://registry-1.docker.io", "local": "docker.io" },
+            "registry.k8s.io": { "remote": "https://registry.k8s.io" }
+          }),
+          toPairs(docker.registries ?? {})
+        ))}
+
+  # ---------------------------------------------------------------------------
   # talos_common defaults
   # ---------------------------------------------------------------------------
   #
@@ -147,6 +173,43 @@ config:
               # and shaves ~128 MiB off the etcd data directory.
               max-snapshots: "3"
               max-wals: "3"
+
+  # ---------------------------------------------------------------------------
+  # Registry mirror (mirror_effective)
+  # ---------------------------------------------------------------------------
+  #
+  # When a mirror is active (explicit cluster.mirror or workstation mirror
+  # service — resolved by mirror_effective in platform-base), configure Talos
+  # to pull all images through the mirror using overridePath.
+  #
+  # windsor mirror stores images with the upstream host in the repository path
+  # (e.g. docker.io/library/nginx), so each mirror entry uses overridePath: true
+  # with the registry key embedded in the endpoint URL path (/v2/<key>).
+  #
+  # The mirror address uses terraform_output at render time (not config time)
+  # for the workstation case; cluster.mirror is available at config time.
+  #
+  - name: talos_registry_mirrors
+    when: mirror_effective.active == true
+    value:
+      mirrors: >-
+        ${fromPairs(map(
+          toPairs(default_registries.registries),
+          [
+            (get(get(#, 1), "local") != null && get(get(#, 1), "local") != "" ? get(get(#, 1), "local") : get(#, 0)),
+            { endpoints: ["http://" + ((cluster.mirror ?? ((terraform_output('workstation', 'mirror_hostname') ?? 'mirror') + ':5000'))) + "/v2/" + (get(get(#, 1), "local") != null && get(get(#, 1), "local") != "" ? get(get(#, 1), "local") : get(#, 0))], overridePath: true }
+          ]
+        ))}
+      config: {}
+
+  - name: talos_common
+    when: mirror_effective.active == true
+    value:
+      common_patch:
+        machine:
+          registries:
+            mirrors: ${talos_registry_mirrors.mirrors}
+            config: ${talos_registry_mirrors.config}
 
   # ---------------------------------------------------------------------------
   # Pinned Talos version

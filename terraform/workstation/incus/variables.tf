@@ -94,6 +94,12 @@ variable "enable_git" {
   default     = true
 }
 
+variable "enable_mirror" {
+  description = "Create a local mirror registry container (no pull-through proxy). The mirror mounts .windsor/cache/docker/mirror and serves pre-loaded images. When true, pull-through registry containers are typically not created (pass registries = {} from the facet)."
+  type        = bool
+  default     = false
+}
+
 variable "registries" {
   description = "Map of registry configs (aligned with windsor docker.registries). Key is registry host (e.g. gcr.io, registry.k8s.io). Each entry: remote (proxy upstream URL), hostport (unused for Incus; kept for API compatibility), local. Omit remote for local-only registry."
   type = map(object({

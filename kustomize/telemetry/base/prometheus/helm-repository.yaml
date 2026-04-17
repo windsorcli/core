@@ -6,4 +6,6 @@ metadata:
 spec:
   interval: 10m
   timeout: 5m
-  url: https://prometheus-community.github.io/helm-charts
+  type: ${helm_repo_type:=default}
+  url: ${helm_registry:=https://prometheus-community.github.io/helm-charts}
+  insecure: ${helm_repo_insecure:=false}

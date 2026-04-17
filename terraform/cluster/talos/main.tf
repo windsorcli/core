@@ -104,6 +104,7 @@ module "controlplane_bootstrap" {
   enable_health_check  = true
   config_patches = [for p in compact(concat([
     var.common_config_patches,
+    var.registry_config_patches,
     var.controlplane_config_patches,
     local.controlplane_extra_mounts_patch,
     lookup(var.controlplanes[0], "config_patches", []),
@@ -134,6 +135,7 @@ module "controlplanes" {
   enable_health_check  = true
   config_patches = [for p in compact(concat([
     var.common_config_patches,
+    var.registry_config_patches,
     var.controlplane_config_patches,
     local.controlplane_extra_mounts_patch,
     lookup(var.controlplanes[count.index + 1], "config_patches", []),
@@ -167,6 +169,7 @@ module "workers" {
   enable_health_check  = true
   config_patches = [for p in compact(concat([
     var.common_config_patches,
+    var.registry_config_patches,
     var.worker_config_patches,
     local.worker_extra_mounts_patch,
     lookup(var.workers[count.index], "config_patches", []),

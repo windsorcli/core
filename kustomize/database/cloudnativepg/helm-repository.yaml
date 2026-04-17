@@ -7,4 +7,6 @@ metadata:
 spec:
   interval: 10m
   timeout: 3m
-  url: https://cloudnative-pg.github.io/charts
+  type: ${helm_repo_type:=default}
+  url: ${helm_registry:=https://cloudnative-pg.github.io/charts}
+  insecure: ${helm_repo_insecure:=false}

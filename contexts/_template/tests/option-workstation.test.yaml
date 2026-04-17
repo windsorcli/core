@@ -71,7 +71,6 @@ cases:
                     rotate-server-certificates: "true"
                 registries:
                   config: {}
-                  mirrors: {}
         - name: gitops
           path: gitops/flux
           destroy: false
@@ -252,7 +251,6 @@ cases:
                     rotate-server-certificates: "true"
                 registries:
                   config: {}
-                  mirrors: {}
         - name: gitops
           path: gitops/flux
           inputs:
@@ -419,6 +417,182 @@ cases:
           path: gitops/flux
           inputs:
             webhook_token: mysecrettoken
+
+  # Edge: workstation.services.mirror creates local mirror, configures talos,
+  # and auto-populates cluster.mirror so helm substitutions fire.
+  - name: workstation mirror service replaces pull-through caches
+    values:
+      provider: docker
+      workstation:
+        runtime: colima
+        services:
+          mirror: true
+      dns: *default-dns
+      gateway:
+        enabled: false
+      network: *default-network
+      cluster: *default-cluster
+    terraformOutputs:
+      compute:
+        controlplanes:
+          - endpoint: 10.5.0.10:6443
+            node: 10.5.0.10
+            hostname: controlplane-1
+        workers: []
+      workstation:
+        mirror_hostname: mirror.test.local
+        registries: {}
+    expect:
+      terraform:
+        - name: workstation
+          path: workstation/docker
+          inputs:
+            registries: {}
+            enable_mirror: true
+            mirror_hostport: 5050
+        - name: cluster
+          path: cluster/talos
+          inputs:
+            common_config_patches: |-
+              cluster:
+                allowSchedulingOnControlPlanes: true
+                extraManifests:
+                - https://raw.githubusercontent.com/alex1989hu/kubelet-serving-cert-approver/v0.8.7/deploy/standalone-install.yaml
+                network:
+                  cni:
+                    name: none
+                proxy:
+                  disabled: true
+              machine:
+                kubelet:
+                  extraArgs:
+                    rotate-server-certificates: "true"
+                registries:
+                  config: {}
+                  mirrors:
+                    docker.io:
+                      endpoints:
+                      - http://mirror.test.local:5000/v2/docker.io
+                      overridePath: true
+                    gcr.io:
+                      endpoints:
+                      - http://mirror.test.local:5000/v2/gcr.io
+                      overridePath: true
+                    ghcr.io:
+                      endpoints:
+                      - http://mirror.test.local:5000/v2/ghcr.io
+                      overridePath: true
+                    quay.io:
+                      endpoints:
+                      - http://mirror.test.local:5000/v2/quay.io
+                      overridePath: true
+                    reg.kyverno.io:
+                      endpoints:
+                      - http://mirror.test.local:5000/v2/reg.kyverno.io
+                      overridePath: true
+                    registry.k8s.io:
+                      endpoints:
+                      - http://mirror.test.local:5000/v2/registry.k8s.io
+                      overridePath: true
+        - name: gitops
+          path: gitops/flux
+          destroy: false
+      config:
+        mirror_effective:
+          active: true
+
+  # Edge: explicit cluster.mirror address without local container
+  - name: explicit cluster mirror disables pull-through and configures talos
+    values:
+      provider: docker
+      workstation:
+        runtime: colima
+      dns: *default-dns
+      gateway:
+        enabled: false
+      network: *default-network
+      cluster:
+        <<: *default-cluster
+        mirror: "10.0.0.5:5000"
+    terraformOutputs: *default-terraform-outputs
+    expect:
+      terraform:
+        - name: workstation
+          path: workstation/docker
+          inputs:
+            registries: {}
+            enable_mirror: false
+        - name: cluster
+          path: cluster/talos
+          inputs:
+            common_config_patches: |-
+              cluster:
+                allowSchedulingOnControlPlanes: true
+                extraManifests:
+                - https://raw.githubusercontent.com/alex1989hu/kubelet-serving-cert-approver/v0.8.7/deploy/standalone-install.yaml
+                network:
+                  cni:
+                    name: none
+                proxy:
+                  disabled: true
+              machine:
+                kubelet:
+                  extraArgs:
+                    rotate-server-certificates: "true"
+                registries:
+                  config: {}
+                  mirrors:
+                    docker.io:
+                      endpoints:
+                      - http://10.0.0.5:5000/v2/docker.io
+                      overridePath: true
+                    gcr.io:
+                      endpoints:
+                      - http://10.0.0.5:5000/v2/gcr.io
+                      overridePath: true
+                    ghcr.io:
+                      endpoints:
+                      - http://10.0.0.5:5000/v2/ghcr.io
+                      overridePath: true
+                    quay.io:
+                      endpoints:
+                      - http://10.0.0.5:5000/v2/quay.io
+                      overridePath: true
+                    reg.kyverno.io:
+                      endpoints:
+                      - http://10.0.0.5:5000/v2/reg.kyverno.io
+                      overridePath: true
+                    registry.k8s.io:
+                      endpoints:
+                      - http://10.0.0.5:5000/v2/registry.k8s.io
+                      overridePath: true
+        - name: gitops
+          path: gitops/flux
+          destroy: false
+
+  # Edge: mirror disabled by default — pull-through caches used as normal
+  - name: mirror disabled by default uses pull-through caches
+    values:
+      provider: docker
+      workstation:
+        runtime: colima
+      dns: *default-dns
+      gateway:
+        enabled: false
+      network: *default-network
+      cluster: *default-cluster
+    terraformOutputs: *default-terraform-outputs
+    expect:
+      terraform:
+        - name: workstation
+          path: workstation/docker
+          inputs:
+            enable_mirror: false
+        - name: cluster
+          path: cluster/talos
+        - name: gitops
+          path: gitops/flux
+          destroy: false
 
   # Edge: gitops webhook settings are top-level and propagate to both gitops/flux and workstation modules.
   - name: gitops webhook feature flag disables receiver component

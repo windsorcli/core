@@ -27,21 +27,16 @@ config:
       k8s_service_host: "${cidrhost(network_effective.cidr_block, 10)}"
 
   # ---------------------------------------------------------------------------
-  # cluster_endpoint_fallback
+  # cluster_endpoint_fallback — config-time best-effort endpoint
   # ---------------------------------------------------------------------------
   #
-  # Only derivable from compute output — if there's no compute yet, return
-  # empty string and let the caller fall back to an explicit cluster.endpoint.
+  # Provides a fallback from user-supplied cluster config (no terraform_output
+  # — deferred expressions are not allowed in config blocks). The terraform
+  # cluster input below resolves the full chain including compute output.
   #
   - name: cluster_endpoint_fallback
     value:
-      endpoint: >-
-        ${
-          len(terraform_output("compute", "controlplanes") ?? []) > 0
-          && terraform_output("compute", "controlplanes")[0].endpoint != null
-            ? "https://" + split(terraform_output("compute", "controlplanes")[0].endpoint, ":")[0] + ":6443"
-            : ""
-        }
+      endpoint: "${cluster.endpoint ?? ''}"
 
 # =============================================================================
 # Terraform — standalone incus (no workstation)
@@ -122,7 +117,11 @@ terraform:
       - compute
     parallelism: 1
     inputs:
-      cluster_endpoint: "${cluster.endpoint ?? cluster_endpoint_fallback.endpoint}"
+      cluster_endpoint: >-
+        ${cluster.endpoint ?? (len(terraform_output("compute", "controlplanes") ?? []) > 0
+          && terraform_output("compute", "controlplanes")[0].endpoint != null
+            ? "https://" + split(terraform_output("compute", "controlplanes")[0].endpoint, ":")[0] + ":6443"
+            : "")}
       cluster_name: talos
       talos_version: ${talos.talos_version}
       controlplanes: ${terraform_output("compute", "controlplanes") ?? values(cluster.controlplanes.nodes)}

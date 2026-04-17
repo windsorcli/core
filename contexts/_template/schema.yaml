@@ -430,6 +430,13 @@ properties:
               cilium bootstraps Cilium via terraform/cni/cilium before Flux starts (disables
               flannel and kube-proxy in Talos machine config) and manages it via Flux GitOps.
         additionalProperties: false
+      mirror:
+        type: string
+        description: >
+          Mirror registry address (host:port, e.g. 10.0.0.5:5000 or mirror.internal:5000).
+          When set, all cluster registry mirrors point to http://<mirror> and pull-through
+          caches are disabled. Auto-populated from the workstation mirror container hostname
+          when workstation.services.mirror is true and this is not explicitly set.
     additionalProperties: false
 
   # DNS configuration
@@ -587,6 +594,10 @@ properties:
             type: boolean
             default: true
             description: Create registry proxy containers (from docker.registries when true)
+          mirror:
+            type: boolean
+            default: false
+            description: Enable local mirror registry container (pre-loaded images only; disables pull-through proxies).
         additionalProperties: false
         description: Toggle workstation services
       git:

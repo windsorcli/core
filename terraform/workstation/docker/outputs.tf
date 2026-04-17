@@ -26,8 +26,8 @@ output "next_ip" {
   description = "First IP for sequential node assignment. Fixed at host index var.node_start_offset (default 10); stable across registry add/remove because registries fill the reserved block [4, node_start_offset). Use as compute/docker start_ip when attaching to this network."
   value       = cidrhost(var.network_cidr, var.node_start_offset)
   precondition {
-    condition     = length(local.registry_keys_sorted) <= local.registry_ip_capacity
-    error_message = "Too many registries (${length(local.registry_keys_sorted)}) for the reserved block of ${local.registry_ip_capacity} slots (hosts 4..${var.node_start_offset - 1}). Raise node_start_offset or drop registries."
+    condition     = length(local.registry_keys_sorted) + (var.enable_mirror ? 1 : 0) <= local.registry_ip_capacity
+    error_message = "Too many registries (${length(local.registry_keys_sorted)}${var.enable_mirror ? " + mirror" : ""}) for the reserved block of ${local.registry_ip_capacity} slots (hosts 4..${var.node_start_offset - 1}). Raise node_start_offset or drop registries."
   }
 }
 
@@ -62,13 +62,18 @@ output "service_ips" {
 }
 
 output "containers" {
-  description = "Map of service name to container name: dns, git (when enabled), and each registry key."
+  description = "Map of service name to container name: dns, git (when enabled), mirror (when enabled), and each registry key."
   value = {
     for k, v in merge(
-      { dns = try(docker_container.dns[0].name, null), git = try(docker_container.git[0].name, null) },
+      { dns = try(docker_container.dns[0].name, null), git = try(docker_container.git[0].name, null), mirror = try(docker_container.mirror[0].name, null) },
       { for rk, rv in docker_container.registry : rk => rv.name }
     ) : k => v if v != null
   }
+}
+
+output "mirror_hostname" {
+  description = "Hostname of the mirror registry container. Null when enable_mirror is false."
+  value       = var.enable_mirror ? local.mirror_hostname : null
 }
 
 output "registries" {

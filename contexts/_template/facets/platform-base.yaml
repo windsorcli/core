@@ -175,6 +175,20 @@ config:
     value:
       logs_driver: "${telemetry.logs.driver ?? 'fluentd'}"
 
+  # ---------------------------------------------------------------------------
+  # Mirror effective value
+  # ---------------------------------------------------------------------------
+  #
+  # Whether a mirror is active (explicit cluster.mirror or workstation mirror
+  # service). Used by config-talos and by `when:` guards that need a
+  # composition-time check. The actual mirror address is resolved at render
+  # time in the substitutions block (terraform_output is not available during
+  # config composition).
+  #
+  - name: mirror_effective
+    value:
+      active: "${(cluster.mirror ?? '') != '' || (workstation.services.mirror ?? false) == true}"
+
 # =============================================================================
 # Global substitutions
 # =============================================================================
@@ -195,6 +209,17 @@ substitutions:
   # FQDN suffix for externally-reachable resources on cloud platforms. Unused
   # on local/workstation contexts where private_domain covers everything.
   public_domain: ${dns.public_domain}
+
+  # Helm chart source override for mirror/air-gap mode. When a mirror is
+  # active (explicit cluster.mirror or workstation mirror service), all
+  # HelmRepositories switch to OCI and pull charts from the mirror.
+  # Otherwise, per-repo vendor defaults take effect via Flux envsubst fallback.
+  #
+  # The mirror address is resolved here (not in config) because
+  # terraform_output is only available at render time, after apply.
+  helm_repo_type: "${mirror_effective.active == true ? 'oci' : ''}"
+  helm_registry: "${mirror_effective.active == true ? 'oci://' + ((cluster.mirror ?? ((terraform_output('workstation', 'mirror_hostname') ?? 'mirror') + ':5000'))) + '/charts' : ''}"
+  helm_repo_insecure: "${mirror_effective.active == true && (workstation.runtime ?? '') != '' ? 'true' : ''}"
 
 # =============================================================================
 # Kustomize — base cluster resources

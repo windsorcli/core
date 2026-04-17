@@ -7,5 +7,6 @@ metadata:
 spec:
   interval: 10m
   timeout: 3m
-  type: oci
-  url: oci://docker.io/envoyproxy
+  type: ${helm_repo_type:=oci}
+  url: ${helm_registry:=oci://docker.io/envoyproxy}
+  insecure: ${helm_repo_insecure:=false}
