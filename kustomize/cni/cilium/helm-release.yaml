@@ -10,7 +10,9 @@ spec:
   # Cilium components (DaemonSet, Operator, etc.) run in kube-system per upstream convention.
   # The HelmRelease CR lives in system-cni; Flux helm-controller adopts the release that was
   # bootstrapped by terraform/cni/cilium before Flux started.
+  releaseName: cilium
   targetNamespace: kube-system
+  storageNamespace: kube-system
   install:
     createNamespace: false
     remediation:

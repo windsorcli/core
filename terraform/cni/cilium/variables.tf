@@ -2,7 +2,7 @@ variable "cilium_version" {
   description = "Version of the Cilium Helm chart to install."
   type        = string
   # renovate: datasource=helm depName=cilium package=cilium helmRepo=https://helm.cilium.io
-  default = "1.16.3"
+  default = "1.16.19"
   validation {
     condition     = can(regex("^[0-9]+\\.[0-9]+\\.[0-9]+$", var.cilium_version))
     error_message = "cilium_version must be in X.Y.Z format."
