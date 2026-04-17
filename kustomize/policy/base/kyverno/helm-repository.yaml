@@ -7,4 +7,6 @@ metadata:
 spec:
   interval: 10m
   timeout: 3m
-  url: https://kyverno.github.io/kyverno
+  type: ${helm_repo_type:=default}
+  url: ${helm_registry:=https://kyverno.github.io/kyverno}
+  insecure: ${helm_repo_insecure:=false}

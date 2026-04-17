@@ -67,6 +67,9 @@ locals {
   registry_ips = {
     for i, k in local.registry_keys_sorted : k => cidrhost(var.network_cidr, local.registry_ip_base + i)
   }
+  # Mirror: single container at next available slot after registries (offset 4 when registries is empty).
+  mirror_ip       = var.enable_mirror ? cidrhost(var.network_cidr, local.registry_ip_base + length(local.registry_keys_sorted)) : null
+  mirror_hostname = "mirror.${local.domain_name}"
   # Keep in sync with workstation/docker registry_host_prefix (same stripping logic).
   registry_remote_host = {
     for k, v in var.registries : k => try(
@@ -85,12 +88,14 @@ locals {
   registry_hostname = { for k in local.registry_keys_sorted : k => "${local.registry_hostname_base[k]}.${local.domain_name}" }
   service_ips = merge(
     { dns = local.dns_ip, git = local.git_ip },
-    local.registry_ips
+    local.registry_ips,
+    var.enable_mirror ? { mirror = local.mirror_ip } : {}
   )
   dns_forward_target = coalesce(var.dns_forward_target, local.loadbalancer_start_ip)
   corefile_host_entries = concat(
     var.enable_dns ? ["${local.dns_ip} dns.${local.domain_name}"] : [],
     [for k in local.registry_keys_sorted : "${local.registry_ips[k]} ${local.registry_hostname[k]}"],
+    var.enable_mirror ? ["${local.mirror_ip} ${local.mirror_hostname}"] : [],
     var.enable_git ? ["${local.git_ip} git.${local.domain_name}"] : []
   )
   corefile_content = var.enable_dns ? templatefile("${path.module}/templates/Corefile.tpl", {
@@ -215,6 +220,48 @@ resource "incus_instance" "registry" {
     type = "disk"
     properties = {
       source = "${var.project_root}/.windsor/cache/docker/registries/${each.key}"
+      path   = "/var/lib/registry"
+    }
+  }
+}
+
+# =============================================================================
+# Mirror cache dir (Incus requires disk source path to exist before create)
+# =============================================================================
+
+resource "local_file" "mirror_cache_dir" {
+  count    = var.enable_mirror ? 1 : 0
+  content  = ""
+  filename = "${var.project_root}/.windsor/cache/docker/mirror/.keep"
+}
+
+# =============================================================================
+# Instance: mirror (pre-loaded registry, no pull-through proxy)
+# =============================================================================
+
+resource "incus_instance" "mirror" {
+  count = var.enable_mirror ? 1 : 0
+  name  = replace(local.mirror_hostname, ".", "-")
+  type  = "container"
+  # renovate: datasource=docker depName=ghcr.io/distribution/distribution package=ghcr.io/distribution/distribution
+  image      = "ghcr:distribution/distribution:3.0.0@sha256:4ba3adf47f5c866e9a29288c758c5328ef03396cb8f5f6454463655fa8bc83e2"
+  depends_on = [incus_network.main, local_file.mirror_cache_dir]
+  config     = {}
+
+  device {
+    name = "eth0"
+    type = "nic"
+    properties = {
+      network        = local.attached_network
+      "ipv4.address" = local.mirror_ip
+    }
+  }
+
+  device {
+    name = "mirror-cache"
+    type = "disk"
+    properties = {
+      source = "${var.project_root}/.windsor/cache/docker/mirror"
       path   = "/var/lib/registry"
     }
   }

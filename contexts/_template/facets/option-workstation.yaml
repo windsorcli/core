@@ -52,49 +52,40 @@ config:
       incus_image: "windsor:talos/v${talos.talos_version}/${workstation.arch ?? 'amd64'}"
 
   # ---------------------------------------------------------------------------
-  # Registry mirrors (pull-through cache)
+  # Registry mirrors (pull-through cache) and mirror registry
   # ---------------------------------------------------------------------------
   #
-  # `workstation_registries.registries` is the map of upstream → mirror used
-  # both by the workstation Terraform (to run the mirror containers) and by
-  # the Talos registry config (to redirect pulls).
+  # `workstation_registries.registries` is the canonical list of upstream
+  # registries used for pull-through containers and (when no explicit
+  # cluster.mirror is set) for Talos mirror keys.
   #
-  # Empty when workstation.services.registries == false. Otherwise uses
-  # user-supplied docker.registries or falls back to a sensible default set.
+  # When cluster.mirror is set, config-talos.yaml handles the Talos mirror
+  # config universally (any platform). This facet only generates Talos mirrors
+  # for two workstation-specific cases:
+  #   1. Pull-through mode: per-registry containers with hostnames from TF output
+  #   2. Local mirror mode: workstation.services.mirror without explicit cluster.mirror
   #
   - name: workstation_registries
     value:
-      registries: |
-        ${(workstation.services.registries ?? true) == false ? {} : (docker.registries ?? {
-          "gcr.io": { "remote": "https://gcr.io" },
-          "ghcr.io": { "remote": "https://ghcr.io" },
-          "quay.io": { "remote": "https://quay.io" },
-          "reg.kyverno.io": { "remote": "https://reg.kyverno.io" },
-          "registry-1.docker.io": { "remote": "https://registry-1.docker.io", "local": "docker.io" },
-          "registry.k8s.io": { "remote": "https://registry.k8s.io" }
-        })}
+      registries: "${(workstation.services.registries ?? true) == false ? {} : default_registries.registries}"
 
-  # Transform workstation TF output into the Talos machine.registries.mirrors
-  # shape. Only entries with both `remote` and `hostname` set are included;
-  # `local` (when present) is used as the mirror key so users can override the
-  # upstream name (e.g. "registry-1.docker.io" → "docker.io").
-  #
-  # config: {} — intentionally empty. Talos errors
-  # "TLS config specified for non-HTTPS registry" if tls is set for http://
-  # endpoints, and our mirrors are always plain HTTP.
-  - name: talos_registry_mirrors
-    when: cluster.driver == 'talos' && (cluster.enabled ?? true)
+  - name: workstation_mirror
     value:
-      mirrors: >-
-        ${fromPairs(map(
-          filter(toPairs(terraform_output("workstation", "registries") ?? {}),
-            get(get(#, 1), "remote") != null && get(get(#, 1), "remote") != "" && get(get(#, 1), "hostname") != null && get(get(#, 1), "hostname") != ""
-          ),
-          [
-            (get(get(#, 1), "local") != null && get(get(#, 1), "local") != "" ? get(get(#, 1), "local") : get(#, 0)),
-            { endpoints: ["http://" + get(get(#, 1), "hostname") + ":5000"] }
-          ]
-        ))}
+      # enabled: controls local mirror container creation (workstation.services.mirror)
+      enabled: "${(workstation.services.mirror ?? false) && (workstation.services.registries ?? true) != false}"
+      # active: true when ANY mirror is in use (local container OR explicit cluster.mirror).
+      # When active, pull-through caches are disabled.
+      active: "${((workstation.services.mirror ?? false) || (cluster.mirror ?? '') != '') && (workstation.services.registries ?? true) != false}"
+
+  # Pull-through mode: each registry has its own container and hostname.
+  # Only when no mirror is active (cluster.mirror not set, services.mirror off).
+  #
+  # NOTE: terraform_output is a deferred expression and cannot be used in config
+  # blocks. The pull-through registry mirrors are resolved at render time in
+  # the talos_common block below.
+  - name: talos_registry_mirrors
+    when: cluster.driver == 'talos' && (cluster.enabled ?? true) && workstation_mirror.active != true
+    value:
       config: {}
 
   # ---------------------------------------------------------------------------
@@ -106,14 +97,17 @@ config:
   # replace talos_common, they extend it.
   #
 
-  # Inject registry mirrors (always, for any workstation runtime).
+  # Inject registry config into Talos machine config.
+  # When a mirror is active, config-talos.yaml handles registry mirror
+  # injection. In pull-through mode, only the static config (no TLS) goes
+  # here. The actual mirror map requires terraform_output (deferred) and is
+  # passed via registry_config_patches terraform input below.
   - name: talos_common
-    when: cluster.driver == 'talos' && (cluster.enabled ?? true)
+    when: cluster.driver == 'talos' && (cluster.enabled ?? true) && mirror_effective.active != true
     value:
       common_patch:
         machine:
           registries:
-            mirrors: ${talos_registry_mirrors.mirrors}
             config: ${talos_registry_mirrors.config}
 
   # Docker only: when there are no workers, schedule workloads on control planes.
@@ -233,7 +227,9 @@ terraform:
       primary_node_ip: "${cidrhost(network_effective.cidr_block, 10)}"
       enable_dns: ${workstation.services.dns ?? true}
       enable_git: ${workstation.services.git ?? true}
-      registries: ${workstation_registries.registries ?? {}}
+      enable_mirror: ${workstation_mirror.enabled}
+      mirror_hostport: 5050
+      registries: "${workstation_mirror.active ? {} : (workstation_registries.registries ?? {})}"
 
   # Colima / docker / linux: loadbalancer exists, so DNS and webhook target
   # the LB IP. Webhook port is 80 when Gateway is active (routed through the
@@ -256,7 +252,9 @@ terraform:
       primary_node_ip: ${network_effective.loadbalancer_ips.start}
       enable_dns: ${workstation.services.dns ?? true}
       enable_git: ${workstation.services.git ?? true}
-      registries: ${workstation_registries.registries ?? {}}
+      enable_mirror: ${workstation_mirror.enabled}
+      mirror_hostport: 5050
+      registries: "${workstation_mirror.active ? {} : (workstation_registries.registries ?? {})}"
 
   # Incus: uses workstation/incus module. Reuses incusbr0 when running under
   # colima (colima creates the bridge); creates its own network otherwise.
@@ -276,7 +274,8 @@ terraform:
       primary_node_ip: ${network_effective.loadbalancer_ips.start}
       enable_dns: ${workstation.services.dns ?? true}
       enable_git: ${workstation.services.git ?? true}
-      registries: ${workstation_registries.registries ?? {}}
+      enable_mirror: ${workstation_mirror.enabled}
+      registries: "${workstation_mirror.active ? {} : (workstation_registries.registries ?? {})}"
       webhook_token: ${gitops.webhook.token ?? "abcdef123456"}
       git_username: ${workstation.git.username ?? "local"}
       git_password: ${workstation.git.password ?? "local"}
@@ -402,6 +401,16 @@ terraform:
       controlplane_disks: ${talos_common.controlplane_disks}
       worker_disks: ${talos_common.worker_disks}
       common_config_patches: ${talos_common.common_config_patches}
+      registry_config_patches: >-
+        ${mirror_effective.active != true ? string({machine: {registries: {mirrors: fromPairs(map(
+          filter(toPairs(terraform_output("workstation", "registries") ?? {}),
+            get(get(#, 1), "remote") != null && get(get(#, 1), "remote") != "" && get(get(#, 1), "hostname") != null && get(get(#, 1), "hostname") != ""
+          ),
+          [
+            (get(get(#, 1), "local") != null && get(get(#, 1), "local") != "" ? get(get(#, 1), "local") : get(#, 0)),
+            { endpoints: ["http://" + get(get(#, 1), "hostname") + ":5000"] }
+          ]
+        ))}}}) : ""}
       controlplane_volumes: ${talos_common.controlplane_volumes ?? []}
       worker_volumes: ${talos_common.worker_volumes ?? []}
 

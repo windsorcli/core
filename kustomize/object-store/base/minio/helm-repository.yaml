@@ -7,4 +7,6 @@ metadata:
 spec:
   interval: 10m
   timeout: 3m
-  url: https://operator.min.io/
+  type: ${helm_repo_type:=default}
+  url: ${helm_registry:=https://operator.min.io/}
+  insecure: ${helm_repo_insecure:=false}

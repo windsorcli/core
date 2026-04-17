@@ -127,6 +127,16 @@ variable "common_config_patches" {
   }
 }
 
+variable "registry_config_patches" {
+  description = "A YAML string of registry mirror config patches to apply to all nodes. Separated from common_config_patches so it can be resolved from deferred expressions (terraform_output)."
+  type        = string
+  default     = ""
+  validation {
+    condition     = var.registry_config_patches == "" || can(yamldecode(var.registry_config_patches))
+    error_message = "registry_config_patches must be an empty string or a valid YAML string."
+  }
+}
+
 variable "controlplane_config_patches" {
   description = "A YAML string of controlplane config patches to apply. Can be an empty string or valid YAML."
   type        = string

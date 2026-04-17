@@ -30,7 +30,13 @@ terraform:
     dependsOn:
       - cluster
     inputs:
-      cluster_endpoint: "${cluster.endpoint ?? cluster_endpoint_fallback.endpoint}"
+      cluster_endpoint: >-
+        ${cluster.endpoint
+          ?? (cluster_endpoint_fallback.endpoint != '' ? cluster_endpoint_fallback.endpoint : null)
+          ?? (len(terraform_output("compute", "controlplanes") ?? []) > 0
+              && terraform_output("compute", "controlplanes")[0].endpoint != null
+                ? "https://" + split(terraform_output("compute", "controlplanes")[0].endpoint, ":")[0] + ":6443"
+                : "https://localhost:6443")}
       talos_mode: true
 
   # Dependency merges — insert the `cni` step into the existing terraform graph

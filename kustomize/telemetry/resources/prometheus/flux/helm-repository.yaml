@@ -7,4 +7,6 @@ metadata:
 spec:
   interval: 10m
   timeout: 3m
-  url: https://fluxcd-community.github.io/helm-charts
+  type: ${helm_repo_type:=default}
+  url: ${helm_registry:=https://fluxcd-community.github.io/helm-charts}
+  insecure: ${helm_repo_insecure:=false}

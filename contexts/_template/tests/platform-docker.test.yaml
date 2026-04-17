@@ -178,8 +178,9 @@ cases:
         - name: lb-base
         - name: lb-resources
 
-  # Registry mirrors: when terraform_output("workstation", "registries") has hostname, common_config_patches must include non-empty mirrors. Colima: no certSANs.
-  - name: cluster common_config_patches includes registry mirrors when docker.registries have hostname
+  # Registry mirrors: when terraform_output("workstation", "registries") has hostname,
+  # registry_config_patches carries the pull-through mirror map (deferred expression).
+  - name: cluster registry_config_patches includes pull-through mirrors when docker.registries have hostname
     values:
       platform: docker
       workstation:
@@ -200,22 +201,9 @@ cases:
         - name: cluster
           path: cluster/talos
           inputs:
-            common_config_patches: |-
-              cluster:
-                allowSchedulingOnControlPlanes: true
-                extraManifests:
-                - https://raw.githubusercontent.com/alex1989hu/kubelet-serving-cert-approver/v0.8.7/deploy/standalone-install.yaml
-                network:
-                  cni:
-                    name: none
-                proxy:
-                  disabled: true
+            registry_config_patches: |-
               machine:
-                kubelet:
-                  extraArgs:
-                    rotate-server-certificates: "true"
                 registries:
-                  config: {}
                   mirrors:
                     gcr.io:
                       endpoints:

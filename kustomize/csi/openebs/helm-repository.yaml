@@ -7,4 +7,6 @@ metadata:
 spec:
   interval: 10m
   timeout: 5m
-  url: https://openebs.github.io/openebs
+  type: ${helm_repo_type:=default}
+  url: ${helm_registry:=https://openebs.github.io/openebs}
+  insecure: ${helm_repo_insecure:=false}

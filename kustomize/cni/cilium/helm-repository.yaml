@@ -7,4 +7,6 @@ metadata:
 spec:
   interval: 10m
   timeout: 5m
-  url: https://helm.cilium.io
+  type: ${helm_repo_type:=default}
+  url: ${helm_registry:=https://helm.cilium.io}
+  insecure: ${helm_repo_insecure:=false}

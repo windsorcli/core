@@ -5,4 +5,6 @@ metadata:
   namespace: system-telemetry
 spec:
   interval: 10m
-  url: https://helm.elastic.co
+  type: ${helm_repo_type:=default}
+  url: ${helm_registry:=https://helm.elastic.co}
+  insecure: ${helm_repo_insecure:=false}
