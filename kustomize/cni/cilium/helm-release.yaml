@@ -49,4 +49,4 @@ spec:
     # Single operator on single-node clusters (avoids pending pods + extra Lease churn on etcd);
     # two on multi-node/ha for controller redundancy. Set by the facet from the topology value.
     operator:
-      replicas: ${operator_replicas}
+      replicas: ${operator_replicas:=1}
