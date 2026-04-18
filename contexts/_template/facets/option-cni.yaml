@@ -31,7 +31,14 @@ terraform:
       - cluster
     inputs:
       cluster_endpoint: "${cluster.endpoint ?? cluster_endpoint_fallback.endpoint}"
-      talos_mode: true
+      # Talos forbids privileged pods and mounts cgroups at init; both settings
+      # are required for Cilium to start and stay up on Talos.
+      privileged: false
+      cgroup_auto_mount: false
+      # Match the Flux-managed HelmRelease's operator.replicas so `windsor up`
+      # re-runs don't flap the deployment between Flux reconciles. Same
+      # single-node → 1, else → 2 rule applied by the Flux substitution.
+      operator_replicas: "${topology_effective == 'single-node' ? 1 : 2}"
 
   # Dependency merges — insert the `cni` step into the existing terraform graph
   # so Talos extensions and Flux both wait for Cilium bootstrap to finish.
@@ -106,7 +113,6 @@ kustomize:
     components:
       - cilium
       - cilium/talos
-      - "${topology == 'ha' ? 'cilium/ha' : ''}"
       - "${(gateway_effective.enabled == true && gateway_effective.driver == 'cilium') ? 'cilium/gateway' : ''}"
       - cilium/prometheus
       - cilium/hubble
@@ -115,6 +121,8 @@ kustomize:
       k8s_service_host: ${talos_common.k8s_service_host}
       loadbalancer_start_ip: ${network_effective.loadbalancer_ips.start}
       loadbalancer_end_ip: ${network_effective.loadbalancer_ips.end}
+      cluster_name: ${context}
+      operator_replicas: "${topology_effective == 'single-node' ? 1 : 2}"
     timeout: 15m
     interval: 5m
 
@@ -128,11 +136,12 @@ kustomize:
       - telemetry-base
     components:
       - cilium
-      - "${topology == 'ha' ? 'cilium/ha' : ''}"
       - "${(gateway_effective.enabled == true && gateway_effective.driver == 'cilium') ? 'cilium/gateway' : ''}"
       - cilium/prometheus
       - cilium/hubble
     substitutions:
       k8s_service_host: "${split(split(terraform_output(\"cluster\", \"cluster_endpoint\") ?? \"https://localhost:443\", \"://\")[1], \":\")[0]}"
+      cluster_name: ${context}
+      operator_replicas: "${topology_effective == 'single-node' ? 1 : 2}"
     timeout: 15m
     interval: 5m

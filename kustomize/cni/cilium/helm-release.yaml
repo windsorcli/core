@@ -30,6 +30,11 @@ spec:
         name: cilium
         namespace: system-gitops
   values:
+    # Cluster identity surfaces in Hubble flows, metrics, and (if enabled later) ClusterMesh
+    # routing. Sourced from the Windsor context name — generic, not Cilium-specific.
+    cluster:
+      name: ${cluster_name}
+
     # IPAM: use Kubernetes node CIDR allocation.
     ipam:
       mode: kubernetes
@@ -41,5 +46,7 @@ spec:
     k8sServiceHost: ${k8s_service_host}
     k8sServicePort: "6443"
 
+    # Single operator on single-node clusters (avoids pending pods + extra Lease churn on etcd);
+    # two on multi-node/ha for controller redundancy. Set by the facet from the topology value.
     operator:
-      replicas: 1
+      replicas: ${operator_replicas}

@@ -28,8 +28,18 @@ locals {
 # Cilium Bootstrap
 #-----------------------------------------------------------------------------------------------------------------------
 # Cilium is installed here (before Flux) so that pod networking is available when the GitOps
-# controllers start. The Flux HelmRelease in kustomize/cni/cilium/ adopts this release for
-# ongoing lifecycle management (upgrades, config drift).
+# controllers start. The Flux HelmRelease in kustomize/cni/cilium/ adopts this release via
+# matching releaseName + storageNamespace and owns day-2 feature configuration
+# (hubble, gateway, prometheus, l2, bpf perf, cluster identity).
+#
+# The values below deliberately overlap with the Flux HelmRelease base so the two agree on
+# the baseline (IPAM mode, kube-proxy wiring, operator replicas, Talos capabilities). We do
+# *not* use lifecycle.ignore_changes on `values` here: the hashicorp/helm provider rewrites
+# user-supplied values on every apply regardless of that directive, so the only way to
+# prevent drift between `windsor up` and steady-state is to keep the two sides in sync.
+# Feature patches (hubble, gateway, etc.) live only in Flux — Terraform will not stomp them
+# because it doesn't know about them; Flux reconciles them back on top of this baseline
+# within seconds of any bootstrap re-run.
 
 resource "helm_release" "cilium" {
   repository = "https://helm.cilium.io"
@@ -39,18 +49,21 @@ resource "helm_release" "cilium" {
   version   = var.cilium_version
   namespace = "kube-system"
   wait      = true
-  timeout   = 300
+  timeout   = 600
 
   values = [yamlencode(merge(
     {
-      # IPAM: controls how Cilium allocates pod IPs.
-      # "kubernetes" uses node CIDR ranges (default, works for Talos/EKS without ENI).
+      # IPAM mode is baked into node state; changing it post-install forces pod IP churn.
+      # Must match the Flux-managed value.
       ipam = {
         mode = var.ipam_mode
       }
 
+      # Operator replicas must match the Flux-managed value so re-runs of this module
+      # don't flap the deployment between Flux reconciles. Caller decides the count
+      # (single-node → 1, everything else → 2); see var.operator_replicas.
       operator = {
-        replicas = 1
+        replicas = var.operator_replicas
       }
     },
 
@@ -66,24 +79,31 @@ resource "helm_release" "cilium" {
       k8sServicePort       = null
     },
 
-    # Talos-specific settings: grant required Linux capabilities (instead of full privileged
-    # mode) and disable Cilium's cgroup auto-mount (Talos mounts cgroups at boot).
-    var.talos_mode ? {
+    # Non-privileged mode: grant the explicit Linux capabilities Cilium needs instead of
+    # running with full privileged=true. The capability list is fixed (upstream-recommended
+    # minimum set); privileged-or-not is the caller's decision.
+    var.privileged ? {
+      securityContext = null
+      } : {
       securityContext = {
         capabilities = {
           ciliumAgent      = ["CHOWN", "KILL", "NET_ADMIN", "NET_RAW", "IPC_LOCK", "SYS_ADMIN", "SYS_RESOURCE", "DAC_OVERRIDE", "FOWNER", "SETGID", "SETUID"]
           cleanCiliumState = ["NET_ADMIN", "SYS_ADMIN", "SYS_RESOURCE"]
         }
       }
+    },
+
+    # Skip Cilium's cgroup auto-mount on hosts that mount cgroups at init; point at the
+    # standard cgroup v2 path (/sys/fs/cgroup) so the agent uses the existing mount.
+    var.cgroup_auto_mount ? {
+      cgroup = null
+      } : {
       cgroup = {
         autoMount = {
           enabled = false
         }
         hostRoot = "/sys/fs/cgroup"
       }
-      } : {
-      securityContext = null
-      cgroup          = null
     }
   ))]
 }

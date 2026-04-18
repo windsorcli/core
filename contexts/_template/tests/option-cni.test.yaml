@@ -79,6 +79,10 @@ cases:
         - name: cni
 
   # Cilium: deploys cni terraform + kustomize with k8s_service_host substitution.
+  # Also covers the layout-driven auto-derivation of single-node topology:
+  # 1 control plane + 0 workers with no explicit `topology:` should drive
+  # topology_effective → 'single-node' → operator_replicas=1 in both the TF
+  # inputs and the kustomize substitutions.
   - name: cilium driver deploys cni terraform and kustomize component
     values:
       provider: metal
@@ -103,6 +107,9 @@ cases:
             - cluster
           inputs:
             cluster_endpoint: https://10.5.0.10:6443
+            privileged: false
+            cgroup_auto_mount: false
+            operator_replicas: 1
       kustomize:
         - <<: *cni-base
           components:
@@ -113,9 +120,10 @@ cases:
             - cilium/l2
           substitutions:
             k8s_service_host: "10.5.0.10"
+            operator_replicas: "1"
 
-  # Cilium + HA: adds cilium/ha component.
-  - name: cilium with topology=ha adds cilium/ha component
+  # Cilium + HA: operator replicas scale from 1 (single-node) to 2 via substitution.
+  - name: cilium with topology=ha sets operator_replicas to 2
     values:
       provider: metal
       topology: ha
@@ -139,12 +147,12 @@ cases:
           components:
             - cilium
             - cilium/talos
-            - cilium/ha
             - cilium/prometheus
             - cilium/hubble
             - cilium/l2
           substitutions:
             k8s_service_host: "10.5.0.10"
+            operator_replicas: "2"
 
   # Cilium + Gateway: adds cilium/gateway component and gateway-base dep (CRDs before cilium-operator).
   - name: cilium gateway driver adds cilium/gateway component
@@ -179,6 +187,10 @@ cases:
   - name: cilium driver merges cni patch into common_config_patches for cluster/talos terraform
     values:
       provider: metal
+      # Explicit multi-node to isolate the test from the node-layout-driven
+      # single-node auto-derivation (single-node would add leader-elect and
+      # etcd compaction patches that are covered by option-single-node tests).
+      topology: multi-node
       gateway:
         enabled: false
       network: *default-network
