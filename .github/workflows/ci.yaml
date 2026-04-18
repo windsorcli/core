@@ -271,7 +271,7 @@ jobs:
 
       - name: Investigate cluster failure with Claude
         if: always() && steps.windsor_up.outcome == 'failure'
-        uses: anthropics/claude-code-action@0d2971c794049856e777f4e8bb5a81623ec632d3 # v1.0.100
+        uses: anthropics/claude-code-action@38ec876110f9fbf8b950c79f534430740c3ac009 # v1.0.101
         env:
           GH_REPO: ${{ github.repository }}
           PR_NUMBER: ${{ github.event.pull_request.number }}
