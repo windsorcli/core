@@ -220,10 +220,10 @@ run "invalid_inputs_fail_validation" {
   command = plan
 
   variables {
-    cilium_version    = "1.16"             # missing patch
-    cluster_endpoint  = "http://insecure"  # not https
-    ipam_mode         = "custom"           # not in allowed list
-    operator_replicas = 99                 # out of range
+    cilium_version    = "1.16"            # missing patch
+    cluster_endpoint  = "http://insecure" # not https
+    ipam_mode         = "custom"          # not in allowed list
+    operator_replicas = 99                # out of range
   }
 
   expect_failures = [
