@@ -15,7 +15,7 @@ spec:
     spec:
       chart: gateway-helm
       # renovate: datasource=docker depName=envoyproxy/gateway-helm package=envoyproxy/gateway-helm
-      version: v1.7.1
+      version: 1.7.2
       sourceRef:
         kind: HelmRepository
         name: envoyproxy
