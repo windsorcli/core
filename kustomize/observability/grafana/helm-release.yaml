@@ -41,7 +41,7 @@ spec:
     sidecar:
       image:
         # renovate: datasource=docker depName=kiwigrid/k8s-sidecar package=kiwigrid/k8s-sidecar
-        tag: 2.5.4@sha256:6e9db2cd6630a663dfa9eec59916f8c289d1efa725a6e2d92ec1b5fef31bbd3d
+        tag: 2.6.0@sha256:a6c101156d42ef1050c536fcbcc03bf314544a63ee2daafe45280bc8dbab398f
       dashboards:
         enabled: true
         label: grafana_dashboard
