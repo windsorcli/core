@@ -7,6 +7,12 @@ spec:
   values:
     hubble:
       enabled: true
+      # Rotate TLS certs via an in-cluster CronJob instead of Helm-generated secrets.
+      # The 'helm' method re-renders server-secret.yaml on every upgrade and trips on
+      # newly-enabled Hubble components ("invalid value; expected string" on upgrade).
+      tls:
+        auto:
+          method: cronJob
       metrics:
         enabled:
           - dns
@@ -21,4 +27,4 @@ spec:
       relay:
         enabled: true
       ui:
-        enabled: false
+        enabled: true

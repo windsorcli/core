@@ -146,6 +146,44 @@ config:
     value: "${cluster.driver == 'eks' && (cluster.enabled ?? true)}"
 
   # ---------------------------------------------------------------------------
+  # Topology
+  # ---------------------------------------------------------------------------
+  #
+  # Effective node counts: `count` wins when set (matches platform-docker/incus
+  # which use `count` as the authoritative sizing signal), otherwise fall back
+  # to the declared `nodes` map length.
+  #
+  # Topology is declared differently depending on whether the platform gives
+  # us a node layout to read:
+  #
+  #   - Layout declared (metal, incus, docker-compose-style): derive from
+  #     effective counts — `count` wins when set, otherwise fall back to
+  #     the declared `nodes` map length. 1 total node → single-node;
+  #     3+ control planes → ha; otherwise multi-node.
+  #
+  #   - Workstation runtime with no layout declared (colima, docker-desktop):
+  #     platform implicitly provisions 1 CP, so default to single-node.
+  #
+  #   - Cloud platforms (EKS, AKS) with no layout: explicit `topology` drives.
+  #     Defaults to schema default 'multi-node'.
+  #
+  #   - Explicit `topology` always wins when set. Preserves test overrides
+  #     and the rare case where desired behavior diverges from physical layout.
+  #
+  # The count expressions are inlined (rather than captured in helper config
+  # values) because intermediate config values in the same facet are not
+  # reliably visible to later `when:` clauses in the engine.
+  #
+  - name: topology_effective
+    value: "${topology ?? 'multi-node'}"
+  - name: topology_effective
+    when: "((cluster.controlplanes.count ?? len(cluster.controlplanes.nodes ?? {})) + (cluster.workers.count ?? len(cluster.workers.nodes ?? {}))) > 0"
+    value: "${topology ?? (((cluster.controlplanes.count ?? len(cluster.controlplanes.nodes ?? {})) + (cluster.workers.count ?? len(cluster.workers.nodes ?? {}))) == 1 ? 'single-node' : (cluster.controlplanes.count ?? len(cluster.controlplanes.nodes ?? {})) >= 3 ? 'ha' : 'multi-node')}"
+  - name: topology_effective
+    when: "workstation.runtime != '' && ((cluster.controlplanes.count ?? len(cluster.controlplanes.nodes ?? {})) + (cluster.workers.count ?? len(cluster.workers.nodes ?? {}))) == 0"
+    value: "${topology ?? 'single-node'}"
+
+  # ---------------------------------------------------------------------------
   # Network effective values
   # ---------------------------------------------------------------------------
   #

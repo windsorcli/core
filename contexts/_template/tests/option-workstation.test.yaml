@@ -58,6 +58,15 @@ cases:
             common_config_patches: |-
               cluster:
                 allowSchedulingOnControlPlanes: true
+                controllerManager:
+                  extraArgs:
+                    leader-elect: "false"
+                etcd:
+                  extraArgs:
+                    auto-compaction-mode: revision
+                    auto-compaction-retention: "1000"
+                    max-snapshots: "3"
+                    max-wals: "3"
                 extraManifests:
                 - https://raw.githubusercontent.com/alex1989hu/kubelet-serving-cert-approver/v0.8.7/deploy/standalone-install.yaml
                 network:
@@ -65,6 +74,9 @@ cases:
                     name: none
                 proxy:
                   disabled: true
+                scheduler:
+                  extraArgs:
+                    leader-elect: "false"
               machine:
                 kubelet:
                   extraArgs:
