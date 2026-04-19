@@ -148,11 +148,36 @@ properties:
         description: Enable Terraform in stacks
       backend:
         type: object
+        additionalProperties: false
         properties:
           type:
             type: string
-            description: Backend type (e.g. local, s3, gcs)
-        additionalProperties: true
+            enum:
+              - local
+              - s3
+              - azurerm
+              - kubernetes
+              - none
+            description: Backend type (local, s3, azurerm, kubernetes, or none)
+          prefix:
+            type: string
+            description: Optional state key/prefix applied per module
+          local:
+            type: object
+            additionalProperties: true
+            description: Local backend configuration (https://developer.hashicorp.com/terraform/language/backend/local)
+          s3:
+            type: object
+            additionalProperties: true
+            description: S3 backend configuration (https://developer.hashicorp.com/terraform/language/backend/s3)
+          kubernetes:
+            type: object
+            additionalProperties: true
+            description: Kubernetes backend configuration (https://developer.hashicorp.com/terraform/language/backend/kubernetes)
+          azurerm:
+            type: object
+            additionalProperties: true
+            description: AzureRM backend configuration (https://developer.hashicorp.com/terraform/language/backend/azurerm)
         description: Terraform backend configuration
     additionalProperties: true
     description: Terraform execution and backend overrides
