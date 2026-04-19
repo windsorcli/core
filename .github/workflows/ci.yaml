@@ -365,13 +365,14 @@ jobs:
         id: gitrepo_bump
         if: matrix.mode == 'upgrade' && steps.infra_diff.outputs.skip != 'true'
         timeout-minutes: 6
+        env:
+          BASELINE_REV: ${{ steps.baseline_rev.outputs.baseline_rev }}
         run: |
-          baseline='${{ steps.baseline_rev.outputs.baseline_rev }}'
-          echo "Waiting for GitRepository revision to advance past: $baseline"
+          echo "Waiting for GitRepository revision to advance past: $BASELINE_REV"
           for i in $(seq 1 60); do
             cur=$(windsor exec -- kubectl get gitrepository local -n system-gitops \
               -o jsonpath='{.status.artifact.revision}' 2>/dev/null || true)
-            if [ -n "$cur" ] && [ "$cur" != "$baseline" ]; then
+            if [ -n "$cur" ] && [ "$cur" != "$BASELINE_REV" ]; then
               echo "GitRepository advanced to: $cur (poll $i)"
               exit 0
             fi
