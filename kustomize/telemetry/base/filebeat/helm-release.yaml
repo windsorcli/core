@@ -14,7 +14,6 @@ spec:
       sourceRef:
         kind: HelmRepository
         name: elastic-filebeat
-        namespace: system-telemetry
   values:
     # renovate: datasource=docker depName=docker.elastic.co/beats/filebeat package=docker.elastic.co/beats/filebeat
     image: docker.elastic.co/beats/filebeat:9.3.3@sha256:2ea4af46a22a02a4eaf04b329cc229e92320452ec51cb281b83733f85f5aa2e9

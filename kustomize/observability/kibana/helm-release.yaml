@@ -14,7 +14,6 @@ spec:
       sourceRef:
         kind: HelmRepository
         name: elastic-kibana
-        namespace: system-observability
   values:
     # renovate: datasource=docker depName=docker.elastic.co/kibana/kibana package=docker.elastic.co/kibana/kibana
     image: docker.elastic.co/kibana/kibana:9.3.3@sha256:36301dc49650e47484b23803d60f78e0ac763ab4d7edab6c75c1f54a186d5f9d

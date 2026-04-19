@@ -14,7 +14,6 @@ spec:
       sourceRef:
         kind: HelmRepository
         name: fluxcd-community
-        namespace: system-gitops
   values:
     cli:
       # renovate: datasource=docker depName=ghcr.io/fluxcd/flux-cli package=ghcr.io/fluxcd/flux-cli

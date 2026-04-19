@@ -15,7 +15,6 @@ spec:
       sourceRef:
         kind: HelmRepository
         name: kube-vip
-        namespace: system-gitops
   values:
     image:
       repository: kubevip/kube-vip-cloud-provider

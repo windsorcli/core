@@ -3,7 +3,7 @@ apiVersion: source.toolkit.fluxcd.io/v1
 kind: HelmRepository
 metadata:
   name: cloudnativepg
-  namespace: system-gitops
+  namespace: system-database
 spec:
   interval: 10m
   timeout: 3m
