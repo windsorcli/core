@@ -188,6 +188,7 @@ resource "docker_container" "dns" {
   networks_advanced {
     name         = docker_network.main.name
     ipv4_address = local.dns_ip
+    gw_priority  = 0
   }
   upload {
     content = local.corefile_content
@@ -243,6 +244,7 @@ resource "docker_container" "registry" {
   networks_advanced {
     name         = docker_network.main.name
     ipv4_address = local.registry_ips[each.key]
+    gw_priority  = 0
   }
   volumes {
     host_path      = "${var.project_root}/.windsor/cache/docker/registries/${each.key}"
@@ -288,6 +290,7 @@ resource "docker_container" "git" {
   networks_advanced {
     name         = docker_network.main.name
     ipv4_address = local.git_ip
+    gw_priority  = 0
   }
   volumes {
     host_path      = var.project_root

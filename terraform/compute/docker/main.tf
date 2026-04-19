@@ -352,6 +352,7 @@ resource "docker_container" "containers" {
     content {
       name         = networks_advanced.value
       ipv4_address = (networks_advanced.value == local.network_name && try(local.container_ipv4[each.key], null) != null) ? split("/", local.container_ipv4[each.key])[0] : null
+      gw_priority  = 0
     }
   }
 
