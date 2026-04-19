@@ -71,7 +71,8 @@ cases:
             - cluster
           inputs:
             cluster_endpoint: https://10.5.0.10:6443
-            talos_mode: true
+            privileged: false
+            cgroup_auto_mount: false
         - name: gitops
           path: gitops/flux
           dependsOn:

@@ -46,9 +46,10 @@ terraform:
   # Optional Cilium bootstrap
   # ---------------------------------------------------------------------------
   #
-  # Only runs when the user explicitly opts into Cilium on EKS. Unlike Talos,
-  # EKS doesn't need `talos_mode` — the Cilium module uses the EKS cluster
-  # endpoint directly.
+  # Only runs when the user explicitly opts into Cilium on EKS. EKS runs the
+  # Cilium agent privileged with chart-default cgroup auto-mount (Amazon Linux
+  # AMIs don't mount cgroups during init the way Talos does), so this step
+  # omits the privileged/cgroup_auto_mount overrides the Talos path uses.
   #
   - name: cni
     when: "cni_effective.driver == 'cilium'"

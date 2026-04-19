@@ -25,7 +25,7 @@ kustomize:
     components:
       - cloudnativepg
       - cloudnativepg/prometheus
-      - "${addons.database.postgres.driver == 'cloudnativepg' && topology == 'ha' ? 'cloudnativepg/ha' : ''}"
+      - "${addons.database.postgres.driver == 'cloudnativepg' && topology_effective == 'ha' ? 'cloudnativepg/ha' : ''}"
 
   # Grafana dashboard patch — only when observability is active.
   - name: observability

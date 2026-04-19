@@ -11,3 +11,4 @@ spec:
     gatewayAPI:
       enabled: true
       enableAlpn: true
+      enableAppProtocol: true

@@ -22,7 +22,7 @@ spec:
   values:
     image:
       # renovate: datasource=docker depName=quay.io/jetstack/trust-manager package=quay.io/jetstack/trust-manager
-      tag: v0.22.0@sha256:16f8ad469b944f1b060d5fc2d391672d76ac0b11717d4af27f7dc0e7cf145066
+      tag: v0.22.1@sha256:23e2ab0711d77c3d25a7297d480883e8d037659db88dcdc0dab788a08a1b2097
     defaultPackageImage:
       # renovate: datasource=docker depName=quay.io/jetstack/trust-pkg-debian-bookworm package=quay.io/jetstack/trust-pkg-debian-bookworm
       tag: 20230311-deb12u1.2@sha256:f9a6f14926da740c2831a738393f061b22594ec5d47ff55f68b1f59cfb9bf543

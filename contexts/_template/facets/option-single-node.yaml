@@ -4,7 +4,7 @@ metadata:
   name: single-node
   description: Reduce control-plane chatter on single-node topologies
 
-when: topology == 'single-node'
+when: topology_effective == 'single-node'
 
 # =============================================================================
 # Single-node control-plane hardening
