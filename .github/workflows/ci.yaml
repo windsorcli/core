@@ -239,7 +239,7 @@ jobs:
       - name: Baseline — Windsor Up
         id: baseline_up
         if: matrix.mode == 'upgrade'
-        timeout-minutes: 18
+        timeout-minutes: 14
         run: windsor up --verbose --wait
 
       - name: Baseline — Health check
@@ -281,7 +281,7 @@ jobs:
       # Upgrade mode: this is phase 2, applied on top of converged baseline without reinit.
       - name: Windsor Up
         id: windsor_up
-        timeout-minutes: 18
+        timeout-minutes: 14
         run: windsor up --verbose --wait
 
       - name: Health check
