@@ -245,13 +245,14 @@ jobs:
         id: baseline_health
         if: matrix.mode == 'upgrade'
         run: |
-          windsor exec -- kubectl get kustomizations,helmreleases -A -o json | jq -e '
-            [.items[] | select(
-              (.status.conditions // [])
-              | map(select(.type=="Ready" and .status!="True"))
-              | length > 0
-            )] | length == 0
-          ' || {
+          windsor exec -- kubectl wait --for=condition=Ready --timeout=30s \
+            kustomizations --all -A || {
+            echo "Baseline: not-ready resources:";
+            windsor exec -- kubectl get kustomizations,helmreleases -A;
+            exit 1;
+          }
+          windsor exec -- kubectl wait --for=condition=Ready --timeout=30s \
+            helmreleases --all -A || {
             echo "Baseline: not-ready resources:";
             windsor exec -- kubectl get kustomizations,helmreleases -A;
             exit 1;
@@ -280,13 +281,14 @@ jobs:
       - name: Health check
         id: windsor_health
         run: |
-          windsor exec -- kubectl get kustomizations,helmreleases -A -o json | jq -e '
-            [.items[] | select(
-              (.status.conditions // [])
-              | map(select(.type=="Ready" and .status!="True"))
-              | length > 0
-            )] | length == 0
-          ' || {
+          windsor exec -- kubectl wait --for=condition=Ready --timeout=30s \
+            kustomizations --all -A || {
+            echo "HEAD: not-ready resources:";
+            windsor exec -- kubectl get kustomizations,helmreleases -A;
+            exit 1;
+          }
+          windsor exec -- kubectl wait --for=condition=Ready --timeout=30s \
+            helmreleases --all -A || {
             echo "HEAD: not-ready resources:";
             windsor exec -- kubectl get kustomizations,helmreleases -A;
             exit 1;
