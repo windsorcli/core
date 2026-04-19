@@ -23,8 +23,6 @@ permissions:
 env:
   WINDSOR_PROJECT_ROOT: ${{ github.workspace }}
   DOCKER_HOST: unix:///var/run/docker.sock
-  # renovate: datasource=github-releases depName=docker-compose package=docker/compose
-  DOCKER_COMPOSE_VERSION: v5.1.3
   # renovate: datasource=github-releases depName=troubleshoot package=replicatedhq/troubleshoot
   SUPPORT_BUNDLE_VERSION: v0.125.1
 
@@ -35,13 +33,6 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
-
-      - name: Install Docker Compose
-        run: |
-            sudo curl -L "https://github.com/docker/compose/releases/download/${DOCKER_COMPOSE_VERSION}/docker-compose-$(uname -s)-$(uname -m)" -o /usr/local/bin/docker-compose
-            sudo chmod +x /usr/local/bin/docker-compose
-            docker-compose --version
-        continue-on-error: false
 
       # This module is not loaded by default and is required to run Kubernetes on Docker
       - name: Load br_netfilter kernel module
@@ -88,7 +79,7 @@ jobs:
         run: |
           # Regenerate vendored files from source.yaml definitions and validate
           task dashboards
-          
+
           # Check if any files changed or new files created
           if ! git diff --quiet || [ -n "$(git status --porcelain)" ]; then
             echo "::error::Vendored files are out of sync with source.yaml"
@@ -140,18 +131,18 @@ jobs:
         run: task test
 
   integration:
-    name: Integration Tests
+    name: Integration (${{ matrix.mode }})
     runs-on: ubuntu-latest
+    timeout-minutes: 45
+    strategy:
+      fail-fast: false
+      matrix:
+        mode: [fresh, upgrade]
     steps:
       - name: Checkout code
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
-
-      - name: Install Docker Compose
-        run: |
-            sudo curl -L "https://github.com/docker/compose/releases/download/${DOCKER_COMPOSE_VERSION}/docker-compose-$(uname -s)-$(uname -m)" -o /usr/local/bin/docker-compose
-            sudo chmod +x /usr/local/bin/docker-compose
-            docker-compose --version
-        continue-on-error: false
+        with:
+          fetch-depth: ${{ matrix.mode == 'upgrade' && '0' || '1' }}
 
       - name: Load br_netfilter kernel module
         run: |
@@ -219,20 +210,113 @@ jobs:
         uses: actions/cache@27d5ce7f107fe9357f9df03efb73ab90386fccae # v5.0.5
         with:
           path: .windsor/cache/docker
-          key: docker-cache-${{ runner.os }}-${{ github.sha }}
-          restore-keys: docker-cache-${{ runner.os }}-
+          key: docker-cache-${{ runner.os }}-${{ matrix.mode }}-${{ github.sha }}
+          restore-keys: |
+            docker-cache-${{ runner.os }}-${{ matrix.mode }}-
+            docker-cache-${{ runner.os }}-
 
-      - name: Windsor Init
+      # ========== Upgrade-mode baseline phase ==========
+      # Baseline = origin/main on PR events (simulates "existing user pulls this PR")
+      # Baseline = HEAD~1 on push events (simulates post-merge upgrade from previous main)
+      - name: Checkout baseline
+        if: matrix.mode == 'upgrade'
         run: |
-          windsor init local --reset
+          if [ "${{ github.event_name }}" = "pull_request" ]; then
+            git fetch origin main
+            git checkout origin/main
+          else
+            git checkout HEAD~1
+          fi
+
+      - name: Baseline — Windsor Init
+        if: matrix.mode == 'upgrade'
+        run: windsor init local --reset
+
+      - name: Baseline — Show blueprint
+        if: matrix.mode == 'upgrade'
+        run: windsor show blueprint
+
+      - name: Baseline — Windsor Up
+        id: baseline_up
+        if: matrix.mode == 'upgrade'
+        timeout-minutes: 14
+        run: windsor up --verbose --wait
+
+      - name: Baseline — Health check
+        id: baseline_health
+        if: matrix.mode == 'upgrade'
+        run: |
+          windsor exec -- kubectl wait --for=condition=Ready --timeout=300s \
+            kustomizations --all -A || {
+            echo "Baseline: not-ready resources:";
+            windsor exec -- kubectl get kustomizations,helmreleases -A;
+            exit 1;
+          }
+          windsor exec -- kubectl wait --for=condition=Ready --timeout=300s \
+            helmreleases --all -A || {
+            echo "Baseline: not-ready resources:";
+            windsor exec -- kubectl get kustomizations,helmreleases -A;
+            exit 1;
+          }
+
+      - name: Checkout HEAD
+        if: matrix.mode == 'upgrade'
+        run: git checkout ${{ github.sha }}
+
+      - name: HEAD — Windsor Plan
+        id: windsor_plan
+        if: matrix.mode == 'upgrade'
+        run: windsor plan
+
+      # ========== Fresh-mode init (fresh only) ==========
+      - name: Windsor Init
+        if: matrix.mode == 'fresh'
+        run: windsor init local --reset
 
       - name: Show blueprint
-        run: |
-          windsor show blueprint
+        if: matrix.mode == 'fresh'
+        run: windsor show blueprint
 
+      # ========== Apply HEAD (both modes) ==========
+      # Fresh mode: this is the only up.
+      # Upgrade mode: this is phase 2, applied on top of converged baseline without reinit.
       - name: Windsor Up
         id: windsor_up
+        timeout-minutes: 14
         run: windsor up --verbose --wait
+
+      - name: Health check
+        id: windsor_health
+        run: |
+          windsor exec -- kubectl wait --for=condition=Ready --timeout=300s \
+            kustomizations --all -A || {
+            echo "HEAD: not-ready resources:";
+            windsor exec -- kubectl get kustomizations,helmreleases -A;
+            exit 1;
+          }
+          windsor exec -- kubectl wait --for=condition=Ready --timeout=300s \
+            helmreleases --all -A || {
+            echo "HEAD: not-ready resources:";
+            windsor exec -- kubectl get kustomizations,helmreleases -A;
+            exit 1;
+          }
+
+      - name: Determine failed phase
+        if: always()
+        id: phase
+        run: |
+          bad() { [ "$1" = "failure" ] || [ "$1" = "cancelled" ]; }
+          if bad "${{ steps.baseline_up.outcome }}" || bad "${{ steps.baseline_health.outcome }}"; then
+            echo "phase=baseline" >> $GITHUB_OUTPUT
+          elif bad "${{ steps.windsor_plan.outcome }}" || bad "${{ steps.windsor_up.outcome }}" || bad "${{ steps.windsor_health.outcome }}"; then
+            if [ "${{ matrix.mode }}" = "upgrade" ]; then
+              echo "phase=upgrade" >> $GITHUB_OUTPUT
+            else
+              echo "phase=install" >> $GITHUB_OUTPUT
+            fi
+          else
+            echo "phase=none" >> $GITHUB_OUTPUT
+          fi
 
       - name: Collect Windsor State
         if: always()
@@ -252,25 +336,26 @@ jobs:
             cd - &&
             rm -rf "$OLDPWD"
           fi
-          
+
           # Run talos diagnostics collection within Windsor environment
           windsor exec -- .github/scripts/collect-talos-diagnostics.sh support-bundles/talos-diagnostics
 
       - name: Collect support bundle
         if: always()
         run: |
-          support-bundle --interactive=false --output=support-bundles/bundle-${{ github.workflow }}-${{ github.run_id }}-${{ github.run_number }} .github/support-bundle.yaml
+          PHASE_TAG="${{ steps.phase.outputs.phase }}"
+          support-bundle --interactive=false --output=support-bundles/bundle-${{ matrix.mode }}-${PHASE_TAG:-unknown}-${{ github.workflow }}-${{ github.run_id }}-${{ github.run_number }} .github/support-bundle.yaml
 
       - name: Upload support bundle
         if: always()
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
-          name: support-bundle-local
+          name: support-bundle-${{ matrix.mode }}
           path: support-bundles/
           retention-days: 30
 
-      - name: Investigate cluster failure with Claude
-        if: always() && steps.windsor_up.outcome == 'failure'
+      - name: Investigate failure with Claude
+        if: always() && steps.phase.outputs.phase != 'none'
         uses: anthropics/claude-code-action@38ec876110f9fbf8b950c79f534430740c3ac009 # v1.0.101
         env:
           GH_REPO: ${{ github.repository }}
@@ -278,17 +363,39 @@ jobs:
           RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
           RUN_ID: ${{ github.run_id }}
           COMMIT_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
-          DIAGNOSIS_MARKER: "<!-- claude-cluster-diagnosis -->"
+          MODE: ${{ matrix.mode }}
+          PHASE: ${{ steps.phase.outputs.phase }}
+          DIAGNOSIS_MARKER: "<!-- claude-integration-${{ matrix.mode }}-diagnosis -->"
         with:
           anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
           github_token: ${{ secrets.GITHUB_TOKEN }}
           allowed_bots: "renovate"
           prompt: |
-            The integration test job just failed. The local Windsor cluster
-            is still running on this runner and has NOT been torn down yet.
-            Your job is to inspect it live, cross-reference it against the
-            CI run's own failure logs, and publish a short root-cause
-            diagnosis.
+            The integration test just failed. The local Windsor cluster
+            is still running on this runner and has NOT been torn down.
+            Inspect it, cross-reference the CI run's logs, and publish a
+            short root-cause diagnosis.
+
+            ## Context — mode and phase
+
+            MODE=`$MODE`:
+              - `fresh`   — a single `windsor up` on this commit. Simulates
+                            a new user bringing up the cluster.
+              - `upgrade` — apply a baseline (`origin/main` on PR events,
+                            `HEAD~1` on push events), then apply this
+                            commit on top of the converged baseline.
+                            Simulates an existing user upgrading.
+
+            PHASE=`$PHASE`:
+              - `install`  — fresh-mode `windsor up` failed.
+              - `baseline` — upgrade-mode baseline did not come up. Main
+                             (or HEAD~1) is red — NOT caused by this PR's
+                             changes. Triage should go to whoever broke
+                             the baseline.
+              - `upgrade`  — upgrade-mode HEAD apply on top of a converged
+                             baseline failed. This IS the signal upgrade
+                             tests exist to catch: this PR breaks the
+                             upgrade path.
 
             ## Step 1 — Read the CI run's failure logs
 
@@ -303,15 +410,13 @@ jobs:
                 > /tmp/failed-jobs.json
               cat /tmp/failed-jobs.json
 
-              # Fetch the failed-step log slices (this is the integration
-              # job that invoked us — usually `Windsor Up` or a wait step).
+              # Fetch the failed-step log slices.
               gh run view "$RUN_ID" --repo "$GH_REPO" --log-failed \
                 > /tmp/failed.log 2>&1 || true
               tail -n 400 /tmp/failed.log
 
-            Treat the log tail as ground truth for *what* failed (timeout,
-            non-zero exit, error string). Use the live cluster to explain
-            *why*.
+            Treat the log tail as ground truth for *what* failed. Use the
+            live cluster to explain *why*.
 
             ## Step 2 — Inspect the cluster
 
@@ -320,14 +425,17 @@ jobs:
             inside the Windsor environment (bare kubectl will get
             connection refused in this repo).
 
-            Focus on:
-            - Which kustomization / helm release / pod is failing, and why
-              (look at events, logs, and `status.conditions`).
-            - Whether the cluster symptom matches the CI log failure from
-              Step 1, or whether they point at different problems.
-            - Whether the failure is a flake (image pull, timeout, probe)
-              or a real regression in the changed code.
-            - One concrete next step for whoever triages this.
+            Focus the inspection on the failed phase:
+              - PHASE=install: which kustomization/HelmRelease/pod failed
+                and why (events, logs, conditions). Whether it's a flake
+                or a real regression in the changed code.
+              - PHASE=baseline: whether the baseline itself is healthy now
+                — this is orthogonal to the PR. Suggested next step is
+                almost always "triage main, not this PR."
+              - PHASE=upgrade: what changed between baseline and post-HEAD
+                state — new/changed CRDs, HelmReleases that couldn't
+                reconcile, pods stuck during rollout, webhooks rejecting
+                admission, stale context or schema incompatibility.
 
             Do NOT attempt to fix the cluster, restart pods, or mutate
             state — read-only inspection only.
@@ -341,7 +449,7 @@ jobs:
               $DIAGNOSIS_MARKER
               > [!CAUTION]
               >
-              > ## 🩺 Cluster diagnosis — integration tests failed
+              > ## 🩺 Integration diagnosis — mode: `$MODE`, phase: `$PHASE`
               >
               > **Commit:** `<short SHA of COMMIT_SHA>` · **Run:** [#$RUN_ID]($RUN_URL)
               >
@@ -351,20 +459,23 @@ jobs:
               > condition, and log snippet that points at the cause.
               > Quote log lines inline with backticks.}
               >
-              > **Suggested next step:** {one sentence, actionable.}
+              > **Suggested next step:** {one sentence, actionable.
+              > PHASE=baseline ⇒ "triage main, not this PR."
+              > PHASE=install or upgrade ⇒ actionable on this PR.}
               >
               > _Live read-only inspection by Claude. Support bundle
               > attached to the run artifacts._
-              <!-- /claude-cluster-diagnosis -->
+              <!-- /claude-integration-$MODE-diagnosis -->
 
-            The `$DIAGNOSIS_MARKER` and closing `<!-- /claude-cluster-diagnosis -->`
-            lines are required — they let future runs find and update
-            this comment in place.
+            The `$DIAGNOSIS_MARKER` and closing
+            `<!-- /claude-integration-$MODE-diagnosis -->` lines are
+            required — they let future runs find and update this comment
+            in place.
 
-            Also save a copy to `support-bundles/claude-investigation.md`
-            (so it rides along in the uploaded artifact) and append the
-            body to `$GITHUB_STEP_SUMMARY` (so it shows on the Actions
-            run page).
+            Also save a copy to
+            `support-bundles/claude-$MODE-investigation.md` (so it rides
+            along in the uploaded artifact) and append the body to
+            `$GITHUB_STEP_SUMMARY` (so it shows on the Actions run page).
 
             ## Publish as a PR comment (upsert)
 
@@ -388,7 +499,7 @@ jobs:
             step — the step summary and artifact are enough.
           claude_args: |
             --model claude-sonnet-4-6
-            --max-turns 80
+            --max-turns 100
             --allowedTools Read,Grep,Glob,Write,Bash(windsor exec:*),Bash(windsor show:*),Bash(windsor context:*),Bash(gh api:*),Bash(gh run view:*),Bash(gh run list:*),Bash(jq:*),Bash(cat:*),Bash(tee:*),Bash(ls:*),Bash(head:*),Bash(tail:*),Bash(grep:*)
             --disallowedTools WebSearch,WebFetch
 
