@@ -297,7 +297,6 @@ properties:
       - single-node
       - multi-node
       - ha
-    default: multi-node
     description: Cluster topology preset (single-node, multi-node, or ha).
 
   # Network configuration (used by terraform templates)

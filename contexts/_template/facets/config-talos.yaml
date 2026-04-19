@@ -41,7 +41,7 @@ config:
 
       # topology=single-node implies the control plane must schedule workloads,
       # so flip this on automatically even if the user didn't set schedulable.
-      allowSchedulingOnControlPlanes: "${(cluster.controlplanes.schedulable ?? false) || topology == 'single-node'}"
+      allowSchedulingOnControlPlanes: "${(cluster.controlplanes.schedulable ?? false) || topology_effective == 'single-node'}"
       controlplane_volumes: "${cluster.controlplanes.volumes ?? []}"
       worker_volumes: "${cluster.workers.volumes ?? []}"
       csi_local_volume_path: "${cluster.storage.local_base_path ?? \"/var/mnt/local\"}"
@@ -127,7 +127,7 @@ config:
   # default is off, which lets the DB grow unboundedly).
   #
   - name: talos_common
-    when: topology == 'single-node'
+    when: topology_effective == 'single-node'
     value:
       common_patch:
         cluster:

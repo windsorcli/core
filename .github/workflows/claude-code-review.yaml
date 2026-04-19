@@ -20,7 +20,7 @@ jobs:
           fetch-depth: 0
       - name: Fetch base ref
         run: git fetch --depth=1 origin ${{ github.base_ref }}
-      - uses: anthropics/claude-code-action@5fb899572b81d2bb648d4d187173a2f423a9677c # v1.0.96
+      - uses: anthropics/claude-code-action@c3d45e8e941e1b2ad7b278c57482d9c5bf1f35b3 # v1.0.99
         env:
           PR_NUMBER: ${{ github.event.pull_request.number }}
           PR_HEAD_SHA: ${{ github.event.pull_request.head.sha }}
@@ -272,6 +272,6 @@ jobs:
               instead of forcing a bogus line number.
           claude_args: |
             --model claude-sonnet-4-6
-            --max-turns 50
+            --max-turns 100
             --allowedTools Read,Grep,Glob,Bash(git:*),Bash(gh pr view:*),Bash(gh pr edit:*),Bash(gh pr diff:*),Bash(gh api:*),Bash(jq:*),Bash(cat:*),Bash(tee:*),Bash(mktemp:*),Bash(head:*),Bash(xargs:*),Bash(python3:*),Write
             --disallowedTools WebSearch,WebFetch

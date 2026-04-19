@@ -188,10 +188,16 @@ resource "docker_container" "dns" {
   networks_advanced {
     name         = docker_network.main.name
     ipv4_address = local.dns_ip
+    gw_priority  = 0
   }
   upload {
     content = local.corefile_content
     file    = "/etc/coredns/Corefile"
+  }
+  # Daemon-level log-opts (e.g. GitHub Actions runners) leak into state and force
+  # replacement on re-plan when config omits them. Ignore to keep plans stable.
+  lifecycle {
+    ignore_changes = [log_opts]
   }
 }
 
@@ -243,10 +249,15 @@ resource "docker_container" "registry" {
   networks_advanced {
     name         = docker_network.main.name
     ipv4_address = local.registry_ips[each.key]
+    gw_priority  = 0
   }
   volumes {
     host_path      = "${var.project_root}/.windsor/cache/docker/registries/${each.key}"
     container_path = "/var/lib/registry"
+    read_only      = false
+  }
+  lifecycle {
+    ignore_changes = [log_opts]
   }
 }
 
@@ -288,9 +299,14 @@ resource "docker_container" "git" {
   networks_advanced {
     name         = docker_network.main.name
     ipv4_address = local.git_ip
+    gw_priority  = 0
   }
   volumes {
     host_path      = var.project_root
     container_path = "/repos/mount/${local.git_repo_name}"
+    read_only      = false
+  }
+  lifecycle {
+    ignore_changes = [log_opts]
   }
 }

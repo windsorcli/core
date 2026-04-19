@@ -15,7 +15,7 @@ spec:
     spec:
       chart: gateway-helm
       # renovate: datasource=docker depName=envoyproxy/gateway-helm package=envoyproxy/gateway-helm
-      version: v1.7.1
+      version: 1.7.2
       sourceRef:
         kind: HelmRepository
         name: envoyproxy
@@ -25,7 +25,7 @@ spec:
       images:
         envoyGateway:
           # renovate: datasource=docker depName=docker.io/envoyproxy/gateway package=docker.io/envoyproxy/gateway
-          image: docker.io/envoyproxy/gateway:v1.7.1@sha256:8bb273728bacf981cb2862ed11a6ba8b70970e3b31e3a00429f34f8478c94b8b
+          image: docker.io/envoyproxy/gateway:v1.7.2@sha256:62b7313374dde9e3db69896a37b424593a1b70210cfcd04e3535761684308a19
         ratelimit:
           # renovate: datasource=docker depName=docker.io/envoyproxy/ratelimit package=docker.io/envoyproxy/ratelimit
           image: docker.io/envoyproxy/ratelimit:c8765e89@sha256:afce1a5111cf9cb6662383c7f2c72d9c26d9cf53d8285173166d6d853074a1f7
