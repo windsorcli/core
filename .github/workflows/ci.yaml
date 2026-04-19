@@ -1,3 +1,11 @@
+# =============================================================================
+# CI workflow
+# =============================================================================
+# Runs on push-to-main, tagged releases, and PRs against main. Four jobs:
+#   code-checks  — yamllint, shellcheck, terraform fmt, checkov, vendored-file drift
+#   tests        — unit tests
+#   integration  — end-to-end Windsor runs on a fresh + upgrade matrix
+#   publish      — push OCI package on main and tag pushes (gated on integration)
 name: CI
 
 on:
@@ -29,6 +37,10 @@ env:
   FLUX_VERSION: v2.8.5
 
 jobs:
+
+  # ===========================================================================
+  # Code Quality
+  # ===========================================================================
   code-checks:
     name: Code Quality
     runs-on: ubuntu-latest
@@ -36,7 +48,7 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
 
-      # This module is not loaded by default and is required to run Kubernetes on Docker
+      # br_netfilter is required to run Kubernetes on Docker; not loaded by default.
       - name: Load br_netfilter kernel module
         run: |
           sudo modprobe br_netfilter
@@ -77,12 +89,10 @@ jobs:
         with:
           version: 3.x
 
+      # Regenerate vendored files from source.yaml and fail if the tree drifts.
       - name: Validate vendored assets
         run: |
-          # Regenerate vendored files from source.yaml definitions and validate
           task dashboards
-
-          # Check if any files changed or new files created
           if ! git diff --quiet || [ -n "$(git status --porcelain)" ]; then
             echo "::error::Vendored files are out of sync with source.yaml"
             echo ""
@@ -105,6 +115,9 @@ jobs:
         with:
           sarif_file: results.sarif
 
+  # ===========================================================================
+  # Unit Tests
+  # ===========================================================================
   tests:
     name: Tests
     runs-on: ubuntu-latest
@@ -132,6 +145,17 @@ jobs:
       - name: Run Tests
         run: task test
 
+  # ===========================================================================
+  # Integration (fresh | upgrade)
+  # ===========================================================================
+  # Two matrix modes per run:
+  #   fresh    — single `windsor up` on HEAD; simulates a new user bringing up
+  #              the cluster for the first time.
+  #   upgrade  — converge the baseline (origin/main on PR events, HEAD~1 on
+  #              push events), then apply HEAD on top without reinit; simulates
+  #              an existing user pulling + applying this change.
+  # On any failure, the still-running cluster is handed to a read-only Claude
+  # step that publishes a diagnosis to the PR / step summary / artifact.
   integration:
     name: Integration (${{ matrix.mode }})
     runs-on: ubuntu-latest
@@ -141,10 +165,42 @@ jobs:
       matrix:
         mode: [fresh, upgrade]
     steps:
+
+      # -----------------------------------------------------------------------
+      # Runner preparation
+      # -----------------------------------------------------------------------
+      # Fetch-depth is full for upgrade mode (needs origin/main or HEAD~1),
+      # shallow for fresh. Kernel module, Docker daemon tuning, and required
+      # CLIs are installed here before anything Windsor-related runs.
       - name: Checkout code
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
         with:
           fetch-depth: ${{ matrix.mode == 'upgrade' && '0' || '1' }}
+
+      # Upgrade mode only re-runs when something Flux actually syncs changes:
+      # facets, terraform, kustomize, or the root windsor.yaml. Doc-only or
+      # CI-only PRs don't advance the GitRepository revision, so the upgrade
+      # phase would otherwise time out waiting for a bump that can't happen.
+      - name: Check infra changes
+        id: infra_diff
+        run: |
+          if [ "${{ matrix.mode }}" != "upgrade" ]; then
+            echo "skip=false" >> $GITHUB_OUTPUT
+            exit 0
+          fi
+          if [ "${{ github.event_name }}" = "pull_request" ]; then
+            git fetch origin main
+            base='origin/main'
+          else
+            base='HEAD~1'
+          fi
+          if git diff --quiet "$base" HEAD -- terraform kustomize contexts windsor.yaml; then
+            echo "No infra changes (terraform, kustomize, contexts, windsor.yaml). Skipping upgrade test."
+            echo "skip=true" >> $GITHUB_OUTPUT
+          else
+            echo "Infra changes detected. Running upgrade test."
+            echo "skip=false" >> $GITHUB_OUTPUT
+          fi
 
       - name: Load br_netfilter kernel module
         run: |
@@ -152,13 +208,12 @@ jobs:
           echo "1" | sudo tee /proc/sys/net/bridge/bridge-nf-call-iptables
           echo "1" | sudo tee /proc/sys/net/bridge/bridge-nf-call-ip6tables
 
+      # Move docker data-root to /mnt (66GB available vs ~10GB default) and
+      # cap json-file logging at 10m × 3 to prevent runaway disk growth.
       - name: Configure Docker for increased storage
         run: |
-          # Move Docker's data root to /mnt which has 66GB available (vs ~10GB on default location)
-          # This increases Docker's storage capacity from ~10GB to ~66GB
           sudo mkdir -p /mnt/docker-data
           sudo mkdir -p /etc/docker
-          # Configure Docker to use /mnt for data storage and limit log growth
           echo '{
             "data-root": "/mnt/docker-data",
             "log-driver": "json-file",
@@ -167,11 +222,8 @@ jobs:
               "max-file": "3"
             }
           }' | sudo tee /etc/docker/daemon.json
-          # Restart Docker to apply new data-root configuration
           sudo systemctl restart docker || sudo service docker restart || true
-          # Wait for Docker to be ready
           timeout 30 bash -c 'until docker info > /dev/null 2>&1; do sleep 1; done' || true
-          # Verify Docker is using the new data-root
           docker info | grep "Docker Root Dir" || true
 
       - name: Setup Terraform
@@ -209,6 +261,9 @@ jobs:
       - name: Create bundle directory
         run: mkdir -p support-bundles
 
+      # -----------------------------------------------------------------------
+      # Windsor install + image cache
+      # -----------------------------------------------------------------------
       - name: Install Windsor CLI
         uses: windsorcli/action@a829ee3c5d9826fd0b31d5e730edcd515644d866 # v0.5.1
         with:
@@ -227,11 +282,15 @@ jobs:
             docker-cache-${{ runner.os }}-${{ matrix.mode }}-
             docker-cache-${{ runner.os }}-
 
-      # ========== Upgrade-mode baseline phase ==========
-      # Baseline = origin/main on PR events (simulates "existing user pulls this PR")
-      # Baseline = HEAD~1 on push events (simulates post-merge upgrade from previous main)
+      # -----------------------------------------------------------------------
+      # Baseline phase — upgrade mode only
+      # -----------------------------------------------------------------------
+      # Converge the "already-installed" state, then capture the Flux
+      # GitRepository revision. The HEAD phase gates its Ready wait on that
+      # revision advancing, so a slow git-livereload webhook can't let a
+      # stale baseline-Ready state pass for HEAD.
       - name: Checkout baseline
-        if: matrix.mode == 'upgrade'
+        if: matrix.mode == 'upgrade' && steps.infra_diff.outputs.skip != 'true'
         run: |
           if [ "${{ github.event_name }}" = "pull_request" ]; then
             git fetch origin main
@@ -241,22 +300,22 @@ jobs:
           fi
 
       - name: Baseline — Windsor Init
-        if: matrix.mode == 'upgrade'
+        if: matrix.mode == 'upgrade' && steps.infra_diff.outputs.skip != 'true'
         run: windsor init local --reset
 
       - name: Baseline — Show blueprint
-        if: matrix.mode == 'upgrade'
+        if: matrix.mode == 'upgrade' && steps.infra_diff.outputs.skip != 'true'
         run: windsor show blueprint
 
       - name: Baseline — Windsor Up
         id: baseline_up
-        if: matrix.mode == 'upgrade'
+        if: matrix.mode == 'upgrade' && steps.infra_diff.outputs.skip != 'true'
         timeout-minutes: 14
         run: windsor up --verbose --wait
 
       - name: Baseline — Health check
         id: baseline_health
-        if: matrix.mode == 'upgrade'
+        if: matrix.mode == 'upgrade' && steps.infra_diff.outputs.skip != 'true'
         run: |
           windsor exec -- kubectl wait --for=condition=Ready --timeout=300s \
             kustomizations --all -A || {
@@ -271,16 +330,35 @@ jobs:
             exit 1;
           }
 
+      - name: Baseline — Capture GitRepository revision
+        id: baseline_rev
+        if: matrix.mode == 'upgrade' && steps.infra_diff.outputs.skip != 'true'
+        run: |
+          rev=$(windsor exec -- kubectl get gitrepository local -n system-gitops \
+            -o jsonpath='{.status.artifact.revision}')
+          if [ -z "$rev" ]; then
+            echo "Failed to read GitRepository revision"
+            exit 1
+          fi
+          echo "baseline_rev=$rev" >> $GITHUB_OUTPUT
+          echo "Baseline GitRepository revision: $rev"
+
+      # -----------------------------------------------------------------------
+      # HEAD phase — both modes
+      # -----------------------------------------------------------------------
+      # Fresh: a single `windsor up` on HEAD.
+      # Upgrade: apply HEAD on top of the converged baseline without reinit,
+      # then wait for Flux to catch up past the captured revision before
+      # checking health.
       - name: Checkout HEAD
-        if: matrix.mode == 'upgrade'
+        if: matrix.mode == 'upgrade' && steps.infra_diff.outputs.skip != 'true'
         run: git checkout ${{ github.sha }}
 
       - name: HEAD — Windsor Plan
         id: windsor_plan
-        if: matrix.mode == 'upgrade'
+        if: matrix.mode == 'upgrade' && steps.infra_diff.outputs.skip != 'true'
         run: windsor plan
 
-      # ========== Fresh-mode init (fresh only) ==========
       - name: Windsor Init
         if: matrix.mode == 'fresh'
         run: windsor init local --reset
@@ -289,16 +367,36 @@ jobs:
         if: matrix.mode == 'fresh'
         run: windsor show blueprint
 
-      # ========== Apply HEAD (both modes) ==========
-      # Fresh mode: this is the only up.
-      # Upgrade mode: this is phase 2, applied on top of converged baseline without reinit.
       - name: Windsor Up
         id: windsor_up
+        if: steps.infra_diff.outputs.skip != 'true'
         timeout-minutes: 14
         run: windsor up --verbose --wait
 
+      - name: HEAD — Wait for GitRepository revision bump
+        id: gitrepo_bump
+        if: matrix.mode == 'upgrade' && steps.infra_diff.outputs.skip != 'true'
+        timeout-minutes: 6
+        env:
+          BASELINE_REV: ${{ steps.baseline_rev.outputs.baseline_rev }}
+        run: |
+          echo "Waiting for GitRepository revision to advance past: $BASELINE_REV"
+          for i in $(seq 1 60); do
+            cur=$(windsor exec -- kubectl get gitrepository local -n system-gitops \
+              -o jsonpath='{.status.artifact.revision}' 2>/dev/null || true)
+            if [ -n "$cur" ] && [ "$cur" != "$BASELINE_REV" ]; then
+              echo "GitRepository advanced to: $cur (poll $i)"
+              exit 0
+            fi
+            sleep 5
+          done
+          echo "GitRepository never advanced past baseline after 5m"
+          windsor exec -- kubectl get gitrepository -A
+          exit 1
+
       - name: Health check
         id: windsor_health
+        if: steps.infra_diff.outputs.skip != 'true'
         run: |
           windsor exec -- kubectl wait --for=condition=Ready --timeout=300s \
             kustomizations --all -A || {
@@ -313,6 +411,15 @@ jobs:
             exit 1;
           }
 
+      # -----------------------------------------------------------------------
+      # Phase classification + diagnostics collection
+      # -----------------------------------------------------------------------
+      # Classifies which phase failed so the Claude step gets the right
+      # framing:
+      #   baseline — upgrade baseline never converged (main is red, not PR)
+      #   install  — fresh-mode HEAD up failed
+      #   upgrade  — upgrade-mode HEAD applied but didn't reconcile cleanly
+      #   none     — everything passed
       - name: Determine failed phase
         if: always()
         id: phase
@@ -320,7 +427,7 @@ jobs:
           bad() { [ "$1" = "failure" ] || [ "$1" = "cancelled" ]; }
           if bad "${{ steps.baseline_up.outcome }}" || bad "${{ steps.baseline_health.outcome }}"; then
             echo "phase=baseline" >> $GITHUB_OUTPUT
-          elif bad "${{ steps.windsor_plan.outcome }}" || bad "${{ steps.windsor_up.outcome }}" || bad "${{ steps.windsor_health.outcome }}"; then
+          elif bad "${{ steps.windsor_plan.outcome }}" || bad "${{ steps.windsor_up.outcome }}" || bad "${{ steps.gitrepo_bump.outcome }}" || bad "${{ steps.windsor_health.outcome }}"; then
             if [ "${{ matrix.mode }}" = "upgrade" ]; then
               echo "phase=upgrade" >> $GITHUB_OUTPUT
             else
@@ -331,14 +438,13 @@ jobs:
           fi
 
       - name: Collect Windsor State
-        if: always()
+        if: always() && steps.infra_diff.outputs.skip != 'true'
         run: |
           tar --exclude='.windsor/cache/docker' --exclude='.terraform' -czf support-bundles/windsor-state.tar.gz contexts/local .windsor
 
       - name: Collect Talos Diagnostics
-        if: always()
+        if: always() && steps.infra_diff.outputs.skip != 'true'
         run: |
-          # Install talosctl if not available
           if ! command -v talosctl &> /dev/null; then
             echo "Installing talosctl..."
             cd "$(mktemp -d)" &&
@@ -348,24 +454,28 @@ jobs:
             cd - &&
             rm -rf "$OLDPWD"
           fi
-
-          # Run talos diagnostics collection within Windsor environment
           windsor exec -- .github/scripts/collect-talos-diagnostics.sh support-bundles/talos-diagnostics
 
       - name: Collect support bundle
-        if: always()
+        if: always() && steps.infra_diff.outputs.skip != 'true'
         run: |
           PHASE_TAG="${{ steps.phase.outputs.phase }}"
           support-bundle --interactive=false --output=support-bundles/bundle-${{ matrix.mode }}-${PHASE_TAG:-unknown}-${{ github.workflow }}-${{ github.run_id }}-${{ github.run_number }} .github/support-bundle.yaml
 
       - name: Upload support bundle
-        if: always()
+        if: always() && steps.infra_diff.outputs.skip != 'true'
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: support-bundle-${{ matrix.mode }}
           path: support-bundles/
           retention-days: 30
 
+      # -----------------------------------------------------------------------
+      # Claude investigation (read-only)
+      # -----------------------------------------------------------------------
+      # Runs on any non-none phase. Inspects the still-running cluster and
+      # publishes a diagnosis to the PR conversation (upsert), step summary,
+      # and uploaded artifact. No cluster mutation — strictly read-only tools.
       - name: Investigate failure with Claude
         if: always() && steps.phase.outputs.phase != 'none'
         uses: anthropics/claude-code-action@38ec876110f9fbf8b950c79f534430740c3ac009 # v1.0.101
@@ -515,6 +625,9 @@ jobs:
             --allowedTools Read,Grep,Glob,Write,Bash(windsor exec:*),Bash(windsor show:*),Bash(windsor context:*),Bash(gh api:*),Bash(gh run view:*),Bash(gh run list:*),Bash(jq:*),Bash(cat:*),Bash(tee:*),Bash(ls:*),Bash(head:*),Bash(tail:*),Bash(grep:*)
             --disallowedTools WebSearch,WebFetch
 
+      # -----------------------------------------------------------------------
+      # Teardown
+      # -----------------------------------------------------------------------
       - name: Windsor Down
         if: always()
         run: |
@@ -522,6 +635,11 @@ jobs:
 
           windsor down
 
+  # ===========================================================================
+  # Publish OCI Package
+  # ===========================================================================
+  # Gated on successful integration. Pushes the Windsor bundle to GHCR under
+  # the current ref (tag name or "latest" on main).
   publish:
     name: Publish OCI Package
     runs-on: ubuntu-latest
