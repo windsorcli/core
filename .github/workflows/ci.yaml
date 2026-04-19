@@ -133,7 +133,7 @@ jobs:
   integration:
     name: Integration (${{ matrix.mode }})
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    timeout-minutes: 45
     strategy:
       fail-fast: false
       matrix:
@@ -239,6 +239,7 @@ jobs:
       - name: Baseline — Windsor Up
         id: baseline_up
         if: matrix.mode == 'upgrade'
+        timeout-minutes: 18
         run: windsor up --verbose --wait
 
       - name: Baseline — Health check
@@ -262,6 +263,10 @@ jobs:
         if: matrix.mode == 'upgrade'
         run: git checkout ${{ github.sha }}
 
+      - name: HEAD — Windsor Plan
+        if: matrix.mode == 'upgrade'
+        run: windsor plan
+
       # ========== Fresh-mode init (fresh only) ==========
       - name: Windsor Init
         if: matrix.mode == 'fresh'
@@ -276,6 +281,7 @@ jobs:
       # Upgrade mode: this is phase 2, applied on top of converged baseline without reinit.
       - name: Windsor Up
         id: windsor_up
+        timeout-minutes: 18
         run: windsor up --verbose --wait
 
       - name: Health check
@@ -298,9 +304,10 @@ jobs:
         if: always()
         id: phase
         run: |
-          if [ "${{ steps.baseline_up.outcome }}" = "failure" ] || [ "${{ steps.baseline_health.outcome }}" = "failure" ]; then
+          bad() { [ "$1" = "failure" ] || [ "$1" = "cancelled" ]; }
+          if bad "${{ steps.baseline_up.outcome }}" || bad "${{ steps.baseline_health.outcome }}"; then
             echo "phase=baseline" >> $GITHUB_OUTPUT
-          elif [ "${{ steps.windsor_up.outcome }}" = "failure" ] || [ "${{ steps.windsor_health.outcome }}" = "failure" ]; then
+          elif bad "${{ steps.windsor_up.outcome }}" || bad "${{ steps.windsor_health.outcome }}"; then
             if [ "${{ matrix.mode }}" = "upgrade" ]; then
               echo "phase=upgrade" >> $GITHUB_OUTPUT
             else
@@ -347,7 +354,7 @@ jobs:
           retention-days: 30
 
       - name: Investigate failure with Claude
-        if: always() && (steps.baseline_up.outcome == 'failure' || steps.baseline_health.outcome == 'failure' || steps.windsor_up.outcome == 'failure' || steps.windsor_health.outcome == 'failure')
+        if: always() && steps.phase.outputs.phase != 'none'
         uses: anthropics/claude-code-action@38ec876110f9fbf8b950c79f534430740c3ac009 # v1.0.101
         env:
           GH_REPO: ${{ github.repository }}
