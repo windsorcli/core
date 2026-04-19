@@ -10,7 +10,7 @@ spec:
     spec:
       chart: kyverno
       # renovate: datasource=helm depName=kyverno package=kyverno helmRepo=https://kyverno.github.io/kyverno/
-      version: 3.6.2
+      version: 3.7.1
       sourceRef:
         kind: HelmRepository
         name: kyverno
@@ -30,7 +30,7 @@ spec:
       container:
         image:
           # renovate: datasource=docker depName=reg.kyverno.io/kyverno/kyverno package=reg.kyverno.io/kyverno/kyverno
-          tag: v1.16.2@sha256:b0c123d62a1b8e21da707450ef44c4616832434f919d1cd19cfdbe2836277699
+          tag: v1.17.1@sha256:f3138bcbd7314b1f66984cde24ea953dc300b36a3bf2f408ac2fe2897dcc40bf
         extraEnvVars:
         - name: NO_COLOR
           value: "1"
