@@ -175,6 +175,31 @@ jobs:
         with:
           fetch-depth: ${{ matrix.mode == 'upgrade' && '0' || '1' }}
 
+      # Upgrade mode only re-runs when something Flux actually syncs changes:
+      # facets, terraform, kustomize, or the root windsor.yaml. Doc-only or
+      # CI-only PRs don't advance the GitRepository revision, so the upgrade
+      # phase would otherwise time out waiting for a bump that can't happen.
+      - name: Check infra changes
+        id: infra_diff
+        run: |
+          if [ "${{ matrix.mode }}" != "upgrade" ]; then
+            echo "skip=false" >> $GITHUB_OUTPUT
+            exit 0
+          fi
+          if [ "${{ github.event_name }}" = "pull_request" ]; then
+            git fetch origin main
+            base='origin/main'
+          else
+            base='HEAD~1'
+          fi
+          if git diff --quiet "$base" HEAD -- terraform kustomize contexts windsor.yaml; then
+            echo "No infra changes (terraform, kustomize, contexts, windsor.yaml). Skipping upgrade test."
+            echo "skip=true" >> $GITHUB_OUTPUT
+          else
+            echo "Infra changes detected. Running upgrade test."
+            echo "skip=false" >> $GITHUB_OUTPUT
+          fi
+
       - name: Load br_netfilter kernel module
         run: |
           sudo modprobe br_netfilter
@@ -253,7 +278,7 @@ jobs:
       # revision advancing, so a slow git-livereload webhook can't let a
       # stale baseline-Ready state pass for HEAD.
       - name: Checkout baseline
-        if: matrix.mode == 'upgrade'
+        if: matrix.mode == 'upgrade' && steps.infra_diff.outputs.skip != 'true'
         run: |
           if [ "${{ github.event_name }}" = "pull_request" ]; then
             git fetch origin main
@@ -263,22 +288,22 @@ jobs:
           fi
 
       - name: Baseline — Windsor Init
-        if: matrix.mode == 'upgrade'
+        if: matrix.mode == 'upgrade' && steps.infra_diff.outputs.skip != 'true'
         run: windsor init local --reset
 
       - name: Baseline — Show blueprint
-        if: matrix.mode == 'upgrade'
+        if: matrix.mode == 'upgrade' && steps.infra_diff.outputs.skip != 'true'
         run: windsor show blueprint
 
       - name: Baseline — Windsor Up
         id: baseline_up
-        if: matrix.mode == 'upgrade'
+        if: matrix.mode == 'upgrade' && steps.infra_diff.outputs.skip != 'true'
         timeout-minutes: 14
         run: windsor up --verbose --wait
 
       - name: Baseline — Health check
         id: baseline_health
-        if: matrix.mode == 'upgrade'
+        if: matrix.mode == 'upgrade' && steps.infra_diff.outputs.skip != 'true'
         run: |
           windsor exec -- kubectl wait --for=condition=Ready --timeout=300s \
             kustomizations --all -A || {
@@ -295,7 +320,7 @@ jobs:
 
       - name: Baseline — Capture GitRepository revision
         id: baseline_rev
-        if: matrix.mode == 'upgrade'
+        if: matrix.mode == 'upgrade' && steps.infra_diff.outputs.skip != 'true'
         run: |
           rev=$(windsor exec -- kubectl get gitrepository local -n system-gitops \
             -o jsonpath='{.status.artifact.revision}')
@@ -314,12 +339,12 @@ jobs:
       # then wait for Flux to catch up past the captured revision before
       # checking health.
       - name: Checkout HEAD
-        if: matrix.mode == 'upgrade'
+        if: matrix.mode == 'upgrade' && steps.infra_diff.outputs.skip != 'true'
         run: git checkout ${{ github.sha }}
 
       - name: HEAD — Windsor Plan
         id: windsor_plan
-        if: matrix.mode == 'upgrade'
+        if: matrix.mode == 'upgrade' && steps.infra_diff.outputs.skip != 'true'
         run: windsor plan
 
       - name: Windsor Init
@@ -332,12 +357,14 @@ jobs:
 
       - name: Windsor Up
         id: windsor_up
+        if: steps.infra_diff.outputs.skip != 'true'
         timeout-minutes: 14
         run: windsor up --verbose --wait
 
       - name: HEAD — Wait for GitRepository revision bump
         id: gitrepo_bump
-        if: matrix.mode == 'upgrade'
+        if: matrix.mode == 'upgrade' && steps.infra_diff.outputs.skip != 'true'
+        timeout-minutes: 6
         run: |
           baseline='${{ steps.baseline_rev.outputs.baseline_rev }}'
           echo "Waiting for GitRepository revision to advance past: $baseline"
@@ -356,6 +383,7 @@ jobs:
 
       - name: Health check
         id: windsor_health
+        if: steps.infra_diff.outputs.skip != 'true'
         run: |
           windsor exec -- kubectl wait --for=condition=Ready --timeout=300s \
             kustomizations --all -A || {
@@ -397,12 +425,12 @@ jobs:
           fi
 
       - name: Collect Windsor State
-        if: always()
+        if: always() && steps.infra_diff.outputs.skip != 'true'
         run: |
           tar --exclude='.windsor/cache/docker' --exclude='.terraform' -czf support-bundles/windsor-state.tar.gz contexts/local .windsor
 
       - name: Collect Talos Diagnostics
-        if: always()
+        if: always() && steps.infra_diff.outputs.skip != 'true'
         run: |
           if ! command -v talosctl &> /dev/null; then
             echo "Installing talosctl..."
@@ -416,13 +444,13 @@ jobs:
           windsor exec -- .github/scripts/collect-talos-diagnostics.sh support-bundles/talos-diagnostics
 
       - name: Collect support bundle
-        if: always()
+        if: always() && steps.infra_diff.outputs.skip != 'true'
         run: |
           PHASE_TAG="${{ steps.phase.outputs.phase }}"
           support-bundle --interactive=false --output=support-bundles/bundle-${{ matrix.mode }}-${PHASE_TAG:-unknown}-${{ github.workflow }}-${{ github.run_id }}-${{ github.run_number }} .github/support-bundle.yaml
 
       - name: Upload support bundle
-        if: always()
+        if: always() && steps.infra_diff.outputs.skip != 'true'
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: support-bundle-${{ matrix.mode }}
