@@ -14,7 +14,6 @@ spec:
       sourceRef:
         kind: HelmRepository
         name: kube-vip
-        namespace: system-gitops
   values:
     image:
       repository: ghcr.io/kube-vip/kube-vip

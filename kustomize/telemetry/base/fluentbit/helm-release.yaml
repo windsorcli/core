@@ -15,7 +15,6 @@ spec:
       sourceRef:
         kind: HelmRepository
         name: fluent
-        namespace: system-gitops
   values:
     operator:
       image:

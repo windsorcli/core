@@ -22,7 +22,6 @@ spec:
       sourceRef: 
         kind: HelmRepository
         name: coredns
-        namespace: system-gitops
   values:
     image:
       # renovate: datasource=docker depName=coredns/coredns package=coredns/coredns

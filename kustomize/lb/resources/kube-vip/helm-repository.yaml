@@ -3,7 +3,7 @@ apiVersion: source.toolkit.fluxcd.io/v1
 kind: HelmRepository
 metadata:
   name: kube-vip
-  namespace: system-gitops
+  namespace: system-lb
 spec:
   interval: 10m
   timeout: 3m

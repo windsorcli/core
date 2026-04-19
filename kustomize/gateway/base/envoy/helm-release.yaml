@@ -19,7 +19,6 @@ spec:
       sourceRef:
         kind: HelmRepository
         name: envoyproxy
-        namespace: system-gitops
   values:
     global:
       images:

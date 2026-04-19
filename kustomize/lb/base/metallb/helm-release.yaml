@@ -14,7 +14,6 @@ spec:
       sourceRef:
         kind: HelmRepository
         name: metallb
-        namespace: system-gitops
   values:
     controller:
       image:

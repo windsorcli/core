@@ -15,7 +15,6 @@ spec:
       sourceRef:
         kind: HelmRepository
         name: grafana
-        namespace: system-gitops
   values:
     grafana.ini:
       date_formats:

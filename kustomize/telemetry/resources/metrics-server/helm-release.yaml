@@ -14,7 +14,6 @@ spec:
       sourceRef:
         kind: HelmRepository
         name: metrics-server
-        namespace: system-gitops
   values:
     image:
       # renovate: datasource=docker depName=registry.k8s.io/metrics-server/metrics-server package=registry.k8s.io/metrics-server/metrics-server

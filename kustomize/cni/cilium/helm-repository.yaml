@@ -3,7 +3,7 @@ apiVersion: source.toolkit.fluxcd.io/v1
 kind: HelmRepository
 metadata:
   name: cilium
-  namespace: system-gitops
+  namespace: system-cni
 spec:
   interval: 10m
   timeout: 5m

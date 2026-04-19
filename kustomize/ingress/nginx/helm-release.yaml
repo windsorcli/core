@@ -15,7 +15,6 @@ spec:
       sourceRef:
         kind: HelmRepository
         name: ingress-nginx
-        namespace: system-ingress
   values:
     controller:
       image:

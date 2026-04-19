@@ -3,7 +3,7 @@ apiVersion: source.toolkit.fluxcd.io/v1
 kind: HelmRepository
 metadata:
   name: quickwit
-  namespace: system-gitops
+  namespace: system-observability
 spec:
   interval: 10m
   timeout: 3m
