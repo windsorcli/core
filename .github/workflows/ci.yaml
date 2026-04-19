@@ -25,6 +25,8 @@ env:
   DOCKER_HOST: unix:///var/run/docker.sock
   # renovate: datasource=github-releases depName=troubleshoot package=replicatedhq/troubleshoot
   SUPPORT_BUNDLE_VERSION: v0.125.1
+  # renovate: datasource=github-releases depName=flux package=fluxcd/flux2
+  FLUX_VERSION: v2.8.5
 
 jobs:
   code-checks:
@@ -193,6 +195,16 @@ jobs:
           cd - &&
           rm -rf "$OLDPWD" &&
           support-bundle version
+
+      - name: Install Flux CLI
+        run: |
+          cd "$(mktemp -d)" &&
+          curl -fsSLO "https://github.com/fluxcd/flux2/releases/download/${FLUX_VERSION}/flux_${FLUX_VERSION#v}_linux_amd64.tar.gz" &&
+          tar xzf "flux_${FLUX_VERSION#v}_linux_amd64.tar.gz" &&
+          sudo install -m 0755 -o root -g root flux /usr/local/bin/ &&
+          cd - &&
+          rm -rf "$OLDPWD" &&
+          flux --version
 
       - name: Create bundle directory
         run: mkdir -p support-bundles
