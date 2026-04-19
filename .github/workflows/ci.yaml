@@ -264,6 +264,7 @@ jobs:
         run: git checkout ${{ github.sha }}
 
       - name: HEAD — Windsor Plan
+        id: windsor_plan
         if: matrix.mode == 'upgrade'
         run: windsor plan
 
@@ -307,7 +308,7 @@ jobs:
           bad() { [ "$1" = "failure" ] || [ "$1" = "cancelled" ]; }
           if bad "${{ steps.baseline_up.outcome }}" || bad "${{ steps.baseline_health.outcome }}"; then
             echo "phase=baseline" >> $GITHUB_OUTPUT
-          elif bad "${{ steps.windsor_up.outcome }}" || bad "${{ steps.windsor_health.outcome }}"; then
+          elif bad "${{ steps.windsor_plan.outcome }}" || bad "${{ steps.windsor_up.outcome }}" || bad "${{ steps.windsor_health.outcome }}"; then
             if [ "${{ matrix.mode }}" = "upgrade" ]; then
               echo "phase=upgrade" >> $GITHUB_OUTPUT
             else
