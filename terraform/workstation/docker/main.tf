@@ -194,6 +194,11 @@ resource "docker_container" "dns" {
     content = local.corefile_content
     file    = "/etc/coredns/Corefile"
   }
+  # Daemon-level log-opts (e.g. GitHub Actions runners) leak into state and force
+  # replacement on re-plan when config omits them. Ignore to keep plans stable.
+  lifecycle {
+    ignore_changes = [log_opts]
+  }
 }
 
 # =============================================================================
@@ -249,6 +254,10 @@ resource "docker_container" "registry" {
   volumes {
     host_path      = "${var.project_root}/.windsor/cache/docker/registries/${each.key}"
     container_path = "/var/lib/registry"
+    read_only      = false
+  }
+  lifecycle {
+    ignore_changes = [log_opts]
   }
 }
 
@@ -295,5 +304,9 @@ resource "docker_container" "git" {
   volumes {
     host_path      = var.project_root
     container_path = "/repos/mount/${local.git_repo_name}"
+    read_only      = false
+  }
+  lifecycle {
+    ignore_changes = [log_opts]
   }
 }

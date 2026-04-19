@@ -364,5 +364,6 @@ resource "docker_container" "containers" {
 
   lifecycle {
     create_before_destroy = false
+    ignore_changes        = [log_opts]
   }
 }

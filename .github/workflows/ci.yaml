@@ -498,7 +498,7 @@ jobs:
             step — the step summary and artifact are enough.
           claude_args: |
             --model claude-sonnet-4-6
-            --max-turns 80
+            --max-turns 100
             --allowedTools Read,Grep,Glob,Write,Bash(windsor exec:*),Bash(windsor show:*),Bash(windsor context:*),Bash(gh api:*),Bash(gh run view:*),Bash(gh run list:*),Bash(jq:*),Bash(cat:*),Bash(tee:*),Bash(ls:*),Bash(head:*),Bash(tail:*),Bash(grep:*)
             --disallowedTools WebSearch,WebFetch
 
