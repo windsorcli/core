@@ -94,9 +94,9 @@ Empty string `''` means "no component" — Windsor strips empty entries.
 - "${(workstation.runtime ?? (platform == 'docker' ? 'docker-desktop' : '')) == 'docker-desktop' ? 'nginx/nodeport' : 'nginx/loadbalancer'}"
 ```
 
-**Boolean check with default:**
+**Enum check with default:**
 ```yaml
-when: (gitops.webhook.enabled ?? true) == true
+when: (gitops.mode ?? 'push') == 'push'
 ```
 
 **Boolean negation for opt-out:**

@@ -1,5 +1,6 @@
 mock_provider "kubernetes" {}
 mock_provider "helm" {}
+mock_provider "random" {}
 
 # Verifies that the module creates the Flux namespace, Helm release, and secrets with minimal configuration.
 # Tests default values for namespace, chart version, and secret naming logic.
@@ -26,7 +27,7 @@ run "minimal_configuration" {
   }
 
   assert {
-    condition     = kubernetes_secret_v1.webhook_token.metadata[0].namespace == "system-gitops"
+    condition     = kubernetes_secret_v1.webhook_token[0].metadata[0].namespace == "system-gitops"
     error_message = "Webhook token secret should be in the Flux namespace"
   }
 }
@@ -70,7 +71,7 @@ run "full_configuration" {
   }
 
   assert {
-    condition     = kubernetes_secret_v1.webhook_token.metadata[0].namespace == "custom-gitops"
+    condition     = kubernetes_secret_v1.webhook_token[0].metadata[0].namespace == "custom-gitops"
     error_message = "Webhook token secret should be in the custom namespace"
   }
 }
@@ -84,7 +85,6 @@ run "no_secrets" {
     ssh_public_key  = ""
     ssh_known_hosts = ""
     git_password    = ""
-    webhook_token   = ""
   }
 
   assert {
@@ -93,8 +93,101 @@ run "no_secrets" {
   }
 
   assert {
-    condition     = kubernetes_secret_v1.webhook_token.data != null
+    condition     = kubernetes_secret_v1.webhook_token[0].data != null
     error_message = "Webhook token secret data should be present (even if empty)"
+  }
+}
+
+# Verifies pull mode disables notification-controller and omits the webhook-token secret.
+run "pull_mode_omits_notification_controller_and_secret" {
+  command = plan
+
+  variables {
+    mode = "pull"
+  }
+
+  assert {
+    condition     = yamldecode(helm_release.flux_system.values[0]).notificationController.create == false
+    error_message = "notification-controller should be disabled in pull mode"
+  }
+
+  assert {
+    condition     = length(kubernetes_secret_v1.webhook_token) == 0
+    error_message = "webhook-token secret should not be created in pull mode"
+  }
+
+  assert {
+    condition     = length(random_password.webhook_token) == 0
+    error_message = "webhook-token random password should not be generated in pull mode"
+  }
+}
+
+# Verifies push mode (default) creates the notification-controller and secret.
+run "push_mode_enables_notification_controller_and_secret" {
+  command = plan
+
+  assert {
+    condition     = yamldecode(helm_release.flux_system.values[0]).notificationController.create == true
+    error_message = "notification-controller should be enabled in push mode (default)"
+  }
+
+  assert {
+    condition     = length(kubernetes_secret_v1.webhook_token) == 1
+    error_message = "webhook-token secret should be created in push mode"
+  }
+}
+
+# Rejects invalid mode values.
+run "invalid_mode_rejected" {
+  command = plan
+
+  variables {
+    mode = "sideways"
+  }
+
+  expect_failures = [
+    var.mode,
+  ]
+}
+
+# Verifies that when webhook_token is unset (null default), the module generates
+# a random token instead of storing an empty string in the secret.
+run "webhook_token_auto_generated_when_null" {
+  command = plan
+
+  # No webhook_token override → null default → generation path
+
+  assert {
+    condition     = length(random_password.webhook_token) == 1
+    error_message = "random_password.webhook_token should be created when webhook_token is null"
+  }
+}
+
+# Verifies that an explicit empty string is also treated as "unset" and triggers generation.
+run "webhook_token_auto_generated_when_empty" {
+  command = plan
+
+  variables {
+    webhook_token = ""
+  }
+
+  assert {
+    condition     = length(random_password.webhook_token) == 1
+    error_message = "random_password.webhook_token should be created when webhook_token is empty"
+  }
+}
+
+# Verifies that when webhook_token is supplied, no random password is generated.
+run "webhook_token_supplied_skips_generation" {
+  command = plan
+
+  variables {
+    webhook_token = "explicittoken" # checkov:skip=CKV_SECRET_6: Test file, secrets are not real
+  }
+
+  assert {
+    condition     = length(random_password.webhook_token) == 0
+    error_message = "random_password.webhook_token should not be created when webhook_token is supplied"
   }
 }
 
@@ -153,6 +246,41 @@ run "leader_election_default_leaves_flags_clean" {
   assert {
     condition     = !can(yamldecode(helm_release.flux_system.values[0]).notificationController.container)
     error_message = "notification-controller should not have a container block by default"
+  }
+}
+
+# Verifies image-automation and image-reflector controllers are disabled by default.
+run "image_controllers_disabled_by_default" {
+  command = plan
+
+  assert {
+    condition     = yamldecode(helm_release.flux_system.values[0]).imageAutomationController.create == false
+    error_message = "image-automation-controller should be disabled by default"
+  }
+
+  assert {
+    condition     = yamldecode(helm_release.flux_system.values[0]).imageReflectionController.create == false
+    error_message = "image-reflector-controller should be disabled by default"
+  }
+}
+
+# Verifies image-automation and image-reflector controllers can be opted in.
+run "image_controllers_enabled_when_requested" {
+  command = plan
+
+  variables {
+    image_automation = true
+    image_reflection = true
+  }
+
+  assert {
+    condition     = yamldecode(helm_release.flux_system.values[0]).imageAutomationController.create == true
+    error_message = "image-automation-controller should be enabled when image_automation=true"
+  }
+
+  assert {
+    condition     = yamldecode(helm_release.flux_system.values[0]).imageReflectionController.create == true
+    error_message = "image-reflector-controller should be enabled when image_reflection=true"
   }
 }
 

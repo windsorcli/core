@@ -230,7 +230,7 @@ resource "incus_instance" "git" {
   name       = replace("git.${local.domain_name}", ".", "-")
   type       = "container"
   # renovate: datasource=github-releases depName=windsorcli/git-livereload
-  image = "ghcr:windsorcli/git-livereload:v0.2.1"
+  image = "ghcr:windsorcli/git-livereload:v0.2.2"
   config = merge(
     {
       "environment.GIT_PASSWORD"  = var.git_password

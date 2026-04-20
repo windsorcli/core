@@ -237,6 +237,25 @@ substitutions:
 # =============================================================================
 # Kustomize — base cluster resources
 # =============================================================================
+# =============================================================================
+# Terraform — shared gitops inputs
+# =============================================================================
+#
+# Each platform facet declares its own `gitops` terraform block with the
+# dependencies it needs. Windsor merges inputs across facets, so adding the
+# mode here applies to every platform without repeating it per-facet. In pull
+# mode the terraform module drops notification-controller and the webhook
+# token secret.
+#
+terraform:
+  - name: gitops
+    path: gitops/flux
+    inputs:
+      mode: ${gitops.mode ?? 'push'}
+
+# =============================================================================
+# Kustomize — policy, telemetry, PKI, observability, gitops webhook
+# =============================================================================
 #
 # These kustomizations are always applied (subject to per-entry `when:` guards
 # where noted). Ordering below matches the dependency chain:
@@ -389,11 +408,11 @@ kustomize:
   #      for both Envoy and Cilium gateways. Must wait for gateway-base so the
   #      HTTPRoute CRDs exist before the route is applied.
   #
-  # Both variants are gated by gitops.webhook.enabled (defaults to true).
+  # Emission tracks gitops.mode — push emits, pull skips entirely.
   #
   - name: gitops
     path: gitops/flux
-    when: (gitops.webhook.enabled ?? true) == true && gateway_effective.enabled != true
+    when: (gitops.mode ?? 'push') == 'push' && gateway_effective.enabled != true
     components:
       - webhook
     substitutions:
@@ -401,7 +420,7 @@ kustomize:
 
   - name: gitops
     path: gitops/flux
-    when: (gitops.webhook.enabled ?? true) == true && gateway_effective.enabled == true
+    when: (gitops.mode ?? 'push') == 'push' && gateway_effective.enabled == true
     dependsOn:
       - gateway-base
     components:

@@ -76,7 +76,7 @@ kustomize:
   #   - lb-address:   pins the Gateway to the start of the LB IP range when an
   #                   in-cluster LB is active.
   #   - flux-webhook: adds a dedicated port-9292 listener for the Flux
-  #                   notification receiver (gated on gitops.webhook.enabled).
+  #                   notification receiver (gated on gitops.mode == 'push').
   #
   # `gateway_class_name` drives the Gateway spec.gatewayClassName (envoy,
   # cilium, etc.). `gateway_dns_target` is the IP external-dns advertises for
@@ -91,7 +91,7 @@ kustomize:
       - "${gateway_effective.driver == 'cilium' ? 'cilium' : ''}"
       - "${gateway_effective.driver != 'cilium' && (addons.private_dns.enabled ?? (dev == true)) == true ? 'dns' : ''}"
       - "${lb_effective.enabled == true ? 'lb-address' : ''}"
-      - "${(gitops.webhook.enabled ?? true) == true ? 'flux-webhook' : ''}"
+      - "${(gitops.mode ?? 'push') == 'push' ? 'flux-webhook' : ''}"
     substitutions:
       gateway_class_name: ${gateway_effective.driver}
       gateway_dns_target: "${lb_effective.enabled == true ? network_effective.loadbalancer_ips.start : ''}"
