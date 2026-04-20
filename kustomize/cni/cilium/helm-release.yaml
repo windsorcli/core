@@ -24,7 +24,7 @@ spec:
     spec:
       chart: cilium
       # renovate: datasource=helm depName=cilium package=cilium helmRepo=https://helm.cilium.io
-      version: 1.16.19
+      version: 1.19.3
       sourceRef:
         kind: HelmRepository
         name: cilium
