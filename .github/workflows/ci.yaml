@@ -151,11 +151,12 @@ jobs:
   # Two matrix modes per run:
   #   fresh    — single `windsor up` on HEAD; simulates a new user bringing up
   #              the cluster for the first time.
-  #   upgrade  — converge the baseline (origin/main on PR events, HEAD~1 on
-  #              push events), then apply HEAD on top without reinit; simulates
-  #              an existing user pulling + applying this change.
-  # On any failure, the still-running cluster is handed to a read-only Claude
+  #   upgrade  — converge the baseline (origin/main), then apply HEAD on top
+  #              without reinit; simulates an existing user pulling + applying
+  #              this change. PR events only — skipped on push-to-main / tags.
+  # On PR failure, the still-running cluster is handed to a read-only Claude
   # step that publishes a diagnosis to the PR / step summary / artifact.
+  # The Claude step is also skipped on push-to-main / tags.
   integration:
     name: Integration (${{ matrix.mode }})
     runs-on: ubuntu-latest
@@ -163,15 +164,15 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        mode: [fresh, upgrade]
+        mode: ${{ fromJSON(github.event_name == 'pull_request' && '["fresh","upgrade"]' || '["fresh"]') }}
     steps:
 
       # -----------------------------------------------------------------------
       # Runner preparation
       # -----------------------------------------------------------------------
-      # Fetch-depth is full for upgrade mode (needs origin/main or HEAD~1),
-      # shallow for fresh. Kernel module, Docker daemon tuning, and required
-      # CLIs are installed here before anything Windsor-related runs.
+      # Fetch-depth is full for upgrade mode (needs origin/main), shallow for
+      # fresh. Kernel module, Docker daemon tuning, and required CLIs are
+      # installed here before anything Windsor-related runs.
       - name: Checkout code
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
         with:
@@ -193,20 +194,23 @@ jobs:
             echo "expect_bump=false" >> $GITHUB_OUTPUT
             exit 0
           fi
-          if [ "${{ github.event_name }}" = "pull_request" ]; then
-            git fetch origin main
-            base='origin/main'
-          else
-            base='HEAD~1'
+          # Upgrade mode only makes sense in a PR context — the diff base is
+          # origin/main, and on push-to-main origin/main == HEAD so the diff
+          # would always be empty. Fail loudly if this invariant is ever
+          # broken by re-adding upgrade to the push matrix.
+          if [ "${{ github.event_name }}" != "pull_request" ]; then
+            echo "::error::upgrade mode requires a PR context (origin/main == HEAD on push events)"
+            exit 1
           fi
-          if git diff --quiet "$base" HEAD -- terraform kustomize contexts windsor.yaml; then
+          git fetch origin main
+          if git diff --quiet origin/main HEAD -- terraform kustomize contexts windsor.yaml; then
             echo "No infra changes (terraform, kustomize, contexts, windsor.yaml). Skipping upgrade test."
             echo "skip=true" >> $GITHUB_OUTPUT
             echo "expect_bump=false" >> $GITHUB_OUTPUT
           else
             echo "Infra changes detected. Running upgrade test."
             echo "skip=false" >> $GITHUB_OUTPUT
-            if git diff --quiet "$base" HEAD -- kustomize; then
+            if git diff --quiet origin/main HEAD -- kustomize; then
               echo "No kustomize/ changes — GitRepository revision bump not expected."
               echo "expect_bump=false" >> $GITHUB_OUTPUT
             else
@@ -305,12 +309,8 @@ jobs:
       - name: Checkout baseline
         if: matrix.mode == 'upgrade' && steps.infra_diff.outputs.skip != 'true'
         run: |
-          if [ "${{ github.event_name }}" = "pull_request" ]; then
-            git fetch origin main
-            git checkout origin/main
-          else
-            git checkout HEAD~1
-          fi
+          git fetch origin main
+          git checkout origin/main
 
       - name: Baseline — Windsor Init
         if: matrix.mode == 'upgrade' && steps.infra_diff.outputs.skip != 'true'
@@ -490,7 +490,7 @@ jobs:
       # publishes a diagnosis to the PR conversation (upsert), step summary,
       # and uploaded artifact. No cluster mutation — strictly read-only tools.
       - name: Investigate failure with Claude
-        if: always() && steps.phase.outputs.phase != 'none'
+        if: always() && steps.phase.outputs.phase != 'none' && github.event_name == 'pull_request'
         uses: anthropics/claude-code-action@38ec876110f9fbf8b950c79f534430740c3ac009 # v1.0.101
         env:
           GH_REPO: ${{ github.repository }}
@@ -516,17 +516,15 @@ jobs:
             MODE=`$MODE`:
               - `fresh`   — a single `windsor up` on this commit. Simulates
                             a new user bringing up the cluster.
-              - `upgrade` — apply a baseline (`origin/main` on PR events,
-                            `HEAD~1` on push events), then apply this
-                            commit on top of the converged baseline.
+              - `upgrade` — apply the `origin/main` baseline, then apply
+                            this commit on top of the converged baseline.
                             Simulates an existing user upgrading.
 
             PHASE=`$PHASE`:
               - `install`  — fresh-mode `windsor up` failed.
               - `baseline` — upgrade-mode baseline did not come up. Main
-                             (or HEAD~1) is red — NOT caused by this PR's
-                             changes. Triage should go to whoever broke
-                             the baseline.
+                             is red — NOT caused by this PR's changes.
+                             Triage should go to whoever broke main.
               - `upgrade`  — upgrade-mode HEAD apply on top of a converged
                              baseline failed. This IS the signal upgrade
                              tests exist to catch: this PR breaks the
