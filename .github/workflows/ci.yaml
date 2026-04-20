@@ -210,7 +210,7 @@ jobs:
           else
             echo "Infra changes detected. Running upgrade test."
             echo "skip=false" >> $GITHUB_OUTPUT
-            if git diff --quiet "$base" HEAD -- kustomize; then
+            if git diff --quiet origin/main HEAD -- kustomize; then
               echo "No kustomize/ changes — GitRepository revision bump not expected."
               echo "expect_bump=false" >> $GITHUB_OUTPUT
             else
