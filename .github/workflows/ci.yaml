@@ -178,24 +178,37 @@ jobs:
         with:
           fetch-depth: ${{ matrix.mode == 'upgrade' && '0' || '1' }}
 
-      # Upgrade mode only re-runs when something Flux actually syncs changes:
-      # facets, terraform, kustomize, or the root windsor.yaml. Doc-only or
-      # CI-only PRs don't advance the GitRepository revision, so the upgrade
-      # phase would otherwise time out waiting for a bump that can't happen.
+      # Upgrade mode re-runs when anything that Windsor applies changes:
+      # terraform, kustomize, facets (contexts), or the root windsor.yaml.
+      # Only the kustomize/ tree is rsynced to the in-cluster git server
+      # (git_rsync_include default), so only kustomize changes advance the
+      # GitRepository revision. Terraform/contexts/windsor.yaml changes are
+      # applied locally by `windsor up` but never reach the git server — for
+      # those we still run the upgrade test, but skip the revision-bump gate
+      # (which would otherwise time out waiting for a bump that can't happen).
       - name: Check infra changes
         id: infra_diff
         run: |
           if [ "${{ matrix.mode }}" != "upgrade" ]; then
             echo "skip=false" >> $GITHUB_OUTPUT
+            echo "expect_bump=false" >> $GITHUB_OUTPUT
             exit 0
           fi
           git fetch origin main
           if git diff --quiet origin/main HEAD -- terraform kustomize contexts windsor.yaml; then
             echo "No infra changes (terraform, kustomize, contexts, windsor.yaml). Skipping upgrade test."
             echo "skip=true" >> $GITHUB_OUTPUT
+            echo "expect_bump=false" >> $GITHUB_OUTPUT
           else
             echo "Infra changes detected. Running upgrade test."
             echo "skip=false" >> $GITHUB_OUTPUT
+            if git diff --quiet "$base" HEAD -- kustomize; then
+              echo "No kustomize/ changes — GitRepository revision bump not expected."
+              echo "expect_bump=false" >> $GITHUB_OUTPUT
+            else
+              echo "kustomize/ changes detected — expecting GitRepository revision bump."
+              echo "expect_bump=true" >> $GITHUB_OUTPUT
+            fi
           fi
 
       - name: Load br_netfilter kernel module
@@ -324,7 +337,7 @@ jobs:
 
       - name: Baseline — Capture GitRepository revision
         id: baseline_rev
-        if: matrix.mode == 'upgrade' && steps.infra_diff.outputs.skip != 'true'
+        if: matrix.mode == 'upgrade' && steps.infra_diff.outputs.skip != 'true' && steps.infra_diff.outputs.expect_bump == 'true'
         run: |
           rev=$(windsor exec -- kubectl get gitrepository local -n system-gitops \
             -o jsonpath='{.status.artifact.revision}')
@@ -367,7 +380,7 @@ jobs:
 
       - name: HEAD — Wait for GitRepository revision bump
         id: gitrepo_bump
-        if: matrix.mode == 'upgrade' && steps.infra_diff.outputs.skip != 'true'
+        if: matrix.mode == 'upgrade' && steps.infra_diff.outputs.skip != 'true' && steps.infra_diff.outputs.expect_bump == 'true'
         timeout-minutes: 6
         env:
           BASELINE_REV: ${{ steps.baseline_rev.outputs.baseline_rev }}
