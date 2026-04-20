@@ -28,18 +28,6 @@ config:
       arch: "${workstation.arch ?? 'amd64'}"
 
   # ---------------------------------------------------------------------------
-  # Gitops webhook default
-  # ---------------------------------------------------------------------------
-  #
-  # Enable the Flux webhook by default when the workstation stack is active
-  # (git-livereload needs it). Users can override via `gitops.webhook.enabled`.
-  #
-  - name: gitops
-    value:
-      webhook:
-        enabled: ${gitops.webhook.enabled ?? true}
-
-  # ---------------------------------------------------------------------------
   # Talos image references
   # ---------------------------------------------------------------------------
   #
@@ -228,8 +216,8 @@ terraform:
       dns_forward_target: "${cidrhost(network_effective.cidr_block, 10) + \":30053\"}"
       webhook_host: "${cidrhost(network_effective.cidr_block, 10)}"
       webhook_port: 30292
-      webhook_enabled: ${gitops.webhook.enabled ?? true}
-      webhook_token: ${gitops.webhook.token ?? "abcdef123456"}
+      webhook_enabled: "${(workstation.git.livereload ?? false) && ((gitops.mode ?? 'push') == 'push')}"
+      webhook_token: "${(workstation.git.livereload ?? false) ? (gitops.webhook.token ?? 'abcdef123456') : ''}"
       primary_node_ip: "${cidrhost(network_effective.cidr_block, 10)}"
       enable_dns: ${workstation.services.dns ?? true}
       enable_git: ${workstation.services.git ?? true}
@@ -251,8 +239,8 @@ terraform:
       dns_forward_target: ${network_effective.loadbalancer_ips.start}
       webhook_host: ${network_effective.loadbalancer_ips.start}
       webhook_port: "${gateway_effective.enabled == true ? 80 : 9292}"
-      webhook_enabled: ${gitops.webhook.enabled ?? true}
-      webhook_token: ${gitops.webhook.token ?? "abcdef123456"}
+      webhook_enabled: "${(workstation.git.livereload ?? false) && ((gitops.mode ?? 'push') == 'push')}"
+      webhook_token: "${(workstation.git.livereload ?? false) ? (gitops.webhook.token ?? 'abcdef123456') : ''}"
       primary_node_ip: ${network_effective.loadbalancer_ips.start}
       enable_dns: ${workstation.services.dns ?? true}
       enable_git: ${workstation.services.git ?? true}
@@ -272,12 +260,12 @@ terraform:
       dns_forward_target: ${network_effective.loadbalancer_ips.start}
       webhook_host: ${network_effective.loadbalancer_ips.start}
       webhook_port: 9292
-      webhook_enabled: ${gitops.webhook.enabled ?? true}
+      webhook_enabled: "${(workstation.git.livereload ?? false) && ((gitops.mode ?? 'push') == 'push')}"
       primary_node_ip: ${network_effective.loadbalancer_ips.start}
       enable_dns: ${workstation.services.dns ?? true}
       enable_git: ${workstation.services.git ?? true}
       registries: ${workstation_registries.registries ?? {}}
-      webhook_token: ${gitops.webhook.token ?? "abcdef123456"}
+      webhook_token: "${(workstation.git.livereload ?? false) ? (gitops.webhook.token ?? 'abcdef123456') : ''}"
       git_username: ${workstation.git.username ?? "local"}
       git_password: ${workstation.git.password ?? "local"}
 

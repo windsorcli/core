@@ -228,15 +228,13 @@ cases:
         - name: gateway-base
 
   # Flux webhook receiver includes webhook/gateway for Gateway API drivers
+  # (push mode is the default, so no explicit gitops.mode needed)
   - name: envoy driver includes webhook/gateway in gitops component
     values:
       provider: metal
       gateway:
         enabled: true
         driver: envoy
-      gitops:
-        webhook:
-          enabled: true
       network: *default-network
       cluster: *default-cluster
     expect:
@@ -281,9 +279,6 @@ cases:
       gateway:
         enabled: true
         driver: cilium
-      gitops:
-        webhook:
-          enabled: true
       network: *default-network
       cluster: *default-cluster
     expect:
@@ -337,3 +332,27 @@ cases:
             loadbalancer_start_ip: "10.5.1.10"
           timeout: 10m
           interval: 5m
+
+  # gitops.mode=pull drops the Flux Receiver kustomize entirely and propagates
+  # mode=pull to the gitops/flux terraform module (which then skips
+  # notification-controller and the webhook-token secret).
+  - name: gitops mode pull excludes receiver and propagates pull to gitops terraform
+    values:
+      provider: metal
+      gateway:
+        enabled: true
+        driver: envoy
+      gitops:
+        mode: pull
+      network: *default-network
+      cluster: *default-cluster
+    expect:
+      terraform:
+        - name: gitops
+          path: gitops/flux
+          inputs:
+            mode: pull
+    exclude:
+      kustomize:
+        - name: gitops
+          path: gitops/flux

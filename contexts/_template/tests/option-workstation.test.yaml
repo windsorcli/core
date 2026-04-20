@@ -340,6 +340,8 @@ cases:
       provider: docker
       workstation:
         runtime: docker-desktop
+        git:
+          livereload: true
       gitops:
         webhook:
           token: mysecrettoken
@@ -365,6 +367,8 @@ cases:
       provider: docker
       workstation:
         runtime: colima
+        git:
+          livereload: true
       gitops:
         webhook:
           token: mysecrettoken
@@ -390,6 +394,8 @@ cases:
       provider: incus
       workstation:
         runtime: colima
+        git:
+          livereload: true
       gitops:
         webhook:
           token: mysecrettoken
@@ -432,17 +438,17 @@ cases:
           inputs:
             webhook_token: mysecrettoken
 
-  # Edge: gitops webhook settings are top-level and propagate to both gitops/flux and workstation modules.
-  - name: gitops webhook feature flag disables receiver component
+  # Edge: gitops.mode=pull disables the Flux Receiver (kustomize) and tells the
+  # workstation + gitops terraform modules to skip notification-controller/webhook.
+  - name: gitops mode pull disables receiver component and notification controller
     values:
       provider: docker
       workstation:
         runtime: docker-desktop
       gitops:
+        mode: pull
         repository:
           name: flux-primary
-        webhook:
-          enabled: false
       dns: *default-dns
       gateway:
         enabled: false
@@ -458,6 +464,8 @@ cases:
         - name: gitops
           path: gitops/flux
           destroy: false
+          inputs:
+            mode: pull
     exclude:
       kustomize:
         - name: gitops

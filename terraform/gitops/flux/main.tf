@@ -13,6 +13,10 @@ terraform {
       source  = "hashicorp/helm"
       version = "3.1.1"
     }
+    random = {
+      source  = "hashicorp/random"
+      version = "3.8.1"
+    }
   }
 }
 
@@ -28,6 +32,10 @@ locals {
   # Appended to every controller's additionalArgs. Default (leader_election=true)
   # is an empty list so the rendered Helm values stay byte-identical to before.
   leader_election_args = var.leader_election ? [] : ["--enable-leader-election=false"]
+
+  notification_enabled    = var.mode == "push"
+  webhook_token_supplied  = var.webhook_token != null && var.webhook_token != ""
+  effective_webhook_token = local.webhook_token_supplied ? var.webhook_token : try(random_password.webhook_token[0].result, "")
 }
 
 #-----------------------------------------------------------------------------------------------------------------------
@@ -61,14 +69,16 @@ resource "helm_release" "flux_system" {
   wait             = true
   values = [yamlencode({
     imageAutomationController = merge({
-      image = "ghcr.io/fluxcd/image-automation-controller"
+      create = var.image_automation
+      image  = "ghcr.io/fluxcd/image-automation-controller"
       # renovate: datasource=docker depName=ghcr.io/fluxcd/image-automation-controller package=ghcr.io/fluxcd/image-automation-controller
       tag = "v1.1.1@sha256:43617c9fbb4cf32aed7458647f62589575237ccb810f45bd7cb31f24126d4f22"
       }, var.leader_election ? {} : {
       container = { additionalArgs = local.leader_election_args }
     })
     imageReflectionController = merge({
-      image = "ghcr.io/fluxcd/image-reflector-controller"
+      create = var.image_reflection
+      image  = "ghcr.io/fluxcd/image-reflector-controller"
       # renovate: datasource=docker depName=ghcr.io/fluxcd/image-reflector-controller package=ghcr.io/fluxcd/image-reflector-controller
       tag = "v1.1.1@sha256:4c12c4046dee6e32e11b7c6afeaf7910406b67ff0182d46eeedb128d367908cd"
       }, var.leader_election ? {} : {
@@ -102,7 +112,8 @@ resource "helm_release" "flux_system" {
       }
     }
     notificationController = merge({
-      image = "ghcr.io/fluxcd/notification-controller"
+      create = local.notification_enabled
+      image  = "ghcr.io/fluxcd/notification-controller"
       # renovate: datasource=docker depName=ghcr.io/fluxcd/notification-controller package=ghcr.io/fluxcd/notification-controller
       tag = "v1.8.3@sha256:a9e22d4aeec507abb3abc0e6ad3aeb3b672fd03d5776c785399aedec263a603f"
       }, var.leader_election ? {} : {
@@ -157,14 +168,22 @@ resource "kubernetes_secret_v1" "git_auth" {
 # Set up webhook token
 #-----------------------------------------------------------------------------------------------------------------------
 
+resource "random_password" "webhook_token" {
+  count   = local.notification_enabled && !local.webhook_token_supplied ? 1 : 0
+  length  = 48
+  special = false
+}
+
 resource "kubernetes_secret_v1" "webhook_token" {
+  count = local.notification_enabled ? 1 : 0
+
   metadata {
     name      = "webhook-token"
     namespace = kubernetes_namespace_v1.flux_system.metadata[0].name
   }
 
   data = {
-    token = var.webhook_token
+    token = local.effective_webhook_token
   }
 }
 
@@ -185,4 +204,9 @@ moved {
 moved {
   from = kubernetes_secret.webhook_token
   to   = kubernetes_secret_v1.webhook_token
+}
+
+moved {
+  from = kubernetes_secret_v1.webhook_token
+  to   = kubernetes_secret_v1.webhook_token[0]
 }

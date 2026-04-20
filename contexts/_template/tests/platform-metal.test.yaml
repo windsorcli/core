@@ -60,6 +60,7 @@ cases:
           destroy: false
           inputs:
             concurrency: 4
+            mode: push
       kustomize:
         - name: cleanup
           path: cleanup

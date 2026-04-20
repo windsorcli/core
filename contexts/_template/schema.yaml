@@ -475,6 +475,16 @@ properties:
   gitops:
     type: object
     properties:
+      mode:
+        type: string
+        enum:
+          - pull
+          - push
+        default: push
+        description: |
+          GitOps reconciliation mode.
+          push — a Flux Receiver is emitted so webhook POSTs trigger immediate reconciliation; intervals act as a safety-net poll only (default).
+          pull — Flux polls the GitRepository on its configured interval; no Receiver is emitted.
       repository:
         type: object
         properties:
@@ -486,14 +496,10 @@ properties:
       webhook:
         type: object
         properties:
-          enabled:
-            type: boolean
-            default: true
-            description: Enable webhook-triggered Flux source reconciliation
           token:
             type: string
             sensitive: true
-            description: Token for the Flux Receiver secret. Defaults to a placeholder in workstation mode; set explicitly for production.
+            description: Token for the Flux Receiver secret (push mode only). Defaults to a placeholder in workstation mode; set explicitly for production.
         additionalProperties: false
     additionalProperties: false
 
@@ -624,8 +630,12 @@ properties:
             type: string
             default: local
             description: Password for git livereload HTTP auth
+          livereload:
+            type: boolean
+            default: false
+            description: When true, git-livereload posts to the Flux webhook on push. Requires gitops.mode=push on the cluster side.
         additionalProperties: false
-        description: Git livereload credentials
+        description: Git livereload credentials and push-mode toggle
     additionalProperties: false
 
   # Optional addons
