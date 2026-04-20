@@ -194,6 +194,14 @@ jobs:
             echo "expect_bump=false" >> $GITHUB_OUTPUT
             exit 0
           fi
+          # Upgrade mode only makes sense in a PR context — the diff base is
+          # origin/main, and on push-to-main origin/main == HEAD so the diff
+          # would always be empty. Fail loudly if this invariant is ever
+          # broken by re-adding upgrade to the push matrix.
+          if [ "${{ github.event_name }}" != "pull_request" ]; then
+            echo "::error::upgrade mode requires a PR context (origin/main == HEAD on push events)"
+            exit 1
+          fi
           git fetch origin main
           if git diff --quiet origin/main HEAD -- terraform kustomize contexts windsor.yaml; then
             echo "No infra changes (terraform, kustomize, contexts, windsor.yaml). Skipping upgrade test."
