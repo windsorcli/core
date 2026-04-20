@@ -5,7 +5,7 @@ metadata:
   name: cert-init
   namespace: system-pki
   annotations:
-    fluxcd.io/reconcile: "false"
+    kustomize.toolkit.fluxcd.io/force: enabled
   labels:
     app: cert-init
 spec:
