@@ -7,11 +7,17 @@ metadata:
 when: platform == 'aws'
 
 # =============================================================================
-# Terraform — VPC, EKS, optional Cilium bootstrap
+# Terraform — S3 state backend, VPC, EKS, optional Cilium bootstrap
 # =============================================================================
 #
 # Dependency chain:
-#   network (VPC) → cluster (EKS) → cluster-additions → cni? → gitops
+#   backend (S3) → network (VPC) → cluster (EKS) → cluster-additions → cni? → gitops
+#
+# The backend stack provisions the S3 bucket (and optional DynamoDB lock
+# table) that every downstream stack uses for remote state. It runs first on
+# apply and — because of the reverse-order teardown — last on destroy, so
+# dependent stacks finish writing their final (empty) state before the
+# bucket itself is removed.
 #
 # Cilium is optional on EKS; when used it's a full bring-your-own-CNI
 # replacement for VPC-CNI and is bootstrapped before Flux so pod networking
@@ -19,10 +25,19 @@ when: platform == 'aws'
 #
 terraform:
 
+  # S3 + (optional) DynamoDB remote state backend. context_id/context_path and
+  # TF_VAR_operation are auto-injected by the CLI; the module's force_destroy
+  # flips on when operation == "destroy" so the bucket can be torn down with
+  # its contents on windsor destroy.
+  - name: backend
+    path: backend/s3
+
   # VPC with the requested CIDR. Domain propagates to Route 53 wiring in the
   # module when set.
   - name: network
     path: network/aws-vpc
+    dependsOn:
+      - backend
     inputs:
       cidr_block: ${network_effective.cidr_block}
       domain_name: ${dns.public_domain ?? ""}
@@ -57,7 +72,10 @@ terraform:
     dependsOn:
       - cluster
     inputs:
-      cluster_endpoint: ${cluster.endpoint ?? ""}
+      # EKS endpoint only exists after the cluster module applies, so pull it
+      # from the terraform output by default. An explicit `cluster.endpoint` in
+      # values.yaml still wins — useful for proxied or air-gapped scenarios.
+      cluster_endpoint: ${cluster.endpoint ?? terraform_output("cluster", "cluster_endpoint") ?? ""}
 
   # ---------------------------------------------------------------------------
   # GitOps (two variants)

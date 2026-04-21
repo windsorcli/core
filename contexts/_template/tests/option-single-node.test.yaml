@@ -57,6 +57,7 @@ cases:
       addons:
         database:
           postgres:
+            enabled: true
             driver: cloudnativepg
     expect:
       kustomize:
