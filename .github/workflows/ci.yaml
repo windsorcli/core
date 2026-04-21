@@ -34,7 +34,7 @@ env:
   # renovate: datasource=github-releases depName=troubleshoot package=replicatedhq/troubleshoot
   SUPPORT_BUNDLE_VERSION: v0.127.0
   # renovate: datasource=github-releases depName=flux package=fluxcd/flux2
-  FLUX_VERSION: v2.8.5
+  FLUX_VERSION: v2.8.6
 
 jobs:
 
