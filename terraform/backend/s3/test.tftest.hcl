@@ -8,19 +8,27 @@ override_data {
   }
 }
 
+# Mock the region lookup so tests don't depend on a real AWS session or the
+# AWS_REGION env var. us-east-2 matches the prior module default.
+override_data {
+  target = data.aws_region.current
+  values = {
+    region = "us-east-2"
+  }
+}
+
 # Verifies that the module creates resources with default naming conventions and basic configuration.
 # Tests the impact of module default values in minimal configuration, including:
 # - Default resource naming (S3 bucket)
 # - Default security settings (encryption, public access block)
 # - Default lifecycle rules
-# - Optional features disabled by default (DynamoDB, KMS)
+# - KMS key opt-out
 run "minimal_configuration" {
   command = plan
 
   variables {
-    context_id      = "test"
-    enable_dynamodb = false
-    enable_kms      = false
+    context_id = "test"
+    enable_kms = false
   }
 
   assert {
@@ -44,13 +52,43 @@ run "minimal_configuration" {
   }
 
   assert {
-    condition     = length(aws_dynamodb_table.terraform_locks) == 0
-    error_message = "DynamoDB table should not be created by default"
+    condition     = length(aws_kms_key.terraform_state) == 0
+    error_message = "KMS key should not be created by default"
   }
 
   assert {
-    condition     = length(aws_kms_key.terraform_state) == 0
-    error_message = "KMS key should not be created by default"
+    condition     = aws_s3_bucket.this.force_destroy == false
+    error_message = "force_destroy should default to false during normal apply"
+  }
+}
+
+# Verifies that force_destroy flips on when operation=destroy, which is how
+# windsor destroy tears the state bucket down along with its versioned contents.
+run "force_destroy_on_destroy_operation" {
+  command = plan
+
+  variables {
+    context_id = "test"
+    operation  = "destroy"
+    enable_kms = false
+  }
+
+  assert {
+    condition     = aws_s3_bucket.this.force_destroy == true
+    error_message = "force_destroy must be true when operation is destroy"
+  }
+}
+
+# Confirms that the operation variable rejects arbitrary values and only
+# accepts the two the CLI ever injects.
+run "invalid_operation_rejected" {
+  command = plan
+  expect_failures = [
+    var.operation,
+  ]
+  variables {
+    context_id = "test"
+    operation  = "refresh"
   }
 }
 
@@ -58,14 +96,13 @@ run "minimal_configuration" {
 # Validates that user-supplied values correctly override defaults for:
 # - Resource naming
 # - Security settings
-# - Optional features (DynamoDB, KMS)
+# - Optional features (KMS)
 # - Logging configuration
 run "full_configuration" {
   command = plan
 
   variables {
     context_id          = "test"
-    enable_dynamodb     = true
     enable_kms          = true
     s3_bucket_name      = "custom-terraform-state"
     s3_log_bucket_name  = "custom-log-bucket"
@@ -89,16 +126,6 @@ run "full_configuration" {
   }
 
   assert {
-    condition     = length(aws_dynamodb_table.terraform_locks) == 1
-    error_message = "DynamoDB table should be created when enabled"
-  }
-
-  assert {
-    condition     = aws_dynamodb_table.terraform_locks[0].name == "terraform-state-locks-test"
-    error_message = "DynamoDB table name should follow naming convention"
-  }
-
-  assert {
     condition     = length(aws_kms_key.terraform_state) == 1
     error_message = "KMS key should be created when enabled"
   }
@@ -110,15 +137,16 @@ run "full_configuration" {
 }
 
 # Validates that the backend configuration file is generated with correct resource names
-# when a context path is provided, enabling Terraform to use the S3 backend
+# when a context path is provided, enabling Terraform to use the S3 backend.
+# The rendered backend.tfvars must always declare use_lockfile = true so the bucket's
+# own S3 object-lock takes over state locking (DynamoDB is no longer involved).
 run "backend_config_generation" {
   command = apply
 
   variables {
-    context_id      = "test"
-    context_path    = "test"
-    enable_dynamodb = false
-    enable_kms      = false
+    context_id   = "test"
+    context_path = "test"
+    enable_kms   = false
   }
 
   assert {
@@ -130,37 +158,10 @@ run "backend_config_generation" {
     condition = trimspace(local_file.backend_config[0].content) == trimspace(<<EOF
 bucket = "terraform-state-test"
 region = "us-east-2"
+use_lockfile = true
 EOF
     )
-    error_message = "Backend config should contain correct bucket and region"
-  }
-}
-
-# Tests the backend configuration when DynamoDB state locking is enabled,
-# ensuring that the state can be safely locked during operations
-run "backend_config_with_dynamodb" {
-  command = apply
-
-  variables {
-    context_id      = "test"
-    context_path    = "test"
-    enable_dynamodb = true
-    enable_kms      = false
-  }
-
-  assert {
-    condition     = length(local_file.backend_config) == 1
-    error_message = "Backend config should be generated with context path"
-  }
-
-  assert {
-    condition = trimspace(local_file.backend_config[0].content) == trimspace(<<EOF
-bucket = "terraform-state-test"
-region = "us-east-2"
-dynamodb_table = "terraform-state-locks-test"
-EOF
-    )
-    error_message = "Backend config should include DynamoDB table"
+    error_message = "Backend config should contain bucket, region, and use_lockfile = true"
   }
 }
 
@@ -177,8 +178,8 @@ run "backend_config_with_kms" {
   }
 
   assert {
-    condition     = can(regex("^bucket = \\\"terraform-state-test\\\"\\nregion = \\\"us-east-2\\\"\\ndynamodb_table = \\\"terraform-state-locks-test\\\"\\nkms_key_id = \\\".*\\\"$", trimspace(local_file.backend_config[0].content)))
-    error_message = "Backend config should include KMS key ID"
+    condition     = can(regex("^bucket = \\\"terraform-state-test\\\"\\nregion = \\\"us-east-2\\\"\\nuse_lockfile = true\\nkms_key_id = \\\".*\\\"$", trimspace(local_file.backend_config[0].content)))
+    error_message = "Backend config should include KMS key ID alongside use_lockfile"
   }
 }
 

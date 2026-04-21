@@ -138,6 +138,50 @@ properties:
     default: false
     description: Enable development mode with additional observability and debugging tools
 
+  # AWS provider configuration (only consumed when platform == 'aws').
+  aws:
+    type: object
+    additionalProperties: false
+    properties:
+      enabled:
+        type: boolean
+        description: Enable AWS integration
+      profile:
+        type: string
+        description: AWS CLI profile to use for authentication. Defaults to the context name when unset, so `aws configure sso` inside the context auto-wires a usable profile.
+      region:
+        type: string
+        description: AWS region for API calls. Surfaced as AWS_REGION to every tool run inside the context.
+      endpoint_url:
+        type: string
+        description: Custom endpoint URL for AWS services (e.g. LocalStack testing).
+      s3_hostname:
+        type: string
+        description: Custom hostname for the S3 service.
+      mwaa_endpoint:
+        type: string
+        description: Endpoint for Managed Workflows for Apache Airflow.
+    description: AWS provider authentication and endpoint configuration
+
+  # Azure provider configuration (only consumed when platform == 'azure').
+  azure:
+    type: object
+    additionalProperties: false
+    properties:
+      enabled:
+        type: boolean
+        description: Enable Azure integration
+      subscription_id:
+        type: string
+        description: Azure subscription identifier
+      tenant_id:
+        type: string
+        description: Azure tenant identifier
+      environment:
+        type: string
+        description: Azure cloud environment (e.g. "public", "usgovernment")
+    description: Azure provider authentication configuration
+
   # Terraform execution config
   terraform:
     type: object
@@ -372,8 +416,7 @@ properties:
           - talos
           - aks
           - eks
-        default: talos
-        description: Cluster driver
+        description: Cluster driver. Defaulted by platform-base based on the active platform (aws → eks, azure → aks, otherwise → talos); an explicit value here wins.
       endpoint:
         type: string
         description: External controlplane API endpoint

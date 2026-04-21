@@ -15,7 +15,6 @@ terraform {
 }
 
 provider "aws" {
-  region = var.region
   default_tags {
     tags = merge(
       var.tags,
@@ -28,6 +27,7 @@ provider "aws" {
 }
 
 data "aws_caller_identity" "current" {}
+data "aws_region" "current" {}
 
 #---------------------------------------------------------------------------------------------------
 # S3 Bucket Creation
@@ -41,6 +41,13 @@ resource "aws_s3_bucket" "this" {
   # checkov:skip=CKV_AWS_19:Server-side encryption is configured via aws_s3_bucket_server_side_encryption_configuration
   # checkov:skip=CKV_AWS_145:KMS encryption is configured via aws_s3_bucket_server_side_encryption_configuration
   bucket = var.s3_bucket_name != "" ? var.s3_bucket_name : local.default_s3_bucket_name
+
+  # During a windsor destroy the CLI sets TF_VAR_operation=destroy. Versioning
+  # is enabled on this bucket, so it always carries prior state versions that
+  # would block a plain delete — force_destroy empties the bucket so teardown
+  # succeeds. Apply runs keep the default (false) so the bucket is never
+  # accidentally emptied during normal operations.
+  force_destroy = var.operation == "destroy"
 
   tags = {
     Name = var.s3_bucket_name != "" ? var.s3_bucket_name : local.default_s3_bucket_name
@@ -95,12 +102,9 @@ locals {
         "s3:GetBucketLocation"
       ],
       Resource = [
-        "*"
+        aws_s3_bucket.this.arn,
+        "${aws_s3_bucket.this.arn}/*"
       ],
-      # Resource = [
-      #   aws_s3_bucket.this.arn,
-      #   "${aws_s3_bucket.this.arn}/*"
-      # ],
       Condition = {
         Bool = {
           "aws:SecureTransport" = "true"
@@ -134,7 +138,7 @@ locals {
           "kms:ScheduleKeyDeletion",
           "kms:CancelKeyDeletion"
         ],
-        Resource = ["arn:aws:kms:${var.region}:${data.aws_caller_identity.current.account_id}:key/*"],
+        Resource = ["arn:aws:kms:${data.aws_region.current.region}:${data.aws_caller_identity.current.account_id}:key/*"],
         Condition = {
           StringEquals = {
             "kms:CallerAccount" = data.aws_caller_identity.current.account_id
@@ -154,7 +158,7 @@ locals {
           "kms:GenerateDataKey*",
           "kms:DescribeKey"
         ],
-        Resource = ["arn:aws:kms:${var.region}:${data.aws_caller_identity.current.account_id}:key/*"],
+        Resource = ["arn:aws:kms:${data.aws_region.current.region}:${data.aws_caller_identity.current.account_id}:key/*"],
         Condition = {
           StringEquals = {
             "kms:CallerAccount" = data.aws_caller_identity.current.account_id
@@ -236,30 +240,6 @@ resource "aws_s3_bucket_public_access_block" "this" {
 }
 
 #---------------------------------------------------------------------------------------------------
-# DynamoDB Table for Locking
-# This section creates a DynamoDB table used for state locking and consistency checking
-# during Terraform operations, ensuring that only one process can modify the state at a time.
-#---------------------------------------------------------------------------------------------------
-
-resource "aws_dynamodb_table" "terraform_locks" {
-  # checkov:skip=CKV_AWS_119:Encryption is not necessary for this DynamoDB table as it is used solely for Terraform state locking, which does not involve sensitive data.
-  count = var.enable_dynamodb ? 1 : 0
-
-  name         = "terraform-state-locks-${var.context_id}"
-  billing_mode = "PAY_PER_REQUEST"
-  hash_key     = "LockID"
-
-  attribute {
-    name = "LockID"
-    type = "S"
-  }
-
-  point_in_time_recovery {
-    enabled = true
-  }
-}
-
-#---------------------------------------------------------------------------------------------------
 # KMS Key for Terraform State Encryption (if not provided externally)
 # This section creates a KMS key for encrypting the Terraform state file in S3,
 # if an external KMS key is not provided. It includes key rotation and deletion settings.
@@ -289,10 +269,9 @@ resource "aws_kms_alias" "terraform_state_alias" {
 resource "local_file" "backend_config" {
   count = var.context_path != "" ? 1 : 0
   content = templatefile("${path.module}/templates/backend.tftpl", {
-    bucket         = var.s3_bucket_name != "" ? var.s3_bucket_name : local.default_s3_bucket_name
-    region         = var.region
-    dynamodb_table = var.enable_dynamodb ? "terraform-state-locks-${var.context_id}" : ""
-    kms_key_id     = var.enable_kms && var.kms_key_alias == "" ? aws_kms_key.terraform_state[0].arn : ""
+    bucket     = var.s3_bucket_name != "" ? var.s3_bucket_name : local.default_s3_bucket_name
+    region     = data.aws_region.current.region
+    kms_key_id = var.enable_kms && var.kms_key_alias == "" ? aws_kms_key.terraform_state[0].arn : ""
   })
   filename = "${var.context_path}/backend.tfvars"
 }

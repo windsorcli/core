@@ -10,8 +10,15 @@ cases:
         enabled: false
     expect:
       terraform:
+        # S3 remote state backend must run first so downstream stacks can
+        # migrate their state onto it; on destroy the reverse-order teardown
+        # takes it down last.
+        - name: backend
+          path: backend/s3
         - name: network
           path: network/aws-vpc
+          dependsOn:
+            - backend
         - name: cluster
           path: cluster/aws-eks
           dependsOn:

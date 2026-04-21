@@ -73,10 +73,15 @@ kustomize:
       - openebs/single-node
 
   # ---------------------------------------------------------------------------
-  # database overlay — only when cloudnative-pg is the chosen driver.
+  # database overlay — only when the cloudnative-pg addon is actually enabled
+  # AND cloudnative-pg is the chosen driver. Guarding on `enabled` matters
+  # because the single-node entry is a kustomize *component* (patch-only); if
+  # the database base HelmRelease isn't also being applied by addon-database,
+  # the patch has nothing to target and flux errors out on "no matches for Id
+  # HelmRelease.v2.helm.toolkit.fluxcd.io/cloudnativepg.system-database".
   # ---------------------------------------------------------------------------
   - name: database
     path: database
-    when: addons.database.postgres.driver == 'cloudnativepg'
+    when: addons.database.postgres.enabled == true && addons.database.postgres.driver == 'cloudnativepg'
     components:
       - cloudnativepg/single-node

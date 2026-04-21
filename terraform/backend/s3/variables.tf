@@ -14,14 +14,14 @@ variable "context_id" {
   default     = null
 }
 
-#---------------------------------------------------------------------------------------------------
-# AWS Region
-#---------------------------------------------------------------------------------------------------
-
-variable "region" {
-  description = "The AWS Region for the S3 Bucket and DynamoDB Table"
+variable "operation" {
+  description = "Current terraform operation. Set to \"destroy\" to allow the state bucket to be torn down with its contents (including prior state versions and logs)."
   type        = string
-  default     = "us-east-2"
+  default     = "apply"
+  validation {
+    condition     = contains(["apply", "destroy"], var.operation)
+    error_message = "operation must be either \"apply\" or \"destroy\"."
+  }
 }
 
 #---------------------------------------------------------------------------------------------------
@@ -75,12 +75,6 @@ variable "kms_key_alias" {
 #---------------------------------------------------------------------------------------------------
 # Feature Flags
 #---------------------------------------------------------------------------------------------------
-
-variable "enable_dynamodb" {
-  description = "Feature flag to enable DynamoDB table creation"
-  type        = bool
-  default     = true
-}
 
 variable "enable_kms" {
   description = "Feature flag to enable KMS encryption"

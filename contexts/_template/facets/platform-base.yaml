@@ -40,6 +40,22 @@ config:
       runtime: "${workstation.runtime ?? ''}"
 
   # ---------------------------------------------------------------------------
+  # Cluster driver (platform-implied default)
+  # ---------------------------------------------------------------------------
+  #
+  # Managed clouds imply their managed driver: aws → eks, azure → aks. Every
+  # other platform (metal, incus, docker, workstation-only) defaults to talos.
+  # Computed here in platform-base, before `cni_effective` / `talos_provisioned`
+  # / `eks_enabled` are derived, so downstream `when:` guards (option-cni,
+  # option-storage, config-talos, the per-platform facets) all see the
+  # platform-correct driver without needing their own fallbacks. An explicit
+  # `cluster.driver` in values.yaml always wins.
+  #
+  - name: cluster
+    value:
+      driver: "${cluster.driver ?? (platform == 'aws' ? 'eks' : (platform == 'azure' ? 'aks' : 'talos'))}"
+
+  # ---------------------------------------------------------------------------
   # CNI driver selection
   # ---------------------------------------------------------------------------
   #
