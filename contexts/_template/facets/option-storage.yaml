@@ -24,36 +24,31 @@ terraform:
   # cluster-extensions — apply Talos system extensions
   # ---------------------------------------------------------------------------
   #
-  # Only runs when talos_common.extensions has entries (populated by the
-  # storage-driver-specific config in platform-*/config-talos).
+  # Only runs when extensions are needed for the chosen storage driver
+  # (currently: longhorn → iscsi-tools + util-linux-tools).
   #
-  # When Cilium is active, option-cni merges `dependsOn: [cni]` into this
-  # entry so extensions wait for node networking to be up.
+  # When Cilium is the CNI, the cni terraform step bootstraps Cilium directly
+  # against the Talos API. Extensions also touches Talos, so it must wait for
+  # cni to finish to avoid concurrent machine-config writes — hence the
+  # conditional dependsOn entry below.
   #
   - name: cluster-extensions
-    when: "len(talos_common.extensions ?? []) > 0 && cluster_provisioned"
+    when: "(cluster.storage.driver ?? 'openebs') == 'longhorn' && cluster_provisioned"
     path: cluster/talos/extensions
     dependsOn:
       - cluster
+      - "${cni_effective.driver == 'cilium' ? 'cni' : ''}"
     parallelism: 1
     inputs:
       talos_version: ${talos.talos_version}
-      controlplanes: >-
-        ${len(terraform_output("compute", "controlplanes") ?? []) > 0
-          ? map(terraform_output("compute", "controlplanes"), fromPairs(filter(toPairs(#), get(#, 0) == "node" || get(#, 0) == "endpoint")))
-          : map(values(cluster.controlplanes.nodes), fromPairs(filter(toPairs(#), get(#, 0) == "node" || get(#, 0) == "endpoint")))}
-      workers: >-
-        ${len(terraform_output("compute", "workers") ?? []) > 0
-          ? map(terraform_output("compute", "workers"), fromPairs(filter(toPairs(#), get(#, 0) == "node" || get(#, 0) == "endpoint")))
-          : ((cluster.workers.count ?? 0) > 0
-            ? map(values(cluster.workers.nodes), fromPairs(filter(toPairs(#), get(#, 0) == "node" || get(#, 0) == "endpoint")))
-            : [])}
+      controlplanes: ${talos_node_targets.controlplanes ?? []}
+      workers: ${talos_node_targets.workers ?? []}
       extensions: ${talos_common.extensions ?? []}
 
   # Dependency merge: Flux waits for extensions before reconciling, so CSI
   # DaemonSets find the kernel modules they expect.
   - name: gitops
-    when: "len(talos_common.extensions ?? []) > 0 && cluster_provisioned"
+    when: "(cluster.storage.driver ?? 'openebs') == 'longhorn' && cluster_provisioned"
     path: gitops/flux
     dependsOn:
       - cluster-extensions
@@ -117,12 +112,13 @@ kustomize:
   # ---------------------------------------------------------------------------
   #
   # Inject the Longhorn dashboard into the observability kustomization when
-  # Longhorn + observability are both active (or when dev mode is on, which
-  # auto-enables observability).
+  # Longhorn is the active storage driver AND observability is on (or dev mode
+  # is on, which auto-enables observability). The longhorn driver gate is
+  # required — the dashboard is meaningless without longhorn metrics to render.
   #
   - name: observability
     path: observability
-    when: (talos_common.storage_driver == 'longhorn' && addons.observability.enabled == true) || dev == true
+    when: talos_common.storage_driver == 'longhorn' && (addons.observability.enabled == true || dev == true)
     dependsOn:
       - telemetry-base
     components:

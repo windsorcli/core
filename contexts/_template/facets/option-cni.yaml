@@ -39,15 +39,7 @@ terraform:
       # re-runs don't flap the deployment between Flux reconciles. Same
       # single-node → 1, else → 2 rule applied by the Flux substitution.
       operator_replicas: "${topology_effective == 'single-node' ? 1 : 2}"
-
-  # Dependency merges — insert the `cni` step into the existing terraform graph
-  # so Talos extensions and Flux both wait for Cilium bootstrap to finish.
-  - name: cluster-extensions
-    when: "talos_provisioned"
-    path: cluster/talos/extensions
-    dependsOn:
-      - cni
-
+  
   - name: gitops
     when: "talos_provisioned"
     path: gitops/flux

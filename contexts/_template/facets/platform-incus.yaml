@@ -43,6 +43,24 @@ config:
             : ""
         }
 
+  # Node targets for post-cluster steps (e.g. cluster/talos/extensions). Mirrors
+  # the same compute-output-or-fallback resolution that the `cluster` step uses,
+  # projected to the {node, endpoint} shape that the extensions module accepts.
+  - name: talos_node_targets
+    value:
+      controlplanes: >-
+        ${map(
+          len(terraform_output("compute", "controlplanes") ?? []) > 0
+            ? terraform_output("compute", "controlplanes")
+            : values(cluster.controlplanes.nodes ?? {}),
+          fromPairs(filter(toPairs(#), get(#, 0) == "node" || get(#, 0) == "endpoint")))}
+      workers: >-
+        ${map(
+          len(terraform_output("compute", "workers") ?? []) > 0
+            ? terraform_output("compute", "workers")
+            : ((cluster.workers.count ?? 0) > 0 ? values(cluster.workers.nodes) : []),
+          fromPairs(filter(toPairs(#), get(#, 0) == "node" || get(#, 0) == "endpoint")))}
+
 # =============================================================================
 # Terraform — standalone incus (no workstation)
 # =============================================================================

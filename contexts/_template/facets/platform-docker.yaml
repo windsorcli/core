@@ -21,6 +21,17 @@ config:
     value:
       k8s_service_host: "${cidrhost(network_effective.cidr_block, 10)}"
 
+  # Node targets for post-cluster steps (e.g. cluster/talos/extensions). Reads
+  # compute outputs (compute always runs before cluster, which runs before
+  # extensions), projected to the {node, endpoint} shape that the extensions
+  # module accepts.
+  - name: talos_node_targets
+    value:
+      controlplanes: >-
+        ${map(terraform_output("compute", "controlplanes") ?? [], fromPairs(filter(toPairs(#), get(#, 0) == "node" || get(#, 0) == "endpoint")))}
+      workers: >-
+        ${map(terraform_output("compute", "workers") ?? [], fromPairs(filter(toPairs(#), get(#, 0) == "node" || get(#, 0) == "endpoint")))}
+
   # ---------------------------------------------------------------------------
   # cluster_endpoint_fallback — best-effort Talos API endpoint
   # ---------------------------------------------------------------------------

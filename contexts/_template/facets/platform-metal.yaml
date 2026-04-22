@@ -22,6 +22,19 @@ config:
     value:
       endpoint: "${cluster.endpoint ?? ('https://' + split(values(cluster.controlplanes.nodes)[0].endpoint, ':')[0] + ':6443')}"
 
+  # Node targets for post-cluster steps (e.g. cluster/talos/extensions). Same
+  # node list the `cluster` step receives, projected to the {node, endpoint}
+  # shape that the extensions module's variable schema accepts. No compute
+  # layer on metal — read straight from the user-supplied node map.
+  - name: talos_node_targets
+    value:
+      controlplanes: >-
+        ${map(values(cluster.controlplanes.nodes ?? {}), fromPairs(filter(toPairs(#), get(#, 0) == "node" || get(#, 0) == "endpoint")))}
+      workers: >-
+        ${(cluster.workers.count ?? 0) > 0
+          ? map(values(cluster.workers.nodes), fromPairs(filter(toPairs(#), get(#, 0) == "node" || get(#, 0) == "endpoint")))
+          : []}
+
 # =============================================================================
 # Terraform — cluster/talos + gitops
 # =============================================================================
