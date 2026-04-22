@@ -359,10 +359,10 @@ cases:
             gateway_class_name: envoy
             loadbalancer_start_ip: "10.5.1.10"
 
-  # AWS: no network.loadbalancer_ips configured, so loadbalancer_start_ip falls back to the
-  # cidrhost default (10.5.1.10 from the default /16). gateway_dns_target evaluates to "" and
-  # is omitted from output because lb_effective.enabled is false on AWS (cloud-managed LB).
-  - name: aws envoy gateway-resources uses cidr-derived loadbalancer_start_ip
+  # AWS uses a cloud-managed LB (lb_effective.enabled == false) and is not cilium,
+  # so loadbalancer_start_ip and gateway_dns_target both evaluate to "" and are
+  # omitted from output. Only gateway_class_name remains.
+  - name: aws envoy gateway-resources omits loadbalancer substitutions
     values:
       provider: aws
       gateway:
@@ -376,7 +376,6 @@ cases:
             - gateway-base
           substitutions:
             gateway_class_name: envoy
-            loadbalancer_start_ip: "10.5.1.10"
           timeout: 10m
           interval: 5m
 

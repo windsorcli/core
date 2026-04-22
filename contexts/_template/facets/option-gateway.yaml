@@ -96,6 +96,9 @@ kustomize:
       gateway_class_name: ${gateway_effective.driver}
       gateway_dns_target: "${lb_effective.enabled == true ? network_effective.loadbalancer_ips.start : ''}"
       external_domain: ${dns.private_domain}
-      loadbalancer_start_ip: ${network_effective.loadbalancer_ips.start}
+      # Only emitted when a consumer is active: the lb-address patch (in-cluster
+      # LB) or the cilium gateway component. NodePort/cloud-managed-LB paths
+      # have no consumer, so leave it empty and the harness drops it.
+      loadbalancer_start_ip: "${(lb_effective.enabled == true || gateway_effective.driver == 'cilium') ? network_effective.loadbalancer_ips.start : ''}"
     timeout: 10m
     interval: 5m
