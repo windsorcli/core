@@ -120,6 +120,25 @@ config:
     value:
       mode: nodeport
 
+  # Explicit gateway.service_type wins over driver/platform auto-detect. Lets
+  # any platform expose the gateway via NodePort (e.g. single-node Talos VMs
+  # without a cluster LB) or force LoadBalancer on docker-desktop.
+  #
+  # NodePort also forces lb_effective.enabled=false: even when the cluster has
+  # a loadbalancer_driver configured (e.g. kube-vip), a NodePort service will
+  # never be assigned a LoadBalancer IP, so the lb-address patch and
+  # gateway_dns_target would reconcile against an IP that never materializes.
+  - name: lb_effective
+    when: gateway.service_type == 'NodePort'
+    value:
+      enabled: false
+      mode: nodeport
+
+  - name: lb_effective
+    when: gateway.service_type == 'LoadBalancer'
+    value:
+      mode: loadbalancer
+
   # ---------------------------------------------------------------------------
   # DNS domains
   # ---------------------------------------------------------------------------

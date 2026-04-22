@@ -186,6 +186,80 @@ cases:
         - *gateway-base-envoy-np
         - *gateway-resources-envoy
 
+  # Explicit gateway.service_type: NodePort works on any platform (e.g. a bare
+  # metal single-node cluster with no cluster LB). Network omits
+  # loadbalancer_driver so lb_effective.enabled is false — proves the nodeport
+  # component is selected purely from gateway.service_type.
+  - name: explicit gateway.service_type NodePort selects nodeport variant on metal with no LB
+    values:
+      provider: metal
+      gateway:
+        enabled: true
+        driver: envoy
+        service_type: NodePort
+      network:
+        cidr_block: 10.5.0.0/16
+      cluster: *default-cluster
+    expect:
+      kustomize:
+        - *gateway-base-envoy-np
+        - *gateway-resources-envoy
+
+  # NodePort must suppress lb_effective.enabled even when loadbalancer_driver
+  # is configured: a NodePort service will never get a LoadBalancer IP, so
+  # lb-address (which patches the Gateway with that IP) and gateway_dns_target
+  # must not apply. Uses *default-network which has loadbalancer_driver set,
+  # and flannel CNI so lb_effective.enabled would otherwise be true.
+  - name: explicit NodePort suppresses lb-address even when loadbalancer_driver is set
+    values:
+      provider: metal
+      gateway:
+        enabled: true
+        driver: envoy
+        service_type: NodePort
+      network: *default-network
+      cluster:
+        <<: *default-cluster
+        cni:
+          driver: flannel
+    expect:
+      kustomize:
+        - *gateway-base-envoy-np
+        - name: gateway-resources
+          path: gateway/resources
+          components:
+            - flux-webhook
+          substitutions:
+            gateway_class_name: envoy
+
+  # Explicit gateway.service_type: LoadBalancer overrides docker-desktop's
+  # default NodePort fallback.
+  - name: explicit gateway.service_type LoadBalancer overrides docker-desktop default
+    values:
+      platform: docker
+      gateway:
+        enabled: true
+        driver: envoy
+        service_type: LoadBalancer
+      workstation:
+        enabled: true
+        runtime: docker-desktop
+      network: *default-network
+      cluster: *default-cluster
+    terraformOutputs:
+      compute:
+        controlplanes:
+          - endpoint: 10.5.0.10:6443
+            node: 10.5.0.10
+            hostname: controlplane-1
+        workers: []
+      workstation:
+        registries: {}
+    expect:
+      kustomize:
+        - *gateway-base-envoy-lb
+        - *gateway-resources-envoy
+
   # Backward compatibility: ingress alias still works
   - name: legacy ingress alias maps envoy-gateway to envoy
     values:
@@ -312,10 +386,10 @@ cases:
             gateway_class_name: envoy
             loadbalancer_start_ip: "10.5.1.10"
 
-  # AWS: no network.loadbalancer_ips configured, so loadbalancer_start_ip falls back to the
-  # cidrhost default (10.5.1.10 from the default /16). gateway_dns_target evaluates to "" and
-  # is omitted from output because lb_effective.enabled is false on AWS (cloud-managed LB).
-  - name: aws envoy gateway-resources uses cidr-derived loadbalancer_start_ip
+  # AWS uses a cloud-managed LB (lb_effective.enabled == false) and is not cilium,
+  # so loadbalancer_start_ip and gateway_dns_target both evaluate to "" and are
+  # omitted from output. Only gateway_class_name remains.
+  - name: aws envoy gateway-resources omits loadbalancer substitutions
     values:
       provider: aws
       gateway:
@@ -329,7 +403,6 @@ cases:
             - gateway-base
           substitutions:
             gateway_class_name: envoy
-            loadbalancer_start_ip: "10.5.1.10"
           timeout: 10m
           interval: 5m
 
