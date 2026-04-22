@@ -285,7 +285,10 @@ cases:
           timeout: 5m
           interval: 5m
 
-  # Edge case: longhorn storage driver passes Talos extensions via cluster-extensions step
+  # Edge case: longhorn storage driver passes Talos extensions via cluster-extensions step.
+  # Also asserts the controlplanes/workers inputs come from the user-supplied node map
+  # (no compute layer on metal), projected to the {node, endpoint} shape the
+  # extensions module accepts — i.e. talos_node_targets is wired correctly.
   - name: longhorn storage driver passes iscsi and util-linux extensions to cluster terraform
     values:
       provider: metal
@@ -315,3 +318,20 @@ cases:
             extensions:
               - siderolabs/iscsi-tools
               - siderolabs/util-linux-tools
+            controlplanes:
+              - node: 10.5.0.10
+                endpoint: 10.5.0.10:50000
+
+  # Edge case: openebs (default) does not need Talos extensions, so cluster-extensions
+  # must NOT appear in the rendered blueprint and gitops must not depend on it.
+  # Guards against regressions in the option-storage `when:` filter.
+  - name: openebs storage driver excludes cluster-extensions terraform step
+    values:
+      provider: metal
+      gateway:
+        enabled: false
+      network: *default-network
+      cluster: *default-cluster
+    exclude:
+      terraform:
+        - name: cluster-extensions
