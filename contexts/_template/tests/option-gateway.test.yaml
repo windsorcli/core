@@ -186,6 +186,50 @@ cases:
         - *gateway-base-envoy-np
         - *gateway-resources-envoy
 
+  # Explicit gateway.service_type: NodePort works on any platform (e.g. a bare
+  # metal single-node cluster with no cluster LB).
+  - name: explicit gateway.service_type NodePort selects nodeport variant on metal
+    values:
+      provider: metal
+      gateway:
+        enabled: true
+        driver: envoy
+        service_type: NodePort
+      network: *default-network
+      cluster: *default-cluster
+    expect:
+      kustomize:
+        - *gateway-base-envoy-np
+        - *gateway-resources-envoy
+
+  # Explicit gateway.service_type: LoadBalancer overrides docker-desktop's
+  # default NodePort fallback.
+  - name: explicit gateway.service_type LoadBalancer overrides docker-desktop default
+    values:
+      platform: docker
+      gateway:
+        enabled: true
+        driver: envoy
+        service_type: LoadBalancer
+      workstation:
+        enabled: true
+        runtime: docker-desktop
+      network: *default-network
+      cluster: *default-cluster
+    terraformOutputs:
+      compute:
+        controlplanes:
+          - endpoint: 10.5.0.10:6443
+            node: 10.5.0.10
+            hostname: controlplane-1
+        workers: []
+      workstation:
+        registries: {}
+    expect:
+      kustomize:
+        - *gateway-base-envoy-lb
+        - *gateway-resources-envoy
+
   # Backward compatibility: ingress alias still works
   - name: legacy ingress alias maps envoy-gateway to envoy
     values:

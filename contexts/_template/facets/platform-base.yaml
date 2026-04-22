@@ -120,6 +120,14 @@ config:
     value:
       mode: nodeport
 
+  # Explicit gateway.service_type wins over driver/platform auto-detect. Lets
+  # any platform expose the gateway via NodePort (e.g. single-node Talos VMs
+  # without a cluster LB) or force LoadBalancer on docker-desktop.
+  - name: lb_effective
+    when: (gateway.service_type ?? '') != ''
+    value:
+      mode: "${gateway.service_type == 'NodePort' ? 'nodeport' : 'loadbalancer'}"
+
   # ---------------------------------------------------------------------------
   # DNS domains
   # ---------------------------------------------------------------------------

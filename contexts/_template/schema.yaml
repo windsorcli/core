@@ -560,6 +560,12 @@ properties:
           - envoy
           - cilium
         description: Gateway driver
+      service_type:
+        type: string
+        enum:
+          - LoadBalancer
+          - NodePort
+        description: Kubernetes Service type used to expose the gateway. When unset, defaults to LoadBalancer except on docker-desktop, which is forced to NodePort. Set to NodePort to expose the gateway on any driver without a cluster LB (e.g. single-node Talos VMs).
     additionalProperties: false
 
   # Ingress configuration
