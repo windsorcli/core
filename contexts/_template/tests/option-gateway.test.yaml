@@ -187,15 +187,18 @@ cases:
         - *gateway-resources-envoy
 
   # Explicit gateway.service_type: NodePort works on any platform (e.g. a bare
-  # metal single-node cluster with no cluster LB).
-  - name: explicit gateway.service_type NodePort selects nodeport variant on metal
+  # metal single-node cluster with no cluster LB). Network omits
+  # loadbalancer_driver so lb_effective.enabled is false — proves the nodeport
+  # component is selected purely from gateway.service_type.
+  - name: explicit gateway.service_type NodePort selects nodeport variant on metal with no LB
     values:
       provider: metal
       gateway:
         enabled: true
         driver: envoy
         service_type: NodePort
-      network: *default-network
+      network:
+        cidr_block: 10.5.0.0/16
       cluster: *default-cluster
     expect:
       kustomize:
