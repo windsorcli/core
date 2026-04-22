@@ -205,6 +205,33 @@ cases:
         - *gateway-base-envoy-np
         - *gateway-resources-envoy
 
+  # NodePort must suppress lb_effective.enabled even when loadbalancer_driver
+  # is configured: a NodePort service will never get a LoadBalancer IP, so
+  # lb-address (which patches the Gateway with that IP) and gateway_dns_target
+  # must not apply. Uses *default-network which has loadbalancer_driver set,
+  # and flannel CNI so lb_effective.enabled would otherwise be true.
+  - name: explicit NodePort suppresses lb-address even when loadbalancer_driver is set
+    values:
+      provider: metal
+      gateway:
+        enabled: true
+        driver: envoy
+        service_type: NodePort
+      network: *default-network
+      cluster:
+        <<: *default-cluster
+        cni:
+          driver: flannel
+    expect:
+      kustomize:
+        - *gateway-base-envoy-np
+        - name: gateway-resources
+          path: gateway/resources
+          components:
+            - flux-webhook
+          substitutions:
+            gateway_class_name: envoy
+
   # Explicit gateway.service_type: LoadBalancer overrides docker-desktop's
   # default NodePort fallback.
   - name: explicit gateway.service_type LoadBalancer overrides docker-desktop default
