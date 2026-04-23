@@ -65,7 +65,7 @@ variables {
   enable_health_check = false
 }
 
-run "machine_config_patch_with_disk_and_hostname" {
+run "machine_config_patch_with_disk" {
   variables {
     disk_selector = {
       busPath  = ""
@@ -81,7 +81,6 @@ run "machine_config_patch_with_disk_and_hostname" {
     wipe_disk         = true
     extra_kernel_args = ["console=tty0"]
     image             = "test-image"
-    extensions        = [{ image = "test-extension" }]
   }
   assert {
     condition     = strcontains(local.machine_config_patch, "\"name\": \"/dev/sda\"")
@@ -94,10 +93,6 @@ run "machine_config_patch_with_disk_and_hostname" {
   assert {
     condition     = strcontains(local.machine_config_patch, "\"image\": \"test-image\"")
     error_message = "Should include image test-image"
-  }
-  assert {
-    condition     = strcontains(local.machine_config_patch, "- \"image\": \"test-extension\"")
-    error_message = "Should include extension test-extension"
   }
 }
 
@@ -124,11 +119,11 @@ run "config_patches_includes_extra" {
     ]
   }
   assert {
-    condition     = length(local.config_patches) == 2
-    error_message = "Should include both machine_config_patch and extra patch"
+    condition     = length(local.config_patches) == 1
+    error_message = "Should include only the extra patch when no disk_selector is provided"
   }
   assert {
-    condition     = strcontains(local.config_patches[1], "- 8.8.8.8")
+    condition     = strcontains(local.config_patches[0], "- 8.8.8.8")
     error_message = "Should include nameservers in extra patch"
   }
 }
