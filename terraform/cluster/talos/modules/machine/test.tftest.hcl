@@ -128,6 +128,42 @@ run "config_patches_includes_extra" {
   }
 }
 
+run "config_patches_with_disk_and_extra" {
+  variables {
+    disk_selector = {
+      busPath  = ""
+      modalias = ""
+      model    = ""
+      name     = "/dev/sda"
+      serial   = ""
+      size     = "0"
+      type     = ""
+      uuid     = ""
+      wwid     = ""
+    }
+    config_patches = [
+      <<-EOT
+      machine:
+        network:
+          nameservers:
+            - 8.8.8.8
+      EOT
+    ]
+  }
+  assert {
+    condition     = length(local.config_patches) == 2
+    error_message = "Should include both machine_config_patch (install block) and extra patch"
+  }
+  assert {
+    condition     = strcontains(local.config_patches[0], "diskSelector")
+    error_message = "First patch should be the install/diskSelector block"
+  }
+  assert {
+    condition     = strcontains(local.config_patches[1], "- 8.8.8.8")
+    error_message = "Second patch should be the extra nameservers patch"
+  }
+}
+
 run "bootstrap_mode_generates_kubeconfig" {
   variables {
     bootstrap       = true
