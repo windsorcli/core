@@ -23,25 +23,22 @@ terraform {
 
 locals {
 
-  # Optional hostname and install block. Set hostname only when provided; otherwise leave to host/runtime (e.g. containers).
-  machine_config_patch = yamlencode({
-    machine = merge(
-      var.hostname != null && var.hostname != "" ? { network = { hostname = var.hostname } } : {},
-      # Include install block only if disk_selector is not null
-      var.disk_selector != null ? {
-        install = {
-          diskSelector    = var.disk_selector     # Disk selector to use for the machine
-          wipe            = var.wipe_disk         # Whether to wipe the disk before installation
-          extraKernelArgs = var.extra_kernel_args # Additional kernel arguments
-          image           = var.image             # Image to be used for installation
-        }
-      } : {}
-    )
-  })
+  # Install block is patched only when a disk_selector is provided. Hostname is not patched:
+  # Talos 1.12+ auto-derives machine.network.hostname from the runtime (Docker container name,
+  # VM hostname, DHCP, etc.) and rejects an explicit override with "static hostname is already set".
+  machine_config_patch = var.disk_selector != null ? yamlencode({
+    machine = {
+      install = {
+        diskSelector    = var.disk_selector
+        wipe            = var.wipe_disk
+        extraKernelArgs = var.extra_kernel_args
+        image           = var.image
+      }
+    }
+  }) : ""
 
-  # Combine machine configuration patch with additional configuration patches
   config_patches = concat(
-    [local.machine_config_patch],
+    compact([local.machine_config_patch]),
     [for patch in var.config_patches : patch]
   )
 }

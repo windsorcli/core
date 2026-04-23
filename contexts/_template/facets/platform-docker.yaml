@@ -81,18 +81,14 @@ terraform:
 
       # controlplanes: two code paths per node —
       #
-      # Path A (compute output present): strip hostname from each node.
-      # Docker already sets the hostname; Talos 1.12 rejects explicit
-      # overrides with "static hostname is already set".
+      # Path A (compute output present): pass nodes through unchanged.
+      # docker-desktop adds a per-node machine.certSANs patch including the
+      # real IP, hostname, localhost, and 127.0.0.1 so Talos API certs work
+      # when the client is the host reaching through the docker-desktop tunnel.
       #
       # Path B (no compute output, bootstrap-from-host): rewrite
       # endpoint/node to 127.0.0.1:(50000+i). This lets the host Talos
       # CLI bootstrap the control plane containers via port forwards.
-      #
-      # docker-desktop extra: each controlplane also gets a per-node
-      # machine.certSANs patch including its real IP, hostname, localhost,
-      # and 127.0.0.1 — so Talos API certs work when the client is the
-      # host reaching through the docker-desktop tunnel.
       controlplanes: >-
         ${map(
           len(terraform_output("compute", "controlplanes") ?? []) > 0
@@ -100,32 +96,33 @@ terraform:
             : reduce(
                 take(values(cluster.controlplanes.nodes ?? {}), int(cluster.controlplanes.count ?? 1)),
                 concat(#acc, [fromPairs(concat(
-                  filter(toPairs(#), get(#, 0) != "hostname" && get(#, 0) != "endpoint" && get(#, 0) != "node"),
-                  [["hostname", null], ["endpoint", "127.0.0.1:" + string(50000 + len(#acc))], ["node", "127.0.0.1"]]
+                  filter(toPairs(#), get(#, 0) != "endpoint" && get(#, 0) != "node"),
+                  [["endpoint", "127.0.0.1:" + string(50000 + len(#acc))], ["node", "127.0.0.1"]]
                 ))]),
                 []
               ),
-          fromPairs(concat(
-            filter(toPairs(#), get(#, 0) != "hostname"),
-            [["hostname", null]],
-            workstation.runtime == 'docker-desktop' ? [["config_patches", "machine:\n  certSANs:\n  - " + (get(#, "node") != null && get(#, "node") != "" ? get(#, "node") : split(get(#, "endpoint"), ":")[0]) + (get(#, "hostname") != null && get(#, "hostname") != "" ? "\n  - " + get(#, "hostname") : "") + "\n  - localhost\n  - 127.0.0.1"]] : []
-          ))
+          workstation.runtime == 'docker-desktop'
+            ? fromPairs(concat(
+                toPairs(#),
+                [["config_patches", "machine:\n  certSANs:\n  - " + (get(#, "node") != null && get(#, "node") != "" ? get(#, "node") : split(get(#, "endpoint"), ":")[0]) + (get(#, "hostname") != null && get(#, "hostname") != "" ? "\n  - " + get(#, "hostname") : "") + "\n  - localhost\n  - 127.0.0.1"]]
+              ))
+            : #
         )}
 
-      # workers: mirror of controlplanes. Strip hostname when compute output
-      # is present; rewrite endpoint to 127.0.0.1 offsets when bootstrapping
-      # from the host. Worker ports are offset by controlplane count.
+      # workers: mirror of controlplanes. Pass nodes through when compute
+      # output is present; rewrite endpoint to 127.0.0.1 offsets when
+      # bootstrapping from the host. Worker ports are offset by controlplane count.
       workers: >-
-        ${(len(terraform_output("compute", "controlplanes") ?? []) > 0
-          ? map(terraform_output("compute", "workers") ?? [], fromPairs(concat(filter(toPairs(#), get(#, 0) != "hostname"), [["hostname", null]])))
+        ${len(terraform_output("compute", "controlplanes") ?? []) > 0
+          ? (terraform_output("compute", "workers") ?? [])
           : ((cluster.workers.count ?? 0) == 0 ? [] : reduce(
               take(values(cluster.workers.nodes ?? {}), int(cluster.workers.count ?? 0)),
               concat(#acc, [fromPairs(concat(
-                filter(toPairs(#), get(#, 0) != "hostname" && get(#, 0) != "endpoint" && get(#, 0) != "node"),
-                [["hostname", null], ["endpoint", "127.0.0.1:" + string(50000 + (cluster.controlplanes.count ?? 1) + len(#acc))], ["node", "127.0.0.1"]]
+                filter(toPairs(#), get(#, 0) != "endpoint" && get(#, 0) != "node"),
+                [["endpoint", "127.0.0.1:" + string(50000 + (cluster.controlplanes.count ?? 1) + len(#acc))], ["node", "127.0.0.1"]]
               ))]),
               []
-            )))}
+            ))}
 
       controlplane_disks: ${cluster.controlplanes.disks ?? []}
       worker_disks: ${cluster.workers.disks ?? []}

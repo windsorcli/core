@@ -85,7 +85,6 @@ locals {
 
 module "controlplane_bootstrap" {
   source               = "./modules/machine"
-  hostname             = try(var.controlplanes[0].hostname, "")
   node                 = var.controlplanes[0].node
   client_configuration = talos_machine_secrets.this.client_configuration
   machine_secrets      = try(talos_machine_secrets.this.machine_secrets, "")
@@ -115,7 +114,6 @@ module "controlplanes" {
   depends_on = [module.controlplane_bootstrap]
 
   source               = "./modules/machine"
-  hostname             = try(var.controlplanes[count.index + 1].hostname, "")
   node                 = var.controlplanes[count.index + 1].node
   client_configuration = talos_machine_secrets.this.client_configuration
   machine_secrets      = try(talos_machine_secrets.this.machine_secrets, "")
@@ -149,7 +147,6 @@ module "workers" {
   depends_on = [module.controlplane_bootstrap] // Depends on the first control plane completing
 
   source               = "./modules/machine"
-  hostname             = try(var.workers[count.index].hostname, "")
   node                 = var.workers[count.index].node
   client_configuration = try(talos_machine_secrets.this.client_configuration, "")
   machine_secrets      = try(talos_machine_secrets.this.machine_secrets, "")

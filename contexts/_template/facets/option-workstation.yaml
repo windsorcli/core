@@ -361,8 +361,10 @@ terraform:
   # ---------------------------------------------------------------------------
   #
 
-  # Incus: strip hostname from each compute node (Incus sets it via
-  # user.hostname; Talos 1.12 rejects "static hostname is already set").
+  # Incus: nodes come from compute output (Incus provisioned VMs) or from
+  # cluster.*.nodes if compute hasn't run yet. Hostname flows through as a
+  # passthrough field — Talos 1.12+ reads it from the VM runtime (Incus
+  # user.hostname), not from Talos config.
   - name: cluster
     when: "platform == 'incus' && (cluster.enabled ?? true)"
     path: cluster/talos
@@ -381,11 +383,11 @@ terraform:
       talos_version: ${talos.talos_version}
       controlplanes: >-
         ${len(terraform_output("compute", "controlplanes") ?? []) > 0
-          ? map(terraform_output("compute", "controlplanes"), fromPairs(concat(filter(toPairs(#), get(#, 0) != "hostname"), [["hostname", null]])))
+          ? terraform_output("compute", "controlplanes")
           : values(cluster.controlplanes.nodes)}
       workers: >-
         ${len(terraform_output("compute", "controlplanes") ?? []) > 0
-          ? map(terraform_output("compute", "workers") ?? [], fromPairs(concat(filter(toPairs(#), get(#, 0) != "hostname"), [["hostname", null]])))
+          ? (terraform_output("compute", "workers") ?? [])
           : ((cluster.workers.count ?? 0) > 0 ? values(cluster.workers.nodes) : [])}
       controlplane_disks: ${talos_common.controlplane_disks}
       worker_disks: ${talos_common.worker_disks}
