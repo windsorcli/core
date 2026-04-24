@@ -239,14 +239,39 @@ config:
   # Telemetry driver
   # ---------------------------------------------------------------------------
   #
-  # Default log aggregation driver is fluentd. Other valid values: 'none'
-  # (disable aggregation entirely), 'elasticsearch' (the observability addon
-  # runs filebeat → Elasticsearch instead). Consumed by option-telemetry and
-  # by telemetry-resources below.
+  # metrics_enabled / logs_enabled: independent gates for the two halves of the
+  # telemetry pipeline. Both default on; disable individually to trim resources
+  # on small clusters (e.g. metrics-only when HPA is needed but logs aren't, or
+  # logs-only for debugging without the Prometheus overhead).
+  #
+  # Both are force-on when addons.observability is enabled — the observability
+  # addon expects a metrics backend and a log pipeline to be present, so opting
+  # the addon in trumps explicit disables here.
+  #
+  # logs_driver: aggregator choice. Valid values: 'fluentd' (default), 'none'
+  # (keep fluent-bit shipper but drop the fluentd aggregator), 'elasticsearch'
+  # (filebeat → Elasticsearch, set by addon-observability). Coerced to 'none'
+  # when the logs pipeline is disabled so downstream `when:` guards on the
+  # fluentd aggregator fall through cleanly.
   #
   - name: telemetry_effective
     value:
+      metrics_enabled: ${telemetry.metrics.enabled ?? true}
+      logs_enabled: ${telemetry.logs.enabled ?? true}
       logs_driver: "${telemetry.logs.driver ?? 'fluentd'}"
+
+  # Observability addon forces both pipelines on.
+  - name: telemetry_effective
+    when: addons.observability.enabled == true
+    value:
+      metrics_enabled: true
+      logs_enabled: true
+
+  # No logs pipeline → nothing to aggregate.
+  - name: telemetry_effective
+    when: telemetry.logs.enabled == false && addons.observability.enabled != true
+    value:
+      logs_driver: none
 
 # =============================================================================
 # Global substitutions
@@ -327,6 +352,7 @@ kustomize:
   #
   - name: policy-base
     path: policy/base
+    when: (policies.enabled ?? true) == true
     components:
       - kyverno
       - "${(policies.reporting ?? 'disabled') == 'enabled' ? 'kyverno/reports' : ''}"
@@ -336,6 +362,7 @@ kustomize:
 
   - name: policy-resources
     path: policy/resources
+    when: (policies.enabled ?? true) == true
     dependsOn:
       - policy-base
     components:
@@ -355,11 +382,11 @@ kustomize:
   - name: pki-base
     path: pki/base
     dependsOn:
-      - policy-resources
-      - telemetry-base
+      - "${(policies.enabled ?? true) ? 'policy-resources' : ''}"
+      - "${telemetry_effective.metrics_enabled || telemetry_effective.logs_enabled ? 'telemetry-base' : ''}"
     components:
       - cert-manager
-      - cert-manager/prometheus
+      - "${telemetry_effective.metrics_enabled ? 'cert-manager/prometheus' : ''}"
     timeout: 20m
     interval: 5m
 
@@ -384,27 +411,29 @@ kustomize:
   #
   - name: telemetry-base
     path: telemetry/base
+    when: telemetry_effective.metrics_enabled || telemetry_effective.logs_enabled
     components:
-      - prometheus
-      - prometheus/flux
-      - fluentbit
+      - "${telemetry_effective.metrics_enabled ? 'prometheus' : ''}"
+      - "${telemetry_effective.metrics_enabled ? 'prometheus/flux' : ''}"
+      - "${telemetry_effective.logs_enabled ? 'fluentbit' : ''}"
     timeout: 30m
     interval: 10m
 
   - name: telemetry-resources
     path: telemetry/resources
+    when: telemetry_effective.metrics_enabled || telemetry_effective.logs_enabled
     dependsOn:
       - telemetry-base
     components:
-      - metrics-server
-      - prometheus
-      - prometheus/flux
-      - fluentbit
-      - fluentbit/containerd
-      - fluentbit/kubernetes
-      - fluentbit/parser
-      - fluentbit/systemd
-      - fluentbit/prometheus
+      - "${telemetry_effective.metrics_enabled ? 'metrics-server' : ''}"
+      - "${telemetry_effective.metrics_enabled ? 'prometheus' : ''}"
+      - "${telemetry_effective.metrics_enabled ? 'prometheus/flux' : ''}"
+      - "${telemetry_effective.logs_enabled ? 'fluentbit' : ''}"
+      - "${telemetry_effective.logs_enabled ? 'fluentbit/containerd' : ''}"
+      - "${telemetry_effective.logs_enabled ? 'fluentbit/kubernetes' : ''}"
+      - "${telemetry_effective.logs_enabled ? 'fluentbit/parser' : ''}"
+      - "${telemetry_effective.logs_enabled ? 'fluentbit/systemd' : ''}"
+      - "${telemetry_effective.logs_enabled && telemetry_effective.metrics_enabled ? 'fluentbit/prometheus' : ''}"
       - "${telemetry_effective.logs_driver == 'fluentd' ? 'fluentbit/fluentd' : ''}"
     timeout: 10m
     interval: 5m
@@ -424,7 +453,7 @@ kustomize:
     components:
       - fluentd
       - fluentd/filters/otel
-      - fluentd/prometheus
+      - "${telemetry_effective.metrics_enabled ? 'fluentd/prometheus' : ''}"
       - "${log_level != 'trace' ? 'fluentd/filters/log-level/' + (log_level ?? 'info') : ''}"
     timeout: 15m
     interval: 10m

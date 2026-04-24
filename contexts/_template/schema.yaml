@@ -283,16 +283,35 @@ properties:
   telemetry:
     type: object
     properties:
+      metrics:
+        type: object
+        properties:
+          enabled:
+            type: boolean
+            default: true
+            description: >
+              Deploy the metrics pipeline (Prometheus operator, kube-prometheus-stack, metrics-server)
+              and all per-component ServiceMonitors. Disable on resource-constrained clusters that
+              don't need in-cluster metrics. Force-on when addons.observability.enabled is true,
+              since the observability addon requires Prometheus to scrape.
+        additionalProperties: false
       logs:
         type: object
         properties:
+          enabled:
+            type: boolean
+            default: true
+            description: >
+              Deploy the logs pipeline (fluent-bit per-node shipper + fluentd aggregator). Disable
+              on resource-constrained clusters. Force-on when addons.observability.enabled is true,
+              since the observability addon's log sinks need the fluent-bit/fluentd path.
           driver:
             type: string
             enum:
               - fluentd
               - none
             default: fluentd
-            description: Log aggregation driver for FluentBit output (fluentd is default, none disables aggregation)
+            description: Log aggregation driver for FluentBit output (fluentd is default, none keeps the per-node shipper but drops the central aggregator)
         additionalProperties: false
     additionalProperties: false
 
@@ -300,6 +319,14 @@ properties:
     type: object
     description: Policy configuration
     properties:
+      enabled:
+        type: boolean
+        default: true
+        description: >
+          Deploy the Kyverno admission controller and cluster policies. Set to false to skip both
+          policy-base and policy-resources entirely — useful for single-node or resource-constrained
+          clusters. Individual policies (require_image_digest, resource_limits_requests) can be
+          disabled separately via their own fields.
       reporting:
         type: string
         enum:

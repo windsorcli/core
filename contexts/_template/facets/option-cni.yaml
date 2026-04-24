@@ -93,6 +93,13 @@ kustomize:
   # Two variants — they differ in Talos-specific settings and how
   # k8s_service_host is derived:
   #
+  # The dep on policy-resources serves two purposes. Normally (policies on) it
+  # preserves ordering so Cilium pods are re-rolled after Kyverno's mutation
+  # policies are live. When the cilium/gateway component is active it also
+  # ships a ClusterPolicy (LBIPAM IP sharing); disabling policies in that
+  # combination would otherwise fail on "no matches for kind ClusterPolicy",
+  # so the dep is kept present to surface it as DependencyNotReady instead.
+  #
 
   # Talos: cilium/talos applies Talos-specific security context + cgroup
   # settings. k8s_service_host comes from talos_common (cidrhost offset 10).
@@ -100,13 +107,13 @@ kustomize:
     path: cni
     when: talos_enabled
     dependsOn:
-      - policy-resources
-      - telemetry-base
+      - "${(policies.enabled ?? true) || (gateway_effective.enabled == true && gateway_effective.driver == 'cilium') ? 'policy-resources' : ''}"
+      - "${telemetry_effective.metrics_enabled || telemetry_effective.logs_enabled ? 'telemetry-base' : ''}"
     components:
       - cilium
       - cilium/talos
       - "${(gateway_effective.enabled == true && gateway_effective.driver == 'cilium') ? 'cilium/gateway' : ''}"
-      - cilium/prometheus
+      - "${telemetry_effective.metrics_enabled ? 'cilium/prometheus' : ''}"
       - cilium/hubble
       - cilium/l2
     substitutions:
@@ -124,12 +131,12 @@ kustomize:
     path: cni
     when: eks_enabled
     dependsOn:
-      - policy-resources
-      - telemetry-base
+      - "${(policies.enabled ?? true) || (gateway_effective.enabled == true && gateway_effective.driver == 'cilium') ? 'policy-resources' : ''}"
+      - "${telemetry_effective.metrics_enabled || telemetry_effective.logs_enabled ? 'telemetry-base' : ''}"
     components:
       - cilium
       - "${(gateway_effective.enabled == true && gateway_effective.driver == 'cilium') ? 'cilium/gateway' : ''}"
-      - cilium/prometheus
+      - "${telemetry_effective.metrics_enabled ? 'cilium/prometheus' : ''}"
       - cilium/hubble
     substitutions:
       k8s_service_host: "${split(split(terraform_output(\"cluster\", \"cluster_endpoint\") ?? \"https://localhost:443\", \"://\")[1], \":\")[0]}"
