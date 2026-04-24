@@ -32,8 +32,10 @@ terraform:
   - name: backend
     path: backend/s3
 
-  # VPC with the requested CIDR. Domain propagates to Route 53 wiring in the
-  # module when set.
+  # VPC with the requested CIDR. domain_name still feeds the private
+  # (VPC-scoped) zone created inside this module — internal DNS for VPC
+  # resources. The public zone for ACME / external-dns lives in the
+  # standalone dns-zone stack below.
   - name: network
     path: network/aws-vpc
     dependsOn:
@@ -42,11 +44,30 @@ terraform:
       cidr_block: ${network_effective.cidr_block}
       domain_name: ${dns.public_domain ?? ""}
 
-  # EKS cluster itself.
+  # Public Route53 zone for dns.public_domain. Skipped when the operator
+  # supplies dns.public_zone_id (BYO — already-managed zone). Lives in
+  # its own stack so it can be provisioned independently of the cluster
+  # (e.g. zone-only setups, different lifecycle than compute) and so
+  # tearing the cluster down doesn't drag the DNS zone (and its NS
+  # delegation effort) with it unless the operator explicitly destroys
+  # this stack.
+  - name: dns-zone
+    path: dns/zone/route53
+    when: "dns.public_domain != null && dns.public_domain != '' && (dns.public_zone_id ?? '') == ''"
+    dependsOn:
+      - backend
+    inputs:
+      domain_name: ${dns.public_domain}
+
+  # EKS cluster itself. When dns.public_domain is set, the cluster module
+  # also provisions the cert-manager IAM role + Pod Identity association so
+  # the ACME Route53 DNS-01 solver can write challenge records.
   - name: cluster
     path: cluster/aws-eks
     dependsOn:
       - network
+    inputs:
+      create_cert_manager_role: "${dns.public_domain != null && dns.public_domain != ''}"
 
   # destroy: false — "additions" are IAM / IRSA / aws-auth entries that are
   # idempotent from EKS's perspective; leave them on teardown, the cluster
@@ -122,3 +143,45 @@ kustomize:
     interval: 5m
     substitutions:
       single_storage_type: ${cluster.storage.single_storage_type ?? "gp3"}
+
+  # ---------------------------------------------------------------------------
+  # ACME (Let's Encrypt) public ClusterIssuer
+  # ---------------------------------------------------------------------------
+  #
+  # Activates when the operator supplies dns.public_domain. Layers the
+  # public-issuer/acme component onto pki-resources, configuring cert-manager
+  # to satisfy DNS-01 challenges via Route53 (using the IAM role + Pod
+  # Identity binding wired up by the cluster module). option-gateway then
+  # picks `public` as the gateway cert issuer because acme_effective.enabled
+  # is true (see config block above).
+  #
+  # Server selection is implicit:
+  #   - dev == true → Let's Encrypt staging (avoids prod rate limits during
+  #     iteration; staging certs aren't browser-trusted but won't burn quota).
+  #   - otherwise → Let's Encrypt production.
+  #
+  # Hosted zone source: prefer dns.public_zone_id when set (BYO), otherwise
+  # use the zone the network module just created. This lets operators who
+  # manage their public DNS elsewhere CNAME or delegate a subdomain to a
+  # Route53 zone they already own without Windsor provisioning a new one.
+  #
+  # Required user config when dns.public_domain is set:
+  #   - email — operator address Let's Encrypt registers against.
+  #   - aws.region — the Route53 API region (defaults to us-east-1).
+  #
+  - name: pki-resources
+    path: pki/resources
+    when: "dns.public_domain != null && dns.public_domain != ''"
+    dependsOn:
+      - pki-base
+      - policy-resources
+    components:
+      - public-issuer/acme
+    timeout: 5m
+    interval: 5m
+    substitutions:
+      acme_server: "${dev == true ? 'https://acme-staging-v02.api.letsencrypt.org/directory' : 'https://acme-v02.api.letsencrypt.org/directory'}"
+      acme_email: "${email ?? ''}"
+      acme_dns_zone: "${dns.public_domain}"
+      acme_region: "${aws.region ?? 'us-east-1'}"
+      acme_hosted_zone_id: "${dns.public_zone_id ?? terraform_output('dns-zone', 'zone_id') ?? ''}"

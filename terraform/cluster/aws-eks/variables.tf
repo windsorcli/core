@@ -37,6 +37,12 @@ variable "create_external_dns_role" {
   default     = true
 }
 
+variable "create_cert_manager_role" {
+  description = "Whether to create the IAM role, policy, and Pod Identity association for cert-manager's Route53 ACME DNS-01 solver. Enable when cert-manager will issue ACME certificates against a Route53 hosted zone in this account."
+  type        = bool
+  default     = false
+}
+
 variable "endpoint_public_access" {
   description = "Whether to enable public access to the EKS cluster."
   type        = bool

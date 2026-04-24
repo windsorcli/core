@@ -134,3 +134,123 @@ cases:
     exclude:
       kustomize:
         - name: gateway-resources
+
+  # ACME path off by default: without dns.public_domain, the dns-zone
+  # stack must NOT exist, the cluster's create_cert_manager_role must
+  # remain false, and no public-issuer/acme component should appear in
+  # pki-resources.
+  - name: omits ACME wiring when dns.public_domain is unset
+    values:
+      provider: aws
+      gateway:
+        enabled: false
+    expect:
+      terraform:
+        - name: cluster
+          path: cluster/aws-eks
+          inputs:
+            create_cert_manager_role: "false"
+    exclude:
+      terraform:
+        - name: dns-zone
+      kustomize:
+        - name: pki-resources
+          components:
+            - public-issuer/acme
+
+  # ACME path on (production): dns.public_domain triggers the standalone
+  # dns-zone stack, the cert-manager IAM role on the cluster, the
+  # public-issuer/acme component on pki-resources, and the gateway TLS
+  # cert switches to the `public` ClusterIssuer with the public domain.
+  - name: dns.public_domain wires up ACME Route53 issuer end to end
+    values:
+      provider: aws
+      gateway:
+        enabled: true
+        driver: envoy
+      dns:
+        public_domain: example.com
+      email: ops@example.com
+      aws:
+        region: us-west-2
+    expect:
+      terraform:
+        - name: dns-zone
+          path: dns/zone/route53
+          dependsOn:
+            - backend
+          inputs:
+            domain_name: example.com
+        - name: cluster
+          path: cluster/aws-eks
+          inputs:
+            create_cert_manager_role: "true"
+      kustomize:
+        - name: pki-resources
+          path: pki/resources
+          dependsOn:
+            - pki-base
+            - policy-resources
+          components:
+            - public-issuer/acme
+          substitutions:
+            acme_server: https://acme-v02.api.letsencrypt.org/directory
+            acme_email: ops@example.com
+            acme_dns_zone: example.com
+            acme_region: us-west-2
+        - name: gateway-resources
+          path: gateway/resources
+          substitutions:
+            gateway_cert_issuer: public
+            external_domain: example.com
+
+  # BYO zone path: when the operator supplies dns.public_zone_id, the
+  # dns-zone stack must NOT be emitted (we don't create a duplicate),
+  # but the cert-manager IAM role and ACME issuer component must still
+  # be wired using the supplied zone ID.
+  - name: dns.public_zone_id reuses an existing zone instead of creating one
+    values:
+      provider: aws
+      gateway:
+        enabled: true
+        driver: envoy
+      dns:
+        public_domain: example.com
+        public_zone_id: Z0123456789ABCDEFGHIJ
+      email: ops@example.com
+    expect:
+      terraform:
+        - name: cluster
+          path: cluster/aws-eks
+          inputs:
+            create_cert_manager_role: "true"
+      kustomize:
+        - name: pki-resources
+          components:
+            - public-issuer/acme
+          substitutions:
+            acme_hosted_zone_id: Z0123456789ABCDEFGHIJ
+    exclude:
+      terraform:
+        - name: dns-zone
+
+  # Dev mode flips the ACME server to Let's Encrypt staging to avoid
+  # burning Let's Encrypt prod rate limits during iteration.
+  - name: dev mode uses Let's Encrypt staging server
+    values:
+      provider: aws
+      dev: true
+      gateway:
+        enabled: true
+        driver: envoy
+      dns:
+        public_domain: dev.example.com
+      email: dev@example.com
+    expect:
+      kustomize:
+        - name: pki-resources
+          components:
+            - public-issuer/acme
+          substitutions:
+            acme_server: https://acme-staging-v02.api.letsencrypt.org/directory
+            acme_email: dev@example.com

@@ -95,7 +95,20 @@ kustomize:
     substitutions:
       gateway_class_name: ${gateway_effective.driver}
       gateway_dns_target: "${lb_effective.enabled == true ? network_effective.loadbalancer_ips.start : ''}"
-      external_domain: ${dns.private_domain}
+      # Cert SAN domain + ClusterIssuer name. When dns.public_domain
+      # resolves to a non-empty value the cert is being issued by a
+      # public CA (today: AWS wires ACME on this signal) and needs
+      # publicly-resolvable hostnames. Otherwise the cert is in-cluster
+      # / private-CA and the SAN comes from dns.private_domain.
+      #
+      # Uses the canonical `(X ?? '') == ''` idiom (matches the docs and
+      # other facets like option-cni / platform-docker). The earlier
+      # `!= null` form behaves correctly in `inputs:` evaluation but
+      # silently produces null in the postBuild substitution context,
+      # so the ternary collapses to an empty string and YAML parses
+      # `name: ` as null at admission time.
+      external_domain: "${(dns.public_domain ?? '') == '' ? (dns.private_domain ?? '') : dns.public_domain}"
+      gateway_cert_issuer: "${(dns.public_domain ?? '') == '' ? 'private' : 'public'}"
       # Only emitted when a consumer is active: the lb-address patch (in-cluster
       # LB) or the cilium gateway component. NodePort/cloud-managed-LB paths
       # have no consumer, so leave it empty and the harness drops it.
