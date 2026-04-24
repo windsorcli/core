@@ -89,6 +89,11 @@ kustomize:
       - gateway-base
     components:
       - "${gateway_effective.driver == 'cilium' ? 'cilium' : ''}"
+      # Catch-all 404 served by Envoy's directResponse — covers any
+      # request that doesn't match a real app's HTTPRoute. Envoy-only:
+      # uses the gateway.envoyproxy.io HTTPRouteFilter CRD, which
+      # cilium clusters don't ship.
+      - "${gateway_effective.driver != 'cilium' ? 'envoy/default-404' : ''}"
       - "${gateway_effective.driver != 'cilium' && (addons.private_dns.enabled ?? (dev == true)) == true ? 'dns' : ''}"
       - "${lb_effective.enabled == true ? 'lb-address' : ''}"
       - "${(gitops.mode ?? 'push') == 'push' ? 'flux-webhook' : ''}"
