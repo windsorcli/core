@@ -547,19 +547,14 @@ properties:
       public_domain:
         type: string
         description: >
-          Public DNS zone (e.g. Route53 hosted zone). On AWS, setting
-          this activates the public Route53 zone in the network module
-          and the ACME public ClusterIssuer for cert-manager.
-      public_zone_id:
-        type: string
-        description: >
-          Optional ID of an existing public DNS zone. When set, the
-          platform will not provision a new public zone and will instead
-          target this one (e.g. for cert-manager DNS-01 challenges). Use
-          this when the public zone is already managed outside Windsor
-          — either an existing Route53 zone in the same account, or a
-          delegated subdomain that the operator has CNAMEd to from their
-          authoritative DNS provider.
+          Publicly-routable DNS zone for the deployment. On AWS, setting
+          this provisions a public Route53 hosted zone in the same
+          account, the cert-manager IAM role + Pod Identity binding for
+          DNS-01 challenges, and an ACME ClusterIssuer that issues real
+          Let's Encrypt certificates for the gateway. The operator must
+          delegate this domain at their registrar to the name servers
+          the dns-zone module outputs. Leave unset for selfsigned-only
+          (just-works) mode.
       private_domain:
         type: string
         description: Private DNS zone (e.g. in-cluster CoreDNS, workstation resolver)
