@@ -1,0 +1,45 @@
+apiVersion: gateway.envoyproxy.io/v1alpha1
+kind: HTTPRouteFilter
+metadata:
+  name: default-404
+  namespace: system-gateway
+  labels:
+    windsorcli.dev/role: gateway-default-404
+spec:
+  directResponse:
+    statusCode: 404
+    contentType: text/html; charset=utf-8
+    body:
+      type: Inline
+      inline: |
+        <!doctype html>
+        <html lang="en">
+        <head>
+          <meta charset="utf-8">
+          <title>Not Found</title>
+          <meta name="viewport" content="width=device-width,initial-scale=1">
+          <meta name="robots" content="noindex, nofollow">
+          <meta name="color-scheme" content="light dark">
+          <style>
+            :root { color-scheme: light dark; }
+            body {
+              font: 16px/1.5 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+              max-width: 32rem;
+              margin: 6rem auto;
+              padding: 0 1.25rem;
+              color: #1f2328;
+              background: #ffffff;
+            }
+            h1 { font-weight: 600; font-size: 1.25rem; margin: 0 0 0.5rem; }
+            p { color: #57606a; margin: 0; }
+            @media (prefers-color-scheme: dark) {
+              body { color: #e6edf3; background: #0d1117; }
+              p { color: #8b949e; }
+            }
+          </style>
+        </head>
+        <body>
+          <h1>Not Found</h1>
+          <p>There's nothing at this address.</p>
+        </body>
+        </html>
