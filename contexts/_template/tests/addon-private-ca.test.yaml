@@ -44,6 +44,7 @@ cases:
           path: pki/resources
           dependsOn:
             - pki-base
+            - policy-resources
           timeout: 5m
           interval: 5m
           components:
@@ -70,6 +71,7 @@ cases:
           path: pki/resources
           dependsOn:
             - pki-base
+            - policy-resources
           timeout: 5m
           interval: 5m
           components:

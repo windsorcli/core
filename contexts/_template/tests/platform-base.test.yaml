@@ -332,3 +332,175 @@ cases:
             - kyverno/reports
             - kyverno/cleanup
 
+  # policies.enabled=false skips both policy kustomizations entirely and
+  # drops the policy-resources dep from pki-base.
+  - name: policies.enabled false excludes policy kustomizations and drops pki-base dep
+    values:
+      provider: metal
+      gateway:
+        enabled: false
+      network: *default-network
+      cluster: *default-cluster
+      policies:
+        enabled: false
+    expect:
+      kustomize:
+        - name: pki-base
+          path: pki/base
+          dependsOn:
+            - telemetry-base
+          components:
+            - cert-manager
+            - cert-manager/prometheus
+    exclude:
+      kustomize:
+        - name: policy-base
+        - name: policy-resources
+
+  # Both metrics and logs disabled skips both telemetry kustomizations, the
+  # fluentd aggregator, and strips telemetry-base / cert-manager/prometheus
+  # from pki-base entirely.
+  - name: telemetry metrics and logs both disabled excludes telemetry pipeline and trims pki-base
+    values:
+      provider: metal
+      gateway:
+        enabled: false
+      network: *default-network
+      cluster: *default-cluster
+      telemetry:
+        metrics:
+          enabled: false
+        logs:
+          enabled: false
+    expect:
+      kustomize:
+        - name: pki-base
+          path: pki/base
+          dependsOn:
+            - policy-resources
+          components:
+            - cert-manager
+    exclude:
+      kustomize:
+        - name: telemetry-base
+        - name: telemetry-resources
+        - name: observability
+
+  # Metrics on, logs off: Prometheus stack deploys, fluent-bit and fluentd are
+  # dropped. cert-manager/prometheus stays (metrics are on).
+  - name: telemetry logs disabled keeps metrics pipeline and drops fluent-bit
+    values:
+      provider: metal
+      gateway:
+        enabled: false
+      network: *default-network
+      cluster: *default-cluster
+      telemetry:
+        logs:
+          enabled: false
+    expect:
+      kustomize:
+        - name: telemetry-base
+          path: telemetry/base
+          components:
+            - prometheus
+            - prometheus/flux
+        - name: telemetry-resources
+          path: telemetry/resources
+          dependsOn:
+            - telemetry-base
+          components:
+            - metrics-server
+            - prometheus
+            - prometheus/flux
+        - name: pki-base
+          path: pki/base
+          dependsOn:
+            - policy-resources
+            - telemetry-base
+          components:
+            - cert-manager
+            - cert-manager/prometheus
+    exclude:
+      kustomize:
+        - name: observability
+
+  # Logs on, metrics off: fluent-bit ships + fluentd aggregates, Prometheus
+  # stack is dropped. cert-manager/prometheus and fluentbit/prometheus (the
+  # ServiceMonitors) are excluded — no Prometheus to scrape.
+  - name: telemetry metrics disabled keeps logs pipeline and drops Prometheus
+    values:
+      provider: metal
+      gateway:
+        enabled: false
+      network: *default-network
+      cluster: *default-cluster
+      telemetry:
+        metrics:
+          enabled: false
+    expect:
+      kustomize:
+        - name: telemetry-base
+          path: telemetry/base
+          components:
+            - fluentbit
+        - name: telemetry-resources
+          path: telemetry/resources
+          dependsOn:
+            - telemetry-base
+          components:
+            - fluentbit
+            - fluentbit/containerd
+            - fluentbit/kubernetes
+            - fluentbit/parser
+            - fluentbit/systemd
+            - fluentbit/fluentd
+        - name: pki-base
+          path: pki/base
+          dependsOn:
+            - policy-resources
+            - telemetry-base
+          components:
+            - cert-manager
+        - name: observability
+          path: observability
+          dependsOn:
+            - telemetry-base
+          components:
+            - fluentd
+            - fluentd/filters/otel
+
+  # Observability addon force-overrides both telemetry toggles — Grafana needs
+  # Prometheus to scrape and the fluentbit→fluentd path to ship logs.
+  - name: observability addon overrides telemetry metrics and logs disabled
+    values:
+      provider: metal
+      gateway:
+        enabled: false
+      network: *default-network
+      cluster: *default-cluster
+      telemetry:
+        metrics:
+          enabled: false
+        logs:
+          enabled: false
+      addons:
+        observability:
+          enabled: true
+    expect:
+      kustomize:
+        - name: telemetry-base
+          path: telemetry/base
+          components:
+            - prometheus
+            - prometheus/flux
+            - fluentbit
+        - name: pki-base
+          path: pki/base
+          dependsOn:
+            - policy-resources
+            - telemetry-base
+          components:
+            - cert-manager
+            - cert-manager/prometheus
+

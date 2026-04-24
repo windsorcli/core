@@ -75,6 +75,7 @@ cases:
           dependsOn:
             - pki-base
             - gateway-base
+            - policy-resources
           timeout: 20m
           interval: 5m
           components:
@@ -111,6 +112,7 @@ cases:
           dependsOn:
             - pki-base
             - gateway-base
+            - policy-resources
           timeout: 20m
           interval: 5m
           components:

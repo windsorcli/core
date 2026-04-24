@@ -74,7 +74,7 @@ kustomize:
     path: csi
     when: talos_common.storage_driver == 'openebs'
     dependsOn:
-      - policy-resources
+      - "${(policies.enabled ?? true) ? 'policy-resources' : ''}"
     components:
       - openebs
       - openebs/dynamic-localpv
@@ -97,8 +97,8 @@ kustomize:
     path: csi
     when: talos_common.storage_driver == 'longhorn'
     dependsOn:
-      - policy-resources
-      - telemetry-base
+      - "${(policies.enabled ?? true) ? 'policy-resources' : ''}"
+      - "${telemetry_effective.metrics_enabled || telemetry_effective.logs_enabled ? 'telemetry-base' : ''}"
     components:
       - longhorn
       - "${((cluster.controlplanes.schedulable ?? false) || topology_effective == 'single-node') ? 'longhorn/single-node' : ''}"

@@ -31,6 +31,12 @@ when: addons.private_dns.enabled == true
 #   - external-dns/localhost: docker-desktop override — advertise 127.0.0.1
 #                             instead of the unreachable LB IP.
 #
+# Requires Kyverno (policy-resources) on docker-desktop: external-dns/localhost
+# ships a ClusterPolicy that rewrites ingress DNS targets to 127.0.0.1. Without
+# Kyverno's CRDs the apply fails on "no matches for kind ClusterPolicy"; the
+# docker-desktop-gated dep below surfaces the incompatibility as
+# DependencyNotReady instead.
+#
 kustomize:
 
   - name: dns
@@ -38,6 +44,7 @@ kustomize:
     dependsOn:
       - pki-base
       - "${gateway_effective.driver == 'cilium' ? 'cni' : (gateway_effective.enabled == true ? 'gateway-base' : '')}"
+      - "${workstation.runtime == 'docker-desktop' ? 'policy-resources' : ''}"
     timeout: 20m
     interval: 5m
     components:

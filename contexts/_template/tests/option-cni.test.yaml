@@ -292,3 +292,77 @@ cases:
           dependsOn:
             - cluster
             - cni
+
+  # telemetry.metrics.enabled=false drops the cilium/prometheus ServiceMonitor
+  # (no Prometheus to scrape). telemetry-base dep stays because logs still need it.
+  - name: telemetry metrics disabled strips cilium/prometheus component
+    values:
+      provider: metal
+      gateway:
+        enabled: false
+      network: *default-network
+      cluster: *default-cluster
+      telemetry:
+        metrics:
+          enabled: false
+    expect:
+      kustomize:
+        - name: cni
+          path: cni
+          dependsOn:
+            - policy-resources
+            - telemetry-base
+          components:
+            - cilium
+            - cilium/talos
+            - cilium/hubble
+            - cilium/l2
+
+  # Both halves of telemetry disabled: drop the cilium/prometheus component
+  # AND the telemetry-base dependency (the kustomization isn't emitted).
+  - name: telemetry metrics and logs disabled drops cilium/prometheus and telemetry-base dep
+    values:
+      provider: metal
+      gateway:
+        enabled: false
+      network: *default-network
+      cluster: *default-cluster
+      telemetry:
+        metrics:
+          enabled: false
+        logs:
+          enabled: false
+    expect:
+      kustomize:
+        - name: cni
+          path: cni
+          dependsOn:
+            - policy-resources
+          components:
+            - cilium
+            - cilium/talos
+            - cilium/hubble
+            - cilium/l2
+
+  # policies.enabled=false drops the policy-resources dependency edge.
+  - name: policies.enabled false strips policy-resources dep on cni
+    values:
+      provider: metal
+      gateway:
+        enabled: false
+      network: *default-network
+      cluster: *default-cluster
+      policies:
+        enabled: false
+    expect:
+      kustomize:
+        - name: cni
+          path: cni
+          dependsOn:
+            - telemetry-base
+          components:
+            - cilium
+            - cilium/talos
+            - cilium/prometheus
+            - cilium/hubble
+            - cilium/l2

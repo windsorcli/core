@@ -16,6 +16,12 @@ when: addons.private_ca.enabled == true
 #   - pki-resources installs the private-issuer/ca ClusterIssuer, which
 #     becomes the default issuer for workload certificates.
 #
+# Requires Kyverno (policy-resources): the private-issuer/ca component ships
+# a ClusterPolicy that mutates pods labeled use-custom-ca=true to mount the
+# CA bundle. Without Kyverno's CRDs the apply fails on "no matches for kind
+# ClusterPolicy"; the hard dep below surfaces the incompatibility as
+# DependencyNotReady instead.
+#
 kustomize:
 
   - name: pki-base
@@ -29,6 +35,7 @@ kustomize:
     path: pki/resources
     dependsOn:
       - pki-base
+      - policy-resources
     timeout: 5m
     interval: 5m
     components:
