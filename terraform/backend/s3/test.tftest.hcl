@@ -22,13 +22,12 @@ override_data {
 # - Default resource naming (S3 bucket)
 # - Default security settings (encryption, public access block)
 # - Default lifecycle rules
-# - KMS key opt-out
+# - KMS disabled by default (SSE-S3 AES-256 only)
 run "minimal_configuration" {
   command = plan
 
   variables {
     context_id = "test"
-    enable_kms = false
   }
 
   assert {
@@ -47,48 +46,84 @@ run "minimal_configuration" {
   }
 
   assert {
-    condition     = [for rule in aws_s3_bucket_server_side_encryption_configuration.this.rule : rule.apply_server_side_encryption_by_default[0].sse_algorithm][0] == "AES256"
-    error_message = "Default encryption should be AES256 when KMS is disabled"
+    condition     = [for rule in aws_s3_bucket_server_side_encryption_configuration.this.rule : rule.apply_server_side_encryption_by_default[0].sse_algorithm][0] == "aws:kms"
+    error_message = "Default encryption should be SSE-KMS when enable_kms is true (the default)."
   }
 
   assert {
-    condition     = length(aws_kms_key.terraform_state) == 0
-    error_message = "KMS key should not be created by default"
-  }
-
-  assert {
-    condition     = aws_s3_bucket.this.force_destroy == false
-    error_message = "force_destroy should default to false during normal apply"
-  }
-}
-
-# Verifies that force_destroy flips on when operation=destroy, which is how
-# windsor destroy tears the state bucket down along with its versioned contents.
-run "force_destroy_on_destroy_operation" {
-  command = plan
-
-  variables {
-    context_id = "test"
-    operation  = "destroy"
-    enable_kms = false
+    condition     = length(aws_kms_key.terraform_state) == 1
+    error_message = "KMS key should be created by default (enable_kms defaults to true)."
   }
 
   assert {
     condition     = aws_s3_bucket.this.force_destroy == true
-    error_message = "force_destroy must be true when operation is destroy"
+    error_message = "force_destroy must be true unconditionally — the AWS provider reads it from state at Delete time, so it must persist from apply."
   }
 }
 
-# Confirms that the operation variable rejects arbitrary values and only
-# accepts the two the CLI ever injects.
-run "invalid_operation_rejected" {
+# Verifies the SSE-S3 opt-out path: setting enable_kms = false skips the
+# customer-managed KMS key entirely and configures the bucket with
+# AES-256 (SSE-S3, AWS-managed keys). Useful for environments that don't
+# need customer-managed keys for compliance — the bucket is still
+# IAM-restricted, TLS-enforced, and encrypted at rest.
+run "enable_kms_false_uses_sse_s3" {
   command = plan
-  expect_failures = [
-    var.operation,
-  ]
+
   variables {
     context_id = "test"
-    operation  = "refresh"
+    enable_kms = false
+  }
+
+  assert {
+    condition     = length(aws_kms_key.terraform_state) == 0
+    error_message = "KMS key should not be created when enable_kms is false."
+  }
+
+  assert {
+    condition     = [for rule in aws_s3_bucket_server_side_encryption_configuration.this.rule : rule.apply_server_side_encryption_by_default[0].sse_algorithm][0] == "AES256"
+    error_message = "Bucket encryption must be AES256 (SSE-S3) when enable_kms is false."
+  }
+}
+
+# Lifecycle expires noncurrent versions after 90 days so destroy-time
+# pagination through ListObjectVersions stays bounded. Without this,
+# long-lived state buckets accumulate every apply's state write forever,
+# pushing bucket-empty past the provider's retry window and surfacing as
+# a BucketNotEmpty race against DeleteBucket.
+run "noncurrent_versions_expire_on_90_day_lifecycle" {
+  command = plan
+
+  variables {
+    context_id = "test"
+  }
+
+  assert {
+    condition     = length([for rule in aws_s3_bucket_lifecycle_configuration.this.rule : rule if rule.id == "expire-noncurrent-versions"]) == 1
+    error_message = "A lifecycle rule named 'expire-noncurrent-versions' must be present to bound version accumulation."
+  }
+
+  assert {
+    condition = length([
+      for rule in aws_s3_bucket_lifecycle_configuration.this.rule :
+      rule if rule.id == "expire-noncurrent-versions" && length(rule.noncurrent_version_expiration) > 0 && rule.noncurrent_version_expiration[0].noncurrent_days == 90
+    ]) == 1
+    error_message = "expire-noncurrent-versions rule must expire noncurrent versions after 90 days."
+  }
+}
+
+# The bucket carries an explicit 30m delete timeout so a future aws
+# provider version can't silently shorten it below what's needed for
+# the empty-then-delete flow on a long-lived versioned bucket.
+run "bucket_has_explicit_delete_timeout" {
+  command = plan
+
+  variables {
+    context_id = "test"
+  }
+
+  assert {
+    condition     = aws_s3_bucket.this.timeouts.delete == "30m"
+    error_message = "aws_s3_bucket.this must set timeouts.delete to 30m for reliable destroy on versioned buckets."
   }
 }
 

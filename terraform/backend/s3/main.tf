@@ -43,12 +43,17 @@ resource "aws_s3_bucket" "this" {
   # checkov:skip=CKV_AWS_145:KMS encryption is configured via aws_s3_bucket_server_side_encryption_configuration
   bucket = var.s3_bucket_name != "" ? var.s3_bucket_name : local.default_s3_bucket_name
 
-  # During a windsor destroy the CLI sets TF_VAR_operation=destroy. Versioning
-  # is enabled on this bucket, so it always carries prior state versions that
-  # would block a plain delete — force_destroy empties the bucket so teardown
-  # succeeds. Apply runs keep the default (false) so the bucket is never
-  # accidentally emptied during normal operations.
-  force_destroy = var.operation == "destroy"
+  # AWS provider reads force_destroy from state at Delete time, not from
+  # config — so this must be true at apply time, not just at destroy.
+  force_destroy = true
+
+  # Bucket must be destroyed before KMS to avoid the key entering
+  # PendingDeletion while encrypted state still lives in the bucket.
+  depends_on = [aws_kms_key.terraform_state]
+
+  timeouts {
+    delete = "30m"
+  }
 
   tags = {
     Name = var.s3_bucket_name != "" ? var.s3_bucket_name : local.default_s3_bucket_name
@@ -68,6 +73,19 @@ resource "aws_s3_bucket_lifecycle_configuration" "this" {
 
     abort_incomplete_multipart_upload {
       days_after_initiation = 7
+    }
+  }
+
+  # Cap version accumulation so destroy-time empty doesn't have to
+  # paginate through years of unexpired state writes.
+  rule {
+    id     = "expire-noncurrent-versions"
+    status = "Enabled"
+
+    filter {}
+
+    noncurrent_version_expiration {
+      noncurrent_days = 90
     }
   }
 }
