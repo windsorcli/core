@@ -144,7 +144,7 @@ variable "class_instance_types" {
     compute = ["c6i.xlarge", "c6a.xlarge", "c5.xlarge"]
     memory  = ["r6i.xlarge", "r6a.xlarge", "r5.xlarge"]
     storage = ["i3.xlarge", "i4i.xlarge"]
-    gpu     = ["g4dn.xlarge"]
+    gpu     = ["g4dn.xlarge", "g5.xlarge"]
     arm64   = ["t4g.xlarge", "m6g.xlarge", "c6g.xlarge"]
   }
 }
