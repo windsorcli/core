@@ -220,6 +220,11 @@ cases:
             acme_email: ops@example.com
             acme_dns_zone: example.com
             acme_region: us-west-2
+            # Maps to hostedZoneID in the ClusterIssuer YAML; if the substitution
+            # key is renamed or terraform_output('dns-zone', 'zone_id') stops
+            # threading through, the issuer would deploy with an empty zone ID
+            # and every DNS-01 challenge would fail.
+            acme_hosted_zone_id: Z1ABCDEF12345
         - name: gateway-resources
           path: gateway/resources
           substitutions:
