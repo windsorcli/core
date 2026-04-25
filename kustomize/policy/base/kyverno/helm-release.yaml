@@ -65,7 +65,7 @@ spec:
       container:
         image:
           # renovate: datasource=docker depName=reg.kyverno.io/kyverno/reports-controller package=reg.kyverno.io/kyverno/reports-controller
-          tag: v1.17.1@sha256:7eb66e1fead6a3791209e1a0869d0217f9c89886a6809e99d3094b750e2b731d
+          tag: v1.17.2@sha256:65f7f11cb4f47ae8181550af2d9f4651536bb1fb9fdd52cb4fb9976c0481d50c
         extraEnvVars:
         - name: NO_COLOR
           value: "1"
