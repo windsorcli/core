@@ -84,9 +84,13 @@ resource "null_resource" "delete_eks_log_group" {
     log_group_name = aws_cloudwatch_log_group.eks_cluster[0].name
   }
 
+  # EKS may recreate this log group between the terraform delete and the
+  # cluster delete; mop up the recreated one. on_failure = continue makes
+  # the rerun case (group already gone) a no-op.
   provisioner "local-exec" {
-    when    = destroy
-    command = "aws logs delete-log-group --log-group-name \"${self.triggers.log_group_name}\""
+    when       = destroy
+    command    = "aws logs delete-log-group --log-group-name \"${self.triggers.log_group_name}\""
+    on_failure = continue
   }
 
   depends_on = [aws_eks_cluster.main]
@@ -149,6 +153,7 @@ resource "aws_security_group" "cluster_api_access" {
 }
 
 resource "aws_kms_key" "eks_encryption_key" {
+  # checkov:skip=CKV2_AWS_64:Policy is defined inline via jsonencode; checkov's graph engine can't trace the conditional concat() over Statement
   count                   = var.enable_secrets_encryption && var.secrets_encryption_kms_key_id == null ? 1 : 0
   description             = "KMS key for EKS cluster ${local.name} secrets encryption"
   deletion_window_in_days = var.kms_key_deletion_window_in_days
@@ -725,6 +730,83 @@ resource "aws_iam_role_policy_attachment" "external_dns" {
 }
 
 #-----------------------------------------------------------------------------------------------------------------------
+# Cert Manager IAM Role (ACME Route53 DNS-01 solver)
+#-----------------------------------------------------------------------------------------------------------------------
+
+resource "aws_iam_role" "cert_manager" {
+  count = var.create_cert_manager_role ? 1 : 0
+  name  = "${local.name}-cert-manager"
+
+  assume_role_policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Action = ["sts:AssumeRole", "sts:TagSession"]
+        Effect = "Allow"
+        Principal = {
+          Service = "pods.eks.amazonaws.com"
+        }
+      }
+    ]
+  })
+
+  tags = {
+    Name = "${local.name}-cert-manager"
+  }
+}
+
+resource "aws_iam_policy" "cert_manager" {
+  # This policy is based on the official cert-manager documentation for the
+  # Route53 DNS-01 solver:
+  # https://cert-manager.io/docs/configuration/acme/dns01/route53/
+  count       = var.create_cert_manager_role ? 1 : 0
+  name        = "${local.name}-cert-manager"
+  description = "IAM policy for cert-manager ACME Route53 DNS-01 solver"
+
+  # Scope record-write actions to the operator-supplied zone IDs when set,
+  # so cert-manager can't touch unrelated zones in the same account. Falls
+  # back to a wildcard when no zones are passed (legacy direct-module use).
+  # ListHostedZonesByName remains '*' — the cert-manager solver calls it
+  # without a zone ID and AWS doesn't accept resource-level constraints
+  # on it.
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Effect   = "Allow"
+        Action   = ["route53:GetChange"]
+        Resource = "arn:aws:route53:::change/*"
+      },
+      {
+        Effect = "Allow"
+        Action = [
+          "route53:ChangeResourceRecordSets",
+          "route53:ListResourceRecordSets",
+        ]
+        Resource = length(var.cert_manager_hosted_zone_ids) > 0 ? [
+          for id in var.cert_manager_hosted_zone_ids : "arn:aws:route53:::hostedzone/${id}"
+        ] : ["arn:aws:route53:::hostedzone/*"]
+      },
+      {
+        Effect   = "Allow"
+        Action   = ["route53:ListHostedZonesByName"]
+        Resource = "*"
+      },
+    ]
+  })
+
+  tags = {
+    Name = "${local.name}-cert-manager"
+  }
+}
+
+resource "aws_iam_role_policy_attachment" "cert_manager" {
+  count      = var.create_cert_manager_role ? 1 : 0
+  policy_arn = aws_iam_policy.cert_manager[0].arn
+  role       = aws_iam_role.cert_manager[0].name
+}
+
+#-----------------------------------------------------------------------------------------------------------------------
 # Create Add-Ons
 #-----------------------------------------------------------------------------------------------------------------------
 
@@ -796,6 +878,15 @@ resource "aws_eks_pod_identity_association" "external_dns" {
   namespace       = "system-dns"
   service_account = "external-dns"
   role_arn        = aws_iam_role.external_dns[0].arn
+}
+
+resource "aws_eks_pod_identity_association" "cert_manager" {
+  count = var.create_cert_manager_role ? 1 : 0
+
+  cluster_name    = aws_eks_cluster.main.name
+  namespace       = "system-pki"
+  service_account = "cert-manager"
+  role_arn        = aws_iam_role.cert_manager[0].arn
 }
 
 #-----------------------------------------------------------------------------------------------------------------------

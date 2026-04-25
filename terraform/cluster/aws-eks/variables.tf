@@ -37,6 +37,18 @@ variable "create_external_dns_role" {
   default     = true
 }
 
+variable "create_cert_manager_role" {
+  description = "Whether to create the IAM role, policy, and Pod Identity association for cert-manager's Route53 ACME DNS-01 solver. Enable when cert-manager will issue ACME certificates against a Route53 hosted zone in this account."
+  type        = bool
+  default     = false
+}
+
+variable "cert_manager_hosted_zone_ids" {
+  description = "Hosted zone IDs cert-manager is allowed to write ACME challenge records to. When set, the IAM policy's Route53 record-write actions are scoped to these zones (arn:aws:route53:::hostedzone/<id>) instead of every zone in the account. Leave empty to fall back to a wildcard scope (legacy behavior)."
+  type        = list(string)
+  default     = []
+}
+
 variable "endpoint_public_access" {
   description = "Whether to enable public access to the EKS cluster."
   type        = bool

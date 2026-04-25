@@ -19,3 +19,6 @@ contexts/**/.gcp/
 # IDE user config
 .cursor/
 .vscode/*.local.*
+
+# Local notes / scratch docs (kept out of source control)
+docs/

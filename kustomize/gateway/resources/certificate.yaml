@@ -6,7 +6,8 @@ metadata:
 spec:
   secretName: external-web-tls
   dnsNames:
+    - "${external_domain}"
     - "*.${external_domain}"
   issuerRef:
     kind: ClusterIssuer
-    name: private
+    name: ${gateway_cert_issuer}

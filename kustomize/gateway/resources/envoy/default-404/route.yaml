@@ -1,0 +1,29 @@
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: default-404
+  namespace: system-gateway
+  labels:
+    windsorcli.dev/role: gateway-default-404
+spec:
+  parentRefs:
+    - name: external
+      namespace: system-gateway
+  rules:
+    - filters:
+        # ResponseHeaderModifier runs alongside the directResponse below.
+        # Cache-Control: no-store keeps browsers / intermediaries from
+        # caching the 404, so when a hostname later gets routed to a real
+        # backend the user sees the new app instead of a stale "Not Found".
+        - type: ResponseHeaderModifier
+          responseHeaderModifier:
+            set:
+              - name: Cache-Control
+                value: no-store
+        # Envoy Gateway extension: returns the static 404 body defined in
+        # the HTTPRouteFilter resource. Short-circuits — no upstream call.
+        - type: ExtensionRef
+          extensionRef:
+            group: gateway.envoyproxy.io
+            kind: HTTPRouteFilter
+            name: default-404

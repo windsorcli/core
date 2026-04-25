@@ -32,21 +32,59 @@ terraform:
   - name: backend
     path: backend/s3
 
-  # VPC with the requested CIDR. Domain propagates to Route 53 wiring in the
-  # module when set.
+  # VPC with the requested CIDR. domain_name feeds the private (VPC-scoped)
+  # Route53 zone created inside this module — internal DNS for VPC
+  # resources. Sourced from dns.private_domain (the in-cluster / private
+  # name) rather than dns.public_domain, since the VPC zone is by
+  # definition private. The public zone for ACME / external-dns lives in
+  # the standalone dns-zone stack below.
   - name: network
     path: network/aws-vpc
     dependsOn:
       - backend
     inputs:
       cidr_block: ${network_effective.cidr_block}
-      domain_name: ${dns.public_domain ?? ""}
+      domain_name: ${dns.private_domain ?? ""}
 
-  # EKS cluster itself.
+  # Public Route53 zone — provisioned when the operator sets dns.public_domain.
+  # Lives in its own stack so it can be provisioned independently of the
+  # cluster (zone-only setups, different lifecycle than compute) and so
+  # tearing the cluster down doesn't drag the DNS zone (and its NS
+  # delegation effort) with it unless the operator explicitly destroys
+  # this stack.
+  - name: dns-zone
+    path: dns/zone/route53
+    when: "(dns.public_domain ?? '') != ''"
+    dependsOn:
+      - backend
+    inputs:
+      domain_name: ${dns.public_domain}
+
+  # EKS cluster itself. The cert-manager IAM role + Pod Identity association
+  # is provisioned only when ACME is in play (the operator supplied a
+  # public_domain). Default deployments don't need Route53 access.
+  #
+  # cert_manager_hosted_zone_ids scopes the role's Route53 record-write
+  # actions to just the dns-zone we provisioned, so the credential can't
+  # write records to unrelated zones in the same account. Empty list when
+  # ACME is off (role isn't created either).
   - name: cluster
     path: cluster/aws-eks
     dependsOn:
       - network
+    inputs:
+      create_cert_manager_role: "${(dns.public_domain ?? '') != ''}"
+      cert_manager_hosted_zone_ids: "${(dns.public_domain ?? '') != '' && (terraform_output('dns-zone', 'zone_id') ?? '') != '' ? [terraform_output('dns-zone', 'zone_id')] : []}"
+
+  # Path-less dependency-edge injector: when ACME is on, cluster must wait for
+  # dns-zone so terraform_output('dns-zone', 'zone_id') is resolved before the
+  # cert-manager IAM policy is rendered. Without this, Windsor can schedule
+  # cluster and dns-zone concurrently, the guard expression evaluates false,
+  # and the policy falls back to the wildcard hostedzone/* scope.
+  - name: cluster
+    when: "(dns.public_domain ?? '') != ''"
+    dependsOn:
+      - dns-zone
 
   # destroy: false — "additions" are IAM / IRSA / aws-auth entries that are
   # idempotent from EKS's perspective; leave them on teardown, the cluster
@@ -122,3 +160,60 @@ kustomize:
     interval: 5m
     substitutions:
       single_storage_type: ${cluster.storage.single_storage_type ?? "gp3"}
+
+  # ---------------------------------------------------------------------------
+  # public ClusterIssuer — selfsigned default, ACME when a real zone is set
+  # ---------------------------------------------------------------------------
+  #
+  # pki-resources is always rendered on AWS so the gateway cert always has
+  # a working ClusterIssuer to issue against. Two modes:
+  #
+  #   1. Default (no public zone configured) → public-issuer/selfsigned.
+  #      Cert issues immediately, browsers warn (untrusted CA), good for
+  #      bringing up a cluster without DNS work. Flips to mode 2 below
+  #      with no manual cert resource changes.
+  #
+  #   2. ACME (operator set dns.public_domain) → public-issuer/acme.
+  #      Windsor created a public Route53 zone via the dns-zone stack
+  #      (so we have a place to write TXT records); cert-manager
+  #      satisfies DNS-01 against it (using the IAM role + Pod Identity
+  #      binding the cluster module provisioned). On switch, cert-manager
+  #      re-issues into the same Secret name — gateway picks up the new
+  #      cert with no restart.
+  #
+  # The trigger is "we have a Route53 zone we can write TXT records into",
+  # not "an email is set" — email is required by Let's Encrypt for account
+  # registration but isn't the capability gate. dns.public_domain is the
+  # one knob the operator turns; everything else (zone, IAM, issuer) is
+  # auto-provisioned.
+  #
+  # Server selection in ACME mode is implicit:
+  #   - dev == true → Let's Encrypt staging (avoids prod rate limits)
+  #   - otherwise   → Let's Encrypt production
+  #
+  # Required when ACME mode is active (schema enforces):
+  #   - email      — operator address Let's Encrypt registers against
+  #   - aws.region — Route53 API region (defaults to us-east-1)
+  #
+  - name: pki-resources
+    path: pki/resources
+    dependsOn:
+      - pki-base
+      - policy-resources
+    # ACME requires dns.public_domain AND a resolved dns-zone output —
+    # otherwise the ClusterIssuer would deploy with hostedZoneID="" and
+    # every DNS-01 challenge would fail. Falls back to selfsigned until
+    # dns-zone has applied; when it has, the next install flips to acme
+    # and cert-manager re-issues into the same Secret (hot swap).
+    components:
+      - "${(dns.public_domain ?? '') != '' && (terraform_output('dns-zone', 'zone_id') ?? '') != '' ? 'public-issuer/acme' : 'public-issuer/selfsigned'}"
+    timeout: 5m
+    interval: 5m
+    substitutions:
+      # ACME-only substitutions; harmless when selfsigned is selected
+      # (component doesn't reference them).
+      acme_server: "${dev == true ? 'https://acme-staging-v02.api.letsencrypt.org/directory' : 'https://acme-v02.api.letsencrypt.org/directory'}"
+      acme_email: "${email ?? ''}"
+      acme_dns_zone: "${dns.public_domain ?? ''}"
+      acme_region: "${aws.region ?? 'us-east-1'}"
+      acme_hosted_zone_id: "${terraform_output('dns-zone', 'zone_id') ?? ''}"

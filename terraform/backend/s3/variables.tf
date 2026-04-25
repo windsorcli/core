@@ -14,16 +14,6 @@ variable "context_id" {
   default     = null
 }
 
-variable "operation" {
-  description = "Current terraform operation. Set to \"destroy\" to allow the state bucket to be torn down with its contents (including prior state versions and logs)."
-  type        = string
-  default     = "apply"
-  validation {
-    condition     = contains(["apply", "destroy"], var.operation)
-    error_message = "operation must be either \"apply\" or \"destroy\"."
-  }
-}
-
 #---------------------------------------------------------------------------------------------------
 # S3 Bucket
 #---------------------------------------------------------------------------------------------------
@@ -77,7 +67,7 @@ variable "kms_key_alias" {
 #---------------------------------------------------------------------------------------------------
 
 variable "enable_kms" {
-  description = "Feature flag to enable KMS encryption"
+  description = "Provision a customer-managed KMS key and use SSE-KMS for the state bucket. False uses SSE-S3 (AES-256)."
   type        = bool
   default     = true
 }

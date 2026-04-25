@@ -352,3 +352,99 @@ run "multiple_invalid_inputs" {
     kubernetes_version = "v1.32"
   }
 }
+
+# Verifies the cert-manager IAM role + Pod Identity association are NOT
+# created by default (var.create_cert_manager_role defaults to false).
+run "cert_manager_role_disabled_by_default" {
+  command = plan
+
+  variables {
+    context_id = "test"
+  }
+
+  assert {
+    condition     = length(aws_iam_role.cert_manager) == 0
+    error_message = "cert-manager IAM role should not be created when create_cert_manager_role is false"
+  }
+
+  assert {
+    condition     = length(aws_eks_pod_identity_association.cert_manager) == 0
+    error_message = "cert-manager Pod Identity association should not be created when create_cert_manager_role is false"
+  }
+}
+
+# Verifies the cert-manager IAM role, Route53 policy, and Pod Identity binding
+# (system-pki / cert-manager service account) are created when opted in.
+run "cert_manager_role_enabled" {
+  command = plan
+
+  variables {
+    context_id               = "test"
+    create_cert_manager_role = true
+  }
+
+  assert {
+    condition     = length(aws_iam_role.cert_manager) == 1
+    error_message = "cert-manager IAM role should be created when create_cert_manager_role is true"
+  }
+
+  assert {
+    condition     = aws_iam_role.cert_manager[0].name == "cluster-test-cert-manager"
+    error_message = "cert-manager IAM role name should follow the cluster naming convention"
+  }
+
+  assert {
+    condition     = length(aws_iam_policy.cert_manager) == 1
+    error_message = "cert-manager IAM policy should be created when create_cert_manager_role is true"
+  }
+
+  assert {
+    condition     = length(aws_eks_pod_identity_association.cert_manager) == 1
+    error_message = "cert-manager Pod Identity association should be created when create_cert_manager_role is true"
+  }
+
+  assert {
+    condition     = aws_eks_pod_identity_association.cert_manager[0].namespace == "system-pki"
+    error_message = "cert-manager Pod Identity association should target the system-pki namespace"
+  }
+
+  assert {
+    condition     = aws_eks_pod_identity_association.cert_manager[0].service_account == "cert-manager"
+    error_message = "cert-manager Pod Identity association should target the cert-manager service account"
+  }
+
+  # No zone IDs supplied → falls back to wildcard (legacy direct-module use).
+  assert {
+    condition     = strcontains(aws_iam_policy.cert_manager[0].policy, "\"arn:aws:route53:::hostedzone/*\"")
+    error_message = "cert-manager policy should fall back to a wildcard zone ARN when no zone IDs are supplied"
+  }
+}
+
+# Verifies the cert-manager Route53 record-write actions are scoped to the
+# operator-supplied zone IDs (e.g. the dns-zone module's zone_id output) and
+# don't reach for the wildcard. ListHostedZonesByName remains '*' since the
+# solver calls it without a zone ID.
+run "cert_manager_policy_scoped_to_zone_ids" {
+  command = plan
+
+  variables {
+    context_id                   = "test"
+    create_cert_manager_role     = true
+    cert_manager_hosted_zone_ids = ["Z1ABCDEF12345", "Z9ZYXWVU98765"]
+  }
+
+  assert {
+    condition     = strcontains(aws_iam_policy.cert_manager[0].policy, "\"arn:aws:route53:::hostedzone/Z1ABCDEF12345\"")
+    error_message = "cert-manager policy should reference the first supplied zone ARN"
+  }
+
+  assert {
+    condition     = strcontains(aws_iam_policy.cert_manager[0].policy, "\"arn:aws:route53:::hostedzone/Z9ZYXWVU98765\"")
+    error_message = "cert-manager policy should reference the second supplied zone ARN"
+  }
+
+  assert {
+    condition     = !strcontains(aws_iam_policy.cert_manager[0].policy, "\"arn:aws:route53:::hostedzone/*\"")
+    error_message = "cert-manager policy must not include the wildcard zone ARN when zone IDs are supplied"
+  }
+}

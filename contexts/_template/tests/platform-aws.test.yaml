@@ -134,3 +134,145 @@ cases:
     exclude:
       kustomize:
         - name: gateway-resources
+
+  # ACME off by default — no public domain configured. pki-resources
+  # still renders so the gateway cert always has a working ClusterIssuer
+  # (just-works default), but using public-issuer/selfsigned (no Route53
+  # wiring needed). Cluster's create_cert_manager_role and the dns-zone
+  # stack stay off — Route53 IAM and a public zone aren't needed for
+  # selfsigned issuance.
+  - name: default selfsigned mode without a public domain
+    values:
+      provider: aws
+      gateway:
+        enabled: false
+    expect:
+      terraform:
+        - name: cluster
+          path: cluster/aws-eks
+          # No dns-zone edge when ACME is off — the path-less injector is gated
+          # on dns.public_domain and drops out here.
+          dependsOn:
+            - network
+          inputs:
+            create_cert_manager_role: "false"
+      kustomize:
+        - name: pki-resources
+          path: pki/resources
+          components:
+            - public-issuer/selfsigned
+    exclude:
+      terraform:
+        - name: dns-zone
+
+  # ACME path on (production): dns.public_domain triggers the standalone
+  # dns-zone stack, the cert-manager IAM role on the cluster, the
+  # public-issuer/acme component on pki-resources, and the gateway TLS
+  # cert switches to the `public` ClusterIssuer with the public domain.
+  - name: dns.public_domain wires up ACME Route53 issuer end to end
+    values:
+      provider: aws
+      gateway:
+        enabled: true
+        driver: envoy
+      dns:
+        public_domain: example.com
+      email: ops@example.com
+      aws:
+        region: us-west-2
+    terraformOutputs:
+      dns-zone:
+        zone_id: Z1ABCDEF12345
+    expect:
+      terraform:
+        - name: dns-zone
+          path: dns/zone/route53
+          dependsOn:
+            - backend
+          inputs:
+            domain_name: example.com
+        - name: cluster
+          path: cluster/aws-eks
+          # cluster must wait for dns-zone so terraform_output('dns-zone',
+          # 'zone_id') is resolved before the cert-manager IAM policy is
+          # rendered — without this edge the policy falls back to the
+          # account-wide hostedzone/* scope.
+          dependsOn:
+            - network
+            - dns-zone
+          inputs:
+            create_cert_manager_role: "true"
+            # Scope cert-manager's Route53 record-write to just the zone we
+            # provisioned, so the credential can't write into unrelated
+            # zones in the same account.
+            cert_manager_hosted_zone_ids:
+              - Z1ABCDEF12345
+      kustomize:
+        - name: pki-resources
+          path: pki/resources
+          dependsOn:
+            - pki-base
+            - policy-resources
+          components:
+            - public-issuer/acme
+          substitutions:
+            acme_server: https://acme-v02.api.letsencrypt.org/directory
+            acme_email: ops@example.com
+            acme_dns_zone: example.com
+            acme_region: us-west-2
+            # Maps to hostedZoneID in the ClusterIssuer YAML; if the substitution
+            # key is renamed or terraform_output('dns-zone', 'zone_id') stops
+            # threading through, the issuer would deploy with an empty zone ID
+            # and every DNS-01 challenge would fail.
+            acme_hosted_zone_id: Z1ABCDEF12345
+        - name: gateway-resources
+          path: gateway/resources
+          substitutions:
+            gateway_cert_issuer: public
+            external_domain: example.com
+
+  # Dev mode flips the ACME server to Let's Encrypt staging to avoid
+  # burning Let's Encrypt prod rate limits during iteration.
+  - name: dev mode uses Let's Encrypt staging server
+    values:
+      provider: aws
+      dev: true
+      gateway:
+        enabled: true
+        driver: envoy
+      dns:
+        public_domain: dev.example.com
+      email: dev@example.com
+    terraformOutputs:
+      dns-zone:
+        zone_id: Z9DEVZONE000
+    expect:
+      kustomize:
+        - name: pki-resources
+          components:
+            - public-issuer/acme
+          substitutions:
+            acme_server: https://acme-staging-v02.api.letsencrypt.org/directory
+            acme_email: dev@example.com
+
+  # Defense against an empty hostedZoneID: when dns.public_domain is set
+  # but the dns-zone terraform output isn't yet resolved (e.g. operator
+  # ran `windsor install` without a preceding `windsor up`), pki-resources
+  # falls back to public-issuer/selfsigned instead of deploying an ACME
+  # ClusterIssuer that would fail every DNS-01 challenge.
+  - name: pki-resources falls back to selfsigned when dns-zone output is missing
+    values:
+      provider: aws
+      gateway:
+        enabled: true
+        driver: envoy
+      dns:
+        public_domain: example.com
+      email: ops@example.com
+    terraformOutputs:
+      dns-zone: {}
+    expect:
+      kustomize:
+        - name: pki-resources
+          components:
+            - public-issuer/selfsigned

@@ -1,6 +1,7 @@
 apiVersion: kustomize.config.k8s.io/v1alpha1
 kind: Component
 resources:
+  - cluster-issuer.yaml
   - ca-certificate.yaml
   - ca-issuer.yaml
   - inject-private-ca-policy.yaml
@@ -10,5 +11,3 @@ resources:
   - rbac.yaml
   - serviceaccount.yaml
   - trust-bundle.yaml
-patches:
-  - path: patches/cluster-issuer.yaml

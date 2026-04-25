@@ -145,16 +145,23 @@ config:
   #
   # Three views of the same setting so callers can be specific:
   #   - domain:         user-facing root, used when public/private aren't split.
-  #   - public_domain:  records served to the outside world (external-dns).
+  #   - public_domain:  publicly-routable hostname pattern (external-dns
+  #                     publication, ACME cert SAN). Explicit only — never
+  #                     filled in from `domain`. The trigger for "this
+  #                     deployment has real public DNS" must be the operator
+  #                     setting public_domain themselves; falling back from
+  #                     `domain` would silently activate ACME paths whenever
+  #                     anyone configured a domain at all.
   #   - private_domain: records served inside the cluster (CoreDNS).
   #
-  # `dev: true` defaults everything to 'test' so local dev works without any
-  # DNS configuration.
+  # `dev: true` defaults `domain` and `private_domain` to 'test' so local dev
+  # works without any DNS configuration; public_domain stays empty in dev
+  # because there's no real public DNS to talk to.
   #
   - name: dns
     value:
       domain: "${dns.domain ?? (dev == true ? 'test' : '')}"
-      public_domain: "${dns.public_domain ?? dns.domain ?? (dev == true ? 'test' : '')}"
+      public_domain: "${dns.public_domain ?? ''}"
       private_domain: "${dns.private_domain ?? dns.domain ?? (dev == true ? 'test' : '')}"
 
   # ---------------------------------------------------------------------------

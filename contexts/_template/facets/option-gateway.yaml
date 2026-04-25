@@ -89,13 +89,33 @@ kustomize:
       - gateway-base
     components:
       - "${gateway_effective.driver == 'cilium' ? 'cilium' : ''}"
+      # Catch-all 404 served by Envoy's directResponse — covers any
+      # request that doesn't match a real app's HTTPRoute. Envoy-only:
+      # uses the gateway.envoyproxy.io HTTPRouteFilter CRD, which
+      # cilium clusters don't ship.
+      - "${gateway_effective.driver != 'cilium' ? 'envoy/default-404' : ''}"
       - "${gateway_effective.driver != 'cilium' && (addons.private_dns.enabled ?? (dev == true)) == true ? 'dns' : ''}"
       - "${lb_effective.enabled == true ? 'lb-address' : ''}"
       - "${(gitops.mode ?? 'push') == 'push' ? 'flux-webhook' : ''}"
     substitutions:
       gateway_class_name: ${gateway_effective.driver}
       gateway_dns_target: "${lb_effective.enabled == true ? network_effective.loadbalancer_ips.start : ''}"
-      external_domain: ${dns.private_domain}
+      # Cert SAN domain. When dns.public_domain is set, that's the
+      # publicly-routable hostname pattern the cert covers. Otherwise
+      # fall back to dns.private_domain (in-cluster / private trust).
+      external_domain: "${(dns.public_domain ?? '') == '' ? (dns.private_domain ?? '') : dns.public_domain}"
+
+      # ClusterIssuer name for the Gateway's external-web-tls certificate.
+      #
+      # AWS always provides a `public` ClusterIssuer (selfsigned by
+      # default, ACME when dns.public_domain or dns.public_zone_id is
+      # set), so the cert can always reference `public` and just-works
+      # default → real-public-cert is a hot swap of the issuer's spec
+      # without renaming the ClusterIssuer or the cert resource. Other
+      # platforms keep the original `private`/`public` switch keyed on
+      # whether the operator wired up a public domain (those platforms
+      # don't yet auto-provide a public issuer).
+      gateway_cert_issuer: "${platform == 'aws' ? 'public' : ((dns.public_domain ?? '') == '' ? 'private' : 'public')}"
       # Only emitted when a consumer is active: the lb-address patch (in-cluster
       # LB) or the cilium gateway component. NodePort/cloud-managed-LB paths
       # have no consumer, so leave it empty and the harness drops it.
