@@ -15,10 +15,11 @@ The zone is consumed by:
 After apply, point your domain registrar at the `name_servers` output so
 public DNS queries resolve through this zone.
 
-`force_destroy` is driven by `var.operation` (set automatically by
-Windsor via `TF_VAR_operation`): `false` during apply (protects the
-zone), `true` during `windsor destroy` (allows teardown even when the
-zone still has records).
+`force_destroy` is set to `true` unconditionally so `windsor destroy`
+can tear the zone down even when it still has records (ACME challenge
+TXTs, external-dns entries) — the AWS provider reads `force_destroy`
+from state at delete time, so it has to be persisted from apply.
+Matches the `backend/s3` bucket pattern.
 
 <!-- BEGIN_TF_DOCS -->
 <!-- END_TF_DOCS -->
