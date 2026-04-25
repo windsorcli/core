@@ -763,6 +763,12 @@ resource "aws_iam_policy" "cert_manager" {
   name        = "${local.name}-cert-manager"
   description = "IAM policy for cert-manager ACME Route53 DNS-01 solver"
 
+  # Scope record-write actions to the operator-supplied zone IDs when set,
+  # so cert-manager can't touch unrelated zones in the same account. Falls
+  # back to a wildcard when no zones are passed (legacy direct-module use).
+  # ListHostedZonesByName remains '*' — the cert-manager solver calls it
+  # without a zone ID and AWS doesn't accept resource-level constraints
+  # on it.
   policy = jsonencode({
     Version = "2012-10-17"
     Statement = [
@@ -777,7 +783,9 @@ resource "aws_iam_policy" "cert_manager" {
           "route53:ChangeResourceRecordSets",
           "route53:ListResourceRecordSets",
         ]
-        Resource = "arn:aws:route53:::hostedzone/*"
+        Resource = length(var.cert_manager_hosted_zone_ids) > 0 ? [
+          for id in var.cert_manager_hosted_zone_ids : "arn:aws:route53:::hostedzone/${id}"
+        ] : ["arn:aws:route53:::hostedzone/*"]
       },
       {
         Effect   = "Allow"

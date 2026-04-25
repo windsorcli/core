@@ -176,6 +176,9 @@ cases:
       email: ops@example.com
       aws:
         region: us-west-2
+    terraformOutputs:
+      dns-zone:
+        zone_id: Z1ABCDEF12345
     expect:
       terraform:
         - name: dns-zone
@@ -188,6 +191,11 @@ cases:
           path: cluster/aws-eks
           inputs:
             create_cert_manager_role: "true"
+            # Scope cert-manager's Route53 record-write to just the zone we
+            # provisioned, so the credential can't write into unrelated
+            # zones in the same account.
+            cert_manager_hosted_zone_ids:
+              - Z1ABCDEF12345
       kustomize:
         - name: pki-resources
           path: pki/resources

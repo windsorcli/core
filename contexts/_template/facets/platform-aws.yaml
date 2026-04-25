@@ -63,12 +63,18 @@ terraform:
   # EKS cluster itself. The cert-manager IAM role + Pod Identity association
   # is provisioned only when ACME is in play (the operator supplied a
   # public_domain). Default deployments don't need Route53 access.
+  #
+  # cert_manager_hosted_zone_ids scopes the role's Route53 record-write
+  # actions to just the dns-zone we provisioned, so the credential can't
+  # write records to unrelated zones in the same account. Empty list when
+  # ACME is off (role isn't created either).
   - name: cluster
     path: cluster/aws-eks
     dependsOn:
       - network
     inputs:
       create_cert_manager_role: "${(dns.public_domain ?? '') != ''}"
+      cert_manager_hosted_zone_ids: "${(dns.public_domain ?? '') != '' && (terraform_output('dns-zone', 'zone_id') ?? '') != '' ? [terraform_output('dns-zone', 'zone_id')] : []}"
 
   # destroy: false — "additions" are IAM / IRSA / aws-auth entries that are
   # idempotent from EKS's perspective; leave them on teardown, the cluster

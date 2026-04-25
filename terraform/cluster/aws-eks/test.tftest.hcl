@@ -412,4 +412,39 @@ run "cert_manager_role_enabled" {
     condition     = aws_eks_pod_identity_association.cert_manager[0].service_account == "cert-manager"
     error_message = "cert-manager Pod Identity association should target the cert-manager service account"
   }
+
+  # No zone IDs supplied → falls back to wildcard (legacy direct-module use).
+  assert {
+    condition     = strcontains(aws_iam_policy.cert_manager[0].policy, "\"arn:aws:route53:::hostedzone/*\"")
+    error_message = "cert-manager policy should fall back to a wildcard zone ARN when no zone IDs are supplied"
+  }
+}
+
+# Verifies the cert-manager Route53 record-write actions are scoped to the
+# operator-supplied zone IDs (e.g. the dns-zone module's zone_id output) and
+# don't reach for the wildcard. ListHostedZonesByName remains '*' since the
+# solver calls it without a zone ID.
+run "cert_manager_policy_scoped_to_zone_ids" {
+  command = plan
+
+  variables {
+    context_id                   = "test"
+    create_cert_manager_role     = true
+    cert_manager_hosted_zone_ids = ["Z1ABCDEF12345", "Z9ZYXWVU98765"]
+  }
+
+  assert {
+    condition     = strcontains(aws_iam_policy.cert_manager[0].policy, "\"arn:aws:route53:::hostedzone/Z1ABCDEF12345\"")
+    error_message = "cert-manager policy should reference the first supplied zone ARN"
+  }
+
+  assert {
+    condition     = strcontains(aws_iam_policy.cert_manager[0].policy, "\"arn:aws:route53:::hostedzone/Z9ZYXWVU98765\"")
+    error_message = "cert-manager policy should reference the second supplied zone ARN"
+  }
+
+  assert {
+    condition     = !strcontains(aws_iam_policy.cert_manager[0].policy, "\"arn:aws:route53:::hostedzone/*\"")
+    error_message = "cert-manager policy must not include the wildcard zone ARN when zone IDs are supplied"
+  }
 }

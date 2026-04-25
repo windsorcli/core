@@ -43,6 +43,12 @@ variable "create_cert_manager_role" {
   default     = false
 }
 
+variable "cert_manager_hosted_zone_ids" {
+  description = "Hosted zone IDs cert-manager is allowed to write ACME challenge records to. When set, the IAM policy's Route53 record-write actions are scoped to these zones (arn:aws:route53:::hostedzone/<id>) instead of every zone in the account. Leave empty to fall back to a wildcard scope (legacy behavior)."
+  type        = list(string)
+  default     = []
+}
+
 variable "endpoint_public_access" {
   description = "Whether to enable public access to the EKS cluster."
   type        = bool
