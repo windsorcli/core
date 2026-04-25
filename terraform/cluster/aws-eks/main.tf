@@ -393,7 +393,7 @@ resource "aws_eks_node_group" "main" {
   node_role_arn          = aws_iam_role.node_group.arn
   subnet_ids             = data.aws_subnets.private.ids
   instance_types         = each.value.instance_types
-  capacity_type          = each.value.capacity_type
+  capacity_type          = each.value.capacity_type == "ON_DEMAND" ? null : each.value.capacity_type
 
   scaling_config {
     desired_size = each.value.desired_size

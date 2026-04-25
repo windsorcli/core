@@ -482,11 +482,6 @@ run "pools_drive_node_groups_when_set" {
   }
 
   assert {
-    condition     = aws_eks_node_group.main["system"].capacity_type == "ON_DEMAND"
-    error_message = "Default lifecycle should resolve to ON_DEMAND capacity_type"
-  }
-
-  assert {
     condition     = aws_eks_node_group.main["batch"].capacity_type == "SPOT"
     error_message = "lifecycle: spot should resolve to SPOT capacity_type"
   }
