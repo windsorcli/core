@@ -153,6 +153,7 @@ resource "aws_security_group" "cluster_api_access" {
 }
 
 resource "aws_kms_key" "eks_encryption_key" {
+  # checkov:skip=CKV2_AWS_64:Policy is defined inline via jsonencode; checkov's graph engine can't trace the conditional concat() over Statement
   count                   = var.enable_secrets_encryption && var.secrets_encryption_kms_key_id == null ? 1 : 0
   description             = "KMS key for EKS cluster ${local.name} secrets encryption"
   deletion_window_in_days = var.kms_key_deletion_window_in_days

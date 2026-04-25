@@ -265,6 +265,7 @@ resource "aws_s3_bucket_public_access_block" "this" {
 #---------------------------------------------------------------------------------------------------
 
 resource "aws_kms_key" "terraform_state" {
+  # checkov:skip=CKV2_AWS_64:Policy is defined inline via local.terraform_state_kms_policy_json; checkov's graph engine can't follow the local-var indirection
   count = var.enable_kms && var.kms_key_alias == "" ? 1 : 0
 
   description             = "KMS key for encrypting Terraform state file in S3"

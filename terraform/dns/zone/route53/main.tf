@@ -38,6 +38,8 @@ provider "aws" {
 # AWS provider reads force_destroy from state at Delete time, not from
 # config — so this must be true at apply time, not just at destroy.
 resource "aws_route53_zone" "main" {
+  # checkov:skip=CKV2_AWS_38:DNSSEC requires a KMS key in us-east-1 and additional operator setup; left to the consumer to enable when needed
+  # checkov:skip=CKV2_AWS_39:Query logging requires a CloudWatch log group and IAM resource policy; left to the consumer to enable when needed
   name          = var.domain_name
   comment       = "Public DNS zone for ${var.domain_name} (windsor context ${var.context_id})"
   force_destroy = true
