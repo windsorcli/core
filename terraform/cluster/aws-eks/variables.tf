@@ -133,6 +133,11 @@ variable "pools" {
     ])
     error_message = "Each pool's lifecycle must be 'on-demand' or 'spot'."
   }
+
+  validation {
+    condition     = alltrue([for k, v in var.pools : v.count >= 0])
+    error_message = "Each pool's count must be >= 0."
+  }
 }
 
 variable "class_instance_types" {

@@ -540,3 +540,21 @@ run "class_instance_types_rejects_partial_override" {
 
   expect_failures = [var.class_instance_types]
 }
+
+# Negative count would error opaquely at AWS API time. The validation
+# surfaces it at plan.
+run "pool_rejects_negative_count" {
+  command = plan
+
+  variables {
+    context_id = "test"
+    pools = {
+      bad = {
+        class = "general"
+        count = -1
+      }
+    }
+  }
+
+  expect_failures = [var.pools]
+}
