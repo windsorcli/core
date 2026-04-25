@@ -22,3 +22,21 @@ variable "tags" {
   description = "Additional tags applied to the hosted zone."
   default     = {}
 }
+
+variable "enable_dnssec" {
+  type        = bool
+  default     = false
+  description = "Enable DNSSEC signing. Operator must publish the DS record (see ds_record output) at the registrar."
+}
+
+variable "enable_query_logging" {
+  type        = bool
+  default     = false
+  description = "Enable Route53 query logging to a CloudWatch log group in us-east-1."
+}
+
+variable "query_log_retention_days" {
+  type        = number
+  default     = 30
+  description = "Retention (days) for the query log group. Ignored when enable_query_logging is false."
+}
