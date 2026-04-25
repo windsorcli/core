@@ -1,6 +1,6 @@
 apiVersion: kustomize.config.k8s.io/v1beta1
 kind: Kustomization
-namespace: system-pki
+resources: []
 # No resources or components by default — facets that need a ClusterIssuer
 # add a self-contained subcomponent:
 #   - private-issuer/ca           full private CA (trust-manager-distributed)
