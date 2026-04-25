@@ -276,3 +276,94 @@ cases:
         - name: pki-resources
           components:
             - public-issuer/selfsigned
+
+  # cluster.pools threads through to the cluster module as-is. The module
+  # converts class + count|min/max + lifecycle into EKS managed node group
+  # shape internally (class → instance family, lifecycle → capacity_type).
+  # When cluster.pools is unset, inputs.pools is the empty map and the
+  # module falls back to its var.node_groups default — verified by the
+  # earlier "minimal config" case (no pools input visible there).
+  - name: cluster.pools flows through to the cluster module
+    values:
+      provider: aws
+      gateway:
+        enabled: false
+      cluster:
+        pools:
+          general:
+            class: general
+            count: 3
+    expect:
+      terraform:
+        - name: cluster
+          path: cluster/aws-eks
+          inputs:
+            pools:
+              general:
+                class: general
+                count: 3
+
+  # Multi-pool: a system pool plus general + spot-priced batch. The class
+  # label is what makes these pools portable — same shape would land on
+  # Azure or GCP once those facets gain pools.
+  - name: multi-pool config with mixed sizing and lifecycle
+    values:
+      provider: aws
+      gateway:
+        enabled: false
+      cluster:
+        pools:
+          system:
+            class: system
+            count: 2
+          general:
+            class: general
+            count: 3
+          batch:
+            class: compute
+            count: 5
+            lifecycle: spot
+    expect:
+      terraform:
+        - name: cluster
+          path: cluster/aws-eks
+          inputs:
+            pools:
+              system:
+                class: system
+                count: 2
+              general:
+                class: general
+                count: 3
+              batch:
+                class: compute
+                count: 5
+                lifecycle: spot
+
+  # Escape hatch: explicit instance_types pinned for regulatory or
+  # GPU-shape reasons. The pool still carries class for the
+  # windsor.io/pool-class label; the module skips the class default
+  # lookup and uses the supplied list verbatim.
+  - name: pool with explicit instance_types overrides the class default
+    values:
+      provider: aws
+      gateway:
+        enabled: false
+      cluster:
+        pools:
+          gpu:
+            class: gpu
+            count: 1
+            instance_types:
+              - p4d.24xlarge
+    expect:
+      terraform:
+        - name: cluster
+          path: cluster/aws-eks
+          inputs:
+            pools:
+              gpu:
+                class: gpu
+                count: 1
+                instance_types:
+                  - p4d.24xlarge
