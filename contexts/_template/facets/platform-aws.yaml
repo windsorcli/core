@@ -200,8 +200,13 @@ kustomize:
     dependsOn:
       - pki-base
       - policy-resources
+    # ACME requires dns.public_domain AND a resolved dns-zone output —
+    # otherwise the ClusterIssuer would deploy with hostedZoneID="" and
+    # every DNS-01 challenge would fail. Falls back to selfsigned until
+    # dns-zone has applied; when it has, the next install flips to acme
+    # and cert-manager re-issues into the same Secret (hot swap).
     components:
-      - "${(dns.public_domain ?? '') != '' ? 'public-issuer/acme' : 'public-issuer/selfsigned'}"
+      - "${(dns.public_domain ?? '') != '' && (terraform_output('dns-zone', 'zone_id') ?? '') != '' ? 'public-issuer/acme' : 'public-issuer/selfsigned'}"
     timeout: 5m
     interval: 5m
     substitutions:

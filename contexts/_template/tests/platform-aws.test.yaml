@@ -238,6 +238,9 @@ cases:
       dns:
         public_domain: dev.example.com
       email: dev@example.com
+    terraformOutputs:
+      dns-zone:
+        zone_id: Z9DEVZONE000
     expect:
       kustomize:
         - name: pki-resources
@@ -246,3 +249,23 @@ cases:
           substitutions:
             acme_server: https://acme-staging-v02.api.letsencrypt.org/directory
             acme_email: dev@example.com
+
+  # Defense against an empty hostedZoneID: when dns.public_domain is set
+  # but the dns-zone terraform output isn't yet resolved (e.g. operator
+  # ran `windsor install` without a preceding `windsor up`), pki-resources
+  # falls back to public-issuer/selfsigned instead of deploying an ACME
+  # ClusterIssuer that would fail every DNS-01 challenge.
+  - name: pki-resources falls back to selfsigned when dns-zone output is missing
+    values:
+      provider: aws
+      gateway:
+        enabled: true
+        driver: envoy
+      dns:
+        public_domain: example.com
+      email: ops@example.com
+    expect:
+      kustomize:
+        - name: pki-resources
+          components:
+            - public-issuer/selfsigned
