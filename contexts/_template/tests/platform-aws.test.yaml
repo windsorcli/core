@@ -264,6 +264,8 @@ cases:
       dns:
         public_domain: example.com
       email: ops@example.com
+    terraformOutputs:
+      dns-zone: {}
     expect:
       kustomize:
         - name: pki-resources
