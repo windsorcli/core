@@ -150,6 +150,10 @@ cases:
       terraform:
         - name: cluster
           path: cluster/aws-eks
+          # No dns-zone edge when ACME is off — the path-less injector is gated
+          # on dns.public_domain and drops out here.
+          dependsOn:
+            - network
           inputs:
             create_cert_manager_role: "false"
       kustomize:
@@ -189,6 +193,13 @@ cases:
             domain_name: example.com
         - name: cluster
           path: cluster/aws-eks
+          # cluster must wait for dns-zone so terraform_output('dns-zone',
+          # 'zone_id') is resolved before the cert-manager IAM policy is
+          # rendered — without this edge the policy falls back to the
+          # account-wide hostedzone/* scope.
+          dependsOn:
+            - network
+            - dns-zone
           inputs:
             create_cert_manager_role: "true"
             # Scope cert-manager's Route53 record-write to just the zone we

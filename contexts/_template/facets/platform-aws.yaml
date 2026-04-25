@@ -76,6 +76,16 @@ terraform:
       create_cert_manager_role: "${(dns.public_domain ?? '') != ''}"
       cert_manager_hosted_zone_ids: "${(dns.public_domain ?? '') != '' && (terraform_output('dns-zone', 'zone_id') ?? '') != '' ? [terraform_output('dns-zone', 'zone_id')] : []}"
 
+  # Path-less dependency-edge injector: when ACME is on, cluster must wait for
+  # dns-zone so terraform_output('dns-zone', 'zone_id') is resolved before the
+  # cert-manager IAM policy is rendered. Without this, Windsor can schedule
+  # cluster and dns-zone concurrently, the guard expression evaluates false,
+  # and the policy falls back to the wildcard hostedzone/* scope.
+  - name: cluster
+    when: "(dns.public_domain ?? '') != ''"
+    dependsOn:
+      - dns-zone
+
   # destroy: false — "additions" are IAM / IRSA / aws-auth entries that are
   # idempotent from EKS's perspective; leave them on teardown, the cluster
   # delete takes them.
