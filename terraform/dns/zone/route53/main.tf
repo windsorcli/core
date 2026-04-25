@@ -1,5 +1,13 @@
-# Public Route53 hosted zone. Kept separate from network/* so it can be
-# provisioned without a cluster.
+# The dns/zone/route53 module creates a public Route53 hosted zone for a
+# domain. It provides the authoritative public DNS for the zone, used by
+# cert-manager (ACME DNS-01 challenges) and external-dns (Service /
+# Gateway hostname publication). The hosted zone ID and name servers are
+# exposed as outputs so downstream stacks can target the zone, and so
+# the operator can configure their domain registrar's NS delegation.
+#
+# Kept separate from network/* so a domain can be provisioned independent
+# of any cluster — useful for zone-only deployments and for cases where
+# DNS infra has a different lifecycle than compute.
 
 terraform {
   required_version = ">=1.8"

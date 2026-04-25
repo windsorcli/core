@@ -134,3 +134,96 @@ cases:
     exclude:
       kustomize:
         - name: gateway-resources
+
+  # ACME off by default — no public domain configured. pki-resources
+  # still renders so the gateway cert always has a working ClusterIssuer
+  # (just-works default), but using public-issuer/selfsigned (no Route53
+  # wiring needed). Cluster's create_cert_manager_role and the dns-zone
+  # stack stay off — Route53 IAM and a public zone aren't needed for
+  # selfsigned issuance.
+  - name: default selfsigned mode without a public domain
+    values:
+      provider: aws
+      gateway:
+        enabled: false
+    expect:
+      terraform:
+        - name: cluster
+          path: cluster/aws-eks
+          inputs:
+            create_cert_manager_role: "false"
+      kustomize:
+        - name: pki-resources
+          path: pki/resources
+          components:
+            - public-issuer/selfsigned
+    exclude:
+      terraform:
+        - name: dns-zone
+
+  # ACME path on (production): dns.public_domain triggers the standalone
+  # dns-zone stack, the cert-manager IAM role on the cluster, the
+  # public-issuer/acme component on pki-resources, and the gateway TLS
+  # cert switches to the `public` ClusterIssuer with the public domain.
+  - name: dns.public_domain wires up ACME Route53 issuer end to end
+    values:
+      provider: aws
+      gateway:
+        enabled: true
+        driver: envoy
+      dns:
+        public_domain: example.com
+      email: ops@example.com
+      aws:
+        region: us-west-2
+    expect:
+      terraform:
+        - name: dns-zone
+          path: dns/zone/route53
+          dependsOn:
+            - backend
+          inputs:
+            domain_name: example.com
+        - name: cluster
+          path: cluster/aws-eks
+          inputs:
+            create_cert_manager_role: "true"
+      kustomize:
+        - name: pki-resources
+          path: pki/resources
+          dependsOn:
+            - pki-base
+            - policy-resources
+          components:
+            - public-issuer/acme
+          substitutions:
+            acme_server: https://acme-v02.api.letsencrypt.org/directory
+            acme_email: ops@example.com
+            acme_dns_zone: example.com
+            acme_region: us-west-2
+        - name: gateway-resources
+          path: gateway/resources
+          substitutions:
+            gateway_cert_issuer: public
+            external_domain: example.com
+
+  # Dev mode flips the ACME server to Let's Encrypt staging to avoid
+  # burning Let's Encrypt prod rate limits during iteration.
+  - name: dev mode uses Let's Encrypt staging server
+    values:
+      provider: aws
+      dev: true
+      gateway:
+        enabled: true
+        driver: envoy
+      dns:
+        public_domain: dev.example.com
+      email: dev@example.com
+    expect:
+      kustomize:
+        - name: pki-resources
+          components:
+            - public-issuer/acme
+          substitutions:
+            acme_server: https://acme-staging-v02.api.letsencrypt.org/directory
+            acme_email: dev@example.com

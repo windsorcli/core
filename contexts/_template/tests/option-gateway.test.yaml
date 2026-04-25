@@ -406,6 +406,31 @@ cases:
           timeout: 10m
           interval: 5m
 
+  # Cert issuer + external_domain defaults: on platforms without ACME
+  # wiring (no acme_effective.enabled), gateway_cert_issuer must default
+  # to `private` and external_domain must come from dns.private_domain
+  # (the platform-base `dns` config block resolves the effective value
+  # from private_domain → domain → "test" in dev). Regression guard for
+  # the cert-issuer abstraction in option-gateway.
+  - name: non-ACME platform defaults gateway_cert_issuer to private and uses private_domain
+    values:
+      provider: metal
+      gateway:
+        enabled: true
+        driver: envoy
+      dns:
+        private_domain: cluster.local
+      network: *default-network
+      cluster: *default-cluster
+    expect:
+      kustomize:
+        - name: gateway-resources
+          path: gateway/resources
+          substitutions:
+            gateway_class_name: envoy
+            gateway_cert_issuer: private
+            external_domain: cluster.local
+
   # gitops.mode=pull drops the Flux Receiver kustomize entirely and propagates
   # mode=pull to the gitops/flux terraform module (which then skips
   # notification-controller and the webhook-token secret).

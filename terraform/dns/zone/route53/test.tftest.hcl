@@ -1,5 +1,9 @@
 mock_provider "aws" {}
 
+# Verifies the public hosted zone is created with the requested domain name.
+# Module outputs surface the expected fields — downstream stacks (cert-manager
+# ACME issuer, external-dns) consume these by name, so a rename here would
+# silently break the wiring.
 run "minimal_configuration" {
   command = plan
 

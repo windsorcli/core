@@ -526,6 +526,17 @@ properties:
         additionalProperties: false
     additionalProperties: false
 
+  # Operator contact
+  email:
+    type: string
+    format: email
+    description: >
+      Primary operator email for the deployment. Used as the contact
+      address for things like ACME (Let's Encrypt) account registration
+      and may be reused by other contact-aware integrations (alerting,
+      certificate expiry notices, etc.). Required when public TLS is
+      active (e.g. AWS + dns.public_domain).
+
   # DNS configuration
   dns:
     type: object
@@ -535,7 +546,15 @@ properties:
         description: Base domain; used as fallback when public_domain or private_domain are not set
       public_domain:
         type: string
-        description: Public DNS zone (e.g. Route53 hosted zone)
+        description: >
+          Publicly-routable DNS zone for the deployment. On AWS, setting
+          this provisions a public Route53 hosted zone in the same
+          account, the cert-manager IAM role + Pod Identity binding for
+          DNS-01 challenges, and an ACME ClusterIssuer that issues real
+          Let's Encrypt certificates for the gateway. The operator must
+          delegate this domain at their registrar to the name servers
+          the dns-zone module outputs. Leave unset for selfsigned-only
+          (just-works) mode.
       private_domain:
         type: string
         description: Private DNS zone (e.g. in-cluster CoreDNS, workstation resolver)
@@ -797,3 +816,30 @@ properties:
 
 required: []
 additionalProperties: false
+
+# Cross-field constraints. JSON Schema's if/then lets us require fields
+# only when other fields are set, surfacing config gaps at validation
+# time instead of at terraform/cluster apply time.
+allOf:
+  # Setting dns.public_domain activates ACME (publicly-trusted certs from
+  # Let's Encrypt). Let's Encrypt requires an account email at registration,
+  # so the top-level `email` field becomes mandatory in this case.
+  - if:
+      properties:
+        dns:
+          type: object
+          properties:
+            public_domain:
+              type: string
+              minLength: 1
+          required:
+            - public_domain
+      required:
+        - dns
+    then:
+      required:
+        - email
+      properties:
+        email:
+          type: string
+          minLength: 1

@@ -729,6 +729,75 @@ resource "aws_iam_role_policy_attachment" "external_dns" {
 }
 
 #-----------------------------------------------------------------------------------------------------------------------
+# Cert Manager IAM Role (ACME Route53 DNS-01 solver)
+#-----------------------------------------------------------------------------------------------------------------------
+
+resource "aws_iam_role" "cert_manager" {
+  count = var.create_cert_manager_role ? 1 : 0
+  name  = "${local.name}-cert-manager"
+
+  assume_role_policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Action = ["sts:AssumeRole", "sts:TagSession"]
+        Effect = "Allow"
+        Principal = {
+          Service = "pods.eks.amazonaws.com"
+        }
+      }
+    ]
+  })
+
+  tags = {
+    Name = "${local.name}-cert-manager"
+  }
+}
+
+resource "aws_iam_policy" "cert_manager" {
+  # This policy is based on the official cert-manager documentation for the
+  # Route53 DNS-01 solver:
+  # https://cert-manager.io/docs/configuration/acme/dns01/route53/
+  count       = var.create_cert_manager_role ? 1 : 0
+  name        = "${local.name}-cert-manager"
+  description = "IAM policy for cert-manager ACME Route53 DNS-01 solver"
+
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Effect   = "Allow"
+        Action   = ["route53:GetChange"]
+        Resource = "arn:aws:route53:::change/*"
+      },
+      {
+        Effect = "Allow"
+        Action = [
+          "route53:ChangeResourceRecordSets",
+          "route53:ListResourceRecordSets",
+        ]
+        Resource = "arn:aws:route53:::hostedzone/*"
+      },
+      {
+        Effect   = "Allow"
+        Action   = ["route53:ListHostedZonesByName"]
+        Resource = "*"
+      },
+    ]
+  })
+
+  tags = {
+    Name = "${local.name}-cert-manager"
+  }
+}
+
+resource "aws_iam_role_policy_attachment" "cert_manager" {
+  count      = var.create_cert_manager_role ? 1 : 0
+  policy_arn = aws_iam_policy.cert_manager[0].arn
+  role       = aws_iam_role.cert_manager[0].name
+}
+
+#-----------------------------------------------------------------------------------------------------------------------
 # Create Add-Ons
 #-----------------------------------------------------------------------------------------------------------------------
 
@@ -800,6 +869,15 @@ resource "aws_eks_pod_identity_association" "external_dns" {
   namespace       = "system-dns"
   service_account = "external-dns"
   role_arn        = aws_iam_role.external_dns[0].arn
+}
+
+resource "aws_eks_pod_identity_association" "cert_manager" {
+  count = var.create_cert_manager_role ? 1 : 0
+
+  cluster_name    = aws_eks_cluster.main.name
+  namespace       = "system-pki"
+  service_account = "cert-manager"
+  role_arn        = aws_iam_role.cert_manager[0].arn
 }
 
 #-----------------------------------------------------------------------------------------------------------------------
