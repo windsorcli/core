@@ -524,3 +524,19 @@ run "pool_instance_types_override_class_default" {
     error_message = "windsor.io/pool-class should still reflect the declared class"
   }
 }
+
+# Verifies the class_instance_types validation rejects partial overrides.
+# Without this, a partial override would panic mid-plan on the first pool
+# whose class is missing from the operator's map.
+run "class_instance_types_rejects_partial_override" {
+  command = plan
+
+  variables {
+    context_id = "test"
+    class_instance_types = {
+      general = ["m6i.xlarge"]
+    }
+  }
+
+  expect_failures = [var.class_instance_types]
+}

@@ -136,7 +136,7 @@ variable "pools" {
 }
 
 variable "class_instance_types" {
-  description = "Default instance type list per portable pool class. Multi-type lists guard against single-instance-type capacity shortages. A pool's explicit instance_types overrides this map."
+  description = "Default instance type list per portable pool class. Multi-type lists guard against single-instance-type capacity shortages. A pool's explicit instance_types overrides this map. When overriding this variable, all seven class keys must be supplied — partial overrides are rejected at validate time rather than panicking mid-plan."
   type        = map(list(string))
   default = {
     system  = ["t3.medium", "t3a.medium", "t3.large", "t3a.large"]
@@ -146,6 +146,14 @@ variable "class_instance_types" {
     storage = ["i3.xlarge", "i4i.xlarge"]
     gpu     = ["g4dn.xlarge", "g5.xlarge"]
     arm64   = ["t4g.xlarge", "m6g.xlarge", "c6g.xlarge"]
+  }
+
+  validation {
+    condition = alltrue([
+      for c in ["system", "general", "compute", "memory", "storage", "gpu", "arm64"] :
+      contains(keys(var.class_instance_types), c) && length(lookup(var.class_instance_types, c, [])) > 0
+    ])
+    error_message = "class_instance_types must contain a non-empty list for every pool class: system, general, compute, memory, storage, gpu, arm64."
   }
 }
 
