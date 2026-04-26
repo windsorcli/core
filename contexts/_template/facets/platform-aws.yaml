@@ -195,6 +195,34 @@ kustomize:
   #   - email      — operator address Let's Encrypt registers against
   #   - aws.region — Route53 API region (defaults to us-east-1)
   #
+  # ---------------------------------------------------------------------------
+  # External-DNS — Route53 record automation
+  # ---------------------------------------------------------------------------
+  #
+  # Watches Ingress and Gateway HTTPRoute resources annotated with
+  # external-dns.alpha.kubernetes.io/hostname=<host> and writes the matching
+  # A/CNAME records to the Route53 zone provisioned by dns-zone.
+  #
+  # Gated on dns.public_domain — without a public zone there's nothing to
+  # write to, and the chart's domainFilters fall back to the placeholder
+  # "test" which is a deliberate no-op.
+  #
+  # IAM is already wired by the cluster module: var.create_external_dns_role
+  # defaults to true, which provisions the role + policy and a Pod Identity
+  # association binding the external-dns ServiceAccount in system-dns to it.
+  # No additional input plumbing required here — credentials reach the pod
+  # automatically via the SA name.
+  #
+  - name: external-dns
+    path: dns/external-dns
+    when: "(dns.public_domain ?? '') != ''"
+    dependsOn:
+      - policy-resources
+    timeout: 5m
+    interval: 5m
+    substitutions:
+      external_domain: ${dns.public_domain}
+
   - name: pki-resources
     path: pki/resources
     dependsOn:

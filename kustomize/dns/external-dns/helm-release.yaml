@@ -33,4 +33,4 @@ spec:
       - ingress
       - gateway-httproute
     domainFilters:
-      - "${DOMAIN:-test}"
+      - "${external_domain:-test}"

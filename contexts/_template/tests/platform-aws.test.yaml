@@ -276,3 +276,41 @@ cases:
         - name: pki-resources
           components:
             - public-issuer/selfsigned
+
+  # External-DNS deploys when dns.public_domain is set. The cluster module's
+  # IAM role and Pod Identity association cover the credentials side; the
+  # facet just needs to render the kustomize component and substitute the
+  # domain into the helm chart's domainFilters.
+  - name: external-dns deploys when dns.public_domain is set
+    values:
+      provider: aws
+      gateway:
+        enabled: false
+      dns:
+        public_domain: example.com
+      email: ops@example.com
+    terraformOutputs:
+      dns-zone:
+        zone_id: Z1ABCDEF12345
+    expect:
+      kustomize:
+        - name: external-dns
+          path: dns/external-dns
+          dependsOn:
+            - policy-resources
+          timeout: 5m
+          interval: 5m
+          substitutions:
+            external_domain: example.com
+
+  # Without a public domain, External-DNS would have nothing to write to —
+  # the chart's domainFilters would fall back to the placeholder "test"
+  # and the controller would idle. Skip the kustomize entirely.
+  - name: external-dns excluded when no public domain
+    values:
+      provider: aws
+      gateway:
+        enabled: false
+    exclude:
+      kustomize:
+        - name: external-dns
