@@ -682,6 +682,12 @@ properties:
           - LoadBalancer
           - NodePort
         description: Kubernetes Service type used to expose the gateway. When unset, defaults to LoadBalancer except on docker-desktop, which is forced to NodePort. Set to NodePort to expose the gateway on any driver without a cluster LB (e.g. single-node Talos VMs).
+      access:
+        type: string
+        enum:
+          - public
+          - private
+        description: Whether the gateway is reachable from the public internet (public, default) or only from inside the VPC/network (private). Flipping this to `private` cascades through the gateway's adjacent infrastructure — load balancer scheme, the DNS zone external-dns publishes to, and the cert-manager issuer — so the whole gateway stack stays coherent. Requires `dns.private_domain` to be set; otherwise the private path is a no-op and the gateway runs as public.
     additionalProperties: false
 
   # Ingress configuration

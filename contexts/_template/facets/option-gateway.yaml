@@ -94,24 +94,36 @@ kustomize:
       # uses the gateway.envoyproxy.io HTTPRouteFilter CRD, which
       # cilium clusters don't ship.
       - "${gateway_effective.driver != 'cilium' ? 'envoy/default-404' : ''}"
-      # external-dns hostname annotation on the 404 route. Gated on the
-      # same condition that turns on external-dns so platforms without
-      # it don't carry a malformed ",*." substitution result.
-      - "${gateway_effective.driver != 'cilium' && (dns.public_domain ?? '') != '' ? 'envoy/default-404/external-dns' : ''}"
+      # external-dns hostname annotation on the 404 route. Fires whenever a
+      # gateway-managed DNS zone exists — the public zone (dns.public_domain)
+      # for the default public path, or the private zone (dns.private_domain)
+      # when gateway.access=private. Skipped when neither applies so the
+      # substitution doesn't render a malformed ",*." value.
+      - "${gateway_effective.driver != 'cilium' && ((dns.public_domain ?? '') != '' || (gateway.access == 'private' && (dns.private_domain ?? '') != '')) ? 'envoy/default-404/external-dns' : ''}"
       - "${gateway_effective.driver != 'cilium' && (addons.private_dns.enabled ?? (dev == true)) == true ? 'dns' : ''}"
       - "${lb_effective.enabled == true ? 'lb-address' : ''}"
       - "${(gitops.mode ?? 'push') == 'push' ? 'flux-webhook' : ''}"
     substitutions:
       gateway_class_name: ${gateway_effective.driver}
       gateway_dns_target: "${lb_effective.enabled == true ? network_effective.loadbalancer_ips.start : ''}"
-      # Cert SAN domain. When dns.public_domain is set, that's the
-      # publicly-routable hostname pattern the cert covers. Otherwise
-      # fall back to dns.private_domain (in-cluster / private trust).
-      external_domain: "${(dns.public_domain ?? '') == '' ? (dns.private_domain ?? '') : dns.public_domain}"
+      # Cert SAN domain.
+      # - access=private (with dns.private_domain set): gateway is reachable
+      #   only inside the VPC, so the cert covers the private domain (the
+      #   public zone is irrelevant even if dns.public_domain is set for
+      #   unrelated reasons).
+      # - otherwise: prefer dns.public_domain when set; fall back to
+      #   dns.private_domain for in-cluster / private-trust configs.
+      #
+      # access=private without dns.private_domain falls through to the
+      # public branch — operator config is incoherent (private gateway
+      # with no private domain) and silently degrading is worse than
+      # treating it as public; the next assertion they make against the
+      # gateway will surface the misconfig.
+      external_domain: "${gateway.access == 'private' && (dns.private_domain ?? '') != '' ? dns.private_domain : ((dns.public_domain ?? '') == '' ? (dns.private_domain ?? '') : dns.public_domain)}"
 
       # ClusterIssuer name for the Gateway's external-web-tls certificate.
       #
-      # AWS always provides a `public` ClusterIssuer (selfsigned by
+      # AWS normally provides a `public` ClusterIssuer (selfsigned by
       # default, ACME when dns.public_domain or dns.public_zone_id is
       # set), so the cert can always reference `public` and just-works
       # default → real-public-cert is a hot swap of the issuer's spec
@@ -119,7 +131,13 @@ kustomize:
       # platforms keep the original `private`/`public` switch keyed on
       # whether the operator wired up a public domain (those platforms
       # don't yet auto-provide a public issuer).
-      gateway_cert_issuer: "${platform == 'aws' ? 'public' : ((dns.public_domain ?? '') == '' ? 'private' : 'public')}"
+      #
+      # access=private (with dns.private_domain) forces `private`
+      # everywhere — ACME DNS-01 can't validate against a VPC-only zone
+      # (TXT records aren't publicly resolvable), so falling back to
+      # selfsigned is the only working option until an operator wires
+      # a private CA.
+      gateway_cert_issuer: "${gateway.access == 'private' && (dns.private_domain ?? '') != '' ? 'private' : (platform == 'aws' ? 'public' : ((dns.public_domain ?? '') == '' ? 'private' : 'public'))}"
       # Only emitted when a consumer is active: the lb-address patch (in-cluster
       # LB) or the cilium gateway component. NodePort/cloud-managed-LB paths
       # have no consumer, so leave it empty and the harness drops it.

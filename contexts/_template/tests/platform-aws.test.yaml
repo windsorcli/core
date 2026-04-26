@@ -418,6 +418,58 @@ cases:
             - envoy/prometheus
             - envoy/loadbalancer/aws-nlb
 
+  # gateway.access=private threads through the AWS facet's gateway-base
+  # merge as the lb_scheme substitution, which the aws-nlb patch consumes
+  # to flip aws-load-balancer-scheme to `internal`. Required for clusters
+  # in private VPCs (no public subnets) where AWS rejects internet-facing
+  # NLB creation. The platform-agnostic `public`/`private` values keep
+  # AWS-specific terms (internet-facing) inside the AWS facet.
+  #
+  # dns.private_domain is required — it's what the rest of the private-mode
+  # cascade gates on (cert issuer, external-dns target). Without it the
+  # NLB scheme stays public so the gateway doesn't end up internal-only
+  # with no DNS pointing at it.
+  - name: gateway.access=private flips the AWS NLB to internal
+    values:
+      provider: aws
+      gateway:
+        enabled: true
+        driver: envoy
+        access: private
+      dns:
+        private_domain: internal.example.com
+    expect:
+      kustomize:
+        - name: gateway-base
+          path: gateway/base
+          components:
+            - envoy/loadbalancer/aws-nlb
+          substitutions:
+            lb_scheme: internal
+
+  # Coherence guard: gateway.access=private without dns.private_domain is
+  # an incoherent operator config (private gateway with no private domain
+  # to publish records to). The whole private-mode cascade gates on both,
+  # so without private_domain the cluster stays on the public path — better
+  # than ending up with a half-private gateway no one can reach. Asserted
+  # via the cert issuer falling to the AWS-default `public` (the cascade's
+  # private branch would force `private`); empty `lb_scheme` substitution
+  # is dropped from output so we can't assert it directly, but the cert
+  # issuer is the proxy.
+  - name: gateway.access=private without private_domain stays public
+    values:
+      provider: aws
+      gateway:
+        enabled: true
+        driver: envoy
+        access: private
+    expect:
+      kustomize:
+        - name: gateway-resources
+          path: gateway/resources
+          substitutions:
+            gateway_cert_issuer: public
+
   # Negative branch: Cilium provides its own gateway implementation
   # (no Envoy data-plane Service to annotate). The aws-nlb component
   # must NOT merge into the cilium gateway-base.
@@ -456,7 +508,13 @@ cases:
   # External-DNS deploys when dns.public_domain is set. The cluster module's
   # IAM role and Pod Identity association cover the credentials side; the
   # facet just needs to render the kustomize component and substitute the
-  # domain into the helm chart's domainFilters.
+  # domain + zone metadata into the helm chart values.
+  #
+  # The route53 component layers AWS-specific helm values (Pod Identity,
+  # txtOwnerId from the cluster configmap, zoneType + zone-id filter) on
+  # top of the base external-dns release. Without it, two clusters in the
+  # same account would clobber each other's records — txtOwnerId is what
+  # scopes ownership.
   - name: external-dns deploys when dns.public_domain is set
     values:
       provider: aws
@@ -474,10 +532,65 @@ cases:
           path: dns/external-dns
           dependsOn:
             - policy-resources
+          components:
+            - route53
           timeout: 5m
           interval: 5m
           substitutions:
             external_domain: example.com
+            zone_type: public
+            zone_id_filter: Z1ABCDEF12345
+
+  # Private mode: gateway.access=private flips the DNS path away from the
+  # public zone and onto the VPC-private Route53 zone the network module
+  # creates from dns.private_domain. external-dns is still rendered (we
+  # want Windsor managing private DNS too — operators of private clusters
+  # shouldn't have to wire records by hand) but pointed at the private
+  # zone with zoneType=private + the private_zone_id from the network
+  # module's terraform output.
+  - name: private mode targets external-dns at the private Route53 zone
+    values:
+      provider: aws
+      gateway:
+        enabled: true
+        driver: envoy
+        access: private
+      dns:
+        private_domain: internal.example.com
+    terraformOutputs:
+      network:
+        private_zone_id: Z9PRIVATEZONE
+    expect:
+      kustomize:
+        - name: external-dns
+          path: dns/external-dns
+          components:
+            - route53
+          substitutions:
+            external_domain: internal.example.com
+            zone_type: private
+            zone_id_filter: Z9PRIVATEZONE
+        # Cert issuer falls to `private` (selfsigned) — ACME DNS-01 can't
+        # validate against a VPC-only zone, and the gateway's external_domain
+        # follows access=private onto the private domain. The 404 hostname
+        # annotation patch is added too, asserting the private branch of
+        # the option-gateway conditional fires alongside everything else.
+        - name: gateway-resources
+          path: gateway/resources
+          components:
+            - envoy/default-404
+            - envoy/default-404/external-dns
+          substitutions:
+            gateway_cert_issuer: private
+            external_domain: internal.example.com
+        # Private mode swaps pki-resources from public-issuer/* to
+        # private-issuer/selfsigned, which creates a ClusterIssuer named
+        # `private` — what the gateway cert above references. Without this
+        # the cert would reference a non-existent issuer.
+        - name: pki-resources
+          path: pki/resources
+          components:
+            - private-issuer/selfsigned
 
   # Without a public domain, External-DNS would have nothing to write to —
   # the chart's domainFilters would fall back to the placeholder "test"
