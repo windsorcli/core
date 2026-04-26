@@ -505,10 +505,11 @@ cases:
             - envoy/nodeport
             - envoy/prometheus
 
-  # External-DNS deploys when dns.public_domain is set. The cluster module's
-  # IAM role and Pod Identity association cover the credentials side; the
-  # facet just needs to render the kustomize component and substitute the
-  # domain + zone metadata into the helm chart values.
+  # External-DNS deploys when dns.public_domain is set. Anchored on the
+  # shared `dns` Kustomization (same canonical name addon-private-dns uses)
+  # rooted at kustomize/dns/, with external-dns + external-dns/route53 as
+  # components — kustomize/dns/external-dns is `kind: Component` so it must
+  # be layered, not used as a Kustomization root.
   #
   # The route53 component layers AWS-specific helm values (Pod Identity,
   # txtOwnerId from the cluster configmap, zoneType + zone-id filter) on
@@ -528,12 +529,13 @@ cases:
         zone_id: Z1ABCDEF12345
     expect:
       kustomize:
-        - name: external-dns
-          path: dns/external-dns
+        - name: dns
+          path: dns
           dependsOn:
             - policy-resources
           components:
-            - route53
+            - external-dns
+            - external-dns/route53
           timeout: 5m
           interval: 5m
           substitutions:
@@ -562,10 +564,11 @@ cases:
         private_zone_id: Z9PRIVATEZONE
     expect:
       kustomize:
-        - name: external-dns
-          path: dns/external-dns
+        - name: dns
+          path: dns
           components:
-            - route53
+            - external-dns
+            - external-dns/route53
           substitutions:
             external_domain: internal.example.com
             zone_type: private
@@ -592,14 +595,15 @@ cases:
           components:
             - private-issuer/selfsigned
 
-  # Without a public domain, External-DNS would have nothing to write to —
-  # the chart's domainFilters would fall back to the placeholder "test"
-  # and the controller would idle. Skip the kustomize entirely.
-  - name: external-dns excluded when no public domain
+  # Without a public domain (and no private mode), the dns Kustomization
+  # has nothing to write to — domainFilters would fall back to the
+  # placeholder "test" and the controller would idle. Skip the
+  # Kustomization entirely.
+  - name: dns excluded when no public domain and no private mode
     values:
       provider: aws
       gateway:
         enabled: false
     exclude:
       kustomize:
-        - name: external-dns
+        - name: dns

@@ -367,4 +367,10 @@ resource "aws_route53_zone" "main" {
   vpc {
     vpc_id = aws_vpc.main.id
   }
+
+  # Records in this zone (e.g. external-dns A/CNAME/TXT entries) are only
+  # meaningful while the VPC exists, and external-dns may not finish
+  # reconciling deletions before the cluster API goes down on teardown.
+  # Force-destroy lets the zone delete cleanly without HostedZoneNotEmpty.
+  force_destroy = true
 }

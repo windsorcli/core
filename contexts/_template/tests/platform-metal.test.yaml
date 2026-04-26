@@ -62,15 +62,6 @@ cases:
             concurrency: 4
             mode: push
       kustomize:
-        - name: cleanup
-          path: cleanup
-          destroyOnly: true
-          components:
-            - ingresses
-            - loadbalancers
-            - pvcs
-          timeout: 10m
-          interval: 5m
         - name: policy-base
           path: policy/base
           components:
@@ -196,15 +187,6 @@ cases:
           inputs:
             concurrency: 10
       kustomize:
-        - name: cleanup
-          path: cleanup
-          destroyOnly: true
-          components:
-            - ingresses
-            - loadbalancers
-            - pvcs
-          timeout: 10m
-          interval: 5m
         - name: policy-base
           path: policy/base
           components:

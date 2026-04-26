@@ -1,6 +1,6 @@
 # platform-base.yaml facet tests
 # Tests base infrastructure components shared by all providers
-# Includes: cleanup, policy, PKI, telemetry, and log aggregation driver configuration
+# Includes: policy, PKI, telemetry, and log aggregation driver configuration
 
 # Common configurations
 x-defaults:
@@ -35,15 +35,6 @@ cases:
       cluster: *default-cluster
     expect:
       kustomize:
-        - name: cleanup
-          path: cleanup
-          destroyOnly: true
-          components:
-            - ingresses
-            - loadbalancers
-            - pvcs
-          timeout: 10m
-          interval: 5m
         - name: policy-base
           path: policy/base
           components:

@@ -274,14 +274,20 @@ kustomize:
   #   - aws.region — Route53 API region (defaults to us-east-1)
   #
   # ---------------------------------------------------------------------------
-  # External-DNS — Route53 record automation
+  # DNS — external-dns + Route53 record automation
   # ---------------------------------------------------------------------------
   #
-  # Watches Ingress and Gateway HTTPRoute resources annotated with
-  # external-dns.alpha.kubernetes.io/hostname=<host> and writes the matching
-  # A/CNAME records to a Route53 hosted zone.
+  # Anchored on the shared `dns` Kustomization (same canonical name that
+  # addon-private-dns uses) so the system-dns namespace and any sibling
+  # DNS components compose together at one path. The components below
+  # layer external-dns + the AWS-specific route53 patch; addon-private-dns
+  # would add coredns + its own components on top of the same Kustomization
+  # if both were active.
   #
-  # Two modes, both rendered by the same kustomize entry:
+  # external-dns watches Ingress and Gateway HTTPRoute resources annotated
+  # with external-dns.alpha.kubernetes.io/hostname=<host> and writes the
+  # matching A/CNAME records to a Route53 hosted zone. Two modes, both
+  # rendered by the same Kustomization:
   #
   #   - Public mode (default): targets the public zone provisioned by the
   #     standalone dns-zone stack. Triggered by dns.public_domain.
@@ -302,13 +308,14 @@ kustomize:
   # hostedzone/* — covers both public and private) and a Pod Identity
   # association binding the external-dns ServiceAccount in system-dns to it.
   #
-  - name: external-dns
-    path: dns/external-dns
+  - name: dns
+    path: dns
     when: "(dns.public_domain ?? '') != '' || (gateway.access == 'private' && (dns.private_domain ?? '') != '')"
     dependsOn:
       - policy-resources
     components:
-      - route53
+      - external-dns
+      - external-dns/route53
     timeout: 5m
     interval: 5m
     substitutions:

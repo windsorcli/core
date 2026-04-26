@@ -54,6 +54,7 @@ kustomize:
     when: observability_effective.dashboards == 'grafana'
     dependsOn:
       - telemetry-base
+      - "${dns.enabled ? 'dns' : ''}"
     timeout: 15m
     interval: 10m
     components:

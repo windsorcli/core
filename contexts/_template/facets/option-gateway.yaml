@@ -29,6 +29,7 @@ kustomize:
     when: gateway_effective.enabled == true && gateway_effective.driver != 'cilium'
     dependsOn:
       - pki-base
+      - "${lb_effective.controller_required ? 'lb-base' : ''}"
     components:
       - "${gateway_effective.driver}"
       - "${gateway_effective.driver == 'envoy' ? 'envoy/' + lb_effective.mode : ''}"
@@ -44,6 +45,7 @@ kustomize:
     when: gateway_effective.enabled == true && gateway_effective.driver == 'cilium'
     dependsOn:
       - pki-base
+      - "${lb_effective.controller_required ? 'lb-base' : ''}"
     components:
       - cilium
     timeout: 10m
@@ -87,6 +89,8 @@ kustomize:
     when: gateway_effective.enabled == true
     dependsOn:
       - gateway-base
+      - "${dns.enabled ? 'dns' : ''}"
+      - "${lb_effective.controller_required ? 'lb-base' : ''}"
     components:
       - "${gateway_effective.driver == 'cilium' ? 'cilium' : ''}"
       # Catch-all 404 served by Envoy's directResponse — covers any
