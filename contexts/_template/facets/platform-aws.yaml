@@ -179,26 +179,23 @@ kustomize:
   # Pod Identity association binding the aws-load-balancer-controller SA in
   # the system-lb namespace.
   #
-  # The system-lb namespace itself is created by lb-base (shared with metal /
-  # docker / incus where MetalLB lives in the same namespace). aws-lb-
-  # controller depends on lb-base so the namespace is available before the
-  # helm release applies.
+  # The component lives at kustomize/lb/base/aws-lb-controller (sibling of
+  # lb/base/metallb which serves the same role on metal/incus). The lb-base
+  # kustomization owns the system-lb namespace + whichever in-cluster LB
+  # implementation the platform needs.
   #
-  # cluster_name is required by the helm chart (LBC tags AWS resources with
-  # it for ownership). Sourced via deferred terraform_output so it resolves
-  # post-cluster-apply alongside the other deferred substitutions.
+  # vpc_id + aws_region are passed explicitly so LBC doesn't fall back to
+  # IMDS for cluster discovery — worker launch templates set
+  # http_put_response_hop_limit=1, which blocks pod-network IMDS calls.
+  # cluster_name flows through via deferred terraform_output and is what
+  # LBC tags AWS resources with for ownership.
   #
   - name: lb-base
     path: lb/base
     dependsOn:
       - policy-resources
-    timeout: 5m
-    interval: 5m
-
-  - name: aws-lb-controller
-    path: lb/aws-lb-controller
-    dependsOn:
-      - lb-base
+    components:
+      - aws-lb-controller
     timeout: 5m
     interval: 5m
     substitutions:

@@ -13,6 +13,9 @@ spec:
   upgrade:
     remediation:
       retries: 3
+  uninstall:
+    deletionPropagation: foreground
+    disableWait: false
   chart:
     spec:
       chart: aws-load-balancer-controller
