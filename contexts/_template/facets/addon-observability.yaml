@@ -66,7 +66,7 @@ kustomize:
       - grafana/dashboards/fluent-bit
       - grafana/dashboards/fluentd
     substitutions:
-      external_domain: ${dns.private_domain}
+      external_domain: "${(dns.public_domain ?? '') == '' ? (dns.private_domain ?? '') : dns.public_domain}"
       timezone: ${timezone}
       date_full: "${time_format == '12h' ? 'MMM DD, YYYY @ hh:mm:ss a' : 'YYYY-MM-DD HH:mm:ss'}"
       date_interval_second: "${time_format == '12h' ? 'hh:mm:ss a' : 'HH:mm:ss'}"
@@ -91,7 +91,7 @@ kustomize:
       - grafana/gateway
       - "${gateway_effective.driver == 'envoy' ? 'grafana/dashboards/envoy' : ''}"
     substitutions:
-      external_domain: ${dns.private_domain}
+      external_domain: "${(dns.public_domain ?? '') == '' ? (dns.private_domain ?? '') : dns.public_domain}"
 
   # ---------------------------------------------------------------------------
   # Log storage drivers
@@ -140,7 +140,7 @@ kustomize:
       - kibana
       - kibana/gateway
     substitutions:
-      external_domain: ${dns.private_domain}
+      external_domain: "${(dns.public_domain ?? '') == '' ? (dns.private_domain ?? '') : dns.public_domain}"
 
   # ---------------------------------------------------------------------------
   # Elasticsearch telemetry overrides
