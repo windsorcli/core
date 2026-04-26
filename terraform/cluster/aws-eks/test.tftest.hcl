@@ -559,6 +559,27 @@ run "pool_rejects_negative_count" {
   expect_failures = [var.pools]
 }
 
+# Lowercase "spot" or any non-canonical value would slip past type-check
+# and reach AWS with an opaque rejection. Validation surfaces it at plan.
+run "node_group_rejects_lowercase_capacity_type" {
+  command = plan
+
+  variables {
+    context_id = "test"
+    node_groups = {
+      bad = {
+        instance_types = ["t3.xlarge"]
+        min_size       = 1
+        max_size       = 1
+        desired_size   = 1
+        capacity_type  = "spot"
+      }
+    }
+  }
+
+  expect_failures = [var.node_groups]
+}
+
 # Empty instance_types should fall through to the class default. coalesce()
 # would return the empty list as-is (it only skips null + empty string), so
 # the instance_types pick logic uses an explicit length check instead.

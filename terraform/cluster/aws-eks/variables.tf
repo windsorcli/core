@@ -97,6 +97,14 @@ variable "node_groups" {
       desired_size   = 2
     }
   }
+
+  validation {
+    condition = alltrue([
+      for k, v in var.node_groups :
+      contains(["ON_DEMAND", "SPOT", "CAPACITY_BLOCK"], v.capacity_type)
+    ])
+    error_message = "Each node group's capacity_type must be one of: ON_DEMAND, SPOT, CAPACITY_BLOCK."
+  }
 }
 
 variable "pools" {
