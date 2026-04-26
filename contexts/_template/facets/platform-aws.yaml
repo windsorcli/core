@@ -199,18 +199,48 @@ kustomize:
   #   - email      — operator address Let's Encrypt registers against
   #   - aws.region — Route53 API region (defaults to us-east-1)
   #
+  # ---------------------------------------------------------------------------
+  # External-DNS — Route53 record automation
+  # ---------------------------------------------------------------------------
+  #
+  # Watches Ingress and Gateway HTTPRoute resources annotated with
+  # external-dns.alpha.kubernetes.io/hostname=<host> and writes the matching
+  # A/CNAME records to the Route53 zone provisioned by dns-zone.
+  #
+  # Gated on dns.public_domain — without a public zone there's nothing to
+  # write to, and the chart's domainFilters fall back to the placeholder
+  # "test" which is a deliberate no-op.
+  #
+  # IAM is already wired by the cluster module: var.create_external_dns_role
+  # defaults to true, which provisions the role + policy and a Pod Identity
+  # association binding the external-dns ServiceAccount in system-dns to it.
+  # No additional input plumbing required here — credentials reach the pod
+  # automatically via the SA name.
+  #
+  - name: external-dns
+    path: dns/external-dns
+    when: "(dns.public_domain ?? '') != ''"
+    dependsOn:
+      - policy-resources
+    timeout: 5m
+    interval: 5m
+    substitutions:
+      external_domain: ${dns.public_domain}
+
   - name: pki-resources
     path: pki/resources
     dependsOn:
       - pki-base
       - policy-resources
-    # ACME requires dns.public_domain AND a resolved dns-zone output —
-    # otherwise the ClusterIssuer would deploy with hostedZoneID="" and
-    # every DNS-01 challenge would fail. Falls back to selfsigned until
-    # dns-zone has applied; when it has, the next install flips to acme
-    # and cert-manager re-issues into the same Secret (hot swap).
+    # Component selection is gated only on dns.public_domain — the
+    # acme_hosted_zone_id substitution below threads the zone ID through
+    # via deferred evaluation, so it picks up the real value once the
+    # dns-zone stack has applied without needing an eager terraform_output
+    # call here. (Eager terraform_output in components: panics on first
+    # bootstrap because the dns-zone component isn't registered until
+    # composition completes.)
     components:
-      - "${(dns.public_domain ?? '') != '' && (terraform_output('dns-zone', 'zone_id') ?? '') != '' ? 'public-issuer/acme' : 'public-issuer/selfsigned'}"
+      - "${(dns.public_domain ?? '') != '' ? 'public-issuer/acme' : 'public-issuer/selfsigned'}"
     timeout: 5m
     interval: 5m
     substitutions:

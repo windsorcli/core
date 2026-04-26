@@ -255,12 +255,14 @@ cases:
             acme_server: https://acme-staging-v02.api.letsencrypt.org/directory
             acme_email: dev@example.com
 
-  # Defense against an empty hostedZoneID: when dns.public_domain is set
-  # but the dns-zone terraform output isn't yet resolved (e.g. operator
-  # ran `windsor install` without a preceding `windsor up`), pki-resources
-  # falls back to public-issuer/selfsigned instead of deploying an ACME
-  # ClusterIssuer that would fail every DNS-01 challenge.
-  - name: pki-resources falls back to selfsigned when dns-zone output is missing
+  # When dns.public_domain is set, pki-resources renders the ACME
+  # ClusterIssuer regardless of whether the dns-zone terraform output is
+  # available yet. The acme_hosted_zone_id substitution uses deferred
+  # evaluation, so it fills in once dns-zone applies and the manifest is
+  # regenerated. Composition itself doesn't call terraform_output for
+  # component selection — that would panic during first bootstrap, before
+  # the dns-zone component is registered.
+  - name: pki-resources renders ACME when public_domain set even without dns-zone output yet
     values:
       provider: aws
       gateway:
@@ -275,14 +277,11 @@ cases:
       kustomize:
         - name: pki-resources
           components:
-            - public-issuer/selfsigned
+            - public-issuer/acme
 
   # cluster.pools threads through to the cluster module as-is. The module
-  # converts class + count|min/max + lifecycle into EKS managed node group
-  # shape internally (class → instance family, lifecycle → capacity_type).
-  # When cluster.pools is unset, inputs.pools is the empty map and the
-  # module falls back to its var.node_groups default — verified by the
-  # earlier "minimal config" case (no pools input visible there).
+  # converts class + count + lifecycle into EKS managed node group shape
+  # internally (class → instance family, lifecycle → capacity_type).
   - name: cluster.pools flows through to the cluster module
     values:
       provider: aws
@@ -367,3 +366,41 @@ cases:
                 count: 1
                 instance_types:
                   - p4d.24xlarge
+
+  # External-DNS deploys when dns.public_domain is set. The cluster module's
+  # IAM role and Pod Identity association cover the credentials side; the
+  # facet just needs to render the kustomize component and substitute the
+  # domain into the helm chart's domainFilters.
+  - name: external-dns deploys when dns.public_domain is set
+    values:
+      provider: aws
+      gateway:
+        enabled: false
+      dns:
+        public_domain: example.com
+      email: ops@example.com
+    terraformOutputs:
+      dns-zone:
+        zone_id: Z1ABCDEF12345
+    expect:
+      kustomize:
+        - name: external-dns
+          path: dns/external-dns
+          dependsOn:
+            - policy-resources
+          timeout: 5m
+          interval: 5m
+          substitutions:
+            external_domain: example.com
+
+  # Without a public domain, External-DNS would have nothing to write to —
+  # the chart's domainFilters would fall back to the placeholder "test"
+  # and the controller would idle. Skip the kustomize entirely.
+  - name: external-dns excluded when no public domain
+    values:
+      provider: aws
+      gateway:
+        enabled: false
+    exclude:
+      kustomize:
+        - name: external-dns
