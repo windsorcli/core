@@ -25,7 +25,12 @@ spec:
         kind: HelmRepository
         name: aws-load-balancer-controller
   values:
-    clusterName: "${cluster_name:-cluster}"
+    # No fallback — LBC tags every AWS resource it owns with this name and
+    # filters reconciliation by it, so a generic default would let a second
+    # cluster in the same account race over the same tags. Empty fails the
+    # helm install loudly (chart requires clusterName), which is what we want
+    # if terraform_output('cluster', 'cluster_name') hasn't resolved yet.
+    clusterName: "${cluster_name:-}"
     vpcId: "${vpc_id:-}"
     region: "${aws_region:-}"
     image:
