@@ -5,8 +5,6 @@ metadata:
   namespace: system-gateway
   labels:
     windsorcli.dev/role: gateway-default-404
-  annotations:
-    external-dns.alpha.kubernetes.io/hostname: "${external_domain},*.${external_domain}"
 spec:
   parentRefs:
     - name: external

@@ -1,0 +1,14 @@
+---
+# external-dns hostname annotation for the catch-all 404 HTTPRoute. The route
+# has no spec.hostnames, so external-dns can't infer records from it — the
+# annotation tells the controller to register apex + wildcard against the
+# Gateway's IP. Only attached when a public domain is configured (otherwise
+# external-dns isn't running and the substitution would render a malformed
+# ",*." value).
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: default-404
+  namespace: system-gateway
+  annotations:
+    external-dns.alpha.kubernetes.io/hostname: "${external_domain},*.${external_domain}"

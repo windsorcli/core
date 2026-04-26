@@ -227,6 +227,15 @@ cases:
             acme_hosted_zone_id: Z1ABCDEF12345
         - name: gateway-resources
           path: gateway/resources
+          # envoy/default-404/external-dns is the AWS-only patch that adds
+          # the external-dns hostname annotation to the catch-all 404 route.
+          # Gated on dns.public_domain so it doesn't render on platforms
+          # without external-dns running (where the substitution would
+          # produce a malformed ",*." value).
+          components:
+            - envoy/default-404
+            - envoy/default-404/external-dns
+            - flux-webhook
           substitutions:
             gateway_cert_issuer: public
             external_domain: example.com

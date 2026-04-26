@@ -94,6 +94,10 @@ kustomize:
       # uses the gateway.envoyproxy.io HTTPRouteFilter CRD, which
       # cilium clusters don't ship.
       - "${gateway_effective.driver != 'cilium' ? 'envoy/default-404' : ''}"
+      # external-dns hostname annotation on the 404 route. Gated on the
+      # same condition that turns on external-dns so platforms without
+      # it don't carry a malformed ",*." substitution result.
+      - "${gateway_effective.driver != 'cilium' && (dns.public_domain ?? '') != '' ? 'envoy/default-404/external-dns' : ''}"
       - "${gateway_effective.driver != 'cilium' && (addons.private_dns.enabled ?? (dev == true)) == true ? 'dns' : ''}"
       - "${lb_effective.enabled == true ? 'lb-address' : ''}"
       - "${(gitops.mode ?? 'push') == 'push' ? 'flux-webhook' : ''}"
