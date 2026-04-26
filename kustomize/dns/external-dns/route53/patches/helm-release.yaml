@@ -32,9 +32,9 @@ spec:
       # alongside zoneType: a same-named public+private zone pair could
       # exist (split-horizon DNS), and zoneType alone would still match
       # both — the ID filter pins it to exactly the zone we provisioned.
-      # Empty fallback is harmless: --zone-id-filters="" is treated as
+      # Empty fallback is harmless: --zone-id-filter="" is treated as
       # unset by external-dns.
-      - --zone-id-filters=${zone_id_filter:-}
+      - --zone-id-filter=${zone_id_filter:-}
     serviceAccount:
       create: true
       name: external-dns
