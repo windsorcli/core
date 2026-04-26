@@ -369,11 +369,10 @@ cases:
 
   # AWS Load Balancer Controller is rendered on every AWS cluster — it's
   # required to get NLBs / ALBs (the in-tree CCM only creates classic ELBs).
-  # The system-lb namespace comes from lb-base (shared with metal/docker/
-  # incus where MetalLB lives in the same namespace); aws-lb-controller
-  # depends on lb-base so the namespace exists before the helm release
-  # applies. cluster_name threads through via deferred terraform_output.
-  - name: aws-lb-controller renders unconditionally on AWS
+  # The component lives at lb/base/aws-lb-controller (sibling of
+  # lb/base/metallb on metal/incus); the lb-base kustomization owns the
+  # system-lb namespace plus whichever in-cluster LB the platform needs.
+  - name: aws-lb-controller renders unconditionally on AWS via lb-base
     values:
       provider: aws
       gateway:
@@ -384,10 +383,8 @@ cases:
           path: lb/base
           dependsOn:
             - policy-resources
-        - name: aws-lb-controller
-          path: lb/aws-lb-controller
-          dependsOn:
-            - lb-base
+          components:
+            - aws-lb-controller
           timeout: 5m
           interval: 5m
 
