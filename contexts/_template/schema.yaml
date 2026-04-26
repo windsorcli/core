@@ -494,6 +494,76 @@ properties:
               - "/var/mnt/local"
             description: "Node directory paths for extra mounts. For directory-based storage include cluster.storage.local_base_path. Path or host:dest for local dev bind mounts. Block/device storage uses disks."
         additionalProperties: false
+      # Node pools for elastic providers (aws, azure, gcp, omni). Map keyed by
+      # user-chosen pool name. When set, takes precedence over cluster.workers
+      # on elastic providers. Static-node providers (metal, docker, incus)
+      # continue to use cluster.workers.
+      pools:
+        type: object
+        additionalProperties:
+          type: object
+          required:
+            - class
+            - count
+          properties:
+            class:
+              type: string
+              enum:
+                - system
+                - general
+                - compute
+                - memory
+                - storage
+                - gpu
+                - arm64
+              description: Portable pool class. Maps to a per-provider instance family and emits a windsor.io/pool-class label so workloads target pools uniformly across clouds.
+            count:
+              type: integer
+              minimum: 0
+              description: Fixed pool size. Autoscaling (min/max) is gated on cluster.autoscaling and will land with that schema in a future release.
+            lifecycle:
+              type: string
+              enum:
+                - on-demand
+                - spot
+              default: on-demand
+              description: Capacity type. spot uses interruptible instances.
+            instance_types:
+              type: array
+              items:
+                type: string
+              description: Provider-locked instance type list. Pinning a single type is an anti-pattern (capacity shortages take the pool down); prefer multi-type lists. Falls back to the class default when unset.
+            root_disk_size:
+              type: integer
+              minimum: 1
+              description: EBS root volume size in GB. Defaults to the provider module default (64 GB on EKS).
+            labels:
+              type: object
+              additionalProperties:
+                type: string
+              description: Kubernetes labels applied to nodes in this pool, on top of the auto-injected windsor.io/pool=<name> and windsor.io/pool-class=<class>.
+            taints:
+              type: array
+              items:
+                type: object
+                required:
+                  - key
+                  - effect
+                properties:
+                  key:
+                    type: string
+                  value:
+                    type: string
+                  effect:
+                    type: string
+                    enum:
+                      - NoSchedule
+                      - PreferNoSchedule
+                      - NoExecute
+                additionalProperties: false
+              description: Kubernetes taints applied to nodes in this pool.
+          additionalProperties: false
+        description: Node pool definitions, keyed by pool name. Each pool requires a class and a count.
       storage:
         type: object
         properties:

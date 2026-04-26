@@ -75,6 +75,10 @@ terraform:
     inputs:
       create_cert_manager_role: "${(dns.public_domain ?? '') != ''}"
       cert_manager_hosted_zone_ids: "${(dns.public_domain ?? '') != '' && (terraform_output('dns-zone', 'zone_id') ?? '') != '' ? [terraform_output('dns-zone', 'zone_id')] : []}"
+      # cluster.pools is the portable node-pool shape (class + count|min/max +
+      # lifecycle). When unset, the cluster module falls back to its
+      # var.node_groups default — no behavior change for existing configs.
+      pools: ${cluster.pools ?? {}}
 
   # Path-less dependency-edge injector: when ACME is on, cluster must wait for
   # dns-zone so terraform_output('dns-zone', 'zone_id') is resolved before the

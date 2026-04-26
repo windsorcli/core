@@ -74,12 +74,13 @@ variable "vpc_id" {
 }
 
 variable "node_groups" {
-  description = "Map of EKS managed node group definitions to create."
+  description = "Map of EKS managed node group definitions to create. Used when var.pools is empty; otherwise pools wins."
   type = map(object({
     instance_types = list(string)
     min_size       = number
     max_size       = number
     desired_size   = number
+    capacity_type  = optional(string, "ON_DEMAND")
     disk_size      = optional(number, 64)
     labels         = optional(map(string), {})
     taints = optional(list(object({
@@ -95,6 +96,77 @@ variable "node_groups" {
       max_size       = 3
       desired_size   = 2
     }
+  }
+
+  validation {
+    condition = alltrue([
+      for k, v in var.node_groups :
+      contains(["ON_DEMAND", "SPOT", "CAPACITY_BLOCK"], v.capacity_type)
+    ])
+    error_message = "Each node group's capacity_type must be one of: ON_DEMAND, SPOT, CAPACITY_BLOCK."
+  }
+}
+
+variable "pools" {
+  description = "Portable node pool definitions, keyed by pool name. When non-empty, takes precedence over var.node_groups. Each pool maps a class (system/general/compute/memory/storage/gpu/arm64) to an EKS managed node group."
+  type = map(object({
+    class          = string
+    count          = number
+    lifecycle      = optional(string, "on-demand")
+    instance_types = optional(list(string))
+    root_disk_size = optional(number)
+    labels         = optional(map(string), {})
+    taints = optional(list(object({
+      key    = string
+      value  = optional(string)
+      effect = string
+    })), [])
+  }))
+  default = {}
+
+  validation {
+    condition = alltrue([
+      for k, v in var.pools : contains(
+        ["system", "general", "compute", "memory", "storage", "gpu", "arm64"],
+        v.class
+      )
+    ])
+    error_message = "Each pool's class must be one of: system, general, compute, memory, storage, gpu, arm64."
+  }
+
+  validation {
+    condition = alltrue([
+      for k, v in var.pools :
+      contains(["on-demand", "spot"], v.lifecycle)
+    ])
+    error_message = "Each pool's lifecycle must be 'on-demand' or 'spot'."
+  }
+
+  validation {
+    condition     = alltrue([for k, v in var.pools : v.count >= 0])
+    error_message = "Each pool's count must be >= 0."
+  }
+}
+
+variable "class_instance_types" {
+  description = "Default instance type list per portable pool class. Multi-type lists guard against single-instance-type capacity shortages. A pool's explicit instance_types overrides this map. When overriding this variable, all seven class keys must be supplied — partial overrides are rejected at validate time rather than panicking mid-plan."
+  type        = map(list(string))
+  default = {
+    system  = ["t3.medium", "t3a.medium", "t3.large", "t3a.large"]
+    general = ["t3.xlarge", "t3a.xlarge", "m5.xlarge", "m5a.xlarge"]
+    compute = ["c6i.xlarge", "c6a.xlarge", "c5.xlarge"]
+    memory  = ["r6i.xlarge", "r6a.xlarge", "r5.xlarge"]
+    storage = ["i3.xlarge", "i4i.xlarge"]
+    gpu     = ["g4dn.xlarge", "g5.xlarge"]
+    arm64   = ["t4g.xlarge", "m6g.xlarge", "c6g.xlarge"]
+  }
+
+  validation {
+    condition = alltrue([
+      for c in ["system", "general", "compute", "memory", "storage", "gpu", "arm64"] :
+      contains(keys(var.class_instance_types), c) && length(lookup(var.class_instance_types, c, [])) > 0
+    ])
+    error_message = "class_instance_types must contain a non-empty list for every pool class: system, general, compute, memory, storage, gpu, arm64."
   }
 }
 
