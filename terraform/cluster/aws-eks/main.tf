@@ -350,7 +350,7 @@ resource "aws_iam_role_policy_attachment" "node_group_AmazonEC2ContainerRegistry
 locals {
   pools_node_groups = {
     for name, p in var.pools : name => {
-      instance_types = coalesce(p.instance_types, lookup(var.class_instance_types, p.class, null))
+      instance_types = p.instance_types != null && length(p.instance_types) > 0 ? p.instance_types : lookup(var.class_instance_types, p.class, null)
       capacity_type  = p.lifecycle == "spot" ? "SPOT" : "ON_DEMAND"
       desired_size   = p.count
       min_size       = p.count

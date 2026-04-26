@@ -558,3 +558,27 @@ run "pool_rejects_negative_count" {
 
   expect_failures = [var.pools]
 }
+
+# Empty instance_types should fall through to the class default. coalesce()
+# would return the empty list as-is (it only skips null + empty string), so
+# the instance_types pick logic uses an explicit length check instead.
+run "pool_empty_instance_types_falls_back_to_class_default" {
+  command = plan
+
+  variables {
+    context_id         = "test"
+    kubernetes_version = "1.34"
+    pools = {
+      empty = {
+        class          = "general"
+        count          = 1
+        instance_types = []
+      }
+    }
+  }
+
+  assert {
+    condition     = aws_eks_node_group.main["empty"].instance_types[0] == "t3.xlarge"
+    error_message = "Empty instance_types list should fall through to the general class default"
+  }
+}
