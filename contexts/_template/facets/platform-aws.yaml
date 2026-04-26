@@ -190,6 +190,11 @@ kustomize:
   # cluster_name flows through via deferred terraform_output and is what
   # LBC tags AWS resources with for ownership.
   #
+  # aws_region has no default: a wrong region silently fails LBC (regional
+  # EC2/ELB API calls miss the cluster's VPC and emit confusing "not found"
+  # errors), so we'd rather propagate empty and let the controller crash on
+  # startup than fall back to a guess.
+  #
   - name: lb-base
     path: lb/base
     dependsOn:
@@ -201,7 +206,7 @@ kustomize:
     substitutions:
       cluster_name: "${terraform_output('cluster', 'cluster_name') ?? ''}"
       vpc_id: "${terraform_output('network', 'vpc_id') ?? ''}"
-      aws_region: "${aws.region ?? 'us-east-1'}"
+      aws_region: "${aws.region ?? ''}"
 
   # ---------------------------------------------------------------------------
   # Gateway-base merge — AWS NLB annotations on the Envoy data-plane Service
