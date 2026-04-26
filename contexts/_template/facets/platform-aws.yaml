@@ -166,6 +166,66 @@ kustomize:
       single_storage_type: ${cluster.storage.single_storage_type ?? "gp3"}
 
   # ---------------------------------------------------------------------------
+  # AWS Load Balancer Controller — NLB / ALB provisioner
+  # ---------------------------------------------------------------------------
+  #
+  # Watches Service: LoadBalancer and Ingress / Gateway resources and
+  # provisions modern AWS load balancers via the EKS API. Without it, the
+  # in-tree Cloud Controller Manager creates classic ELBs (no target-type=ip,
+  # no ALB ingress). Always rendered on AWS — every cluster wants this.
+  #
+  # IAM is wired by the cluster module: var.create_aws_lb_controller_role
+  # defaults to true, provisioning the role + the upstream IAM policy and a
+  # Pod Identity association binding the aws-load-balancer-controller SA in
+  # the system-lb namespace.
+  #
+  # The system-lb namespace itself is created by lb-base (shared with metal /
+  # docker / incus where MetalLB lives in the same namespace). aws-lb-
+  # controller depends on lb-base so the namespace is available before the
+  # helm release applies.
+  #
+  # cluster_name is required by the helm chart (LBC tags AWS resources with
+  # it for ownership). Sourced via deferred terraform_output so it resolves
+  # post-cluster-apply alongside the other deferred substitutions.
+  #
+  - name: lb-base
+    path: lb/base
+    dependsOn:
+      - policy-resources
+    timeout: 5m
+    interval: 5m
+
+  - name: aws-lb-controller
+    path: lb/aws-lb-controller
+    dependsOn:
+      - lb-base
+    timeout: 5m
+    interval: 5m
+    substitutions:
+      cluster_name: "${terraform_output('cluster', 'cluster_name') ?? ''}"
+
+  # ---------------------------------------------------------------------------
+  # Gateway-base merge — AWS NLB annotations on the Envoy data-plane Service
+  # ---------------------------------------------------------------------------
+  #
+  # Additive block that merges into option-gateway's gateway-base entry.
+  # When the gateway is on (envoy + loadbalancer mode), append the
+  # envoy/loadbalancer/aws-nlb component which strategic-merges NLB
+  # annotations onto the helm-release patch chain. Keeps AWS-specific
+  # knowledge in the AWS facet — option-gateway stays platform-agnostic.
+  #
+  # NLB (not ALB) is the right shape: Envoy is the L7 proxy and handles
+  # all routing / TLS / header logic. Putting an ALB in front would double-
+  # terminate L7 (cert sprawl, route-config sprawl, higher cost, no win).
+  # ALB remains available for direct-Service Ingress use cases — operators
+  # add `kubernetes.io/ingress.class: alb` on a per-Ingress basis.
+  #
+  - name: gateway-base
+    when: "gateway_effective.enabled == true && gateway_effective.driver == 'envoy' && lb_effective.mode == 'loadbalancer'"
+    components:
+      - envoy/loadbalancer/aws-nlb
+
+  # ---------------------------------------------------------------------------
   # public ClusterIssuer — selfsigned default, ACME when a real zone is set
   # ---------------------------------------------------------------------------
   #

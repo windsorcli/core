@@ -367,6 +367,86 @@ cases:
                 instance_types:
                   - p4d.24xlarge
 
+  # AWS Load Balancer Controller is rendered on every AWS cluster — it's
+  # required to get NLBs / ALBs (the in-tree CCM only creates classic ELBs).
+  # The system-lb namespace comes from lb-base (shared with metal/docker/
+  # incus where MetalLB lives in the same namespace); aws-lb-controller
+  # depends on lb-base so the namespace exists before the helm release
+  # applies. cluster_name threads through via deferred terraform_output.
+  - name: aws-lb-controller renders unconditionally on AWS
+    values:
+      provider: aws
+      gateway:
+        enabled: false
+    expect:
+      kustomize:
+        - name: lb-base
+          path: lb/base
+          dependsOn:
+            - policy-resources
+        - name: aws-lb-controller
+          path: lb/aws-lb-controller
+          dependsOn:
+            - lb-base
+          timeout: 5m
+          interval: 5m
+
+  # When gateway is enabled on AWS, the envoy data-plane Service gets NLB
+  # annotations layered on by adding envoy/loadbalancer/aws-nlb to the
+  # gateway-base component list. This is an additive merge with option-
+  # gateway's gateway-base entry — option-gateway emits the platform-
+  # agnostic components, this AWS facet appends the AWS-specific patch.
+  - name: gateway with envoy on AWS adds NLB annotations component
+    values:
+      provider: aws
+      gateway:
+        enabled: true
+        driver: envoy
+    expect:
+      kustomize:
+        - name: gateway-base
+          path: gateway/base
+          components:
+            - envoy
+            - envoy/loadbalancer
+            - envoy/prometheus
+            - envoy/loadbalancer/aws-nlb
+
+  # Negative branch: Cilium provides its own gateway implementation
+  # (no Envoy data-plane Service to annotate). The aws-nlb component
+  # must NOT merge into the cilium gateway-base.
+  - name: gateway with cilium driver on AWS does not add aws-nlb component
+    values:
+      provider: aws
+      gateway:
+        enabled: true
+        driver: cilium
+    expect:
+      kustomize:
+        - name: gateway-base
+          path: gateway/base
+          components:
+            - cilium
+
+  # Negative branch: NodePort service_type on AWS (e.g. small/edge clusters
+  # without a public LB) — aws-nlb annotations are LoadBalancer-only and
+  # must NOT merge into the nodeport gateway-base.
+  - name: gateway with envoy and NodePort service_type on AWS does not add aws-nlb component
+    values:
+      provider: aws
+      gateway:
+        enabled: true
+        driver: envoy
+        service_type: NodePort
+    expect:
+      kustomize:
+        - name: gateway-base
+          path: gateway/base
+          components:
+            - envoy
+            - envoy/nodeport
+            - envoy/prometheus
+
   # External-DNS deploys when dns.public_domain is set. The cluster module's
   # IAM role and Pod Identity association cover the credentials side; the
   # facet just needs to render the kustomize component and substitute the

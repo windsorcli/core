@@ -37,6 +37,12 @@ variable "create_external_dns_role" {
   default     = true
 }
 
+variable "create_aws_lb_controller_role" {
+  description = "Whether to create the IAM role, policy, and Pod Identity association for the AWS Load Balancer Controller. Default true; set false only when not using the controller (Service: LoadBalancer falls back to the in-tree CCM, classic ELB only)."
+  type        = bool
+  default     = true
+}
+
 variable "create_cert_manager_role" {
   description = "Whether to create the IAM role, policy, and Pod Identity association for cert-manager's Route53 ACME DNS-01 solver. Enable when cert-manager will issue ACME certificates against a Route53 hosted zone in this account."
   type        = bool
