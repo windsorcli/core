@@ -23,6 +23,8 @@ spec:
         name: aws-load-balancer-controller
   values:
     clusterName: "${cluster_name:-cluster}"
+    vpcId: "${vpc_id:-}"
+    region: "${aws_region:-}"
     image:
       repository: public.ecr.aws/eks/aws-load-balancer-controller
       # renovate: datasource=docker depName=public.ecr.aws/eks/aws-load-balancer-controller package=public.ecr.aws/eks/aws-load-balancer-controller
