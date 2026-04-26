@@ -448,3 +448,158 @@ run "cert_manager_policy_scoped_to_zone_ids" {
     error_message = "cert-manager policy must not include the wildcard zone ARN when zone IDs are supplied"
   }
 }
+
+# Verifies the pools path: when var.pools is non-empty, it replaces var.node_groups
+# entirely. Class maps to a default instance family, lifecycle maps to capacity_type,
+# and the pool name + class are auto-injected as windsor.io/pool labels.
+run "pools_drive_node_groups_when_set" {
+  command = plan
+
+  variables {
+    context_id         = "test"
+    kubernetes_version = "1.34"
+    pools = {
+      system = {
+        class = "system"
+        count = 2
+      }
+      batch = {
+        class     = "compute"
+        count     = 5
+        lifecycle = "spot"
+      }
+    }
+  }
+
+  assert {
+    condition     = length(aws_eks_node_group.main) == 2
+    error_message = "Two pools should produce two node groups (the default node_group is suppressed)"
+  }
+
+  assert {
+    condition     = aws_eks_node_group.main["system"].instance_types[0] == "t3.medium"
+    error_message = "system class should default to t3.medium head of the instance_types list"
+  }
+
+  assert {
+    condition     = aws_eks_node_group.main["batch"].capacity_type == "SPOT"
+    error_message = "lifecycle: spot should resolve to SPOT capacity_type"
+  }
+
+  assert {
+    condition     = aws_eks_node_group.main["batch"].scaling_config[0].desired_size == 5 && aws_eks_node_group.main["batch"].scaling_config[0].min_size == 5 && aws_eks_node_group.main["batch"].scaling_config[0].max_size == 5
+    error_message = "count should pin desired/min/max to the same value"
+  }
+
+  assert {
+    condition     = aws_eks_node_group.main["system"].labels["windsor.io/pool"] == "system" && aws_eks_node_group.main["system"].labels["windsor.io/pool-class"] == "system"
+    error_message = "Pool name and class should be auto-injected as windsor.io/pool labels"
+  }
+}
+
+# Verifies the explicit-instance-types escape hatch: when a pool sets instance_types,
+# the class default is bypassed but the pool-class label still flows through.
+run "pool_instance_types_override_class_default" {
+  command = plan
+
+  variables {
+    context_id         = "test"
+    kubernetes_version = "1.34"
+    pools = {
+      gpu = {
+        class          = "gpu"
+        count          = 1
+        instance_types = ["p4d.24xlarge"]
+      }
+    }
+  }
+
+  assert {
+    condition     = aws_eks_node_group.main["gpu"].instance_types[0] == "p4d.24xlarge"
+    error_message = "Explicit instance_types should override the class default"
+  }
+
+  assert {
+    condition     = aws_eks_node_group.main["gpu"].labels["windsor.io/pool-class"] == "gpu"
+    error_message = "windsor.io/pool-class should still reflect the declared class"
+  }
+}
+
+# Verifies the class_instance_types validation rejects partial overrides.
+# Without this, a partial override would panic mid-plan on the first pool
+# whose class is missing from the operator's map.
+run "class_instance_types_rejects_partial_override" {
+  command = plan
+
+  variables {
+    context_id = "test"
+    class_instance_types = {
+      general = ["m6i.xlarge"]
+    }
+  }
+
+  expect_failures = [var.class_instance_types]
+}
+
+# Negative count would error opaquely at AWS API time. The validation
+# surfaces it at plan.
+run "pool_rejects_negative_count" {
+  command = plan
+
+  variables {
+    context_id = "test"
+    pools = {
+      bad = {
+        class = "general"
+        count = -1
+      }
+    }
+  }
+
+  expect_failures = [var.pools]
+}
+
+# Lowercase "spot" or any non-canonical value would slip past type-check
+# and reach AWS with an opaque rejection. Validation surfaces it at plan.
+run "node_group_rejects_lowercase_capacity_type" {
+  command = plan
+
+  variables {
+    context_id = "test"
+    node_groups = {
+      bad = {
+        instance_types = ["t3.xlarge"]
+        min_size       = 1
+        max_size       = 1
+        desired_size   = 1
+        capacity_type  = "spot"
+      }
+    }
+  }
+
+  expect_failures = [var.node_groups]
+}
+
+# Empty instance_types should fall through to the class default. coalesce()
+# would return the empty list as-is (it only skips null + empty string), so
+# the instance_types pick logic uses an explicit length check instead.
+run "pool_empty_instance_types_falls_back_to_class_default" {
+  command = plan
+
+  variables {
+    context_id         = "test"
+    kubernetes_version = "1.34"
+    pools = {
+      empty = {
+        class          = "general"
+        count          = 1
+        instance_types = []
+      }
+    }
+  }
+
+  assert {
+    condition     = aws_eks_node_group.main["empty"].instance_types[0] == "t3.xlarge"
+    error_message = "Empty instance_types list should fall through to the general class default"
+  }
+}

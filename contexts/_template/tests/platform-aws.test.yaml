@@ -255,12 +255,14 @@ cases:
             acme_server: https://acme-staging-v02.api.letsencrypt.org/directory
             acme_email: dev@example.com
 
-  # Defense against an empty hostedZoneID: when dns.public_domain is set
-  # but the dns-zone terraform output isn't yet resolved (e.g. operator
-  # ran `windsor install` without a preceding `windsor up`), pki-resources
-  # falls back to public-issuer/selfsigned instead of deploying an ACME
-  # ClusterIssuer that would fail every DNS-01 challenge.
-  - name: pki-resources falls back to selfsigned when dns-zone output is missing
+  # When dns.public_domain is set, pki-resources renders the ACME
+  # ClusterIssuer regardless of whether the dns-zone terraform output is
+  # available yet. The acme_hosted_zone_id substitution uses deferred
+  # evaluation, so it fills in once dns-zone applies and the manifest is
+  # regenerated. Composition itself doesn't call terraform_output for
+  # component selection — that would panic during first bootstrap, before
+  # the dns-zone component is registered.
+  - name: pki-resources renders ACME when public_domain set even without dns-zone output yet
     values:
       provider: aws
       gateway:
@@ -275,7 +277,95 @@ cases:
       kustomize:
         - name: pki-resources
           components:
-            - public-issuer/selfsigned
+            - public-issuer/acme
+
+  # cluster.pools threads through to the cluster module as-is. The module
+  # converts class + count + lifecycle into EKS managed node group shape
+  # internally (class → instance family, lifecycle → capacity_type).
+  - name: cluster.pools flows through to the cluster module
+    values:
+      provider: aws
+      gateway:
+        enabled: false
+      cluster:
+        pools:
+          general:
+            class: general
+            count: 3
+    expect:
+      terraform:
+        - name: cluster
+          path: cluster/aws-eks
+          inputs:
+            pools:
+              general:
+                class: general
+                count: 3
+
+  # Multi-pool: a system pool plus general + spot-priced batch. The class
+  # label is what makes these pools portable — same shape would land on
+  # Azure or GCP once those facets gain pools.
+  - name: multi-pool config with mixed sizing and lifecycle
+    values:
+      provider: aws
+      gateway:
+        enabled: false
+      cluster:
+        pools:
+          system:
+            class: system
+            count: 2
+          general:
+            class: general
+            count: 3
+          batch:
+            class: compute
+            count: 5
+            lifecycle: spot
+    expect:
+      terraform:
+        - name: cluster
+          path: cluster/aws-eks
+          inputs:
+            pools:
+              system:
+                class: system
+                count: 2
+              general:
+                class: general
+                count: 3
+              batch:
+                class: compute
+                count: 5
+                lifecycle: spot
+
+  # Escape hatch: explicit instance_types pinned for regulatory or
+  # GPU-shape reasons. The pool still carries class for the
+  # windsor.io/pool-class label; the module skips the class default
+  # lookup and uses the supplied list verbatim.
+  - name: pool with explicit instance_types overrides the class default
+    values:
+      provider: aws
+      gateway:
+        enabled: false
+      cluster:
+        pools:
+          gpu:
+            class: gpu
+            count: 1
+            instance_types:
+              - p4d.24xlarge
+    expect:
+      terraform:
+        - name: cluster
+          path: cluster/aws-eks
+          inputs:
+            pools:
+              gpu:
+                class: gpu
+                count: 1
+                instance_types:
+                  - p4d.24xlarge
 
   # External-DNS deploys when dns.public_domain is set. The cluster module's
   # IAM role and Pod Identity association cover the credentials side; the

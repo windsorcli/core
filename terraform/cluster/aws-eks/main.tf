@@ -347,14 +347,53 @@ resource "aws_iam_role_policy_attachment" "node_group_AmazonEC2ContainerRegistry
 # Node Groups
 #-----------------------------------------------------------------------------------------------------------------------
 
+locals {
+  pools_node_groups = {
+    for name, p in var.pools : name => {
+      instance_types = p.instance_types != null && length(p.instance_types) > 0 ? p.instance_types : lookup(var.class_instance_types, p.class, null)
+      capacity_type  = p.lifecycle == "spot" ? "SPOT" : "ON_DEMAND"
+      desired_size   = p.count
+      min_size       = p.count
+      max_size       = p.count
+      disk_size      = coalesce(p.root_disk_size, 64)
+      labels = merge(
+        p.labels,
+        {
+          "windsor.io/pool"       = name
+          "windsor.io/pool-class" = p.class
+        }
+      )
+      taints = [for t in p.taints : {
+        key    = t.key
+        value  = t.value != null ? t.value : ""
+        effect = t.effect
+      }]
+    }
+  }
+
+  effective_node_groups = length(var.pools) > 0 ? local.pools_node_groups : {
+    for name, ng in var.node_groups : name => {
+      instance_types = ng.instance_types
+      capacity_type  = ng.capacity_type
+      desired_size   = ng.desired_size
+      min_size       = ng.min_size
+      max_size       = ng.max_size
+      disk_size      = ng.disk_size
+      labels         = ng.labels
+      taints         = ng.taints
+    }
+  }
+}
+
 resource "aws_eks_node_group" "main" {
-  for_each = var.node_groups
+  for_each = local.effective_node_groups
 
   cluster_name           = aws_eks_cluster.main.name
   node_group_name_prefix = "${each.key}-"
   node_role_arn          = aws_iam_role.node_group.arn
   subnet_ids             = data.aws_subnets.private.ids
   instance_types         = each.value.instance_types
+  capacity_type          = each.value.capacity_type == "ON_DEMAND" ? null : each.value.capacity_type
 
   scaling_config {
     desired_size = each.value.desired_size
@@ -393,7 +432,7 @@ resource "aws_eks_node_group" "main" {
 }
 
 resource "aws_launch_template" "node_group" {
-  for_each = var.node_groups
+  for_each = local.effective_node_groups
 
   name_prefix            = "${local.name}-${each.key}-"
   update_default_version = true
