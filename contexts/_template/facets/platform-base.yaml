@@ -113,11 +113,13 @@ config:
       mode: loadbalancer
 
   # Docker Desktop has no routable node network, so Services of type
-  # LoadBalancer cannot be reached. Gateway controllers must expose themselves
-  # via NodePort instead.
+  # LoadBalancer cannot be reached and an in-cluster LB controller (MetalLB)
+  # has nothing to advertise. Force enabled=false so lb-base is not pulled in
+  # via controller_required, and switch the gateway service to NodePort.
   - name: lb_effective
     when: workstation.runtime == 'docker-desktop'
     value:
+      enabled: false
       mode: nodeport
 
   # Explicit gateway.service_type wins over driver/platform auto-detect. Lets
