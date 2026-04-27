@@ -225,6 +225,23 @@ cases:
             # threading through, the issuer would deploy with an empty zone ID
             # and every DNS-01 challenge would fail.
             acme_hosted_zone_id: Z1ABCDEF12345
+        # Gateway-on + public-domain path: external-dns must wait for
+        # gateway-base (HTTPRoute CRDs) and layer the gateway-httproute
+        # source on top of the route53 provider. Locks the conditional
+        # in platform-aws.yaml's dns kustomization for the public branch.
+        - name: dns
+          path: dns
+          dependsOn:
+            - policy-resources
+            - gateway-base
+          components:
+            - external-dns
+            - external-dns/providers/route53
+            - external-dns/sources/gateway-httproute
+          substitutions:
+            external_domain: example.com
+            zone_type: public
+            zone_id_filter: Z1ABCDEF12345
         - name: gateway-resources
           path: gateway/resources
           # envoy/default-404/external-dns is the AWS-only patch that adds
@@ -516,6 +533,11 @@ cases:
   # top of the base external-dns release. Without it, two clusters in the
   # same account would clobber each other's records — txtOwnerId is what
   # scopes ownership.
+  # Gateway disabled: the dns Kustomization still ships (public_domain alone
+  # is enough to want Route53 record management for ingress hostnames), but
+  # the gateway-httproute source must NOT be added — Gateway API CRDs are
+  # absent without gateway-base, and external-dns crashes on startup if it
+  # finds gateway-httproute in its sources without those CRDs present.
   - name: external-dns deploys when dns.public_domain is set
     values:
       provider: aws
@@ -535,7 +557,7 @@ cases:
             - policy-resources
           components:
             - external-dns
-            - external-dns/route53
+            - external-dns/providers/route53
           timeout: 5m
           interval: 5m
           substitutions:
@@ -566,9 +588,16 @@ cases:
       kustomize:
         - name: dns
           path: dns
+          dependsOn:
+            - policy-resources
+            # gateway-base must be in deps when gateway is on so HTTPRoute
+            # CRDs are present before external-dns reconciles.
+            - gateway-base
           components:
             - external-dns
-            - external-dns/route53
+            - external-dns/providers/route53
+            # Gateway is enabled here, so the HTTPRoute source is layered on.
+            - external-dns/sources/gateway-httproute
           substitutions:
             external_domain: internal.example.com
             zone_type: private

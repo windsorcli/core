@@ -31,6 +31,5 @@ spec:
     extraVolumeMounts: []
     sources:
       - ingress
-      - gateway-httproute
     domainFilters:
       - "${external_domain:-test}"

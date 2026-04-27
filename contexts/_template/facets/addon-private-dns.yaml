@@ -55,9 +55,13 @@ kustomize:
       - "${gateway_effective.driver == 'cilium' ? 'coredns/cilium' : ''}"
       - "${gateway_effective.driver == 'envoy' && gateway_effective.enabled == true ? 'coredns/gateway' : ''}"
       - external-dns
-      - external-dns/coredns
+      - external-dns/providers/coredns
       - "${topology_effective == 'ha' ? 'external-dns/ha' : ''}"
       - "${workstation.runtime == 'docker-desktop' ? 'external-dns/localhost' : ''}"
+      # Gateway API HTTPRoute source — pulled in only when the cluster has a
+      # Gateway controller. external-dns crashes on startup if it's told to
+      # watch HTTPRoute resources whose CRDs aren't installed.
+      - "${gateway_effective.enabled == true ? 'external-dns/sources/gateway-httproute' : ''}"
     substitutions:
       external_domain: ${dns.private_domain}
       loadbalancer_start_ip: ${network_effective.loadbalancer_ips.start}
