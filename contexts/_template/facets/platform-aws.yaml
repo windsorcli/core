@@ -166,6 +166,80 @@ kustomize:
       single_storage_type: ${cluster.storage.single_storage_type ?? "gp3"}
 
   # ---------------------------------------------------------------------------
+  # AWS Load Balancer Controller — NLB / ALB provisioner
+  # ---------------------------------------------------------------------------
+  #
+  # Watches Service: LoadBalancer and Ingress / Gateway resources and
+  # provisions modern AWS load balancers via the EKS API. Without it, the
+  # in-tree Cloud Controller Manager creates classic ELBs (no target-type=ip,
+  # no ALB ingress). Always rendered on AWS — every cluster wants this.
+  #
+  # IAM is wired by the cluster module: var.create_aws_lb_controller_role
+  # defaults to true, provisioning the role + the upstream IAM policy and a
+  # Pod Identity association binding the aws-load-balancer-controller SA in
+  # the system-lb namespace.
+  #
+  # The component lives at kustomize/lb/base/aws-lb-controller (sibling of
+  # lb/base/metallb which serves the same role on metal/incus). The lb-base
+  # kustomization owns the system-lb namespace + whichever in-cluster LB
+  # implementation the platform needs.
+  #
+  # vpc_id + aws_region are passed explicitly so LBC doesn't fall back to
+  # IMDS for cluster discovery — worker launch templates set
+  # http_put_response_hop_limit=1, which blocks pod-network IMDS calls.
+  # cluster_name flows through via deferred terraform_output and is what
+  # LBC tags AWS resources with for ownership.
+  #
+  # aws_region has no default: a wrong region silently fails LBC (regional
+  # EC2/ELB API calls miss the cluster's VPC and emit confusing "not found"
+  # errors), so we'd rather propagate empty and let the controller crash on
+  # startup than fall back to a guess.
+  #
+  - name: lb-base
+    path: lb/base
+    dependsOn:
+      - policy-resources
+    components:
+      - aws-lb-controller
+    timeout: 5m
+    interval: 5m
+    substitutions:
+      cluster_name: "${terraform_output('cluster', 'cluster_name') ?? ''}"
+      vpc_id: "${terraform_output('network', 'vpc_id') ?? ''}"
+      aws_region: "${aws.region ?? ''}"
+
+  # ---------------------------------------------------------------------------
+  # Gateway-base merge — AWS NLB annotations on the Envoy data-plane Service
+  # ---------------------------------------------------------------------------
+  #
+  # Additive block that merges into option-gateway's gateway-base entry.
+  # When the gateway is on (envoy + loadbalancer mode), append the
+  # envoy/loadbalancer/aws-nlb component which strategic-merges NLB
+  # annotations onto the helm-release patch chain. Keeps AWS-specific
+  # knowledge in the AWS facet — option-gateway stays platform-agnostic.
+  #
+  # NLB (not ALB) is the right shape: Envoy is the L7 proxy and handles
+  # all routing / TLS / header logic. Putting an ALB in front would double-
+  # terminate L7 (cert sprawl, route-config sprawl, higher cost, no win).
+  # ALB remains available for direct-Service Ingress use cases — operators
+  # add `kubernetes.io/ingress.class: alb` on a per-Ingress basis.
+  #
+  - name: gateway-base
+    when: "gateway_effective.enabled == true && gateway_effective.driver == 'envoy' && lb_effective.mode == 'loadbalancer'"
+    components:
+      - envoy/loadbalancer/aws-nlb
+    substitutions:
+      # Map the platform-agnostic gateway.access to the AWS-specific
+      # aws-load-balancer-scheme annotation value. `internal` is the only
+      # case that needs an explicit override; otherwise we leave this empty
+      # and let the kustomize fallback (${lb_scheme:-internet-facing}) supply
+      # the default. Requires dns.private_domain — without a private zone
+      # the rest of the private-mode cascade no-ops, so the NLB scheme
+      # has to follow suit (an internal NLB with no private DNS published
+      # to it is a dead endpoint).
+      lb_scheme: "${gateway.access == 'private' && (dns.private_domain ?? '') != '' ? 'internal' : ''}"
+
+  # ---------------------------------------------------------------------------
   # public ClusterIssuer — selfsigned default, ACME when a real zone is set
   # ---------------------------------------------------------------------------
   #
@@ -200,32 +274,64 @@ kustomize:
   #   - aws.region — Route53 API region (defaults to us-east-1)
   #
   # ---------------------------------------------------------------------------
-  # External-DNS — Route53 record automation
+  # DNS — external-dns + Route53 record automation
   # ---------------------------------------------------------------------------
   #
-  # Watches Ingress and Gateway HTTPRoute resources annotated with
-  # external-dns.alpha.kubernetes.io/hostname=<host> and writes the matching
-  # A/CNAME records to the Route53 zone provisioned by dns-zone.
+  # Anchored on the shared `dns` Kustomization (same canonical name that
+  # addon-private-dns uses) so the system-dns namespace and any sibling
+  # DNS components compose together at one path. The components below
+  # layer external-dns + the AWS-specific route53 patch; addon-private-dns
+  # would add coredns + its own components on top of the same Kustomization
+  # if both were active.
   #
-  # Gated on dns.public_domain — without a public zone there's nothing to
-  # write to, and the chart's domainFilters fall back to the placeholder
-  # "test" which is a deliberate no-op.
+  # external-dns watches Ingress and Gateway HTTPRoute resources annotated
+  # with external-dns.alpha.kubernetes.io/hostname=<host> and writes the
+  # matching A/CNAME records to a Route53 hosted zone. Two modes, both
+  # rendered by the same Kustomization:
+  #
+  #   - Public mode (default): targets the public zone provisioned by the
+  #     standalone dns-zone stack. Triggered by dns.public_domain.
+  #   - Private mode: targets the VPC-attached private zone created by the
+  #     network module from dns.private_domain. Triggered by
+  #     gateway.access=private (also requires dns.private_domain — there's
+  #     no zone to publish to without it, so the private cascade no-ops
+  #     and the gateway runs as public).
+  #
+  # The route53 component layers AWS-specific helm values onto the base
+  # external-dns release: Pod Identity auth, txtOwnerId from the cluster
+  # configmap (prevents two clusters in the same account from clobbering
+  # each other's records), and the zone_type / zone_id_filter pair below
+  # so the controller is locked to the right zone.
   #
   # IAM is already wired by the cluster module: var.create_external_dns_role
-  # defaults to true, which provisions the role + policy and a Pod Identity
+  # defaults to true, which provisions the role + policy (wildcard-scoped on
+  # hostedzone/* — covers both public and private) and a Pod Identity
   # association binding the external-dns ServiceAccount in system-dns to it.
-  # No additional input plumbing required here — credentials reach the pod
-  # automatically via the SA name.
   #
-  - name: external-dns
-    path: dns/external-dns
-    when: "(dns.public_domain ?? '') != ''"
+  - name: dns
+    path: dns
+    when: "(dns.public_domain ?? '') != '' || (gateway.access == 'private' && (dns.private_domain ?? '') != '')"
     dependsOn:
       - policy-resources
+    components:
+      - external-dns
+      - external-dns/route53
     timeout: 5m
     interval: 5m
     substitutions:
-      external_domain: ${dns.public_domain}
+      # Private mode wins over public_domain for the gateway's DNS — even
+      # if both are set, a private gateway should publish to the private
+      # zone (its hostname is internal-only and unusable as an ALIAS target
+      # on the public zone). The same `access=private && private_domain set`
+      # gate fires here as everywhere else in the private-mode cascade,
+      # keeping the four substitutions and the `when:` self-consistent.
+      external_domain: "${gateway.access == 'private' && (dns.private_domain ?? '') != '' ? dns.private_domain : (dns.public_domain ?? '')}"
+      zone_type: "${gateway.access == 'private' && (dns.private_domain ?? '') != '' ? 'private' : 'public'}"
+      # Lock external-dns to the specific zone ID. Public zone comes from
+      # the standalone dns-zone stack; private zone comes from the network
+      # module (aws-vpc creates it when dns.private_domain is set).
+      # Deferred terraform_output handles first-bootstrap ordering.
+      zone_id_filter: "${gateway.access == 'private' && (dns.private_domain ?? '') != '' ? (terraform_output('network', 'private_zone_id') ?? '') : (terraform_output('dns-zone', 'zone_id') ?? '')}"
 
   - name: pki-resources
     path: pki/resources
@@ -240,7 +346,13 @@ kustomize:
     # bootstrap because the dns-zone component isn't registered until
     # composition completes.)
     components:
-      - "${(dns.public_domain ?? '') != '' ? 'public-issuer/acme' : 'public-issuer/selfsigned'}"
+      # Private mode (gateway.access=private + dns.private_domain set) needs
+      # a ClusterIssuer named `private` for the gateway cert to reference —
+      # private-issuer/selfsigned creates exactly that. The public path (the
+      # original two branches) only ever produces a `public` ClusterIssuer,
+      # so without this branch the cert would reference a non-existent
+      # issuer in private mode.
+      - "${gateway.access == 'private' && (dns.private_domain ?? '') != '' ? 'private-issuer/selfsigned' : ((dns.public_domain ?? '') != '' ? 'public-issuer/acme' : 'public-issuer/selfsigned')}"
     timeout: 5m
     interval: 5m
     substitutions:

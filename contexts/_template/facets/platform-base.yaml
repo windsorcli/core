@@ -113,11 +113,13 @@ config:
       mode: loadbalancer
 
   # Docker Desktop has no routable node network, so Services of type
-  # LoadBalancer cannot be reached. Gateway controllers must expose themselves
-  # via NodePort instead.
+  # LoadBalancer cannot be reached and an in-cluster LB controller (MetalLB)
+  # has nothing to advertise. Force enabled=false so lb-base is not pulled in
+  # via controller_required, and switch the gateway service to NodePort.
   - name: lb_effective
     when: workstation.runtime == 'docker-desktop'
     value:
+      enabled: false
       mode: nodeport
 
   # Explicit gateway.service_type wins over driver/platform auto-detect. Lets
@@ -138,6 +140,24 @@ config:
     when: gateway.service_type == 'LoadBalancer'
     value:
       mode: loadbalancer
+
+  # True when an in-cluster LB controller is required — i.e. a `lb-base`
+  # Kustomization will be composed into the blueprint. This is the union of
+  # every `when:` that produces an lb-base entry across the platform facets:
+  #   - platform-aws: always (aws-lb-controller manages cloud NLBs/ALBs).
+  #   - platform-metal/incus/docker: when lb_effective.enabled (MetalLB).
+  #   - platform-azure: never (Azure native LBs, no in-cluster controller).
+  # Consumers (gateway-resources, anything that owns a Service type=LoadBalancer
+  # or Ingress class managed by aws-lb-controller) reference this in their
+  # dependsOn so reverse-topo destroy ordering puts the controller last among
+  # in-cluster controllers — it's alive to lift its finalizers (e.g.
+  # service.k8s.aws/resources, elbv2.k8s.aws/resources) on Service /
+  # TargetGroupBinding deletion before its own Kustomization is torn down.
+  # Keep this in sync if a new platform facet adds another path that creates
+  # an `lb-base` Kustomization.
+  - name: lb_effective
+    value:
+      controller_required: "${platform == 'aws' || lb_effective.enabled == true}"
 
   # ---------------------------------------------------------------------------
   # DNS domains
@@ -163,6 +183,7 @@ config:
       domain: "${dns.domain ?? (dev == true ? 'test' : '')}"
       public_domain: "${dns.public_domain ?? ''}"
       private_domain: "${dns.private_domain ?? dns.domain ?? (dev == true ? 'test' : '')}"
+      enabled: "${(addons.private_dns.enabled ?? false) == true || (dns.public_domain ?? '') != '' || (gateway.access == 'private' && (dns.private_domain ?? '') != '')}"
 
   # ---------------------------------------------------------------------------
   # Cluster provisioning flags
@@ -327,27 +348,9 @@ terraform:
 # These kustomizations are always applied (subject to per-entry `when:` guards
 # where noted). Ordering below matches the dependency chain:
 #
-#   cleanup (destroyOnly) → policy → telemetry → pki → gitops webhook
+#   policy → telemetry → pki → gitops webhook
 #
 kustomize:
-
-  # ---------------------------------------------------------------------------
-  # Cleanup (destroy-only)
-  # ---------------------------------------------------------------------------
-  #
-  # Runs only on `windsor destroy`. Removes ingresses, loadbalancers, and PVCs
-  # before the cluster is torn down so their underlying cloud resources
-  # (external IPs, volumes) are released cleanly.
-  #
-  - name: cleanup
-    path: cleanup
-    destroyOnly: true
-    components:
-      - ingresses
-      - loadbalancers
-      - pvcs
-    timeout: 10m
-    interval: 5m
 
   # ---------------------------------------------------------------------------
   # Policy (Kyverno)

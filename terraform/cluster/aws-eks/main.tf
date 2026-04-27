@@ -769,6 +769,54 @@ resource "aws_iam_role_policy_attachment" "external_dns" {
 }
 
 #-----------------------------------------------------------------------------------------------------------------------
+# AWS Load Balancer Controller IAM Role
+#-----------------------------------------------------------------------------------------------------------------------
+
+resource "aws_iam_role" "aws_lb_controller" {
+  count = var.create_aws_lb_controller_role ? 1 : 0
+  name  = "${local.name}-aws-lb-controller"
+
+  assume_role_policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Action = ["sts:AssumeRole", "sts:TagSession"]
+        Effect = "Allow"
+        Principal = {
+          Service = "pods.eks.amazonaws.com"
+        }
+      }
+    ]
+  })
+
+  tags = {
+    Name = "${local.name}-aws-lb-controller"
+  }
+}
+
+resource "aws_iam_policy" "aws_lb_controller" {
+  # Verbatim from upstream:
+  # https://raw.githubusercontent.com/kubernetes-sigs/aws-load-balancer-controller/main/docs/install/iam_policy.json
+  # checkov:skip=CKV_AWS_355: Wildcard resources are required by the upstream policy.
+  # checkov:skip=CKV_AWS_109: Same as above.
+  # checkov:skip=CKV_AWS_111: Same as above.
+  count       = var.create_aws_lb_controller_role ? 1 : 0
+  name        = "${local.name}-aws-lb-controller"
+  description = "IAM policy for the AWS Load Balancer Controller"
+  policy      = file("${path.module}/iam-policies/aws-lb-controller.json")
+
+  tags = {
+    Name = "${local.name}-aws-lb-controller"
+  }
+}
+
+resource "aws_iam_role_policy_attachment" "aws_lb_controller" {
+  count      = var.create_aws_lb_controller_role ? 1 : 0
+  policy_arn = aws_iam_policy.aws_lb_controller[0].arn
+  role       = aws_iam_role.aws_lb_controller[0].name
+}
+
+#-----------------------------------------------------------------------------------------------------------------------
 # Cert Manager IAM Role (ACME Route53 DNS-01 solver)
 #-----------------------------------------------------------------------------------------------------------------------
 
@@ -917,6 +965,15 @@ resource "aws_eks_pod_identity_association" "external_dns" {
   namespace       = "system-dns"
   service_account = "external-dns"
   role_arn        = aws_iam_role.external_dns[0].arn
+}
+
+resource "aws_eks_pod_identity_association" "aws_lb_controller" {
+  count = var.create_aws_lb_controller_role ? 1 : 0
+
+  cluster_name    = aws_eks_cluster.main.name
+  namespace       = "system-lb"
+  service_account = "aws-load-balancer-controller"
+  role_arn        = aws_iam_role.aws_lb_controller[0].arn
 }
 
 resource "aws_eks_pod_identity_association" "cert_manager" {

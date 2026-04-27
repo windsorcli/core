@@ -227,6 +227,15 @@ cases:
             acme_hosted_zone_id: Z1ABCDEF12345
         - name: gateway-resources
           path: gateway/resources
+          # envoy/default-404/external-dns is the AWS-only patch that adds
+          # the external-dns hostname annotation to the catch-all 404 route.
+          # Gated on dns.public_domain so it doesn't render on platforms
+          # without external-dns running (where the substitution would
+          # produce a malformed ",*." value).
+          components:
+            - envoy/default-404
+            - envoy/default-404/external-dns
+            - flux-webhook
           substitutions:
             gateway_cert_issuer: public
             external_domain: example.com
@@ -367,10 +376,146 @@ cases:
                 instance_types:
                   - p4d.24xlarge
 
-  # External-DNS deploys when dns.public_domain is set. The cluster module's
-  # IAM role and Pod Identity association cover the credentials side; the
-  # facet just needs to render the kustomize component and substitute the
-  # domain into the helm chart's domainFilters.
+  # AWS Load Balancer Controller is rendered on every AWS cluster — it's
+  # required to get NLBs / ALBs (the in-tree CCM only creates classic ELBs).
+  # The component lives at lb/base/aws-lb-controller (sibling of
+  # lb/base/metallb on metal/incus); the lb-base kustomization owns the
+  # system-lb namespace plus whichever in-cluster LB the platform needs.
+  - name: aws-lb-controller renders unconditionally on AWS via lb-base
+    values:
+      provider: aws
+      gateway:
+        enabled: false
+    expect:
+      kustomize:
+        - name: lb-base
+          path: lb/base
+          dependsOn:
+            - policy-resources
+          components:
+            - aws-lb-controller
+          timeout: 5m
+          interval: 5m
+
+  # When gateway is enabled on AWS, the envoy data-plane Service gets NLB
+  # annotations layered on by adding envoy/loadbalancer/aws-nlb to the
+  # gateway-base component list. This is an additive merge with option-
+  # gateway's gateway-base entry — option-gateway emits the platform-
+  # agnostic components, this AWS facet appends the AWS-specific patch.
+  - name: gateway with envoy on AWS adds NLB annotations component
+    values:
+      provider: aws
+      gateway:
+        enabled: true
+        driver: envoy
+    expect:
+      kustomize:
+        - name: gateway-base
+          path: gateway/base
+          components:
+            - envoy
+            - envoy/loadbalancer
+            - envoy/prometheus
+            - envoy/loadbalancer/aws-nlb
+
+  # gateway.access=private threads through the AWS facet's gateway-base
+  # merge as the lb_scheme substitution, which the aws-nlb patch consumes
+  # to flip aws-load-balancer-scheme to `internal`. Required for clusters
+  # in private VPCs (no public subnets) where AWS rejects internet-facing
+  # NLB creation. The platform-agnostic `public`/`private` values keep
+  # AWS-specific terms (internet-facing) inside the AWS facet.
+  #
+  # dns.private_domain is required — it's what the rest of the private-mode
+  # cascade gates on (cert issuer, external-dns target). Without it the
+  # NLB scheme stays public so the gateway doesn't end up internal-only
+  # with no DNS pointing at it.
+  - name: gateway.access=private flips the AWS NLB to internal
+    values:
+      provider: aws
+      gateway:
+        enabled: true
+        driver: envoy
+        access: private
+      dns:
+        private_domain: internal.example.com
+    expect:
+      kustomize:
+        - name: gateway-base
+          path: gateway/base
+          components:
+            - envoy/loadbalancer/aws-nlb
+          substitutions:
+            lb_scheme: internal
+
+  # Coherence guard: gateway.access=private without dns.private_domain is
+  # an incoherent operator config (private gateway with no private domain
+  # to publish records to). The whole private-mode cascade gates on both,
+  # so without private_domain the cluster stays on the public path — better
+  # than ending up with a half-private gateway no one can reach. Asserted
+  # via the cert issuer falling to the AWS-default `public` (the cascade's
+  # private branch would force `private`); empty `lb_scheme` substitution
+  # is dropped from output so we can't assert it directly, but the cert
+  # issuer is the proxy.
+  - name: gateway.access=private without private_domain stays public
+    values:
+      provider: aws
+      gateway:
+        enabled: true
+        driver: envoy
+        access: private
+    expect:
+      kustomize:
+        - name: gateway-resources
+          path: gateway/resources
+          substitutions:
+            gateway_cert_issuer: public
+
+  # Negative branch: Cilium provides its own gateway implementation
+  # (no Envoy data-plane Service to annotate). The aws-nlb component
+  # must NOT merge into the cilium gateway-base.
+  - name: gateway with cilium driver on AWS does not add aws-nlb component
+    values:
+      provider: aws
+      gateway:
+        enabled: true
+        driver: cilium
+    expect:
+      kustomize:
+        - name: gateway-base
+          path: gateway/base
+          components:
+            - cilium
+
+  # Negative branch: NodePort service_type on AWS (e.g. small/edge clusters
+  # without a public LB) — aws-nlb annotations are LoadBalancer-only and
+  # must NOT merge into the nodeport gateway-base.
+  - name: gateway with envoy and NodePort service_type on AWS does not add aws-nlb component
+    values:
+      provider: aws
+      gateway:
+        enabled: true
+        driver: envoy
+        service_type: NodePort
+    expect:
+      kustomize:
+        - name: gateway-base
+          path: gateway/base
+          components:
+            - envoy
+            - envoy/nodeport
+            - envoy/prometheus
+
+  # External-DNS deploys when dns.public_domain is set. Anchored on the
+  # shared `dns` Kustomization (same canonical name addon-private-dns uses)
+  # rooted at kustomize/dns/, with external-dns + external-dns/route53 as
+  # components — kustomize/dns/external-dns is `kind: Component` so it must
+  # be layered, not used as a Kustomization root.
+  #
+  # The route53 component layers AWS-specific helm values (Pod Identity,
+  # txtOwnerId from the cluster configmap, zoneType + zone-id filter) on
+  # top of the base external-dns release. Without it, two clusters in the
+  # same account would clobber each other's records — txtOwnerId is what
+  # scopes ownership.
   - name: external-dns deploys when dns.public_domain is set
     values:
       provider: aws
@@ -384,23 +529,81 @@ cases:
         zone_id: Z1ABCDEF12345
     expect:
       kustomize:
-        - name: external-dns
-          path: dns/external-dns
+        - name: dns
+          path: dns
           dependsOn:
             - policy-resources
+          components:
+            - external-dns
+            - external-dns/route53
           timeout: 5m
           interval: 5m
           substitutions:
             external_domain: example.com
+            zone_type: public
+            zone_id_filter: Z1ABCDEF12345
 
-  # Without a public domain, External-DNS would have nothing to write to —
-  # the chart's domainFilters would fall back to the placeholder "test"
-  # and the controller would idle. Skip the kustomize entirely.
-  - name: external-dns excluded when no public domain
+  # Private mode: gateway.access=private flips the DNS path away from the
+  # public zone and onto the VPC-private Route53 zone the network module
+  # creates from dns.private_domain. external-dns is still rendered (we
+  # want Windsor managing private DNS too — operators of private clusters
+  # shouldn't have to wire records by hand) but pointed at the private
+  # zone with zoneType=private + the private_zone_id from the network
+  # module's terraform output.
+  - name: private mode targets external-dns at the private Route53 zone
+    values:
+      provider: aws
+      gateway:
+        enabled: true
+        driver: envoy
+        access: private
+      dns:
+        private_domain: internal.example.com
+    terraformOutputs:
+      network:
+        private_zone_id: Z9PRIVATEZONE
+    expect:
+      kustomize:
+        - name: dns
+          path: dns
+          components:
+            - external-dns
+            - external-dns/route53
+          substitutions:
+            external_domain: internal.example.com
+            zone_type: private
+            zone_id_filter: Z9PRIVATEZONE
+        # Cert issuer falls to `private` (selfsigned) — ACME DNS-01 can't
+        # validate against a VPC-only zone, and the gateway's external_domain
+        # follows access=private onto the private domain. The 404 hostname
+        # annotation patch is added too, asserting the private branch of
+        # the option-gateway conditional fires alongside everything else.
+        - name: gateway-resources
+          path: gateway/resources
+          components:
+            - envoy/default-404
+            - envoy/default-404/external-dns
+          substitutions:
+            gateway_cert_issuer: private
+            external_domain: internal.example.com
+        # Private mode swaps pki-resources from public-issuer/* to
+        # private-issuer/selfsigned, which creates a ClusterIssuer named
+        # `private` — what the gateway cert above references. Without this
+        # the cert would reference a non-existent issuer.
+        - name: pki-resources
+          path: pki/resources
+          components:
+            - private-issuer/selfsigned
+
+  # Without a public domain (and no private mode), the dns Kustomization
+  # has nothing to write to — domainFilters would fall back to the
+  # placeholder "test" and the controller would idle. Skip the
+  # Kustomization entirely.
+  - name: dns excluded when no public domain and no private mode
     values:
       provider: aws
       gateway:
         enabled: false
     exclude:
       kustomize:
-        - name: external-dns
+        - name: dns

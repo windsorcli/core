@@ -18,13 +18,23 @@ spec:
     provider:
       aws:
         usePodIdentity: true
+        zoneType: ${zone_type:-public}
     sources:
       - ingress
       - service
+      - gateway-httproute
     policy: sync
     registry: txt
     domainFilters:
-      - ${DOMAIN:-test}
+      - ${external_domain:-test}
+    extraArgs:
+      # Lock the controller to a specific hosted zone ID. Belt-and-braces
+      # alongside zoneType: a same-named public+private zone pair could
+      # exist (split-horizon DNS), and zoneType alone would still match
+      # both — the ID filter pins it to exactly the zone we provisioned.
+      # Empty fallback is harmless: --zone-id-filter="" is treated as
+      # unset by external-dns.
+      - --zone-id-filter=${zone_id_filter:-}
     serviceAccount:
       create: true
       name: external-dns

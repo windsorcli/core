@@ -33,6 +33,11 @@ output "external_dns_role_arn" {
   value       = try(aws_iam_role.external_dns[0].arn, null)
 }
 
+output "aws_lb_controller_role_arn" {
+  description = "ARN of the IAM role for the AWS Load Balancer Controller"
+  value       = try(aws_iam_role.aws_lb_controller[0].arn, null)
+}
+
 output "cluster_name" {
   description = "Name of the EKS cluster"
   value       = local.name

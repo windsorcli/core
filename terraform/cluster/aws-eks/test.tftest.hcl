@@ -373,6 +373,72 @@ run "cert_manager_role_disabled_by_default" {
   }
 }
 
+# Verifies the AWS LB Controller IAM role + policy + Pod Identity binding
+# (system-lb / aws-load-balancer-controller service account) are created by
+# default. Opt out via create_aws_lb_controller_role = false.
+run "aws_lb_controller_role_enabled_by_default" {
+  command = plan
+
+  variables {
+    context_id = "test"
+  }
+
+  assert {
+    condition     = length(aws_iam_role.aws_lb_controller) == 1
+    error_message = "AWS LB Controller IAM role should be created by default"
+  }
+
+  assert {
+    condition     = aws_iam_role.aws_lb_controller[0].name == "cluster-test-aws-lb-controller"
+    error_message = "AWS LB Controller IAM role name should follow the cluster naming convention"
+  }
+
+  assert {
+    condition     = length(aws_iam_policy.aws_lb_controller) == 1
+    error_message = "AWS LB Controller IAM policy should be created by default"
+  }
+
+  assert {
+    condition     = length(aws_eks_pod_identity_association.aws_lb_controller) == 1
+    error_message = "AWS LB Controller Pod Identity association should be created by default"
+  }
+
+  assert {
+    condition     = aws_eks_pod_identity_association.aws_lb_controller[0].namespace == "system-lb"
+    error_message = "AWS LB Controller Pod Identity association should target the system-lb namespace"
+  }
+
+  assert {
+    condition     = aws_eks_pod_identity_association.aws_lb_controller[0].service_account == "aws-load-balancer-controller"
+    error_message = "AWS LB Controller Pod Identity association should target the aws-load-balancer-controller service account"
+  }
+
+  # Sanity-check the upstream IAM policy is in place via a marker action.
+  assert {
+    condition     = strcontains(aws_iam_policy.aws_lb_controller[0].policy, "elasticloadbalancing:CreateLoadBalancer")
+    error_message = "AWS LB Controller policy should include the elasticloadbalancing:CreateLoadBalancer action"
+  }
+}
+
+run "aws_lb_controller_role_can_be_disabled" {
+  command = plan
+
+  variables {
+    context_id                    = "test"
+    create_aws_lb_controller_role = false
+  }
+
+  assert {
+    condition     = length(aws_iam_role.aws_lb_controller) == 0
+    error_message = "AWS LB Controller IAM role should not be created when create_aws_lb_controller_role is false"
+  }
+
+  assert {
+    condition     = length(aws_eks_pod_identity_association.aws_lb_controller) == 0
+    error_message = "AWS LB Controller Pod Identity association should not be created when create_aws_lb_controller_role is false"
+  }
+}
+
 # Verifies the cert-manager IAM role, Route53 policy, and Pod Identity binding
 # (system-pki / cert-manager service account) are created when opted in.
 run "cert_manager_role_enabled" {
