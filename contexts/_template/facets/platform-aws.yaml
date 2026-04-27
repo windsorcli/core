@@ -315,7 +315,12 @@ kustomize:
       - policy-resources
     components:
       - external-dns
-      - external-dns/route53
+      - external-dns/providers/route53
+      # Gateway API HTTPRoute source — only when a Gateway controller is
+      # actually running. Without this guard, deployments that set
+      # dns.public_domain but disable the gateway would crash external-dns
+      # at startup (HTTPRoute CRDs aren't installed without gateway-base).
+      - "${gateway_effective.enabled == true ? 'external-dns/sources/gateway-httproute' : ''}"
     timeout: 5m
     interval: 5m
     substitutions:

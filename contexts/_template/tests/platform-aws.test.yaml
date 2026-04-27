@@ -516,6 +516,11 @@ cases:
   # top of the base external-dns release. Without it, two clusters in the
   # same account would clobber each other's records — txtOwnerId is what
   # scopes ownership.
+  # Gateway disabled: the dns Kustomization still ships (public_domain alone
+  # is enough to want Route53 record management for ingress hostnames), but
+  # the gateway-httproute source must NOT be added — Gateway API CRDs are
+  # absent without gateway-base, and external-dns crashes on startup if it
+  # finds gateway-httproute in its sources without those CRDs present.
   - name: external-dns deploys when dns.public_domain is set
     values:
       provider: aws
@@ -535,7 +540,7 @@ cases:
             - policy-resources
           components:
             - external-dns
-            - external-dns/route53
+            - external-dns/providers/route53
           timeout: 5m
           interval: 5m
           substitutions:
@@ -568,7 +573,9 @@ cases:
           path: dns
           components:
             - external-dns
-            - external-dns/route53
+            - external-dns/providers/route53
+            # Gateway is enabled here, so the HTTPRoute source is layered on.
+            - external-dns/sources/gateway-httproute
           substitutions:
             external_domain: internal.example.com
             zone_type: private

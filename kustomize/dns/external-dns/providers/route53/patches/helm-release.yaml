@@ -19,10 +19,6 @@ spec:
       aws:
         usePodIdentity: true
         zoneType: ${zone_type:-public}
-    sources:
-      - ingress
-      - service
-      - gateway-httproute
     policy: sync
     registry: txt
     domainFilters:

@@ -48,7 +48,7 @@ cases:
             - coredns/loadbalancer
             - coredns/cilium
             - external-dns
-            - external-dns/coredns
+            - external-dns/providers/coredns
 
   # Full: Test all options with Docker Desktop (envoy gateway — docker-desktop default).
   - name: full config creates CoreDNS with localhost external-dns on Docker Desktop
@@ -83,7 +83,7 @@ cases:
             - coredns/etcd
             - coredns/gateway
             - external-dns
-            - external-dns/coredns
+            - external-dns/providers/coredns
             - external-dns/localhost
 
   # Docker platform + docker-desktop + dev: gateway defaults to envoy (no cilium CNI on docker-desktop),
@@ -120,7 +120,7 @@ cases:
             - coredns/etcd
             - coredns/gateway
             - external-dns
-            - external-dns/coredns
+            - external-dns/providers/coredns
             - external-dns/localhost
     exclude:
       kustomize:
@@ -151,9 +151,11 @@ cases:
             - coredns/loadbalancer
             - coredns/cilium
             - external-dns
-            - external-dns/coredns
+            - external-dns/providers/coredns
 
-  # Edge: Envoy gateway path includes coredns/gateway for DNS routing through the gateway.
+  # Edge: Envoy gateway path includes coredns/gateway for DNS routing through
+  # the gateway, and external-dns/gateway-httproute so external-dns watches
+  # HTTPRoute resources (the CRDs are present here because gateway-base ships).
   - name: private dns works with envoy gateway mode
     values:
       provider: metal
@@ -176,7 +178,8 @@ cases:
             - coredns/etcd
             - coredns/gateway
             - external-dns
-            - external-dns/coredns
+            - external-dns/providers/coredns
+            - external-dns/sources/gateway-httproute
 
   # Edge: Gateway disabled with non-cilium CNI — dns must not depend on gateway-base (it doesn't exist).
   - name: private dns with gateway disabled does not depend on gateway-base
