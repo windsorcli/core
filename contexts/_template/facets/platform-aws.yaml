@@ -246,18 +246,21 @@ kustomize:
   # pki-resources is always rendered on AWS so the gateway cert always has
   # a working ClusterIssuer to issue against. Two modes:
   #
-  #   1. Default (no public zone configured) → public-issuer/selfsigned.
-  #      Cert issues immediately, browsers warn (untrusted CA), good for
-  #      bringing up a cluster without DNS work. Flips to mode 2 below
-  #      with no manual cert resource changes.
+  #   1. Default (no public zone configured) → public-issuer/selfsigned,
+  #      which deploys ClusterIssuer `public-selfsigned`. Cert issues
+  #      immediately, browsers warn (untrusted CA), good for bringing up a
+  #      cluster without DNS work. Flips to mode 2 below with no manual
+  #      cert resource changes — the gateway_cert_issuer substitution in
+  #      option-gateway switches to `public-acme`, which cert-manager sees
+  #      as a Certificate spec change and reissues against the new issuer.
   #
-  #   2. ACME (operator set dns.public_domain) → public-issuer/acme.
-  #      Windsor created a public Route53 zone via the dns-zone stack
-  #      (so we have a place to write TXT records); cert-manager
-  #      satisfies DNS-01 against it (using the IAM role + Pod Identity
-  #      binding the cluster module provisioned). On switch, cert-manager
-  #      re-issues into the same Secret name — gateway picks up the new
-  #      cert with no restart.
+  #   2. ACME (operator set dns.public_domain) → public-issuer/acme,
+  #      which deploys ClusterIssuer `public-acme`. Windsor created a
+  #      public Route53 zone via the dns-zone stack (so we have a place to
+  #      write TXT records); cert-manager satisfies DNS-01 against it
+  #      (using the IAM role + Pod Identity binding the cluster module
+  #      provisioned). On switch, cert-manager re-issues into the same
+  #      Secret name — gateway picks up the new cert with no restart.
   #
   # The trigger is "we have a Route53 zone we can write TXT records into",
   # not "an email is set" — email is required by Let's Encrypt for account
