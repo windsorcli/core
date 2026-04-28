@@ -5,15 +5,15 @@ metadata:
   name: external-dns
   namespace: system-dns
 spec:
-  valuesFrom:
-    - kind: ConfigMap
-      name: external-dns
-      valuesKey: txt_owner_id
-      targetPath: txtOwnerId
   values:
     provider: azure
     policy: sync
     registry: txt
+    # Unique TXT-record owner ID — keeps multiple external-dns instances
+    # in the same zone from clobbering each other's records. Sourced from
+    # the platform facet's dns kustomization substitution, which is fed by
+    # Flux's postBuild via the values-dns ConfigMap the CLI generates.
+    txtOwnerId: ${txt_owner_id}
     domainFilters:
       - ${external_domain:-test}
     extraArgs:

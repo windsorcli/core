@@ -216,6 +216,11 @@ kustomize:
       # Azure DNS resource ID — same value as cert_manager_dns_zone_ids on the
       # cluster module, lets external-dns pin to one zone.
       zone_id_filter: "${terraform_output('dns-zone', 'zone_id') ?? ''}"
+      # Owner ID stamped into TXT records so multiple external-dns instances
+      # in the same zone don't clobber each other. The context id (top-level
+      # `id` field in values.yaml) is unique per Windsor context so it doubles
+      # as a stable per-cluster identifier.
+      txt_owner_id: "${id}"
       external_dns_client_id: "${terraform_output('cluster', 'external_dns_client_id') ?? ''}"
       external_dns_tenant_id: "${terraform_output('cluster', 'tenant_id') ?? ''}"
       external_dns_dns_zone_subscription_id: "${terraform_output('dns-zone', 'subscription_id') ?? ''}"
