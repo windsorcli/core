@@ -9,8 +9,12 @@ spec:
   timeout: 10m
   install:
     crds: Skip
+    remediation:
+      retries: 3
   upgrade:
     crds: Skip
+    remediation:
+      retries: 3
   chart:
     spec:
       chart: gateway-helm
