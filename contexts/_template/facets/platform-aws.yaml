@@ -345,6 +345,16 @@ kustomize:
       # module (aws-vpc creates it when dns.private_domain is set).
       # Deferred terraform_output handles first-bootstrap ordering.
       zone_id_filter: "${gateway.access == 'private' && (dns.private_domain ?? '') != '' ? (terraform_output('network', 'private_zone_id') ?? '') : (terraform_output('dns-zone', 'zone_id') ?? '')}"
+      # Region and owner-id were previously supposed to come through the
+      # external-dns ConfigMap via valuesFrom, but that ConfigMap was never
+      # created anywhere — fresh clusters silently failed at HelmRelease
+      # reconcile. Pass via Flux postBuild substitution instead.
+      aws_region: "${aws.region ?? 'us-east-1'}"
+      # Owner ID stamped into TXT records so multiple external-dns instances
+      # in the same zone don't clobber each other. The context id (top-level
+      # `id` field in values.yaml) is unique per Windsor context so it doubles
+      # as a stable per-cluster identifier.
+      txt_owner_id: "${id}"
 
   - name: pki-resources
     path: pki/resources
