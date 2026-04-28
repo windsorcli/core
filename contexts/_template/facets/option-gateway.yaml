@@ -160,5 +160,9 @@ kustomize:
       # LB) or the cilium gateway component. NodePort/cloud-managed-LB paths
       # have no consumer, so leave it empty and the harness drops it.
       loadbalancer_start_ip: "${(lb_effective.enabled == true || gateway_effective.driver == 'cilium') ? network_effective.loadbalancer_ips.start : ''}"
-    timeout: 10m
+    # 5m matches the convention in kustomize/GUIDELINES.md for declarative-only
+    # kustomizations (no HelmReleases). Gateway/HTTPRoute/Cert all reach Ready
+    # in seconds when the system is healthy; if the cert is stuck on external
+    # state (ACME DNS-01), we want the failure surface in 5min, not 10min.
+    timeout: 5m
     interval: 5m
