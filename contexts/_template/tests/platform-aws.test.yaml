@@ -168,7 +168,7 @@ cases:
   # ACME path on (production): dns.public_domain triggers the standalone
   # dns-zone stack, the cert-manager IAM role on the cluster, the
   # public-issuer/acme component on pki-resources, and the gateway TLS
-  # cert switches to the `public` ClusterIssuer with the public domain.
+  # cert switches to the `public-acme` ClusterIssuer with the public domain.
   - name: dns.public_domain wires up ACME Route53 issuer end to end
     values:
       provider: aws
@@ -254,7 +254,7 @@ cases:
             - envoy/default-404/external-dns
             - flux-webhook
           substitutions:
-            gateway_cert_issuer: public
+            gateway_cert_issuer: public-acme
             external_domain: example.com
 
   # Dev mode flips the ACME server to Let's Encrypt staging to avoid
@@ -469,10 +469,11 @@ cases:
   # to publish records to). The whole private-mode cascade gates on both,
   # so without private_domain the cluster stays on the public path — better
   # than ending up with a half-private gateway no one can reach. Asserted
-  # via the cert issuer falling to the AWS-default `public` (the cascade's
-  # private branch would force `private`); empty `lb_scheme` substitution
-  # is dropped from output so we can't assert it directly, but the cert
-  # issuer is the proxy.
+  # via the cert issuer falling to `public-selfsigned` (no public_domain
+  # was set, so ACME isn't selected; the cascade's private branch would
+  # otherwise force `private`). Empty `lb_scheme` substitution is dropped
+  # from output so we can't assert it directly, but the cert issuer is
+  # the proxy.
   - name: gateway.access=private without private_domain stays public
     values:
       provider: aws
@@ -485,7 +486,7 @@ cases:
         - name: gateway-resources
           path: gateway/resources
           substitutions:
-            gateway_cert_issuer: public
+            gateway_cert_issuer: public-selfsigned
 
   # Negative branch: Cilium provides its own gateway implementation
   # (no Envoy data-plane Service to annotate). The aws-nlb component
