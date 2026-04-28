@@ -600,6 +600,115 @@ run "disk_encryption_with_provided_key" {
   }
 }
 
+# Tests that the cert-manager and external-dns Workload Identity blocks are
+# off by default for cert-manager and on by default for external-dns. The
+# default settings mirror the AWS cluster module's defaults — clusters that
+# don't ask for ACME shouldn't pay for an unused UAMI, but external-dns is
+# baseline-on so any cluster can publish hostnames once a zone is wired in.
+run "workload_identity_defaults" {
+  command = plan
+
+  variables {
+    context_id         = "test"
+    name               = "windsor-aks"
+    kubernetes_version = "1.34"
+  }
+
+  assert {
+    condition     = length(azurerm_user_assigned_identity.cert_manager) == 0
+    error_message = "cert-manager UAMI must not be provisioned by default."
+  }
+
+  assert {
+    condition     = length(azurerm_federated_identity_credential.cert_manager) == 0
+    error_message = "cert-manager federated credential must not be provisioned by default."
+  }
+
+  assert {
+    condition     = length(azurerm_user_assigned_identity.external_dns) == 1
+    error_message = "external-dns UAMI must be provisioned by default (matches the AWS create_external_dns_role default)."
+  }
+
+  assert {
+    condition     = length(azurerm_federated_identity_credential.external_dns) == 1
+    error_message = "external-dns federated credential must be provisioned by default."
+  }
+
+  assert {
+    condition     = azurerm_federated_identity_credential.external_dns[0].subject == "system:serviceaccount:system-dns:external-dns"
+    error_message = "Default federated credential subject must target the external-dns SA in system-dns."
+  }
+}
+
+# Tests cert-manager Workload Identity provisioning end-to-end: the UAMI is
+# created, the federated credential subject targets the cert-manager SA in
+# system-pki, and the role assignment is scoped to each supplied zone ID.
+# The fan-out via for_each over zone IDs lets the operator hand cert-manager
+# multiple zones (e.g. apex + delegated subdomain) with one var.
+run "cert_manager_workload_identity" {
+  command = plan
+
+  variables {
+    context_id                   = "test"
+    name                         = "windsor-aks"
+    kubernetes_version           = "1.34"
+    create_cert_manager_identity = true
+    cert_manager_dns_zone_ids = [
+      "/subscriptions/12345678-1234-9876-4563-123456789012/resourceGroups/rg-dns-test/providers/Microsoft.Network/dnszones/example.com",
+      "/subscriptions/12345678-1234-9876-4563-123456789012/resourceGroups/rg-dns-test/providers/Microsoft.Network/dnszones/example.org"
+    ]
+  }
+
+  assert {
+    condition     = length(azurerm_user_assigned_identity.cert_manager) == 1
+    error_message = "cert-manager UAMI should be provisioned when create_cert_manager_identity is true."
+  }
+
+  assert {
+    condition     = azurerm_user_assigned_identity.cert_manager[0].name == "windsor-aks-test-cert-manager"
+    error_message = "cert-manager UAMI name should follow <cluster_name>-cert-manager."
+  }
+
+  assert {
+    condition     = length(azurerm_role_assignment.cert_manager_dns) == 2
+    error_message = "One DNS Zone Contributor assignment per zone ID."
+  }
+
+  assert {
+    condition     = azurerm_federated_identity_credential.cert_manager[0].subject == "system:serviceaccount:system-pki:cert-manager"
+    error_message = "Federated credential subject must follow system:serviceaccount:<ns>:<sa> using the cert_manager_namespace + cert_manager_service_account defaults."
+  }
+
+  assert {
+    condition     = contains(azurerm_federated_identity_credential.cert_manager[0].audience, "api://AzureADTokenExchange")
+    error_message = "Audience must include api://AzureADTokenExchange — Azure AD rejects the token exchange otherwise."
+  }
+}
+
+# Tests external-dns can be turned off explicitly — important for clusters
+# that intentionally publish DNS records via another mechanism (Azure
+# Application Routing add-on, manual records, etc.).
+run "external_dns_identity_disabled" {
+  command = plan
+
+  variables {
+    context_id                   = "test"
+    name                         = "windsor-aks"
+    kubernetes_version           = "1.34"
+    create_external_dns_identity = false
+  }
+
+  assert {
+    condition     = length(azurerm_user_assigned_identity.external_dns) == 0
+    error_message = "external-dns UAMI should not be provisioned when create_external_dns_identity is false."
+  }
+
+  assert {
+    condition     = length(azurerm_role_assignment.external_dns_zones) == 0
+    error_message = "external-dns role assignments should not be provisioned when create_external_dns_identity is false."
+  }
+}
+
 # Tests that when enable_volume_snapshots is false, snapshot permissions are not included in the role definition.
 # This verifies the conditional logic that excludes snapshot operations when volume snapshots are disabled.
 run "volume_snapshots_disabled" {

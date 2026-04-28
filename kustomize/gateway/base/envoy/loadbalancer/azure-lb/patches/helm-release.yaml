@@ -1,0 +1,30 @@
+---
+# Azure-specific annotations on the Envoy Gateway's data-plane Service. AKS's
+# Cloud Controller Manager provisions a Standard SKU Azure Load Balancer for
+# any Service: LoadBalancer with no controller add-on required (unlike AWS,
+# which needs the AWS LB Controller for modern NLB/ALB shapes). The only
+# annotation we set here is the internal/external toggle: empty by default
+# (= public Standard LB with a public IP, the AKS default), flipped to "true"
+# in private mode by the platform-azure facet so the LB lives on a private
+# subnet IP only. Strategic-merge stacks on top of loadbalancer/patches/
+# helm-release.yaml which sets type=LoadBalancer.
+apiVersion: helm.toolkit.fluxcd.io/v2
+kind: HelmRelease
+metadata:
+  name: envoy-gateway
+  namespace: system-gateway
+spec:
+  values:
+    config:
+      envoyGateway:
+        envoyProxy:
+          provider:
+            type: Kubernetes
+            kubernetes:
+              envoyService:
+                patch:
+                  type: StrategicMerge
+                  value:
+                    metadata:
+                      annotations:
+                        service.beta.kubernetes.io/azure-load-balancer-internal: "${lb_internal:-false}"

@@ -365,7 +365,7 @@ kustomize:
       # original two branches) only ever produces a `public` ClusterIssuer,
       # so without this branch the cert would reference a non-existent
       # issuer in private mode.
-      - "${gateway.access == 'private' && (dns.private_domain ?? '') != '' ? 'private-issuer/selfsigned' : ((dns.public_domain ?? '') != '' ? 'public-issuer/acme' : 'public-issuer/selfsigned')}"
+      - "${gateway.access == 'private' && (dns.private_domain ?? '') != '' ? 'private-issuer/selfsigned' : ((dns.public_domain ?? '') != '' ? 'public-issuer/acme/route53' : 'public-issuer/selfsigned')}"
     timeout: 5m
     interval: 5m
     substitutions:

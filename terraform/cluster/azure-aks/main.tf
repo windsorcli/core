@@ -400,9 +400,16 @@ resource "azurerm_kubernetes_cluster" "main" {
     scale_down_utilization_threshold = var.auto_scaler_profile.scale_down_utilization_threshold
   }
 
-  workload_autoscaler_profile {
-    keda_enabled                    = var.workload_autoscaler_profile.keda_enabled
-    vertical_pod_autoscaler_enabled = var.workload_autoscaler_profile.vertical_pod_autoscaler_enabled
+  # Emit the block only when at least one autoscaler is enabled. Azure's GET
+  # response omits this block entirely when both knobs are at their default
+  # (false), so an unconditional block here produces "+ workload_autoscaler_profile"
+  # drift on every plan against an unchanged cluster.
+  dynamic "workload_autoscaler_profile" {
+    for_each = (var.workload_autoscaler_profile.keda_enabled || var.workload_autoscaler_profile.vertical_pod_autoscaler_enabled) ? [1] : []
+    content {
+      keda_enabled                    = var.workload_autoscaler_profile.keda_enabled
+      vertical_pod_autoscaler_enabled = var.workload_autoscaler_profile.vertical_pod_autoscaler_enabled
+    }
   }
 
   oidc_issuer_enabled          = var.oidc_issuer_enabled
@@ -596,4 +603,74 @@ resource "azurerm_role_assignment" "aks_rbac_admin" {
   scope                = azurerm_kubernetes_cluster.main.id
   role_definition_name = "Azure Kubernetes Service RBAC Cluster Admin"
   principal_id         = each.value
+}
+
+#-----------------------------------------------------------------------------------------------------------------------
+# Workload Identity for cert-manager
+#
+# AKS analogue of the EKS create_cert_manager_role + Pod Identity association
+# pair. cert-manager authenticates to Azure DNS via Workload Identity:
+# the SA token is exchanged for an Azure AD token via the cluster's OIDC
+# issuer, scoped to a User-Assigned Managed Identity with DNS Zone
+# Contributor on the specified zone(s). No client secret stored anywhere.
+#
+# Off by default — only provisioned when ACME is in play (operator set
+# dns.public_domain and the facet flips create_cert_manager_identity on).
+#-----------------------------------------------------------------------------------------------------------------------
+
+resource "azurerm_user_assigned_identity" "cert_manager" {
+  count               = var.create_cert_manager_identity ? 1 : 0
+  name                = "${local.cluster_name}-cert-manager"
+  resource_group_name = azurerm_resource_group.aks.name
+  location            = azurerm_resource_group.aks.location
+  tags                = local.tags
+}
+
+resource "azurerm_role_assignment" "cert_manager_dns" {
+  for_each             = var.create_cert_manager_identity ? toset(var.cert_manager_dns_zone_ids) : toset([])
+  scope                = each.value
+  role_definition_name = "DNS Zone Contributor"
+  principal_id         = azurerm_user_assigned_identity.cert_manager[0].principal_id
+}
+
+resource "azurerm_federated_identity_credential" "cert_manager" {
+  count                     = var.create_cert_manager_identity ? 1 : 0
+  name                      = "cert-manager"
+  audience                  = ["api://AzureADTokenExchange"]
+  issuer                    = azurerm_kubernetes_cluster.main.oidc_issuer_url
+  user_assigned_identity_id = azurerm_user_assigned_identity.cert_manager[0].id
+  subject                   = "system:serviceaccount:system-pki:cert-manager"
+}
+
+#-----------------------------------------------------------------------------------------------------------------------
+# Workload Identity for external-dns
+#
+# Same pattern as cert-manager. external-dns needs DNS Zone Contributor to
+# create / update / delete record sets in the target zone. Default-on so
+# any cluster on AKS can publish hostnames once the operator passes a zone
+# ID — matches the EKS facet's create_external_dns_role default.
+#-----------------------------------------------------------------------------------------------------------------------
+
+resource "azurerm_user_assigned_identity" "external_dns" {
+  count               = var.create_external_dns_identity ? 1 : 0
+  name                = "${local.cluster_name}-external-dns"
+  resource_group_name = azurerm_resource_group.aks.name
+  location            = azurerm_resource_group.aks.location
+  tags                = local.tags
+}
+
+resource "azurerm_role_assignment" "external_dns_zones" {
+  for_each             = var.create_external_dns_identity ? toset(var.external_dns_dns_zone_ids) : toset([])
+  scope                = each.value
+  role_definition_name = "DNS Zone Contributor"
+  principal_id         = azurerm_user_assigned_identity.external_dns[0].principal_id
+}
+
+resource "azurerm_federated_identity_credential" "external_dns" {
+  count                     = var.create_external_dns_identity ? 1 : 0
+  name                      = "external-dns"
+  audience                  = ["api://AzureADTokenExchange"]
+  issuer                    = azurerm_kubernetes_cluster.main.oidc_issuer_url
+  user_assigned_identity_id = azurerm_user_assigned_identity.external_dns[0].id
+  subject                   = "system:serviceaccount:system-dns:external-dns"
 }

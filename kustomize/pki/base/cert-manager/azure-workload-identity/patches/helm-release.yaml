@@ -1,0 +1,16 @@
+---
+apiVersion: helm.toolkit.fluxcd.io/v2
+kind: HelmRelease
+metadata:
+  name: cert-manager
+  namespace: system-pki
+spec:
+  values:
+    serviceAccount:
+      labels:
+        azure.workload.identity/use: "true"
+      annotations:
+        azure.workload.identity/client-id: ${cert_manager_client_id}
+        azure.workload.identity/tenant-id: ${cert_manager_tenant_id}
+    podLabels:
+      azure.workload.identity/use: "true"

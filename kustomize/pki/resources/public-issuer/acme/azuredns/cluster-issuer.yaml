@@ -1,0 +1,22 @@
+apiVersion: cert-manager.io/v1
+kind: ClusterIssuer
+metadata:
+  name: public-acme
+spec:
+  acme:
+    server: ${acme_server}
+    email: ${acme_email}
+    privateKeySecretRef:
+      name: acme-account-key
+    solvers:
+      - selector:
+          dnsZones:
+            - ${acme_dns_zone}
+        dns01:
+          azureDNS:
+            hostedZoneName: ${acme_dns_zone}
+            resourceGroupName: ${acme_dns_zone_resource_group}
+            subscriptionID: ${acme_dns_zone_subscription_id}
+            tenantID: ${cert_manager_tenant_id}
+            managedIdentity:
+              clientID: ${cert_manager_client_id}

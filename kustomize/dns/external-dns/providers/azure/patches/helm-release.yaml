@@ -1,0 +1,48 @@
+---
+apiVersion: helm.toolkit.fluxcd.io/v2
+kind: HelmRelease
+metadata:
+  name: external-dns
+  namespace: system-dns
+spec:
+  valuesFrom:
+    - kind: ConfigMap
+      name: external-dns
+      valuesKey: txt_owner_id
+      targetPath: txtOwnerId
+  values:
+    provider: azure
+    policy: sync
+    registry: txt
+    domainFilters:
+      - ${external_domain:-test}
+    extraArgs:
+      # subscription + resource group of the zone external-dns writes to.
+      # external-dns reads tenant + client id from the workload-identity-
+      # injected env vars on the pod, but it still needs to know which sub
+      # and RG the zone lives in — pass them as flags so we don't need to
+      # mount an azure.json Secret.
+      - --azure-subscription-id=${external_dns_dns_zone_subscription_id:-}
+      - --azure-resource-group=${external_dns_dns_zone_resource_group:-}
+      # Pin the controller to a specific zone ID. Same belt-and-braces as
+      # the AWS provider — a same-named public+private zone pair could
+      # exist (split-horizon DNS), and the ID filter narrows the match.
+      - --zone-id-filter=${zone_id_filter:-}
+    podLabels:
+      # Wakes the workload-identity webhook to inject AZURE_CLIENT_ID,
+      # AZURE_TENANT_ID, AZURE_FEDERATED_TOKEN_FILE, AZURE_AUTHORITY_HOST
+      # env vars and project the SA token into the pod. Without this the
+      # controller falls back to azure.json / env config and fails auth.
+      azure.workload.identity/use: "true"
+    serviceAccount:
+      create: true
+      name: external-dns
+      labels:
+        azure.workload.identity/use: "true"
+      annotations:
+        # Binds this SA to the cert-manager-distinct external-dns UAMI
+        # provisioned by the cluster module. Federated credential subject
+        # was set to system:serviceaccount:system-dns:external-dns at
+        # cluster apply time, so the OIDC exchange resolves to this UAMI.
+        azure.workload.identity/client-id: ${external_dns_client_id}
+        azure.workload.identity/tenant-id: ${external_dns_tenant_id}

@@ -133,6 +133,15 @@ variable "autoscaled_node_pool" {
     host_encryption_enabled = true
     min_count               = 1
     max_count               = 3
+    # Match Azure's at-create defaults exactly so the dynamic block always
+    # renders. Without these, the block isn't emitted, Azure populates its
+    # own defaults, and every subsequent plan tries to "remove" the block
+    # the API just added back.
+    upgrade_settings = {
+      drain_timeout_in_minutes      = 0
+      max_surge                     = "10%"
+      node_soak_duration_in_minutes = 0
+    }
   }
 }
 
@@ -338,6 +347,30 @@ variable "image_cleaner_interval_hours" {
   description = "Interval in hours for Image Cleaner to run"
   type        = number
   default     = 48
+}
+
+variable "create_cert_manager_identity" {
+  description = "Whether to provision a User-Assigned Managed Identity, DNS Zone Contributor role assignments, and Federated Identity Credential for cert-manager's azureDNS ACME DNS-01 solver. Enable when cert-manager will issue ACME certificates against an Azure DNS zone."
+  type        = bool
+  default     = false
+}
+
+variable "cert_manager_dns_zone_ids" {
+  description = "Full Azure resource IDs of DNS zones cert-manager is allowed to write ACME challenge records to. The DNS Zone Contributor role assignment is scoped to these zones — leave empty when create_cert_manager_identity is false."
+  type        = list(string)
+  default     = []
+}
+
+variable "create_external_dns_identity" {
+  description = "Whether to provision a User-Assigned Managed Identity, DNS Zone Contributor role assignments, and Federated Identity Credential for external-dns. Enable when external-dns will publish records to an Azure DNS zone."
+  type        = bool
+  default     = true
+}
+
+variable "external_dns_dns_zone_ids" {
+  description = "Full Azure resource IDs of DNS zones external-dns is allowed to manage records in. The DNS Zone Contributor role assignment is scoped to these zones — leave empty when create_external_dns_identity is false."
+  type        = list(string)
+  default     = []
 }
 
 variable "kubelogin_mode" {
