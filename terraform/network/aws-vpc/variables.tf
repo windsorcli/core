@@ -56,6 +56,12 @@ variable "single_nat_gateway" {
   default     = false
 }
 
+variable "enable_flow_logs" {
+  description = "Deprecated. No effect; kept for backwards compatibility with callers that still set it. Use enable_cloudwatch_logs to gate VPC flow log creation."
+  type        = bool
+  default     = true
+}
+
 variable "create_flow_logs_kms_key" {
   description = "Create a KMS key for flow logs"
   type        = bool
