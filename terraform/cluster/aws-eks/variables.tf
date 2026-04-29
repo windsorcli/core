@@ -252,7 +252,7 @@ variable "enable_cloudwatch_logs" {
 }
 
 variable "preserve_logs_on_destroy" {
-  description = "When true, the EKS control plane log group survives terraform destroy. Also suppresses the post-destroy mop-up that would otherwise delete the log group EKS recreates after the cluster is torn down. Set false for ephemeral environments where the log group should be deleted with the cluster."
+  description = "When true, the EKS log group survives terraform destroy via skip_destroy and the post-destroy mop-up is suppressed. Recreating a cluster with the same name will fail with ResourceAlreadyExistsException unless the orphan group is imported or deleted first."
   type        = bool
   default     = false
 }
