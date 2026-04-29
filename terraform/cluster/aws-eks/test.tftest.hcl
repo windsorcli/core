@@ -389,6 +389,27 @@ run "multiple_invalid_inputs" {
   }
 }
 
+# Surfaces the migration message rather than terraform's generic
+# "Missing required argument" so operators relying on the legacy
+# tag-based discovery get a useful pointer.
+run "vpc_id_null_emits_migration_error" {
+  command = plan
+  variables {
+    context_id = "test"
+    vpc_id     = null
+  }
+  expect_failures = [var.vpc_id]
+}
+
+run "private_subnet_ids_empty_emits_migration_error" {
+  command = plan
+  variables {
+    context_id         = "test"
+    private_subnet_ids = []
+  }
+  expect_failures = [var.private_subnet_ids]
+}
+
 # Verifies the cert-manager IAM role + Pod Identity association are NOT
 # created by default (var.create_cert_manager_role defaults to false).
 run "cert_manager_role_disabled_by_default" {

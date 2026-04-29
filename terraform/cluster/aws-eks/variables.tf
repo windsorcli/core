@@ -76,11 +76,21 @@ variable "cluster_api_access_cidr_block" {
 variable "vpc_id" {
   description = "ID of the VPC where the EKS cluster will be created. Pipe network/aws-vpc's vpc_id output."
   type        = string
+  default     = null
+  validation {
+    condition     = var.vpc_id != null
+    error_message = "vpc_id is required. The tag-based VPC discovery this module previously used has been removed; pipe network/aws-vpc's vpc_id output, e.g. inputs.vpc_id = terraform_output('network', 'vpc_id') in the platform-aws facet."
+  }
 }
 
 variable "private_subnet_ids" {
   description = "Private subnet IDs for EKS control plane ENIs and node groups. Pipe network/aws-vpc's private_subnet_ids output."
   type        = list(string)
+  default     = null
+  validation {
+    condition     = var.private_subnet_ids != null && length(var.private_subnet_ids) > 0
+    error_message = "private_subnet_ids is required and must be non-empty. The tag-based subnet discovery this module previously used has been removed; pipe network/aws-vpc's private_subnet_ids output, e.g. inputs.private_subnet_ids = terraform_output('network', 'private_subnet_ids') in the platform-aws facet."
+  }
 }
 
 variable "node_groups" {
