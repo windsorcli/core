@@ -56,6 +56,12 @@ variable "single_nat_gateway" {
   default     = false
 }
 
+variable "enable_flow_logs" {
+  description = "Deprecated. No effect; kept for backwards compatibility with callers that still set it. Use enable_cloudwatch_logs to gate VPC flow log creation."
+  type        = bool
+  default     = true
+}
+
 variable "create_flow_logs_kms_key" {
   description = "Create a KMS key for flow logs"
   type        = bool
@@ -72,6 +78,12 @@ variable "enable_cloudwatch_logs" {
   description = "Whether to enable CloudWatch log group creation for VPC flow logs"
   type        = bool
   default     = true
+}
+
+variable "preserve_logs_on_destroy" {
+  description = "When true, the VPC flow logs log group survives terraform destroy via skip_destroy and ages out via retention_in_days. Recreating a VPC with the same name will fail with ResourceAlreadyExistsException unless the orphan group is imported or deleted first."
+  type        = bool
+  default     = false
 }
 
 variable "tags" {

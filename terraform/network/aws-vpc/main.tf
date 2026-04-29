@@ -78,6 +78,7 @@ resource "aws_cloudwatch_log_group" "vpc_flow_logs" {
   name              = "/aws/vpc/flow-logs/${local.name}"
   retention_in_days = 365
   kms_key_id        = var.create_flow_logs_kms_key ? aws_kms_key.vpc_flow_logs[0].arn : var.flow_logs_kms_key_id
+  skip_destroy      = var.preserve_logs_on_destroy
 
   tags = {
     Name = "${local.name}-flow-logs"

@@ -121,6 +121,38 @@ run "minimal_configuration_cloudwatch_logs_disabled" {
   }
 }
 
+# Default: skip_destroy is false so terraform destroy removes the log
+# group along with the cluster. CI / ephemeral contexts hit this path.
+run "preserve_logs_default_false" {
+  command = plan
+
+  variables {
+    context_id = "test"
+  }
+
+  assert {
+    condition     = aws_cloudwatch_log_group.eks_cluster[0].skip_destroy == false
+    error_message = "skip_destroy must default to false so destroy cleans up log groups by default."
+  }
+}
+
+# Opt-in: production contexts can flip the flag true so logs survive
+# teardown and age out via retention_in_days. Operators are responsible
+# for the orphan log group on subsequent same-name rebuilds.
+run "preserve_logs_opt_in" {
+  command = plan
+
+  variables {
+    context_id               = "test"
+    preserve_logs_on_destroy = true
+  }
+
+  assert {
+    condition     = aws_cloudwatch_log_group.eks_cluster[0].skip_destroy == true
+    error_message = "skip_destroy should be wired to preserve_logs_on_destroy and flip to true when opted in."
+  }
+}
+
 # Tests a full configuration with all optional variables explicitly set,
 # verifying that the module correctly applies all user-supplied values for node groups and feature flags.
 run "full_configuration" {
@@ -345,6 +377,27 @@ run "multiple_invalid_inputs" {
   variables {
     kubernetes_version = "v1.32"
   }
+}
+
+# Surfaces the migration message rather than terraform's generic
+# "Missing required argument" so operators relying on the legacy
+# tag-based discovery get a useful pointer.
+run "vpc_id_null_emits_migration_error" {
+  command = plan
+  variables {
+    context_id = "test"
+    vpc_id     = null
+  }
+  expect_failures = [var.vpc_id]
+}
+
+run "private_subnet_ids_empty_emits_migration_error" {
+  command = plan
+  variables {
+    context_id         = "test"
+    private_subnet_ids = []
+  }
+  expect_failures = [var.private_subnet_ids]
 }
 
 # Verifies the cert-manager IAM role + Pod Identity association are NOT

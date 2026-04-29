@@ -48,6 +48,7 @@ resource "aws_cloudwatch_log_group" "eks_cluster" {
   name              = "/aws/eks/${local.name}/cluster"
   retention_in_days = 365
   kms_key_id        = local.kms_key_arn
+  skip_destroy      = var.preserve_logs_on_destroy
 
   tags = merge(
     var.tags,
@@ -56,25 +57,6 @@ resource "aws_cloudwatch_log_group" "eks_cluster" {
       WindsorContextID = var.context_id
     }
   )
-}
-
-resource "null_resource" "delete_eks_log_group" {
-  count = var.enable_cloudwatch_logs ? 1 : 0
-
-  triggers = {
-    log_group_name = aws_cloudwatch_log_group.eks_cluster[0].name
-  }
-
-  # EKS may recreate this log group between the terraform delete and the
-  # cluster delete; mop up the recreated one. on_failure = continue makes
-  # the rerun case (group already gone) a no-op.
-  provisioner "local-exec" {
-    when       = destroy
-    command    = "aws logs delete-log-group --log-group-name \"${self.triggers.log_group_name}\""
-    on_failure = continue
-  }
-
-  depends_on = [aws_eks_cluster.main]
 }
 
 resource "aws_eks_cluster" "main" {

@@ -76,11 +76,21 @@ variable "cluster_api_access_cidr_block" {
 variable "vpc_id" {
   description = "ID of the VPC where the EKS cluster will be created. Pipe network/aws-vpc's vpc_id output."
   type        = string
+  default     = null
+  validation {
+    condition     = var.vpc_id != null
+    error_message = "vpc_id is required. The tag-based VPC discovery this module previously used has been removed; pipe network/aws-vpc's vpc_id output, e.g. inputs.vpc_id = terraform_output('network', 'vpc_id') in the platform-aws facet."
+  }
 }
 
 variable "private_subnet_ids" {
   description = "Private subnet IDs for EKS control plane ENIs and node groups. Pipe network/aws-vpc's private_subnet_ids output."
   type        = list(string)
+  default     = null
+  validation {
+    condition     = var.private_subnet_ids != null && length(var.private_subnet_ids) > 0
+    error_message = "private_subnet_ids is required and must be non-empty. The tag-based subnet discovery this module previously used has been removed; pipe network/aws-vpc's private_subnet_ids output, e.g. inputs.private_subnet_ids = terraform_output('network', 'private_subnet_ids') in the platform-aws facet."
+  }
 }
 
 variable "node_groups" {
@@ -239,6 +249,12 @@ variable "enable_cloudwatch_logs" {
   description = "Whether to enable CloudWatch log group creation for EKS control plane logs"
   type        = bool
   default     = true
+}
+
+variable "preserve_logs_on_destroy" {
+  description = "When true, the EKS log group survives terraform destroy via skip_destroy. False (default) deletes it; AWS may briefly recreate it during cluster shutdown writes, leaving a small orphan that is the accepted cost of opting out of preservation. Recreating a cluster with the same name after a preserve+destroy fails with ResourceAlreadyExistsException unless the orphan group is imported or deleted first."
+  type        = bool
+  default     = false
 }
 
 variable "enable_secrets_encryption" {

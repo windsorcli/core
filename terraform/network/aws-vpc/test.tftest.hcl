@@ -125,3 +125,34 @@ run "cloudwatch_logs_disabled" {
     error_message = "No VPC flow log should be created when logging is disabled"
   }
 }
+
+# Default: skip_destroy is false so terraform destroy removes the log
+# group along with the VPC. CI / ephemeral contexts hit this path.
+run "preserve_logs_default_false" {
+  command = plan
+
+  variables {
+    context_id = "test"
+  }
+
+  assert {
+    condition     = aws_cloudwatch_log_group.vpc_flow_logs[0].skip_destroy == false
+    error_message = "skip_destroy must default to false so destroy cleans up log groups by default."
+  }
+}
+
+# Opt-in: production contexts can flip the flag true so flow logs survive
+# teardown and age out via retention_in_days.
+run "preserve_logs_opt_in" {
+  command = plan
+
+  variables {
+    context_id               = "test"
+    preserve_logs_on_destroy = true
+  }
+
+  assert {
+    condition     = aws_cloudwatch_log_group.vpc_flow_logs[0].skip_destroy == true
+    error_message = "skip_destroy should be wired to preserve_logs_on_destroy and flip to true when opted in."
+  }
+}

@@ -637,3 +637,55 @@ cases:
     exclude:
       kustomize:
         - name: dns
+
+  # Default: retain_logs is false, so each AWS module that owns a
+  # CloudWatch log group receives preserve_logs_on_destroy=false. CI /
+  # ephemeral contexts hit this path so destroy fully cleans up the log
+  # groups along with the rest of the infra.
+  - name: retain_logs defaults false and reaches all log-owning modules
+    values:
+      provider: aws
+      gateway:
+        enabled: false
+      dns:
+        public_domain: example.com
+    expect:
+      terraform:
+        - name: network
+          path: network/aws-vpc
+          inputs:
+            preserve_logs_on_destroy: false
+        - name: dns-zone
+          path: dns/zone/route53
+          inputs:
+            preserve_logs_on_destroy: false
+        - name: cluster
+          path: cluster/aws-eks
+          inputs:
+            preserve_logs_on_destroy: false
+
+  # Opt-in: retain_logs=true propagates to every module so production
+  # contexts keep their CloudWatch log groups across rebuilds. Operators
+  # then handle the orphan-on-recreate caveat manually.
+  - name: retain_logs true propagates to every log-owning module
+    values:
+      provider: aws
+      gateway:
+        enabled: false
+      dns:
+        public_domain: example.com
+      retain_logs: true
+    expect:
+      terraform:
+        - name: network
+          path: network/aws-vpc
+          inputs:
+            preserve_logs_on_destroy: true
+        - name: dns-zone
+          path: dns/zone/route53
+          inputs:
+            preserve_logs_on_destroy: true
+        - name: cluster
+          path: cluster/aws-eks
+          inputs:
+            preserve_logs_on_destroy: true

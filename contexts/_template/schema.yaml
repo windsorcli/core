@@ -138,6 +138,16 @@ properties:
     default: false
     description: Enable development mode with additional observability and debugging tools
 
+  # Retain provider-managed log groups on destroy. Default false so CI and
+  # ephemeral contexts don't leak log groups across rebuilds. Flip true in
+  # production where forensics or compliance retention should outlive the
+  # infra. Each platform facet pipes this into its log-owning modules
+  # (CloudWatch on AWS; equivalent on other providers).
+  retain_logs:
+    type: boolean
+    default: false
+    description: Retain provider-managed log groups on terraform destroy. False (default) deletes them with the infra; true preserves them so they age out via per-module retention policies. Recreating same-named infra after a retain+destroy fails with a duplicate-resource error until the orphan is imported or deleted.
+
   # AWS provider configuration (only consumed when platform == 'aws').
   aws:
     type: object
