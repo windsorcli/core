@@ -254,7 +254,7 @@ variable "enable_cloudwatch_logs" {
 variable "preserve_logs_on_destroy" {
   description = "When true, the EKS log group survives terraform destroy via skip_destroy and the post-destroy mop-up is suppressed. Recreating a cluster with the same name will fail with ResourceAlreadyExistsException unless the orphan group is imported or deleted first."
   type        = bool
-  default     = false
+  default     = true
 }
 
 variable "enable_secrets_encryption" {

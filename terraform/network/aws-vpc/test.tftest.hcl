@@ -126,9 +126,11 @@ run "cloudwatch_logs_disabled" {
   }
 }
 
-# Default: skip_destroy is false so terraform destroy removes the log group
-# along with the rest of the VPC stack. Matches legacy behavior.
-run "preserve_logs_default_false" {
+# Default: skip_destroy is true so historical flow logs survive teardown
+# and age out via retention_in_days. Logs outliving the infra is the
+# safer default for environments that may need forensics or compliance
+# retention; ephemeral envs opt out by setting preserve_logs_on_destroy=false.
+run "preserve_logs_default_true" {
   command = plan
 
   variables {
@@ -136,24 +138,23 @@ run "preserve_logs_default_false" {
   }
 
   assert {
-    condition     = aws_cloudwatch_log_group.vpc_flow_logs[0].skip_destroy == false
-    error_message = "skip_destroy must default to false so legacy destroy behavior is preserved when the variable is not set."
+    condition     = aws_cloudwatch_log_group.vpc_flow_logs[0].skip_destroy == true
+    error_message = "skip_destroy must default to true so logs survive destroy by default."
   }
 }
 
-# Opt-in: skip_destroy=true removes the log group from terraform state on
-# destroy without calling DeleteLogGroup, so historical flow logs survive
-# the teardown and age out via retention_in_days.
-run "preserve_logs_on_destroy_enabled" {
+# Opt-out: ephemeral environments can flip the flag false to get the
+# original "destroy removes the log group" behavior.
+run "preserve_logs_opt_out" {
   command = plan
 
   variables {
     context_id               = "test"
-    preserve_logs_on_destroy = true
+    preserve_logs_on_destroy = false
   }
 
   assert {
-    condition     = aws_cloudwatch_log_group.vpc_flow_logs[0].skip_destroy == true
-    error_message = "skip_destroy should be wired to preserve_logs_on_destroy."
+    condition     = aws_cloudwatch_log_group.vpc_flow_logs[0].skip_destroy == false
+    error_message = "skip_destroy should be wired to preserve_logs_on_destroy and flip to false when opted out."
   }
 }

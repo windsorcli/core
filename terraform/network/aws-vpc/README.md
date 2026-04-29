@@ -61,7 +61,7 @@ No modules.
 | <a name="input_enable_nat_gateway"></a> [enable\_nat\_gateway](#input\_enable\_nat\_gateway) | Enable NAT Gateway for private subnets | `bool` | `true` | no |
 | <a name="input_flow_logs_kms_key_id"></a> [flow\_logs\_kms\_key\_id](#input\_flow\_logs\_kms\_key\_id) | The KMS key ID for flow logs | `string` | `null` | no |
 | <a name="input_name"></a> [name](#input\_name) | Name prefix for all resources in the VPC | `string` | `""` | no |
-| <a name="input_preserve_logs_on_destroy"></a> [preserve\_logs\_on\_destroy](#input\_preserve\_logs\_on\_destroy) | When true, the VPC flow logs log group survives terraform destroy via skip\_destroy and ages out via retention\_in\_days. Recreating a VPC with the same name will fail with ResourceAlreadyExistsException unless the orphan group is imported or deleted first. | `bool` | `false` | no |
+| <a name="input_preserve_logs_on_destroy"></a> [preserve\_logs\_on\_destroy](#input\_preserve\_logs\_on\_destroy) | When true, the VPC flow logs log group survives terraform destroy via skip\_destroy and ages out via retention\_in\_days. Recreating a VPC with the same name will fail with ResourceAlreadyExistsException unless the orphan group is imported or deleted first. | `bool` | `true` | no |
 | <a name="input_single_nat_gateway"></a> [single\_nat\_gateway](#input\_single\_nat\_gateway) | Use a single NAT Gateway for all private subnets | `bool` | `false` | no |
 | <a name="input_subnet_newbits"></a> [subnet\_newbits](#input\_subnet\_newbits) | Number of new bits for the subnet | `number` | `4` | no |
 | <a name="input_tags"></a> [tags](#input\_tags) | Additional tags for all resources | `map(string)` | `{}` | no |

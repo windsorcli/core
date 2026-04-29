@@ -146,27 +146,28 @@ run "query_logging_enabled" {
     error_message = "query_log binding must be created."
   }
 
-  # Default: skip_destroy is off so destroy removes the query log group.
+  # Default: skip_destroy is on so the query log group survives destroy
+  # and ages out via query_log_retention_days.
   assert {
-    condition     = aws_cloudwatch_log_group.query_log[0].skip_destroy == false
-    error_message = "skip_destroy must default to false so legacy destroy behavior is preserved when preserve_logs_on_destroy is not set."
+    condition     = aws_cloudwatch_log_group.query_log[0].skip_destroy == true
+    error_message = "skip_destroy must default to true so logs survive destroy by default."
   }
 }
 
-# Opt-in: skip_destroy=true preserves the query log group on destroy. Logs
-# age out via query_log_retention_days instead.
-run "preserve_logs_on_destroy_enabled" {
+# Opt-out: ephemeral environments can flip the flag false to get the
+# original "destroy removes the log group" behavior.
+run "preserve_logs_opt_out" {
   command = plan
 
   variables {
     context_id               = "test"
     domain_name              = "example.com"
     enable_query_logging     = true
-    preserve_logs_on_destroy = true
+    preserve_logs_on_destroy = false
   }
 
   assert {
-    condition     = aws_cloudwatch_log_group.query_log[0].skip_destroy == true
-    error_message = "skip_destroy should be wired to preserve_logs_on_destroy."
+    condition     = aws_cloudwatch_log_group.query_log[0].skip_destroy == false
+    error_message = "skip_destroy should flip to false when opted out."
   }
 }

@@ -161,6 +161,13 @@ properties:
       mwaa_endpoint:
         type: string
         description: Endpoint for Managed Workflows for Apache Airflow.
+      preserve_logs_on_destroy:
+        type: boolean
+        default: true
+        description: |
+          When true, CloudWatch log groups created by AWS modules (VPC flow logs, EKS control plane, Route53 query logs) survive terraform destroy.
+          Logs continue to age out via each module's retention_in_days. Set false for ephemeral environments where the log groups should be deleted with the infra.
+          Caveat: with this on, recreating same-named infra later will fail with ResourceAlreadyExistsException on the log group; the orphan must be imported or deleted first.
     description: AWS provider authentication and endpoint configuration
 
   # Azure provider configuration (only consumed when platform == 'azure').

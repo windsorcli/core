@@ -637,3 +637,55 @@ cases:
     exclude:
       kustomize:
         - name: dns
+
+  # Default: aws.preserve_logs_on_destroy is true, so each AWS module that
+  # owns a CloudWatch log group receives preserve_logs_on_destroy=true.
+  # Logs survive teardown and age out via each module's retention_in_days.
+  - name: preserve_logs_on_destroy defaults true and reaches all log-owning modules
+    values:
+      provider: aws
+      gateway:
+        enabled: false
+      dns:
+        public_domain: example.com
+    expect:
+      terraform:
+        - name: network
+          path: network/aws-vpc
+          inputs:
+            preserve_logs_on_destroy: true
+        - name: dns-zone
+          path: dns/zone/route53
+          inputs:
+            preserve_logs_on_destroy: true
+        - name: cluster
+          path: cluster/aws-eks
+          inputs:
+            preserve_logs_on_destroy: true
+
+  # Opt-out: aws.preserve_logs_on_destroy=false propagates to every module.
+  # Ephemeral environments (CI, demo, throwaway dev) take this path so
+  # destroy fully cleans up the log groups along with the rest of the infra.
+  - name: aws.preserve_logs_on_destroy false propagates to every log-owning module
+    values:
+      provider: aws
+      gateway:
+        enabled: false
+      dns:
+        public_domain: example.com
+      aws:
+        preserve_logs_on_destroy: false
+    expect:
+      terraform:
+        - name: network
+          path: network/aws-vpc
+          inputs:
+            preserve_logs_on_destroy: false
+        - name: dns-zone
+          path: dns/zone/route53
+          inputs:
+            preserve_logs_on_destroy: false
+        - name: cluster
+          path: cluster/aws-eks
+          inputs:
+            preserve_logs_on_destroy: false

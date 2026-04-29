@@ -121,9 +121,10 @@ run "minimal_configuration_cloudwatch_logs_disabled" {
   }
 }
 
-# Default: skip_destroy is false and the post-destroy mop-up null_resource
-# is wired in. Matches legacy behavior.
-run "preserve_logs_default_false" {
+# Default: skip_destroy is true so the EKS log group survives teardown.
+# The post-destroy mop-up null_resource also drops out — there's nothing
+# to clean up because the recreate writes back into the preserved group.
+run "preserve_logs_default_true" {
   command = plan
 
   variables {
@@ -131,35 +132,35 @@ run "preserve_logs_default_false" {
   }
 
   assert {
-    condition     = aws_cloudwatch_log_group.eks_cluster[0].skip_destroy == false
-    error_message = "skip_destroy must default to false so legacy destroy behavior is preserved when the variable is not set."
-  }
-
-  assert {
-    condition     = length(null_resource.delete_eks_log_group) == 1
-    error_message = "Mop-up null_resource must exist when logs are not being preserved — that's the codepath that handles AWS recreating the group after cluster delete."
-  }
-}
-
-# Opt-in: skip_destroy=true preserves the log group on terraform destroy.
-# The mop-up null_resource also drops out — nothing to clean up because the
-# recreate writes back into the preserved group.
-run "preserve_logs_on_destroy_enabled" {
-  command = plan
-
-  variables {
-    context_id               = "test"
-    preserve_logs_on_destroy = true
-  }
-
-  assert {
     condition     = aws_cloudwatch_log_group.eks_cluster[0].skip_destroy == true
-    error_message = "skip_destroy should be wired to preserve_logs_on_destroy."
+    error_message = "skip_destroy must default to true so logs survive destroy by default."
   }
 
   assert {
     condition     = length(null_resource.delete_eks_log_group) == 0
     error_message = "Mop-up null_resource must not be created when preserving logs — there's nothing for it to delete."
+  }
+}
+
+# Opt-out: ephemeral environments can flip the flag false to get the
+# original behavior — the log group is destroyed and the post-destroy
+# mop-up handles the EKS recreate race.
+run "preserve_logs_opt_out" {
+  command = plan
+
+  variables {
+    context_id               = "test"
+    preserve_logs_on_destroy = false
+  }
+
+  assert {
+    condition     = aws_cloudwatch_log_group.eks_cluster[0].skip_destroy == false
+    error_message = "skip_destroy should be wired to preserve_logs_on_destroy and flip to false when opted out."
+  }
+
+  assert {
+    condition     = length(null_resource.delete_eks_log_group) == 1
+    error_message = "Mop-up null_resource must be created when not preserving logs — that's the codepath that handles AWS recreating the group after cluster delete."
   }
 }
 
