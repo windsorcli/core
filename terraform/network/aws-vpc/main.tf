@@ -6,10 +6,6 @@ terraform {
       source  = "hashicorp/aws"
       version = "6.42.0"
     }
-    random = {
-      source  = "hashicorp/random"
-      version = "3.8.1"
-    }
   }
 }
 
@@ -77,13 +73,6 @@ resource "aws_flow_log" "main" {
   }
 }
 
-resource "random_string" "log_group_suffix" {
-  count   = var.enable_flow_logs ? 1 : 0
-  length  = 3
-  special = false
-  upper   = false
-}
-
 resource "aws_cloudwatch_log_group" "vpc_flow_logs" {
   count             = var.enable_cloudwatch_logs ? 1 : 0
   name              = "/aws/vpc/flow-logs/${local.name}"
@@ -93,21 +82,6 @@ resource "aws_cloudwatch_log_group" "vpc_flow_logs" {
   tags = {
     Name = "${local.name}-flow-logs"
   }
-}
-
-resource "null_resource" "delete_vpc_flow_logs" {
-  count = var.enable_cloudwatch_logs ? 1 : 0
-
-  triggers = {
-    log_group_name = aws_cloudwatch_log_group.vpc_flow_logs[0].name
-  }
-
-  provisioner "local-exec" {
-    when    = destroy
-    command = "aws logs delete-log-group --log-group-name \"${self.triggers.log_group_name}\""
-  }
-
-  depends_on = [aws_vpc.main]
 }
 
 resource "aws_kms_key" "vpc_flow_logs" {

@@ -70,7 +70,6 @@ run "full_configuration" {
     cidr_block         = "10.30.0.0/16"
     availability_zones = 2
     subnet_newbits     = 8
-    enable_flow_logs   = true
     context_id         = "test"
   }
 

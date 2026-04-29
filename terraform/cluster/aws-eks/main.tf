@@ -26,25 +26,6 @@ provider "aws" {
 # Data
 #-----------------------------------------------------------------------------------------------------------------------
 
-data "aws_vpc" "default" {
-  count = var.vpc_id == null ? 1 : 0
-  filter {
-    name   = "tag:WindsorContextID"
-    values = [var.context_id]
-  }
-}
-
-data "aws_subnets" "private" {
-  filter {
-    name   = "tag:Tier"
-    values = ["private"]
-  }
-  filter {
-    name   = "vpc-id"
-    values = [var.vpc_id != null ? var.vpc_id : data.aws_vpc.default[0].id]
-  }
-}
-
 data "aws_region" "current" {}
 
 locals {
@@ -105,7 +86,7 @@ resource "aws_eks_cluster" "main" {
   version  = var.kubernetes_version
 
   vpc_config {
-    subnet_ids              = data.aws_subnets.private.ids
+    subnet_ids              = var.private_subnet_ids
     endpoint_private_access = var.endpoint_private_access
     endpoint_public_access  = var.endpoint_public_access
     security_group_ids      = [aws_security_group.cluster_api_access.id]
@@ -141,7 +122,7 @@ resource "aws_eks_cluster" "main" {
 resource "aws_security_group" "cluster_api_access" {
   name        = "${local.name}-cluster-api-access"
   description = "Security group for EKS cluster API access"
-  vpc_id      = data.aws_vpc.default[0].id
+  vpc_id      = var.vpc_id
 
   ingress {
     from_port   = 443
@@ -391,7 +372,7 @@ resource "aws_eks_node_group" "main" {
   cluster_name           = aws_eks_cluster.main.name
   node_group_name_prefix = "${each.key}-"
   node_role_arn          = aws_iam_role.node_group.arn
-  subnet_ids             = data.aws_subnets.private.ids
+  subnet_ids             = var.private_subnet_ids
   instance_types         = each.value.instance_types
   capacity_type          = each.value.capacity_type == "ON_DEMAND" ? null : each.value.capacity_type
 
@@ -510,7 +491,7 @@ resource "aws_eks_fargate_profile" "main" {
   cluster_name           = aws_eks_cluster.main.name
   fargate_profile_name   = each.key
   pod_execution_role_arn = aws_iam_role.fargate.arn
-  subnet_ids             = data.aws_subnets.private.ids
+  subnet_ids             = var.private_subnet_ids
 
   dynamic "selector" {
     for_each = each.value.selectors
