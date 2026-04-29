@@ -40,3 +40,9 @@ variable "query_log_retention_days" {
   default     = 30
   description = "Retention (days) for the query log group. Ignored when enable_query_logging is false."
 }
+
+variable "preserve_logs_on_destroy" {
+  type        = bool
+  default     = false
+  description = "When true, the Route53 query log group survives terraform destroy. Logs continue to age out via query_log_retention_days. Set false for ephemeral environments where the log group should be deleted with the zone."
+}

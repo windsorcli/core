@@ -5,7 +5,6 @@
 |------|---------|
 | <a name="requirement_terraform"></a> [terraform](#requirement\_terraform) | >=1.8 |
 | <a name="requirement_aws"></a> [aws](#requirement\_aws) | 6.42.0 |
-| <a name="requirement_random"></a> [random](#requirement\_random) | 3.8.1 |
 
 ## Providers
 
@@ -61,6 +60,7 @@ No modules.
 | <a name="input_enable_nat_gateway"></a> [enable\_nat\_gateway](#input\_enable\_nat\_gateway) | Enable NAT Gateway for private subnets | `bool` | `true` | no |
 | <a name="input_flow_logs_kms_key_id"></a> [flow\_logs\_kms\_key\_id](#input\_flow\_logs\_kms\_key\_id) | The KMS key ID for flow logs | `string` | `null` | no |
 | <a name="input_name"></a> [name](#input\_name) | Name prefix for all resources in the VPC | `string` | `""` | no |
+| <a name="input_preserve_logs_on_destroy"></a> [preserve\_logs\_on\_destroy](#input\_preserve\_logs\_on\_destroy) | When true, the VPC flow logs CloudWatch log group survives terraform destroy. Logs continue to age out via retention\_in\_days. Set false for fully ephemeral environments where the log group should be deleted with the VPC. | `bool` | `false` | no |
 | <a name="input_single_nat_gateway"></a> [single\_nat\_gateway](#input\_single\_nat\_gateway) | Use a single NAT Gateway for all private subnets | `bool` | `false` | no |
 | <a name="input_subnet_newbits"></a> [subnet\_newbits](#input\_subnet\_newbits) | Number of new bits for the subnet | `number` | `4` | no |
 | <a name="input_tags"></a> [tags](#input\_tags) | Additional tags for all resources | `map(string)` | `{}` | no |

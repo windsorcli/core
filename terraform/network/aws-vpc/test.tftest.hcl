@@ -125,3 +125,35 @@ run "cloudwatch_logs_disabled" {
     error_message = "No VPC flow log should be created when logging is disabled"
   }
 }
+
+# Default: skip_destroy is false so terraform destroy removes the log group
+# along with the rest of the VPC stack. Matches legacy behavior.
+run "preserve_logs_default_false" {
+  command = plan
+
+  variables {
+    context_id = "test"
+  }
+
+  assert {
+    condition     = aws_cloudwatch_log_group.vpc_flow_logs[0].skip_destroy == false
+    error_message = "skip_destroy must default to false so legacy destroy behavior is preserved when the variable is not set."
+  }
+}
+
+# Opt-in: skip_destroy=true removes the log group from terraform state on
+# destroy without calling DeleteLogGroup, so historical flow logs survive
+# the teardown and age out via retention_in_days.
+run "preserve_logs_on_destroy_enabled" {
+  command = plan
+
+  variables {
+    context_id               = "test"
+    preserve_logs_on_destroy = true
+  }
+
+  assert {
+    condition     = aws_cloudwatch_log_group.vpc_flow_logs[0].skip_destroy == true
+    error_message = "skip_destroy should be wired to preserve_logs_on_destroy."
+  }
+}

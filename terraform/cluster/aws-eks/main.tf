@@ -48,6 +48,7 @@ resource "aws_cloudwatch_log_group" "eks_cluster" {
   name              = "/aws/eks/${local.name}/cluster"
   retention_in_days = 365
   kms_key_id        = local.kms_key_arn
+  skip_destroy      = var.preserve_logs_on_destroy
 
   tags = merge(
     var.tags,
@@ -58,8 +59,11 @@ resource "aws_cloudwatch_log_group" "eks_cluster" {
   )
 }
 
+# Mop-up only fires when we're actually destroying the log group. With
+# preserve_logs_on_destroy=true the recreate writes back into the
+# preserved group, so there's nothing to clean up.
 resource "null_resource" "delete_eks_log_group" {
-  count = var.enable_cloudwatch_logs ? 1 : 0
+  count = var.enable_cloudwatch_logs && !var.preserve_logs_on_destroy ? 1 : 0
 
   triggers = {
     log_group_name = aws_cloudwatch_log_group.eks_cluster[0].name

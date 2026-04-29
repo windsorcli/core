@@ -145,4 +145,28 @@ run "query_logging_enabled" {
     condition     = length(aws_route53_query_log.main) == 1
     error_message = "query_log binding must be created."
   }
+
+  # Default: skip_destroy is off so destroy removes the query log group.
+  assert {
+    condition     = aws_cloudwatch_log_group.query_log[0].skip_destroy == false
+    error_message = "skip_destroy must default to false so legacy destroy behavior is preserved when preserve_logs_on_destroy is not set."
+  }
+}
+
+# Opt-in: skip_destroy=true preserves the query log group on destroy. Logs
+# age out via query_log_retention_days instead.
+run "preserve_logs_on_destroy_enabled" {
+  command = plan
+
+  variables {
+    context_id               = "test"
+    domain_name              = "example.com"
+    enable_query_logging     = true
+    preserve_logs_on_destroy = true
+  }
+
+  assert {
+    condition     = aws_cloudwatch_log_group.query_log[0].skip_destroy == true
+    error_message = "skip_destroy should be wired to preserve_logs_on_destroy."
+  }
 }

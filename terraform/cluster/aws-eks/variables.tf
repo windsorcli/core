@@ -241,6 +241,12 @@ variable "enable_cloudwatch_logs" {
   default     = true
 }
 
+variable "preserve_logs_on_destroy" {
+  description = "When true, the EKS control plane log group survives terraform destroy. Also suppresses the post-destroy mop-up that would otherwise delete the log group EKS recreates after the cluster is torn down. Set false for ephemeral environments where the log group should be deleted with the cluster."
+  type        = bool
+  default     = false
+}
+
 variable "enable_secrets_encryption" {
   description = "Whether to enable EKS secrets encryption at all. If false, no encryption_config is set. If true, use internal or external key."
   type        = bool

@@ -74,6 +74,12 @@ variable "enable_cloudwatch_logs" {
   default     = true
 }
 
+variable "preserve_logs_on_destroy" {
+  description = "When true, the VPC flow logs CloudWatch log group survives terraform destroy. Logs continue to age out via retention_in_days. Set false for fully ephemeral environments where the log group should be deleted with the VPC."
+  type        = bool
+  default     = false
+}
+
 variable "tags" {
   description = "Additional tags for all resources"
   type        = map(string)

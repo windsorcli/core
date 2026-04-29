@@ -121,6 +121,48 @@ run "minimal_configuration_cloudwatch_logs_disabled" {
   }
 }
 
+# Default: skip_destroy is false and the post-destroy mop-up null_resource
+# is wired in. Matches legacy behavior.
+run "preserve_logs_default_false" {
+  command = plan
+
+  variables {
+    context_id = "test"
+  }
+
+  assert {
+    condition     = aws_cloudwatch_log_group.eks_cluster[0].skip_destroy == false
+    error_message = "skip_destroy must default to false so legacy destroy behavior is preserved when the variable is not set."
+  }
+
+  assert {
+    condition     = length(null_resource.delete_eks_log_group) == 1
+    error_message = "Mop-up null_resource must exist when logs are not being preserved — that's the codepath that handles AWS recreating the group after cluster delete."
+  }
+}
+
+# Opt-in: skip_destroy=true preserves the log group on terraform destroy.
+# The mop-up null_resource also drops out — nothing to clean up because the
+# recreate writes back into the preserved group.
+run "preserve_logs_on_destroy_enabled" {
+  command = plan
+
+  variables {
+    context_id               = "test"
+    preserve_logs_on_destroy = true
+  }
+
+  assert {
+    condition     = aws_cloudwatch_log_group.eks_cluster[0].skip_destroy == true
+    error_message = "skip_destroy should be wired to preserve_logs_on_destroy."
+  }
+
+  assert {
+    condition     = length(null_resource.delete_eks_log_group) == 0
+    error_message = "Mop-up null_resource must not be created when preserving logs — there's nothing for it to delete."
+  }
+}
+
 # Tests a full configuration with all optional variables explicitly set,
 # verifying that the module correctly applies all user-supplied values for node groups and feature flags.
 run "full_configuration" {
