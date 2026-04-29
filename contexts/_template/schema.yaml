@@ -138,6 +138,16 @@ properties:
     default: false
     description: Enable development mode with additional observability and debugging tools
 
+  # Retain provider-managed log groups on destroy. Default false so CI and
+  # ephemeral contexts don't leak log groups across rebuilds. Flip true in
+  # production where forensics or compliance retention should outlive the
+  # infra. Each platform facet pipes this into its log-owning modules
+  # (CloudWatch on AWS; equivalent on other providers).
+  retain_logs:
+    type: boolean
+    default: false
+    description: Retain provider-managed log groups on terraform destroy. False (default) deletes them with the infra; true preserves them so they age out via per-module retention policies. Recreating same-named infra after a retain+destroy fails with a duplicate-resource error until the orphan is imported or deleted.
+
   # AWS provider configuration (only consumed when platform == 'aws').
   aws:
     type: object
@@ -161,13 +171,6 @@ properties:
       mwaa_endpoint:
         type: string
         description: Endpoint for Managed Workflows for Apache Airflow.
-      preserve_logs_on_destroy:
-        type: boolean
-        default: true
-        description: |
-          When true, CloudWatch log groups created by AWS modules (VPC flow logs, EKS control plane, Route53 query logs) survive terraform destroy.
-          Logs continue to age out via each module's retention_in_days. Set false for ephemeral environments where the log groups should be deleted with the infra.
-          Caveat: with this on, recreating same-named infra later will fail with ResourceAlreadyExistsException on the log group; the orphan must be imported or deleted first.
     description: AWS provider authentication and endpoint configuration
 
   # Azure provider configuration (only consumed when platform == 'azure').

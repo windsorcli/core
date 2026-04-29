@@ -45,7 +45,7 @@ terraform:
     inputs:
       cidr_block: ${network_effective.cidr_block}
       domain_name: ${dns.private_domain ?? ""}
-      preserve_logs_on_destroy: ${aws.preserve_logs_on_destroy ?? true}
+      preserve_logs_on_destroy: ${retain_logs ?? false}
 
   # Public Route53 zone — provisioned when the operator sets dns.public_domain.
   # Lives in its own stack so it can be provisioned independently of the
@@ -60,7 +60,7 @@ terraform:
       - backend
     inputs:
       domain_name: ${dns.public_domain}
-      preserve_logs_on_destroy: ${aws.preserve_logs_on_destroy ?? true}
+      preserve_logs_on_destroy: ${retain_logs ?? false}
 
   # EKS cluster itself. The cert-manager IAM role + Pod Identity association
   # is provisioned only when ACME is in play (the operator supplied a
@@ -81,7 +81,7 @@ terraform:
       # is visible in the input contract instead of an AWS-side lookup.
       vpc_id: ${terraform_output('network', 'vpc_id')}
       private_subnet_ids: ${terraform_output('network', 'private_subnet_ids')}
-      preserve_logs_on_destroy: ${aws.preserve_logs_on_destroy ?? true}
+      preserve_logs_on_destroy: ${retain_logs ?? false}
       create_cert_manager_role: "${(dns.public_domain ?? '') != ''}"
       cert_manager_hosted_zone_ids: "${(dns.public_domain ?? '') != '' && (terraform_output('dns-zone', 'zone_id') ?? '') != '' ? [terraform_output('dns-zone', 'zone_id')] : []}"
       # cluster.pools is the portable node-pool shape (class + count|min/max +

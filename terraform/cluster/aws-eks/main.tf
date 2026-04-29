@@ -59,28 +59,6 @@ resource "aws_cloudwatch_log_group" "eks_cluster" {
   )
 }
 
-# Mop-up only fires when we're actually destroying the log group. With
-# preserve_logs_on_destroy=true the recreate writes back into the
-# preserved group, so there's nothing to clean up.
-resource "null_resource" "delete_eks_log_group" {
-  count = var.enable_cloudwatch_logs && !var.preserve_logs_on_destroy ? 1 : 0
-
-  triggers = {
-    log_group_name = aws_cloudwatch_log_group.eks_cluster[0].name
-  }
-
-  # EKS may recreate this log group between the terraform delete and the
-  # cluster delete; mop up the recreated one. on_failure = continue makes
-  # the rerun case (group already gone) a no-op.
-  provisioner "local-exec" {
-    when       = destroy
-    command    = "aws logs delete-log-group --log-group-name \"${self.triggers.log_group_name}\""
-    on_failure = continue
-  }
-
-  depends_on = [aws_eks_cluster.main]
-}
-
 resource "aws_eks_cluster" "main" {
   # checkov:skip=CKV_AWS_38: Public access set via a variable.
   # checkov:skip=CKV_AWS_39: Public access set via a variable.
