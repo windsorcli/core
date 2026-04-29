@@ -73,6 +73,12 @@ terraform:
     dependsOn:
       - network
     inputs:
+      # vpc_id and private_subnet_ids come straight from the network module's
+      # outputs. The cluster module used to discover them via tag-filtered
+      # data sources; the facet now passes them explicitly so the dependency
+      # is visible in the input contract instead of an AWS-side lookup.
+      vpc_id: ${terraform_output('network', 'vpc_id')}
+      private_subnet_ids: ${terraform_output('network', 'private_subnet_ids')}
       create_cert_manager_role: "${(dns.public_domain ?? '') != ''}"
       cert_manager_hosted_zone_ids: "${(dns.public_domain ?? '') != '' && (terraform_output('dns-zone', 'zone_id') ?? '') != '' ? [terraform_output('dns-zone', 'zone_id')] : []}"
       # cluster.pools is the portable node-pool shape (class + count|min/max +

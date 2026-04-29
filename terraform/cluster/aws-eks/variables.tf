@@ -74,9 +74,13 @@ variable "cluster_api_access_cidr_block" {
 }
 
 variable "vpc_id" {
-  description = "The ID of the VPC where the EKS cluster will be created."
+  description = "ID of the VPC where the EKS cluster will be created. Pipe network/aws-vpc's vpc_id output."
   type        = string
-  default     = null
+}
+
+variable "private_subnet_ids" {
+  description = "Private subnet IDs for EKS control plane ENIs and node groups. Pipe network/aws-vpc's private_subnet_ids output."
+  type        = list(string)
 }
 
 variable "node_groups" {

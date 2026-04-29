@@ -1,19 +1,8 @@
 mock_provider "aws" {
-  mock_data "aws_caller_identity" {
-    defaults = {
-      account_id = "123456789012"
-    }
-  }
   mock_data "aws_region" {
     defaults = {
       name   = "us-west-2"
       region = "us-west-2"
-    }
-  }
-  mock_data "aws_eks_cluster" {
-    defaults = {
-      name = "test-cluster"
-      arn  = "arn:aws:eks:us-west-2:123456789012:cluster/test-cluster"
     }
   }
 }

@@ -6,22 +6,16 @@ mock_provider "aws" {
       user_id    = "AIDAJQABLZS4A3QDU576Q"
     }
   }
-  mock_data "aws_vpc" {
-    defaults = {
-      id         = "vpc-12345678"
-      cidr_block = "10.0.0.0/16"
-    }
-  }
-  mock_data "aws_subnets" {
-    defaults = {
-      ids = ["subnet-12345678", "subnet-87654321", "subnet-11223344"]
-    }
-  }
   mock_data "aws_region" {
     defaults = {
       name = "us-west-2"
     }
   }
+}
+
+variables {
+  vpc_id             = "vpc-12345678"
+  private_subnet_ids = ["subnet-12345678", "subnet-87654321", "subnet-11223344"]
 }
 
 # Verifies that the module creates an EKS cluster with minimal configuration,
