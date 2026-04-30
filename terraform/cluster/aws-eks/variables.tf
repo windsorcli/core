@@ -246,7 +246,7 @@ variable "tags" {
 }
 
 variable "enable_cloudwatch_logs" {
-  description = "Whether to enable EKS control plane logging to CloudWatch. EKS owns the log group via its service role; the module doesn't create or manage it."
+  description = "Whether to enable EKS control plane logging to CloudWatch. EKS owns the log group via its service role; the module does not create or manage it, so there is no module-controlled retention or CMK encryption on the group. Ship logs to S3 (subscription filter / Firehose) if either is required."
   type        = bool
   default     = true
 }
