@@ -103,6 +103,59 @@ run "cloudwatch_logs_disabled" {
     condition     = length(aws_eks_cluster.main.enabled_cluster_log_types) == 0
     error_message = "No log types should be enabled when enable_cloudwatch_logs is false"
   }
+  assert {
+    condition     = length(aws_cloudwatch_log_group.eks_cluster) == 0
+    error_message = "No log group should be created when logs are disabled"
+  }
+  assert {
+    condition     = alltrue([for s in jsondecode(aws_kms_key.eks_encryption_key[0].policy).Statement : s.Sid != "Allow CloudWatch Logs to use the key"])
+    error_message = "KMS policy should not include CW Logs perms when enable_cloudwatch_logs is false"
+  }
+}
+
+# Default: long-lived posture. TF creates the log group with retention + CMK.
+run "log_group_managed_by_default" {
+  command = plan
+
+  variables {
+    context_id = "test"
+  }
+
+  assert {
+    condition     = length(aws_cloudwatch_log_group.eks_cluster) == 1
+    error_message = "Log group should be TF-managed by default (manage_log_group defaults true)"
+  }
+  assert {
+    condition     = aws_cloudwatch_log_group.eks_cluster[0].retention_in_days == 365
+    error_message = "TF-managed log group should have 365-day retention"
+  }
+  assert {
+    condition     = anytrue([for s in jsondecode(aws_kms_key.eks_encryption_key[0].policy).Statement : s.Sid == "Allow CloudWatch Logs to use the key"])
+    error_message = "KMS policy should include CW Logs perms when log group is TF-managed"
+  }
+}
+
+# Ephemeral / CI posture: cede the log group to EKS to avoid the destroy/recreate race.
+run "log_group_aws_owned_when_unmanaged" {
+  command = plan
+
+  variables {
+    context_id       = "test"
+    manage_log_group = false
+  }
+
+  assert {
+    condition     = length(aws_cloudwatch_log_group.eks_cluster) == 0
+    error_message = "Log group should not be TF-managed when manage_log_group is false"
+  }
+  assert {
+    condition     = length(aws_eks_cluster.main.enabled_cluster_log_types) == 5
+    error_message = "Control plane log emission should still be on; only the log group ownership changes"
+  }
+  assert {
+    condition     = alltrue([for s in jsondecode(aws_kms_key.eks_encryption_key[0].policy).Statement : s.Sid != "Allow CloudWatch Logs to use the key"])
+    error_message = "KMS policy should drop CW Logs perms when the group isn't TF-managed"
+  }
 }
 
 # Tests a full configuration with all optional variables explicitly set,

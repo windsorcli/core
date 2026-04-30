@@ -246,7 +246,13 @@ variable "tags" {
 }
 
 variable "enable_cloudwatch_logs" {
-  description = "Whether to enable EKS control plane logging to CloudWatch. EKS owns the log group via its service role; the module does not create or manage it, so there is no module-controlled retention or CMK encryption on the group. Ship logs to S3 (subscription filter / Firehose) if either is required."
+  description = "Whether the cluster emits control plane logs to CloudWatch."
+  type        = bool
+  default     = true
+}
+
+variable "manage_log_group" {
+  description = "Whether Terraform manages the control plane log group with retention and CMK. Set false for ephemeral clusters that recreate the same name; EKS owns the group instead."
   type        = bool
   default     = true
 }

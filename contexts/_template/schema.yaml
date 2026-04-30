@@ -138,6 +138,12 @@ properties:
     default: false
     description: Enable development mode with additional observability and debugging tools
 
+  # Lifecycle posture
+  ephemeral:
+    type: boolean
+    default: false
+    description: Whether infrastructure is short-lived. True relaxes destroy-time guards and ownership choices for stacks that recreate routinely (CI, integration testing).
+
   # AWS provider configuration (only consumed when platform == 'aws').
   aws:
     type: object
