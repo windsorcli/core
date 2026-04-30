@@ -80,12 +80,6 @@ variable "enable_cloudwatch_logs" {
   default     = true
 }
 
-variable "preserve_logs_on_destroy" {
-  description = "When true, the VPC flow logs log group survives terraform destroy via skip_destroy and ages out via retention_in_days. Recreating a VPC with the same name will fail with ResourceAlreadyExistsException unless the orphan group is imported or deleted first."
-  type        = bool
-  default     = false
-}
-
 variable "tags" {
   description = "Additional tags for all resources"
   type        = map(string)

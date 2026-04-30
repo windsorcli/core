@@ -89,7 +89,7 @@ run "minimal_configuration" {
   }
 }
 
-run "minimal_configuration_cloudwatch_logs_disabled" {
+run "cloudwatch_logs_disabled" {
   command = plan
 
   variables {
@@ -100,56 +100,8 @@ run "minimal_configuration_cloudwatch_logs_disabled" {
   }
 
   assert {
-    condition     = length(aws_cloudwatch_log_group.eks_cluster) == 0
-    error_message = "No CloudWatch log group should be created when logging is disabled"
-  }
-  assert {
     condition     = length(aws_eks_cluster.main.enabled_cluster_log_types) == 0
-    error_message = "No log types should be enabled when logging is disabled"
-  }
-  assert {
-    condition     = length(aws_kms_key.eks_encryption_key) == 1
-    error_message = "KMS key should be created when enable_secrets_encryption is true"
-  }
-  assert {
-    condition     = length(jsondecode(aws_kms_key.eks_encryption_key[0].policy).Statement) == 2
-    error_message = "KMS key policy should only have 2 statements when CloudWatch logs are disabled"
-  }
-  assert {
-    condition     = alltrue([for s in jsondecode(aws_kms_key.eks_encryption_key[0].policy).Statement : s.Sid != "Allow CloudWatch Logs to use the key"])
-    error_message = "KMS key policy should not include CloudWatch Logs permissions when disabled"
-  }
-}
-
-# Default: skip_destroy is false so terraform destroy removes the log
-# group along with the cluster. CI / ephemeral contexts hit this path.
-run "preserve_logs_default_false" {
-  command = plan
-
-  variables {
-    context_id = "test"
-  }
-
-  assert {
-    condition     = aws_cloudwatch_log_group.eks_cluster[0].skip_destroy == false
-    error_message = "skip_destroy must default to false so destroy cleans up log groups by default."
-  }
-}
-
-# Opt-in: production contexts can flip the flag true so logs survive
-# teardown and age out via retention_in_days. Operators are responsible
-# for the orphan log group on subsequent same-name rebuilds.
-run "preserve_logs_opt_in" {
-  command = plan
-
-  variables {
-    context_id               = "test"
-    preserve_logs_on_destroy = true
-  }
-
-  assert {
-    condition     = aws_cloudwatch_log_group.eks_cluster[0].skip_destroy == true
-    error_message = "skip_destroy should be wired to preserve_logs_on_destroy and flip to true when opted in."
+    error_message = "No log types should be enabled when enable_cloudwatch_logs is false"
   }
 }
 

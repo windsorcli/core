@@ -42,23 +42,14 @@ locals {
 # EKS Cluster
 #-----------------------------------------------------------------------------------------------------------------------
 
-# Create CloudWatch log group for EKS control plane logs with proper tags
-resource "aws_cloudwatch_log_group" "eks_cluster" {
-  count             = var.enable_cloudwatch_logs ? 1 : 0
-  name              = "/aws/eks/${local.name}/cluster"
-  retention_in_days = 365
-  kms_key_id        = local.kms_key_arn
-  skip_destroy      = var.preserve_logs_on_destroy
-
-  tags = merge(
-    var.tags,
-    {
-      Name             = "${local.name}-cluster-logs"
-      WindsorContextID = var.context_id
-    }
-  )
-}
-
+# Control plane logs go to a CloudWatch log group named /aws/eks/<cluster>/cluster
+# that EKS itself creates via its service role on first write. We deliberately
+# don't manage that log group from Terraform: EKS recreates it post-destroy
+# during cluster shutdown writes, which races with any TF-side delete and
+# blocks recreating same-named clusters with ResourceAlreadyExistsException.
+# Letting EKS own it sidesteps the race entirely. The trade is no
+# TF-managed retention or CMK on the log group; if you need either, ship
+# logs to S3 and apply lifecycle/Object Lock there.
 resource "aws_eks_cluster" "main" {
   # checkov:skip=CKV_AWS_38: Public access set via a variable.
   # checkov:skip=CKV_AWS_39: Public access set via a variable.
@@ -97,7 +88,6 @@ resource "aws_eks_cluster" "main" {
     aws_iam_role_policy_attachment.cluster_AmazonEKSClusterPolicy,
     aws_iam_role_policy_attachment.cluster_AmazonEKSVPCResourceController,
     aws_kms_key.eks_encryption_key,
-    aws_cloudwatch_log_group.eks_cluster
   ]
 }
 
@@ -116,7 +106,7 @@ resource "aws_security_group" "cluster_api_access" {
 }
 
 resource "aws_kms_key" "eks_encryption_key" {
-  # checkov:skip=CKV2_AWS_64:Policy is defined inline via jsonencode; checkov's graph engine can't trace the conditional concat() over Statement
+  # checkov:skip=CKV2_AWS_64:Policy is defined inline via jsonencode; checkov's graph engine can't trace it.
   count                   = var.enable_secrets_encryption && var.secrets_encryption_kms_key_id == null ? 1 : 0
   description             = "KMS key for EKS cluster ${local.name} secrets encryption"
   deletion_window_in_days = var.kms_key_deletion_window_in_days
@@ -124,7 +114,7 @@ resource "aws_kms_key" "eks_encryption_key" {
 
   policy = jsonencode({
     Version = "2012-10-17",
-    Statement = concat([
+    Statement = [
       {
         Sid    = "Enable IAM User Permissions",
         Effect = "Allow",
@@ -149,24 +139,7 @@ resource "aws_kms_key" "eks_encryption_key" {
         ],
         Resource = "*"
       }
-      ],
-      var.enable_cloudwatch_logs ? [
-        {
-          Sid    = "Allow CloudWatch Logs to use the key",
-          Effect = "Allow",
-          Principal = {
-            Service = "logs.${data.aws_region.current.region}.amazonaws.com"
-          },
-          Action = [
-            "kms:Encrypt",
-            "kms:Decrypt",
-            "kms:ReEncrypt*",
-            "kms:GenerateDataKey*",
-            "kms:DescribeKey"
-          ],
-          Resource = "*"
-        }
-    ] : [])
+    ]
   })
 }
 

@@ -246,15 +246,9 @@ variable "tags" {
 }
 
 variable "enable_cloudwatch_logs" {
-  description = "Whether to enable CloudWatch log group creation for EKS control plane logs"
+  description = "Whether to enable EKS control plane logging to CloudWatch. EKS owns the log group via its service role; the module doesn't create or manage it."
   type        = bool
   default     = true
-}
-
-variable "preserve_logs_on_destroy" {
-  description = "When true, the EKS log group survives terraform destroy via skip_destroy. False (default) deletes it; AWS may briefly recreate it during cluster shutdown writes, leaving a small orphan that is the accepted cost of opting out of preservation. Recreating a cluster with the same name after a preserve+destroy fails with ResourceAlreadyExistsException unless the orphan group is imported or deleted first."
-  type        = bool
-  default     = false
 }
 
 variable "enable_secrets_encryption" {

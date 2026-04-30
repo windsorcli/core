@@ -86,7 +86,6 @@ No modules.
 | <a name="input_domain_name"></a> [domain\_name](#input\_domain\_name) | The fully-qualified domain name for the public hosted zone (e.g. example.com). | `string` | n/a | yes |
 | <a name="input_enable_dnssec"></a> [enable\_dnssec](#input\_enable\_dnssec) | Enable DNSSEC signing. Operator must publish the DS record (see ds\_record output) at the registrar. | `bool` | `false` | no |
 | <a name="input_enable_query_logging"></a> [enable\_query\_logging](#input\_enable\_query\_logging) | Enable Route53 query logging to a CloudWatch log group in us-east-1. | `bool` | `false` | no |
-| <a name="input_preserve_logs_on_destroy"></a> [preserve\_logs\_on\_destroy](#input\_preserve\_logs\_on\_destroy) | When true, the Route53 query log group survives terraform destroy via skip\_destroy and ages out via query\_log\_retention\_days. Recreating a zone with the same domain will fail with ResourceAlreadyExistsException unless the orphan group is imported or deleted first. | `bool` | `false` | no |
 | <a name="input_query_log_retention_days"></a> [query\_log\_retention\_days](#input\_query\_log\_retention\_days) | Retention (days) for the query log group. Ignored when enable\_query\_logging is false. | `number` | `30` | no |
 | <a name="input_tags"></a> [tags](#input\_tags) | Additional tags applied to the hosted zone. | `map(string)` | `{}` | no |
 

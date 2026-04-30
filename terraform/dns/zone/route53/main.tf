@@ -129,7 +129,6 @@ resource "aws_cloudwatch_log_group" "query_log" {
   provider          = aws.us_east_1
   name              = "/aws/route53/${var.domain_name}"
   retention_in_days = var.query_log_retention_days
-  skip_destroy      = var.preserve_logs_on_destroy
 }
 
 resource "aws_cloudwatch_log_resource_policy" "query_log" {
