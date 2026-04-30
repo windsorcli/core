@@ -16,7 +16,7 @@ spec:
         name: elastic-filebeat
   values:
     # renovate: datasource=docker depName=docker.elastic.co/beats/filebeat package=docker.elastic.co/beats/filebeat
-    image: docker.elastic.co/beats/filebeat:9.3.3@sha256:2ea4af46a22a02a4eaf04b329cc229e92320452ec51cb281b83733f85f5aa2e9
+    image: docker.elastic.co/beats/filebeat:9.3.4@sha256:92697f1f4e725a1ca29052b92dbcfe9457591d1d22cb164c1ce39baeb683d25c
     daemonset:
       secretMounts:
         - name: filebeat-tls
