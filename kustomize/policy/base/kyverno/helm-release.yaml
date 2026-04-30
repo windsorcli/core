@@ -37,7 +37,7 @@ spec:
       container:
         image:
           # renovate: datasource=docker depName=reg.kyverno.io/kyverno/background-controller package=reg.kyverno.io/kyverno/background-controller
-          tag: v1.17.2@sha256:673e547198f2c0bdca92c3b11d6a859d2ad66f61b5df54f04a966d77e0e0d3c5
+          tag: v1.18.0@sha256:fd6d30964297f1c94c2d741a1c44d055994cd4354e6f7e718cad59e6b5aa6c66
         extraEnvVars:
         - name: NO_COLOR
           value: "1"
