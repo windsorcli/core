@@ -60,7 +60,7 @@ resource "aws_default_security_group" "default" {
 
 # Enable VPC Flow Logs
 resource "aws_flow_log" "main" {
-  count                    = var.enable_cloudwatch_logs ? 1 : 0
+  count                    = var.enable_flow_logs ? 1 : 0
   log_destination_type     = "cloud-watch-logs"
   log_destination          = aws_cloudwatch_log_group.vpc_flow_logs[0].arn
   iam_role_arn             = aws_iam_role.vpc_flow_logs[0].arn
@@ -74,7 +74,7 @@ resource "aws_flow_log" "main" {
 }
 
 resource "aws_cloudwatch_log_group" "vpc_flow_logs" {
-  count             = var.enable_cloudwatch_logs ? 1 : 0
+  count             = var.enable_flow_logs ? 1 : 0
   name              = "/aws/vpc/flow-logs/${local.name}"
   retention_in_days = 365
   kms_key_id        = var.create_flow_logs_kms_key ? aws_kms_key.vpc_flow_logs[0].arn : var.flow_logs_kms_key_id
@@ -128,7 +128,7 @@ resource "aws_kms_alias" "vpc_flow_logs" {
 }
 
 resource "aws_iam_role" "vpc_flow_logs" {
-  count = var.enable_cloudwatch_logs ? 1 : 0
+  count = var.enable_flow_logs ? 1 : 0
   name  = "${local.name}-vpc-flow-logs"
 
   assume_role_policy = jsonencode({
@@ -150,7 +150,7 @@ resource "aws_iam_role" "vpc_flow_logs" {
 }
 
 resource "aws_iam_role_policy" "vpc_flow_logs" {
-  count = var.enable_cloudwatch_logs ? 1 : 0
+  count = var.enable_flow_logs ? 1 : 0
   name  = "${local.name}-vpc-flow-logs"
   role  = aws_iam_role.vpc_flow_logs[0].id
 

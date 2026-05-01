@@ -42,9 +42,12 @@ locals {
 # EKS Cluster
 #-----------------------------------------------------------------------------------------------------------------------
 
-# Create CloudWatch log group for EKS control plane logs with proper tags
+# When manage_log_group is false EKS creates this group itself with no
+# retention or CMK. We accept that for ephemeral clusters because TF-managed
+# groups race with EKS shutdown writes and leave orphans that block same-name
+# recreates.
 resource "aws_cloudwatch_log_group" "eks_cluster" {
-  count             = var.enable_cloudwatch_logs ? 1 : 0
+  count             = var.enable_cloudwatch_logs && var.manage_log_group ? 1 : 0
   name              = "/aws/eks/${local.name}/cluster"
   retention_in_days = 365
   kms_key_id        = local.kms_key_arn
@@ -56,25 +59,6 @@ resource "aws_cloudwatch_log_group" "eks_cluster" {
       WindsorContextID = var.context_id
     }
   )
-}
-
-resource "null_resource" "delete_eks_log_group" {
-  count = var.enable_cloudwatch_logs ? 1 : 0
-
-  triggers = {
-    log_group_name = aws_cloudwatch_log_group.eks_cluster[0].name
-  }
-
-  # EKS may recreate this log group between the terraform delete and the
-  # cluster delete; mop up the recreated one. on_failure = continue makes
-  # the rerun case (group already gone) a no-op.
-  provisioner "local-exec" {
-    when       = destroy
-    command    = "aws logs delete-log-group --log-group-name \"${self.triggers.log_group_name}\""
-    on_failure = continue
-  }
-
-  depends_on = [aws_eks_cluster.main]
 }
 
 resource "aws_eks_cluster" "main" {
@@ -115,7 +99,7 @@ resource "aws_eks_cluster" "main" {
     aws_iam_role_policy_attachment.cluster_AmazonEKSClusterPolicy,
     aws_iam_role_policy_attachment.cluster_AmazonEKSVPCResourceController,
     aws_kms_key.eks_encryption_key,
-    aws_cloudwatch_log_group.eks_cluster
+    aws_cloudwatch_log_group.eks_cluster,
   ]
 }
 
@@ -134,7 +118,7 @@ resource "aws_security_group" "cluster_api_access" {
 }
 
 resource "aws_kms_key" "eks_encryption_key" {
-  # checkov:skip=CKV2_AWS_64:Policy is defined inline via jsonencode; checkov's graph engine can't trace the conditional concat() over Statement
+  # checkov:skip=CKV2_AWS_64:Policy is defined inline via jsonencode; checkov's graph engine can't trace the conditional concat() over Statement.
   count                   = var.enable_secrets_encryption && var.secrets_encryption_kms_key_id == null ? 1 : 0
   description             = "KMS key for EKS cluster ${local.name} secrets encryption"
   deletion_window_in_days = var.kms_key_deletion_window_in_days
@@ -168,7 +152,7 @@ resource "aws_kms_key" "eks_encryption_key" {
         Resource = "*"
       }
       ],
-      var.enable_cloudwatch_logs ? [
+      var.enable_cloudwatch_logs && var.manage_log_group ? [
         {
           Sid    = "Allow CloudWatch Logs to use the key",
           Effect = "Allow",

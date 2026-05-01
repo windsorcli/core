@@ -109,19 +109,19 @@ run "full_configuration" {
   }
 }
 
-run "cloudwatch_logs_disabled" {
+run "flow_logs_disabled" {
   command = plan
 
   variables {
-    enable_cloudwatch_logs = false
+    enable_flow_logs = false
   }
 
   assert {
     condition     = length(aws_cloudwatch_log_group.vpc_flow_logs) == 0
-    error_message = "No CloudWatch log group should be created when logging is disabled"
+    error_message = "No CloudWatch log group should be created when flow logs are disabled"
   }
   assert {
     condition     = length(aws_flow_log.main) == 0
-    error_message = "No VPC flow log should be created when logging is disabled"
+    error_message = "No VPC flow log should be created when flow logs are disabled"
   }
 }

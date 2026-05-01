@@ -56,6 +56,12 @@ variable "single_nat_gateway" {
   default     = false
 }
 
+variable "enable_flow_logs" {
+  description = "Whether to provision VPC flow logs (the aws_flow_log resource, its CloudWatch log group, and the IAM role that publishes to it)."
+  type        = bool
+  default     = true
+}
+
 variable "create_flow_logs_kms_key" {
   description = "Create a KMS key for flow logs"
   type        = bool
@@ -66,12 +72,6 @@ variable "flow_logs_kms_key_id" {
   description = "The KMS key ID for flow logs"
   type        = string
   default     = null
-}
-
-variable "enable_cloudwatch_logs" {
-  description = "Whether to enable CloudWatch log group creation for VPC flow logs"
-  type        = bool
-  default     = true
 }
 
 variable "tags" {

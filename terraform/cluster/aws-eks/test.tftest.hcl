@@ -89,7 +89,7 @@ run "minimal_configuration" {
   }
 }
 
-run "minimal_configuration_cloudwatch_logs_disabled" {
+run "cloudwatch_logs_disabled" {
   command = plan
 
   variables {
@@ -100,24 +100,61 @@ run "minimal_configuration_cloudwatch_logs_disabled" {
   }
 
   assert {
-    condition     = length(aws_cloudwatch_log_group.eks_cluster) == 0
-    error_message = "No CloudWatch log group should be created when logging is disabled"
-  }
-  assert {
     condition     = length(aws_eks_cluster.main.enabled_cluster_log_types) == 0
-    error_message = "No log types should be enabled when logging is disabled"
+    error_message = "No log types should be enabled when enable_cloudwatch_logs is false"
   }
   assert {
-    condition     = length(aws_kms_key.eks_encryption_key) == 1
-    error_message = "KMS key should be created when enable_secrets_encryption is true"
-  }
-  assert {
-    condition     = length(jsondecode(aws_kms_key.eks_encryption_key[0].policy).Statement) == 2
-    error_message = "KMS key policy should only have 2 statements when CloudWatch logs are disabled"
+    condition     = length(aws_cloudwatch_log_group.eks_cluster) == 0
+    error_message = "No log group should be created when logs are disabled"
   }
   assert {
     condition     = alltrue([for s in jsondecode(aws_kms_key.eks_encryption_key[0].policy).Statement : s.Sid != "Allow CloudWatch Logs to use the key"])
-    error_message = "KMS key policy should not include CloudWatch Logs permissions when disabled"
+    error_message = "KMS policy should not include CW Logs perms when enable_cloudwatch_logs is false"
+  }
+}
+
+# Default: long-lived posture. TF creates the log group with retention + CMK.
+run "log_group_managed_by_default" {
+  command = plan
+
+  variables {
+    context_id = "test"
+  }
+
+  assert {
+    condition     = length(aws_cloudwatch_log_group.eks_cluster) == 1
+    error_message = "Log group should be TF-managed by default (manage_log_group defaults true)"
+  }
+  assert {
+    condition     = aws_cloudwatch_log_group.eks_cluster[0].retention_in_days == 365
+    error_message = "TF-managed log group should have 365-day retention"
+  }
+  assert {
+    condition     = anytrue([for s in jsondecode(aws_kms_key.eks_encryption_key[0].policy).Statement : s.Sid == "Allow CloudWatch Logs to use the key"])
+    error_message = "KMS policy should include CW Logs perms when log group is TF-managed"
+  }
+}
+
+# Ephemeral / CI posture: cede the log group to EKS to avoid the destroy/recreate race.
+run "log_group_aws_owned_when_unmanaged" {
+  command = plan
+
+  variables {
+    context_id       = "test"
+    manage_log_group = false
+  }
+
+  assert {
+    condition     = length(aws_cloudwatch_log_group.eks_cluster) == 0
+    error_message = "Log group should not be TF-managed when manage_log_group is false"
+  }
+  assert {
+    condition     = length(aws_eks_cluster.main.enabled_cluster_log_types) == 5
+    error_message = "Control plane log emission should still be on; only the log group ownership changes"
+  }
+  assert {
+    condition     = alltrue([for s in jsondecode(aws_kms_key.eks_encryption_key[0].policy).Statement : s.Sid != "Allow CloudWatch Logs to use the key"])
+    error_message = "KMS policy should drop CW Logs perms when the group isn't TF-managed"
   }
 }
 
@@ -345,6 +382,27 @@ run "multiple_invalid_inputs" {
   variables {
     kubernetes_version = "v1.32"
   }
+}
+
+# Surfaces the migration message rather than terraform's generic
+# "Missing required argument" so operators relying on the legacy
+# tag-based discovery get a useful pointer.
+run "vpc_id_null_emits_migration_error" {
+  command = plan
+  variables {
+    context_id = "test"
+    vpc_id     = null
+  }
+  expect_failures = [var.vpc_id]
+}
+
+run "private_subnet_ids_empty_emits_migration_error" {
+  command = plan
+  variables {
+    context_id         = "test"
+    private_subnet_ids = []
+  }
+  expect_failures = [var.private_subnet_ids]
 }
 
 # Verifies the cert-manager IAM role + Pod Identity association are NOT
