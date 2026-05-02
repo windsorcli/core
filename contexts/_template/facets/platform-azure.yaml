@@ -243,18 +243,24 @@ kustomize:
   # ---------------------------------------------------------------------------
   #
   # Additive block that merges into option-gateway's gateway-base entry.
-  # AKS's Cloud Controller Manager provisions a Standard SKU Azure Load
-  # Balancer for any Service: LoadBalancer with no controller add-on
-  # required — unlike AWS, we don't need an analogue of aws-lb-controller.
-  # The only annotation we set is the internal/external toggle: empty by
-  # default (= public Standard LB), flipped to "true" in private mode so
-  # the LB lives on a private subnet IP only. Requires dns.private_domain
-  # in private mode for the same reason as AWS — without a private zone
-  # the rest of the private-mode cascade no-ops.
+  # AKS's CCM provisions a Standard SKU public LB for any Service:
+  # LoadBalancer with no annotations or controller add-on required, so
+  # the only platform-azure customization needed is flipping the LB to
+  # internal for private clusters. Done by conditionally including the
+  # azure-lb-internal component, which hardcodes the annotation to "true".
+  #
+  # Shape differs from platform-aws on purpose. AWS always includes
+  # aws-nlb and uses an lb_scheme substitution to toggle internal vs
+  # internet-facing. The Azure annotation values are "true" or "false",
+  # which YAML treats as bool tokens. They don't survive substitution
+  # through Flux postBuild and kustomize re-serialization, so we use
+  # conditional component inclusion as the equivalent toggle.
+  #
+  # Gated on dns.private_domain for the same reason as AWS: without a
+  # private zone the rest of the private-mode cascade no-ops, so an
+  # internal LB would have no zone to publish to.
   #
   - name: gateway-base
     when: "gateway_effective.enabled == true && gateway_effective.driver == 'envoy' && lb_effective.mode == 'loadbalancer'"
     components:
-      - envoy/loadbalancer/azure-lb
-    substitutions:
-      lb_internal: "${gateway.access == 'private' && (dns.private_domain ?? '') != '' ? 'true' : 'false'}"
+      - "${gateway.access == 'private' && (dns.private_domain ?? '') != '' ? 'envoy/loadbalancer/azure-lb-internal' : ''}"

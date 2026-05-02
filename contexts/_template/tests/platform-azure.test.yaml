@@ -192,12 +192,10 @@ cases:
             acme_server: https://acme-staging-v02.api.letsencrypt.org/directory
             acme_email: dev@example.com
 
-  # Public mode: gateway-base picks up the azure-lb component which
-  # leaves the LB external (no internal annotation). Lets a public AKS
-  # cluster expose the Envoy gateway behind a Standard SKU public LB
-  # without any Service annotations beyond the internal toggle (and
-  # AKS's CCM provisions the rest natively).
-  - name: gateway with envoy on Azure adds azure-lb annotations component
+  # Public mode: gateway-base adds no platform-azure component. AKS's CCM
+  # provisions a public Standard SKU LB for any Service: LoadBalancer with
+  # no annotations needed, so the option-gateway base components are enough.
+  - name: gateway with envoy on Azure uses AKS-default public LB
     values:
       provider: azure
       gateway:
@@ -209,23 +207,19 @@ cases:
     expect:
       kustomize:
         - name: gateway-base
+          path: gateway/base
           components:
             - envoy
             - envoy/loadbalancer
-            - envoy/loadbalancer/azure-lb
             - envoy/prometheus
-          substitutions:
-            lb_internal: "false"
 
-  # Private mode flips the AKS Standard LB to internal so the gateway
-  # only exposes a private subnet IP. Same gating as the AWS aws-nlb
-  # internal toggle (requires dns.private_domain — without it the rest
-  # of the private cascade no-ops and the gateway runs as public). Also
-  # set dns.public_domain so the public DNS / cert cascade still wires
-  # up — Azure private mode currently relies on the public dns / pki
-  # path being active for downstream wiring (no private Azure DNS module
-  # yet, so external-dns and ACME still target the public zone even
-  # though the LB is internal-only).
+  # Private mode flips the AKS Standard LB to internal so the gateway only
+  # exposes a private subnet IP. Same gating as the AWS aws-nlb internal
+  # toggle (requires dns.private_domain, otherwise the rest of the private
+  # cascade no-ops and the gateway runs as public). Also set
+  # dns.public_domain so the public DNS / cert cascade still wires up.
+  # Azure private mode currently relies on the public dns / pki path being
+  # active for downstream wiring.
   - name: gateway.access=private flips the Azure LB to internal
     values:
       provider: azure
@@ -240,10 +234,64 @@ cases:
     expect:
       kustomize:
         - name: gateway-base
+          path: gateway/base
           components:
             - envoy
             - envoy/loadbalancer
-            - envoy/loadbalancer/azure-lb
+            - envoy/loadbalancer/azure-lb-internal
             - envoy/prometheus
-          substitutions:
-            lb_internal: "true"
+
+  # Coherence guard: gateway.access=private without dns.private_domain is
+  # an incoherent operator config. The whole private-mode cascade gates on
+  # both, so without private_domain the cluster stays on the public path
+  # and azure-lb-internal is not appended. Mirrors the AWS coherence test.
+  - name: gateway.access=private without private_domain stays public
+    values:
+      provider: azure
+      gateway:
+        enabled: true
+        driver: envoy
+        access: private
+    expect:
+      kustomize:
+        - name: gateway-base
+          path: gateway/base
+          components:
+            - envoy
+            - envoy/loadbalancer
+            - envoy/prometheus
+
+  # Negative branch: Cilium provides its own gateway implementation, so
+  # there's no Envoy data-plane Service to annotate. The azure-lb-internal
+  # component must NOT merge into the cilium gateway-base.
+  - name: gateway with cilium driver on Azure does not add azure-lb-internal component
+    values:
+      provider: azure
+      gateway:
+        enabled: true
+        driver: cilium
+    expect:
+      kustomize:
+        - name: gateway-base
+          path: gateway/base
+          components:
+            - cilium
+
+  # Negative branch: NodePort service_type means no LoadBalancer Service,
+  # so the internal-LB annotation has nothing to attach to. The
+  # azure-lb-internal component must NOT merge into the nodeport gateway-base.
+  - name: gateway with envoy and NodePort service_type on Azure does not add azure-lb-internal component
+    values:
+      provider: azure
+      gateway:
+        enabled: true
+        driver: envoy
+        service_type: NodePort
+    expect:
+      kustomize:
+        - name: gateway-base
+          path: gateway/base
+          components:
+            - envoy
+            - envoy/nodeport
+            - envoy/prometheus
