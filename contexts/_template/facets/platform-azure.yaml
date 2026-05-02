@@ -73,9 +73,21 @@ terraform:
     dependsOn:
       - network
     inputs:
+      # private_subnet_ids comes straight from the network module's outputs.
+      # The cluster module used to discover the VNet/subnets via name-based
+      # data sources; the facet now passes them explicitly so the dependency
+      # is visible in the input contract instead of an Azure-side lookup.
+      private_subnet_ids: ${terraform_output('network', 'private_subnet_ids')}
       create_cert_manager_identity: "${(dns.public_domain ?? '') != ''}"
       cert_manager_dns_zone_ids: "${(dns.public_domain ?? '') != '' && (terraform_output('dns-zone', 'zone_id') ?? '') != '' ? [terraform_output('dns-zone', 'zone_id')] : []}"
       external_dns_dns_zone_ids: "${(dns.public_domain ?? '') != '' && (terraform_output('dns-zone', 'zone_id') ?? '') != '' ? [terraform_output('dns-zone', 'zone_id')] : []}"
+      # kubelogin_mode is left to auto-detect at apply time (the cluster module
+      # converts the kubeconfig based on the credential chain it observes:
+      # AZURE_FEDERATED_TOKEN_FILE → workloadidentity, AZURE_CLIENT_SECRET /
+      # AZURE_CLIENT_CERTIFICATE_PATH → spn, otherwise azurecli). Operators who
+      # need a non-default mode (e.g. msi on a managed-identity runner) can set
+      # `cluster.kubelogin_mode` in values.yaml.
+      kubelogin_mode: "${cluster.kubelogin_mode ?? ''}"
 
   # Path-less dependency-edge injector: when ACME is on, cluster must wait
   # for dns-zone so terraform_output('dns-zone', 'zone_id') is resolved

@@ -16,14 +16,21 @@ spec:
     txtOwnerId: ${txt_owner_id}
     domainFilters:
       - ${external_domain:-test}
+    # external-dns Azure provider unconditionally reads /etc/kubernetes/azure.json
+    # at startup, before flag overrides are applied — so the file must exist even
+    # when using workload identity. The chart creates and mounts it from this block.
+    secretConfiguration:
+      enabled: true
+      mountPath: /etc/kubernetes
+      data:
+        azure.json: |
+          {
+            "tenantId": "${external_dns_tenant_id}",
+            "subscriptionId": "${external_dns_dns_zone_subscription_id:-}",
+            "resourceGroup": "${external_dns_dns_zone_resource_group:-}",
+            "useWorkloadIdentityExtension": true
+          }
     extraArgs:
-      # subscription + resource group of the zone external-dns writes to.
-      # external-dns reads tenant + client id from the workload-identity-
-      # injected env vars on the pod, but it still needs to know which sub
-      # and RG the zone lives in — pass them as flags so we don't need to
-      # mount an azure.json Secret.
-      - --azure-subscription-id=${external_dns_dns_zone_subscription_id:-}
-      - --azure-resource-group=${external_dns_dns_zone_resource_group:-}
       # Pin the controller to a specific zone ID. Same belt-and-braces as
       # the AWS provider — a same-named public+private zone pair could
       # exist (split-horizon DNS), and the ID filter narrows the match.
