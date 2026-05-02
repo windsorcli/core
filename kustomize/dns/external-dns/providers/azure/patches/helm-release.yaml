@@ -16,6 +16,10 @@ spec:
     txtOwnerId: ${txt_owner_id}
     domainFilters:
       - ${external_domain:-test}
+    # Azure DNS rejects '*' in TXT relative names, so the registry's TXT record
+    # for a wildcard endpoint (e.g. a-*.example.com) fails to write. Replace
+    # '*' with 'any' in TXT names — record set becomes a-any.example.com.
+    txtWildcardReplacement: any
     # external-dns Azure provider unconditionally reads /etc/kubernetes/azure.json
     # at startup, before flag overrides are applied — so the file must exist even
     # when using workload identity. The chart creates and mounts it from this block.
@@ -30,11 +34,11 @@ spec:
             "resourceGroup": "${external_dns_dns_zone_resource_group:-}",
             "useWorkloadIdentityExtension": true
           }
-    extraArgs:
-      # Pin the controller to a specific zone ID. Same belt-and-braces as
-      # the AWS provider — a same-named public+private zone pair could
-      # exist (split-horizon DNS), and the ID filter narrows the match.
-      - --zone-id-filter=${zone_id_filter:-}
+    # No --zone-id-filter on Azure: the provider already lists zones only
+    # within azure.json's resourceGroup, and domainFilters narrows further.
+    # The flag's HasSuffix match against the full Azure resource ID is
+    # case-sensitive and silently drops every zone if Azure's normalized
+    # casing differs from the configured ID.
     podLabels:
       # Wakes the workload-identity webhook to inject AZURE_CLIENT_ID,
       # AZURE_TENANT_ID, AZURE_FEDERATED_TOKEN_FILE, AZURE_AUTHORITY_HOST
