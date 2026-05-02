@@ -38,16 +38,14 @@ variable "cluster_name" {
   default     = null
 }
 
-variable "vnet_module_name" {
-  description = "Name on the VNET module"
-  type        = string
-  default     = "network"
-}
-
-variable "vnet_subnet_id" {
-  description = "ID of the subnet"
-  type        = string
+variable "private_subnet_ids" {
+  description = "Private subnet IDs the AKS node pools attach to. Default node pool uses the first; the autoscaled pool uses the last. Pipe network/azure-vnet's private_subnet_ids output."
+  type        = list(string)
   default     = null
+  validation {
+    condition     = var.private_subnet_ids != null && length(var.private_subnet_ids) > 0
+    error_message = "private_subnet_ids is required and must be non-empty. The VNet/subnet data lookup this module previously used has been removed; pipe network/azure-vnet's private_subnet_ids output, e.g. inputs.private_subnet_ids = terraform_output('network', 'private_subnet_ids') in the platform-azure facet."
+  }
 }
 
 variable "region" {

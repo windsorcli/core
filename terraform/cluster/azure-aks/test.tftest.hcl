@@ -10,23 +10,18 @@ mock_provider "azurerm" {
       subscription_id = "12345678-1234-9876-4563-123456789012"
     }
   }
-  mock_data "azurerm_virtual_network" {
-    defaults = {
-      subnets             = ["private-1-test", "private-2-test", "private-3-test", "public-1-test", "public-2-test", "isolated-1-test", "isolated-2-test"]
-      resource_group_name = "example-resource-group"
-      name                = "vnet-test"
-      id                  = "/subscriptions/12345678-1234-9876-4563-123456789012/resourceGroups/example-resource-group/providers/Microsoft.Network/virtualNetworks/vnet-test"
-    }
-  }
-  mock_data "azurerm_subnet" {
-    defaults = {
-      name                 = "private-1-test"
-      resource_group_name  = "example-resource-group"
-      virtual_network_name = "vnet-test"
-      address_prefixes     = ["10.0.0.0/24"]
-      id                   = "/subscriptions/12345678-1234-9876-4563-123456789012/resourceGroups/example-resource-group/providers/Microsoft.Network/virtualNetworks/vnet-test/subnets/subnet-test"
-    }
-  }
+}
+
+# Stand-in subnet IDs every run block feeds into var.private_subnet_ids via
+# the shared `variables` block below. Three entries lets the role-assignment
+# for_each fan out to >1 scope and exercises the default/autoscaled pool's
+# first/last picks landing on different subnets.
+variables {
+  private_subnet_ids = [
+    "/subscriptions/12345678-1234-9876-4563-123456789012/resourceGroups/example-resource-group/providers/Microsoft.Network/virtualNetworks/vnet-test/subnets/private-1-test",
+    "/subscriptions/12345678-1234-9876-4563-123456789012/resourceGroups/example-resource-group/providers/Microsoft.Network/virtualNetworks/vnet-test/subnets/private-2-test",
+    "/subscriptions/12345678-1234-9876-4563-123456789012/resourceGroups/example-resource-group/providers/Microsoft.Network/virtualNetworks/vnet-test/subnets/private-3-test",
+  ]
 }
 
 
@@ -174,6 +169,11 @@ run "minimal_configuration" {
   assert {
     condition     = length(null_resource.convert_kubeconfig) == 0
     error_message = "convert_kubeconfig resource should not be created when kubelogin_mode is empty (default)"
+  }
+
+  assert {
+    condition     = length(azurerm_role_assignment.subnet_network_contributor_cp) == 3
+    error_message = "Network Contributor role should be assigned once per private subnet (3 in this run's input list)"
   }
 }
 

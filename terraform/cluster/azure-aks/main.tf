@@ -40,22 +40,6 @@ data "azurerm_client_config" "current" {}
 
 data "azurerm_subscription" "current" {}
 
-data "azurerm_virtual_network" "vnet" {
-  name                = "${var.vnet_module_name}-${var.context_id}"
-  resource_group_name = "${var.vnet_module_name}-${var.context_id}"
-}
-
-locals {
-  private_subnets = [for subnet in data.azurerm_virtual_network.vnet.subnets : subnet if contains(split("-", subnet), "private")]
-}
-
-data "azurerm_subnet" "private" {
-  count                = length(local.private_subnets)
-  name                 = "private-${count.index + 1}-${var.context_id}"
-  resource_group_name  = data.azurerm_virtual_network.vnet.resource_group_name
-  virtual_network_name = data.azurerm_virtual_network.vnet.name
-}
-
 #-----------------------------------------------------------------------------------------------------------------------
 # Locals
 #-----------------------------------------------------------------------------------------------------------------------
@@ -365,7 +349,7 @@ resource "azurerm_kubernetes_cluster" "main" {
     name                         = var.default_node_pool.name
     node_count                   = var.default_node_pool.node_count
     vm_size                      = var.default_node_pool.vm_size
-    vnet_subnet_id               = coalesce(var.vnet_subnet_id, try(data.azurerm_subnet.private[0].id, null))
+    vnet_subnet_id               = var.private_subnet_ids[0]
     orchestrator_version         = var.kubernetes_version
     only_critical_addons_enabled = var.default_node_pool.only_critical_addons_enabled
     zones                        = var.default_node_pool.availability_zones
@@ -449,11 +433,8 @@ resource "azurerm_kubernetes_cluster_node_pool" "autoscaled" {
   min_count             = var.autoscaled_node_pool.min_count
   max_count             = var.autoscaled_node_pool.max_count
   zones                 = var.autoscaled_node_pool.availability_zones
-  vnet_subnet_id = coalesce(
-    var.vnet_subnet_id,
-    try(data.azurerm_subnet.private[length(local.private_subnets) - 1].id, null)
-  )
-  orchestrator_version = var.kubernetes_version
+  vnet_subnet_id        = var.private_subnet_ids[length(var.private_subnet_ids) - 1]
+  orchestrator_version  = var.kubernetes_version
   # checkov:skip=CKV_AZURE_226: We are using the managed disk type to reduce costs
   os_disk_type = var.autoscaled_node_pool.os_disk_type
   # checkov:skip=CKV_AZURE_168: This is set in the variable by default to 50
@@ -475,12 +456,13 @@ resource "azurerm_kubernetes_cluster_node_pool" "autoscaled" {
   }, local.tags)
 }
 
-# Assign Network Contributor role on subnet to control plane identity (required for custom VNet).
-# Azure CLI auto-assigns this, but Terraform requires manual assignment.
-# This is needed for the control plane to manage load balancers and network resources in the custom VNet.
+# Assign Network Contributor role on each private subnet to the control plane identity
+# (required for custom VNet). Azure CLI auto-assigns this; Terraform requires it explicitly.
+# Scoped per-subnet so every subnet a node pool may attach to is covered, not just the first.
 # Reference: https://learn.microsoft.com/azure/aks/configure-kubenet
 resource "azurerm_role_assignment" "subnet_network_contributor_cp" {
-  scope                = coalesce(var.vnet_subnet_id, try(data.azurerm_subnet.private[0].id, null))
+  for_each             = toset(var.private_subnet_ids)
+  scope                = each.value
   role_definition_name = "Network Contributor"
   principal_id         = azurerm_kubernetes_cluster.main.identity[0].principal_id
 }
@@ -569,8 +551,22 @@ resource "local_sensitive_file" "kubeconfig" {
   }
 }
 
-# Convert kubeconfig to specified login mode if kubelogin_mode is set
-# This runs after the kubeconfig file is created
+# Convert the AAD-enabled kubeconfig away from Azure's default `devicecode`
+# login mode. Devicecode prompts the operator to type a code from a browser,
+# which terraform's non-interactive context (kubernetes_namespace_v1 in the
+# gitops/flux module, kustomize reconciliation in CI, etc.) cannot drive — the
+# kubelogin call exits 1 with no actionable error and the run fails with a
+# generic "executable kubelogin failed with exit code 1" trace.
+#
+# var.kubelogin_mode is populated automatically: windsor detects the active
+# Azure credential chain (workload-identity / SPN / az-cli) and exports
+# TF_VAR_kubelogin_mode before invoking terraform, so the right mode flows in
+# without the module having to do platform-specific shell detection itself.
+# Operators on managed-identity runners (where no process-env signal exists)
+# can pin the mode via azure.kubelogin_mode in values.yaml; windsor reads
+# that as the highest-priority source. The single-line provisioner stays
+# portable — no heredoc, no shell variables — so it runs the same on macOS,
+# Linux, and Windows (cmd.exe).
 resource "null_resource" "convert_kubeconfig" {
   count = local.kubeconfig_path != "" && var.kubelogin_mode != "" ? 1 : 0
 
