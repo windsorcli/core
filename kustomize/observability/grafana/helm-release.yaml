@@ -36,11 +36,11 @@ spec:
         tag: 1.37.0@sha256:1487d0af5f52b4ba31c7e465126ee2123fe3f2305d638e7827681e7cf6c83d5e
     downloadDashboardsImage:
       # renovate: datasource=docker depName=curlimages/curl package=curlimages/curl
-      tag: 8.19.0@sha256:c03110c736db81bbe1be0296f1f1608c81b954b01626bdfb0a8f84e5bd00ff3c
+      tag: 8.20.0@sha256:b3f1fb2a51d923260350d21b8654bbc607164a987e2f7c84a0ac199a67df812a
     sidecar:
       image:
         # renovate: datasource=docker depName=kiwigrid/k8s-sidecar package=kiwigrid/k8s-sidecar
-        tag: 2.6.0@sha256:a6c101156d42ef1050c536fcbcc03bf314544a63ee2daafe45280bc8dbab398f
+        tag: 2.7.1@sha256:2670f251f80d990635460c0116497a9cc3202069e8826f1a279af300ecd9f75e
       dashboards:
         enabled: true
         label: grafana_dashboard

@@ -4,13 +4,13 @@
 | Name | Version |
 |------|---------|
 | <a name="requirement_terraform"></a> [terraform](#requirement\_terraform) | >=1.8 |
-| <a name="requirement_aws"></a> [aws](#requirement\_aws) | 6.25.0 |
+| <a name="requirement_aws"></a> [aws](#requirement\_aws) | 6.42.0 |
 
 ## Providers
 
 | Name | Version |
 |------|---------|
-| <a name="provider_aws"></a> [aws](#provider\_aws) | 6.25.0 |
+| <a name="provider_aws"></a> [aws](#provider\_aws) | 6.42.0 |
 | <a name="provider_local"></a> [local](#provider\_local) | 2.6.1 |
 | <a name="provider_null"></a> [null](#provider\_null) | 3.2.4 |
 
@@ -22,73 +22,91 @@ No modules.
 
 | Name | Type |
 |------|------|
-| [aws_cloudwatch_log_group.eks_cluster](https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/cloudwatch_log_group) | resource |
-| [aws_eks_addon.main](https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/eks_addon) | resource |
-| [aws_eks_cluster.main](https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/eks_cluster) | resource |
-| [aws_eks_fargate_profile.main](https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/eks_fargate_profile) | resource |
-| [aws_eks_node_group.main](https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/eks_node_group) | resource |
-| [aws_eks_pod_identity_association.external_dns](https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/eks_pod_identity_association) | resource |
-| [aws_iam_policy.external_dns](https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/iam_policy) | resource |
-| [aws_iam_policy.pod_identity_agent](https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/iam_policy) | resource |
-| [aws_iam_role.cluster](https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/iam_role) | resource |
-| [aws_iam_role.ebs_csi](https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/iam_role) | resource |
-| [aws_iam_role.efs_csi](https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/iam_role) | resource |
-| [aws_iam_role.external_dns](https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/iam_role) | resource |
-| [aws_iam_role.fargate](https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/iam_role) | resource |
-| [aws_iam_role.node_group](https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/iam_role) | resource |
-| [aws_iam_role.pod_identity_agent](https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/iam_role) | resource |
-| [aws_iam_role.vpc_cni](https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/iam_role) | resource |
-| [aws_iam_role_policy_attachment.cluster_AmazonEKSClusterPolicy](https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/iam_role_policy_attachment) | resource |
-| [aws_iam_role_policy_attachment.cluster_AmazonEKSVPCResourceController](https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/iam_role_policy_attachment) | resource |
-| [aws_iam_role_policy_attachment.ebs_csi](https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/iam_role_policy_attachment) | resource |
-| [aws_iam_role_policy_attachment.efs_csi](https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/iam_role_policy_attachment) | resource |
-| [aws_iam_role_policy_attachment.external_dns](https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/iam_role_policy_attachment) | resource |
-| [aws_iam_role_policy_attachment.fargate_pod_execution_role_policy](https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/iam_role_policy_attachment) | resource |
-| [aws_iam_role_policy_attachment.node_group_AmazonEC2ContainerRegistryReadOnly](https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/iam_role_policy_attachment) | resource |
-| [aws_iam_role_policy_attachment.node_group_AmazonEKSWorkerNodePolicy](https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/iam_role_policy_attachment) | resource |
-| [aws_iam_role_policy_attachment.node_group_AmazonEKS_CNI_Policy](https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/iam_role_policy_attachment) | resource |
-| [aws_iam_role_policy_attachment.pod_identity_agent](https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/iam_role_policy_attachment) | resource |
-| [aws_iam_role_policy_attachment.vpc_cni](https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/iam_role_policy_attachment) | resource |
-| [aws_kms_alias.eks_encryption_key](https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/kms_alias) | resource |
-| [aws_kms_key.eks_encryption_key](https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/kms_key) | resource |
-| [aws_launch_template.node_group](https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/launch_template) | resource |
-| [aws_security_group.cluster_api_access](https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/security_group) | resource |
+| [aws_cloudwatch_log_group.eks_cluster](https://registry.terraform.io/providers/hashicorp/aws/6.42.0/docs/resources/cloudwatch_log_group) | resource |
+| [aws_eks_addon.main](https://registry.terraform.io/providers/hashicorp/aws/6.42.0/docs/resources/eks_addon) | resource |
+| [aws_eks_cluster.main](https://registry.terraform.io/providers/hashicorp/aws/6.42.0/docs/resources/eks_cluster) | resource |
+| [aws_eks_fargate_profile.main](https://registry.terraform.io/providers/hashicorp/aws/6.42.0/docs/resources/eks_fargate_profile) | resource |
+| [aws_eks_node_group.main](https://registry.terraform.io/providers/hashicorp/aws/6.42.0/docs/resources/eks_node_group) | resource |
+| [aws_eks_pod_identity_association.aws_lb_controller](https://registry.terraform.io/providers/hashicorp/aws/6.42.0/docs/resources/eks_pod_identity_association) | resource |
+| [aws_eks_pod_identity_association.cert_manager](https://registry.terraform.io/providers/hashicorp/aws/6.42.0/docs/resources/eks_pod_identity_association) | resource |
+| [aws_eks_pod_identity_association.external_dns](https://registry.terraform.io/providers/hashicorp/aws/6.42.0/docs/resources/eks_pod_identity_association) | resource |
+| [aws_iam_policy.aws_lb_controller](https://registry.terraform.io/providers/hashicorp/aws/6.42.0/docs/resources/iam_policy) | resource |
+| [aws_iam_policy.cert_manager](https://registry.terraform.io/providers/hashicorp/aws/6.42.0/docs/resources/iam_policy) | resource |
+| [aws_iam_policy.external_dns](https://registry.terraform.io/providers/hashicorp/aws/6.42.0/docs/resources/iam_policy) | resource |
+| [aws_iam_policy.pod_identity_agent](https://registry.terraform.io/providers/hashicorp/aws/6.42.0/docs/resources/iam_policy) | resource |
+| [aws_iam_role.aws_lb_controller](https://registry.terraform.io/providers/hashicorp/aws/6.42.0/docs/resources/iam_role) | resource |
+| [aws_iam_role.cert_manager](https://registry.terraform.io/providers/hashicorp/aws/6.42.0/docs/resources/iam_role) | resource |
+| [aws_iam_role.cluster](https://registry.terraform.io/providers/hashicorp/aws/6.42.0/docs/resources/iam_role) | resource |
+| [aws_iam_role.ebs_csi](https://registry.terraform.io/providers/hashicorp/aws/6.42.0/docs/resources/iam_role) | resource |
+| [aws_iam_role.efs_csi](https://registry.terraform.io/providers/hashicorp/aws/6.42.0/docs/resources/iam_role) | resource |
+| [aws_iam_role.external_dns](https://registry.terraform.io/providers/hashicorp/aws/6.42.0/docs/resources/iam_role) | resource |
+| [aws_iam_role.fargate](https://registry.terraform.io/providers/hashicorp/aws/6.42.0/docs/resources/iam_role) | resource |
+| [aws_iam_role.node_group](https://registry.terraform.io/providers/hashicorp/aws/6.42.0/docs/resources/iam_role) | resource |
+| [aws_iam_role.pod_identity_agent](https://registry.terraform.io/providers/hashicorp/aws/6.42.0/docs/resources/iam_role) | resource |
+| [aws_iam_role.vpc_cni](https://registry.terraform.io/providers/hashicorp/aws/6.42.0/docs/resources/iam_role) | resource |
+| [aws_iam_role_policy_attachment.aws_lb_controller](https://registry.terraform.io/providers/hashicorp/aws/6.42.0/docs/resources/iam_role_policy_attachment) | resource |
+| [aws_iam_role_policy_attachment.cert_manager](https://registry.terraform.io/providers/hashicorp/aws/6.42.0/docs/resources/iam_role_policy_attachment) | resource |
+| [aws_iam_role_policy_attachment.cluster_AmazonEKSClusterPolicy](https://registry.terraform.io/providers/hashicorp/aws/6.42.0/docs/resources/iam_role_policy_attachment) | resource |
+| [aws_iam_role_policy_attachment.cluster_AmazonEKSVPCResourceController](https://registry.terraform.io/providers/hashicorp/aws/6.42.0/docs/resources/iam_role_policy_attachment) | resource |
+| [aws_iam_role_policy_attachment.ebs_csi](https://registry.terraform.io/providers/hashicorp/aws/6.42.0/docs/resources/iam_role_policy_attachment) | resource |
+| [aws_iam_role_policy_attachment.efs_csi](https://registry.terraform.io/providers/hashicorp/aws/6.42.0/docs/resources/iam_role_policy_attachment) | resource |
+| [aws_iam_role_policy_attachment.external_dns](https://registry.terraform.io/providers/hashicorp/aws/6.42.0/docs/resources/iam_role_policy_attachment) | resource |
+| [aws_iam_role_policy_attachment.fargate_pod_execution_role_policy](https://registry.terraform.io/providers/hashicorp/aws/6.42.0/docs/resources/iam_role_policy_attachment) | resource |
+| [aws_iam_role_policy_attachment.node_group_AmazonEC2ContainerRegistryReadOnly](https://registry.terraform.io/providers/hashicorp/aws/6.42.0/docs/resources/iam_role_policy_attachment) | resource |
+| [aws_iam_role_policy_attachment.node_group_AmazonEKSWorkerNodePolicy](https://registry.terraform.io/providers/hashicorp/aws/6.42.0/docs/resources/iam_role_policy_attachment) | resource |
+| [aws_iam_role_policy_attachment.node_group_AmazonEKS_CNI_Policy](https://registry.terraform.io/providers/hashicorp/aws/6.42.0/docs/resources/iam_role_policy_attachment) | resource |
+| [aws_iam_role_policy_attachment.pod_identity_agent](https://registry.terraform.io/providers/hashicorp/aws/6.42.0/docs/resources/iam_role_policy_attachment) | resource |
+| [aws_iam_role_policy_attachment.vpc_cni](https://registry.terraform.io/providers/hashicorp/aws/6.42.0/docs/resources/iam_role_policy_attachment) | resource |
+| [aws_kms_alias.ebs_encryption_key](https://registry.terraform.io/providers/hashicorp/aws/6.42.0/docs/resources/kms_alias) | resource |
+| [aws_kms_alias.eks_encryption_key](https://registry.terraform.io/providers/hashicorp/aws/6.42.0/docs/resources/kms_alias) | resource |
+| [aws_kms_key.ebs_encryption_key](https://registry.terraform.io/providers/hashicorp/aws/6.42.0/docs/resources/kms_key) | resource |
+| [aws_kms_key.eks_encryption_key](https://registry.terraform.io/providers/hashicorp/aws/6.42.0/docs/resources/kms_key) | resource |
+| [aws_launch_template.node_group](https://registry.terraform.io/providers/hashicorp/aws/6.42.0/docs/resources/launch_template) | resource |
+| [aws_security_group.cluster_api_access](https://registry.terraform.io/providers/hashicorp/aws/6.42.0/docs/resources/security_group) | resource |
 | [local_sensitive_file.kubeconfig](https://registry.terraform.io/providers/hashicorp/local/latest/docs/resources/sensitive_file) | resource |
 | [null_resource.create_kubeconfig_dir](https://registry.terraform.io/providers/hashicorp/null/latest/docs/resources/resource) | resource |
-| [null_resource.delete_eks_log_group](https://registry.terraform.io/providers/hashicorp/null/latest/docs/resources/resource) | resource |
-| [aws_caller_identity.current](https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/data-sources/caller_identity) | data source |
-| [aws_eks_addon_version.default](https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/data-sources/eks_addon_version) | data source |
-| [aws_region.current](https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/data-sources/region) | data source |
-| [aws_subnets.private](https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/data-sources/subnets) | data source |
-| [aws_vpc.default](https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/data-sources/vpc) | data source |
+| [aws_caller_identity.current](https://registry.terraform.io/providers/hashicorp/aws/6.42.0/docs/data-sources/caller_identity) | data source |
+| [aws_eks_addon_version.default](https://registry.terraform.io/providers/hashicorp/aws/6.42.0/docs/data-sources/eks_addon_version) | data source |
+| [aws_region.current](https://registry.terraform.io/providers/hashicorp/aws/6.42.0/docs/data-sources/region) | data source |
 
 ## Inputs
 
 | Name | Description | Type | Default | Required |
 |------|-------------|------|---------|:--------:|
 | <a name="input_addons"></a> [addons](#input\_addons) | Map of EKS add-ons | <pre>map(object({<br/>    version = optional(string)<br/>    tags    = optional(map(string), {})<br/>  }))</pre> | <pre>{<br/>  "aws-ebs-csi-driver": {},<br/>  "aws-efs-csi-driver": {},<br/>  "coredns": {},<br/>  "eks-pod-identity-agent": {},<br/>  "vpc-cni": {}<br/>}</pre> | no |
+| <a name="input_cert_manager_hosted_zone_ids"></a> [cert\_manager\_hosted\_zone\_ids](#input\_cert\_manager\_hosted\_zone\_ids) | Hosted zone IDs cert-manager is allowed to write ACME challenge records to. When set, the IAM policy's Route53 record-write actions are scoped to these zones (arn:aws:route53:::hostedzone/<id>) instead of every zone in the account. Leave empty to fall back to a wildcard scope (legacy behavior). | `list(string)` | `[]` | no |
+| <a name="input_class_instance_types"></a> [class\_instance\_types](#input\_class\_instance\_types) | Default instance type list per portable pool class. Multi-type lists guard against single-instance-type capacity shortages. A pool's explicit instance\_types overrides this map. When overriding this variable, all seven class keys must be supplied — partial overrides are rejected at validate time rather than panicking mid-plan. | `map(list(string))` | <pre>{<br/>  "arm64": [<br/>    "t4g.xlarge",<br/>    "m6g.xlarge",<br/>    "c6g.xlarge"<br/>  ],<br/>  "compute": [<br/>    "c6i.xlarge",<br/>    "c6a.xlarge",<br/>    "c5.xlarge"<br/>  ],<br/>  "general": [<br/>    "t3.xlarge",<br/>    "t3a.xlarge",<br/>    "m5.xlarge",<br/>    "m5a.xlarge"<br/>  ],<br/>  "gpu": [<br/>    "g4dn.xlarge",<br/>    "g5.xlarge"<br/>  ],<br/>  "memory": [<br/>    "r6i.xlarge",<br/>    "r6a.xlarge",<br/>    "r5.xlarge"<br/>  ],<br/>  "storage": [<br/>    "i3.xlarge",<br/>    "i4i.xlarge"<br/>  ],<br/>  "system": [<br/>    "t3.medium",<br/>    "t3a.medium",<br/>    "t3.large",<br/>    "t3a.large"<br/>  ]<br/>}</pre> | no |
 | <a name="input_cluster_api_access_cidr_block"></a> [cluster\_api\_access\_cidr\_block](#input\_cluster\_api\_access\_cidr\_block) | The CIDR block for the cluster API access. | `string` | `"0.0.0.0/0"` | no |
 | <a name="input_cluster_name"></a> [cluster\_name](#input\_cluster\_name) | The name of the EKS cluster. | `string` | `""` | no |
 | <a name="input_context_id"></a> [context\_id](#input\_context\_id) | The windsor context id for this deployment | `string` | `""` | no |
 | <a name="input_context_path"></a> [context\_path](#input\_context\_path) | The path to the context folder, where kubeconfig is stored | `string` | `""` | no |
+| <a name="input_create_aws_lb_controller_role"></a> [create\_aws\_lb\_controller\_role](#input\_create\_aws\_lb\_controller\_role) | Whether to create the IAM role, policy, and Pod Identity association for the AWS Load Balancer Controller. Default true; set false only when not using the controller (Service: LoadBalancer falls back to the in-tree CCM, classic ELB only). | `bool` | `true` | no |
+| <a name="input_create_cert_manager_role"></a> [create\_cert\_manager\_role](#input\_create\_cert\_manager\_role) | Whether to create the IAM role, policy, and Pod Identity association for cert-manager's Route53 ACME DNS-01 solver. Enable when cert-manager will issue ACME certificates against a Route53 hosted zone in this account. | `bool` | `false` | no |
 | <a name="input_create_external_dns_role"></a> [create\_external\_dns\_role](#input\_create\_external\_dns\_role) | Whether to create IAM role and policy for external-dns. Set to true if external-dns will be used in the cluster, even if not installed as an EKS addon. | `bool` | `true` | no |
-| <a name="input_enable_cloudwatch_logs"></a> [enable\_cloudwatch\_logs](#input\_enable\_cloudwatch\_logs) | Whether to enable CloudWatch log group creation for EKS control plane logs | `bool` | `true` | no |
+| <a name="input_ebs_volume_kms_key_id"></a> [ebs\_volume\_kms\_key\_id](#input\_ebs\_volume\_kms\_key\_id) | KMS key ARN or ID to use for EBS volume encryption in node group launch templates. ARN is preferred for cross-account scenarios. If enable\_ebs\_encryption is true and this is null, a cluster-specific key is created. | `string` | `null` | no |
+| <a name="input_enable_cloudwatch_logs"></a> [enable\_cloudwatch\_logs](#input\_enable\_cloudwatch\_logs) | Whether the cluster emits control plane logs to CloudWatch. | `bool` | `true` | no |
+| <a name="input_enable_ebs_encryption"></a> [enable\_ebs\_encryption](#input\_enable\_ebs\_encryption) | Whether to enable EBS volume encryption for node group instances. If true and ebs\_volume\_kms\_key\_id is null, a cluster-specific KMS key will be created. | `bool` | `true` | no |
 | <a name="input_enable_secrets_encryption"></a> [enable\_secrets\_encryption](#input\_enable\_secrets\_encryption) | Whether to enable EKS secrets encryption at all. If false, no encryption\_config is set. If true, use internal or external key. | `bool` | `true` | no |
 | <a name="input_endpoint_private_access"></a> [endpoint\_private\_access](#input\_endpoint\_private\_access) | Whether to enable private access to the EKS cluster. | `bool` | `false` | no |
 | <a name="input_endpoint_public_access"></a> [endpoint\_public\_access](#input\_endpoint\_public\_access) | Whether to enable public access to the EKS cluster. | `bool` | `true` | no |
 | <a name="input_fargate_profiles"></a> [fargate\_profiles](#input\_fargate\_profiles) | Map of EKS Fargate profile definitions to create. | <pre>map(object({<br/>    selectors = list(object({<br/>      namespace = string<br/>      labels    = optional(map(string), {})<br/>    }))<br/>    tags = optional(map(string), {})<br/>  }))</pre> | `{}` | no |
+| <a name="input_kms_key_deletion_window_in_days"></a> [kms\_key\_deletion\_window\_in\_days](#input\_kms\_key\_deletion\_window\_in\_days) | The waiting period, specified in number of days, after which the KMS key is deleted. Valid values are 7-30. Default is 7. For compliance requirements (PCI DSS, SOC 2, HIPAA), 30 days is often required for critical keys to allow time for audit and recovery. | `number` | `7` | no |
 | <a name="input_kubernetes_version"></a> [kubernetes\_version](#input\_kubernetes\_version) | The kubernetes version to deploy. | `string` | `"1.34"` | no |
+| <a name="input_manage_log_group"></a> [manage\_log\_group](#input\_manage\_log\_group) | Whether Terraform manages the control plane log group with retention and CMK. Set false for ephemeral clusters that recreate the same name; EKS owns the group instead. | `bool` | `true` | no |
 | <a name="input_max_pods_per_node"></a> [max\_pods\_per\_node](#input\_max\_pods\_per\_node) | Maximum number of pods that can run on a single node | `number` | `64` | no |
-| <a name="input_node_groups"></a> [node\_groups](#input\_node\_groups) | Map of EKS managed node group definitions to create. | <pre>map(object({<br/>    instance_types = list(string)<br/>    min_size       = number<br/>    max_size       = number<br/>    desired_size   = number<br/>    disk_size      = optional(number, 64)<br/>    labels         = optional(map(string), {})<br/>    taints = optional(list(object({<br/>      key    = string<br/>      value  = string<br/>      effect = string<br/>    })), [])<br/>  }))</pre> | <pre>{<br/>  "default": {<br/>    "desired_size": 2,<br/>    "instance_types": [<br/>      "t3.xlarge"<br/>    ],<br/>    "max_size": 3,<br/>    "min_size": 1<br/>  }<br/>}</pre> | no |
+| <a name="input_node_groups"></a> [node\_groups](#input\_node\_groups) | Map of EKS managed node group definitions to create. Used when var.pools is empty; otherwise pools wins. | <pre>map(object({<br/>    instance_types = list(string)<br/>    min_size       = number<br/>    max_size       = number<br/>    desired_size   = number<br/>    capacity_type  = optional(string, "ON_DEMAND")<br/>    disk_size      = optional(number, 64)<br/>    labels         = optional(map(string), {})<br/>    taints = optional(list(object({<br/>      key    = string<br/>      value  = string<br/>      effect = string<br/>    })), [])<br/>  }))</pre> | <pre>{<br/>  "default": {<br/>    "desired_size": 2,<br/>    "instance_types": [<br/>      "t3.xlarge"<br/>    ],<br/>    "max_size": 3,<br/>    "min_size": 1<br/>  }<br/>}</pre> | no |
+| <a name="input_pools"></a> [pools](#input\_pools) | Portable node pool definitions, keyed by pool name. When non-empty, takes precedence over var.node\_groups. Each pool maps a class (system/general/compute/memory/storage/gpu/arm64) to an EKS managed node group. | <pre>map(object({<br/>    class          = string<br/>    count          = number<br/>    lifecycle      = optional(string, "on-demand")<br/>    instance_types = optional(list(string))<br/>    root_disk_size = optional(number)<br/>    labels         = optional(map(string), {})<br/>    taints = optional(list(object({<br/>      key    = string<br/>      value  = optional(string)<br/>      effect = string<br/>    })), [])<br/>  }))</pre> | `{}` | no |
+| <a name="input_private_subnet_ids"></a> [private\_subnet\_ids](#input\_private\_subnet\_ids) | Private subnet IDs for EKS control plane ENIs and node groups. Pipe network/aws-vpc's private\_subnet\_ids output. | `list(string)` | `null` | no |
 | <a name="input_secrets_encryption_kms_key_id"></a> [secrets\_encryption\_kms\_key\_id](#input\_secrets\_encryption\_kms\_key\_id) | ID of an existing KMS key to use for EKS secrets encryption. If enable\_secrets\_encryption is true and this is null, an internal key is created. | `string` | `null` | no |
 | <a name="input_tags"></a> [tags](#input\_tags) | Additional tags to apply to all resources | `map(string)` | `{}` | no |
 | <a name="input_vpc_cni_config"></a> [vpc\_cni\_config](#input\_vpc\_cni\_config) | Configuration for the VPC CNI addon | <pre>object({<br/>    enable_prefix_delegation = bool<br/>    warm_prefix_target       = number<br/>    warm_ip_target           = number<br/>    minimum_ip_target        = number<br/>  })</pre> | <pre>{<br/>  "enable_prefix_delegation": true,<br/>  "minimum_ip_target": 3,<br/>  "warm_ip_target": 1,<br/>  "warm_prefix_target": 1<br/>}</pre> | no |
-| <a name="input_vpc_id"></a> [vpc\_id](#input\_vpc\_id) | The ID of the VPC where the EKS cluster will be created. | `string` | `null` | no |
+| <a name="input_vpc_id"></a> [vpc\_id](#input\_vpc\_id) | ID of the VPC where the EKS cluster will be created. Pipe network/aws-vpc's vpc\_id output. | `string` | `null` | no |
 
 ## Outputs
 
 | Name | Description |
 |------|-------------|
+| <a name="output_aws_lb_controller_role_arn"></a> [aws\_lb\_controller\_role\_arn](#output\_aws\_lb\_controller\_role\_arn) | ARN of the IAM role for the AWS Load Balancer Controller |
 | <a name="output_cluster_arn"></a> [cluster\_arn](#output\_cluster\_arn) | The Amazon Resource Name (ARN) of the cluster. |
 | <a name="output_cluster_endpoint"></a> [cluster\_endpoint](#output\_cluster\_endpoint) | The endpoint for the Kubernetes API server. |
 | <a name="output_cluster_id"></a> [cluster\_id](#output\_cluster\_id) | The name/id of the EKS cluster. |

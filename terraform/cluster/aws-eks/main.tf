@@ -26,25 +26,6 @@ provider "aws" {
 # Data
 #-----------------------------------------------------------------------------------------------------------------------
 
-data "aws_vpc" "default" {
-  count = var.vpc_id == null ? 1 : 0
-  filter {
-    name   = "tag:WindsorContextID"
-    values = [var.context_id]
-  }
-}
-
-data "aws_subnets" "private" {
-  filter {
-    name   = "tag:Tier"
-    values = ["private"]
-  }
-  filter {
-    name   = "vpc-id"
-    values = [var.vpc_id != null ? var.vpc_id : data.aws_vpc.default[0].id]
-  }
-}
-
 data "aws_region" "current" {}
 
 locals {
@@ -61,9 +42,12 @@ locals {
 # EKS Cluster
 #-----------------------------------------------------------------------------------------------------------------------
 
-# Create CloudWatch log group for EKS control plane logs with proper tags
+# When manage_log_group is false EKS creates this group itself with no
+# retention or CMK. We accept that for ephemeral clusters because TF-managed
+# groups race with EKS shutdown writes and leave orphans that block same-name
+# recreates.
 resource "aws_cloudwatch_log_group" "eks_cluster" {
-  count             = var.enable_cloudwatch_logs ? 1 : 0
+  count             = var.enable_cloudwatch_logs && var.manage_log_group ? 1 : 0
   name              = "/aws/eks/${local.name}/cluster"
   retention_in_days = 365
   kms_key_id        = local.kms_key_arn
@@ -77,25 +61,6 @@ resource "aws_cloudwatch_log_group" "eks_cluster" {
   )
 }
 
-resource "null_resource" "delete_eks_log_group" {
-  count = var.enable_cloudwatch_logs ? 1 : 0
-
-  triggers = {
-    log_group_name = aws_cloudwatch_log_group.eks_cluster[0].name
-  }
-
-  # EKS may recreate this log group between the terraform delete and the
-  # cluster delete; mop up the recreated one. on_failure = continue makes
-  # the rerun case (group already gone) a no-op.
-  provisioner "local-exec" {
-    when       = destroy
-    command    = "aws logs delete-log-group --log-group-name \"${self.triggers.log_group_name}\""
-    on_failure = continue
-  }
-
-  depends_on = [aws_eks_cluster.main]
-}
-
 resource "aws_eks_cluster" "main" {
   # checkov:skip=CKV_AWS_38: Public access set via a variable.
   # checkov:skip=CKV_AWS_39: Public access set via a variable.
@@ -105,7 +70,7 @@ resource "aws_eks_cluster" "main" {
   version  = var.kubernetes_version
 
   vpc_config {
-    subnet_ids              = data.aws_subnets.private.ids
+    subnet_ids              = var.private_subnet_ids
     endpoint_private_access = var.endpoint_private_access
     endpoint_public_access  = var.endpoint_public_access
     security_group_ids      = [aws_security_group.cluster_api_access.id]
@@ -134,14 +99,14 @@ resource "aws_eks_cluster" "main" {
     aws_iam_role_policy_attachment.cluster_AmazonEKSClusterPolicy,
     aws_iam_role_policy_attachment.cluster_AmazonEKSVPCResourceController,
     aws_kms_key.eks_encryption_key,
-    aws_cloudwatch_log_group.eks_cluster
+    aws_cloudwatch_log_group.eks_cluster,
   ]
 }
 
 resource "aws_security_group" "cluster_api_access" {
   name        = "${local.name}-cluster-api-access"
   description = "Security group for EKS cluster API access"
-  vpc_id      = data.aws_vpc.default[0].id
+  vpc_id      = var.vpc_id
 
   ingress {
     from_port   = 443
@@ -153,7 +118,7 @@ resource "aws_security_group" "cluster_api_access" {
 }
 
 resource "aws_kms_key" "eks_encryption_key" {
-  # checkov:skip=CKV2_AWS_64:Policy is defined inline via jsonencode; checkov's graph engine can't trace the conditional concat() over Statement
+  # checkov:skip=CKV2_AWS_64:Policy is defined inline via jsonencode; checkov's graph engine can't trace the conditional concat() over Statement.
   count                   = var.enable_secrets_encryption && var.secrets_encryption_kms_key_id == null ? 1 : 0
   description             = "KMS key for EKS cluster ${local.name} secrets encryption"
   deletion_window_in_days = var.kms_key_deletion_window_in_days
@@ -187,7 +152,7 @@ resource "aws_kms_key" "eks_encryption_key" {
         Resource = "*"
       }
       ],
-      var.enable_cloudwatch_logs ? [
+      var.enable_cloudwatch_logs && var.manage_log_group ? [
         {
           Sid    = "Allow CloudWatch Logs to use the key",
           Effect = "Allow",
@@ -391,7 +356,7 @@ resource "aws_eks_node_group" "main" {
   cluster_name           = aws_eks_cluster.main.name
   node_group_name_prefix = "${each.key}-"
   node_role_arn          = aws_iam_role.node_group.arn
-  subnet_ids             = data.aws_subnets.private.ids
+  subnet_ids             = var.private_subnet_ids
   instance_types         = each.value.instance_types
   capacity_type          = each.value.capacity_type == "ON_DEMAND" ? null : each.value.capacity_type
 
@@ -510,7 +475,7 @@ resource "aws_eks_fargate_profile" "main" {
   cluster_name           = aws_eks_cluster.main.name
   fargate_profile_name   = each.key
   pod_execution_role_arn = aws_iam_role.fargate.arn
-  subnet_ids             = data.aws_subnets.private.ids
+  subnet_ids             = var.private_subnet_ids
 
   dynamic "selector" {
     for_each = each.value.selectors

@@ -6,10 +6,6 @@ terraform {
       source  = "hashicorp/aws"
       version = "6.42.0"
     }
-    random = {
-      source  = "hashicorp/random"
-      version = "3.8.1"
-    }
   }
 }
 
@@ -64,7 +60,7 @@ resource "aws_default_security_group" "default" {
 
 # Enable VPC Flow Logs
 resource "aws_flow_log" "main" {
-  count                    = var.enable_cloudwatch_logs ? 1 : 0
+  count                    = var.enable_flow_logs ? 1 : 0
   log_destination_type     = "cloud-watch-logs"
   log_destination          = aws_cloudwatch_log_group.vpc_flow_logs[0].arn
   iam_role_arn             = aws_iam_role.vpc_flow_logs[0].arn
@@ -77,15 +73,8 @@ resource "aws_flow_log" "main" {
   }
 }
 
-resource "random_string" "log_group_suffix" {
-  count   = var.enable_flow_logs ? 1 : 0
-  length  = 3
-  special = false
-  upper   = false
-}
-
 resource "aws_cloudwatch_log_group" "vpc_flow_logs" {
-  count             = var.enable_cloudwatch_logs ? 1 : 0
+  count             = var.enable_flow_logs ? 1 : 0
   name              = "/aws/vpc/flow-logs/${local.name}"
   retention_in_days = 365
   kms_key_id        = var.create_flow_logs_kms_key ? aws_kms_key.vpc_flow_logs[0].arn : var.flow_logs_kms_key_id
@@ -93,21 +82,6 @@ resource "aws_cloudwatch_log_group" "vpc_flow_logs" {
   tags = {
     Name = "${local.name}-flow-logs"
   }
-}
-
-resource "null_resource" "delete_vpc_flow_logs" {
-  count = var.enable_cloudwatch_logs ? 1 : 0
-
-  triggers = {
-    log_group_name = aws_cloudwatch_log_group.vpc_flow_logs[0].name
-  }
-
-  provisioner "local-exec" {
-    when    = destroy
-    command = "aws logs delete-log-group --log-group-name \"${self.triggers.log_group_name}\""
-  }
-
-  depends_on = [aws_vpc.main]
 }
 
 resource "aws_kms_key" "vpc_flow_logs" {
@@ -154,7 +128,7 @@ resource "aws_kms_alias" "vpc_flow_logs" {
 }
 
 resource "aws_iam_role" "vpc_flow_logs" {
-  count = var.enable_cloudwatch_logs ? 1 : 0
+  count = var.enable_flow_logs ? 1 : 0
   name  = "${local.name}-vpc-flow-logs"
 
   assume_role_policy = jsonencode({
@@ -176,7 +150,7 @@ resource "aws_iam_role" "vpc_flow_logs" {
 }
 
 resource "aws_iam_role_policy" "vpc_flow_logs" {
-  count = var.enable_cloudwatch_logs ? 1 : 0
+  count = var.enable_flow_logs ? 1 : 0
   name  = "${local.name}-vpc-flow-logs"
   role  = aws_iam_role.vpc_flow_logs[0].id
 

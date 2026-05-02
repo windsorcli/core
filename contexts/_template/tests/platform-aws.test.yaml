@@ -637,3 +637,32 @@ cases:
     exclude:
       kustomize:
         - name: dns
+
+  # Default lifecycle: long-lived, so the cluster gets manage_log_group=true
+  # and TF owns the EKS log group with retention + CMK.
+  - name: default lifecycle gives cluster manage_log_group true
+    values:
+      provider: aws
+      gateway:
+        enabled: false
+    expect:
+      terraform:
+        - name: cluster
+          path: cluster/aws-eks
+          inputs:
+            manage_log_group: true
+
+  # Ephemeral lifecycle: cluster gets manage_log_group=false. EKS owns the
+  # log group; same-named cluster recreates avoid the destroy-time race.
+  - name: ephemeral flips cluster to manage_log_group false
+    values:
+      provider: aws
+      gateway:
+        enabled: false
+      ephemeral: true
+    expect:
+      terraform:
+        - name: cluster
+          path: cluster/aws-eks
+          inputs:
+            manage_log_group: false
