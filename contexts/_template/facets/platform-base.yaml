@@ -435,7 +435,11 @@ kustomize:
     dependsOn:
       - telemetry-base
     components:
-      - "${telemetry_effective.metrics_enabled ? 'metrics-server' : ''}"
+      # Platform-specific opt-out: AKS (and other managed K8s flavors) ship
+      # metrics-server as a built-in add-on, so platform-azure overrides
+      # telemetry_effective.metrics_server_enabled to false to skip our copy.
+      # Defaults to true via ?? so the AWS / metal / incus paths are unchanged.
+      - "${telemetry_effective.metrics_enabled && (telemetry_effective.metrics_server_enabled ?? true) ? 'metrics-server' : ''}"
       - "${telemetry_effective.metrics_enabled ? 'prometheus' : ''}"
       - "${telemetry_effective.metrics_enabled ? 'prometheus/flux' : ''}"
       - "${telemetry_effective.logs_enabled ? 'fluentbit' : ''}"

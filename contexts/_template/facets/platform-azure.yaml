@@ -7,6 +7,23 @@ metadata:
 when: platform == 'azure'
 
 # =============================================================================
+# Config — platform-specific overrides
+# =============================================================================
+#
+# AKS ships metrics-server as a managed add-on, so we suppress the copy that
+# platform-base would otherwise add to telemetry-resources (two instances
+# would fight on the same APIService). The flag is layered onto the base
+# `telemetry_effective` config block via Windsor's deep-merge semantics —
+# only metrics_server_enabled is overridden, the rest of the field set
+# (metrics_enabled, logs_enabled, logs_driver) keeps platform-base's values.
+#
+config:
+
+  - name: telemetry_effective
+    value:
+      metrics_server_enabled: false
+
+# =============================================================================
 # Terraform — AzureRM state backend, VNet, AKS, optional public DNS zone
 # =============================================================================
 #
@@ -110,8 +127,12 @@ terraform:
       concurrency: 5
 
 # =============================================================================
-# Kustomize — Azure Disk CSI + AKS-specific telemetry trim + DNS / ACME / LB
+# Kustomize — Azure Disk CSI + DNS / ACME / LB
 # =============================================================================
+#
+# AKS-specific telemetry trim (metrics-server suppression) is handled in the
+# config block above, so it composes via the shared platform-base entry
+# rather than a separate kustomize override here.
 #
 kustomize:
 
@@ -128,14 +149,6 @@ kustomize:
     interval: 5m
     substitutions:
       single_storage_type: ${cluster.storage.single_storage_type ?? "StandardSSD_LRS"}
-
-  # AKS ships metrics-server as a managed add-on, so remove our copy to
-  # avoid running two instances fighting over the same APIService.
-  - name: telemetry-resources
-    path: telemetry/resources
-    strategy: remove
-    components:
-      - metrics-server
 
   # ---------------------------------------------------------------------------
   # cert-manager Workload Identity (Azure DNS-01 only)
