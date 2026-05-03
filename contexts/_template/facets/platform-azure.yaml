@@ -186,10 +186,19 @@ kustomize:
       # Deferred terraform_outputs from the dns-zone stack — the cert-manager
       # azureDNS solver needs (zone_name, RG, sub) to call the management API,
       # plus (tenant_id, client_id) of the cert-manager UAMI to authenticate.
-      acme_dns_zone_resource_group: "${terraform_output('dns-zone', 'resource_group_name') ?? ''}"
-      acme_dns_zone_subscription_id: "${terraform_output('dns-zone', 'subscription_id') ?? ''}"
-      cert_manager_client_id: "${terraform_output('cluster', 'cert_manager_client_id') ?? ''}"
-      cert_manager_tenant_id: "${terraform_output('cluster', 'tenant_id') ?? ''}"
+      # Gated on dns.public_domain because the dns-zone stack only composes
+      # when public_domain is set; calling terraform_output on a missing
+      # component is a hard error that ?? doesn't catch. In private mode the
+      # private-issuer/selfsigned component selected above doesn't read these.
+      acme_dns_zone_resource_group: "${(dns.public_domain ?? '') != '' ? (terraform_output('dns-zone', 'resource_group_name') ?? '') : ''}"
+      acme_dns_zone_subscription_id: "${(dns.public_domain ?? '') != '' ? (terraform_output('dns-zone', 'subscription_id') ?? '') : ''}"
+      # cert-manager UAMI outputs only exist when create_cert_manager_identity
+      # fires (gated on dns.public_domain in the cluster step). Calling
+      # terraform_output for an absent output is a hard error that ?? can't
+      # catch — gate eagerly. Selfsigned issuer in private mode doesn't read
+      # these.
+      cert_manager_client_id: "${(dns.public_domain ?? '') != '' ? (terraform_output('cluster', 'cert_manager_client_id') ?? '') : ''}"
+      cert_manager_tenant_id: "${(dns.public_domain ?? '') != '' ? (terraform_output('cluster', 'tenant_id') ?? '') : ''}"
 
   # ---------------------------------------------------------------------------
   # DNS — external-dns + Azure DNS record automation
