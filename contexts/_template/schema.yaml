@@ -169,14 +169,13 @@ properties:
         description: Endpoint for Managed Workflows for Apache Airflow.
     description: AWS provider authentication and endpoint configuration
 
-  # Azure provider configuration (only consumed when platform == 'azure').
+  # Azure provider configuration. Azure integration activates whenever this block is
+  # present or `platform: azure` is set; there is no separate `enabled` flag (mirrors
+  # the AWS schema, which also keys on platform/block-presence alone).
   azure:
     type: object
     additionalProperties: false
     properties:
-      enabled:
-        type: boolean
-        description: Enable Azure integration
       subscription_id:
         type: string
         description: Azure subscription identifier
@@ -186,6 +185,27 @@ properties:
       environment:
         type: string
         description: Azure cloud environment (e.g. "public", "usgovernment")
+      kubelogin_mode:
+        type: string
+        enum:
+          - ""
+          - devicecode
+          - interactive
+          - spn
+          - ropc
+          - msi
+          - azurecli
+          - azd
+          - workloadidentity
+          - azurepipelines
+        description: |
+          Override the kubelogin login mode used for AAD-enabled AKS clusters.
+          Leave empty (default) to let windsor auto-detect from the Azure
+          credential chain at apply time: AZURE_FEDERATED_TOKEN_FILE →
+          workloadidentity, AZURE_CLIENT_SECRET / AZURE_CLIENT_CERTIFICATE_PATH
+          → spn, otherwise azurecli. Set explicitly when the active credential
+          is managed identity (msi) or another mode that lacks a process-env
+          signal windsor can detect.
     description: Azure provider authentication configuration
 
   # Terraform execution config

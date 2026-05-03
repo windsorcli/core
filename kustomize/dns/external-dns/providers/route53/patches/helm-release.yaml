@@ -5,22 +5,21 @@ metadata:
   name: external-dns
   namespace: system-dns
 spec:
-  valuesFrom:
-    - kind: ConfigMap
-      name: external-dns
-      valuesKey: aws_region
-      targetPath: aws.region
-    - kind: ConfigMap
-      name: external-dns
-      valuesKey: txt_owner_id
-      targetPath: txtOwnerId
   values:
     provider:
       aws:
         usePodIdentity: true
+        region: ${aws_region}
         zoneType: ${zone_type:-public}
     policy: sync
     registry: txt
+    # Unique TXT-record owner ID — keeps multiple external-dns instances in
+    # the same zone from clobbering each other's records. Sourced from the
+    # platform facet's dns kustomization substitution, fed by Flux postBuild
+    # via the values-dns ConfigMap the CLI generates. (The previous valuesFrom
+    # ConfigMap reference pointed at an `external-dns` CM that nothing in the
+    # repo ever created — silently broke fresh deploys.)
+    txtOwnerId: ${txt_owner_id}
     domainFilters:
       - ${external_domain:-test}
     extraArgs:

@@ -1,0 +1,59 @@
+---
+apiVersion: helm.toolkit.fluxcd.io/v2
+kind: HelmRelease
+metadata:
+  name: external-dns
+  namespace: system-dns
+spec:
+  values:
+    provider: azure
+    policy: sync
+    registry: txt
+    # Unique TXT-record owner ID — keeps multiple external-dns instances
+    # in the same zone from clobbering each other's records. Sourced from
+    # the platform facet's dns kustomization substitution, which is fed by
+    # Flux's postBuild via the values-dns ConfigMap the CLI generates.
+    txtOwnerId: ${txt_owner_id}
+    domainFilters:
+      - ${external_domain:-test}
+    # Azure DNS rejects '*' in TXT relative names, so the registry's TXT record
+    # for a wildcard endpoint (e.g. a-*.example.com) fails to write. Replace
+    # '*' with 'any' in TXT names — record set becomes a-any.example.com.
+    txtWildcardReplacement: any
+    # external-dns Azure provider unconditionally reads /etc/kubernetes/azure.json
+    # at startup, before flag overrides are applied — so the file must exist even
+    # when using workload identity. The chart creates and mounts it from this block.
+    secretConfiguration:
+      enabled: true
+      mountPath: /etc/kubernetes
+      data:
+        azure.json: |
+          {
+            "tenantId": "${external_dns_tenant_id}",
+            "subscriptionId": "${external_dns_dns_zone_subscription_id:-}",
+            "resourceGroup": "${external_dns_dns_zone_resource_group:-}",
+            "useWorkloadIdentityExtension": true
+          }
+    # No --zone-id-filter on Azure: the provider already lists zones only
+    # within azure.json's resourceGroup, and domainFilters narrows further.
+    # The flag's HasSuffix match against the full Azure resource ID is
+    # case-sensitive and silently drops every zone if Azure's normalized
+    # casing differs from the configured ID.
+    podLabels:
+      # Wakes the workload-identity webhook to inject AZURE_CLIENT_ID,
+      # AZURE_TENANT_ID, AZURE_FEDERATED_TOKEN_FILE, AZURE_AUTHORITY_HOST
+      # env vars and project the SA token into the pod. Without this the
+      # controller falls back to azure.json / env config and fails auth.
+      azure.workload.identity/use: "true"
+    serviceAccount:
+      create: true
+      name: external-dns
+      labels:
+        azure.workload.identity/use: "true"
+      annotations:
+        # Binds this SA to the cert-manager-distinct external-dns UAMI
+        # provisioned by the cluster module. Federated credential subject
+        # was set to system:serviceaccount:system-dns:external-dns at
+        # cluster apply time, so the OIDC exchange resolves to this UAMI.
+        azure.workload.identity/client-id: ${external_dns_client_id}
+        azure.workload.identity/tenant-id: ${external_dns_tenant_id}

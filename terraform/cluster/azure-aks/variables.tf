@@ -38,16 +38,14 @@ variable "cluster_name" {
   default     = null
 }
 
-variable "vnet_module_name" {
-  description = "Name on the VNET module"
-  type        = string
-  default     = "network"
-}
-
-variable "vnet_subnet_id" {
-  description = "ID of the subnet"
-  type        = string
+variable "private_subnet_ids" {
+  description = "Private subnet IDs the AKS node pools attach to. Default node pool uses the first; the autoscaled pool uses the last. Pipe network/azure-vnet's private_subnet_ids output."
+  type        = list(string)
   default     = null
+  validation {
+    condition     = var.private_subnet_ids != null && length(var.private_subnet_ids) > 0
+    error_message = "private_subnet_ids is required and must be non-empty. The VNet/subnet data lookup this module previously used has been removed; pipe network/azure-vnet's private_subnet_ids output, e.g. inputs.private_subnet_ids = terraform_output('network', 'private_subnet_ids') in the platform-azure facet."
+  }
 }
 
 variable "region" {
@@ -133,6 +131,15 @@ variable "autoscaled_node_pool" {
     host_encryption_enabled = true
     min_count               = 1
     max_count               = 3
+    # Match Azure's at-create defaults exactly so the dynamic block always
+    # renders. Without these, the block isn't emitted, Azure populates its
+    # own defaults, and every subsequent plan tries to "remove" the block
+    # the API just added back.
+    upgrade_settings = {
+      drain_timeout_in_minutes      = 0
+      max_surge                     = "10%"
+      node_soak_duration_in_minutes = 0
+    }
   }
 }
 
@@ -338,6 +345,30 @@ variable "image_cleaner_interval_hours" {
   description = "Interval in hours for Image Cleaner to run"
   type        = number
   default     = 48
+}
+
+variable "create_cert_manager_identity" {
+  description = "Whether to provision a User-Assigned Managed Identity, DNS Zone Contributor role assignments, and Federated Identity Credential for cert-manager's azureDNS ACME DNS-01 solver. Enable when cert-manager will issue ACME certificates against an Azure DNS zone."
+  type        = bool
+  default     = false
+}
+
+variable "cert_manager_dns_zone_ids" {
+  description = "Full Azure resource IDs of DNS zones cert-manager is allowed to write ACME challenge records to. The DNS Zone Contributor role assignment is scoped to these zones — leave empty when create_cert_manager_identity is false."
+  type        = list(string)
+  default     = []
+}
+
+variable "create_external_dns_identity" {
+  description = "Whether to provision a User-Assigned Managed Identity, DNS Zone Contributor role assignments, and Federated Identity Credential for external-dns. Enable when external-dns will publish records to an Azure DNS zone."
+  type        = bool
+  default     = true
+}
+
+variable "external_dns_dns_zone_ids" {
+  description = "Full Azure resource IDs of DNS zones external-dns is allowed to manage records in. The DNS Zone Contributor role assignment is scoped to these zones — leave empty when create_external_dns_identity is false."
+  type        = list(string)
+  default     = []
 }
 
 variable "kubelogin_mode" {

@@ -148,14 +148,15 @@ kustomize:
       #     → 'private': ACME DNS-01 can't validate against a VPC-only zone,
       #     so fall back to private selfsigned until an operator wires a
       #     private CA.
-      #   AWS, or any platform with dns.public_domain set
+      #   AWS or Azure, or any platform with dns.public_domain set
       #     → cert_effective.public_issuer (resolves to 'public-acme' or
-      #     'public-selfsigned'). AWS always renders public-issuer/* via
-      #     pki-resources, so its public branch is always available.
+      #     'public-selfsigned'). Both cloud facets always render
+      #     public-issuer/* via pki-resources, so the public branch is
+      #     always available.
       #   anything else → 'private': no public ClusterIssuer is deployed
       #     on those platforms, so falling back to private selfsigned is
       #     the only safe option.
-      gateway_cert_issuer: "${gateway.access == 'private' && (dns.private_domain ?? '') != '' ? 'private' : (platform == 'aws' || (dns.public_domain ?? '') != '' ? cert_effective.public_issuer : 'private')}"
+      gateway_cert_issuer: "${gateway.access == 'private' && (dns.private_domain ?? '') != '' ? 'private' : (platform == 'aws' || platform == 'azure' || (dns.public_domain ?? '') != '' ? cert_effective.public_issuer : 'private')}"
       # Only emitted when a consumer is active: the lb-address patch (in-cluster
       # LB) or the cilium gateway component. NodePort/cloud-managed-LB paths
       # have no consumer, so leave it empty and the harness drops it.

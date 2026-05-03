@@ -3,10 +3,11 @@ kind: Kustomization
 resources: []
 # No resources or components by default — facets that need a ClusterIssuer
 # add a self-contained subcomponent:
-#   - private-issuer/ca           full private CA (trust-manager-distributed)   → ClusterIssuer/private
-#   - private-issuer/selfsigned   private selfsigned (dev / fallback)           → ClusterIssuer/private
-#   - public-issuer/acme          ACME public (Let's Encrypt + DNS-01)          → ClusterIssuer/public-acme
-#   - public-issuer/selfsigned    public selfsigned (dev / pre-ACME bootstrap)  → ClusterIssuer/public-selfsigned
+#   - private-issuer/ca             full private CA (trust-manager-distributed)   → ClusterIssuer/private
+#   - private-issuer/selfsigned     private selfsigned (dev / fallback)           → ClusterIssuer/private
+#   - public-issuer/acme/route53    ACME public (Let's Encrypt + Route53 DNS-01)  → ClusterIssuer/public-acme
+#   - public-issuer/acme/azuredns   ACME public (Let's Encrypt + Azure DNS-01)    → ClusterIssuer/public-acme
+#   - public-issuer/selfsigned      public selfsigned (dev / pre-ACME bootstrap)  → ClusterIssuer/public-selfsigned
 # The two public-issuer variants emit distinct ClusterIssuers so that swapping
 # between them (e.g. when an operator first sets dns.public_domain) shows up as
 # a Certificate spec change and triggers cert-manager reissuance — mutating one

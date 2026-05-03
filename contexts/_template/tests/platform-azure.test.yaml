@@ -6,8 +6,12 @@ cases:
         enabled: false
     expect:
       terraform:
+        - name: backend
+          path: backend/azurerm
         - name: network
           path: network/azure-vnet
+          dependsOn:
+            - backend
         - name: cluster
           path: cluster/azure-aks
           dependsOn:
@@ -31,3 +35,263 @@ cases:
     exclude:
       kustomize:
         - name: gateway-resources
+
+  # Default selfsigned mode: no public_domain set, so dns-zone stack is not
+  # provisioned and pki-resources renders public-issuer/selfsigned. The cert-
+  # manager Workload Identity is not provisioned (create_cert_manager_identity
+  # defaults to false), but external-dns identity still is — matching the AWS
+  # baseline-on default for that role.
+  - name: default selfsigned mode without a public domain
+    values:
+      provider: azure
+    expect:
+      terraform:
+        - name: cluster
+          path: cluster/azure-aks
+          dependsOn:
+            - network
+          inputs:
+            create_cert_manager_identity: "false"
+      kustomize:
+        - name: pki-resources
+          path: pki/resources
+          components:
+            - public-issuer/selfsigned
+    exclude:
+      terraform:
+        - name: dns-zone
+
+  # ACME path on (production): dns.public_domain triggers the standalone
+  # dns-zone stack, the cert-manager UAMI on the cluster, the
+  # public-issuer/acme/azuredns component on pki-resources, and the gateway
+  # TLS cert switches to the `public-acme` ClusterIssuer with the public
+  # domain. Mirrors the AWS Route53 test exactly so divergence between the
+  # two platforms shows up here first.
+  - name: dns.public_domain wires up ACME azureDNS issuer end to end
+    values:
+      provider: azure
+      gateway:
+        enabled: true
+        driver: envoy
+      dns:
+        public_domain: example.com
+      email: ops@example.com
+    terraformOutputs:
+      dns-zone:
+        zone_id: /subscriptions/12345678-1234-9876-4563-123456789012/resourceGroups/rg-dns/providers/Microsoft.Network/dnszones/example.com
+        resource_group_name: rg-dns
+        subscription_id: 12345678-1234-9876-4563-123456789012
+      cluster:
+        cert_manager_client_id: 11111111-aaaa-aaaa-aaaa-111111111111
+        external_dns_client_id: 22222222-bbbb-bbbb-bbbb-222222222222
+        tenant_id: 33333333-cccc-cccc-cccc-333333333333
+    expect:
+      terraform:
+        - name: dns-zone
+          path: dns/zone/azure-dns
+          dependsOn:
+            - backend
+          inputs:
+            domain_name: example.com
+        - name: cluster
+          path: cluster/azure-aks
+          # cluster must wait for dns-zone so terraform_output('dns-zone',
+          # 'zone_id') is resolved before the Workload Identity role
+          # assignment list is rendered. Without this edge the assignments
+          # fall through to the empty default and cert-manager / external-dns
+          # have no DNS Zone Contributor role.
+          dependsOn:
+            - network
+            - dns-zone
+          inputs:
+            create_cert_manager_identity: "true"
+            cert_manager_dns_zone_ids:
+              - /subscriptions/12345678-1234-9876-4563-123456789012/resourceGroups/rg-dns/providers/Microsoft.Network/dnszones/example.com
+            external_dns_dns_zone_ids:
+              - /subscriptions/12345678-1234-9876-4563-123456789012/resourceGroups/rg-dns/providers/Microsoft.Network/dnszones/example.com
+      kustomize:
+        # Workload Identity wiring on the cert-manager pod itself — the
+        # azure-workload-identity component patches the cert-manager
+        # HelmRelease to add the SA annotation + pod label so the
+        # workload-identity webhook injects the projected token at runtime.
+        - name: pki-base
+          components:
+            - cert-manager
+            - cert-manager/azure-workload-identity
+            - cert-manager/prometheus
+          substitutions:
+            cert_manager_client_id: 11111111-aaaa-aaaa-aaaa-111111111111
+            cert_manager_tenant_id: 33333333-cccc-cccc-cccc-333333333333
+        - name: pki-resources
+          path: pki/resources
+          dependsOn:
+            - pki-base
+            - policy-resources
+          components:
+            - public-issuer/acme/azuredns
+          substitutions:
+            acme_server: https://acme-v02.api.letsencrypt.org/directory
+            acme_email: ops@example.com
+            acme_dns_zone: example.com
+            # Substitutions read by the azureDNS solver block. If the keys
+            # are renamed or terraform_outputs stop threading through, the
+            # issuer would deploy with empty fields and every DNS-01
+            # challenge would fail.
+            acme_dns_zone_resource_group: rg-dns
+            acme_dns_zone_subscription_id: 12345678-1234-9876-4563-123456789012
+            cert_manager_client_id: 11111111-aaaa-aaaa-aaaa-111111111111
+            cert_manager_tenant_id: 33333333-cccc-cccc-cccc-333333333333
+        # Gateway-on + public-domain path: external-dns must wait for
+        # gateway-base (HTTPRoute CRDs) and layer the gateway-httproute
+        # source on top of the azure provider. Locks the conditional in
+        # platform-azure.yaml's dns kustomization.
+        - name: dns
+          path: dns
+          dependsOn:
+            - policy-resources
+            - gateway-base
+          components:
+            - external-dns
+            - external-dns/providers/azure
+            - external-dns/sources/gateway-httproute
+          substitutions:
+            external_domain: example.com
+            zone_id_filter: /subscriptions/12345678-1234-9876-4563-123456789012/resourceGroups/rg-dns/providers/Microsoft.Network/dnszones/example.com
+            external_dns_client_id: 22222222-bbbb-bbbb-bbbb-222222222222
+            external_dns_tenant_id: 33333333-cccc-cccc-cccc-333333333333
+            external_dns_dns_zone_subscription_id: 12345678-1234-9876-4563-123456789012
+            external_dns_dns_zone_resource_group: rg-dns
+        - name: gateway-resources
+          path: gateway/resources
+          components:
+            - envoy/default-404
+            - envoy/default-404/external-dns
+            - flux-webhook
+          substitutions:
+            gateway_cert_issuer: public-acme
+            external_domain: example.com
+
+  # Dev mode flips the ACME server to Let's Encrypt staging to avoid
+  # burning Let's Encrypt prod rate limits during iteration.
+  - name: dev mode uses Let's Encrypt staging server on Azure
+    values:
+      provider: azure
+      dev: true
+      gateway:
+        enabled: true
+        driver: envoy
+      dns:
+        public_domain: dev.example.com
+      email: dev@example.com
+    expect:
+      kustomize:
+        - name: pki-resources
+          components:
+            - public-issuer/acme/azuredns
+          substitutions:
+            acme_server: https://acme-staging-v02.api.letsencrypt.org/directory
+            acme_email: dev@example.com
+
+  # Public mode: gateway-base adds no platform-azure component. AKS's CCM
+  # provisions a public Standard SKU LB for any Service: LoadBalancer with
+  # no annotations needed, so the option-gateway base components are enough.
+  - name: gateway with envoy on Azure uses AKS-default public LB
+    values:
+      provider: azure
+      gateway:
+        enabled: true
+        driver: envoy
+      dns:
+        public_domain: example.com
+      email: ops@example.com
+    expect:
+      kustomize:
+        - name: gateway-base
+          path: gateway/base
+          components:
+            - envoy
+            - envoy/loadbalancer
+            - envoy/prometheus
+
+  # Private mode flips the AKS Standard LB to internal so the gateway only
+  # exposes a private subnet IP. Same gating as the AWS aws-nlb internal
+  # toggle (requires dns.private_domain, otherwise the rest of the private
+  # cascade no-ops and the gateway runs as public). Also set
+  # dns.public_domain so the public DNS / cert cascade still wires up.
+  # Azure private mode currently relies on the public dns / pki path being
+  # active for downstream wiring.
+  - name: gateway.access=private flips the Azure LB to internal
+    values:
+      provider: azure
+      gateway:
+        enabled: true
+        driver: envoy
+        access: private
+      dns:
+        public_domain: example.com
+        private_domain: internal.example.com
+      email: ops@example.com
+    expect:
+      kustomize:
+        - name: gateway-base
+          path: gateway/base
+          components:
+            - envoy
+            - envoy/loadbalancer
+            - envoy/loadbalancer/azure-lb-internal
+            - envoy/prometheus
+
+  # Coherence guard: gateway.access=private without dns.private_domain is
+  # an incoherent operator config. The whole private-mode cascade gates on
+  # both, so without private_domain the cluster stays on the public path
+  # and azure-lb-internal is not appended. Mirrors the AWS coherence test.
+  - name: gateway.access=private without private_domain stays public
+    values:
+      provider: azure
+      gateway:
+        enabled: true
+        driver: envoy
+        access: private
+    expect:
+      kustomize:
+        - name: gateway-base
+          path: gateway/base
+          components:
+            - envoy
+            - envoy/loadbalancer
+            - envoy/prometheus
+
+  # Negative branch: Cilium provides its own gateway implementation, so
+  # there's no Envoy data-plane Service to annotate. The azure-lb-internal
+  # component must NOT merge into the cilium gateway-base.
+  - name: gateway with cilium driver on Azure does not add azure-lb-internal component
+    values:
+      provider: azure
+      gateway:
+        enabled: true
+        driver: cilium
+    expect:
+      kustomize:
+        - name: gateway-base
+          path: gateway/base
+          components:
+            - cilium
+
+  # Negative branch: NodePort service_type means no LoadBalancer Service,
+  # so the internal-LB annotation has nothing to attach to. The
+  # azure-lb-internal component must NOT merge into the nodeport gateway-base.
+  - name: gateway with envoy and NodePort service_type on Azure does not add azure-lb-internal component
+    values:
+      provider: azure
+      gateway:
+        enabled: true
+        driver: envoy
+        service_type: NodePort
+    expect:
+      kustomize:
+        - name: gateway-base
+          path: gateway/base
+          components:
+            - envoy
+            - envoy/nodeport
+            - envoy/prometheus

@@ -82,10 +82,24 @@ resource "azurerm_storage_account" "this" {
     }
   )
 
+  # The inline network_rules block in azurerm_storage_account doesn't
+  # round-trip reliably with the live API for storage accounts whose rules
+  # are effectively defaults (Allow + AzureServices bypass) — the provider
+  # re-proposes the block on every plan even when nothing has changed.
+  # Known azurerm v4 quirk; the Hashicorp-recommended workaround for inline
+  # use is ignore_changes, with the alternative being a migration to the
+  # standalone azurerm_storage_account_network_rules resource. For a
+  # state-backend bucket the rules are configured once at create time and
+  # never need post-create updates from this module, so ignore_changes is
+  # the lower-risk fix.
   network_rules {
     default_action = var.allow_public_access ? "Allow" : "Deny"
     bypass         = ["AzureServices"]
     ip_rules       = var.allowed_ip_ranges
+  }
+
+  lifecycle {
+    ignore_changes = [network_rules]
   }
 }
 
