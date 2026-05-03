@@ -71,6 +71,31 @@ run "minimal_configuration" {
   }
 }
 
+# Tests that an empty-string domain_name is treated the same as null.
+# The platform-azure facet passes ${dns.private_domain ?? ""} (empty string,
+# not null) when private_domain is unset, so the count guard must reject
+# both null and "" — otherwise Terraform tries to create a zone with name=""
+# and Azure rejects with an invalid-name error.
+run "empty_domain_name_skips_private_zone" {
+  command = plan
+
+  variables {
+    context_id  = "test"
+    name        = "windsor-vnet"
+    domain_name = ""
+  }
+
+  assert {
+    condition     = length(azurerm_private_dns_zone.main) == 0
+    error_message = "Private DNS zone should not be created when domain_name is empty string"
+  }
+
+  assert {
+    condition     = length(azurerm_private_dns_zone_virtual_network_link.main) == 0
+    error_message = "Private DNS zone VNet link should not be created when domain_name is empty string"
+  }
+}
+
 # Tests private DNS zone creation when domain_name is provided.
 run "private_dns_zone" {
   command = plan

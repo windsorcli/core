@@ -155,7 +155,7 @@ resource "azurerm_subnet_nat_gateway_association" "private" {
 # A/CNAME/TXT entries) only resolve from inside the VNet. Linked to the VNet
 # so resources in the VNet resolve names in the zone without per-VM agent setup.
 resource "azurerm_private_dns_zone" "main" {
-  count               = var.domain_name != null ? 1 : 0
+  count               = var.domain_name != null && var.domain_name != "" ? 1 : 0
   name                = var.domain_name
   resource_group_name = azurerm_resource_group.main.name
   tags = merge({
@@ -164,7 +164,7 @@ resource "azurerm_private_dns_zone" "main" {
 }
 
 resource "azurerm_private_dns_zone_virtual_network_link" "main" {
-  count                 = var.domain_name != null ? 1 : 0
+  count                 = var.domain_name != null && var.domain_name != "" ? 1 : 0
   name                  = "${local.vnet_name}-link"
   resource_group_name   = azurerm_resource_group.main.name
   private_dns_zone_name = azurerm_private_dns_zone.main[0].name
