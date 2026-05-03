@@ -264,6 +264,12 @@ kustomize:
       # RG), public mode from the dns-zone stack.
       external_dns_dns_zone_subscription_id: "${gateway.access == 'private' && (dns.private_domain ?? '') != '' ? (terraform_output('network', 'subscription_id') ?? '') : (terraform_output('dns-zone', 'subscription_id') ?? '')}"
       external_dns_dns_zone_resource_group: "${gateway.access == 'private' && (dns.private_domain ?? '') != '' ? (terraform_output('network', 'resource_group_name') ?? '') : (terraform_output('dns-zone', 'resource_group_name') ?? '')}"
+      # Public Azure DNS and Azure Private DNS Zones are served by different
+      # external-dns provider implementations (azure vs azure-private-dns) and
+      # different ARM resource types — without flipping this in private mode
+      # external-dns lists Microsoft.Network/dnszones and silently skips the
+      # privateDnsZones it should be writing to.
+      external_dns_azure_provider: "${gateway.access == 'private' && (dns.private_domain ?? '') != '' ? 'azure-private-dns' : 'azure'}"
 
   # ---------------------------------------------------------------------------
   # Gateway-base merge — Azure LB annotations on the Envoy data-plane Service

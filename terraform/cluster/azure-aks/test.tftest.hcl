@@ -705,7 +705,52 @@ run "external_dns_identity_disabled" {
 
   assert {
     condition     = length(azurerm_role_assignment.external_dns_zones) == 0
-    error_message = "external-dns role assignments should not be provisioned when create_external_dns_identity is false."
+    error_message = "external-dns public-zone role assignments should not be provisioned when create_external_dns_identity is false."
+  }
+
+  assert {
+    condition     = length(azurerm_role_assignment.external_dns_private_zones) == 0
+    error_message = "external-dns private-zone role assignments should not be provisioned when create_external_dns_identity is false."
+  }
+}
+
+# Tests that external-dns gets the correct RBAC role per zone type:
+# DNS Zone Contributor for public Azure DNS zones, Private DNS Zone
+# Contributor for VNet-linked Azure Private DNS zones. The two zone types
+# are different ARM resource types under different built-in roles, so a
+# single one-size grant doesn't work — picking the right role from the
+# resource ID's path segment is the load-bearing logic here.
+run "external_dns_role_per_zone_type" {
+  command = plan
+
+  variables {
+    context_id         = "test"
+    name               = "windsor-aks"
+    kubernetes_version = "1.34"
+    external_dns_dns_zone_ids = [
+      "/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/rg-public/providers/Microsoft.Network/dnszones/public.example.com",
+      "/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/rg-private/providers/Microsoft.Network/privateDnsZones/private.example.com",
+    ]
+  }
+
+  assert {
+    condition     = length(azurerm_role_assignment.external_dns_zones) == 1
+    error_message = "Public-zone role assignment should fire for the dnszones entry."
+  }
+
+  assert {
+    condition     = [for ra in azurerm_role_assignment.external_dns_zones : ra.role_definition_name][0] == "DNS Zone Contributor"
+    error_message = "Public zones must use DNS Zone Contributor role."
+  }
+
+  assert {
+    condition     = length(azurerm_role_assignment.external_dns_private_zones) == 1
+    error_message = "Private-zone role assignment should fire for the privateDnsZones entry."
+  }
+
+  assert {
+    condition     = [for ra in azurerm_role_assignment.external_dns_private_zones : ra.role_definition_name][0] == "Private DNS Zone Contributor"
+    error_message = "Private zones must use Private DNS Zone Contributor role."
   }
 }
 

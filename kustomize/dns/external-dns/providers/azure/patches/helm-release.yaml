@@ -6,7 +6,9 @@ metadata:
   namespace: system-dns
 spec:
   values:
-    provider: azure
+    # azure for public Azure DNS zones, azure-private-dns for VNet-linked
+    # private zones. Defaults to azure to preserve public-mode behavior.
+    provider: ${external_dns_azure_provider:-azure}
     policy: sync
     registry: txt
     # Unique TXT-record owner ID — keeps multiple external-dns instances
