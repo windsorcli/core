@@ -19,6 +19,22 @@ This module requires a paid Azure subscription. Free tier subscriptions are not 
 - Restricted VM sizes
 - Limited node pool operations
 
+## Upgrading
+
+### `azurerm_role_assignment.subnet_network_contributor_cp` for_each migration
+
+This resource moved from a single instance to `for_each` over `var.private_subnet_ids`. Without intervention, `terraform apply` will destroy the existing assignment and recreate it as a keyed instance, briefly leaving the control plane without `Network Contributor` on the first subnet (transient LB provisioning failures are possible during that window).
+
+For each cluster already in state, move the existing assignment before applying:
+
+```bash
+terraform state mv \
+  'azurerm_role_assignment.subnet_network_contributor_cp' \
+  'azurerm_role_assignment.subnet_network_contributor_cp["<first-private-subnet-id>"]'
+```
+
+The remaining for_each entries (other private subnets) are net-new assignments and do not affect the existing one.
+
 <!-- BEGIN_TF_DOCS -->
 ## Requirements
 

@@ -17,11 +17,5 @@ spec:
             hostedZoneName: ${acme_dns_zone}
             resourceGroupName: ${acme_dns_zone_resource_group}
             subscriptionID: ${acme_dns_zone_subscription_id}
-            # tenantID lives inside the managedIdentity block when using
-            # Workload Identity. cert-manager treats a top-level tenantID
-            # as a service-principal config signal and rejects the resource
-            # ("managed identity cannot be used at the same time as clientID,
-            # clientSecretSecretRef or tenantID") if both are present.
             managedIdentity:
               clientID: ${cert_manager_client_id}
-              tenantID: ${cert_manager_tenant_id}
