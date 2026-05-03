@@ -35,6 +35,21 @@ terraform state mv \
 
 The remaining for_each entries (other private subnets) are net-new assignments and do not affect the existing one.
 
+### `azurerm_role_assignment.external_dns_zones` is scoped to the resource group
+
+The DNS Zone Contributor role assignment for the external-dns identity is scoped to the resource group of each enumerated zone, not to the individual zones. This is required by the external-dns Azure provider, which calls `ListByResourceGroup` on every reconcile to discover zones — an action that the zone-scoped `DNS Zone Contributor` does not authorize. A zone-scoped grant would leave external-dns unable to enumerate, regardless of which zones were enumerated in `external_dns_dns_zone_ids`.
+
+The operational consequence: external-dns can read and modify records in every DNS zone in any resource group it has been granted on, not just the zones passed in `external_dns_dns_zone_ids`. To bound this blast radius, place the zones external-dns is allowed to manage in a dedicated resource group that does not host other DNS zones.
+
+If a cluster already has zone-scoped assignments in state from a prior version of this module (Windsor `feature/azure-parity` early commits), `terraform apply` will destroy them and create resource-group-scoped ones in the same plan. There is no operational gap — the zone-scoped grants were never functional for external-dns — but the destroy/create is noisy. To suppress the noise, remove the stale assignments from state before applying:
+
+```bash
+terraform state list | grep azurerm_role_assignment.external_dns_zones | \
+  xargs -I{} terraform state rm '{}'
+```
+
+The next apply will then only show creates.
+
 <!-- BEGIN_TF_DOCS -->
 ## Requirements
 
