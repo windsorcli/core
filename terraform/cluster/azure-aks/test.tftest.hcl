@@ -448,7 +448,7 @@ run "config_file_created" {
   }
 
   assert {
-    condition     = length(local_sensitive_file.kubeconfig) >= 1
+    condition     = length(null_resource.kubeconfig) >= 1
     error_message = "Kubeconfig file should be generated when context path is provided"
   }
 }

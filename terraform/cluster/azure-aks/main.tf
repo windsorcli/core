@@ -536,10 +536,15 @@ resource "azurerm_role_assignment" "node_pool_disk_encryption_set_reader" {
 #-----------------------------------------------------------------------------------------------------------------------
 # Kubeconfig
 #
-# Two cluster-CLI calls bundled in one null_resource: az writes Azure's
-# AAD-mode kubeconfig to disk, kubelogin rewrites the exec block to a
-# non-interactive mode so terraform's kubernetes provider and kustomize
-# reconcile loops authenticate without a devicecode browser prompt.
+# Two stages, two null_resources: az writes Azure's AAD-mode kubeconfig to
+# disk; kubelogin rewrites the exec block to a non-interactive mode so
+# terraform's kubernetes provider and kustomize reconcile loops authenticate
+# without a devicecode browser prompt.
+#
+# The write is unconditional once kubeconfig_path is set — operators always
+# get a working kubeconfig (in devicecode mode if no override is supplied),
+# matching the pre-refactor contract. Conversion is gated on kubelogin_mode
+# so non-interactive contexts opt in.
 #
 # Module owns orchestration only. The CLIs own kubeconfig format (kept current
 # by Microsoft, not us). Windsor owns the environment: pre-creates .kube/ in
@@ -549,12 +554,24 @@ resource "azurerm_role_assignment" "node_pool_disk_encryption_set_reader" {
 # when needed (e.g., MSI on a managed-identity runner).
 #
 # Triggers stable: cluster_id changes only on cluster recreate, login_mode
-# changes only on operator preference flip. No on-disk drift detection here
-# (null_resource doesn't read the file), so kubelogin's in-place rewrite
-# can't manifest as a perpetual plan diff.
+# changes only on operator preference flip. Neither resource reads the file
+# from disk, so kubelogin's in-place rewrite can't manifest as a perpetual
+# plan diff.
 #-----------------------------------------------------------------------------------------------------------------------
 
 resource "null_resource" "kubeconfig" {
+  count = local.kubeconfig_path != "" ? 1 : 0
+
+  triggers = {
+    cluster_id = azurerm_kubernetes_cluster.main.id
+  }
+
+  provisioner "local-exec" {
+    command = "az aks get-credentials --resource-group ${azurerm_kubernetes_cluster.main.resource_group_name} --name ${azurerm_kubernetes_cluster.main.name} --file ${local.kubeconfig_path} --overwrite-existing --only-show-errors"
+  }
+}
+
+resource "null_resource" "convert_kubeconfig" {
   count = local.kubeconfig_path != "" && var.kubelogin_mode != "" ? 1 : 0
 
   triggers = {
@@ -563,12 +580,10 @@ resource "null_resource" "kubeconfig" {
   }
 
   provisioner "local-exec" {
-    command = "az aks get-credentials --resource-group ${azurerm_kubernetes_cluster.main.resource_group_name} --name ${azurerm_kubernetes_cluster.main.name} --file ${local.kubeconfig_path} --overwrite-existing --only-show-errors"
-  }
-
-  provisioner "local-exec" {
     command = "kubelogin convert-kubeconfig -l ${var.kubelogin_mode} --kubeconfig ${local.kubeconfig_path}"
   }
+
+  depends_on = [null_resource.kubeconfig]
 }
 
 # Automatically assign "Azure Kubernetes Service RBAC Cluster Admin" to the
