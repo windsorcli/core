@@ -131,6 +131,8 @@ variable "autoscaled_node_pool" {
     # D4s_v5 (4 vCPU / 16 GB) — sized for the heavy core stack (kube-prometheus
     # stack alone wants ~2 GB, plus fluentd/fluent-bit/cert-manager/kyverno).
     # D2s_v3 (8 GB) was tight: nodes evicted under steady state on fresh installs.
+    # AKS does not support in-place SKU resize; changing this triggers a
+    # destroy+create of the autoscaled pool on next apply.
     vm_size                 = "Standard_D4s_v5"
     mode                    = "User"
     os_disk_type            = "Managed"
