@@ -52,8 +52,8 @@ run "minimal_configuration" {
   }
 
   assert {
-    condition     = azurerm_kubernetes_cluster.main.default_node_pool[0].vm_size == "Standard_D2s_v3"
-    error_message = "Default node pool should use Standard_D2s_v3 VM size"
+    condition     = azurerm_kubernetes_cluster.main.default_node_pool[0].vm_size == "Standard_D2s_v5"
+    error_message = "Default node pool should use Standard_D2s_v5 VM size"
   }
 
   assert {

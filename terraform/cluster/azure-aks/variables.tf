@@ -85,8 +85,12 @@ variable "default_node_pool" {
     }))
   })
   default = {
-    name                         = "system"
-    vm_size                      = "Standard_D2s_v3"
+    name = "system"
+    # D2s_v5 is current-gen (D2s_v3 is two generations behind, retired tier),
+    # same 2 vCPU / 8 GB but better price/perf. System pool stays small —
+    # only_critical_addons_enabled puts a CriticalAddonsOnly:NoSchedule taint
+    # on it, so user workloads avoid it; this pool only hosts cluster operators.
+    vm_size                      = "Standard_D2s_v5"
     os_disk_type                 = "Managed"
     max_pods                     = 48
     host_encryption_enabled      = true
@@ -122,9 +126,12 @@ variable "autoscaled_node_pool" {
     }))
   })
   default = {
-    enabled                 = true
-    name                    = "autoscaled"
-    vm_size                 = "Standard_D2s_v3"
+    enabled = true
+    name    = "autoscaled"
+    # D4s_v5 (4 vCPU / 16 GB) — sized for the heavy core stack (kube-prometheus
+    # stack alone wants ~2 GB, plus fluentd/fluent-bit/cert-manager/kyverno).
+    # D2s_v3 (8 GB) was tight: nodes evicted under steady state on fresh installs.
+    vm_size                 = "Standard_D4s_v5"
     mode                    = "User"
     os_disk_type            = "Managed"
     max_pods                = 48
