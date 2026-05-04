@@ -507,6 +507,11 @@ resource "azurerm_kubernetes_cluster_node_pool" "pools" {
   eviction_policy       = each.value.eviction_policy
   node_labels           = each.value.labels
   node_taints           = each.value.taints
+  # Encrypt temp disks / VM cache for parity with the default and autoscaled
+  # pools (CKV_AZURE_227).
+  host_encryption_enabled = true
+  # checkov:skip=CKV_AZURE_168: 48 matches the default and autoscaled pools.
+  max_pods = 48
 
   tags = merge({
     Name = each.key

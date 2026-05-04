@@ -807,6 +807,16 @@ run "pools_resolves_class_to_vm_size" {
     condition     = azurerm_kubernetes_cluster_node_pool.pools["app"].mode == "User"
     error_message = "Pools must be created in User mode — the cluster's inline default_node_pool stays the system pool."
   }
+
+  assert {
+    condition     = azurerm_kubernetes_cluster_node_pool.pools["app"].host_encryption_enabled == true
+    error_message = "Pools must enable host encryption (CKV_AZURE_227)."
+  }
+
+  assert {
+    condition     = azurerm_kubernetes_cluster_node_pool.pools["app"].max_pods == 48
+    error_message = "Pools must set max_pods (matching default/autoscaled pool defaults)."
+  }
 }
 
 run "pools_explicit_instance_types_and_lifecycle" {
