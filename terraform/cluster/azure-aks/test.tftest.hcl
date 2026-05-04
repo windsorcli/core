@@ -889,6 +889,24 @@ run "pools_invalid_class_rejected" {
   expect_failures = [var.pools]
 }
 
+# AKS Linux node pool names are restricted to 1-12 lowercase alphanumeric
+# characters starting with a letter. Hyphens / underscores / mixed case
+# would otherwise hit the API at apply time with an opaque error.
+run "pools_invalid_name_rejected" {
+  command = plan
+
+  variables {
+    context_id         = "test"
+    name               = "windsor-aks"
+    kubernetes_version = "1.34"
+    pools = {
+      "extra-system" = { class = "system", count = 1 }
+    }
+  }
+
+  expect_failures = [var.pools]
+}
+
 # Tests that when enable_volume_snapshots is false, snapshot permissions are not included in the role definition.
 # This verifies the conditional logic that excludes snapshot operations when volume snapshots are disabled.
 run "volume_snapshots_disabled" {

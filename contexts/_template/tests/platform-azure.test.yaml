@@ -56,7 +56,7 @@ cases:
         enabled: false
       cluster:
         pools:
-          extra-system:
+          extrasys:
             class: system
             count: 2
           general:
@@ -72,7 +72,7 @@ cases:
           path: cluster/azure-aks
           inputs:
             pools:
-              extra-system:
+              extrasys:
                 class: system
                 count: 2
               general:

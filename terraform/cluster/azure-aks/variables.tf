@@ -189,6 +189,16 @@ variable "pools" {
     condition     = alltrue([for k, v in var.pools : v.count >= 0])
     error_message = "Each pool's count must be >= 0."
   }
+
+  # AKS Linux node pool names: 1-12 chars, lowercase alphanumeric, must start
+  # with a letter. The API rejects hyphens / underscores / mixed case with an
+  # opaque error at apply time; catching it at validate makes the failure
+  # legible. (Windows pools have a stricter 1-6 limit but Windsor doesn't
+  # provision them.)
+  validation {
+    condition     = alltrue([for k, v in var.pools : can(regex("^[a-z][a-z0-9]{0,11}$", k))])
+    error_message = "Each pool name (map key) must be 1-12 lowercase alphanumeric characters and begin with a letter (AKS Linux node pool naming rule)."
+  }
 }
 
 variable "class_instance_types" {
