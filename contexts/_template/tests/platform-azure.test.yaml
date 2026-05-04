@@ -27,6 +27,62 @@ cases:
           components:
             - azure-disk
 
+  # cluster.pools wires to the azure-aks module's var.pools (mirrors AWS).
+  - name: cluster.pools wires through to azure-aks module
+    values:
+      provider: azure
+      gateway:
+        enabled: false
+      cluster:
+        pools:
+          general:
+            class: general
+            count: 3
+    expect:
+      terraform:
+        - name: cluster
+          path: cluster/azure-aks
+          inputs:
+            pools:
+              general:
+                class: general
+                count: 3
+
+  # Multi-pool with mixed classes + a spot batch pool.
+  - name: cluster.pools multi-pool with mixed sizing and lifecycle on Azure
+    values:
+      provider: azure
+      gateway:
+        enabled: false
+      cluster:
+        pools:
+          extrasys:
+            class: system
+            count: 2
+          general:
+            class: general
+            count: 3
+          batch:
+            class: compute
+            count: 5
+            lifecycle: spot
+    expect:
+      terraform:
+        - name: cluster
+          path: cluster/azure-aks
+          inputs:
+            pools:
+              extrasys:
+                class: system
+                count: 2
+              general:
+                class: general
+                count: 3
+              batch:
+                class: compute
+                count: 5
+                lifecycle: spot
+
   - name: excludes gateway when disabled
     values:
       provider: azure

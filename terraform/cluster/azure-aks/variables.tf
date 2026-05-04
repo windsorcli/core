@@ -85,8 +85,12 @@ variable "default_node_pool" {
     }))
   })
   default = {
-    name                         = "system"
-    vm_size                      = "Standard_D2s_v3"
+    name = "system"
+    # D2s_v5 is current-gen (D2s_v3 is two generations behind, retired tier),
+    # same 2 vCPU / 8 GB but better price/perf. System pool stays small —
+    # only_critical_addons_enabled puts a CriticalAddonsOnly:NoSchedule taint
+    # on it, so user workloads avoid it; this pool only hosts cluster operators.
+    vm_size                      = "Standard_D2s_v5"
     os_disk_type                 = "Managed"
     max_pods                     = 48
     host_encryption_enabled      = true
@@ -122,9 +126,14 @@ variable "autoscaled_node_pool" {
     }))
   })
   default = {
-    enabled                 = true
-    name                    = "autoscaled"
-    vm_size                 = "Standard_D2s_v3"
+    enabled = true
+    name    = "autoscaled"
+    # D4s_v5 (4 vCPU / 16 GB) — sized for the heavy core stack (kube-prometheus
+    # stack alone wants ~2 GB, plus fluentd/fluent-bit/cert-manager/kyverno).
+    # D2s_v3 (8 GB) was tight: nodes evicted under steady state on fresh installs.
+    # AKS does not support in-place SKU resize; changing this triggers a
+    # destroy+create of the autoscaled pool on next apply.
+    vm_size                 = "Standard_D4s_v5"
     mode                    = "User"
     os_disk_type            = "Managed"
     max_pods                = 48
@@ -140,6 +149,79 @@ variable "autoscaled_node_pool" {
       max_surge                     = "10%"
       node_soak_duration_in_minutes = 0
     }
+  }
+}
+
+variable "pools" {
+  description = "Portable user-pool definitions, keyed by pool name. Mirrors the AWS-EKS shape: each entry maps a class (system/general/compute/memory/storage/gpu/arm64) to an additional AKS user node pool. The cluster's inline default node pool is unaffected and remains the system pool — pools is purely additive."
+  type = map(object({
+    class          = string
+    count          = number
+    lifecycle      = optional(string, "on-demand")
+    instance_types = optional(list(string))
+    root_disk_size = optional(number)
+    labels         = optional(map(string), {})
+    taints = optional(list(object({
+      key    = string
+      value  = optional(string)
+      effect = string
+    })), [])
+  }))
+  default = {}
+
+  validation {
+    condition = alltrue([
+      for k, v in var.pools : contains(
+        ["system", "general", "compute", "memory", "storage", "gpu", "arm64"],
+        v.class
+      )
+    ])
+    error_message = "Each pool's class must be one of: system, general, compute, memory, storage, gpu, arm64."
+  }
+
+  validation {
+    condition = alltrue([
+      for k, v in var.pools :
+      contains(["on-demand", "spot"], v.lifecycle)
+    ])
+    error_message = "Each pool's lifecycle must be 'on-demand' or 'spot'."
+  }
+
+  validation {
+    condition     = alltrue([for k, v in var.pools : v.count >= 0])
+    error_message = "Each pool's count must be >= 0."
+  }
+
+  # AKS Linux node pool names: 1-12 chars, lowercase alphanumeric, must start
+  # with a letter. The API rejects hyphens / underscores / mixed case with an
+  # opaque error at apply time; catching it at validate makes the failure
+  # legible. (Windows pools have a stricter 1-6 limit but Windsor doesn't
+  # provision them.)
+  validation {
+    condition     = alltrue([for k, v in var.pools : can(regex("^[a-z][a-z0-9]{0,11}$", k))])
+    error_message = "Each pool name (map key) must be 1-12 lowercase alphanumeric characters and begin with a letter (AKS Linux node pool naming rule)."
+  }
+}
+
+variable "class_instance_types" {
+  description = "Default Azure VM size list per portable pool class. AKS pools accept a single SKU per pool — only the first entry is used; remaining entries document an operator preference order rather than an AKS-enforced fallback (the AWS-EKS equivalent does take a list at the API level). A pool's explicit instance_types overrides this map. When overriding this variable, all seven class keys must be supplied — partial overrides are rejected at validate time."
+  type        = map(list(string))
+  default = {
+    system  = ["Standard_D2s_v5", "Standard_D2as_v5", "Standard_D4s_v5", "Standard_D4as_v5"]
+    general = ["Standard_D4s_v5", "Standard_D4as_v5", "Standard_D8s_v5", "Standard_D8as_v5"]
+    compute = ["Standard_F4s_v2", "Standard_F8s_v2", "Standard_F16s_v2"]
+    memory  = ["Standard_E4s_v5", "Standard_E4as_v5", "Standard_E8s_v5"]
+    storage = ["Standard_L8s_v3", "Standard_L16s_v3"]
+    gpu     = ["Standard_NC4as_T4_v3", "Standard_NC8as_T4_v3"]
+    arm64   = ["Standard_D2pds_v5", "Standard_D4pds_v5", "Standard_E4pds_v5"]
+  }
+
+  validation {
+    condition = alltrue([
+      for c in ["system", "general", "compute", "memory", "storage", "gpu", "arm64"] :
+      contains(keys(var.class_instance_types), c) && length(lookup(var.class_instance_types, c, [])) > 0
+    ])
+    error_message = "class_instance_types must contain a non-empty list for every pool class: system, general, compute, memory, storage, gpu, arm64."
   }
 }
 
