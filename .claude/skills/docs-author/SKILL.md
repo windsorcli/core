@@ -41,12 +41,12 @@ Exact glob roots are finalized with the website `docs:vendor` script; treat the 
 
 ## Terraform reference
 
-- Generate from modules in this repo with `task docs` (terraform-docs injected between `<!-- BEGIN_TF_DOCS -->` / `<!-- END_TF_DOCS -->` markers in each module's `README.md`). Commit the regenerated `terraform/<module-path>/README.md` (`cluster/talos`, `gitops/flux`, etc.). The site ingest pipeline mirrors these into `docs/reference/terraform/<module-path>/` per the path mapping above; contributors don't write into `docs/reference/` directly.
+- Generate from modules in this repo (e.g. `terraform-docs` or project script); commit or CI output under `docs/reference/terraform/<module-path>/` mirroring repo paths consumers use in `blueprint.yaml` (`cluster/talos`, `gitops/flux`, etc.).
 - Inputs, outputs, and gotchas belong here; high-level “what is Terraform in Windsor” stays on the site under `/docs/components/terraform`.
 
 ## Kustomize stack operator guide (per top-level stack)
 
-For each significant stack under `kustomize/` (e.g. dns, csi), maintain **one** operator-oriented README (source location agreed with ingest—often `kustomize/<stack>/README.md` normalized into `docs/reference/kustomize/<stack>.md`, or authored directly under `docs/reference/kustomize/`).
+Author under `kustomize/<stack>/README.md` (nested stacks supported). After edits, run **`task docs:reference:kustomize`** or `node scripts/sync-kustomize-reference.mjs` to refresh **`docs/reference/kustomize/**`** (generated; do not hand-edit—change README and re-sync).
 
 Use this section order where applicable:
 
@@ -66,7 +66,7 @@ Align structure with existing kustomize conventions: see `.claude/skills/kustomi
 
 ## PR checklist
 
-- [ ] Module or stack behavior that affects operators reflected in `docs/reference/` or stack README.
+- [ ] Module or stack behavior that affects operators reflected in `docs/reference/` or stack README; run `task docs:reference:kustomize` when `kustomize/**/README.md` changed.
 - [ ] Generated Terraform docs refreshed if inputs/outputs changed.
 - [ ] Links to Blueprint schema/facets point at windsorcli.dev `/docs/blueprints/...`, not duplicate prose.
 - [ ] No slug or path that implies generic blueprint authoring—that belongs on the website repo.
@@ -74,3 +74,5 @@ Align structure with existing kustomize conventions: see `.claude/skills/kustomi
 ## Internal architecture note
 
 [windsorcli.github.io `docs/plan.md` on GitHub](https://github.com/windsorcli/windsorcli.github.io/blob/main/docs/plan.md) — maintainer planning only; not published on windsorcli.dev.
+
+Preview in the website repo from local checkouts: `npm run docs:vendor:local` then `npm run dev` (see website `README.md`; expects `../cli` and `../core` by default).

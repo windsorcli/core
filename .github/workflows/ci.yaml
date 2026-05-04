@@ -103,6 +103,40 @@ jobs:
             exit 1
           fi
 
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      # Every kustomize add-on directory must ship a README.md (the source of
+      # truth for the per-add-on reference page).
+      - name: Validate kustomize add-on READMEs
+        run: |
+          missing=0
+          for d in kustomize/*/; do
+            if [ ! -f "$d/README.md" ]; then
+              echo "::error::$d missing README.md"
+              missing=1
+            fi
+          done
+          [ "$missing" -eq 0 ]
+
+      # Regenerate docs/reference/kustomize/ from kustomize/<add-on>/README.md
+      # and fail if the tree drifts.
+      - name: Validate kustomize reference docs
+        run: |
+          task docs:reference:kustomize
+          if ! git diff --quiet docs/reference/kustomize/ || \
+             [ -n "$(git status --porcelain docs/reference/kustomize/)" ]; then
+            echo "::error::docs/reference/kustomize/ is out of sync with kustomize/<add-on>/README.md"
+            echo ""
+            echo "Changed/untracked files:"
+            git status --short docs/reference/kustomize/
+            echo ""
+            echo "Run 'task docs:reference:kustomize' locally and commit the changes."
+            exit 1
+          fi
+
       - name: Checkov GitHub Action
         uses: bridgecrewio/checkov-action@68260132005eaae0e6f84c7a73cc3b1532f678bf # v12.3058.0
         with:
