@@ -20,5 +20,7 @@ contexts/**/.gcp/
 .cursor/
 .vscode/*.local.*
 
-# Local notes / scratch docs (kept out of source control)
-docs/
+# Local notes / scratch under docs/ (published reference: docs/reference/ is tracked)
+docs/*
+!docs/reference/
+!docs/reference/**
