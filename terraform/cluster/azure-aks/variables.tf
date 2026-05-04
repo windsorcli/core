@@ -143,6 +143,69 @@ variable "autoscaled_node_pool" {
   }
 }
 
+variable "pools" {
+  description = "Portable user-pool definitions, keyed by pool name. Mirrors the AWS-EKS shape: each entry maps a class (system/general/compute/memory/storage/gpu/arm64) to an additional AKS user node pool. The cluster's inline default node pool is unaffected and remains the system pool — pools is purely additive."
+  type = map(object({
+    class          = string
+    count          = number
+    lifecycle      = optional(string, "on-demand")
+    instance_types = optional(list(string))
+    root_disk_size = optional(number)
+    labels         = optional(map(string), {})
+    taints = optional(list(object({
+      key    = string
+      value  = optional(string)
+      effect = string
+    })), [])
+  }))
+  default = {}
+
+  validation {
+    condition = alltrue([
+      for k, v in var.pools : contains(
+        ["system", "general", "compute", "memory", "storage", "gpu", "arm64"],
+        v.class
+      )
+    ])
+    error_message = "Each pool's class must be one of: system, general, compute, memory, storage, gpu, arm64."
+  }
+
+  validation {
+    condition = alltrue([
+      for k, v in var.pools :
+      contains(["on-demand", "spot"], v.lifecycle)
+    ])
+    error_message = "Each pool's lifecycle must be 'on-demand' or 'spot'."
+  }
+
+  validation {
+    condition     = alltrue([for k, v in var.pools : v.count >= 0])
+    error_message = "Each pool's count must be >= 0."
+  }
+}
+
+variable "class_instance_types" {
+  description = "Default Azure VM size list per portable pool class. Multi-size lists guard against single-SKU capacity shortages in a region. A pool's explicit instance_types overrides this map. When overriding this variable, all seven class keys must be supplied — partial overrides are rejected at validate time."
+  type        = map(list(string))
+  default = {
+    system  = ["Standard_D2s_v5", "Standard_D2as_v5", "Standard_D4s_v5", "Standard_D4as_v5"]
+    general = ["Standard_D4s_v5", "Standard_D4as_v5", "Standard_D8s_v5", "Standard_D8as_v5"]
+    compute = ["Standard_F4s_v2", "Standard_F8s_v2", "Standard_F16s_v2"]
+    memory  = ["Standard_E4s_v5", "Standard_E4as_v5", "Standard_E8s_v5"]
+    storage = ["Standard_L8s_v3", "Standard_L16s_v3"]
+    gpu     = ["Standard_NC4as_T4_v3", "Standard_NC8as_T4_v3"]
+    arm64   = ["Standard_D2pds_v5", "Standard_D4pds_v5", "Standard_E4pds_v5"]
+  }
+
+  validation {
+    condition = alltrue([
+      for c in ["system", "general", "compute", "memory", "storage", "gpu", "arm64"] :
+      contains(keys(var.class_instance_types), c) && length(lookup(var.class_instance_types, c, [])) > 0
+    ])
+    error_message = "class_instance_types must contain a non-empty list for every pool class: system, general, compute, memory, storage, gpu, arm64."
+  }
+}
+
 variable "role_based_access_control_enabled" {
   type        = bool
   description = "Whether to enable role-based access control for the AKS cluster"
