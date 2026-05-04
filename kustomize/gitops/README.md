@@ -149,7 +149,7 @@ at the repo level.
 
 - **Webhook returns 401** — the HMAC secret in `webhook-token` doesn't match what the git host is signing with. Inspect `kubectl get secret webhook-token -n system-gitops` and confirm the git host webhook config uses the same value. The Terraform module provisions this; on workstations the default is `${gitops.webhook.token ?? "abcdef123456"}`.
 - **Webhook returns 404** — the HTTPRoute path or listener doesn't match. The route uses `PathPrefix: /hook/` — git hosts must POST to `https://<external_domain>/hook/<receiver-path>` (the suffix is the `webhook-path` from the Receiver status).
-- **Cilium clusters: webhook reachable but reconciles don't trigger** — the `webhook/gateway/cilium` policy isn't applied. Without it, ingress traffic is dropped before reaching notification-controller. Ensure the component is enabled when `gateway_effective.driver == 'cilium'`.
+- **Cilium clusters: webhook reachable but reconciles don't trigger** — the `webhook/gateway/cilium` policy isn't applied. Without it, ingress traffic is dropped before reaching notification-controller. Ensure the component is enabled when `gateway.driver: cilium`.
 - **Push mode set but receiver not rendered** — confirm `gitops.mode` is exactly `push` (or unset, which defaults to push). The `when:` clauses use `(gitops.mode ?? 'push') == 'push'` so both work.
 - **GitRepository never reconciles on push** — the receiver references `${git_repository_name}`. If the substitution doesn't match the actual GitRepository name in `system-gitops`, the receiver will accept the webhook but reconcile a non-existent target. Check `kubectl get gitrepository -n system-gitops` and the Receiver's `spec.resources[0].name`.
 

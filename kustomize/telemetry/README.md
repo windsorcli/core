@@ -56,9 +56,8 @@ release, and Prometheus scrape extras.
 ## Recipes
 
 `telemetry-base` and `telemetry-resources` are gated on
-`telemetry_effective.metrics_enabled || telemetry_effective.logs_enabled`.
-Both default to `true` (`telemetry.metrics.enabled ?? true`,
-`telemetry.logs.enabled ?? true`).
+`telemetry.metrics.enabled` or `telemetry.logs.enabled`. Both default to
+`true`.
 
 ### Default (both pipelines on, fluentd logs driver)
 
@@ -110,9 +109,9 @@ Both default to `true` (`telemetry.metrics.enabled ?? true`,
 
 ### AKS (managed metrics-server)
 
-`platform-azure` overrides `telemetry_effective.metrics_server_enabled` to
-`false` because AKS ships metrics-server as a built-in addon. Same shape as
-the default minus the `metrics-server` component.
+On `platform: azure`, the `metrics-server` component is dropped because
+AKS ships metrics-server as a built-in addon. Same shape as the default
+recipe minus `metrics-server`.
 
 ### Logs-only / Elasticsearch sink
 
@@ -155,7 +154,7 @@ manifests.
 | `fluentbit/parser` | `telemetry.logs.enabled` | Aggregate component bundling parsers for coredns, JSON-structured, klog, logfmt, nginx-access, rust-tracing, zerolog, plus service-name extraction, suppress filter, fallback parser, and a generic gRPC parser. Each parser is a ClusterFilter with a Lua script. |
 | `fluentbit/systemd` | `telemetry.logs.enabled` | Lua ClusterFilter for `service.*` tagged records (the systemd journal entries captured by `fluentbit/containerd`). Adds an ISO 8601 timestamp and maps systemd fields (`_HOSTNAME`, `SYSLOG_IDENTIFIER`) into a kubernetes-shaped record so downstream processing matches the format from the kubernetes filter. |
 | `fluentbit/prometheus` | `telemetry.logs.enabled` AND `telemetry.metrics.enabled` | ServiceMonitor for fluent-bit's own `/metrics` endpoint. |
-| `fluentbit/fluentd` | `telemetry.logs.enabled` AND `telemetry_effective.logs_driver == 'fluentd'` | ClusterOutput shipping all enriched logs to the fluentd aggregator (in the `observability` namespace). |
+| `fluentbit/fluentd` | `telemetry.logs.enabled` AND `telemetry.logs.driver: fluentd` (the default) | ClusterOutput shipping all enriched logs to the fluentd aggregator (in the `observability` namespace). |
 
 ## Dependencies
 
@@ -177,7 +176,7 @@ at the repo level.
 
 - **No metrics in Grafana despite Prometheus running** — ServiceMonitor / PodMonitor resources aren't being picked up. The `*SelectorNilUsesHelmValues: false` settings in `prometheus/helm-release.yaml` mean an empty selector matches everything; if Prometheus is filtering, check the Prometheus CR's `serviceMonitorSelector` for unintended overrides.
 - **fluent-bit DaemonSet not running on edge nodes** — the FluentBit CR's nodeAffinity excludes nodes labeled `node-role.kubernetes.io/edge`. If you want logs from edge nodes, remove the affinity or relabel the nodes. This is intentional — edge nodes are typically resource-constrained.
-- **Logs collected but never delivered** — the fluent-bit → fluentd ClusterOutput is missing. Check the `fluentbit/fluentd` component is enabled (which requires `telemetry_effective.logs_driver == 'fluentd'`). When `logs_driver == 'none'`, fluent-bit runs without an output and buffers indefinitely.
+- **Logs collected but never delivered** — the fluent-bit → fluentd ClusterOutput is missing. Check the `fluentbit/fluentd` component is enabled (it requires `telemetry.logs.driver: fluentd`, which is the default). When `telemetry.logs.driver: none`, fluent-bit runs without an output and buffers indefinitely.
 - **`HelmRelease/kube-prometheus-stack` reports `no matches for kind ServiceMonitor`** — the kube-prometheus-stack CRDs haven't installed yet. The chart installs them; if the apply is racing, re-reconcile.
 - **fluent-operator pods crash with `cannot create ConfigMap`** — RBAC issue. The operator needs to write the rendered fluent-bit config; check `system-telemetry`'s ServiceAccount and ClusterRole.
 - **node-exporter DaemonSet missing pods** — node taints. node-exporter's chart values set `replicas: 1` which is misleading (it's a DaemonSet); check that tolerations cover the cluster's taints.
@@ -191,7 +190,7 @@ at the repo level.
 
 ## See also
 
-- [contexts/_template/facets/platform-base.yaml](../../contexts/_template/facets/platform-base.yaml) — canonical wiring of `telemetry-base` and `telemetry-resources`, including the `telemetry_effective` config resolution.
+- [contexts/_template/facets/platform-base.yaml](../../contexts/_template/facets/platform-base.yaml) — canonical wiring of `telemetry-base` and `telemetry-resources`, including the `telemetry_effective` internal config that folds `telemetry.*` values together with addon-observability overrides.
 - [contexts/_template/facets/addon-observability.yaml](../../contexts/_template/facets/addon-observability.yaml) — log sink (fluentd / quickwit / elasticsearch + filebeat) layered on top of telemetry.
 - [contexts/_template/facets/platform-azure.yaml](../../contexts/_template/facets/platform-azure.yaml) — `metrics_server_enabled: false` override for AKS.
 - Blueprint schema and facet syntax — https://www.windsorcli.dev/docs/blueprints/

@@ -9,7 +9,7 @@ Cilium is the only CNI driver this blueprint installs. The HelmRelease CR
 lives in `system-cni`; the actual Cilium workloads (DaemonSet, Operator,
 Hubble) deploy into `kube-system` per upstream convention. Other CNIs
 (flannel on docker-desktop, AKS's managed CNI) bypass this stack entirely
-when `cni_effective.driver != 'cilium'`.
+when `cluster.cni.driver` is not `cilium`.
 
 The defining shape of this stack is the **bootstrap-then-adopt** pattern.
 Cilium has a chicken-and-egg problem: Flux needs pod networking to
@@ -53,8 +53,8 @@ Flux-adopted release does not flap the deployment between reconciles.
 This stack has a single Kustomization (`cni`) with two `when:` variants —
 `talos_enabled` and `eks_enabled`. Each emits a different component set.
 
-The recipes below show the materialized form assuming `policies.enabled` and
-`telemetry_effective.metrics_enabled` are on (the platform-base defaults).
+The recipes below show the materialized form assuming `policies.enabled:
+true` and `telemetry.metrics.enabled: true` (the platform-base defaults).
 If either is disabled, the corresponding `dependsOn` entry drops and the
 related conditional component (`cilium/prometheus`) is omitted.
 
@@ -135,9 +135,9 @@ output.
 
 | Name | Required when | Effect |
 |---|---|---|
-| `k8s_service_host` | always | API server hostname Cilium reaches before its eBPF service rules are active. On Talos comes from `talos_common.k8s_service_host` (cidrhost offset 10); on EKS parsed from the cluster Terraform output. |
-| `cluster_name` | always | Cilium cluster identity stamped onto Hubble flows, metrics, and (if enabled) ClusterMesh routing. The Windsor context name. |
-| `operator_replicas` | always | 1 on single-node clusters (avoids pending pods + Lease churn), 2 on HA. Defaults to 1 via the kustomize fallback `${operator_replicas:=1}`. |
+| `k8s_service_host` | always | API server hostname Cilium reaches before its eBPF service rules are active. On Talos resolves to a fixed offset from the cluster CIDR; on EKS parsed from the cluster Terraform output. The user-facing knob is `cluster.endpoint` (or its terraform-derived equivalent on cloud platforms). |
+| `cluster_name` | always | Cilium cluster identity stamped onto Hubble flows, metrics, and (if enabled) ClusterMesh routing. Sourced from the Windsor context name (the top-level `id` field in `values.yaml`). |
+| `operator_replicas` | always | 1 on single-node clusters (avoids pending pods + Lease churn), 2 on HA. Set from `cluster.topology` (single-node → 1, otherwise → 2). Defaults to 1 via the kustomize fallback `${operator_replicas:=1}`. |
 | `loadbalancer_start_ip` | `cilium/l2` is enabled (Talos) | Start of the LBIPAM IP pool. Stamped onto `CiliumLoadBalancerIPPool/default`. |
 | `loadbalancer_end_ip` | `cilium/l2` is enabled (Talos) | End of the LBIPAM IP pool. |
 
@@ -147,8 +147,8 @@ output.
 |---|---|---|
 | `cilium` | always | Helm release of Cilium v1.19.3 in `system-cni`, targeting `kube-system`. `kubeProxyReplacement: true`, `ipam.mode: kubernetes`, image pinning, base values. |
 | `cilium/talos` | platform is Talos | Replaces full privileged mode with explicit Linux capabilities (CHOWN, NET_ADMIN, etc.) and disables cgroup auto-mount (Talos already mounted cgroups at boot). |
-| `cilium/gateway` | Cilium is the Gateway driver | Sets `gatewayAPI.enabled: true` (also `enableAlpn`, `enableAppProtocol`) and ships a Kyverno ClusterPolicy that injects LBIPAM sharing annotations onto Cilium-owned Gateway services at admission time. The policy fixes a create-then-patch race in cilium-operator that would otherwise prevent IP sharing on first reconcile. |
-| `cilium/prometheus` | telemetry metrics enabled | Enables Prometheus on the operator and agent and creates a ServiceMonitor for each. |
+| `cilium/gateway` | `gateway.driver: cilium` | Sets `gatewayAPI.enabled: true` (also `enableAlpn`, `enableAppProtocol`) and ships a Kyverno ClusterPolicy that injects LBIPAM sharing annotations onto Cilium-owned Gateway services at admission time. The policy fixes a create-then-patch race in cilium-operator that would otherwise prevent IP sharing on first reconcile. |
+| `cilium/prometheus` | `telemetry.metrics.enabled: true` | Enables Prometheus on the operator and agent and creates a ServiceMonitor for each. |
 | `cilium/hubble` | always | Enables Hubble metrics (dns, drop, port-distribution, tcp, flow, icmp, http), Hubble Relay, Hubble UI, and the cronJob-based TLS rotation method. The Helm `auto.method: cronJob` choice avoids a known bug where `helm` mode re-renders server-secret on every upgrade and trips on newly-enabled Hubble components. |
 | `cilium/l2` | platform is Talos (or any cluster needing in-cluster LB) | Enables `l2announcements` and `externalIPs` on Cilium, then creates `CiliumLoadBalancerIPPool/default` with the configured IP range and `CiliumL2AnnouncementPolicy/default` matching `^eth[0-9]+` and `^ens[0-9]+` interfaces. Replaces kube-vip and MetalLB on Talos clusters. |
 
@@ -156,8 +156,8 @@ output.
 
 | Stack | Reason |
 |---|---|
-| `policy-resources` *(when policies enabled, or Cilium is the gateway driver)* | Re-rolls Cilium pods after Kyverno's mutation policies are live. When `cilium/gateway` is active, `policy-resources` also provides the Kyverno CRDs the LBIPAM sharing ClusterPolicy depends on — without it the apply would fail on `no matches for kind ClusterPolicy`. |
-| `telemetry-base` *(when telemetry metrics or logs enabled)* | The `cilium/prometheus` ServiceMonitor and the Hubble ServiceMonitor target Prometheus from the telemetry stack; without it they have no scrape target. |
+| `policy-resources` *(when `policies.enabled: true` or `gateway.driver: cilium`)* | Re-rolls Cilium pods after Kyverno's mutation policies are live. When `cilium/gateway` is active, `policy-resources` also provides the Kyverno CRDs the LBIPAM sharing ClusterPolicy depends on — without it the apply would fail on `no matches for kind ClusterPolicy`. |
+| `telemetry-base` *(when `telemetry.metrics.enabled: true` or `telemetry.logs.enabled: true`)* | The `cilium/prometheus` ServiceMonitor and the Hubble ServiceMonitor target Prometheus from the telemetry stack; without it they have no scrape target. |
 
 The Terraform `cni` module bootstraps Cilium directly via the Talos API
 before Flux exists. Terraform `cni` `dependsOn: cluster` (the cluster must
@@ -179,7 +179,7 @@ at the repo level.
 - **`cilium-operator` does not create a Gateway controller on Cilium clusters** — the Gateway API CRDs were not present when the operator started. The reverse dep `cni dependsOn gateway-base` (added by `option-gateway`) prevents this in fresh installs; if it fires post-install, restart `cilium-operator`.
 - **Cilium gateway Service has no LB IP** — the LBIPAM sharing annotations weren't injected. Verify the `cilium-gateway-lbipam-sharing` ClusterPolicy is `Ready` and the `cilium-lbipam-config` ConfigMap in `system-gateway` exists. The policy reads `gatewayIp` from that ConfigMap; without it the mutation fails open.
 - **`HelmRelease/cilium` reports `no matches for kind CiliumLoadBalancerIPPool`** — `cilium/l2` is enabled but the Cilium CRDs aren't ready. The Cilium chart installs them; the bootstrap path (Terraform → Flux adoption) means the CRDs come up with the agent. If this fires, the Flux reconcile is racing the chart install — re-reconcile.
-- **Re-running `windsor up` flaps Cilium between two replica counts** — Terraform `operator_replicas` and the Flux substitution differ. Both must derive from `topology_effective` (1 for single-node, 2 otherwise).
+- **Re-running `windsor up` flaps Cilium between two replica counts** — Terraform `operator_replicas` and the Flux substitution differ. Both must derive from `cluster.topology` (single-node → 1, otherwise → 2).
 
 Cilium's metrics ServiceMonitors are scraped by the `telemetry` stack
 (`release: kube-prometheus-stack` label set by `cilium/prometheus`). Hubble

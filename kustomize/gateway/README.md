@@ -46,10 +46,9 @@ the CNI's own LBIPAM path).
 
 ## Recipes
 
-`gateway-base` is rendered when `gateway_effective.enabled == true`.
-`gateway-resources` is rendered alongside it. Platform facets layer
-cloud-specific patches onto `gateway-base` (AWS NLB annotations, Azure SLB
-internal flip).
+`gateway-base` is rendered when `gateway.enabled: true`. `gateway-resources`
+is rendered alongside it. Platform facets layer cloud-specific patches onto
+`gateway-base` (AWS NLB annotations, Azure SLB internal flip).
 
 ### Local Cilium cluster (default `windsor up`)
 
@@ -176,13 +175,13 @@ CRDs (vendored at `gateway-api-experimental-v1.5.1.yaml`) and the
 
 | Component | Enable when | Effect |
 |---|---|---|
-| `cilium` | driver is Cilium | GatewayClass `cilium` pointing at `io.cilium/gateway-controller`. The Cilium HelmRelease itself is owned by the `cni` stack. |
-| `envoy` | driver is Envoy | Helm release of Envoy Gateway in `system-gateway`, vendored Envoy Gateway CRDs v1.7.1, GatewayClass `envoy`. |
-| `envoy/loadbalancer` | Envoy + LB mode | Patches the Envoy data-plane Service to type `LoadBalancer`. |
-| `envoy/loadbalancer/aws-nlb` | AWS + Envoy + LB mode | AWS LB Controller annotations: `aws-load-balancer-type: external`, `nlb-target-type: ip`, scheme from `${lb_scheme}`, cross-zone enabled. |
-| `envoy/loadbalancer/azure-lb-internal` | Azure + Envoy + private gateway | Adds `service.beta.kubernetes.io/azure-load-balancer-internal: "true"` to flip the AKS Standard LB to internal. |
-| `envoy/nodeport` | Envoy + NodePort mode | Patches the Envoy data-plane Service to NodePort with hardcoded ports: 80→30080, 443→30443, 53 UDP/TCP→30053, 9292→30292. |
-| `envoy/prometheus` | Envoy + telemetry metrics enabled | ServiceMonitor + PodMonitor for the Envoy controller and proxies. |
+| `cilium` | `gateway.driver: cilium` | GatewayClass `cilium` pointing at `io.cilium/gateway-controller`. The Cilium HelmRelease itself is owned by the `cni` stack. |
+| `envoy` | `gateway.driver: envoy` | Helm release of Envoy Gateway in `system-gateway`, vendored Envoy Gateway CRDs v1.7.1, GatewayClass `envoy`. |
+| `envoy/loadbalancer` | `gateway.driver: envoy` AND `gateway.service_type: LoadBalancer` (or platform default) | Patches the Envoy data-plane Service to type `LoadBalancer`. |
+| `envoy/loadbalancer/aws-nlb` | `platform: aws` AND `gateway.driver: envoy` AND LB mode | AWS LB Controller annotations: `aws-load-balancer-type: external`, `nlb-target-type: ip`, scheme from `${lb_scheme}`, cross-zone enabled. |
+| `envoy/loadbalancer/azure-lb-internal` | `platform: azure` AND `gateway.driver: envoy` AND `gateway.access: private` | Adds `service.beta.kubernetes.io/azure-load-balancer-internal: "true"` to flip the AKS Standard LB to internal. |
+| `envoy/nodeport` | `gateway.driver: envoy` AND `gateway.service_type: NodePort` (or docker-desktop default) | Patches the Envoy data-plane Service to NodePort with hardcoded ports: 80→30080, 443→30443, 53 UDP/TCP→30053, 9292→30292. |
+| `envoy/prometheus` | `gateway.driver: envoy` AND `telemetry.metrics.enabled: true` | ServiceMonitor + PodMonitor for the Envoy controller and proxies. |
 
 ### `gateway/resources/`
 
@@ -191,21 +190,21 @@ HTTPS/443 listeners) and `Certificate/external-web-tls`.
 
 | Component | Enable when | Effect |
 |---|---|---|
-| `cilium` | driver is Cilium | LBIPAM annotations on the Gateway (`lbipam.cilium.io/ips`, `sharing-key: external`, `sharing-cross-namespace: "*"`) so the Gateway can share its IP with CoreDNS and other LB consumers. |
-| `dns` | private-DNS addon enabled (Envoy only) | Adds UDP/53 (UDPRoute) and TCP/53 (TCPRoute) listeners so CoreDNS port-53 traffic terminates on the Gateway. |
-| `envoy/default-404` | Envoy only | Catch-all 404 HTTPRoute using the Envoy-specific `gateway.envoyproxy.io/HTTPRouteFilter` `directResponse`. Cilium clusters don't ship that CRD. |
-| `envoy/default-404/external-dns` | a public or private DNS zone exists | Adds `external-dns.alpha.kubernetes.io/hostname: "${external_domain},*.${external_domain}"` to the 404 route so external-dns publishes apex + wildcard records pointing at the Gateway IP. |
-| `flux-webhook` | gitops mode is `push` | Adds an HTTP/9292 listener for the Flux notification receiver. |
-| `lb-address` | in-cluster LB is active | Pins `spec.addresses` on the Gateway to `${loadbalancer_start_ip}`. |
+| `cilium` | `gateway.driver: cilium` | LBIPAM annotations on the Gateway (`lbipam.cilium.io/ips`, `sharing-key: external`, `sharing-cross-namespace: "*"`) so the Gateway can share its IP with CoreDNS and other LB consumers. |
+| `dns` | `addons.private_dns.enabled: true` AND `gateway.driver: envoy` | Adds UDP/53 (UDPRoute) and TCP/53 (TCPRoute) listeners so CoreDNS port-53 traffic terminates on the Gateway. |
+| `envoy/default-404` | `gateway.driver: envoy` | Catch-all 404 HTTPRoute using the Envoy-specific `gateway.envoyproxy.io/HTTPRouteFilter` `directResponse`. Cilium clusters don't ship that CRD. |
+| `envoy/default-404/external-dns` | `dns.public_domain` is set OR (`gateway.access: private` AND `dns.private_domain` is set) | Adds `external-dns.alpha.kubernetes.io/hostname: "${external_domain},*.${external_domain}"` to the 404 route so external-dns publishes apex + wildcard records pointing at the Gateway IP. |
+| `flux-webhook` | `gitops.mode: push` (the default) | Adds an HTTP/9292 listener for the Flux notification receiver. |
+| `lb-address` | in-cluster LB is active (`network.loadbalancer_driver` is set on metal/incus, or `gateway.driver: cilium`) | Pins `spec.addresses` on the Gateway to `${loadbalancer_start_ip}`. |
 
 ## Dependencies
 
 | Stack | Reason |
 |---|---|
 | `pki-base` | cert-manager must be running before `Certificate/external-web-tls` is created. |
-| `lb-base` *(when an LB controller is required)* | Provides the AWS Load Balancer Controller (or MetalLB) that the Envoy data-plane Service needs to acquire an external IP. |
-| `dns` *(when `dns.enabled`)* | external-dns (in the `dns` stack) watches Gateway HTTPRoutes for hostname annotations. When the private-DNS addon is also active, the `gateway-resources/dns` component attaches port-53 listeners that route to upstream CoreDNS. |
-| `cni` *(reverse, Cilium driver only)* | When Cilium is the driver, the `cni` stack `dependsOn` `gateway-base` so the Gateway API CRDs are present before the Cilium HelmRelease is applied — Cilium's operator initializes its Gateway controller at startup and won't pick up CRDs added later. |
+| `lb-base` *(`platform: aws`, or `network.loadbalancer_driver` set on metal/incus)* | Provides the AWS Load Balancer Controller (or MetalLB) that the Envoy data-plane Service needs to acquire an external IP. |
+| `dns` *(when `dns.enabled: true`)* | external-dns (in the `dns` stack) watches Gateway HTTPRoutes for hostname annotations. When the private-DNS addon is also active, the `gateway-resources/dns` component attaches port-53 listeners that route to upstream CoreDNS. |
+| `cni` *(reverse, `gateway.driver: cilium` only)* | When Cilium is the driver, the `cni` stack `dependsOn` `gateway-base` so the Gateway API CRDs are present before the Cilium HelmRelease is applied — Cilium's operator initializes its Gateway controller at startup and won't pick up CRDs added later. |
 
 ## Operations
 

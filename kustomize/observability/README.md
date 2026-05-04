@@ -229,7 +229,7 @@ are added by their respective owner facets.
 | Component | Wired by | Effect |
 |---|---|---|
 | `fluentd` | platform-base (when logs_driver=fluentd) | `Fluentd` CR (replicas: 1) in `system-observability` listening on TCP 24224 for forward protocol. ClusterFluentdConfig selects all configs labeled `config.fluentd.fluent.io/enabled: "true"`. |
-| `fluentd/prometheus` | platform-base (when metrics enabled) | ServiceMonitor for fluentd's own metrics. |
+| `fluentd/prometheus` | platform-base (when `telemetry.metrics.enabled: true`) | ServiceMonitor for fluentd's own metrics. |
 | `fluentd/filters/otel` | platform-base | OpenTelemetry filter normalizing fields. |
 | `fluentd/filters/log-level/{debug,info,warn,error}` | platform-base (one chosen by `log_level`) | Drops records below the configured severity. `log_level: 'trace'` skips this component entirely (passes everything). |
 | `fluentd/outputs/stdout` | addon-observability (logs_driver=stdout) | ClusterOutput writing to fluentd's container stdout. |

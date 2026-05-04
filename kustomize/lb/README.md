@@ -53,8 +53,9 @@ LB Controller does not need privilege but shares the namespace.
 
 `lb-base` and `lb-resources` are conditional. AWS always renders `lb-base`
 (the AWS LB Controller). metal/incus/docker render both when
-`lb_effective.enabled` is true. docker-desktop and Azure never render this
-stack.
+`network.loadbalancer_driver` is set. docker-desktop forces no in-cluster
+LB regardless (no routable node network); Azure never renders this stack
+(uses native AKS LBs).
 
 ### AWS (cloud-managed NLB/ALB)
 
@@ -75,8 +76,7 @@ response to `Service` and `Ingress` resources. No `lb-resources` is needed.
 
 ### Metal or incus with MetalLB
 
-Set `network.loadbalancer_driver: metallb` to choose this path
-(`lb_effective.driver` otherwise defaults to `kube-vip`).
+Set `network.loadbalancer_driver: metallb`. The default is `kube-vip`.
 
 ```yaml
 - name: lb-base
@@ -123,7 +123,7 @@ component for kube-vip, so `lb-base` only renders the `system-lb` namespace.
 | `cluster_name` | `aws-lb-controller` is enabled | AWS LB Controller `clusterName` value. Stamped onto every AWS resource the controller owns; the controller filters reconciliation by this tag, so two clusters in the same account must use distinct names. No fallback — empty fails the helm install loudly. |
 | `vpc_id` | `aws-lb-controller` is enabled | VPC ID passed explicitly so the controller does not fall back to IMDS (worker launch templates set `http_put_response_hop_limit=1`, blocking pod-network IMDS calls). |
 | `aws_region` | `aws-lb-controller` is enabled | AWS region the controller's API calls target. No default — a wrong region silently misses the cluster's VPC and emits confusing "not found" errors. |
-| `loadbalancer_ip_range` | `metallb/arp` or `kube-vip/arp` is enabled | IP range MetalLB or kube-vip allocates LoadBalancer IPs from. Format `start-end` (e.g. `10.5.1.10-10.5.1.30`); platform facets render this from `network_effective.loadbalancer_ips.start + '-' + .end`. |
+| `loadbalancer_ip_range` | `metallb/arp` or `kube-vip/arp` is enabled | IP range MetalLB or kube-vip allocates LoadBalancer IPs from. Format `start-end` (e.g. `10.5.1.10-10.5.1.30`); sourced from `network.loadbalancer_ips.start` and `network.loadbalancer_ips.end` joined by `-`. |
 
 ## Components
 
@@ -134,7 +134,7 @@ The base kustomization always renders the `system-lb` namespace.
 | Component | Enable when | Effect |
 |---|---|---|
 | `aws-lb-controller` | platform is AWS | Helm release of `aws-load-balancer-controller` v3.2.2 in `system-lb`. Two replicas with anti-affinity (degrades gracefully on single-node). IRSA / Pod Identity provides the IAM role; `clusterName`, `vpcId`, and `region` are passed through substitutions to avoid IMDS. |
-| `metallb` | `lb_effective.driver == 'metallb'` | Helm release of MetalLB v0.15.3 (controller + speaker) in `system-lb`. CRDs (IPAddressPool, L2Advertisement) ship with the chart. |
+| `metallb` | `network.loadbalancer_driver: metallb` | Helm release of MetalLB v0.15.3 (controller + speaker) in `system-lb`. CRDs (IPAddressPool, L2Advertisement) ship with the chart. |
 
 ### `lb/resources/`
 
@@ -143,11 +143,11 @@ The base kustomization is empty by default. AWS does not render
 
 | Component | Enable when | Effect |
 |---|---|---|
-| `metallb` | `lb_effective.driver == 'metallb'` | Empty placeholder Component. The MetalLB controller is installed by `lb-base/metallb`; this exists so the uniform `${lb_effective.driver}` pattern in platform facets resolves to a real path on both driver branches. |
-| `metallb/arp` | metallb + ARP / L2 mode | Creates `IPAddressPool/metallb-layer2` with `addresses: ${loadbalancer_ip_range}` and `L2Advertisement/metallb-layer2` selecting that pool. |
+| `metallb` | `network.loadbalancer_driver: metallb` | Empty placeholder Component. The MetalLB controller is installed by `lb-base/metallb`; this exists so the uniform `${driver}` pattern in platform facets resolves to a real path on both driver branches. |
+| `metallb/arp` | metallb + `network.loadbalancer_mode: arp` (default) | Creates `IPAddressPool/metallb-layer2` with `addresses: ${loadbalancer_ip_range}` and `L2Advertisement/metallb-layer2` selecting that pool. |
 | `metallb/layer2` | (deprecated) | Compatibility shim that imports `../arp`. Will be dropped in v0.8.0 — switch to `metallb/arp` directly. |
-| `kube-vip` | `lb_effective.driver == 'kube-vip'` | Helm release of kube-vip v0.9.8 with service election enabled, plus a sidecar release for the kube-vip cloud-provider that handles IP allocation. |
-| `kube-vip/arp` | kube-vip + ARP mode | Patches the kube-vip HelmRelease to set `vip_arp: true` and `vip_routing_table: false` (gratuitous ARP advertisement, no BGP table). |
+| `kube-vip` | `network.loadbalancer_driver: kube-vip` (the default) | Helm release of kube-vip v0.9.8 with service election enabled, plus a sidecar release for the kube-vip cloud-provider that handles IP allocation. |
+| `kube-vip/arp` | kube-vip + `network.loadbalancer_mode: arp` (default) | Patches the kube-vip HelmRelease to set `vip_arp: true` and `vip_routing_table: false` (gratuitous ARP advertisement, no BGP table). |
 
 ## Dependencies
 
@@ -189,6 +189,6 @@ at the repo level.
 - [contexts/_template/facets/platform-aws.yaml](../../contexts/_template/facets/platform-aws.yaml) — AWS LBC wiring with `cluster_name` / `vpc_id` substitutions.
 - [contexts/_template/facets/platform-metal.yaml](../../contexts/_template/facets/platform-metal.yaml) — metal MetalLB wiring.
 - [contexts/_template/facets/platform-incus.yaml](../../contexts/_template/facets/platform-incus.yaml) — incus wiring (supports both metallb and kube-vip drivers).
-- [contexts/_template/facets/platform-base.yaml](../../contexts/_template/facets/platform-base.yaml) — `lb_effective` resolution, including the `controller_required` flag consumers depend on.
+- [contexts/_template/facets/platform-base.yaml](../../contexts/_template/facets/platform-base.yaml) — `lb_effective` resolution (the internal config that folds `network.loadbalancer_driver` together with platform-specific overrides like docker-desktop's force-disable).
 - Blueprint schema and facet syntax — https://www.windsorcli.dev/docs/blueprints/
 - Related stacks: [policy](../policy/), [gateway](../gateway/).

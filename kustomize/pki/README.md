@@ -181,8 +181,8 @@ rather than replacing them.
 | Component | Enable when | Effect |
 |---|---|---|
 | `cert-manager` | always (default platform path) | Helm release of cert-manager in `system-pki`. CRDs enabled. |
-| `cert-manager/single-node` | single-node clusters | Disables leader election on the controller and cainjector. |
-| `cert-manager/prometheus` | telemetry metrics enabled | Enables the chart's ServiceMonitor with the `kube-prometheus-stack` release label, and adds a Flux `dependsOn` so cert-manager waits for kube-prometheus-stack to be ready. |
+| `cert-manager/single-node` | `cluster.topology: single-node` | Disables leader election on the controller and cainjector. |
+| `cert-manager/prometheus` | `telemetry.metrics.enabled: true` | Enables the chart's ServiceMonitor with the `kube-prometheus-stack` release label, and adds a Flux `dependsOn` so cert-manager waits for kube-prometheus-stack to be ready. |
 | `cert-manager/azure-workload-identity` | platform is Azure with a public domain | Adds Azure workload-identity labels and annotations to the cert-manager ServiceAccount and pods. |
 | `trust-manager` | `addons.private_ca.enabled == true` | Helm release of trust-manager in `system-pki-trust`. Flux waits for cert-manager. |
 | `trust-manager/single-node` | single-node + private-ca | Disables leader election on trust-manager. |
@@ -214,7 +214,7 @@ mutating one shared `public` issuer in place would not.
 | Stack | Reason |
 |---|---|
 | `policy-resources` *(when policies enabled)* | `private-issuer/ca` ships a Kyverno ClusterPolicy that mounts the CA bundle into opted-in pods. Flux fails the apply on `no matches for kind ClusterPolicy` if Kyverno's CRDs aren't installed. |
-| `telemetry-base` *(when telemetry metrics or logs enabled)* | `cert-manager/prometheus` enables a ServiceMonitor with `release: kube-prometheus-stack`; without telemetry-base the ServiceMonitor has no Prometheus to register against. |
+| `telemetry-base` *(when `telemetry.metrics.enabled: true` or `telemetry.logs.enabled: true`)* | `cert-manager/prometheus` enables a ServiceMonitor with `release: kube-prometheus-stack`; without telemetry-base the ServiceMonitor has no Prometheus to register against. |
 
 `pki-resources` always depends on `pki-base` (the operators must be running before any ClusterIssuer is created).
 

@@ -153,10 +153,10 @@ Same shape as the AWS recipe, swapping the provider component to
 |---|---|---|
 | `coredns` | always | Helm release of CoreDNS in `system-dns`. |
 | `coredns/etcd` | always (record store) | StatefulSet, Service, and mTLS certs for the etcd backing CoreDNS records. |
-| `coredns/ha` | `topology == ha` | Multi-replica deployment with anti-affinity. |
-| `coredns/loadbalancer` | gateway driver is Cilium | Switches the CoreDNS Service to type `LoadBalancer`. |
-| `coredns/cilium` | gateway driver is Cilium | LBIPAM annotation so CoreDNS shares the gateway IP. |
-| `coredns/gateway` | gateway driver is Envoy and enabled | TCPRoute and UDPRoute on port 53 attached to the edge Gateway. |
+| `coredns/ha` | `cluster.topology: ha` | Multi-replica deployment with anti-affinity. |
+| `coredns/loadbalancer` | `gateway.driver: cilium` | Switches the CoreDNS Service to type `LoadBalancer`. |
+| `coredns/cilium` | `gateway.driver: cilium` | LBIPAM annotation so CoreDNS shares the gateway IP. |
+| `coredns/gateway` | `gateway.driver: envoy` AND `gateway.enabled: true` | TCPRoute and UDPRoute on port 53 attached to the edge Gateway. |
 
 ### `external-dns/`
 
@@ -166,9 +166,9 @@ Same shape as the AWS recipe, swapping the provider component to
 | `external-dns/providers/coredns` | provider is in-cluster CoreDNS-via-etcd | Wires external-dns to write records into the CoreDNS etcd. |
 | `external-dns/providers/route53` | provider is AWS Route 53 | IRSA-based AWS provider config. |
 | `external-dns/providers/azure` | provider is Azure DNS | Workload-identity-based Azure provider config. |
-| `external-dns/ha` | `topology == ha` | Two replicas with leader election. |
-| `external-dns/localhost` | runtime is `docker-desktop` | Kyverno ClusterPolicy that mutates Ingress, Gateway, and HTTPRoute objects to set `external-dns.alpha.kubernetes.io/target: 127.0.0.1`. Requires `policy-resources`. |
-| `external-dns/sources/gateway-httproute` | a Gateway controller is installed | Adds Gateway API HTTPRoute to external-dns sources. Crashloops if enabled without HTTPRoute CRDs present. |
+| `external-dns/ha` | `cluster.topology: ha` | Two replicas with leader election. |
+| `external-dns/localhost` | `workstation.runtime: docker-desktop` | Kyverno ClusterPolicy that mutates Ingress, Gateway, and HTTPRoute objects to set `external-dns.alpha.kubernetes.io/target: 127.0.0.1`. Requires `policy-resources`. |
+| `external-dns/sources/gateway-httproute` | `gateway.enabled: true` | Adds Gateway API HTTPRoute to external-dns sources. Crashloops if enabled without HTTPRoute CRDs present. |
 
 ## Dependencies
 
