@@ -67,6 +67,7 @@ For each significant stack under `kustomize/` (e.g. dns, pki, gateway), maintain
 - **Chart and image versions.** Pinned in `helm-release.yaml` with renovate markers; that's the source of truth. Mirroring versions in the README means Renovate PRs silently drift the docs.
 - **Generic operations boilerplate.** "Flux retries failed reconciles", "DependencyNotReady means a dependency isn't ready" — applies to every stack, doesn't belong in any single one.
 - **Diagrams as PNG/SVG attachments.** Use Mermaid. The site renders it; binary attachments are fragile through ingest.
+- **Derived facet config as the primary description.** Don't gate components or describe conditions in terms of `gateway_effective.driver`, `telemetry_effective.metrics_enabled`, `talos_common.storage_driver`, `lb_effective.*`, `cni_effective.*`, or any other `*_effective` / `*_common` value. Those are facet-author concerns. Use the user-facing schema field instead — e.g. `gateway.driver`, `telemetry.metrics.enabled`, `cluster.storage.driver`, `network.loadbalancer_driver`. If the derivation logic matters (e.g. docker-desktop overrides), mention it in a brief footnote that points to the facet, not as the primary table entry.
 
 ### Authoring workflow
 
