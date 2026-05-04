@@ -658,17 +658,37 @@ resource "azurerm_user_assigned_identity" "external_dns" {
 ## so the role has to be at RG scope, not per-zone. cert-manager's azureDNS
 ## solver reads the zone by name + RG directly, so zone-scoped grants are
 ## fine for it; external-dns has no such shortcut.
+##
+## Public Azure DNS (Microsoft.Network/dnszones) and Azure Private DNS
+## (Microsoft.Network/privateDnsZones) are distinct ARM resource types with
+## distinct RBAC roles. Detect the type from the resource ID and assign the
+## matching role; mixed lists with both kinds in the same RG produce one
+## role assignment per role.
 locals {
-  external_dns_zone_rgs = var.create_external_dns_identity ? toset([
+  external_dns_public_zone_rgs = var.create_external_dns_identity ? toset([
     for id in var.external_dns_dns_zone_ids :
     regex("^(/subscriptions/[^/]+/resourceGroups/[^/]+)", id)[0]
+    if can(regex("/dnszones/", lower(id)))
+  ]) : toset([])
+
+  external_dns_private_zone_rgs = var.create_external_dns_identity ? toset([
+    for id in var.external_dns_dns_zone_ids :
+    regex("^(/subscriptions/[^/]+/resourceGroups/[^/]+)", id)[0]
+    if can(regex("/privatednszones/", lower(id)))
   ]) : toset([])
 }
 
 resource "azurerm_role_assignment" "external_dns_zones" {
-  for_each             = local.external_dns_zone_rgs
+  for_each             = local.external_dns_public_zone_rgs
   scope                = each.value
   role_definition_name = "DNS Zone Contributor"
+  principal_id         = azurerm_user_assigned_identity.external_dns[0].principal_id
+}
+
+resource "azurerm_role_assignment" "external_dns_private_zones" {
+  for_each             = local.external_dns_private_zone_rgs
+  scope                = each.value
+  role_definition_name = "Private DNS Zone Contributor"
   principal_id         = azurerm_user_assigned_identity.external_dns[0].principal_id
 }
 

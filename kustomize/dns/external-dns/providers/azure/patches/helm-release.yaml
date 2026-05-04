@@ -6,7 +6,12 @@ metadata:
   namespace: system-dns
 spec:
   values:
-    provider: azure
+    # azure for public Azure DNS zones, azure-private-dns for VNet-linked
+    # private zones. Defaults to azure to preserve public-mode behavior.
+    # Object form (provider.name) is required by chart >=1.21; the legacy
+    # `provider: <string>` form emits a deprecation notice.
+    provider:
+      name: ${external_dns_azure_provider:-azure}
     policy: sync
     registry: txt
     # Unique TXT-record owner ID — keeps multiple external-dns instances
@@ -16,10 +21,14 @@ spec:
     txtOwnerId: ${txt_owner_id}
     domainFilters:
       - ${external_domain:-test}
-    # Azure DNS rejects '*' in TXT relative names, so the registry's TXT record
-    # for a wildcard endpoint (e.g. a-*.example.com) fails to write. Replace
-    # '*' with 'any' in TXT names — record set becomes a-any.example.com.
-    txtWildcardReplacement: any
+    # Azure (Public + Private) DNS rejects '*' in TXT relative names, so the
+    # registry's TXT record for a wildcard endpoint (e.g. a-*.example.com)
+    # fails to write with HTTP 400. Replace '*' with 'any' in TXT names so the
+    # record set becomes a-any.example.com. Pass via extraArgs because the
+    # chart 1.21.x doesn't render the dedicated txtWildcardReplacement value
+    # into deployment args; the binary still honors the CLI flag directly.
+    extraArgs:
+      - --txt-wildcard-replacement=any
     # external-dns Azure provider unconditionally reads /etc/kubernetes/azure.json
     # at startup, before flag overrides are applied — so the file must exist even
     # when using workload identity. The chart creates and mounts it from this block.

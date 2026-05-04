@@ -7,6 +7,23 @@ metadata:
 when: platform == 'azure'
 
 # =============================================================================
+# Config — platform-specific overrides
+# =============================================================================
+#
+# AKS ships metrics-server as a managed add-on, so we suppress the copy that
+# platform-base would otherwise add to telemetry-resources (two instances
+# would fight on the same APIService). The flag is layered onto the base
+# `telemetry_effective` config block via Windsor's deep-merge semantics —
+# only metrics_server_enabled is overridden, the rest of the field set
+# (metrics_enabled, logs_enabled, logs_driver) keeps platform-base's values.
+#
+config:
+
+  - name: telemetry_effective
+    value:
+      metrics_server_enabled: false
+
+# =============================================================================
 # Terraform — AzureRM state backend, VNet, AKS, optional public DNS zone
 # =============================================================================
 #
@@ -38,12 +55,19 @@ terraform:
   # (selected via the cluster module's data lookup on vnet_module_name).
   # Depends on backend so the storage account holding remote state exists
   # before this stack tries to write to it.
+  #
+  # domain_name feeds the VNet-linked private DNS zone created inside this
+  # module — internal DNS for VNet resources. Sourced from dns.private_domain
+  # (the in-cluster / private name) rather than dns.public_domain, since the
+  # VNet zone is by definition private. The public zone for ACME / external-dns
+  # lives in the standalone dns-zone stack below.
   - name: network
     path: network/azure-vnet
     dependsOn:
       - backend
     inputs:
       vnet_cidr: ${network_effective.cidr_block}
+      domain_name: ${dns.private_domain ?? ""}
 
   # Public Azure DNS zone — provisioned when the operator sets dns.public_domain.
   # Owns its own resource group so the zone has an independent lifecycle from
@@ -80,7 +104,7 @@ terraform:
       private_subnet_ids: ${terraform_output('network', 'private_subnet_ids')}
       create_cert_manager_identity: "${(dns.public_domain ?? '') != ''}"
       cert_manager_dns_zone_ids: "${(dns.public_domain ?? '') != '' && (terraform_output('dns-zone', 'zone_id') ?? '') != '' ? [terraform_output('dns-zone', 'zone_id')] : []}"
-      external_dns_dns_zone_ids: "${(dns.public_domain ?? '') != '' && (terraform_output('dns-zone', 'zone_id') ?? '') != '' ? [terraform_output('dns-zone', 'zone_id')] : []}"
+      external_dns_dns_zone_ids: "${gateway.access == 'private' && (dns.private_domain ?? '') != '' && (terraform_output('network', 'private_zone_id') ?? '') != '' ? [terraform_output('network', 'private_zone_id')] : ((dns.public_domain ?? '') != '' && (terraform_output('dns-zone', 'zone_id') ?? '') != '' ? [terraform_output('dns-zone', 'zone_id')] : [])}"
 
   # Path-less dependency-edge injector: when ACME is on, cluster must wait
   # for dns-zone so terraform_output('dns-zone', 'zone_id') is resolved
@@ -103,8 +127,12 @@ terraform:
       concurrency: 5
 
 # =============================================================================
-# Kustomize — Azure Disk CSI + AKS-specific telemetry trim + DNS / ACME / LB
+# Kustomize — Azure Disk CSI + DNS / ACME / LB
 # =============================================================================
+#
+# AKS-specific telemetry trim (metrics-server suppression) is handled in the
+# config block above, so it composes via the shared platform-base entry
+# rather than a separate kustomize override here.
 #
 kustomize:
 
@@ -121,14 +149,6 @@ kustomize:
     interval: 5m
     substitutions:
       single_storage_type: ${cluster.storage.single_storage_type ?? "StandardSSD_LRS"}
-
-  # AKS ships metrics-server as a managed add-on, so remove our copy to
-  # avoid running two instances fighting over the same APIService.
-  - name: telemetry-resources
-    path: telemetry/resources
-    strategy: remove
-    components:
-      - metrics-server
 
   # ---------------------------------------------------------------------------
   # cert-manager Workload Identity (Azure DNS-01 only)
@@ -179,10 +199,19 @@ kustomize:
       # Deferred terraform_outputs from the dns-zone stack — the cert-manager
       # azureDNS solver needs (zone_name, RG, sub) to call the management API,
       # plus (tenant_id, client_id) of the cert-manager UAMI to authenticate.
-      acme_dns_zone_resource_group: "${terraform_output('dns-zone', 'resource_group_name') ?? ''}"
-      acme_dns_zone_subscription_id: "${terraform_output('dns-zone', 'subscription_id') ?? ''}"
-      cert_manager_client_id: "${terraform_output('cluster', 'cert_manager_client_id') ?? ''}"
-      cert_manager_tenant_id: "${terraform_output('cluster', 'tenant_id') ?? ''}"
+      # Gated on dns.public_domain because the dns-zone stack only composes
+      # when public_domain is set; calling terraform_output on a missing
+      # component is a hard error that ?? doesn't catch. In private mode the
+      # private-issuer/selfsigned component selected above doesn't read these.
+      acme_dns_zone_resource_group: "${(dns.public_domain ?? '') != '' ? (terraform_output('dns-zone', 'resource_group_name') ?? '') : ''}"
+      acme_dns_zone_subscription_id: "${(dns.public_domain ?? '') != '' ? (terraform_output('dns-zone', 'subscription_id') ?? '') : ''}"
+      # cert-manager UAMI outputs only exist when create_cert_manager_identity
+      # fires (gated on dns.public_domain in the cluster step). Calling
+      # terraform_output for an absent output is a hard error that ?? can't
+      # catch — gate eagerly. Selfsigned issuer in private mode doesn't read
+      # these.
+      cert_manager_client_id: "${(dns.public_domain ?? '') != '' ? (terraform_output('cluster', 'cert_manager_client_id') ?? '') : ''}"
+      cert_manager_tenant_id: "${(dns.public_domain ?? '') != '' ? (terraform_output('cluster', 'tenant_id') ?? '') : ''}"
 
   # ---------------------------------------------------------------------------
   # DNS — external-dns + Azure DNS record automation
@@ -192,7 +221,16 @@ kustomize:
   # addon-private-dns and platform-aws use) so DNS components compose at one
   # path. external-dns watches Ingress / Gateway HTTPRoute resources annotated
   # with external-dns.alpha.kubernetes.io/hostname=<host> and writes A/CNAME
-  # records to the public Azure DNS zone provisioned by the dns-zone stack.
+  # records into a single Azure DNS zone. Two modes, both rendered by the
+  # same Kustomization:
+  #
+  #   - Public mode (default): targets the public zone provisioned by the
+  #     standalone dns-zone stack. Triggered by dns.public_domain.
+  #   - Private mode: targets the VNet-linked private zone created by the
+  #     network module from dns.private_domain. Triggered by
+  #     gateway.access=private (also requires dns.private_domain — there's
+  #     no zone to publish to without it, so the private cascade no-ops
+  #     and the gateway runs as public).
   #
   # Workload Identity is wired by the cluster module (external_dns UAMI +
   # Federated Credential bound to system:serviceaccount:system-dns:external-dns).
@@ -202,7 +240,7 @@ kustomize:
   #
   - name: dns
     path: dns
-    when: "(dns.public_domain ?? '') != ''"
+    when: "(dns.public_domain ?? '') != '' || (gateway.access == 'private' && (dns.private_domain ?? '') != '')"
     dependsOn:
       - policy-resources
       # gateway-base installs the Gateway API CRDs (HTTPRoute, Gateway). When
@@ -217,10 +255,16 @@ kustomize:
     timeout: 5m
     interval: 5m
     substitutions:
-      external_domain: "${dns.public_domain ?? ''}"
-      # Azure DNS resource ID — same value as cert_manager_dns_zone_ids on the
-      # cluster module, lets external-dns pin to one zone.
-      zone_id_filter: "${terraform_output('dns-zone', 'zone_id') ?? ''}"
+      # Private mode wins over public_domain for the gateway's DNS — even if
+      # both are set, a private gateway should publish to the private zone (its
+      # hostname is internal-only and unusable as a record target on the public
+      # zone). Same access=private && private_domain gate fires here as in the
+      # rest of the private-mode cascade.
+      external_domain: "${gateway.access == 'private' && (dns.private_domain ?? '') != '' ? dns.private_domain : (dns.public_domain ?? '')}"
+      # Azure DNS resource ID — pins external-dns to a specific zone. Public
+      # zone comes from the standalone dns-zone stack; private zone comes from
+      # the network module (azure-vnet creates it when dns.private_domain is set).
+      zone_id_filter: "${gateway.access == 'private' && (dns.private_domain ?? '') != '' ? (terraform_output('network', 'private_zone_id') ?? '') : (terraform_output('dns-zone', 'zone_id') ?? '')}"
       # Owner ID stamped into TXT records so multiple external-dns instances
       # in the same zone don't clobber each other. The context id (top-level
       # `id` field in values.yaml) is unique per Windsor context so it doubles
@@ -228,8 +272,17 @@ kustomize:
       txt_owner_id: "${id}"
       external_dns_client_id: "${terraform_output('cluster', 'external_dns_client_id') ?? ''}"
       external_dns_tenant_id: "${terraform_output('cluster', 'tenant_id') ?? ''}"
-      external_dns_dns_zone_subscription_id: "${terraform_output('dns-zone', 'subscription_id') ?? ''}"
-      external_dns_dns_zone_resource_group: "${terraform_output('dns-zone', 'resource_group_name') ?? ''}"
+      # Subscription / RG of the target zone — feeds external-dns's azure.json.
+      # Private mode pulls from the network module (zone lives in the VNet's
+      # RG), public mode from the dns-zone stack.
+      external_dns_dns_zone_subscription_id: "${gateway.access == 'private' && (dns.private_domain ?? '') != '' ? (terraform_output('network', 'subscription_id') ?? '') : (terraform_output('dns-zone', 'subscription_id') ?? '')}"
+      external_dns_dns_zone_resource_group: "${gateway.access == 'private' && (dns.private_domain ?? '') != '' ? (terraform_output('network', 'resource_group_name') ?? '') : (terraform_output('dns-zone', 'resource_group_name') ?? '')}"
+      # Public Azure DNS and Azure Private DNS Zones are served by different
+      # external-dns provider implementations (azure vs azure-private-dns) and
+      # different ARM resource types — without flipping this in private mode
+      # external-dns lists Microsoft.Network/dnszones and silently skips the
+      # privateDnsZones it should be writing to.
+      external_dns_azure_provider: "${gateway.access == 'private' && (dns.private_domain ?? '') != '' ? 'azure-private-dns' : 'azure'}"
 
   # ---------------------------------------------------------------------------
   # Gateway-base merge — Azure LB annotations on the Envoy data-plane Service
