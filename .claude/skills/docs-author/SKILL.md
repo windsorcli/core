@@ -41,7 +41,7 @@ Exact glob roots are finalized with the website `docs:vendor` script; treat the 
 
 ## Terraform reference
 
-- Generate from modules in this repo (e.g. `terraform-docs` or project script); commit or CI output under `docs/reference/terraform/<module-path>/` mirroring repo paths consumers use in `blueprint.yaml` (`cluster/talos`, `gitops/flux`, etc.).
+- Generate from modules in this repo with `task docs` (terraform-docs injected between `<!-- BEGIN_TF_DOCS -->` / `<!-- END_TF_DOCS -->` markers in each module's `README.md`). Commit the regenerated `terraform/<module-path>/README.md` (`cluster/talos`, `gitops/flux`, etc.). The site ingest pipeline mirrors these into `docs/reference/terraform/<module-path>/` per the path mapping above; contributors don't write into `docs/reference/` directly.
 - Inputs, outputs, and gotchas belong here; high-level “what is Terraform in Windsor” stays on the site under `/docs/components/terraform`.
 
 ## Kustomize stack operator guide (per top-level stack)
