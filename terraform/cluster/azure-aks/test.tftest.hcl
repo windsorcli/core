@@ -754,6 +754,141 @@ run "external_dns_role_per_zone_type" {
   }
 }
 
+# Tests the portable user-pool shape (var.pools) — same shape AWS-EKS exposes.
+# Each pool resolves to an azurerm_kubernetes_cluster_node_pool with vm_size
+# pulled from class_instance_types, lifecycle mapped to priority, and the
+# operator's labels merged with windsor.io/pool[-class] tags. Default empty
+# map means no extra resources — the cluster's inline default node pool is
+# unaffected (it remains the system pool).
+run "pools_empty_creates_no_user_pools" {
+  command = plan
+
+  variables {
+    context_id         = "test"
+    name               = "windsor-aks"
+    kubernetes_version = "1.34"
+  }
+
+  assert {
+    condition     = length(azurerm_kubernetes_cluster_node_pool.pools) == 0
+    error_message = "No user pools should be created when var.pools is empty (the default)."
+  }
+}
+
+run "pools_resolves_class_to_vm_size" {
+  command = plan
+
+  variables {
+    context_id         = "test"
+    name               = "windsor-aks"
+    kubernetes_version = "1.34"
+    pools = {
+      app = { class = "general", count = 2 }
+      cpu = { class = "compute", count = 1 }
+    }
+  }
+
+  assert {
+    condition     = length(azurerm_kubernetes_cluster_node_pool.pools) == 2
+    error_message = "Two user pools should be created from var.pools."
+  }
+
+  assert {
+    condition     = azurerm_kubernetes_cluster_node_pool.pools["app"].vm_size == "Standard_D4s_v5"
+    error_message = "general class should default to the first VM size in class_instance_types[general]."
+  }
+
+  assert {
+    condition     = azurerm_kubernetes_cluster_node_pool.pools["cpu"].vm_size == "Standard_F4s_v2"
+    error_message = "compute class should default to the first VM size in class_instance_types[compute]."
+  }
+
+  assert {
+    condition     = azurerm_kubernetes_cluster_node_pool.pools["app"].mode == "User"
+    error_message = "Pools must be created in User mode — the cluster's inline default_node_pool stays the system pool."
+  }
+}
+
+run "pools_explicit_instance_types_and_lifecycle" {
+  command = plan
+
+  variables {
+    context_id         = "test"
+    name               = "windsor-aks"
+    kubernetes_version = "1.34"
+    pools = {
+      batch = {
+        class          = "general"
+        count          = 3
+        lifecycle      = "spot"
+        instance_types = ["Standard_D8s_v5"]
+        root_disk_size = 128
+        labels         = { "team" = "data" }
+        taints = [{
+          key    = "workload"
+          value  = "batch"
+          effect = "NoSchedule"
+        }]
+      }
+    }
+  }
+
+  assert {
+    condition     = azurerm_kubernetes_cluster_node_pool.pools["batch"].vm_size == "Standard_D8s_v5"
+    error_message = "Explicit instance_types should override class defaults (first item wins on AKS — single SKU)."
+  }
+
+  assert {
+    condition     = azurerm_kubernetes_cluster_node_pool.pools["batch"].priority == "Spot"
+    error_message = "lifecycle=spot should map to AKS priority=Spot."
+  }
+
+  assert {
+    condition     = azurerm_kubernetes_cluster_node_pool.pools["batch"].eviction_policy == "Delete"
+    error_message = "Spot pools must set eviction_policy=Delete."
+  }
+
+  assert {
+    condition     = azurerm_kubernetes_cluster_node_pool.pools["batch"].os_disk_size_gb == 128
+    error_message = "root_disk_size should flow through to os_disk_size_gb."
+  }
+
+  assert {
+    condition     = lookup(azurerm_kubernetes_cluster_node_pool.pools["batch"].node_labels, "team", "") == "data"
+    error_message = "Operator-supplied labels must be merged into node_labels."
+  }
+
+  assert {
+    condition     = lookup(azurerm_kubernetes_cluster_node_pool.pools["batch"].node_labels, "windsor.io/pool", "") == "batch"
+    error_message = "windsor.io/pool label must be auto-stamped with the pool name."
+  }
+
+  assert {
+    condition     = lookup(azurerm_kubernetes_cluster_node_pool.pools["batch"].node_labels, "windsor.io/pool-class", "") == "general"
+    error_message = "windsor.io/pool-class label must be auto-stamped with the pool class."
+  }
+
+  assert {
+    condition     = contains(azurerm_kubernetes_cluster_node_pool.pools["batch"].node_taints, "workload=batch:NoSchedule")
+    error_message = "Taints must render as AKS-format key=value:Effect strings."
+  }
+}
+
+run "pools_invalid_class_rejected" {
+  command = plan
+
+  variables {
+    context_id         = "test"
+    name               = "windsor-aks"
+    kubernetes_version = "1.34"
+    pools = {
+      bogus = { class = "bogus", count = 1 }
+    }
+  }
+
+  expect_failures = [var.pools]
+}
+
 # Tests that when enable_volume_snapshots is false, snapshot permissions are not included in the role definition.
 # This verifies the conditional logic that excludes snapshot operations when volume snapshots are disabled.
 run "volume_snapshots_disabled" {

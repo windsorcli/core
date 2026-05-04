@@ -456,6 +456,63 @@ resource "azurerm_kubernetes_cluster_node_pool" "autoscaled" {
   }, local.tags)
 }
 
+#-----------------------------------------------------------------------------------------------------------------------
+# Portable User Pools (var.pools)
+#-----------------------------------------------------------------------------------------------------------------------
+
+# Resolve the portable pool shape into Azure-specific fields:
+#  - vm_size: AKS pools take a single SKU, not a list. Pick the first item from
+#    the operator's instance_types override; fall back to class_instance_types
+#    so the operator can declare a pool with class=general and no explicit SKU.
+#  - priority: lifecycle 'spot' → AKS Spot pool (delete-on-eviction).
+#  - taints: AKS expects the API's "key=value:Effect" string form (PascalCase
+#    effect: NoSchedule / NoExecute / PreferNoSchedule). Operator-supplied
+#    effect strings pass through; cross-platform configs use the AKS form when
+#    targeting Azure.
+#  - labels: standard kubernetes label map, with windsor.io/pool[-class] tags
+#    appended so node-affinity rules can pin workloads by pool name or class.
+locals {
+  pools_resolved = {
+    for name, p in var.pools : name => {
+      vm_size = (p.instance_types != null && length(p.instance_types) > 0
+        ? p.instance_types[0]
+      : lookup(var.class_instance_types, p.class, [""])[0])
+      priority        = p.lifecycle == "spot" ? "Spot" : "Regular"
+      eviction_policy = p.lifecycle == "spot" ? "Delete" : null
+      node_count      = p.count
+      os_disk_size_gb = coalesce(p.root_disk_size, 64)
+      labels = merge(
+        p.labels,
+        {
+          "windsor.io/pool"       = name
+          "windsor.io/pool-class" = p.class
+        }
+      )
+      taints = [for t in p.taints : "${t.key}=${t.value != null ? t.value : ""}:${t.effect}"]
+    }
+  }
+}
+
+resource "azurerm_kubernetes_cluster_node_pool" "pools" {
+  for_each              = local.pools_resolved
+  name                  = each.key
+  kubernetes_cluster_id = azurerm_kubernetes_cluster.main.id
+  vm_size               = each.value.vm_size
+  mode                  = "User"
+  node_count            = each.value.node_count
+  os_disk_size_gb       = each.value.os_disk_size_gb
+  vnet_subnet_id        = var.private_subnet_ids[length(var.private_subnet_ids) - 1]
+  orchestrator_version  = var.kubernetes_version
+  priority              = each.value.priority
+  eviction_policy       = each.value.eviction_policy
+  node_labels           = each.value.labels
+  node_taints           = each.value.taints
+
+  tags = merge({
+    Name = each.key
+  }, local.tags)
+}
+
 # Assign Network Contributor role on each private subnet to the control plane identity
 # (required for custom VNet). Azure CLI auto-assigns this; Terraform requires it explicitly.
 # Scoped per-subnet so every subnet a node pool may attach to is covered, not just the first.
