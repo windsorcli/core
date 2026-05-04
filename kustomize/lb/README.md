@@ -89,6 +89,7 @@ Set `network.loadbalancer_driver: metallb` to choose this path
   path: lb/resources
   dependsOn: [lb-base]
   components:
+    - metallb
     - metallb/arp
   substitutions:
     loadbalancer_ip_range: 10.5.1.10-10.5.1.30
@@ -142,16 +143,11 @@ The base kustomization is empty by default. AWS does not render
 
 | Component | Enable when | Effect |
 |---|---|---|
+| `metallb` | `lb_effective.driver == 'metallb'` | Empty placeholder Component. The MetalLB controller is installed by `lb-base/metallb`; this exists so the uniform `${lb_effective.driver}` pattern in platform facets resolves to a real path on both driver branches. |
 | `metallb/arp` | metallb + ARP / L2 mode | Creates `IPAddressPool/metallb-layer2` with `addresses: ${loadbalancer_ip_range}` and `L2Advertisement/metallb-layer2` selecting that pool. |
 | `metallb/layer2` | (deprecated) | Compatibility shim that imports `../arp`. Will be dropped in v0.8.0 — switch to `metallb/arp` directly. |
 | `kube-vip` | `lb_effective.driver == 'kube-vip'` | Helm release of kube-vip v0.9.8 with service election enabled, plus a sidecar release for the kube-vip cloud-provider that handles IP allocation. |
 | `kube-vip/arp` | kube-vip + ARP mode | Patches the kube-vip HelmRelease to set `vip_arp: true` and `vip_routing_table: false` (gratuitous ARP advertisement, no BGP table). |
-
-There is intentionally no top-level `metallb` Component in `lb/resources/`
-— the `metallb/arp` component does all the work and `lb-base` already owns
-the controller. Platform facets that emit `${lb_effective.driver}` as a
-component path (uniform with the kube-vip path) effectively no-op for
-metallb; hand-authored blueprints should list only `metallb/arp`.
 
 ## Dependencies
 
