@@ -167,7 +167,7 @@ cases:
 
   # ACME path on (production): dns.public_domain triggers the standalone
   # dns-zone stack, the cert-manager IAM role on the cluster, the
-  # public-issuer/acme component on pki-resources, and the gateway TLS
+  # public-issuer/acme/route53 component on pki-resources, and the gateway TLS
   # cert switches to the `public-acme` ClusterIssuer with the public domain.
   - name: dns.public_domain wires up ACME Route53 issuer end to end
     values:
@@ -214,7 +214,7 @@ cases:
             - pki-base
             - policy-resources
           components:
-            - public-issuer/acme
+            - public-issuer/acme/route53
           substitutions:
             acme_server: https://acme-v02.api.letsencrypt.org/directory
             acme_email: ops@example.com
@@ -276,7 +276,7 @@ cases:
       kustomize:
         - name: pki-resources
           components:
-            - public-issuer/acme
+            - public-issuer/acme/route53
           substitutions:
             acme_server: https://acme-staging-v02.api.letsencrypt.org/directory
             acme_email: dev@example.com
@@ -303,7 +303,7 @@ cases:
       kustomize:
         - name: pki-resources
           components:
-            - public-issuer/acme
+            - public-issuer/acme/route53
 
   # cluster.pools threads through to the cluster module as-is. The module
   # converts class + count + lifecycle into EKS managed node group shape

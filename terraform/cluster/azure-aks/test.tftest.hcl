@@ -10,23 +10,18 @@ mock_provider "azurerm" {
       subscription_id = "12345678-1234-9876-4563-123456789012"
     }
   }
-  mock_data "azurerm_virtual_network" {
-    defaults = {
-      subnets             = ["private-1-test", "private-2-test", "private-3-test", "public-1-test", "public-2-test", "isolated-1-test", "isolated-2-test"]
-      resource_group_name = "example-resource-group"
-      name                = "vnet-test"
-      id                  = "/subscriptions/12345678-1234-9876-4563-123456789012/resourceGroups/example-resource-group/providers/Microsoft.Network/virtualNetworks/vnet-test"
-    }
-  }
-  mock_data "azurerm_subnet" {
-    defaults = {
-      name                 = "private-1-test"
-      resource_group_name  = "example-resource-group"
-      virtual_network_name = "vnet-test"
-      address_prefixes     = ["10.0.0.0/24"]
-      id                   = "/subscriptions/12345678-1234-9876-4563-123456789012/resourceGroups/example-resource-group/providers/Microsoft.Network/virtualNetworks/vnet-test/subnets/subnet-test"
-    }
-  }
+}
+
+# Stand-in subnet IDs every run block feeds into var.private_subnet_ids via
+# the shared `variables` block below. Three entries lets the role-assignment
+# for_each fan out to >1 scope and exercises the default/autoscaled pool's
+# first/last picks landing on different subnets.
+variables {
+  private_subnet_ids = [
+    "/subscriptions/12345678-1234-9876-4563-123456789012/resourceGroups/example-resource-group/providers/Microsoft.Network/virtualNetworks/vnet-test/subnets/private-1-test",
+    "/subscriptions/12345678-1234-9876-4563-123456789012/resourceGroups/example-resource-group/providers/Microsoft.Network/virtualNetworks/vnet-test/subnets/private-2-test",
+    "/subscriptions/12345678-1234-9876-4563-123456789012/resourceGroups/example-resource-group/providers/Microsoft.Network/virtualNetworks/vnet-test/subnets/private-3-test",
+  ]
 }
 
 
@@ -57,8 +52,8 @@ run "minimal_configuration" {
   }
 
   assert {
-    condition     = azurerm_kubernetes_cluster.main.default_node_pool[0].vm_size == "Standard_D2s_v3"
-    error_message = "Default node pool should use Standard_D2s_v3 VM size"
+    condition     = azurerm_kubernetes_cluster.main.default_node_pool[0].vm_size == "Standard_D2s_v5"
+    error_message = "Default node pool should use Standard_D2s_v5 VM size"
   }
 
   assert {
@@ -174,6 +169,11 @@ run "minimal_configuration" {
   assert {
     condition     = length(null_resource.convert_kubeconfig) == 0
     error_message = "convert_kubeconfig resource should not be created when kubelogin_mode is empty (default)"
+  }
+
+  assert {
+    condition     = length(azurerm_role_assignment.subnet_network_contributor_cp) == 3
+    error_message = "Network Contributor role should be assigned once per private subnet (3 in this run's input list)"
   }
 }
 
@@ -448,7 +448,7 @@ run "config_file_created" {
   }
 
   assert {
-    condition     = length(local_sensitive_file.kubeconfig) >= 1
+    condition     = length(null_resource.kubeconfig) >= 1
     error_message = "Kubeconfig file should be generated when context path is provided"
   }
 }
@@ -598,6 +598,323 @@ run "disk_encryption_with_provided_key" {
     condition     = azurerm_disk_encryption_set.main[0].key_vault_key_id == "https://test-kv.vault.azure.net/keys/test-key/abc123"
     error_message = "Disk encryption set should use the provided key_vault_key_id when specified"
   }
+}
+
+# Tests that the cert-manager and external-dns Workload Identity blocks are
+# off by default for cert-manager and on by default for external-dns. The
+# default settings mirror the AWS cluster module's defaults — clusters that
+# don't ask for ACME shouldn't pay for an unused UAMI, but external-dns is
+# baseline-on so any cluster can publish hostnames once a zone is wired in.
+run "workload_identity_defaults" {
+  command = plan
+
+  variables {
+    context_id         = "test"
+    name               = "windsor-aks"
+    kubernetes_version = "1.34"
+  }
+
+  assert {
+    condition     = length(azurerm_user_assigned_identity.cert_manager) == 0
+    error_message = "cert-manager UAMI must not be provisioned by default."
+  }
+
+  assert {
+    condition     = length(azurerm_federated_identity_credential.cert_manager) == 0
+    error_message = "cert-manager federated credential must not be provisioned by default."
+  }
+
+  assert {
+    condition     = length(azurerm_user_assigned_identity.external_dns) == 1
+    error_message = "external-dns UAMI must be provisioned by default (matches the AWS create_external_dns_role default)."
+  }
+
+  assert {
+    condition     = length(azurerm_federated_identity_credential.external_dns) == 1
+    error_message = "external-dns federated credential must be provisioned by default."
+  }
+
+  assert {
+    condition     = azurerm_federated_identity_credential.external_dns[0].subject == "system:serviceaccount:system-dns:external-dns"
+    error_message = "Default federated credential subject must target the external-dns SA in system-dns."
+  }
+}
+
+# Tests cert-manager Workload Identity provisioning end-to-end: the UAMI is
+# created, the federated credential subject targets the cert-manager SA in
+# system-pki, and the role assignment is scoped to each supplied zone ID.
+# The fan-out via for_each over zone IDs lets the operator hand cert-manager
+# multiple zones (e.g. apex + delegated subdomain) with one var.
+run "cert_manager_workload_identity" {
+  command = plan
+
+  variables {
+    context_id                   = "test"
+    name                         = "windsor-aks"
+    kubernetes_version           = "1.34"
+    create_cert_manager_identity = true
+    cert_manager_dns_zone_ids = [
+      "/subscriptions/12345678-1234-9876-4563-123456789012/resourceGroups/rg-dns-test/providers/Microsoft.Network/dnszones/example.com",
+      "/subscriptions/12345678-1234-9876-4563-123456789012/resourceGroups/rg-dns-test/providers/Microsoft.Network/dnszones/example.org"
+    ]
+  }
+
+  assert {
+    condition     = length(azurerm_user_assigned_identity.cert_manager) == 1
+    error_message = "cert-manager UAMI should be provisioned when create_cert_manager_identity is true."
+  }
+
+  assert {
+    condition     = azurerm_user_assigned_identity.cert_manager[0].name == "windsor-aks-test-cert-manager"
+    error_message = "cert-manager UAMI name should follow <cluster_name>-cert-manager."
+  }
+
+  assert {
+    condition     = length(azurerm_role_assignment.cert_manager_dns) == 2
+    error_message = "One DNS Zone Contributor assignment per zone ID."
+  }
+
+  assert {
+    condition     = azurerm_federated_identity_credential.cert_manager[0].subject == "system:serviceaccount:system-pki:cert-manager"
+    error_message = "Federated credential subject must follow system:serviceaccount:<ns>:<sa> using the cert_manager_namespace + cert_manager_service_account defaults."
+  }
+
+  assert {
+    condition     = contains(azurerm_federated_identity_credential.cert_manager[0].audience, "api://AzureADTokenExchange")
+    error_message = "Audience must include api://AzureADTokenExchange — Azure AD rejects the token exchange otherwise."
+  }
+}
+
+# Tests external-dns can be turned off explicitly — important for clusters
+# that intentionally publish DNS records via another mechanism (Azure
+# Application Routing add-on, manual records, etc.).
+run "external_dns_identity_disabled" {
+  command = plan
+
+  variables {
+    context_id                   = "test"
+    name                         = "windsor-aks"
+    kubernetes_version           = "1.34"
+    create_external_dns_identity = false
+  }
+
+  assert {
+    condition     = length(azurerm_user_assigned_identity.external_dns) == 0
+    error_message = "external-dns UAMI should not be provisioned when create_external_dns_identity is false."
+  }
+
+  assert {
+    condition     = length(azurerm_role_assignment.external_dns_zones) == 0
+    error_message = "external-dns public-zone role assignments should not be provisioned when create_external_dns_identity is false."
+  }
+
+  assert {
+    condition     = length(azurerm_role_assignment.external_dns_private_zones) == 0
+    error_message = "external-dns private-zone role assignments should not be provisioned when create_external_dns_identity is false."
+  }
+}
+
+# Tests that external-dns gets the correct RBAC role per zone type:
+# DNS Zone Contributor for public Azure DNS zones, Private DNS Zone
+# Contributor for VNet-linked Azure Private DNS zones. The two zone types
+# are different ARM resource types under different built-in roles, so a
+# single one-size grant doesn't work — picking the right role from the
+# resource ID's path segment is the load-bearing logic here.
+run "external_dns_role_per_zone_type" {
+  command = plan
+
+  variables {
+    context_id         = "test"
+    name               = "windsor-aks"
+    kubernetes_version = "1.34"
+    external_dns_dns_zone_ids = [
+      "/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/rg-public/providers/Microsoft.Network/dnszones/public.example.com",
+      "/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/rg-private/providers/Microsoft.Network/privateDnsZones/private.example.com",
+    ]
+  }
+
+  assert {
+    condition     = length(azurerm_role_assignment.external_dns_zones) == 1
+    error_message = "Public-zone role assignment should fire for the dnszones entry."
+  }
+
+  assert {
+    condition     = [for ra in azurerm_role_assignment.external_dns_zones : ra.role_definition_name][0] == "DNS Zone Contributor"
+    error_message = "Public zones must use DNS Zone Contributor role."
+  }
+
+  assert {
+    condition     = length(azurerm_role_assignment.external_dns_private_zones) == 1
+    error_message = "Private-zone role assignment should fire for the privateDnsZones entry."
+  }
+
+  assert {
+    condition     = [for ra in azurerm_role_assignment.external_dns_private_zones : ra.role_definition_name][0] == "Private DNS Zone Contributor"
+    error_message = "Private zones must use Private DNS Zone Contributor role."
+  }
+}
+
+# Tests the portable user-pool shape (var.pools) — same shape AWS-EKS exposes.
+# Each pool resolves to an azurerm_kubernetes_cluster_node_pool with vm_size
+# pulled from class_instance_types, lifecycle mapped to priority, and the
+# operator's labels merged with windsorcli.dev/pool[-class] tags. Default empty
+# map means no extra resources — the cluster's inline default node pool is
+# unaffected (it remains the system pool).
+run "pools_empty_creates_no_user_pools" {
+  command = plan
+
+  variables {
+    context_id         = "test"
+    name               = "windsor-aks"
+    kubernetes_version = "1.34"
+  }
+
+  assert {
+    condition     = length(azurerm_kubernetes_cluster_node_pool.pools) == 0
+    error_message = "No user pools should be created when var.pools is empty (the default)."
+  }
+}
+
+run "pools_resolves_class_to_vm_size" {
+  command = plan
+
+  variables {
+    context_id         = "test"
+    name               = "windsor-aks"
+    kubernetes_version = "1.34"
+    pools = {
+      app = { class = "general", count = 2 }
+      cpu = { class = "compute", count = 1 }
+    }
+  }
+
+  assert {
+    condition     = length(azurerm_kubernetes_cluster_node_pool.pools) == 2
+    error_message = "Two user pools should be created from var.pools."
+  }
+
+  assert {
+    condition     = azurerm_kubernetes_cluster_node_pool.pools["app"].vm_size == "Standard_D4s_v5"
+    error_message = "general class should default to the first VM size in class_instance_types[general]."
+  }
+
+  assert {
+    condition     = azurerm_kubernetes_cluster_node_pool.pools["cpu"].vm_size == "Standard_F4s_v2"
+    error_message = "compute class should default to the first VM size in class_instance_types[compute]."
+  }
+
+  assert {
+    condition     = azurerm_kubernetes_cluster_node_pool.pools["app"].mode == "User"
+    error_message = "Pools must be created in User mode — the cluster's inline default_node_pool stays the system pool."
+  }
+
+  assert {
+    condition     = azurerm_kubernetes_cluster_node_pool.pools["app"].host_encryption_enabled == true
+    error_message = "Pools must enable host encryption (CKV_AZURE_227)."
+  }
+
+  assert {
+    condition     = azurerm_kubernetes_cluster_node_pool.pools["app"].max_pods == 50
+    error_message = "Pools must set max_pods >= 50 (CKV_AZURE_168)."
+  }
+}
+
+run "pools_explicit_instance_types_and_lifecycle" {
+  command = plan
+
+  variables {
+    context_id         = "test"
+    name               = "windsor-aks"
+    kubernetes_version = "1.34"
+    pools = {
+      batch = {
+        class          = "general"
+        count          = 3
+        lifecycle      = "spot"
+        instance_types = ["Standard_D8s_v5"]
+        root_disk_size = 128
+        labels         = { "team" = "data" }
+        taints = [{
+          key    = "workload"
+          value  = "batch"
+          effect = "NoSchedule"
+        }]
+      }
+    }
+  }
+
+  assert {
+    condition     = azurerm_kubernetes_cluster_node_pool.pools["batch"].vm_size == "Standard_D8s_v5"
+    error_message = "Explicit instance_types should override class defaults (first item wins on AKS — single SKU)."
+  }
+
+  assert {
+    condition     = azurerm_kubernetes_cluster_node_pool.pools["batch"].priority == "Spot"
+    error_message = "lifecycle=spot should map to AKS priority=Spot."
+  }
+
+  assert {
+    condition     = azurerm_kubernetes_cluster_node_pool.pools["batch"].eviction_policy == "Delete"
+    error_message = "Spot pools must set eviction_policy=Delete."
+  }
+
+  assert {
+    condition     = azurerm_kubernetes_cluster_node_pool.pools["batch"].os_disk_size_gb == 128
+    error_message = "root_disk_size should flow through to os_disk_size_gb."
+  }
+
+  assert {
+    condition     = lookup(azurerm_kubernetes_cluster_node_pool.pools["batch"].node_labels, "team", "") == "data"
+    error_message = "Operator-supplied labels must be merged into node_labels."
+  }
+
+  assert {
+    condition     = lookup(azurerm_kubernetes_cluster_node_pool.pools["batch"].node_labels, "windsorcli.dev/pool", "") == "batch"
+    error_message = "windsorcli.dev/pool label must be auto-stamped with the pool name."
+  }
+
+  assert {
+    condition     = lookup(azurerm_kubernetes_cluster_node_pool.pools["batch"].node_labels, "windsorcli.dev/pool-class", "") == "general"
+    error_message = "windsorcli.dev/pool-class label must be auto-stamped with the pool class."
+  }
+
+  assert {
+    condition     = contains(azurerm_kubernetes_cluster_node_pool.pools["batch"].node_taints, "workload=batch:NoSchedule")
+    error_message = "Taints must render as AKS-format key=value:Effect strings."
+  }
+}
+
+run "pools_invalid_class_rejected" {
+  command = plan
+
+  variables {
+    context_id         = "test"
+    name               = "windsor-aks"
+    kubernetes_version = "1.34"
+    pools = {
+      bogus = { class = "bogus", count = 1 }
+    }
+  }
+
+  expect_failures = [var.pools]
+}
+
+# AKS Linux node pool names are restricted to 1-12 lowercase alphanumeric
+# characters starting with a letter. Hyphens / underscores / mixed case
+# would otherwise hit the API at apply time with an opaque error.
+run "pools_invalid_name_rejected" {
+  command = plan
+
+  variables {
+    context_id         = "test"
+    name               = "windsor-aks"
+    kubernetes_version = "1.34"
+    pools = {
+      "extra-system" = { class = "system", count = 1 }
+    }
+  }
+
+  expect_failures = [var.pools]
 }
 
 # Tests that when enable_volume_snapshots is false, snapshot permissions are not included in the role definition.

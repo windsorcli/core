@@ -7,7 +7,7 @@ terraform {
   required_providers {
     azurerm = {
       source  = "hashicorp/azurerm"
-      version = "~> 4.70.0"
+      version = "~> 4.71.0"
     }
     null = {
       source  = "hashicorp/null"
@@ -39,22 +39,6 @@ provider "azurerm" {
 data "azurerm_client_config" "current" {}
 
 data "azurerm_subscription" "current" {}
-
-data "azurerm_virtual_network" "vnet" {
-  name                = "${var.vnet_module_name}-${var.context_id}"
-  resource_group_name = "${var.vnet_module_name}-${var.context_id}"
-}
-
-locals {
-  private_subnets = [for subnet in data.azurerm_virtual_network.vnet.subnets : subnet if contains(split("-", subnet), "private")]
-}
-
-data "azurerm_subnet" "private" {
-  count                = length(local.private_subnets)
-  name                 = "private-${count.index + 1}-${var.context_id}"
-  resource_group_name  = data.azurerm_virtual_network.vnet.resource_group_name
-  virtual_network_name = data.azurerm_virtual_network.vnet.name
-}
 
 #-----------------------------------------------------------------------------------------------------------------------
 # Locals
@@ -365,7 +349,7 @@ resource "azurerm_kubernetes_cluster" "main" {
     name                         = var.default_node_pool.name
     node_count                   = var.default_node_pool.node_count
     vm_size                      = var.default_node_pool.vm_size
-    vnet_subnet_id               = coalesce(var.vnet_subnet_id, try(data.azurerm_subnet.private[0].id, null))
+    vnet_subnet_id               = var.private_subnet_ids[0]
     orchestrator_version         = var.kubernetes_version
     only_critical_addons_enabled = var.default_node_pool.only_critical_addons_enabled
     zones                        = var.default_node_pool.availability_zones
@@ -400,9 +384,16 @@ resource "azurerm_kubernetes_cluster" "main" {
     scale_down_utilization_threshold = var.auto_scaler_profile.scale_down_utilization_threshold
   }
 
-  workload_autoscaler_profile {
-    keda_enabled                    = var.workload_autoscaler_profile.keda_enabled
-    vertical_pod_autoscaler_enabled = var.workload_autoscaler_profile.vertical_pod_autoscaler_enabled
+  # Emit the block only when at least one autoscaler is enabled. Azure's GET
+  # response omits this block entirely when both knobs are at their default
+  # (false), so an unconditional block here produces "+ workload_autoscaler_profile"
+  # drift on every plan against an unchanged cluster.
+  dynamic "workload_autoscaler_profile" {
+    for_each = (var.workload_autoscaler_profile.keda_enabled || var.workload_autoscaler_profile.vertical_pod_autoscaler_enabled) ? [1] : []
+    content {
+      keda_enabled                    = var.workload_autoscaler_profile.keda_enabled
+      vertical_pod_autoscaler_enabled = var.workload_autoscaler_profile.vertical_pod_autoscaler_enabled
+    }
   }
 
   oidc_issuer_enabled          = var.oidc_issuer_enabled
@@ -442,11 +433,8 @@ resource "azurerm_kubernetes_cluster_node_pool" "autoscaled" {
   min_count             = var.autoscaled_node_pool.min_count
   max_count             = var.autoscaled_node_pool.max_count
   zones                 = var.autoscaled_node_pool.availability_zones
-  vnet_subnet_id = coalesce(
-    var.vnet_subnet_id,
-    try(data.azurerm_subnet.private[length(local.private_subnets) - 1].id, null)
-  )
-  orchestrator_version = var.kubernetes_version
+  vnet_subnet_id        = var.private_subnet_ids[length(var.private_subnet_ids) - 1]
+  orchestrator_version  = var.kubernetes_version
   # checkov:skip=CKV_AZURE_226: We are using the managed disk type to reduce costs
   os_disk_type = var.autoscaled_node_pool.os_disk_type
   # checkov:skip=CKV_AZURE_168: This is set in the variable by default to 50
@@ -468,12 +456,77 @@ resource "azurerm_kubernetes_cluster_node_pool" "autoscaled" {
   }, local.tags)
 }
 
-# Assign Network Contributor role on subnet to control plane identity (required for custom VNet).
-# Azure CLI auto-assigns this, but Terraform requires manual assignment.
-# This is needed for the control plane to manage load balancers and network resources in the custom VNet.
+#-----------------------------------------------------------------------------------------------------------------------
+# Portable User Pools (var.pools)
+#-----------------------------------------------------------------------------------------------------------------------
+
+# Resolve the portable pool shape into Azure-specific fields:
+#  - vm_size: AKS pools take a single SKU, not a list. Pick the first item from
+#    the operator's instance_types override; fall back to class_instance_types
+#    so the operator can declare a pool with class=general and no explicit SKU.
+#  - priority: lifecycle 'spot' → AKS Spot pool (delete-on-eviction).
+#  - taints: AKS expects the API's "key=value:Effect" string form (PascalCase
+#    effect: NoSchedule / NoExecute / PreferNoSchedule). Operator-supplied
+#    effect strings pass through; cross-platform configs use the AKS form when
+#    targeting Azure.
+#  - labels: standard kubernetes label map, with windsorcli.dev/pool[-class]
+#    tags appended so node-affinity rules can pin workloads by pool name or class.
+locals {
+  pools_resolved = {
+    for name, p in var.pools : name => {
+      vm_size = (p.instance_types != null && length(p.instance_types) > 0
+        ? p.instance_types[0]
+      : lookup(var.class_instance_types, p.class, [""])[0])
+      priority        = p.lifecycle == "spot" ? "Spot" : "Regular"
+      eviction_policy = p.lifecycle == "spot" ? "Delete" : null
+      node_count      = p.count
+      os_disk_size_gb = coalesce(p.root_disk_size, 64)
+      labels = merge(
+        p.labels,
+        {
+          "windsorcli.dev/pool"       = name
+          "windsorcli.dev/pool-class" = p.class
+        }
+      )
+      taints = [for t in p.taints : "${t.key}=${t.value != null ? t.value : ""}:${t.effect}"]
+    }
+  }
+}
+
+resource "azurerm_kubernetes_cluster_node_pool" "pools" {
+  for_each              = local.pools_resolved
+  name                  = each.key
+  kubernetes_cluster_id = azurerm_kubernetes_cluster.main.id
+  vm_size               = each.value.vm_size
+  mode                  = "User"
+  node_count            = each.value.node_count
+  os_disk_size_gb       = each.value.os_disk_size_gb
+  vnet_subnet_id        = var.private_subnet_ids[length(var.private_subnet_ids) - 1]
+  orchestrator_version  = var.kubernetes_version
+  priority              = each.value.priority
+  eviction_policy       = each.value.eviction_policy
+  node_labels           = each.value.labels
+  node_taints           = each.value.taints
+  # Encrypt temp disks / VM cache for parity with the default and autoscaled
+  # pools (CKV_AZURE_227).
+  host_encryption_enabled = true
+  # 50 satisfies CKV_AZURE_168 (>=50) directly without needing a suppression.
+  # The default and autoscaled pools still use 48 with skip comments; left
+  # alone here to keep this change scoped to the new resource.
+  max_pods = 50
+
+  tags = merge({
+    Name = each.key
+  }, local.tags)
+}
+
+# Assign Network Contributor role on each private subnet to the control plane identity
+# (required for custom VNet). Azure CLI auto-assigns this; Terraform requires it explicitly.
+# Scoped per-subnet so every subnet a node pool may attach to is covered, not just the first.
 # Reference: https://learn.microsoft.com/azure/aks/configure-kubenet
 resource "azurerm_role_assignment" "subnet_network_contributor_cp" {
-  scope                = coalesce(var.vnet_subnet_id, try(data.azurerm_subnet.private[0].id, null))
+  for_each             = toset(var.private_subnet_ids)
+  scope                = each.value
   role_definition_name = "Network Contributor"
   principal_id         = azurerm_kubernetes_cluster.main.identity[0].principal_id
 }
@@ -546,42 +599,55 @@ resource "azurerm_role_assignment" "node_pool_disk_encryption_set_reader" {
 
 #-----------------------------------------------------------------------------------------------------------------------
 # Kubeconfig
+#
+# Two stages, two null_resources: az writes Azure's AAD-mode kubeconfig to
+# disk; kubelogin rewrites the exec block to a non-interactive mode so
+# terraform's kubernetes provider and kustomize reconcile loops authenticate
+# without a devicecode browser prompt.
+#
+# The write is unconditional once kubeconfig_path is set — operators always
+# get a working kubeconfig (in devicecode mode if no override is supplied),
+# matching the pre-refactor contract. Conversion is gated on kubelogin_mode
+# so non-interactive contexts opt in.
+#
+# Module owns orchestration only. The CLIs own kubeconfig format (kept current
+# by Microsoft, not us). Windsor owns the environment: pre-creates .kube/ in
+# the context dir, sets a 077 umask so files land 0600 by default, emits
+# TF_VAR_kubelogin_mode from the active Azure credential chain. Operators
+# override the auto-detected mode via cluster.kubelogin_mode in values.yaml
+# when needed (e.g., MSI on a managed-identity runner).
+#
+# Triggers stable: cluster_id changes only on cluster recreate, login_mode
+# changes only on operator preference flip. Neither resource reads the file
+# from disk, so kubelogin's in-place rewrite can't manifest as a perpetual
+# plan diff.
 #-----------------------------------------------------------------------------------------------------------------------
 
-# Write kubeconfig as generated by Azure (uses kubelogin with devicecode by default)
-# The kubeconfig already includes kubelogin in the exec block.
-resource "local_sensitive_file" "kubeconfig" {
+resource "null_resource" "kubeconfig" {
   count = local.kubeconfig_path != "" ? 1 : 0
 
-  content         = azurerm_kubernetes_cluster.main.kube_config_raw
-  filename        = local.kubeconfig_path
-  file_permission = "0600"
+  triggers = {
+    cluster_id = azurerm_kubernetes_cluster.main.id
+  }
 
-  lifecycle {
-    ignore_changes = [content]
+  provisioner "local-exec" {
+    command = "az aks get-credentials --resource-group ${azurerm_kubernetes_cluster.main.resource_group_name} --name ${azurerm_kubernetes_cluster.main.name} --file ${local.kubeconfig_path} --overwrite-existing --only-show-errors"
   }
 }
 
-# Convert kubeconfig to specified login mode if kubelogin_mode is set
-# This runs after the kubeconfig file is created
 resource "null_resource" "convert_kubeconfig" {
   count = local.kubeconfig_path != "" && var.kubelogin_mode != "" ? 1 : 0
 
+  triggers = {
+    cluster_id = azurerm_kubernetes_cluster.main.id
+    login_mode = var.kubelogin_mode
+  }
+
   provisioner "local-exec" {
     command = "kubelogin convert-kubeconfig -l ${var.kubelogin_mode} --kubeconfig ${local.kubeconfig_path}"
-    environment = {
-      KUBECONFIG = local.kubeconfig_path
-    }
   }
 
-  depends_on = [
-    local_sensitive_file.kubeconfig
-  ]
-
-  triggers = {
-    kubeconfig_content = azurerm_kubernetes_cluster.main.kube_config_raw
-    login_mode         = var.kubelogin_mode
-  }
+  depends_on = [null_resource.kubeconfig]
 }
 
 # Automatically assign "Azure Kubernetes Service RBAC Cluster Admin" to the
@@ -596,4 +662,105 @@ resource "azurerm_role_assignment" "aks_rbac_admin" {
   scope                = azurerm_kubernetes_cluster.main.id
   role_definition_name = "Azure Kubernetes Service RBAC Cluster Admin"
   principal_id         = each.value
+}
+
+#-----------------------------------------------------------------------------------------------------------------------
+# Workload Identity for cert-manager
+#
+# AKS analogue of the EKS create_cert_manager_role + Pod Identity association
+# pair. cert-manager authenticates to Azure DNS via Workload Identity:
+# the SA token is exchanged for an Azure AD token via the cluster's OIDC
+# issuer, scoped to a User-Assigned Managed Identity with DNS Zone
+# Contributor on the specified zone(s). No client secret stored anywhere.
+#
+# Off by default — only provisioned when ACME is in play (operator set
+# dns.public_domain and the facet flips create_cert_manager_identity on).
+#-----------------------------------------------------------------------------------------------------------------------
+
+resource "azurerm_user_assigned_identity" "cert_manager" {
+  count               = var.create_cert_manager_identity ? 1 : 0
+  name                = "${local.cluster_name}-cert-manager"
+  resource_group_name = azurerm_resource_group.aks.name
+  location            = azurerm_resource_group.aks.location
+  tags                = local.tags
+}
+
+resource "azurerm_role_assignment" "cert_manager_dns" {
+  for_each             = var.create_cert_manager_identity ? toset(var.cert_manager_dns_zone_ids) : toset([])
+  scope                = each.value
+  role_definition_name = "DNS Zone Contributor"
+  principal_id         = azurerm_user_assigned_identity.cert_manager[0].principal_id
+}
+
+resource "azurerm_federated_identity_credential" "cert_manager" {
+  count                     = var.create_cert_manager_identity ? 1 : 0
+  name                      = "cert-manager"
+  audience                  = ["api://AzureADTokenExchange"]
+  issuer                    = azurerm_kubernetes_cluster.main.oidc_issuer_url
+  user_assigned_identity_id = azurerm_user_assigned_identity.cert_manager[0].id
+  subject                   = "system:serviceaccount:system-pki:cert-manager"
+}
+
+#-----------------------------------------------------------------------------------------------------------------------
+# Workload Identity for external-dns
+#
+# Same pattern as cert-manager. external-dns needs DNS Zone Contributor to
+# create / update / delete record sets in the target zone. Default-on so
+# any cluster on AKS can publish hostnames once the operator passes a zone
+# ID — matches the EKS facet's create_external_dns_role default.
+#-----------------------------------------------------------------------------------------------------------------------
+
+resource "azurerm_user_assigned_identity" "external_dns" {
+  count               = var.create_external_dns_identity ? 1 : 0
+  name                = "${local.cluster_name}-external-dns"
+  resource_group_name = azurerm_resource_group.aks.name
+  location            = azurerm_resource_group.aks.location
+  tags                = local.tags
+}
+
+## external-dns enumerates zones via ListByResourceGroup before writing records,
+## so the role has to be at RG scope, not per-zone. cert-manager's azureDNS
+## solver reads the zone by name + RG directly, so zone-scoped grants are
+## fine for it; external-dns has no such shortcut.
+##
+## Public Azure DNS (Microsoft.Network/dnszones) and Azure Private DNS
+## (Microsoft.Network/privateDnsZones) are distinct ARM resource types with
+## distinct RBAC roles. Detect the type from the resource ID and assign the
+## matching role; mixed lists with both kinds in the same RG produce one
+## role assignment per role.
+locals {
+  external_dns_public_zone_rgs = var.create_external_dns_identity ? toset([
+    for id in var.external_dns_dns_zone_ids :
+    regex("^(/subscriptions/[^/]+/resourceGroups/[^/]+)", id)[0]
+    if can(regex("/dnszones/", lower(id)))
+  ]) : toset([])
+
+  external_dns_private_zone_rgs = var.create_external_dns_identity ? toset([
+    for id in var.external_dns_dns_zone_ids :
+    regex("^(/subscriptions/[^/]+/resourceGroups/[^/]+)", id)[0]
+    if can(regex("/privatednszones/", lower(id)))
+  ]) : toset([])
+}
+
+resource "azurerm_role_assignment" "external_dns_zones" {
+  for_each             = local.external_dns_public_zone_rgs
+  scope                = each.value
+  role_definition_name = "DNS Zone Contributor"
+  principal_id         = azurerm_user_assigned_identity.external_dns[0].principal_id
+}
+
+resource "azurerm_role_assignment" "external_dns_private_zones" {
+  for_each             = local.external_dns_private_zone_rgs
+  scope                = each.value
+  role_definition_name = "Private DNS Zone Contributor"
+  principal_id         = azurerm_user_assigned_identity.external_dns[0].principal_id
+}
+
+resource "azurerm_federated_identity_credential" "external_dns" {
+  count                     = var.create_external_dns_identity ? 1 : 0
+  name                      = "external-dns"
+  audience                  = ["api://AzureADTokenExchange"]
+  issuer                    = azurerm_kubernetes_cluster.main.oidc_issuer_url
+  user_assigned_identity_id = azurerm_user_assigned_identity.external_dns[0].id
+  subject                   = "system:serviceaccount:system-dns:external-dns"
 }

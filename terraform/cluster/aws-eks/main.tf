@@ -4,7 +4,7 @@ terraform {
   required_providers {
     aws = {
       source  = "hashicorp/aws"
-      version = "6.42.0"
+      version = "6.43.0"
     }
   }
 }
@@ -324,8 +324,8 @@ locals {
       labels = merge(
         p.labels,
         {
-          "windsor.io/pool"       = name
-          "windsor.io/pool-class" = p.class
+          "windsorcli.dev/pool"       = name
+          "windsorcli.dev/pool-class" = p.class
         }
       )
       taints = [for t in p.taints : {

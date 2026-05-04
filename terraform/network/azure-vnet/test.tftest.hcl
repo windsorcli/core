@@ -59,6 +59,77 @@ run "minimal_configuration" {
     condition     = azurerm_route_table.private[0].name == "windsor-vnet-private-1-test"
     error_message = "Route table name should follow naming convention"
   }
+
+  assert {
+    condition     = length(azurerm_private_dns_zone.main) == 0
+    error_message = "Private DNS zone should not be created when domain_name is unset"
+  }
+
+  assert {
+    condition     = length(azurerm_private_dns_zone_virtual_network_link.main) == 0
+    error_message = "Private DNS zone VNet link should not be created when domain_name is unset"
+  }
+}
+
+# Tests that an empty-string domain_name is treated the same as null.
+# The platform-azure facet passes ${dns.private_domain ?? ""} (empty string,
+# not null) when private_domain is unset, so the count guard must reject
+# both null and "" — otherwise Terraform tries to create a zone with name=""
+# and Azure rejects with an invalid-name error.
+run "empty_domain_name_skips_private_zone" {
+  command = plan
+
+  variables {
+    context_id  = "test"
+    name        = "windsor-vnet"
+    domain_name = ""
+  }
+
+  assert {
+    condition     = length(azurerm_private_dns_zone.main) == 0
+    error_message = "Private DNS zone should not be created when domain_name is empty string"
+  }
+
+  assert {
+    condition     = length(azurerm_private_dns_zone_virtual_network_link.main) == 0
+    error_message = "Private DNS zone VNet link should not be created when domain_name is empty string"
+  }
+}
+
+# Tests private DNS zone creation when domain_name is provided.
+run "private_dns_zone" {
+  command = plan
+
+  variables {
+    context_id  = "test"
+    name        = "windsor-vnet"
+    domain_name = "internal.example.com"
+  }
+
+  assert {
+    condition     = length(azurerm_private_dns_zone.main) == 1
+    error_message = "Private DNS zone should be created when domain_name is set"
+  }
+
+  assert {
+    condition     = azurerm_private_dns_zone.main[0].name == "internal.example.com"
+    error_message = "Private DNS zone name should match domain_name input"
+  }
+
+  assert {
+    condition     = length(azurerm_private_dns_zone_virtual_network_link.main) == 1
+    error_message = "VNet link should be created when domain_name is set"
+  }
+
+  assert {
+    condition     = azurerm_private_dns_zone_virtual_network_link.main[0].registration_enabled == false
+    error_message = "Auto-registration should be disabled on the VNet link"
+  }
+
+  assert {
+    condition     = azurerm_private_dns_zone_virtual_network_link.main[0].name == "windsor-vnet-test-link"
+    error_message = "VNet link name should follow {vnet_name}-link convention"
+  }
 }
 
 # Tests a full configuration with all optional variables explicitly set.

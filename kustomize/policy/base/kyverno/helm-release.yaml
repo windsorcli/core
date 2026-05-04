@@ -10,7 +10,7 @@ spec:
     spec:
       chart: kyverno
       # renovate: datasource=helm depName=kyverno package=kyverno helmRepo=https://kyverno.github.io/kyverno/
-      version: 3.7.2
+      version: 3.8.0
       sourceRef:
         kind: HelmRepository
         name: kyverno
@@ -19,17 +19,17 @@ spec:
       migration:
         image:
           # renovate: datasource=docker depName=reg.kyverno.io/kyverno/kyverno-cli package=reg.kyverno.io/kyverno/kyverno-cli
-          tag: v1.17.2@sha256:0a499cd588b4e4df6583f36f453030f6e7ce20d0f625e95487e38c4db57ef2ac
+          tag: v1.18.0@sha256:1e99a199adb36cedddf5c3e2fc24a150e26cf2e18b9e8dfe505a3c862647a4eb
     # Disable ANSI color codes in logs
     admissionController:
       initContainer:
         image:
           # renovate: datasource=docker depName=reg.kyverno.io/kyverno/kyvernopre package=reg.kyverno.io/kyverno/kyvernopre
-          tag: v1.17.2@sha256:814382e4f42e16798d0b122d2478f03cf6e76e193a35002b35cb84e49ad505dc
+          tag: v1.18.0@sha256:60b53ebf646f788e6e5d312f9cbf267d7537ec14afec68bde2e1dad55c552cc7
       container:
         image:
           # renovate: datasource=docker depName=reg.kyverno.io/kyverno/kyverno package=reg.kyverno.io/kyverno/kyverno
-          tag: v1.17.2@sha256:a20e4d80be913684b60346d7f1951a2907ebce80bb5cc34806558142ff8e6758
+          tag: v1.18.0@sha256:cb033c200dc85be0a4d38e1a72894038a0c067d73f1ce6aedd569f9769a3d262
         extraEnvVars:
         - name: NO_COLOR
           value: "1"
@@ -51,7 +51,7 @@ spec:
       container:
         image:
           # renovate: datasource=docker depName=reg.kyverno.io/kyverno/cleanup-controller package=reg.kyverno.io/kyverno/cleanup-controller
-          tag: v1.17.2@sha256:320f43b0ef1b0ee38d2631fc537158efe8b2fe4e9610ad0f967cb01c63ed24e6
+          tag: v1.18.0@sha256:a2a060b731f1ea54de2295b886c600d65af032fec18096a816424acfe8dec7d2
         extraEnvVars:
         - name: NO_COLOR
           value: "1"
@@ -65,7 +65,7 @@ spec:
       container:
         image:
           # renovate: datasource=docker depName=reg.kyverno.io/kyverno/reports-controller package=reg.kyverno.io/kyverno/reports-controller
-          tag: v1.17.2@sha256:65f7f11cb4f47ae8181550af2d9f4651536bb1fb9fdd52cb4fb9976c0481d50c
+          tag: v1.18.0@sha256:0090bf10eabae091ceb48c38fb894580b63c4e76e40137b7972f5895f0402110
         extraEnvVars:
         - name: NO_COLOR
           value: "1"

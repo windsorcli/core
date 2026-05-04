@@ -569,7 +569,7 @@ run "cert_manager_policy_scoped_to_zone_ids" {
 
 # Verifies the pools path: when var.pools is non-empty, it replaces var.node_groups
 # entirely. Class maps to a default instance family, lifecycle maps to capacity_type,
-# and the pool name + class are auto-injected as windsor.io/pool labels.
+# and the pool name + class are auto-injected as windsorcli.dev/pool labels.
 run "pools_drive_node_groups_when_set" {
   command = plan
 
@@ -610,8 +610,8 @@ run "pools_drive_node_groups_when_set" {
   }
 
   assert {
-    condition     = aws_eks_node_group.main["system"].labels["windsor.io/pool"] == "system" && aws_eks_node_group.main["system"].labels["windsor.io/pool-class"] == "system"
-    error_message = "Pool name and class should be auto-injected as windsor.io/pool labels"
+    condition     = aws_eks_node_group.main["system"].labels["windsorcli.dev/pool"] == "system" && aws_eks_node_group.main["system"].labels["windsorcli.dev/pool-class"] == "system"
+    error_message = "Pool name and class should be auto-injected as windsorcli.dev/pool labels"
   }
 }
 
@@ -638,8 +638,8 @@ run "pool_instance_types_override_class_default" {
   }
 
   assert {
-    condition     = aws_eks_node_group.main["gpu"].labels["windsor.io/pool-class"] == "gpu"
-    error_message = "windsor.io/pool-class should still reflect the declared class"
+    condition     = aws_eks_node_group.main["gpu"].labels["windsorcli.dev/pool-class"] == "gpu"
+    error_message = "windsorcli.dev/pool-class should still reflect the declared class"
   }
 }
 

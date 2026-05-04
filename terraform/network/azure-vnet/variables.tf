@@ -75,6 +75,12 @@ variable "enable_nat_gateway" {
   default     = true
 }
 
+variable "domain_name" {
+  description = "The domain name for the VNet-linked private DNS zone. When unset, no private zone is created."
+  type        = string
+  default     = null
+}
+
 variable "tags" {
   description = "Tags to apply to the resources"
   type        = map(string)

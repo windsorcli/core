@@ -7,23 +7,119 @@ metadata:
 when: platform == 'azure'
 
 # =============================================================================
-# Terraform — VNet, AKS, Flux
+# Config — platform-specific overrides
 # =============================================================================
 #
-# Straightforward chain: VNet → AKS → GitOps. AKS brings its own CNI and
-# LB, so there's no Cilium path and no LB kustomize entries on this platform.
+# AKS ships metrics-server as a managed add-on, so we suppress the copy that
+# platform-base would otherwise add to telemetry-resources (two instances
+# would fight on the same APIService). The flag is layered onto the base
+# `telemetry_effective` config block via Windsor's deep-merge semantics —
+# only metrics_server_enabled is overridden, the rest of the field set
+# (metrics_enabled, logs_enabled, logs_driver) keeps platform-base's values.
+#
+config:
+
+  - name: telemetry_effective
+    value:
+      metrics_server_enabled: false
+
+# =============================================================================
+# Terraform — AzureRM state backend, VNet, AKS, optional public DNS zone
+# =============================================================================
+#
+# Dependency chain:
+#   backend (azurerm) → network (vnet) → cluster (aks) → gitops
+#                                     ↘  dns-zone (when ACME on)
+#
+# The backend stack provisions the storage account and container that every
+# downstream stack uses for remote state. It runs first on apply and — because
+# of the reverse-order teardown — last on destroy.
+#
+# AKS uses the cluster's built-in Cilium dataplane (network_data_plane: cilium
+# in the cluster module), so there's no optional Cilium bootstrap branch like
+# AWS — the dataplane comes up as part of the cluster itself.
+#
+# AKS doesn't need a "cluster-additions" sibling either: there's no aws-auth
+# ConfigMap to manage, and the cert-manager / external-dns Workload Identity
+# resources (UAMI + DNS Zone Contributor + Federated Credential) live inline
+# on the cluster module behind feature flags.
 #
 terraform:
 
+  # AzureRM state backend (storage account + container). Per-context
+  # context_id keeps state isolated between contexts in the same subscription.
+  - name: backend
+    path: backend/azurerm
+
+  # VNet with the requested CIDR. AKS attaches to one of its private subnets
+  # (selected via the cluster module's data lookup on vnet_module_name).
+  # Depends on backend so the storage account holding remote state exists
+  # before this stack tries to write to it.
+  #
+  # domain_name feeds the VNet-linked private DNS zone created inside this
+  # module — internal DNS for VNet resources. Sourced from dns.private_domain
+  # (the in-cluster / private name) rather than dns.public_domain, since the
+  # VNet zone is by definition private. The public zone for ACME / external-dns
+  # lives in the standalone dns-zone stack below.
   - name: network
     path: network/azure-vnet
+    dependsOn:
+      - backend
     inputs:
       vnet_cidr: ${network_effective.cidr_block}
+      domain_name: ${dns.private_domain ?? ""}
 
+  # Public Azure DNS zone — provisioned when the operator sets dns.public_domain.
+  # Owns its own resource group so the zone has an independent lifecycle from
+  # the cluster: tearing the cluster down doesn't drag the DNS zone (and the
+  # registrar's NS delegation effort) with it unless the operator explicitly
+  # destroys this stack.
+  - name: dns-zone
+    path: dns/zone/azure-dns
+    when: "(dns.public_domain ?? '') != ''"
+    dependsOn:
+      - backend
+    inputs:
+      domain_name: ${dns.public_domain}
+
+  # AKS cluster. Workload Identity for cert-manager and external-dns is
+  # provisioned inline (UAMI + DNS Zone Contributor + Federated Credential).
+  # cert-manager identity is gated on dns.public_domain (no ACME → no
+  # cert-manager DNS-01 → no UAMI). external-dns identity is on by default,
+  # matching the AWS create_external_dns_role default.
+  #
+  # cert_manager_dns_zone_ids and external_dns_dns_zone_ids scope each role
+  # assignment to the specific Azure DNS zone resource ID we provisioned, so
+  # the credentials can't write records to unrelated zones in the same
+  # subscription.
   - name: cluster
     path: cluster/azure-aks
     dependsOn:
       - network
+    inputs:
+      # private_subnet_ids comes straight from the network module's outputs.
+      # The cluster module used to discover the VNet/subnets via name-based
+      # data sources; the facet now passes them explicitly so the dependency
+      # is visible in the input contract instead of an Azure-side lookup.
+      private_subnet_ids: ${terraform_output('network', 'private_subnet_ids')}
+      create_cert_manager_identity: "${(dns.public_domain ?? '') != ''}"
+      cert_manager_dns_zone_ids: "${(dns.public_domain ?? '') != '' && (terraform_output('dns-zone', 'zone_id') ?? '') != '' ? [terraform_output('dns-zone', 'zone_id')] : []}"
+      external_dns_dns_zone_ids: "${gateway.access == 'private' && (dns.private_domain ?? '') != '' && (terraform_output('network', 'private_zone_id') ?? '') != '' ? [terraform_output('network', 'private_zone_id')] : ((dns.public_domain ?? '') != '' && (terraform_output('dns-zone', 'zone_id') ?? '') != '' ? [terraform_output('dns-zone', 'zone_id')] : [])}"
+      # Portable user-pool shape (mirrors AWS-EKS). Renders as additional
+      # azurerm_kubernetes_cluster_node_pool resources alongside the
+      # cluster's inline default (system) pool.
+      pools: ${cluster.pools ?? {}}
+
+  # Path-less dependency-edge injector: when ACME is on, cluster must wait
+  # for dns-zone so terraform_output('dns-zone', 'zone_id') is resolved
+  # before the role assignment list is rendered. Without this, Windsor can
+  # schedule cluster and dns-zone concurrently, the guard expression
+  # evaluates false, and the role assignments fall through to the empty
+  # default (no zone access for cert-manager / external-dns).
+  - name: cluster
+    when: "(dns.public_domain ?? '') != ''"
+    dependsOn:
+      - dns-zone
 
   # destroy: false — Flux is tied to the cluster; AKS teardown takes it.
   - name: gitops
@@ -35,13 +131,18 @@ terraform:
       concurrency: 5
 
 # =============================================================================
-# Kustomize — Azure Disk CSI + AKS-specific telemetry trim
+# Kustomize — Azure Disk CSI + DNS / ACME / LB
 # =============================================================================
+#
+# AKS-specific telemetry trim (metrics-server suppression) is handled in the
+# config block above, so it composes via the shared platform-base entry
+# rather than a separate kustomize override here.
 #
 kustomize:
 
-  # Azure Disk is the default block storage on AKS. StandardSSD_LRS is the
-  # recommended balance of cost and performance for general-purpose workloads.
+  # Azure Disk CSI driver is preinstalled on AKS (since K8s 1.21) — this
+  # component only adds a custom `single` StorageClass tuned to our defaults.
+  # StandardSSD_LRS is the recommended balance of cost and performance.
   - name: csi
     path: csi
     dependsOn:
@@ -53,10 +154,163 @@ kustomize:
     substitutions:
       single_storage_type: ${cluster.storage.single_storage_type ?? "StandardSSD_LRS"}
 
-  # AKS ships metrics-server as a managed add-on, so remove our copy to avoid
-  # running two instances fighting over the same APIService.
-  - name: telemetry-resources
-    path: telemetry/resources
-    strategy: remove
+  # ---------------------------------------------------------------------------
+  # cert-manager Workload Identity (Azure DNS-01 only)
+  # ---------------------------------------------------------------------------
+  #
+  # When ACME is on, the cert-manager pod itself needs Workload Identity wired
+  # up so the azureDNS solver can mint Azure AD tokens via the projected SA
+  # token. The webhook-injected env vars (AZURE_CLIENT_ID, AZURE_TENANT_ID,
+  # AZURE_FEDERATED_TOKEN_FILE, AZURE_AUTHORITY_HOST) only fire when the pod
+  # carries azure.workload.identity/use=true and the cert-manager SA has the
+  # client-id annotation. This component patches the cert-manager HelmRelease
+  # to add both. Lives under pki-base because that's where the HelmRelease is
+  # composed.
+  - name: pki-base
+    when: "(dns.public_domain ?? '') != ''"
     components:
-      - metrics-server
+      - cert-manager/azure-workload-identity
+    substitutions:
+      cert_manager_client_id: "${terraform_output('cluster', 'cert_manager_client_id') ?? ''}"
+      cert_manager_tenant_id: "${terraform_output('cluster', 'tenant_id') ?? ''}"
+
+  # ---------------------------------------------------------------------------
+  # public ClusterIssuer — selfsigned default, ACME (azureDNS) when zone is set
+  # ---------------------------------------------------------------------------
+  #
+  # Mirrors the AWS pki-resources logic exactly — same three branches, same
+  # trigger (operator set dns.public_domain). The only difference is the ACME
+  # branch picks public-issuer/acme/azuredns instead of the route53 sibling,
+  # and the substitutions are Azure-specific (RG name, subscription, tenant,
+  # cert-manager UAMI client_id) instead of (region, hostedZoneID).
+  #
+  # Required when ACME mode is active (schema enforces):
+  #   - email — operator address Let's Encrypt registers against
+  #
+  - name: pki-resources
+    path: pki/resources
+    dependsOn:
+      - pki-base
+      - policy-resources
+    components:
+      - "${gateway.access == 'private' && (dns.private_domain ?? '') != '' ? 'private-issuer/selfsigned' : ((dns.public_domain ?? '') != '' ? 'public-issuer/acme/azuredns' : 'public-issuer/selfsigned')}"
+    timeout: 5m
+    interval: 5m
+    substitutions:
+      acme_server: "${dev == true ? 'https://acme-staging-v02.api.letsencrypt.org/directory' : 'https://acme-v02.api.letsencrypt.org/directory'}"
+      acme_email: "${email ?? ''}"
+      acme_dns_zone: "${dns.public_domain ?? ''}"
+      # Deferred terraform_outputs from the dns-zone stack — the cert-manager
+      # azureDNS solver needs (zone_name, RG, sub) to call the management API,
+      # plus (tenant_id, client_id) of the cert-manager UAMI to authenticate.
+      # Gated on dns.public_domain because the dns-zone stack only composes
+      # when public_domain is set; calling terraform_output on a missing
+      # component is a hard error that ?? doesn't catch. In private mode the
+      # private-issuer/selfsigned component selected above doesn't read these.
+      acme_dns_zone_resource_group: "${(dns.public_domain ?? '') != '' ? (terraform_output('dns-zone', 'resource_group_name') ?? '') : ''}"
+      acme_dns_zone_subscription_id: "${(dns.public_domain ?? '') != '' ? (terraform_output('dns-zone', 'subscription_id') ?? '') : ''}"
+      # cert-manager UAMI outputs only exist when create_cert_manager_identity
+      # fires (gated on dns.public_domain in the cluster step). Calling
+      # terraform_output for an absent output is a hard error that ?? can't
+      # catch — gate eagerly. Selfsigned issuer in private mode doesn't read
+      # these.
+      cert_manager_client_id: "${(dns.public_domain ?? '') != '' ? (terraform_output('cluster', 'cert_manager_client_id') ?? '') : ''}"
+      cert_manager_tenant_id: "${(dns.public_domain ?? '') != '' ? (terraform_output('cluster', 'tenant_id') ?? '') : ''}"
+
+  # ---------------------------------------------------------------------------
+  # DNS — external-dns + Azure DNS record automation
+  # ---------------------------------------------------------------------------
+  #
+  # Anchored on the shared `dns` Kustomization (same canonical name that
+  # addon-private-dns and platform-aws use) so DNS components compose at one
+  # path. external-dns watches Ingress / Gateway HTTPRoute resources annotated
+  # with external-dns.alpha.kubernetes.io/hostname=<host> and writes A/CNAME
+  # records into a single Azure DNS zone. Two modes, both rendered by the
+  # same Kustomization:
+  #
+  #   - Public mode (default): targets the public zone provisioned by the
+  #     standalone dns-zone stack. Triggered by dns.public_domain.
+  #   - Private mode: targets the VNet-linked private zone created by the
+  #     network module from dns.private_domain. Triggered by
+  #     gateway.access=private (also requires dns.private_domain — there's
+  #     no zone to publish to without it, so the private cascade no-ops
+  #     and the gateway runs as public).
+  #
+  # Workload Identity is wired by the cluster module (external_dns UAMI +
+  # Federated Credential bound to system:serviceaccount:system-dns:external-dns).
+  # The provider patch annotates the SA with the UAMI's client_id and labels
+  # both the SA and the pod with azure.workload.identity/use=true so the
+  # webhook injects the projected token at runtime.
+  #
+  - name: dns
+    path: dns
+    when: "(dns.public_domain ?? '') != '' || (gateway.access == 'private' && (dns.private_domain ?? '') != '')"
+    dependsOn:
+      - policy-resources
+      # gateway-base installs the Gateway API CRDs (HTTPRoute, Gateway). When
+      # the gateway is on, external-dns is configured with the gateway-httproute
+      # source below — without the CRDs present at startup it crash-loops on
+      # "no matches for kind HTTPRoute". Wait for gateway-base to finish.
+      - "${gateway_effective.enabled == true ? 'gateway-base' : ''}"
+    components:
+      - external-dns
+      - external-dns/providers/azure
+      - "${gateway_effective.enabled == true ? 'external-dns/sources/gateway-httproute' : ''}"
+    timeout: 5m
+    interval: 5m
+    substitutions:
+      # Private mode wins over public_domain for the gateway's DNS — even if
+      # both are set, a private gateway should publish to the private zone (its
+      # hostname is internal-only and unusable as a record target on the public
+      # zone). Same access=private && private_domain gate fires here as in the
+      # rest of the private-mode cascade.
+      external_domain: "${gateway.access == 'private' && (dns.private_domain ?? '') != '' ? dns.private_domain : (dns.public_domain ?? '')}"
+      # Azure DNS resource ID — pins external-dns to a specific zone. Public
+      # zone comes from the standalone dns-zone stack; private zone comes from
+      # the network module (azure-vnet creates it when dns.private_domain is set).
+      zone_id_filter: "${gateway.access == 'private' && (dns.private_domain ?? '') != '' ? (terraform_output('network', 'private_zone_id') ?? '') : (terraform_output('dns-zone', 'zone_id') ?? '')}"
+      # Owner ID stamped into TXT records so multiple external-dns instances
+      # in the same zone don't clobber each other. The context id (top-level
+      # `id` field in values.yaml) is unique per Windsor context so it doubles
+      # as a stable per-cluster identifier.
+      txt_owner_id: "${id}"
+      external_dns_client_id: "${terraform_output('cluster', 'external_dns_client_id') ?? ''}"
+      external_dns_tenant_id: "${terraform_output('cluster', 'tenant_id') ?? ''}"
+      # Subscription / RG of the target zone — feeds external-dns's azure.json.
+      # Private mode pulls from the network module (zone lives in the VNet's
+      # RG), public mode from the dns-zone stack.
+      external_dns_dns_zone_subscription_id: "${gateway.access == 'private' && (dns.private_domain ?? '') != '' ? (terraform_output('network', 'subscription_id') ?? '') : (terraform_output('dns-zone', 'subscription_id') ?? '')}"
+      external_dns_dns_zone_resource_group: "${gateway.access == 'private' && (dns.private_domain ?? '') != '' ? (terraform_output('network', 'resource_group_name') ?? '') : (terraform_output('dns-zone', 'resource_group_name') ?? '')}"
+      # Public Azure DNS and Azure Private DNS Zones are served by different
+      # external-dns provider implementations (azure vs azure-private-dns) and
+      # different ARM resource types — without flipping this in private mode
+      # external-dns lists Microsoft.Network/dnszones and silently skips the
+      # privateDnsZones it should be writing to.
+      external_dns_azure_provider: "${gateway.access == 'private' && (dns.private_domain ?? '') != '' ? 'azure-private-dns' : 'azure'}"
+
+  # ---------------------------------------------------------------------------
+  # Gateway-base merge — Azure LB annotations on the Envoy data-plane Service
+  # ---------------------------------------------------------------------------
+  #
+  # Additive block that merges into option-gateway's gateway-base entry.
+  # AKS's CCM provisions a Standard SKU public LB for any Service:
+  # LoadBalancer with no annotations or controller add-on required, so
+  # the only platform-azure customization needed is flipping the LB to
+  # internal for private clusters. Done by conditionally including the
+  # azure-lb-internal component, which hardcodes the annotation to "true".
+  #
+  # Shape differs from platform-aws on purpose. AWS always includes
+  # aws-nlb and uses an lb_scheme substitution to toggle internal vs
+  # internet-facing. The Azure annotation values are "true" or "false",
+  # which YAML treats as bool tokens. They don't survive substitution
+  # through Flux postBuild and kustomize re-serialization, so we use
+  # conditional component inclusion as the equivalent toggle.
+  #
+  # Gated on dns.private_domain for the same reason as AWS: without a
+  # private zone the rest of the private-mode cascade no-ops, so an
+  # internal LB would have no zone to publish to.
+  #
+  - name: gateway-base
+    when: "gateway_effective.enabled == true && gateway_effective.driver == 'envoy' && lb_effective.mode == 'loadbalancer'"
+    components:
+      - "${gateway.access == 'private' && (dns.private_domain ?? '') != '' ? 'envoy/loadbalancer/azure-lb-internal' : ''}"
