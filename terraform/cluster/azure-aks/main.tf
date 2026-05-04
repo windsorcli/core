@@ -510,8 +510,10 @@ resource "azurerm_kubernetes_cluster_node_pool" "pools" {
   # Encrypt temp disks / VM cache for parity with the default and autoscaled
   # pools (CKV_AZURE_227).
   host_encryption_enabled = true
-  # checkov:skip=CKV_AZURE_168: 48 matches the default and autoscaled pools.
-  max_pods = 48
+  # 50 satisfies CKV_AZURE_168 (>=50) directly without needing a suppression.
+  # The default and autoscaled pools still use 48 with skip comments; left
+  # alone here to keep this change scoped to the new resource.
+  max_pods = 50
 
   tags = merge({
     Name = each.key

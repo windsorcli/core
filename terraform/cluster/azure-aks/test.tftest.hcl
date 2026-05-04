@@ -814,8 +814,8 @@ run "pools_resolves_class_to_vm_size" {
   }
 
   assert {
-    condition     = azurerm_kubernetes_cluster_node_pool.pools["app"].max_pods == 48
-    error_message = "Pools must set max_pods (matching default/autoscaled pool defaults)."
+    condition     = azurerm_kubernetes_cluster_node_pool.pools["app"].max_pods == 50
+    error_message = "Pools must set max_pods >= 50 (CKV_AZURE_168)."
   }
 }
 
