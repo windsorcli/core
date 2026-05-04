@@ -181,7 +181,7 @@ rather than replacing them.
 | Component | Enable when | Effect |
 |---|---|---|
 | `cert-manager` | always (default platform path) | Helm release of cert-manager in `system-pki`. CRDs enabled. |
-| `cert-manager/single-node` | `cluster.topology: single-node` | Disables leader election on the controller and cainjector. |
+| `cert-manager/single-node` | `topology: single-node` | Disables leader election on the controller and cainjector. |
 | `cert-manager/prometheus` | `telemetry.metrics.enabled: true` | Enables the chart's ServiceMonitor with the `kube-prometheus-stack` release label, and adds a Flux `dependsOn` so cert-manager waits for kube-prometheus-stack to be ready. |
 | `cert-manager/azure-workload-identity` | platform is Azure with a public domain | Adds Azure workload-identity labels and annotations to the cert-manager ServiceAccount and pods. |
 | `trust-manager` | `addons.private_ca.enabled == true` | Helm release of trust-manager in `system-pki-trust`. Flux waits for cert-manager. |

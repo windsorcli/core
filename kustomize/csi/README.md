@@ -101,7 +101,7 @@ directory (default `/var/mnt/local`).
 
 ### HA cluster with Longhorn
 
-Selected by `cluster.storage.driver: longhorn` AND `cluster.topology: ha`.
+Selected by `cluster.storage.driver: longhorn` AND `topology: ha`.
 The `longhorn/prometheus` component is added when
 `addons.observability.enabled: true`.
 
@@ -119,7 +119,7 @@ The `longhorn/prometheus` component is added when
 ### Local Longhorn
 
 Selected by `cluster.storage.driver: longhorn` plus
-`cluster.topology: single-node` OR `cluster.controlplanes.schedulable: true`.
+`topology: single-node` OR `cluster.controlplanes.schedulable: true`.
 
 ```yaml
 - name: csi
@@ -163,8 +163,8 @@ Drivers are mutually exclusive — pick one per cluster.
 | Component | Effect |
 |---|---|
 | `longhorn` | Helm release of Longhorn v1.11.1 in `system-csi`, plus a StorageClass `single` (default class) using `driver.longhorn.io` with `numberOfReplicas: "1"`, `volumeBindingMode: Immediate`, `allowVolumeExpansion: true`. |
-| `longhorn/single-node` | Patches the helm release to set `defaultSettings.taintToleration: "node-role.kubernetes.io/control-plane:NoSchedule"` so Longhorn pods can schedule on tainted control planes. Used when `cluster.controlplanes.schedulable: true` OR `cluster.topology: single-node`. |
-| `longhorn/ha` | Patches the helm release for HA: `defaultReplicaCount: 3`, `replicaSoftAntiAffinity: false`, `allowVolumeCreationWithDegradedAvailability: false`, `longhornUI.replicas: 2`, CSI sidecar replicas at 3. Adds a second StorageClass `replicated` with `numberOfReplicas: "3"` for explicit multi-replica volumes. Used when `cluster.topology: ha`. |
+| `longhorn/single-node` | Patches the helm release to set `defaultSettings.taintToleration: "node-role.kubernetes.io/control-plane:NoSchedule"` so Longhorn pods can schedule on tainted control planes. Used when `cluster.controlplanes.schedulable: true` OR `topology: single-node`. |
+| `longhorn/ha` | Patches the helm release for HA: `defaultReplicaCount: 3`, `replicaSoftAntiAffinity: false`, `allowVolumeCreationWithDegradedAvailability: false`, `longhornUI.replicas: 2`, CSI sidecar replicas at 3. Adds a second StorageClass `replicated` with `numberOfReplicas: "3"` for explicit multi-replica volumes. Used when `topology: ha`. |
 | `longhorn/prometheus` | ServiceMonitor for `longhorn-manager` metrics on the `manager` port. Used when `addons.observability.enabled: true`. |
 
 ## Dependencies
@@ -184,7 +184,7 @@ at the repo level.
 - **OpenEBS PVCs fail with `directory not found`** — the path set by `cluster.storage.local_base_path` doesn't exist on the node that scheduled the Pod. Talos clusters provision the default `/var/mnt/local` via machine config; if you override the path, every node needs the matching directory pre-created.
 - **Longhorn pods crash on Talos with `mount propagation errors`** — Longhorn requires `iscsiadm` and bidirectional mount propagation. Talos clusters need an iSCSI system extension installed in the Talos image config (not in this stack). Check the cluster's Talos machine config if engine pods fail to start.
 - **Longhorn HA degraded after a node reboot** — `replicaSoftAntiAffinity: false` enforces hard anti-affinity. After a reboot, replicas may need to be manually rebuilt; check `kubectl get volumes.longhorn.io -A`.
-- **Longhorn `single-node` patch absent on a controlplane-only cluster** — without the toleration, longhorn pods don't schedule on tainted control planes and no storage is available. Set `cluster.controlplanes.schedulable: true` (or `cluster.topology: single-node`) so the patch is applied.
+- **Longhorn `single-node` patch absent on a controlplane-only cluster** — without the toleration, longhorn pods don't schedule on tainted control planes and no storage is available. Set `cluster.controlplanes.schedulable: true` (or `topology: single-node`) so the patch is applied.
 - **`HelmRelease/csi` reports `no matches for kind StorageClass`** — usually a race; the StorageClass CRD is built into Kubernetes so this only happens during early bootstrap. Re-reconcile.
 
 Longhorn exposes a UI through the `longhorn-frontend` Service (chart default).
