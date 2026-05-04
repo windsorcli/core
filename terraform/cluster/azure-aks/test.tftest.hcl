@@ -757,7 +757,7 @@ run "external_dns_role_per_zone_type" {
 # Tests the portable user-pool shape (var.pools) — same shape AWS-EKS exposes.
 # Each pool resolves to an azurerm_kubernetes_cluster_node_pool with vm_size
 # pulled from class_instance_types, lifecycle mapped to priority, and the
-# operator's labels merged with windsor.io/pool[-class] tags. Default empty
+# operator's labels merged with windsorcli.dev/pool[-class] tags. Default empty
 # map means no extra resources — the cluster's inline default node pool is
 # unaffected (it remains the system pool).
 run "pools_empty_creates_no_user_pools" {
@@ -859,13 +859,13 @@ run "pools_explicit_instance_types_and_lifecycle" {
   }
 
   assert {
-    condition     = lookup(azurerm_kubernetes_cluster_node_pool.pools["batch"].node_labels, "windsor.io/pool", "") == "batch"
-    error_message = "windsor.io/pool label must be auto-stamped with the pool name."
+    condition     = lookup(azurerm_kubernetes_cluster_node_pool.pools["batch"].node_labels, "windsorcli.dev/pool", "") == "batch"
+    error_message = "windsorcli.dev/pool label must be auto-stamped with the pool name."
   }
 
   assert {
-    condition     = lookup(azurerm_kubernetes_cluster_node_pool.pools["batch"].node_labels, "windsor.io/pool-class", "") == "general"
-    error_message = "windsor.io/pool-class label must be auto-stamped with the pool class."
+    condition     = lookup(azurerm_kubernetes_cluster_node_pool.pools["batch"].node_labels, "windsorcli.dev/pool-class", "") == "general"
+    error_message = "windsorcli.dev/pool-class label must be auto-stamped with the pool class."
   }
 
   assert {

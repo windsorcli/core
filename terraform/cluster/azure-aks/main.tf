@@ -469,8 +469,8 @@ resource "azurerm_kubernetes_cluster_node_pool" "autoscaled" {
 #    effect: NoSchedule / NoExecute / PreferNoSchedule). Operator-supplied
 #    effect strings pass through; cross-platform configs use the AKS form when
 #    targeting Azure.
-#  - labels: standard kubernetes label map, with windsor.io/pool[-class] tags
-#    appended so node-affinity rules can pin workloads by pool name or class.
+#  - labels: standard kubernetes label map, with windsorcli.dev/pool[-class]
+#    tags appended so node-affinity rules can pin workloads by pool name or class.
 locals {
   pools_resolved = {
     for name, p in var.pools : name => {
@@ -484,8 +484,8 @@ locals {
       labels = merge(
         p.labels,
         {
-          "windsor.io/pool"       = name
-          "windsor.io/pool-class" = p.class
+          "windsorcli.dev/pool"       = name
+          "windsorcli.dev/pool-class" = p.class
         }
       )
       taints = [for t in p.taints : "${t.key}=${t.value != null ? t.value : ""}:${t.effect}"]
