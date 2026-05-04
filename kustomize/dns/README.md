@@ -1,5 +1,5 @@
 ---
-title: DNS stack
+title: DNS add-on
 description: CoreDNS for private zones and external-dns for record automation.
 ---
 
@@ -143,7 +143,7 @@ Same shape as the AWS recipe, swapping the provider component to
 | Name | Default | Effect and constraints |
 |---|---|---|
 | `external_domain` | `test` (fallback in helm-release values) | Private zone served by CoreDNS and the `domainFilters` value passed to external-dns. Records outside this domain will not be reconciled. |
-| `loadbalancer_start_ip` | required | Anchor IP for the CoreDNS LoadBalancer Service. Must sit inside the LBIPAM pool configured by the `cni` stack on Cilium clusters. Ignored when `coredns/loadbalancer` is not enabled. |
+| `loadbalancer_start_ip` | required | Anchor IP for the CoreDNS LoadBalancer Service. Must sit inside the LBIPAM pool configured by the `cni` add-on on Cilium clusters. Ignored when `coredns/loadbalancer` is not enabled. |
 
 ## Components
 
@@ -181,7 +181,7 @@ Same shape as the AWS recipe, swapping the provider component to
 
 ## Operations
 
-Stack-specific failure modes; generic Flux/Renovate behaviour is documented at
+Add-on-specific failure modes; generic Flux/Renovate behaviour is documented at
 the repo level.
 
 - **`external-dns` crashlooping with `failed to sync HTTPRoute`** — the
@@ -199,7 +199,7 @@ the repo level.
   failing. Check certificates under [coredns/etcd/certificates.yaml](coredns/etcd/certificates.yaml)
   and that the cert-manager issuer from `pki-base` is `Ready`.
 
-Metrics are scraped by the `telemetry` stack. CoreDNS exposes Prometheus
+Metrics are scraped by the `telemetry` add-on. CoreDNS exposes Prometheus
 metrics on port 9153 via the `prometheus` plugin configured in
 [coredns/helm-release.yaml](coredns/helm-release.yaml). external-dns metrics
 follow the chart default.
@@ -220,4 +220,4 @@ follow the chart default.
 
 - [contexts/_template/facets/addon-private-dns.yaml](../../contexts/_template/facets/addon-private-dns.yaml) — canonical wiring with conditional logic.
 - Blueprint schema and facet syntax — https://www.windsorcli.dev/docs/blueprints/
-- Related stacks: [pki](../pki/), [gateway](../gateway/), [cni](../cni/), [policy](../policy/), [telemetry](../telemetry/).
+- Related add-ons: [pki](../pki/), [gateway](../gateway/), [cni](../cni/), [policy](../policy/), [telemetry](../telemetry/).

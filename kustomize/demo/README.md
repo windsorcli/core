@@ -1,19 +1,19 @@
 ---
-title: Demo stack
+title: Demo add-on
 description: Example workloads (CNPG cluster, live-reload static site, Istio bookinfo) for trying out cluster features.
 ---
 
 # Demo
 
-Example workloads — not infrastructure. Use this stack to confirm the
+Example workloads — not infrastructure. Use this add-on to confirm the
 cluster's networking, storage, ingress, and database integration paths
 work end-to-end. Each subcomponent is a self-contained sample that runs in
 its own `demo-*` namespace.
 
-`option-demo` gates the whole stack on `demo.enabled: true`. Inside, three
+`option-demo` gates the whole add-on on `demo.enabled: true`. Inside, three
 independent toggles select which samples to deploy:
 
-- `demo.resources.database: true` — a CNPG `Cluster` (depends on the database stack).
+- `demo.resources.database: true` — a CNPG `Cluster` (depends on the database add-on).
 - `demo.resources.static: true` — a live-reload Node.js website with PVC, Service, and Ingress.
 - `demo.resources.bookinfo: true` — Istio's bookinfo sample fetched directly from upstream Istio releases.
 
@@ -64,7 +64,7 @@ The `option-demo` facet emits only the workload components, not the
 
 `dependsOn: [database]` is conditional in the facet — it only fires when
 `demo.resources.database: true` is set. Without the database sample, the
-demo stack has no required `dependsOn`.
+demo add-on has no required `dependsOn`.
 
 ### Just the static site (with Ingress)
 
@@ -114,7 +114,7 @@ resources.
 
 | Component | Effect |
 |---|---|
-| `database` | `Namespace/demo-database` (PSA `baseline`) plus `Cluster/demo-cluster` (cnpg.io/v1): 2 instances, 1Gi storage per replica, 100 max_connections, requests 100m/256Mi, memory limit 512Mi, `monitoring.enablePodMonitor: true` with relabelings. Requires the database stack's CloudNativePG operator to be running first. |
+| `database` | `Namespace/demo-database` (PSA `baseline`) plus `Cluster/demo-cluster` (cnpg.io/v1): 2 instances, 1Gi storage per replica, 100 max_connections, requests 100m/256Mi, memory limit 512Mi, `monitoring.enablePodMonitor: true` with relabelings. Requires the database add-on's CloudNativePG operator to be running first. |
 
 ### `static/`
 
@@ -132,22 +132,22 @@ resources.
 
 ## Dependencies
 
-| Stack | Reason |
+| Add-on | Reason |
 |---|---|
 | `database` *(when `demo.resources.database: true`)* | The CNPG operator (in the `database` Kustomization) must be running before the `Cluster/demo-cluster` resource is admitted. Without it, the apply fails on `no matches for kind Cluster.postgresql.cnpg.io/v1`. |
 
 The `static` and `bookinfo` samples have no hard dependencies in the
 facet; they assume:
 - A default StorageClass (for `static`'s PVC) — comes from `csi`.
-- An IngressClass-default Ingress controller — currently this would be the legacy `ingress` stack, which is not wired by default. The samples use Kubernetes `Ingress` (not Gateway API HTTPRoute), so they do **not** integrate with the modern `gateway` stack out of the box.
+- An IngressClass-default Ingress controller — currently this would be the legacy `ingress` add-on, which is not wired by default. The samples use Kubernetes `Ingress` (not Gateway API HTTPRoute), so they do **not** integrate with the modern `gateway` add-on out of the box.
 
 ## Operations
 
-Stack-specific failure modes; generic Flux/Renovate behaviour is documented
+Add-on-specific failure modes; generic Flux/Renovate behaviour is documented
 at the repo level.
 
 - **`demo-static` Deployment ImagePullBackoff** — `${REGISTRY_URL}` is empty or the registry is unreachable. The image reference becomes `/demo:1.0.6` if the substitution doesn't resolve. Set `REGISTRY_URL` via a substitution in your `option-demo` override.
-- **Ingress hostnames return 404** — no Ingress controller is running. The samples ship `kind: Ingress` (legacy), not `kind: HTTPRoute`. To use the gateway stack instead, replace the Ingress objects with HTTPRoutes manually.
+- **Ingress hostnames return 404** — no Ingress controller is running. The samples ship `kind: Ingress` (legacy), not `kind: HTTPRoute`. To use the gateway add-on instead, replace the Ingress objects with HTTPRoutes manually.
 - **CNPG `Cluster/demo-cluster` stuck `Pending`** — usually a StorageClass or PVC issue. The Cluster requests 1Gi per instance; check `kubectl get pvc -n demo-database` and the default StorageClass.
 - **bookinfo upstream YAML version drift** — the URL is pinned to Istio 1.22.8; Renovate updates the version via the `# renovate:` marker comment. If the URL stops resolving, Renovate has likely landed a newer version that doesn't match the comment's regex.
 
@@ -162,4 +162,4 @@ at the repo level.
 - [contexts/_template/facets/option-demo.yaml](../../contexts/_template/facets/option-demo.yaml) — canonical wiring with the per-sample toggles.
 - [contexts/_template/facets/addon-database.yaml](../../contexts/_template/facets/addon-database.yaml) — required when `demo.resources.database: true` (provides the CNPG operator).
 - Blueprint schema and facet syntax — https://www.windsorcli.dev/docs/blueprints/
-- Related stacks: [database](../database/), [csi](../csi/), [ingress](../ingress/), [gateway](../gateway/).
+- Related add-ons: [database](../database/), [csi](../csi/), [ingress](../ingress/), [gateway](../gateway/).

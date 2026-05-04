@@ -1,5 +1,5 @@
 ---
-title: Object store stack
+title: Object store add-on
 description: MinIO operator and tenant resources for S3-compatible object storage.
 ---
 
@@ -33,7 +33,7 @@ flowchart LR
     end
 
     csi[(CSI PVC)]
-    issuer[ClusterIssuer 'private'<br/>from pki stack]
+    issuer[ClusterIssuer 'private'<br/>from pki add-on]
 
     job -->|creates| secret
     cert -.issued by.-> issuer
@@ -97,7 +97,7 @@ Certificate stays `Pending` and the Tenant never gets a TLS Secret.
 
 ## Substitutions
 
-This stack does not consume any blueprint substitutions. All tenant
+This add-on does not consume any blueprint substitutions. All tenant
 configuration is in the shipped manifests.
 
 ## Components
@@ -126,14 +126,14 @@ provides a reference tenant.
 
 ## Dependencies
 
-| Stack | Reason |
+| Add-on | Reason |
 |---|---|
 | `csi` | The MinIO operator does not allocate PVCs eagerly, but tenant pools do. The shipped reference tenant requests a 1Gi PVC on StorageClass `single`; without a CSI driver, tenant pods stay `Pending`. |
 | `pki-resources` *(only when wiring `resources/common`)* | The reference tenant's `Certificate` references `ClusterIssuer/private`, which is created by `addon-private-ca`'s `pki-resources` entry. Wiring `object-store/resources` without `addon-private-ca` enabled produces a Certificate stuck `Pending`. |
 
 ## Operations
 
-Stack-specific failure modes; generic Flux/Renovate behaviour is documented
+Add-on-specific failure modes; generic Flux/Renovate behaviour is documented
 at the repo level.
 
 - **`Tenant` reconciles but pods stay `Pending`** — PVC scheduling. The reference tenant uses StorageClass `single` and 1 volume per server; check `kubectl get pvc -n system-object-store` and the StorageClass's `volumeBindingMode` (it's `WaitForFirstConsumer` on the cloud paths, so the volume only provisions when the Pod schedules).
@@ -146,7 +146,7 @@ at the repo level.
 
 - The `system-object-store` namespace runs at PSA `baseline`. The namespace is also labeled `use-custom-ca: "true"`, so trust-manager's Bundle (from `addon-private-ca`) distributes the cluster's private CA to it.
 - The operator pod runs `runAsUser: 1000`, `fsGroup: 1000`. The credential-generation Job runs `runAsNonRoot: true`, drops all capabilities, and uses `seccompProfile: RuntimeDefault`.
-- mTLS for the tenant is enforced via `requestAutoCert: false` + `externalCertSecret` referencing the cert-manager-issued `minio-private-tls`. There is no in-tree certificate generation; everything flows through the `pki` stack.
+- mTLS for the tenant is enforced via `requestAutoCert: false` + `externalCertSecret` referencing the cert-manager-issued `minio-private-tls`. There is no in-tree certificate generation; everything flows through the `pki` add-on.
 - Root credentials are generated in-cluster (12-byte hex access key, 16-byte hex secret key) by the bootstrap Job. They're stored in the `minio-root-creds` Secret in `system-object-store`. Tenant workloads needing the root credentials must reference this Secret directly; consider rotating before exposing the tenant.
 - Tenant ingress (API and console) is disabled by default. Exposing the tenant externally is the consumer's responsibility — add an HTTPRoute and update the Certificate SANs.
 
@@ -156,4 +156,4 @@ at the repo level.
 - [base/minio/git-repository.yaml](base/minio/git-repository.yaml) — stray file not included in the kustomization. Unused.
 - Blueprint schema and facet syntax — https://www.windsorcli.dev/docs/blueprints/
 - MinIO operator docs — https://min.io/docs/minio/kubernetes/upstream/
-- Related stacks: [csi](../csi/), [pki](../pki/).
+- Related add-ons: [csi](../csi/), [pki](../pki/).

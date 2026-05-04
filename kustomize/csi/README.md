@@ -1,14 +1,14 @@
 ---
-title: CSI stack
+title: CSI add-on
 description: Persistent storage drivers and StorageClasses — AWS EBS, Azure Disk, OpenEBS host-path, Longhorn distributed.
 ---
 
 # CSI
 
-The cluster's persistent-volume layer. Four drivers ship in this stack, one
+The cluster's persistent-volume layer. Four drivers ship in this add-on, one
 selected per platform:
 
-- **AWS EBS** — uses the EBS CSI driver preinstalled on EKS. This stack only adds the StorageClass.
+- **AWS EBS** — uses the EBS CSI driver preinstalled on EKS. This add-on only adds the StorageClass.
 - **Azure Disk** — uses the Azure Disk CSI driver preinstalled on AKS. Same shape: StorageClass only.
 - **OpenEBS host-path** — installs the OpenEBS chart and a `local` StorageClass that allocates from a host directory. Default for local single-node clusters.
 - **Longhorn** — installs the Longhorn chart, a distributed replicated block-storage system. Default for HA clusters on incus / metal.
@@ -169,7 +169,7 @@ Drivers are mutually exclusive — pick one per cluster.
 
 ## Dependencies
 
-| Stack | Reason |
+| Add-on | Reason |
 |---|---|
 | `policy-resources` *(when `policies.enabled: true`)* | The `system-csi` namespace runs at PSA `privileged` (storage drivers need host privileges); Kyverno's image-digest policy must be in place before the CSI driver pods are admitted. |
 | `cni` | Added by `option-cni` as a reverse dep. CSI's `node-driver-registrar` sees transient loopback connectivity drops during eBPF init and crash-loops without this ordering. |
@@ -177,18 +177,18 @@ Drivers are mutually exclusive — pick one per cluster.
 
 ## Operations
 
-Stack-specific failure modes; generic Flux/Renovate behaviour is documented
+Add-on-specific failure modes; generic Flux/Renovate behaviour is documented
 at the repo level.
 
 - **PVC stuck `Pending` with `no persistent volumes available`** — the StorageClass's `volumeBindingMode: WaitForFirstConsumer` means the volume is only provisioned when a Pod actually schedules. If the Pod is also `Pending`, no volume gets created. Check the Pod's events first.
 - **OpenEBS PVCs fail with `directory not found`** — the path set by `cluster.storage.local_base_path` doesn't exist on the node that scheduled the Pod. Talos clusters provision the default `/var/mnt/local` via machine config; if you override the path, every node needs the matching directory pre-created.
-- **Longhorn pods crash on Talos with `mount propagation errors`** — Longhorn requires `iscsiadm` and bidirectional mount propagation. Talos clusters need an iSCSI system extension installed in the Talos image config (not in this stack). Check the cluster's Talos machine config if engine pods fail to start.
+- **Longhorn pods crash on Talos with `mount propagation errors`** — Longhorn requires `iscsiadm` and bidirectional mount propagation. Talos clusters need an iSCSI system extension installed in the Talos image config (not in this add-on). Check the cluster's Talos machine config if engine pods fail to start.
 - **Longhorn HA degraded after a node reboot** — `replicaSoftAntiAffinity: false` enforces hard anti-affinity. After a reboot, replicas may need to be manually rebuilt; check `kubectl get volumes.longhorn.io -A`.
 - **Longhorn `single-node` patch absent on a controlplane-only cluster** — without the toleration, longhorn pods don't schedule on tainted control planes and no storage is available. Set `cluster.controlplanes.schedulable: true` (or `topology: single-node`) so the patch is applied.
 - **`HelmRelease/csi` reports `no matches for kind StorageClass`** — usually a race; the StorageClass CRD is built into Kubernetes so this only happens during early bootstrap. Re-reconcile.
 
 Longhorn exposes a UI through the `longhorn-frontend` Service (chart default).
-This stack does not ship an HTTPRoute for it — add one manually if external
+This add-on does not ship an HTTPRoute for it — add one manually if external
 access is needed.
 
 ## Security
@@ -207,4 +207,4 @@ access is needed.
 - [contexts/_template/facets/option-single-node.yaml](../../contexts/_template/facets/option-single-node.yaml) — single-node OpenEBS overlay.
 - [contexts/_template/facets/option-cni.yaml](../../contexts/_template/facets/option-cni.yaml) — adds the `cni` reverse dep.
 - Blueprint schema and facet syntax — https://www.windsorcli.dev/docs/blueprints/
-- Related stacks: [policy](../policy/), [cni](../cni/), [telemetry](../telemetry/), [observability](../observability/).
+- Related add-ons: [policy](../policy/), [cni](../cni/), [telemetry](../telemetry/), [observability](../observability/).

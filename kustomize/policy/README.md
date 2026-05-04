@@ -1,5 +1,5 @@
 ---
-title: Policy stack
+title: Policy add-on
 description: Kyverno admission policies for image digest enforcement, resource limits, and the controllers that back them.
 ---
 
@@ -9,7 +9,7 @@ Kyverno is the cluster's admission policy engine. The `policy-base`
 Kustomization installs the Kyverno controllers; `policy-resources` applies
 the ClusterPolicy resources that enforce or audit cluster-wide rules.
 
-This stack is depended on by nearly every other stack — the namespace runs
+This add-on is depended on by nearly every other add-on — the namespace runs
 at PSA `baseline` and the cluster's mutation policies (private-CA injection,
 LBIPAM IP sharing on Cilium gateways, docker-desktop DNS rewriting) all
 require Kyverno's CRDs to apply.
@@ -50,7 +50,7 @@ are off by default — they ship with the chart but are toggled on by
 `policy-base` and `policy-resources` are gated on `policies.enabled` (default
 `true`). Setting `policies.enabled: false` skips both Kustomizations entirely;
 this is the opt-out for clusters that don't want admission control. It will
-break stacks that depend on `policy-resources` to install ClusterPolicies, so
+break add-ons that depend on `policy-resources` to install ClusterPolicies, so
 review consumers before disabling.
 
 ### Default (admission + background only)
@@ -109,7 +109,7 @@ drops the corresponding component from `policy-resources.components`.
 
 ## Substitutions
 
-This stack does not consume any blueprint substitutions. Policy bodies are
+This add-on does not consume any blueprint substitutions. Policy bodies are
 hardcoded; gating happens at the component-selection layer in
 `platform-base`.
 
@@ -137,7 +137,7 @@ component. Ordering is irrelevant since each ClusterPolicy is independent.
 
 `policy-base` has no `dependsOn` — it must come up before nearly everything
 else. The Kyverno admission webhook intercepts every Pod creation, so any
-stack that depends on `policy-resources` is also implicitly waiting for
+add-on that depends on `policy-resources` is also implicitly waiting for
 admission webhooks to be ready (Flux's `dependsOn` on a Kustomization waits
 for the contained HelmRelease to reconcile, which waits for the chart's own
 readiness checks).
@@ -145,7 +145,7 @@ readiness checks).
 `policy-resources` depends on `policy-base` (the Kyverno CRDs must exist
 before any ClusterPolicy is applied).
 
-Stacks that depend on `policy-resources`:
+Add-ons that depend on `policy-resources`:
 
 - `pki-base` — when policies are enabled, pki-base waits so cert-manager pods come up after Kyverno admission is enforcing image-digest pinning (otherwise cert-manager pods would be admitted without digests on first reconcile and rejected on rollout).
 - `pki-resources` — `addon-private-ca` ships an `inject-private-ca` ClusterPolicy; without `policy-resources` the Kyverno CRDs aren't ready and the apply fails on `no matches for kind ClusterPolicy`.
@@ -156,11 +156,11 @@ Stacks that depend on `policy-resources`:
 
 ## Operations
 
-Stack-specific failure modes; generic Flux/Renovate behaviour is documented
+Add-on-specific failure modes; generic Flux/Renovate behaviour is documented
 at the repo level.
 
 - **Pod creation failing with `image must include @sha256 digest`** — `require-image-digest` is enforcing on a workload that doesn't pin its image. Either pin the image (preferred) or label the workload's namespace `policy.windsorcli.dev/managed: "false"` to opt out. Renovate's `# renovate: datasource=docker depName=...` markers above the `tag:` value let Renovate maintain pinned `tag@sha256:...` entries automatically.
-- **`HelmRelease/<anything>` reports `no matches for kind ClusterPolicy` or `Bundle`** — the consuming stack's `dependsOn` on `policy-resources` is missing or `policies.enabled` is false. Either restore the dep or accept that the dependent stack won't apply.
+- **`HelmRelease/<anything>` reports `no matches for kind ClusterPolicy` or `Bundle`** — the consuming add-on's `dependsOn` on `policy-resources` is missing or `policies.enabled` is false. Either restore the dep or accept that the dependent add-on won't apply.
 - **PolicyReports not appearing despite policies on** — the `reports-controller` is off by default. Set `policies.reporting: enabled` to layer in the `kyverno/reports` component.
 - **Kyverno webhook causes API requests to time out** — the admission-controller is unhealthy. Check `kubectl get validatingwebhookconfiguration kyverno-resource-validating-webhook-cfg`; if the webhook is `failurePolicy: Fail` and Kyverno is down, every API write blocks. The Windsor helm-release values do not override `failurePolicy`; whatever the upstream chart and individual policies set applies. Review the per-policy `failurePolicy` carefully before adding new policies in `Enforce` mode.
 
@@ -171,11 +171,11 @@ at the repo level.
 - Policy scope is gated on namespace labels:
   - In-scope: namespaces matching `system-*` or labeled `policy.windsorcli.dev/managed: "true"`.
   - Out-of-scope: namespaces labeled `policy.windsorcli.dev/managed: "false"` (explicit opt-out, takes precedence over inclusion).
-- All container images in `system-*` namespaces (every Windsor-managed system stack) must be `@sha256:` pinned. Renovate handles this automatically through the `# renovate:` markers in helm-release values.
+- All container images in `system-*` namespaces (every Windsor-managed system add-on) must be `@sha256:` pinned. Renovate handles this automatically through the `# renovate:` markers in helm-release values.
 
 ## See also
 
 - [contexts/_template/facets/platform-base.yaml](../../contexts/_template/facets/platform-base.yaml) — canonical wiring of `policy-base` and `policy-resources`, including conditional toggles for the optional controllers and per-policy gates.
-- [contexts/_template/facets/addon-private-ca.yaml](../../contexts/_template/facets/addon-private-ca.yaml) — example of a stack that ships a ClusterPolicy and `dependsOn: policy-resources`.
+- [contexts/_template/facets/addon-private-ca.yaml](../../contexts/_template/facets/addon-private-ca.yaml) — example of an add-on that ships a ClusterPolicy and `dependsOn: policy-resources`.
 - Blueprint schema and facet syntax — https://www.windsorcli.dev/docs/blueprints/
-- Related stacks: [pki](../pki/), [cni](../cni/), [lb](../lb/), [dns](../dns/), [gateway](../gateway/).
+- Related add-ons: [pki](../pki/), [cni](../cni/), [lb](../lb/), [dns](../dns/), [gateway](../gateway/).

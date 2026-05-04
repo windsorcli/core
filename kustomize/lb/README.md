@@ -1,5 +1,5 @@
 ---
-title: Load balancer stack
+title: Load balancer add-on
 description: AWS Load Balancer Controller for cloud, MetalLB or kube-vip for bare metal and incus.
 ---
 
@@ -15,7 +15,7 @@ platform.
 - **In-cluster** (metal, incus, docker): MetalLB or kube-vip allocates an IP
   from a pool defined by the network module and advertises it via ARP/L2.
 
-Azure clusters use the native AKS LB and do not render this stack.
+Azure clusters use the native AKS LB and do not render this add-on.
 
 ## Flow
 
@@ -54,7 +54,7 @@ LB Controller does not need privilege but shares the namespace.
 `lb-base` and `lb-resources` are conditional. AWS always renders `lb-base`
 (the AWS LB Controller). metal/incus/docker render both when
 `network.loadbalancer_driver` is set. docker-desktop forces no in-cluster
-LB regardless (no routable node network); Azure never renders this stack
+LB regardless (no routable node network); Azure never renders this add-on
 (uses native AKS LBs).
 
 ### AWS (cloud-managed NLB/ALB)
@@ -151,7 +151,7 @@ The base kustomization is empty by default. AWS does not render
 
 ## Dependencies
 
-| Stack | Reason |
+| Add-on | Reason |
 |---|---|
 | `policy-resources` | `lb-base` `dependsOn` policy-resources on every platform that wires it. The lb namespace runs at PSA `privileged` and Kyverno policies inspect/exempt it; reconciling the helm release before policy CRDs exist would race. |
 
@@ -159,7 +159,7 @@ The base kustomization is empty by default. AWS does not render
 before any `IPAddressPool` or `L2Advertisement` is created — without the
 MetalLB CRDs the apply fails on `no matches for kind IPAddressPool`).
 
-Reverse dependency: any stack that owns a `Service` of type `LoadBalancer`
+Reverse dependency: any add-on that owns a `Service` of type `LoadBalancer`
 or an `Ingress` reconciled by the AWS LBC declares `dependsOn: lb-base` so
 destroy ordering puts the controller last. The controller has to be alive
 to clear AWS finalizers (`service.k8s.aws/resources`,
@@ -168,7 +168,7 @@ controller is torn down first, those resources hang.
 
 ## Operations
 
-Stack-specific failure modes; generic Flux/Renovate behaviour is documented
+Add-on-specific failure modes; generic Flux/Renovate behaviour is documented
 at the repo level.
 
 - **AWS LB Controller crashlooping with `failed to discover VPC`** — `vpc_id` or `aws_region` substitution didn't resolve. Check `terraform_output('network', 'vpc_id')` returned a value and that the deferred substitution propagated.
@@ -191,4 +191,4 @@ at the repo level.
 - [contexts/_template/facets/platform-incus.yaml](../../contexts/_template/facets/platform-incus.yaml) — incus wiring (supports both metallb and kube-vip drivers).
 - [contexts/_template/facets/platform-base.yaml](../../contexts/_template/facets/platform-base.yaml) — `lb_effective` resolution (the internal config that folds `network.loadbalancer_driver` together with platform-specific overrides like docker-desktop's force-disable).
 - Blueprint schema and facet syntax — https://www.windsorcli.dev/docs/blueprints/
-- Related stacks: [policy](../policy/), [gateway](../gateway/).
+- Related add-ons: [policy](../policy/), [gateway](../gateway/).

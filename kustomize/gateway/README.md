@@ -1,5 +1,5 @@
 ---
-title: Gateway stack
+title: Gateway add-on
 description: Gateway API entrypoint with Envoy or Cilium controllers and a shared TLS-terminated Gateway resource.
 ---
 
@@ -9,7 +9,7 @@ The cluster's traffic entrypoint. A single Gateway resource named `external`
 is rendered into `system-gateway` with HTTP, HTTPS, and (optionally) DNS
 and Flux listeners. Two implementation paths share the same Gateway: Envoy
 Gateway as a separately-deployed controller, or Cilium's built-in Gateway
-API support via the CNI. cert-manager (from the `pki` stack) issues the TLS
+API support via the CNI. cert-manager (from the `pki` add-on) issues the TLS
 certificate; HTTPRoutes from any namespace attach to the Gateway.
 
 ## Flow
@@ -26,7 +26,7 @@ flowchart LR
         cm[cert-manager]
     end
 
-    issuer[ClusterIssuer<br/>from pki stack]
+    issuer[ClusterIssuer<br/>from pki add-on]
     routes[HTTPRoute · UDPRoute · TCPRoute]
 
     client --> controller
@@ -52,7 +52,7 @@ is rendered alongside it. Platform facets layer cloud-specific patches onto
 
 ### Local Cilium cluster (default `windsor up`)
 
-Cilium provides the Gateway implementation through the CNI; this stack only
+Cilium provides the Gateway implementation through the CNI; this add-on only
 supplies the GatewayClass and the Gateway/Certificate resources.
 
 ```yaml
@@ -160,7 +160,7 @@ provisions an NLB pointed at the Envoy data-plane Service.
 |---|---|---|
 | `gateway_class_name` | always | Drives `Gateway.spec.gatewayClassName`. Must match the GatewayClass installed by the chosen driver (`envoy` or `cilium`). |
 | `external_domain` | always | DNS name (and wildcard) on the Gateway TLS certificate. Switches between `dns.private_domain` and `dns.public_domain` in the upstream facet based on `gateway.access`. |
-| `gateway_cert_issuer` | always | ClusterIssuer name the `external-web-tls` Certificate references. One of `private`, `public-selfsigned`, `public-acme` — must exist (rendered by the `pki` stack). Renaming the issuer triggers cert-manager reissuance. |
+| `gateway_cert_issuer` | always | ClusterIssuer name the `external-web-tls` Certificate references. One of `private`, `public-selfsigned`, `public-acme` — must exist (rendered by the `pki` add-on). Renaming the issuer triggers cert-manager reissuance. |
 | `gateway_dns_target` | when external-dns is reconciling Gateway hostnames | IP advertised by external-dns for Gateway-attached hostnames. Stamped onto the Gateway via the `dns` component's annotation. |
 | `loadbalancer_start_ip` | `cilium`, `lb-address`, or any in-cluster LB path | Anchor IP for the Gateway's load balancer. Used by Cilium LBIPAM, the `lb-address` patch, and intended for `envoy/loadbalancer`. Must sit inside the LBIPAM pool (Cilium) or the cluster's MetalLB pool (Envoy). |
 | `lb_scheme` | AWS only, when `gateway.access == 'private'` | AWS LB scheme annotation. Defaults to `internet-facing` when empty (kustomize fallback `${lb_scheme:-internet-facing}`); set to `internal` for VPC-only gateways. |
@@ -175,7 +175,7 @@ CRDs (vendored at `gateway-api-experimental-v1.5.1.yaml`) and the
 
 | Component | Enable when | Effect |
 |---|---|---|
-| `cilium` | `gateway.driver: cilium` | GatewayClass `cilium` pointing at `io.cilium/gateway-controller`. The Cilium HelmRelease itself is owned by the `cni` stack. |
+| `cilium` | `gateway.driver: cilium` | GatewayClass `cilium` pointing at `io.cilium/gateway-controller`. The Cilium HelmRelease itself is owned by the `cni` add-on. |
 | `envoy` | `gateway.driver: envoy` | Helm release of Envoy Gateway in `system-gateway`, vendored Envoy Gateway CRDs v1.7.1, GatewayClass `envoy`. |
 | `envoy/loadbalancer` | `gateway.driver: envoy` AND `gateway.service_type: LoadBalancer` (or platform default) | Patches the Envoy data-plane Service to type `LoadBalancer`. |
 | `envoy/loadbalancer/aws-nlb` | `platform: aws` AND `gateway.driver: envoy` AND LB mode | AWS LB Controller annotations: `aws-load-balancer-type: external`, `nlb-target-type: ip`, scheme from `${lb_scheme}`, cross-zone enabled. |
@@ -199,16 +199,16 @@ HTTPS/443 listeners) and `Certificate/external-web-tls`.
 
 ## Dependencies
 
-| Stack | Reason |
+| Add-on | Reason |
 |---|---|
 | `pki-base` | cert-manager must be running before `Certificate/external-web-tls` is created. |
 | `lb-base` *(`platform: aws`, or `network.loadbalancer_driver` set on metal/incus)* | Provides the AWS Load Balancer Controller (or MetalLB) that the Envoy data-plane Service needs to acquire an external IP. |
-| `dns` *(when `dns.enabled: true`)* | external-dns (in the `dns` stack) watches Gateway HTTPRoutes for hostname annotations. When the private-DNS addon is also active, the `gateway-resources/dns` component attaches port-53 listeners that route to upstream CoreDNS. |
-| `cni` *(reverse, `gateway.driver: cilium` only)* | When Cilium is the driver, the `cni` stack `dependsOn` `gateway-base` so the Gateway API CRDs are present before the Cilium HelmRelease is applied — Cilium's operator initializes its Gateway controller at startup and won't pick up CRDs added later. |
+| `dns` *(when `dns.enabled: true`)* | external-dns (in the `dns` add-on) watches Gateway HTTPRoutes for hostname annotations. When the private-DNS addon is also active, the `gateway-resources/dns` component attaches port-53 listeners that route to upstream CoreDNS. |
+| `cni` *(reverse, `gateway.driver: cilium` only)* | When Cilium is the driver, the `cni` add-on `dependsOn` `gateway-base` so the Gateway API CRDs are present before the Cilium HelmRelease is applied — Cilium's operator initializes its Gateway controller at startup and won't pick up CRDs added later. |
 
 ## Operations
 
-Stack-specific failure modes; generic Flux/Renovate behaviour is documented
+Add-on-specific failure modes; generic Flux/Renovate behaviour is documented
 at the repo level.
 
 - **`Certificate/external-web-tls` stuck `Issuing`** — the `gateway_cert_issuer` substitution names a ClusterIssuer that the `pki-resources` Kustomization hasn't rendered yet. Confirm the ClusterIssuer exists (`kubectl get clusterissuer`) and matches the substitution. On a switch from `public-selfsigned` to `public-acme`, the Certificate spec changes and cert-manager reissues.
@@ -219,12 +219,12 @@ at the repo level.
 
 The Envoy controller exposes Prometheus metrics through the
 `envoy/prometheus` component (ServiceMonitor + PodMonitor). Cilium's metrics
-are scraped by the `cni` stack's own ServiceMonitor.
+are scraped by the `cni` add-on's own ServiceMonitor.
 
 ## Security
 
 - The `system-gateway` namespace is PSA `baseline`.
-- The Gateway's `external-web-tls` Certificate is issued by a ClusterIssuer from the `pki` stack. The Secret is consumed only by the Gateway's TLS listener; it is not mounted by application workloads.
+- The Gateway's `external-web-tls` Certificate is issued by a ClusterIssuer from the `pki` add-on. The Secret is consumed only by the Gateway's TLS listener; it is not mounted by application workloads.
 - HTTPRoute, UDPRoute, TCPRoute resources are accepted from all namespaces (`spec.listeners[*].allowedRoutes.namespaces.from: All`). Tenant isolation, if needed, must come from upstream policy (NetworkPolicy, Kyverno) — the Gateway itself does not gate cross-namespace attachment.
 - AWS NLB target-type is `ip` so traffic flows directly to Envoy pods (kube-proxy is bypassed); the source IP reaches Envoy unmodified for X-Forwarded-For handling.
 - The Azure internal-LB annotation pins the data-plane Service to the VNet — it is not reachable from outside the VNet. Public exposure on Azure requires omitting `envoy/loadbalancer/azure-lb-internal`.
@@ -235,4 +235,4 @@ are scraped by the `cni` stack's own ServiceMonitor.
 - [contexts/_template/facets/platform-aws.yaml](../../contexts/_template/facets/platform-aws.yaml) — AWS NLB annotations layered onto `gateway-base`.
 - [contexts/_template/facets/platform-azure.yaml](../../contexts/_template/facets/platform-azure.yaml) — Azure internal-LB conditional layering.
 - Blueprint schema and facet syntax — https://www.windsorcli.dev/docs/blueprints/
-- Related stacks: [pki](../pki/), [dns](../dns/), [cni](../cni/), [lb](../lb/), [gitops](../gitops/), [telemetry](../telemetry/).
+- Related add-ons: [pki](../pki/), [dns](../dns/), [cni](../cni/), [lb](../lb/), [gitops](../gitops/), [telemetry](../telemetry/).

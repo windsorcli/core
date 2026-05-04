@@ -1,12 +1,12 @@
 ---
-title: PKI stack
+title: PKI add-on
 description: cert-manager and trust-manager operators with private and public ClusterIssuers.
 ---
 
 # PKI
 
 cert-manager issues TLS certificates from one or more ClusterIssuers. trust-manager
-distributes the private CA bundle to opted-in namespaces. The stack is split into
+distributes the private CA bundle to opted-in namespaces. The add-on is split into
 two kustomizations so the operators (`pki/base`) bootstrap before any issuer
 (`pki/resources`) tries to create CRD instances.
 
@@ -42,7 +42,7 @@ private-ca addon is enabled.
 
 ## Recipes
 
-`pki-base` is always rendered (cert-manager is required by every other stack
+`pki-base` is always rendered (cert-manager is required by every other add-on
 that issues certs). `pki-resources` is rendered conditionally — platform and
 context-level facets contribute one issuer per cluster, and `addon-private-ca`
 adds another. Multiple facets can contribute components to the same `pki-base`
@@ -211,7 +211,7 @@ mutating one shared `public` issuer in place would not.
 
 ## Dependencies
 
-| Stack | Reason |
+| Add-on | Reason |
 |---|---|
 | `policy-resources` *(when policies enabled)* | `private-issuer/ca` ships a Kyverno ClusterPolicy that mounts the CA bundle into opted-in pods. Flux fails the apply on `no matches for kind ClusterPolicy` if Kyverno's CRDs aren't installed. |
 | `telemetry-base` *(when `telemetry.metrics.enabled: true` or `telemetry.logs.enabled: true`)* | `cert-manager/prometheus` enables a ServiceMonitor with `release: kube-prometheus-stack`; without telemetry-base the ServiceMonitor has no Prometheus to register against. |
@@ -220,7 +220,7 @@ mutating one shared `public` issuer in place would not.
 
 ## Operations
 
-Stack-specific failure modes; generic Flux/Renovate behaviour is documented
+Add-on-specific failure modes; generic Flux/Renovate behaviour is documented
 at the repo level.
 
 - **`Certificate` stuck in `Issuing` for the ACME issuer** — DNS-01 challenge isn't solving. For Route 53 confirm Pod Identity is bound to the cert-manager ServiceAccount and the IAM policy covers the hosted zone. For Azure DNS confirm the UAMI client ID matches `cert_manager_client_id` and the role assignment on the resource group is in place.
@@ -230,7 +230,7 @@ at the repo level.
 
 cert-manager exposes Prometheus metrics when `cert-manager/prometheus` is
 enabled; a ServiceMonitor with `release: kube-prometheus-stack` registers it
-with the telemetry stack.
+with the telemetry add-on.
 
 ## Security
 
@@ -249,4 +249,4 @@ with the telemetry stack.
 - [contexts/_template/facets/platform-aws.yaml](../../contexts/_template/facets/platform-aws.yaml) — AWS public-issuer wiring.
 - [contexts/_template/facets/platform-azure.yaml](../../contexts/_template/facets/platform-azure.yaml) — Azure public-issuer wiring.
 - Blueprint schema and facet syntax — https://www.windsorcli.dev/docs/blueprints/
-- Related stacks: [policy](../policy/), [telemetry](../telemetry/), [gateway](../gateway/), [dns](../dns/).
+- Related add-ons: [policy](../policy/), [telemetry](../telemetry/), [gateway](../gateway/), [dns](../dns/).

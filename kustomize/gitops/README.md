@@ -1,6 +1,6 @@
 ---
-title: GitOps stack
-description: Flux notification webhook receiver and HTTPRoute. Flux itself is installed by Terraform, not this stack.
+title: GitOps add-on
+description: Flux notification webhook receiver and HTTPRoute. Flux itself is installed by Terraform, not this add-on.
 ---
 
 # GitOps
@@ -8,12 +8,12 @@ description: Flux notification webhook receiver and HTTPRoute. Flux itself is in
 Almost all of the GitOps weight in this blueprint is in the Terraform module
 at [terraform/gitops/flux/](../../terraform/gitops/flux/) — that's what
 installs Flux's controllers, the root `GitRepository`, and the bootstrap
-`Kustomization`. This Kustomize stack adds the **flux notification
+`Kustomization`. This Kustomize add-on adds the **flux notification
 webhook receiver** on top: a `Receiver` resource the
 notification-controller exposes for HMAC-authenticated push triggers, plus
 an HTTPRoute that lets external git hosts (GitHub, GitLab) reach it.
 
-If `gitops.mode` is `pull`, this stack renders nothing — Flux polls and no
+If `gitops.mode` is `pull`, this add-on renders nothing — Flux polls and no
 inbound webhook is needed.
 
 ## Flow
@@ -100,7 +100,7 @@ gateway-originated traffic.
 ### Pull mode
 
 Set `gitops.mode: pull`. Both webhook entries' `when:` evaluates false and
-this stack contributes nothing beyond the namespace already created by
+this add-on contributes nothing beyond the namespace already created by
 Terraform.
 
 ## Substitutions
@@ -110,13 +110,13 @@ Terraform.
 | `git_repository_name` | always (when push mode) | Name of the `GitRepository` the receiver triggers. Defaults to `"local"` (workstation default); platform facets pass through `gitops.repository.name`. The receiver will accept any payload but will only ever reconcile the named repository. |
 
 The `webhook-token` Secret holding the HMAC is provisioned by the
-Terraform module — not by this stack. This Kustomization only references
+Terraform module — not by this add-on. This Kustomization only references
 it (`secretRef.name: webhook-token`).
 
 ## Components
 
-The Kustomize stack has only a webhook subtree. Flux's controllers are
-not in this stack — they ship from the Terraform module.
+The Kustomize add-on has only a webhook subtree. Flux's controllers are
+not in this add-on — they ship from the Terraform module.
 
 | Component | Enable when | Effect |
 |---|---|---|
@@ -126,9 +126,9 @@ not in this stack — they ship from the Terraform module.
 
 ## Dependencies
 
-The Kustomize stack has minimal dependencies:
+The Kustomize add-on has minimal dependencies:
 
-| Stack | Reason |
+| Add-on | Reason |
 |---|---|
 | `gateway-base` *(when Gateway variant)* | The Gateway API CRDs (HTTPRoute) and the `external` Gateway must exist before `webhook/gateway` is applied. |
 
@@ -138,13 +138,13 @@ Dependencies on the Terraform side are richer:
 - `terraform: gitops` `dependsOn: cni` on platforms where Cilium is the CNI (waits for pod networking).
 - `terraform: gitops` `dependsOn: cluster, cluster-extensions` on AWS (EKS-specific, when applicable).
 
-These are not part of the Kustomize stack but matter for ordering: Flux
+These are not part of the Kustomize add-on but matter for ordering: Flux
 itself must be running before any Windsor Kustomization (including this
 one) can reconcile.
 
 ## Operations
 
-Stack-specific failure modes; generic Flux/Renovate behaviour is documented
+Add-on-specific failure modes; generic Flux/Renovate behaviour is documented
 at the repo level.
 
 - **Webhook returns 401** — the HMAC secret in `webhook-token` doesn't match what the git host is signing with. Inspect `kubectl get secret webhook-token -n system-gitops` and confirm the git host webhook config uses the same value. The Terraform module provisions this; on workstations the default is `${gitops.webhook.token ?? "abcdef123456"}`.
@@ -162,9 +162,9 @@ at the repo level.
 
 ## See also
 
-- [terraform/gitops/flux/](../../terraform/gitops/flux/) — the Flux installer, including controllers, GitRepository, root Kustomization, and the `webhook-token` Secret. Most operator concerns about gitops live there, not in this stack.
+- [terraform/gitops/flux/](../../terraform/gitops/flux/) — the Flux installer, including controllers, GitRepository, root Kustomization, and the `webhook-token` Secret. Most operator concerns about gitops live there, not in this add-on.
 - [contexts/_template/facets/platform-base.yaml](../../contexts/_template/facets/platform-base.yaml) (lines ~491-509) — canonical wiring for both webhook variants.
 - [contexts/_template/facets/option-workstation.yaml](../../contexts/_template/facets/option-workstation.yaml) — workstation-specific Terraform inputs (`concurrency`, `git_username`, `git_password`, `webhook_token`).
 - [contexts/_template/facets/option-cni.yaml](../../contexts/_template/facets/option-cni.yaml) — adds the `cni` Terraform dep so Flux waits for pod networking on Cilium clusters.
 - Blueprint schema and facet syntax — https://www.windsorcli.dev/docs/blueprints/
-- Related stacks: [gateway](../gateway/), [cni](../cni/).
+- Related add-ons: [gateway](../gateway/), [cni](../cni/).

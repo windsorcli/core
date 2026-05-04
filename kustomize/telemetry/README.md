@@ -1,5 +1,5 @@
 ---
-title: Telemetry stack
+title: Telemetry add-on
 description: Cluster-wide metrics and log collection — Prometheus, fluent-bit, metrics-server.
 ---
 
@@ -9,14 +9,14 @@ The cluster's metrics and logs collection layer. Two parallel pipelines, both
 managed from `system-telemetry`:
 
 - **Metrics**: kube-prometheus-stack runs Prometheus, kube-state-metrics, and
-  node-exporter. Scrape targets across all stacks register via ServiceMonitor
+  node-exporter. Scrape targets across all add-ons register via ServiceMonitor
   and PodMonitor resources.
 - **Logs**: fluent-operator manages a fluent-bit DaemonSet that reads
   container logs and (on Talos) the systemd journal. Logs are forwarded to a
-  sink owned by the **observability** stack (`fluentd` aggregator by default,
+  sink owned by the **observability** add-on (`fluentd` aggregator by default,
   Elasticsearch when the alternative driver is selected).
 
-Grafana is intentionally not in this stack — it lives in `observability`,
+Grafana is intentionally not in this add-on — it lives in `observability`,
 which is also responsible for the log sink. Telemetry collects; observability
 visualizes and stores.
 
@@ -122,7 +122,7 @@ in `filebeat` (in `telemetry-base`) for direct Elasticsearch shipping. See
 
 ## Substitutions
 
-This stack does not consume any blueprint substitutions. The two
+This add-on does not consume any blueprint substitutions. The two
 platform-base globals (`private_domain`, `public_domain`) are exposed to
 every Kustomization but are not referenced inside any telemetry manifest.
 
@@ -163,15 +163,15 @@ manifests.
 `telemetry-resources` `dependsOn: telemetry-base` (the operator CRDs must
 exist before any FluentBit CR or ServiceMonitor is created).
 
-Stacks that depend on `telemetry-base`:
+Add-ons that depend on `telemetry-base`:
 
 - `pki-base` — when telemetry metrics or logs are enabled, pki-base waits so cert-manager's ServiceMonitor has a working Prometheus target from creation.
 - `cni` — same reason: cilium/prometheus and cilium/hubble ServiceMonitors need Prometheus to be live.
-- `observability` — depends on telemetry-base because grafana / fluentd / elasticsearch all need the operators or the log shipper this stack provides.
+- `observability` — depends on telemetry-base because grafana / fluentd / elasticsearch all need the operators or the log shipper this add-on provides.
 
 ## Operations
 
-Stack-specific failure modes; generic Flux/Renovate behaviour is documented
+Add-on-specific failure modes; generic Flux/Renovate behaviour is documented
 at the repo level.
 
 - **No metrics in Grafana despite Prometheus running** — ServiceMonitor / PodMonitor resources aren't being picked up. The `*SelectorNilUsesHelmValues: false` settings in `prometheus/helm-release.yaml` mean an empty selector matches everything; if Prometheus is filtering, check the Prometheus CR's `serviceMonitorSelector` for unintended overrides.
@@ -194,4 +194,4 @@ at the repo level.
 - [contexts/_template/facets/addon-observability.yaml](../../contexts/_template/facets/addon-observability.yaml) — log sink (fluentd / quickwit / elasticsearch + filebeat) layered on top of telemetry.
 - [contexts/_template/facets/platform-azure.yaml](../../contexts/_template/facets/platform-azure.yaml) — `metrics_server_enabled: false` override for AKS.
 - Blueprint schema and facet syntax — https://www.windsorcli.dev/docs/blueprints/
-- Related stacks: [observability](../observability/), [pki](../pki/), [cni](../cni/), [policy](../policy/).
+- Related add-ons: [observability](../observability/), [pki](../pki/), [cni](../cni/), [policy](../policy/).

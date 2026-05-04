@@ -1,5 +1,5 @@
 ---
-title: CNI stack
+title: CNI add-on
 description: Cilium as the cluster CNI, bootstrapped via Terraform and adopted by Flux.
 ---
 
@@ -8,10 +8,10 @@ description: Cilium as the cluster CNI, bootstrapped via Terraform and adopted b
 Cilium is the only CNI driver this blueprint installs. The HelmRelease CR
 lives in `system-cni`; the actual Cilium workloads (DaemonSet, Operator,
 Hubble) deploy into `kube-system` per upstream convention. Other CNIs
-(flannel on docker-desktop, AKS's managed CNI) bypass this stack entirely
+(flannel on docker-desktop, AKS's managed CNI) bypass this add-on entirely
 when `cluster.cni.driver` is not `cilium`.
 
-The defining shape of this stack is the **bootstrap-then-adopt** pattern.
+The defining shape of this add-on is the **bootstrap-then-adopt** pattern.
 Cilium has a chicken-and-egg problem: Flux needs pod networking to
 reconcile, but Flux is normally what installs the CNI. Resolution:
 Terraform installs Cilium first via the Talos API, then Flux adopts the
@@ -50,7 +50,7 @@ Flux-adopted release does not flap the deployment between reconciles.
 
 ## Recipes
 
-This stack has a single Kustomization (`cni`) with two `when:` variants —
+This add-on has a single Kustomization (`cni`) with two `when:` variants —
 `talos_enabled` and `eks_enabled`. Each emits a different component set.
 
 The recipes below show the materialized form assuming `policies.enabled:
@@ -114,7 +114,7 @@ without the Gateway controller and never reconciles HTTPRoutes.
 
 EKS clusters use the AWS-managed control plane; no Talos-specific patches
 and no L2 announcer (EKS provides its own LB via the AWS LB Controller in
-the `lb` stack). `k8s_service_host` is parsed from the cluster Terraform
+the `lb` add-on). `k8s_service_host` is parsed from the cluster Terraform
 output.
 
 ```yaml
@@ -154,17 +154,17 @@ output.
 
 ## Dependencies
 
-| Stack | Reason |
+| Add-on | Reason |
 |---|---|
 | `policy-resources` *(when `policies.enabled: true` or `gateway.driver: cilium`)* | Re-rolls Cilium pods after Kyverno's mutation policies are live. When `cilium/gateway` is active, `policy-resources` also provides the Kyverno CRDs the LBIPAM sharing ClusterPolicy depends on — without it the apply would fail on `no matches for kind ClusterPolicy`. |
-| `telemetry-base` *(when `telemetry.metrics.enabled: true` or `telemetry.logs.enabled: true`)* | The `cilium/prometheus` ServiceMonitor and the Hubble ServiceMonitor target Prometheus from the telemetry stack; without it they have no scrape target. |
+| `telemetry-base` *(when `telemetry.metrics.enabled: true` or `telemetry.logs.enabled: true`)* | The `cilium/prometheus` ServiceMonitor and the Hubble ServiceMonitor target Prometheus from the telemetry add-on; without it they have no scrape target. |
 
 The Terraform `cni` module bootstraps Cilium directly via the Talos API
 before Flux exists. Terraform `cni` `dependsOn: cluster` (the cluster must
 be provisioned), and Terraform `gitops` `dependsOn: cni` (Flux must wait
 for pod networking).
 
-Reverse dependencies — stacks that depend on `cni`:
+Reverse dependencies — add-ons that depend on `cni`:
 
 - `gateway-resources` `dependsOn: cni` when Cilium is the gateway driver. Without ordering, the Kyverno LBIPAM policy may not be in place when cilium-operator creates the gateway Service, and the LB IP won't be shared.
 - `csi` `dependsOn: cni` always. CSI's node-driver-registrar can see transient loopback connectivity drops during eBPF init and crash-loop without this ordering.
@@ -172,7 +172,7 @@ Reverse dependencies — stacks that depend on `cni`:
 
 ## Operations
 
-Stack-specific failure modes; generic Flux/Renovate behaviour is documented
+Add-on-specific failure modes; generic Flux/Renovate behaviour is documented
 at the repo level.
 
 - **Cilium pods crash-looping on Talos with `Operation not permitted`** — the `cilium/talos` component is missing or its capabilities patch didn't apply. Confirm the helm-release values include `securityContext.capabilities.ciliumAgent`. Talos rejects full privileged mode.
@@ -181,7 +181,7 @@ at the repo level.
 - **`HelmRelease/cilium` reports `no matches for kind CiliumLoadBalancerIPPool`** — `cilium/l2` is enabled but the Cilium CRDs aren't ready. The Cilium chart installs them; the bootstrap path (Terraform → Flux adoption) means the CRDs come up with the agent. If this fires, the Flux reconcile is racing the chart install — re-reconcile.
 - **Re-running `windsor up` flaps Cilium between two replica counts** — Terraform `operator_replicas` and the Flux substitution differ. Both must derive from `topology` (single-node → 1, otherwise → 2).
 
-Cilium's metrics ServiceMonitors are scraped by the `telemetry` stack
+Cilium's metrics ServiceMonitors are scraped by the `telemetry` add-on
 (`release: kube-prometheus-stack` label set by `cilium/prometheus`). Hubble
 flows are accessible via Hubble UI; Hubble Relay exposes a gRPC endpoint
 for `hubble observe`.
@@ -189,7 +189,7 @@ for `hubble observe`.
 ## Security
 
 - The `system-cni` namespace has no PSA labels in its manifest (see [namespace.yaml](namespace.yaml)). Cilium workloads live in `kube-system`; the Cilium DaemonSet uses host networking and elevated Linux capabilities (full set on non-Talos, restricted explicit set on Talos via `cilium/talos`).
-- `kubeProxyReplacement: true` means Cilium replaces kube-proxy entirely. Removing the `cni` stack does not restore kube-proxy automatically.
+- `kubeProxyReplacement: true` means Cilium replaces kube-proxy entirely. Removing the `cni` add-on does not restore kube-proxy automatically.
 - Hubble TLS certificates rotate via an in-cluster CronJob (cert-manager is not required for Hubble).
 - The `cilium-gateway-lbipam-sharing` Kyverno ClusterPolicy mutates Services in `system-gateway` that Cilium creates. Scope is restricted by namespace and by the `io.cilium.gateway/owning-gateway: external` label selector — it does not affect Services outside `system-gateway` or non-Cilium Services.
 
@@ -198,4 +198,4 @@ for `hubble observe`.
 - [contexts/_template/facets/option-cni.yaml](../../contexts/_template/facets/option-cni.yaml) — canonical wiring for both Talos and EKS variants, plus reverse-dep injections into `gateway-resources`, `csi`, and `observability`.
 - [terraform/cni/cilium/](../../terraform/cni/cilium/) — Terraform bootstrap module that installs Cilium pre-Flux.
 - Blueprint schema and facet syntax — https://www.windsorcli.dev/docs/blueprints/
-- Related stacks: [policy](../policy/), [telemetry](../telemetry/), [gateway](../gateway/), [csi](../csi/), [lb](../lb/).
+- Related add-ons: [policy](../policy/), [telemetry](../telemetry/), [gateway](../gateway/), [csi](../csi/), [lb](../lb/).

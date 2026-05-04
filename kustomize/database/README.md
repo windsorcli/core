@@ -1,5 +1,5 @@
 ---
-title: Database stack
+title: Database add-on
 description: PostgreSQL operator (CloudNativePG) — installs the operator only; tenant Postgres clusters are created by workloads.
 ---
 
@@ -7,12 +7,12 @@ description: PostgreSQL operator (CloudNativePG) — installs the operator only;
 
 Installs the CloudNativePG operator in `system-database`. The operator
 watches `Cluster` (cnpg.io/v1) resources cluster-wide; tenants create their
-own `Cluster` objects to provision Postgres instances. This stack does NOT
+own `Cluster` objects to provision Postgres instances. This add-on does NOT
 ship a tenant Postgres cluster — it only deploys the operator and (on HA
 clusters) makes the operator itself highly available.
 
 `cloudnative-pg` is currently the only supported driver
-(`addons.database.postgres.driver: cloudnativepg`). The stack is gated on
+(`addons.database.postgres.driver: cloudnativepg`). The add-on is gated on
 `addons.database.postgres.enabled: true` — disabled by default.
 
 ## Flow
@@ -78,8 +78,8 @@ disables the operator's leader election.
 ### With Grafana dashboard
 
 When `addons.observability.enabled: true` is also on, `addon-database`
-patches the observability stack to add the CloudNativePG dashboard. Wired
-separately from the database stack itself:
+patches the observability add-on to add the CloudNativePG dashboard. Wired
+separately from the database add-on itself:
 
 ```yaml
 - name: observability
@@ -91,7 +91,7 @@ separately from the database stack itself:
 
 ## Substitutions
 
-This stack does not consume any blueprint substitutions. Behavior is
+This add-on does not consume any blueprint substitutions. Behavior is
 fully driven by component selection.
 
 ## Components
@@ -101,23 +101,23 @@ fully driven by component selection.
 | `cloudnativepg` | `addons.database.postgres.driver: cloudnativepg` | Helm release of `cloudnative-pg` v0.28.0 in `system-database`. Operator image v1.29.0. `clusterWide: true` so the operator watches `Cluster` resources in every namespace. Webhook `failurePolicy: Fail` (admission rejects requests if the webhook is down). Resource requests 250m/256Mi, memory limit 256Mi. |
 | `cloudnativepg/single-node` | `topology: single-node` | Appends `--leader-elect=false` to the operator's `additionalArgs`. The chart unconditionally passes `--leader-elect`; Go's flag parser applies last-wins so the override sticks. |
 | `cloudnativepg/ha` | `topology: ha` | `operator.replicaCount: 2`, hard pod anti-affinity (hostname topology key), PodDisruptionBudget with `minAvailable: 1`, `rollingUpdate.maxUnavailable: 1`. |
-| `cloudnativepg/prometheus` | always (per addon-database) | Adds `monitoring.podMonitorEnabled: true` and labels the PodMonitor with `release: kube-prometheus-stack` so the telemetry stack's Prometheus picks it up. Adds a Flux `dependsOn` so the operator waits for `kube-prometheus-stack` to be ready. |
+| `cloudnativepg/prometheus` | always (per addon-database) | Adds `monitoring.podMonitorEnabled: true` and labels the PodMonitor with `release: kube-prometheus-stack` so the telemetry add-on's Prometheus picks it up. Adds a Flux `dependsOn` so the operator waits for `kube-prometheus-stack` to be ready. |
 
 ## Dependencies
 
-| Stack | Reason |
+| Add-on | Reason |
 |---|---|
 | `csi` | Tenant `Cluster` resources allocate PVCs for WAL archives and data volumes as soon as the first one is applied. The operator itself doesn't create PVCs, but reconciliation fails immediately if no StorageClass is available. |
 
 The `cloudnativepg/prometheus` component adds an implicit dependency on
-`kube-prometheus-stack` (in the `telemetry` stack) via Flux's HelmRelease
+`kube-prometheus-stack` (in the `telemetry` add-on) via Flux's HelmRelease
 `dependsOn`. The `addon-database` facet also patches the observability
-stack to add the Grafana dashboard, but that's a separate Kustomization
+add-on to add the Grafana dashboard, but that's a separate Kustomization
 entry rather than a hard dependency of `database`.
 
 ## Operations
 
-Stack-specific failure modes; generic Flux/Renovate behaviour is documented
+Add-on-specific failure modes; generic Flux/Renovate behaviour is documented
 at the repo level.
 
 - **Tenant `Cluster` stuck creating** — usually a CSI / StorageClass issue. Check the tenant's `Cluster` events and confirm a default StorageClass exists. The operator does not create PVCs eagerly; PVCs come up as the operator reconciles tenant Clusters.
@@ -143,4 +143,4 @@ emit metrics; they're scraped by the same Prometheus when the
 - [contexts/_template/facets/option-single-node.yaml](../../contexts/_template/facets/option-single-node.yaml) — adds the `cloudnativepg/single-node` patch when topology is single-node.
 - Blueprint schema and facet syntax — https://www.windsorcli.dev/docs/blueprints/
 - CloudNativePG operator docs — https://cloudnative-pg.io/docs/
-- Related stacks: [csi](../csi/), [telemetry](../telemetry/), [observability](../observability/).
+- Related add-ons: [csi](../csi/), [telemetry](../telemetry/), [observability](../observability/).

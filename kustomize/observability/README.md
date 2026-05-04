@@ -1,5 +1,5 @@
 ---
-title: Observability stack
+title: Observability add-on
 description: Grafana, fluentd aggregator, and pluggable log storage (stdout, Quickwit, Elasticsearch+Kibana).
 ---
 
@@ -108,7 +108,7 @@ When the cluster has a Gateway, layer in the `grafana/gateway` HTTPRoute and
 
 ### Quickwit logs
 
-Set `addons.observability.logs_driver: quickwit`. Full sink stack with a
+Set `addons.observability.logs_driver: quickwit`. Full sink add-on with a
 PVC-backed staging directory; depends on a CSI driver.
 
 ```yaml
@@ -257,7 +257,7 @@ are added by their respective owner facets.
 `observability` is contributed to by multiple facets, so dependencies vary
 per facet entry. Common patterns:
 
-| Stack | Reason |
+| Add-on | Reason |
 |---|---|
 | `telemetry-base` | Grafana points at the Prometheus instance from telemetry; fluentd inherits CRDs from fluent-operator (also installed by telemetry-base). |
 | `dns` | Conditional. Grafana's HTTPRoute hostname is reconciled via external-dns; without `dns` the record never publishes. |
@@ -267,7 +267,7 @@ per facet entry. Common patterns:
 
 ## Operations
 
-Stack-specific failure modes; generic Flux/Renovate behaviour is documented
+Add-on-specific failure modes; generic Flux/Renovate behaviour is documented
 at the repo level.
 
 - **Grafana panels show "no data" but Prometheus has metrics** — the `grafana/prometheus` datasource isn't configured or points at the wrong service. Check the Grafana ConfigMap with the datasource definition.
@@ -296,4 +296,4 @@ default dashboards.
 - [contexts/_template/facets/option-cni.yaml](../../contexts/_template/facets/option-cni.yaml) — example of a sibling facet patching dashboards into observability.
 - [elasticsearch/README.md](elasticsearch/README.md) — Talos sysctl prerequisite for Elasticsearch.
 - Blueprint schema and facet syntax — https://www.windsorcli.dev/docs/blueprints/
-- Related stacks: [telemetry](../telemetry/), [pki](../pki/), [gateway](../gateway/), [dns](../dns/), [csi](../csi/), [database](../database/).
+- Related add-ons: [telemetry](../telemetry/), [pki](../pki/), [gateway](../gateway/), [dns](../dns/), [csi](../csi/), [database](../database/).
