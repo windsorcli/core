@@ -202,7 +202,7 @@ variable "pools" {
 }
 
 variable "class_instance_types" {
-  description = "Default Azure VM size list per portable pool class. Multi-size lists guard against single-SKU capacity shortages in a region. A pool's explicit instance_types overrides this map. When overriding this variable, all seven class keys must be supplied — partial overrides are rejected at validate time."
+  description = "Default Azure VM size list per portable pool class. AKS pools accept a single SKU per pool — only the first entry is used; remaining entries document an operator preference order rather than an AKS-enforced fallback (the AWS-EKS equivalent does take a list at the API level). A pool's explicit instance_types overrides this map. When overriding this variable, all seven class keys must be supplied — partial overrides are rejected at validate time."
   type        = map(list(string))
   default = {
     system  = ["Standard_D2s_v5", "Standard_D2as_v5", "Standard_D4s_v5", "Standard_D4as_v5"]
