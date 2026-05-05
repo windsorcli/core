@@ -19,7 +19,7 @@ spec:
     spec:
       chart: longhorn
       # renovate: datasource=helm depName=longhorn package=longhorn helmRepo=https://charts.longhorn.io
-      version: 1.11.1
+      version: 1.11.2
       sourceRef:
         kind: HelmRepository
         name: longhorn
