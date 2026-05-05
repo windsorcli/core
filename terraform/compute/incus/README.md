@@ -1,4 +1,114 @@
+---
+title: compute/incus
+description: Provisions Talos controlplane and worker VMs on Incus. Outputs node lists consumed by cluster/talos.
+---
+
+# compute/incus
+
+Runs Talos as Incus virtual machines on a workstation. This is the
+node-provisioning step on `platform: incus` (or `platform: docker`
+with `workstation.runtime: colima` and the colima incus driver): the
+module optionally creates a network and storage pools, pulls the Talos
+image into the local Incus image cache, and starts a VM per
+controlplane and worker. Its outputs (the node IPs, endpoints, roles)
+are consumed by [`cluster/talos`](../../cluster/talos/), which applies
+machine configuration and bootstraps the cluster.
+
+The module is structurally parallel to [`compute/docker`](../docker/)
+— same outputs shape, same role in the workstation flow — but
+provisions VMs instead of containers, so each instance has explicit
+CPU / memory limits, a `root_disk_size`, and (optionally) attached
+data disks.
+
+## Wiring
+
+Wired by [option-workstation.yaml](../../../contexts/_template/facets/option-workstation.yaml)
+when `platform: incus` and `cluster.enabled: true` (the default). The
+network is created by [workstation/incus](../../workstation/incus/);
+this module attaches via `create_network: false` and the workstation
+module's network outputs.
+
+```yaml
+terraform:
+  - name: compute
+    path: compute/incus
+    dependsOn:
+      - workstation
+    inputs:
+      create_network: false
+      network_name: <from workstation output>
+      network_cidr: <from workstation output>
+      storage_pools:
+        local:
+          driver: null            # null = pool skipped (default pool assumed)
+      instances:
+        - name: controlplane
+          role: controlplane
+          count: 1
+          ipv4: 10.5.0.10
+          image: <talos.incus_image>
+          type: virtual-machine
+          storage_pool: default    # 'local' on colima
+          root_disk_size: 30GB
+          limits:
+            cpu: "2"
+            memory: 2GB
+          disks: []
+          config:
+            user.hostname: controlplane-1
+            environment.TALOSSKU: 2CPU-2048RAM
+            raw.qemu: -boot order=c,menu=off
+        - name: worker
+          role: worker
+          count: 0
+          # ... same shape as controlplane
+```
+
+How those flow from `values.yaml`:
+
+- `instances[*].count`, `image`, `limits.cpu`, `limits.memory`, `root_disk_size`, `disks` — `cluster.controlplanes.{count,image,cpu,memory,root_disk_size,disks}` and the `cluster.workers.{...}` equivalents. These are the per-pool sizing knobs.
+- `instances[*].ipv4` — facet-set, derived from the workstation network CIDR (`cidrhost(cidr, 10)` for the first controlplane, `cidrhost(cidr, 20)` for the first worker).
+- `instances[*].config["user.hostname"]` — `cluster.controlplanes.nodes[*].hostname` / `cluster.workers.nodes[*].hostname`. Talos 1.12+ reads the hostname from the VM runtime, not from Talos config.
+- `network_name`, `network_cidr` — pulled from [`workstation/incus`](../../workstation/incus/)'s outputs via deferred `terraform_output(...)`.
+- `image` — `cluster.controlplanes.image` / `cluster.workers.image`, defaulting to `talos.incus_image` (Renovate-pinned).
+- `storage_pools.local.driver` — `dir` on colima (host-directory backing), `null` (skipped) elsewhere. The `default` pool is always assumed to exist on standalone Incus.
+
+The `workstation` Terraform dep ensures the network and supporting
+state exist before VMs attach.
+
+## Outputs
+
+Outputs match [`compute/docker`](../docker/) so `cluster/talos` can
+consume either without branching:
+
+- `controlplanes`, `workers` — list of `{hostname, endpoint, node, ...}` objects. `endpoint` is `<vm-ip>:50000` (Incus VMs are routable from the host).
+- `instances` — flat list of every VM with role, IP, image.
+- `network_name`, `network_type`, `network_managed` — supporting outputs.
+
+## Security
+
+Incus VMs hold Talos node state on attached storage volumes. Teardown
+must remove the storage volumes, not just the VM, or the next
+bootstrap inherits the old machine secrets and the TLS handshake fails
+— same hazard documented in [`cluster/talos`](../../cluster/talos/).
+
+The module connects to the Incus daemon via the local Incus client (or
+a configured remote when `remote` is set). Authentication uses the
+Incus client's existing trust certificate; this module does not manage
+credentials.
+
+## See also
+
+- [workstation/incus](../../workstation/incus/) — provisions the network this module attaches to.
+- [cluster/talos](../../cluster/talos/) — consumes this module's `controlplanes`/`workers` outputs.
+- [compute/docker](../docker/) — sister module for Docker containers (same outputs shape).
+- [option-workstation.yaml](../../../contexts/_template/facets/option-workstation.yaml) — wiring when `platform: incus`.
+
 ## Reference
+
+The full module interface — every input, output, and resource — is
+listed below. Override any input from your context by adding a tfvars
+file at `contexts/<context>/terraform/compute.tfvars`.
 
 <!-- BEGIN_TF_DOCS -->
 ### Requirements
