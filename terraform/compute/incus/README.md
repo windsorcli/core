@@ -74,16 +74,9 @@ How those flow from `values.yaml`:
 - `storage_pools.local.driver` — `dir` on colima (host-directory backing), `null` (skipped) elsewhere. The `default` pool is always assumed to exist on standalone Incus.
 
 The `workstation` Terraform dep ensures the network and supporting
-state exist before VMs attach.
-
-## Outputs
-
-Outputs match [`compute/docker`](../docker/) so `cluster/talos` can
-consume either without branching:
-
-- `controlplanes`, `workers` — list of `{hostname, endpoint, node, ...}` objects. `endpoint` is `<vm-ip>:50000` (Incus VMs are routable from the host).
-- `instances` — flat list of every VM with role, IP, image.
-- `network_name`, `network_type`, `network_managed` — supporting outputs.
+state exist before VMs attach. Outputs (`controlplanes`, `workers`,
+`instances`, `network_*`) match [`compute/docker`](../docker/) so
+`cluster/talos` consumes either without branching.
 
 ## Security
 

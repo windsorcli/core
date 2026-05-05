@@ -67,14 +67,6 @@ How those flow from `values.yaml`:
 The `workstation` Terraform dep ensures the network and supporting
 state exist before containers attach.
 
-## Outputs
-
-Outputs are designed to drop directly into [`cluster/talos`](../../cluster/talos/):
-
-- `controlplanes`, `workers` — list of `{hostname, endpoint, node, ...}` objects. `endpoint` is `<ip>:50000` on `linux`/`colima` runtimes; `127.0.0.1:<host-port>` on `docker-desktop`.
-- `instances` — flat list of every container with role, IP, image (same shape as `compute/incus.instances`).
-- `network_name`, `network_type`, `network_managed`, `container_ports` — supporting outputs.
-
 ## Security
 
 Container volumes (`docker_volume.named`) hold Talos node state.

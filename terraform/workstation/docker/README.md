@@ -85,17 +85,13 @@ The `dns_forward_target` and `webhook_host` differ by runtime because
 docker-desktop has no routable container network — services are reached
 via NodePort port mappings on the host.
 
-## Outputs
-
-The outputs are designed to drop directly into
-[`compute/docker`](../../compute/docker/):
-
-- `network_name`, `network_cidr` — the Docker network compute attaches to (`create_network: false`).
-- `next_ip` — the first IP available for cluster nodes (host index = `node_start_offset`, default `10`). Stable across registry add/remove because registries fill the reserved block `[4, node_start_offset)`.
-- `compose_project` — Docker Compose project name (`workstation-windsor-<context>`); `compute/docker` reuses it so cluster containers and workstation services appear in the same compose group.
-- `domain_name` — for facet expressions that need the resolved domain.
-- `loadbalancer_start_ip`, `webhook_host`, `dns_ip` — derived service IPs.
-- `service_ips`, `containers`, `registries` — per-service IP assignments and container names. The `registries` output includes a computed `hostname` per entry (e.g. `gcr.<domain>`) consumed by Talos registry mirror config.
+`next_ip` is anchored at host index `node_start_offset` (default `10`)
+so registries fill a reserved block at `[4, node_start_offset)` and
+adding or removing one never shifts the first-node IP. The
+`compose_project` output is shared with [`compute/docker`](../../compute/docker/)
+so cluster containers and workstation services land in the same compose
+group. The `registries` output includes a computed `hostname` per entry
+(e.g. `gcr.<domain>`) that Talos registry-mirror config consumes.
 
 ## Security
 
