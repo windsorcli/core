@@ -60,11 +60,13 @@ adapted for Terraform):
 
 8. **Auto-generated reference** (existing, between `BEGIN_TF_DOCS`/`END_TF_DOCS` markers — kept by `task docs`).
 
-Add a Mermaid diagram where it actually clarifies something — typically when the module participates in a multi-actor handoff (e.g. `cni/cilium` bootstrapping then handing off to Flux), orchestrates a non-obvious resource graph (`cluster/talos`, `cluster/aws-eks`), or has a complex enough lifecycle that prose alone reads as a tangle. Skip for modules that are straightforward recipes of resources.
+Skip Mermaid diagrams by default. The auto-generated `### Resources` table already enumerates what the module creates; a diagram that just re-draws those resources is filler. Only add one if you can name a specific relationship the diagram captures that prose really can't — e.g. a non-obvious resource graph with ordering or cross-references hard to follow as a list. Multi-actor handoffs (a Terraform module that hands off to Flux, etc.) are usually fine in one sentence of prose. When in doubt, ship without and re-evaluate after real reader feedback.
 
 Don't claim platform support for paths that aren't validated by tests. If a module has wiring on a platform that isn't exercised end-to-end, omit it from the README — the wiring exists in the facet for those who go looking.
 
 For the auto-generated section: don't hand-edit. If the variable / output descriptions read awkwardly (e.g. mention untested platforms), fix them in the source `variables.tf` / `outputs.tf` and re-run `task docs`.
+
+Verify every "this module creates X" claim against the actual `resource "..."` declarations in `main.tf` before writing the lead, the Flow diagram, or the Security section. The module's resource set is often narrower than the surrounding system suggests — e.g. a Flux installer module might install controllers but not the GitRepository / root Kustomization that drive reconciliation. Diagrams and prose should describe what *this module* does, with anything bootstrapped elsewhere noted as such.
 
 High-level "what is Terraform in Windsor" stays on the site under `/docs/components/terraform`.
 

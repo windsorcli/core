@@ -1,4 +1,84 @@
+---
+title: gitops/flux
+description: Installs Flux's controllers and git auth in system-gitops. The root GitRepository and Kustomization are bootstrapped outside this module.
+---
+
+# gitops/flux
+
+Installs Flux's controllers (source, kustomize, helm, notification, and
+optionally image-automation/reflection) into `system-gitops`, along
+with the git authentication Secret and — in push mode — the
+webhook-token Secret. This is the bootstrap step that puts Flux in
+place; the `GitRepository` and root `Kustomization` that wire Flux to
+the operator's repo are created outside this module (by the Windsor
+CLI after the Terraform apply finishes). The webhook receiver and
+HTTPRoute that pair with this installation live in the
+[kustomize/gitops](../../../kustomize/gitops/) add-on.
+
+## Wiring
+
+`gitops` is contributed to by multiple facets. `platform-base` sets the
+`mode` input; `option-workstation` adds git credentials, webhook token,
+and a CPU-derived concurrency; cloud platforms hard-code their own
+concurrency. The `cluster` Terraform dep is universal; `cni` is added
+on Cilium clusters so Flux waits for pod networking.
+
+A typical workstation Talos cluster materializes:
+
+```yaml
+terraform:
+  - name: gitops
+    path: gitops/flux
+    dependsOn:
+      - cluster
+      - cni
+    inputs:
+      mode: push
+      concurrency: 4
+      git_username: local
+      git_password: local
+      webhook_token: abcdef123456
+```
+
+How those inputs flow from `values.yaml`:
+
+- `mode` — `gitops.mode`. Defaults to `push`. In `pull` mode the notification controller is skipped and no webhook-token Secret is created.
+- `concurrency` — facet-set, derived from cluster CPU on workstations (clamped to 2 on incus where vCPUs are slower); fixed at 5 on AWS. Not a typical `values.yaml` knob.
+- `git_username` / `git_password` — `workstation.git.username` / `workstation.git.password`. Default to `local` on workstation contexts.
+- `webhook_token` — `gitops.webhook.token`. The default `abcdef123456` is a development placeholder; production clusters MUST override it. If left empty, the module generates a random 48-character token and persists it in state.
+
+Inputs not listed (`flux_namespace`, `flux_helm_version`, `flux_version`,
+`ssh_*`, `leader_election`, `image_automation`, `image_reflection`)
+keep their module defaults. See [Inputs](#inputs) for the full
+interface.
+
+## Security
+
+Runs in `system-gitops` (namespace label `pod-security.kubernetes.io/warn:
+restricted`). The module creates a git-credentials Secret (when
+`git_username` is set) and a `webhook-token` Secret (push mode). Both
+are sensitive — git credentials come from sensitive Terraform variables
+and aren't echoed in plan output; the webhook token is generated
+in-cluster if not supplied.
+
+The default `webhook_token: abcdef123456` from `option-workstation` is
+**not safe for production**. Override `gitops.webhook.token` in
+`values.yaml`, or leave it unset and let the module generate a random
+token.
+
+## See also
+
+- [kustomize/gitops/](../../../kustomize/gitops/) — Flux notification webhook receiver and HTTPRoute that pair with this installation.
+- [option-workstation.yaml](../../../contexts/_template/facets/option-workstation.yaml) — workstation wiring (concurrency formula, git credentials, webhook token).
+- [platform-base.yaml](../../../contexts/_template/facets/platform-base.yaml) — sets `mode`.
+- [platform-aws.yaml](../../../contexts/_template/facets/platform-aws.yaml) — AWS wiring (concurrency 5, dependency on `cni` when Cilium is the driver).
+- Flux documentation — https://fluxcd.io/flux/
+
 ## Reference
+
+The full module interface — every input, output, and resource — is
+listed below. Override any input from your context by adding a tfvars
+file at `contexts/<context>/terraform/gitops.tfvars`.
 
 <!-- BEGIN_TF_DOCS -->
 ### Requirements

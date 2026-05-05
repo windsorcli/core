@@ -14,27 +14,6 @@ provider. The Flux-managed HelmRelease in
 release on its first reconcile and owns day-2 features (Hubble,
 Gateway API, Prometheus, L2 announcer) from then on.
 
-## Flow
-
-```mermaid
-flowchart LR
-    tf[terraform/cni/cilium<br/>_helm provider_]
-    flux[Flux helm-controller<br/>_after Flux is up_]
-    fluxhr[HelmRelease CR<br/>kustomize/cni/cilium]
-
-    subgraph kubesystem[kube-system _release storage_]
-        release[(cilium release)]
-        agent[cilium-agent DaemonSet]
-        operator[cilium-operator]
-    end
-
-    tf -->|installs baseline| release
-    fluxhr -.adopts release.-> release
-    flux -->|reconciles day-2 config| fluxhr
-    release --> agent
-    release --> operator
-```
-
 ## Wiring
 
 Auto-wired on Talos by
