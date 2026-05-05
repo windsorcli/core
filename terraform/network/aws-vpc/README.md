@@ -1,4 +1,71 @@
+---
+title: network/aws-vpc
+description: Provisions the AWS VPC, subnets, NAT, and optional VPC-attached private Route53 zone that an EKS cluster sits on.
+---
+
+# network/aws-vpc
+
+Provisions the AWS networking foundation for a Windsor cluster on EKS:
+a VPC, three subnet tiers (public, private, isolated) per availability
+zone, an Internet Gateway, NAT gateway(s), routing tables, and
+(optionally) VPC flow logs and a VPC-attached private Route53 zone.
+Its outputs are consumed by [`cluster/aws-eks`](../../cluster/aws-eks/)
+(VPC + subnets), the [`lb-base` add-on](../../../kustomize/lb/) (VPC
+ID for the AWS Load Balancer Controller), and external-dns when the
+cluster runs in private-DNS mode (private zone ID).
+
+## Wiring
+
+Wired by [platform-aws.yaml](../../../contexts/_template/facets/platform-aws.yaml).
+The facet only sets two inputs; the rest of the module's variables
+(subnet sizing, NAT topology, flow logs, KMS) keep their module
+defaults.
+
+```yaml
+terraform:
+  - name: network
+    path: network/aws-vpc
+    dependsOn:
+      - backend
+    inputs:
+      cidr_block: 10.0.0.0/16
+      domain_name: prod.example.com    # optional
+```
+
+How those flow from `values.yaml`:
+
+- `cidr_block` — `network.cidr_block`. Subnets are carved out of this CIDR; the default `subnet_newbits` and `availability_zones` settings on the module determine how.
+- `domain_name` — `dns.private_domain` (passed only when set). When non-null, the module creates a VPC-attached `aws_route53_zone "main"` named after the domain. Without `dns.private_domain` set, no private Route53 zone is created and `private_zone_id` / `private_zone_name` outputs are `null`.
+
+The `backend` Terraform dep ensures the S3 backend (and DynamoDB lock
+table) exist before this module's state is written.
+
+## Security
+
+VPC flow logs are on by default (`enable_flow_logs: true`). The module
+also provisions a CloudWatch log group, an IAM role for the flow-logs
+delivery, and (optionally) a customer-managed KMS key
+(`create_flow_logs_kms_key: true`) used to encrypt the log group. The
+default security group attached to the VPC has all rules revoked by
+`aws_default_security_group "default"` — workloads must attach to
+explicitly-defined security groups.
+
+The private Route53 zone is created with `force_destroy: true` so
+teardown removes the zone even if external-dns hasn't finished
+deleting records before the cluster API goes down.
+
+## See also
+
+- [cluster/aws-eks](../../cluster/aws-eks/) — consumes `vpc_id` and `private_subnet_ids`.
+- [`lb-base` add-on](../../../kustomize/lb/) — the AWS Load Balancer Controller consumes `vpc_id` to discover subnets and tag-based reconciliation scope.
+- [`dns` add-on](../../../kustomize/dns/) — external-dns's Route 53 provider consumes `private_zone_id` when running in private-DNS mode (`gateway.access: private`).
+- [platform-aws.yaml](../../../contexts/_template/facets/platform-aws.yaml) — facet wiring.
+
 ## Reference
+
+The full module interface — every input, output, and resource — is
+listed below. Override any input from your context by adding a tfvars
+file at `contexts/<context>/terraform/network.tfvars`.
 
 <!-- BEGIN_TF_DOCS -->
 ### Requirements
