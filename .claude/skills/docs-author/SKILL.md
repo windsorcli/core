@@ -41,8 +41,32 @@ Exact glob roots are finalized with the website `docs:vendor` script; treat the 
 
 ## Terraform reference
 
-- Generate from modules in this repo (e.g. `terraform-docs` or project script); commit or CI output under `docs/reference/terraform/<module-path>/` mirroring repo paths consumers use in `blueprint.yaml` (`cluster/talos`, `gitops/flux`, etc.).
-- Inputs, outputs, and gotchas belong here; high-level “what is Terraform in Windsor” stays on the site under `/docs/components/terraform`.
+Per-module README at `terraform/<module>/README.md`. Each is split into a
+hand-authored prose section above the `<!-- BEGIN_TF_DOCS -->` marker and
+the auto-generated terraform-docs reference between markers. `task docs`
+uses `terraform-docs --output-mode inject` so the prose survives
+regeneration.
+
+Section order for the prose (cousin of the Kustomize add-on template,
+adapted for Terraform):
+
+1. **Frontmatter + purpose** — `title: <module-path>` and a one-line description; one-paragraph elevator pitch under the H1.
+2. **Wiring** — what materializes in a blueprint when the module fires. Show a concrete `terraform:` block with realistic input values (not raw facet expressions), then explain in prose how each input flows from `values.yaml` through the facet — naming the relevant schema fields (e.g. "follows the top-level `topology` field") and calling out inputs that aren't user-tunable when relevant ("set by the facet on the Talos path, not exposed as a user knob"). Describe gating in user-facing schema terms (e.g. "rendered on Talos clusters (`cluster.driver: talos`)") — never `talos_provisioned`, `eks_enabled`, `cni_effective`, or other internal facet derivations. Reach for a table only if the mapping is dense or many inputs need parallel structure; for most modules a few sentences are clearer.
+3. **Dependencies** — other Terraform modules this `dependsOn`, plus relevant Kustomize add-ons (forward and reverse).
+4. **Operations (optional)** — only include if there are **verified, observed** failure modes worth documenting. Reference docs aren't the place to brainstorm "what could go wrong if a value is set to X" by reading the source — that's speculation, and a reader who hits a *different* error and doesn't find it here is misled into thinking the module is well-trodden when it isn't. Leave the section out for new modules; add it as real issues come up. When you do include it, lead with the symptom (error string, observed behaviour) and follow with a verified fix.
+5. **Security (optional)** — only state what's verifiable from the module source: namespace, capabilities/privilege flags, what the module reads or writes. Don't claim how credentials or kubeconfig flow unless that's visible in the module itself; provider plumbing typically lives outside the module and is not safe to characterize from inside.
+6. **See also** — sibling modules and the cousin Kustomize add-on(s).
+7. **Override-path callout** — a one-line blockquote immediately above `<!-- BEGIN_TF_DOCS -->` reminding readers they can override any input below from their context. Format: `> Override any input below from your context without editing the blueprint by adding contexts/<context>/terraform/<file>.tfvars (named after the blueprint entry's name).` The `<file>` portion is the entry's `name` if present (e.g. `cni.tfvars`); otherwise the `path` with `/` preserved (e.g. `cni/cilium.tfvars`). Use the specific path for this module, not the general rule.
+
+8. **Auto-generated reference** (existing, between `BEGIN_TF_DOCS`/`END_TF_DOCS` markers — kept by `task docs`).
+
+Add a Mermaid diagram where it actually clarifies something — typically when the module participates in a multi-actor handoff (e.g. `cni/cilium` bootstrapping then handing off to Flux), orchestrates a non-obvious resource graph (`cluster/talos`, `cluster/aws-eks`), or has a complex enough lifecycle that prose alone reads as a tangle. Skip for modules that are straightforward recipes of resources.
+
+Don't claim platform support for paths that aren't validated by tests. If a module has wiring on a platform that isn't exercised end-to-end, omit it from the README — the wiring exists in the facet for those who go looking.
+
+For the auto-generated section: don't hand-edit. If the variable / output descriptions read awkwardly (e.g. mention untested platforms), fix them in the source `variables.tf` / `outputs.tf` and re-run `task docs`.
+
+High-level "what is Terraform in Windsor" stays on the site under `/docs/components/terraform`.
 
 ## Kustomize stack operator guide (per top-level stack)
 

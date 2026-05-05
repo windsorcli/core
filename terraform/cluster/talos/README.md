@@ -1,19 +1,21 @@
+## Reference
+
 <!-- BEGIN_TF_DOCS -->
-## Requirements
+### Requirements
 
 | Name | Version |
 |------|---------|
 | <a name="requirement_terraform"></a> [terraform](#requirement\_terraform) | >=1.8 |
 | <a name="requirement_talos"></a> [talos](#requirement\_talos) | 0.11.0 |
 
-## Providers
+### Providers
 
 | Name | Version |
 |------|---------|
 | <a name="provider_local"></a> [local](#provider\_local) | 2.6.1 |
 | <a name="provider_talos"></a> [talos](#provider\_talos) | 0.11.0 |
 
-## Modules
+### Modules
 
 | Name | Source | Version |
 |------|--------|---------|
@@ -21,7 +23,7 @@
 | <a name="module_controlplanes"></a> [controlplanes](#module\_controlplanes) | ./modules/machine | n/a |
 | <a name="module_workers"></a> [workers](#module\_workers) | ./modules/machine | n/a |
 
-## Resources
+### Resources
 
 | Name | Type |
 |------|------|
@@ -29,7 +31,7 @@
 | [talos_machine_secrets.this](https://registry.terraform.io/providers/siderolabs/talos/0.11.0/docs/resources/machine_secrets) | resource |
 | [talos_client_configuration.this](https://registry.terraform.io/providers/siderolabs/talos/0.11.0/docs/data-sources/client_configuration) | data source |
 
-## Inputs
+### Inputs
 
 | Name | Description | Type | Default | Required |
 |------|-------------|------|---------|:--------:|
@@ -49,7 +51,7 @@
 | <a name="input_worker_volumes"></a> [worker\_volumes](#input\_worker\_volumes) | Raw volume strings (path or host:dest). Talos extraMounts use the path (part after ':' if present). | `list(string)` | `[]` | no |
 | <a name="input_workers"></a> [workers](#input\_workers) | A list of machine configuration details | <pre>list(object({<br/>    endpoint = string<br/>    node     = string<br/>    disks    = optional(list(any), [])<br/>    disk_selector = optional(object({<br/>      busPath  = optional(string)<br/>      modalias = optional(string)<br/>      model    = optional(string)<br/>      name     = optional(string)<br/>      serial   = optional(string)<br/>      size     = optional(string)<br/>      type     = optional(string)<br/>      uuid     = optional(string)<br/>      wwid     = optional(string)<br/>    }))<br/>    wipe_disk         = optional(bool, true)<br/>    extra_kernel_args = optional(list(string), [])<br/>    config_patches    = optional(string, "")<br/>  }))</pre> | `[]` | no |
 
-## Outputs
+### Outputs
 
 No outputs.
 <!-- END_TF_DOCS -->

@@ -1,22 +1,24 @@
+## Reference
+
 <!-- BEGIN_TF_DOCS -->
-## Requirements
+### Requirements
 
 | Name | Version |
 |------|---------|
 | <a name="requirement_azurerm"></a> [azurerm](#requirement\_azurerm) | 4.71.0 |
 
-## Providers
+### Providers
 
 | Name | Version |
 |------|---------|
 | <a name="provider_azurerm"></a> [azurerm](#provider\_azurerm) | 4.71.0 |
 | <a name="provider_local"></a> [local](#provider\_local) | 2.6.1 |
 
-## Modules
+### Modules
 
 No modules.
 
-## Resources
+### Resources
 
 | Name | Type |
 |------|------|
@@ -26,7 +28,7 @@ No modules.
 | [azurerm_user_assigned_identity.storage](https://registry.terraform.io/providers/hashicorp/azurerm/4.71.0/docs/resources/user_assigned_identity) | resource |
 | [local_file.backend_config](https://registry.terraform.io/providers/hashicorp/local/latest/docs/resources/file) | resource |
 
-## Inputs
+### Inputs
 
 | Name | Description | Type | Default | Required |
 |------|-------------|------|---------|:--------:|
@@ -42,7 +44,7 @@ No modules.
 | <a name="input_storage_account_name"></a> [storage\_account\_name](#input\_storage\_account\_name) | Name of the storage account. If not provided, a default name will be generated | `string` | `""` | no |
 | <a name="input_tags"></a> [tags](#input\_tags) | Additional tags to apply to resources | `map(string)` | `{}` | no |
 
-## Outputs
+### Outputs
 
 No outputs.
 <!-- END_TF_DOCS -->

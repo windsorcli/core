@@ -1,23 +1,25 @@
+## Reference
+
 <!-- BEGIN_TF_DOCS -->
-## Requirements
+### Requirements
 
 | Name | Version |
 |------|---------|
 | <a name="requirement_terraform"></a> [terraform](#requirement\_terraform) | >= 1.10 |
 | <a name="requirement_aws"></a> [aws](#requirement\_aws) | 6.43.0 |
 
-## Providers
+### Providers
 
 | Name | Version |
 |------|---------|
 | <a name="provider_aws"></a> [aws](#provider\_aws) | 6.43.0 |
 | <a name="provider_local"></a> [local](#provider\_local) | 2.8.0 |
 
-## Modules
+### Modules
 
 No modules.
 
-## Resources
+### Resources
 
 | Name | Type |
 |------|------|
@@ -34,7 +36,7 @@ No modules.
 | [aws_caller_identity.current](https://registry.terraform.io/providers/hashicorp/aws/6.43.0/docs/data-sources/caller_identity) | data source |
 | [aws_region.current](https://registry.terraform.io/providers/hashicorp/aws/6.43.0/docs/data-sources/region) | data source |
 
-## Inputs
+### Inputs
 
 | Name | Description | Type | Default | Required |
 |------|-------------|------|---------|:--------:|
@@ -48,7 +50,7 @@ No modules.
 | <a name="input_tags"></a> [tags](#input\_tags) | Additional tags to apply to resources (default is empty). | `map(string)` | `{}` | no |
 | <a name="input_terraform_state_iam_roles"></a> [terraform\_state\_iam\_roles](#input\_terraform\_state\_iam\_roles) | List of IAM role ARNs that should have access to the Terraform state bucket | `list(string)` | `[]` | no |
 
-## Outputs
+### Outputs
 
 No outputs.
 <!-- END_TF_DOCS -->

@@ -46,26 +46,28 @@ logs to us-east-1), a resource policy granting Route53
 configurable via `query_log_retention_days`. CloudWatch ingestion
 plus storage cost scales with query volume.
 
+## Reference
+
 <!-- BEGIN_TF_DOCS -->
-## Requirements
+### Requirements
 
 | Name | Version |
 |------|---------|
 | <a name="requirement_terraform"></a> [terraform](#requirement\_terraform) | >=1.8 |
 | <a name="requirement_aws"></a> [aws](#requirement\_aws) | 6.43.0 |
 
-## Providers
+### Providers
 
 | Name | Version |
 |------|---------|
 | <a name="provider_aws"></a> [aws](#provider\_aws) | 6.43.0 |
 | <a name="provider_aws.us_east_1"></a> [aws.us\_east\_1](#provider\_aws.us\_east\_1) | 6.43.0 |
 
-## Modules
+### Modules
 
 No modules.
 
-## Resources
+### Resources
 
 | Name | Type |
 |------|------|
@@ -78,7 +80,7 @@ No modules.
 | [aws_route53_zone.main](https://registry.terraform.io/providers/hashicorp/aws/6.43.0/docs/resources/route53_zone) | resource |
 | [aws_caller_identity.current](https://registry.terraform.io/providers/hashicorp/aws/6.43.0/docs/data-sources/caller_identity) | data source |
 
-## Inputs
+### Inputs
 
 | Name | Description | Type | Default | Required |
 |------|-------------|------|---------|:--------:|
@@ -89,7 +91,7 @@ No modules.
 | <a name="input_query_log_retention_days"></a> [query\_log\_retention\_days](#input\_query\_log\_retention\_days) | Retention (days) for the query log group. Ignored when enable\_query\_logging is false. | `number` | `30` | no |
 | <a name="input_tags"></a> [tags](#input\_tags) | Additional tags applied to the hosted zone. | `map(string)` | `{}` | no |
 
-## Outputs
+### Outputs
 
 | Name | Description |
 |------|-------------|

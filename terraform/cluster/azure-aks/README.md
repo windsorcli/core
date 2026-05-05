@@ -50,8 +50,10 @@ terraform state list | grep azurerm_role_assignment.external_dns_zones | \
 
 The next apply will then only show creates.
 
+## Reference
+
 <!-- BEGIN_TF_DOCS -->
-## Requirements
+### Requirements
 
 | Name | Version |
 |------|---------|
@@ -59,7 +61,7 @@ The next apply will then only show creates.
 | <a name="requirement_azurerm"></a> [azurerm](#requirement\_azurerm) | ~> 4.71.0 |
 | <a name="requirement_null"></a> [null](#requirement\_null) | ~> 3.2 |
 
-## Providers
+### Providers
 
 | Name | Version |
 |------|---------|
@@ -68,11 +70,11 @@ The next apply will then only show creates.
 | <a name="provider_random"></a> [random](#provider\_random) | 3.8.1 |
 | <a name="provider_time"></a> [time](#provider\_time) | 0.13.1 |
 
-## Modules
+### Modules
 
 No modules.
 
-## Resources
+### Resources
 
 | Name | Type |
 |------|------|
@@ -109,7 +111,7 @@ No modules.
 | [azurerm_client_config.current](https://registry.terraform.io/providers/hashicorp/azurerm/latest/docs/data-sources/client_config) | data source |
 | [azurerm_subscription.current](https://registry.terraform.io/providers/hashicorp/azurerm/latest/docs/data-sources/subscription) | data source |
 
-## Inputs
+### Inputs
 
 | Name | Description | Type | Default | Required |
 |------|-------------|------|---------|:--------:|
@@ -160,7 +162,7 @@ No modules.
 | <a name="input_workload_autoscaler_profile"></a> [workload\_autoscaler\_profile](#input\_workload\_autoscaler\_profile) | Configuration for the AKS cluster's workload autoscaler | <pre>object({<br/>    keda_enabled                    = bool<br/>    vertical_pod_autoscaler_enabled = bool<br/>  })</pre> | <pre>{<br/>  "keda_enabled": false,<br/>  "vertical_pod_autoscaler_enabled": false<br/>}</pre> | no |
 | <a name="input_workload_identity_enabled"></a> [workload\_identity\_enabled](#input\_workload\_identity\_enabled) | Enable Workload Identity for the AKS cluster | `bool` | `true` | no |
 
-## Outputs
+### Outputs
 
 | Name | Description |
 |------|-------------|

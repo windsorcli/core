@@ -1,5 +1,7 @@
+## Reference
+
 <!-- BEGIN_TF_DOCS -->
-## Requirements
+### Requirements
 
 | Name | Version |
 |------|---------|
@@ -8,7 +10,7 @@
 | <a name="requirement_kubernetes"></a> [kubernetes](#requirement\_kubernetes) | 3.1.0 |
 | <a name="requirement_random"></a> [random](#requirement\_random) | 3.8.1 |
 
-## Providers
+### Providers
 
 | Name | Version |
 |------|---------|
@@ -16,11 +18,11 @@
 | <a name="provider_kubernetes"></a> [kubernetes](#provider\_kubernetes) | 3.1.0 |
 | <a name="provider_random"></a> [random](#provider\_random) | 3.8.1 |
 
-## Modules
+### Modules
 
 No modules.
 
-## Resources
+### Resources
 
 | Name | Type |
 |------|------|
@@ -30,7 +32,7 @@ No modules.
 | [kubernetes_secret_v1.webhook_token](https://registry.terraform.io/providers/hashicorp/kubernetes/3.1.0/docs/resources/secret_v1) | resource |
 | [random_password.webhook_token](https://registry.terraform.io/providers/hashicorp/random/3.8.1/docs/resources/password) | resource |
 
-## Inputs
+### Inputs
 
 | Name | Description | Type | Default | Required |
 |------|-------------|------|---------|:--------:|
@@ -50,7 +52,7 @@ No modules.
 | <a name="input_ssh_public_key"></a> [ssh\_public\_key](#input\_ssh\_public\_key) | The public key to use for SSH authentication | `string` | `""` | no |
 | <a name="input_webhook_token"></a> [webhook\_token](#input\_webhook\_token) | Token used by the Flux notification-controller Receiver. When null or empty, a random 48-char token is generated and persisted in state. | `string` | `null` | no |
 
-## Outputs
+### Outputs
 
 No outputs.
 <!-- END_TF_DOCS -->

@@ -1,22 +1,24 @@
+## Reference
+
 <!-- BEGIN_TF_DOCS -->
-## Requirements
+### Requirements
 
 | Name | Version |
 |------|---------|
 | <a name="requirement_terraform"></a> [terraform](#requirement\_terraform) | >=1.8 |
 | <a name="requirement_azurerm"></a> [azurerm](#requirement\_azurerm) | ~> 4.71.0 |
 
-## Providers
+### Providers
 
 | Name | Version |
 |------|---------|
 | <a name="provider_azurerm"></a> [azurerm](#provider\_azurerm) | 4.71.0 |
 
-## Modules
+### Modules
 
 No modules.
 
-## Resources
+### Resources
 
 | Name | Type |
 |------|------|
@@ -34,7 +36,7 @@ No modules.
 | [azurerm_subnet_route_table_association.private](https://registry.terraform.io/providers/hashicorp/azurerm/latest/docs/resources/subnet_route_table_association) | resource |
 | [azurerm_virtual_network.main](https://registry.terraform.io/providers/hashicorp/azurerm/latest/docs/resources/virtual_network) | resource |
 
-## Inputs
+### Inputs
 
 | Name | Description | Type | Default | Required |
 |------|-------------|------|---------|:--------:|
@@ -50,7 +52,7 @@ No modules.
 | <a name="input_vnet_subnets"></a> [vnet\_subnets](#input\_vnet\_subnets) | Subnets to create in the VNET | `map(list(string))` | <pre>{<br/>  "isolated": [],<br/>  "private": [],<br/>  "public": []<br/>}</pre> | no |
 | <a name="input_vnet_zones"></a> [vnet\_zones](#input\_vnet\_zones) | Number of availability zones to create. Only used if vnet\_subnets is not defined | `number` | `1` | no |
 
-## Outputs
+### Outputs
 
 | Name | Description |
 |------|-------------|

@@ -1,5 +1,7 @@
+## Reference
+
 <!-- BEGIN_TF_DOCS -->
-## Requirements
+### Requirements
 
 | Name | Version |
 |------|---------|
@@ -7,18 +9,18 @@
 | <a name="requirement_aws"></a> [aws](#requirement\_aws) | 6.43.0 |
 | <a name="requirement_kubernetes"></a> [kubernetes](#requirement\_kubernetes) | 3.1.0 |
 
-## Providers
+### Providers
 
 | Name | Version |
 |------|---------|
 | <a name="provider_aws"></a> [aws](#provider\_aws) | 6.43.0 |
 | <a name="provider_kubernetes"></a> [kubernetes](#provider\_kubernetes) | 3.1.0 |
 
-## Modules
+### Modules
 
 No modules.
 
-## Resources
+### Resources
 
 | Name | Type |
 |------|------|
@@ -26,7 +28,7 @@ No modules.
 | [kubernetes_namespace_v1.system_dns](https://registry.terraform.io/providers/hashicorp/kubernetes/3.1.0/docs/resources/namespace_v1) | resource |
 | [aws_region.current](https://registry.terraform.io/providers/hashicorp/aws/6.43.0/docs/data-sources/region) | data source |
 
-## Inputs
+### Inputs
 
 | Name | Description | Type | Default | Required |
 |------|-------------|------|---------|:--------:|
@@ -35,7 +37,7 @@ No modules.
 | <a name="input_external_dns_role_arn"></a> [external\_dns\_role\_arn](#input\_external\_dns\_role\_arn) | ARN of the IAM role for external-dns. If not provided, will be looked up from the cluster. | `string` | `null` | no |
 | <a name="input_route53_region"></a> [route53\_region](#input\_route53\_region) | AWS region where the Route53 hosted zone is located. If not provided, will use the cluster's region. | `string` | `null` | no |
 
-## Outputs
+### Outputs
 
 No outputs.
 <!-- END_TF_DOCS -->

@@ -1,22 +1,24 @@
+## Reference
+
 <!-- BEGIN_TF_DOCS -->
-## Requirements
+### Requirements
 
 | Name | Version |
 |------|---------|
 | <a name="requirement_terraform"></a> [terraform](#requirement\_terraform) | >=1.8 |
 | <a name="requirement_docker"></a> [docker](#requirement\_docker) | 4.2.0 |
 
-## Providers
+### Providers
 
 | Name | Version |
 |------|---------|
 | <a name="provider_docker"></a> [docker](#provider\_docker) | 4.2.0 |
 
-## Modules
+### Modules
 
 No modules.
 
-## Resources
+### Resources
 
 | Name | Type |
 |------|------|
@@ -28,7 +30,7 @@ No modules.
 | [docker_image.registry](https://registry.terraform.io/providers/kreuzwerker/docker/4.2.0/docs/resources/image) | resource |
 | [docker_network.main](https://registry.terraform.io/providers/kreuzwerker/docker/4.2.0/docs/resources/network) | resource |
 
-## Inputs
+### Inputs
 
 | Name | Description | Type | Default | Required |
 |------|-------------|------|---------|:--------:|
@@ -57,7 +59,7 @@ No modules.
 | <a name="input_webhook_port"></a> [webhook\_port](#input\_webhook\_port) | Port for the git livereload webhook URL. Use NodePort in docker-desktop mode when gateway is exposed via NodePort. | `number` | `9292` | no |
 | <a name="input_webhook_token"></a> [webhook\_token](#input\_webhook\_token) | Raw token for the Flux Receiver secret. The webhook URL is derived by hashing this with the receiver name and namespace. | `string` | `"abcdef123456"` | no |
 
-## Outputs
+### Outputs
 
 | Name | Description |
 |------|-------------|

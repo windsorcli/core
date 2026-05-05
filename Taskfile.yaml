@@ -91,7 +91,7 @@ tasks:
             continue
           fi
           echo "Generating docs for $dir"
-          docker run --rm -v "$(pwd):/src" -w "/src/$dir" quay.io/terraform-docs/terraform-docs:0.20.0 markdown table --output-file README.md --output-mode inject .
+          docker run --rm -v "$(pwd):/src" -w "/src/$dir" quay.io/terraform-docs/terraform-docs:0.20.0 markdown table --indent 3 --output-file README.md --output-mode inject .
           done
 
   docs:reference:kustomize:

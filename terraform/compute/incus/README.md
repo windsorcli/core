@@ -1,5 +1,7 @@
+## Reference
+
 <!-- BEGIN_TF_DOCS -->
-## Requirements
+### Requirements
 
 | Name | Version |
 |------|---------|
@@ -7,20 +9,20 @@
 | <a name="requirement_incus"></a> [incus](#requirement\_incus) | ~> 1.0.2 |
 | <a name="requirement_null"></a> [null](#requirement\_null) | ~> 3.2 |
 
-## Providers
+### Providers
 
 | Name | Version |
 |------|---------|
 | <a name="provider_incus"></a> [incus](#provider\_incus) | 1.0.2 |
 | <a name="provider_terraform"></a> [terraform](#provider\_terraform) | n/a |
 
-## Modules
+### Modules
 
 | Name | Source | Version |
 |------|--------|---------|
 | <a name="module_instances"></a> [instances](#module\_instances) | ./modules/instance | n/a |
 
-## Resources
+### Resources
 
 | Name | Type |
 |------|------|
@@ -30,7 +32,7 @@
 | [incus_storage_volume.disks](https://registry.terraform.io/providers/lxc/incus/latest/docs/resources/storage_volume) | resource |
 | [terraform_data.ip_validation](https://registry.terraform.io/providers/hashicorp/terraform/latest/docs/resources/data) | resource |
 
-## Inputs
+### Inputs
 
 | Name | Description | Type | Default | Required |
 |------|-------------|------|---------|:--------:|
@@ -49,7 +51,7 @@
 | <a name="input_remote"></a> [remote](#input\_remote) | Name of the Incus remote to use. If not set, uses provider default (usually 'local'). | `string` | `null` | no |
 | <a name="input_storage_pools"></a> [storage\_pools](#input\_storage\_pools) | Map of storage pools to create. Key is pool name, value contains driver, optional source, and config. Pools with null driver are skipped (allows conditional pool creation). The 'default' pool is assumed to exist. | <pre>map(object({<br/>    driver = optional(string)          # Storage driver: dir, zfs, btrfs, lvm, ceph. Null = skip pool creation.<br/>    source = optional(string)          # Source device/path for the pool (driver-specific)<br/>    size   = optional(string)          # Pool size (for loop-file backed pools)<br/>    config = optional(map(string), {}) # Driver-specific configuration options<br/>  }))</pre> | `{}` | no |
 
-## Outputs
+### Outputs
 
 | Name | Description |
 |------|-------------|

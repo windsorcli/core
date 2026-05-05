@@ -1,22 +1,24 @@
+## Reference
+
 <!-- BEGIN_TF_DOCS -->
-## Requirements
+### Requirements
 
 | Name | Version |
 |------|---------|
 | <a name="requirement_terraform"></a> [terraform](#requirement\_terraform) | >=1.8 |
 | <a name="requirement_docker"></a> [docker](#requirement\_docker) | 4.2.0 |
 
-## Providers
+### Providers
 
 | Name | Version |
 |------|---------|
 | <a name="provider_docker"></a> [docker](#provider\_docker) | 4.2.0 |
 
-## Modules
+### Modules
 
 No modules.
 
-## Resources
+### Resources
 
 | Name | Type |
 |------|------|
@@ -25,7 +27,7 @@ No modules.
 | [docker_network.main](https://registry.terraform.io/providers/kreuzwerker/docker/4.2.0/docs/resources/network) | resource |
 | [docker_volume.named](https://registry.terraform.io/providers/kreuzwerker/docker/4.2.0/docs/resources/volume) | resource |
 
-## Inputs
+### Inputs
 
 | Name | Description | Type | Default | Required |
 |------|-------------|------|---------|:--------:|
@@ -42,7 +44,7 @@ No modules.
 | <a name="input_runtime"></a> [runtime](#input\_runtime) | Docker host runtime: docker-desktop (localhost-only networking, no VM control) or colima/docker/linux (advanced networking, IP routing). 'colima' and 'docker' are aliases for 'linux'. Standardized with workstation/docker. | `string` | `"linux"` | no |
 | <a name="input_start_ip"></a> [start\_ip](#input\_start\_ip) | First container IP for sequential assignment. When create\_network is false (e.g. workstation), use terraform\_output(workstation, next\_ip). With network\_cidr, all containers get sequential IPs from this address. | `string` | `null` | no |
 
-## Outputs
+### Outputs
 
 | Name | Description |
 |------|-------------|

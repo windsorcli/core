@@ -1,5 +1,7 @@
+## Reference
+
 <!-- BEGIN_TF_DOCS -->
-## Requirements
+### Requirements
 
 | Name | Version |
 |------|---------|
@@ -7,18 +9,18 @@
 | <a name="requirement_incus"></a> [incus](#requirement\_incus) | 1.0.2 |
 | <a name="requirement_local"></a> [local](#requirement\_local) | 2.8.0 |
 
-## Providers
+### Providers
 
 | Name | Version |
 |------|---------|
 | <a name="provider_incus"></a> [incus](#provider\_incus) | 1.0.2 |
 | <a name="provider_local"></a> [local](#provider\_local) | 2.8.0 |
 
-## Modules
+### Modules
 
 No modules.
 
-## Resources
+### Resources
 
 | Name | Type |
 |------|------|
@@ -29,7 +31,7 @@ No modules.
 | [local_file.corefile](https://registry.terraform.io/providers/hashicorp/local/2.8.0/docs/resources/file) | resource |
 | [local_file.registry_cache_dir](https://registry.terraform.io/providers/hashicorp/local/2.8.0/docs/resources/file) | resource |
 
-## Inputs
+### Inputs
 
 | Name | Description | Type | Default | Required |
 |------|-------------|------|---------|:--------:|
@@ -58,7 +60,7 @@ No modules.
 | <a name="input_webhook_port"></a> [webhook\_port](#input\_webhook\_port) | Port for the git livereload webhook URL. | `number` | `9292` | no |
 | <a name="input_webhook_token"></a> [webhook\_token](#input\_webhook\_token) | Raw token for the Flux Receiver secret. The webhook URL is derived by hashing this with the receiver name and namespace. | `string` | `"abcdef123456"` | no |
 
-## Outputs
+### Outputs
 
 | Name | Description |
 |------|-------------|

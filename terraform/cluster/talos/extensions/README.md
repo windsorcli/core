@@ -1,5 +1,7 @@
+## Reference
+
 <!-- BEGIN_TF_DOCS -->
-## Requirements
+### Requirements
 
 | Name | Version |
 |------|---------|
@@ -7,18 +9,18 @@
 | <a name="requirement_null"></a> [null](#requirement\_null) | ~> 3.2 |
 | <a name="requirement_talos"></a> [talos](#requirement\_talos) | 0.11.0 |
 
-## Providers
+### Providers
 
 | Name | Version |
 |------|---------|
 | <a name="provider_null"></a> [null](#provider\_null) | ~> 3.2 |
 | <a name="provider_talos"></a> [talos](#provider\_talos) | 0.11.0 |
 
-## Modules
+### Modules
 
 No modules.
 
-## Resources
+### Resources
 
 | Name | Type |
 |------|------|
@@ -26,7 +28,7 @@ No modules.
 | [null_resource.upgrade_worker](https://registry.terraform.io/providers/hashicorp/null/latest/docs/resources/resource) | resource |
 | [talos_image_factory_schematic.this](https://registry.terraform.io/providers/siderolabs/talos/0.11.0/docs/resources/image_factory_schematic) | resource |
 
-## Inputs
+### Inputs
 
 | Name | Description | Type | Default | Required |
 |------|-------------|------|---------|:--------:|
@@ -36,7 +38,7 @@ No modules.
 | <a name="input_talos_version"></a> [talos\_version](#input\_talos\_version) | The talos version to deploy. | `string` | n/a | yes |
 | <a name="input_workers"></a> [workers](#input\_workers) | List of worker nodes to upgrade. Only node and endpoint are required. | <pre>list(object({<br/>    node     = string<br/>    endpoint = string<br/>  }))</pre> | `[]` | no |
 
-## Outputs
+### Outputs
 
 No outputs.
 <!-- END_TF_DOCS -->

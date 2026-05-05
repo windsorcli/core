@@ -1,12 +1,14 @@
+## Reference
+
 <!-- BEGIN_TF_DOCS -->
-## Requirements
+### Requirements
 
 | Name | Version |
 |------|---------|
 | <a name="requirement_terraform"></a> [terraform](#requirement\_terraform) | >=1.8 |
 | <a name="requirement_aws"></a> [aws](#requirement\_aws) | 6.43.0 |
 
-## Providers
+### Providers
 
 | Name | Version |
 |------|---------|
@@ -14,11 +16,11 @@
 | <a name="provider_local"></a> [local](#provider\_local) | 2.6.1 |
 | <a name="provider_null"></a> [null](#provider\_null) | 3.2.4 |
 
-## Modules
+### Modules
 
 No modules.
 
-## Resources
+### Resources
 
 | Name | Type |
 |------|------|
@@ -69,7 +71,7 @@ No modules.
 | [aws_eks_addon_version.default](https://registry.terraform.io/providers/hashicorp/aws/6.43.0/docs/data-sources/eks_addon_version) | data source |
 | [aws_region.current](https://registry.terraform.io/providers/hashicorp/aws/6.43.0/docs/data-sources/region) | data source |
 
-## Inputs
+### Inputs
 
 | Name | Description | Type | Default | Required |
 |------|-------------|------|---------|:--------:|
@@ -102,7 +104,7 @@ No modules.
 | <a name="input_vpc_cni_config"></a> [vpc\_cni\_config](#input\_vpc\_cni\_config) | Configuration for the VPC CNI addon | <pre>object({<br/>    enable_prefix_delegation = bool<br/>    warm_prefix_target       = number<br/>    warm_ip_target           = number<br/>    minimum_ip_target        = number<br/>  })</pre> | <pre>{<br/>  "enable_prefix_delegation": true,<br/>  "minimum_ip_target": 3,<br/>  "warm_ip_target": 1,<br/>  "warm_prefix_target": 1<br/>}</pre> | no |
 | <a name="input_vpc_id"></a> [vpc\_id](#input\_vpc\_id) | ID of the VPC where the EKS cluster will be created. Pipe network/aws-vpc's vpc\_id output. | `string` | `null` | no |
 
-## Outputs
+### Outputs
 
 | Name | Description |
 |------|-------------|
