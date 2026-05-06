@@ -66,7 +66,7 @@ the host loopback.
 
 ### Local Cilium VM cluster
 
-Default `windsor up` topology. CoreDNS exposed via a LoadBalancer Service
+Default `windsor apply` topology. CoreDNS exposed via a LoadBalancer Service
 sharing the gateway IP through Cilium LBIPAM.
 
 ```yaml

@@ -58,7 +58,7 @@ The bucket policy can grant additional principals via
 `terraform_state_iam_roles` (a list of IAM role ARNs) or be replaced
 wholesale by `kms_policy_override`. Both are unset by the facet —
 defaults rely on the calling AWS principal (whoever runs
-`windsor up`) having direct bucket and KMS access.
+`windsor apply`) having direct bucket and KMS access.
 
 Optional access logging: when `s3_log_bucket_name` is set, the module
 emits `aws_s3_bucket_logging` against that pre-existing log bucket

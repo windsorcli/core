@@ -58,7 +58,7 @@ true` and `telemetry.metrics.enabled: true` (the platform-base defaults).
 If either is disabled, the corresponding `dependsOn` entry drops and the
 related conditional component (`cilium/prometheus`) is omitted.
 
-### Talos (default `windsor up`)
+### Talos (default `windsor apply`)
 
 ```yaml
 - name: cni
@@ -179,7 +179,7 @@ at the repo level.
 - **`cilium-operator` does not create a Gateway controller on Cilium clusters** — the Gateway API CRDs were not present when the operator started. The reverse dep `cni dependsOn gateway-base` (added by `option-gateway`) prevents this in fresh installs; if it fires post-install, restart `cilium-operator`.
 - **Cilium gateway Service has no LB IP** — the LBIPAM sharing annotations weren't injected. Verify the `cilium-gateway-lbipam-sharing` ClusterPolicy is `Ready` and the `cilium-lbipam-config` ConfigMap in `system-gateway` exists. The policy reads `gatewayIp` from that ConfigMap; without it the mutation fails open.
 - **`HelmRelease/cilium` reports `no matches for kind CiliumLoadBalancerIPPool`** — `cilium/l2` is enabled but the Cilium CRDs aren't ready. The Cilium chart installs them; the bootstrap path (Terraform → Flux adoption) means the CRDs come up with the agent. If this fires, the Flux reconcile is racing the chart install — re-reconcile.
-- **Re-running `windsor up` flaps Cilium between two replica counts** — Terraform `operator_replicas` and the Flux substitution differ. Both must derive from `topology` (single-node → 1, otherwise → 2).
+- **Re-running `windsor apply` flaps Cilium between two replica counts** — Terraform `operator_replicas` and the Flux substitution differ. Both must derive from `topology` (single-node → 1, otherwise → 2).
 
 Cilium's metrics ServiceMonitors are scraped by the `telemetry` add-on
 (`release: kube-prometheus-stack` label set by `cilium/prometheus`). Hubble

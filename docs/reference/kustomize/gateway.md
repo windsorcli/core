@@ -50,7 +50,7 @@ the CNI's own LBIPAM path).
 is rendered alongside it. Platform facets layer cloud-specific patches onto
 `gateway-base` (AWS NLB annotations, Azure SLB internal flip).
 
-### Local Cilium cluster (default `windsor up`)
+### Local Cilium cluster (default `windsor apply`)
 
 Cilium provides the Gateway implementation through the CNI; this add-on only
 supplies the GatewayClass and the Gateway/Certificate resources.
