@@ -1,25 +1,48 @@
+---
+title: dns/zone/route53
+description: Provisions a public Route53 hosted zone for cert-manager ACME and external-dns, with optional DNSSEC and query logging.
+---
+
 # dns/zone/route53
 
-Creates a public Route53 hosted zone for a domain. Kept independent of any
-network/cluster module so a domain can be provisioned standalone — useful
-for zone-only deployments and for cases where DNS infra has a different
-lifecycle than compute.
+Creates a public Route53 hosted zone for a domain. Kept independent
+of any network/cluster module so a domain can be provisioned
+standalone — useful for zone-only deployments and for cases where DNS
+infra has a different lifecycle than compute.
 
 The zone is consumed by:
 
-- **cert-manager (ACME Route53 solver)** — DNS-01 challenges for Let's
-  Encrypt certificates issued via the `public` ClusterIssuer.
-- **external-dns** — automatic publication of Gateway / Service hostnames
-  as Route53 records.
+- **cert-manager (Route53 ACME solver)** — DNS-01 challenges for Let's Encrypt certificates issued via the `public` ClusterIssuer.
+- **external-dns** — automatic publication of Gateway / Service hostnames as Route53 records.
 
-After apply, point your domain registrar at the `name_servers` output so
-public DNS queries resolve through this zone.
+After apply, point your domain registrar at the `name_servers` output
+so public DNS queries resolve through this zone. The `zone_id` output
+feeds [`cluster/aws-eks`](../../../cluster/aws-eks/)'s
+`cert_manager_hosted_zone_ids` so the cert-manager IAM policy is
+scoped to just this zone.
 
 `force_destroy` is set to `true` unconditionally so `windsor destroy`
 can tear the zone down even when it still has records (ACME challenge
 TXTs, external-dns entries) — the AWS provider reads `force_destroy`
 from state at delete time, so it has to be persisted from apply.
-Matches the `backend/s3` bucket pattern.
+Matches the [`backend/s3`](../../../backend/s3/) bucket pattern.
+
+## Wiring
+
+Wired by [platform-aws.yaml](../../../../contexts/_template/facets/platform-aws.yaml). The facet only emits this entry when the operator sets `dns.public_domain`.
+
+```yaml
+terraform:
+  - name: dns-zone
+    path: dns/zone/route53
+    when: "(dns.public_domain ?? '') != ''"
+    inputs:
+      domain_name: <dns.public_domain>
+```
+
+How those flow from `values.yaml`:
+
+- `domain_name` — `dns.public_domain`. Required; the zone is named after this domain.
 
 ## DNSSEC (`enable_dnssec`)
 
@@ -46,7 +69,17 @@ logs to us-east-1), a resource policy granting Route53
 configurable via `query_log_retention_days`. CloudWatch ingestion
 plus storage cost scales with query volume.
 
+## See also
+
+- [`cluster/aws-eks`](../../../cluster/aws-eks/) — consumes `zone_id` via the facet's `cert_manager_hosted_zone_ids` input to scope the cert-manager IAM policy to just this zone.
+- [`dns/zone/azure-dns`](../azure-dns/) — sister module for Azure.
+- [platform-aws.yaml](../../../../contexts/_template/facets/platform-aws.yaml) — facet wiring.
+
 ## Reference
+
+The full module interface — every input, output, and resource — is
+listed below. Override any input from your context by adding a tfvars
+file at `contexts/<context>/terraform/dns-zone.tfvars`.
 
 <!-- BEGIN_TF_DOCS -->
 ### Requirements

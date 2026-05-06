@@ -1,4 +1,81 @@
+---
+title: cluster/aws-eks
+description: Provisions the EKS control plane, managed node groups, IAM roles, Pod Identity associations, and a kubeconfig that the rest of the AWS stack runs on top of.
+---
+
+# cluster/aws-eks
+
+Provisions an Amazon EKS cluster on a VPC produced by
+[`network/aws-vpc`](../../network/aws-vpc/): the control plane, an
+IAM role for it, EKS managed node groups (or Fargate profiles), the
+EKS add-ons that need to live in cluster lifecycle (VPC CNI,
+CoreDNS, EBS/EFS CSI, Pod Identity Agent), the IAM roles + Pod
+Identity associations for cluster-scoped controllers (external-dns,
+AWS Load Balancer Controller, optional cert-manager), KMS keys for
+secrets and EBS volume encryption, and a kubeconfig file written into
+the active context.
+
+The kubeconfig is written via `local_sensitive_file.kubeconfig` to
+`<context_path>/.kube/config` at mode 0600 and is the file
+[`cluster-additions`](additions/) and downstream tools (`windsor
+exec --`, `kubectl`, Flux) authenticate against. The cluster
+endpoint, ARN, and CA data are also exported as outputs for
+downstream Terraform consumers.
+
+## Wiring
+
+Wired by [platform-aws.yaml](../../../contexts/_template/facets/platform-aws.yaml).
+The facet sets only the cluster's network inputs and a few feature
+toggles; pool sizing comes from the portable `cluster.pools` shape in
+`values.yaml`.
+
+```yaml
+terraform:
+  - name: cluster
+    path: cluster/aws-eks
+    dependsOn:
+      - network
+    inputs:
+      vpc_id: <from network output>
+      private_subnet_ids: <from network output>
+      manage_log_group: true                 # false on ephemeral contexts
+      create_cert_manager_role: false        # true when dns.public_domain is set
+      cert_manager_hosted_zone_ids: []       # scoped to the dns-zone module's zone when ACME is on
+      pools: {}                              # cluster.pools from values.yaml
+```
+
+How those flow from `values.yaml`:
+
+- `vpc_id` / `private_subnet_ids` — pulled from [`network/aws-vpc`](../../network/aws-vpc/) outputs via deferred `terraform_output(...)`. Set the VPC CIDR there, not here.
+- `manage_log_group` — `!ephemeral`. On ephemeral contexts the facet flips this off so EKS owns the control-plane log group instead of Terraform (avoids name-collision errors when the same context name is recreated).
+- `create_cert_manager_role` / `cert_manager_hosted_zone_ids` — driven by `dns.public_domain`. When the operator sets a public domain, ACME is in play; the facet creates the cert-manager IAM role and scopes its Route53 record-write policy to the zone provisioned by [`dns/zone/route53`](../../dns/zone/route53/). When the public domain is unset the role and policy are skipped entirely.
+- `pools` — `cluster.pools` from `values.yaml`. The portable pool shape (`class` + `count` + optional `lifecycle: spot`) maps onto an EKS managed node group per pool. When `cluster.pools` is empty, the module falls back to its `var.node_groups` default — a single `default` group of two `t3.xlarge` on-demand instances. `class` selects an instance-type list from `var.class_instance_types` (multi-type by default to ride out single-instance-type capacity shortages).
+
+The `network` Terraform dep ensures the VPC, subnets, and NAT
+gateways are in place before the EKS control plane attaches.
+
+## Security
+
+- **API endpoint.** Public access is on by default (`endpoint_public_access = true`, `endpoint_private_access = false`). The cluster security group ingresses 443/tcp from `cluster_api_access_cidr_block` (default `0.0.0.0/0`). Override these per-context for hardened deployments.
+- **Secrets encryption.** Enabled by default with a customer-managed KMS key (`aws_kms_key.eks_encryption_key`). Bring an existing key by setting `secrets_encryption_kms_key_id`; disable entirely with `enable_secrets_encryption = false`. The default KMS deletion window is 7 days — bump to 30 for PCI/SOC2/HIPAA via `kms_key_deletion_window_in_days`.
+- **EBS volume encryption.** Enabled by default for node group launch templates (`enable_ebs_encryption = true`). When no `ebs_volume_kms_key_id` is supplied, the module creates a cluster-specific KMS key (`aws_kms_key.ebs_encryption_key`).
+- **Control plane logs.** All five log types (`api`, `audit`, `authenticator`, `controllerManager`, `scheduler`) are emitted to CloudWatch when `enable_cloudwatch_logs` is true (the default). The log group is managed by Terraform when `manage_log_group` is true; the facet sets this false on ephemeral contexts so EKS can own the group instead.
+- **IAM via Pod Identity.** Cluster-scoped controllers (external-dns, AWS LB Controller, optional cert-manager) get IAM via `aws_eks_pod_identity_association` rather than IRSA. The associations bind the IAM roles to the Service Accounts the [`cluster-additions`](additions/) and add-on Helm releases create.
+
+## See also
+
+- [network/aws-vpc](../../network/aws-vpc/) — supplies `vpc_id` and `private_subnet_ids`.
+- [cluster/aws-eks/additions](additions/) — aws-auth ConfigMap entries, IRSA roles, and other post-cluster IAM glue. Always runs after this module; `destroy: false` so EKS deletion takes the IAM with it.
+- [`dns/zone/route53`](../../dns/zone/route53/) — when ACME is enabled the cluster's cert-manager role is scoped to this zone.
+- [cluster/azure-aks](../azure-aks/) — sister module for Azure (AKS).
+- [cluster/talos](../talos/) — sister module for self-managed Talos.
+- [platform-aws.yaml](../../../contexts/_template/facets/platform-aws.yaml) — facet wiring.
+
 ## Reference
+
+The full module interface — every input, output, and resource — is
+listed below. Override any input from your context by adding a tfvars
+file at `contexts/<context>/terraform/cluster.tfvars`.
 
 <!-- BEGIN_TF_DOCS -->
 ### Requirements

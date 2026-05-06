@@ -1,23 +1,61 @@
-# Azure AKS Module
+---
+title: cluster/azure-aks
+description: Provisions the AKS control plane, node pools, Workload Identity (UAMIs + Federated Credentials) for cert-manager and external-dns, KMS-backed disk encryption, and a kubeconfig that the rest of the Azure stack runs on top of.
+---
 
-This module creates an Azure Kubernetes Service (AKS) cluster with configurable node pools, networking, and security settings.
+# cluster/azure-aks
+
+Provisions an AKS cluster on a VNet produced by [`network/azure-vnet`](../../network/azure-vnet/): the managed control plane, the inline `system` (default) node pool, additional user pools from the portable `cluster.pools` shape, an autoscaled user pool, a customer-managed Key Vault key for disk encryption (with a `azurerm_disk_encryption_set` and the role assignments AKS needs to read it), Log Analytics + Container Insights diagnostic plumbing, and the User-Assigned Managed Identities + Federated Identity Credentials that wire cert-manager and external-dns into Workload Identity.
+
+The module also writes a kubeconfig into `<context_path>/.kube/config` and (when `kubelogin_mode` is set) runs a `kubelogin convert-kubeconfig` step against it so the file is usable with the chosen non-interactive login mode (e.g. `azurecli`, `workloadidentity`).
 
 ## Prerequisites
 
-The following features must be enabled in your Azure subscription before using this module:
+The `EncryptionAtHost` feature must be registered on the subscription before this module applies — the cluster's node pools enable `host_encryption_enabled = true` by default.
 
-- EncryptionAtHost feature for Microsoft.Compute provider
-  ```bash
-  az feature register --namespace Microsoft.Compute --name EncryptionAtHost
-  az provider register --namespace Microsoft.Compute
-  ```
+```bash
+az feature register --namespace Microsoft.Compute --name EncryptionAtHost
+az provider register --namespace Microsoft.Compute
+```
 
-### Subscription Requirements
+A paid Azure subscription is required: free-tier subscriptions don't have the vCPU quota, VM SKUs, or node-pool operations this module needs.
 
-This module requires a paid Azure subscription. Free tier subscriptions are not supported due to:
-- Insufficient vCPU quotas
-- Restricted VM sizes
-- Limited node pool operations
+## Wiring
+
+Wired by [platform-azure.yaml](../../../contexts/_template/facets/platform-azure.yaml). The facet only sets the cluster's network input plus a few feature toggles; pool sizing comes from the portable `cluster.pools` shape in `values.yaml`.
+
+```yaml
+terraform:
+  - name: cluster
+    path: cluster/azure-aks
+    dependsOn:
+      - network
+    inputs:
+      private_subnet_ids: <from network output>
+      create_cert_manager_identity: false        # true when dns.public_domain is set
+      cert_manager_dns_zone_ids: []              # scoped to the dns-zone module's zone when ACME is on
+      external_dns_dns_zone_ids: []              # public zone when public_domain set, private VNet zone when gateway.access: private
+      pools: {}                                  # cluster.pools from values.yaml
+```
+
+How those flow from `values.yaml`:
+
+- `private_subnet_ids` — pulled from [`network/azure-vnet`](../../network/azure-vnet/) outputs via deferred `terraform_output(...)`. The default (system) pool attaches to the first subnet, the autoscaled pool to the last.
+- `create_cert_manager_identity` / `cert_manager_dns_zone_ids` — driven by `dns.public_domain`. When set, the facet provisions the cert-manager UAMI + Federated Credential and scopes its DNS Zone Contributor assignment to the zone provisioned by [`dns/zone/azure-dns`](../../dns/zone/azure-dns/).
+- `external_dns_dns_zone_ids` — branches on `gateway.access`. With `private`, it points at the VNet-linked private zone created by [`network/azure-vnet`](../../network/azure-vnet/). With `public` (and `dns.public_domain` set), it points at the public zone from [`dns/zone/azure-dns`](../../dns/zone/azure-dns/). Empty otherwise.
+- `pools` — `cluster.pools` from `values.yaml`. The portable pool shape (`class` + `count` + optional `lifecycle: spot`) renders as additional `azurerm_kubernetes_cluster_node_pool.pools` resources alongside the inline default (system) pool. AKS accepts only one VM SKU per pool — `class` selects the first entry from `var.class_instance_types`; the remaining entries are operator preference order, not an AKS-enforced fallback.
+
+The `network` Terraform dep ensures the VNet, subnets, NAT, and (when `domain_name` was set) the private DNS zone are in place before AKS attaches.
+
+## Security
+
+- **API endpoint.** Public access is on by default (`public_network_access_enabled = true`, `endpoint_private_access = false`). Pass `authorized_ip_ranges` to lock the API server to specific CIDRs, or set `private_cluster_enabled = true` for a fully private cluster.
+- **Local accounts.** Disabled by default (`local_account_disabled = true`). When this is on you must set `admin_object_ids` to at least one Azure AD User or Group object ID, otherwise nobody can authenticate to the cluster.
+- **Disk encryption.** CMK-backed by default (`disk_encryption_enabled = true`). The module provisions a Key Vault, a key (`azurerm_key_vault_key.key_vault_key`), and a `azurerm_disk_encryption_set` referenced by both the control plane and node pools. Bring your own key by setting `key_vault_key_id`.
+- **Host encryption.** All pools enable `host_encryption_enabled = true` by default, which is why the `EncryptionAtHost` feature must be registered on the subscription.
+- **Workload Identity.** OIDC issuer + Workload Identity are on by default. cert-manager and external-dns get UAMIs and Federated Identity Credentials trusting the cluster's OIDC issuer for specific Service Account subjects. The `external_dns_client_id` / `cert_manager_client_id` outputs are the values to set on the `azure.workload.identity/client-id` annotation of those Service Accounts.
+- **DNS Zone Contributor scope.** The role assignment for external-dns is scoped to the **resource group** of each enumerated DNS zone, not to individual zones, because the external-dns Azure provider calls `ListByResourceGroup` on every reconcile. A zone-scoped grant would leave external-dns unable to enumerate zones. To bound the blast radius, place the zones external-dns should manage in a dedicated resource group that hosts no other DNS zones.
+- **Diagnostic logging.** Sent to a per-cluster Log Analytics workspace; `diagnostic_log_categories` excludes the expensive `kube-audit` channel by default.
 
 ## Upgrading
 
@@ -50,7 +88,19 @@ terraform state list | grep azurerm_role_assignment.external_dns_zones | \
 
 The next apply will then only show creates.
 
+## See also
+
+- [network/azure-vnet](../../network/azure-vnet/) — supplies `private_subnet_ids` and (when `domain_name` is set) the VNet-linked private DNS zone.
+- [`dns/zone/azure-dns`](../../dns/zone/azure-dns/) — when ACME is enabled, the cluster's cert-manager UAMI is scoped to this zone.
+- [cluster/aws-eks](../aws-eks/) — sister module for AWS (EKS).
+- [cluster/talos](../talos/) — sister module for self-managed Talos.
+- [platform-azure.yaml](../../../contexts/_template/facets/platform-azure.yaml) — facet wiring.
+
 ## Reference
+
+The full module interface — every input, output, and resource — is
+listed below. Override any input from your context by adding a tfvars
+file at `contexts/<context>/terraform/cluster.tfvars`.
 
 <!-- BEGIN_TF_DOCS -->
 ### Requirements
