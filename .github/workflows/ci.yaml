@@ -121,21 +121,20 @@ jobs:
           done
           [ "$missing" -eq 0 ]
 
-      # Regenerate docs/reference/kustomize/ from kustomize/<add-on>/README.md
-      # and fail if the tree drifts.
-      - name: Validate kustomize reference docs
+      # The website build runs the same materializer (sync-reference.mjs)
+      # against this repo's READMEs. docs/reference/ isn't committed — this
+      # job runs the sync to confirm the script and source READMEs are
+      # well-formed before the website pulls them.
+      - name: Validate reference docs materialize
         run: |
-          task docs:reference:kustomize
-          if ! git diff --quiet docs/reference/kustomize/ || \
-             [ -n "$(git status --porcelain docs/reference/kustomize/)" ]; then
-            echo "::error::docs/reference/kustomize/ is out of sync with kustomize/<add-on>/README.md"
-            echo ""
-            echo "Changed/untracked files:"
-            git status --short docs/reference/kustomize/
-            echo ""
-            echo "Run 'task docs:reference:kustomize' locally and commit the changes."
+          task docs:reference
+          k_count=$(find docs/reference/kustomize -name '*.md' 2>/dev/null | wc -l | tr -d ' ')
+          t_count=$(find docs/reference/terraform -name '*.md' 2>/dev/null | wc -l | tr -d ' ')
+          if [ "$k_count" -eq 0 ] || [ "$t_count" -eq 0 ]; then
+            echo "::error::sync-reference produced empty output (kustomize=$k_count, terraform=$t_count)"
             exit 1
           fi
+          echo "sync-reference: kustomize=$k_count terraform=$t_count files materialized"
 
       - name: Checkov GitHub Action
         uses: bridgecrewio/checkov-action@68260132005eaae0e6f84c7a73cc3b1532f678bf # v12.3058.0

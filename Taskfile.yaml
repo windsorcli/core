@@ -94,7 +94,7 @@ tasks:
           docker run --rm -v "$(pwd):/src" -w "/src/$dir" quay.io/terraform-docs/terraform-docs:0.20.0 markdown table --indent 3 --output-file README.md --output-mode inject .
           done
 
-  docs:reference:kustomize:
-    desc: Sync kustomize stack READMEs into docs/reference/kustomize (for windsorcli.github.io ingest)
+  docs:reference:
+    desc: Sync kustomize and terraform READMEs into docs/reference/ (for windsorcli.github.io ingest)
     cmds:
-      - node scripts/sync-kustomize-reference.mjs
+      - node scripts/sync-reference.mjs

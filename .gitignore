@@ -20,7 +20,7 @@ contexts/**/.gcp/
 .cursor/
 .vscode/*.local.*
 
-# Local notes / scratch under docs/ (published reference: docs/reference/ is tracked)
+# Everything under docs/ is local — not shipped from this repo.
+# docs/reference/ is generated on demand by `task docs:reference` for the
+# website build to consume; never committed.
 docs/*
-!docs/reference/
-!docs/reference/**
