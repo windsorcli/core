@@ -35,7 +35,7 @@ terraform:
 How those flow from `values.yaml`:
 
 - `cidr_block` — `network.cidr_block`. Subnets are carved out of this CIDR; the default `subnet_newbits` and `availability_zones` settings on the module determine how.
-- `domain_name` — `dns.private_domain` (passed only when set). When non-null, the module creates a VPC-attached `aws_route53_zone "main"` named after the domain. Without `dns.private_domain` set, no private Route53 zone is created and `private_zone_id` / `private_zone_name` outputs are `null`.
+- `domain_name` — `dns.private_domain`. When set, the module creates a VPC-attached `aws_route53_zone "main"` named after the domain. When unset, no private Route53 zone is created and `private_zone_id` / `private_zone_name` outputs are `null`.
 
 The `backend` Terraform dep ensures the S3 backend (and DynamoDB lock
 table) exist before this module's state is written.

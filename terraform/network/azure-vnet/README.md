@@ -1,4 +1,72 @@
+---
+title: network/azure-vnet
+description: Provisions the Azure resource group, VNet, subnets, NAT, and optional VNet-linked private DNS zone that an AKS cluster sits on.
+---
+
+# network/azure-vnet
+
+Provisions the Azure networking foundation for a Windsor cluster on
+AKS: a resource group, a VNet with three subnet tiers (public, private,
+isolated), a NAT gateway (with public IP) attached to the private
+subnets, a route table, and (optionally) a VNet-linked private DNS
+zone. Its outputs are consumed by [`cluster/azure-aks`](../../cluster/azure-aks/)
+(VNet + private subnets) and by external-dns when the cluster runs in
+private-DNS mode (private zone ID).
+
+This is the Azure-side parallel to [`network/aws-vpc`](../aws-vpc/) —
+same role, same outputs shape (`vnet_id` / `vpc_id`,
+`*_subnet_ids`, `private_zone_id`, `private_zone_name`).
+
+## Wiring
+
+Wired by [platform-azure.yaml](../../../contexts/_template/facets/platform-azure.yaml).
+The facet only sets two inputs; the rest of the module's variables
+(subnet sizing, region, vnet zones, NAT toggle) keep their module
+defaults.
+
+```yaml
+terraform:
+  - name: network
+    path: network/azure-vnet
+    dependsOn:
+      - backend
+    inputs:
+      vnet_cidr: 10.0.0.0/16
+      domain_name: prod.example.com    # optional
+```
+
+How those flow from `values.yaml`:
+
+- `vnet_cidr` — `network.cidr_block`. Subnets are carved out of this CIDR.
+- `domain_name` — `dns.private_domain`. When set, the module creates an `azurerm_private_dns_zone` named after the domain plus an `azurerm_private_dns_zone_virtual_network_link` so the zone resolves inside the VNet. When unset, no private DNS zone is created and `private_zone_id` / `private_zone_name` outputs are `null`.
+
+The `backend` Terraform dep ensures the Azure storage backend exists
+before this module's state is written.
+
+## Security
+
+The NAT gateway gives private subnets outbound-only egress (no public
+ingress); the public subnet tier carries inbound traffic via Azure
+Load Balancer or AKS-managed listeners. Network Security Groups are
+not provisioned by this module — workloads or downstream modules
+attach their own.
+
+The private DNS zone is created in the same resource group as the
+VNet so `cluster/azure-aks` and other consumers can reference it via
+`resource_group_name` + `private_zone_id`.
+
+## See also
+
+- [cluster/azure-aks](../../cluster/azure-aks/) — consumes `vnet_id`, `private_subnet_ids`, `private_zone_id`, `resource_group_name`.
+- [`dns` add-on](../../../kustomize/dns/) — external-dns's Azure DNS provider consumes `private_zone_id` when running in private-DNS mode (`gateway.access: private`).
+- [network/aws-vpc](../aws-vpc/) — sister module for AWS.
+- [platform-azure.yaml](../../../contexts/_template/facets/platform-azure.yaml) — facet wiring.
+
 ## Reference
+
+The full module interface — every input, output, and resource — is
+listed below. Override any input from your context by adding a tfvars
+file at `contexts/<context>/terraform/network.tfvars`.
 
 <!-- BEGIN_TF_DOCS -->
 ### Requirements
