@@ -22,8 +22,9 @@ Both modules:
 - Provision their own KMS / encryption story (mandatory on AWS, optional CMK on Azure).
 - Use cloud-native locking — neither needs an external lock table (no DynamoDB, no separate Cosmos / table store).
 
-Talos clusters don't use this category — local-only Talos runs
-keep state on the operator's filesystem.
+Contexts that aren't on a supported cloud (workstation runtimes,
+bare metal) don't run a module from this category — the Windsor CLI
+handles state-backend wiring for them directly.
 
 ## Wiring
 
