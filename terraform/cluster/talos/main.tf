@@ -18,7 +18,7 @@ terraform {
 # When cluster state is destroyed and recreated, this resource generates a NEW CA. Container nodes keep Talos state
 # in Docker volumes; if those volumes were not removed, the node still has the OLD CA and TLS handshake fails,
 # so talos_machine_configuration_apply never succeeds (hangs or retries). Fix: full teardown including compute
-# so controlplane container and its volumes are removed, then windsor up (fresh node + fresh secrets).
+# so controlplane container and its volumes are removed, then windsor bootstrap + windsor apply (fresh node + fresh secrets).
 resource "talos_machine_secrets" "this" {
   talos_version = "v${var.talos_version}"
 

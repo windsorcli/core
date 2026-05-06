@@ -1,22 +1,145 @@
+---
+title: workstation/docker
+description: Provisions the Docker network and supporting services (CoreDNS, git livereload, registry mirrors) that back a workstation cluster.
+---
+
+# workstation/docker
+
+Backs a workstation Talos cluster running on Docker. This module
+creates the Docker network the cluster nodes attach to, plus a small
+set of supporting service containers — a CoreDNS resolver for the
+context's private DNS zone, a git-livereload server for development
+hot-reload, and per-registry mirror containers (Distribution proxying
+upstream registries) for offline-friendly image pulls. Its outputs
+(network name, CIDR, the first IP available for cluster nodes) are
+consumed by [`compute/docker`](../../compute/docker/), which then
+attaches Talos containers to the same network.
+
+This module is the bottom of the workstation Terraform stack:
+`workstation/docker` → [`compute/docker`](../../compute/docker/) →
+[`cluster/talos`](../../cluster/talos/) →
+[`cni/cilium`](../../cni/cilium/) →
+[`gitops/flux`](../../gitops/flux/).
+
+## Wiring
+
+Wired by [option-workstation.yaml](../../../contexts/_template/facets/option-workstation.yaml)
+in two variants — one for `docker-desktop` runtime, one for everything
+else (`linux`, `colima`). The variants differ in how the host reaches
+in-context services: docker-desktop uses NodePort-style port mappings
+on the host; linux and colima use routable container IPs.
+
+### Docker (linux / colima)
+
+```yaml
+terraform:
+  - name: workstation
+    path: workstation/docker
+    inputs:
+      runtime: linux
+      domain_name: <dns.private_domain>
+      network_name: windsor-<context>
+      network_cidr: 10.5.0.0/16
+      dns_forward_target: 10.5.1.10        # LB IP
+      webhook_host: 10.5.1.10
+      webhook_port: 80                      # 9292 if Gateway is disabled
+      webhook_enabled: false
+      enable_dns: true
+      enable_git: true
+      registries:
+        gcr.io: { remote: https://gcr.io }
+        ghcr.io: { remote: https://ghcr.io }
+        # ... etc
+```
+
+### docker-desktop
+
+```yaml
+terraform:
+  - name: workstation
+    path: workstation/docker
+    inputs:
+      runtime: docker-desktop
+      domain_name: <dns.private_domain>
+      network_name: windsor-<context>
+      network_cidr: 10.5.0.0/16
+      dns_forward_target: 10.5.0.10:30053   # gateway:NodePort
+      webhook_host: 10.5.0.10
+      webhook_port: 30292                   # NodePort
+      primary_node_ip: 10.5.0.10
+      # ...
+```
+
+How the inputs flow from `values.yaml`:
+
+- `domain_name` — `dns.private_domain`. Stamped into the CoreDNS Corefile and onto the per-service hostnames (`dns.<domain>`, `git.<domain>`, `<registry-host>.<domain>`).
+- `network_cidr` — `network.cidr_block`. Drives every IP the module assigns: gateway=`.1`, dns=`.2`, git=`.3`, registries=`.4..(node_start_offset-1)`, cluster nodes=`.10+`.
+- `runtime` — `workstation.runtime`. The value `docker` from the schema is normalized to `linux` for this module's input.
+- `enable_dns`, `enable_git` — `workstation.services.dns` / `workstation.services.git` (both default to `true`).
+- `registries` — `docker.registries` if set, else a built-in set of common upstreams (`gcr.io`, `ghcr.io`, `quay.io`, `reg.kyverno.io`, `registry-1.docker.io`, `registry.k8s.io`). Empty when `workstation.services.registries: false`.
+- `webhook_enabled` — `workstation.git.livereload && gitops.mode == 'push'`. The git-livereload container POSTs to a Flux Receiver when files change; only enabled if both git livereload and push-mode GitOps are on.
+- `webhook_token` — `gitops.webhook.token` (the same token the [`gitops/flux`](../../gitops/flux/) module installs into the cluster). The git-livereload container uses it to compute the Flux Receiver webhook URL.
+- `git_username`, `git_password` — `workstation.git.username` / `workstation.git.password` (default `local`/`local`).
+
+The `dns_forward_target` and `webhook_host` differ by runtime because
+docker-desktop has no routable container network — services are reached
+via NodePort port mappings on the host.
+
+`next_ip` is anchored at host index `node_start_offset` (default `10`)
+so registries fill a reserved block at `[4, node_start_offset)` and
+adding or removing one never shifts the first-node IP. The
+`compose_project` output is shared with [`compute/docker`](../../compute/docker/)
+so cluster containers and workstation services land in the same compose
+group. The `registries` output includes a computed `hostname` per entry
+(e.g. `gcr.<domain>`) that Talos registry-mirror config consumes.
+
+## Security
+
+`git_username` / `git_password` default to `local` / `local` — fine for
+local dev, not for anything else. The git-livereload container exposes
+HTTP basic auth on this credential pair. The `webhook_token` is the
+same token consumed by the [`gitops/flux`](../../gitops/flux/) module
+to authenticate webhook deliveries; the workstation development default
+(`abcdef123456`) is **not safe outside local dev**.
+
+The CoreDNS container is reachable only on the workstation network (or
+host loopback on docker-desktop). Registry mirror containers
+authenticate to upstream registries using the `username`/`password`
+fields in each registry entry; those credentials live in this module's
+state.
+
+## See also
+
+- [compute/docker](../../compute/docker/) — provisions cluster nodes that attach to this module's network.
+- [cluster/talos](../../cluster/talos/) — its registry-mirror config consumes this module's `registries` output (with computed hostnames).
+- [workstation/incus](../incus/) — sister module for Incus VMs.
+- [option-workstation.yaml](../../../contexts/_template/facets/option-workstation.yaml) — wiring for both runtime variants.
+
+## Reference
+
+The full module interface — every input, output, and resource — is
+listed below. Override any input from your context by adding a tfvars
+file at `contexts/<context>/terraform/workstation.tfvars`.
+
 <!-- BEGIN_TF_DOCS -->
-## Requirements
+### Requirements
 
 | Name | Version |
 |------|---------|
 | <a name="requirement_terraform"></a> [terraform](#requirement\_terraform) | >=1.8 |
 | <a name="requirement_docker"></a> [docker](#requirement\_docker) | 4.2.0 |
 
-## Providers
+### Providers
 
 | Name | Version |
 |------|---------|
 | <a name="provider_docker"></a> [docker](#provider\_docker) | 4.2.0 |
 
-## Modules
+### Modules
 
 No modules.
 
-## Resources
+### Resources
 
 | Name | Type |
 |------|------|
@@ -28,7 +151,7 @@ No modules.
 | [docker_image.registry](https://registry.terraform.io/providers/kreuzwerker/docker/4.2.0/docs/resources/image) | resource |
 | [docker_network.main](https://registry.terraform.io/providers/kreuzwerker/docker/4.2.0/docs/resources/network) | resource |
 
-## Inputs
+### Inputs
 
 | Name | Description | Type | Default | Required |
 |------|-------------|------|---------|:--------:|
@@ -57,7 +180,7 @@ No modules.
 | <a name="input_webhook_port"></a> [webhook\_port](#input\_webhook\_port) | Port for the git livereload webhook URL. Use NodePort in docker-desktop mode when gateway is exposed via NodePort. | `number` | `9292` | no |
 | <a name="input_webhook_token"></a> [webhook\_token](#input\_webhook\_token) | Raw token for the Flux Receiver secret. The webhook URL is derived by hashing this with the receiver name and namespace. | `string` | `"abcdef123456"` | no |
 
-## Outputs
+### Outputs
 
 | Name | Description |
 |------|-------------|

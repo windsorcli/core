@@ -87,9 +87,14 @@ tasks:
     cmds:
       - cmd: |
           find terraform -type d -exec test -e '{}/main.tf' -a -e '{}/variables.tf' \; -print | while read -r dir; do
-            if [[ "$dir" == *"/modules/"* ]]; then
-              continue
-            fi
-            echo "Generating docs for $dir"
-            docker run --rm -v "$(pwd):/src" -w "/src/$dir" quay.io/terraform-docs/terraform-docs:0.20.0 markdown table --output-file README.md --output-mode inject .
+          if [[ "$dir" == *"/modules/"* ]]; then
+            continue
+          fi
+          echo "Generating docs for $dir"
+          docker run --rm -v "$(pwd):/src" -w "/src/$dir" quay.io/terraform-docs/terraform-docs:0.20.0 markdown table --indent 3 --output-file README.md --output-mode inject .
           done
+
+  docs:reference:
+    desc: Sync kustomize and terraform READMEs into docs/reference/ (for windsorcli.github.io ingest)
+    cmds:
+      - node scripts/sync-reference.mjs

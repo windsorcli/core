@@ -1,22 +1,115 @@
+---
+title: compute/docker
+description: Provisions Talos controlplane and worker containers on Docker. Outputs node lists consumed by cluster/talos.
+---
+
+# compute/docker
+
+Runs Talos as Docker containers on a workstation. This module is the
+node-provisioning step on `platform: docker`: it pulls the Talos image,
+creates a network (or attaches to an existing one), and starts a
+container per controlplane and worker. Its outputs (the node IPs,
+endpoints, and roles) are then consumed by [`cluster/talos`](../../cluster/talos/),
+which applies machine configuration and bootstraps the cluster.
+
+The module supports two runtimes that differ in how the host reaches
+container endpoints:
+
+- `runtime: linux` (the default — covers plain Docker on Linux and Colima): containers get routable IPs on the workstation network, and `cluster/talos` reaches them at `<container-ip>:50000`.
+- `runtime: docker-desktop`: containers are reachable only via localhost. The module assigns sequential host ports starting at `50000` (cp1 → `127.0.0.1:50000`, cp2 → `127.0.0.1:50001`, ...) and emits those endpoints so `cluster/talos` can bootstrap from the host.
+
+## Wiring
+
+Wired by [option-workstation.yaml](../../../contexts/_template/facets/option-workstation.yaml)
+when `platform: docker` and `cluster.enabled: true` (the default). The
+network is created elsewhere by [workstation/docker](../../workstation/docker/);
+this module attaches to it via `create_network: false` and the
+workstation module's output fields.
+
+```yaml
+terraform:
+  - name: compute
+    path: compute/docker
+    dependsOn:
+      - workstation
+    inputs:
+      create_network: false
+      network_name: <from workstation output>
+      network_cidr: <from workstation output>
+      start_ip: <from workstation output>
+      runtime: linux
+      compose_project: <from workstation output>
+      cluster_nodes:
+        controlplanes:
+          count: 1
+          image: ghcr.io/siderolabs/talos:v1.12.6
+          cpu: 2
+          memory: 2
+          hostports: []
+          volumes: []
+        workers:
+          count: 0
+          image: ghcr.io/siderolabs/talos:v1.12.6
+          cpu: 4
+          memory: 4
+          hostports: []
+          volumes: []
+```
+
+How those flow from `values.yaml`:
+
+- `cluster_nodes.controlplanes.*` and `cluster_nodes.workers.*` — `cluster.controlplanes.{count,image,cpu,memory,hostports,volumes}` and `cluster.workers.{...}`. These are the per-pool sizing knobs the operator sets.
+- `runtime` — `workstation.runtime` (defaults to `linux`). On `docker-desktop` the module switches to localhost networking and host port mappings.
+- `network_name`, `network_cidr`, `start_ip`, `compose_project` — pulled from [`workstation/docker`](../../workstation/docker/)'s outputs via deferred `terraform_output(...)`. Set the values there, not here.
+- `image` (controlplane / worker) — `cluster.controlplanes.image` / `cluster.workers.image`, defaulting to `talos.docker_image` (Renovate-pinned).
+- `hostports` — `cluster.controlplanes.hostports` / `cluster.workers.hostports`. Auto-set to `["8080:30080/tcp", "8443:30443/tcp"]` on `docker-desktop`; empty otherwise.
+
+The `workstation` Terraform dep ensures the network and supporting
+state exist before containers attach.
+
+## Security
+
+Container volumes (`docker_volume.named`) hold Talos node state.
+Teardown must remove them or the next bootstrap inherits the old
+machine secrets and the TLS handshake fails — see the
+`talos_machine_secrets` recreation hazard documented in
+[`cluster/talos`](../../cluster/talos/).
+
+The module does not handle external credentials. Image pulls use the
+Docker daemon's configured registry credentials.
+
+## See also
+
+- [workstation/docker](../../workstation/docker/) — provisions the network this module attaches to.
+- [cluster/talos](../../cluster/talos/) — consumes this module's `controlplanes`/`workers` outputs.
+- [compute/incus](../../compute/incus/) — sister module for Incus VMs (same outputs shape).
+- [option-workstation.yaml](../../../contexts/_template/facets/option-workstation.yaml) — wiring when `platform: docker`.
+
+## Reference
+
+The full module interface — every input, output, and resource — is
+listed below. Override any input from your context by adding a tfvars
+file at `contexts/<context>/terraform/compute.tfvars`.
+
 <!-- BEGIN_TF_DOCS -->
-## Requirements
+### Requirements
 
 | Name | Version |
 |------|---------|
 | <a name="requirement_terraform"></a> [terraform](#requirement\_terraform) | >=1.8 |
 | <a name="requirement_docker"></a> [docker](#requirement\_docker) | 4.2.0 |
 
-## Providers
+### Providers
 
 | Name | Version |
 |------|---------|
 | <a name="provider_docker"></a> [docker](#provider\_docker) | 4.2.0 |
 
-## Modules
+### Modules
 
 No modules.
 
-## Resources
+### Resources
 
 | Name | Type |
 |------|------|
@@ -25,7 +118,7 @@ No modules.
 | [docker_network.main](https://registry.terraform.io/providers/kreuzwerker/docker/4.2.0/docs/resources/network) | resource |
 | [docker_volume.named](https://registry.terraform.io/providers/kreuzwerker/docker/4.2.0/docs/resources/volume) | resource |
 
-## Inputs
+### Inputs
 
 | Name | Description | Type | Default | Required |
 |------|-------------|------|---------|:--------:|
@@ -42,7 +135,7 @@ No modules.
 | <a name="input_runtime"></a> [runtime](#input\_runtime) | Docker host runtime: docker-desktop (localhost-only networking, no VM control) or colima/docker/linux (advanced networking, IP routing). 'colima' and 'docker' are aliases for 'linux'. Standardized with workstation/docker. | `string` | `"linux"` | no |
 | <a name="input_start_ip"></a> [start\_ip](#input\_start\_ip) | First container IP for sequential assignment. When create\_network is false (e.g. workstation), use terraform\_output(workstation, next\_ip). With network\_cidr, all containers get sequential IPs from this address. | `string` | `null` | no |
 
-## Outputs
+### Outputs
 
 | Name | Description |
 |------|-------------|
