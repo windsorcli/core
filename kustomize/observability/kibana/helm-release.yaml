@@ -16,7 +16,7 @@ spec:
         name: elastic-kibana
   values:
     # renovate: datasource=docker depName=docker.elastic.co/kibana/kibana package=docker.elastic.co/kibana/kibana
-    image: docker.elastic.co/kibana/kibana:9.3.4@sha256:c0ba2d8f48ab79a2478d82668b4a9a3878e73d037d7e15797c3aca9bad7f5962
+    image: docker.elastic.co/kibana/kibana:9.4.0@sha256:bdf6e48cf7c86951403583e94d795f23b2c9c60a3b08218707941ee7c25eb5b8
     kibanaConfig:
       kibana.yml: |
         elasticsearch.ssl.certificateAuthorities: ["/usr/share/kibana/config/certs/ca.crt"]
