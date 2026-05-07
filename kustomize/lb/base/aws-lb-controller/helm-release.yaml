@@ -20,7 +20,7 @@ spec:
     spec:
       chart: aws-load-balancer-controller
       # renovate: datasource=helm depName=aws-load-balancer-controller package=aws-load-balancer-controller helmRepo=https://aws.github.io/eks-charts
-      version: 3.2.2
+      version: 3.3.0
       sourceRef:
         kind: HelmRepository
         name: aws-load-balancer-controller
