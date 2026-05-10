@@ -1,7 +1,7 @@
 # The Talos Config module is the "before-compute" stage on hyperv (and any
 # future hypervisor without a metadata service or DHCP). It owns three jobs:
 #
-#   1. Generate the cluster identity (via cluster/talos/modules/secrets).
+#   1. Generate the cluster identity (talos_machine_secrets).
 #   2. Sign per-node machineconfigs against that identity.
 #   3. Wrap each per-node config (plus a cloud-init network-config bringing up
 #      the VM's static IP) into a CIDATA seed ISO via hyperv_iso_volume.
@@ -43,13 +43,14 @@ terraform {
 # Cluster Identity
 # =============================================================================
 
-# Single shared cluster identity. The same submodule is invoked by cluster/talos
-# when no upstream secrets are supplied; here it's the producer side of the
-# share-via-terraform_output relationship.
-module "secrets" {
-  source = "../modules/secrets"
-
-  talos_version = var.talos_version
+# Talos cluster identity (CA, etcd CA, k8s CA, bootstrap token, encryption
+# secret). cluster/talos has its own count-gated copy of the same resource for
+# the non-hyperv path; on hyperv this one is the producer and its outputs flow
+# back via terraform_output. Inlined directly rather than wrapped in a submodule
+# because the wrapper is one resource and the indirection makes state-address
+# migrations (e.g. adding a count gate) needlessly painful.
+resource "talos_machine_secrets" "this" {
+  talos_version = "v${var.talos_version}"
 }
 
 # =============================================================================
@@ -159,16 +160,16 @@ locals {
 # =============================================================================
 
 # data.talos_machine_configuration generates a Talos machineconfig for each
-# node, signed against module.secrets's cluster identity. The output is a
-# YAML string containing the cluster CA, node identity, kubelet config, and
-# any patches we've layered in. CIDATA wraps it as user-data.
+# node, signed against talos_machine_secrets.this's cluster identity. The
+# output is a YAML string containing the cluster CA, node identity, kubelet
+# config, and any patches we've layered in. CIDATA wraps it as user-data.
 data "talos_machine_configuration" "controlplane" {
   for_each = { for n in local.controlplanes_normalized : n.hostname => n }
 
   cluster_name       = var.cluster_name
   cluster_endpoint   = var.cluster_endpoint
   machine_type       = "controlplane"
-  machine_secrets    = module.secrets.machine_secrets
+  machine_secrets    = talos_machine_secrets.this.machine_secrets
   talos_version      = "v${var.talos_version}"
   kubernetes_version = var.kubernetes_version
 
@@ -185,7 +186,7 @@ data "talos_machine_configuration" "worker" {
   cluster_name       = var.cluster_name
   cluster_endpoint   = var.cluster_endpoint
   machine_type       = "worker"
-  machine_secrets    = module.secrets.machine_secrets
+  machine_secrets    = talos_machine_secrets.this.machine_secrets
   talos_version      = "v${var.talos_version}"
   kubernetes_version = var.kubernetes_version
 
@@ -248,7 +249,7 @@ data "hyperv_iso_volume" "cidata" {
       join("\n", [for ns in var.network.nameservers : "        - ${ns}"])
     )
 
-    # Full Talos machineconfig — signed against module.secrets, includes
+    # Full Talos machineconfig — signed against talos_machine_secrets, includes
     # static network in machine.network.interfaces. Talos's nocloud platform
     # treats user-data as the machineconfig (NOT cloud-init), so this is
     # what brings the node up to "running" with the configured identity.

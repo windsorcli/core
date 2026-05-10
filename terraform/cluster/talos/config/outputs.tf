@@ -14,13 +14,13 @@ output "cidata_iso_shas" {
 
 output "machine_secrets" {
   description = "Talos cluster identity. Pass to cluster/talos as var.machine_secrets so it shares the same cluster CA — cluster/talos then skips talos_machine_configuration_apply (already delivered via CIDATA) and runs straight to bootstrap + kubeconfig + health checks."
-  value       = module.secrets.machine_secrets
+  value       = talos_machine_secrets.this.machine_secrets
   sensitive   = true
 }
 
 output "client_configuration" {
   description = "Talos client configuration (CA cert + admin cert/key). Pass to cluster/talos as var.client_configuration so its talos_client_configuration data source can generate a working talosconfig file."
-  value       = module.secrets.client_configuration
+  value       = talos_machine_secrets.this.client_configuration
   sensitive   = true
 }
 
