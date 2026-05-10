@@ -26,6 +26,32 @@ variable "talos_version" {
   }
 }
 
+# Pre-generated cluster identity from an upstream cluster/talos-secrets module.
+# When BOTH are null (default — incus/metal/docker/aws/azure callers): cluster/talos
+# generates secrets locally via talos_machine_secrets and applies per-node configs
+# over the maintenance-mode Talos API. When BOTH are supplied (hyperv path): the
+# secrets came from cluster/talos-secrets (which also feeds cluster/talos/config to
+# wrap signed configs into CIDATA seed ISOs). cluster/talos then skips
+# talos_machine_configuration_apply because the configs are already on the nodes
+# via CIDATA, and goes straight to talos_machine_bootstrap + health checks.
+variable "machine_secrets" {
+  description = "Pre-generated Talos machine_secrets (output of an upstream cluster/talos-secrets module). When null (default), cluster/talos generates its own. Must be supplied together with client_configuration."
+  type        = any
+  sensitive   = true
+  default     = null
+}
+
+variable "client_configuration" {
+  description = "Pre-generated Talos client_configuration (output of an upstream cluster/talos-secrets module). When null (default), cluster/talos derives it from the locally-generated talos_machine_secrets. Must be supplied together with machine_secrets."
+  type        = any
+  sensitive   = true
+  default     = null
+  validation {
+    condition     = (var.machine_secrets == null) == (var.client_configuration == null)
+    error_message = "machine_secrets and client_configuration must be supplied together (both null = generate locally; both set = use upstream)."
+  }
+}
+
 # talos_node_image is a literal mirror pin for the Talos node image. Windsor's
 # mirror scanner follows this exact docker reference so `windsor mirror`
 # includes the Talos image in the air-gapped registry. Renovate's docker

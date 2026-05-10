@@ -54,12 +54,17 @@ data "talos_machine_configuration" "this" {
   config_patches     = local.config_patches    # Configuration patches to apply
 }
 
-# Resource to apply the machine configuration to the node
+# Apply the machine configuration to the node. Skipped when the config is
+# delivered out-of-band (CIDATA seed on hyperv) — re-applying would
+# regenerate without the per-node network patch (lives in
+# cluster/talos/config) and wipe the static IP back to DHCP.
 resource "talos_machine_configuration_apply" "this" {
-  client_configuration        = var.client_configuration                                    # Client configuration for authentication
-  machine_configuration_input = data.talos_machine_configuration.this.machine_configuration # Machine configuration data
-  node                        = var.node                                                    # Node identifier for the machine
-  endpoint                    = var.endpoint                                                # Endpoint for the machine
+  count = var.skip_machine_config_apply ? 0 : 1
+
+  client_configuration        = var.client_configuration
+  machine_configuration_input = data.talos_machine_configuration.this.machine_configuration
+  node                        = var.node
+  endpoint                    = var.endpoint
 }
 
 // Bootstrap the first control plane node
@@ -112,6 +117,14 @@ locals {
 resource "null_resource" "node_healthcheck" {
   triggers = {
     node_id = var.node
+    # Re-run when the applied machineconfig changes so a config update that
+    # auto-reboots the node (talos_machine_configuration_apply mode=auto)
+    # blocks downstream steps until the node is back healthy. Without this
+    # trigger the resource is created once on first apply and never re-runs
+    # for subsequent config diffs, leaving downstream terraform steps to
+    # race against the reboot. When apply is skipped (out-of-band config
+    # delivery) the trigger is constant — the config can't drift here.
+    config_hash = try(talos_machine_configuration_apply.this[0].machine_configuration_hash, "skipped")
   }
 
   depends_on = [
