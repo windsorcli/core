@@ -79,10 +79,12 @@ $defs:
       description: Cloud provider instance type
     cpu:
       type: integer
-      description: CPU cores per node
+      default: 4
+      description: CPU cores per node. Default 4 applies to both controlplane and worker pools.
     memory:
       type: integer
-      description: Memory in GB per node
+      default: 8
+      description: Memory in GB per node. Default 8 applies to both controlplane and worker pools.
     root_disk_size:
       type: integer
       description: Root/OS disk size in GB
