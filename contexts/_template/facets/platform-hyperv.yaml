@@ -376,7 +376,6 @@ terraform:
         cidr_block: ${network_effective.cidr_block}
         gateway: ${network_effective.gateway}
         nameservers: ${network_effective.nameservers}
-        interface: eth0
       # In NodePort mode every node's static IP must be a NAT-internal
       # address (per the per-VM offset scheme in hyperv_controlplanes /
       # hyperv_workers), not whatever bench-side address operators wrote

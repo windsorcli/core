@@ -241,8 +241,16 @@ data "hyperv_iso_volume" "cidata" {
     # emits keys alphabetically (ethernets first, version last); empirically
     # that order causes cloud-init / Talos's nocloud parser to fall back to
     # DHCP. Unquoted keys match every cloud-init reference doc.
+    #
+    # ethernets[].match.name binds the static config to a NIC by glob rather
+    # than by literal driver name — mirrors the machineconfig patch above
+    # which uses deviceSelector { physical: true } for the same reason. The
+    # literal `primary` key is just a stable identifier netplan requires; the
+    # match block does the actual binding. Default glob (e*) covers both
+    # eth0 and enX0 — without it, maintenance-mode networking silently falls
+    # back to DHCP whenever Talos doesn't name the synthetic NIC eth0.
     "network-config" = format(
-      "version: 2\nethernets:\n  %s:\n    addresses:\n      - %s\n    gateway4: %s\n    nameservers:\n      addresses:\n%s\n",
+      "version: 2\nethernets:\n  primary:\n    match:\n      name: \"%s\"\n    addresses:\n      - %s\n    gateway4: %s\n    nameservers:\n      addresses:\n%s\n",
       var.network.interface,
       each.value.address,
       var.network.gateway,

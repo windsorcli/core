@@ -65,12 +65,12 @@ variable "workers" {
 }
 
 variable "network" {
-  description = "Network config delivered into each guest's CIDATA seed. cidr_block's prefix length is reused when a node's address is unset."
+  description = "Network config delivered into each guest's CIDATA seed. cidr_block's prefix length is reused when a node's address is unset. interface is a netplan glob matched against the guest NIC name; default e* covers both eth0 and enX0 (the two names Talos has used for the Hyper-V synthetic NIC depending on systemd-udev policy)."
   type = object({
     cidr_block  = string
     gateway     = string
     nameservers = list(string)
-    interface   = optional(string, "eth0")
+    interface   = optional(string, "e*")
   })
 }
 
