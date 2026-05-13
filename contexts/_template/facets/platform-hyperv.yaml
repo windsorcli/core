@@ -97,20 +97,24 @@ config:
     value:
       switch_type: NAT
       nat_name: "windsor-${id ?? 'hyperv'}"
-      nat_internal_prefix: "192.168.200.0/24"
-      nat_prefix_length: "24"
-      nat_host_address: "192.168.200.1"
+      # nat_internal_prefix / prefix_length / host_address all derive from
+      # network.cidr_block — the platform-agnostic "cluster network" knob.
+      # In NodePort mode it's interpreted as the private subnet NetNat
+      # routes for; in LAN-bridged modes the same field describes the
+      # bench LAN. Override via values.yaml when the default conflicts
+      # with another routed subnet on the bench.
+      nat_internal_prefix: "${network.cidr_block ?? '10.5.0.0/16'}"
+      nat_prefix_length: "${split(network.cidr_block ?? '10.5.0.0/16', '/')[1]}"
+      nat_host_address: "${cidrhost(network.cidr_block ?? '10.5.0.0/16', 1)}"
       bench_ip: "${(cluster.endpoint ?? '') != '' ? split(split(cluster.endpoint, '://')[1], ':')[0] : ''}"
 
-  # NodePort overrides network_effective so cluster-config's static IP patch
-  # and compute's ipv4 base both target the NAT-internal subnet rather than
-  # the bench LAN. Operators can still set network.cidr_block / network.gateway
-  # in values.yaml — those are honored as the *bench LAN* description, but
-  # NodePort topology routes don't traverse them.
+  # NodePort overrides network_effective.gateway so cluster-config's
+  # per-node default route points at the NAT host vNIC (the only address
+  # reachable from inside the NAT subnet), regardless of any bench-LAN
+  # `network.gateway` the operator set for LAN-bridge documentation.
   - name: network_effective
     when: gateway.service_type == 'NodePort'
     value:
-      cidr_block: "${hyperv_effective.nat_internal_prefix}"
       gateway: "${hyperv_effective.nat_host_address}"
 
   # ---------------------------------------------------------------------------

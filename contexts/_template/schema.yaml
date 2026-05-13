@@ -216,7 +216,9 @@ properties:
   # Connection details (host, credentials, transport) are env-var driven by the
   # provider itself (HYPERV_HOST, HYPERV_USERNAME, etc.); this block carries
   # only the two host-side pointers the facet can't derive — which NIC the
-  # virtual switch should bind to, and where on disk to put VHDs/images.
+  # virtual switch should bind to, and where on disk to put VHDs/images. The
+  # CIDR the cluster lives on (LAN-bridged or NAT-internal) is the
+  # platform-agnostic `network.cidr_block`.
   hyperv:
     type: object
     additionalProperties: false
@@ -469,7 +471,12 @@ properties:
         type: string
         pattern: "^([0-9]{1,3}\\.){3}[0-9]{1,3}/[0-9]{1,2}$"
         default: "10.5.0.0/16"
-        description: Primary network CIDR block
+        description: >
+          Cluster network CIDR. Windsor either creates this network
+          (cloud VPCs, incus bridges, docker bridges, hyperv NodePort
+          NetNat) or attaches to an existing one at this address (metal,
+          hyperv with net_adapter). Override when the default conflicts
+          with existing routes on the host.
       gateway:
         type: string
         pattern: "^([0-9]{1,3}\\.){3}[0-9]{1,3}$"

@@ -183,8 +183,8 @@ cases:
           inputs:
             controlplanes:
               - hostname: controlplane-1
-                node: 192.168.200.10
-                address: 192.168.200.10/24
+                node: 10.20.0.10
+                address: 10.20.0.10/24
             workers: []
         - name: compute
           path: compute/hyperv
@@ -194,15 +194,15 @@ cases:
               "6443": 6443
               "30292": 30292
               "50000": 50000
-            port_forward_target_ip: 192.168.200.10
+            port_forward_target_ip: 10.20.0.10
             port_forward_target_overrides:
-              "50000": 192.168.200.10
+              "50000": 10.20.0.10
         - name: cluster
           path: cluster/talos
           inputs:
             controlplanes:
               - hostname: controlplane-1
-                node: 192.168.200.10
+                node: 10.20.0.10
                 endpoint: 192.168.3.77:50000
             workers: []
 
@@ -246,12 +246,12 @@ cases:
           inputs:
             controlplanes:
               - hostname: controlplane-1
-                node: 192.168.200.10
-                address: 192.168.200.10/24
+                node: 10.20.0.10
+                address: 10.20.0.10/24
             workers:
               - hostname: worker-1
-                node: 192.168.200.20
-                address: 192.168.200.20/24
+                node: 10.20.0.20
+                address: 10.20.0.20/24
         - name: compute
           path: compute/hyperv
           inputs:
@@ -261,21 +261,74 @@ cases:
               "30292": 30292
               "50000": 50000
               "50001": 50000
-            port_forward_target_ip: 192.168.200.10
+            port_forward_target_ip: 10.20.0.10
             port_forward_target_overrides:
-              "50000": 192.168.200.10
-              "50001": 192.168.200.20
+              "50000": 10.20.0.10
+              "50001": 10.20.0.20
         - name: cluster
           path: cluster/talos
           inputs:
             controlplanes:
               - hostname: controlplane-1
-                node: 192.168.200.10
+                node: 10.20.0.10
                 endpoint: 192.168.3.77:50000
             workers:
               - hostname: worker-1
-                node: 192.168.200.20
+                node: 10.20.0.20
                 endpoint: 192.168.3.77:50001
+
+  # Custom network.cidr_block: when the operator pins a non-default cluster
+  # network (collision with another routed range on the bench), every derived
+  # NAT field — internal prefix, host vNIC IP, per-node IPs, address CIDRs,
+  # port-forward target_overrides — relocates to the new subnet. Same
+  # network.cidr_block field describes the bench LAN on LAN-bridged paths;
+  # NodePort just interprets it as the NetNat-routed subnet.
+  - name: NodePort with custom network cidr_block relocates the entire NAT subnet
+    values:
+      platform: hyperv
+      gateway:
+        service_type: NodePort
+      network:
+        cidr_block: "10.99.0.0/24"
+        loadbalancer_ips:
+          start: "10.99.0.100"
+          end: "10.99.0.110"
+      cluster:
+        driver: talos
+        endpoint: https://192.168.3.77:6443
+        controlplanes:
+          count: 1
+        workers:
+          count: 1
+    terraformOutputs:
+      compute:
+        controlplanes: []
+        workers: []
+    expect:
+      terraform:
+        - name: cluster-config
+          path: cluster/talos/config
+          inputs:
+            controlplanes:
+              - hostname: controlplane-1
+                node: 10.99.0.10
+                address: 10.99.0.10/24
+            workers:
+              - hostname: worker-1
+                node: 10.99.0.20
+                address: 10.99.0.20/24
+            network:
+              cidr_block: 10.99.0.0/24
+              gateway: 10.99.0.1
+        - name: compute
+          path: compute/hyperv
+          inputs:
+            nat_internal_address_prefix: 10.99.0.0/24
+            nat_host_address: 10.99.0.1
+            port_forward_target_ip: 10.99.0.10
+            port_forward_target_overrides:
+              "50000": 10.99.0.10
+              "50001": 10.99.0.20
 
   # NodePort + private-dns addon: 30053 (DNS) appears in tcp_forwards and
   # 30053 also in udp_forwards (DNS needs both protocols). 30292 still in
