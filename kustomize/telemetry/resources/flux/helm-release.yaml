@@ -17,7 +17,7 @@ spec:
   values:
     cli:
       # renovate: datasource=docker depName=ghcr.io/fluxcd/flux-cli package=ghcr.io/fluxcd/flux-cli
-      tag: v2.8.6@sha256:8dac34106b9d684ce07b13c9762b5132813c3d477cfd724e9e13cc5944ad771e
+      tag: v2.8.7@sha256:4bd0394705637ad5dfd63d70893a56c980d2e438def0b8a4579d54fad9be9593
     prometheus:
       podMonitor:
         create: true
