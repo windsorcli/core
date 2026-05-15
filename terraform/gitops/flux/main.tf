@@ -87,7 +87,7 @@ resource "helm_release" "flux_system" {
     kustomizeController = {
       image = "ghcr.io/fluxcd/kustomize-controller"
       # renovate: datasource=docker depName=ghcr.io/fluxcd/kustomize-controller package=ghcr.io/fluxcd/kustomize-controller
-      tag = "v1.8.4@sha256:86e84b043a7a79203b22b3fcab634c20b2dcf79467c7c37998e489804876f3e5"
+      tag = "v1.8.5@sha256:70e2a25edeee82690e68662409fb1b60f7d3084c93435e8ab5337a6e0244ffed"
       container = {
         additionalArgs = concat([
           "--concurrent=${var.concurrency}",
