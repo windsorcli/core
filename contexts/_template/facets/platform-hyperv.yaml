@@ -84,7 +84,7 @@ config:
   #
   # When gateway.service_type=NodePort, the VM moves onto a private NetNat
   # subnet and the bench publishes the cluster's listen ports on its LAN IP.
-  # External clients hit <bench_ip>:80, :443, :6443, :50000 etc.; the kernel
+  # External clients hit <bench_ip>:80, :443, :6443, :40000 etc.; the kernel
   # forwards into the VM. Switch type flips to NAT (Internal + NetNat), and
   # the network CIDR / gateway are overridden to the NAT-internal subnet so
   # the per-node static IP patch (in cluster/talos/config) and compute's
@@ -130,9 +130,15 @@ config:
   #   - controlplane-N → 192.168.200.(10+N-1)  (cp-1=.10, cp-2=.11, …)
   #   - worker-N       → 192.168.200.(20+N-1)  (worker-1=.20, worker-2=.21, …)
   #
-  # Talos API port-forward scheme on the bench:
-  #   - controlplane-N → bench:(50000+N-1) → cp-N:50000
-  #   - worker-N       → bench:(50000+cp_count+N-1) → worker-N:50000
+  # Talos API port-forward scheme on the bench. Bench-side base is 40000 to
+  # stay below the Windows TCP dynamic-port floor (default 49152) — anything
+  # in 49152-65535 is rejected by Add-NetNatStaticMapping. In-VM target stays
+  # at Talos's canonical 50000. CPs and workers use disjoint 100-port ranges
+  # so growing one role doesn't renumber the other (a cp_count bump under a
+  # shared offset would shift every worker's bench port, destroying its NAT
+  # mapping and breaking saved talosconfig/kubeconfig entries).
+  #   - controlplane-N → bench:(40000+N-1) → cp-N:50000
+  #   - worker-N       → bench:(40100+N-1) → worker-N:50000
   #
   # Each entry exposes two shapes:
   #   - for_config: {hostname, node, address}. Consumed by cluster-config to
@@ -157,7 +163,7 @@ config:
         ${map(1..int(cluster.controlplanes.count ?? 1), fromPairs([
           ["hostname", "controlplane-" + string(#)],
           ["node", cidrhost(hyperv_effective.nat_internal_prefix, 9 + #)],
-          ["endpoint", hyperv_effective.bench_ip + ":" + string(49999 + #)]
+          ["endpoint", hyperv_effective.bench_ip + ":" + string(39999 + #)]
         ]))}
 
   - name: hyperv_workers
@@ -173,7 +179,7 @@ config:
         ${(cluster.workers.count ?? 0) == 0 ? [] : map(1..int(cluster.workers.count ?? 0), fromPairs([
           ["hostname", "worker-" + string(#)],
           ["node", cidrhost(hyperv_effective.nat_internal_prefix, 19 + #)],
-          ["endpoint", hyperv_effective.bench_ip + ":" + string(49999 + (cluster.controlplanes.count ?? 1) + #)]
+          ["endpoint", hyperv_effective.bench_ip + ":" + string(40099 + #)]
         ]))}
 
   # Forward map: bench-side listen port → in-VM port, plus per-port
@@ -185,7 +191,8 @@ config:
   #   6443       → 6443 (cp-1; apiserver replicated to other cps)
   #   30053      → 30053 (cp-1; only when private-dns / dev DNS is active)
   #   30292      → 30292 (cp-1; only when gitops.mode = push)
-  #   50000+i    → 50000 (one entry per cp/worker, target overridden per-port)
+  #   40000+i    → 50000 (one entry per cp, target overridden per-port)
+  #   40100+i    → 50000 (one entry per worker, target overridden per-port)
   #
   # 30053 / 30292 are gated on the same signals that gate the matching
   # envoy/nodeport/dns and envoy/nodeport/flux-webhook patch components in
@@ -421,7 +428,7 @@ terraform:
       udp_port_forwards: "${gateway.service_type == 'NodePort' ? nat_effective.udp_forwards : {}}"
       # Default target = cp-1 (the gateway / k8s-API forwards land here;
       # kube-proxy and apiserver replication carry the rest). Per-port
-      # overrides below redirect each Talos API forward (50000+i) to the
+      # overrides below redirect each Talos API forward (40000+i) to the
       # node it belongs to.
       port_forward_target_ip: "${gateway.service_type == 'NodePort' ? cidrhost(hyperv_effective.nat_internal_prefix, 10) : null}"
       port_forward_target_overrides: "${gateway.service_type == 'NodePort' ? nat_effective.talos_api_targets : {}}"
@@ -501,7 +508,7 @@ terraform:
       # NAT-internal IPs, which are unreachable from the terraform runner —
       # the workstation only has a route to the bench. Use the facet-built
       # for_cluster lists so each node has its own bench-side host:port pair
-      # (50000+i) routing to the right VM via per-port NAT forwards. node is
+      # (40000+i) routing to the right VM via per-port NAT forwards. node is
       # the NAT-internal IP, used as Talos's machine identity but not for
       # network reach.
       controlplanes: "${gateway.service_type == 'NodePort' ? hyperv_controlplanes.for_cluster : (len(terraform_output(\"compute\", \"controlplanes\") ?? []) > 0 ? terraform_output(\"compute\", \"controlplanes\") : values(cluster.controlplanes.nodes))}"

@@ -207,7 +207,7 @@ cases:
             workers: []
 
   # NodePort multi-VM: 1 cp + 1 worker. Each VM gets a distinct bench-side
-  # Talos API forward (40000 → cp-1, 40001 → worker-1) routed via per-port
+  # Talos API forward (40000 → cp-1, 40100 → worker-1) routed via per-port
   # target_overrides to its NAT-internal IP. The compute instance list is
   # flat (one entry per VM, count=1 each) so cidata_iso_path can be unique
   # per VM. cluster-config controlplanes / workers carry the NAT IPs as
@@ -233,7 +233,7 @@ cases:
           nodes:
             worker-1:
               hostname: worker-1
-              endpoint: 192.168.3.77:40001
+              endpoint: 192.168.3.77:40100
               node: 192.168.3.77
     terraformOutputs:
       compute:
@@ -260,11 +260,11 @@ cases:
               "6443": 6443
               "30292": 30292
               "40000": 50000
-              "40001": 50000
+              "40100": 50000
             port_forward_target_ip: 10.20.0.10
             port_forward_target_overrides:
               "40000": 10.20.0.10
-              "40001": 10.20.0.20
+              "40100": 10.20.0.20
         - name: cluster
           path: cluster/talos
           inputs:
@@ -275,7 +275,7 @@ cases:
             workers:
               - hostname: worker-1
                 node: 10.20.0.20
-                endpoint: 192.168.3.77:40001
+                endpoint: 192.168.3.77:40100
 
   # Custom network.cidr_block: when the operator pins a non-default cluster
   # network (collision with another routed range on the bench), every derived
@@ -328,7 +328,7 @@ cases:
             port_forward_target_ip: 10.99.0.10
             port_forward_target_overrides:
               "40000": 10.99.0.10
-              "40001": 10.99.0.20
+              "40100": 10.99.0.20
 
   # NodePort + private-dns addon: 30053 (DNS) appears in tcp_forwards and
   # 30053 also in udp_forwards (DNS needs both protocols). 30292 still in
