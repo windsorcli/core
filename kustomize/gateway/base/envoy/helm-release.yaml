@@ -28,7 +28,7 @@ spec:
       images:
         envoyGateway:
           # renovate: datasource=docker depName=docker.io/envoyproxy/gateway package=docker.io/envoyproxy/gateway
-          image: docker.io/envoyproxy/gateway:v1.7.3@sha256:2d9492627dde5786d8b3738e1be560fb99b63333f370c4fc23c137c474f246ef
+          image: docker.io/envoyproxy/gateway:v1.8.0@sha256:a9b4c4d8a402e8c007b74f2796587a6fb33d8baba46094f17c8a6f233e46d609
         ratelimit:
           # renovate: datasource=docker depName=docker.io/envoyproxy/ratelimit package=docker.io/envoyproxy/ratelimit
           image: docker.io/envoyproxy/ratelimit:c8765e89@sha256:afce1a5111cf9cb6662383c7f2c72d9c26d9cf53d8285173166d6d853074a1f7
