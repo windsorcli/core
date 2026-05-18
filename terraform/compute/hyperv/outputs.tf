@@ -110,10 +110,10 @@ output "workers" {
 
 output "tcp_port_forwards" {
   description = "Map of installed TCP NAT port forwards keyed by bench-side external_port. Empty when no port_forwards are configured (e.g. non-NAT switch types)"
-  value       = { for k, r in hyperv_port_forward.tcp : k => r.id }
+  value       = { for k, r in hyperv_nat_static_mapping.tcp : k => r.id }
 }
 
 output "udp_port_forwards" {
   description = "Map of installed UDP NAT port forwards keyed by bench-side external_port"
-  value       = { for k, r in hyperv_port_forward.udp : k => r.id }
+  value       = { for k, r in hyperv_nat_static_mapping.udp : k => r.id }
 }

@@ -59,7 +59,7 @@ locals {
   effective_udp_port_forwards = merge(var.udp_port_forwards, var.extra_udp_port_forwards)
 }
 
-resource "hyperv_port_forward" "tcp" {
+resource "hyperv_nat_static_mapping" "tcp" {
   for_each   = local.effective_tcp_port_forwards
   depends_on = [hyperv_virtual_switch.main]
 
@@ -77,7 +77,7 @@ resource "hyperv_port_forward" "tcp" {
   }
 }
 
-resource "hyperv_port_forward" "udp" {
+resource "hyperv_nat_static_mapping" "udp" {
   for_each   = local.effective_udp_port_forwards
   depends_on = [hyperv_virtual_switch.main]
 
