@@ -41,12 +41,40 @@ Exact glob roots are finalized with the website `docs:vendor` script; treat the 
 
 ## Terraform reference
 
-- Generate from modules in this repo with `task docs` (terraform-docs injected between `<!-- BEGIN_TF_DOCS -->` / `<!-- END_TF_DOCS -->` markers in each module's `README.md`). Commit the regenerated `terraform/<module-path>/README.md` (`cluster/talos`, `gitops/flux`, etc.). The site ingest pipeline mirrors these into `docs/reference/terraform/<module-path>/` per the path mapping above; contributors don't write into `docs/reference/` directly.
-- Inputs, outputs, and gotchas belong here; high-level “what is Terraform in Windsor” stays on the site under `/docs/components/terraform`.
+Per-module README at `terraform/<module>/README.md`. Each is split into a
+hand-authored prose section above the `<!-- BEGIN_TF_DOCS -->` marker and
+the auto-generated terraform-docs reference between markers. `task docs`
+uses `terraform-docs --output-mode inject` so the prose survives
+regeneration.
+
+Section order for the prose (cousin of the Kustomize add-on template,
+adapted for Terraform):
+
+1. **Frontmatter + purpose** — `title: <module-path>` and a one-line description; one-paragraph elevator pitch under the H1.
+2. **Wiring** — what materializes in a blueprint when the module fires. Show a concrete `terraform:` block with realistic input values (not raw facet expressions), then explain in prose how each input flows from `values.yaml` through the facet — naming the relevant schema fields (e.g. "follows the top-level `topology` field") and calling out inputs that aren't user-tunable when relevant ("set by the facet on the Talos path, not exposed as a user knob"). Describe gating in user-facing schema terms (e.g. "rendered on Talos clusters (`cluster.driver: talos`)") — never `talos_provisioned`, `eks_enabled`, `cni_effective`, or other internal facet derivations. Reach for a table only if the mapping is dense or many inputs need parallel structure; for most modules a few sentences are clearer.
+3. **Dependencies** — other Terraform modules this `dependsOn`, plus relevant Kustomize add-ons (forward and reverse).
+4. **Operations (optional)** — only include if there are **verified, observed** failure modes worth documenting. Reference docs aren't the place to brainstorm "what could go wrong if a value is set to X" by reading the source — that's speculation, and a reader who hits a *different* error and doesn't find it here is misled into thinking the module is well-trodden when it isn't. Leave the section out for new modules; add it as real issues come up. When you do include it, lead with the symptom (error string, observed behaviour) and follow with a verified fix.
+5. **Security (optional)** — only state what's verifiable from the module source: namespace, capabilities/privilege flags, what the module reads or writes. Don't claim how credentials or kubeconfig flow unless that's visible in the module itself; provider plumbing typically lives outside the module and is not safe to characterize from inside.
+
+   **Don't write a `## Outputs` prose section.** The auto-generated `### Outputs` table already documents every output and its description; a parallel prose section that re-lists the names is duplication. If a specific output has cross-module significance worth calling out (e.g. it's consumed by another module, it's anchored to a stable index, it carries a computed value other modules read), say so in **one sentence** in the Lead or at the end of the Wiring section — not as a section of its own.
+6. **See also** — sibling modules and the cousin Kustomize add-on(s).
+7. **Override-path callout** — a one-line blockquote immediately above `<!-- BEGIN_TF_DOCS -->` reminding readers they can override any input below from their context. Format: `> Override any input below from your context without editing the blueprint by adding contexts/<context>/terraform/<file>.tfvars (named after the blueprint entry's name).` The `<file>` portion is the entry's `name` if present (e.g. `cni.tfvars`); otherwise the `path` with `/` preserved (e.g. `cni/cilium.tfvars`). Use the specific path for this module, not the general rule.
+
+8. **Auto-generated reference** (existing, between `BEGIN_TF_DOCS`/`END_TF_DOCS` markers — kept by `task docs`).
+
+Skip Mermaid diagrams by default. The auto-generated `### Resources` table already enumerates what the module creates; a diagram that just re-draws those resources is filler. Only add one if you can name a specific relationship the diagram captures that prose really can't — e.g. a non-obvious resource graph with ordering or cross-references hard to follow as a list. Multi-actor handoffs (a Terraform module that hands off to Flux, etc.) are usually fine in one sentence of prose. When in doubt, ship without and re-evaluate after real reader feedback.
+
+Don't claim platform support for paths that aren't validated by tests. If a module has wiring on a platform that isn't exercised end-to-end, omit it from the README — the wiring exists in the facet for those who go looking.
+
+For the auto-generated section: don't hand-edit. If the variable / output descriptions read awkwardly (e.g. mention untested platforms), fix them in the source `variables.tf` / `outputs.tf` and re-run `task docs`.
+
+Verify every "this module creates X" claim against the actual `resource "..."` declarations in `main.tf` before writing the lead, the Flow diagram, or the Security section. The module's resource set is often narrower than the surrounding system suggests — e.g. a Flux installer module might install controllers but not the GitRepository / root Kustomization that drive reconciliation. Diagrams and prose should describe what *this module* does, with anything bootstrapped elsewhere noted as such.
+
+High-level "what is Terraform in Windsor" stays on the site under `/docs/components/terraform`.
 
 ## Kustomize stack operator guide (per top-level stack)
 
-For each significant stack under `kustomize/` (e.g. dns, csi), maintain **one** operator-oriented README (source location agreed with ingest—often `kustomize/<stack>/README.md` normalized into `docs/reference/kustomize/<stack>.md`, or authored directly under `docs/reference/kustomize/`).
+Author under `kustomize/<stack>/README.md` (nested stacks supported). The `docs/reference/` tree is *not* committed in this repo — it's generated by `task docs:reference` (or the sibling website's vendor step) from these READMEs at website-build time.
 
 Use this section order where applicable:
 
@@ -66,7 +94,7 @@ Align structure with existing kustomize conventions: see `.claude/skills/kustomi
 
 ## PR checklist
 
-- [ ] Module or stack behavior that affects operators reflected in `docs/reference/` or stack README.
+- [ ] Module or stack behavior that affects operators reflected in the source `README.md` (the website materializes `docs/reference/` from these — no manual sync step required for a PR).
 - [ ] Generated Terraform docs refreshed if inputs/outputs changed.
 - [ ] Links to Blueprint schema/facets point at windsorcli.dev `/docs/blueprints/...`, not duplicate prose.
 - [ ] No slug or path that implies generic blueprint authoring—that belongs on the website repo.
@@ -74,3 +102,5 @@ Align structure with existing kustomize conventions: see `.claude/skills/kustomi
 ## Internal architecture note
 
 [windsorcli.github.io `docs/plan.md` on GitHub](https://github.com/windsorcli/windsorcli.github.io/blob/main/docs/plan.md) — maintainer planning only; not published on windsorcli.dev.
+
+Preview in the website repo from local checkouts: `npm run docs:vendor:local` then `npm run dev` (see website `README.md`; expects `../cli` and `../core` by default).

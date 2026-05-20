@@ -1,22 +1,92 @@
+---
+title: network/aws-vpc
+description: Provisions the AWS VPC, subnets, NAT, and optional VPC-attached private Route53 zone that an EKS cluster sits on.
+---
+
+# network/aws-vpc
+
+Provisions the AWS networking foundation for a Windsor cluster on EKS:
+a VPC, three subnet tiers (public, private, isolated) per availability
+zone, an Internet Gateway, NAT gateway(s), routing tables, and
+(optionally) VPC flow logs and a VPC-attached private Route53 zone.
+Its outputs are consumed by [`cluster/aws-eks`](../../cluster/aws-eks/)
+(VPC + subnets), the [`lb-base` add-on](../../../kustomize/lb/) (VPC
+ID for the AWS Load Balancer Controller), and external-dns when the
+cluster runs in private-DNS mode (private zone ID).
+
+## Wiring
+
+Wired by [platform-aws.yaml](../../../contexts/_template/facets/platform-aws.yaml).
+The facet only sets two inputs; the rest of the module's variables
+(subnet sizing, NAT topology, flow logs, KMS) keep their module
+defaults.
+
+```yaml
+terraform:
+  - name: network
+    path: network/aws-vpc
+    dependsOn:
+      - backend
+    inputs:
+      cidr_block: 10.0.0.0/16
+      domain_name: prod.example.com    # optional
+```
+
+How those flow from `values.yaml`:
+
+- `cidr_block` — `network.cidr_block`. Subnets are carved out of this CIDR; the default `subnet_newbits` and `availability_zones` settings on the module determine how.
+- `domain_name` — `dns.private_domain`. When set, the module creates a VPC-attached `aws_route53_zone "main"` named after the domain. When unset, no private Route53 zone is created and `private_zone_id` / `private_zone_name` outputs are `null`.
+
+The `backend` Terraform dep ensures the S3 state bucket exists before
+this module's state is written. Locking is S3-native (`use_lockfile =
+true`); no DynamoDB lock table is used.
+
+## Security
+
+VPC flow logs are on by default (`enable_flow_logs: true`). The module
+also provisions a CloudWatch log group, an IAM role for the flow-logs
+delivery, and (optionally) a customer-managed KMS key
+(`create_flow_logs_kms_key: true`) used to encrypt the log group. The
+default security group attached to the VPC has all rules revoked by
+`aws_default_security_group "default"` — workloads must attach to
+explicitly-defined security groups.
+
+The private Route53 zone is created with `force_destroy: true` so
+teardown removes the zone even if external-dns hasn't finished
+deleting records before the cluster API goes down.
+
+## See also
+
+- [cluster/aws-eks](../../cluster/aws-eks/) — consumes `vpc_id` and `private_subnet_ids`.
+- [`lb-base` add-on](../../../kustomize/lb/) — the AWS Load Balancer Controller consumes `vpc_id` to discover subnets and tag-based reconciliation scope.
+- [`dns` add-on](../../../kustomize/dns/) — external-dns's Route 53 provider consumes `private_zone_id` when running in private-DNS mode (`gateway.access: private`).
+- [platform-aws.yaml](../../../contexts/_template/facets/platform-aws.yaml) — facet wiring.
+
+## Reference
+
+The full module interface — every input, output, and resource — is
+listed below. Override any input from your context by adding a tfvars
+file at `contexts/<context>/terraform/network.tfvars`.
+
 <!-- BEGIN_TF_DOCS -->
-## Requirements
+### Requirements
 
 | Name | Version |
 |------|---------|
 | <a name="requirement_terraform"></a> [terraform](#requirement\_terraform) | >=1.8 |
 | <a name="requirement_aws"></a> [aws](#requirement\_aws) | 6.43.0 |
 
-## Providers
+### Providers
 
 | Name | Version |
 |------|---------|
 | <a name="provider_aws"></a> [aws](#provider\_aws) | 6.43.0 |
 
-## Modules
+### Modules
 
 No modules.
 
-## Resources
+### Resources
 
 | Name | Type |
 |------|------|
@@ -45,7 +115,7 @@ No modules.
 | [aws_caller_identity.current](https://registry.terraform.io/providers/hashicorp/aws/6.43.0/docs/data-sources/caller_identity) | data source |
 | [aws_region.current](https://registry.terraform.io/providers/hashicorp/aws/6.43.0/docs/data-sources/region) | data source |
 
-## Inputs
+### Inputs
 
 | Name | Description | Type | Default | Required |
 |------|-------------|------|---------|:--------:|
@@ -64,7 +134,7 @@ No modules.
 | <a name="input_subnet_newbits"></a> [subnet\_newbits](#input\_subnet\_newbits) | Number of new bits for the subnet | `number` | `4` | no |
 | <a name="input_tags"></a> [tags](#input\_tags) | Additional tags for all resources | `map(string)` | `{}` | no |
 
-## Outputs
+### Outputs
 
 | Name | Description |
 |------|-------------|

@@ -1,5 +1,108 @@
+---
+title: workstation/incus
+description: Provisions the Incus bridge network and supporting services (CoreDNS, git livereload, registry mirrors) that back a workstation cluster.
+---
+
+# workstation/incus
+
+Backs a workstation Talos cluster running on Incus. This module creates
+(or reuses) the Incus bridge network the cluster VMs attach to, plus a
+small set of supporting service VMs — a CoreDNS resolver for the
+context's private DNS zone, a git-livereload server for development
+hot-reload, and per-registry mirror instances (Distribution proxying
+upstream registries) for offline-friendly image pulls. Its outputs
+(network name, CIDR, the first IP available for cluster nodes) are
+consumed by [`compute/incus`](../../compute/incus/), which then
+provisions Talos VMs on the same network.
+
+The module is the bottom of the workstation Terraform stack on
+`platform: incus`: `workstation/incus` →
+[`compute/incus`](../../compute/incus/) →
+[`cluster/talos`](../../cluster/talos/) →
+[`cni/cilium`](../../cni/cilium/) →
+[`gitops/flux`](../../gitops/flux/). It is structurally parallel to
+[`workstation/docker`](../docker/) and emits the same output shape
+(`network_name`, `network_cidr`, `next_ip`, `registries`, ...) so
+downstream modules don't branch.
+
+## Wiring
+
+Wired by [option-workstation.yaml](../../../contexts/_template/facets/option-workstation.yaml)
+when `platform: incus`. The wiring picks between two network modes:
+
+- **Standalone Incus**: `create_network: true`. The module creates a `windsor-<context>` Incus bridge with the configured CIDR.
+- **Colima**: `create_network: false`, `network_name: incusbr0`. Reuses the bridge that colima provisions on the host. Set `workstation.runtime: colima`.
+
+```yaml
+terraform:
+  - name: workstation
+    path: workstation/incus
+    inputs:
+      domain_name: <dns.private_domain>
+      network_name: ""               # 'incusbr0' on colima
+      create_network: true           # false on colima
+      network_cidr: 10.5.0.0/16
+      loadbalancer_start_ip: 10.5.1.10
+      dns_forward_target: 10.5.1.10
+      webhook_host: 10.5.1.10
+      webhook_port: 9292
+      webhook_enabled: false
+      primary_node_ip: 10.5.1.10
+      enable_dns: true
+      enable_git: true
+      registries:
+        gcr.io: { remote: https://gcr.io }
+        ghcr.io: { remote: https://ghcr.io }
+        # ...
+```
+
+How the inputs flow from `values.yaml`:
+
+- `domain_name` — `dns.private_domain`. Stamped into the CoreDNS Corefile and onto per-service hostnames (`dns.<domain>`, `git.<domain>`, `<registry-host>.<domain>`).
+- `network_cidr` — `network.cidr_block`. Drives every IP the module assigns: gateway=`.1`, dns=`.2`, git=`.3`, registries=`.4..(node_start_offset-1)`, cluster nodes=`.10+`.
+- `network_name` / `create_network` — derived from `workstation.runtime`. `colima` reuses `incusbr0`; everything else creates `windsor-<context>`.
+- `loadbalancer_start_ip`, `dns_forward_target`, `webhook_host`, `primary_node_ip` — `network.loadbalancer_ips.start`. The Incus path always has a routable LB, so DNS and webhook target the LB IP directly (no NodePort dance like docker-desktop).
+- `enable_dns`, `enable_git` — `workstation.services.dns` / `workstation.services.git` (both default to `true`).
+- `registries` — `docker.registries` if set, else a built-in default set (`gcr.io`, `ghcr.io`, `quay.io`, `reg.kyverno.io`, `registry-1.docker.io`, `registry.k8s.io`). Empty when `workstation.services.registries: false`.
+- `webhook_enabled` — `workstation.git.livereload && gitops.mode == 'push'`.
+- `webhook_token` — `gitops.webhook.token` (the same token consumed by [`gitops/flux`](../../gitops/flux/)).
+- `git_username`, `git_password` — `workstation.git.username` / `workstation.git.password` (default `local`/`local`).
+
+`next_ip` is anchored at host index `node_start_offset` (default `10`)
+so registries fill a reserved block at `[4, node_start_offset)` and
+adding or removing one never shifts the first-node IP. The `registries`
+output includes a computed `hostname` per entry (e.g. `gcr.<domain>`)
+that Talos registry-mirror config consumes.
+
+## Security
+
+`git_username` / `git_password` default to `local` / `local` — fine for
+local dev, not anything else. The git-livereload instance exposes HTTP
+basic auth on this credential pair. The `webhook_token` is the same
+token consumed by the [`gitops/flux`](../../gitops/flux/) module to
+authenticate webhook deliveries; the workstation development default
+(`abcdef123456`) is **not safe outside local dev**.
+
+The CoreDNS instance is reachable only on the Incus bridge. Registry
+mirror instances authenticate to upstream registries using the
+`username`/`password` fields in each registry entry; those credentials
+live in this module's state.
+
+## See also
+
+- [compute/incus](../../compute/incus/) — provisions cluster VMs that attach to this module's network.
+- [cluster/talos](../../cluster/talos/) — its registry-mirror config consumes this module's `registries` output (with computed hostnames).
+- [workstation/docker](../docker/) — sister module for Docker (same outputs shape).
+- [option-workstation.yaml](../../../contexts/_template/facets/option-workstation.yaml) — wiring for `platform: incus`.
+
+## Reference
+
+The full module interface — every input, output, and resource — is
+listed below. Override any input from your context by adding a tfvars
+file at `contexts/<context>/terraform/workstation.tfvars`.
+
 <!-- BEGIN_TF_DOCS -->
-## Requirements
+### Requirements
 
 | Name | Version |
 |------|---------|
@@ -7,18 +110,18 @@
 | <a name="requirement_incus"></a> [incus](#requirement\_incus) | 1.0.2 |
 | <a name="requirement_local"></a> [local](#requirement\_local) | 2.8.0 |
 
-## Providers
+### Providers
 
 | Name | Version |
 |------|---------|
 | <a name="provider_incus"></a> [incus](#provider\_incus) | 1.0.2 |
 | <a name="provider_local"></a> [local](#provider\_local) | 2.8.0 |
 
-## Modules
+### Modules
 
 No modules.
 
-## Resources
+### Resources
 
 | Name | Type |
 |------|------|
@@ -29,7 +132,7 @@ No modules.
 | [local_file.corefile](https://registry.terraform.io/providers/hashicorp/local/2.8.0/docs/resources/file) | resource |
 | [local_file.registry_cache_dir](https://registry.terraform.io/providers/hashicorp/local/2.8.0/docs/resources/file) | resource |
 
-## Inputs
+### Inputs
 
 | Name | Description | Type | Default | Required |
 |------|-------------|------|---------|:--------:|
@@ -58,7 +161,7 @@ No modules.
 | <a name="input_webhook_port"></a> [webhook\_port](#input\_webhook\_port) | Port for the git livereload webhook URL. | `number` | `9292` | no |
 | <a name="input_webhook_token"></a> [webhook\_token](#input\_webhook\_token) | Raw token for the Flux Receiver secret. The webhook URL is derived by hashing this with the receiver name and namespace. | `string` | `"abcdef123456"` | no |
 
-## Outputs
+### Outputs
 
 | Name | Description |
 |------|-------------|
