@@ -35,6 +35,6 @@ spec:
     fluentbit:
       image:
         # renovate: datasource=docker depName=ghcr.io/fluent/fluent-operator/fluent-bit package=ghcr.io/fluent/fluent-operator/fluent-bit
-        tag: v5.0.4@sha256:d43770be9c0ae7ddb4e9800846dffbf8522b30e1bd8e7eac83c4d2a342e30011
+        tag: v5.0.5@sha256:1ae545aee0e250a8f613602c27a922271cdea02dbebb0372e0de6eea38e2cb29
       enable: false
       crdsEnable: true
