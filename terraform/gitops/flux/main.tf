@@ -80,7 +80,7 @@ resource "helm_release" "flux_system" {
       create = var.image_reflection
       image  = "ghcr.io/fluxcd/image-reflector-controller"
       # renovate: datasource=docker depName=ghcr.io/fluxcd/image-reflector-controller package=ghcr.io/fluxcd/image-reflector-controller
-      tag = "v1.1.1@sha256:4c12c4046dee6e32e11b7c6afeaf7910406b67ff0182d46eeedb128d367908cd"
+      tag = "v1.1.2@sha256:45b219b1baddedcc0d6cd09da77c57d235bd225652eafb168981fb78cede640d"
       }, var.leader_election ? {} : {
       container = { additionalArgs = local.leader_election_args }
     })
