@@ -538,7 +538,7 @@ properties:
         description: Cluster driver. Defaulted by platform-base based on the active platform (aws → eks, azure → aks, otherwise → talos); an explicit value here wins.
       endpoint:
         type: string
-        description: External controlplane API endpoint
+        description: External controlplane API endpoint (https://host:port). IPv4 only — facets parse host:port with simple split on ':', and the hyperv NetNat backend is IPv4-only at the Windows API layer.
       controlplanes:
         type: object
         properties:
