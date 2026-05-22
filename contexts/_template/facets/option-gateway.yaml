@@ -50,6 +50,8 @@ kustomize:
     components:
       - "${gateway_effective.driver}"
       - "${gateway_effective.driver == 'envoy' ? 'envoy/' + lb_effective.mode : ''}"
+      - "${gateway_effective.driver == 'envoy' && lb_effective.mode == 'nodeport' && (addons.private_dns.enabled ?? (dev == true)) == true ? 'envoy/nodeport/dns' : ''}"
+      - "${gateway_effective.driver == 'envoy' && lb_effective.mode == 'nodeport' && (gitops.mode ?? 'push') == 'push' ? 'envoy/nodeport/flux-webhook' : ''}"
       - "${gateway_effective.driver == 'envoy' ? 'envoy/prometheus' : ''}"
     timeout: 10m
     interval: 5m

@@ -54,12 +54,25 @@ data "talos_machine_configuration" "this" {
   config_patches     = local.config_patches    # Configuration patches to apply
 }
 
-# Resource to apply the machine configuration to the node
+# Apply the machine configuration to the node. Skipped when the config is
+# delivered out-of-band (CIDATA seed on hyperv) — re-applying would
+# regenerate without the per-node network patch (lives in
+# cluster/talos/config) and wipe the static IP back to DHCP.
 resource "talos_machine_configuration_apply" "this" {
-  client_configuration        = var.client_configuration                                    # Client configuration for authentication
-  machine_configuration_input = data.talos_machine_configuration.this.machine_configuration # Machine configuration data
-  node                        = var.node                                                    # Node identifier for the machine
-  endpoint                    = var.endpoint                                                # Endpoint for the machine
+  count = var.skip_machine_config_apply ? 0 : 1
+
+  client_configuration        = var.client_configuration
+  machine_configuration_input = data.talos_machine_configuration.this.machine_configuration
+  node                        = var.node
+  endpoint                    = var.endpoint
+
+  # Hardcoded: provider v0.11.0 types on_destroy attrs as Go bool, so var
+  # references fail plan with "unknown value". Revisit when upstream fixes.
+  on_destroy = {
+    reset    = false
+    graceful = true
+    reboot   = false
+  }
 }
 
 // Bootstrap the first control plane node
@@ -99,19 +112,23 @@ resource "local_sensitive_file" "kubeconfig" {
 #-----------------------------------------------------------------------------------------------------------------------
 
 locals {
-  # Always use Talos API; during bootstrap also check Kubernetes API
-  # Use the endpoint's host for health check so the host (where the provisioner runs) can reach the Talos API.
-  # In docker-desktop, endpoint is 127.0.0.1:50000 while node is the container IP (10.5.0.10); the host must use 127.0.0.1.
-  # Extract host by: removing optional protocol, taking host from host:port or path, then stripping port
-  endpoint_ip          = can(regex("^https?://", var.endpoint)) ? split(":", split("/", split("://", var.endpoint)[1])[0])[0] : split(":", var.endpoint)[0]
-  health_check_node    = local.endpoint_ip
+  # var.node is the Talos node identity apid routes to. The endpoint host
+  # may be a forwarder address (loopback, bench NAT), not a valid identity.
+  health_check_node    = var.node
   health_check_command = var.bootstrap ? "windsor check node-health --nodes ${local.health_check_node} --timeout 5m --k8s-endpoint --skip-services dashboard" : "windsor check node-health --nodes ${local.health_check_node} --timeout 5m --skip-services dashboard"
-
 }
 
 resource "null_resource" "node_healthcheck" {
   triggers = {
     node_id = var.node
+    # Re-run when the applied machineconfig changes so a config update that
+    # auto-reboots the node (talos_machine_configuration_apply mode=auto)
+    # blocks downstream steps until the node is back healthy. Without this
+    # trigger the resource is created once on first apply and never re-runs
+    # for subsequent config diffs, leaving downstream terraform steps to
+    # race against the reboot. When apply is skipped (out-of-band config
+    # delivery) the trigger is constant — the config can't drift here.
+    config_hash = try(talos_machine_configuration_apply.this[0].machine_configuration_hash, "skipped")
   }
 
   depends_on = [

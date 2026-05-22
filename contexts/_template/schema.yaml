@@ -121,6 +121,7 @@ properties:
       - incus
       - metal
       - docker
+      - hyperv
     default: none
     description: Infrastructure provider - includes policy, PKI, telemetry, ingress, and storage
   platform:
@@ -132,6 +133,7 @@ properties:
       - incus
       - metal
       - docker
+      - hyperv
     description: Alias for provider; when set overrides provider.
 
   # Development mode
@@ -209,6 +211,44 @@ properties:
           is managed identity (msi) or another mode that lacks a process-env
           signal windsor can detect.
     description: Azure provider authentication configuration
+
+  # Hyper-V provider configuration (only consumed when platform == 'hyperv').
+  # Connection details (host, credentials, transport) are env-var driven by the
+  # provider itself (HYPERV_HOST, HYPERV_USERNAME, etc.); this block carries
+  # only the two host-side pointers the facet can't derive — which NIC the
+  # virtual switch should bind to, and where on disk to put VHDs/images. The
+  # CIDR the cluster lives on (LAN-bridged or NAT-internal) is the
+  # platform-agnostic `network.cidr_block`.
+  hyperv:
+    type: object
+    additionalProperties: false
+    properties:
+      net_adapter:
+        type: array
+        items:
+          type: string
+        description: >
+          Host NIC(s) the virtual switch binds to. When set, windsor creates
+          an External switch (L2-bridged, MetalLB/Cilium L2 reachable on the
+          bench LAN). Unset uses Internal (host-only); flipped to NAT
+          automatically when gateway.service_type=NodePort.
+      base_dir:
+        type: string
+        default: "C:/hyperv"
+        description: >
+          Absolute path on the host. Per-VM VHDXs are written to
+          <base_dir>/vhds and parent images to <base_dir>/images. Forward
+          and back slashes are accepted equivalently by Hyper-V.
+    description: Hyper-V infrastructure configuration
+
+  # Free-form env vars injected by `windsor exec` and into terraform applies.
+  # Keyed by env-var name; values are strings (quote numerics in YAML).
+  # Useful for provider-side credentials read from env (e.g. HYPERV_*).
+  environment:
+    type: object
+    additionalProperties:
+      type: string
+    description: Environment variables exported by `windsor exec` and seen by terraform providers.
 
   # Terraform execution config
   terraform:
@@ -431,7 +471,31 @@ properties:
         type: string
         pattern: "^([0-9]{1,3}\\.){3}[0-9]{1,3}/[0-9]{1,2}$"
         default: "10.5.0.0/16"
-        description: Primary network CIDR block
+        description: >
+          Cluster network CIDR. Windsor either creates this network
+          (cloud VPCs, incus bridges, docker bridges, hyperv NodePort
+          NetNat) or attaches to an existing one at this address (metal,
+          hyperv with net_adapter). Override when the default conflicts
+          with existing routes on the host.
+      gateway:
+        type: string
+        pattern: "^([0-9]{1,3}\\.){3}[0-9]{1,3}$"
+        description: >
+          IPv4 default-route gateway for the cluster network. Required for
+          platforms that deliver static network config to the guest (Hyper-V
+          via CIDATA; future libvirt/proxmox). Defaults to cidrhost(cidr_block, 1)
+          — correct for the common case where the gateway is the first usable
+          host in the subnet, set explicitly when it isn't (e.g. /22 LANs where
+          the router doesn't sit at .0.1).
+      nameservers:
+        type: array
+        items:
+          type: string
+          pattern: "^([0-9]{1,3}\\.){3}[0-9]{1,3}$"
+        default:
+          - "1.1.1.1"
+          - "8.8.8.8"
+        description: DNS resolvers seeded into guest network config. Same delivery path as gateway (CIDATA on hyperv, etc.).
       loadbalancer_ips:
         type: object
         properties:
@@ -474,7 +538,7 @@ properties:
         description: Cluster driver. Defaulted by platform-base based on the active platform (aws → eks, azure → aks, otherwise → talos); an explicit value here wins.
       endpoint:
         type: string
-        description: External controlplane API endpoint
+        description: External controlplane API endpoint (https://host:port). IPv4 only — facets parse host:port with simple split on ':', and the hyperv NetNat backend is IPv4-only at the Windows API layer.
       controlplanes:
         type: object
         properties:
@@ -716,6 +780,13 @@ properties:
           - public
           - private
         description: Whether the gateway is reachable from the public internet (public, default) or only from inside the VPC/network (private). Flipping this to `private` cascades through the gateway's adjacent infrastructure — load balancer scheme, the DNS zone external-dns publishes to, and the cert-manager issuer — so the whole gateway stack stays coherent. Requires `dns.private_domain` to be set; otherwise the private path is a no-op and the gateway runs as public.
+      publish_ports:
+        type: object
+        additionalProperties:
+          type: integer
+          minimum: 1
+          maximum: 65535
+        description: Map of bench-side listen port to in-cluster NodePort, used by host-level forwarders (e.g. hyperv portproxy + firewall) to expose the gateway on a "real" port like 80/443 from the host machine while the cluster keeps NodePort allocations in the 30000-32767 range. Keyed by the host listen port (e.g. 80), value is the cluster NodePort (e.g. 30080).
     additionalProperties: false
 
   # Ingress configuration

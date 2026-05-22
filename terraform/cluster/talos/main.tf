@@ -15,19 +15,47 @@ terraform {
 #-----------------------------------------------------------------------------------------------------------------------
 # Machine Secrets
 #-----------------------------------------------------------------------------------------------------------------------
-# When cluster state is destroyed and recreated, this resource generates a NEW CA. Container nodes keep Talos state
-# in Docker volumes; if those volumes were not removed, the node still has the OLD CA and TLS handshake fails,
-# so talos_machine_configuration_apply never succeeds (hangs or retries). Fix: full teardown including compute
-# so controlplane container and its volumes are removed, then windsor up (fresh node + fresh secrets).
+# Cluster identity (CA, etcd CA, k8s CA, bootstrap token, encryption secret).
+# Generated locally when no upstream secrets are supplied — the default for
+# incus/metal/docker/aws/azure paths. On the hyperv CIDATA path, cluster/talos/config
+# generates and exports them ahead of compute; they flow back here via
+# var.machine_secrets / var.client_configuration and the count-gated resource
+# below stays at zero. local.machine_secrets / local.client_configuration pick
+# whichever source is active.
+#
+# Teardown caveat: regenerating secrets produces a NEW CA. Container nodes
+# keep Talos state in Docker volumes; if those volumes were not removed,
+# nodes still hold the OLD CA and the TLS handshake fails. Fix: full
+# teardown including compute so controlplane container and its volumes are
+# removed, then windsor apply (fresh node + fresh secrets).
 resource "talos_machine_secrets" "this" {
-  talos_version = "v${var.talos_version}"
+  count = var.machine_secrets == null ? 1 : 0
 
+  talos_version = "v${var.talos_version}"
+}
+
+# State address migration: this resource used to be unconditional (no count
+# gate) before var.machine_secrets / var.client_configuration were added.
+# Introducing the count gate changes the address from `.this` to `.this[0]`;
+# without a moved block, Terraform destroys and recreates, minting a fresh CA
+# and breaking TLS with already-running nodes that still trust the old CA.
+moved {
+  from = talos_machine_secrets.this
+  to   = talos_machine_secrets.this[0]
+}
+
+# Endpoint precondition. terraform_data is the standard "vehicle for preconditions"
+# pattern used elsewhere in this repo (e.g. compute/incus). Hosted on a separate
+# resource rather than the talos_machine_secrets lifecycle so it still fires when
+# the secrets resource is count-gated off (hyperv path with upstream secrets).
+resource "terraform_data" "endpoint_check" {
   lifecycle {
     precondition {
       condition     = local.cluster_endpoint != "" && can(regex("^https://", local.cluster_endpoint))
       error_message = "cluster_endpoint could not be derived: set cluster.endpoint or ensure compute is applied so controlplanes have endpoints."
     }
   }
+  input = local.cluster_endpoint
 }
 
 #-----------------------------------------------------------------------------------------------------------------------
@@ -35,12 +63,25 @@ resource "talos_machine_secrets" "this" {
 #-----------------------------------------------------------------------------------------------------------------------
 
 locals {
+  # machine_secrets / client_configuration come from EITHER the upstream
+  # cluster/talos/config module (when var.machine_secrets is set) OR the
+  # locally-generated talos_machine_secrets resource (default). Every
+  # downstream reference uses these locals — never the resource attributes
+  # directly.
+  machine_secrets      = var.machine_secrets != null ? var.machine_secrets : talos_machine_secrets.this[0].machine_secrets
+  client_configuration = var.client_configuration != null ? var.client_configuration : talos_machine_secrets.this[0].client_configuration
+
   talosconfig      = data.talos_client_configuration.this.talos_config
   talosconfig_path = "${var.context_path}/.talos/config"
   kubeconfig_path  = "${var.context_path}/.kube/config"
 
 
   cluster_endpoint = var.cluster_endpoint != "" ? var.cluster_endpoint : (length(var.controlplanes) > 0 ? "https://${split(":", var.controlplanes[0].endpoint)[0]}:6443" : "")
+
+  # When upstream secrets are supplied the per-node machineconfig was already
+  # delivered out-of-band (hyperv CIDATA). Re-applying here would regenerate
+  # without the per-node network patch and wipe the static IP back to DHCP.
+  skip_machine_config_apply = var.machine_secrets != null
 
   # extraMounts from raw volume strings (path or host:dest; path = part after ":" if present).
   # yamlencode() produces quoted keys (Terraform/Go); common_config_patches from blueprint is unquoted YAML. Both valid.
@@ -84,23 +125,24 @@ locals {
 #-----------------------------------------------------------------------------------------------------------------------
 
 module "controlplane_bootstrap" {
-  source               = "./modules/machine"
-  node                 = var.controlplanes[0].node
-  client_configuration = talos_machine_secrets.this.client_configuration
-  machine_secrets      = try(talos_machine_secrets.this.machine_secrets, "")
-  disk_selector        = lookup(var.controlplanes[0], "disk_selector", null)
-  wipe_disk            = lookup(var.controlplanes[0], "wipe_disk", true)
-  extra_kernel_args    = lookup(var.controlplanes[0], "extra_kernel_args", [])
-  cluster_name         = var.cluster_name
-  cluster_endpoint     = local.cluster_endpoint
-  kubernetes_version   = var.kubernetes_version
-  talos_version        = var.talos_version
-  machine_type         = "controlplane"
-  endpoint             = var.controlplanes[0].endpoint
-  bootstrap            = true // Bootstrap the first control plane node
-  talosconfig_path     = local.talosconfig_path
-  kubeconfig_path      = local.kubeconfig_path
-  enable_health_check  = true
+  source                    = "./modules/machine"
+  node                      = var.controlplanes[0].node
+  client_configuration      = local.client_configuration
+  machine_secrets           = local.machine_secrets
+  disk_selector             = lookup(var.controlplanes[0], "disk_selector", null)
+  wipe_disk                 = lookup(var.controlplanes[0], "wipe_disk", true)
+  extra_kernel_args         = lookup(var.controlplanes[0], "extra_kernel_args", [])
+  cluster_name              = var.cluster_name
+  cluster_endpoint          = local.cluster_endpoint
+  kubernetes_version        = var.kubernetes_version
+  talos_version             = var.talos_version
+  machine_type              = "controlplane"
+  endpoint                  = var.controlplanes[0].endpoint
+  bootstrap                 = true // Bootstrap the first control plane node
+  talosconfig_path          = local.talosconfig_path
+  kubeconfig_path           = local.kubeconfig_path
+  enable_health_check       = true
+  skip_machine_config_apply = local.skip_machine_config_apply
   config_patches = [for p in compact(concat([
     var.common_config_patches,
     var.controlplane_config_patches,
@@ -113,23 +155,24 @@ module "controlplanes" {
   count      = max(length(var.controlplanes) - 1, 0) // Don't create more control planes if there are none
   depends_on = [module.controlplane_bootstrap]
 
-  source               = "./modules/machine"
-  node                 = var.controlplanes[count.index + 1].node
-  client_configuration = talos_machine_secrets.this.client_configuration
-  machine_secrets      = try(talos_machine_secrets.this.machine_secrets, "")
-  disk_selector        = lookup(var.controlplanes[count.index + 1], "disk_selector", null)
-  wipe_disk            = lookup(var.controlplanes[count.index + 1], "wipe_disk", true)
-  extra_kernel_args    = lookup(var.controlplanes[count.index + 1], "extra_kernel_args", [])
-  cluster_name         = var.cluster_name
-  cluster_endpoint     = local.cluster_endpoint
-  kubernetes_version   = var.kubernetes_version
-  talos_version        = var.talos_version
-  machine_type         = "controlplane"
-  endpoint             = var.controlplanes[count.index + 1].endpoint
-  bootstrap            = false // Do not bootstrap other control plane nodes
-  talosconfig_path     = local.talosconfig_path
-  kubeconfig_path      = local.kubeconfig_path
-  enable_health_check  = true
+  source                    = "./modules/machine"
+  node                      = var.controlplanes[count.index + 1].node
+  client_configuration      = local.client_configuration
+  machine_secrets           = local.machine_secrets
+  disk_selector             = lookup(var.controlplanes[count.index + 1], "disk_selector", null)
+  wipe_disk                 = lookup(var.controlplanes[count.index + 1], "wipe_disk", true)
+  extra_kernel_args         = lookup(var.controlplanes[count.index + 1], "extra_kernel_args", [])
+  cluster_name              = var.cluster_name
+  cluster_endpoint          = local.cluster_endpoint
+  kubernetes_version        = var.kubernetes_version
+  talos_version             = var.talos_version
+  machine_type              = "controlplane"
+  endpoint                  = var.controlplanes[count.index + 1].endpoint
+  bootstrap                 = false // Do not bootstrap other control plane nodes
+  talosconfig_path          = local.talosconfig_path
+  kubeconfig_path           = local.kubeconfig_path
+  enable_health_check       = true
+  skip_machine_config_apply = local.skip_machine_config_apply
   config_patches = [for p in compact(concat([
     var.common_config_patches,
     var.controlplane_config_patches,
@@ -146,22 +189,23 @@ module "workers" {
   count      = length(var.workers)
   depends_on = [module.controlplane_bootstrap] // Depends on the first control plane completing
 
-  source               = "./modules/machine"
-  node                 = var.workers[count.index].node
-  client_configuration = try(talos_machine_secrets.this.client_configuration, "")
-  machine_secrets      = try(talos_machine_secrets.this.machine_secrets, "")
-  disk_selector        = lookup(var.workers[count.index], "disk_selector", null)
-  wipe_disk            = lookup(var.workers[count.index], "wipe_disk", true)
-  extra_kernel_args    = lookup(var.workers[count.index], "extra_kernel_args", [])
-  cluster_name         = var.cluster_name
-  cluster_endpoint     = local.cluster_endpoint
-  kubernetes_version   = var.kubernetes_version
-  talos_version        = var.talos_version
-  machine_type         = "worker"
-  endpoint             = var.workers[count.index].endpoint
-  talosconfig_path     = local.talosconfig_path
-  kubeconfig_path      = local.kubeconfig_path
-  enable_health_check  = true
+  source                    = "./modules/machine"
+  node                      = var.workers[count.index].node
+  client_configuration      = local.client_configuration
+  machine_secrets           = local.machine_secrets
+  disk_selector             = lookup(var.workers[count.index], "disk_selector", null)
+  wipe_disk                 = lookup(var.workers[count.index], "wipe_disk", true)
+  extra_kernel_args         = lookup(var.workers[count.index], "extra_kernel_args", [])
+  cluster_name              = var.cluster_name
+  cluster_endpoint          = local.cluster_endpoint
+  kubernetes_version        = var.kubernetes_version
+  talos_version             = var.talos_version
+  machine_type              = "worker"
+  endpoint                  = var.workers[count.index].endpoint
+  talosconfig_path          = local.talosconfig_path
+  kubeconfig_path           = local.kubeconfig_path
+  enable_health_check       = true
+  skip_machine_config_apply = local.skip_machine_config_apply
   config_patches = [for p in compact(concat([
     var.common_config_patches,
     var.worker_config_patches,
@@ -176,7 +220,7 @@ module "workers" {
 
 data "talos_client_configuration" "this" {
   cluster_name         = var.cluster_name
-  client_configuration = talos_machine_secrets.this.client_configuration
+  client_configuration = local.client_configuration
   endpoints            = var.controlplanes.*.endpoint
 }
 

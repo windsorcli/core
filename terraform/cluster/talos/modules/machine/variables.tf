@@ -59,6 +59,7 @@ variable "client_configuration" {
 variable "machine_secrets" {
   description = "The Talos machine secrets."
   type        = any
+  sensitive   = true
 }
 
 variable "cluster_name" {
@@ -116,4 +117,14 @@ variable "kubeconfig_path" {
   description = "Path where the kubeconfig file should be written when bootstrap is true."
   type        = string
   default     = ""
+}
+
+# Set true on platforms that deliver the machineconfig out-of-band (e.g. hyperv
+# CIDATA seed) — re-applying via the maintenance API would regenerate the
+# config without the per-node network patch held in cluster/talos/config and
+# wipe the static IP, leaving the node on DHCP.
+variable "skip_machine_config_apply" {
+  description = "When true, skip talos_machine_configuration_apply (config already on the node via out-of-band delivery)."
+  type        = bool
+  default     = false
 }
