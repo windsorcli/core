@@ -705,9 +705,11 @@ properties:
     properties:
       domain:
         type: string
-        description: Base domain; used as fallback when public_domain or private_domain are not set
+        pattern: '^([a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?\.)*[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?$'
+        description: Base domain; used as fallback when public_domain or private_domain are not set. Lowercase DNS labels separated by dots (RFC 1123); no scheme, port, or trailing dot.
       public_domain:
         type: string
+        pattern: '^([a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?\.)*[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?$'
         description: >
           Publicly-routable DNS zone for the deployment. On AWS, setting
           this provisions a public Route53 hosted zone in the same
@@ -716,10 +718,12 @@ properties:
           Let's Encrypt certificates for the gateway. The operator must
           delegate this domain at their registrar to the name servers
           the dns-zone module outputs. Leave unset for selfsigned-only
-          (just-works) mode.
+          (just-works) mode. Lowercase DNS labels separated by dots; no
+          scheme, port, or trailing dot.
       private_domain:
         type: string
-        description: Private DNS zone (e.g. in-cluster CoreDNS, workstation resolver)
+        pattern: '^([a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?\.)*[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?$'
+        description: Private DNS zone (e.g. in-cluster CoreDNS, workstation resolver). Same shape as public_domain; lowercase DNS labels separated by dots.
     additionalProperties: false
 
   # GitOps configuration
