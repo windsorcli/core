@@ -297,26 +297,6 @@ cases:
             - envoy/loadbalancer/azure-lb-internal
             - envoy/prometheus
 
-  # Coherence guard: gateway.access=private without dns.private_domain is
-  # an incoherent operator config. The whole private-mode cascade gates on
-  # both, so without private_domain the cluster stays on the public path
-  # and azure-lb-internal is not appended. Mirrors the AWS coherence test.
-  - name: gateway.access=private without private_domain stays public
-    values:
-      provider: azure
-      gateway:
-        enabled: true
-        driver: envoy
-        access: private
-    expect:
-      kustomize:
-        - name: gateway-base
-          path: gateway/base
-          components:
-            - envoy
-            - envoy/loadbalancer
-            - envoy/prometheus
-
   # Negative branch: Cilium provides its own gateway implementation, so
   # there's no Envoy data-plane Service to annotate. The azure-lb-internal
   # component must NOT merge into the cilium gateway-base.

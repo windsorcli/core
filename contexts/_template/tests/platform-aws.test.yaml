@@ -464,30 +464,6 @@ cases:
           substitutions:
             lb_scheme: internal
 
-  # Coherence guard: gateway.access=private without dns.private_domain is
-  # an incoherent operator config (private gateway with no private domain
-  # to publish records to). The whole private-mode cascade gates on both,
-  # so without private_domain the cluster stays on the public path — better
-  # than ending up with a half-private gateway no one can reach. Asserted
-  # via the cert issuer falling to `public-selfsigned` (no public_domain
-  # was set, so ACME isn't selected; the cascade's private branch would
-  # otherwise force `private`). Empty `lb_scheme` substitution is dropped
-  # from output so we can't assert it directly, but the cert issuer is
-  # the proxy.
-  - name: gateway.access=private without private_domain stays public
-    values:
-      provider: aws
-      gateway:
-        enabled: true
-        driver: envoy
-        access: private
-    expect:
-      kustomize:
-        - name: gateway-resources
-          path: gateway/resources
-          substitutions:
-            gateway_cert_issuer: public-selfsigned
-
   # Negative branch: Cilium provides its own gateway implementation
   # (no Envoy data-plane Service to annotate). The aws-nlb component
   # must NOT merge into the cilium gateway-base.

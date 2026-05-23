@@ -1018,3 +1018,31 @@ allOf:
         email:
           type: string
           minLength: 1
+
+  # gateway.access == 'private' switches the gateway issuer to a private CA
+  # and external-dns to the private zone. Without dns.private_domain the
+  # facet silently falls back to a public selfsigned issuer, masking the
+  # misconfiguration. Require dns.private_domain when gateway is private.
+  - if:
+      properties:
+        gateway:
+          type: object
+          properties:
+            access:
+              const: private
+          required:
+            - access
+      required:
+        - gateway
+    then:
+      required:
+        - dns
+      properties:
+        dns:
+          type: object
+          required:
+            - private_domain
+          properties:
+            private_domain:
+              type: string
+              minLength: 1
