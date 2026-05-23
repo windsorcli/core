@@ -459,20 +459,25 @@ properties:
         description: "[DEPRECATED] Unused. Local dev is via terraform compute/workstation only."
       registries:
         type: object
+        propertyNames:
+          pattern: '^[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?(\.[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?)*$'
         additionalProperties:
           type: object
           properties:
             remote:
               type: string
-              description: Upstream registry URL (e.g. https://gcr.io).
+              pattern: '^https?://\S+$'
+              description: Upstream registry URL (e.g. https://gcr.io). http or https URL.
             local:
               type: string
-              description: Client-facing registry host for mirror key (e.g. docker.io). Omit to use the registry map key.
+              pattern: '^[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?(\.[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?)*$'
+              description: Client-facing registry host for mirror key (e.g. docker.io). Omit to use the registry map key. Lowercase DNS-labels separated by dots.
             hostname:
               type: string
-              description: Hostname for the mirror endpoint (e.g. registry.test).
+              pattern: '^[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?(\.[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?)*$'
+              description: Hostname for the mirror endpoint (e.g. registry.test). Lowercase DNS-labels separated by dots.
           additionalProperties: false
-        description: Registry mirror config keyed by registry host (e.g. gcr.io, ghcr.io). Used by workstation proxy/DNS and by Talos cluster mirrors.
+        description: Registry mirror config keyed by registry host (e.g. gcr.io, ghcr.io). Used by workstation proxy/DNS and by Talos cluster mirrors. Keys are DNS hostnames.
     additionalProperties: false
 
   # Cluster topology preset — selects between a single-node cluster, a
