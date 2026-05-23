@@ -111,8 +111,8 @@ properties:
   # Context identity (from windsor.yaml or values)
   id:
     type: string
-    pattern: '^[a-z0-9][a-z0-9-]{0,62}$'
-    description: Context id (short identifier for this deployment). Lowercase alphanumerics and hyphens, starting with an alphanumeric, 1-63 chars (DNS-1123 label). Flows into cluster names, terraform workspace names, and other downstream identifiers that require the same.
+    pattern: '^[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?$'
+    description: Context id (short identifier for this deployment). Lowercase alphanumerics and hyphens, starting and ending with an alphanumeric, 1-63 chars (DNS-1123 label). Flows into cluster names, terraform workspace names, and other downstream identifiers that require the same.
 
   # Infrastructure platform. `platform` is the canonical key; `provider`
   # is the legacy alias kept for backward compatibility (effective value is
@@ -604,6 +604,8 @@ properties:
       # continue to use cluster.workers.
       pools:
         type: object
+        propertyNames:
+          pattern: '^[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?$'
         additionalProperties:
           type: object
           required:
@@ -798,11 +800,13 @@ properties:
         description: Whether the gateway is reachable from the public internet (public, default) or only from inside the VPC/network (private). Flipping this to `private` cascades through the gateway's adjacent infrastructure — load balancer scheme, the DNS zone external-dns publishes to, and the cert-manager issuer — so the whole gateway stack stays coherent. Requires `dns.private_domain` to be set; otherwise the private path is a no-op and the gateway runs as public.
       publish_ports:
         type: object
+        propertyNames:
+          pattern: '^([1-9][0-9]{0,3}|[1-5][0-9]{4}|6[0-4][0-9]{3}|65[0-4][0-9]{2}|655[0-2][0-9]|6553[0-5])$'
         additionalProperties:
           type: integer
           minimum: 1
           maximum: 65535
-        description: Map of bench-side listen port to in-cluster NodePort, used by host-level forwarders (e.g. hyperv portproxy + firewall) to expose the gateway on a "real" port like 80/443 from the host machine while the cluster keeps NodePort allocations in the 30000-32767 range. Keyed by the host listen port (e.g. 80), value is the cluster NodePort (e.g. 30080).
+        description: Map of bench-side listen port to in-cluster NodePort, used by host-level forwarders (e.g. hyperv portproxy + firewall) to expose the gateway on a "real" port like 80/443 from the host machine while the cluster keeps NodePort allocations in the 30000-32767 range. Keyed by the host listen port (e.g. 80), value is the cluster NodePort (e.g. 30080). Keys and values are both bounded to the 1-65535 TCP port range.
     additionalProperties: false
 
   # Ingress configuration
