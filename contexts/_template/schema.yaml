@@ -1095,3 +1095,59 @@ allOf:
                     - count
                 - required:
                     - nodes
+
+  # Managed-cluster drivers ↔ platform coherence. cluster.driver: eks
+  # binds to AWS EKS (Route53, AWS provider, EKS control plane); aks
+  # binds to Azure AKS. They only make sense on the matching platform,
+  # and the platform-base facet would otherwise inject the right driver
+  # automatically. An explicit mismatch (e.g. platform: metal +
+  # cluster.driver: eks) silently binds the wrong cloud and fails apply.
+  # Two anyOf branches per rule handle the `platform` key and the legacy
+  # `provider` alias.
+  - if:
+      properties:
+        cluster:
+          type: object
+          properties:
+            driver:
+              const: eks
+          required:
+            - driver
+      required:
+        - cluster
+    then:
+      anyOf:
+        - properties:
+            platform:
+              const: aws
+          required:
+            - platform
+        - properties:
+            provider:
+              const: aws
+          required:
+            - provider
+
+  - if:
+      properties:
+        cluster:
+          type: object
+          properties:
+            driver:
+              const: aks
+          required:
+            - driver
+      required:
+        - cluster
+    then:
+      anyOf:
+        - properties:
+            platform:
+              const: azure
+          required:
+            - platform
+        - properties:
+            provider:
+              const: azure
+          required:
+            - provider
