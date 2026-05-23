@@ -20,7 +20,7 @@ $defs:
   posixPath:
     type: string
     pattern: '^/[A-Za-z0-9._/\-]+$'
-  # POSIX absolute path with optional `:guest` suffix (Docker-style bind mount).
+  # POSIX absolute path with optional `:<dest-path>` suffix (Docker-style bind mount).
   bindMountPath:
     type: string
     pattern: '^/[A-Za-z0-9._/\-]+(:/[A-Za-z0-9._/\-]+)?$'
