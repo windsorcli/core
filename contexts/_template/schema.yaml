@@ -262,6 +262,7 @@ properties:
           automatically when gateway.service_type=NodePort.
       base_dir:
         type: string
+        pattern: '^[A-Za-z]:[\\/].*$'
         default: "C:/hyperv"
         description: >
           Absolute path on the host. Per-VM VHDXs are written to
@@ -353,8 +354,13 @@ properties:
   # Timezone
   timezone:
     type: string
+    anyOf:
+      - enum:
+          - utc
+          - browser
+      - pattern: '^[A-Z][A-Za-z_]*(/[A-Za-z_+\-0-9]+)*$'
     default: utc
-    description: Default timezone for Grafana dashboards (utc, browser, or IANA zone like America/New_York)
+    description: Default timezone for Grafana dashboards. `utc` or `browser` (Grafana magic values), or an IANA zone (e.g. `America/New_York`, `Etc/GMT+5`).
 
   # Time format
   time_format:
@@ -702,8 +708,9 @@ properties:
             description: Default storage driver. Directory-based (local_base_path), cloud default, or block (cluster.*.disks).
           local_base_path:
             type: string
+            pattern: '^/[A-Za-z0-9._/\-]+$'
             default: "/var/mnt/local"
-            description: Base path for directory-based storage. Must be in the volumes list of every pool that can schedule pods using this storage (controlplanes.volumes when schedulable, workers.volumes).
+            description: Base path for directory-based storage. POSIX absolute path. Must be in the volumes list of every pool that can schedule pods using this storage (controlplanes.volumes when schedulable, workers.volumes).
           driver:
             type: string
             enum:
@@ -783,8 +790,9 @@ properties:
         properties:
           name:
             type: string
+            pattern: '^[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?$'
             default: local
-            description: Flux GitRepository name used as the primary source for reconciliations
+            description: Flux GitRepository name used as the primary source for reconciliations. DNS-1123 label.
         additionalProperties: false
       webhook:
         type: object
