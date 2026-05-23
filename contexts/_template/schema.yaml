@@ -9,7 +9,8 @@ $defs:
     properties:
       name:
         type: string
-        description: Disk name; used as the UserVolumeConfig name and mount point (/var/mnt/<name>) on Talos.
+        pattern: '^[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?$'
+        description: Disk name; used as the UserVolumeConfig name and mount point (/var/mnt/<name>) on Talos. DNS-1123 label.
       size:
         type: integer
         minimum: 1
@@ -25,13 +26,17 @@ $defs:
         description: Disk type (platform-specific; e.g. cloud disk type or "default")
       path:
         type: string
-        description: Mount point inside instance (e.g. /mnt/data, /var/mnt/local); used after platform attach. Optional for block storage when device is set.
+        pattern: '^/[A-Za-z0-9._/\-]+$'
+        description: Mount point inside instance (e.g. /mnt/data, /var/mnt/local). POSIX absolute path. Optional for block storage when device is set.
       source:
         type: string
         description: Source path for bind mounts or volume name
       device:
         type: string
-        description: Block device path or URI for block storage (e.g. /dev/sdb). When set, used for node storage pools; platform may still attach by size/type.
+        anyOf:
+          - pattern: '^/dev/[A-Za-z0-9._/\-]+$'
+          - pattern: '^[a-z][a-z0-9+\-.]*://\S+$'
+        description: Block device path or URI for block storage. `/dev/<name>` for local block devices (e.g. /dev/sdb or /dev/disk/by-id/<id>); URI for cloud/remote block storage. Used for node storage pools; platform may still attach by size/type.
       read_only:
         type: boolean
         default: false
