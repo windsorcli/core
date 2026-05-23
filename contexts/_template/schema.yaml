@@ -50,7 +50,8 @@ $defs:
           description: Node endpoint as IPv4 dotted-quad, with an optional `:port` suffix (1-99999 — typically Talos apid on 50000 or the NodePort-mode forward like 40000-40199). Facets split host:port on `:`, so IPv6 is not supported here.
         hostname:
           type: string
-          description: Node hostname
+          pattern: '^[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?(\.[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?)*$'
+          description: Node hostname. Lowercase DNS-labels separated by dots (RFC 1123); single-label like `controlplane-1` or multi-label like `controlplane-1.cluster.local`.
         node:
           type: string
           description: Node identifier
@@ -165,20 +166,24 @@ properties:
         description: Enable AWS integration
       profile:
         type: string
-        description: AWS CLI profile to use for authentication. Defaults to the context name when unset, so `aws configure sso` inside the context auto-wires a usable profile.
+        pattern: '^[A-Za-z0-9_+=,.@\-]+$'
+        description: AWS CLI profile to use for authentication. Defaults to the context name when unset, so `aws configure sso` inside the context auto-wires a usable profile. AWS profile-name character set (alphanumerics plus `_+=,.@-`).
       region:
         type: string
         pattern: '^[a-z]{2,3}-[a-z]+-\d+$'
         description: AWS region for API calls. Surfaced as AWS_REGION to every tool run inside the context. Format `<geo>-<area>-<num>` (e.g. us-west-2, eu-central-1, ap-south-1, gov-east-1).
       endpoint_url:
         type: string
-        description: Custom endpoint URL for AWS services (e.g. LocalStack testing).
+        pattern: '^https?://\S+$'
+        description: Custom endpoint URL for AWS services (e.g. LocalStack testing). http or https URL.
       s3_hostname:
         type: string
-        description: Custom hostname for the S3 service.
+        pattern: '^([a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?\.)*[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?$'
+        description: Custom hostname for the S3 service. Lowercase DNS-labels separated by dots; no scheme, port, or trailing dot.
       mwaa_endpoint:
         type: string
-        description: Endpoint for Managed Workflows for Apache Airflow.
+        pattern: '^https?://\S+$'
+        description: Endpoint for Managed Workflows for Apache Airflow. http or https URL.
     description: AWS provider authentication and endpoint configuration
 
   # Azure provider configuration. Azure integration activates whenever this block is
@@ -198,7 +203,12 @@ properties:
         description: Azure tenant identifier (UUID, same format as subscription_id).
       environment:
         type: string
-        description: Azure cloud environment (e.g. "public", "usgovernment")
+        enum:
+          - public
+          - usgovernment
+          - china
+          - german
+        description: Azure cloud environment. `public` is Azure Public Cloud (default), `usgovernment` is Azure Government, `china` is Azure China 21Vianet, `german` is the deprecated Azure Germany cloud.
       kubelogin_mode:
         type: string
         enum:
