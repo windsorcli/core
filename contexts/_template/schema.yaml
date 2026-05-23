@@ -46,7 +46,8 @@ $defs:
       properties:
         endpoint:
           type: string
-          description: Node endpoint/IP address
+          pattern: '^((25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.){3}(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)(:[1-9][0-9]{0,4})?$'
+          description: Node endpoint as IPv4 dotted-quad, with an optional `:port` suffix (1-99999 — typically Talos apid on 50000 or the NodePort-mode forward like 40000-40199). Facets split host:port on `:`, so IPv6 is not supported here.
         hostname:
           type: string
           description: Node hostname
@@ -512,12 +513,12 @@ properties:
         properties:
           start:
             type: string
-            pattern: "^([0-9]{1,3}\\.){3}[0-9]{1,3}$"
-            description: Load balancer IP pool start
+            pattern: '^((25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.){3}(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)$'
+            description: Load balancer IP pool start (IPv4 dotted-quad; each octet 0-255).
           end:
             type: string
-            pattern: "^([0-9]{1,3}\\.){3}[0-9]{1,3}$"
-            description: Load balancer IP pool end
+            pattern: '^((25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.){3}(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)$'
+            description: Load balancer IP pool end (IPv4 dotted-quad; each octet 0-255).
         additionalProperties: false
       loadbalancer_driver:
         type: string
