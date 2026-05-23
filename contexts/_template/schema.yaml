@@ -683,9 +683,12 @@ properties:
               description: EBS root volume size in GB. Defaults to the provider module default (64 GB on EKS).
             labels:
               type: object
+              propertyNames:
+                pattern: '^(([a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?(\.[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?)*)/)?[A-Za-z0-9]([A-Za-z0-9._-]{0,61}[A-Za-z0-9])?$'
               additionalProperties:
                 type: string
-              description: Kubernetes labels applied to nodes in this pool, on top of the auto-injected windsor.io/pool=<name> and windsor.io/pool-class=<class>.
+                pattern: '^([A-Za-z0-9]([A-Za-z0-9._-]{0,61}[A-Za-z0-9])?)?$'
+              description: Kubernetes labels applied to nodes in this pool, on top of the auto-injected windsor.io/pool=<name> and windsor.io/pool-class=<class>. Keys and values follow the k8s label spec.
             taints:
               type: array
               items:
@@ -696,8 +699,10 @@ properties:
                 properties:
                   key:
                     type: string
+                    pattern: '^(([a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?(\.[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?)*)/)?[A-Za-z0-9]([A-Za-z0-9._-]{0,61}[A-Za-z0-9])?$'
                   value:
                     type: string
+                    pattern: '^([A-Za-z0-9]([A-Za-z0-9._-]{0,61}[A-Za-z0-9])?)?$'
                   effect:
                     type: string
                     enum:
