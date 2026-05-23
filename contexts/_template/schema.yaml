@@ -4,13 +4,16 @@ description: Schema for configuring Windsor platform blueprints
 type: object
 
 $defs:
+  # DNS-1123 label: lowercase alphanumerics and hyphens, starts/ends alphanumeric, 1-63 chars.
+  dnsLabel:
+    type: string
+    pattern: '^[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?$'
   diskItem: &diskItem
     type: object
     properties:
       name:
-        type: string
-        pattern: '^[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?$'
-        description: Disk name; used as the UserVolumeConfig name and mount point (/var/mnt/<name>) on Talos. DNS-1123 label.
+        $ref: '#/$defs/dnsLabel'
+        description: Disk name; used as the UserVolumeConfig name and mount point (/var/mnt/<name>) on Talos.
       size:
         type: integer
         minimum: 1
@@ -46,7 +49,7 @@ $defs:
   nodesSchema: &nodesSchema
     type: object
     propertyNames:
-      pattern: '^[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?$'
+      $ref: '#/$defs/dnsLabel'
     additionalProperties:
       type: object
       properties:
@@ -127,9 +130,8 @@ $defs:
 properties:
   # Context identity (from windsor.yaml or values)
   id:
-    type: string
-    pattern: '^[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?$'
-    description: Context id (short identifier for this deployment). Lowercase alphanumerics and hyphens, starting and ending with an alphanumeric, 1-63 chars (DNS-1123 label). Flows into cluster names, terraform workspace names, and other downstream identifiers that require the same.
+    $ref: '#/$defs/dnsLabel'
+    description: Context id (short identifier for this deployment). Flows into cluster names, terraform workspace names, and other downstream identifiers that require a DNS-1123 label.
 
   # Infrastructure platform. `platform` is the canonical key; `provider`
   # is the legacy alias kept for backward compatibility (effective value is
@@ -643,7 +645,7 @@ properties:
       pools:
         type: object
         propertyNames:
-          pattern: '^[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?$'
+          $ref: '#/$defs/dnsLabel'
         additionalProperties:
           type: object
           required:
@@ -781,7 +783,7 @@ properties:
       private_domain:
         type: string
         pattern: '^([a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?\.)*[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?$'
-        description: Private DNS zone (e.g. in-cluster CoreDNS, workstation resolver). Same shape as public_domain; lowercase DNS labels separated by dots.
+        description: Private DNS zone (e.g. in-cluster CoreDNS, workstation resolver). Lowercase DNS labels separated by dots.
     additionalProperties: false
 
   # GitOps configuration
@@ -802,10 +804,9 @@ properties:
         type: object
         properties:
           name:
-            type: string
-            pattern: '^[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?$'
+            $ref: '#/$defs/dnsLabel'
             default: local
-            description: Flux GitRepository name used as the primary source for reconciliations. DNS-1123 label.
+            description: Flux GitRepository name used as the primary source for reconciliations.
         additionalProperties: false
       webhook:
         type: object
