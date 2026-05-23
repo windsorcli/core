@@ -200,11 +200,13 @@ kustomize:
       acme_server: "${dev == true ? 'https://acme-staging-v02.api.letsencrypt.org/directory' : 'https://acme-v02.api.letsencrypt.org/directory'}"
       acme_email: "${email ?? ''}"
       acme_dns_zone: "${dns.public_domain ?? ''}"
-      # Deferred terraform_outputs from the dns-zone and cluster stacks. When
-      # those stacks aren't composed (e.g. dns.public_domain unset, or
-      # create_cert_manager_identity didn't fire) the harness returns null
-      # uniformly and ?? falls back to ''. The selfsigned-issuer path in
-      # private mode doesn't read these substitutions.
+      # Deferred terraform_outputs from the dns-zone and cluster stacks.
+      # terraform_output() returns nil whenever the requested output is
+      # absent — component never composed, output not exported, or
+      # mid-destroy — so ?? '' covers dns.public_domain-unset and
+      # create_cert_manager_identity-not-fired without an outer guard.
+      # Real state-read errors still propagate. Selfsigned-issuer in
+      # private mode doesn't read these; empty values are inert there.
       acme_dns_zone_resource_group: "${terraform_output('dns-zone', 'resource_group_name') ?? ''}"
       acme_dns_zone_subscription_id: "${terraform_output('dns-zone', 'subscription_id') ?? ''}"
       cert_manager_client_id: "${terraform_output('cluster', 'cert_manager_client_id') ?? ''}"
