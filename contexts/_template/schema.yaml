@@ -39,6 +39,8 @@ $defs:
       - name
   nodesSchema: &nodesSchema
     type: object
+    propertyNames:
+      pattern: '^[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?$'
     additionalProperties:
       type: object
       properties:
@@ -66,7 +68,7 @@ $defs:
       required:
         - endpoint
         - node
-    description: Named node configurations
+    description: Named node configurations. Keys must be DNS-1123 labels (lowercase alphanumerics and hyphens, starting and ending with alphanumeric, max 63 chars) since they flow downstream as kubelet hostnames.
   nodePool: &nodePool
     count:
       type: integer
