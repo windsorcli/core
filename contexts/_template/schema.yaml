@@ -113,19 +113,9 @@ properties:
     type: string
     description: Context id (e.g. short identifier for this deployment)
 
-  # Infrastructure provider / platform. Use platform ?? provider as effective value;
-  provider:
-    type: string
-    enum:
-      - none
-      - aws
-      - azure
-      - incus
-      - metal
-      - docker
-      - hyperv
-    default: none
-    description: Infrastructure provider - includes policy, PKI, telemetry, ingress, and storage
+  # Infrastructure platform. `platform` is the canonical key; `provider`
+  # is the legacy alias kept for backward compatibility (effective value is
+  # platform ?? provider). New configs and tests should use `platform`.
   platform:
     type: string
     enum:
@@ -136,7 +126,20 @@ properties:
       - metal
       - docker
       - hyperv
-    description: Alias for provider; when set overrides provider.
+    description: Infrastructure platform. Selects the platform facet (cluster driver defaults, policy, PKI, telemetry, ingress, storage). When set, overrides the legacy `provider` field.
+  provider:
+    type: string
+    deprecated: true
+    enum:
+      - none
+      - aws
+      - azure
+      - incus
+      - metal
+      - docker
+      - hyperv
+    default: none
+    description: Deprecated. Use `platform` instead. Retained as a fallback for existing configs (effective value resolves to platform ?? provider).
 
   # Development mode
   dev:
@@ -848,8 +851,9 @@ properties:
     properties:
       enabled:
         type: boolean
+        deprecated: true
         default: false
-        description: Enable workstation stack (DNS, registries, git livereload)
+        description: Deprecated. No facet reads this field. `workstation.runtime` is the actual switch that turns on the workstation stack (DNS, registries, git livereload, cluster compute); leave runtime unset to opt out.
       arch:
         type: string
         enum:
