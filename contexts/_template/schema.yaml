@@ -16,6 +16,30 @@ $defs:
   ipv4:
     type: string
     pattern: '^((25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.){3}(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)$'
+  # POSIX absolute path.
+  posixPath:
+    type: string
+    pattern: '^/[A-Za-z0-9._/\-]+$'
+  # POSIX absolute path with optional `:guest` suffix (Docker-style bind mount).
+  bindMountPath:
+    type: string
+    pattern: '^/[A-Za-z0-9._/\-]+(:/[A-Za-z0-9._/\-]+)?$'
+  # http or https URL.
+  httpUrl:
+    type: string
+    pattern: '^https?://\S+$'
+  # RFC 4122 UUID (8-4-4-4-12 hex).
+  uuid:
+    type: string
+    pattern: '^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$'
+  # Kubernetes label/taint key: optional `<dns-subdomain>/` prefix plus name.
+  k8sLabelKey:
+    type: string
+    pattern: '^(([a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?(\.[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?)*)/)?[A-Za-z0-9]([A-Za-z0-9._-]{0,61}[A-Za-z0-9])?$'
+  # Kubernetes label/taint value: bounded alphanumeric or empty.
+  k8sLabelValue:
+    type: string
+    pattern: '^([A-Za-z0-9]([A-Za-z0-9._-]{0,61}[A-Za-z0-9])?)?$'
   diskItem: &diskItem
     type: object
     properties:
@@ -36,9 +60,8 @@ $defs:
         type: string
         description: Disk type (platform-specific; e.g. cloud disk type or "default")
       path:
-        type: string
-        pattern: '^/[A-Za-z0-9._/\-]+$'
-        description: Mount point inside instance (e.g. /mnt/data, /var/mnt/local). POSIX absolute path. Optional for block storage when device is set.
+        $ref: '#/$defs/posixPath'
+        description: Mount point inside instance (e.g. /mnt/data, /var/mnt/local). Optional for block storage when device is set.
       source:
         type: string
         description: Source path for bind mounts or volume name
@@ -84,9 +107,8 @@ $defs:
         volumes:
           type: array
           items:
-            type: string
-            pattern: '^/[A-Za-z0-9._/\-]+(:/[A-Za-z0-9._/\-]+)?$'
-          description: Reserved; only pool-level volumes (controlplanes.volumes / workers.volumes) are used today for extraMounts and compute bind mounts. POSIX absolute path, or `host:guest` for local dev bind mounts on workstation clusters.
+            $ref: '#/$defs/bindMountPath'
+          description: Reserved; only pool-level volumes (controlplanes.volumes / workers.volumes) are used today for extraMounts and compute bind mounts.
       required:
         - endpoint
         - node
@@ -130,9 +152,8 @@ $defs:
     volumes:
       type: array
       items:
-        type: string
-        pattern: '^/[A-Za-z0-9._/\-]+(:/[A-Za-z0-9._/\-]+)?$'
-      description: Node directory paths for extra mounts. For directory-based storage include cluster.storage.local_base_path. POSIX absolute path, or `host:guest` for local dev bind mounts on workstation clusters. Block/device storage uses disks instead.
+        $ref: '#/$defs/bindMountPath'
+      description: Node directory paths for extra mounts. For directory-based storage include cluster.storage.local_base_path. Block/device storage uses disks instead.
 
 properties:
   # Context identity (from windsor.yaml or values)
@@ -197,15 +218,13 @@ properties:
         pattern: '^[a-z]{2,3}-[a-z]+-\d+$'
         description: AWS region for API calls. Surfaced as AWS_REGION to every tool run inside the context. Format `<geo>-<area>-<num>` (e.g. us-west-2, eu-central-1, ap-south-1, gov-east-1).
       endpoint_url:
-        type: string
-        pattern: '^https?://\S+$'
+        $ref: '#/$defs/httpUrl'
         description: Custom endpoint URL for AWS services (e.g. LocalStack testing). http or https URL.
       s3_hostname:
         $ref: '#/$defs/dnsHostname'
         description: Custom hostname for the S3 service. Lowercase DNS-labels separated by dots; no scheme, port, or trailing dot.
       mwaa_endpoint:
-        type: string
-        pattern: '^https?://\S+$'
+        $ref: '#/$defs/httpUrl'
         description: Endpoint for Managed Workflows for Apache Airflow. http or https URL.
     description: AWS provider authentication and endpoint configuration
 
@@ -217,12 +236,10 @@ properties:
     additionalProperties: false
     properties:
       subscription_id:
-        type: string
-        pattern: '^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$'
+        $ref: '#/$defs/uuid'
         description: Azure subscription identifier (UUID, e.g. 00000000-0000-0000-0000-000000000000).
       tenant_id:
-        type: string
-        pattern: '^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$'
+        $ref: '#/$defs/uuid'
         description: Azure tenant identifier (UUID, same format as subscription_id).
       environment:
         type: string
@@ -491,8 +508,7 @@ properties:
           type: object
           properties:
             remote:
-              type: string
-              pattern: '^https?://\S+$'
+              $ref: '#/$defs/httpUrl'
               description: Upstream registry URL (e.g. https://gcr.io). http or https URL.
             local:
               $ref: '#/$defs/dnsHostname'
@@ -634,8 +650,7 @@ properties:
           volumes:
             type: array
             items:
-              type: string
-              pattern: '^/[A-Za-z0-9._/\-]+(:/[A-Za-z0-9._/\-]+)?$'
+              $ref: '#/$defs/bindMountPath'
             default:
               - "/var/mnt/local"
             description: "Node directory paths for extra mounts. For directory-based storage include cluster.storage.local_base_path. Path or host:dest for local dev bind mounts. Block/device storage uses disks."
@@ -688,10 +703,9 @@ properties:
             labels:
               type: object
               propertyNames:
-                pattern: '^(([a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?(\.[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?)*)/)?[A-Za-z0-9]([A-Za-z0-9._-]{0,61}[A-Za-z0-9])?$'
+                $ref: '#/$defs/k8sLabelKey'
               additionalProperties:
-                type: string
-                pattern: '^([A-Za-z0-9]([A-Za-z0-9._-]{0,61}[A-Za-z0-9])?)?$'
+                $ref: '#/$defs/k8sLabelValue'
               description: Kubernetes labels applied to nodes in this pool, on top of the auto-injected windsor.io/pool=<name> and windsor.io/pool-class=<class>. Keys and values follow the k8s label spec.
             taints:
               type: array
@@ -702,11 +716,9 @@ properties:
                   - effect
                 properties:
                   key:
-                    type: string
-                    pattern: '^(([a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?(\.[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?)*)/)?[A-Za-z0-9]([A-Za-z0-9._-]{0,61}[A-Za-z0-9])?$'
+                    $ref: '#/$defs/k8sLabelKey'
                   value:
-                    type: string
-                    pattern: '^([A-Za-z0-9]([A-Za-z0-9._-]{0,61}[A-Za-z0-9])?)?$'
+                    $ref: '#/$defs/k8sLabelValue'
                   effect:
                     type: string
                     enum:
@@ -724,8 +736,7 @@ properties:
             type: string
             description: Default storage driver. Directory-based (local_base_path), cloud default, or block (cluster.*.disks).
           local_base_path:
-            type: string
-            pattern: '^/[A-Za-z0-9._/\-]+$'
+            $ref: '#/$defs/posixPath'
             default: "/var/mnt/local"
             description: Base path for directory-based storage. POSIX absolute path. Must be in the volumes list of every pool that can schedule pods using this storage (controlplanes.volumes when schedulable, workers.volumes).
           driver:
