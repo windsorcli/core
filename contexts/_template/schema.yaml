@@ -12,6 +12,7 @@ $defs:
         description: Disk name; used as the UserVolumeConfig name and mount point (/var/mnt/<name>) on Talos.
       size:
         type: integer
+        minimum: 1
         description: Disk size in GB. Required on provisioned platforms (Incus, cloud) to create the volume. Optional on metal when selector is set.
       selector:
         type: string
@@ -77,7 +78,8 @@ $defs:
   nodePool: &nodePool
     count:
       type: integer
-      description: Number of nodes
+      minimum: 0
+      description: Number of nodes (workers may be 0 for single-node clusters; controlplanes need at least 1).
     image:
       type: string
       description: Node image for this pool. Per-node image overrides when set.
@@ -86,14 +88,17 @@ $defs:
       description: Cloud provider instance type
     cpu:
       type: integer
+      minimum: 1
       default: 4
       description: CPU cores per node. Default 4 applies to both controlplane and worker pools.
     memory:
       type: integer
+      minimum: 1
       default: 8
       description: Memory in GB per node. Default 8 applies to both controlplane and worker pools.
     root_disk_size:
       type: integer
+      minimum: 1
       description: Root/OS disk size in GB
     disks:
       type: array
