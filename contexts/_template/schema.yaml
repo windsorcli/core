@@ -246,9 +246,11 @@ properties:
   # Useful for provider-side credentials read from env (e.g. HYPERV_*).
   environment:
     type: object
+    propertyNames:
+      pattern: '^[A-Za-z_][A-Za-z0-9_]*$'
     additionalProperties:
       type: string
-    description: Environment variables exported by `windsor exec` and seen by terraform providers.
+    description: Environment variables exported by `windsor exec` and seen by terraform providers. Keys must be valid POSIX-style env-var names (letter or underscore, followed by letters, digits, or underscores) — catches shell-incompatible names like `MY-VAR` or `2VAR` at config-load.
 
   # Terraform execution config
   terraform:
