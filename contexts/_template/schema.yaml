@@ -215,8 +215,8 @@ properties:
         description: AWS CLI profile to use for authentication. Defaults to the context name when unset, so `aws configure sso` inside the context auto-wires a usable profile. AWS profile-name character set (alphanumerics plus `_+=,.@-`).
       region:
         type: string
-        pattern: '^[a-z]{2,3}-[a-z]+-\d+$'
-        description: AWS region for API calls. Surfaced as AWS_REGION to every tool run inside the context. Format `<geo>-<area>-<num>` (e.g. us-west-2, eu-central-1, ap-south-1, gov-east-1).
+        pattern: '^[a-z]{2,3}(-[a-z]+)+-\d+$'
+        description: AWS region for API calls. Surfaced as AWS_REGION to every tool run inside the context. Covers all AWS partition formats — commercial (us-west-2, eu-central-1), GovCloud (us-gov-west-1), China (cn-north-1), and ISO (us-iso-east-1).
       endpoint_url:
         $ref: '#/$defs/httpUrl'
         description: Custom endpoint URL for AWS services (e.g. LocalStack testing). http or https URL.
