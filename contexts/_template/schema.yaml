@@ -54,7 +54,10 @@ $defs:
           description: Node hostname. Lowercase DNS-labels separated by dots (RFC 1123); single-label like `controlplane-1` or multi-label like `controlplane-1.cluster.local`.
         node:
           type: string
-          description: Node identifier
+          anyOf:
+            - pattern: '^((25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.){3}(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)$'
+            - pattern: '^[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?(\.[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?)*$'
+          description: Node identifier — IPv4 dotted-quad (typical for static-node providers) or a DNS-labelled hostname. Used by talosctl and downstream facets to address the machine.
         image:
           type: string
           description: Node image. Overrides pool-level image when set.
@@ -883,7 +886,10 @@ properties:
         description: CPU architecture for Incus Talos images (host arch when workstation enabled; target arch for server deployments). Used by talos.incus_image.
       address:
         type: string
-        description: Address of the workstation, used for SSH to configure workstation networking
+        anyOf:
+          - pattern: '^((25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.){3}(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)$'
+          - pattern: '^[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?(\.[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?)*$'
+        description: Address of the workstation, used for SSH to configure workstation networking. IPv4 dotted-quad or DNS-labelled hostname.
       runtime:
         type: string
         enum:
@@ -897,7 +903,10 @@ properties:
         properties:
           address:
             type: string
-            description: DNS server address resolved from workstation infrastructure
+            anyOf:
+              - pattern: '^((25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.){3}(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)$'
+              - pattern: '^[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?(\.[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?)*$'
+            description: DNS server address resolved from workstation infrastructure. IPv4 dotted-quad or DNS-labelled hostname.
           forward:
             type: array
             items:
