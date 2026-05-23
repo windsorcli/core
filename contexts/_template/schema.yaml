@@ -1186,13 +1186,9 @@ allOf:
           required:
             - provider
 
-  # cluster.storage.driver: longhorn needs the Talos block-storage extensions
-  # (iscsi-tools, util-linux) and provisions a dedicated disk per node; the
-  # cluster.storage.driver description names it "mandatory on Talos". This
-  # rule fires only when cluster.driver is also explicitly set — operators
-  # relying on platform-derived defaults (e.g. platform: incus → talos)
-  # aren't burdened. The explicit override case catches manual mismatches
-  # like longhorn + cluster.driver: eks, which would silently break apply.
+  # cluster.storage.driver is Talos-only (config-talos.yaml reads it; managed
+  # clusters use cluster.storage.single_storage_type). Fires only when
+  # cluster.driver is explicit, so platform-derived defaults aren't blocked.
   - if:
       properties:
         cluster:
@@ -1200,9 +1196,6 @@ allOf:
           properties:
             storage:
               type: object
-              properties:
-                driver:
-                  const: longhorn
               required:
                 - driver
             driver:
