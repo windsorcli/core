@@ -111,7 +111,8 @@ properties:
   # Context identity (from windsor.yaml or values)
   id:
     type: string
-    description: Context id (e.g. short identifier for this deployment)
+    pattern: '^[a-z0-9][a-z0-9-]{0,62}$'
+    description: Context id (short identifier for this deployment). Lowercase alphanumerics and hyphens, starting with an alphanumeric, 1-63 chars (DNS-1123 label). Flows into cluster names, terraform workspace names, and other downstream identifiers that require the same.
 
   # Infrastructure platform. `platform` is the canonical key; `provider`
   # is the legacy alias kept for backward compatibility (effective value is
@@ -166,7 +167,8 @@ properties:
         description: AWS CLI profile to use for authentication. Defaults to the context name when unset, so `aws configure sso` inside the context auto-wires a usable profile.
       region:
         type: string
-        description: AWS region for API calls. Surfaced as AWS_REGION to every tool run inside the context.
+        pattern: '^[a-z]{2,3}-[a-z]+-\d+$'
+        description: AWS region for API calls. Surfaced as AWS_REGION to every tool run inside the context. Format `<geo>-<area>-<num>` (e.g. us-west-2, eu-central-1, ap-south-1, gov-east-1).
       endpoint_url:
         type: string
         description: Custom endpoint URL for AWS services (e.g. LocalStack testing).
@@ -187,10 +189,12 @@ properties:
     properties:
       subscription_id:
         type: string
-        description: Azure subscription identifier
+        pattern: '^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$'
+        description: Azure subscription identifier (UUID, e.g. 00000000-0000-0000-0000-000000000000).
       tenant_id:
         type: string
-        description: Azure tenant identifier
+        pattern: '^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$'
+        description: Azure tenant identifier (UUID, same format as subscription_id).
       environment:
         type: string
         description: Azure cloud environment (e.g. "public", "usgovernment")
@@ -545,7 +549,8 @@ properties:
         description: Cluster driver. Defaulted by platform-base based on the active platform (aws → eks, azure → aks, otherwise → talos); an explicit value here wins.
       endpoint:
         type: string
-        description: External controlplane API endpoint (https://host:port). IPv4 only — facets parse host:port with simple split on ':', and the hyperv NetNat backend is IPv4-only at the Windows API layer.
+        pattern: '^https://[A-Za-z0-9.\-]+(:[0-9]{1,5})?(/.*)?$'
+        description: External controlplane API endpoint (https://host:port). IPv4 only — facets parse host:port with simple split on ':', and the hyperv NetNat backend is IPv4-only at the Windows API layer. Pattern enforces the https scheme and rejects URLs with whitespace, IPv6 brackets, or wrong scheme.
       controlplanes:
         type: object
         properties:
