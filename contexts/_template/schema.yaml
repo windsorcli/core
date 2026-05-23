@@ -75,7 +75,8 @@ $defs:
           type: array
           items:
             type: string
-          description: Reserved; only pool-level volumes (controlplanes.volumes / workers.volumes) are used today for extraMounts and compute bind mounts.
+            pattern: '^/[A-Za-z0-9._/\-]+(:/[A-Za-z0-9._/\-]+)?$'
+          description: Reserved; only pool-level volumes (controlplanes.volumes / workers.volumes) are used today for extraMounts and compute bind mounts. POSIX absolute path, or `host:guest` for local dev bind mounts on workstation clusters.
       required:
         - endpoint
         - node
@@ -120,7 +121,8 @@ $defs:
       type: array
       items:
         type: string
-      description: Node directory paths for extra mounts. For directory-based storage include cluster.storage.local_base_path. Path format (e.g. /var/mnt/local); host:dest only for local dev bind mounts. Block/device storage uses disks.
+        pattern: '^/[A-Za-z0-9._/\-]+(:/[A-Za-z0-9._/\-]+)?$'
+      description: Node directory paths for extra mounts. For directory-based storage include cluster.storage.local_base_path. POSIX absolute path, or `host:guest` for local dev bind mounts on workstation clusters. Block/device storage uses disks instead.
 
 properties:
   # Context identity (from windsor.yaml or values)
@@ -629,6 +631,7 @@ properties:
             type: array
             items:
               type: string
+              pattern: '^/[A-Za-z0-9._/\-]+(:/[A-Za-z0-9._/\-]+)?$'
             default:
               - "/var/mnt/local"
             description: "Node directory paths for extra mounts. For directory-based storage include cluster.storage.local_base_path. Path or host:dest for local dev bind mounts. Block/device storage uses disks."
@@ -934,7 +937,10 @@ properties:
             type: array
             items:
               type: string
-            description: Forward DNS servers
+              anyOf:
+                - pattern: '^((25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.){3}(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)$'
+                - pattern: '^[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?(\.[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?)*$'
+            description: Forward DNS servers. IPv4 dotted-quad or DNS-labelled hostname per entry.
         additionalProperties: false
       services:
         type: object
