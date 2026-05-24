@@ -123,7 +123,7 @@ cases:
       network:
         cidr_block: 10.10.0.0/16
         loadbalancer_driver: metallb
-        loadbalancer_mode: layer2
+        loadbalancer_mode: arp
         loadbalancer_ips:
           start: "10.10.1.10"
           end: "10.10.1.100"
@@ -207,7 +207,7 @@ cases:
             - lb-base
           components:
             - metallb
-            - metallb/layer2
+            - metallb/arp
           substitutions:
             loadbalancer_ip_range: 10.10.1.10-10.10.1.100
           timeout: 5m

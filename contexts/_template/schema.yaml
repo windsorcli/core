@@ -4,14 +4,51 @@ description: Schema for configuring Windsor platform blueprints
 type: object
 
 $defs:
+  # DNS-1123 label: lowercase alphanumerics and hyphens, starts/ends alphanumeric, 1-63 chars.
+  dnsLabel:
+    type: string
+    pattern: '^[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?$'
+  # Multi-label DNS hostname: one or more dnsLabels joined by dots.
+  dnsHostname:
+    type: string
+    pattern: '^[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?(\.[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?)*$'
+  # Strict IPv4 dotted-quad, each octet 0-255.
+  ipv4:
+    type: string
+    pattern: '^((25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.){3}(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)$'
+  # POSIX absolute path.
+  posixPath:
+    type: string
+    pattern: '^/[A-Za-z0-9._/\-]+$'
+  # POSIX absolute path with optional `:<dest-path>` suffix (Docker-style bind mount).
+  bindMountPath:
+    type: string
+    pattern: '^/[A-Za-z0-9._/\-]+(:/[A-Za-z0-9._/\-]+)?$'
+  # http or https URL.
+  httpUrl:
+    type: string
+    pattern: '^https?://\S+$'
+  # RFC 4122 UUID (8-4-4-4-12 hex).
+  uuid:
+    type: string
+    pattern: '^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$'
+  # Kubernetes label/taint key: optional `<dns-subdomain>/` prefix plus name.
+  k8sLabelKey:
+    type: string
+    pattern: '^(([a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?(\.[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?)*)/)?[A-Za-z0-9]([A-Za-z0-9._-]{0,61}[A-Za-z0-9])?$'
+  # Kubernetes label/taint value: bounded alphanumeric or empty.
+  k8sLabelValue:
+    type: string
+    pattern: '^([A-Za-z0-9]([A-Za-z0-9._-]{0,61}[A-Za-z0-9])?)?$'
   diskItem: &diskItem
     type: object
     properties:
       name:
-        type: string
+        $ref: '#/$defs/dnsLabel'
         description: Disk name; used as the UserVolumeConfig name and mount point (/var/mnt/<name>) on Talos.
       size:
         type: integer
+        minimum: 1
         description: Disk size in GB. Required on provisioned platforms (Incus, cloud) to create the volume. Optional on metal when selector is set.
       selector:
         type: string
@@ -23,14 +60,17 @@ $defs:
         type: string
         description: Disk type (platform-specific; e.g. cloud disk type or "default")
       path:
-        type: string
-        description: Mount point inside instance (e.g. /mnt/data, /var/mnt/local); used after platform attach. Optional for block storage when device is set.
+        $ref: '#/$defs/posixPath'
+        description: Mount point inside instance (e.g. /mnt/data, /var/mnt/local). Optional for block storage when device is set.
       source:
         type: string
         description: Source path for bind mounts or volume name
       device:
         type: string
-        description: Block device path or URI for block storage (e.g. /dev/sdb). When set, used for node storage pools; platform may still attach by size/type.
+        anyOf:
+          - pattern: '^/dev/[A-Za-z0-9._/\-]+$'
+          - pattern: '^[a-z][a-z0-9+\-.]*://\S+$'
+        description: Block device path or URI for block storage. `/dev/<name>` for local block devices (e.g. /dev/sdb or /dev/disk/by-id/<id>); URI for cloud/remote block storage. Used for node storage pools; platform may still attach by size/type.
       read_only:
         type: boolean
         default: false
@@ -39,18 +79,24 @@ $defs:
       - name
   nodesSchema: &nodesSchema
     type: object
+    propertyNames:
+      $ref: '#/$defs/dnsLabel'
     additionalProperties:
       type: object
       properties:
         endpoint:
           type: string
-          description: Node endpoint/IP address
+          pattern: '^((25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.){3}(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)(:([1-9][0-9]{0,3}|[1-5][0-9]{4}|6[0-4][0-9]{3}|65[0-4][0-9]{2}|655[0-2][0-9]|6553[0-5]))?$'
+          description: Node endpoint as IPv4 dotted-quad, with an optional `:port` suffix in the 1-65535 TCP range (typically Talos apid on 50000 or the NodePort-mode forward like 40000-40199). Facets split host:port on `:`, so IPv6 is not supported here.
         hostname:
-          type: string
-          description: Node hostname
+          $ref: '#/$defs/dnsHostname'
+          description: Node hostname. Lowercase DNS-labels separated by dots (RFC 1123); single-label like `controlplane-1` or multi-label like `controlplane-1.cluster.local`.
         node:
           type: string
-          description: Node identifier
+          anyOf:
+            - $ref: '#/$defs/ipv4'
+            - $ref: '#/$defs/dnsHostname'
+          description: Node identifier — IPv4 dotted-quad (typical for static-node providers) or a DNS-labelled hostname. Used by talosctl and downstream facets to address the machine.
         image:
           type: string
           description: Node image. Overrides pool-level image when set.
@@ -61,16 +107,17 @@ $defs:
         volumes:
           type: array
           items:
-            type: string
+            $ref: '#/$defs/bindMountPath'
           description: Reserved; only pool-level volumes (controlplanes.volumes / workers.volumes) are used today for extraMounts and compute bind mounts.
       required:
         - endpoint
         - node
-    description: Named node configurations
+    description: Named node configurations. Keys must be DNS-1123 labels (lowercase alphanumerics and hyphens, starting and ending with alphanumeric, max 63 chars) since they flow downstream as kubelet hostnames.
   nodePool: &nodePool
     count:
       type: integer
-      description: Number of nodes
+      minimum: 0
+      description: Number of nodes (workers may be 0 for single-node clusters; controlplanes need at least 1).
     image:
       type: string
       description: Node image for this pool. Per-node image overrides when set.
@@ -79,14 +126,17 @@ $defs:
       description: Cloud provider instance type
     cpu:
       type: integer
+      minimum: 1
       default: 4
       description: CPU cores per node. Default 4 applies to both controlplane and worker pools.
     memory:
       type: integer
+      minimum: 1
       default: 8
       description: Memory in GB per node. Default 8 applies to both controlplane and worker pools.
     root_disk_size:
       type: integer
+      minimum: 1
       description: Root/OS disk size in GB
     disks:
       type: array
@@ -102,28 +152,18 @@ $defs:
     volumes:
       type: array
       items:
-        type: string
-      description: Node directory paths for extra mounts. For directory-based storage include cluster.storage.local_base_path. Path format (e.g. /var/mnt/local); host:dest only for local dev bind mounts. Block/device storage uses disks.
+        $ref: '#/$defs/bindMountPath'
+      description: Node directory paths for extra mounts. For directory-based storage include cluster.storage.local_base_path. Block/device storage uses disks instead.
 
 properties:
   # Context identity (from windsor.yaml or values)
   id:
-    type: string
-    description: Context id (e.g. short identifier for this deployment)
+    $ref: '#/$defs/dnsLabel'
+    description: Context id (short identifier for this deployment). Flows into cluster names, terraform workspace names, and other downstream identifiers that require a DNS-1123 label.
 
-  # Infrastructure provider / platform. Use platform ?? provider as effective value;
-  provider:
-    type: string
-    enum:
-      - none
-      - aws
-      - azure
-      - incus
-      - metal
-      - docker
-      - hyperv
-    default: none
-    description: Infrastructure provider - includes policy, PKI, telemetry, ingress, and storage
+  # Infrastructure platform. `platform` is the canonical key; `provider`
+  # is the legacy alias kept for backward compatibility (effective value is
+  # platform ?? provider). New configs and tests should use `platform`.
   platform:
     type: string
     enum:
@@ -134,7 +174,20 @@ properties:
       - metal
       - docker
       - hyperv
-    description: Alias for provider; when set overrides provider.
+    description: Infrastructure platform. Selects the platform facet (cluster driver defaults, policy, PKI, telemetry, ingress, storage). When set, overrides the legacy `provider` field.
+  provider:
+    type: string
+    deprecated: true
+    enum:
+      - none
+      - aws
+      - azure
+      - incus
+      - metal
+      - docker
+      - hyperv
+    default: none
+    description: Deprecated. Use `platform` instead. Retained as a fallback for existing configs (effective value resolves to platform ?? provider).
 
   # Development mode
   dev:
@@ -158,19 +211,21 @@ properties:
         description: Enable AWS integration
       profile:
         type: string
-        description: AWS CLI profile to use for authentication. Defaults to the context name when unset, so `aws configure sso` inside the context auto-wires a usable profile.
+        pattern: '^[A-Za-z0-9_+=,.@\-]+$'
+        description: AWS CLI profile to use for authentication. Defaults to the context name when unset, so `aws configure sso` inside the context auto-wires a usable profile. AWS profile-name character set (alphanumerics plus `_+=,.@-`).
       region:
         type: string
-        description: AWS region for API calls. Surfaced as AWS_REGION to every tool run inside the context.
+        pattern: '^[a-z]{2,3}(-[a-z]+)+-\d+$'
+        description: AWS region for API calls. Surfaced as AWS_REGION to every tool run inside the context. Covers all AWS partition formats — commercial (us-west-2, eu-central-1), GovCloud (us-gov-west-1), China (cn-north-1), and ISO (us-iso-east-1).
       endpoint_url:
-        type: string
-        description: Custom endpoint URL for AWS services (e.g. LocalStack testing).
+        $ref: '#/$defs/httpUrl'
+        description: Custom endpoint URL for AWS services (e.g. LocalStack testing). http or https URL.
       s3_hostname:
-        type: string
-        description: Custom hostname for the S3 service.
+        $ref: '#/$defs/dnsHostname'
+        description: Custom hostname for the S3 service. Lowercase DNS-labels separated by dots; no scheme, port, or trailing dot.
       mwaa_endpoint:
-        type: string
-        description: Endpoint for Managed Workflows for Apache Airflow.
+        $ref: '#/$defs/httpUrl'
+        description: Endpoint for Managed Workflows for Apache Airflow. http or https URL.
     description: AWS provider authentication and endpoint configuration
 
   # Azure provider configuration. Azure integration activates whenever this block is
@@ -181,14 +236,19 @@ properties:
     additionalProperties: false
     properties:
       subscription_id:
-        type: string
-        description: Azure subscription identifier
+        $ref: '#/$defs/uuid'
+        description: Azure subscription identifier (UUID, e.g. 00000000-0000-0000-0000-000000000000).
       tenant_id:
-        type: string
-        description: Azure tenant identifier
+        $ref: '#/$defs/uuid'
+        description: Azure tenant identifier (UUID, same format as subscription_id).
       environment:
         type: string
-        description: Azure cloud environment (e.g. "public", "usgovernment")
+        enum:
+          - public
+          - usgovernment
+          - china
+          - german
+        description: Azure cloud environment. `public` is Azure Public Cloud (default), `usgovernment` is Azure Government, `china` is Azure China 21Vianet, `german` is the deprecated Azure Germany cloud.
       kubelogin_mode:
         type: string
         enum:
@@ -234,6 +294,7 @@ properties:
           automatically when gateway.service_type=NodePort.
       base_dir:
         type: string
+        pattern: '^[A-Za-z]:[\\/].*$'
         default: "C:/hyperv"
         description: >
           Absolute path on the host. Per-VM VHDXs are written to
@@ -246,9 +307,11 @@ properties:
   # Useful for provider-side credentials read from env (e.g. HYPERV_*).
   environment:
     type: object
+    propertyNames:
+      pattern: '^[A-Za-z_][A-Za-z0-9_]*$'
     additionalProperties:
       type: string
-    description: Environment variables exported by `windsor exec` and seen by terraform providers.
+    description: Environment variables exported by `windsor exec` and seen by terraform providers. Keys must be valid POSIX-style env-var names (letter or underscore, followed by letters, digits, or underscores) — catches shell-incompatible names like `MY-VAR` or `2VAR` at config-load.
 
   # Terraform execution config
   terraform:
@@ -323,8 +386,13 @@ properties:
   # Timezone
   timezone:
     type: string
+    anyOf:
+      - enum:
+          - utc
+          - browser
+      - pattern: '^[A-Z][A-Za-z_]*(/[A-Za-z_+\-0-9]+)*$'
     default: utc
-    description: Default timezone for Grafana dashboards (utc, browser, or IANA zone like America/New_York)
+    description: Default timezone for Grafana dashboards. `utc` or `browser` (Grafana magic values), or an IANA zone (e.g. `America/New_York`, `Etc/GMT+5`).
 
   # Time format
   time_format:
@@ -434,20 +502,22 @@ properties:
         description: "[DEPRECATED] Unused. Local dev is via terraform compute/workstation only."
       registries:
         type: object
+        propertyNames:
+          $ref: '#/$defs/dnsHostname'
         additionalProperties:
           type: object
           properties:
             remote:
-              type: string
-              description: Upstream registry URL (e.g. https://gcr.io).
+              $ref: '#/$defs/httpUrl'
+              description: Upstream registry URL (e.g. https://gcr.io). http or https URL.
             local:
-              type: string
-              description: Client-facing registry host for mirror key (e.g. docker.io). Omit to use the registry map key.
+              $ref: '#/$defs/dnsHostname'
+              description: Client-facing registry host for mirror key (e.g. docker.io). Omit to use the registry map key. Lowercase DNS-labels separated by dots.
             hostname:
-              type: string
-              description: Hostname for the mirror endpoint (e.g. registry.test).
+              $ref: '#/$defs/dnsHostname'
+              description: Hostname for the mirror endpoint (e.g. registry.test). Lowercase DNS-labels separated by dots.
           additionalProperties: false
-        description: Registry mirror config keyed by registry host (e.g. gcr.io, ghcr.io). Used by workstation proxy/DNS and by Talos cluster mirrors.
+        description: Registry mirror config keyed by registry host (e.g. gcr.io, ghcr.io). Used by workstation proxy/DNS and by Talos cluster mirrors. Keys are DNS hostnames.
     additionalProperties: false
 
   # Cluster topology preset — selects between a single-node cluster, a
@@ -500,13 +570,11 @@ properties:
         type: object
         properties:
           start:
-            type: string
-            pattern: "^([0-9]{1,3}\\.){3}[0-9]{1,3}$"
-            description: Load balancer IP pool start
+            $ref: '#/$defs/ipv4'
+            description: Load balancer IP pool start (IPv4 dotted-quad; each octet 0-255).
           end:
-            type: string
-            pattern: "^([0-9]{1,3}\\.){3}[0-9]{1,3}$"
-            description: Load balancer IP pool end
+            $ref: '#/$defs/ipv4'
+            description: Load balancer IP pool end (IPv4 dotted-quad; each octet 0-255).
         additionalProperties: false
       loadbalancer_driver:
         type: string
@@ -538,7 +606,8 @@ properties:
         description: Cluster driver. Defaulted by platform-base based on the active platform (aws → eks, azure → aks, otherwise → talos); an explicit value here wins.
       endpoint:
         type: string
-        description: External controlplane API endpoint (https://host:port). IPv4 only — facets parse host:port with simple split on ':', and the hyperv NetNat backend is IPv4-only at the Windows API layer.
+        pattern: '^https://[A-Za-z0-9.\-]+(:([1-9][0-9]{0,3}|[1-5][0-9]{4}|6[0-4][0-9]{3}|65[0-4][0-9]{2}|655[0-2][0-9]|6553[0-5]))?(/.*)?$'
+        description: External controlplane API endpoint (https://host:port). IPv4 only — facets parse host:port with simple split on ':', and the hyperv NetNat backend is IPv4-only at the Windows API layer. Pattern enforces https scheme and an optional port in the 1-65535 TCP range; rejects URLs with whitespace, IPv6 brackets, or wrong scheme.
       controlplanes:
         type: object
         properties:
@@ -581,7 +650,7 @@ properties:
           volumes:
             type: array
             items:
-              type: string
+              $ref: '#/$defs/bindMountPath'
             default:
               - "/var/mnt/local"
             description: "Node directory paths for extra mounts. For directory-based storage include cluster.storage.local_base_path. Path or host:dest for local dev bind mounts. Block/device storage uses disks."
@@ -592,6 +661,8 @@ properties:
       # continue to use cluster.workers.
       pools:
         type: object
+        propertyNames:
+          $ref: '#/$defs/dnsLabel'
         additionalProperties:
           type: object
           required:
@@ -631,9 +702,11 @@ properties:
               description: EBS root volume size in GB. Defaults to the provider module default (64 GB on EKS).
             labels:
               type: object
+              propertyNames:
+                $ref: '#/$defs/k8sLabelKey'
               additionalProperties:
-                type: string
-              description: Kubernetes labels applied to nodes in this pool, on top of the auto-injected windsor.io/pool=<name> and windsor.io/pool-class=<class>.
+                $ref: '#/$defs/k8sLabelValue'
+              description: Kubernetes labels applied to nodes in this pool, on top of the auto-injected windsor.io/pool=<name> and windsor.io/pool-class=<class>. Keys and values follow the k8s label spec.
             taints:
               type: array
               items:
@@ -643,9 +716,9 @@ properties:
                   - effect
                 properties:
                   key:
-                    type: string
+                    $ref: '#/$defs/k8sLabelKey'
                   value:
-                    type: string
+                    $ref: '#/$defs/k8sLabelValue'
                   effect:
                     type: string
                     enum:
@@ -663,9 +736,9 @@ properties:
             type: string
             description: Default storage driver. Directory-based (local_base_path), cloud default, or block (cluster.*.disks).
           local_base_path:
-            type: string
+            $ref: '#/$defs/posixPath'
             default: "/var/mnt/local"
-            description: Base path for directory-based storage. Must be in the volumes list of every pool that can schedule pods using this storage (controlplanes.volumes when schedulable, workers.volumes).
+            description: Base path for directory-based storage. POSIX absolute path. Must be in the volumes list of every pool that can schedule pods using this storage (controlplanes.volumes when schedulable, workers.volumes).
           driver:
             type: string
             enum:
@@ -704,10 +777,10 @@ properties:
     type: object
     properties:
       domain:
-        type: string
-        description: Base domain; used as fallback when public_domain or private_domain are not set
+        $ref: '#/$defs/dnsHostname'
+        description: Base domain; used as fallback when public_domain or private_domain are not set. Lowercase DNS labels separated by dots (RFC 1123); no scheme, port, or trailing dot.
       public_domain:
-        type: string
+        $ref: '#/$defs/dnsHostname'
         description: >
           Publicly-routable DNS zone for the deployment. On AWS, setting
           this provisions a public Route53 hosted zone in the same
@@ -716,10 +789,11 @@ properties:
           Let's Encrypt certificates for the gateway. The operator must
           delegate this domain at their registrar to the name servers
           the dns-zone module outputs. Leave unset for selfsigned-only
-          (just-works) mode.
+          (just-works) mode. Lowercase DNS labels separated by dots; no
+          scheme, port, or trailing dot.
       private_domain:
-        type: string
-        description: Private DNS zone (e.g. in-cluster CoreDNS, workstation resolver)
+        $ref: '#/$defs/dnsHostname'
+        description: Private DNS zone (e.g. in-cluster CoreDNS, workstation resolver). Lowercase DNS labels separated by dots.
     additionalProperties: false
 
   # GitOps configuration
@@ -740,9 +814,9 @@ properties:
         type: object
         properties:
           name:
-            type: string
+            $ref: '#/$defs/dnsLabel'
             default: local
-            description: Flux GitRepository name used as the primary source for reconciliations
+            description: Flux GitRepository name used as the primary source for reconciliations.
         additionalProperties: false
       webhook:
         type: object
@@ -782,11 +856,13 @@ properties:
         description: Whether the gateway is reachable from the public internet (public, default) or only from inside the VPC/network (private). Flipping this to `private` cascades through the gateway's adjacent infrastructure — load balancer scheme, the DNS zone external-dns publishes to, and the cert-manager issuer — so the whole gateway stack stays coherent. Requires `dns.private_domain` to be set; otherwise the private path is a no-op and the gateway runs as public.
       publish_ports:
         type: object
+        propertyNames:
+          pattern: '^([1-9][0-9]{0,3}|[1-5][0-9]{4}|6[0-4][0-9]{3}|65[0-4][0-9]{2}|655[0-2][0-9]|6553[0-5])$'
         additionalProperties:
           type: integer
           minimum: 1
           maximum: 65535
-        description: Map of bench-side listen port to in-cluster NodePort, used by host-level forwarders (e.g. hyperv portproxy + firewall) to expose the gateway on a "real" port like 80/443 from the host machine while the cluster keeps NodePort allocations in the 30000-32767 range. Keyed by the host listen port (e.g. 80), value is the cluster NodePort (e.g. 30080).
+        description: Map of bench-side listen port to in-cluster NodePort, used by host-level forwarders (e.g. hyperv portproxy + firewall) to expose the gateway on a "real" port like 80/443 from the host machine while the cluster keeps NodePort allocations in the 30000-32767 range. Keyed by the host listen port (e.g. 80), value is the cluster NodePort (e.g. 30080). Keys and values are both bounded to the 1-65535 TCP port range.
     additionalProperties: false
 
   # Ingress configuration
@@ -840,8 +916,9 @@ properties:
     properties:
       enabled:
         type: boolean
+        deprecated: true
         default: false
-        description: Enable workstation stack (DNS, registries, git livereload)
+        description: Deprecated. No facet reads this field. `workstation.runtime` is the actual switch that turns on the workstation stack (DNS, registries, git livereload, cluster compute); leave runtime unset to opt out.
       arch:
         type: string
         enum:
@@ -851,7 +928,10 @@ properties:
         description: CPU architecture for Incus Talos images (host arch when workstation enabled; target arch for server deployments). Used by talos.incus_image.
       address:
         type: string
-        description: Address of the workstation, used for SSH to configure workstation networking
+        anyOf:
+          - $ref: '#/$defs/ipv4'
+          - $ref: '#/$defs/dnsHostname'
+        description: Address of the workstation, used for SSH to configure workstation networking. IPv4 dotted-quad or DNS-labelled hostname.
       runtime:
         type: string
         enum:
@@ -865,12 +945,18 @@ properties:
         properties:
           address:
             type: string
-            description: DNS server address resolved from workstation infrastructure
+            anyOf:
+              - $ref: '#/$defs/ipv4'
+              - $ref: '#/$defs/dnsHostname'
+            description: DNS server address resolved from workstation infrastructure. IPv4 dotted-quad or DNS-labelled hostname.
           forward:
             type: array
             items:
               type: string
-            description: Forward DNS servers
+              anyOf:
+                - $ref: '#/$defs/ipv4'
+                - $ref: '#/$defs/dnsHostname'
+            description: Forward DNS servers. IPv4 dotted-quad or DNS-labelled hostname per entry.
         additionalProperties: false
       services:
         type: object
@@ -1018,3 +1104,150 @@ allOf:
         email:
           type: string
           minLength: 1
+
+  # gateway.access == 'private' switches the gateway issuer to a private CA
+  # and external-dns to the private zone. Without dns.private_domain the
+  # facet silently falls back to a public selfsigned issuer, masking the
+  # misconfiguration. Require dns.private_domain when gateway is private.
+  - if:
+      properties:
+        gateway:
+          type: object
+          properties:
+            access:
+              const: private
+          required:
+            - access
+      required:
+        - gateway
+    then:
+      required:
+        - dns
+      properties:
+        dns:
+          type: object
+          required:
+            - private_domain
+          properties:
+            private_domain:
+              type: string
+              minLength: 1
+
+  # platform: metal stands up bare-metal Talos nodes. The cluster facet
+  # composes controlplanes from either cluster.controlplanes.count (which
+  # auto-numbers nodes via the network module) or cluster.controlplanes.
+  # nodes (an explicit map of named nodes with endpoints). When neither
+  # is set the facet defaults count to len(nodes ?? {}) which is 0 and
+  # silently provisions a zero-controlplane cluster. Require at least
+  # one. anyOf on the if matches both the canonical `platform: metal`
+  # and the legacy `provider: metal` alias still in use across tests.
+  - if:
+      anyOf:
+        - properties:
+            platform:
+              const: metal
+          required:
+            - platform
+        - properties:
+            provider:
+              const: metal
+          required:
+            - provider
+    then:
+      required:
+        - cluster
+      properties:
+        cluster:
+          type: object
+          required:
+            - controlplanes
+          properties:
+            controlplanes:
+              type: object
+              anyOf:
+                - required:
+                    - count
+                - required:
+                    - nodes
+
+  # Managed-cluster drivers ↔ platform coherence. cluster.driver: eks
+  # binds to AWS EKS (Route53, AWS provider, EKS control plane); aks
+  # binds to Azure AKS. They only make sense on the matching platform,
+  # and the platform-base facet would otherwise inject the right driver
+  # automatically. An explicit mismatch (e.g. platform: metal +
+  # cluster.driver: eks) silently binds the wrong cloud and fails apply.
+  # Two anyOf branches per rule handle the `platform` key and the legacy
+  # `provider` alias.
+  - if:
+      properties:
+        cluster:
+          type: object
+          properties:
+            driver:
+              const: eks
+          required:
+            - driver
+      required:
+        - cluster
+    then:
+      anyOf:
+        - properties:
+            platform:
+              const: aws
+          required:
+            - platform
+        - properties:
+            provider:
+              const: aws
+          required:
+            - provider
+
+  - if:
+      properties:
+        cluster:
+          type: object
+          properties:
+            driver:
+              const: aks
+          required:
+            - driver
+      required:
+        - cluster
+    then:
+      anyOf:
+        - properties:
+            platform:
+              const: azure
+          required:
+            - platform
+        - properties:
+            provider:
+              const: azure
+          required:
+            - provider
+
+  # cluster.storage.driver is Talos-only (config-talos.yaml reads it; managed
+  # clusters use cluster.storage.single_storage_type). Fires only when
+  # cluster.driver is explicit, so platform-derived defaults aren't blocked.
+  - if:
+      properties:
+        cluster:
+          type: object
+          properties:
+            storage:
+              type: object
+              required:
+                - driver
+            driver:
+              type: string
+          required:
+            - storage
+            - driver
+      required:
+        - cluster
+    then:
+      properties:
+        cluster:
+          properties:
+            driver:
+              const: talos

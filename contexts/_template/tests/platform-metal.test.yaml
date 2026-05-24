@@ -152,7 +152,7 @@ cases:
         driver: envoy
       network:
         loadbalancer_driver: metallb
-        loadbalancer_mode: layer2
+        loadbalancer_mode: arp
         loadbalancer_ips:
           start: "192.168.1.100"
           end: "192.168.1.200"
@@ -261,7 +261,7 @@ cases:
             - lb-base
           components:
             - metallb
-            - metallb/layer2
+            - metallb/arp
           substitutions:
             loadbalancer_ip_range: 192.168.1.100-192.168.1.200
           timeout: 5m
