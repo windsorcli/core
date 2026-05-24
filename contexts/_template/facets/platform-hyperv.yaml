@@ -71,17 +71,18 @@ config:
       nameservers: ['1.1.1.1', '8.8.8.8']
 
   # ---------------------------------------------------------------------------
-  # cni_effective override — default to Talos flannel
+  # cluster.cni.driver override — default to Talos flannel
   # ---------------------------------------------------------------------------
   #
-  # platform-base defaults cni_effective.driver to 'cilium' whenever
+  # platform-base defaults cluster.cni.driver to 'cilium' whenever
   # cluster.driver is 'talos'. Hyper-V instead defaults to Talos's built-in
   # flannel: no Cilium bootstrap stage, no cni:none / proxy:disabled patches,
   # kubelet's CNI plugin comes up automatically. Operators can still opt in
   # to Cilium via cluster.cni.driver: cilium.
-  - name: cni_effective
+  - name: cluster
     value:
-      driver: "${cluster.cni.driver ?? 'flannel'}"
+      cni:
+        driver: "${cluster.cni.driver ?? 'flannel'}"
 
   # ---------------------------------------------------------------------------
   # NodePort branch — flip topology to NAT switch + bench-side port forwards

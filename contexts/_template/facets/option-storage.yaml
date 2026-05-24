@@ -37,7 +37,7 @@ terraform:
     path: cluster/talos/extensions
     dependsOn:
       - cluster
-      - "${cni_effective.driver == 'cilium' ? 'cni' : ''}"
+      - "${cluster.cni.driver == 'cilium' ? 'cni' : ''}"
     parallelism: 1
     inputs:
       talos_version: ${talos.talos_version}

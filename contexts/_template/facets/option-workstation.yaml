@@ -140,10 +140,11 @@ config:
   # and pair it with kube-vip so LoadBalancer services still get an IP
   # (flannel has no built-in L2 announcer like Cilium does).
   #
-  - name: cni_effective
+  - name: cluster
     when: platform == 'incus' && workstation.runtime == 'colima'
     value:
-      driver: "${cluster.cni.driver ?? 'flannel'}"
+      cni:
+        driver: "${cluster.cni.driver ?? 'flannel'}"
 
   - name: lb_effective
     when: platform == 'incus' && workstation.runtime == 'colima'
@@ -238,7 +239,7 @@ terraform:
       network_cidr: ${network.cidr_block}
       dns_forward_target: ${network.loadbalancer_ips.start}
       webhook_host: ${network.loadbalancer_ips.start}
-      webhook_port: "${gateway_effective.enabled == true ? 80 : 9292}"
+      webhook_port: "${gateway.enabled == true ? 80 : 9292}"
       webhook_enabled: "${(workstation.git.livereload ?? false) && ((gitops.mode ?? 'push') == 'push')}"
       webhook_token: "${(workstation.git.livereload ?? false) ? (gitops.webhook.token ?? 'abcdef123456') : ''}"
       primary_node_ip: ${network.loadbalancer_ips.start}
@@ -413,6 +414,6 @@ kustomize:
   # Override gateway_dns_target so external-dns advertises 127.0.0.1 — reached
   # via the host-port mapping on the Talos container.
   - name: gateway-resources
-    when: "platform == 'docker' && workstation.runtime == 'docker-desktop' && gateway_effective.enabled == true"
+    when: "platform == 'docker' && workstation.runtime == 'docker-desktop' && gateway.enabled == true"
     substitutions:
       gateway_dns_target: "127.0.0.1"

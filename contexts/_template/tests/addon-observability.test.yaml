@@ -237,7 +237,7 @@ cases:
             - grafana/dashboards/fluentd
             - fluentd/outputs/stdout
 
-  # Edge: gateway disabled → gateway_effective.enabled is false → filebeat replacement skipped.
+  # Edge: gateway disabled → gateway.enabled is false → filebeat replacement skipped.
   # telemetry-base keeps its default fluentbit components; elasticsearch/kibana not deployed.
   - name: elasticsearch with gateway disabled skips filebeat and ELK stack
     values:

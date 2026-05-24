@@ -85,12 +85,12 @@ kustomize:
   #
   - name: observability
     path: observability
-    when: observability_effective.dashboards == 'grafana' && gateway_effective.enabled == true
+    when: observability_effective.dashboards == 'grafana' && gateway.enabled == true
     dependsOn:
       - gateway-resources
     components:
       - grafana/gateway
-      - "${gateway_effective.driver == 'envoy' ? 'grafana/dashboards/envoy' : ''}"
+      - "${gateway.driver == 'envoy' ? 'grafana/dashboards/envoy' : ''}"
     substitutions:
       external_domain: "${(dns.public_domain ?? '') == '' ? (dns.private_domain ?? '') : dns.public_domain}"
 
@@ -127,12 +127,12 @@ kustomize:
       - "${observability_effective.dashboards == 'grafana' ? 'grafana/quickwit' : ''}"
       - "${observability_effective.dashboards == 'grafana' ? 'grafana/dashboards/logs/quickwit' : ''}"
 
-  # Elasticsearch + Kibana. Gated on gateway_effective.enabled because Kibana
+  # Elasticsearch + Kibana. Gated on gateway.enabled because Kibana
   # needs an HTTPRoute to be externally reachable. Depends on csi for ES data
   # PVCs and gateway-resources for the route wiring.
   - name: observability
     path: observability
-    when: observability_effective.logs_driver == 'elasticsearch' && gateway_effective.enabled == true
+    when: observability_effective.logs_driver == 'elasticsearch' && gateway.enabled == true
     dependsOn:
       - csi
       - gateway-resources
@@ -154,7 +154,7 @@ kustomize:
   #
   - name: telemetry-base
     path: telemetry/base
-    when: observability_effective.logs_driver == 'elasticsearch' && gateway_effective.enabled == true
+    when: observability_effective.logs_driver == 'elasticsearch' && gateway.enabled == true
     timeout: 30m
     interval: 10m
     strategy: replace
@@ -165,7 +165,7 @@ kustomize:
 
   - name: telemetry-resources
     path: telemetry/resources
-    when: observability_effective.logs_driver == 'elasticsearch' && gateway_effective.enabled == true
+    when: observability_effective.logs_driver == 'elasticsearch' && gateway.enabled == true
     timeout: 10m
     interval: 5m
     strategy: replace

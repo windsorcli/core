@@ -8,7 +8,7 @@ metadata:
 # Other CNIs (flannel on docker-desktop, managed CNIs on EKS/AKS) skip this
 # facet entirely. The cluster.enabled guard prevents dangling csi→cni
 # dependencies when someone stands up just the workstation services.
-when: cni_effective.driver == 'cilium' && (cluster.enabled ?? true)
+when: cluster.cni.driver == 'cilium' && (cluster.enabled ?? true)
 
 # =============================================================================
 # Terraform — Cilium pre-flight bootstrap
@@ -65,7 +65,7 @@ kustomize:
   # in place when the Cilium gateway controller creates the
   # cilium-gateway-external Service, and the LB IP won't be shared.
   - name: gateway-resources
-    when: gateway_effective.enabled == true && gateway_effective.driver == 'cilium'
+    when: gateway.enabled == true && gateway.driver == 'cilium'
     dependsOn:
       - cni
 
@@ -107,12 +107,12 @@ kustomize:
     path: cni
     when: talos_enabled
     dependsOn:
-      - "${(policies.enabled ?? true) || (gateway_effective.enabled == true && gateway_effective.driver == 'cilium') ? 'policy-resources' : ''}"
+      - "${(policies.enabled ?? true) || (gateway.enabled == true && gateway.driver == 'cilium') ? 'policy-resources' : ''}"
       - "${telemetry_effective.metrics_enabled || telemetry_effective.logs_enabled ? 'telemetry-base' : ''}"
     components:
       - cilium
       - cilium/talos
-      - "${(gateway_effective.enabled == true && gateway_effective.driver == 'cilium') ? 'cilium/gateway' : ''}"
+      - "${(gateway.enabled == true && gateway.driver == 'cilium') ? 'cilium/gateway' : ''}"
       - "${telemetry_effective.metrics_enabled ? 'cilium/prometheus' : ''}"
       - cilium/hubble
       - cilium/l2
@@ -131,11 +131,11 @@ kustomize:
     path: cni
     when: eks_enabled
     dependsOn:
-      - "${(policies.enabled ?? true) || (gateway_effective.enabled == true && gateway_effective.driver == 'cilium') ? 'policy-resources' : ''}"
+      - "${(policies.enabled ?? true) || (gateway.enabled == true && gateway.driver == 'cilium') ? 'policy-resources' : ''}"
       - "${telemetry_effective.metrics_enabled || telemetry_effective.logs_enabled ? 'telemetry-base' : ''}"
     components:
       - cilium
-      - "${(gateway_effective.enabled == true && gateway_effective.driver == 'cilium') ? 'cilium/gateway' : ''}"
+      - "${(gateway.enabled == true && gateway.driver == 'cilium') ? 'cilium/gateway' : ''}"
       - "${telemetry_effective.metrics_enabled ? 'cilium/prometheus' : ''}"
       - cilium/hubble
     substitutions:
