@@ -79,7 +79,7 @@ kustomize:
   # Add the Cilium dashboards to the observability kustomization when Grafana
   # is the dashboard backend.
   - name: observability
-    when: observability_effective.dashboards == 'grafana'
+    when: addons.observability.dashboards == 'grafana'
     components:
       - grafana/dashboards/cilium
 
