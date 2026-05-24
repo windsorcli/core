@@ -108,12 +108,12 @@ kustomize:
     when: talos_enabled
     dependsOn:
       - "${(policies.enabled ?? true) || (gateway.enabled == true && gateway.driver == 'cilium') ? 'policy-resources' : ''}"
-      - "${telemetry_effective.metrics_enabled || telemetry_effective.logs_enabled ? 'telemetry-base' : ''}"
+      - "${telemetry.metrics.enabled || telemetry.logs.enabled ? 'telemetry-base' : ''}"
     components:
       - cilium
       - cilium/talos
       - "${(gateway.enabled == true && gateway.driver == 'cilium') ? 'cilium/gateway' : ''}"
-      - "${telemetry_effective.metrics_enabled ? 'cilium/prometheus' : ''}"
+      - "${telemetry.metrics.enabled ? 'cilium/prometheus' : ''}"
       - cilium/hubble
       - cilium/l2
     substitutions:
@@ -132,11 +132,11 @@ kustomize:
     when: eks_enabled
     dependsOn:
       - "${(policies.enabled ?? true) || (gateway.enabled == true && gateway.driver == 'cilium') ? 'policy-resources' : ''}"
-      - "${telemetry_effective.metrics_enabled || telemetry_effective.logs_enabled ? 'telemetry-base' : ''}"
+      - "${telemetry.metrics.enabled || telemetry.logs.enabled ? 'telemetry-base' : ''}"
     components:
       - cilium
       - "${(gateway.enabled == true && gateway.driver == 'cilium') ? 'cilium/gateway' : ''}"
-      - "${telemetry_effective.metrics_enabled ? 'cilium/prometheus' : ''}"
+      - "${telemetry.metrics.enabled ? 'cilium/prometheus' : ''}"
       - cilium/hubble
     substitutions:
       k8s_service_host: "${split(split(terraform_output(\"cluster\", \"cluster_endpoint\") ?? \"https://localhost:443\", \"://\")[1], \":\")[0]}"
