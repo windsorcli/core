@@ -246,11 +246,11 @@ kustomize:
       # the gateway is on, external-dns is configured with the gateway-httproute
       # source below — without the CRDs present at startup it crash-loops on
       # "no matches for kind HTTPRoute". Wait for gateway-base to finish.
-      - "${gateway_effective.enabled == true ? 'gateway-base' : ''}"
+      - "${gateway.enabled == true ? 'gateway-base' : ''}"
     components:
       - external-dns
       - external-dns/providers/azure
-      - "${gateway_effective.enabled == true ? 'external-dns/sources/gateway-httproute' : ''}"
+      - "${gateway.enabled == true ? 'external-dns/sources/gateway-httproute' : ''}"
     timeout: 5m
     interval: 5m
     substitutions:
@@ -306,6 +306,6 @@ kustomize:
   # internal LB would have no zone to publish to.
   #
   - name: gateway-base
-    when: "gateway_effective.enabled == true && gateway_effective.driver == 'envoy' && lb_effective.mode == 'loadbalancer'"
+    when: "gateway.enabled == true && gateway.driver == 'envoy' && lb_effective.mode == 'loadbalancer'"
     components:
       - "${gateway.access == 'private' && (dns.private_domain ?? '') != '' ? 'envoy/loadbalancer/azure-lb-internal' : ''}"

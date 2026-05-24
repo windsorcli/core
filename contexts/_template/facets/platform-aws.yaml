@@ -116,7 +116,7 @@ terraform:
   # omits the privileged/cgroup_auto_mount overrides the Talos path uses.
   #
   - name: cni
-    when: "cni_effective.driver == 'cilium'"
+    when: "cluster.cni.driver == 'cilium'"
     path: cni/cilium
     dependsOn:
       - cluster
@@ -134,7 +134,7 @@ terraform:
   # With Cilium: wait for the `cni` step so pod networking is healthy first.
   #
   - name: gitops
-    when: "cni_effective.driver != 'cilium'"
+    when: "cluster.cni.driver != 'cilium'"
     path: gitops/flux
     dependsOn:
       - cluster
@@ -143,7 +143,7 @@ terraform:
     destroy: false
 
   - name: gitops
-    when: "cni_effective.driver == 'cilium'"
+    when: "cluster.cni.driver == 'cilium'"
     path: gitops/flux
     dependsOn:
       - cluster
@@ -232,7 +232,7 @@ kustomize:
   # add `kubernetes.io/ingress.class: alb` on a per-Ingress basis.
   #
   - name: gateway-base
-    when: "gateway_effective.enabled == true && gateway_effective.driver == 'envoy' && lb_effective.mode == 'loadbalancer'"
+    when: "gateway.enabled == true && gateway.driver == 'envoy' && lb_effective.mode == 'loadbalancer'"
     components:
       - envoy/loadbalancer/aws-nlb
     substitutions:
@@ -327,7 +327,7 @@ kustomize:
       # the gateway is on, external-dns is configured with the gateway-httproute
       # source below — without the CRDs present at startup it crash-loops on
       # "no matches for kind HTTPRoute". Wait for gateway-base to finish.
-      - "${gateway_effective.enabled == true ? 'gateway-base' : ''}"
+      - "${gateway.enabled == true ? 'gateway-base' : ''}"
     components:
       - external-dns
       - external-dns/providers/route53
@@ -335,7 +335,7 @@ kustomize:
       # actually running. Without this guard, deployments that set
       # dns.public_domain but disable the gateway would crash external-dns
       # at startup (HTTPRoute CRDs aren't installed without gateway-base).
-      - "${gateway_effective.enabled == true ? 'external-dns/sources/gateway-httproute' : ''}"
+      - "${gateway.enabled == true ? 'external-dns/sources/gateway-httproute' : ''}"
     timeout: 5m
     interval: 5m
     substitutions:

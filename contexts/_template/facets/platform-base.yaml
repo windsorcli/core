@@ -17,8 +17,8 @@ when: (platform ?? provider) != 'none'
 # they do not re-derive or override them.
 #
 # Evaluation order matters: later entries may reference earlier ones. Keep
-# dependent values below their dependencies (e.g. gateway_effective reads
-# cni_effective, so cni_effective must come first).
+# dependent values below their dependencies (e.g. the gateway block reads
+# cluster.cni.driver, so the cluster block must come first).
 #
 config:
 
@@ -40,42 +40,37 @@ config:
       runtime: "${workstation.runtime ?? ''}"
 
   # ---------------------------------------------------------------------------
-  # Cluster driver (platform-implied default)
+  # Cluster driver and CNI (platform-implied defaults)
   # ---------------------------------------------------------------------------
   #
-  # Managed clouds imply their managed driver: aws → eks, azure → aks. Every
-  # other platform (metal, incus, docker, workstation-only) defaults to talos.
-  # Computed here in platform-base, before `cni_effective` / `talos_provisioned`
-  # / `eks_enabled` are derived, so downstream `when:` guards (option-cni,
-  # option-storage, config-talos, the per-platform facets) all see the
-  # platform-correct driver without needing their own fallbacks. An explicit
+  # cluster.driver — managed clouds imply their managed driver (aws → eks,
+  # azure → aks); everything else defaults to talos. An explicit
   # `cluster.driver` in values.yaml always wins.
+  #
+  # cluster.cni.driver — Talos defaults to Cilium (standard L2/BGP + Gateway
+  # API stack); managed clouds leave it empty so option-cni stays out unless
+  # Cilium is explicitly requested. cluster.driver is re-derived inline
+  # because sibling fields in the same block evaluate against user input,
+  # not the just-computed `driver` value.
   #
   - name: cluster
     value:
       driver: "${cluster.driver ?? (platform == 'aws' ? 'eks' : (platform == 'azure' ? 'aks' : 'talos'))}"
-
-  # ---------------------------------------------------------------------------
-  # CNI driver selection
-  # ---------------------------------------------------------------------------
-  #
-  # Default rules:
-  #   - Explicit cluster.cni.driver always wins.
-  #   - Talos defaults to Cilium (our standard L2/BGP + Gateway API stack).
-  #   - Managed clusters (EKS, AKS) use their own CNI; leave empty so option-cni
-  #     does not activate unless cilium is explicitly requested.
-  #
-  - name: cni_effective
-    value:
-      driver: "${cluster.cni.driver ?? (cluster.driver == 'talos' ? 'cilium' : '')}"
+      cni:
+        driver: "${cluster.cni.driver ?? ((cluster.driver ?? (platform == 'aws' ? 'eks' : (platform == 'azure' ? 'aks' : 'talos'))) == 'talos' ? 'cilium' : '')}"
 
   # Docker Desktop override: its API server is reachable only via a localhost
-  # tunnel, which Cilium's eBPF bootstrap cannot use. Fall back to the built-in
-  # flannel CNI (no bootstrap required).
-  - name: cni_effective
+  # tunnel, which Cilium's eBPF bootstrap can't use. Fall back to the built-in
+  # flannel CNI. Split into a `when:`-gated entry rather than an inline
+  # branch on workstation.runtime because option-workstation re-positions
+  # the `workstation` block to the end of evaluation order, leaving
+  # workstation.runtime as an unevaluated template at the time the cluster
+  # block evaluates.
+  - name: cluster
     when: workstation.runtime == 'docker-desktop'
     value:
-      driver: "${cluster.cni.driver ?? 'flannel'}"
+      cni:
+        driver: "${cluster.cni.driver ?? 'flannel'}"
 
   # ---------------------------------------------------------------------------
   # Gateway driver selection
@@ -90,10 +85,10 @@ config:
   #        - Otherwise, use cilium when it is the CNI (native Gateway API),
   #          else envoy.
   #
-  - name: gateway_effective
+  - name: gateway
     value:
       enabled: ${gateway.enabled ?? ingress.enabled ?? true}
-      driver: "${gateway.driver ?? (ingress.driver == 'envoy-gateway' || ingress.driver == 'nginx' ? 'envoy' : ingress.driver) ?? (workstation.runtime == 'docker-desktop' || platform == 'aws' ? 'envoy' : (cni_effective.driver == 'cilium' ? 'cilium' : 'envoy'))}"
+      driver: "${gateway.driver ?? (ingress.driver == 'envoy-gateway' || ingress.driver == 'nginx' ? 'envoy' : ingress.driver) ?? (workstation.runtime == 'docker-desktop' || platform == 'aws' ? 'envoy' : (cluster.cni.driver == 'cilium' ? 'cilium' : 'envoy'))}"
 
   # ---------------------------------------------------------------------------
   # Load balancer selection
@@ -108,7 +103,7 @@ config:
   #
   - name: lb_effective
     value:
-      enabled: "${cni_effective.driver != 'cilium' && (network.loadbalancer_driver ?? '') != ''}"
+      enabled: "${cluster.cni.driver != 'cilium' && (network.loadbalancer_driver ?? '') != ''}"
       driver: "${network.loadbalancer_driver ?? 'kube-vip'}"
       mode: loadbalancer
 
@@ -499,7 +494,7 @@ kustomize:
   # Exposes a Flux webhook for immediate source reconciliation (push-driven
   # instead of polling). Two variants:
   #
-  #   1. No Gateway API: plain HTTP webhook. Used when gateway_effective is
+  #   1. No Gateway API: plain HTTP webhook. Used when gateway is
   #      disabled (e.g. cluster.enabled=false with only workstation services).
   #
   #   2. With Gateway API: webhook + HTTPRoute on the port-80 listener. Works
@@ -510,7 +505,7 @@ kustomize:
   #
   - name: gitops
     path: gitops/flux
-    when: (gitops.mode ?? 'push') == 'push' && gateway_effective.enabled != true
+    when: (gitops.mode ?? 'push') == 'push' && gateway.enabled != true
     components:
       - webhook
     substitutions:
@@ -518,12 +513,12 @@ kustomize:
 
   - name: gitops
     path: gitops/flux
-    when: (gitops.mode ?? 'push') == 'push' && gateway_effective.enabled == true
+    when: (gitops.mode ?? 'push') == 'push' && gateway.enabled == true
     dependsOn:
       - gateway-base
     components:
       - webhook
       - webhook/gateway
-      - "${gateway_effective.driver == 'cilium' ? 'webhook/gateway/cilium' : ''}"
+      - "${gateway.driver == 'cilium' ? 'webhook/gateway/cilium' : ''}"
     substitutions:
       git_repository_name: ${gitops.repository.name ?? "local"}

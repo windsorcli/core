@@ -107,7 +107,7 @@ config:
   # terraform variable is needed.
   #
   - name: talos_common
-    when: cni_effective.driver == 'cilium'
+    when: cluster.cni.driver == 'cilium'
     value:
       common_patch:
         cluster:
