@@ -242,7 +242,7 @@ cases:
             - gateway-base
             - cni
 
-  # network_effective: loadbalancer IPs derived from CIDR when not explicitly set (workstation layer active).
+  # network.loadbalancer_ips: derived from CIDR when not explicitly set (workstation layer active).
   - name: loadbalancer IPs derived from cidr_block when not set
     values:
       provider: docker

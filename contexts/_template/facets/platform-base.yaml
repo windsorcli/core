@@ -253,21 +253,35 @@ config:
       }
 
   # ---------------------------------------------------------------------------
-  # Network effective values
+  # Network defaults
   # ---------------------------------------------------------------------------
   #
-  # Compute loadbalancer IP range from the CIDR when the user doesn't supply
-  # one. Offsets 266/356 place the range well inside a /16 and clear of the
-  # first 256 addresses reserved for nodes/services.
+  # Populate user-facing `network.*` fields so downstream facets can read
+  # `network.cidr_block` / `network.loadbalancer_ips.*` directly without
+  # re-applying the fallback chain.
   #
-  - name: network_cidr_effective
-    value: "${network.cidr_block ?? '10.5.0.0/16'}"
-  - name: network_effective
+  # Each entry uses `when:` (evaluated against user input only) instead of
+  # the self-referencing `${network.X ?? default}` pattern in `value:`. The
+  # engine stores config-block bodies unevaluated in globalScope and
+  # iterates blocks in last-writer order; a self-referencing template can
+  # be read as the literal template string by a config block in another
+  # facet that evaluates earlier in the round. Conditional writes only
+  # contribute literal values, so cross-block reads always see real data.
+  #
+  - name: network
+    when: (network.cidr_block ?? '') == ''
     value:
-      cidr_block: "${network_cidr_effective}"
+      cidr_block: '10.5.0.0/16'
+  - name: network
+    when: (network.loadbalancer_ips.start ?? '') == ''
+    value:
       loadbalancer_ips:
-        start: "${network.loadbalancer_ips.start ?? cidrhost(network_cidr_effective, 266)}"
-        end: "${network.loadbalancer_ips.end ?? cidrhost(network_cidr_effective, 356)}"
+        start: "${cidrhost(network.cidr_block ?? '10.5.0.0/16', 266)}"
+  - name: network
+    when: (network.loadbalancer_ips.end ?? '') == ''
+    value:
+      loadbalancer_ips:
+        end: "${cidrhost(network.cidr_block ?? '10.5.0.0/16', 356)}"
 
   # ---------------------------------------------------------------------------
   # Telemetry driver
