@@ -7,22 +7,24 @@ metadata:
 when: addons.observability.enabled == true
 
 # =============================================================================
-# Config — dashboard backend + logs driver selection
+# Config — dashboard backend default
 # =============================================================================
 #
-# observability_effective holds the resolved choices consumed by the entries
-# below and by other facets (option-cni / option-storage patch dashboards
-# into the observability kustomization when dashboards == 'grafana').
+# Land `addons.observability.dashboards` so other facets (option-cni /
+# option-storage patch dashboards into the observability kustomization when
+# dashboards == 'grafana') can read it directly without re-applying the
+# fallback.
 #
-# dashboards defaults to 'grafana'; logs_driver has no default here — an
-# unset driver means "no external log storage, fluentd aggregator only".
+# logs_driver intentionally has no default — an unset driver means "no
+# external log storage, fluentd aggregator only" — so callers read
+# `addons.observability.logs_driver` straight through.
 #
 config:
 
-  - name: observability_effective
+  - name: addons
     value:
-      dashboards: "${addons.observability.dashboards ?? 'grafana'}"
-      logs_driver: "${addons.observability.logs_driver}"
+      observability:
+        dashboards: "${addons.observability.dashboards ?? 'grafana'}"
 
 # =============================================================================
 # Kustomize — one entry per concern, all patched into `observability`
@@ -51,7 +53,7 @@ kustomize:
   #
   - name: observability
     path: observability
-    when: observability_effective.dashboards == 'grafana'
+    when: addons.observability.dashboards == 'grafana'
     dependsOn:
       - telemetry-base
       - "${dns.enabled ? 'dns' : ''}"
@@ -85,7 +87,7 @@ kustomize:
   #
   - name: observability
     path: observability
-    when: observability_effective.dashboards == 'grafana' && gateway.enabled == true
+    when: addons.observability.dashboards == 'grafana' && gateway.enabled == true
     dependsOn:
       - gateway-resources
     components:
@@ -105,7 +107,7 @@ kustomize:
   # stdout: write logs to container stdout (no external store). Dev default.
   - name: observability
     path: observability
-    when: observability_effective.logs_driver == 'stdout'
+    when: addons.observability.logs_driver == 'stdout'
     dependsOn:
       - telemetry-resources
     components:
@@ -115,7 +117,7 @@ kustomize:
   # (with a PVC for staging). Depends on csi for the staging PVC.
   - name: observability
     path: observability
-    when: observability_effective.logs_driver == 'quickwit'
+    when: addons.observability.logs_driver == 'quickwit'
     dependsOn:
       - csi
       - telemetry-resources
@@ -124,15 +126,15 @@ kustomize:
       - quickwit
       - quickwit/pvc
       - quickwit/prometheus
-      - "${observability_effective.dashboards == 'grafana' ? 'grafana/quickwit' : ''}"
-      - "${observability_effective.dashboards == 'grafana' ? 'grafana/dashboards/logs/quickwit' : ''}"
+      - "${addons.observability.dashboards == 'grafana' ? 'grafana/quickwit' : ''}"
+      - "${addons.observability.dashboards == 'grafana' ? 'grafana/dashboards/logs/quickwit' : ''}"
 
   # Elasticsearch + Kibana. Gated on gateway.enabled because Kibana
   # needs an HTTPRoute to be externally reachable. Depends on csi for ES data
   # PVCs and gateway-resources for the route wiring.
   - name: observability
     path: observability
-    when: observability_effective.logs_driver == 'elasticsearch' && gateway.enabled == true
+    when: addons.observability.logs_driver == 'elasticsearch' && gateway.enabled == true
     dependsOn:
       - csi
       - gateway-resources
@@ -154,7 +156,7 @@ kustomize:
   #
   - name: telemetry-base
     path: telemetry/base
-    when: observability_effective.logs_driver == 'elasticsearch' && gateway.enabled == true
+    when: addons.observability.logs_driver == 'elasticsearch' && gateway.enabled == true
     timeout: 30m
     interval: 10m
     strategy: replace
@@ -165,7 +167,7 @@ kustomize:
 
   - name: telemetry-resources
     path: telemetry/resources
-    when: observability_effective.logs_driver == 'elasticsearch' && gateway.enabled == true
+    when: addons.observability.logs_driver == 'elasticsearch' && gateway.enabled == true
     timeout: 10m
     interval: 5m
     strategy: replace
