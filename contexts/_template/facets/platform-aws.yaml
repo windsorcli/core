@@ -43,7 +43,7 @@ terraform:
     dependsOn:
       - backend
     inputs:
-      cidr_block: ${network_effective.cidr_block}
+      cidr_block: ${network.cidr_block}
       domain_name: ${dns.private_domain ?? ""}
 
   # Public Route53 zone — provisioned when the operator sets dns.public_domain.

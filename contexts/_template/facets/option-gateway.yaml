@@ -128,7 +128,7 @@ kustomize:
       - "${(gitops.mode ?? 'push') == 'push' ? 'flux-webhook' : ''}"
     substitutions:
       gateway_class_name: ${gateway_effective.driver}
-      gateway_dns_target: "${lb_effective.enabled == true ? network_effective.loadbalancer_ips.start : ''}"
+      gateway_dns_target: "${lb_effective.enabled == true ? network.loadbalancer_ips.start : ''}"
       # Cert SAN domain.
       # - access=private (with dns.private_domain set): gateway is reachable
       #   only inside the VPC, so the cert covers the private domain (the
@@ -162,6 +162,6 @@ kustomize:
       # Only emitted when a consumer is active: the lb-address patch (in-cluster
       # LB) or the cilium gateway component. NodePort/cloud-managed-LB paths
       # have no consumer, so leave it empty and the harness drops it.
-      loadbalancer_start_ip: "${(lb_effective.enabled == true || gateway_effective.driver == 'cilium') ? network_effective.loadbalancer_ips.start : ''}"
+      loadbalancer_start_ip: "${(lb_effective.enabled == true || gateway_effective.driver == 'cilium') ? network.loadbalancer_ips.start : ''}"
     timeout: 10m
     interval: 5m

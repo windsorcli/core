@@ -64,4 +64,4 @@ kustomize:
       - "${gateway_effective.enabled == true ? 'external-dns/sources/gateway-httproute' : ''}"
     substitutions:
       external_domain: ${dns.private_domain}
-      loadbalancer_start_ip: ${network_effective.loadbalancer_ips.start}
+      loadbalancer_start_ip: ${network.loadbalancer_ips.start}

@@ -66,7 +66,7 @@ terraform:
     dependsOn:
       - backend
     inputs:
-      vnet_cidr: ${network_effective.cidr_block}
+      vnet_cidr: ${network.cidr_block}
       domain_name: ${dns.private_domain ?? ""}
 
   # Public Azure DNS zone — provisioned when the operator sets dns.public_domain.
