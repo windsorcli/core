@@ -10,19 +10,10 @@ when: platform == 'azure'
 # Config — platform-specific overrides
 # =============================================================================
 #
-# AKS ships metrics-server as a managed add-on, so we suppress the copy that
-# platform-base would otherwise add to telemetry-resources (two instances
-# would fight on the same APIService). The flag is layered onto the base
-# `telemetry_effective` config block via Windsor's deep-merge semantics —
-# only metrics_server_enabled is overridden, the rest of the field set
-# (metrics_enabled, logs_enabled, logs_driver) keeps platform-base's values.
+# The AKS-specific opt-out of our metrics-server copy is wired into
+# platform-base's telemetry-resources kustomization via an inline
+# `platform != 'azure'` guard. No telemetry config block needed here.
 #
-config:
-
-  - name: telemetry_effective
-    value:
-      metrics_server_enabled: false
-
 # =============================================================================
 # Terraform — AzureRM state backend, VNet, AKS, optional public DNS zone
 # =============================================================================

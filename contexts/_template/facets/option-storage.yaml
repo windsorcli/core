@@ -98,7 +98,7 @@ kustomize:
     when: talos_common.storage_driver == 'longhorn'
     dependsOn:
       - "${(policies.enabled ?? true) ? 'policy-resources' : ''}"
-      - "${telemetry_effective.metrics_enabled || telemetry_effective.logs_enabled ? 'telemetry-base' : ''}"
+      - "${telemetry.metrics.enabled || telemetry.logs.enabled ? 'telemetry-base' : ''}"
     components:
       - longhorn
       - "${((cluster.controlplanes.schedulable ?? false) || topology == 'single-node') ? 'longhorn/single-node' : ''}"
