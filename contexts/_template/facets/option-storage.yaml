@@ -101,8 +101,8 @@ kustomize:
       - "${telemetry_effective.metrics_enabled || telemetry_effective.logs_enabled ? 'telemetry-base' : ''}"
     components:
       - longhorn
-      - "${((cluster.controlplanes.schedulable ?? false) || topology_effective == 'single-node') ? 'longhorn/single-node' : ''}"
-      - "${topology_effective == 'ha' ? 'longhorn/ha' : ''}"
+      - "${((cluster.controlplanes.schedulable ?? false) || topology == 'single-node') ? 'longhorn/single-node' : ''}"
+      - "${topology == 'ha' ? 'longhorn/ha' : ''}"
       - "${addons.observability.enabled == true ? 'longhorn/prometheus' : ''}"
     timeout: 20m
     interval: 5m

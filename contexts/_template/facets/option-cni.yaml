@@ -38,7 +38,7 @@ terraform:
       # Match the Flux-managed HelmRelease's operator.replicas so `windsor up`
       # re-runs don't flap the deployment between Flux reconciles. Same
       # single-node → 1, else → 2 rule applied by the Flux substitution.
-      operator_replicas: "${topology_effective == 'single-node' ? 1 : 2}"
+      operator_replicas: "${topology == 'single-node' ? 1 : 2}"
   
   - name: gitops
     when: "talos_provisioned"
@@ -121,7 +121,7 @@ kustomize:
       loadbalancer_start_ip: ${network_effective.loadbalancer_ips.start}
       loadbalancer_end_ip: ${network_effective.loadbalancer_ips.end}
       cluster_name: ${context}
-      operator_replicas: "${topology_effective == 'single-node' ? 1 : 2}"
+      operator_replicas: "${topology == 'single-node' ? 1 : 2}"
     timeout: 15m
     interval: 5m
 
@@ -141,6 +141,6 @@ kustomize:
     substitutions:
       k8s_service_host: "${split(split(terraform_output(\"cluster\", \"cluster_endpoint\") ?? \"https://localhost:443\", \"://\")[1], \":\")[0]}"
       cluster_name: ${context}
-      operator_replicas: "${topology_effective == 'single-node' ? 1 : 2}"
+      operator_replicas: "${topology == 'single-node' ? 1 : 2}"
     timeout: 15m
     interval: 5m
