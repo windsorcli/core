@@ -132,7 +132,7 @@ jobs:
           terraform_version: 1.15.4
 
       - name: Install Windsor CLI
-        uses: windsorcli/action@a829ee3c5d9826fd0b31d5e730edcd515644d866 # v0.5.1
+        uses: windsorcli/action@main
         with:
           ref: main
           context: local
@@ -282,7 +282,7 @@ jobs:
       # Windsor install + image cache
       # -----------------------------------------------------------------------
       - name: Install Windsor CLI
-        uses: windsorcli/action@a829ee3c5d9826fd0b31d5e730edcd515644d866 # v0.5.1
+        uses: windsorcli/action@main
         with:
           ref: main
           context: local
@@ -667,7 +667,7 @@ jobs:
           terraform_version: 1.15.4
 
       - name: Install Windsor CLI
-        uses: windsorcli/action@a829ee3c5d9826fd0b31d5e730edcd515644d866 # v0.5.1
+        uses: windsorcli/action@main
         with:
           ref: main
           context: local
