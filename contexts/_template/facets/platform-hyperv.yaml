@@ -115,7 +115,7 @@ config:
   - name: network_effective
     when: gateway.service_type == 'NodePort'
     value:
-      gateway: "${hyperv_effective.nat_host_address}"
+      gateway: "${cidrhost(network.cidr_block ?? '10.5.0.0/16', 1)}"
 
   # ---------------------------------------------------------------------------
   # Per-VM derivation lists (NodePort)
