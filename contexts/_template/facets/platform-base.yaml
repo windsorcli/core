@@ -321,6 +321,13 @@ config:
       logs:
         driver: none
 
+  # Default-on opt-out for our metrics-server copy. Managed-K8s platforms
+  # that ship metrics-server as a built-in add-on (AKS, future GKE)
+  # override to false in their own facet to avoid two instances fighting
+  # on the same APIService.
+  - name: metrics_server_enabled
+    value: true
+
 # =============================================================================
 # Global substitutions
 # =============================================================================
@@ -455,9 +462,7 @@ kustomize:
     dependsOn:
       - telemetry-base
     components:
-      # AKS ships metrics-server as a built-in add-on; skip our copy on Azure
-      # to avoid two instances fighting on the same APIService.
-      - "${telemetry.metrics.enabled && platform != 'azure' ? 'metrics-server' : ''}"
+      - "${telemetry.metrics.enabled && metrics_server_enabled ? 'metrics-server' : ''}"
       - "${telemetry.metrics.enabled ? 'prometheus' : ''}"
       - "${telemetry.metrics.enabled ? 'prometheus/flux' : ''}"
       - "${telemetry.logs.enabled ? 'fluentbit' : ''}"
