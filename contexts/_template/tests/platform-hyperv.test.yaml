@@ -444,3 +444,14 @@ cases:
         - name: workstation
         - path: compute/incus
         - path: compute/docker
+
+  # Requires: NodePort mode parses the bench IP from cluster.endpoint; without
+  # it bench_ip is empty and the per-node port forwards become unreachable.
+  - name: NodePort without cluster.endpoint fails composition
+    values:
+      platform: hyperv
+      gateway:
+        service_type: NodePort
+      network: *default-network
+      cluster: *default-cluster
+    expectError: true

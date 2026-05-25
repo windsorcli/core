@@ -18,6 +18,7 @@ when: platform == 'aws'
 requires:
   - paths:
       - aws.region
+    message: AWS deployments require an explicit region for provider API calls and load balancer addressing.
   - when: (dns.public_domain ?? '') != ''
     paths:
       - email
