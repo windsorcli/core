@@ -16,8 +16,9 @@ when: platform == 'azure'
 #
 config:
 
-  - name: metrics_server_enabled
-    value: false
+  - name: telemetry
+    value:
+      metrics_server_enabled: false
 
 # =============================================================================
 # Terraform — AzureRM state backend, VNet, AKS, optional public DNS zone

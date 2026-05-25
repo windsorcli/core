@@ -332,8 +332,9 @@ config:
   # that ship metrics-server as a built-in add-on (AKS, future GKE)
   # override to false in their own facet to avoid two instances fighting
   # on the same APIService.
-  - name: metrics_server_enabled
-    value: true
+  - name: telemetry
+    value:
+      metrics_server_enabled: true
 
 # =============================================================================
 # Global substitutions
@@ -469,7 +470,7 @@ kustomize:
     dependsOn:
       - telemetry-base
     components:
-      - "${telemetry.metrics.enabled && metrics_server_enabled ? 'metrics-server' : ''}"
+      - "${telemetry.metrics.enabled && telemetry.metrics_server_enabled ? 'metrics-server' : ''}"
       - "${telemetry.metrics.enabled ? 'prometheus' : ''}"
       - "${telemetry.metrics.enabled ? 'prometheus/flux' : ''}"
       - "${telemetry.logs.enabled ? 'fluentbit' : ''}"
