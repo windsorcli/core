@@ -10,10 +10,15 @@ when: platform == 'azure'
 # Config — platform-specific overrides
 # =============================================================================
 #
-# The AKS-specific opt-out of our metrics-server copy is wired into
-# platform-base's telemetry-resources kustomization via an inline
-# `platform != 'azure'` guard. No telemetry config block needed here.
+# AKS ships metrics-server as a built-in add-on, so we suppress the copy
+# platform-base would otherwise add to telemetry-resources (two instances
+# would fight on the same APIService).
 #
+config:
+
+  - name: metrics_server_enabled
+    value: false
+
 # =============================================================================
 # Terraform — AzureRM state backend, VNet, AKS, optional public DNS zone
 # =============================================================================
