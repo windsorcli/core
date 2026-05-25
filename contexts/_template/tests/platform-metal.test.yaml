@@ -317,3 +317,13 @@ cases:
     exclude:
       terraform:
         - name: cluster-extensions
+
+  # Requires: metal has no compute layer, so the operator must declare the
+  # controlplane nodes that windsor talks to.
+  - name: metal without controlplane nodes fails composition
+    values:
+      provider: metal
+      gateway:
+        enabled: false
+      network: *default-network
+    expectError: true

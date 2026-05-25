@@ -92,8 +92,11 @@ config:
       # First controlplane IP, used as `k8sServiceHost` for Cilium's
       # kube-proxy replacement. Metal: read from user-provided nodes. Incus
       # and docker override this with cidrhost(cidr, 10). Colima/docker still
-      # require cluster.controlplanes.nodes in values.yaml.
-      k8s_service_host: "${split(values(cluster.controlplanes.nodes)[0].endpoint, ':')[0]}"
+      # require cluster.controlplanes.nodes in values.yaml. The len() guard
+      # keeps this expression safe to evaluate while platform-metal's
+      # requires is deferring metal-without-nodes — without it, this crashes
+      # before the requires error reaches the user.
+      k8s_service_host: "${len(cluster.controlplanes.nodes ?? {}) > 0 ? split(values(cluster.controlplanes.nodes)[0].endpoint, ':')[0] : ''}"
 
   # ---------------------------------------------------------------------------
   # Cilium-specific machine patch

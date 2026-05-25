@@ -1089,43 +1089,6 @@ additionalProperties: false
 # raw JSON-schema dumps.
 #
 allOf:
-  # platform: metal stands up bare-metal Talos nodes. The cluster facet
-  # composes controlplanes from either cluster.controlplanes.count (which
-  # auto-numbers nodes via the network module) or cluster.controlplanes.
-  # nodes (an explicit map of named nodes with endpoints). When neither
-  # is set the facet defaults count to len(nodes ?? {}) which is 0 and
-  # silently provisions a zero-controlplane cluster. Require at least
-  # one. anyOf on the if matches both the canonical `platform: metal`
-  # and the legacy `provider: metal` alias still in use across tests.
-  - if:
-      anyOf:
-        - properties:
-            platform:
-              const: metal
-          required:
-            - platform
-        - properties:
-            provider:
-              const: metal
-          required:
-            - provider
-    then:
-      required:
-        - cluster
-      properties:
-        cluster:
-          type: object
-          required:
-            - controlplanes
-          properties:
-            controlplanes:
-              type: object
-              anyOf:
-                - required:
-                    - count
-                - required:
-                    - nodes
-
   # Managed-cluster drivers ↔ platform coherence. cluster.driver: eks
   # binds to AWS EKS (Route53, AWS provider, EKS control plane); aks
   # binds to Azure AKS. They only make sense on the matching platform,
