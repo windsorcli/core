@@ -114,6 +114,8 @@ cases:
   - name: full config with custom network, MetalLB, ingress, and all cluster options
     values:
       provider: incus
+      dns:
+        private_domain: test
       gateway:
         enabled: true
         driver: envoy

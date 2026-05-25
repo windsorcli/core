@@ -130,6 +130,8 @@ cases:
   - name: cilium gateway uses coredns/loadbalancer and depends on cni
     values:
       provider: metal
+      dns:
+        private_domain: test
       gateway:
         enabled: true
         driver: cilium
@@ -159,6 +161,8 @@ cases:
   - name: private dns works with envoy gateway mode
     values:
       provider: metal
+      dns:
+        private_domain: test
       gateway:
         enabled: true
         driver: envoy
@@ -185,6 +189,8 @@ cases:
   - name: private dns with gateway disabled does not depend on gateway-base
     values:
       provider: metal
+      dns:
+        private_domain: test
       gateway:
         enabled: false
         driver: envoy
@@ -217,3 +223,14 @@ cases:
     exclude:
       kustomize:
         - name: dns
+
+  # Requires: enabling the addon without a private DNS zone fails at config-load.
+  - name: missing dns.private_domain fails composition
+    values:
+      provider: metal
+      network: *default-network
+      cluster: *default-cluster
+      addons:
+        private_dns:
+          enabled: true
+    expectError: true

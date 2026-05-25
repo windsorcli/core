@@ -337,6 +337,8 @@ cases:
   - name: NodePort with private-dns addon adds 30053 forwards
     values:
       platform: hyperv
+      dns:
+        private_domain: test
       gateway:
         service_type: NodePort
       network: *default-network
