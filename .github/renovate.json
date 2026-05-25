@@ -104,6 +104,12 @@
       "description": "Pin ghcr.io/distribution/distribution at 3.0.0 - bug in 3.1.0",
       "matchPackageNames": ["ghcr.io/distribution/distribution"],
       "enabled": false
+    },
+    {
+      "description": "Track windsorcli/action@main for edge validation; don't pin or update",
+      "matchManagers": ["github-actions"],
+      "matchPackageNames": ["windsorcli/action"],
+      "enabled": false
     }
   ],
   "customManagers": [
