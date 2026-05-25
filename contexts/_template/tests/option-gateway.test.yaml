@@ -454,3 +454,17 @@ cases:
       kustomize:
         - name: gitops
           path: gitops/flux
+
+  # Requires: private gateway without dns.private_domain silently falls back
+  # to the public branch (cert, DNS, LB scheme), so option-gateway fails at
+  # config-load instead.
+  - name: gateway access private without dns.private_domain fails composition
+    values:
+      provider: metal
+      gateway:
+        enabled: true
+        driver: envoy
+        access: private
+      network: *default-network
+      cluster: *default-cluster
+    expectError: true

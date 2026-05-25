@@ -5,6 +5,21 @@ metadata:
   description: Configurable cluster traffic entrypoint
 
 # =============================================================================
+# Requires
+# =============================================================================
+#
+# Private mode flips the LB scheme, DNS zone, and cert issuer to internal-only
+# variants — all of which key off dns.private_domain. Without it, the cascade
+# silently falls back to the public branch (cert SAN, external-dns zone, LB
+# scheme all revert), giving the operator a public gateway under the name
+# `private`. Fail at config-load instead.
+#
+requires:
+  - when: gateway.access == 'private'
+    paths:
+      - dns.private_domain
+
+# =============================================================================
 # Config — derived values consumed by this facet
 # =============================================================================
 #
