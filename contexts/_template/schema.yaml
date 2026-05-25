@@ -1081,58 +1081,14 @@ additionalProperties: false
 # Cross-field constraints. JSON Schema's if/then lets us require fields
 # only when other fields are set, surfacing config gaps at validation
 # time instead of at terraform/cluster apply time.
+#
+# Two rules that previously lived here (public_domain → email and
+# access=private → dns.private_domain) now live on facet `requires:`
+# blocks (platform-aws, platform-azure, option-gateway). Requires
+# emits readable errors with named conditions; schema validation emits
+# raw JSON-schema dumps.
+#
 allOf:
-  # Setting dns.public_domain activates ACME (publicly-trusted certs from
-  # Let's Encrypt). Let's Encrypt requires an account email at registration,
-  # so the top-level `email` field becomes mandatory in this case.
-  - if:
-      properties:
-        dns:
-          type: object
-          properties:
-            public_domain:
-              type: string
-              minLength: 1
-          required:
-            - public_domain
-      required:
-        - dns
-    then:
-      required:
-        - email
-      properties:
-        email:
-          type: string
-          minLength: 1
-
-  # gateway.access == 'private' switches the gateway issuer to a private CA
-  # and external-dns to the private zone. Without dns.private_domain the
-  # facet silently falls back to a public selfsigned issuer, masking the
-  # misconfiguration. Require dns.private_domain when gateway is private.
-  - if:
-      properties:
-        gateway:
-          type: object
-          properties:
-            access:
-              const: private
-          required:
-            - access
-      required:
-        - gateway
-    then:
-      required:
-        - dns
-      properties:
-        dns:
-          type: object
-          required:
-            - private_domain
-          properties:
-            private_domain:
-              type: string
-              minLength: 1
-
   # platform: metal stands up bare-metal Talos nodes. The cluster facet
   # composes controlplanes from either cluster.controlplanes.count (which
   # auto-numbers nodes via the network module) or cluster.controlplanes.

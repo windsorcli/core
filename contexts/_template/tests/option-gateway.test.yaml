@@ -392,6 +392,8 @@ cases:
   - name: aws envoy gateway-resources omits loadbalancer substitutions
     values:
       provider: aws
+      aws:
+        region: us-west-2
       gateway:
         enabled: true
         driver: envoy

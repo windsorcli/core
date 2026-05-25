@@ -7,6 +7,16 @@ metadata:
 when: platform == 'azure'
 
 # =============================================================================
+# Requires
+# =============================================================================
+#
+requires:
+  - when: (dns.public_domain ?? '') != ''
+    paths:
+      - email
+    message: Public DNS requires an operator email for TLS certificate registration.
+
+# =============================================================================
 # Config — platform-specific overrides
 # =============================================================================
 #
