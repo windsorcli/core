@@ -10,18 +10,14 @@ when: platform == 'azure'
 # Config — platform-specific overrides
 # =============================================================================
 #
-# AKS ships metrics-server as a managed add-on, so we suppress the copy that
+# AKS ships metrics-server as a built-in add-on, so we suppress the copy
 # platform-base would otherwise add to telemetry-resources (two instances
-# would fight on the same APIService). The flag is layered onto the base
-# `telemetry_effective` config block via Windsor's deep-merge semantics —
-# only metrics_server_enabled is overridden, the rest of the field set
-# (metrics_enabled, logs_enabled, logs_driver) keeps platform-base's values.
+# would fight on the same APIService).
 #
 config:
 
-  - name: telemetry_effective
-    value:
-      metrics_server_enabled: false
+  - name: metrics_server_enabled
+    value: false
 
 # =============================================================================
 # Terraform — AzureRM state backend, VNet, AKS, optional public DNS zone
@@ -66,7 +62,7 @@ terraform:
     dependsOn:
       - backend
     inputs:
-      vnet_cidr: ${network_effective.cidr_block}
+      vnet_cidr: ${network.cidr_block}
       domain_name: ${dns.private_domain ?? ""}
 
   # Public Azure DNS zone — provisioned when the operator sets dns.public_domain.
@@ -246,11 +242,11 @@ kustomize:
       # the gateway is on, external-dns is configured with the gateway-httproute
       # source below — without the CRDs present at startup it crash-loops on
       # "no matches for kind HTTPRoute". Wait for gateway-base to finish.
-      - "${gateway_effective.enabled == true ? 'gateway-base' : ''}"
+      - "${gateway.enabled == true ? 'gateway-base' : ''}"
     components:
       - external-dns
       - external-dns/providers/azure
-      - "${gateway_effective.enabled == true ? 'external-dns/sources/gateway-httproute' : ''}"
+      - "${gateway.enabled == true ? 'external-dns/sources/gateway-httproute' : ''}"
     timeout: 5m
     interval: 5m
     substitutions:
@@ -306,6 +302,6 @@ kustomize:
   # internal LB would have no zone to publish to.
   #
   - name: gateway-base
-    when: "gateway_effective.enabled == true && gateway_effective.driver == 'envoy' && lb_effective.mode == 'loadbalancer'"
+    when: "gateway.enabled == true && gateway.driver == 'envoy' && lb_effective.mode == 'loadbalancer'"
     components:
       - "${gateway.access == 'private' && (dns.private_domain ?? '') != '' ? 'envoy/loadbalancer/azure-lb-internal' : ''}"

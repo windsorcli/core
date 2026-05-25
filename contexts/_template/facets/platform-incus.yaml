@@ -24,7 +24,7 @@ config:
       longhorn_default_disk:
         - name: longhorn
           size: 30
-      k8s_service_host: "${cidrhost(network_effective.cidr_block, 10)}"
+      k8s_service_host: "${cidrhost(network.cidr_block, 10)}"
 
   # ---------------------------------------------------------------------------
   # cluster_endpoint_fallback
@@ -86,7 +86,7 @@ terraform:
     inputs:
       network_name: ""
       create_network: true
-      network_cidr: ${network_effective.cidr_block}
+      network_cidr: ${network.cidr_block}
       storage_pools:
         local:
           driver: null
@@ -94,7 +94,7 @@ terraform:
         - name: controlplane
           role: controlplane
           count: ${cluster.controlplanes.count ?? 1}
-          ipv4: ${cidrhost(network_effective.cidr_block, 10)}
+          ipv4: ${cidrhost(network.cidr_block, 10)}
           image: ${cluster.controlplanes.image ?? ("windsor:talos/v" + talos.talos_version + "/amd64")}
           type: virtual-machine
           description: Talos control plane node
@@ -111,7 +111,7 @@ terraform:
         - name: worker
           role: worker
           count: ${cluster.workers.count ?? 0}
-          ipv4: ${cidrhost(network_effective.cidr_block, 20)}
+          ipv4: ${cidrhost(network.cidr_block, 20)}
           image: ${cluster.workers.image ?? ("windsor:talos/v" + talos.talos_version + "/amd64")}
           type: virtual-machine
           description: Talos worker node
@@ -195,6 +195,6 @@ kustomize:
       - ${lb_effective.driver}
       - "${lb_effective.driver}/${network.loadbalancer_mode ?? 'arp'}"
     substitutions:
-      loadbalancer_ip_range: "${network_effective.loadbalancer_ips.start + '-' + network_effective.loadbalancer_ips.end}"
+      loadbalancer_ip_range: "${network.loadbalancer_ips.start + '-' + network.loadbalancer_ips.end}"
     timeout: 5m
     interval: 5m

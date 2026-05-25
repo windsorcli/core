@@ -81,8 +81,8 @@ cases:
   # Cilium: deploys cni terraform + kustomize with k8s_service_host substitution.
   # Also covers the layout-driven auto-derivation of single-node topology:
   # 1 control plane + 0 workers with no explicit `topology:` should drive
-  # topology_effective → 'single-node' → operator_replicas=1 in both the TF
-  # inputs and the kustomize substitutions.
+  # topology → 'single-node' → operator_replicas=1 in both the TF inputs
+  # and the kustomize substitutions.
   - name: cilium driver deploys cni terraform and kustomize component
     values:
       provider: metal
@@ -242,7 +242,7 @@ cases:
             - gateway-base
             - cni
 
-  # network_effective: loadbalancer IPs derived from CIDR when not explicitly set (workstation layer active).
+  # network.loadbalancer_ips: derived from CIDR when not explicitly set (workstation layer active).
   - name: loadbalancer IPs derived from cidr_block when not set
     values:
       provider: docker

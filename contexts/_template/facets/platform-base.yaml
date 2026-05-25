@@ -17,8 +17,8 @@ when: (platform ?? provider) != 'none'
 # they do not re-derive or override them.
 #
 # Evaluation order matters: later entries may reference earlier ones. Keep
-# dependent values below their dependencies (e.g. gateway_effective reads
-# cni_effective, so cni_effective must come first).
+# dependent values below their dependencies (e.g. the gateway block reads
+# cluster.cni.driver, so the cluster block must come first).
 #
 config:
 
@@ -40,42 +40,37 @@ config:
       runtime: "${workstation.runtime ?? ''}"
 
   # ---------------------------------------------------------------------------
-  # Cluster driver (platform-implied default)
+  # Cluster driver and CNI (platform-implied defaults)
   # ---------------------------------------------------------------------------
   #
-  # Managed clouds imply their managed driver: aws → eks, azure → aks. Every
-  # other platform (metal, incus, docker, workstation-only) defaults to talos.
-  # Computed here in platform-base, before `cni_effective` / `talos_provisioned`
-  # / `eks_enabled` are derived, so downstream `when:` guards (option-cni,
-  # option-storage, config-talos, the per-platform facets) all see the
-  # platform-correct driver without needing their own fallbacks. An explicit
+  # cluster.driver — managed clouds imply their managed driver (aws → eks,
+  # azure → aks); everything else defaults to talos. An explicit
   # `cluster.driver` in values.yaml always wins.
+  #
+  # cluster.cni.driver — Talos defaults to Cilium (standard L2/BGP + Gateway
+  # API stack); managed clouds leave it empty so option-cni stays out unless
+  # Cilium is explicitly requested. cluster.driver is re-derived inline
+  # because sibling fields in the same block evaluate against user input,
+  # not the just-computed `driver` value.
   #
   - name: cluster
     value:
       driver: "${cluster.driver ?? (platform == 'aws' ? 'eks' : (platform == 'azure' ? 'aks' : 'talos'))}"
-
-  # ---------------------------------------------------------------------------
-  # CNI driver selection
-  # ---------------------------------------------------------------------------
-  #
-  # Default rules:
-  #   - Explicit cluster.cni.driver always wins.
-  #   - Talos defaults to Cilium (our standard L2/BGP + Gateway API stack).
-  #   - Managed clusters (EKS, AKS) use their own CNI; leave empty so option-cni
-  #     does not activate unless cilium is explicitly requested.
-  #
-  - name: cni_effective
-    value:
-      driver: "${cluster.cni.driver ?? (cluster.driver == 'talos' ? 'cilium' : '')}"
+      cni:
+        driver: "${cluster.cni.driver ?? ((cluster.driver ?? (platform == 'aws' ? 'eks' : (platform == 'azure' ? 'aks' : 'talos'))) == 'talos' ? 'cilium' : '')}"
 
   # Docker Desktop override: its API server is reachable only via a localhost
-  # tunnel, which Cilium's eBPF bootstrap cannot use. Fall back to the built-in
-  # flannel CNI (no bootstrap required).
-  - name: cni_effective
+  # tunnel, which Cilium's eBPF bootstrap can't use. Fall back to the built-in
+  # flannel CNI. Split into a `when:`-gated entry rather than an inline
+  # branch on workstation.runtime because option-workstation re-positions
+  # the `workstation` block to the end of evaluation order, leaving
+  # workstation.runtime as an unevaluated template at the time the cluster
+  # block evaluates.
+  - name: cluster
     when: workstation.runtime == 'docker-desktop'
     value:
-      driver: "${cluster.cni.driver ?? 'flannel'}"
+      cni:
+        driver: "${cluster.cni.driver ?? 'flannel'}"
 
   # ---------------------------------------------------------------------------
   # Gateway driver selection
@@ -90,10 +85,17 @@ config:
   #        - Otherwise, use cilium when it is the CNI (native Gateway API),
   #          else envoy.
   #
-  - name: gateway_effective
+  - name: gateway
     value:
       enabled: ${gateway.enabled ?? ingress.enabled ?? true}
-      driver: "${gateway.driver ?? (ingress.driver == 'envoy-gateway' || ingress.driver == 'nginx' ? 'envoy' : ingress.driver) ?? (workstation.runtime == 'docker-desktop' || platform == 'aws' ? 'envoy' : (cni_effective.driver == 'cilium' ? 'cilium' : 'envoy'))}"
+      driver: |-
+        ${gateway.driver
+          ?? (ingress.driver == 'envoy-gateway' || ingress.driver == 'nginx'
+              ? 'envoy'
+              : ingress.driver)
+          ?? (workstation.runtime == 'docker-desktop' || platform == 'aws'
+              ? 'envoy'
+              : (cluster.cni.driver == 'cilium' ? 'cilium' : 'envoy'))}
 
   # ---------------------------------------------------------------------------
   # Load balancer selection
@@ -108,7 +110,7 @@ config:
   #
   - name: lb_effective
     value:
-      enabled: "${cni_effective.driver != 'cilium' && (network.loadbalancer_driver ?? '') != ''}"
+      enabled: "${cluster.cni.driver != 'cilium' && (network.loadbalancer_driver ?? '') != ''}"
       driver: "${network.loadbalancer_driver ?? 'kube-vip'}"
       mode: loadbalancer
 
@@ -212,56 +214,76 @@ config:
   # Topology
   # ---------------------------------------------------------------------------
   #
-  # Effective node counts: `count` wins when set (matches platform-docker/incus
-  # which use `count` as the authoritative sizing signal), otherwise fall back
-  # to the declared `nodes` map length.
-  #
-  # Topology is declared differently depending on whether the platform gives
-  # us a node layout to read:
+  # Resolves the user-facing `topology` field to a concrete value so downstream
+  # facets can read `${topology}` directly without re-implementing the fallback
+  # chain. Explicit `topology` always wins. Otherwise:
   #
   #   - Layout declared (metal, incus, docker-compose-style): derive from
-  #     effective counts — `count` wins when set, otherwise fall back to
-  #     the declared `nodes` map length. 1 total node → single-node;
-  #     3+ control planes → ha; otherwise multi-node.
+  #     effective node counts — `count` wins when set, otherwise fall back to
+  #     `len(nodes)`. 1 total → single-node; 3+ CPs → ha; else multi-node.
   #
-  #   - Workstation runtime with no layout declared (colima, docker-desktop):
-  #     platform implicitly provisions 1 CP, so default to single-node.
+  #   - Workstation runtime with no layout (colima, docker-desktop): platform
+  #     implicitly provisions 1 CP, so default to single-node.
   #
-  #   - Cloud platforms (EKS, AKS) with no layout: explicit `topology` drives.
-  #     Defaults to schema default 'multi-node'.
+  #   - Otherwise (cloud platforms with no layout): multi-node.
   #
-  #   - Explicit `topology` always wins when set. Preserves test overrides
-  #     and the rare case where desired behavior diverges from physical layout.
+  # Written as a single expression because writing the result back to
+  # `topology` itself means later entries can't read the original user input —
+  # they'd see whatever the previous entry set. Inlining the count expressions
+  # also avoids the engine's spotty support for cross-entry helper visibility
+  # in `when:` clauses.
   #
-  # The count expressions are inlined (rather than captured in helper config
-  # values) because intermediate config values in the same facet are not
-  # reliably visible to later `when:` clauses in the engine.
-  #
-  - name: topology_effective
-    value: "${topology ?? 'multi-node'}"
-  - name: topology_effective
-    when: "((cluster.controlplanes.count ?? len(cluster.controlplanes.nodes ?? {})) + (cluster.workers.count ?? len(cluster.workers.nodes ?? {}))) > 0"
-    value: "${topology ?? (((cluster.controlplanes.count ?? len(cluster.controlplanes.nodes ?? {})) + (cluster.workers.count ?? len(cluster.workers.nodes ?? {}))) == 1 ? 'single-node' : (cluster.controlplanes.count ?? len(cluster.controlplanes.nodes ?? {})) >= 3 ? 'ha' : 'multi-node')}"
-  - name: topology_effective
-    when: "workstation.runtime != '' && ((cluster.controlplanes.count ?? len(cluster.controlplanes.nodes ?? {})) + (cluster.workers.count ?? len(cluster.workers.nodes ?? {}))) == 0"
-    value: "${topology ?? 'single-node'}"
+  - name: topology
+    value: >-
+      ${
+        topology
+        ?? (
+          ((cluster.controlplanes.count ?? len(cluster.controlplanes.nodes ?? {}))
+            + (cluster.workers.count ?? len(cluster.workers.nodes ?? {}))) > 0
+            ? (
+                ((cluster.controlplanes.count ?? len(cluster.controlplanes.nodes ?? {}))
+                  + (cluster.workers.count ?? len(cluster.workers.nodes ?? {}))) == 1
+                  ? 'single-node'
+                  : (cluster.controlplanes.count ?? len(cluster.controlplanes.nodes ?? {})) >= 3
+                    ? 'ha'
+                    : 'multi-node'
+              )
+            : workstation.runtime != ''
+              ? 'single-node'
+              : 'multi-node'
+        )
+      }
 
   # ---------------------------------------------------------------------------
-  # Network effective values
+  # Network defaults
   # ---------------------------------------------------------------------------
   #
-  # Compute loadbalancer IP range from the CIDR when the user doesn't supply
-  # one. Offsets 266/356 place the range well inside a /16 and clear of the
-  # first 256 addresses reserved for nodes/services.
+  # Populate user-facing `network.*` fields so downstream facets can read
+  # `network.cidr_block` / `network.loadbalancer_ips.*` directly without
+  # re-applying the fallback chain.
   #
-  - name: network_cidr_effective
-    value: "${network.cidr_block ?? '10.5.0.0/16'}"
-  - name: network_effective
+  # Each entry uses `when:` (evaluated against user input only) instead of
+  # the self-referencing `${network.X ?? default}` pattern in `value:`. The
+  # engine stores config-block bodies unevaluated in globalScope and
+  # iterates blocks in last-writer order; a self-referencing template can
+  # be read as the literal template string by a config block in another
+  # facet that evaluates earlier in the round. Conditional writes only
+  # contribute literal values, so cross-block reads always see real data.
+  #
+  - name: network
+    when: (network.cidr_block ?? '') == ''
     value:
-      cidr_block: "${network_cidr_effective}"
+      cidr_block: '10.5.0.0/16'
+  - name: network
+    when: (network.loadbalancer_ips.start ?? '') == ''
+    value:
       loadbalancer_ips:
-        start: "${network.loadbalancer_ips.start ?? cidrhost(network_cidr_effective, 266)}"
-        end: "${network.loadbalancer_ips.end ?? cidrhost(network_cidr_effective, 356)}"
+        start: "${cidrhost(network.cidr_block ?? '10.5.0.0/16', 266)}"
+  - name: network
+    when: (network.loadbalancer_ips.end ?? '') == ''
+    value:
+      loadbalancer_ips:
+        end: "${cidrhost(network.cidr_block ?? '10.5.0.0/16', 356)}"
 
   # ---------------------------------------------------------------------------
   # Telemetry driver
@@ -282,24 +304,36 @@ config:
   # when the logs pipeline is disabled so downstream `when:` guards on the
   # fluentd aggregator fall through cleanly.
   #
-  - name: telemetry_effective
+  - name: telemetry
     value:
-      metrics_enabled: ${telemetry.metrics.enabled ?? true}
-      logs_enabled: ${telemetry.logs.enabled ?? true}
-      logs_driver: "${telemetry.logs.driver ?? 'fluentd'}"
+      metrics:
+        enabled: ${telemetry.metrics.enabled ?? true}
+      logs:
+        enabled: ${telemetry.logs.enabled ?? true}
+        driver: "${telemetry.logs.driver ?? 'fluentd'}"
 
   # Observability addon forces both pipelines on.
-  - name: telemetry_effective
+  - name: telemetry
     when: addons.observability.enabled == true
     value:
-      metrics_enabled: true
-      logs_enabled: true
+      metrics:
+        enabled: true
+      logs:
+        enabled: true
 
   # No logs pipeline → nothing to aggregate.
-  - name: telemetry_effective
+  - name: telemetry
     when: telemetry.logs.enabled == false && addons.observability.enabled != true
     value:
-      logs_driver: none
+      logs:
+        driver: none
+
+  # Default-on opt-out for our metrics-server copy. Managed-K8s platforms
+  # that ship metrics-server as a built-in add-on (AKS, future GKE)
+  # override to false in their own facet to avoid two instances fighting
+  # on the same APIService.
+  - name: metrics_server_enabled
+    value: true
 
 # =============================================================================
 # Global substitutions
@@ -393,10 +427,10 @@ kustomize:
     path: pki/base
     dependsOn:
       - "${(policies.enabled ?? true) ? 'policy-resources' : ''}"
-      - "${telemetry_effective.metrics_enabled || telemetry_effective.logs_enabled ? 'telemetry-base' : ''}"
+      - "${telemetry.metrics.enabled || telemetry.logs.enabled ? 'telemetry-base' : ''}"
     components:
       - cert-manager
-      - "${telemetry_effective.metrics_enabled ? 'cert-manager/prometheus' : ''}"
+      - "${telemetry.metrics.enabled ? 'cert-manager/prometheus' : ''}"
     timeout: 20m
     interval: 5m
 
@@ -421,34 +455,30 @@ kustomize:
   #
   - name: telemetry-base
     path: telemetry/base
-    when: telemetry_effective.metrics_enabled || telemetry_effective.logs_enabled
+    when: telemetry.metrics.enabled || telemetry.logs.enabled
     components:
-      - "${telemetry_effective.metrics_enabled ? 'prometheus' : ''}"
-      - "${telemetry_effective.metrics_enabled ? 'prometheus/flux' : ''}"
-      - "${telemetry_effective.logs_enabled ? 'fluentbit' : ''}"
+      - "${telemetry.metrics.enabled ? 'prometheus' : ''}"
+      - "${telemetry.metrics.enabled ? 'prometheus/flux' : ''}"
+      - "${telemetry.logs.enabled ? 'fluentbit' : ''}"
     timeout: 30m
     interval: 10m
 
   - name: telemetry-resources
     path: telemetry/resources
-    when: telemetry_effective.metrics_enabled || telemetry_effective.logs_enabled
+    when: telemetry.metrics.enabled || telemetry.logs.enabled
     dependsOn:
       - telemetry-base
     components:
-      # Platform-specific opt-out: AKS (and other managed K8s flavors) ship
-      # metrics-server as a built-in add-on, so platform-azure overrides
-      # telemetry_effective.metrics_server_enabled to false to skip our copy.
-      # Defaults to true via ?? so the AWS / metal / incus paths are unchanged.
-      - "${telemetry_effective.metrics_enabled && (telemetry_effective.metrics_server_enabled ?? true) ? 'metrics-server' : ''}"
-      - "${telemetry_effective.metrics_enabled ? 'prometheus' : ''}"
-      - "${telemetry_effective.metrics_enabled ? 'prometheus/flux' : ''}"
-      - "${telemetry_effective.logs_enabled ? 'fluentbit' : ''}"
-      - "${telemetry_effective.logs_enabled ? 'fluentbit/containerd' : ''}"
-      - "${telemetry_effective.logs_enabled ? 'fluentbit/kubernetes' : ''}"
-      - "${telemetry_effective.logs_enabled ? 'fluentbit/parser' : ''}"
-      - "${telemetry_effective.logs_enabled ? 'fluentbit/systemd' : ''}"
-      - "${telemetry_effective.logs_enabled && telemetry_effective.metrics_enabled ? 'fluentbit/prometheus' : ''}"
-      - "${telemetry_effective.logs_driver == 'fluentd' ? 'fluentbit/fluentd' : ''}"
+      - "${telemetry.metrics.enabled && metrics_server_enabled ? 'metrics-server' : ''}"
+      - "${telemetry.metrics.enabled ? 'prometheus' : ''}"
+      - "${telemetry.metrics.enabled ? 'prometheus/flux' : ''}"
+      - "${telemetry.logs.enabled ? 'fluentbit' : ''}"
+      - "${telemetry.logs.enabled ? 'fluentbit/containerd' : ''}"
+      - "${telemetry.logs.enabled ? 'fluentbit/kubernetes' : ''}"
+      - "${telemetry.logs.enabled ? 'fluentbit/parser' : ''}"
+      - "${telemetry.logs.enabled ? 'fluentbit/systemd' : ''}"
+      - "${telemetry.logs.enabled && telemetry.metrics.enabled ? 'fluentbit/prometheus' : ''}"
+      - "${telemetry.logs.driver == 'fluentd' ? 'fluentbit/fluentd' : ''}"
     timeout: 10m
     interval: 5m
 
@@ -461,13 +491,13 @@ kustomize:
   # every log, unfiltered).
   - name: observability
     path: observability
-    when: telemetry_effective.logs_driver == 'fluentd' && (addons.observability.logs_driver ?? '') != 'elasticsearch'
+    when: telemetry.logs.driver == 'fluentd' && (addons.observability.logs_driver ?? '') != 'elasticsearch'
     dependsOn:
       - telemetry-base
     components:
       - fluentd
       - fluentd/filters/otel
-      - "${telemetry_effective.metrics_enabled ? 'fluentd/prometheus' : ''}"
+      - "${telemetry.metrics.enabled ? 'fluentd/prometheus' : ''}"
       - "${log_level != 'trace' ? 'fluentd/filters/log-level/' + (log_level ?? 'info') : ''}"
     timeout: 15m
     interval: 10m
@@ -479,7 +509,7 @@ kustomize:
   # Exposes a Flux webhook for immediate source reconciliation (push-driven
   # instead of polling). Two variants:
   #
-  #   1. No Gateway API: plain HTTP webhook. Used when gateway_effective is
+  #   1. No Gateway API: plain HTTP webhook. Used when gateway is
   #      disabled (e.g. cluster.enabled=false with only workstation services).
   #
   #   2. With Gateway API: webhook + HTTPRoute on the port-80 listener. Works
@@ -490,7 +520,7 @@ kustomize:
   #
   - name: gitops
     path: gitops/flux
-    when: (gitops.mode ?? 'push') == 'push' && gateway_effective.enabled != true
+    when: (gitops.mode ?? 'push') == 'push' && gateway.enabled != true
     components:
       - webhook
     substitutions:
@@ -498,12 +528,12 @@ kustomize:
 
   - name: gitops
     path: gitops/flux
-    when: (gitops.mode ?? 'push') == 'push' && gateway_effective.enabled == true
+    when: (gitops.mode ?? 'push') == 'push' && gateway.enabled == true
     dependsOn:
       - gateway-base
     components:
       - webhook
       - webhook/gateway
-      - "${gateway_effective.driver == 'cilium' ? 'webhook/gateway/cilium' : ''}"
+      - "${gateway.driver == 'cilium' ? 'webhook/gateway/cilium' : ''}"
     substitutions:
       git_repository_name: ${gitops.repository.name ?? "local"}
