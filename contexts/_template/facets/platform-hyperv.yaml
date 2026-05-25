@@ -121,11 +121,14 @@ config:
   # NodePort overrides network.gateway so cluster-config's per-node default
   # route points at the NAT host vNIC (the only address reachable from
   # inside the NAT subnet), regardless of any bench-LAN `network.gateway`
-  # the operator set for LAN-bridge documentation.
+  # the operator set for LAN-bridge documentation. Inlines the same
+  # `cidrhost(cidr_block, 1)` computation hyperv_effective.nat_host_address
+  # uses; reading `hyperv_effective` here would create a network ↔
+  # hyperv_effective cycle the topo sort rejects.
   - name: network
     when: gateway.service_type == 'NodePort'
     value:
-      gateway: "${hyperv_effective.nat_host_address}"
+      gateway: "${cidrhost(network.cidr_block ?? '10.5.0.0/16', 1)}"
 
   # ---------------------------------------------------------------------------
   # Per-VM derivation lists (NodePort)
