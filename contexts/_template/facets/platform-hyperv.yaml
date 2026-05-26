@@ -53,30 +53,36 @@ config:
       image_url: "${'https://factory.talos.dev/image/a9999ca75e856f927166016d16df9f9705927a18fc2f7a0c92b1ac96a376f9a6/v' + talos.talos_version + '/metal-amd64.iso'}"
 
   # ---------------------------------------------------------------------------
-  # network_effective additions — gateway and nameservers for CIDATA seed
+  # Network gateway and nameservers — needed for the CIDATA seed
   # ---------------------------------------------------------------------------
   #
-  # The gateway/nameservers fields land on platform-base's network_effective so
-  # any platform that needs them later picks them up uniformly. Kept here for
-  # discoverability; platform-base could absorb the defaults in a future pass.
+  # Land defaults on the user-facing `network` field so any platform that
+  # consumes them picks them up uniformly. Conditional `when:` writes
+  # (gated on user input) — see the rationale in platform-base.yaml's
+  # "Network defaults" block.
   #
-  - name: network_effective
+  - name: network
+    when: (network.gateway ?? '') == ''
     value:
-      gateway: "${network.gateway ?? cidrhost(network_effective.cidr_block, 1)}"
-      nameservers: ${network.nameservers ?? ['1.1.1.1', '8.8.8.8']}
+      gateway: "${cidrhost(network.cidr_block ?? '10.5.0.0/16', 1)}"
+  - name: network
+    when: len(network.nameservers ?? []) == 0
+    value:
+      nameservers: ['1.1.1.1', '8.8.8.8']
 
   # ---------------------------------------------------------------------------
-  # cni_effective override — default to Talos flannel
+  # cluster.cni.driver override — default to Talos flannel
   # ---------------------------------------------------------------------------
   #
-  # platform-base defaults cni_effective.driver to 'cilium' whenever
+  # platform-base defaults cluster.cni.driver to 'cilium' whenever
   # cluster.driver is 'talos'. Hyper-V instead defaults to Talos's built-in
   # flannel: no Cilium bootstrap stage, no cni:none / proxy:disabled patches,
   # kubelet's CNI plugin comes up automatically. Operators can still opt in
   # to Cilium via cluster.cni.driver: cilium.
-  - name: cni_effective
+  - name: cluster
     value:
-      driver: "${cluster.cni.driver ?? 'flannel'}"
+      cni:
+        driver: "${cluster.cni.driver ?? 'flannel'}"
 
   # ---------------------------------------------------------------------------
   # NodePort branch — flip topology to NAT switch + bench-side port forwards
@@ -108,11 +114,11 @@ config:
       nat_host_address: "${cidrhost(network.cidr_block ?? '10.5.0.0/16', 1)}"
       bench_ip: "${(cluster.endpoint ?? '') != '' ? split(split(cluster.endpoint, '://')[1], ':')[0] : ''}"
 
-  # NodePort overrides network_effective.gateway so cluster-config's
-  # per-node default route points at the NAT host vNIC (the only address
-  # reachable from inside the NAT subnet), regardless of any bench-LAN
-  # `network.gateway` the operator set for LAN-bridge documentation.
-  - name: network_effective
+  # NodePort overrides network.gateway so cluster-config's per-node default
+  # route points at the NAT host vNIC (the only address reachable from
+  # inside the NAT subnet), regardless of any bench-LAN `network.gateway`
+  # the operator set for LAN-bridge documentation.
+  - name: network
     when: gateway.service_type == 'NodePort'
     value:
       gateway: "${cidrhost(network.cidr_block ?? '10.5.0.0/16', 1)}"
@@ -276,7 +282,7 @@ config:
   # offset 10 so k8s_service_host is stable independent of DHCP.
   - name: talos_common
     value:
-      k8s_service_host: "${cidrhost(network_effective.cidr_block, 10)}"
+      k8s_service_host: "${cidrhost(network.cidr_block, 10)}"
 
   # NodePort-mode certSANs: workstations reach the Talos API and Kubernetes
   # API at the bench's external IP (e.g. 192.168.3.77), but Talos auto-
@@ -376,13 +382,13 @@ terraform:
     inputs:
       talos_version: ${talos.talos_version}
       cluster_name: talos
-      cluster_endpoint: "${cluster.endpoint ?? ('https://' + cidrhost(network_effective.cidr_block, 10) + ':6443')}"
+      cluster_endpoint: "${cluster.endpoint ?? ('https://' + cidrhost(network.cidr_block, 10) + ':6443')}"
       destination_dir: "${hyperv_effective.images_dir}"
       common_config_patches: ${talos_common.common_config_patches}
       network:
-        cidr_block: ${network_effective.cidr_block}
-        gateway: ${network_effective.gateway}
-        nameservers: ${network_effective.nameservers}
+        cidr_block: ${network.cidr_block}
+        gateway: ${network.gateway}
+        nameservers: ${network.nameservers}
       # In NodePort mode every node's static IP must be a NAT-internal
       # address (per the per-VM offset scheme in hyperv_controlplanes /
       # hyperv_workers), not whatever bench-side address operators wrote
@@ -437,7 +443,7 @@ terraform:
       # single-LAN-NIC bench the wildcard is functionally identical anyway.
       port_forward_external_ip: "0.0.0.0"
       port_forward_name_prefix: "windsor-${id ?? 'hyperv'}"
-      network_cidr: ${network_effective.cidr_block}
+      network_cidr: ${network.cidr_block}
       vhd_dir: "${hyperv_effective.vhd_dir}"
       images:
         talos:
@@ -456,7 +462,7 @@ terraform:
             ["name", "controlplane"],
             ["role", "controlplane"],
             ["count", cluster.controlplanes.count ?? 1],
-            ["ipv4", cidrhost(network_effective.cidr_block, 10)],
+            ["ipv4", cidrhost(network.cidr_block, 10)],
             ["image", ""],
             ["dvd_iso_path", "talos"],
             ["cidata_iso_path", hyperv_effective.images_dir + "/" + ((values(cluster.controlplanes.nodes ?? {}))[0].hostname ?? "controlplane-1") + "-cidata.iso"],
@@ -472,7 +478,7 @@ terraform:
             ["name", "worker"],
             ["role", "worker"],
             ["count", cluster.workers.count ?? 0],
-            ["ipv4", cidrhost(network_effective.cidr_block, 20)],
+            ["ipv4", cidrhost(network.cidr_block, 20)],
             ["image", ""],
             ["dvd_iso_path", "talos"],
             ["cidata_iso_path", (cluster.workers.count ?? 0) > 0 ? (hyperv_effective.images_dir + "/" + ((values(cluster.workers.nodes ?? {}))[0].hostname ?? "worker-1") + "-cidata.iso") : ""],
@@ -585,6 +591,6 @@ kustomize:
       - ${lb_effective.driver}
       - "${lb_effective.driver}/${network.loadbalancer_mode ?? 'arp'}"
     substitutions:
-      loadbalancer_ip_range: "${network_effective.loadbalancer_ips.start + '-' + network_effective.loadbalancer_ips.end}"
+      loadbalancer_ip_range: "${network.loadbalancer_ips.start + '-' + network.loadbalancer_ips.end}"
     timeout: 5m
     interval: 5m

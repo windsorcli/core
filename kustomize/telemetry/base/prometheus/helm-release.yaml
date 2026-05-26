@@ -10,7 +10,7 @@ spec:
     spec:
       chart: kube-prometheus-stack
       # renovate: datasource=helm depName=kube-prometheus-stack package=kube-prometheus-stack helmRepo=https://prometheus-community.github.io/helm-charts
-      version: 85.1.3
+      version: 85.3.3
       sourceRef:
         kind: HelmRepository
         name: prometheus-community
@@ -68,3 +68,5 @@ spec:
         # renovate: datasource=docker depName=quay.io/prometheus/node-exporter package=quay.io/prometheus/node-exporter
         tag: v1.11.1@sha256:0f422f62c15f154af8d8572b23d623aebfb10cec73a5c654d18f911f3f9df241
         digest: ""
+        # chart defaults this to true and would append `-distroless` to tag, breaking the digest pinning
+        distroless: false

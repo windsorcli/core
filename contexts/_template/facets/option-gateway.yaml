@@ -25,7 +25,7 @@ config:
 # Kustomize — Gateway API controller + shared Gateway resource
 # =============================================================================
 #
-# gateway_effective (resolved in platform-base) selects the driver: 'envoy' or
+# gateway (resolved in platform-base) selects the driver: 'envoy' or
 # 'cilium'. All downstream facets dependsOn the canonical names `gateway-base`
 # and `gateway-resources` regardless of driver — we emit one variant of each.
 #
@@ -43,16 +43,16 @@ kustomize:
   #
   - name: gateway-base
     path: gateway/base
-    when: gateway_effective.enabled == true && gateway_effective.driver != 'cilium'
+    when: gateway.enabled == true && gateway.driver != 'cilium'
     dependsOn:
       - pki-base
       - "${lb_effective.controller_required ? 'lb-base' : ''}"
     components:
-      - "${gateway_effective.driver}"
-      - "${gateway_effective.driver == 'envoy' ? 'envoy/' + lb_effective.mode : ''}"
-      - "${gateway_effective.driver == 'envoy' && lb_effective.mode == 'nodeport' && (addons.private_dns.enabled ?? (dev == true)) == true ? 'envoy/nodeport/dns' : ''}"
-      - "${gateway_effective.driver == 'envoy' && lb_effective.mode == 'nodeport' && (gitops.mode ?? 'push') == 'push' ? 'envoy/nodeport/flux-webhook' : ''}"
-      - "${gateway_effective.driver == 'envoy' ? 'envoy/prometheus' : ''}"
+      - "${gateway.driver}"
+      - "${gateway.driver == 'envoy' ? 'envoy/' + lb_effective.mode : ''}"
+      - "${gateway.driver == 'envoy' && lb_effective.mode == 'nodeport' && (addons.private_dns.enabled ?? (dev == true)) == true ? 'envoy/nodeport/dns' : ''}"
+      - "${gateway.driver == 'envoy' && lb_effective.mode == 'nodeport' && (gitops.mode ?? 'push') == 'push' ? 'envoy/nodeport/flux-webhook' : ''}"
+      - "${gateway.driver == 'envoy' ? 'envoy/prometheus' : ''}"
     timeout: 10m
     interval: 5m
 
@@ -61,7 +61,7 @@ kustomize:
   # component). The Cilium HelmRelease is owned by option-cni.
   - name: gateway-base
     path: gateway/base
-    when: gateway_effective.enabled == true && gateway_effective.driver == 'cilium'
+    when: gateway.enabled == true && gateway.driver == 'cilium'
     dependsOn:
       - pki-base
       - "${lb_effective.controller_required ? 'lb-base' : ''}"
@@ -80,7 +80,7 @@ kustomize:
   # and never initializes the Gateway controller.
   #
   - name: cni
-    when: gateway_effective.enabled == true && gateway_effective.driver == 'cilium'
+    when: gateway.enabled == true && gateway.driver == 'cilium'
     dependsOn:
       - gateway-base
 
@@ -105,30 +105,30 @@ kustomize:
   #
   - name: gateway-resources
     path: gateway/resources
-    when: gateway_effective.enabled == true
+    when: gateway.enabled == true
     dependsOn:
       - gateway-base
       - "${dns.enabled ? 'dns' : ''}"
       - "${lb_effective.controller_required ? 'lb-base' : ''}"
     components:
-      - "${gateway_effective.driver == 'cilium' ? 'cilium' : ''}"
+      - "${gateway.driver == 'cilium' ? 'cilium' : ''}"
       # Catch-all 404 served by Envoy's directResponse — covers any
       # request that doesn't match a real app's HTTPRoute. Envoy-only:
       # uses the gateway.envoyproxy.io HTTPRouteFilter CRD, which
       # cilium clusters don't ship.
-      - "${gateway_effective.driver != 'cilium' ? 'envoy/default-404' : ''}"
+      - "${gateway.driver != 'cilium' ? 'envoy/default-404' : ''}"
       # external-dns hostname annotation on the 404 route. Fires whenever a
       # gateway-managed DNS zone exists — the public zone (dns.public_domain)
       # for the default public path, or the private zone (dns.private_domain)
       # when gateway.access=private. Skipped when neither applies so the
       # substitution doesn't render a malformed ",*." value.
-      - "${gateway_effective.driver != 'cilium' && ((dns.public_domain ?? '') != '' || (gateway.access == 'private' && (dns.private_domain ?? '') != '')) ? 'envoy/default-404/external-dns' : ''}"
-      - "${gateway_effective.driver != 'cilium' && (addons.private_dns.enabled ?? (dev == true)) == true ? 'dns' : ''}"
+      - "${gateway.driver != 'cilium' && ((dns.public_domain ?? '') != '' || (gateway.access == 'private' && (dns.private_domain ?? '') != '')) ? 'envoy/default-404/external-dns' : ''}"
+      - "${gateway.driver != 'cilium' && (addons.private_dns.enabled ?? (dev == true)) == true ? 'dns' : ''}"
       - "${lb_effective.enabled == true ? 'lb-address' : ''}"
       - "${(gitops.mode ?? 'push') == 'push' ? 'flux-webhook' : ''}"
     substitutions:
-      gateway_class_name: ${gateway_effective.driver}
-      gateway_dns_target: "${lb_effective.enabled == true ? network_effective.loadbalancer_ips.start : ''}"
+      gateway_class_name: ${gateway.driver}
+      gateway_dns_target: "${lb_effective.enabled == true ? network.loadbalancer_ips.start : ''}"
       # Cert SAN domain.
       # - access=private (with dns.private_domain set): gateway is reachable
       #   only inside the VPC, so the cert covers the private domain (the
@@ -162,6 +162,6 @@ kustomize:
       # Only emitted when a consumer is active: the lb-address patch (in-cluster
       # LB) or the cilium gateway component. NodePort/cloud-managed-LB paths
       # have no consumer, so leave it empty and the harness drops it.
-      loadbalancer_start_ip: "${(lb_effective.enabled == true || gateway_effective.driver == 'cilium') ? network_effective.loadbalancer_ips.start : ''}"
+      loadbalancer_start_ip: "${(lb_effective.enabled == true || gateway.driver == 'cilium') ? network.loadbalancer_ips.start : ''}"
     timeout: 10m
     interval: 5m

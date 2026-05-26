@@ -8,7 +8,7 @@ metadata:
 # Other CNIs (flannel on docker-desktop, managed CNIs on EKS/AKS) skip this
 # facet entirely. The cluster.enabled guard prevents dangling csi→cni
 # dependencies when someone stands up just the workstation services.
-when: cni_effective.driver == 'cilium' && (cluster.enabled ?? true)
+when: cluster.cni.driver == 'cilium' && (cluster.enabled ?? true)
 
 # =============================================================================
 # Terraform — Cilium pre-flight bootstrap
@@ -38,7 +38,7 @@ terraform:
       # Match the Flux-managed HelmRelease's operator.replicas so `windsor up`
       # re-runs don't flap the deployment between Flux reconciles. Same
       # single-node → 1, else → 2 rule applied by the Flux substitution.
-      operator_replicas: "${topology_effective == 'single-node' ? 1 : 2}"
+      operator_replicas: "${topology == 'single-node' ? 1 : 2}"
   
   - name: gitops
     when: "talos_provisioned"
@@ -65,7 +65,7 @@ kustomize:
   # in place when the Cilium gateway controller creates the
   # cilium-gateway-external Service, and the LB IP won't be shared.
   - name: gateway-resources
-    when: gateway_effective.enabled == true && gateway_effective.driver == 'cilium'
+    when: gateway.enabled == true && gateway.driver == 'cilium'
     dependsOn:
       - cni
 
@@ -79,7 +79,7 @@ kustomize:
   # Add the Cilium dashboards to the observability kustomization when Grafana
   # is the dashboard backend.
   - name: observability
-    when: observability_effective.dashboards == 'grafana'
+    when: addons.observability.dashboards == 'grafana'
     components:
       - grafana/dashboards/cilium
 
@@ -107,21 +107,21 @@ kustomize:
     path: cni
     when: talos_enabled
     dependsOn:
-      - "${(policies.enabled ?? true) || (gateway_effective.enabled == true && gateway_effective.driver == 'cilium') ? 'policy-resources' : ''}"
-      - "${telemetry_effective.metrics_enabled || telemetry_effective.logs_enabled ? 'telemetry-base' : ''}"
+      - "${(policies.enabled ?? true) || (gateway.enabled == true && gateway.driver == 'cilium') ? 'policy-resources' : ''}"
+      - "${telemetry.metrics.enabled || telemetry.logs.enabled ? 'telemetry-base' : ''}"
     components:
       - cilium
       - cilium/talos
-      - "${(gateway_effective.enabled == true && gateway_effective.driver == 'cilium') ? 'cilium/gateway' : ''}"
-      - "${telemetry_effective.metrics_enabled ? 'cilium/prometheus' : ''}"
+      - "${(gateway.enabled == true && gateway.driver == 'cilium') ? 'cilium/gateway' : ''}"
+      - "${telemetry.metrics.enabled ? 'cilium/prometheus' : ''}"
       - cilium/hubble
       - cilium/l2
     substitutions:
       k8s_service_host: ${talos_common.k8s_service_host}
-      loadbalancer_start_ip: ${network_effective.loadbalancer_ips.start}
-      loadbalancer_end_ip: ${network_effective.loadbalancer_ips.end}
+      loadbalancer_start_ip: ${network.loadbalancer_ips.start}
+      loadbalancer_end_ip: ${network.loadbalancer_ips.end}
       cluster_name: ${context}
-      operator_replicas: "${topology_effective == 'single-node' ? 1 : 2}"
+      operator_replicas: "${topology == 'single-node' ? 1 : 2}"
     timeout: 15m
     interval: 5m
 
@@ -131,16 +131,16 @@ kustomize:
     path: cni
     when: eks_enabled
     dependsOn:
-      - "${(policies.enabled ?? true) || (gateway_effective.enabled == true && gateway_effective.driver == 'cilium') ? 'policy-resources' : ''}"
-      - "${telemetry_effective.metrics_enabled || telemetry_effective.logs_enabled ? 'telemetry-base' : ''}"
+      - "${(policies.enabled ?? true) || (gateway.enabled == true && gateway.driver == 'cilium') ? 'policy-resources' : ''}"
+      - "${telemetry.metrics.enabled || telemetry.logs.enabled ? 'telemetry-base' : ''}"
     components:
       - cilium
-      - "${(gateway_effective.enabled == true && gateway_effective.driver == 'cilium') ? 'cilium/gateway' : ''}"
-      - "${telemetry_effective.metrics_enabled ? 'cilium/prometheus' : ''}"
+      - "${(gateway.enabled == true && gateway.driver == 'cilium') ? 'cilium/gateway' : ''}"
+      - "${telemetry.metrics.enabled ? 'cilium/prometheus' : ''}"
       - cilium/hubble
     substitutions:
       k8s_service_host: "${split(split(terraform_output(\"cluster\", \"cluster_endpoint\") ?? \"https://localhost:443\", \"://\")[1], \":\")[0]}"
       cluster_name: ${context}
-      operator_replicas: "${topology_effective == 'single-node' ? 1 : 2}"
+      operator_replicas: "${topology == 'single-node' ? 1 : 2}"
     timeout: 15m
     interval: 5m

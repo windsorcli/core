@@ -98,6 +98,6 @@ kustomize:
       - ${lb_effective.driver}
       - "${lb_effective.driver}/${network.loadbalancer_mode ?? 'arp'}"
     substitutions:
-      loadbalancer_ip_range: ${network_effective.loadbalancer_ips.start + '-' + network_effective.loadbalancer_ips.end}
+      loadbalancer_ip_range: ${network.loadbalancer_ips.start + '-' + network.loadbalancer_ips.end}
     timeout: 5m
     interval: 5m

@@ -19,7 +19,7 @@ config:
   # Mirrors the incus provider convention so cross-platform logic is uniform.
   - name: talos_common
     value:
-      k8s_service_host: "${cidrhost(network_effective.cidr_block, 10)}"
+      k8s_service_host: "${cidrhost(network.cidr_block, 10)}"
 
   # Node targets for post-cluster steps (e.g. cluster/talos/extensions). Reads
   # compute outputs (compute always runs before cluster, which runs before
@@ -163,6 +163,6 @@ kustomize:
       - ${lb_effective.driver}
       - "${lb_effective.driver}/${network.loadbalancer_mode ?? 'arp'}"
     substitutions:
-      loadbalancer_ip_range: ${network_effective.loadbalancer_ips.start + '-' + network_effective.loadbalancer_ips.end}
+      loadbalancer_ip_range: ${network.loadbalancer_ips.start + '-' + network.loadbalancer_ips.end}
     timeout: 5m
     interval: 5m
