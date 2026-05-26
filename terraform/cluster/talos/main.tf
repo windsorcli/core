@@ -32,6 +32,11 @@ resource "talos_machine_secrets" "this" {
   count = var.machine_secrets == null ? 1 : 0
 
   talos_version = "v${var.talos_version}"
+
+  lifecycle {
+    # Workaround for siderolabs/terraform-provider-talos#352 — remove once fixed.
+    ignore_changes = [talos_version]
+  }
 }
 
 # State address migration: this resource used to be unconditional (no count
