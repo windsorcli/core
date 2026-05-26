@@ -393,7 +393,9 @@ jobs:
       - name: Windsor Up
         id: windsor_up
         if: steps.infra_diff.outputs.skip != 'true'
-        timeout-minutes: 14
+        # Upgrade mode may reboot the Talos node (e.g. on a Talos version bump);
+        # post-reboot pod restart burst takes longer to settle than a fresh install.
+        timeout-minutes: ${{ matrix.mode == 'upgrade' && 20 || 14 }}
         run: windsor up --verbose --wait
 
       - name: HEAD — Wait for GitRepository revision bump
