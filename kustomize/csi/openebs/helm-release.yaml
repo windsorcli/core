@@ -21,7 +21,7 @@ spec:
       localpv:
         image:
           # renovate: datasource=docker depName=openebs/provisioner-localpv package=openebs/provisioner-localpv
-          tag: 4.4.0@sha256:a9f0aa574700379fd56f7597be4493fab1bd2423e8a5eaca4eeafd377763e9df
+          tag: 4.5.0@sha256:2e108216d4c57264067185423384f8eacf636d1fe5d6c99104796a64a33f064d
       helperPod:
         image:
           # renovate: datasource=docker depName=openebs/linux-utils package=openebs/linux-utils
