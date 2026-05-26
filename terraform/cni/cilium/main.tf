@@ -104,6 +104,18 @@ resource "helm_release" "cilium" {
         }
         hostRoot = "/sys/fs/cgroup"
       }
+    },
+
+    # Must match the Flux patch (kustomize/cni/cilium/hubble/patches/helm-release.yaml).
+    # Mismatch flips chart-templating of cilium-ca on each apply and churns Helm ownership.
+    {
+      hubble = {
+        tls = {
+          auto = {
+            method = "cronJob"
+          }
+        }
+      }
     }
   ))]
 }

@@ -73,6 +73,11 @@ run "minimal_configuration" {
     condition     = yamldecode(helm_release.cilium.values[0]).cgroup == null
     error_message = "cgroup should be null when auto-mount is on (chart default)"
   }
+
+  assert {
+    condition     = yamldecode(helm_release.cilium.values[0]).hubble.tls.auto.method == "cronJob"
+    error_message = "hubble.tls.auto.method should be 'cronJob' to match the Flux patch and keep cilium-ca off the chart template"
+  }
 }
 
 # Verifies privileged=false swaps full-privileged mode for an explicit Linux
