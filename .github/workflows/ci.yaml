@@ -35,6 +35,8 @@ env:
   SUPPORT_BUNDLE_VERSION: v0.129.0
   # renovate: datasource=github-releases depName=flux package=fluxcd/flux2
   FLUX_VERSION: v2.8.8
+  # renovate: datasource=github-releases depName=yq package=mikefarah/yq
+  YQ_VERSION: v4.53.2
 
 jobs:
 
@@ -102,6 +104,22 @@ jobs:
             echo "Run 'task dashboards' locally and commit the changes."
             exit 1
           fi
+
+      # yq is the YAML reader the kustomize-docs generator depends on. Local
+      # devs get it via aqua; CI installs the same pinned version directly.
+      - name: Install yq
+        run: |
+          cd "$(mktemp -d)" &&
+          curl -fsSLO "https://github.com/mikefarah/yq/releases/download/${YQ_VERSION}/yq_linux_amd64" &&
+          sudo install -m 0755 -o root -g root yq_linux_amd64 /usr/local/bin/yq &&
+          cd - &&
+          rm -rf "$OLDPWD" &&
+          yq --version
+
+      # Fail if kustomize/<add-on>/.docs.yaml has diverged from the rendered
+      # BEGIN_KUSTOMIZE_DOCS / END_KUSTOMIZE_DOCS region in README.md.
+      - name: Validate kustomize add-on docs
+        run: task docs:kustomize:check
 
       - name: Checkov GitHub Action
         uses: bridgecrewio/checkov-action@68260132005eaae0e6f84c7a73cc3b1532f678bf # v12.3058.0
