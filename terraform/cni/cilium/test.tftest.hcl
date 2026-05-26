@@ -75,8 +75,8 @@ run "minimal_configuration" {
   }
 
   assert {
-    condition     = yamldecode(helm_release.cilium.values[0]).hubble.tls.auto.method == "cronJob"
-    error_message = "hubble.tls.auto.method should be 'cronJob' to match the Flux patch and keep cilium-ca off the chart template"
+    condition     = helm_release.cilium.take_ownership == true
+    error_message = "take_ownership should be true so the bootstrap upgrade can adopt unowned resources like cilium-ca instead of erroring"
   }
 }
 

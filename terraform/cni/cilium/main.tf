@@ -51,6 +51,11 @@ resource "helm_release" "cilium" {
   wait      = true
   timeout   = 600
 
+  # Adopt resources that exist in the cluster without Helm ownership labels (e.g.
+  # cilium-ca, recreated by the chart's certgen Job when running with
+  # hubble.tls.auto.method=cronJob) instead of failing on upgrade.
+  take_ownership = true
+
   values = [yamlencode(merge(
     {
       # IPAM mode is baked into node state; changing it post-install forces pod IP churn.
@@ -103,18 +108,6 @@ resource "helm_release" "cilium" {
           enabled = false
         }
         hostRoot = "/sys/fs/cgroup"
-      }
-    },
-
-    # Must match the Flux patch (kustomize/cni/cilium/hubble/patches/helm-release.yaml).
-    # Mismatch flips chart-templating of cilium-ca on each apply and churns Helm ownership.
-    {
-      hubble = {
-        tls = {
-          auto = {
-            method = "cronJob"
-          }
-        }
       }
     }
   ))]
