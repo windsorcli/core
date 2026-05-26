@@ -225,6 +225,16 @@ jobs:
           echo "1" | sudo tee /proc/sys/net/bridge/bridge-nf-call-iptables
           echo "1" | sudo tee /proc/sys/net/bridge/bridge-nf-call-ip6tables
 
+      # Reclaim ~30 GB by removing pre-installed toolchains the runner ships
+      # but this repo never uses (.NET, Android SDK, Haskell). Without this the
+      # kubelet inside the Talos VM hits its ephemeral-storage eviction threshold
+      # during k8s/Cilium image pulls and evicts the Flux controller pods.
+      - name: Free disk space
+        run: |
+          df -h /
+          sudo rm -rf /usr/share/dotnet /usr/local/lib/android /opt/ghc
+          df -h /
+
       # Move docker data-root to /mnt (66GB available vs ~10GB default) and
       # cap json-file logging at 10m × 3 to prevent runaway disk growth.
       - name: Configure Docker for increased storage
@@ -383,7 +393,9 @@ jobs:
       - name: Windsor Up
         id: windsor_up
         if: steps.infra_diff.outputs.skip != 'true'
-        timeout-minutes: 14
+        # Upgrade mode may reboot the Talos node (e.g. on a Talos version bump);
+        # post-reboot pod restart burst takes longer to settle than a fresh install.
+        timeout-minutes: ${{ matrix.mode == 'upgrade' && 20 || 14 }}
         run: windsor up --verbose --wait
 
       - name: HEAD — Wait for GitRepository revision bump
