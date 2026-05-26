@@ -51,6 +51,11 @@ resource "helm_release" "cilium" {
   wait      = true
   timeout   = 600
 
+  # Adopt resources that exist in the cluster without Helm ownership labels (e.g.
+  # cilium-ca, recreated by the chart's certgen Job when running with
+  # hubble.tls.auto.method=cronJob) instead of failing on upgrade.
+  take_ownership = true
+
   values = [yamlencode(merge(
     {
       # IPAM mode is baked into node state; changing it post-install forces pod IP churn.

@@ -73,6 +73,11 @@ run "minimal_configuration" {
     condition     = yamldecode(helm_release.cilium.values[0]).cgroup == null
     error_message = "cgroup should be null when auto-mount is on (chart default)"
   }
+
+  assert {
+    condition     = helm_release.cilium.take_ownership == true
+    error_message = "take_ownership should be true so the bootstrap upgrade can adopt unowned resources like cilium-ca instead of erroring"
+  }
 }
 
 # Verifies privileged=false swaps full-privileged mode for an explicit Linux
