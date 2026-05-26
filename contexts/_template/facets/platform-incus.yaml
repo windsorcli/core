@@ -9,6 +9,11 @@ metadata:
 # owns compute/cluster and this facet contributes config only.
 when: "platform == 'incus' && cluster.driver == 'talos'"
 
+# Terraform remote state lives in the local Talos cluster (Kubernetes
+# backend, secrets-as-state). The `cluster` component itself uses local
+# state since it's the one that creates the cluster.
+backend: cluster
+
 # =============================================================================
 # Config — Incus-specific Talos values
 # =============================================================================

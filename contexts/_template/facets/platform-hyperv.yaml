@@ -9,6 +9,11 @@ metadata:
 # workstation-overlay path here.
 when: "platform == 'hyperv' && cluster.driver == 'talos'"
 
+# Terraform remote state lives in the local Talos cluster (Kubernetes
+# backend, secrets-as-state). The `cluster` component itself uses local
+# state since it's the one that creates the cluster.
+backend: cluster
+
 # =============================================================================
 # Config — Hyper-V-specific Talos values
 # =============================================================================
