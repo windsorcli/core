@@ -123,6 +123,12 @@ process_dir() {
   echo "ok: $readme" >&2
 }
 
+process_all() {
+  for d in kustomize/*/; do
+    process_dir "$d"
+  done
+}
+
 usage() {
   cat >&2 <<'USAGE'
 usage:
@@ -147,12 +153,10 @@ main() {
       usage
       ;;
     --all)
-      for d in kustomize/*/; do
-        process_dir "$d"
-      done
+      process_all
       ;;
     --check)
-      "$0" --all
+      process_all
       if ! git diff --exit-code -- 'kustomize/*/README.md'; then
         echo "error: kustomize-docs produced drift. Run 'task docs:kustomize' and commit the result." >&2
         exit 1
