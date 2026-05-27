@@ -134,6 +134,14 @@ USAGE
 }
 
 main() {
+  # The kustomize/*/ glob below is relative to PWD. Without this guard, a
+  # subdirectory invocation would expand to nothing and --check would exit 0
+  # while real drift sits untested.
+  [[ -d kustomize ]] || {
+    echo "error: run kustomize-docs.sh from the repo root" >&2
+    exit 1
+  }
+
   case "${1:-}" in
     "")
       usage
