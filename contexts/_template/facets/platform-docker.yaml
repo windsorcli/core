@@ -4,9 +4,16 @@ metadata:
   name: docker
   description: "Docker provider basic infrastructure for local development"
 
-# Docker is only supported with Talos as the cluster driver. Without a
-# workstation runtime, this facet is a no-op scaffold used for schema tests.
-when: "platform == 'docker' && cluster.driver == 'talos'"
+# Docker is only supported with Talos as the cluster driver and a workstation
+# runtime. With cluster disabled or workstation runtime unset, this facet is
+# a true no-op — nothing materializes that would reference its config or the
+# `backend: cluster` setting below.
+when: "platform == 'docker' && cluster.driver == 'talos' && (cluster.enabled ?? true) && (workstation.runtime ?? '') != ''"
+
+# Terraform remote state lives in the local Talos cluster (Kubernetes
+# backend, secrets-as-state). The `cluster` component itself uses local
+# state since it's the one that creates the cluster.
+backend: cluster
 
 # =============================================================================
 # Config — docker-specific Talos values

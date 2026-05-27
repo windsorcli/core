@@ -9,6 +9,11 @@ metadata:
 # creation — everything upstream is the operator's responsibility.
 when: platform == 'metal'
 
+# Terraform remote state lives in the local Talos cluster (Kubernetes
+# backend, secrets-as-state). The `cluster` component itself uses local
+# state since it's the one that creates the cluster.
+backend: cluster
+
 # =============================================================================
 # Config
 # =============================================================================

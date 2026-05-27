@@ -6,6 +6,11 @@ metadata:
 
 when: platform == 'azure'
 
+# Terraform remote state lives in the Azure Storage account provisioned by
+# the `backend` component below. Downstream components configure their
+# backend pointed at it; the `backend` component itself uses local state.
+backend: backend
+
 # =============================================================================
 # Config — platform-specific overrides
 # =============================================================================
