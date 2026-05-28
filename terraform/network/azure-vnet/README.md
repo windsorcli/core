@@ -1,3 +1,10 @@
+# network/azure-vnet
+
+The cloud-side network fabric for AKS clusters: a VNet with private
+subnets carved from `cidr_block`. Size the subnets with enough headroom
+for pod IPs when AKS uses Azure CNI (each Pod consumes one VNet IP).
+Outputs feed the `cluster/azure-aks` module.
+
 <!-- BEGIN_TF_DOCS -->
 ## Requirements
 

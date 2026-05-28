@@ -9,11 +9,14 @@ The cluster's persistent-volume layer. Four drivers ship in this add-on,
 one selected per cluster:
 
 - `aws-ebs` for EKS, `azure-disk` for AKS — StorageClass-only wrappers
-  around the cloud's preinstalled CSI driver.
+  around the cloud's preinstalled CSI driver. Volumes are AZ- / zone-pinned
+  to the node that first mounts them.
 - `openebs` for local single-node clusters — Helm release plus a hostpath
-  provisioner that allocates from a directory on each node.
-- `longhorn` for HA or schedulable-controlplane clusters — Helm release
-  of a distributed replicated block-storage system.
+  provisioner that allocates from a directory on each node. No replication;
+  volumes are tied to the node they were created on.
+- `longhorn` for HA or schedulable-controlplane clusters — Helm release of
+  a distributed block-storage system that replicates each volume across
+  multiple nodes.
 
 The default StorageClass is always named `single` regardless of driver,
 so workloads asking for the default disk get a per-cluster-appropriate

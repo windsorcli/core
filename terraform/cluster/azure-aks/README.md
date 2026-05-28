@@ -1,6 +1,10 @@
-# Azure AKS Module
+# cluster/azure-aks
 
-This module creates an Azure Kubernetes Service (AKS) cluster with configurable node pools, networking, and security settings.
+Managed Kubernetes control plane on Azure. The module creates the AKS
+cluster with workload identity enabled (so in-cluster ServiceAccounts
+can federate to Entra apps without static credentials), key-vault-backed
+disk encryption, and the supporting role assignments. Consumes private
+subnet IDs from the `network/azure-vnet` outputs.
 
 ## Prerequisites
 

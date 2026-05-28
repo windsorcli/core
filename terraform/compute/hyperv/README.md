@@ -1,3 +1,10 @@
+# compute/hyperv
+
+VM substrate for Talos clusters on Windows hosts. Provisions Talos
+control-plane and worker VMs on the Hyper-V hypervisor (ships with
+Windows Pro / Enterprise / Server) — full-VM isolation, not containers.
+Pairs with the `cluster/talos` module.
+
 <!-- BEGIN_TF_DOCS -->
 ## Requirements
 

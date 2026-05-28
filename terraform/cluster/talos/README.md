@@ -1,3 +1,12 @@
+# cluster/talos
+
+Self-hosted Kubernetes control plane via the Talos API. Terraform talks
+to the Talos machine API directly: nodes come up unprovisioned from the
+`compute/<driver>` layer, then `talosctl bootstrap` brings the control
+plane online and writes a kubeconfig back. The `config/` submodule
+stamps per-node CIDATA seeds; `extensions/` builds the Talos image with
+the required system extensions baked in.
+
 <!-- BEGIN_TF_DOCS -->
 ## Requirements
 

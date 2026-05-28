@@ -1,3 +1,11 @@
+# backend/s3
+
+Remote Terraform state for AWS contexts. The bootstrap pass runs this
+module with a local backend, provisioning an S3 bucket (with versioning
+and server-side encryption) and a DynamoDB table for state locking.
+Every subsequent `windsor apply` reads/writes through the bucket and
+acquires the lock.
+
 <!-- BEGIN_TF_DOCS -->
 ## Requirements
 

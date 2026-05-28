@@ -1,3 +1,11 @@
+# gitops/flux
+
+Installs Flux into a freshly-provisioned cluster so the Kustomize layer
+under `core/kustomize/` can take over reconciliation. The module ships
+Flux's CRDs and controllers plus a root `GitRepository` + `Kustomization`
+pointed at the context's GitOps repo. After bootstrap this layer is
+mostly inert — Flux self-manages from the repo going forward.
+
 <!-- BEGIN_TF_DOCS -->
 ## Requirements
 
