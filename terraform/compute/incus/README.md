@@ -1,3 +1,8 @@
+---
+title: compute/incus
+description: Talos VMs on Incus.
+---
+
 # compute/incus
 
 VM substrate for Talos clusters on Incus (LXD's fork). Provisions Talos

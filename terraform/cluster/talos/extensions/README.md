@@ -1,3 +1,10 @@
+---
+title: cluster/talos/extensions
+description: Talos image build with system extensions.
+---
+
+# cluster/talos/extensions
+
 <!-- BEGIN_TF_DOCS -->
 ## Requirements
 

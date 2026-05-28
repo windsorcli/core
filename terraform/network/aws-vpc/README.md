@@ -1,3 +1,8 @@
+---
+title: network/aws-vpc
+description: VPC + public/private subnets + NAT for EKS.
+---
+
 # network/aws-vpc
 
 The cloud-side network fabric for EKS clusters: a VPC with public and

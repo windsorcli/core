@@ -1,3 +1,8 @@
+---
+title: workstation/incus
+description: Local-host Incus bridge + registry.
+---
+
 # workstation/incus
 
 Local-host runtime backing `windsor up` when `compute.driver` is

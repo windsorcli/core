@@ -1,3 +1,10 @@
+---
+title: cluster/talos/config
+description: Per-node Talos machine config + CIDATA seeds.
+---
+
+# cluster/talos/config
+
 <!-- BEGIN_TF_DOCS -->
 ## Requirements
 

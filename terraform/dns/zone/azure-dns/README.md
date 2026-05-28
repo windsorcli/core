@@ -1,3 +1,10 @@
+---
+title: dns/zone/azure-dns
+description: DNS zone on Azure DNS.
+---
+
+# dns/zone/azure-dns
+
 <!-- BEGIN_TF_DOCS -->
 ## Requirements
 

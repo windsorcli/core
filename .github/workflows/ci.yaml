@@ -118,10 +118,14 @@ jobs:
 
       # Fail if kustomize/<add-on>/.docs.yaml has diverged from the rendered
       # BEGIN_KUSTOMIZE_DOCS / END_KUSTOMIZE_DOCS region in README.md.
+      # Skipped on renovate PRs and on push-to-main; drift is reconciled
+      # during pre-release cycles.
       - name: Validate kustomize add-on docs
+        if: ${{ github.event_name == 'pull_request' && !startsWith(github.head_ref, 'renovate/') }}
         run: task docs:kustomize:check
 
       - name: Validate terraform module docs
+        if: ${{ github.event_name == 'pull_request' && !startsWith(github.head_ref, 'renovate/') }}
         run: task docs:terraform:check
 
       - name: Checkov GitHub Action

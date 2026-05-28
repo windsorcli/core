@@ -1,3 +1,8 @@
+---
+title: backend/s3
+description: Remote Terraform state on S3 + DynamoDB lock.
+---
+
 # backend/s3
 
 Remote Terraform state for AWS contexts. The bootstrap pass runs this
