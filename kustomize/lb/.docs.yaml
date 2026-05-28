@@ -1,0 +1,53 @@
+# Descriptor consumed by scripts/kustomize-docs.sh to populate the
+# BEGIN_KUSTOMIZE_DOCS / END_KUSTOMIZE_DOCS region of README.md.
+# Edit this file (not the README tables) when substitutions, components,
+# or dependencies change.
+
+facets:
+  - lb-base
+  - lb-resources
+
+substitutions:
+  cluster_name:
+    required_when: "`aws-lb-controller` is enabled"
+    description: "AWS-side cluster name (LBC tag). Sourced from `terraform_output('cluster', 'cluster_name')`. No fallback — LBC tags every AWS resource it owns with this and filters reconciliation by it, so a generic default would let a second cluster in the same account race the tags."
+  vpc_id:
+    required_when: "`aws-lb-controller` is enabled"
+    description: "VPC ID the LBC operates against. Sourced from `terraform_output('network', 'vpc_id')`."
+  aws_region:
+    required_when: "`aws-lb-controller` is enabled"
+    description: "AWS region for LBC API calls. Sourced from top-level `aws.region`."
+  loadbalancer_ip_range:
+    required_when: "`metallb/*` advertisement component is enabled"
+    description: "IP range MetalLB advertises (CIDR-style `start-end`). Sourced from `network.loadbalancer_ips.start + '-' + network.loadbalancer_ips.end`."
+
+components:
+  aws-lb-controller:
+    facet: lb-base
+    enable_when: "platform is AWS"
+    description: "Helm release of the AWS Load Balancer Controller in `system-lb`. Watches `Service type=LoadBalancer` (NLB) and `Ingress` (ALB) resources and provisions AWS-side LBs against the cluster's VPC. Talks to AWS via the IAM role + Pod Identity the cluster Terraform module provisioned."
+  metallb:
+    facet: lb-base
+    enable_when: "`lb_effective.driver == 'metallb'`"
+    description: "Helm release of MetalLB in `system-lb`. Installs the controller and speaker DaemonSet. The address pool and advertisement mode come from `lb-resources` (`metallb/arp` or `metallb/layer2`)."
+  kube-vip:
+    facet: lb-resources
+    enable_when: "`lb_effective.driver == 'kube-vip'` (Talos clusters)"
+    description: "Helm release of the kube-vip cloud-provider in `system-lb`. Provides VIP-based LoadBalancer Services for Talos clusters where MetalLB is not used; pairs with `kube-vip/arp` for L2 advertisement."
+  kube-vip/arp:
+    facet: lb-resources
+    enable_when: "kube-vip driver AND `network.loadbalancer_mode == 'arp'` (default)"
+    description: "Patches the kube-vip cloud-provider HelmRelease to enable ARP-based VIP advertisement (Layer 2)."
+  metallb/arp:
+    facet: lb-resources
+    enable_when: "metallb driver AND `network.loadbalancer_mode == 'arp'` (default)"
+    description: "MetalLB `IPAddressPool` (range = `${loadbalancer_ip_range}`) plus an `L2Advertisement` selecting it. Use this for flat L2 networks where speakers can ARP-respond on the cluster subnet."
+  metallb/layer2:
+    facet: lb-resources
+    enable_when: "metallb driver AND `network.loadbalancer_mode == 'layer2'`"
+    description: "MetalLB layer2 advertisement variant. (See `MOVED.md` in this component's directory — kept for compatibility while the canonical entry is consolidating.)"
+
+dependencies:
+  policy-resources:
+    required_when: "`policies.enabled: true`"
+    reason: "lb-base depends on Kyverno's baseline policies being active before LB controller pods (which run privileged in `system-lb`) are admitted."
