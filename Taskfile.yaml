@@ -103,3 +103,8 @@ tasks:
     desc: Fail if docs:kustomize would produce drift (CI use)
     cmds:
       - scripts/kustomize-docs.sh --check
+
+  docs:reference:
+    desc: Materialize kustomize and terraform READMEs into docs/reference/ for windsorcli.github.io ingest
+    cmds:
+      - node scripts/sync-reference.mjs

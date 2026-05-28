@@ -20,5 +20,6 @@ contexts/**/.gcp/
 .cursor/
 .vscode/*.local.*
 
-# Local notes / scratch docs (kept out of source control)
-docs/
+# Everything under docs/ is local. docs/reference/ is generated on demand
+# by `task docs:reference` for the website build to consume; never committed.
+docs/*
