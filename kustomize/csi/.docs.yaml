@@ -1,0 +1,52 @@
+# Descriptor consumed by scripts/kustomize-docs.sh to populate the
+# BEGIN_KUSTOMIZE_DOCS / END_KUSTOMIZE_DOCS region of README.md.
+# Edit this file (not the README tables) when substitutions, components,
+# or dependencies change.
+
+substitutions:
+  single_storage_type:
+    required_when: "`aws-ebs` or `azure-disk` is enabled"
+    description: "Disk type for the cloud `single` StorageClass. Sourced from `cluster.storage.single_storage_type`. AWS values: `gp3` (default), `gp2`, `io1`. Azure values: `StandardSSD_LRS` (default), `Premium_LRS`, `UltraSSD_LRS`."
+  local_volume_path:
+    required_when: "`openebs/dynamic-localpv` is enabled"
+    description: "Host directory the OpenEBS hostpath provisioner allocates from. Sourced from `cluster.storage.local_base_path` (schema default `/var/mnt/local`). The directory must exist on every node before any PVC is created."
+
+components:
+  aws-ebs:
+    enable_when: "platform is AWS (EKS)"
+    description: "StorageClass `single` (default class) using `ebs.csi.aws.com`, `WaitForFirstConsumer`, `allowVolumeExpansion: true`, `encrypted: true`, `fsType: ext4`, `type: ${single_storage_type}`. The CSI driver itself is preinstalled by EKS; this component ships StorageClass only."
+  azure-disk:
+    enable_when: "platform is Azure (AKS)"
+    description: "StorageClass `single` (default class) using `disk.csi.azure.com`, `WaitForFirstConsumer`, `allowVolumeExpansion: true`, `cachingMode: ReadWrite`, `fsType: ext4`, `skuName: ${single_storage_type}`. The CSI driver itself is preinstalled by AKS."
+  openebs:
+    enable_when: "`cluster.storage.driver: openebs`"
+    description: "Helm release of the `openebs` chart in `system-csi`. `localpv-provisioner` is disabled at this layer and enabled by the variant components below so single-node clusters can disable leader election. zfs-localpv, lvm-localpv, and mayastor sub-charts are disabled."
+  openebs/single-node:
+    enable_when: "openebs driver AND single-node topology"
+    description: "Patches the openebs HelmRelease to set `localpv-provisioner.localpv.enableLeaderElection: false`. Avoids Lease churn on single-node clusters."
+  openebs/dynamic-localpv:
+    enable_when: "openebs driver"
+    description: "Enables the openebs localpv-provisioner and creates two StorageClasses (`local`, and `single` as default class). Both use `openebs.io/local` hostpath, `BasePath: ${local_volume_path}`, `WaitForFirstConsumer`."
+  longhorn:
+    enable_when: "`cluster.storage.driver: longhorn`"
+    description: "Helm release of Longhorn in `system-csi`, plus a StorageClass `single` (default class) using `driver.longhorn.io` with `numberOfReplicas: \"1\"`, `volumeBindingMode: Immediate`, `allowVolumeExpansion: true`."
+  longhorn/single-node:
+    enable_when: "longhorn driver AND (single-node topology OR `cluster.controlplanes.schedulable: true`)"
+    description: "Patches the longhorn HelmRelease to add `defaultSettings.taintToleration: \"node-role.kubernetes.io/control-plane:NoSchedule\"` so Longhorn pods schedule on tainted control planes."
+  longhorn/ha:
+    enable_when: "longhorn driver AND ha topology"
+    description: "Patches the longhorn HelmRelease for HA: `defaultReplicaCount: 3`, hard `replicaSoftAntiAffinity: false`, `longhornUI.replicas: 2`, CSI sidecar replicas at 3. Adds a second StorageClass `replicated` with `numberOfReplicas: \"3\"` for explicit multi-replica volumes."
+  longhorn/prometheus:
+    enable_when: "longhorn driver AND `addons.observability.enabled: true`"
+    description: "ServiceMonitor for `longhorn-manager` metrics on the `manager` port."
+
+dependencies:
+  policy-resources:
+    required_when: "`policies.enabled: true`"
+    reason: "`system-csi` runs at PSA `privileged`; Kyverno's image-digest and admission policies must be live before CSI driver pods are admitted."
+  cni:
+    required_when: "always (added by `option-cni`)"
+    reason: "CSI's `node-driver-registrar` sees transient loopback connectivity drops during eBPF init and crash-loops without this ordering."
+  telemetry-base:
+    required_when: "longhorn driver AND (`telemetry.metrics.enabled: true` OR `telemetry.logs.enabled: true`)"
+    reason: "The `longhorn/prometheus` ServiceMonitor needs Prometheus to be live."
