@@ -28,7 +28,7 @@ flowchart LR
     tenant_svc[Service<br/>S3 API]
   end
 
-  csi[(csi default StorageClass<br/>`single`)]
+  csi[(csi default StorageClass<br/>single)]
   consumers[Workloads<br/>quickwit / etc.]
 
   flux ==> operator_hr
