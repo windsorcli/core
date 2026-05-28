@@ -9,11 +9,14 @@ The cluster's external traffic entrypoint via the Kubernetes Gateway API.
 Two driver options:
 
 - **Envoy Gateway** (default) — a dedicated control-plane and data-plane
-  Envoy stack installed by Helm. Supports per-app `HTTPRouteFilter` for
-  rich response shaping (used here for the catch-all 404).
-- **Cilium** — uses Cilium's built-in Gateway API implementation. No
-  separate Helm release; the `cilium/gateway` component on the `cni`
-  add-on enables `gatewayAPI` on the existing Cilium operator. This
+  Envoy stack installed by Helm. Heavier than Cilium's built-in path, but
+  unlocks advanced L7 (`HTTPRouteFilter`, ext_authz, rich response
+  shaping). Used here for the catch-all 404, and the right pick when you
+  need those knobs.
+- **Cilium** — uses Cilium's built-in Gateway API implementation. Single
+  dataplane for L3/L4 and L7; LoadBalancer Services share IPs via Cilium
+  LBIPAM. No separate Helm release; the `cilium/gateway` component on the
+  `cni` add-on enables `gatewayAPI` on the existing Cilium operator. This
   add-on only contributes the GatewayClass and the LBIPAM-sharing patch.
 
 The add-on splits across two Kustomization paths so Flux can install the

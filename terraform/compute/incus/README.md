@@ -1,3 +1,11 @@
+# compute/incus
+
+VM substrate for Talos clusters on Incus (LXD's fork). Provisions Talos
+VMs as full-VM instances on the local Incus daemon — pick this over
+`compute/docker` when you need full-VM isolation or kernel features
+Docker-on-Mac can't expose (e.g. nested KVM, real iSCSI). Pairs with the
+`cluster/talos` module.
+
 <!-- BEGIN_TF_DOCS -->
 ## Requirements
 

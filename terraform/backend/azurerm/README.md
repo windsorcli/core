@@ -1,3 +1,10 @@
+# backend/azurerm
+
+Remote Terraform state for Azure contexts. The bootstrap pass runs this
+module with a local backend, provisioning a Storage Account and Blob
+container; subsequent applies use Azure's native blob lease for state
+locking — no separate lock table.
+
 <!-- BEGIN_TF_DOCS -->
 ## Requirements
 

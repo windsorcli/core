@@ -1,3 +1,11 @@
+# network/aws-vpc
+
+The cloud-side network fabric for EKS clusters: a VPC with public and
+private subnets, route tables, an Internet Gateway, and per-AZ NAT
+Gateways for private-subnet egress. `azs` / `public_subnets` /
+`private_subnets` are positional — entries at index `i` across the three
+lists describe the same AZ. Outputs feed the `cluster/aws-eks` module.
+
 <!-- BEGIN_TF_DOCS -->
 ## Requirements
 

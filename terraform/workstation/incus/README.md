@@ -1,3 +1,9 @@
+# workstation/incus
+
+Local-host runtime backing `windsor up` when `compute.driver` is
+`incus`. Provisions the LXC bridge and an optional local registry that
+`compute/incus` then attaches the Talos VMs to.
+
 <!-- BEGIN_TF_DOCS -->
 ## Requirements
 
