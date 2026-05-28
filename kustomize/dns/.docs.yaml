@@ -31,8 +31,8 @@ components:
     enable_when: "`topology == 'ha'`"
     description: "Patches the external-dns Deployment to multi-replica with leader election. Skipped on single-node — one replica has nothing to elect against."
   external-dns/localhost:
-    enable_when: "local clusters running external-dns against a coredns-on-localhost target"
-    description: "Patches the controller to point at a localhost coredns instance (used by docker-desktop where in-cluster DNS isn't reachable from the host)."
+    enable_when: "local clusters where the gateway IP is the host's loopback (e.g. docker-desktop)"
+    description: "Kyverno `ClusterPolicy` `set-ingress-localhost-dns-target` that mutates Ingress, Gateway, and HTTPRoute resources to add `external-dns.alpha.kubernetes.io/target: 127.0.0.1`. Lets external-dns publish the local loopback as the target instead of the cluster's normal gateway IP."
   external-dns/providers/route53:
     enable_when: "platform is AWS AND public/private DNS zone is set"
     description: "Patches the external-dns HelmRelease for the Route53 provider: `provider.aws.usePodIdentity: true`, `region: ${aws_region}`, `zoneType: ${zone_type}`, `--zone-id-filter=${zone_id_filter}`."
