@@ -81,8 +81,8 @@ tasks:
     cmds:
       - cmd: terraform fmt -recursive
 
-  docs:
-    desc: Generate Terraform documentation
+  docs:terraform:
+    desc: Generate the Inputs/Outputs/Resources tables inside every terraform/<module>/README.md via terraform-docs
     silent: true
     cmds:
       - cmd: |
@@ -93,6 +93,19 @@ tasks:
             echo "Generating docs for $dir"
             docker run --rm -v "$(pwd):/src" -w "/src/$dir" quay.io/terraform-docs/terraform-docs:0.20.0 markdown table --output-file README.md --output-mode inject .
           done
+
+  docs:terraform:check:
+    desc: Fail if docs:terraform would produce drift (CI use)
+    silent: true
+    cmds:
+      - task: docs:terraform
+      - cmd: |
+          status="$(git status --porcelain -- 'terraform/' | grep -E 'README\.md$' || true)"
+          if [ -n "$status" ]; then
+            echo "error: terraform-docs produced drift. Run 'task docs:terraform' and commit the result." >&2
+            echo "$status" >&2
+            exit 1
+          fi
 
   docs:kustomize:
     desc: Generate the Substitutions/Components/Dependencies tables inside every kustomize/<add-on>/README.md from its .docs.yaml descriptor
