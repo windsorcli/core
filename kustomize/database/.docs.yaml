@@ -1,0 +1,23 @@
+# Descriptor consumed by scripts/kustomize-docs.sh to populate the
+# BEGIN_KUSTOMIZE_DOCS / END_KUSTOMIZE_DOCS region of README.md.
+# Edit this file (not the README tables) when substitutions, components,
+# or dependencies change.
+
+components:
+  cloudnativepg:
+    enable_when: "`addons.database.postgres.driver == 'cloudnativepg'`"
+    description: "Helm release of CloudNativePG in `system-database`. `clusterWide: true` so the operator reconciles `Cluster` CRs in any namespace. Mutating and validating webhooks default to `failurePolicy: Fail` so misconfigured Clusters are rejected at admission."
+  cloudnativepg/prometheus:
+    enable_when: "`addons.database.postgres.driver == 'cloudnativepg'` AND `addons.observability.enabled: true`"
+    description: "Patches the operator HelmRelease to depend on `kube-prometheus-stack` (system-telemetry) and enable `monitoring.podMonitorEnabled: true` with `release: kube-prometheus-stack` discovery labels."
+  cloudnativepg/ha:
+    enable_when: "`addons.database.postgres.driver == 'cloudnativepg'` AND `topology == 'ha'`"
+    description: "Patches the operator HelmRelease for HA: `operator.replicaCount: 2`, hostname-key pod anti-affinity, PodDisruptionBudget `minAvailable: 1`, rolling update `maxUnavailable: 1`."
+  cloudnativepg/single-node:
+    enable_when: "`addons.database.postgres.driver == 'cloudnativepg'` AND `topology == 'single-node'`"
+    description: "Patches the operator HelmRelease to append `--leader-elect=false` via `additionalArgs`. The chart unconditionally passes `--leader-elect`; Go's flag parser is last-wins so the override wins."
+
+dependencies:
+  csi:
+    required_when: "always"
+    reason: "PostgreSQL `Cluster` CRs request PVCs for data storage; the default StorageClass must exist before the operator can bring a Cluster up."

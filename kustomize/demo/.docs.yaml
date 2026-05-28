@@ -1,0 +1,28 @@
+# Descriptor consumed by scripts/kustomize-docs.sh to populate the
+# BEGIN_KUSTOMIZE_DOCS / END_KUSTOMIZE_DOCS region of README.md.
+# Edit this file (not the README tables) when substitutions, components,
+# or dependencies change.
+
+substitutions:
+  DOMAIN:
+    required_when: "`demo.resources.bookinfo: true`"
+    description: "Host suffix for the bookinfo Ingress (`bookinfo.${DOMAIN}`). Falls back to `test` if not provided. Must be set via Flux Kustomization-level substitution (the demo facet does not pass one)."
+  REGISTRY_URL:
+    required_when: "`demo.resources.static: true`"
+    description: "Image registry hosting the demo static-site container image (`${REGISTRY_URL}/demo:1.0.6`). No fallback; the static workload's pod will fail to pull if the variable is not set at the Flux Kustomization level."
+
+components:
+  database:
+    enable_when: "`demo.resources.database: true`"
+    description: "Creates the `demo-database` namespace and a `Cluster` CR `demo-cluster` (2 instances, 100 max_connections, 1Gi PVC, PodMonitor enabled). Requires the `database` add-on so the CloudNativePG operator can reconcile the CR."
+  static:
+    enable_when: "`demo.resources.static: true`"
+    description: "Creates the `demo-static` namespace (PSA `restricted`) with a `website` Deployment pulling `${REGISTRY_URL}/demo:1.0.6`, a Service, a 100Mi ReadWriteOnce PVC named `content`, and an Ingress."
+  bookinfo:
+    enable_when: "`demo.resources.bookinfo: true`"
+    description: "Pulls the upstream Istio bookinfo sample at tag `1.22.8` into `demo-bookinfo` (PSA `restricted`) and applies SecurityContext patches to the four Deployments (productpage, details, ratings, reviews) so the upstream manifests satisfy the namespace's PSA. Ingress at `bookinfo.${DOMAIN}`."
+
+dependencies:
+  database:
+    required_when: "`demo.resources.database: true`"
+    reason: "The CloudNativePG operator must be reconciling before the `demo-cluster` Cluster CR can come up. Wired as a conditional `dependsOn` in the facet."
