@@ -82,7 +82,7 @@ tasks:
       - cmd: terraform fmt -recursive
 
   docs:terraform:
-    desc: Generate the Inputs/Outputs/Resources tables inside every terraform/<module>/README.md via terraform-docs
+    desc: Generate the Inputs/Outputs/Resources tables inside every terraform/<module>/README.md via terraform-docs, plus the terraform/README.md umbrella index
     silent: true
     cmds:
       - cmd: |
@@ -93,6 +93,7 @@ tasks:
             echo "Generating docs for $dir"
             docker run --rm -v "$(pwd):/src" -w "/src/$dir" quay.io/terraform-docs/terraform-docs:0.20.0 markdown table --output-file README.md --output-mode inject .
           done
+      - scripts/umbrella-index.sh terraform
 
   docs:terraform:check:
     desc: Fail if docs:terraform would produce drift (CI use)
@@ -108,14 +109,16 @@ tasks:
           fi
 
   docs:kustomize:
-    desc: Generate the Substitutions/Components/Dependencies tables inside every kustomize/<add-on>/README.md from its .docs.yaml descriptor
+    desc: Generate the Substitutions/Components/Dependencies tables inside every kustomize/<add-on>/README.md from its .docs.yaml descriptor, plus the kustomize/README.md umbrella index
     cmds:
       - scripts/kustomize-docs.sh --all
+      - scripts/umbrella-index.sh kustomize
 
   docs:kustomize:check:
     desc: Fail if docs:kustomize would produce drift (CI use)
     cmds:
       - scripts/kustomize-docs.sh --check
+      - scripts/umbrella-index.sh --check kustomize
 
   docs:reference:
     desc: Materialize kustomize and terraform READMEs into docs/reference/ for windsorcli.github.io ingest

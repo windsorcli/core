@@ -1,3 +1,10 @@
+---
+title: cluster/aws-eks/additions
+description: VPC CNI and EBS CSI driver helpers for EKS.
+---
+
+# cluster/aws-eks/additions
+
 <!-- BEGIN_TF_DOCS -->
 ## Requirements
 

@@ -1,3 +1,8 @@
+---
+title: backend/azurerm
+description: Remote Terraform state on Azure Blob + native lease.
+---
+
 # backend/azurerm
 
 Remote Terraform state for Azure contexts. The bootstrap pass runs this

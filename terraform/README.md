@@ -12,21 +12,27 @@ layer. Links from there land here.
 
 ## Modules
 
+<!-- BEGIN_INDEX -->
+
 | Path | Purpose |
 |---|---|
-| [backend/s3](backend/s3/) | Remote Terraform state on S3 + DynamoDB lock. |
 | [backend/azurerm](backend/azurerm/) | Remote Terraform state on Azure Blob + native lease. |
-| [workstation/docker](workstation/docker/) | Local-host Docker network + registry backing `windsor up`. |
-| [workstation/incus](workstation/incus/) | Local-host Incus bridge + registry. |
-| [network/aws-vpc](network/aws-vpc/) | VPC + public/private subnets + NAT for EKS. |
-| [network/azure-vnet](network/azure-vnet/) | VNet + subnets for AKS. |
+| [backend/s3](backend/s3/) | Remote Terraform state on S3 + DynamoDB lock. |
+| [cluster/aws-eks](cluster/aws-eks/) | Managed Kubernetes control plane on AWS. |
+| [cluster/aws-eks/additions](cluster/aws-eks/additions/) | VPC CNI and EBS CSI driver helpers for EKS. |
+| [cluster/azure-aks](cluster/azure-aks/) | Managed Kubernetes control plane on Azure. |
+| [cluster/talos](cluster/talos/) | Self-hosted Kubernetes control plane via the Talos API. |
+| [cluster/talos/config](cluster/talos/config/) | Per-node Talos machine config + CIDATA seeds. |
+| [cluster/talos/extensions](cluster/talos/extensions/) | Talos image build with system extensions. |
+| [cni/cilium](cni/cilium/) | Out-of-band Cilium bootstrap for Talos clusters. |
 | [compute/docker](compute/docker/) | Talos containers on Docker. |
 | [compute/hyperv](compute/hyperv/) | Talos VMs on Hyper-V (Windows host). |
 | [compute/incus](compute/incus/) | Talos VMs on Incus. |
-| [cluster/aws-eks](cluster/aws-eks/) | Managed Kubernetes on AWS. |
-| [cluster/azure-aks](cluster/azure-aks/) | Managed Kubernetes on Azure. |
-| [cluster/talos](cluster/talos/) | Self-hosted Kubernetes via Talos. |
-| [cni/cilium](cni/cilium/) | Out-of-band Cilium bootstrap for Talos. |
-| [dns/zone/route53](dns/zone/route53/) | Public DNS zone on AWS Route53. |
 | [dns/zone/azure-dns](dns/zone/azure-dns/) | DNS zone on Azure DNS. |
+| [dns/zone/route53](dns/zone/route53/) | Public DNS zone on AWS Route53. |
 | [gitops/flux](gitops/flux/) | Flux installation; hands reconciliation to the kustomize/ layer. |
+| [network/aws-vpc](network/aws-vpc/) | VPC + public/private subnets + NAT for EKS. |
+| [network/azure-vnet](network/azure-vnet/) | VNet + subnets for AKS. |
+| [workstation/docker](workstation/docker/) | Local-host Docker network + registry. |
+| [workstation/incus](workstation/incus/) | Local-host Incus bridge + registry. |
+<!-- END_INDEX -->

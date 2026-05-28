@@ -12,17 +12,20 @@ composition. Links from there land here.
 
 ## Add-ons
 
+<!-- BEGIN_INDEX -->
+
 | Path | Purpose |
 |---|---|
-| [cni](cni/) | Container networking. Cilium with optional Gateway API, L2 announcer, Hubble. |
-| [csi](csi/) | Persistent storage drivers and StorageClasses. AWS EBS, Azure Disk, OpenEBS, Longhorn. |
+| [cni](cni/) | Cilium as the cluster CNI, bootstrapped via Terraform and adopted by Flux. |
+| [csi](csi/) | Persistent storage drivers and StorageClasses. AWS EBS, Azure Disk, OpenEBS host-path, and Longhorn distributed. |
 | [database](database/) | CloudNativePG operator for in-cluster PostgreSQL. |
-| [demo](demo/) | Sample applications (Postgres cluster, static site, Istio bookinfo) for blueprint validation. |
-| [dns](dns/) | external-dns for hostname publication; coredns + etcd for in-cluster private DNS. |
+| [demo](demo/) | Sample applications (PostgreSQL cluster, static website, Istio bookinfo) for blueprint validation. |
+| [dns](dns/) | external-dns for hostname publication and (opt-in) coredns for in-cluster private DNS. |
 | [gateway](gateway/) | Gateway API implementation (Envoy Gateway or Cilium) and the cluster's external Gateway. |
-| [lb](lb/) | LoadBalancer Service provider: aws-lb-controller, MetalLB, or kube-vip. |
+| [lb](lb/) | LoadBalancer Service implementation (AWS LB Controller, MetalLB, or kube-vip) for non-managed clusters. |
 | [object-store](object-store/) | MinIO Operator for in-cluster S3-compatible object storage. |
-| [observability](observability/) | Grafana dashboards and log store (stdout, Quickwit, or Elasticsearch + Kibana). |
-| [pki](pki/) | cert-manager, trust-manager, and the cluster's ClusterIssuers. |
-| [policy](policy/) | Kyverno admission controller and the baseline ClusterPolicies. |
+| [observability](observability/) | Grafana dashboards and the cluster's log store (stdout, Quickwit, or Elasticsearch + Kibana). |
+| [pki](pki/) | cert-manager, trust-manager, and the cluster's ClusterIssuers (selfsigned, private CA, ACME). |
+| [policy](policy/) | Kyverno admission controller and the cluster's baseline ClusterPolicies. |
 | [telemetry](telemetry/) | kube-prometheus-stack and FluentBit for cluster-level metrics and log collection. |
+<!-- END_INDEX -->

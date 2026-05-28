@@ -1,3 +1,10 @@
+---
+title: cni/cilium
+description: Out-of-band Cilium bootstrap for Talos clusters.
+---
+
+# cni/cilium
+
 <!-- BEGIN_TF_DOCS -->
 ## Requirements
 

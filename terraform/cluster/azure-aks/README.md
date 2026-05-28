@@ -1,3 +1,8 @@
+---
+title: cluster/azure-aks
+description: Managed Kubernetes control plane on Azure.
+---
+
 # cluster/azure-aks
 
 Managed Kubernetes control plane on Azure. The module creates the AKS

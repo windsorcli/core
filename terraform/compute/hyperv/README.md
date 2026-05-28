@@ -1,3 +1,8 @@
+---
+title: compute/hyperv
+description: Talos VMs on Hyper-V (Windows host).
+---
+
 # compute/hyperv
 
 VM substrate for Talos clusters on Windows hosts. Provisions Talos

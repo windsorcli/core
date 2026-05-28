@@ -1,3 +1,8 @@
+---
+title: cluster/aws-eks
+description: Managed Kubernetes control plane on AWS.
+---
+
 # cluster/aws-eks
 
 Managed Kubernetes control plane on AWS. The module consumes the VPC and

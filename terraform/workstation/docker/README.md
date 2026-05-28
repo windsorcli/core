@@ -1,3 +1,8 @@
+---
+title: workstation/docker
+description: Local-host Docker network + registry.
+---
+
 # workstation/docker
 
 Local-host runtime backing `windsor up` on developer machines. Stands up

@@ -1,3 +1,8 @@
+---
+title: gitops/flux
+description: Flux installation; hands reconciliation to the kustomize/ layer.
+---
+
 # gitops/flux
 
 Installs Flux into a freshly-provisioned cluster so the Kustomize layer

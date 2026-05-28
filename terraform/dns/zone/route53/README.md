@@ -1,3 +1,8 @@
+---
+title: dns/zone/route53
+description: Public DNS zone on AWS Route53.
+---
+
 # dns/zone/route53
 
 Creates a public Route53 hosted zone for a domain. Kept independent of any
