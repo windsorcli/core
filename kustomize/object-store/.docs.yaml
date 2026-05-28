@@ -1,0 +1,14 @@
+# Descriptor consumed by scripts/kustomize-docs.sh to populate the
+# BEGIN_KUSTOMIZE_DOCS / END_KUSTOMIZE_DOCS region of README.md.
+# Edit this file (not the README tables) when substitutions, components,
+# or dependencies change.
+
+components:
+  minio:
+    enable_when: "`addons.object_store.driver == 'minio'`"
+    description: "Helm release of the MinIO Operator (`operator` chart) in `system-object-store`. Installs only the Operator (CRDs + Deployment); does not create any MinIO Tenant by itself. Operator runs as `uid 1000`, baseline PSA-compatible."
+
+dependencies:
+  csi:
+    required_when: "always"
+    reason: "MinIO Tenants need PVCs (the default StorageClass) for their pool storage. Without csi the operator runs but no Tenant CR can come up."
