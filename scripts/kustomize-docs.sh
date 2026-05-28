@@ -57,6 +57,9 @@ render_tables() {
         return 1
       fi
       while IFS= read -r facet; do
+        # Literal backticks render markdown code spans; SC2016's "single-
+        # quoted expression won't expand" is a false positive here.
+        # shellcheck disable=SC2016
         printf '## Components — `%s`\n\n' "$facet"
         printf '| Component | Enable when | Effect |\n'
         printf '|---|---|---|\n'
