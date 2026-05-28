@@ -1,0 +1,33 @@
+# Descriptor consumed by scripts/kustomize-docs.sh to populate the
+# BEGIN_KUSTOMIZE_DOCS / END_KUSTOMIZE_DOCS region of README.md.
+# Edit this file (not the README tables) when substitutions, components,
+# or dependencies change.
+
+# The policy add-on is split across two Kustomization paths so Flux can
+# reconcile the operator (CRDs + workloads) before the ClusterPolicies
+# that depend on those CRDs.
+facets:
+  - policy-base
+  - policy-resources
+
+components:
+  kyverno:
+    facet: policy-base
+    enable_when: always
+    description: "Helm release of Kyverno in `system-policy`. Installs the admission, background, and reports controllers (the cleanup controller is disabled at this layer; opt in via `kyverno/cleanup`). NO_COLOR is set on the admission and background containers."
+  kyverno/reports:
+    facet: policy-base
+    enable_when: "`policies.reporting == 'enabled'`"
+    description: "Patches the kyverno HelmRelease to set `reportsController.enabled: true` so PolicyReport / ClusterPolicyReport CRs are written for evaluated policies."
+  kyverno/cleanup:
+    facet: policy-base
+    enable_when: "`policies.cleanup == 'enabled'`"
+    description: "Patches the kyverno HelmRelease to set `cleanupController.enabled: true` so CleanupPolicy / ClusterCleanupPolicy CRs are executed on their cron schedules. Disabled by default because the blueprint ships no CleanupPolicy resources."
+  kyverno/resource-limits-requests:
+    facet: policy-resources
+    enable_when: "`policies.resource_limits_requests != 'disabled'`"
+    description: "ClusterPolicy `resource-limits-requests` validating (Audit) that every container has CPU and memory `resources.limits` + `resources.requests` set. Matches Pods in `system-*` namespaces and namespaces labeled `policy.windsorcli.dev/managed: true`. Skips `kube-system`."
+  kyverno/require-image-digest:
+    facet: policy-resources
+    enable_when: "`policies.require_image_digest != 'disabled'`"
+    description: "ClusterPolicy `require-image-digest` validating (Enforce) that every container image reference includes a `sha256:` digest (`repo:tag@sha256:…` or `repo@sha256:…`). Same namespace match scope as `resource-limits-requests`."

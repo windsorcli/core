@@ -36,17 +36,54 @@ render_tables() {
   fi
 
   if yq -e '.components' "$docs" >/dev/null 2>&1; then
-    printf '## Components\n\n'
-    printf '| Component | Enable when | Effect |\n'
-    printf '|---|---|---|\n'
-    # shellcheck disable=SC2016
-    yq -r '
-      .components | to_entries[] |
-      "| `" + .key + "` | " +
-      (.value.enable_when // "always") + " | " +
-      (.value.description // "") + " |"
-    ' "$docs"
-    printf '\n'
+    if yq -e '.facets' "$docs" >/dev/null 2>&1; then
+      # Multi-facet add-on (e.g. base/resources split). Validate that every
+      # component declares a `facet:` matching one in `.facets[]`, then
+      # render one Components sub-table per facet in declared order.
+      local facets_file errors=0
+      facets_file="$(mktemp)"
+      yq -r '.facets[]' "$docs" > "$facets_file"
+      while IFS=$'\t' read -r component facet; do
+        if [ -z "$facet" ]; then
+          echo "error: $docs: component '$component' has no .facet field" >&2
+          errors=1
+        elif ! grep -qFx -- "$facet" "$facets_file"; then
+          echo "error: $docs: component '$component' references unknown facet '$facet'" >&2
+          errors=1
+        fi
+      done < <(yq -r '.components | to_entries[] | .key + "\t" + (.value.facet // "")' "$docs")
+      if [ "$errors" -ne 0 ]; then
+        rm -f "$facets_file"
+        return 1
+      fi
+      while IFS= read -r facet; do
+        printf '## Components — `%s`\n\n' "$facet"
+        printf '| Component | Enable when | Effect |\n'
+        printf '|---|---|---|\n'
+        # shellcheck disable=SC2016
+        FACET="$facet" yq -r '
+          .components | to_entries[] |
+          select(.value.facet == strenv(FACET)) |
+          "| `" + .key + "` | " +
+          (.value.enable_when // "always") + " | " +
+          (.value.description // "") + " |"
+        ' "$docs"
+        printf '\n'
+      done < "$facets_file"
+      rm -f "$facets_file"
+    else
+      printf '## Components\n\n'
+      printf '| Component | Enable when | Effect |\n'
+      printf '|---|---|---|\n'
+      # shellcheck disable=SC2016
+      yq -r '
+        .components | to_entries[] |
+        "| `" + .key + "` | " +
+        (.value.enable_when // "always") + " | " +
+        (.value.description // "") + " |"
+      ' "$docs"
+      printf '\n'
+    fi
   fi
 
   if yq -e '.dependencies' "$docs" >/dev/null 2>&1; then
