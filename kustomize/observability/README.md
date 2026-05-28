@@ -153,7 +153,7 @@ back-end Helm release runs alongside.
 | `fluentd/outputs/stdout` | `addons.observability.logs_driver == 'stdout'` | Routes fluentd records to container stdout. No external store. Dev / smoke-test default. |
 | `fluentd/outputs/quickwit` | `addons.observability.logs_driver == 'quickwit'` | Routes fluentd records to the quickwit ingest API with batching and retry tuned for the quickwit `0.8.x` chart. |
 | `quickwit` | `addons.observability.logs_driver == 'quickwit'` | Helm release of the Quickwit chart in `system-observability`. Search-optimized log store backed by object storage (S3 / Azure Blob / GCS via add-on `object-store`). |
-| `quickwit/pvc` | `addons.observability.logs_driver == 'quickwit'` | PVC for the quickwit indexer's staging data. Bound by `cni`'s default StorageClass. |
+| `quickwit/pvc` | `addons.observability.logs_driver == 'quickwit'` | PVC for the quickwit indexer's staging data. Bound by `csi`'s default StorageClass. |
 | `quickwit/prometheus` | `addons.observability.logs_driver == 'quickwit'` | ServiceMonitor for quickwit metrics. |
 | `elasticsearch` | `addons.observability.logs_driver == 'elasticsearch'` | Helm release of the Elastic-published Elasticsearch chart in `system-observability`. Bundles a Certificate (issuer = cluster CA) for TLS between client and the ES cluster. |
 | `kibana` | `addons.observability.logs_driver == 'elasticsearch'` | Helm release of the Kibana chart, wired to the elasticsearch service. |

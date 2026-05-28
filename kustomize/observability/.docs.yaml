@@ -68,7 +68,7 @@ components:
     description: "Helm release of the Quickwit chart in `system-observability`. Search-optimized log store backed by object storage (S3 / Azure Blob / GCS via add-on `object-store`)."
   quickwit/pvc:
     enable_when: "`addons.observability.logs_driver == 'quickwit'`"
-    description: "PVC for the quickwit indexer's staging data. Bound by `cni`'s default StorageClass."
+    description: "PVC for the quickwit indexer's staging data. Bound by `csi`'s default StorageClass."
   quickwit/prometheus:
     enable_when: "`addons.observability.logs_driver == 'quickwit'`"
     description: "ServiceMonitor for quickwit metrics."
