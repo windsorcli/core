@@ -26,6 +26,7 @@ layer. Links from there land here.
 | [cluster/talos/config](cluster/talos/config/) | Per-node Talos machine config + CIDATA seeds. |
 | [cluster/talos/extensions](cluster/talos/extensions/) | Talos image build with system extensions. |
 | [cni/cilium](cni/cilium/) | Out-of-band Cilium bootstrap for Talos clusters. |
+| [compute](compute/) | Local Talos compute substrate across Docker, Hyper-V, and Incus. |
 | [compute/docker](compute/docker/) | Talos containers on Docker. |
 | [compute/hyperv](compute/hyperv/) | Talos VMs on Hyper-V (Windows host). |
 | [compute/incus](compute/incus/) | Talos VMs on Incus. |
