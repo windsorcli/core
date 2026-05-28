@@ -93,3 +93,13 @@ tasks:
             echo "Generating docs for $dir"
             docker run --rm -v "$(pwd):/src" -w "/src/$dir" quay.io/terraform-docs/terraform-docs:0.20.0 markdown table --output-file README.md --output-mode inject .
           done
+
+  docs:kustomize:
+    desc: Generate the Substitutions/Components/Dependencies tables inside every kustomize/<add-on>/README.md from its .docs.yaml descriptor
+    cmds:
+      - scripts/kustomize-docs.sh --all
+
+  docs:kustomize:check:
+    desc: Fail if docs:kustomize would produce drift (CI use)
+    cmds:
+      - scripts/kustomize-docs.sh --check

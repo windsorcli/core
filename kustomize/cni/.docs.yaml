@@ -1,0 +1,49 @@
+# Descriptor consumed by scripts/kustomize-docs.sh to populate the
+# BEGIN_KUSTOMIZE_DOCS / END_KUSTOMIZE_DOCS region of README.md.
+# Edit this file (not the README tables) when substitutions, components,
+# or dependencies change.
+
+substitutions:
+  k8s_service_host:
+    required_when: always
+    description: "API server hostname Cilium reaches before its eBPF service rules are active. On Talos resolves to a fixed offset from the cluster CIDR; on EKS parsed from the cluster Terraform output. User-facing knob is `cluster.endpoint`."
+  cluster_name:
+    required_when: always
+    description: "Cilium cluster identity stamped onto Hubble flows, metrics, and (if enabled) ClusterMesh routing. Sourced from the Windsor context name (top-level `id` in `values.yaml`)."
+  operator_replicas:
+    required_when: always
+    description: "1 on single-node clusters (avoids pending pods + Lease churn), 2 otherwise. Set from `topology`."
+  loadbalancer_start_ip:
+    required_when: "`cilium/l2` is enabled (Talos)"
+    description: "Start of the LBIPAM IP pool. Stamped onto `CiliumLoadBalancerIPPool/default`."
+  loadbalancer_end_ip:
+    required_when: "`cilium/l2` is enabled (Talos)"
+    description: "End of the LBIPAM IP pool."
+
+components:
+  cilium:
+    enable_when: always
+    description: "Helm release of Cilium in `system-cni`, targeting `kube-system`. `kubeProxyReplacement: true`, `ipam.mode: kubernetes`, base values."
+  cilium/talos:
+    enable_when: platform is Talos
+    description: "Replaces full privileged mode with explicit Linux capabilities (CHOWN, NET_ADMIN, etc.) and disables cgroup auto-mount (Talos already mounts cgroups at boot)."
+  cilium/gateway:
+    enable_when: "`gateway.driver: cilium`"
+    description: "Enables `gatewayAPI` on Cilium and ships a Kyverno ClusterPolicy that injects LBIPAM sharing annotations onto Cilium-owned Gateway services. Fixes a create-then-patch race in cilium-operator that would otherwise prevent IP sharing on first reconcile."
+  cilium/prometheus:
+    enable_when: "`telemetry.metrics.enabled: true`"
+    description: "Enables Prometheus on the operator and agent and creates a ServiceMonitor for each."
+  cilium/hubble:
+    enable_when: always
+    description: "Hubble metrics (dns, drop, port-distribution, tcp, flow, icmp, http), Hubble Relay, Hubble UI, and the cronJob-based TLS rotation method (avoids a bug where `helm` mode re-renders server-secret on every upgrade)."
+  cilium/l2:
+    enable_when: platform is Talos
+    description: "Enables `l2announcements` and `externalIPs` and creates `CiliumLoadBalancerIPPool/default` with the configured IP range plus `CiliumL2AnnouncementPolicy/default` matching `^eth[0-9]+` and `^ens[0-9]+` interfaces. Replaces kube-vip and MetalLB on Talos."
+
+dependencies:
+  policy-resources:
+    required_when: "`policies.enabled: true` or `gateway.driver: cilium`"
+    reason: "Re-rolls Cilium pods after Kyverno's mutation policies are live. When `cilium/gateway` is active, also provides the Kyverno CRDs the LBIPAM sharing ClusterPolicy depends on."
+  telemetry-base:
+    required_when: "`telemetry.metrics.enabled: true` or `telemetry.logs.enabled: true`"
+    reason: "The `cilium/prometheus` ServiceMonitor and the Hubble ServiceMonitor target Prometheus from telemetry."
