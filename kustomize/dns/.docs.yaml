@@ -1,0 +1,79 @@
+# Descriptor consumed by scripts/kustomize-docs.sh to populate the
+# BEGIN_KUSTOMIZE_DOCS / END_KUSTOMIZE_DOCS region of README.md.
+# Edit this file (not the README tables) when substitutions, components,
+# or dependencies change.
+
+substitutions:
+  external_domain:
+    required_when: "`external-dns` is enabled"
+    description: "Domain filter for the external-dns controller. Private domain when `gateway.access == 'private'` and `dns.private_domain` is set; otherwise `dns.public_domain` (or `dns.private_domain` for private-dns addon)."
+  zone_type:
+    required_when: "platform is AWS"
+    description: "`public` or `private`. Combined with `zone_id_filter` to lock external-dns onto a single Route53 zone in split-horizon setups."
+  zone_id_filter:
+    required_when: "platform is AWS or Azure"
+    description: "Hosted-zone ID to constrain external-dns to. AWS: `terraform_output('dns-zone', 'zone_id')`. Azure: `terraform_output('network', 'private_zone_id')` for private mode. Belt-and-braces alongside `zone_type` for split-horizon DNS."
+  aws_region:
+    required_when: "`external-dns/providers/route53` is enabled"
+    description: "AWS region for external-dns's Route53 API calls. Sourced from top-level `aws.region`."
+  txt_owner_id:
+    required_when: "`external-dns` is enabled"
+    description: "Unique TXT-record owner ID for external-dns's registry. Keeps multiple external-dns instances in the same zone from clobbering each other's records. Threaded via Flux postBuild from the `values-dns` ConfigMap the CLI generates."
+  loadbalancer_start_ip:
+    required_when: "`coredns/loadbalancer` is enabled (private-DNS LB Service)"
+    description: "External IP for the coredns Service when private DNS is exposed via the gateway LB. Sourced from `network.loadbalancer_ips.start`."
+
+components:
+  external-dns:
+    enable_when: "`dns.public_domain` set OR (`gateway.access == 'private'` AND `dns.private_domain` set)"
+    description: "Helm release of `external-dns` in `system-dns`. Watches Service / Ingress / Gateway / HTTPRoute resources and publishes their hostnames as DNS records. Pod runs as a workload identity-bound ServiceAccount; provider auth is handled by the provider-specific component."
+  external-dns/ha:
+    enable_when: "`topology == 'ha'`"
+    description: "Patches the external-dns Deployment to multi-replica with leader election. Skipped on single-node — one replica has nothing to elect against."
+  external-dns/localhost:
+    enable_when: "local clusters running external-dns against a coredns-on-localhost target"
+    description: "Patches the controller to point at a localhost coredns instance (used by docker-desktop where in-cluster DNS isn't reachable from the host)."
+  external-dns/providers/route53:
+    enable_when: "platform is AWS AND public/private DNS zone is set"
+    description: "Patches the external-dns HelmRelease for the Route53 provider: `provider.aws.usePodIdentity: true`, `region: ${aws_region}`, `zoneType: ${zone_type}`, `--zone-id-filter=${zone_id_filter}`."
+  external-dns/providers/azure:
+    enable_when: "platform is Azure AND DNS zone is set"
+    description: "Patches the external-dns HelmRelease for the Azure provider: federated workload identity, zone-id filter via `${zone_id_filter}`."
+  external-dns/providers/coredns:
+    enable_when: "`addons.private_dns.enabled: true` (provides private DNS via in-cluster coredns)"
+    description: "Patches the external-dns HelmRelease for the CoreDNS provider, writing records into the in-cluster coredns etcd backend instead of a cloud DNS zone."
+  external-dns/sources/gateway-httproute:
+    enable_when: "`gateway.enabled: true`"
+    description: "Adds `gateway-httproute` to external-dns's `sources` list so the Gateway API's `HTTPRoute` hostnames are published. Requires the Gateway API CRDs to be present (hence the `gateway-base` dependency)."
+  coredns:
+    enable_when: "`addons.private_dns.enabled: true`"
+    description: "Helm release of `coredns` in `system-dns`. In-cluster private DNS server. The default plugin chain serves cluster.local and forwards everything else upstream."
+  coredns/etcd:
+    enable_when: "`addons.private_dns.enabled: true`"
+    description: "etcd StatefulSet for coredns to use as a persistent backend for the `etcd` plugin. mTLS between coredns and etcd peers, certs issued by the `private` ClusterIssuer."
+  coredns/ha:
+    enable_when: "`addons.private_dns.enabled: true` AND `topology == 'ha'`"
+    description: "Patches the coredns HelmRelease for HA (multi-replica + leader election)."
+  coredns/loadbalancer:
+    enable_when: "`addons.private_dns.enabled: true` AND `gateway.driver == 'cilium'`"
+    description: "Adds a `Service type=LoadBalancer` for coredns at `${loadbalancer_start_ip}` so the cluster's private DNS is reachable from outside the cluster (workstation pointing at the bench IP)."
+  coredns/cilium:
+    enable_when: "`addons.private_dns.enabled: true` AND `gateway.driver == 'cilium'`"
+    description: "Cilium-specific patches on coredns (typically LB-sharing annotations matching the Cilium gateway's IP pool)."
+  coredns/gateway:
+    enable_when: "`addons.private_dns.enabled: true` AND `gateway.enabled: true`"
+    description: "Wires a Gateway API listener / route so coredns is reachable through the cluster Gateway (UDP/TCP 53)."
+
+dependencies:
+  pki-base:
+    required_when: "`addons.private_dns.enabled: true`"
+    reason: "coredns's etcd peer / server certs are issued by the `private` ClusterIssuer; cert-manager must be reconciling first."
+  gateway-base:
+    required_when: "`gateway.enabled: true`"
+    reason: "external-dns with `sources: [gateway-httproute]` crash-loops on `no matches for kind HTTPRoute` if the Gateway API CRDs aren't installed yet."
+  policy-resources:
+    required_when: "`workstation.runtime == 'docker-desktop'`"
+    reason: "docker-desktop runs Kyverno in restricted-PSA mode for system-dns; the baseline policies need to be reconciling before coredns pods are admitted."
+  cni:
+    required_when: "`addons.private_dns.enabled: true` AND `gateway.driver == 'cilium'`"
+    reason: "The `coredns/cilium` and `coredns/loadbalancer` components rely on Cilium's L2 IP-sharing infrastructure being live."
