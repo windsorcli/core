@@ -1,0 +1,88 @@
+# Descriptor consumed by scripts/kustomize-docs.sh to populate the
+# BEGIN_KUSTOMIZE_DOCS / END_KUSTOMIZE_DOCS region of README.md.
+# Edit this file (not the README tables) when substitutions, components,
+# or dependencies change.
+
+facets:
+  - pki-base
+  - pki-resources
+
+substitutions:
+  cert_manager_client_id:
+    required_when: "`cert-manager/azure-workload-identity` is enabled"
+    description: "Azure AD client ID for the cert-manager managed identity. Sourced from `terraform_output('cluster', 'cert_manager_client_id')`."
+  cert_manager_tenant_id:
+    required_when: "`cert-manager/azure-workload-identity` is enabled"
+    description: "Azure AD tenant ID for the federated workload identity credential."
+  acme_server:
+    required_when: "any `public-issuer/acme/*` component is enabled"
+    description: "ACME directory URL. Resolves to `acme-staging-v02.api.letsencrypt.org` in dev, `acme-v02.api.letsencrypt.org` otherwise."
+  acme_email:
+    required_when: "any `public-issuer/acme/*` component is enabled"
+    description: "Contact email Let's Encrypt registers against the ACME account. Sourced from top-level `email`."
+  acme_dns_zone:
+    required_when: "any `public-issuer/acme/*` component is enabled"
+    description: "FQDN of the DNS zone cert-manager writes DNS-01 challenges into. Sourced from `dns.public_domain`."
+  acme_hosted_zone_id:
+    required_when: "`public-issuer/acme/route53` is enabled"
+    description: "Route53 hosted zone ID. Threaded via deferred `terraform_output('dns-zone', 'zone_id')` so the ACME ClusterIssuer reissues automatically when the dns-zone stack first applies."
+  acme_dns_zone_resource_group:
+    required_when: "`public-issuer/acme/azuredns` is enabled"
+    description: "Azure resource group holding the public DNS zone. Sourced from `terraform_output('dns-zone', 'resource_group_name')`."
+  acme_dns_zone_subscription_id:
+    required_when: "`public-issuer/acme/azuredns` is enabled"
+    description: "Azure subscription ID for the public DNS zone. Sourced from `terraform_output('dns-zone', 'subscription_id')`."
+
+components:
+  cert-manager:
+    facet: pki-base
+    enable_when: always
+    description: "Helm release of the `cert-manager` chart in `system-pki`. Installs the controller, webhook, and cainjector. ClusterIssuer / Certificate CRDs become available for `pki-resources` to consume."
+  cert-manager/single-node:
+    facet: pki-base
+    enable_when: "single-node topology"
+    description: "Patches the cert-manager HelmRelease to disable leader election on the controller (single replica has nothing to elect against)."
+  cert-manager/azure-workload-identity:
+    facet: pki-base
+    enable_when: "platform is Azure AND `dns.public_domain` is set"
+    description: "Patches the cert-manager Deployment to attach the AKS federated workload identity used by the DNS-01 ACME solver against Azure DNS. Reads `cert_manager_client_id` and `cert_manager_tenant_id`."
+  cert-manager/prometheus:
+    facet: pki-base
+    enable_when: "`telemetry.metrics.enabled: true`"
+    description: "Patches the cert-manager HelmRelease to enable Prometheus annotations / ServiceMonitor on the controller and webhook."
+  trust-manager:
+    facet: pki-base
+    enable_when: "`addons.private_ca.enabled: true`"
+    description: "Helm release of the `trust-manager` chart in `system-pki-trust` (PSA `restricted`). Depends on cert-manager. Consumes `Bundle` CRs to distribute the private CA into workload namespaces."
+  trust-manager/single-node:
+    facet: pki-base
+    enable_when: "single-node topology AND `addons.private_ca.enabled: true`"
+    description: "Patches the trust-manager HelmRelease to disable leader election."
+  private-issuer/selfsigned:
+    facet: pki-resources
+    enable_when: "`gateway.access == 'private'` AND `dns.private_domain` is set"
+    description: "ClusterIssuer `private-selfsigned` with `selfSigned: {}`. Used for the private gateway certificate when no private CA is configured; browsers warn until the CA cert is added to a trust store."
+  private-issuer/ca:
+    facet: pki-resources
+    enable_when: "`addons.private_ca.enabled: true`"
+    description: "Full private CA: a `selfSigned` issuer mints a CA `Certificate`, a `ca`-type `ClusterIssuer` (`private-ca`) signs against it, plus an init / sync Job pair that copies the CA cert into a `Bundle` for trust-manager and a Kyverno mutation policy that injects the trust bundle into workload Pods."
+  public-issuer/selfsigned:
+    facet: pki-resources
+    enable_when: "`dns.public_domain` is unset (default)"
+    description: "ClusterIssuer `public-selfsigned`. Bootstraps a working gateway cert immediately; flip to `acme/*` by setting `dns.public_domain` and cert-manager reissues into the same Secret."
+  public-issuer/acme/route53:
+    facet: pki-resources
+    enable_when: "platform is AWS AND `dns.public_domain` is set"
+    description: "ClusterIssuer `public-acme` using the ACME DNS-01 solver against Route53. Auth is via the Pod Identity binding provisioned by the cluster Terraform module."
+  public-issuer/acme/azuredns:
+    facet: pki-resources
+    enable_when: "platform is Azure AND `dns.public_domain` is set"
+    description: "ClusterIssuer `public-acme` using the ACME DNS-01 solver against Azure DNS. Auth is via the federated workload identity (see `cert-manager/azure-workload-identity`)."
+
+dependencies:
+  policy-resources:
+    required_when: "`policies.enabled: true`"
+    reason: "pki-base depends on Kyverno baseline policies being active before cert-manager pods are admitted into `system-pki`. pki-resources depends on `policy-resources` so the private-CA inject policy (when private_ca is on) doesn't apply before Kyverno itself is reconciling."
+  telemetry-base:
+    required_when: "`cert-manager/prometheus` is enabled"
+    reason: "The ServiceMonitor added by `cert-manager/prometheus` needs Prometheus to be live to scrape."
