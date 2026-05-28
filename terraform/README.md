@@ -18,6 +18,7 @@ layer. Links from there land here.
 |---|---|
 | [backend/azurerm](backend/azurerm/) | Remote Terraform state on Azure Blob + native lease. |
 | [backend/s3](backend/s3/) | Remote Terraform state on S3 + DynamoDB lock. |
+| [cluster](cluster/) | Kubernetes control plane provisioning across Talos, EKS, and AKS. |
 | [cluster/aws-eks](cluster/aws-eks/) | Managed Kubernetes control plane on AWS. |
 | [cluster/aws-eks/additions](cluster/aws-eks/additions/) | VPC CNI and EBS CSI driver helpers for EKS. |
 | [cluster/azure-aks](cluster/azure-aks/) | Managed Kubernetes control plane on Azure. |
