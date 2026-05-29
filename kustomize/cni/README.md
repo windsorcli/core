@@ -33,11 +33,11 @@ flowchart LR
   helmrel --> hubble
 ```
 
-The pattern is **bootstrap-then-adopt**: Terraform installs Cilium first
-via the Talos API (because Flux needs pod networking to reconcile), then
-Flux adopts the running HelmRelease so day-2 changes flow through GitOps.
-The HelmRelease CR lives in `system-cni`; the Cilium workloads deploy
-into `kube-system` per upstream convention.
+The pattern is bootstrap-then-adopt. Terraform installs Cilium first
+via the Talos API, because Flux can't reconcile until pod networking
+is up. Flux then adopts the running HelmRelease so day-2 changes flow
+through GitOps. The HelmRelease CR lives in `system-cni`, and the
+Cilium workloads deploy into `kube-system` per upstream convention.
 
 ## Recipes
 
@@ -70,8 +70,9 @@ dependsOn:  [policy-resources, telemetry-base, gateway-base]
 
 ### EKS
 
-No Talos-specific patches and no L2 announcer (AWS LB Controller handles
-LB). `k8s_service_host` is parsed from the cluster Terraform output.
+No Talos-specific patches and no L2 announcer, because the AWS LB
+Controller handles LB. `k8s_service_host` is parsed from the cluster
+Terraform output.
 
 ```yaml
 components: [cilium, cilium/prometheus, cilium/hubble]
@@ -81,17 +82,37 @@ substitutions:
 
 ## Operations
 
-- **Cilium pods crash-loop with `Operation not permitted` on Talos** — the `cilium/talos` component is missing or its capabilities patch didn't apply.
-- **`cilium-operator` doesn't create a Gateway controller** — the Gateway API CRDs were not present at start. Restart `cilium-operator` after the CRDs are installed.
-- **Cilium gateway Service has no LB IP** — verify the `cilium-gateway-lbipam-sharing` ClusterPolicy is `Ready` and the `cilium-lbipam-config` ConfigMap in `system-gateway` exists.
-- **`HelmRelease/cilium` reports `no matches for kind CiliumLoadBalancerIPPool`** — the Cilium chart installs these CRDs; reconciling Flux too early can race the install. Re-reconcile.
-- **`windsor apply` flaps Cilium replica counts** — Terraform `operator_replicas` and the Flux substitution disagree. Both must derive from `topology`.
+If Cilium pods crash-loop with `Operation not permitted` on Talos, the
+`cilium/talos` component is missing or its capabilities patch didn't
+apply.
+
+If `cilium-operator` doesn't create a Gateway controller, the Gateway
+API CRDs were not present at start. Restart `cilium-operator` after the
+CRDs are installed.
+
+If the Cilium gateway Service has no LB IP, verify the
+`cilium-gateway-lbipam-sharing` ClusterPolicy is `Ready` and the
+`cilium-lbipam-config` ConfigMap in `system-gateway` exists.
+
+If `HelmRelease/cilium` reports `no matches for kind
+CiliumLoadBalancerIPPool`, the Cilium chart installs those CRDs and
+reconciling Flux too early can race the install. Re-reconcile.
+
+If `windsor apply` flaps Cilium replica counts, the Terraform
+`operator_replicas` and the Flux substitution disagree. Both have to
+derive from `topology`.
 
 ## Security
 
-- `system-cni` has no PSA labels; Cilium workloads live in `kube-system` with host networking and restricted Linux capabilities (full set on non-Talos; explicit set on Talos via `cilium/talos`).
-- `kubeProxyReplacement: true` means Cilium replaces kube-proxy entirely; removing this add-on does not restore kube-proxy.
-- Hubble TLS certificates rotate via an in-cluster CronJob (cert-manager is not required for Hubble).
+`system-cni` has no PSA labels. Cilium workloads live in `kube-system`
+with host networking and restricted Linux capabilities (full set on
+non-Talos, explicit set on Talos via `cilium/talos`).
+
+`kubeProxyReplacement: true` means Cilium replaces kube-proxy entirely.
+Removing this add-on does not restore kube-proxy.
+
+Hubble TLS certificates rotate via an in-cluster CronJob, so
+cert-manager is not required for Hubble.
 
 <!-- BEGIN_KUSTOMIZE_DOCS -->
 
@@ -127,6 +148,6 @@ substitutions:
 
 ## See also
 
-- [contexts/_template/facets/option-cni.yaml](../../contexts/_template/facets/option-cni.yaml) — canonical wiring.
-- [terraform/cni/cilium/](../../terraform/cni/cilium/) — Terraform bootstrap module.
+- [contexts/_template/facets/option-cni.yaml](../../contexts/_template/facets/option-cni.yaml) for the canonical wiring.
+- [terraform/cni/cilium/](../../terraform/cni/cilium/) for the Terraform bootstrap module.
 - Related add-ons: [policy](../policy/), [telemetry](../telemetry/), [gateway](../gateway/), [csi](../csi/), [lb](../lb/).

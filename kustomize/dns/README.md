@@ -5,20 +5,22 @@ description: external-dns for hostname publication and (opt-in) coredns for in-c
 
 # DNS
 
-Two halves, both gated independently:
+Two halves, both gated independently.
 
-- **external-dns** — publishes Kubernetes Service / Gateway / HTTPRoute
-  hostnames to a real DNS zone (Route53, Azure DNS, or in-cluster
-  coredns). Active whenever `dns.public_domain` is set, or when a
-  private gateway path is configured (`gateway.access == 'private'`
-  with `dns.private_domain` set).
-- **coredns** — in-cluster authoritative private DNS server with an
-  etcd backend. Active when `addons.private_dns.enabled: true`. Lets
-  workstations resolve `*.<dns.private_domain>` without needing a
-  cloud zone.
+`external-dns` publishes Kubernetes Service / Gateway / HTTPRoute
+hostnames to a real DNS zone (Route53, Azure DNS, or in-cluster
+coredns). It's active whenever `dns.public_domain` is set, or when a
+private gateway path is configured (`gateway.access == 'private'`
+with `dns.private_domain` set).
 
-Single Kustomization path (`dns`) — both halves are wired through the
-same facet entry with different component selections.
+`coredns` is an in-cluster authoritative private DNS server with an
+etcd backend. It's active when `addons.private_dns.enabled: true`,
+and lets workstations resolve `*.<dns.private_domain>` without
+needing a cloud zone.
+
+Both halves run from a single Kustomization path (`dns`). They're
+wired through the same facet entry with different component
+selections.
 
 ## Architecture
 
@@ -50,8 +52,8 @@ flowchart LR
   pki -.issues TLS for etcd peers.-> etcd
 ```
 
-external-dns runs everywhere DNS publication is needed. coredns +
-etcd only run when private DNS is opted in; the etcd peer / server
+external-dns runs everywhere DNS publication is needed. coredns and
+etcd only run when private DNS is opted in. The etcd peer and server
 certs are issued by the `private` ClusterIssuer from the pki add-on.
 
 ## Recipes
@@ -157,9 +159,9 @@ workstation can point its resolver at it.
 
 ## See also
 
-- [contexts/_template/facets/platform-aws.yaml](../../contexts/_template/facets/platform-aws.yaml) — Route53 wiring.
-- [contexts/_template/facets/platform-azure.yaml](../../contexts/_template/facets/platform-azure.yaml) — Azure DNS wiring.
-- [contexts/_template/facets/addon-private-dns.yaml](../../contexts/_template/facets/addon-private-dns.yaml) — coredns + etcd wiring.
-- [terraform/dns/zone/route53/](../../terraform/dns/zone/route53/) — Route53 zone creation (separate from this add-on).
-- [terraform/dns/zone/azure-dns/](../../terraform/dns/zone/azure-dns/) — Azure DNS zone creation.
+- [contexts/_template/facets/platform-aws.yaml](../../contexts/_template/facets/platform-aws.yaml) for Route53 wiring.
+- [contexts/_template/facets/platform-azure.yaml](../../contexts/_template/facets/platform-azure.yaml) for Azure DNS wiring.
+- [contexts/_template/facets/addon-private-dns.yaml](../../contexts/_template/facets/addon-private-dns.yaml) for coredns and etcd wiring.
+- [terraform/dns/zone/route53/](../../terraform/dns/zone/route53/) for the Route53 zone creation (separate from this add-on).
+- [terraform/dns/zone/azure-dns/](../../terraform/dns/zone/azure-dns/) for the Azure DNS zone creation.
 - Related add-ons: [pki](../pki/) (etcd certs), [gateway](../gateway/) (HTTPRoute source), [policy](../policy/).

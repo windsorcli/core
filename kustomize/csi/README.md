@@ -6,17 +6,20 @@ description: Persistent storage drivers and StorageClasses. AWS EBS, Azure Disk,
 # CSI
 
 The cluster's persistent-volume layer. Four drivers ship in this add-on,
-one selected per cluster:
+one selected per cluster.
 
-- `aws-ebs` for EKS, `azure-disk` for AKS — StorageClass-only wrappers
-  around the cloud's preinstalled CSI driver. Volumes are AZ- / zone-pinned
-  to the node that first mounts them.
-- `openebs` for local single-node clusters — Helm release plus a hostpath
-  provisioner that allocates from a directory on each node. No replication;
-  volumes are tied to the node they were created on.
-- `longhorn` for HA or schedulable-controlplane clusters — Helm release of
-  a distributed block-storage system that replicates each volume across
-  multiple nodes.
+`aws-ebs` is for EKS and `azure-disk` is for AKS. Both are
+StorageClass-only wrappers around the cloud's preinstalled CSI driver,
+so volumes are AZ- or zone-pinned to the node that first mounts them.
+
+`openebs` is for local single-node clusters. It installs a Helm release
+plus a hostpath provisioner that allocates from a directory on each
+node. There's no replication, and volumes are tied to the node they
+were created on.
+
+`longhorn` is for HA or schedulable-controlplane clusters. It installs
+a Helm release of a distributed block-storage system that replicates
+each volume across multiple nodes.
 
 The default StorageClass is always named `single` regardless of driver,
 so workloads asking for the default disk get a per-cluster-appropriate
@@ -53,10 +56,10 @@ flowchart LR
   sc_replicated -.longhorn ha.-> longhorndist
 ```
 
-The cloud drivers are pure-Kubernetes layers — only the StorageClass is
-new; the CSI driver pods are managed by the cloud control plane. OpenEBS
-and Longhorn install full helm releases into `system-csi` and bring their
-own workload pods.
+The cloud drivers are pure-Kubernetes layers, since only the
+StorageClass is new and the CSI driver pods are managed by the cloud
+control plane. OpenEBS and Longhorn install full helm releases into
+`system-csi` and bring their own workload pods.
 
 ## Recipes
 
@@ -141,9 +144,9 @@ own workload pods.
 
 ## See also
 
-- [contexts/_template/facets/platform-aws.yaml](../../contexts/_template/facets/platform-aws.yaml) — AWS EBS wiring.
-- [contexts/_template/facets/platform-azure.yaml](../../contexts/_template/facets/platform-azure.yaml) — Azure Disk wiring.
-- [contexts/_template/facets/option-storage.yaml](../../contexts/_template/facets/option-storage.yaml) — OpenEBS and Longhorn driver selection.
-- [contexts/_template/facets/option-single-node.yaml](../../contexts/_template/facets/option-single-node.yaml) — single-node OpenEBS overlay.
-- [contexts/_template/facets/option-cni.yaml](../../contexts/_template/facets/option-cni.yaml) — adds the `cni` reverse dependency.
+- [contexts/_template/facets/platform-aws.yaml](../../contexts/_template/facets/platform-aws.yaml) for the AWS EBS wiring.
+- [contexts/_template/facets/platform-azure.yaml](../../contexts/_template/facets/platform-azure.yaml) for the Azure Disk wiring.
+- [contexts/_template/facets/option-storage.yaml](../../contexts/_template/facets/option-storage.yaml) for OpenEBS and Longhorn driver selection.
+- [contexts/_template/facets/option-single-node.yaml](../../contexts/_template/facets/option-single-node.yaml) for the single-node OpenEBS overlay.
+- [contexts/_template/facets/option-cni.yaml](../../contexts/_template/facets/option-cni.yaml) where the `cni` reverse dependency is added.
 - Related add-ons: [policy](../policy/), [cni](../cni/), [telemetry](../telemetry/), [observability](../observability/).

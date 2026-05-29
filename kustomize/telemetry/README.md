@@ -6,29 +6,31 @@ description: kube-prometheus-stack and FluentBit for cluster-level metrics and l
 # Telemetry
 
 The cluster's metrics and log-collection layer. Prometheus scrapes
-workloads; FluentBit ships logs to whatever downstream the observability
-add-on wires up. Two flags drive it: `telemetry.metrics.enabled` and
-`telemetry.logs.enabled`, independently.
+workloads, and FluentBit ships logs to whatever downstream the
+observability add-on wires up. Two flags drive it,
+`telemetry.metrics.enabled` and `telemetry.logs.enabled`,
+independently.
 
 The add-on splits across two Kustomization paths so Flux can install
-the chart-level CRDs before the cluster-resource CRs that depend on them:
+the chart-level CRDs before the cluster-resource CRs that depend on
+them. `telemetry-base` ships the Helm releases
+(kube-prometheus-stack, fluent-operator, filebeat as the
+Elasticsearch alternative). `telemetry-resources` ships
+ServiceMonitors, PrometheusRules, and the ClusterFluentBitConfig /
+ClusterInput / ClusterFilter / ClusterParser CRs, and depends on
+`telemetry-base`.
 
-- `telemetry-base` — Helm releases (kube-prometheus-stack, fluent-operator,
-  filebeat as the Elasticsearch alternative).
-- `telemetry-resources` — ServiceMonitors, PrometheusRules,
-  ClusterFluentBitConfig / ClusterInput / ClusterFilter / ClusterParser
-  CRs. Depends on `telemetry-base`.
+Component-name collisions are worth flagging. `prometheus`,
+`prometheus/flux`, and `fluentbit` exist as components in BOTH facets.
+The same literal name points at the Helm release in `telemetry/base/`
+and at the consuming CR set in `telemetry/resources/`. The descriptor
+below disambiguates with `base/` and `resources/` prefixes. Operators
+still write the bare names (`components: [prometheus]`) in their
+facets, and the prefix resolves from the facet's `path:`.
 
-**Component-name collisions.** `prometheus`, `prometheus/flux`, and
-`fluentbit` exist as components in BOTH facets — the same literal name
-points at the Helm release in `telemetry/base/` and at the consuming CR
-set in `telemetry/resources/`. The descriptor below disambiguates with
-`base/` and `resources/` prefixes; operators still write the bare names
-(`components: [prometheus]`) in their facets — the prefix resolves from
-the facet's `path:`.
-
-The namespace runs at PSA `privileged` because some components (FluentBit
-reading the host log path, metrics-server with host networking) need it.
+The namespace runs at PSA `privileged` because some components
+(FluentBit reading the host log path, metrics-server with host
+networking) need it.
 
 ## Architecture
 
@@ -63,10 +65,11 @@ flowchart LR
   prom -.metrics datasource.-> observability
 ```
 
-The base half installs the Helm charts (Prometheus, FluentBit operator,
-metrics-server). The resources half wires up scrape targets and
-collector configuration. The observability add-on attaches Grafana on
-top of Prometheus and routes FluentBit's output to a log store.
+The base half installs the Helm charts (Prometheus, FluentBit
+operator, metrics-server). The resources half wires up scrape targets
+and collector configuration. The observability add-on attaches
+Grafana on top of Prometheus and routes FluentBit's output to a log
+store.
 
 ## Recipes
 
@@ -127,10 +130,10 @@ top of Prometheus and routes FluentBit's output to a log store.
 ### Elasticsearch-mode (filebeat replaces FluentBit)
 
 When `addons.observability.logs_driver == 'elasticsearch'`, the
-addon-observability facet declares `strategy: replace` to swap FluentBit
-for Filebeat at the telemetry-base layer. The base `prometheus` /
-`prometheus/flux` components stay; `fluentbit` is removed and `filebeat`
-is added.
+addon-observability facet declares `strategy: replace` to swap
+FluentBit for Filebeat at the telemetry-base layer. The base
+`prometheus` and `prometheus/flux` components stay. `fluentbit` is
+removed and `filebeat` is added.
 
 <!-- BEGIN_KUSTOMIZE_DOCS -->
 
@@ -168,6 +171,6 @@ is added.
 
 ## See also
 
-- [contexts/_template/facets/platform-base.yaml](../../contexts/_template/facets/platform-base.yaml) — canonical wiring for both facets.
-- [contexts/_template/facets/addon-observability.yaml](../../contexts/_template/facets/addon-observability.yaml) — Elasticsearch override (replaces telemetry-base with filebeat).
+- [contexts/_template/facets/platform-base.yaml](../../contexts/_template/facets/platform-base.yaml) for the canonical wiring for both facets.
+- [contexts/_template/facets/addon-observability.yaml](../../contexts/_template/facets/addon-observability.yaml) for the Elasticsearch override (replaces telemetry-base with filebeat).
 - Related add-ons: [observability](../observability/) (Grafana / log store downstream of telemetry), [policy](../policy/) (admission policies apply to system-telemetry pods).

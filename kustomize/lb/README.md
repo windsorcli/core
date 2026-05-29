@@ -7,27 +7,29 @@ description: LoadBalancer Service implementation (AWS LB Controller, MetalLB, or
 
 The cluster's LoadBalancer-Service provider, gated on
 `lb_effective.enabled` and selected by `lb_effective.driver`. Three
-drivers ship:
+drivers ship.
 
-- **aws-lb-controller** — used on EKS to provision real AWS NLB / ALB
-  resources outside the cluster. The controller is here; the AWS-side
-  LB lives in the customer's VPC.
-- **metallb** — speaker DaemonSet that ARP- or BGP-advertises IPs from
-  a configured pool. Used on docker / incus / metal clusters.
-- **kube-vip** — VIP-style provider for Talos clusters; uses ARP for
-  L2 advertisement.
+`aws-lb-controller` is used on EKS to provision real AWS NLB / ALB
+resources outside the cluster. The controller is here, and the AWS-side
+LB lives in the customer's VPC.
+
+`metallb` is a speaker DaemonSet that ARP- or BGP-advertises IPs from
+a configured pool. Used on docker / incus / metal clusters.
+
+`kube-vip` is a VIP-style provider for Talos clusters that uses ARP
+for L2 advertisement.
 
 The add-on splits across two Kustomization paths so Flux can install
 the controller (CRDs + workloads) before the resources that depend on
-the controller being live (advertisement pools, cloud-provider patches):
+the controller being live (advertisement pools, cloud-provider
+patches). `lb-base` ships the Helm releases (aws-lb-controller,
+metallb). `lb-resources` ships the advertisement / address-pool
+configs and (for the Talos kube-vip path) the kube-vip cloud-provider
+HelmRelease itself, and depends on `lb-base`.
 
-- `lb-base` — Helm releases (aws-lb-controller, metallb).
-- `lb-resources` — advertisement / address-pool configs and (for the
-  Talos kube-vip path) the kube-vip cloud-provider HelmRelease itself.
-  Depends on `lb-base`.
-
-Namespace runs at PSA `privileged` — MetalLB's speaker needs host
-networking; aws-lb-controller doesn't but they share the namespace.
+The namespace runs at PSA `privileged` because MetalLB's speaker
+needs host networking, and aws-lb-controller shares the namespace
+even though it doesn't.
 
 ## Architecture
 
@@ -75,9 +77,10 @@ data-plane Service gets its external IP from whichever driver is on.
     aws_region: us-east-1
 ```
 
-No `lb-resources` block — AWS LB Controller handles address management
-through the cloud API. `lb_effective.controller_required` is true for
-this driver so gateway-base depends on lb-base.
+There's no `lb-resources` block because AWS LB Controller handles
+address management through the cloud API.
+`lb_effective.controller_required` is true for this driver, so
+gateway-base depends on lb-base.
 
 ### MetalLB (docker / incus / metal)
 
@@ -107,8 +110,9 @@ ARP advertisement is the default. Pool range comes from
   components: [kube-vip, kube-vip/arp]
 ```
 
-The Talos kube-vip path skips `lb-base` (no separate controller chart;
-kube-vip cloud-provider ships in the resources layer).
+The Talos kube-vip path skips `lb-base`. There's no separate
+controller chart, and the kube-vip cloud-provider ships in the
+resources layer.
 
 <!-- BEGIN_KUSTOMIZE_DOCS -->
 
@@ -147,7 +151,7 @@ kube-vip cloud-provider ships in the resources layer).
 
 ## See also
 
-- [contexts/_template/facets/platform-aws.yaml](../../contexts/_template/facets/platform-aws.yaml) — aws-lb-controller wiring.
-- [contexts/_template/facets/platform-docker.yaml](../../contexts/_template/facets/platform-docker.yaml) — MetalLB wiring for docker hosts.
-- [contexts/_template/facets/platform-incus.yaml](../../contexts/_template/facets/platform-incus.yaml) — MetalLB wiring for incus hosts.
+- [contexts/_template/facets/platform-aws.yaml](../../contexts/_template/facets/platform-aws.yaml) for aws-lb-controller wiring.
+- [contexts/_template/facets/platform-docker.yaml](../../contexts/_template/facets/platform-docker.yaml) for MetalLB wiring on docker hosts.
+- [contexts/_template/facets/platform-incus.yaml](../../contexts/_template/facets/platform-incus.yaml) for MetalLB wiring on incus hosts.
 - Related add-ons: [gateway](../gateway/) (data-plane Service consumes lb), [cni](../cni/) (Cilium's L2 announcer is an alternative to lb on Talos, see `cilium/l2`), [policy](../policy/).

@@ -5,30 +5,32 @@ description: Gateway API implementation (Envoy Gateway or Cilium) and the cluste
 
 # Gateway
 
-The cluster's external traffic entrypoint via the Kubernetes Gateway API.
-Two driver options:
+The cluster's external traffic entrypoint, via the Kubernetes Gateway
+API. Two driver options.
 
-- **Envoy Gateway** (default) — a dedicated control-plane and data-plane
-  Envoy stack installed by Helm. Heavier than Cilium's built-in path, but
-  unlocks advanced L7 (`HTTPRouteFilter`, ext_authz, rich response
-  shaping). Used here for the catch-all 404, and the right pick when you
-  need those knobs.
-- **Cilium** — uses Cilium's built-in Gateway API implementation. Single
-  dataplane for L3/L4 and L7; LoadBalancer Services share IPs via Cilium
-  LBIPAM. No separate Helm release; the `cilium/gateway` component on the
-  `cni` add-on enables `gatewayAPI` on the existing Cilium operator. This
-  add-on only contributes the GatewayClass and the LBIPAM-sharing patch.
+Envoy Gateway is the default. It's a dedicated control-plane and
+data-plane Envoy stack installed by Helm. Heavier than Cilium's
+built-in path, but unlocks advanced L7 features
+(`HTTPRouteFilter`, ext_authz, rich response shaping). It's used here
+for the catch-all 404, and it's the right pick when you need those
+knobs.
 
-The add-on splits across two Kustomization paths so Flux can install the
-Gateway API CRDs and the controller workloads before the `Gateway` CR
-that targets them:
+Cilium is the other option, which uses Cilium's built-in Gateway API
+implementation. A single dataplane handles L3/L4 and L7, and
+LoadBalancer Services share IPs via Cilium LBIPAM. There's no
+separate Helm release. The `cilium/gateway` component on the `cni`
+add-on enables `gatewayAPI` on the existing Cilium operator, and this
+add-on only contributes the GatewayClass and the LBIPAM-sharing
+patch.
 
-- `gateway-base` — Gateway API CRDs + the operator Helm release (envoy)
-  or just the GatewayClass (cilium). LB-mode patches and Prometheus
-  monitor go here.
-- `gateway-resources` — the `external` `Gateway` CR (named via the
-  `system-gateway` namespace) plus per-feature patches (catch-all 404,
-  DNS listeners, fixed LB address, Flux webhook).
+The add-on splits across two Kustomization paths so Flux can install
+the Gateway API CRDs and the controller workloads before the
+`Gateway` CR that targets them. `gateway-base` ships the Gateway API
+CRDs plus the operator Helm release (envoy) or just the GatewayClass
+(cilium); LB-mode patches and Prometheus monitor go here.
+`gateway-resources` ships the `external` `Gateway` CR (named via the
+`system-gateway` namespace) plus per-feature patches (catch-all 404,
+DNS listeners, fixed LB address, Flux webhook).
 
 ## Architecture
 
@@ -61,9 +63,10 @@ flowchart LR
   gateway -.hostname.-> extdns
 ```
 
-The `external` Gateway listens on HTTPS (and HTTP for redirect) with a
-cert issued by one of the pki add-on's ClusterIssuers. external-dns
-publishes its hostname; the LB controller assigns its external IP.
+The `external` Gateway listens on HTTPS (and HTTP for redirect) with
+a cert issued by one of the pki add-on's ClusterIssuers. external-dns
+publishes its hostname, and the LB controller assigns its external
+IP.
 
 ## Recipes
 
@@ -117,7 +120,7 @@ slots needed for in-cluster DNS and Flux push-mode webhooks.
 ```
 
 The aws-nlb overlay adds AWS LB Controller annotations so the
-data-plane Service provisions an NLB with target-type=ip.
+data-plane Service provisions an NLB with `target-type=ip`.
 
 ### Cilium driver
 
@@ -135,9 +138,9 @@ data-plane Service provisions an NLB with target-type=ip.
     loadbalancer_start_ip: 10.5.1.10
 ```
 
-The base entry installs only the GatewayClass (CRDs come from the same
-component's resource list). The resources entry patches the Gateway
-with Cilium's LBIPAM annotations.
+The base entry installs only the GatewayClass (CRDs come from the
+same component's resource list). The resources entry patches the
+Gateway with Cilium's LBIPAM annotations.
 
 <!-- BEGIN_KUSTOMIZE_DOCS -->
 
@@ -188,7 +191,7 @@ with Cilium's LBIPAM annotations.
 
 ## See also
 
-- [contexts/_template/facets/option-gateway.yaml](../../contexts/_template/facets/option-gateway.yaml) — canonical wiring.
-- [contexts/_template/facets/platform-aws.yaml](../../contexts/_template/facets/platform-aws.yaml) — NLB merge for the AWS path.
-- [contexts/_template/facets/platform-azure.yaml](../../contexts/_template/facets/platform-azure.yaml) — Azure ILB merge for the private-access path.
+- [contexts/_template/facets/option-gateway.yaml](../../contexts/_template/facets/option-gateway.yaml) for the canonical wiring.
+- [contexts/_template/facets/platform-aws.yaml](../../contexts/_template/facets/platform-aws.yaml) for the NLB merge on the AWS path.
+- [contexts/_template/facets/platform-azure.yaml](../../contexts/_template/facets/platform-azure.yaml) for the Azure ILB merge on the private-access path.
 - Related add-ons: [pki](../pki/) (gateway certificate), [lb](../lb/) (data-plane Service LB), [dns](../dns/) (external-dns publication), [cni](../cni/) (cilium driver).

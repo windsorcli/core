@@ -5,18 +5,20 @@ description: Grafana dashboards and the cluster's log store (stdout, Quickwit, o
 
 # Observability
 
-The dashboards-and-logs layer. Two halves that can be enabled independently:
+The dashboards-and-logs layer. Two halves that can be enabled
+independently.
 
-- **Dashboards** — Grafana with a Prometheus datasource and per-add-on
-  dashboards. Set `addons.observability.dashboards: grafana`.
-- **Log store** — fluentd ships records to one of three back-ends:
-  `stdout` (dev), `quickwit` (production default), or `elasticsearch` +
-  `kibana` (when ES is already the team's standard). Set
-  `addons.observability.logs_driver` to choose.
+Dashboards run on Grafana with a Prometheus datasource and per-add-on
+dashboards. Set `addons.observability.dashboards: grafana`.
+
+The log store ships records via fluentd to one of three back-ends:
+`stdout` (dev), `quickwit` (production default), or `elasticsearch` +
+`kibana` (when ES is already the team's standard). Set
+`addons.observability.logs_driver` to choose.
 
 The metric pipeline (Prometheus, fluent-bit) lives in the `telemetry`
-add-on; this add-on assumes telemetry-base is already producing metrics
-and shipping logs to fluentd's input.
+add-on. This add-on assumes telemetry-base is already producing
+metrics and shipping logs to fluentd's input.
 
 ## Architecture
 
@@ -61,9 +63,9 @@ flowchart LR
 ```
 
 Grafana, fluentd, quickwit, elasticsearch, and kibana all live in
-`system-observability`. Fluentd is the universal log shipper; the
-`logs_driver` choice selects which output component is added and which
-back-end Helm release runs alongside.
+`system-observability`. Fluentd is the universal log shipper, and the
+`logs_driver` choice selects which output component is added and
+which back-end Helm release runs alongside.
 
 ## Recipes
 
@@ -173,9 +175,9 @@ back-end Helm release runs alongside.
 
 ## See also
 
-- [contexts/_template/facets/addon-observability.yaml](../../contexts/_template/facets/addon-observability.yaml) — canonical wiring for dashboards and log stores.
-- [contexts/_template/facets/platform-base.yaml](../../contexts/_template/facets/platform-base.yaml) — fluentd base shipper wiring.
-- [contexts/_template/facets/option-storage.yaml](../../contexts/_template/facets/option-storage.yaml) — Longhorn dashboard injection.
-- [contexts/_template/facets/option-cni.yaml](../../contexts/_template/facets/option-cni.yaml) — Cilium dashboard injection.
-- [contexts/_template/facets/addon-database.yaml](../../contexts/_template/facets/addon-database.yaml) — CloudNativePG dashboard injection.
+- [contexts/_template/facets/addon-observability.yaml](../../contexts/_template/facets/addon-observability.yaml) for the canonical wiring for dashboards and log stores.
+- [contexts/_template/facets/platform-base.yaml](../../contexts/_template/facets/platform-base.yaml) for the fluentd base shipper wiring.
+- [contexts/_template/facets/option-storage.yaml](../../contexts/_template/facets/option-storage.yaml) for Longhorn dashboard injection.
+- [contexts/_template/facets/option-cni.yaml](../../contexts/_template/facets/option-cni.yaml) for Cilium dashboard injection.
+- [contexts/_template/facets/addon-database.yaml](../../contexts/_template/facets/addon-database.yaml) for CloudNativePG dashboard injection.
 - Related add-ons: [telemetry](../telemetry/), [pki](../pki/), [object-store](../object-store/), [csi](../csi/), [gateway](../gateway/), [dns](../dns/).
