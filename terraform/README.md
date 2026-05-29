@@ -38,6 +38,7 @@ layer. Links from there land here.
 | [network](network/) | Cloud network fabric for managed Kubernetes clusters. |
 | [network/aws-vpc](network/aws-vpc/) | VPC + public/private subnets + NAT for EKS. |
 | [network/azure-vnet](network/azure-vnet/) | VNet + subnets for AKS. |
+| [workstation](workstation/) | Local-host networking, registry, and DNS for developer clusters. |
 | [workstation/docker](workstation/docker/) | Local-host Docker network + registry. |
 | [workstation/incus](workstation/incus/) | Local-host Incus bridge + registry. |
 <!-- END_INDEX -->
