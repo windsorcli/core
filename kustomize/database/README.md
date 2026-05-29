@@ -6,7 +6,7 @@ description: CloudNativePG operator for in-cluster PostgreSQL.
 # Database
 
 In-cluster PostgreSQL via the CloudNativePG operator. The add-on installs
-the operator only; actual database clusters are created elsewhere as
+the operator only. Actual database clusters are created elsewhere as
 `postgresql.cnpg.io/v1` `Cluster` custom resources (see the demo add-on
 for a worked example).
 
@@ -42,7 +42,7 @@ flowchart LR
 ```
 
 The Operator is the only thing this add-on installs. Cluster CRs and their
-StatefulSets live in whatever namespace consumes the database; the demo
+StatefulSets live in whatever namespace consumes the database. The demo
 add-on places one in `demo-database`.
 
 ## Recipes
@@ -84,9 +84,10 @@ add-on places one in `demo-database`.
   timeout: 15m
 ```
 
-The `cloudnativepg/prometheus` component adds `dependsOn:
-kube-prometheus-stack` to the operator HelmRelease, so the database
-Kustomization waits for telemetry-base to be ready before reconciling.
+The `cloudnativepg/prometheus` component adds
+`dependsOn: kube-prometheus-stack` to the operator HelmRelease, so the
+database Kustomization waits for telemetry-base to be ready before
+reconciling.
 
 <!-- BEGIN_KUSTOMIZE_DOCS -->
 
@@ -109,7 +110,7 @@ Kustomization waits for telemetry-base to be ready before reconciling.
 
 ## See also
 
-- [contexts/_template/facets/addon-database.yaml](../../contexts/_template/facets/addon-database.yaml) — canonical wiring + Grafana dashboard patch.
-- [contexts/_template/facets/option-single-node.yaml](../../contexts/_template/facets/option-single-node.yaml) — `cloudnativepg/single-node` patch wiring.
-- [kustomize/demo/database/](../demo/database/) — worked example: a `Cluster` CR named `demo-cluster`.
+- [contexts/_template/facets/addon-database.yaml](../../contexts/_template/facets/addon-database.yaml) for the canonical wiring and Grafana dashboard patch.
+- [contexts/_template/facets/option-single-node.yaml](../../contexts/_template/facets/option-single-node.yaml) for the `cloudnativepg/single-node` patch wiring.
+- [kustomize/demo/database/](../demo/database/) for a worked example (a `Cluster` CR named `demo-cluster`).
 - Related add-ons: [csi](../csi/), [observability](../observability/) (`grafana/dashboards/cloudnativepg`), [telemetry](../telemetry/).

@@ -6,12 +6,12 @@ description: Sample applications (PostgreSQL cluster, static website, Istio book
 # Demo
 
 Three independent sample workloads, each gated by its own
-`demo.resources.<name>` flag. None of them runs by default; the add-on
-itself is gated by `demo.enabled == true`.
+`demo.resources.<name>` flag. None of them runs by default, and the
+add-on itself is gated by `demo.enabled == true`.
 
-The three options are not related to each other beyond living in
-sibling `demo-*` namespaces — `database` exercises the CloudNativePG
-operator, `static` exercises image-pull / PVC / ingress, `bookinfo`
+The three options aren't related to each other beyond living in sibling
+`demo-*` namespaces. `database` exercises the CloudNativePG operator,
+`static` exercises image-pull plus PVC plus ingress, and `bookinfo`
 exercises a non-trivial multi-service upstream manifest with Pod
 Security Admission constraints.
 
@@ -51,9 +51,10 @@ flowchart LR
   static_ingress --> static_dep
 ```
 
-The three sub-stacks are independent — disabling one doesn't affect the
-others. The `database` resource is the only one with a cross-add-on
-dependency (the operator must be running for the Cluster CR to come up).
+The three sub-stacks are independent, so disabling one doesn't affect
+the others. The `database` resource is the only one with a cross-add-on
+dependency, because the operator must be running for the Cluster CR to
+come up.
 
 ## Recipes
 
@@ -120,6 +121,6 @@ instances against the default StorageClass.
 
 ## See also
 
-- [contexts/_template/facets/option-demo.yaml](../../contexts/_template/facets/option-demo.yaml) — canonical wiring.
-- [kustomize/demo/static/assets/](static/assets/) — Dockerfile + Node.js source for the static-site image. Build and push to `${REGISTRY_URL}` before enabling the static demo.
+- [contexts/_template/facets/option-demo.yaml](../../contexts/_template/facets/option-demo.yaml) for the canonical wiring.
+- [kustomize/demo/static/assets/](static/assets/) for the Dockerfile and Node.js source for the static-site image. Build and push to `${REGISTRY_URL}` before enabling the static demo.
 - Related add-ons: [database](../database/) (operator for the Postgres demo), [gateway](../gateway/) or [ingress](../ingress/) (route handling), [csi](../csi/) (PVC for the static site).

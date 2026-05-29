@@ -6,23 +6,22 @@ description: cert-manager, trust-manager, and the cluster's ClusterIssuers (self
 # PKI
 
 The cluster's certificate-issuance layer. The add-on splits across two
-Kustomization paths so Flux can install cert-manager (CRDs + controller)
-before the ClusterIssuer resources that depend on those CRDs:
-
-- `pki-base` — installs cert-manager. trust-manager is added when the
-  private-CA addon is enabled. Optional patches enable Prometheus
-  scraping, Azure workload identity, and single-node leader-election
-  tweaks.
-- `pki-resources` — applies one or more ClusterIssuers depending on the
-  cluster's DNS and gateway-access posture. Depends on `pki-base` for
-  CRDs and `policy-resources` for the private-CA inject policy.
+Kustomization paths so Flux can install cert-manager (CRDs +
+controller) before the ClusterIssuer resources that depend on those
+CRDs. `pki-base` installs cert-manager (trust-manager is added when
+the private-CA addon is enabled), plus optional patches that enable
+Prometheus scraping, Azure workload identity, and single-node
+leader-election tweaks. `pki-resources` applies one or more
+ClusterIssuers depending on the cluster's DNS and gateway-access
+posture, and depends on `pki-base` for CRDs and `policy-resources`
+for the private-CA inject policy.
 
 The ClusterIssuers this add-on can ship are named consistently across
 platforms so downstream `Certificate` resources can reference a stable
 name (`private-selfsigned`, `private-ca`, `public-selfsigned`,
-`public-acme`). Switching between selfsigned and ACME is a substitution
-flip, not a Certificate spec change — cert-manager reissues into the
-same Secret.
+`public-acme`). Switching between selfsigned and ACME is a
+substitution flip, not a Certificate spec change. cert-manager
+reissues into the same Secret.
 
 ## Architecture
 
@@ -54,9 +53,9 @@ flowchart LR
   bundle -.injected.-> workloads
 ```
 
-cert-manager runs in `system-pki` (PSA `baseline`); trust-manager runs in
-`system-pki-trust` (PSA `restricted`) so the trust-bundle distribution
-path has tighter pod security than the issuer plane.
+cert-manager runs in `system-pki` (PSA `baseline`) and trust-manager
+runs in `system-pki-trust` (PSA `restricted`), so the trust-bundle
+distribution path has tighter pod security than the issuer plane.
 
 ## Recipes
 
@@ -75,8 +74,8 @@ path has tighter pod security than the issuer plane.
   timeout: 5m
 ```
 
-Issues against `public-selfsigned`. Browser warnings until the CA cert
-is trusted out-of-band. Good first-cluster setup.
+Issues against `public-selfsigned`. Browser warnings until the CA
+cert is trusted out-of-band. Good first-cluster setup.
 
 ### Public ACME on AWS
 
@@ -92,7 +91,7 @@ is trusted out-of-band. Good first-cluster setup.
     acme_hosted_zone_id: <from terraform_output('dns-zone', 'zone_id')>
 ```
 
-DNS-01 against Route53. Auth comes from the IAM role + Pod Identity
+DNS-01 against Route53. Auth comes from the IAM role and Pod Identity
 binding the AWS cluster Terraform module provisioned.
 
 ### Public ACME on Azure
@@ -130,9 +129,10 @@ binding the AWS cluster Terraform module provisioned.
   components: [private-issuer/ca]
 ```
 
-`private-ca` ClusterIssuer signs against an in-cluster selfSigned CA. The
-init / sync Jobs extract the CA cert into a `Bundle`, which trust-manager
-materializes into a Secret/ConfigMap that downstream namespaces can mount.
+`private-ca` ClusterIssuer signs against an in-cluster selfSigned CA.
+The init and sync Jobs extract the CA cert into a `Bundle`, which
+trust-manager materializes into a Secret/ConfigMap that downstream
+namespaces can mount.
 
 <!-- BEGIN_KUSTOMIZE_DOCS -->
 
@@ -181,8 +181,8 @@ materializes into a Secret/ConfigMap that downstream namespaces can mount.
 
 ## See also
 
-- [contexts/_template/facets/platform-base.yaml](../../contexts/_template/facets/platform-base.yaml) — base cert-manager + selfsigned defaults.
-- [contexts/_template/facets/platform-aws.yaml](../../contexts/_template/facets/platform-aws.yaml) — ACME / Route53 wiring.
-- [contexts/_template/facets/platform-azure.yaml](../../contexts/_template/facets/platform-azure.yaml) — ACME / AzureDNS + workload-identity wiring.
-- [contexts/_template/facets/addon-private-ca.yaml](../../contexts/_template/facets/addon-private-ca.yaml) — trust-manager + private CA wiring.
+- [contexts/_template/facets/platform-base.yaml](../../contexts/_template/facets/platform-base.yaml) for the base cert-manager and selfsigned defaults.
+- [contexts/_template/facets/platform-aws.yaml](../../contexts/_template/facets/platform-aws.yaml) for ACME on Route53 wiring.
+- [contexts/_template/facets/platform-azure.yaml](../../contexts/_template/facets/platform-azure.yaml) for ACME on AzureDNS plus workload-identity wiring.
+- [contexts/_template/facets/addon-private-ca.yaml](../../contexts/_template/facets/addon-private-ca.yaml) for trust-manager and private CA wiring.
 - Related add-ons: [policy](../policy/), [telemetry](../telemetry/), [gateway](../gateway/) (consumes the ClusterIssuer for the external gateway cert), [observability](../observability/) (Elasticsearch consumes the private CA).
