@@ -25,9 +25,9 @@ reaches the provisioned nodes through the Talos API. Node sizing
 
 ```mermaid
 flowchart LR
-  socket[Docker socket<br/>docker-desktop / colima / linux]
+  socket[Docker socket]
 
-  subgraph bridge[Docker bridge<br/>workstation-managed]
+  subgraph bridge[Docker bridge]
     cp[talos-controlplane-1<br/>container]
     w[talos-worker-1<br/>container]
   end
@@ -61,15 +61,17 @@ plain `docker` is the Linux engine path.
 
 ```mermaid
 flowchart LR
-  prov[terraform-provider-hyperv<br/>SSH + PowerShell]
+  prov[terraform-provider-hyperv]
 
-  subgraph hv[Hyper-V on Windows host, NAT switch network.cidr_block]
+  subgraph hv[Hyper-V NAT switch]
     cp[talos-controlplane-1<br/>VM]
     w[talos-worker-1<br/>VM]
     netnat[NetNat<br/>host:6443 → cp:6443]
   end
 
-  prov --> hv
+  prov --> cp
+  prov --> w
+  prov --> netnat
   netnat -.forwards.-> cp
 ```
 
@@ -100,12 +102,13 @@ can reach the apiserver from outside the host.
 flowchart LR
   prov[terraform-provider-incus]
 
-  subgraph host[Linux host, LXC bridge workstation-managed]
+  subgraph bridge[LXC bridge]
     cp[talos-controlplane-1<br/>KVM VM]
     w[talos-worker-1<br/>KVM VM]
   end
 
-  prov --> host
+  prov --> cp
+  prov --> w
 ```
 
 ```yaml

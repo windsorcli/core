@@ -22,23 +22,20 @@ adopts the running release so day-2 changes flow through GitOps.
 ```mermaid
 flowchart LR
   tf[terraform/cni/cilium]
-  api[Talos API]
 
   subgraph syscni[system-cni namespace]
     hr[HelmRelease cilium]
   end
+
   subgraph kubesys[kube-system namespace]
-    agent[DaemonSet cilium-agent]
-    op[Deployment cilium-operator]
+    cilium[Cilium pods<br/>agent + operator]
   end
 
   flux[Flux helm-controller]
   kCni[kustomize/cni/]
 
-  tf -.installs via.-> api
-  api --> hr
-  hr --> agent
-  hr --> op
+  tf -.installs via Talos API.-> hr
+  hr --> cilium
   flux ==adopts==> hr
   kCni --> flux
 ```

@@ -28,16 +28,13 @@ binding for both consumers on the matching cloud.
 ```mermaid
 flowchart LR
   registrar[Domain registrar<br/>NS delegation]
+  cm[cert-manager]
+  ed[external-dns]
 
   subgraph aws[AWS account]
-    zone[Route53 hosted zone<br/>example.windsorcli.dev]
-    iam[IAM Role<br/>cert-manager DNS-01<br/>scoped to zone ID]
+    zone[Route53 hosted zone]
+    iam[IAM Role<br/>scoped to zone ID]
     pi[Pod Identity association]
-  end
-
-  subgraph cluster[Cluster]
-    cm[cert-manager]
-    ed[external-dns]
   end
 
   registrar -.delegates.-> zone
@@ -69,16 +66,13 @@ but doesn't block.
 ```mermaid
 flowchart LR
   registrar[Domain registrar<br/>NS delegation]
+  cm[cert-manager]
+  ed[external-dns]
 
   subgraph azure[Azure resource group]
-    zone[Azure DNS zone<br/>example.windsorcli.dev]
-    uami[User-Assigned MI<br/>cert-manager + external-dns]
+    zone[Azure DNS zone]
+    uami[User-Assigned MI]
     fed[Federated credential<br/>via OIDC issuer]
-  end
-
-  subgraph cluster[AKS cluster]
-    cm[cert-manager]
-    ed[external-dns]
   end
 
   registrar -.delegates.-> zone

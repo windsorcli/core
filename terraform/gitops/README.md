@@ -26,27 +26,21 @@ flowchart LR
   repo[(GitOps repo)]
 
   subgraph fluxsys[flux-system namespace]
-    sc[source-controller]
-    kc[kustomize-controller]
-    hc[helm-controller]
-    nc[notification-controller]
-    gr[GitRepository<br/>local]
-    ks[Kustomization<br/>root]
-    rcv[Receiver]
-    sec[Secret<br/>webhook token]
+    rcv[Receiver<br/>+ webhook secret]
+    src[source-controller]
+    kus[kustomize-controller]
+    gr[GitRepository]
+    ks[Kustomization]
   end
 
-  layer[kustomize/ layer<br/>cni, csi, pki, ...]
+  layer[kustomize/ layer]
 
-  repo ==webhook POST==> nc
-  nc -.notifies.-> sc
-  sc --> gr
-  gr --> kc
-  kc --> ks
+  repo ==webhook POST==> rcv
+  rcv -.triggers.-> src
+  src --> gr
+  gr --> kus
+  kus --> ks
   ks ==reconciles==> layer
-  hc --> layer
-  rcv -.signed by.-> sec
-  nc -.serves.-> rcv
 ```
 
 ```yaml
@@ -72,21 +66,19 @@ flowchart LR
   repo[(GitOps repo)]
 
   subgraph fluxsys[flux-system namespace]
-    sc[source-controller]
-    kc[kustomize-controller]
-    hc[helm-controller]
-    gr[GitRepository<br/>local]
-    ks[Kustomization<br/>root]
+    src[source-controller]
+    kus[kustomize-controller]
+    gr[GitRepository]
+    ks[Kustomization]
   end
 
-  layer[kustomize/ layer<br/>cni, csi, pki, ...]
+  layer[kustomize/ layer]
 
-  sc -.poll on interval.-> repo
-  sc --> gr
-  gr --> kc
-  kc --> ks
+  src -.poll on interval.-> repo
+  src --> gr
+  gr --> kus
+  kus --> ks
   ks ==reconciles==> layer
-  hc --> layer
 ```
 
 ```yaml
