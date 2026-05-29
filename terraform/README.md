@@ -30,6 +30,7 @@ layer. Links from there land here.
 | [compute/docker](compute/docker/) | Talos containers on Docker. |
 | [compute/hyperv](compute/hyperv/) | Talos VMs on Hyper-V (Windows host). |
 | [compute/incus](compute/incus/) | Talos VMs on Incus. |
+| [dns](dns/) | Public DNS zones for ACME certificates and external-dns. |
 | [dns/zone/azure-dns](dns/zone/azure-dns/) | DNS zone on Azure DNS. |
 | [dns/zone/route53](dns/zone/route53/) | Public DNS zone on AWS Route53. |
 | [gitops/flux](gitops/flux/) | Flux installation; hands reconciliation to the kustomize/ layer. |
