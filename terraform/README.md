@@ -26,6 +26,7 @@ layer. Links from there land here.
 | [cluster/talos](cluster/talos/) | Self-hosted Kubernetes control plane via the Talos API. |
 | [cluster/talos/config](cluster/talos/config/) | Per-node Talos machine config + CIDATA seeds. |
 | [cluster/talos/extensions](cluster/talos/extensions/) | Talos image build with system extensions. |
+| [cni](cni/) | Out-of-band Cilium bootstrap for Talos clusters before Flux. |
 | [cni/cilium](cni/cilium/) | Out-of-band Cilium bootstrap for Talos clusters. |
 | [compute](compute/) | Local Talos compute substrate across Docker, Hyper-V, and Incus. |
 | [compute/docker](compute/docker/) | Talos containers on Docker. |
