@@ -24,14 +24,12 @@ flowchart LR
   tf[terraform/cni/cilium]
   api[Talos API]
 
-  subgraph cluster[Kubernetes cluster]
-    subgraph syscni[system-cni namespace]
-      hr[HelmRelease cilium]
-    end
-    subgraph kubesys[kube-system namespace]
-      agent[DaemonSet cilium-agent]
-      op[Deployment cilium-operator]
-    end
+  subgraph syscni[system-cni namespace]
+    hr[HelmRelease cilium]
+  end
+  subgraph kubesys[kube-system namespace]
+    agent[DaemonSet cilium-agent]
+    op[Deployment cilium-operator]
   end
 
   flux[Flux helm-controller]

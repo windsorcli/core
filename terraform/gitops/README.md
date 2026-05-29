@@ -25,19 +25,18 @@ relies on the interval poll on the GitRepository.
 flowchart LR
   repo[(GitOps repo)]
 
-  subgraph cluster[Kubernetes cluster]
-    subgraph fluxsys[flux-system namespace]
-      sc[source-controller]
-      kc[kustomize-controller]
-      hc[helm-controller]
-      nc[notification-controller]
-      gr[GitRepository<br/>local]
-      ks[Kustomization<br/>root]
-      rcv[Receiver]
-      sec[Secret<br/>webhook token]
-    end
-    layer[kustomize/ layer<br/>cni, csi, pki, ...]
+  subgraph fluxsys[flux-system namespace]
+    sc[source-controller]
+    kc[kustomize-controller]
+    hc[helm-controller]
+    nc[notification-controller]
+    gr[GitRepository<br/>local]
+    ks[Kustomization<br/>root]
+    rcv[Receiver]
+    sec[Secret<br/>webhook token]
   end
+
+  layer[kustomize/ layer<br/>cni, csi, pki, ...]
 
   repo ==webhook POST==> nc
   nc -.notifies.-> sc
@@ -72,16 +71,15 @@ primary trigger.
 flowchart LR
   repo[(GitOps repo)]
 
-  subgraph cluster[Kubernetes cluster]
-    subgraph fluxsys[flux-system namespace]
-      sc[source-controller]
-      kc[kustomize-controller]
-      hc[helm-controller]
-      gr[GitRepository<br/>local]
-      ks[Kustomization<br/>root]
-    end
-    layer[kustomize/ layer<br/>cni, csi, pki, ...]
+  subgraph fluxsys[flux-system namespace]
+    sc[source-controller]
+    kc[kustomize-controller]
+    hc[helm-controller]
+    gr[GitRepository<br/>local]
+    ks[Kustomization<br/>root]
   end
+
+  layer[kustomize/ layer<br/>cni, csi, pki, ...]
 
   sc -.poll on interval.-> repo
   sc --> gr

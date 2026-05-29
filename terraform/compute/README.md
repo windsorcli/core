@@ -63,11 +63,9 @@ plain `docker` is the Linux engine path.
 flowchart LR
   prov[terraform-provider-hyperv<br/>SSH + PowerShell]
 
-  subgraph hv[Hyper-V on Windows host]
-    subgraph natsw[NAT switch<br/>network.cidr_block]
-      cp[talos-controlplane-1<br/>VM]
-      w[talos-worker-1<br/>VM]
-    end
+  subgraph hv[Hyper-V on Windows host, NAT switch network.cidr_block]
+    cp[talos-controlplane-1<br/>VM]
+    w[talos-worker-1<br/>VM]
     netnat[NetNat<br/>host:6443 → cp:6443]
   end
 
@@ -102,11 +100,9 @@ can reach the apiserver from outside the host.
 flowchart LR
   prov[terraform-provider-incus]
 
-  subgraph host[Linux host]
-    subgraph bridge[LXC bridge<br/>workstation-managed]
-      cp[talos-controlplane-1<br/>KVM VM]
-      w[talos-worker-1<br/>KVM VM]
-    end
+  subgraph host[Linux host, LXC bridge workstation-managed]
+    cp[talos-controlplane-1<br/>KVM VM]
+    w[talos-worker-1<br/>KVM VM]
   end
 
   prov --> host

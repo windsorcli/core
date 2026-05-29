@@ -26,14 +26,12 @@ network, and AWS / Azure have no local workstation concept.
 
 ```mermaid
 flowchart LR
-  subgraph host[Docker host<br/>docker-desktop / colima / linux]
-    subgraph net[Docker bridge<br/>network.cidr_block]
-      dns[CoreDNS<br/>workstation.dns.address]
-      reg1[Registry: gcr-io]
-      reg2[Registry: ghcr-io]
-      reg3[Registry: registry-k8s-io]
-      regN[Registry: ...]
-    end
+  subgraph host[Docker host on Docker bridge network.cidr_block]
+    dns[CoreDNS<br/>workstation.dns.address]
+    reg1[Registry: gcr-io]
+    reg2[Registry: ghcr-io]
+    reg3[Registry: registry-k8s-io]
+    regN[Registry: ...]
   end
 ```
 
@@ -55,13 +53,11 @@ is the Docker Desktop path on macOS or Windows.
 
 ```mermaid
 flowchart LR
-  subgraph host[Linux host]
-    subgraph bridge[LXC bridge]
-      dns[CoreDNS]
-      reg1[Registry: gcr-io]
-      reg2[Registry: ghcr-io]
-      regN[Registry: ...]
-    end
+  subgraph host[Linux host on LXC bridge]
+    dns[CoreDNS]
+    reg1[Registry: gcr-io]
+    reg2[Registry: ghcr-io]
+    regN[Registry: ...]
   end
 ```
 

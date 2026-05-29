@@ -27,32 +27,19 @@ inputs.
 flowchart LR
   internet((Internet))
 
-  subgraph vpc[VPC network.cidr_block]
+  subgraph vpc[VPC network.cidr_block, replicated per AZ]
     igw[Internet Gateway]
+    pub[Public subnet]
+    nat[NAT Gateway<br/>in each public subnet]
+    priv[Private subnet]
     rtPub[Public route table<br/>0.0.0.0/0 → IGW]
-
-    subgraph az1[AZ-1]
-      pub1[Public subnet]
-      nat1[NAT Gateway]
-      priv1[Private subnet]
-      rtPriv1[Private route table<br/>0.0.0.0/0 → NAT-1]
-    end
-
-    subgraph az2[AZ-2]
-      pub2[Public subnet]
-      nat2[NAT Gateway]
-      priv2[Private subnet]
-      rtPriv2[Private route table<br/>0.0.0.0/0 → NAT-2]
-    end
+    rtPriv[Private route table<br/>0.0.0.0/0 → NAT]
   end
 
   internet <--> igw
-  pub1 -.uses.-> rtPub
-  pub2 -.uses.-> rtPub
-  nat1 -.lives in.-> pub1
-  nat2 -.lives in.-> pub2
-  priv1 -.uses.-> rtPriv1
-  priv2 -.uses.-> rtPriv2
+  pub -.uses.-> rtPub
+  priv -.uses.-> rtPriv
+  nat -.lives in.-> pub
 ```
 
 ```yaml
@@ -78,22 +65,16 @@ flowchart LR
   internet((Internet))
 
   subgraph rg[Resource group]
-    subgraph vnet[VNet network.cidr_block]
-      pub[Public subnet]
-      priv[Private subnet]
-      iso[Isolated subnet]
-    end
-
-    natGw[NAT Gateway]
-    natIp[Public IP for NAT]
-    rtPriv[Route table<br/>0.0.0.0/0 → NAT]
+    vnet[VNet network.cidr_block<br/>public + private + isolated subnets]
+    natGw[NAT Gateway<br/>+ public IP]
+    rtPriv[Route table<br/>0.0.0.0/0 → NAT, attached to private subnet]
     pdns[Private DNS zone<br/>linked to VNet]
   end
 
-  internet <--> natIp
-  natIp -.attached to.-> natGw
-  natGw -.attached to.-> priv
-  priv -.uses.-> rtPriv
+  internet <--> natGw
+  natGw -.routes.-> rtPriv
+  rtPriv -.attaches to.-> vnet
+  pdns -.linked to.-> vnet
 ```
 
 ```yaml

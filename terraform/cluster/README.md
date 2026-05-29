@@ -64,11 +64,7 @@ before Flux starts.
 flowchart LR
   subgraph aws[AWS account]
     eks[EKS control plane<br/>managed]
-
-    subgraph priv[VPC private subnets]
-      ng[Node group<br/>EC2 workers]
-    end
-
+    ng[Node group<br/>EC2 workers in VPC private subnets]
     iam[IAM Role<br/>cert-manager DNS-01]
     pi[Pod Identity association]
   end
@@ -106,11 +102,7 @@ survive across cluster destroys.
 flowchart LR
   subgraph azure[Azure resource group]
     aks[AKS control plane<br/>managed]
-
-    subgraph subnet[VNet subnet]
-      np[Node pool<br/>VMs + in-box Cilium]
-    end
-
+    np[Node pool<br/>VMs in VNet subnet, in-box Cilium]
     uami[User-Assigned MI<br/>cert-manager + external-dns]
     fed[Federated credential<br/>via OIDC issuer]
     kv[Key Vault<br/>disk encryption set]

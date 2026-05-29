@@ -30,9 +30,7 @@ flowchart LR
   apply[windsor apply]
 
   subgraph aws[AWS account]
-    subgraph bucket[S3 bucket<br/>versioned + KMS-encrypted + public access blocked]
-      state[(state.tfstate)]
-    end
+    state[(state.tfstate<br/>in versioned S3 bucket<br/>public access blocked)]
     lock[DynamoDB table<br/>terraform-state-lock]
     kms[KMS key<br/>state encryption]
   end
@@ -64,14 +62,14 @@ flowchart LR
 
   subgraph azure[Azure resource group]
     sa[Storage account]
-    subgraph container[Blob container]
-      state[(state.tfstate<br/>+ blob lease)]
-    end
+    container[Blob container]
+    state[(state.tfstate<br/>+ blob lease)]
   end
 
   apply -.acquire lease.-> state
   apply -.read / write.-> state
-  container -.lives in.-> sa
+  state -.in.-> container
+  container -.in.-> sa
 ```
 
 ```yaml
