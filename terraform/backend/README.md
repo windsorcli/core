@@ -20,7 +20,7 @@ stacks (`network`, `cluster`, `dns-zone`) all depend on it.
 
 ```mermaid
 flowchart LR
-  schema[schema.yaml<br/>terraform.backend.type]
+  values[values.yaml<br/>terraform.backend.type]
 
   subgraph s3path[S3]
     tfS3[terraform/backend/s3]
@@ -34,8 +34,8 @@ flowchart LR
 
   state[Remote state<br/>for all stacks]
 
-  schema -->|s3| tfS3
-  schema -->|azurerm| tfAz
+  values -->|s3| tfS3
+  values -->|azurerm| tfAz
   tfS3 --> bucket
   tfAz --> blob
   bucket --> state

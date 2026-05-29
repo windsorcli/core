@@ -21,7 +21,7 @@ adopts the running release so day-2 changes flow through GitOps.
 
 ```mermaid
 flowchart LR
-  schema[schema.yaml<br/>cluster.cni.driver: cilium]
+  values[values.yaml<br/>cluster.cni.driver: cilium]
 
   tfCni[terraform/cni/cilium]
   helm[Helm release<br/>cilium]
@@ -29,7 +29,7 @@ flowchart LR
   flux[Flux helm-controller]
   kCni[kustomize/cni/<br/>HelmRelease cilium]
 
-  schema --> tfCni
+  values --> tfCni
   tfCni -.installs.-> helm
   flux ==adopts==> helm
   kCni --> flux

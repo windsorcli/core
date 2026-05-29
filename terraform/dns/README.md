@@ -20,7 +20,7 @@ independent lifecycle. Tearing down the cluster doesn't drag the zone
 
 ```mermaid
 flowchart LR
-  schema[schema.yaml<br/>dns.public_domain]
+  values[values.yaml<br/>dns.public_domain]
 
   subgraph awspath[AWS]
     tfR53[terraform/dns/zone/route53]
@@ -35,8 +35,8 @@ flowchart LR
   certmgr[cert-manager<br/>ACME ClusterIssuer]
   extdns[external-dns]
 
-  schema -->|aws| tfR53
-  schema -->|azure| tfAz
+  values -->|aws| tfR53
+  values -->|azure| tfAz
   tfR53 --> r53
   tfAz --> azz
   r53 --> certmgr

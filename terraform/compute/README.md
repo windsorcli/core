@@ -21,7 +21,7 @@ reaches the provisioned nodes through the Talos API.
 
 ```mermaid
 flowchart LR
-  schema[schema.yaml<br/>platform]
+  values[values.yaml<br/>platform]
 
   subgraph dockerpath[Docker]
     tfDocker[terraform/compute/docker]
@@ -40,9 +40,9 @@ flowchart LR
 
   cluster[terraform/cluster/talos]
 
-  schema -->|docker| tfDocker
-  schema -->|hyperv| tfHyperv
-  schema -->|incus| tfIncus
+  values -->|docker| tfDocker
+  values -->|hyperv| tfHyperv
+  values -->|incus| tfIncus
   tfDocker --> dockerNodes
   tfHyperv --> hvNodes
   tfIncus --> incNodes

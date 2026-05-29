@@ -18,7 +18,7 @@ both paths.
 
 ```mermaid
 flowchart LR
-  schema[schema.yaml<br/>network.cidr_block]
+  values[values.yaml<br/>network.cidr_block]
 
   subgraph awspath[AWS]
     tfVpc[terraform/network/aws-vpc]
@@ -32,8 +32,8 @@ flowchart LR
 
   cluster[terraform/cluster/aws-eks<br/>terraform/cluster/azure-aks]
 
-  schema -->|aws| tfVpc
-  schema -->|azure| tfVnet
+  values -->|aws| tfVpc
+  values -->|azure| tfVnet
   tfVpc --> vpc
   tfVnet --> vnet
   vpc --> cluster

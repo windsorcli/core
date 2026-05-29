@@ -16,7 +16,7 @@ Setting `cluster.driver` explicitly overrides the platform default.
 
 ```mermaid
 flowchart LR
-  schema[schema.yaml<br/>cluster.driver]
+  values[values.yaml<br/>cluster.driver]
 
   subgraph talospath[Talos]
     tfTalos[terraform/cluster/talos]
@@ -35,9 +35,9 @@ flowchart LR
 
   kubeconfig[kubeconfig.yaml]
 
-  schema -->|talos| tfTalos
-  schema -->|eks| tfEks
-  schema -->|aks| tfAks
+  values -->|talos| tfTalos
+  values -->|eks| tfEks
+  values -->|aks| tfAks
   tfTalos --> tfConfig
   tfTalos --> tfExt
   tfEks --> tfAdd

@@ -21,7 +21,7 @@ relies on the interval poll on the GitRepository.
 
 ```mermaid
 flowchart LR
-  schema[schema.yaml<br/>gitops.mode + repository]
+  values[values.yaml<br/>gitops.mode + repository]
 
   tfGitops[terraform/gitops/flux]
   flux[Flux controllers<br/>+ CRDs]
@@ -29,7 +29,7 @@ flowchart LR
 
   kustomize[kustomize/ layer<br/>cni, csi, pki, ...]
 
-  schema --> tfGitops
+  values --> tfGitops
   tfGitops --> flux
   tfGitops --> root
   root ==reconciles==> kustomize

@@ -20,7 +20,7 @@ platform.
 
 ```mermaid
 flowchart LR
-  schema[schema.yaml<br/>platform + workstation.runtime]
+  values[values.yaml<br/>platform + workstation.runtime]
 
   subgraph dockerpath[Docker]
     tfDocker[terraform/workstation/docker]
@@ -34,8 +34,8 @@ flowchart LR
 
   compute[terraform/compute/*]
 
-  schema -->|docker| tfDocker
-  schema -->|incus| tfIncus
+  values -->|docker| tfDocker
+  values -->|incus| tfIncus
   tfDocker --> dockerNet
   tfIncus --> incusBr
   dockerNet --> compute
