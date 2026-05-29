@@ -5,16 +5,17 @@ description: Out-of-band Cilium bootstrap for Talos clusters before Flux.
 
 # CNI
 
-One driver: `cilium`. Runs only when `cluster.driver: talos` and
-`cluster.cni.driver: cilium`. Managed clusters bring their own CNI
-(VPC CNI on EKS, in-box Cilium on AKS), so this category does not run
-for them. Talos with the default `flannel` driver also skips it.
+The cni category has one driver, `cilium`, which only runs when
+`cluster.driver: talos` and `cluster.cni.driver: cilium`. Managed
+clusters bring their own CNI (VPC CNI on EKS, in-box Cilium on AKS),
+so this category doesn't run for them. Talos with the default
+`flannel` driver also skips it.
 
-The module exists because Talos starts with `kubeProxyReplacement: true`
-and no built-in CNI when Cilium is chosen — Flux can't reconcile until
-Pods can network. This module installs Cilium directly via Helm against
-the Talos API, then `kustomize/cni/` adopts the running release so day-2
-changes flow through GitOps.
+The module exists because Talos starts with `kubeProxyReplacement:
+true` and no built-in CNI when Cilium is chosen, and Flux can't
+reconcile until Pods can network. So this module installs Cilium
+directly via Helm against the Talos API, and `kustomize/cni/` then
+adopts the running release so day-2 changes flow through GitOps.
 
 ## Architecture
 
@@ -48,27 +49,28 @@ cluster:
     driver: cilium
 ```
 
-No `cilium` block exists at the schema level; the only knob is the
-driver selector. Tunables (operator replica count, Hubble settings,
-LBIPAM ranges) flow through the `kustomize/cni/` substitutions, not
-through this module.
+There's no `cilium` block at the schema level; the only knob is the
+driver selector. The tunables (operator replica count, Hubble
+settings, LBIPAM ranges) flow through the `kustomize/cni/`
+substitutions rather than through this module.
 
 ## Operations
 
-- **Module runs but Cilium pods crash on Talos** — the `cilium/talos`
-  kustomize component (capabilities patch) hasn't been applied. The
-  terraform module only installs the base release; Talos-specific
-  patches live in `kustomize/cni/cilium/talos/`.
-- **`windsor apply` flaps Cilium replica counts** — the Terraform-
-  installed release and the Flux-adopted HelmRelease compute
-  `operator_replicas` from different sources. Both must derive from
-  `topology`.
-- **Skipping cilium on Talos** — leaving `cluster.cni.driver` unset (or
-  `flannel`) bypasses this module entirely. Flannel is the Talos
-  built-in and needs no bootstrap.
+If the module runs but Cilium pods crash on Talos, the `cilium/talos`
+kustomize component (the capabilities patch) hasn't been applied yet.
+The terraform module only installs the base release; Talos-specific
+patches live in `kustomize/cni/cilium/talos/`.
+
+If `windsor apply` flaps Cilium replica counts, the
+Terraform-installed release and the Flux-adopted HelmRelease are
+computing `operator_replicas` from different sources. Both have to
+derive from `topology`.
+
+Leaving `cluster.cni.driver` unset (or `flannel`) skips this module
+entirely. Flannel is the Talos built-in and needs no bootstrap.
 
 ## See also
 
-- [cilium/](cilium/) — per-module Terraform reference.
-- [../../kustomize/cni/](../../kustomize/cni/) — the adopting HelmRelease and full operational guide for Cilium (substitutions, components, dependencies).
-- [../cluster/](../cluster/) — the cluster module that produces the kubeconfig this bootstrap uses.
+- [cilium/](cilium/) for the per-module Terraform reference.
+- [../../kustomize/cni/](../../kustomize/cni/) for the adopting HelmRelease and the full operational guide for Cilium (substitutions, components, dependencies).
+- [../cluster/](../cluster/) for the cluster module that produces the kubeconfig this bootstrap uses.

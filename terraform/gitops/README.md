@@ -1,20 +1,21 @@
 ---
 title: GitOps
-description: Flux installation that hands reconciliation to the kustomize/ layer.
+description: Flux installation that hands reconciliation to the kustomize layer.
 ---
 
 # GitOps
 
-One driver: `flux`. Runs after `cluster` on every platform. Installs
-Flux's CRDs and controllers, then stamps a root `GitRepository` and
-`Kustomization` that point at the context's GitOps repo. From that
-point on, Flux self-manages and the kustomize/ layer drives every
-day-2 change.
+The gitops category has one module, `flux`, which runs after the cluster
+module on every platform. It installs the Flux CRDs and controllers and
+then creates a root `GitRepository` plus root `Kustomization` pointing at
+the context's GitOps repo. Once those exist, Flux watches the repo and
+reconciles whatever's under `kustomize/`. The terraform module itself
+doesn't have much to do on subsequent applies.
 
-`gitops.mode` picks how Flux learns about repo changes: `push` (the
-default) wires a Flux Receiver so webhook POSTs trigger immediate
-reconciliation; `pull` falls back to interval polling without a
-Receiver.
+`gitops.mode` controls how Flux learns about new commits. The default
+is `push`, which creates a Flux Receiver so a webhook POST from the repo
+triggers reconciliation immediately. `pull` mode skips the Receiver and
+relies on the interval poll on the GitRepository.
 
 ## Architecture
 
@@ -34,10 +35,11 @@ flowchart LR
   root ==reconciles==> kustomize
 ```
 
-After bootstrap, this module is mostly inert. Flux watches the
-GitRepository (or the Receiver in push mode), notices new commits, and
-reconciles the kustomize/ layer. Subsequent `windsor apply` runs that
-don't change anything in this module just confirm Flux is still healthy.
+After the initial install, this module is mostly inert. Flux watches
+the GitRepository (or the Receiver in push mode), notices new commits,
+and reconciles the kustomize layer. A subsequent `windsor apply` that
+doesn't change anything in this module just confirms Flux is still
+healthy.
 
 ## Recipes
 
@@ -52,10 +54,11 @@ gitops:
     token: ${env.FLUX_WEBHOOK_TOKEN}    # set in production
 ```
 
-A Flux Receiver Secret is created with `webhook.token`. The repo's
-webhook configuration posts to the Receiver URL on push, and Flux
-reconciles immediately. Intervals on the GitRepository act as a
-safety-net poll only.
+A Flux Receiver Secret is created with the value of `webhook.token`.
+The repo's webhook configuration posts to the Receiver URL on every
+push, and Flux reconciles immediately. The intervals on the
+GitRepository still apply, but they're acting as a safety-net poll
+rather than the primary trigger.
 
 ### Pull mode
 
@@ -67,31 +70,34 @@ gitops:
 ```
 
 No Receiver is created. Flux polls the GitRepository at its configured
-interval. Use this when webhooks aren't an option (private clusters
-without inbound HTTP, source-of-truth repos with no webhook support).
+interval and reconciles when the commit hash changes. Use this when
+webhooks aren't an option, for example on private clusters with no
+inbound HTTP, or on source-of-truth repos that don't support webhooks.
 
 ## Operations
 
-- **Push-mode reconciliation doesn't fire on push** — the Receiver
-  Secret token must match the token the repo's webhook is signing
-  with. Verify both sides; rotate `gitops.webhook.token` if the
-  workstation default leaked into production.
-- **Flux controllers stuck CrashLoopBackOff after install** — usually
-  pod networking isn't up. On Talos+Cilium, the `cni/cilium` bootstrap
-  step must complete before this module runs (the stack ordering
-  enforces this in `platform-*` facets).
-- **Root Kustomization perpetually NotReady** — the GitOps repo doesn't
-  contain the expected path, or the repo URL/branch doesn't match
-  what the module configured. `flux get sources git` shows the active
-  GitRepository state; `flux get kustomizations` shows the
-  reconciliation status.
-- **Webhook token leaked from workstation defaults** — workstation mode
-  uses a placeholder token. Production clusters must set
-  `gitops.webhook.token` explicitly and ensure the value comes from a
-  secret store, not the values file.
+If push-mode reconciliation doesn't fire on a push, the Receiver
+Secret token has to match the token the repo's webhook is signing
+with. Check both sides. The workstation default value is a placeholder
+and should be rotated if it ever leaked into production.
+
+Flux controllers stuck in CrashLoopBackOff after install almost always
+mean pod networking isn't up. On Talos + Cilium, the `cni/cilium`
+bootstrap step has to complete before this module runs, which the
+stack ordering in the `platform-*` facets enforces.
+
+A root Kustomization stuck in NotReady usually means the GitOps repo
+doesn't contain the path the module configured, or the URL or branch
+is wrong. `flux get sources git` shows the active GitRepository state,
+and `flux get kustomizations` shows the reconciliation status.
+
+The webhook token in workstation mode is a known placeholder.
+Production clusters need to set `gitops.webhook.token` explicitly and
+pull the value from a secret store rather than checking it into the
+values file.
 
 ## See also
 
-- [flux/](flux/) — per-module Terraform reference.
-- [../cluster/](../cluster/) — produces the kubeconfig this module installs into.
-- [../../kustomize/](../../kustomize/) — the layer Flux reconciles from this point forward.
+- [flux/](flux/) for the per-module Terraform reference.
+- [../cluster/](../cluster/) for the cluster module that produces the kubeconfig used here.
+- [../../kustomize/](../../kustomize/) for the layer Flux reconciles once the install completes.

@@ -5,14 +5,16 @@ description: Remote Terraform state for cloud contexts (S3, AzureRM).
 
 # Backend
 
-Two drivers provision remote Terraform state infrastructure: `s3` (AWS S3
-bucket + DynamoDB lock) and `azurerm` (Azure Storage Account + Blob with
-native lease). Selection is by `terraform.backend.type`. The `local`,
-`kubernetes`, and `none` backend types do not run a Terraform module —
-they are consumed directly by Terraform without provisioning anything.
+The backend category has two drivers. `s3` provisions an AWS S3
+bucket along with a DynamoDB table for state locking. `azurerm`
+provisions an Azure Storage Account and a Blob container, using
+Azure's native blob lease for locking. The driver is selected by
+`terraform.backend.type`. The `local`, `kubernetes`, and `none`
+backend types don't run a Terraform module; they're consumed directly
+by Terraform without provisioning anything.
 
-The backend stack runs first in every cloud context; downstream stacks
-(`network`, `cluster`, `dns-zone`) all depend on it.
+The backend stack runs first in every cloud context. The downstream
+stacks (`network`, `cluster`, `dns-zone`) all depend on it.
 
 ## Architecture
 
@@ -40,10 +42,10 @@ flowchart LR
   blob --> state
 ```
 
-The bootstrap pass runs each backend module with a **local** state file,
-provisioning the bucket / Storage Account. Subsequent `windsor apply`
-calls then read and write state through the remote backend and hold the
-lock for the duration of the run.
+The bootstrap pass runs each backend module with a local state file,
+which provisions the bucket or Storage Account. Subsequent
+`windsor apply` calls then read and write state through the remote
+backend and hold the lock for the duration of the run.
 
 ## Recipes
 
@@ -56,10 +58,11 @@ terraform:
     type: s3
 ```
 
-Provisions an S3 bucket with versioning and server-side encryption, plus
-a DynamoDB table for state locking. The bucket name and table name
-derive from the context `id` (top-level), keeping state for different
-contexts in distinct paths within the same account.
+The module provisions an S3 bucket with versioning and server-side
+encryption, along with a DynamoDB table for state locking. The bucket
+name and table name derive from the context `id` (top-level), which
+keeps state for different contexts in distinct paths within the same
+account.
 
 ### Azure / AzureRM
 
@@ -70,8 +73,9 @@ terraform:
     type: azurerm
 ```
 
-Provisions a Storage Account and Blob container. Locking uses Azure's
-native blob lease so there is no separate lock table to manage.
+The module provisions a Storage Account and Blob container. Locking
+uses Azure's native blob lease, so there's no separate lock table to
+manage.
 
 ### Local (no backend module)
 
@@ -82,41 +86,49 @@ terraform:
     type: local
 ```
 
-No backend module runs. Terraform state lives next to each stack in the
-context's local state directory. Appropriate for single-operator dev
-clusters and CI runs that don't need to share state across machines.
+No backend module runs. Terraform state lives next to each stack in
+the context's local state directory. This is the right choice for
+single-operator dev clusters and CI runs that don't need to share
+state across machines.
 
 ## Operations
 
-- **Bootstrap chicken-and-egg** — the bucket has to exist before
-  Terraform can use it for state. The s3 / azurerm modules solve this
-  by running with a local backend on the first apply, then handing the
-  state location over to the remote backend for subsequent runs.
-- **State lock held by a dead run** — a crashed `windsor apply` leaves
-  the lock in place. On AWS, delete the row from the DynamoDB lock
-  table; on Azure, release the lease on the state blob. Audit the
-  state first; the lock exists for a reason.
-- **Backend type changed mid-context** — switching `terraform.backend.type`
-  on a context that already has remote state requires manual migration
-  (`terraform init -migrate-state`). Windsor does not auto-migrate.
-- **`type: none` chosen accidentally** — disables backend configuration
-  entirely. Terraform writes state to the default in-memory location,
-  which means no persistence across runs. Reserved for ephemeral test
-  contexts.
+The bootstrap is a chicken-and-egg situation: the bucket has to exist
+before Terraform can use it for state. The `s3` and `azurerm` modules
+solve this by running with a local backend on the first apply, then
+handing the state location over to the remote backend for subsequent
+runs.
+
+A state lock held by a dead run won't release on its own. A crashed
+`windsor apply` leaves the lock in place. On AWS, delete the row from
+the DynamoDB lock table; on Azure, release the lease on the state
+blob. Audit the state first, because the lock exists for a reason.
+
+Switching `terraform.backend.type` on a context that already has
+remote state requires manual migration via
+`terraform init -migrate-state`. Windsor doesn't auto-migrate.
+
+`type: none` disables backend configuration entirely. Terraform then
+writes state to the default in-memory location, which means no
+persistence across runs. This is reserved for ephemeral test
+contexts.
 
 ## Security
 
-- The s3 module enables versioning and SSE on the bucket. Versioning
-  also doubles as a poor-man's audit trail for state writes.
-- The azurerm module uses blob leases for locking; the lease ID is
-  scoped to the Storage Account credential and not visible from outside.
-- Neither module makes the state object public. Bucket ACLs (S3) and
-  Storage Account network rules (Azure) follow account defaults and
-  should be tightened to private subnets / service endpoints in
-  production.
+The `s3` module enables versioning and SSE on the bucket. Versioning
+also doubles as a poor-man's audit trail for state writes.
+
+The `azurerm` module uses blob leases for locking. The lease ID is
+scoped to the Storage Account credential and isn't visible from
+outside.
+
+Neither module makes the state object public. Bucket ACLs on S3 and
+Storage Account network rules on Azure follow account defaults, and
+should be tightened to private subnets or service endpoints in
+production.
 
 ## See also
 
-- [s3/](s3/), [azurerm/](azurerm/) — per-driver Terraform reference.
-- [Terraform backend docs](https://developer.hashicorp.com/terraform/language/backend) — upstream backend reference.
-- [../cluster/](../cluster/), [../network/](../network/) — downstream stacks that read state from the backend.
+- [s3/](s3/) and [azurerm/](azurerm/) for the per-driver Terraform reference.
+- [Terraform backend docs](https://developer.hashicorp.com/terraform/language/backend) for the upstream backend reference.
+- [../cluster/](../cluster/) and [../network/](../network/) for the downstream stacks that read state from the backend.
