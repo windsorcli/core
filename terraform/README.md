@@ -33,6 +33,7 @@ layer. Links from there land here.
 | [dns/zone/azure-dns](dns/zone/azure-dns/) | DNS zone on Azure DNS. |
 | [dns/zone/route53](dns/zone/route53/) | Public DNS zone on AWS Route53. |
 | [gitops/flux](gitops/flux/) | Flux installation; hands reconciliation to the kustomize/ layer. |
+| [network](network/) | Cloud network fabric for managed Kubernetes clusters. |
 | [network/aws-vpc](network/aws-vpc/) | VPC + public/private subnets + NAT for EKS. |
 | [network/azure-vnet](network/azure-vnet/) | VNet + subnets for AKS. |
 | [workstation/docker](workstation/docker/) | Local-host Docker network + registry. |
