@@ -20,30 +20,25 @@ flowchart LR
 
   subgraph talospath[Talos]
     tfTalos[terraform/cluster/talos]
-    tfConfig[terraform/cluster/talos/config]
-    tfExt[terraform/cluster/talos/extensions]
+    talosCp[Talos control plane<br/>+ kubeconfig]
   end
 
   subgraph ekspath[EKS]
     tfEks[terraform/cluster/aws-eks]
-    tfAdd[terraform/cluster/aws-eks/additions]
+    eksCluster[EKS cluster<br/>+ managed node groups<br/>+ kubeconfig]
   end
 
   subgraph akspath[AKS]
     tfAks[terraform/cluster/azure-aks]
+    aksCluster[AKS cluster<br/>+ node pools<br/>+ kubeconfig]
   end
-
-  kubeconfig[kubeconfig.yaml]
 
   values -->|talos| tfTalos
   values -->|eks| tfEks
   values -->|aks| tfAks
-  tfTalos --> tfConfig
-  tfTalos --> tfExt
-  tfEks --> tfAdd
-  tfTalos --> kubeconfig
-  tfEks --> kubeconfig
-  tfAks --> kubeconfig
+  tfTalos --> talosCp
+  tfEks --> eksCluster
+  tfAks --> aksCluster
 ```
 
 Every driver ends up writing a working kubeconfig. The kustomize layer

@@ -32,14 +32,10 @@ flowchart LR
     incusBr[LXC bridge<br/>+ registry]
   end
 
-  compute[terraform/compute/*]
-
   values -->|docker| tfDocker
   values -->|incus| tfIncus
   tfDocker --> dockerNet
   tfIncus --> incusBr
-  dockerNet --> compute
-  incusBr --> compute
 ```
 
 Hyper-V, bare metal (`platform: metal`), and managed clouds don't use

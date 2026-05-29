@@ -30,14 +30,10 @@ flowchart LR
     vnet[VNet + subnets]
   end
 
-  cluster[terraform/cluster/aws-eks<br/>terraform/cluster/azure-aks]
-
   values -->|aws| tfVpc
   values -->|azure| tfVnet
   tfVpc --> vpc
   tfVnet --> vnet
-  vpc --> cluster
-  vnet --> cluster
 ```
 
 The network module runs after `backend` and before `cluster`. The

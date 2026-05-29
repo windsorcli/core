@@ -38,17 +38,12 @@ flowchart LR
     incNodes[Talos VMs]
   end
 
-  cluster[terraform/cluster/talos]
-
   values -->|docker| tfDocker
   values -->|hyperv| tfHyperv
   values -->|incus| tfIncus
   tfDocker --> dockerNodes
   tfHyperv --> hvNodes
   tfIncus --> incNodes
-  dockerNodes --> cluster
-  hvNodes --> cluster
-  incNodes --> cluster
 ```
 
 Node sizing (count, CPU, memory, disks) comes from
