@@ -114,10 +114,11 @@ Switching `terraform.backend.type` on a context that already has
 remote state requires manual migration via
 `terraform init -migrate-state`. Windsor doesn't auto-migrate.
 
-`type: none` disables backend configuration entirely. Terraform then
-writes state to the default in-memory location, which means no
-persistence across runs. This is reserved for ephemeral test
-contexts.
+`type: none` suppresses backend block emission. Terraform then falls
+back to its built-in local backend and writes `terraform.tfstate` to
+the working directory. State is on disk but not centralized or
+locked, which is fine for ephemeral test contexts and inappropriate
+for anything shared across machines.
 
 ## Security
 
