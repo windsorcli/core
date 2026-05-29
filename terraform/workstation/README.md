@@ -6,46 +6,36 @@ description: Local-host networking, registry, and DNS for developer clusters.
 # Workstation
 
 The workstation category has two drivers that provision the host-side
-substrate for local clusters. `docker` creates a Docker network and
-an optional local OCI registry. `incus` creates an LXC bridge and an
-optional registry. The driver is selected by `platform`. The
-workstation pass runs before `compute`, so the compute drivers have a
-network to attach Talos nodes to.
+substrate for local clusters. `docker` creates a Docker network with
+a CoreDNS resolver and a set of local OCI registry containers.
+`incus` creates an LXC bridge with the same companions. The driver
+is selected by `platform`. The workstation pass runs before
+`compute`, so the compute drivers have a network to attach Talos
+nodes to.
 
 `workstation.runtime` is the switch that turns the workstation stack
 on. With it unset, no workstation module runs even on a local
-platform.
-
-## Architecture
-
-```mermaid
-flowchart LR
-  values[values.yaml<br/>platform + workstation.runtime]
-
-  subgraph dockerpath[Docker]
-    tfDocker[terraform/workstation/docker]
-    dockerNet[Docker network<br/>+ registry]
-  end
-
-  subgraph incuspath[Incus]
-    tfIncus[terraform/workstation/incus]
-    incusBr[LXC bridge<br/>+ registry]
-  end
-
-  values -->|docker| tfDocker
-  values -->|incus| tfIncus
-  tfDocker --> dockerNet
-  tfIncus --> incusBr
-```
-
-Hyper-V, bare metal (`platform: metal`), and managed clouds don't use
-the workstation layer. Hyper-V manages its NetNat inside the compute
-module, `metal` expects an existing network, and AWS and Azure have
-no local workstation concept.
+platform. Hyper-V, bare metal (`platform: metal`), and managed
+clouds don't use the workstation layer either: Hyper-V manages its
+NetNat inside the compute module, `metal` expects an existing
+network, and AWS / Azure have no local workstation concept.
 
 ## Recipes
 
 ### Docker (macOS or Linux dev)
+
+```mermaid
+flowchart LR
+  subgraph host[Docker host<br/>docker-desktop / colima / linux]
+    subgraph net[Docker bridge<br/>network.cidr_block]
+      dns[CoreDNS<br/>workstation.dns.address]
+      reg1[Registry: gcr-io]
+      reg2[Registry: ghcr-io]
+      reg3[Registry: registry-k8s-io]
+      regN[Registry: ...]
+    end
+  end
+```
 
 ```yaml
 platform: docker
@@ -55,13 +45,25 @@ workstation:
 ```
 
 The module provisions a Docker bridge network sized from
-`network.cidr_block` and (optionally) a local registry that the
-`compute/docker` step then attaches Talos containers to.
-`workstation.runtime: colima` is the lighter macOS path, plain
-`docker` is the Linux engine path, and `docker-desktop` is the Docker
-Desktop path on macOS or Windows.
+`network.cidr_block`, a CoreDNS container that resolves the local
+registry hostnames, and one container per upstream registry the
+context mirrors. `workstation.runtime: colima` is the lighter macOS
+path, plain `docker` is the Linux engine path, and `docker-desktop`
+is the Docker Desktop path on macOS or Windows.
 
 ### Incus (Linux host)
+
+```mermaid
+flowchart LR
+  subgraph host[Linux host]
+    subgraph bridge[LXC bridge]
+      dns[CoreDNS]
+      reg1[Registry: gcr-io]
+      reg2[Registry: ghcr-io]
+      regN[Registry: ...]
+    end
+  end
+```
 
 ```yaml
 platform: incus
@@ -70,11 +72,11 @@ workstation:
   arch: amd64
 ```
 
-The module provisions an Incus LXC bridge and (optionally) a local
-registry. The registry is delivered through the runtime named in
-`workstation.runtime`, which on Incus contexts only controls where
-the registry container lives, not the cluster VM host. The cluster
-VMs are always Incus instances.
+The module provisions an Incus LXC bridge and the same CoreDNS plus
+registry containers. The registry container runtime is whatever
+`workstation.runtime` names; on Incus contexts that selector controls
+where the registry containers live, not the cluster VM host. The
+cluster VMs are always Incus instances.
 
 ## Operations
 

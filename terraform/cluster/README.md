@@ -12,42 +12,29 @@ Azure cluster. The selector is `cluster.driver`, which defaults from
 `platform` (aws picks eks, azure picks aks, anything else picks talos).
 Setting `cluster.driver` explicitly overrides the platform default.
 
-## Architecture
-
-```mermaid
-flowchart LR
-  values[values.yaml<br/>cluster.driver]
-
-  subgraph talospath[Talos]
-    tfTalos[terraform/cluster/talos]
-    talosCp[Talos control plane<br/>+ kubeconfig]
-  end
-
-  subgraph ekspath[EKS]
-    tfEks[terraform/cluster/aws-eks]
-    eksCluster[EKS cluster<br/>+ managed node groups<br/>+ kubeconfig]
-  end
-
-  subgraph akspath[AKS]
-    tfAks[terraform/cluster/azure-aks]
-    aksCluster[AKS cluster<br/>+ node pools<br/>+ kubeconfig]
-  end
-
-  values -->|talos| tfTalos
-  values -->|eks| tfEks
-  values -->|aks| tfAks
-  tfTalos --> talosCp
-  tfEks --> eksCluster
-  tfAks --> aksCluster
-```
-
-Every driver ends up writing a working kubeconfig. The kustomize layer
-then adopts the cluster and brings up CNI, CSI, gateway, PKI, and DNS,
-after which Flux drives reconciliation from the repo.
+Every driver writes out a working kubeconfig. The kustomize layer then
+adopts the cluster and brings up CNI, CSI, gateway, PKI, and DNS, and
+Flux drives reconciliation from the repo afterwards.
 
 ## Recipes
 
 ### Talos (self-hosted)
+
+```mermaid
+flowchart LR
+  cfg[Machine config<br/>+ Talos secrets]
+
+  subgraph cluster[Kubernetes cluster]
+    cp[controlplane-N<br/>etcd + apiserver]
+    w[worker-N<br/>kubelet]
+  end
+
+  kc[kubeconfig.yaml]
+
+  cfg -.applies to.-> cp
+  cfg -.applies to.-> w
+  cp --> kc
+```
 
 ```yaml
 platform: metal     # or hyperv, incus, docker
@@ -73,6 +60,27 @@ before Flux starts.
 
 ### EKS (managed AWS)
 
+```mermaid
+flowchart LR
+  subgraph aws[AWS account]
+    eks[EKS control plane<br/>managed]
+
+    subgraph priv[VPC private subnets]
+      ng[Node group<br/>EC2 workers]
+    end
+
+    iam[IAM Role<br/>cert-manager DNS-01]
+    pi[Pod Identity association]
+  end
+
+  kc[kubeconfig.yaml]
+
+  eks --> ng
+  eks --> kc
+  pi -.binds.-> iam
+  pi -.serves.-> ng
+```
+
 ```yaml
 platform: aws
 cluster:
@@ -86,11 +94,36 @@ cluster:
 
 EKS pulls networking from `terraform/network/aws-vpc` and provisions
 managed node groups from `cluster.pools`. `cluster.workers` is ignored
-on elastic providers, so use `pools` instead. The
-`cluster/aws-eks/additions` module installs IAM entries that survive
-across cluster destroys.
+on elastic providers, so use `pools` instead. The IAM role and Pod
+Identity association are created when `dns.public_domain` is set; the
+role is scoped to the Route53 zone provisioned by `dns/zone/route53`.
+The `cluster/aws-eks/additions` module installs IAM entries that
+survive across cluster destroys.
 
 ### AKS (managed Azure)
+
+```mermaid
+flowchart LR
+  subgraph azure[Azure resource group]
+    aks[AKS control plane<br/>managed]
+
+    subgraph subnet[VNet subnet]
+      np[Node pool<br/>VMs + in-box Cilium]
+    end
+
+    uami[User-Assigned MI<br/>cert-manager + external-dns]
+    fed[Federated credential<br/>via OIDC issuer]
+    kv[Key Vault<br/>disk encryption set]
+  end
+
+  kc[kubeconfig.yaml]
+
+  aks --> np
+  aks --> kc
+  fed -.binds.-> uami
+  fed -.serves.-> np
+  np -.encrypts disks via.-> kv
+```
 
 ```yaml
 platform: azure
@@ -103,9 +136,12 @@ cluster:
 ```
 
 AKS pulls networking from `terraform/network/azure-vnet`. Cilium is
-the in-box CNI here, so `cluster.cni` isn't exercised. When
-`dns.public_domain` is set, Workload Identity gets wired for
-cert-manager and external-dns.
+the in-box CNI here, so `cluster.cni` isn't exercised. Workload
+Identity (User-Assigned Managed Identity plus a federated credential
+through the AKS OIDC issuer) is wired for cert-manager and
+external-dns when `dns.public_domain` is set. Node-pool disks are
+encrypted by a Disk Encryption Set keyed from a per-cluster Key
+Vault.
 
 ## Operations
 

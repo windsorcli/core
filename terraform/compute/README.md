@@ -15,44 +15,26 @@ provision their own nodes, and `metal` expects nodes that already
 exist.
 
 Compute always runs before the `cluster/talos` module, which then
-reaches the provisioned nodes through the Talos API.
-
-## Architecture
-
-```mermaid
-flowchart LR
-  values[values.yaml<br/>platform]
-
-  subgraph dockerpath[Docker]
-    tfDocker[terraform/compute/docker]
-    dockerNodes[Talos containers]
-  end
-
-  subgraph hyperv[Hyper-V]
-    tfHyperv[terraform/compute/hyperv]
-    hvNodes[Talos VMs]
-  end
-
-  subgraph incus[Incus]
-    tfIncus[terraform/compute/incus]
-    incNodes[Talos VMs]
-  end
-
-  values -->|docker| tfDocker
-  values -->|hyperv| tfHyperv
-  values -->|incus| tfIncus
-  tfDocker --> dockerNodes
-  tfHyperv --> hvNodes
-  tfIncus --> incNodes
-```
-
-Node sizing (count, CPU, memory, disks) comes from
-`cluster.controlplanes` and `cluster.workers` and is the same across
-all three drivers.
+reaches the provisioned nodes through the Talos API. Node sizing
+(count, CPU, memory, disks) comes from `cluster.controlplanes` and
+`cluster.workers` and is the same across all three drivers.
 
 ## Recipes
 
 ### Docker (macOS or Linux dev)
+
+```mermaid
+flowchart LR
+  socket[Docker socket<br/>docker-desktop / colima / linux]
+
+  subgraph bridge[Docker bridge<br/>workstation-managed]
+    cp[talos-controlplane-1<br/>container]
+    w[talos-worker-1<br/>container]
+  end
+
+  socket --> cp
+  socket --> w
+```
 
 ```yaml
 platform: docker
@@ -69,12 +51,29 @@ topology: single-node
 ```
 
 The module provisions Talos containers against the local Docker
-socket. `workstation.runtime: docker-desktop` is the macOS path and
+socket. They attach to the bridge network that the workstation step
+created. `workstation.runtime: docker-desktop` is the macOS path and
 forces flannel CNI, because Cilium has no working transport over the
 desktop loopback. `colima` is the lighter macOS alternative, and
 plain `docker` is the Linux engine path.
 
 ### Hyper-V (Windows host)
+
+```mermaid
+flowchart LR
+  prov[terraform-provider-hyperv<br/>SSH + PowerShell]
+
+  subgraph hv[Hyper-V on Windows host]
+    subgraph natsw[NAT switch<br/>network.cidr_block]
+      cp[talos-controlplane-1<br/>VM]
+      w[talos-worker-1<br/>VM]
+    end
+    netnat[NetNat<br/>host:6443 → cp:6443]
+  end
+
+  prov --> hv
+  netnat -.forwards.-> cp
+```
 
 ```yaml
 platform: hyperv
@@ -92,11 +91,26 @@ cluster:
 
 The module provisions Talos VMs on a Windows host running Hyper-V
 (Pro, Enterprise, or Server). It reaches the host over SSH using the
-credentials in the context's `environment:` block. `cluster.endpoint`
-is the bench address that hairpins through the Hyper-V NAT back to
-the control plane.
+credentials in the context's `environment:` block. The VMs live on a
+NAT switch (private to the host) and a Windows NetNat rule forwards
+the host's port 6443 to the control plane VM, so `cluster.endpoint`
+can reach the apiserver from outside the host.
 
 ### Incus (Linux host)
+
+```mermaid
+flowchart LR
+  prov[terraform-provider-incus]
+
+  subgraph host[Linux host]
+    subgraph bridge[LXC bridge<br/>workstation-managed]
+      cp[talos-controlplane-1<br/>KVM VM]
+      w[talos-worker-1<br/>KVM VM]
+    end
+  end
+
+  prov --> host
+```
 
 ```yaml
 platform: incus

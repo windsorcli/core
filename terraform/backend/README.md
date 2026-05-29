@@ -16,32 +16,6 @@ by Terraform without provisioning anything.
 The backend stack runs first in every cloud context. The downstream
 stacks (`network`, `cluster`, `dns-zone`) all depend on it.
 
-## Architecture
-
-```mermaid
-flowchart LR
-  values[values.yaml<br/>terraform.backend.type]
-
-  subgraph s3path[S3]
-    tfS3[terraform/backend/s3]
-    bucket[S3 bucket<br/>+ DynamoDB lock]
-  end
-
-  subgraph azpath[AzureRM]
-    tfAz[terraform/backend/azurerm]
-    blob[Storage Account<br/>+ Blob container]
-  end
-
-  state[Remote state<br/>for all stacks]
-
-  values -->|s3| tfS3
-  values -->|azurerm| tfAz
-  tfS3 --> bucket
-  tfAz --> blob
-  bucket --> state
-  blob --> state
-```
-
 The bootstrap pass runs each backend module with a local state file,
 which provisions the bucket or Storage Account. Subsequent
 `windsor apply` calls then read and write state through the remote
@@ -51,6 +25,23 @@ backend and hold the lock for the duration of the run.
 
 ### AWS / S3
 
+```mermaid
+flowchart LR
+  apply[windsor apply]
+
+  subgraph aws[AWS account]
+    subgraph bucket[S3 bucket<br/>versioned + KMS-encrypted + public access blocked]
+      state[(state.tfstate)]
+    end
+    lock[DynamoDB table<br/>terraform-state-lock]
+    kms[KMS key<br/>state encryption]
+  end
+
+  apply -.acquire lock.-> lock
+  apply -.read / write.-> state
+  state -.encrypted by.-> kms
+```
+
 ```yaml
 platform: aws
 terraform:
@@ -58,13 +49,30 @@ terraform:
     type: s3
 ```
 
-The module provisions an S3 bucket with versioning and server-side
-encryption, along with a DynamoDB table for state locking. The bucket
-name and table name derive from the context `id` (top-level), which
-keeps state for different contexts in distinct paths within the same
-account.
+The module provisions an S3 bucket with versioning, server-side
+encryption via a managed KMS key, lifecycle rules, and a public
+access block. Locking goes through a DynamoDB table named for the
+context. The bucket name and table name both derive from the context
+`id` (top-level), which keeps state for different contexts in
+distinct paths within the same account.
 
 ### Azure / AzureRM
+
+```mermaid
+flowchart LR
+  apply[windsor apply]
+
+  subgraph azure[Azure resource group]
+    sa[Storage account]
+    subgraph container[Blob container]
+      state[(state.tfstate<br/>+ blob lease)]
+    end
+  end
+
+  apply -.acquire lease.-> state
+  apply -.read / write.-> state
+  container -.lives in.-> sa
+```
 
 ```yaml
 platform: azure
@@ -73,9 +81,9 @@ terraform:
     type: azurerm
 ```
 
-The module provisions a Storage Account and Blob container. Locking
-uses Azure's native blob lease, so there's no separate lock table to
-manage.
+The module provisions a Storage Account and a Blob container. Locking
+uses the native blob lease on the state object itself, so there's no
+separate lock table to manage.
 
 ### Local (no backend module)
 
@@ -115,16 +123,17 @@ contexts.
 
 ## Security
 
-The `s3` module enables versioning and SSE on the bucket. Versioning
-also doubles as a poor-man's audit trail for state writes.
+The `s3` module enables versioning, server-side KMS encryption, and a
+public access block on the bucket. Versioning doubles as a poor-man's
+audit trail for state writes.
 
 The `azurerm` module uses blob leases for locking. The lease ID is
 scoped to the Storage Account credential and isn't visible from
 outside.
 
-Neither module makes the state object public. Bucket ACLs on S3 and
-Storage Account network rules on Azure follow account defaults, and
-should be tightened to private subnets or service endpoints in
+Neither module makes the state object public. Bucket policies on S3
+and Storage Account network rules on Azure follow account defaults
+and should be tightened to private subnets or service endpoints in
 production.
 
 ## See also

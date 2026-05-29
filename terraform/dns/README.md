@@ -16,44 +16,36 @@ Zones are provisioned in their own Terraform stack so they have an
 independent lifecycle. Tearing down the cluster doesn't drag the zone
 (and its NS delegation effort) along with it.
 
-## Architecture
-
-```mermaid
-flowchart LR
-  values[values.yaml<br/>dns.public_domain]
-
-  subgraph awspath[AWS]
-    tfR53[terraform/dns/zone/route53]
-    r53[Route53 hosted zone]
-  end
-
-  subgraph azurepath[Azure]
-    tfAz[terraform/dns/zone/azure-dns]
-    azz[Azure DNS zone]
-  end
-
-  certmgr[cert-manager<br/>ACME ClusterIssuer]
-  extdns[external-dns]
-
-  values -->|aws| tfR53
-  values -->|azure| tfAz
-  tfR53 --> r53
-  tfAz --> azz
-  r53 --> certmgr
-  r53 --> extdns
-  azz --> certmgr
-  azz --> extdns
-```
-
-The cluster module wires identity into both consumers: an IAM Role
-plus Pod Identity on EKS, Workload Identity on AKS. cert-manager
-solves DNS-01 ACME challenges to issue real Let's Encrypt
-certificates. external-dns keeps record sets in sync with Ingress and
-HTTPRoute objects.
+cert-manager solves DNS-01 ACME challenges to issue real Let's
+Encrypt certificates. external-dns keeps record sets in sync with
+Ingress and HTTPRoute objects. The cluster module wires the identity
+binding for both consumers on the matching cloud.
 
 ## Recipes
 
 ### AWS Route53
+
+```mermaid
+flowchart LR
+  registrar[Domain registrar<br/>NS delegation]
+
+  subgraph aws[AWS account]
+    zone[Route53 hosted zone<br/>example.windsorcli.dev]
+    iam[IAM Role<br/>cert-manager DNS-01<br/>scoped to zone ID]
+    pi[Pod Identity association]
+  end
+
+  subgraph cluster[Cluster]
+    cm[cert-manager]
+    ed[external-dns]
+  end
+
+  registrar -.delegates.-> zone
+  cm -.assumes.-> pi
+  pi -.binds.-> iam
+  iam -.writes ACME TXT.-> zone
+  ed -.writes A and CNAME.-> zone
+```
 
 ```yaml
 platform: aws
@@ -73,6 +65,28 @@ delegation propagates, ACME challenges fail and external-dns warns
 but doesn't block.
 
 ### Azure DNS
+
+```mermaid
+flowchart LR
+  registrar[Domain registrar<br/>NS delegation]
+
+  subgraph azure[Azure resource group]
+    zone[Azure DNS zone<br/>example.windsorcli.dev]
+    uami[User-Assigned MI<br/>cert-manager + external-dns]
+    fed[Federated credential<br/>via OIDC issuer]
+  end
+
+  subgraph cluster[AKS cluster]
+    cm[cert-manager]
+    ed[external-dns]
+  end
+
+  registrar -.delegates.-> zone
+  cm -.via Workload ID.-> fed
+  ed -.via Workload ID.-> fed
+  fed -.binds.-> uami
+  uami -.writes records.-> zone
+```
 
 ```yaml
 platform: azure

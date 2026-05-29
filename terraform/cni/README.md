@@ -17,29 +17,33 @@ reconcile until Pods can network. So this module installs Cilium
 directly via Helm against the Talos API, and `kustomize/cni/` then
 adopts the running release so day-2 changes flow through GitOps.
 
-## Architecture
+## Recipe
 
 ```mermaid
 flowchart LR
-  values[values.yaml<br/>cluster.cni.driver: cilium]
+  tf[terraform/cni/cilium]
+  api[Talos API]
 
-  tfCni[terraform/cni/cilium]
-  helm[Helm release<br/>cilium]
+  subgraph cluster[Kubernetes cluster]
+    subgraph syscni[system-cni namespace]
+      hr[HelmRelease cilium]
+    end
+    subgraph kubesys[kube-system namespace]
+      agent[DaemonSet cilium-agent]
+      op[Deployment cilium-operator]
+    end
+  end
 
   flux[Flux helm-controller]
-  kCni[kustomize/cni/<br/>HelmRelease cilium]
+  kCni[kustomize/cni/]
 
-  values --> tfCni
-  tfCni -.installs.-> helm
-  flux ==adopts==> helm
+  tf -.installs via.-> api
+  api --> hr
+  hr --> agent
+  hr --> op
+  flux ==adopts==> hr
   kCni --> flux
 ```
-
-After bootstrap, the HelmRelease in `kustomize/cni/` matches the
-running Helm release and Flux takes over reconciliation. Values
-upgrades from then on flow through GitOps.
-
-## Recipe
 
 ```yaml
 platform: metal     # or hyperv, incus, docker
@@ -53,6 +57,11 @@ There's no `cilium` block at the schema level; the only knob is the
 driver selector. The tunables (operator replica count, Hubble
 settings, LBIPAM ranges) flow through the `kustomize/cni/`
 substitutions rather than through this module.
+
+The bootstrap-then-adopt handoff is the architectural point.
+Terraform installs Cilium via the Talos API before Flux can run.
+After Flux comes up, it adopts the HelmRelease that already exists
+and takes ownership of subsequent upgrades.
 
 ## Operations
 

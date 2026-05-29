@@ -17,33 +17,38 @@ is `push`, which creates a Flux Receiver so a webhook POST from the repo
 triggers reconciliation immediately. `pull` mode skips the Receiver and
 relies on the interval poll on the GitRepository.
 
-## Architecture
-
-```mermaid
-flowchart LR
-  values[values.yaml<br/>gitops.mode + repository]
-
-  tfGitops[terraform/gitops/flux]
-  flux[Flux controllers<br/>+ CRDs]
-  root[GitRepository + root Kustomization]
-
-  kustomize[kustomize/ layer<br/>cni, csi, pki, ...]
-
-  values --> tfGitops
-  tfGitops --> flux
-  tfGitops --> root
-  root ==reconciles==> kustomize
-```
-
-After the initial install, this module is mostly inert. Flux watches
-the GitRepository (or the Receiver in push mode), notices new commits,
-and reconciles the kustomize layer. A subsequent `windsor apply` that
-doesn't change anything in this module just confirms Flux is still
-healthy.
-
 ## Recipes
 
 ### Push mode (default)
+
+```mermaid
+flowchart LR
+  repo[(GitOps repo)]
+
+  subgraph cluster[Kubernetes cluster]
+    subgraph fluxsys[flux-system namespace]
+      sc[source-controller]
+      kc[kustomize-controller]
+      hc[helm-controller]
+      nc[notification-controller]
+      gr[GitRepository<br/>local]
+      ks[Kustomization<br/>root]
+      rcv[Receiver]
+      sec[Secret<br/>webhook token]
+    end
+    layer[kustomize/ layer<br/>cni, csi, pki, ...]
+  end
+
+  repo ==webhook POST==> nc
+  nc -.notifies.-> sc
+  sc --> gr
+  gr --> kc
+  kc --> ks
+  ks ==reconciles==> layer
+  hc --> layer
+  rcv -.signed by.-> sec
+  nc -.serves.-> rcv
+```
 
 ```yaml
 gitops:
@@ -56,11 +61,35 @@ gitops:
 
 A Flux Receiver Secret is created with the value of `webhook.token`.
 The repo's webhook configuration posts to the Receiver URL on every
-push, and Flux reconciles immediately. The intervals on the
-GitRepository still apply, but they're acting as a safety-net poll
-rather than the primary trigger.
+push, and notification-controller signals source-controller to
+reconcile immediately. The intervals on the GitRepository still
+apply, but they're acting as a safety-net poll rather than the
+primary trigger.
 
 ### Pull mode
+
+```mermaid
+flowchart LR
+  repo[(GitOps repo)]
+
+  subgraph cluster[Kubernetes cluster]
+    subgraph fluxsys[flux-system namespace]
+      sc[source-controller]
+      kc[kustomize-controller]
+      hc[helm-controller]
+      gr[GitRepository<br/>local]
+      ks[Kustomization<br/>root]
+    end
+    layer[kustomize/ layer<br/>cni, csi, pki, ...]
+  end
+
+  sc -.poll on interval.-> repo
+  sc --> gr
+  gr --> kc
+  kc --> ks
+  ks ==reconciles==> layer
+  hc --> layer
+```
 
 ```yaml
 gitops:
@@ -69,10 +98,11 @@ gitops:
     name: local
 ```
 
-No Receiver is created. Flux polls the GitRepository at its configured
-interval and reconciles when the commit hash changes. Use this when
-webhooks aren't an option, for example on private clusters with no
-inbound HTTP, or on source-of-truth repos that don't support webhooks.
+No Receiver is created. source-controller polls the GitRepository at
+its configured interval and reconciles when the commit hash changes.
+Use this when webhooks aren't an option, for example on private
+clusters with no inbound HTTP, or on source-of-truth repos that don't
+support webhooks.
 
 ## Operations
 
