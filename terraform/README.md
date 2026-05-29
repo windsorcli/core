@@ -16,6 +16,7 @@ layer. Links from there land here.
 
 | Path | Purpose |
 |---|---|
+| [backend](backend/) | Remote Terraform state for cloud contexts (S3, AzureRM). |
 | [backend/azurerm](backend/azurerm/) | Remote Terraform state on Azure Blob + native lease. |
 | [backend/s3](backend/s3/) | Remote Terraform state on S3 + DynamoDB lock. |
 | [cluster](cluster/) | Kubernetes control plane provisioning across Talos, EKS, and AKS. |
