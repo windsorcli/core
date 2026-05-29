@@ -6,6 +6,11 @@ metadata:
 
 when: platform == 'aws'
 
+# Terraform remote state lives in the S3 bucket provisioned by the `backend`
+# component below. Downstream components configure their backend pointed at
+# that bucket; the `backend` component itself uses local state.
+backend: backend
+
 # =============================================================================
 # Requires
 # =============================================================================

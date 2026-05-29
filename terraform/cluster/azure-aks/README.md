@@ -1,6 +1,15 @@
-# Azure AKS Module
+---
+title: cluster/azure-aks
+description: Managed Kubernetes control plane on Azure.
+---
 
-This module creates an Azure Kubernetes Service (AKS) cluster with configurable node pools, networking, and security settings.
+# cluster/azure-aks
+
+Managed Kubernetes control plane on Azure. The module creates the AKS
+cluster with workload identity enabled (so in-cluster ServiceAccounts
+can federate to Entra apps without static credentials), key-vault-backed
+disk encryption, and the supporting role assignments. Consumes private
+subnet IDs from the `network/azure-vnet` outputs.
 
 ## Prerequisites
 
@@ -56,15 +65,15 @@ The next apply will then only show creates.
 | Name | Version |
 |------|---------|
 | <a name="requirement_terraform"></a> [terraform](#requirement\_terraform) | >=1.8 |
-| <a name="requirement_azurerm"></a> [azurerm](#requirement\_azurerm) | ~> 4.71.0 |
+| <a name="requirement_azurerm"></a> [azurerm](#requirement\_azurerm) | ~> 4.74.0 |
 | <a name="requirement_null"></a> [null](#requirement\_null) | ~> 3.2 |
 
 ## Providers
 
 | Name | Version |
 |------|---------|
-| <a name="provider_azurerm"></a> [azurerm](#provider\_azurerm) | 4.71.0 |
-| <a name="provider_null"></a> [null](#provider\_null) | 3.2.4 |
+| <a name="provider_azurerm"></a> [azurerm](#provider\_azurerm) | 4.74.0 |
+| <a name="provider_null"></a> [null](#provider\_null) | 3.3.0 |
 | <a name="provider_random"></a> [random](#provider\_random) | 3.8.1 |
 | <a name="provider_time"></a> [time](#provider\_time) | 0.13.1 |
 

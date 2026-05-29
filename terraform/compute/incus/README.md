@@ -1,17 +1,30 @@
+---
+title: compute/incus
+description: Talos VMs on Incus.
+---
+
+# compute/incus
+
+VM substrate for Talos clusters on Incus (LXD's fork). Provisions Talos
+VMs as full-VM instances on the local Incus daemon — pick this over
+`compute/docker` when you need full-VM isolation or kernel features
+Docker-on-Mac can't expose (e.g. nested KVM, real iSCSI). Pairs with the
+`cluster/talos` module.
+
 <!-- BEGIN_TF_DOCS -->
 ## Requirements
 
 | Name | Version |
 |------|---------|
 | <a name="requirement_terraform"></a> [terraform](#requirement\_terraform) | >=1.8 |
-| <a name="requirement_incus"></a> [incus](#requirement\_incus) | ~> 1.0.2 |
+| <a name="requirement_incus"></a> [incus](#requirement\_incus) | ~> 1.1.0 |
 | <a name="requirement_null"></a> [null](#requirement\_null) | ~> 3.2 |
 
 ## Providers
 
 | Name | Version |
 |------|---------|
-| <a name="provider_incus"></a> [incus](#provider\_incus) | 1.0.2 |
+| <a name="provider_incus"></a> [incus](#provider\_incus) | 1.1.0 |
 | <a name="provider_terraform"></a> [terraform](#provider\_terraform) | n/a |
 
 ## Modules

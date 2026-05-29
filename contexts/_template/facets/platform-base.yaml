@@ -267,8 +267,9 @@ config:
   # engine stores config-block bodies unevaluated in globalScope and
   # iterates blocks in last-writer order; a self-referencing template can
   # be read as the literal template string by a config block in another
-  # facet that evaluates earlier in the round. Conditional writes only
-  # contribute literal values, so cross-block reads always see real data.
+  # facet that evaluates earlier in the round. The when-guarded form has
+  # no self-reference (bodies may still compute over other user inputs,
+  # like cidrhost over network.cidr_block), so cross-block reads resolve.
   #
   - name: network
     when: (network.cidr_block ?? '') == ''
@@ -332,8 +333,9 @@ config:
   # that ship metrics-server as a built-in add-on (AKS, future GKE)
   # override to false in their own facet to avoid two instances fighting
   # on the same APIService.
-  - name: metrics_server_enabled
-    value: true
+  - name: telemetry
+    value:
+      metrics_server_enabled: true
 
 # =============================================================================
 # Global substitutions
@@ -469,7 +471,7 @@ kustomize:
     dependsOn:
       - telemetry-base
     components:
-      - "${telemetry.metrics.enabled && metrics_server_enabled ? 'metrics-server' : ''}"
+      - "${telemetry.metrics.enabled && telemetry.metrics_server_enabled ? 'metrics-server' : ''}"
       - "${telemetry.metrics.enabled ? 'prometheus' : ''}"
       - "${telemetry.metrics.enabled ? 'prometheus/flux' : ''}"
       - "${telemetry.logs.enabled ? 'fluentbit' : ''}"

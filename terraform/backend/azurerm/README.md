@@ -1,15 +1,27 @@
+---
+title: backend/azurerm
+description: Remote Terraform state on Azure Blob + native lease.
+---
+
+# backend/azurerm
+
+Remote Terraform state for Azure contexts. The bootstrap pass runs this
+module with a local backend, provisioning a Storage Account and Blob
+container; subsequent applies use Azure's native blob lease for state
+locking — no separate lock table.
+
 <!-- BEGIN_TF_DOCS -->
 ## Requirements
 
 | Name | Version |
 |------|---------|
-| <a name="requirement_azurerm"></a> [azurerm](#requirement\_azurerm) | 4.71.0 |
+| <a name="requirement_azurerm"></a> [azurerm](#requirement\_azurerm) | 4.74.0 |
 
 ## Providers
 
 | Name | Version |
 |------|---------|
-| <a name="provider_azurerm"></a> [azurerm](#provider\_azurerm) | 4.71.0 |
+| <a name="provider_azurerm"></a> [azurerm](#provider\_azurerm) | 4.74.0 |
 | <a name="provider_local"></a> [local](#provider\_local) | 2.6.1 |
 
 ## Modules
@@ -20,10 +32,10 @@ No modules.
 
 | Name | Type |
 |------|------|
-| [azurerm_resource_group.this](https://registry.terraform.io/providers/hashicorp/azurerm/4.71.0/docs/resources/resource_group) | resource |
-| [azurerm_storage_account.this](https://registry.terraform.io/providers/hashicorp/azurerm/4.71.0/docs/resources/storage_account) | resource |
-| [azurerm_storage_container.this](https://registry.terraform.io/providers/hashicorp/azurerm/4.71.0/docs/resources/storage_container) | resource |
-| [azurerm_user_assigned_identity.storage](https://registry.terraform.io/providers/hashicorp/azurerm/4.71.0/docs/resources/user_assigned_identity) | resource |
+| [azurerm_resource_group.this](https://registry.terraform.io/providers/hashicorp/azurerm/4.74.0/docs/resources/resource_group) | resource |
+| [azurerm_storage_account.this](https://registry.terraform.io/providers/hashicorp/azurerm/4.74.0/docs/resources/storage_account) | resource |
+| [azurerm_storage_container.this](https://registry.terraform.io/providers/hashicorp/azurerm/4.74.0/docs/resources/storage_container) | resource |
+| [azurerm_user_assigned_identity.storage](https://registry.terraform.io/providers/hashicorp/azurerm/4.74.0/docs/resources/user_assigned_identity) | resource |
 | [local_file.backend_config](https://registry.terraform.io/providers/hashicorp/local/latest/docs/resources/file) | resource |
 
 ## Inputs

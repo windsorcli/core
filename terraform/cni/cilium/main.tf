@@ -7,7 +7,7 @@ terraform {
   required_providers {
     helm = {
       source  = "hashicorp/helm"
-      version = "3.1.1"
+      version = "3.1.2"
     }
   }
 }
@@ -50,6 +50,11 @@ resource "helm_release" "cilium" {
   namespace = "kube-system"
   wait      = true
   timeout   = 600
+
+  # Adopt resources that exist in the cluster without Helm ownership labels (e.g.
+  # cilium-ca, recreated by the chart's certgen Job when running with
+  # hubble.tls.auto.method=cronJob) instead of failing on upgrade.
+  take_ownership = true
 
   values = [yamlencode(merge(
     {

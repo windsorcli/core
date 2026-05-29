@@ -1,3 +1,8 @@
+---
+title: dns/zone/route53
+description: Public DNS zone on AWS Route53.
+---
+
 # dns/zone/route53
 
 Creates a public Route53 hosted zone for a domain. Kept independent of any
@@ -52,14 +57,14 @@ plus storage cost scales with query volume.
 | Name | Version |
 |------|---------|
 | <a name="requirement_terraform"></a> [terraform](#requirement\_terraform) | >=1.8 |
-| <a name="requirement_aws"></a> [aws](#requirement\_aws) | 6.43.0 |
+| <a name="requirement_aws"></a> [aws](#requirement\_aws) | 6.47.0 |
 
 ## Providers
 
 | Name | Version |
 |------|---------|
-| <a name="provider_aws"></a> [aws](#provider\_aws) | 6.43.0 |
-| <a name="provider_aws.us_east_1"></a> [aws.us\_east\_1](#provider\_aws.us\_east\_1) | 6.43.0 |
+| <a name="provider_aws"></a> [aws](#provider\_aws) | 6.47.0 |
+| <a name="provider_aws.us_east_1"></a> [aws.us\_east\_1](#provider\_aws.us\_east\_1) | 6.47.0 |
 
 ## Modules
 
@@ -69,14 +74,14 @@ No modules.
 
 | Name | Type |
 |------|------|
-| [aws_cloudwatch_log_group.query_log](https://registry.terraform.io/providers/hashicorp/aws/6.43.0/docs/resources/cloudwatch_log_group) | resource |
-| [aws_cloudwatch_log_resource_policy.query_log](https://registry.terraform.io/providers/hashicorp/aws/6.43.0/docs/resources/cloudwatch_log_resource_policy) | resource |
-| [aws_kms_key.dnssec](https://registry.terraform.io/providers/hashicorp/aws/6.43.0/docs/resources/kms_key) | resource |
-| [aws_route53_hosted_zone_dnssec.main](https://registry.terraform.io/providers/hashicorp/aws/6.43.0/docs/resources/route53_hosted_zone_dnssec) | resource |
-| [aws_route53_key_signing_key.dnssec](https://registry.terraform.io/providers/hashicorp/aws/6.43.0/docs/resources/route53_key_signing_key) | resource |
-| [aws_route53_query_log.main](https://registry.terraform.io/providers/hashicorp/aws/6.43.0/docs/resources/route53_query_log) | resource |
-| [aws_route53_zone.main](https://registry.terraform.io/providers/hashicorp/aws/6.43.0/docs/resources/route53_zone) | resource |
-| [aws_caller_identity.current](https://registry.terraform.io/providers/hashicorp/aws/6.43.0/docs/data-sources/caller_identity) | data source |
+| [aws_cloudwatch_log_group.query_log](https://registry.terraform.io/providers/hashicorp/aws/6.47.0/docs/resources/cloudwatch_log_group) | resource |
+| [aws_cloudwatch_log_resource_policy.query_log](https://registry.terraform.io/providers/hashicorp/aws/6.47.0/docs/resources/cloudwatch_log_resource_policy) | resource |
+| [aws_kms_key.dnssec](https://registry.terraform.io/providers/hashicorp/aws/6.47.0/docs/resources/kms_key) | resource |
+| [aws_route53_hosted_zone_dnssec.main](https://registry.terraform.io/providers/hashicorp/aws/6.47.0/docs/resources/route53_hosted_zone_dnssec) | resource |
+| [aws_route53_key_signing_key.dnssec](https://registry.terraform.io/providers/hashicorp/aws/6.47.0/docs/resources/route53_key_signing_key) | resource |
+| [aws_route53_query_log.main](https://registry.terraform.io/providers/hashicorp/aws/6.47.0/docs/resources/route53_query_log) | resource |
+| [aws_route53_zone.main](https://registry.terraform.io/providers/hashicorp/aws/6.47.0/docs/resources/route53_zone) | resource |
+| [aws_caller_identity.current](https://registry.terraform.io/providers/hashicorp/aws/6.47.0/docs/data-sources/caller_identity) | data source |
 
 ## Inputs
 

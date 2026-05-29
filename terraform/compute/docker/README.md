@@ -1,16 +1,29 @@
+---
+title: compute/docker
+description: Talos containers on Docker.
+---
+
+# compute/docker
+
+VM substrate for Talos clusters when the host runtime is Docker. Default
+on macOS / Linux developer machines; works against Docker Desktop or
+Colima — anything exposing a local Docker socket. Provisions Talos
+control-plane and worker containers that the `cluster/talos` module then
+brings up via the Talos API.
+
 <!-- BEGIN_TF_DOCS -->
 ## Requirements
 
 | Name | Version |
 |------|---------|
 | <a name="requirement_terraform"></a> [terraform](#requirement\_terraform) | >=1.8 |
-| <a name="requirement_docker"></a> [docker](#requirement\_docker) | 4.2.0 |
+| <a name="requirement_docker"></a> [docker](#requirement\_docker) | 4.3.0 |
 
 ## Providers
 
 | Name | Version |
 |------|---------|
-| <a name="provider_docker"></a> [docker](#provider\_docker) | 4.2.0 |
+| <a name="provider_docker"></a> [docker](#provider\_docker) | 4.3.0 |
 
 ## Modules
 
@@ -20,10 +33,10 @@ No modules.
 
 | Name | Type |
 |------|------|
-| [docker_container.containers](https://registry.terraform.io/providers/kreuzwerker/docker/4.2.0/docs/resources/container) | resource |
-| [docker_image.instances](https://registry.terraform.io/providers/kreuzwerker/docker/4.2.0/docs/resources/image) | resource |
-| [docker_network.main](https://registry.terraform.io/providers/kreuzwerker/docker/4.2.0/docs/resources/network) | resource |
-| [docker_volume.named](https://registry.terraform.io/providers/kreuzwerker/docker/4.2.0/docs/resources/volume) | resource |
+| [docker_container.containers](https://registry.terraform.io/providers/kreuzwerker/docker/4.3.0/docs/resources/container) | resource |
+| [docker_image.instances](https://registry.terraform.io/providers/kreuzwerker/docker/4.3.0/docs/resources/image) | resource |
+| [docker_network.main](https://registry.terraform.io/providers/kreuzwerker/docker/4.3.0/docs/resources/network) | resource |
+| [docker_volume.named](https://registry.terraform.io/providers/kreuzwerker/docker/4.3.0/docs/resources/volume) | resource |
 
 ## Inputs
 

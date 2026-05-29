@@ -1,16 +1,28 @@
+---
+title: network/azure-vnet
+description: VNet + subnets for AKS.
+---
+
+# network/azure-vnet
+
+The cloud-side network fabric for AKS clusters: a VNet with private
+subnets carved from `cidr_block`. Size the subnets with enough headroom
+for pod IPs when AKS uses Azure CNI (each Pod consumes one VNet IP).
+Outputs feed the `cluster/azure-aks` module.
+
 <!-- BEGIN_TF_DOCS -->
 ## Requirements
 
 | Name | Version |
 |------|---------|
 | <a name="requirement_terraform"></a> [terraform](#requirement\_terraform) | >=1.8 |
-| <a name="requirement_azurerm"></a> [azurerm](#requirement\_azurerm) | ~> 4.71.0 |
+| <a name="requirement_azurerm"></a> [azurerm](#requirement\_azurerm) | ~> 4.74.0 |
 
 ## Providers
 
 | Name | Version |
 |------|---------|
-| <a name="provider_azurerm"></a> [azurerm](#provider\_azurerm) | 4.71.0 |
+| <a name="provider_azurerm"></a> [azurerm](#provider\_azurerm) | 4.74.0 |
 
 ## Modules
 

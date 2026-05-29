@@ -6,6 +6,11 @@ metadata:
 
 when: platform == 'azure'
 
+# Terraform remote state lives in the Azure Storage account provisioned by
+# the `backend` component below. Downstream components configure their
+# backend pointed at it; the `backend` component itself uses local state.
+backend: backend
+
 # =============================================================================
 # Requires
 # =============================================================================
@@ -26,8 +31,9 @@ requires:
 #
 config:
 
-  - name: metrics_server_enabled
-    value: false
+  - name: telemetry
+    value:
+      metrics_server_enabled: false
 
 # =============================================================================
 # Terraform — AzureRM state backend, VNet, AKS, optional public DNS zone

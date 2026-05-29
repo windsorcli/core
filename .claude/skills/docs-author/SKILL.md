@@ -31,7 +31,7 @@ Exact glob roots are finalized with the website `docs:vendor` script; treat the 
 
 ## Frontmatter (Markdown)
 
-- `title` (required), `description` (recommended).
+- `title` (required), `description` (**required for per-module READMEs** — the umbrella generator pulls from it; missing descriptions fail CI).
 - Optional: `sidebar_order` for ingest nav.
 
 ## Voice
@@ -39,26 +39,81 @@ Exact glob roots are finalized with the website `docs:vendor` script; treat the 
 - **Reference only:** imperative, tables for inputs/vars, no marketing copy.
 - Link generic blueprint concepts to `https://www.windsorcli.dev/docs/blueprints/...` (schema, sharing, facets).
 
+## Umbrella indices (`kustomize/README.md`, `terraform/README.md`)
+
+Both umbrella READMEs carry a `<!-- BEGIN_INDEX -->` / `<!-- END_INDEX -->` region populated by `scripts/umbrella-index.sh <root>`. The generator is bundled into the existing per-layer doc tasks: `task docs:kustomize` runs the kustomize index after the add-on tables, `task docs:terraform` runs the terraform index after terraform-docs. CI catches drift via `task docs:kustomize:check` and `task docs:terraform:check` — there is no standalone umbrella task. The generator walks each per-module README (kustomize 1-level-deep; terraform any depth, skipping `.terraform/`), pulls the frontmatter `description:`, and emits a `| path | purpose |` table; missing `description:` fields fail the build.
+
+The umbrellas exist purely as **reference indices** for the site's Infrastructure / Cluster narrative pages to link to. Don't put system overviews, decision matrices, or architecture diagrams in them — that content belongs on the site.
+
 ## Terraform reference
 
-- Generate from modules in this repo with `task docs` (terraform-docs injected between `<!-- BEGIN_TF_DOCS -->` / `<!-- END_TF_DOCS -->` markers in each module's `README.md`). Commit the regenerated `terraform/<module-path>/README.md` (`cluster/talos`, `gitops/flux`, etc.). The site ingest pipeline mirrors these into `docs/reference/terraform/<module-path>/` per the path mapping above; contributors don't write into `docs/reference/` directly.
-- Inputs, outputs, and gotchas belong here; high-level “what is Terraform in Windsor” stays on the site under `/docs/components/terraform`.
+- Generate from modules in this repo with `task docs:terraform` (terraform-docs injected between `<!-- BEGIN_TF_DOCS -->` / `<!-- END_TF_DOCS -->` markers in each module's `README.md`). Commit the regenerated `terraform/<module-path>/README.md` (`cluster/talos`, `gitops/flux`, etc.). CI runs `task docs:terraform:check` to fail on drift. The site ingest pipeline mirrors these into `docs/reference/terraform/<module-path>/` per the path mapping above; contributors don't write into `docs/reference/` directly.
+- Inputs, outputs, and gotchas belong here; high-level "what is Terraform in Windsor" stays on the site under `/docs/components/terraform`.
 
-## Kustomize stack operator guide (per top-level stack)
+## Kustomize add-on README (per `kustomize/<add-on>/`)
 
-For each significant stack under `kustomize/` (e.g. dns, csi), maintain **one** operator-oriented README (source location agreed with ingest—often `kustomize/<stack>/README.md` normalized into `docs/reference/kustomize/<stack>.md`, or authored directly under `docs/reference/kustomize/`).
+Each add-on gets one `kustomize/<add-on>/README.md` plus one `kustomize/<add-on>/.docs.yaml` descriptor. The README is hand-authored; the Substitutions / Components / Dependencies tables are generated from the descriptor by `scripts/kustomize-docs.sh` (wired through `task docs:kustomize`) and live between `<!-- BEGIN_KUSTOMIZE_DOCS -->` / `<!-- END_KUSTOMIZE_DOCS -->` markers. CI runs `task docs:kustomize:check` to fail on drift.
 
-Use this section order where applicable:
+Fixed section order (target ~120 lines):
 
-1. **Purpose** — what this subtree owns.
-2. **Dependencies** — other stacks, CRDs, cloud prereqs.
-3. **Blueprint wiring** — minimal `blueprint.yaml` fragment (`source` pointing at this blueprint, `path`, `components`).
-4. **Substitutions / vars** — table: name, default, required, effect.
-5. **Components** — Kustomize `components/` and when to enable each.
-6. **Operations** — upgrade, rollback, common failures, observability.
-7. **Security** — RBAC, secrets, network policy when relevant.
+```
+2-sentence lede
+## Architecture       single Mermaid (sane-default config) + 2-4 interpretive sentences
+## Recipes            terse YAML per variant, one-line header per recipe
+## Operations         bulleted "if X then Y" failure modes
+## Security           2-4 bullets (PSA, capabilities, secret handling)
+<!-- BEGIN_KUSTOMIZE_DOCS -->
+generated tables                                  # never hand-edit
+<!-- END_KUSTOMIZE_DOCS -->
+## See also           cross-links
+```
 
-Align structure with existing kustomize conventions: see `.claude/skills/kustomize-author/SKILL.md`. Terraform module docs should align with `.claude/skills/terraform-style/SKILL.md` where applicable.
+Diagram conventions: architecture (static structure), not flow. One diagram per add-on showing the sane-default config; variants live in Recipes, not in extra diagrams. LR direction, namespace subgraphs always shown, nodes labeled by kind (`HelmRelease cilium`, not `cilium`), no color.
+
+`.docs.yaml` shape (kept single-line — Markdown tables don't render multi-line cells without `<br/>`):
+
+```yaml
+substitutions:
+  <name>:
+    required_when: <string>         # default "always"
+    description: "<single line>"
+
+components:
+  <name>:
+    enable_when: <string>           # default "always"
+    description: "<single line>"
+
+dependencies:
+  <add-on>:
+    required_when: <string>         # default "always"
+    reason: "<single line>"
+```
+
+Reference: [kustomize/cni/](../../../kustomize/cni/) is the single-facet pilot — copy its `README.md` + `.docs.yaml` pair as a template when authoring a new add-on. Align with `.claude/skills/kustomize-author/SKILL.md` for the underlying Kustomize layout.
+
+### Multi-facet add-ons (`base+resources` split)
+
+Some add-ons split into two Kustomization paths so Flux reconciles CRDs / Helm releases (`<addon>/base`) before the resource CRs that depend on them (`<addon>/resources`). Facets are named `<addon>-base` and `<addon>-resources`; the latter `dependsOn` the former. Active examples: `policy`, `pki`, `telemetry`, `gateway`, `lb`.
+
+`.docs.yaml` adds a top-level `facets:` list and tags each component with its `facet:`:
+
+```yaml
+facets:
+  - <addon>-base
+  - <addon>-resources
+
+components:
+  <name>:
+    facet: <addon>-base
+    enable_when: <string>
+    description: "<single line>"
+```
+
+`scripts/kustomize-docs.sh` renders one `## Components — <facet>` sub-table per facet in declared order. The safety check fails closed on components missing `facet:` or referencing a facet not in the list.
+
+Collision rule: when the same literal name is wired in both facets (e.g. `prometheus` lives in `telemetry-base` as the Helm release and in `telemetry-resources` as ServiceMonitors), use path-prefixed keys in `.docs.yaml` — `base/prometheus`, `resources/prometheus`. Operators still write the bare name in their facets; the path resolves from the facet's `path:`. Call this out in the README intro whenever prefixes appear.
+
+Reference: [kustomize/policy/](../../../kustomize/policy/) is the simplest multi-facet pilot; [kustomize/telemetry/](../../../kustomize/telemetry/) shows the collision-prefix case.
 
 ## Compatibility
 

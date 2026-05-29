@@ -35,6 +35,8 @@ env:
   SUPPORT_BUNDLE_VERSION: v0.129.0
   # renovate: datasource=github-releases depName=flux package=fluxcd/flux2
   FLUX_VERSION: v2.8.8
+  # renovate: datasource=github-releases depName=yq package=mikefarah/yq
+  YQ_VERSION: v4.53.2
 
 jobs:
 
@@ -79,7 +81,7 @@ jobs:
         uses: hashicorp/setup-terraform@dfe3c3f87815947d99a8997f908cb6525fc44e9e # v4.0.1
         with:
           # renovate: datasource=github-releases depName=terraform package=hashicorp/terraform
-          terraform_version: 1.15.3
+          terraform_version: 1.15.5
 
       - name: Run terraform fmt
         run: terraform fmt -check -recursive
@@ -103,6 +105,29 @@ jobs:
             exit 1
           fi
 
+      # yq is the YAML reader the kustomize-docs generator depends on. Local
+      # devs get it via aqua; CI installs the same pinned version directly.
+      - name: Install yq
+        run: |
+          cd "$(mktemp -d)" &&
+          curl -fsSLO "https://github.com/mikefarah/yq/releases/download/${YQ_VERSION}/yq_linux_amd64" &&
+          sudo install -m 0755 -o root -g root yq_linux_amd64 /usr/local/bin/yq &&
+          cd - &&
+          rm -rf "$OLDPWD" &&
+          yq --version
+
+      # Fail if kustomize/<add-on>/.docs.yaml has diverged from the rendered
+      # BEGIN_KUSTOMIZE_DOCS / END_KUSTOMIZE_DOCS region in README.md.
+      # Skipped on renovate PRs and on push-to-main; drift is reconciled
+      # during pre-release cycles.
+      - name: Validate kustomize add-on docs
+        if: ${{ github.event_name == 'pull_request' && !startsWith(github.head_ref, 'renovate/') }}
+        run: task docs:kustomize:check
+
+      - name: Validate terraform module docs
+        if: ${{ github.event_name == 'pull_request' && !startsWith(github.head_ref, 'renovate/') }}
+        run: task docs:terraform:check
+
       - name: Checkov GitHub Action
         uses: bridgecrewio/checkov-action@68260132005eaae0e6f84c7a73cc3b1532f678bf # v12.3058.0
         with:
@@ -111,7 +136,7 @@ jobs:
           output_file_path: console,results.sarif
 
       - name: Upload SARIF file
-        uses: github/codeql-action/upload-sarif@9e0d7b8d25671d64c341c19c0152d693099fb5ba # v4.35.5
+        uses: github/codeql-action/upload-sarif@7211b7c8077ea37d8641b6271f6a365a22a5fbfa # v4.36.0
         with:
           sarif_file: results.sarif
 
@@ -129,10 +154,10 @@ jobs:
         uses: hashicorp/setup-terraform@dfe3c3f87815947d99a8997f908cb6525fc44e9e # v4.0.1
         with:
           # renovate: datasource=github-releases depName=terraform package=hashicorp/terraform
-          terraform_version: 1.15.3
+          terraform_version: 1.15.5
 
       - name: Install Windsor CLI
-        uses: windsorcli/action@a829ee3c5d9826fd0b31d5e730edcd515644d866 # v0.5.1
+        uses: windsorcli/action@main
         with:
           ref: main
           context: local
@@ -225,6 +250,16 @@ jobs:
           echo "1" | sudo tee /proc/sys/net/bridge/bridge-nf-call-iptables
           echo "1" | sudo tee /proc/sys/net/bridge/bridge-nf-call-ip6tables
 
+      # Reclaim ~30 GB by removing pre-installed toolchains the runner ships
+      # but this repo never uses (.NET, Android SDK, Haskell). Without this the
+      # kubelet inside the Talos VM hits its ephemeral-storage eviction threshold
+      # during k8s/Cilium image pulls and evicts the Flux controller pods.
+      - name: Free disk space
+        run: |
+          df -h /
+          sudo rm -rf /usr/share/dotnet /usr/local/lib/android /opt/ghc
+          df -h /
+
       # Move docker data-root to /mnt (66GB available vs ~10GB default) and
       # cap json-file logging at 10m × 3 to prevent runaway disk growth.
       - name: Configure Docker for increased storage
@@ -247,7 +282,7 @@ jobs:
         uses: hashicorp/setup-terraform@dfe3c3f87815947d99a8997f908cb6525fc44e9e # v4.0.1
         with:
           # renovate: datasource=github-releases depName=terraform package=hashicorp/terraform
-          terraform_version: 1.15.3
+          terraform_version: 1.15.5
 
       - name: Setup kubectl
         uses: azure/setup-kubectl@829323503d1be3d00ca8346e5391ca0b07a9ab0d # v5.1.0
@@ -282,7 +317,7 @@ jobs:
       # Windsor install + image cache
       # -----------------------------------------------------------------------
       - name: Install Windsor CLI
-        uses: windsorcli/action@a829ee3c5d9826fd0b31d5e730edcd515644d866 # v0.5.1
+        uses: windsorcli/action@main
         with:
           ref: main
           context: local
@@ -383,7 +418,9 @@ jobs:
       - name: Windsor Up
         id: windsor_up
         if: steps.infra_diff.outputs.skip != 'true'
-        timeout-minutes: 14
+        # Upgrade mode may reboot the Talos node (e.g. on a Talos version bump);
+        # post-reboot pod restart burst takes longer to settle than a fresh install.
+        timeout-minutes: ${{ matrix.mode == 'upgrade' && 20 || 14 }}
         run: windsor up --verbose --wait
 
       - name: HEAD — Wait for GitRepository revision bump
@@ -664,16 +701,16 @@ jobs:
         uses: hashicorp/setup-terraform@dfe3c3f87815947d99a8997f908cb6525fc44e9e # v4.0.1
         with:
           # renovate: datasource=github-releases depName=terraform package=hashicorp/terraform
-          terraform_version: 1.15.3
+          terraform_version: 1.15.5
 
       - name: Install Windsor CLI
-        uses: windsorcli/action@a829ee3c5d9826fd0b31d5e730edcd515644d866 # v0.5.1
+        uses: windsorcli/action@main
         with:
           ref: main
           context: local
 
       - name: Login to GitHub Container Registry
-        uses: docker/login-action@4907a6ddec9925e35a0a9e82d7399ccc52663121 # v4.1.0
+        uses: docker/login-action@650006c6eb7dba73a995cc03b0b2d7f5ca915bee # v4.2.0
         with:
           registry: ghcr.io
           username: ${{ github.actor }}

@@ -21,11 +21,11 @@ spec:
       localpv:
         image:
           # renovate: datasource=docker depName=openebs/provisioner-localpv package=openebs/provisioner-localpv
-          tag: 4.4.0@sha256:a9f0aa574700379fd56f7597be4493fab1bd2423e8a5eaca4eeafd377763e9df
+          tag: 4.5.0@sha256:2e108216d4c57264067185423384f8eacf636d1fe5d6c99104796a64a33f064d
       helperPod:
         image:
           # renovate: datasource=docker depName=openebs/linux-utils package=openebs/linux-utils
-          tag: 4.4.0@sha256:f9efa8f0924eb9762f7ac894c583758043f16f53d6be464e9e409269206e9bd5
+          tag: 4.5.0@sha256:e90916c22a077e5f983afaa67f3f085e08575efb7f9828db3bb9dd53671c947f
       hostpathClass:
         enabled: false
     zfs-localpv:
@@ -33,13 +33,13 @@ spec:
       zfsPlugin:
         image:
           # renovate: datasource=docker depName=openebs/zfs-driver package=openebs/zfs-driver
-          tag: 2.9.1@sha256:a4bb34f5502ec89599774deae5293fb76fe529dd2d98902f5e39898283783d44
+          tag: 2.10.0@sha256:4a1ba36d65409ce576f39e19b934842691c436f79af0344a41debe342c1a230f
     lvm-localpv:
       enabled: false
       lvmPlugin:
         image:
           # renovate: datasource=docker depName=openebs/lvm-driver package=openebs/lvm-driver
-          tag: 1.8.1@sha256:6cb0a894032c1abb8d877cb92c2b08b549f816d8d7a5d9805761c7755b98001f
+          tag: 1.9.0@sha256:e4f5dec4391cdf0da2d1841587ab7276f6c09f5efc2c3acd1ebb7a48c81b29f7
     mayastor:
       enabled: false
       image:
