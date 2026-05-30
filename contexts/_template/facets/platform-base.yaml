@@ -4,9 +4,9 @@ metadata:
   name: platform-base
   description: "Base infrastructure components for all platforms"
 
-# Skip the entire facet when no platform/provider is selected (the "none" context
+# Skip the entire facet when no platform is selected (the "none" context
 # used for bare blueprint scaffolding and schema validation).
-when: (platform ?? provider) != 'none'
+when: (platform ?? 'none') != 'none'
 
 # =============================================================================
 # Config — effective values
@@ -26,12 +26,11 @@ config:
   # Platform identity
   # ---------------------------------------------------------------------------
   #
-  # `platform` is the canonical field; `provider` is the legacy alias. Accept
-  # either and fall back to 'none' so expressions downstream can rely on a
-  # non-null string value.
+  # Fall back to 'none' so expressions downstream can rely on a non-null
+  # string value.
   #
   - name: platform
-    value: "${platform ?? provider ?? 'none'}"
+    value: "${platform ?? 'none'}"
 
   # Normalize workstation.runtime so `workstation.runtime == '...'` checks are
   # safe even when the user didn't supply a workstation block at all.
@@ -192,7 +191,7 @@ config:
   # ---------------------------------------------------------------------------
   #
   # cluster_provisioned: true when a cluster should actually exist. On docker,
-  # the cluster only exists when a workstation runtime is set — `provider:
+  # the cluster only exists when a workstation runtime is set — `platform:
   # docker` without workstation is a no-op scaffold used for tests.
   #
   # talos_enabled / eks_enabled: driver-specific gates for cluster.enabled.

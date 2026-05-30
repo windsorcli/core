@@ -28,7 +28,7 @@ cases:
   # Full: Test MinIO with all dependencies (no dev mode implicit enablement)
   - name: full config creates MinIO object store with ingress dependency
     values:
-      provider: metal
+      platform: metal
       workstation:
         runtime: colima
       gateway:
@@ -54,7 +54,7 @@ cases:
   # Edge case: Addon disabled
   - name: excludes object store when addon disabled
     values:
-      provider: metal
+      platform: metal
       network: *default-network
       cluster: *default-cluster
       addons:
@@ -67,7 +67,7 @@ cases:
   # Edge case: MinIO does not require ingress/gateway resources for base deployment
   - name: creates MinIO when enabled without ingress
     values:
-      provider: metal
+      platform: metal
       workstation:
         runtime: docker-desktop
       gateway:

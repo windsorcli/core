@@ -6,6 +6,11 @@ metadata:
 
 when: addons.private_dns.enabled == true
 
+requires:
+  - paths:
+      - dns.private_domain
+    message: The private DNS addon serves and publishes records into this zone.
+
 # =============================================================================
 # Kustomize — CoreDNS + external-dns
 # =============================================================================

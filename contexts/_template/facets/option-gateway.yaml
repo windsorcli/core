@@ -5,6 +5,16 @@ metadata:
   description: Configurable cluster traffic entrypoint
 
 # =============================================================================
+# Requires
+# =============================================================================
+#
+requires:
+  - when: gateway.access == 'private'
+    paths:
+      - dns.private_domain
+    message: Private gateway access requires a private DNS domain.
+
+# =============================================================================
 # Config — derived values consumed by this facet
 # =============================================================================
 #

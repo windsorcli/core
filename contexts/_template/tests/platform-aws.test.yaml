@@ -1,11 +1,16 @@
 # platform-aws.yaml facet tests
 # Tests AWS EKS infrastructure with VPC networking
 
+x-defaults:
+  aws: &default-aws
+    region: us-west-2
+
 cases:
   # Minimal: Test default behavior with required fields only
   - name: minimal config creates VPC, EKS, and GitOps terraform chain
     values:
-      provider: aws
+      platform: aws
+      aws: *default-aws
       gateway:
         enabled: false
     expect:
@@ -47,7 +52,8 @@ cases:
   # If option-workstation applied, it would replace provider gitops inputs and set local dev defaults.
   - name: aws with workstation runtime keeps provider gitops defaults
     values:
-      provider: aws
+      platform: aws
+      aws: *default-aws
       workstation:
         runtime: colima
       gateway:
@@ -83,7 +89,8 @@ cases:
   # Full: Test with gateway enabled (envoy)
   - name: full config creates envoy gateway
     values:
-      provider: aws
+      platform: aws
+      aws: *default-aws
       gateway:
         enabled: true
         driver: envoy
@@ -128,7 +135,8 @@ cases:
   # Edge case: Ingress disabled
   - name: excludes ingress when disabled
     values:
-      provider: aws
+      platform: aws
+      aws: *default-aws
       gateway:
         enabled: false
     exclude:
@@ -143,7 +151,8 @@ cases:
   # selfsigned issuance.
   - name: default selfsigned mode without a public domain
     values:
-      provider: aws
+      platform: aws
+      aws: *default-aws
       gateway:
         enabled: false
     expect:
@@ -171,15 +180,14 @@ cases:
   # cert switches to the `public-acme` ClusterIssuer with the public domain.
   - name: dns.public_domain wires up ACME Route53 issuer end to end
     values:
-      provider: aws
+      platform: aws
+      aws: *default-aws
       gateway:
         enabled: true
         driver: envoy
       dns:
         public_domain: example.com
       email: ops@example.com
-      aws:
-        region: us-west-2
     terraformOutputs:
       dns-zone:
         zone_id: Z1ABCDEF12345
@@ -261,7 +269,8 @@ cases:
   # burning Let's Encrypt prod rate limits during iteration.
   - name: dev mode uses Let's Encrypt staging server
     values:
-      provider: aws
+      platform: aws
+      aws: *default-aws
       dev: true
       gateway:
         enabled: true
@@ -290,7 +299,8 @@ cases:
   # the dns-zone component is registered.
   - name: pki-resources renders ACME when public_domain set even without dns-zone output yet
     values:
-      provider: aws
+      platform: aws
+      aws: *default-aws
       gateway:
         enabled: true
         driver: envoy
@@ -310,7 +320,8 @@ cases:
   # internally (class → instance family, lifecycle → capacity_type).
   - name: cluster.pools flows through to the cluster module
     values:
-      provider: aws
+      platform: aws
+      aws: *default-aws
       gateway:
         enabled: false
       cluster:
@@ -333,7 +344,8 @@ cases:
   # Azure or GCP once those facets gain pools.
   - name: multi-pool config with mixed sizing and lifecycle
     values:
-      provider: aws
+      platform: aws
+      aws: *default-aws
       gateway:
         enabled: false
       cluster:
@@ -371,7 +383,8 @@ cases:
   # lookup and uses the supplied list verbatim.
   - name: pool with explicit instance_types overrides the class default
     values:
-      provider: aws
+      platform: aws
+      aws: *default-aws
       gateway:
         enabled: false
       cluster:
@@ -400,7 +413,8 @@ cases:
   # system-lb namespace plus whichever in-cluster LB the platform needs.
   - name: aws-lb-controller renders unconditionally on AWS via lb-base
     values:
-      provider: aws
+      platform: aws
+      aws: *default-aws
       gateway:
         enabled: false
     expect:
@@ -421,7 +435,8 @@ cases:
   # agnostic components, this AWS facet appends the AWS-specific patch.
   - name: gateway with envoy on AWS adds NLB annotations component
     values:
-      provider: aws
+      platform: aws
+      aws: *default-aws
       gateway:
         enabled: true
         driver: envoy
@@ -448,7 +463,8 @@ cases:
   # with no DNS pointing at it.
   - name: gateway.access=private flips the AWS NLB to internal
     values:
-      provider: aws
+      platform: aws
+      aws: *default-aws
       gateway:
         enabled: true
         driver: envoy
@@ -469,7 +485,8 @@ cases:
   # must NOT merge into the cilium gateway-base.
   - name: gateway with cilium driver on AWS does not add aws-nlb component
     values:
-      provider: aws
+      platform: aws
+      aws: *default-aws
       gateway:
         enabled: true
         driver: cilium
@@ -485,7 +502,8 @@ cases:
   # must NOT merge into the nodeport gateway-base.
   - name: gateway with envoy and NodePort service_type on AWS does not add aws-nlb component
     values:
-      provider: aws
+      platform: aws
+      aws: *default-aws
       gateway:
         enabled: true
         driver: envoy
@@ -517,7 +535,8 @@ cases:
   # finds gateway-httproute in its sources without those CRDs present.
   - name: external-dns deploys when dns.public_domain is set
     values:
-      provider: aws
+      platform: aws
+      aws: *default-aws
       gateway:
         enabled: false
       dns:
@@ -551,7 +570,8 @@ cases:
   # module's terraform output.
   - name: private mode targets external-dns at the private Route53 zone
     values:
-      provider: aws
+      platform: aws
+      aws: *default-aws
       gateway:
         enabled: true
         driver: envoy
@@ -607,7 +627,8 @@ cases:
   # Kustomization entirely.
   - name: dns excluded when no public domain and no private mode
     values:
-      provider: aws
+      platform: aws
+      aws: *default-aws
       gateway:
         enabled: false
     exclude:
@@ -618,7 +639,8 @@ cases:
   # and TF owns the EKS log group with retention + CMK.
   - name: default lifecycle gives cluster manage_log_group true
     values:
-      provider: aws
+      platform: aws
+      aws: *default-aws
       gateway:
         enabled: false
     expect:
@@ -632,7 +654,8 @@ cases:
   # log group; same-named cluster recreates avoid the destroy-time race.
   - name: ephemeral flips cluster to manage_log_group false
     values:
-      provider: aws
+      platform: aws
+      aws: *default-aws
       gateway:
         enabled: false
       ephemeral: true
@@ -642,3 +665,24 @@ cases:
           path: cluster/aws-eks
           inputs:
             manage_log_group: false
+
+  # Requires: aws.region is needed by aws-lb-controller, external-dns, and the
+  # ACME issuer; the facet propagates empty rather than guessing.
+  - name: missing aws.region fails composition
+    values:
+      platform: aws
+      gateway:
+        enabled: false
+    expectError: true
+
+  # Requires: ACME registration with Let's Encrypt needs an operator email.
+  - name: ACME mode without email fails composition
+    values:
+      platform: aws
+      aws: *default-aws
+      gateway:
+        enabled: true
+        driver: envoy
+      dns:
+        public_domain: example.com
+    expectError: true

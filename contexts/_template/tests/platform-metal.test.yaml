@@ -1,7 +1,7 @@
 # platform-metal.yaml facet tests
 # Tests Talos cluster infrastructure with load balancer and ingress configuration
 #
-# Note: provider: metal requires cluster.controlplanes.nodes because
+# Note: platform: metal requires cluster.controlplanes.nodes because
 # cluster_endpoint is derived from the first node.
 
 # Common configurations
@@ -31,7 +31,7 @@ cases:
   # Minimal: Test default behavior with required fields only
   - name: minimal config creates Talos cluster with Cilium L2 and default CSI
     values:
-      provider: metal
+      platform: metal
       gateway:
         enabled: false
       network: *default-network
@@ -144,7 +144,7 @@ cases:
   # Full: Test all configurable options together (explicit flannel CNI to exercise MetalLB path)
   - name: full config with MetalLB, custom resources, ingress, and custom worker volume
     values:
-      provider: metal
+      platform: metal
       workstation:
         runtime: colima
       gateway:
@@ -273,7 +273,7 @@ cases:
   # extensions module accepts — i.e. talos_node_targets is wired correctly.
   - name: longhorn storage driver passes iscsi and util-linux extensions to cluster terraform
     values:
-      provider: metal
+      platform: metal
       gateway:
         enabled: false
       network: *default-network
@@ -309,7 +309,7 @@ cases:
   # Guards against regressions in the option-storage `when:` filter.
   - name: openebs storage driver excludes cluster-extensions terraform step
     values:
-      provider: metal
+      platform: metal
       gateway:
         enabled: false
       network: *default-network
@@ -317,3 +317,13 @@ cases:
     exclude:
       terraform:
         - name: cluster-extensions
+
+  # Requires: metal has no compute layer, so the operator must declare the
+  # controlplane nodes that windsor talks to.
+  - name: metal without controlplane nodes fails composition
+    values:
+      platform: metal
+      gateway:
+        enabled: false
+      network: *default-network
+    expectError: true

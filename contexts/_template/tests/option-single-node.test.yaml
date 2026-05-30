@@ -28,7 +28,7 @@ x-defaults:
 cases:
   - name: single-node adds cert-manager + openebs overlays and disables flux leader election
     values:
-      provider: metal
+      platform: metal
       topology: single-node
       network: *default-network
       cluster: *default-cluster
@@ -50,7 +50,7 @@ cases:
 
   - name: single-node with cnpg database addon adds cloudnativepg/single-node overlay
     values:
-      provider: metal
+      platform: metal
       topology: single-node
       network: *default-network
       cluster: *default-cluster
@@ -68,7 +68,7 @@ cases:
 
   - name: single-node with private-ca addon also adds trust-manager/single-node
     values:
-      provider: metal
+      platform: metal
       topology: single-node
       network: *default-network
       cluster: *default-cluster
@@ -85,7 +85,7 @@ cases:
 
   - name: multi-node topology leaves pki-base without single-node overlays
     values:
-      provider: metal
+      platform: metal
       topology: multi-node
       network: *default-network
       cluster: *default-cluster

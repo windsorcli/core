@@ -87,7 +87,7 @@ cases:
   # Minimal: zero-config on metal defaults to cilium CNI → cilium gateway
   - name: zero config on metal defaults to cilium gateway
     values:
-      provider: metal
+      platform: metal
       network: *default-network
       cluster: *default-cluster
     expect:
@@ -149,7 +149,7 @@ cases:
   # Envoy driver
   - name: envoy driver deploys gateway-base with envoy and gateway-resources
     values:
-      provider: metal
+      platform: metal
       gateway:
         enabled: true
         driver: envoy
@@ -192,7 +192,7 @@ cases:
   # component is selected purely from gateway.service_type.
   - name: explicit gateway.service_type NodePort selects nodeport variant on metal with no LB
     values:
-      provider: metal
+      platform: metal
       gateway:
         enabled: true
         driver: envoy
@@ -212,7 +212,7 @@ cases:
   # and flannel CNI so lb_effective.enabled would otherwise be true.
   - name: explicit NodePort suppresses lb-address even when loadbalancer_driver is set
     values:
-      provider: metal
+      platform: metal
       gateway:
         enabled: true
         driver: envoy
@@ -263,7 +263,7 @@ cases:
   # Backward compatibility: ingress alias still works
   - name: legacy ingress alias maps envoy-gateway to envoy
     values:
-      provider: metal
+      platform: metal
       ingress:
         enabled: true
         driver: envoy-gateway
@@ -276,7 +276,7 @@ cases:
 
   - name: legacy ingress alias maps nginx to envoy
     values:
-      provider: metal
+      platform: metal
       ingress:
         enabled: true
         driver: nginx
@@ -290,7 +290,7 @@ cases:
   # Gateway disabled
   - name: excludes gateway when disabled
     values:
-      provider: metal
+      platform: metal
       gateway:
         enabled: false
         driver: envoy
@@ -305,7 +305,7 @@ cases:
   # (push mode is the default, so no explicit gitops.mode needed)
   - name: envoy driver includes webhook/gateway in gitops component
     values:
-      provider: metal
+      platform: metal
       gateway:
         enabled: true
         driver: envoy
@@ -322,7 +322,7 @@ cases:
   # dev mode enables coredns/gateway via the dns component
   - name: dev mode with envoy adds coredns/gateway to dns component
     values:
-      provider: metal
+      platform: metal
       dev: true
       gateway:
         enabled: true
@@ -336,7 +336,7 @@ cases:
   # Cilium driver — GatewayClass only; controller is part of Cilium CNI DaemonSet
   - name: cilium driver deploys gateway-base with cilium and gateway-resources
     values:
-      provider: metal
+      platform: metal
       gateway:
         enabled: true
         driver: cilium
@@ -349,7 +349,7 @@ cases:
 
   - name: cilium driver includes webhook/gateway and webhook/gateway/cilium in gitops component
     values:
-      provider: metal
+      platform: metal
       gateway:
         enabled: true
         driver: cilium
@@ -367,7 +367,7 @@ cases:
   # lb-address: included when lb_effective.enabled (non-Cilium CNI + loadbalancer_driver set); IP pinned in gateway spec
   - name: local envoy gateway-resources includes lb-address when loadbalancer IP configured
     values:
-      provider: metal
+      platform: metal
       gateway:
         enabled: true
         driver: envoy
@@ -391,7 +391,9 @@ cases:
   # omitted from output. Only gateway_class_name remains.
   - name: aws envoy gateway-resources omits loadbalancer substitutions
     values:
-      provider: aws
+      platform: aws
+      aws:
+        region: us-west-2
       gateway:
         enabled: true
         driver: envoy
@@ -414,7 +416,7 @@ cases:
   # the cert-issuer abstraction in option-gateway.
   - name: non-ACME platform defaults gateway_cert_issuer to private and uses private_domain
     values:
-      provider: metal
+      platform: metal
       gateway:
         enabled: true
         driver: envoy
@@ -436,7 +438,7 @@ cases:
   # notification-controller and the webhook-token secret).
   - name: gitops mode pull excludes receiver and propagates pull to gitops terraform
     values:
-      provider: metal
+      platform: metal
       gateway:
         enabled: true
         driver: envoy
@@ -454,3 +456,17 @@ cases:
       kustomize:
         - name: gitops
           path: gitops/flux
+
+  # Requires: private gateway without dns.private_domain silently falls back
+  # to the public branch (cert, DNS, LB scheme), so option-gateway fails at
+  # config-load instead.
+  - name: gateway access private without dns.private_domain fails composition
+    values:
+      platform: metal
+      gateway:
+        enabled: true
+        driver: envoy
+        access: private
+      network: *default-network
+      cluster: *default-cluster
+    expectError: true

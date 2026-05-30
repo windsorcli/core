@@ -1,6 +1,6 @@
 # option-storage.yaml facet tests
 # Tests CSI driver selection and component composition.
-# Uses provider: metal to keep tests platform-agnostic (option-storage applies to any Talos cluster).
+# Uses platform: metal to keep tests platform-agnostic (option-storage applies to any Talos cluster).
 
 # Common configurations
 x-defaults:
@@ -47,7 +47,7 @@ cases:
   # Minimal: no explicit storage config — defaults to openebs
   - name: minimal config defaults to openebs
     values:
-      provider: metal
+      platform: metal
       gateway:
         enabled: false
       network: *default-network
@@ -64,7 +64,7 @@ cases:
   # Full: longhorn with HA, custom volume path, workers
   - name: full longhorn config with HA and custom volume path
     values:
-      provider: metal
+      platform: metal
       topology: ha
       gateway:
         enabled: false
@@ -91,7 +91,7 @@ cases:
   # Explicit openebs driver is same as default
   - name: explicit openebs driver produces same result as default
     values:
-      provider: metal
+      platform: metal
       gateway:
         enabled: false
       network: *default-network
@@ -117,7 +117,7 @@ cases:
   # Custom local_base_path is passed as substitution
   - name: custom local_base_path is passed to CSI substitution
     values:
-      provider: metal
+      platform: metal
       gateway:
         enabled: false
       network: *default-network
@@ -143,7 +143,7 @@ cases:
   # Longhorn single-node: schedulable CP with no workers gets CP toleration component
   - name: longhorn single-node with schedulable CP adds single-node component
     values:
-      provider: metal
+      platform: metal
       gateway:
         enabled: false
       network: *default-network
@@ -169,7 +169,7 @@ cases:
   # Longhorn multi-node without HA: workers present, default topology — no single-node or ha component
   - name: longhorn multi-node topology omits topology components
     values:
-      provider: metal
+      platform: metal
       gateway:
         enabled: false
       network: *default-network
@@ -193,7 +193,7 @@ cases:
   # Longhorn HA: topology=ha adds ha component (non-schedulable CP — no single-node)
   - name: longhorn ha topology adds longhorn/ha component
     values:
-      provider: metal
+      platform: metal
       topology: ha
       gateway:
         enabled: false
@@ -219,7 +219,7 @@ cases:
   # Longhorn single-node + HA: schedulable CP + topology=ha — both topology components active
   - name: longhorn schedulable CP with ha topology adds both single-node and ha components
     values:
-      provider: metal
+      platform: metal
       topology: ha
       gateway:
         enabled: false

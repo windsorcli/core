@@ -161,9 +161,7 @@ properties:
     $ref: '#/$defs/dnsLabel'
     description: Context id (short identifier for this deployment). Flows into cluster names, terraform workspace names, and other downstream identifiers that require a DNS-1123 label.
 
-  # Infrastructure platform. `platform` is the canonical key; `provider`
-  # is the legacy alias kept for backward compatibility (effective value is
-  # platform ?? provider). New configs and tests should use `platform`.
+  # Infrastructure platform — canonical key that selects the platform facet.
   platform:
     type: string
     enum:
@@ -174,20 +172,8 @@ properties:
       - metal
       - docker
       - hyperv
-    description: Infrastructure platform. Selects the platform facet (cluster driver defaults, policy, PKI, telemetry, ingress, storage). When set, overrides the legacy `provider` field.
-  provider:
-    type: string
-    deprecated: true
-    enum:
-      - none
-      - aws
-      - azure
-      - incus
-      - metal
-      - docker
-      - hyperv
     default: none
-    description: Deprecated. Use `platform` instead. Retained as a fallback for existing configs (effective value resolves to platform ?? provider).
+    description: Infrastructure platform. Selects the platform facet (cluster driver defaults, policy, PKI, telemetry, ingress, storage).
 
   # Development mode
   dev:
@@ -1081,103 +1067,14 @@ additionalProperties: false
 # Cross-field constraints. JSON Schema's if/then lets us require fields
 # only when other fields are set, surfacing config gaps at validation
 # time instead of at terraform/cluster apply time.
+#
 allOf:
-  # Setting dns.public_domain activates ACME (publicly-trusted certs from
-  # Let's Encrypt). Let's Encrypt requires an account email at registration,
-  # so the top-level `email` field becomes mandatory in this case.
-  - if:
-      properties:
-        dns:
-          type: object
-          properties:
-            public_domain:
-              type: string
-              minLength: 1
-          required:
-            - public_domain
-      required:
-        - dns
-    then:
-      required:
-        - email
-      properties:
-        email:
-          type: string
-          minLength: 1
-
-  # gateway.access == 'private' switches the gateway issuer to a private CA
-  # and external-dns to the private zone. Without dns.private_domain the
-  # facet silently falls back to a public selfsigned issuer, masking the
-  # misconfiguration. Require dns.private_domain when gateway is private.
-  - if:
-      properties:
-        gateway:
-          type: object
-          properties:
-            access:
-              const: private
-          required:
-            - access
-      required:
-        - gateway
-    then:
-      required:
-        - dns
-      properties:
-        dns:
-          type: object
-          required:
-            - private_domain
-          properties:
-            private_domain:
-              type: string
-              minLength: 1
-
-  # platform: metal stands up bare-metal Talos nodes. The cluster facet
-  # composes controlplanes from either cluster.controlplanes.count (which
-  # auto-numbers nodes via the network module) or cluster.controlplanes.
-  # nodes (an explicit map of named nodes with endpoints). When neither
-  # is set the facet defaults count to len(nodes ?? {}) which is 0 and
-  # silently provisions a zero-controlplane cluster. Require at least
-  # one. anyOf on the if matches both the canonical `platform: metal`
-  # and the legacy `provider: metal` alias still in use across tests.
-  - if:
-      anyOf:
-        - properties:
-            platform:
-              const: metal
-          required:
-            - platform
-        - properties:
-            provider:
-              const: metal
-          required:
-            - provider
-    then:
-      required:
-        - cluster
-      properties:
-        cluster:
-          type: object
-          required:
-            - controlplanes
-          properties:
-            controlplanes:
-              type: object
-              anyOf:
-                - required:
-                    - count
-                - required:
-                    - nodes
-
   # Managed-cluster drivers ↔ platform coherence. cluster.driver: eks
   # binds to AWS EKS (Route53, AWS provider, EKS control plane); aks
   # binds to Azure AKS. They only make sense on the matching platform,
   # and the platform-base facet would otherwise inject the right driver
   # automatically. An explicit mismatch (e.g. platform: metal +
   # cluster.driver: eks) silently binds the wrong cloud and fails apply.
-  # Two anyOf branches per rule handle the `platform` key and the legacy
-  # `provider` alias.
   - if:
       properties:
         cluster:
@@ -1190,17 +1087,11 @@ allOf:
       required:
         - cluster
     then:
-      anyOf:
-        - properties:
-            platform:
-              const: aws
-          required:
-            - platform
-        - properties:
-            provider:
-              const: aws
-          required:
-            - provider
+      properties:
+        platform:
+          const: aws
+      required:
+        - platform
 
   - if:
       properties:
@@ -1214,17 +1105,11 @@ allOf:
       required:
         - cluster
     then:
-      anyOf:
-        - properties:
-            platform:
-              const: azure
-          required:
-            - platform
-        - properties:
-            provider:
-              const: azure
-          required:
-            - provider
+      properties:
+        platform:
+          const: azure
+      required:
+        - platform
 
   # cluster.storage.driver is Talos-only (config-talos.yaml reads it; managed
   # clusters use cluster.storage.single_storage_type). Fires only when

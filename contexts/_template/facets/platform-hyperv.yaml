@@ -105,6 +105,10 @@ config:
   # talosconfig and kubeconfig also embed) — required in NodePort mode.
   - name: hyperv_effective
     when: gateway.service_type == 'NodePort'
+    requires:
+      - paths:
+          - cluster.endpoint
+        message: NodePort mode derives the host's bench IP from this URL.
     value:
       switch_type: NAT
       nat_name: "windsor-${id ?? 'hyperv'}"

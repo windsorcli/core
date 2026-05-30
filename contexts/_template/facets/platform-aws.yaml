@@ -12,6 +12,24 @@ when: platform == 'aws'
 backend: backend
 
 # =============================================================================
+# Requires
+# =============================================================================
+#
+# aws.region has no derivable default — the aws-lb-controller, external-dns,
+# and the ACME Route53 issuer all need it, and the inline comment in this
+# facet calls out that propagating empty causes controller crashes rather
+# than falling back to a guess.
+#
+requires:
+  - paths:
+      - aws.region
+    message: The AWS provider needs a region for every API call.
+  - when: (dns.public_domain ?? '') != ''
+    paths:
+      - email
+    message: Public DNS requires an operator email for TLS certificate registration.
+
+# =============================================================================
 # Terraform — S3 state backend, VPC, EKS, optional Cilium bootstrap
 # =============================================================================
 #

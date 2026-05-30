@@ -15,6 +15,15 @@ when: platform == 'metal'
 backend: cluster
 
 # =============================================================================
+# Requires
+# =============================================================================
+#
+requires:
+  - paths:
+      - cluster.controlplanes.nodes
+    message: Metal has no compute layer; declare the controlplane nodes that windsor should talk to.
+
+# =============================================================================
 # Config
 # =============================================================================
 #

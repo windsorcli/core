@@ -1,6 +1,6 @@
 # option-cni.yaml facet tests
 # Tests Cilium CNI selection — Terraform bootstrap, Talos machine config patches, and kustomize component composition.
-# Uses provider: metal to keep tests platform-agnostic (option-cni applies to any Talos cluster).
+# Uses platform: metal to keep tests platform-agnostic (option-cni applies to any Talos cluster).
 
 x-defaults:
   network: &default-network
@@ -37,7 +37,7 @@ cases:
   # Default: no CNI config — cilium is the default, cni terraform + kustomize are deployed.
   - name: default config (no cluster.cni) deploys cilium on metal
     values:
-      provider: metal
+      platform: metal
       gateway:
         enabled: false
       network: *default-network
@@ -64,7 +64,7 @@ cases:
   # Explicit flannel: opt-out of cilium — no cni kustomize component deployed.
   - name: explicit flannel driver omits cni kustomize component
     values:
-      provider: metal
+      platform: metal
       gateway:
         enabled: false
       network: *default-network
@@ -85,7 +85,7 @@ cases:
   # and the kustomize substitutions.
   - name: cilium driver deploys cni terraform and kustomize component
     values:
-      provider: metal
+      platform: metal
       gateway:
         enabled: false
       network: *default-network
@@ -125,7 +125,7 @@ cases:
   # Cilium + HA: operator replicas scale from 1 (single-node) to 2 via substitution.
   - name: cilium with topology=ha sets operator_replicas to 2
     values:
-      provider: metal
+      platform: metal
       topology: ha
       gateway:
         enabled: false
@@ -157,7 +157,7 @@ cases:
   # Cilium + Gateway: adds cilium/gateway component and gateway-base dep (CRDs before cilium-operator).
   - name: cilium gateway driver adds cilium/gateway component
     values:
-      provider: metal
+      platform: metal
       gateway:
         enabled: true
         driver: cilium
@@ -186,7 +186,7 @@ cases:
   # Cilium: Talos cluster terraform receives the CNI patch merged into common_config_patches.
   - name: cilium driver merges cni patch into common_config_patches for cluster/talos terraform
     values:
-      provider: metal
+      platform: metal
       # Explicit multi-node to isolate the test from the node-layout-driven
       # single-node auto-derivation (single-node would add leader-elect and
       # etcd compaction patches that are covered by option-single-node tests).
@@ -228,7 +228,7 @@ cases:
   # is applied before the Gateway resource is created.
   - name: cilium gateway driver makes gateway-resources depend on cni
     values:
-      provider: metal
+      platform: metal
       gateway:
         enabled: true
         driver: cilium
@@ -245,7 +245,7 @@ cases:
   # network.loadbalancer_ips: derived from CIDR when not explicitly set (workstation layer active).
   - name: loadbalancer IPs derived from cidr_block when not set
     values:
-      provider: docker
+      platform: docker
       workstation:
         runtime: colima
       gateway:
@@ -271,7 +271,7 @@ cases:
   # Cilium: gitops terraform depends on cni when cilium is selected.
   - name: cilium driver makes gitops terraform depend on cni
     values:
-      provider: metal
+      platform: metal
       gateway:
         enabled: false
       network: *default-network
@@ -297,7 +297,7 @@ cases:
   # (no Prometheus to scrape). telemetry-base dep stays because logs still need it.
   - name: telemetry metrics disabled strips cilium/prometheus component
     values:
-      provider: metal
+      platform: metal
       gateway:
         enabled: false
       network: *default-network
@@ -322,7 +322,7 @@ cases:
   # AND the telemetry-base dependency (the kustomization isn't emitted).
   - name: telemetry metrics and logs disabled drops cilium/prometheus and telemetry-base dep
     values:
-      provider: metal
+      platform: metal
       gateway:
         enabled: false
       network: *default-network
@@ -347,7 +347,7 @@ cases:
   # policies.enabled=false drops the policy-resources dependency edge.
   - name: policies.enabled false strips policy-resources dep on cni
     values:
-      provider: metal
+      platform: metal
       gateway:
         enabled: false
       network: *default-network

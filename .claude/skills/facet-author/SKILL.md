@@ -30,9 +30,19 @@ metadata:
 
 when: <expression>    # optional top-level guard — omit if always applies
 
+requires:             # optional — fail composition with a readable message
+- when: <expression>  #   optional guard; omit to always require
+  paths:
+    - <config.path>   #   these must be set/non-empty when the guard holds
+  message: <plain-English reason the field is needed>
+
 config:
 - name: <config-key>
   value: <static-or-expression>
+  requires:           # requires also works on a config entry; it inherits
+  - paths:            #   the entry's own `when:`, so no need to repeat it
+      - <config.path>
+    message: <reason>
 
 terraform: []         # terraform stacks this facet manages (omit if none)
 
@@ -69,8 +79,7 @@ Windsor uses a CEL-like expression language in `${...}` blocks and `when:` field
 
 ### Accessing values
 ```
-provider              top-level schema field
-platform              alias for provider (platform ?? provider is the canonical pattern)
+platform              top-level schema field (canonical platform selector)
 gateway.enabled       nested field access
 addons.private_dns.enabled
 workstation.runtime
