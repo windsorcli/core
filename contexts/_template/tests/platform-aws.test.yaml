@@ -165,6 +165,10 @@ cases:
             - network
           inputs:
             create_cert_manager_role: "false"
+            # Empty list (not an eager terraform_output('dns-zone', ...) call)
+            # when ACME is off — dns-zone isn't registered, so referencing its
+            # output would hard-error at bootstrap.
+            cert_manager_hosted_zone_ids: []
       kustomize:
         - name: pki-resources
           path: pki/resources

@@ -104,7 +104,7 @@ terraform:
       private_subnet_ids: ${terraform_output('network', 'private_subnet_ids')}
       manage_log_group: ${!(ephemeral ?? false)}
       create_cert_manager_role: "${(dns.public_domain ?? '') != ''}"
-      cert_manager_hosted_zone_ids: "${(terraform_output('dns-zone', 'zone_id') ?? '') != '' ? [terraform_output('dns-zone', 'zone_id')] : []}"
+      cert_manager_hosted_zone_ids: "${(dns.public_domain ?? '') != '' ? [terraform_output('dns-zone', 'zone_id')] : []}"
       # cluster.pools is the portable node-pool shape (class + count|min/max +
       # lifecycle). When unset, the cluster module falls back to its
       # var.node_groups default — no behavior change for existing configs.
@@ -409,10 +409,11 @@ kustomize:
     timeout: 5m
     interval: 5m
     substitutions:
-      # ACME-only substitutions; harmless when selfsigned is selected
-      # (component doesn't reference them).
+      # ACME-only substitutions; the selfsigned component doesn't reference
+      # them. acme_hosted_zone_id gates its terraform_output on public_domain
+      # because dns-zone isn't registered in private/selfsigned mode.
       acme_server: "${dev == true ? 'https://acme-staging-v02.api.letsencrypt.org/directory' : 'https://acme-v02.api.letsencrypt.org/directory'}"
       acme_email: "${email ?? ''}"
       acme_dns_zone: "${dns.public_domain ?? ''}"
       acme_region: "${aws.region ?? 'us-east-1'}"
-      acme_hosted_zone_id: "${terraform_output('dns-zone', 'zone_id') ?? ''}"
+      acme_hosted_zone_id: "${(dns.public_domain ?? '') != '' ? (terraform_output('dns-zone', 'zone_id') ?? '') : ''}"

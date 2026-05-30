@@ -272,10 +272,9 @@ cases:
   # Private mode flips the AKS Standard LB to internal so the gateway only
   # exposes a private subnet IP. Same gating as the AWS aws-nlb internal
   # toggle (requires dns.private_domain, otherwise the rest of the private
-  # cascade no-ops and the gateway runs as public). Also set
-  # dns.public_domain so the public DNS / cert cascade still wires up.
-  # Azure private mode currently relies on the public dns / pki path being
-  # active for downstream wiring.
+  # cascade no-ops and the gateway runs as public). public_domain is also
+  # set here to exercise the public+private overlap; the private-only path
+  # is covered by the case below.
   - name: gateway.access=private flips the Azure LB to internal
     values:
       platform: azure
@@ -296,6 +295,50 @@ cases:
             - envoy/loadbalancer
             - envoy/loadbalancer/azure-lb-internal
             - envoy/prometheus
+
+  # Private-only mode: dns.private_domain set, no public_domain. The dns-zone
+  # stack is never registered, so every dns-zone terraform_output must be
+  # gated on public_domain — referencing an unregistered component is a hard
+  # error. external-dns targets the private zone via the azure-private-dns
+  # provider, and pki-resources falls to the private (selfsigned) issuer.
+  - name: private-only mode targets external-dns at the private Azure DNS zone
+    values:
+      platform: azure
+      gateway:
+        enabled: true
+        driver: envoy
+        access: private
+      dns:
+        private_domain: internal.example.com
+    terraformOutputs:
+      network:
+        private_zone_id: /subscriptions/sub-123/resourceGroups/rg-net/providers/Microsoft.Network/privateDnsZones/internal.example.com
+        subscription_id: sub-123
+        resource_group_name: rg-net
+    expect:
+      kustomize:
+        - name: dns
+          path: dns
+          dependsOn:
+            - policy-resources
+            - gateway-base
+          components:
+            - external-dns
+            - external-dns/providers/azure
+            - external-dns/sources/gateway-httproute
+          substitutions:
+            external_domain: internal.example.com
+            external_dns_azure_provider: azure-private-dns
+            zone_id_filter: /subscriptions/sub-123/resourceGroups/rg-net/providers/Microsoft.Network/privateDnsZones/internal.example.com
+            external_dns_dns_zone_subscription_id: sub-123
+            external_dns_dns_zone_resource_group: rg-net
+        # Private mode falls to the selfsigned issuer; its acme_* dns-zone
+        # substitutions resolve to empty without touching the unregistered
+        # dns-zone component.
+        - name: pki-resources
+          path: pki/resources
+          components:
+            - private-issuer/selfsigned
 
   # Negative branch: Cilium provides its own gateway implementation, so
   # there's no Envoy data-plane Service to annotate. The azure-lb-internal
