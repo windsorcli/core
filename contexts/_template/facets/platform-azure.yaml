@@ -213,14 +213,13 @@ kustomize:
       acme_email: "${email ?? ''}"
       acme_dns_zone: "${dns.public_domain ?? ''}"
       # Deferred terraform_outputs from the dns-zone and cluster stacks.
-      # terraform_output() returns nil whenever the requested output is
-      # absent — component never composed, output not exported, or
-      # mid-destroy — so ?? '' covers dns.public_domain-unset and
-      # create_cert_manager_identity-not-fired without an outer guard.
-      # Real state-read errors still propagate. Selfsigned-issuer in
-      # private mode doesn't read these; empty values are inert there.
-      acme_dns_zone_resource_group: "${terraform_output('dns-zone', 'resource_group_name') ?? ''}"
-      acme_dns_zone_subscription_id: "${terraform_output('dns-zone', 'subscription_id') ?? ''}"
+      # Gate the dns-zone reads on public_domain: the component isn't
+      # registered in private/selfsigned mode, and referencing an
+      # unregistered component is a hard error (?? '' only defaults an
+      # absent output, not an absent component). Selfsigned in private
+      # mode doesn't read these; empty values are inert there.
+      acme_dns_zone_resource_group: "${(dns.public_domain ?? '') != '' ? (terraform_output('dns-zone', 'resource_group_name') ?? '') : ''}"
+      acme_dns_zone_subscription_id: "${(dns.public_domain ?? '') != '' ? (terraform_output('dns-zone', 'subscription_id') ?? '') : ''}"
       cert_manager_client_id: "${terraform_output('cluster', 'cert_manager_client_id') ?? ''}"
       cert_manager_tenant_id: "${terraform_output('cluster', 'tenant_id') ?? ''}"
 
