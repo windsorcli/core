@@ -28,7 +28,7 @@ cases:
   # Metal defaults to cilium gateway driver, cilium dashboard included.
   - name: minimal config creates observability with defaults via dev mode
     values:
-      provider: metal
+      platform: metal
       dev: true
       dns:
         domain: example.local
@@ -61,7 +61,7 @@ cases:
   # Full: stdout driver with Gateway API (envoy); grafana/gateway route included.
   - name: full config with stdout driver creates FluentD pipeline and log filtering
     values:
-      provider: metal
+      platform: metal
       dns:
         domain: full.example.com
       time_format: 24h
@@ -109,7 +109,7 @@ cases:
   # Full: quickwit driver; addon wins (last-wins), addon contributes quickwit + fluentd output only
   - name: full config with quickwit driver creates storage pipeline with PVC and dashboards
     values:
-      provider: metal
+      platform: metal
       dns:
         domain: quickwit.example.com
       network: *default-network
@@ -141,7 +141,7 @@ cases:
   # Full: elasticsearch driver. Intended: addon overrides telemetry-base (filebeat). See docs/cli-bugs.md if this fails.
   - name: full config with elasticsearch driver creates ELK stack with filebeat
     values:
-      provider: metal
+      platform: metal
       dns:
         domain: elk.example.com
       gateway:
@@ -191,7 +191,7 @@ cases:
   # aggregator (part of base telemetry) still runs.
   - name: excludes observability when addon disabled
     values:
-      provider: metal
+      platform: metal
       gateway:
         enabled: false
       network: *default-network
@@ -211,7 +211,7 @@ cases:
   # Edge: trace log level; grafana dashboards appear without a route (gateway disabled), stdout output included.
   - name: trace log level creates stdout pipeline without log filter
     values:
-      provider: metal
+      platform: metal
       gateway:
         enabled: false
       network: *default-network
@@ -241,7 +241,7 @@ cases:
   # telemetry-base keeps its default fluentbit components; elasticsearch/kibana not deployed.
   - name: elasticsearch with gateway disabled skips filebeat and ELK stack
     values:
-      provider: metal
+      platform: metal
       gateway:
         enabled: false
       network: *default-network
@@ -260,7 +260,7 @@ cases:
   # Edge: Envoy gateway mode uses Gateway API route components for Grafana and Kibana.
   - name: elasticsearch observability with envoy uses gateway routes
     values:
-      provider: metal
+      platform: metal
       gateway:
         enabled: true
         driver: envoy

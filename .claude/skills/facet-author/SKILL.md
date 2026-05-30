@@ -69,8 +69,7 @@ Windsor uses a CEL-like expression language in `${...}` blocks and `when:` field
 
 ### Accessing values
 ```
-provider              top-level schema field
-platform              alias for provider (platform ?? provider is the canonical pattern)
+platform              top-level schema field (canonical platform selector)
 gateway.enabled       nested field access
 addons.private_dns.enabled
 workstation.runtime

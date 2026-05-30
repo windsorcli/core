@@ -1,5 +1,5 @@
 # platform-base.yaml facet tests
-# Tests base infrastructure components shared by all providers
+# Tests base infrastructure components shared by all platforms
 # Includes: policy, PKI, telemetry, and log aggregation driver configuration
 
 # Common configurations
@@ -28,7 +28,7 @@ cases:
   # Minimal: Test base infrastructure with default log aggregation driver (fluentd)
   - name: minimal config creates base infrastructure with default fluentd driver
     values:
-      provider: metal
+      platform: metal
       gateway:
         enabled: false
       network: *default-network
@@ -97,7 +97,7 @@ cases:
   # Full: observability addon enabled; addon wins for same-name observability (grafana + fluentd/outputs/stdout)
   - name: full config with explicit fluentd driver and observability enabled
     values:
-      provider: metal
+      platform: metal
       gateway:
         enabled: false
       network: *default-network
@@ -145,7 +145,7 @@ cases:
   # Edge case: FluentD aggregator is base telemetry, runs independently of the observability addon.
   - name: fluentd included when observability addon disabled
     values:
-      provider: metal
+      platform: metal
       gateway:
         enabled: false
       network: *default-network
@@ -167,7 +167,7 @@ cases:
   # Edge case: elasticsearch logs driver; addon overrides telemetry-base (filebeat). Intended: addon wins. See docs/cli-bugs.md if this fails.
   - name: fluentd excluded when elasticsearch logs driver used
     values:
-      provider: metal
+      platform: metal
       dns:
         domain: elk.example.com
       gateway:
@@ -216,7 +216,7 @@ cases:
   # Edge case: None driver disables log aggregation
   - name: none driver disables log aggregation
     values:
-      provider: metal
+      platform: metal
       gateway:
         enabled: false
       network: *default-network
@@ -249,7 +249,7 @@ cases:
   # Policy modes: disabled removes policy component from policy-resources stack.
   - name: policy mode disabled excludes selected policies
     values:
-      provider: metal
+      platform: metal
       gateway:
         enabled: false
       network: *default-network
@@ -270,7 +270,7 @@ cases:
   # Kyverno reports-controller opt-in layers in the kyverno/reports component.
   - name: policies.reporting enabled adds kyverno/reports component
     values:
-      provider: metal
+      platform: metal
       gateway:
         enabled: false
       network: *default-network
@@ -288,7 +288,7 @@ cases:
   # Kyverno cleanup-controller opt-in layers in the kyverno/cleanup component.
   - name: policies.cleanup enabled adds kyverno/cleanup component
     values:
-      provider: metal
+      platform: metal
       gateway:
         enabled: false
       network: *default-network
@@ -306,7 +306,7 @@ cases:
   # Both opt-in flags compose.
   - name: policies.reporting and policies.cleanup enabled adds both components
     values:
-      provider: metal
+      platform: metal
       gateway:
         enabled: false
       network: *default-network
@@ -327,7 +327,7 @@ cases:
   # drops the policy-resources dep from pki-base.
   - name: policies.enabled false excludes policy kustomizations and drops pki-base dep
     values:
-      provider: metal
+      platform: metal
       gateway:
         enabled: false
       network: *default-network
@@ -353,7 +353,7 @@ cases:
   # from pki-base entirely.
   - name: telemetry metrics and logs both disabled excludes telemetry pipeline and trims pki-base
     values:
-      provider: metal
+      platform: metal
       gateway:
         enabled: false
       network: *default-network
@@ -381,7 +381,7 @@ cases:
   # dropped. cert-manager/prometheus stays (metrics are on).
   - name: telemetry logs disabled keeps metrics pipeline and drops fluent-bit
     values:
-      provider: metal
+      platform: metal
       gateway:
         enabled: false
       network: *default-network
@@ -421,7 +421,7 @@ cases:
   # ServiceMonitors) are excluded — no Prometheus to scrape.
   - name: telemetry metrics disabled keeps logs pipeline and drops Prometheus
     values:
-      provider: metal
+      platform: metal
       gateway:
         enabled: false
       network: *default-network
@@ -465,7 +465,7 @@ cases:
   # Prometheus to scrape and the fluentbit→fluentd path to ship logs.
   - name: observability addon overrides telemetry metrics and logs disabled
     values:
-      provider: metal
+      platform: metal
       gateway:
         enabled: false
       network: *default-network

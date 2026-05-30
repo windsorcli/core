@@ -1,7 +1,7 @@
 cases:
   - name: creates VNet, AKS, and GitOps terraform chain
     values:
-      provider: azure
+      platform: azure
       gateway:
         enabled: false
     expect:
@@ -30,7 +30,7 @@ cases:
   # cluster.pools wires to the azure-aks module's var.pools (mirrors AWS).
   - name: cluster.pools wires through to azure-aks module
     values:
-      provider: azure
+      platform: azure
       gateway:
         enabled: false
       cluster:
@@ -51,7 +51,7 @@ cases:
   # Multi-pool with mixed classes + a spot batch pool.
   - name: cluster.pools multi-pool with mixed sizing and lifecycle on Azure
     values:
-      provider: azure
+      platform: azure
       gateway:
         enabled: false
       cluster:
@@ -85,7 +85,7 @@ cases:
 
   - name: excludes gateway when disabled
     values:
-      provider: azure
+      platform: azure
       gateway:
         enabled: false
     exclude:
@@ -99,7 +99,7 @@ cases:
   # baseline-on default for that role.
   - name: default selfsigned mode without a public domain
     values:
-      provider: azure
+      platform: azure
     expect:
       terraform:
         - name: cluster
@@ -125,7 +125,7 @@ cases:
   # two platforms shows up here first.
   - name: dns.public_domain wires up ACME azureDNS issuer end to end
     values:
-      provider: azure
+      platform: azure
       gateway:
         enabled: true
         driver: envoy
@@ -231,7 +231,7 @@ cases:
   # burning Let's Encrypt prod rate limits during iteration.
   - name: dev mode uses Let's Encrypt staging server on Azure
     values:
-      provider: azure
+      platform: azure
       dev: true
       gateway:
         enabled: true
@@ -253,7 +253,7 @@ cases:
   # no annotations needed, so the option-gateway base components are enough.
   - name: gateway with envoy on Azure uses AKS-default public LB
     values:
-      provider: azure
+      platform: azure
       gateway:
         enabled: true
         driver: envoy
@@ -278,7 +278,7 @@ cases:
   # active for downstream wiring.
   - name: gateway.access=private flips the Azure LB to internal
     values:
-      provider: azure
+      platform: azure
       gateway:
         enabled: true
         driver: envoy
@@ -302,7 +302,7 @@ cases:
   # component must NOT merge into the cilium gateway-base.
   - name: gateway with cilium driver on Azure does not add azure-lb-internal component
     values:
-      provider: azure
+      platform: azure
       gateway:
         enabled: true
         driver: cilium
@@ -318,7 +318,7 @@ cases:
   # azure-lb-internal component must NOT merge into the nodeport gateway-base.
   - name: gateway with envoy and NodePort service_type on Azure does not add azure-lb-internal component
     values:
-      provider: azure
+      platform: azure
       gateway:
         enabled: true
         driver: envoy

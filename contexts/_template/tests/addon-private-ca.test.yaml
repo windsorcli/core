@@ -28,7 +28,7 @@ cases:
   # Minimal: dev mode enables private-ca addon. Intended: addon pki-base (trust-manager) overrides provider. See docs/cli-bugs.md if this fails.
   - name: minimal config creates private CA with defaults via dev mode
     values:
-      provider: metal
+      platform: metal
       dev: true
       network: *default-network
       cluster: *default-cluster
@@ -53,7 +53,7 @@ cases:
   # Full: addon explicitly enabled. Intended: addon pki-base (trust-manager) overrides. See docs/cli-bugs.md if this fails.
   - name: full config creates private CA when addon explicitly enabled
     values:
-      provider: metal
+      platform: metal
       network: *default-network
       cluster: *default-cluster
       addons:
@@ -80,7 +80,7 @@ cases:
   # Edge case: Addon disabled
   - name: excludes private CA when addon disabled
     values:
-      provider: metal
+      platform: metal
       gateway:
         enabled: false
       network: *default-network

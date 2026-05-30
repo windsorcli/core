@@ -40,7 +40,7 @@ cases:
   # Minimal: workstation enabled, docker (colima), minimal cluster → cluster and gitops. No certSANs (colima; only docker-desktop sets them).
   - name: minimal workstation creates terraform chain and talos config
     values:
-      provider: docker
+      platform: docker
       workstation:
         runtime: colima
       dns: *default-dns
@@ -91,7 +91,7 @@ cases:
   # Full: fully populated cluster, dns, volumes
   - name: full workstation with cluster options and colima
     values:
-      provider: docker
+      platform: docker
       workstation:
         runtime: colima
       dns: *default-dns
@@ -125,7 +125,7 @@ cases:
   # Edge: cluster.enabled false with workstation enabled → no cluster, no flux (compute and gitops not run)
   - name: cluster disabled with workstation yields no cluster terraform
     values:
-      provider: docker
+      platform: docker
       workstation:
         runtime: colima
       dns: *default-dns
@@ -149,7 +149,7 @@ cases:
   # Edge: workstation.runtime docker → loadbalancer present (flannel CNI required for lb to fire)
   - name: workstation runtime docker yields loadbalancer
     values:
-      provider: docker
+      platform: docker
       workstation:
         runtime: docker
       dns: *default-dns
@@ -183,7 +183,7 @@ cases:
   # Edge: services.registries false → effective registries empty; terraform chain still runs
   - name: workstation with services registries disabled still creates terraform chain
     values:
-      provider: docker
+      platform: docker
       workstation:
         runtime: colima
         services:
@@ -206,7 +206,7 @@ cases:
   # Asserts cluster common_config_patches: cert_rotation + registries.mirrors; no certSANs (incus path uses common_patch_with_registries only).
   - name: incus with workstation enabled creates workstation/incus compute cluster chain
     values:
-      provider: incus
+      platform: incus
       workstation:
         runtime: colima
       dns: *default-dns
@@ -273,7 +273,7 @@ cases:
   # Edge: flux concurrency derived from cluster CPU on docker workstation (not clamped).
   - name: docker workstation derives flux concurrency from cpu/memory
     values:
-      provider: docker
+      platform: docker
       workstation:
         runtime: colima
       dns: *default-dns
@@ -309,7 +309,7 @@ cases:
   # Edge: docker-desktop — no lb kustomize components. Asserts workstation inputs use 4+len(registries) for IPs.
   - name: docker-desktop workstation has node hostport dns and no lb
     values:
-      provider: docker
+      platform: docker
       workstation:
         runtime: docker-desktop
       dns: *default-dns
@@ -337,7 +337,7 @@ cases:
   # Edge: custom webhook token propagates to all three workstation variants and gitops/flux so the sha256 hash matches.
   - name: custom webhook token propagates to docker-desktop workstation and gitops
     values:
-      provider: docker
+      platform: docker
       workstation:
         runtime: docker-desktop
         git:
@@ -364,7 +364,7 @@ cases:
 
   - name: custom webhook token propagates to colima workstation and gitops
     values:
-      provider: docker
+      platform: docker
       workstation:
         runtime: colima
         git:
@@ -391,7 +391,7 @@ cases:
 
   - name: custom webhook token propagates to incus workstation and gitops
     values:
-      provider: incus
+      platform: incus
       workstation:
         runtime: colima
         git:
@@ -442,7 +442,7 @@ cases:
   # workstation + gitops terraform modules to skip notification-controller/webhook.
   - name: gitops mode pull disables receiver component and notification controller
     values:
-      provider: docker
+      platform: docker
       workstation:
         runtime: docker-desktop
       gitops:

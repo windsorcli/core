@@ -47,7 +47,7 @@ cases:
   # Minimal: Test default behavior with minimal required fields
   - name: minimal config creates compute and cluster terraform chain with defaults
     values:
-      provider: incus
+      platform: incus
       gateway:
         enabled: false
       network: *default-network
@@ -113,7 +113,7 @@ cases:
   # Full: Test all configurable options together (explicit flannel CNI to exercise MetalLB path)
   - name: full config with custom network, MetalLB, ingress, and all cluster options
     values:
-      provider: incus
+      platform: incus
       dns:
         private_domain: test
       gateway:
@@ -233,10 +233,10 @@ cases:
           timeout: 10m
           interval: 5m
 
-  # Edge case: colima-incus uses Incus path (provider selects compute/incus; option-workstation does not apply)
+  # Edge case: colima-incus uses Incus path (platform selects compute/incus; option-workstation does not apply)
   - name: colima-incus uses compute/incus not docker stack
     values:
-      provider: incus
+      platform: incus
       gateway:
         enabled: false
       network: *default-network
@@ -256,7 +256,7 @@ cases:
   # Edge case: Colima uses existing incusbr0 network (avoids creating a new bridge)
   - name: Colima uses existing incusbr0 network
     values:
-      provider: incus
+      platform: incus
       workstation:
         runtime: colima
       gateway:
@@ -282,7 +282,7 @@ cases:
   # colima-incus: defaults to flannel CNI (no cilium overhead; used for storage driver testing)
   - name: colima-incus defaults to flannel CNI and excludes lb
     values:
-      provider: incus
+      platform: incus
       workstation:
         runtime: colima
       network: *default-network
@@ -308,7 +308,7 @@ cases:
   # Edge case: Schedulable controlplanes use controlplane volume path
   - name: schedulable controlplanes use controlplane volume path for CSI
     values:
-      provider: incus
+      platform: incus
       gateway:
         enabled: false
       network: *default-network

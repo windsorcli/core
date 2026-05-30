@@ -28,7 +28,7 @@ cases:
   # Minimal: dev mode enables database addon. Intended: addon observability (grafana/dashboards/cloudnativepg) overrides. See docs/cli-bugs.md if this fails.
   - name: minimal config creates database with defaults via dev mode
     values:
-      provider: metal
+      platform: metal
       dev: true
       network: *default-network
       cluster: *default-cluster
@@ -51,7 +51,7 @@ cases:
   # Full: database with HA and observability. Intended: addon observability overrides. See docs/cli-bugs.md if this fails.
   - name: full config creates database with HA and observability integration
     values:
-      provider: metal
+      platform: metal
       network: *default-network
       cluster: *default-cluster
       topology: ha
@@ -81,7 +81,7 @@ cases:
   # Edge case: Explicit disable
   - name: excludes database when addon disabled
     values:
-      provider: metal
+      platform: metal
       gateway:
         enabled: false
       network: *default-network
@@ -97,7 +97,7 @@ cases:
   # Edge case: HA disabled explicitly - database created without HA component
   - name: creates database without HA when topology is multi-node
     values:
-      provider: metal
+      platform: metal
       gateway:
         enabled: false
       network: *default-network

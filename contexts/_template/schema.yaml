@@ -161,9 +161,7 @@ properties:
     $ref: '#/$defs/dnsLabel'
     description: Context id (short identifier for this deployment). Flows into cluster names, terraform workspace names, and other downstream identifiers that require a DNS-1123 label.
 
-  # Infrastructure platform. `platform` is the canonical key; `provider`
-  # is the legacy alias kept for backward compatibility (effective value is
-  # platform ?? provider). New configs and tests should use `platform`.
+  # Infrastructure platform — canonical key that selects the platform facet.
   platform:
     type: string
     enum:
@@ -174,20 +172,8 @@ properties:
       - metal
       - docker
       - hyperv
-    description: Infrastructure platform. Selects the platform facet (cluster driver defaults, policy, PKI, telemetry, ingress, storage). When set, overrides the legacy `provider` field.
-  provider:
-    type: string
-    deprecated: true
-    enum:
-      - none
-      - aws
-      - azure
-      - incus
-      - metal
-      - docker
-      - hyperv
     default: none
-    description: Deprecated. Use `platform` instead. Retained as a fallback for existing configs (effective value resolves to platform ?? provider).
+    description: Infrastructure platform. Selects the platform facet (cluster driver defaults, policy, PKI, telemetry, ingress, storage).
 
   # Development mode
   dev:
@@ -1082,12 +1068,6 @@ additionalProperties: false
 # only when other fields are set, surfacing config gaps at validation
 # time instead of at terraform/cluster apply time.
 #
-# Two rules that previously lived here (public_domain → email and
-# access=private → dns.private_domain) now live on facet `requires:`
-# blocks (platform-aws, platform-azure, option-gateway). Requires
-# emits readable errors with named conditions; schema validation emits
-# raw JSON-schema dumps.
-#
 allOf:
   # Managed-cluster drivers ↔ platform coherence. cluster.driver: eks
   # binds to AWS EKS (Route53, AWS provider, EKS control plane); aks
@@ -1095,8 +1075,6 @@ allOf:
   # and the platform-base facet would otherwise inject the right driver
   # automatically. An explicit mismatch (e.g. platform: metal +
   # cluster.driver: eks) silently binds the wrong cloud and fails apply.
-  # Two anyOf branches per rule handle the `platform` key and the legacy
-  # `provider` alias.
   - if:
       properties:
         cluster:
@@ -1109,17 +1087,11 @@ allOf:
       required:
         - cluster
     then:
-      anyOf:
-        - properties:
-            platform:
-              const: aws
-          required:
-            - platform
-        - properties:
-            provider:
-              const: aws
-          required:
-            - provider
+      properties:
+        platform:
+          const: aws
+      required:
+        - platform
 
   - if:
       properties:
@@ -1133,17 +1105,11 @@ allOf:
       required:
         - cluster
     then:
-      anyOf:
-        - properties:
-            platform:
-              const: azure
-          required:
-            - platform
-        - properties:
-            provider:
-              const: azure
-          required:
-            - provider
+      properties:
+        platform:
+          const: azure
+      required:
+        - platform
 
   # cluster.storage.driver is Talos-only (config-talos.yaml reads it; managed
   # clusters use cluster.storage.single_storage_type). Fires only when

@@ -27,7 +27,7 @@ cases:
   # Minimal: Dev mode; addon-private-ca also applies (when dev), last-wins so pki-resources is addon's
   - name: dev mode creates selfsigned issuer
     values:
-      provider: metal
+      platform: metal
       dev: true
       gateway:
         enabled: false
@@ -53,7 +53,7 @@ cases:
   # Edge case: Non-dev mode excludes selfsigned issuer
   - name: excludes selfsigned issuer when dev disabled
     values:
-      provider: metal
+      platform: metal
       dev: false
       gateway:
         enabled: false
