@@ -119,8 +119,3 @@ tasks:
     cmds:
       - scripts/kustomize-docs.sh --check
       - scripts/umbrella-index.sh --check kustomize
-
-  docs:reference:
-    desc: Materialize kustomize and terraform READMEs into docs/reference/ for windsorcli.github.io ingest
-    cmds:
-      - node scripts/sync-reference.mjs

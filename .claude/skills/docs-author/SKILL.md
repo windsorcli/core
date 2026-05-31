@@ -8,7 +8,7 @@ description: Author and maintain reference Markdown for the core Windsor bluepri
 ## Apply when
 
 - Adding or changing Terraform modules, Kustomize stacks, or blueprint layout in ways operators must understand.
-- Writing or refreshing `docs/reference/**` or stack-level `README.md` files that ship as blueprint reference.
+- Writing or refreshing the per-module/stack `README.md` files (under `kustomize/**` and `terraform/**`) that ship as blueprint reference.
 - Defining or updating compatibility (CLI, Kubernetes, Flux) for **this** blueprint.
 
 ## Do not apply when
@@ -19,13 +19,15 @@ description: Author and maintain reference Markdown for the core Windsor bluepri
 
 **Core is a blueprint**, not a separate product tier. Reference from this repo materializes under the **blueprint reference** URL prefix (not generic “how to write a blueprint,” which lives under `/docs/blueprints/*` on the site).
 
-| Author in this repo | Materialized slug prefix | Public URL prefix |
-|---------------------|--------------------------|-------------------|
-| `docs/reference/terraform/**` (generated) | `reference/blueprints/core/terraform/**` | `https://www.windsorcli.dev/docs/reference/blueprints/core/terraform/**` |
-| `docs/reference/kustomize/**` or per-stack README → normalized MD | `reference/blueprints/core/kustomize/**` | `https://www.windsorcli.dev/docs/reference/blueprints/core/kustomize/**` |
-| `docs/reference/compatibility.md`, `layout.md`, etc. | `reference/blueprints/core/*` | `https://www.windsorcli.dev/docs/reference/blueprints/core/*` |
+The site ingests the per-module/stack READMEs in place — there is no generated `docs/reference/` tree in this repo. Author where the file lives:
 
-Exact glob roots are finalized with the website `docs:vendor` script; treat the **public URL prefix** column as the stable link target for cross-repo links.
+| Author in this repo | Public URL prefix |
+|---------------------|-------------------|
+| `terraform/<module>/README.md` (generated tables) | `https://www.windsorcli.dev/docs/reference/blueprints/core/terraform/**` |
+| `kustomize/<add-on>/README.md` | `https://www.windsorcli.dev/docs/reference/blueprints/core/kustomize/**` |
+| Blueprint-level pages (e.g. `docs/compatibility.md`) | `https://www.windsorcli.dev/docs/reference/blueprints/core/*` |
+
+Exact ingest globs live in the website `docs:vendor` script; treat the **public URL prefix** column as the stable link target for cross-repo links.
 
 **Editorial split:** `/docs/blueprints/*` on the site = Blueprint API, schema, facets for **any** author. Pages under `/docs/reference/blueprints/core/*` = **what is inside this blueprint release** (modules, stacks, substitutions).
 
@@ -47,7 +49,7 @@ The umbrellas exist purely as **reference indices** for the site's Infrastructur
 
 ## Terraform reference
 
-- Generate from modules in this repo with `task docs:terraform` (terraform-docs injected between `<!-- BEGIN_TF_DOCS -->` / `<!-- END_TF_DOCS -->` markers in each module's `README.md`). Commit the regenerated `terraform/<module-path>/README.md` (`cluster/talos`, `gitops/flux`, etc.). CI runs `task docs:terraform:check` to fail on drift. The site ingest pipeline mirrors these into `docs/reference/terraform/<module-path>/` per the path mapping above; contributors don't write into `docs/reference/` directly.
+- Generate from modules in this repo with `task docs:terraform` (terraform-docs injected between `<!-- BEGIN_TF_DOCS -->` / `<!-- END_TF_DOCS -->` markers in each module's `README.md`). Commit the regenerated `terraform/<module-path>/README.md` (`cluster/talos`, `gitops/flux`, etc.). CI runs `task docs:terraform:check` to fail on drift. The site ingest pipeline pulls these READMEs in place from `terraform/<module-path>/README.md`; there is no `docs/reference/` tree in this repo.
 - Inputs, outputs, and gotchas belong here; high-level "what is Terraform in Windsor" stays on the site under `/docs/components/terraform`.
 
 ## Kustomize add-on README (per `kustomize/<add-on>/`)
@@ -117,11 +119,11 @@ Reference: [kustomize/policy/](../../../kustomize/policy/) is the simplest multi
 
 ## Compatibility
 
-- Keep a single **blueprint-scoped** matrix (CLI minimum, Kubernetes, Flux) in `docs/reference/compatibility.md` (or equivalent)—“running **this** blueprint,” not generic Windsor marketing.
+- Keep a single **blueprint-scoped** matrix (CLI minimum, Kubernetes, Flux) in `docs/compatibility.md` (or equivalent)—“running **this** blueprint,” not generic Windsor marketing.
 
 ## PR checklist
 
-- [ ] Module or stack behavior that affects operators reflected in `docs/reference/` or stack README.
+- [ ] Module or stack behavior that affects operators reflected in the relevant per-module/stack `README.md`.
 - [ ] Generated Terraform docs refreshed if inputs/outputs changed.
 - [ ] Links to Blueprint schema/facets point at windsorcli.dev `/docs/blueprints/...`, not duplicate prose.
 - [ ] No slug or path that implies generic blueprint authoring—that belongs on the website repo.
