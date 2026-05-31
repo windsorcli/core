@@ -20,6 +20,7 @@ contexts/**/.gcp/
 .cursor/
 .vscode/*.local.*
 
-# Everything under docs/ is local. docs/reference/ is generated on demand
-# by `task docs:reference` for the website build to consume; never committed.
-docs/*
+# docs/ is committed, except docs/adr/ and docs/plans/, which are internal
+# records and planning notes kept local.
+docs/adr/
+docs/plans/
