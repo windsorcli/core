@@ -323,9 +323,17 @@ config:
   # dns.private_domain. Empty-string check (not just `??`) because
   # platform-base may have already resolved private_domain to '' for
   # non-dev contexts.
+  # Ordered fallback, written only when private_domain is unset so we never
+  # self-overwrite an operator value (the guards are mutually exclusive):
+  # dns.domain when set, else '<id>.local'.
   - name: dns
+    when: (dns.private_domain ?? '') == '' && (dns.domain ?? '') != ''
     value:
-      private_domain: "${(dns.private_domain ?? '') != '' ? dns.private_domain : ((dns.domain ?? '') != '' ? dns.domain : (id ?? 'windsor') + '.local')}"
+      private_domain: "${dns.domain}"
+  - name: dns
+    when: (dns.private_domain ?? '') == '' && (dns.domain ?? '') == ''
+    value:
+      private_domain: "${(id ?? 'windsor') + '.local'}"
 
   # ---------------------------------------------------------------------------
   # cluster_endpoint_fallback
