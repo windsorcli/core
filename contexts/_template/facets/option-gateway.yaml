@@ -31,6 +31,46 @@ config:
     value:
       public_issuer: "${(dns.public_domain ?? '') != '' ? 'public-acme' : 'public-selfsigned'}"
 
+  # gateway_effective.external_domain — cert SAN, resolved as an ordered
+  # fallback (last matching entry wins). Floor is '<id>.local' so the
+  # no-domain selfsigned path still renders a valid SAN, never "null".
+  # Private access pins the private domain even when a public one is set.
+  - name: gateway_effective
+    value:
+      external_domain: "${(id ?? 'windsor') + '.local'}"
+  - name: gateway_effective
+    when: (dns.domain ?? '') != ''
+    value:
+      external_domain: "${dns.domain}"
+  - name: gateway_effective
+    when: (dns.private_domain ?? '') != ''
+    value:
+      external_domain: "${dns.private_domain}"
+  - name: gateway_effective
+    when: (dns.public_domain ?? '') != ''
+    value:
+      external_domain: "${dns.public_domain}"
+  - name: gateway_effective
+    when: gateway.access == 'private' && (dns.private_domain ?? '') != ''
+    value:
+      external_domain: "${dns.private_domain}"
+
+  # gateway_effective.cert_issuer — ClusterIssuer for the gateway TLS cert
+  # (last match wins). Floor is 'private' selfsigned; clouds and any
+  # public_domain get the public issuer; private access forces 'private'
+  # because ACME DNS-01 can't validate a VPC-only zone.
+  - name: gateway_effective
+    value:
+      cert_issuer: private
+  - name: gateway_effective
+    when: platform == 'aws' || platform == 'azure' || (dns.public_domain ?? '') != ''
+    value:
+      cert_issuer: "${cert_effective.public_issuer}"
+  - name: gateway_effective
+    when: gateway.access == 'private' && (dns.private_domain ?? '') != ''
+    value:
+      cert_issuer: private
+
 # =============================================================================
 # Kustomize — Gateway API controller + shared Gateway resource
 # =============================================================================
@@ -139,51 +179,10 @@ kustomize:
     substitutions:
       gateway_class_name: ${gateway.driver}
       gateway_dns_target: "${lb_effective.enabled == true ? network.loadbalancer_ips.start : ''}"
-      # Cert SAN domain.
-      # - access=private (with dns.private_domain set): gateway is reachable
-      #   only inside the VPC, so the cert covers the private domain (the
-      #   public zone is irrelevant even if dns.public_domain is set for
-      #   unrelated reasons).
-      # - otherwise: prefer dns.public_domain when set; fall back to
-      #   dns.private_domain for in-cluster / private-trust configs, then
-      #   to dns.domain, and finally to '<id>.local' so the selfsigned
-      #   just-works path (no domain set, e.g. a cheap cloud default)
-      #   still renders a valid cert SAN instead of the literal "null"
-      #   that cert-manager rejects. Mirrors platform-hyperv's fallback.
-      #
-      # access=private without dns.private_domain falls through to the
-      # public branch — operator config is incoherent (private gateway
-      # with no private domain) and silently degrading is worse than
-      # treating it as public; the next assertion they make against the
-      # gateway will surface the misconfig.
-      external_domain: >-
-        ${
-          gateway.access == 'private' && (dns.private_domain ?? '') != ''
-            ? dns.private_domain
-            : (dns.public_domain ?? '') != ''
-              ? dns.public_domain
-              : (dns.private_domain ?? '') != ''
-                ? dns.private_domain
-                : (dns.domain ?? '') != ''
-                  ? dns.domain
-                  : (id ?? 'windsor') + '.local'
-        }
-
-      # ClusterIssuer name for the Gateway's external-web-tls certificate.
-      #
-      #   private mode (gateway.access=private + dns.private_domain set)
-      #     → 'private': ACME DNS-01 can't validate against a VPC-only zone,
-      #     so fall back to private selfsigned until an operator wires a
-      #     private CA.
-      #   AWS or Azure, or any platform with dns.public_domain set
-      #     → cert_effective.public_issuer (resolves to 'public-acme' or
-      #     'public-selfsigned'). Both cloud facets always render
-      #     public-issuer/* via pki-resources, so the public branch is
-      #     always available.
-      #   anything else → 'private': no public ClusterIssuer is deployed
-      #     on those platforms, so falling back to private selfsigned is
-      #     the only safe option.
-      gateway_cert_issuer: "${gateway.access == 'private' && (dns.private_domain ?? '') != '' ? 'private' : (platform == 'aws' || platform == 'azure' || (dns.public_domain ?? '') != '' ? cert_effective.public_issuer : 'private')}"
+      # Cert SAN domain and TLS ClusterIssuer — both resolved as ordered
+      # fallback ladders in the config section above.
+      external_domain: "${gateway_effective.external_domain}"
+      gateway_cert_issuer: "${gateway_effective.cert_issuer}"
       # Only emitted when a consumer is active: the lb-address patch (in-cluster
       # LB) or the cilium gateway component. NodePort/cloud-managed-LB paths
       # have no consumer, so leave it empty and the harness drops it.
