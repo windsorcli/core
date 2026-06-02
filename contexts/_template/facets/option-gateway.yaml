@@ -145,14 +145,29 @@ kustomize:
       #   public zone is irrelevant even if dns.public_domain is set for
       #   unrelated reasons).
       # - otherwise: prefer dns.public_domain when set; fall back to
-      #   dns.private_domain for in-cluster / private-trust configs.
+      #   dns.private_domain for in-cluster / private-trust configs, then
+      #   to dns.domain, and finally to '<id>.local' so the selfsigned
+      #   just-works path (no domain set, e.g. a cheap cloud default)
+      #   still renders a valid cert SAN instead of the literal "null"
+      #   that cert-manager rejects. Mirrors platform-hyperv's fallback.
       #
       # access=private without dns.private_domain falls through to the
       # public branch — operator config is incoherent (private gateway
       # with no private domain) and silently degrading is worse than
       # treating it as public; the next assertion they make against the
       # gateway will surface the misconfig.
-      external_domain: "${gateway.access == 'private' && (dns.private_domain ?? '') != '' ? dns.private_domain : ((dns.public_domain ?? '') == '' ? (dns.private_domain ?? '') : dns.public_domain)}"
+      external_domain: >-
+        ${
+          gateway.access == 'private' && (dns.private_domain ?? '') != ''
+            ? dns.private_domain
+            : (dns.public_domain ?? '') != ''
+              ? dns.public_domain
+              : (dns.private_domain ?? '') != ''
+                ? dns.private_domain
+                : (dns.domain ?? '') != ''
+                  ? dns.domain
+                  : (id ?? 'windsor') + '.local'
+        }
 
       # ClusterIssuer name for the Gateway's external-web-tls certificate.
       #
