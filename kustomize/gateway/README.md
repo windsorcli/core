@@ -32,45 +32,46 @@ CRDs plus the operator Helm release (envoy) or just the GatewayClass
 `system-gateway` namespace) plus per-feature patches (catch-all 404,
 DNS listeners, fixed LB address, Flux webhook).
 
-## Architecture
+## Recipes
+
+The `external` Gateway listens on HTTPS (and HTTP for redirect) with a
+cert issued by one of the pki add-on's ClusterIssuers. external-dns
+publishes its hostname, and — for the LoadBalancer modes — the LB
+controller assigns its external IP.
+
+### Envoy + LoadBalancer (cloud default)
 
 ```mermaid
 flowchart LR
-  flux[Flux helm-controller]
+  client((Client))
 
   subgraph systemgateway[system-gateway]
-    envoy_hr[HelmRelease envoy-gateway<br/>envoy driver only]
-    envoy_op[Envoy Gateway Operator]
-    envoy_svc[data-plane Service<br/>LoadBalancer or NodePort]
-    gateway[Gateway external]
+    op[Envoy Gateway operator]
+    gw[Gateway external<br/>HTTPS + default-404]
     routes[HTTPRoutes from apps]
-    notfound[default-404 HTTPRouteFilter<br/>envoy only]
+    svc[Service type=LoadBalancer]
+    envoy[Envoy data-plane]
   end
 
-  cilium_ctrl[Cilium GatewayClass<br/>cilium driver — controller in kube-system]
-  cert[Certificate<br/>from pki ClusterIssuer]
-  extdns[(external-dns)]
-  lbctrl[(LB controller<br/>aws-lb-controller / metallb / cilium L2)]
+  cloudlb[(Cloud load balancer)]
+  lbctrl[(LB controller)]
+  cert[(pki Certificate)]
+  dns[(external-dns)]
+  app[App workloads]
 
-  flux ==> envoy_hr
-  envoy_hr --> envoy_op --> envoy_svc
-  gateway -.classOf.-> envoy_op
-  gateway -.or.-> cilium_ctrl
-  routes -.parentRef.-> gateway
-  notfound -.fallback.-> routes
-  envoy_svc -.LB request.-> lbctrl
-  gateway -.cert mounted from.-> cert
-  gateway -.hostname.-> extdns
+  client ==> cloudlb ==> svc ==> envoy ==> app
+  op -. provisions .-> svc & envoy
+  gw -. classOf .-> op
+  routes -. attach .-> gw
+  cert -. TLS .-> gw
+  svc -. requests IP .-> lbctrl -. provisions .-> cloudlb
+  dns -. publishes hostname .-> cloudlb
 ```
 
-The `external` Gateway listens on HTTPS (and HTTP for redirect) with
-a cert issued by one of the pki add-on's ClusterIssuers. external-dns
-publishes its hostname, and the LB controller assigns its external
-IP.
-
-## Recipes
-
-### Envoy + LoadBalancer (cloud default)
+Bold path is the request flow; dotted is the control wiring that sets
+it up. The operator turns the Gateway + HTTPRoutes into a running Envoy
+data-plane behind a LoadBalancer Service; the LB controller provisions
+the cloud LB and external-dns publishes its hostname.
 
 ```yaml
 - name: gateway-base
@@ -89,7 +90,33 @@ IP.
     loadbalancer_start_ip: 10.5.1.10
 ```
 
+The default driver: a dedicated Envoy control- and data-plane installed
+by Helm, with the data-plane Service exposed through the LB controller.
+
 ### Envoy + NodePort (local dev / single-host)
+
+```mermaid
+flowchart LR
+  client((Client / workstation))
+
+  subgraph systemgateway[system-gateway]
+    op[Envoy Gateway operator]
+    gw[Gateway external<br/>HTTPS]
+    routes[HTTPRoutes from apps]
+    svc[Service type=NodePort]
+    envoy[Envoy data-plane]
+  end
+
+  node[(Node host ports<br/>+ NodePorts: DNS 53, Flux webhook 9292)]
+  cert[(pki Certificate)]
+  app[App workloads]
+
+  client ==> node ==> svc ==> envoy ==> app
+  op -. provisions .-> svc & envoy
+  gw -. classOf .-> op
+  routes -. attach .-> gw
+  cert -. TLS .-> gw
+```
 
 ```yaml
 - name: gateway-base
@@ -109,6 +136,31 @@ slots needed for in-cluster DNS and Flux push-mode webhooks.
 
 ### Envoy on AWS (NLB)
 
+```mermaid
+flowchart LR
+  client((Client))
+
+  subgraph systemgateway[system-gateway]
+    op[Envoy Gateway operator]
+    gw[Gateway external<br/>HTTPS]
+    routes[HTTPRoutes from apps]
+    svc[Service type=LoadBalancer<br/>+ NLB annotations]
+    envoy[Envoy data-plane pods]
+  end
+
+  nlb[(AWS NLB<br/>target-type=ip)]
+  lbc[(AWS LB Controller)]
+  cert[(pki Certificate)]
+  app[App workloads]
+
+  client ==> nlb ==> envoy ==> app
+  op -. provisions .-> svc & envoy
+  gw -. classOf .-> op
+  routes -. attach .-> gw
+  cert -. TLS .-> gw
+  svc -. pod IPs registered by .-> lbc -. provisions .-> nlb
+```
+
 ```yaml
 - name: gateway-base
   path: gateway/base
@@ -120,9 +172,39 @@ slots needed for in-cluster DNS and Flux push-mode webhooks.
 ```
 
 The aws-nlb overlay adds AWS LB Controller annotations so the
-data-plane Service provisions an NLB with `target-type=ip`.
+data-plane Service provisions an NLB with `target-type=ip`, sending
+traffic straight to the Envoy pods with source IP preserved.
 
 ### Cilium driver
+
+```mermaid
+flowchart LR
+  client((Client))
+
+  subgraph systemgateway[system-gateway]
+    gc[GatewayClass cilium]
+    gw[Gateway external<br/>HTTPS · LBIPAM-shared IP]
+    routes[HTTPRoutes from apps]
+  end
+
+  subgraph kubesystem[kube-system]
+    cil[Cilium agents<br/>L3/L4 + L7 dataplane]
+  end
+
+  cert[(pki Certificate)]
+  app[App workloads]
+
+  client ==> cil ==> app
+  gw -. classOf .-> gc -. controller .-> cil
+  gw -. programs .-> cil
+  routes -. attach .-> gw
+  cil -. LBIPAM assigns VIP .-> gw
+  cert -. TLS .-> gw
+```
+
+Cilium is already the cluster dataplane (it's the CNI), so it
+terminates and routes Gateway traffic directly — no Envoy Service in
+the path, one hop shorter than the Envoy recipes.
 
 ```yaml
 - name: gateway-base
@@ -138,9 +220,10 @@ data-plane Service provisions an NLB with `target-type=ip`.
     loadbalancer_start_ip: 10.5.1.10
 ```
 
-The base entry installs only the GatewayClass (CRDs come from the
-same component's resource list). The resources entry patches the
-Gateway with Cilium's LBIPAM annotations.
+No separate Helm release: the base entry installs only the
+GatewayClass, the Cilium operator (owned by the `cni` add-on) is the
+controller, and the resources entry patches the Gateway with Cilium's
+LBIPAM annotations so multiple Gateways can share one IP.
 
 <!-- BEGIN_KUSTOMIZE_DOCS -->
 

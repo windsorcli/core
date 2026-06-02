@@ -26,44 +26,23 @@ so workloads asking for the default disk get a per-cluster-appropriate
 provisioner without knowing which one is wired. Longhorn HA clusters
 also expose a `replicated` class for explicit multi-replica volumes.
 
-## Architecture
+## Recipes
+
+The default StorageClass is always named `single` regardless of driver,
+so workloads asking for the default disk get a per-cluster-appropriate
+provisioner without knowing which one is wired.
+
+### EKS
 
 ```mermaid
 flowchart LR
-  flux[Flux helm-controller]
-
   subgraph systemcsi[system-csi]
-    hr_openebs[HelmRelease openebs]
-    hr_longhorn[HelmRelease longhorn]
-    sc_single[StorageClass 'single']
-    sc_replicated[StorageClass 'replicated']
-
-    subgraph workloads[driver workloads]
-      openebs_pods[openebs-localpv-provisioner]
-      longhorn_pods[longhorn-manager DaemonSet<br/>longhorn-instance-manager<br/>longhorn-csi-plugin]
-    end
+    sc[StorageClass 'single'<br/>ebs.csi.aws.com]
   end
 
-  pvc[PersistentVolumeClaim] --> sc_single
-  pvc --> sc_replicated
-  flux ==> hr_openebs
-  flux ==> hr_longhorn
-  hr_openebs --> openebs_pods
-  hr_longhorn --> longhorn_pods
-  sc_single -.cloud paths.-> aws[(EBS / Azure Disk<br/>preinstalled CSI)]
-  sc_single -.openebs.-> hostpath[(node hostpath<br/>local_volume_path)]
-  sc_single -.longhorn.-> longhorndist[(replicated block<br/>storage)]
-  sc_replicated -.longhorn ha.-> longhorndist
+  pvc[PersistentVolumeClaim] --> sc
+  sc -.provisions.-> ebs[(EBS volume<br/>preinstalled EKS CSI driver)]
 ```
-
-The cloud drivers are pure-Kubernetes layers, since only the
-StorageClass is new and the CSI driver pods are managed by the cloud
-control plane. OpenEBS and Longhorn install full helm releases into
-`system-csi` and bring their own workload pods.
-
-## Recipes
-
-### EKS
 
 ```yaml
 - name: csi
@@ -75,7 +54,20 @@ control plane. OpenEBS and Longhorn install full helm releases into
     single_storage_type: gp3
 ```
 
+A StorageClass-only layer over the EBS CSI driver EKS preinstalls.
+Volumes are AZ-pinned to the node that first mounts them.
+
 ### AKS
+
+```mermaid
+flowchart LR
+  subgraph systemcsi[system-csi]
+    sc[StorageClass 'single'<br/>disk.csi.azure.com]
+  end
+
+  pvc[PersistentVolumeClaim] --> sc
+  sc -.provisions.-> disk[(Azure Disk<br/>preinstalled AKS CSI driver)]
+```
 
 ```yaml
 - name: csi
@@ -87,7 +79,25 @@ control plane. OpenEBS and Longhorn install full helm releases into
     single_storage_type: StandardSSD_LRS
 ```
 
+The same StorageClass-only wrapper over the Azure Disk CSI driver AKS
+preinstalls; volumes are zone-pinned.
+
 ### Local single-node with OpenEBS host-path
+
+```mermaid
+flowchart LR
+  flux[Flux helm-controller]
+
+  subgraph systemcsi[system-csi]
+    hr[HelmRelease openebs]
+    prov[openebs-localpv-provisioner]
+    sc[StorageClass 'single'<br/>openebs.io/local]
+  end
+
+  pvc[PersistentVolumeClaim] --> sc
+  flux ==> hr --> prov
+  sc -.allocates from.-> hostpath[(node hostpath<br/>local_volume_path)]
+```
 
 ```yaml
 - name: csi
@@ -99,7 +109,29 @@ control plane. OpenEBS and Longhorn install full helm releases into
     local_volume_path: /var/mnt/local
 ```
 
+OpenEBS brings its own Helm release and a hostpath provisioner that
+allocates from a directory on each node. No replication — volumes are
+tied to the node they were created on.
+
 ### HA cluster with Longhorn
+
+```mermaid
+flowchart LR
+  flux[Flux helm-controller]
+
+  subgraph systemcsi[system-csi]
+    hr[HelmRelease longhorn]
+    mgr[longhorn-manager DaemonSet<br/>+ instance-manager + csi-plugin]
+    sc_single[StorageClass 'single']
+    sc_repl[StorageClass 'replicated'<br/>ha only]
+  end
+
+  pvc[PersistentVolumeClaim] --> sc_single
+  pvc --> sc_repl
+  flux ==> hr --> mgr
+  sc_single -.1 replica.-> dist[(distributed block storage)]
+  sc_repl -.3 replicas.-> dist
+```
 
 ```yaml
 - name: csi
@@ -108,6 +140,10 @@ control plane. OpenEBS and Longhorn install full helm releases into
   components: [longhorn, longhorn/ha, longhorn/prometheus]
   timeout: 20m
 ```
+
+Longhorn installs a distributed block-storage system that replicates
+each volume across nodes. HA clusters also expose a `replicated` class
+for explicit multi-replica volumes.
 
 <!-- BEGIN_KUSTOMIZE_DOCS -->
 
