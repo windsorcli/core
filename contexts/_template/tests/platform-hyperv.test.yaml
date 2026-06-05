@@ -445,6 +445,59 @@ cases:
         - path: compute/incus
         - path: compute/docker
 
+  # dns.private_domain fallback ladder (surfaced via the gateway cert SAN):
+  # an explicit private_domain is kept (never self-overwritten), dns.domain
+  # is the next fallback, and '<id>.local' is the floor so the cert is valid
+  # with no DNS configured at all.
+  - name: explicit dns.private_domain is kept for the gateway cert SAN
+    values:
+      platform: hyperv
+      gateway:
+        enabled: true
+        driver: envoy
+      dns:
+        private_domain: hv.example
+      network: *default-network
+      cluster: *default-cluster
+    terraformOutputs: *default-terraform-outputs
+    expect:
+      kustomize:
+        - name: gateway-resources
+          substitutions:
+            external_domain: hv.example
+
+  - name: dns.private_domain falls back to dns.domain
+    values:
+      platform: hyperv
+      gateway:
+        enabled: true
+        driver: envoy
+      dns:
+        domain: example.com
+      network: *default-network
+      cluster: *default-cluster
+    terraformOutputs: *default-terraform-outputs
+    expect:
+      kustomize:
+        - name: gateway-resources
+          substitutions:
+            external_domain: example.com
+
+  - name: dns.private_domain defaults to id.local with no DNS configured
+    values:
+      platform: hyperv
+      gateway:
+        enabled: true
+        driver: envoy
+      network: *default-network
+      cluster: *default-cluster
+    terraformOutputs: *default-terraform-outputs
+    expect:
+      kustomize:
+        - name: gateway-resources
+          substitutions:
+            external_domain: windsor.local
+
   # Requires: NodePort mode parses the bench IP from cluster.endpoint; without
   # it bench_ip is empty and the per-node port forwards become unreachable.
   - name: NodePort without cluster.endpoint fails composition

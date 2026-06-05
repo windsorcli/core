@@ -30,6 +30,29 @@ requires:
     message: Public DNS requires an operator email for TLS certificate registration.
 
 # =============================================================================
+# Config
+# =============================================================================
+#
+config:
+
+  # pki_effective.issuer_component — public ClusterIssuer variant rendered by
+  # pki-resources, resolved as an ordered selection (last match wins):
+  # selfsigned floor → ACME (route53) when a public domain is set → private
+  # selfsigned when access is private (creates the `private` ClusterIssuer the
+  # gateway cert references; the public path only ever creates `public`).
+  - name: pki_effective
+    value:
+      issuer_component: public-issuer/selfsigned
+  - name: pki_effective
+    when: (dns.public_domain ?? '') != ''
+    value:
+      issuer_component: public-issuer/acme/route53
+  - name: pki_effective
+    when: gateway.access == 'private' && (dns.private_domain ?? '') != ''
+    value:
+      issuer_component: private-issuer/selfsigned
+
+# =============================================================================
 # Terraform — S3 state backend, VPC, EKS, optional Cilium bootstrap
 # =============================================================================
 #
@@ -399,13 +422,8 @@ kustomize:
     # bootstrap because the dns-zone component isn't registered until
     # composition completes.)
     components:
-      # Private mode (gateway.access=private + dns.private_domain set) needs
-      # a ClusterIssuer named `private` for the gateway cert to reference —
-      # private-issuer/selfsigned creates exactly that. The public path (the
-      # original two branches) only ever produces a `public` ClusterIssuer,
-      # so without this branch the cert would reference a non-existent
-      # issuer in private mode.
-      - "${gateway.access == 'private' && (dns.private_domain ?? '') != '' ? 'private-issuer/selfsigned' : ((dns.public_domain ?? '') != '' ? 'public-issuer/acme/route53' : 'public-issuer/selfsigned')}"
+      # Issuer variant resolved in the config section above.
+      - "${pki_effective.issuer_component}"
     timeout: 5m
     interval: 5m
     substitutions:
