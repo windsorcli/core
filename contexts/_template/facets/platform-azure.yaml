@@ -35,6 +35,23 @@ config:
     value:
       metrics_server_enabled: false
 
+  # pki_effective.issuer_component — public ClusterIssuer variant rendered by
+  # pki-resources, resolved as an ordered selection (last match wins):
+  # selfsigned floor → ACME (azuredns) when a public domain is set → private
+  # selfsigned when access is private (creates the `private` ClusterIssuer the
+  # gateway cert references; the public path only ever creates `public`).
+  - name: pki_effective
+    value:
+      issuer_component: public-issuer/selfsigned
+  - name: pki_effective
+    when: (dns.public_domain ?? '') != ''
+    value:
+      issuer_component: public-issuer/acme/azuredns
+  - name: pki_effective
+    when: gateway.access == 'private' && (dns.private_domain ?? '') != ''
+    value:
+      issuer_component: private-issuer/selfsigned
+
 # =============================================================================
 # Terraform — AzureRM state backend, VNet, AKS, optional public DNS zone
 # =============================================================================
@@ -205,7 +222,8 @@ kustomize:
       - pki-base
       - policy-resources
     components:
-      - "${gateway.access == 'private' && (dns.private_domain ?? '') != '' ? 'private-issuer/selfsigned' : ((dns.public_domain ?? '') != '' ? 'public-issuer/acme/azuredns' : 'public-issuer/selfsigned')}"
+      # Issuer variant resolved in the config section above.
+      - "${pki_effective.issuer_component}"
     timeout: 5m
     interval: 5m
     substitutions:
