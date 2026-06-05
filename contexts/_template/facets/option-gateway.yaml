@@ -57,8 +57,9 @@ config:
 
   # gateway_effective.cert_issuer — ClusterIssuer for the gateway TLS cert
   # (last match wins). Floor is 'private' selfsigned; clouds and any
-  # public_domain get the public issuer; private access forces 'private'
-  # because ACME DNS-01 can't validate a VPC-only zone.
+  # public_domain get the public issuer; private access with a private
+  # domain forces 'private' because ACME DNS-01 can't validate a VPC-only
+  # zone.
   - name: gateway_effective
     value:
       cert_issuer: private
