@@ -52,8 +52,8 @@ run "minimal_configuration" {
   }
 
   assert {
-    condition     = azurerm_kubernetes_cluster.main.default_node_pool[0].vm_size == "Standard_D2s_v5"
-    error_message = "Default node pool should use Standard_D2s_v5 VM size"
+    condition     = azurerm_kubernetes_cluster.main.default_node_pool[0].vm_size == "Standard_D2s_v3"
+    error_message = "Default node pool should use Standard_D2s_v3 VM size"
   }
 
   assert {
@@ -794,7 +794,7 @@ run "pools_resolves_class_to_vm_size" {
   }
 
   assert {
-    condition     = azurerm_kubernetes_cluster_node_pool.pools["app"].vm_size == "Standard_D4s_v5"
+    condition     = azurerm_kubernetes_cluster_node_pool.pools["app"].vm_size == "Standard_D4s_v3"
     error_message = "general class should default to the first VM size in class_instance_types[general]."
   }
 

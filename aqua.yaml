@@ -13,17 +13,17 @@ registries:
 packages:
   - name: hashicorp/terraform@v1.15.5
   - name: siderolabs/talos@v1.13.3
-  - name: siderolabs/omni/omnictl@v1.8.1
-  - name: siderolabs/omni/omni@v1.8.1
+  - name: siderolabs/omni/omnictl@v1.8.2
+  - name: siderolabs/omni/omni@v1.8.2
   - name: kubernetes/kubectl@v1.36.1
   - name: go-task/task@v3.51.1
   - name: golang/go@go1.26.4
   - name: docker/cli@v27.4.1
   - name: docker/compose@v5.1.4
-  - name: aws/aws-cli@2.34.62
+  - name: aws/aws-cli@2.34.63
   - name: helm/helm@v4.2.0
   - name: fluxcd/flux2@v2.8.8
-  - name: hashicorp/vault@v2.0.1
+  - name: hashicorp/vault@v2.0.2
   - name: derailed/k9s@v0.50.18
   - name: getsops/sops@v3.13.1
   - name: 1password/cli@v2.30.3
