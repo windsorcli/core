@@ -22,10 +22,12 @@ flowchart LR
 
   subgraph systemdb[system-database]
     operator_hr[HelmRelease cloudnativepg]
-    operator_pod[CloudNativePG Operator<br/>Deployment]
+    operator_pod[CloudNativePG Operator]
   end
 
   subgraph anyns[any workload namespace]
+    app[App workload]
+    svc[Service<br/>read-write / read-only]
     cluster_cr[Cluster CR]
     sts[StatefulSet<br/>postgres instances]
     pvc[(PVC<br/>per instance)]
@@ -33,12 +35,11 @@ flowchart LR
 
   csi[(csi default<br/>StorageClass)]
 
-  flux ==> operator_hr
-  operator_hr --> operator_pod
+  flux ==> operator_hr --> operator_pod
   operator_pod -.watches.-> cluster_cr
-  cluster_cr -.creates.-> sts
-  sts --> pvc
-  pvc --> csi
+  cluster_cr -.creates.-> sts & svc
+  sts --> pvc --> csi
+  app ==> svc ==> sts
 ```
 
 The Operator is the only thing this add-on installs. Cluster CRs and their

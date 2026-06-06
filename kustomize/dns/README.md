@@ -22,43 +22,31 @@ Both halves run from a single Kustomization path (`dns`). They're
 wired through the same facet entry with different component
 selections.
 
-## Architecture
+## Recipes
+
+`external-dns` runs everywhere DNS publication is needed and watches
+Gateway / HTTPRoute resources; the provider component selects where it
+writes records. coredns and etcd only run when private DNS is opted in.
+
+### Public DNS on AWS (Route53)
 
 ```mermaid
 flowchart LR
-  flux[Flux helm-controller]
+  client((Client))
 
   subgraph systemdns[system-dns]
-    edns_hr[HelmRelease external-dns]
-    edns_pod[external-dns controller]
-    coredns_hr[HelmRelease coredns<br/>opt-in]
-    coredns_pod[coredns]
-    etcd[etcd StatefulSet<br/>opt-in]
+    edns[external-dns controller<br/>route53 provider]
   end
 
-  cloud[(Cloud DNS<br/>Route53 / Azure DNS)]
-  workstation[(workstation /<br/>cluster-internal)]
-  gateways[Gateway / HTTPRoute resources]
-  pki[(private ClusterIssuer)]
+  gateways[Gateway / HTTPRoute<br/>hostnames]
+  zone[(Route53 hosted zone)]
+  gw[(Cluster gateway)]
 
-  flux ==> edns_hr & coredns_hr
-  edns_hr --> edns_pod
-  coredns_hr --> coredns_pod
-  coredns_pod -.records.-> etcd
-  edns_pod -.watches.-> gateways
-  edns_pod -.publishes to.-> cloud
-  edns_pod -.publishes to.-> coredns_pod
-  workstation -.queries.-> coredns_pod
-  pki -.issues TLS for etcd peers.-> etcd
+  edns -. watches .-> gateways
+  edns -. publishes A / CNAME .-> zone
+  client -. resolves hostname .-> zone -. returns gateway IP .-> client
+  client ==> gw
 ```
-
-external-dns runs everywhere DNS publication is needed. coredns and
-etcd only run when private DNS is opted in. The etcd peer and server
-certs are issued by the `private` ClusterIssuer from the pki add-on.
-
-## Recipes
-
-### Public DNS on AWS (Route53)
 
 ```yaml
 - name: dns
@@ -78,6 +66,24 @@ certs are issued by the `private` ClusterIssuer from the pki add-on.
 
 ### Public DNS on Azure
 
+```mermaid
+flowchart LR
+  client((Client))
+
+  subgraph systemdns[system-dns]
+    edns[external-dns controller<br/>azure provider]
+  end
+
+  gateways[Gateway / HTTPRoute<br/>hostnames]
+  zone[(Azure DNS zone)]
+  gw[(Cluster gateway)]
+
+  edns -. watches .-> gateways
+  edns -. publishes A / CNAME .-> zone
+  client -. resolves hostname .-> zone -. returns gateway IP .-> client
+  client ==> gw
+```
+
 ```yaml
 - name: dns
   path: dns
@@ -92,7 +98,30 @@ certs are issued by the `private` ClusterIssuer from the pki add-on.
     txt_owner_id: my-cluster
 ```
 
-### Private DNS (coredns) on a local cluster
+### Private DNS (coredns) on a local or metal cluster
+
+```mermaid
+flowchart LR
+  flux[Flux helm-controller]
+
+  subgraph systemdns[system-dns]
+    edns[external-dns<br/>coredns provider]
+    coredns[coredns]
+    etcd[etcd StatefulSet]
+    lb[Service type=LoadBalancer]
+  end
+
+  pki[(private ClusterIssuer)]
+  resolver[(workstation / LAN resolver)]
+
+  flux ==> edns
+  flux ==> coredns
+  edns -.writes records.-> etcd
+  coredns -.reads.-> etcd
+  pki -.issues etcd peer/server TLS.-> etcd
+  coredns --> lb
+  resolver -.queries.-> lb
+```
 
 ```yaml
 - name: dns
@@ -111,9 +140,20 @@ certs are issued by the `private` ClusterIssuer from the pki add-on.
     loadbalancer_start_ip: 10.5.1.10
 ```
 
-external-dns writes into the in-cluster coredns etcd backend. A
-LoadBalancer Service publishes coredns at the configured IP so a
-workstation can point its resolver at it.
+external-dns writes into the in-cluster coredns etcd backend, whose
+peer and server certs come from the pki `private` ClusterIssuer. With
+the Cilium driver (the Talos default on both local and metal clusters)
+a LoadBalancer Service publishes coredns at the configured IP via
+Cilium L2/ARP. Under the Envoy driver coredns is reached through the
+gateway's port-53 listener (`coredns/gateway`) instead.
+
+The wiring is identical on a local workstation and on metal; they
+differ in who queries that IP. On a local cluster it sits on the
+workstation's bridge network and the workstation points its stub
+resolver at it. On metal it is a routable LAN address, so LAN clients
+or an upstream resolver that forwards `*.<dns.private_domain>` query it.
+In both cases `loadbalancer_start_ip` must fall inside
+`network.loadbalancer_ips` and be reachable from those resolvers.
 
 <!-- BEGIN_KUSTOMIZE_DOCS -->
 

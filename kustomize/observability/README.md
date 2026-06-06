@@ -20,56 +20,32 @@ The metric pipeline (Prometheus, fluent-bit) lives in the `telemetry`
 add-on. This add-on assumes telemetry-base is already producing
 metrics and shipping logs to fluentd's input.
 
-## Architecture
+## Recipes
+
+Everything runs in `system-observability`. The dashboards half (Grafana)
+and the log store are enabled independently; fluentd is the universal
+log shipper, and `logs_driver` selects which output component and
+back-end Helm release run alongside it. With no driver set, fluentd
+ships to stdout.
+
+### Grafana dashboards only (no log store)
 
 ```mermaid
 flowchart LR
   flux[Flux helm-controller]
 
   subgraph systemobs[system-observability]
-    grafana_hr[HelmRelease grafana]
-    fluentd_hr[HelmRelease fluent-operator]
-    quickwit_hr[HelmRelease quickwit]
-    es_hr[HelmRelease elasticsearch]
-    kibana_hr[HelmRelease kibana]
-
-    grafana_pods[grafana StatefulSet]
-    fluentd_pods[fluentd DaemonSet]
-    quickwit_pods[quickwit indexer + searcher]
-    es_pods[elasticsearch StatefulSet]
-    kibana_pods[kibana Deployment]
+    hr[HelmRelease grafana]
+    grafana[grafana StatefulSet<br/>+ dashboard ConfigMaps]
   end
 
   prom[(Prometheus<br/>telemetry add-on)]
-  objstore[(object-store)]
   gateway[Cluster Gateway]
 
-  flux ==> grafana_hr & fluentd_hr & quickwit_hr & es_hr & kibana_hr
-  grafana_hr --> grafana_pods
-  fluentd_hr --> fluentd_pods
-  quickwit_hr --> quickwit_pods
-  es_hr --> es_pods
-  kibana_hr --> kibana_pods
-
-  prom -.datasource.-> grafana_pods
-  fluentd_pods -.logs.-> quickwit_pods
-  fluentd_pods -.logs.-> es_pods
-  fluentd_pods -.logs.-> stdout([stdout])
-  quickwit_pods -.indices.-> objstore
-  kibana_pods --> es_pods
-
-  gateway --> grafana_pods
-  gateway --> kibana_pods
+  flux ==> hr --> grafana
+  prom -.datasource.-> grafana
+  gateway --> grafana
 ```
-
-Grafana, fluentd, quickwit, elasticsearch, and kibana all live in
-`system-observability`. Fluentd is the universal log shipper, and the
-`logs_driver` choice selects which output component is added and
-which back-end Helm release runs alongside.
-
-## Recipes
-
-### Grafana dashboards only (no log store)
 
 ```yaml
 - name: observability
@@ -97,6 +73,23 @@ which back-end Helm release runs alongside.
 
 ### Add Quickwit as the log store
 
+```mermaid
+flowchart LR
+  flux[Flux helm-controller]
+
+  subgraph systemobs[system-observability]
+    fluentd[fluentd DaemonSet]
+    hr[HelmRelease quickwit]
+    quickwit[quickwit indexer + searcher]
+  end
+
+  objstore[(object-store)]
+
+  flux ==> hr --> quickwit
+  fluentd -.logs.-> quickwit
+  quickwit -.indices.-> objstore
+```
+
 ```yaml
 - name: observability
   path: observability
@@ -110,7 +103,29 @@ which back-end Helm release runs alongside.
     - grafana/dashboards/logs/quickwit
 ```
 
+The production default: a search-optimized store backed by object
+storage, with a Grafana datasource and logs dashboard wired in.
+
 ### Elasticsearch + Kibana log store
+
+```mermaid
+flowchart LR
+  flux[Flux helm-controller]
+
+  subgraph systemobs[system-observability]
+    fluentd[fluentd DaemonSet]
+    hr[HelmRelease elasticsearch]
+    es[elasticsearch StatefulSet]
+    kibana[kibana Deployment]
+  end
+
+  gateway[Cluster Gateway]
+
+  flux ==> hr --> es
+  fluentd -.logs.-> es
+  kibana --> es
+  gateway --> kibana
+```
 
 ```yaml
 - name: observability
@@ -123,6 +138,9 @@ which back-end Helm release runs alongside.
   substitutions:
     external_domain: example.com
 ```
+
+For teams already standardized on Elasticsearch: fluentd ships to ES
+and Kibana is exposed through the cluster Gateway.
 
 <!-- BEGIN_KUSTOMIZE_DOCS -->
 

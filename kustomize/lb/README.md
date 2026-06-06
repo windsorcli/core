@@ -31,40 +31,30 @@ The namespace runs at PSA `privileged` because MetalLB's speaker
 needs host networking, and aws-lb-controller shares the namespace
 even though it doesn't.
 
-## Architecture
+## Recipes
+
+Exactly one driver is wired per cluster, selected by
+`lb_effective.driver`. The gateway add-on's data-plane Service gets
+its external IP from whichever driver is on.
+
+### AWS (EKS)
 
 ```mermaid
 flowchart LR
-  flux[Flux helm-controller]
+  client((Client))
 
   subgraph systemlb[system-lb]
-    aws_hr[HelmRelease aws-lb-controller<br/>aws driver]
-    metallb_hr[HelmRelease metallb<br/>metallb driver]
-    kubevip_hr[HelmRelease kube-vip<br/>kube-vip driver]
-
-    pool[IPAddressPool + L2Advertisement<br/>metallb only]
+    ctrl[aws-lb-controller]
   end
 
-  awsapi[(AWS LB API)]
-  cluster_net[(Cluster L2 / VPC)]
+  svc[Service type=LoadBalancer]
+  awslb[(AWS NLB / ALB<br/>in customer VPC)]
+  pods[Backend pods<br/>e.g. gateway data-plane]
 
-  flux ==> aws_hr & metallb_hr & kubevip_hr
-  aws_hr -.provisions.-> awsapi
-  metallb_hr -.advertises.-> cluster_net
-  kubevip_hr -.advertises.-> cluster_net
-  pool -.feeds.-> metallb_hr
-
-  svc[Service type=LoadBalancer] -.gets external IP from.-> aws_hr
-  svc -.or.-> metallb_hr
-  svc -.or.-> kubevip_hr
+  client ==> awslb ==> svc ==> pods
+  svc -. watched by .-> ctrl
+  ctrl -. provisions + sets external IP .-> awslb
 ```
-
-Exactly one driver is wired per cluster. The gateway add-on's
-data-plane Service gets its external IP from whichever driver is on.
-
-## Recipes
-
-### AWS (EKS)
 
 ```yaml
 - name: lb-base
@@ -77,12 +67,31 @@ data-plane Service gets its external IP from whichever driver is on.
     aws_region: us-east-1
 ```
 
-There's no `lb-resources` block because AWS LB Controller handles
-address management through the cloud API.
-`lb_effective.controller_required` is true for this driver, so
+The controller runs in the cluster and provisions real AWS-side load
+balancers in the customer's VPC. There's no `lb-resources` block
+because AWS LB Controller handles address management through the cloud
+API. `lb_effective.controller_required` is true for this driver, so
 gateway-base depends on lb-base.
 
 ### MetalLB (docker / incus / metal)
+
+```mermaid
+flowchart LR
+  client((Client))
+
+  subgraph systemlb[system-lb]
+    speaker[metallb controller<br/>+ speaker DaemonSet]
+    pool[IPAddressPool + L2Advertisement<br/>from lb-resources]
+  end
+
+  net[(Cluster L2 subnet)]
+  svc[Service type=LoadBalancer]
+  pods[Backend pods]
+
+  pool -. assigns IP to .-> svc
+  speaker -. ARP-advertises IP on .-> net
+  client ==> net ==> svc ==> pods
+```
 
 ```yaml
 - name: lb-base
@@ -98,10 +107,28 @@ gateway-base depends on lb-base.
     loadbalancer_ip_range: 10.5.1.10-10.5.1.30
 ```
 
-ARP advertisement is the default. Pool range comes from
-`network.loadbalancer_ips.{start,end}`.
+The speaker DaemonSet ARP- or BGP-advertises IPs from the configured
+pool on the cluster's L2 subnet. ARP advertisement is the default;
+the pool range comes from `network.loadbalancer_ips.{start,end}`.
 
 ### Talos (kube-vip)
+
+```mermaid
+flowchart LR
+  client((Client))
+
+  subgraph systemlb[system-lb]
+    kubevip[kube-vip cloud-provider<br/>from lb-resources]
+  end
+
+  net[(Cluster L2 subnet)]
+  svc[Service type=LoadBalancer<br/>VIP]
+  pods[Backend pods]
+
+  kubevip -. assigns VIP to .-> svc
+  kubevip -. ARP-advertises VIP on .-> net
+  client ==> net ==> svc ==> pods
+```
 
 ```yaml
 - name: lb-resources
@@ -112,7 +139,7 @@ ARP advertisement is the default. Pool range comes from
 
 The Talos kube-vip path skips `lb-base`. There's no separate
 controller chart, and the kube-vip cloud-provider ships in the
-resources layer.
+resources layer, advertising a VIP over ARP.
 
 <!-- BEGIN_KUSTOMIZE_DOCS -->
 

@@ -22,26 +22,25 @@ non-`system-*` namespaces aren't subject to these policies.
 
 ```mermaid
 flowchart LR
-  flux[Flux helm-controller]
+  req[Pod create / update<br/>system-* or labeled ns]
+  api[kube-apiserver]
+  pod[Admitted / mutated pod]
 
   subgraph systempolicy[system-policy]
-    kyverno_hr[HelmRelease kyverno]
-    admission[admission-controller]
+    admission[admission-controller<br/>validate + mutate webhook]
     background[background-controller]
-    reports[reports-controller<br/>opt-in]
-    cleanup[cleanup-controller<br/>opt-in]
+    reports[reports-controller · opt-in]
+    cleanup[cleanup-controller · opt-in]
+    policies[ClusterPolicies:<br/>require-image-digest<br/>resource-limits-requests]
   end
 
-  cp_limits[ClusterPolicy<br/>resource-limits-requests]
-  cp_digest[ClusterPolicy<br/>require-image-digest]
-  pods[Pods in system-*<br/>or labeled namespaces]
-
-  flux ==> kyverno_hr
-  kyverno_hr --> admission & background & reports & cleanup
-  admission -.evaluates.-> cp_digest
-  background -.evaluates.-> cp_limits
-  cp_digest -.matches.-> pods
-  cp_limits -.matches.-> pods
+  req ==> api
+  api -. calls webhook .-> admission
+  admission -. evaluates .-> policies
+  admission -. allow / deny / mutate .-> api
+  api ==> pod
+  background -. audits running pods against .-> policies
+  flux[Flux] -. installs .-> admission & background & reports & cleanup
 ```
 
 The admission controller blocks Pod admission when an Enforce policy

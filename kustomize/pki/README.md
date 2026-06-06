@@ -23,43 +23,33 @@ name (`private-selfsigned`, `private-ca`, `public-selfsigned`,
 substitution flip, not a Certificate spec change. cert-manager
 reissues into the same Secret.
 
-## Architecture
+## Recipes
+
+The ClusterIssuers are named consistently across platforms
+(`public-selfsigned`, `public-acme`, `private-selfsigned`,
+`private-ca`), so switching between selfsigned and ACME is a
+substitution flip, not a Certificate spec change — cert-manager
+reissues into the same Secret. cert-manager runs in `system-pki` (PSA
+`baseline`); trust-manager, when present, runs in `system-pki-trust`
+(PSA `restricted`).
+
+### Baseline (selfsigned, no private CA)
 
 ```mermaid
 flowchart LR
   flux[Flux helm-controller]
 
   subgraph systempki[system-pki]
-    cm_hr[HelmRelease cert-manager]
-    cm_pods[cert-manager + webhook + cainjector]
-    issuers[ClusterIssuer<br/>private-selfsigned / private-ca<br/>public-selfsigned / public-acme]
+    cm[cert-manager<br/>+ webhook + cainjector]
+    issuer[ClusterIssuer<br/>public-selfsigned]
   end
 
-  subgraph systempkitrust[system-pki-trust]
-    tm_hr[HelmRelease trust-manager]
-    tm_pods[trust-manager]
-    bundle[Bundle private-ca-bundle]
-  end
+  cert[Certificate]
 
-  workloads[Workload Pods]
-  registrar[(External DNS<br/>Route53 / Azure DNS)]
-
-  flux ==> cm_hr & tm_hr
-  cm_hr --> cm_pods
-  tm_hr --> tm_pods
-  cm_pods -.reconciles.-> issuers
-  cm_pods -.DNS-01.-> registrar
-  tm_pods --> bundle
-  bundle -.injected.-> workloads
+  flux ==> cm
+  cm -.reconciles.-> issuer
+  issuer -.signs.-> cert
 ```
-
-cert-manager runs in `system-pki` (PSA `baseline`) and trust-manager
-runs in `system-pki-trust` (PSA `restricted`), so the trust-bundle
-distribution path has tighter pod security than the issuer plane.
-
-## Recipes
-
-### Baseline (selfsigned, no private CA)
 
 ```yaml
 - name: pki-base
@@ -79,6 +69,21 @@ cert is trusted out-of-band. Good first-cluster setup.
 
 ### Public ACME on AWS
 
+```mermaid
+flowchart LR
+  subgraph systempki[system-pki]
+    cm[cert-manager]
+    issuer[ClusterIssuer public-acme]
+  end
+
+  route53[(Route53 zone)]
+  cert[Certificate]
+
+  cm -.reconciles.-> issuer
+  issuer -.DNS-01 challenge.-> route53
+  issuer -.signs.-> cert
+```
+
 ```yaml
 - name: pki-resources
   path: pki/resources
@@ -95,6 +100,21 @@ DNS-01 against Route53. Auth comes from the IAM role and Pod Identity
 binding the AWS cluster Terraform module provisioned.
 
 ### Public ACME on Azure
+
+```mermaid
+flowchart LR
+  subgraph systempki[system-pki]
+    cm[cert-manager<br/>+ azure workload identity]
+    issuer[ClusterIssuer public-acme]
+  end
+
+  azuredns[(Azure DNS zone)]
+  cert[Certificate]
+
+  cm -.reconciles.-> issuer
+  issuer -.DNS-01 challenge.-> azuredns
+  issuer -.signs.-> cert
+```
 
 ```yaml
 - name: pki-base
@@ -116,7 +136,34 @@ binding the AWS cluster Terraform module provisioned.
     acme_dns_zone_subscription_id: <terraform_output('dns-zone', 'subscription_id')>
 ```
 
+DNS-01 against Azure DNS, authed via the AKS federated workload
+identity attached by `cert-manager/azure-workload-identity`.
+
 ### Private CA with trust-manager distribution
+
+```mermaid
+flowchart LR
+  flux[Flux helm-controller]
+
+  subgraph systempki[system-pki]
+    cm[cert-manager]
+    ca[ClusterIssuer private-ca<br/>signs against in-cluster CA]
+    bundle[Bundle private-ca-bundle]
+  end
+
+  subgraph systempkitrust[system-pki-trust]
+    tm[trust-manager]
+  end
+
+  workloads[Workload Pods]
+
+  flux ==> cm
+  flux ==> tm
+  cm -.reconciles.-> ca
+  ca -.init/sync Jobs.-> bundle
+  tm -.materializes.-> bundle
+  bundle -.injected.-> workloads
+```
 
 ```yaml
 - name: pki-base
