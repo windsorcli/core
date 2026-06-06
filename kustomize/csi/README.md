@@ -28,10 +28,6 @@ also expose a `replicated` class for explicit multi-replica volumes.
 
 ## Recipes
 
-The default StorageClass is always named `single` regardless of driver,
-so workloads asking for the default disk get a per-cluster-appropriate
-provisioner without knowing which one is wired.
-
 ### EKS
 
 ```mermaid
