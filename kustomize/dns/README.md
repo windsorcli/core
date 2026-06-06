@@ -98,7 +98,7 @@ flowchart LR
     txt_owner_id: my-cluster
 ```
 
-### Private DNS (coredns) on a local cluster
+### Private DNS (coredns) on a local or metal cluster
 
 ```mermaid
 flowchart LR
@@ -112,7 +112,7 @@ flowchart LR
   end
 
   pki[(private ClusterIssuer)]
-  workstation[(workstation resolver)]
+  resolver[(workstation / LAN resolver)]
 
   flux ==> edns
   flux ==> coredns
@@ -120,7 +120,7 @@ flowchart LR
   coredns -.reads.-> etcd
   pki -.issues etcd peer/server TLS.-> etcd
   coredns --> lb
-  workstation -.queries.-> lb
+  resolver -.queries.-> lb
 ```
 
 ```yaml
@@ -141,9 +141,19 @@ flowchart LR
 ```
 
 external-dns writes into the in-cluster coredns etcd backend, whose
-peer and server certs come from the pki `private` ClusterIssuer. A
-LoadBalancer Service publishes coredns at the configured IP so a
-workstation can point its resolver at it.
+peer and server certs come from the pki `private` ClusterIssuer. With
+the Cilium driver (the Talos default on both local and metal clusters)
+a LoadBalancer Service publishes coredns at the configured IP via
+Cilium L2/ARP. Under the Envoy driver coredns is reached through the
+gateway's port-53 listener (`coredns/gateway`) instead.
+
+The wiring is identical on a local workstation and on metal; they
+differ in who queries that IP. On a local cluster it sits on the
+workstation's bridge network and the workstation points its stub
+resolver at it. On metal it is a routable LAN address, so LAN clients
+or an upstream resolver that forwards `*.<dns.private_domain>` query it.
+In both cases `loadbalancer_start_ip` must fall inside
+`network.loadbalancer_ips` and be reachable from those resolvers.
 
 <!-- BEGIN_KUSTOMIZE_DOCS -->
 
