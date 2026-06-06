@@ -86,11 +86,13 @@ variable "default_node_pool" {
   })
   default = {
     name = "system"
-    # D2s_v5 is current-gen (D2s_v3 is two generations behind, retired tier),
-    # same 2 vCPU / 8 GB but better price/perf. System pool stays small —
+    # D2s_v3 (2 vCPU / 8 GB) for broad availability: the Dsv5 family must be
+    # enabled per subscription+region and is absent from restricted offers
+    # (sponsored/free), where AKS create fails with "VM size not allowed".
+    # Dsv3 is GA in effectively every region. System pool stays small —
     # only_critical_addons_enabled puts a CriticalAddonsOnly:NoSchedule taint
     # on it, so user workloads avoid it; this pool only hosts cluster operators.
-    vm_size                      = "Standard_D2s_v5"
+    vm_size                      = "Standard_D2s_v3"
     os_disk_type                 = "Managed"
     max_pods                     = 48
     host_encryption_enabled      = true
@@ -128,12 +130,14 @@ variable "autoscaled_node_pool" {
   default = {
     enabled = true
     name    = "autoscaled"
-    # D4s_v5 (4 vCPU / 16 GB) — sized for the heavy core stack (kube-prometheus
-    # stack alone wants ~2 GB, plus fluentd/fluent-bit/cert-manager/kyverno).
-    # D2s_v3 (8 GB) was tight: nodes evicted under steady state on fresh installs.
-    # AKS does not support in-place SKU resize; changing this triggers a
-    # destroy+create of the autoscaled pool on next apply.
-    vm_size                 = "Standard_D4s_v5"
+    # D4s_v3 (4 vCPU / 16 GB) — sized for the heavy core stack (kube-prometheus
+    # stack alone wants ~2 GB, plus fluentd/fluent-bit/cert-manager/kyverno);
+    # D2 (8 GB) was tight: nodes evicted under steady state on fresh installs.
+    # Dsv3 over Dsv5 for broad availability — the Dsv5 family must be enabled
+    # per subscription+region and is absent from restricted offers, where AKS
+    # create fails with "VM size not allowed". AKS does not support in-place
+    # SKU resize; changing this triggers a destroy+create of the pool on apply.
+    vm_size                 = "Standard_D4s_v3"
     mode                    = "User"
     os_disk_type            = "Managed"
     max_pods                = 48
@@ -206,11 +210,15 @@ variable "pools" {
 variable "class_instance_types" {
   description = "Default Azure VM size list per portable pool class. AKS pools accept a single SKU per pool — only the first entry is used; remaining entries document an operator preference order rather than an AKS-enforced fallback (the AWS-EKS equivalent does take a list at the API level). A pool's explicit instance_types overrides this map. When overriding this variable, all seven class keys must be supplied — partial overrides are rejected at validate time."
   type        = map(list(string))
+  # Intel/AMD classes pin the v3 generation for broad availability: the Dsv5 /
+  # Esv5 families need per-subscription+region enablement and are absent from
+  # restricted offers (sponsored/free), where AKS create fails with "VM size
+  # not allowed". arm64 stays on v5 — Ampere has no v3 generation.
   default = {
-    system  = ["Standard_D2s_v5", "Standard_D2as_v5", "Standard_D4s_v5", "Standard_D4as_v5"]
-    general = ["Standard_D4s_v5", "Standard_D4as_v5", "Standard_D8s_v5", "Standard_D8as_v5"]
+    system  = ["Standard_D2s_v3", "Standard_D2as_v3", "Standard_D4s_v3", "Standard_D4as_v3"]
+    general = ["Standard_D4s_v3", "Standard_D4as_v3", "Standard_D8s_v3", "Standard_D8as_v3"]
     compute = ["Standard_F4s_v2", "Standard_F8s_v2", "Standard_F16s_v2"]
-    memory  = ["Standard_E4s_v5", "Standard_E4as_v5", "Standard_E8s_v5"]
+    memory  = ["Standard_E4s_v3", "Standard_E4as_v3", "Standard_E8s_v3"]
     storage = ["Standard_L8s_v3", "Standard_L16s_v3"]
     gpu     = ["Standard_NC4as_T4_v3", "Standard_NC8as_T4_v3"]
     arm64   = ["Standard_D2pds_v5", "Standard_D4pds_v5", "Standard_E4pds_v5"]
