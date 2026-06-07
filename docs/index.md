@@ -1,12 +1,11 @@
 ---
 title: Core
-description: The default Windsor blueprint — the complete, self-hosted platform most projects start from, on any target.
+description: Core is the default blueprint Windsor ships with, covering the infrastructure, the cluster, and the workloads that run on it.
 ---
 
 # Core
 
-The default Windsor blueprint — and where most projects start. A complete,
-self-hosted platform you deploy on any target and make your own.
+The default blueprint that includes base infrastructure and services. Cloud "primitives" provide storage, networking, security, and observability required to run a consistent platform across major cloud providers, virtualization platforms, and bare metal.
 
 ## Infrastructure
 
