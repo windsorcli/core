@@ -1,9 +1,14 @@
 ---
 title: cluster/aws-eks/additions
-description: VPC CNI and EBS CSI driver helpers for EKS.
+description: system-dns namespace and external-dns ConfigMap for EKS.
 ---
 
 # cluster/aws-eks/additions
+
+The in-cluster pieces external-dns needs on EKS: the `system-dns` namespace
+(baseline Pod Security) and an `external-dns` ConfigMap carrying the Route53
+region and TXT owner ID. Applied by `cluster/aws-eks` against the cluster's
+Kubernetes API once the control plane is reachable.
 
 <!-- BEGIN_TF_DOCS -->
 ## Requirements

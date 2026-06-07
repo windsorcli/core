@@ -5,6 +5,11 @@ description: DNS zone on Azure DNS.
 
 # dns/zone/azure-dns
 
+Creates a public Azure DNS zone for a domain in a self-contained resource
+group, so the zone's lifecycle is independent of any cluster — destroying
+the stack removes the zone and its resource group without touching unrelated
+resources.
+
 <!-- BEGIN_TF_DOCS -->
 ## Requirements
 
