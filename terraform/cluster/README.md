@@ -93,8 +93,9 @@ managed node groups from `cluster.pools`. `cluster.workers` is ignored
 on elastic providers, so use `pools` instead. The IAM role and Pod
 Identity association are created when `dns.public_domain` is set; the
 role is scoped to the Route53 zone provisioned by `dns/zone/route53`.
-The `cluster/aws-eks/additions` module installs IAM entries that
-survive across cluster destroys.
+The `cluster/aws-eks/additions` module applies the in-cluster
+external-dns prerequisites (the `system-dns` namespace and external-dns
+ConfigMap).
 
 ### AKS (managed Azure)
 

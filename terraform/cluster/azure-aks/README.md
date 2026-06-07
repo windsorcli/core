@@ -11,26 +11,20 @@ can federate to Entra apps without static credentials), key-vault-backed
 disk encryption, and the supporting role assignments. Consumes private
 subnet IDs from the `network/azure-vnet` outputs.
 
-## Prerequisites
+## Notes
 
-The following features must be enabled in your Azure subscription before using this module:
+### Prerequisites
 
-- EncryptionAtHost feature for Microsoft.Compute provider
-  ```bash
-  az feature register --namespace Microsoft.Compute --name EncryptionAtHost
-  az provider register --namespace Microsoft.Compute
-  ```
+Enable the EncryptionAtHost feature on the subscription before first apply:
 
-### Subscription Requirements
+```bash
+az feature register --namespace Microsoft.Compute --name EncryptionAtHost
+az provider register --namespace Microsoft.Compute
+```
 
-This module requires a paid Azure subscription. Free tier subscriptions are not supported due to:
-- Insufficient vCPU quotas
-- Restricted VM sizes
-- Limited node pool operations
+Requires a paid Azure subscription; free-tier vCPU quotas, VM sizes, and node-pool operations are too restricted.
 
-## Upgrading
-
-### `azurerm_role_assignment.subnet_network_contributor_cp` for_each migration
+### Upgrading: `subnet_network_contributor_cp` for_each migration
 
 This resource moved from a single instance to `for_each` over `var.private_subnet_ids`. Without intervention, `terraform apply` will destroy the existing assignment and recreate it as a keyed instance, briefly leaving the control plane without `Network Contributor` on the first subnet (transient LB provisioning failures are possible during that window).
 
@@ -44,7 +38,7 @@ terraform state mv \
 
 The remaining for_each entries (other private subnets) are net-new assignments and do not affect the existing one.
 
-### `azurerm_role_assignment.external_dns_zones` is scoped to the resource group
+### Upgrading: `external_dns_zones` resource-group scope
 
 The DNS Zone Contributor role assignment for the external-dns identity is scoped to the resource group of each enumerated zone, not to the individual zones. This is required by the external-dns Azure provider, which calls `ListByResourceGroup` on every reconcile to discover zones — an action that the zone-scoped `DNS Zone Contributor` does not authorize. A zone-scoped grant would leave external-dns unable to enumerate, regardless of which zones were enumerated in `external_dns_dns_zone_ids`.
 

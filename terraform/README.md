@@ -21,7 +21,7 @@ layer. Links from there land here.
 | [backend/s3](backend/s3/) | Remote Terraform state on S3 + DynamoDB lock. |
 | [cluster](cluster/) | Kubernetes control plane provisioning across Talos, EKS, and AKS. |
 | [cluster/aws-eks](cluster/aws-eks/) | Managed Kubernetes control plane on AWS. |
-| [cluster/aws-eks/additions](cluster/aws-eks/additions/) | VPC CNI and EBS CSI driver helpers for EKS. |
+| [cluster/aws-eks/additions](cluster/aws-eks/additions/) | system-dns namespace and external-dns ConfigMap for EKS. |
 | [cluster/azure-aks](cluster/azure-aks/) | Managed Kubernetes control plane on Azure. |
 | [cluster/talos](cluster/talos/) | Self-hosted Kubernetes control plane via the Talos API. |
 | [cluster/talos/config](cluster/talos/config/) | Per-node Talos machine config + CIDATA seeds. |

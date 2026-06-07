@@ -5,6 +5,11 @@ description: Talos image build with system extensions.
 
 # cluster/talos/extensions
 
+Resolves a Talos installer image carrying the requested system extensions
+through the Talos Image Factory, returning a stable schematic ID and the
+pinned installer URL. Also drives in-place upgrades of control-plane and
+worker nodes when the image changes.
+
 <!-- BEGIN_TF_DOCS -->
 ## Requirements
 

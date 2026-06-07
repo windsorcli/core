@@ -5,6 +5,13 @@ description: Per-node Talos machine config + CIDATA seeds.
 
 # cluster/talos/config
 
+The before-compute stage for hypervisors with no metadata service or DHCP
+(Hyper-V today). Generates the cluster identity, signs per-node machine
+configs, and wraps each config plus its static-network cloud-init into a
+CIDATA seed ISO that `compute/hyperv` attaches as the node's second DVD.
+Exports the same identity back to `cluster/talos` so its bootstrap and
+kubeconfig flow run without a redundant machine-config apply.
+
 <!-- BEGIN_TF_DOCS -->
 ## Requirements
 

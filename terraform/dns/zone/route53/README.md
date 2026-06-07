@@ -6,27 +6,18 @@ description: Public DNS zone on AWS Route53.
 # dns/zone/route53
 
 Creates a public Route53 hosted zone for a domain. Kept independent of any
-network/cluster module so a domain can be provisioned standalone — useful
-for zone-only deployments and for cases where DNS infra has a different
-lifecycle than compute.
+network or cluster module so a domain can be provisioned standalone, for
+zone-only deployments or when DNS has a different lifecycle than compute.
 
-The zone is consumed by:
+## Notes
 
-- **cert-manager (ACME Route53 solver)** — DNS-01 challenges for Let's
-  Encrypt certificates issued via the `public` ClusterIssuer.
-- **external-dns** — automatic publication of Gateway / Service hostnames
-  as Route53 records.
+`force_destroy` is set to `true` unconditionally so `windsor destroy` can
+tear the zone down even when it still holds records (ACME TXTs, external-dns
+entries). The AWS provider reads `force_destroy` from state at delete time,
+so it has to be persisted from apply. Matches the `backend/s3` bucket
+pattern.
 
-After apply, point your domain registrar at the `name_servers` output so
-public DNS queries resolve through this zone.
-
-`force_destroy` is set to `true` unconditionally so `windsor destroy`
-can tear the zone down even when it still has records (ACME challenge
-TXTs, external-dns entries) — the AWS provider reads `force_destroy`
-from state at delete time, so it has to be persisted from apply.
-Matches the `backend/s3` bucket pattern.
-
-## DNSSEC (`enable_dnssec`)
+### DNSSEC (`enable_dnssec`)
 
 Off by default. When enabled, provisions a us-east-1 KSK KMS key
 (`ECC_NIST_P256` / `SIGN_VERIFY`), an `aws_route53_key_signing_key`,
@@ -41,7 +32,7 @@ After apply, publish the DS record at the domain registrar — the
 validating resolvers will fail to resolve the zone, so don't enable
 this without coordinating with whoever controls the registrar.
 
-## Query logging (`enable_query_logging`)
+### Query logging (`enable_query_logging`)
 
 Off by default. When enabled, provisions a CloudWatch log group at
 `/aws/route53/<domain>` in us-east-1 (Route53 only delivers query

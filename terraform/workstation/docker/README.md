@@ -5,7 +5,7 @@ description: Local-host Docker network + registry.
 
 # workstation/docker
 
-Local-host runtime backing `windsor up` on developer machines. Stands up
+Local-host runtime backing `windsor apply` on developer machines. Stands up
 the Docker network, optional local OCI registry, and volumes the cluster
 needs before `compute/docker` brings up Talos containers on top. Works
 with Docker Desktop or Colima.
