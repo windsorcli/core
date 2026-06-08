@@ -1,17 +1,11 @@
 ---
 title: Core
-description: The default Windsor blueprint — Terraform-provisioned infrastructure handed to Flux for cluster reconciliation.
+description: Core is the default blueprint Windsor ships with, covering the infrastructure, the cluster, and the workloads that run on it.
 ---
 
 # Core
 
-The default Windsor blueprint. Core provisions infrastructure with Terraform —
-remote state, networks, a compute substrate, and a Kubernetes control plane on
-Talos, EKS, or AKS — then installs Flux and hands the running cluster over to
-it. From there the platform is reconciled from the Kustomize layer: CNI,
-storage, PKI, gateways, observability, and more. Either half can stand alone,
-but together they bootstrap a complete self-hosted platform from a single
-`windsor bootstrap`.
+The default blueprint that includes base infrastructure and services. Cloud "primitives" provide storage, networking, security, and observability required to run a consistent platform across major cloud providers, virtualization platforms, and bare metal.
 
 ## Infrastructure
 
