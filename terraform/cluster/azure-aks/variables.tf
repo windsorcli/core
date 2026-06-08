@@ -65,6 +65,12 @@ variable "kubernetes_version" {
   }
 }
 
+variable "availability_zones" {
+  description = "Availability zones node pools are placed in. Null places nodes without a zone constraint; a list (e.g. [\"1\",\"2\",\"3\"]) spreads them across those zones. A pool's own availability_zones overrides this."
+  type        = list(string)
+  default     = null
+}
+
 variable "default_node_pool" {
   description = "Configuration for the default node pool"
   type = object({

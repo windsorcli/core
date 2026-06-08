@@ -410,6 +410,62 @@ cases:
                 instance_types:
                   - p4d.24xlarge
 
+  # Cheap single-zone default (no topology set → cloud derives multi-node):
+  # one shared NAT gateway, and node groups pinned to the first private subnet.
+  # The control plane still gets the full private_subnet_ids set.
+  - name: cheap default uses a single NAT and a single node subnet
+    values:
+      platform: aws
+      aws: *default-aws
+      gateway:
+        enabled: false
+    terraformOutputs:
+      network:
+        private_subnet_ids:
+          - subnet-aaa
+          - subnet-bbb
+          - subnet-ccc
+    expect:
+      terraform:
+        - name: network
+          path: network/aws-vpc
+          inputs:
+            single_nat_gateway: true
+        - name: cluster
+          path: cluster/aws-eks
+          inputs:
+            node_subnet_ids:
+              - subnet-aaa
+
+  # topology: ha is the additive multi-zone transition — one NAT per AZ and
+  # node groups spread across every private subnet.
+  - name: topology ha uses per-AZ NAT and spreads nodes across all subnets
+    values:
+      platform: aws
+      aws: *default-aws
+      topology: ha
+      gateway:
+        enabled: false
+    terraformOutputs:
+      network:
+        private_subnet_ids:
+          - subnet-aaa
+          - subnet-bbb
+          - subnet-ccc
+    expect:
+      terraform:
+        - name: network
+          path: network/aws-vpc
+          inputs:
+            single_nat_gateway: false
+        - name: cluster
+          path: cluster/aws-eks
+          inputs:
+            node_subnet_ids:
+              - subnet-aaa
+              - subnet-bbb
+              - subnet-ccc
+
   # AWS Load Balancer Controller is rendered on every AWS cluster — it's
   # required to get NLBs / ALBs (the in-tree CCM only creates classic ELBs).
   # The component lives at lb/base/aws-lb-controller (sibling of

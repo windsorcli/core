@@ -352,7 +352,7 @@ resource "azurerm_kubernetes_cluster" "main" {
     vnet_subnet_id               = var.private_subnet_ids[0]
     orchestrator_version         = var.kubernetes_version
     only_critical_addons_enabled = var.default_node_pool.only_critical_addons_enabled
-    zones                        = var.default_node_pool.availability_zones
+    zones                        = var.default_node_pool.availability_zones != null ? var.default_node_pool.availability_zones : var.availability_zones
 
     # checkov:skip=CKV_AZURE_226: we are using the managed disk type to reduce costs
     os_disk_type            = var.default_node_pool.os_disk_type
@@ -432,7 +432,7 @@ resource "azurerm_kubernetes_cluster_node_pool" "autoscaled" {
   auto_scaling_enabled  = true
   min_count             = var.autoscaled_node_pool.min_count
   max_count             = var.autoscaled_node_pool.max_count
-  zones                 = var.autoscaled_node_pool.availability_zones
+  zones                 = var.autoscaled_node_pool.availability_zones != null ? var.autoscaled_node_pool.availability_zones : var.availability_zones
   vnet_subnet_id        = var.private_subnet_ids[length(var.private_subnet_ids) - 1]
   orchestrator_version  = var.kubernetes_version
   # checkov:skip=CKV_AZURE_226: We are using the managed disk type to reduce costs
@@ -501,6 +501,7 @@ resource "azurerm_kubernetes_cluster_node_pool" "pools" {
   mode                  = "User"
   node_count            = each.value.node_count
   os_disk_size_gb       = each.value.os_disk_size_gb
+  zones                 = var.availability_zones
   vnet_subnet_id        = var.private_subnet_ids[length(var.private_subnet_ids) - 1]
   orchestrator_version  = var.kubernetes_version
   priority              = each.value.priority

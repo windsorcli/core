@@ -83,6 +83,37 @@ cases:
                 count: 5
                 lifecycle: spot
 
+  # Cheap single-zone default (no topology set → cloud derives multi-node):
+  # node pools get no zone constraint (availability_zones null).
+  - name: cheap default leaves node pools without a zone constraint
+    values:
+      platform: azure
+      gateway:
+        enabled: false
+    expect:
+      terraform:
+        - name: cluster
+          path: cluster/azure-aks
+          inputs:
+            availability_zones: null
+
+  # topology: ha spreads node pools across zones 1-3.
+  - name: topology ha spreads node pools across zones 1-3
+    values:
+      platform: azure
+      topology: ha
+      gateway:
+        enabled: false
+    expect:
+      terraform:
+        - name: cluster
+          path: cluster/azure-aks
+          inputs:
+            availability_zones:
+              - "1"
+              - "2"
+              - "3"
+
   - name: excludes gateway when disabled
     values:
       platform: azure
