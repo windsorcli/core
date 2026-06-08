@@ -402,6 +402,7 @@ kustomize:
       - kyverno
       - "${(policies.reporting ?? 'disabled') == 'enabled' ? 'kyverno/reports' : ''}"
       - "${(policies.cleanup ?? 'disabled') == 'enabled' ? 'kyverno/cleanup' : ''}"
+      - "${topology == 'ha' ? 'kyverno/ha' : ''}"
     timeout: 30m
     interval: 5m
 

@@ -3,6 +3,9 @@ kind: ClusterPolicy
 metadata:
   name: set-ingress-localhost-dns-target
 spec:
+  # Cosmetic annotation matching Ingress/Gateway/HTTPRoute in every namespace.
+  # Fail open so an unavailable Kyverno can't block those resources cluster-wide.
+  failurePolicy: Ignore
   validationFailureAction: audit
   background: true
   rules:

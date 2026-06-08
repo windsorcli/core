@@ -15,6 +15,9 @@ metadata:
       initialization. By injecting annotations before the object is persisted,
       LBIPAM always sees a complete sharing group from the start.
 spec:
+  # Fail closed so the sharing annotations are never missed. The match is scoped
+  # to CREATE on labeled Services in system-gateway, so the blast radius is small.
+  failurePolicy: Fail
   rules:
     - name: inject-lbipam-sharing-annotations
       match:

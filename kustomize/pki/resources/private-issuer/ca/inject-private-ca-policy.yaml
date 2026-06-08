@@ -3,6 +3,10 @@ kind: ClusterPolicy
 metadata:
   name: inject-private-ca
 spec:
+  # Fail closed: a pod must not start without the CA bundle it expects to trust.
+  # The pod-label match scopes the webhook to opted-in pods, so this never gates
+  # unrelated workloads or the control plane.
+  failurePolicy: Fail
   background: false
   rules:
     - name: inject-private-ca
