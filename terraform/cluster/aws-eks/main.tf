@@ -313,6 +313,10 @@ resource "aws_iam_role_policy_attachment" "node_group_AmazonEC2ContainerRegistry
 #-----------------------------------------------------------------------------------------------------------------------
 
 locals {
+  # Node groups launch into node_subnet_ids when set, else all private subnets.
+  # The control plane keeps private_subnet_ids — EKS requires ENIs in >=2 AZs.
+  node_subnet_ids = var.node_subnet_ids != null ? var.node_subnet_ids : var.private_subnet_ids
+
   pools_node_groups = {
     for name, p in var.pools : name => {
       instance_types = p.instance_types != null && length(p.instance_types) > 0 ? p.instance_types : lookup(var.class_instance_types, p.class, null)
@@ -356,7 +360,7 @@ resource "aws_eks_node_group" "main" {
   cluster_name           = aws_eks_cluster.main.name
   node_group_name_prefix = "${each.key}-"
   node_role_arn          = aws_iam_role.node_group.arn
-  subnet_ids             = var.private_subnet_ids
+  subnet_ids             = local.node_subnet_ids
   instance_types         = each.value.instance_types
   capacity_type          = each.value.capacity_type == "ON_DEMAND" ? null : each.value.capacity_type
 

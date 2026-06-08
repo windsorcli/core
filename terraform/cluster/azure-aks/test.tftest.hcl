@@ -190,6 +190,7 @@ run "full_configuration" {
     kubernetes_version        = "1.34"
     oidc_issuer_enabled       = true
     workload_identity_enabled = true
+    availability_zones        = ["1", "2", "3"]
     default_node_pool = {
       name                         = "system"
       vm_size                      = "Standard_D2s_v3"
@@ -200,7 +201,6 @@ run "full_configuration" {
       max_count                    = 3
       node_count                   = 1
       only_critical_addons_enabled = false
-      availability_zones           = ["1", "2", "3"]
     }
     autoscaled_node_pool = {
       enabled                 = true
@@ -212,7 +212,6 @@ run "full_configuration" {
       host_encryption_enabled = true
       min_count               = 1
       max_count               = 3
-      availability_zones      = ["1", "2"]
     }
     role_based_access_control_enabled = true
     private_cluster_enabled           = false
@@ -312,12 +311,12 @@ run "full_configuration" {
 
   assert {
     condition     = length(azurerm_kubernetes_cluster.main.default_node_pool[0].zones) == 3 && contains(azurerm_kubernetes_cluster.main.default_node_pool[0].zones, "1") && contains(azurerm_kubernetes_cluster.main.default_node_pool[0].zones, "2") && contains(azurerm_kubernetes_cluster.main.default_node_pool[0].zones, "3")
-    error_message = "Default node pool zones should match input value"
+    error_message = "Default node pool zones should follow var.availability_zones"
   }
 
   assert {
-    condition     = length(azurerm_kubernetes_cluster_node_pool.autoscaled[0].zones) == 2 && contains(azurerm_kubernetes_cluster_node_pool.autoscaled[0].zones, "1") && contains(azurerm_kubernetes_cluster_node_pool.autoscaled[0].zones, "2")
-    error_message = "Autoscaled node pool zones should match input value"
+    condition     = length(azurerm_kubernetes_cluster_node_pool.autoscaled[0].zones) == 3 && contains(azurerm_kubernetes_cluster_node_pool.autoscaled[0].zones, "1") && contains(azurerm_kubernetes_cluster_node_pool.autoscaled[0].zones, "2") && contains(azurerm_kubernetes_cluster_node_pool.autoscaled[0].zones, "3")
+    error_message = "Autoscaled node pool zones should follow var.availability_zones"
   }
 
   assert {

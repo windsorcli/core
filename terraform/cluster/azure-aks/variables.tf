@@ -65,6 +65,12 @@ variable "kubernetes_version" {
   }
 }
 
+variable "availability_zones" {
+  description = "Availability zones every node pool is placed in. Null places nodes without a zone constraint; a list (e.g. [\"1\",\"2\",\"3\"]) spreads them across those zones."
+  type        = list(string)
+  default     = null
+}
+
 variable "default_node_pool" {
   description = "Configuration for the default node pool"
   type = object({
@@ -77,7 +83,6 @@ variable "default_node_pool" {
     max_count                    = number
     node_count                   = number
     only_critical_addons_enabled = bool
-    availability_zones           = optional(list(string))
     upgrade_settings = optional(object({
       drain_timeout_in_minutes      = number
       max_surge                     = string
@@ -120,7 +125,6 @@ variable "autoscaled_node_pool" {
     host_encryption_enabled = bool
     min_count               = number
     max_count               = number
-    availability_zones      = optional(list(string))
     upgrade_settings = optional(object({
       drain_timeout_in_minutes      = number
       max_surge                     = string

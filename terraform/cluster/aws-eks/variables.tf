@@ -93,6 +93,12 @@ variable "private_subnet_ids" {
   }
 }
 
+variable "node_subnet_ids" {
+  description = "Private subnet IDs node groups launch into. Null uses all of private_subnet_ids; pass a subset to constrain node placement to specific AZs. The control plane always uses private_subnet_ids."
+  type        = list(string)
+  default     = null
+}
+
 variable "node_groups" {
   description = "Map of EKS managed node group definitions to create. Used when var.pools is empty; otherwise pools wins."
   type = map(object({
