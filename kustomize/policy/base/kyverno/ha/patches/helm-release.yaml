@@ -13,4 +13,7 @@ spec:
       replicas: 3
       podDisruptionBudget:
         enabled: true
-        minAvailable: 1
+        # With replicas: 3 this caps voluntary disruption at one pod at a time,
+        # so a drain can't degrade the fail-closed webhook backend to a single
+        # pod. Still permits one-node-at-a-time rolling drains.
+        minAvailable: 2
