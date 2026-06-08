@@ -48,6 +48,25 @@ fails. The background controller audits existing Pods against Audit
 policies and writes Events and PolicyReports (the latter only when
 `kyverno/reports` is enabled).
 
+## Webhook availability
+
+A webhook with `failurePolicy: Fail` rejects matching requests when the
+admission controller is unreachable, so an unavailable Kyverno can lock
+out resource creation. Three things bound that risk:
+
+- The webhook `namespaceSelector` excludes `kube-system` and the GitOps
+  namespace (`FLUX_SYSTEM_NAMESPACE`, default `system-gitops`). The
+  kube-apiserver honours this even when Kyverno is down, so Flux can
+  always reconcile a recovery.
+- Validating policies and tightly scoped mutating policies stay `Fail`.
+  Fail closed is the safe default for a security gate or a CA-trust
+  injection, and a label or namespace match keeps the blast radius small.
+  Broad, cosmetic mutations such as the localhost DNS-target injection
+  use `Ignore` so they fail open.
+- On `topology == 'ha'`, `kyverno/ha` runs the controller with three
+  replicas and a PDB so the webhook backend stays reachable through
+  drains and rollouts.
+
 ## Recipes
 
 ### Baseline (admission + ClusterPolicies)
@@ -95,6 +114,12 @@ to add your own.
 
 <!-- BEGIN_KUSTOMIZE_DOCS -->
 
+## Substitutions
+
+| Name | Required when | Effect |
+|---|---|---|
+| `FLUX_SYSTEM_NAMESPACE` | always (defaults to `system-gitops`) | Namespace excluded from the Kyverno admission webhooks alongside `kube-system`, so Flux can always reconcile even if the admission controller is unavailable. |
+
 ## Components — `policy-base`
 
 | Component | Enable when | Effect |
@@ -102,6 +127,7 @@ to add your own.
 | `kyverno` | always | Helm release of Kyverno in `system-policy`. Installs the admission, background, and reports controllers (the cleanup controller is disabled at this layer; opt in via `kyverno/cleanup`). NO_COLOR is set on the admission and background containers. |
 | `kyverno/reports` | `policies.reporting == 'enabled'` | Patches the kyverno HelmRelease to set `reportsController.enabled: true` so PolicyReport / ClusterPolicyReport CRs are written for evaluated policies. |
 | `kyverno/cleanup` | `policies.cleanup == 'enabled'` | Patches the kyverno HelmRelease to set `cleanupController.enabled: true` so CleanupPolicy / ClusterCleanupPolicy CRs are executed on their cron schedules. Disabled by default because the blueprint ships no CleanupPolicy resources. |
+| `kyverno/ha` | `topology == 'ha'` | Patches the kyverno HelmRelease to run the admission controller with `replicas: 3` and a PodDisruptionBudget, keeping the webhook backend reachable during node drains and rollouts (pod anti-affinity is on by default). |
 
 ## Components — `policy-resources`
 

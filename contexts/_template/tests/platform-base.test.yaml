@@ -323,6 +323,24 @@ cases:
             - kyverno/reports
             - kyverno/cleanup
 
+  # topology=ha layers in the kyverno/ha component (multi-replica admission
+  # controller + PDB) so the webhook backend survives drains and rollouts.
+  - name: topology ha adds kyverno/ha component
+    values:
+      platform: metal
+      gateway:
+        enabled: false
+      network: *default-network
+      cluster: *default-cluster
+      topology: ha
+    expect:
+      kustomize:
+        - name: policy-base
+          path: policy/base
+          components:
+            - kyverno
+            - kyverno/ha
+
   # policies.enabled=false skips both policy kustomizations entirely and
   # drops the policy-resources dep from pki-base.
   - name: policies.enabled false excludes policy kustomizations and drops pki-base dep

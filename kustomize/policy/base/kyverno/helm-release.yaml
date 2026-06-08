@@ -15,6 +15,18 @@ spec:
         kind: HelmRepository
         name: kyverno
   values:
+    # The kube-apiserver enforces the webhook namespaceSelector even when the
+    # admission controller is unreachable. Excluding the GitOps and kube-system
+    # namespaces keeps Flux able to reconcile a fix if Kyverno is ever down.
+    config:
+      webhooks:
+        namespaceSelector:
+          matchExpressions:
+            - key: kubernetes.io/metadata.name
+              operator: NotIn
+              values:
+                - kube-system
+                - ${FLUX_SYSTEM_NAMESPACE:-system-gitops}
     crds:
       migration:
         image:

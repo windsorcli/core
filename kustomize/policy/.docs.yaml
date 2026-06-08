@@ -10,6 +10,11 @@ facets:
   - policy-base
   - policy-resources
 
+substitutions:
+  FLUX_SYSTEM_NAMESPACE:
+    required_when: "always (defaults to `system-gitops`)"
+    description: "Namespace excluded from the Kyverno admission webhooks alongside `kube-system`, so Flux can always reconcile even if the admission controller is unavailable."
+
 components:
   kyverno:
     facet: policy-base
@@ -23,6 +28,10 @@ components:
     facet: policy-base
     enable_when: "`policies.cleanup == 'enabled'`"
     description: "Patches the kyverno HelmRelease to set `cleanupController.enabled: true` so CleanupPolicy / ClusterCleanupPolicy CRs are executed on their cron schedules. Disabled by default because the blueprint ships no CleanupPolicy resources."
+  kyverno/ha:
+    facet: policy-base
+    enable_when: "`topology == 'ha'`"
+    description: "Patches the kyverno HelmRelease to run the admission controller with `replicas: 3` and a PodDisruptionBudget, keeping the webhook backend reachable during node drains and rollouts (pod anti-affinity is on by default)."
   kyverno/resource-limits-requests:
     facet: policy-resources
     enable_when: "`policies.resource_limits_requests != 'disabled'`"

@@ -1,0 +1,16 @@
+---
+# Run the admission controller with multiple replicas and a PDB so the webhook
+# backend stays reachable during node drains and rollouts. Pod anti-affinity is
+# already enabled by the chart. Layered in only on topology=ha.
+apiVersion: helm.toolkit.fluxcd.io/v2
+kind: HelmRelease
+metadata:
+  name: kyverno
+  namespace: system-policy
+spec:
+  values:
+    admissionController:
+      replicas: 3
+      podDisruptionBudget:
+        enabled: true
+        minAvailable: 1
