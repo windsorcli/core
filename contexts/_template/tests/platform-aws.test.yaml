@@ -322,6 +322,27 @@ cases:
   # cluster.pools threads through to the cluster module as-is. The module
   # converts class + count + lifecycle into EKS managed node group fields
   # internally (class → instance family, lifecycle → capacity_type).
+  # With no cluster.pools set, the facet defaults to a fixed system pool plus an
+  # autoscaling general pool — the same arrangement AKS lands on.
+  - name: default pools are a fixed system plus autoscaling general
+    values:
+      platform: aws
+      aws: *default-aws
+      gateway:
+        enabled: false
+    expect:
+      terraform:
+        - name: cluster
+          path: cluster/aws-eks
+          inputs:
+            pools:
+              system:
+                class: system
+                count: 1
+              general:
+                class: general
+                count: 1
+
   - name: cluster.pools flows through to the cluster module
     values:
       platform: aws
