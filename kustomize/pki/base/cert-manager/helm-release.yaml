@@ -33,3 +33,10 @@ spec:
         tag: v1.20.2@sha256:4e2a69b4a0cc9627905bbeecf720f95d5153ca39cacdab923d2748e73556792b
     crds:
       enabled: true
+    webhook:
+      startupProbe:
+        enabled: true
+        initialDelaySeconds: 10
+        periodSeconds: 5
+        timeoutSeconds: 1
+        failureThreshold: 12
