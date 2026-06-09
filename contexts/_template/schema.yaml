@@ -669,7 +669,7 @@ properties:
             count:
               type: integer
               minimum: 0
-              description: Pool size. Fixed when autoscaling is off; the initial desired size when on.
+              description: Pool size. The fixed node count when autoscaling is off; when on, it seeds the default min/max bounds.
             autoscaling:
               type: object
               properties:

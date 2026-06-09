@@ -498,27 +498,25 @@ resource "azurerm_kubernetes_cluster_node_pool" "pools" {
   kubernetes_cluster_id = azurerm_kubernetes_cluster.main.id
   vm_size               = each.value.vm_size
   mode                  = "User"
-  node_count            = each.value.node_count
   auto_scaling_enabled  = each.value.autoscaling_enabled
   min_count             = each.value.min_count
   max_count             = each.value.max_count
-  os_disk_size_gb       = each.value.os_disk_size_gb
-  zones                 = var.availability_zones
-  vnet_subnet_id        = var.private_subnet_ids[length(var.private_subnet_ids) - 1]
-  orchestrator_version  = var.kubernetes_version
-  priority              = each.value.priority
-  eviction_policy       = each.value.eviction_policy
-  node_labels           = each.value.labels
-  node_taints           = each.value.taints
+  # Fixed pools set node_count so Terraform reconciles drift. Autoscaling pools
+  # leave it null (Optional+Computed) so the autoscaler owns it without a fight,
+  # which also means no blanket ignore_changes masking drift on the fixed ones.
+  node_count           = each.value.autoscaling_enabled ? null : each.value.node_count
+  os_disk_size_gb      = each.value.os_disk_size_gb
+  zones                = var.availability_zones
+  vnet_subnet_id       = var.private_subnet_ids[length(var.private_subnet_ids) - 1]
+  orchestrator_version = var.kubernetes_version
+  priority             = each.value.priority
+  eviction_policy      = each.value.eviction_policy
+  node_labels          = each.value.labels
+  node_taints          = each.value.taints
   # Encrypt temp disks / VM cache for parity with the default pool (CKV_AZURE_227).
   host_encryption_enabled = true
   # 50 satisfies CKV_AZURE_168 (>=50) directly without needing a suppression.
   max_pods = 50
-
-  lifecycle {
-    # With autoscaling on, the autoscaler owns node_count; don't reset it.
-    ignore_changes = [node_count]
-  }
 
   tags = merge({
     Name = each.key
