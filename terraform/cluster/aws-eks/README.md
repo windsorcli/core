@@ -36,6 +36,8 @@ No modules.
 
 | Name | Type |
 |------|------|
+| [aws_autoscaling_group_tag.cluster_autoscaler_enabled](https://registry.terraform.io/providers/hashicorp/aws/6.47.0/docs/resources/autoscaling_group_tag) | resource |
+| [aws_autoscaling_group_tag.cluster_autoscaler_owned](https://registry.terraform.io/providers/hashicorp/aws/6.47.0/docs/resources/autoscaling_group_tag) | resource |
 | [aws_cloudwatch_log_group.eks_cluster](https://registry.terraform.io/providers/hashicorp/aws/6.47.0/docs/resources/cloudwatch_log_group) | resource |
 | [aws_eks_addon.main](https://registry.terraform.io/providers/hashicorp/aws/6.47.0/docs/resources/eks_addon) | resource |
 | [aws_eks_cluster.main](https://registry.terraform.io/providers/hashicorp/aws/6.47.0/docs/resources/eks_cluster) | resource |
@@ -43,14 +45,17 @@ No modules.
 | [aws_eks_node_group.main](https://registry.terraform.io/providers/hashicorp/aws/6.47.0/docs/resources/eks_node_group) | resource |
 | [aws_eks_pod_identity_association.aws_lb_controller](https://registry.terraform.io/providers/hashicorp/aws/6.47.0/docs/resources/eks_pod_identity_association) | resource |
 | [aws_eks_pod_identity_association.cert_manager](https://registry.terraform.io/providers/hashicorp/aws/6.47.0/docs/resources/eks_pod_identity_association) | resource |
+| [aws_eks_pod_identity_association.cluster_autoscaler](https://registry.terraform.io/providers/hashicorp/aws/6.47.0/docs/resources/eks_pod_identity_association) | resource |
 | [aws_eks_pod_identity_association.external_dns](https://registry.terraform.io/providers/hashicorp/aws/6.47.0/docs/resources/eks_pod_identity_association) | resource |
 | [aws_iam_policy.aws_lb_controller](https://registry.terraform.io/providers/hashicorp/aws/6.47.0/docs/resources/iam_policy) | resource |
 | [aws_iam_policy.cert_manager](https://registry.terraform.io/providers/hashicorp/aws/6.47.0/docs/resources/iam_policy) | resource |
+| [aws_iam_policy.cluster_autoscaler](https://registry.terraform.io/providers/hashicorp/aws/6.47.0/docs/resources/iam_policy) | resource |
 | [aws_iam_policy.external_dns](https://registry.terraform.io/providers/hashicorp/aws/6.47.0/docs/resources/iam_policy) | resource |
 | [aws_iam_policy.pod_identity_agent](https://registry.terraform.io/providers/hashicorp/aws/6.47.0/docs/resources/iam_policy) | resource |
 | [aws_iam_role.aws_lb_controller](https://registry.terraform.io/providers/hashicorp/aws/6.47.0/docs/resources/iam_role) | resource |
 | [aws_iam_role.cert_manager](https://registry.terraform.io/providers/hashicorp/aws/6.47.0/docs/resources/iam_role) | resource |
 | [aws_iam_role.cluster](https://registry.terraform.io/providers/hashicorp/aws/6.47.0/docs/resources/iam_role) | resource |
+| [aws_iam_role.cluster_autoscaler](https://registry.terraform.io/providers/hashicorp/aws/6.47.0/docs/resources/iam_role) | resource |
 | [aws_iam_role.ebs_csi](https://registry.terraform.io/providers/hashicorp/aws/6.47.0/docs/resources/iam_role) | resource |
 | [aws_iam_role.efs_csi](https://registry.terraform.io/providers/hashicorp/aws/6.47.0/docs/resources/iam_role) | resource |
 | [aws_iam_role.external_dns](https://registry.terraform.io/providers/hashicorp/aws/6.47.0/docs/resources/iam_role) | resource |
@@ -62,6 +67,7 @@ No modules.
 | [aws_iam_role_policy_attachment.cert_manager](https://registry.terraform.io/providers/hashicorp/aws/6.47.0/docs/resources/iam_role_policy_attachment) | resource |
 | [aws_iam_role_policy_attachment.cluster_AmazonEKSClusterPolicy](https://registry.terraform.io/providers/hashicorp/aws/6.47.0/docs/resources/iam_role_policy_attachment) | resource |
 | [aws_iam_role_policy_attachment.cluster_AmazonEKSVPCResourceController](https://registry.terraform.io/providers/hashicorp/aws/6.47.0/docs/resources/iam_role_policy_attachment) | resource |
+| [aws_iam_role_policy_attachment.cluster_autoscaler](https://registry.terraform.io/providers/hashicorp/aws/6.47.0/docs/resources/iam_role_policy_attachment) | resource |
 | [aws_iam_role_policy_attachment.ebs_csi](https://registry.terraform.io/providers/hashicorp/aws/6.47.0/docs/resources/iam_role_policy_attachment) | resource |
 | [aws_iam_role_policy_attachment.efs_csi](https://registry.terraform.io/providers/hashicorp/aws/6.47.0/docs/resources/iam_role_policy_attachment) | resource |
 | [aws_iam_role_policy_attachment.external_dns](https://registry.terraform.io/providers/hashicorp/aws/6.47.0/docs/resources/iam_role_policy_attachment) | resource |
@@ -96,6 +102,7 @@ No modules.
 | <a name="input_context_path"></a> [context\_path](#input\_context\_path) | The path to the context folder, where kubeconfig is stored | `string` | `""` | no |
 | <a name="input_create_aws_lb_controller_role"></a> [create\_aws\_lb\_controller\_role](#input\_create\_aws\_lb\_controller\_role) | Whether to create the IAM role, policy, and Pod Identity association for the AWS Load Balancer Controller. Default true; set false only when not using the controller (Service: LoadBalancer falls back to the in-tree CCM, classic ELB only). | `bool` | `true` | no |
 | <a name="input_create_cert_manager_role"></a> [create\_cert\_manager\_role](#input\_create\_cert\_manager\_role) | Whether to create the IAM role, policy, and Pod Identity association for cert-manager's Route53 ACME DNS-01 solver. Enable when cert-manager will issue ACME certificates against a Route53 hosted zone in this account. | `bool` | `false` | no |
+| <a name="input_create_cluster_autoscaler_role"></a> [create\_cluster\_autoscaler\_role](#input\_create\_cluster\_autoscaler\_role) | Whether to create the IAM role, policy, and Pod Identity association for the Kubernetes cluster-autoscaler, plus the ASG auto-discovery tags. Default true; set false to bound node groups without deploying the autoscaler. | `bool` | `true` | no |
 | <a name="input_create_external_dns_role"></a> [create\_external\_dns\_role](#input\_create\_external\_dns\_role) | Whether to create IAM role and policy for external-dns. Set to true if external-dns will be used in the cluster, even if not installed as an EKS addon. | `bool` | `true` | no |
 | <a name="input_ebs_volume_kms_key_id"></a> [ebs\_volume\_kms\_key\_id](#input\_ebs\_volume\_kms\_key\_id) | KMS key ARN or ID to use for EBS volume encryption in node group launch templates. ARN is preferred for cross-account scenarios. If enable\_ebs\_encryption is true and this is null, a cluster-specific key is created. | `string` | `null` | no |
 | <a name="input_enable_cloudwatch_logs"></a> [enable\_cloudwatch\_logs](#input\_enable\_cloudwatch\_logs) | Whether the cluster emits control plane logs to CloudWatch. | `bool` | `true` | no |
@@ -110,7 +117,7 @@ No modules.
 | <a name="input_max_pods_per_node"></a> [max\_pods\_per\_node](#input\_max\_pods\_per\_node) | Maximum number of pods that can run on a single node | `number` | `64` | no |
 | <a name="input_node_groups"></a> [node\_groups](#input\_node\_groups) | Map of EKS managed node group definitions to create. Used when var.pools is empty; otherwise pools wins. | <pre>map(object({<br/>    instance_types = list(string)<br/>    min_size       = number<br/>    max_size       = number<br/>    desired_size   = number<br/>    capacity_type  = optional(string, "ON_DEMAND")<br/>    disk_size      = optional(number, 64)<br/>    labels         = optional(map(string), {})<br/>    taints = optional(list(object({<br/>      key    = string<br/>      value  = string<br/>      effect = string<br/>    })), [])<br/>  }))</pre> | <pre>{<br/>  "default": {<br/>    "desired_size": 2,<br/>    "instance_types": [<br/>      "t3.xlarge"<br/>    ],<br/>    "max_size": 3,<br/>    "min_size": 1<br/>  }<br/>}</pre> | no |
 | <a name="input_node_subnet_ids"></a> [node\_subnet\_ids](#input\_node\_subnet\_ids) | Private subnet IDs node groups launch into. Null uses all of private\_subnet\_ids; pass a subset to constrain node placement to specific AZs. The control plane always uses private\_subnet\_ids. | `list(string)` | `null` | no |
-| <a name="input_pools"></a> [pools](#input\_pools) | Portable node pool definitions, keyed by pool name. When non-empty, takes precedence over var.node\_groups. Each pool maps a class (system/general/compute/memory/storage/gpu/arm64) to an EKS managed node group. | <pre>map(object({<br/>    class          = string<br/>    count          = number<br/>    lifecycle      = optional(string, "on-demand")<br/>    instance_types = optional(list(string))<br/>    root_disk_size = optional(number)<br/>    labels         = optional(map(string), {})<br/>    taints = optional(list(object({<br/>      key    = string<br/>      value  = optional(string)<br/>      effect = string<br/>    })), [])<br/>  }))</pre> | `{}` | no |
+| <a name="input_pools"></a> [pools](#input\_pools) | Portable node pool definitions, keyed by pool name; takes precedence over var.node\_groups when non-empty. Each pool maps a class to an EKS managed node group. Autoscaling defaults on (min 1, max 3) for every class except system. | <pre>map(object({<br/>    class          = string<br/>    count          = number<br/>    lifecycle      = optional(string, "on-demand")<br/>    instance_types = optional(list(string))<br/>    root_disk_size = optional(number)<br/>    autoscaling = optional(object({<br/>      enabled = optional(bool)<br/>      min     = optional(number)<br/>      max     = optional(number)<br/>    }))<br/>    labels = optional(map(string), {})<br/>    taints = optional(list(object({<br/>      key    = string<br/>      value  = optional(string)<br/>      effect = string<br/>    })), [])<br/>  }))</pre> | `{}` | no |
 | <a name="input_private_subnet_ids"></a> [private\_subnet\_ids](#input\_private\_subnet\_ids) | Private subnet IDs for EKS control plane ENIs and node groups. Pipe network/aws-vpc's private\_subnet\_ids output. | `list(string)` | `null` | no |
 | <a name="input_secrets_encryption_kms_key_id"></a> [secrets\_encryption\_kms\_key\_id](#input\_secrets\_encryption\_kms\_key\_id) | ID of an existing KMS key to use for EKS secrets encryption. If enable\_secrets\_encryption is true and this is null, an internal key is created. | `string` | `null` | no |
 | <a name="input_tags"></a> [tags](#input\_tags) | Additional tags to apply to all resources | `map(string)` | `{}` | no |

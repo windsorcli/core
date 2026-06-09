@@ -669,7 +669,23 @@ properties:
             count:
               type: integer
               minimum: 0
-              description: Fixed pool size. Autoscaling (min/max) is gated on cluster.autoscaling and will land with that schema in a future release.
+              description: Pool size. Fixed when autoscaling is off; the initial desired size when on.
+            autoscaling:
+              type: object
+              properties:
+                enabled:
+                  type: boolean
+                  description: Turn autoscaling on or off; overrides the class default.
+                min:
+                  type: integer
+                  minimum: 0
+                  description: Minimum node count when autoscaling is on. Defaults to 1.
+                max:
+                  type: integer
+                  minimum: 1
+                  description: Maximum node count when autoscaling is on. Defaults to 3 (or count, if larger).
+              additionalProperties: false
+              description: Per-pool autoscaling. Defaults on (min 1, max 3) for every class except system, which is fixed.
             lifecycle:
               type: string
               enum:

@@ -605,14 +605,144 @@ run "pools_drive_node_groups_when_set" {
   }
 
   assert {
-    condition     = aws_eks_node_group.main["batch"].scaling_config[0].desired_size == 5 && aws_eks_node_group.main["batch"].scaling_config[0].min_size == 5 && aws_eks_node_group.main["batch"].scaling_config[0].max_size == 5
-    error_message = "count should pin desired/min/max to the same value"
+    condition     = aws_eks_node_group.main["batch"].scaling_config[0].desired_size == 5 && aws_eks_node_group.main["batch"].scaling_config[0].min_size == 1 && aws_eks_node_group.main["batch"].scaling_config[0].max_size == 5
+    error_message = "A non-system pool autoscales by default: desired=count, min=1, max=max(count,3)"
+  }
+
+  assert {
+    condition     = aws_eks_node_group.main["system"].scaling_config[0].desired_size == 2 && aws_eks_node_group.main["system"].scaling_config[0].min_size == 2 && aws_eks_node_group.main["system"].scaling_config[0].max_size == 2
+    error_message = "system class is fixed by default: desired=min=max=count"
   }
 
   assert {
     condition     = aws_eks_node_group.main["system"].labels["windsorcli.dev/pool"] == "system" && aws_eks_node_group.main["system"].labels["windsorcli.dev/pool-class"] == "system"
     error_message = "Pool name and class should be auto-injected as windsorcli.dev/pool labels"
   }
+}
+
+# Default-on autoscaling: a general pool with only class+count scales min 1 / max 3,
+# desired = count. Asserts the ASG discovery tags exist for the cluster-autoscaler.
+run "pools_autoscale_general_by_default" {
+  command = plan
+
+  variables {
+    context_id         = "test"
+    kubernetes_version = "1.34"
+    pools = {
+      general = {
+        class = "general"
+        count = 2
+      }
+    }
+  }
+
+  assert {
+    condition     = aws_eks_node_group.main["general"].scaling_config[0].desired_size == 2 && aws_eks_node_group.main["general"].scaling_config[0].min_size == 1 && aws_eks_node_group.main["general"].scaling_config[0].max_size == 3
+    error_message = "general pool should default to autoscaling min 1 / max 3, desired = count"
+  }
+
+  assert {
+    condition     = length(aws_autoscaling_group_tag.cluster_autoscaler_enabled) == 1 && length(aws_autoscaling_group_tag.cluster_autoscaler_owned) == 1
+    error_message = "Autoscaling-enabled pools should get the cluster-autoscaler ASG discovery tags"
+  }
+}
+
+# Explicit autoscaling block overrides the class default in both directions:
+# a system pool can be turned on, and bounds are taken verbatim.
+run "pools_autoscaling_explicit_override" {
+  command = plan
+
+  variables {
+    context_id         = "test"
+    kubernetes_version = "1.34"
+    pools = {
+      sys = {
+        class = "system"
+        count = 3
+        autoscaling = {
+          enabled = true
+          min     = 2
+          max     = 6
+        }
+      }
+      gen = {
+        class = "general"
+        count = 4
+        autoscaling = {
+          enabled = false
+        }
+      }
+    }
+  }
+
+  assert {
+    condition     = aws_eks_node_group.main["sys"].scaling_config[0].min_size == 2 && aws_eks_node_group.main["sys"].scaling_config[0].max_size == 6 && aws_eks_node_group.main["sys"].scaling_config[0].desired_size == 3
+    error_message = "Explicit autoscaling on a system pool should use the supplied bounds"
+  }
+
+  assert {
+    condition     = aws_eks_node_group.main["gen"].scaling_config[0].min_size == 4 && aws_eks_node_group.main["gen"].scaling_config[0].max_size == 4
+    error_message = "Explicitly disabled autoscaling pins min=max=count even for a non-system class"
+  }
+}
+
+# The autoscaler IAM role + Pod Identity association are created by default.
+run "cluster_autoscaler_role_enabled_by_default" {
+  command = plan
+
+  variables {
+    context_id         = "test"
+    kubernetes_version = "1.34"
+  }
+
+  assert {
+    condition     = length(aws_iam_role.cluster_autoscaler) == 1 && length(aws_eks_pod_identity_association.cluster_autoscaler) == 1
+    error_message = "cluster-autoscaler IAM role and Pod Identity association should exist by default"
+  }
+}
+
+# min > max is rejected at validate time rather than failing opaquely at apply.
+run "pool_rejects_autoscaling_min_gt_max" {
+  command = plan
+
+  variables {
+    context_id = "test"
+    pools = {
+      bad = {
+        class = "general"
+        count = 2
+        autoscaling = {
+          enabled = true
+          min     = 5
+          max     = 3
+        }
+      }
+    }
+  }
+
+  expect_failures = [var.pools]
+}
+
+# Explicitly enabled autoscaling with count outside [min, max] is rejected.
+run "pool_rejects_count_outside_autoscaling_bounds" {
+  command = plan
+
+  variables {
+    context_id = "test"
+    pools = {
+      bad = {
+        class = "general"
+        count = 10
+        autoscaling = {
+          enabled = true
+          min     = 1
+          max     = 3
+        }
+      }
+    }
+  }
+
+  expect_failures = [var.pools]
 }
 
 # Verifies the explicit-instance-types escape hatch: when a pool sets instance_types,
