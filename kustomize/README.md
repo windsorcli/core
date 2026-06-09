@@ -17,6 +17,7 @@ composition. Links from there land here.
 | Path | Purpose |
 |---|---|
 | [cni](cni/) | Cilium as the cluster CNI, bootstrapped via Terraform and adopted by Flux. |
+| [compute](compute/) | Node-lifecycle controllers for elastic clusters (EKS cluster-autoscaler). |
 | [csi](csi/) | Persistent storage drivers and StorageClasses. AWS EBS, Azure Disk, OpenEBS host-path, and Longhorn distributed. |
 | [database](database/) | CloudNativePG operator for in-cluster PostgreSQL. |
 | [demo](demo/) | Sample applications (PostgreSQL cluster, static website, Istio bookinfo) for blueprint validation. |
