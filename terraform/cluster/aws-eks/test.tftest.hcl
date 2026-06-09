@@ -745,6 +745,28 @@ run "pool_rejects_count_outside_autoscaling_bounds" {
   expect_failures = [var.pools]
 }
 
+# enabled omitted but explicit bounds exclude count: the class default still
+# autoscales this pool, so validation must reject it (not defer to apply).
+run "pool_rejects_count_outside_bounds_when_enabled_omitted" {
+  command = plan
+
+  variables {
+    context_id = "test"
+    pools = {
+      bad = {
+        class = "general"
+        count = 10
+        autoscaling = {
+          min = 1
+          max = 3
+        }
+      }
+    }
+  }
+
+  expect_failures = [var.pools]
+}
+
 # Verifies the explicit-instance-types escape hatch: when a pool sets instance_types,
 # the class default is bypassed but the pool-class label still flows through.
 run "pool_instance_types_override_class_default" {

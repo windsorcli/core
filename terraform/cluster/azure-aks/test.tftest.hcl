@@ -902,6 +902,28 @@ run "pools_reject_count_outside_autoscaling_bounds" {
   expect_failures = [var.pools]
 }
 
+# enabled omitted but explicit bounds exclude count: the class default still
+# autoscales this pool, so validation must reject it (not defer to apply).
+run "pools_reject_count_outside_bounds_when_enabled_omitted" {
+  command = plan
+
+  variables {
+    context_id = "test"
+    pools = {
+      bad = {
+        class = "general"
+        count = 9
+        autoscaling = {
+          min = 1
+          max = 3
+        }
+      }
+    }
+  }
+
+  expect_failures = [var.pools]
+}
+
 run "pools_explicit_instance_types_and_lifecycle" {
   command = plan
 

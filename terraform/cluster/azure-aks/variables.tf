@@ -167,13 +167,17 @@ variable "pools" {
     error_message = "Each pool's autoscaling.min must be <= autoscaling.max."
   }
 
+  # Effective enabled mirrors the module default (explicit wins, else every
+  # class but system autoscales), and the bound defaults are count-aware to
+  # match it — so this only rejects explicit bounds that exclude count.
   validation {
     condition = alltrue([
       for k, v in var.pools :
-      v.autoscaling == null || try(v.autoscaling.enabled, null) != true
-      || (v.count >= coalesce(v.autoscaling.min, 1) && v.count <= coalesce(v.autoscaling.max, 3))
+      v.autoscaling == null
+      || !(v.autoscaling.enabled != null ? v.autoscaling.enabled : v.class != "system")
+      || (v.count >= coalesce(v.autoscaling.min, min(v.count, 1)) && v.count <= coalesce(v.autoscaling.max, max(v.count, 3)))
     ])
-    error_message = "When a pool's autoscaling is enabled, count must be within [min, max]."
+    error_message = "When a pool autoscales (explicitly or by class default), count must be within [min, max]."
   }
 
   # AKS Linux node pool names: 1-12 chars, lowercase alphanumeric, must start
