@@ -32,7 +32,7 @@ spec:
     image:
       repository: registry.k8s.io/autoscaling/cluster-autoscaler
       # renovate: datasource=docker depName=cluster-autoscaler package=registry.k8s.io/autoscaling/cluster-autoscaler
-      tag: v1.34.1@sha256:1cd9b79f742e2f8da273f6492baedecc50a6203bb97d82c2de25202841450993
+      tag: v1.35.0@sha256:2fc9433dd3b47baef0e68d6b1110b770a3c93db10c7bead4c5bc6cb21c72b875
     rbac:
       serviceAccount:
         create: true
