@@ -852,10 +852,10 @@ resource "aws_iam_role" "cluster_autoscaler" {
 }
 
 resource "aws_iam_policy" "cluster_autoscaler" {
-  # Read actions need account-wide scope for ASG/instance discovery; the
-  # mutating actions are scoped to ASGs this cluster owns via the discovery tag.
-  # checkov:skip=CKV_AWS_355: Describe actions require wildcard resources.
-  # checkov:skip=CKV_AWS_111: Same as above.
+  # Read actions need account-wide scope for ASG/instance discovery (they don't
+  # support resource-level permissions). The mutating actions are scoped to the
+  # autoscaling-group ARN pattern and further gated to ASGs this cluster owns via
+  # the discovery-tag condition.
   count       = var.create_cluster_autoscaler_role ? 1 : 0
   name        = "${local.name}-cluster-autoscaler"
   description = "IAM policy for the Kubernetes cluster-autoscaler"
@@ -866,6 +866,8 @@ resource "aws_iam_policy" "cluster_autoscaler" {
       {
         Sid    = "ClusterAutoscalerDiscovery"
         Effect = "Allow"
+        # autoscaling:* and ec2:Describe*/Get* don't support resource-level
+        # permissions, so "*" is the only valid scope for them.
         Action = [
           "autoscaling:DescribeAutoScalingGroups",
           "autoscaling:DescribeAutoScalingInstances",
@@ -876,9 +878,14 @@ resource "aws_iam_policy" "cluster_autoscaler" {
           "ec2:DescribeInstanceTypes",
           "ec2:DescribeLaunchTemplateVersions",
           "ec2:GetInstanceTypesFromInstanceRequirements",
-          "eks:DescribeNodegroup",
         ]
         Resource = "*"
+      },
+      {
+        Sid      = "ClusterAutoscalerDescribeNodegroups"
+        Effect   = "Allow"
+        Action   = ["eks:DescribeNodegroup"]
+        Resource = "arn:aws:eks:*:*:nodegroup/${local.name}/*/*"
       },
       {
         Sid    = "ClusterAutoscalerManageOwnedGroups"
@@ -887,7 +894,7 @@ resource "aws_iam_policy" "cluster_autoscaler" {
           "autoscaling:SetDesiredCapacity",
           "autoscaling:TerminateInstanceInAutoScalingGroup",
         ]
-        Resource = "*"
+        Resource = "arn:aws:autoscaling:*:*:autoScalingGroup:*:autoScalingGroupName/*"
         Condition = {
           StringEquals = {
             "aws:ResourceTag/k8s.io/cluster-autoscaler/${local.name}" = "owned"
