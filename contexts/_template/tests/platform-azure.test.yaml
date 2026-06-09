@@ -28,6 +28,24 @@ cases:
             - azure-disk
 
   # cluster.pools wires to the azure-aks module's var.pools (mirrors AWS).
+  # With no cluster.pools set, the facet defaults to one autoscaling general
+  # pool; the cluster's inline default_node_pool already covers the fixed system
+  # role, so AWS and AKS land on the same arrangement.
+  - name: default pools are a single autoscaling general pool
+    values:
+      platform: azure
+      gateway:
+        enabled: false
+    expect:
+      terraform:
+        - name: cluster
+          path: cluster/azure-aks
+          inputs:
+            pools:
+              general:
+                class: general
+                count: 1
+
   - name: cluster.pools wires through to azure-aks module
     values:
       platform: azure

@@ -7,10 +7,12 @@ description: Managed Kubernetes control plane on AWS.
 
 Managed Kubernetes control plane on AWS. The module consumes the VPC and
 private subnet IDs from the `network/aws-vpc` outputs, provisions the
-EKS cluster + a managed node group, and creates an OIDC provider so
-in-cluster ServiceAccounts can assume IAM roles via IRSA. The `additions/`
-submodule wires the VPC CNI and EBS CSI driver helpers that EKS expects
-out-of-band.
+EKS cluster and its managed node groups (from `var.pools`, or the
+`var.node_groups` fallback when pools is empty), and creates an OIDC
+provider so in-cluster ServiceAccounts can assume IAM roles via IRSA. The
+blueprint's platform-aws facet defaults to a fixed `system` pool plus an
+autoscaling `general` pool. The `additions/` submodule wires the VPC CNI
+and EBS CSI driver helpers that EKS expects out-of-band.
 
 <!-- BEGIN_TF_DOCS -->
 ## Requirements

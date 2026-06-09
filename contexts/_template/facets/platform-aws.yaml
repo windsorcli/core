@@ -136,9 +136,11 @@ terraform:
       create_cert_manager_role: "${(dns.public_domain ?? '') != ''}"
       cert_manager_hosted_zone_ids: "${(dns.public_domain ?? '') != '' ? [terraform_output('dns-zone', 'zone_id')] : []}"
       # cluster.pools is the portable node-pool input (class + count, optional
-      # autoscaling + lifecycle). When unset, the cluster module falls back to
-      # its var.node_groups default — no behavior change for existing configs.
-      pools: ${cluster.pools ?? {}}
+      # autoscaling + lifecycle). When unset, default to a small fixed system
+      # pool plus an autoscaling general pool — the same arrangement AKS gets
+      # (inline system pool + general). Declaring cluster.pools replaces this.
+      pools: >-
+        ${cluster.pools ?? {"system": {"class": "system", "count": 1}, "general": {"class": "general", "count": 1}}}
 
   # Path-less dependency-edge injector: when ACME is on, cluster must wait for
   # dns-zone so terraform_output('dns-zone', 'zone_id') is resolved before the
