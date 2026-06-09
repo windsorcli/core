@@ -43,6 +43,12 @@ variable "create_aws_lb_controller_role" {
   default     = true
 }
 
+variable "create_cluster_autoscaler_role" {
+  description = "Whether to create the IAM role, policy, and Pod Identity association for the Kubernetes cluster-autoscaler, plus the ASG auto-discovery tags. Default true; set false to bound node groups without deploying the autoscaler."
+  type        = bool
+  default     = true
+}
+
 variable "create_cert_manager_role" {
   description = "Whether to create the IAM role, policy, and Pod Identity association for cert-manager's Route53 ACME DNS-01 solver. Enable when cert-manager will issue ACME certificates against a Route53 hosted zone in this account."
   type        = bool
@@ -134,14 +140,19 @@ variable "node_groups" {
 }
 
 variable "pools" {
-  description = "Portable node pool definitions, keyed by pool name. When non-empty, takes precedence over var.node_groups. Each pool maps a class (system/general/compute/memory/storage/gpu/arm64) to an EKS managed node group."
+  description = "Portable node pool definitions, keyed by pool name; takes precedence over var.node_groups when non-empty. Each pool maps a class to an EKS managed node group. Autoscaling defaults on (min 1, max 3) for every class except system."
   type = map(object({
     class          = string
     count          = number
     lifecycle      = optional(string, "on-demand")
     instance_types = optional(list(string))
     root_disk_size = optional(number)
-    labels         = optional(map(string), {})
+    autoscaling = optional(object({
+      enabled = optional(bool)
+      min     = optional(number)
+      max     = optional(number)
+    }))
+    labels = optional(map(string), {})
     taints = optional(list(object({
       key    = string
       value  = optional(string)
@@ -171,6 +182,29 @@ variable "pools" {
   validation {
     condition     = alltrue([for k, v in var.pools : v.count >= 0])
     error_message = "Each pool's count must be >= 0."
+  }
+
+  validation {
+    condition = alltrue([
+      for k, v in var.pools :
+      v.autoscaling == null || v.autoscaling.min == null || v.autoscaling.max == null
+      || v.autoscaling.min <= v.autoscaling.max
+    ])
+    error_message = "Each pool's autoscaling.min must be <= autoscaling.max."
+  }
+
+  # Effective enabled mirrors the module default (explicit wins, else every
+  # class but system autoscales), and the bound defaults are count-aware to
+  # match it — so this only rejects explicit bounds that exclude count.
+  validation {
+    condition = alltrue([
+      for k, v in var.pools :
+      v.autoscaling == null
+      || v.autoscaling.enabled == false
+      || (v.autoscaling.enabled == null && v.class == "system")
+      || (v.count >= coalesce(v.autoscaling.min, min(v.count, 1)) && v.count <= coalesce(v.autoscaling.max, max(v.count, 3)))
+    ])
+    error_message = "When a pool autoscales (explicitly or by class default), count must be within [min, max]."
   }
 }
 

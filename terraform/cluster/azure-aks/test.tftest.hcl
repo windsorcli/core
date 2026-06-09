@@ -14,8 +14,8 @@ mock_provider "azurerm" {
 
 # Stand-in subnet IDs every run block feeds into var.private_subnet_ids via
 # the shared `variables` block below. Three entries lets the role-assignment
-# for_each fan out to >1 scope and exercises the default/autoscaled pool's
-# first/last picks landing on different subnets.
+# for_each fan out to >1 scope and exercises the inline default (first) and
+# user (last) pools landing on different subnets.
 variables {
   private_subnet_ids = [
     "/subscriptions/12345678-1234-9876-4563-123456789012/resourceGroups/example-resource-group/providers/Microsoft.Network/virtualNetworks/vnet-test/subnets/private-1-test",
@@ -202,17 +202,6 @@ run "full_configuration" {
       node_count                   = 1
       only_critical_addons_enabled = false
     }
-    autoscaled_node_pool = {
-      enabled                 = true
-      name                    = "autoscaled"
-      vm_size                 = "Standard_D2s_v3"
-      mode                    = "User"
-      os_disk_type            = "Managed"
-      max_pods                = 30
-      host_encryption_enabled = true
-      min_count               = 1
-      max_count               = 3
-    }
     role_based_access_control_enabled = true
     private_cluster_enabled           = false
     azure_policy_enabled              = true
@@ -260,28 +249,23 @@ run "full_configuration" {
   }
 
   assert {
-    condition     = length(azurerm_kubernetes_cluster_node_pool.autoscaled) == 1
-    error_message = "Autoscaled node pool should be created when enabled"
+    condition     = length(azurerm_kubernetes_cluster_node_pool.pools) == 1 && contains(keys(azurerm_kubernetes_cluster_node_pool.pools), "general")
+    error_message = "Empty pools should fall back to a single general pool"
   }
 
   assert {
-    condition     = azurerm_kubernetes_cluster_node_pool.autoscaled[0].name == "autoscaled"
-    error_message = "Autoscaled node pool name should match input"
+    condition     = azurerm_kubernetes_cluster_node_pool.pools["general"].vm_size == "Standard_D4s_v3"
+    error_message = "Fallback general pool should resolve to the general-class default SKU"
   }
 
   assert {
-    condition     = azurerm_kubernetes_cluster_node_pool.autoscaled[0].vm_size == "Standard_D2s_v3"
-    error_message = "Autoscaled node pool VM size should match input"
+    condition     = azurerm_kubernetes_cluster_node_pool.pools["general"].auto_scaling_enabled == true && azurerm_kubernetes_cluster_node_pool.pools["general"].min_count == 1 && azurerm_kubernetes_cluster_node_pool.pools["general"].max_count == 3
+    error_message = "Fallback general pool should autoscale min 1 / max 3"
   }
 
   assert {
-    condition     = azurerm_kubernetes_cluster_node_pool.autoscaled[0].max_pods == 30
-    error_message = "Autoscaled node pool max pods should match input"
-  }
-
-  assert {
-    condition     = azurerm_kubernetes_cluster_node_pool.autoscaled[0].host_encryption_enabled == true
-    error_message = "Autoscaled node pool host encryption should be enabled"
+    condition     = azurerm_kubernetes_cluster_node_pool.pools["general"].host_encryption_enabled == true
+    error_message = "Fallback general pool host encryption should be enabled"
   }
 
   assert {
@@ -315,8 +299,8 @@ run "full_configuration" {
   }
 
   assert {
-    condition     = length(azurerm_kubernetes_cluster_node_pool.autoscaled[0].zones) == 3 && contains(azurerm_kubernetes_cluster_node_pool.autoscaled[0].zones, "1") && contains(azurerm_kubernetes_cluster_node_pool.autoscaled[0].zones, "2") && contains(azurerm_kubernetes_cluster_node_pool.autoscaled[0].zones, "3")
-    error_message = "Autoscaled node pool zones should follow var.availability_zones"
+    condition     = length(azurerm_kubernetes_cluster_node_pool.pools["general"].zones) == 3 && contains(azurerm_kubernetes_cluster_node_pool.pools["general"].zones, "1") && contains(azurerm_kubernetes_cluster_node_pool.pools["general"].zones, "2") && contains(azurerm_kubernetes_cluster_node_pool.pools["general"].zones, "3")
+    error_message = "User node pool zones should follow var.availability_zones"
   }
 
   assert {
@@ -753,13 +737,14 @@ run "external_dns_role_per_zone_type" {
   }
 }
 
-# Tests the portable user-pool shape (var.pools) — same shape AWS-EKS exposes.
+# Tests the portable user-pool input (var.pools) — the same fields AWS-EKS exposes.
 # Each pool resolves to an azurerm_kubernetes_cluster_node_pool with vm_size
 # pulled from class_instance_types, lifecycle mapped to priority, and the
 # operator's labels merged with windsorcli.dev/pool[-class] tags. Default empty
-# map means no extra resources — the cluster's inline default node pool is
-# unaffected (it remains the system pool).
-run "pools_empty_creates_no_user_pools" {
+# map falls back to a single autoscaling general pool so a zero-config deploy
+# still has workload capacity — the cluster's inline default node pool stays
+# the system pool.
+run "pools_empty_falls_back_to_general_pool" {
   command = plan
 
   variables {
@@ -769,8 +754,13 @@ run "pools_empty_creates_no_user_pools" {
   }
 
   assert {
-    condition     = length(azurerm_kubernetes_cluster_node_pool.pools) == 0
-    error_message = "No user pools should be created when var.pools is empty (the default)."
+    condition     = length(azurerm_kubernetes_cluster_node_pool.pools) == 1 && contains(keys(azurerm_kubernetes_cluster_node_pool.pools), "general")
+    error_message = "Empty var.pools should fall back to a single general pool."
+  }
+
+  assert {
+    condition     = azurerm_kubernetes_cluster_node_pool.pools["general"].auto_scaling_enabled == true && azurerm_kubernetes_cluster_node_pool.pools["general"].min_count == 1 && azurerm_kubernetes_cluster_node_pool.pools["general"].max_count == 3
+    error_message = "Fallback general pool should autoscale min 1 / max 3."
   }
 }
 
@@ -816,6 +806,122 @@ run "pools_resolves_class_to_vm_size" {
     condition     = azurerm_kubernetes_cluster_node_pool.pools["app"].max_pods == 50
     error_message = "Pools must set max_pods >= 50 (CKV_AZURE_168)."
   }
+
+  assert {
+    condition     = azurerm_kubernetes_cluster_node_pool.pools["app"].auto_scaling_enabled == true && azurerm_kubernetes_cluster_node_pool.pools["app"].min_count == 1 && azurerm_kubernetes_cluster_node_pool.pools["app"].max_count == 3
+    error_message = "A non-system pool should autoscale by default (min 1 / max 3)."
+  }
+}
+
+# System-class pools stay fixed by default; an explicit autoscaling block
+# overrides the class default in either direction.
+run "pools_autoscaling_class_defaults_and_override" {
+  command = plan
+
+  variables {
+    context_id         = "test"
+    name               = "windsor-aks"
+    kubernetes_version = "1.34"
+    pools = {
+      sys = { class = "system", count = 2 }
+      gen = {
+        class = "general"
+        count = 4
+        autoscaling = {
+          enabled = false
+        }
+      }
+      big = {
+        class = "compute"
+        count = 6
+        autoscaling = {
+          enabled = true
+          min     = 2
+          max     = 10
+        }
+      }
+    }
+  }
+
+  assert {
+    condition     = azurerm_kubernetes_cluster_node_pool.pools["sys"].auto_scaling_enabled == false
+    error_message = "system class should be fixed (no autoscaling) by default."
+  }
+
+  assert {
+    condition     = azurerm_kubernetes_cluster_node_pool.pools["gen"].auto_scaling_enabled == false
+    error_message = "Explicitly disabled autoscaling should pin a non-system pool to fixed count."
+  }
+
+  assert {
+    condition     = azurerm_kubernetes_cluster_node_pool.pools["big"].auto_scaling_enabled == true && azurerm_kubernetes_cluster_node_pool.pools["big"].min_count == 2 && azurerm_kubernetes_cluster_node_pool.pools["big"].max_count == 10
+    error_message = "Explicit autoscaling bounds should be used verbatim."
+  }
+}
+
+# min > max and count-outside-bounds are rejected at validate time.
+run "pools_reject_autoscaling_min_gt_max" {
+  command = plan
+
+  variables {
+    context_id = "test"
+    pools = {
+      bad = {
+        class = "general"
+        count = 2
+        autoscaling = {
+          enabled = true
+          min     = 5
+          max     = 3
+        }
+      }
+    }
+  }
+
+  expect_failures = [var.pools]
+}
+
+run "pools_reject_count_outside_autoscaling_bounds" {
+  command = plan
+
+  variables {
+    context_id = "test"
+    pools = {
+      bad = {
+        class = "general"
+        count = 9
+        autoscaling = {
+          enabled = true
+          min     = 1
+          max     = 3
+        }
+      }
+    }
+  }
+
+  expect_failures = [var.pools]
+}
+
+# enabled omitted but explicit bounds exclude count: the class default still
+# autoscales this pool, so validation must reject it (not defer to apply).
+run "pools_reject_count_outside_bounds_when_enabled_omitted" {
+  command = plan
+
+  variables {
+    context_id = "test"
+    pools = {
+      bad = {
+        class = "general"
+        count = 9
+        autoscaling = {
+          min = 1
+          max = 3
+        }
+      }
+    }
+  }
+
+  expect_failures = [var.pools]
 }
 
 run "pools_explicit_instance_types_and_lifecycle" {

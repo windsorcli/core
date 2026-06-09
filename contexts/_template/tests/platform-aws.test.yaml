@@ -320,7 +320,7 @@ cases:
             - public-issuer/acme/route53
 
   # cluster.pools threads through to the cluster module as-is. The module
-  # converts class + count + lifecycle into EKS managed node group shape
+  # converts class + count + lifecycle into EKS managed node group fields
   # internally (class → instance family, lifecycle → capacity_type).
   - name: cluster.pools flows through to the cluster module
     values:
@@ -343,8 +343,45 @@ cases:
                 class: general
                 count: 3
 
+  # A pool's autoscaling block threads through verbatim, and the
+  # cluster-autoscaler component (compute-base) lands so the EKS ASGs actually
+  # scale rather than just being bounded.
+  - name: pool autoscaling block flows through and compute-base lands
+    values:
+      platform: aws
+      aws: *default-aws
+      gateway:
+        enabled: false
+      cluster:
+        pools:
+          general:
+            class: general
+            count: 2
+            autoscaling:
+              enabled: true
+              min: 2
+              max: 8
+    expect:
+      terraform:
+        - name: cluster
+          path: cluster/aws-eks
+          inputs:
+            pools:
+              general:
+                class: general
+                count: 2
+                autoscaling:
+                  enabled: true
+                  min: 2
+                  max: 8
+      kustomize:
+        - name: compute
+          path: compute
+          components:
+            - cluster-autoscaler
+
   # Multi-pool: a system pool plus general + spot-priced batch. The class
-  # label is what makes these pools portable — same shape would land on
+  # label is what makes these pools portable — the same pools would land on
   # Azure or GCP once those facets gain pools.
   - name: multi-pool config with mixed sizing and lifecycle
     values:
@@ -382,7 +419,7 @@ cases:
                 lifecycle: spot
 
   # Escape hatch: explicit instance_types pinned for regulatory or
-  # GPU-shape reasons. The pool still carries class for the
+  # GPU-instance reasons. The pool still carries class for the
   # windsor.io/pool-class label; the module skips the class default
   # lookup and uses the supplied list verbatim.
   - name: pool with explicit instance_types overrides the class default

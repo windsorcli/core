@@ -39,7 +39,7 @@ variable "cluster_name" {
 }
 
 variable "private_subnet_ids" {
-  description = "Private subnet IDs the AKS node pools attach to. Default node pool uses the first; the autoscaled pool uses the last. Pipe network/azure-vnet's private_subnet_ids output."
+  description = "Private subnet IDs the AKS node pools attach to. The inline default (system) pool uses the first; user pools use the last. Pipe network/azure-vnet's private_subnet_ids output."
   type        = list(string)
   default     = null
   validation {
@@ -113,62 +113,20 @@ variable "default_node_pool" {
   }
 }
 
-variable "autoscaled_node_pool" {
-  description = "Configuration for the autoscaled node pool"
-  type = object({
-    enabled                 = bool
-    name                    = string
-    vm_size                 = string
-    mode                    = string
-    os_disk_type            = string
-    max_pods                = number
-    host_encryption_enabled = bool
-    min_count               = number
-    max_count               = number
-    upgrade_settings = optional(object({
-      drain_timeout_in_minutes      = number
-      max_surge                     = string
-      node_soak_duration_in_minutes = number
-    }))
-  })
-  default = {
-    enabled = true
-    name    = "autoscaled"
-    # D4s_v3 (4 vCPU / 16 GB) — sized for the heavy core stack (kube-prometheus
-    # stack alone wants ~2 GB, plus fluentd/fluent-bit/cert-manager/kyverno);
-    # D2 (8 GB) was tight: nodes evicted under steady state on fresh installs.
-    # Dsv3 over Dsv5 for broad availability — the Dsv5 family must be enabled
-    # per subscription+region and is absent from restricted offers, where AKS
-    # create fails with "VM size not allowed". AKS does not support in-place
-    # SKU resize; changing this triggers a destroy+create of the pool on apply.
-    vm_size                 = "Standard_D4s_v3"
-    mode                    = "User"
-    os_disk_type            = "Managed"
-    max_pods                = 48
-    host_encryption_enabled = true
-    min_count               = 1
-    max_count               = 3
-    # Match Azure's at-create defaults exactly so the dynamic block always
-    # renders. Without these, the block isn't emitted, Azure populates its
-    # own defaults, and every subsequent plan tries to "remove" the block
-    # the API just added back.
-    upgrade_settings = {
-      drain_timeout_in_minutes      = 0
-      max_surge                     = "10%"
-      node_soak_duration_in_minutes = 0
-    }
-  }
-}
-
 variable "pools" {
-  description = "Portable user-pool definitions, keyed by pool name. Mirrors the AWS-EKS shape: each entry maps a class (system/general/compute/memory/storage/gpu/arm64) to an additional AKS user node pool. The cluster's inline default node pool is unaffected and remains the system pool — pools is purely additive."
+  description = "Portable user-pool definitions, keyed by pool name; mirrors the AWS-EKS pools input. Empty falls back to one autoscaling general pool. Autoscaling defaults on (min 1, max 3) for every class except system."
   type = map(object({
     class          = string
     count          = number
     lifecycle      = optional(string, "on-demand")
     instance_types = optional(list(string))
     root_disk_size = optional(number)
-    labels         = optional(map(string), {})
+    autoscaling = optional(object({
+      enabled = optional(bool)
+      min     = optional(number)
+      max     = optional(number)
+    }))
+    labels = optional(map(string), {})
     taints = optional(list(object({
       key    = string
       value  = optional(string)
@@ -198,6 +156,29 @@ variable "pools" {
   validation {
     condition     = alltrue([for k, v in var.pools : v.count >= 0])
     error_message = "Each pool's count must be >= 0."
+  }
+
+  validation {
+    condition = alltrue([
+      for k, v in var.pools :
+      v.autoscaling == null || v.autoscaling.min == null || v.autoscaling.max == null
+      || v.autoscaling.min <= v.autoscaling.max
+    ])
+    error_message = "Each pool's autoscaling.min must be <= autoscaling.max."
+  }
+
+  # Effective enabled mirrors the module default (explicit wins, else every
+  # class but system autoscales), and the bound defaults are count-aware to
+  # match it — so this only rejects explicit bounds that exclude count.
+  validation {
+    condition = alltrue([
+      for k, v in var.pools :
+      v.autoscaling == null
+      || v.autoscaling.enabled == false
+      || (v.autoscaling.enabled == null && v.class == "system")
+      || (v.count >= coalesce(v.autoscaling.min, min(v.count, 1)) && v.count <= coalesce(v.autoscaling.max, max(v.count, 3)))
+    ])
+    error_message = "When a pool autoscales (explicitly or by class default), count must be within [min, max]."
   }
 
   # AKS Linux node pool names: 1-12 chars, lowercase alphanumeric, must start

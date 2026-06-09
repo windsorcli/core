@@ -317,14 +317,28 @@ locals {
   # The control plane keeps private_subnet_ids — EKS requires ENIs in >=2 AZs.
   node_subnet_ids = var.node_subnet_ids != null ? var.node_subnet_ids : var.private_subnet_ids
 
+  # Per-pool autoscaling resolution. An explicit pool.autoscaling.enabled wins;
+  # otherwise system-class pools are fixed and every other class autoscales.
+  pools_autoscaling = {
+    for name, p in var.pools : name => {
+      enabled = p.autoscaling != null && p.autoscaling.enabled != null ? p.autoscaling.enabled : p.class != "system"
+      min     = p.autoscaling != null ? p.autoscaling.min : null
+      max     = p.autoscaling != null ? p.autoscaling.max : null
+    }
+  }
+
   pools_node_groups = {
     for name, p in var.pools : name => {
       instance_types = p.instance_types != null && length(p.instance_types) > 0 ? p.instance_types : lookup(var.class_instance_types, p.class, null)
       capacity_type  = p.lifecycle == "spot" ? "SPOT" : "ON_DEMAND"
-      desired_size   = p.count
-      min_size       = p.count
-      max_size       = p.count
-      disk_size      = coalesce(p.root_disk_size, 64)
+      # desired_size is set once; the autoscaler owns it thereafter (ignore_changes).
+      desired_size = p.count
+      # Defaults: min 1, max 3 — but never cap below the declared count, so a
+      # count>3 pool stays valid (desired must sit within [min, max]).
+      autoscaling_enabled = local.pools_autoscaling[name].enabled
+      min_size            = local.pools_autoscaling[name].enabled ? coalesce(local.pools_autoscaling[name].min, min(p.count, 1)) : p.count
+      max_size            = local.pools_autoscaling[name].enabled ? coalesce(local.pools_autoscaling[name].max, max(p.count, 3)) : p.count
+      disk_size           = coalesce(p.root_disk_size, 64)
       labels = merge(
         p.labels,
         {
@@ -342,15 +356,21 @@ locals {
 
   effective_node_groups = length(var.pools) > 0 ? local.pools_node_groups : {
     for name, ng in var.node_groups : name => {
-      instance_types = ng.instance_types
-      capacity_type  = ng.capacity_type
-      desired_size   = ng.desired_size
-      min_size       = ng.min_size
-      max_size       = ng.max_size
-      disk_size      = ng.disk_size
-      labels         = ng.labels
-      taints         = ng.taints
+      instance_types      = ng.instance_types
+      capacity_type       = ng.capacity_type
+      desired_size        = ng.desired_size
+      autoscaling_enabled = ng.min_size != ng.max_size
+      min_size            = ng.min_size
+      max_size            = ng.max_size
+      disk_size           = ng.disk_size
+      labels              = ng.labels
+      taints              = ng.taints
     }
+  }
+
+  # Node groups the cluster-autoscaler should manage, for ASG discovery tagging.
+  autoscaler_node_groups = {
+    for name, ng in local.effective_node_groups : name => ng if ng.autoscaling_enabled
   }
 }
 
@@ -397,6 +417,30 @@ resource "aws_eks_node_group" "main" {
     ignore_changes = [
       scaling_config[0].desired_size,
     ]
+  }
+}
+
+# Tag the managed node groups' ASGs so the cluster-autoscaler can auto-discover
+# them. Only autoscaling-enabled pools are tagged; fixed pools are left untouched.
+resource "aws_autoscaling_group_tag" "cluster_autoscaler_enabled" {
+  for_each               = var.create_cluster_autoscaler_role ? local.autoscaler_node_groups : {}
+  autoscaling_group_name = aws_eks_node_group.main[each.key].resources[0].autoscaling_groups[0].name
+
+  tag {
+    key                 = "k8s.io/cluster-autoscaler/enabled"
+    value               = "true"
+    propagate_at_launch = false
+  }
+}
+
+resource "aws_autoscaling_group_tag" "cluster_autoscaler_owned" {
+  for_each               = var.create_cluster_autoscaler_role ? local.autoscaler_node_groups : {}
+  autoscaling_group_name = aws_eks_node_group.main[each.key].resources[0].autoscaling_groups[0].name
+
+  tag {
+    key                 = "k8s.io/cluster-autoscaler/${local.name}"
+    value               = "owned"
+    propagate_at_launch = false
   }
 }
 
@@ -785,6 +829,92 @@ resource "aws_iam_role_policy_attachment" "aws_lb_controller" {
   role       = aws_iam_role.aws_lb_controller[0].name
 }
 
+resource "aws_iam_role" "cluster_autoscaler" {
+  count = var.create_cluster_autoscaler_role ? 1 : 0
+  name  = "${local.name}-cluster-autoscaler"
+
+  assume_role_policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Action = ["sts:AssumeRole", "sts:TagSession"]
+        Effect = "Allow"
+        Principal = {
+          Service = "pods.eks.amazonaws.com"
+        }
+      }
+    ]
+  })
+
+  tags = {
+    Name = "${local.name}-cluster-autoscaler"
+  }
+}
+
+resource "aws_iam_policy" "cluster_autoscaler" {
+  # Read actions need account-wide scope for ASG/instance discovery (they don't
+  # support resource-level permissions). The mutating actions are scoped to the
+  # autoscaling-group ARN pattern and further gated to ASGs this cluster owns via
+  # the discovery-tag condition.
+  count       = var.create_cluster_autoscaler_role ? 1 : 0
+  name        = "${local.name}-cluster-autoscaler"
+  description = "IAM policy for the Kubernetes cluster-autoscaler"
+
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Sid    = "ClusterAutoscalerDiscovery"
+        Effect = "Allow"
+        # autoscaling:* and ec2:Describe*/Get* don't support resource-level
+        # permissions, so "*" is the only valid scope for them.
+        Action = [
+          "autoscaling:DescribeAutoScalingGroups",
+          "autoscaling:DescribeAutoScalingInstances",
+          "autoscaling:DescribeLaunchConfigurations",
+          "autoscaling:DescribeScalingActivities",
+          "autoscaling:DescribeTags",
+          "ec2:DescribeImages",
+          "ec2:DescribeInstanceTypes",
+          "ec2:DescribeLaunchTemplateVersions",
+          "ec2:GetInstanceTypesFromInstanceRequirements",
+        ]
+        Resource = "*"
+      },
+      {
+        Sid      = "ClusterAutoscalerDescribeNodegroups"
+        Effect   = "Allow"
+        Action   = ["eks:DescribeNodegroup"]
+        Resource = "arn:aws:eks:*:*:nodegroup/${local.name}/*/*"
+      },
+      {
+        Sid    = "ClusterAutoscalerManageOwnedGroups"
+        Effect = "Allow"
+        Action = [
+          "autoscaling:SetDesiredCapacity",
+          "autoscaling:TerminateInstanceInAutoScalingGroup",
+        ]
+        Resource = "arn:aws:autoscaling:*:*:autoScalingGroup:*:autoScalingGroupName/*"
+        Condition = {
+          StringEquals = {
+            "aws:ResourceTag/k8s.io/cluster-autoscaler/${local.name}" = "owned"
+          }
+        }
+      },
+    ]
+  })
+
+  tags = {
+    Name = "${local.name}-cluster-autoscaler"
+  }
+}
+
+resource "aws_iam_role_policy_attachment" "cluster_autoscaler" {
+  count      = var.create_cluster_autoscaler_role ? 1 : 0
+  policy_arn = aws_iam_policy.cluster_autoscaler[0].arn
+  role       = aws_iam_role.cluster_autoscaler[0].name
+}
+
 #-----------------------------------------------------------------------------------------------------------------------
 # Cert Manager IAM Role (ACME Route53 DNS-01 solver)
 #-----------------------------------------------------------------------------------------------------------------------
@@ -943,6 +1073,15 @@ resource "aws_eks_pod_identity_association" "aws_lb_controller" {
   namespace       = "system-lb"
   service_account = "aws-load-balancer-controller"
   role_arn        = aws_iam_role.aws_lb_controller[0].arn
+}
+
+resource "aws_eks_pod_identity_association" "cluster_autoscaler" {
+  count = var.create_cluster_autoscaler_role ? 1 : 0
+
+  cluster_name    = aws_eks_cluster.main.name
+  namespace       = "system-compute"
+  service_account = "cluster-autoscaler"
+  role_arn        = aws_iam_role.cluster_autoscaler[0].arn
 }
 
 resource "aws_eks_pod_identity_association" "cert_manager" {

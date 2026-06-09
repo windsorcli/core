@@ -49,10 +49,7 @@ locals {
   rg_name                  = var.resource_group_name == null ? "${var.name}-${var.context_id}" : var.resource_group_name
   cluster_name             = var.cluster_name == null ? "${var.name}-${var.context_id}" : var.cluster_name
   node_resource_group_name = split("/", azurerm_kubernetes_cluster.main.node_resource_group_id)[4]
-  node_pool_names = concat(
-    [var.default_node_pool.name],
-    var.autoscaled_node_pool.enabled ? [var.autoscaled_node_pool.name] : []
-  )
+  node_pool_names          = [var.default_node_pool.name]
   # Safely access kubelet identity (may not be available during plan in tests)
   kubelet_object_id      = try(azurerm_kubernetes_cluster.main.kubelet_identity[0].object_id, "00000000-0000-0000-0000-000000000000")
   disk_encryption_key_id = var.key_vault_key_id != null ? var.key_vault_key_id : try(azurerm_key_vault_key.key_vault_key[0].id, null)
@@ -423,44 +420,11 @@ resource "azurerm_kubernetes_cluster" "main" {
   }, local.tags)
 }
 
-resource "azurerm_kubernetes_cluster_node_pool" "autoscaled" {
-  count                 = var.autoscaled_node_pool.enabled ? 1 : 0
-  name                  = var.autoscaled_node_pool.name
-  kubernetes_cluster_id = azurerm_kubernetes_cluster.main.id
-  vm_size               = var.autoscaled_node_pool.vm_size
-  mode                  = var.autoscaled_node_pool.mode
-  auto_scaling_enabled  = true
-  min_count             = var.autoscaled_node_pool.min_count
-  max_count             = var.autoscaled_node_pool.max_count
-  zones                 = var.availability_zones
-  vnet_subnet_id        = var.private_subnet_ids[length(var.private_subnet_ids) - 1]
-  orchestrator_version  = var.kubernetes_version
-  # checkov:skip=CKV_AZURE_226: We are using the managed disk type to reduce costs
-  os_disk_type = var.autoscaled_node_pool.os_disk_type
-  # checkov:skip=CKV_AZURE_168: This is set in the variable by default to 50
-  max_pods                    = var.autoscaled_node_pool.max_pods
-  host_encryption_enabled     = var.autoscaled_node_pool.host_encryption_enabled
-  temporary_name_for_rotation = "rotate"
-
-  dynamic "upgrade_settings" {
-    for_each = try(var.autoscaled_node_pool.upgrade_settings, null) != null ? [var.autoscaled_node_pool.upgrade_settings] : []
-    content {
-      drain_timeout_in_minutes      = upgrade_settings.value.drain_timeout_in_minutes
-      max_surge                     = upgrade_settings.value.max_surge
-      node_soak_duration_in_minutes = upgrade_settings.value.node_soak_duration_in_minutes
-    }
-  }
-
-  tags = merge({
-    Name = var.autoscaled_node_pool.name
-  }, local.tags)
-}
-
 #-----------------------------------------------------------------------------------------------------------------------
 # Portable User Pools (var.pools)
 #-----------------------------------------------------------------------------------------------------------------------
 
-# Resolve the portable pool shape into Azure-specific fields:
+# Resolve each portable pool into Azure-specific fields:
 #  - vm_size: AKS pools take a single SKU, not a list. Pick the first item from
 #    the operator's instance_types override; fall back to class_instance_types
 #    so the operator can declare a pool with class=general and no explicit SKU.
@@ -472,15 +436,50 @@ resource "azurerm_kubernetes_cluster_node_pool" "autoscaled" {
 #  - labels: standard kubernetes label map, with windsorcli.dev/pool[-class]
 #    tags appended so node-affinity rules can pin workloads by pool name or class.
 locals {
+  # Fall back to a single autoscaling general pool when the operator declares
+  # none, so a zero-config Azure deploy still has workload capacity (mirrors the
+  # aws-eks var.node_groups default). The inline default_node_pool stays the
+  # system pool. class=general resolves to Standard_D4s_v3 via class_instance_types,
+  # matching the capacity the retired autoscaled pool provided.
+  effective_pools = length(var.pools) > 0 ? var.pools : {
+    general = {
+      class          = "general"
+      count          = 1
+      lifecycle      = "on-demand"
+      instance_types = null
+      root_disk_size = null
+      autoscaling    = null
+      labels         = {}
+      taints         = []
+    }
+  }
+
+  # Per-pool autoscaling resolution. An explicit pool.autoscaling.enabled wins;
+  # otherwise system-class pools are fixed and every other class autoscales.
+  pools_autoscaling = {
+    for name, p in local.effective_pools : name => {
+      enabled = p.autoscaling != null && p.autoscaling.enabled != null ? p.autoscaling.enabled : p.class != "system"
+      min     = p.autoscaling != null ? p.autoscaling.min : null
+      max     = p.autoscaling != null ? p.autoscaling.max : null
+    }
+  }
+
   pools_resolved = {
-    for name, p in var.pools : name => {
+    for name, p in local.effective_pools : name => {
       vm_size = (p.instance_types != null && length(p.instance_types) > 0
         ? p.instance_types[0]
       : lookup(var.class_instance_types, p.class, [""])[0])
       priority        = p.lifecycle == "spot" ? "Spot" : "Regular"
       eviction_policy = p.lifecycle == "spot" ? "Delete" : null
-      node_count      = p.count
-      os_disk_size_gb = coalesce(p.root_disk_size, 64)
+      # node_count is the initial size; with autoscaling on the autoscaler owns
+      # it thereafter (ignore_changes on the resource).
+      node_count = p.count
+      # Defaults: min 1, max 3 — but never cap below the declared count, so a
+      # count>3 pool stays valid (node_count must sit within [min, max]).
+      autoscaling_enabled = local.pools_autoscaling[name].enabled
+      min_count           = local.pools_autoscaling[name].enabled ? coalesce(local.pools_autoscaling[name].min, min(p.count, 1)) : null
+      max_count           = local.pools_autoscaling[name].enabled ? coalesce(local.pools_autoscaling[name].max, max(p.count, 3)) : null
+      os_disk_size_gb     = coalesce(p.root_disk_size, 64)
       labels = merge(
         p.labels,
         {
@@ -499,21 +498,24 @@ resource "azurerm_kubernetes_cluster_node_pool" "pools" {
   kubernetes_cluster_id = azurerm_kubernetes_cluster.main.id
   vm_size               = each.value.vm_size
   mode                  = "User"
-  node_count            = each.value.node_count
-  os_disk_size_gb       = each.value.os_disk_size_gb
-  zones                 = var.availability_zones
-  vnet_subnet_id        = var.private_subnet_ids[length(var.private_subnet_ids) - 1]
-  orchestrator_version  = var.kubernetes_version
-  priority              = each.value.priority
-  eviction_policy       = each.value.eviction_policy
-  node_labels           = each.value.labels
-  node_taints           = each.value.taints
-  # Encrypt temp disks / VM cache for parity with the default and autoscaled
-  # pools (CKV_AZURE_227).
+  auto_scaling_enabled  = each.value.autoscaling_enabled
+  min_count             = each.value.min_count
+  max_count             = each.value.max_count
+  # Fixed pools set node_count so Terraform reconciles drift. Autoscaling pools
+  # leave it null (Optional+Computed) so the autoscaler owns it without a fight,
+  # which also means no blanket ignore_changes masking drift on the fixed ones.
+  node_count           = each.value.autoscaling_enabled ? null : each.value.node_count
+  os_disk_size_gb      = each.value.os_disk_size_gb
+  zones                = var.availability_zones
+  vnet_subnet_id       = var.private_subnet_ids[length(var.private_subnet_ids) - 1]
+  orchestrator_version = var.kubernetes_version
+  priority             = each.value.priority
+  eviction_policy      = each.value.eviction_policy
+  node_labels          = each.value.labels
+  node_taints          = each.value.taints
+  # Encrypt temp disks / VM cache for parity with the default pool (CKV_AZURE_227).
   host_encryption_enabled = true
   # 50 satisfies CKV_AZURE_168 (>=50) directly without needing a suppression.
-  # The default and autoscaled pools still use 48 with skip comments; left
-  # alone here to keep this change scoped to the new resource.
   max_pods = 50
 
   tags = merge({

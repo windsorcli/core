@@ -135,9 +135,9 @@ terraform:
       manage_log_group: ${!(ephemeral ?? false)}
       create_cert_manager_role: "${(dns.public_domain ?? '') != ''}"
       cert_manager_hosted_zone_ids: "${(dns.public_domain ?? '') != '' ? [terraform_output('dns-zone', 'zone_id')] : []}"
-      # cluster.pools is the portable node-pool shape (class + count|min/max +
-      # lifecycle). When unset, the cluster module falls back to its
-      # var.node_groups default — no behavior change for existing configs.
+      # cluster.pools is the portable node-pool input (class + count, optional
+      # autoscaling + lifecycle). When unset, the cluster module falls back to
+      # its var.node_groups default — no behavior change for existing configs.
       pools: ${cluster.pools ?? {}}
 
   # Path-less dependency-edge injector: when ACME is on, cluster must wait for
@@ -269,6 +269,28 @@ kustomize:
       aws_region: "${aws.region ?? ''}"
 
   # ---------------------------------------------------------------------------
+  # Compute — cluster-autoscaler scales the EKS node-group ASGs on pending pods
+  # ---------------------------------------------------------------------------
+  #
+  # Node-group min/max only bounds the ASG; this controller does the scaling.
+  # It discovers groups by the k8s.io/cluster-autoscaler tags the aws-eks
+  # module applies to autoscaling-enabled pools, and authenticates via the
+  # Pod Identity association the module creates for system-compute/
+  # cluster-autoscaler.
+  #
+  - name: compute
+    path: compute
+    dependsOn:
+      - policy-resources
+    components:
+      - cluster-autoscaler
+    timeout: 5m
+    interval: 5m
+    substitutions:
+      cluster_name: "${terraform_output('cluster', 'cluster_name') ?? ''}"
+      aws_region: "${aws.region ?? ''}"
+
+  # ---------------------------------------------------------------------------
   # Gateway-base merge — AWS NLB annotations on the Envoy data-plane Service
   # ---------------------------------------------------------------------------
   #
@@ -278,7 +300,7 @@ kustomize:
   # annotations onto the helm-release patch chain. Keeps AWS-specific
   # knowledge in the AWS facet — option-gateway stays platform-agnostic.
   #
-  # NLB (not ALB) is the right shape: Envoy is the L7 proxy and handles
+  # NLB (not ALB) is the right choice: Envoy is the L7 proxy and handles
   # all routing / TLS / header logic. Putting an ALB in front would double-
   # terminate L7 (cert sprawl, route-config sprawl, higher cost, no win).
   # ALB remains available for direct-Service Ingress use cases — operators
