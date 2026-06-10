@@ -75,6 +75,6 @@ entirely. Flannel is the Talos built-in and needs no bootstrap.
 
 ## See also
 
-- [cilium/](cilium/) for the per-module Terraform reference.
-- [../../kustomize/cni/](../../kustomize/cni/) for the adopting HelmRelease and the full operational guide for Cilium (substitutions, components, dependencies).
-- [../cluster/](../cluster/) for the cluster module that produces the kubeconfig this bootstrap uses.
+- [cilium/](/reference/blueprints/core/terraform/cni/cilium) for the per-module Terraform reference.
+- [../../kustomize/cni/](/reference/blueprints/core/kustomize/cni) for the adopting HelmRelease and the full operational guide for Cilium (substitutions, components, dependencies).
+- [../cluster/](/reference/blueprints/core/terraform/cluster) for the cluster module that produces the kubeconfig this bootstrap uses.

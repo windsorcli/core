@@ -114,6 +114,6 @@ LAN from the VMs unless the host firewall rules are added explicitly.
 
 ## See also
 
-- [docker/](docker/) and [incus/](incus/) for the per-driver Terraform reference.
-- [../compute/](../compute/) for the compute drivers that attach to the workstation network.
-- [../network/](../network/) for `network.cidr_block`, which is the shared knob for both layers.
+- [docker/](/reference/blueprints/core/terraform/workstation/docker) and [incus/](/reference/blueprints/core/terraform/workstation/incus) for the per-driver Terraform reference.
+- [../compute/](/reference/blueprints/core/terraform/compute) for the compute drivers that attach to the workstation network.
+- [../network/](/reference/blueprints/core/terraform/network) for `network.cidr_block`, which is the shared knob for both layers.

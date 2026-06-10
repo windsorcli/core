@@ -137,6 +137,6 @@ production.
 
 ## See also
 
-- [s3/](s3/) and [azurerm/](azurerm/) for the per-driver Terraform reference.
+- [s3/](/reference/blueprints/core/terraform/backend/s3) and [azurerm/](/reference/blueprints/core/terraform/backend/azurerm) for the per-driver Terraform reference.
 - [Terraform backend docs](https://developer.hashicorp.com/terraform/language/backend) for the upstream backend reference.
-- [../cluster/](../cluster/) and [../network/](../network/) for the downstream stacks that read state from the backend.
+- [../cluster/](/reference/blueprints/core/terraform/cluster) and [../network/](/reference/blueprints/core/terraform/network) for the downstream stacks that read state from the backend.

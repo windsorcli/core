@@ -121,6 +121,6 @@ instances against the default StorageClass.
 
 ## See also
 
-- [contexts/_template/facets/option-demo.yaml](../../contexts/_template/facets/option-demo.yaml) for the canonical wiring.
-- [kustomize/demo/static/assets/](static/assets/) for the Dockerfile and Node.js source for the static-site image. Build and push to `${REGISTRY_URL}` before enabling the static demo.
-- Related add-ons: [database](../database/) (operator for the Postgres demo), [gateway](../gateway/) or [ingress](../ingress/) (route handling), [csi](../csi/) (PVC for the static site).
+- [contexts/_template/facets/option-demo.yaml](https://github.com/windsorcli/core/blob/main/contexts/_template/facets/option-demo.yaml) for the canonical wiring.
+- [kustomize/demo/static/assets/](https://github.com/windsorcli/core/tree/main/kustomize/demo/static/assets) for the Dockerfile and Node.js source for the static-site image. Build and push to `${REGISTRY_URL}` before enabling the static demo.
+- Related add-ons: [database](/reference/blueprints/core/kustomize/database) (operator for the Postgres demo), [gateway](/reference/blueprints/core/kustomize/gateway) or [ingress](https://github.com/windsorcli/core/tree/main/kustomize/ingress) (route handling), [csi](/reference/blueprints/core/kustomize/csi) (PVC for the static site).

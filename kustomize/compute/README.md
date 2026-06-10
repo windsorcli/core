@@ -85,6 +85,6 @@ those bounds; raising a pool's ceiling is an in-place re-apply.
 
 ## See also
 
-- [contexts/_template/facets/platform-aws.yaml](../../contexts/_template/facets/platform-aws.yaml) for the `compute` wiring.
-- [terraform/cluster/aws-eks](../../terraform/cluster/aws-eks/) for the node-group autoscaling bounds, ASG discovery tags, and the autoscaler IAM role.
-- Related add-ons: [policy](../policy/) (admits the autoscaler pod), [lb](../lb/) (the other AWS-gated controller pattern).
+- [contexts/_template/facets/platform-aws.yaml](https://github.com/windsorcli/core/blob/main/contexts/_template/facets/platform-aws.yaml) for the `compute` wiring.
+- [terraform/cluster/aws-eks](/reference/blueprints/core/terraform/cluster/aws-eks) for the node-group autoscaling bounds, ASG discovery tags, and the autoscaler IAM role.
+- Related add-ons: [policy](/reference/blueprints/core/kustomize/policy) (admits the autoscaler pod), [lb](/reference/blueprints/core/kustomize/lb) (the other AWS-gated controller pattern).

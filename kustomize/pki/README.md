@@ -228,8 +228,8 @@ namespaces can mount.
 
 ## See also
 
-- [contexts/_template/facets/platform-base.yaml](../../contexts/_template/facets/platform-base.yaml) for the base cert-manager and selfsigned defaults.
-- [contexts/_template/facets/platform-aws.yaml](../../contexts/_template/facets/platform-aws.yaml) for ACME on Route53 wiring.
-- [contexts/_template/facets/platform-azure.yaml](../../contexts/_template/facets/platform-azure.yaml) for ACME on AzureDNS plus workload-identity wiring.
-- [contexts/_template/facets/addon-private-ca.yaml](../../contexts/_template/facets/addon-private-ca.yaml) for trust-manager and private CA wiring.
-- Related add-ons: [policy](../policy/), [telemetry](../telemetry/), [gateway](../gateway/) (consumes the ClusterIssuer for the external gateway cert), [observability](../observability/) (Elasticsearch consumes the private CA).
+- [contexts/_template/facets/platform-base.yaml](https://github.com/windsorcli/core/blob/main/contexts/_template/facets/platform-base.yaml) for the base cert-manager and selfsigned defaults.
+- [contexts/_template/facets/platform-aws.yaml](https://github.com/windsorcli/core/blob/main/contexts/_template/facets/platform-aws.yaml) for ACME on Route53 wiring.
+- [contexts/_template/facets/platform-azure.yaml](https://github.com/windsorcli/core/blob/main/contexts/_template/facets/platform-azure.yaml) for ACME on AzureDNS plus workload-identity wiring.
+- [contexts/_template/facets/addon-private-ca.yaml](https://github.com/windsorcli/core/blob/main/contexts/_template/facets/addon-private-ca.yaml) for trust-manager and private CA wiring.
+- Related add-ons: [policy](/reference/blueprints/core/kustomize/policy), [telemetry](/reference/blueprints/core/kustomize/telemetry), [gateway](/reference/blueprints/core/kustomize/gateway) (consumes the ClusterIssuer for the external gateway cert), [observability](/reference/blueprints/core/kustomize/observability) (Elasticsearch consumes the private CA).

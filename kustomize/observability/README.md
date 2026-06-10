@@ -193,9 +193,9 @@ and Kibana is exposed through the cluster Gateway.
 
 ## See also
 
-- [contexts/_template/facets/addon-observability.yaml](../../contexts/_template/facets/addon-observability.yaml) for the canonical wiring for dashboards and log stores.
-- [contexts/_template/facets/platform-base.yaml](../../contexts/_template/facets/platform-base.yaml) for the fluentd base shipper wiring.
-- [contexts/_template/facets/option-storage.yaml](../../contexts/_template/facets/option-storage.yaml) for Longhorn dashboard injection.
-- [contexts/_template/facets/option-cni.yaml](../../contexts/_template/facets/option-cni.yaml) for Cilium dashboard injection.
-- [contexts/_template/facets/addon-database.yaml](../../contexts/_template/facets/addon-database.yaml) for CloudNativePG dashboard injection.
-- Related add-ons: [telemetry](../telemetry/), [pki](../pki/), [object-store](../object-store/), [csi](../csi/), [gateway](../gateway/), [dns](../dns/).
+- [contexts/_template/facets/addon-observability.yaml](https://github.com/windsorcli/core/blob/main/contexts/_template/facets/addon-observability.yaml) for the canonical wiring for dashboards and log stores.
+- [contexts/_template/facets/platform-base.yaml](https://github.com/windsorcli/core/blob/main/contexts/_template/facets/platform-base.yaml) for the fluentd base shipper wiring.
+- [contexts/_template/facets/option-storage.yaml](https://github.com/windsorcli/core/blob/main/contexts/_template/facets/option-storage.yaml) for Longhorn dashboard injection.
+- [contexts/_template/facets/option-cni.yaml](https://github.com/windsorcli/core/blob/main/contexts/_template/facets/option-cni.yaml) for Cilium dashboard injection.
+- [contexts/_template/facets/addon-database.yaml](https://github.com/windsorcli/core/blob/main/contexts/_template/facets/addon-database.yaml) for CloudNativePG dashboard injection.
+- Related add-ons: [telemetry](/reference/blueprints/core/kustomize/telemetry), [pki](/reference/blueprints/core/kustomize/pki), [object-store](/reference/blueprints/core/kustomize/object-store), [csi](/reference/blueprints/core/kustomize/csi), [gateway](/reference/blueprints/core/kustomize/gateway), [dns](/reference/blueprints/core/kustomize/dns).

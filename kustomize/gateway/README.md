@@ -274,7 +274,7 @@ LBIPAM annotations so multiple Gateways can share one IP.
 
 ## See also
 
-- [contexts/_template/facets/option-gateway.yaml](../../contexts/_template/facets/option-gateway.yaml) for the canonical wiring.
-- [contexts/_template/facets/platform-aws.yaml](../../contexts/_template/facets/platform-aws.yaml) for the NLB merge on the AWS path.
-- [contexts/_template/facets/platform-azure.yaml](../../contexts/_template/facets/platform-azure.yaml) for the Azure ILB merge on the private-access path.
-- Related add-ons: [pki](../pki/) (gateway certificate), [lb](../lb/) (data-plane Service LB), [dns](../dns/) (external-dns publication), [cni](../cni/) (cilium driver).
+- [contexts/_template/facets/option-gateway.yaml](https://github.com/windsorcli/core/blob/main/contexts/_template/facets/option-gateway.yaml) for the canonical wiring.
+- [contexts/_template/facets/platform-aws.yaml](https://github.com/windsorcli/core/blob/main/contexts/_template/facets/platform-aws.yaml) for the NLB merge on the AWS path.
+- [contexts/_template/facets/platform-azure.yaml](https://github.com/windsorcli/core/blob/main/contexts/_template/facets/platform-azure.yaml) for the Azure ILB merge on the private-access path.
+- Related add-ons: [pki](/reference/blueprints/core/kustomize/pki) (gateway certificate), [lb](/reference/blueprints/core/kustomize/lb) (data-plane Service LB), [dns](/reference/blueprints/core/kustomize/dns) (external-dns publication), [cni](/reference/blueprints/core/kustomize/cni) (cilium driver).

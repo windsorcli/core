@@ -111,7 +111,7 @@ reconciling.
 
 ## See also
 
-- [contexts/_template/facets/addon-database.yaml](../../contexts/_template/facets/addon-database.yaml) for the canonical wiring and Grafana dashboard patch.
-- [contexts/_template/facets/option-single-node.yaml](../../contexts/_template/facets/option-single-node.yaml) for the `cloudnativepg/single-node` patch wiring.
-- [kustomize/demo/database/](../demo/database/) for a worked example (a `Cluster` CR named `demo-cluster`).
-- Related add-ons: [csi](../csi/), [observability](../observability/) (`grafana/dashboards/cloudnativepg`), [telemetry](../telemetry/).
+- [contexts/_template/facets/addon-database.yaml](https://github.com/windsorcli/core/blob/main/contexts/_template/facets/addon-database.yaml) for the canonical wiring and Grafana dashboard patch.
+- [contexts/_template/facets/option-single-node.yaml](https://github.com/windsorcli/core/blob/main/contexts/_template/facets/option-single-node.yaml) for the `cloudnativepg/single-node` patch wiring.
+- [kustomize/demo/database/](https://github.com/windsorcli/core/tree/main/kustomize/demo/database) for a worked example (a `Cluster` CR named `demo-cluster`).
+- Related add-ons: [csi](/reference/blueprints/core/kustomize/csi), [observability](/reference/blueprints/core/kustomize/observability) (`grafana/dashboards/cloudnativepg`), [telemetry](/reference/blueprints/core/kustomize/telemetry).

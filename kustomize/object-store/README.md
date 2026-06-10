@@ -98,6 +98,6 @@ on the completed Job, not the Secret.
 
 ## See also
 
-- [contexts/_template/facets/addon-object-store.yaml](../../contexts/_template/facets/addon-object-store.yaml) for the canonical wiring.
-- [kustomize/object-store/resources/common/](resources/common/) for the reference Tenant config (not facet-wired).
-- Related add-ons: [csi](../csi/), [observability](../observability/) (Quickwit log store can use a MinIO Tenant as its object backend).
+- [contexts/_template/facets/addon-object-store.yaml](https://github.com/windsorcli/core/blob/main/contexts/_template/facets/addon-object-store.yaml) for the canonical wiring.
+- [kustomize/object-store/resources/common/](https://github.com/windsorcli/core/tree/main/kustomize/object-store/resources/common) for the reference Tenant config (not facet-wired).
+- Related add-ons: [csi](/reference/blueprints/core/kustomize/csi), [observability](/reference/blueprints/core/kustomize/observability) (Quickwit log store can use a MinIO Tenant as its object backend).

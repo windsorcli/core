@@ -171,6 +171,6 @@ removed and `filebeat` is added.
 
 ## See also
 
-- [contexts/_template/facets/platform-base.yaml](../../contexts/_template/facets/platform-base.yaml) for the canonical wiring for both facets.
-- [contexts/_template/facets/addon-observability.yaml](../../contexts/_template/facets/addon-observability.yaml) for the Elasticsearch override (replaces telemetry-base with filebeat).
-- Related add-ons: [observability](../observability/) (Grafana / log store downstream of telemetry), [policy](../policy/) (admission policies apply to system-telemetry pods).
+- [contexts/_template/facets/platform-base.yaml](https://github.com/windsorcli/core/blob/main/contexts/_template/facets/platform-base.yaml) for the canonical wiring for both facets.
+- [contexts/_template/facets/addon-observability.yaml](https://github.com/windsorcli/core/blob/main/contexts/_template/facets/addon-observability.yaml) for the Elasticsearch override (replaces telemetry-base with filebeat).
+- Related add-ons: [observability](/reference/blueprints/core/kustomize/observability) (Grafana / log store downstream of telemetry), [policy](/reference/blueprints/core/kustomize/policy) (admission policies apply to system-telemetry pods).

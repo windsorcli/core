@@ -142,7 +142,7 @@ the subnet layer.
 
 ## See also
 
-- [aws-vpc/](aws-vpc/) and [azure-vnet/](azure-vnet/) for the per-driver Terraform reference.
-- [../cluster/](../cluster/) for the managed-cluster modules that consume the network.
-- [../dns/](../dns/) for the public DNS zones (the private zone inside the VPC module is separate).
-- [../compute/](../compute/) for the local compute drivers that create their own host networking.
+- [aws-vpc/](/reference/blueprints/core/terraform/network/aws-vpc) and [azure-vnet/](/reference/blueprints/core/terraform/network/azure-vnet) for the per-driver Terraform reference.
+- [../cluster/](/reference/blueprints/core/terraform/cluster) for the managed-cluster modules that consume the network.
+- [../dns/](/reference/blueprints/core/terraform/dns) for the public DNS zones (the private zone inside the VPC module is separate).
+- [../compute/](/reference/blueprints/core/terraform/compute) for the local compute drivers that create their own host networking.

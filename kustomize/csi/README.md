@@ -176,9 +176,9 @@ for explicit multi-replica volumes.
 
 ## See also
 
-- [contexts/_template/facets/platform-aws.yaml](../../contexts/_template/facets/platform-aws.yaml) for the AWS EBS wiring.
-- [contexts/_template/facets/platform-azure.yaml](../../contexts/_template/facets/platform-azure.yaml) for the Azure Disk wiring.
-- [contexts/_template/facets/option-storage.yaml](../../contexts/_template/facets/option-storage.yaml) for OpenEBS and Longhorn driver selection.
-- [contexts/_template/facets/option-single-node.yaml](../../contexts/_template/facets/option-single-node.yaml) for the single-node OpenEBS overlay.
-- [contexts/_template/facets/option-cni.yaml](../../contexts/_template/facets/option-cni.yaml) where the `cni` reverse dependency is added.
-- Related add-ons: [policy](../policy/), [cni](../cni/), [telemetry](../telemetry/), [observability](../observability/).
+- [contexts/_template/facets/platform-aws.yaml](https://github.com/windsorcli/core/blob/main/contexts/_template/facets/platform-aws.yaml) for the AWS EBS wiring.
+- [contexts/_template/facets/platform-azure.yaml](https://github.com/windsorcli/core/blob/main/contexts/_template/facets/platform-azure.yaml) for the Azure Disk wiring.
+- [contexts/_template/facets/option-storage.yaml](https://github.com/windsorcli/core/blob/main/contexts/_template/facets/option-storage.yaml) for OpenEBS and Longhorn driver selection.
+- [contexts/_template/facets/option-single-node.yaml](https://github.com/windsorcli/core/blob/main/contexts/_template/facets/option-single-node.yaml) for the single-node OpenEBS overlay.
+- [contexts/_template/facets/option-cni.yaml](https://github.com/windsorcli/core/blob/main/contexts/_template/facets/option-cni.yaml) where the `cni` reverse dependency is added.
+- Related add-ons: [policy](/reference/blueprints/core/kustomize/policy), [cni](/reference/blueprints/core/kustomize/cni), [telemetry](/reference/blueprints/core/kustomize/telemetry), [observability](/reference/blueprints/core/kustomize/observability).

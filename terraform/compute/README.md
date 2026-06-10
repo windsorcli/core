@@ -171,7 +171,7 @@ operator's workstation in cleartext.
 
 ## See also
 
-- [docker/](docker/), [hyperv/](hyperv/), and [incus/](incus/) for the per-driver Terraform reference.
-- [../cluster/](../cluster/) for the Talos control plane that adopts the compute nodes.
-- [../workstation/](../workstation/) for the host-side networking (registry, DNS) that local clusters depend on.
-- [../network/](../network/) for the cloud networking modules, which are skipped on local compute.
+- [docker/](/reference/blueprints/core/terraform/compute/docker), [hyperv/](/reference/blueprints/core/terraform/compute/hyperv), and [incus/](/reference/blueprints/core/terraform/compute/incus) for the per-driver Terraform reference.
+- [../cluster/](/reference/blueprints/core/terraform/cluster) for the Talos control plane that adopts the compute nodes.
+- [../workstation/](/reference/blueprints/core/terraform/workstation) for the host-side networking (registry, DNS) that local clusters depend on.
+- [../network/](/reference/blueprints/core/terraform/network) for the cloud networking modules, which are skipped on local compute.

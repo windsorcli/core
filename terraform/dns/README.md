@@ -144,7 +144,7 @@ verification.
 
 ## See also
 
-- [zone/route53/](zone/route53/) and [zone/azure-dns/](zone/azure-dns/) for the per-driver Terraform reference.
-- [../cluster/](../cluster/) for the cluster module that provisions the identity binding (IAM Pod Identity, Workload Identity).
-- [../../kustomize/pki/](../../kustomize/pki/) for cert-manager and the ClusterIssuers.
-- [../../kustomize/dns/](../../kustomize/dns/) for the external-dns reconciler.
+- [zone/route53/](/reference/blueprints/core/terraform/dns/zone/route53) and [zone/azure-dns/](/reference/blueprints/core/terraform/dns/zone/azure-dns) for the per-driver Terraform reference.
+- [../cluster/](/reference/blueprints/core/terraform/cluster) for the cluster module that provisions the identity binding (IAM Pod Identity, Workload Identity).
+- [../../kustomize/pki/](/reference/blueprints/core/kustomize/pki) for cert-manager and the ClusterIssuers.
+- [../../kustomize/dns/](/reference/blueprints/core/kustomize/dns) for the external-dns reconciler.

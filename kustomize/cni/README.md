@@ -148,6 +148,6 @@ cert-manager is not required for Hubble.
 
 ## See also
 
-- [contexts/_template/facets/option-cni.yaml](../../contexts/_template/facets/option-cni.yaml) for the canonical wiring.
-- [terraform/cni/cilium/](../../terraform/cni/cilium/) for the Terraform bootstrap module.
-- Related add-ons: [policy](../policy/), [telemetry](../telemetry/), [gateway](../gateway/), [csi](../csi/), [lb](../lb/).
+- [contexts/_template/facets/option-cni.yaml](https://github.com/windsorcli/core/blob/main/contexts/_template/facets/option-cni.yaml) for the canonical wiring.
+- [terraform/cni/cilium/](/reference/blueprints/core/terraform/cni/cilium) for the Terraform bootstrap module.
+- Related add-ons: [policy](/reference/blueprints/core/kustomize/policy), [telemetry](/reference/blueprints/core/kustomize/telemetry), [gateway](/reference/blueprints/core/kustomize/gateway), [csi](/reference/blueprints/core/kustomize/csi), [lb](/reference/blueprints/core/kustomize/lb).

@@ -118,6 +118,6 @@ values file.
 
 ## See also
 
-- [flux/](flux/) for the per-module Terraform reference.
-- [../cluster/](../cluster/) for the cluster module that produces the kubeconfig used here.
-- [../../kustomize/](../../kustomize/) for the layer Flux reconciles once the install completes.
+- [flux/](/reference/blueprints/core/terraform/gitops/flux) for the per-module Terraform reference.
+- [../cluster/](/reference/blueprints/core/terraform/cluster) for the cluster module that produces the kubeconfig used here.
+- [../../kustomize/](/reference/blueprints/core/kustomize) for the layer Flux reconciles once the install completes.

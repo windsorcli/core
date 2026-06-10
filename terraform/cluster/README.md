@@ -174,8 +174,8 @@ worth reconsidering for anything multi-tenant.
 
 ## See also
 
-- [talos/](talos/), [aws-eks/](aws-eks/), [azure-aks/](azure-aks/) for the per-driver Terraform reference.
-- [../network/](../network/) for the VPC and VNet modules that back the cluster on AWS and Azure.
-- [../compute/](../compute/) for Talos compute providers.
-- [../cni/](../cni/) for the Cilium bootstrap module on Talos.
-- [../../kustomize/cni/](../../kustomize/cni/), [../../kustomize/csi/](../../kustomize/csi/), and [../../kustomize/pki/](../../kustomize/pki/) for the kustomize add-ons that adopt the cluster.
+- [talos/](/reference/blueprints/core/terraform/cluster/talos), [aws-eks/](/reference/blueprints/core/terraform/cluster/aws-eks), [azure-aks/](/reference/blueprints/core/terraform/cluster/azure-aks) for the per-driver Terraform reference.
+- [../network/](/reference/blueprints/core/terraform/network) for the VPC and VNet modules that back the cluster on AWS and Azure.
+- [../compute/](/reference/blueprints/core/terraform/compute) for Talos compute providers.
+- [../cni/](/reference/blueprints/core/terraform/cni) for the Cilium bootstrap module on Talos.
+- [../../kustomize/cni/](/reference/blueprints/core/kustomize/cni), [../../kustomize/csi/](/reference/blueprints/core/kustomize/csi), and [../../kustomize/pki/](/reference/blueprints/core/kustomize/pki) for the kustomize add-ons that adopt the cluster.

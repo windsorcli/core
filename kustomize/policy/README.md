@@ -140,7 +140,7 @@ to add your own.
 
 ## See also
 
-- [contexts/_template/facets/platform-base.yaml](../../contexts/_template/facets/platform-base.yaml) for the canonical wiring for both facets.
-- [kustomize/policy/resources/kyverno/resource-limits-requests/cluster-policies.yaml](resources/kyverno/resource-limits-requests/cluster-policies.yaml) for the Audit policy.
-- [kustomize/policy/resources/kyverno/require-image-digest/cluster-policy.yaml](resources/kyverno/require-image-digest/cluster-policy.yaml) for the Enforce policy.
-- Related add-ons: [observability](../observability/) (`grafana/dashboards/*` for Kyverno metrics if added), [cni](../cni/) (depends on `policy-resources` for the cilium/gateway LBIPAM ClusterPolicy).
+- [contexts/_template/facets/platform-base.yaml](https://github.com/windsorcli/core/blob/main/contexts/_template/facets/platform-base.yaml) for the canonical wiring for both facets.
+- [kustomize/policy/resources/kyverno/resource-limits-requests/cluster-policies.yaml](https://github.com/windsorcli/core/blob/main/kustomize/policy/resources/kyverno/resource-limits-requests/cluster-policies.yaml) for the Audit policy.
+- [kustomize/policy/resources/kyverno/require-image-digest/cluster-policy.yaml](https://github.com/windsorcli/core/blob/main/kustomize/policy/resources/kyverno/require-image-digest/cluster-policy.yaml) for the Enforce policy.
+- Related add-ons: [observability](/reference/blueprints/core/kustomize/observability) (`grafana/dashboards/*` for Kyverno metrics if added), [cni](/reference/blueprints/core/kustomize/cni) (depends on `policy-resources` for the cilium/gateway LBIPAM ClusterPolicy).

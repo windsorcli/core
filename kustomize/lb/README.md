@@ -178,7 +178,7 @@ resources layer, advertising a VIP over ARP.
 
 ## See also
 
-- [contexts/_template/facets/platform-aws.yaml](../../contexts/_template/facets/platform-aws.yaml) for aws-lb-controller wiring.
-- [contexts/_template/facets/platform-docker.yaml](../../contexts/_template/facets/platform-docker.yaml) for MetalLB wiring on docker hosts.
-- [contexts/_template/facets/platform-incus.yaml](../../contexts/_template/facets/platform-incus.yaml) for MetalLB wiring on incus hosts.
-- Related add-ons: [gateway](../gateway/) (data-plane Service consumes lb), [cni](../cni/) (Cilium's L2 announcer is an alternative to lb on Talos, see `cilium/l2`), [policy](../policy/).
+- [contexts/_template/facets/platform-aws.yaml](https://github.com/windsorcli/core/blob/main/contexts/_template/facets/platform-aws.yaml) for aws-lb-controller wiring.
+- [contexts/_template/facets/platform-docker.yaml](https://github.com/windsorcli/core/blob/main/contexts/_template/facets/platform-docker.yaml) for MetalLB wiring on docker hosts.
+- [contexts/_template/facets/platform-incus.yaml](https://github.com/windsorcli/core/blob/main/contexts/_template/facets/platform-incus.yaml) for MetalLB wiring on incus hosts.
+- Related add-ons: [gateway](/reference/blueprints/core/kustomize/gateway) (data-plane Service consumes lb), [cni](/reference/blueprints/core/kustomize/cni) (Cilium's L2 announcer is an alternative to lb on Talos, see `cilium/l2`), [policy](/reference/blueprints/core/kustomize/policy).

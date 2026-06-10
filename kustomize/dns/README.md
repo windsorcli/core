@@ -199,9 +199,9 @@ In both cases `loadbalancer_start_ip` must fall inside
 
 ## See also
 
-- [contexts/_template/facets/platform-aws.yaml](../../contexts/_template/facets/platform-aws.yaml) for Route53 wiring.
-- [contexts/_template/facets/platform-azure.yaml](../../contexts/_template/facets/platform-azure.yaml) for Azure DNS wiring.
-- [contexts/_template/facets/addon-private-dns.yaml](../../contexts/_template/facets/addon-private-dns.yaml) for coredns and etcd wiring.
-- [terraform/dns/zone/route53/](../../terraform/dns/zone/route53/) for the Route53 zone creation (separate from this add-on).
-- [terraform/dns/zone/azure-dns/](../../terraform/dns/zone/azure-dns/) for the Azure DNS zone creation.
-- Related add-ons: [pki](../pki/) (etcd certs), [gateway](../gateway/) (HTTPRoute source), [policy](../policy/).
+- [contexts/_template/facets/platform-aws.yaml](https://github.com/windsorcli/core/blob/main/contexts/_template/facets/platform-aws.yaml) for Route53 wiring.
+- [contexts/_template/facets/platform-azure.yaml](https://github.com/windsorcli/core/blob/main/contexts/_template/facets/platform-azure.yaml) for Azure DNS wiring.
+- [contexts/_template/facets/addon-private-dns.yaml](https://github.com/windsorcli/core/blob/main/contexts/_template/facets/addon-private-dns.yaml) for coredns and etcd wiring.
+- [terraform/dns/zone/route53/](/reference/blueprints/core/terraform/dns/zone/route53) for the Route53 zone creation (separate from this add-on).
+- [terraform/dns/zone/azure-dns/](/reference/blueprints/core/terraform/dns/zone/azure-dns) for the Azure DNS zone creation.
+- Related add-ons: [pki](/reference/blueprints/core/kustomize/pki) (etcd certs), [gateway](/reference/blueprints/core/kustomize/gateway) (HTTPRoute source), [policy](/reference/blueprints/core/kustomize/policy).
