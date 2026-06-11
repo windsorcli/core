@@ -321,7 +321,7 @@ locals {
   # otherwise system-class pools are fixed and every other class autoscales.
   pools_autoscaling = {
     for name, p in var.pools : name => {
-      enabled = p.autoscaling != null && p.autoscaling.enabled != null ? p.autoscaling.enabled : p.class != "system"
+      enabled = try(p.autoscaling.enabled, null) != null ? p.autoscaling.enabled : p.class != "system"
       min     = p.autoscaling != null ? p.autoscaling.min : null
       max     = p.autoscaling != null ? p.autoscaling.max : null
     }
@@ -329,7 +329,7 @@ locals {
 
   pools_node_groups = {
     for name, p in var.pools : name => {
-      instance_types = p.instance_types != null && length(p.instance_types) > 0 ? p.instance_types : lookup(var.class_instance_types, p.class, null)
+      instance_types = try(length(p.instance_types), 0) > 0 ? p.instance_types : lookup(var.class_instance_types, p.class, null)
       capacity_type  = p.lifecycle == "spot" ? "SPOT" : "ON_DEMAND"
       # desired_size is set once; the autoscaler owns it thereafter (ignore_changes).
       desired_size = p.count

@@ -100,7 +100,7 @@ variable "private_subnet_ids" {
   type        = list(string)
   default     = null
   validation {
-    condition     = var.private_subnet_ids != null && length(var.private_subnet_ids) > 0
+    condition     = try(length(var.private_subnet_ids), 0) > 0
     error_message = "private_subnet_ids is required and must be non-empty. The tag-based subnet discovery this module previously used has been removed; pipe network/aws-vpc's private_subnet_ids output, e.g. inputs.private_subnet_ids = terraform_output('network', 'private_subnet_ids') in the platform-aws facet."
   }
 }
@@ -193,8 +193,7 @@ variable "pools" {
   validation {
     condition = alltrue([
       for k, v in var.pools :
-      v.autoscaling == null || v.autoscaling.min == null || v.autoscaling.max == null
-      || v.autoscaling.min <= v.autoscaling.max
+      try(v.autoscaling.min <= v.autoscaling.max, true)
     ])
     error_message = "Each pool's autoscaling.min must be <= autoscaling.max."
   }
@@ -205,10 +204,11 @@ variable "pools" {
   validation {
     condition = alltrue([
       for k, v in var.pools :
-      v.autoscaling == null
-      || v.autoscaling.enabled == false
-      || (v.autoscaling.enabled == null && v.class == "system")
-      || (v.count >= coalesce(v.autoscaling.min, min(v.count, 1)) && v.count <= coalesce(v.autoscaling.max, max(v.count, 3)))
+      v.autoscaling == null ? true : (
+        v.autoscaling.enabled == false
+        || (v.autoscaling.enabled == null && v.class == "system")
+        || (v.count >= coalesce(v.autoscaling.min, min(v.count, 1)) && v.count <= coalesce(v.autoscaling.max, max(v.count, 3)))
+      )
     ])
     error_message = "When a pool autoscales (explicitly or by class default), count must be within [min, max]."
   }
