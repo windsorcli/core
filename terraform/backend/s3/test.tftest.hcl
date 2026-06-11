@@ -105,7 +105,7 @@ run "noncurrent_versions_expire_on_90_day_lifecycle" {
   assert {
     condition = length([
       for rule in aws_s3_bucket_lifecycle_configuration.this.rule :
-      rule if rule.id == "expire-noncurrent-versions" && length(rule.noncurrent_version_expiration) > 0 && rule.noncurrent_version_expiration[0].noncurrent_days == 90
+      rule if rule.id == "expire-noncurrent-versions" && try(rule.noncurrent_version_expiration[0].noncurrent_days == 90, false)
     ]) == 1
     error_message = "expire-noncurrent-versions rule must expire noncurrent versions after 90 days."
   }

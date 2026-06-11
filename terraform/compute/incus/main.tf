@@ -202,7 +202,7 @@ locals {
       last_octet = instance.ipv4 != null ? tonumber(split(".", split("/", instance.ipv4)[0])[3]) : null
       max_octet  = instance.ipv4 != null && instance.count > 1 ? tonumber(split(".", split("/", instance.ipv4)[0])[3]) + (instance.count - 1) : null
     }
-    if instance.ipv4 != null && instance.count > 1 && tonumber(split(".", split("/", instance.ipv4)[0])[3]) + (instance.count - 1) > 255
+    if instance.ipv4 != null && instance.count > 1 && try(tonumber(split(".", split("/", instance.ipv4)[0])[3]) + (instance.count - 1) > 255, false)
   ]
 
   # Expand instances: when count > 1, name becomes prefix with -0, -1, etc.

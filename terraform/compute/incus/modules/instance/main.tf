@@ -103,11 +103,11 @@ locals {
           # - File paths: start with "/" (Unix), "C:"/"D:" etc (Windows drive), or "\\" (UNC)
           # - Storage volumes: simple names without path separators
           # If source is not provided, we're creating a new volume (include pool, size required)
-          disk.source != null && disk.source != "" && (
+          disk.source != null && disk.source != "" && try(
             length(regexall("^/", disk.source)) > 0 ||         # Unix absolute path
             length(regexall("^[A-Za-z]:", disk.source)) > 0 || # Windows drive letter (C:, D:, etc.)
-            length(regexall("^\\\\", disk.source)) > 0         # Windows UNC path (\\server\share)
-            ) ? {
+            length(regexall("^\\\\", disk.source)) > 0,        # Windows UNC path (\\server\share)
+            false) ? {
             # File path bind mount - source is the host path, no pool needed
             source = disk.source
             } : {
