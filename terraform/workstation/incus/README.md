@@ -14,7 +14,7 @@ Local-host runtime backing `windsor apply` when `compute.driver` is
 
 | Name | Version |
 |------|---------|
-| <a name="requirement_terraform"></a> [terraform](#requirement\_terraform) | >=1.8 |
+| <a name="requirement_terraform"></a> [terraform](#requirement\_terraform) | ~> 1.12 |
 | <a name="requirement_incus"></a> [incus](#requirement\_incus) | 1.1.0 |
 | <a name="requirement_local"></a> [local](#requirement\_local) | 2.9.0 |
 
