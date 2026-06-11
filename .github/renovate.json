@@ -25,6 +25,11 @@
       ]
     },
     {
+      "description": "Keep Terraform on the 1.12 line for OpenTofu compatibility (matches required_version \"~> 1.12\"); allow 1.12.x patches, block 1.13+",
+      "matchPackageNames": ["hashicorp/terraform"],
+      "allowedVersions": "<1.13"
+    },
+    {
       "matchDatasources": ["terraform-provider"],
       "automerge": true,
       "automergeType": "pr",
