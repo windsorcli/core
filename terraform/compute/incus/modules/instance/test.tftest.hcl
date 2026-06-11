@@ -128,12 +128,12 @@ run "custom_networks_override_default" {
   }
 
   assert {
-    condition     = length([for d in incus_instance.this.device : d if d.name == "eth0" && d.properties.network == "network1"]) == 1
+    condition     = length([for d in incus_instance.this.device : d if try(d.name == "eth0" && d.properties.network == "network1", false)]) == 1
     error_message = "eth0 should be attached to network1"
   }
 
   assert {
-    condition     = length([for d in incus_instance.this.device : d if d.name == "eth1" && d.properties.network == "network2"]) == 1
+    condition     = length([for d in incus_instance.this.device : d if try(d.name == "eth1" && d.properties.network == "network2", false)]) == 1
     error_message = "eth1 should be attached to network2"
   }
 }
@@ -196,17 +196,17 @@ run "file_path_bind_mount" {
   }
 
   assert {
-    condition     = length([for d in incus_instance.this.device : d if d.name == "unix-mount" && d.properties.source == "/host/path/data" && !contains(keys(d.properties), "pool")]) == 1
+    condition     = length([for d in incus_instance.this.device : d if try(d.name == "unix-mount" && d.properties.source == "/host/path/data" && !contains(keys(d.properties), "pool"), false)]) == 1
     error_message = "Unix path bind mount should not include pool property"
   }
 
   assert {
-    condition     = length([for d in incus_instance.this.device : d if d.name == "windows-mount" && d.properties.source == "C:\\host\\path\\data"]) == 1
+    condition     = length([for d in incus_instance.this.device : d if try(d.name == "windows-mount" && d.properties.source == "C:\\host\\path\\data", false)]) == 1
     error_message = "Windows drive path should be recognized as bind mount"
   }
 
   assert {
-    condition     = length([for d in incus_instance.this.device : d if d.name == "unc-mount" && d.properties.source == "\\\\server\\share\\data"]) == 1
+    condition     = length([for d in incus_instance.this.device : d if try(d.name == "unc-mount" && d.properties.source == "\\\\server\\share\\data", false)]) == 1
     error_message = "UNC path should be recognized as bind mount"
   }
 }
@@ -240,7 +240,7 @@ run "ipv6_static_address_configuration" {
   }
 
   assert {
-    condition     = length([for d in incus_instance.this.device : d if d.name == "eth0" && d.properties["ipv6.address"] == "2001:db8::100"]) == 1
+    condition     = length([for d in incus_instance.this.device : d if try(d.name == "eth0" && d.properties["ipv6.address"] == "2001:db8::100", false)]) == 1
     error_message = "IPv6 address should be configured on eth0 with CIDR notation stripped"
   }
 }
@@ -259,7 +259,7 @@ run "dual_stack_static_addresses" {
   }
 
   assert {
-    condition     = length([for d in incus_instance.this.device : d if d.name == "eth0" && d.properties["ipv4.address"] == "10.5.0.100" && d.properties["ipv6.address"] == "2001:db8::100"]) == 1
+    condition     = length([for d in incus_instance.this.device : d if try(d.name == "eth0" && d.properties["ipv4.address"] == "10.5.0.100" && d.properties["ipv6.address"] == "2001:db8::100", false)]) == 1
     error_message = "Both IPv4 and IPv6 addresses should be configured on eth0"
   }
 }

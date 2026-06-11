@@ -148,7 +148,7 @@ run "backend_config_without_context_path" {
   }
 
   assert {
-    condition     = local_file.backend_config == null || length(local_file.backend_config) == 0
+    condition     = try(length(local_file.backend_config), 0) == 0
     error_message = "No backend config should be generated without context path"
   }
 }
