@@ -9,7 +9,7 @@
 # =============================================================================
 
 terraform {
-  required_version = "~> 1.12"
+  required_version = "~> 1.12.0"
   required_providers {
     hyperv = {
       source  = "windsorcli/hyperv"
