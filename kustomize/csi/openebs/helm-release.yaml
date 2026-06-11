@@ -33,7 +33,7 @@ spec:
       zfsPlugin:
         image:
           # renovate: datasource=docker depName=openebs/zfs-driver package=openebs/zfs-driver
-          tag: 2.10.0@sha256:4a1ba36d65409ce576f39e19b934842691c436f79af0344a41debe342c1a230f
+          tag: 2.10.1@sha256:f9eeeefe1dd50f400d8a5dce8e748f8fffa92def86fcf9610583a3d7ec2fc291
     lvm-localpv:
       enabled: false
       lvmPlugin:
