@@ -81,7 +81,7 @@ jobs:
         uses: hashicorp/setup-terraform@dfe3c3f87815947d99a8997f908cb6525fc44e9e # v4.0.1
         with:
           # renovate: datasource=github-releases depName=terraform package=hashicorp/terraform
-          terraform_version: 1.15.5
+          terraform_version: 1.12.2
 
       - name: Run terraform fmt
         run: terraform fmt -check -recursive
@@ -154,7 +154,7 @@ jobs:
         uses: hashicorp/setup-terraform@dfe3c3f87815947d99a8997f908cb6525fc44e9e # v4.0.1
         with:
           # renovate: datasource=github-releases depName=terraform package=hashicorp/terraform
-          terraform_version: 1.15.5
+          terraform_version: 1.12.2
 
       - name: Install Windsor CLI
         uses: windsorcli/action@main
@@ -282,7 +282,7 @@ jobs:
         uses: hashicorp/setup-terraform@dfe3c3f87815947d99a8997f908cb6525fc44e9e # v4.0.1
         with:
           # renovate: datasource=github-releases depName=terraform package=hashicorp/terraform
-          terraform_version: 1.15.5
+          terraform_version: 1.12.2
 
       - name: Setup kubectl
         uses: azure/setup-kubectl@829323503d1be3d00ca8346e5391ca0b07a9ab0d # v5.1.0
@@ -701,7 +701,7 @@ jobs:
         uses: hashicorp/setup-terraform@dfe3c3f87815947d99a8997f908cb6525fc44e9e # v4.0.1
         with:
           # renovate: datasource=github-releases depName=terraform package=hashicorp/terraform
-          terraform_version: 1.15.5
+          terraform_version: 1.12.2
 
       - name: Install Windsor CLI
         uses: windsorcli/action@main
