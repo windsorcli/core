@@ -42,3 +42,23 @@ output "cluster_name" {
   description = "Name of the EKS cluster"
   value       = local.name
 }
+
+output "karpenter_controller_role_arn" {
+  description = "ARN of the Karpenter controller IAM role (assumed via Pod Identity)"
+  value       = try(aws_iam_role.karpenter_controller[0].arn, null)
+}
+
+output "karpenter_node_role_name" {
+  description = "Name of the IAM role for Karpenter-provisioned nodes"
+  value       = try(aws_iam_role.karpenter_node[0].name, null)
+}
+
+output "karpenter_node_instance_profile_name" {
+  description = "Name of the instance profile the EC2NodeClass attaches to Karpenter nodes"
+  value       = try(aws_iam_instance_profile.karpenter_node[0].name, null)
+}
+
+output "karpenter_interruption_queue_name" {
+  description = "Name of the Karpenter spot-interruption SQS queue"
+  value       = try(aws_sqs_queue.karpenter[0].name, null)
+}
