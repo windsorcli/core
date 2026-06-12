@@ -27,7 +27,7 @@ variable "kubernetes_version" {
   description = "Kubernetes version to install. Mirrors cluster/talos's default."
   type        = string
   # renovate: datasource=github-releases depName=kubernetes package=kubernetes/kubernetes
-  default = "1.36.1"
+  default = "1.36.2"
 }
 
 variable "cluster_name" {
