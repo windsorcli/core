@@ -528,7 +528,7 @@ jobs:
       # and uploaded artifact. No cluster mutation — strictly read-only tools.
       - name: Investigate failure with Claude
         if: always() && steps.phase.outputs.phase != 'none' && github.event_name == 'pull_request'
-        uses: anthropics/claude-code-action@0cb4f3e5e764d2e00407d29b6bf0aa9df0976d88 # v1.0.146
+        uses: anthropics/claude-code-action@56fa348258fbcb1aeb8d3954d5799b5991098481 # v1.0.147
         env:
           GH_REPO: ${{ github.repository }}
           PR_NUMBER: ${{ github.event.pull_request.number }}
