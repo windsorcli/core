@@ -50,9 +50,9 @@ variable "create_cluster_autoscaler_role" {
 }
 
 variable "enable_karpenter" {
-  description = "Whether to provision the Karpenter substrate: controller and node IAM, the spot-interruption SQS queue and its EventBridge rules, and subnet/security-group discovery tags. Karpenter itself is deployed via Flux and consumes the outputs."
+  description = "Whether to provision the Karpenter substrate: controller and node IAM, the spot-interruption SQS queue and its EventBridge rules, and subnet/security-group discovery tags. Karpenter itself is deployed via Flux and consumes the outputs. Opt-in; the discovery tags mutate live node subnets and the cluster security group."
   type        = bool
-  default     = true
+  default     = false
 }
 
 variable "create_cert_manager_role" {

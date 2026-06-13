@@ -874,19 +874,20 @@ run "pool_empty_instance_types_falls_back_to_class_default" {
   }
 }
 
-# Karpenter substrate is provisioned by default: controller + node IAM, the
-# Pod Identity association, the interruption queue with its four event rules,
-# and discovery tags on the node subnets and cluster security group.
-run "karpenter_substrate_enabled_by_default" {
+# With enable_karpenter = true the substrate is provisioned: controller + node
+# IAM, the Pod Identity association, the interruption queue with its four event
+# rules, and discovery tags on the node subnets and cluster security group.
+run "karpenter_substrate_when_enabled" {
   command = plan
 
   variables {
-    context_id = "test"
+    context_id       = "test"
+    enable_karpenter = true
   }
 
   assert {
     condition     = length(aws_iam_role.karpenter_controller) == 1 && length(aws_iam_policy.karpenter_controller) == 1
-    error_message = "Karpenter controller role and policy should be created by default"
+    error_message = "Karpenter controller role and policy should be created when enabled"
   }
 
   assert {
@@ -910,18 +911,17 @@ run "karpenter_substrate_enabled_by_default" {
   }
 }
 
-# enable_karpenter = false leaves no Karpenter resources behind.
-run "karpenter_substrate_can_be_disabled" {
+# enable_karpenter defaults to false (opt-in): no Karpenter resources unless set.
+run "karpenter_substrate_disabled_by_default" {
   command = plan
 
   variables {
-    context_id       = "test"
-    enable_karpenter = false
+    context_id = "test"
   }
 
   assert {
     condition     = length(aws_iam_role.karpenter_controller) == 0 && length(aws_sqs_queue.karpenter) == 0
-    error_message = "No Karpenter controller role or queue when enable_karpenter is false"
+    error_message = "No Karpenter controller role or queue by default"
   }
 
   assert {
