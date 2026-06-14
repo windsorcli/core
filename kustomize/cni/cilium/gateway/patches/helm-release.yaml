@@ -6,8 +6,10 @@ metadata:
 spec:
   values:
     # Enable Cilium's built-in Gateway API controller.
-    # CRDs are installed separately via gateway/base/crds to share them
-    # across controllers and avoid duplicate CRD management.
+    # The Gateway API CRDs are vendored in the shared crds layer
+    # (kustomize/crds/gateway-api-experimental-1.5.1) and ordered ahead of cni
+    # via the facet `crds:` dependency, so they exist before cilium-operator
+    # starts its Gateway controller.
     gatewayAPI:
       enabled: true
       enableAlpn: true

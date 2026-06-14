@@ -23,6 +23,11 @@ x-defaults:
       volumes:
         - /var/mnt/local
 
+  # CRDs (gateway-api, envoy-gateway) live in the blueprint's top-level `crds:`
+  # section, not in `kustomize:`. Kustomizations do not name individual CRDs in
+  # dependsOn; the composer wires only dependency-less roots to the `crds` layer,
+  # and gateway-base/gateway-resources are not roots.
+
   # Shared assertion: gateway-base with envoy loadbalancer
   gateway-base-envoy-lb: &gateway-base-envoy-lb
     name: gateway-base
@@ -49,7 +54,8 @@ x-defaults:
     timeout: 10m
     interval: 5m
 
-  # Shared assertion: gateway-base with cilium (no longer depends on cni; cni depends on gateway-base instead)
+  # Shared assertion: gateway-base with cilium (no longer depends on cni; cni
+  # depends on gateway-base instead).
   gateway-base-cilium: &gateway-base-cilium
     name: gateway-base
     path: gateway/base

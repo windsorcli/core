@@ -1,0 +1,6 @@
+resources:
+  # Vendored upstream Gateway API CRDs (v1.5.1, experimental channel).
+  # Source: https://github.com/kubernetes-sigs/gateway-api/releases/download/v1.5.1/experimental-install.yaml
+  # Consumed by both the Envoy and Cilium gateway drivers. Keep pinned and
+  # update intentionally alongside controller compatibility checks.
+  - gateway-api-experimental-v1.5.1.yaml

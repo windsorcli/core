@@ -73,6 +73,20 @@ config:
       cert_issuer: private
 
 # =============================================================================
+# CRDs — vendored, applied ahead of the controller
+# =============================================================================
+#
+# Gateway API CRDs are shared by both drivers (Envoy installs the controller;
+# Cilium provides the implementation), so they ship whenever the gateway is
+# enabled. Envoy Gateway's own CRDs ship only on the envoy path. Both are
+# version-pinned under kustomize/crds/; every kustomization in this facet
+# auto-depends on them.
+#
+crds:
+  - gateway-api-experimental-1.5.1
+  - "${gateway.driver == 'envoy' ? 'envoy-gateway-1.7.1' : ''}"
+
+# =============================================================================
 # Kustomize — Gateway API controller + shared Gateway resource
 # =============================================================================
 #
