@@ -15,14 +15,14 @@ Local-host runtime backing `windsor apply` when `compute.driver` is
 | Name | Version |
 |------|---------|
 | <a name="requirement_terraform"></a> [terraform](#requirement\_terraform) | ~> 1.12.0 |
-| <a name="requirement_incus"></a> [incus](#requirement\_incus) | 1.1.0 |
+| <a name="requirement_incus"></a> [incus](#requirement\_incus) | 1.1.1 |
 | <a name="requirement_local"></a> [local](#requirement\_local) | 2.9.0 |
 
 ## Providers
 
 | Name | Version |
 |------|---------|
-| <a name="provider_incus"></a> [incus](#provider\_incus) | 1.1.0 |
+| <a name="provider_incus"></a> [incus](#provider\_incus) | 1.1.1 |
 | <a name="provider_local"></a> [local](#provider\_local) | 2.9.0 |
 
 ## Modules
@@ -33,10 +33,10 @@ No modules.
 
 | Name | Type |
 |------|------|
-| [incus_instance.dns](https://registry.terraform.io/providers/lxc/incus/1.1.0/docs/resources/instance) | resource |
-| [incus_instance.git](https://registry.terraform.io/providers/lxc/incus/1.1.0/docs/resources/instance) | resource |
-| [incus_instance.registry](https://registry.terraform.io/providers/lxc/incus/1.1.0/docs/resources/instance) | resource |
-| [incus_network.main](https://registry.terraform.io/providers/lxc/incus/1.1.0/docs/resources/network) | resource |
+| [incus_instance.dns](https://registry.terraform.io/providers/lxc/incus/1.1.1/docs/resources/instance) | resource |
+| [incus_instance.git](https://registry.terraform.io/providers/lxc/incus/1.1.1/docs/resources/instance) | resource |
+| [incus_instance.registry](https://registry.terraform.io/providers/lxc/incus/1.1.1/docs/resources/instance) | resource |
+| [incus_network.main](https://registry.terraform.io/providers/lxc/incus/1.1.1/docs/resources/network) | resource |
 | [local_file.corefile](https://registry.terraform.io/providers/hashicorp/local/2.9.0/docs/resources/file) | resource |
 | [local_file.registry_cache_dir](https://registry.terraform.io/providers/hashicorp/local/2.9.0/docs/resources/file) | resource |
 

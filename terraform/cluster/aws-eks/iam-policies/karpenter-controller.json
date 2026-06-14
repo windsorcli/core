@@ -8,7 +8,8 @@
         "arn:aws:ec2:${region}::image/*",
         "arn:aws:ec2:${region}::snapshot/*",
         "arn:aws:ec2:${region}:*:security-group/*",
-        "arn:aws:ec2:${region}:*:subnet/*"
+        "arn:aws:ec2:${region}:*:subnet/*",
+        "arn:aws:ec2:${region}:*:capacity-reservation/*"
       ],
       "Action": ["ec2:RunInstances", "ec2:CreateFleet"]
     },
@@ -68,7 +69,7 @@
         "StringEquals": { "aws:ResourceTag/kubernetes.io/cluster/${cluster_name}": "owned" },
         "StringLike": { "aws:ResourceTag/karpenter.sh/nodepool": "*" },
         "ForAllValues:StringEquals": {
-          "aws:TagKeys": ["karpenter.sh/nodeclaim", "Name"]
+          "aws:TagKeys": ["eks:eks-cluster-name", "karpenter.sh/nodeclaim", "Name"]
         }
       }
     },
@@ -91,6 +92,7 @@
       "Resource": "*",
       "Action": [
         "ec2:DescribeAvailabilityZones",
+        "ec2:DescribeCapacityReservations",
         "ec2:DescribeImages",
         "ec2:DescribeInstances",
         "ec2:DescribeInstanceTypeOfferings",

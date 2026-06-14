@@ -24,7 +24,7 @@ Docker-on-Mac can't expose (e.g. nested KVM, real iSCSI). Pairs with the
 
 | Name | Version |
 |------|---------|
-| <a name="provider_incus"></a> [incus](#provider\_incus) | 1.1.0 |
+| <a name="provider_incus"></a> [incus](#provider\_incus) | 1.1.1 |
 | <a name="provider_terraform"></a> [terraform](#provider\_terraform) | n/a |
 
 ## Modules
