@@ -873,3 +873,59 @@ run "pool_empty_instance_types_falls_back_to_class_default" {
     error_message = "Empty instance_types list should fall through to the general class default"
   }
 }
+
+# With enable_karpenter = true the substrate is provisioned: controller + node
+# IAM, the Pod Identity association, the interruption queue with its four event
+# rules, and discovery tags on the node subnets and cluster security group.
+run "karpenter_substrate_when_enabled" {
+  command = plan
+
+  variables {
+    context_id       = "test"
+    enable_karpenter = true
+  }
+
+  assert {
+    condition     = length(aws_iam_role.karpenter_controller) == 1 && length(aws_iam_policy.karpenter_controller) == 1
+    error_message = "Karpenter controller role and policy should be created when enabled"
+  }
+
+  assert {
+    condition     = aws_eks_pod_identity_association.karpenter[0].namespace == "system-compute" && aws_eks_pod_identity_association.karpenter[0].service_account == "karpenter"
+    error_message = "Karpenter Pod Identity should bind the system-compute/karpenter service account"
+  }
+
+  assert {
+    condition     = length(aws_iam_role_policy_attachment.karpenter_node) == 4 && length(aws_iam_instance_profile.karpenter_node) == 1
+    error_message = "Karpenter node role should attach 4 managed policies and create one instance profile"
+  }
+
+  assert {
+    condition     = length(aws_sqs_queue.karpenter) == 1 && length(aws_cloudwatch_event_rule.karpenter) == 4
+    error_message = "Karpenter interruption queue and its 4 EventBridge rules should be created"
+  }
+
+  assert {
+    condition     = length(aws_ec2_tag.karpenter_discovery_subnet) == 3 && length(aws_ec2_tag.karpenter_discovery_sg) == 1
+    error_message = "karpenter.sh/discovery tags should cover the node subnets and the cluster security group"
+  }
+}
+
+# enable_karpenter defaults to false (opt-in): no Karpenter resources unless set.
+run "karpenter_substrate_disabled_by_default" {
+  command = plan
+
+  variables {
+    context_id = "test"
+  }
+
+  assert {
+    condition     = length(aws_iam_role.karpenter_controller) == 0 && length(aws_sqs_queue.karpenter) == 0
+    error_message = "No Karpenter controller role or queue by default"
+  }
+
+  assert {
+    condition     = length(aws_iam_role_policy_attachment.karpenter_node) == 0 && length(aws_cloudwatch_event_rule.karpenter) == 0 && length(aws_ec2_tag.karpenter_discovery_subnet) == 0
+    error_message = "No Karpenter node policies, event rules, or discovery tags when disabled"
+  }
+}

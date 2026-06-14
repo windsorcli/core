@@ -40,7 +40,11 @@ No modules.
 |------|------|
 | [aws_autoscaling_group_tag.cluster_autoscaler_enabled](https://registry.terraform.io/providers/hashicorp/aws/6.47.0/docs/resources/autoscaling_group_tag) | resource |
 | [aws_autoscaling_group_tag.cluster_autoscaler_owned](https://registry.terraform.io/providers/hashicorp/aws/6.47.0/docs/resources/autoscaling_group_tag) | resource |
+| [aws_cloudwatch_event_rule.karpenter](https://registry.terraform.io/providers/hashicorp/aws/6.47.0/docs/resources/cloudwatch_event_rule) | resource |
+| [aws_cloudwatch_event_target.karpenter](https://registry.terraform.io/providers/hashicorp/aws/6.47.0/docs/resources/cloudwatch_event_target) | resource |
 | [aws_cloudwatch_log_group.eks_cluster](https://registry.terraform.io/providers/hashicorp/aws/6.47.0/docs/resources/cloudwatch_log_group) | resource |
+| [aws_ec2_tag.karpenter_discovery_sg](https://registry.terraform.io/providers/hashicorp/aws/6.47.0/docs/resources/ec2_tag) | resource |
+| [aws_ec2_tag.karpenter_discovery_subnet](https://registry.terraform.io/providers/hashicorp/aws/6.47.0/docs/resources/ec2_tag) | resource |
 | [aws_eks_addon.main](https://registry.terraform.io/providers/hashicorp/aws/6.47.0/docs/resources/eks_addon) | resource |
 | [aws_eks_cluster.main](https://registry.terraform.io/providers/hashicorp/aws/6.47.0/docs/resources/eks_cluster) | resource |
 | [aws_eks_fargate_profile.main](https://registry.terraform.io/providers/hashicorp/aws/6.47.0/docs/resources/eks_fargate_profile) | resource |
@@ -49,10 +53,13 @@ No modules.
 | [aws_eks_pod_identity_association.cert_manager](https://registry.terraform.io/providers/hashicorp/aws/6.47.0/docs/resources/eks_pod_identity_association) | resource |
 | [aws_eks_pod_identity_association.cluster_autoscaler](https://registry.terraform.io/providers/hashicorp/aws/6.47.0/docs/resources/eks_pod_identity_association) | resource |
 | [aws_eks_pod_identity_association.external_dns](https://registry.terraform.io/providers/hashicorp/aws/6.47.0/docs/resources/eks_pod_identity_association) | resource |
+| [aws_eks_pod_identity_association.karpenter](https://registry.terraform.io/providers/hashicorp/aws/6.47.0/docs/resources/eks_pod_identity_association) | resource |
+| [aws_iam_instance_profile.karpenter_node](https://registry.terraform.io/providers/hashicorp/aws/6.47.0/docs/resources/iam_instance_profile) | resource |
 | [aws_iam_policy.aws_lb_controller](https://registry.terraform.io/providers/hashicorp/aws/6.47.0/docs/resources/iam_policy) | resource |
 | [aws_iam_policy.cert_manager](https://registry.terraform.io/providers/hashicorp/aws/6.47.0/docs/resources/iam_policy) | resource |
 | [aws_iam_policy.cluster_autoscaler](https://registry.terraform.io/providers/hashicorp/aws/6.47.0/docs/resources/iam_policy) | resource |
 | [aws_iam_policy.external_dns](https://registry.terraform.io/providers/hashicorp/aws/6.47.0/docs/resources/iam_policy) | resource |
+| [aws_iam_policy.karpenter_controller](https://registry.terraform.io/providers/hashicorp/aws/6.47.0/docs/resources/iam_policy) | resource |
 | [aws_iam_policy.pod_identity_agent](https://registry.terraform.io/providers/hashicorp/aws/6.47.0/docs/resources/iam_policy) | resource |
 | [aws_iam_role.aws_lb_controller](https://registry.terraform.io/providers/hashicorp/aws/6.47.0/docs/resources/iam_role) | resource |
 | [aws_iam_role.cert_manager](https://registry.terraform.io/providers/hashicorp/aws/6.47.0/docs/resources/iam_role) | resource |
@@ -62,6 +69,8 @@ No modules.
 | [aws_iam_role.efs_csi](https://registry.terraform.io/providers/hashicorp/aws/6.47.0/docs/resources/iam_role) | resource |
 | [aws_iam_role.external_dns](https://registry.terraform.io/providers/hashicorp/aws/6.47.0/docs/resources/iam_role) | resource |
 | [aws_iam_role.fargate](https://registry.terraform.io/providers/hashicorp/aws/6.47.0/docs/resources/iam_role) | resource |
+| [aws_iam_role.karpenter_controller](https://registry.terraform.io/providers/hashicorp/aws/6.47.0/docs/resources/iam_role) | resource |
+| [aws_iam_role.karpenter_node](https://registry.terraform.io/providers/hashicorp/aws/6.47.0/docs/resources/iam_role) | resource |
 | [aws_iam_role.node_group](https://registry.terraform.io/providers/hashicorp/aws/6.47.0/docs/resources/iam_role) | resource |
 | [aws_iam_role.pod_identity_agent](https://registry.terraform.io/providers/hashicorp/aws/6.47.0/docs/resources/iam_role) | resource |
 | [aws_iam_role.vpc_cni](https://registry.terraform.io/providers/hashicorp/aws/6.47.0/docs/resources/iam_role) | resource |
@@ -74,6 +83,8 @@ No modules.
 | [aws_iam_role_policy_attachment.efs_csi](https://registry.terraform.io/providers/hashicorp/aws/6.47.0/docs/resources/iam_role_policy_attachment) | resource |
 | [aws_iam_role_policy_attachment.external_dns](https://registry.terraform.io/providers/hashicorp/aws/6.47.0/docs/resources/iam_role_policy_attachment) | resource |
 | [aws_iam_role_policy_attachment.fargate_pod_execution_role_policy](https://registry.terraform.io/providers/hashicorp/aws/6.47.0/docs/resources/iam_role_policy_attachment) | resource |
+| [aws_iam_role_policy_attachment.karpenter_controller](https://registry.terraform.io/providers/hashicorp/aws/6.47.0/docs/resources/iam_role_policy_attachment) | resource |
+| [aws_iam_role_policy_attachment.karpenter_node](https://registry.terraform.io/providers/hashicorp/aws/6.47.0/docs/resources/iam_role_policy_attachment) | resource |
 | [aws_iam_role_policy_attachment.node_group_AmazonEC2ContainerRegistryReadOnly](https://registry.terraform.io/providers/hashicorp/aws/6.47.0/docs/resources/iam_role_policy_attachment) | resource |
 | [aws_iam_role_policy_attachment.node_group_AmazonEKSWorkerNodePolicy](https://registry.terraform.io/providers/hashicorp/aws/6.47.0/docs/resources/iam_role_policy_attachment) | resource |
 | [aws_iam_role_policy_attachment.node_group_AmazonEKS_CNI_Policy](https://registry.terraform.io/providers/hashicorp/aws/6.47.0/docs/resources/iam_role_policy_attachment) | resource |
@@ -85,6 +96,8 @@ No modules.
 | [aws_kms_key.eks_encryption_key](https://registry.terraform.io/providers/hashicorp/aws/6.47.0/docs/resources/kms_key) | resource |
 | [aws_launch_template.node_group](https://registry.terraform.io/providers/hashicorp/aws/6.47.0/docs/resources/launch_template) | resource |
 | [aws_security_group.cluster_api_access](https://registry.terraform.io/providers/hashicorp/aws/6.47.0/docs/resources/security_group) | resource |
+| [aws_sqs_queue.karpenter](https://registry.terraform.io/providers/hashicorp/aws/6.47.0/docs/resources/sqs_queue) | resource |
+| [aws_sqs_queue_policy.karpenter](https://registry.terraform.io/providers/hashicorp/aws/6.47.0/docs/resources/sqs_queue_policy) | resource |
 | [local_sensitive_file.kubeconfig](https://registry.terraform.io/providers/hashicorp/local/latest/docs/resources/sensitive_file) | resource |
 | [null_resource.create_kubeconfig_dir](https://registry.terraform.io/providers/hashicorp/null/latest/docs/resources/resource) | resource |
 | [aws_caller_identity.current](https://registry.terraform.io/providers/hashicorp/aws/6.47.0/docs/data-sources/caller_identity) | data source |
@@ -109,6 +122,7 @@ No modules.
 | <a name="input_ebs_volume_kms_key_id"></a> [ebs\_volume\_kms\_key\_id](#input\_ebs\_volume\_kms\_key\_id) | KMS key ARN or ID to use for EBS volume encryption in node group launch templates. ARN is preferred for cross-account scenarios. If enable\_ebs\_encryption is true and this is null, a cluster-specific key is created. | `string` | `null` | no |
 | <a name="input_enable_cloudwatch_logs"></a> [enable\_cloudwatch\_logs](#input\_enable\_cloudwatch\_logs) | Whether the cluster emits control plane logs to CloudWatch. | `bool` | `true` | no |
 | <a name="input_enable_ebs_encryption"></a> [enable\_ebs\_encryption](#input\_enable\_ebs\_encryption) | Whether to enable EBS volume encryption for node group instances. If true and ebs\_volume\_kms\_key\_id is null, a cluster-specific KMS key will be created. | `bool` | `true` | no |
+| <a name="input_enable_karpenter"></a> [enable\_karpenter](#input\_enable\_karpenter) | Whether to provision the Karpenter substrate: controller and node IAM, the spot-interruption SQS queue and its EventBridge rules, and subnet/security-group discovery tags. Karpenter itself is deployed via Flux and consumes the outputs. Opt-in; the discovery tags mutate live node subnets and the cluster security group. | `bool` | `false` | no |
 | <a name="input_enable_secrets_encryption"></a> [enable\_secrets\_encryption](#input\_enable\_secrets\_encryption) | Whether to enable EKS secrets encryption at all. If false, no encryption\_config is set. If true, use internal or external key. | `bool` | `true` | no |
 | <a name="input_endpoint_private_access"></a> [endpoint\_private\_access](#input\_endpoint\_private\_access) | Whether to enable private access to the EKS cluster. | `bool` | `false` | no |
 | <a name="input_endpoint_public_access"></a> [endpoint\_public\_access](#input\_endpoint\_public\_access) | Whether to enable public access to the EKS cluster. | `bool` | `true` | no |
@@ -137,5 +151,9 @@ No modules.
 | <a name="output_cluster_name"></a> [cluster\_name](#output\_cluster\_name) | Name of the EKS cluster |
 | <a name="output_cluster_security_group_id"></a> [cluster\_security\_group\_id](#output\_cluster\_security\_group\_id) | The security group ID attached to the EKS cluster. |
 | <a name="output_external_dns_role_arn"></a> [external\_dns\_role\_arn](#output\_external\_dns\_role\_arn) | ARN of the IAM role for external-dns |
+| <a name="output_karpenter_controller_role_arn"></a> [karpenter\_controller\_role\_arn](#output\_karpenter\_controller\_role\_arn) | ARN of the Karpenter controller IAM role (assumed via Pod Identity) |
+| <a name="output_karpenter_interruption_queue_name"></a> [karpenter\_interruption\_queue\_name](#output\_karpenter\_interruption\_queue\_name) | Name of the Karpenter spot-interruption SQS queue |
+| <a name="output_karpenter_node_instance_profile_name"></a> [karpenter\_node\_instance\_profile\_name](#output\_karpenter\_node\_instance\_profile\_name) | Name of the instance profile the EC2NodeClass attaches to Karpenter nodes |
+| <a name="output_karpenter_node_role_name"></a> [karpenter\_node\_role\_name](#output\_karpenter\_node\_role\_name) | Name of the IAM role for Karpenter-provisioned nodes |
 | <a name="output_kubeconfig_certificate_authority_data"></a> [kubeconfig\_certificate\_authority\_data](#output\_kubeconfig\_certificate\_authority\_data) | The base64 encoded certificate data required to communicate with the cluster. |
 <!-- END_TF_DOCS -->

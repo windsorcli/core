@@ -49,6 +49,12 @@ variable "create_cluster_autoscaler_role" {
   default     = true
 }
 
+variable "enable_karpenter" {
+  description = "Whether to provision the Karpenter substrate: controller and node IAM, the spot-interruption SQS queue and its EventBridge rules, and subnet/security-group discovery tags. Karpenter itself is deployed via Flux and consumes the outputs. Opt-in; the discovery tags mutate live node subnets and the cluster security group."
+  type        = bool
+  default     = false
+}
+
 variable "create_cert_manager_role" {
   description = "Whether to create the IAM role, policy, and Pod Identity association for cert-manager's Route53 ACME DNS-01 solver. Enable when cert-manager will issue ACME certificates against a Route53 hosted zone in this account."
   type        = bool
