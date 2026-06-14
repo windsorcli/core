@@ -11,7 +11,7 @@ locals {
   karpenter_node_managed_policies = var.enable_karpenter ? toset([
     "arn:aws:iam::aws:policy/AmazonEKSWorkerNodePolicy",
     "arn:aws:iam::aws:policy/AmazonEKS_CNI_Policy",
-    "arn:aws:iam::aws:policy/AmazonEC2ContainerRegistryReadOnly",
+    "arn:aws:iam::aws:policy/AmazonEC2ContainerRegistryPullOnly",
     "arn:aws:iam::aws:policy/AmazonSSMManagedInstanceCore",
   ]) : toset([])
 
@@ -124,13 +124,23 @@ resource "aws_sqs_queue_policy" "karpenter" {
 
   policy = jsonencode({
     Version = "2012-10-17"
-    Statement = [{
-      Sid       = "EC2InterruptionPolicy"
-      Effect    = "Allow"
-      Principal = { Service = ["events.amazonaws.com", "sqs.amazonaws.com"] }
-      Action    = "sqs:SendMessage"
-      Resource  = aws_sqs_queue.karpenter[0].arn
-    }]
+    Statement = [
+      {
+        Sid       = "EC2InterruptionPolicy"
+        Effect    = "Allow"
+        Principal = { Service = ["events.amazonaws.com", "sqs.amazonaws.com"] }
+        Action    = "sqs:SendMessage"
+        Resource  = aws_sqs_queue.karpenter[0].arn
+      },
+      {
+        Sid       = "DenyHTTP"
+        Effect    = "Deny"
+        Principal = "*"
+        Action    = "sqs:*"
+        Resource  = aws_sqs_queue.karpenter[0].arn
+        Condition = { Bool = { "aws:SecureTransport" = "false" } }
+      }
+    ]
   })
 }
 
