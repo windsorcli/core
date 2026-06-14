@@ -15,7 +15,7 @@ components:
   base/prometheus:
     facet: telemetry-base
     enable_when: "`telemetry.metrics.enabled: true`"
-    description: "Helm release of `kube-prometheus-stack` (chart) in `system-telemetry`. Provides Prometheus, Alertmanager, node-exporter, kube-state-metrics. Grafana sub-chart is disabled (Grafana lives in the observability add-on)."
+    description: "Helm release of `kube-prometheus-stack` (chart) in `system-telemetry`. Provides Prometheus, Alertmanager, node-exporter, kube-state-metrics. Grafana sub-chart is disabled (Grafana lives in the observability add-on). Chart CRD install is skipped; the prometheus-operator CRDs are vendored under `kustomize/crds/` and applied ahead of the controller via the facet `crds:` section."
   base/prometheus/flux:
     facet: telemetry-base
     enable_when: "`telemetry.metrics.enabled: true`"
@@ -39,7 +39,7 @@ components:
   resources/prometheus:
     facet: telemetry-resources
     enable_when: "`telemetry.metrics.enabled: true`"
-    description: "ServiceMonitors and PrometheusRules that target the blueprint's core workloads (kube-state-metrics, the API server, etcd via Talos discovery). Renders after the `base/prometheus` chart so the CRDs exist."
+    description: "ServiceMonitors and PrometheusRules that target the blueprint's core workloads (kube-state-metrics, the API server, etcd via Talos discovery). The ServiceMonitor / PrometheusRule CRDs come from the vendored `crds:` layer, applied ahead of the whole stack."
   resources/prometheus/flux:
     facet: telemetry-resources
     enable_when: "`telemetry.metrics.enabled: true`"

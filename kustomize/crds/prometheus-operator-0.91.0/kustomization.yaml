@@ -1,0 +1,9 @@
+resources:
+  # Vendored prometheus-operator CRDs (v0.91.0, stripped-down — the same
+  # description-less bundle kube-prometheus-stack ships). The crds: layer
+  # applies them ahead of the controller; the chart runs with crds.enabled=false.
+  # To update (keep in sync with the kube-prometheus-stack operator version):
+  #   VERSION=vX.Y.Z
+  #   curl -sL https://github.com/prometheus-operator/prometheus-operator/releases/download/${VERSION}/stripped-down-crds.yaml \
+  #     > prometheus-operator-crds-${VERSION}.yaml
+  - prometheus-operator-crds-v0.91.0.yaml
