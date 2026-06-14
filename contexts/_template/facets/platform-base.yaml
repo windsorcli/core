@@ -377,6 +377,17 @@ terraform:
       mode: ${gitops.mode ?? 'push'}
 
 # =============================================================================
+# CRDs — vendored, applied ahead of the controller
+# =============================================================================
+#
+# cert-manager's CRDs ship vendored under kustomize/crds/ and are applied
+# before the controller; the chart runs with crds.enabled=false. Every
+# kustomization auto-depends on this layer.
+#
+crds:
+  - cert-manager-1.20.2
+
+# =============================================================================
 # Kustomize — policy, telemetry, PKI, observability, gitops webhook
 # =============================================================================
 #

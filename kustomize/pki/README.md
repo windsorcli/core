@@ -5,15 +5,17 @@ description: cert-manager, trust-manager, and the cluster's ClusterIssuers (self
 
 # PKI
 
-The cluster's certificate-issuance layer. The add-on splits across two
-Kustomization paths so Flux can install cert-manager (CRDs +
-controller) before the ClusterIssuer resources that depend on those
-CRDs. `pki-base` installs cert-manager (trust-manager is added when
+The cluster's certificate-issuance layer. cert-manager's CRDs are
+vendored under `kustomize/crds/` and applied ahead of the stack via
+the facet `crds:` section; the add-on then splits across two
+Kustomization paths so the controller installs before the
+ClusterIssuer resources that depend on it. `pki-base` installs
+cert-manager (trust-manager is added when
 the private-CA addon is enabled), plus optional patches that enable
 Prometheus scraping, Azure workload identity, and single-node
 leader-election tweaks. `pki-resources` applies one or more
 ClusterIssuers depending on the cluster's DNS and gateway-access
-posture, and depends on `pki-base` for CRDs and `policy-resources`
+posture, and depends on `pki-base` for the controller and `policy-resources`
 for the private-CA inject policy.
 
 The ClusterIssuers this add-on can ship are named consistently across
@@ -200,7 +202,7 @@ namespaces can mount.
 
 | Component | Enable when | Effect |
 |---|---|---|
-| `cert-manager` | always | Helm release of the `cert-manager` chart in `system-pki`. Installs the controller, webhook, and cainjector. ClusterIssuer / Certificate CRDs become available for `pki-resources` to consume. |
+| `cert-manager` | always | Helm release of the `cert-manager` chart in `system-pki`. Installs the controller, webhook, and cainjector (chart CRD install is skipped). The cert-manager CRDs are vendored under `kustomize/crds/` and applied ahead of the controller via the facet `crds:` section, so `pki-resources` can consume ClusterIssuer / Certificate CRs. |
 | `cert-manager/single-node` | single-node topology | Patches the cert-manager HelmRelease to disable leader election on the controller (single replica has nothing to elect against). |
 | `cert-manager/azure-workload-identity` | platform is Azure AND `dns.public_domain` is set | Patches the cert-manager Deployment to attach the AKS federated workload identity used by the DNS-01 ACME solver against Azure DNS. Reads `cert_manager_client_id` and `cert_manager_tenant_id`. |
 | `cert-manager/prometheus` | `telemetry.metrics.enabled: true` | Patches the cert-manager HelmRelease to enable Prometheus annotations / ServiceMonitor on the controller and webhook. |

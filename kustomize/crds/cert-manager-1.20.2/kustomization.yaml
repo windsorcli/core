@@ -1,0 +1,8 @@
+resources:
+  # Vendored upstream cert-manager CRDs (v1.20.2). The crds: layer applies them
+  # ahead of the controller; the chart runs with crds.enabled=false.
+  # To update for a new version (keep in sync with the cert-manager chart):
+  #   VERSION=vX.Y.Z
+  #   curl -sL https://github.com/cert-manager/cert-manager/releases/download/${VERSION}/cert-manager.crds.yaml \
+  #     > cert-manager-crds-${VERSION}.yaml
+  - cert-manager-crds-v1.20.2.yaml
