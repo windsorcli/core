@@ -83,8 +83,8 @@ config:
 # auto-depends on them.
 #
 crds:
-  - gateway-api-experimental-1.5.1
-  - "${gateway.driver == 'envoy' ? 'envoy-gateway-1.7.1' : ''}"
+  - "${gateway.enabled == true ? 'gateway-api-experimental-1.5.1' : ''}"
+  - "${gateway.enabled == true && gateway.driver == 'envoy' ? 'envoy-gateway-1.7.1' : ''}"
 
 # =============================================================================
 # Kustomize — Gateway API controller + shared Gateway resource

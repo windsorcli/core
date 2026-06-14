@@ -93,6 +93,9 @@ cases:
             - fluentd/prometheus
           timeout: 15m
           interval: 10m
+      crds:
+        - cert-manager-1.20.2
+        - prometheus-operator-0.91.0
 
   # Full: observability addon enabled; addon wins for same-name observability (grafana + fluentd/outputs/stdout)
   - name: full config with explicit fluentd driver and observability enabled
@@ -389,11 +392,15 @@ cases:
             - policy-resources
           components:
             - cert-manager
+      crds:
+        - cert-manager-1.20.2
     exclude:
       kustomize:
         - name: telemetry-base
         - name: telemetry-resources
         - name: observability
+      crds:
+        - prometheus-operator-0.91.0
 
   # Metrics on, logs off: Prometheus stack deploys, fluent-bit and fluentd are
   # dropped. cert-manager/prometheus stays (metrics are on).
@@ -478,6 +485,11 @@ cases:
           components:
             - fluentd
             - fluentd/filters/otel
+      crds:
+        - cert-manager-1.20.2
+    exclude:
+      crds:
+        - prometheus-operator-0.91.0
 
   # Observability addon force-overrides both telemetry toggles — Grafana needs
   # Prometheus to scrape and the fluentbit→fluentd path to ship logs.

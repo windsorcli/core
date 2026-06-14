@@ -100,6 +100,11 @@ cases:
       kustomize:
         - *gateway-base-cilium
         - *gateway-resources-cilium
+      crds:
+        - gateway-api-experimental-1.5.1
+    exclude:
+      crds:
+        - envoy-gateway-1.7.1
 
   # Docker Desktop: nodeport (docker-desktop defaults to envoy; no cilium bootstrap)
   - name: Docker Desktop uses nodeport gateway
@@ -165,6 +170,9 @@ cases:
       kustomize:
         - *gateway-base-envoy-lb
         - *gateway-resources-envoy
+      crds:
+        - gateway-api-experimental-1.5.1
+        - envoy-gateway-1.7.1
 
   # Envoy + Docker Desktop: nodeport variant
   - name: envoy on Docker Desktop uses nodeport variant
@@ -279,6 +287,9 @@ cases:
       kustomize:
         - *gateway-base-envoy-lb
         - *gateway-resources-envoy
+      crds:
+        - gateway-api-experimental-1.5.1
+        - envoy-gateway-1.7.1
 
   - name: legacy ingress alias maps nginx to envoy
     values:
@@ -306,6 +317,9 @@ cases:
       kustomize:
         - name: gateway-resources
         - name: gateway-base
+      crds:
+        - gateway-api-experimental-1.5.1
+        - envoy-gateway-1.7.1
 
   # Flux webhook receiver includes webhook/gateway for Gateway API drivers
   # (push mode is the default, so no explicit gitops.mode needed)
