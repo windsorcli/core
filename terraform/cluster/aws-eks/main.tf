@@ -346,11 +346,21 @@ locals {
           "windsorcli.dev/pool-class" = p.class
         }
       )
-      taints = [for t in p.taints : {
-        key    = t.key
-        value  = t.value != null ? t.value : ""
-        effect = t.effect
-      }]
+      # System-class pools carry the CriticalAddonsOnly=true:NoSchedule taint AKS
+      # applies via only_critical_addons_enabled, so user workloads avoid them —
+      # unless the pool already declares a CriticalAddonsOnly taint of its own.
+      taints = concat(
+        [for t in p.taints : {
+          key    = t.key
+          value  = t.value != null ? t.value : ""
+          effect = t.effect
+        }],
+        p.class == "system" && !contains([for t in p.taints : t.key], "CriticalAddonsOnly") ? [{
+          key    = "CriticalAddonsOnly"
+          value  = "true"
+          effect = "NO_SCHEDULE"
+        }] : []
+      )
     }
   }
 
