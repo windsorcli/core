@@ -386,7 +386,9 @@ terraform:
 # ServiceMonitor CRD is present for scrape configs across every facet.
 #
 crds:
+  # renovate: datasource=github-releases depName=cert-manager/cert-manager package=cert-manager/cert-manager
   - cert-manager-1.20.2
+  # renovate: datasource=github-releases depName=prometheus-operator/prometheus-operator package=prometheus-operator/prometheus-operator
   - "${telemetry.metrics.enabled ? 'prometheus-operator-0.91.0' : ''}"
 
 # =============================================================================

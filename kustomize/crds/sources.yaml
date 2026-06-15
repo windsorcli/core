@@ -1,0 +1,47 @@
+# Vendored CRD source of truth.
+#
+#   Regenerate every file:  task crds
+#   Verify no drift (CI):    task crds:check
+#
+# Each entry maps name + version to kustomize/crds/<name>-<version>/, holding the
+# generated CRD yaml (<name>-<version>.yaml) and its kustomization.yaml. The facet
+# crds: ref is that <name>-<version>. `version` carries a renovate annotation, so a
+# chart/release bump lands as a PR; run `task crds` to regenerate after the bump.
+#
+# Source is one of:
+#   url:   download an upstream release asset; ${version} is interpolated in.
+#   helm:  pull from a chart — mode: crds (the chart's crds/ dir) | template
+#          (CRDs rendered then filtered to kind: CustomResourceDefinition; set:
+#          supplies any value that gates them).
+#
+# Why vendor: Helm never upgrades crds/-dir CRDs, and deletes templated CRDs on
+# uninstall (cascade-deleting their CRs into finalizer deadlocks). The crds: layer
+# (prune: false) owns the CRD lifecycle instead. See docs/adr/0003.
+vendors:
+  - name: gateway-api-experimental
+    # renovate: datasource=github-releases depName=kubernetes-sigs/gateway-api package=kubernetes-sigs/gateway-api
+    version: 1.5.1
+    url: https://github.com/kubernetes-sigs/gateway-api/releases/download/v${version}/experimental-install.yaml
+
+  - name: envoy-gateway
+    # renovate: datasource=github-releases depName=envoyproxy/gateway package=envoyproxy/gateway
+    version: 1.8.1
+    url: https://github.com/envoyproxy/gateway/releases/download/v${version}/envoy-gateway-crds.yaml
+
+  - name: cert-manager
+    # renovate: datasource=github-releases depName=cert-manager/cert-manager package=cert-manager/cert-manager
+    version: 1.20.2
+    url: https://github.com/cert-manager/cert-manager/releases/download/v${version}/cert-manager.crds.yaml
+
+  - name: prometheus-operator
+    # renovate: datasource=github-releases depName=prometheus-operator/prometheus-operator package=prometheus-operator/prometheus-operator
+    version: 0.91.0
+    url: https://github.com/prometheus-operator/prometheus-operator/releases/download/v${version}/stripped-down-crds.yaml
+
+  - name: aws-load-balancer-controller
+    # renovate: datasource=helm depName=aws-load-balancer-controller package=aws-load-balancer-controller helmRepo=https://aws.github.io/eks-charts
+    version: 3.4.0
+    helm:
+      repo: https://aws.github.io/eks-charts
+      chart: aws-load-balancer-controller
+      mode: crds

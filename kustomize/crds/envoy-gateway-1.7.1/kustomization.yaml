@@ -1,9 +1,0 @@
-resources:
-  # Vendored Envoy Gateway CRDs (v1.7.1). Vendored as static files because an
-  # inline HelmRelease secret would exceed Flux's 1MB limit.
-  # To update for a new version (keep in sync with the gateway-helm chart):
-  #   VERSION=vX.Y.Z
-  #   curl -sL https://github.com/envoyproxy/gateway/releases/download/${VERSION}/envoy-gateway-crds.yaml \
-  #     > envoy-gateway-crds-${VERSION}.yaml
-  # Use envoy-gateway-crds.yaml (NOT install.yaml — that includes the full controller deployment).
-  - envoy-gateway-crds-v1.7.1.yaml
