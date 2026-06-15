@@ -19,7 +19,7 @@ spec:
     operator:
       image:
         # renovate: datasource=docker depName=ghcr.io/fluent/fluent-operator/fluent-operator package=ghcr.io/fluent/fluent-operator/fluent-operator
-        tag: 3.8.0@sha256:225844d5267a7d4b0329676768b56c20d5fd9b8d8163b56a4a68d37f725c153b
+        tag: 3.9.0@sha256:705375468232d8d39d47c60d55296b1587501fc1cb4f2f313e7e7b4ad82cc3ed
       initcontainer:
         image:
           # renovate: datasource=docker depName=docker.io/library/docker package=docker.io/library/docker
