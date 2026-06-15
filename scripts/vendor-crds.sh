@@ -31,6 +31,9 @@ generate_crds() {
   helm_chart=$(yq ".vendors[$i].helm.chart // \"\"" "$MANIFEST")
 
   if [ -n "$url" ]; then
+    # '${version}' is the literal placeholder in the manifest URL, matched and
+    # replaced with the resolved version — the single quotes are intentional.
+    # shellcheck disable=SC2016
     url=${url//'${version}'/$version}
     curl -fsSL "$url"
     return
