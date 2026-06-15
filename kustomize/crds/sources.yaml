@@ -45,3 +45,14 @@ vendors:
       repo: https://aws.github.io/eks-charts
       chart: aws-load-balancer-controller
       mode: crds
+
+  - name: fluent-operator
+    # renovate: datasource=helm depName=fluent-operator package=fluent-operator helmRepo=https://fluent.github.io/helm-charts
+    version: 4.1.0
+    helm:
+      repo: https://fluent.github.io/helm-charts
+      chart: fluent-operator
+      mode: template
+      set:
+        - fluentbit.crdsEnable=true
+        - fluentd.crdsEnable=true

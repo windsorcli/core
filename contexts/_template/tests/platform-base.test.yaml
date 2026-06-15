@@ -96,6 +96,7 @@ cases:
       crds:
         - cert-manager-1.20.2
         - prometheus-operator-0.91.0
+        - fluent-operator-4.1.0
 
   # Full: observability addon enabled; addon wins for same-name observability (grafana + fluentd/outputs/stdout)
   - name: full config with explicit fluentd driver and observability enabled
@@ -401,6 +402,7 @@ cases:
         - name: observability
       crds:
         - prometheus-operator-0.91.0
+        - fluent-operator-4.1.0
 
   # Metrics on, logs off: Prometheus stack deploys, fluent-bit and fluentd are
   # dropped. cert-manager/prometheus stays (metrics are on).
@@ -487,6 +489,7 @@ cases:
             - fluentd/filters/otel
       crds:
         - cert-manager-1.20.2
+        - fluent-operator-4.1.0
     exclude:
       crds:
         - prometheus-operator-0.91.0
