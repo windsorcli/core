@@ -37,6 +37,8 @@ env:
   FLUX_VERSION: v2.8.8
   # renovate: datasource=github-releases depName=yq package=mikefarah/yq
   YQ_VERSION: v4.53.3
+  # renovate: datasource=github-releases depName=helm package=helm/helm
+  HELM_VERSION: v4.2.1
 
 jobs:
 
@@ -115,6 +117,24 @@ jobs:
           cd - &&
           rm -rf "$OLDPWD" &&
           yq --version
+
+      # helm renders the vendored CRDs (helm show crds / helm template) for the
+      # crds:check drift guard. Local devs get it via aqua; CI installs the same
+      # pinned version directly.
+      - name: Install Helm
+        run: |
+          cd "$(mktemp -d)" &&
+          curl -fsSLO "https://get.helm.sh/helm-${HELM_VERSION}-linux-amd64.tar.gz" &&
+          tar xzf "helm-${HELM_VERSION}-linux-amd64.tar.gz" &&
+          sudo install -m 0755 -o root -g root linux-amd64/helm /usr/local/bin/helm &&
+          cd - &&
+          rm -rf "$OLDPWD" &&
+          helm version
+
+      # Fail if kustomize/crds/<name>-<version>/ has drifted from the sources in
+      # kustomize/crds/sources.yaml (regenerate with 'task crds' and commit).
+      - name: Validate vendored CRDs
+        run: task crds:check
 
       # Fail if kustomize/<add-on>/.docs.yaml has diverged from the rendered
       # BEGIN_KUSTOMIZE_DOCS / END_KUSTOMIZE_DOCS region in README.md.
