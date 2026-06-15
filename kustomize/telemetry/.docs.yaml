@@ -15,7 +15,7 @@ components:
   base/prometheus:
     facet: telemetry-base
     enable_when: "`telemetry.metrics.enabled: true`"
-    description: "Helm release of `kube-prometheus-stack` (chart) in `system-telemetry`. Provides Prometheus, Alertmanager, node-exporter, kube-state-metrics. Grafana sub-chart is disabled (Grafana lives in the observability add-on)."
+    description: "Helm release of `kube-prometheus-stack` (chart) in `system-telemetry`. Provides Prometheus, Alertmanager, node-exporter, kube-state-metrics. Grafana sub-chart is disabled (Grafana lives in the observability add-on). Chart CRD install is skipped; the prometheus-operator CRDs are vendored under `kustomize/crds/` and applied ahead of the controller via the facet `crds:` section."
   base/prometheus/flux:
     facet: telemetry-base
     enable_when: "`telemetry.metrics.enabled: true`"
@@ -23,7 +23,7 @@ components:
   base/fluentbit:
     facet: telemetry-base
     enable_when: "`telemetry.logs.enabled: true`"
-    description: "Helm release of the `fluent-operator` chart in `system-telemetry`. Installs the FluentBit operator CRDs and a FluentBit DaemonSet on every node. The actual collector configuration ships as the `resources/fluentbit/*` components."
+    description: "Helm release of the `fluent-operator` chart in `system-telemetry`. Installs the operator and a FluentBit DaemonSet on every node (chart CRD install is skipped). The operator's CRDs are vendored under `kustomize/crds/` and applied via the facet `crds:` section, so an operator teardown can't cascade-delete its CRs. The actual collector configuration ships as the `resources/fluentbit/*` components."
   base/filebeat:
     facet: telemetry-base
     enable_when: "`addons.observability.logs_driver == 'elasticsearch'` (telemetry-base is replaced)"
@@ -39,7 +39,7 @@ components:
   resources/prometheus:
     facet: telemetry-resources
     enable_when: "`telemetry.metrics.enabled: true`"
-    description: "ServiceMonitors and PrometheusRules that target the blueprint's core workloads (kube-state-metrics, the API server, etcd via Talos discovery). Renders after the `base/prometheus` chart so the CRDs exist."
+    description: "ServiceMonitors and PrometheusRules that target the blueprint's core workloads (kube-state-metrics, the API server, etcd via Talos discovery). The ServiceMonitor / PrometheusRule CRDs come from the vendored `crds:` layer, applied ahead of the whole stack."
   resources/prometheus/flux:
     facet: telemetry-resources
     enable_when: "`telemetry.metrics.enabled: true`"

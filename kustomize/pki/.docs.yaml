@@ -37,7 +37,7 @@ components:
   cert-manager:
     facet: pki-base
     enable_when: always
-    description: "Helm release of the `cert-manager` chart in `system-pki`. Installs the controller, webhook, and cainjector. ClusterIssuer / Certificate CRDs become available for `pki-resources` to consume."
+    description: "Helm release of the `cert-manager` chart in `system-pki`. Installs the controller, webhook, and cainjector (chart CRD install is skipped). The cert-manager CRDs are vendored under `kustomize/crds/` and applied ahead of the controller via the facet `crds:` section, so `pki-resources` can consume ClusterIssuer / Certificate CRs."
   cert-manager/single-node:
     facet: pki-base
     enable_when: "single-node topology"

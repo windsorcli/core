@@ -6,6 +6,16 @@ tasks:
     cmds:
       - scripts/vendor-dashboards.sh
 
+  crds:
+    desc: Regenerate vendored CRDs from kustomize/crds/sources.yaml
+    cmds:
+      - scripts/vendor-crds.sh
+
+  crds:check:
+    desc: Verify vendored CRDs match their sources (CI drift guard)
+    cmds:
+      - scripts/vendor-crds.sh --check
+
   scan:
     desc: Scan for security vulnerabilities
     silent: true

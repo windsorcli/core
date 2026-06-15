@@ -53,6 +53,18 @@ config:
       issuer_component: private-issuer/selfsigned
 
 # =============================================================================
+# CRDs — vendored, applied ahead of the controller
+# =============================================================================
+#
+# The AWS Load Balancer Controller chart ships its CRDs in the chart's crds/
+# directory, which Helm/Flux install once and never upgrade. Vendoring them
+# into the crds: layer keeps them current; the chart's CRD install is skipped.
+#
+crds:
+  # renovate: datasource=helm depName=aws-load-balancer-controller package=aws-load-balancer-controller helmRepo=https://aws.github.io/eks-charts
+  - aws-load-balancer-controller-3.4.0
+
+# =============================================================================
 # Terraform — S3 state backend, VPC, EKS, optional Cilium bootstrap
 # =============================================================================
 #

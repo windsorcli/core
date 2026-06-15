@@ -25,7 +25,7 @@ components:
   envoy:
     facet: gateway-base
     enable_when: "`gateway.driver == 'envoy'`"
-    description: "Helm release of `envoy-gateway` in `system-gateway`. Installs the Envoy Gateway operator + its Gateway API CRDs (vendored at a pinned version under `base/crds/`)."
+    description: "Helm release of `envoy-gateway` in `system-gateway`. Installs the Envoy Gateway operator (chart CRD install is skipped). The Envoy Gateway and shared Gateway API CRDs are vendored under `kustomize/crds/` and applied ahead of the controller via the facet `crds:` section."
   envoy/loadbalancer:
     facet: gateway-base
     enable_when: "envoy driver AND `lb_effective.mode == 'loadbalancer'`"

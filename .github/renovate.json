@@ -219,6 +219,35 @@
       "datasourceTemplate": "{{datasource}}",
       "packageNameTemplate": "{{package}}",
       "depNameTemplate": "{{depName}}"
+    },
+    {
+      "customType": "regex",
+      "managerFilePatterns": [
+        "/^contexts/_template/facets/.*\\.ya?ml$/"
+      ],
+      "description": "Parse helm renovate annotations on CRD layer refs (<name>-<version>)",
+      "matchStrings": [
+        "\\s*#\\s*renovate:\\s*datasource=(?<datasource>[^\\s]+)\\s*depName=(?<depName>[^\\s]+)\\s*package=(?<package>[^\\s]+)\\s+helmRepo=(?<helmRepo>[^\\s]+)[^\\n]*\\n[^\\n]*-(?<currentValue>v?\\d+\\.\\d+\\.\\d+(-[a-zA-Z0-9]+)?)"
+      ],
+      "versioningTemplate": "semver",
+      "datasourceTemplate": "{{datasource}}",
+      "packageNameTemplate": "{{package}}",
+      "depNameTemplate": "{{depName}}",
+      "registryUrlTemplate": "{{helmRepo}}"
+    },
+    {
+      "customType": "regex",
+      "managerFilePatterns": [
+        "/^contexts/_template/facets/.*\\.ya?ml$/"
+      ],
+      "description": "Parse non-helm renovate annotations on CRD layer refs (<name>-<version>)",
+      "matchStrings": [
+        "\\s*#\\s*renovate:\\s*datasource=(?<datasource>[^\\s]+)\\s*depName=(?<depName>[^\\s]+)\\s*package=(?<package>[^\\s]+)\\s*\\n[^\\n]*-(?<currentValue>v?\\d+\\.\\d+\\.\\d+(-[a-zA-Z0-9]+)?)"
+      ],
+      "versioningTemplate": "semver",
+      "datasourceTemplate": "{{datasource}}",
+      "packageNameTemplate": "{{package}}",
+      "depNameTemplate": "{{depName}}"
     }
   ],
   "platformAutomerge": true,

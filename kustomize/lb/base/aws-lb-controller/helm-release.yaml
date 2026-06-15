@@ -8,9 +8,11 @@ spec:
   interval: 5m
   timeout: 10m
   install:
+    crds: Skip
     remediation:
       retries: 3
   upgrade:
+    crds: Skip
     remediation:
       retries: 3
   uninstall:

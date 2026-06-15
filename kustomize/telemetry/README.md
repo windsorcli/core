@@ -141,9 +141,9 @@ removed and `filebeat` is added.
 
 | Component | Enable when | Effect |
 |---|---|---|
-| `base/prometheus` | `telemetry.metrics.enabled: true` | Helm release of `kube-prometheus-stack` (chart) in `system-telemetry`. Provides Prometheus, Alertmanager, node-exporter, kube-state-metrics. Grafana sub-chart is disabled (Grafana lives in the observability add-on). |
+| `base/prometheus` | `telemetry.metrics.enabled: true` | Helm release of `kube-prometheus-stack` (chart) in `system-telemetry`. Provides Prometheus, Alertmanager, node-exporter, kube-state-metrics. Grafana sub-chart is disabled (Grafana lives in the observability add-on). Chart CRD install is skipped; the prometheus-operator CRDs are vendored under `kustomize/crds/` and applied ahead of the controller via the facet `crds:` section. |
 | `base/prometheus/flux` | `telemetry.metrics.enabled: true` | Patches the kube-prometheus-stack HelmRelease to scrape Flux controller metrics and enable the bundled Flux dashboards. |
-| `base/fluentbit` | `telemetry.logs.enabled: true` | Helm release of the `fluent-operator` chart in `system-telemetry`. Installs the FluentBit operator CRDs and a FluentBit DaemonSet on every node. The actual collector configuration ships as the `resources/fluentbit/*` components. |
+| `base/fluentbit` | `telemetry.logs.enabled: true` | Helm release of the `fluent-operator` chart in `system-telemetry`. Installs the operator and a FluentBit DaemonSet on every node (chart CRD install is skipped). The operator's CRDs are vendored under `kustomize/crds/` and applied via the facet `crds:` section, so an operator teardown can't cascade-delete its CRs. The actual collector configuration ships as the `resources/fluentbit/*` components. |
 | `base/filebeat` | `addons.observability.logs_driver == 'elasticsearch'` (telemetry-base is replaced) | Helm release of Elastic's Filebeat chart, used instead of FluentBit when Elasticsearch is the log driver. Wired by the `addon-observability` facet's `strategy: replace` override of telemetry-base. |
 
 ## Components — `telemetry-resources`
@@ -152,7 +152,7 @@ removed and `filebeat` is added.
 |---|---|---|
 | `resources/metrics-server` | `telemetry.metrics.enabled: true` AND `telemetry.metrics_server_enabled: true` | Helm release of `metrics-server` for `kubectl top` and HPA. Some platforms (EKS / AKS) ship a managed metrics-server; gate this off when one is already present. |
 | `resources/metrics-server/skip-tls` | default (when metrics-server is enabled in a cluster with selfsigned kubelet certs) | Patches the metrics-server Deployment to add `--kubelet-insecure-tls`. Required on Talos and other distros where kubelet serves cert-manager-issued or selfsigned certs. |
-| `resources/prometheus` | `telemetry.metrics.enabled: true` | ServiceMonitors and PrometheusRules that target the blueprint's core workloads (kube-state-metrics, the API server, etcd via Talos discovery). Renders after the `base/prometheus` chart so the CRDs exist. |
+| `resources/prometheus` | `telemetry.metrics.enabled: true` | ServiceMonitors and PrometheusRules that target the blueprint's core workloads (kube-state-metrics, the API server, etcd via Talos discovery). The ServiceMonitor / PrometheusRule CRDs come from the vendored `crds:` layer, applied ahead of the whole stack. |
 | `resources/prometheus/flux` | `telemetry.metrics.enabled: true` | ServiceMonitor for Flux controllers and a PrometheusRule with the upstream Flux alert set. |
 | `resources/fluentbit` | `telemetry.logs.enabled: true` | `ClusterFluentBitConfig` + `ClusterOutput` (no-op by default; outputs are added by `addon-observability` based on `logs_driver`). Establishes the base FluentBit pipeline. |
 | `resources/fluentbit/containerd` | `telemetry.logs.enabled: true` | `ClusterInput` reading containerd logs from `/var/log/containers/*.log` with the multiline-parser configuration for containerd's CRI log format. |

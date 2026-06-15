@@ -47,6 +47,8 @@ cases:
             - aws-ebs
           timeout: 5m
           interval: 5m
+      crds:
+        - aws-load-balancer-controller-3.4.0
 
   # Regression: workstation.runtime must not activate option-workstation on AWS.
   # If option-workstation applied, it would replace provider gitops inputs and set local dev defaults.
