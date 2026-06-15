@@ -20,6 +20,10 @@ CHECK=0
 
 [ -f "$MANIFEST" ] || { echo "manifest not found: $MANIFEST" >&2; exit 1; }
 
+# Clean up the per-iteration temp files on any exit path — set -euo pipefail aborts
+# mid-generate (e.g. a curl/helm failure) after mktemp has already run.
+trap 'rm -f "${crd_tmp:-}" "${kust_tmp:-}" "${root_tmp:-}" 2>/dev/null' EXIT
+
 # generate_crds <index> <version> -> CRD yaml on stdout
 generate_crds() {
   local i="$1" version="$2" url helm_chart
