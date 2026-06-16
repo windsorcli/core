@@ -618,6 +618,46 @@ run "pools_drive_node_groups_when_set" {
     condition     = aws_eks_node_group.main["system"].labels["windsorcli.dev/pool"] == "system" && aws_eks_node_group.main["system"].labels["windsorcli.dev/pool-class"] == "system"
     error_message = "Pool name and class should be auto-injected as windsorcli.dev/pool labels"
   }
+
+  assert {
+    condition = length([
+      for t in aws_eks_node_group.main["system"].taint :
+      t if t.key == "CriticalAddonsOnly" && t.value == "true" && t.effect == "NO_SCHEDULE"
+    ]) == 1
+    error_message = "system class should carry the CriticalAddonsOnly=true:NO_SCHEDULE taint, matching AKS"
+  }
+
+  assert {
+    condition     = length(aws_eks_node_group.main["batch"].taint) == 0
+    error_message = "Non-system pools should not get the CriticalAddonsOnly taint"
+  }
+}
+
+# A system pool that already declares its own CriticalAddonsOnly taint is not
+# given a second copy by the class default.
+run "pools_system_taint_not_duplicated" {
+  command = plan
+
+  variables {
+    context_id         = "test"
+    kubernetes_version = "1.34"
+    pools = {
+      system = {
+        class = "system"
+        count = 1
+        taints = [{
+          key    = "CriticalAddonsOnly"
+          value  = "true"
+          effect = "NO_SCHEDULE"
+        }]
+      }
+    }
+  }
+
+  assert {
+    condition     = length(aws_eks_node_group.main["system"].taint) == 1
+    error_message = "An operator-declared CriticalAddonsOnly taint should not be duplicated"
+  }
 }
 
 # Default-on autoscaling: a general pool with only class+count scales min 1 / max 3,

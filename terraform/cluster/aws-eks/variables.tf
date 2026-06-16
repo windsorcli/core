@@ -146,7 +146,7 @@ variable "node_groups" {
 }
 
 variable "pools" {
-  description = "Portable node pool definitions, keyed by pool name; takes precedence over var.node_groups when non-empty. Each pool maps a class to an EKS managed node group. Autoscaling defaults on (min 1, max 3) for every class except system."
+  description = "Portable node pool definitions, keyed by pool name; takes precedence over var.node_groups when non-empty. Each pool maps a class to an EKS managed node group. Autoscaling defaults on (min 1, max 3) for every class except system. System-class pools get a CriticalAddonsOnly=true:NoSchedule taint unless they declare one."
   type = map(object({
     class          = string
     count          = number
