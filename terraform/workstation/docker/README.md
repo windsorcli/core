@@ -15,7 +15,7 @@ with Docker Desktop or Colima.
 
 | Name | Version |
 |------|---------|
-| <a name="requirement_terraform"></a> [terraform](#requirement\_terraform) | ~> 1.12.0 |
+| <a name="requirement_terraform"></a> [terraform](#requirement\_terraform) | >= 1.12.2 |
 | <a name="requirement_docker"></a> [docker](#requirement\_docker) | 4.4.0 |
 
 ## Providers
