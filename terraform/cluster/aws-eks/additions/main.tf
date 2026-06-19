@@ -4,7 +4,7 @@
 # Key features: namespace management, configmap creation, auto-import of existing resources
 
 terraform {
-  required_version = "~> 1.12.0"
+  required_version = ">= 1.12.2"
   required_providers {
     kubernetes = {
       source  = "hashicorp/kubernetes"
