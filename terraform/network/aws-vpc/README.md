@@ -16,7 +16,7 @@ lists describe the same AZ. Outputs feed the `cluster/aws-eks` module.
 
 | Name | Version |
 |------|---------|
-| <a name="requirement_terraform"></a> [terraform](#requirement\_terraform) | ~> 1.12.0 |
+| <a name="requirement_terraform"></a> [terraform](#requirement\_terraform) | >= 1.12.2 |
 | <a name="requirement_aws"></a> [aws](#requirement\_aws) | 6.47.0 |
 
 ## Providers

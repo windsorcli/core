@@ -17,7 +17,7 @@ kubeconfig flow run without a redundant machine-config apply.
 
 | Name | Version |
 |------|---------|
-| <a name="requirement_terraform"></a> [terraform](#requirement\_terraform) | ~> 1.12.0 |
+| <a name="requirement_terraform"></a> [terraform](#requirement\_terraform) | >= 1.12.2 |
 | <a name="requirement_hyperv"></a> [hyperv](#requirement\_hyperv) | 0.3.1 |
 | <a name="requirement_talos"></a> [talos](#requirement\_talos) | 0.11.0 |
 
