@@ -72,7 +72,7 @@ resource "helm_release" "flux_system" {
       create = var.image_automation
       image  = "ghcr.io/fluxcd/image-automation-controller"
       # renovate: datasource=docker depName=ghcr.io/fluxcd/image-automation-controller package=ghcr.io/fluxcd/image-automation-controller
-      tag = "v1.1.4@sha256:a888b32b1e0f4fd754bc1db606741503300d3efb060e82b9c28d3852f1008049"
+      tag = "v1.2.0@sha256:f94f468bce5e011bafa03f985182333571e8d3a3d4b1892b801aab0265c87128"
       }, var.leader_election ? {} : {
       container = { additionalArgs = local.leader_election_args }
     })
