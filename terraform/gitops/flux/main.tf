@@ -29,13 +29,82 @@ locals {
   # Higher concurrency = shorter interval, lower = longer to reduce pressure
   requeue_interval = var.concurrency <= 3 ? "15s" : (var.concurrency <= 5 ? "10s" : "5s")
 
-  # Appended to every controller's additionalArgs. Default (leader_election=true)
-  # is an empty list so the rendered Helm values stay byte-identical to before.
+  # Appended to every controller's args. Default (leader_election=true) is an
+  # empty list so no leader-election patch is emitted.
   leader_election_args = var.leader_election ? [] : ["--enable-leader-election=false"]
 
   notification_enabled    = var.mode == "push"
   webhook_token_supplied  = var.webhook_token != null && var.webhook_token != ""
   effective_webhook_token = local.webhook_token_supplied ? var.webhook_token : try(random_password.webhook_token[0].result, "")
+
+  # Controllers the FluxInstance deploys. source/kustomize/helm are always on;
+  # notification tracks push mode; the image controllers are opt-in.
+  flux_components = concat(
+    ["source-controller", "kustomize-controller", "helm-controller"],
+    local.notification_enabled ? ["notification-controller"] : [],
+    var.image_reflection ? ["image-reflector-controller"] : [],
+    var.image_automation ? ["image-automation-controller"] : [],
+  )
+
+  # Extra container args per controller, matched by Deployment name. The operator
+  # ships the base manifests without these flags; we append them via patches.
+  controller_args = {
+    "source-controller" = concat([
+      "--concurrent=${var.concurrency}",
+      "--requeue-dependency=${local.requeue_interval}",
+      "--helm-cache-max-size=200",
+      "--helm-cache-ttl=60m",
+      "--helm-cache-purge-interval=5m",
+    ], local.leader_election_args)
+    "kustomize-controller" = concat([
+      "--concurrent=${var.concurrency}",
+      "--requeue-dependency=${local.requeue_interval}",
+    ], local.leader_election_args)
+    "helm-controller" = concat([
+      "--concurrent=${max(2, var.concurrency - 1)}",
+      "--requeue-dependency=${local.requeue_interval}",
+    ], local.leader_election_args)
+    "notification-controller"     = local.leader_election_args
+    "image-reflector-controller"  = local.leader_election_args
+    "image-automation-controller" = local.leader_election_args
+  }
+
+  # JSON6902 patches appending the args above, plus the kustomize-controller
+  # memory limit carried over from the previous Helm-chart install.
+  flux_patches = concat(
+    [
+      for name, cargs in local.controller_args : {
+        target = { kind = "Deployment", name = name }
+        patch = yamlencode([
+          for a in cargs : {
+            op    = "add"
+            path  = "/spec/template/spec/containers/0/args/-"
+            value = a
+          }
+        ])
+      } if length(cargs) > 0
+    ],
+    [
+      {
+        target = { kind = "Deployment", name = "kustomize-controller" }
+        patch = yamlencode({
+          apiVersion = "apps/v1"
+          kind       = "Deployment"
+          metadata   = { name = "kustomize-controller" }
+          spec = {
+            template = {
+              spec = {
+                containers = [{
+                  name      = "manager"
+                  resources = { limits = { memory = "512Mi" } }
+                }]
+              }
+            }
+          }
+        })
+      }
+    ]
+  )
 }
 
 #-----------------------------------------------------------------------------------------------------------------------
@@ -59,78 +128,46 @@ resource "kubernetes_namespace_v1" "flux_system" {
   }
 }
 
-resource "helm_release" "flux_system" {
-  repository       = "https://fluxcd-community.github.io/helm-charts"
-  chart            = "flux2"
-  name             = "flux2"
-  version          = var.flux_helm_version
+# The operator installs the Flux CRDs and controllers and owns the FluxInstance CRD.
+resource "helm_release" "flux_operator" {
+  repository       = "oci://ghcr.io/controlplaneio-fluxcd/charts"
+  chart            = "flux-operator"
+  name             = "flux-operator"
+  version          = var.flux_operator_version
   namespace        = kubernetes_namespace_v1.flux_system.metadata[0].name
   create_namespace = false
   wait             = true
+}
+
+# The FluxInstance declares which controllers to run and how to tune them. The
+# sync block is intentionally omitted: the windsor CLI creates the root
+# GitRepository and Kustomizations, so the operator manages controllers only.
+resource "helm_release" "flux_instance" {
+  repository       = "oci://ghcr.io/controlplaneio-fluxcd/charts"
+  chart            = "flux-instance"
+  name             = "flux"
+  version          = var.flux_operator_version
+  namespace        = kubernetes_namespace_v1.flux_system.metadata[0].name
+  create_namespace = false
+  wait             = true
+  depends_on       = [helm_release.flux_operator]
   values = [yamlencode({
-    imageAutomationController = merge({
-      create = var.image_automation
-      image  = "ghcr.io/fluxcd/image-automation-controller"
-      # renovate: datasource=docker depName=ghcr.io/fluxcd/image-automation-controller package=ghcr.io/fluxcd/image-automation-controller
-      tag = "v1.2.0@sha256:f94f468bce5e011bafa03f985182333571e8d3a3d4b1892b801aab0265c87128"
-      }, var.leader_election ? {} : {
-      container = { additionalArgs = local.leader_election_args }
-    })
-    imageReflectionController = merge({
-      create = var.image_reflection
-      image  = "ghcr.io/fluxcd/image-reflector-controller"
-      # renovate: datasource=docker depName=ghcr.io/fluxcd/image-reflector-controller package=ghcr.io/fluxcd/image-reflector-controller
-      tag = "v1.2.0@sha256:a4051b4a02053ec3f6e18bc8f51c4635eeb36583febb587a9ff678e61cc1b7f1"
-      }, var.leader_election ? {} : {
-      container = { additionalArgs = local.leader_election_args }
-    })
-    kustomizeController = {
-      image = "ghcr.io/fluxcd/kustomize-controller"
-      # renovate: datasource=docker depName=ghcr.io/fluxcd/kustomize-controller package=ghcr.io/fluxcd/kustomize-controller
-      tag = "v1.8.5@sha256:70e2a25edeee82690e68662409fb1b60f7d3084c93435e8ab5337a6e0244ffed"
-      container = {
-        additionalArgs = concat([
-          "--concurrent=${var.concurrency}",
-          "--requeue-dependency=${local.requeue_interval}"
-        ], local.leader_election_args)
-        resources = {
-          limits = {
-            memory = "512Mi"
-          }
-        }
+    instance = {
+      distribution = {
+        version  = var.flux_version
+        registry = "ghcr.io/fluxcd"
       }
-    }
-    helmController = {
-      image = "ghcr.io/fluxcd/helm-controller"
-      # renovate: datasource=docker depName=ghcr.io/fluxcd/helm-controller package=ghcr.io/fluxcd/helm-controller
-      tag = "v1.4.2@sha256:32dd3ec7a138245ff4cd755439099c544f4ce3a55f95aa69a97106c05a661def"
-      container = {
-        additionalArgs = concat([
-          "--concurrent=${max(2, var.concurrency - 1)}",
-          "--requeue-dependency=${local.requeue_interval}"
-        ], local.leader_election_args)
+      components = local.flux_components
+      cluster = {
+        type = "kubernetes"
+        # Same NetworkPolicies the flux2 chart already shipped (allow all
+        # intra-namespace traffic + egress, :8080 scraping, notification
+        # webhooks) plus the operator UI on :9080. Enforced only where the CNI
+        # supports it; a no-op on flannel.
+        networkPolicy = true
       }
-    }
-    notificationController = merge({
-      create = local.notification_enabled
-      image  = "ghcr.io/fluxcd/notification-controller"
-      # renovate: datasource=docker depName=ghcr.io/fluxcd/notification-controller package=ghcr.io/fluxcd/notification-controller
-      tag = "v1.9.0@sha256:b6baf7ab1ef8bd5486f9add4e48252190824df2c35bb1dac87ec394f8592978d"
-      }, var.leader_election ? {} : {
-      container = { additionalArgs = local.leader_election_args }
-    })
-    sourceController = {
-      image = "ghcr.io/fluxcd/source-controller"
-      # renovate: datasource=docker depName=ghcr.io/fluxcd/source-controller package=ghcr.io/fluxcd/source-controller
-      tag = "v1.9.0@sha256:d37a0e034cd8311db7f31a595d547f5c2fdbbea83fa0c1cb03d7dafe862d7e4f"
-      container = {
-        additionalArgs = concat([
-          "--concurrent=${var.concurrency}",
-          "--requeue-dependency=${local.requeue_interval}",
-          "--helm-cache-max-size=200",
-          "--helm-cache-ttl=60m",
-          "--helm-cache-purge-interval=5m"
-        ], local.leader_election_args)
+      kustomize = {
+        patches = local.flux_patches
       }
     }
   })]
@@ -209,4 +246,16 @@ moved {
 moved {
   from = kubernetes_secret_v1.webhook_token
   to   = kubernetes_secret_v1.webhook_token[0]
+}
+
+# Drop the old fluxcd-community flux2 Helm release from state WITHOUT uninstalling
+# it. That chart renders the Flux CRDs as templates, so a real `helm uninstall`
+# would delete them and cascade-delete every GitRepository/Kustomization/
+# HelmRelease in the cluster. The operator adopts the live controllers in the
+# same apply. No-op on clusters that never ran the flux2 chart.
+removed {
+  from = helm_release.flux_system
+  lifecycle {
+    destroy = false
+  }
 }
