@@ -828,6 +828,10 @@ properties:
             sensitive: true
             description: Token for the Flux Receiver secret (push mode only). Defaults to a placeholder in workstation mode; set explicitly for production.
         additionalProperties: false
+      web_ui:
+        type: boolean
+        default: false
+        description: Expose the flux-operator web UI through the gateway at flux.<domain>. Off by default; the UI is always reachable via port-forward regardless.
     additionalProperties: false
 
   # Gateway configuration
