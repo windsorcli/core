@@ -11,6 +11,7 @@ configMapGenerator:
     files:
       - control-plane.json
       - cluster.json
+      - flux-performance.json
     options:
       disableNameSuffixHash: true
       labels:
