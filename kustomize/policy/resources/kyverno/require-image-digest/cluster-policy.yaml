@@ -38,6 +38,16 @@ spec:
               namespaceSelector:
                 matchLabels:
                   policy.windsorcli.dev/managed: "false"
+          # Flux controllers are installed by the flux-operator, which resolves
+          # images by distribution version rather than digest. Exempt the Flux
+          # namespace (labelled by the gitops/flux module) so background scans
+          # don't flag them.
+          - resources:
+              kinds:
+                - Pod
+              namespaceSelector:
+                matchLabels:
+                  app.kubernetes.io/part-of: flux
       validate:
         message: "All container images must include a SHA256 digest (e.g., image:tag@sha256:digest or image@sha256:digest)."
         pattern:
