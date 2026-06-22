@@ -172,6 +172,7 @@ properties:
       - metal
       - docker
       - hyperv
+      - vsphere
     default: none
     description: Infrastructure platform. Selects the platform facet (cluster driver defaults, policy, PKI, telemetry, ingress, storage).
 
@@ -287,6 +288,59 @@ properties:
           <base_dir>/vhds and parent images to <base_dir>/images. Forward
           and back slashes are accepted equivalently by Hyper-V.
     description: Hyper-V infrastructure configuration
+
+  # VMware vSphere provider configuration (only consumed when platform == 'vsphere').
+  # Connection credentials (server, username, password) are env-var driven by the
+  # provider itself (VSPHERE_SERVER, VSPHERE_USER, VSPHERE_PASSWORD,
+  # VSPHERE_ALLOW_UNVERIFIED_SSL); this block carries only the vSphere inventory
+  # pointers the facet cannot derive — datacenter, cluster, datastore, and port
+  # group. All four are required for compute; `folder` and `resource_pool` are
+  # optional and default to the datacenter root VM folder and the cluster's root
+  # pool respectively.
+  vsphere:
+    type: object
+    additionalProperties: false
+    properties:
+      datacenter:
+        type: string
+        description: >
+          vSphere datacenter name (exact match as shown in the vCenter inventory,
+          e.g. "dc-prod"). Required for all vSphere operations.
+      cluster:
+        type: string
+        description: >
+          vSphere compute cluster name (e.g. "cluster-01"). VMs are scheduled
+          onto hosts in this cluster. Required.
+      datastore:
+        type: string
+        description: >
+          Datastore or datastore cluster name where VM disks are placed
+          (e.g. "datastore-01" or "vsanDatastore"). Required.
+      network:
+        type: string
+        description: >
+          Port group name the VM primary NIC attaches to
+          (e.g. "VM Network" or "vlan-prod-100"). Required.
+      folder:
+        type: string
+        description: >
+          VM folder path relative to the datacenter VM folder root
+          (e.g. "prod/talos"). Leave unset to place VMs at the datacenter root.
+      resource_pool:
+        type: string
+        description: >
+          Resource pool path relative to the compute cluster
+          (e.g. "talos-pool"). Leave unset to use the cluster's root resource
+          pool.
+      allow_unverified_ssl:
+        type: boolean
+        default: false
+        description: >
+          Disable TLS certificate verification for the vCenter API endpoint.
+          Set true only when the vCenter uses a self-signed or private-CA cert
+          and the root CA is not available in the runner's trust store.
+          Overridden at the provider level by VSPHERE_ALLOW_UNVERIFIED_SSL.
+    description: VMware vSphere infrastructure configuration
 
   # Free-form env vars injected by `windsor exec` and into terraform applies.
   # Keyed by env-var name; values are strings (quote numerics in YAML).
