@@ -122,7 +122,7 @@ resource "helm_release" "flux_system" {
     sourceController = {
       image = "ghcr.io/fluxcd/source-controller"
       # renovate: datasource=docker depName=ghcr.io/fluxcd/source-controller package=ghcr.io/fluxcd/source-controller
-      tag = "v1.8.5@sha256:65172e2405cf95b92c4b00cefd28d5e8ffd1f81d6d097f85c6e83a9c557c9def"
+      tag = "v1.9.0@sha256:d37a0e034cd8311db7f31a595d547f5c2fdbbea83fa0c1cb03d7dafe862d7e4f"
       container = {
         additionalArgs = concat([
           "--concurrent=${var.concurrency}",
