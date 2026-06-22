@@ -115,7 +115,7 @@ resource "helm_release" "flux_system" {
       create = local.notification_enabled
       image  = "ghcr.io/fluxcd/notification-controller"
       # renovate: datasource=docker depName=ghcr.io/fluxcd/notification-controller package=ghcr.io/fluxcd/notification-controller
-      tag = "v1.8.4@sha256:75842ecfcca4397a788051d6b00ec34f96ea74788c92d9c360fc4d196ea04551"
+      tag = "v1.9.0@sha256:b6baf7ab1ef8bd5486f9add4e48252190824df2c35bb1dac87ec394f8592978d"
       }, var.leader_election ? {} : {
       container = { additionalArgs = local.leader_election_args }
     })
