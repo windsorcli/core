@@ -9,7 +9,7 @@
 #   - all
 registries:
   - type: standard
-    ref: v4.526.0 # renovate: depName=aquaproj/aqua-registry
+    ref: v4.527.0 # renovate: depName=aquaproj/aqua-registry
 packages:
   # Pinned to the 1.12 line for OpenTofu compatibility; see required_version "~> 1.12".
   - name: hashicorp/terraform@v1.12.2
