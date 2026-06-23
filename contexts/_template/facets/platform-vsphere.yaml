@@ -47,15 +47,15 @@ config:
   # inputs consume. The Talos image URL is fully derivable from
   # talos.talos_version (renovate-pinned) plus the schematic ID below.
   #
-  # The schematic bakes siderolabs/vmtoolsd-vsphere into the Talos OVA.
-  # vmtoolsd-vsphere provides the open-vm-tools equivalent for Talos — it runs
-  # the VMware Tools daemon that reports guest IPs, hostname, and heartbeat back
-  # to vCenter. Without it, Terraform cannot discover the VM's IP after boot,
-  # and vSphere's graceful-shutdown integration will not work.
+  # The schematic bakes siderolabs/vmtoolsd-guest-agent into the Talos OVA.
+  # vmtoolsd-guest-agent provides the open-vm-tools equivalent for Talos — it
+  # runs the VMware Tools daemon that reports guest IPs, hostname, and heartbeat
+  # back to vCenter. Without it, Terraform cannot discover the VM's IP after
+  # boot, and vSphere's graceful-shutdown integration will not work.
   #
   # Schematic derivation (recompute when the extension list changes):
   #   curl -sX POST -H 'Content-Type: application/yaml' \
-  #     -d $'customization:\n  systemExtensions:\n    officialExtensions:\n      - siderolabs/vmtoolsd-vsphere\n' \
+  #     -d $'customization:\n  systemExtensions:\n    officialExtensions:\n      - siderolabs/vmtoolsd-guest-agent\n' \
   #     https://factory.talos.dev/schematics
   #
   # vSphere is always amd64 in production industrial deployments; arch is
@@ -71,8 +71,8 @@ config:
       folder: "${vsphere.folder ?? ''}"
       resource_pool: "${vsphere.resource_pool ?? ''}"
       allow_unverified_ssl: "${vsphere.allow_unverified_ssl ?? false}"
-      talos_schematic_id: "ee21ef4a5ef808a9b7484cc0dda0f25075021691b2c07ac574dbb0d49f7a41b6"
-      image_url: "${'https://factory.talos.dev/image/ee21ef4a5ef808a9b7484cc0dda0f25075021691b2c07ac574dbb0d49f7a41b6/v' + talos.talos_version + '/vmware-amd64.ova'}"
+      talos_schematic_id: "903b2da78f99adef03cbbd4df6714563823f63218508800751560d3bc3557e40"
+      image_url: "${'https://factory.talos.dev/image/903b2da78f99adef03cbbd4df6714563823f63218508800751560d3bc3557e40/v' + talos.talos_version + '/vmware-amd64.ova'}"
 
   # ---------------------------------------------------------------------------
   # Network gateway and nameservers — delivered to each node via guestinfo

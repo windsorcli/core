@@ -192,7 +192,7 @@ locals {
       }
     })
     if v.ipv4 != null && var.network_gateway != null
-    && contains(["controlplane", "worker"], coalesce(v.role, ""))
+    && contains(["controlplane", "worker"], v.role != null ? v.role : "")
   }
 }
 
@@ -291,12 +291,12 @@ resource "vsphere_virtual_machine" "instances" {
   # Machineconfig via VMware GuestInfo — Talos cluster nodes only.
   # base64 flag tells Talos to base64-decode the config value before applying.
   # Non-cluster VMs receive an empty map.
-  extra_config = contains(["controlplane", "worker"], coalesce(each.value.role, "")) ? {
+  extra_config = contains(["controlplane", "worker"], each.value.role != null ? each.value.role : "") ? {
     "guestinfo.talos.config"        = base64encode(local.machineconfigs[each.key])
     "guestinfo.talos.config.base64" = "true"
   } : {}
 
-  # Block until vmtoolsd reports a guest IP (requires siderolabs/vmtoolsd-vsphere
+  # Block until vmtoolsd reports a guest IP (requires siderolabs/vmtoolsd-guest-agent
   # in the Talos image schematic). Non-Talos VMs also benefit from this wait
   # if they run an open-vm-tools package.
   wait_for_guest_ip_timeout  = 10
@@ -344,7 +344,7 @@ locals {
       ipv6     = local.instance_ipv6s[k]
       status   = v.power_state
       type     = "virtual-machine"
-      image    = coalesce(local.instances_by_name[k].image, "")
+      image    = local.instances_by_name[k].image != null ? local.instances_by_name[k].image : ""
       role     = local.instances_by_name[k].role
     }
   ]
@@ -359,7 +359,7 @@ locals {
       ipv6     = local.instance_ipv6s[k]
       status   = v.power_state
       type     = "virtual-machine"
-      image    = coalesce(local.instances_by_name[k].image, "")
+      image    = local.instances_by_name[k].image != null ? local.instances_by_name[k].image : ""
     }
     if local.instances_by_name[k].role == "controlplane" && local.instance_ips[k] != null
   ]
@@ -374,7 +374,7 @@ locals {
       ipv6     = local.instance_ipv6s[k]
       status   = v.power_state
       type     = "virtual-machine"
-      image    = coalesce(local.instances_by_name[k].image, "")
+      image    = local.instances_by_name[k].image != null ? local.instances_by_name[k].image : ""
     }
     if local.instances_by_name[k].role == "worker" && local.instance_ips[k] != null
   ]
