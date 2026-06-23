@@ -15,8 +15,10 @@ root `GitRepository` and `Kustomization`, so the `FluxInstance` omits its
 leader election, helm cache, the kustomize-controller memory limit) is applied
 through `spec.kustomize.patches`. Controller images resolve by distribution
 version rather than per-image digest, so the `require-image-digest` Kyverno
-policy exempts the Flux namespace. After bootstrap this layer is mostly inert
-— Flux self-manages from the repo going forward.
+policy exempts the Flux namespace. A readiness-gate Job blocks the apply until
+the operator reports the `FluxInstance` Ready, so the toolkit CRDs exist before
+the windsor CLI applies the blueprint. After bootstrap this layer is mostly
+inert — Flux self-manages from the repo going forward.
 
 A `removed` block drops the previous `fluxcd-community/flux2` Helm release from
 Terraform state without uninstalling it, so the operator adopts the live
@@ -42,6 +44,25 @@ and HelmRelease in the cluster, so do not run it by hand.
 | <a name="provider_kubernetes"></a> [kubernetes](#provider\_kubernetes) | 3.1.0 |
 | <a name="provider_random"></a> [random](#provider\_random) | 3.9.0 |
 
+## Modules
+
+No modules.
+
+## Resources
+
+| Name | Type |
+|------|------|
+| [helm_release.flux_instance](https://registry.terraform.io/providers/hashicorp/helm/3.1.2/docs/resources/release) | resource |
+| [helm_release.flux_operator](https://registry.terraform.io/providers/hashicorp/helm/3.1.2/docs/resources/release) | resource |
+| [kubernetes_job_v1.flux_ready_gate](https://registry.terraform.io/providers/hashicorp/kubernetes/3.1.0/docs/resources/job_v1) | resource |
+| [kubernetes_namespace_v1.flux_system](https://registry.terraform.io/providers/hashicorp/kubernetes/3.1.0/docs/resources/namespace_v1) | resource |
+| [kubernetes_role_binding_v1.flux_ready_gate](https://registry.terraform.io/providers/hashicorp/kubernetes/3.1.0/docs/resources/role_binding_v1) | resource |
+| [kubernetes_role_v1.flux_ready_gate](https://registry.terraform.io/providers/hashicorp/kubernetes/3.1.0/docs/resources/role_v1) | resource |
+| [kubernetes_secret_v1.git_auth](https://registry.terraform.io/providers/hashicorp/kubernetes/3.1.0/docs/resources/secret_v1) | resource |
+| [kubernetes_secret_v1.webhook_token](https://registry.terraform.io/providers/hashicorp/kubernetes/3.1.0/docs/resources/secret_v1) | resource |
+| [kubernetes_service_account_v1.flux_ready_gate](https://registry.terraform.io/providers/hashicorp/kubernetes/3.1.0/docs/resources/service_account_v1) | resource |
+| [random_password.webhook_token](https://registry.terraform.io/providers/hashicorp/random/3.9.0/docs/resources/password) | resource |
+
 ## Inputs
 
 | Name | Description | Type | Default | Required |
@@ -65,15 +86,4 @@ and HelmRelease in the cluster, so do not run it by hand.
 ## Outputs
 
 No outputs.
-
-## Resources
-
-| Name | Type |
-|------|------|
-| [helm_release.flux_instance](https://registry.terraform.io/providers/hashicorp/helm/3.1.2/docs/resources/release) | resource |
-| [helm_release.flux_operator](https://registry.terraform.io/providers/hashicorp/helm/3.1.2/docs/resources/release) | resource |
-| [kubernetes_namespace_v1.flux_system](https://registry.terraform.io/providers/hashicorp/kubernetes/3.1.0/docs/resources/namespace_v1) | resource |
-| [kubernetes_secret_v1.git_auth](https://registry.terraform.io/providers/hashicorp/kubernetes/3.1.0/docs/resources/secret_v1) | resource |
-| [kubernetes_secret_v1.webhook_token](https://registry.terraform.io/providers/hashicorp/kubernetes/3.1.0/docs/resources/secret_v1) | resource |
-| [random_password.webhook_token](https://registry.terraform.io/providers/hashicorp/random/3.9.0/docs/resources/password) | resource |
 <!-- END_TF_DOCS -->

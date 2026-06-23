@@ -107,13 +107,13 @@ run "no_secrets" {
   }
 
   assert {
-    condition     = kubernetes_secret_v1.git_auth.data != null
-    error_message = "Git auth secret data should be present (even if empty)"
+    condition     = kubernetes_secret_v1.git_auth.data_wo_revision != null
+    error_message = "Git auth secret should have a write-only data revision (even if empty)"
   }
 
   assert {
-    condition     = kubernetes_secret_v1.webhook_token[0].data != null
-    error_message = "Webhook token secret data should be present (even if empty)"
+    condition     = kubernetes_secret_v1.webhook_token[0].data_wo_revision != null
+    error_message = "Webhook token secret should have a write-only data revision (even if empty)"
   }
 }
 
@@ -314,6 +314,27 @@ run "image_controllers_enabled_when_requested" {
   assert {
     condition     = contains(yamldecode(helm_release.flux_instance.values[0]).instance.components, "image-reflector-controller")
     error_message = "image-reflector-controller should be present when image_reflection=true"
+  }
+}
+
+# Verifies the readiness gate waits on the FluxInstance Ready condition in the
+# Flux namespace, with a Role scoped to fluxinstances.
+run "readiness_gate_waits_on_fluxinstance" {
+  command = plan
+
+  assert {
+    condition     = kubernetes_job_v1.flux_ready_gate.metadata[0].namespace == "system-gitops"
+    error_message = "readiness gate Job should run in the Flux namespace"
+  }
+
+  assert {
+    condition     = strcontains(kubernetes_job_v1.flux_ready_gate.spec[0].template[0].spec[0].container[0].command[2], "kubectl wait --for=condition=Ready --timeout=10m fluxinstance/flux")
+    error_message = "readiness gate should wait on the FluxInstance Ready condition"
+  }
+
+  assert {
+    condition     = contains(kubernetes_role_v1.flux_ready_gate.rule[0].resources, "fluxinstances")
+    error_message = "readiness gate Role should grant access to fluxinstances"
   }
 }
 
