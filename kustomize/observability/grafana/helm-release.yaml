@@ -36,7 +36,7 @@ spec:
         tag: 1.38.0@sha256:fd8d9aa63ba2f0982b5304e1ee8d3b90a210bc1ffb5314d980eb6962f1a9715d
     downloadDashboardsImage:
       # renovate: datasource=docker depName=curlimages/curl package=curlimages/curl
-      tag: 8.20.0@sha256:b3f1fb2a51d923260350d21b8654bbc607164a987e2f7c84a0ac199a67df812a
+      tag: 8.21.0@sha256:7c12af72ceb38b7432ab85e1a265cff6ae58e06f95539d539b654f2cfa64bb13
     sidecar:
       image:
         # renovate: datasource=docker depName=kiwigrid/k8s-sidecar package=kiwigrid/k8s-sidecar
