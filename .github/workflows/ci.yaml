@@ -40,6 +40,10 @@ env:
   # renovate: datasource=github-releases depName=helm package=helm/helm
   HELM_VERSION: v4.2.2
 
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
 jobs:
 
   # ===========================================================================
@@ -546,8 +550,25 @@ jobs:
       # Runs on any non-none phase. Inspects the still-running cluster and
       # publishes a diagnosis to the PR conversation (upsert), step summary,
       # and uploaded artifact. No cluster mutation — strictly read-only tools.
+      - name: Check for existing diagnosis
+        id: diag_check
+        if: always() && steps.phase.outputs.phase != 'none' && github.event_name == 'pull_request' && steps.phase.outputs.phase != 'baseline'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_REPO: ${{ github.repository }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          MARKER: "<!-- claude-integration-${{ matrix.mode }}-diagnosis -->"
+        run: |
+          if COUNT=$(gh api --paginate "repos/$GH_REPO/issues/$PR_NUMBER/comments" \
+                --jq "[.[] | select(.body | contains(\"$MARKER\"))] | length"); then
+            echo "existing=$COUNT" >> "$GITHUB_OUTPUT"
+            [ "$COUNT" -gt 0 ] && echo "Already diagnosed mode '${{ matrix.mode }}' — skipping." || true
+          else
+            echo "existing=0" >> "$GITHUB_OUTPUT"
+          fi
+
       - name: Investigate failure with Claude
-        if: always() && steps.phase.outputs.phase != 'none' && github.event_name == 'pull_request'
+        if: always() && steps.phase.outputs.phase != 'none' && github.event_name == 'pull_request' && steps.diag_check.outputs.existing == '0' && steps.phase.outputs.phase != 'baseline'
         uses: anthropics/claude-code-action@80b31826338489861333dc17217865dfe8085cdc # v1.0.155
         env:
           GH_REPO: ${{ github.repository }}
