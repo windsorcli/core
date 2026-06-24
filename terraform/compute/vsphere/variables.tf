@@ -46,12 +46,6 @@ variable "resource_pool" {
   default     = ""
 }
 
-variable "allow_unverified_ssl" {
-  description = "Disable TLS certificate verification for the vCenter API. Override via VSPHERE_ALLOW_UNVERIFIED_SSL env var. Only set true when the vCenter uses a cert that cannot be verified by the runner's trust store"
-  type        = bool
-  default     = false
-}
-
 variable "network_cidr" {
   description = "CIDR block of the network VMs attach to (e.g. 10.5.0.0/16). Used for sequential IP assignment when instances declare an ipv4 base address and for baking the static-network config into each per-node machineconfig"
   type        = string

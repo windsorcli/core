@@ -332,14 +332,6 @@ properties:
           Resource pool path relative to the compute cluster
           (e.g. "talos-pool"). Leave unset to use the cluster's root resource
           pool.
-      allow_unverified_ssl:
-        type: boolean
-        default: false
-        description: >
-          Disable TLS certificate verification for the vCenter API endpoint.
-          Set true only when the vCenter uses a self-signed or private-CA cert
-          and the root CA is not available in the runner's trust store.
-          Overridden at the provider level by VSPHERE_ALLOW_UNVERIFIED_SSL.
     description: VMware vSphere infrastructure configuration
 
   # Free-form env vars injected by `windsor exec` and into terraform applies.

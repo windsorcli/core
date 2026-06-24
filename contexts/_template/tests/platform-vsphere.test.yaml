@@ -60,7 +60,6 @@ cases:
             cluster: cluster-01
             datastore: datastore-01
             network: VM Network
-            allow_unverified_ssl: false
             network_cidr: 10.10.0.0/24
             cluster_name: talos
             images:
@@ -132,27 +131,6 @@ cases:
             folder: prod/talos
             resource_pool: talos-pool
 
-  # allow_unverified_ssl flows through for facilities with self-signed vCenter certs.
-  - name: allow_unverified_ssl flows through to compute inputs
-    values:
-      platform: vsphere
-      gateway:
-        enabled: false
-      network: *default-network
-      cluster: *default-cluster
-      vsphere:
-        datacenter: dc-prod
-        cluster: cluster-01
-        datastore: datastore-01
-        network: VM Network
-        allow_unverified_ssl: true
-    terraformOutputs: *default-terraform-outputs
-    expect:
-      terraform:
-        - name: compute
-          path: compute/vsphere
-          inputs:
-            allow_unverified_ssl: true
 
   # With workers: instances list includes a worker pool entry. Both
   # controlplanes and workers appear in the cluster step's inputs from compute

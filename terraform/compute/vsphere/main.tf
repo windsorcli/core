@@ -52,9 +52,7 @@ terraform {
 # VSPHERE_SERVER / VSPHERE_USER / VSPHERE_PASSWORD / VSPHERE_ALLOW_UNVERIFIED_SSL.
 # allow_unverified_ssl lets operators set it via the schema's vsphere.allow_unverified_ssl
 # field without touching env vars, while still honouring the env-var override.
-provider "vsphere" {
-  allow_unverified_ssl = var.allow_unverified_ssl
-}
+provider "vsphere" {}
 
 # =============================================================================
 # Locals — context and inventory IDs

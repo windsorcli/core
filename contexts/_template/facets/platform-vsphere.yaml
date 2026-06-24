@@ -70,7 +70,6 @@ config:
       network: "${vsphere.network}"
       folder: "${vsphere.folder ?? ''}"
       resource_pool: "${vsphere.resource_pool ?? ''}"
-      allow_unverified_ssl: "${vsphere.allow_unverified_ssl ?? false}"
       talos_schematic_id: "903b2da78f99adef03cbbd4df6714563823f63218508800751560d3bc3557e40"
       image_url: "${'https://factory.talos.dev/image/903b2da78f99adef03cbbd4df6714563823f63218508800751560d3bc3557e40/v' + talos.talos_version + '/vmware-amd64.ova'}"
 
@@ -182,7 +181,6 @@ terraform:
       network: "${vsphere_effective.network}"
       folder: "${vsphere_effective.folder}"
       resource_pool: "${vsphere_effective.resource_pool}"
-      allow_unverified_ssl: "${vsphere_effective.allow_unverified_ssl}"
       network_cidr: ${network.cidr_block}
       network_gateway: ${network.gateway}
       network_nameservers: ${network.nameservers}
