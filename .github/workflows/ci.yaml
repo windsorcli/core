@@ -40,6 +40,10 @@ env:
   # renovate: datasource=github-releases depName=helm package=helm/helm
   HELM_VERSION: v4.2.2
 
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
 jobs:
 
   # ===========================================================================
@@ -51,6 +55,9 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
+        with:
+          # Full history so the terraform-docs check can diff against the PR base.
+          fetch-depth: 0
 
       # br_netfilter is required to run Kubernetes on Docker; not loaded by default.
       - name: Load br_netfilter kernel module
@@ -60,7 +67,7 @@ jobs:
           echo "1" | sudo tee /proc/sys/net/bridge/bridge-nf-call-ip6tables
 
       - name: Set up Python
-        uses: actions/setup-python@a309ff8b426b58ec0e2a45f0f869d46889d02405 # v6.2.0
+        uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6.3.0
         with:
           python-version: '3.x'
 
@@ -144,9 +151,31 @@ jobs:
         if: ${{ github.event_name == 'pull_request' && !startsWith(github.head_ref, 'renovate/') }}
         run: task docs:kustomize:check
 
+      # Regenerate terraform-docs and fail only on drift in modules THIS PR
+      # changed. Pre-existing drift in untouched modules — e.g. a renovate
+      # provider bump that auto-merged to main without a docs regen — does not
+      # block unrelated PRs; you only own the docs for modules whose .tf you
+      # edited. terraform-docs is per-module, so changed-module scoping is exact.
       - name: Validate terraform module docs
         if: ${{ github.event_name == 'pull_request' && !startsWith(github.head_ref, 'renovate/') }}
-        run: task docs:terraform:check
+        run: |
+          changed="$(git diff --name-only "${{ github.event.pull_request.base.sha }}" HEAD -- terraform \
+            | grep -E '\.tf$' | xargs -rn1 dirname | sort -u || true)"
+          if [ -z "$changed" ]; then
+            echo "No terraform modules changed; skipping docs drift check."
+            exit 0
+          fi
+          task docs:terraform
+          rc=0
+          for d in $changed; do
+            if [ -f "$d/README.md" ] && ! git diff --quiet -- "$d/README.md"; then
+              echo "::error::terraform-docs drift in $d (changed by this PR). Run 'task docs:terraform' and commit the result."
+              git --no-pager diff -- "$d/README.md"
+              rc=1
+            fi
+          done
+          git checkout -- terraform/
+          exit $rc
 
       - name: Checkov GitHub Action
         uses: bridgecrewio/checkov-action@68260132005eaae0e6f84c7a73cc3b1532f678bf # v12.3058.0
@@ -546,9 +575,26 @@ jobs:
       # Runs on any non-none phase. Inspects the still-running cluster and
       # publishes a diagnosis to the PR conversation (upsert), step summary,
       # and uploaded artifact. No cluster mutation — strictly read-only tools.
+      - name: Check for existing diagnosis
+        id: diag_check
+        if: always() && steps.phase.outputs.phase != 'none' && github.event_name == 'pull_request' && steps.phase.outputs.phase != 'baseline'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_REPO: ${{ github.repository }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          MARKER: "<!-- claude-integration-${{ matrix.mode }}-diagnosis -->"
+        run: |
+          if COUNT=$(gh api --paginate "repos/$GH_REPO/issues/$PR_NUMBER/comments" \
+                --jq "[.[] | select(.body | contains(\"$MARKER\"))] | length"); then
+            echo "existing=$COUNT" >> "$GITHUB_OUTPUT"
+            [ "$COUNT" -gt 0 ] && echo "Already diagnosed mode '${{ matrix.mode }}' — skipping." || true
+          else
+            echo "existing=0" >> "$GITHUB_OUTPUT"
+          fi
+
       - name: Investigate failure with Claude
-        if: always() && steps.phase.outputs.phase != 'none' && github.event_name == 'pull_request'
-        uses: anthropics/claude-code-action@80b31826338489861333dc17217865dfe8085cdc # v1.0.155
+        if: always() && steps.phase.outputs.phase != 'none' && github.event_name == 'pull_request' && steps.diag_check.outputs.existing == '0' && steps.phase.outputs.phase != 'baseline'
+        uses: anthropics/claude-code-action@74eedf1a1892082d619c3edb66b9402da6520e7f # v1.0.156
         env:
           GH_REPO: ${{ github.repository }}
           PR_NUMBER: ${{ github.event.pull_request.number }}

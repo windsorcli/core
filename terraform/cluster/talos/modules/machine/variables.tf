@@ -54,6 +54,7 @@ variable "extra_kernel_args" {
 variable "client_configuration" {
   description = "The Talos client configuration."
   type        = any
+  sensitive   = true
 }
 
 variable "machine_secrets" {
