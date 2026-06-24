@@ -47,7 +47,7 @@
   "panels": [
     {
       "datasource": {
-        "uid": "${DS_PROMETHEUS}"
+        "uid": "$${DS_PROMETHEUS}"
       },
       "description": "",
       "fieldConfig": {
@@ -96,7 +96,7 @@
       "targets": [
         {
           "datasource": {
-            "uid": "${DS_PROMETHEUS}"
+            "uid": "$${DS_PROMETHEUS}"
           },
           "editorMode": "code",
           "exemplar": false,
@@ -122,7 +122,7 @@
     },
     {
       "datasource": {
-        "uid": "${DS_PROMETHEUS}"
+        "uid": "$${DS_PROMETHEUS}"
       },
       "description": "",
       "fieldConfig": {
@@ -171,7 +171,7 @@
       "targets": [
         {
           "datasource": {
-            "uid": "${DS_PROMETHEUS}"
+            "uid": "$${DS_PROMETHEUS}"
           },
           "editorMode": "code",
           "exemplar": false,
@@ -197,7 +197,7 @@
     },
     {
       "datasource": {
-        "uid": "${DS_PROMETHEUS}"
+        "uid": "$${DS_PROMETHEUS}"
       },
       "description": "",
       "fieldConfig": {
@@ -246,7 +246,7 @@
       "targets": [
         {
           "datasource": {
-            "uid": "${DS_PROMETHEUS}"
+            "uid": "$${DS_PROMETHEUS}"
           },
           "editorMode": "code",
           "exemplar": false,
@@ -273,7 +273,7 @@
     },
     {
       "datasource": {
-        "uid": "${DS_PROMETHEUS}"
+        "uid": "$${DS_PROMETHEUS}"
       },
       "description": "",
       "fieldConfig": {
@@ -332,7 +332,7 @@
       "targets": [
         {
           "datasource": {
-            "uid": "${DS_PROMETHEUS}"
+            "uid": "$${DS_PROMETHEUS}"
           },
           "editorMode": "code",
           "expr": "sum(rate(container_cpu_usage_seconds_total{namespace=\"$namespace\",pod=~\".*controller.*\",container=\"manager\"}[5m]))",
@@ -347,7 +347,7 @@
     },
     {
       "datasource": {
-        "uid": "${DS_PROMETHEUS}"
+        "uid": "$${DS_PROMETHEUS}"
       },
       "description": "",
       "fieldConfig": {
@@ -406,7 +406,7 @@
       "targets": [
         {
           "datasource": {
-            "uid": "${DS_PROMETHEUS}"
+            "uid": "$${DS_PROMETHEUS}"
           },
           "editorMode": "code",
           "expr": "sum(rate(controller_runtime_reconcile_total{namespace=\"$namespace\",pod=~\".*controller.*\"}[5m]))",
@@ -421,7 +421,7 @@
     },
     {
       "datasource": {
-        "uid": "${DS_PROMETHEUS}"
+        "uid": "$${DS_PROMETHEUS}"
       },
       "description": "",
       "fieldConfig": {
@@ -480,7 +480,7 @@
       "targets": [
         {
           "datasource": {
-            "uid": "${DS_PROMETHEUS}"
+            "uid": "$${DS_PROMETHEUS}"
           },
           "editorMode": "code",
           "expr": "sum(increase(workqueue_adds_total{namespace=\"$namespace\",pod=~\".*controller.*\"}[5m])) / 5",
@@ -495,7 +495,7 @@
     },
     {
       "datasource": {
-        "uid": "${DS_PROMETHEUS}"
+        "uid": "$${DS_PROMETHEUS}"
       },
       "description": "",
       "fieldConfig": {
@@ -554,7 +554,7 @@
       "targets": [
         {
           "datasource": {
-            "uid": "${DS_PROMETHEUS}"
+            "uid": "$${DS_PROMETHEUS}"
           },
           "editorMode": "code",
           "expr": "sum(rate(rest_client_requests_total{namespace=\"$namespace\",pod=~\".*controller.*\"}[5m]))",
@@ -569,7 +569,7 @@
     },
     {
       "datasource": {
-        "uid": "${DS_PROMETHEUS}"
+        "uid": "$${DS_PROMETHEUS}"
       },
       "description": "",
       "fieldConfig": {
@@ -628,7 +628,7 @@
       "targets": [
         {
           "datasource": {
-            "uid": "${DS_PROMETHEUS}"
+            "uid": "$${DS_PROMETHEUS}"
           },
           "editorMode": "code",
           "expr": "sum(container_memory_usage_bytes{namespace=\"$namespace\",pod=~\".*controller.*\",container=\"manager\"})",
@@ -643,7 +643,7 @@
     },
     {
       "datasource": {
-        "uid": "${DS_PROMETHEUS}"
+        "uid": "$${DS_PROMETHEUS}"
       },
       "description": "",
       "fieldConfig": {
@@ -694,7 +694,7 @@
       "targets": [
         {
           "datasource": {
-            "uid": "${DS_PROMETHEUS}"
+            "uid": "$${DS_PROMETHEUS}"
           },
           "editorMode": "code",
           "expr": "histogram_quantile(1, sum by(le) (rate(controller_runtime_reconcile_time_seconds_bucket{namespace=\"$namespace\",pod=~\".*controller.*\"}[5m])))",
@@ -709,7 +709,7 @@
     },
     {
       "datasource": {
-        "uid": "${DS_PROMETHEUS}"
+        "uid": "$${DS_PROMETHEUS}"
       },
       "description": "",
       "fieldConfig": {
@@ -760,7 +760,7 @@
       "targets": [
         {
           "datasource": {
-            "uid": "${DS_PROMETHEUS}"
+            "uid": "$${DS_PROMETHEUS}"
           },
           "editorMode": "code",
           "expr": "max(workqueue_longest_running_processor_seconds{namespace=\"$namespace\",pod=~\".*controller.*\"})",
@@ -775,7 +775,7 @@
     },
     {
       "datasource": {
-        "uid": "${DS_PROMETHEUS}"
+        "uid": "$${DS_PROMETHEUS}"
       },
       "description": "",
       "fieldConfig": {
@@ -834,7 +834,7 @@
       "targets": [
         {
           "datasource": {
-            "uid": "${DS_PROMETHEUS}"
+            "uid": "$${DS_PROMETHEUS}"
           },
           "editorMode": "code",
           "expr": "(\n  sum(rate(container_network_receive_bytes_total{namespace=\"$namespace\",pod=~\".*controller.*\"}[5m]))\n  +\n  sum(rate(container_network_transmit_bytes_total{namespace=\"$namespace\",pod=~\".*controller.*\"}[5m]))\n)",
@@ -849,7 +849,7 @@
     },
     {
       "datasource": {
-        "uid": "${DS_PROMETHEUS}"
+        "uid": "$${DS_PROMETHEUS}"
       },
       "fieldConfig": {
         "defaults": {
@@ -932,7 +932,7 @@
       "targets": [
         {
           "datasource": {
-            "uid": "${DS_PROMETHEUS}"
+            "uid": "$${DS_PROMETHEUS}"
           },
           "editorMode": "code",
           "expr": "count(flux_resource_info{namespace=\"$namespace\"}) by (kind,ready)",
@@ -948,7 +948,7 @@
     },
     {
       "datasource": {
-        "uid": "${DS_PROMETHEUS}"
+        "uid": "$${DS_PROMETHEUS}"
       },
       "fieldConfig": {
         "defaults": {
@@ -1031,7 +1031,7 @@
       "targets": [
         {
           "datasource": {
-            "uid": "${DS_PROMETHEUS}"
+            "uid": "$${DS_PROMETHEUS}"
           },
           "editorMode": "code",
           "expr": "sum((workqueue_depth{namespace=\"$namespace\",pod=~\".*controller.*\"})) by (name)",
@@ -1060,7 +1060,7 @@
     },
     {
       "datasource": {
-        "uid": "${DS_PROMETHEUS}"
+        "uid": "$${DS_PROMETHEUS}"
       },
       "description": "",
       "fieldConfig": {
@@ -1115,7 +1115,7 @@
       "targets": [
         {
           "datasource": {
-            "uid": "${DS_PROMETHEUS}"
+            "uid": "$${DS_PROMETHEUS}"
           },
           "editorMode": "code",
           "exemplar": false,
@@ -1132,7 +1132,7 @@
     },
     {
       "datasource": {
-        "uid": "${DS_PROMETHEUS}"
+        "uid": "$${DS_PROMETHEUS}"
       },
       "description": "",
       "fieldConfig": {
@@ -1216,7 +1216,7 @@
       "targets": [
         {
           "datasource": {
-            "uid": "${DS_PROMETHEUS}"
+            "uid": "$${DS_PROMETHEUS}"
           },
           "editorMode": "code",
           "expr": "sum(rate(rest_client_requests_total{namespace=\"$namespace\",code=~\"2..\",method=\"GET\"}[5m])) or vector(0)",
@@ -1228,7 +1228,7 @@
         },
         {
           "datasource": {
-            "uid": "${DS_PROMETHEUS}"
+            "uid": "$${DS_PROMETHEUS}"
           },
           "editorMode": "code",
           "expr": "sum(rate(rest_client_requests_total{namespace=\"$namespace\",code=~\"2..\",method!=\"GET\"}[5m])) or vector(0)",
@@ -1240,7 +1240,7 @@
         },
         {
           "datasource": {
-            "uid": "${DS_PROMETHEUS}"
+            "uid": "$${DS_PROMETHEUS}"
           },
           "editorMode": "code",
           "expr": "sum(rate(rest_client_requests_total{namespace=\"$namespace\",code=~\"5..|429\"}[5m])) or vector(0)",
@@ -1269,7 +1269,7 @@
     },
     {
       "datasource": {
-        "uid": "${DS_PROMETHEUS}"
+        "uid": "$${DS_PROMETHEUS}"
       },
       "fieldConfig": {
         "defaults": {
@@ -1356,7 +1356,7 @@
       "targets": [
         {
           "datasource": {
-            "uid": "${DS_PROMETHEUS}"
+            "uid": "$${DS_PROMETHEUS}"
           },
           "editorMode": "code",
           "expr": "(\n  sum by (namespace,pod,container) (rate(container_cpu_usage_seconds_total{namespace=\"$namespace\",pod=~\".*controller.*\",container=\"manager\"}[5m])) \n  / on(namespace,pod,container) \n  group_left sum by (namespace,pod,container) (kube_pod_container_resource_limits{resource=\"cpu\",namespace=\"$namespace\",pod=~\".*controller.*\",})\n) * 100",
@@ -1371,7 +1371,7 @@
     },
     {
       "datasource": {
-        "uid": "${DS_PROMETHEUS}"
+        "uid": "$${DS_PROMETHEUS}"
       },
       "fieldConfig": {
         "defaults": {
@@ -1459,7 +1459,7 @@
       "targets": [
         {
           "datasource": {
-            "uid": "${DS_PROMETHEUS}"
+            "uid": "$${DS_PROMETHEUS}"
           },
           "editorMode": "code",
           "expr": "sum(container_memory_usage_bytes{namespace=\"$namespace\",pod=~\".*controller.*\",container=\"manager\"}) by (pod)",
@@ -1475,7 +1475,7 @@
     },
     {
       "datasource": {
-        "uid": "${DS_PROMETHEUS}"
+        "uid": "$${DS_PROMETHEUS}"
       },
       "fieldConfig": {
         "defaults": {
@@ -1558,7 +1558,7 @@
       "targets": [
         {
           "datasource": {
-            "uid": "${DS_PROMETHEUS}"
+            "uid": "$${DS_PROMETHEUS}"
           },
           "editorMode": "code",
           "expr": "sum(rate(container_network_transmit_bytes_total{namespace=\"$namespace\",pod=~\".*controller.*\"}[5m])) by (pod)",
@@ -1573,7 +1573,7 @@
     },
     {
       "datasource": {
-        "uid": "${DS_PROMETHEUS}"
+        "uid": "$${DS_PROMETHEUS}"
       },
       "fieldConfig": {
         "defaults": {
@@ -1656,7 +1656,7 @@
       "targets": [
         {
           "datasource": {
-            "uid": "${DS_PROMETHEUS}"
+            "uid": "$${DS_PROMETHEUS}"
           },
           "editorMode": "code",
           "expr": "sum(rate(container_network_receive_bytes_total{namespace=\"$namespace\",pod=~\".*controller.*\"}[5m])) by (pod)",
@@ -1684,7 +1684,7 @@
     },
     {
       "datasource": {
-        "uid": "${DS_PROMETHEUS}"
+        "uid": "$${DS_PROMETHEUS}"
       },
       "fieldConfig": {
         "defaults": {
@@ -1767,7 +1767,7 @@
       "targets": [
         {
           "datasource": {
-            "uid": "${DS_PROMETHEUS}"
+            "uid": "$${DS_PROMETHEUS}"
           },
           "editorMode": "code",
           "expr": "(\n  (\n    sum by (pod) (controller_runtime_active_workers{namespace=\"$namespace\",pod=~\".*controller.*\"})\n    /\n    sum by (pod) (controller_runtime_max_concurrent_reconciles{namespace=\"$namespace\",pod=~\".*controller.*\"})\n  ) * 100\n)",
@@ -1782,7 +1782,7 @@
     },
     {
       "datasource": {
-        "uid": "${DS_PROMETHEUS}"
+        "uid": "$${DS_PROMETHEUS}"
       },
       "fieldConfig": {
         "defaults": {
@@ -1866,7 +1866,7 @@
       "targets": [
         {
           "datasource": {
-            "uid": "${DS_PROMETHEUS}"
+            "uid": "$${DS_PROMETHEUS}"
           },
           "editorMode": "code",
           "expr": "sum(increase(workqueue_adds_total{namespace=\"$namespace\",pod=~\".*controller.*\"}[5m]) / 5) by (pod)",
@@ -1881,7 +1881,7 @@
     },
     {
       "datasource": {
-        "uid": "${DS_PROMETHEUS}"
+        "uid": "$${DS_PROMETHEUS}"
       },
       "description": "",
       "fieldConfig": {
@@ -1969,7 +1969,7 @@
       "targets": [
         {
           "datasource": {
-            "uid": "${DS_PROMETHEUS}"
+            "uid": "$${DS_PROMETHEUS}"
           },
           "editorMode": "code",
           "expr": "histogram_quantile(1, sum by(le, pod) (rate(controller_runtime_reconcile_time_seconds_bucket{namespace=\"$namespace\",pod=~\".*controller.*\"}[5m])))",
@@ -1985,7 +1985,7 @@
     },
     {
       "datasource": {
-        "uid": "${DS_PROMETHEUS}"
+        "uid": "$${DS_PROMETHEUS}"
       },
       "description": "",
       "fieldConfig": {
@@ -2073,7 +2073,7 @@
       "targets": [
         {
           "datasource": {
-            "uid": "${DS_PROMETHEUS}"
+            "uid": "$${DS_PROMETHEUS}"
           },
           "editorMode": "code",
           "expr": "max(workqueue_longest_running_processor_seconds{namespace=\"$namespace\",pod=~\".*controller.*\"}) by (pod)",
@@ -2117,7 +2117,7 @@
         },
         "datasource": {
           "type": "prometheus",
-          "uid": "${DS_PROMETHEUS}"
+          "uid": "$${DS_PROMETHEUS}"
         },
         "definition": "flux_operator_info",
         "includeAll": false,
