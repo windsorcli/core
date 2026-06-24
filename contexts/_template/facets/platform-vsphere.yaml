@@ -122,7 +122,7 @@ config:
         ${map(
           len(terraform_output("compute", "workers") ?? []) > 0
             ? terraform_output("compute", "workers")
-            : ((cluster.workers.count ?? 0) > 0 ? values(cluster.workers.nodes) : []),
+            : ((cluster.workers.count ?? 0) > 0 ? values(cluster.workers.nodes ?? {}) : []),
           fromPairs(filter(toPairs(#), get(#, 0) == "node" || get(#, 0) == "endpoint")))}
 
   # ---------------------------------------------------------------------------
@@ -248,17 +248,19 @@ terraform:
     dependsOn:
       - cluster
     inputs:
-      concurrency: ${max(2, min(floor(cluster.controlplanes.cpu / 2), floor(cluster.controlplanes.memory / 2), 10))}
+      concurrency: ${max(2, min(floor((cluster.controlplanes.cpu ?? 4) / 2), floor((cluster.controlplanes.memory ?? 8) / 2), 10))}
     destroy: false
 
 # =============================================================================
-# Kustomize — PKI + MetalLB
+# Kustomize — PKI + load balancer
 # =============================================================================
 #
-# vSphere VMs have real routed IPs, so MetalLB ARP / Cilium L2 announcements
-# work when an LB is requested. Industrial facility deployments are LAN-only
-# with no public DNS, so a selfsigned `private` ClusterIssuer is needed for
-# the gateway cert.
+# vSphere VMs have real routed IPs, so in-cluster LB announcements work when
+# a loadbalancer_driver is configured. kube-vip (ARP mode) is the recommended
+# choice for industrial plant networks — it needs no switch config, just a
+# reserved IP range from the same subnet as the nodes. MetalLB ARP is also
+# supported. Industrial facility deployments are LAN-only with no public DNS,
+# so a selfsigned `private` ClusterIssuer is needed for the gateway cert.
 #
 kustomize:
 

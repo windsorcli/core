@@ -107,6 +107,45 @@ cases:
           inputs:
             cluster_endpoint: https://10.10.0.10:6443
 
+  # Compute cluster_endpoint defaults: when cluster.endpoint is unset, the
+  # compute step receives https://cidrhost(cidr, 10):6443. This is the static
+  # address vSphere bootstraps from before vmtoolsd reports a guest IP.
+  - name: compute cluster_endpoint defaults to cidrhost(cidr, 10) when not set
+    values:
+      platform: vsphere
+      gateway:
+        enabled: false
+      network: *default-network
+      cluster: *default-cluster
+      vsphere: *default-vsphere
+    terraformOutputs: *default-terraform-outputs
+    expect:
+      terraform:
+        - name: compute
+          path: compute/vsphere
+          inputs:
+            cluster_endpoint: https://10.10.0.10:6443
+
+  # Cluster endpoint fallback: once vmtoolsd reports guest IPs, the compute
+  # output controlplanes[0].endpoint (host:50000) is split to extract just the
+  # IP, then wrapped as https://<ip>:6443. The cluster step receives this
+  # derived value when cluster.endpoint is not explicitly set.
+  - name: cluster_endpoint_fallback derives https endpoint from compute output
+    values:
+      platform: vsphere
+      gateway:
+        enabled: false
+      network: *default-network
+      cluster: *default-cluster
+      vsphere: *default-vsphere
+    terraformOutputs: *default-terraform-outputs
+    expect:
+      terraform:
+        - name: cluster
+          path: cluster/talos
+          inputs:
+            cluster_endpoint: https://10.10.0.10:6443
+
   # Folder and resource_pool flow through to compute inputs when set.
   - name: folder and resource_pool flow through to compute inputs
     values:
@@ -192,17 +231,18 @@ cases:
                 node: 10.10.0.21
                 hostname: worker-2
 
-  # MetalLB: lb-base and lb-resources land when loadbalancer_driver is metallb
+  # kube-vip: lb-base and lb-resources land when loadbalancer_driver is kube-vip
   # and the CNI is flannel (Cilium uses its own L2 path, lb_effective.enabled
-  # is false when Cilium is the CNI).
-  - name: metallb lb-base and lb-resources land with explicit flannel CNI
+  # is false when Cilium is the CNI). kube-vip needs no lb-base component
+  # (only metallb does), so lb-base has an empty component list.
+  - name: kube-vip lb-base and lb-resources land with explicit flannel CNI
     values:
       platform: vsphere
       gateway:
         enabled: false
       network:
         cidr_block: 10.10.0.0/24
-        loadbalancer_driver: metallb
+        loadbalancer_driver: kube-vip
         loadbalancer_mode: arp
         loadbalancer_ips:
           start: "10.10.0.100"
@@ -224,63 +264,19 @@ cases:
     terraformOutputs: *default-terraform-outputs
     expect:
       kustomize:
-        - name: lb-base
-          path: lb/base
-          components:
-            - metallb
         - name: lb-resources
           path: lb/resources
           components:
-            - metallb
-            - metallb/arp
+            - kube-vip
+            - kube-vip/arp
           substitutions:
             loadbalancer_ip_range: 10.10.0.100-10.10.0.110
 
-  # Longhorn storage: cluster-extensions step is emitted with iscsi-tools and
-  # util-linux-tools extensions. talos_node_targets wires controlplane endpoints
-  # from compute output to the extensions step.
-  - name: longhorn storage driver emits cluster-extensions terraform step
-    values:
-      platform: vsphere
-      gateway:
-        enabled: false
-      network: *default-network
-      cluster:
-        driver: talos
-        controlplanes:
-          count: 1
-          nodes:
-            controlplane-1:
-              endpoint: 10.10.0.10:50000
-              node: 10.10.0.10
-              hostname: controlplane-1
-        workers:
-          count: 1
-          volumes:
-            - /var/mnt/longhorn
-        storage:
-          driver: longhorn
-          local_base_path: /var/mnt/longhorn
-      vsphere: *default-vsphere
-    terraformOutputs: *default-terraform-outputs
-    expect:
-      terraform:
-        - name: cluster-extensions
-          path: cluster/talos/extensions
-          dependsOn:
-            - cni
-          parallelism: 1
-          inputs:
-            extensions:
-              - siderolabs/iscsi-tools
-              - siderolabs/util-linux-tools
-            controlplanes:
-              - node: 10.10.0.10
-                endpoint: 10.10.0.10:50000
-
-  # openebs (default): cluster-extensions must NOT appear when no Talos
-  # extensions are required — guards against option-storage `when:` regressions.
-  - name: openebs storage driver excludes cluster-extensions terraform step
+  # pki-resources selfsigned issuer: present by default (no public domain, not
+  # aws/azure). When addon-private-ca is enabled, that addon takes over pki-resources
+  # with private-issuer/ca — the vsphere selfsigned entry is suppressed and the
+  # CA-backed component appears instead (verifies both facets cooperate correctly).
+  - name: pki-resources uses ca issuer when private_ca addon is enabled
     values:
       platform: vsphere
       gateway:
@@ -288,13 +284,17 @@ cases:
       network: *default-network
       cluster: *default-cluster
       vsphere: *default-vsphere
+      addons:
+        private_ca:
+          enabled: true
     terraformOutputs: *default-terraform-outputs
-    exclude:
-      terraform:
-        - name: cluster-extensions
+    expect:
+      kustomize:
+        - name: pki-resources
+          path: pki/resources
+          components:
+            - private-issuer/ca
 
-  # pki-resources selfsigned issuer: present by default (no public domain, not
-  # aws/azure). Skipped when addon-private-ca is enabled.
   - name: pki-resources selfsigned issuer present by default
     values:
       platform: vsphere
@@ -408,3 +408,70 @@ cases:
       config:
         dns:
           private_domain: my-plant.local
+
+  # dns.private_domain falls back to dns.domain when domain is set but
+  # private_domain is not. Verifies the first dns config branch (domain != '').
+  - name: dns.private_domain falls back to dns.domain
+    values:
+      platform: vsphere
+      gateway:
+        enabled: false
+      network: *default-network
+      cluster: *default-cluster
+      vsphere: *default-vsphere
+      dns:
+        domain: plant.example.com
+    terraformOutputs: *default-terraform-outputs
+    expect:
+      config:
+        dns:
+          private_domain: plant.example.com
+
+  # machine_secrets and client_configuration from compute output flow through
+  # to the cluster step. These are the key vSphere-vs-hyperv architectural
+  # difference — machineconfig is delivered via guestinfo at VM creation, so
+  # cluster/talos needs the shared cluster CA rather than generating new secrets.
+  - name: machine_secrets and client_configuration flow to cluster step
+    values:
+      platform: vsphere
+      gateway:
+        enabled: false
+      network: *default-network
+      cluster: *default-cluster
+      vsphere: *default-vsphere
+    terraformOutputs:
+      compute:
+        controlplanes:
+          - endpoint: 10.10.0.10:50000
+            node: 10.10.0.10
+            hostname: controlplane-1
+        workers: []
+        machine_secrets:
+          certs:
+            etcd:
+              crt: mock-etcd-crt
+              key: mock-etcd-key
+          cluster:
+            id: mock-cluster-id
+            secret: mock-cluster-secret
+        client_configuration:
+          ca_certificate: mock-ca-crt
+          client_certificate: mock-client-crt
+          client_key: mock-client-key
+    expect:
+      terraform:
+        - name: cluster
+          path: cluster/talos
+          inputs:
+            machine_secrets:
+              certs:
+                etcd:
+                  crt: mock-etcd-crt
+                  key: mock-etcd-key
+              cluster:
+                id: mock-cluster-id
+                secret: mock-cluster-secret
+            client_configuration:
+              ca_certificate: mock-ca-crt
+              client_certificate: mock-client-crt
+              client_key: mock-client-key

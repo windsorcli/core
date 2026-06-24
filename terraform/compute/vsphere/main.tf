@@ -134,10 +134,8 @@ locals {
           join(".", slice(split(".", split("/", instance.ipv4)[0]), 0, 3)),
           tostring(tonumber(split(".", split("/", instance.ipv4)[0])[3]) + i)
         ) : (instance.ipv4 != null ? split("/", instance.ipv4)[0] : null)
-        vlan_id       = instance.vlan_id
-        notes         = instance.notes
-        desired_state = instance.desired_state
-        index         = i
+        notes = instance.notes
+        index = i
       }
     ]
   ])
@@ -290,7 +288,7 @@ resource "vsphere_virtual_machine" "instances" {
   # base64 flag tells Talos to base64-decode the config value before applying.
   # Non-cluster VMs receive an empty map.
   extra_config = contains(["controlplane", "worker"], each.value.role != null ? each.value.role : "") ? {
-    "guestinfo.talos.config"        = base64encode(local.machineconfigs[each.key])
+    "guestinfo.talos.config"        = base64encode(lookup(local.machineconfigs, each.key, ""))
     "guestinfo.talos.config.base64" = "true"
   } : {}
 
@@ -305,6 +303,7 @@ resource "vsphere_virtual_machine" "instances" {
       ovf_deploy,
       guest_id,
       firmware,
+      disk,
     ]
   }
 }

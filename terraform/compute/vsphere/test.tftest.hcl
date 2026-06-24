@@ -313,17 +313,31 @@ run "blank_disk_no_image" {
 }
 
 # Named resource pool: when resource_pool is non-empty, the module resolves the
-# named pool data source and uses its ID for the VM.
+# named pool data source and the VM's resource_pool_id is wired to it.
 run "named_resource_pool" {
   command = plan
 
   variables {
     resource_pool = "talos-pool"
+    instances = [
+      {
+        name   = "cp"
+        role   = "controlplane"
+        count  = 1
+        cpu    = 2
+        memory = 4
+      }
+    ]
   }
 
   assert {
     condition     = length(data.vsphere_resource_pool.named) == 1
     error_message = "Named resource pool data source should be created when resource_pool is set"
+  }
+
+  assert {
+    condition     = vsphere_virtual_machine.instances["cp"].resource_pool_id == data.vsphere_resource_pool.named[0].id
+    error_message = "VM resource_pool_id should reference the named pool, not the cluster root"
   }
 }
 
@@ -414,23 +428,3 @@ run "validation_image_url_missing_scheme" {
   ]
 }
 
-# Invalid desired_state value triggers the instances variable validation.
-run "validation_invalid_desired_state" {
-  command = plan
-
-  variables {
-    instances = [
-      {
-        name          = "node"
-        count         = 1
-        cpu           = 2
-        memory        = 4
-        desired_state = "deleted"
-      }
-    ]
-  }
-
-  expect_failures = [
-    var.instances,
-  ]
-}

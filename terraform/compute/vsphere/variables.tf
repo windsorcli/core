@@ -120,22 +120,15 @@ variable "images" {
 variable "instances" {
   description = "List of VM definitions. Use count > 1 to create pools (named {name}-1, {name}-2, …). ipv4 is the starting address; sequential instances increment the host octet. Set image to a key in var.images to deploy from OVA; leave empty for a blank-disk VM. Talos machineconfig is delivered via guestinfo only when role is controlplane or worker."
   type = list(object({
-    name           = string              # VM name prefix (becomes {name}-N when count > 1)
+    name           = string # VM name prefix (becomes {name}-N when count > 1)
     count          = optional(number, 1)
-    role           = optional(string)    # "controlplane", "worker", or any custom role
-    image          = optional(string)    # key into var.images; empty = blank disk (no OVF deploy)
+    role           = optional(string) # "controlplane", "worker", or any custom role
+    image          = optional(string) # key into var.images; empty = blank disk (no OVF deploy)
     cpu            = optional(number, 4)
-    memory         = optional(number, 8)   # GiB
-    root_disk_size = optional(number, 30)  # GiB
-    ipv4           = optional(string)      # Base IP (bare or CIDR); sequential when count > 1
-    vlan_id        = optional(number)      # Access-mode VLAN ID on the port group adapter
+    memory         = optional(number, 8)  # GiB
+    root_disk_size = optional(number, 30) # GiB
+    ipv4           = optional(string)     # Base IP (bare or CIDR); sequential when count > 1
     notes          = optional(string)
-    desired_state  = optional(string, "poweredOn")
   }))
   default = []
-
-  validation {
-    condition     = alltrue([for inst in var.instances : contains(["poweredOn", "poweredOff", "suspended"], inst.desired_state)])
-    error_message = "instance.desired_state must be poweredOn, poweredOff, or suspended"
-  }
 }
