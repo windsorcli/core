@@ -55,6 +55,9 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
+        with:
+          # Full history so the terraform-docs check can diff against the PR base.
+          fetch-depth: 0
 
       # br_netfilter is required to run Kubernetes on Docker; not loaded by default.
       - name: Load br_netfilter kernel module
@@ -148,9 +151,31 @@ jobs:
         if: ${{ github.event_name == 'pull_request' && !startsWith(github.head_ref, 'renovate/') }}
         run: task docs:kustomize:check
 
+      # Regenerate terraform-docs and fail only on drift in modules THIS PR
+      # changed. Pre-existing drift in untouched modules — e.g. a renovate
+      # provider bump that auto-merged to main without a docs regen — does not
+      # block unrelated PRs; you only own the docs for modules whose .tf you
+      # edited. terraform-docs is per-module, so changed-module scoping is exact.
       - name: Validate terraform module docs
         if: ${{ github.event_name == 'pull_request' && !startsWith(github.head_ref, 'renovate/') }}
-        run: task docs:terraform:check
+        run: |
+          changed="$(git diff --name-only "${{ github.event.pull_request.base.sha }}" HEAD -- terraform \
+            | grep -E '\.tf$' | xargs -rn1 dirname | sort -u || true)"
+          if [ -z "$changed" ]; then
+            echo "No terraform modules changed; skipping docs drift check."
+            exit 0
+          fi
+          task docs:terraform
+          rc=0
+          for d in $changed; do
+            if [ -f "$d/README.md" ] && ! git diff --quiet -- "$d/README.md"; then
+              echo "::error::terraform-docs drift in $d (changed by this PR). Run 'task docs:terraform' and commit the result."
+              git --no-pager diff -- "$d/README.md"
+              rc=1
+            fi
+          done
+          git checkout -- terraform/
+          exit $rc
 
       - name: Checkov GitHub Action
         uses: bridgecrewio/checkov-action@68260132005eaae0e6f84c7a73cc3b1532f678bf # v12.3058.0
