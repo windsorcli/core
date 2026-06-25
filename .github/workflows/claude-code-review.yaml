@@ -210,7 +210,7 @@ jobs:
               pathlib.Path("/tmp/pr-body.new.md").write_text(new)
               PY
 
-              gh pr edit "$PR_NUMBER" --body-file /tmp/pr-body.new.md
+              gh api --method PATCH "repos/$GH_REPO/pulls/$PR_NUMBER" --field body=@/tmp/pr-body.new.md
 
             Clean up any legacy sticky comment posted as a standalone
             conversation comment by earlier runs (one-time migration):
@@ -450,7 +450,7 @@ jobs:
               pathlib.Path("/tmp/pr-body.new.md").write_text(new)
               PY
 
-              gh pr edit "$PR_NUMBER" --body-file /tmp/pr-body.new.md
+              gh api --method PATCH "repos/$GH_REPO/pulls/$PR_NUMBER" --field body=@/tmp/pr-body.new.md
 
             Clean up any legacy sticky comment posted as a standalone
             conversation comment by earlier runs (one-time migration):
