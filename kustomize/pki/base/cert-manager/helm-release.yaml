@@ -26,7 +26,7 @@ spec:
     cainjector:
       image:
         # renovate: datasource=docker depName=quay.io/jetstack/cert-manager-cainjector package=quay.io/jetstack/cert-manager-cainjector
-        tag: v1.20.2@sha256:6f5a644135887b2aa7d5cc145072fa56421560e3586ff1f184358022d490f4e1
+        tag: v1.20.3@sha256:06ad347fe0dc2eb84cc355c26f6752e05e87dceb6447f5cd29b963dd66dfd8bd
     startupapicheck:
       image:
         # renovate: datasource=docker depName=quay.io/jetstack/cert-manager-startupapicheck package=quay.io/jetstack/cert-manager-startupapicheck
