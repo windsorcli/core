@@ -384,6 +384,57 @@ cases:
             - webhook/gateway
             - webhook/gateway/cilium
 
+  # gitops.web_ui exposes the operator web UI through the gateway as a separate
+  # flux-ui kustomization. Off by default.
+  - name: web_ui enabled adds flux-ui with ui component on envoy
+    values:
+      platform: metal
+      gateway:
+        enabled: true
+        driver: envoy
+      gitops:
+        web_ui: true
+      network: *default-network
+      cluster: *default-cluster
+    expect:
+      kustomize:
+        - name: flux-ui
+          path: gitops/flux
+          dependsOn:
+            - gateway-base
+          components:
+            - ui
+
+  - name: web_ui enabled on cilium adds ui/cilium to flux-ui
+    values:
+      platform: metal
+      gateway:
+        enabled: true
+        driver: cilium
+      gitops:
+        web_ui: true
+      network: *default-network
+      cluster: *default-cluster
+    expect:
+      kustomize:
+        - name: flux-ui
+          path: gitops/flux
+          components:
+            - ui
+            - ui/cilium
+
+  - name: web_ui defaults off so flux-ui is absent
+    values:
+      platform: metal
+      gateway:
+        enabled: true
+        driver: envoy
+      network: *default-network
+      cluster: *default-cluster
+    exclude:
+      kustomize:
+        - name: flux-ui
+
   # lb-address: included when lb_effective.enabled (non-Cilium CNI + loadbalancer_driver set); IP pinned in gateway spec
   - name: local envoy gateway-resources includes lb-address when loadbalancer IP configured
     values:

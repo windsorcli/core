@@ -11,3 +11,8 @@ upstream:
 files:
   - name: control-plane.json
   - name: cluster.json
+  # Flux Performance dashboard ships with the flux-operator; it also surfaces the
+  # operator's own flux_instance_info / flux_operator_info series.
+  - name: flux-performance.json
+    # renovate: datasource=git-refs depName=controlplaneio-fluxcd/flux-operator packageName=https://github.com/controlplaneio-fluxcd/flux-operator
+    url: https://raw.githubusercontent.com/controlplaneio-fluxcd/flux-operator/c087e2263e2988d31b1f66039ad3d7a3b4378673/config/monitoring/dashboards/flux-performance.json

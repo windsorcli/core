@@ -557,3 +557,23 @@ kustomize:
       - "${gateway.driver == 'cilium' ? 'webhook/gateway/cilium' : ''}"
     substitutions:
       git_repository_name: ${gitops.repository.name ?? "local"}
+
+  # ---------------------------------------------------------------------------
+  # Flux Operator web UI
+  # ---------------------------------------------------------------------------
+  #
+  # Opt-in (gitops.web_ui) HTTPRoute exposing the operator's web UI at
+  # flux.<domain> when a gateway is present. The UI is always reachable via
+  # port-forward; this only adds gateway ingress. cilium adds a CNP allowing
+  # the gateway to reach the operator.
+  #
+  - name: flux-ui
+    path: gitops/flux
+    when: gateway.enabled == true && (gitops.web_ui ?? false) == true
+    dependsOn:
+      - gateway-base
+    components:
+      - ui
+      - "${gateway.driver == 'cilium' ? 'ui/cilium' : ''}"
+    substitutions:
+      external_domain: ${gateway_effective.external_domain}
