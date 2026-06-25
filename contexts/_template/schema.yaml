@@ -831,7 +831,7 @@ properties:
       web_ui:
         type: boolean
         default: false
-        description: Expose the flux-operator web UI through the gateway at flux.<domain>. Off by default; the UI is always reachable via port-forward regardless.
+        description: Expose the flux-operator web UI through the gateway at flux.<domain>. The UI is unauthenticated, so only enable it behind a trusted or private gateway. Off by default; always reachable via port-forward regardless.
     additionalProperties: false
 
   # Gateway configuration
