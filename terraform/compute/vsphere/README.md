@@ -27,6 +27,24 @@ required before `cluster/talos`. Pairs with the `cluster/talos` module.
 | <a name="provider_talos"></a> [talos](#provider\_talos) | 0.11.0 |
 | <a name="provider_vsphere"></a> [vsphere](#provider\_vsphere) | 2.12.0 |
 
+## Modules
+
+No modules.
+
+## Resources
+
+| Name | Type |
+|------|------|
+| [talos_machine_secrets.this](https://registry.terraform.io/providers/siderolabs/talos/0.11.0/docs/resources/machine_secrets) | resource |
+| [vsphere_virtual_machine.instances](https://registry.terraform.io/providers/hashicorp/vsphere/latest/docs/resources/virtual_machine) | resource |
+| [talos_machine_configuration.controlplane](https://registry.terraform.io/providers/siderolabs/talos/0.11.0/docs/data-sources/machine_configuration) | data source |
+| [talos_machine_configuration.worker](https://registry.terraform.io/providers/siderolabs/talos/0.11.0/docs/data-sources/machine_configuration) | data source |
+| [vsphere_compute_cluster.this](https://registry.terraform.io/providers/hashicorp/vsphere/latest/docs/data-sources/compute_cluster) | data source |
+| [vsphere_datacenter.this](https://registry.terraform.io/providers/hashicorp/vsphere/latest/docs/data-sources/datacenter) | data source |
+| [vsphere_datastore.this](https://registry.terraform.io/providers/hashicorp/vsphere/latest/docs/data-sources/datastore) | data source |
+| [vsphere_network.this](https://registry.terraform.io/providers/hashicorp/vsphere/latest/docs/data-sources/network) | data source |
+| [vsphere_resource_pool.named](https://registry.terraform.io/providers/hashicorp/vsphere/latest/docs/data-sources/resource_pool) | data source |
+
 ## Inputs
 
 | Name | Description | Type | Default | Required |
@@ -60,11 +78,4 @@ required before `cluster/talos`. Pairs with the `cluster/talos` module.
 | <a name="output_machine_secrets"></a> [machine\_secrets](#output\_machine\_secrets) | Talos cluster identity (CA, etcd CA, k8s CA, bootstrap token). Pass to cluster/talos as var.machine\_secrets so it shares the same cluster CA — cluster/talos then skips talos\_machine\_configuration\_apply (already delivered via guestinfo) and runs straight to bootstrap + kubeconfig + health checks |
 | <a name="output_network_name"></a> [network\_name](#output\_network\_name) | Port group name the VMs are attached to |
 | <a name="output_workers"></a> [workers](#output\_workers) | Worker VMs formatted for cluster/talos (hostname, endpoint, node). Populated once vmtoolsd reports a guest IP to vCenter |
-
-## Resources
-
-| Name | Type |
-|------|------|
-| [talos_machine_secrets.this](https://registry.terraform.io/providers/siderolabs/talos/0.11.0/docs/resources/machine_secrets) | resource |
-| [vsphere_virtual_machine.instances](https://registry.terraform.io/providers/hashicorp/vsphere/latest/docs/resources/virtual_machine) | resource |
 <!-- END_TF_DOCS -->
