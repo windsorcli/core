@@ -231,7 +231,12 @@ resource "kubernetes_job_v1" "flux_ready_gate" {
     namespace = kubernetes_namespace_v1.flux_system.metadata[0].name
   }
   spec {
-    backoff_limit = 3
+    # Single attempt: the kubectl wait below already provides the readiness
+    # patience, so retries would only push total runtime past the create
+    # timeout. The TTL cleans up the finished Job and lets a later apply re-run
+    # the gate (e.g. on a flux_version bump).
+    backoff_limit              = 0
+    ttl_seconds_after_finished = 300
     template {
       metadata {
         labels = {
