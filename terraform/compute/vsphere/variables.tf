@@ -46,59 +46,61 @@ variable "resource_pool" {
   default     = ""
 }
 
-variable "network_cidr" {
-  description = "CIDR block of the network VMs attach to (e.g. 10.5.0.0/16). Used for sequential IP assignment when instances declare an ipv4 base address and for baking the static-network config into each per-node machineconfig"
-  type        = string
-  default     = null
-}
-
-variable "network_gateway" {
-  description = "Default route gateway for static IP configuration. Delivered to each node's machineconfig via guestinfo"
-  type        = string
-  default     = null
-}
-
-variable "network_nameservers" {
-  description = "DNS resolvers seeded into each node's machineconfig. Delivered via guestinfo alongside the static IP config"
-  type        = list(string)
-  default     = ["1.1.1.1", "8.8.8.8"]
-}
-
 variable "cluster_name" {
-  description = "Talos cluster name. Baked into every per-node machineconfig; must match what cluster/talos receives"
+  description = "Talos cluster name. Baked into every per-node machineconfig."
   type        = string
   default     = "talos"
 }
 
 variable "cluster_endpoint" {
-  description = "Cluster control-plane API endpoint baked into every per-node machineconfig (e.g. https://10.5.0.10:6443)"
+  description = "Cluster control-plane API endpoint baked into every per-node machineconfig (e.g. https://192.168.0.10:6443). Required when instances include controlplane or worker roles."
   type        = string
+  default     = ""
   validation {
-    condition     = can(regex("^https://", var.cluster_endpoint))
+    condition     = var.cluster_endpoint == "" || can(regex("^https://", var.cluster_endpoint))
     error_message = "cluster_endpoint must start with https://"
   }
 }
 
 variable "talos_version" {
-  description = "Pinned Talos version (semver, no v-prefix). Used to call talos_machine_secrets and stamp machineconfig templates"
+  description = "Pinned Talos version (semver, no v-prefix). Required when instances include controlplane or worker roles."
   type        = string
+  default     = ""
   validation {
-    condition     = can(regex("^\\d+\\.\\d+\\.\\d+$", var.talos_version))
-    error_message = "talos_version should be in semver format like '1.13.3'."
+    condition     = var.talos_version == "" || can(regex("^\\d+\\.\\d+\\.\\d+$", var.talos_version))
+    error_message = "talos_version should be in semver format like '1.12.6'."
   }
 }
 
 variable "kubernetes_version" {
-  description = "Kubernetes version to install"
+  description = "Kubernetes version to install."
   type        = string
   # renovate: datasource=github-releases depName=kubernetes package=kubernetes/kubernetes
   default = "1.36.2"
 }
 
 variable "common_config_patches" {
-  description = "Cluster-wide Talos machine config patch (YAML string). Applied to every node's machineconfig before guestinfo delivery"
+  description = "Cluster-wide Talos machine config patch (YAML string). Applied to every node's machineconfig."
   type        = string
   default     = ""
+}
+
+variable "controlplane_config_patches" {
+  description = "Controlplane-only Talos machine config patch (YAML string)."
+  type        = string
+  default     = ""
+}
+
+variable "worker_config_patches" {
+  description = "Worker-only Talos machine config patch (YAML string)."
+  type        = string
+  default     = ""
+}
+
+variable "per_node_config_patches" {
+  description = "Per-node Talos machineconfig patches as YAML strings, keyed by VM name. Built by the facet from network topology (static IP, gateway, nameservers). Threaded into each node's talos_machine_configuration config_patches."
+  type        = map(string)
+  default     = {}
 }
 
 variable "images" {
@@ -118,16 +120,16 @@ variable "images" {
 }
 
 variable "instances" {
-  description = "List of VM definitions. Use count > 1 to create pools (named {name}-1, {name}-2, …). ipv4 is the starting address; sequential instances increment the host octet. Set image to a key in var.images to deploy from OVA; leave empty for a blank-disk VM. Talos machineconfig is delivered via guestinfo only when role is controlplane or worker."
+  description = "List of VM definitions. Use count > 1 to create pools (named {name}-1, {name}-2, …). ipv4 is the starting address; sequential instances increment the host octet. Set image to a key in var.images to deploy from OVA; leave empty for a blank-disk VM. GuestInfo machineconfig is generated inside this module for controlplane and worker roles."
   type = list(object({
-    name           = string # VM name prefix (becomes {name}-N when count > 1)
+    name           = string
     count          = optional(number, 1)
-    role           = optional(string) # "controlplane", "worker", or any custom role
-    image          = optional(string) # key into var.images; empty = blank disk (no OVF deploy)
+    role           = optional(string)
+    image          = optional(string)
     cpu            = optional(number, 4)
     memory         = optional(number, 8)  # GiB
     root_disk_size = optional(number, 30) # GiB
-    ipv4           = optional(string)     # Base IP (bare or CIDR); sequential when count > 1
+    ipv4           = optional(string)
     notes          = optional(string)
   }))
   default = []

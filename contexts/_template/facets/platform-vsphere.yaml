@@ -148,10 +148,10 @@ config:
 # Terraform — compute → cluster → gitops
 # =============================================================================
 #
-# vSphere differs from hyperv in that machine secrets and per-node
-# machineconfigs are generated inside the compute module (not in a separate
-# cluster-config step). This is possible because guestinfo delivery happens at
-# VM-creation time — no pre-boot ISO staging required.
+# Machine secrets and per-node machineconfigs are generated inside the compute
+# module. This is possible because guestinfo delivery happens at VM-creation
+# time — no pre-boot ISO staging required. compute outputs machine_secrets and
+# client_configuration directly for the cluster step.
 #
 terraform:
 
@@ -159,10 +159,10 @@ terraform:
   # compute — Talos VMs on a vSphere cluster
   # ---------------------------------------------------------------------------
   #
-  # Deploys VMs from the Talos vmware OVA, sets per-node machineconfig via
-  # guestinfo, and generates the cluster identity (machine_secrets). The cluster
-  # step receives machine_secrets + client_configuration so it can skip
-  # machineconfig re-apply and go straight to bootstrap + health checks.
+  # Deploys VMs from the Talos vmware OVA and sets per-node machineconfig via
+  # guestinfo (base64-encoded, generated internally). The cluster step receives
+  # machine_secrets + client_configuration from compute so it can skip
+  # machineconfig re-apply and go straight to bootstrap + health.
   #
   # Static IPs follow the same offset scheme as other Windsor platforms:
   #   controlplane-N → cidrhost(cidr, 10 + N - 1)  (cp-1 = .10, cp-2 = .11, …)
@@ -181,13 +181,37 @@ terraform:
       network: "${vsphere_effective.network}"
       folder: "${vsphere_effective.folder}"
       resource_pool: "${vsphere_effective.resource_pool}"
-      network_cidr: ${network.cidr_block}
-      network_gateway: ${network.gateway}
-      network_nameservers: ${network.nameservers}
       cluster_name: talos
       cluster_endpoint: "${cluster.endpoint ?? ('https://' + cidrhost(network.cidr_block, 10) + ':6443')}"
       talos_version: ${talos.talos_version}
       common_config_patches: ${talos_common.common_config_patches}
+      per_node_config_patches: >-
+        ${fromPairs(concat(
+          map(1..int(cluster.controlplanes.count ?? 1), [
+            int(cluster.controlplanes.count ?? 1) > 1 ? "controlplane-" + string(#) : "controlplane",
+            string({machine: {network: {
+              interfaces: [{
+                deviceSelector: {physical: true},
+                dhcp: false,
+                addresses: [cidrhost(network.cidr_block, 9 + #) + "/" + split(network.cidr_block, "/")[1]],
+                routes: [{network: "0.0.0.0/0", gateway: network.gateway}]
+              }],
+              nameservers: network.nameservers
+            }}})
+          ]),
+          (cluster.workers.count ?? 0) > 0 ? map(1..int(cluster.workers.count), [
+            int(cluster.workers.count) > 1 ? "worker-" + string(#) : "worker",
+            string({machine: {network: {
+              interfaces: [{
+                deviceSelector: {physical: true},
+                dhcp: false,
+                addresses: [cidrhost(network.cidr_block, 19 + #) + "/" + split(network.cidr_block, "/")[1]],
+                routes: [{network: "0.0.0.0/0", gateway: network.gateway}]
+              }],
+              nameservers: network.nameservers
+            }}})
+          ]) : []
+        ))}
       images:
         talos:
           url: ${vsphere_effective.image_url}

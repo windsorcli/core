@@ -12,23 +12,21 @@
 #
 #   Talos cluster nodes (role = "controlplane" | "worker")
 #     Deployed from an OVA in var.images (reference by key in instance.image).
-#     Per-node machineconfig — including static network config — is delivered via
-#     VMware GuestInfo at creation time (extra_config). Talos reads guestinfo on
-#     the vmware platform before maintenance mode, applies the machineconfig, and
-#     comes up at the configured IP. vmtoolsd reports the guest IP back to vCenter.
+#     Machine secrets and per-node machineconfigs are generated inside this
+#     module (not in a separate cluster-config step). This is possible because
+#     guestinfo delivery happens at VM-creation time — no pre-boot ISO staging
+#     required. The module sets guestinfo.talos.config at VM creation time;
+#     Talos reads the GuestInfo key on the vmware platform before maintenance
+#     mode and applies the config, coming up at the static IP without DHCP.
 #
 #   Non-cluster VMs (any other role, or no role)
-#     Any image in var.images, or a blank disk when image is empty. No machineconfig
-#     is generated or delivered. These VMs appear in the `instances` output but not
-#     in `controlplanes` or `workers`.
-#
-# Machine secrets (CA, bootstrap token, etc.) are generated inline — there is no
-# separate cluster/talos/config step. machine_secrets and client_configuration
-# flow to cluster/talos so it shares the same CA without re-generating secrets.
+#     Any image in var.images, or a blank disk when image is empty. No
+#     guestinfo config is set. These VMs appear in the `instances` output but
+#     not in `controlplanes` or `workers`.
 #
 # Dependency chain in a vSphere blueprint:
-#   compute (this module)  →  cluster/talos (consumes machine_secrets +
-#                                            client_configuration + node IPs)
+#   compute (this module) → cluster/talos (consumes controlplanes + workers +
+#                           machine_secrets + client_configuration)
 
 # =============================================================================
 # Provider Configuration
@@ -50,8 +48,6 @@ terraform {
 
 # Provider block is intentionally empty — all connection settings are read from
 # VSPHERE_SERVER / VSPHERE_USER / VSPHERE_PASSWORD / VSPHERE_ALLOW_UNVERIFIED_SSL.
-# allow_unverified_ssl lets operators set it via the schema's vsphere.allow_unverified_ssl
-# field without touching env vars, while still honouring the env-var override.
 provider "vsphere" {}
 
 # =============================================================================
@@ -103,15 +99,70 @@ data "vsphere_network" "this" {
 }
 
 # =============================================================================
-# Cluster Identity (Talos Machine Secrets)
+# Cluster Identity & Per-node Machineconfigs
 # =============================================================================
-#
-# Generated inline — no separate cluster/talos/config step on vSphere because
-# guestinfo delivery sets machineconfig during VM creation (no pre-compute ISO
-# staging required). Exported so cluster/talos shares the same cluster CA.
+
+locals {
+  has_cluster_nodes = length([
+    for k, v in local.instances_by_name : k
+    if v.role == "controlplane" || v.role == "worker"
+  ]) > 0
+
+  controlplane_nodes = {
+    for k, v in local.instances_by_name : k => v
+    if v.role == "controlplane"
+  }
+
+  worker_nodes = {
+    for k, v in local.instances_by_name : k => v
+    if v.role == "worker"
+  }
+}
 
 resource "talos_machine_secrets" "this" {
+  count         = local.has_cluster_nodes ? 1 : 0
   talos_version = "v${var.talos_version}"
+}
+
+data "talos_machine_configuration" "controlplane" {
+  for_each = local.has_cluster_nodes ? local.controlplane_nodes : {}
+
+  cluster_name       = var.cluster_name
+  cluster_endpoint   = var.cluster_endpoint
+  machine_type       = "controlplane"
+  machine_secrets    = talos_machine_secrets.this[0].machine_secrets
+  talos_version      = "v${var.talos_version}"
+  kubernetes_version = var.kubernetes_version
+
+  config_patches = compact([
+    var.common_config_patches,
+    var.controlplane_config_patches,
+    lookup(var.per_node_config_patches, each.key, null),
+  ])
+}
+
+data "talos_machine_configuration" "worker" {
+  for_each = local.has_cluster_nodes ? local.worker_nodes : {}
+
+  cluster_name       = var.cluster_name
+  cluster_endpoint   = var.cluster_endpoint
+  machine_type       = "worker"
+  machine_secrets    = talos_machine_secrets.this[0].machine_secrets
+  talos_version      = "v${var.talos_version}"
+  kubernetes_version = var.kubernetes_version
+
+  config_patches = compact([
+    var.common_config_patches,
+    var.worker_config_patches,
+    lookup(var.per_node_config_patches, each.key, null),
+  ])
+}
+
+locals {
+  guestinfo_configs = merge(
+    { for k, v in data.talos_machine_configuration.controlplane : k => base64encode(v.machine_configuration) },
+    { for k, v in data.talos_machine_configuration.worker : k => base64encode(v.machine_configuration) },
+  )
 }
 
 # =============================================================================
@@ -119,8 +170,6 @@ resource "talos_machine_secrets" "this" {
 # =============================================================================
 
 locals {
-  network_prefix_length = var.network_cidr != null ? tonumber(split("/", var.network_cidr)[1]) : 24
-
   expanded_instances = flatten([
     for instance in var.instances : [
       for i in range(instance.count) : {
@@ -153,85 +202,6 @@ locals {
 }
 
 # =============================================================================
-# Per-node Machine Configurations (Talos nodes only)
-# =============================================================================
-#
-# Only generated for controlplane and worker instances. Non-cluster VMs (custom
-# roles or no role) are skipped — they receive no guestinfo config and are not
-# included in the controlplanes/workers outputs.
-#
-# Static network config is baked into each node's machineconfig via a
-# machine.network.interfaces patch. Talos applies this before maintenance mode,
-# so the node comes up at its configured static IP without DHCP — critical on
-# isolated plant networks where no DHCP server may be present.
-#
-# deviceSelector { physical: true } is used rather than interface name (e.g.
-# "eth0") because vSphere synthetic NICs may surface as "ens192" or "ens160"
-# depending on the VMX hardware version. Single-NIC VMs always match exactly one.
-
-locals {
-  node_network_patches = {
-    for k, v in local.instances_by_name : k => yamlencode({
-      machine = {
-        network = {
-          interfaces = [{
-            deviceSelector = { physical = true }
-            dhcp           = false
-            addresses      = ["${v.ipv4}/${local.network_prefix_length}"]
-            routes = [{
-              network = "0.0.0.0/0"
-              gateway = var.network_gateway
-            }]
-          }]
-          nameservers = var.network_nameservers
-        }
-      }
-    })
-    if v.ipv4 != null && var.network_gateway != null
-    && contains(["controlplane", "worker"], v.role != null ? v.role : "")
-  }
-}
-
-data "talos_machine_configuration" "controlplane" {
-  for_each = { for k, v in local.instances_by_name : k => v if v.role == "controlplane" }
-
-  cluster_name       = var.cluster_name
-  cluster_endpoint   = var.cluster_endpoint
-  machine_type       = "controlplane"
-  machine_secrets    = talos_machine_secrets.this.machine_secrets
-  talos_version      = "v${var.talos_version}"
-  kubernetes_version = var.kubernetes_version
-
-  config_patches = compact([
-    var.common_config_patches,
-    lookup(local.node_network_patches, each.key, null),
-  ])
-}
-
-data "talos_machine_configuration" "worker" {
-  for_each = { for k, v in local.instances_by_name : k => v if v.role == "worker" }
-
-  cluster_name       = var.cluster_name
-  cluster_endpoint   = var.cluster_endpoint
-  machine_type       = "worker"
-  machine_secrets    = talos_machine_secrets.this.machine_secrets
-  talos_version      = "v${var.talos_version}"
-  kubernetes_version = var.kubernetes_version
-
-  config_patches = compact([
-    var.common_config_patches,
-    lookup(local.node_network_patches, each.key, null),
-  ])
-}
-
-locals {
-  machineconfigs = merge(
-    { for k, v in data.talos_machine_configuration.controlplane : k => v.machine_configuration },
-    { for k, v in data.talos_machine_configuration.worker : k => v.machine_configuration },
-  )
-}
-
-# =============================================================================
 # VM Resources
 # =============================================================================
 #
@@ -240,8 +210,9 @@ locals {
 # (or an image referencing a non-OVA artifact) get a blank disk instead.
 #
 # extra_config delivers the Talos machineconfig only when the role is
-# controlplane or worker. All other VMs get an empty extra_config map so the
-# resource is valid without a machineconfig to encode.
+# controlplane or worker AND a config exists in local.guestinfo_configs.
+# The map is generated inside this module from talos_machine_configuration
+# data sources. Non-cluster VMs receive an empty extra_config map.
 #
 # lifecycle.ignore_changes covers ovf_deploy (initial bootstrap only), guest_id,
 # and firmware — the OVA sets all three and Terraform should not fight them on
@@ -285,10 +256,11 @@ resource "vsphere_virtual_machine" "instances" {
   }
 
   # Machineconfig via VMware GuestInfo — Talos cluster nodes only.
-  # base64 flag tells Talos to base64-decode the config value before applying.
-  # Non-cluster VMs receive an empty map.
-  extra_config = contains(["controlplane", "worker"], each.value.role != null ? each.value.role : "") ? {
-    "guestinfo.talos.config"        = base64encode(lookup(local.machineconfigs, each.key, ""))
+  # The base64-encoded config is generated inside this module via
+  # local.guestinfo_configs. guestinfo.talos.config.base64 = "true" instructs
+  # Talos to decode before applying. Non-cluster VMs receive an empty map.
+  extra_config = contains(["controlplane", "worker"], each.value.role != null ? each.value.role : "") && lookup(local.guestinfo_configs, each.key, null) != null ? {
+    "guestinfo.talos.config"        = local.guestinfo_configs[each.key]
     "guestinfo.talos.config.base64" = "true"
   } : {}
 

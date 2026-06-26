@@ -23,13 +23,13 @@ output "workers" {
 }
 
 output "machine_secrets" {
-  description = "Talos cluster identity (CA, etcd CA, k8s CA, bootstrap token). Pass to cluster/talos as var.machine_secrets so it shares the same cluster CA — cluster/talos then skips talos_machine_configuration_apply (already delivered via guestinfo) and runs straight to bootstrap + kubeconfig + health checks"
-  value       = talos_machine_secrets.this.machine_secrets
+  description = "Talos cluster identity. Pass to cluster/talos as var.machine_secrets so it shares the same cluster CA."
+  value       = length(talos_machine_secrets.this) > 0 ? talos_machine_secrets.this[0].machine_secrets : null
   sensitive   = true
 }
 
 output "client_configuration" {
-  description = "Talos client configuration (CA cert + admin cert/key). Pass to cluster/talos as var.client_configuration so its talos_client_configuration data source can generate a working talosconfig file"
-  value       = talos_machine_secrets.this.client_configuration
+  description = "Talos client configuration (CA cert + admin cert/key). Pass to cluster/talos as var.client_configuration."
+  value       = length(talos_machine_secrets.this) > 0 ? talos_machine_secrets.this[0].client_configuration : null
   sensitive   = true
 }

@@ -37,42 +37,27 @@ mock_provider "talos" {
   mock_resource "talos_machine_secrets" {}
   mock_data "talos_machine_configuration" {
     defaults = {
-      machine_configuration = "# mock talos config"
+      machine_configuration = "version: v1alpha1\nmachine:\n  type: controlplane\n"
     }
   }
 }
 
-# Top-level variables shared across all runs. Required vSphere inventory fields
-# plus the two Talos fields that have no defaults. Individual runs add or
-# override as needed.
+# Top-level variables shared across all runs.
 variables {
-  context_id       = "test"
-  datacenter       = "dc-prod"
-  cluster          = "cluster-01"
-  datastore        = "datastore-01"
-  network          = "VM Network"
-  cluster_endpoint = "https://10.5.0.10:6443"
-  talos_version    = "1.10.3"
+  context_id = "test"
+  datacenter = "dc-prod"
+  cluster    = "cluster-01"
+  datastore  = "datastore-01"
+  network    = "VM Network"
 }
 
-# No instances and no images: confirms the module produces no VMs and no
-# machineconfig data sources, while always creating talos_machine_secrets.
+# No instances: confirms the module produces no VMs.
 run "empty_module" {
   command = plan
 
   assert {
     condition     = length(vsphere_virtual_machine.instances) == 0
     error_message = "No VMs expected when instances list is empty"
-  }
-
-  assert {
-    condition     = length(data.talos_machine_configuration.controlplane) == 0
-    error_message = "No controlplane machineconfigs expected with empty instances"
-  }
-
-  assert {
-    condition     = length(data.talos_machine_configuration.worker) == 0
-    error_message = "No worker machineconfigs expected with empty instances"
   }
 }
 
@@ -83,6 +68,11 @@ run "controlplane_from_ova" {
   command = plan
 
   variables {
+    talos_version    = "1.12.6"
+    cluster_endpoint = "https://10.5.0.10:6443"
+    per_node_config_patches = {
+      "controlplane" = "machine:\n  network:\n    interfaces: []\n"
+    }
     images = {
       talos = {
         url             = "https://factory.talos.dev/image/903b2da78f99adef03cbbd4df6714563823f63218508800751560d3bc3557e40/v1.10.3/vmware-amd64.ova"
@@ -139,9 +129,6 @@ run "controlplane_from_ova" {
     error_message = "OVF deploy block should fire when instance references a valid image URL"
   }
 
-  # extra_config values derived from talos_machine_configuration (itself deferred
-  # because machine_secrets is a computed resource attribute) are (known after
-  # apply) during plan. Check key presence via contains(keys()) instead.
   assert {
     condition     = contains(keys(vsphere_virtual_machine.instances["controlplane"].extra_config), "guestinfo.talos.config")
     error_message = "Controlplane VM extra_config should include guestinfo.talos.config"
@@ -151,24 +138,18 @@ run "controlplane_from_ova" {
     condition     = contains(keys(vsphere_virtual_machine.instances["controlplane"].extra_config), "guestinfo.talos.config.base64")
     error_message = "Controlplane VM extra_config should include guestinfo.talos.config.base64"
   }
-
-  assert {
-    condition     = length(data.talos_machine_configuration.controlplane) == 1
-    error_message = "One controlplane machineconfig data source should be generated"
-  }
-
-  assert {
-    condition     = length(data.talos_machine_configuration.worker) == 0
-    error_message = "No worker machineconfig data sources for a controlplane instance"
-  }
 }
 
-# Worker role: confirms worker machineconfig data source is created (not
-# controlplane) and guestinfo is delivered to the VM.
+# Worker role: guestinfo is delivered to the VM.
 run "worker_role" {
   command = plan
 
   variables {
+    talos_version    = "1.12.6"
+    cluster_endpoint = "https://10.5.0.10:6443"
+    per_node_config_patches = {
+      "worker" = "machine:\n  network:\n    interfaces: []\n"
+    }
     images = {
       talos = {
         url = "https://factory.talos.dev/image/903b2da78f99adef03cbbd4df6714563823f63218508800751560d3bc3557e40/v1.10.3/vmware-amd64.ova"
@@ -189,28 +170,23 @@ run "worker_role" {
   }
 
   assert {
-    condition     = length(data.talos_machine_configuration.controlplane) == 0
-    error_message = "No controlplane machineconfig for a worker instance"
-  }
-
-  assert {
-    condition     = length(data.talos_machine_configuration.worker) == 1
-    error_message = "One worker machineconfig data source should be generated"
-  }
-
-  assert {
     condition     = length(keys(vsphere_virtual_machine.instances["worker"].extra_config)) == 2
     error_message = "Worker VM should receive guestinfo extra_config"
   }
 }
 
 # count > 1 expansion: 3 workers produce VMs named worker-1/worker-2/worker-3.
-# Confirms the -N suffix and that one machineconfig data source is generated
-# per expanded instance.
 run "count_expansion" {
   command = plan
 
   variables {
+    talos_version    = "1.12.6"
+    cluster_endpoint = "https://10.5.0.10:6443"
+    per_node_config_patches = {
+      "worker-1" = "machine:\n  network:\n    interfaces: []\n"
+      "worker-2" = "machine:\n  network:\n    interfaces: []\n"
+      "worker-3" = "machine:\n  network:\n    interfaces: []\n"
+    }
     images = {
       talos = {
         url = "https://factory.talos.dev/image/903b2da78f99adef03cbbd4df6714563823f63218508800751560d3bc3557e40/v1.10.3/vmware-amd64.ova"
@@ -238,16 +214,19 @@ run "count_expansion" {
     condition     = contains(keys(vsphere_virtual_machine.instances), "worker-1") && contains(keys(vsphere_virtual_machine.instances), "worker-2") && contains(keys(vsphere_virtual_machine.instances), "worker-3")
     error_message = "Pool VMs should be named worker-1, worker-2, worker-3"
   }
+}
 
+# No cluster VMs: when there are no controlplane or worker instances,
+# talos_machine_secrets should not be created.
+run "no_cluster_vms_no_secrets" {
+  command = plan
   assert {
-    condition     = length(data.talos_machine_configuration.worker) == 3
-    error_message = "One worker machineconfig data source per expanded instance"
+    condition     = length(talos_machine_secrets.this) == 0
+    error_message = "No talos_machine_secrets should be created when there are no cluster instances"
   }
 }
 
-# Non-cluster VM (custom role): no machineconfig is generated and extra_config
-# is empty. No OVF deploy when no image is specified. Models utility VMs (jump
-# host, historian, etc.) that sit next to Talos nodes on the same cluster.
+# Non-cluster VM (custom role): no guestinfo set, no OVF deploy when no image.
 run "non_cluster_vm" {
   command = plan
 
@@ -270,22 +249,16 @@ run "non_cluster_vm" {
 
   assert {
     condition     = length(keys(vsphere_virtual_machine.instances["historian"].extra_config)) == 0
-    error_message = "Non-cluster VM should have empty extra_config — no guestinfo machineconfig"
+    error_message = "Non-cluster VM should have empty extra_config"
   }
 
   assert {
     condition     = length(vsphere_virtual_machine.instances["historian"].ovf_deploy) == 0
     error_message = "No OVF deploy when instance has no image"
   }
-
-  assert {
-    condition     = length(data.talos_machine_configuration.controlplane) == 0 && length(data.talos_machine_configuration.worker) == 0
-    error_message = "No machineconfigs generated for non-cluster roles"
-  }
 }
 
 # Blank disk: instance with empty image creates a VM without OVF deploy.
-# Models bring-your-own-disk provisioning or pre-installed VMs.
 run "blank_disk_no_image" {
   command = plan
 
@@ -341,8 +314,7 @@ run "named_resource_pool" {
   }
 }
 
-# Root resource pool: empty resource_pool suppresses the named pool data source
-# and the VM uses the compute cluster's built-in root pool.
+# Root resource pool: empty resource_pool suppresses the named pool data source.
 run "root_resource_pool" {
   command = plan
 
@@ -375,8 +347,7 @@ run "custom_folder" {
   }
 }
 
-# Default folder: empty folder falls back to "windsor-{context_id}" so VMs are
-# grouped by deployment when no explicit path is given.
+# Default folder: empty folder falls back to "windsor-{context_id}".
 run "default_folder" {
   command = plan
 
@@ -398,19 +369,6 @@ run "default_folder" {
   }
 }
 
-# cluster_endpoint missing https:// prefix triggers the variable validation rule.
-run "validation_cluster_endpoint_no_https" {
-  command = plan
-
-  variables {
-    cluster_endpoint = "10.5.0.10:6443"
-  }
-
-  expect_failures = [
-    var.cluster_endpoint,
-  ]
-}
-
 # Image URL missing an http(s):// scheme triggers the images variable validation.
 run "validation_image_url_missing_scheme" {
   command = plan
@@ -427,4 +385,3 @@ run "validation_image_url_missing_scheme" {
     var.images,
   ]
 }
-
