@@ -26,12 +26,12 @@ variable "talos_version" {
   }
 }
 
-# Pre-generated cluster identity from an upstream cluster/talos-secrets module.
+# Pre-generated cluster identity from an upstream module.
 # When BOTH are null (default — incus/metal/docker/aws/azure callers): cluster/talos
 # generates secrets locally via talos_machine_secrets and applies per-node configs
 # over the maintenance-mode Talos API. When BOTH are supplied (hyperv path): the
-# secrets came from cluster/talos-secrets (which also feeds cluster/talos/config to
-# wrap signed configs into CIDATA seed ISOs). cluster/talos then skips
+# secrets came from compute/hyperv, which also signs and wraps per-node configs
+# into CIDATA seed ISOs. cluster/talos then skips
 # talos_machine_configuration_apply because the configs are already on the nodes
 # via CIDATA, and goes straight to talos_machine_bootstrap + health checks.
 variable "machine_secrets" {

@@ -171,7 +171,6 @@ config:
             ["ipv4", get(#, "node")],
             ["image", ""],
             ["dvd_iso_path", "talos"],
-            ["cidata_iso_path", hyperv_effective.images_dir + "/" + get(#, "hostname") + "-cidata.iso"],
             ["boot_from_dvd", false],
             ["generation", 2],
             ["secure_boot", false],
@@ -187,7 +186,6 @@ config:
             ["ipv4", get(#, "node")],
             ["image", ""],
             ["dvd_iso_path", "talos"],
-            ["cidata_iso_path", hyperv_effective.images_dir + "/" + get(#, "hostname") + "-cidata.iso"],
             ["boot_from_dvd", false],
             ["generation", 2],
             ["secure_boot", false],
@@ -265,41 +263,17 @@ config:
 # No workstation overlays on Hyper-V, so this facet owns the full chain.
 terraform:
 
-  # cluster-config — generates the Talos cluster identity, signs per-node
-  # machineconfigs (with a static-IP interface patch), and wraps each into a
-  # CIDATA seed ISO. Must complete before compute so VMs mount their seed at
-  # boot. Identity is exported to the cluster step, which then skips config
-  # apply (delivered via CIDATA) and runs straight to bootstrap + health.
-  - name: cluster-config
-    path: cluster/talos/config
-    dependsOn:
-      - "${pki.enabled == true ? 'pki' : ''}"
-    inputs:
-      talos_version: ${talos.talos_version}
-      cluster_name: talos
-      cluster_endpoint: "${cluster.endpoint ?? ('https://' + cidrhost(network.cidr_block ?? '10.5.0.0/16', 10) + ':6443')}"
-      destination_dir: "${hyperv_effective.images_dir}"
-      common_config_patches: ${talos_common.common_config_patches}
-      controlplane_config_patches: "${talos_common.oidc_ca_file_patch ?? ''}"
-      worker_config_patches: "${talos_common.worker_config_patches ?? ''}"
-      network:
-        cidr_block: ${network.cidr_block ?? '10.5.0.0/16'}
-        gateway: ${network.gateway}
-        nameservers: ${network.nameservers}
-      # In NodePort mode, feed the facet-built lists so CIDATA patches land
-      # NAT-internal static IPs (per the per-VM offset scheme) on each NIC.
-      controlplanes: "${gateway.service_type == 'NodePort' ? hyperv_controlplanes.for_config : values(cluster.controlplanes.nodes ?? {})}"
-      workers: "${gateway.service_type == 'NodePort' ? hyperv_workers.for_config : ((cluster.workers.count ?? 0) > 0 ? values(cluster.workers.nodes ?? {}) : [])}"
-
   # compute — Talos VMs on a Hyper-V virtual switch. Each VM gets a fresh
   # dynamic VHDX, the metal-amd64.iso on DVD slot 1, and its CIDATA seed on
   # slot 2. Boot is HDD-first: UEFI falls through to the ISO on a fresh disk,
   # then boots from disk once installed. CIDATA stays attached (NoCloud reader
-  # is idempotent).
+  # is idempotent). Machine secrets and per-node machineconfigs are generated
+  # inside this module; it exports machine_secrets and client_configuration
+  # for the cluster step.
   - name: compute
     path: compute/hyperv
     dependsOn:
-      - cluster-config
+      - "${pki.enabled == true ? 'pki' : ''}"
     inputs:
       network_name: ""
       create_network: true
@@ -323,6 +297,15 @@ terraform:
       port_forward_external_ip: "0.0.0.0"
       port_forward_name_prefix: "windsor-${id ?? 'hyperv'}"
       network_cidr: ${network.cidr_block ?? '10.5.0.0/16'}
+      cluster_name: talos
+      cluster_endpoint: "${cluster.endpoint ?? ('https://' + cidrhost(network.cidr_block ?? '10.5.0.0/16', 10) + ':6443')}"
+      talos_version: ${talos.talos_version}
+      common_config_patches: ${talos_common.common_config_patches}
+      controlplane_config_patches: "${talos_common.oidc_ca_file_patch ?? ''}"
+      worker_config_patches: "${talos_common.worker_config_patches ?? ''}"
+      destination_dir: "${hyperv_effective.images_dir}"
+      network_gateway: ${network.gateway}
+      network_nameservers: ${network.nameservers}
       vhd_dir: "${hyperv_effective.vhd_dir}"
       images:
         talos:
@@ -340,7 +323,6 @@ terraform:
             ["ipv4", cidrhost(network.cidr_block ?? '10.5.0.0/16', 10)],
             ["image", ""],
             ["dvd_iso_path", "talos"],
-            ["cidata_iso_path", hyperv_effective.images_dir + "/" + ((values(cluster.controlplanes.nodes ?? {}))[0].hostname ?? "controlplane-1") + "-cidata.iso"],
             ["boot_from_dvd", false],
             ["generation", 2],
             ["secure_boot", false],
@@ -356,7 +338,6 @@ terraform:
             ["ipv4", cidrhost(network.cidr_block ?? '10.5.0.0/16', 20)],
             ["image", ""],
             ["dvd_iso_path", "talos"],
-            ["cidata_iso_path", (cluster.workers.count ?? 0) > 0 ? (hyperv_effective.images_dir + "/" + ((values(cluster.workers.nodes ?? {}))[0].hostname ?? "worker-1") + "-cidata.iso") : ""],
             ["boot_from_dvd", false],
             ["generation", 2],
             ["secure_boot", false],
@@ -371,8 +352,6 @@ terraform:
     path: cluster/talos
     dependsOn:
       - compute
-      - "${pki.enabled == true ? 'pki' : ''}"
-      - cluster-config
     parallelism: 1
     inputs:
       # Prefer the schema-declared cluster.endpoint; the compute-derived fallback
@@ -392,11 +371,11 @@ terraform:
       worker_config_patches: "${talos_common.worker_config_patches ?? ''}"
       controlplane_volumes: ${talos_common.controlplane_volumes ?? []}
       worker_volumes: ${talos_common.worker_volumes ?? []}
-      # Shared identity from cluster-config: when non-null, cluster/talos skips
+      # Shared identity from compute: when non-null, cluster/talos skips
       # machine_secrets and config apply (delivered via CIDATA). Bootstrap,
       # kubeconfig download, and health-check still run.
-      machine_secrets: ${terraform_output("cluster-config", "machine_secrets")}
-      client_configuration: ${terraform_output("cluster-config", "client_configuration")}
+      machine_secrets: ${terraform_output("compute", "machine_secrets")}
+      client_configuration: ${terraform_output("compute", "client_configuration")}
 
   - name: gitops
     path: gitops/flux

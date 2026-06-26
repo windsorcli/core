@@ -17,8 +17,8 @@ terraform {
 #-----------------------------------------------------------------------------------------------------------------------
 # Cluster identity (CA, etcd CA, k8s CA, bootstrap token, encryption secret).
 # Generated locally when no upstream secrets are supplied — the default for
-# incus/metal/docker/aws/azure paths. On the hyperv CIDATA path, cluster/talos/config
-# generates and exports them ahead of compute; they flow back here via
+# incus/metal/docker/aws/azure paths. On the hyperv CIDATA path, compute/hyperv
+# generates and exports them; they flow back here via
 # var.machine_secrets / var.client_configuration and the count-gated resource
 # below stays at zero. local.machine_secrets / local.client_configuration pick
 # whichever source is active.
