@@ -201,8 +201,10 @@ variable "instances" {
     # ISO mount: a key into var.images (use the resulting destination_path) or an absolute host path. Empty/null = no DVD.
     dvd_iso_path  = optional(string)
     boot_from_dvd = optional(bool, false) # When true and dvd_iso_path is set, gen 2 boot order leads with the DVD (install-from-ISO flow)
-    # Second DVD slot — cloud-init NoCloud / Windows unattend seed ISOs. Same resolution as dvd_iso_path: a key into var.images or an absolute host path. Not in boot_order — read by the guest at runtime via volume-label scan.
-    cidata_iso_path = optional(string)
+    # Second DVD slot — cloud-init NoCloud / Windows unattend seed ISOs. Populated
+    # automatically by this module via var.cluster_name/talos_version/cluster_endpoint
+    # inputs when destination_dir is set; not passed directly.
+    # Not in boot_order — read by the guest at runtime via volume-label scan.
   }))
   default = []
 
@@ -215,4 +217,79 @@ variable "instances" {
     condition     = alltrue([for inst in var.instances : contains(["Off", "Running"], inst.desired_state)])
     error_message = "instance.desired_state must be Off or Running"
   }
+}
+
+variable "destination_dir" {
+  description = "Directory on the Hyper-V host where per-node CIDATA seed ISOs are staged (e.g. C:\\hyperv\\images). When empty, no CIDATA ISOs are created. Must match what cluster/talos/config previously received as destination_dir."
+  type        = string
+  default     = ""
+}
+
+variable "network_gateway" {
+  description = "Default route gateway written into each node's CIDATA network-config (cloud-init v2 gateway4 field). Required when destination_dir is non-empty."
+  type        = string
+  default     = null
+}
+
+variable "network_nameservers" {
+  description = "DNS resolvers written into each node's CIDATA network-config (cloud-init v2 nameservers.addresses list)."
+  type        = list(string)
+  default     = ["1.1.1.1", "8.8.8.8"]
+}
+
+variable "network_interface" {
+  description = "NIC name glob for the CIDATA network-config match.name field (cloud-init v2). Default e* matches both eth0 and enX0 — covers Hyper-V synthetic NICs across kernel versions."
+  type        = string
+  default     = "e*"
+}
+
+variable "cluster_name" {
+  description = "Talos cluster name. Baked into every per-node machineconfig."
+  type        = string
+  default     = "talos"
+}
+
+variable "cluster_endpoint" {
+  description = "Cluster control-plane API endpoint baked into every per-node machineconfig (e.g. https://192.168.0.10:6443). Required when instances include controlplane or worker roles."
+  type        = string
+  default     = ""
+  validation {
+    condition     = var.cluster_endpoint == "" || can(regex("^https://", var.cluster_endpoint))
+    error_message = "cluster_endpoint must start with https://"
+  }
+}
+
+variable "talos_version" {
+  description = "Pinned Talos version (semver, no v-prefix). Required when instances include controlplane or worker roles."
+  type        = string
+  default     = ""
+  validation {
+    condition     = var.talos_version == "" || can(regex("^\\d+\\.\\d+\\.\\d+$", var.talos_version))
+    error_message = "talos_version should be in semver format like '1.12.6'."
+  }
+}
+
+variable "kubernetes_version" {
+  description = "Kubernetes version to install."
+  type        = string
+  # renovate: datasource=github-releases depName=kubernetes package=kubernetes/kubernetes
+  default = "1.36.2"
+}
+
+variable "common_config_patches" {
+  description = "Cluster-wide Talos machine config patch (YAML string). Applied to every node's machineconfig."
+  type        = string
+  default     = ""
+}
+
+variable "controlplane_config_patches" {
+  description = "Controlplane-only Talos machine config patch (YAML string)."
+  type        = string
+  default     = ""
+}
+
+variable "worker_config_patches" {
+  description = "Worker-only Talos machine config patch (YAML string)."
+  type        = string
+  default     = ""
 }

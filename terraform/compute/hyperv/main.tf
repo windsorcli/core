@@ -13,7 +13,11 @@ terraform {
   required_providers {
     hyperv = {
       source  = "windsorcli/hyperv"
-      version = "0.3.1"
+      version = "0.3.3"
+    }
+    talos = {
+      source  = "siderolabs/talos"
+      version = "0.11.0"
     }
   }
 }
@@ -146,10 +150,9 @@ locals {
         notes           = instance.notes
         desired_state   = instance.desired_state
         shutdown_mode   = instance.shutdown_mode
-        dvd_iso_path    = instance.dvd_iso_path
-        boot_from_dvd   = instance.boot_from_dvd
-        cidata_iso_path = instance.cidata_iso_path
-        index           = i
+        dvd_iso_path  = instance.dvd_iso_path
+        boot_from_dvd = instance.boot_from_dvd
+        index         = i
       }
     ]
   ])
@@ -174,16 +177,180 @@ locals {
     )
   }
 
-  # Second DVD slot. Same resolution rule as instance_iso_paths.
+  # Second DVD slot. Derived from destination_dir + hostname for cluster nodes
+  # with a static IPv4. Keyed on role/ipv4 (plan-stable) rather than machineconfigs
+  # presence (which is unknown at plan time due to talos_machine_secrets dependency).
   instance_cidata_paths = {
     for k, v in local.instances_by_name : k => (
-      v.cidata_iso_path == null || v.cidata_iso_path == "" ? null : (
-        contains(keys(var.images), v.cidata_iso_path)
-        ? var.images[v.cidata_iso_path].destination_path
-        : v.cidata_iso_path
-      )
+      var.destination_dir != ""
+      && (v.role == "controlplane" || v.role == "worker")
+      && v.ipv4 != null
+      ? "${var.destination_dir}/${k}-cidata.iso"
+      : null
     )
   }
+}
+
+# =============================================================================
+# Cluster Identity & Per-node Machineconfigs
+# =============================================================================
+
+locals {
+  has_cluster_nodes = length([
+    for k, v in local.instances_by_name : k
+    if v.role == "controlplane" || v.role == "worker"
+  ]) > 0
+
+  controlplane_nodes = {
+    for k, v in local.instances_by_name : k => v
+    if v.role == "controlplane" && v.ipv4 != null
+  }
+
+  worker_nodes = {
+    for k, v in local.instances_by_name : k => v
+    if v.role == "worker" && v.ipv4 != null
+  }
+
+  controlplane_network_patches = {
+    for k, v in local.controlplane_nodes : k => yamlencode({
+      machine = {
+        network = {
+          interfaces = [{
+            deviceSelector = { physical = true }
+            dhcp           = false
+            addresses      = ["${v.ipv4}/${local.network_prefix_length}"]
+            routes = [{
+              network = "0.0.0.0/0"
+              gateway = var.network_gateway
+            }]
+          }]
+          nameservers = var.network_nameservers
+        }
+      }
+    })
+  }
+
+  worker_network_patches = {
+    for k, v in local.worker_nodes : k => yamlencode({
+      machine = {
+        network = {
+          interfaces = [{
+            deviceSelector = { physical = true }
+            dhcp           = false
+            addresses      = ["${v.ipv4}/${local.network_prefix_length}"]
+            routes = [{
+              network = "0.0.0.0/0"
+              gateway = var.network_gateway
+            }]
+          }]
+          nameservers = var.network_nameservers
+        }
+      }
+    })
+  }
+}
+
+resource "talos_machine_secrets" "this" {
+  count         = local.has_cluster_nodes ? 1 : 0
+  talos_version = "v${var.talos_version}"
+}
+
+data "talos_machine_configuration" "controlplane" {
+  for_each = local.has_cluster_nodes ? local.controlplane_nodes : {}
+
+  cluster_name       = var.cluster_name
+  cluster_endpoint   = var.cluster_endpoint
+  machine_type       = "controlplane"
+  machine_secrets    = talos_machine_secrets.this[0].machine_secrets
+  talos_version      = "v${var.talos_version}"
+  kubernetes_version = var.kubernetes_version
+
+  config_patches = compact([
+    var.common_config_patches,
+    var.controlplane_config_patches,
+    local.controlplane_network_patches[each.key],
+  ])
+}
+
+data "talos_machine_configuration" "worker" {
+  for_each = local.has_cluster_nodes ? local.worker_nodes : {}
+
+  cluster_name       = var.cluster_name
+  cluster_endpoint   = var.cluster_endpoint
+  machine_type       = "worker"
+  machine_secrets    = talos_machine_secrets.this[0].machine_secrets
+  talos_version      = "v${var.talos_version}"
+  kubernetes_version = var.kubernetes_version
+
+  config_patches = compact([
+    var.common_config_patches,
+    var.worker_config_patches,
+    local.worker_network_patches[each.key],
+  ])
+}
+
+locals {
+  machineconfigs = merge(
+    { for k, v in data.talos_machine_configuration.controlplane : k => v.machine_configuration },
+    { for k, v in data.talos_machine_configuration.worker : k => v.machine_configuration },
+  )
+}
+
+# =============================================================================
+# CIDATA ISO Resources (Talos/nocloud seed volumes)
+# =============================================================================
+#
+# For each controlplane/worker instance that has a matching machineconfig in
+# local.machineconfigs, build a CIDATA seed ISO and stage it on the host at
+# destination_dir/{hostname}-cidata.iso. Talos reads the ISO on the nocloud
+# platform before maintenance mode — user-data is the signed machineconfig,
+# network-config brings up the static IP.
+#
+# Machineconfigs are generated inside this module by the Cluster Identity
+# section above, co-locating CIDATA management with the VM lifecycle.
+
+locals {
+  # Nodes that get a CIDATA ISO: controlplane/worker nodes with a static IPv4.
+  # Keyed by instance name (always known from var.instances) so for_each is plan-stable.
+  cidata_nodes = {
+    for k, v in local.instances_by_name : k => v
+    if (v.role == "controlplane" || v.role == "worker")
+    && v.ipv4 != null
+  }
+
+  network_prefix_length = var.network_cidr != null ? tonumber(split("/", var.network_cidr)[1]) : 24
+}
+
+data "hyperv_iso_volume" "cidata" {
+  for_each = var.destination_dir != "" ? local.cidata_nodes : {}
+
+  volume_label = "CIDATA"
+
+  files = {
+    "meta-data" = yamlencode({
+      "instance-id"    = each.key
+      "local-hostname" = each.key
+    })
+
+    # version: 2 must lead the file — cloud-init v2 parser activates on the
+    # first line. match.name glob (default e*) covers both eth0 and enX0.
+    "network-config" = format(
+      "version: 2\nethernets:\n  primary:\n    match:\n      name: \"%s\"\n    addresses:\n      - %s\n    gateway4: %s\n    nameservers:\n      addresses:\n%s\n",
+      var.network_interface,
+      "${each.value.ipv4}/${local.network_prefix_length}",
+      var.network_gateway,
+      join("\n", [for ns in var.network_nameservers : "        - ${ns}"])
+    )
+
+    "user-data" = local.machineconfigs[each.key]
+  }
+}
+
+resource "hyperv_image_file" "cidata" {
+  for_each = var.destination_dir != "" ? local.cidata_nodes : {}
+
+  destination_path = "${var.destination_dir}/${each.key}-cidata.iso"
+  content_base64   = data.hyperv_iso_volume.cidata[each.key].content_base64
 }
 
 # =============================================================================
@@ -313,5 +480,5 @@ resource "hyperv_vm" "instances" {
   # The switch and any DVD-ISO image are referenced through config-known
   # paths (not resource-instance refs), so add explicit deps to ensure they
   # exist on the host before the VM is registered.
-  depends_on = [hyperv_virtual_switch.main, hyperv_image_file.images]
+  depends_on = [hyperv_virtual_switch.main, hyperv_image_file.images, hyperv_image_file.cidata]
 }
