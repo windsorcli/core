@@ -312,6 +312,7 @@ terraform:
           destination_path: "${hyperv_effective.image_destination}"
           url: ${hyperv_effective.image_url}
           keep_on_destroy: true
+          runner_download: true
       # NodePort uses the flat per-VM list (own cidata_iso_path per VM).
       # Otherwise fall back to the count-based two-entry form (single-VM today).
       instances: >-

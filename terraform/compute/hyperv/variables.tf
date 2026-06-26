@@ -157,6 +157,7 @@ variable "images" {
     url              = optional(string)
     checksum         = optional(string)
     compression      = optional(string)
+    runner_download  = optional(bool, false)
     local_path       = optional(string)
   }))
   default = {}
