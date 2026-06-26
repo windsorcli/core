@@ -435,6 +435,7 @@ terraform:
           destination_path: "${hyperv_effective.image_destination}"
           url: ${hyperv_effective.image_url}
           keep_on_destroy: true
+          runner_download: true
       # In NodePort mode the facet builds a flat per-VM instance list
       # (one entry per cp/worker, count=1 each) so each VM gets its own
       # internally generated CIDATA ISO with the node's static IP baked in.

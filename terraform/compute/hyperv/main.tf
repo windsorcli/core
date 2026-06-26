@@ -13,7 +13,7 @@ terraform {
   required_providers {
     hyperv = {
       source  = "windsorcli/hyperv"
-      version = "0.3.3"
+      version = ">= 0.3.1"
     }
     talos = {
       source  = "siderolabs/talos"
@@ -114,9 +114,10 @@ resource "hyperv_image_file" "images" {
   destination_path = each.value.destination_path
   keep_on_destroy  = each.value.keep_on_destroy
   url = each.value.url == null ? null : {
-    url         = each.value.url
-    checksum    = each.value.checksum
-    compression = each.value.compression
+    url             = each.value.url
+    checksum        = each.value.checksum
+    compression     = each.value.compression
+    runner_download = each.value.runner_download
   }
   local_path = each.value.local_path
 }
