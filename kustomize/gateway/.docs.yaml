@@ -25,11 +25,11 @@ components:
   envoy:
     facet: gateway-base
     enable_when: "`gateway.driver == 'envoy'`"
-    description: "Helm release of `envoy-gateway` in `system-gateway`. Installs the Envoy Gateway operator (chart CRD install is skipped). The Envoy Gateway and shared Gateway API CRDs are vendored under `kustomize/crds/` and applied ahead of the controller via the facet `crds:` section."
+    description: "Helm release of `envoy-gateway` in `system-gateway`. Installs the Envoy Gateway operator (chart CRD install is skipped) and the self-contained `external` `EnvoyProxy` resource that owns the per-gateway data-plane config (digest-pinned proxy image plus the Service patches layered on by the loadbalancer/nodeport components). The EnvoyGateway config keeps no default proxy patch, so the EnvoyProxy each Gateway references via `parametersRef` is authoritative. The Envoy Gateway and shared Gateway API CRDs are vendored under `kustomize/crds/` and applied ahead of the controller via the facet `crds:` section."
   envoy/loadbalancer:
     facet: gateway-base
     enable_when: "envoy driver AND `lb_effective.mode == 'loadbalancer'`"
-    description: "Patches the envoy-gateway HelmRelease so the data-plane Envoy Service is `type: LoadBalancer`. Cloud-specific annotation patches (aws-nlb / azure-lb-internal) merge on top."
+    description: "Patches the `external` `EnvoyProxy` so the data-plane Envoy Service is `type: LoadBalancer`. Cloud-specific annotation patches (aws-nlb / azure-lb-internal) merge on top."
   envoy/loadbalancer/aws-nlb:
     facet: gateway-base
     enable_when: "envoy driver AND platform is AWS AND `lb_effective.mode == 'loadbalancer'`"
@@ -41,7 +41,7 @@ components:
   envoy/nodeport:
     facet: gateway-base
     enable_when: "envoy driver AND `lb_effective.mode == 'nodeport'`"
-    description: "Patches the envoy-gateway HelmRelease so the data-plane Service is `type: NodePort`. Used on local clusters where no LoadBalancer provider exists."
+    description: "Patches the `external` `EnvoyProxy` so the data-plane Service is `type: NodePort`. Used on local clusters where no LoadBalancer provider exists."
   envoy/nodeport/dns:
     facet: gateway-base
     enable_when: "envoy/nodeport AND `addons.private_dns.enabled: true` (default in `dev`)"
@@ -62,6 +62,10 @@ components:
     facet: gateway-resources
     enable_when: "`gateway.driver == 'cilium'`"
     description: "Patches the `external` Gateway with `lbipam.cilium.io/ips: ${loadbalancer_start_ip}` and the LBIPAM sharing annotations so multiple Gateways can share a single IP. Operator references this as `components: [cilium]` under `gateway-resources`."
+  envoy/parameters:
+    facet: gateway-resources
+    enable_when: "envoy driver"
+    description: "Patches the `external` Gateway's `spec.infrastructure.parametersRef` to point at the `external` `EnvoyProxy`, so the data-plane Service is configured per gateway rather than through the controller-global EnvoyGateway default. Cilium gateways don't use the `EnvoyProxy` resource."
   envoy/default-404:
     facet: gateway-resources
     enable_when: "envoy driver"

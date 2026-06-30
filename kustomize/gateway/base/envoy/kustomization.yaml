@@ -7,3 +7,4 @@ resources:
   # the HelmRelease keeps `crds: Skip`).
   - gatewayclass.yaml
   - helm-release.yaml
+  - envoy-proxy.yaml

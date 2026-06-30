@@ -36,19 +36,8 @@ spec:
       envoyGateway:
         gateway:
           controllerName: gateway.envoyproxy.io/gatewayclass-controller
-        envoyProxy:
-          provider:
-            type: Kubernetes
-            kubernetes:
-              # Enforce digest pinning on generated Envoy proxy workload to satisfy Kyverno policy.
-              envoyDeployment:
-                patch:
-                  type: StrategicMerge
-                  value:
-                    spec:
-                      template:
-                        spec:
-                          containers:
-                            # renovate: datasource=docker depName=docker.io/envoyproxy/envoy package=docker.io/envoyproxy/envoy
-                            - name: envoy
-                              image: docker.io/envoyproxy/envoy:distroless-v1.37.1@sha256:4d9226b9fd4d1449887de7cde785beb24b12e47d6e79021dec3c79e362609432
+        # No default envoyProxy patch here: per-gateway data-plane config lives in
+        # the EnvoyProxy resource each Gateway references via
+        # spec.infrastructure.parametersRef (see envoy-proxy.yaml). Keeping a
+        # patch in the EnvoyGateway default breaks the controller's merge with an
+        # attached EnvoyProxy on 1.8.1.

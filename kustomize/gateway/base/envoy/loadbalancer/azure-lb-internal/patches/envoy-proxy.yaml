@@ -1,0 +1,18 @@
+---
+# Flips the AKS Standard LB to internal. Hardcoded "true" because YAML-bool
+# tokens don't survive substitution through Flux postBuild + kustomize.
+apiVersion: gateway.envoyproxy.io/v1alpha1
+kind: EnvoyProxy
+metadata:
+  name: external
+  namespace: system-gateway
+spec:
+  provider:
+    kubernetes:
+      envoyService:
+        patch:
+          type: StrategicMerge
+          value:
+            metadata:
+              annotations:
+                service.beta.kubernetes.io/azure-load-balancer-internal: "true"
