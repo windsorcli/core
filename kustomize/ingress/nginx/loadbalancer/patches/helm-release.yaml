@@ -9,4 +9,4 @@ spec:
     controller:
       service:
         type: LoadBalancer
-        loadBalancerIP: ${loadbalancer_ip_start}
+        loadBalancerIP: ${loadbalancer_start_ip}
