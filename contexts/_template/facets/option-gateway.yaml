@@ -179,6 +179,9 @@ kustomize:
       - "${lb_effective.controller_required ? 'lb-base' : ''}"
     components:
       - "${gateway.driver == 'cilium' ? 'cilium' : ''}"
+      # Points the Gateway at its EnvoyProxy (per-gateway data-plane Service
+      # config). Envoy-only: cilium gateways don't use the EnvoyProxy resource.
+      - "${gateway.driver != 'cilium' ? 'envoy/parameters' : ''}"
       # Catch-all 404 served by Envoy's directResponse — covers any
       # request that doesn't match a real app's HTTPRoute. Envoy-only:
       # uses the gateway.envoyproxy.io HTTPRouteFilter CRD, which

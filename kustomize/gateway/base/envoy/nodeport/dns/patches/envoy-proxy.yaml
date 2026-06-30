@@ -4,7 +4,7 @@
 # without replacing the existing web ports. Used only when CoreDNS is being
 # exposed through the gateway (gated by option-gateway).
 - op: add
-  path: /spec/values/config/envoyGateway/envoyProxy/provider/kubernetes/envoyService/patch/value/spec/ports/-
+  path: /spec/provider/kubernetes/envoyService/patch/value/spec/ports/-
   value:
     name: udp-53
     protocol: UDP
@@ -12,7 +12,7 @@
     targetPort: 10053
     nodePort: 30053
 - op: add
-  path: /spec/values/config/envoyGateway/envoyProxy/provider/kubernetes/envoyService/patch/value/spec/ports/-
+  path: /spec/provider/kubernetes/envoyService/patch/value/spec/ports/-
   value:
     name: tcp-53
     protocol: TCP
