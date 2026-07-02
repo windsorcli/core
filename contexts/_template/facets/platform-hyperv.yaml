@@ -257,7 +257,6 @@ config:
             ["ipv4", get(#, "node")],
             ["image", ""],
             ["dvd_iso_path", "talos"],
-            ["cidata_iso_path", hyperv_effective.images_dir + "/" + get(#, "hostname") + "-cidata.iso"],
             ["boot_from_dvd", false],
             ["generation", 2],
             ["secure_boot", false],
@@ -273,7 +272,6 @@ config:
             ["ipv4", get(#, "node")],
             ["image", ""],
             ["dvd_iso_path", "talos"],
-            ["cidata_iso_path", hyperv_effective.images_dir + "/" + get(#, "hostname") + "-cidata.iso"],
             ["boot_from_dvd", false],
             ["generation", 2],
             ["secure_boot", false],
@@ -377,45 +375,6 @@ config:
 terraform:
 
   # ---------------------------------------------------------------------------
-  # cluster-config — cluster identity + per-node signed machineconfig + CIDATA
-  # ---------------------------------------------------------------------------
-  #
-  # Owns three responsibilities, all of which must complete before compute
-  # creates VMs (so each VM can mount its CIDATA seed at boot):
-  #
-  #   1. Generate the Talos cluster identity (CA, etcd CA, k8s CA, bootstrap
-  #      token) via the shared cluster/talos/modules/secrets submodule.
-  #   2. Sign per-node machineconfigs against that identity, including a
-  #      machine.network.interfaces patch that puts each node on its static IP.
-  #   3. Wrap each per-node config + a cloud-init network-config + meta-data
-  #      into a CIDATA seed ISO via hyperv_iso_volume.
-  #
-  # The cluster identity is exported back to the cluster step so it shares
-  # the same CA — cluster/talos then skips talos_machine_configuration_apply
-  # (already delivered via CIDATA) and runs straight to bootstrap + health.
-  #
-  - name: cluster-config
-    path: cluster/talos/config
-    inputs:
-      talos_version: ${talos.talos_version}
-      cluster_name: talos
-      cluster_endpoint: "${cluster.endpoint ?? ('https://' + cidrhost(network.cidr_block, 10) + ':6443')}"
-      destination_dir: "${hyperv_effective.images_dir}"
-      common_config_patches: ${talos_common.common_config_patches}
-      network:
-        cidr_block: ${network.cidr_block}
-        gateway: ${network.gateway}
-        nameservers: ${network.nameservers}
-      # In NodePort mode every node's static IP must be a NAT-internal
-      # address (per the per-VM offset scheme in hyperv_controlplanes /
-      # hyperv_workers), not whatever bench-side address operators wrote
-      # in values.yaml. The facet-built lists carry the right hostname +
-      # node + address per VM so cluster/talos/config's CIDATA patches
-      # land NAT-private IPs on each NIC.
-      controlplanes: "${gateway.service_type == 'NodePort' ? hyperv_controlplanes.for_config : values(cluster.controlplanes.nodes ?? {})}"
-      workers: "${gateway.service_type == 'NodePort' ? hyperv_workers.for_config : ((cluster.workers.count ?? 0) > 0 ? values(cluster.workers.nodes ?? {}) : [])}"
-
-  # ---------------------------------------------------------------------------
   # compute — Talos VMs on a Hyper-V virtual switch
   # ---------------------------------------------------------------------------
   #
@@ -428,10 +387,12 @@ terraform:
   # machineconfig. CIDATA stays attached for the VM's lifetime; harmless
   # because Talos's NoCloud reader is idempotent.
   #
+  # Machine secrets and per-node machineconfigs are generated inside this
+  # module. compute outputs machine_secrets and client_configuration for
+  # the cluster step.
+  #
   - name: compute
     path: compute/hyperv
-    dependsOn:
-      - cluster-config
     inputs:
       network_name: ""
       create_network: true
@@ -461,16 +422,24 @@ terraform:
       port_forward_external_ip: "0.0.0.0"
       port_forward_name_prefix: "windsor-${id ?? 'hyperv'}"
       network_cidr: ${network.cidr_block}
+      cluster_name: talos
+      cluster_endpoint: "${cluster.endpoint ?? ('https://' + cidrhost(network.cidr_block, 10) + ':6443')}"
+      talos_version: ${talos.talos_version}
+      common_config_patches: ${talos_common.common_config_patches}
+      destination_dir: "${hyperv_effective.images_dir}"
+      network_gateway: ${network.gateway}
+      network_nameservers: ${network.nameservers}
       vhd_dir: "${hyperv_effective.vhd_dir}"
       images:
         talos:
           destination_path: "${hyperv_effective.image_destination}"
           url: ${hyperv_effective.image_url}
           keep_on_destroy: true
+          runner_download: true
       # In NodePort mode the facet builds a flat per-VM instance list
       # (one entry per cp/worker, count=1 each) so each VM gets its own
-      # cidata_iso_path with the node's static IP / hostname baked in by
-      # cluster-config. Outside NodePort, fall back to the count-based
+      # internally generated CIDATA ISO with the node's static IP baked in.
+      # Outside NodePort, fall back to the count-based
       # two-entry shape (single-VM today; multi-VM in External / Internal
       # modes hasn't been wired and would need the same per-VM treatment).
       instances: >-
@@ -482,7 +451,6 @@ terraform:
             ["ipv4", cidrhost(network.cidr_block, 10)],
             ["image", ""],
             ["dvd_iso_path", "talos"],
-            ["cidata_iso_path", hyperv_effective.images_dir + "/" + ((values(cluster.controlplanes.nodes ?? {}))[0].hostname ?? "controlplane-1") + "-cidata.iso"],
             ["boot_from_dvd", false],
             ["generation", 2],
             ["secure_boot", false],
@@ -498,7 +466,6 @@ terraform:
             ["ipv4", cidrhost(network.cidr_block, 20)],
             ["image", ""],
             ["dvd_iso_path", "talos"],
-            ["cidata_iso_path", (cluster.workers.count ?? 0) > 0 ? (hyperv_effective.images_dir + "/" + ((values(cluster.workers.nodes ?? {}))[0].hostname ?? "worker-1") + "-cidata.iso") : ""],
             ["boot_from_dvd", false],
             ["generation", 2],
             ["secure_boot", false],
@@ -513,7 +480,6 @@ terraform:
     path: cluster/talos
     dependsOn:
       - compute
-      - cluster-config
     parallelism: 1
     inputs:
       # cluster.endpoint is the schema-declared endpoint (e.g. https://192.168.0.10:6443
@@ -541,13 +507,13 @@ terraform:
       common_config_patches: ${talos_common.common_config_patches}
       controlplane_volumes: ${talos_common.controlplane_volumes ?? []}
       worker_volumes: ${talos_common.worker_volumes ?? []}
-      # Shared cluster identity from cluster-config — cluster/talos's
+      # Shared cluster identity from compute — cluster/talos's
       # talos_machine_secrets call is count-gated off when these are non-null,
       # and talos_machine_configuration_apply is also skipped (the
       # machineconfig was already delivered via CIDATA). Bootstrap, kubeconfig
       # download, and health-check still run.
-      machine_secrets: ${terraform_output("cluster-config", "machine_secrets")}
-      client_configuration: ${terraform_output("cluster-config", "client_configuration")}
+      machine_secrets: ${terraform_output("compute", "machine_secrets")}
+      client_configuration: ${terraform_output("compute", "client_configuration")}
 
   - name: gitops
     path: gitops/flux
