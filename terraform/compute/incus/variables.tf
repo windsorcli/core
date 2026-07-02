@@ -148,7 +148,7 @@ variable "storage_pools" {
   default = {}
   validation {
     condition = alltrue([
-      for name, pool in var.storage_pools : pool.driver == null || contains(["dir", "zfs", "btrfs", "lvm", "ceph"], pool.driver)
+      for name, pool in var.storage_pools : pool.driver == null ? true : contains(["dir", "zfs", "btrfs", "lvm", "ceph"], pool.driver)
     ])
     error_message = "Storage pool drivers must be one of: dir, zfs, btrfs, lvm, ceph (or null to skip)"
   }
