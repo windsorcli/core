@@ -1,0 +1,331 @@
+kind: Facet
+apiVersion: blueprints.windsorcli.dev/v1alpha1
+metadata:
+  name: vsphere
+  description: VMware vSphere compute platform infrastructure
+
+# vSphere is supported only with Talos. Connection credentials (server, user,
+# password) are read from VSPHERE_* env vars by the provider — no workstation-
+# overlay path here. All four vSphere inventory pointers (datacenter, cluster,
+# datastore, network) are required in the vsphere.* schema block.
+when: "platform == 'vsphere' && cluster.driver == 'talos'"
+
+# Terraform remote state lives in the local Talos cluster (Kubernetes backend,
+# secrets-as-state). The `cluster` component itself uses local state since it
+# is the one that creates the cluster.
+backend: cluster
+
+# =============================================================================
+# Requires
+# =============================================================================
+#
+requires:
+  - paths:
+      - vsphere.datacenter
+    message: vSphere datacenter name is required (e.g. "dc-prod").
+  - paths:
+      - vsphere.cluster
+    message: vSphere compute cluster name is required (e.g. "cluster-01").
+  - paths:
+      - vsphere.datastore
+    message: vSphere datastore name is required (e.g. "datastore-01").
+  - paths:
+      - vsphere.network
+    message: vSphere port group name is required (e.g. "VM Network" or "vlan-prod-100").
+
+# =============================================================================
+# Config — vSphere-specific Talos values
+# =============================================================================
+#
+config:
+
+  # ---------------------------------------------------------------------------
+  # vsphere_effective — inventory pointers / image source
+  # ---------------------------------------------------------------------------
+  #
+  # Resolves the schema's `vsphere.*` block into a concrete shape the terraform
+  # inputs consume. The Talos image URL is fully derivable from
+  # talos.talos_version (renovate-pinned) plus the schematic ID below.
+  #
+  # The schematic bakes siderolabs/vmtoolsd-guest-agent into the Talos OVA.
+  # vmtoolsd-guest-agent provides the open-vm-tools equivalent for Talos — it
+  # runs the VMware Tools daemon that reports guest IPs, hostname, and heartbeat
+  # back to vCenter. Without it, Terraform cannot discover the VM's IP after
+  # boot, and vSphere's graceful-shutdown integration will not work.
+  #
+  # Schematic derivation (recompute when the extension list changes):
+  #   curl -sX POST -H 'Content-Type: application/yaml' \
+  #     -d $'customization:\n  systemExtensions:\n    officialExtensions:\n      - siderolabs/vmtoolsd-guest-agent\n' \
+  #     https://factory.talos.dev/schematics
+  #
+  # vSphere is always amd64 in production industrial deployments; arch is
+  # hardcoded. The vmware-amd64.ova artifact embeds the vmware platform driver
+  # which reads guestinfo (for machineconfig delivery) natively — no nocloud
+  # kernel arg override needed.
+  - name: vsphere_effective
+    value:
+      datacenter: "${vsphere.datacenter}"
+      cluster: "${vsphere.cluster}"
+      datastore: "${vsphere.datastore}"
+      network: "${vsphere.network}"
+      folder: "${vsphere.folder ?? ''}"
+      resource_pool: "${vsphere.resource_pool ?? ''}"
+      talos_schematic_id: "903b2da78f99adef03cbbd4df6714563823f63218508800751560d3bc3557e40"
+      image_url: "${'https://factory.talos.dev/image/903b2da78f99adef03cbbd4df6714563823f63218508800751560d3bc3557e40/v' + talos.talos_version + '/vmware-amd64.ova'}"
+
+  # ---------------------------------------------------------------------------
+  # Network gateway and nameservers — delivered to each node via guestinfo
+  # ---------------------------------------------------------------------------
+  #
+  # vSphere VMs on a plant network typically don't have DHCP (or the DHCP
+  # server doesn't have Windsor context). Default gateway and nameservers here
+  # so the operator only needs to declare cidr_block.
+  - name: network
+    when: (network.gateway ?? '') == ''
+    value:
+      gateway: "${cidrhost(network.cidr_block ?? '10.5.0.0/16', 1)}"
+  - name: network
+    when: len(network.nameservers ?? []) == 0
+    value:
+      nameservers: ['1.1.1.1', '8.8.8.8']
+
+  # ---------------------------------------------------------------------------
+  # cluster_endpoint_fallback
+  # ---------------------------------------------------------------------------
+  #
+  # Once vmtoolsd reports guest IPs, compute's controlplanes output has real
+  # endpoints. Before that (e.g. initial plan), fall back to an explicit
+  # cluster.endpoint or to the first controlplane's declared ipv4 at CIDR
+  # offset 10.
+  - name: cluster_endpoint_fallback
+    value:
+      endpoint: >-
+        ${
+          len(terraform_output("compute", "controlplanes") ?? []) > 0
+          && terraform_output("compute", "controlplanes")[0].endpoint != null
+            ? "https://" + split(terraform_output("compute", "controlplanes")[0].endpoint, ":")[0] + ":6443"
+            : ""
+        }
+
+  # Node targets for post-cluster steps (e.g. cluster/talos/extensions). Same
+  # node list the `cluster` step receives, projected to the {node, endpoint}
+  # shape the extensions module accepts.
+  - name: talos_node_targets
+    value:
+      controlplanes: >-
+        ${map(
+          len(terraform_output("compute", "controlplanes") ?? []) > 0
+            ? terraform_output("compute", "controlplanes")
+            : values(cluster.controlplanes.nodes ?? {}),
+          fromPairs(filter(toPairs(#), get(#, 0) == "node" || get(#, 0) == "endpoint")))}
+      workers: >-
+        ${map(
+          len(terraform_output("compute", "workers") ?? []) > 0
+            ? terraform_output("compute", "workers")
+            : ((cluster.workers.count ?? 0) > 0 ? values(cluster.workers.nodes ?? {}) : []),
+          fromPairs(filter(toPairs(#), get(#, 0) == "node" || get(#, 0) == "endpoint")))}
+
+  # ---------------------------------------------------------------------------
+  # dns.private_domain default — gateway cert needs a non-empty SAN
+  # ---------------------------------------------------------------------------
+  #
+  # vSphere deployments in industrial facilities are typically LAN-only with
+  # no public DNS. The gateway cert (kustomize/gateway/resources/certificate.yaml)
+  # substitutes external_domain into spec.dnsNames; if empty cert-manager rejects
+  # the Certificate as invalid. Default private_domain to '<id>.local' so the
+  # cert validates out of the box. Operators can override via dns.domain or
+  # dns.private_domain.
+  - name: dns
+    when: (dns.private_domain ?? '') == '' && (dns.domain ?? '') != ''
+    value:
+      private_domain: "${dns.domain}"
+  - name: dns
+    when: (dns.private_domain ?? '') == '' && (dns.domain ?? '') == ''
+    value:
+      private_domain: "${(id ?? 'windsor') + '.local'}"
+
+# =============================================================================
+# Terraform — compute → cluster → gitops
+# =============================================================================
+#
+# Machine secrets and per-node machineconfigs are generated inside the compute
+# module. This is possible because guestinfo delivery happens at VM-creation
+# time — no pre-boot ISO staging required. compute outputs machine_secrets and
+# client_configuration directly for the cluster step.
+#
+terraform:
+
+  # ---------------------------------------------------------------------------
+  # compute — Talos VMs on a vSphere cluster
+  # ---------------------------------------------------------------------------
+  #
+  # Deploys VMs from the Talos vmware OVA and sets per-node machineconfig via
+  # guestinfo (base64-encoded, generated internally). The cluster step receives
+  # machine_secrets + client_configuration from compute so it can skip
+  # machineconfig re-apply and go straight to bootstrap + health.
+  #
+  # Static IPs follow the same offset scheme as other Windsor platforms:
+  #   controlplane-N → cidrhost(cidr, 10 + N - 1)  (cp-1 = .10, cp-2 = .11, …)
+  #   worker-N       → cidrhost(cidr, 20 + N - 1)  (worker-1 = .20, …)
+  #
+  # Operators with custom IP assignments can express them via
+  # cluster.controlplanes.nodes / cluster.workers.nodes and pass the concrete
+  # endpoint list to the cluster step — the facet reads from compute output
+  # when available, and from the node map as fallback.
+  - name: compute
+    path: compute/vsphere
+    inputs:
+      datacenter: "${vsphere_effective.datacenter}"
+      cluster: "${vsphere_effective.cluster}"
+      datastore: "${vsphere_effective.datastore}"
+      network: "${vsphere_effective.network}"
+      folder: "${vsphere_effective.folder}"
+      resource_pool: "${vsphere_effective.resource_pool}"
+      cluster_name: talos
+      cluster_endpoint: "${cluster.endpoint ?? ('https://' + cidrhost(network.cidr_block, 10) + ':6443')}"
+      talos_version: ${talos.talos_version}
+      common_config_patches: ${talos_common.common_config_patches}
+      per_node_config_patches: >-
+        ${fromPairs(concat(
+          map(1..int(cluster.controlplanes.count ?? 1), [
+            int(cluster.controlplanes.count ?? 1) > 1 ? "controlplane-" + string(#) : "controlplane",
+            string({machine: {network: {
+              interfaces: [{
+                deviceSelector: {physical: true},
+                dhcp: false,
+                addresses: [cidrhost(network.cidr_block, 9 + #) + "/" + split(network.cidr_block, "/")[1]],
+                routes: [{network: "0.0.0.0/0", gateway: network.gateway}]
+              }],
+              nameservers: network.nameservers
+            }}})
+          ]),
+          (cluster.workers.count ?? 0) > 0 ? map(1..int(cluster.workers.count), [
+            int(cluster.workers.count) > 1 ? "worker-" + string(#) : "worker",
+            string({machine: {network: {
+              interfaces: [{
+                deviceSelector: {physical: true},
+                dhcp: false,
+                addresses: [cidrhost(network.cidr_block, 19 + #) + "/" + split(network.cidr_block, "/")[1]],
+                routes: [{network: "0.0.0.0/0", gateway: network.gateway}]
+              }],
+              nameservers: network.nameservers
+            }}})
+          ]) : []
+        ))}
+      images:
+        talos:
+          url: ${vsphere_effective.image_url}
+          keep_on_destroy: true
+      instances: >-
+        ${concat(
+          [fromPairs([
+            ["name", "controlplane"],
+            ["role", "controlplane"],
+            ["image", "talos"],
+            ["count", cluster.controlplanes.count ?? 1],
+            ["ipv4", cidrhost(network.cidr_block, 10)],
+            ["cpu", cluster.controlplanes.cpu],
+            ["memory", cluster.controlplanes.memory],
+            ["root_disk_size", cluster.controlplanes.root_disk_size ?? 30],
+            ["notes", "Talos control plane node"]
+          ])],
+          (cluster.workers.count ?? 0) > 0 ? [fromPairs([
+            ["name", "worker"],
+            ["role", "worker"],
+            ["image", "talos"],
+            ["count", cluster.workers.count ?? 0],
+            ["ipv4", cidrhost(network.cidr_block, 20)],
+            ["cpu", cluster.workers.cpu],
+            ["memory", cluster.workers.memory],
+            ["root_disk_size", cluster.workers.root_disk_size ?? 50],
+            ["notes", "Talos worker node"]
+          ])] : []
+        )}
+
+  - name: cluster
+    path: cluster/talos
+    dependsOn:
+      - compute
+    parallelism: 1
+    inputs:
+      cluster_endpoint: "${(cluster.endpoint ?? '') != '' ? cluster.endpoint : cluster_endpoint_fallback.endpoint}"
+      cluster_name: talos
+      talos_version: ${talos.talos_version}
+      # Prefer compute output (real IPs from vmtoolsd) over the schema-declared
+      # node map. Fall through to the node map when compute hasn't run yet or
+      # vmtoolsd hasn't reported an IP (e.g. during initial plan).
+      controlplanes: "${len(terraform_output(\"compute\", \"controlplanes\") ?? []) > 0 ? terraform_output(\"compute\", \"controlplanes\") : values(cluster.controlplanes.nodes ?? {})}"
+      workers: "${len(terraform_output(\"compute\", \"workers\") ?? []) > 0 ? terraform_output(\"compute\", \"workers\") : ((cluster.workers.count ?? 0) > 0 ? values(cluster.workers.nodes ?? {}) : [])}"
+      controlplane_disks: ${talos_common.controlplane_disks}
+      worker_disks: ${talos_common.worker_disks}
+      common_config_patches: ${talos_common.common_config_patches}
+      controlplane_volumes: ${talos_common.controlplane_volumes ?? []}
+      worker_volumes: ${talos_common.worker_volumes ?? []}
+      # Shared cluster identity from compute — cluster/talos's
+      # talos_machine_configuration_apply is skipped when these are non-null
+      # (machineconfig was already delivered via guestinfo at VM creation).
+      machine_secrets: ${terraform_output("compute", "machine_secrets")}
+      client_configuration: ${terraform_output("compute", "client_configuration")}
+
+  - name: gitops
+    path: gitops/flux
+    dependsOn:
+      - cluster
+    inputs:
+      concurrency: ${max(2, min(floor((cluster.controlplanes.cpu ?? 4) / 2), floor((cluster.controlplanes.memory ?? 8) / 2), 10))}
+    destroy: false
+
+# =============================================================================
+# Kustomize — PKI + load balancer
+# =============================================================================
+#
+# vSphere VMs have real routed IPs, so in-cluster LB announcements work when
+# a loadbalancer_driver is configured. kube-vip (ARP mode) is the recommended
+# choice for industrial plant networks — it needs no switch config, just a
+# reserved IP range from the same subnet as the nodes. MetalLB ARP is also
+# supported. Industrial facility deployments are LAN-only with no public DNS,
+# so a selfsigned `private` ClusterIssuer is needed for the gateway cert.
+#
+kustomize:
+
+  # ---------------------------------------------------------------------------
+  # pki-resources — selfsigned `private` ClusterIssuer for the gateway cert
+  # ---------------------------------------------------------------------------
+  #
+  # gateway_cert_issuer (option-gateway) resolves to 'private' on vsphere (no
+  # public_domain, not aws/azure). The private-issuer/selfsigned component
+  # creates a ClusterIssuer named exactly `private`. Skipped when addon-private-ca
+  # is enabled — that addon emits its own `pki-resources` with a CA-backed
+  # `private` issuer; running both would conflict.
+  - name: pki-resources
+    path: pki/resources
+    when: (addons.private_ca.enabled ?? false) != true
+    dependsOn:
+      - pki-base
+    components:
+      - private-issuer/selfsigned
+    timeout: 5m
+    interval: 5m
+
+  - name: lb-base
+    path: lb/base
+    when: lb_effective.enabled
+    dependsOn:
+      - policy-resources
+    components:
+      - "${lb_effective.driver == 'metallb' ? 'metallb' : ''}"
+    timeout: 5m
+    interval: 5m
+
+  - name: lb-resources
+    path: lb/resources
+    when: lb_effective.enabled
+    dependsOn:
+      - lb-base
+    components:
+      - ${lb_effective.driver}
+      - "${lb_effective.driver}/${network.loadbalancer_mode ?? 'arp'}"
+    substitutions:
+      loadbalancer_ip_range: "${network.loadbalancer_ips.start + '-' + network.loadbalancer_ips.end}"
+    timeout: 5m
+    interval: 5m

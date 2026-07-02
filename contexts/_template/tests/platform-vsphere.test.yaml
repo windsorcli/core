@@ -1,0 +1,477 @@
+# platform-vsphere.yaml facet tests
+# Tests vSphere compute platform with Talos cluster infrastructure.
+#
+# Note: tests must provide terraformOutputs.compute to mock terraform_output()
+# calls used by cluster_endpoint_fallback and the cluster step's controlplanes
+# / workers inputs.
+
+x-defaults:
+  network: &default-network
+    cidr_block: 10.10.0.0/24
+    loadbalancer_ips:
+      start: "10.10.0.100"
+      end: "10.10.0.110"
+
+  cluster: &default-cluster
+    driver: talos
+    controlplanes:
+      count: 1
+      nodes:
+        controlplane-1:
+          endpoint: 10.10.0.10:50000
+          node: 10.10.0.10
+          hostname: controlplane-1
+    workers:
+      count: 0
+
+  vsphere: &default-vsphere
+    datacenter: dc-prod
+    cluster: cluster-01
+    datastore: datastore-01
+    network: VM Network
+
+  terraform-outputs: &default-terraform-outputs
+    compute:
+      controlplanes:
+        - endpoint: 10.10.0.10:50000
+          node: 10.10.0.10
+          hostname: controlplane-1
+      workers: []
+
+cases:
+  # Minimal: all required vsphere fields, no workers, no MetalLB.
+  # Verifies the compute step path, dependency chain, and that the cluster step
+  # receives machine_secrets / client_configuration from the compute output.
+  - name: minimal config creates compute and cluster steps
+    values:
+      platform: vsphere
+      gateway:
+        enabled: false
+      network: *default-network
+      cluster: *default-cluster
+      vsphere: *default-vsphere
+    terraformOutputs: *default-terraform-outputs
+    expect:
+      terraform:
+        - name: compute
+          path: compute/vsphere
+          inputs:
+            datacenter: dc-prod
+            cluster: cluster-01
+            datastore: datastore-01
+            network: VM Network
+            network_cidr: 10.10.0.0/24
+            cluster_name: talos
+            images:
+              talos:
+                keep_on_destroy: true
+        - name: cluster
+          path: cluster/talos
+          dependsOn:
+            - compute
+          parallelism: 1
+          inputs:
+            cluster_name: talos
+        - name: gitops
+          path: gitops/flux
+          dependsOn:
+            - cluster
+          destroy: false
+
+  # Cluster endpoint: when cluster.endpoint is set, it takes precedence over
+  # the compute output fallback in the cluster step.
+  - name: explicit cluster endpoint flows through to cluster step
+    values:
+      platform: vsphere
+      gateway:
+        enabled: false
+      network: *default-network
+      cluster:
+        driver: talos
+        endpoint: https://10.10.0.10:6443
+        controlplanes:
+          count: 1
+          nodes:
+            controlplane-1:
+              endpoint: 10.10.0.10:50000
+              node: 10.10.0.10
+              hostname: controlplane-1
+        workers:
+          count: 0
+      vsphere: *default-vsphere
+    terraformOutputs: *default-terraform-outputs
+    expect:
+      terraform:
+        - name: cluster
+          path: cluster/talos
+          inputs:
+            cluster_endpoint: https://10.10.0.10:6443
+
+  # Compute cluster_endpoint defaults: when cluster.endpoint is unset, the
+  # compute step receives https://cidrhost(cidr, 10):6443. This is the static
+  # address vSphere bootstraps from before vmtoolsd reports a guest IP.
+  - name: compute cluster_endpoint defaults to cidrhost(cidr, 10) when not set
+    values:
+      platform: vsphere
+      gateway:
+        enabled: false
+      network: *default-network
+      cluster: *default-cluster
+      vsphere: *default-vsphere
+    terraformOutputs: *default-terraform-outputs
+    expect:
+      terraform:
+        - name: compute
+          path: compute/vsphere
+          inputs:
+            cluster_endpoint: https://10.10.0.10:6443
+
+  # Cluster endpoint fallback: once vmtoolsd reports guest IPs, the compute
+  # output controlplanes[0].endpoint (host:50000) is split to extract just the
+  # IP, then wrapped as https://<ip>:6443. The cluster step receives this
+  # derived value when cluster.endpoint is not explicitly set.
+  - name: cluster_endpoint_fallback derives https endpoint from compute output
+    values:
+      platform: vsphere
+      gateway:
+        enabled: false
+      network: *default-network
+      cluster: *default-cluster
+      vsphere: *default-vsphere
+    terraformOutputs: *default-terraform-outputs
+    expect:
+      terraform:
+        - name: cluster
+          path: cluster/talos
+          inputs:
+            cluster_endpoint: https://10.10.0.10:6443
+
+  # Folder and resource_pool flow through to compute inputs when set.
+  - name: folder and resource_pool flow through to compute inputs
+    values:
+      platform: vsphere
+      gateway:
+        enabled: false
+      network: *default-network
+      cluster: *default-cluster
+      vsphere:
+        datacenter: dc-prod
+        cluster: cluster-01
+        datastore: datastore-01
+        network: VM Network
+        folder: prod/talos
+        resource_pool: talos-pool
+    terraformOutputs: *default-terraform-outputs
+    expect:
+      terraform:
+        - name: compute
+          path: compute/vsphere
+          inputs:
+            folder: prod/talos
+            resource_pool: talos-pool
+
+
+  # With workers: instances list includes a worker pool entry. Both
+  # controlplanes and workers appear in the cluster step's inputs from compute
+  # output.
+  - name: worker nodes included in compute instances and cluster step
+    values:
+      platform: vsphere
+      gateway:
+        enabled: false
+      network: *default-network
+      cluster:
+        driver: talos
+        controlplanes:
+          count: 1
+          nodes:
+            controlplane-1:
+              endpoint: 10.10.0.10:50000
+              node: 10.10.0.10
+              hostname: controlplane-1
+        workers:
+          count: 2
+          nodes:
+            worker-1:
+              endpoint: 10.10.0.20:50000
+              node: 10.10.0.20
+              hostname: worker-1
+            worker-2:
+              endpoint: 10.10.0.21:50000
+              node: 10.10.0.21
+              hostname: worker-2
+      vsphere: *default-vsphere
+    terraformOutputs:
+      compute:
+        controlplanes:
+          - endpoint: 10.10.0.10:50000
+            node: 10.10.0.10
+            hostname: controlplane-1
+        workers:
+          - endpoint: 10.10.0.20:50000
+            node: 10.10.0.20
+            hostname: worker-1
+          - endpoint: 10.10.0.21:50000
+            node: 10.10.0.21
+            hostname: worker-2
+    expect:
+      terraform:
+        - name: cluster
+          path: cluster/talos
+          inputs:
+            controlplanes:
+              - endpoint: 10.10.0.10:50000
+                node: 10.10.0.10
+                hostname: controlplane-1
+            workers:
+              - endpoint: 10.10.0.20:50000
+                node: 10.10.0.20
+                hostname: worker-1
+              - endpoint: 10.10.0.21:50000
+                node: 10.10.0.21
+                hostname: worker-2
+
+  # kube-vip: lb-base and lb-resources land when loadbalancer_driver is kube-vip
+  # and the CNI is flannel (Cilium uses its own L2 path, lb_effective.enabled
+  # is false when Cilium is the CNI). kube-vip needs no lb-base component
+  # (only metallb does), so lb-base has an empty component list.
+  - name: kube-vip lb-base and lb-resources land with explicit flannel CNI
+    values:
+      platform: vsphere
+      gateway:
+        enabled: false
+      network:
+        cidr_block: 10.10.0.0/24
+        loadbalancer_driver: kube-vip
+        loadbalancer_mode: arp
+        loadbalancer_ips:
+          start: "10.10.0.100"
+          end: "10.10.0.110"
+      cluster:
+        driver: talos
+        cni:
+          driver: flannel
+        controlplanes:
+          count: 1
+          nodes:
+            controlplane-1:
+              endpoint: 10.10.0.10:50000
+              node: 10.10.0.10
+              hostname: controlplane-1
+        workers:
+          count: 0
+      vsphere: *default-vsphere
+    terraformOutputs: *default-terraform-outputs
+    expect:
+      kustomize:
+        - name: lb-resources
+          path: lb/resources
+          components:
+            - kube-vip
+            - kube-vip/arp
+          substitutions:
+            loadbalancer_ip_range: 10.10.0.100-10.10.0.110
+
+  # pki-resources selfsigned issuer: present by default (no public domain, not
+  # aws/azure). When addon-private-ca is enabled, that addon takes over pki-resources
+  # with private-issuer/ca — the vsphere selfsigned entry is suppressed and the
+  # CA-backed component appears instead (verifies both facets cooperate correctly).
+  - name: pki-resources uses ca issuer when private_ca addon is enabled
+    values:
+      platform: vsphere
+      gateway:
+        enabled: false
+      network: *default-network
+      cluster: *default-cluster
+      vsphere: *default-vsphere
+      addons:
+        private_ca:
+          enabled: true
+    terraformOutputs: *default-terraform-outputs
+    expect:
+      kustomize:
+        - name: pki-resources
+          path: pki/resources
+          components:
+            - private-issuer/ca
+
+  - name: pki-resources selfsigned issuer present by default
+    values:
+      platform: vsphere
+      gateway:
+        enabled: true
+        driver: envoy
+      network: *default-network
+      cluster: *default-cluster
+      vsphere: *default-vsphere
+    terraformOutputs: *default-terraform-outputs
+    expect:
+      kustomize:
+        - name: pki-resources
+          path: pki/resources
+          components:
+            - private-issuer/selfsigned
+
+  # Requires: missing vsphere.datacenter fails composition.
+  - name: missing vsphere.datacenter fails composition
+    values:
+      platform: vsphere
+      gateway:
+        enabled: false
+      network: *default-network
+      cluster: *default-cluster
+      vsphere:
+        cluster: cluster-01
+        datastore: datastore-01
+        network: VM Network
+    expectError: true
+
+  # Requires: missing vsphere.cluster fails composition.
+  - name: missing vsphere.cluster fails composition
+    values:
+      platform: vsphere
+      gateway:
+        enabled: false
+      network: *default-network
+      cluster: *default-cluster
+      vsphere:
+        datacenter: dc-prod
+        datastore: datastore-01
+        network: VM Network
+    expectError: true
+
+  # Requires: missing vsphere.datastore fails composition.
+  - name: missing vsphere.datastore fails composition
+    values:
+      platform: vsphere
+      gateway:
+        enabled: false
+      network: *default-network
+      cluster: *default-cluster
+      vsphere:
+        datacenter: dc-prod
+        cluster: cluster-01
+        network: VM Network
+    expectError: true
+
+  # Requires: missing vsphere.network fails composition.
+  - name: missing vsphere.network fails composition
+    values:
+      platform: vsphere
+      gateway:
+        enabled: false
+      network: *default-network
+      cluster: *default-cluster
+      vsphere:
+        datacenter: dc-prod
+        cluster: cluster-01
+        datastore: datastore-01
+    expectError: true
+
+  # Network defaults: gateway and nameservers are derived from cidr_block when
+  # not explicitly set. The compute step receives these derived values.
+  - name: network gateway and nameservers default from cidr_block
+    values:
+      platform: vsphere
+      gateway:
+        enabled: false
+      network:
+        cidr_block: 10.10.0.0/24
+        loadbalancer_ips:
+          start: "10.10.0.100"
+          end: "10.10.0.110"
+      cluster: *default-cluster
+      vsphere: *default-vsphere
+    terraformOutputs: *default-terraform-outputs
+    expect:
+      terraform:
+        - name: compute
+          path: compute/vsphere
+          inputs:
+            network_gateway: 10.10.0.1
+            network_nameservers:
+              - "1.1.1.1"
+              - "8.8.8.8"
+
+  # dns.private_domain defaults to '<id>.local' when no dns.domain is set.
+  - name: dns.private_domain defaults to id.local
+    values:
+      platform: vsphere
+      id: my-plant
+      gateway:
+        enabled: false
+      network: *default-network
+      cluster: *default-cluster
+      vsphere: *default-vsphere
+    terraformOutputs: *default-terraform-outputs
+    expect:
+      config:
+        dns:
+          private_domain: my-plant.local
+
+  # dns.private_domain falls back to dns.domain when domain is set but
+  # private_domain is not. Verifies the first dns config branch (domain != '').
+  - name: dns.private_domain falls back to dns.domain
+    values:
+      platform: vsphere
+      gateway:
+        enabled: false
+      network: *default-network
+      cluster: *default-cluster
+      vsphere: *default-vsphere
+      dns:
+        domain: plant.example.com
+    terraformOutputs: *default-terraform-outputs
+    expect:
+      config:
+        dns:
+          private_domain: plant.example.com
+
+  # machine_secrets and client_configuration from compute output flow through
+  # to the cluster step. These are the key vSphere-vs-hyperv architectural
+  # difference — machineconfig is delivered via guestinfo at VM creation, so
+  # cluster/talos needs the shared cluster CA rather than generating new secrets.
+  - name: machine_secrets and client_configuration flow to cluster step
+    values:
+      platform: vsphere
+      gateway:
+        enabled: false
+      network: *default-network
+      cluster: *default-cluster
+      vsphere: *default-vsphere
+    terraformOutputs:
+      compute:
+        controlplanes:
+          - endpoint: 10.10.0.10:50000
+            node: 10.10.0.10
+            hostname: controlplane-1
+        workers: []
+        machine_secrets:
+          certs:
+            etcd:
+              crt: mock-etcd-crt
+              key: mock-etcd-key
+          cluster:
+            id: mock-cluster-id
+            secret: mock-cluster-secret
+        client_configuration:
+          ca_certificate: mock-ca-crt
+          client_certificate: mock-client-crt
+          client_key: mock-client-key
+    expect:
+      terraform:
+        - name: cluster
+          path: cluster/talos
+          inputs:
+            machine_secrets:
+              certs:
+                etcd:
+                  crt: mock-etcd-crt
+                  key: mock-etcd-key
+              cluster:
+                id: mock-cluster-id
+                secret: mock-cluster-secret
+            client_configuration:
+              ca_certificate: mock-ca-crt
+              client_certificate: mock-client-crt
+              client_key: mock-client-key
