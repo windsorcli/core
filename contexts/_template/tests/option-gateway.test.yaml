@@ -101,7 +101,7 @@ cases:
         - *gateway-base-cilium
         - *gateway-resources-cilium
       crds:
-        - gateway-api-experimental-1.5.1
+        - gateway-api-experimental-1.6.0
     exclude:
       crds:
         - envoy-gateway-1.8.1
@@ -171,7 +171,7 @@ cases:
         - *gateway-base-envoy-lb
         - *gateway-resources-envoy
       crds:
-        - gateway-api-experimental-1.5.1
+        - gateway-api-experimental-1.6.0
         - envoy-gateway-1.8.1
 
   # Envoy + Docker Desktop: nodeport variant
@@ -288,7 +288,7 @@ cases:
         - *gateway-base-envoy-lb
         - *gateway-resources-envoy
       crds:
-        - gateway-api-experimental-1.5.1
+        - gateway-api-experimental-1.6.0
         - envoy-gateway-1.8.1
 
   - name: legacy ingress alias maps nginx to envoy
@@ -318,7 +318,7 @@ cases:
         - name: gateway-resources
         - name: gateway-base
       crds:
-        - gateway-api-experimental-1.5.1
+        - gateway-api-experimental-1.6.0
         - envoy-gateway-1.8.1
 
   # Flux webhook receiver includes webhook/gateway for Gateway API drivers
