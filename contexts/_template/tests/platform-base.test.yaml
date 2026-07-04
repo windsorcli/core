@@ -95,7 +95,7 @@ cases:
           interval: 10m
       crds:
         - cert-manager-1.20.2
-        - prometheus-operator-0.91.0
+        - prometheus-operator-0.92.1
         - fluent-operator-4.1.0
 
   # Full: observability addon enabled; addon wins for same-name observability (grafana + fluentd/outputs/stdout)
@@ -401,7 +401,7 @@ cases:
         - name: telemetry-resources
         - name: observability
       crds:
-        - prometheus-operator-0.91.0
+        - prometheus-operator-0.92.1
         - fluent-operator-4.1.0
 
   # Metrics on, logs off: Prometheus stack deploys, fluent-bit and fluentd are
@@ -492,7 +492,7 @@ cases:
         - fluent-operator-4.1.0
     exclude:
       crds:
-        - prometheus-operator-0.91.0
+        - prometheus-operator-0.92.1
 
   # Observability addon force-overrides both telemetry toggles — Grafana needs
   # Prometheus to scrape and the fluentbit→fluentd path to ship logs.

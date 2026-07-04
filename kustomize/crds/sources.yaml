@@ -35,7 +35,7 @@ vendors:
 
   - name: prometheus-operator
     # renovate: datasource=github-releases depName=prometheus-operator/prometheus-operator package=prometheus-operator/prometheus-operator
-    version: 0.91.0
+    version: 0.92.1
     url: https://github.com/prometheus-operator/prometheus-operator/releases/download/v${version}/stripped-down-crds.yaml
 
   - name: aws-load-balancer-controller
