@@ -104,7 +104,7 @@ cases:
         - gateway-api-experimental-1.6.0
     exclude:
       crds:
-        - envoy-gateway-1.8.1
+        - envoy-gateway-1.8.2
 
   # Docker Desktop: nodeport (docker-desktop defaults to envoy; no cilium bootstrap)
   - name: Docker Desktop uses nodeport gateway
@@ -172,7 +172,7 @@ cases:
         - *gateway-resources-envoy
       crds:
         - gateway-api-experimental-1.6.0
-        - envoy-gateway-1.8.1
+        - envoy-gateway-1.8.2
 
   # Envoy + Docker Desktop: nodeport variant
   - name: envoy on Docker Desktop uses nodeport variant
@@ -289,7 +289,7 @@ cases:
         - *gateway-resources-envoy
       crds:
         - gateway-api-experimental-1.6.0
-        - envoy-gateway-1.8.1
+        - envoy-gateway-1.8.2
 
   - name: legacy ingress alias maps nginx to envoy
     values:
@@ -319,7 +319,7 @@ cases:
         - name: gateway-base
       crds:
         - gateway-api-experimental-1.6.0
-        - envoy-gateway-1.8.1
+        - envoy-gateway-1.8.2
 
   # Flux webhook receiver includes webhook/gateway for Gateway API drivers
   # (push mode is the default, so no explicit gitops.mode needed)

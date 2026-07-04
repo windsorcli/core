@@ -25,7 +25,7 @@ vendors:
 
   - name: envoy-gateway
     # renovate: datasource=github-releases depName=envoyproxy/gateway package=envoyproxy/gateway
-    version: 1.8.1
+    version: 1.8.2
     url: https://github.com/envoyproxy/gateway/releases/download/v${version}/envoy-gateway-crds.yaml
 
   - name: cert-manager
@@ -35,7 +35,7 @@ vendors:
 
   - name: prometheus-operator
     # renovate: datasource=github-releases depName=prometheus-operator/prometheus-operator package=prometheus-operator/prometheus-operator
-    version: 0.91.0
+    version: 0.92.1
     url: https://github.com/prometheus-operator/prometheus-operator/releases/download/v${version}/stripped-down-crds.yaml
 
   - name: aws-load-balancer-controller

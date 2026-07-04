@@ -86,7 +86,7 @@ crds:
   # renovate: datasource=github-releases depName=kubernetes-sigs/gateway-api package=kubernetes-sigs/gateway-api
   - "${gateway.enabled == true ? 'gateway-api-experimental-1.6.0' : ''}"
   # renovate: datasource=github-releases depName=envoyproxy/gateway package=envoyproxy/gateway
-  - "${gateway.enabled == true && gateway.driver == 'envoy' ? 'envoy-gateway-1.8.1' : ''}"
+  - "${gateway.enabled == true && gateway.driver == 'envoy' ? 'envoy-gateway-1.8.2' : ''}"
 
 # =============================================================================
 # Kustomize — Gateway API controller + shared Gateway resource
