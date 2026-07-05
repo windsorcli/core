@@ -115,7 +115,14 @@ jobs:
           GH_REPO: ${{ github.repository }}
           PR_NUMBER: ${{ github.event.pull_request.number }}
           PR_HEAD_SHA: ${{ github.event.pull_request.head.sha }}
-        run: bash .github/scripts/publish-review.sh
+        run: |
+          # The publish script is CI infrastructure that lives on main, not in the
+          # PR's own tree — a PR branch opened or last pushed before this script was
+          # added won't have it. Always run main's copy regardless of what commit
+          # the checkout step left in the working directory.
+          git fetch --depth=1 origin main
+          git show origin/main:.github/scripts/publish-review.sh > /tmp/publish-review.sh
+          bash /tmp/publish-review.sh
 
   review-on-comment:
     name: Full Review (on-demand)
@@ -227,7 +234,14 @@ jobs:
           GH_REPO: ${{ github.repository }}
           PR_NUMBER: ${{ github.event.issue.number }}
           PR_HEAD_SHA: ${{ steps.pr.outputs.head_sha }}
-        run: bash .github/scripts/publish-review.sh
+        run: |
+          # The publish script is CI infrastructure that lives on main, not in the
+          # PR's own tree — a PR branch opened or last pushed before this script was
+          # added won't have it. Always run main's copy regardless of what commit
+          # the checkout step left in the working directory.
+          git fetch --depth=1 origin main
+          git show origin/main:.github/scripts/publish-review.sh > /tmp/publish-review.sh
+          bash /tmp/publish-review.sh
 
   resolve-threads:
     name: Resolve Threads
