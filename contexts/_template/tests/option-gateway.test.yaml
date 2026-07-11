@@ -101,9 +101,11 @@ cases:
         - *gateway-base-cilium
         - *gateway-resources-cilium
       crds:
+        # renovate: datasource=github-releases depName=kubernetes-sigs/gateway-api package=kubernetes-sigs/gateway-api
         - gateway-api-experimental-1.6.0
     exclude:
       crds:
+        # renovate: datasource=github-releases depName=envoyproxy/gateway package=envoyproxy/gateway
         - envoy-gateway-1.8.2
 
   # Docker Desktop: nodeport (docker-desktop defaults to envoy; no cilium bootstrap)
@@ -171,7 +173,9 @@ cases:
         - *gateway-base-envoy-lb
         - *gateway-resources-envoy
       crds:
+        # renovate: datasource=github-releases depName=kubernetes-sigs/gateway-api package=kubernetes-sigs/gateway-api
         - gateway-api-experimental-1.6.0
+        # renovate: datasource=github-releases depName=envoyproxy/gateway package=envoyproxy/gateway
         - envoy-gateway-1.8.2
 
   # Envoy + Docker Desktop: nodeport variant
@@ -288,7 +292,9 @@ cases:
         - *gateway-base-envoy-lb
         - *gateway-resources-envoy
       crds:
+        # renovate: datasource=github-releases depName=kubernetes-sigs/gateway-api package=kubernetes-sigs/gateway-api
         - gateway-api-experimental-1.6.0
+        # renovate: datasource=github-releases depName=envoyproxy/gateway package=envoyproxy/gateway
         - envoy-gateway-1.8.2
 
   - name: legacy ingress alias maps nginx to envoy
@@ -318,7 +324,9 @@ cases:
         - name: gateway-resources
         - name: gateway-base
       crds:
+        # renovate: datasource=github-releases depName=kubernetes-sigs/gateway-api package=kubernetes-sigs/gateway-api
         - gateway-api-experimental-1.6.0
+        # renovate: datasource=github-releases depName=envoyproxy/gateway package=envoyproxy/gateway
         - envoy-gateway-1.8.2
 
   # Flux webhook receiver includes webhook/gateway for Gateway API drivers
