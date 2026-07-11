@@ -100,7 +100,7 @@ cases:
           path: csi
           dependsOn:
             - policy-resources
-            - telemetry-base
+            - telemetry-install
           components:
             - longhorn
           timeout: 20m
@@ -190,7 +190,7 @@ cases:
           path: csi
           dependsOn:
             - policy-resources
-            - telemetry-base
+            - telemetry-install
           components:
             - longhorn
           timeout: 20m
@@ -271,13 +271,13 @@ cases:
           inputs:
             network_name: incusbr0
             create_network: false
-      kustomize:
-        - name: telemetry-base
-          path: telemetry/base
-          components:
-            - prometheus
-            - prometheus/flux
-            - fluentbit
+      flux:
+        - name: telemetry
+          install:
+            components:
+              - prometheus
+              - prometheus/flux
+              - fluentbit
 
   # colima-incus: defaults to flannel CNI (no cilium overhead; used for storage driver testing)
   - name: colima-incus defaults to flannel CNI and excludes lb

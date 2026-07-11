@@ -39,7 +39,7 @@ x-defaults:
     path: csi
     dependsOn:
       - policy-resources
-      - telemetry-base
+      - telemetry-install
     timeout: 20m
     interval: 5m
 

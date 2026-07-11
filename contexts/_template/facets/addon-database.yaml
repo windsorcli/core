@@ -32,6 +32,6 @@ kustomize:
     path: observability
     when: addons.database.postgres.driver == 'cloudnativepg' && addons.observability.enabled == true
     dependsOn:
-      - telemetry-base
+      - telemetry-install
     components:
       - grafana/dashboards/cloudnativepg

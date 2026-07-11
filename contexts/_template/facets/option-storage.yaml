@@ -98,7 +98,7 @@ kustomize:
     when: talos_common.storage_driver == 'longhorn'
     dependsOn:
       - "${(policies.enabled ?? true) ? 'policy-resources' : ''}"
-      - "${telemetry.metrics.enabled || telemetry.logs.enabled ? 'telemetry-base' : ''}"
+      - "${telemetry.metrics.enabled || telemetry.logs.enabled ? 'telemetry-install' : ''}"
     components:
       - longhorn
       - "${((cluster.controlplanes.schedulable ?? false) || topology == 'single-node') ? 'longhorn/single-node' : ''}"
@@ -120,6 +120,6 @@ kustomize:
     path: observability
     when: talos_common.storage_driver == 'longhorn' && (addons.observability.enabled == true || dev == true)
     dependsOn:
-      - telemetry-base
+      - telemetry-install
     components:
       - grafana/dashboards/longhorn

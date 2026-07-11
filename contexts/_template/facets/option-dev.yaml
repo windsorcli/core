@@ -52,7 +52,7 @@ kustomize:
   - name: observability
     path: observability
     dependsOn:
-      - telemetry-base
+      - telemetry-install
     components:
       - grafana/dev
     substitutions:
