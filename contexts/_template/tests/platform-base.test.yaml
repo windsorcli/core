@@ -34,22 +34,20 @@ cases:
       network: *default-network
       cluster: *default-cluster
     expect:
+      flux:
+        - name: policy
+          install:
+            components:
+              - kyverno
+            timeout: 30m
+            interval: 5m
+          resources:
+            - components:
+                - kyverno/resource-limits-requests
+                - kyverno/require-image-digest
+              timeout: 5m
+              interval: 5m
       kustomize:
-        - name: policy-base
-          path: policy/base
-          components:
-            - kyverno
-          timeout: 30m
-          interval: 5m
-        - name: policy-resources
-          path: policy/resources
-          dependsOn:
-            - policy-base
-          components:
-            - kyverno/resource-limits-requests
-            - kyverno/require-image-digest
-          timeout: 5m
-          interval: 5m
         - name: telemetry-base
           path: telemetry/base
           components:
@@ -262,14 +260,13 @@ cases:
         require_image_digest: disabled
         resource_limits_requests: disabled
     expect:
-      kustomize:
-        - name: policy-resources
-          path: policy/resources
-          dependsOn:
-            - policy-base
-          components: []
-          timeout: 5m
-          interval: 5m
+      flux:
+        - name: policy
+          resources:
+            - components: []
+              timeout: 5m
+              interval: 5m
+              retryInterval: 1m
 
   # Kyverno reports-controller opt-in layers in the kyverno/reports component.
   - name: policies.reporting enabled adds kyverno/reports component
@@ -282,12 +279,12 @@ cases:
       policies:
         reporting: enabled
     expect:
-      kustomize:
-        - name: policy-base
-          path: policy/base
-          components:
-            - kyverno
-            - kyverno/reports
+      flux:
+        - name: policy
+          install:
+            components:
+              - kyverno
+              - kyverno/reports
 
   # Kyverno cleanup-controller opt-in layers in the kyverno/cleanup component.
   - name: policies.cleanup enabled adds kyverno/cleanup component
@@ -300,12 +297,12 @@ cases:
       policies:
         cleanup: enabled
     expect:
-      kustomize:
-        - name: policy-base
-          path: policy/base
-          components:
-            - kyverno
-            - kyverno/cleanup
+      flux:
+        - name: policy
+          install:
+            components:
+              - kyverno
+              - kyverno/cleanup
 
   # Both opt-in flags compose.
   - name: policies.reporting and policies.cleanup enabled adds both components
@@ -319,13 +316,13 @@ cases:
         reporting: enabled
         cleanup: enabled
     expect:
-      kustomize:
-        - name: policy-base
-          path: policy/base
-          components:
-            - kyverno
-            - kyverno/reports
-            - kyverno/cleanup
+      flux:
+        - name: policy
+          install:
+            components:
+              - kyverno
+              - kyverno/reports
+              - kyverno/cleanup
 
   # topology=ha layers in the kyverno/ha component (multi-replica admission
   # controller + PDB) so the webhook backend survives drains and rollouts.
@@ -338,12 +335,12 @@ cases:
       cluster: *default-cluster
       topology: ha
     expect:
-      kustomize:
-        - name: policy-base
-          path: policy/base
-          components:
-            - kyverno
-            - kyverno/ha
+      flux:
+        - name: policy
+          install:
+            components:
+              - kyverno
+              - kyverno/ha
 
   # policies.enabled=false skips both policy kustomizations entirely and
   # drops the policy-resources dep from pki-base.
@@ -366,9 +363,8 @@ cases:
             - cert-manager
             - cert-manager/prometheus
     exclude:
-      kustomize:
-        - name: policy-base
-        - name: policy-resources
+      flux:
+        - name: policy
 
   # Both metrics and logs disabled skips both telemetry kustomizations, the
   # fluentd aggregator, and strips telemetry-base / cert-manager/prometheus

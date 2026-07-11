@@ -90,22 +90,20 @@ cases:
           destroy: false
           inputs:
             concurrency: 4
+      flux:
+        - name: policy
+          install:
+            components:
+              - kyverno
+            timeout: 30m
+            interval: 5m
+          resources:
+            - components:
+                - kyverno/resource-limits-requests
+                - kyverno/require-image-digest
+              timeout: 5m
+              interval: 5m
       kustomize:
-        - name: policy-base
-          path: policy/base
-          components:
-            - kyverno
-          timeout: 30m
-          interval: 5m
-        - name: policy-resources
-          path: policy/resources
-          dependsOn:
-            - policy-base
-          components:
-            - kyverno/resource-limits-requests
-            - kyverno/require-image-digest
-          timeout: 5m
-          interval: 5m
         - name: pki-base
           path: pki/base
           dependsOn:
@@ -267,22 +265,20 @@ cases:
           destroy: false
           inputs:
             concurrency: 10
+      flux:
+        - name: policy
+          install:
+            components:
+              - kyverno
+            timeout: 30m
+            interval: 5m
+          resources:
+            - components:
+                - kyverno/resource-limits-requests
+                - kyverno/require-image-digest
+              timeout: 5m
+              interval: 5m
       kustomize:
-        - name: policy-base
-          path: policy/base
-          components:
-            - kyverno
-          timeout: 30m
-          interval: 5m
-        - name: policy-resources
-          path: policy/resources
-          dependsOn:
-            - policy-base
-          components:
-            - kyverno/resource-limits-requests
-            - kyverno/require-image-digest
-          timeout: 5m
-          interval: 5m
         - name: pki-base
           path: pki/base
           dependsOn:
