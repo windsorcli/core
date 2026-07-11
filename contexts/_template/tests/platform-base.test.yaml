@@ -266,6 +266,7 @@ cases:
             - components: []
               timeout: 5m
               interval: 5m
+              retryInterval: 1m
 
   # Kyverno reports-controller opt-in layers in the kyverno/reports component.
   - name: policies.reporting enabled adds kyverno/reports component
