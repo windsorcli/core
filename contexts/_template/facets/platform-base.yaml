@@ -395,46 +395,43 @@ terraform:
       mode: ${gitops.mode ?? 'push'}
 
 # =============================================================================
-# Kustomize — policy, telemetry, PKI, observability, gitops webhook
+# Flux systems — policy (install/resources tier split)
+# =============================================================================
+#
+# install installs the Kyverno controller. resources applies cluster
+# policies; each policy is individually toggleable via the top-level
+# `policies.*` field (defaults to enabled). resources implicitly depends on
+# install; no dependsOn is written for that edge.
+#
+flux:
+  - name: policy
+    when: (policies.enabled ?? true) == true
+    install:
+      components:
+        - kyverno
+        - "${(policies.reporting ?? 'disabled') == 'enabled' ? 'kyverno/reports' : ''}"
+        - "${(policies.cleanup ?? 'disabled') == 'enabled' ? 'kyverno/cleanup' : ''}"
+        - "${topology == 'ha' ? 'kyverno/ha' : ''}"
+      timeout: 30m
+      interval: 5m
+    resources:
+      - components:
+          - "${(policies.resource_limits_requests ?? 'enabled') != 'disabled' ? 'kyverno/resource-limits-requests' : ''}"
+          - "${(policies.require_image_digest ?? 'enabled') != 'disabled' ? 'kyverno/require-image-digest' : ''}"
+        timeout: 5m
+        interval: 5m
+        retryInterval: 1m
+
+# =============================================================================
+# Kustomize — telemetry, PKI, observability, gitops webhook
 # =============================================================================
 #
 # These kustomizations are always applied (subject to per-entry `when:` guards
 # where noted). Ordering below matches the dependency chain:
 #
-#   policy → telemetry → pki → gitops webhook
+#   policy (flux: above) → telemetry → pki → gitops webhook
 #
 kustomize:
-
-  # ---------------------------------------------------------------------------
-  # Policy (Kyverno)
-  # ---------------------------------------------------------------------------
-  #
-  # policy-base installs the Kyverno controller.
-  # policy-resources applies cluster policies; each policy is individually
-  # toggleable via the top-level `policies.*` field (defaults to enabled).
-  #
-  - name: policy-base
-    path: policy/base
-    when: (policies.enabled ?? true) == true
-    components:
-      - kyverno
-      - "${(policies.reporting ?? 'disabled') == 'enabled' ? 'kyverno/reports' : ''}"
-      - "${(policies.cleanup ?? 'disabled') == 'enabled' ? 'kyverno/cleanup' : ''}"
-      - "${topology == 'ha' ? 'kyverno/ha' : ''}"
-    timeout: 30m
-    interval: 5m
-
-  - name: policy-resources
-    path: policy/resources
-    when: (policies.enabled ?? true) == true
-    dependsOn:
-      - policy-base
-    components:
-      - "${(policies.resource_limits_requests ?? 'enabled') != 'disabled' ? 'kyverno/resource-limits-requests' : ''}"
-      - "${(policies.require_image_digest ?? 'enabled') != 'disabled' ? 'kyverno/require-image-digest' : ''}"
-    timeout: 5m
-    interval: 5m
-    retryInterval: 1m
 
   # ---------------------------------------------------------------------------
   # PKI (cert-manager)

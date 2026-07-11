@@ -444,9 +444,10 @@ jobs:
       # HEAD phase — both modes
       # -----------------------------------------------------------------------
       # Fresh: a single `windsor up` on HEAD.
-      # Upgrade: apply HEAD on top of the converged baseline without reinit,
-      # then wait for Flux to catch up past the captured revision before
-      # checking health.
+      # Upgrade: `windsor apply --prune` on top of the converged baseline
+      # without reinit, so orphaned Kustomizations from the baseline are
+      # cleaned up, then wait for Flux to catch up past the captured revision
+      # before checking health.
       - name: Checkout HEAD
         if: matrix.mode == 'upgrade' && steps.infra_diff.outputs.skip != 'true'
         run: git checkout ${{ github.sha }}
@@ -466,11 +467,19 @@ jobs:
 
       - name: Windsor Up
         id: windsor_up
-        if: steps.infra_diff.outputs.skip != 'true'
-        # Upgrade mode may reboot the Talos node (e.g. on a Talos version bump);
-        # post-reboot pod restart burst takes longer to settle than a fresh install.
-        timeout-minutes: ${{ matrix.mode == 'upgrade' && 20 || 14 }}
+        if: matrix.mode == 'fresh' && steps.infra_diff.outputs.skip != 'true'
+        timeout-minutes: 14
         run: windsor up --verbose --wait
+
+      - name: Windsor Apply (prune)
+        id: windsor_apply_prune
+        if: matrix.mode == 'upgrade' && steps.infra_diff.outputs.skip != 'true'
+        # May reboot the Talos node (e.g. on a Talos version bump); post-reboot
+        # pod restart burst takes longer to settle than a fresh install.
+        # --prune exercises the orphaned-Kustomization cleanup an in-place
+        # upgrade relies on, which `windsor up` never performs.
+        timeout-minutes: 20
+        run: windsor apply --prune --verbose
 
       - name: HEAD — Wait for GitRepository revision bump
         id: gitrepo_bump
@@ -526,7 +535,7 @@ jobs:
           bad() { [ "$1" = "failure" ] || [ "$1" = "cancelled" ]; }
           if bad "${{ steps.baseline_up.outcome }}" || bad "${{ steps.baseline_health.outcome }}"; then
             echo "phase=baseline" >> $GITHUB_OUTPUT
-          elif bad "${{ steps.windsor_plan.outcome }}" || bad "${{ steps.windsor_up.outcome }}" || bad "${{ steps.gitrepo_bump.outcome }}" || bad "${{ steps.windsor_health.outcome }}"; then
+          elif bad "${{ steps.windsor_plan.outcome }}" || bad "${{ steps.windsor_up.outcome }}" || bad "${{ steps.windsor_apply_prune.outcome }}" || bad "${{ steps.gitrepo_bump.outcome }}" || bad "${{ steps.windsor_health.outcome }}"; then
             if [ "${{ matrix.mode }}" = "upgrade" ]; then
               echo "phase=upgrade" >> $GITHUB_OUTPUT
             else
