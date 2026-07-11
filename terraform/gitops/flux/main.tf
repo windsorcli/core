@@ -114,17 +114,34 @@ locals {
 resource "kubernetes_namespace_v1" "flux_system" {
   metadata {
     name = var.flux_namespace
+    # The flux-operator reconciles this namespace's annotations and most of
+    # its labels on every FluxInstance sync, so these values are set to match
+    # what it converges to (observed via managed fields) rather than fought
+    # over. If a flux-operator upgrade changes what it stamps, expect a
+    # one-time drift here until these literals are updated to match.
+    annotations = {
+      "fluxcd.controlplane.io/prune"      = "disabled"
+      "kustomize.toolkit.fluxcd.io/prune" = "Disabled"
+      "kustomize.toolkit.fluxcd.io/ssa"   = "Ignore"
+    }
     labels = {
-      "app.kubernetes.io/managed-by"            = "windsor-cli"
-      "app.kubernetes.io/instance"              = "flux-system"
+      "app.kubernetes.io/managed-by"            = "flux-operator"
+      "app.kubernetes.io/instance"              = var.flux_namespace
       "app.kubernetes.io/part-of"               = "flux"
+      "app.kubernetes.io/version"               = "v${var.flux_version}"
+      "fluxcd.controlplane.io/name"             = "flux"
+      "fluxcd.controlplane.io/namespace"        = var.flux_namespace
       "pod-security.kubernetes.io/warn"         = "restricted"
       "pod-security.kubernetes.io/warn-version" = "latest"
       "kubernetes.io/metadata.name"             = var.flux_namespace
       "kubernetes.io/metadata.namespace"        = var.flux_namespace
-      "kustomize.toolkit.fluxcd.io/name"        = "flux-system"
-      "kustomize.toolkit.fluxcd.io/namespace"   = var.flux_namespace
     }
+  }
+  lifecycle {
+    # app.kubernetes.io/managed-by is stamped by both flux-operator and the
+    # windsor CLI's own blueprint-install step; whichever last ran owns it, so
+    # no fixed value here would ever stay accurate.
+    ignore_changes = [metadata[0].labels["app.kubernetes.io/managed-by"]]
   }
 }
 
@@ -233,10 +250,8 @@ resource "kubernetes_job_v1" "flux_ready_gate" {
   spec {
     # Single attempt: the kubectl wait below already provides the readiness
     # patience, so retries would only push total runtime past the create
-    # timeout. The TTL cleans up the finished Job and lets a later apply re-run
-    # the gate (e.g. on a flux_version bump).
-    backoff_limit              = 0
-    ttl_seconds_after_finished = 300
+    # timeout.
+    backoff_limit = 0
     template {
       metadata {
         labels = {
@@ -295,6 +310,12 @@ resource "kubernetes_job_v1" "flux_ready_gate" {
     helm_release.flux_instance,
     kubernetes_role_binding_v1.flux_ready_gate,
   ]
+  lifecycle {
+    # Re-run the gate only when the flux-instance release actually changes
+    # (e.g. a flux_version or flux_operator_version bump bumps the release
+    # revision), not on every apply.
+    replace_triggered_by = [helm_release.flux_instance.metadata[0].revision]
+  }
 }
 
 #-----------------------------------------------------------------------------------------------------------------------
