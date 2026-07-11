@@ -334,5 +334,5 @@ jobs:
           claude_args: |
             --model claude-sonnet-4-6
             --max-turns 15
-            --allowedTools "Read,Bash(gh api:*),Bash(cat:*),Bash(jq:*)"
+            --allowedTools "Read,Grep,Glob,Bash(git diff:*),Bash(git log:*),Bash(gh api:*),Bash(cat:*),Bash(jq:*)"
             --disallowedTools WebSearch,WebFetch
