@@ -108,7 +108,7 @@ kustomize:
     when: talos_enabled
     dependsOn:
       - "${(policies.enabled ?? true) || (gateway.enabled == true && gateway.driver == 'cilium') ? 'policy-resources' : ''}"
-      - "${telemetry.metrics.enabled || telemetry.logs.enabled ? 'telemetry-base' : ''}"
+      - "${telemetry.metrics.enabled || telemetry.logs.enabled ? 'telemetry-install' : ''}"
     components:
       - cilium
       - cilium/talos
@@ -132,7 +132,7 @@ kustomize:
     when: eks_enabled
     dependsOn:
       - "${(policies.enabled ?? true) || (gateway.enabled == true && gateway.driver == 'cilium') ? 'policy-resources' : ''}"
-      - "${telemetry.metrics.enabled || telemetry.logs.enabled ? 'telemetry-base' : ''}"
+      - "${telemetry.metrics.enabled || telemetry.logs.enabled ? 'telemetry-install' : ''}"
     components:
       - cilium
       - "${(gateway.enabled == true && gateway.driver == 'cilium') ? 'cilium/gateway' : ''}"

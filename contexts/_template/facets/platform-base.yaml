@@ -395,13 +395,19 @@ terraform:
       mode: ${gitops.mode ?? 'push'}
 
 # =============================================================================
-# Flux systems — policy (install/resources tier split)
+# Flux systems — policy, telemetry (install/resources tier split)
 # =============================================================================
 #
-# install installs the Kyverno controller. resources applies cluster
+# policy: install installs the Kyverno controller. resources applies cluster
 # policies; each policy is individually toggleable via the top-level
 # `policies.*` field (defaults to enabled). resources implicitly depends on
 # install; no dependsOn is written for that edge.
+#
+# telemetry: install is the operators (Prometheus, fluent-bit, fluent-operator).
+# resources is metrics-server, scrape jobs, fluent-bit filters, and the
+# fluent-bit → fluentd shipper when fluentd is the chosen aggregator.
+# addon-observability replaces this whole system (strategy: replace) when the
+# Elasticsearch log driver is selected, swapping fluent-bit for filebeat.
 #
 flux:
   - name: policy
@@ -422,14 +428,38 @@ flux:
         interval: 5m
         retryInterval: 1m
 
+  - name: telemetry
+    when: telemetry.metrics.enabled || telemetry.logs.enabled
+    install:
+      components:
+        - "${telemetry.metrics.enabled ? 'prometheus' : ''}"
+        - "${telemetry.metrics.enabled ? 'prometheus/flux' : ''}"
+        - "${telemetry.logs.enabled ? 'fluentbit' : ''}"
+        - "${telemetry.metrics.enabled && telemetry.metrics_server_enabled ? 'metrics-server' : ''}"
+      timeout: 30m
+      interval: 10m
+    resources:
+      - components:
+          - "${telemetry.metrics.enabled ? 'prometheus' : ''}"
+          - "${telemetry.metrics.enabled ? 'prometheus/flux' : ''}"
+          - "${telemetry.logs.enabled ? 'fluentbit' : ''}"
+          - "${telemetry.logs.enabled ? 'fluentbit/containerd' : ''}"
+          - "${telemetry.logs.enabled ? 'fluentbit/kubernetes' : ''}"
+          - "${telemetry.logs.enabled ? 'fluentbit/parser' : ''}"
+          - "${telemetry.logs.enabled ? 'fluentbit/systemd' : ''}"
+          - "${telemetry.logs.enabled && telemetry.metrics.enabled ? 'fluentbit/prometheus' : ''}"
+          - "${telemetry.logs.driver == 'fluentd' ? 'fluentbit/fluentd' : ''}"
+        timeout: 10m
+        interval: 5m
+
 # =============================================================================
-# Kustomize — telemetry, PKI, observability, gitops webhook
+# Kustomize — PKI, observability, gitops webhook
 # =============================================================================
 #
 # These kustomizations are always applied (subject to per-entry `when:` guards
 # where noted). Ordering below matches the dependency chain:
 #
-#   policy (flux: above) → telemetry → pki → gitops webhook
+#   policy, telemetry (flux: above) → pki → gitops webhook
 #
 kustomize:
 
@@ -437,66 +467,18 @@ kustomize:
   # PKI (cert-manager)
   # ---------------------------------------------------------------------------
   #
-  # Depends on telemetry-base so cert-manager's ServiceMonitor has a working
-  # Prometheus target from the moment it's created.
+  # Depends on telemetry-install so cert-manager's ServiceMonitor has a
+  # working Prometheus target from the moment it's created.
   #
   - name: pki-base
     path: pki/base
     dependsOn:
       - "${(policies.enabled ?? true) ? 'policy-resources' : ''}"
-      - "${telemetry.metrics.enabled || telemetry.logs.enabled ? 'telemetry-base' : ''}"
+      - "${telemetry.metrics.enabled || telemetry.logs.enabled ? 'telemetry-install' : ''}"
     components:
       - cert-manager
       - "${telemetry.metrics.enabled ? 'cert-manager/prometheus' : ''}"
     timeout: 20m
-    interval: 5m
-
-  # ---------------------------------------------------------------------------
-  # Telemetry pipeline (Prometheus + fluent-bit + fluentd aggregator)
-  # ---------------------------------------------------------------------------
-  #
-  # Full collection pipeline, always present on every cluster:
-  #
-  #   fluent-bit (per-node shipper) → fluentd (central aggregator) → sink
-  #
-  # addon-observability wires up the sink (stdout / quickwit / elasticsearch).
-  # Without observability, fluentd runs as a terminal receiver with no output
-  # — logs are buffered and dropped, but the pipeline shape stays intact so
-  # enabling observability later doesn't require reconfiguring telemetry.
-  #
-  # telemetry-base:       operators (Prometheus, fluent-bit, fluent-operator).
-  # telemetry-resources:  metrics-server, scrape jobs, fluent-bit filters,
-  #                       and the fluent-bit → fluentd shipper when fluentd
-  #                       is the chosen aggregator.
-  # observability:        fluentd aggregator (skipped when logs_driver='none').
-  #
-  - name: telemetry-base
-    path: telemetry/base
-    when: telemetry.metrics.enabled || telemetry.logs.enabled
-    components:
-      - "${telemetry.metrics.enabled ? 'prometheus' : ''}"
-      - "${telemetry.metrics.enabled ? 'prometheus/flux' : ''}"
-      - "${telemetry.logs.enabled ? 'fluentbit' : ''}"
-    timeout: 30m
-    interval: 10m
-
-  - name: telemetry-resources
-    path: telemetry/resources
-    when: telemetry.metrics.enabled || telemetry.logs.enabled
-    dependsOn:
-      - telemetry-base
-    components:
-      - "${telemetry.metrics.enabled && telemetry.metrics_server_enabled ? 'metrics-server' : ''}"
-      - "${telemetry.metrics.enabled ? 'prometheus' : ''}"
-      - "${telemetry.metrics.enabled ? 'prometheus/flux' : ''}"
-      - "${telemetry.logs.enabled ? 'fluentbit' : ''}"
-      - "${telemetry.logs.enabled ? 'fluentbit/containerd' : ''}"
-      - "${telemetry.logs.enabled ? 'fluentbit/kubernetes' : ''}"
-      - "${telemetry.logs.enabled ? 'fluentbit/parser' : ''}"
-      - "${telemetry.logs.enabled ? 'fluentbit/systemd' : ''}"
-      - "${telemetry.logs.enabled && telemetry.metrics.enabled ? 'fluentbit/prometheus' : ''}"
-      - "${telemetry.logs.driver == 'fluentd' ? 'fluentbit/fluentd' : ''}"
-    timeout: 10m
     interval: 5m
 
   # Central FluentD aggregator. Runs in the observability namespace (where
@@ -510,7 +492,7 @@ kustomize:
     path: observability
     when: telemetry.logs.driver == 'fluentd' && (addons.observability.logs_driver ?? '') != 'elasticsearch'
     dependsOn:
-      - telemetry-base
+      - telemetry-install
     components:
       - fluentd
       - fluentd/filters/otel
