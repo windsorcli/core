@@ -217,7 +217,7 @@ cases:
         - name: gateway-base
           path: gateway/base
           dependsOn:
-            - pki-base
+            - pki-install
           components:
             - envoy
             - envoy/loadbalancer

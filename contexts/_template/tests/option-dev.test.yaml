@@ -34,21 +34,18 @@ cases:
       network: *default-network
       cluster: *default-cluster
     expect:
-      kustomize:
-        - name: pki-base
-          path: pki/base
-          timeout: 10m
-          interval: 5m
-          components:
-            - trust-manager
-        - name: pki-resources
-          path: pki/resources
-          dependsOn:
-            - pki-base
-          timeout: 5m
-          interval: 5m
-          components:
-            - private-issuer/ca
+      flux:
+        - name: pki
+          install:
+            timeout: 10m
+            interval: 5m
+            components:
+              - trust-manager
+          resources:
+            - timeout: 5m
+              interval: 5m
+              components:
+                - private-issuer/ca
 
   # Edge case: Non-dev mode excludes selfsigned issuer
   - name: excludes selfsigned issuer when dev disabled
@@ -62,3 +59,5 @@ cases:
     exclude:
       kustomize:
         - name: pki-resources
+    # pki-resources (the compiled tier name) doesn't exist on non-dev,
+    # non-private-ca metal — no facet contributes any resources components.

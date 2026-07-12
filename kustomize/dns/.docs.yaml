@@ -65,7 +65,7 @@ components:
     description: "Wires a Gateway API listener / route so coredns is reachable through the cluster Gateway (UDP/TCP 53)."
 
 dependencies:
-  pki-base:
+  pki-install:
     required_when: "`addons.private_dns.enabled: true`"
     reason: "coredns's etcd peer / server certs are issued by the `private` ClusterIssuer; cert-manager must be reconciling first."
   gateway-base:

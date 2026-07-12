@@ -126,7 +126,7 @@ flowchart LR
 ```yaml
 - name: dns
   path: dns
-  dependsOn: [pki-base]
+  dependsOn: [pki-install]
   components:
     - external-dns
     - external-dns/providers/coredns
@@ -190,7 +190,7 @@ In both cases `loadbalancer_start_ip` must fall inside
 
 | Add-on | Required when | Reason |
 |---|---|---|
-| `pki-base` | `addons.private_dns.enabled: true` | coredns's etcd peer / server certs are issued by the `private` ClusterIssuer; cert-manager must be reconciling first. |
+| `pki-install` | `addons.private_dns.enabled: true` | coredns's etcd peer / server certs are issued by the `private` ClusterIssuer; cert-manager must be reconciling first. |
 | `gateway-base` | `gateway.enabled: true` | external-dns with `sources: [gateway-httproute]` crash-loops on `no matches for kind HTTPRoute` if the Gateway API CRDs aren't installed yet. |
 | `policy-resources` | `workstation.runtime == 'docker-desktop'` | docker-desktop runs Kyverno in restricted-PSA mode for system-dns; the baseline policies need to be reconciling before coredns pods are admitted. |
 | `cni` | `addons.private_dns.enabled: true` AND `gateway.driver == 'cilium'` | The `coredns/cilium` and `coredns/loadbalancer` components rely on Cilium's L2 IP-sharing infrastructure being live. |

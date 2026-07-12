@@ -88,7 +88,7 @@ components:
     description: "Adds an HTTP listener on port 9292 to the `external` Gateway for the Flux notification-controller webhook. Paired with `envoy/nodeport/flux-webhook` on nodeport-mode clusters."
 
 dependencies:
-  pki-base:
+  pki-install:
     required_when: "always"
     reason: "gateway-base needs cert-manager CRDs reconciling so the `Certificate` for the external Gateway can be issued before the Gateway is admitted."
   lb-base:

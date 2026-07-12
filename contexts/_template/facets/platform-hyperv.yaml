@@ -558,6 +558,30 @@ terraform:
     destroy: false
 
 # =============================================================================
+# Flux systems — pki resources overlay
+# =============================================================================
+#
+# selfsigned `private` ClusterIssuer for the gateway cert
+# --------------------------------------------------------
+#
+# gateway_cert_issuer (option-gateway) resolves to 'private' on hyperv (no
+# public_domain, not aws/azure), so the gateway's external-web-tls
+# Certificate references a ClusterIssuer named exactly `private`. The
+# private-issuer/selfsigned component creates that. Skipped when
+# addon-private-ca is enabled — that addon emits its own pki-resources
+# with a CA-backed `private` issuer; running both would conflict.
+#
+flux:
+
+  - name: pki
+    when: (addons.private_ca.enabled ?? false) != true
+    resources:
+      - components:
+          - private-issuer/selfsigned
+        timeout: 5m
+        interval: 5m
+
+# =============================================================================
 # Kustomize — MetalLB
 # =============================================================================
 #
@@ -568,26 +592,6 @@ terraform:
 # false when Cilium is the CNI (Cilium's built-in LB is preferred).
 #
 kustomize:
-
-  # ---------------------------------------------------------------------------
-  # pki-resources — selfsigned `private` ClusterIssuer for the gateway cert
-  # ---------------------------------------------------------------------------
-  #
-  # gateway_cert_issuer (option-gateway) resolves to 'private' on hyperv (no
-  # public_domain, not aws/azure), so the gateway's external-web-tls
-  # Certificate references a ClusterIssuer named exactly `private`. The
-  # private-issuer/selfsigned component creates that. Skipped when
-  # addon-private-ca is enabled — that addon emits its own `pki-resources`
-  # with a CA-backed `private` issuer; running both would conflict.
-  - name: pki-resources
-    path: pki/resources
-    when: (addons.private_ca.enabled ?? false) != true
-    dependsOn:
-      - pki-base
-    components:
-      - private-issuer/selfsigned
-    timeout: 5m
-    interval: 5m
 
   - name: lb-base
     path: lb/base

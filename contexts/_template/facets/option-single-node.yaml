@@ -49,17 +49,22 @@ terraform:
     inputs:
       leader_election: false
 
-kustomize:
+# =============================================================================
+# Flux systems — pki install overlay
+# =============================================================================
+#
+# cert-manager is always present, trust-manager only when the private-ca
+# addon is enabled.
+#
+flux:
 
-  # ---------------------------------------------------------------------------
-  # pki-base overlay — cert-manager is always present, trust-manager only
-  # when the private-ca addon is enabled.
-  # ---------------------------------------------------------------------------
-  - name: pki-base
-    path: pki/base
-    components:
-      - cert-manager/single-node
-      - "${addons.private_ca.enabled == true ? 'trust-manager/single-node' : ''}"
+  - name: pki
+    install:
+      components:
+        - cert-manager/single-node
+        - "${addons.private_ca.enabled == true ? 'trust-manager/single-node' : ''}"
+
+kustomize:
 
   # ---------------------------------------------------------------------------
   # csi overlay — only the openebs path; longhorn has its own single-node

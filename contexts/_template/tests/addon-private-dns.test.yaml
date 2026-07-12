@@ -38,7 +38,7 @@ cases:
         - name: dns
           path: dns
           dependsOn:
-            - pki-base
+            - pki-install
             - cni
           timeout: 20m
           interval: 5m
@@ -73,7 +73,7 @@ cases:
         - name: dns
           path: dns
           dependsOn:
-            - pki-base
+            - pki-install
             - gateway-base
             - policy-resources
           timeout: 20m
@@ -110,7 +110,7 @@ cases:
         - name: dns
           path: dns
           dependsOn:
-            - pki-base
+            - pki-install
             - gateway-base
             - policy-resources
           timeout: 20m
@@ -145,7 +145,7 @@ cases:
         - name: dns
           path: dns
           dependsOn:
-            - pki-base
+            - pki-install
             - cni
           components:
             - coredns
@@ -176,7 +176,7 @@ cases:
         - name: dns
           path: dns
           dependsOn:
-            - pki-base
+            - pki-install
           components:
             - coredns
             - coredns/etcd
@@ -207,7 +207,7 @@ cases:
         - name: dns
           path: dns
           dependsOn:
-            - pki-base
+            - pki-install
 
   # Edge case: Addon disabled
   - name: excludes DNS when addon disabled

@@ -105,14 +105,14 @@ kustomize:
   # Envoy path: install Envoy Gateway + its service variant (loadbalancer or
   # nodeport, chosen by lb_effective.mode) + prometheus scraping.
   #
-  # Depends on pki-base so cert-manager is available for the Gateway TLS
+  # Depends on pki-install so cert-manager is available for the Gateway TLS
   # certificate created in gateway-resources.
   #
   - name: gateway-base
     path: gateway/base
     when: gateway.enabled == true && gateway.driver != 'cilium'
     dependsOn:
-      - pki-base
+      - pki-install
       - "${lb_effective.controller_required ? 'lb-base' : ''}"
     components:
       - "${gateway.driver}"
@@ -130,7 +130,7 @@ kustomize:
     path: gateway/base
     when: gateway.enabled == true && gateway.driver == 'cilium'
     dependsOn:
-      - pki-base
+      - pki-install
       - "${lb_effective.controller_required ? 'lb-base' : ''}"
     components:
       - cilium

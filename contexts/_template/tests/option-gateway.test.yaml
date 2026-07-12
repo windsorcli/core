@@ -33,7 +33,7 @@ x-defaults:
     name: gateway-base
     path: gateway/base
     dependsOn:
-      - pki-base
+      - pki-install
     components:
       - envoy
       - envoy/loadbalancer
@@ -46,7 +46,7 @@ x-defaults:
     name: gateway-base
     path: gateway/base
     dependsOn:
-      - pki-base
+      - pki-install
     components:
       - envoy
       - envoy/nodeport
@@ -60,7 +60,7 @@ x-defaults:
     name: gateway-base
     path: gateway/base
     dependsOn:
-      - pki-base
+      - pki-install
     components:
       - cilium
     timeout: 10m

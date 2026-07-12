@@ -157,11 +157,11 @@ cases:
             - network
           inputs:
             create_cert_manager_identity: "false"
-      kustomize:
-        - name: pki-resources
-          path: pki/resources
-          components:
-            - public-issuer/selfsigned
+      flux:
+        - name: pki
+          resources:
+            - components:
+                - public-issuer/selfsigned
     exclude:
       terraform:
         - name: dns-zone
@@ -214,38 +214,38 @@ cases:
               - /subscriptions/12345678-1234-9876-4563-123456789012/resourceGroups/rg-dns/providers/Microsoft.Network/dnszones/example.com
             external_dns_dns_zone_ids:
               - /subscriptions/12345678-1234-9876-4563-123456789012/resourceGroups/rg-dns/providers/Microsoft.Network/dnszones/example.com
-      kustomize:
+      flux:
         # Workload Identity wiring on the cert-manager pod itself — the
         # azure-workload-identity component patches the cert-manager
         # HelmRelease to add the SA annotation + pod label so the
         # workload-identity webhook injects the projected token at runtime.
-        - name: pki-base
-          components:
-            - cert-manager
-            - cert-manager/azure-workload-identity
-            - cert-manager/prometheus
-          substitutions:
-            cert_manager_client_id: 11111111-aaaa-aaaa-aaaa-111111111111
-            cert_manager_tenant_id: 33333333-cccc-cccc-cccc-333333333333
-        - name: pki-resources
-          path: pki/resources
-          dependsOn:
-            - pki-base
-            - policy-resources
-          components:
-            - public-issuer/acme/azuredns
-          substitutions:
-            acme_server: https://acme-v02.api.letsencrypt.org/directory
-            acme_email: ops@example.com
-            acme_dns_zone: example.com
-            # Substitutions read by the azureDNS solver block. If the keys
-            # are renamed or terraform_outputs stop threading through, the
-            # issuer would deploy with empty fields and every DNS-01
-            # challenge would fail.
-            acme_dns_zone_resource_group: rg-dns
-            acme_dns_zone_subscription_id: 12345678-1234-9876-4563-123456789012
-            cert_manager_client_id: 11111111-aaaa-aaaa-aaaa-111111111111
-            cert_manager_tenant_id: 33333333-cccc-cccc-cccc-333333333333
+        - name: pki
+          install:
+            components:
+              - cert-manager
+              - cert-manager/azure-workload-identity
+              - cert-manager/prometheus
+            substitutions:
+              cert_manager_client_id: 11111111-aaaa-aaaa-aaaa-111111111111
+              cert_manager_tenant_id: 33333333-cccc-cccc-cccc-333333333333
+          resources:
+            - dependsOn:
+                - policy-resources
+              components:
+                - public-issuer/acme/azuredns
+              substitutions:
+                acme_server: https://acme-v02.api.letsencrypt.org/directory
+                acme_email: ops@example.com
+                acme_dns_zone: example.com
+                # Substitutions read by the azureDNS solver block. If the keys
+                # are renamed or terraform_outputs stop threading through, the
+                # issuer would deploy with empty fields and every DNS-01
+                # challenge would fail.
+                acme_dns_zone_resource_group: rg-dns
+                acme_dns_zone_subscription_id: 12345678-1234-9876-4563-123456789012
+                cert_manager_client_id: 11111111-aaaa-aaaa-aaaa-111111111111
+                cert_manager_tenant_id: 33333333-cccc-cccc-cccc-333333333333
+      kustomize:
         # Gateway-on + public-domain path: external-dns must wait for
         # gateway-base (HTTPRoute CRDs) and layer the gateway-httproute
         # source on top of the azure provider. Locks the conditional in
@@ -289,13 +289,14 @@ cases:
         public_domain: dev.example.com
       email: dev@example.com
     expect:
-      kustomize:
-        - name: pki-resources
-          components:
-            - public-issuer/acme/azuredns
-          substitutions:
-            acme_server: https://acme-staging-v02.api.letsencrypt.org/directory
-            acme_email: dev@example.com
+      flux:
+        - name: pki
+          resources:
+            - components:
+                - public-issuer/acme/azuredns
+              substitutions:
+                acme_server: https://acme-staging-v02.api.letsencrypt.org/directory
+                acme_email: dev@example.com
 
   # Public mode: gateway-base adds no platform-azure component. AKS's CCM
   # provisions a public Standard SKU LB for any Service: LoadBalancer with
@@ -381,13 +382,14 @@ cases:
             zone_id_filter: /subscriptions/sub-123/resourceGroups/rg-net/providers/Microsoft.Network/privateDnsZones/internal.example.com
             external_dns_dns_zone_subscription_id: sub-123
             external_dns_dns_zone_resource_group: rg-net
-        # Private mode falls to the selfsigned issuer; its acme_* dns-zone
-        # substitutions resolve to empty without touching the unregistered
-        # dns-zone component.
-        - name: pki-resources
-          path: pki/resources
-          components:
-            - private-issuer/selfsigned
+      # Private mode falls to the selfsigned issuer; its acme_* dns-zone
+      # substitutions resolve to empty without touching the unregistered
+      # dns-zone component.
+      flux:
+        - name: pki
+          resources:
+            - components:
+                - private-issuer/selfsigned
 
   # Negative branch: Cilium provides its own gateway implementation, so
   # there's no Envoy data-plane Service to annotate. The azure-lb-internal
