@@ -142,10 +142,10 @@ flux:
         loadbalancer_ip_range: 10.5.1.10-10.5.1.30
 ```
 
-Unlike AWS and MetalLB, kube-vip's advertisement mode (`kube-vip/arp`)
-is a patch on its own HelmRelease rather than a separate CR, so it
-ships alongside the HelmRelease in `install` instead of `resources` —
-`resources` is empty for this driver. Advertises a VIP over ARP.
+kube-vip's advertisement mode (`kube-vip/arp`) patches its own
+HelmRelease rather than shipping as a separate CR, so it builds in
+`install` alongside the HelmRelease; `resources` is empty for this
+driver. Advertises a VIP over ARP.
 
 <!-- BEGIN_KUSTOMIZE_DOCS -->
 
