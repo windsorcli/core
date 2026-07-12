@@ -223,7 +223,8 @@
     {
       "customType": "regex",
       "managerFilePatterns": [
-        "/^contexts/_template/facets/.*\\.ya?ml$/"
+        "/^contexts/_template/facets/.*\\.ya?ml$/",
+        "/^contexts/_template/tests/.*\\.ya?ml$/"
       ],
       "description": "Parse helm renovate annotations on CRD layer refs (<name>-<version>)",
       "matchStrings": [
@@ -238,7 +239,8 @@
     {
       "customType": "regex",
       "managerFilePatterns": [
-        "/^contexts/_template/facets/.*\\.ya?ml$/"
+        "/^contexts/_template/facets/.*\\.ya?ml$/",
+        "/^contexts/_template/tests/.*\\.ya?ml$/"
       ],
       "description": "Parse non-helm renovate annotations on CRD layer refs (<name>-<version>)",
       "matchStrings": [
