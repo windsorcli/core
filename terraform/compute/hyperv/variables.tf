@@ -170,7 +170,7 @@ variable "images" {
 
   validation {
     condition = alltrue([
-      for k, v in var.images : v.compression == null || contains(["gz", "gzip", "xz", "zst", "zstd", "bz2", "bzip2"], v.compression)
+      for k, v in var.images : v.compression == null ? true : contains(["gz", "gzip", "xz", "zst", "zstd", "bz2", "bzip2"], v.compression)
     ])
     error_message = "images: compression must be one of gz, gzip, xz, zst, zstd, bz2, bzip2"
   }

@@ -91,7 +91,7 @@ variable "cluster_nodes" {
   default = null
 
   validation {
-    condition     = var.cluster_nodes == null || contains(["talos"], var.cluster_nodes.distribution)
+    condition     = var.cluster_nodes == null ? true : contains(["talos"], var.cluster_nodes.distribution)
     error_message = "cluster_nodes.distribution must be \"talos\" (k3s etc. reserved for future use)."
   }
 }
