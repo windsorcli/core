@@ -63,7 +63,7 @@ spec:
       container:
         image:
           # renovate: datasource=docker depName=reg.kyverno.io/kyverno/cleanup-controller package=reg.kyverno.io/kyverno/cleanup-controller
-          tag: v1.18.1@sha256:e9b3342264c82ae35f4fe3abd0e563e613bb54eae6ca493134f0fd4cbacfc0d1
+          tag: v1.18.2@sha256:b0395d29ae332276e6910eb40418be9bc127c068d659f90aa1bcddd6be99ccb4
         extraEnvVars:
         - name: NO_COLOR
           value: "1"
