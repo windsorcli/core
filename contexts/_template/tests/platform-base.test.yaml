@@ -90,7 +90,7 @@ cases:
           interval: 10m
       crds:
         # renovate: datasource=github-releases depName=cert-manager/cert-manager package=cert-manager/cert-manager
-        - cert-manager-1.20.2
+        - cert-manager-1.21.0
         # renovate: datasource=github-releases depName=prometheus-operator/prometheus-operator package=prometheus-operator/prometheus-operator
         - prometheus-operator-0.92.1
         # renovate: datasource=helm depName=fluent-operator package=fluent-operator helmRepo=https://fluent.github.io/helm-charts
@@ -384,7 +384,7 @@ cases:
             - cert-manager
       crds:
         # renovate: datasource=github-releases depName=cert-manager/cert-manager package=cert-manager/cert-manager
-        - cert-manager-1.20.2
+        - cert-manager-1.21.0
     exclude:
       flux:
         - name: telemetry
@@ -477,7 +477,7 @@ cases:
             - fluentd/filters/otel
       crds:
         # renovate: datasource=github-releases depName=cert-manager/cert-manager package=cert-manager/cert-manager
-        - cert-manager-1.20.2
+        - cert-manager-1.21.0
         # renovate: datasource=helm depName=fluent-operator package=fluent-operator helmRepo=https://fluent.github.io/helm-charts
         - fluent-operator-4.2.0
     exclude:

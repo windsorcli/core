@@ -2,4 +2,4 @@
 apiVersion: kustomize.config.k8s.io/v1alpha1
 kind: Component
 resources:
-  - cert-manager-1.20.2.yaml
+  - cert-manager-1.21.0.yaml

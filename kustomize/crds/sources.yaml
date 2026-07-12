@@ -30,7 +30,7 @@ vendors:
 
   - name: cert-manager
     # renovate: datasource=github-releases depName=cert-manager/cert-manager package=cert-manager/cert-manager
-    version: 1.20.2
+    version: 1.21.0
     url: https://github.com/cert-manager/cert-manager/releases/download/v${version}/cert-manager.crds.yaml
 
   - name: prometheus-operator
