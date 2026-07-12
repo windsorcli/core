@@ -3133,6 +3133,14 @@ spec:
                     autoRetryRequests:
                       description: Immediately retry failed requests to AWS services once. This option does not affect the normal Fluent Bit retry mechanism with backoff. Instead, it enables an immediate retry with no delay for networking errors, which may help improve throughput when there are transient/random networking issues.
                       type: boolean
+                    compression:
+                      description: 'Compression type to use when compressing the data. Valid values are: gzip, snappy, lz4, zstd. If you do not specify a compression type, the data will be sent uncompressed.'
+                      enum:
+                        - gzip
+                        - snappy
+                        - lz4
+                        - zstd
+                      type: string
                     dataKeys:
                       description: By default, the whole log record will be sent to Kinesis. If you specify a key name(s) with this option, then only those keys and values will be sent to Kinesis. For example, if you are using the Fluentd Docker log driver, you can specify data_keys log and only the log message will be sent to Kinesis. If you specify multiple keys, they should be comma delimited.
                       type: string
@@ -3142,8 +3150,14 @@ spec:
                     endpoint:
                       description: Specify a custom endpoint for the Kinesis Firehose API.
                       type: string
+                    externalID:
+                      description: Specify an external ID for the STS API, can be used with the role_arn parameter if your role requires an external ID.
+                      type: string
                     logKey:
                       description: By default, the whole log record will be sent to Firehose. If you specify a key name with this option, then only the value of that key will be sent to Firehose. For example, if you are using the Fluentd Docker log driver, you can specify log_key log and only the log message will be sent to Firehose.
+                      type: string
+                    profile:
+                      description: Option to specify an AWS Profile for credentials.
                       type: string
                     region:
                       description: The AWS region.
@@ -3151,6 +3165,9 @@ spec:
                     roleARN:
                       description: ARN of an IAM role to assume (for cross account access).
                       type: string
+                    simpleAggregation:
+                      description: Option to enable simple aggregation for the Firehose output plugin.
+                      type: boolean
                     stsEndpoint:
                       description: Specify a custom endpoint for the STS API; used to assume your custom role provided with role_arn.
                       type: string
@@ -3160,6 +3177,10 @@ spec:
                     timeKeyFormat:
                       description: strftime compliant format string for the timestamp; for example, %Y-%m-%dT%H *string This option is used with time_key. You can also use %L for milliseconds and %f for microseconds. If you are using ECS FireLens, make sure you are running Amazon ECS Container Agent v1.42.0 or later, otherwise the timestamps associated with your container logs will only have second precision.
                       type: string
+                    workers:
+                      description: Specify number of worker threads to use to output to Firehose
+                      format: int32
+                      type: integer
                   required:
                     - deliveryStream
                     - region
@@ -3261,6 +3282,9 @@ spec:
                         Send "chunk"-option and wait for "ack" response from server.
                         Enables at-least-once and receiving server can control rate of traffic.
                         (Requires Fluentd v0.14.0+ server)
+                      type: boolean
+                    retainMetadataInForwardMode:
+                      description: Retain metadata when forwarding in forward mode.
                       type: boolean
                     selfHostname:
                       description: Default value of the auto-generated certificate common name (CN).
@@ -19474,6 +19498,14 @@ spec:
                     autoRetryRequests:
                       description: Immediately retry failed requests to AWS services once. This option does not affect the normal Fluent Bit retry mechanism with backoff. Instead, it enables an immediate retry with no delay for networking errors, which may help improve throughput when there are transient/random networking issues.
                       type: boolean
+                    compression:
+                      description: 'Compression type to use when compressing the data. Valid values are: gzip, snappy, lz4, zstd. If you do not specify a compression type, the data will be sent uncompressed.'
+                      enum:
+                        - gzip
+                        - snappy
+                        - lz4
+                        - zstd
+                      type: string
                     dataKeys:
                       description: By default, the whole log record will be sent to Kinesis. If you specify a key name(s) with this option, then only those keys and values will be sent to Kinesis. For example, if you are using the Fluentd Docker log driver, you can specify data_keys log and only the log message will be sent to Kinesis. If you specify multiple keys, they should be comma delimited.
                       type: string
@@ -19483,8 +19515,14 @@ spec:
                     endpoint:
                       description: Specify a custom endpoint for the Kinesis Firehose API.
                       type: string
+                    externalID:
+                      description: Specify an external ID for the STS API, can be used with the role_arn parameter if your role requires an external ID.
+                      type: string
                     logKey:
                       description: By default, the whole log record will be sent to Firehose. If you specify a key name with this option, then only the value of that key will be sent to Firehose. For example, if you are using the Fluentd Docker log driver, you can specify log_key log and only the log message will be sent to Firehose.
+                      type: string
+                    profile:
+                      description: Option to specify an AWS Profile for credentials.
                       type: string
                     region:
                       description: The AWS region.
@@ -19492,6 +19530,9 @@ spec:
                     roleARN:
                       description: ARN of an IAM role to assume (for cross account access).
                       type: string
+                    simpleAggregation:
+                      description: Option to enable simple aggregation for the Firehose output plugin.
+                      type: boolean
                     stsEndpoint:
                       description: Specify a custom endpoint for the STS API; used to assume your custom role provided with role_arn.
                       type: string
@@ -19501,6 +19542,10 @@ spec:
                     timeKeyFormat:
                       description: strftime compliant format string for the timestamp; for example, %Y-%m-%dT%H *string This option is used with time_key. You can also use %L for milliseconds and %f for microseconds. If you are using ECS FireLens, make sure you are running Amazon ECS Container Agent v1.42.0 or later, otherwise the timestamps associated with your container logs will only have second precision.
                       type: string
+                    workers:
+                      description: Specify number of worker threads to use to output to Firehose
+                      format: int32
+                      type: integer
                   required:
                     - deliveryStream
                     - region
@@ -19602,6 +19647,9 @@ spec:
                         Send "chunk"-option and wait for "ack" response from server.
                         Enables at-least-once and receiving server can control rate of traffic.
                         (Requires Fluentd v0.14.0+ server)
+                      type: boolean
+                    retainMetadataInForwardMode:
+                      description: Retain metadata when forwarding in forward mode.
                       type: boolean
                     selfHostname:
                       description: Default value of the auto-generated certificate common name (CN).

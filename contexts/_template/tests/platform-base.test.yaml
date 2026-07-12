@@ -94,7 +94,7 @@ cases:
         # renovate: datasource=github-releases depName=prometheus-operator/prometheus-operator package=prometheus-operator/prometheus-operator
         - prometheus-operator-0.92.1
         # renovate: datasource=helm depName=fluent-operator package=fluent-operator helmRepo=https://fluent.github.io/helm-charts
-        - fluent-operator-4.1.0
+        - fluent-operator-4.2.0
 
   # Full: observability addon enabled; addon wins for same-name observability (grafana + fluentd/outputs/stdout)
   - name: full config with explicit fluentd driver and observability enabled
@@ -394,7 +394,7 @@ cases:
         # renovate: datasource=github-releases depName=prometheus-operator/prometheus-operator package=prometheus-operator/prometheus-operator
         - prometheus-operator-0.92.1
         # renovate: datasource=helm depName=fluent-operator package=fluent-operator helmRepo=https://fluent.github.io/helm-charts
-        - fluent-operator-4.1.0
+        - fluent-operator-4.2.0
 
   # Metrics on, logs off: Prometheus stack deploys, fluent-bit and fluentd are
   # dropped. cert-manager/prometheus stays (metrics are on).
@@ -479,7 +479,7 @@ cases:
         # renovate: datasource=github-releases depName=cert-manager/cert-manager package=cert-manager/cert-manager
         - cert-manager-1.20.2
         # renovate: datasource=helm depName=fluent-operator package=fluent-operator helmRepo=https://fluent.github.io/helm-charts
-        - fluent-operator-4.1.0
+        - fluent-operator-4.2.0
     exclude:
       crds:
         # renovate: datasource=github-releases depName=prometheus-operator/prometheus-operator package=prometheus-operator/prometheus-operator
