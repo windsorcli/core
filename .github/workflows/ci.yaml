@@ -34,7 +34,7 @@ env:
   # renovate: datasource=github-releases depName=troubleshoot package=replicatedhq/troubleshoot
   SUPPORT_BUNDLE_VERSION: v0.130.0
   # renovate: datasource=github-releases depName=flux package=fluxcd/flux2
-  FLUX_VERSION: v2.8.8
+  FLUX_VERSION: v2.9.1
   # renovate: datasource=github-releases depName=yq package=mikefarah/yq
   YQ_VERSION: v4.53.3
   # renovate: datasource=github-releases depName=helm package=helm/helm
