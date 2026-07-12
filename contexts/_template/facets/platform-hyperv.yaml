@@ -581,37 +581,41 @@ flux:
         timeout: 5m
         interval: 5m
 
-# =============================================================================
-# Kustomize — MetalLB
-# =============================================================================
-#
-# Hyper-V External switches expose a real L2 bridge to the bench's LAN, so
-# MetalLB ARP / Cilium L2 announcements work when an LB is requested. Internal
-# switches keep traffic on the host-only segment — LB still works for
-# host-to-VM traffic but won't reach the wider LAN. lb_effective.enabled is
-# false when Cilium is the CNI (Cilium's built-in LB is preferred).
-#
-kustomize:
-
-  - name: lb-base
-    path: lb/base
+  # ---------------------------------------------------------------------------
+  # MetalLB / kube-vip
+  # ---------------------------------------------------------------------------
+  #
+  # Hyper-V External switches expose a real L2 bridge to the bench's LAN, so
+  # MetalLB ARP / Cilium L2 announcements work when an LB is requested. Internal
+  # switches keep traffic on the host-only segment — LB still works for
+  # host-to-VM traffic but won't reach the wider LAN. lb_effective.enabled is
+  # false when Cilium is the CNI (Cilium's built-in LB is preferred).
+  #
+  # install ships the driver's controller HelmRelease. kube-vip/arp builds
+  # here too — it's a patch on the kube-vip HelmRelease, not a separate CR —
+  # and loadbalancer_ip_range is set here because the kube-vip cloud-provider
+  # HelmRelease reads it directly.
+  #
+  # resources ships metallb/arp or metallb/layer2, the IPAddressPool /
+  # L2Advertisement CRs metallb's controller consumes. No component for
+  # kube-vip, which has nothing left to configure once install has run.
+  #
+  - name: lb
     when: lb_effective.enabled
     dependsOn:
       - policy-resources
-    components:
-      - "${lb_effective.driver == 'metallb' ? 'metallb' : ''}"
-    timeout: 5m
-    interval: 5m
-
-  - name: lb-resources
-    path: lb/resources
-    when: lb_effective.enabled
-    dependsOn:
-      - lb-base
-    components:
-      - ${lb_effective.driver}
-      - "${lb_effective.driver}/${network.loadbalancer_mode ?? 'arp'}"
-    substitutions:
-      loadbalancer_ip_range: "${network.loadbalancer_ips.start + '-' + network.loadbalancer_ips.end}"
-    timeout: 5m
-    interval: 5m
+    install:
+      components:
+        - ${lb_effective.driver}
+        - "${lb_effective.driver == 'kube-vip' ? lb_effective.driver + '/' + (network.loadbalancer_mode ?? 'arp') : ''}"
+      substitutions:
+        loadbalancer_ip_range: "${network.loadbalancer_ips.start + '-' + network.loadbalancer_ips.end}"
+      timeout: 5m
+      interval: 5m
+    resources:
+      - components:
+          - "${lb_effective.driver == 'metallb' ? lb_effective.driver + '/' + (network.loadbalancer_mode ?? 'arp') : ''}"
+        substitutions:
+          loadbalancer_ip_range: "${network.loadbalancer_ips.start + '-' + network.loadbalancer_ips.end}"
+        timeout: 5m
+        interval: 5m

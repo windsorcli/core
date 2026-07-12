@@ -140,36 +140,41 @@ terraform:
       worker_volumes: ${talos_common.worker_volumes ?? []}
 
 # =============================================================================
-# Kustomize — MetalLB for colima / docker / linux runtimes
+# Flux systems — MetalLB / kube-vip for colima / docker / linux runtimes
 # =============================================================================
 #
 # Docker Desktop has no node-level IP routing, so MetalLB can't work there —
-# skip both entries when runtime is docker-desktop. Other docker runtimes
-# (colima, native linux) have a real network and use MetalLB as the LB.
+# skip the whole system when runtime is docker-desktop. Other docker runtimes
+# (colima, native linux) have a real network and use MetalLB or kube-vip as
+# the LB.
 #
-kustomize:
+# install ships the driver's controller HelmRelease. kube-vip/arp builds
+# here too — it's a patch on the kube-vip HelmRelease, not a separate CR —
+# and loadbalancer_ip_range is set here because the kube-vip cloud-provider
+# HelmRelease reads it directly.
+#
+# resources ships metallb/arp or metallb/layer2, the IPAddressPool /
+# L2Advertisement CRs metallb's controller consumes. No component for
+# kube-vip, which has nothing left to configure once install has run.
+#
+flux:
 
-  # MetalLB controller.
-  - name: lb-base
-    path: lb/base
+  - name: lb
     when: workstation.runtime != 'docker-desktop' && lb_effective.enabled
     dependsOn:
       - policy-resources
-    components:
-      - "${lb_effective.driver == 'metallb' ? 'metallb' : ''}"
-    timeout: 5m
-    interval: 5m
-
-  # MetalLB address pool + advertisement mode (L2 ARP or BGP).
-  - name: lb-resources
-    path: lb/resources
-    when: workstation.runtime != 'docker-desktop' && lb_effective.enabled
-    dependsOn:
-      - lb-base
-    components:
-      - ${lb_effective.driver}
-      - "${lb_effective.driver}/${network.loadbalancer_mode ?? 'arp'}"
-    substitutions:
-      loadbalancer_ip_range: ${network.loadbalancer_ips.start + '-' + network.loadbalancer_ips.end}
-    timeout: 5m
-    interval: 5m
+    install:
+      components:
+        - ${lb_effective.driver}
+        - "${lb_effective.driver == 'kube-vip' ? lb_effective.driver + '/' + (network.loadbalancer_mode ?? 'arp') : ''}"
+      substitutions:
+        loadbalancer_ip_range: ${network.loadbalancer_ips.start + '-' + network.loadbalancer_ips.end}
+      timeout: 5m
+      interval: 5m
+    resources:
+      - components:
+          - "${lb_effective.driver == 'metallb' ? lb_effective.driver + '/' + (network.loadbalancer_mode ?? 'arp') : ''}"
+        substitutions:
+          loadbalancer_ip_range: ${network.loadbalancer_ips.start + '-' + network.loadbalancer_ips.end}
+        timeout: 5m
+        interval: 5m

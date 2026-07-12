@@ -295,8 +295,9 @@ jobs:
         with:
           anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
           prompt: |
-            Your only job is to check whether existing review comments on
-            this PR have been addressed and resolve the ones that have.
+            Your only job is to identify which existing review threads on
+            this PR have been addressed. Do NOT call any GitHub write API
+            yourself — a later CI step resolves the threads you identify.
             Do NOT post new findings or update the PR summary.
 
             1. List unresolved review threads:
@@ -317,22 +318,33 @@ jobs:
 
             2. For each unresolved thread authored by the bot (login ending
                in `[bot]`, `github-actions`, or `claude`):
-               - If `isOutdated: true`, resolve it.
+               - If `isOutdated: true`, it qualifies.
                - Otherwise, read the file at the commented path/line and
-                 check whether the specific concern is still present.
-               - If the issue is fixed, resolve the thread.
-               - If a human has replied to the thread, leave it alone.
+                 check whether the specific concern is still present. If
+                 fixed, it qualifies.
+               - If a human has replied to the thread, leave it alone — it
+                 does not qualify.
 
-            3. Resolve via:
+            3. Write the id of every qualifying thread, one per line, to
+               /tmp/resolve-thread-ids.txt. Write an empty file if none
+               qualify.
 
-              gh api graphql -f query='
-                mutation($id:ID!){ resolveReviewThread(input:{threadId:$id}){ thread{ id } } }' \
-                -F id="<threadId>"
-
-            That is all. Do not post new comments. Do not modify the PR
-            description. Be fast.
+            That is all. Do not run any `gh api graphql` mutation. Do not
+            post comments. Do not modify the PR description. Be fast.
           claude_args: |
             --model claude-sonnet-4-6
             --max-turns 15
-            --allowedTools "Read,Grep,Glob,Bash(git diff:*),Bash(git log:*),Bash(gh api:*),Bash(cat:*),Bash(jq:*)"
+            --allowedTools "Read,Grep,Glob,Bash(git diff:*),Bash(git log:*),Bash(gh api:*),Bash(cat:*),Bash(jq:*),Write"
             --disallowedTools WebSearch,WebFetch
+      - name: Resolve identified threads
+        if: always() && steps.check.outputs.count != '0'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          # Same reasoning as "Publish review": always run main's copy so a
+          # PR branch opened or last pushed before this script was added
+          # still gets it.
+          git fetch --depth=1 origin main
+          git show origin/main:.github/scripts/resolve-threads.sh > /tmp/resolve-threads.sh
+          bash /tmp/resolve-threads.sh

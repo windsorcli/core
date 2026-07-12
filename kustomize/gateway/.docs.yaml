@@ -91,7 +91,7 @@ dependencies:
   pki-install:
     required_when: "always"
     reason: "gateway-base needs cert-manager CRDs reconciling so the `Certificate` for the external Gateway can be issued before the Gateway is admitted."
-  lb-base:
+  lb-install:
     required_when: "`lb_effective.controller_required: true` (e.g., metallb-driven clusters; AWS via aws-lb-controller)"
     reason: "The LB controller must be live so the data-plane Service can get an external IP."
   dns:

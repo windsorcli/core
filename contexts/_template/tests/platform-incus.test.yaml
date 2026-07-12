@@ -107,7 +107,7 @@ cases:
           interval: 5m
     exclude:
       kustomize:
-        - name: lb-base
+        - name: lb-install
         - name: lb-resources
 
   # Full: Test all configurable options together (explicit flannel CNI to exercise MetalLB path)
@@ -185,6 +185,23 @@ cases:
           destroy: false
           inputs:
             concurrency: 2
+      flux:
+        - name: lb
+          dependsOn:
+            - policy-resources
+          install:
+            components:
+              - metallb
+            timeout: 5m
+            interval: 5m
+          resources:
+            - components:
+                - metallb
+                - metallb/arp
+              substitutions:
+                loadbalancer_ip_range: 10.10.1.10-10.10.1.100
+              timeout: 5m
+              interval: 5m
       kustomize:
         - name: csi
           path: csi
@@ -194,25 +211,6 @@ cases:
           components:
             - longhorn
           timeout: 20m
-          interval: 5m
-        - name: lb-base
-          path: lb/base
-          dependsOn:
-            - policy-resources
-          components:
-            - metallb
-          timeout: 5m
-          interval: 5m
-        - name: lb-resources
-          path: lb/resources
-          dependsOn:
-            - lb-base
-          components:
-            - metallb
-            - metallb/arp
-          substitutions:
-            loadbalancer_ip_range: 10.10.1.10-10.10.1.100
-          timeout: 5m
           interval: 5m
         - name: gateway-base
           path: gateway/base
@@ -280,7 +278,7 @@ cases:
               - fluentbit
 
   # colima-incus: defaults to flannel CNI (no cilium overhead; used for storage driver testing)
-  - name: colima-incus defaults to flannel CNI and excludes lb
+  - name: colima-incus defaults to flannel CNI and kube-vip lb
     values:
       platform: incus
       workstation:
@@ -294,16 +292,18 @@ cases:
           path: gitops/flux
           dependsOn:
             - cluster
-      kustomize:
-        - name: lb-base
-          path: lb/base
-        - name: lb-resources
-          path: lb/resources
+      flux:
+        - name: lb
+          install:
+            components:
+              - kube-vip
+              - kube-vip/arp
     exclude:
       terraform:
         - name: cni
       kustomize:
         - name: cni
+        - name: lb-install
 
   # Edge case: Schedulable controlplanes use controlplane volume path
   - name: schedulable controlplanes use controlplane volume path for CSI

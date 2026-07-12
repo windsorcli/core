@@ -162,7 +162,7 @@ cases:
           interval: 5m
     exclude:
       kustomize:
-        - name: lb-base
+        - name: lb-install
         - name: lb-resources
 
   # Registry mirrors: when terraform_output("workstation", "registries") has hostname, common_config_patches must include non-empty mirrors. Colima: no certSANs.
@@ -306,25 +306,18 @@ cases:
               - cert-manager/prometheus
             timeout: 20m
             interval: 5m
-      kustomize:
-        - name: lb-base
-          path: lb/base
+        - name: lb
           dependsOn:
             - policy-resources
-          components: []
-          timeout: 5m
-          interval: 5m
-        - name: lb-resources
-          path: lb/resources
-          dependsOn:
-            - lb-base
-          components:
-            - kube-vip
-            - kube-vip/arp
-          substitutions:
-            loadbalancer_ip_range: 10.5.1.10-10.5.1.100
-          timeout: 5m
-          interval: 5m
+          install:
+            components:
+              - kube-vip
+              - kube-vip/arp
+            substitutions:
+              loadbalancer_ip_range: 10.5.1.10-10.5.1.100
+            timeout: 5m
+            interval: 5m
+      kustomize:
         - name: csi
           path: csi
           dependsOn:
@@ -371,5 +364,5 @@ cases:
         - name: cni
       kustomize:
         - name: cni
-        - name: lb-base
+        - name: lb-install
         - name: lb-resources
