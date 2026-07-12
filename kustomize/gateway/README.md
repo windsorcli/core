@@ -76,7 +76,7 @@ the cloud LB and external-dns publishes its hostname.
 ```yaml
 - name: gateway-base
   path: gateway/base
-  dependsOn: [pki-base, lb-base]
+  dependsOn: [pki-install, lb-base]
   components: [envoy, envoy/loadbalancer, envoy/prometheus]
 
 - name: gateway-resources
@@ -121,7 +121,7 @@ flowchart LR
 ```yaml
 - name: gateway-base
   path: gateway/base
-  dependsOn: [pki-base]
+  dependsOn: [pki-install]
   components:
     - envoy
     - envoy/nodeport
@@ -209,7 +209,7 @@ the path, one hop shorter than the Envoy recipes.
 ```yaml
 - name: gateway-base
   path: gateway/base
-  dependsOn: [pki-base]
+  dependsOn: [pki-install]
   components: [cilium]
 
 - name: gateway-resources
@@ -266,7 +266,7 @@ LBIPAM annotations so multiple Gateways can share one IP.
 
 | Add-on | Required when | Reason |
 |---|---|---|
-| `pki-base` | always | gateway-base needs cert-manager CRDs reconciling so the `Certificate` for the external Gateway can be issued before the Gateway is admitted. |
+| `pki-install` | always | gateway-base needs cert-manager CRDs reconciling so the `Certificate` for the external Gateway can be issued before the Gateway is admitted. |
 | `lb-base` | `lb_effective.controller_required: true` (e.g., metallb-driven clusters; AWS via aws-lb-controller) | The LB controller must be live so the data-plane Service can get an external IP. |
 | `dns` | `dns.enabled: true` | external-dns must be reconciling so the gateway hostname is published when the Gateway comes up. |
 | `cni` | `gateway.driver == 'cilium'` (declared by option-gateway as a cross-stack merge into option-cni) | Cilium's Gateway controller needs the Gateway API CRDs from gateway-base before its operator starts watching. |

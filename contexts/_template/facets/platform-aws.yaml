@@ -225,6 +225,74 @@ terraform:
     destroy: false
 
 # =============================================================================
+# Flux systems — pki resources overlay
+# =============================================================================
+#
+# public ClusterIssuer — selfsigned default, ACME when a real zone is set
+# -----------------------------------------------------------------------
+#
+# pki-resources is always rendered on AWS so the gateway cert always has
+# a working ClusterIssuer to issue against. Two modes:
+#
+#   1. Default (no public zone configured) → public-issuer/selfsigned,
+#      which deploys ClusterIssuer `public-selfsigned`. Cert issues
+#      immediately, browsers warn (untrusted CA), good for bringing up a
+#      cluster without DNS work. Flips to mode 2 below with no manual
+#      cert resource changes — the gateway_cert_issuer substitution in
+#      option-gateway switches to `public-acme`, which cert-manager sees
+#      as a Certificate spec change and reissues against the new issuer.
+#
+#   2. ACME (operator set dns.public_domain) → public-issuer/acme,
+#      which deploys ClusterIssuer `public-acme`. Windsor created a
+#      public Route53 zone via the dns-zone stack (so we have a place to
+#      write TXT records); cert-manager satisfies DNS-01 against it
+#      (using the IAM role + Pod Identity binding the cluster module
+#      provisioned). On switch, cert-manager re-issues into the same
+#      Secret name — gateway picks up the new cert with no restart.
+#
+# The trigger is "we have a Route53 zone we can write TXT records into",
+# not "an email is set" — email is required by Let's Encrypt for account
+# registration but isn't the capability gate. dns.public_domain is the
+# one knob the operator turns; everything else (zone, IAM, issuer) is
+# auto-provisioned.
+#
+# Server selection in ACME mode is implicit:
+#   - dev == true → Let's Encrypt staging (avoids prod rate limits)
+#   - otherwise   → Let's Encrypt production
+#
+# Required when ACME mode is active (schema enforces):
+#   - email      — operator address Let's Encrypt registers against
+#   - aws.region — Route53 API region (defaults to us-east-1)
+#
+flux:
+
+  - name: pki
+    resources:
+      - dependsOn:
+          - policy-resources
+        # Component selection is gated only on dns.public_domain — the
+        # acme_hosted_zone_id substitution below threads the zone ID through
+        # via deferred evaluation, so it picks up the real value once the
+        # dns-zone stack has applied without needing an eager terraform_output
+        # call here. (Eager terraform_output in components: panics on first
+        # bootstrap because the dns-zone component isn't registered until
+        # composition completes.)
+        components:
+          # Issuer variant resolved in the config section above.
+          - "${pki_effective.issuer_component}"
+        timeout: 5m
+        interval: 5m
+        substitutions:
+          # ACME-only substitutions; the selfsigned component doesn't reference
+          # them. acme_hosted_zone_id gates its terraform_output on public_domain
+          # because dns-zone isn't registered in private/selfsigned mode.
+          acme_server: "${dev == true ? 'https://acme-staging-v02.api.letsencrypt.org/directory' : 'https://acme-v02.api.letsencrypt.org/directory'}"
+          acme_email: "${email ?? ''}"
+          acme_dns_zone: "${dns.public_domain ?? ''}"
+          acme_region: "${aws.region ?? 'us-east-1'}"
+          acme_hosted_zone_id: "${(dns.public_domain ?? '') != '' ? (terraform_output('dns-zone', 'zone_id') ?? '') : ''}"
+
+# =============================================================================
 # Kustomize — AWS EBS CSI
 # =============================================================================
 #
@@ -341,43 +409,6 @@ kustomize:
       lb_scheme: "${gateway.access == 'private' && (dns.private_domain ?? '') != '' ? 'internal' : ''}"
 
   # ---------------------------------------------------------------------------
-  # public ClusterIssuer — selfsigned default, ACME when a real zone is set
-  # ---------------------------------------------------------------------------
-  #
-  # pki-resources is always rendered on AWS so the gateway cert always has
-  # a working ClusterIssuer to issue against. Two modes:
-  #
-  #   1. Default (no public zone configured) → public-issuer/selfsigned,
-  #      which deploys ClusterIssuer `public-selfsigned`. Cert issues
-  #      immediately, browsers warn (untrusted CA), good for bringing up a
-  #      cluster without DNS work. Flips to mode 2 below with no manual
-  #      cert resource changes — the gateway_cert_issuer substitution in
-  #      option-gateway switches to `public-acme`, which cert-manager sees
-  #      as a Certificate spec change and reissues against the new issuer.
-  #
-  #   2. ACME (operator set dns.public_domain) → public-issuer/acme,
-  #      which deploys ClusterIssuer `public-acme`. Windsor created a
-  #      public Route53 zone via the dns-zone stack (so we have a place to
-  #      write TXT records); cert-manager satisfies DNS-01 against it
-  #      (using the IAM role + Pod Identity binding the cluster module
-  #      provisioned). On switch, cert-manager re-issues into the same
-  #      Secret name — gateway picks up the new cert with no restart.
-  #
-  # The trigger is "we have a Route53 zone we can write TXT records into",
-  # not "an email is set" — email is required by Let's Encrypt for account
-  # registration but isn't the capability gate. dns.public_domain is the
-  # one knob the operator turns; everything else (zone, IAM, issuer) is
-  # auto-provisioned.
-  #
-  # Server selection in ACME mode is implicit:
-  #   - dev == true → Let's Encrypt staging (avoids prod rate limits)
-  #   - otherwise   → Let's Encrypt production
-  #
-  # Required when ACME mode is active (schema enforces):
-  #   - email      — operator address Let's Encrypt registers against
-  #   - aws.region — Route53 API region (defaults to us-east-1)
-  #
-  # ---------------------------------------------------------------------------
   # DNS — external-dns + Route53 record automation
   # ---------------------------------------------------------------------------
   #
@@ -456,30 +487,3 @@ kustomize:
       # `id` field in values.yaml) is unique per Windsor context so it doubles
       # as a stable per-cluster identifier.
       txt_owner_id: "${id}"
-
-  - name: pki-resources
-    path: pki/resources
-    dependsOn:
-      - pki-base
-      - policy-resources
-    # Component selection is gated only on dns.public_domain — the
-    # acme_hosted_zone_id substitution below threads the zone ID through
-    # via deferred evaluation, so it picks up the real value once the
-    # dns-zone stack has applied without needing an eager terraform_output
-    # call here. (Eager terraform_output in components: panics on first
-    # bootstrap because the dns-zone component isn't registered until
-    # composition completes.)
-    components:
-      # Issuer variant resolved in the config section above.
-      - "${pki_effective.issuer_component}"
-    timeout: 5m
-    interval: 5m
-    substitutions:
-      # ACME-only substitutions; the selfsigned component doesn't reference
-      # them. acme_hosted_zone_id gates its terraform_output on public_domain
-      # because dns-zone isn't registered in private/selfsigned mode.
-      acme_server: "${dev == true ? 'https://acme-staging-v02.api.letsencrypt.org/directory' : 'https://acme-v02.api.letsencrypt.org/directory'}"
-      acme_email: "${email ?? ''}"
-      acme_dns_zone: "${dns.public_domain ?? ''}"
-      acme_region: "${aws.region ?? 'us-east-1'}"
-      acme_hosted_zone_id: "${(dns.public_domain ?? '') != '' ? (terraform_output('dns-zone', 'zone_id') ?? '') : ''}"

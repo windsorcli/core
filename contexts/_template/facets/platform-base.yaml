@@ -395,7 +395,7 @@ terraform:
       mode: ${gitops.mode ?? 'push'}
 
 # =============================================================================
-# Flux systems — policy, telemetry (install/resources tier split)
+# Flux systems — policy, telemetry, pki (install/resources tier split)
 # =============================================================================
 #
 # policy: install installs the Kyverno controller. resources applies cluster
@@ -408,6 +408,10 @@ terraform:
 # fluent-bit → fluentd shipper when fluentd is the chosen aggregator.
 # addon-observability replaces this whole system (strategy: replace) when the
 # Elasticsearch log driver is selected, swapping fluent-bit for filebeat.
+#
+# pki: install is cert-manager. resources is empty here — platform and addon
+# facets (aws, azure, hyperv, dev, private-ca) each contribute their own
+# ClusterIssuer variant, merged into the same pki-resources kustomization.
 #
 flux:
   - name: policy
@@ -452,34 +456,29 @@ flux:
         timeout: 10m
         interval: 5m
 
+  # Depends on telemetry-install so cert-manager's ServiceMonitor has a
+  # working Prometheus target from the moment it's created.
+  - name: pki
+    dependsOn:
+      - "${(policies.enabled ?? true) ? 'policy-resources' : ''}"
+      - "${telemetry.metrics.enabled || telemetry.logs.enabled ? 'telemetry-install' : ''}"
+    install:
+      components:
+        - cert-manager
+        - "${telemetry.metrics.enabled ? 'cert-manager/prometheus' : ''}"
+      timeout: 20m
+      interval: 5m
+
 # =============================================================================
-# Kustomize — PKI, observability, gitops webhook
+# Kustomize — observability, gitops webhook
 # =============================================================================
 #
 # These kustomizations are always applied (subject to per-entry `when:` guards
 # where noted). Ordering below matches the dependency chain:
 #
-#   policy, telemetry (flux: above) → pki → gitops webhook
+#   policy, telemetry, pki (flux: above) → gitops webhook
 #
 kustomize:
-
-  # ---------------------------------------------------------------------------
-  # PKI (cert-manager)
-  # ---------------------------------------------------------------------------
-  #
-  # Depends on telemetry-install so cert-manager's ServiceMonitor has a
-  # working Prometheus target from the moment it's created.
-  #
-  - name: pki-base
-    path: pki/base
-    dependsOn:
-      - "${(policies.enabled ?? true) ? 'policy-resources' : ''}"
-      - "${telemetry.metrics.enabled || telemetry.logs.enabled ? 'telemetry-install' : ''}"
-    components:
-      - cert-manager
-      - "${telemetry.metrics.enabled ? 'cert-manager/prometheus' : ''}"
-    timeout: 20m
-    interval: 5m
 
   # Central FluentD aggregator. Runs in the observability namespace (where
   # fluent-operator has RBAC). Skipped when logs_driver='none' (aggregation

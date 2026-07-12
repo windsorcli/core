@@ -4,7 +4,7 @@
 # or dependencies change.
 
 facets:
-  - pki-base
+  - pki-install
   - pki-resources
 
 substitutions:
@@ -35,27 +35,27 @@ substitutions:
 
 components:
   cert-manager:
-    facet: pki-base
+    facet: pki-install
     enable_when: always
     description: "Helm release of the `cert-manager` chart in `system-pki`. Installs the controller, webhook, and cainjector (chart CRD install is skipped). The cert-manager CRDs are vendored under `kustomize/crds/` and applied ahead of the controller via the facet `crds:` section, so `pki-resources` can consume ClusterIssuer / Certificate CRs."
   cert-manager/single-node:
-    facet: pki-base
+    facet: pki-install
     enable_when: "single-node topology"
     description: "Patches the cert-manager HelmRelease to disable leader election on the controller (single replica has nothing to elect against)."
   cert-manager/azure-workload-identity:
-    facet: pki-base
+    facet: pki-install
     enable_when: "platform is Azure AND `dns.public_domain` is set"
     description: "Patches the cert-manager Deployment to attach the AKS federated workload identity used by the DNS-01 ACME solver against Azure DNS. Reads `cert_manager_client_id` and `cert_manager_tenant_id`."
   cert-manager/prometheus:
-    facet: pki-base
+    facet: pki-install
     enable_when: "`telemetry.metrics.enabled: true`"
     description: "Patches the cert-manager HelmRelease to enable Prometheus annotations / ServiceMonitor on the controller and webhook."
   trust-manager:
-    facet: pki-base
+    facet: pki-install
     enable_when: "`addons.private_ca.enabled: true`"
     description: "Helm release of the `trust-manager` chart in `system-pki-trust` (PSA `restricted`). Depends on cert-manager. Consumes `Bundle` CRs to distribute the private CA into workload namespaces."
   trust-manager/single-node:
-    facet: pki-base
+    facet: pki-install
     enable_when: "single-node topology AND `addons.private_ca.enabled: true`"
     description: "Patches the trust-manager HelmRelease to disable leader election."
   private-issuer/selfsigned:
@@ -82,7 +82,7 @@ components:
 dependencies:
   policy-resources:
     required_when: "`policies.enabled: true`"
-    reason: "pki-base depends on Kyverno baseline policies being active before cert-manager pods are admitted into `system-pki`. pki-resources depends on `policy-resources` so the private-CA inject policy (when private_ca is on) doesn't apply before Kyverno itself is reconciling."
-  telemetry-base:
+    reason: "pki-install depends on Kyverno baseline policies being active before cert-manager pods are admitted into `system-pki`. pki-resources depends on `policy-resources` so the private-CA inject policy (when private_ca is on) doesn't apply before Kyverno itself is reconciling."
+  telemetry-install:
     required_when: "`cert-manager/prometheus` is enabled"
     reason: "The ServiceMonitor added by `cert-manager/prometheus` needs Prometheus to be live to scrape."

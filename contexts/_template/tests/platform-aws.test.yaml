@@ -127,7 +127,7 @@ cases:
         - name: gateway-base
           path: gateway/base
           dependsOn:
-            - pki-base
+            - pki-install
           components:
             - envoy
             - envoy/loadbalancer
@@ -172,11 +172,11 @@ cases:
             # when ACME is off — dns-zone isn't registered, so referencing its
             # output would hard-error at bootstrap.
             cert_manager_hosted_zone_ids: []
-      kustomize:
-        - name: pki-resources
-          path: pki/resources
-          components:
-            - public-issuer/selfsigned
+      flux:
+        - name: pki
+          resources:
+            - components:
+                - public-issuer/selfsigned
     exclude:
       terraform:
         - name: dns-zone
@@ -222,24 +222,24 @@ cases:
             # zones in the same account.
             cert_manager_hosted_zone_ids:
               - Z1ABCDEF12345
+      flux:
+        - name: pki
+          resources:
+            - dependsOn:
+                - policy-resources
+              components:
+                - public-issuer/acme/route53
+              substitutions:
+                acme_server: https://acme-v02.api.letsencrypt.org/directory
+                acme_email: ops@example.com
+                acme_dns_zone: example.com
+                acme_region: us-west-2
+                # Maps to hostedZoneID in the ClusterIssuer YAML; if the substitution
+                # key is renamed or terraform_output('dns-zone', 'zone_id') stops
+                # threading through, the issuer would deploy with an empty zone ID
+                # and every DNS-01 challenge would fail.
+                acme_hosted_zone_id: Z1ABCDEF12345
       kustomize:
-        - name: pki-resources
-          path: pki/resources
-          dependsOn:
-            - pki-base
-            - policy-resources
-          components:
-            - public-issuer/acme/route53
-          substitutions:
-            acme_server: https://acme-v02.api.letsencrypt.org/directory
-            acme_email: ops@example.com
-            acme_dns_zone: example.com
-            acme_region: us-west-2
-            # Maps to hostedZoneID in the ClusterIssuer YAML; if the substitution
-            # key is renamed or terraform_output('dns-zone', 'zone_id') stops
-            # threading through, the issuer would deploy with an empty zone ID
-            # and every DNS-01 challenge would fail.
-            acme_hosted_zone_id: Z1ABCDEF12345
         # Gateway-on + public-domain path: external-dns must wait for
         # gateway-base (HTTPRoute CRDs) and layer the gateway-httproute
         # source on top of the route53 provider. Locks the conditional
@@ -289,13 +289,14 @@ cases:
       dns-zone:
         zone_id: Z9DEVZONE000
     expect:
-      kustomize:
-        - name: pki-resources
-          components:
-            - public-issuer/acme/route53
-          substitutions:
-            acme_server: https://acme-staging-v02.api.letsencrypt.org/directory
-            acme_email: dev@example.com
+      flux:
+        - name: pki
+          resources:
+            - components:
+                - public-issuer/acme/route53
+              substitutions:
+                acme_server: https://acme-staging-v02.api.letsencrypt.org/directory
+                acme_email: dev@example.com
 
   # When dns.public_domain is set, pki-resources renders the ACME
   # ClusterIssuer regardless of whether the dns-zone terraform output is
@@ -317,10 +318,11 @@ cases:
     terraformOutputs:
       dns-zone: {}
     expect:
-      kustomize:
-        - name: pki-resources
-          components:
-            - public-issuer/acme/route53
+      flux:
+        - name: pki
+          resources:
+            - components:
+                - public-issuer/acme/route53
 
   # cluster.pools threads through to the cluster module as-is. The module
   # converts class + count + lifecycle into EKS managed node group fields
@@ -733,14 +735,15 @@ cases:
           substitutions:
             gateway_cert_issuer: private
             external_domain: internal.example.com
-        # Private mode swaps pki-resources from public-issuer/* to
-        # private-issuer/selfsigned, which creates a ClusterIssuer named
-        # `private` — what the gateway cert above references. Without this
-        # the cert would reference a non-existent issuer.
-        - name: pki-resources
-          path: pki/resources
-          components:
-            - private-issuer/selfsigned
+      # Private mode swaps pki-resources from public-issuer/* to
+      # private-issuer/selfsigned, which creates a ClusterIssuer named
+      # `private` — what the gateway cert above references. Without this
+      # the cert would reference a non-existent issuer.
+      flux:
+        - name: pki
+          resources:
+            - components:
+                - private-issuer/selfsigned
 
   # Without a public domain (and no private mode), the dns Kustomization
   # has nothing to write to — domainFilters would fall back to the

@@ -139,9 +139,9 @@ addon-database    → CloudNativePG
 
 Kustomization `name` values are the stable identifiers that `dependsOn` and facet tests reference. Use descriptive kebab-case names:
 
-- `policy-base`, `policy-resources`
-- `pki-base`, `pki-resources`
-- `telemetry-base`, `telemetry-resources`
+- `policy-install`, `policy-resources` (compiled from a `flux:` system entry)
+- `pki-install`, `pki-resources` (compiled from a `flux:` system entry)
+- `telemetry-install`, `telemetry-resources` (compiled from a `flux:` system entry)
 - `gateway-base`, `gateway-resources` (canonical traffic entrypoint)
 - `observability`, `observability-kibana`
 - `addon-object-store`

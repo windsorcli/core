@@ -124,17 +124,17 @@ cases:
                 - fluentbit/prometheus
               timeout: 10m
               interval: 5m
-      kustomize:
-        - name: pki-base
-          path: pki/base
+        - name: pki
           dependsOn:
             - policy-resources
             - telemetry-install
-          components:
-            - cert-manager
-            - cert-manager/prometheus
-          timeout: 20m
-          interval: 5m
+          install:
+            components:
+              - cert-manager
+              - cert-manager/prometheus
+            timeout: 20m
+            interval: 5m
+      kustomize:
         - name: cni
           path: cni
           dependsOn:
@@ -296,17 +296,17 @@ cases:
                 - fluentbit/prometheus
               timeout: 10m
               interval: 5m
-      kustomize:
-        - name: pki-base
-          path: pki/base
+        - name: pki
           dependsOn:
             - policy-resources
             - telemetry-install
-          components:
-            - cert-manager
-            - cert-manager/prometheus
-          timeout: 20m
-          interval: 5m
+          install:
+            components:
+              - cert-manager
+              - cert-manager/prometheus
+            timeout: 20m
+            interval: 5m
+      kustomize:
         - name: lb-base
           path: lb/base
           dependsOn:

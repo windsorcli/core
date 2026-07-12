@@ -69,17 +69,17 @@ cases:
                 - fluentbit/fluentd
               timeout: 10m
               interval: 5m
-      kustomize:
-        - name: pki-base
-          path: pki/base
+        - name: pki
           dependsOn:
             - policy-resources
             - telemetry-install
-          components:
-            - cert-manager
-            - cert-manager/prometheus
-          timeout: 20m
-          interval: 5m
+          install:
+            components:
+              - cert-manager
+              - cert-manager/prometheus
+            timeout: 20m
+            interval: 5m
+      kustomize:
         - name: observability
           path: observability
           components:
@@ -336,8 +336,8 @@ cases:
               - kyverno/ha
 
   # policies.enabled=false skips both policy kustomizations entirely and
-  # drops the policy-resources dep from pki-base.
-  - name: policies.enabled false excludes policy kustomizations and drops pki-base dep
+  # drops the policy-resources dep from pki-install.
+  - name: policies.enabled false excludes policy kustomizations and drops pki-install dep
     values:
       platform: metal
       gateway:
@@ -347,22 +347,22 @@ cases:
       policies:
         enabled: false
     expect:
-      kustomize:
-        - name: pki-base
-          path: pki/base
+      flux:
+        - name: pki
           dependsOn:
             - telemetry-install
-          components:
-            - cert-manager
-            - cert-manager/prometheus
+          install:
+            components:
+              - cert-manager
+              - cert-manager/prometheus
     exclude:
       flux:
         - name: policy
 
   # Both metrics and logs disabled skips the telemetry system, the
   # fluentd aggregator, and strips the telemetry-install dep / cert-manager/prometheus
-  # from pki-base entirely.
-  - name: telemetry metrics and logs both disabled excludes telemetry pipeline and trims pki-base
+  # from pki-install entirely.
+  - name: telemetry metrics and logs both disabled excludes telemetry pipeline and trims pki-install
     values:
       platform: metal
       gateway:
@@ -375,13 +375,13 @@ cases:
         logs:
           enabled: false
     expect:
-      kustomize:
-        - name: pki-base
-          path: pki/base
+      flux:
+        - name: pki
           dependsOn:
             - policy-resources
-          components:
-            - cert-manager
+          install:
+            components:
+              - cert-manager
       crds:
         # renovate: datasource=github-releases depName=cert-manager/cert-manager package=cert-manager/cert-manager
         - cert-manager-1.21.0
@@ -420,15 +420,14 @@ cases:
             - components:
                 - prometheus
                 - prometheus/flux
-      kustomize:
-        - name: pki-base
-          path: pki/base
+        - name: pki
           dependsOn:
             - policy-resources
             - telemetry-install
-          components:
-            - cert-manager
-            - cert-manager/prometheus
+          install:
+            components:
+              - cert-manager
+              - cert-manager/prometheus
     exclude:
       kustomize:
         - name: observability
@@ -460,14 +459,14 @@ cases:
                 - fluentbit/parser
                 - fluentbit/systemd
                 - fluentbit/fluentd
-      kustomize:
-        - name: pki-base
-          path: pki/base
+        - name: pki
           dependsOn:
             - policy-resources
             - telemetry-install
-          components:
-            - cert-manager
+          install:
+            components:
+              - cert-manager
+      kustomize:
         - name: observability
           path: observability
           dependsOn:
@@ -510,13 +509,12 @@ cases:
               - prometheus
               - prometheus/flux
               - fluentbit
-      kustomize:
-        - name: pki-base
-          path: pki/base
+        - name: pki
           dependsOn:
             - policy-resources
             - telemetry-install
-          components:
-            - cert-manager
-            - cert-manager/prometheus
+          install:
+            components:
+              - cert-manager
+              - cert-manager/prometheus
 

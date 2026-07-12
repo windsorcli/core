@@ -16,8 +16,8 @@ requires:
 # =============================================================================
 #
 # Single kustomization with many conditional components. The dependency on
-# pki-base is unconditional (CoreDNS needs TLS for DoT/DoH); the second dep
-# depends on the gateway driver:
+# pki-install is unconditional (CoreDNS needs TLS for DoT/DoH); the second
+# dep depends on the gateway driver:
 #
 #   - Cilium: CoreDNS is exposed via a LoadBalancer Service with LBIPAM, so
 #     we wait for cni (Cilium's Gateway controller is part of the CNI).
@@ -47,7 +47,7 @@ kustomize:
   - name: dns
     path: dns
     dependsOn:
-      - pki-base
+      - pki-install
       - "${gateway.driver == 'cilium' ? 'cni' : (gateway.enabled == true ? 'gateway-base' : '')}"
       - "${workstation.runtime == 'docker-desktop' ? 'policy-resources' : ''}"
     timeout: 20m

@@ -174,6 +174,69 @@ terraform:
 # config block above, so it composes via the shared platform-base entry
 # rather than a separate kustomize override here.
 #
+# =============================================================================
+# Flux systems — pki install/resources overlay
+# =============================================================================
+#
+# cert-manager Workload Identity (Azure DNS-01 only)
+# ---------------------------------------------------
+#
+# When ACME is on, the cert-manager pod itself needs Workload Identity wired
+# up so the azureDNS solver can mint Azure AD tokens via the projected SA
+# token. The webhook-injected env vars (AZURE_CLIENT_ID, AZURE_TENANT_ID,
+# AZURE_FEDERATED_TOKEN_FILE, AZURE_AUTHORITY_HOST) only fire when the pod
+# carries azure.workload.identity/use=true and the cert-manager SA has the
+# client-id annotation. This component patches the cert-manager HelmRelease
+# to add both. Lives under the install tier because that's where the
+# HelmRelease is composed.
+#
+# public ClusterIssuer — selfsigned default, ACME (azureDNS) when zone is set
+# -----------------------------------------------------------------------------
+#
+# Mirrors the AWS pki-resources logic exactly — same three branches, same
+# trigger (operator set dns.public_domain). The only difference is the ACME
+# branch picks public-issuer/acme/azuredns instead of the route53 sibling,
+# and the substitutions are Azure-specific (RG name, subscription, tenant,
+# cert-manager UAMI client_id) instead of (region, hostedZoneID).
+#
+# Required when ACME mode is active (schema enforces):
+#   - email — operator address Let's Encrypt registers against
+#
+flux:
+
+  - name: pki
+    when: "(dns.public_domain ?? '') != ''"
+    install:
+      components:
+        - cert-manager/azure-workload-identity
+      substitutions:
+        cert_manager_client_id: "${terraform_output('cluster', 'cert_manager_client_id') ?? ''}"
+        cert_manager_tenant_id: "${terraform_output('cluster', 'tenant_id') ?? ''}"
+
+  - name: pki
+    resources:
+      - dependsOn:
+          - policy-resources
+        components:
+          # Issuer variant resolved in the config section above.
+          - "${pki_effective.issuer_component}"
+        timeout: 5m
+        interval: 5m
+        substitutions:
+          acme_server: "${dev == true ? 'https://acme-staging-v02.api.letsencrypt.org/directory' : 'https://acme-v02.api.letsencrypt.org/directory'}"
+          acme_email: "${email ?? ''}"
+          acme_dns_zone: "${dns.public_domain ?? ''}"
+          # Deferred terraform_outputs from the dns-zone and cluster stacks.
+          # Gate the dns-zone reads on public_domain: the component isn't
+          # registered in private/selfsigned mode, and referencing an
+          # unregistered component is a hard error (?? '' only defaults an
+          # absent output, not an absent component). Selfsigned in private
+          # mode doesn't read these; empty values are inert there.
+          acme_dns_zone_resource_group: "${(dns.public_domain ?? '') != '' ? (terraform_output('dns-zone', 'resource_group_name') ?? '') : ''}"
+          acme_dns_zone_subscription_id: "${(dns.public_domain ?? '') != '' ? (terraform_output('dns-zone', 'subscription_id') ?? '') : ''}"
+          cert_manager_client_id: "${terraform_output('cluster', 'cert_manager_client_id') ?? ''}"
+          cert_manager_tenant_id: "${terraform_output('cluster', 'tenant_id') ?? ''}"
+
 kustomize:
 
   # Azure Disk CSI driver is preinstalled on AKS (since K8s 1.21) — this
@@ -189,64 +252,6 @@ kustomize:
     interval: 5m
     substitutions:
       single_storage_type: ${cluster.storage.single_storage_type ?? "StandardSSD_LRS"}
-
-  # ---------------------------------------------------------------------------
-  # cert-manager Workload Identity (Azure DNS-01 only)
-  # ---------------------------------------------------------------------------
-  #
-  # When ACME is on, the cert-manager pod itself needs Workload Identity wired
-  # up so the azureDNS solver can mint Azure AD tokens via the projected SA
-  # token. The webhook-injected env vars (AZURE_CLIENT_ID, AZURE_TENANT_ID,
-  # AZURE_FEDERATED_TOKEN_FILE, AZURE_AUTHORITY_HOST) only fire when the pod
-  # carries azure.workload.identity/use=true and the cert-manager SA has the
-  # client-id annotation. This component patches the cert-manager HelmRelease
-  # to add both. Lives under pki-base because that's where the HelmRelease is
-  # composed.
-  - name: pki-base
-    when: "(dns.public_domain ?? '') != ''"
-    components:
-      - cert-manager/azure-workload-identity
-    substitutions:
-      cert_manager_client_id: "${terraform_output('cluster', 'cert_manager_client_id') ?? ''}"
-      cert_manager_tenant_id: "${terraform_output('cluster', 'tenant_id') ?? ''}"
-
-  # ---------------------------------------------------------------------------
-  # public ClusterIssuer — selfsigned default, ACME (azureDNS) when zone is set
-  # ---------------------------------------------------------------------------
-  #
-  # Mirrors the AWS pki-resources logic exactly — same three branches, same
-  # trigger (operator set dns.public_domain). The only difference is the ACME
-  # branch picks public-issuer/acme/azuredns instead of the route53 sibling,
-  # and the substitutions are Azure-specific (RG name, subscription, tenant,
-  # cert-manager UAMI client_id) instead of (region, hostedZoneID).
-  #
-  # Required when ACME mode is active (schema enforces):
-  #   - email — operator address Let's Encrypt registers against
-  #
-  - name: pki-resources
-    path: pki/resources
-    dependsOn:
-      - pki-base
-      - policy-resources
-    components:
-      # Issuer variant resolved in the config section above.
-      - "${pki_effective.issuer_component}"
-    timeout: 5m
-    interval: 5m
-    substitutions:
-      acme_server: "${dev == true ? 'https://acme-staging-v02.api.letsencrypt.org/directory' : 'https://acme-v02.api.letsencrypt.org/directory'}"
-      acme_email: "${email ?? ''}"
-      acme_dns_zone: "${dns.public_domain ?? ''}"
-      # Deferred terraform_outputs from the dns-zone and cluster stacks.
-      # Gate the dns-zone reads on public_domain: the component isn't
-      # registered in private/selfsigned mode, and referencing an
-      # unregistered component is a hard error (?? '' only defaults an
-      # absent output, not an absent component). Selfsigned in private
-      # mode doesn't read these; empty values are inert there.
-      acme_dns_zone_resource_group: "${(dns.public_domain ?? '') != '' ? (terraform_output('dns-zone', 'resource_group_name') ?? '') : ''}"
-      acme_dns_zone_subscription_id: "${(dns.public_domain ?? '') != '' ? (terraform_output('dns-zone', 'subscription_id') ?? '') : ''}"
-      cert_manager_client_id: "${terraform_output('cluster', 'cert_manager_client_id') ?? ''}"
-      cert_manager_tenant_id: "${terraform_output('cluster', 'tenant_id') ?? ''}"
 
   # ---------------------------------------------------------------------------
   # DNS — external-dns + Azure DNS record automation

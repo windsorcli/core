@@ -7,14 +7,14 @@ metadata:
 when: addons.private_ca.enabled == true
 
 # =============================================================================
-# Kustomize — trust-manager + private CA issuer
+# Flux systems — pki (trust-manager + private CA issuer)
 # =============================================================================
 #
-# Layers onto the pki-base / pki-resources stack created by platform-base:
-#   - pki-base adds trust-manager so Bundle CRDs distribute CA certs to
+# Layers onto the pki install/resources tiers created by platform-base:
+#   - install adds trust-manager so Bundle CRDs distribute CA certs to
 #     workload namespaces (ConfigMap/Secret fan-out).
-#   - pki-resources installs the private-issuer/ca ClusterIssuer, which
-#     becomes the default issuer for workload certificates.
+#   - resources installs the private-issuer/ca ClusterIssuer, which becomes
+#     the default issuer for workload certificates.
 #
 # Requires Kyverno (policy-resources): the private-issuer/ca component ships
 # a ClusterPolicy that mutates pods labeled use-custom-ca=true to mount the
@@ -22,21 +22,18 @@ when: addons.private_ca.enabled == true
 # ClusterPolicy"; the hard dep below surfaces the incompatibility as
 # DependencyNotReady instead.
 #
-kustomize:
+flux:
 
-  - name: pki-base
-    path: pki/base
-    timeout: 10m
-    interval: 5m
-    components:
-      - trust-manager
-
-  - name: pki-resources
-    path: pki/resources
-    dependsOn:
-      - pki-base
-      - policy-resources
-    timeout: 5m
-    interval: 5m
-    components:
-      - private-issuer/ca
+  - name: pki
+    install:
+      components:
+        - trust-manager
+      timeout: 10m
+      interval: 5m
+    resources:
+      - dependsOn:
+          - policy-resources
+        timeout: 5m
+        interval: 5m
+        components:
+          - private-issuer/ca
