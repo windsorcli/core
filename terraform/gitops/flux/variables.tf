@@ -8,7 +8,7 @@ variable "flux_operator_version" {
   description = "The version of the flux-operator and flux-instance Helm charts to install"
   type        = string
   # renovate: datasource=github-releases depName=flux-operator package=controlplaneio-fluxcd/flux-operator
-  default = "0.52.0"
+  default = "0.54.1"
 
   validation {
     condition     = can(regex("^[0-9]+\\.[0-9]+\\.[0-9]+$", var.flux_operator_version))
