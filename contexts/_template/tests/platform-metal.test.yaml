@@ -133,7 +133,7 @@ cases:
           interval: 5m
     exclude:
       kustomize:
-        - name: lb-base
+        - name: lb-install
         - name: lb-resources
 
   # Full: Test all configurable options together (explicit flannel CNI to exercise MetalLB path)
@@ -225,6 +225,22 @@ cases:
               - cert-manager/prometheus
             timeout: 20m
             interval: 5m
+        - name: lb
+          dependsOn:
+            - policy-resources
+          install:
+            components:
+              - metallb
+            timeout: 5m
+            interval: 5m
+          resources:
+            - components:
+                - metallb
+                - metallb/arp
+              substitutions:
+                loadbalancer_ip_range: 192.168.1.100-192.168.1.200
+              timeout: 5m
+              interval: 5m
       kustomize:
         - name: csi
           path: csi
@@ -236,25 +252,6 @@ cases:
           substitutions:
             local_volume_path: /mnt/data
           timeout: 20m
-          interval: 5m
-        - name: lb-base
-          path: lb/base
-          dependsOn:
-            - policy-resources
-          components:
-            - metallb
-          timeout: 5m
-          interval: 5m
-        - name: lb-resources
-          path: lb/resources
-          dependsOn:
-            - lb-base
-          components:
-            - metallb
-            - metallb/arp
-          substitutions:
-            loadbalancer_ip_range: 192.168.1.100-192.168.1.200
-          timeout: 5m
           interval: 5m
 
   # Edge case: longhorn storage driver passes Talos extensions via cluster-extensions step.

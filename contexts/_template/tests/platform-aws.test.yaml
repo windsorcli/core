@@ -531,25 +531,25 @@ cases:
 
   # AWS Load Balancer Controller is rendered on every AWS cluster — it's
   # required to get NLBs / ALBs (the in-tree CCM only creates classic ELBs).
-  # The component lives at lb/base/aws-lb-controller (sibling of
-  # lb/base/metallb on metal/incus); the lb-base kustomization owns the
+  # The component lives at lb/install/aws-lb-controller (sibling of
+  # lb/install/metallb on metal/incus); the lb-install kustomization owns the
   # system-lb namespace plus whichever in-cluster LB the platform needs.
-  - name: aws-lb-controller renders unconditionally on AWS via lb-base
+  - name: aws-lb-controller renders unconditionally on AWS via lb-install
     values:
       platform: aws
       aws: *default-aws
       gateway:
         enabled: false
     expect:
-      kustomize:
-        - name: lb-base
-          path: lb/base
+      flux:
+        - name: lb
           dependsOn:
             - policy-resources
-          components:
-            - aws-lb-controller
-          timeout: 5m
-          interval: 5m
+          install:
+            components:
+              - aws-lb-controller
+            timeout: 5m
+            interval: 5m
 
   # When gateway is enabled on AWS, the envoy data-plane Service gets NLB
   # annotations layered on by adding envoy/loadbalancer/aws-nlb to the

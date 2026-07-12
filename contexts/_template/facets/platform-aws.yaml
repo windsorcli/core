@@ -292,6 +292,49 @@ flux:
           acme_region: "${aws.region ?? 'us-east-1'}"
           acme_hosted_zone_id: "${(dns.public_domain ?? '') != '' ? (terraform_output('dns-zone', 'zone_id') ?? '') : ''}"
 
+  # ---------------------------------------------------------------------------
+  # AWS Load Balancer Controller — NLB / ALB provisioner
+  # ---------------------------------------------------------------------------
+  #
+  # Watches Service: LoadBalancer and Ingress / Gateway resources and
+  # provisions modern AWS load balancers via the EKS API. Without it, the
+  # in-tree Cloud Controller Manager creates classic ELBs (no target-type=ip,
+  # no ALB ingress). Always rendered on AWS — every cluster wants this.
+  #
+  # IAM is wired by the cluster module: var.create_aws_lb_controller_role
+  # defaults to true, provisioning the role + the upstream IAM policy and a
+  # Pod Identity association binding the aws-load-balancer-controller SA in
+  # the system-lb namespace.
+  #
+  # The component lives at kustomize/lb/install/aws-lb-controller (sibling of
+  # lb/install/metallb which serves the same role on metal/incus). The install
+  # tier owns the system-lb namespace + whichever in-cluster LB implementation
+  # the platform needs.
+  #
+  # vpc_id + aws_region are passed explicitly so LBC doesn't fall back to
+  # IMDS for cluster discovery — worker launch templates set
+  # http_put_response_hop_limit=1, which blocks pod-network IMDS calls.
+  # cluster_name flows through via deferred terraform_output and is what
+  # LBC tags AWS resources with for ownership.
+  #
+  # aws_region has no default: a wrong region silently fails LBC (regional
+  # EC2/ELB API calls miss the cluster's VPC and emit confusing "not found"
+  # errors), so we'd rather propagate empty and let the controller crash on
+  # startup than fall back to a guess.
+  #
+  - name: lb
+    dependsOn:
+      - policy-resources
+    install:
+      components:
+        - aws-lb-controller
+      timeout: 5m
+      interval: 5m
+      substitutions:
+        cluster_name: "${terraform_output('cluster', 'cluster_name') ?? ''}"
+        vpc_id: "${terraform_output('network', 'vpc_id') ?? ''}"
+        aws_region: "${aws.region ?? ''}"
+
 # =============================================================================
 # Kustomize — AWS EBS CSI
 # =============================================================================
@@ -311,49 +354,6 @@ kustomize:
     interval: 5m
     substitutions:
       single_storage_type: ${cluster.storage.single_storage_type ?? "gp3"}
-
-  # ---------------------------------------------------------------------------
-  # AWS Load Balancer Controller — NLB / ALB provisioner
-  # ---------------------------------------------------------------------------
-  #
-  # Watches Service: LoadBalancer and Ingress / Gateway resources and
-  # provisions modern AWS load balancers via the EKS API. Without it, the
-  # in-tree Cloud Controller Manager creates classic ELBs (no target-type=ip,
-  # no ALB ingress). Always rendered on AWS — every cluster wants this.
-  #
-  # IAM is wired by the cluster module: var.create_aws_lb_controller_role
-  # defaults to true, provisioning the role + the upstream IAM policy and a
-  # Pod Identity association binding the aws-load-balancer-controller SA in
-  # the system-lb namespace.
-  #
-  # The component lives at kustomize/lb/base/aws-lb-controller (sibling of
-  # lb/base/metallb which serves the same role on metal/incus). The lb-base
-  # kustomization owns the system-lb namespace + whichever in-cluster LB
-  # implementation the platform needs.
-  #
-  # vpc_id + aws_region are passed explicitly so LBC doesn't fall back to
-  # IMDS for cluster discovery — worker launch templates set
-  # http_put_response_hop_limit=1, which blocks pod-network IMDS calls.
-  # cluster_name flows through via deferred terraform_output and is what
-  # LBC tags AWS resources with for ownership.
-  #
-  # aws_region has no default: a wrong region silently fails LBC (regional
-  # EC2/ELB API calls miss the cluster's VPC and emit confusing "not found"
-  # errors), so we'd rather propagate empty and let the controller crash on
-  # startup than fall back to a guess.
-  #
-  - name: lb-base
-    path: lb/base
-    dependsOn:
-      - policy-resources
-    components:
-      - aws-lb-controller
-    timeout: 5m
-    interval: 5m
-    substitutions:
-      cluster_name: "${terraform_output('cluster', 'cluster_name') ?? ''}"
-      vpc_id: "${terraform_output('network', 'vpc_id') ?? ''}"
-      aws_region: "${aws.region ?? ''}"
 
   # ---------------------------------------------------------------------------
   # Compute — cluster-autoscaler scales the EKS node-group ASGs on pending pods

@@ -173,33 +173,32 @@ terraform:
     destroy: false
 
 # =============================================================================
-# Kustomize — MetalLB
+# Flux systems — MetalLB / kube-vip
 # =============================================================================
 #
-# Incus always has a real bridge network, so MetalLB works unconditionally
-# when an LB is requested.
+# Incus always has a real bridge network, so MetalLB or kube-vip works
+# unconditionally when an LB is requested. install ships the driver's
+# controller HelmRelease (metallb or kube-vip).
 #
-kustomize:
+flux:
 
-  - name: lb-base
-    path: lb/base
+  - name: lb
     when: lb_effective.enabled
     dependsOn:
       - policy-resources
-    components:
-      - "${lb_effective.driver == 'metallb' ? 'metallb' : ''}"
-    timeout: 5m
-    interval: 5m
-
-  - name: lb-resources
-    path: lb/resources
-    when: lb_effective.enabled
-    dependsOn:
-      - lb-base
-    components:
-      - ${lb_effective.driver}
-      - "${lb_effective.driver}/${network.loadbalancer_mode ?? 'arp'}"
-    substitutions:
-      loadbalancer_ip_range: "${network.loadbalancer_ips.start + '-' + network.loadbalancer_ips.end}"
-    timeout: 5m
-    interval: 5m
+    install:
+      components:
+        - ${lb_effective.driver}
+      # kube-vip's cloud-provider HelmRelease reads this directly (metallb's
+      # controller doesn't; its address pool lives in resources instead).
+      substitutions:
+        loadbalancer_ip_range: "${network.loadbalancer_ips.start + '-' + network.loadbalancer_ips.end}"
+      timeout: 5m
+      interval: 5m
+    resources:
+      - components:
+          - "${lb_effective.driver}/${network.loadbalancer_mode ?? 'arp'}"
+        substitutions:
+          loadbalancer_ip_range: "${network.loadbalancer_ips.start + '-' + network.loadbalancer_ips.end}"
+        timeout: 5m
+        interval: 5m

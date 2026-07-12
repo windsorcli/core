@@ -107,9 +107,9 @@ cases:
           inputs:
             vhd_dir: "D:/hyperv/vhds"
 
-  # MetalLB lb-base / lb-resources land when network.loadbalancer_driver is
+  # MetalLB lb-install / lb-resources land when network.loadbalancer_driver is
   # set and the CNI is not Cilium (Cilium has its own L2 path).
-  - name: metallb lb-base and lb-resources land with explicit flannel CNI
+  - name: metallb lb-install and lb-resources land with explicit flannel CNI
     values:
       platform: hyperv
       gateway:
@@ -136,18 +136,17 @@ cases:
           count: 0
     terraformOutputs: *default-terraform-outputs
     expect:
-      kustomize:
-        - name: lb-base
-          path: lb/base
-          components:
-            - metallb
-        - name: lb-resources
-          path: lb/resources
-          components:
-            - metallb
-            - metallb/arp
-          substitutions:
-            loadbalancer_ip_range: 10.20.0.100-10.20.0.110
+      flux:
+        - name: lb
+          install:
+            components:
+              - metallb
+          resources:
+            - components:
+                - metallb
+                - metallb/arp
+              substitutions:
+                loadbalancer_ip_range: 10.20.0.100-10.20.0.110
 
   # NodePort single-VM (1 cp, 0 workers). The simplest NodePort topology:
   # one Talos API forward (40000 → cp-1), no workers in the lists, no

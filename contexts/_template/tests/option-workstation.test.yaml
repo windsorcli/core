@@ -174,11 +174,12 @@ cases:
         - name: gitops
           path: gitops/flux
           destroy: false
-      kustomize:
-        - name: lb-base
-          path: lb/base
-        - name: lb-resources
-          path: lb/resources
+      flux:
+        - name: lb
+          install:
+            components:
+              - kube-vip
+              - kube-vip/arp
 
   # Edge: services.registries false → effective registries empty; terraform chain still runs
   - name: workstation with services registries disabled still creates terraform chain
@@ -331,7 +332,7 @@ cases:
           destroy: false
     exclude:
       kustomize:
-        - name: lb-base
+        - name: lb-install
         - name: lb-resources
 
   # Edge: custom webhook token propagates to all three workstation variants and gitops/flux so the sha256 hash matches.

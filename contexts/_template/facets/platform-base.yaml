@@ -115,8 +115,8 @@ config:
 
   # Docker Desktop has no routable node network, so Services of type
   # LoadBalancer cannot be reached and an in-cluster LB controller (MetalLB)
-  # has nothing to advertise. Force enabled=false so lb-base is not pulled in
-  # via controller_required, and switch the gateway service to NodePort.
+  # has nothing to advertise. Force enabled=false so lb-install is not pulled
+  # in via controller_required, and switch the gateway service to NodePort.
   - name: lb_effective
     when: workstation.runtime == 'docker-desktop'
     value:
@@ -142,11 +142,13 @@ config:
     value:
       mode: loadbalancer
 
-  # True when an in-cluster LB controller is required — i.e. a `lb-base`
-  # Kustomization will be composed into the blueprint. This is the union of
-  # every `when:` that produces an lb-base entry across the platform facets:
+  # True when an in-cluster LB controller is required — i.e. the `lb`
+  # system's install tier (compiled name `lb-install`) will be composed into
+  # the blueprint. This is the union of every `when:` that produces a
+  # non-empty install component across the platform facets:
   #   - platform-aws: always (aws-lb-controller manages cloud NLBs/ALBs).
-  #   - platform-metal/incus/docker: when lb_effective.enabled (MetalLB).
+  #   - platform-metal/incus/docker/hyperv: when lb_effective.enabled
+  #     (metallb or kube-vip — both ship an install-tier HelmRelease).
   #   - platform-azure: never (Azure native LBs, no in-cluster controller).
   # Consumers (gateway-resources, anything that owns a Service type=LoadBalancer
   # or Ingress class managed by aws-lb-controller) reference this in their
@@ -155,7 +157,7 @@ config:
   # service.k8s.aws/resources, elbv2.k8s.aws/resources) on Service /
   # TargetGroupBinding deletion before its own Kustomization is torn down.
   # Keep this in sync if a new platform facet adds another path that creates
-  # an `lb-base` Kustomization.
+  # an `lb-install` Kustomization.
   - name: lb_effective
     value:
       controller_required: "${platform == 'aws' || lb_effective.enabled == true}"

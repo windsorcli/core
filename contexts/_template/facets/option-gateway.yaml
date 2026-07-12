@@ -113,7 +113,7 @@ kustomize:
     when: gateway.enabled == true && gateway.driver != 'cilium'
     dependsOn:
       - pki-install
-      - "${lb_effective.controller_required ? 'lb-base' : ''}"
+      - "${lb_effective.controller_required ? 'lb-install' : ''}"
     components:
       - "${gateway.driver}"
       - "${gateway.driver == 'envoy' ? 'envoy/' + lb_effective.mode : ''}"
@@ -131,7 +131,7 @@ kustomize:
     when: gateway.enabled == true && gateway.driver == 'cilium'
     dependsOn:
       - pki-install
-      - "${lb_effective.controller_required ? 'lb-base' : ''}"
+      - "${lb_effective.controller_required ? 'lb-install' : ''}"
     components:
       - cilium
     timeout: 10m
@@ -176,7 +176,7 @@ kustomize:
     dependsOn:
       - gateway-base
       - "${dns.enabled ? 'dns' : ''}"
-      - "${lb_effective.controller_required ? 'lb-base' : ''}"
+      - "${lb_effective.controller_required ? 'lb-install' : ''}"
     components:
       - "${gateway.driver == 'cilium' ? 'cilium' : ''}"
       # Points the Gateway at its EnvoyProxy (per-gateway data-plane Service
