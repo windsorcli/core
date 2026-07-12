@@ -37,7 +37,7 @@ spec:
       initContainer:
         image:
           # renovate: datasource=docker depName=reg.kyverno.io/kyverno/kyvernopre package=reg.kyverno.io/kyverno/kyvernopre
-          tag: v1.18.1@sha256:e72b2309cde1d77de494c17e519dfe1dff9c1ee4d64327e80298a018bb612628
+          tag: v1.18.2@sha256:cd8cb4a31d25b3992734fb8f24a90ef691c90ce49338c89bea96792160eacb98
       container:
         image:
           # renovate: datasource=docker depName=reg.kyverno.io/kyverno/kyverno package=reg.kyverno.io/kyverno/kyverno
