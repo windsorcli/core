@@ -17,13 +17,13 @@ brings up via the Talos API.
 | Name | Version |
 |------|---------|
 | <a name="requirement_terraform"></a> [terraform](#requirement\_terraform) | >= 1.12.2 |
-| <a name="requirement_docker"></a> [docker](#requirement\_docker) | 4.4.0 |
+| <a name="requirement_docker"></a> [docker](#requirement\_docker) | 4.5.0 |
 
 ## Providers
 
 | Name | Version |
 |------|---------|
-| <a name="provider_docker"></a> [docker](#provider\_docker) | 4.4.0 |
+| <a name="provider_docker"></a> [docker](#provider\_docker) | 4.5.0 |
 
 ## Modules
 
@@ -33,10 +33,10 @@ No modules.
 
 | Name | Type |
 |------|------|
-| [docker_container.containers](https://registry.terraform.io/providers/kreuzwerker/docker/4.4.0/docs/resources/container) | resource |
-| [docker_image.instances](https://registry.terraform.io/providers/kreuzwerker/docker/4.4.0/docs/resources/image) | resource |
-| [docker_network.main](https://registry.terraform.io/providers/kreuzwerker/docker/4.4.0/docs/resources/network) | resource |
-| [docker_volume.named](https://registry.terraform.io/providers/kreuzwerker/docker/4.4.0/docs/resources/volume) | resource |
+| [docker_container.containers](https://registry.terraform.io/providers/kreuzwerker/docker/4.5.0/docs/resources/container) | resource |
+| [docker_image.instances](https://registry.terraform.io/providers/kreuzwerker/docker/4.5.0/docs/resources/image) | resource |
+| [docker_network.main](https://registry.terraform.io/providers/kreuzwerker/docker/4.5.0/docs/resources/network) | resource |
+| [docker_volume.named](https://registry.terraform.io/providers/kreuzwerker/docker/4.5.0/docs/resources/volume) | resource |
 
 ## Inputs
 
