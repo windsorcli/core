@@ -41,15 +41,15 @@ cases:
           enabled: true
           driver: minio
     expect:
-      kustomize:
-        - name: object-store-base
-          path: object-store/base
-          timeout: 10m
-          interval: 5m
+      flux:
+        - name: object-store
           dependsOn:
             - csi
-          components:
-            - minio
+          install:
+            components:
+              - minio
+            timeout: 10m
+            interval: 5m
 
   # Edge case: Addon disabled
   - name: excludes object store when addon disabled
@@ -61,8 +61,8 @@ cases:
         object_store:
           enabled: false
     exclude:
-      kustomize:
-        - name: object-store-base
+      flux:
+        - name: object-store
 
   # Edge case: MinIO does not require ingress/gateway resources for base deployment
   - name: creates MinIO when enabled without ingress
@@ -79,10 +79,10 @@ cases:
           enabled: true
           driver: minio
     expect:
-      kustomize:
-        - name: object-store-base
-          path: object-store/base
+      flux:
+        - name: object-store
           dependsOn:
             - csi
-          components:
-            - minio
+          install:
+            components:
+              - minio
