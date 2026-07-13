@@ -75,7 +75,7 @@ The controller runs in the cluster and provisions real AWS-side load
 balancers in the customer's VPC. There's no `resources` block because
 AWS LB Controller handles address management through the cloud API.
 `lb_effective.controller_required` is true for this driver, so
-gateway-base depends on lb-install.
+gateway-install depends on lb-install.
 
 ### MetalLB (docker / incus / metal)
 

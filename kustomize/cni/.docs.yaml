@@ -44,6 +44,6 @@ dependencies:
   policy-resources:
     required_when: "`policies.enabled: true` or `gateway.driver: cilium`"
     reason: "Re-rolls Cilium pods after Kyverno's mutation policies are live. When `cilium/gateway` is active, also provides the Kyverno CRDs the LBIPAM sharing ClusterPolicy depends on."
-  telemetry-base:
+  telemetry-install:
     required_when: "`telemetry.metrics.enabled: true` or `telemetry.logs.enabled: true`"
     reason: "The `cilium/prometheus` ServiceMonitor and the Hubble ServiceMonitor target Prometheus from telemetry."

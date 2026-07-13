@@ -154,7 +154,7 @@ cases:
             k8s_service_host: "10.5.0.10"
             operator_replicas: "2"
 
-  # Cilium + Gateway: adds cilium/gateway component and gateway-base dep (CRDs before cilium-operator).
+  # Cilium + Gateway: adds cilium/gateway component and gateway-install dep (CRDs before cilium-operator).
   - name: cilium gateway driver adds cilium/gateway component
     values:
       platform: metal
@@ -170,7 +170,7 @@ cases:
           dependsOn:
             - policy-resources
             - telemetry-install
-            - gateway-base
+            - gateway-install
           components:
             - cilium
             - cilium/talos
@@ -235,12 +235,11 @@ cases:
       network: *default-network
       cluster: *default-cluster
     expect:
-      kustomize:
-        - name: gateway-resources
-          path: gateway/resources
-          dependsOn:
-            - gateway-base
-            - cni
+      flux:
+        - name: gateway
+          resources:
+            - dependsOn:
+                - cni
 
   # network.loadbalancer_ips: derived from CIDR when not explicitly set (workstation layer active).
   - name: loadbalancer IPs derived from cidr_block when not set

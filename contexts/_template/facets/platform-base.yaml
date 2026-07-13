@@ -513,8 +513,8 @@ kustomize:
   #      disabled (e.g. cluster.enabled=false with only workstation services).
   #
   #   2. With Gateway API: webhook + HTTPRoute on the port-80 listener. Works
-  #      for both Envoy and Cilium gateways. Must wait for gateway-base so the
-  #      HTTPRoute CRDs exist before the route is applied.
+  #      for both Envoy and Cilium gateways. Must wait for gateway-install so
+  #      the HTTPRoute CRDs exist before the route is applied.
   #
   # Emission tracks gitops.mode — push emits, pull skips entirely.
   #
@@ -530,7 +530,7 @@ kustomize:
     path: gitops/flux
     when: (gitops.mode ?? 'push') == 'push' && gateway.enabled == true
     dependsOn:
-      - gateway-base
+      - gateway-install
     components:
       - webhook
       - webhook/gateway
@@ -551,7 +551,7 @@ kustomize:
     path: gitops/flux
     when: gateway.enabled == true && (gitops.web_ui ?? false) == true
     dependsOn:
-      - gateway-base
+      - gateway-install
     components:
       - ui
       - "${gateway.driver == 'cilium' ? 'ui/cilium' : ''}"

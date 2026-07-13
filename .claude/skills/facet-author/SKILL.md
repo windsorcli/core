@@ -142,7 +142,7 @@ Kustomization `name` values are the stable identifiers that `dependsOn` and face
 - `policy-install`, `policy-resources` (compiled from a `flux:` system entry)
 - `pki-install`, `pki-resources` (compiled from a `flux:` system entry)
 - `telemetry-install`, `telemetry-resources` (compiled from a `flux:` system entry)
-- `gateway-base`, `gateway-resources` (canonical traffic entrypoint)
+- `gateway-install`, `gateway-resources` (compiled from a `flux:` system entry; canonical traffic entrypoint)
 - `observability`, `observability-kibana`
 - `addon-object-store`
 

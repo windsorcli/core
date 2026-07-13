@@ -202,6 +202,21 @@ cases:
                 loadbalancer_ip_range: 10.10.1.10-10.10.1.100
               timeout: 5m
               interval: 5m
+        - name: gateway
+          dependsOn:
+            - pki-install
+          install:
+            components:
+              - envoy
+              - envoy/loadbalancer
+              - envoy/prometheus
+            timeout: 10m
+            interval: 5m
+          resources:
+            - components:
+                - dns
+              timeout: 10m
+              interval: 5m
       kustomize:
         - name: csi
           path: csi
@@ -211,24 +226,6 @@ cases:
           components:
             - longhorn
           timeout: 20m
-          interval: 5m
-        - name: gateway-base
-          path: gateway/base
-          dependsOn:
-            - pki-install
-          components:
-            - envoy
-            - envoy/loadbalancer
-            - envoy/prometheus
-          timeout: 10m
-          interval: 5m
-        - name: gateway-resources
-          path: gateway/resources
-          dependsOn:
-            - gateway-base
-          components:
-            - dns
-          timeout: 10m
           interval: 5m
 
   # Edge case: colima-incus uses Incus path (platform selects compute/incus; option-workstation does not apply)

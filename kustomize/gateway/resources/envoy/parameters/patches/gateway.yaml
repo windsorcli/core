@@ -1,5 +1,5 @@
 ---
-# Points the external Gateway at its EnvoyProxy (gateway/base/envoy/envoy-proxy.yaml)
+# Points the external Gateway at its EnvoyProxy (gateway/install/envoy/envoy-proxy.yaml)
 # so the data-plane Service is configured per gateway rather than through the
 # controller-global EnvoyGateway default. Envoy-only: Cilium gateways don't use
 # the gateway.envoyproxy.io EnvoyProxy resource.

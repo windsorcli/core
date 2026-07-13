@@ -44,7 +44,7 @@ components:
     description: "Patches the external-dns HelmRelease for the CoreDNS provider, writing records into the in-cluster coredns etcd backend instead of a cloud DNS zone."
   external-dns/sources/gateway-httproute:
     enable_when: "`gateway.enabled: true`"
-    description: "Adds `gateway-httproute` to external-dns's `sources` list so the Gateway API's `HTTPRoute` hostnames are published. Requires the Gateway API CRDs to be present (hence the `gateway-base` dependency)."
+    description: "Adds `gateway-httproute` to external-dns's `sources` list so the Gateway API's `HTTPRoute` hostnames are published. Requires the Gateway API CRDs to be present (hence the `gateway-install` dependency)."
   coredns:
     enable_when: "`addons.private_dns.enabled: true`"
     description: "Helm release of `coredns` in `system-dns`. In-cluster private DNS server. The default plugin chain serves cluster.local and forwards everything else upstream."
@@ -68,7 +68,7 @@ dependencies:
   pki-install:
     required_when: "`addons.private_dns.enabled: true`"
     reason: "coredns's etcd peer / server certs are issued by the `private` ClusterIssuer; cert-manager must be reconciling first."
-  gateway-base:
+  gateway-install:
     required_when: "`gateway.enabled: true`"
     reason: "external-dns with `sources: [gateway-httproute]` crash-loops on `no matches for kind HTTPRoute` if the Gateway API CRDs aren't installed yet."
   policy-resources:

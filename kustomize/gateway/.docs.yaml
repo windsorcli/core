@@ -4,7 +4,7 @@
 # or dependencies change.
 
 facets:
-  - gateway-base
+  - gateway-install
   - gateway-resources
 
 substitutions:
@@ -23,41 +23,41 @@ substitutions:
 
 components:
   envoy:
-    facet: gateway-base
+    facet: gateway-install
     enable_when: "`gateway.driver == 'envoy'`"
     description: "Helm release of `envoy-gateway` in `system-gateway`. Installs the Envoy Gateway operator (chart CRD install is skipped) and the self-contained `external` `EnvoyProxy` resource that owns the per-gateway data-plane config (digest-pinned proxy image plus the Service patches layered on by the loadbalancer/nodeport components). The EnvoyGateway config keeps no default proxy patch, so the EnvoyProxy each Gateway references via `parametersRef` is authoritative. The Envoy Gateway and shared Gateway API CRDs are vendored under `kustomize/crds/` and applied ahead of the controller via the facet `crds:` section."
   envoy/loadbalancer:
-    facet: gateway-base
+    facet: gateway-install
     enable_when: "envoy driver AND `lb_effective.mode == 'loadbalancer'`"
     description: "Patches the `external` `EnvoyProxy` so the data-plane Envoy Service is `type: LoadBalancer`. Cloud-specific annotation patches (aws-nlb / azure-lb-internal) merge on top."
   envoy/loadbalancer/aws-nlb:
-    facet: gateway-base
+    facet: gateway-install
     enable_when: "envoy driver AND platform is AWS AND `lb_effective.mode == 'loadbalancer'`"
     description: "Adds NLB annotations onto the Envoy data-plane Service so the AWS Load Balancer Controller provisions an NLB with target-type=ip. Traffic reaches Envoy pods directly, source IP preserved."
   envoy/loadbalancer/azure-lb-internal:
-    facet: gateway-base
+    facet: gateway-install
     enable_when: "envoy driver AND platform is Azure AND `gateway.access == 'private'`"
     description: "Adds Azure ILB annotations so the Envoy data-plane Service provisions an internal load balancer (subnet-bound, no public IP)."
   envoy/nodeport:
-    facet: gateway-base
+    facet: gateway-install
     enable_when: "envoy driver AND `lb_effective.mode == 'nodeport'`"
     description: "Patches the `external` `EnvoyProxy` so the data-plane Service is `type: NodePort`. Used on local clusters where no LoadBalancer provider exists."
   envoy/nodeport/dns:
-    facet: gateway-base
+    facet: gateway-install
     enable_when: "envoy/nodeport AND `addons.private_dns.enabled: true` (default in `dev`)"
     description: "Opens an additional NodePort for the cluster's private DNS resolver (UDP/TCP 53). Lets a workstation point at the host's IP for `*.<dns.private_domain>` resolution."
   envoy/nodeport/flux-webhook:
-    facet: gateway-base
+    facet: gateway-install
     enable_when: "envoy/nodeport AND `gitops.mode == 'push'`"
     description: "Opens an additional NodePort for the Flux notification-controller webhook (port 9292). Lets the GitOps push pipeline reach in-cluster receivers."
   envoy/prometheus:
-    facet: gateway-base
+    facet: gateway-install
     enable_when: "envoy driver"
     description: "Adds the Envoy Gateway operator's PodMonitor + the Envoy data-plane's ServiceMonitor."
-  base/cilium:
-    facet: gateway-base
+  install/cilium:
+    facet: gateway-install
     enable_when: "`gateway.driver == 'cilium'`"
-    description: "Installs the Gateway API CRDs and a `GatewayClass` referencing the `cilium` controller. The Cilium HelmRelease itself is owned by the `cni` add-on (see option-cni's `cilium/gateway` component). Operator references this as `components: [cilium]` under `gateway-base`."
+    description: "Installs the Gateway API CRDs and a `GatewayClass` referencing the `cilium` controller. The Cilium HelmRelease itself is owned by the `cni` add-on (see option-cni's `cilium/gateway` component). Operator references this as `components: [cilium]` under `gateway-install`."
   resources/cilium:
     facet: gateway-resources
     enable_when: "`gateway.driver == 'cilium'`"
@@ -90,7 +90,7 @@ components:
 dependencies:
   pki-install:
     required_when: "always"
-    reason: "gateway-base needs cert-manager CRDs reconciling so the `Certificate` for the external Gateway can be issued before the Gateway is admitted."
+    reason: "gateway-install needs cert-manager CRDs reconciling so the `Certificate` for the external Gateway can be issued before the Gateway is admitted."
   lb-install:
     required_when: "`lb_effective.controller_required: true` (e.g., metallb-driven clusters; AWS via aws-lb-controller)"
     reason: "The LB controller must be live so the data-plane Service can get an external IP."
@@ -99,4 +99,4 @@ dependencies:
     reason: "external-dns must be reconciling so the gateway hostname is published when the Gateway comes up."
   cni:
     required_when: "`gateway.driver == 'cilium'` (declared by option-gateway as a cross-stack merge into option-cni)"
-    reason: "Cilium's Gateway controller needs the Gateway API CRDs from gateway-base before its operator starts watching."
+    reason: "Cilium's Gateway controller needs the Gateway API CRDs from gateway-install before its operator starts watching."

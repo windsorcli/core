@@ -23,14 +23,15 @@ add-on enables `gatewayAPI` on the existing Cilium operator, and this
 add-on only contributes the GatewayClass and the LBIPAM-sharing
 patch.
 
-The add-on splits across two Kustomization paths so Flux can install
+The add-on is a `flux:` system entry (`gateway`) so Flux can install
 the Gateway API CRDs and the controller workloads before the
-`Gateway` CR that targets them. `gateway-base` ships the Gateway API
-CRDs plus the operator Helm release (envoy) or just the GatewayClass
-(cilium); LB-mode patches and Prometheus monitor go here.
-`gateway-resources` ships the `external` `Gateway` CR (named via the
-`system-gateway` namespace) plus per-feature patches (catch-all 404,
-DNS listeners, fixed LB address, Flux webhook).
+`Gateway` CR that targets them. `install` ships the Gateway API CRDs
+plus the operator Helm release (envoy) or just the GatewayClass
+(cilium); LB-mode patches and Prometheus monitor go here. `resources`
+ships the `external` `Gateway` CR (named via the `system-gateway`
+namespace) plus per-feature patches (catch-all 404, DNS listeners,
+fixed LB address, Flux webhook), and implicitly depends on `install`
+(compiled name: `gateway-install` / `gateway-resources`).
 
 ## Recipes
 
@@ -74,20 +75,19 @@ data-plane behind a LoadBalancer Service; the LB controller provisions
 the cloud LB and external-dns publishes its hostname.
 
 ```yaml
-- name: gateway-base
-  path: gateway/base
-  dependsOn: [pki-install, lb-install]
-  components: [envoy, envoy/loadbalancer, envoy/prometheus]
-
-- name: gateway-resources
-  path: gateway/resources
-  dependsOn: [gateway-base, dns, lb-install]
-  components: [envoy/default-404, lb-address, flux-webhook]
-  substitutions:
-    gateway_class_name: envoy
-    gateway_dns_target: 10.5.1.10
-    external_domain: example.com
-    loadbalancer_start_ip: 10.5.1.10
+flux:
+  - name: gateway
+    dependsOn: [pki-install, lb-install]
+    install:
+      components: [envoy, envoy/loadbalancer, envoy/prometheus]
+    resources:
+      - dependsOn: [dns]
+        components: [envoy/default-404, lb-address, flux-webhook]
+        substitutions:
+          gateway_class_name: envoy
+          gateway_dns_target: 10.5.1.10
+          external_domain: example.com
+          loadbalancer_start_ip: 10.5.1.10
 ```
 
 The default driver: a dedicated Envoy control- and data-plane installed
@@ -119,15 +119,16 @@ flowchart LR
 ```
 
 ```yaml
-- name: gateway-base
-  path: gateway/base
-  dependsOn: [pki-install]
-  components:
-    - envoy
-    - envoy/nodeport
-    - envoy/nodeport/dns
-    - envoy/nodeport/flux-webhook
-    - envoy/prometheus
+flux:
+  - name: gateway
+    dependsOn: [pki-install]
+    install:
+      components:
+        - envoy
+        - envoy/nodeport
+        - envoy/nodeport/dns
+        - envoy/nodeport/flux-webhook
+        - envoy/prometheus
 ```
 
 NodePort skips the LB controller and forwards via host ports. The
@@ -162,13 +163,14 @@ flowchart LR
 ```
 
 ```yaml
-- name: gateway-base
-  path: gateway/base
-  components:
-    - envoy
-    - envoy/loadbalancer
-    - envoy/loadbalancer/aws-nlb
-    - envoy/prometheus
+flux:
+  - name: gateway
+    install:
+      components:
+        - envoy
+        - envoy/loadbalancer
+        - envoy/loadbalancer/aws-nlb
+        - envoy/prometheus
 ```
 
 The aws-nlb overlay adds AWS LB Controller annotations so the
@@ -207,22 +209,20 @@ terminates and routes Gateway traffic directly — no Envoy Service in
 the path, one hop shorter than the Envoy recipes.
 
 ```yaml
-- name: gateway-base
-  path: gateway/base
-  dependsOn: [pki-install]
-  components: [cilium]
-
-- name: gateway-resources
-  path: gateway/resources
-  dependsOn: [gateway-base]
-  components: [cilium]
-  substitutions:
-    loadbalancer_start_ip: 10.5.1.10
+flux:
+  - name: gateway
+    dependsOn: [pki-install]
+    install:
+      components: [cilium]
+    resources:
+      - components: [cilium]
+        substitutions:
+          loadbalancer_start_ip: 10.5.1.10
 ```
 
-No separate Helm release: the base entry installs only the
+No separate Helm release: the install tier installs only the
 GatewayClass, the Cilium operator (owned by the `cni` add-on) is the
-controller, and the resources entry patches the Gateway with Cilium's
+controller, and the resources tier patches the Gateway with Cilium's
 LBIPAM annotations so multiple Gateways can share one IP.
 
 <!-- BEGIN_KUSTOMIZE_DOCS -->
@@ -236,7 +236,7 @@ LBIPAM annotations so multiple Gateways can share one IP.
 | `external_domain` | `gateway-resources` is composed | Cert SAN domain. `dns.private_domain` when `gateway.access: private` (and the private domain is set); otherwise `dns.public_domain` if set, falling back to `dns.private_domain`. |
 | `loadbalancer_start_ip` | `lb-address` or `cilium` (resources) is composed | Fixed IP the Gateway advertises. Used in the cilium variant's `lbipam.cilium.io/ips` annotation and in the envoy variant's `spec.addresses` patch. |
 
-## Components — `gateway-base`
+## Components — `gateway-install`
 
 | Component | Enable when | Effect |
 |---|---|---|
@@ -248,7 +248,7 @@ LBIPAM annotations so multiple Gateways can share one IP.
 | `envoy/nodeport/dns` | envoy/nodeport AND `addons.private_dns.enabled: true` (default in `dev`) | Opens an additional NodePort for the cluster's private DNS resolver (UDP/TCP 53). Lets a workstation point at the host's IP for `*.<dns.private_domain>` resolution. |
 | `envoy/nodeport/flux-webhook` | envoy/nodeport AND `gitops.mode == 'push'` | Opens an additional NodePort for the Flux notification-controller webhook (port 9292). Lets the GitOps push pipeline reach in-cluster receivers. |
 | `envoy/prometheus` | envoy driver | Adds the Envoy Gateway operator's PodMonitor + the Envoy data-plane's ServiceMonitor. |
-| `base/cilium` | `gateway.driver == 'cilium'` | Installs the Gateway API CRDs and a `GatewayClass` referencing the `cilium` controller. The Cilium HelmRelease itself is owned by the `cni` add-on (see option-cni's `cilium/gateway` component). Operator references this as `components: [cilium]` under `gateway-base`. |
+| `install/cilium` | `gateway.driver == 'cilium'` | Installs the Gateway API CRDs and a `GatewayClass` referencing the `cilium` controller. The Cilium HelmRelease itself is owned by the `cni` add-on (see option-cni's `cilium/gateway` component). Operator references this as `components: [cilium]` under `gateway-install`. |
 
 ## Components — `gateway-resources`
 
@@ -266,10 +266,10 @@ LBIPAM annotations so multiple Gateways can share one IP.
 
 | Add-on | Required when | Reason |
 |---|---|---|
-| `pki-install` | always | gateway-base needs cert-manager CRDs reconciling so the `Certificate` for the external Gateway can be issued before the Gateway is admitted. |
+| `pki-install` | always | gateway-install needs cert-manager CRDs reconciling so the `Certificate` for the external Gateway can be issued before the Gateway is admitted. |
 | `lb-install` | `lb_effective.controller_required: true` (e.g., metallb-driven clusters; AWS via aws-lb-controller) | The LB controller must be live so the data-plane Service can get an external IP. |
 | `dns` | `dns.enabled: true` | external-dns must be reconciling so the gateway hostname is published when the Gateway comes up. |
-| `cni` | `gateway.driver == 'cilium'` (declared by option-gateway as a cross-stack merge into option-cni) | Cilium's Gateway controller needs the Gateway API CRDs from gateway-base before its operator starts watching. |
+| `cni` | `gateway.driver == 'cilium'` (declared by option-gateway as a cross-stack merge into option-cni) | Cilium's Gateway controller needs the Gateway API CRDs from gateway-install before its operator starts watching. |
 
 <!-- END_KUSTOMIZE_DOCS -->
 
