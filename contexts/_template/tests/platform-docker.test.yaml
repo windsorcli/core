@@ -134,21 +134,19 @@ cases:
               - cert-manager/prometheus
             timeout: 20m
             interval: 5m
-      kustomize:
         - name: cni
-          path: cni
           dependsOn:
             - policy-resources
-          components:
-            - cilium
-            - cilium/talos
-            - cilium/l2
-          substitutions:
-            k8s_service_host: "10.5.0.10"
-            loadbalancer_start_ip: "10.5.1.10"
-            loadbalancer_end_ip: "10.5.1.100"
-          timeout: 15m
-          interval: 5m
+          install:
+            components:
+              - cilium
+              - cilium/talos
+              - cilium/l2
+            substitutions:
+              k8s_service_host: "10.5.0.10"
+              loadbalancer_start_ip: "10.5.1.10"
+              loadbalancer_end_ip: "10.5.1.100"
+      kustomize:
         - name: csi
           path: csi
           dependsOn:
@@ -362,7 +360,8 @@ cases:
     exclude:
       terraform:
         - name: cni
-      kustomize:
+      flux:
         - name: cni
+      kustomize:
         - name: lb-install
         - name: lb-resources

@@ -44,17 +44,18 @@ Cilium workloads deploy into `kube-system` per upstream convention.
 ### Talos default
 
 ```yaml
-- name: cni
-  path: cni
-  dependsOn: [policy-resources, telemetry-install]
-  components: [cilium, cilium/talos, cilium/prometheus, cilium/hubble, cilium/l2]
-  substitutions:
-    k8s_service_host: 10.5.0.10
-    loadbalancer_start_ip: 10.5.1.10
-    loadbalancer_end_ip: 10.5.1.30
-    cluster_name: local
-    operator_replicas: "2"
-  timeout: 15m
+flux:
+  - name: cni
+    dependsOn: [policy-resources, telemetry-install]
+    install:
+      components: [cilium, cilium/talos, cilium/prometheus, cilium/hubble, cilium/l2]
+      substitutions:
+        k8s_service_host: 10.5.0.10
+        loadbalancer_start_ip: 10.5.1.10
+        loadbalancer_end_ip: 10.5.1.30
+        cluster_name: local
+        operator_replicas: "2"
+      timeout: 15m
 ```
 
 ### Talos with Cilium as the gateway driver

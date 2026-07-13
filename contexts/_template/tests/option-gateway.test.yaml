@@ -63,7 +63,7 @@ x-defaults:
 
   gateway-resources-cilium: &gateway-resources-cilium
     dependsOn:
-      - cni
+      - cni-install
     substitutions:
       gateway_class_name: cilium
       loadbalancer_start_ip: "10.5.1.10"
