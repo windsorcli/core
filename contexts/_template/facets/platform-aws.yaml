@@ -389,25 +389,26 @@ flux:
         cluster_name: "${terraform_output('cluster', 'cluster_name') ?? ''}"
         aws_region: "${aws.region ?? ''}"
 
-# =============================================================================
-# Kustomize — AWS EBS CSI
-# =============================================================================
-#
-# EBS is the default block storage on EKS. `single_storage_type` configures
-# the StorageClass volumeType; gp3 is the current AWS recommendation.
-#
-kustomize:
-
+  # ---------------------------------------------------------------------------
+  # CSI — AWS EBS, the default block storage on EKS. `single_storage_type`
+  # configures the StorageClass volumeType; gp3 is the current AWS recommendation.
+  # ---------------------------------------------------------------------------
   - name: csi
-    path: csi
     dependsOn:
       - policy-resources
-    components:
-      - aws-ebs
-    timeout: 5m
-    interval: 5m
-    substitutions:
-      single_storage_type: ${cluster.storage.single_storage_type ?? "gp3"}
+    install:
+      components:
+        - aws-ebs
+      timeout: 5m
+      interval: 5m
+      substitutions:
+        single_storage_type: ${cluster.storage.single_storage_type ?? "gp3"}
+
+# =============================================================================
+# Kustomize — Route53 DNS
+# =============================================================================
+#
+kustomize:
 
   # ---------------------------------------------------------------------------
   # DNS — external-dns + Route53 record automation

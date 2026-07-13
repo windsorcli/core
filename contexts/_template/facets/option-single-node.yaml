@@ -64,18 +64,18 @@ flux:
         - cert-manager/single-node
         - "${addons.private_ca.enabled == true ? 'trust-manager/single-node' : ''}"
 
-kustomize:
-
   # ---------------------------------------------------------------------------
   # csi overlay — only the openebs path; longhorn has its own single-node
   # component wired from option-storage.yaml and does not leader-elect for
   # the same reason we target here.
   # ---------------------------------------------------------------------------
   - name: csi
-    path: csi
     when: talos_common.storage_driver == 'openebs'
-    components:
-      - openebs/single-node
+    install:
+      components:
+        - openebs/single-node
+
+kustomize:
 
   # ---------------------------------------------------------------------------
   # database overlay — only when the cloudnative-pg addon is actually enabled

@@ -117,18 +117,15 @@ cases:
               k8s_service_host: "10.5.0.10"
               loadbalancer_start_ip: "10.5.1.10"
               loadbalancer_end_ip: "10.5.1.100"
-      kustomize:
         - name: csi
-          path: csi
           dependsOn:
             - policy-resources
-          components:
-            - openebs
-            - openebs/dynamic-localpv
-          substitutions:
-            local_volume_path: /var/mnt/local
-          timeout: 20m
-          interval: 5m
+          install:
+            components:
+              - openebs
+              - openebs/dynamic-localpv
+            substitutions:
+              local_volume_path: /var/mnt/local
     exclude:
       kustomize:
         - name: lb-install
@@ -239,18 +236,15 @@ cases:
                 loadbalancer_ip_range: 192.168.1.100-192.168.1.200
               timeout: 5m
               interval: 5m
-      kustomize:
         - name: csi
-          path: csi
           dependsOn:
             - policy-resources
-          components:
-            - openebs
-            - openebs/dynamic-localpv
-          substitutions:
-            local_volume_path: /mnt/data
-          timeout: 20m
-          interval: 5m
+          install:
+            components:
+              - openebs
+              - openebs/dynamic-localpv
+            substitutions:
+              local_volume_path: /mnt/data
 
   # Edge case: longhorn storage driver passes Talos extensions via cluster-extensions step.
   # Also asserts the controlplanes/workers inputs come from the user-supplied node map

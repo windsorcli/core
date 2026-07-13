@@ -265,21 +265,21 @@ flux:
       components:
         - "${gateway.access == 'private' && (dns.private_domain ?? '') != '' ? 'envoy/loadbalancer/azure-lb-internal' : ''}"
 
-kustomize:
-
   # Azure Disk CSI driver is preinstalled on AKS (since K8s 1.21) — this
   # component only adds a custom `single` StorageClass tuned to our defaults.
   # StandardSSD_LRS is the recommended balance of cost and performance.
   - name: csi
-    path: csi
     dependsOn:
       - policy-resources
-    components:
-      - azure-disk
-    timeout: 5m
-    interval: 5m
-    substitutions:
-      single_storage_type: ${cluster.storage.single_storage_type ?? "StandardSSD_LRS"}
+    install:
+      components:
+        - azure-disk
+      timeout: 5m
+      interval: 5m
+      substitutions:
+        single_storage_type: ${cluster.storage.single_storage_type ?? "StandardSSD_LRS"}
+
+kustomize:
 
   # ---------------------------------------------------------------------------
   # DNS — external-dns + Azure DNS record automation
