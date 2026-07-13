@@ -7,22 +7,24 @@ metadata:
 when: addons.object_store.enabled == true
 
 # =============================================================================
-# Kustomize — object storage driver (MinIO)
+# Flux systems — object storage driver (MinIO)
 # =============================================================================
 #
 # `addons.object_store.driver` selects the backend. Currently only MinIO is
 # wired up; other drivers (Ceph, cloud-provider managed) can be added as
-# additional `- name: object-store-base` blocks gated on their own driver value.
+# additional `- name: object-store` entries gated on their own driver value.
+# No resources tier: the operator manages Tenant CRs but doesn't create one
+# automatically (see kustomize/object-store/README.md for the manual recipe).
 #
-kustomize:
+flux:
 
   # MinIO depends on csi for PVC-backed storage.
-  - name: object-store-base
-    path: object-store/base
+  - name: object-store
     when: addons.object_store.driver == 'minio'
-    timeout: 10m
-    interval: 5m
     dependsOn:
       - csi
-    components:
-      - minio
+    install:
+      components:
+        - minio
+      timeout: 10m
+      interval: 5m

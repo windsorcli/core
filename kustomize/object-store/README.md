@@ -11,8 +11,8 @@ automatically. Provisioning an actual MinIO cluster is a separate step
 (see Recipes below).
 
 The default driver is `minio`. The schema is set up to accept additional
-drivers (cloud-managed S3, Ceph, etc.) as future `object-store-base`
-facet blocks gated on `addons.object_store.driver`.
+drivers (cloud-managed S3, Ceph, etc.) as future `object-store` `flux:`
+entries gated on `addons.object_store.driver`.
 
 ## Architecture
 
@@ -49,11 +49,12 @@ default StorageClass at apply time.
 ### Operator only (default)
 
 ```yaml
-- name: object-store-base
-  path: object-store/base
-  dependsOn: [csi]
-  components: [minio]
-  timeout: 10m
+flux:
+  - name: object-store
+    dependsOn: [csi]
+    install:
+      components: [minio]
+      timeout: 10m
 ```
 
 Installs the Operator. No MinIO cluster runs until a Tenant CR is
@@ -70,7 +71,7 @@ a custom kustomize entry in your context:
 ```yaml
 - name: object-store-resources
   path: object-store/resources/common
-  dependsOn: [object-store-base]
+  dependsOn: [object-store-install]
   timeout: 10m
 ```
 
