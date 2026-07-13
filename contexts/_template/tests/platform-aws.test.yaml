@@ -115,6 +115,17 @@ cases:
             - cluster
           inputs:
             concurrency: 5
+      flux:
+        - name: gateway
+          dependsOn:
+            - pki-install
+          install:
+            components:
+              - envoy
+              - envoy/loadbalancer
+              - envoy/prometheus
+            timeout: 10m
+            interval: 5m
       kustomize:
         - name: csi
           path: csi
@@ -123,16 +134,6 @@ cases:
           components:
             - aws-ebs
           timeout: 5m
-          interval: 5m
-        - name: gateway-base
-          path: gateway/base
-          dependsOn:
-            - pki-install
-          components:
-            - envoy
-            - envoy/loadbalancer
-            - envoy/prometheus
-          timeout: 10m
           interval: 5m
 
   # Edge case: Ingress disabled
@@ -143,8 +144,8 @@ cases:
       gateway:
         enabled: false
     exclude:
-      kustomize:
-        - name: gateway-resources
+      flux:
+        - name: gateway
 
   # ACME off by default — no public domain configured. pki-resources
   # still renders so the gateway cert always has a working ClusterIssuer
@@ -239,16 +240,30 @@ cases:
                 # threading through, the issuer would deploy with an empty zone ID
                 # and every DNS-01 challenge would fail.
                 acme_hosted_zone_id: Z1ABCDEF12345
+        - name: gateway
+          resources:
+            # envoy/default-404/external-dns is the AWS-only patch that adds
+            # the external-dns hostname annotation to the catch-all 404 route.
+            # Gated on dns.public_domain so it doesn't render on platforms
+            # without external-dns running (where the substitution would
+            # produce a malformed ",*." value).
+            - components:
+                - envoy/default-404
+                - envoy/default-404/external-dns
+                - flux-webhook
+              substitutions:
+                gateway_cert_issuer: public-acme
+                external_domain: example.com
       kustomize:
         # Gateway-on + public-domain path: external-dns must wait for
-        # gateway-base (HTTPRoute CRDs) and layer the gateway-httproute
+        # gateway-install (HTTPRoute CRDs) and layer the gateway-httproute
         # source on top of the route53 provider. Locks the conditional
         # in platform-aws.yaml's dns kustomization for the public branch.
         - name: dns
           path: dns
           dependsOn:
             - policy-resources
-            - gateway-base
+            - gateway-install
           components:
             - external-dns
             - external-dns/providers/route53
@@ -257,20 +272,6 @@ cases:
             external_domain: example.com
             zone_type: public
             zone_id_filter: Z1ABCDEF12345
-        - name: gateway-resources
-          path: gateway/resources
-          # envoy/default-404/external-dns is the AWS-only patch that adds
-          # the external-dns hostname annotation to the catch-all 404 route.
-          # Gated on dns.public_domain so it doesn't render on platforms
-          # without external-dns running (where the substitution would
-          # produce a malformed ",*." value).
-          components:
-            - envoy/default-404
-            - envoy/default-404/external-dns
-            - flux-webhook
-          substitutions:
-            gateway_cert_issuer: public-acme
-            external_domain: example.com
 
   # Dev mode flips the ACME server to Let's Encrypt staging to avoid
   # burning Let's Encrypt prod rate limits during iteration.
@@ -553,8 +554,8 @@ cases:
 
   # When gateway is enabled on AWS, the envoy data-plane Service gets NLB
   # annotations layered on by adding envoy/loadbalancer/aws-nlb to the
-  # gateway-base component list. This is an additive merge with option-
-  # gateway's gateway-base entry — option-gateway emits the platform-
+  # gateway install component list. This is an additive merge with option-
+  # gateway's gateway install entry — option-gateway emits the platform-
   # agnostic components, this AWS facet appends the AWS-specific patch.
   - name: gateway with envoy on AWS adds NLB annotations component
     values:
@@ -564,16 +565,16 @@ cases:
         enabled: true
         driver: envoy
     expect:
-      kustomize:
-        - name: gateway-base
-          path: gateway/base
-          components:
-            - envoy
-            - envoy/loadbalancer
-            - envoy/prometheus
-            - envoy/loadbalancer/aws-nlb
+      flux:
+        - name: gateway
+          install:
+            components:
+              - envoy
+              - envoy/loadbalancer
+              - envoy/prometheus
+              - envoy/loadbalancer/aws-nlb
 
-  # gateway.access=private threads through the AWS facet's gateway-base
+  # gateway.access=private threads through the AWS facet's gateway install
   # merge as the lb_scheme substitution, which the aws-nlb patch consumes
   # to flip aws-load-balancer-scheme to `internal`. Required for clusters
   # in private VPCs (no public subnets) where AWS rejects internet-facing
@@ -595,17 +596,17 @@ cases:
       dns:
         private_domain: internal.example.com
     expect:
-      kustomize:
-        - name: gateway-base
-          path: gateway/base
-          components:
-            - envoy/loadbalancer/aws-nlb
-          substitutions:
-            lb_scheme: internal
+      flux:
+        - name: gateway
+          install:
+            components:
+              - envoy/loadbalancer/aws-nlb
+            substitutions:
+              lb_scheme: internal
 
   # Negative branch: Cilium provides its own gateway implementation
   # (no Envoy data-plane Service to annotate). The aws-nlb component
-  # must NOT merge into the cilium gateway-base.
+  # must NOT merge into the cilium gateway install.
   - name: gateway with cilium driver on AWS does not add aws-nlb component
     values:
       platform: aws
@@ -614,15 +615,15 @@ cases:
         enabled: true
         driver: cilium
     expect:
-      kustomize:
-        - name: gateway-base
-          path: gateway/base
-          components:
-            - cilium
+      flux:
+        - name: gateway
+          install:
+            components:
+              - cilium
 
   # Negative branch: NodePort service_type on AWS (e.g. small/edge clusters
   # without a public LB) — aws-nlb annotations are LoadBalancer-only and
-  # must NOT merge into the nodeport gateway-base.
+  # must NOT merge into the nodeport gateway install.
   - name: gateway with envoy and NodePort service_type on AWS does not add aws-nlb component
     values:
       platform: aws
@@ -632,13 +633,13 @@ cases:
         driver: envoy
         service_type: NodePort
     expect:
-      kustomize:
-        - name: gateway-base
-          path: gateway/base
-          components:
-            - envoy
-            - envoy/nodeport
-            - envoy/prometheus
+      flux:
+        - name: gateway
+          install:
+            components:
+              - envoy
+              - envoy/nodeport
+              - envoy/prometheus
 
   # External-DNS deploys when dns.public_domain is set. Anchored on the
   # shared `dns` Kustomization (same canonical name addon-private-dns uses)
@@ -654,7 +655,7 @@ cases:
   # Gateway disabled: the dns Kustomization still ships (public_domain alone
   # is enough to want Route53 record management for ingress hostnames), but
   # the gateway-httproute source must NOT be added — Gateway API CRDs are
-  # absent without gateway-base, and external-dns crashes on startup if it
+  # absent without gateway-install, and external-dns crashes on startup if it
   # finds gateway-httproute in its sources without those CRDs present.
   - name: external-dns deploys when dns.public_domain is set
     values:
@@ -710,9 +711,9 @@ cases:
           path: dns
           dependsOn:
             - policy-resources
-            # gateway-base must be in deps when gateway is on so HTTPRoute
+            # gateway-install must be in deps when gateway is on so HTTPRoute
             # CRDs are present before external-dns reconciles.
-            - gateway-base
+            - gateway-install
           components:
             - external-dns
             - external-dns/providers/route53
@@ -722,24 +723,24 @@ cases:
             external_domain: internal.example.com
             zone_type: private
             zone_id_filter: Z9PRIVATEZONE
-        # Cert issuer falls to `private` (selfsigned) — ACME DNS-01 can't
-        # validate against a VPC-only zone, and the gateway's external_domain
-        # follows access=private onto the private domain. The 404 hostname
-        # annotation patch is added too, asserting the private branch of
-        # the option-gateway conditional fires alongside everything else.
-        - name: gateway-resources
-          path: gateway/resources
-          components:
-            - envoy/default-404
-            - envoy/default-404/external-dns
-          substitutions:
-            gateway_cert_issuer: private
-            external_domain: internal.example.com
-      # Private mode swaps pki-resources from public-issuer/* to
-      # private-issuer/selfsigned, which creates a ClusterIssuer named
-      # `private` — what the gateway cert above references. Without this
-      # the cert would reference a non-existent issuer.
+      # Cert issuer falls to `private` (selfsigned) — ACME DNS-01 can't
+      # validate against a VPC-only zone, and the gateway's external_domain
+      # follows access=private onto the private domain. The 404 hostname
+      # annotation patch is added too, asserting the private branch of
+      # the option-gateway conditional fires alongside everything else.
       flux:
+        - name: gateway
+          resources:
+            - components:
+                - envoy/default-404
+                - envoy/default-404/external-dns
+              substitutions:
+                gateway_cert_issuer: private
+                external_domain: internal.example.com
+        # Private mode swaps pki-resources from public-issuer/* to
+        # private-issuer/selfsigned, which creates a ClusterIssuer named
+        # `private` — what the gateway cert above references. Without this
+        # the cert would reference a non-existent issuer.
         - name: pki
           resources:
             - components:

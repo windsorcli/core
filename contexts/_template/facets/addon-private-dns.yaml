@@ -22,7 +22,7 @@ requires:
 #   - Cilium: CoreDNS is exposed via a LoadBalancer Service with LBIPAM, so
 #     we wait for cni (Cilium's Gateway controller is part of the CNI).
 #   - Envoy / other: CoreDNS port-53 listeners are attached to the edge
-#     Gateway via UDP/TCP routes, so we wait for gateway-base to install the
+#     Gateway via UDP/TCP routes, so we wait for gateway-install to install the
 #     route CRDs — but only when the gateway is actually enabled. If no
 #     gateway exists, fall through to an empty dep (CoreDNS runs internally
 #     but isn't reachable from outside).
@@ -48,7 +48,7 @@ kustomize:
     path: dns
     dependsOn:
       - pki-install
-      - "${gateway.driver == 'cilium' ? 'cni' : (gateway.enabled == true ? 'gateway-base' : '')}"
+      - "${gateway.driver == 'cilium' ? 'cni' : (gateway.enabled == true ? 'gateway-install' : '')}"
       - "${workstation.runtime == 'docker-desktop' ? 'policy-resources' : ''}"
     timeout: 20m
     interval: 5m

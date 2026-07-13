@@ -237,6 +237,34 @@ flux:
           cert_manager_client_id: "${terraform_output('cluster', 'cert_manager_client_id') ?? ''}"
           cert_manager_tenant_id: "${terraform_output('cluster', 'tenant_id') ?? ''}"
 
+  # ---------------------------------------------------------------------------
+  # Gateway install merge — Azure LB annotations on the Envoy data-plane Service
+  # ---------------------------------------------------------------------------
+  #
+  # Additive block that merges into option-gateway's gateway install tier.
+  # AKS's CCM provisions a Standard SKU public LB for any Service:
+  # LoadBalancer with no annotations or controller add-on required, so
+  # the only platform-azure customization needed is flipping the LB to
+  # internal for private clusters. Done by conditionally including the
+  # azure-lb-internal component, which hardcodes the annotation to "true".
+  #
+  # This differs from platform-aws on purpose. AWS always includes
+  # aws-nlb and uses an lb_scheme substitution to toggle internal vs
+  # internet-facing. The Azure annotation values are "true" or "false",
+  # which YAML treats as bool tokens. They don't survive substitution
+  # through Flux postBuild and kustomize re-serialization, so we use
+  # conditional component inclusion as the equivalent toggle.
+  #
+  # Gated on dns.private_domain for the same reason as AWS: without a
+  # private zone the rest of the private-mode cascade no-ops, so an
+  # internal LB would have no zone to publish to.
+  #
+  - name: gateway
+    when: "gateway.enabled == true && gateway.driver == 'envoy' && lb_effective.mode == 'loadbalancer'"
+    install:
+      components:
+        - "${gateway.access == 'private' && (dns.private_domain ?? '') != '' ? 'envoy/loadbalancer/azure-lb-internal' : ''}"
+
 kustomize:
 
   # Azure Disk CSI driver is preinstalled on AKS (since K8s 1.21) — this
@@ -283,11 +311,11 @@ kustomize:
     when: "(dns.public_domain ?? '') != '' || (gateway.access == 'private' && (dns.private_domain ?? '') != '')"
     dependsOn:
       - policy-resources
-      # gateway-base installs the Gateway API CRDs (HTTPRoute, Gateway). When
+      # gateway-install installs the Gateway API CRDs (HTTPRoute, Gateway). When
       # the gateway is on, external-dns is configured with the gateway-httproute
       # source below — without the CRDs present at startup it crash-loops on
-      # "no matches for kind HTTPRoute". Wait for gateway-base to finish.
-      - "${gateway.enabled == true ? 'gateway-base' : ''}"
+      # "no matches for kind HTTPRoute". Wait for gateway-install to finish.
+      - "${gateway.enabled == true ? 'gateway-install' : ''}"
     components:
       - external-dns
       - external-dns/providers/azure
@@ -323,30 +351,3 @@ kustomize:
       # external-dns lists Microsoft.Network/dnszones and silently skips the
       # privateDnsZones it should be writing to.
       external_dns_azure_provider: "${gateway.access == 'private' && (dns.private_domain ?? '') != '' ? 'azure-private-dns' : 'azure'}"
-
-  # ---------------------------------------------------------------------------
-  # Gateway-base merge — Azure LB annotations on the Envoy data-plane Service
-  # ---------------------------------------------------------------------------
-  #
-  # Additive block that merges into option-gateway's gateway-base entry.
-  # AKS's CCM provisions a Standard SKU public LB for any Service:
-  # LoadBalancer with no annotations or controller add-on required, so
-  # the only platform-azure customization needed is flipping the LB to
-  # internal for private clusters. Done by conditionally including the
-  # azure-lb-internal component, which hardcodes the annotation to "true".
-  #
-  # This differs from platform-aws on purpose. AWS always includes
-  # aws-nlb and uses an lb_scheme substitution to toggle internal vs
-  # internet-facing. The Azure annotation values are "true" or "false",
-  # which YAML treats as bool tokens. They don't survive substitution
-  # through Flux postBuild and kustomize re-serialization, so we use
-  # conditional component inclusion as the equivalent toggle.
-  #
-  # Gated on dns.private_domain for the same reason as AWS: without a
-  # private zone the rest of the private-mode cascade no-ops, so an
-  # internal LB would have no zone to publish to.
-  #
-  - name: gateway-base
-    when: "gateway.enabled == true && gateway.driver == 'envoy' && lb_effective.mode == 'loadbalancer'"
-    components:
-      - "${gateway.access == 'private' && (dns.private_domain ?? '') != '' ? 'envoy/loadbalancer/azure-lb-internal' : ''}"

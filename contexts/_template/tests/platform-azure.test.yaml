@@ -138,8 +138,8 @@ cases:
       gateway:
         enabled: false
     exclude:
-      kustomize:
-        - name: gateway-resources
+      flux:
+        - name: gateway
 
   # Default selfsigned mode: no public_domain set, so dns-zone stack is not
   # provisioned and pki-resources renders public-issuer/selfsigned. The cert-
@@ -245,16 +245,25 @@ cases:
                 acme_dns_zone_subscription_id: 12345678-1234-9876-4563-123456789012
                 cert_manager_client_id: 11111111-aaaa-aaaa-aaaa-111111111111
                 cert_manager_tenant_id: 33333333-cccc-cccc-cccc-333333333333
+        - name: gateway
+          resources:
+            - components:
+                - envoy/default-404
+                - envoy/default-404/external-dns
+                - flux-webhook
+              substitutions:
+                gateway_cert_issuer: public-acme
+                external_domain: example.com
       kustomize:
         # Gateway-on + public-domain path: external-dns must wait for
-        # gateway-base (HTTPRoute CRDs) and layer the gateway-httproute
+        # gateway-install (HTTPRoute CRDs) and layer the gateway-httproute
         # source on top of the azure provider. Locks the conditional in
         # platform-azure.yaml's dns kustomization.
         - name: dns
           path: dns
           dependsOn:
             - policy-resources
-            - gateway-base
+            - gateway-install
           components:
             - external-dns
             - external-dns/providers/azure
@@ -266,15 +275,6 @@ cases:
             external_dns_tenant_id: 33333333-cccc-cccc-cccc-333333333333
             external_dns_dns_zone_subscription_id: 12345678-1234-9876-4563-123456789012
             external_dns_dns_zone_resource_group: rg-dns
-        - name: gateway-resources
-          path: gateway/resources
-          components:
-            - envoy/default-404
-            - envoy/default-404/external-dns
-            - flux-webhook
-          substitutions:
-            gateway_cert_issuer: public-acme
-            external_domain: example.com
 
   # Dev mode flips the ACME server to Let's Encrypt staging to avoid
   # burning Let's Encrypt prod rate limits during iteration.
@@ -298,7 +298,7 @@ cases:
                 acme_server: https://acme-staging-v02.api.letsencrypt.org/directory
                 acme_email: dev@example.com
 
-  # Public mode: gateway-base adds no platform-azure component. AKS's CCM
+  # Public mode: gateway install adds no platform-azure component. AKS's CCM
   # provisions a public Standard SKU LB for any Service: LoadBalancer with
   # no annotations needed, so the option-gateway base components are enough.
   - name: gateway with envoy on Azure uses AKS-default public LB
@@ -311,13 +311,13 @@ cases:
         public_domain: example.com
       email: ops@example.com
     expect:
-      kustomize:
-        - name: gateway-base
-          path: gateway/base
-          components:
-            - envoy
-            - envoy/loadbalancer
-            - envoy/prometheus
+      flux:
+        - name: gateway
+          install:
+            components:
+              - envoy
+              - envoy/loadbalancer
+              - envoy/prometheus
 
   # Private mode flips the AKS Standard LB to internal so the gateway only
   # exposes a private subnet IP. Same gating as the AWS aws-nlb internal
@@ -337,14 +337,14 @@ cases:
         private_domain: internal.example.com
       email: ops@example.com
     expect:
-      kustomize:
-        - name: gateway-base
-          path: gateway/base
-          components:
-            - envoy
-            - envoy/loadbalancer
-            - envoy/loadbalancer/azure-lb-internal
-            - envoy/prometheus
+      flux:
+        - name: gateway
+          install:
+            components:
+              - envoy
+              - envoy/loadbalancer
+              - envoy/loadbalancer/azure-lb-internal
+              - envoy/prometheus
 
   # Private-only mode: dns.private_domain set, no public_domain. The dns-zone
   # stack is never registered, so every dns-zone terraform_output must be
@@ -371,7 +371,7 @@ cases:
           path: dns
           dependsOn:
             - policy-resources
-            - gateway-base
+            - gateway-install
           components:
             - external-dns
             - external-dns/providers/azure
@@ -393,7 +393,7 @@ cases:
 
   # Negative branch: Cilium provides its own gateway implementation, so
   # there's no Envoy data-plane Service to annotate. The azure-lb-internal
-  # component must NOT merge into the cilium gateway-base.
+  # component must NOT merge into the cilium gateway install.
   - name: gateway with cilium driver on Azure does not add azure-lb-internal component
     values:
       platform: azure
@@ -401,15 +401,15 @@ cases:
         enabled: true
         driver: cilium
     expect:
-      kustomize:
-        - name: gateway-base
-          path: gateway/base
-          components:
-            - cilium
+      flux:
+        - name: gateway
+          install:
+            components:
+              - cilium
 
   # Negative branch: NodePort service_type means no LoadBalancer Service,
   # so the internal-LB annotation has nothing to attach to. The
-  # azure-lb-internal component must NOT merge into the nodeport gateway-base.
+  # azure-lb-internal component must NOT merge into the nodeport gateway install.
   - name: gateway with envoy and NodePort service_type on Azure does not add azure-lb-internal component
     values:
       platform: azure
@@ -418,10 +418,10 @@ cases:
         driver: envoy
         service_type: NodePort
     expect:
-      kustomize:
-        - name: gateway-base
-          path: gateway/base
-          components:
-            - envoy
-            - envoy/nodeport
-            - envoy/prometheus
+      flux:
+        - name: gateway
+          install:
+            components:
+              - envoy
+              - envoy/nodeport
+              - envoy/prometheus

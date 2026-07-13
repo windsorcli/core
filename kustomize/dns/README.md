@@ -51,7 +51,7 @@ flowchart LR
 ```yaml
 - name: dns
   path: dns
-  dependsOn: [policy-resources, gateway-base]
+  dependsOn: [policy-resources, gateway-install]
   components:
     - external-dns
     - external-dns/providers/route53
@@ -87,7 +87,7 @@ flowchart LR
 ```yaml
 - name: dns
   path: dns
-  dependsOn: [policy-resources, gateway-base]
+  dependsOn: [policy-resources, gateway-install]
   components:
     - external-dns
     - external-dns/providers/azure
@@ -178,7 +178,7 @@ In both cases `loadbalancer_start_ip` must fall inside
 | `external-dns/providers/route53` | platform is AWS AND public/private DNS zone is set | Patches the external-dns HelmRelease for the Route53 provider: `provider.aws.usePodIdentity: true`, `region: ${aws_region}`, `zoneType: ${zone_type}`, `--zone-id-filter=${zone_id_filter}`. |
 | `external-dns/providers/azure` | platform is Azure AND DNS zone is set | Patches the external-dns HelmRelease for the Azure provider: federated workload identity, zone-id filter via `${zone_id_filter}`. |
 | `external-dns/providers/coredns` | `addons.private_dns.enabled: true` (provides private DNS via in-cluster coredns) | Patches the external-dns HelmRelease for the CoreDNS provider, writing records into the in-cluster coredns etcd backend instead of a cloud DNS zone. |
-| `external-dns/sources/gateway-httproute` | `gateway.enabled: true` | Adds `gateway-httproute` to external-dns's `sources` list so the Gateway API's `HTTPRoute` hostnames are published. Requires the Gateway API CRDs to be present (hence the `gateway-base` dependency). |
+| `external-dns/sources/gateway-httproute` | `gateway.enabled: true` | Adds `gateway-httproute` to external-dns's `sources` list so the Gateway API's `HTTPRoute` hostnames are published. Requires the Gateway API CRDs to be present (hence the `gateway-install` dependency). |
 | `coredns` | `addons.private_dns.enabled: true` | Helm release of `coredns` in `system-dns`. In-cluster private DNS server. The default plugin chain serves cluster.local and forwards everything else upstream. |
 | `coredns/etcd` | `addons.private_dns.enabled: true` | etcd StatefulSet for coredns to use as a persistent backend for the `etcd` plugin. mTLS between coredns and etcd peers, certs issued by the `private` ClusterIssuer. |
 | `coredns/ha` | `addons.private_dns.enabled: true` AND `topology == 'ha'` | Patches the coredns HelmRelease for HA (multi-replica + leader election). |
@@ -191,7 +191,7 @@ In both cases `loadbalancer_start_ip` must fall inside
 | Add-on | Required when | Reason |
 |---|---|---|
 | `pki-install` | `addons.private_dns.enabled: true` | coredns's etcd peer / server certs are issued by the `private` ClusterIssuer; cert-manager must be reconciling first. |
-| `gateway-base` | `gateway.enabled: true` | external-dns with `sources: [gateway-httproute]` crash-loops on `no matches for kind HTTPRoute` if the Gateway API CRDs aren't installed yet. |
+| `gateway-install` | `gateway.enabled: true` | external-dns with `sources: [gateway-httproute]` crash-loops on `no matches for kind HTTPRoute` if the Gateway API CRDs aren't installed yet. |
 | `policy-resources` | `workstation.runtime == 'docker-desktop'` | docker-desktop runs Kyverno in restricted-PSA mode for system-dns; the baseline policies need to be reconciling before coredns pods are admitted. |
 | `cni` | `addons.private_dns.enabled: true` AND `gateway.driver == 'cilium'` | The `coredns/cilium` and `coredns/loadbalancer` components rely on Cilium's L2 IP-sharing infrastructure being live. |
 

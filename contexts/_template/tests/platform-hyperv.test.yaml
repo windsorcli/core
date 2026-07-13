@@ -372,18 +372,19 @@ cases:
               "40000": 50000
             udp_port_forwards:
               "30053": 30053
-      kustomize:
-        - name: gateway-base
-          components:
-            - envoy
-            - envoy/nodeport
-            - envoy/nodeport/dns
-            - envoy/nodeport/flux-webhook
-            - envoy/prometheus
+      flux:
+        - name: gateway
+          install:
+            components:
+              - envoy
+              - envoy/nodeport
+              - envoy/nodeport/dns
+              - envoy/nodeport/flux-webhook
+              - envoy/prometheus
 
   # NodePort + gitops.mode=pull: 30292 (Flux webhook) drops out of the
   # baseline forwards and the envoy/nodeport/flux-webhook component drops
-  # out of gateway-base.
+  # out of gateway-install.
   - name: NodePort with gitops pull mode drops 30292 forward and flux-webhook component
     values:
       platform: hyperv
@@ -460,10 +461,11 @@ cases:
       cluster: *default-cluster
     terraformOutputs: *default-terraform-outputs
     expect:
-      kustomize:
-        - name: gateway-resources
-          substitutions:
-            external_domain: hv.example
+      flux:
+        - name: gateway
+          resources:
+            - substitutions:
+                external_domain: hv.example
 
   - name: dns.private_domain falls back to dns.domain
     values:
@@ -477,10 +479,11 @@ cases:
       cluster: *default-cluster
     terraformOutputs: *default-terraform-outputs
     expect:
-      kustomize:
-        - name: gateway-resources
-          substitutions:
-            external_domain: example.com
+      flux:
+        - name: gateway
+          resources:
+            - substitutions:
+                external_domain: example.com
 
   - name: dns.private_domain defaults to id.local with no DNS configured
     values:
@@ -492,10 +495,11 @@ cases:
       cluster: *default-cluster
     terraformOutputs: *default-terraform-outputs
     expect:
-      kustomize:
-        - name: gateway-resources
-          substitutions:
-            external_domain: windsor.local
+      flux:
+        - name: gateway
+          resources:
+            - substitutions:
+                external_domain: windsor.local
 
   # Requires: NodePort mode parses the bench IP from cluster.endpoint; without
   # it bench_ip is empty and the per-node port forwards become unreachable.
