@@ -367,6 +367,28 @@ flux:
         vpc_id: "${terraform_output('network', 'vpc_id') ?? ''}"
         aws_region: "${aws.region ?? ''}"
 
+  # ---------------------------------------------------------------------------
+  # Compute — cluster-autoscaler scales the EKS node-group ASGs on pending pods
+  # ---------------------------------------------------------------------------
+  #
+  # Node-group min/max only bounds the ASG; this controller does the scaling.
+  # It discovers groups by the k8s.io/cluster-autoscaler tags the aws-eks
+  # module applies to autoscaling-enabled pools, and authenticates via the
+  # Pod Identity association the module creates for system-compute/
+  # cluster-autoscaler.
+  #
+  - name: compute
+    dependsOn:
+      - policy-resources
+    install:
+      components:
+        - cluster-autoscaler
+      timeout: 5m
+      interval: 5m
+      substitutions:
+        cluster_name: "${terraform_output('cluster', 'cluster_name') ?? ''}"
+        aws_region: "${aws.region ?? ''}"
+
 # =============================================================================
 # Kustomize — AWS EBS CSI
 # =============================================================================
@@ -386,28 +408,6 @@ kustomize:
     interval: 5m
     substitutions:
       single_storage_type: ${cluster.storage.single_storage_type ?? "gp3"}
-
-  # ---------------------------------------------------------------------------
-  # Compute — cluster-autoscaler scales the EKS node-group ASGs on pending pods
-  # ---------------------------------------------------------------------------
-  #
-  # Node-group min/max only bounds the ASG; this controller does the scaling.
-  # It discovers groups by the k8s.io/cluster-autoscaler tags the aws-eks
-  # module applies to autoscaling-enabled pools, and authenticates via the
-  # Pod Identity association the module creates for system-compute/
-  # cluster-autoscaler.
-  #
-  - name: compute
-    path: compute
-    dependsOn:
-      - policy-resources
-    components:
-      - cluster-autoscaler
-    timeout: 5m
-    interval: 5m
-    substitutions:
-      cluster_name: "${terraform_output('cluster', 'cluster_name') ?? ''}"
-      aws_region: "${aws.region ?? ''}"
 
   # ---------------------------------------------------------------------------
   # DNS — external-dns + Route53 record automation

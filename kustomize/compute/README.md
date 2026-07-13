@@ -20,11 +20,11 @@ AKS autoscales natively (the managed cluster-autoscaler is part of the
 control plane), so there is no Azure equivalent here — the
 `cluster/azure-aks` module just sets `auto_scaling_enabled` on the pool.
 
-The single Kustomization path, `compute`, ships the Helm release. It is
-gated to AWS by the platform facet and depends on `policy-resources` so
-the autoscaler pod is admitted after Kyverno's baseline policies are
-live. There is no `base`/`resources` split because the autoscaler has no
-dependent CRs to order after it.
+The `compute` flux system has a single `install` tier (`compute-install`)
+that ships the Helm release. It is gated to AWS by the platform facet and
+depends on `policy-resources` so the autoscaler pod is admitted after
+Kyverno's baseline policies are live. There is no `resources` tier because
+the autoscaler has no dependent CRs to order after it.
 
 ## Recipes
 
@@ -47,13 +47,14 @@ flowchart LR
 ```
 
 ```yaml
-- name: compute
-  path: compute
-  dependsOn: [policy-resources]
-  components: [cluster-autoscaler]
-  substitutions:
-    cluster_name: <terraform_output('cluster', 'cluster_name')>
-    aws_region: us-east-1
+flux:
+  - name: compute
+    dependsOn: [policy-resources]
+    install:
+      components: [cluster-autoscaler]
+      substitutions:
+        cluster_name: <terraform_output('cluster', 'cluster_name')>
+        aws_region: us-east-1
 ```
 
 Each pool's bounds come from `cluster.pools[*].autoscaling` (default on,
@@ -69,7 +70,7 @@ those bounds; raising a pool's ceiling is an in-place re-apply.
 | `cluster_name` | `cluster-autoscaler` is enabled | EKS cluster name the autoscaler discovers node groups for. Sourced from `terraform_output('cluster', 'cluster_name')`. No fallback — an empty value fails the install loudly rather than discovering nothing. |
 | `aws_region` | `cluster-autoscaler` is enabled | AWS region for the autoscaler's EC2/ASG API calls. Sourced from top-level `aws.region`. |
 
-## Components — `compute`
+## Components — `compute-install`
 
 | Component | Enable when | Effect |
 |---|---|---|
