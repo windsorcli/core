@@ -4,7 +4,7 @@
 # or dependencies change.
 
 facets:
-  - compute
+  - compute-install
 
 substitutions:
   cluster_name:
@@ -16,7 +16,7 @@ substitutions:
 
 components:
   cluster-autoscaler:
-    facet: compute
+    facet: compute-install
     enable_when: "platform is AWS"
     description: "Helm release of the Kubernetes cluster-autoscaler in `system-compute`. Watches for unschedulable pods and adjusts the EKS managed node-group ASGs between each pool's min and max. Discovers groups by the `k8s.io/cluster-autoscaler` tags the aws-eks module applies to autoscaling-enabled pools, and authenticates via the IAM role + Pod Identity the module provisions. AKS autoscales natively, so there is no Azure equivalent component."
 

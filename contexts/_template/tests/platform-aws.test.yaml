@@ -371,9 +371,9 @@ cases:
                 count: 3
 
   # A pool's autoscaling block threads through verbatim, and the
-  # cluster-autoscaler component (compute-base) lands so the EKS ASGs actually
+  # cluster-autoscaler component (compute-install) lands so the EKS ASGs actually
   # scale rather than just being bounded.
-  - name: pool autoscaling block flows through and compute-base lands
+  - name: pool autoscaling block flows through and compute-install lands
     values:
       platform: aws
       aws: *default-aws
@@ -401,11 +401,11 @@ cases:
                   enabled: true
                   min: 2
                   max: 8
-      kustomize:
+      flux:
         - name: compute
-          path: compute
-          components:
-            - cluster-autoscaler
+          install:
+            components:
+              - cluster-autoscaler
 
   # Multi-pool: a system pool plus general + spot-priced batch. The class
   # label is what makes these pools portable — the same pools would land on
