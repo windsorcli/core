@@ -38,15 +38,13 @@ cases:
             - cluster
           inputs:
             concurrency: 5
-      kustomize:
+      flux:
         - name: csi
-          path: csi
           dependsOn:
             - policy-resources
-          components:
-            - aws-ebs
-          timeout: 5m
-          interval: 5m
+          install:
+            components:
+              - aws-ebs
       crds:
         # renovate: datasource=helm depName=aws-load-balancer-controller package=aws-load-balancer-controller helmRepo=https://aws.github.io/eks-charts
         - aws-load-balancer-controller-3.4.1
@@ -79,15 +77,13 @@ cases:
             - cluster
           inputs:
             concurrency: 5
-      kustomize:
+      flux:
         - name: csi
-          path: csi
           dependsOn:
             - policy-resources
-          components:
-            - aws-ebs
-          timeout: 5m
-          interval: 5m
+          install:
+            components:
+              - aws-ebs
 
   # Full: Test with gateway enabled (envoy)
   - name: full config creates envoy gateway
@@ -126,15 +122,12 @@ cases:
               - envoy/prometheus
             timeout: 10m
             interval: 5m
-      kustomize:
         - name: csi
-          path: csi
           dependsOn:
             - policy-resources
-          components:
-            - aws-ebs
-          timeout: 5m
-          interval: 5m
+          install:
+            components:
+              - aws-ebs
 
   # Edge case: Ingress disabled
   - name: excludes ingress when disabled

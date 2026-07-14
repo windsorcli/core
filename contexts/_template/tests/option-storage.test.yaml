@@ -28,20 +28,14 @@ x-defaults:
   # Shared CSI assertion fields
   csi-base: &csi-base
     name: csi
-    path: csi
     dependsOn:
       - policy-resources
-    timeout: 20m
-    interval: 5m
 
   csi-longhorn: &csi-longhorn
     name: csi
-    path: csi
     dependsOn:
       - policy-resources
       - telemetry-install
-    timeout: 20m
-    interval: 5m
 
 cases:
   # Minimal: no explicit storage config — defaults to openebs
@@ -53,13 +47,14 @@ cases:
       network: *default-network
       cluster: *default-cluster
     expect:
-      kustomize:
+      flux:
         - <<: *csi-base
-          components:
-            - openebs
-            - openebs/dynamic-localpv
-          substitutions:
-            local_volume_path: /var/mnt/local
+          install:
+            components:
+              - openebs
+              - openebs/dynamic-localpv
+            substitutions:
+              local_volume_path: /var/mnt/local
 
   # Full: longhorn with HA, custom volume path, workers
   - name: full longhorn config with HA and custom volume path
@@ -82,11 +77,12 @@ cases:
           driver: longhorn
           local_base_path: /var/mnt/longhorn
     expect:
-      kustomize:
+      flux:
         - <<: *csi-longhorn
-          components:
-            - longhorn
-            - longhorn/ha
+          install:
+            components:
+              - longhorn
+              - longhorn/ha
 
   # Explicit openebs driver is same as default
   - name: explicit openebs driver produces same result as default
@@ -106,13 +102,14 @@ cases:
         storage:
           driver: openebs
     expect:
-      kustomize:
+      flux:
         - <<: *csi-base
-          components:
-            - openebs
-            - openebs/dynamic-localpv
-          substitutions:
-            local_volume_path: /var/mnt/local
+          install:
+            components:
+              - openebs
+              - openebs/dynamic-localpv
+            substitutions:
+              local_volume_path: /var/mnt/local
 
   # Custom local_base_path is passed as substitution
   - name: custom local_base_path is passed to CSI substitution
@@ -132,13 +129,14 @@ cases:
         storage:
           local_base_path: /mnt/data
     expect:
-      kustomize:
+      flux:
         - <<: *csi-base
-          components:
-            - openebs
-            - openebs/dynamic-localpv
-          substitutions:
-            local_volume_path: /mnt/data
+          install:
+            components:
+              - openebs
+              - openebs/dynamic-localpv
+            substitutions:
+              local_volume_path: /mnt/data
 
   # Longhorn single-node: schedulable CP with no workers gets CP toleration component
   - name: longhorn single-node with schedulable CP adds single-node component
@@ -160,11 +158,12 @@ cases:
         storage:
           driver: longhorn
     expect:
-      kustomize:
+      flux:
         - <<: *csi-longhorn
-          components:
-            - longhorn
-            - longhorn/single-node
+          install:
+            components:
+              - longhorn
+              - longhorn/single-node
 
   # Longhorn multi-node without HA: workers present, default topology — no single-node or ha component
   - name: longhorn multi-node topology omits topology components
@@ -185,10 +184,11 @@ cases:
         storage:
           driver: longhorn
     expect:
-      kustomize:
+      flux:
         - <<: *csi-longhorn
-          components:
-            - longhorn
+          install:
+            components:
+              - longhorn
 
   # Longhorn HA: topology=ha adds ha component (non-schedulable CP — no single-node)
   - name: longhorn ha topology adds longhorn/ha component
@@ -210,11 +210,12 @@ cases:
         storage:
           driver: longhorn
     expect:
-      kustomize:
+      flux:
         - <<: *csi-longhorn
-          components:
-            - longhorn
-            - longhorn/ha
+          install:
+            components:
+              - longhorn
+              - longhorn/ha
 
   # Longhorn single-node + HA: schedulable CP + topology=ha — both topology components active
   - name: longhorn schedulable CP with ha topology adds both single-node and ha components
@@ -237,9 +238,10 @@ cases:
         storage:
           driver: longhorn
     expect:
-      kustomize:
+      flux:
         - <<: *csi-longhorn
-          components:
-            - longhorn
-            - longhorn/single-node
-            - longhorn/ha
+          install:
+            components:
+              - longhorn
+              - longhorn/single-node
+              - longhorn/ha

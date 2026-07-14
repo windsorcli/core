@@ -146,18 +146,15 @@ cases:
               k8s_service_host: "10.5.0.10"
               loadbalancer_start_ip: "10.5.1.10"
               loadbalancer_end_ip: "10.5.1.100"
-      kustomize:
         - name: csi
-          path: csi
           dependsOn:
             - policy-resources
-          components:
-            - openebs
-            - openebs/dynamic-localpv
-          substitutions:
-            local_volume_path: /var/mnt/local
-          timeout: 20m
-          interval: 5m
+          install:
+            components:
+              - openebs
+              - openebs/dynamic-localpv
+            substitutions:
+              local_volume_path: /var/mnt/local
     exclude:
       kustomize:
         - name: lb-install
@@ -315,18 +312,15 @@ cases:
               loadbalancer_ip_range: 10.5.1.10-10.5.1.100
             timeout: 5m
             interval: 5m
-      kustomize:
         - name: csi
-          path: csi
           dependsOn:
             - policy-resources
-          components:
-            - openebs
-            - openebs/dynamic-localpv
-          substitutions:
-            local_volume_path: /mnt/data
-          timeout: 20m
-          interval: 5m
+          install:
+            components:
+              - openebs
+              - openebs/dynamic-localpv
+            substitutions:
+              local_volume_path: /mnt/data
 
   # Edge: docker without workstation yields no cluster and no gitops (gitops always dependsOn cluster; cluster only when workstation enabled).
   - name: docker without workstation has no cluster terraform

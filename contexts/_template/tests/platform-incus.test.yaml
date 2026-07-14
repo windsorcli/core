@@ -94,16 +94,13 @@ cases:
               k8s_service_host: "10.5.0.10"
               loadbalancer_start_ip: "10.5.1.10"
               loadbalancer_end_ip: "10.5.1.100"
-      kustomize:
         - name: csi
-          path: csi
           dependsOn:
             - policy-resources
             - telemetry-install
-          components:
-            - longhorn
-          timeout: 20m
-          interval: 5m
+          install:
+            components:
+              - longhorn
     exclude:
       kustomize:
         - name: lb-install
@@ -216,16 +213,13 @@ cases:
                 - dns
               timeout: 10m
               interval: 5m
-      kustomize:
         - name: csi
-          path: csi
           dependsOn:
             - policy-resources
             - telemetry-install
-          components:
-            - longhorn
-          timeout: 20m
-          interval: 5m
+          install:
+            components:
+              - longhorn
 
   # Edge case: colima-incus uses Incus path (platform selects compute/incus; option-workstation does not apply)
   - name: colima-incus uses compute/incus not docker stack
@@ -322,5 +316,5 @@ cases:
           local_base_path: /data/local
     terraformOutputs: *default-terraform-outputs
     expect:
-      kustomize:
+      flux:
         - name: csi

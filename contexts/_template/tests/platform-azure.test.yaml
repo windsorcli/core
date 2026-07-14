@@ -20,12 +20,13 @@ cases:
           path: gitops/flux
           dependsOn:
             - cluster
-      kustomize:
+      flux:
         - name: csi
           dependsOn:
             - policy-resources
-          components:
-            - azure-disk
+          install:
+            components:
+              - azure-disk
 
   # cluster.pools wires to the azure-aks module's var.pools (mirrors AWS).
   # With no cluster.pools set, the facet defaults to one autoscaling general

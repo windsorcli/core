@@ -37,7 +37,7 @@ cases:
         - name: database
           path: database
           dependsOn:
-            - csi
+            - csi-install
           components:
             - cloudnativepg
             - cloudnativepg/prometheus
@@ -67,7 +67,7 @@ cases:
         - name: database
           path: database
           dependsOn:
-            - csi
+            - csi-install
           components:
             - cloudnativepg
             - cloudnativepg/prometheus
@@ -113,7 +113,7 @@ cases:
         - name: database
           path: database
           dependsOn:
-            - csi
+            - csi-install
           components:
             - cloudnativepg
             - cloudnativepg/prometheus

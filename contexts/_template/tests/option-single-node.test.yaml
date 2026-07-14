@@ -38,11 +38,10 @@ cases:
           install:
             components:
               - cert-manager/single-node
-      kustomize:
         - name: csi
-          path: csi
-          components:
-            - openebs/single-node
+          install:
+            components:
+              - openebs/single-node
       terraform:
         - name: gitops
           path: gitops/flux
