@@ -148,10 +148,14 @@ flux:
   # When Cilium is the gateway driver, the Gateway API CRDs (installed by
   # gateway-install) must exist before the Cilium HelmRelease is applied.
   # Otherwise cilium-operator starts with gatewayAPI.enabled but finds no CRDs
-  # and never initializes the Gateway controller. This edge lives on the plain
-  # `cni` kustomization, not the flux system above, so it stays a `kustomize:`
-  # entry (see below).
+  # and never initializes the Gateway controller. Merged into the cni system's
+  # install tier (compiled name cni-install) as an additive dependsOn edge.
   #
+  - name: cni
+    when: gateway.enabled == true && gateway.driver == 'cilium'
+    dependsOn:
+      - gateway-install
+
   # ---------------------------------------------------------------------------
   # resources — shared Gateway CR + TLS certificate
   # ---------------------------------------------------------------------------
@@ -208,14 +212,3 @@ flux:
           loadbalancer_start_ip: "${(lb_effective.enabled == true || gateway.driver == 'cilium') ? network.loadbalancer_ips.start : ''}"
         timeout: 10m
         interval: 5m
-
-# =============================================================================
-# Kustomize — cni dependency edge
-# =============================================================================
-#
-kustomize:
-
-  - name: cni
-    when: gateway.enabled == true && gateway.driver == 'cilium'
-    dependsOn:
-      - gateway-install
