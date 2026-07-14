@@ -33,16 +33,15 @@ cases:
       network: *default-network
       cluster: *default-cluster
     expect:
-      kustomize:
+      flux:
         - name: database
-          path: database
           dependsOn:
             - csi-install
-          components:
-            - cloudnativepg
-            - cloudnativepg/prometheus
-          timeout: 15m
-          interval: 10m
+          install:
+            components:
+              - cloudnativepg
+              - cloudnativepg/prometheus
+      kustomize:
         - name: observability
           path: observability
           components:
@@ -63,17 +62,16 @@ cases:
         observability:
           enabled: true
     expect:
-      kustomize:
+      flux:
         - name: database
-          path: database
           dependsOn:
             - csi-install
-          components:
-            - cloudnativepg
-            - cloudnativepg/prometheus
-            - cloudnativepg/ha
-          timeout: 15m
-          interval: 10m
+          install:
+            components:
+              - cloudnativepg
+              - cloudnativepg/prometheus
+              - cloudnativepg/ha
+      kustomize:
         - name: observability
           components:
             - grafana/dashboards/cloudnativepg
@@ -91,7 +89,7 @@ cases:
           postgres:
             enabled: false
     exclude:
-      kustomize:
+      flux:
         - name: database
 
   # Edge case: HA disabled explicitly - database created without HA component
@@ -109,13 +107,11 @@ cases:
             enabled: true
             driver: cloudnativepg
     expect:
-      kustomize:
+      flux:
         - name: database
-          path: database
           dependsOn:
             - csi-install
-          components:
-            - cloudnativepg
-            - cloudnativepg/prometheus
-          timeout: 15m
-          interval: 10m
+          install:
+            components:
+              - cloudnativepg
+              - cloudnativepg/prometheus

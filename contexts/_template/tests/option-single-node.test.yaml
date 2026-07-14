@@ -60,11 +60,11 @@ cases:
             enabled: true
             driver: cloudnativepg
     expect:
-      kustomize:
+      flux:
         - name: database
-          path: database
-          components:
-            - cloudnativepg/single-node
+          install:
+            components:
+              - cloudnativepg/single-node
 
   - name: single-node with private-ca addon also adds trust-manager/single-node
     values:
