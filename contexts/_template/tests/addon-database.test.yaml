@@ -41,11 +41,12 @@ cases:
             components:
               - cloudnativepg
               - cloudnativepg/prometheus
-      kustomize:
         - name: observability
-          path: observability
-          components:
-            - grafana/dashboards/cloudnativepg
+          resources:
+            - dependsOn:
+                - telemetry-install
+              components:
+                - grafana/dashboards/cloudnativepg
 
   # Full: database with HA and observability. Intended: addon observability overrides. See docs/cli-bugs.md if this fails.
   - name: full config creates database with HA and observability integration
@@ -71,10 +72,12 @@ cases:
               - cloudnativepg
               - cloudnativepg/prometheus
               - cloudnativepg/ha
-      kustomize:
         - name: observability
-          components:
-            - grafana/dashboards/cloudnativepg
+          resources:
+            - dependsOn:
+                - telemetry-install
+              components:
+                - grafana/dashboards/cloudnativepg
 
   # Edge case: Explicit disable
   - name: excludes database when addon disabled

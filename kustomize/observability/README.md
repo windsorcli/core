@@ -17,7 +17,7 @@ The log store ships records via fluentd to one of three back-ends:
 `addons.observability.logs_driver` to choose.
 
 The metric pipeline (Prometheus, fluent-bit) lives in the `telemetry`
-add-on. This add-on assumes telemetry-base is already producing
+add-on. This add-on assumes telemetry-install is already producing
 metrics and shipping logs to fluentd's input.
 
 ## Recipes
@@ -49,26 +49,29 @@ flowchart LR
 
 ```yaml
 - name: observability
-  path: observability
-  dependsOn: [telemetry-base, dns]
-  components:
-    - grafana
-    - grafana/prometheus
-    - grafana/dashboards/node
-    - grafana/dashboards/kubernetes
-    - grafana/dashboards/flux
-    - grafana/dashboards/cert-manager
-    - grafana/dashboards/fluent-bit
-    - grafana/dashboards/fluentd
-  timeout: 15m
-  substitutions:
-    timezone: utc
-    external_domain: example.com
-    date_full: YYYY-MM-DD HH:mm:ss
-    date_interval_second: HH:mm:ss
-    date_interval_minute: HH:mm
-    date_interval_hour: MM/DD HH:mm
-    date_interval_day: MM/DD
+  dependsOn: [telemetry-install, dns-install]
+  install:
+    components:
+      - grafana
+      - grafana/prometheus
+    timeout: 15m
+    substitutions:
+      external_domain: example.com
+  resources:
+    - components:
+        - grafana/dashboards/node
+        - grafana/dashboards/kubernetes
+        - grafana/dashboards/flux
+        - grafana/dashboards/cert-manager
+        - grafana/dashboards/fluent-bit
+        - grafana/dashboards/fluentd
+      substitutions:
+        timezone: utc
+        date_full: YYYY-MM-DD HH:mm:ss
+        date_interval_second: HH:mm:ss
+        date_interval_minute: HH:mm
+        date_interval_hour: MM/DD HH:mm
+        date_interval_day: MM/DD
 ```
 
 ### Add Quickwit as the log store
@@ -92,15 +95,18 @@ flowchart LR
 
 ```yaml
 - name: observability
-  path: observability
-  dependsOn: [csi, telemetry-resources]
-  components:
-    - fluentd/outputs/quickwit
-    - quickwit
-    - quickwit/pvc
-    - quickwit/prometheus
-    - grafana/quickwit
-    - grafana/dashboards/logs/quickwit
+  dependsOn: [csi]
+  install:
+    components:
+      - quickwit
+      - quickwit/pvc
+      - quickwit/prometheus
+      - grafana/quickwit
+  resources:
+    - dependsOn: [telemetry-resources]
+      components:
+        - fluentd/outputs/quickwit
+        - grafana/dashboards/logs/quickwit
 ```
 
 The production default: a search-optimized store backed by object
@@ -129,14 +135,17 @@ flowchart LR
 
 ```yaml
 - name: observability
-  path: observability
-  dependsOn: [csi, gateway-resources]
-  components:
-    - elasticsearch
-    - kibana
-    - kibana/gateway
-  substitutions:
-    external_domain: example.com
+  dependsOn: [csi]
+  install:
+    components:
+      - elasticsearch
+      - kibana
+  resources:
+    - dependsOn: [gateway-resources]
+      components:
+        - kibana/gateway
+      substitutions:
+        external_domain: example.com
 ```
 
 For teams already standardized on Elasticsearch: fluentd ships to ES
@@ -161,11 +170,11 @@ and Kibana is exposed through the cluster Gateway.
 | Component | Enable when | Effect |
 |---|---|---|
 | `grafana` | `addons.observability.dashboards == 'grafana'` | Helm release of the Grafana chart in `system-observability`. Provides the Grafana UI, sidecar dashboard loader, and a default Prometheus datasource. Image tag and chart version tracked by Renovate. |
-| `grafana/prometheus` | `addons.observability.dashboards == 'grafana'` | Patches the grafana HelmRelease with the Prometheus datasource URL and adds prometheus-internals dashboards. (Deprecated forwarder for `dashboards/prometheus` plus helm patches; consolidates in v0.8.0.) |
+| `grafana/prometheus` | `addons.observability.dashboards == 'grafana'` | Patches the grafana HelmRelease with the Prometheus datasource URL. Pure HelmRelease patch (install tier); the prometheus-internals dashboards ship separately under `grafana/dashboards/` in the resources tier. |
 | `grafana/dashboards/*` | varies per dashboard | Per-topic dashboard ConfigMaps loaded by the Grafana sidecar. Always-on: `node`, `kubernetes`, `flux`, `cert-manager`, `fluent-bit`, `fluentd`. Conditional: `cloudnativepg` (when CNPG is the database driver), `longhorn` (when csi=longhorn), `cilium` (when cni=cilium), `envoy` (when gateway.driver=envoy), `logs/quickwit` (when logs_driver=quickwit). Each ships as a separate component path. |
 | `grafana/gateway` | `addons.observability.dashboards == 'grafana'` AND `gateway.enabled: true` | HTTPRoute exposing Grafana at `grafana.${external_domain}` through the cluster Gateway. Skipped on clusters without Gateway API. |
 | `grafana/dev` | `dev == true` | Patches the grafana HelmRelease to disable persistence and lower resource requests. Used by dev contexts to keep the footprint small. |
-| `grafana/quickwit` | `addons.observability.dashboards == 'grafana'` AND `logs_driver == 'quickwit'` | Adds the Quickwit datasource to Grafana so logs-explore dashboards can query the quickwit indexer. (Deprecated forwarder for `dashboards/quickwit` plus helm patches.) |
+| `grafana/quickwit` | `addons.observability.dashboards == 'grafana'` AND `logs_driver == 'quickwit'` | Adds the Quickwit datasource to Grafana so logs-explore dashboards can query the quickwit indexer. Pure HelmRelease patch (install tier); the logs dashboard ships separately as `grafana/dashboards/logs/quickwit` in the resources tier. |
 | `fluentd` | `telemetry.logs.driver == 'fluentd'` | Helm release of the `fluent-operator` chart sourced from a GitRepository (chart embedded in `system-gitops`). Installs the fluent-operator CR controller and a fluentd DaemonSet. Container runtime pinned to `containerd`. |
 | `fluentd/filters/otel` | `telemetry.logs.driver == 'fluentd'` | Fluentd CRDs that normalize log records into OpenTelemetry severity / body / resource fields before they hit the output. |
 | `fluentd/filters/log-level/*` | `telemetry.logs.driver == 'fluentd'` AND `log_level != 'trace'` | One of `info` / `debug` / `warn` filter variants — drops log records below the configured threshold so downstream stores only see what the operator asked for. `trace` skips this component entirely. |
@@ -183,7 +192,7 @@ and Kibana is exposed through the cluster Gateway.
 
 | Add-on | Required when | Reason |
 |---|---|---|
-| `telemetry-base` | always (grafana, fluentd, and dashboards facets all set it) | Prometheus must be live so Grafana's datasource and fluentd's ServiceMonitor have a scrape target. |
+| `telemetry-install` | always (grafana, fluentd, and dashboards facets all set it) | Prometheus must be live so Grafana's datasource and fluentd's ServiceMonitor have a scrape target. |
 | `telemetry-resources` | any `logs_driver` is selected | Provides the shared resources (FluentBit / FluentD operator CRDs, ClusterFlow base) the log-driver outputs attach to. |
 | `csi` | `logs_driver == 'quickwit'` OR `logs_driver == 'elasticsearch'` | Quickwit's staging PVC and Elasticsearch's data PVCs both need a working default StorageClass. |
 | `gateway-resources` | `logs_driver == 'elasticsearch'` (always) OR `grafana/gateway` is enabled | HTTPRoutes need the cluster Gateway to be Programmed first. |

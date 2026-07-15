@@ -28,17 +28,11 @@ flux:
       timeout: 15m
       interval: 10m
 
-# =============================================================================
-# Kustomize — Grafana dashboard
-# =============================================================================
-#
-kustomize:
-
   # Grafana dashboard patch — only when observability is active.
   - name: observability
-    path: observability
     when: addons.database.postgres.driver == 'cloudnativepg' && addons.observability.enabled == true
-    dependsOn:
-      - telemetry-install
-    components:
-      - grafana/dashboards/cloudnativepg
+    resources:
+      - dependsOn:
+          - telemetry-install
+        components:
+          - grafana/dashboards/cloudnativepg

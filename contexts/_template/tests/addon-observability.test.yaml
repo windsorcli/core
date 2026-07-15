@@ -35,28 +35,29 @@ cases:
       network: *default-network
       cluster: *default-cluster
     expect:
-      kustomize:
+      flux:
         - name: observability
-          path: observability
-          timeout: 15m
-          interval: 10m
-          components:
-            - grafana
-            - grafana/prometheus
-            - grafana/dashboards/node
-            - grafana/dashboards/kubernetes
-            - grafana/dashboards/flux
-            - grafana/dashboards/cert-manager
-            - grafana/dashboards/cilium
-            - grafana/dashboards/fluent-bit
-            - grafana/dashboards/fluentd
-          substitutions:
-            external_domain: example.local
-            date_full: "YYYY-MM-DD HH:mm:ss"
-            date_interval_second: "HH:mm:ss"
-            date_interval_minute: "HH:mm"
-            date_interval_hour: "MM/DD HH:mm"
-            date_interval_day: "MM/DD"
+          install:
+            components:
+              - grafana
+              - grafana/prometheus
+            substitutions:
+              external_domain: example.local
+          resources:
+            - components:
+                - grafana/dashboards/node
+                - grafana/dashboards/kubernetes
+                - grafana/dashboards/flux
+                - grafana/dashboards/cert-manager
+                - grafana/dashboards/cilium
+                - grafana/dashboards/fluent-bit
+                - grafana/dashboards/fluentd
+              substitutions:
+                date_full: "YYYY-MM-DD HH:mm:ss"
+                date_interval_second: "HH:mm:ss"
+                date_interval_minute: "HH:mm"
+                date_interval_hour: "MM/DD HH:mm"
+                date_interval_day: "MM/DD"
 
   # Full: stdout driver with Gateway API (envoy); grafana/gateway route included.
   - name: full config with stdout driver creates FluentD pipeline and log filtering
@@ -76,35 +77,39 @@ cases:
           enabled: true
           logs_driver: stdout
     expect:
-      kustomize:
-        - name: observability
-          path: observability
-          timeout: 15m
-          interval: 10m
-          components:
-            - grafana
-            - grafana/prometheus
-            - grafana/dashboards/node
-            - grafana/dashboards/kubernetes
-            - grafana/dashboards/flux
-            - grafana/dashboards/cert-manager
-            - grafana/dashboards/cilium
-            - grafana/dashboards/fluent-bit
-            - grafana/dashboards/fluentd
-            - grafana/gateway
-            - fluentd/outputs/stdout
-          substitutions:
-            external_domain: full.example.com
-            date_full: "YYYY-MM-DD HH:mm:ss"
-            date_interval_second: "HH:mm:ss"
-            date_interval_minute: "HH:mm"
-            date_interval_hour: "MM/DD HH:mm"
-            date_interval_day: "MM/DD"
       flux:
         - name: telemetry
           resources:
             - components:
                 - fluentbit/fluentd
+        - name: observability
+          install:
+            components:
+              - grafana
+              - grafana/prometheus
+            substitutions:
+              external_domain: full.example.com
+          resources:
+            - dependsOn:
+                - gateway-resources
+                - telemetry-resources
+              components:
+                - grafana/dashboards/node
+                - grafana/dashboards/kubernetes
+                - grafana/dashboards/flux
+                - grafana/dashboards/cert-manager
+                - grafana/dashboards/cilium
+                - grafana/dashboards/fluent-bit
+                - grafana/dashboards/fluentd
+                - grafana/gateway
+                - fluentd/outputs/stdout
+              substitutions:
+                external_domain: full.example.com
+                date_full: "YYYY-MM-DD HH:mm:ss"
+                date_interval_second: "HH:mm:ss"
+                date_interval_minute: "HH:mm"
+                date_interval_hour: "MM/DD HH:mm"
+                date_interval_day: "MM/DD"
 
   # Full: quickwit driver; addon wins (last-wins), addon contributes quickwit + fluentd output only
   - name: full config with quickwit driver creates storage pipeline with PVC and dashboards
@@ -119,24 +124,26 @@ cases:
           enabled: true
           logs_driver: quickwit
     expect:
-      kustomize:
-        - name: observability
-          path: observability
-          dependsOn:
-            - csi-install
-            - telemetry-resources
-          components:
-            - fluentd/outputs/quickwit
-            - quickwit
-            - quickwit/pvc
-            - quickwit/prometheus
-            - grafana/quickwit
-            - grafana/dashboards/logs/quickwit
       flux:
         - name: telemetry
           resources:
             - components:
                 - fluentbit/fluentd
+        - name: observability
+          dependsOn:
+            - csi-install
+          install:
+            components:
+              - quickwit
+              - quickwit/pvc
+              - quickwit/prometheus
+              - grafana/quickwit
+          resources:
+            - dependsOn:
+                - telemetry-resources
+              components:
+                - fluentd/outputs/quickwit
+                - grafana/dashboards/logs/quickwit
 
   # Full: elasticsearch driver. Addon overrides the telemetry flux: system (filebeat) via strategy: replace.
   - name: full config with elasticsearch driver creates ELK stack with filebeat
@@ -154,18 +161,6 @@ cases:
           enabled: true
           logs_driver: elasticsearch
     expect:
-      kustomize:
-        - name: observability
-          path: observability
-          dependsOn:
-            - csi-install
-            - gateway-resources
-          components:
-            - elasticsearch
-            - kibana
-            - kibana/gateway
-          substitutions:
-            external_domain: elk.example.com
       flux:
         - name: telemetry
           install:
@@ -182,6 +177,20 @@ cases:
                 - prometheus/flux
               timeout: 10m
           interval: 5m
+        - name: observability
+          dependsOn:
+            - csi-install
+          install:
+            components:
+              - elasticsearch
+              - kibana
+          resources:
+            - dependsOn:
+                - gateway-resources
+              components:
+                - kibana/gateway
+              substitutions:
+                external_domain: elk.example.com
 
   # Addon disabled: Grafana / log-storage outputs are not created, but the FluentD
   # aggregator (part of base telemetry) still runs.
@@ -196,13 +205,15 @@ cases:
         observability:
           enabled: false
     expect:
-      kustomize:
+      flux:
         - name: observability
-          path: observability
-          components:
-            - fluentd
-            - fluentd/filters/otel
-            - fluentd/prometheus
+          install:
+            components:
+              - fluentd
+          resources:
+            - components:
+                - fluentd/filters/otel
+                - fluentd/prometheus
 
   # Edge: trace log level; grafana dashboards appear without a route (gateway disabled), stdout output included.
   - name: trace log level creates stdout pipeline without log filter
@@ -218,20 +229,24 @@ cases:
           enabled: true
           logs_driver: stdout
     expect:
-      kustomize:
+      flux:
         - name: observability
-          path: observability
-          components:
-            - grafana
-            - grafana/prometheus
-            - grafana/dashboards/node
-            - grafana/dashboards/kubernetes
-            - grafana/dashboards/flux
-            - grafana/dashboards/cert-manager
-            - grafana/dashboards/cilium
-            - grafana/dashboards/fluent-bit
-            - grafana/dashboards/fluentd
-            - fluentd/outputs/stdout
+          install:
+            components:
+              - grafana
+              - grafana/prometheus
+          resources:
+            - dependsOn:
+                - telemetry-resources
+              components:
+                - grafana/dashboards/node
+                - grafana/dashboards/kubernetes
+                - grafana/dashboards/flux
+                - grafana/dashboards/cert-manager
+                - grafana/dashboards/cilium
+                - grafana/dashboards/fluent-bit
+                - grafana/dashboards/fluentd
+                - fluentd/outputs/stdout
 
   # Edge: gateway disabled → gateway.enabled is false → filebeat replacement skipped.
   # telemetry keeps its default fluentbit components; elasticsearch/kibana not deployed.
@@ -269,12 +284,13 @@ cases:
           enabled: true
           logs_driver: elasticsearch
     expect:
-      kustomize:
+      flux:
         - name: observability
-          path: observability
           dependsOn:
             - csi-install
-            - gateway-resources
-          components:
-            - grafana/gateway
-            - kibana/gateway
+          resources:
+            - dependsOn:
+                - gateway-resources
+              components:
+                - grafana/gateway
+                - kibana/gateway

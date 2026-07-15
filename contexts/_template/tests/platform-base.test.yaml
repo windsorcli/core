@@ -79,15 +79,14 @@ cases:
               - cert-manager/prometheus
             timeout: 20m
             interval: 5m
-      kustomize:
         - name: observability
-          path: observability
-          components:
-            - fluentd
-            - fluentd/filters/otel
-            - fluentd/prometheus
-          timeout: 15m
-          interval: 10m
+          install:
+            components:
+              - fluentd
+          resources:
+            - components:
+                - fluentd/filters/otel
+                - fluentd/prometheus
       crds:
         # renovate: datasource=github-releases depName=cert-manager/cert-manager package=cert-manager/cert-manager
         - cert-manager-1.21.0
@@ -126,21 +125,22 @@ cases:
                 - fluentbit/fluentd
               timeout: 10m
               interval: 5m
-      kustomize:
         - name: observability
-          path: observability
-          components:
-            - grafana
-            - grafana/prometheus
-            - grafana/dashboards/node
-            - grafana/dashboards/kubernetes
-            - grafana/dashboards/flux
-            - grafana/dashboards/cert-manager
-            - grafana/dashboards/fluent-bit
-            - grafana/dashboards/fluentd
-            - fluentd/outputs/stdout
-          timeout: 15m
-          interval: 10m
+          install:
+            components:
+              - grafana
+              - grafana/prometheus
+          resources:
+            - dependsOn:
+                - telemetry-resources
+              components:
+                - grafana/dashboards/node
+                - grafana/dashboards/kubernetes
+                - grafana/dashboards/flux
+                - grafana/dashboards/cert-manager
+                - grafana/dashboards/fluent-bit
+                - grafana/dashboards/fluentd
+                - fluentd/outputs/stdout
 
   # Edge case: FluentD aggregator is base telemetry, runs independently of the observability addon.
   - name: fluentd included when observability addon disabled
@@ -159,12 +159,14 @@ cases:
           resources:
             - components:
                 - fluentbit/fluentd
-      kustomize:
         - name: observability
-          components:
-            - fluentd
-            - fluentd/filters/otel
-            - fluentd/prometheus
+          install:
+            components:
+              - fluentd
+          resources:
+            - components:
+                - fluentd/filters/otel
+                - fluentd/prometheus
 
   # Edge case: elasticsearch logs driver; addon overrides the telemetry system's install tier (filebeat). Addon wins.
   - name: fluentd excluded when elasticsearch logs driver used
@@ -198,18 +200,20 @@ cases:
                 - prometheus/flux
               timeout: 10m
               interval: 5m
-      kustomize:
         - name: observability
-          path: observability
           dependsOn:
             - csi-install
-            - gateway-resources
-          components:
-            - elasticsearch
-            - kibana
-            - kibana/gateway
-          substitutions:
-            external_domain: elk.example.com
+          install:
+            components:
+              - elasticsearch
+              - kibana
+          resources:
+            - dependsOn:
+                - gateway-resources
+              components:
+                - kibana/gateway
+              substitutions:
+                external_domain: elk.example.com
 
   # Edge case: None driver disables log aggregation
   - name: none driver disables log aggregation
@@ -238,7 +242,7 @@ cases:
               timeout: 10m
               interval: 5m
     exclude:
-      kustomize:
+      flux:
         - name: observability
 
   # Policy modes: disabled removes policy component from policy-resources stack.
@@ -388,7 +392,6 @@ cases:
     exclude:
       flux:
         - name: telemetry
-      kustomize:
         - name: observability
       crds:
         # renovate: datasource=github-releases depName=prometheus-operator/prometheus-operator package=prometheus-operator/prometheus-operator
@@ -429,7 +432,7 @@ cases:
               - cert-manager
               - cert-manager/prometheus
     exclude:
-      kustomize:
+      flux:
         - name: observability
 
   # Logs on, metrics off: fluent-bit ships + fluentd aggregates, Prometheus
@@ -466,14 +469,13 @@ cases:
           install:
             components:
               - cert-manager
-      kustomize:
         - name: observability
-          path: observability
           dependsOn:
             - telemetry-install
-          components:
-            - fluentd
-            - fluentd/filters/otel
+          install:
+            components:
+              - fluentd
+              - fluentd/filters/otel
       crds:
         # renovate: datasource=github-releases depName=cert-manager/cert-manager package=cert-manager/cert-manager
         - cert-manager-1.21.0

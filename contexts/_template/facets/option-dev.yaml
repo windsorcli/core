@@ -46,19 +46,13 @@ flux:
       - components:
           - public-issuer/selfsigned
 
-# =============================================================================
-# Kustomize — dev-only resources
-# =============================================================================
-#
-kustomize:
-
   # Grafana dev credentials (default admin password "grafana"). In production
   # observability.admin_password is expected to come from a secret.
   - name: observability
-    path: observability
     dependsOn:
       - telemetry-install
-    components:
-      - grafana/dev
-    substitutions:
-      admin_password: ${addons.observability.admin_password ?? "grafana"}
+    install:
+      components:
+        - grafana/dev
+      substitutions:
+        admin_password: ${addons.observability.admin_password ?? "grafana"}

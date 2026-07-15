@@ -107,21 +107,19 @@ flux:
       timeout: 20m
       interval: 5m
 
-kustomize:
-
   # ---------------------------------------------------------------------------
   # Grafana dashboard patch
   # ---------------------------------------------------------------------------
   #
-  # Inject the Longhorn dashboard into the observability kustomization when
-  # Longhorn is the active storage driver AND observability is on (or dev mode
-  # is on, which auto-enables observability). The longhorn driver gate is
+  # Inject the Longhorn dashboard into the observability-resources kustomization
+  # when Longhorn is the active storage driver AND observability is on (or dev
+  # mode is on, which auto-enables observability). The longhorn driver gate is
   # required — the dashboard is meaningless without longhorn metrics to render.
   #
   - name: observability
-    path: observability
     when: talos_common.storage_driver == 'longhorn' && (addons.observability.enabled == true || dev == true)
-    dependsOn:
-      - telemetry-install
-    components:
-      - grafana/dashboards/longhorn
+    resources:
+      - dependsOn:
+          - telemetry-install
+        components:
+          - grafana/dashboards/longhorn

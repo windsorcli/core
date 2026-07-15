@@ -132,23 +132,10 @@ flux:
     dependsOn:
       - cni-install
 
-# =============================================================================
-# Kustomize — dependency patches
-# =============================================================================
-#
-kustomize:
-
-  # ---------------------------------------------------------------------------
-  # Dependency patches
-  # ---------------------------------------------------------------------------
-  #
-  # These entries have no `path:` — they exist purely to inject dependsOn edges
-  # into kustomizations that are created in other facets.
-  #
-
-  # Add the Cilium dashboards to the observability kustomization when Grafana
-  # is the dashboard backend.
+  # Add the Cilium dashboards to the observability-resources kustomization when
+  # Grafana is the dashboard backend.
   - name: observability
     when: addons.observability.dashboards == 'grafana'
-    components:
-      - grafana/dashboards/cilium
+    resources:
+      - components:
+          - grafana/dashboards/cilium
