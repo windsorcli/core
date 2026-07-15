@@ -279,8 +279,6 @@ flux:
       substitutions:
         single_storage_type: ${cluster.storage.single_storage_type ?? "StandardSSD_LRS"}
 
-kustomize:
-
   # ---------------------------------------------------------------------------
   # DNS — external-dns + Azure DNS record automation
   # ---------------------------------------------------------------------------
@@ -307,7 +305,6 @@ kustomize:
   # webhook injects the projected token at runtime.
   #
   - name: dns
-    path: dns
     when: "(dns.public_domain ?? '') != '' || (gateway.access == 'private' && (dns.private_domain ?? '') != '')"
     dependsOn:
       - policy-resources
@@ -316,38 +313,39 @@ kustomize:
       # source below — without the CRDs present at startup it crash-loops on
       # "no matches for kind HTTPRoute". Wait for gateway-install to finish.
       - "${gateway.enabled == true ? 'gateway-install' : ''}"
-    components:
-      - external-dns
-      - external-dns/providers/azure
-      - "${gateway.enabled == true ? 'external-dns/sources/gateway-httproute' : ''}"
-    timeout: 5m
-    interval: 5m
-    substitutions:
-      # Private mode wins over public_domain for the gateway's DNS — even if
-      # both are set, a private gateway should publish to the private zone (its
-      # hostname is internal-only and unusable as a record target on the public
-      # zone). Same access=private && private_domain gate fires here as in the
-      # rest of the private-mode cascade.
-      external_domain: "${gateway.access == 'private' && (dns.private_domain ?? '') != '' ? dns.private_domain : (dns.public_domain ?? '')}"
-      # Azure DNS resource ID — pins external-dns to a specific zone. Public
-      # zone comes from the standalone dns-zone stack; private zone comes from
-      # the network module (azure-vnet creates it when dns.private_domain is set).
-      zone_id_filter: "${gateway.access == 'private' && (dns.private_domain ?? '') != '' ? (terraform_output('network', 'private_zone_id') ?? '') : (terraform_output('dns-zone', 'zone_id') ?? '')}"
-      # Owner ID stamped into TXT records so multiple external-dns instances
-      # in the same zone don't clobber each other. The context id (top-level
-      # `id` field in values.yaml) is unique per Windsor context so it doubles
-      # as a stable per-cluster identifier.
-      txt_owner_id: "${id}"
-      external_dns_client_id: "${terraform_output('cluster', 'external_dns_client_id') ?? ''}"
-      external_dns_tenant_id: "${terraform_output('cluster', 'tenant_id') ?? ''}"
-      # Subscription / RG of the target zone — feeds external-dns's azure.json.
-      # Private mode pulls from the network module (zone lives in the VNet's
-      # RG), public mode from the dns-zone stack.
-      external_dns_dns_zone_subscription_id: "${gateway.access == 'private' && (dns.private_domain ?? '') != '' ? (terraform_output('network', 'subscription_id') ?? '') : (terraform_output('dns-zone', 'subscription_id') ?? '')}"
-      external_dns_dns_zone_resource_group: "${gateway.access == 'private' && (dns.private_domain ?? '') != '' ? (terraform_output('network', 'resource_group_name') ?? '') : (terraform_output('dns-zone', 'resource_group_name') ?? '')}"
-      # Public Azure DNS and Azure Private DNS Zones are served by different
-      # external-dns provider implementations (azure vs azure-private-dns) and
-      # different ARM resource types — without flipping this in private mode
-      # external-dns lists Microsoft.Network/dnszones and silently skips the
-      # privateDnsZones it should be writing to.
-      external_dns_azure_provider: "${gateway.access == 'private' && (dns.private_domain ?? '') != '' ? 'azure-private-dns' : 'azure'}"
+    install:
+      components:
+        - external-dns
+        - external-dns/providers/azure
+        - "${gateway.enabled == true ? 'external-dns/sources/gateway-httproute' : ''}"
+      timeout: 5m
+      interval: 5m
+      substitutions:
+        # Private mode wins over public_domain for the gateway's DNS — even if
+        # both are set, a private gateway should publish to the private zone (its
+        # hostname is internal-only and unusable as a record target on the public
+        # zone). Same access=private && private_domain gate fires here as in the
+        # rest of the private-mode cascade.
+        external_domain: "${gateway.access == 'private' && (dns.private_domain ?? '') != '' ? dns.private_domain : (dns.public_domain ?? '')}"
+        # Azure DNS resource ID — pins external-dns to a specific zone. Public
+        # zone comes from the standalone dns-zone stack; private zone comes from
+        # the network module (azure-vnet creates it when dns.private_domain is set).
+        zone_id_filter: "${gateway.access == 'private' && (dns.private_domain ?? '') != '' ? (terraform_output('network', 'private_zone_id') ?? '') : (terraform_output('dns-zone', 'zone_id') ?? '')}"
+        # Owner ID stamped into TXT records so multiple external-dns instances
+        # in the same zone don't clobber each other. The context id (top-level
+        # `id` field in values.yaml) is unique per Windsor context so it doubles
+        # as a stable per-cluster identifier.
+        txt_owner_id: "${id}"
+        external_dns_client_id: "${terraform_output('cluster', 'external_dns_client_id') ?? ''}"
+        external_dns_tenant_id: "${terraform_output('cluster', 'tenant_id') ?? ''}"
+        # Subscription / RG of the target zone — feeds external-dns's azure.json.
+        # Private mode pulls from the network module (zone lives in the VNet's
+        # RG), public mode from the dns-zone stack.
+        external_dns_dns_zone_subscription_id: "${gateway.access == 'private' && (dns.private_domain ?? '') != '' ? (terraform_output('network', 'subscription_id') ?? '') : (terraform_output('dns-zone', 'subscription_id') ?? '')}"
+        external_dns_dns_zone_resource_group: "${gateway.access == 'private' && (dns.private_domain ?? '') != '' ? (terraform_output('network', 'resource_group_name') ?? '') : (terraform_output('dns-zone', 'resource_group_name') ?? '')}"
+        # Public Azure DNS and Azure Private DNS Zones are served by different
+        # external-dns provider implementations (azure vs azure-private-dns) and
+        # different ARM resource types — without flipping this in private mode
+        # external-dns lists Microsoft.Network/dnszones and silently skips the
+        # privateDnsZones it should be writing to.
+        external_dns_azure_provider: "${gateway.access == 'private' && (dns.private_domain ?? '') != '' ? 'azure-private-dns' : 'azure'}"

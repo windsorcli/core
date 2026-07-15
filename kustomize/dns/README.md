@@ -50,18 +50,18 @@ flowchart LR
 
 ```yaml
 - name: dns
-  path: dns
   dependsOn: [policy-resources, gateway-install]
-  components:
-    - external-dns
-    - external-dns/providers/route53
-    - external-dns/sources/gateway-httproute
-  substitutions:
-    external_domain: example.com
-    zone_type: public
-    zone_id_filter: <terraform_output('dns-zone', 'zone_id')>
-    aws_region: us-east-1
-    txt_owner_id: my-cluster
+  install:
+    components:
+      - external-dns
+      - external-dns/providers/route53
+      - external-dns/sources/gateway-httproute
+    substitutions:
+      external_domain: example.com
+      zone_type: public
+      zone_id_filter: <terraform_output('dns-zone', 'zone_id')>
+      aws_region: us-east-1
+      txt_owner_id: my-cluster
 ```
 
 ### Public DNS on Azure
@@ -86,16 +86,16 @@ flowchart LR
 
 ```yaml
 - name: dns
-  path: dns
   dependsOn: [policy-resources, gateway-install]
-  components:
-    - external-dns
-    - external-dns/providers/azure
-    - external-dns/sources/gateway-httproute
-  substitutions:
-    external_domain: example.com
-    zone_id_filter: <terraform_output('dns-zone', 'zone_id')>
-    txt_owner_id: my-cluster
+  install:
+    components:
+      - external-dns
+      - external-dns/providers/azure
+      - external-dns/sources/gateway-httproute
+    substitutions:
+      external_domain: example.com
+      zone_id_filter: <terraform_output('dns-zone', 'zone_id')>
+      txt_owner_id: my-cluster
 ```
 
 ### Private DNS (coredns) on a local or metal cluster
@@ -125,19 +125,19 @@ flowchart LR
 
 ```yaml
 - name: dns
-  path: dns
   dependsOn: [pki-install]
-  components:
-    - external-dns
-    - external-dns/providers/coredns
-    - coredns
-    - coredns/etcd
-    - coredns/loadbalancer
-    - coredns/cilium
-  substitutions:
-    external_domain: example.local
-    txt_owner_id: my-cluster
-    loadbalancer_start_ip: 10.5.1.10
+  install:
+    components:
+      - external-dns
+      - external-dns/providers/coredns
+      - coredns
+      - coredns/etcd
+      - coredns/loadbalancer
+      - coredns/cilium
+    substitutions:
+      external_domain: example.local
+      txt_owner_id: my-cluster
+      loadbalancer_start_ip: 10.5.1.10
 ```
 
 external-dns writes into the in-cluster coredns etcd backend, whose

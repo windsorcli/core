@@ -179,7 +179,7 @@ flux:
     when: gateway.enabled == true
     resources:
       - dependsOn:
-          - "${dns.enabled ? 'dns' : ''}"
+          - "${dns.enabled ? 'dns-install' : ''}"
         components:
           - "${gateway.driver == 'cilium' ? 'cilium' : ''}"
           # Points the Gateway at its EnvoyProxy (per-gateway data-plane Service

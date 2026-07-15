@@ -247,24 +247,23 @@ cases:
               substitutions:
                 gateway_cert_issuer: public-acme
                 external_domain: example.com
-      kustomize:
         # Gateway-on + public-domain path: external-dns must wait for
         # gateway-install (HTTPRoute CRDs) and layer the gateway-httproute
         # source on top of the route53 provider. Locks the conditional
-        # in platform-aws.yaml's dns kustomization for the public branch.
+        # in platform-aws.yaml's dns system for the public branch.
         - name: dns
-          path: dns
           dependsOn:
             - policy-resources
             - gateway-install
-          components:
-            - external-dns
-            - external-dns/providers/route53
-            - external-dns/sources/gateway-httproute
-          substitutions:
-            external_domain: example.com
-            zone_type: public
-            zone_id_filter: Z1ABCDEF12345
+          install:
+            components:
+              - external-dns
+              - external-dns/providers/route53
+              - external-dns/sources/gateway-httproute
+            substitutions:
+              external_domain: example.com
+              zone_type: public
+              zone_id_filter: Z1ABCDEF12345
 
   # Dev mode flips the ACME server to Let's Encrypt staging to avoid
   # burning Let's Encrypt prod rate limits during iteration.
@@ -663,20 +662,18 @@ cases:
       dns-zone:
         zone_id: Z1ABCDEF12345
     expect:
-      kustomize:
+      flux:
         - name: dns
-          path: dns
           dependsOn:
             - policy-resources
-          components:
-            - external-dns
-            - external-dns/providers/route53
-          timeout: 5m
-          interval: 5m
-          substitutions:
-            external_domain: example.com
-            zone_type: public
-            zone_id_filter: Z1ABCDEF12345
+          install:
+            components:
+              - external-dns
+              - external-dns/providers/route53
+            substitutions:
+              external_domain: example.com
+              zone_type: public
+              zone_id_filter: Z1ABCDEF12345
 
   # Private mode: gateway.access=private flips the DNS path away from the
   # public zone and onto the VPC-private Route53 zone the network module
@@ -699,29 +696,28 @@ cases:
       network:
         private_zone_id: Z9PRIVATEZONE
     expect:
-      kustomize:
+      flux:
         - name: dns
-          path: dns
           dependsOn:
             - policy-resources
             # gateway-install must be in deps when gateway is on so HTTPRoute
             # CRDs are present before external-dns reconciles.
             - gateway-install
-          components:
-            - external-dns
-            - external-dns/providers/route53
-            # Gateway is enabled here, so the HTTPRoute source is layered on.
-            - external-dns/sources/gateway-httproute
-          substitutions:
-            external_domain: internal.example.com
-            zone_type: private
-            zone_id_filter: Z9PRIVATEZONE
-      # Cert issuer falls to `private` (selfsigned) — ACME DNS-01 can't
-      # validate against a VPC-only zone, and the gateway's external_domain
-      # follows access=private onto the private domain. The 404 hostname
-      # annotation patch is added too, asserting the private branch of
-      # the option-gateway conditional fires alongside everything else.
-      flux:
+          install:
+            components:
+              - external-dns
+              - external-dns/providers/route53
+              # Gateway is enabled here, so the HTTPRoute source is layered on.
+              - external-dns/sources/gateway-httproute
+            substitutions:
+              external_domain: internal.example.com
+              zone_type: private
+              zone_id_filter: Z9PRIVATEZONE
+        # Cert issuer falls to `private` (selfsigned) — ACME DNS-01 can't
+        # validate against a VPC-only zone, and the gateway's external_domain
+        # follows access=private onto the private domain. The 404 hostname
+        # annotation patch is added too, asserting the private branch of
+        # the option-gateway conditional fires alongside everything else.
         - name: gateway
           resources:
             - components:
@@ -750,7 +746,7 @@ cases:
       gateway:
         enabled: false
     exclude:
-      kustomize:
+      flux:
         - name: dns
 
   # Default lifecycle: long-lived, so the cluster gets manage_log_group=true
