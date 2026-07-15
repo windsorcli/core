@@ -7,25 +7,32 @@ metadata:
 when: addons.database.postgres.enabled == true
 
 # =============================================================================
-# Kustomize — CloudNativePG operator + Grafana dashboard
+# Flux systems — CloudNativePG operator
 # =============================================================================
 #
-kustomize:
+flux:
 
   # CloudNativePG operator. Depends on csi because CNPG needs PVCs for WAL
   # archives and data volumes as soon as the first Cluster is applied. The
   # `ha` topology adds anti-affinity and PDBs for the operator's own pods.
+  # Install-only: the operator manages Cluster CRs but creates none itself.
   - name: database
-    path: database
     when: addons.database.postgres.driver == 'cloudnativepg'
-    timeout: 15m
-    interval: 10m
     dependsOn:
       - csi
-    components:
-      - cloudnativepg
-      - cloudnativepg/prometheus
-      - "${addons.database.postgres.driver == 'cloudnativepg' && topology == 'ha' ? 'cloudnativepg/ha' : ''}"
+    install:
+      components:
+        - cloudnativepg
+        - cloudnativepg/prometheus
+        - "${addons.database.postgres.driver == 'cloudnativepg' && topology == 'ha' ? 'cloudnativepg/ha' : ''}"
+      timeout: 15m
+      interval: 10m
+
+# =============================================================================
+# Kustomize — Grafana dashboard
+# =============================================================================
+#
+kustomize:
 
   # Grafana dashboard patch — only when observability is active.
   - name: observability

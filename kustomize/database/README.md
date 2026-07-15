@@ -51,44 +51,47 @@ add-on places one in `demo-database`.
 ### Single-node
 
 ```yaml
-- name: database
-  path: database
-  dependsOn: [csi]
-  components:
-    - cloudnativepg
-    - cloudnativepg/single-node
-  timeout: 15m
+flux:
+  - name: database
+    dependsOn: [csi]
+    install:
+      components:
+        - cloudnativepg
+        - cloudnativepg/single-node
+      timeout: 15m
 ```
 
 ### HA cluster
 
 ```yaml
-- name: database
-  path: database
-  dependsOn: [csi]
-  components:
-    - cloudnativepg
-    - cloudnativepg/ha
-  timeout: 15m
+flux:
+  - name: database
+    dependsOn: [csi]
+    install:
+      components:
+        - cloudnativepg
+        - cloudnativepg/ha
+      timeout: 15m
 ```
 
 ### With observability dashboards
 
 ```yaml
-- name: database
-  path: database
-  dependsOn: [csi]
-  components:
-    - cloudnativepg
-    - cloudnativepg/prometheus
-    - cloudnativepg/ha
-  timeout: 15m
+flux:
+  - name: database
+    dependsOn: [csi]
+    install:
+      components:
+        - cloudnativepg
+        - cloudnativepg/prometheus
+        - cloudnativepg/ha
+      timeout: 15m
 ```
 
 The `cloudnativepg/prometheus` component adds
 `dependsOn: kube-prometheus-stack` to the operator HelmRelease, so the
-database Kustomization waits for telemetry-base to be ready before
-reconciling.
+database-install kustomization waits for telemetry-install to be ready
+before reconciling.
 
 <!-- BEGIN_KUSTOMIZE_DOCS -->
 

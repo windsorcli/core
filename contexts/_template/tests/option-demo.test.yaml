@@ -42,7 +42,7 @@ cases:
         - name: demo
           path: demo
           dependsOn:
-            - database
+            - database-install
           components:
             - database
 
