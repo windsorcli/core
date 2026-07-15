@@ -34,21 +34,19 @@ cases:
       network: *default-network
       cluster: *default-cluster
     expect:
-      kustomize:
+      flux:
         - name: dns
-          path: dns
           dependsOn:
             - pki-install
             - cni-install
-          timeout: 20m
-          interval: 5m
-          components:
-            - coredns
-            - coredns/etcd
-            - coredns/loadbalancer
-            - coredns/cilium
-            - external-dns
-            - external-dns/providers/coredns
+          install:
+            components:
+              - coredns
+              - coredns/etcd
+              - coredns/loadbalancer
+              - coredns/cilium
+              - external-dns
+              - external-dns/providers/coredns
 
   # Full: Test all options with Docker Desktop (envoy gateway — docker-desktop default).
   - name: full config creates CoreDNS with localhost external-dns on Docker Desktop
@@ -69,22 +67,20 @@ cases:
       workstation:
         registries: {}
     expect:
-      kustomize:
+      flux:
         - name: dns
-          path: dns
           dependsOn:
             - pki-install
             - gateway-install
             - policy-resources
-          timeout: 20m
-          interval: 5m
-          components:
-            - coredns
-            - coredns/etcd
-            - coredns/gateway
-            - external-dns
-            - external-dns/providers/coredns
-            - external-dns/localhost
+          install:
+            components:
+              - coredns
+              - coredns/etcd
+              - coredns/gateway
+              - external-dns
+              - external-dns/providers/coredns
+              - external-dns/localhost
 
   # Docker platform + docker-desktop + dev: gateway defaults to envoy (no cilium CNI on docker-desktop),
   # so dns depends on gateway-install (not cni) and gets coredns/gateway instead of coredns/loadbalancer.
@@ -106,22 +102,20 @@ cases:
       workstation:
         registries: {}
     expect:
-      kustomize:
+      flux:
         - name: dns
-          path: dns
           dependsOn:
             - pki-install
             - gateway-install
             - policy-resources
-          timeout: 20m
-          interval: 5m
-          components:
-            - coredns
-            - coredns/etcd
-            - coredns/gateway
-            - external-dns
-            - external-dns/providers/coredns
-            - external-dns/localhost
+          install:
+            components:
+              - coredns
+              - coredns/etcd
+              - coredns/gateway
+              - external-dns
+              - external-dns/providers/coredns
+              - external-dns/localhost
     exclude:
       flux:
         - name: cni
@@ -141,19 +135,19 @@ cases:
         private_dns:
           enabled: true
     expect:
-      kustomize:
+      flux:
         - name: dns
-          path: dns
           dependsOn:
             - pki-install
             - cni-install
-          components:
-            - coredns
-            - coredns/etcd
-            - coredns/loadbalancer
-            - coredns/cilium
-            - external-dns
-            - external-dns/providers/coredns
+          install:
+            components:
+              - coredns
+              - coredns/etcd
+              - coredns/loadbalancer
+              - coredns/cilium
+              - external-dns
+              - external-dns/providers/coredns
 
   # Edge: Envoy gateway path includes coredns/gateway for DNS routing through
   # the gateway, and external-dns/gateway-httproute so external-dns watches
@@ -172,18 +166,18 @@ cases:
         private_dns:
           enabled: true
     expect:
-      kustomize:
+      flux:
         - name: dns
-          path: dns
           dependsOn:
             - pki-install
-          components:
-            - coredns
-            - coredns/etcd
-            - coredns/gateway
-            - external-dns
-            - external-dns/providers/coredns
-            - external-dns/sources/gateway-httproute
+          install:
+            components:
+              - coredns
+              - coredns/etcd
+              - coredns/gateway
+              - external-dns
+              - external-dns/providers/coredns
+              - external-dns/sources/gateway-httproute
 
   # Edge: Gateway disabled with non-cilium CNI — dns must not depend on gateway-install (it doesn't exist).
   - name: private dns with gateway disabled does not depend on gateway-install
@@ -203,9 +197,8 @@ cases:
         private_dns:
           enabled: true
     expect:
-      kustomize:
+      flux:
         - name: dns
-          path: dns
           dependsOn:
             - pki-install
 
@@ -221,7 +214,7 @@ cases:
         private_dns:
           enabled: false
     exclude:
-      kustomize:
+      flux:
         - name: dns
 
   # Requires: enabling the addon without a private DNS zone fails at config-load.
