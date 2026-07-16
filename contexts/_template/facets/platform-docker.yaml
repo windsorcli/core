@@ -161,8 +161,6 @@ flux:
 
   - name: lb
     when: workstation.runtime != 'docker-desktop' && lb_effective.enabled
-    dependsOn:
-      - policy-resources
     install:
       components:
         - ${lb_effective.driver}

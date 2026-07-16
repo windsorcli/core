@@ -418,6 +418,7 @@ terraform:
 flux:
   - name: policy
     when: (policies.enabled ?? true) == true
+    globalDependency: true
     install:
       components:
         - kyverno
@@ -462,7 +463,6 @@ flux:
   # working Prometheus target from the moment it's created.
   - name: pki
     dependsOn:
-      - "${(policies.enabled ?? true) ? 'policy-resources' : ''}"
       - "${telemetry.metrics.enabled || telemetry.logs.enabled ? 'telemetry-install' : ''}"
     install:
       components:

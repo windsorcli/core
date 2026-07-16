@@ -72,8 +72,6 @@ flux:
   #
   - name: csi
     when: talos_common.storage_driver == 'openebs'
-    dependsOn:
-      - "${(policies.enabled ?? true) ? 'policy-resources' : ''}"
     install:
       components:
         - openebs
@@ -96,7 +94,6 @@ flux:
   - name: csi
     when: talos_common.storage_driver == 'longhorn'
     dependsOn:
-      - "${(policies.enabled ?? true) ? 'policy-resources' : ''}"
       - "${telemetry.metrics.enabled || telemetry.logs.enabled ? 'telemetry-install' : ''}"
     install:
       components:
