@@ -11,8 +11,8 @@ when: addons.observability.enabled == true
 # =============================================================================
 #
 # Land `addons.observability.dashboards` so other facets (option-cni /
-# option-storage patch dashboards into the observability kustomization when
-# dashboards == 'grafana') can read it directly without re-applying the
+# option-storage patch dashboards into the observability-resources kustomization
+# when dashboards == 'grafana') can read it directly without re-applying the
 # fallback.
 #
 # logs_driver intentionally has no default — an unset driver means "no
