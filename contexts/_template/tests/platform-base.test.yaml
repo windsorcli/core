@@ -475,7 +475,9 @@ cases:
           install:
             components:
               - fluentd
-              - fluentd/filters/otel
+          resources:
+            - components:
+                - fluentd/filters/otel
       crds:
         # renovate: datasource=github-releases depName=cert-manager/cert-manager package=cert-manager/cert-manager
         - cert-manager-1.21.0
