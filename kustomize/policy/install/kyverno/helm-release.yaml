@@ -1,0 +1,83 @@
+apiVersion: helm.toolkit.fluxcd.io/v2
+kind: HelmRelease
+metadata:
+  name: kyverno
+  namespace: system-policy
+spec:
+  interval: 5m
+  timeout: 30m
+  chart:
+    spec:
+      chart: kyverno
+      # renovate: datasource=helm depName=kyverno package=kyverno helmRepo=https://kyverno.github.io/kyverno/
+      version: 3.8.2
+      sourceRef:
+        kind: HelmRepository
+        name: kyverno
+  values:
+    # The kube-apiserver enforces the webhook namespaceSelector even when the
+    # admission controller is unreachable. Excluding the GitOps and kube-system
+    # namespaces keeps Flux able to reconcile a fix if Kyverno is ever down.
+    config:
+      webhooks:
+        namespaceSelector:
+          matchExpressions:
+            - key: kubernetes.io/metadata.name
+              operator: NotIn
+              values:
+                - kube-system
+                - ${FLUX_SYSTEM_NAMESPACE:-system-gitops}
+    crds:
+      migration:
+        image:
+          # renovate: datasource=docker depName=reg.kyverno.io/kyverno/kyverno-cli package=reg.kyverno.io/kyverno/kyverno-cli
+          tag: v1.18.2@sha256:7224ed05508c24419c3df98114c28ba682ad0a940dcdb7b9fdba0a4b6bf943cf
+    # Disable ANSI color codes in logs
+    admissionController:
+      initContainer:
+        image:
+          # renovate: datasource=docker depName=reg.kyverno.io/kyverno/kyvernopre package=reg.kyverno.io/kyverno/kyvernopre
+          tag: v1.18.2@sha256:cd8cb4a31d25b3992734fb8f24a90ef691c90ce49338c89bea96792160eacb98
+      container:
+        image:
+          # renovate: datasource=docker depName=reg.kyverno.io/kyverno/kyverno package=reg.kyverno.io/kyverno/kyverno
+          tag: v1.18.2@sha256:0a540e2ddf74d0d2d3d45f9ef248d7dbc96576accdbcc6a2dd7eaff9fea56504
+        extraEnvVars:
+        - name: NO_COLOR
+          value: "1"
+    backgroundController:
+      container:
+        image:
+          # renovate: datasource=docker depName=reg.kyverno.io/kyverno/background-controller package=reg.kyverno.io/kyverno/background-controller
+          tag: v1.18.2@sha256:d62566ce41bd0d4a32bf2cf44b9ebfc02c36374f821f83070890287f62f68671
+        extraEnvVars:
+        - name: NO_COLOR
+          value: "1"
+    # cleanup-controller executes CleanupPolicy / ClusterCleanupPolicy CRDs
+    # on a cron. Windsor defines zero CleanupPolicy resources out of the
+    # box, so this controller sits idle — disabled by default; opt in with
+    # policies.cleanup=enabled, which layers in the kyverno/cleanup
+    # component.
+    cleanupController:
+      enabled: false
+      container:
+        image:
+          # renovate: datasource=docker depName=reg.kyverno.io/kyverno/cleanup-controller package=reg.kyverno.io/kyverno/cleanup-controller
+          tag: v1.18.2@sha256:b0395d29ae332276e6910eb40418be9bc127c068d659f90aa1bcddd6be99ccb4
+        extraEnvVars:
+        - name: NO_COLOR
+          value: "1"
+    # reports-controller runs background scans and emits PolicyReport /
+    # ClusterPolicyReport resources for audit/observability. Admission-time
+    # enforcement is unaffected when this is off. Disabled by default; opt
+    # in with policies.reporting=enabled, which layers in the
+    # kyverno/reports component.
+    reportsController:
+      enabled: false
+      container:
+        image:
+          # renovate: datasource=docker depName=reg.kyverno.io/kyverno/reports-controller package=reg.kyverno.io/kyverno/reports-controller
+          tag: v1.18.2@sha256:f09cf305170014e191b94e1c54f5be73163d8824eefad49349675c4efe43159a
+        extraEnvVars:
+        - name: NO_COLOR
+          value: "1"

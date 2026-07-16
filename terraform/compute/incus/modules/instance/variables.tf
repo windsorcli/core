@@ -74,12 +74,14 @@ variable "ipv4" {
   type        = string
   default     = null
   validation {
-    condition = var.ipv4 == null || (
-      can(regex("^([0-9]{1,3}\\.){3}[0-9]{1,3}(/[0-9]{1,2})?$", var.ipv4)) &&
-      # Validate octets are in valid range (0-255)
-      alltrue([
+    condition = var.ipv4 == null ? true : (
+      # Octet-range check is gated on the structure match so tonumber never
+      # sees a non-numeric octet (matters pre-1.12, where && does not short-circuit)
+      can(regex("^([0-9]{1,3}\\.){3}[0-9]{1,3}(/[0-9]{1,2})?$", var.ipv4))
+      ? alltrue([
         for octet in split(".", split("/", var.ipv4)[0]) : tonumber(octet) >= 0 && tonumber(octet) <= 255
       ])
+      : false
     )
     error_message = "IPv4 address must be in format 'x.x.x.x' or 'x.x.x.x/prefix' with octets in range 0-255 (e.g., '10.5.0.87' or '10.5.0.87/24')"
   }

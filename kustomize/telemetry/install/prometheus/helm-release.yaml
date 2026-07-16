@@ -1,0 +1,74 @@
+apiVersion: helm.toolkit.fluxcd.io/v2
+kind: HelmRelease
+metadata:
+  name: kube-prometheus-stack
+  namespace: system-telemetry
+spec:
+  interval: 5m
+  timeout: 30m
+  chart:
+    spec:
+      chart: kube-prometheus-stack
+      # renovate: datasource=helm depName=kube-prometheus-stack package=kube-prometheus-stack helmRepo=https://prometheus-community.github.io/helm-charts
+      version: 87.16.1
+      sourceRef:
+        kind: HelmRepository
+        name: prometheus-community
+  values:
+    crds:
+      enabled: false
+    grafana:
+      enabled: false
+    kubeStateMetrics:
+      enabled: true
+    kube-state-metrics:
+      image:
+        # renovate: datasource=docker depName=registry.k8s.io/kube-state-metrics/kube-state-metrics package=registry.k8s.io/kube-state-metrics/kube-state-metrics
+        tag: v2.19.1@sha256:85108987d044b18a098126732f98602df408888c0f7d456241f5abefb9744bc1
+    prometheusOperator:
+      image:
+        # renovate: datasource=docker depName=quay.io/prometheus-operator/prometheus-operator package=quay.io/prometheus-operator/prometheus-operator
+        tag: v0.92.1@sha256:7d9247d2351480fc74587e24681578f815f387bafb2ee7b86a852a94c4cd3774
+      prometheusConfigReloader:
+        image:
+          # renovate: datasource=docker depName=quay.io/prometheus-operator/prometheus-config-reloader package=quay.io/prometheus-operator/prometheus-config-reloader
+          tag: v0.92.1@sha256:74550ba3e8bf93f47bc574231090d340ae9c01d25cd11ff74799e65f9fdb9a48
+      admissionWebhooks:
+        patch:
+          image:
+            # renovate: datasource=docker depName=ghcr.io/jkroepke/kube-webhook-certgen package=ghcr.io/jkroepke/kube-webhook-certgen
+            tag: 1.8.4@sha256:76a2170cd0c9a7758c4ac8ac5bbe9b6f73e869a15ffb77d9f684664f7d7b96b1
+    prometheus:
+      prometheusSpec:
+        # renovate: datasource=github-releases depName=prometheus/prometheus package=prometheus/prometheus
+        version: v3.13.1
+        image:
+          # renovate: datasource=docker depName=quay.io/prometheus/prometheus package=quay.io/prometheus/prometheus
+          tag: v3.12.0@sha256:69f5241418838263316593f7274a304b095c40bcf22e57272865da91bd60a8ac
+        ruleSelectorNilUsesHelmValues: false
+        serviceMonitorSelectorNilUsesHelmValues: false
+        podMonitorSelectorNilUsesHelmValues: false
+        probeSelectorNilUsesHelmValues: false
+        serviceMonitorNamespaceSelector: { }
+        serviceMonitorSelector: { }
+        podMonitorNamespaceSelector: { }
+        podMonitorSelector: { }
+    alertmanager:
+      alertmanagerSpec:
+        # renovate: datasource=github-releases depName=prometheus/alertmanager package=prometheus/alertmanager
+        version: v0.33.1
+        image:
+          # renovate: datasource=docker depName=quay.io/prometheus/alertmanager package=quay.io/prometheus/alertmanager
+          tag: v0.33.1@sha256:9e082985f56f4c8c9f724e18f2288c6708f472e56a5286b8863d080434ea065d
+    nodeExporter:
+      enabled: true
+      replicas: 1
+    prometheus-node-exporter:
+      # renovate: datasource=github-releases depName=prometheus/node_exporter package=prometheus/node_exporter
+      version: v1.12.1
+      image:
+        # renovate: datasource=docker depName=quay.io/prometheus/node-exporter package=quay.io/prometheus/node-exporter
+        tag: v1.11.1@sha256:0f422f62c15f154af8d8572b23d623aebfb10cec73a5c654d18f911f3f9df241
+        digest: ""
+        # chart defaults this to true and would append `-distroless` to tag, breaking the digest pinning
+        distroless: false

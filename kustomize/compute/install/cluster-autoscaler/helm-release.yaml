@@ -1,0 +1,43 @@
+---
+apiVersion: helm.toolkit.fluxcd.io/v2
+kind: HelmRelease
+metadata:
+  name: cluster-autoscaler
+  namespace: system-compute
+spec:
+  interval: 5m
+  timeout: 10m
+  install:
+    remediation:
+      retries: 3
+  upgrade:
+    remediation:
+      retries: 3
+  chart:
+    spec:
+      chart: cluster-autoscaler
+      # renovate: datasource=helm depName=cluster-autoscaler package=cluster-autoscaler helmRepo=https://kubernetes.github.io/autoscaler
+      version: 9.58.0
+      sourceRef:
+        kind: HelmRepository
+        name: cluster-autoscaler
+  values:
+    cloudProvider: aws
+    # Discover node groups by the k8s.io/cluster-autoscaler ASG tags the EKS
+    # module applies. Empty clusterName fails the install loudly if the
+    # terraform_output('cluster', 'cluster_name') hasn't resolved yet.
+    autoDiscovery:
+      clusterName: "${cluster_name:-}"
+    awsRegion: "${aws_region:-}"
+    image:
+      repository: registry.k8s.io/autoscaling/cluster-autoscaler
+      # renovate: datasource=docker depName=cluster-autoscaler package=registry.k8s.io/autoscaling/cluster-autoscaler
+      tag: v1.36.0@sha256:dc5d62770338c2902f31b01f95c9fc8c456fd88baa5364ca154d6e47069ec885
+    rbac:
+      serviceAccount:
+        create: true
+        # Matches the EKS Pod Identity association (system-compute/cluster-autoscaler).
+        name: cluster-autoscaler
+    extraArgs:
+      balance-similar-node-groups: true
+      expander: least-waste

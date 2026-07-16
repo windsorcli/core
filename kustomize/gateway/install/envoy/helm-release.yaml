@@ -1,0 +1,43 @@
+---
+apiVersion: helm.toolkit.fluxcd.io/v2
+kind: HelmRelease
+metadata:
+  name: envoy-gateway
+  namespace: system-gateway
+spec:
+  interval: 5m
+  timeout: 10m
+  install:
+    crds: Skip
+    remediation:
+      retries: 3
+  upgrade:
+    crds: Skip
+    remediation:
+      retries: 3
+  chart:
+    spec:
+      chart: gateway-helm
+      # renovate: datasource=docker depName=envoyproxy/gateway-helm package=envoyproxy/gateway-helm
+      version: 1.8.2
+      sourceRef:
+        kind: HelmRepository
+        name: envoyproxy
+  values:
+    global:
+      images:
+        envoyGateway:
+          # renovate: datasource=docker depName=docker.io/envoyproxy/gateway package=docker.io/envoyproxy/gateway
+          image: docker.io/envoyproxy/gateway:v1.8.2@sha256:6b86fcef4f012fff1edc452db891ae6d09757e385305c73f5022c32550258d26
+        ratelimit:
+          # renovate: datasource=docker depName=docker.io/envoyproxy/ratelimit package=docker.io/envoyproxy/ratelimit
+          image: docker.io/envoyproxy/ratelimit:c8765e89@sha256:afce1a5111cf9cb6662383c7f2c72d9c26d9cf53d8285173166d6d853074a1f7
+    config:
+      envoyGateway:
+        gateway:
+          controllerName: gateway.envoyproxy.io/gatewayclass-controller
+        # No default envoyProxy patch here: per-gateway data-plane config lives in
+        # the EnvoyProxy resource each Gateway references via
+        # spec.infrastructure.parametersRef (see envoy-proxy.yaml). Keeping a
+        # patch in the EnvoyGateway default breaks the controller's merge with an
+        # attached EnvoyProxy on 1.8.1.

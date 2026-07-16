@@ -44,28 +44,29 @@ Cilium workloads deploy into `kube-system` per upstream convention.
 ### Talos default
 
 ```yaml
-- name: cni
-  path: cni
-  dependsOn: [policy-resources, telemetry-base]
-  components: [cilium, cilium/talos, cilium/prometheus, cilium/hubble, cilium/l2]
-  substitutions:
-    k8s_service_host: 10.5.0.10
-    loadbalancer_start_ip: 10.5.1.10
-    loadbalancer_end_ip: 10.5.1.30
-    cluster_name: local
-    operator_replicas: "2"
-  timeout: 15m
+flux:
+  - name: cni
+    dependsOn: [policy-resources, telemetry-install]
+    install:
+      components: [cilium, cilium/talos, cilium/prometheus, cilium/hubble, cilium/l2]
+      substitutions:
+        k8s_service_host: 10.5.0.10
+        loadbalancer_start_ip: 10.5.1.10
+        loadbalancer_end_ip: 10.5.1.30
+        cluster_name: local
+        operator_replicas: "2"
+      timeout: 15m
 ```
 
 ### Talos with Cilium as the gateway driver
 
-Adds `cilium/gateway`. The `gateway-base` dependency is contributed by
+Adds `cilium/gateway`. The `gateway-install` dependency is contributed by
 `option-gateway` so the Gateway API CRDs exist before cilium-operator
 starts.
 
 ```yaml
 components: [cilium, cilium/talos, cilium/gateway, cilium/prometheus, cilium/hubble, cilium/l2]
-dependsOn:  [policy-resources, telemetry-base, gateway-base]
+dependsOn:  [policy-resources, telemetry-install, gateway-install]
 ```
 
 ### EKS
@@ -142,7 +143,7 @@ cert-manager is not required for Hubble.
 | Add-on | Required when | Reason |
 |---|---|---|
 | `policy-resources` | `policies.enabled: true` or `gateway.driver: cilium` | Re-rolls Cilium pods after Kyverno's mutation policies are live. When `cilium/gateway` is active, also provides the Kyverno CRDs the LBIPAM sharing ClusterPolicy depends on. |
-| `telemetry-base` | `telemetry.metrics.enabled: true` or `telemetry.logs.enabled: true` | The `cilium/prometheus` ServiceMonitor and the Hubble ServiceMonitor target Prometheus from telemetry. |
+| `telemetry-install` | `telemetry.metrics.enabled: true` or `telemetry.logs.enabled: true` | The `cilium/prometheus` ServiceMonitor and the Hubble ServiceMonitor target Prometheus from telemetry. |
 
 <!-- END_KUSTOMIZE_DOCS -->
 

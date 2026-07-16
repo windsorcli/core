@@ -47,6 +47,6 @@ dependencies:
   cni:
     required_when: "always (added by `option-cni`)"
     reason: "CSI's `node-driver-registrar` sees transient loopback connectivity drops during eBPF init and crash-loops without this ordering."
-  telemetry-base:
+  telemetry-install:
     required_when: "longhorn driver AND (`telemetry.metrics.enabled: true` OR `telemetry.logs.enabled: true`)"
     reason: "The `longhorn/prometheus` ServiceMonitor needs Prometheus to be live."

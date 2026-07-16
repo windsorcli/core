@@ -81,33 +81,29 @@ cases:
           destroy: false
           inputs:
             concurrency: 2
-      kustomize:
+      flux:
         - name: cni
-          path: cni
           dependsOn:
             - policy-resources
-          components:
-            - cilium
-            - cilium/talos
-            - cilium/l2
-          substitutions:
-            k8s_service_host: "10.5.0.10"
-            loadbalancer_start_ip: "10.5.1.10"
-            loadbalancer_end_ip: "10.5.1.100"
-          timeout: 15m
-          interval: 5m
+          install:
+            components:
+              - cilium
+              - cilium/talos
+              - cilium/l2
+            substitutions:
+              k8s_service_host: "10.5.0.10"
+              loadbalancer_start_ip: "10.5.1.10"
+              loadbalancer_end_ip: "10.5.1.100"
         - name: csi
-          path: csi
           dependsOn:
             - policy-resources
-            - telemetry-base
-          components:
-            - longhorn
-          timeout: 20m
-          interval: 5m
+            - telemetry-install
+          install:
+            components:
+              - longhorn
     exclude:
       kustomize:
-        - name: lb-base
+        - name: lb-install
         - name: lb-resources
 
   # Full: Test all configurable options together (explicit flannel CNI to exercise MetalLB path)
@@ -185,53 +181,45 @@ cases:
           destroy: false
           inputs:
             concurrency: 2
-      kustomize:
+      flux:
+        - name: lb
+          dependsOn:
+            - policy-resources
+          install:
+            components:
+              - metallb
+            timeout: 5m
+            interval: 5m
+          resources:
+            - components:
+                - metallb
+                - metallb/arp
+              substitutions:
+                loadbalancer_ip_range: 10.10.1.10-10.10.1.100
+              timeout: 5m
+              interval: 5m
+        - name: gateway
+          dependsOn:
+            - pki-install
+          install:
+            components:
+              - envoy
+              - envoy/loadbalancer
+              - envoy/prometheus
+            timeout: 10m
+            interval: 5m
+          resources:
+            - components:
+                - dns
+              timeout: 10m
+              interval: 5m
         - name: csi
-          path: csi
           dependsOn:
             - policy-resources
-            - telemetry-base
-          components:
-            - longhorn
-          timeout: 20m
-          interval: 5m
-        - name: lb-base
-          path: lb/base
-          dependsOn:
-            - policy-resources
-          components:
-            - metallb
-          timeout: 5m
-          interval: 5m
-        - name: lb-resources
-          path: lb/resources
-          dependsOn:
-            - lb-base
-          components:
-            - metallb
-            - metallb/arp
-          substitutions:
-            loadbalancer_ip_range: 10.10.1.10-10.10.1.100
-          timeout: 5m
-          interval: 5m
-        - name: gateway-base
-          path: gateway/base
-          dependsOn:
-            - pki-base
-          components:
-            - envoy
-            - envoy/loadbalancer
-            - envoy/prometheus
-          timeout: 10m
-          interval: 5m
-        - name: gateway-resources
-          path: gateway/resources
-          dependsOn:
-            - gateway-base
-          components:
-            - dns
-          timeout: 10m
-          interval: 5m
+            - telemetry-install
+          install:
+            components:
+              - longhorn
 
   # Edge case: colima-incus uses Incus path (platform selects compute/incus; option-workstation does not apply)
   - name: colima-incus uses compute/incus not docker stack
@@ -271,16 +259,16 @@ cases:
           inputs:
             network_name: incusbr0
             create_network: false
-      kustomize:
-        - name: telemetry-base
-          path: telemetry/base
-          components:
-            - prometheus
-            - prometheus/flux
-            - fluentbit
+      flux:
+        - name: telemetry
+          install:
+            components:
+              - prometheus
+              - prometheus/flux
+              - fluentbit
 
   # colima-incus: defaults to flannel CNI (no cilium overhead; used for storage driver testing)
-  - name: colima-incus defaults to flannel CNI and excludes lb
+  - name: colima-incus defaults to flannel CNI and kube-vip lb
     values:
       platform: incus
       workstation:
@@ -294,16 +282,19 @@ cases:
           path: gitops/flux
           dependsOn:
             - cluster
-      kustomize:
-        - name: lb-base
-          path: lb/base
-        - name: lb-resources
-          path: lb/resources
+      flux:
+        - name: lb
+          install:
+            components:
+              - kube-vip
+              - kube-vip/arp
     exclude:
       terraform:
         - name: cni
-      kustomize:
+      flux:
         - name: cni
+      kustomize:
+        - name: lb-install
 
   # Edge case: Schedulable controlplanes use controlplane volume path
   - name: schedulable controlplanes use controlplane volume path for CSI
@@ -325,5 +316,5 @@ cases:
           local_base_path: /data/local
     terraformOutputs: *default-terraform-outputs
     expect:
-      kustomize:
+      flux:
         - name: csi

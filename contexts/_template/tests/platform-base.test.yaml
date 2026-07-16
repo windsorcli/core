@@ -34,57 +34,52 @@ cases:
       network: *default-network
       cluster: *default-cluster
     expect:
-      kustomize:
-        - name: policy-base
-          path: policy/base
-          components:
-            - kyverno
-          timeout: 30m
-          interval: 5m
-        - name: policy-resources
-          path: policy/resources
-          dependsOn:
-            - policy-base
-          components:
-            - kyverno/resource-limits-requests
-            - kyverno/require-image-digest
-          timeout: 5m
-          interval: 5m
-        - name: telemetry-base
-          path: telemetry/base
-          components:
-            - prometheus
-            - prometheus/flux
-            - fluentbit
-          timeout: 30m
-          interval: 10m
-        - name: telemetry-resources
-          path: telemetry/resources
-          dependsOn:
-            - telemetry-base
-          components:
-            - metrics-server
-            - prometheus
-            - prometheus/flux
-            - fluentbit
-            - fluentbit/containerd
-            - fluentbit/kubernetes
-            - fluentbit/parser
-            - fluentbit/systemd
-            - fluentbit/prometheus
-            - fluentbit/fluentd
-          timeout: 10m
-          interval: 5m
-        - name: pki-base
-          path: pki/base
+      flux:
+        - name: policy
+          install:
+            components:
+              - kyverno
+            timeout: 30m
+            interval: 5m
+          resources:
+            - components:
+                - kyverno/resource-limits-requests
+                - kyverno/require-image-digest
+              timeout: 5m
+              interval: 5m
+        - name: telemetry
+          install:
+            components:
+              - prometheus
+              - prometheus/flux
+              - fluentbit
+              - metrics-server
+            timeout: 30m
+            interval: 10m
+          resources:
+            - components:
+                - prometheus
+                - prometheus/flux
+                - fluentbit
+                - fluentbit/containerd
+                - fluentbit/kubernetes
+                - fluentbit/parser
+                - fluentbit/systemd
+                - fluentbit/prometheus
+                - fluentbit/fluentd
+              timeout: 10m
+              interval: 5m
+        - name: pki
           dependsOn:
             - policy-resources
-            - telemetry-base
-          components:
-            - cert-manager
-            - cert-manager/prometheus
-          timeout: 20m
-          interval: 5m
+            - telemetry-install
+          install:
+            components:
+              - cert-manager
+              - cert-manager/prometheus
+            timeout: 20m
+            interval: 5m
+      kustomize:
         - name: observability
           path: observability
           components:
@@ -94,9 +89,12 @@ cases:
           timeout: 15m
           interval: 10m
       crds:
-        - cert-manager-1.20.2
-        - prometheus-operator-0.91.0
-        - fluent-operator-4.1.0
+        # renovate: datasource=github-releases depName=cert-manager/cert-manager package=cert-manager/cert-manager
+        - cert-manager-1.21.0
+        # renovate: datasource=github-releases depName=prometheus-operator/prometheus-operator package=prometheus-operator/prometheus-operator
+        - prometheus-operator-0.92.1
+        # renovate: datasource=helm depName=fluent-operator package=fluent-operator helmRepo=https://fluent.github.io/helm-charts
+        - fluent-operator-4.2.0
 
   # Full: observability addon enabled; addon wins for same-name observability (grafana + fluentd/outputs/stdout)
   - name: full config with explicit fluentd driver and observability enabled
@@ -114,23 +112,21 @@ cases:
           enabled: true
           logs_driver: stdout
     expect:
+      flux:
+        - name: telemetry
+          resources:
+            - components:
+                - prometheus
+                - prometheus/flux
+                - fluentbit
+                - fluentbit/containerd
+                - fluentbit/kubernetes
+                - fluentbit/parser
+                - fluentbit/systemd
+                - fluentbit/fluentd
+              timeout: 10m
+              interval: 5m
       kustomize:
-        - name: telemetry-resources
-          path: telemetry/resources
-          dependsOn:
-            - telemetry-base
-          components:
-            - metrics-server
-            - prometheus
-            - prometheus/flux
-            - fluentbit
-            - fluentbit/containerd
-            - fluentbit/kubernetes
-            - fluentbit/parser
-            - fluentbit/systemd
-            - fluentbit/fluentd
-          timeout: 10m
-          interval: 5m
         - name: observability
           path: observability
           components:
@@ -158,17 +154,19 @@ cases:
         observability:
           enabled: false
     expect:
+      flux:
+        - name: telemetry
+          resources:
+            - components:
+                - fluentbit/fluentd
       kustomize:
-        - name: telemetry-resources
-          components:
-            - fluentbit/fluentd
         - name: observability
           components:
             - fluentd
             - fluentd/filters/otel
             - fluentd/prometheus
 
-  # Edge case: elasticsearch logs driver; addon overrides telemetry-base (filebeat). Intended: addon wins. See docs/cli-bugs.md if this fails.
+  # Edge case: elasticsearch logs driver; addon overrides the telemetry system's install tier (filebeat). Addon wins.
   - name: fluentd excluded when elasticsearch logs driver used
     values:
       platform: metal
@@ -184,31 +182,27 @@ cases:
           enabled: true
           logs_driver: elasticsearch
     expect:
+      flux:
+        - name: telemetry
+          install:
+            components:
+              - prometheus
+              - prometheus/flux
+              - filebeat
+              - metrics-server
+            timeout: 30m
+            interval: 10m
+          resources:
+            - components:
+                - prometheus
+                - prometheus/flux
+              timeout: 10m
+              interval: 5m
       kustomize:
-        - name: telemetry-base
-          path: telemetry/base
-          strategy: replace
-          components:
-            - prometheus
-            - prometheus/flux
-            - filebeat
-          timeout: 30m
-          interval: 10m
-        - name: telemetry-resources
-          path: telemetry/resources
-          strategy: replace
-          dependsOn:
-            - telemetry-base
-          components:
-            - metrics-server
-            - prometheus
-            - prometheus/flux
-          timeout: 10m
-          interval: 5m
         - name: observability
           path: observability
           dependsOn:
-            - csi
+            - csi-install
             - gateway-resources
           components:
             - elasticsearch
@@ -229,23 +223,20 @@ cases:
         logs:
           driver: none
     expect:
-      kustomize:
-        - name: telemetry-resources
-          path: telemetry/resources
-          dependsOn:
-            - telemetry-base
-          components:
-            - metrics-server
-            - prometheus
-            - prometheus/flux
-            - fluentbit
-            - fluentbit/containerd
-            - fluentbit/kubernetes
-            - fluentbit/parser
-            - fluentbit/systemd
-            - fluentbit/prometheus
-          timeout: 10m
-          interval: 5m
+      flux:
+        - name: telemetry
+          resources:
+            - components:
+                - prometheus
+                - prometheus/flux
+                - fluentbit
+                - fluentbit/containerd
+                - fluentbit/kubernetes
+                - fluentbit/parser
+                - fluentbit/systemd
+                - fluentbit/prometheus
+              timeout: 10m
+              interval: 5m
     exclude:
       kustomize:
         - name: observability
@@ -262,14 +253,13 @@ cases:
         require_image_digest: disabled
         resource_limits_requests: disabled
     expect:
-      kustomize:
-        - name: policy-resources
-          path: policy/resources
-          dependsOn:
-            - policy-base
-          components: []
-          timeout: 5m
-          interval: 5m
+      flux:
+        - name: policy
+          resources:
+            - components: []
+              timeout: 5m
+              interval: 5m
+              retryInterval: 1m
 
   # Kyverno reports-controller opt-in layers in the kyverno/reports component.
   - name: policies.reporting enabled adds kyverno/reports component
@@ -282,12 +272,12 @@ cases:
       policies:
         reporting: enabled
     expect:
-      kustomize:
-        - name: policy-base
-          path: policy/base
-          components:
-            - kyverno
-            - kyverno/reports
+      flux:
+        - name: policy
+          install:
+            components:
+              - kyverno
+              - kyverno/reports
 
   # Kyverno cleanup-controller opt-in layers in the kyverno/cleanup component.
   - name: policies.cleanup enabled adds kyverno/cleanup component
@@ -300,12 +290,12 @@ cases:
       policies:
         cleanup: enabled
     expect:
-      kustomize:
-        - name: policy-base
-          path: policy/base
-          components:
-            - kyverno
-            - kyverno/cleanup
+      flux:
+        - name: policy
+          install:
+            components:
+              - kyverno
+              - kyverno/cleanup
 
   # Both opt-in flags compose.
   - name: policies.reporting and policies.cleanup enabled adds both components
@@ -319,13 +309,13 @@ cases:
         reporting: enabled
         cleanup: enabled
     expect:
-      kustomize:
-        - name: policy-base
-          path: policy/base
-          components:
-            - kyverno
-            - kyverno/reports
-            - kyverno/cleanup
+      flux:
+        - name: policy
+          install:
+            components:
+              - kyverno
+              - kyverno/reports
+              - kyverno/cleanup
 
   # topology=ha layers in the kyverno/ha component (multi-replica admission
   # controller + PDB) so the webhook backend survives drains and rollouts.
@@ -338,16 +328,16 @@ cases:
       cluster: *default-cluster
       topology: ha
     expect:
-      kustomize:
-        - name: policy-base
-          path: policy/base
-          components:
-            - kyverno
-            - kyverno/ha
+      flux:
+        - name: policy
+          install:
+            components:
+              - kyverno
+              - kyverno/ha
 
   # policies.enabled=false skips both policy kustomizations entirely and
-  # drops the policy-resources dep from pki-base.
-  - name: policies.enabled false excludes policy kustomizations and drops pki-base dep
+  # drops the policy-resources dep from pki-install.
+  - name: policies.enabled false excludes policy kustomizations and drops pki-install dep
     values:
       platform: metal
       gateway:
@@ -357,23 +347,22 @@ cases:
       policies:
         enabled: false
     expect:
-      kustomize:
-        - name: pki-base
-          path: pki/base
+      flux:
+        - name: pki
           dependsOn:
-            - telemetry-base
-          components:
-            - cert-manager
-            - cert-manager/prometheus
+            - telemetry-install
+          install:
+            components:
+              - cert-manager
+              - cert-manager/prometheus
     exclude:
-      kustomize:
-        - name: policy-base
-        - name: policy-resources
+      flux:
+        - name: policy
 
-  # Both metrics and logs disabled skips both telemetry kustomizations, the
-  # fluentd aggregator, and strips telemetry-base / cert-manager/prometheus
-  # from pki-base entirely.
-  - name: telemetry metrics and logs both disabled excludes telemetry pipeline and trims pki-base
+  # Both metrics and logs disabled skips the telemetry system, the
+  # fluentd aggregator, and strips the telemetry-install dep / cert-manager/prometheus
+  # from pki-install entirely.
+  - name: telemetry metrics and logs both disabled excludes telemetry pipeline and trims pki-install
     values:
       platform: metal
       gateway:
@@ -386,23 +375,26 @@ cases:
         logs:
           enabled: false
     expect:
-      kustomize:
-        - name: pki-base
-          path: pki/base
+      flux:
+        - name: pki
           dependsOn:
             - policy-resources
-          components:
-            - cert-manager
+          install:
+            components:
+              - cert-manager
       crds:
-        - cert-manager-1.20.2
+        # renovate: datasource=github-releases depName=cert-manager/cert-manager package=cert-manager/cert-manager
+        - cert-manager-1.21.0
     exclude:
+      flux:
+        - name: telemetry
       kustomize:
-        - name: telemetry-base
-        - name: telemetry-resources
         - name: observability
       crds:
-        - prometheus-operator-0.91.0
-        - fluent-operator-4.1.0
+        # renovate: datasource=github-releases depName=prometheus-operator/prometheus-operator package=prometheus-operator/prometheus-operator
+        - prometheus-operator-0.92.1
+        # renovate: datasource=helm depName=fluent-operator package=fluent-operator helmRepo=https://fluent.github.io/helm-charts
+        - fluent-operator-4.2.0
 
   # Metrics on, logs off: Prometheus stack deploys, fluent-bit and fluentd are
   # dropped. cert-manager/prometheus stays (metrics are on).
@@ -417,28 +409,25 @@ cases:
         logs:
           enabled: false
     expect:
-      kustomize:
-        - name: telemetry-base
-          path: telemetry/base
-          components:
-            - prometheus
-            - prometheus/flux
-        - name: telemetry-resources
-          path: telemetry/resources
-          dependsOn:
-            - telemetry-base
-          components:
-            - metrics-server
-            - prometheus
-            - prometheus/flux
-        - name: pki-base
-          path: pki/base
+      flux:
+        - name: telemetry
+          install:
+            components:
+              - prometheus
+              - prometheus/flux
+              - metrics-server
+          resources:
+            - components:
+                - prometheus
+                - prometheus/flux
+        - name: pki
           dependsOn:
             - policy-resources
-            - telemetry-base
-          components:
-            - cert-manager
-            - cert-manager/prometheus
+            - telemetry-install
+          install:
+            components:
+              - cert-manager
+              - cert-manager/prometheus
     exclude:
       kustomize:
         - name: observability
@@ -457,42 +446,43 @@ cases:
         metrics:
           enabled: false
     expect:
-      kustomize:
-        - name: telemetry-base
-          path: telemetry/base
-          components:
-            - fluentbit
-        - name: telemetry-resources
-          path: telemetry/resources
-          dependsOn:
-            - telemetry-base
-          components:
-            - fluentbit
-            - fluentbit/containerd
-            - fluentbit/kubernetes
-            - fluentbit/parser
-            - fluentbit/systemd
-            - fluentbit/fluentd
-        - name: pki-base
-          path: pki/base
+      flux:
+        - name: telemetry
+          install:
+            components:
+              - fluentbit
+          resources:
+            - components:
+                - fluentbit
+                - fluentbit/containerd
+                - fluentbit/kubernetes
+                - fluentbit/parser
+                - fluentbit/systemd
+                - fluentbit/fluentd
+        - name: pki
           dependsOn:
             - policy-resources
-            - telemetry-base
-          components:
-            - cert-manager
+            - telemetry-install
+          install:
+            components:
+              - cert-manager
+      kustomize:
         - name: observability
           path: observability
           dependsOn:
-            - telemetry-base
+            - telemetry-install
           components:
             - fluentd
             - fluentd/filters/otel
       crds:
-        - cert-manager-1.20.2
-        - fluent-operator-4.1.0
+        # renovate: datasource=github-releases depName=cert-manager/cert-manager package=cert-manager/cert-manager
+        - cert-manager-1.21.0
+        # renovate: datasource=helm depName=fluent-operator package=fluent-operator helmRepo=https://fluent.github.io/helm-charts
+        - fluent-operator-4.2.0
     exclude:
       crds:
-        - prometheus-operator-0.91.0
+        # renovate: datasource=github-releases depName=prometheus-operator/prometheus-operator package=prometheus-operator/prometheus-operator
+        - prometheus-operator-0.92.1
 
   # Observability addon force-overrides both telemetry toggles — Grafana needs
   # Prometheus to scrape and the fluentbit→fluentd path to ship logs.
@@ -512,19 +502,19 @@ cases:
         observability:
           enabled: true
     expect:
-      kustomize:
-        - name: telemetry-base
-          path: telemetry/base
-          components:
-            - prometheus
-            - prometheus/flux
-            - fluentbit
-        - name: pki-base
-          path: pki/base
+      flux:
+        - name: telemetry
+          install:
+            components:
+              - prometheus
+              - prometheus/flux
+              - fluentbit
+        - name: pki
           dependsOn:
             - policy-resources
-            - telemetry-base
-          components:
-            - cert-manager
-            - cert-manager/prometheus
+            - telemetry-install
+          install:
+            components:
+              - cert-manager
+              - cert-manager/prometheus
 

@@ -1,0 +1,35 @@
+---
+apiVersion: helm.toolkit.fluxcd.io/v2
+kind: HelmRelease
+metadata:
+  name: cert-manager
+  namespace: system-pki
+spec:
+  interval: 5m
+  timeout: 20m
+  chart:
+    spec:
+      chart: cert-manager
+      # renovate: datasource=helm depName=cert-manager package=cert-manager helmRepo=https://charts.jetstack.io
+      version: 1.21.0
+      sourceRef: 
+        kind: HelmRepository
+        name: jetstack
+  values:
+    image:
+      # renovate: datasource=docker depName=quay.io/jetstack/cert-manager-controller package=quay.io/jetstack/cert-manager-controller
+      tag: v1.20.3@sha256:6c13d61e0348a5bc3477f8ea9a928624300b30d19b1c72a7d2b90372fc713db4
+    webhook:
+      image:
+        # renovate: datasource=docker depName=quay.io/jetstack/cert-manager-webhook package=quay.io/jetstack/cert-manager-webhook
+        tag: v1.20.3@sha256:a61e817632cebed3bb59a189327e786fa3fdd7597167d994a1848d98fd55848f
+    cainjector:
+      image:
+        # renovate: datasource=docker depName=quay.io/jetstack/cert-manager-cainjector package=quay.io/jetstack/cert-manager-cainjector
+        tag: v1.20.3@sha256:06ad347fe0dc2eb84cc355c26f6752e05e87dceb6447f5cd29b963dd66dfd8bd
+    startupapicheck:
+      image:
+        # renovate: datasource=docker depName=quay.io/jetstack/cert-manager-startupapicheck package=quay.io/jetstack/cert-manager-startupapicheck
+        tag: v1.20.3@sha256:b0c9a2c18d02f3c40a9e091a6fe9afdf39cbf7fb2d9acc18c9881c21c625f2dc
+    crds:
+      enabled: false

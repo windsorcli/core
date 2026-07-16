@@ -1,0 +1,27 @@
+---
+apiVersion: gateway.envoyproxy.io/v1alpha1
+kind: EnvoyProxy
+metadata:
+  name: external
+  namespace: system-gateway
+spec:
+  provider:
+    kubernetes:
+      envoyService:
+        patch:
+          type: JSONMerge
+          value:
+            spec:
+              type: NodePort
+              externalTrafficPolicy: Cluster
+              ports:
+                - name: http-80
+                  protocol: TCP
+                  port: 80
+                  targetPort: 10080
+                  nodePort: 30080
+                - name: https-443
+                  protocol: TCP
+                  port: 443
+                  targetPort: 10443
+                  nodePort: 30443

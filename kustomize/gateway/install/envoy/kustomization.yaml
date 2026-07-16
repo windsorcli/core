@@ -1,0 +1,10 @@
+apiVersion: kustomize.config.k8s.io/v1alpha1
+kind: Component
+resources:
+  - helm-repository.yaml
+  # Envoy Gateway CRDs are vendored under kustomize/crds/envoy-gateway-1.8.1 and
+  # declared via the facet `crds:` section (Flux applies them before this chart;
+  # the HelmRelease keeps `crds: Skip`).
+  - gatewayclass.yaml
+  - helm-release.yaml
+  - envoy-proxy.yaml

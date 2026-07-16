@@ -5,13 +5,13 @@ description: Kyverno admission controller and the cluster's baseline ClusterPoli
 
 # Policy
 
-Kyverno is the policy engine. The add-on splits across two
-Kustomization paths so Flux can reconcile the operator (CRDs +
-workloads) before the ClusterPolicy CRs that depend on those CRDs.
-`policy-base` installs the Kyverno Helm release, with optional patches
-that enable the reports and cleanup controllers. `policy-resources`
-applies the baseline ClusterPolicies that this blueprint relies on,
-and depends on `policy-base`.
+Kyverno is the policy engine. The add-on is a `flux:` system entry
+(`policy`) so Flux can reconcile the operator (CRDs + workloads) before
+the ClusterPolicy CRs that depend on those CRDs. `install` installs the
+Kyverno Helm release, with optional patches that enable the reports and
+cleanup controllers. `resources` applies the baseline ClusterPolicies
+that this blueprint relies on, and implicitly depends on `install`
+(compiled name: `policy-install` / `policy-resources`).
 
 The baseline policies match Pods in `system-*` namespaces and in
 namespaces labeled `policy.windsorcli.dev/managed: true`. Workload
@@ -72,18 +72,16 @@ out resource creation. Three things bound that risk:
 ### Baseline (admission + ClusterPolicies)
 
 ```yaml
-- name: policy-base
-  path: policy/base
-  components: [kyverno]
-  timeout: 30m
-
-- name: policy-resources
-  path: policy/resources
-  dependsOn: [policy-base]
-  components:
-    - kyverno/resource-limits-requests
-    - kyverno/require-image-digest
-  timeout: 5m
+flux:
+  - name: policy
+    install:
+      components: [kyverno]
+      timeout: 30m
+    resources:
+      - components:
+          - kyverno/resource-limits-requests
+          - kyverno/require-image-digest
+        timeout: 5m
 ```
 
 This is what `policies.enabled: true` materializes (the default).
@@ -91,9 +89,10 @@ This is what `policies.enabled: true` materializes (the default).
 ### With Policy Reports
 
 ```yaml
-- name: policy-base
-  path: policy/base
-  components: [kyverno, kyverno/reports]
+flux:
+  - name: policy
+    install:
+      components: [kyverno, kyverno/reports]
 ```
 
 Set `policies.reporting: enabled`. PolicyReport and
@@ -103,9 +102,10 @@ for ingest by Policy Reporter or Grafana dashboards.
 ### With Cleanup Policies
 
 ```yaml
-- name: policy-base
-  path: policy/base
-  components: [kyverno, kyverno/cleanup]
+flux:
+  - name: policy
+    install:
+      components: [kyverno, kyverno/cleanup]
 ```
 
 Set `policies.cleanup: enabled`. The blueprint ships no
@@ -120,7 +120,7 @@ to add your own.
 |---|---|---|
 | `FLUX_SYSTEM_NAMESPACE` | always (defaults to `system-gitops`) | Namespace excluded from the Kyverno admission webhooks alongside `kube-system`, so Flux can always reconcile even if the admission controller is unavailable. |
 
-## Components — `policy-base`
+## Components — `policy-install`
 
 | Component | Enable when | Effect |
 |---|---|---|
@@ -134,7 +134,7 @@ to add your own.
 | Component | Enable when | Effect |
 |---|---|---|
 | `kyverno/resource-limits-requests` | `policies.resource_limits_requests != 'disabled'` | ClusterPolicy `resource-limits-requests` validating (Audit) that every container has CPU and memory `resources.limits` + `resources.requests` set. Matches Pods in `system-*` namespaces and namespaces labeled `policy.windsorcli.dev/managed: true`. Skips `kube-system`. |
-| `kyverno/require-image-digest` | `policies.require_image_digest != 'disabled'` | ClusterPolicy `require-image-digest` validating (Enforce) that every container image reference includes a `sha256:` digest (`repo:tag@sha256:…` or `repo@sha256:…`). Same namespace match scope as `resource-limits-requests`. |
+| `kyverno/require-image-digest` | `policies.require_image_digest != 'disabled'` | ClusterPolicy `require-image-digest` validating (Enforce) that every container image reference includes a `sha256:` digest (`repo:tag@sha256:…` or `repo@sha256:…`). Same namespace match scope as `resource-limits-requests`, plus an exemption for the Flux namespace (labelled `app.kubernetes.io/part-of: flux`) whose operator-installed controllers are version-pinned rather than digest-pinned. |
 
 <!-- END_KUSTOMIZE_DOCS -->
 

@@ -4,23 +4,23 @@ variable "flux_namespace" {
   default     = "system-gitops"
 }
 
-variable "flux_helm_version" {
-  description = "The version of Flux Helm chart to install"
+variable "flux_operator_version" {
+  description = "The version of the flux-operator and flux-instance Helm charts to install"
   type        = string
-  # renovate: datasource=helm depName=flux package=flux2 helmRepo=https://fluxcd-community.github.io/helm-charts
-  default = "2.18.4"
+  # renovate: datasource=github-releases depName=flux-operator package=controlplaneio-fluxcd/flux-operator
+  default = "0.55.0"
 
   validation {
-    condition     = can(regex("^[0-9]+\\.[0-9]+\\.[0-9]+$", var.flux_helm_version))
+    condition     = can(regex("^[0-9]+\\.[0-9]+\\.[0-9]+$", var.flux_operator_version))
     error_message = "The version must be in the format 'X.Y.Z'"
   }
 }
 
 variable "flux_version" {
-  description = "The version of Flux to install"
+  description = "The Flux distribution version the operator installs (FluxInstance spec.distribution.version)"
   type        = string
   # renovate: datasource=github-releases depName=flux package=fluxcd/flux2
-  default = "2.8.8"
+  default = "2.9.2"
 
   validation {
     condition     = can(regex("^[0-9]+\\.[0-9]+\\.[0-9]+$", var.flux_version))

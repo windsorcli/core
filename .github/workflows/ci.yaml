@@ -32,13 +32,17 @@ env:
   WINDSOR_PROJECT_ROOT: ${{ github.workspace }}
   DOCKER_HOST: unix:///var/run/docker.sock
   # renovate: datasource=github-releases depName=troubleshoot package=replicatedhq/troubleshoot
-  SUPPORT_BUNDLE_VERSION: v0.130.0
+  SUPPORT_BUNDLE_VERSION: v0.131.1
   # renovate: datasource=github-releases depName=flux package=fluxcd/flux2
-  FLUX_VERSION: v2.8.8
+  FLUX_VERSION: v2.9.2
   # renovate: datasource=github-releases depName=yq package=mikefarah/yq
   YQ_VERSION: v4.53.3
   # renovate: datasource=github-releases depName=helm package=helm/helm
-  HELM_VERSION: v4.2.2
+  HELM_VERSION: v4.2.3
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.event.pull_request.number || github.sha }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
 
@@ -50,7 +54,10 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code
-        uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7
+        with:
+          # Full history so the terraform-docs check can diff against the PR base.
+          fetch-depth: 0
 
       # br_netfilter is required to run Kubernetes on Docker; not loaded by default.
       - name: Load br_netfilter kernel module
@@ -60,7 +67,7 @@ jobs:
           echo "1" | sudo tee /proc/sys/net/bridge/bridge-nf-call-ip6tables
 
       - name: Set up Python
-        uses: actions/setup-python@a309ff8b426b58ec0e2a45f0f869d46889d02405 # v6.2.0
+        uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6.3.0
         with:
           python-version: '3.x'
 
@@ -144,9 +151,31 @@ jobs:
         if: ${{ github.event_name == 'pull_request' && !startsWith(github.head_ref, 'renovate/') }}
         run: task docs:kustomize:check
 
+      # Regenerate terraform-docs and fail only on drift in modules THIS PR
+      # changed. Pre-existing drift in untouched modules — e.g. a renovate
+      # provider bump that auto-merged to main without a docs regen — does not
+      # block unrelated PRs; you only own the docs for modules whose .tf you
+      # edited. terraform-docs is per-module, so changed-module scoping is exact.
       - name: Validate terraform module docs
         if: ${{ github.event_name == 'pull_request' && !startsWith(github.head_ref, 'renovate/') }}
-        run: task docs:terraform:check
+        run: |
+          changed="$(git diff --name-only "${{ github.event.pull_request.base.sha }}" HEAD -- terraform \
+            | grep -E '\.tf$' | xargs -rn1 dirname | sort -u || true)"
+          if [ -z "$changed" ]; then
+            echo "No terraform modules changed; skipping docs drift check."
+            exit 0
+          fi
+          task docs:terraform
+          rc=0
+          for d in $changed; do
+            if [ -f "$d/README.md" ] && ! git diff --quiet -- "$d/README.md"; then
+              echo "::error::terraform-docs drift in $d (changed by this PR). Run 'task docs:terraform' and commit the result."
+              git --no-pager diff -- "$d/README.md"
+              rc=1
+            fi
+          done
+          git checkout -- terraform/
+          exit $rc
 
       - name: Checkov GitHub Action
         uses: bridgecrewio/checkov-action@68260132005eaae0e6f84c7a73cc3b1532f678bf # v12.3058.0
@@ -156,7 +185,7 @@ jobs:
           output_file_path: console,results.sarif
 
       - name: Upload SARIF file
-        uses: github/codeql-action/upload-sarif@8aad20d150bbac5944a9f9d289da16a4b0d87c1e # v4.36.2
+        uses: github/codeql-action/upload-sarif@99df26d4f13ea111d4ec1a7dddef6063f76b97e9 # v4.37.0
         with:
           sarif_file: results.sarif
 
@@ -168,7 +197,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code
-        uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7
 
       - name: Setup Terraform
         uses: hashicorp/setup-terraform@dfe3c3f87815947d99a8997f908cb6525fc44e9e # v4.0.1
@@ -219,7 +248,7 @@ jobs:
       # fresh. Kernel module, Docker daemon tuning, and required CLIs are
       # installed here before anything Windsor-related runs.
       - name: Checkout code
-        uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7
         with:
           fetch-depth: ${{ matrix.mode == 'upgrade' && '0' || '1' }}
 
@@ -346,7 +375,7 @@ jobs:
         run: mkdir -p .windsor/cache/docker
 
       - name: Cache docker cache
-        uses: actions/cache@27d5ce7f107fe9357f9df03efb73ab90386fccae # v5.0.5
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: .windsor/cache/docker
           key: docker-cache-${{ runner.os }}-${{ matrix.mode }}-${{ github.sha }}
@@ -415,9 +444,10 @@ jobs:
       # HEAD phase — both modes
       # -----------------------------------------------------------------------
       # Fresh: a single `windsor up` on HEAD.
-      # Upgrade: apply HEAD on top of the converged baseline without reinit,
-      # then wait for Flux to catch up past the captured revision before
-      # checking health.
+      # Upgrade: `windsor apply --prune` on top of the converged baseline
+      # without reinit, so orphaned Kustomizations from the baseline are
+      # cleaned up, then wait for Flux to catch up past the captured revision
+      # before checking health.
       - name: Checkout HEAD
         if: matrix.mode == 'upgrade' && steps.infra_diff.outputs.skip != 'true'
         run: git checkout ${{ github.sha }}
@@ -437,11 +467,19 @@ jobs:
 
       - name: Windsor Up
         id: windsor_up
-        if: steps.infra_diff.outputs.skip != 'true'
-        # Upgrade mode may reboot the Talos node (e.g. on a Talos version bump);
-        # post-reboot pod restart burst takes longer to settle than a fresh install.
-        timeout-minutes: ${{ matrix.mode == 'upgrade' && 20 || 14 }}
+        if: matrix.mode == 'fresh' && steps.infra_diff.outputs.skip != 'true'
+        timeout-minutes: 14
         run: windsor up --verbose --wait
+
+      - name: Windsor Apply (prune)
+        id: windsor_apply_prune
+        if: matrix.mode == 'upgrade' && steps.infra_diff.outputs.skip != 'true'
+        # May reboot the Talos node (e.g. on a Talos version bump); post-reboot
+        # pod restart burst takes longer to settle than a fresh install.
+        # --prune exercises the orphaned-Kustomization cleanup an in-place
+        # upgrade relies on, which `windsor up` never performs.
+        timeout-minutes: 20
+        run: windsor apply --prune --verbose
 
       - name: HEAD — Wait for GitRepository revision bump
         id: gitrepo_bump
@@ -497,7 +535,7 @@ jobs:
           bad() { [ "$1" = "failure" ] || [ "$1" = "cancelled" ]; }
           if bad "${{ steps.baseline_up.outcome }}" || bad "${{ steps.baseline_health.outcome }}"; then
             echo "phase=baseline" >> $GITHUB_OUTPUT
-          elif bad "${{ steps.windsor_plan.outcome }}" || bad "${{ steps.windsor_up.outcome }}" || bad "${{ steps.gitrepo_bump.outcome }}" || bad "${{ steps.windsor_health.outcome }}"; then
+          elif bad "${{ steps.windsor_plan.outcome }}" || bad "${{ steps.windsor_up.outcome }}" || bad "${{ steps.windsor_apply_prune.outcome }}" || bad "${{ steps.gitrepo_bump.outcome }}" || bad "${{ steps.windsor_health.outcome }}"; then
             if [ "${{ matrix.mode }}" = "upgrade" ]; then
               echo "phase=upgrade" >> $GITHUB_OUTPUT
             else
@@ -541,17 +579,50 @@ jobs:
           retention-days: 30
 
       # -----------------------------------------------------------------------
-      # Claude investigation (read-only)
+      # Claude investigation (read-only, first-push-only)
       # -----------------------------------------------------------------------
-      # Runs on any non-none phase. Inspects the still-running cluster and
-      # publishes a diagnosis to the PR conversation (upsert), step summary,
-      # and uploaded artifact. No cluster mutation — strictly read-only tools.
-      - name: Investigate failure with Claude
-        if: always() && steps.phase.outputs.phase != 'none' && github.event_name == 'pull_request'
-        uses: anthropics/claude-code-action@2fee15510437d71399d9139ed60433470484a8fb # v1.0.153
+      # Three steps: (1) a cheap bash orientation glance — what's red plus the
+      # failed-test log tail, no tokens; (2) Claude investigates the LIVE
+      # cluster interactively from that starting point until it finds root
+      # cause; (3) a deterministic publish. Gated on the PR-open event so it
+      # runs at most once per PR — a renovate rebase is a `synchronize` event
+      # and is never eligible, and a breaking change rebased into many open
+      # PRs cannot trigger a storm. `baseline` phase is excluded (main is red,
+      # not this PR). No cluster mutation — strictly read-only tools.
+      - name: Collect cluster glance
+        id: seed
+        if: always() && steps.phase.outputs.phase != 'none' && steps.phase.outputs.phase != 'baseline' && github.event_name == 'pull_request' && github.event.action == 'opened'
         env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           GH_REPO: ${{ github.repository }}
-          PR_NUMBER: ${{ github.event.pull_request.number }}
+          RUN_ID: ${{ github.run_id }}
+        run: |
+          SEED=/tmp/cluster-glance.txt
+          {
+            echo "# Failed CI step logs (tail)"
+            gh run view "$RUN_ID" --repo "$GH_REPO" --log-failed 2>/dev/null \
+              | tail -n 120 || echo "(no failed-step logs available)"
+            echo
+            echo "# Flux kustomizations"
+            windsor exec -- kubectl get kustomizations -A 2>&1 || true
+            echo
+            echo "# Flux helmreleases"
+            windsor exec -- kubectl get helmreleases -A 2>&1 || true
+            echo
+            echo "# Pods not Running/Succeeded"
+            windsor exec -- kubectl get pods -A \
+              --field-selector=status.phase!=Running,status.phase!=Succeeded 2>&1 || true
+            echo
+            echo "# Recent Warning events"
+            windsor exec -- kubectl get events -A --field-selector type=Warning \
+              --sort-by=.lastTimestamp 2>&1 | tail -n 30 || true
+          } > "$SEED" 2>&1
+          echo "Wrote $(wc -l < "$SEED") lines to $SEED"
+
+      - name: Investigate failure with Claude
+        if: always() && steps.seed.outcome == 'success' && steps.phase.outputs.phase != 'none' && steps.phase.outputs.phase != 'baseline' && github.event_name == 'pull_request' && github.event.action == 'opened'
+        uses: anthropics/claude-code-action@1298632ce7736903d02a1435002705aa2a594a6c # v1.0.175
+        env:
           RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
           RUN_ID: ${{ github.run_id }}
           COMMIT_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
@@ -563,78 +634,65 @@ jobs:
           github_token: ${{ secrets.GITHUB_TOKEN }}
           allowed_bots: "renovate"
           prompt: |
-            The integration test just failed. The local Windsor cluster
-            is still running on this runner and has NOT been torn down.
-            Inspect it, cross-reference the CI run's logs, and publish a
-            short root-cause diagnosis.
+            The integration test just failed and the local Windsor cluster is
+            STILL RUNNING on this runner — you can inspect it live. Investigate
+            it directly and keep going until you have found the actual root
+            cause, then write your diagnosis.
 
             ## Context — mode and phase
 
             MODE=`$MODE`:
               - `fresh`   — a single `windsor up` on this commit. Simulates
                             a new user bringing up the cluster.
-              - `upgrade` — apply the `origin/main` baseline, then apply
-                            this commit on top of the converged baseline.
-                            Simulates an existing user upgrading.
+              - `upgrade` — apply the `origin/main` baseline, then apply this
+                            commit on top of the converged baseline. Simulates
+                            an existing user upgrading.
 
             PHASE=`$PHASE`:
               - `install`  — fresh-mode `windsor up` failed.
-              - `baseline` — upgrade-mode baseline did not come up. Main
-                             is red — NOT caused by this PR's changes.
-                             Triage should go to whoever broke main.
               - `upgrade`  — upgrade-mode HEAD apply on top of a converged
-                             baseline failed. This IS the signal upgrade
-                             tests exist to catch: this PR breaks the
-                             upgrade path.
+                             baseline failed. This IS the signal upgrade tests
+                             exist to catch: this PR breaks the upgrade path.
 
-            ## Step 1 — Read the CI run's failure logs
+            ## How to investigate
 
-            Pull the failed step logs for this run so the diagnosis is
-            anchored to what CI actually saw, not just cluster state:
+            Start by reading the orientation glance: `cat
+            /tmp/cluster-glance.txt`. It lists what's red (flux kustomizations,
+            helmreleases, non-running pods, recent Warning events) and the
+            failed-test log tail. It is only a starting point — not the answer.
 
-              # Identify failed jobs and steps in the current run.
-              gh run view "$RUN_ID" --repo "$GH_REPO" --json jobs \
-                --jq '.jobs[] | select(.conclusion=="failure") |
-                  {name, html_url,
-                   failed_steps: [.steps[] | select(.conclusion=="failure") | .name]}' \
-                > /tmp/failed-jobs.json
-              cat /tmp/failed-jobs.json
+            From there, investigate the live cluster yourself. All
+            kubectl/talosctl commands MUST be prefixed with `windsor exec --`
+            (bare kubectl gets connection-refused in this repo). Follow the
+            failure down its causal chain until you can name the specific
+            broken object and *why* it broke — e.g. a red Kustomization → the
+            HelmRelease or objects it owns → the pods → their logs
+            (`kubectl logs`, add `--previous` for crash-loopers) → the events →
+            the source it reconciles from. Do not stop at the first symptom;
+            distinguish the true root cause from downstream casualties. Prefer
+            targeted, tailed output over dumping full YAML, and don't inspect
+            healthy resources.
 
-              # Fetch the failed-step log slices.
-              gh run view "$RUN_ID" --repo "$GH_REPO" --log-failed \
-                > /tmp/failed.log 2>&1 || true
-              tail -n 400 /tmp/failed.log
+            Phase focus:
+              - PHASE=install: which kustomization/HelmRelease/pod failed and
+                why; whether it looks like a flake or a real regression in the
+                changed code.
+              - PHASE=upgrade: what differs between baseline and post-HEAD —
+                new/changed CRDs, HelmReleases that couldn't reconcile, pods
+                stuck during rollout, webhooks rejecting admission, schema
+                incompatibility.
 
-            Treat the log tail as ground truth for *what* failed. Use the
-            live cluster to explain *why*.
+            This is READ-ONLY. Do NOT apply, delete, edit, restart, scale, or
+            otherwise mutate the cluster — inspect only.
 
-            ## Step 2 — Inspect the cluster
+            ## Write early, refine as you go
 
-            Use the `inspect-cluster` skill. All kubectl/talosctl/windsor
-            commands must be prefixed with `windsor exec --` so they run
-            inside the Windsor environment (bare kubectl will get
-            connection refused in this repo).
+            As soon as you have a working hypothesis, write `/tmp/diagnosis.md`
+            in the format below, then keep updating it in place as you confirm
+            or revise. If this step is cut short, whatever is in the file is
+            what ships — so never leave it empty once you have any signal.
 
-            Focus the inspection on the failed phase:
-              - PHASE=install: which kustomization/HelmRelease/pod failed
-                and why (events, logs, conditions). Whether it's a flake
-                or a real regression in the changed code.
-              - PHASE=baseline: whether the baseline itself is healthy now
-                — this is orthogonal to the PR. Suggested next step is
-                almost always "triage main, not this PR."
-              - PHASE=upgrade: what changed between baseline and post-HEAD
-                state — new/changed CRDs, HelmReleases that couldn't
-                reconcile, pods stuck during rollout, webhooks rejecting
-                admission, stale context or schema incompatibility.
-
-            Do NOT attempt to fix the cluster, restart pods, or mutate
-            state — read-only inspection only.
-
-            ## Write the diagnosis
-
-            Compose the report body at `/tmp/diagnosis.md` using this
-            exact shape (distinctive so humans can spot it at a glance —
-            do not deviate from the header, emoji, or sectioning):
+            ## Diagnosis format (write to /tmp/diagnosis.md)
 
               $DIAGNOSIS_MARKER
               > [!CAUTION]
@@ -646,52 +704,68 @@ jobs:
               > **Likely cause:** {one sentence}
               >
               > **Evidence:** {2-4 sentences citing the specific resource,
-              > condition, and log snippet that points at the cause.
-              > Quote log lines inline with backticks.}
+              > condition, and log snippet that points at the cause. Quote log
+              > lines inline with backticks.}
               >
-              > **Suggested next step:** {one sentence, actionable.
-              > PHASE=baseline ⇒ "triage main, not this PR."
-              > PHASE=install or upgrade ⇒ actionable on this PR.}
+              > **Suggested next step:** {one actionable sentence}
               >
-              > _Live read-only inspection by Claude. Support bundle
-              > attached to the run artifacts._
+              > _Live read-only inspection by Claude. Support bundle attached
+              > to the run artifacts._
               <!-- /claude-integration-$MODE-diagnosis -->
 
-            The `$DIAGNOSIS_MARKER` and closing
-            `<!-- /claude-integration-$MODE-diagnosis -->` lines are
-            required — they let future runs find and update this comment
-            in place.
-
-            Also save a copy to
-            `support-bundles/claude-$MODE-investigation.md` (so it rides
-            along in the uploaded artifact) and append the body to
-            `$GITHUB_STEP_SUMMARY` (so it shows on the Actions run page).
-
-            ## Publish as a PR comment (upsert)
-
-            If `$PR_NUMBER` is non-empty, upsert the diagnosis as a PR
-            conversation comment — find-then-patch-or-create:
-
-              if [ -n "$PR_NUMBER" ]; then
-                EXISTING_ID=$(gh api --paginate "repos/$GH_REPO/issues/$PR_NUMBER/comments" \
-                  --jq ".[] | select(.body | contains(\"$DIAGNOSIS_MARKER\")) | .id" \
-                  | head -n1)
-                if [ -n "$EXISTING_ID" ]; then
-                  gh api -X PATCH "repos/$GH_REPO/issues/comments/$EXISTING_ID" \
-                    --field body=@/tmp/diagnosis.md
-                else
-                  gh api -X POST "repos/$GH_REPO/issues/$PR_NUMBER/comments" \
-                    --field body=@/tmp/diagnosis.md
-                fi
-              fi
-
-            On push-to-main runs (`$PR_NUMBER` empty), skip the comment
-            step — the step summary and artifact are enough.
+            The marker lines are required — a later CI step uses them to anchor
+            the published comment. Your only output is `/tmp/diagnosis.md`; do
+            NOT post comments, touch the step summary, or write anywhere else.
+            A separate CI step publishes the result.
           claude_args: |
             --model claude-sonnet-4-6
-            --max-turns 100
-            --allowedTools Read,Grep,Glob,Write,Bash(windsor exec:*),Bash(windsor show:*),Bash(windsor context:*),Bash(gh api:*),Bash(gh run view:*),Bash(gh run list:*),Bash(jq:*),Bash(cat:*),Bash(tee:*),Bash(ls:*),Bash(head:*),Bash(tail:*),Bash(grep:*)
+            --max-turns 50
+            --allowedTools Read,Write,Bash(cat:*),Bash(windsor exec:*),Bash(tail:*),Bash(head:*),Bash(grep:*),Bash(jq:*)
             --disallowedTools WebSearch,WebFetch
+
+      # Deterministic publish. Runs even if the Claude step errored or hit the
+      # turn cap, so a cut-short investigation still ships whatever it wrote —
+      # or a stub pointing at the run. Never charges tokens.
+      - name: Publish diagnosis
+        if: always() && steps.seed.outcome == 'success' && steps.phase.outputs.phase != 'none' && steps.phase.outputs.phase != 'baseline' && github.event_name == 'pull_request' && github.event.action == 'opened'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_REPO: ${{ github.repository }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          MODE: ${{ matrix.mode }}
+          MARKER: "<!-- claude-integration-${{ matrix.mode }}-diagnosis -->"
+          END_MARKER: "<!-- /claude-integration-${{ matrix.mode }}-diagnosis -->"
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          DIAG=/tmp/diagnosis.md
+          if [ ! -s "$DIAG" ]; then
+            printf '%s\n' \
+              "$MARKER" \
+              "> [!CAUTION]" \
+              ">" \
+              "> ## 🩺 Integration diagnosis — mode: \`$MODE\`" \
+              ">" \
+              "> Automated inspection did not complete. See the [run]($RUN_URL)" \
+              "> and the uploaded support bundle for manual triage." \
+              "$END_MARKER" > "$DIAG"
+          fi
+          mkdir -p support-bundles
+          cp "$DIAG" "support-bundles/claude-$MODE-investigation.md" || true
+          {
+            echo "## Integration diagnosis — mode: $MODE"
+            cat "$DIAG"
+          } >> "$GITHUB_STEP_SUMMARY"
+          if [ -n "$PR_NUMBER" ]; then
+            EXISTING_ID=$(gh api --paginate "repos/$GH_REPO/issues/$PR_NUMBER/comments" \
+              --jq ".[] | select(.body | contains(\"$MARKER\")) | .id" | head -n1)
+            if [ -n "$EXISTING_ID" ]; then
+              gh api -X PATCH "repos/$GH_REPO/issues/comments/$EXISTING_ID" \
+                --field body=@"$DIAG"
+            else
+              gh api -X POST "repos/$GH_REPO/issues/$PR_NUMBER/comments" \
+                --field body=@"$DIAG"
+            fi
+          fi
 
       # -----------------------------------------------------------------------
       # Teardown
@@ -715,7 +789,7 @@ jobs:
     if: (startsWith(github.ref, 'refs/tags/v') || github.ref == 'refs/heads/main') && needs.integration.result == 'success'
     steps:
       - name: Checkout code
-        uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7
 
       - name: Setup Terraform
         uses: hashicorp/setup-terraform@dfe3c3f87815947d99a8997f908cb6525fc44e9e # v4.0.1
@@ -730,7 +804,7 @@ jobs:
           context: local
 
       - name: Login to GitHub Container Registry
-        uses: docker/login-action@650006c6eb7dba73a995cc03b0b2d7f5ca915bee # v4.2.0
+        uses: docker/login-action@af1e73f918a031802d376d3c8bbc3fe56130a9b0 # v4.4.0
         with:
           registry: ghcr.io
           username: ${{ github.actor }}

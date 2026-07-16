@@ -20,27 +20,27 @@
 vendors:
   - name: gateway-api-experimental
     # renovate: datasource=github-releases depName=kubernetes-sigs/gateway-api package=kubernetes-sigs/gateway-api
-    version: 1.5.1
+    version: 1.6.0
     url: https://github.com/kubernetes-sigs/gateway-api/releases/download/v${version}/experimental-install.yaml
 
   - name: envoy-gateway
     # renovate: datasource=github-releases depName=envoyproxy/gateway package=envoyproxy/gateway
-    version: 1.8.1
+    version: 1.8.2
     url: https://github.com/envoyproxy/gateway/releases/download/v${version}/envoy-gateway-crds.yaml
 
   - name: cert-manager
     # renovate: datasource=github-releases depName=cert-manager/cert-manager package=cert-manager/cert-manager
-    version: 1.20.2
+    version: 1.21.0
     url: https://github.com/cert-manager/cert-manager/releases/download/v${version}/cert-manager.crds.yaml
 
   - name: prometheus-operator
     # renovate: datasource=github-releases depName=prometheus-operator/prometheus-operator package=prometheus-operator/prometheus-operator
-    version: 0.91.0
+    version: 0.92.1
     url: https://github.com/prometheus-operator/prometheus-operator/releases/download/v${version}/stripped-down-crds.yaml
 
   - name: aws-load-balancer-controller
     # renovate: datasource=helm depName=aws-load-balancer-controller package=aws-load-balancer-controller helmRepo=https://aws.github.io/eks-charts
-    version: 3.4.0
+    version: 3.4.1
     helm:
       repo: https://aws.github.io/eks-charts
       chart: aws-load-balancer-controller
@@ -48,7 +48,7 @@ vendors:
 
   - name: fluent-operator
     # renovate: datasource=helm depName=fluent-operator package=fluent-operator helmRepo=https://fluent.github.io/helm-charts
-    version: 4.1.0
+    version: 4.2.0
     helm:
       repo: https://fluent.github.io/helm-charts
       chart: fluent-operator

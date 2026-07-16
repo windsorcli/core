@@ -24,16 +24,12 @@ x-defaults:
         - /var/mnt/local
 
   # CRDs (gateway-api, envoy-gateway) live in the blueprint's top-level `crds:`
-  # section, not in `kustomize:`. Kustomizations do not name individual CRDs in
+  # section, not in `flux:`. Kustomizations do not name individual CRDs in
   # dependsOn; the composer wires only dependency-less roots to the `crds` layer,
-  # and gateway-base/gateway-resources are not roots.
+  # and gateway-install/gateway-resources are not roots.
 
-  # Shared assertion: gateway-base with envoy loadbalancer
-  gateway-base-envoy-lb: &gateway-base-envoy-lb
-    name: gateway-base
-    path: gateway/base
-    dependsOn:
-      - pki-base
+  # Shared assertion: gateway install tier with envoy loadbalancer
+  gateway-install-envoy-lb: &gateway-install-envoy-lb
     components:
       - envoy
       - envoy/loadbalancer
@@ -41,12 +37,8 @@ x-defaults:
     timeout: 10m
     interval: 5m
 
-  # Shared assertion: gateway-base with envoy nodeport
-  gateway-base-envoy-np: &gateway-base-envoy-np
-    name: gateway-base
-    path: gateway/base
-    dependsOn:
-      - pki-base
+  # Shared assertion: gateway install tier with envoy nodeport
+  gateway-install-envoy-np: &gateway-install-envoy-np
     components:
       - envoy
       - envoy/nodeport
@@ -54,35 +46,24 @@ x-defaults:
     timeout: 10m
     interval: 5m
 
-  # Shared assertion: gateway-base with cilium (no longer depends on cni; cni
-  # depends on gateway-base instead).
-  gateway-base-cilium: &gateway-base-cilium
-    name: gateway-base
-    path: gateway/base
-    dependsOn:
-      - pki-base
+  # Shared assertion: gateway install tier with cilium (no longer depends on
+  # cni; cni depends on gateway-install instead).
+  gateway-install-cilium: &gateway-install-cilium
     components:
       - cilium
     timeout: 10m
     interval: 5m
 
-  # Shared assertion: gateway-resources
+  # Shared assertion: gateway resources tier
   gateway-resources-envoy: &gateway-resources-envoy
-    name: gateway-resources
-    path: gateway/resources
-    dependsOn:
-      - gateway-base
     substitutions:
       gateway_class_name: envoy
     timeout: 10m
     interval: 5m
 
   gateway-resources-cilium: &gateway-resources-cilium
-    name: gateway-resources
-    path: gateway/resources
     dependsOn:
-      - gateway-base
-      - cni
+      - cni-install
     substitutions:
       gateway_class_name: cilium
       loadbalancer_start_ip: "10.5.1.10"
@@ -97,14 +78,21 @@ cases:
       network: *default-network
       cluster: *default-cluster
     expect:
-      kustomize:
-        - *gateway-base-cilium
-        - *gateway-resources-cilium
+      flux:
+        - name: gateway
+          dependsOn:
+            - pki-install
+          install:
+            <<: *gateway-install-cilium
+          resources:
+            - <<: *gateway-resources-cilium
       crds:
-        - gateway-api-experimental-1.5.1
+        # renovate: datasource=github-releases depName=kubernetes-sigs/gateway-api package=kubernetes-sigs/gateway-api
+        - gateway-api-experimental-1.6.0
     exclude:
       crds:
-        - envoy-gateway-1.8.1
+        # renovate: datasource=github-releases depName=envoyproxy/gateway package=envoyproxy/gateway
+        - envoy-gateway-1.8.2
 
   # Docker Desktop: nodeport (docker-desktop defaults to envoy; no cilium bootstrap)
   - name: Docker Desktop uses nodeport gateway
@@ -128,9 +116,14 @@ cases:
       workstation:
         registries: {}
     expect:
-      kustomize:
-        - *gateway-base-envoy-np
-        - *gateway-resources-envoy
+      flux:
+        - name: gateway
+          dependsOn:
+            - pki-install
+          install:
+            <<: *gateway-install-envoy-np
+          resources:
+            - <<: *gateway-resources-envoy
 
   - name: platform docker with runtime colima uses gateway loadbalancer
     values:
@@ -153,12 +146,17 @@ cases:
       workstation:
         registries: {}
     expect:
-      kustomize:
-        - *gateway-base-envoy-lb
-        - *gateway-resources-envoy
+      flux:
+        - name: gateway
+          dependsOn:
+            - pki-install
+          install:
+            <<: *gateway-install-envoy-lb
+          resources:
+            - <<: *gateway-resources-envoy
 
   # Envoy driver
-  - name: envoy driver deploys gateway-base with envoy and gateway-resources
+  - name: envoy driver deploys gateway-install with envoy and gateway-resources
     values:
       platform: metal
       gateway:
@@ -167,12 +165,19 @@ cases:
       network: *default-network
       cluster: *default-cluster
     expect:
-      kustomize:
-        - *gateway-base-envoy-lb
-        - *gateway-resources-envoy
+      flux:
+        - name: gateway
+          dependsOn:
+            - pki-install
+          install:
+            <<: *gateway-install-envoy-lb
+          resources:
+            - <<: *gateway-resources-envoy
       crds:
-        - gateway-api-experimental-1.5.1
-        - envoy-gateway-1.8.1
+        # renovate: datasource=github-releases depName=kubernetes-sigs/gateway-api package=kubernetes-sigs/gateway-api
+        - gateway-api-experimental-1.6.0
+        # renovate: datasource=github-releases depName=envoyproxy/gateway package=envoyproxy/gateway
+        - envoy-gateway-1.8.2
 
   # Envoy + Docker Desktop: nodeport variant
   - name: envoy on Docker Desktop uses nodeport variant
@@ -196,9 +201,14 @@ cases:
       workstation:
         registries: {}
     expect:
-      kustomize:
-        - *gateway-base-envoy-np
-        - *gateway-resources-envoy
+      flux:
+        - name: gateway
+          dependsOn:
+            - pki-install
+          install:
+            <<: *gateway-install-envoy-np
+          resources:
+            - <<: *gateway-resources-envoy
 
   # Explicit gateway.service_type: NodePort works on any platform (e.g. a bare
   # metal single-node cluster with no cluster LB). Network omits
@@ -215,9 +225,14 @@ cases:
         cidr_block: 10.5.0.0/16
       cluster: *default-cluster
     expect:
-      kustomize:
-        - *gateway-base-envoy-np
-        - *gateway-resources-envoy
+      flux:
+        - name: gateway
+          dependsOn:
+            - pki-install
+          install:
+            <<: *gateway-install-envoy-np
+          resources:
+            - <<: *gateway-resources-envoy
 
   # NodePort must suppress lb_effective.enabled even when loadbalancer_driver
   # is configured: a NodePort service will never get a LoadBalancer IP, so
@@ -237,14 +252,17 @@ cases:
         cni:
           driver: flannel
     expect:
-      kustomize:
-        - *gateway-base-envoy-np
-        - name: gateway-resources
-          path: gateway/resources
-          components:
-            - flux-webhook
-          substitutions:
-            gateway_class_name: envoy
+      flux:
+        - name: gateway
+          dependsOn:
+            - pki-install
+          install:
+            <<: *gateway-install-envoy-np
+          resources:
+            - components:
+                - flux-webhook
+              substitutions:
+                gateway_class_name: envoy
 
   # Explicit gateway.service_type: LoadBalancer overrides docker-desktop's
   # default NodePort fallback.
@@ -270,9 +288,14 @@ cases:
       workstation:
         registries: {}
     expect:
-      kustomize:
-        - *gateway-base-envoy-lb
-        - *gateway-resources-envoy
+      flux:
+        - name: gateway
+          dependsOn:
+            - pki-install
+          install:
+            <<: *gateway-install-envoy-lb
+          resources:
+            - <<: *gateway-resources-envoy
 
   # Backward compatibility: ingress alias still works
   - name: legacy ingress alias maps envoy-gateway to envoy
@@ -284,12 +307,19 @@ cases:
       network: *default-network
       cluster: *default-cluster
     expect:
-      kustomize:
-        - *gateway-base-envoy-lb
-        - *gateway-resources-envoy
+      flux:
+        - name: gateway
+          dependsOn:
+            - pki-install
+          install:
+            <<: *gateway-install-envoy-lb
+          resources:
+            - <<: *gateway-resources-envoy
       crds:
-        - gateway-api-experimental-1.5.1
-        - envoy-gateway-1.8.1
+        # renovate: datasource=github-releases depName=kubernetes-sigs/gateway-api package=kubernetes-sigs/gateway-api
+        - gateway-api-experimental-1.6.0
+        # renovate: datasource=github-releases depName=envoyproxy/gateway package=envoyproxy/gateway
+        - envoy-gateway-1.8.2
 
   - name: legacy ingress alias maps nginx to envoy
     values:
@@ -300,9 +330,14 @@ cases:
       network: *default-network
       cluster: *default-cluster
     expect:
-      kustomize:
-        - *gateway-base-envoy-lb
-        - *gateway-resources-envoy
+      flux:
+        - name: gateway
+          dependsOn:
+            - pki-install
+          install:
+            <<: *gateway-install-envoy-lb
+          resources:
+            - <<: *gateway-resources-envoy
 
   # Gateway disabled
   - name: excludes gateway when disabled
@@ -314,12 +349,13 @@ cases:
       network: *default-network
       cluster: *default-cluster
     exclude:
-      kustomize:
-        - name: gateway-resources
-        - name: gateway-base
+      flux:
+        - name: gateway
       crds:
-        - gateway-api-experimental-1.5.1
-        - envoy-gateway-1.8.1
+        # renovate: datasource=github-releases depName=kubernetes-sigs/gateway-api package=kubernetes-sigs/gateway-api
+        - gateway-api-experimental-1.6.0
+        # renovate: datasource=github-releases depName=envoyproxy/gateway package=envoyproxy/gateway
+        - envoy-gateway-1.8.2
 
   # Flux webhook receiver includes webhook/gateway for Gateway API drivers
   # (push mode is the default, so no explicit gitops.mode needed)
@@ -350,11 +386,15 @@ cases:
       network: *default-network
       cluster: *default-cluster
     expect:
-      kustomize:
-        - *gateway-base-envoy-lb
+      flux:
+        - name: gateway
+          dependsOn:
+            - pki-install
+          install:
+            <<: *gateway-install-envoy-lb
 
   # Cilium driver — GatewayClass only; controller is part of Cilium CNI DaemonSet
-  - name: cilium driver deploys gateway-base with cilium and gateway-resources
+  - name: cilium driver deploys gateway-install with cilium and gateway-resources
     values:
       platform: metal
       gateway:
@@ -363,9 +403,14 @@ cases:
       network: *default-network
       cluster: *default-cluster
     expect:
-      kustomize:
-        - *gateway-base-cilium
-        - *gateway-resources-cilium
+      flux:
+        - name: gateway
+          dependsOn:
+            - pki-install
+          install:
+            <<: *gateway-install-cilium
+          resources:
+            - <<: *gateway-resources-cilium
 
   - name: cilium driver includes webhook/gateway and webhook/gateway/cilium in gitops component
     values:
@@ -384,6 +429,57 @@ cases:
             - webhook/gateway
             - webhook/gateway/cilium
 
+  # gitops.web_ui exposes the operator web UI through the gateway as a separate
+  # flux-ui kustomization. Off by default.
+  - name: web_ui enabled adds flux-ui with ui component on envoy
+    values:
+      platform: metal
+      gateway:
+        enabled: true
+        driver: envoy
+      gitops:
+        web_ui: true
+      network: *default-network
+      cluster: *default-cluster
+    expect:
+      kustomize:
+        - name: flux-ui
+          path: gitops/flux
+          dependsOn:
+            - gateway-install
+          components:
+            - ui
+
+  - name: web_ui enabled on cilium adds ui/cilium to flux-ui
+    values:
+      platform: metal
+      gateway:
+        enabled: true
+        driver: cilium
+      gitops:
+        web_ui: true
+      network: *default-network
+      cluster: *default-cluster
+    expect:
+      kustomize:
+        - name: flux-ui
+          path: gitops/flux
+          components:
+            - ui
+            - ui/cilium
+
+  - name: web_ui defaults off so flux-ui is absent
+    values:
+      platform: metal
+      gateway:
+        enabled: true
+        driver: envoy
+      network: *default-network
+      cluster: *default-cluster
+    exclude:
+      kustomize:
+        - name: flux-ui
+
   # lb-address: included when lb_effective.enabled (non-Cilium CNI + loadbalancer_driver set); IP pinned in gateway spec
   - name: local envoy gateway-resources includes lb-address when loadbalancer IP configured
     values:
@@ -397,14 +493,14 @@ cases:
         cni:
           driver: flannel
     expect:
-      kustomize:
-        - name: gateway-resources
-          path: gateway/resources
-          components:
-            - lb-address
-          substitutions:
-            gateway_class_name: envoy
-            loadbalancer_start_ip: "10.5.1.10"
+      flux:
+        - name: gateway
+          resources:
+            - components:
+                - lb-address
+              substitutions:
+                gateway_class_name: envoy
+                loadbalancer_start_ip: "10.5.1.10"
 
   # AWS uses a cloud-managed LB (lb_effective.enabled == false) and is not cilium,
   # so loadbalancer_start_ip and gateway_dns_target both evaluate to "" and are
@@ -418,15 +514,13 @@ cases:
         enabled: true
         driver: envoy
     expect:
-      kustomize:
-        - name: gateway-resources
-          path: gateway/resources
-          dependsOn:
-            - gateway-base
-          substitutions:
-            gateway_class_name: envoy
-          timeout: 10m
-          interval: 5m
+      flux:
+        - name: gateway
+          resources:
+            - substitutions:
+                gateway_class_name: envoy
+              timeout: 10m
+              interval: 5m
 
   # Cert issuer + external_domain defaults: on platforms without ACME
   # wiring (no acme_effective.enabled), gateway_cert_issuer must default
@@ -445,13 +539,13 @@ cases:
       network: *default-network
       cluster: *default-cluster
     expect:
-      kustomize:
-        - name: gateway-resources
-          path: gateway/resources
-          substitutions:
-            gateway_class_name: envoy
-            gateway_cert_issuer: private
-            external_domain: cluster.local
+      flux:
+        - name: gateway
+          resources:
+            - substitutions:
+                gateway_class_name: envoy
+                gateway_cert_issuer: private
+                external_domain: cluster.local
 
   # No domain set on a cloud platform is the "just works" selfsigned path
   # (the cheap default deploy). external_domain must still render a valid
@@ -469,13 +563,13 @@ cases:
       network: *default-network
       cluster: *default-cluster
     expect:
-      kustomize:
-        - name: gateway-resources
-          path: gateway/resources
-          substitutions:
-            gateway_class_name: envoy
-            gateway_cert_issuer: public-selfsigned
-            external_domain: windsor.local
+      flux:
+        - name: gateway
+          resources:
+            - substitutions:
+                gateway_class_name: envoy
+                gateway_cert_issuer: public-selfsigned
+                external_domain: windsor.local
 
   # dns.domain set (no public/private) exercises the intermediate branch of
   # the fallback chain (… → dns.domain → '<id>.local'): external_domain
@@ -493,13 +587,13 @@ cases:
       network: *default-network
       cluster: *default-cluster
     expect:
-      kustomize:
-        - name: gateway-resources
-          path: gateway/resources
-          substitutions:
-            gateway_class_name: envoy
-            gateway_cert_issuer: public-selfsigned
-            external_domain: example.com
+      flux:
+        - name: gateway
+          resources:
+            - substitutions:
+                gateway_class_name: envoy
+                gateway_cert_issuer: public-selfsigned
+                external_domain: example.com
 
   # gitops.mode=pull drops the Flux Receiver kustomize entirely and propagates
   # mode=pull to the gitops/flux terraform module (which then skips

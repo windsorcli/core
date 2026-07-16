@@ -25,7 +25,7 @@ x-defaults:
 
 
 cases:
-  # Minimal: dev mode enables private-ca addon. Intended: addon pki-base (trust-manager) overrides provider. See docs/cli-bugs.md if this fails.
+  # Minimal: dev mode enables private-ca addon. Intended: addon pki install tier (trust-manager) overrides provider. See docs/cli-bugs.md if this fails.
   - name: minimal config creates private CA with defaults via dev mode
     values:
       platform: metal
@@ -33,24 +33,22 @@ cases:
       network: *default-network
       cluster: *default-cluster
     expect:
-      kustomize:
-        - name: pki-base
-          path: pki/base
-          timeout: 10m
-          interval: 5m
-          components:
-            - trust-manager
-        - name: pki-resources
-          path: pki/resources
-          dependsOn:
-            - pki-base
-            - policy-resources
-          timeout: 5m
-          interval: 5m
-          components:
-            - private-issuer/ca
+      flux:
+        - name: pki
+          install:
+            timeout: 10m
+            interval: 5m
+            components:
+              - trust-manager
+          resources:
+            - dependsOn:
+                - policy-resources
+              timeout: 5m
+              interval: 5m
+              components:
+                - private-issuer/ca
 
-  # Full: addon explicitly enabled. Intended: addon pki-base (trust-manager) overrides. See docs/cli-bugs.md if this fails.
+  # Full: addon explicitly enabled. Intended: addon pki install tier (trust-manager) overrides. See docs/cli-bugs.md if this fails.
   - name: full config creates private CA when addon explicitly enabled
     values:
       platform: metal
@@ -60,22 +58,20 @@ cases:
         private_ca:
           enabled: true
     expect:
-      kustomize:
-        - name: pki-base
-          path: pki/base
-          timeout: 10m
-          interval: 5m
-          components:
-            - trust-manager
-        - name: pki-resources
-          path: pki/resources
-          dependsOn:
-            - pki-base
-            - policy-resources
-          timeout: 5m
-          interval: 5m
-          components:
-            - private-issuer/ca
+      flux:
+        - name: pki
+          install:
+            timeout: 10m
+            interval: 5m
+            components:
+              - trust-manager
+          resources:
+            - dependsOn:
+                - policy-resources
+              timeout: 5m
+              interval: 5m
+              components:
+                - private-issuer/ca
 
   # Edge case: Addon disabled
   - name: excludes private CA when addon disabled

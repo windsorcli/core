@@ -84,75 +84,80 @@ config:
 #
 crds:
   # renovate: datasource=github-releases depName=kubernetes-sigs/gateway-api package=kubernetes-sigs/gateway-api
-  - "${gateway.enabled == true ? 'gateway-api-experimental-1.5.1' : ''}"
+  - "${gateway.enabled == true ? 'gateway-api-experimental-1.6.0' : ''}"
   # renovate: datasource=github-releases depName=envoyproxy/gateway package=envoyproxy/gateway
-  - "${gateway.enabled == true && gateway.driver == 'envoy' ? 'envoy-gateway-1.8.1' : ''}"
+  - "${gateway.enabled == true && gateway.driver == 'envoy' ? 'envoy-gateway-1.8.2' : ''}"
 
 # =============================================================================
-# Kustomize — Gateway API controller + shared Gateway resource
+# Flux systems — Gateway API controller + shared Gateway resource
 # =============================================================================
 #
 # gateway (resolved in platform-base) selects the driver: 'envoy' or
-# 'cilium'. All downstream facets dependsOn the canonical names `gateway-base`
-# and `gateway-resources` regardless of driver — we emit one variant of each.
+# 'cilium'. All downstream facets dependsOn the canonical names
+# `gateway-install` and `gateway-resources` regardless of driver — we emit
+# one variant of each (compiled from a single `gateway` system entry per
+# driver, merged with the additive install patches in platform-aws.yaml /
+# platform-azure.yaml and the additive resources patches in option-cni.yaml /
+# option-workstation.yaml).
 #
-kustomize:
+flux:
 
   # ---------------------------------------------------------------------------
-  # gateway-base — CRDs, namespace, controller
+  # install — CRDs, namespace, controller
   # ---------------------------------------------------------------------------
   #
   # Envoy path: install Envoy Gateway + its service variant (loadbalancer or
   # nodeport, chosen by lb_effective.mode) + prometheus scraping.
   #
-  # Depends on pki-base so cert-manager is available for the Gateway TLS
-  # certificate created in gateway-resources.
+  # Depends on pki-install so cert-manager is available for the Gateway TLS
+  # certificate created in resources.
   #
-  - name: gateway-base
-    path: gateway/base
+  - name: gateway
     when: gateway.enabled == true && gateway.driver != 'cilium'
     dependsOn:
-      - pki-base
-      - "${lb_effective.controller_required ? 'lb-base' : ''}"
-    components:
-      - "${gateway.driver}"
-      - "${gateway.driver == 'envoy' ? 'envoy/' + lb_effective.mode : ''}"
-      - "${gateway.driver == 'envoy' && lb_effective.mode == 'nodeport' && (addons.private_dns.enabled ?? (dev == true)) == true ? 'envoy/nodeport/dns' : ''}"
-      - "${gateway.driver == 'envoy' && lb_effective.mode == 'nodeport' && (gitops.mode ?? 'push') == 'push' ? 'envoy/nodeport/flux-webhook' : ''}"
-      - "${gateway.driver == 'envoy' ? 'envoy/prometheus' : ''}"
-    timeout: 10m
-    interval: 5m
+      - pki-install
+      - "${lb_effective.controller_required ? 'lb-install' : ''}"
+    install:
+      components:
+        - "${gateway.driver}"
+        - "${gateway.driver == 'envoy' ? 'envoy/' + lb_effective.mode : ''}"
+        - "${gateway.driver == 'envoy' && lb_effective.mode == 'nodeport' && (addons.private_dns.enabled ?? (dev == true)) == true ? 'envoy/nodeport/dns' : ''}"
+        - "${gateway.driver == 'envoy' && lb_effective.mode == 'nodeport' && (gitops.mode ?? 'push') == 'push' ? 'envoy/nodeport/flux-webhook' : ''}"
+        - "${gateway.driver == 'envoy' ? 'envoy/prometheus' : ''}"
+      timeout: 10m
+      interval: 5m
 
   # Cilium path: Cilium itself provides the Gateway API implementation, so this
   # variant only needs to install the Gateway API CRDs (via the `cilium`
   # component). The Cilium HelmRelease is owned by option-cni.
-  - name: gateway-base
-    path: gateway/base
+  - name: gateway
     when: gateway.enabled == true && gateway.driver == 'cilium'
     dependsOn:
-      - pki-base
-      - "${lb_effective.controller_required ? 'lb-base' : ''}"
-    components:
-      - cilium
-    timeout: 10m
-    interval: 5m
+      - pki-install
+      - "${lb_effective.controller_required ? 'lb-install' : ''}"
+    install:
+      components:
+        - cilium
+      timeout: 10m
+      interval: 5m
 
   # ---------------------------------------------------------------------------
   # cni dep merge (cilium gateway only)
   # ---------------------------------------------------------------------------
   #
   # When Cilium is the gateway driver, the Gateway API CRDs (installed by
-  # gateway-base) must exist before the Cilium HelmRelease is applied.
+  # gateway-install) must exist before the Cilium HelmRelease is applied.
   # Otherwise cilium-operator starts with gatewayAPI.enabled but finds no CRDs
-  # and never initializes the Gateway controller.
+  # and never initializes the Gateway controller. Merged into the cni system's
+  # install tier (compiled name cni-install) as an additive dependsOn edge.
   #
   - name: cni
     when: gateway.enabled == true && gateway.driver == 'cilium'
     dependsOn:
-      - gateway-base
+      - gateway-install
 
   # ---------------------------------------------------------------------------
-  # gateway-resources — shared Gateway CR + TLS certificate
+  # resources — shared Gateway CR + TLS certificate
   # ---------------------------------------------------------------------------
   #
   # Conditional components:
@@ -170,39 +175,40 @@ kustomize:
   # cilium, etc.). `gateway_dns_target` is the IP external-dns advertises for
   # Gateway-attached hostnames.
   #
-  - name: gateway-resources
-    path: gateway/resources
+  - name: gateway
     when: gateway.enabled == true
-    dependsOn:
-      - gateway-base
-      - "${dns.enabled ? 'dns' : ''}"
-      - "${lb_effective.controller_required ? 'lb-base' : ''}"
-    components:
-      - "${gateway.driver == 'cilium' ? 'cilium' : ''}"
-      # Catch-all 404 served by Envoy's directResponse — covers any
-      # request that doesn't match a real app's HTTPRoute. Envoy-only:
-      # uses the gateway.envoyproxy.io HTTPRouteFilter CRD, which
-      # cilium clusters don't ship.
-      - "${gateway.driver != 'cilium' ? 'envoy/default-404' : ''}"
-      # external-dns hostname annotation on the 404 route. Fires whenever a
-      # gateway-managed DNS zone exists — the public zone (dns.public_domain)
-      # for the default public path, or the private zone (dns.private_domain)
-      # when gateway.access=private. Skipped when neither applies so the
-      # substitution doesn't render a malformed ",*." value.
-      - "${gateway.driver != 'cilium' && ((dns.public_domain ?? '') != '' || (gateway.access == 'private' && (dns.private_domain ?? '') != '')) ? 'envoy/default-404/external-dns' : ''}"
-      - "${gateway.driver != 'cilium' && (addons.private_dns.enabled ?? (dev == true)) == true ? 'dns' : ''}"
-      - "${lb_effective.enabled == true ? 'lb-address' : ''}"
-      - "${(gitops.mode ?? 'push') == 'push' ? 'flux-webhook' : ''}"
-    substitutions:
-      gateway_class_name: ${gateway.driver}
-      gateway_dns_target: "${lb_effective.enabled == true ? network.loadbalancer_ips.start : ''}"
-      # Cert SAN domain and TLS ClusterIssuer — both resolved as ordered
-      # fallback ladders in the config section above.
-      external_domain: "${gateway_effective.external_domain}"
-      gateway_cert_issuer: "${gateway_effective.cert_issuer}"
-      # Only emitted when a consumer is active: the lb-address patch (in-cluster
-      # LB) or the cilium gateway component. NodePort/cloud-managed-LB paths
-      # have no consumer, so leave it empty and the harness drops it.
-      loadbalancer_start_ip: "${(lb_effective.enabled == true || gateway.driver == 'cilium') ? network.loadbalancer_ips.start : ''}"
-    timeout: 10m
-    interval: 5m
+    resources:
+      - dependsOn:
+          - "${dns.enabled ? 'dns-install' : ''}"
+        components:
+          - "${gateway.driver == 'cilium' ? 'cilium' : ''}"
+          # Points the Gateway at its EnvoyProxy (per-gateway data-plane Service
+          # config). Envoy-only: cilium gateways don't use the EnvoyProxy resource.
+          - "${gateway.driver != 'cilium' ? 'envoy/parameters' : ''}"
+          # Catch-all 404 served by Envoy's directResponse — covers any
+          # request that doesn't match a real app's HTTPRoute. Envoy-only:
+          # uses the gateway.envoyproxy.io HTTPRouteFilter CRD, which
+          # cilium clusters don't ship.
+          - "${gateway.driver != 'cilium' ? 'envoy/default-404' : ''}"
+          # external-dns hostname annotation on the 404 route. Fires whenever a
+          # gateway-managed DNS zone exists — the public zone (dns.public_domain)
+          # for the default public path, or the private zone (dns.private_domain)
+          # when gateway.access=private. Skipped when neither applies so the
+          # substitution doesn't render a malformed ",*." value.
+          - "${gateway.driver != 'cilium' && ((dns.public_domain ?? '') != '' || (gateway.access == 'private' && (dns.private_domain ?? '') != '')) ? 'envoy/default-404/external-dns' : ''}"
+          - "${gateway.driver != 'cilium' && (addons.private_dns.enabled ?? (dev == true)) == true ? 'dns' : ''}"
+          - "${lb_effective.enabled == true ? 'lb-address' : ''}"
+          - "${(gitops.mode ?? 'push') == 'push' ? 'flux-webhook' : ''}"
+        substitutions:
+          gateway_class_name: ${gateway.driver}
+          gateway_dns_target: "${lb_effective.enabled == true ? network.loadbalancer_ips.start : ''}"
+          # Cert SAN domain and TLS ClusterIssuer — both resolved as ordered
+          # fallback ladders in the config section above.
+          external_domain: "${gateway_effective.external_domain}"
+          gateway_cert_issuer: "${gateway_effective.cert_issuer}"
+          # Only emitted when a consumer is active: the lb-address patch (in-cluster
+          # LB) or the cilium gateway component. NodePort/cloud-managed-LB paths
+          # have no consumer, so leave it empty and the harness drops it.
+          loadbalancer_start_ip: "${(lb_effective.enabled == true || gateway.driver == 'cilium') ? network.loadbalancer_ips.start : ''}"
+        timeout: 10m
+        interval: 5m

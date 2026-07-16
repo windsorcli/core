@@ -7,7 +7,7 @@
 # reconcile the operator (CRDs + workloads) before the ClusterPolicies
 # that depend on those CRDs.
 facets:
-  - policy-base
+  - policy-install
   - policy-resources
 
 substitutions:
@@ -17,19 +17,19 @@ substitutions:
 
 components:
   kyverno:
-    facet: policy-base
+    facet: policy-install
     enable_when: always
     description: "Helm release of Kyverno in `system-policy`. Installs the admission, background, and reports controllers (the cleanup controller is disabled at this layer; opt in via `kyverno/cleanup`). NO_COLOR is set on the admission and background containers."
   kyverno/reports:
-    facet: policy-base
+    facet: policy-install
     enable_when: "`policies.reporting == 'enabled'`"
     description: "Patches the kyverno HelmRelease to set `reportsController.enabled: true` so PolicyReport / ClusterPolicyReport CRs are written for evaluated policies."
   kyverno/cleanup:
-    facet: policy-base
+    facet: policy-install
     enable_when: "`policies.cleanup == 'enabled'`"
     description: "Patches the kyverno HelmRelease to set `cleanupController.enabled: true` so CleanupPolicy / ClusterCleanupPolicy CRs are executed on their cron schedules. Disabled by default because the blueprint ships no CleanupPolicy resources."
   kyverno/ha:
-    facet: policy-base
+    facet: policy-install
     enable_when: "`topology == 'ha'`"
     description: "Patches the kyverno HelmRelease to run the admission controller with `replicas: 3` and a PodDisruptionBudget, keeping the webhook backend reachable during node drains and rollouts (pod anti-affinity is on by default)."
   kyverno/resource-limits-requests:
@@ -39,4 +39,4 @@ components:
   kyverno/require-image-digest:
     facet: policy-resources
     enable_when: "`policies.require_image_digest != 'disabled'`"
-    description: "ClusterPolicy `require-image-digest` validating (Enforce) that every container image reference includes a `sha256:` digest (`repo:tag@sha256:…` or `repo@sha256:…`). Same namespace match scope as `resource-limits-requests`."
+    description: "ClusterPolicy `require-image-digest` validating (Enforce) that every container image reference includes a `sha256:` digest (`repo:tag@sha256:…` or `repo@sha256:…`). Same namespace match scope as `resource-limits-requests`, plus an exemption for the Flux namespace (labelled `app.kubernetes.io/part-of: flux`) whose operator-installed controllers are version-pinned rather than digest-pinned."

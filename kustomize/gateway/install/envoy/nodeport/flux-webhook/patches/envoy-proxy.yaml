@@ -1,0 +1,12 @@
+# Appends the Flux webhook NodePort entry (TCP 9292 → 30292) to the
+# envoyService patch's spec.ports list. Used only when gitops.mode=push so the
+# Flux Receiver actually exists; pulled in alongside the matching Gateway
+# listener (gateway/resources/flux-webhook).
+- op: add
+  path: /spec/provider/kubernetes/envoyService/patch/value/spec/ports/-
+  value:
+    name: tcp-9292
+    protocol: TCP
+    port: 9292
+    targetPort: 9292
+    nodePort: 30292

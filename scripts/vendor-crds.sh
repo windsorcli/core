@@ -2,10 +2,13 @@
 # Vendor CRDs into kustomize/crds/<name>-<version>/ from the central manifest
 # (kustomize/crds/sources.yaml). Each listed entry is (re)generated — its CRD file
 # and its kustomization.yaml, with any stray file inside that dir removed. A vendor
-# dir not in the manifest (a superseded version) is retained, not pruned — remove
-# it manually once nothing references it.
+# dir not in the manifest (a superseded version) is deleted on regenerate, or flagged
+# as drift in --check mode — it is never left behind: nothing keeps applying it once
+# no entry in the manifest points at it, and the crds: layer's prune:false means the
+# already-applied CRD objects are unaffected either way. Update sources.yaml first if
+# you're mid-way through hand-adding a new vendor, or its unfinished dir gets deleted.
 #
-#   scripts/vendor-crds.sh          regenerate everything, prune orphans
+#   scripts/vendor-crds.sh          regenerate everything, delete superseded dirs
 #   scripts/vendor-crds.sh --check  verify everything matches; non-zero on drift (CI)
 #
 # Per entry: name + version derive the dir/file; source is url | helm mode:crds |
@@ -158,14 +161,25 @@ else
 fi
 rm -f "$root_tmp"
 
-# A vendor dir not in the manifest is a superseded version: retained, not pruned.
-# Surfaced as a note (never drift) so it can be cleaned up by hand when unused.
+# A vendor dir not in the manifest is a superseded version. Deleted on regenerate
+# (nothing will ever apply it again once sources.yaml stops pointing at it, and the
+# crds: layer's prune:false leaves already-applied CRD objects untouched regardless);
+# flagged as drift in --check mode instead, so CI fails until someone runs
+# 'task crds' and commits the result.
 while IFS= read -r d; do
   [ -z "$d" ] && continue
   name=$(basename "$d")
   case " $expected_dirs " in
     *" $name "*) ;;
-    *) echo "note  $d not in manifest (retained — remove manually when unused)" ;;
+    *)
+      if [ "$CHECK" = "1" ]; then
+        echo "DRIFT $d not in manifest (stale — run 'task crds')"
+        drift=1
+      else
+        rm -rf "$d"
+        echo "removed $d (superseded — not in manifest)"
+      fi
+      ;;
   esac
 done < <(find "$CRDS_DIR" -mindepth 1 -maxdepth 1 -type d | sort)
 

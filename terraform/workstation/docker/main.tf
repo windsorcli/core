@@ -11,7 +11,7 @@ terraform {
   required_providers {
     docker = {
       source  = "kreuzwerker/docker"
-      version = "4.4.0"
+      version = "4.5.0"
     }
   }
 }
@@ -133,7 +133,7 @@ resource "docker_network" "main" {
 
 resource "docker_image" "coredns" {
   count = var.enable_dns ? 1 : 0
-  name  = "coredns/coredns:1.14.4@sha256:3e98f280fd601b37411c5fb7075fd9f337833c480f1644970b727ae0af067782"
+  name  = "coredns/coredns:1.14.6@sha256:900f9c109f7a33545d3c811516e8376df9019147b750f5ce3e254468769176ea"
 }
 
 resource "docker_image" "git_livereload" {

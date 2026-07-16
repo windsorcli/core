@@ -32,27 +32,32 @@ config:
           driver: "${addons.database.postgres.driver ?? 'cloudnativepg'}"
 
 # =============================================================================
+# Flux systems — pki resources overlay
+# =============================================================================
+#
+# PKI for local dev: a selfsigned ClusterIssuer so every certificate works
+# without an external trust anchor. Production uses letsencrypt / a private
+# CA wired up by addon-private-ca.
+#
+flux:
+
+  - name: pki
+    resources:
+      - components:
+          - public-issuer/selfsigned
+
+# =============================================================================
 # Kustomize — dev-only resources
 # =============================================================================
 #
 kustomize:
-
-  # PKI for local dev: a selfsigned ClusterIssuer so every certificate works
-  # without an external trust anchor. Production uses letsencrypt / a private
-  # CA wired up by addon-private-ca.
-  - name: pki-resources
-    path: pki/resources
-    dependsOn:
-      - pki-base
-    components:
-      - public-issuer/selfsigned
 
   # Grafana dev credentials (default admin password "grafana"). In production
   # observability.admin_password is expected to come from a secret.
   - name: observability
     path: observability
     dependsOn:
-      - telemetry-base
+      - telemetry-install
     components:
       - grafana/dev
     substitutions:

@@ -90,84 +90,74 @@ cases:
           destroy: false
           inputs:
             concurrency: 4
-      kustomize:
-        - name: policy-base
-          path: policy/base
-          components:
-            - kyverno
-          timeout: 30m
-          interval: 5m
-        - name: policy-resources
-          path: policy/resources
-          dependsOn:
-            - policy-base
-          components:
-            - kyverno/resource-limits-requests
-            - kyverno/require-image-digest
-          timeout: 5m
-          interval: 5m
-        - name: pki-base
-          path: pki/base
+      flux:
+        - name: policy
+          install:
+            components:
+              - kyverno
+            timeout: 30m
+            interval: 5m
+          resources:
+            - components:
+                - kyverno/resource-limits-requests
+                - kyverno/require-image-digest
+              timeout: 5m
+              interval: 5m
+        - name: telemetry
+          install:
+            components:
+              - prometheus
+              - prometheus/flux
+              - fluentbit
+              - metrics-server
+            timeout: 30m
+            interval: 10m
+          resources:
+            - components:
+                - prometheus
+                - prometheus/flux
+                - fluentbit
+                - fluentbit/containerd
+                - fluentbit/kubernetes
+                - fluentbit/parser
+                - fluentbit/systemd
+                - fluentbit/prometheus
+              timeout: 10m
+              interval: 5m
+        - name: pki
           dependsOn:
             - policy-resources
-            - telemetry-base
-          components:
-            - cert-manager
-            - cert-manager/prometheus
-          timeout: 20m
-          interval: 5m
-        - name: telemetry-base
-          path: telemetry/base
-          components:
-            - prometheus
-            - prometheus/flux
-            - fluentbit
-          timeout: 30m
-          interval: 10m
-        - name: telemetry-resources
-          path: telemetry/resources
-          dependsOn:
-            - telemetry-base
-          components:
-            - metrics-server
-            - prometheus
-            - prometheus/flux
-            - fluentbit
-            - fluentbit/containerd
-            - fluentbit/kubernetes
-            - fluentbit/parser
-            - fluentbit/systemd
-            - fluentbit/prometheus
-          timeout: 10m
-          interval: 5m
+            - telemetry-install
+          install:
+            components:
+              - cert-manager
+              - cert-manager/prometheus
+            timeout: 20m
+            interval: 5m
         - name: cni
-          path: cni
           dependsOn:
             - policy-resources
-          components:
-            - cilium
-            - cilium/talos
-            - cilium/l2
-          substitutions:
-            k8s_service_host: "10.5.0.10"
-            loadbalancer_start_ip: "10.5.1.10"
-            loadbalancer_end_ip: "10.5.1.100"
-          timeout: 15m
-          interval: 5m
+          install:
+            components:
+              - cilium
+              - cilium/talos
+              - cilium/l2
+            substitutions:
+              k8s_service_host: "10.5.0.10"
+              loadbalancer_start_ip: "10.5.1.10"
+              loadbalancer_end_ip: "10.5.1.100"
         - name: csi
-          path: csi
           dependsOn:
             - policy-resources
-          components:
-            - openebs
-            - openebs/dynamic-localpv
-          substitutions:
-            local_volume_path: /var/mnt/local
-          timeout: 20m
-          interval: 5m
+          install:
+            components:
+              - openebs
+              - openebs/dynamic-localpv
+            substitutions:
+              local_volume_path: /var/mnt/local
     exclude:
       kustomize:
-        - name: lb-base
+        - name: lb-install
         - name: lb-resources
 
   # Registry mirrors: when terraform_output("workstation", "registries") has hostname, common_config_patches must include non-empty mirrors. Colima: no certSANs.
@@ -267,85 +257,70 @@ cases:
           destroy: false
           inputs:
             concurrency: 10
-      kustomize:
-        - name: policy-base
-          path: policy/base
-          components:
-            - kyverno
-          timeout: 30m
-          interval: 5m
-        - name: policy-resources
-          path: policy/resources
-          dependsOn:
-            - policy-base
-          components:
-            - kyverno/resource-limits-requests
-            - kyverno/require-image-digest
-          timeout: 5m
-          interval: 5m
-        - name: pki-base
-          path: pki/base
-          dependsOn:
-            - policy-resources
-            - telemetry-base
-          components:
-            - cert-manager
-            - cert-manager/prometheus
-          timeout: 20m
-          interval: 5m
-        - name: telemetry-base
-          path: telemetry/base
-          components:
-            - prometheus
-            - prometheus/flux
-            - fluentbit
-          timeout: 30m
-          interval: 10m
-        - name: telemetry-resources
-          path: telemetry/resources
-          dependsOn:
-            - telemetry-base
-          components:
-            - metrics-server
-            - prometheus
-            - prometheus/flux
-            - fluentbit
-            - fluentbit/containerd
-            - fluentbit/kubernetes
-            - fluentbit/parser
-            - fluentbit/systemd
-            - fluentbit/prometheus
-          timeout: 10m
-          interval: 5m
-        - name: lb-base
-          path: lb/base
+      flux:
+        - name: policy
+          install:
+            components:
+              - kyverno
+            timeout: 30m
+            interval: 5m
+          resources:
+            - components:
+                - kyverno/resource-limits-requests
+                - kyverno/require-image-digest
+              timeout: 5m
+              interval: 5m
+        - name: telemetry
+          install:
+            components:
+              - prometheus
+              - prometheus/flux
+              - fluentbit
+              - metrics-server
+            timeout: 30m
+            interval: 10m
+          resources:
+            - components:
+                - prometheus
+                - prometheus/flux
+                - fluentbit
+                - fluentbit/containerd
+                - fluentbit/kubernetes
+                - fluentbit/parser
+                - fluentbit/systemd
+                - fluentbit/prometheus
+              timeout: 10m
+              interval: 5m
+        - name: pki
           dependsOn:
             - policy-resources
-          components: []
-          timeout: 5m
-          interval: 5m
-        - name: lb-resources
-          path: lb/resources
+            - telemetry-install
+          install:
+            components:
+              - cert-manager
+              - cert-manager/prometheus
+            timeout: 20m
+            interval: 5m
+        - name: lb
           dependsOn:
-            - lb-base
-          components:
-            - kube-vip
-            - kube-vip/arp
-          substitutions:
-            loadbalancer_ip_range: 10.5.1.10-10.5.1.100
-          timeout: 5m
-          interval: 5m
+            - policy-resources
+          install:
+            components:
+              - kube-vip
+              - kube-vip/arp
+            substitutions:
+              loadbalancer_ip_range: 10.5.1.10-10.5.1.100
+            timeout: 5m
+            interval: 5m
         - name: csi
-          path: csi
           dependsOn:
             - policy-resources
-          components:
-            - openebs
-            - openebs/dynamic-localpv
-          substitutions:
-            local_volume_path: /mnt/data
-          timeout: 20m
-          interval: 5m
+          install:
+            components:
+              - openebs
+              - openebs/dynamic-localpv
+            substitutions:
+              local_volume_path: /mnt/data
 
   # Edge: docker without workstation yields no cluster and no gitops (gitops always dependsOn cluster; cluster only when workstation enabled).
   - name: docker without workstation has no cluster terraform
@@ -379,7 +354,8 @@ cases:
     exclude:
       terraform:
         - name: cni
-      kustomize:
+      flux:
         - name: cni
-        - name: lb-base
+      kustomize:
+        - name: lb-install
         - name: lb-resources

@@ -1,7 +1,7 @@
 # option-single-node.yaml facet tests
 # Verifies the single-node topology layers leader-election-disable
-# components onto pki-base (cert-manager, optional trust-manager), csi
-# (openebs), database (cloudnative-pg), and flips flux's leader_election
+# components onto the pki install tier (cert-manager, optional trust-manager),
+# csi (openebs), database (cloudnative-pg), and flips flux's leader_election
 # terraform input.
 
 x-defaults:
@@ -33,15 +33,15 @@ cases:
       network: *default-network
       cluster: *default-cluster
     expect:
-      kustomize:
-        - name: pki-base
-          path: pki/base
-          components:
-            - cert-manager/single-node
+      flux:
+        - name: pki
+          install:
+            components:
+              - cert-manager/single-node
         - name: csi
-          path: csi
-          components:
-            - openebs/single-node
+          install:
+            components:
+              - openebs/single-node
       terraform:
         - name: gitops
           path: gitops/flux
@@ -60,11 +60,11 @@ cases:
             enabled: true
             driver: cloudnativepg
     expect:
-      kustomize:
+      flux:
         - name: database
-          path: database
-          components:
-            - cloudnativepg/single-node
+          install:
+            components:
+              - cloudnativepg/single-node
 
   - name: single-node with private-ca addon also adds trust-manager/single-node
     values:
@@ -76,23 +76,23 @@ cases:
         private_ca:
           enabled: true
     expect:
-      kustomize:
-        - name: pki-base
-          path: pki/base
-          components:
-            - cert-manager/single-node
-            - trust-manager/single-node
+      flux:
+        - name: pki
+          install:
+            components:
+              - cert-manager/single-node
+              - trust-manager/single-node
 
-  - name: multi-node topology leaves pki-base without single-node overlays
+  - name: multi-node topology leaves pki-install without single-node overlays
     values:
       platform: metal
       topology: multi-node
       network: *default-network
       cluster: *default-cluster
     expect:
-      kustomize:
-        - name: pki-base
-          path: pki/base
-          components:
-            - cert-manager
-            - cert-manager/prometheus
+      flux:
+        - name: pki
+          install:
+            components:
+              - cert-manager
+              - cert-manager/prometheus

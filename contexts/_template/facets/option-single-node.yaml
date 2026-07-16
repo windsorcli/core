@@ -49,17 +49,20 @@ terraform:
     inputs:
       leader_election: false
 
-kustomize:
+# =============================================================================
+# Flux systems — pki install overlay
+# =============================================================================
+#
+# cert-manager is always present, trust-manager only when the private-ca
+# addon is enabled.
+#
+flux:
 
-  # ---------------------------------------------------------------------------
-  # pki-base overlay — cert-manager is always present, trust-manager only
-  # when the private-ca addon is enabled.
-  # ---------------------------------------------------------------------------
-  - name: pki-base
-    path: pki/base
-    components:
-      - cert-manager/single-node
-      - "${addons.private_ca.enabled == true ? 'trust-manager/single-node' : ''}"
+  - name: pki
+    install:
+      components:
+        - cert-manager/single-node
+        - "${addons.private_ca.enabled == true ? 'trust-manager/single-node' : ''}"
 
   # ---------------------------------------------------------------------------
   # csi overlay — only the openebs path; longhorn has its own single-node
@@ -67,10 +70,10 @@ kustomize:
   # the same reason we target here.
   # ---------------------------------------------------------------------------
   - name: csi
-    path: csi
     when: talos_common.storage_driver == 'openebs'
-    components:
-      - openebs/single-node
+    install:
+      components:
+        - openebs/single-node
 
   # ---------------------------------------------------------------------------
   # database overlay — only when the cloudnative-pg addon is actually enabled
@@ -81,7 +84,7 @@ kustomize:
   # HelmRelease.v2.helm.toolkit.fluxcd.io/cloudnativepg.system-database".
   # ---------------------------------------------------------------------------
   - name: database
-    path: database
     when: addons.database.postgres.enabled == true && addons.database.postgres.driver == 'cloudnativepg'
-    components:
-      - cloudnativepg/single-node
+    install:
+      components:
+        - cloudnativepg/single-node

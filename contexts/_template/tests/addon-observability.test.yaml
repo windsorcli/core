@@ -100,11 +100,11 @@ cases:
             date_interval_minute: "HH:mm"
             date_interval_hour: "MM/DD HH:mm"
             date_interval_day: "MM/DD"
-        - name: telemetry-resources
-          dependsOn:
-            - telemetry-base
-          components:
-            - fluentbit/fluentd
+      flux:
+        - name: telemetry
+          resources:
+            - components:
+                - fluentbit/fluentd
 
   # Full: quickwit driver; addon wins (last-wins), addon contributes quickwit + fluentd output only
   - name: full config with quickwit driver creates storage pipeline with PVC and dashboards
@@ -123,7 +123,7 @@ cases:
         - name: observability
           path: observability
           dependsOn:
-            - csi
+            - csi-install
             - telemetry-resources
           components:
             - fluentd/outputs/quickwit
@@ -132,13 +132,13 @@ cases:
             - quickwit/prometheus
             - grafana/quickwit
             - grafana/dashboards/logs/quickwit
-        - name: telemetry-resources
-          dependsOn:
-            - telemetry-base
-          components:
-            - fluentbit/fluentd
+      flux:
+        - name: telemetry
+          resources:
+            - components:
+                - fluentbit/fluentd
 
-  # Full: elasticsearch driver. Intended: addon overrides telemetry-base (filebeat). See docs/cli-bugs.md if this fails.
+  # Full: elasticsearch driver. Addon overrides the telemetry flux: system (filebeat) via strategy: replace.
   - name: full config with elasticsearch driver creates ELK stack with filebeat
     values:
       platform: metal
@@ -158,7 +158,7 @@ cases:
         - name: observability
           path: observability
           dependsOn:
-            - csi
+            - csi-install
             - gateway-resources
           components:
             - elasticsearch
@@ -166,25 +166,21 @@ cases:
             - kibana/gateway
           substitutions:
             external_domain: elk.example.com
-        - name: telemetry-base
-          path: telemetry/base
-          strategy: replace
-          components:
-            - prometheus
-            - prometheus/flux
-            - filebeat
-          timeout: 30m
-          interval: 10m
-        - name: telemetry-resources
-          path: telemetry/resources
-          strategy: replace
-          dependsOn:
-            - telemetry-base
-          components:
-            - metrics-server
-            - prometheus
-            - prometheus/flux
-          timeout: 10m
+      flux:
+        - name: telemetry
+          install:
+            components:
+              - prometheus
+              - prometheus/flux
+              - filebeat
+              - metrics-server
+            timeout: 30m
+            interval: 10m
+          resources:
+            - components:
+                - prometheus
+                - prometheus/flux
+              timeout: 10m
           interval: 5m
 
   # Addon disabled: Grafana / log-storage outputs are not created, but the FluentD
@@ -238,7 +234,7 @@ cases:
             - fluentd/outputs/stdout
 
   # Edge: gateway disabled → gateway.enabled is false → filebeat replacement skipped.
-  # telemetry-base keeps its default fluentbit components; elasticsearch/kibana not deployed.
+  # telemetry keeps its default fluentbit components; elasticsearch/kibana not deployed.
   - name: elasticsearch with gateway disabled skips filebeat and ELK stack
     values:
       platform: metal
@@ -251,11 +247,11 @@ cases:
           enabled: true
           logs_driver: elasticsearch
     expect:
-      kustomize:
-        - name: telemetry-base
-          path: telemetry/base
-          components:
-            - fluentbit
+      flux:
+        - name: telemetry
+          install:
+            components:
+              - fluentbit
 
   # Edge: Envoy gateway mode uses Gateway API route components for Grafana and Kibana.
   - name: elasticsearch observability with envoy uses gateway routes
@@ -277,7 +273,7 @@ cases:
         - name: observability
           path: observability
           dependsOn:
-            - csi
+            - csi-install
             - gateway-resources
           components:
             - grafana/gateway

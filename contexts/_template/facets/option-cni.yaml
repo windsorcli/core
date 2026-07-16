@@ -47,41 +47,21 @@ terraform:
       - cni
 
 # =============================================================================
-# Kustomize — Flux adoption of Cilium HelmRelease + ordering patches
+# Flux systems — gateway resources dep merge
 # =============================================================================
 #
-kustomize:
+# gateway-resources must wait for cni when Cilium is the gateway driver.
+# Otherwise the Kyverno LBIPAM sharing policy (in cilium/gateway) may not be
+# in place when the Cilium gateway controller creates the
+# cilium-gateway-external Service, and the LB IP won't be shared.
+#
+flux:
 
-  # ---------------------------------------------------------------------------
-  # Dependency patches
-  # ---------------------------------------------------------------------------
-  #
-  # These entries have no `path:` — they exist purely to inject dependsOn edges
-  # into kustomizations that are created in other facets.
-  #
-
-  # gateway-resources must wait for cni when Cilium is the gateway driver.
-  # Otherwise the Kyverno LBIPAM sharing policy (in cilium/gateway) may not be
-  # in place when the Cilium gateway controller creates the
-  # cilium-gateway-external Service, and the LB IP won't be shared.
-  - name: gateway-resources
+  - name: gateway
     when: gateway.enabled == true && gateway.driver == 'cilium'
-    dependsOn:
-      - cni
-
-  # csi must wait for cni so it installs after Cilium's eBPF is fully loaded.
-  # Without this, CSI node-driver-registrar can see transient loopback
-  # connectivity disruptions during eBPF init and crash-loop repeatedly.
-  - name: csi
-    dependsOn:
-      - cni
-
-  # Add the Cilium dashboards to the observability kustomization when Grafana
-  # is the dashboard backend.
-  - name: observability
-    when: addons.observability.dashboards == 'grafana'
-    components:
-      - grafana/dashboards/cilium
+    resources:
+      - dependsOn:
+          - cni-install
 
   # ---------------------------------------------------------------------------
   # cni — Flux adoption of the HelmRelease
@@ -104,43 +84,71 @@ kustomize:
   # Talos: cilium/talos applies Talos-specific security context + cgroup
   # settings. k8s_service_host comes from talos_common (cidrhost offset 10).
   - name: cni
-    path: cni
     when: talos_enabled
     dependsOn:
       - "${(policies.enabled ?? true) || (gateway.enabled == true && gateway.driver == 'cilium') ? 'policy-resources' : ''}"
-      - "${telemetry.metrics.enabled || telemetry.logs.enabled ? 'telemetry-base' : ''}"
-    components:
-      - cilium
-      - cilium/talos
-      - "${(gateway.enabled == true && gateway.driver == 'cilium') ? 'cilium/gateway' : ''}"
-      - "${telemetry.metrics.enabled ? 'cilium/prometheus' : ''}"
-      - cilium/hubble
-      - cilium/l2
-    substitutions:
-      k8s_service_host: ${talos_common.k8s_service_host}
-      loadbalancer_start_ip: ${network.loadbalancer_ips.start}
-      loadbalancer_end_ip: ${network.loadbalancer_ips.end}
-      cluster_name: ${context}
-      operator_replicas: "${topology == 'single-node' ? 1 : 2}"
-    timeout: 15m
-    interval: 5m
+      - "${telemetry.metrics.enabled || telemetry.logs.enabled ? 'telemetry-install' : ''}"
+    install:
+      components:
+        - cilium
+        - cilium/talos
+        - "${(gateway.enabled == true && gateway.driver == 'cilium') ? 'cilium/gateway' : ''}"
+        - "${telemetry.metrics.enabled ? 'cilium/prometheus' : ''}"
+        - cilium/hubble
+        - cilium/l2
+      substitutions:
+        k8s_service_host: ${talos_common.k8s_service_host}
+        loadbalancer_start_ip: ${network.loadbalancer_ips.start}
+        loadbalancer_end_ip: ${network.loadbalancer_ips.end}
+        cluster_name: ${context}
+        operator_replicas: "${topology == 'single-node' ? 1 : 2}"
+      timeout: 15m
+      interval: 5m
 
   # EKS: no Talos-specific settings, no L2 component (EKS has its own LB).
   # k8s_service_host is parsed from the EKS cluster_endpoint terraform output.
   - name: cni
-    path: cni
     when: eks_enabled
     dependsOn:
       - "${(policies.enabled ?? true) || (gateway.enabled == true && gateway.driver == 'cilium') ? 'policy-resources' : ''}"
-      - "${telemetry.metrics.enabled || telemetry.logs.enabled ? 'telemetry-base' : ''}"
+      - "${telemetry.metrics.enabled || telemetry.logs.enabled ? 'telemetry-install' : ''}"
+    install:
+      components:
+        - cilium
+        - "${(gateway.enabled == true && gateway.driver == 'cilium') ? 'cilium/gateway' : ''}"
+        - "${telemetry.metrics.enabled ? 'cilium/prometheus' : ''}"
+        - cilium/hubble
+      substitutions:
+        k8s_service_host: "${split(split(terraform_output(\"cluster\", \"cluster_endpoint\") ?? \"https://localhost:443\", \"://\")[1], \":\")[0]}"
+        cluster_name: ${context}
+        operator_replicas: "${topology == 'single-node' ? 1 : 2}"
+      timeout: 15m
+      interval: 5m
+
+  # csi must wait for cni so it installs after Cilium's eBPF is fully loaded.
+  # Without this, CSI node-driver-registrar can see transient loopback
+  # connectivity disruptions during eBPF init and crash-loop repeatedly.
+  - name: csi
+    dependsOn:
+      - cni-install
+
+# =============================================================================
+# Kustomize — dependency patches
+# =============================================================================
+#
+kustomize:
+
+  # ---------------------------------------------------------------------------
+  # Dependency patches
+  # ---------------------------------------------------------------------------
+  #
+  # These entries have no `path:` — they exist purely to inject dependsOn edges
+  # into kustomizations that are created in other facets.
+  #
+
+  # Add the Cilium dashboards to the observability kustomization when Grafana
+  # is the dashboard backend.
+  - name: observability
+    when: addons.observability.dashboards == 'grafana'
     components:
-      - cilium
-      - "${(gateway.enabled == true && gateway.driver == 'cilium') ? 'cilium/gateway' : ''}"
-      - "${telemetry.metrics.enabled ? 'cilium/prometheus' : ''}"
-      - cilium/hubble
-    substitutions:
-      k8s_service_host: "${split(split(terraform_output(\"cluster\", \"cluster_endpoint\") ?? \"https://localhost:443\", \"://\")[1], \":\")[0]}"
-      cluster_name: ${context}
-      operator_replicas: "${topology == 'single-node' ? 1 : 2}"
-    timeout: 15m
-    interval: 5m
+      - grafana/dashboards/cilium

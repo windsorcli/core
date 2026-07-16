@@ -24,14 +24,11 @@ x-defaults:
         - /var/mnt/local
 
 
-  cni-base: &cni-base
+  cni-install: &cni-install
     name: cni
-    path: cni
     dependsOn:
       - policy-resources
-      - telemetry-base
-    timeout: 15m
-    interval: 5m
+      - telemetry-install
 
 cases:
   # Default: no CNI config — cilium is the default, cni terraform + kustomize are deployed.
@@ -50,16 +47,17 @@ cases:
             - cluster
           inputs:
             cluster_endpoint: https://10.5.0.10:6443
-      kustomize:
-        - <<: *cni-base
-          components:
-            - cilium
-            - cilium/talos
-            - cilium/prometheus
-            - cilium/hubble
-            - cilium/l2
-          substitutions:
-            k8s_service_host: "10.5.0.10"
+      flux:
+        - <<: *cni-install
+          install:
+            components:
+              - cilium
+              - cilium/talos
+              - cilium/prometheus
+              - cilium/hubble
+              - cilium/l2
+            substitutions:
+              k8s_service_host: "10.5.0.10"
 
   # Explicit flannel: opt-out of cilium — no cni kustomize component deployed.
   - name: explicit flannel driver omits cni kustomize component
@@ -73,7 +71,7 @@ cases:
         cni:
           driver: flannel
     exclude:
-      kustomize:
+      flux:
         - name: cni
       terraform:
         - name: cni
@@ -110,17 +108,18 @@ cases:
             privileged: false
             cgroup_auto_mount: false
             operator_replicas: 1
-      kustomize:
-        - <<: *cni-base
-          components:
-            - cilium
-            - cilium/talos
-            - cilium/prometheus
-            - cilium/hubble
-            - cilium/l2
-          substitutions:
-            k8s_service_host: "10.5.0.10"
-            operator_replicas: "1"
+      flux:
+        - <<: *cni-install
+          install:
+            components:
+              - cilium
+              - cilium/talos
+              - cilium/prometheus
+              - cilium/hubble
+              - cilium/l2
+            substitutions:
+              k8s_service_host: "10.5.0.10"
+              operator_replicas: "1"
 
   # Cilium + HA: operator replicas scale from 1 (single-node) to 2 via substitution.
   - name: cilium with topology=ha sets operator_replicas to 2
@@ -142,19 +141,20 @@ cases:
         cni:
           driver: cilium
     expect:
-      kustomize:
-        - <<: *cni-base
-          components:
-            - cilium
-            - cilium/talos
-            - cilium/prometheus
-            - cilium/hubble
-            - cilium/l2
-          substitutions:
-            k8s_service_host: "10.5.0.10"
-            operator_replicas: "2"
+      flux:
+        - <<: *cni-install
+          install:
+            components:
+              - cilium
+              - cilium/talos
+              - cilium/prometheus
+              - cilium/hubble
+              - cilium/l2
+            substitutions:
+              k8s_service_host: "10.5.0.10"
+              operator_replicas: "2"
 
-  # Cilium + Gateway: adds cilium/gateway component and gateway-base dep (CRDs before cilium-operator).
+  # Cilium + Gateway: adds cilium/gateway component and gateway-install dep (CRDs before cilium-operator).
   - name: cilium gateway driver adds cilium/gateway component
     values:
       platform: metal
@@ -164,24 +164,22 @@ cases:
       network: *default-network
       cluster: *default-cluster
     expect:
-      kustomize:
+      flux:
         - name: cni
-          path: cni
           dependsOn:
             - policy-resources
-            - telemetry-base
-            - gateway-base
-          components:
-            - cilium
-            - cilium/talos
-            - cilium/gateway
-            - cilium/prometheus
-            - cilium/hubble
-            - cilium/l2
-          substitutions:
-            k8s_service_host: "10.5.0.10"
-          timeout: 15m
-          interval: 5m
+            - telemetry-install
+            - gateway-install
+          install:
+            components:
+              - cilium
+              - cilium/talos
+              - cilium/gateway
+              - cilium/prometheus
+              - cilium/hubble
+              - cilium/l2
+            substitutions:
+              k8s_service_host: "10.5.0.10"
 
   # Cilium: Talos cluster terraform receives the CNI patch merged into common_config_patches.
   - name: cilium driver merges cni patch into common_config_patches for cluster/talos terraform
@@ -235,12 +233,11 @@ cases:
       network: *default-network
       cluster: *default-cluster
     expect:
-      kustomize:
-        - name: gateway-resources
-          path: gateway/resources
-          dependsOn:
-            - gateway-base
-            - cni
+      flux:
+        - name: gateway
+          resources:
+            - dependsOn:
+                - cni-install
 
   # network.loadbalancer_ips: derived from CIDR when not explicitly set (workstation layer active).
   - name: loadbalancer IPs derived from cidr_block when not set
@@ -256,17 +253,18 @@ cases:
         loadbalancer_mode: arp
       cluster: *default-cluster
     expect:
-      kustomize:
-        - <<: *cni-base
-          components:
-            - cilium
-            - cilium/talos
-            - cilium/prometheus
-            - cilium/hubble
-            - cilium/l2
-          substitutions:
-            loadbalancer_start_ip: "10.5.1.10"
-            loadbalancer_end_ip: "10.5.1.100"
+      flux:
+        - <<: *cni-install
+          install:
+            components:
+              - cilium
+              - cilium/talos
+              - cilium/prometheus
+              - cilium/hubble
+              - cilium/l2
+            substitutions:
+              loadbalancer_start_ip: "10.5.1.10"
+              loadbalancer_end_ip: "10.5.1.100"
 
   # Cilium: gitops terraform depends on cni when cilium is selected.
   - name: cilium driver makes gitops terraform depend on cni
@@ -294,7 +292,7 @@ cases:
             - cni
 
   # telemetry.metrics.enabled=false drops the cilium/prometheus ServiceMonitor
-  # (no Prometheus to scrape). telemetry-base dep stays because logs still need it.
+  # (no Prometheus to scrape). telemetry-install dep stays because logs still need it.
   - name: telemetry metrics disabled strips cilium/prometheus component
     values:
       platform: metal
@@ -306,21 +304,21 @@ cases:
         metrics:
           enabled: false
     expect:
-      kustomize:
+      flux:
         - name: cni
-          path: cni
           dependsOn:
             - policy-resources
-            - telemetry-base
-          components:
-            - cilium
-            - cilium/talos
-            - cilium/hubble
-            - cilium/l2
+            - telemetry-install
+          install:
+            components:
+              - cilium
+              - cilium/talos
+              - cilium/hubble
+              - cilium/l2
 
   # Both halves of telemetry disabled: drop the cilium/prometheus component
-  # AND the telemetry-base dependency (the kustomization isn't emitted).
-  - name: telemetry metrics and logs disabled drops cilium/prometheus and telemetry-base dep
+  # AND the telemetry-install dependency (the kustomization isn't emitted).
+  - name: telemetry metrics and logs disabled drops cilium/prometheus and telemetry-install dep
     values:
       platform: metal
       gateway:
@@ -333,16 +331,16 @@ cases:
         logs:
           enabled: false
     expect:
-      kustomize:
+      flux:
         - name: cni
-          path: cni
           dependsOn:
             - policy-resources
-          components:
-            - cilium
-            - cilium/talos
-            - cilium/hubble
-            - cilium/l2
+          install:
+            components:
+              - cilium
+              - cilium/talos
+              - cilium/hubble
+              - cilium/l2
 
   # policies.enabled=false drops the policy-resources dependency edge.
   - name: policies.enabled false strips policy-resources dep on cni
@@ -355,14 +353,14 @@ cases:
       policies:
         enabled: false
     expect:
-      kustomize:
+      flux:
         - name: cni
-          path: cni
           dependsOn:
-            - telemetry-base
-          components:
-            - cilium
-            - cilium/talos
-            - cilium/prometheus
-            - cilium/hubble
-            - cilium/l2
+            - telemetry-install
+          install:
+            components:
+              - cilium
+              - cilium/talos
+              - cilium/prometheus
+              - cilium/hubble
+              - cilium/l2

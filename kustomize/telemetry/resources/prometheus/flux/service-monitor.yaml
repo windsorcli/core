@@ -1,0 +1,16 @@
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: flux-operator
+  namespace: system-gitops
+spec:
+  # The flux-pod-monitor PodMonitor scrapes the controllers; the operator runs
+  # as its own Deployment (different labels) and exposes controller-runtime
+  # metrics on the Service's http port (8080).
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: flux-operator
+  endpoints:
+    - port: http
+      path: /metrics
+      interval: 60s

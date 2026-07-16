@@ -1,0 +1,51 @@
+---
+apiVersion: helm.toolkit.fluxcd.io/v2
+kind: HelmRelease
+metadata:
+  name: coredns
+  namespace: system-dns
+spec:
+  interval: 1m
+  timeout: 15m
+  dependsOn: []
+  install:
+    remediation:
+      retries: 3
+  upgrade:
+    remediation:
+      retries: 3
+  chart:
+    spec:
+      chart: coredns
+      # renovate: datasource=helm depName=coredns package=coredns helmRepo=https://coredns.github.io/helm
+      version: 1.46.1
+      sourceRef: 
+        kind: HelmRepository
+        name: coredns
+  values:
+    image:
+      # renovate: datasource=docker depName=coredns/coredns package=coredns/coredns
+      tag: 1.14.6@sha256:900f9c109f7a33545d3c811516e8376df9019147b750f5ce3e254468769176ea
+    isClusterService: false
+    extraVolumes: []
+    extraVolumeMounts: []
+    servers:
+      - zones:
+          - zone: .
+            use_tcp: true
+        port: 53
+        plugins:
+          - name: errors
+          - name: health
+            configBlock: |-
+              lameduck 5s
+          - name: forward
+            parameters: . 1.1.1.1 8.8.8.8
+          - name: ready
+          - name: prometheus
+            parameters: 0.0.0.0:9153
+          - name: cache
+            parameters: 30
+          - name: loop
+          - name: reload
+          - name: loadbalance

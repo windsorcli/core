@@ -1,0 +1,40 @@
+---
+apiVersion: helm.toolkit.fluxcd.io/v2
+kind: HelmRelease
+metadata:
+  name: fluent-operator
+  namespace: system-telemetry
+spec:
+  interval: 5m
+  timeout: 20m
+  chart:
+    spec:
+      chart: fluent-operator
+      # renovate: datasource=helm depName=fluent-operator package=fluent-operator helmRepo=https://fluent.github.io/helm-charts
+      version: 4.2.0
+      sourceRef:
+        kind: HelmRepository
+        name: fluent
+  values:
+    operator:
+      image:
+        # renovate: datasource=docker depName=ghcr.io/fluent/fluent-operator/fluent-operator package=ghcr.io/fluent/fluent-operator/fluent-operator
+        tag: 3.9.0@sha256:705375468232d8d39d47c60d55296b1587501fc1cb4f2f313e7e7b4ad82cc3ed
+      initcontainer:
+        image:
+          # renovate: datasource=docker depName=docker.io/library/docker package=docker.io/library/docker
+          tag: 20.10@sha256:2967f0819c84dd589ed0a023b9d25dcfe7a3c123d5bf784ffbb77edf55335f0c
+    containerRuntime: containerd
+    Kubernetes: false
+    fluentd:
+      image:
+        # renovate: datasource=docker depName=ghcr.io/fluent/fluent-operator/fluentd package=ghcr.io/fluent/fluent-operator/fluentd
+        tag: v1.19.2@sha256:fef9f961b919a56c7f11b0d6edcd55693150cc72d9728aac4b7a95937336774f
+      enable: false
+      crdsEnable: false
+    fluentbit:
+      image:
+        # renovate: datasource=docker depName=ghcr.io/fluent/fluent-operator/fluent-bit package=ghcr.io/fluent/fluent-operator/fluent-bit
+        tag: v5.0.9@sha256:68823dfe7971398c4e7afe410e3596b4c7a3bd57364fa4ce4a3c56008fe3f70a
+      enable: false
+      crdsEnable: false

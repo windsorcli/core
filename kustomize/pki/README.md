@@ -7,16 +7,16 @@ description: cert-manager, trust-manager, and the cluster's ClusterIssuers (self
 
 The cluster's certificate-issuance layer. cert-manager's CRDs are
 vendored under `kustomize/crds/` and applied ahead of the stack via
-the facet `crds:` section; the add-on then splits across two
-Kustomization paths so the controller installs before the
-ClusterIssuer resources that depend on it. `pki-base` installs
-cert-manager (trust-manager is added when
-the private-CA addon is enabled), plus optional patches that enable
-Prometheus scraping, Azure workload identity, and single-node
-leader-election tweaks. `pki-resources` applies one or more
+the facet `crds:` section. The add-on is a `flux:` system entry
+(`pki`) so Flux can reconcile the controller before the ClusterIssuer
+CRs that depend on it. `install` installs cert-manager (trust-manager
+is added when the private-CA addon is enabled), plus optional patches
+that enable Prometheus scraping, Azure workload identity, and
+single-node leader-election tweaks. `resources` applies one or more
 ClusterIssuers depending on the cluster's DNS and gateway-access
-posture, and depends on `pki-base` for the controller and `policy-resources`
-for the private-CA inject policy.
+posture, and implicitly depends on `install` (compiled name:
+`pki-install` / `pki-resources`); the ACME and private-CA variants
+also depend on `policy-resources` for the private-CA inject policy.
 
 The ClusterIssuers this add-on can ship are named consistently across
 platforms so downstream `Certificate` resources can reference a stable
@@ -54,16 +54,15 @@ flowchart LR
 ```
 
 ```yaml
-- name: pki-base
-  path: pki/base
-  components: [cert-manager]
-  timeout: 20m
-
-- name: pki-resources
-  path: pki/resources
-  dependsOn: [pki-base, policy-resources]
-  components: [public-issuer/selfsigned]
-  timeout: 5m
+flux:
+  - name: pki
+    install:
+      components: [cert-manager]
+      timeout: 20m
+    resources:
+      - dependsOn: [policy-resources]
+        components: [public-issuer/selfsigned]
+        timeout: 5m
 ```
 
 Issues against `public-selfsigned`. Browser warnings until the CA
@@ -87,15 +86,16 @@ flowchart LR
 ```
 
 ```yaml
-- name: pki-resources
-  path: pki/resources
-  dependsOn: [pki-base, policy-resources]
-  components: [public-issuer/acme/route53]
-  substitutions:
-    acme_server: https://acme-v02.api.letsencrypt.org/directory
-    acme_email: you@example.com
-    acme_dns_zone: example.com
-    acme_hosted_zone_id: <from terraform_output('dns-zone', 'zone_id')>
+flux:
+  - name: pki
+    resources:
+      - dependsOn: [policy-resources]
+        components: [public-issuer/acme/route53]
+        substitutions:
+          acme_server: https://acme-v02.api.letsencrypt.org/directory
+          acme_email: you@example.com
+          acme_dns_zone: example.com
+          acme_hosted_zone_id: <from terraform_output('dns-zone', 'zone_id')>
 ```
 
 DNS-01 against Route53. Auth comes from the IAM role and Pod Identity
@@ -119,23 +119,22 @@ flowchart LR
 ```
 
 ```yaml
-- name: pki-base
-  path: pki/base
-  components: [cert-manager, cert-manager/azure-workload-identity]
-  substitutions:
-    cert_manager_client_id: <terraform_output('cluster', 'cert_manager_client_id')>
-    cert_manager_tenant_id: <terraform_output('cluster', 'tenant_id')>
-
-- name: pki-resources
-  path: pki/resources
-  dependsOn: [pki-base, policy-resources]
-  components: [public-issuer/acme/azuredns]
-  substitutions:
-    acme_server: https://acme-v02.api.letsencrypt.org/directory
-    acme_email: you@example.com
-    acme_dns_zone: example.com
-    acme_dns_zone_resource_group: <terraform_output('dns-zone', 'resource_group_name')>
-    acme_dns_zone_subscription_id: <terraform_output('dns-zone', 'subscription_id')>
+flux:
+  - name: pki
+    install:
+      components: [cert-manager, cert-manager/azure-workload-identity]
+      substitutions:
+        cert_manager_client_id: <terraform_output('cluster', 'cert_manager_client_id')>
+        cert_manager_tenant_id: <terraform_output('cluster', 'tenant_id')>
+    resources:
+      - dependsOn: [policy-resources]
+        components: [public-issuer/acme/azuredns]
+        substitutions:
+          acme_server: https://acme-v02.api.letsencrypt.org/directory
+          acme_email: you@example.com
+          acme_dns_zone: example.com
+          acme_dns_zone_resource_group: <terraform_output('dns-zone', 'resource_group_name')>
+          acme_dns_zone_subscription_id: <terraform_output('dns-zone', 'subscription_id')>
 ```
 
 DNS-01 against Azure DNS, authed via the AKS federated workload
@@ -168,14 +167,13 @@ flowchart LR
 ```
 
 ```yaml
-- name: pki-base
-  path: pki/base
-  components: [cert-manager, trust-manager]
-
-- name: pki-resources
-  path: pki/resources
-  dependsOn: [pki-base, policy-resources]
-  components: [private-issuer/ca]
+flux:
+  - name: pki
+    install:
+      components: [cert-manager, trust-manager]
+    resources:
+      - dependsOn: [policy-resources]
+        components: [private-issuer/ca]
 ```
 
 `private-ca` ClusterIssuer signs against an in-cluster selfSigned CA.
@@ -198,7 +196,7 @@ namespaces can mount.
 | `acme_dns_zone_resource_group` | `public-issuer/acme/azuredns` is enabled | Azure resource group holding the public DNS zone. Sourced from `terraform_output('dns-zone', 'resource_group_name')`. |
 | `acme_dns_zone_subscription_id` | `public-issuer/acme/azuredns` is enabled | Azure subscription ID for the public DNS zone. Sourced from `terraform_output('dns-zone', 'subscription_id')`. |
 
-## Components — `pki-base`
+## Components — `pki-install`
 
 | Component | Enable when | Effect |
 |---|---|---|
@@ -223,8 +221,8 @@ namespaces can mount.
 
 | Add-on | Required when | Reason |
 |---|---|---|
-| `policy-resources` | `policies.enabled: true` | pki-base depends on Kyverno baseline policies being active before cert-manager pods are admitted into `system-pki`. pki-resources depends on `policy-resources` so the private-CA inject policy (when private_ca is on) doesn't apply before Kyverno itself is reconciling. |
-| `telemetry-base` | `cert-manager/prometheus` is enabled | The ServiceMonitor added by `cert-manager/prometheus` needs Prometheus to be live to scrape. |
+| `policy-resources` | `policies.enabled: true` | pki-install depends on Kyverno baseline policies being active before cert-manager pods are admitted into `system-pki`. pki-resources depends on `policy-resources` so the private-CA inject policy (when private_ca is on) doesn't apply before Kyverno itself is reconciling. |
+| `telemetry-install` | `cert-manager/prometheus` is enabled | The ServiceMonitor added by `cert-manager/prometheus` needs Prometheus to be live to scrape. |
 
 <!-- END_KUSTOMIZE_DOCS -->
 

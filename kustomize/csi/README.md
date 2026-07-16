@@ -41,13 +41,14 @@ flowchart LR
 ```
 
 ```yaml
-- name: csi
-  path: csi
-  dependsOn: [policy-resources, cni]
-  components: [aws-ebs]
-  timeout: 5m
-  substitutions:
-    single_storage_type: gp3
+flux:
+  - name: csi
+    dependsOn: [policy-resources, cni]
+    install:
+      components: [aws-ebs]
+      timeout: 5m
+      substitutions:
+        single_storage_type: gp3
 ```
 
 A StorageClass-only layer over the EBS CSI driver EKS preinstalls.
@@ -66,13 +67,14 @@ flowchart LR
 ```
 
 ```yaml
-- name: csi
-  path: csi
-  dependsOn: [policy-resources, cni]
-  components: [azure-disk]
-  timeout: 5m
-  substitutions:
-    single_storage_type: StandardSSD_LRS
+flux:
+  - name: csi
+    dependsOn: [policy-resources, cni]
+    install:
+      components: [azure-disk]
+      timeout: 5m
+      substitutions:
+        single_storage_type: StandardSSD_LRS
 ```
 
 The same StorageClass-only wrapper over the Azure Disk CSI driver AKS
@@ -96,13 +98,14 @@ flowchart LR
 ```
 
 ```yaml
-- name: csi
-  path: csi
-  dependsOn: [policy-resources, cni]
-  components: [openebs, openebs/single-node, openebs/dynamic-localpv]
-  timeout: 20m
-  substitutions:
-    local_volume_path: /var/mnt/local
+flux:
+  - name: csi
+    dependsOn: [policy-resources, cni]
+    install:
+      components: [openebs, openebs/single-node, openebs/dynamic-localpv]
+      timeout: 20m
+      substitutions:
+        local_volume_path: /var/mnt/local
 ```
 
 OpenEBS brings its own Helm release and a hostpath provisioner that
@@ -130,11 +133,12 @@ flowchart LR
 ```
 
 ```yaml
-- name: csi
-  path: csi
-  dependsOn: [policy-resources, telemetry-base, cni]
-  components: [longhorn, longhorn/ha, longhorn/prometheus]
-  timeout: 20m
+flux:
+  - name: csi
+    dependsOn: [policy-resources, telemetry-install, cni]
+    install:
+      components: [longhorn, longhorn/ha, longhorn/prometheus]
+      timeout: 20m
 ```
 
 Longhorn installs a distributed block-storage system that replicates
@@ -170,7 +174,7 @@ for explicit multi-replica volumes.
 |---|---|---|
 | `policy-resources` | `policies.enabled: true` | `system-csi` runs at PSA `privileged`; Kyverno's image-digest and admission policies must be live before CSI driver pods are admitted. |
 | `cni` | always (added by `option-cni`) | CSI's `node-driver-registrar` sees transient loopback connectivity drops during eBPF init and crash-loops without this ordering. |
-| `telemetry-base` | longhorn driver AND (`telemetry.metrics.enabled: true` OR `telemetry.logs.enabled: true`) | The `longhorn/prometheus` ServiceMonitor needs Prometheus to be live. |
+| `telemetry-install` | longhorn driver AND (`telemetry.metrics.enabled: true` OR `telemetry.logs.enabled: true`) | The `longhorn/prometheus` ServiceMonitor needs Prometheus to be live. |
 
 <!-- END_KUSTOMIZE_DOCS -->
 

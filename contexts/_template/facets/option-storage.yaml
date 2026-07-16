@@ -61,7 +61,7 @@ terraform:
 # talos_common.storage_driver (set per platform: openebs on metal/docker,
 # longhorn on incus).
 #
-kustomize:
+flux:
 
   # ---------------------------------------------------------------------------
   # OpenEBS — hostPath-style local volumes
@@ -71,17 +71,17 @@ kustomize:
   # default for dev and for platforms without dedicated block devices.
   #
   - name: csi
-    path: csi
     when: talos_common.storage_driver == 'openebs'
     dependsOn:
       - "${(policies.enabled ?? true) ? 'policy-resources' : ''}"
-    components:
-      - openebs
-      - openebs/dynamic-localpv
-    substitutions:
-      local_volume_path: ${talos_common.csi_local_volume_path}
-    timeout: 20m
-    interval: 5m
+    install:
+      components:
+        - openebs
+        - openebs/dynamic-localpv
+      substitutions:
+        local_volume_path: ${talos_common.csi_local_volume_path}
+      timeout: 20m
+      interval: 5m
 
   # ---------------------------------------------------------------------------
   # Longhorn — distributed block storage
@@ -94,18 +94,20 @@ kustomize:
   #   - longhorn/prometheus:  ServiceMonitor; only when observability addon is on.
   #
   - name: csi
-    path: csi
     when: talos_common.storage_driver == 'longhorn'
     dependsOn:
       - "${(policies.enabled ?? true) ? 'policy-resources' : ''}"
-      - "${telemetry.metrics.enabled || telemetry.logs.enabled ? 'telemetry-base' : ''}"
-    components:
-      - longhorn
-      - "${((cluster.controlplanes.schedulable ?? false) || topology == 'single-node') ? 'longhorn/single-node' : ''}"
-      - "${topology == 'ha' ? 'longhorn/ha' : ''}"
-      - "${addons.observability.enabled == true ? 'longhorn/prometheus' : ''}"
-    timeout: 20m
-    interval: 5m
+      - "${telemetry.metrics.enabled || telemetry.logs.enabled ? 'telemetry-install' : ''}"
+    install:
+      components:
+        - longhorn
+        - "${((cluster.controlplanes.schedulable ?? false) || topology == 'single-node') ? 'longhorn/single-node' : ''}"
+        - "${topology == 'ha' ? 'longhorn/ha' : ''}"
+        - "${addons.observability.enabled == true ? 'longhorn/prometheus' : ''}"
+      timeout: 20m
+      interval: 5m
+
+kustomize:
 
   # ---------------------------------------------------------------------------
   # Grafana dashboard patch
@@ -120,6 +122,6 @@ kustomize:
     path: observability
     when: talos_common.storage_driver == 'longhorn' && (addons.observability.enabled == true || dev == true)
     dependsOn:
-      - telemetry-base
+      - telemetry-install
     components:
       - grafana/dashboards/longhorn

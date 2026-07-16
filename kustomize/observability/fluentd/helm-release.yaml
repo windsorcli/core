@@ -12,7 +12,7 @@ spec:
       chart: charts/fluent-operator
       # chart: fluent-operator
       # renovate: datasource=helm depName=fluent-operator package=fluent-operator helmRepo=https://fluent.github.io/helm-charts
-      version: 4.1.0
+      version: 4.2.0
       sourceRef:
         kind: GitRepository
         name: fluent-operator
@@ -31,6 +31,6 @@ spec:
     fluentbit:
       image:
         # renovate: datasource=docker depName=ghcr.io/fluent/fluent-operator/fluent-bit package=ghcr.io/fluent/fluent-operator/fluent-bit
-        tag: v5.0.7@sha256:9f849cd9b893cfba6ee9feea4dbb651637bc0df577e9e05fff052a10da2aa7e9
+        tag: v5.0.9@sha256:68823dfe7971398c4e7afe410e3596b4c7a3bd57364fa4ce4a3c56008fe3f70a
       enable: true
       crdsEnable: false

@@ -7,7 +7,7 @@ terraform {
   required_providers {
     azurerm = {
       source  = "hashicorp/azurerm"
-      version = "~> 4.78.0"
+      version = "~> 4.79.0"
     }
     null = {
       source  = "hashicorp/null"
@@ -458,7 +458,7 @@ locals {
   # otherwise system-class pools are fixed and every other class autoscales.
   pools_autoscaling = {
     for name, p in local.effective_pools : name => {
-      enabled = p.autoscaling != null && p.autoscaling.enabled != null ? p.autoscaling.enabled : p.class != "system"
+      enabled = try(p.autoscaling.enabled, null) != null ? p.autoscaling.enabled : p.class != "system"
       min     = p.autoscaling != null ? p.autoscaling.min : null
       max     = p.autoscaling != null ? p.autoscaling.max : null
     }
@@ -466,7 +466,7 @@ locals {
 
   pools_resolved = {
     for name, p in local.effective_pools : name => {
-      vm_size = (p.instance_types != null && length(p.instance_types) > 0
+      vm_size = (try(length(p.instance_types), 0) > 0
         ? p.instance_types[0]
       : lookup(var.class_instance_types, p.class, [""])[0])
       priority        = p.lifecycle == "spot" ? "Spot" : "Regular"
