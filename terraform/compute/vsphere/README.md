@@ -11,6 +11,43 @@ per-node machineconfig via VMware GuestInfo at creation time. Generates
 cluster identity (machine secrets) inline so no separate config step is
 required before `cluster/talos`. Pairs with the `cluster/talos` module.
 
+## Credentials
+
+The vSphere provider authenticates via environment variables, not Terraform
+inputs — so they do not appear in the Inputs table below and must be present in
+the environment when running `plan`/`apply`:
+
+| Variable | Required | Description |
+|----------|:--------:|-------------|
+| `VSPHERE_SERVER` | yes | vCenter hostname or IP |
+| `VSPHERE_USER` | yes | vCenter username (e.g. `administrator@vsphere.local`) |
+| `VSPHERE_PASSWORD` | yes | vCenter password |
+| `VSPHERE_ALLOW_UNVERIFIED_SSL` | no | `true` to skip TLS verification (self-signed vCenter certs) |
+
+Under the Windsor CLI these are exported automatically from the context
+`vsphere` config block (`server`, `user`, `insecure`) plus a secret reference
+for the password — the password is never written to config in plaintext. Outside
+the CLI, export them directly before invoking Terraform.
+
+## Inventory prerequisites
+
+This module **reads** its vSphere inventory via data sources — it does not create
+it. The following must already exist in vCenter, named exactly as passed in
+`datacenter` / `cluster` / `datastore` / `network`:
+
+- a **datacenter**;
+- a **compute cluster** (a `ClusterComputeResource`) with at least one ESXi host
+  joined to it — a host added directly to the datacenter (not in a cluster) does
+  not satisfy the `vsphere_compute_cluster` lookup;
+- a **datastore** and a **port group** reachable from that host.
+
+The ESXi host must also have outbound access to `factory.talos.dev` so it can
+pull the Talos OVA referenced in `images` at deploy time.
+
+To create or inspect this inventory out of band, `govc` reads the same
+credentials via `GOVC_URL` (`https://$VSPHERE_SERVER`), `GOVC_USERNAME`,
+`GOVC_PASSWORD`, and `GOVC_INSECURE` — mirror the `VSPHERE_*` values into those.
+
 <!-- BEGIN_TF_DOCS -->
 ## Requirements
 

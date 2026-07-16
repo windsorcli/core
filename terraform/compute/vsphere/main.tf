@@ -98,6 +98,14 @@ data "vsphere_network" "this" {
   datacenter_id = data.vsphere_datacenter.this.id
 }
 
+# The vsphere_host data source resolves the ESXi host the provider pins OVF
+# deployments to (host_system_id is mandatory for remote OVF, even with DRS).
+# An empty var.host_system selects the sole host in the datacenter.
+data "vsphere_host" "this" {
+  name          = var.host_system != "" ? var.host_system : null
+  datacenter_id = data.vsphere_datacenter.this.id
+}
+
 # =============================================================================
 # Cluster Identity & Per-node Machineconfigs
 # =============================================================================
@@ -218,12 +226,26 @@ locals {
 # and firmware — the OVA sets all three and Terraform should not fight them on
 # subsequent applies.
 
+# The vsphere_folder groups this deployment's VMs. Created only when var.folder
+# is empty (the default "windsor-<context>" path); an operator-supplied folder
+# is assumed to already exist and is left unmanaged.
+resource "vsphere_folder" "vm" {
+  count = var.folder == "" ? 1 : 0
+
+  path          = local.vm_folder
+  type          = "vm"
+  datacenter_id = data.vsphere_datacenter.this.id
+}
+
 resource "vsphere_virtual_machine" "instances" {
-  for_each = local.instances_by_name
+  for_each   = local.instances_by_name
+  depends_on = [vsphere_folder.vm]
 
   name             = each.value.name
   resource_pool_id = local.resource_pool_id
   datastore_id     = data.vsphere_datastore.this.id
+  host_system_id   = data.vsphere_host.this.id
+  datacenter_id    = data.vsphere_datacenter.this.id
   folder           = local.vm_folder
 
   num_cpus   = each.value.cpu
@@ -264,11 +286,14 @@ resource "vsphere_virtual_machine" "instances" {
     "guestinfo.talos.config.base64" = "true"
   } : {}
 
-  # Block until vmtoolsd reports a guest IP (requires siderolabs/vmtoolsd-guest-agent
-  # in the Talos image schematic). Non-Talos VMs also benefit from this wait
-  # if they run an open-vm-tools package.
-  wait_for_guest_ip_timeout  = 10
-  wait_for_guest_net_timeout = 10
+  # Do not block VM creation on the guest-IP waiter. With Talos'
+  # vmtoolsd-guest-agent the hashicorp/vsphere waiter times out even though
+  # vCenter reports a healthy guest.ipAddress + toolsOk (observed on 2.12.0);
+  # node IPs are static and known from the machineconfig, so outputs derive
+  # from guest_ip_addresses on refresh and the facet falls back to the declared
+  # ipv4 offset in the meantime. A negative value disables each waiter.
+  wait_for_guest_ip_timeout  = -1
+  wait_for_guest_net_timeout = -1
 
   lifecycle {
     ignore_changes = [

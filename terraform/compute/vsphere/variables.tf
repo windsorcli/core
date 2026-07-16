@@ -46,6 +46,12 @@ variable "resource_pool" {
   default     = ""
 }
 
+variable "host_system" {
+  description = "ESXi host name or IP to place VMs on. Required by the vSphere provider for OVF deployment. Empty string auto-selects the sole host in the datacenter (single-host clusters)."
+  type        = string
+  default     = ""
+}
+
 variable "cluster_name" {
   description = "Talos cluster name. Baked into every per-node machineconfig."
   type        = string
