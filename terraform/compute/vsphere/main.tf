@@ -36,7 +36,7 @@ terraform {
   required_version = ">= 1.12.2"
   required_providers {
     vsphere = {
-      source  = "hashicorp/vsphere"
+      source  = "vmware/vsphere"
       version = "~> 2.10"
     }
     talos = {

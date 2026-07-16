@@ -44,11 +44,12 @@ mock_provider "talos" {
 
 # Top-level variables shared across all runs.
 variables {
-  context_id = "test"
-  datacenter = "dc-prod"
-  cluster    = "cluster-01"
-  datastore  = "datastore-01"
-  network    = "VM Network"
+  context_id    = "test"
+  datacenter    = "dc-prod"
+  cluster       = "cluster-01"
+  datastore     = "datastore-01"
+  network       = "VM Network"
+  talos_version = "1.12.6"
 }
 
 # No instances: confirms the module produces no VMs.
