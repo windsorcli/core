@@ -290,7 +290,7 @@ terraform:
     destroy: false
 
 # =============================================================================
-# Kustomize — PKI + load balancer
+# Flux systems — PKI + load balancer
 # =============================================================================
 #
 # vSphere VMs have real routed IPs, so in-cluster LB announcements work when
@@ -300,46 +300,42 @@ terraform:
 # supported. Industrial facility deployments are LAN-only with no public DNS,
 # so a selfsigned `private` ClusterIssuer is needed for the gateway cert.
 #
-kustomize:
+flux:
 
-  # ---------------------------------------------------------------------------
-  # pki-resources — selfsigned `private` ClusterIssuer for the gateway cert
-  # ---------------------------------------------------------------------------
-  #
-  # gateway_cert_issuer (option-gateway) resolves to 'private' on vsphere (no
-  # public_domain, not aws/azure). The private-issuer/selfsigned component
-  # creates a ClusterIssuer named exactly `private`. Skipped when addon-private-ca
-  # is enabled — that addon emits its own `pki-resources` with a CA-backed
-  # `private` issuer; running both would conflict.
-  - name: pki-resources
-    path: pki/resources
+  # pki resources ship the selfsigned `private` ClusterIssuer for the gateway
+  # cert. gateway_cert_issuer (option-gateway) resolves to 'private' on vsphere
+  # (no public_domain, not aws/azure). Skipped when addon-private-ca is enabled —
+  # that addon emits its own CA-backed `private` issuer; running both conflicts.
+  - name: pki
     when: (addons.private_ca.enabled ?? false) != true
-    dependsOn:
-      - pki-base
-    components:
-      - private-issuer/selfsigned
-    timeout: 5m
-    interval: 5m
+    resources:
+      - components:
+          - private-issuer/selfsigned
+        timeout: 5m
+        interval: 5m
 
-  - name: lb-base
-    path: lb/base
+  # install ships the driver's controller HelmRelease. kube-vip/arp builds here
+  # too — a patch on the kube-vip HelmRelease, not a separate CR — and
+  # loadbalancer_ip_range is set here because the kube-vip cloud-provider
+  # HelmRelease reads it directly. resources ships metallb/arp or metallb/layer2,
+  # the IPAddressPool / L2Advertisement CRs metallb consumes; kube-vip has
+  # nothing left to configure once install has run.
+  - name: lb
     when: lb_effective.enabled
     dependsOn:
       - policy-resources
-    components:
-      - "${lb_effective.driver == 'metallb' ? 'metallb' : ''}"
-    timeout: 5m
-    interval: 5m
-
-  - name: lb-resources
-    path: lb/resources
-    when: lb_effective.enabled
-    dependsOn:
-      - lb-base
-    components:
-      - ${lb_effective.driver}
-      - "${lb_effective.driver}/${network.loadbalancer_mode ?? 'arp'}"
-    substitutions:
-      loadbalancer_ip_range: "${network.loadbalancer_ips.start + '-' + network.loadbalancer_ips.end}"
-    timeout: 5m
-    interval: 5m
+    install:
+      components:
+        - ${lb_effective.driver}
+        - "${lb_effective.driver == 'kube-vip' ? lb_effective.driver + '/' + (network.loadbalancer_mode ?? 'arp') : ''}"
+      substitutions:
+        loadbalancer_ip_range: "${network.loadbalancer_ips.start + '-' + network.loadbalancer_ips.end}"
+      timeout: 5m
+      interval: 5m
+    resources:
+      - components:
+          - "${lb_effective.driver == 'metallb' ? lb_effective.driver + '/' + (network.loadbalancer_mode ?? 'arp') : ''}"
+        substitutions:
+          loadbalancer_ip_range: "${network.loadbalancer_ips.start + '-' + network.loadbalancer_ips.end}"
+        timeout: 5m
+        interval: 5m
