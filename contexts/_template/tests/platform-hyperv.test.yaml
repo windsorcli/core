@@ -143,7 +143,6 @@ cases:
               - metallb
           resources:
             - components:
-                - metallb
                 - metallb/arp
               substitutions:
                 loadbalancer_ip_range: 10.20.0.100-10.20.0.110
