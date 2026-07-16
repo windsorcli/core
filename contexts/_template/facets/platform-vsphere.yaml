@@ -74,6 +74,20 @@ config:
       image_url: "${'https://factory.talos.dev/image/903b2da78f99adef03cbbd4df6714563823f63218508800751560d3bc3557e40/v' + talos.talos_version + '/vmware-amd64.ova'}"
 
   # ---------------------------------------------------------------------------
+  # talos_common.k8s_service_host — Cilium kube-proxy-replacement API endpoint
+  # ---------------------------------------------------------------------------
+  #
+  # Storage falls through to config-talos.yaml's openebs default. The
+  # controlplane sits at CIDR offset 10 (see compute instances below), so pin
+  # k8s_service_host there rather than the nodes map — the compute step derives
+  # nodes from cluster.controlplanes.count, so a nodes map is not required and
+  # config-talos.yaml's node-based default would otherwise resolve empty and
+  # leave Cilium unable to reach the API before its eBPF rules are active.
+  - name: talos_common
+    value:
+      k8s_service_host: "${cidrhost(network.cidr_block, 10)}"
+
+  # ---------------------------------------------------------------------------
   # Network gateway and nameservers — delivered to each node via guestinfo
   # ---------------------------------------------------------------------------
   #
