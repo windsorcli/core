@@ -269,8 +269,6 @@ flux:
   # component only adds a custom `single` StorageClass tuned to our defaults.
   # StandardSSD_LRS is the recommended balance of cost and performance.
   - name: csi
-    dependsOn:
-      - policy-resources
     install:
       components:
         - azure-disk
@@ -307,7 +305,6 @@ flux:
   - name: dns
     when: "(dns.public_domain ?? '') != '' || (gateway.access == 'private' && (dns.private_domain ?? '') != '')"
     dependsOn:
-      - policy-resources
       # gateway-install installs the Gateway API CRDs (HTTPRoute, Gateway). When
       # the gateway is on, external-dns is configured with the gateway-httproute
       # source below — without the CRDs present at startup it crash-loops on

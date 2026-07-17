@@ -73,12 +73,13 @@ flux:
   # Two variants — they differ in Talos-specific settings and how
   # k8s_service_host is derived:
   #
-  # The dep on policy-resources serves two purposes. Normally (policies on) it
-  # preserves ordering so Cilium pods are re-rolled after Kyverno's mutation
-  # policies are live. When the cilium/gateway component is active it also
-  # ships a ClusterPolicy (LBIPAM IP sharing); disabling policies in that
-  # combination would otherwise fail on "no matches for kind ClusterPolicy",
-  # so the dep is kept present to surface it as DependencyNotReady instead.
+  # Ordering against Kyverno's mutation policies is handled globally by policy's
+  # globalDependency barrier, so no explicit policy-resources dep is needed for
+  # the normal (policies on) case. The one exception is cilium/gateway: it ships
+  # a ClusterPolicy (LBIPAM IP sharing), so with policies disabled the apply
+  # would fail on "no matches for kind ClusterPolicy". The cilium-gated dep below
+  # keeps policy-resources present in that combination to surface it as
+  # DependencyNotReady instead.
   #
 
   # Talos: cilium/talos applies Talos-specific security context + cgroup
@@ -86,7 +87,7 @@ flux:
   - name: cni
     when: talos_enabled
     dependsOn:
-      - "${(policies.enabled ?? true) || (gateway.enabled == true && gateway.driver == 'cilium') ? 'policy-resources' : ''}"
+      - "${(gateway.enabled == true && gateway.driver == 'cilium') ? 'policy-resources' : ''}"
       - "${telemetry.metrics.enabled || telemetry.logs.enabled ? 'telemetry-install' : ''}"
     install:
       components:
@@ -110,7 +111,7 @@ flux:
   - name: cni
     when: eks_enabled
     dependsOn:
-      - "${(policies.enabled ?? true) || (gateway.enabled == true && gateway.driver == 'cilium') ? 'policy-resources' : ''}"
+      - "${(gateway.enabled == true && gateway.driver == 'cilium') ? 'policy-resources' : ''}"
       - "${telemetry.metrics.enabled || telemetry.logs.enabled ? 'telemetry-install' : ''}"
     install:
       components:

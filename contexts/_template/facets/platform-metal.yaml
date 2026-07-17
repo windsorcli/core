@@ -104,8 +104,6 @@ flux:
 
   - name: lb
     when: lb_effective.enabled
-    dependsOn:
-      - policy-resources
     install:
       components:
         - ${lb_effective.driver}
