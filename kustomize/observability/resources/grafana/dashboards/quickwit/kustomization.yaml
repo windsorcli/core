@@ -3,7 +3,6 @@ kind: Component
 
 # Quickwit dashboards
 # Infrastructure: indexers, searchers, metastore, ingesters (vendored)
-# Logs: logs.json (custom OTEL logs viewer)
 #
 # Run: task dashboards
 # See: source.yaml for provenance
@@ -25,7 +24,6 @@ configMapGenerator:
   - name: grafana-dashboards-quickwit-logs
     namespace: system-observability
     files:
-      - logs.json
       - logs-stats.json
     options:
       disableNameSuffixHash: true

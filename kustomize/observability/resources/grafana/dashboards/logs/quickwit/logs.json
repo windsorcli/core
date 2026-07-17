@@ -665,7 +665,11 @@
     "list": [
       {
         "allValue": "*",
-        "current": {},
+        "current": {
+          "selected": true,
+          "text": "All",
+          "value": "$__all"
+        },
         "datasource": {
           "type": "quickwit-quickwit-datasource",
           "uid": "quickwit-logs"
