@@ -16,7 +16,8 @@
 -- Extracts OTEL semantic conventions; severity derived from HTTP status code
 -- the same way nginx-access does.
 
-local cjson_ok, cjson = pcall(require, "cjson.safe")
+local cjson_ok, cjson_or_err = pcall(require, "cjson.safe")
+local cjson = cjson_ok and cjson_or_err or nil
 
 local function as_string(v)
   if type(v) == "string" then return v end
@@ -56,9 +57,26 @@ function parse_envoy_access(tag, timestamp, record)
     return 0, timestamp, record
   end
 
-  if not cjson_ok then return 0, timestamp, record end
-  local data = cjson.decode(log)
-  if not data then return 0, timestamp, record end
+  -- TEMP DIAGNOSTIC: surface why cjson decode isn't classifying these
+  if not cjson_ok then
+    record["severity_text"] = "DEBUG_CJSON_UNAVAILABLE"
+    record["severity_number"] = 999
+    record["body"] = tostring(cjson_or_err)
+    return 1, timestamp, record
+  end
+  local decode_ok, data = pcall(cjson.decode, log)
+  if not decode_ok then
+    record["severity_text"] = "DEBUG_DECODE_ERROR"
+    record["severity_number"] = 999
+    record["body"] = tostring(data)
+    return 1, timestamp, record
+  end
+  if not data then
+    record["severity_text"] = "DEBUG_DECODE_NIL"
+    record["severity_number"] = 999
+    record["body"] = "cjson.decode returned nil/false without error"
+    return 1, timestamp, record
+  end
 
   local status = as_number(data["response_code"])
   local response_flags = as_string(data["response_flags"])
