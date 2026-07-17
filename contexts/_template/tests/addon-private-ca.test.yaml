@@ -41,9 +41,7 @@ cases:
             components:
               - trust-manager
           resources:
-            - dependsOn:
-                - policy-resources
-              timeout: 5m
+            - timeout: 5m
               interval: 5m
               components:
                 - private-issuer/ca
@@ -66,9 +64,7 @@ cases:
             components:
               - trust-manager
           resources:
-            - dependsOn:
-                - policy-resources
-              timeout: 5m
+            - timeout: 5m
               interval: 5m
               components:
                 - private-issuer/ca

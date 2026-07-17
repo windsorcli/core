@@ -44,7 +44,7 @@ cases:
       flux:
         - name: object-store
           dependsOn:
-            - csi
+            - csi-install
           install:
             components:
               - minio
@@ -82,7 +82,7 @@ cases:
       flux:
         - name: object-store
           dependsOn:
-            - csi
+            - csi-install
           install:
             components:
               - minio

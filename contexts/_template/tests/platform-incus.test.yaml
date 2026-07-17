@@ -192,7 +192,6 @@ cases:
             interval: 5m
           resources:
             - components:
-                - metallb
                 - metallb/arp
               substitutions:
                 loadbalancer_ip_range: 10.10.1.10-10.10.1.100
@@ -293,8 +292,6 @@ cases:
         - name: cni
       flux:
         - name: cni
-      kustomize:
-        - name: lb-install
 
   # Edge case: Schedulable controlplanes use controlplane volume path
   - name: schedulable controlplanes use controlplane volume path for CSI

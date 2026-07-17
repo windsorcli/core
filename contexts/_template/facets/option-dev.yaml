@@ -4,19 +4,15 @@ metadata:
   name: dev
   description: "Development mode configurations including selfsigned certificates and dev-specific resources"
 
-# Dev mode is a policy flag: turn on conveniences that make local iteration
-# fast but are unsuitable for production (selfsigned certs, default Grafana
-# password, auto-enabled addons).
+# Dev mode: enable local-iteration conveniences unsuitable for production
+# (selfsigned certs, default Grafana password, auto-enabled addons).
 when: dev == true
 
 # =============================================================================
 # Config — auto-enable common addons
 # =============================================================================
-#
-# Flip common addons on *unless the user explicitly set them to false*.
-# The `!= false` form preserves user overrides — setting `enabled: false`
-# keeps them off, while leaving the field unset defaults them on.
-#
+# Enable common addons unless explicitly set to false; `!= false` preserves
+# user overrides while defaulting unset fields on.
 config:
   - name: addons
     value:
@@ -34,11 +30,8 @@ config:
 # =============================================================================
 # Flux systems — pki resources overlay
 # =============================================================================
-#
-# PKI for local dev: a selfsigned ClusterIssuer so every certificate works
-# without an external trust anchor. Production uses letsencrypt / a private
-# CA wired up by addon-private-ca.
-#
+# Local-dev PKI: a selfsigned ClusterIssuer so certificates work without an
+# external trust anchor. Production uses letsencrypt or addon-private-ca.
 flux:
 
   - name: pki
@@ -46,19 +39,13 @@ flux:
       - components:
           - public-issuer/selfsigned
 
-# =============================================================================
-# Kustomize — dev-only resources
-# =============================================================================
-#
-kustomize:
-
   # Grafana dev credentials (default admin password "grafana"). In production
   # observability.admin_password is expected to come from a secret.
   - name: observability
-    path: observability
     dependsOn:
       - telemetry-install
-    components:
-      - grafana/dev
-    substitutions:
-      admin_password: ${addons.observability.admin_password ?? "grafana"}
+    install:
+      components:
+        - grafana/dev
+      substitutions:
+        admin_password: ${addons.observability.admin_password ?? "grafana"}

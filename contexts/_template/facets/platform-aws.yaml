@@ -6,20 +6,15 @@ metadata:
 
 when: platform == 'aws'
 
-# Terraform remote state lives in the S3 bucket provisioned by the `backend`
-# component below. Downstream components configure their backend pointed at
-# that bucket; the `backend` component itself uses local state.
+# Remote state lives in the S3 bucket the `backend` component provisions;
+# `backend` itself uses local state, downstream components point at the bucket.
 backend: backend
 
 # =============================================================================
 # Requires
 # =============================================================================
-#
-# aws.region has no derivable default — the aws-lb-controller, external-dns,
-# and the ACME Route53 issuer all need it, and the inline comment in this
-# facet calls out that propagating empty causes controller crashes rather
-# than falling back to a guess.
-#
+# aws.region has no default; lb-controller, external-dns, and the ACME issuer
+# all need it. Public DNS also requires an operator email for TLS registration.
 requires:
   - paths:
       - aws.region
@@ -32,14 +27,10 @@ requires:
 # =============================================================================
 # Config
 # =============================================================================
-#
 config:
 
-  # pki_effective.issuer_component — public ClusterIssuer variant rendered by
-  # pki-resources, resolved as an ordered selection (last match wins):
-  # selfsigned floor → ACME (route53) when a public domain is set → private
-  # selfsigned when access is private (creates the `private` ClusterIssuer the
-  # gateway cert references; the public path only ever creates `public`).
+  # issuer_component selects the ClusterIssuer variant (last match wins):
+  # selfsigned floor → ACME/route53 with a public domain → private selfsigned.
   - name: pki_effective
     value:
       issuer_component: public-issuer/selfsigned
@@ -55,11 +46,8 @@ config:
 # =============================================================================
 # CRDs — vendored, applied ahead of the controller
 # =============================================================================
-#
-# The AWS Load Balancer Controller chart ships its CRDs in the chart's crds/
-# directory, which Helm/Flux install once and never upgrade. Vendoring them
-# into the crds: layer keeps them current; the chart's CRD install is skipped.
-#
+# LB Controller CRDs vendored here (chart-installed CRDs never upgrade); the
+# chart's own CRD install is skipped.
 crds:
   # renovate: datasource=helm depName=aws-load-balancer-controller package=aws-load-balancer-controller helmRepo=https://aws.github.io/eks-charts
   - aws-load-balancer-controller-3.4.1
@@ -67,35 +55,19 @@ crds:
 # =============================================================================
 # Terraform — S3 state backend, VPC, EKS, optional Cilium bootstrap
 # =============================================================================
-#
 # Dependency chain:
 #   backend (S3) → network (VPC) → cluster (EKS) → cluster-additions → cni? → gitops
-#
-# The backend stack provisions the S3 bucket (and optional DynamoDB lock
-# table) that every downstream stack uses for remote state. It runs first on
-# apply and — because of the reverse-order teardown — last on destroy, so
-# dependent stacks finish writing their final (empty) state before the
-# bucket itself is removed.
-#
-# Cilium is optional on EKS; when used it's a full bring-your-own-CNI
-# replacement for VPC-CNI and is bootstrapped before Flux so pod networking
-# is up when the first reconciliation runs.
-#
+# Reverse-order teardown lets dependent stacks empty their state before the
+# backend bucket is removed. Cilium (optional) bootstraps before Flux.
 terraform:
 
-  # S3 + (optional) DynamoDB remote state backend. context_id/context_path and
-  # TF_VAR_operation are auto-injected by the CLI; the module's force_destroy
-  # flips on when operation == "destroy" so the bucket can be torn down with
-  # its contents on windsor destroy.
+  # S3 + optional DynamoDB remote state; force_destroy flips on for destroy so
+  # the bucket tears down with its contents.
   - name: backend
     path: backend/s3
 
-  # VPC with the requested CIDR. domain_name feeds the private (VPC-scoped)
-  # Route53 zone created inside this module — internal DNS for VPC
-  # resources. Sourced from dns.private_domain (the in-cluster / private
-  # name) rather than dns.public_domain, since the VPC zone is by
-  # definition private. The public zone for ACME / external-dns lives in
-  # the standalone dns-zone stack below.
+  # VPC with the requested CIDR. domain_name feeds the private VPC-scoped
+  # Route53 zone (from dns.private_domain); the public zone lives in dns-zone.
   - name: network
     path: network/aws-vpc
     dependsOn:
@@ -107,12 +79,8 @@ terraform:
       # one NAT per AZ. The subnet footprint stays multi-AZ either way.
       single_nat_gateway: "${topology != 'ha'}"
 
-  # Public Route53 zone — provisioned when the operator sets dns.public_domain.
-  # Lives in its own stack so it can be provisioned independently of the
-  # cluster (zone-only setups, different lifecycle than compute) and so
-  # tearing the cluster down doesn't drag the DNS zone (and its NS
-  # delegation effort) with it unless the operator explicitly destroys
-  # this stack.
+  # Public Route53 zone when dns.public_domain is set. Own stack so its
+  # lifecycle (and NS delegation) is independent of the cluster's.
   - name: dns-zone
     path: dns/zone/route53
     when: "(dns.public_domain ?? '') != ''"
@@ -121,23 +89,16 @@ terraform:
     inputs:
       domain_name: ${dns.public_domain}
 
-  # EKS cluster itself. The cert-manager IAM role + Pod Identity association
-  # is provisioned only when ACME is in play (the operator supplied a
-  # public_domain). Default deployments don't need Route53 access.
-  #
-  # cert_manager_hosted_zone_ids scopes the role's Route53 record-write
-  # actions to just the dns-zone we provisioned, so the credential can't
-  # write records to unrelated zones in the same account. Empty list when
-  # ACME is off (role isn't created either).
+  # EKS cluster. cert-manager IAM role + Pod Identity only when ACME is on
+  # (public_domain set); cert_manager_hosted_zone_ids scopes Route53 writes to
+  # just the dns-zone, empty when ACME is off.
   - name: cluster
     path: cluster/aws-eks
     dependsOn:
       - network
     inputs:
-      # vpc_id and private_subnet_ids come straight from the network module's
-      # outputs. The cluster module used to discover them via tag-filtered
-      # data sources; the facet now passes them explicitly so the dependency
-      # is visible in the input contract instead of an AWS-side lookup.
+      # vpc_id and private_subnet_ids come from the network module's outputs,
+      # passed explicitly so the dependency is visible in the input contract.
       vpc_id: ${terraform_output('network', 'vpc_id')}
       private_subnet_ids: ${terraform_output('network', 'private_subnet_ids')}
       # Cheap default places node groups in a single AZ (first private subnet);
@@ -147,64 +108,41 @@ terraform:
       manage_log_group: ${!(ephemeral ?? false)}
       create_cert_manager_role: "${(dns.public_domain ?? '') != ''}"
       cert_manager_hosted_zone_ids: "${(dns.public_domain ?? '') != '' ? [terraform_output('dns-zone', 'zone_id')] : []}"
-      # cluster.pools is the portable node-pool input (class + count, optional
-      # autoscaling + lifecycle). When unset, default to a small fixed system
-      # pool plus an autoscaling general pool — the same arrangement AKS gets
-      # (inline system pool + general). The defaults carry only class + count;
-      # the aws-eks module's class-conditional defaulting fixes class=system,
-      # autoscales the rest at min 1 / max 3, and taints class=system with
-      # CriticalAddonsOnly=true:NoSchedule to match AKS (see pools_autoscaling
-      # and pools_node_groups in terraform/cluster/aws-eks/main.tf). Declaring
-      # cluster.pools replaces this.
+      # Portable node-pool input. Default: fixed system pool + autoscaling
+      # general pool (matches AKS); the aws-eks module fills in class-conditional
+      # autoscaling and the system taint. Declaring cluster.pools replaces this.
       pools: >-
         ${cluster.pools ?? {"system": {"class": "system", "count": 1}, "general": {"class": "general", "count": 1}}}
 
-  # Path-less dependency-edge injector: when ACME is on, cluster must wait for
-  # dns-zone so terraform_output('dns-zone', 'zone_id') is resolved before the
-  # cert-manager IAM policy is rendered. Without this, Windsor can schedule
-  # cluster and dns-zone concurrently, the guard expression evaluates false,
-  # and the policy falls back to the wildcard hostedzone/* scope.
+  # Dependency-edge only: with ACME on, cluster must wait for dns-zone so
+  # zone_id resolves before the cert-manager policy renders — else it falls
+  # back to the wildcard hostedzone/* scope.
   - name: cluster
     when: "(dns.public_domain ?? '') != ''"
     dependsOn:
       - dns-zone
 
-  # destroy: false — "additions" are IAM / IRSA / aws-auth entries that are
-  # idempotent from EKS's perspective; leave them on teardown, the cluster
-  # delete takes them.
+  # destroy: false — IAM/IRSA/aws-auth entries; the cluster delete takes them.
   - name: cluster-additions
     path: cluster/aws-eks/additions
     dependsOn:
       - cluster
     destroy: false
 
-  # ---------------------------------------------------------------------------
-  # Optional Cilium bootstrap
-  # ---------------------------------------------------------------------------
-  #
-  # Only runs when the user explicitly opts into Cilium on EKS. EKS runs the
-  # Cilium agent privileged with chart-default cgroup auto-mount (Amazon Linux
-  # AMIs don't mount cgroups during init the way Talos does), so this step
-  # omits the privileged/cgroup_auto_mount overrides the Talos path uses.
-  #
+  # Optional Cilium bootstrap (full BYO-CNI). EKS uses chart-default cgroup
+  # auto-mount, unlike the Talos path, so no privileged/cgroup overrides here.
   - name: cni
     when: "cluster.cni.driver == 'cilium'"
     path: cni/cilium
     dependsOn:
       - cluster
     inputs:
-      # EKS endpoint only exists after the cluster module applies, so pull it
-      # from the terraform output by default. An explicit `cluster.endpoint` in
-      # values.yaml still wins — useful for proxied or air-gapped scenarios.
+      # Endpoint exists only after cluster applies; pull from output by default.
+      # Explicit cluster.endpoint still wins (proxied / air-gapped).
       cluster_endpoint: ${cluster.endpoint ?? terraform_output("cluster", "cluster_endpoint") ?? ""}
 
-  # ---------------------------------------------------------------------------
-  # GitOps (two variants)
-  # ---------------------------------------------------------------------------
-  #
-  # Without Cilium: Flux can start as soon as EKS is up (VPC-CNI is preinstalled).
+  # GitOps (two variants). Without Cilium: Flux starts as soon as EKS is up.
   # With Cilium: wait for the `cni` step so pod networking is healthy first.
-  #
   - name: gitops
     when: "cluster.cni.driver != 'cilium'"
     path: gitops/flux
@@ -227,136 +165,51 @@ terraform:
 # =============================================================================
 # Flux systems — pki resources overlay
 # =============================================================================
-#
-# public ClusterIssuer — selfsigned default, ACME when a real zone is set
-# -----------------------------------------------------------------------
-#
-# pki-resources is always rendered on AWS so the gateway cert always has
-# a working ClusterIssuer to issue against. Two modes:
-#
-#   1. Default (no public zone configured) → public-issuer/selfsigned,
-#      which deploys ClusterIssuer `public-selfsigned`. Cert issues
-#      immediately, browsers warn (untrusted CA), good for bringing up a
-#      cluster without DNS work. Flips to mode 2 below with no manual
-#      cert resource changes — the gateway_cert_issuer substitution in
-#      option-gateway switches to `public-acme`, which cert-manager sees
-#      as a Certificate spec change and reissues against the new issuer.
-#
-#   2. ACME (operator set dns.public_domain) → public-issuer/acme,
-#      which deploys ClusterIssuer `public-acme`. Windsor created a
-#      public Route53 zone via the dns-zone stack (so we have a place to
-#      write TXT records); cert-manager satisfies DNS-01 against it
-#      (using the IAM role + Pod Identity binding the cluster module
-#      provisioned). On switch, cert-manager re-issues into the same
-#      Secret name — gateway picks up the new cert with no restart.
-#
-# The trigger is "we have a Route53 zone we can write TXT records into",
-# not "an email is set" — email is required by Let's Encrypt for account
-# registration but isn't the capability gate. dns.public_domain is the
-# one knob the operator turns; everything else (zone, IAM, issuer) is
-# auto-provisioned.
-#
-# Server selection in ACME mode is implicit:
-#   - dev == true → Let's Encrypt staging (avoids prod rate limits)
-#   - otherwise   → Let's Encrypt production
-#
-# Required when ACME mode is active (schema enforces):
-#   - email      — operator address Let's Encrypt registers against
-#   - aws.region — Route53 API region (defaults to us-east-1)
-#
+# pki-resources always renders so the gateway cert has a ClusterIssuer. Two
+# modes, switchable with no manual cert changes: selfsigned default (browsers
+# warn), or ACME when dns.public_domain is set (DNS-01 against the Route53 zone,
+# using the cluster module's IAM role). dev == true uses staging, else prod.
 flux:
 
   - name: pki
     resources:
-      - dependsOn:
-          - policy-resources
-        # Component selection is gated only on dns.public_domain — the
-        # acme_hosted_zone_id substitution below threads the zone ID through
-        # via deferred evaluation, so it picks up the real value once the
-        # dns-zone stack has applied without needing an eager terraform_output
-        # call here. (Eager terraform_output in components: panics on first
-        # bootstrap because the dns-zone component isn't registered until
-        # composition completes.)
-        components:
-          # Issuer variant resolved in the config section above.
+      - components:
+          # acme_hosted_zone_id defers terraform_output until dns-zone applies;
+          # an eager lookup panics on first bootstrap.
           - "${pki_effective.issuer_component}"
         timeout: 5m
         interval: 5m
         substitutions:
-          # ACME-only substitutions; the selfsigned component doesn't reference
-          # them. acme_hosted_zone_id gates its terraform_output on public_domain
-          # because dns-zone isn't registered in private/selfsigned mode.
+          # ACME-only; selfsigned doesn't reference these. acme_hosted_zone_id
+          # gates on public_domain since dns-zone is absent in selfsigned mode.
           acme_server: "${dev == true ? 'https://acme-staging-v02.api.letsencrypt.org/directory' : 'https://acme-v02.api.letsencrypt.org/directory'}"
           acme_email: "${email ?? ''}"
           acme_dns_zone: "${dns.public_domain ?? ''}"
           acme_region: "${aws.region ?? 'us-east-1'}"
           acme_hosted_zone_id: "${(dns.public_domain ?? '') != '' ? (terraform_output('dns-zone', 'zone_id') ?? '') : ''}"
 
-  # ---------------------------------------------------------------------------
-  # Gateway install merge — AWS NLB annotations on the Envoy data-plane Service
-  # ---------------------------------------------------------------------------
-  #
-  # Additive block that merges into option-gateway's gateway install tier.
-  # When the gateway is on (envoy + loadbalancer mode), append the
-  # envoy/loadbalancer/aws-nlb component which strategic-merges NLB
-  # annotations onto the helm-release patch chain. Keeps AWS-specific
-  # knowledge in the AWS facet — option-gateway stays platform-agnostic.
-  #
-  # NLB (not ALB) is the right choice: Envoy is the L7 proxy and handles
-  # all routing / TLS / header logic. Putting an ALB in front would double-
-  # terminate L7 (cert sprawl, route-config sprawl, higher cost, no win).
-  # ALB remains available for direct-Service Ingress use cases — operators
-  # add `kubernetes.io/ingress.class: alb` on a per-Ingress basis.
-  #
+  # Gateway install merge — appends envoy/loadbalancer/aws-nlb (NLB annotations)
+  # when the Envoy gateway runs in loadbalancer mode, keeping AWS specifics out
+  # of option-gateway. NLB not ALB: Envoy already does L7, so an ALB would
+  # double-terminate. ALB stays available per-Ingress via the alb ingress class.
   - name: gateway
     when: "gateway.enabled == true && gateway.driver == 'envoy' && lb_effective.mode == 'loadbalancer'"
     install:
       components:
         - envoy/loadbalancer/aws-nlb
       substitutions:
-        # Map the platform-agnostic gateway.access to the AWS-specific
-        # aws-load-balancer-scheme annotation value. `internal` is the only
-        # case that needs an explicit override; otherwise we leave this empty
-        # and let the kustomize fallback (${lb_scheme:-internet-facing}) supply
-        # the default. Requires dns.private_domain — without a private zone
-        # the rest of the private-mode cascade no-ops, so the NLB scheme
-        # has to follow suit (an internal NLB with no private DNS published
-        # to it is a dead endpoint).
+        # Maps gateway.access to the aws-load-balancer-scheme annotation. Only
+        # `internal` overrides; else empty and the kustomize default applies.
+        # Gated on dns.private_domain to stay consistent with the private cascade.
         lb_scheme: "${gateway.access == 'private' && (dns.private_domain ?? '') != '' ? 'internal' : ''}"
 
-  # ---------------------------------------------------------------------------
-  # AWS Load Balancer Controller — NLB / ALB provisioner
-  # ---------------------------------------------------------------------------
-  #
-  # Watches Service: LoadBalancer and Ingress / Gateway resources and
-  # provisions modern AWS load balancers via the EKS API. Without it, the
-  # in-tree Cloud Controller Manager creates classic ELBs (no target-type=ip,
-  # no ALB ingress). Always rendered on AWS — every cluster wants this.
-  #
-  # IAM is wired by the cluster module: var.create_aws_lb_controller_role
-  # defaults to true, provisioning the role + the upstream IAM policy and a
-  # Pod Identity association binding the aws-load-balancer-controller SA in
-  # the system-lb namespace.
-  #
-  # The component lives at kustomize/lb/install/aws-lb-controller (sibling of
-  # lb/install/metallb which serves the same role on metal/incus). The install
-  # tier owns the system-lb namespace + whichever in-cluster LB implementation
-  # the platform needs.
-  #
-  # vpc_id + aws_region are passed explicitly so LBC doesn't fall back to
-  # IMDS for cluster discovery — worker launch templates set
-  # http_put_response_hop_limit=1, which blocks pod-network IMDS calls.
-  # cluster_name flows through via deferred terraform_output and is what
-  # LBC tags AWS resources with for ownership.
-  #
-  # aws_region has no default: a wrong region silently fails LBC (regional
-  # EC2/ELB API calls miss the cluster's VPC and emit confusing "not found"
-  # errors), so we'd rather propagate empty and let the controller crash on
-  # startup than fall back to a guess.
-  #
+  # AWS Load Balancer Controller — provisions NLB/ALB via the EKS API (else the
+  # in-tree CCM makes classic ELBs). Always rendered. IAM wired by the cluster
+  # module (create_aws_lb_controller_role, Pod Identity in system-lb). vpc_id +
+  # aws_region passed explicitly so LBC skips IMDS (worker hop-limit=1 blocks
+  # pod-network IMDS). aws_region has no default — a wrong region silently fails
+  # LBC, so propagate empty over guessing.
   - name: lb
-    dependsOn:
-      - policy-resources
     install:
       components:
         - aws-lb-controller
@@ -367,19 +220,10 @@ flux:
         vpc_id: "${terraform_output('network', 'vpc_id') ?? ''}"
         aws_region: "${aws.region ?? ''}"
 
-  # ---------------------------------------------------------------------------
-  # Compute — cluster-autoscaler scales the EKS node-group ASGs on pending pods
-  # ---------------------------------------------------------------------------
-  #
-  # Node-group min/max only bounds the ASG; this controller does the scaling.
-  # It discovers groups by the k8s.io/cluster-autoscaler tags the aws-eks
-  # module applies to autoscaling-enabled pools, and authenticates via the
-  # Pod Identity association the module creates for system-compute/
-  # cluster-autoscaler.
-  #
+  # Compute — cluster-autoscaler scales the EKS node-group ASGs on pending pods.
+  # Discovers groups via the k8s.io/cluster-autoscaler tags the aws-eks module
+  # applies; authenticates through its Pod Identity association.
   - name: compute
-    dependsOn:
-      - policy-resources
     install:
       components:
         - cluster-autoscaler
@@ -389,13 +233,9 @@ flux:
         cluster_name: "${terraform_output('cluster', 'cluster_name') ?? ''}"
         aws_region: "${aws.region ?? ''}"
 
-  # ---------------------------------------------------------------------------
-  # CSI — AWS EBS, the default block storage on EKS. `single_storage_type`
-  # configures the StorageClass volumeType; gp3 is the current AWS recommendation.
-  # ---------------------------------------------------------------------------
+  # CSI — AWS EBS, default block storage on EKS. single_storage_type sets the
+  # StorageClass volumeType (gp3 recommended).
   - name: csi
-    dependsOn:
-      - policy-resources
     install:
       components:
         - aws-ebs
@@ -404,82 +244,37 @@ flux:
       substitutions:
         single_storage_type: ${cluster.storage.single_storage_type ?? "gp3"}
 
-  # ---------------------------------------------------------------------------
-  # DNS — external-dns + Route53 record automation
-  # ---------------------------------------------------------------------------
-  #
-  # Anchored on the shared `dns` Kustomization (same canonical name that
-  # addon-private-dns uses) so the system-dns namespace and any sibling
-  # DNS components compose together at one path. The components below
-  # layer external-dns + the AWS-specific route53 patch; addon-private-dns
-  # would add coredns + its own components on top of the same Kustomization
-  # if both were active.
-  #
-  # external-dns watches Ingress and Gateway HTTPRoute resources annotated
-  # with external-dns.alpha.kubernetes.io/hostname=<host> and writes the
-  # matching A/CNAME records to a Route53 hosted zone. Two modes, both
-  # rendered by the same Kustomization:
-  #
-  #   - Public mode (default): targets the public zone provisioned by the
-  #     standalone dns-zone stack. Triggered by dns.public_domain.
-  #   - Private mode: targets the VPC-attached private zone created by the
-  #     network module from dns.private_domain. Triggered by
-  #     gateway.access=private (also requires dns.private_domain — there's
-  #     no zone to publish to without it, so the private cascade no-ops
-  #     and the gateway runs as public).
-  #
-  # The route53 component layers AWS-specific helm values onto the base
-  # external-dns release: Pod Identity auth, txtOwnerId from the cluster
-  # configmap (prevents two clusters in the same account from clobbering
-  # each other's records), and the zone_type / zone_id_filter pair below
-  # so the controller is locked to the right zone.
-  #
-  # IAM is already wired by the cluster module: var.create_external_dns_role
-  # defaults to true, which provisions the role + policy (wildcard-scoped on
-  # hostedzone/* — covers both public and private) and a Pod Identity
-  # association binding the external-dns ServiceAccount in system-dns to it.
-  #
+  # DNS — external-dns + Route53 record automation. Anchored on the shared `dns`
+  # Kustomization so it composes with addon-private-dns. external-dns writes
+  # A/CNAME records from annotated Ingress/HTTPRoute resources. Two modes: public
+  # (dns.public_domain → dns-zone stack) and private (gateway.access=private +
+  # dns.private_domain → the VPC zone). IAM wired by the cluster module
+  # (create_external_dns_role, Pod Identity in system-dns).
   - name: dns
     when: "(dns.public_domain ?? '') != '' || (gateway.access == 'private' && (dns.private_domain ?? '') != '')"
     dependsOn:
-      - policy-resources
-      # gateway-install installs the Gateway API CRDs (HTTPRoute, Gateway). When
-      # the gateway is on, external-dns is configured with the gateway-httproute
-      # source below — without the CRDs present at startup it crash-loops on
-      # "no matches for kind HTTPRoute". Wait for gateway-install to finish.
+      # Wait for gateway-install's Gateway API CRDs; else the gateway-httproute
+      # source crash-loops on "no matches for kind HTTPRoute".
       - "${gateway.enabled == true ? 'gateway-install' : ''}"
     install:
       components:
         - external-dns
         - external-dns/providers/route53
-        # Gateway API HTTPRoute source — only when a Gateway controller is
-        # actually running. Without this guard, deployments that set
-        # dns.public_domain but disable the gateway would crash external-dns
-        # at startup (HTTPRoute CRDs aren't installed without gateway-install).
+        # HTTPRoute source only when the gateway runs; else external-dns crashes
+        # at startup without the HTTPRoute CRDs.
         - "${gateway.enabled == true ? 'external-dns/sources/gateway-httproute' : ''}"
       timeout: 5m
       interval: 5m
       substitutions:
-        # Private mode wins over public_domain for the gateway's DNS — even
-        # if both are set, a private gateway should publish to the private
-        # zone (its hostname is internal-only and unusable as an ALIAS target
-        # on the public zone). The same `access=private && private_domain set`
-        # gate fires here as everywhere else in the private-mode cascade,
-        # keeping the four substitutions and the `when:` self-consistent.
+        # Private mode wins over public_domain: a private gateway's hostname is
+        # internal-only, so it publishes to the private zone.
         external_domain: "${gateway.access == 'private' && (dns.private_domain ?? '') != '' ? dns.private_domain : (dns.public_domain ?? '')}"
         zone_type: "${gateway.access == 'private' && (dns.private_domain ?? '') != '' ? 'private' : 'public'}"
-        # Lock external-dns to the specific zone ID. Public zone comes from
-        # the standalone dns-zone stack; private zone comes from the network
-        # module (aws-vpc creates it when dns.private_domain is set).
-        # Deferred terraform_output handles first-bootstrap ordering.
+        # Lock external-dns to the zone ID: public from dns-zone, private from
+        # the network module. Deferred terraform_output handles bootstrap order.
         zone_id_filter: "${gateway.access == 'private' && (dns.private_domain ?? '') != '' ? (terraform_output('network', 'private_zone_id') ?? '') : (terraform_output('dns-zone', 'zone_id') ?? '')}"
-        # Region and owner-id were previously supposed to come through the
-        # external-dns ConfigMap via valuesFrom, but that ConfigMap was never
-        # created anywhere — fresh clusters silently failed at HelmRelease
-        # reconcile. Pass via Flux postBuild substitution instead.
+        # Region passed via Flux postBuild substitution.
         aws_region: "${aws.region ?? 'us-east-1'}"
-        # Owner ID stamped into TXT records so multiple external-dns instances
-        # in the same zone don't clobber each other. The context id (top-level
-        # `id` field in values.yaml) is unique per Windsor context so it doubles
-        # as a stable per-cluster identifier.
+        # Owner ID stamped into TXT records so external-dns instances sharing a
+        # zone don't clobber each other; the context id is unique per cluster.
         txt_owner_id: "${id}"

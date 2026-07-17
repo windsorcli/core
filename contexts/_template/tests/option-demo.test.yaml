@@ -38,13 +38,41 @@ cases:
       network: *default-network
       cluster: *default-cluster
     expect:
-      kustomize:
+      flux:
         - name: demo
           path: demo
           dependsOn:
             - database-install
-          components:
-            - database
+          resources:
+            - components:
+                - database
+
+  # static + bookinfo apps carry no database dependency, and demo is a
+  # resources-only system, so no demo-install tier is emitted.
+  - name: demo static and bookinfo apps compose as resources tier without install
+    values:
+      platform: metal
+      dev: true
+      demo:
+        enabled: true
+        resources:
+          static: true
+          bookinfo: true
+      gateway:
+        enabled: false
+      network: *default-network
+      cluster: *default-cluster
+    expect:
+      flux:
+        - name: demo
+          path: demo
+          resources:
+            - components:
+                - static
+                - bookinfo
+    exclude:
+      kustomize:
+        - name: demo-install
 
   # Edge case: Demo disabled excludes demo database
   - name: excludes demo database when demo disabled
@@ -58,5 +86,5 @@ cases:
       network: *default-network
       cluster: *default-cluster
     exclude:
-      kustomize:
+      flux:
         - name: demo

@@ -4,34 +4,24 @@ metadata:
   name: docker
   description: "Docker provider basic infrastructure for local development"
 
-# Docker is only supported with Talos as the cluster driver and a workstation
-# runtime. With cluster disabled or workstation runtime unset, this facet is
-# a true no-op — nothing materializes that would reference its config or the
-# `backend: cluster` setting below.
+# Docker requires Talos and a workstation runtime; otherwise this facet is a no-op.
 when: "platform == 'docker' && cluster.driver == 'talos' && (cluster.enabled ?? true) && (workstation.runtime ?? '') != ''"
 
-# Terraform remote state lives in the local Talos cluster (Kubernetes
-# backend, secrets-as-state). The `cluster` component itself uses local
-# state since it's the one that creates the cluster.
+# Remote state lives in the local Talos cluster (Kubernetes backend); the
+# `cluster` component uses local state since it creates the cluster.
 backend: cluster
 
 # =============================================================================
 # Config — docker-specific Talos values
 # =============================================================================
-#
 config:
 
-  # The first controlplane gets a fixed IP at CIDR offset 10; offsets 2–9 are
-  # reserved for workstation services (DNS, registries, git livereload).
-  # Mirrors the incus provider convention so cross-platform logic is uniform.
+  # Controlplane at CIDR offset 10; offsets 2–9 reserved for workstation services.
   - name: talos_common
     value:
       k8s_service_host: "${cidrhost(network.cidr_block, 10)}"
 
-  # Node targets for post-cluster steps (e.g. cluster/talos/extensions). Reads
-  # compute outputs (compute always runs before cluster, which runs before
-  # extensions), projected to the {node, endpoint} shape that the extensions
-  # module accepts.
+  # Node targets for post-cluster steps (e.g. extensions), from compute outputs.
   - name: talos_node_targets
     value:
       controlplanes: >-
@@ -39,19 +29,8 @@ config:
       workers: >-
         ${map(terraform_output("compute", "workers") ?? [], fromPairs(filter(toPairs(#), get(#, 0) == "node" || get(#, 0) == "endpoint")))}
 
-  # ---------------------------------------------------------------------------
-  # cluster_endpoint_fallback — best-effort Talos API endpoint
-  # ---------------------------------------------------------------------------
-  #
-  # Resolution order:
-  #   1. Compute output with a real endpoint → use that host on port 6443.
-  #   2. No compute output (docker-desktop bootstrap, no cluster yet)
-  #      → localhost:6443 (host port-forwarded into the control plane
-  #      container).
-  #   3. Compute exists but has empty endpoint → fall back to the first
-  #      configured controlplane node.
-  #   4. Nothing — last-ditch localhost:6443.
-  #
+  # Best-effort Talos API endpoint: compute output if present, else localhost:6443
+  # (docker-desktop bootstrap), else first configured controlplane node.
   - name: cluster_endpoint_fallback
     value:
       endpoint: >-
@@ -67,12 +46,9 @@ config:
 # =============================================================================
 # Terraform — cluster/talos with docker-specific node rewriting
 # =============================================================================
-#
-# Runs only when workstation is up and cluster is enabled. option-workstation
-# owns `compute` and wires the workstation → compute → cluster chain; this
-# facet provides the cluster-step inputs (docker-specific endpoint rewriting
-# and certSAN patching).
-#
+# Runs only with workstation up and cluster enabled. option-workstation owns
+# `compute`; this facet provides the cluster-step inputs (endpoint rewriting,
+# certSAN patching).
 terraform:
 
   - name: cluster
@@ -86,16 +62,9 @@ terraform:
       cluster_name: talos
       talos_version: ${talos.talos_version}
 
-      # controlplanes: two code paths per node —
-      #
-      # Path A (compute output present): pass nodes through unchanged.
-      # docker-desktop adds a per-node machine.certSANs patch including the
-      # real IP, hostname, localhost, and 127.0.0.1 so Talos API certs work
-      # when the client is the host reaching through the docker-desktop tunnel.
-      #
-      # Path B (no compute output, bootstrap-from-host): rewrite
-      # endpoint/node to 127.0.0.1:(50000+i). This lets the host Talos
-      # CLI bootstrap the control plane containers via port forwards.
+      # With compute output: pass nodes through; docker-desktop adds a certSANs
+      # patch. Without it (bootstrap-from-host): rewrite endpoint/node to
+      # 127.0.0.1:(50000+i) so the host Talos CLI can reach containers via port forwards.
       controlplanes: >-
         ${map(
           len(terraform_output("compute", "controlplanes") ?? []) > 0
@@ -116,9 +85,7 @@ terraform:
             : #
         )}
 
-      # workers: mirror of controlplanes. Pass nodes through when compute
-      # output is present; rewrite endpoint to 127.0.0.1 offsets when
-      # bootstrapping from the host. Worker ports are offset by controlplane count.
+      # Mirror of controlplanes; worker ports offset by controlplane count.
       workers: >-
         ${len(terraform_output("compute", "controlplanes") ?? []) > 0
           ? (terraform_output("compute", "workers") ?? [])
@@ -142,27 +109,13 @@ terraform:
 # =============================================================================
 # Flux systems — MetalLB / kube-vip for colima / docker / linux runtimes
 # =============================================================================
-#
-# Docker Desktop has no node-level IP routing, so MetalLB can't work there —
-# skip the whole system when runtime is docker-desktop. Other docker runtimes
-# (colima, native linux) have a real network and use MetalLB or kube-vip as
-# the LB.
-#
-# install ships the driver's controller HelmRelease. kube-vip/arp builds
-# here too — it's a patch on the kube-vip HelmRelease, not a separate CR —
-# and loadbalancer_ip_range is set here because the kube-vip cloud-provider
-# HelmRelease reads it directly.
-#
-# resources ships metallb/arp or metallb/layer2, the IPAddressPool /
-# L2Advertisement CRs metallb's controller consumes. No component for
-# kube-vip, which has nothing left to configure once install has run.
-#
+# Skipped on docker-desktop (no node-level IP routing). colima/native linux use
+# MetalLB or kube-vip. install ships the driver's controller HelmRelease (plus
+# kube-vip's arp patch); resources ships metallb's IPAddressPool/L2Advertisement CRs.
 flux:
 
   - name: lb
     when: workstation.runtime != 'docker-desktop' && lb_effective.enabled
-    dependsOn:
-      - policy-resources
     install:
       components:
         - ${lb_effective.driver}

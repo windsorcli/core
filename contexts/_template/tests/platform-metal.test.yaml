@@ -230,7 +230,6 @@ cases:
             interval: 5m
           resources:
             - components:
-                - metallb
                 - metallb/arp
               substitutions:
                 loadbalancer_ip_range: 192.168.1.100-192.168.1.200

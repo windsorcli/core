@@ -12,26 +12,14 @@ when: cluster.driver == 'talos'
 # =============================================================================
 # Terraform — Talos extensions for CSI
 # =============================================================================
-#
-# Many CSI drivers need kernel/system tools that aren't in the stock Talos
-# image (e.g. Longhorn needs iscsi-tools + util-linux-tools). We install them
-# via the cluster/talos/extensions module, and make Flux wait so pods don't
-# start before the extensions are live.
-#
+# Some CSI drivers need kernel/system tools missing from the stock Talos image
+# (Longhorn needs iscsi-tools + util-linux-tools). Installed via the
+# cluster/talos/extensions module, with Flux waiting until they're live.
 terraform:
 
-  # ---------------------------------------------------------------------------
-  # cluster-extensions — apply Talos system extensions
-  # ---------------------------------------------------------------------------
-  #
-  # Only runs when extensions are needed for the chosen storage driver
-  # (currently: longhorn → iscsi-tools + util-linux-tools).
-  #
-  # When Cilium is the CNI, the cni terraform step bootstraps Cilium directly
-  # against the Talos API. Extensions also touches Talos, so it must wait for
-  # cni to finish to avoid concurrent machine-config writes — hence the
-  # conditional dependsOn entry below.
-  #
+  # cluster-extensions — apply Talos system extensions when the storage driver
+  # needs them (longhorn). Waits for cni when Cilium is the CNI, since both
+  # write Talos machine config and must not run concurrently.
   - name: cluster-extensions
     when: "(cluster.storage.driver ?? 'openebs') == 'longhorn' && cluster_provisioned"
     path: cluster/talos/extensions
@@ -45,8 +33,7 @@ terraform:
       workers: ${talos_node_targets.workers ?? []}
       extensions: ${talos_common.extensions ?? []}
 
-  # Dependency merge: Flux waits for extensions before reconciling, so CSI
-  # DaemonSets find the kernel modules they expect.
+  # Dependency merge: Flux waits for extensions so CSI DaemonSets find their kernel modules.
   - name: gitops
     when: "(cluster.storage.driver ?? 'openebs') == 'longhorn' && cluster_provisioned"
     path: gitops/flux
@@ -56,24 +43,13 @@ terraform:
 # =============================================================================
 # Kustomize — CSI driver Helm releases
 # =============================================================================
-#
 # One kustomization per storage driver; exactly one fires based on
-# talos_common.storage_driver (set per platform: openebs on metal/docker,
-# longhorn on incus).
-#
+# talos_common.storage_driver (openebs on metal/docker, longhorn on incus).
 flux:
 
-  # ---------------------------------------------------------------------------
-  # OpenEBS — hostPath-style local volumes
-  # ---------------------------------------------------------------------------
-  #
-  # Simple and dependency-light: uses a local directory on each node. Good
-  # default for dev and for platforms without dedicated block devices.
-  #
+  # OpenEBS — hostPath local volumes; the default for platforms without dedicated block devices.
   - name: csi
     when: talos_common.storage_driver == 'openebs'
-    dependsOn:
-      - "${(policies.enabled ?? true) ? 'policy-resources' : ''}"
     install:
       components:
         - openebs
@@ -83,20 +59,10 @@ flux:
       timeout: 20m
       interval: 5m
 
-  # ---------------------------------------------------------------------------
-  # Longhorn — distributed block storage
-  # ---------------------------------------------------------------------------
-  #
-  # Conditional components:
-  #   - longhorn/single-node: relaxed replica placement when scheduling on
-  #     control planes (dev/incus workloads).
-  #   - longhorn/ha:          replica anti-affinity for multi-node prod.
-  #   - longhorn/prometheus:  ServiceMonitor; only when observability addon is on.
-  #
+  # Longhorn — distributed block storage.
   - name: csi
     when: talos_common.storage_driver == 'longhorn'
     dependsOn:
-      - "${(policies.enabled ?? true) ? 'policy-resources' : ''}"
       - "${telemetry.metrics.enabled || telemetry.logs.enabled ? 'telemetry-install' : ''}"
     install:
       components:
@@ -107,21 +73,13 @@ flux:
       timeout: 20m
       interval: 5m
 
-kustomize:
-
-  # ---------------------------------------------------------------------------
-  # Grafana dashboard patch
-  # ---------------------------------------------------------------------------
-  #
-  # Inject the Longhorn dashboard into the observability kustomization when
-  # Longhorn is the active storage driver AND observability is on (or dev mode
-  # is on, which auto-enables observability). The longhorn driver gate is
-  # required — the dashboard is meaningless without longhorn metrics to render.
-  #
+  # Grafana dashboard patch: inject the Longhorn dashboard into observability-resources
+  # when Longhorn is active and observability is on; the driver gate is required
+  # since the dashboard is meaningless without longhorn metrics.
   - name: observability
-    path: observability
     when: talos_common.storage_driver == 'longhorn' && (addons.observability.enabled == true || dev == true)
-    dependsOn:
-      - telemetry-install
-    components:
-      - grafana/dashboards/longhorn
+    resources:
+      - dependsOn:
+          - telemetry-install
+        components:
+          - grafana/dashboards/longhorn

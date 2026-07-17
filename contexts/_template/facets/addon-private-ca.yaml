@@ -10,17 +10,9 @@ when: addons.private_ca.enabled == true
 # Flux systems — pki (trust-manager + private CA issuer)
 # =============================================================================
 #
-# Layers onto the pki install/resources tiers created by platform-base:
-#   - install adds trust-manager so Bundle CRDs distribute CA certs to
-#     workload namespaces (ConfigMap/Secret fan-out).
-#   - resources installs the private-issuer/ca ClusterIssuer, which becomes
-#     the default issuer for workload certificates.
-#
-# Requires Kyverno (policy-resources): the private-issuer/ca component ships
-# a ClusterPolicy that mutates pods labeled use-custom-ca=true to mount the
-# CA bundle. Without Kyverno's CRDs the apply fails on "no matches for kind
-# ClusterPolicy"; the hard dep below surfaces the incompatibility as
-# DependencyNotReady instead.
+# Layers trust-manager (install) and the private-issuer/ca ClusterIssuer
+# (resources) onto the pki tiers from platform-base. The issuer becomes the
+# default for workload certificates.
 #
 flux:
 
@@ -31,9 +23,7 @@ flux:
       timeout: 10m
       interval: 5m
     resources:
-      - dependsOn:
-          - policy-resources
-        timeout: 5m
+      - timeout: 5m
         interval: 5m
         components:
           - private-issuer/ca
