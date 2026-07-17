@@ -11,17 +11,17 @@ spec:
     # Quickwit plugin installed via init container (not yet in Grafana catalog)
     extraInitContainers:
       - name: install-quickwit-plugin
-        # renovate: datasource=docker depName=alpine
+        # renovate: datasource=docker depName=alpine package=alpine
         image: alpine:3.21.5@sha256:5405e8f36ce1878720f71217d664aa3dea32e5e5df11acbf07fc78ef5661465b
         env:
           - name: PLUGIN_NAME
             value: quickwit-quickwit-datasource
-          # renovate: datasource=github-releases depName=quickwit-oss/quickwit-datasource
           - name: PLUGIN_VERSION
-            value: "0.5.0"
-          # SHA256 of quickwit-quickwit-datasource-0.5.0.zip - update when version changes
+            # renovate: datasource=github-releases depName=quickwit-oss/quickwit-datasource package=quickwit-oss/quickwit-datasource
+            value: "0.6.1"
+          # SHA256 of quickwit-quickwit-datasource-0.6.1.zip - update when version changes
           - name: PLUGIN_SHA256
-            value: c9a8f640c13cefce60ad458c4e4d5fe50b7c6851440d36a3f99fae6f55181b6c
+            value: 446cada992d4ecee5d0c50977bf4fcca51e20fd5a62efb9bec1ecbd3ed5e99dc
         args:
           - $(PLUGIN_NAME)
           - $(PLUGIN_VERSION)

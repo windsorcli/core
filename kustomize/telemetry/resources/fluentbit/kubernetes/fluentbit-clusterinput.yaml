@@ -9,6 +9,7 @@ spec:
   tail:
     db: /fluent-bit/tail/pos.db
     dbSync: Normal
+    excludePath: "*_system-observability_fluentd-*.log"
     memBufLimit: 100MB
     parser: cri
     path: /var/log/containers/*.log
