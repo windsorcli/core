@@ -357,6 +357,29 @@ cases:
         # renovate: datasource=github-releases depName=envoyproxy/gateway package=envoyproxy/gateway
         - envoy-gateway-1.8.2
 
+  # Gateway disabled: gitops is a resources-only system, so it composes to a
+  # gitops-resources kustomization with the plain webhook (no webhook/gateway,
+  # no gateway-install dep) and emits neither an install tier nor a flat
+  # gitops kustomization.
+  - name: gitops without gateway is webhook-only resources tier with no install tier
+    values:
+      platform: metal
+      gateway:
+        enabled: false
+      network: *default-network
+      cluster: *default-cluster
+    expect:
+      flux:
+        - name: gitops
+          path: gitops
+          resources:
+            - components:
+                - webhook
+    exclude:
+      kustomize:
+        - name: gitops-install
+        - name: gitops
+
   # Flux webhook receiver includes webhook/gateway for Gateway API drivers
   # (push mode is the default, so no explicit gitops.mode needed)
   - name: envoy driver includes webhook/gateway in gitops component
@@ -456,6 +479,10 @@ cases:
                 - gateway-install
               components:
                 - ui
+    exclude:
+      kustomize:
+        - name: flux-ui-install
+        - name: flux-ui
 
   - name: web_ui enabled on cilium adds ui/cilium to flux-ui
     values:
