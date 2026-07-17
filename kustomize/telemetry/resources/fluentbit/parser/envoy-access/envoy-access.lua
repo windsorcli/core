@@ -7,26 +7,29 @@
 --  "response_code":200,"response_flags":"-","route_name":"httproute/...",
 --  "upstream_host":"10.244.0.45:3000","x-envoy-origin-path":"/api/ds/query",...}
 --
--- Envoy fills unused fields with JSON null rather than omitting them (e.g. a
--- TCP/UDP passthrough has method=null). cjson decodes null as the cjson.null
--- sentinel, not Lua nil, so every field read here is type-checked rather than
--- just truth-tested - a bare `if data["method"] then` would treat a null
--- method as present.
+-- No cjson: cjson.safe (and plain cjson) aren't present in this fluent-bit
+-- build's LuaJIT ("module 'cjson.safe' not found" at runtime, confirmed on
+-- the live cluster), so json-structured.lua's cjson_ok check is always
+-- false here too, degrading it to the same kind of regex extraction below.
+-- Envoy's access log JSON is flat (no nesting), so per-field pattern
+-- matching on the raw string is reliable without a real parser.
 --
 -- Extracts OTEL semantic conventions; severity derived from HTTP status code
 -- the same way nginx-access does.
 
-local cjson_ok, cjson_or_err = pcall(require, "cjson.safe")
-local cjson = cjson_ok and cjson_or_err or nil
-
-local function as_string(v)
-  if type(v) == "string" then return v end
-  return nil
+local function escape_pattern(s)
+  return (s:gsub("[%-%.%+%[%]%(%)%$%^%%%?%*]", "%%%1"))
 end
 
-local function as_number(v)
-  if type(v) == "number" then return v end
-  return nil
+-- Returns the string value of a JSON field, or nil if absent/null/non-string.
+local function extract_string_field(json, field)
+  return json:match('"' .. escape_pattern(field) .. '"%s*:%s*"([^"]*)"')
+end
+
+-- Returns the numeric value of a JSON field, or nil if absent/null/non-number.
+local function extract_number_field(json, field)
+  local s = json:match('"' .. escape_pattern(field) .. '"%s*:%s*(%-?%d+%.?%d*)')
+  return s and tonumber(s)
 end
 
 local function status_to_severity(code)
@@ -57,31 +60,10 @@ function parse_envoy_access(tag, timestamp, record)
     return 0, timestamp, record
   end
 
-  -- TEMP DIAGNOSTIC: surface why cjson decode isn't classifying these
-  if not cjson_ok then
-    record["severity_text"] = "DEBUG_CJSON_UNAVAILABLE"
-    record["severity_number"] = 999
-    record["body"] = tostring(cjson_or_err)
-    return 1, timestamp, record
-  end
-  local decode_ok, data = pcall(cjson.decode, log)
-  if not decode_ok then
-    record["severity_text"] = "DEBUG_DECODE_ERROR"
-    record["severity_number"] = 999
-    record["body"] = tostring(data)
-    return 1, timestamp, record
-  end
-  if not data then
-    record["severity_text"] = "DEBUG_DECODE_NIL"
-    record["severity_number"] = 999
-    record["body"] = "cjson.decode returned nil/false without error"
-    return 1, timestamp, record
-  end
-
-  local status = as_number(data["response_code"])
-  local response_flags = as_string(data["response_flags"])
-  local downstream_addr = as_string(data["downstream_remote_address"])
-  local upstream_cluster = as_string(data["upstream_cluster"])
+  local status = extract_number_field(log, "response_code")
+  local response_flags = extract_string_field(log, "response_flags")
+  local downstream_addr = extract_string_field(log, "downstream_remote_address")
+  local upstream_cluster = extract_string_field(log, "upstream_cluster")
 
   -- Recognize Envoy's access log shape - these fields together are distinctive
   if status == nil and response_flags == nil then
@@ -95,12 +77,12 @@ function parse_envoy_access(tag, timestamp, record)
   record["severity_text"] = sev_text
   record["severity_number"] = sev_num
 
-  local method = as_string(data["method"])
-  local path = as_string(data["x-envoy-origin-path"])
-  local upstream_host = as_string(data["upstream_host"])
-  local duration = as_number(data["duration"])
-  local route_name = as_string(data["route_name"])
-  local protocol = as_string(data["protocol"])
+  local method = extract_string_field(log, "method")
+  local path = extract_string_field(log, "x-envoy-origin-path")
+  local upstream_host = extract_string_field(log, "upstream_host")
+  local duration = extract_number_field(log, "duration")
+  local route_name = extract_string_field(log, "route_name")
+  local protocol = extract_string_field(log, "protocol")
 
   -- OTEL HTTP semantic attributes (prefixed for Fluentd to merge)
   if method then
