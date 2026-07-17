@@ -4,52 +4,30 @@ metadata:
   name: workstation
   description: Workstation stack for local development and cluster infrastructure.
 
-# Active only on workstation-capable platforms (docker, incus) with a runtime
-# explicitly set. `workstation.runtime` is the single switch that turns on all
-# workstation services (DNS forwarder, registry mirrors, git livereload).
+# Active on workstation platforms (docker, incus) when workstation.runtime is
+# set — the single switch enabling DNS, registry mirrors, and git livereload.
 when: "(platform == 'docker' || platform == 'incus') && workstation.runtime != null && workstation.runtime != ''"
 
 # =============================================================================
 # Config — workstation + Talos patch values
 # =============================================================================
-#
 config:
 
-  # ---------------------------------------------------------------------------
-  # Workstation identity
-  # ---------------------------------------------------------------------------
-  #
-  # Normalize runtime/arch so downstream expressions have safe defaults.
-  # Architecture is used to pick the correct Talos Incus image below.
-  #
+  # Normalize runtime/arch defaults; arch picks the Talos Incus image below.
   - name: workstation
     value:
       runtime: "${workstation.runtime ?? ''}"
       arch: "${workstation.arch ?? 'amd64'}"
 
-  # ---------------------------------------------------------------------------
-  # Talos image references
-  # ---------------------------------------------------------------------------
-  #
-  # Only relevant when the workstation stack runs; non-workstation platforms
-  # use a talos_version fallback built elsewhere.
-  #
+  # Talos image references; only used when the workstation stack runs.
   - name: talos
     value:
       docker_image: "ghcr.io/siderolabs/talos:v${talos.talos_version}"
       incus_image: "windsor:talos/v${talos.talos_version}/${workstation.arch ?? 'amd64'}"
 
-  # ---------------------------------------------------------------------------
-  # Registry mirrors (pull-through cache)
-  # ---------------------------------------------------------------------------
-  #
-  # `workstation_registries.registries` is the map of upstream → mirror used
-  # both by the workstation Terraform (to run the mirror containers) and by
-  # the Talos registry config (to redirect pulls).
-  #
-  # Empty when workstation.services.registries == false. Otherwise uses
-  # user-supplied docker.registries or falls back to a sensible default set.
-  #
+  # Registry pull-through cache: upstream → mirror map used by workstation
+  # Terraform (runs the containers) and Talos registry config (redirects pulls).
+  # Empty when services.registries is false; else docker.registries or defaults.
   - name: workstation_registries
     value:
       registries: |
@@ -62,14 +40,9 @@ config:
           "registry.k8s.io": { "remote": "https://registry.k8s.io" }
         })}
 
-  # Transform workstation TF output into the Talos machine.registries.mirrors
-  # shape. Only entries with both `remote` and `hostname` set are included;
-  # `local` (when present) is used as the mirror key so users can override the
-  # upstream name (e.g. "registry-1.docker.io" → "docker.io").
-  #
-  # config: {} — intentionally empty. Talos errors
-  # "TLS config specified for non-HTTPS registry" if tls is set for http://
-  # endpoints, and our mirrors are always plain HTTP.
+  # Map workstation TF output to Talos machine.registries.mirrors. Only entries
+  # with both `remote` and `hostname` are kept; `local` overrides the mirror key.
+  # config: {} stays empty — Talos rejects TLS config on our plain-HTTP mirrors.
   - name: talos_registry_mirrors
     when: cluster.driver == 'talos' && (cluster.enabled ?? true)
     value:
@@ -85,14 +58,8 @@ config:
         ))}
       config: {}
 
-  # ---------------------------------------------------------------------------
-  # talos_common overrides
-  # ---------------------------------------------------------------------------
-  #
-  # Each block merges additional settings into talos_common, which config-talos
-  # stringifies into the Talos machine patch. Blocks are additive — they don't
-  # replace talos_common, they extend it.
-  #
+  # talos_common overrides — each block additively merges settings that
+  # config-talos stringifies into the Talos machine patch.
 
   # Inject registry mirrors (always, for any workstation runtime).
   - name: talos_common
@@ -104,15 +71,13 @@ config:
             mirrors: ${talos_registry_mirrors.mirrors}
             config: ${talos_registry_mirrors.config}
 
-  # Docker only: when there are no workers, schedule workloads on control planes.
-  # Otherwise honor the user's cluster.controlplanes.schedulable setting.
+  # Docker only: schedule on control planes when no workers, else honor schedulable.
   - name: talos_common
     when: cluster.driver == 'talos' && (cluster.enabled ?? true) && platform == 'docker'
     value:
       allowSchedulingOnControlPlanes: "${(cluster.workers.count ?? 0) == 0 ? true : (cluster.controlplanes.schedulable ?? false)}"
 
-  # Docker Desktop only: ignore eth0 so Talos doesn't fight the docker-desktop
-  # managed interface config.
+  # Docker Desktop only: ignore eth0 to avoid fighting its managed interface.
   - name: talos_common
     when: cluster.driver == 'talos' && (cluster.enabled ?? true) && workstation.runtime == 'docker-desktop'
     value:
@@ -123,23 +88,15 @@ config:
               - ignore: true
                 interface: eth0
 
-  # Expose empty per-role patch slots for platform-docker to populate.
-  # config-talos stringifies these after merging.
+  # Empty per-role patch slots for platform-docker to populate.
   - name: talos_common_docker
     when: cluster.driver == 'talos' && (cluster.enabled ?? true)
     value:
       controlplane_config_patches: ""
       worker_config_patches: ""
 
-  # ---------------------------------------------------------------------------
-  # Colima-on-Incus CNI/LB overrides
-  # ---------------------------------------------------------------------------
-  #
-  # Colima running an Incus VM is primarily a storage-driver test rig —
-  # Cilium's eBPF adds overhead that confuses those tests. Force flannel here
-  # and pair it with kube-vip so LoadBalancer services still get an IP
-  # (flannel has no built-in L2 announcer like Cilium does).
-  #
+  # Colima-on-Incus is a storage-driver test rig; force flannel (Cilium's eBPF
+  # skews tests) and pair with kube-vip so LoadBalancer services still get an IP.
   - name: cluster
     when: platform == 'incus' && workstation.runtime == 'colima'
     value:
@@ -156,23 +113,12 @@ config:
 # =============================================================================
 # Terraform — workstation services, compute, cluster
 # =============================================================================
-#
-# Dependency chain: workstation → compute → cluster → gitops
-#
-# The `workstation` step creates DNS, registries, and git-livereload services.
-# `compute` provisions the Talos nodes (containers on docker, VMs on incus).
-# `cluster` runs Talos bootstrap/apply. `gitops` deploys Flux with credentials.
-#
+# Dependency chain: workstation (DNS/registries/git) → compute (Talos nodes) →
+# cluster (Talos bootstrap) → gitops (Flux + credentials).
 terraform:
 
-  # ---------------------------------------------------------------------------
-  # gitops — Flux with workstation credentials
-  # ---------------------------------------------------------------------------
-  #
-  # Runs only when the cluster is enabled. The cni / cluster-extensions deps
-  # are merged in by option-cni and option-storage respectively; we don't
-  # reference them here directly.
-  #
+  # gitops — Flux with workstation credentials. cni/cluster-extensions deps are
+  # merged in by option-cni and option-storage, not referenced here.
   - name: gitops
     when: (cluster.enabled ?? true)
     path: gitops/flux
@@ -180,11 +126,8 @@ terraform:
     dependsOn:
       - cluster
     inputs:
-      # On incus-backed workstations (bare incus, or colima with the incus
-      # runtime) the cluster runs in a nested VM whose vCPUs are less
-      # performant than the host's, so the CPU-derived formula overshoots
-      # and the boot reconcile storm saturates apiserver → cert-manager/
-      # scheduler probes flap. Clamp to 2 there; docker stays CPU-derived.
+      # Incus runs the cluster in a nested VM with slower vCPUs, so the
+      # CPU-derived formula overshoots and floods apiserver. Clamp to 2 there.
       concurrency: >-
         ${platform == 'incus' ? 2 : max(2, min(
           floor(cluster.controlplanes.cpu / 2),
@@ -195,17 +138,10 @@ terraform:
       git_password: ${workstation.git.password ?? "local"}
       webhook_token: ${gitops.webhook.token ?? "abcdef123456"}
 
-  # ---------------------------------------------------------------------------
-  # workstation — DNS, registries, git-livereload
-  # ---------------------------------------------------------------------------
-  #
-  # Three variants, one per runtime family:
-  #
+  # workstation — DNS, registries, git-livereload. Three variants by runtime.
 
-  # Docker Desktop: no in-cluster loadbalancer. DNS forwards to the first node
-  # via container port 30053 (not host 8053) so the DNS container can reach
-  # the node on the shared docker network. 30053 is the NodePort for CoreDNS;
-  # cluster.*.hostports must map that same port (e.g. "8053:30053/udp").
+  # Docker Desktop: no in-cluster LB. DNS forwards to the first node via
+  # container port 30053 (CoreDNS NodePort) on the shared docker network.
   - name: workstation
     when: "platform == 'docker' && workstation.runtime == 'docker-desktop'"
     path: workstation/docker
@@ -224,10 +160,9 @@ terraform:
       enable_git: ${workstation.services.git ?? true}
       registries: ${workstation_registries.registries ?? {}}
 
-  # Colima / docker / linux: loadbalancer exists, so DNS and webhook target
-  # the LB IP. Webhook port is 80 when Gateway is active (routed through the
-  # standard HTTP listener), otherwise the dedicated NodePort 9292.
-  # Terraform module expects "linux" (not "docker") as the runtime string.
+  # Colima/docker/linux: LB exists, so DNS and webhook target the LB IP.
+  # Webhook port 80 when Gateway is active, else NodePort 9292. Module runtime
+  # string is "linux", not "docker".
   - name: workstation
     when: "platform == 'docker' && workstation.runtime != \"docker-desktop\""
     path: workstation/docker
@@ -270,10 +205,7 @@ terraform:
       git_username: ${workstation.git.username ?? "local"}
       git_password: ${workstation.git.password ?? "local"}
 
-  # ---------------------------------------------------------------------------
   # compute — Talos nodes
-  # ---------------------------------------------------------------------------
-  #
 
   # Incus: provision Talos VMs on the workstation network. Under colima, use
   # the local `dir` storage driver; otherwise use incus `default`.
@@ -357,15 +289,10 @@ terraform:
           hostports: "${workstation.runtime == \"docker-desktop\" ? (cluster.workers.hostports ?? [\"8080:30080/tcp\", \"8443:30443/tcp\"]) : []}"
           volumes: ${cluster.workers.volumes ?? []}
 
-  # ---------------------------------------------------------------------------
   # cluster — Talos bootstrap/apply
-  # ---------------------------------------------------------------------------
-  #
 
-  # Incus: nodes come from compute output (Incus provisioned VMs) or from
-  # cluster.*.nodes if compute hasn't run yet. Hostname flows through as a
-  # passthrough field — Talos 1.12+ reads it from the VM runtime (Incus
-  # user.hostname), not from Talos config.
+  # Incus: nodes come from compute output, or cluster.*.nodes if compute hasn't
+  # run. Hostname is passthrough — Talos 1.12+ reads it from the VM runtime.
   - name: cluster
     when: "platform == 'incus' && (cluster.enabled ?? true)"
     path: cluster/talos
@@ -396,9 +323,8 @@ terraform:
       controlplane_volumes: ${talos_common.controlplane_volumes ?? []}
       worker_volumes: ${talos_common.worker_volumes ?? []}
 
-  # Docker: just inject the `compute` dependency. The full cluster inputs are
-  # defined in platform-docker (which owns the per-node endpoint rewriting
-  # logic for localhost-tunneled docker-desktop clusters).
+  # Docker: inject the `compute` dependency; full cluster inputs live in
+  # platform-docker (owns per-node endpoint rewriting for docker-desktop).
   - name: cluster
     when: "cluster.enabled == true && platform == 'docker'"
     dependsOn:
@@ -407,11 +333,8 @@ terraform:
 # =============================================================================
 # Flux systems — docker-desktop DNS override
 # =============================================================================
-#
-# Docker Desktop's LB IP is cluster-internal and unreachable from the host.
-# Override gateway_dns_target so external-dns advertises 127.0.0.1 — reached
-# via the host-port mapping on the Talos container.
-#
+# Docker Desktop's LB IP is unreachable from the host, so advertise 127.0.0.1
+# via gateway_dns_target — reached through the Talos container's host-port map.
 flux:
 
   - name: gateway

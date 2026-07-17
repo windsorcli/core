@@ -4,25 +4,22 @@ metadata:
   name: incus
   description: Incus compute platform infrastructure
 
-# Incus is only supported with Talos. Without workstation, this facet owns
-# the full terraform chain directly; with workstation, option-workstation
-# owns compute/cluster and this facet contributes config only.
+# Incus requires Talos. Without workstation, this facet owns the full terraform
+# chain; with workstation, option-workstation owns compute/cluster and this
+# facet contributes config only.
 when: "platform == 'incus' && cluster.driver == 'talos'"
 
-# Terraform remote state lives in the local Talos cluster (Kubernetes
-# backend, secrets-as-state). The `cluster` component itself uses local
-# state since it's the one that creates the cluster.
+# Remote state lives in the local Talos cluster (Kubernetes backend); the
+# `cluster` component uses local state since it creates the cluster.
 backend: cluster
 
 # =============================================================================
 # Config — Incus-specific Talos values
 # =============================================================================
-#
 config:
 
-  # Incus VMs have dedicated block devices, making Longhorn the natural choice
-  # (distributed block storage over the VM disks). The controlplane always
-  # sits at CIDR offset 10 so k8s_service_host is stable.
+  # Incus VMs have dedicated block devices, so Longhorn is the default storage.
+  # Controlplane sits at CIDR offset 10 for a stable k8s_service_host.
   - name: talos_common
     value:
       storage_driver: "${cluster.storage.driver ?? 'longhorn'}"
@@ -31,13 +28,8 @@ config:
           size: 30
       k8s_service_host: "${cidrhost(network.cidr_block, 10)}"
 
-  # ---------------------------------------------------------------------------
-  # cluster_endpoint_fallback
-  # ---------------------------------------------------------------------------
-  #
-  # Only derivable from compute output — if there's no compute yet, return
-  # empty string and let the caller fall back to an explicit cluster.endpoint.
-  #
+  # Derivable only from compute output; empty string otherwise, so the caller
+  # falls back to an explicit cluster.endpoint.
   - name: cluster_endpoint_fallback
     value:
       endpoint: >-
@@ -48,9 +40,8 @@ config:
             : ""
         }
 
-  # Node targets for post-cluster steps (e.g. cluster/talos/extensions). Mirrors
-  # the same compute-output-or-fallback resolution that the `cluster` step uses,
-  # projected to the {node, endpoint} shape that the extensions module accepts.
+  # Node targets for post-cluster steps (e.g. extensions), using the same
+  # compute-output-or-fallback resolution as the `cluster` step.
   - name: talos_node_targets
     value:
       controlplanes: >-
@@ -69,22 +60,12 @@ config:
 # =============================================================================
 # Terraform — standalone incus (no workstation)
 # =============================================================================
-#
-# When workstation.runtime is unset, this facet owns the full chain:
-#   compute → cluster → gitops
-#
-# With workstation set, option-workstation owns this chain (and adds a
-# workstation → compute link), so everything here is gated off.
-#
+# With workstation.runtime unset, this facet owns compute → cluster → gitops.
+# With workstation set, option-workstation owns the chain and these are gated off.
 terraform:
 
-  # ---------------------------------------------------------------------------
-  # compute — Talos VMs on a fresh Incus network
-  # ---------------------------------------------------------------------------
-  #
-  # Creates its own network (create_network: true) because there's no
-  # workstation stack to inherit one from. Uses the default incus storage pool.
-  #
+  # Talos VMs on a fresh Incus network (create_network: true — no workstation
+  # stack to inherit one from). Uses the default incus storage pool.
   - name: compute
     when: "workstation.runtime == null || workstation.runtime == ''"
     path: compute/incus
@@ -131,13 +112,7 @@ terraform:
             environment.TALOSSKU: "${string(cluster.workers.cpu) + 'CPU-' + string(cluster.workers.memory * 1024) + 'RAM'}"
             raw.qemu: -boot order=c,menu=off
 
-  # ---------------------------------------------------------------------------
-  # cluster — Talos bootstrap/apply
-  # ---------------------------------------------------------------------------
-  #
-  # Uses compute output when available, falling back to user-supplied nodes
-  # for scenarios where we describe an existing cluster.
-  #
+  # Talos bootstrap/apply. Uses compute output when available, else user-supplied nodes.
   - name: cluster
     when: "workstation.runtime == null || workstation.runtime == ''"
     path: cluster/talos
@@ -156,13 +131,7 @@ terraform:
       controlplane_volumes: ${talos_common.controlplane_volumes ?? []}
       worker_volumes: ${talos_common.worker_volumes ?? []}
 
-  # ---------------------------------------------------------------------------
-  # gitops — Flux
-  # ---------------------------------------------------------------------------
-  #
-  # destroy: false — we don't uninstall Flux on `windsor destroy`; the
-  # cluster teardown takes it with it.
-  #
+  # Flux. destroy: false — cluster teardown removes it; we don't uninstall on `windsor destroy`.
   - name: gitops
     when: "workstation.runtime == null || workstation.runtime == ''"
     path: gitops/flux
@@ -175,19 +144,9 @@ terraform:
 # =============================================================================
 # Flux systems — MetalLB / kube-vip
 # =============================================================================
-#
-# Incus always has a real bridge network, so MetalLB or kube-vip works
-# unconditionally when an LB is requested.
-#
-# install ships the driver's controller HelmRelease. kube-vip/arp builds
-# here too — it's a patch on the kube-vip HelmRelease, not a separate CR —
-# and loadbalancer_ip_range is set here because the kube-vip cloud-provider
-# HelmRelease reads it directly.
-#
-# resources ships metallb/arp or metallb/layer2, the IPAddressPool /
-# L2Advertisement CRs metallb's controller consumes. No component for
-# kube-vip, which has nothing left to configure once install has run.
-#
+# Incus always has a real bridge network, so MetalLB or kube-vip works whenever
+# an LB is requested. install ships the driver's controller HelmRelease (plus
+# kube-vip's arp patch); resources ships metallb's IPAddressPool/L2Advertisement CRs.
 flux:
 
   - name: lb

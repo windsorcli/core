@@ -4,20 +4,17 @@ metadata:
   name: metal
   description: "Metal provider basic infrastructure"
 
-# Bare metal: the user supplies fully-provisioned nodes with real IPs, and
-# we just run Talos apply against them. No compute terraform, no network
-# creation — everything upstream is the operator's responsibility.
+# Bare metal: operator supplies fully-provisioned nodes; we run Talos apply
+# against them. No compute terraform, no network creation.
 when: platform == 'metal'
 
-# Terraform remote state lives in the local Talos cluster (Kubernetes
-# backend, secrets-as-state). The `cluster` component itself uses local
-# state since it's the one that creates the cluster.
+# Remote state lives in the local Talos cluster (Kubernetes backend); the
+# `cluster` component uses local state since it creates the cluster.
 backend: cluster
 
 # =============================================================================
 # Requires
 # =============================================================================
-#
 requires:
   - paths:
       - cluster.controlplanes.nodes
@@ -26,20 +23,15 @@ requires:
 # =============================================================================
 # Config
 # =============================================================================
-#
 config:
 
-  # On metal we always have at least one controlplane node with a concrete
-  # endpoint, so the fallback derivation is always valid (unlike incus/docker
-  # which may have no compute output yet).
+  # Always at least one controlplane with a concrete endpoint, so the fallback
+  # is always derivable (unlike incus/docker).
   - name: cluster_endpoint_fallback
     value:
       endpoint: "${cluster.endpoint ?? ('https://' + split(values(cluster.controlplanes.nodes)[0].endpoint, ':')[0] + ':6443')}"
 
-  # Node targets for post-cluster steps (e.g. cluster/talos/extensions). Same
-  # node list the `cluster` step receives, projected to the {node, endpoint}
-  # shape that the extensions module's variable schema accepts. No compute
-  # layer on metal — read straight from the user-supplied node map.
+  # Node targets for post-cluster steps (e.g. extensions), from the user-supplied node map.
   - name: talos_node_targets
     value:
       controlplanes: >-
@@ -52,10 +44,8 @@ config:
 # =============================================================================
 # Terraform — cluster/talos + gitops
 # =============================================================================
-#
-# No compute step: metal nodes exist externally. We go straight from the
-# user-supplied node list to Talos bootstrap/apply.
-#
+# No compute step: metal nodes exist externally. Straight from the user-supplied
+# node list to Talos bootstrap/apply.
 terraform:
 
   - name: cluster
@@ -73,8 +63,7 @@ terraform:
       controlplane_volumes: ${talos_common.controlplane_volumes ?? []}
       worker_volumes: ${talos_common.worker_volumes ?? []}
 
-  # destroy: false — Flux is tied to cluster lifetime; cluster teardown
-  # takes it with it.
+  # destroy: false — Flux is tied to cluster lifetime; teardown takes it along.
   - name: gitops
     path: gitops/flux
     dependsOn:
@@ -86,20 +75,10 @@ terraform:
 # =============================================================================
 # Flux systems — MetalLB / kube-vip
 # =============================================================================
-#
-# Metal nodes have real IPs and routes, so MetalLB or kube-vip works whenever
-# an LB is requested. Cilium installations skip this (Cilium's built-in LB is
-# preferred) via lb_effective.enabled being false when Cilium is the CNI.
-#
-# install ships the driver's controller HelmRelease. kube-vip/arp builds
-# here too — it's a patch on the kube-vip HelmRelease, not a separate CR —
-# and loadbalancer_ip_range is set here because the kube-vip cloud-provider
-# HelmRelease reads it directly.
-#
-# resources ships metallb/arp or metallb/layer2, the IPAddressPool /
-# L2Advertisement CRs metallb's controller consumes. No component for
-# kube-vip, which has nothing left to configure once install has run.
-#
+# Metal nodes have real IPs, so MetalLB or kube-vip works whenever an LB is
+# requested; skipped when Cilium is the CNI (lb_effective.enabled false). install
+# ships the driver's controller HelmRelease (plus kube-vip's arp patch); resources
+# ships metallb's IPAddressPool/L2Advertisement CRs.
 flux:
 
   - name: lb

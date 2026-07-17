@@ -7,7 +7,6 @@ metadata:
 # =============================================================================
 # Requires
 # =============================================================================
-#
 requires:
   - when: gateway.access == 'private'
     paths:
@@ -17,24 +16,16 @@ requires:
 # =============================================================================
 # Config — derived values consumed by this facet
 # =============================================================================
-#
-# cert_effective.public_issuer: which public ClusterIssuer is currently
-# deployed. The selfsigned and ACME public issuers are deployed as distinct
-# ClusterIssuers (`public-selfsigned`, `public-acme`) rather than one
-# `public` resource mutated in place — flipping the name flips a Certificate's
-# spec.issuerRef.name and forces cert-manager to reissue. See platform-aws.yaml
-# and kustomize/pki/resources/public-issuer/.
-#
+# cert_effective.public_issuer: selfsigned and ACME public issuers are distinct
+# ClusterIssuers — flipping the name forces cert-manager to reissue.
 config:
 
   - name: cert_effective
     value:
       public_issuer: "${(dns.public_domain ?? '') != '' ? 'public-acme' : 'public-selfsigned'}"
 
-  # gateway_effective.external_domain — cert SAN, resolved as an ordered
-  # fallback (last matching entry wins). Floor is '<id>.local' so the
-  # no-domain selfsigned path still renders a valid SAN, never "null".
-  # Private access pins the private domain even when a public one is set.
+  # gateway_effective.external_domain — cert SAN; ordered fallback, last match
+  # wins. Floor '<id>.local' keeps a valid SAN on the no-domain selfsigned path.
   - name: gateway_effective
     value:
       external_domain: "${(id ?? 'windsor') + '.local'}"
@@ -55,11 +46,8 @@ config:
     value:
       external_domain: "${dns.private_domain}"
 
-  # gateway_effective.cert_issuer — ClusterIssuer for the gateway TLS cert
-  # (last match wins). Floor is 'private' selfsigned; clouds and any
-  # public_domain get the public issuer; private access with a private
-  # domain forces 'private' because ACME DNS-01 can't validate a VPC-only
-  # zone.
+  # gateway_effective.cert_issuer — gateway TLS ClusterIssuer; last match wins.
+  # Private access forces 'private': ACME DNS-01 can't validate a VPC-only zone.
   - name: gateway_effective
     value:
       cert_issuer: private
@@ -75,13 +63,8 @@ config:
 # =============================================================================
 # CRDs — vendored, applied ahead of the controller
 # =============================================================================
-#
-# Gateway API CRDs are shared by both drivers (Envoy installs the controller;
-# Cilium provides the implementation), so they ship whenever the gateway is
-# enabled. Envoy Gateway's own CRDs ship only on the envoy path. Both are
-# version-pinned under kustomize/crds/; every kustomization in this facet
-# auto-depends on them.
-#
+# Gateway API CRDs ship whenever the gateway is enabled (both drivers use them);
+# Envoy Gateway's own CRDs ship only on the envoy path.
 crds:
   # renovate: datasource=github-releases depName=kubernetes-sigs/gateway-api package=kubernetes-sigs/gateway-api
   - "${gateway.enabled == true ? 'gateway-api-experimental-1.6.0' : ''}"
@@ -91,27 +74,12 @@ crds:
 # =============================================================================
 # Flux systems — Gateway API controller + shared Gateway resource
 # =============================================================================
-#
-# gateway (resolved in platform-base) selects the driver: 'envoy' or
-# 'cilium'. All downstream facets dependsOn the canonical names
-# `gateway-install` and `gateway-resources` regardless of driver — we emit
-# one variant of each (compiled from a single `gateway` system entry per
-# driver, merged with the additive install patches in platform-aws.yaml /
-# platform-azure.yaml and the additive resources patches in option-cni.yaml /
-# option-workstation.yaml).
-#
+# gateway.driver selects 'envoy' or 'cilium'. Downstream facets dependsOn the
+# canonical names gateway-install / gateway-resources regardless of driver.
 flux:
 
-  # ---------------------------------------------------------------------------
-  # install — CRDs, namespace, controller
-  # ---------------------------------------------------------------------------
-  #
-  # Envoy path: install Envoy Gateway + its service variant (loadbalancer or
-  # nodeport, chosen by lb_effective.mode) + prometheus scraping.
-  #
-  # Depends on pki-install so cert-manager is available for the Gateway TLS
-  # certificate created in resources.
-  #
+  # Envoy path: install Envoy Gateway + service variant (lb_effective.mode) +
+  # prometheus. Depends on pki-install for the Gateway TLS cert made in resources.
   - name: gateway
     when: gateway.enabled == true && gateway.driver != 'cilium'
     dependsOn:
@@ -127,9 +95,7 @@ flux:
       timeout: 10m
       interval: 5m
 
-  # Cilium path: Cilium itself provides the Gateway API implementation, so this
-  # variant only needs to install the Gateway API CRDs (via the `cilium`
-  # component). The Cilium HelmRelease is owned by option-cni.
+  # Cilium path: only installs the Gateway API CRDs; the Cilium HelmRelease is owned by option-cni.
   - name: gateway
     when: gateway.enabled == true && gateway.driver == 'cilium'
     dependsOn:
@@ -141,40 +107,16 @@ flux:
       timeout: 10m
       interval: 5m
 
-  # ---------------------------------------------------------------------------
-  # cni dep merge (cilium gateway only)
-  # ---------------------------------------------------------------------------
-  #
-  # When Cilium is the gateway driver, the Gateway API CRDs (installed by
-  # gateway-install) must exist before the Cilium HelmRelease is applied.
-  # Otherwise cilium-operator starts with gatewayAPI.enabled but finds no CRDs
-  # and never initializes the Gateway controller. Merged into the cni system's
-  # install tier (compiled name cni-install) as an additive dependsOn edge.
-  #
+  # cni dep merge (cilium gateway only): Gateway API CRDs must exist before the
+  # Cilium HelmRelease, or cilium-operator finds no CRDs and never starts the controller.
   - name: cni
     when: gateway.enabled == true && gateway.driver == 'cilium'
     dependsOn:
       - gateway-install
 
-  # ---------------------------------------------------------------------------
-  # resources — shared Gateway CR + TLS certificate
-  # ---------------------------------------------------------------------------
-  #
-  # Conditional components:
-  #   - cilium:       patches Gateway spec.infrastructure.annotations so the
-  #                   Cilium gateway LB IP is shared with CoreDNS (LBIPAM).
-  #   - dns:          UDP/TCP port-53 listeners for CoreDNS. Envoy only —
-  #                   Cilium shares the LB IP instead, no extra listeners
-  #                   needed.
-  #   - lb-address:   pins the Gateway to the start of the LB IP range when an
-  #                   in-cluster LB is active.
-  #   - flux-webhook: adds a dedicated port-9292 listener for the Flux
-  #                   notification receiver (gated on gitops.mode == 'push').
-  #
-  # `gateway_class_name` drives the Gateway spec.gatewayClassName (envoy,
-  # cilium, etc.). `gateway_dns_target` is the IP external-dns advertises for
-  # Gateway-attached hostnames.
-  #
+  # resources — shared Gateway CR + TLS certificate. gateway_class_name drives
+  # spec.gatewayClassName; gateway_dns_target is the IP external-dns advertises
+  # for Gateway-attached hostnames.
   - name: gateway
     when: gateway.enabled == true
     resources:
@@ -182,19 +124,12 @@ flux:
           - "${dns.enabled ? 'dns-install' : ''}"
         components:
           - "${gateway.driver == 'cilium' ? 'cilium' : ''}"
-          # Points the Gateway at its EnvoyProxy (per-gateway data-plane Service
-          # config). Envoy-only: cilium gateways don't use the EnvoyProxy resource.
+          # Points the Gateway at its EnvoyProxy (envoy-only data-plane Service config).
           - "${gateway.driver != 'cilium' ? 'envoy/parameters' : ''}"
-          # Catch-all 404 served by Envoy's directResponse — covers any
-          # request that doesn't match a real app's HTTPRoute. Envoy-only:
-          # uses the gateway.envoyproxy.io HTTPRouteFilter CRD, which
-          # cilium clusters don't ship.
+          # Catch-all 404 (Envoy directResponse) for unmatched HTTPRoutes; envoy-only.
           - "${gateway.driver != 'cilium' ? 'envoy/default-404' : ''}"
-          # external-dns hostname annotation on the 404 route. Fires whenever a
-          # gateway-managed DNS zone exists — the public zone (dns.public_domain)
-          # for the default public path, or the private zone (dns.private_domain)
-          # when gateway.access=private. Skipped when neither applies so the
-          # substitution doesn't render a malformed ",*." value.
+          # external-dns hostname annotation on the 404 route; fires when a
+          # gateway-managed DNS zone exists (public, or private when access=private).
           - "${gateway.driver != 'cilium' && ((dns.public_domain ?? '') != '' || (gateway.access == 'private' && (dns.private_domain ?? '') != '')) ? 'envoy/default-404/external-dns' : ''}"
           - "${gateway.driver != 'cilium' && (addons.private_dns.enabled ?? (dev == true)) == true ? 'dns' : ''}"
           - "${lb_effective.enabled == true ? 'lb-address' : ''}"
@@ -202,13 +137,11 @@ flux:
         substitutions:
           gateway_class_name: ${gateway.driver}
           gateway_dns_target: "${lb_effective.enabled == true ? network.loadbalancer_ips.start : ''}"
-          # Cert SAN domain and TLS ClusterIssuer — both resolved as ordered
-          # fallback ladders in the config section above.
+          # Cert SAN domain and TLS issuer — resolved in the config section above.
           external_domain: "${gateway_effective.external_domain}"
           gateway_cert_issuer: "${gateway_effective.cert_issuer}"
-          # Only emitted when a consumer is active: the lb-address patch (in-cluster
-          # LB) or the cilium gateway component. NodePort/cloud-managed-LB paths
-          # have no consumer, so leave it empty and the harness drops it.
+          # Only emitted when a consumer is active (in-cluster LB or cilium gateway);
+          # empty otherwise and the harness drops it.
           loadbalancer_start_ip: "${(lb_effective.enabled == true || gateway.driver == 'cilium') ? network.loadbalancer_ips.start : ''}"
         timeout: 10m
         interval: 5m

@@ -4,86 +4,47 @@ metadata:
   name: platform-base
   description: "Base infrastructure components for all platforms"
 
-# Skip the entire facet when no platform is selected (the "none" context
-# used for bare blueprint scaffolding and schema validation).
+# Skip the facet when no platform is selected (the "none" scaffolding context).
 when: (platform ?? 'none') != 'none'
 
 # =============================================================================
 # Config — effective values
 # =============================================================================
-#
-# platform-base is the single source of truth for every `_effective` computed
-# value. Downstream facets (options, addons, platform-*) consume these values;
-# they do not re-derive or override them.
-#
-# Evaluation order matters: later entries may reference earlier ones. Keep
-# dependent values below their dependencies (e.g. the gateway block reads
-# cluster.cni.driver, so the cluster block must come first).
-#
+# Single source of truth for every `_effective` value; downstream facets
+# consume these without re-deriving. Order matters — dependent values sit
+# below their dependencies (gateway reads cluster.cni.driver).
 config:
 
-  # ---------------------------------------------------------------------------
-  # Platform identity
-  # ---------------------------------------------------------------------------
-  #
-  # Fall back to 'none' so expressions downstream can rely on a non-null
-  # string value.
-  #
+  # Platform identity — fall back to 'none' for a non-null downstream value.
   - name: platform
     value: "${platform ?? 'none'}"
 
-  # Normalize workstation.runtime so `workstation.runtime == '...'` checks are
-  # safe even when the user didn't supply a workstation block at all.
+  # Normalize workstation.runtime so equality checks are safe when unset.
   - name: workstation
     value:
       runtime: "${workstation.runtime ?? ''}"
 
-  # ---------------------------------------------------------------------------
-  # Cluster driver and CNI (platform-implied defaults)
-  # ---------------------------------------------------------------------------
-  #
-  # cluster.driver — managed clouds imply their managed driver (aws → eks,
-  # azure → aks); everything else defaults to talos. An explicit
-  # `cluster.driver` in values.yaml always wins.
-  #
-  # cluster.cni.driver — Talos defaults to Cilium (standard L2/BGP + Gateway
-  # API stack); managed clouds leave it empty so option-cni stays out unless
-  # Cilium is explicitly requested. cluster.driver is re-derived inline
-  # because sibling fields in the same block evaluate against user input,
-  # not the just-computed `driver` value.
-  #
+  # Cluster driver and CNI. Managed clouds imply their driver (aws→eks,
+  # azure→aks); else talos. Talos defaults CNI to cilium; managed clouds leave
+  # it empty. driver is re-derived inline since siblings see user input only.
   - name: cluster
     value:
       driver: "${cluster.driver ?? (platform == 'aws' ? 'eks' : (platform == 'azure' ? 'aks' : 'talos'))}"
       cni:
         driver: "${cluster.cni.driver ?? ((cluster.driver ?? (platform == 'aws' ? 'eks' : (platform == 'azure' ? 'aks' : 'talos'))) == 'talos' ? 'cilium' : '')}"
 
-  # Docker Desktop override: its API server is reachable only via a localhost
-  # tunnel, which Cilium's eBPF bootstrap can't use. Fall back to the built-in
-  # flannel CNI. Split into a `when:`-gated entry rather than an inline
-  # branch on workstation.runtime because option-workstation re-positions
-  # the `workstation` block to the end of evaluation order, leaving
-  # workstation.runtime as an unevaluated template at the time the cluster
-  # block evaluates.
+  # Docker Desktop: Cilium's eBPF bootstrap can't use its localhost-tunnel API
+  # server, so fall back to flannel. when:-gated (not inline) because
+  # option-workstation defers the workstation block past this one.
   - name: cluster
     when: workstation.runtime == 'docker-desktop'
     value:
       cni:
         driver: "${cluster.cni.driver ?? 'flannel'}"
 
-  # ---------------------------------------------------------------------------
-  # Gateway driver selection
-  # ---------------------------------------------------------------------------
-  #
-  # Resolution order (first non-null wins):
-  #   1. Explicit gateway.driver.
-  #   2. Legacy ingress.driver alias ('envoy-gateway' and 'nginx' both map to
-  #      'envoy'; anything else passes through unchanged).
-  #   3. Platform-based default:
-  #        - docker-desktop and AWS always use envoy (no cilium LB path).
-  #        - Otherwise, use cilium when it is the CNI (native Gateway API),
-  #          else envoy.
-  #
+  # Gateway driver. First non-null wins: explicit gateway.driver; legacy
+  # ingress.driver alias (envoy-gateway/nginx → envoy); else platform default
+  # — docker-desktop and AWS use envoy, otherwise cilium when it's the CNI.
   - name: gateway
     value:
       enabled: ${gateway.enabled ?? ingress.enabled ?? true}
@@ -96,41 +57,26 @@ config:
               ? 'envoy'
               : (cluster.cni.driver == 'cilium' ? 'cilium' : 'envoy'))}
 
-  # ---------------------------------------------------------------------------
-  # Load balancer selection
-  # ---------------------------------------------------------------------------
-  #
-  # An in-cluster LB is only needed when:
-  #   - The CNI doesn't provide one (Cilium has built-in L2/BGP LB), AND
-  #   - A loadbalancer_driver is explicitly configured.
-  #
-  # Cloud platforms (AWS, Azure) use cloud-managed LBs and leave
-  # loadbalancer_driver unset, so this evaluates to false there.
-  #
+  # Load balancer. In-cluster LB needed only when the CNI lacks one (Cilium has
+  # built-in L2/BGP) and loadbalancer_driver is set. Cloud platforms use managed
+  # LBs and leave it unset → false.
   - name: lb_effective
     value:
       enabled: "${cluster.cni.driver != 'cilium' && (network.loadbalancer_driver ?? '') != ''}"
       driver: "${network.loadbalancer_driver ?? 'kube-vip'}"
       mode: loadbalancer
 
-  # Docker Desktop has no routable node network, so Services of type
-  # LoadBalancer cannot be reached and an in-cluster LB controller (MetalLB)
-  # has nothing to advertise. Force enabled=false so lb-install is not pulled
-  # in via controller_required, and switch the gateway service to NodePort.
+  # Docker Desktop has no routable node network, so LoadBalancer Services are
+  # unreachable — force enabled=false and switch the gateway to NodePort.
   - name: lb_effective
     when: workstation.runtime == 'docker-desktop'
     value:
       enabled: false
       mode: nodeport
 
-  # Explicit gateway.service_type wins over driver/platform auto-detect. Lets
-  # any platform expose the gateway via NodePort (e.g. single-node Talos VMs
-  # without a cluster LB) or force LoadBalancer on docker-desktop.
-  #
-  # NodePort also forces lb_effective.enabled=false: even when the cluster has
-  # a loadbalancer_driver configured (e.g. kube-vip), a NodePort service will
-  # never be assigned a LoadBalancer IP, so the lb-address patch and
-  # gateway_dns_target would reconcile against an IP that never materializes.
+  # Explicit gateway.service_type wins over auto-detect. NodePort also forces
+  # enabled=false: a NodePort service never gets a LoadBalancer IP, so the
+  # lb-address patch would reconcile against an IP that never materializes.
   - name: lb_effective
     when: gateway.service_type == 'NodePort'
     value:
@@ -142,45 +88,20 @@ config:
     value:
       mode: loadbalancer
 
-  # True when an in-cluster LB controller is required — i.e. the `lb`
-  # system's install tier (compiled name `lb-install`) will be composed into
-  # the blueprint. This is the union of every `when:` that produces a
-  # non-empty install component across the platform facets:
-  #   - platform-aws: always (aws-lb-controller manages cloud NLBs/ALBs).
-  #   - platform-metal/incus/docker/hyperv: when lb_effective.enabled
-  #     (metallb or kube-vip — both ship an install-tier HelmRelease).
-  #   - platform-azure: never (Azure native LBs, no in-cluster controller).
-  # Consumers (gateway-resources, anything that owns a Service type=LoadBalancer
-  # or Ingress class managed by aws-lb-controller) reference this in their
-  # dependsOn so reverse-topo destroy ordering puts the controller last among
-  # in-cluster controllers — it's alive to lift its finalizers (e.g.
-  # service.k8s.aws/resources, elbv2.k8s.aws/resources) on Service /
-  # TargetGroupBinding deletion before its own Kustomization is torn down.
-  # Keep this in sync if a new platform facet adds another path that creates
-  # an `lb-install` Kustomization.
+  # True when an in-cluster LB controller (lb-install) is required: aws always
+  # (aws-lb-controller), metal/incus/docker/hyperv when lb_effective.enabled,
+  # azure never. Consumers dependsOn this so reverse-topo destroy keeps the
+  # controller alive to lift its finalizers before its Kustomization is torn
+  # down. Keep in sync if a new platform facet creates an lb-install.
   - name: lb_effective
     value:
       controller_required: "${platform == 'aws' || lb_effective.enabled == true}"
 
-  # ---------------------------------------------------------------------------
-  # DNS domains
-  # ---------------------------------------------------------------------------
-  #
-  # Three views of the same setting so callers can be specific:
-  #   - domain:         user-facing root, used when public/private aren't split.
-  #   - public_domain:  publicly-routable hostname pattern (external-dns
-  #                     publication, ACME cert SAN). Explicit only — never
-  #                     filled in from `domain`. The trigger for "this
-  #                     deployment has real public DNS" must be the operator
-  #                     setting public_domain themselves; falling back from
-  #                     `domain` would silently activate ACME paths whenever
-  #                     anyone configured a domain at all.
-  #   - private_domain: records served inside the cluster (CoreDNS).
-  #
-  # `dev: true` defaults `domain` and `private_domain` to 'test' so local dev
-  # works without any DNS configuration; public_domain stays empty in dev
-  # because there's no real public DNS to talk to.
-  #
+  # DNS domains. domain: user-facing root. public_domain: publicly-routable
+  # pattern (external-dns, ACME SAN) — explicit only, never from `domain`, so
+  # configuring a domain doesn't silently activate ACME. private_domain:
+  # in-cluster records (CoreDNS). dev:true defaults domain/private_domain to
+  # 'test'; public_domain stays empty (no real public DNS).
   - name: dns
     value:
       domain: "${dns.domain ?? (dev == true ? 'test' : '')}"
@@ -188,20 +109,10 @@ config:
       private_domain: "${dns.private_domain ?? dns.domain ?? (dev == true ? 'test' : '')}"
       enabled: "${(addons.private_dns.enabled ?? false) == true || (dns.public_domain ?? '') != '' || (gateway.access == 'private' && (dns.private_domain ?? '') != '')}"
 
-  # ---------------------------------------------------------------------------
-  # Cluster provisioning flags
-  # ---------------------------------------------------------------------------
-  #
-  # cluster_provisioned: true when a cluster should actually exist. On docker,
-  # the cluster only exists when a workstation runtime is set — `platform:
-  # docker` without workstation is a no-op scaffold used for tests.
-  #
-  # talos_enabled / eks_enabled: driver-specific gates for cluster.enabled.
-  # Used by option-cni and related facets to decide whether to bootstrap.
-  #
-  # talos_provisioned: talos_enabled + cluster actually provisioned (matters
-  # on docker where provisioning requires workstation).
-  #
+  # Cluster provisioning flags. cluster_provisioned: a cluster should exist —
+  # on docker only when a workstation runtime is set (bare `platform: docker`
+  # is a test scaffold). talos_enabled/eks_enabled: driver-specific gates.
+  # talos_provisioned: talos_enabled and actually provisioned.
   - name: cluster_provisioned
     value: "${(cluster.enabled ?? true) && (platform != 'docker' || (workstation.runtime != null && workstation.runtime != ''))}"
   - name: talos_enabled
@@ -211,29 +122,11 @@ config:
   - name: eks_enabled
     value: "${cluster.driver == 'eks' && (cluster.enabled ?? true)}"
 
-  # ---------------------------------------------------------------------------
-  # Topology
-  # ---------------------------------------------------------------------------
-  #
-  # Resolves the user-facing `topology` field to a concrete value so downstream
-  # facets can read `${topology}` directly without re-implementing the fallback
-  # chain. Explicit `topology` always wins. Otherwise:
-  #
-  #   - Layout declared (metal, incus, docker-compose-style): derive from
-  #     effective node counts — `count` wins when set, otherwise fall back to
-  #     `len(nodes)`. 1 total → single-node; 3+ CPs → ha; else multi-node.
-  #
-  #   - Workstation runtime with no layout (colima, docker-desktop): platform
-  #     implicitly provisions 1 CP, so default to single-node.
-  #
-  #   - Otherwise (cloud platforms with no layout): multi-node.
-  #
-  # Written as a single expression because writing the result back to
-  # `topology` itself means later entries can't read the original user input —
-  # they'd see whatever the previous entry set. Inlining the count expressions
-  # also avoids the engine's spotty support for cross-entry helper visibility
-  # in `when:` clauses.
-  #
+  # Resolve `topology` to a concrete value. Explicit wins; else from node
+  # counts (count ?? len(nodes)): 1 → single-node, 3+ CPs → ha, else
+  # multi-node; workstation runtime with no layout → single-node; cloud with
+  # no layout → multi-node. Single inline expression so later entries still
+  # read the original user input, not a value this entry wrote back.
   - name: topology
     value: >-
       ${
@@ -255,23 +148,10 @@ config:
         )
       }
 
-  # ---------------------------------------------------------------------------
-  # Network defaults
-  # ---------------------------------------------------------------------------
-  #
-  # Populate user-facing `network.*` fields so downstream facets can read
-  # `network.cidr_block` / `network.loadbalancer_ips.*` directly without
-  # re-applying the fallback chain.
-  #
-  # Each entry uses `when:` (evaluated against user input only) instead of
-  # the self-referencing `${network.X ?? default}` pattern in `value:`. The
-  # engine stores config-block bodies unevaluated in globalScope and
-  # iterates blocks in last-writer order; a self-referencing template can
-  # be read as the literal template string by a config block in another
-  # facet that evaluates earlier in the round. The when-guarded form has
-  # no self-reference (bodies may still compute over other user inputs,
-  # like cidrhost over network.cidr_block), so cross-block reads resolve.
-  #
+  # Network defaults for downstream facets. Each entry is when:-guarded rather
+  # than self-referencing `${network.X ?? default}`: unevaluated block bodies
+  # can leak the literal template to an earlier-evaluating facet, so the
+  # when-form avoids the self-reference while still computing over other inputs.
   - name: network
     when: (network.cidr_block ?? '') == ''
     value:
@@ -287,25 +167,10 @@ config:
       loadbalancer_ips:
         end: "${cidrhost(network.cidr_block ?? '10.5.0.0/16', 356)}"
 
-  # ---------------------------------------------------------------------------
-  # Telemetry driver
-  # ---------------------------------------------------------------------------
-  #
-  # metrics_enabled / logs_enabled: independent gates for the two halves of the
-  # telemetry pipeline. Both default on; disable individually to trim resources
-  # on small clusters (e.g. metrics-only when HPA is needed but logs aren't, or
-  # logs-only for debugging without the Prometheus overhead).
-  #
-  # Both are force-on when addons.observability is enabled — the observability
-  # addon expects a metrics backend and a log pipeline to be present, so opting
-  # the addon in trumps explicit disables here.
-  #
-  # logs_driver: aggregator choice. Valid values: 'fluentd' (default), 'none'
-  # (keep fluent-bit shipper but drop the fluentd aggregator), 'elasticsearch'
-  # (filebeat → Elasticsearch, set by addon-observability). Coerced to 'none'
-  # when the logs pipeline is disabled so downstream `when:` guards on the
-  # fluentd aggregator fall through cleanly.
-  #
+  # Telemetry driver. metrics/logs: independent gates, both default on.
+  # addons.observability forces both on. logs.driver: 'fluentd' (default),
+  # 'none' (shipper only, no aggregator), or 'elasticsearch' (via
+  # addon-observability); coerced to 'none' when the logs pipeline is off.
   - name: telemetry
     value:
       metrics:
@@ -330,10 +195,8 @@ config:
       logs:
         driver: none
 
-  # Default-on opt-out for our metrics-server copy. Managed-K8s platforms
-  # that ship metrics-server as a built-in add-on (AKS, future GKE)
-  # override to false in their own facet to avoid two instances fighting
-  # on the same APIService.
+  # metrics-server, default-on. Managed-K8s platforms that ship it built-in
+  # (AKS, future GKE) override to false to avoid two instances on one APIService.
   - name: telemetry
     value:
       metrics_server_enabled: true
@@ -341,34 +204,22 @@ config:
 # =============================================================================
 # Global substitutions
 # =============================================================================
-#
-# Variables exposed to every kustomization's postBuild via Flux variable
-# substitution. Declared here (rather than per-kustomization) because they
-# are consumed across many components — HTTPRoutes, certificates, external-dns
-# annotations — and hardcoding them in each would mean chasing down every
-# site on a domain change. Add new globals here only when they are truly
-# cross-cutting; per-kustomization values belong on the kustomization.
-#
+# Variables exposed to every kustomization's postBuild via Flux substitution.
+# Declared here because they're consumed cross-cutting (HTTPRoutes, certs,
+# external-dns). Add only truly cross-cutting values; else per-kustomization.
 substitutions:
-  # FQDN suffix for internal/cluster-local resources (e.g. grafana.test,
-  # flux-webhook.test). Resolved by the in-cluster CoreDNS and the workstation
-  # DNS forwarder.
+  # FQDN suffix for cluster-local resources (grafana.test), resolved by CoreDNS.
   private_domain: ${dns.private_domain}
 
-  # FQDN suffix for externally-reachable resources on cloud platforms. Unused
-  # on local/workstation contexts where private_domain covers everything.
+  # FQDN suffix for externally-reachable resources on cloud platforms.
   public_domain: ${dns.public_domain}
 
 # =============================================================================
 # CRDs — vendored, applied ahead of the controller
 # =============================================================================
-#
-# cert-manager, prometheus-operator, and fluent-operator CRDs ship vendored under
-# kustomize/crds/ and are applied before the controllers; the charts run with CRD
-# install disabled. Every kustomization auto-depends on this layer, so the
-# ServiceMonitor CRD is present for scrape configs across every facet, and a
-# fluent-operator teardown can't cascade-delete its CRs (see issue #2021).
-#
+# cert-manager, prometheus-operator, fluent-operator CRDs vendored under
+# kustomize/crds/, applied before the controllers (charts run CRD-install off).
+# Every kustomization auto-depends on this layer (see issue #2021).
 crds:
   # renovate: datasource=github-releases depName=cert-manager/cert-manager package=cert-manager/cert-manager
   - cert-manager-1.21.0
@@ -383,13 +234,9 @@ crds:
 # =============================================================================
 # Terraform — shared gitops inputs
 # =============================================================================
-#
-# Each platform facet declares its own `gitops` terraform block with the
-# dependencies it needs. Windsor merges inputs across facets, so adding the
-# mode here applies to every platform without repeating it per-facet. In pull
-# mode the terraform module drops notification-controller and the webhook
-# token secret.
-#
+# Each platform facet declares its own `gitops` block; Windsor merges inputs,
+# so setting mode here applies everywhere. Pull mode drops notification-
+# controller and the webhook token secret.
 terraform:
   - name: gitops
     path: gitops/flux
@@ -399,22 +246,11 @@ terraform:
 # =============================================================================
 # Flux systems — policy, telemetry, pki (install/resources tier split)
 # =============================================================================
-#
-# policy: install installs the Kyverno controller. resources applies cluster
-# policies; each policy is individually toggleable via the top-level
-# `policies.*` field (defaults to enabled). resources implicitly depends on
-# install; no dependsOn is written for that edge.
-#
-# telemetry: install is the operators (Prometheus, fluent-bit, fluent-operator).
-# resources is metrics-server, scrape jobs, fluent-bit filters, and the
-# fluent-bit → fluentd shipper when fluentd is the chosen aggregator.
-# addon-observability replaces this whole system (strategy: replace) when the
-# Elasticsearch log driver is selected, swapping fluent-bit for filebeat.
-#
-# pki: install is cert-manager. resources is empty here — platform and addon
-# facets (aws, azure, hyperv, dev, private-ca) each contribute their own
-# ClusterIssuer variant, merged into the same pki-resources kustomization.
-#
+# resources implicitly dependsOn install. policy: Kyverno controller + cluster
+# policies (globalDependency — every workload implicitly waits on its resources
+# tier; toggle via policies.*). telemetry: operators + metrics-server/
+# scrape/filters; addon-observability replaces it for the Elasticsearch driver.
+# pki: cert-manager; resources empty here (platform/addon facets add issuers).
 flux:
   - name: policy
     when: (policies.enabled ?? true) == true
@@ -493,16 +329,9 @@ flux:
           - "${telemetry.metrics.enabled ? 'fluentd/prometheus' : ''}"
           - "${log_level != 'trace' ? 'fluentd/filters/log-level/' + (log_level ?? 'info') : ''}"
 
-  # ---------------------------------------------------------------------------
-  # GitOps webhook receiver
-  # ---------------------------------------------------------------------------
-  #
-  # Flux webhook for push-driven source reconciliation. Reconciled onto the
-  # terraform-bootstrapped Flux, so it is a resources-only system. With a
-  # gateway present it also lands the port-80 HTTPRoute (Envoy or Cilium) and
-  # waits for gateway-install so the route CRDs exist first. Emission tracks
-  # gitops.mode — push emits, pull skips the whole system.
-  #
+  # GitOps webhook — push-driven Flux reconciliation, resources-only (onto the
+  # terraform-bootstrapped Flux). With a gateway, adds the port-80 HTTPRoute and
+  # waits for gateway-install. push emits, pull skips the system.
   - name: gitops
     path: gitops
     when: (gitops.mode ?? 'push') == 'push'
@@ -516,14 +345,8 @@ flux:
         substitutions:
           git_repository_name: ${gitops.repository.name ?? "local"}
 
-  # ---------------------------------------------------------------------------
-  # Flux Operator web UI
-  # ---------------------------------------------------------------------------
-  #
-  # Opt-in (gitops.web_ui) HTTPRoute exposing the operator web UI at
-  # flux.<domain> when a gateway is present. Resources-only; cilium adds a CNP
-  # allowing the gateway to reach the operator.
-  #
+  # Flux Operator web UI — opt-in (gitops.web_ui) HTTPRoute at flux.<domain>
+  # when a gateway is present. Resources-only; cilium adds a gateway-reach CNP.
   - name: flux-ui
     path: gitops
     when: gateway.enabled == true && (gitops.web_ui ?? false) == true

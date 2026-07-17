@@ -11,59 +11,44 @@ when: cluster.driver == 'talos'
 # =============================================================================
 # Config — Talos machine patch + extension catalog
 # =============================================================================
-#
-# Everything here funnels into `talos_common`, which is the single object the
-# cluster/talos terraform module consumes. Platform facets (platform-incus,
-# platform-docker, platform-metal) contribute their own overrides before this
-# file is evaluated, and this file layers in the common defaults.
-#
+# Everything funnels into talos_common, the single object the cluster/talos
+# terraform module consumes. Platform facets set overrides first; this file
+# layers in the common defaults.
 config:
 
-  # ---------------------------------------------------------------------------
-  # talos_common defaults
-  # ---------------------------------------------------------------------------
-  #
-  # Values resolved here are the "last line of defense" — platform facets set
-  # platform-specific values first, then this block fills in anything left.
-  #
+  # talos_common defaults: platform facets set platform-specific values first,
+  # then this block fills in anything left.
   - name: talos_common
     value:
 
-      # Storage driver default. Most platforms get 'openebs' (hostPath); incus
-      # overrides to 'longhorn' since its VMs have dedicated block devices.
+      # Storage driver; incus overrides to 'longhorn' (dedicated block devices).
       storage_driver: "${cluster.storage.driver ?? 'openebs'}"
 
-      # Default data disk for Longhorn installations; per-platform facets
-      # override size/name if they need different.
+      # Default Longhorn data disk; platform facets override size/name.
       longhorn_default_disk:
         - name: longhorn
           size: 30
 
-      # topology=single-node implies the control plane must schedule workloads,
-      # so flip this on automatically even if the user didn't set schedulable.
+      # single-node forces the control plane to schedule workloads.
       allowSchedulingOnControlPlanes: "${(cluster.controlplanes.schedulable ?? false) || topology == 'single-node'}"
       controlplane_volumes: "${cluster.controlplanes.volumes ?? []}"
       worker_volumes: "${cluster.workers.volumes ?? []}"
       csi_local_volume_path: "${cluster.storage.local_base_path ?? \"/var/mnt/local\"}"
 
-      # If the user didn't specify disks, use the longhorn default when
-      # longhorn is the driver; otherwise no disks.
+      # Default to the longhorn disk when longhorn is the driver, else no disks.
       controlplane_disks: "${cluster.controlplanes.disks ?? (talos_common.storage_driver == 'longhorn' ? talos_common.longhorn_default_disk : [])}"
       worker_disks: "${cluster.workers.disks ?? (talos_common.storage_driver == 'longhorn' ? talos_common.longhorn_default_disk : [])}"
 
-      # Kubelet serving-cert rotation. The external approver runs as a
-      # static manifest (pre-Flux) so kubelet certs rotate even during
-      # cluster bootstrap. Required because the Talos default is opaque
-      # self-signed certs that don't match node IPs.
+      # Kubelet serving-cert rotation via a static (pre-Flux) manifest so certs
+      # rotate during bootstrap; the Talos default self-signed certs don't match node IPs.
       cert_rotation:
         extra_manifests:
           - "https://raw.githubusercontent.com/alex1989hu/kubelet-serving-cert-approver/v0.8.7/deploy/standalone-install.yaml"
         kubelet_extra_args:
           rotate-server-certificates: "true"
 
-      # The actual machine patch that gets stringified into
-      # common_config_patches. Platform facets can merge additional keys into
-      # common_patch; the merged object is serialized below.
+      # Machine patch stringified into common_config_patches; platform facets
+      # can merge additional keys into common_patch.
       common_patch:
         cluster:
           allowSchedulingOnControlPlanes: ${talos_common.allowSchedulingOnControlPlanes}
@@ -73,15 +58,8 @@ config:
             extraArgs: ${talos_common.cert_rotation.kubelet_extra_args}
       common_config_patches: "${string(talos_common.common_patch)}"
 
-      # -----------------------------------------------------------------------
-      # Extension catalog
-      # -----------------------------------------------------------------------
-      #
-      # Map of driver/feature → Talos Image Factory extensions that driver
-      # needs. Add a new key here when introducing a driver with kernel or
-      # tool requirements — no conditional branches elsewhere needed; the
-      # aggregated `extensions` list below picks up the new entry.
-      #
+      # Extension catalog: driver/feature → required Talos Image Factory
+      # extensions. Add a key for a new driver; the aggregated extensions list picks it up.
       csi_extensions:
         longhorn:
           - siderolabs/iscsi-tools
@@ -89,26 +67,12 @@ config:
 
       extensions: "${get(talos_common.csi_extensions, talos_common.storage_driver) ?? []}"
 
-      # First controlplane IP, used as `k8sServiceHost` for Cilium's
-      # kube-proxy replacement. Metal: read from user-provided nodes. Incus
-      # and docker override this with cidrhost(cidr, 10). Colima/docker still
-      # require cluster.controlplanes.nodes in values.yaml. The len() guard
-      # keeps this expression safe to evaluate while platform-metal's
-      # requires is deferring metal-without-nodes — without it, this crashes
-      # before the requires error reaches the user.
+      # First controlplane IP, used as k8sServiceHost for Cilium's kube-proxy
+      # replacement (incus/docker override with cidrhost). The len() guard keeps
+      # this safe to evaluate while platform-metal defers metal-without-nodes.
       k8s_service_host: "${len(cluster.controlplanes.nodes ?? {}) > 0 ? split(values(cluster.controlplanes.nodes)[0].endpoint, ':')[0] : ''}"
 
-  # ---------------------------------------------------------------------------
-  # Cilium-specific machine patch
-  # ---------------------------------------------------------------------------
-  #
-  # When Cilium is active, patch the Talos machine config to:
-  #   - disable the built-in flannel CNI (cluster.network.cni.name: none)
-  #   - disable kube-proxy (cluster.proxy.disabled: true)
-  #
-  # These both go through common_patch → common_config_patches, so no new
-  # terraform variable is needed.
-  #
+  # Cilium machine patch: disable the built-in flannel CNI and kube-proxy.
   - name: talos_common
     when: cluster.cni.driver == 'cilium'
     value:
@@ -120,15 +84,8 @@ config:
           proxy:
             disabled: true
 
-  # ---------------------------------------------------------------------------
-  # Single-node topology: shrink control-plane footprint
-  # ---------------------------------------------------------------------------
-  #
-  # With one control plane there are no peers to coordinate with, so leader
-  # election is pure overhead — KCM and scheduler otherwise hit etcd with a
-  # lease write every ~2s. We also enable etcd auto-compaction (upstream
-  # default is off, which lets the DB grow unboundedly).
-  #
+  # Single-node topology: no peers, so disable leader election (avoids a ~2s etcd
+  # lease write) and enable etcd auto-compaction (upstream default is off).
   - name: talos_common
     when: topology == 'single-node'
     value:
@@ -144,20 +101,11 @@ config:
             extraArgs:
               auto-compaction-mode: "revision"
               auto-compaction-retention: "1000"
-              # Retain fewer historical snapshots and WAL segments on disk.
-              # Defaults are 5/5; on a single-node cluster there are no peers
-              # that need to catch up from older snapshots, so 3/3 is safe
-              # and shaves ~128 MiB off the etcd data directory.
+              # 3/3 (default 5/5): no peers to catch up, saves ~128 MiB on disk.
               max-snapshots: "3"
               max-wals: "3"
 
-  # ---------------------------------------------------------------------------
-  # Pinned Talos version
-  # ---------------------------------------------------------------------------
-  #
-  # Renovate watches this string and opens an update PR for new Talos
-  # releases — keep the renovate comment intact when bumping manually.
-  #
+  # Pinned Talos version; Renovate watches the string below.
   - name: talos
     value:
       # renovate: datasource=github-releases depName=talos package=siderolabs/talos

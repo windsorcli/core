@@ -9,41 +9,15 @@ when: topology == 'single-node'
 # =============================================================================
 # Single-node control-plane hardening
 # =============================================================================
-#
-# On a single-node cluster every leader-electing controller is electing
-# against itself — each held lease is a PUT to etcd every ~2s, producing the
-# bulk of apiserver/etcd write load on an otherwise idle cluster. The
-# kube-controller-manager and scheduler leases are already disabled in
-# config-talos.yaml (via --leader-elect=false on the static manifests); this
-# facet layers the same hardening onto the workload controllers whose charts
-# expose a clean toggle.
-#
-# Charts covered here:
-#   - cert-manager (controller + cainjector)   --leader-elect=false via extraArgs
-#   - trust-manager                            app.leaderElection.enabled=false
-#   - openebs localpv-provisioner              localpv.enableLeaderElection=false
-#   - cloudnative-pg operator                  --leader-elect=false via additionalArgs
-#
-# Kyverno's reports-controller and cleanup-controller are handled at the
-# platform-base layer via the top-level `policies.reporting` and
-# `policies.cleanup` flags (both default to disabled across all topologies
-# since Windsor ships no CleanupPolicy resources and no dashboards consume
-# PolicyReports). Leader election on the remaining kyverno controllers is
-# hard-coded in the v1.16 binary and can't be disabled without a fork.
-#
-# Charts deliberately not covered (no supported disable mechanism at their
-# pinned versions):
-#   - kube-prometheus-stack operator (chart does not wire a flag through)
-#
-# Flux's six controllers are handled via the terraform/gitops/flux module's
-# leader_election input below rather than a kustomize component.
-#
+# On single-node clusters every leader-electing controller elects against
+# itself, each lease a PUT to etcd every ~2s. This disables leader election on
+# the workload controllers whose charts expose a toggle (cert-manager,
+# trust-manager, openebs, cloudnative-pg); kube-controller-manager/scheduler are
+# already handled in config-talos.yaml and Flux via the gitops input below.
 terraform:
 
-  # Layers onto the `gitops` terraform entry declared by each platform facet
-  # (platform-metal, platform-docker, platform-incus, platform-aws,
-  # platform-azure). Flipping this input to false appends
-  # --enable-leader-election=false to every Flux controller's additionalArgs.
+  # Layers onto each platform facet's `gitops` entry; false appends
+  # --enable-leader-election=false to every Flux controller.
   - name: gitops
     path: gitops/flux
     inputs:
@@ -52,10 +26,8 @@ terraform:
 # =============================================================================
 # Flux systems — pki install overlay
 # =============================================================================
-#
-# cert-manager is always present, trust-manager only when the private-ca
-# addon is enabled.
-#
+# Single-node leader-election toggles per chart; trust-manager only with the
+# private-ca addon, openebs only on that driver, database only when enabled.
 flux:
 
   - name: pki
@@ -64,25 +36,15 @@ flux:
         - cert-manager/single-node
         - "${addons.private_ca.enabled == true ? 'trust-manager/single-node' : ''}"
 
-  # ---------------------------------------------------------------------------
-  # csi overlay — only the openebs path; longhorn has its own single-node
-  # component wired from option-storage.yaml and does not leader-elect for
-  # the same reason we target here.
-  # ---------------------------------------------------------------------------
+  # openebs only; longhorn has its own single-node component in option-storage.
   - name: csi
     when: talos_common.storage_driver == 'openebs'
     install:
       components:
         - openebs/single-node
 
-  # ---------------------------------------------------------------------------
-  # database overlay — only when the cloudnative-pg addon is actually enabled
-  # AND cloudnative-pg is the chosen driver. Guarding on `enabled` matters
-  # because the single-node entry is a kustomize *component* (patch-only); if
-  # the database base HelmRelease isn't also being applied by addon-database,
-  # the patch has nothing to target and flux errors out on "no matches for Id
-  # HelmRelease.v2.helm.toolkit.fluxcd.io/cloudnativepg.system-database".
-  # ---------------------------------------------------------------------------
+  # Guard on `enabled`: this is a patch-only component, so without the base
+  # HelmRelease from addon-database flux errors on "no matches for Id".
   - name: database
     when: addons.database.postgres.enabled == true && addons.database.postgres.driver == 'cloudnativepg'
     install:
