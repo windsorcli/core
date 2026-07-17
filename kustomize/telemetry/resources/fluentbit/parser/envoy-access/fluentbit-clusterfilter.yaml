@@ -1,0 +1,19 @@
+apiVersion: fluentbit.fluent.io/v1alpha2
+kind: ClusterFilter
+metadata:
+  labels:
+    fluentbit.fluent.io/component: logging
+    fluentbit.fluent.io/enabled: "true"
+  name: envoy-access
+spec:
+  # Run after json-structured (30) since json-structured already skips JSON
+  # with no level field; before fallback (90) so these get real severity.
+  ordinal: 32
+  match: kube.*
+  filters:
+  - lua:
+      call: parse_envoy_access
+      script:
+        key: envoy-access.lua
+        name: fluent-bit-envoy-access-config
+      timeAsTable: true
