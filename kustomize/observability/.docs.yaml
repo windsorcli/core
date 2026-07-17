@@ -32,7 +32,7 @@ components:
     description: "Helm release of the Grafana chart in `system-observability`. Provides the Grafana UI, sidecar dashboard loader, and a default Prometheus datasource. Image tag and chart version tracked by Renovate."
   grafana/prometheus:
     enable_when: "`addons.observability.dashboards == 'grafana'`"
-    description: "Patches the grafana HelmRelease with the Prometheus datasource URL and adds prometheus-internals dashboards. (Deprecated forwarder for `dashboards/prometheus` plus helm patches; consolidates in v0.8.0.)"
+    description: "Patches the grafana HelmRelease with the Prometheus datasource URL. Pure HelmRelease patch (install tier); the prometheus-internals dashboards ship separately under `grafana/dashboards/` in the resources tier."
   grafana/dashboards/*:
     enable_when: "varies per dashboard"
     description: "Per-topic dashboard ConfigMaps loaded by the Grafana sidecar. Always-on: `node`, `kubernetes`, `flux`, `cert-manager`, `fluent-bit`, `fluentd`. Conditional: `cloudnativepg` (when CNPG is the database driver), `longhorn` (when csi=longhorn), `cilium` (when cni=cilium), `envoy` (when gateway.driver=envoy), `logs/quickwit` (when logs_driver=quickwit). Each ships as a separate component path."
@@ -44,7 +44,7 @@ components:
     description: "Patches the grafana HelmRelease to disable persistence and lower resource requests. Used by dev contexts to keep the footprint small."
   grafana/quickwit:
     enable_when: "`addons.observability.dashboards == 'grafana'` AND `logs_driver == 'quickwit'`"
-    description: "Adds the Quickwit datasource to Grafana so logs-explore dashboards can query the quickwit indexer. (Deprecated forwarder for `dashboards/quickwit` plus helm patches.)"
+    description: "Adds the Quickwit datasource to Grafana so logs-explore dashboards can query the quickwit indexer. Pure HelmRelease patch (install tier); the logs dashboard ships separately as `grafana/dashboards/logs/quickwit` in the resources tier."
   fluentd:
     enable_when: "`telemetry.logs.driver == 'fluentd'`"
     description: "Helm release of the `fluent-operator` chart sourced from a GitRepository (chart embedded in `system-gitops`). Installs the fluent-operator CR controller and a fluentd DaemonSet. Container runtime pinned to `containerd`."
@@ -83,7 +83,7 @@ components:
     description: "HTTPRoute exposing Kibana at `kibana.${external_domain}` through the cluster Gateway."
 
 dependencies:
-  telemetry-base:
+  telemetry-install:
     required_when: "always (grafana, fluentd, and dashboards facets all set it)"
     reason: "Prometheus must be live so Grafana's datasource and fluentd's ServiceMonitor have a scrape target."
   telemetry-resources:

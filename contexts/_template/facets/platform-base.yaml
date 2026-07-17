@@ -471,17 +471,6 @@ flux:
       timeout: 20m
       interval: 5m
 
-# =============================================================================
-# Kustomize — observability, gitops webhook
-# =============================================================================
-#
-# These kustomizations are always applied (subject to per-entry `when:` guards
-# where noted). Ordering below matches the dependency chain:
-#
-#   policy, telemetry, pki (flux: above) → gitops webhook
-#
-kustomize:
-
   # Central FluentD aggregator. Runs in the observability namespace (where
   # fluent-operator has RBAC). Skipped when logs_driver='none' (aggregation
   # disabled entirely) or when logs_driver='elasticsearch' (filebeat → ES
@@ -490,17 +479,30 @@ kustomize:
   # The log-level filter is attached unless log_level='trace' (trace wants
   # every log, unfiltered).
   - name: observability
-    path: observability
     when: telemetry.logs.driver == 'fluentd' && (addons.observability.logs_driver ?? '') != 'elasticsearch'
     dependsOn:
       - telemetry-install
-    components:
-      - fluentd
-      - fluentd/filters/otel
-      - "${telemetry.metrics.enabled ? 'fluentd/prometheus' : ''}"
-      - "${log_level != 'trace' ? 'fluentd/filters/log-level/' + (log_level ?? 'info') : ''}"
-    timeout: 15m
-    interval: 10m
+    install:
+      components:
+        - fluentd
+      timeout: 15m
+      interval: 10m
+    resources:
+      - components:
+          - fluentd/filters/otel
+          - "${telemetry.metrics.enabled ? 'fluentd/prometheus' : ''}"
+          - "${log_level != 'trace' ? 'fluentd/filters/log-level/' + (log_level ?? 'info') : ''}"
+
+# =============================================================================
+# Kustomize — gitops webhook
+# =============================================================================
+#
+# These kustomizations are always applied (subject to per-entry `when:` guards
+# where noted). Ordering below matches the dependency chain:
+#
+#   policy, telemetry, pki (flux: above) → gitops webhook
+#
+kustomize:
 
   # ---------------------------------------------------------------------------
   # GitOps webhook receiver
