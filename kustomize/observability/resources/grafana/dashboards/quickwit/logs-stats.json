@@ -850,7 +850,7 @@
   },
   "timepicker": {},
   "timezone": "",
-  "title": "Logs / Stats",
+  "title": "Stats",
   "uid": "logs-stats-quickwit",
   "version": 1,
   "weekStart": ""
