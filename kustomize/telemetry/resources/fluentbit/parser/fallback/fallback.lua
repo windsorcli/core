@@ -74,8 +74,8 @@ function parse_fallback(tag, timestamp, record)
     end
   end
 
-  -- No severity detected - default to INFO (most unstructured logs are informational)
-  record["severity_text"] = "INFO"
-  record["severity_number"] = 9
+  -- No severity detected - mark unclassified rather than guessing
+  record["severity_text"] = "UNKNOWN"
+  record["severity_number"] = 0
   return 1, timestamp, record
 end
