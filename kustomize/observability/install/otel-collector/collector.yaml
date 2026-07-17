@@ -27,8 +27,12 @@ processors:
           # Body is otherwise empty - Envoy's generated record carries no message.
           - set(body, Concat([attributes["method"], attributes["x-envoy-origin-path"], attributes["response_code"], attributes["duration"]], " "))
 exporters:
+  # basic, not detailed: this collector's own stdout gets tailed by the same
+  # fluent-bit pipeline it feeds, so a full per-record dump here becomes log
+  # volume in its own right - it was the single largest log source in the
+  # cluster (18K+ lines in an hour) before this was turned down.
   debug:
-    verbosity: detailed
+    verbosity: basic
   otlp/quickwit:
     endpoint: quickwit-indexer.system-observability.svc.cluster.local:7281
     tls:
