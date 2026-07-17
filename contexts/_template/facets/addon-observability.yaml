@@ -115,6 +115,8 @@ flux:
         - quickwit
         - quickwit/pvc
         - quickwit/prometheus
+        # PROTOTYPE: investigating the native Envoy OTel access log path.
+        - otel-collector
         - "${addons.observability.dashboards == 'grafana' ? 'grafana/quickwit' : ''}"
     resources:
       - dependsOn:

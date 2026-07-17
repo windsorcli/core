@@ -26,3 +26,13 @@ spec:
                     # renovate: datasource=docker depName=docker.io/envoyproxy/envoy package=docker.io/envoyproxy/envoy
                     - name: envoy
                       image: docker.io/envoyproxy/envoy:distroless-v1.37.1@sha256:4d9226b9fd4d1449887de7cde785beb24b12e47d6e79021dec3c79e362609432
+  # PROTOTYPE: routing access logs to the otel-collector instead of stdout,
+  # investigating this as a replacement for the fluent-bit stdout-JSON path.
+  telemetry:
+    accessLog:
+      settings:
+        - sinks:
+            - type: OpenTelemetry
+              openTelemetry:
+                host: otel-collector.system-observability.svc.cluster.local
+                port: 4317
