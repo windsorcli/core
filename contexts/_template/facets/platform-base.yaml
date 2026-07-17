@@ -493,69 +493,45 @@ flux:
           - "${telemetry.metrics.enabled ? 'fluentd/prometheus' : ''}"
           - "${log_level != 'trace' ? 'fluentd/filters/log-level/' + (log_level ?? 'info') : ''}"
 
-# =============================================================================
-# Kustomize — gitops webhook
-# =============================================================================
-#
-# These kustomizations are always applied (subject to per-entry `when:` guards
-# where noted). Ordering below matches the dependency chain:
-#
-#   policy, telemetry, pki (flux: above) → gitops webhook
-#
-kustomize:
-
   # ---------------------------------------------------------------------------
   # GitOps webhook receiver
   # ---------------------------------------------------------------------------
   #
-  # Exposes a Flux webhook for immediate source reconciliation (push-driven
-  # instead of polling). Two variants:
-  #
-  #   1. No Gateway API: plain HTTP webhook. Used when gateway is
-  #      disabled (e.g. cluster.enabled=false with only workstation services).
-  #
-  #   2. With Gateway API: webhook + HTTPRoute on the port-80 listener. Works
-  #      for both Envoy and Cilium gateways. Must wait for gateway-install so
-  #      the HTTPRoute CRDs exist before the route is applied.
-  #
-  # Emission tracks gitops.mode — push emits, pull skips entirely.
+  # Flux webhook for push-driven source reconciliation. Reconciled onto the
+  # terraform-bootstrapped Flux, so it is a resources-only system. With a
+  # gateway present it also lands the port-80 HTTPRoute (Envoy or Cilium) and
+  # waits for gateway-install so the route CRDs exist first. Emission tracks
+  # gitops.mode — push emits, pull skips the whole system.
   #
   - name: gitops
-    path: gitops/flux
-    when: (gitops.mode ?? 'push') == 'push' && gateway.enabled != true
-    components:
-      - webhook
-    substitutions:
-      git_repository_name: ${gitops.repository.name ?? "local"}
-
-  - name: gitops
-    path: gitops/flux
-    when: (gitops.mode ?? 'push') == 'push' && gateway.enabled == true
-    dependsOn:
-      - gateway-install
-    components:
-      - webhook
-      - webhook/gateway
-      - "${gateway.driver == 'cilium' ? 'webhook/gateway/cilium' : ''}"
-    substitutions:
-      git_repository_name: ${gitops.repository.name ?? "local"}
+    path: gitops
+    when: (gitops.mode ?? 'push') == 'push'
+    resources:
+      - dependsOn:
+          - "${gateway.enabled == true ? 'gateway-install' : ''}"
+        components:
+          - webhook
+          - "${gateway.enabled == true ? 'webhook/gateway' : ''}"
+          - "${gateway.enabled == true && gateway.driver == 'cilium' ? 'webhook/gateway/cilium' : ''}"
+        substitutions:
+          git_repository_name: ${gitops.repository.name ?? "local"}
 
   # ---------------------------------------------------------------------------
   # Flux Operator web UI
   # ---------------------------------------------------------------------------
   #
-  # Opt-in (gitops.web_ui) HTTPRoute exposing the operator's web UI at
-  # flux.<domain> when a gateway is present. The UI is always reachable via
-  # port-forward; this only adds gateway ingress. cilium adds a CNP allowing
-  # the gateway to reach the operator.
+  # Opt-in (gitops.web_ui) HTTPRoute exposing the operator web UI at
+  # flux.<domain> when a gateway is present. Resources-only; cilium adds a CNP
+  # allowing the gateway to reach the operator.
   #
   - name: flux-ui
-    path: gitops/flux
+    path: gitops
     when: gateway.enabled == true && (gitops.web_ui ?? false) == true
-    dependsOn:
-      - gateway-install
-    components:
-      - ui
-      - "${gateway.driver == 'cilium' ? 'ui/cilium' : ''}"
-    substitutions:
-      external_domain: ${gateway_effective.external_domain}
+    resources:
+      - dependsOn:
+          - gateway-install
+        components:
+          - ui
+          - "${gateway.driver == 'cilium' ? 'ui/cilium' : ''}"
+        substitutions:
+          external_domain: ${gateway_effective.external_domain}

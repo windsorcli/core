@@ -7,20 +7,22 @@ metadata:
 when: demo.enabled == true
 
 # =============================================================================
-# Kustomize — demo applications
+# Flux — demo applications
 # =============================================================================
 #
-# Each demo.resources.* flag toggles one sample app. The database entry also
-# drives a dependency on the `database` kustomization (from addon-database)
-# so CNPG is up before the sample app tries to create its DB.
+# Sample apps reconciled onto the running cluster, so a resources-only system.
+# Each demo.resources.* flag toggles one app. The database entry also drives a
+# system dependency on the `database` install tier (from addon-database) so
+# CNPG is up before the sample app tries to create its DB.
 #
-kustomize:
+flux:
 
   - name: demo
     path: demo
     dependsOn:
       - "${demo.resources.database == true ? 'database' : ''}"
-    components:
-      - "${demo.resources.database == true ? 'database' : ''}"
-      - "${demo.resources.static == true ? 'static' : ''}"
-      - "${demo.resources.bookinfo == true ? 'bookinfo' : ''}"
+    resources:
+      - components:
+          - "${demo.resources.database == true ? 'database' : ''}"
+          - "${demo.resources.static == true ? 'static' : ''}"
+          - "${demo.resources.bookinfo == true ? 'bookinfo' : ''}"

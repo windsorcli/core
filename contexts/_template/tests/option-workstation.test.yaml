@@ -468,6 +468,5 @@ cases:
           inputs:
             mode: pull
     exclude:
-      kustomize:
+      flux:
         - name: gitops
-          path: gitops/flux

@@ -368,12 +368,15 @@ cases:
       network: *default-network
       cluster: *default-cluster
     expect:
-      kustomize:
+      flux:
         - name: gitops
-          path: gitops/flux
-          components:
-            - webhook
-            - webhook/gateway
+          path: gitops
+          resources:
+            - dependsOn:
+                - gateway-install
+              components:
+                - webhook
+                - webhook/gateway
 
   # dev mode enables coredns/gateway via the dns component
   - name: dev mode with envoy adds coredns/gateway to dns component
@@ -421,13 +424,16 @@ cases:
       network: *default-network
       cluster: *default-cluster
     expect:
-      kustomize:
+      flux:
         - name: gitops
-          path: gitops/flux
-          components:
-            - webhook
-            - webhook/gateway
-            - webhook/gateway/cilium
+          path: gitops
+          resources:
+            - dependsOn:
+                - gateway-install
+              components:
+                - webhook
+                - webhook/gateway
+                - webhook/gateway/cilium
 
   # gitops.web_ui exposes the operator web UI through the gateway as a separate
   # flux-ui kustomization. Off by default.
@@ -442,13 +448,14 @@ cases:
       network: *default-network
       cluster: *default-cluster
     expect:
-      kustomize:
+      flux:
         - name: flux-ui
-          path: gitops/flux
-          dependsOn:
-            - gateway-install
-          components:
-            - ui
+          path: gitops
+          resources:
+            - dependsOn:
+                - gateway-install
+              components:
+                - ui
 
   - name: web_ui enabled on cilium adds ui/cilium to flux-ui
     values:
@@ -461,12 +468,13 @@ cases:
       network: *default-network
       cluster: *default-cluster
     expect:
-      kustomize:
+      flux:
         - name: flux-ui
-          path: gitops/flux
-          components:
-            - ui
-            - ui/cilium
+          path: gitops
+          resources:
+            - components:
+                - ui
+                - ui/cilium
 
   - name: web_ui defaults off so flux-ui is absent
     values:
@@ -477,7 +485,7 @@ cases:
       network: *default-network
       cluster: *default-cluster
     exclude:
-      kustomize:
+      flux:
         - name: flux-ui
 
   # lb-address: included when lb_effective.enabled (non-Cilium CNI + loadbalancer_driver set); IP pinned in gateway spec
@@ -615,9 +623,8 @@ cases:
           inputs:
             mode: pull
     exclude:
-      kustomize:
+      flux:
         - name: gitops
-          path: gitops/flux
 
   # Requires: private gateway without dns.private_domain silently falls back
   # to the public branch (cert, DNS, LB scheme), so option-gateway fails at
