@@ -9,13 +9,8 @@ when: addons.object_store.enabled == true
 # =============================================================================
 # Flux systems — object storage driver (MinIO)
 # =============================================================================
-#
-# `addons.object_store.driver` selects the backend. Currently only MinIO is
-# wired up; other drivers (Ceph, cloud-provider managed) can be added as
-# additional `- name: object-store` entries gated on their own driver value.
-# No resources tier: the operator manages Tenant CRs but doesn't create one
-# automatically (see kustomize/object-store/README.md for the manual recipe).
-#
+# `addons.object_store.driver` selects the backend; only MinIO is wired up.
+# Operator manages Tenant CRs but creates none (see kustomize/object-store/README.md).
 flux:
 
   # MinIO depends on csi for PVC-backed storage.

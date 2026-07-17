@@ -9,16 +9,9 @@ when: addons.observability.enabled == true
 # =============================================================================
 # Config — dashboard backend default
 # =============================================================================
-#
-# Land `addons.observability.dashboards` so other facets (option-cni /
-# option-storage patch dashboards into the observability-resources kustomization
-# when dashboards == 'grafana') can read it directly without re-applying the
-# fallback.
-#
-# logs_driver intentionally has no default — an unset driver means "no
-# external log storage, fluentd aggregator only" — so callers read
-# `addons.observability.logs_driver` straight through.
-#
+# Land `addons.observability.dashboards` so other facets can read it without
+# re-applying the fallback. logs_driver has no default — unset means "no external
+# log storage, fluentd aggregator only".
 config:
 
   - name: addons
@@ -29,28 +22,13 @@ config:
 # =============================================================================
 # Flux systems — observability install entries, telemetry override
 # =============================================================================
-#
-# Every observability entry below merges into a single `observability`
-# system. HelmReleases and their HR patches land in the install tier
-# (`observability-install`); dashboards, gateway routes, and fluentd
-# config land in the resources tier (`observability-resources`). The
-# layering strategy is:
-#
-#   1. Base Grafana + standard dashboards (this facet, dashboards=grafana).
-#   2. Gateway route for Grafana (when gateway is up).
-#   3. Log-storage driver pick: stdout / quickwit / elasticsearch.
-#   4. Elasticsearch: also replaces the telemetry flux: system so
-#      fluent-bit ships to filebeat instead of fluentd.
-#
-# Other facets (option-cni, option-storage, addon-database) patch in their
-# own dashboards under `- name: observability` entries.
-#
+# Every entry merges into one `observability` system: HelmReleases land in the
+# install tier, dashboards/routes/fluentd config in the resources tier. Other
+# facets patch in their own dashboards under `- name: observability` entries.
 flux:
 
-  # When Elasticsearch is the log store, replace platform-base's telemetry
-  # system entirely: swap fluent-bit for filebeat (native ES shipper) and drop
-  # the fluentbit/* component stack. `strategy: replace` on the system
-  # descriptor overrides both tiers as one unit.
+  # When Elasticsearch is the log store, replace platform-base's telemetry system:
+  # swap fluent-bit for filebeat (native ES shipper) and drop the fluentbit stack.
   - name: telemetry
     when: addons.observability.logs_driver == 'elasticsearch' && gateway.enabled == true
     strategy: replace
@@ -69,13 +47,8 @@ flux:
         timeout: 10m
         interval: 5m
 
-  # ---------------------------------------------------------------------------
-  # Base: Grafana + standard dashboards
-  # ---------------------------------------------------------------------------
-  #
-  # Substitutions propagate timezone / time format to dashboard panel defs so
-  # timestamps match operator locale. 12h/24h flips all date format strings.
-  #
+  # Base Grafana + standard dashboards. Substitutions propagate timezone/time
+  # format to panel defs so timestamps match operator locale.
   - name: observability
     when: addons.observability.dashboards == 'grafana'
     dependsOn:
@@ -105,14 +78,8 @@ flux:
           date_interval_hour: "${time_format == '12h' ? 'MMM DD hh:mm a' : 'MM/DD HH:mm'}"
           date_interval_day: "${time_format == '12h' ? 'MMM DD' : 'MM/DD'}"
 
-  # ---------------------------------------------------------------------------
-  # Grafana HTTPRoute (Gateway API)
-  # ---------------------------------------------------------------------------
-  #
-  # Adds the Gateway route + Envoy-specific dashboards when the cluster has a
-  # Gateway. All resources tier — waits for gateway-resources so the Gateway
-  # object exists before the HTTPRoute is applied.
-  #
+  # Gateway route + Envoy-specific dashboards when the cluster has a Gateway.
+  # Waits for gateway-resources so the Gateway exists before the HTTPRoute applies.
   - name: observability
     when: addons.observability.dashboards == 'grafana' && gateway.enabled == true
     resources:
@@ -124,16 +91,11 @@ flux:
         substitutions:
           external_domain: "${(dns.public_domain ?? '') == '' ? (dns.private_domain ?? '') : dns.public_domain}"
 
-  # ---------------------------------------------------------------------------
-  # Log storage drivers
-  # ---------------------------------------------------------------------------
-  #
-  # Exactly one driver block fires per logs_driver value. Each wires up the
-  # fluentd output plus any storage backend infrastructure.
-  #
+  # =============================================================================
+  # Log storage drivers — one block fires per logs_driver value
+  # =============================================================================
 
   # stdout: write logs to container stdout (no external store). Dev default.
-  # All resources tier — the output config waits for telemetry-resources.
   - name: observability
     when: addons.observability.logs_driver == 'stdout'
     resources:
@@ -142,9 +104,8 @@ flux:
         components:
           - fluentd/outputs/stdout
 
-  # Quickwit: lightweight search-optimized log store backed by object storage
-  # (with a PVC for staging). Install waits for csi (staging PVC); the fluentd
-  # output config waits for telemetry-resources.
+  # Quickwit: search-optimized log store on object storage (PVC for staging).
+  # Install waits for csi (staging PVC).
   - name: observability
     when: addons.observability.logs_driver == 'quickwit'
     dependsOn:
@@ -162,9 +123,8 @@ flux:
           - fluentd/outputs/quickwit
           - "${addons.observability.dashboards == 'grafana' ? 'grafana/dashboards/logs/quickwit' : ''}"
 
-  # Elasticsearch + Kibana. Gated on gateway.enabled because Kibana
-  # needs an HTTPRoute to be externally reachable. Install waits for csi (ES
-  # data PVCs); the Kibana route waits for gateway-resources.
+  # Elasticsearch + Kibana. Gated on gateway.enabled (Kibana needs an HTTPRoute
+  # to be reachable). Install waits for csi (ES data PVCs).
   - name: observability
     when: addons.observability.logs_driver == 'elasticsearch' && gateway.enabled == true
     dependsOn:

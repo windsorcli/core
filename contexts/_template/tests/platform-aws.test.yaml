@@ -219,9 +219,7 @@ cases:
       flux:
         - name: pki
           resources:
-            - dependsOn:
-                - policy-resources
-              components:
+            - components:
                 - public-issuer/acme/route53
               substitutions:
                 acme_server: https://acme-v02.api.letsencrypt.org/directory

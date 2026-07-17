@@ -230,9 +230,7 @@ cases:
               cert_manager_client_id: 11111111-aaaa-aaaa-aaaa-111111111111
               cert_manager_tenant_id: 33333333-cccc-cccc-cccc-333333333333
           resources:
-            - dependsOn:
-                - policy-resources
-              components:
+            - components:
                 - public-issuer/acme/azuredns
               substitutions:
                 acme_server: https://acme-v02.api.letsencrypt.org/directory

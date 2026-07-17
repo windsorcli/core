@@ -9,13 +9,10 @@ when: addons.database.postgres.enabled == true
 # =============================================================================
 # Flux systems — CloudNativePG operator
 # =============================================================================
-#
 flux:
 
-  # CloudNativePG operator. Depends on csi because CNPG needs PVCs for WAL
-  # archives and data volumes as soon as the first Cluster is applied. The
-  # `ha` topology adds anti-affinity and PDBs for the operator's own pods.
-  # Install-only: the operator manages Cluster CRs but creates none itself.
+  # CloudNativePG operator. Depends on csi for WAL/data PVCs; `ha` topology
+  # adds anti-affinity and PDBs. Install-only — manages Cluster CRs, creates none.
   - name: database
     when: addons.database.postgres.driver == 'cloudnativepg'
     dependsOn:
