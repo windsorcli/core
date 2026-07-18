@@ -44,7 +44,9 @@ cases:
             substitutions:
               external_domain: example.local
           resources:
-            - components:
+            - timeout: 10m
+              interval: 5m
+              components:
                 - grafana/dashboards/node
                 - grafana/dashboards/kubernetes
                 - grafana/dashboards/flux
@@ -133,6 +135,8 @@ cases:
           dependsOn:
             - csi-install
           install:
+            timeout: 20m
+            interval: 5m
             components:
               - quickwit
               - quickwit/pvc
@@ -141,6 +145,8 @@ cases:
           resources:
             - dependsOn:
                 - telemetry-resources
+              timeout: 10m
+              interval: 5m
               components:
                 - fluentd/outputs/quickwit
                 - grafana/dashboards/logs/quickwit
@@ -182,12 +188,16 @@ cases:
           dependsOn:
             - csi-install
           install:
+            timeout: 20m
+            interval: 5m
             components:
               - elasticsearch
               - kibana
           resources:
             - dependsOn:
                 - gateway-resources
+              timeout: 10m
+              interval: 5m
               components:
                 - kibana/gateway
               substitutions:

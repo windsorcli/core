@@ -324,7 +324,9 @@ flux:
       timeout: 15m
       interval: 10m
     resources:
-      - components:
+      - timeout: 10m
+        interval: 5m
+        components:
           - fluentd/filters/otel
           - "${telemetry.metrics.enabled ? 'fluentd/prometheus' : ''}"
           - "${log_level != 'trace' ? 'fluentd/filters/log-level/' + (log_level ?? 'info') : ''}"

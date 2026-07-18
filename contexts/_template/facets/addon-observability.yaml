@@ -63,7 +63,9 @@ flux:
       substitutions:
         external_domain: "${(dns.public_domain ?? '') == '' ? (dns.private_domain ?? '') : dns.public_domain}"
     resources:
-      - components:
+      - timeout: 10m
+        interval: 5m
+        components:
           - grafana/dashboards/node
           - grafana/dashboards/kubernetes
           - grafana/dashboards/flux
@@ -111,6 +113,8 @@ flux:
     dependsOn:
       - csi
     install:
+      timeout: 20m
+      interval: 5m
       components:
         - quickwit
         - quickwit/pvc
@@ -119,6 +123,8 @@ flux:
     resources:
       - dependsOn:
           - telemetry-resources
+        timeout: 10m
+        interval: 5m
         components:
           - fluentd/outputs/quickwit
           - "${addons.observability.dashboards == 'grafana' ? 'grafana/dashboards/logs/quickwit' : ''}"
@@ -131,12 +137,16 @@ flux:
     dependsOn:
       - csi
     install:
+      timeout: 20m
+      interval: 5m
       components:
         - elasticsearch
         - kibana
     resources:
       - dependsOn:
           - gateway-resources
+        timeout: 10m
+        interval: 5m
         components:
           - kibana/gateway
         substitutions:
