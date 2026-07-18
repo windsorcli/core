@@ -181,6 +181,20 @@ The init and sync Jobs extract the CA cert into a `Bundle`, which
 trust-manager materializes into a Secret/ConfigMap that downstream
 namespaces can mount.
 
+## Operations
+
+If `cert-manager-controller` restarts with `Last State: Terminated,
+Reason: Completed` and its logs show `clockHealth failed: the system
+clock is out of sync with the internal monotonic clock`, this is
+expected on docker-desktop/colima after the host laptop sleeps: the
+VM pauses, and on wake its wall clock steps forward while the
+already-running controller's monotonic baseline doesn't, tripping
+cert-manager's built-in `/livez` clock check (~5m tolerance, not
+configurable via Helm values). The restart itself resets the
+baseline and self-heals; no action needed. It stops recurring once
+the host stays awake long enough for the VM's clock sync to
+converge.
+
 <!-- BEGIN_KUSTOMIZE_DOCS -->
 
 ## Substitutions
