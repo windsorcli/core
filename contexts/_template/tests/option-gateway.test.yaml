@@ -373,7 +373,9 @@ cases:
         - name: gitops
           path: gitops
           resources:
-            - components:
+            - timeout: 5m
+              interval: 5m
+              components:
                 - webhook
     exclude:
       kustomize:
@@ -479,7 +481,9 @@ cases:
           dependsOn:
             - gateway-resources
           resources:
-            - components:
+            - timeout: 5m
+              interval: 5m
+              components:
                 - webhook
                 - webhook/gateway
                 - ui

@@ -44,7 +44,9 @@ cases:
           dependsOn:
             - database-install
           resources:
-            - components:
+            - timeout: 10m
+              interval: 5m
+              components:
                 - database
 
   # static + bookinfo apps carry no database dependency, and demo is a
