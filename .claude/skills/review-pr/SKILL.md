@@ -1,5 +1,5 @@
 ---
-name: preview-pr
+name: review-pr
 description: Pre-push review for Windsor Core. Runs parallel passes over staged changes to catch bugs in facets, kustomize, Terraform, and schema before the branch hits CI.
 disable-model-invocation: true
 ---
