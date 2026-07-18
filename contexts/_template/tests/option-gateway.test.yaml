@@ -359,7 +359,7 @@ cases:
 
   # Gateway disabled: gitops is a resources-only system, so it composes to a
   # gitops-resources kustomization with the plain webhook (no webhook/gateway,
-  # no gateway-install dep) and emits neither an install tier nor a flat
+  # no gateway-resources dep) and emits neither an install tier nor a flat
   # gitops kustomization.
   - name: gitops without gateway is webhook-only resources tier with no install tier
     values:
@@ -394,10 +394,10 @@ cases:
       flux:
         - name: gitops
           path: gitops
+          dependsOn:
+            - gateway-resources
           resources:
-            - dependsOn:
-                - gateway-install
-              components:
+            - components:
                 - webhook
                 - webhook/gateway
 
@@ -450,17 +450,19 @@ cases:
       flux:
         - name: gitops
           path: gitops
+          dependsOn:
+            - gateway-resources
           resources:
-            - dependsOn:
-                - gateway-install
-              components:
+            - components:
                 - webhook
                 - webhook/gateway
                 - webhook/gateway/cilium
 
-  # gitops.web_ui exposes the operator web UI through the gateway as a separate
-  # flux-ui kustomization. Off by default.
-  - name: web_ui enabled adds flux-ui with ui component on envoy
+  # gitops.web_ui exposes the operator web UI through the gateway. It merges
+  # into the gitops system (own `when:`, same name) rather than a separate
+  # flux-ui system, so it lands in the one gitops-resources kustomization
+  # alongside the webhook. Off by default.
+  - name: web_ui enabled adds ui component to gitops-resources on envoy
     values:
       platform: metal
       gateway:
@@ -472,19 +474,21 @@ cases:
       cluster: *default-cluster
     expect:
       flux:
-        - name: flux-ui
+        - name: gitops
           path: gitops
+          dependsOn:
+            - gateway-resources
           resources:
-            - dependsOn:
-                - gateway-install
-              components:
+            - components:
+                - webhook
+                - webhook/gateway
                 - ui
     exclude:
       kustomize:
         - name: flux-ui-install
         - name: flux-ui
 
-  - name: web_ui enabled on cilium adds ui/cilium to flux-ui
+  - name: web_ui enabled on cilium adds ui/cilium to gitops-resources
     values:
       platform: metal
       gateway:
@@ -496,14 +500,17 @@ cases:
       cluster: *default-cluster
     expect:
       flux:
-        - name: flux-ui
+        - name: gitops
           path: gitops
           resources:
             - components:
+                - webhook
+                - webhook/gateway
+                - webhook/gateway/cilium
                 - ui
                 - ui/cilium
 
-  - name: web_ui defaults off so flux-ui is absent
+  - name: web_ui defaults off so gitops-resources has no ui component
     values:
       platform: metal
       gateway:
@@ -511,9 +518,14 @@ cases:
         driver: envoy
       network: *default-network
       cluster: *default-cluster
-    exclude:
+    expect:
       flux:
-        - name: flux-ui
+        - name: gitops
+          path: gitops
+          resources:
+            - components:
+                - webhook
+                - webhook/gateway
 
   # lb-address: included when lb_effective.enabled (non-Cilium CNI + loadbalancer_driver set); IP pinned in gateway spec
   - name: local envoy gateway-resources includes lb-address when loadbalancer IP configured

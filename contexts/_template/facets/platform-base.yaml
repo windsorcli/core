@@ -333,14 +333,16 @@ flux:
 
   # GitOps webhook — push-driven Flux reconciliation, resources-only (onto the
   # terraform-bootstrapped Flux). With a gateway, adds the port-80 HTTPRoute and
-  # waits for gateway-install. push emits, pull skips the system.
+  # waits for gateway-resources, since the HTTPRoute parents to the Gateway
+  # object created there, not the controller in gateway-install. push emits,
+  # pull skips the system.
   - name: gitops
     path: gitops
     when: (gitops.mode ?? 'push') == 'push'
+    dependsOn:
+      - "${gateway.enabled == true ? 'gateway-resources' : ''}"
     resources:
-      - dependsOn:
-          - "${gateway.enabled == true ? 'gateway-install' : ''}"
-        components:
+      - components:
           - webhook
           - "${gateway.enabled == true ? 'webhook/gateway' : ''}"
           - "${gateway.enabled == true && gateway.driver == 'cilium' ? 'webhook/gateway/cilium' : ''}"
@@ -348,14 +350,19 @@ flux:
           git_repository_name: ${gitops.repository.name ?? "local"}
 
   # Flux Operator web UI — opt-in (gitops.web_ui) HTTPRoute at flux.<domain>
-  # when a gateway is present. Resources-only; cilium adds a gateway-reach CNP.
-  - name: flux-ui
+  # when a gateway is present. Merges into the gitops system above (same
+  # path, own when:) rather than its own name, so the two share one
+  # gitops-resources Kustomization instead of two both watching gitops/.
+  # Resources-only; cilium adds a gateway-reach CNP. Waits for
+  # gateway-resources (the HTTPRoute parents to the Gateway object created
+  # there), not gateway-install.
+  - name: gitops
     path: gitops
     when: gateway.enabled == true && (gitops.web_ui ?? false) == true
+    dependsOn:
+      - gateway-resources
     resources:
-      - dependsOn:
-          - gateway-install
-        components:
+      - components:
           - ui
           - "${gateway.driver == 'cilium' ? 'ui/cilium' : ''}"
         substitutions:
