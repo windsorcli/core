@@ -54,9 +54,12 @@ function parse_zap_console(tag, timestamp, record)
   record["severity_number"] = sev.number
 
   -- Message is the last field, unless zap appended a trailing JSON context
-  -- blob, in which case the message is the field before it.
+  -- blob, in which case the message is the field before it. Require the
+  -- last field to look like a *complete* JSON object (starts with { and
+  -- ends with }) rather than merely starting with {, so a named-logger
+  -- line whose message itself begins with a brace isn't misread as caller.
   local last = parts[#parts]
-  if last:match("^%s*{") and #parts > 4 then
+  if #parts > 4 and last:match("^%s*{.*}%s*$") then
     record["body"] = parts[#parts - 1]
   else
     record["body"] = last
