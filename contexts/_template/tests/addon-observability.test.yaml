@@ -144,6 +144,7 @@ cases:
               components:
                 - fluentd/outputs/quickwit
                 - grafana/dashboards/logs/quickwit
+                - grafana/dashboards/quickwit
 
   # Full: elasticsearch driver. Addon overrides the telemetry flux: system (filebeat) via strategy: replace.
   - name: full config with elasticsearch driver creates ELK stack with filebeat

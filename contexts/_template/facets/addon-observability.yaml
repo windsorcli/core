@@ -122,6 +122,7 @@ flux:
         components:
           - fluentd/outputs/quickwit
           - "${addons.observability.dashboards == 'grafana' ? 'grafana/dashboards/logs/quickwit' : ''}"
+          - "${addons.observability.dashboards == 'grafana' ? 'grafana/dashboards/quickwit' : ''}"
 
   # Elasticsearch + Kibana. Gated on gateway.enabled (Kibana needs an HTTPRoute
   # to be reachable). Install waits for csi (ES data PVCs).

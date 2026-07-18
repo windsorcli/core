@@ -17,6 +17,7 @@ components:
   - coredns
   - klog
   - json-structured
+  - envoy-access
   - zerolog
   - logfmt
   - rust-tracing

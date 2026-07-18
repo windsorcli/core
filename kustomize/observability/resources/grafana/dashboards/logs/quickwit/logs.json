@@ -199,6 +199,21 @@
                 }
               }
             ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "UNKNOWN"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "fixedColor": "purple",
+                  "mode": "fixed"
+                }
+              }
+            ]
           }
         ]
       },
@@ -295,7 +310,7 @@
       },
       "gridPos": {
         "h": 4,
-        "w": 6,
+        "w": 4,
         "x": 0,
         "y": 7
       },
@@ -376,8 +391,8 @@
       },
       "gridPos": {
         "h": 4,
-        "w": 6,
-        "x": 6,
+        "w": 4,
+        "x": 4,
         "y": 7
       },
       "id": 3,
@@ -421,6 +436,80 @@
         }
       ],
       "title": "Warnings",
+      "type": "stat"
+    },
+    {
+      "datasource": {
+        "type": "quickwit-quickwit-datasource",
+        "uid": "quickwit-logs"
+      },
+      "description": "Logs that no fluent-bit parser recognized, so no real severity could be determined",
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "purple",
+                "value": null
+              }
+            ]
+          },
+          "unit": "short"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 4,
+        "w": 4,
+        "x": 8,
+        "y": 7
+      },
+      "id": 7,
+      "options": {
+        "colorMode": "value",
+        "graphMode": "area",
+        "justifyMode": "auto",
+        "orientation": "auto",
+        "reduceOptions": {
+          "calcs": ["sum"],
+          "fields": "",
+          "values": false
+        },
+        "textMode": "auto"
+      },
+      "pluginVersion": "10.0.0",
+      "targets": [
+        {
+          "datasource": {
+            "type": "quickwit-quickwit-datasource",
+            "uid": "quickwit-logs"
+          },
+          "metrics": [
+            {
+              "id": "1",
+              "type": "count"
+            }
+          ],
+          "bucketAggs": [
+            {
+              "id": "2",
+              "type": "date_histogram",
+              "field": "timestamp_nanos",
+              "settings": {
+                "interval": "auto"
+              }
+            }
+          ],
+          "query": "service_name:$${service} AND severity_text:UNKNOWN",
+          "refId": "A"
+        }
+      ],
+      "title": "Unclassified",
       "type": "stat"
     },
     {
@@ -665,7 +754,11 @@
     "list": [
       {
         "allValue": "*",
-        "current": {},
+        "current": {
+          "selected": true,
+          "text": "All",
+          "value": "$__all"
+        },
         "datasource": {
           "type": "quickwit-quickwit-datasource",
           "uid": "quickwit-logs"
@@ -729,9 +822,14 @@
             "selected": false,
             "text": "TRACE",
             "value": "TRACE"
+          },
+          {
+            "selected": false,
+            "text": "UNKNOWN",
+            "value": "UNKNOWN"
           }
         ],
-        "query": "ERROR,WARN,INFO,DEBUG,TRACE",
+        "query": "ERROR,WARN,INFO,DEBUG,TRACE,UNKNOWN",
         "queryValue": "",
         "skipUrlSync": false,
         "type": "custom"
@@ -764,7 +862,7 @@
   },
   "timepicker": {},
   "timezone": "",
-  "title": "Logs / Overview",
+  "title": "Overview",
   "uid": "logs-overview-quickwit",
   "version": 1,
   "weekStart": ""

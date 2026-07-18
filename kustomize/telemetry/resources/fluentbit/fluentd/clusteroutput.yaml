@@ -11,4 +11,5 @@ spec:
   forward:
     host: fluentd.system-observability.svc.cluster.local
     port: 24224
+    timeAsInteger: true
   matchRegex: (?:kube|service)\.(.*)

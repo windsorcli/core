@@ -1,0 +1,27 @@
+apiVersion: fluentbit.fluent.io/v1alpha2
+kind: ClusterFilter
+metadata:
+  labels:
+    fluentbit.fluent.io/component: logging
+    fluentbit.fluent.io/enabled: "true"
+  annotations:
+    # fluent-operator's config-controller reconciles on changes to this
+    # object, not on changes to the content of the ConfigMap it references
+    # by name (envoy-access.lua's ConfigMap name never changes since it
+    # isn't hash-suffixed) - bump this whenever envoy-access.lua's content
+    # changes, or the regenerated fluent-bit-config Secret silently goes
+    # stale until something else happens to touch this object.
+    fluentbit.fluent.io/content-revision: "2"
+  name: envoy-access
+spec:
+  # Run after json-structured (30) since json-structured already skips JSON
+  # with no level field; before fallback (90) so these get real severity.
+  ordinal: 32
+  match: kube.*
+  filters:
+  - lua:
+      call: parse_envoy_access
+      script:
+        key: envoy-access.lua
+        name: fluent-bit-envoy-access-config
+      timeAsTable: true

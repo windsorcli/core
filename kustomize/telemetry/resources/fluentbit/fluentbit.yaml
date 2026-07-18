@@ -63,6 +63,12 @@ spec:
       fluentbit.fluent.io/enabled: "true"
   service:
     httpServer: true
+    # Fluent Bit watches its own mounted config/script files and reloads via
+    # its HTTP API when they change, instead of requiring a pod restart -
+    # which nothing here otherwise triggers (the generated config Secret has
+    # no hash/checksum wired into the DaemonSet pod template).
+    hotReload: true
+    hotReloadEnsureThreadSafety: true
     parsersFiles:
     - /fluent-bit/etc/parsers.conf
     - /fluent-bit/config/parsers_multiline.conf

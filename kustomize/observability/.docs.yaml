@@ -35,7 +35,7 @@ components:
     description: "Patches the grafana HelmRelease with the Prometheus datasource URL. Pure HelmRelease patch (install tier); the prometheus-internals dashboards ship separately under `grafana/dashboards/` in the resources tier."
   grafana/dashboards/*:
     enable_when: "varies per dashboard"
-    description: "Per-topic dashboard ConfigMaps loaded by the Grafana sidecar. Always-on: `node`, `kubernetes`, `flux`, `cert-manager`, `fluent-bit`, `fluentd`. Conditional: `cloudnativepg` (when CNPG is the database driver), `longhorn` (when csi=longhorn), `cilium` (when cni=cilium), `envoy` (when gateway.driver=envoy), `logs/quickwit` (when logs_driver=quickwit). Each ships as a separate component path."
+    description: "Per-topic dashboard ConfigMaps loaded by the Grafana sidecar. Always-on: `node`, `kubernetes`, `flux`, `cert-manager`, `fluent-bit`, `fluentd`. Conditional: `cloudnativepg` (when CNPG is the database driver), `longhorn` (when csi=longhorn), `cilium` (when cni=cilium), `envoy` (when gateway.driver=envoy), `logs/quickwit` and `quickwit` (when logs_driver=quickwit). Each ships as a separate component path."
   grafana/gateway:
     enable_when: "`addons.observability.dashboards == 'grafana'` AND `gateway.enabled: true`"
     description: "HTTPRoute exposing Grafana at `grafana.${external_domain}` through the cluster Gateway. Skipped on clusters without Gateway API."
