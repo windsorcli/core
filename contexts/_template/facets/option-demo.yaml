@@ -26,3 +26,5 @@ flux:
           - "${demo.resources.database == true ? 'database' : ''}"
           - "${demo.resources.static == true ? 'static' : ''}"
           - "${demo.resources.bookinfo == true ? 'bookinfo' : ''}"
+        timeout: 10m
+        interval: 5m
