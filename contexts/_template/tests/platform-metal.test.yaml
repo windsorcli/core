@@ -87,6 +87,7 @@ cases:
             - components:
                 - prometheus
                 - prometheus/flux
+                - prometheus/alerts/node
                 - fluentbit
                 - fluentbit/containerd
                 - fluentbit/kubernetes
@@ -202,6 +203,7 @@ cases:
             - components:
                 - prometheus
                 - prometheus/flux
+                - prometheus/alerts/node
                 - fluentbit
                 - fluentbit/containerd
                 - fluentbit/kubernetes

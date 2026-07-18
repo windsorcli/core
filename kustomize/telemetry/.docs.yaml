@@ -39,11 +39,15 @@ components:
   resources/prometheus:
     facet: telemetry-resources
     enable_when: "`telemetry.metrics.enabled: true`"
-    description: "ServiceMonitors and PrometheusRules that target the blueprint's core workloads (kube-state-metrics, the API server, etcd via Talos discovery). The ServiceMonitor / PrometheusRule CRDs come from the vendored `crds:` layer, applied ahead of the whole stack."
+    description: "Reserved anchor component for prometheus-adjacent resources; currently empty. ServiceMonitors and PrometheusRules live under `resources/prometheus/flux` and `resources/prometheus/alerts`."
   resources/prometheus/flux:
     facet: telemetry-resources
     enable_when: "`telemetry.metrics.enabled: true`"
-    description: "ServiceMonitor for Flux controllers and a PrometheusRule with the upstream Flux alert set."
+    description: "ServiceMonitor and PodMonitor for Flux controllers."
+  resources/prometheus/alerts:
+    facet: telemetry-resources
+    enable_when: "`telemetry.alerts.enabled: true` (default) and `telemetry.metrics.enabled: true`"
+    description: "Bundle of PrometheusRule alerting rules, curated from samber/awesome-prometheus-alerts, one system per sub-component (currently `node`; more land incrementally). Deliberately supplemental to kube-prometheus-stack's own defaultRules where those already cover a system well -- not a wholesale replacement. Reference the bundle for all always-on systems or an individual system (e.g. `resources/prometheus/alerts/node`) for selective inclusion."
   resources/fluentbit:
     facet: telemetry-resources
     enable_when: "`telemetry.logs.enabled: true`"

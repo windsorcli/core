@@ -1,0 +1,10 @@
+apiVersion: kustomize.config.k8s.io/v1alpha1
+kind: Component
+
+# Prometheus alerting rules bundle, curated from samber/awesome-prometheus-alerts.
+#
+# Use `prometheus/alerts` for every always-on system, or an individual
+# system (e.g. `prometheus/alerts/node`) for selective inclusion.
+
+components:
+  - node

@@ -145,8 +145,9 @@ install tier's `prometheus` and `prometheus/flux` components stay.
 
 | Component | Enable when | Effect |
 |---|---|---|
-| `resources/prometheus` | `telemetry.metrics.enabled: true` | ServiceMonitors and PrometheusRules that target the blueprint's core workloads (kube-state-metrics, the API server, etcd via Talos discovery). The ServiceMonitor / PrometheusRule CRDs come from the vendored `crds:` layer, applied ahead of the whole stack. |
-| `resources/prometheus/flux` | `telemetry.metrics.enabled: true` | ServiceMonitor for Flux controllers and a PrometheusRule with the upstream Flux alert set. |
+| `resources/prometheus` | `telemetry.metrics.enabled: true` | Reserved anchor component for prometheus-adjacent resources; currently empty. ServiceMonitors and PrometheusRules live under `resources/prometheus/flux` and `resources/prometheus/alerts`. |
+| `resources/prometheus/flux` | `telemetry.metrics.enabled: true` | ServiceMonitor and PodMonitor for Flux controllers. |
+| `resources/prometheus/alerts` | `telemetry.alerts.enabled: true` (default) and `telemetry.metrics.enabled: true` | Bundle of PrometheusRule alerting rules, curated from samber/awesome-prometheus-alerts, one system per sub-component (currently `node`; more land incrementally). Deliberately supplemental to kube-prometheus-stack's own defaultRules where those already cover a system well -- not a wholesale replacement. Reference the bundle for all always-on systems or an individual system (e.g. `resources/prometheus/alerts/node`) for selective inclusion. |
 | `resources/fluentbit` | `telemetry.logs.enabled: true` | `ClusterFluentBitConfig` + `ClusterOutput` (no-op by default; outputs are added by `addon-observability` based on `logs_driver`). Establishes the base FluentBit pipeline. |
 | `resources/fluentbit/containerd` | `telemetry.logs.enabled: true` | `ClusterInput` reading containerd logs from `/var/log/containers/*.log` with the multiline-parser configuration for containerd's CRI log format. |
 | `resources/fluentbit/kubernetes` | `telemetry.logs.enabled: true` | `ClusterFilter` enriching log records with Kubernetes metadata (Pod / Namespace / Container labels) from the kubelet API. |

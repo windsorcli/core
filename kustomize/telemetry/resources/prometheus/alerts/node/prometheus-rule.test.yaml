@@ -1,0 +1,204 @@
+rule_files:
+  - .rendered-rule.yml
+
+evaluation_interval: 1m
+
+tests:
+  - interval: 1m
+    input_series:
+      - series: 'node_vmstat_oom_kill{instance="node1"}'
+        values: '0+0x29 1'
+    alert_rule_test:
+      - eval_time: 10m
+        alertname: HostOomKillDetected
+        exp_alerts: []
+      - eval_time: 30m
+        alertname: HostOomKillDetected
+        exp_alerts:
+          - exp_labels:
+              severity: warning
+              instance: node1
+            exp_annotations:
+              summary: 'Host OOM kill detected (instance node1)'
+              description: "OOM kill detected\n  VALUE = 1\n  LABELS = map[instance:node1]"
+
+  - interval: 1m
+    input_series:
+      - series: 'node_filesystem_device_error{instance="node1",fstype="ext4",mountpoint="/"}'
+        values: '0x5 1+0x10'
+    alert_rule_test:
+      - eval_time: 3m
+        alertname: HostFilesystemDeviceError
+        exp_alerts: []
+      - eval_time: 8m
+        alertname: HostFilesystemDeviceError
+        exp_alerts:
+          - exp_labels:
+              severity: critical
+              instance: node1
+              fstype: ext4
+              mountpoint: /
+            exp_annotations:
+              summary: 'Host filesystem device error (instance node1)'
+              description: "Error stat-ing the / filesystem\n  VALUE = 1\n  LABELS = map[__name__:node_filesystem_device_error fstype:ext4 instance:node1 mountpoint:/]"
+
+  # 30s scrape interval (this cluster's actual cadence) so rate([1m]) has
+  # 2+ samples in its window -- a 1m test interval would false-negative.
+  - interval: 30s
+    input_series:
+      - series: 'node_disk_read_time_seconds_total{instance="node1",device="sda"}'
+        values: '0+6x40'
+      - series: 'node_disk_reads_completed_total{instance="node1",device="sda"}'
+        values: '0+50x40'
+    alert_rule_test:
+      - eval_time: 5m
+        alertname: HostUnusualDiskReadLatency
+        exp_alerts:
+          - exp_labels:
+              severity: warning
+              instance: node1
+              device: sda
+            exp_annotations:
+              summary: 'Host unusual disk read latency (instance node1)'
+              description: "Disk latency is growing (read operations > 100ms)\n  VALUE = 0.12\n  LABELS = map[device:sda instance:node1]"
+
+  - interval: 30s
+    input_series:
+      - series: 'node_disk_read_time_seconds_total{instance="node1",device="sda"}'
+        values: '0+0.5x40'
+      - series: 'node_disk_reads_completed_total{instance="node1",device="sda"}'
+        values: '0+50x40'
+    alert_rule_test:
+      - eval_time: 5m
+        alertname: HostUnusualDiskReadLatency
+        exp_alerts: []
+
+  - interval: 30s
+    input_series:
+      - series: 'node_disk_write_time_seconds_total{instance="node1",device="sda"}'
+        values: '0+6x40'
+      - series: 'node_disk_writes_completed_total{instance="node1",device="sda"}'
+        values: '0+50x40'
+    alert_rule_test:
+      - eval_time: 5m
+        alertname: HostUnusualDiskWriteLatency
+        exp_alerts:
+          - exp_labels:
+              severity: warning
+              instance: node1
+              device: sda
+            exp_annotations:
+              summary: 'Host unusual disk write latency (instance node1)'
+              description: "Disk latency is growing (write operations > 100ms)\n  VALUE = 0.12\n  LABELS = map[device:sda instance:node1]"
+
+  - interval: 1m
+    input_series:
+      - series: 'node_cpu_seconds_total{instance="node1",cpu="0",mode="steal"}'
+        values: '0+7x10'
+    alert_rule_test:
+      - eval_time: 6m
+        alertname: HostCpuStealNoisyNeighbor
+        exp_alerts:
+          - exp_labels:
+              severity: warning
+              instance: node1
+              mode: steal
+            exp_annotations:
+              summary: 'Host CPU steal noisy neighbor (instance node1)'
+              description: "CPU steal is > 10%. A noisy neighbor is killing VM performances or a spot instance may be out of credit.\n  VALUE = 11.666666666666666\n  LABELS = map[instance:node1 mode:steal]"
+
+  - interval: 1m
+    input_series:
+      - series: 'node_cpu_seconds_total{instance="node1",cpu="0",mode="steal"}'
+        values: '0+1x10'
+    alert_rule_test:
+      - eval_time: 6m
+        alertname: HostCpuStealNoisyNeighbor
+        exp_alerts: []
+
+  - interval: 1m
+    input_series:
+      - series: 'node_memory_SwapFree_bytes{instance="node1"}'
+        values: '100000000+0x5'
+      - series: 'node_memory_SwapTotal_bytes{instance="node1"}'
+        values: '1000000000+0x5'
+    alert_rule_test:
+      - eval_time: 4m
+        alertname: HostSwapIsFillingUp
+        exp_alerts:
+          - exp_labels:
+              severity: warning
+              instance: node1
+            exp_annotations:
+              summary: 'Host swap is filling up (instance node1)'
+              description: "Swap is filling up (>80%)\n  VALUE = 90\n  LABELS = map[instance:node1]"
+
+  - interval: 1m
+    input_series:
+      - series: 'node_cpu_seconds_total{instance="node1",cpu="0",mode="iowait"}'
+        values: '0+7x10'
+    alert_rule_test:
+      - eval_time: 6m
+        alertname: HostCpuHighIowait
+        exp_alerts:
+          - exp_labels:
+              severity: warning
+              instance: node1
+              mode: iowait
+            exp_annotations:
+              summary: 'Host CPU high iowait (instance node1)'
+              description: "CPU iowait > 10%. Your CPU is idling waiting for storage to respond.\n  VALUE = 0.11666666666666667\n  LABELS = map[instance:node1 mode:iowait]"
+
+  - interval: 1h
+    input_series:
+      - series: 'node_memory_MemFree_bytes{instance="node1"}'
+        values: '900000000+0x170'
+      - series: 'node_memory_MemTotal_bytes{instance="node1"}'
+        values: '1000000000+0x170'
+    alert_rule_test:
+      - eval_time: 1w
+        alertname: HostMemoryIsUnderutilized
+        exp_alerts:
+          - exp_labels:
+              severity: info
+              instance: node1
+            exp_annotations:
+              summary: 'Host Memory is underutilized (instance node1)'
+              description: "Node memory usage is < 20% for 1 week. Consider reducing memory space. (instance node1)\n  VALUE = 9e+08\n  LABELS = map[instance:node1]"
+
+  - interval: 10m
+    input_series:
+      - series: 'node_cpu_seconds_total{instance="node1",cpu="0",mode="idle"}'
+        values: '0+500x1200'
+    alert_rule_test:
+      - eval_time: 1w1h
+        alertname: HostCpuIsUnderutilized
+        exp_alerts:
+          - exp_labels:
+              severity: info
+              instance: node1
+              mode: idle
+            exp_annotations:
+              summary: 'Host CPU is underutilized (instance node1)'
+              description: "CPU load has been < 20% for 1 week. Consider reducing the number of CPUs.\n  VALUE = 0.8333333333333333\n  LABELS = map[instance:node1 mode:idle]"
+
+  # Regression test for the changes()-on-a-label-change bug: a fresh series
+  # with no prior offset-1h data (cold start / genuine kernel bump) fires;
+  # a series present continuously for >1h does not.
+  - interval: 1m
+    input_series:
+      - series: 'node_uname_info{instance="node1",release="6.1.0"}'
+        values: '1+0x120'
+      - series: 'node_uname_info{instance="node2",release="6.1.0"}'
+        values: '_x65 1+0x60'
+    alert_rule_test:
+      - eval_time: 90m
+        alertname: HostKernelVersionDeviations
+        exp_alerts:
+          - exp_labels:
+              severity: info
+              instance: node2
+              release: 6.1.0
+            exp_annotations:
+              summary: 'Host kernel version deviations (instance node2)'
+              description: "Kernel version for node2 has changed.\n  VALUE = 1\n  LABELS = map[__name__:node_uname_info instance:node2 release:6.1.0]"
