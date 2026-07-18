@@ -8,10 +8,10 @@
       }
     },
     "grafana": {
-      "command": "mcp-grafana",
+      "command": "scripts/mcp-grafana-wrapper.sh",
       "args": ["-t", "stdio", "-tls-skip-verify"],
       "env": {
-        "GRAFANA_URL": "${GRAFANA_URL:-https://grafana.test}",
+        "GRAFANA_URL": "${GRAFANA_URL:-}",
         "GRAFANA_USERNAME": "${GRAFANA_USERNAME:-admin}",
         "GRAFANA_PASSWORD": "${GRAFANA_PASSWORD:-grafana}"
       }
