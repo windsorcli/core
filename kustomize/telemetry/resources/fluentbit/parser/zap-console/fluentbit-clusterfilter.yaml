@@ -1,0 +1,17 @@
+apiVersion: fluentbit.fluent.io/v1alpha2
+kind: ClusterFilter
+metadata:
+  labels:
+    fluentbit.fluent.io/component: logging
+    fluentbit.fluent.io/enabled: "true"
+  name: zap-console
+spec:
+  ordinal: 25
+  match: kube.*
+  filters:
+  - lua:
+      call: parse_zap_console
+      script:
+        key: zap-console.lua
+        name: fluent-bit-zap-console-config
+      timeAsTable: true

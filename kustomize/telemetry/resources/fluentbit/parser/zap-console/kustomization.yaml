@@ -1,0 +1,21 @@
+apiVersion: kustomize.config.k8s.io/v1alpha1
+kind: Component
+
+# Zap "console" encoder log parser
+# Matches: controller-runtime-based controllers using zap's console encoder
+# (e.g. envoy-gateway). Format: <epoch>\t<level>\t[<logger>\t]<caller>\t<msg>\t[<json>]
+#
+# Extracts:
+#   - severity_text/number: from the level field
+#   - body: from the message field
+
+resources:
+  - fluentbit-clusterfilter.yaml
+
+configMapGenerator:
+  - name: fluent-bit-zap-console-config
+    namespace: system-telemetry
+    files:
+      - zap-console.lua
+    options:
+      disableNameSuffixHash: true
