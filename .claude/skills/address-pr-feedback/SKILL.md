@@ -1,6 +1,6 @@
 ---
 name: address-pr-feedback
-description: Walk through review comments and failed CI checks on the current branch's PR, propose a fix per finding, and stage it for the author to review BEFORE committing. One pause-and-review cycle per finding. Use when the user says "address PR feedback", "fix the PR comments", "go through the review", or after a `gh pr checks` shows failures and the author wants to work through them one at a time. Pairs with create-pr (outgoing) and review-pr (pre-commit).
+description: Walk through review comments and failed CI checks on the current branch's PR, propose a fix per finding, and stage it for the author to review BEFORE committing. One pause-and-review cycle per finding. Use when the user says "address PR feedback", "fix the PR comments", "go through the review", or after a `gh pr checks` shows failures and the author wants to work through them one at a time. Pairs with create-pr (outgoing) and preview-pr (pre-commit).
 disable-model-invocation: true
 ---
 
