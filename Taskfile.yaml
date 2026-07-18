@@ -23,11 +23,18 @@ tasks:
       - cmd: source .venv/bin/activate && checkov -d {{.CLI_ARGS | default "terraform/"}} 2>/dev/null
 
   test:
-    desc: Run all tests (Terraform and Blueprint)
+    desc: Run all tests (Terraform, Blueprint, and Prometheus rules)
     silent: true
     cmds:
       - task: test:terraform
       - task: test:blueprint
+      - task: test:prometheus-rules
+
+  test:prometheus-rules:
+    desc: Unit-test PrometheusRule alerting rules via promtool
+    silent: true
+    cmds:
+      - scripts/test-prometheus-rules.sh
 
   test:terraform:
     desc: Run Terraform tests (all or specific module)

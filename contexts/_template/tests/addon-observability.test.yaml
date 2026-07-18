@@ -182,6 +182,7 @@ cases:
             - components:
                 - prometheus
                 - prometheus/flux
+                - prometheus/alerts/node
               timeout: 10m
           interval: 5m
         - name: observability

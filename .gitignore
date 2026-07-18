@@ -16,6 +16,9 @@ contexts/**/.gcp/
 # macOS system files
 **/.DS_Store
 
+# scripts/test-prometheus-rules.sh promtool scratch output
+**/.rendered-rule.yml
+
 # IDE user config
 .cursor/
 .vscode/*.local.*

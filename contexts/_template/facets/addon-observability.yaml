@@ -44,6 +44,7 @@ flux:
       - components:
           - prometheus
           - prometheus/flux
+          - "${(telemetry.alerts.enabled ?? true) ? 'prometheus/alerts/node' : ''}"
         timeout: 10m
         interval: 5m
 

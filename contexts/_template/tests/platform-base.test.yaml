@@ -60,6 +60,7 @@ cases:
             - components:
                 - prometheus
                 - prometheus/flux
+                - prometheus/alerts/node
                 - fluentbit
                 - fluentbit/containerd
                 - fluentbit/kubernetes
@@ -119,6 +120,7 @@ cases:
             - components:
                 - prometheus
                 - prometheus/flux
+                - prometheus/alerts/node
                 - fluentbit
                 - fluentbit/containerd
                 - fluentbit/kubernetes
@@ -200,6 +202,7 @@ cases:
             - components:
                 - prometheus
                 - prometheus/flux
+                - prometheus/alerts/node
               timeout: 10m
               interval: 5m
         - name: observability
@@ -235,6 +238,7 @@ cases:
             - components:
                 - prometheus
                 - prometheus/flux
+                - prometheus/alerts/node
                 - fluentbit
                 - fluentbit/containerd
                 - fluentbit/kubernetes
@@ -425,6 +429,7 @@ cases:
             - components:
                 - prometheus
                 - prometheus/flux
+                - prometheus/alerts/node
         - name: pki
           dependsOn:
             - policy-resources
@@ -436,6 +441,64 @@ cases:
     exclude:
       flux:
         - name: observability
+
+  # alerts.enabled: false drops the node PrometheusRule component; the rest
+  # of the metrics/logs pipeline is unaffected.
+  - name: telemetry alerts disabled excludes node prometheus rules
+    values:
+      platform: metal
+      gateway:
+        enabled: false
+      network: *default-network
+      cluster: *default-cluster
+      telemetry:
+        alerts:
+          enabled: false
+    expect:
+      flux:
+        - name: telemetry
+          resources:
+            - components:
+                - prometheus
+                - prometheus/flux
+                - fluentbit
+                - fluentbit/containerd
+                - fluentbit/kubernetes
+                - fluentbit/parser
+                - fluentbit/systemd
+                - fluentbit/prometheus
+                - fluentbit/fluentd
+              timeout: 10m
+              interval: 5m
+
+  # No Prometheus to evaluate against, so the metrics guard excludes it
+  # even with alerts.enabled: true.
+  - name: telemetry alerts enabled without metrics excludes node prometheus rules
+    values:
+      platform: metal
+      gateway:
+        enabled: false
+      network: *default-network
+      cluster: *default-cluster
+      telemetry:
+        metrics:
+          enabled: false
+        alerts:
+          enabled: true
+    expect:
+      flux:
+        - name: telemetry
+          install:
+            components:
+              - fluentbit
+          resources:
+            - components:
+                - fluentbit
+                - fluentbit/containerd
+                - fluentbit/kubernetes
+                - fluentbit/parser
+                - fluentbit/systemd
+                - fluentbit/fluentd
 
   # Logs on, metrics off: fluent-bit ships + fluentd aggregates, Prometheus
   # stack is dropped. cert-manager/prometheus and fluentbit/prometheus (the

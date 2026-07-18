@@ -39,6 +39,8 @@ env:
   YQ_VERSION: v4.53.3
   # renovate: datasource=github-releases depName=helm package=helm/helm
   HELM_VERSION: v4.2.3
+  # renovate: datasource=github-releases depName=prometheus/prometheus package=prometheus/prometheus
+  PROMETHEUS_VERSION: v3.13.1
 
 concurrency:
   group: ci-${{ github.workflow }}-${{ github.event.pull_request.number || github.sha }}
@@ -215,6 +217,27 @@ jobs:
         uses: go-task/setup-task@01a4adf9db2d14c1de7a560f09170b6e0df736aa # v2.1.0
         with:
           version: 3.x
+
+      # yq renders each PrometheusRule's .spec for promtool; local devs get
+      # both via aqua, CI installs the same pinned versions directly.
+      - name: Install yq
+        run: |
+          cd "$(mktemp -d)" &&
+          curl -fsSLO "https://github.com/mikefarah/yq/releases/download/${YQ_VERSION}/yq_linux_amd64" &&
+          sudo install -m 0755 -o root -g root yq_linux_amd64 /usr/local/bin/yq &&
+          cd - &&
+          rm -rf "$OLDPWD" &&
+          yq --version
+
+      - name: Install promtool
+        run: |
+          cd "$(mktemp -d)" &&
+          curl -fsSLO "https://github.com/prometheus/prometheus/releases/download/${PROMETHEUS_VERSION}/prometheus-${PROMETHEUS_VERSION#v}.linux-amd64.tar.gz" &&
+          tar xzf "prometheus-${PROMETHEUS_VERSION#v}.linux-amd64.tar.gz" &&
+          sudo install -m 0755 -o root -g root "prometheus-${PROMETHEUS_VERSION#v}.linux-amd64/promtool" /usr/local/bin/promtool &&
+          cd - &&
+          rm -rf "$OLDPWD" &&
+          promtool --version
 
       - name: Run Tests
         run: task test

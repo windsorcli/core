@@ -285,6 +285,7 @@ flux:
       - components:
           - "${telemetry.metrics.enabled ? 'prometheus' : ''}"
           - "${telemetry.metrics.enabled ? 'prometheus/flux' : ''}"
+          - "${(telemetry.alerts.enabled ?? true) && telemetry.metrics.enabled ? 'prometheus/alerts/node' : ''}"
           - "${telemetry.logs.enabled ? 'fluentbit' : ''}"
           - "${telemetry.logs.enabled ? 'fluentbit/containerd' : ''}"
           - "${telemetry.logs.enabled ? 'fluentbit/kubernetes' : ''}"
