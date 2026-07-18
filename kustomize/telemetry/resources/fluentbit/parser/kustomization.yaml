@@ -16,6 +16,7 @@ kind: Component
 components:
   - coredns
   - klog
+  - zap-console
   - json-structured
   - envoy-access
   - zerolog
