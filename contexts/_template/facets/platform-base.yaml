@@ -348,6 +348,8 @@ flux:
           - "${gateway.enabled == true && gateway.driver == 'cilium' ? 'webhook/gateway/cilium' : ''}"
         substitutions:
           git_repository_name: ${gitops.repository.name ?? "local"}
+        timeout: 5m
+        interval: 5m
 
   # Flux Operator web UI — opt-in (gitops.web_ui) HTTPRoute at flux.<domain>
   # when a gateway is present. Merges into the gitops system above (same
@@ -367,3 +369,5 @@ flux:
           - "${gateway.driver == 'cilium' ? 'ui/cilium' : ''}"
         substitutions:
           external_domain: ${gateway_effective.external_domain}
+        timeout: 5m
+        interval: 5m
