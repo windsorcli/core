@@ -36,7 +36,9 @@ flux:
 
   - name: pki
     resources:
-      - components:
+      - timeout: 5m
+        interval: 5m
+        components:
           - public-issuer/selfsigned
 
   # Grafana dev credentials (default admin password "grafana"). In production

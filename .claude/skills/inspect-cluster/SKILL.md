@@ -32,18 +32,12 @@ Run all of the following in parallel:
 
 ## For each failing resource
 
-For every kustomization, HelmRelease, or source (GitRepository/OCIRepository/HelmRepository) with READY=False:
+For every kustomization, HelmRelease, or source (GitRepository/OCIRepository/HelmRepository) with READY=False, fill in the real name/namespace and run (these are templates, not auto-run — `<name>`/`<namespace>` are not valid shell on their own):
 
 ```
-!`windsor exec -- kubectl describe kustomization <name> -n <namespace> 2>&1 | tail -40`
-```
-
-```
-!`windsor exec -- kubectl describe helmrelease <name> -n <namespace> 2>&1 | tail -40`
-```
-
-```
-!`windsor exec -- kubectl describe gitrepository <name> -n <namespace> 2>&1 | tail -40`
+windsor exec -- kubectl describe kustomization <name> -n <namespace> 2>&1 | tail -40
+windsor exec -- kubectl describe helmrelease <name> -n <namespace> 2>&1 | tail -40
+windsor exec -- kubectl describe gitrepository <name> -n <namespace> 2>&1 | tail -40
 ```
 
 For failed/pending pods, get recent events:
