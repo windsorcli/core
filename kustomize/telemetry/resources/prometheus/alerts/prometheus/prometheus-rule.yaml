@@ -28,7 +28,7 @@ spec:
           labels:
             severity: warning
           annotations:
-            summary: Prometheus timeseries cardinality (instance {{ $labels.instance }})
+            summary: Prometheus timeseries cardinality (metric {{ $labels.name }})
             description: "The \"{{ $labels.name }}\" timeseries cardinality is getting very high: {{ $value }}\n  LABELS = {{ $labels }}"
 
         - alert: PrometheusTSDBCheckpointCreationFailures
