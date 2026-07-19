@@ -1,0 +1,11 @@
+apiVersion: kustomize.config.k8s.io/v1alpha1
+kind: Component
+
+# Supplemental CoreDNS alerts not already covered by kube-prometheus-stack's
+# own defaultRules. Curated from samber/awesome-prometheus-alerts (panic
+# count) plus coredns.io plugin docs (metrics, forward, cache, health,
+# reload) for the rest, verified against the cluster's built-in kube-system
+# CoreDNS deployment.
+
+resources:
+  - prometheus-rule.yaml

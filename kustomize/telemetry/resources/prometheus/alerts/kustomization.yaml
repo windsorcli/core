@@ -9,3 +9,4 @@ kind: Component
 components:
   - node
   - prometheus
+  - coredns

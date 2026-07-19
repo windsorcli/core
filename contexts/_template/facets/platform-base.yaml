@@ -185,6 +185,7 @@ config:
       alert_components:
         - "${(telemetry.alerts.enabled ?? true) && (telemetry.metrics.enabled ?? true) ? 'prometheus/alerts/node' : ''}"
         - "${(telemetry.alerts.enabled ?? true) && (telemetry.metrics.enabled ?? true) ? 'prometheus/alerts/prometheus' : ''}"
+        - "${(telemetry.alerts.enabled ?? true) && (telemetry.metrics.enabled ?? true) ? 'prometheus/alerts/coredns' : ''}"
 
   # Observability addon forces both pipelines on.
   - name: telemetry

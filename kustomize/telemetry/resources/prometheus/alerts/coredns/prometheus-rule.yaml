@@ -1,0 +1,95 @@
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: coredns-alerts
+  namespace: system-telemetry
+spec:
+  groups:
+    - name: coredns-supplemental.rules
+      rules:
+        # Scoped to the cluster's built-in kube-system CoreDNS (job=coredns),
+        # scraped by kube-prometheus-stack. This repo's separate system-dns
+        # CoreDNS addon for private-domain resolution isn't scraped and isn't
+        # covered here.
+        - alert: CoreDNSPanicking
+          expr: increase(coredns_panics_total[10m]) > 0
+          labels:
+            severity: critical
+          annotations:
+            summary: CoreDNS panicking (pod {{ $labels.pod }})
+            description: "CoreDNS hit a panic and likely restarted the query pipeline.\n  VALUE = {{ $value }}\n  LABELS = {{ $labels }}"
+
+        - alert: CoreDNSHighQueryLatency
+          expr: histogram_quantile(0.99, sum by (le, pod, instance) (rate(coredns_dns_request_duration_seconds_bucket[5m]))) > 0.5
+          for: 10m
+          labels:
+            severity: warning
+          annotations:
+            summary: CoreDNS high query latency (pod {{ $labels.pod }})
+            description: "99th percentile query duration is above 500ms, sustained for 10m. The resolver is overloaded or stuck waiting on an upstream.\n  VALUE = {{ $value }}\n  LABELS = {{ $labels }}"
+
+        - alert: CoreDNSSERVFAILRateHigh
+          expr: (sum without (rcode, plugin) (rate(coredns_dns_responses_total{rcode="SERVFAIL"}[5m])) / sum without (rcode, plugin) (rate(coredns_dns_responses_total[5m]))) > 0.01
+          for: 10m
+          labels:
+            severity: warning
+          annotations:
+            summary: CoreDNS SERVFAIL rate high (pod {{ $labels.pod }})
+            description: "More than 1% of responses are SERVFAIL. Client queries are failing to resolve.\n  VALUE = {{ $value }}\n  LABELS = {{ $labels }}"
+
+        - alert: CoreDNSSERVFAILRateCritical
+          expr: (sum without (rcode, plugin) (rate(coredns_dns_responses_total{rcode="SERVFAIL"}[5m])) / sum without (rcode, plugin) (rate(coredns_dns_responses_total[5m]))) > 0.05
+          for: 10m
+          labels:
+            severity: critical
+          annotations:
+            summary: CoreDNS SERVFAIL rate critical (pod {{ $labels.pod }})
+            description: "More than 5% of responses are SERVFAIL. A large share of client queries are failing to resolve.\n  VALUE = {{ $value }}\n  LABELS = {{ $labels }}"
+
+        - alert: CoreDNSForwardHighLatency
+          expr: histogram_quantile(0.99, sum by (le, pod, instance, to) (rate(coredns_proxy_request_duration_seconds_bucket[5m]))) > 0.5
+          for: 10m
+          labels:
+            severity: warning
+          annotations:
+            summary: CoreDNS forward plugin high latency (pod {{ $labels.pod }}, upstream {{ $labels.to }})
+            description: "99th percentile forwarded-request duration to this upstream is above 500ms, sustained for 10m. The upstream resolver is slow or overloaded.\n  VALUE = {{ $value }}\n  LABELS = {{ $labels }}"
+
+        - alert: CoreDNSForwardAllUpstreamsBroken
+          expr: increase(coredns_forward_healthcheck_broken_total[5m]) > 0
+          for: 2m
+          labels:
+            severity: critical
+          annotations:
+            summary: CoreDNS forward plugin has no healthy upstreams (pod {{ $labels.pod }})
+            description: "All upstreams for the forward plugin failed their health check; CoreDNS is spraying queries to a random upstream. Forwarded queries may not resolve.\n  VALUE = {{ $value }}\n  LABELS = {{ $labels }}"
+
+        - alert: CoreDNSHealthcheckFailing
+          expr: rate(coredns_health_request_failures_total[5m]) > 0
+          for: 5m
+          labels:
+            severity: critical
+          annotations:
+            summary: CoreDNS self health check failing (pod {{ $labels.pod }})
+            description: "CoreDNS's own internal self health check has been failing for 5m, indicating the process itself can't keep up with its query load.\n  VALUE = {{ $value }}\n  LABELS = {{ $labels }}"
+
+        - alert: CoreDNSCorefileReloadFailed
+          expr: increase(coredns_reload_failed_total[10m]) > 0
+          labels:
+            severity: warning
+          annotations:
+            summary: CoreDNS Corefile reload failed (pod {{ $labels.pod }})
+            description: "CoreDNS failed to apply a Corefile/config reload. It is still running the previous configuration.\n  VALUE = {{ $value }}\n  LABELS = {{ $labels }}"
+
+        # Guarded by a minimum request rate so idle pods don't produce a
+        # meaningless ratio. A sustained collapse in hit rate on real
+        # traffic often means a random-subdomain query flood (cache
+        # thrashing) rather than routine underutilization.
+        - alert: CoreDNSCacheHitRatioLow
+          expr: (sum without (type) (rate(coredns_cache_hits_total[10m])) / rate(coredns_cache_requests_total[10m])) < 0.10 and rate(coredns_cache_requests_total[10m]) > 0.1
+          for: 30m
+          labels:
+            severity: warning
+          annotations:
+            summary: CoreDNS cache hit ratio low (pod {{ $labels.pod }})
+            description: "Cache hit ratio has been below 10% for 30m despite meaningful query volume. Possible cache thrashing or a random-subdomain query flood.\n  VALUE = {{ $value }}\n  LABELS = {{ $labels }}"
