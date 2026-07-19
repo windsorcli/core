@@ -29,7 +29,11 @@ components:
   envoy/loadbalancer:
     facet: gateway-install
     enable_when: "envoy driver AND `lb_effective.mode == 'loadbalancer'`"
-    description: "Patches the `external` `EnvoyProxy` so the data-plane Envoy Service is `type: LoadBalancer`. Cloud-specific annotation patches (aws-nlb / azure-lb-internal) merge on top."
+    description: "Patches the `external` `EnvoyProxy` so the data-plane Envoy Service is `type: LoadBalancer`, with no fixed IP -- correct for cloud LB controllers, which auto-assign. Cloud-specific annotation patches (aws-nlb / azure-lb-internal) and the local fixed-ip component merge on top."
+  envoy/loadbalancer/fixed-ip:
+    facet: gateway-install
+    enable_when: "envoy driver AND `lb_effective.mode == 'loadbalancer'` AND `lb_effective.enabled: true` (a local, fixed-pool LB controller -- MetalLB/kube-vip -- is actually running)"
+    description: "Requests a specific address from the local LB pool via `loadBalancerIP`. Must not apply on cloud platforms, where the LB controller auto-assigns and this field would be meaningless or rejected (issue #2259)."
   envoy/loadbalancer/aws-nlb:
     facet: gateway-install
     enable_when: "envoy driver AND platform is AWS AND `lb_effective.mode == 'loadbalancer'`"

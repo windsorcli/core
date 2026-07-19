@@ -28,7 +28,11 @@ x-defaults:
   # dependsOn; the composer wires only dependency-less roots to the `crds` layer,
   # and gateway-install/gateway-resources are not roots.
 
-  # Shared assertion: gateway install tier with envoy loadbalancer
+  # Shared assertion: gateway install tier with envoy loadbalancer. No
+  # fixed-ip here: *default-cluster leaves cni.driver unset, which defaults
+  # to cilium on talos, so lb_effective.enabled is false even though
+  # *default-network sets loadbalancer_driver (cilium has its own L2/BGP LB,
+  # kube-vip's pool goes unused). See the incus fixture for the enabled case.
   gateway-install-envoy-lb: &gateway-install-envoy-lb
     components:
       - envoy

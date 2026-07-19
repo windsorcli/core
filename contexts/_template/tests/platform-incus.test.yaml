@@ -204,7 +204,10 @@ cases:
             components:
               - envoy
               - envoy/loadbalancer
+              - envoy/loadbalancer/fixed-ip
               - envoy/prometheus
+            substitutions:
+              loadbalancer_start_ip: "10.10.1.10"
             timeout: 10m
             interval: 5m
           resources:

@@ -13,4 +13,3 @@ spec:
           value:
             spec:
               type: LoadBalancer
-              loadBalancerIP: ${loadbalancer_start_ip}
