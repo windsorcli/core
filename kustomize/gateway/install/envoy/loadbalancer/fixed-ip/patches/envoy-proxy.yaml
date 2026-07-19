@@ -1,0 +1,20 @@
+---
+# Local/on-prem LB drivers (MetalLB, kube-vip) own a fixed IP pool and the
+# Service should request a specific address from it. Cloud LB controllers
+# auto-assign and must not have this set (see issue #2259) — this layers on
+# top of loadbalancer/patches/envoy-proxy.yaml, which sets type=LoadBalancer
+# alone, and is only included when lb_effective.enabled is true.
+apiVersion: gateway.envoyproxy.io/v1alpha1
+kind: EnvoyProxy
+metadata:
+  name: external
+  namespace: system-gateway
+spec:
+  provider:
+    kubernetes:
+      envoyService:
+        patch:
+          type: StrategicMerge
+          value:
+            spec:
+              loadBalancerIP: ${loadbalancer_start_ip}

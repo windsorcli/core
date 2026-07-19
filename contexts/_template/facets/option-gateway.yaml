@@ -89,9 +89,12 @@ flux:
       components:
         - "${gateway.driver}"
         - "${gateway.driver == 'envoy' ? 'envoy/' + lb_effective.mode : ''}"
+        - "${gateway.driver == 'envoy' && lb_effective.mode == 'loadbalancer' && lb_effective.enabled == true ? 'envoy/loadbalancer/fixed-ip' : ''}"
         - "${gateway.driver == 'envoy' && lb_effective.mode == 'nodeport' && (addons.private_dns.enabled ?? (dev == true)) == true ? 'envoy/nodeport/dns' : ''}"
         - "${gateway.driver == 'envoy' && lb_effective.mode == 'nodeport' && (gitops.mode ?? 'push') == 'push' ? 'envoy/nodeport/flux-webhook' : ''}"
         - "${gateway.driver == 'envoy' ? 'envoy/prometheus' : ''}"
+      substitutions:
+        loadbalancer_start_ip: "${lb_effective.enabled == true ? network.loadbalancer_ips.start : ''}"
       timeout: 10m
       interval: 5m
 
