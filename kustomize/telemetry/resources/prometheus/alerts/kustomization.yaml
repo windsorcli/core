@@ -10,3 +10,4 @@ components:
   - node
   - prometheus
   - coredns
+  - cert-manager
