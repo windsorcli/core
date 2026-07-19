@@ -294,6 +294,7 @@ jobs:
           GH_REPO: ${{ github.repository }}
         with:
           anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
+          show_full_output: true
           prompt: |
             Your only job is to identify which existing review threads on
             this PR have been addressed. Do NOT call any GitHub write API
