@@ -117,6 +117,7 @@ cases:
                 - prometheus
                 - prometheus/flux
                 - prometheus/alerts/node
+                - prometheus/alerts/prometheus
                 - fluentbit
                 - fluentbit/containerd
                 - fluentbit/kubernetes
@@ -285,6 +286,7 @@ cases:
                 - prometheus
                 - prometheus/flux
                 - prometheus/alerts/node
+                - prometheus/alerts/prometheus
                 - fluentbit
                 - fluentbit/containerd
                 - fluentbit/kubernetes
