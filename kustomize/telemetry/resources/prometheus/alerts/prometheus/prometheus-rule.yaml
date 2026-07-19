@@ -1,0 +1,72 @@
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: prometheus-alerts
+  namespace: system-telemetry
+spec:
+  groups:
+    - name: prometheus-supplemental.rules
+      rules:
+        - alert: PrometheusTooManyRestarts
+          expr: changes(process_start_time_seconds{job=~"kube-prometheus-stack-prometheus|kube-prometheus-stack-alertmanager"}[15m]) > 2
+          labels:
+            severity: warning
+          annotations:
+            summary: Prometheus too many restarts (instance {{ $labels.instance }})
+            description: "Prometheus has restarted more than twice in the last 15 minutes. It might be crashlooping.\n  VALUE = {{ $value }}\n  LABELS = {{ $labels }}"
+
+        - alert: PrometheusTemplateTextExpansionFailures
+          expr: increase(prometheus_template_text_expansion_failures_total[3m]) > 0
+          labels:
+            severity: critical
+          annotations:
+            summary: Prometheus template text expansion failures (instance {{ $labels.instance }})
+            description: "Prometheus encountered {{ $value }} template text expansion failures\n  LABELS = {{ $labels }}"
+
+        - alert: PrometheusTimeseriesCardinality
+          expr: label_replace(count by (__name__) ({__name__=~".+"}), "name", "$1", "__name__", "(.+)") > 10000
+          labels:
+            severity: warning
+          annotations:
+            summary: Prometheus timeseries cardinality (instance {{ $labels.instance }})
+            description: "The \"{{ $labels.name }}\" timeseries cardinality is getting very high: {{ $value }}\n  LABELS = {{ $labels }}"
+
+        - alert: PrometheusTSDBCheckpointCreationFailures
+          expr: increase(prometheus_tsdb_checkpoint_creations_failed_total[1m]) > 0
+          labels:
+            severity: critical
+          annotations:
+            summary: Prometheus TSDB checkpoint creation failures (instance {{ $labels.instance }})
+            description: "Prometheus encountered {{ $value }} checkpoint creation failures\n  LABELS = {{ $labels }}"
+
+        - alert: PrometheusTSDBCheckpointDeletionFailures
+          expr: increase(prometheus_tsdb_checkpoint_deletions_failed_total[1m]) > 0
+          labels:
+            severity: critical
+          annotations:
+            summary: Prometheus TSDB checkpoint deletion failures (instance {{ $labels.instance }})
+            description: "Prometheus encountered {{ $value }} checkpoint deletion failures\n  LABELS = {{ $labels }}"
+
+        - alert: PrometheusTSDBHeadTruncationsFailed
+          expr: increase(prometheus_tsdb_head_truncations_failed_total[1m]) > 0
+          labels:
+            severity: critical
+          annotations:
+            summary: Prometheus TSDB head truncations failed (instance {{ $labels.instance }})
+            description: "Prometheus encountered {{ $value }} TSDB head truncation failures\n  LABELS = {{ $labels }}"
+
+        - alert: PrometheusTSDBWALCorruptions
+          expr: increase(prometheus_tsdb_wal_corruptions_total[1m]) > 0
+          labels:
+            severity: critical
+          annotations:
+            summary: Prometheus TSDB WAL corruptions (instance {{ $labels.instance }})
+            description: "Prometheus encountered {{ $value }} TSDB WAL corruptions\n  LABELS = {{ $labels }}"
+
+        - alert: PrometheusTSDBWALTruncationsFailed
+          expr: increase(prometheus_tsdb_wal_truncations_failed_total[1m]) > 0
+          labels:
+            severity: critical
+          annotations:
+            summary: Prometheus TSDB WAL truncations failed (instance {{ $labels.instance }})
+            description: "Prometheus encountered {{ $value }} TSDB WAL truncation failures\n  LABELS = {{ $labels }}"

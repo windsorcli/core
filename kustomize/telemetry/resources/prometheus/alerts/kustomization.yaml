@@ -8,3 +8,4 @@ kind: Component
 
 components:
   - node
+  - prometheus

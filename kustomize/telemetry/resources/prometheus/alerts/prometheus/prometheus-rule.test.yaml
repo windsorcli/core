@@ -1,0 +1,161 @@
+rule_files:
+  - .rendered-rule.yml
+
+evaluation_interval: 1m
+
+tests:
+  - interval: 1m
+    input_series:
+      - series: 'process_start_time_seconds{instance="node1",job="kube-prometheus-stack-prometheus"}'
+        values: '100 200 300 400x13'
+    alert_rule_test:
+      - eval_time: 14m
+        alertname: PrometheusTooManyRestarts
+        exp_alerts:
+          - exp_labels:
+              severity: warning
+              instance: node1
+              job: kube-prometheus-stack-prometheus
+            exp_annotations:
+              summary: 'Prometheus too many restarts (instance node1)'
+              description: "Prometheus has restarted more than twice in the last 15 minutes. It might be crashlooping.\n  VALUE = 3\n  LABELS = map[instance:node1 job:kube-prometheus-stack-prometheus]"
+
+  - interval: 1m
+    input_series:
+      - series: 'process_start_time_seconds{instance="node1",job="kube-prometheus-stack-prometheus"}'
+        values: '100x16'
+    alert_rule_test:
+      - eval_time: 14m
+        alertname: PrometheusTooManyRestarts
+        exp_alerts: []
+
+  - interval: 30s
+    input_series:
+      - series: 'prometheus_template_text_expansion_failures_total{instance="node1"}'
+        values: '0+0x3 1+0x3'
+    alert_rule_test:
+      - eval_time: 1m
+        alertname: PrometheusTemplateTextExpansionFailures
+        exp_alerts: []
+      - eval_time: 3m
+        alertname: PrometheusTemplateTextExpansionFailures
+        exp_alerts:
+          - exp_labels:
+              severity: critical
+              instance: node1
+            exp_annotations:
+              summary: 'Prometheus template text expansion failures (instance node1)'
+              description: "Prometheus encountered 1 template text expansion failures\n  LABELS = map[instance:node1]"
+
+  # Validates the count-by(__name__)+label_replace mechanics produce the
+  # right value for a known set of series; a literal 10000-series input to
+  # test the real threshold isn't practical in a unit test, so this only
+  # confirms normal (low) cardinality correctly stays inactive.
+  - interval: 1m
+    input_series:
+      - series: 'demo_metric{instance="node1",label="a"}'
+        values: '1'
+      - series: 'demo_metric{instance="node1",label="b"}'
+        values: '1'
+      - series: 'demo_metric{instance="node1",label="c"}'
+        values: '1'
+    promql_expr_test:
+      - expr: label_replace(count by (__name__) ({__name__=~"demo_metric"}), "name", "$1", "__name__", "(.+)")
+        eval_time: 0m
+        exp_samples:
+          - labels: 'demo_metric{name="demo_metric"}'
+            value: 3
+    alert_rule_test:
+      - eval_time: 0m
+        alertname: PrometheusTimeseriesCardinality
+        exp_alerts: []
+
+  - interval: 30s
+    input_series:
+      - series: 'prometheus_tsdb_checkpoint_creations_failed_total{instance="node1"}'
+        values: '0+0x3 1+0x3'
+    alert_rule_test:
+      - eval_time: 1m
+        alertname: PrometheusTSDBCheckpointCreationFailures
+        exp_alerts: []
+      - eval_time: 2m
+        alertname: PrometheusTSDBCheckpointCreationFailures
+        exp_alerts:
+          - exp_labels:
+              severity: critical
+              instance: node1
+            exp_annotations:
+              summary: 'Prometheus TSDB checkpoint creation failures (instance node1)'
+              description: "Prometheus encountered 1 checkpoint creation failures\n  LABELS = map[instance:node1]"
+
+  - interval: 30s
+    input_series:
+      - series: 'prometheus_tsdb_checkpoint_deletions_failed_total{instance="node1"}'
+        values: '0+0x3 1+0x3'
+    alert_rule_test:
+      - eval_time: 1m
+        alertname: PrometheusTSDBCheckpointDeletionFailures
+        exp_alerts: []
+      - eval_time: 2m
+        alertname: PrometheusTSDBCheckpointDeletionFailures
+        exp_alerts:
+          - exp_labels:
+              severity: critical
+              instance: node1
+            exp_annotations:
+              summary: 'Prometheus TSDB checkpoint deletion failures (instance node1)'
+              description: "Prometheus encountered 1 checkpoint deletion failures\n  LABELS = map[instance:node1]"
+
+  - interval: 30s
+    input_series:
+      - series: 'prometheus_tsdb_head_truncations_failed_total{instance="node1"}'
+        values: '0+0x3 1+0x3'
+    alert_rule_test:
+      - eval_time: 1m
+        alertname: PrometheusTSDBHeadTruncationsFailed
+        exp_alerts: []
+      - eval_time: 2m
+        alertname: PrometheusTSDBHeadTruncationsFailed
+        exp_alerts:
+          - exp_labels:
+              severity: critical
+              instance: node1
+            exp_annotations:
+              summary: 'Prometheus TSDB head truncations failed (instance node1)'
+              description: "Prometheus encountered 1 TSDB head truncation failures\n  LABELS = map[instance:node1]"
+
+  - interval: 30s
+    input_series:
+      - series: 'prometheus_tsdb_wal_corruptions_total{instance="node1"}'
+        values: '0+0x3 1+0x3'
+    alert_rule_test:
+      - eval_time: 1m
+        alertname: PrometheusTSDBWALCorruptions
+        exp_alerts: []
+      - eval_time: 2m
+        alertname: PrometheusTSDBWALCorruptions
+        exp_alerts:
+          - exp_labels:
+              severity: critical
+              instance: node1
+            exp_annotations:
+              summary: 'Prometheus TSDB WAL corruptions (instance node1)'
+              description: "Prometheus encountered 1 TSDB WAL corruptions\n  LABELS = map[instance:node1]"
+
+  - interval: 30s
+    input_series:
+      - series: 'prometheus_tsdb_wal_truncations_failed_total{instance="node1"}'
+        values: '0+0x3 1+0x3'
+    alert_rule_test:
+      - eval_time: 1m
+        alertname: PrometheusTSDBWALTruncationsFailed
+        exp_alerts: []
+      - eval_time: 2m
+        alertname: PrometheusTSDBWALTruncationsFailed
+        exp_alerts:
+          - exp_labels:
+              severity: critical
+              instance: node1
+            exp_annotations:
+              summary: 'Prometheus TSDB WAL truncations failed (instance node1)'
+              description: "Prometheus encountered 1 TSDB WAL truncation failures\n  LABELS = map[instance:node1]"

@@ -61,6 +61,7 @@ cases:
                 - prometheus
                 - prometheus/flux
                 - prometheus/alerts/node
+                - prometheus/alerts/prometheus
                 - fluentbit
                 - fluentbit/containerd
                 - fluentbit/kubernetes
@@ -121,6 +122,7 @@ cases:
                 - prometheus
                 - prometheus/flux
                 - prometheus/alerts/node
+                - prometheus/alerts/prometheus
                 - fluentbit
                 - fluentbit/containerd
                 - fluentbit/kubernetes
@@ -203,6 +205,7 @@ cases:
                 - prometheus
                 - prometheus/flux
                 - prometheus/alerts/node
+                - prometheus/alerts/prometheus
               timeout: 10m
               interval: 5m
         - name: observability
@@ -239,6 +242,7 @@ cases:
                 - prometheus
                 - prometheus/flux
                 - prometheus/alerts/node
+                - prometheus/alerts/prometheus
                 - fluentbit
                 - fluentbit/containerd
                 - fluentbit/kubernetes
@@ -430,6 +434,7 @@ cases:
                 - prometheus
                 - prometheus/flux
                 - prometheus/alerts/node
+                - prometheus/alerts/prometheus
         - name: pki
           dependsOn:
             - policy-resources
