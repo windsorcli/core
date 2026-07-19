@@ -212,6 +212,7 @@ cases:
                 - prometheus/alerts/prometheus
                 - prometheus/alerts/coredns
                 - prometheus/alerts/cert-manager
+                - prometheus/alerts/envoy
               timeout: 10m
               interval: 5m
         - name: observability

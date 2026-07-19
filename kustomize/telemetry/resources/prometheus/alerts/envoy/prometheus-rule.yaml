@@ -1,0 +1,123 @@
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: envoy-alerts
+  namespace: system-telemetry
+spec:
+  groups:
+    - name: envoy-supplemental.rules
+      rules:
+        - alert: EnvoyServerNotLive
+          expr: envoy_server_live != 1
+          for: 1m
+          labels:
+            severity: critical
+          annotations:
+            summary: Envoy server not live (pod {{ $labels.pod }})
+            description: "Envoy proxy is not live (draining or shutting down).\n  VALUE = {{ $value }}\n  LABELS = {{ $labels }}"
+
+        - alert: EnvoyClusterMembershipEmpty
+          expr: envoy_cluster_membership_healthy == 0
+          for: 1m
+          labels:
+            severity: critical
+          annotations:
+            summary: Envoy cluster membership empty (cluster {{ $labels.envoy_cluster_name }})
+            description: "Upstream cluster {{ $labels.envoy_cluster_name }} on pod {{ $labels.pod }} has no healthy member hosts.\n  VALUE = {{ $value }}\n  LABELS = {{ $labels }}"
+
+        - alert: EnvoyClusterMembershipDegraded
+          expr: envoy_cluster_membership_healthy / envoy_cluster_membership_total * 100 < 75 and envoy_cluster_membership_total > 0
+          for: 5m
+          labels:
+            severity: warning
+          annotations:
+            summary: Envoy cluster membership degraded (cluster {{ $labels.envoy_cluster_name }})
+            description: "Only {{ $value | printf \"%.1f\" }}% of members in cluster {{ $labels.envoy_cluster_name }} on pod {{ $labels.pod }} are healthy (threshold 75%).\n  VALUE = {{ $value }}\n  LABELS = {{ $labels }}"
+
+        # sum by() drops envoy_response_code_class (filtered before aggregating)
+        # and everything but instance/envoy_http_conn_manager_prefix; those are
+        # the only labels safe to reference below.
+        - alert: EnvoyHighDownstreamHTTP5xxErrorRate
+          expr: sum by (instance, envoy_http_conn_manager_prefix) (rate(envoy_http_downstream_rq_xx{envoy_response_code_class="5"}[5m])) / sum by (instance, envoy_http_conn_manager_prefix) (rate(envoy_http_downstream_rq_completed[5m])) * 100 > 5 and sum by (instance, envoy_http_conn_manager_prefix) (rate(envoy_http_downstream_rq_completed[5m])) > 0
+          for: 1m
+          labels:
+            severity: critical
+          annotations:
+            summary: Envoy high downstream HTTP 5xx error rate (listener {{ $labels.envoy_http_conn_manager_prefix }})
+            description: "Over 5% of downstream HTTP responses on listener {{ $labels.envoy_http_conn_manager_prefix }} ({{ $labels.instance }}) are 5xx ({{ $value | printf \"%.1f\" }}%).\n  VALUE = {{ $value }}\n  LABELS = {{ $labels }}"
+
+        # sum by() drops envoy_response_code_class here too; only
+        # instance/envoy_cluster_name survive into the annotations.
+        - alert: EnvoyHighClusterUpstream5xxErrorRate
+          expr: sum by (instance, envoy_cluster_name) (rate(envoy_cluster_upstream_rq_xx{envoy_response_code_class="5"}[5m])) / sum by (instance, envoy_cluster_name) (rate(envoy_cluster_upstream_rq_completed[5m])) * 100 > 5 and sum by (instance, envoy_cluster_name) (rate(envoy_cluster_upstream_rq_completed[5m])) > 0
+          for: 1m
+          labels:
+            severity: critical
+          annotations:
+            summary: Envoy high cluster upstream 5xx error rate (cluster {{ $labels.envoy_cluster_name }})
+            description: "Over 5% of upstream requests to cluster {{ $labels.envoy_cluster_name }} ({{ $labels.instance }}) return 5xx ({{ $value | printf \"%.1f\" }}%).\n  VALUE = {{ $value }}\n  LABELS = {{ $labels }}"
+
+        - alert: EnvoyNoHealthyUpstream
+          expr: increase(envoy_cluster_upstream_cx_none_healthy[5m]) > 3
+          labels:
+            severity: critical
+          annotations:
+            summary: Envoy no healthy upstream (cluster {{ $labels.envoy_cluster_name }})
+            description: "Connection attempts to cluster {{ $labels.envoy_cluster_name }} on pod {{ $labels.pod }} failed because no healthy upstream host was available ({{ $value }} in the last 5m).\n  VALUE = {{ $value }}\n  LABELS = {{ $labels }}"
+
+        # priority filter keeps the default-priority circuit breaker only;
+        # bare selectors on each branch preserve envoy_cluster_name/priority.
+        - alert: EnvoyClusterCircuitBreakerTripped
+          expr: envoy_cluster_circuit_breakers_cx_open{priority="default"} == 1 or envoy_cluster_circuit_breakers_rq_open{priority="default"} == 1 or envoy_cluster_circuit_breakers_cx_pool_open{priority="default"} == 1
+          labels:
+            severity: critical
+          annotations:
+            summary: Envoy cluster circuit breaker tripped (cluster {{ $labels.envoy_cluster_name }})
+            description: "A default-priority circuit breaker is open for cluster {{ $labels.envoy_cluster_name }} on pod {{ $labels.pod }}, new connections/requests are being rejected.\n  VALUE = {{ $value }}\n  LABELS = {{ $labels }}"
+
+        - alert: EnvoyListenerSSLConnectionErrors
+          expr: increase(envoy_listener_ssl_connection_error[5m]) > 5
+          labels:
+            severity: warning
+          annotations:
+            summary: Envoy listener SSL connection errors (listener {{ $labels.envoy_listener_address }})
+            description: "Listener {{ $labels.envoy_listener_address }} on pod {{ $labels.pod }} is experiencing TLS handshake/connection errors ({{ $value }} in the last 5m).\n  VALUE = {{ $value }}\n  LABELS = {{ $labels }}"
+
+        - alert: EnvoySSLCertificateExpiringSoon
+          expr: envoy_server_days_until_first_cert_expiring < 7
+          labels:
+            severity: warning
+          annotations:
+            summary: Envoy SSL certificate expiring soon (pod {{ $labels.pod }})
+            description: "The soonest-expiring certificate loaded by Envoy on pod {{ $labels.pod }} expires in less than 7 days.\n  VALUE = {{ $value }}\n  LABELS = {{ $labels }}"
+
+        - alert: EnvoySSLCertificateExpired
+          expr: envoy_server_days_until_first_cert_expiring < 0
+          labels:
+            severity: critical
+          annotations:
+            summary: Envoy SSL certificate expired (pod {{ $labels.pod }})
+            description: "A certificate loaded by Envoy on pod {{ $labels.pod }} has already expired.\n  VALUE = {{ $value }}\n  LABELS = {{ $labels }}"
+
+        # envoy-gateway control plane: Gateway API status writes failing back
+        # to the k8s API (e.g. Gateway address/port conflicts) - invisible to
+        # generic pod-health checks since the controller pod stays healthy.
+        - alert: EnvoyGatewayStatusUpdateFailures
+          expr: increase(status_update_total{job="envoy-gateway", status="failure"}[5m]) > 0
+          labels:
+            severity: warning
+          annotations:
+            summary: Envoy Gateway status update failing (kind {{ $labels.kind }})
+            description: "envoy-gateway failed to write status for a {{ $labels.kind }} resource ({{ $labels.reason }}), {{ $value }} failures in the last 5m.\n  VALUE = {{ $value }}\n  LABELS = {{ $labels }}"
+
+        # envoy-gateway control plane: translated config failed to push to
+        # the data-plane proxy over xDS - the control-plane-side analogue of
+        # a config rejection, since Envoy Gateway rejects invalid config
+        # before it ever reaches the proxy's xDS NACK path.
+        - alert: EnvoyGatewayXDSConfigPushFailures
+          expr: increase(xds_snapshot_update_total{job="envoy-gateway", status="failure"}[5m]) > 0
+          labels:
+            severity: critical
+          annotations:
+            summary: Envoy Gateway xDS config push failing (node {{ $labels.nodeID }})
+            description: "envoy-gateway failed to push an xDS snapshot to proxy node {{ $labels.nodeID }}, {{ $value }} failures in the last 5m. Config changes are not reaching the data plane.\n  VALUE = {{ $value }}\n  LABELS = {{ $labels }}"
