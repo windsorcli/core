@@ -189,6 +189,7 @@ config:
         - prometheus/alerts/node
         - prometheus/alerts/prometheus
         - prometheus/alerts/coredns
+        - prometheus/alerts/cert-manager
 
   # Observability addon forces both pipelines on.
   - name: telemetry

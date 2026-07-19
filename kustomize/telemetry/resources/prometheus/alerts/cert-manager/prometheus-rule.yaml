@@ -1,0 +1,80 @@
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: cert-manager-alerts
+  namespace: system-telemetry
+spec:
+  groups:
+    - name: cert-manager-supplemental.rules
+      rules:
+        # absent() only keeps the selector's equality-matched labels (job
+        # here), not instance -- the series doesn't exist so there's no
+        # instance to report.
+        - alert: CertManagerAbsent
+          expr: absent(up{job="cert-manager"})
+          for: 10m
+          labels:
+            severity: critical
+          annotations:
+            summary: Cert-manager absent (job {{ $labels.job }})
+            description: "Cert-manager has disappeared from Prometheus service discovery. New certificates can't be minted and existing ones can't be renewed until it's back.\n  VALUE = {{ $value }}\n  LABELS = {{ $labels }}"
+
+        # avg by (...) drops every label except exported_namespace/namespace/name;
+        # issuer_name and instance do not survive this aggregation.
+        - alert: CertManagerCertificateExpiringSoon
+          expr: avg by (exported_namespace, namespace, name) (certmanager_certificate_expiration_timestamp_seconds - time()) < (21 * 24 * 3600)
+          for: 1h
+          labels:
+            severity: warning
+          annotations:
+            summary: Cert-manager certificate expiring soon (certificate {{ $labels.name }})
+            description: "Certificate {{ $labels.name }} in namespace {{ $labels.exported_namespace }} is expiring in less than 21 days.\n  VALUE = {{ $value }}\n  LABELS = {{ $labels }}"
+
+        # No aggregation, so every label on the underlying series survives
+        # (name, exported_namespace, issuer_name, etc). renewal_timestamp is
+        # the point in time cert-manager scheduled the next renewal for;
+        # once it's in the past the certificate should already be reissuing.
+        # If it's still in the past after a sustained window, renewal isn't
+        # progressing -- catches a silently stuck renewal before the
+        # certificate actually expires, which CertificateExpiringSoon alone
+        # would only flag much closer to the deadline.
+        - alert: CertManagerCertificateRenewalOverdue
+          expr: (time() - certmanager_certificate_renewal_timestamp_seconds) > 0
+          for: 2h
+          labels:
+            severity: warning
+          annotations:
+            summary: Cert-manager certificate renewal overdue (certificate {{ $labels.name }})
+            description: "Certificate {{ $labels.name }} in namespace {{ $labels.exported_namespace }} passed its scheduled renewal time without a new renewal being scheduled.\n  VALUE = {{ $value }}\n  LABELS = {{ $labels }}"
+
+        # max by (...) keeps name/exported_namespace/namespace/condition;
+        # condition is one of True/False/Unknown as a one-hot label, so this
+        # only matches the False/Unknown series that are currently set to 1.
+        - alert: CertManagerCertificateNotReady
+          expr: max by (name, exported_namespace, namespace, condition) (certmanager_certificate_ready_status{condition!="True"} == 1)
+          for: 10m
+          labels:
+            severity: critical
+          annotations:
+            summary: Cert-manager certificate not ready (certificate {{ $labels.name }})
+            description: "Certificate {{ $labels.name }} in namespace {{ $labels.exported_namespace }} has been not-ready (condition={{ $labels.condition }}) for 10 minutes.\n  VALUE = {{ $value }}\n  LABELS = {{ $labels }}"
+
+        # ClusterIssuer is cluster-scoped -- no exported_namespace label to
+        # aggregate on, only name and condition survive.
+        - alert: CertManagerClusterIssuerNotReady
+          expr: max by (name, condition) (certmanager_clusterissuer_ready_status{condition!="True"} == 1)
+          for: 10m
+          labels:
+            severity: critical
+          annotations:
+            summary: Cert-manager ClusterIssuer not ready (issuer {{ $labels.name }})
+            description: "ClusterIssuer {{ $labels.name }} has been not-ready (condition={{ $labels.condition }}) for 10 minutes. Certificates referencing it can't be issued or renewed.\n  VALUE = {{ $value }}\n  LABELS = {{ $labels }}"
+
+        - alert: CertManagerIssuerNotReady
+          expr: max by (name, exported_namespace, namespace, condition) (certmanager_issuer_ready_status{condition!="True"} == 1)
+          for: 10m
+          labels:
+            severity: critical
+          annotations:
+            summary: Cert-manager Issuer not ready (issuer {{ $labels.name }})
+            description: "Issuer {{ $labels.name }} in namespace {{ $labels.exported_namespace }} has been not-ready (condition={{ $labels.condition }}) for 10 minutes. Certificates referencing it can't be issued or renewed.\n  VALUE = {{ $value }}\n  LABELS = {{ $labels }}"

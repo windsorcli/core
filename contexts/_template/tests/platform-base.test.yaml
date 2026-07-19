@@ -63,6 +63,7 @@ cases:
                 - prometheus/alerts/node
                 - prometheus/alerts/prometheus
                 - prometheus/alerts/coredns
+                - prometheus/alerts/cert-manager
                 - fluentbit
                 - fluentbit/containerd
                 - fluentbit/kubernetes
@@ -125,6 +126,7 @@ cases:
                 - prometheus/alerts/node
                 - prometheus/alerts/prometheus
                 - prometheus/alerts/coredns
+                - prometheus/alerts/cert-manager
                 - fluentbit
                 - fluentbit/containerd
                 - fluentbit/kubernetes
@@ -209,6 +211,7 @@ cases:
                 - prometheus/alerts/node
                 - prometheus/alerts/prometheus
                 - prometheus/alerts/coredns
+                - prometheus/alerts/cert-manager
               timeout: 10m
               interval: 5m
         - name: observability
@@ -247,6 +250,7 @@ cases:
                 - prometheus/alerts/node
                 - prometheus/alerts/prometheus
                 - prometheus/alerts/coredns
+                - prometheus/alerts/cert-manager
                 - fluentbit
                 - fluentbit/containerd
                 - fluentbit/kubernetes
@@ -440,6 +444,7 @@ cases:
                 - prometheus/alerts/node
                 - prometheus/alerts/prometheus
                 - prometheus/alerts/coredns
+                - prometheus/alerts/cert-manager
         - name: pki
           dependsOn:
             - policy-resources

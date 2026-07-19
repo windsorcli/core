@@ -1,0 +1,188 @@
+rule_files:
+  - .rendered-rule.yml
+
+evaluation_interval: 1m
+
+tests:
+  # No up{job="cert-manager"} series at all -- absent() is active from t=0.
+  - interval: 1m
+    input_series: []
+    alert_rule_test:
+      - eval_time: 5m
+        alertname: CertManagerAbsent
+        exp_alerts: []
+      - eval_time: 11m
+        alertname: CertManagerAbsent
+        exp_alerts:
+          - exp_labels:
+              severity: critical
+              job: cert-manager
+            exp_annotations:
+              summary: 'Cert-manager absent (job cert-manager)'
+              description: "Cert-manager has disappeared from Prometheus service discovery. New certificates can't be minted and existing ones can't be renewed until it's back.\n  VALUE = 1\n  LABELS = map[job:cert-manager]"
+
+  - interval: 1m
+    input_series:
+      - series: 'up{job="cert-manager",instance="10.244.0.24:9402"}'
+        values: '1+0x20'
+    alert_rule_test:
+      - eval_time: 11m
+        alertname: CertManagerAbsent
+        exp_alerts: []
+
+  # time() is 0 at eval_time 0 in promtool's unit test clock, so a constant
+  # expiration timestamp of 5 days (432000s) is already < 21d away at t=0
+  # and only gets closer -- the "for" window holds continuously.
+  - interval: 1m
+    input_series:
+      - series: 'certmanager_certificate_expiration_timestamp_seconds{exported_namespace="system-gateway",namespace="system-pki",name="external-web-tls",issuer_name="private"}'
+        values: '432000+0x120'
+    alert_rule_test:
+      - eval_time: 30m
+        alertname: CertManagerCertificateExpiringSoon
+        exp_alerts: []
+      - eval_time: 65m
+        alertname: CertManagerCertificateExpiringSoon
+        exp_alerts:
+          - exp_labels:
+              severity: warning
+              exported_namespace: system-gateway
+              namespace: system-pki
+              name: external-web-tls
+            exp_annotations:
+              summary: 'Cert-manager certificate expiring soon (certificate external-web-tls)'
+              description: "Certificate external-web-tls in namespace system-gateway is expiring in less than 21 days.\n  VALUE = 428100\n  LABELS = map[exported_namespace:system-gateway name:external-web-tls namespace:system-pki]"
+
+  # 60 days out stays well clear of the 21d threshold for the whole window.
+  - interval: 1m
+    input_series:
+      - series: 'certmanager_certificate_expiration_timestamp_seconds{exported_namespace="system-gateway",namespace="system-pki",name="external-web-tls",issuer_name="private"}'
+        values: '5184000+0x120'
+    alert_rule_test:
+      - eval_time: 65m
+        alertname: CertManagerCertificateExpiringSoon
+        exp_alerts: []
+
+  # Scheduled renewal timestamp is 0 (already due at test start); the
+  # comparison only turns true once time() exceeds it, one evaluation step
+  # in (t=60s), then must hold for the full 2h "for" window from there.
+  - interval: 1m
+    input_series:
+      - series: 'certmanager_certificate_renewal_timestamp_seconds{exported_namespace="system-gateway",namespace="system-pki",name="external-web-tls",issuer_name="private"}'
+        values: '0+0x150'
+    alert_rule_test:
+      - eval_time: 90m
+        alertname: CertManagerCertificateRenewalOverdue
+        exp_alerts: []
+      - eval_time: 125m
+        alertname: CertManagerCertificateRenewalOverdue
+        exp_alerts:
+          - exp_labels:
+              severity: warning
+              exported_namespace: system-gateway
+              namespace: system-pki
+              name: external-web-tls
+              issuer_name: private
+            exp_annotations:
+              summary: 'Cert-manager certificate renewal overdue (certificate external-web-tls)'
+              description: "Certificate external-web-tls in namespace system-gateway passed its scheduled renewal time without a new renewal being scheduled.\n  VALUE = 7500\n  LABELS = map[exported_namespace:system-gateway issuer_name:private name:external-web-tls namespace:system-pki]"
+
+  # Renewal scheduled 30 days out stays in the future for the whole window.
+  - interval: 1m
+    input_series:
+      - series: 'certmanager_certificate_renewal_timestamp_seconds{exported_namespace="system-gateway",namespace="system-pki",name="external-web-tls",issuer_name="private"}'
+        values: '2592000+0x150'
+    alert_rule_test:
+      - eval_time: 125m
+        alertname: CertManagerCertificateRenewalOverdue
+        exp_alerts: []
+
+  # condition flips False 0->1 between t=3m and t=4m; "for: 10m" means it
+  # must stay firing-eligible for 10 more minutes past that transition.
+  - interval: 1m
+    input_series:
+      - series: 'certmanager_certificate_ready_status{exported_namespace="system-pki",namespace="system-pki",name="private-ca",condition="False"}'
+        values: '0+0x3 1+0x20'
+    alert_rule_test:
+      - eval_time: 10m
+        alertname: CertManagerCertificateNotReady
+        exp_alerts: []
+      - eval_time: 16m
+        alertname: CertManagerCertificateNotReady
+        exp_alerts:
+          - exp_labels:
+              severity: critical
+              exported_namespace: system-pki
+              namespace: system-pki
+              name: private-ca
+              condition: 'False'
+            exp_annotations:
+              summary: 'Cert-manager certificate not ready (certificate private-ca)'
+              description: "Certificate private-ca in namespace system-pki has been not-ready (condition=False) for 10 minutes.\n  VALUE = 1\n  LABELS = map[condition:False exported_namespace:system-pki name:private-ca namespace:system-pki]"
+
+  - interval: 1m
+    input_series:
+      - series: 'certmanager_certificate_ready_status{exported_namespace="system-pki",namespace="system-pki",name="private-ca",condition="False"}'
+        values: '0+0x20'
+    alert_rule_test:
+      - eval_time: 16m
+        alertname: CertManagerCertificateNotReady
+        exp_alerts: []
+
+  - interval: 1m
+    input_series:
+      - series: 'certmanager_clusterissuer_ready_status{name="private-ca",condition="False"}'
+        values: '0+0x3 1+0x20'
+    alert_rule_test:
+      - eval_time: 10m
+        alertname: CertManagerClusterIssuerNotReady
+        exp_alerts: []
+      - eval_time: 16m
+        alertname: CertManagerClusterIssuerNotReady
+        exp_alerts:
+          - exp_labels:
+              severity: critical
+              name: private-ca
+              condition: 'False'
+            exp_annotations:
+              summary: 'Cert-manager ClusterIssuer not ready (issuer private-ca)'
+              description: "ClusterIssuer private-ca has been not-ready (condition=False) for 10 minutes. Certificates referencing it can't be issued or renewed.\n  VALUE = 1\n  LABELS = map[condition:False name:private-ca]"
+
+  - interval: 1m
+    input_series:
+      - series: 'certmanager_clusterissuer_ready_status{name="private-ca",condition="False"}'
+        values: '0+0x20'
+    alert_rule_test:
+      - eval_time: 16m
+        alertname: CertManagerClusterIssuerNotReady
+        exp_alerts: []
+
+  - interval: 1m
+    input_series:
+      - series: 'certmanager_issuer_ready_status{exported_namespace="system-pki-trust",namespace="system-pki",name="trust-manager",condition="False"}'
+        values: '0+0x3 1+0x20'
+    alert_rule_test:
+      - eval_time: 10m
+        alertname: CertManagerIssuerNotReady
+        exp_alerts: []
+      - eval_time: 16m
+        alertname: CertManagerIssuerNotReady
+        exp_alerts:
+          - exp_labels:
+              severity: critical
+              exported_namespace: system-pki-trust
+              namespace: system-pki
+              name: trust-manager
+              condition: 'False'
+            exp_annotations:
+              summary: 'Cert-manager Issuer not ready (issuer trust-manager)'
+              description: "Issuer trust-manager in namespace system-pki-trust has been not-ready (condition=False) for 10 minutes. Certificates referencing it can't be issued or renewed.\n  VALUE = 1\n  LABELS = map[condition:False exported_namespace:system-pki-trust name:trust-manager namespace:system-pki]"
+
+  - interval: 1m
+    input_series:
+      - series: 'certmanager_issuer_ready_status{exported_namespace="system-pki-trust",namespace="system-pki",name="trust-manager",condition="False"}'
+        values: '0+0x20'
+    alert_rule_test:
+      - eval_time: 16m
+        alertname: CertManagerIssuerNotReady
+        exp_alerts: []
