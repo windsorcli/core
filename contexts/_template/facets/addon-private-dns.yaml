@@ -28,6 +28,8 @@ requires:
 #     but isn't reachable from outside).
 #
 # Conditional components:
+#   - coredns/prometheus:     ServiceMonitor so this instance is covered by
+#                             the shared prometheus/alerts/coredns rules.
 #   - coredns/ha:             multi-replica + anti-affinity.
 #   - coredns/loadbalancer:   Service type LoadBalancer (Cilium only).
 #   - coredns/cilium:         LBIPAM annotation to share the gateway IP.
@@ -46,6 +48,7 @@ flux:
       components:
         - coredns
         - coredns/etcd
+        - "${telemetry.metrics.enabled ? 'coredns/prometheus' : ''}"
         - "${topology == 'ha' ? 'coredns/ha' : ''}"
         - "${gateway.driver == 'cilium' ? 'coredns/loadbalancer' : ''}"
         - "${gateway.driver == 'cilium' ? 'coredns/cilium' : ''}"

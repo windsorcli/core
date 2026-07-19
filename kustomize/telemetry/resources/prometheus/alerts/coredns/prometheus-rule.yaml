@@ -7,10 +7,11 @@ spec:
   groups:
     - name: coredns-supplemental.rules
       rules:
-        # Scoped to the cluster's built-in kube-system CoreDNS (job=coredns),
-        # scraped by kube-prometheus-stack. This repo's separate system-dns
-        # CoreDNS addon for private-domain resolution isn't scraped and isn't
-        # covered here.
+        # No job/namespace filter, so these evaluate against every scraped
+        # CoreDNS instance: the cluster's built-in kube-system CoreDNS
+        # (always scraped by kube-prometheus-stack) and, when the private-dns
+        # addon and its ServiceMonitor are enabled, the system-dns instance
+        # too.
         - alert: CoreDNSPanicking
           expr: increase(coredns_panics_total[10m]) > 0
           labels:
