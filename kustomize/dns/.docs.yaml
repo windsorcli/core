@@ -51,6 +51,9 @@ components:
   coredns/etcd:
     enable_when: "`addons.private_dns.enabled: true`"
     description: "etcd StatefulSet for coredns to use as a persistent backend for the `etcd` plugin. mTLS between coredns and etcd peers, certs issued by the `private` ClusterIssuer."
+  coredns/prometheus:
+    enable_when: "`addons.private_dns.enabled: true` AND `telemetry.metrics.enabled: true`"
+    description: "Enables the chart's metrics Service and ServiceMonitor so this coredns instance is scraped by kube-prometheus-stack. The unfiltered `prometheus/alerts/coredns` rules then cover it automatically alongside the cluster's built-in CoreDNS."
   coredns/ha:
     enable_when: "`addons.private_dns.enabled: true` AND `topology == 'ha'`"
     description: "Patches the coredns HelmRelease for HA (multi-replica + leader election)."

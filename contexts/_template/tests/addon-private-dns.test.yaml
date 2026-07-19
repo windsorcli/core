@@ -43,6 +43,7 @@ cases:
             components:
               - coredns
               - coredns/etcd
+              - coredns/prometheus
               - coredns/loadbalancer
               - coredns/cilium
               - external-dns
@@ -77,6 +78,7 @@ cases:
             components:
               - coredns
               - coredns/etcd
+              - coredns/prometheus
               - coredns/gateway
               - external-dns
               - external-dns/providers/coredns
@@ -112,6 +114,7 @@ cases:
             components:
               - coredns
               - coredns/etcd
+              - coredns/prometheus
               - coredns/gateway
               - external-dns
               - external-dns/providers/coredns
@@ -144,6 +147,7 @@ cases:
             components:
               - coredns
               - coredns/etcd
+              - coredns/prometheus
               - coredns/loadbalancer
               - coredns/cilium
               - external-dns
@@ -174,6 +178,7 @@ cases:
             components:
               - coredns
               - coredns/etcd
+              - coredns/prometheus
               - coredns/gateway
               - external-dns
               - external-dns/providers/coredns

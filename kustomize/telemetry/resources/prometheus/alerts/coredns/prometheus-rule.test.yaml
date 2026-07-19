@@ -1,0 +1,310 @@
+rule_files:
+  - .rendered-rule.yml
+
+evaluation_interval: 30s
+
+tests:
+  # CoreDNSPanicking
+  - interval: 30s
+    input_series:
+      - series: 'coredns_panics_total{instance="10.244.0.3:9153",pod="coredns-1"}'
+        values: '0+0x3 1+0x3'
+    alert_rule_test:
+      - eval_time: 1m
+        alertname: CoreDNSPanicking
+        exp_alerts: []
+      - eval_time: 3m
+        alertname: CoreDNSPanicking
+        exp_alerts:
+          - exp_labels:
+              severity: critical
+              instance: 10.244.0.3:9153
+              pod: coredns-1
+            exp_annotations:
+              summary: 'CoreDNS panicking (pod coredns-1)'
+              description: "CoreDNS hit a panic and likely restarted the query pipeline.\n  VALUE = 1\n  LABELS = map[instance:10.244.0.3:9153 pod:coredns-1]"
+
+  - interval: 30s
+    input_series:
+      - series: 'coredns_panics_total{instance="10.244.0.3:9153",pod="coredns-1"}'
+        values: '0+0x40'
+    alert_rule_test:
+      - eval_time: 3m
+        alertname: CoreDNSPanicking
+        exp_alerts: []
+
+  # CoreDNSHighQueryLatency: almost all queries land in the (0.5,1] bucket,
+  # pushing p99 to ~0.995s -- well above the 500ms threshold.
+  - interval: 30s
+    input_series:
+      - series: 'coredns_dns_request_duration_seconds_bucket{instance="10.244.0.3:9153",pod="coredns-1",le="0.5"}'
+        values: '0+0x40'
+      - series: 'coredns_dns_request_duration_seconds_bucket{instance="10.244.0.3:9153",pod="coredns-1",le="1"}'
+        values: '0+100x40'
+      - series: 'coredns_dns_request_duration_seconds_bucket{instance="10.244.0.3:9153",pod="coredns-1",le="+Inf"}'
+        values: '0+100x40'
+    alert_rule_test:
+      - eval_time: 3m
+        alertname: CoreDNSHighQueryLatency
+        exp_alerts: []
+      - eval_time: 15m
+        alertname: CoreDNSHighQueryLatency
+        exp_alerts:
+          - exp_labels:
+              severity: warning
+              instance: 10.244.0.3:9153
+              pod: coredns-1
+            exp_annotations:
+              summary: 'CoreDNS high query latency (pod coredns-1)'
+              description: "99th percentile query duration is above 500ms, sustained for 10m. The resolver is overloaded or stuck waiting on an upstream.\n  VALUE = 0.995\n  LABELS = map[instance:10.244.0.3:9153 pod:coredns-1]"
+
+  # Negative: all queries land at or below the 0.1 bucket, well under
+  # the 0.5s threshold.
+  - interval: 30s
+    input_series:
+      - series: 'coredns_dns_request_duration_seconds_bucket{instance="10.244.0.3:9153",pod="coredns-1",le="0.1"}'
+        values: '0+100x40'
+      - series: 'coredns_dns_request_duration_seconds_bucket{instance="10.244.0.3:9153",pod="coredns-1",le="0.5"}'
+        values: '0+100x40'
+      - series: 'coredns_dns_request_duration_seconds_bucket{instance="10.244.0.3:9153",pod="coredns-1",le="+Inf"}'
+        values: '0+100x40'
+    alert_rule_test:
+      - eval_time: 15m
+        alertname: CoreDNSHighQueryLatency
+        exp_alerts: []
+
+  # CoreDNSSERVFAILRateHigh / CoreDNSSERVFAILRateCritical: 2 SERVFAIL per
+  # 100 responses is a 2% ratio -- above the 1% warning threshold but
+  # below the 5% critical threshold.
+  - interval: 30s
+    input_series:
+      - series: 'coredns_dns_responses_total{instance="10.244.0.3:9153",pod="coredns-1",rcode="SERVFAIL",plugin="errors"}'
+        values: '0+2x40'
+      - series: 'coredns_dns_responses_total{instance="10.244.0.3:9153",pod="coredns-1",rcode="NOERROR",plugin="errors"}'
+        values: '0+98x40'
+    alert_rule_test:
+      - eval_time: 3m
+        alertname: CoreDNSSERVFAILRateHigh
+        exp_alerts: []
+      - eval_time: 15m
+        alertname: CoreDNSSERVFAILRateHigh
+        exp_alerts:
+          - exp_labels:
+              severity: warning
+              instance: 10.244.0.3:9153
+              pod: coredns-1
+            exp_annotations:
+              summary: 'CoreDNS SERVFAIL rate high (pod coredns-1)'
+              description: "More than 1% of responses are SERVFAIL. Client queries are failing to resolve.\n  VALUE = 0.02\n  LABELS = map[instance:10.244.0.3:9153 pod:coredns-1]"
+      - eval_time: 15m
+        alertname: CoreDNSSERVFAILRateCritical
+        exp_alerts: []
+
+  # 10 SERVFAIL per 100 responses is a 10% ratio -- above both thresholds.
+  - interval: 30s
+    input_series:
+      - series: 'coredns_dns_responses_total{instance="10.244.0.3:9153",pod="coredns-1",rcode="SERVFAIL",plugin="errors"}'
+        values: '0+10x40'
+      - series: 'coredns_dns_responses_total{instance="10.244.0.3:9153",pod="coredns-1",rcode="NOERROR",plugin="errors"}'
+        values: '0+90x40'
+    alert_rule_test:
+      - eval_time: 15m
+        alertname: CoreDNSSERVFAILRateCritical
+        exp_alerts:
+          - exp_labels:
+              severity: critical
+              instance: 10.244.0.3:9153
+              pod: coredns-1
+            exp_annotations:
+              summary: 'CoreDNS SERVFAIL rate critical (pod coredns-1)'
+              description: "More than 5% of responses are SERVFAIL. A large share of client queries are failing to resolve.\n  VALUE = 0.1\n  LABELS = map[instance:10.244.0.3:9153 pod:coredns-1]"
+
+  # Negative: no SERVFAIL responses at all -- NXDOMAIN and NOERROR are
+  # normal/expected and must not trip this rule.
+  - interval: 30s
+    input_series:
+      - series: 'coredns_dns_responses_total{instance="10.244.0.3:9153",pod="coredns-1",rcode="NOERROR",plugin="errors"}'
+        values: '0+80x40'
+      - series: 'coredns_dns_responses_total{instance="10.244.0.3:9153",pod="coredns-1",rcode="NXDOMAIN",plugin="errors"}'
+        values: '0+20x40'
+    alert_rule_test:
+      - eval_time: 15m
+        alertname: CoreDNSSERVFAILRateHigh
+        exp_alerts: []
+      - eval_time: 15m
+        alertname: CoreDNSSERVFAILRateCritical
+        exp_alerts: []
+
+  # CoreDNSForwardHighLatency: same bucket-shape trick as query latency,
+  # applied to the forward plugin's per-upstream histogram.
+  - interval: 30s
+    input_series:
+      - series: 'coredns_proxy_request_duration_seconds_bucket{instance="10.244.0.3:9153",pod="coredns-1",to="169.254.116.108:53",le="0.5"}'
+        values: '0+0x40'
+      - series: 'coredns_proxy_request_duration_seconds_bucket{instance="10.244.0.3:9153",pod="coredns-1",to="169.254.116.108:53",le="1"}'
+        values: '0+100x40'
+      - series: 'coredns_proxy_request_duration_seconds_bucket{instance="10.244.0.3:9153",pod="coredns-1",to="169.254.116.108:53",le="+Inf"}'
+        values: '0+100x40'
+    alert_rule_test:
+      - eval_time: 3m
+        alertname: CoreDNSForwardHighLatency
+        exp_alerts: []
+      - eval_time: 15m
+        alertname: CoreDNSForwardHighLatency
+        exp_alerts:
+          - exp_labels:
+              severity: warning
+              instance: 10.244.0.3:9153
+              pod: coredns-1
+              to: 169.254.116.108:53
+            exp_annotations:
+              summary: 'CoreDNS forward plugin high latency (pod coredns-1, upstream 169.254.116.108:53)'
+              description: "99th percentile forwarded-request duration to this upstream is above 500ms, sustained for 10m. The upstream resolver is slow or overloaded.\n  VALUE = 0.995\n  LABELS = map[instance:10.244.0.3:9153 pod:coredns-1 to:169.254.116.108:53]"
+
+  - interval: 30s
+    input_series:
+      - series: 'coredns_proxy_request_duration_seconds_bucket{instance="10.244.0.3:9153",pod="coredns-1",to="169.254.116.108:53",le="0.1"}'
+        values: '0+100x40'
+      - series: 'coredns_proxy_request_duration_seconds_bucket{instance="10.244.0.3:9153",pod="coredns-1",to="169.254.116.108:53",le="0.5"}'
+        values: '0+100x40'
+      - series: 'coredns_proxy_request_duration_seconds_bucket{instance="10.244.0.3:9153",pod="coredns-1",to="169.254.116.108:53",le="+Inf"}'
+        values: '0+100x40'
+    alert_rule_test:
+      - eval_time: 15m
+        alertname: CoreDNSForwardHighLatency
+        exp_alerts: []
+
+  # CoreDNSForwardAllUpstreamsBroken
+  - interval: 30s
+    input_series:
+      - series: 'coredns_forward_healthcheck_broken_total{instance="10.244.0.3:9153",pod="coredns-1"}'
+        values: '0+0x3 1+0x10'
+    alert_rule_test:
+      - eval_time: 1m
+        alertname: CoreDNSForwardAllUpstreamsBroken
+        exp_alerts: []
+      - eval_time: 4m
+        alertname: CoreDNSForwardAllUpstreamsBroken
+        exp_alerts:
+          - exp_labels:
+              severity: critical
+              instance: 10.244.0.3:9153
+              pod: coredns-1
+            exp_annotations:
+              summary: 'CoreDNS forward plugin has no healthy upstreams (pod coredns-1)'
+              description: "All upstreams for the forward plugin failed their health check; CoreDNS is spraying queries to a random upstream. Forwarded queries may not resolve.\n  VALUE = 1\n  LABELS = map[instance:10.244.0.3:9153 pod:coredns-1]"
+
+  - interval: 30s
+    input_series:
+      - series: 'coredns_forward_healthcheck_broken_total{instance="10.244.0.3:9153",pod="coredns-1"}'
+        values: '0+0x40'
+    alert_rule_test:
+      - eval_time: 4m
+        alertname: CoreDNSForwardAllUpstreamsBroken
+        exp_alerts: []
+
+  # CoreDNSHealthcheckFailing
+  - interval: 30s
+    input_series:
+      - series: 'coredns_health_request_failures_total{instance="10.244.0.3:9153",pod="coredns-1"}'
+        values: '0+1x40'
+    alert_rule_test:
+      - eval_time: 1m
+        alertname: CoreDNSHealthcheckFailing
+        exp_alerts: []
+      - eval_time: 10m
+        alertname: CoreDNSHealthcheckFailing
+        exp_alerts:
+          - exp_labels:
+              severity: critical
+              instance: 10.244.0.3:9153
+              pod: coredns-1
+            exp_annotations:
+              summary: 'CoreDNS self health check failing (pod coredns-1)'
+              description: "CoreDNS's own internal self health check has been failing for 5m, indicating the process itself can't keep up with its query load.\n  VALUE = 0.03333333333333333\n  LABELS = map[instance:10.244.0.3:9153 pod:coredns-1]"
+
+  - interval: 30s
+    input_series:
+      - series: 'coredns_health_request_failures_total{instance="10.244.0.3:9153",pod="coredns-1"}'
+        values: '0+0x40'
+    alert_rule_test:
+      - eval_time: 10m
+        alertname: CoreDNSHealthcheckFailing
+        exp_alerts: []
+
+  # CoreDNSCorefileReloadFailed
+  - interval: 30s
+    input_series:
+      - series: 'coredns_reload_failed_total{instance="10.244.0.3:9153",pod="coredns-1"}'
+        values: '0+0x3 1+0x3'
+    alert_rule_test:
+      - eval_time: 1m
+        alertname: CoreDNSCorefileReloadFailed
+        exp_alerts: []
+      - eval_time: 3m
+        alertname: CoreDNSCorefileReloadFailed
+        exp_alerts:
+          - exp_labels:
+              severity: warning
+              instance: 10.244.0.3:9153
+              pod: coredns-1
+            exp_annotations:
+              summary: 'CoreDNS Corefile reload failed (pod coredns-1)'
+              description: "CoreDNS failed to apply a Corefile/config reload. It is still running the previous configuration.\n  VALUE = 1\n  LABELS = map[instance:10.244.0.3:9153 pod:coredns-1]"
+
+  - interval: 30s
+    input_series:
+      - series: 'coredns_reload_failed_total{instance="10.244.0.3:9153",pod="coredns-1"}'
+        values: '0+0x40'
+    alert_rule_test:
+      - eval_time: 3m
+        alertname: CoreDNSCorefileReloadFailed
+        exp_alerts: []
+
+  # CoreDNSCacheHitRatioLow: 1 hit per 100 cache requests is a 1% hit
+  # ratio, well under the 10% threshold, at meaningful request volume.
+  - interval: 30s
+    input_series:
+      - series: 'coredns_cache_hits_total{instance="10.244.0.3:9153",pod="coredns-1",type="success"}'
+        values: '0+1x80'
+      - series: 'coredns_cache_requests_total{instance="10.244.0.3:9153",pod="coredns-1"}'
+        values: '0+100x80'
+    alert_rule_test:
+      - eval_time: 10m
+        alertname: CoreDNSCacheHitRatioLow
+        exp_alerts: []
+      - eval_time: 35m
+        alertname: CoreDNSCacheHitRatioLow
+        exp_alerts:
+          - exp_labels:
+              severity: warning
+              instance: 10.244.0.3:9153
+              pod: coredns-1
+            exp_annotations:
+              summary: 'CoreDNS cache hit ratio low (pod coredns-1)'
+              description: "Cache hit ratio has been below 10% for 30m despite meaningful query volume. Possible cache thrashing or a random-subdomain query flood.\n  VALUE = 0.01\n  LABELS = map[instance:10.244.0.3:9153 pod:coredns-1]"
+
+  # Negative: healthy 90% hit ratio.
+  - interval: 30s
+    input_series:
+      - series: 'coredns_cache_hits_total{instance="10.244.0.3:9153",pod="coredns-1",type="success"}'
+        values: '0+90x80'
+      - series: 'coredns_cache_requests_total{instance="10.244.0.3:9153",pod="coredns-1"}'
+        values: '0+100x80'
+    alert_rule_test:
+      - eval_time: 35m
+        alertname: CoreDNSCacheHitRatioLow
+        exp_alerts: []
+
+  # Negative: hit ratio is low but request volume is negligible (idle
+  # pod) -- the traffic guard must suppress this.
+  - interval: 30s
+    input_series:
+      - series: 'coredns_cache_hits_total{instance="10.244.0.3:9153",pod="coredns-1",type="success"}'
+        values: '0+0x80'
+      - series: 'coredns_cache_requests_total{instance="10.244.0.3:9153",pod="coredns-1"}'
+        values: '0+1x80'
+    alert_rule_test:
+      - eval_time: 35m
+        alertname: CoreDNSCacheHitRatioLow
+        exp_alerts: []

@@ -184,6 +184,7 @@ cases:
                 - prometheus/flux
                 - prometheus/alerts/node
                 - prometheus/alerts/prometheus
+                - prometheus/alerts/coredns
               timeout: 10m
           interval: 5m
         - name: observability

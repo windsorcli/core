@@ -178,13 +178,17 @@ config:
       logs:
         enabled: ${telemetry.logs.enabled ?? true}
         driver: "${telemetry.logs.driver ?? 'fluentd'}"
-      # Single source of truth for the alerts resources.components list, so
-      # addon-observability's telemetry override doesn't duplicate it. One
-      # line per system, same convention as the resources.components lists
-      # below.
+
+  # Single source of truth for the alerts resources.components list, so
+  # addon-observability's telemetry override doesn't duplicate it. One line
+  # per system, same convention as the resources.components lists below.
+  - name: telemetry
+    when: (telemetry.alerts.enabled ?? true) && (telemetry.metrics.enabled ?? true)
+    value:
       alert_components:
-        - "${(telemetry.alerts.enabled ?? true) && (telemetry.metrics.enabled ?? true) ? 'prometheus/alerts/node' : ''}"
-        - "${(telemetry.alerts.enabled ?? true) && (telemetry.metrics.enabled ?? true) ? 'prometheus/alerts/prometheus' : ''}"
+        - prometheus/alerts/node
+        - prometheus/alerts/prometheus
+        - prometheus/alerts/coredns
 
   # Observability addon forces both pipelines on.
   - name: telemetry
@@ -292,7 +296,7 @@ flux:
       - components:
           - "${telemetry.metrics.enabled ? 'prometheus' : ''}"
           - "${telemetry.metrics.enabled ? 'prometheus/flux' : ''}"
-          - "${telemetry.alert_components}"
+          - "${telemetry.alert_components ?? []}"
           - "${telemetry.logs.enabled ? 'fluentbit' : ''}"
           - "${telemetry.logs.enabled ? 'fluentbit/containerd' : ''}"
           - "${telemetry.logs.enabled ? 'fluentbit/kubernetes' : ''}"
