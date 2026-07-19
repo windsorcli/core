@@ -35,6 +35,15 @@ tests:
         alertname: FluxInstanceNotReady
         exp_alerts: []
 
+  - interval: 1m
+    input_series:
+      - series: 'flux_instance_info{name="flux",ready="False",reason="Suspended",suspended="True"}'
+        values: '1+0x10'
+    alert_rule_test:
+      - eval_time: 6m
+        alertname: FluxInstanceNotReady
+        exp_alerts: []
+
   # FluxResourceNotReady: excludes suspended resources even if not ready.
   - interval: 1m
     input_series:

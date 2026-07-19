@@ -12,7 +12,7 @@ spec:
         # (ready/suspended/reason) rather than the value. Excludes suspended
         # resources -- that's a deliberate operator action, not a failure.
         - alert: FluxInstanceNotReady
-          expr: flux_instance_info{ready!="True"} == 1
+          expr: flux_instance_info{ready!="True", suspended="False"} == 1
           for: 5m
           labels:
             severity: critical
@@ -41,7 +41,7 @@ spec:
             severity: warning
           annotations:
             summary: Flux controller reconciliation errors ({{ $labels.controller }})
-            description: "{{ $value }} reconciliation errors in the last 10m from the {{ $labels.controller }} controller.\n  LABELS = {{ $labels }}"
+            description: "{{ printf \"%.0f\" $value }} reconciliation errors in the last 10m from the {{ $labels.controller }} controller.\n  LABELS = {{ $labels }}"
 
         - alert: FluxWorkqueueBacklog
           expr: workqueue_depth{job=~"system-gitops/flux-pod-monitor|flux-operator"} > 0
