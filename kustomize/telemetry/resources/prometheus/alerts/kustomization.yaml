@@ -11,3 +11,4 @@ components:
   - prometheus
   - coredns
   - cert-manager
+  - envoy

@@ -190,6 +190,7 @@ config:
         - prometheus/alerts/prometheus
         - prometheus/alerts/coredns
         - prometheus/alerts/cert-manager
+        - "${gateway.enabled == true && gateway.driver == 'envoy' ? 'prometheus/alerts/envoy' : ''}"
 
   # Observability addon forces both pipelines on.
   - name: telemetry

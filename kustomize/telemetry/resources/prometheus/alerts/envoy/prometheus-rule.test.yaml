@@ -1,0 +1,357 @@
+rule_files:
+  - .rendered-rule.yml
+
+evaluation_interval: 1m
+
+tests:
+  # EnvoyServerNotLive
+  - interval: 30s
+    input_series:
+      - series: 'envoy_server_live{pod="envoy1",namespace="system-gateway"}'
+        values: '1+0x3 0+0x3'
+    alert_rule_test:
+      - eval_time: 1m
+        alertname: EnvoyServerNotLive
+        exp_alerts: []
+      - eval_time: 3m
+        alertname: EnvoyServerNotLive
+        exp_alerts:
+          - exp_labels:
+              severity: critical
+              pod: envoy1
+              namespace: system-gateway
+            exp_annotations:
+              summary: 'Envoy server not live (pod envoy1)'
+              description: "Envoy proxy is not live (draining or shutting down).\n  VALUE = 0\n  LABELS = map[__name__:envoy_server_live namespace:system-gateway pod:envoy1]"
+
+  - interval: 30s
+    input_series:
+      - series: 'envoy_server_live{pod="envoy1",namespace="system-gateway"}'
+        values: '1+0x11'
+    alert_rule_test:
+      - eval_time: 5m
+        alertname: EnvoyServerNotLive
+        exp_alerts: []
+
+  # EnvoyClusterMembershipEmpty
+  - interval: 30s
+    input_series:
+      - series: 'envoy_cluster_membership_healthy{pod="envoy1",envoy_cluster_name="system-gateway/external"}'
+        values: '1+0x3 0+0x3'
+    alert_rule_test:
+      - eval_time: 1m
+        alertname: EnvoyClusterMembershipEmpty
+        exp_alerts: []
+      - eval_time: 3m
+        alertname: EnvoyClusterMembershipEmpty
+        exp_alerts:
+          - exp_labels:
+              severity: critical
+              pod: envoy1
+              envoy_cluster_name: system-gateway/external
+            exp_annotations:
+              summary: 'Envoy cluster membership empty (cluster system-gateway/external)'
+              description: "Upstream cluster system-gateway/external on pod envoy1 has no healthy member hosts.\n  VALUE = 0\n  LABELS = map[__name__:envoy_cluster_membership_healthy envoy_cluster_name:system-gateway/external pod:envoy1]"
+
+  - interval: 30s
+    input_series:
+      - series: 'envoy_cluster_membership_healthy{pod="envoy1",envoy_cluster_name="system-gateway/external"}'
+        values: '1+0x11'
+    alert_rule_test:
+      - eval_time: 5m
+        alertname: EnvoyClusterMembershipEmpty
+        exp_alerts: []
+
+  # EnvoyClusterMembershipDegraded
+  - interval: 1m
+    input_series:
+      - series: 'envoy_cluster_membership_healthy{pod="envoy1",envoy_cluster_name="system-gateway/external"}'
+        values: '4+0x4 2+0x16'
+      - series: 'envoy_cluster_membership_total{pod="envoy1",envoy_cluster_name="system-gateway/external"}'
+        values: '4+0x20'
+    alert_rule_test:
+      - eval_time: 4m
+        alertname: EnvoyClusterMembershipDegraded
+        exp_alerts: []
+      - eval_time: 10m
+        alertname: EnvoyClusterMembershipDegraded
+        exp_alerts:
+          - exp_labels:
+              severity: warning
+              pod: envoy1
+              envoy_cluster_name: system-gateway/external
+            exp_annotations:
+              summary: 'Envoy cluster membership degraded (cluster system-gateway/external)'
+              description: "Only 50.0% of members in cluster system-gateway/external on pod envoy1 are healthy (threshold 75%).\n  VALUE = 50\n  LABELS = map[envoy_cluster_name:system-gateway/external pod:envoy1]"
+
+  - interval: 1m
+    input_series:
+      - series: 'envoy_cluster_membership_healthy{pod="envoy1",envoy_cluster_name="system-gateway/external"}'
+        values: '4+0x20'
+      - series: 'envoy_cluster_membership_total{pod="envoy1",envoy_cluster_name="system-gateway/external"}'
+        values: '4+0x20'
+    alert_rule_test:
+      - eval_time: 10m
+        alertname: EnvoyClusterMembershipDegraded
+        exp_alerts: []
+
+  # EnvoyHighDownstreamHTTP5xxErrorRate - constant-slope counters so rate()
+  # is stable as soon as the [5m] window has samples; positive case keeps a
+  # sustained ~10% 5xx ratio, negative case keeps it at 0%.
+  - interval: 30s
+    input_series:
+      - series: 'envoy_http_downstream_rq_xx{instance="10.244.0.1:19001",envoy_http_conn_manager_prefix="https-10443",envoy_response_code_class="5"}'
+        values: '0+1x40'
+      - series: 'envoy_http_downstream_rq_completed{instance="10.244.0.1:19001",envoy_http_conn_manager_prefix="https-10443"}'
+        values: '0+10x40'
+    alert_rule_test:
+      - eval_time: 10m
+        alertname: EnvoyHighDownstreamHTTP5xxErrorRate
+        exp_alerts:
+          - exp_labels:
+              severity: critical
+              instance: 10.244.0.1:19001
+              envoy_http_conn_manager_prefix: https-10443
+            exp_annotations:
+              summary: 'Envoy high downstream HTTP 5xx error rate (listener https-10443)'
+              description: "Over 5% of downstream HTTP responses on listener https-10443 (10.244.0.1:19001) are 5xx (10.0%).\n  VALUE = 10\n  LABELS = map[envoy_http_conn_manager_prefix:https-10443 instance:10.244.0.1:19001]"
+
+  - interval: 30s
+    input_series:
+      - series: 'envoy_http_downstream_rq_xx{instance="10.244.0.1:19001",envoy_http_conn_manager_prefix="https-10443",envoy_response_code_class="5"}'
+        values: '0+0x40'
+      - series: 'envoy_http_downstream_rq_completed{instance="10.244.0.1:19001",envoy_http_conn_manager_prefix="https-10443"}'
+        values: '0+10x40'
+    alert_rule_test:
+      - eval_time: 10m
+        alertname: EnvoyHighDownstreamHTTP5xxErrorRate
+        exp_alerts: []
+
+  # EnvoyHighClusterUpstream5xxErrorRate
+  - interval: 30s
+    input_series:
+      - series: 'envoy_cluster_upstream_rq_xx{instance="10.244.0.1:19001",envoy_cluster_name="system-gateway/external",envoy_response_code_class="5"}'
+        values: '0+1x40'
+      - series: 'envoy_cluster_upstream_rq_completed{instance="10.244.0.1:19001",envoy_cluster_name="system-gateway/external"}'
+        values: '0+10x40'
+    alert_rule_test:
+      - eval_time: 10m
+        alertname: EnvoyHighClusterUpstream5xxErrorRate
+        exp_alerts:
+          - exp_labels:
+              severity: critical
+              instance: 10.244.0.1:19001
+              envoy_cluster_name: system-gateway/external
+            exp_annotations:
+              summary: 'Envoy high cluster upstream 5xx error rate (cluster system-gateway/external)'
+              description: "Over 5% of upstream requests to cluster system-gateway/external (10.244.0.1:19001) return 5xx (10.0%).\n  VALUE = 10\n  LABELS = map[envoy_cluster_name:system-gateway/external instance:10.244.0.1:19001]"
+
+  - interval: 30s
+    input_series:
+      - series: 'envoy_cluster_upstream_rq_xx{instance="10.244.0.1:19001",envoy_cluster_name="system-gateway/external",envoy_response_code_class="5"}'
+        values: '0+0x40'
+      - series: 'envoy_cluster_upstream_rq_completed{instance="10.244.0.1:19001",envoy_cluster_name="system-gateway/external"}'
+        values: '0+10x40'
+    alert_rule_test:
+      - eval_time: 10m
+        alertname: EnvoyHighClusterUpstream5xxErrorRate
+        exp_alerts: []
+
+  # EnvoyNoHealthyUpstream
+  - interval: 30s
+    input_series:
+      - series: 'envoy_cluster_upstream_cx_none_healthy{pod="envoy1",envoy_cluster_name="system-gateway/external"}'
+        values: '0+0x3 5+0x3'
+    alert_rule_test:
+      - eval_time: 1m
+        alertname: EnvoyNoHealthyUpstream
+        exp_alerts: []
+      - eval_time: 2m
+        alertname: EnvoyNoHealthyUpstream
+        exp_alerts:
+          - exp_labels:
+              severity: critical
+              pod: envoy1
+              envoy_cluster_name: system-gateway/external
+            exp_annotations:
+              summary: 'Envoy no healthy upstream (cluster system-gateway/external)'
+              description: "Connection attempts to cluster system-gateway/external on pod envoy1 failed because no healthy upstream host was available (5 in the last 5m).\n  VALUE = 5\n  LABELS = map[envoy_cluster_name:system-gateway/external pod:envoy1]"
+
+  - interval: 30s
+    input_series:
+      - series: 'envoy_cluster_upstream_cx_none_healthy{pod="envoy1",envoy_cluster_name="system-gateway/external"}'
+        values: '0+0x11'
+    alert_rule_test:
+      - eval_time: 5m
+        alertname: EnvoyNoHealthyUpstream
+        exp_alerts: []
+
+  # EnvoyClusterCircuitBreakerTripped
+  - interval: 30s
+    input_series:
+      - series: 'envoy_cluster_circuit_breakers_cx_open{pod="envoy1",envoy_cluster_name="system-gateway/external",priority="default"}'
+        values: '0+0x3 1+0x3'
+    alert_rule_test:
+      - eval_time: 1m
+        alertname: EnvoyClusterCircuitBreakerTripped
+        exp_alerts: []
+      - eval_time: 2m
+        alertname: EnvoyClusterCircuitBreakerTripped
+        exp_alerts:
+          - exp_labels:
+              severity: critical
+              pod: envoy1
+              envoy_cluster_name: system-gateway/external
+              priority: default
+            exp_annotations:
+              summary: 'Envoy cluster circuit breaker tripped (cluster system-gateway/external)'
+              description: "A default-priority circuit breaker is open for cluster system-gateway/external on pod envoy1, new connections/requests are being rejected.\n  VALUE = 1\n  LABELS = map[__name__:envoy_cluster_circuit_breakers_cx_open envoy_cluster_name:system-gateway/external pod:envoy1 priority:default]"
+
+  - interval: 30s
+    input_series:
+      - series: 'envoy_cluster_circuit_breakers_cx_open{pod="envoy1",envoy_cluster_name="system-gateway/external",priority="default"}'
+        values: '0+0x11'
+      - series: 'envoy_cluster_circuit_breakers_rq_open{pod="envoy1",envoy_cluster_name="system-gateway/external",priority="default"}'
+        values: '0+0x11'
+      - series: 'envoy_cluster_circuit_breakers_cx_pool_open{pod="envoy1",envoy_cluster_name="system-gateway/external",priority="default"}'
+        values: '0+0x11'
+    alert_rule_test:
+      - eval_time: 5m
+        alertname: EnvoyClusterCircuitBreakerTripped
+        exp_alerts: []
+
+  # EnvoyListenerSSLConnectionErrors
+  - interval: 30s
+    input_series:
+      - series: 'envoy_listener_ssl_connection_error{pod="envoy1",envoy_listener_address="0.0.0.0_10443"}'
+        values: '0+0x3 6+0x3'
+    alert_rule_test:
+      - eval_time: 1m
+        alertname: EnvoyListenerSSLConnectionErrors
+        exp_alerts: []
+      - eval_time: 2m
+        alertname: EnvoyListenerSSLConnectionErrors
+        exp_alerts:
+          - exp_labels:
+              severity: warning
+              pod: envoy1
+              envoy_listener_address: 0.0.0.0_10443
+            exp_annotations:
+              summary: 'Envoy listener SSL connection errors (listener 0.0.0.0_10443)'
+              description: "Listener 0.0.0.0_10443 on pod envoy1 is experiencing TLS handshake/connection errors (6 in the last 5m).\n  VALUE = 6\n  LABELS = map[envoy_listener_address:0.0.0.0_10443 pod:envoy1]"
+
+  - interval: 30s
+    input_series:
+      - series: 'envoy_listener_ssl_connection_error{pod="envoy1",envoy_listener_address="0.0.0.0_10443"}'
+        values: '0+0x11'
+    alert_rule_test:
+      - eval_time: 5m
+        alertname: EnvoyListenerSSLConnectionErrors
+        exp_alerts: []
+
+  # EnvoySSLCertificateExpiringSoon / EnvoySSLCertificateExpired
+  - interval: 1m
+    input_series:
+      - series: 'envoy_server_days_until_first_cert_expiring{pod="envoy1"}'
+        values: '10'
+    alert_rule_test:
+      - eval_time: 0m
+        alertname: EnvoySSLCertificateExpiringSoon
+        exp_alerts: []
+      - eval_time: 0m
+        alertname: EnvoySSLCertificateExpired
+        exp_alerts: []
+
+  - interval: 1m
+    input_series:
+      - series: 'envoy_server_days_until_first_cert_expiring{pod="envoy1"}'
+        values: '5'
+    alert_rule_test:
+      - eval_time: 0m
+        alertname: EnvoySSLCertificateExpiringSoon
+        exp_alerts:
+          - exp_labels:
+              severity: warning
+              pod: envoy1
+            exp_annotations:
+              summary: 'Envoy SSL certificate expiring soon (pod envoy1)'
+              description: "The soonest-expiring certificate loaded by Envoy on pod envoy1 expires in less than 7 days.\n  VALUE = 5\n  LABELS = map[__name__:envoy_server_days_until_first_cert_expiring pod:envoy1]"
+      - eval_time: 0m
+        alertname: EnvoySSLCertificateExpired
+        exp_alerts: []
+
+  - interval: 1m
+    input_series:
+      - series: 'envoy_server_days_until_first_cert_expiring{pod="envoy1"}'
+        values: '-1'
+    alert_rule_test:
+      - eval_time: 0m
+        alertname: EnvoySSLCertificateExpired
+        exp_alerts:
+          - exp_labels:
+              severity: critical
+              pod: envoy1
+            exp_annotations:
+              summary: 'Envoy SSL certificate expired (pod envoy1)'
+              description: "A certificate loaded by Envoy on pod envoy1 has already expired.\n  VALUE = -1\n  LABELS = map[__name__:envoy_server_days_until_first_cert_expiring pod:envoy1]"
+
+  # EnvoyGatewayStatusUpdateFailures
+  - interval: 30s
+    input_series:
+      - series: 'status_update_total{job="envoy-gateway",kind="Gateway",status="failure",reason="conflict"}'
+        values: '0+0x3 1+0x3'
+    alert_rule_test:
+      - eval_time: 1m
+        alertname: EnvoyGatewayStatusUpdateFailures
+        exp_alerts: []
+      - eval_time: 2m
+        alertname: EnvoyGatewayStatusUpdateFailures
+        exp_alerts:
+          - exp_labels:
+              severity: warning
+              job: envoy-gateway
+              kind: Gateway
+              status: failure
+              reason: conflict
+            exp_annotations:
+              summary: 'Envoy Gateway status update failing (kind Gateway)'
+              description: "envoy-gateway failed to write status for a Gateway resource (conflict), 1 failures in the last 5m.\n  VALUE = 1\n  LABELS = map[job:envoy-gateway kind:Gateway reason:conflict status:failure]"
+
+  - interval: 30s
+    input_series:
+      - series: 'status_update_total{job="envoy-gateway",kind="Gateway",status="success"}'
+        values: '0+1x11'
+    alert_rule_test:
+      - eval_time: 5m
+        alertname: EnvoyGatewayStatusUpdateFailures
+        exp_alerts: []
+
+  # EnvoyGatewayXDSConfigPushFailures
+  - interval: 30s
+    input_series:
+      - series: 'xds_snapshot_update_total{job="envoy-gateway",status="failure",nodeID="envoy-system-gateway-external"}'
+        values: '0+0x3 1+0x3'
+    alert_rule_test:
+      - eval_time: 1m
+        alertname: EnvoyGatewayXDSConfigPushFailures
+        exp_alerts: []
+      - eval_time: 2m
+        alertname: EnvoyGatewayXDSConfigPushFailures
+        exp_alerts:
+          - exp_labels:
+              severity: critical
+              job: envoy-gateway
+              status: failure
+              nodeID: envoy-system-gateway-external
+            exp_annotations:
+              summary: 'Envoy Gateway xDS config push failing (node envoy-system-gateway-external)'
+              description: "envoy-gateway failed to push an xDS snapshot to proxy node envoy-system-gateway-external, 1 failures in the last 5m. Config changes are not reaching the data plane.\n  VALUE = 1\n  LABELS = map[job:envoy-gateway nodeID:envoy-system-gateway-external status:failure]"
+
+  - interval: 30s
+    input_series:
+      - series: 'xds_snapshot_update_total{job="envoy-gateway",status="success",nodeID="envoy-system-gateway-external"}'
+        values: '0+1x11'
+    alert_rule_test:
+      - eval_time: 5m
+        alertname: EnvoyGatewayXDSConfigPushFailures
+        exp_alerts: []

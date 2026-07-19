@@ -1,0 +1,9 @@
+apiVersion: kustomize.config.k8s.io/v1alpha1
+kind: Component
+
+# Supplemental Envoy Gateway alerts (data-plane envoy proxy stats and the
+# envoy-gateway control plane) not already covered by kube-prometheus-stack's
+# default rules. Curated from samber/awesome-prometheus-alerts.
+
+resources:
+  - prometheus-rule.yaml
