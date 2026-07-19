@@ -1,0 +1,15 @@
+apiVersion: kustomize.config.k8s.io/v1alpha1
+kind: Component
+
+# Flux alerts. samber/awesome-prometheus-alerts does have a FluxCD category
+# (4 rules keyed on gotk_resource_info, the kube-state-metrics-derived
+# duplicate of Flux CRD status), but it doesn't exclude suspended resources
+# -- a deliberately suspended Kustomization/HelmRelease would false-positive
+# forever. Sourced from flux-operator's own richer flux_resource_info /
+# flux_instance_info metrics instead (suspended-aware, carries a human
+# -readable failure reason), consolidated into fewer, more general rules. No
+# upstream chart ships any Flux coverage, so nothing here is redundant with
+# kube-prometheus-stack's defaultRules.
+
+resources:
+  - prometheus-rule.yaml

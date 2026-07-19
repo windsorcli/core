@@ -1,0 +1,66 @@
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: flux-alerts
+  namespace: system-telemetry
+spec:
+  groups:
+    - name: flux-supplemental.rules
+      rules:
+        # flux_instance_info/flux_resource_info are flux-operator's own
+        # metrics: a gauge of 1 per resource, status encoded in labels
+        # (ready/suspended/reason) rather than the value. Excludes suspended
+        # resources -- that's a deliberate operator action, not a failure.
+        - alert: FluxInstanceNotReady
+          expr: flux_instance_info{ready!="True"} == 1
+          for: 5m
+          labels:
+            severity: critical
+          annotations:
+            summary: Flux instance not ready ({{ $labels.name }})
+            description: "The FluxInstance {{ $labels.name }} has been not-ready for 5m: {{ $labels.reason }}. The entire GitOps pipeline is affected.\n  LABELS = {{ $labels }}"
+
+        - alert: FluxResourceNotReady
+          expr: flux_resource_info{ready!="True", suspended="False"} == 1
+          for: 10m
+          labels:
+            severity: critical
+          annotations:
+            summary: Flux resource not ready ({{ $labels.kind }} {{ $labels.name }})
+            description: "{{ $labels.kind }} {{ $labels.exported_namespace }}/{{ $labels.name }} has been not-ready for 10m: {{ $labels.reason }}.\n  LABELS = {{ $labels }}"
+
+        # controller_runtime_reconcile_errors_total and workqueue_depth are
+        # generic controller-runtime metrics shared by every operator on this
+        # cluster (cert-manager, envoy-gateway, cloudnativepg, etc.) -- scoped
+        # to just the Flux controllers and flux-operator itself so this rule
+        # doesn't fire on an unrelated operator's backlog or errors.
+        - alert: FluxReconciliationErrors
+          expr: sum by (job, controller) (increase(controller_runtime_reconcile_errors_total{job=~"system-gitops/flux-pod-monitor|flux-operator"}[10m])) > 0
+          for: 5m
+          labels:
+            severity: warning
+          annotations:
+            summary: Flux controller reconciliation errors ({{ $labels.controller }})
+            description: "{{ $value }} reconciliation errors in the last 10m from the {{ $labels.controller }} controller.\n  LABELS = {{ $labels }}"
+
+        - alert: FluxWorkqueueBacklog
+          expr: workqueue_depth{job=~"system-gitops/flux-pod-monitor|flux-operator"} > 0
+          for: 10m
+          labels:
+            severity: warning
+          annotations:
+            summary: Flux controller workqueue backlog ({{ $labels.controller }})
+            description: "The {{ $labels.controller }} controller's workqueue has held a backlog of {{ $value }} items for 10m -- it isn't keeping up with reconciliation work.\n  LABELS = {{ $labels }}"
+
+        # gotk_ ("GitOps Toolkit") metrics are Flux-specific by naming
+        # convention, no job scoping needed. p99 baseline on this cluster is
+        # ~5-7s even for Kustomization (the slowest kind); 60s is a
+        # comfortable margin above normal variance.
+        - alert: FluxReconciliationSlow
+          expr: histogram_quantile(0.99, sum by (kind, name, le) (rate(gotk_reconcile_duration_seconds_bucket[30m]))) > 60
+          for: 10m
+          labels:
+            severity: warning
+          annotations:
+            summary: Flux reconciliation slow ({{ $labels.kind }} {{ $labels.name }})
+            description: "p99 reconciliation duration for {{ $labels.kind }} {{ $labels.name }} has been above 60s for 10m ({{ $value }}s) -- likely stuck on a slow upstream call or hung Helm render.\n  LABELS = {{ $labels }}"
