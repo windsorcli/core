@@ -444,6 +444,26 @@ properties:
             description: >
               Deploy PrometheusRule alerting rules for core cluster components. Requires
               telemetry.metrics.enabled.
+          slack:
+            type: object
+            properties:
+              webhook_url:
+                type: string
+                sensitive: true
+                description: Slack incoming webhook URL. Set via a secret() reference; windsor materializes it into the alertmanager-notification-slack Secret. Providing it enables Slack routing.
+              channel:
+                type: string
+                default: "#alerts"
+                description: Slack channel to post to.
+              severity:
+                type: array
+                default: [warning, critical]
+                items:
+                  type: string
+                  enum: [warning, critical]
+                description: Alert severities routed to Slack.
+            additionalProperties: false
+            description: Route alerts to Slack. Set webhook_url (sensitive) to the incoming webhook.
         additionalProperties: false
     additionalProperties: false
 

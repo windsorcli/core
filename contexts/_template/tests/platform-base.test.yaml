@@ -516,6 +516,90 @@ cases:
                 - fluentbit/systemd
                 - fluentbit/fluentd
 
+  # Default severity (both) falls into the "2 or more selected" branch --
+  # the alternation regex, not a single value.
+  - name: telemetry slack notification with default severity routes the alternation
+    values:
+      platform: metal
+      gateway:
+        enabled: false
+      network: *default-network
+      cluster: *default-cluster
+      telemetry:
+        alerts:
+          slack:
+            webhook_url: https://hooks.slack.com/services/T000/B000/XXXXXXXX
+            channel: "#test-alerts"
+    expect:
+      flux:
+        - name: telemetry
+          resources:
+            - components:
+                - prometheus
+                - prometheus/flux
+                - prometheus/alerts/node
+                - prometheus/alerts/prometheus
+                - prometheus/alerts/coredns
+                - prometheus/alerts/cert-manager
+                - prometheus/notifications/slack
+                - fluentbit
+                - fluentbit/containerd
+                - fluentbit/kubernetes
+                - fluentbit/parser
+                - fluentbit/systemd
+                - fluentbit/prometheus
+                - fluentbit/fluentd
+              substitutions:
+                slack_channel: '"#test-alerts"'
+                severity_regex: warning|critical
+
+  # A single configured severity skips the "2+ selected" branch -- confirms
+  # the bounded ternary (no join() available) picks the lone value.
+  - name: telemetry slack notification with one severity routes that severity only
+    values:
+      platform: metal
+      gateway:
+        enabled: false
+      network: *default-network
+      cluster: *default-cluster
+      telemetry:
+        alerts:
+          slack:
+            webhook_url: https://hooks.slack.com/services/T000/B000/XXXXXXXX
+            channel: "#test-alerts"
+            severity: [critical]
+    expect:
+      flux:
+        - name: telemetry
+          resources:
+            - components:
+                - prometheus/notifications/slack
+              substitutions:
+                slack_channel: '"#test-alerts"'
+                severity_regex: critical
+
+  # No webhook_url (the default) excludes the component entirely, even with
+  # metrics on -- confirms the notification component isn't unconditional.
+  - name: telemetry slack notification without a webhook_url excludes the component
+    values:
+      platform: metal
+      gateway:
+        enabled: false
+      network: *default-network
+      cluster: *default-cluster
+    expect:
+      flux:
+        - name: telemetry
+          resources:
+            - components:
+                - prometheus
+                - prometheus/flux
+                - prometheus/alerts/node
+                - prometheus/alerts/prometheus
+                - prometheus/alerts/coredns
+                - prometheus/alerts/cert-manager
+                - fluentbit
+
   # Logs on, metrics off: fluent-bit ships + fluentd aggregates, Prometheus
   # stack is dropped. cert-manager/prometheus and fluentbit/prometheus (the
   # ServiceMonitors) are excluded — no Prometheus to scrape.

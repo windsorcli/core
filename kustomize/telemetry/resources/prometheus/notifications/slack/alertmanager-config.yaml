@@ -1,0 +1,25 @@
+---
+apiVersion: monitoring.coreos.com/v1alpha1
+kind: AlertmanagerConfig
+metadata:
+  name: slack-notifications
+  namespace: system-telemetry
+spec:
+  route:
+    receiver: slack
+    groupBy: ["alertname", "namespace"]
+    groupWait: 30s
+    groupInterval: 5m
+    repeatInterval: 4h
+    matchers:
+      - name: severity
+        matchType: =~
+        value: ${severity_regex}
+  receivers:
+    - name: slack
+      slackConfigs:
+        - apiURL:
+            name: alertmanager-notification-slack
+            key: url
+          channel: ${slack_channel}
+          sendResolved: true
