@@ -123,7 +123,7 @@ terraform:
     path: dns/zone/hetzner
     when: "(dns.public_domain ?? '') != ''"
     inputs:
-      hcloud_token: ${hetzner.dns_token ?? hetzner.token}
+      hcloud_token: ${hetzner.token}
       domain_name: ${dns.public_domain}
       parent_zone_name: "${hetzner.dns_parent_zone ?? ''}"
 
@@ -191,7 +191,8 @@ flux:
   - name: lb
     secrets:
       hcloud:
-        token: ${hetzner.token}
+        data:
+          token: ${hetzner.token}
     install:
       components:
         - hcloud-ccm
@@ -208,7 +209,8 @@ flux:
     when: talos_common.storage_driver == 'hcloud'
     secrets:
       hcloud:
-        token: ${hetzner.token}
+        data:
+          token: ${hetzner.token}
     install:
       components:
         - hcloud-csi
@@ -226,7 +228,8 @@ flux:
       - "${gateway.enabled == true ? 'gateway-install' : ''}"
     secrets:
       hetzner-dns:
-        token: ${hetzner.dns_token ?? hetzner.token}
+        data:
+          token: ${hetzner.token}
     install:
       components:
         - external-dns
@@ -238,10 +241,13 @@ flux:
         external_domain: "${dns.public_domain ?? ''}"
         txt_owner_id: "${id}"
 
-  # Materialize the Hetzner DNS token into system-pki too, for the cert-manager
-  # ACME webhook (public TLS only).
+  # Multi-namespace system — pki-install creates both system-pki and
+  # system-pki-trust, so the target is named explicitly. cert-manager's ACME
+  # DNS-01 solver reads the Hetzner token from system-pki (public TLS only).
   - name: pki
     when: "(dns.public_domain ?? '') != ''"
     secrets:
       hetzner-dns:
-        token: ${hetzner.dns_token ?? hetzner.token}
+        namespaces: [system-pki]
+        data:
+          token: ${hetzner.token}

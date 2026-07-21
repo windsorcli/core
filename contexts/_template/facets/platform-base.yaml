@@ -342,7 +342,8 @@ flux:
     when: (telemetry.alerts.slack.webhook_url ?? '') != ''
     secrets:
       alertmanager-notification-slack:
-        url: ${telemetry.alerts.slack.webhook_url}
+        data:
+          url: ${telemetry.alerts.slack.webhook_url}
 
   # Depends on telemetry-install so cert-manager's ServiceMonitor has a
   # working Prometheus target from the moment it's created.
