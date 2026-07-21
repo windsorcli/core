@@ -126,7 +126,10 @@ flux:
       - dependsOn:
           - "${dns.enabled ? 'dns-install' : ''}"
         components:
-          - "${gateway.driver == 'cilium' ? 'cilium' : ''}"
+          # cilium LBIPAM patch (lbipam.cilium.io/ips) — skipped when a cloud LB
+          # controller owns the IP (hetzner CCM); the plain Gateway Service is
+          # then filled by the cloud LB instead of Cilium LBIPAM.
+          - "${gateway.driver == 'cilium' && lb_effective.controller_required != true ? 'cilium' : ''}"
           # Points the Gateway at its EnvoyProxy (envoy-only data-plane Service config).
           - "${gateway.driver != 'cilium' ? 'envoy/parameters' : ''}"
           # Catch-all 404 (Envoy directResponse) for unmatched HTTPRoutes; envoy-only.
@@ -145,6 +148,6 @@ flux:
           gateway_cert_issuer: "${gateway_effective.cert_issuer}"
           # Only emitted when a consumer is active (in-cluster LB or cilium gateway);
           # empty otherwise and the harness drops it.
-          loadbalancer_start_ip: "${(lb_effective.enabled == true || gateway.driver == 'cilium') ? network.loadbalancer_ips.start : ''}"
+          loadbalancer_start_ip: "${(lb_effective.enabled == true || (gateway.driver == 'cilium' && lb_effective.controller_required != true)) ? network.loadbalancer_ips.start : ''}"
         timeout: 10m
         interval: 5m

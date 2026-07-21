@@ -44,8 +44,9 @@ config:
 
   # Gateway driver. First non-null wins: explicit gateway.driver; legacy
   # ingress.driver alias (envoy-gateway/nginx → envoy); else platform default
-  # — docker-desktop, AWS, and Hetzner use envoy (cloud LB fronts the gateway
-  # Service even with Cilium as the CNI), otherwise cilium when it's the CNI.
+  # — docker-desktop and AWS use envoy, otherwise cilium when it's the CNI. On
+  # hetzner the Cilium gateway's LoadBalancer Service is provisioned by the
+  # hcloud cloud-controller-manager (no LBIPAM; cilium/l2 is suppressed).
   - name: gateway
     value:
       enabled: ${gateway.enabled ?? ingress.enabled ?? true}
@@ -54,7 +55,7 @@ config:
           ?? (ingress.driver == 'envoy-gateway' || ingress.driver == 'nginx'
               ? 'envoy'
               : ingress.driver)
-          ?? (workstation.runtime == 'docker-desktop' || platform == 'aws' || platform == 'hetzner'
+          ?? (workstation.runtime == 'docker-desktop' || platform == 'aws'
               ? 'envoy'
               : (cluster.cni.driver == 'cilium' ? 'cilium' : 'envoy'))}
 

@@ -71,6 +71,9 @@ flux:
         - cilium
         - cilium/talos
         - "${(gateway.enabled == true && gateway.driver == 'cilium') ? 'cilium/gateway' : ''}"
+        # LBIPAM sharing policy — L2 environments only; a cloud LB controller
+        # (hetzner CCM) fills the plain Gateway Service instead.
+        - "${(gateway.enabled == true && gateway.driver == 'cilium' && lb_effective.controller_required != true) ? 'cilium/gateway/lbipam' : ''}"
         - "${telemetry.metrics.enabled ? 'cilium/prometheus' : ''}"
         - cilium/hubble
         - "${lb_effective.controller_required ? '' : 'cilium/l2'}"
@@ -93,6 +96,9 @@ flux:
       components:
         - cilium
         - "${(gateway.enabled == true && gateway.driver == 'cilium') ? 'cilium/gateway' : ''}"
+        # LBIPAM sharing policy — L2 environments only; a cloud LB controller
+        # (hetzner CCM) fills the plain Gateway Service instead.
+        - "${(gateway.enabled == true && gateway.driver == 'cilium' && lb_effective.controller_required != true) ? 'cilium/gateway/lbipam' : ''}"
         - "${telemetry.metrics.enabled ? 'cilium/prometheus' : ''}"
         - cilium/hubble
       substitutions:
