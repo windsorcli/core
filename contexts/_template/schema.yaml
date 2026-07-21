@@ -168,6 +168,7 @@ properties:
       - none
       - aws
       - azure
+      - hetzner
       - incus
       - metal
       - docker
@@ -281,6 +282,47 @@ properties:
           is managed identity (msi) or another mode that lacks a process-env
           signal windsor can detect.
     description: Azure provider authentication configuration
+
+  # Hetzner Cloud provider configuration (only consumed when platform == 'hetzner').
+  # The API token is env-driven (HCLOUD_TOKEN) like other providers' credentials;
+  # this block carries only region placement — which datacenter servers and the
+  # cloud load balancer live in, and which network zone the private network spans.
+  hetzner:
+    type: object
+    additionalProperties: false
+    properties:
+      location:
+        type: string
+        enum:
+          - fsn1
+          - nbg1
+          - hel1
+          - ash
+          - hil
+          - sin
+        default: fsn1
+        description: Hetzner datacenter location for servers and the cloud load balancer (fsn1/nbg1 Germany, hel1 Finland, ash US-east, hil US-west, sin Singapore).
+      network_zone:
+        type: string
+        enum:
+          - eu-central
+          - us-east
+          - us-west
+          - ap-southeast
+        default: eu-central
+        description: Network zone the private network spans. Must contain the chosen location (eu-central covers fsn1/nbg1/hel1, us-east covers ash, us-west covers hil, ap-southeast covers sin).
+      token:
+        type: string
+        sensitive: true
+        description: Hetzner Cloud API token. Drives the Terraform hcloud/imager providers and is materialized as the in-cluster `hcloud` Secret for the cloud-controller-manager and CSI driver; also the default DNS token (Hetzner DNS is part of the Cloud API). Set via a secret() reference.
+      dns_token:
+        type: string
+        sensitive: true
+        description: Optional separate Hetzner Cloud API token for DNS (external-dns + cert-manager ACME webhook), for scoping DNS zone access to its own project. Falls back to `token` when unset. Only relevant with dns.public_domain. Set via a secret() reference.
+      dns_parent_zone:
+        $ref: '#/$defs/dnsHostname'
+        description: Parent DNS zone in the same Hetzner account for auto-delegating dns.public_domain (e.g. windsorcli.dev when public_domain is hetzner.windsorcli.dev). When set, Terraform creates the NS delegation record in the parent. Leave unset to delegate manually.
+    description: Hetzner Cloud provider location and credentials
 
   # Hyper-V provider configuration (only consumed when platform == 'hyperv').
   # Connection details (host, credentials, transport) are env-var driven by the

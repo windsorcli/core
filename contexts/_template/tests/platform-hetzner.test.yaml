@@ -1,0 +1,157 @@
+# platform-hetzner.yaml facet tests
+# Talos on Hetzner Cloud: compute/hcloud → cluster/talos → cni → gitops, with
+# cilium CNI, envoy gateway fronted by a Hetzner Cloud LB (hcloud CCM), hcloud-csi
+# storage, and Hetzner DNS + ACME for public TLS.
+#
+# Tests must provide terraformOutputs.compute to mock terraform_output() calls.
+
+x-defaults:
+  network: &default-network
+    cidr_block: 10.5.0.0/16
+
+  hetzner: &default-hetzner
+    location: fsn1
+    network_zone: eu-central
+
+  terraform-outputs: &default-terraform-outputs
+    compute:
+      controlplanes:
+        - endpoint: 10.5.0.10:6443
+          node: 10.5.0.10
+          hostname: controlplane-1
+      workers: []
+
+cases:
+  # Minimal: compute/cluster/cni/gitops chain, cilium CNI, hcloud CSI + CCM,
+  # selfsigned PKI (no public domain).
+  - name: minimal config creates hcloud compute and talos cluster with cloud CSI/CCM
+    values:
+      platform: hetzner
+      hetzner: *default-hetzner
+      gateway:
+        enabled: false
+      network: *default-network
+    terraformOutputs: *default-terraform-outputs
+    expect:
+      terraform:
+        - name: compute
+          path: compute/hcloud
+          inputs:
+            location: fsn1
+            network_zone: eu-central
+        - name: cluster
+          path: cluster/talos
+          dependsOn:
+            - compute
+          parallelism: 1
+          inputs:
+            cluster_endpoint: https://10.5.0.10:6443
+            cluster_name: talos
+        - name: cni
+          path: cni/cilium
+          dependsOn:
+            - cluster
+        - name: gitops
+          path: gitops/flux
+          dependsOn:
+            - cluster
+            - cni
+          destroy: false
+      flux:
+        - name: cni
+          install:
+            components:
+              - cilium
+              - cilium/talos
+            substitutions:
+              k8s_service_host: "10.5.0.10"
+        - name: csi
+          install:
+            components:
+              - hcloud-csi
+        - name: lb
+          install:
+            components:
+              - hcloud-ccm
+        - name: pki
+          resources:
+            - components:
+                - public-issuer/selfsigned
+
+  # Public domain: envoy gateway fronted by the Hetzner Cloud LB overlay, ACME
+  # (Hetzner DNS-01) issuer, and external-dns via the Hetzner webhook provider.
+  - name: public domain wires cloud LB, ACME hetzner issuer, and external-dns
+    values:
+      id: htz1
+      platform: hetzner
+      email: ops@example.com
+      dns:
+        public_domain: example.com
+      hetzner:
+        location: fsn1
+        network_zone: eu-central
+        dns_parent_zone: example.org
+      gateway:
+        enabled: true
+        driver: envoy
+      network: *default-network
+    terraformOutputs: *default-terraform-outputs
+    expect:
+      terraform:
+        - name: dns-zone
+          path: dns/zone/hetzner
+          inputs:
+            domain_name: example.com
+            parent_zone_name: example.org
+      flux:
+        - name: gateway
+          install:
+            components:
+              - envoy/loadbalancer/hcloud-lb
+            substitutions:
+              hcloud_location: fsn1
+        - name: pki
+          resources:
+            - components:
+                - public-issuer/acme/hetzner
+              substitutions:
+                acme_dns_zone: example.com
+                acme_email: ops@example.com
+        - name: dns
+          install:
+            components:
+              - external-dns
+              - external-dns/providers/hetzner
+              - external-dns/sources/gateway-httproute
+            substitutions:
+              external_domain: example.com
+              txt_owner_id: htz1
+
+  # Private gateway: private selfsigned issuer. Hetzner DNS is public-only, so
+  # private access relies on the private-dns addon (CoreDNS) for the private zone;
+  # the Hetzner external-dns provider does not render.
+  - name: private gateway uses private selfsigned issuer via the private-dns addon
+    values:
+      platform: hetzner
+      hetzner: *default-hetzner
+      dns:
+        private_domain: internal.example.com
+      gateway:
+        enabled: true
+        driver: envoy
+        access: private
+      addons:
+        private_dns:
+          enabled: true
+      network: *default-network
+    terraformOutputs: *default-terraform-outputs
+    expect:
+      flux:
+        - name: pki
+          resources:
+            - components:
+                - private-issuer/selfsigned
+        - name: dns
+          install:
+            components:
+              - external-dns/providers/coredns

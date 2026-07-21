@@ -44,7 +44,8 @@ config:
 
   # Gateway driver. First non-null wins: explicit gateway.driver; legacy
   # ingress.driver alias (envoy-gateway/nginx → envoy); else platform default
-  # — docker-desktop and AWS use envoy, otherwise cilium when it's the CNI.
+  # — docker-desktop, AWS, and Hetzner use envoy (cloud LB fronts the gateway
+  # Service even with Cilium as the CNI), otherwise cilium when it's the CNI.
   - name: gateway
     value:
       enabled: ${gateway.enabled ?? ingress.enabled ?? true}
@@ -53,7 +54,7 @@ config:
           ?? (ingress.driver == 'envoy-gateway' || ingress.driver == 'nginx'
               ? 'envoy'
               : ingress.driver)
-          ?? (workstation.runtime == 'docker-desktop' || platform == 'aws'
+          ?? (workstation.runtime == 'docker-desktop' || platform == 'aws' || platform == 'hetzner'
               ? 'envoy'
               : (cluster.cni.driver == 'cilium' ? 'cilium' : 'envoy'))}
 
@@ -89,13 +90,14 @@ config:
       mode: loadbalancer
 
   # True when an in-cluster LB controller (lb-install) is required: aws always
-  # (aws-lb-controller), metal/incus/docker/hyperv when lb_effective.enabled,
-  # azure never. Consumers dependsOn this so reverse-topo destroy keeps the
-  # controller alive to lift its finalizers before its Kustomization is torn
-  # down. Keep in sync if a new platform facet creates an lb-install.
+  # (aws-lb-controller), hetzner always (hcloud cloud-controller-manager),
+  # metal/incus/docker/hyperv when lb_effective.enabled, azure never. Consumers
+  # dependsOn this so reverse-topo destroy keeps the controller alive to lift its
+  # finalizers before its Kustomization is torn down. Keep in sync if a new
+  # platform facet creates an lb-install.
   - name: lb_effective
     value:
-      controller_required: "${platform == 'aws' || lb_effective.enabled == true}"
+      controller_required: "${platform == 'aws' || platform == 'hetzner' || lb_effective.enabled == true}"
 
   # DNS domains. domain: user-facing root. public_domain: publicly-routable
   # pattern (external-dns, ACME SAN) — explicit only, never from `domain`, so

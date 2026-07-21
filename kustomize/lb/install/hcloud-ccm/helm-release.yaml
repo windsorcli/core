@@ -1,0 +1,45 @@
+---
+apiVersion: helm.toolkit.fluxcd.io/v2
+kind: HelmRelease
+metadata:
+  name: hcloud-cloud-controller-manager
+  namespace: system-lb
+spec:
+  interval: 5m
+  timeout: 10m
+  targetNamespace: system-lb
+  install:
+    createNamespace: false
+    remediation:
+      retries: 3
+  upgrade:
+    remediation:
+      retries: 3
+  chart:
+    spec:
+      chart: hcloud-cloud-controller-manager
+      # renovate: datasource=helm depName=hcloud-cloud-controller-manager package=hcloud-cloud-controller-manager helmRepo=https://charts.hetzner.cloud
+      version: 1.34.0
+      sourceRef:
+        kind: HelmRepository
+        name: hcloud
+  values:
+    image:
+      repository: docker.io/hetznercloud/hcloud-cloud-controller-manager
+      # renovate: datasource=docker depName=docker.io/hetznercloud/hcloud-cloud-controller-manager
+      tag: v1.34.0@sha256:bedf16705f1c2a1a8d0dcfddd7eb89938f329a5542e464ba08fc580b905621ec
+    # Reads the API token from the `hcloud` Secret (key `token`) the platform
+    # facet materializes into system-lb. The CCM watches type=LoadBalancer
+    # Services and provisions Hetzner Cloud Load Balancers; it also clears the
+    # uninitialized taint on nodes.
+    env:
+      HCLOUD_TOKEN:
+        valueFrom:
+          secretKeyRef:
+            name: hcloud
+            key: token
+    # Cilium owns the pod network, so the CCM route-controller stays off. Setting
+    # networking.enabled would make the CCM manage routes in the hcloud network and
+    # conflict with the CNI overlay.
+    networking:
+      enabled: false

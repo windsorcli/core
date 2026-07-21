@@ -18,7 +18,7 @@ The default blueprint that includes base infrastructure and services. Cloud "pri
 ### Workstation — local host
 - [workstation](terraform/workstation)
 
-### Compute — Docker · Hyper-V · Incus
+### Compute — Docker · Hyper-V · Incus · Hetzner
 - [compute](terraform/compute)
 
 ### Cluster — Talos · EKS · AKS
@@ -38,7 +38,7 @@ The default blueprint that includes base infrastructure and services. Cloud "pri
 ### CNI — Cilium
 - [cni](kustomize/cni)
 
-### CSI — EBS · Azure Disk · OpenEBS · Longhorn
+### CSI — EBS · Azure Disk · Hetzner Volumes · OpenEBS · Longhorn
 - [csi](kustomize/csi)
 
 ### PKI — cert-manager
@@ -50,7 +50,7 @@ The default blueprint that includes base infrastructure and services. Cloud "pri
 ### Gateway — Gateway API
 - [gateway](kustomize/gateway)
 
-### LB — MetalLB · kube-vip · AWS LB
+### LB — MetalLB · kube-vip · AWS LB · Hetzner CCM
 - [lb](kustomize/lb)
 
 ### DNS — external-dns

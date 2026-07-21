@@ -1,0 +1,37 @@
+---
+# Hetzner DNS via the official external-dns webhook provider (external-dns has no
+# in-tree Hetzner provider). Uses hetzner/external-dns-hetzner-webhook, which talks
+# to the current Hetzner DNS API (part of the Cloud API since Oct 2025) and reads a
+# Hetzner Cloud API token from HETZNER_TOKEN. The token comes from the `hetzner-dns`
+# Secret (key `token`) the platform facet materializes into system-dns.
+apiVersion: helm.toolkit.fluxcd.io/v2
+kind: HelmRelease
+metadata:
+  name: external-dns
+  namespace: system-dns
+spec:
+  values:
+    provider:
+      name: webhook
+      webhook:
+        image:
+          repository: docker.io/hetzner/external-dns-hetzner-webhook
+          # renovate: datasource=docker depName=docker.io/hetzner/external-dns-hetzner-webhook
+          tag: v0.3.3@sha256:83303ad3532daf53a701160c5a3d7623d225e901dd87401ce6220ce1d3e00c7c
+        env:
+          - name: HETZNER_TOKEN
+            valueFrom:
+              secretKeyRef:
+                name: hetzner-dns
+                key: token
+    policy: sync
+    registry: txt
+    # Unique TXT-record owner id so external-dns instances sharing a zone don't
+    # clobber each other's records; the context id is unique per cluster.
+    txtOwnerId: ${txt_owner_id}
+    domainFilters:
+      - ${external_domain:-test}
+    serviceAccount:
+      create: true
+      name: external-dns
+      annotations: {}
