@@ -195,6 +195,8 @@ flux:
     install:
       components:
         - hcloud-ccm
+      substitutions:
+        hcloud_location: "${hetzner.location ?? 'fsn1'}"
       timeout: 5m
       interval: 5m
 

@@ -38,6 +38,11 @@ spec:
           secretKeyRef:
             name: hcloud
             key: token
+      # Default location for Cloud Load Balancers the CCM provisions for
+      # type=LoadBalancer Services (the CCM refuses to guess). Per-Service
+      # load-balancer.hetzner.cloud/location annotations still override.
+      HCLOUD_LOAD_BALANCERS_LOCATION:
+        value: ${hcloud_location:-fsn1}
     # Cilium owns the pod network, so the CCM route-controller stays off. Setting
     # networking.enabled would make the CCM manage routes in the hcloud network and
     # conflict with the CNI overlay.

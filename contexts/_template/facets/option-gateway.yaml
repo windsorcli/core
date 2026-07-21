@@ -52,7 +52,7 @@ config:
     value:
       cert_issuer: private
   - name: gateway_effective
-    when: platform == 'aws' || platform == 'azure' || (dns.public_domain ?? '') != ''
+    when: platform == 'aws' || platform == 'azure' || platform == 'hetzner' || (dns.public_domain ?? '') != ''
     value:
       cert_issuer: "${cert_effective.public_issuer}"
   - name: gateway_effective
