@@ -22,7 +22,7 @@ spec:
     webhook:
       image:
         # renovate: datasource=docker depName=quay.io/jetstack/cert-manager-webhook package=quay.io/jetstack/cert-manager-webhook
-        tag: v1.20.3@sha256:a61e817632cebed3bb59a189327e786fa3fdd7597167d994a1848d98fd55848f
+        tag: v1.21.0@sha256:c33cca307541e2d58861a55b1af5f390b7e19c8741e48b433693b73a7cce88b3
     cainjector:
       image:
         # renovate: datasource=docker depName=quay.io/jetstack/cert-manager-cainjector package=quay.io/jetstack/cert-manager-cainjector
