@@ -91,6 +91,7 @@ cases:
                 - prometheus/alerts/prometheus
                 - prometheus/alerts/coredns
                 - prometheus/alerts/cert-manager
+                - prometheus/alerts/flux
                 - fluentbit
                 - fluentbit/containerd
                 - fluentbit/kubernetes
@@ -210,6 +211,7 @@ cases:
                 - prometheus/alerts/prometheus
                 - prometheus/alerts/coredns
                 - prometheus/alerts/cert-manager
+                - prometheus/alerts/flux
                 - prometheus/alerts/envoy
                 - fluentbit
                 - fluentbit/containerd

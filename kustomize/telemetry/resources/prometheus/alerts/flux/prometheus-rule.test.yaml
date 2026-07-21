@@ -1,0 +1,178 @@
+rule_files:
+  - .rendered-rule.yml
+
+evaluation_interval: 1m
+
+tests:
+  # FluxInstanceNotReady: bare gauge selector, ready label drives inclusion.
+  - interval: 1m
+    input_series:
+      - series: 'flux_instance_info{name="flux",ready="False",reason="ReconciliationFailed",suspended="False"}'
+        values: '1+0x10'
+    alert_rule_test:
+      - eval_time: 4m
+        alertname: FluxInstanceNotReady
+        exp_alerts: []
+      - eval_time: 6m
+        alertname: FluxInstanceNotReady
+        exp_alerts:
+          - exp_labels:
+              severity: critical
+              name: flux
+              ready: "False"
+              reason: ReconciliationFailed
+              suspended: "False"
+            exp_annotations:
+              summary: 'Flux instance not ready (flux)'
+              description: "The FluxInstance flux has been not-ready for 5m: ReconciliationFailed. The entire GitOps pipeline is affected.\n  LABELS = map[__name__:flux_instance_info name:flux ready:False reason:ReconciliationFailed suspended:False]"
+
+  - interval: 1m
+    input_series:
+      - series: 'flux_instance_info{name="flux",ready="True",reason="ReconciliationSucceeded",suspended="False"}'
+        values: '1+0x10'
+    alert_rule_test:
+      - eval_time: 6m
+        alertname: FluxInstanceNotReady
+        exp_alerts: []
+
+  - interval: 1m
+    input_series:
+      - series: 'flux_instance_info{name="flux",ready="False",reason="Suspended",suspended="True"}'
+        values: '1+0x10'
+    alert_rule_test:
+      - eval_time: 6m
+        alertname: FluxInstanceNotReady
+        exp_alerts: []
+
+  # FluxResourceNotReady: excludes suspended resources even if not ready.
+  - interval: 1m
+    input_series:
+      - series: 'flux_resource_info{kind="Kustomization",name="gateway-install",exported_namespace="system-gitops",ready="False",reason="DependencyNotReady",suspended="False"}'
+        values: '1+0x12'
+    alert_rule_test:
+      - eval_time: 8m
+        alertname: FluxResourceNotReady
+        exp_alerts: []
+      - eval_time: 11m
+        alertname: FluxResourceNotReady
+        exp_alerts:
+          - exp_labels:
+              severity: critical
+              kind: Kustomization
+              name: gateway-install
+              exported_namespace: system-gitops
+              ready: "False"
+              reason: DependencyNotReady
+              suspended: "False"
+            exp_annotations:
+              summary: 'Flux resource not ready (Kustomization gateway-install)'
+              description: "Kustomization system-gitops/gateway-install has been not-ready for 10m: DependencyNotReady.\n  LABELS = map[__name__:flux_resource_info exported_namespace:system-gitops kind:Kustomization name:gateway-install ready:False reason:DependencyNotReady suspended:False]"
+
+  - interval: 1m
+    input_series:
+      - series: 'flux_resource_info{kind="Kustomization",name="gateway-install",exported_namespace="system-gitops",ready="False",reason="Suspended",suspended="True"}'
+        values: '1+0x12'
+    alert_rule_test:
+      - eval_time: 11m
+        alertname: FluxResourceNotReady
+        exp_alerts: []
+
+  # FluxReconciliationErrors: counter must actually increase, not just be nonzero.
+  - interval: 1m
+    input_series:
+      - series: 'controller_runtime_reconcile_errors_total{job="system-gitops/flux-pod-monitor",controller="helmrepository"}'
+        values: '0+0x4 1+0x20'
+    alert_rule_test:
+      - eval_time: 3m
+        alertname: FluxReconciliationErrors
+        exp_alerts: []
+      - eval_time: 11m
+        alertname: FluxReconciliationErrors
+        exp_alerts:
+          - exp_labels:
+              severity: warning
+              job: system-gitops/flux-pod-monitor
+              controller: helmrepository
+            exp_annotations:
+              summary: 'Flux controller reconciliation errors (helmrepository)'
+              description: "1 reconciliation errors in the last 10m from the helmrepository controller.\n  LABELS = map[controller:helmrepository job:system-gitops/flux-pod-monitor]"
+
+  - interval: 1m
+    input_series:
+      - series: 'controller_runtime_reconcile_errors_total{job="system-gitops/flux-pod-monitor",controller="helmrepository"}'
+        values: '0+0x24'
+    alert_rule_test:
+      - eval_time: 11m
+        alertname: FluxReconciliationErrors
+        exp_alerts: []
+
+  # FluxWorkqueueBacklog: sustained nonzero depth.
+  - interval: 1m
+    input_series:
+      - series: 'workqueue_depth{job="flux-operator",controller="fluxinstance"}'
+        values: '3+0x15'
+    alert_rule_test:
+      - eval_time: 5m
+        alertname: FluxWorkqueueBacklog
+        exp_alerts: []
+      - eval_time: 11m
+        alertname: FluxWorkqueueBacklog
+        exp_alerts:
+          - exp_labels:
+              severity: warning
+              job: flux-operator
+              controller: fluxinstance
+            exp_annotations:
+              summary: 'Flux controller workqueue backlog (fluxinstance)'
+              description: "The fluxinstance controller's workqueue has held a backlog of 3 items for 10m -- it isn't keeping up with reconciliation work.\n  LABELS = map[__name__:workqueue_depth controller:fluxinstance job:flux-operator]"
+
+  - interval: 1m
+    input_series:
+      - series: 'workqueue_depth{job="flux-operator",controller="fluxinstance"}'
+        values: '0+0x15'
+    alert_rule_test:
+      - eval_time: 11m
+        alertname: FluxWorkqueueBacklog
+        exp_alerts: []
+
+  # FluxReconciliationSlow: histogram shaped so p99 falls between the 60s and
+  # 120s buckets (well above the 60s threshold) vs. entirely under 30s.
+  - interval: 1m
+    input_series:
+      - series: 'gotk_reconcile_duration_seconds_bucket{kind="Kustomization",name="gateway-install",le="30"}'
+        values: '0+0x20'
+      - series: 'gotk_reconcile_duration_seconds_bucket{kind="Kustomization",name="gateway-install",le="60"}'
+        values: '0+1x20'
+      - series: 'gotk_reconcile_duration_seconds_bucket{kind="Kustomization",name="gateway-install",le="120"}'
+        values: '0+10x20'
+      - series: 'gotk_reconcile_duration_seconds_bucket{kind="Kustomization",name="gateway-install",le="+Inf"}'
+        values: '0+10x20'
+    alert_rule_test:
+      - eval_time: 5m
+        alertname: FluxReconciliationSlow
+        exp_alerts: []
+      - eval_time: 15m
+        alertname: FluxReconciliationSlow
+        exp_alerts:
+          - exp_labels:
+              severity: warning
+              kind: Kustomization
+              name: gateway-install
+            exp_annotations:
+              summary: 'Flux reconciliation slow (Kustomization gateway-install)'
+              description: "p99 reconciliation duration for Kustomization gateway-install has been above 60s for 10m (119.33333333333333s) -- likely stuck on a slow upstream call or hung Helm render.\n  LABELS = map[kind:Kustomization name:gateway-install]"
+
+  - interval: 1m
+    input_series:
+      - series: 'gotk_reconcile_duration_seconds_bucket{kind="Kustomization",name="gateway-install",le="30"}'
+        values: '0+10x20'
+      - series: 'gotk_reconcile_duration_seconds_bucket{kind="Kustomization",name="gateway-install",le="60"}'
+        values: '0+10x20'
+      - series: 'gotk_reconcile_duration_seconds_bucket{kind="Kustomization",name="gateway-install",le="120"}'
+        values: '0+10x20'
+      - series: 'gotk_reconcile_duration_seconds_bucket{kind="Kustomization",name="gateway-install",le="+Inf"}'
+        values: '0+10x20'
+    alert_rule_test:
+      - eval_time: 15m
+        alertname: FluxReconciliationSlow
+        exp_alerts: []
