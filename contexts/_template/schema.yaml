@@ -187,6 +187,30 @@ properties:
     default: false
     description: Whether infrastructure is short-lived. True relaxes destroy-time guards and ownership choices for stacks that recreate routinely (CI, integration testing).
 
+  # Secret provider configuration for secret() references in this context's values.
+  secrets:
+    type: object
+    properties:
+      onepassword:
+        type: object
+        properties:
+          vaults:
+            type: object
+            description: Map of vault alias (the first argument to secret()) to its connection config.
+            additionalProperties:
+              type: object
+              properties:
+                id:
+                  type: string
+                url:
+                  type: string
+                name:
+                  type: string
+              additionalProperties: false
+        additionalProperties: false
+    additionalProperties: false
+    description: Secret providers backing secret("vault", "item", "field") references in values.
+
   # AWS provider configuration (only consumed when platform == 'aws').
   aws:
     type: object
@@ -444,6 +468,30 @@ properties:
             description: >
               Deploy PrometheusRule alerting rules for core cluster components. Requires
               telemetry.metrics.enabled.
+          grafana_url:
+            type: string
+            description: Base URL for the Grafana links in alert notifications, no trailing slash. Overrides the derived https://grafana.<domain>.
+          slack:
+            type: object
+            properties:
+              webhook_url:
+                type: string
+                sensitive: true
+                description: Slack incoming webhook URL. Set via a secret() reference; windsor materializes it into the alertmanager-notification-slack Secret. Providing it enables Slack routing.
+              channel:
+                type: string
+                default: "#alerts"
+                description: Slack channel to post to.
+              severity:
+                type: array
+                default: [warning, critical]
+                minItems: 1
+                items:
+                  type: string
+                  enum: [warning, critical]
+                description: Alert severities routed to Slack.
+            additionalProperties: false
+            description: Route alerts to Slack. Set webhook_url (sensitive) to the incoming webhook.
         additionalProperties: false
     additionalProperties: false
 

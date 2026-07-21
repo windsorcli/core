@@ -300,6 +300,7 @@ flux:
           - "${telemetry.metrics.enabled ? 'prometheus' : ''}"
           - "${telemetry.metrics.enabled ? 'prometheus/flux' : ''}"
           - "${telemetry.alert_components ?? []}"
+          - "${(telemetry.metrics.enabled ?? true) && (telemetry.alerts.slack.webhook_url ?? '') != '' ? 'prometheus/notifications/slack' : ''}"
           - "${telemetry.logs.enabled ? 'fluentbit' : ''}"
           - "${telemetry.logs.enabled ? 'fluentbit/containerd' : ''}"
           - "${telemetry.logs.enabled ? 'fluentbit/kubernetes' : ''}"
@@ -307,8 +308,38 @@ flux:
           - "${telemetry.logs.enabled ? 'fluentbit/systemd' : ''}"
           - "${telemetry.logs.enabled && telemetry.metrics.enabled ? 'fluentbit/prometheus' : ''}"
           - "${telemetry.logs.driver == 'fluentd' ? 'fluentbit/fluentd' : ''}"
+        substitutions:
+          # Only two severities exist in the enum, so "2 or more selected"
+          # and "both" are equivalent -- no join() needed for this bounded case.
+          #
+          # slack_channel bakes in its own quotes: kustomize strips
+          # "unnecessary" quotes around a bare ${token}, and an unquoted
+          # value starting with "#" gets parsed as a YAML comment after
+          # Flux's substitution.
+          slack_channel: "\"${telemetry.alerts.slack.channel ?? '#alerts'}\""
+          severity_regex: >-
+            ${len(telemetry.alerts.slack.severity ?? ['warning', 'critical']) >= 2
+              ? 'warning|critical'
+              : (telemetry.alerts.slack.severity ?? ['warning', 'critical'])[0]}
+          # Base URL for the alert's Grafana links. Explicit override wins; else
+          # derive from the domain the Grafana route publishes on (public_domain
+          # when set, else private_domain).
+          grafana_base_url: >-
+            ${telemetry.alerts.grafana_url
+              ?? ('https://grafana.' + ((dns.public_domain ?? '') == ''
+                    ? (dns.private_domain ?? '')
+                    : dns.public_domain))}
         timeout: 10m
         interval: 5m
+
+  # Slack alert routing secret. Gated on a configured webhook so the bare
+  # sensitive reference (the composer rejects a ?? fallback, the materializer
+  # rejects an empty non-optional value) always resolves against a real value.
+  - name: telemetry
+    when: (telemetry.alerts.slack.webhook_url ?? '') != ''
+    secrets:
+      alertmanager-notification-slack:
+        url: ${telemetry.alerts.slack.webhook_url}
 
   # Depends on telemetry-install so cert-manager's ServiceMonitor has a
   # working Prometheus target from the moment it's created.

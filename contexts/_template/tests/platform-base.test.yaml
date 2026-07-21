@@ -521,6 +521,149 @@ cases:
                 - fluentbit/systemd
                 - fluentbit/fluentd
 
+  # Default severity (both) falls into the "2 or more selected" branch --
+  # the alternation regex, not a single value.
+  - name: telemetry slack notification with default severity routes the alternation
+    values:
+      platform: metal
+      gateway:
+        enabled: false
+      network: *default-network
+      cluster: *default-cluster
+      telemetry:
+        alerts:
+          slack:
+            webhook_url: https://hooks.slack.com/services/T000/B000/XXXXXXXX
+            channel: "#test-alerts"
+    expect:
+      flux:
+        - name: telemetry
+          resources:
+            - components:
+                - prometheus
+                - prometheus/flux
+                - prometheus/alerts/node
+                - prometheus/alerts/prometheus
+                - prometheus/alerts/coredns
+                - prometheus/alerts/cert-manager
+                - prometheus/alerts/flux
+                - prometheus/notifications/slack
+                - fluentbit
+                - fluentbit/containerd
+                - fluentbit/kubernetes
+                - fluentbit/parser
+                - fluentbit/systemd
+                - fluentbit/prometheus
+                - fluentbit/fluentd
+              secrets:
+                alertmanager-notification-slack:
+                  url: https://hooks.slack.com/services/T000/B000/XXXXXXXX
+              substitutions:
+                slack_channel: '"#test-alerts"'
+                severity_regex: warning|critical
+
+  # A single configured severity skips the "2+ selected" branch -- confirms
+  # the bounded ternary (no join() available) picks the lone value.
+  - name: telemetry slack notification with one severity routes that severity only
+    values:
+      platform: metal
+      gateway:
+        enabled: false
+      network: *default-network
+      cluster: *default-cluster
+      telemetry:
+        alerts:
+          slack:
+            webhook_url: https://hooks.slack.com/services/T000/B000/XXXXXXXX
+            channel: "#test-alerts"
+            severity: [critical]
+    expect:
+      flux:
+        - name: telemetry
+          resources:
+            - components:
+                - prometheus/notifications/slack
+              secrets:
+                alertmanager-notification-slack:
+                  url: https://hooks.slack.com/services/T000/B000/XXXXXXXX
+              substitutions:
+                slack_channel: '"#test-alerts"'
+                severity_regex: critical
+
+  # Grafana link base URL derives from the domain the Grafana route publishes
+  # on (private_domain here, since no public_domain is set).
+  - name: telemetry alert grafana links derive the base url from the domain
+    values:
+      platform: metal
+      gateway:
+        enabled: false
+      network: *default-network
+      cluster: *default-cluster
+      dns:
+        domain: example.com
+      telemetry:
+        alerts:
+          slack:
+            webhook_url: https://hooks.slack.com/services/T000/B000/XXXXXXXX
+            channel: "#test-alerts"
+    expect:
+      flux:
+        - name: telemetry
+          resources:
+            - components:
+                - prometheus/notifications/slack
+              substitutions:
+                grafana_base_url: https://grafana.example.com
+
+  # An explicit grafana_url wins over the derived value -- the escape hatch for
+  # a non-standard host or port (e.g. local NodePort forwarding).
+  - name: telemetry alert grafana_url overrides the derived base url
+    values:
+      platform: metal
+      gateway:
+        enabled: false
+      network: *default-network
+      cluster: *default-cluster
+      dns:
+        domain: example.com
+      telemetry:
+        alerts:
+          grafana_url: https://grafana.example.com:8443
+          slack:
+            webhook_url: https://hooks.slack.com/services/T000/B000/XXXXXXXX
+            channel: "#test-alerts"
+    expect:
+      flux:
+        - name: telemetry
+          resources:
+            - components:
+                - prometheus/notifications/slack
+              substitutions:
+                grafana_base_url: https://grafana.example.com:8443
+
+  # No webhook_url (the default) excludes the component entirely, even with
+  # metrics on -- confirms the notification component isn't unconditional.
+  - name: telemetry slack notification without a webhook_url excludes the component
+    values:
+      platform: metal
+      gateway:
+        enabled: false
+      network: *default-network
+      cluster: *default-cluster
+    expect:
+      flux:
+        - name: telemetry
+          resources:
+            - components:
+                - prometheus
+                - prometheus/flux
+                - prometheus/alerts/node
+                - prometheus/alerts/prometheus
+                - prometheus/alerts/coredns
+                - prometheus/alerts/cert-manager
+                - prometheus/alerts/flux
+                - fluentbit
+
   # Logs on, metrics off: fluent-bit ships + fluentd aggregates, Prometheus
   # stack is dropped. cert-manager/prometheus and fluentbit/prometheus (the
   # ServiceMonitors) are excluded — no Prometheus to scrape.

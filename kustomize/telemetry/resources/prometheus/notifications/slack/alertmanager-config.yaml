@@ -1,0 +1,56 @@
+---
+apiVersion: monitoring.coreos.com/v1alpha1
+kind: AlertmanagerConfig
+metadata:
+  name: slack-notifications
+  namespace: system-telemetry
+spec:
+  route:
+    receiver: slack
+    groupBy: ["alertname", "namespace"]
+    groupWait: 30s
+    groupInterval: 5m
+    repeatInterval: 4h
+    matchers:
+      - name: severity
+        matchType: =~
+        value: ${severity_regex}
+  receivers:
+    - name: slack
+      slackConfigs:
+        - apiURL:
+            name: alertmanager-notification-slack
+            key: url
+          channel: ${slack_channel}
+          sendResolved: true
+          username: Alertmanager
+          # Canonical Prometheus flame (CNCF artwork). Slack fetches this from
+          # its own servers, so it must stay a public, raster (PNG) URL. Slack
+          # caches the avatar per URL string — bump ?v= to force a re-fetch when
+          # swapping the logo.
+          iconURL: https://raw.githubusercontent.com/cncf/artwork/master/projects/prometheus/icon/color/prometheus-icon-color.png?v=2
+          # Attachment bar: red for critical, orange for warning, green resolved.
+          color: '{{ if eq .Status "firing" }}{{ if eq .CommonLabels.severity "critical" }}danger{{ else }}warning{{ end }}{{ else }}good{{ end }}'
+          # One clean headline instead of the default raw label dump.
+          title: '{{ if eq .Status "firing" }}:fire: [FIRING:{{ .Alerts.Firing | len }}]{{ else }}:white_check_mark: [RESOLVED]{{ end }} {{ .CommonLabels.alertname }}{{ if .CommonLabels.namespace }} · {{ .CommonLabels.namespace }}{{ end }}'
+          # Grafana Explore deep-link to this alert's ALERTS series (v11+ panes
+          # schema, prometheus datasource uid). urlquery encodes the JSON blob.
+          # ${grafana_base_url} is a Flux substitution; {{ }} is rendered by Alertmanager.
+          titleLink: '${grafana_base_url}/explore?schemaVersion=1&orgId=1&panes={{ printf `{"ae":{"datasource":"prometheus","queries":[{"refId":"A","expr":"ALERTS{alertname=\"%s\"}","datasource":{"type":"prometheus","uid":"prometheus"}}],"range":{"from":"now-1h","to":"now"}}}` .CommonLabels.alertname | urlquery }}'
+          # Per-instance body from the rules' summary/description annotations,
+          # not machine labels. Runbook is an inline guarded link so a missing
+          # annotation can't produce an empty-URL button that Slack rejects.
+          text: |-
+            {{ range .Alerts -}}
+            {{ if .Annotations.summary }}*{{ .Annotations.summary }}*{{ else }}*{{ .Labels.alertname }}*{{ end }}
+            {{ if .Annotations.description }}{{ .Annotations.description }}
+            {{ end }}*Severity:* `{{ .Labels.severity }}`{{ if .Labels.instance }}  |  *Instance:* `{{ .Labels.instance }}`{{ end }}{{ if .Labels.pod }}  |  *Pod:* `{{ .Labels.pod }}`{{ end }}  |  *Since:* {{ .StartsAt.Format "15:04 MST" }}
+            {{ if .Annotations.runbook_url }}:book: <{{ .Annotations.runbook_url }}|Runbook>
+            {{ end }}
+            {{ end }}
+          footer: 'kube-prometheus-stack · ${grafana_base_url}'
+          actions:
+            # Same Explore deep-link as titleLink — lands on the firing series.
+            - type: button
+              text: ':mag: View in Grafana'
+              url: '${grafana_base_url}/explore?schemaVersion=1&orgId=1&panes={{ printf `{"ae":{"datasource":"prometheus","queries":[{"refId":"A","expr":"ALERTS{alertname=\"%s\"}","datasource":{"type":"prometheus","uid":"prometheus"}}],"range":{"from":"now-1h","to":"now"}}}` .CommonLabels.alertname | urlquery }}'
