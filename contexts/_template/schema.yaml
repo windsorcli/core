@@ -458,6 +458,7 @@ properties:
               severity:
                 type: array
                 default: [warning, critical]
+                minItems: 1
                 items:
                   type: string
                   enum: [warning, critical]
