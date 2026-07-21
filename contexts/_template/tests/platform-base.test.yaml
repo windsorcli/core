@@ -590,6 +590,57 @@ cases:
                 slack_channel: '"#test-alerts"'
                 severity_regex: critical
 
+  # Grafana link base URL derives from the domain the Grafana route publishes
+  # on (private_domain here, since no public_domain is set).
+  - name: telemetry alert grafana links derive the base url from the domain
+    values:
+      platform: metal
+      gateway:
+        enabled: false
+      network: *default-network
+      cluster: *default-cluster
+      dns:
+        domain: example.com
+      telemetry:
+        alerts:
+          slack:
+            webhook_url: https://hooks.slack.com/services/T000/B000/XXXXXXXX
+            channel: "#test-alerts"
+    expect:
+      flux:
+        - name: telemetry
+          resources:
+            - components:
+                - prometheus/notifications/slack
+              substitutions:
+                grafana_base_url: https://grafana.example.com
+
+  # An explicit grafana_url wins over the derived value -- the escape hatch for
+  # a non-standard host or port (e.g. local NodePort forwarding).
+  - name: telemetry alert grafana_url overrides the derived base url
+    values:
+      platform: metal
+      gateway:
+        enabled: false
+      network: *default-network
+      cluster: *default-cluster
+      dns:
+        domain: example.com
+      telemetry:
+        alerts:
+          grafana_url: https://grafana.example.com:8443
+          slack:
+            webhook_url: https://hooks.slack.com/services/T000/B000/XXXXXXXX
+            channel: "#test-alerts"
+    expect:
+      flux:
+        - name: telemetry
+          resources:
+            - components:
+                - prometheus/notifications/slack
+              substitutions:
+                grafana_base_url: https://grafana.example.com:8443
+
   # No webhook_url (the default) excludes the component entirely, even with
   # metrics on -- confirms the notification component isn't unconditional.
   - name: telemetry slack notification without a webhook_url excludes the component

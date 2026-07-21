@@ -187,6 +187,30 @@ properties:
     default: false
     description: Whether infrastructure is short-lived. True relaxes destroy-time guards and ownership choices for stacks that recreate routinely (CI, integration testing).
 
+  # Secret provider configuration for secret() references in this context's values.
+  secrets:
+    type: object
+    properties:
+      onepassword:
+        type: object
+        properties:
+          vaults:
+            type: object
+            description: Map of vault alias (the first argument to secret()) to its connection config.
+            additionalProperties:
+              type: object
+              properties:
+                id:
+                  type: string
+                url:
+                  type: string
+                name:
+                  type: string
+              additionalProperties: false
+        additionalProperties: false
+    additionalProperties: false
+    description: Secret providers backing secret("vault", "item", "field") references in values.
+
   # AWS provider configuration (only consumed when platform == 'aws').
   aws:
     type: object
@@ -444,6 +468,9 @@ properties:
             description: >
               Deploy PrometheusRule alerting rules for core cluster components. Requires
               telemetry.metrics.enabled.
+          grafana_url:
+            type: string
+            description: Base URL for the Grafana links in alert notifications, no trailing slash. Overrides the derived https://grafana.<domain>.
           slack:
             type: object
             properties:

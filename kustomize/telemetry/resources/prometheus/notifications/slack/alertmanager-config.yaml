@@ -23,3 +23,28 @@ spec:
             key: url
           channel: ${slack_channel}
           sendResolved: true
+          # Attachment bar: red for critical, orange for warning, green resolved.
+          color: '{{ if eq .Status "firing" }}{{ if eq .CommonLabels.severity "critical" }}danger{{ else }}warning{{ end }}{{ else }}good{{ end }}'
+          # One clean headline instead of the default raw label dump.
+          title: '{{ if eq .Status "firing" }}:fire: [FIRING:{{ .Alerts.Firing | len }}]{{ else }}:white_check_mark: [RESOLVED]{{ end }} {{ .CommonLabels.alertname }}{{ if .CommonLabels.namespace }} · {{ .CommonLabels.namespace }}{{ end }}'
+          # Grafana Explore deep-link to this alert's ALERTS series (v11+ panes
+          # schema, prometheus datasource uid). urlquery encodes the JSON blob.
+          # ${grafana_base_url} is a Flux substitution; {{ }} is rendered by Alertmanager.
+          titleLink: '${grafana_base_url}/explore?schemaVersion=1&orgId=1&panes={{ printf `{"ae":{"datasource":"prometheus","queries":[{"refId":"A","expr":"ALERTS{alertname=\"%s\"}","datasource":{"type":"prometheus","uid":"prometheus"}}],"range":{"from":"now-1h","to":"now"}}}` .CommonLabels.alertname | urlquery }}'
+          # Per-instance body from the rules' summary/description annotations,
+          # not machine labels. Runbook is an inline guarded link so a missing
+          # annotation can't produce an empty-URL button that Slack rejects.
+          text: |-
+            {{ range .Alerts -}}
+            {{ if .Annotations.summary }}*{{ .Annotations.summary }}*{{ else }}*{{ .Labels.alertname }}*{{ end }}
+            {{ if .Annotations.description }}{{ .Annotations.description }}
+            {{ end }}*Severity:* `{{ .Labels.severity }}`{{ if .Labels.instance }}  |  *Instance:* `{{ .Labels.instance }}`{{ end }}{{ if .Labels.pod }}  |  *Pod:* `{{ .Labels.pod }}`{{ end }}  |  *Since:* {{ .StartsAt.Format "15:04 MST" }}
+            {{ if .Annotations.runbook_url }}:book: <{{ .Annotations.runbook_url }}|Runbook>
+            {{ end }}
+            {{ end }}
+          footer: 'kube-prometheus-stack · ${grafana_base_url}'
+          actions:
+            # Same Explore deep-link as titleLink — lands on the firing series.
+            - type: button
+              text: ':mag: View in Grafana'
+              url: '${grafana_base_url}/explore?schemaVersion=1&orgId=1&panes={{ printf `{"ae":{"datasource":"prometheus","queries":[{"refId":"A","expr":"ALERTS{alertname=\"%s\"}","datasource":{"type":"prometheus","uid":"prometheus"}}],"range":{"from":"now-1h","to":"now"}}}` .CommonLabels.alertname | urlquery }}'
