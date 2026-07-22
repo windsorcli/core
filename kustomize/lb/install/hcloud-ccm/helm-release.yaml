@@ -49,7 +49,7 @@ spec:
       # rejected with "missing network id". Routes stay off; cilium owns the pod
       # network, so this only scopes LB target IPs, not routing.
       HCLOUD_NETWORK:
-        value: ${hcloud_network_id}
+        value: "${hcloud_network_id}"
       HCLOUD_NETWORK_ROUTES_ENABLED:
         value: "false"
       HCLOUD_LOAD_BALANCERS_USE_PRIVATE_IP:
