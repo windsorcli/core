@@ -1,29 +1,39 @@
 locals {
+  # Per-node kubelet provider-id (hcloud://<server-id>) so the cluster can map
+  # nodes to their hcloud servers without running cloud-provider=external.
+  provider_id_patches = {
+    for k, s in hcloud_server.this : k => yamlencode({
+      machine = { kubelet = { extraArgs = { "provider-id" = "hcloud://${s.id}" } } }
+    })
+  }
+
   # Talos-shaped node records. endpoint is the Talos API (port 50000) on the
   # public IP; node is the public IP cluster/talos applies config to.
   controlplanes = [
     for k, v in local.controlplane_nodes : {
-      hostname     = v.hostname
-      endpoint     = "${hcloud_server.this[k].ipv4_address}:50000"
-      node         = hcloud_server.this[k].ipv4_address
-      name         = hcloud_server.this[k].name
-      ipv4         = hcloud_server.this[k].ipv4_address
-      ipv6         = hcloud_server.this[k].ipv6_address
-      private_ipv4 = local.private_ips[k]
-      server_type  = v.server_type
+      hostname       = v.hostname
+      endpoint       = "${hcloud_server.this[k].ipv4_address}:50000"
+      node           = hcloud_server.this[k].ipv4_address
+      name           = hcloud_server.this[k].name
+      ipv4           = hcloud_server.this[k].ipv4_address
+      ipv6           = hcloud_server.this[k].ipv6_address
+      private_ipv4   = local.private_ips[k]
+      server_type    = v.server_type
+      config_patches = local.provider_id_patches[k]
     }
   ]
 
   workers = [
     for k, v in local.worker_nodes : {
-      hostname     = v.hostname
-      endpoint     = "${hcloud_server.this[k].ipv4_address}:50000"
-      node         = hcloud_server.this[k].ipv4_address
-      name         = hcloud_server.this[k].name
-      ipv4         = hcloud_server.this[k].ipv4_address
-      ipv6         = hcloud_server.this[k].ipv6_address
-      private_ipv4 = local.private_ips[k]
-      server_type  = v.server_type
+      hostname       = v.hostname
+      endpoint       = "${hcloud_server.this[k].ipv4_address}:50000"
+      node           = hcloud_server.this[k].ipv4_address
+      name           = hcloud_server.this[k].name
+      ipv4           = hcloud_server.this[k].ipv4_address
+      ipv6           = hcloud_server.this[k].ipv6_address
+      private_ipv4   = local.private_ips[k]
+      server_type    = v.server_type
+      config_patches = local.provider_id_patches[k]
     }
   ]
 }

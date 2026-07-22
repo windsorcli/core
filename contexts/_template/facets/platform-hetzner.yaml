@@ -36,13 +36,12 @@ config:
       storage_driver: "${cluster.storage.driver ?? 'hcloud'}"
       k8s_service_host: "${cidrhost(network.cidr_block, 10)}"
 
-  # NOTE: kubelet is intentionally NOT set to --cloud-provider=external. That
-  # taints nodes node.cloudprovider.kubernetes.io/uninitialized until the CCM
-  # clears it, but the CCM is installed by Flux — which can't schedule onto
-  # tainted nodes, a bootstrap deadlock. So the CCM runs in LB-only mode
-  # (provisions Cloud LBs by matching nodes via IP); full node lifecycle
-  # (providerID, topology labels) needs the CCM bootstrapped via Terraform
-  # before Flux, like cni/cilium — a follow-up.
+  # NOTE: kubelet is intentionally NOT set to --cloud-provider=external, which
+  # would taint nodes node.cloudprovider.kubernetes.io/uninitialized until the
+  # CCM clears it — a deadlock, since Flux can't schedule the CCM onto tainted
+  # nodes. Instead compute/hcloud pins each node's provider-id directly, so the
+  # Flux-installed CCM can still map nodes to servers for Cloud LB targets. Full
+  # cloud node lifecycle (topology labels) is not managed; not needed here.
 
   # issuer_component selects the ClusterIssuer variant (last match wins):
   # selfsigned floor → ACME/hetzner with a public domain → private selfsigned.
@@ -184,10 +183,11 @@ flux:
       substitutions:
         hcloud_location: "${hetzner.location ?? 'fsn1'}"
 
-  # hcloud cloud-controller-manager — node lifecycle + Cloud LB provisioning.
-  # windsor materializes the `hcloud` Secret (key token) into system-lb from the
-  # secrets: block below. networking/route mode is off; Cilium owns the pod
-  # network. Always rendered (lb_effective.controller_required).
+  # hcloud cloud-controller-manager — Cloud LB provisioning. windsor materializes
+  # the `hcloud` Secret (key token) into system-lb from the secrets: block below.
+  # LBs attach to the private network and target nodes by private IP (hcloud_network_id),
+  # so LB traffic reaches nodePorts past the public firewall; route mode stays off
+  # (Cilium owns the pod network). Always rendered (lb_effective.controller_required).
   - name: lb
     secrets:
       hcloud:
@@ -198,6 +198,7 @@ flux:
         - hcloud-ccm
       substitutions:
         hcloud_location: "${hetzner.location ?? 'fsn1'}"
+        hcloud_network_id: "${terraform_output(\"compute\", \"network_id\")}"
       timeout: 5m
       interval: 5m
 

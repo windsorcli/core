@@ -43,8 +43,18 @@ spec:
       # load-balancer.hetzner.cloud/location annotations still override.
       HCLOUD_LOAD_BALANCERS_LOCATION:
         value: ${hcloud_location:-fsn1}
-    # Cilium owns the pod network, so the CCM route-controller stays off. Setting
-    # networking.enabled would make the CCM manage routes in the hcloud network and
-    # conflict with the CNI overlay.
+      # Attach Cloud LBs to the private network and target nodes by private IP,
+      # so LB->nodePort traffic bypasses the public firewall (which only opens the
+      # Talos/API ports). HCLOUD_NETWORK must be the numeric id — the name is
+      # rejected with "missing network id". Routes stay off; cilium owns the pod
+      # network, so this only scopes LB target IPs, not routing.
+      HCLOUD_NETWORK:
+        value: ${hcloud_network_id}
+      HCLOUD_NETWORK_ROUTES_ENABLED:
+        value: "false"
+      HCLOUD_LOAD_BALANCERS_USE_PRIVATE_IP:
+        value: "true"
+    # Cilium owns the pod network, so the CCM route-controller stays off (routes
+    # are disabled above); networking.enabled would turn it on and conflict.
     networking:
       enabled: false
