@@ -180,6 +180,17 @@ resource "hcloud_placement_group" "this" {
   labels = local.labels
 }
 
+# Force replacement instead of in-place resize when a worker's server_type
+# changes: an in-place hcloud resize reboots the node and can corrupt the
+# container image store. Control planes are excluded — destroying one can lose
+# etcd/cluster state — so they resize in place. Image changes are never a
+# trigger (Talos version upgrades run in place via talosctl).
+resource "terraform_data" "node_replacement" {
+  for_each = local.nodes
+  # Constant for control planes (never force-replaced); server_type for workers.
+  triggers_replace = each.value.role == "controlplane" ? "protected" : each.value.server_type
+}
+
 resource "hcloud_server" "this" {
   for_each = local.nodes
 
@@ -203,6 +214,10 @@ resource "hcloud_server" "this" {
   # Servers boot the Talos snapshot into maintenance mode; cluster/talos applies
   # config over the network, so no user_data config is delivered here.
   depends_on = [hcloud_network_subnet.this]
+
+  lifecycle {
+    replace_triggered_by = [terraform_data.node_replacement[each.key]]
+  }
 }
 
 resource "hcloud_server_network" "this" {
