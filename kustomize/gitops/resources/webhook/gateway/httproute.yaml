@@ -3,10 +3,6 @@ kind: HTTPRoute
 metadata:
   name: flux-webhook
   namespace: system-gitops
-  annotations:
-    # Set directly: the external-dns-default-ttl Kyverno policy can't mutate
-    # this route because Kyverno's webhook excludes the system-gitops namespace.
-    external-dns.alpha.kubernetes.io/ttl: "300"
 spec:
   parentRefs:
     - name: external
