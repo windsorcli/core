@@ -573,6 +573,13 @@ properties:
           - disabled
         default: enabled
         description: Enable or disable the resource limits/requests policy
+      external_dns_ttl:
+        type: string
+        enum:
+          - enabled
+          - disabled
+        default: enabled
+        description: Enable or disable the policy that sets a default external-dns TTL on HTTPRoutes
     additionalProperties: false
 
   docker:
