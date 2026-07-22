@@ -8,13 +8,6 @@ variable "context_id" {
   default     = ""
 }
 
-variable "hcloud_token" {
-  description = "Hetzner Cloud API token. Empty falls back to the HCLOUD_TOKEN environment variable."
-  type        = string
-  default     = ""
-  sensitive   = true
-}
-
 #---------------------------------------------------------------------------------------------------
 # Zone
 #---------------------------------------------------------------------------------------------------

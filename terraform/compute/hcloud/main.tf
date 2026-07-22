@@ -23,16 +23,11 @@ terraform {
   }
 }
 
-# token comes from var.hcloud_token (sourced from the sensitive hetzner.token
-# config); an empty value falls back to the HCLOUD_TOKEN environment variable so
-# the module still runs standalone in tests.
-provider "hcloud" {
-  token = var.hcloud_token != "" ? var.hcloud_token : null
-}
+# The hcloud and imager providers authenticate from the HCLOUD_TOKEN environment
+# variable; no token variable is exposed.
+provider "hcloud" {}
 
-provider "imager" {
-  token = var.hcloud_token != "" ? var.hcloud_token : null
-}
+provider "imager" {}
 
 # =============================================================================
 # Instance Expansion

@@ -14,13 +14,6 @@ variable "context_path" {
   default     = ""
 }
 
-variable "hcloud_token" {
-  description = "Hetzner Cloud API token for the hcloud and imager providers. Empty falls back to the HCLOUD_TOKEN environment variable."
-  type        = string
-  default     = ""
-  sensitive   = true
-}
-
 #---------------------------------------------------------------------------------------------------
 # Talos Image
 #---------------------------------------------------------------------------------------------------

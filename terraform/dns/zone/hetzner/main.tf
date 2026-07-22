@@ -17,9 +17,8 @@ terraform {
   }
 }
 
-provider "hcloud" {
-  token = var.hcloud_token != "" ? var.hcloud_token : null
-}
+# The hcloud provider authenticates from the HCLOUD_TOKEN environment variable.
+provider "hcloud" {}
 
 # =============================================================================
 # Zone

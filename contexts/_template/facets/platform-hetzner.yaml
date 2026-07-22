@@ -100,7 +100,6 @@ terraform:
   - name: compute
     path: compute/hcloud
     inputs:
-      hcloud_token: ${hetzner.token}
       talos_version: ${talos.talos_version}
       location: ${hetzner.location ?? 'fsn1'}
       network_zone: ${hetzner.network_zone ?? 'eu-central'}
@@ -117,12 +116,10 @@ terraform:
 
   # Public DNS zone (+ NS delegation from hetzner.dns_parent_zone when set).
   # Independent of the cluster; must exist before external-dns/cert-manager run.
-  # DNS is part of the Cloud API, so it uses the same token.
   - name: dns-zone
     path: dns/zone/hetzner
     when: "(dns.public_domain ?? '') != ''"
     inputs:
-      hcloud_token: ${hetzner.token}
       domain_name: ${dns.public_domain}
       parent_zone_name: "${hetzner.dns_parent_zone ?? ''}"
 

@@ -1,3 +1,8 @@
+---
+title: dns/zone/hetzner
+description: Creates a primary Hetzner DNS zone via the official hcloud provider.
+---
+
 # dns/zone/hetzner
 
 Creates a primary Hetzner DNS zone via the official hcloud provider. When
@@ -5,8 +10,8 @@ Creates a primary Hetzner DNS zone via the official hcloud provider. When
 NS delegation record in the parent so the subdomain resolves publicly with no
 manual step. external-dns and cert-manager manage the records inside the zone.
 
-Authenticates with the Hetzner Cloud API token (`hcloud_token`, or `HCLOUD_TOKEN`
-in the environment) — DNS is part of the Cloud API.
+Authenticates with the `HCLOUD_TOKEN` environment variable — DNS is part of the
+Cloud API.
 
 <!-- BEGIN_TF_DOCS -->
 ## Requirements
@@ -39,7 +44,6 @@ No modules.
 |------|-------------|------|---------|:--------:|
 | <a name="input_context_id"></a> [context\_id](#input\_context\_id) | The windsor context id for this deployment; used to label the zone. | `string` | `""` | no |
 | <a name="input_domain_name"></a> [domain\_name](#input\_domain\_name) | DNS zone to create (e.g. hetzner.windsorcli.dev). | `string` | n/a | yes |
-| <a name="input_hcloud_token"></a> [hcloud\_token](#input\_hcloud\_token) | Hetzner Cloud API token. Empty falls back to the HCLOUD\_TOKEN environment variable. | `string` | `""` | no |
 | <a name="input_parent_zone_name"></a> [parent\_zone\_name](#input\_parent\_zone\_name) | Parent DNS zone in the same Hetzner account to auto-create the NS delegation in (e.g. windsorcli.dev for domain\_name hetzner.windsorcli.dev). Empty skips delegation (manage it manually at the registrar). | `string` | `""` | no |
 | <a name="input_ttl"></a> [ttl](#input\_ttl) | Default TTL (seconds) for the zone and the delegation records. | `number` | `3600` | no |
 

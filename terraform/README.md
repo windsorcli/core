@@ -30,10 +30,12 @@ layer. Links from there land here.
 | [cni/cilium](cni/cilium/) | Out-of-band Cilium bootstrap for Talos clusters. |
 | [compute](compute/) | Local Talos compute substrate across Docker, Hyper-V, and Incus. |
 | [compute/docker](compute/docker/) | Talos containers on Docker. |
+| [compute/hcloud](compute/hcloud/) | Provisions Talos Linux nodes on Hetzner Cloud. |
 | [compute/hyperv](compute/hyperv/) | Talos VMs on Hyper-V (Windows host). |
 | [compute/incus](compute/incus/) | Talos VMs on Incus. |
 | [dns](dns/) | Public DNS zones for ACME certificates and external-dns. |
 | [dns/zone/azure-dns](dns/zone/azure-dns/) | DNS zone on Azure DNS. |
+| [dns/zone/hetzner](dns/zone/hetzner/) | Creates a primary Hetzner DNS zone via the official hcloud provider. |
 | [dns/zone/route53](dns/zone/route53/) | Public DNS zone on AWS Route53. |
 | [gitops](gitops/) | Flux installation that hands reconciliation to the kustomize layer. |
 | [gitops/flux](gitops/flux/) | Flux installation; hands reconciliation to the kustomize/ layer. |
