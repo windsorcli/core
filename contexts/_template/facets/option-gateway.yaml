@@ -84,7 +84,7 @@ flux:
     when: gateway.enabled == true && gateway.driver != 'cilium'
     dependsOn:
       - pki-install
-      - "${lb_effective.controller_required ? 'lb-install' : ''}"
+      - "${lb_effective.controller_required == true ? 'lb-install' : ''}"
     install:
       components:
         - "${gateway.driver}"
@@ -103,7 +103,7 @@ flux:
     when: gateway.enabled == true && gateway.driver == 'cilium'
     dependsOn:
       - pki-install
-      - "${lb_effective.controller_required ? 'lb-install' : ''}"
+      - "${lb_effective.controller_required == true ? 'lb-install' : ''}"
     install:
       components:
         - cilium

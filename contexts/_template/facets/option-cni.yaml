@@ -76,7 +76,7 @@ flux:
         - "${(gateway.enabled == true && gateway.driver == 'cilium' && lb_effective.controller_required != true) ? 'cilium/gateway/lbipam' : ''}"
         - "${telemetry.metrics.enabled ? 'cilium/prometheus' : ''}"
         - cilium/hubble
-        - "${lb_effective.controller_required ? '' : 'cilium/l2'}"
+        - "${lb_effective.controller_required == true ? '' : 'cilium/l2'}"
       substitutions:
         k8s_service_host: ${talos_common.k8s_service_host}
         loadbalancer_start_ip: ${network.loadbalancer_ips.start}
