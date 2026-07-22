@@ -184,21 +184,22 @@ flux:
         hcloud_location: "${hetzner.location ?? 'fsn1'}"
 
   # hcloud cloud-controller-manager — Cloud LB provisioning. windsor materializes
-  # the `hcloud` Secret (key token) into system-lb from the secrets: block below.
-  # LBs attach to the private network and target nodes by private IP (hcloud_network_id),
-  # so LB traffic reaches nodePorts past the public firewall; route mode stays off
-  # (Cilium owns the pod network). Always rendered (lb_effective.controller_required).
+  # the `hcloud` Secret (token + network id) into system-lb from the secrets: block.
+  # The CCM attaches LBs to the private network (HCLOUD_NETWORK, read from the secret
+  # so the numeric id stays a string) and targets nodes by private IP, so LB traffic
+  # reaches nodePorts past the public firewall; route mode stays off (Cilium owns the
+  # pod network). Always rendered (lb_effective.controller_required).
   - name: lb
     secrets:
       hcloud:
         data:
           token: ${hetzner.token}
+          network: ${terraform_output("compute", "network_id")}
     install:
       components:
         - hcloud-ccm
       substitutions:
         hcloud_location: "${hetzner.location ?? 'fsn1'}"
-        hcloud_network_id: "${terraform_output(\"compute\", \"network_id\")}"
       timeout: 5m
       interval: 5m
 
