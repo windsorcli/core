@@ -16,15 +16,15 @@ Kubernetes API once the control plane is reachable.
 | Name | Version |
 |------|---------|
 | <a name="requirement_terraform"></a> [terraform](#requirement\_terraform) | >= 1.12.2 |
-| <a name="requirement_aws"></a> [aws](#requirement\_aws) | 6.51.0 |
-| <a name="requirement_kubernetes"></a> [kubernetes](#requirement\_kubernetes) | 3.1.0 |
+| <a name="requirement_aws"></a> [aws](#requirement\_aws) | 6.52.0 |
+| <a name="requirement_kubernetes"></a> [kubernetes](#requirement\_kubernetes) | 3.2.1 |
 
 ## Providers
 
 | Name | Version |
 |------|---------|
-| <a name="provider_aws"></a> [aws](#provider\_aws) | 6.51.0 |
-| <a name="provider_kubernetes"></a> [kubernetes](#provider\_kubernetes) | 3.1.0 |
+| <a name="provider_aws"></a> [aws](#provider\_aws) | 6.52.0 |
+| <a name="provider_kubernetes"></a> [kubernetes](#provider\_kubernetes) | 3.2.1 |
 
 ## Modules
 
@@ -34,9 +34,9 @@ No modules.
 
 | Name | Type |
 |------|------|
-| [kubernetes_config_map_v1.external_dns](https://registry.terraform.io/providers/hashicorp/kubernetes/3.1.0/docs/resources/config_map_v1) | resource |
-| [kubernetes_namespace_v1.system_dns](https://registry.terraform.io/providers/hashicorp/kubernetes/3.1.0/docs/resources/namespace_v1) | resource |
-| [aws_region.current](https://registry.terraform.io/providers/hashicorp/aws/6.51.0/docs/data-sources/region) | data source |
+| [kubernetes_config_map_v1.external_dns](https://registry.terraform.io/providers/hashicorp/kubernetes/3.2.1/docs/resources/config_map_v1) | resource |
+| [kubernetes_namespace_v1.system_dns](https://registry.terraform.io/providers/hashicorp/kubernetes/3.2.1/docs/resources/namespace_v1) | resource |
+| [aws_region.current](https://registry.terraform.io/providers/hashicorp/aws/6.52.0/docs/data-sources/region) | data source |
 
 ## Inputs
 
