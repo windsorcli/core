@@ -12,7 +12,7 @@ spec:
   instances: 1
   # system-identity is policy-managed (Kyverno require-image-digest), so pin the
   # Postgres image with a digest (CNPG's default image carries none).
-  # renovate: datasource=docker depName=cloudnative-pg/postgresql registryUrl=https://ghcr.io
+  # renovate: datasource=docker depName=cloudnative-pg/postgresql package=ghcr.io/cloudnative-pg/postgresql
   imageName: ghcr.io/cloudnative-pg/postgresql:17.6@sha256:30b304a2e300ed80b6d1b740e4369e9b0f25599fb518de78c01fd9f25531791b
   storage:
     size: 1Gi

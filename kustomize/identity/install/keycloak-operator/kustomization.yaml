@@ -11,8 +11,11 @@ resources:
   - operator.yaml
 # system-identity is policy-managed (Kyverno require-image-digest), so the operator
 # image must carry a SHA256 digest. The vendored file is do-not-edit, so pin here.
+# The RELATED_IMAGE_KEYCLOAK env is the operator's fallback server image, used only
+# when a Keycloak CR omits spec.image; pin it too so that path stays policy-clean.
 # Re-derive when the keycloak version in kustomize/crds/sources.yaml bumps:
 #   crane digest --platform all quay.io/keycloak/keycloak-operator:<version>
+#   crane digest --platform all quay.io/keycloak/keycloak:<version>
 patches:
   - target:
       kind: Deployment
@@ -20,7 +23,23 @@ patches:
     patch: |
       - op: replace
         path: /spec/template/spec/containers/0/image
+        # renovate: datasource=docker depName=keycloak/keycloak-operator package=quay.io/keycloak/keycloak-operator
         value: quay.io/keycloak/keycloak-operator:26.7.0@sha256:257ee324da2c701b7fc1ed1b2ce0e03979d1bf149952383bdcf6be904ae5b4f3
+  # Keyed by env name (not index) so it survives upstream env reordering on a bump.
+  - patch: |
+      apiVersion: apps/v1
+      kind: Deployment
+      metadata:
+        name: keycloak-operator
+      spec:
+        template:
+          spec:
+            containers:
+              - name: keycloak-operator
+                env:
+                  - name: RELATED_IMAGE_KEYCLOAK
+                    # renovate: datasource=docker depName=keycloak/keycloak package=quay.io/keycloak/keycloak
+                    value: quay.io/keycloak/keycloak:26.7.0@sha256:0f198be292568439d700cdbfb893e69a6009bb43a94a06a945b1d3d506c76b13
 transformers:
   - |-
     apiVersion: builtin

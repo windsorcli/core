@@ -61,6 +61,7 @@ flux:
           # A user-supplied image is assumed pre-built, so start optimized. The stock
           # default is not augmented, so it builds at boot (startOptimized false).
           # Custom images must be digest-pinned (system-identity is policy-managed).
+          # renovate: datasource=docker depName=keycloak/keycloak package=quay.io/keycloak/keycloak
           keycloak_image: "${(addons.keycloak.image ?? '') == '' ? 'quay.io/keycloak/keycloak:26.7.0@sha256:0f198be292568439d700cdbfb893e69a6009bb43a94a06a945b1d3d506c76b13' : addons.keycloak.image}"
           keycloak_start_optimized: "${(addons.keycloak.image ?? '') == '' ? 'false' : 'true'}"
 
