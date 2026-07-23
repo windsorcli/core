@@ -20,6 +20,9 @@ substitutions:
   loadbalancer_start_ip:
     required_when: "`lb-address` or `cilium` (resources) is composed"
     description: "Fixed IP the Gateway advertises. Used in the cilium variant's `lbipam.cilium.io/ips` annotation and in the envoy variant's `spec.addresses` patch."
+  gateway_redirect_port:
+    required_when: "`gateway-resources` is composed"
+    description: "HTTPS port the `https-redirect` route's 301 targets. `443` for cloud/LB; `8443` on docker-desktop (its NodePort host-forward)."
 
 components:
   envoy:

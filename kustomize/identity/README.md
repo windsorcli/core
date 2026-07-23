@@ -40,7 +40,7 @@ flowchart LR
   operator_pod -.watches.-> keycloak_cr
   keycloak_cr -.creates.-> keycloak_sts
   keycloak_sts --> keycloak_svc
-  keycloak_sts -->|JDBC| pg_svc
+  keycloak_sts -->|JDBC / TLS| pg_svc
   pg_svc --- pg_cluster
   users -->|HTTPS| gateway
   gateway -->|HTTP| keycloak_svc
@@ -63,10 +63,25 @@ windsor exec -- kubectl -n system-identity get secret keycloak-initial-admin \
   -o jsonpath='{.data.password}' | base64 -d
 ```
 
-Open `https://keycloak.${external_domain}` and sign in. Create a permanent admin,
-then rotate out the bootstrap one. On docker-desktop the gateway is forwarded to a
-non-standard host port (e.g. `https://keycloak.<domain>:8443`); Keycloak resolves
-its own scheme/port from the request, so links stay on that port.
+To seed a known admin instead of the generated one, set `addons.keycloak.admin`
+(the password takes a `${secret(...)}` reference or a literal):
+
+```yaml
+addons:
+  keycloak:
+    enabled: true
+    admin:
+      username: admin
+      password: ${secret("MyVault", "keycloak-admin", "password")}
+```
+
+The operator honors `bootstrapAdmin` only at initial cluster creation, so this
+seeds the first admin — it does not rotate an existing one.
+
+Open `https://keycloak.${external_domain}` and sign in. On docker-desktop the
+gateway is forwarded to a non-standard host port (e.g.
+`https://keycloak.<domain>:8443`); Keycloak resolves its own scheme/port from the
+request, so links stay on that port.
 
 ### Hostname / base URL
 
@@ -123,6 +138,22 @@ The vendored CRDs include `KeycloakRealmImport`, `KeycloakOIDCClient`, and
 `KeycloakSAMLClient`. Realms and clients are managed as those custom resources in
 a later change; this add-on stands up the server only.
 
+## Security
+
+- **Database in transit.** Keycloak connects to Postgres with `sslmode=verify-full`,
+  importing CNPG's generated CA into its truststore, so the server certificate and the
+  `keycloak-db-rw` hostname are verified (TLS 1.3). Postgres authenticates Keycloak by
+  password over that channel.
+- **Ingress is HTTPS-only.** The gateway 301-redirects plain HTTP, and the Keycloak
+  route attaches to the HTTPS listener only. On the Cilium gateway driver,
+  `keycloak/cilium` further restricts Keycloak ingress to the gateway proxy via
+  CiliumNetworkPolicy.
+- **Admin credentials.** The operator generates a temporary admin by default; supply
+  your own via `addons.keycloak.admin` (see Recipes). `bootstrapAdmin` seeds the
+  initial admin only, not a rotation path.
+- **Images.** `system-identity` is policy-managed (Kyverno `require-image-digest`); the
+  operator, server, and Postgres images are all digest-pinned.
+
 <!-- BEGIN_KUSTOMIZE_DOCS -->
 
 ## Components
@@ -132,6 +163,8 @@ a later change; this add-on stands up the server only.
 | `keycloak-operator` | `addons.keycloak.enabled == true` | Keycloak Operator (Deployment + RBAC) in `system-identity`, vendored verbatim from keycloak-k8s-resources. Reconciles `Keycloak` custom resources; installs no server by itself. CRDs are applied separately by the `crds:` layer. |
 | `keycloak` | `addons.keycloak.enabled == true` | The `Keycloak` server CR and its CloudNativePG `Cluster`. Keycloak serves HTTP internally (TLS terminates at the gateway) and stores realms in the `keycloak` database. |
 | `keycloak/gateway` | `gateway.enabled == true` | HTTPRoute publishing `keycloak.${external_domain}` through the shared external Gateway to the operator-managed `keycloak-service`. |
+| `keycloak/cilium` | `gateway.driver == 'cilium'` | CiliumNetworkPolicy restricting Keycloak ingress to the gateway proxy. Cilium-enforced, so gated on the Cilium gateway driver. |
+| `keycloak/admin` | `addons.keycloak.admin.password` set | Points the `Keycloak` CR at the supplied `keycloak-bootstrap-admin` secret via `spec.bootstrapAdmin`, instead of the operator's auto-generated temporary admin. Honored only at initial cluster creation. |
 
 ## Dependencies
 

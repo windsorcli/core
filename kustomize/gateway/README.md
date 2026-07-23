@@ -235,6 +235,7 @@ LBIPAM annotations so multiple Gateways can share one IP.
 | `gateway_dns_target` | `dns` is enabled and `gateway-resources/dns` is composed | External hostname/IP that external-dns publishes as the gateway target. Resolves to `network.loadbalancer_ips.start` when `lb_effective.enabled`, empty otherwise. |
 | `external_domain` | `gateway-resources` is composed | Cert SAN domain. `dns.private_domain` when `gateway.access: private` (and the private domain is set); otherwise `dns.public_domain` if set, falling back to `dns.private_domain`. |
 | `loadbalancer_start_ip` | `lb-address` or `cilium` (resources) is composed | Fixed IP the Gateway advertises. Used in the cilium variant's `lbipam.cilium.io/ips` annotation and in the envoy variant's `spec.addresses` patch. |
+| `gateway_redirect_port` | `gateway-resources` is composed | HTTPS port the `https-redirect` route's 301 targets. `443` for cloud/LB; `8443` on docker-desktop (its NodePort host-forward). |
 
 ## Components — `gateway-install`
 

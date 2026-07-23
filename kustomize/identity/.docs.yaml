@@ -13,6 +13,12 @@ components:
   keycloak/gateway:
     enable_when: "`gateway.enabled == true`"
     description: "HTTPRoute publishing `keycloak.${external_domain}` through the shared external Gateway to the operator-managed `keycloak-service`."
+  keycloak/cilium:
+    enable_when: "`gateway.driver == 'cilium'`"
+    description: "CiliumNetworkPolicy restricting Keycloak ingress to the gateway proxy. Cilium-enforced, so gated on the Cilium gateway driver."
+  keycloak/admin:
+    enable_when: "`addons.keycloak.admin.password` set"
+    description: "Points the `Keycloak` CR at the supplied `keycloak-bootstrap-admin` secret via `spec.bootstrapAdmin`, instead of the operator's auto-generated temporary admin. Honored only at initial cluster creation."
 
 dependencies:
   database:
