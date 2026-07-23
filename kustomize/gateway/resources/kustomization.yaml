@@ -3,3 +3,4 @@ kind: Component
 resources:
   - certificate.yaml
   - gateway.yaml
+  - https-redirect.yaml
