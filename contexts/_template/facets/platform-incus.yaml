@@ -87,12 +87,12 @@ terraform:
           storage_pool: "default"
           root_disk_size: ${string(cluster.controlplanes.root_disk_size ?? 30) + "GB"}
           limits:
-            cpu: ${string(cluster.controlplanes.cpu)}
-            memory: ${string(cluster.controlplanes.memory) + "GB"}
+            cpu: ${string(cluster_resources_effective.controlplanes.cpu)}
+            memory: ${string(cluster_resources_effective.controlplanes.memory) + "GB"}
           disks: ${talos_common.controlplane_disks}
           config:
             user.hostname: ${values(cluster.controlplanes.nodes)[0].hostname ?? "controlplane-1"}
-            environment.TALOSSKU: ${string(cluster.controlplanes.cpu) + "CPU-" + string(cluster.controlplanes.memory * 1024) + "RAM"}
+            environment.TALOSSKU: ${string(cluster_resources_effective.controlplanes.cpu) + "CPU-" + string(cluster_resources_effective.controlplanes.memory * 1024) + "RAM"}
             raw.qemu: -boot order=c,menu=off
         - name: worker
           role: worker
@@ -104,12 +104,12 @@ terraform:
           storage_pool: "default"
           root_disk_size: ${string(cluster.workers.root_disk_size ?? 50) + "GB"}
           limits:
-            cpu: ${string(cluster.workers.cpu)}
-            memory: ${string(cluster.workers.memory) + "GB"}
+            cpu: ${string(cluster_resources_effective.workers.cpu)}
+            memory: ${string(cluster_resources_effective.workers.memory) + "GB"}
           disks: ${talos_common.worker_disks}
           config:
             user.hostname: "${len(cluster.workers.nodes ?? {}) > 0 ? (values(cluster.workers.nodes)[0].hostname ?? 'worker-1') : 'worker-1'}"
-            environment.TALOSSKU: "${string(cluster.workers.cpu) + 'CPU-' + string(cluster.workers.memory * 1024) + 'RAM'}"
+            environment.TALOSSKU: "${string(cluster_resources_effective.workers.cpu) + 'CPU-' + string(cluster_resources_effective.workers.memory * 1024) + 'RAM'}"
             raw.qemu: -boot order=c,menu=off
 
   # Talos bootstrap/apply. Uses compute output when available, else user-supplied nodes.
@@ -138,7 +138,7 @@ terraform:
     dependsOn:
       - cluster
     inputs:
-      concurrency: ${max(2, min(floor(cluster.controlplanes.cpu / 2), floor(cluster.controlplanes.memory / 2), 10))}
+      concurrency: ${max(2, min(floor(cluster_resources_effective.controlplanes.cpu / 2), floor(cluster_resources_effective.controlplanes.memory / 2), 10))}
     destroy: false
 
 # =============================================================================
