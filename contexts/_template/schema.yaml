@@ -1156,6 +1156,17 @@ properties:
           hostname:
             type: string
             description: External hostname or base URL for Keycloak; defaults to keycloak.<domain> (port/scheme resolved from the request)
+          admin:
+            type: object
+            properties:
+              username:
+                type: string
+                default: admin
+                description: Bootstrap admin username; seeds the initial admin only at first creation
+              password:
+                type: string
+                description: Bootstrap admin password (supports ${secret(...)} refs); when unset the operator generates a temporary admin
+            additionalProperties: false
         additionalProperties: false
     additionalProperties: false
 

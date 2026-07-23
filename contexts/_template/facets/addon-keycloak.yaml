@@ -49,6 +49,11 @@ flux:
         components:
           - keycloak
           - "${topology == 'ha' ? 'keycloak/ha' : ''}"
+          # Cilium gateway: restrict Keycloak ingress to the gateway proxy.
+          - "${gateway.driver == 'cilium' ? 'keycloak/cilium' : ''}"
+          # Supplied bootstrap admin: point the CR at the keycloak-bootstrap-admin
+          # secret instead of the operator's auto-generated temporary admin.
+          - "${(addons.keycloak.admin.password ?? '') != '' ? 'keycloak/admin' : ''}"
         timeout: 10m
         interval: 5m
         substitutions:
@@ -76,3 +81,14 @@ flux:
         interval: 5m
         substitutions:
           external_domain: "${(dns.public_domain ?? '') == '' ? (dns.private_domain ?? '') : dns.public_domain}"
+
+  # Supplied bootstrap admin credentials. Only materialized when a password is
+  # given (a literal or a ${secret(...)} ref); otherwise the operator generates a
+  # temporary admin. Consumed by the keycloak/admin overlay via bootstrapAdmin.
+  - name: identity
+    when: (addons.keycloak.admin.password ?? '') != ''
+    secrets:
+      keycloak-bootstrap-admin:
+        data:
+          username: ${addons.keycloak.admin.username ?? 'admin'}
+          password: ${addons.keycloak.admin.password}

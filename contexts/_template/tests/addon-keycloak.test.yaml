@@ -185,6 +185,56 @@ cases:
             - components:
                 - keycloak/gateway
 
+  # Cilium gateway: the keycloak/cilium overlay is flagged on (restricts Keycloak
+  # ingress to the gateway proxy via CiliumNetworkPolicy).
+  - name: cilium gateway adds the keycloak cilium netpol overlay
+    values:
+      platform: metal
+      dns:
+        domain: example.local
+      gateway:
+        enabled: true
+        driver: cilium
+      network: *default-network
+      cluster: *default-cluster
+      addons:
+        keycloak:
+          enabled: true
+    expect:
+      flux:
+        - name: identity
+          resources:
+            - components:
+                - keycloak
+                - keycloak/cilium
+            - components:
+                - keycloak/gateway
+
+  # Supplied admin: the keycloak/admin overlay is flagged on and the
+  # keycloak-bootstrap-admin secret is materialized from the given credentials.
+  - name: supplied admin credentials add the bootstrap admin overlay and secret
+    values:
+      platform: metal
+      dns:
+        domain: example.local
+      gateway:
+        enabled: true
+      network: *default-network
+      cluster: *default-cluster
+      addons:
+        keycloak:
+          enabled: true
+          admin:
+            username: root
+            password: s3cret
+    expect:
+      flux:
+        - name: identity
+          resources:
+            - components:
+                - keycloak
+                - keycloak/admin
+
   # Disabled: no identity system and no Keycloak CRDs.
   - name: excludes keycloak when addon disabled
     values:

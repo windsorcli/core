@@ -26,6 +26,18 @@ spec:
     passwordSecret:
       name: keycloak-db-app
       key: password
+  # Encrypt and verify the Postgres connection. CNPG serves TLS from its own CA
+  # (the keycloak-db-ca secret it generates); import that CA into Keycloak's
+  # truststore and require sslmode=verify-full so the server cert and the
+  # keycloak-db-rw hostname are validated. DefaultJavaSSLFactory makes the JDBC
+  # driver use the JVM truststore Keycloak populates from the entry below.
+  truststores:
+    cnpg:
+      secret:
+        name: keycloak-db-ca
+  additionalOptions:
+    - name: db-url-properties
+      value: "?sslmode=verify-full&sslfactory=org.postgresql.ssl.DefaultJavaSSLFactory"
   hostname:
     hostname: ${keycloak_hostname}
   http:
