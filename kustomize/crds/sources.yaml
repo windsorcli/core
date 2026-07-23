@@ -10,6 +10,8 @@
 #
 # Source is one of:
 #   url:   download an upstream release asset; ${version} is interpolated in.
+#   urls:  a list of single-CRD file URLs, concatenated into one document (for
+#          upstreams that ship one file per CRD); ${version} is interpolated in each.
 #   helm:  pull from a chart — mode: crds (the chart's crds/ dir) | template
 #          (CRDs rendered then filtered to kind: CustomResourceDefinition; set:
 #          supplies any value that gates them).
@@ -56,3 +58,23 @@ vendors:
       set:
         - fluentbit.crdsEnable=true
         - fluentd.crdsEnable=true
+
+  - name: keycloak
+    # renovate: datasource=github-releases depName=keycloak/keycloak-k8s-resources package=keycloak/keycloak-k8s-resources
+    version: 26.7.0
+    urls:
+      - https://raw.githubusercontent.com/keycloak/keycloak-k8s-resources/${version}/kubernetes/keycloaks.k8s.keycloak.org-v1.yml
+      - https://raw.githubusercontent.com/keycloak/keycloak-k8s-resources/${version}/kubernetes/keycloakrealmimports.k8s.keycloak.org-v1.yml
+      - https://raw.githubusercontent.com/keycloak/keycloak-k8s-resources/${version}/kubernetes/keycloakoidcclients.k8s.keycloak.org-v1.yml
+      - https://raw.githubusercontent.com/keycloak/keycloak-k8s-resources/${version}/kubernetes/keycloaksamlclients.k8s.keycloak.org-v1.yml
+
+# Non-CRD upstream manifests vendored verbatim to a path (workloads with no Helm
+# chart). Regenerated and drift-checked by the same task as the CRDs above.
+manifests:
+  - name: keycloak-operator
+    # The Keycloak operator has no first-party Helm chart; vendor its Deployment/RBAC
+    # from the same keycloak-k8s-resources release as the CRDs above (kept in lockstep).
+    # renovate: datasource=github-releases depName=keycloak/keycloak-k8s-resources package=keycloak/keycloak-k8s-resources
+    version: 26.7.0
+    url: https://raw.githubusercontent.com/keycloak/keycloak-k8s-resources/${version}/kubernetes/kubernetes.yml
+    dest: kustomize/identity/install/keycloak-operator/operator.yaml

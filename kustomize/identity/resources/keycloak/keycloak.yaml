@@ -1,0 +1,36 @@
+---
+# Keycloak server, reconciled by the operator. TLS terminates at the shared gateway, so
+# Keycloak serves plain HTTP internally (httpEnabled) and trusts the proxy's forwarded
+# headers for the external scheme/host. The operator's own Ingress is disabled — traffic
+# reaches Keycloak through the gateway HTTPRoute (see gateway/httproute.yaml).
+apiVersion: k8s.keycloak.org/v2beta1
+kind: Keycloak
+metadata:
+  name: keycloak
+  namespace: system-identity
+spec:
+  # Single instance by default; the ha/ overlay scales this under topology: ha.
+  instances: 1
+  # Image + optimized mode come from the facet (addons.keycloak.image): a stock,
+  # digest-pinned default built at boot, or a user-supplied pre-built optimized image.
+  image: ${keycloak_image}
+  startOptimized: ${keycloak_start_optimized}
+  db:
+    vendor: postgres
+    host: keycloak-db-rw
+    port: 5432
+    database: keycloak
+    usernameSecret:
+      name: keycloak-db-app
+      key: username
+    passwordSecret:
+      name: keycloak-db-app
+      key: password
+  hostname:
+    hostname: ${keycloak_hostname}
+  http:
+    httpEnabled: true
+  proxy:
+    headers: xforwarded
+  ingress:
+    enabled: false

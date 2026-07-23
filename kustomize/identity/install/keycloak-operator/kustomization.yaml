@@ -1,0 +1,35 @@
+apiVersion: kustomize.config.k8s.io/v1alpha1
+kind: Component
+# operator.yaml is vendored verbatim from keycloak-k8s-resources (see the renovate
+# comment in it). Upstream hardcodes namespace `keycloak`; retarget to system-identity.
+# A NamespaceTransformer (not the plain `namespace:` field) is used because only it,
+# with setRoleBindingSubjects: allServiceAccounts, rewrites the ClusterRoleBinding SA
+# subject namespace too — without which the operator loses its cluster permissions.
+# Keycloak CRDs are vendored under kustomize/crds/keycloak-26.7.0 and applied via the
+# facet `crds:` layer, so they are not listed here.
+resources:
+  - operator.yaml
+# system-identity is policy-managed (Kyverno require-image-digest), so the operator
+# image must carry a SHA256 digest. The vendored file is do-not-edit, so pin here.
+# Re-derive when the keycloak version in kustomize/crds/sources.yaml bumps:
+#   crane digest --platform all quay.io/keycloak/keycloak-operator:<version>
+patches:
+  - target:
+      kind: Deployment
+      name: keycloak-operator
+    patch: |
+      - op: replace
+        path: /spec/template/spec/containers/0/image
+        value: quay.io/keycloak/keycloak-operator:26.7.0@sha256:257ee324da2c701b7fc1ed1b2ce0e03979d1bf149952383bdcf6be904ae5b4f3
+transformers:
+  - |-
+    apiVersion: builtin
+    kind: NamespaceTransformer
+    metadata:
+      name: retarget-system-identity
+      namespace: system-identity
+    setRoleBindingSubjects: allServiceAccounts
+    unsetOnly: false
+    fieldSpecs:
+      - path: metadata/namespace
+        create: true
