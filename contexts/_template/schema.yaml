@@ -697,6 +697,14 @@ properties:
         type: string
         pattern: '^https://[A-Za-z0-9.\-]+(:([1-9][0-9]{0,3}|[1-5][0-9]{4}|6[0-4][0-9]{3}|65[0-4][0-9]{2}|655[0-2][0-9]|6553[0-5]))?(/.*)?$'
         description: External controlplane API endpoint (https://host:port). IPv4 only — facets parse host:port with simple split on ':', and the hyperv NetNat backend is IPv4-only at the Windows API layer. Pattern enforces https scheme and an optional port in the 1-65535 TCP range; rejects URLs with whitespace, IPv6 brackets, or wrong scheme.
+      api_allowed_cidrs:
+        type: array
+        items:
+          type: string
+          pattern: "^([0-9]{1,3}\\.){3}[0-9]{1,3}/[0-9]{1,2}$"
+        default:
+          - "0.0.0.0/0"
+        description: Source CIDRs allowed to reach the control-plane APIs (Kubernetes 6443, Talos 50000 where applicable). Platforms map it to the relevant control (hcloud firewall, EKS public access CIDRs, AKS authorized ranges) and ignore it where the firewall is out-of-band. Defaults to open; restrict to operator/CI ranges or a bastion in production.
       controlplanes:
         type: object
         properties:
@@ -726,8 +734,7 @@ properties:
           count:
             type: integer
             minimum: 0
-            default: 0
-            description: Number of worker nodes
+            description: Number of worker nodes; unset lets the platform facet default it (hetzner defaults to 1)
           nodes:
             <<: *nodesSchema
             default:

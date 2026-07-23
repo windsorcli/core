@@ -79,12 +79,10 @@ crds:
 flux:
 
   # Envoy path: install Envoy Gateway + service variant (lb_effective.mode) +
-  # prometheus. Depends on pki-install for the Gateway TLS cert made in resources.
+  # prometheus. Installs independently of pki/lb; the Gateway cert and IP are
+  # wired in resources, which carries those deps.
   - name: gateway
     when: gateway.enabled == true && gateway.driver != 'cilium'
-    dependsOn:
-      - pki-install
-      - "${lb_effective.controller_required == true ? 'lb-install' : ''}"
     install:
       components:
         - "${gateway.driver}"
@@ -99,23 +97,14 @@ flux:
       interval: 5m
 
   # Cilium path: only installs the Gateway API CRDs; the Cilium HelmRelease is owned by option-cni.
+  # Gateway API CRDs come from the crds layer, so cni no longer waits on this.
   - name: gateway
     when: gateway.enabled == true && gateway.driver == 'cilium'
-    dependsOn:
-      - pki-install
-      - "${lb_effective.controller_required == true ? 'lb-install' : ''}"
     install:
       components:
         - cilium
       timeout: 10m
       interval: 5m
-
-  # cni dep merge (cilium gateway only): Gateway API CRDs must exist before the
-  # Cilium HelmRelease, or cilium-operator finds no CRDs and never starts the controller.
-  - name: cni
-    when: gateway.enabled == true && gateway.driver == 'cilium'
-    dependsOn:
-      - gateway-install
 
   # resources — shared Gateway CR + TLS certificate. gateway_class_name drives
   # spec.gatewayClassName; gateway_dns_target is the IP external-dns advertises
@@ -124,6 +113,7 @@ flux:
     when: gateway.enabled == true
     resources:
       - dependsOn:
+          - pki-install
           - "${dns.enabled ? 'dns-install' : ''}"
         components:
           # cilium LBIPAM patch (lbipam.cilium.io/ips) — skipped when a cloud LB

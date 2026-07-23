@@ -23,11 +23,16 @@ terraform {
   }
 }
 
-# The hcloud and imager providers authenticate from the HCLOUD_TOKEN environment
-# variable; no token variable is exposed.
-provider "hcloud" {}
+# token comes from var.hcloud_token (sourced from the sensitive hetzner.token
+# config); an empty value falls back to the HCLOUD_TOKEN environment variable so
+# the module still runs standalone in tests.
+provider "hcloud" {
+  token = var.hcloud_token != "" ? var.hcloud_token : null
+}
 
-provider "imager" {}
+provider "imager" {
+  token = var.hcloud_token != "" ? var.hcloud_token : null
+}
 
 # =============================================================================
 # Instance Expansion
@@ -151,10 +156,10 @@ locals {
 }
 
 locals {
-  labels = {
-    cluster    = var.context_id
-    managed-by = "windsor"
-  }
+  labels = merge(var.labels, {
+    "windsorcli.dev/context-id" = var.context_id
+    "windsorcli.dev/managed-by" = "windsor"
+  })
 
   # Resolve each architecture to a snapshot id: supplied id wins, else the built one.
   image_id_by_arch = {

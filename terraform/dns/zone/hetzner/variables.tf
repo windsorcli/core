@@ -8,6 +8,19 @@ variable "context_id" {
   default     = ""
 }
 
+variable "labels" {
+  description = "Additional labels for all resources."
+  type        = map(string)
+  default     = {}
+}
+
+variable "hcloud_token" {
+  description = "Hetzner Cloud API token. Empty falls back to the HCLOUD_TOKEN environment variable."
+  type        = string
+  default     = ""
+  sensitive   = true
+}
+
 #---------------------------------------------------------------------------------------------------
 # Zone
 #---------------------------------------------------------------------------------------------------

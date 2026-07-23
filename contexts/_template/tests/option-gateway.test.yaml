@@ -50,16 +50,20 @@ x-defaults:
     timeout: 10m
     interval: 5m
 
-  # Shared assertion: gateway install tier with cilium (no longer depends on
-  # cni; cni depends on gateway-install instead).
+  # Shared assertion: gateway install tier with cilium. Installs independently;
+  # Gateway API CRDs come from the crds layer, so neither cni nor the controller
+  # order against each other.
   gateway-install-cilium: &gateway-install-cilium
     components:
       - cilium
     timeout: 10m
     interval: 5m
 
-  # Shared assertion: gateway resources tier
+  # Shared assertion: gateway resources tier. The Gateway cert needs cert-manager
+  # (pki-install) for admission, so the resources tier carries that dep.
   gateway-resources-envoy: &gateway-resources-envoy
+    dependsOn:
+      - pki-install
     substitutions:
       gateway_class_name: envoy
     timeout: 10m
@@ -67,6 +71,7 @@ x-defaults:
 
   gateway-resources-cilium: &gateway-resources-cilium
     dependsOn:
+      - pki-install
       - cni-install
     substitutions:
       gateway_class_name: cilium
@@ -84,8 +89,6 @@ cases:
     expect:
       flux:
         - name: gateway
-          dependsOn:
-            - pki-install
           install:
             <<: *gateway-install-cilium
           resources:
@@ -122,8 +125,6 @@ cases:
     expect:
       flux:
         - name: gateway
-          dependsOn:
-            - pki-install
           install:
             <<: *gateway-install-envoy-np
           resources:
@@ -152,8 +153,6 @@ cases:
     expect:
       flux:
         - name: gateway
-          dependsOn:
-            - pki-install
           install:
             <<: *gateway-install-envoy-lb
           resources:
@@ -171,8 +170,6 @@ cases:
     expect:
       flux:
         - name: gateway
-          dependsOn:
-            - pki-install
           install:
             <<: *gateway-install-envoy-lb
           resources:
@@ -207,8 +204,6 @@ cases:
     expect:
       flux:
         - name: gateway
-          dependsOn:
-            - pki-install
           install:
             <<: *gateway-install-envoy-np
           resources:
@@ -231,8 +226,6 @@ cases:
     expect:
       flux:
         - name: gateway
-          dependsOn:
-            - pki-install
           install:
             <<: *gateway-install-envoy-np
           resources:
@@ -258,8 +251,6 @@ cases:
     expect:
       flux:
         - name: gateway
-          dependsOn:
-            - pki-install
           install:
             <<: *gateway-install-envoy-np
           resources:
@@ -294,8 +285,6 @@ cases:
     expect:
       flux:
         - name: gateway
-          dependsOn:
-            - pki-install
           install:
             <<: *gateway-install-envoy-lb
           resources:
@@ -313,8 +302,6 @@ cases:
     expect:
       flux:
         - name: gateway
-          dependsOn:
-            - pki-install
           install:
             <<: *gateway-install-envoy-lb
           resources:
@@ -336,8 +323,6 @@ cases:
     expect:
       flux:
         - name: gateway
-          dependsOn:
-            - pki-install
           install:
             <<: *gateway-install-envoy-lb
           resources:
@@ -420,8 +405,6 @@ cases:
     expect:
       flux:
         - name: gateway
-          dependsOn:
-            - pki-install
           install:
             <<: *gateway-install-envoy-lb
 
@@ -437,8 +420,6 @@ cases:
     expect:
       flux:
         - name: gateway
-          dependsOn:
-            - pki-install
           install:
             <<: *gateway-install-cilium
           resources:

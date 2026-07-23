@@ -17,8 +17,9 @@ terraform {
   }
 }
 
-# The hcloud provider authenticates from the HCLOUD_TOKEN environment variable.
-provider "hcloud" {}
+provider "hcloud" {
+  token = var.hcloud_token != "" ? var.hcloud_token : null
+}
 
 # =============================================================================
 # Zone
@@ -28,10 +29,10 @@ resource "hcloud_zone" "this" {
   name = var.domain_name
   mode = "primary"
   ttl  = var.ttl
-  labels = {
-    cluster    = var.context_id
-    managed-by = "windsor"
-  }
+  labels = merge(var.labels, {
+    "windsorcli.dev/context-id" = var.context_id
+    "windsorcli.dev/managed-by" = "windsor"
+  })
 }
 
 # =============================================================================

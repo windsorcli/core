@@ -10,6 +10,7 @@ x-defaults:
     cidr_block: 10.5.0.0/16
 
   hetzner: &default-hetzner
+    token: test-token
     location: fsn1
     network_zone: eu-central
 
@@ -39,6 +40,8 @@ cases:
           inputs:
             location: fsn1
             network_zone: eu-central
+            api_allowed_cidrs:
+              - "0.0.0.0/0"
         - name: cluster
           path: cluster/talos
           dependsOn:
@@ -56,6 +59,10 @@ cases:
           dependsOn:
             - cluster
             - cni
+          inputs:
+            # Default control plane is cpx31 (4 vCPU/8 GB); Flux concurrency
+            # floors at 4.
+            concurrency: 4
           destroy: false
       flux:
         - name: cni
@@ -78,6 +85,64 @@ cases:
             - components:
                 - public-issuer/selfsigned
 
+  # Flux controller concurrency scales above the floor of 4 for a large control
+  # plane: cpx51 (16 vCPU/32 GB) → 8, and its server_type flows to compute.
+  - name: control-plane instance type drives flux concurrency and server_type
+    values:
+      platform: hetzner
+      hetzner: *default-hetzner
+      cluster:
+        controlplanes:
+          count: 1
+          instance_type: cpx51
+        workers:
+          count: 1
+      gateway:
+        enabled: false
+      network: *default-network
+    terraformOutputs: *default-terraform-outputs
+    expect:
+      terraform:
+        - name: compute
+          path: compute/hcloud
+          inputs:
+            instances:
+              - name: controlplane
+                role: controlplane
+                count: 1
+                server_type: cpx51
+              - name: worker
+                role: worker
+                count: 1
+                server_type: cpx31
+        - name: gitops
+          path: gitops/flux
+          inputs:
+            concurrency: 8
+
+  # Operator-supplied cluster.api_allowed_cidrs restricts the node firewall to
+  # those source ranges instead of the open default.
+  - name: cluster.api_allowed_cidrs restricts the compute firewall source ranges
+    values:
+      platform: hetzner
+      hetzner: *default-hetzner
+      cluster:
+        api_allowed_cidrs:
+          - "203.0.113.0/24"
+          - "198.51.100.7/32"
+      gateway:
+        enabled: false
+      network: *default-network
+    terraformOutputs: *default-terraform-outputs
+    expect:
+      terraform:
+        - name: compute
+          path: compute/hcloud
+          inputs:
+            api_allowed_cidrs:
+              - "203.0.113.0/24"
+              - "198.51.100.7/32"
+
   # Public domain: envoy gateway fronted by the Hetzner Cloud LB overlay, ACME
   # (Hetzner DNS-01) issuer, and external-dns via the Hetzner webhook provider.
   - name: public domain wires cloud LB, ACME hetzner issuer, and external-dns
@@ -88,6 +153,7 @@ cases:
       dns:
         public_domain: example.com
       hetzner:
+        token: test-token
         location: fsn1
         network_zone: eu-central
         dns_parent_zone: example.org
@@ -155,3 +221,32 @@ cases:
           install:
             components:
               - external-dns/providers/coredns
+
+  # Defaults: with only the token set, the facet defaults the region to ash/us-east.
+  - name: facet defaults region to ash/us-east when region fields are unset
+    values:
+      platform: hetzner
+      hetzner:
+        token: test-token
+      gateway:
+        enabled: false
+      network: *default-network
+    terraformOutputs: *default-terraform-outputs
+    expect:
+      terraform:
+        - name: compute
+          path: compute/hcloud
+          inputs:
+            location: ash
+            network_zone: us-east
+
+  # hetzner.token is required.
+  - name: missing hetzner.token fails composition
+    values:
+      platform: hetzner
+      hetzner:
+        location: ash
+        network_zone: us-east
+      network: *default-network
+    terraformOutputs: *default-terraform-outputs
+    expectError: true

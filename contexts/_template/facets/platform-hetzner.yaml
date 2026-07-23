@@ -17,6 +17,9 @@ backend: cluster
 # Requires
 # =============================================================================
 requires:
+  - paths:
+      - hetzner.token
+    message: A Hetzner Cloud API token is required to authenticate with Hetzner Cloud.
   - when: (dns.public_domain ?? '') != ''
     paths:
       - email
@@ -34,7 +37,32 @@ config:
   - name: talos_common
     value:
       storage_driver: "${cluster.storage.driver ?? 'hcloud'}"
-      k8s_service_host: "${cidrhost(network.cidr_block, 10)}"
+      k8s_service_host: "${cidrhost(network.cidr_block ?? '10.5.0.0/16', 10)}"
+
+  # vCPU/memory (GB) by Hetzner instance type. Hetzner sizes nodes via
+  # instance_type, not cluster.controlplanes.cpu/memory, so this map feeds the
+  # existing Flux-concurrency formula the real control-plane size. Unknown types
+  # fall back to 4/8 (the concurrency floor of 4).
+  - name: hetzner_sizes_by_type
+    value:
+      cpx11: { cpu: 2, memory: 2 }
+      cpx21: { cpu: 3, memory: 4 }
+      cpx31: { cpu: 4, memory: 8 }
+      cpx41: { cpu: 8, memory: 16 }
+      cpx51: { cpu: 16, memory: 32 }
+      cx22: { cpu: 2, memory: 4 }
+      cx32: { cpu: 4, memory: 8 }
+      cx42: { cpu: 8, memory: 16 }
+      cx52: { cpu: 16, memory: 32 }
+      ccx13: { cpu: 2, memory: 8 }
+      ccx23: { cpu: 4, memory: 16 }
+      ccx33: { cpu: 8, memory: 32 }
+      ccx43: { cpu: 16, memory: 64 }
+      ccx53: { cpu: 32, memory: 128 }
+      ccx63: { cpu: 48, memory: 192 }
+  - name: hetzner_effective
+    value:
+      controlplane_size: "${get(hetzner_sizes_by_type, cluster.controlplanes.instance_type ?? 'cpx31') ?? { cpu: 4, memory: 8 }}"
 
   # NOTE: kubelet is intentionally NOT set to --cloud-provider=external, which
   # would taint nodes node.cloudprovider.kubernetes.io/uninitialized until the
@@ -100,26 +128,30 @@ terraform:
   - name: compute
     path: compute/hcloud
     inputs:
+      hcloud_token: ${hetzner.token}
       talos_version: ${talos.talos_version}
-      location: ${hetzner.location ?? 'fsn1'}
-      network_zone: ${hetzner.network_zone ?? 'eu-central'}
-      network_cidr: ${network.cidr_block}
+      location: ${hetzner.location ?? 'ash'}
+      network_zone: ${hetzner.network_zone ?? 'us-east'}
+      network_cidr: ${network.cidr_block ?? '10.5.0.0/16'}
+      api_allowed_cidrs: ${cluster.api_allowed_cidrs ?? ['0.0.0.0/0']}
       instances:
         - name: controlplane
           role: controlplane
           count: ${cluster.controlplanes.count ?? 1}
-          server_type: ${cluster.controlplanes.instance_type ?? 'cpx21'}
+          server_type: ${cluster.controlplanes.instance_type ?? 'cpx31'}
         - name: worker
           role: worker
-          count: ${cluster.workers.count ?? 0}
-          server_type: ${cluster.workers.instance_type ?? 'cpx21'}
+          count: ${cluster.workers.count ?? 1}
+          server_type: ${cluster.workers.instance_type ?? 'cpx31'}
 
   # Public DNS zone (+ NS delegation from hetzner.dns_parent_zone when set).
   # Independent of the cluster; must exist before external-dns/cert-manager run.
+  # DNS is part of the Cloud API, so it uses the same token.
   - name: dns-zone
     path: dns/zone/hetzner
     when: "(dns.public_domain ?? '') != ''"
     inputs:
+      hcloud_token: ${hetzner.token}
       domain_name: ${dns.public_domain}
       parent_zone_name: "${hetzner.dns_parent_zone ?? ''}"
 
@@ -147,7 +179,7 @@ terraform:
     dependsOn:
       - cluster
     inputs:
-      concurrency: ${max(2, min(floor(cluster.controlplanes.cpu / 2), floor(cluster.controlplanes.memory / 2), 10))}
+      concurrency: ${max(4, min(floor(hetzner_effective.controlplane_size.cpu / 2), floor(hetzner_effective.controlplane_size.memory / 2), 10))}
     destroy: false
 
 # =============================================================================
@@ -178,7 +210,7 @@ flux:
       components:
         - envoy/loadbalancer/hcloud-lb
       substitutions:
-        hcloud_location: "${hetzner.location ?? 'fsn1'}"
+        hcloud_location: "${hetzner.location ?? 'ash'}"
 
   # hcloud cloud-controller-manager — Cloud LB provisioning. windsor materializes
   # the `hcloud` Secret (token + network id) into system-lb from the secrets: block.
@@ -196,7 +228,7 @@ flux:
       components:
         - hcloud-ccm
       substitutions:
-        hcloud_location: "${hetzner.location ?? 'fsn1'}"
+        hcloud_location: "${hetzner.location ?? 'ash'}"
       timeout: 5m
       interval: 5m
 
@@ -223,8 +255,6 @@ flux:
   # without external-dns).
   - name: dns
     when: "(dns.public_domain ?? '') != ''"
-    dependsOn:
-      - "${gateway.enabled == true ? 'gateway-install' : ''}"
     secrets:
       hetzner-dns:
         data:

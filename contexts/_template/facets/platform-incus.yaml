@@ -138,6 +138,8 @@ terraform:
     dependsOn:
       - cluster
     inputs:
+      # Floor stays 2 here (other platforms use 4): incus runs the cluster in a
+      # nested VM with slower vCPUs, so higher concurrency floods the apiserver.
       concurrency: ${max(2, min(floor(cluster.controlplanes.cpu / 2), floor(cluster.controlplanes.memory / 2), 10))}
     destroy: false
 

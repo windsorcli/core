@@ -44,6 +44,8 @@ No modules.
 |------|-------------|------|---------|:--------:|
 | <a name="input_context_id"></a> [context\_id](#input\_context\_id) | The windsor context id for this deployment; used to label the zone. | `string` | `""` | no |
 | <a name="input_domain_name"></a> [domain\_name](#input\_domain\_name) | DNS zone to create (e.g. hetzner.windsorcli.dev). | `string` | n/a | yes |
+| <a name="input_hcloud_token"></a> [hcloud\_token](#input\_hcloud\_token) | Hetzner Cloud API token. Empty falls back to the HCLOUD\_TOKEN environment variable. | `string` | `""` | no |
+| <a name="input_labels"></a> [labels](#input\_labels) | Additional labels for all resources. | `map(string)` | `{}` | no |
 | <a name="input_parent_zone_name"></a> [parent\_zone\_name](#input\_parent\_zone\_name) | Parent DNS zone in the same Hetzner account to auto-create the NS delegation in (e.g. windsorcli.dev for domain\_name hetzner.windsorcli.dev). Empty skips delegation (manage it manually at the registrar). | `string` | `""` | no |
 | <a name="input_ttl"></a> [ttl](#input\_ttl) | Default TTL (seconds) for the zone and the delegation records. | `number` | `3600` | no |
 

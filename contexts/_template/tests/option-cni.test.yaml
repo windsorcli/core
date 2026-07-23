@@ -169,7 +169,6 @@ cases:
           dependsOn:
             - policy-resources
             - telemetry-install
-            - gateway-install
           install:
             components:
               - cilium

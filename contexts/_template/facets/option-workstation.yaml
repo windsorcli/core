@@ -129,7 +129,7 @@ terraform:
       # Incus runs the cluster in a nested VM with slower vCPUs, so the
       # CPU-derived formula overshoots and floods apiserver. Clamp to 2 there.
       concurrency: >-
-        ${platform == 'incus' ? 2 : max(2, min(
+        ${platform == 'incus' ? 2 : max(4, min(
           floor(cluster.controlplanes.cpu / 2),
           floor(cluster.controlplanes.memory / 2),
           10
