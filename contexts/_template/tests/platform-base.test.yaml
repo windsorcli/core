@@ -557,7 +557,8 @@ cases:
                 - fluentbit/fluentd
               secrets:
                 alertmanager-notification-slack:
-                  url: https://hooks.slack.com/services/T000/B000/XXXXXXXX
+                  data:
+                    url: https://hooks.slack.com/services/T000/B000/XXXXXXXX
               substitutions:
                 slack_channel: '"#test-alerts"'
                 severity_regex: warning|critical
@@ -585,7 +586,8 @@ cases:
                 - prometheus/notifications/slack
               secrets:
                 alertmanager-notification-slack:
-                  url: https://hooks.slack.com/services/T000/B000/XXXXXXXX
+                  data:
+                    url: https://hooks.slack.com/services/T000/B000/XXXXXXXX
               substitutions:
                 slack_channel: '"#test-alerts"'
                 severity_regex: critical
