@@ -34,7 +34,7 @@ jobs:
           fetch-depth: 0
       - name: Fetch base ref
         run: git fetch --depth=1 origin ${{ github.base_ref }}
-      - uses: anthropics/claude-code-action@44423bdec74b97d67543eb16c110546762c110b2 # v1.0.181
+      - uses: anthropics/claude-code-action@e0cf66d1d257526b5d07f141838c338921cb8455 # v1.0.182
         env:
           PR_NUMBER: ${{ github.event.pull_request.number }}
           PR_HEAD_SHA: ${{ github.event.pull_request.head.sha }}
@@ -151,7 +151,7 @@ jobs:
           fetch-depth: 0
       - name: Fetch base ref
         run: git fetch --depth=1 origin ${{ steps.pr.outputs.base_ref }}
-      - uses: anthropics/claude-code-action@44423bdec74b97d67543eb16c110546762c110b2 # v1.0.181
+      - uses: anthropics/claude-code-action@e0cf66d1d257526b5d07f141838c338921cb8455 # v1.0.182
         env:
           PR_NUMBER: ${{ github.event.issue.number }}
           PR_HEAD_SHA: ${{ steps.pr.outputs.head_sha }}
@@ -283,7 +283,7 @@ jobs:
         if: steps.check.outputs.count != '0'
         with:
           fetch-depth: 1
-      - uses: anthropics/claude-code-action@44423bdec74b97d67543eb16c110546762c110b2 # v1.0.181
+      - uses: anthropics/claude-code-action@e0cf66d1d257526b5d07f141838c338921cb8455 # v1.0.182
         if: steps.check.outputs.count != '0'
         env:
           PR_NUMBER: ${{ github.event.pull_request.number }}
