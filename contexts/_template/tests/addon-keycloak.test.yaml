@@ -1,0 +1,256 @@
+# addon-keycloak.yaml facet tests
+# Keycloak identity provider: operator install, server + CNPG resources, gateway route.
+
+x-defaults:
+  network: &default-network
+    cidr_block: 10.5.0.0/16
+    loadbalancer_driver: kube-vip
+    loadbalancer_mode: arp
+    loadbalancer_ips:
+      start: "10.5.1.10"
+      end: "10.5.1.100"
+
+  cluster: &default-cluster
+    driver: talos
+    controlplanes:
+      nodes:
+        controlplane-1:
+          endpoint: 10.5.0.10:50000
+          node: 10.5.0.10
+          hostname: controlplane-1
+    workers:
+      volumes:
+        - /var/mnt/local
+
+cases:
+  # Enabled: the database addon is NOT set here — enabling keycloak auto-enables
+  # postgres. The Keycloak resources depend on database-install, so composition
+  # only succeeds if that auto-enable fired. Also asserts the operator install,
+  # gateway route, and vendored CRDs.
+  - name: enabled auto-enables postgres and creates operator, resources, route, crds
+    values:
+      platform: metal
+      dns:
+        domain: example.local
+      gateway:
+        enabled: true
+      network: *default-network
+      cluster: *default-cluster
+      addons:
+        keycloak:
+          enabled: true
+    expect:
+      flux:
+        - name: identity
+          install:
+            components:
+              - keycloak-operator
+          resources:
+            - dependsOn:
+                - database-install
+              # No topology: ha → no keycloak/ha overlay (single instance).
+              components:
+                - keycloak
+              # No image/hostname set → stock image built at boot; non-docker-desktop
+              # so no :8443 (loadbalancer/cloud reach the gateway on :443).
+              substitutions:
+                keycloak_hostname: https://keycloak.example.local
+                keycloak_image: quay.io/keycloak/keycloak:26.7.0@sha256:0f198be292568439d700cdbfb893e69a6009bb43a94a06a945b1d3d506c76b13
+                keycloak_start_optimized: "false"
+            - dependsOn:
+                - gateway-resources
+              components:
+                - keycloak/gateway
+              substitutions:
+                external_domain: example.local
+        # Auto-enabled by the keycloak facet's config: block.
+        - name: database
+          install:
+            components:
+              - cloudnativepg
+              - cloudnativepg/prometheus
+      crds:
+        # renovate: datasource=github-releases depName=keycloak/keycloak-k8s-resources package=keycloak/keycloak-k8s-resources
+        - keycloak-26.7.0
+
+  # Custom pre-built image: use it verbatim and start optimized.
+  - name: custom image runs optimized
+    values:
+      platform: metal
+      dns:
+        domain: example.local
+      gateway:
+        enabled: true
+      network: *default-network
+      cluster: *default-cluster
+      addons:
+        keycloak:
+          enabled: true
+          image: registry.example.com/keycloak-optimized:26.7.0@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
+    expect:
+      flux:
+        - name: identity
+          resources:
+            - components:
+                - keycloak
+              substitutions:
+                keycloak_image: registry.example.com/keycloak-optimized:26.7.0@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
+                keycloak_start_optimized: "true"
+            - components:
+                - keycloak/gateway
+
+  # Explicit hostname pins a fixed base URL instead of the bare default.
+  - name: custom hostname pins the base url
+    values:
+      platform: metal
+      dns:
+        domain: example.local
+      gateway:
+        enabled: true
+      network: *default-network
+      cluster: *default-cluster
+      addons:
+        keycloak:
+          enabled: true
+          hostname: https://sso.example.com
+    expect:
+      flux:
+        - name: identity
+          resources:
+            - components:
+                - keycloak
+              substitutions:
+                keycloak_hostname: https://sso.example.com
+            - components:
+                - keycloak/gateway
+
+  # docker-desktop reaches the gateway on :8443, so the derived hostname keeps that port.
+  - name: docker-desktop derives the 8443 gateway port
+    values:
+      platform: docker
+      dns:
+        domain: example.local
+      gateway:
+        enabled: true
+        driver: envoy
+      workstation:
+        enabled: true
+        runtime: docker-desktop
+      network: *default-network
+      cluster: *default-cluster
+      addons:
+        keycloak:
+          enabled: true
+    terraformOutputs:
+      compute:
+        controlplanes:
+          - endpoint: 10.5.0.10:6443
+            node: 10.5.0.10
+            hostname: controlplane-1
+        workers: []
+      workstation:
+        registries: {}
+    expect:
+      flux:
+        - name: identity
+          resources:
+            - components:
+                - keycloak
+              substitutions:
+                keycloak_hostname: https://keycloak.example.local:8443
+            - components:
+                - keycloak/gateway
+
+  # HA topology: the keycloak/ha overlay is flagged on (scales server + Postgres).
+  - name: ha topology adds the keycloak ha overlay
+    values:
+      platform: metal
+      dns:
+        domain: example.local
+      gateway:
+        enabled: true
+      topology: ha
+      network: *default-network
+      cluster: *default-cluster
+      addons:
+        keycloak:
+          enabled: true
+    expect:
+      flux:
+        - name: identity
+          resources:
+            - components:
+                - keycloak
+                - keycloak/ha
+            - components:
+                - keycloak/gateway
+
+  # Cilium gateway: the keycloak/cilium overlay is flagged on (restricts Keycloak
+  # ingress to the gateway proxy via CiliumNetworkPolicy).
+  - name: cilium gateway adds the keycloak cilium netpol overlay
+    values:
+      platform: metal
+      dns:
+        domain: example.local
+      gateway:
+        enabled: true
+        driver: cilium
+      network: *default-network
+      cluster: *default-cluster
+      addons:
+        keycloak:
+          enabled: true
+    expect:
+      flux:
+        - name: identity
+          resources:
+            - components:
+                - keycloak
+                - keycloak/cilium
+            - components:
+                - keycloak/gateway
+
+  # Supplied admin: the keycloak/admin overlay is flagged on and the
+  # keycloak-bootstrap-admin secret is materialized from the given credentials.
+  - name: supplied admin credentials add the bootstrap admin overlay and secret
+    values:
+      platform: metal
+      dns:
+        domain: example.local
+      gateway:
+        enabled: true
+      network: *default-network
+      cluster: *default-cluster
+      addons:
+        keycloak:
+          enabled: true
+          admin:
+            username: root
+            password: s3cret
+    expect:
+      flux:
+        - name: identity
+          resources:
+            - components:
+                - keycloak
+                - keycloak/admin
+
+  # Disabled: no identity system and no Keycloak CRDs.
+  - name: excludes keycloak when addon disabled
+    values:
+      platform: metal
+      gateway:
+        enabled: true
+      network: *default-network
+      cluster: *default-cluster
+      addons:
+        keycloak:
+          enabled: false
+        database:
+          postgres:
+            enabled: true
+    exclude:
+      flux:
+        - name: identity
+      crds:
+        - keycloak-26.7.0

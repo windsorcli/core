@@ -127,7 +127,10 @@ cases:
           install:
             <<: *gateway-install-envoy-np
           resources:
-            - <<: *gateway-resources-envoy
+            # docker-desktop reaches HTTPS on host :8443, so the redirect targets it.
+            - substitutions:
+                gateway_class_name: envoy
+                gateway_redirect_port: "8443"
 
   - name: platform docker with runtime colima uses gateway loadbalancer
     values:
@@ -649,6 +652,8 @@ cases:
                 gateway_class_name: envoy
                 gateway_cert_issuer: public-selfsigned
                 external_domain: example.com
+                # No docker-desktop host-forward: redirect targets the standard :443.
+                gateway_redirect_port: "443"
 
   # gitops.mode=pull drops the Flux Receiver kustomize entirely and propagates
   # mode=pull to the gitops/flux terraform module (which then skips

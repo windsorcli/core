@@ -140,6 +140,9 @@ flux:
         substitutions:
           gateway_class_name: ${gateway.driver}
           gateway_dns_target: "${lb_effective.enabled == true ? network.loadbalancer_ips.start : ''}"
+          # HTTPS port the https-redirect 301 targets: docker-desktop forwards the
+          # gateway to host :8443, cloud/LB use the standard :443.
+          gateway_redirect_port: "${workstation.runtime == 'docker-desktop' ? '8443' : '443'}"
           # Cert SAN domain and TLS issuer — resolved in the config section above.
           external_domain: "${gateway_effective.external_domain}"
           gateway_cert_issuer: "${gateway_effective.cert_issuer}"

@@ -1,0 +1,94 @@
+kind: Facet
+apiVersion: blueprints.windsorcli.dev/v1alpha1
+metadata:
+  name: keycloak
+  description: Keycloak identity provider (OIDC / SSO)
+
+when: addons.keycloak.enabled == true
+
+# Keycloak requires PostgreSQL, so enabling it turns on the database addon by
+# default (on unless the user explicitly set enabled: false). Mirrors the
+# option-dev auto-enable pattern so the database facet composes cross-facet.
+config:
+  - name: addons
+    value:
+      database:
+        postgres:
+          enabled: ${addons.database.postgres.enabled != false}
+          driver: "${addons.database.postgres.driver ?? 'cloudnativepg'}"
+
+# Keycloak is reached over HTTPS via the gateway.
+requires:
+  - paths:
+      - gateway.enabled
+    message: Keycloak is reached over HTTPS through the cluster gateway — enable the gateway.
+
+# Keycloak's CRDs are vendored (kustomize/crds/keycloak-26.7.0) and owned by the crds:
+# layer, not the operator. The operator itself is vendored under install/keycloak-operator.
+# renovate: datasource=github-releases depName=keycloak/keycloak-k8s-resources package=keycloak/keycloak-k8s-resources
+crds:
+  - keycloak-26.7.0
+
+# =============================================================================
+# Flux system — Keycloak operator, server, and its Postgres cluster
+# =============================================================================
+flux:
+
+  # Operator install (Deployment/RBAC). CRDs arrive via the crds: layer.
+  - name: identity
+    install:
+      components:
+        - keycloak-operator
+      timeout: 10m
+      interval: 5m
+    # Keycloak CR + its CNPG cluster. Waits for the database operator so the
+    # Cluster CRD exists; the Keycloak CRD is already applied by the crds: layer.
+    resources:
+      - dependsOn:
+          - database-install
+        components:
+          - keycloak
+          - "${topology == 'ha' ? 'keycloak/ha' : ''}"
+          # Cilium gateway: restrict Keycloak ingress to the gateway proxy.
+          - "${gateway.driver == 'cilium' ? 'keycloak/cilium' : ''}"
+          # Supplied bootstrap admin: point the CR at the keycloak-bootstrap-admin
+          # secret instead of the operator's auto-generated temporary admin.
+          - "${(addons.keycloak.admin.password ?? '') != '' ? 'keycloak/admin' : ''}"
+        timeout: 10m
+        interval: 5m
+        substitutions:
+          # Full frontend URL, since Keycloak can't infer the external port (the
+          # gateway port lives outside the cluster; the proxy forwards a standard one).
+          # docker-desktop reaches the gateway on :8443 (its NodePort host-forward);
+          # loadbalancer/cloud use :443. Set addons.keycloak.hostname to override (e.g.
+          # a plain-NodePort Talos VM on :30443, or a canonical production URL).
+          keycloak_hostname: "${(addons.keycloak.hostname ?? '') == '' ? ('https://keycloak.' + ((dns.public_domain ?? '') == '' ? (dns.private_domain ?? '') : dns.public_domain) + (workstation.runtime == 'docker-desktop' ? ':8443' : '')) : addons.keycloak.hostname}"
+          # A user-supplied image is assumed pre-built, so start optimized. The stock
+          # default is not augmented, so it builds at boot (startOptimized false).
+          # Custom images must be digest-pinned (system-identity is policy-managed).
+          # renovate: datasource=docker depName=keycloak/keycloak package=quay.io/keycloak/keycloak
+          keycloak_image: "${(addons.keycloak.image ?? '') == '' ? 'quay.io/keycloak/keycloak:26.7.0@sha256:0f198be292568439d700cdbfb893e69a6009bb43a94a06a945b1d3d506c76b13' : addons.keycloak.image}"
+          keycloak_start_optimized: "${(addons.keycloak.image ?? '') == '' ? 'false' : 'true'}"
+
+  # Gateway route — waits for the shared Gateway to exist.
+  - name: identity
+    resources:
+      - dependsOn:
+          - gateway-resources
+        components:
+          - keycloak/gateway
+        timeout: 10m
+        interval: 5m
+        substitutions:
+          external_domain: "${(dns.public_domain ?? '') == '' ? (dns.private_domain ?? '') : dns.public_domain}"
+
+  # Supplied bootstrap admin credentials. Only materialized when a password is
+  # given (a literal or a ${secret(...)} ref); otherwise the operator generates a
+  # temporary admin. Consumed by the keycloak/admin overlay via bootstrapAdmin.
+  - name: identity
+    when: (addons.keycloak.admin.password ?? '') != ''
+    secrets:
+      keycloak-bootstrap-admin:
+        data:
+          username: ${addons.keycloak.admin.username ?? 'admin'}
+          password: ${addons.keycloak.admin.password}

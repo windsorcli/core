@@ -1,0 +1,28 @@
+---
+# CloudNativePG cluster backing Keycloak. initdb creates the `keycloak` database owned
+# by role `keycloak`; CNPG publishes credentials in the `keycloak-db-app` secret and a
+# read-write service `keycloak-db-rw`, both consumed by the Keycloak CR.
+apiVersion: postgresql.cnpg.io/v1
+kind: Cluster
+metadata:
+  name: keycloak-db
+  namespace: system-identity
+spec:
+  # Single instance by default; the ha/ overlay scales this under topology: ha.
+  instances: 1
+  # system-identity is policy-managed (Kyverno require-image-digest), so pin the
+  # Postgres image with a digest (CNPG's default image carries none).
+  # renovate: datasource=docker depName=cloudnative-pg/postgresql package=ghcr.io/cloudnative-pg/postgresql
+  imageName: ghcr.io/cloudnative-pg/postgresql:17.6@sha256:30b304a2e300ed80b6d1b740e4369e9b0f25599fb518de78c01fd9f25531791b
+  storage:
+    size: 1Gi
+  resources:
+    requests:
+      cpu: 100m
+      memory: 256Mi
+    limits:
+      memory: 512Mi
+  bootstrap:
+    initdb:
+      database: keycloak
+      owner: keycloak

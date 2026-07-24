@@ -5,10 +5,7 @@ metadata:
   namespace: system-observability
 spec:
   parentRefs:
-    - kind: Gateway
-      name: external
-      namespace: system-gateway
-      sectionName: web-http
+    # web-https only; plain HTTP is 301-redirected by the gateway's https-redirect.
     - kind: Gateway
       name: external
       namespace: system-gateway

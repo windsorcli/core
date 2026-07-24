@@ -1,0 +1,48 @@
+---
+# Keycloak server, reconciled by the operator. TLS terminates at the shared gateway, so
+# Keycloak serves plain HTTP internally (httpEnabled) and trusts the proxy's forwarded
+# headers for the external scheme/host. The operator's own Ingress is disabled — traffic
+# reaches Keycloak through the gateway HTTPRoute (see gateway/httproute.yaml).
+apiVersion: k8s.keycloak.org/v2beta1
+kind: Keycloak
+metadata:
+  name: keycloak
+  namespace: system-identity
+spec:
+  # Single instance by default; the ha/ overlay scales this under topology: ha.
+  instances: 1
+  # Image + optimized mode come from the facet (addons.keycloak.image): a stock,
+  # digest-pinned default built at boot, or a user-supplied pre-built optimized image.
+  image: ${keycloak_image}
+  startOptimized: ${keycloak_start_optimized}
+  db:
+    vendor: postgres
+    host: keycloak-db-rw
+    port: 5432
+    database: keycloak
+    usernameSecret:
+      name: keycloak-db-app
+      key: username
+    passwordSecret:
+      name: keycloak-db-app
+      key: password
+  # Encrypt and verify the Postgres connection. CNPG serves TLS from its own CA
+  # (the keycloak-db-ca secret it generates); import that CA into Keycloak's
+  # truststore and require sslmode=verify-full so the server cert and the
+  # keycloak-db-rw hostname are validated. DefaultJavaSSLFactory makes the JDBC
+  # driver use the JVM truststore Keycloak populates from the entry below.
+  truststores:
+    cnpg:
+      secret:
+        name: keycloak-db-ca
+  additionalOptions:
+    - name: db-url-properties
+      value: "?sslmode=verify-full&sslfactory=org.postgresql.ssl.DefaultJavaSSLFactory"
+  hostname:
+    hostname: ${keycloak_hostname}
+  http:
+    httpEnabled: true
+  proxy:
+    headers: xforwarded
+  ingress:
+    enabled: false

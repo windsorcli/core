@@ -7,8 +7,11 @@ metadata:
     windsorcli.dev/role: gateway-default-404
 spec:
   parentRefs:
+    # web-https only: web-http is owned by the https-redirect catch-all, so this
+    # 404 catches unmatched hostnames after TLS termination.
     - name: external
       namespace: system-gateway
+      sectionName: web-https
   rules:
     - filters:
         # ResponseHeaderModifier runs alongside the directResponse below.

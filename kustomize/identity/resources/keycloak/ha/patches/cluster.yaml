@@ -1,0 +1,14 @@
+---
+# topology: ha — HA Postgres (primary + replicas with automatic failover).
+# `required` anti-affinity puts each instance on a distinct node (needs >= 3 nodes);
+# CNPG's default is `preferred` (soft), which does not guarantee spread.
+apiVersion: postgresql.cnpg.io/v1
+kind: Cluster
+metadata:
+  name: keycloak-db
+  namespace: system-identity
+spec:
+  instances: 3
+  affinity:
+    enablePodAntiAffinity: true
+    podAntiAffinityType: required
