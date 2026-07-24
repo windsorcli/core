@@ -60,7 +60,7 @@ cases:
             - cluster
             - cni
           inputs:
-            # Default control plane is cpx32 (4 vCPU/8 GB); Flux concurrency
+            # Default control plane is cpx31 (4 vCPU/8 GB); Flux concurrency
             # floors at 4.
             concurrency: 4
           destroy: false
@@ -114,11 +114,90 @@ cases:
               - name: worker
                 role: worker
                 count: 1
-                server_type: cpx32
+                server_type: cpx31
         - name: gitops
           path: gitops/flux
           inputs:
             concurrency: 8
+
+  # US location (ash) with the default cpx31 (Gen1) composes: cpx31 is orderable
+  # in ash, unlike the Gen2 cpx32.
+  - name: US location with default instance type composes
+    values:
+      platform: hetzner
+      hetzner:
+        token: test-token
+        location: ash
+        network_zone: us-east
+      gateway:
+        enabled: false
+      network: *default-network
+    terraformOutputs: *default-terraform-outputs
+    expect:
+      terraform:
+        - name: compute
+          path: compute/hcloud
+          inputs:
+            location: ash
+            instances:
+              - name: controlplane
+                role: controlplane
+                count: 1
+                server_type: cpx31
+              - name: worker
+                role: worker
+                count: 1
+                server_type: cpx31
+
+  # A Gen2 cpx*2 type in a US location is not orderable there; composition fails
+  # with a readable message instead of an opaque Hetzner API error at apply.
+  - name: US location with Gen2 instance type fails composition
+    values:
+      platform: hetzner
+      hetzner:
+        token: test-token
+        location: ash
+        network_zone: us-east
+      cluster:
+        controlplanes:
+          instance_type: cpx32
+      network: *default-network
+    terraformOutputs: *default-terraform-outputs
+    expectError: true
+
+  # CCX (dedicated) types are orderable in US locations, so ash + ccx composes.
+  - name: US location with ccx instance type composes
+    values:
+      platform: hetzner
+      hetzner:
+        token: test-token
+        location: ash
+        network_zone: us-east
+      gateway:
+        enabled: false
+      cluster:
+        controlplanes:
+          count: 1
+          instance_type: ccx23
+        workers:
+          count: 1
+          instance_type: ccx23
+      network: *default-network
+    terraformOutputs: *default-terraform-outputs
+    expect:
+      terraform:
+        - name: compute
+          path: compute/hcloud
+          inputs:
+            instances:
+              - name: controlplane
+                role: controlplane
+                count: 1
+                server_type: ccx23
+              - name: worker
+                role: worker
+                count: 1
+                server_type: ccx23
 
   # Operator-supplied cluster.api_allowed_cidrs restricts the node firewall to
   # those source ranges instead of the open default.

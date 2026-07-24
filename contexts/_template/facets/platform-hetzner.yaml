@@ -24,6 +24,14 @@ requires:
     paths:
       - email
     message: Public DNS requires an operator email for TLS certificate registration.
+  - when: (hetzner.location ?? 'ash') in ['ash', 'hil']
+    paths:
+      - hetzner_us_instance_type_ok
+    message: >-
+      The US locations (ash, hil) only offer cpx11-cpx51 and ccx types. Set
+      cluster.controlplanes.instance_type / cluster.workers.instance_type to one
+      of those, or pick an EU/Asia location (fsn1, hel1, nbg1, sin) to use a Gen2
+      cpx*2 or ARM cax type.
 
 # =============================================================================
 # Config — Hetzner-specific Talos values
@@ -86,7 +94,33 @@ config:
       cx52: { cpu: 16, memory: 32 }
   - name: hetzner_effective
     value:
-      controlplane_size: "${get(hetzner_sizes_by_type, cluster.controlplanes.instance_type ?? 'cpx32') ?? { cpu: 4, memory: 8 }}"
+      controlplane_size: "${get(hetzner_sizes_by_type, cluster.controlplanes.instance_type ?? 'cpx31') ?? { cpu: 4, memory: 8 }}"
+
+  # Instance types orderable in the US locations (ash, hil): Gen1 CPX and CCX only.
+  # Gen2 CPX (cpx*2) and ARM (cax*) are EU/Asia-only. Drives the US requires check.
+  - name: hetzner_us_instance_types
+    value:
+      - cpx11
+      - cpx21
+      - cpx31
+      - cpx41
+      - cpx51
+      - ccx13
+      - ccx23
+      - ccx33
+      - ccx43
+      - ccx53
+      - ccx63
+  # 'ok' when both pools' types are US-orderable, blank otherwise. Only computed
+  # for US locations; the requires block above reads it to fail with a message.
+  - name: hetzner_us_instance_type_ok
+    when: (hetzner.location ?? 'ash') in ['ash', 'hil']
+    value: >-
+      ${
+        (cluster.controlplanes.instance_type ?? 'cpx31') in hetzner_us_instance_types
+        && (cluster.workers.instance_type ?? 'cpx31') in hetzner_us_instance_types
+          ? 'ok' : ''
+      }
 
   # NOTE: kubelet is intentionally NOT set to --cloud-provider=external, which
   # would taint nodes node.cloudprovider.kubernetes.io/uninitialized until the
@@ -162,11 +196,13 @@ terraform:
         - name: controlplane
           role: controlplane
           count: ${cluster.controlplanes.count ?? 1}
-          server_type: ${cluster.controlplanes.instance_type ?? 'cpx32'}
+          # Default cpx31 (Gen1) is supported in every location; Gen2 cpx32 is
+          # unavailable in the US locations (ash/hil), including the default ash.
+          server_type: ${cluster.controlplanes.instance_type ?? 'cpx31'}
         - name: worker
           role: worker
           count: ${cluster.workers.count ?? 1}
-          server_type: ${cluster.workers.instance_type ?? 'cpx32'}
+          server_type: ${cluster.workers.instance_type ?? 'cpx31'}
 
   # Public DNS zone (+ NS delegation from hetzner.dns_parent_zone when set).
   # Independent of the cluster; must exist before external-dns/cert-manager run.
