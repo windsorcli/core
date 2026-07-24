@@ -54,4 +54,13 @@ resource "hcloud_zone_rrset" "delegation" {
       value = "${trimsuffix(ns, ".")}."
     }
   ]
+
+  # trimsuffix is a no-op when domain_name isn't under parent_zone_name, which
+  # would silently create a wrong NS name in the parent zone. Fail instead.
+  lifecycle {
+    precondition {
+      condition     = endswith(var.domain_name, ".${var.parent_zone_name}")
+      error_message = "domain_name must be a subdomain of parent_zone_name to create the NS delegation."
+    }
+  }
 }
