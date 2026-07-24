@@ -142,27 +142,22 @@ config:
 
   # Resolve `topology` to a concrete value. Explicit wins; else from node
   # counts (count ?? len(nodes)): 1 → single-node, 3+ CPs → ha, else
-  # multi-node; workstation runtime with no layout → single-node; cloud with
-  # no layout → multi-node. Single inline expression so later entries still
-  # read the original user input, not a value this entry wrote back.
+  # multi-node. The controlplane count floors at 1 (a cluster always has at
+  # least one, even before terraform materializes the node list — workstation
+  # layouts don't declare nodes in config), so 1 cp + 0 workers is single-node
+  # regardless of resolution order. Single inline expression so later entries
+  # still read the original user input, not a value this entry wrote back.
   - name: topology
     value: >-
       ${
         topology
         ?? (
-          ((cluster.controlplanes.count ?? len(cluster.controlplanes.nodes ?? {}))
-            + (cluster.workers.count ?? len(cluster.workers.nodes ?? {}))) > 0
-            ? (
-                ((cluster.controlplanes.count ?? len(cluster.controlplanes.nodes ?? {}))
-                  + (cluster.workers.count ?? len(cluster.workers.nodes ?? {}))) == 1
-                  ? 'single-node'
-                  : (cluster.controlplanes.count ?? len(cluster.controlplanes.nodes ?? {})) >= 3
-                    ? 'ha'
-                    : 'multi-node'
-              )
-            : workstation.runtime != ''
-              ? 'single-node'
-              : 'multi-node'
+          (max(1, cluster.controlplanes.count ?? len(cluster.controlplanes.nodes ?? {}))
+            + (cluster.workers.count ?? len(cluster.workers.nodes ?? {}))) == 1
+            ? 'single-node'
+            : (max(1, cluster.controlplanes.count ?? len(cluster.controlplanes.nodes ?? {})) >= 3
+                ? 'ha'
+                : 'multi-node')
         )
       }
 
