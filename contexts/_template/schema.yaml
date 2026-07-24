@@ -737,11 +737,6 @@ properties:
             description: Number of worker nodes; unset lets the platform facet default it (hetzner defaults to 1)
           nodes:
             <<: *nodesSchema
-            default:
-              worker-1:
-                endpoint: 10.5.0.2
-                node: 10.5.0.2
-                hostname: worker-1
             description: Named worker node configurations
           volumes:
             type: array
