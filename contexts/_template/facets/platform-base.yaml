@@ -32,9 +32,9 @@ config:
       driver: "${cluster.driver ?? (platform == 'aws' ? 'eks' : (platform == 'azure' ? 'aks' : 'talos'))}"
       cni:
         driver: "${cluster.cni.driver ?? ((cluster.driver ?? (platform == 'aws' ? 'eks' : (platform == 'azure' ? 'aks' : 'talos'))) == 'talos' ? 'cilium' : '')}"
-      # Schedulable defaulting moved out of the CLI config resolver (windsorcli/cli #3062):
-      # a single-controlplane, workerless cluster runs workloads on the control plane. Honors an
-      # explicit cluster.controlplanes.schedulable; downstream consumers keep reading it via `?? false`.
+      # Schedulable defaulting moved out of the CLI config resolver (windsorcli/cli #3062): a
+      # single-controlplane, workerless cluster runs workloads on the control plane. An explicit
+      # cluster.controlplanes.schedulable still wins, and consumers keep reading it via `?? false`.
       controlplanes:
         schedulable: "${cluster.controlplanes.schedulable ?? ((cluster.workers.count ?? 0) == 0 && (cluster.controlplanes.count ?? 1) == 1)}"
 

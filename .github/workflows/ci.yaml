@@ -34,7 +34,7 @@ env:
   # renovate: datasource=github-releases depName=troubleshoot package=replicatedhq/troubleshoot
   SUPPORT_BUNDLE_VERSION: v0.131.1
   # renovate: datasource=github-releases depName=flux package=fluxcd/flux2
-  FLUX_VERSION: v2.9.2
+  FLUX_VERSION: v2.9.3
   # renovate: datasource=github-releases depName=yq package=mikefarah/yq
   YQ_VERSION: v4.53.3
   # renovate: datasource=github-releases depName=helm package=helm/helm
@@ -732,8 +732,7 @@ jobs:
               >
               > **Suggested next step:** {one actionable sentence}
               >
-              > _Live read-only inspection by Claude. Support bundle attached
-              > to the run artifacts._
+              > _Support bundle attached to the run artifacts._
               <!-- /claude-integration-$MODE-diagnosis -->
 
             The marker lines are required — a later CI step uses them to anchor
