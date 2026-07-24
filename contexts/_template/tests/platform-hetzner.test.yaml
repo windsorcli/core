@@ -85,6 +85,56 @@ cases:
             - components:
                 - public-issuer/selfsigned
 
+  # With no cluster block the facet still provisions a worker, so the cluster must
+  # resolve multi-node and leave the control plane tainted. Regression: the worker
+  # default lived only in the compute inputs, so topology and the schedulable
+  # heuristic read the cluster as workerless and every workload landed on the
+  # control plane.
+  - name: default worker keeps control plane unschedulable
+    values:
+      platform: hetzner
+      hetzner: *default-hetzner
+      gateway:
+        enabled: false
+      network: *default-network
+    terraformOutputs: *default-terraform-outputs
+    expect:
+      terraform:
+        - name: compute
+          path: compute/hcloud
+          inputs:
+            instances:
+              - name: controlplane
+                role: controlplane
+                count: 1
+                server_type: cpx31
+              - name: worker
+                role: worker
+                count: 1
+                server_type: cpx31
+        - name: cluster
+          path: cluster/talos
+          inputs:
+            common_config_patches: |-
+              cluster:
+                allowSchedulingOnControlPlanes: false
+                extraManifests:
+                - https://raw.githubusercontent.com/alex1989hu/kubelet-serving-cert-approver/v0.8.7/deploy/standalone-install.yaml
+                network:
+                  cni:
+                    name: none
+                proxy:
+                  disabled: true
+              machine:
+                kubelet:
+                  extraArgs:
+                    rotate-server-certificates: "true"
+        # multi-node topology, not the single-node replica count of 1
+        - name: cni
+          path: cni/cilium
+          inputs:
+            operator_replicas: 2
+
   # Flux controller concurrency scales above the floor of 4 for a large control
   # plane: cpx62 (16 vCPU/32 GB) → 8, and its server_type flows to compute.
   - name: control-plane instance type drives flux concurrency and server_type

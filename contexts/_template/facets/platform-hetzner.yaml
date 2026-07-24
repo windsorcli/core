@@ -195,13 +195,13 @@ terraform:
       instances:
         - name: controlplane
           role: controlplane
-          count: ${cluster.controlplanes.count ?? 1}
+          count: ${cluster_nodes_effective.controlplanes}
           # Default cpx31 (Gen1) is supported in every location; Gen2 cpx32 is
           # unavailable in the US locations (ash/hil), including the default ash.
           server_type: ${cluster.controlplanes.instance_type ?? 'cpx31'}
         - name: worker
           role: worker
-          count: ${cluster.workers.count ?? 1}
+          count: ${cluster_nodes_effective.workers}
           server_type: ${cluster.workers.instance_type ?? 'cpx31'}
 
   # Public DNS zone (+ NS delegation from hetzner.dns_parent_zone when set).

@@ -209,6 +209,26 @@ cases:
           path: cni/cilium
           inputs:
             operator_replicas: 2
+        # A worker declared via nodes: (no count:) must also taint the control
+        # plane. The schedulable heuristic used to key off cluster.workers.count
+        # alone, so a declared-node worker read as workerless here.
+        - name: cluster
+          path: cluster/talos
+          inputs:
+            common_config_patches: |-
+              cluster:
+                allowSchedulingOnControlPlanes: false
+                extraManifests:
+                - https://raw.githubusercontent.com/alex1989hu/kubelet-serving-cert-approver/v0.8.7/deploy/standalone-install.yaml
+                network:
+                  cni:
+                    name: none
+                proxy:
+                  disabled: true
+              machine:
+                kubelet:
+                  extraArgs:
+                    rotate-server-certificates: "true"
 
   # Cilium + HA: operator replicas scale from 1 (single-node) to 2 via substitution.
   - name: cilium with topology=ha sets operator_replicas to 2
