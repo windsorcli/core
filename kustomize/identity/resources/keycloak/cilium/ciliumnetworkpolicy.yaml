@@ -1,0 +1,12 @@
+apiVersion: cilium.io/v2
+kind: CiliumNetworkPolicy
+metadata:
+  name: allow-gateway-keycloak
+  namespace: system-identity
+spec:
+  endpointSelector:
+    matchLabels:
+      app: keycloak
+  ingress:
+    - fromEntities:
+        - ingress

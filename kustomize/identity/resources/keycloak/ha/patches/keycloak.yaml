@@ -1,0 +1,19 @@
+---
+# topology: ha — cluster Keycloak across replicas (the operator wires Infinispan).
+# Hard anti-affinity spreads replicas one-per-node, so needs >= 2 schedulable nodes.
+apiVersion: k8s.keycloak.org/v2beta1
+kind: Keycloak
+metadata:
+  name: keycloak
+  namespace: system-identity
+spec:
+  instances: 2
+  scheduling:
+    affinity:
+      podAntiAffinity:
+        requiredDuringSchedulingIgnoredDuringExecution:
+          - labelSelector:
+              matchLabels:
+                app.kubernetes.io/instance: keycloak
+                app.kubernetes.io/component: server
+            topologyKey: kubernetes.io/hostname

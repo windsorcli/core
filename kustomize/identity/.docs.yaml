@@ -1,0 +1,29 @@
+# Descriptor consumed by scripts/kustomize-docs.sh to populate the
+# BEGIN_KUSTOMIZE_DOCS / END_KUSTOMIZE_DOCS region of README.md.
+# Edit this file (not the README tables) when substitutions, components,
+# or dependencies change.
+
+components:
+  keycloak-operator:
+    enable_when: "`addons.keycloak.enabled == true`"
+    description: "Keycloak Operator (Deployment + RBAC) in `system-identity`, vendored verbatim from keycloak-k8s-resources. Reconciles `Keycloak` custom resources; installs no server by itself. CRDs are applied separately by the `crds:` layer."
+  keycloak:
+    enable_when: "`addons.keycloak.enabled == true`"
+    description: "The `Keycloak` server CR and its CloudNativePG `Cluster`. Keycloak serves HTTP internally (TLS terminates at the gateway) and stores realms in the `keycloak` database."
+  keycloak/gateway:
+    enable_when: "`gateway.enabled == true`"
+    description: "HTTPRoute publishing `keycloak.${external_domain}` through the shared external Gateway to the operator-managed `keycloak-service`."
+  keycloak/cilium:
+    enable_when: "`gateway.driver == 'cilium'`"
+    description: "CiliumNetworkPolicy restricting Keycloak ingress to the gateway proxy. Cilium-enforced, so gated on the Cilium gateway driver."
+  keycloak/admin:
+    enable_when: "`addons.keycloak.admin.password` set"
+    description: "Points the `Keycloak` CR at the supplied `keycloak-bootstrap-admin` secret via `spec.bootstrapAdmin`, instead of the operator's auto-generated temporary admin. Honored only at initial cluster creation."
+
+dependencies:
+  database:
+    required_when: "always"
+    reason: "Keycloak stores realm data in PostgreSQL; the CloudNativePG operator (database addon) must exist before its `Cluster` CR applies."
+  gateway-resources:
+    required_when: "`gateway.enabled == true`"
+    reason: "The shared Gateway must exist before the Keycloak HTTPRoute attaches to it."

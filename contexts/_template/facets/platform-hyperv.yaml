@@ -170,8 +170,8 @@ config:
             ["boot_from_dvd", false],
             ["generation", 2],
             ["secure_boot", false],
-            ["cpu", cluster.controlplanes.cpu],
-            ["memory", cluster.controlplanes.memory],
+            ["cpu", cluster_resources_effective.controlplanes.cpu],
+            ["memory", cluster_resources_effective.controlplanes.memory],
             ["root_disk_size", cluster.controlplanes.root_disk_size ?? 30],
             ["notes", "Talos control plane node"]
           ])),
@@ -186,8 +186,8 @@ config:
             ["boot_from_dvd", false],
             ["generation", 2],
             ["secure_boot", false],
-            ["cpu", cluster.workers.cpu],
-            ["memory", cluster.workers.memory],
+            ["cpu", cluster_resources_effective.workers.cpu],
+            ["memory", cluster_resources_effective.workers.memory],
             ["root_disk_size", cluster.workers.root_disk_size ?? 50],
             ["notes", "Talos worker node"]
           ]))
@@ -335,8 +335,8 @@ terraform:
             ["boot_from_dvd", false],
             ["generation", 2],
             ["secure_boot", false],
-            ["cpu", cluster.controlplanes.cpu],
-            ["memory", cluster.controlplanes.memory],
+            ["cpu", cluster_resources_effective.controlplanes.cpu],
+            ["memory", cluster_resources_effective.controlplanes.memory],
             ["root_disk_size", cluster.controlplanes.root_disk_size ?? 30],
             ["notes", "Talos control plane node"]
           ]),
@@ -351,8 +351,8 @@ terraform:
             ["boot_from_dvd", false],
             ["generation", 2],
             ["secure_boot", false],
-            ["cpu", cluster.workers.cpu],
-            ["memory", cluster.workers.memory],
+            ["cpu", cluster_resources_effective.workers.cpu],
+            ["memory", cluster_resources_effective.workers.memory],
             ["root_disk_size", cluster.workers.root_disk_size ?? 50],
             ["notes", "Talos worker node"]
           ])
@@ -392,7 +392,7 @@ terraform:
     dependsOn:
       - cluster
     inputs:
-      concurrency: ${max(4, min(floor(cluster.controlplanes.cpu / 2), floor(cluster.controlplanes.memory / 2), 10))}
+      concurrency: ${max(4, min(floor(cluster_resources_effective.controlplanes.cpu / 2), floor(cluster_resources_effective.controlplanes.memory / 2), 10))}
     destroy: false
 
 # =============================================================================

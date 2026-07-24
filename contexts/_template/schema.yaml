@@ -1189,6 +1189,37 @@ properties:
                 description: PostgreSQL database driver
             additionalProperties: false
         additionalProperties: false
+      keycloak:
+        type: object
+        properties:
+          enabled:
+            type: boolean
+            default: false
+            description: Enable Keycloak identity provider
+          driver:
+            type: string
+            enum:
+              - keycloak
+            default: keycloak
+            description: Identity provider driver
+          image:
+            type: string
+            description: Pre-built optimized server image (digest-pinned); defaults to the stock image built at boot
+          hostname:
+            type: string
+            description: External hostname or base URL for Keycloak; defaults to keycloak.<domain> (port/scheme resolved from the request)
+          admin:
+            type: object
+            properties:
+              username:
+                type: string
+                default: admin
+                description: Bootstrap admin username; seeds the initial admin only at first creation
+              password:
+                type: string
+                description: Bootstrap admin password (supports ${secret(...)} refs); when unset the operator generates a temporary admin
+            additionalProperties: false
+        additionalProperties: false
     additionalProperties: false
 
 required: []

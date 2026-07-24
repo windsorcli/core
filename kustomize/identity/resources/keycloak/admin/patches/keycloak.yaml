@@ -1,0 +1,14 @@
+---
+# Seeds the initial admin from the user-supplied keycloak-bootstrap-admin secret
+# (username + password keys) instead of the operator's auto-generated temporary
+# admin. Applied only when addons.keycloak.admin.password is set. Note: the
+# operator honors bootstrapAdmin only at first cluster creation, not on rotation.
+apiVersion: k8s.keycloak.org/v2beta1
+kind: Keycloak
+metadata:
+  name: keycloak
+  namespace: system-identity
+spec:
+  bootstrapAdmin:
+    user:
+      secret: keycloak-bootstrap-admin
