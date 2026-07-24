@@ -69,7 +69,7 @@ terraform:
     dependsOn:
       - cluster
     inputs:
-      concurrency: ${max(2, min(floor(cluster.controlplanes.cpu / 2), floor(cluster.controlplanes.memory / 2), 10))}
+      concurrency: ${max(2, min(floor(cluster_resources_effective.controlplanes.cpu / 2), floor(cluster_resources_effective.controlplanes.memory / 2), 10))}
     destroy: false
 
 # =============================================================================

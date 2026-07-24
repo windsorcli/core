@@ -22,7 +22,7 @@ packages:
   - name: golang/go@go1.26.5
   - name: docker/cli@v27.4.1
   - name: docker/compose@v5.3.1
-  - name: aws/aws-cli@2.36.5
+  - name: aws/aws-cli@2.36.7
   - name: helm/helm@v4.2.3
   - name: fluxcd/flux2@v2.9.2
   - name: hashicorp/vault@v2.0.3

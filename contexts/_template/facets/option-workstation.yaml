@@ -130,8 +130,8 @@ terraform:
       # CPU-derived formula overshoots and floods apiserver. Clamp to 2 there.
       concurrency: >-
         ${platform == 'incus' ? 2 : max(2, min(
-          floor(cluster.controlplanes.cpu / 2),
-          floor(cluster.controlplanes.memory / 2),
+          floor(cluster_resources_effective.controlplanes.cpu / 2),
+          floor(cluster_resources_effective.controlplanes.memory / 2),
           10
         ))}
       git_username: ${workstation.git.username ?? "local"}
@@ -233,12 +233,12 @@ terraform:
           storage_pool: "${(workstation.runtime ?? '') == 'colima' ? 'local' : 'default'}"
           root_disk_size: ${string(cluster.controlplanes.root_disk_size ?? 30) + "GB"}
           limits:
-            cpu: ${string(cluster.controlplanes.cpu)}
-            memory: ${string(cluster.controlplanes.memory) + "GB"}
+            cpu: ${string(cluster_resources_effective.controlplanes.cpu)}
+            memory: ${string(cluster_resources_effective.controlplanes.memory) + "GB"}
           disks: ${talos_common.controlplane_disks}
           config:
             user.hostname: ${values(cluster.controlplanes.nodes)[0].hostname ?? "controlplane-1"}
-            environment.TALOSSKU: ${string(cluster.controlplanes.cpu) + "CPU-" + string(cluster.controlplanes.memory * 1024) + "RAM"}
+            environment.TALOSSKU: ${string(cluster_resources_effective.controlplanes.cpu) + "CPU-" + string(cluster_resources_effective.controlplanes.memory * 1024) + "RAM"}
             raw.qemu: -boot order=c,menu=off
         - name: worker
           role: worker
@@ -250,12 +250,12 @@ terraform:
           storage_pool: "${(workstation.runtime ?? '') == 'colima' ? 'local' : 'default'}"
           root_disk_size: ${string(cluster.workers.root_disk_size ?? 50) + "GB"}
           limits:
-            cpu: ${string(cluster.workers.cpu)}
-            memory: ${string(cluster.workers.memory) + "GB"}
+            cpu: ${string(cluster_resources_effective.workers.cpu)}
+            memory: ${string(cluster_resources_effective.workers.memory) + "GB"}
           disks: ${talos_common.worker_disks}
           config:
             user.hostname: "${cluster.workers.nodes != null ? (values(cluster.workers.nodes)[0].hostname ?? 'worker-1') : 'worker-1'}"
-            environment.TALOSSKU: "${string(cluster.workers.cpu) + 'CPU-' + string(cluster.workers.memory * 1024) + 'RAM'}"
+            environment.TALOSSKU: "${string(cluster_resources_effective.workers.cpu) + 'CPU-' + string(cluster_resources_effective.workers.memory * 1024) + 'RAM'}"
             raw.qemu: -boot order=c,menu=off
 
   # Docker: run Talos controlplane/worker containers on the workstation
@@ -277,15 +277,15 @@ terraform:
         controlplanes:
           count: ${cluster.controlplanes.count ?? 1}
           image: ${cluster.controlplanes.image ?? talos.docker_image}
-          cpu: ${cluster.controlplanes.cpu}
-          memory: ${cluster.controlplanes.memory}
+          cpu: ${cluster_resources_effective.controlplanes.cpu}
+          memory: ${cluster_resources_effective.controlplanes.memory}
           hostports: "${workstation.runtime == \"docker-desktop\" ? (cluster.controlplanes.hostports ?? [\"8080:30080/tcp\", \"8443:30443/tcp\"]) : []}"
           volumes: ${cluster.controlplanes.volumes ?? []}
         workers:
           count: ${cluster.workers.count ?? 0}
           image: ${cluster.workers.image ?? talos.docker_image}
-          cpu: ${cluster.workers.cpu}
-          memory: ${cluster.workers.memory}
+          cpu: ${cluster_resources_effective.workers.cpu}
+          memory: ${cluster_resources_effective.workers.memory}
           hostports: "${workstation.runtime == \"docker-desktop\" ? (cluster.workers.hostports ?? [\"8080:30080/tcp\", \"8443:30443/tcp\"]) : []}"
           volumes: ${cluster.workers.volumes ?? []}
 
