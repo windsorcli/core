@@ -732,8 +732,7 @@ jobs:
               >
               > **Suggested next step:** {one actionable sentence}
               >
-              > _Live read-only inspection by Claude. Support bundle attached
-              > to the run artifacts._
+              > _Support bundle attached to the run artifacts._
               <!-- /claude-integration-$MODE-diagnosis -->
 
             The marker lines are required — a later CI step uses them to anchor
