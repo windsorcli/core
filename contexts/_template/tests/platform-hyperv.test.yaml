@@ -66,6 +66,25 @@ cases:
             - cluster
           destroy: false
 
+  # An unset cidr_block must still compose. The schema default does not reach
+  # facet expressions, so every read carries its own fallback; a site that
+  # misses one fails composition with "cidrhost() ... got <nil>".
+  - name: unset cidr_block composes from the per-usage default
+    values:
+      platform: hyperv
+      gateway:
+        enabled: false
+      network:
+        nameservers: ['1.1.1.1']
+      cluster: *default-cluster
+    terraformOutputs: *default-terraform-outputs
+    expect:
+      terraform:
+        - name: compute
+          path: compute/hyperv
+          inputs:
+            network_cidr: 10.5.0.0/16
+
   # External switch when net_adapter is set (the L2-routable path that lets
   # MetalLB / Cilium L2 announcements reach the bench's LAN).
   - name: net_adapter implies External switch
