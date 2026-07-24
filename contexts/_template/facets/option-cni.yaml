@@ -59,6 +59,9 @@ flux:
 
   # Talos: cilium/talos applies Talos-specific security context + cgroup
   # settings. k8s_service_host comes from talos_common (cidrhost offset 10).
+  # cilium/l2 (LBIPAM + L2 announcements) is skipped when a cloud LB controller
+  # owns LoadBalancer Services (hetzner CCM): cloud networks aren't a flat L2
+  # domain, so ARP-announced pool IPs never route.
   - name: cni
     when: talos_enabled
     dependsOn:
@@ -68,9 +71,12 @@ flux:
         - cilium
         - cilium/talos
         - "${(gateway.enabled == true && gateway.driver == 'cilium') ? 'cilium/gateway' : ''}"
+        # LBIPAM sharing policy — L2 environments only; a cloud LB controller
+        # (hetzner CCM) fills the plain Gateway Service instead.
+        - "${(gateway.enabled == true && gateway.driver == 'cilium' && lb_effective.controller_required != true) ? 'cilium/gateway/lbipam' : ''}"
         - "${telemetry.metrics.enabled ? 'cilium/prometheus' : ''}"
         - cilium/hubble
-        - cilium/l2
+        - "${lb_effective.controller_required == true ? '' : 'cilium/l2'}"
       substitutions:
         k8s_service_host: ${talos_common.k8s_service_host}
         loadbalancer_start_ip: ${network.loadbalancer_ips.start}
@@ -90,6 +96,9 @@ flux:
       components:
         - cilium
         - "${(gateway.enabled == true && gateway.driver == 'cilium') ? 'cilium/gateway' : ''}"
+        # LBIPAM sharing policy — L2 environments only; a cloud LB controller
+        # (hetzner CCM) fills the plain Gateway Service instead.
+        - "${(gateway.enabled == true && gateway.driver == 'cilium' && lb_effective.controller_required != true) ? 'cilium/gateway/lbipam' : ''}"
         - "${telemetry.metrics.enabled ? 'cilium/prometheus' : ''}"
         - cilium/hubble
       substitutions:

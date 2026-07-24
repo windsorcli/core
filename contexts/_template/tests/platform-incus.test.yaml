@@ -198,8 +198,6 @@ cases:
               timeout: 5m
               interval: 5m
         - name: gateway
-          dependsOn:
-            - pki-install
           install:
             components:
               - envoy

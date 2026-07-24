@@ -253,14 +253,13 @@ cases:
               substitutions:
                 gateway_cert_issuer: public-acme
                 external_domain: example.com
-        # Gateway-on + public-domain path: external-dns must wait for
-        # gateway-install (HTTPRoute CRDs) and layer the gateway-httproute
-        # source on top of the azure provider. Locks the conditional in
-        # platform-azure.yaml's dns system.
+        # Gateway-on + public-domain path: external-dns layers the
+        # gateway-httproute source on top of the azure provider. HTTPRoute CRDs
+        # come from the crds layer, so no gateway-install dep. Locks the
+        # conditional in platform-azure.yaml's dns system.
         - name: dns
           dependsOn:
             - policy-resources
-            - gateway-install
           install:
             components:
               - external-dns
@@ -368,7 +367,6 @@ cases:
         - name: dns
           dependsOn:
             - policy-resources
-            - gateway-install
           install:
             components:
               - external-dns

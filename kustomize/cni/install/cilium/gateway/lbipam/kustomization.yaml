@@ -1,0 +1,8 @@
+apiVersion: kustomize.config.k8s.io/v1alpha1
+kind: Component
+# Kyverno policy that stamps lbipam.cilium.io sharing annotations onto the Cilium
+# gateway's LoadBalancer Service (reads the IP from the lbipamConfig ConfigMap in
+# gateway/resources/cilium). L2/LBIPAM environments only — skipped when a cloud LB
+# controller (e.g. hcloud CCM) owns the Service IP instead.
+resources:
+  - cluster-policy.yaml

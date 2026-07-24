@@ -252,10 +252,6 @@ flux:
   # (create_external_dns_role, Pod Identity in system-dns).
   - name: dns
     when: "(dns.public_domain ?? '') != '' || (gateway.access == 'private' && (dns.private_domain ?? '') != '')"
-    dependsOn:
-      # Wait for gateway-install's Gateway API CRDs; else the gateway-httproute
-      # source crash-loops on "no matches for kind HTTPRoute".
-      - "${gateway.enabled == true ? 'gateway-install' : ''}"
     install:
       components:
         - external-dns

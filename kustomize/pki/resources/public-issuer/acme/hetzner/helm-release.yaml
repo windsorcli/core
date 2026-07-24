@@ -1,0 +1,38 @@
+---
+# cert-manager DNS-01 solver webhook for Hetzner DNS. Runs alongside cert-manager
+# in system-pki and registers the acme.hetzner.com API group the ClusterIssuer
+# solver references. Reads the token from the `hetzner-dns` Secret the platform
+# facet materializes into system-pki.
+apiVersion: helm.toolkit.fluxcd.io/v2
+kind: HelmRelease
+metadata:
+  name: cert-manager-webhook-hetzner
+  namespace: system-pki
+spec:
+  interval: 5m
+  timeout: 10m
+  targetNamespace: system-pki
+  install:
+    createNamespace: false
+    remediation:
+      retries: 3
+  upgrade:
+    remediation:
+      retries: 3
+  chart:
+    spec:
+      chart: cert-manager-webhook-hetzner
+      # renovate: datasource=helm depName=cert-manager-webhook-hetzner package=cert-manager-webhook-hetzner helmRepo=https://charts.hetzner.cloud
+      version: 0.8.0
+      sourceRef:
+        kind: HelmRepository
+        name: hcloud
+  values:
+    groupName: acme.hetzner.com
+    certManager:
+      namespace: system-pki
+      serviceAccountName: cert-manager
+    image:
+      repository: docker.io/hetzner/cert-manager-webhook-hetzner
+      # renovate: datasource=docker depName=docker.io/hetzner/cert-manager-webhook-hetzner
+      tag: v0.8.0@sha256:5b0ec20d4d43a8ac76d2855a0cdd3866d8e1f75dc6052b604ceefa4a412dae0f

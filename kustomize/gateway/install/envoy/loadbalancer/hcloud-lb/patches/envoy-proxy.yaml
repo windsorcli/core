@@ -1,0 +1,23 @@
+---
+# Hetzner-specific annotations on the Envoy Gateway's data-plane Service. hcloud
+# cloud-controller-manager reads these to provision a Hetzner Cloud Load Balancer
+# for the type=LoadBalancer Service (set by the parent loadbalancer patch).
+# use-private-ip=false targets nodes on their public IPs (the CCM route-controller
+# is off). Stacks on top of loadbalancer/patches/envoy-proxy.yaml.
+apiVersion: gateway.envoyproxy.io/v1alpha1
+kind: EnvoyProxy
+metadata:
+  name: external
+  namespace: system-gateway
+spec:
+  provider:
+    kubernetes:
+      envoyService:
+        patch:
+          type: StrategicMerge
+          value:
+            metadata:
+              annotations:
+                load-balancer.hetzner.cloud/location: ${hcloud_location:-fsn1}
+                load-balancer.hetzner.cloud/use-private-ip: "false"
+                load-balancer.hetzner.cloud/uses-proxyprotocol: "false"

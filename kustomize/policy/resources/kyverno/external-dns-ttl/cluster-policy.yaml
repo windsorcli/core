@@ -1,0 +1,39 @@
+---
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: external-dns-default-ttl
+  annotations:
+    policies.kyverno.io/title: Default external-dns TTL
+    policies.kyverno.io/category: DNS
+    policies.kyverno.io/severity: low
+    policies.kyverno.io/subject: HTTPRoute
+    policies.kyverno.io/description: >-
+      Adds a default external-dns TTL annotation to HTTPRoutes so DNS record
+      changes (LB re-provision, failover) propagate on a short TTL instead of the
+      provider default. Routes that set the annotation themselves are unchanged.
+spec:
+  # Non-blocking convenience mutate: never gate route admission on the webhook.
+  failurePolicy: Ignore
+  background: false
+  rules:
+    - name: add-default-ttl
+      match:
+        any:
+          - resources:
+              kinds:
+                - HTTPRoute
+              namespaces:
+                - "system-*"
+          - resources:
+              kinds:
+                - HTTPRoute
+              namespaceSelector:
+                matchLabels:
+                  policy.windsorcli.dev/managed: "true"
+      mutate:
+        patchStrategicMerge:
+          metadata:
+            annotations:
+              # +(...) adds the annotation only when absent, so a per-route TTL wins.
+              +(external-dns.alpha.kubernetes.io/ttl): "300"

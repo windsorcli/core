@@ -1,0 +1,342 @@
+kind: Facet
+apiVersion: blueprints.windsorcli.dev/v1alpha1
+metadata:
+  name: hetzner
+  description: Hetzner Cloud (Talos) platform infrastructure
+
+# Talos on hcloud servers. Connection is env-driven (HCLOUD_TOKEN); no workstation
+# overlay, so this facet owns the full compute → cluster → gitops chain.
+when: "platform == 'hetzner' && cluster.driver == 'talos'"
+
+# Remote state lives in the Talos cluster (Kubernetes backend); the `cluster`
+# component uses local state since it creates the cluster. Hetzner Object Storage
+# is not used for state — it can't encrypt at rest through Terraform's s3 backend.
+backend: cluster
+
+# =============================================================================
+# Requires
+# =============================================================================
+requires:
+  - paths:
+      - hetzner.token
+    message: Set a Hetzner Cloud API token via hetzner.token or the HCLOUD_TOKEN environment variable.
+  - when: (dns.public_domain ?? '') != ''
+    paths:
+      - email
+    message: Public DNS requires an operator email for TLS certificate registration.
+  - when: (hetzner.location ?? 'ash') in ['ash', 'hil']
+    paths:
+      - hetzner_us_instance_type_ok
+    message: >-
+      The US locations (ash, hil) only offer cpx11-cpx51 and ccx types. Set
+      cluster.controlplanes.instance_type / cluster.workers.instance_type to one
+      of those, or pick an EU/Asia location (fsn1, hel1, nbg1, sin) to use a Gen2
+      cpx*2 or ARM cax type.
+
+# =============================================================================
+# Config — Hetzner-specific Talos values
+# =============================================================================
+config:
+
+  # Fall back to the HCLOUD_TOKEN environment variable when hetzner.token isn't
+  # set explicitly, so the token can come from ambient cloud credentials. when:-
+  # gated so it only fills an unset value; consumers and the requires check below
+  # then just read hetzner.token.
+  - name: hetzner
+    when: (hetzner.token ?? '') == ''
+    value:
+      token: ${env("HCLOUD_TOKEN")}
+
+  # Cloud block storage (Hetzner Volumes via hcloud-csi) is the default; the
+  # control plane sits at CIDR offset 10 so Cilium's k8sServiceHost is stable and
+  # reachable over the private network. compute/hcloud pins the first control
+  # plane's private IP to the same offset.
+  - name: talos_common
+    value:
+      storage_driver: "${cluster.storage.driver ?? 'hcloud'}"
+      k8s_service_host: "${cidrhost(network.cidr_block ?? '10.5.0.0/16', 10)}"
+
+  # vCPU/memory (GB) by Hetzner instance type. Hetzner sizes nodes via
+  # instance_type, not cluster.controlplanes.cpu/memory, so this map feeds the
+  # existing Flux-concurrency formula the real control-plane size. Unknown types
+  # fall back to 4/8 (the concurrency floor of 4). Older CX Gen2 / CPX Gen1 SKUs
+  # stay listed since they remain provisionable via the API even after the 2025
+  # generation refresh deprecated them in the Console.
+  - name: hetzner_sizes_by_type
+    value:
+      # CPX Gen2 (AMD Genoa, shared) — current
+      cpx22: { cpu: 2, memory: 4 }
+      cpx32: { cpu: 4, memory: 8 }
+      cpx42: { cpu: 8, memory: 16 }
+      cpx52: { cpu: 12, memory: 24 }
+      cpx62: { cpu: 16, memory: 32 }
+      # CX Gen3 (cost-optimized, shared) — current
+      cx23: { cpu: 2, memory: 4 }
+      cx33: { cpu: 4, memory: 8 }
+      cx43: { cpu: 8, memory: 16 }
+      cx53: { cpu: 16, memory: 32 }
+      # CCX (dedicated vCPU) — current
+      ccx13: { cpu: 2, memory: 8 }
+      ccx23: { cpu: 4, memory: 16 }
+      ccx33: { cpu: 8, memory: 32 }
+      ccx43: { cpu: 16, memory: 64 }
+      ccx53: { cpu: 32, memory: 128 }
+      ccx63: { cpu: 48, memory: 192 }
+      # CPX Gen1 / CX Gen2 — deprecated in Console, still provisionable
+      cpx11: { cpu: 2, memory: 2 }
+      cpx21: { cpu: 3, memory: 4 }
+      cpx31: { cpu: 4, memory: 8 }
+      cpx41: { cpu: 8, memory: 16 }
+      cpx51: { cpu: 16, memory: 32 }
+      cx22: { cpu: 2, memory: 4 }
+      cx32: { cpu: 4, memory: 8 }
+      cx42: { cpu: 8, memory: 16 }
+      cx52: { cpu: 16, memory: 32 }
+  - name: hetzner_effective
+    value:
+      controlplane_size: "${get(hetzner_sizes_by_type, cluster.controlplanes.instance_type ?? 'cpx31') ?? { cpu: 4, memory: 8 }}"
+
+  # Instance types orderable in the US locations (ash, hil): Gen1 CPX and CCX only.
+  # Gen2 CPX (cpx*2) and ARM (cax*) are EU/Asia-only. Drives the US requires check.
+  - name: hetzner_us_instance_types
+    value:
+      - cpx11
+      - cpx21
+      - cpx31
+      - cpx41
+      - cpx51
+      - ccx13
+      - ccx23
+      - ccx33
+      - ccx43
+      - ccx53
+      - ccx63
+  # 'ok' when both pools' types are US-orderable, blank otherwise. Only computed
+  # for US locations; the requires block above reads it to fail with a message.
+  - name: hetzner_us_instance_type_ok
+    when: (hetzner.location ?? 'ash') in ['ash', 'hil']
+    value: >-
+      ${
+        (cluster.controlplanes.instance_type ?? 'cpx31') in hetzner_us_instance_types
+        && (cluster.workers.instance_type ?? 'cpx31') in hetzner_us_instance_types
+          ? 'ok' : ''
+      }
+
+  # NOTE: kubelet is intentionally NOT set to --cloud-provider=external, which
+  # would taint nodes node.cloudprovider.kubernetes.io/uninitialized until the
+  # CCM clears it — a deadlock, since Flux can't schedule the CCM onto tainted
+  # nodes. Instead compute/hcloud pins each node's provider-id directly, so the
+  # Flux-installed CCM can still map nodes to servers for Cloud LB targets. Full
+  # cloud node lifecycle (topology labels) is not managed; not needed here.
+
+  # issuer_component selects the ClusterIssuer variant (last match wins):
+  # selfsigned floor → ACME/hetzner with a public domain → private selfsigned.
+  - name: pki_effective
+    value:
+      issuer_component: public-issuer/selfsigned
+  - name: pki_effective
+    when: (dns.public_domain ?? '') != ''
+    value:
+      issuer_component: public-issuer/acme/hetzner
+  - name: pki_effective
+    when: gateway.access == 'private' && (dns.private_domain ?? '') != ''
+    value:
+      issuer_component: private-issuer/selfsigned
+
+  # Derivable only from compute output; empty string otherwise, so the caller
+  # falls back to an explicit cluster.endpoint.
+  - name: cluster_endpoint_fallback
+    value:
+      endpoint: >-
+        ${
+          len(terraform_output("compute", "controlplanes") ?? []) > 0
+          && terraform_output("compute", "controlplanes")[0].endpoint != null
+            ? "https://" + split(terraform_output("compute", "controlplanes")[0].endpoint, ":")[0] + ":6443"
+            : ""
+        }
+
+  # Node targets for post-cluster steps (e.g. extensions), using the same
+  # compute-output-or-fallback resolution as the `cluster` step.
+  - name: talos_node_targets
+    value:
+      controlplanes: >-
+        ${map(
+          len(terraform_output("compute", "controlplanes") ?? []) > 0
+            ? terraform_output("compute", "controlplanes")
+            : values(cluster.controlplanes.nodes ?? {}),
+          fromPairs(filter(toPairs(#), get(#, 0) == "node" || get(#, 0) == "endpoint")))}
+      workers: >-
+        ${map(
+          len(terraform_output("compute", "workers") ?? []) > 0
+            ? terraform_output("compute", "workers")
+            : ((cluster.workers.count ?? 0) > 0 ? values(cluster.workers.nodes) : []),
+          fromPairs(filter(toPairs(#), get(#, 0) == "node" || get(#, 0) == "endpoint")))}
+
+# =============================================================================
+# Terraform — compute → cluster → gitops
+# =============================================================================
+# option-cni inserts the Cilium bootstrap step (cni) between cluster and gitops
+# and re-points gitops at it, so the chain here declares only compute/cluster/gitops.
+terraform:
+
+  # Talos servers on a fresh hcloud private network. The imager provider builds a
+  # Talos Image Factory snapshot; servers boot it into maintenance mode and the
+  # cluster step applies config over each public IP. Architecture is derived from
+  # server_type (cax* → arm) inside the module.
+  - name: compute
+    path: compute/hcloud
+    inputs:
+      hcloud_token: ${hetzner.token}
+      talos_version: ${talos.talos_version}
+      location: ${hetzner.location ?? 'ash'}
+      network_zone: ${hetzner.network_zone ?? 'us-east'}
+      network_cidr: ${network.cidr_block ?? '10.5.0.0/16'}
+      api_allowed_cidrs: ${cluster.api_allowed_cidrs ?? ['0.0.0.0/0']}
+      instances:
+        - name: controlplane
+          role: controlplane
+          count: ${cluster_nodes_effective.controlplanes}
+          # Default cpx31 (Gen1) is supported in every location; Gen2 cpx32 is
+          # unavailable in the US locations (ash/hil), including the default ash.
+          server_type: ${cluster.controlplanes.instance_type ?? 'cpx31'}
+        - name: worker
+          role: worker
+          count: ${cluster_nodes_effective.workers}
+          server_type: ${cluster.workers.instance_type ?? 'cpx31'}
+
+  # Public DNS zone (+ NS delegation from hetzner.dns_parent_zone when set).
+  # Independent of the cluster; must exist before external-dns/cert-manager run.
+  # DNS is part of the Cloud API, so it uses the same token.
+  - name: dns-zone
+    path: dns/zone/hetzner
+    when: "(dns.public_domain ?? '') != ''"
+    inputs:
+      hcloud_token: ${hetzner.token}
+      domain_name: ${dns.public_domain}
+      parent_zone_name: "${hetzner.dns_parent_zone ?? ''}"
+
+  # Talos bootstrap/apply. Uses compute output when available, else user-supplied nodes.
+  - name: cluster
+    path: cluster/talos
+    dependsOn:
+      - compute
+    parallelism: 1
+    inputs:
+      cluster_endpoint: "${cluster.endpoint ?? cluster_endpoint_fallback.endpoint}"
+      cluster_name: talos
+      talos_version: ${talos.talos_version}
+      controlplanes: ${terraform_output("compute", "controlplanes") ?? values(cluster.controlplanes.nodes)}
+      workers: "${terraform_output(\"compute\", \"workers\") ?? ((cluster.workers.count ?? 0) > 0 ? values(cluster.workers.nodes) : [])}"
+      controlplane_disks: ${talos_common.controlplane_disks}
+      worker_disks: ${talos_common.worker_disks}
+      common_config_patches: ${talos_common.common_config_patches}
+      controlplane_volumes: ${talos_common.controlplane_volumes ?? []}
+      worker_volumes: ${talos_common.worker_volumes ?? []}
+
+  # Flux. destroy: false — cluster teardown removes it; we don't uninstall on `windsor destroy`.
+  - name: gitops
+    path: gitops/flux
+    dependsOn:
+      - cluster
+    inputs:
+      concurrency: ${max(4, min(floor(hetzner_effective.controlplane_size.cpu / 2), floor(hetzner_effective.controlplane_size.memory / 2), 10))}
+    destroy: false
+
+# =============================================================================
+# Flux systems — pki, gateway LB overlay, cloud-controller-manager, CSI, DNS
+# =============================================================================
+flux:
+
+  # pki-resources always renders so the gateway cert has a ClusterIssuer.
+  # selfsigned default, or ACME (DNS-01 via the Hetzner cert-manager webhook)
+  # when dns.public_domain is set. dev == true uses staging, else prod.
+  - name: pki
+    resources:
+      - components:
+          - "${pki_effective.issuer_component}"
+        timeout: 5m
+        interval: 5m
+        substitutions:
+          acme_server: "${dev == true ? 'https://acme-staging-v02.api.letsencrypt.org/directory' : 'https://acme-v02.api.letsencrypt.org/directory'}"
+          acme_email: "${email ?? ''}"
+          acme_dns_zone: "${dns.public_domain ?? ''}"
+
+  # Gateway install merge — appends the hcloud Cloud LB annotations to the Envoy
+  # data-plane Service when the gateway runs in loadbalancer mode. hcloud CCM sees
+  # the type=LoadBalancer Service and provisions a Hetzner Cloud Load Balancer.
+  - name: gateway
+    when: "gateway.enabled == true && gateway.driver == 'envoy' && lb_effective.mode == 'loadbalancer'"
+    install:
+      components:
+        - envoy/loadbalancer/hcloud-lb
+      substitutions:
+        hcloud_location: "${hetzner.location ?? 'ash'}"
+
+  # hcloud cloud-controller-manager — Cloud LB provisioning. windsor materializes
+  # the `hcloud` Secret (token + network id) into system-lb from the secrets: block.
+  # The CCM attaches LBs to the private network (HCLOUD_NETWORK, read from the secret
+  # so the numeric id stays a string) and targets nodes by private IP, so LB traffic
+  # reaches nodePorts past the public firewall; route mode stays off (Cilium owns the
+  # pod network). Always rendered (lb_effective.controller_required).
+  - name: lb
+    secrets:
+      hcloud:
+        data:
+          token: ${hetzner.token}
+          network: ${terraform_output("compute", "network_id")}
+    install:
+      components:
+        - hcloud-ccm
+      substitutions:
+        hcloud_location: "${hetzner.location ?? 'ash'}"
+      timeout: 5m
+      interval: 5m
+
+  # CSI — Hetzner Volumes via hcloud-csi, the default block storage on hetzner.
+  # windsor materializes the `hcloud` Secret into system-csi. Skipped when the
+  # operator picks a Talos-native driver (openebs/longhorn), which option-storage
+  # then handles.
+  - name: csi
+    when: talos_common.storage_driver == 'hcloud'
+    secrets:
+      hcloud:
+        data:
+          token: ${hetzner.token}
+    install:
+      components:
+        - hcloud-csi
+      timeout: 5m
+      interval: 5m
+
+  # DNS — external-dns via the Hetzner webhook provider. Anchored on the shared
+  # `dns` Kustomization so it composes with addon-private-dns. Public mode only
+  # (Hetzner DNS is a public authoritative service; there is no private-zone
+  # equivalent, so gateway.access=private falls back to selfsigned/private PKI
+  # without external-dns).
+  - name: dns
+    when: "(dns.public_domain ?? '') != ''"
+    secrets:
+      hetzner-dns:
+        data:
+          token: ${hetzner.token}
+    install:
+      components:
+        - external-dns
+        - external-dns/providers/hetzner
+        - "${gateway.enabled == true ? 'external-dns/sources/gateway-httproute' : ''}"
+      timeout: 5m
+      interval: 5m
+      substitutions:
+        external_domain: "${dns.public_domain ?? ''}"
+        txt_owner_id: "${id}"
+
+  # Multi-namespace system — pki-install creates both system-pki and
+  # system-pki-trust, so the target is named explicitly. cert-manager's ACME
+  # DNS-01 solver reads the Hetzner token from system-pki (public TLS only).
+  - name: pki
+    when: "(dns.public_domain ?? '') != ''"
+    secrets:
+      hetzner-dns:
+        namespaces: [system-pki]
+        data:
+          token: ${hetzner.token}

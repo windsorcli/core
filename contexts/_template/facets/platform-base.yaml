@@ -24,6 +24,18 @@ config:
     value:
       runtime: "${workstation.runtime ?? ''}"
 
+  # Effective node counts — the single source for topology, control-plane taints,
+  # and the node counts platform facets hand to terraform. A pool comes from an
+  # explicit count, a declared node map, or a platform default for nodes terraform
+  # provisions without the user declaring them (hetzner ships a worker). Platform
+  # defaults belong here, not in the platform facet: platform-base composes first,
+  # and these expressions read original user input, so a later facet's override is
+  # invisible to them. Control planes floor at 1.
+  - name: cluster_nodes_effective
+    value:
+      controlplanes: "${max(1, cluster.controlplanes.count ?? len(cluster.controlplanes.nodes ?? {}))}"
+      workers: "${cluster.workers.count ?? (len(cluster.workers.nodes ?? {}) > 0 ? len(cluster.workers.nodes) : (platform == 'hetzner' ? 1 : 0))}"
+
   # Cluster driver and CNI. Managed clouds imply their driver (aws→eks,
   # azure→aks); else talos. Talos defaults CNI to cilium; managed clouds leave
   # it empty. driver is re-derived inline since siblings see user input only.
@@ -35,8 +47,16 @@ config:
       # Schedulable defaulting moved out of the CLI config resolver (windsorcli/cli #3062): a
       # single-controlplane, workerless cluster runs workloads on the control plane. An explicit
       # cluster.controlplanes.schedulable still wins, and consumers keep reading it via `?? false`.
+      # The counts are spelled out rather than read from cluster_nodes_effective, which derives
+      # from `cluster` and would make this block circular. Keep the two in step.
       controlplanes:
-        schedulable: "${cluster.controlplanes.schedulable ?? ((cluster.workers.count ?? 0) == 0 && (cluster.controlplanes.count ?? 1) == 1)}"
+        schedulable: >-
+          ${cluster.controlplanes.schedulable
+            ?? ((cluster.workers.count
+                  ?? (len(cluster.workers.nodes ?? {}) > 0
+                        ? len(cluster.workers.nodes)
+                        : (platform == 'hetzner' ? 1 : 0))) == 0
+                && max(1, cluster.controlplanes.count ?? len(cluster.controlplanes.nodes ?? {})) == 1)}
 
   # Docker Desktop: Cilium's eBPF bootstrap can't use its localhost-tunnel API
   # server, so fall back to flannel. when:-gated (not inline) because
@@ -56,15 +76,17 @@ config:
   - name: cluster_resources_effective
     value:
       controlplanes:
-        cpu: "${cluster.controlplanes.cpu ?? (((cluster.workers.count ?? len(cluster.workers.nodes ?? {})) == 0 || (cluster.controlplanes.schedulable ?? false)) ? 8 : 4)}"
-        memory: "${cluster.controlplanes.memory ?? (((cluster.workers.count ?? len(cluster.workers.nodes ?? {})) == 0 || (cluster.controlplanes.schedulable ?? false)) ? 12 : 8)}"
+        cpu: "${cluster.controlplanes.cpu ?? ((cluster_nodes_effective.workers == 0 || (cluster.controlplanes.schedulable ?? false)) ? 8 : 4)}"
+        memory: "${cluster.controlplanes.memory ?? ((cluster_nodes_effective.workers == 0 || (cluster.controlplanes.schedulable ?? false)) ? 12 : 8)}"
       workers:
         cpu: "${cluster.workers.cpu ?? 4}"
         memory: "${cluster.workers.memory ?? 8}"
 
   # Gateway driver. First non-null wins: explicit gateway.driver; legacy
   # ingress.driver alias (envoy-gateway/nginx → envoy); else platform default
-  # — docker-desktop and AWS use envoy, otherwise cilium when it's the CNI.
+  # — docker-desktop and AWS use envoy, otherwise cilium when it's the CNI. On
+  # hetzner the Cilium gateway's LoadBalancer Service is provisioned by the
+  # hcloud cloud-controller-manager (no LBIPAM; cilium/l2 is suppressed).
   - name: gateway
     value:
       enabled: ${gateway.enabled ?? ingress.enabled ?? true}
@@ -109,13 +131,14 @@ config:
       mode: loadbalancer
 
   # True when an in-cluster LB controller (lb-install) is required: aws always
-  # (aws-lb-controller), metal/incus/docker/hyperv when lb_effective.enabled,
-  # azure never. Consumers dependsOn this so reverse-topo destroy keeps the
-  # controller alive to lift its finalizers before its Kustomization is torn
-  # down. Keep in sync if a new platform facet creates an lb-install.
+  # (aws-lb-controller), hetzner always (hcloud cloud-controller-manager),
+  # metal/incus/docker/hyperv when lb_effective.enabled, azure never. Consumers
+  # dependsOn this so reverse-topo destroy keeps the controller alive to lift its
+  # finalizers before its Kustomization is torn down. Keep in sync if a new
+  # platform facet creates an lb-install.
   - name: lb_effective
     value:
-      controller_required: "${platform == 'aws' || lb_effective.enabled == true}"
+      controller_required: "${platform == 'aws' || platform == 'hetzner' || lb_effective.enabled == true}"
 
   # DNS domains. domain: user-facing root. public_domain: publicly-routable
   # pattern (external-dns, ACME SAN) — explicit only, never from `domain`, so
@@ -142,29 +165,16 @@ config:
   - name: eks_enabled
     value: "${cluster.driver == 'eks' && (cluster.enabled ?? true)}"
 
-  # Resolve `topology` to a concrete value. Explicit wins; else from node
-  # counts (count ?? len(nodes)): 1 → single-node, 3+ CPs → ha, else
-  # multi-node; workstation runtime with no layout → single-node; cloud with
-  # no layout → multi-node. Single inline expression so later entries still
-  # read the original user input, not a value this entry wrote back.
+  # Resolve `topology` to a concrete value. Explicit wins; else from
+  # cluster_nodes_effective: 1 node → single-node, 3+ CPs → ha, else multi-node.
   - name: topology
     value: >-
       ${
         topology
         ?? (
-          ((cluster.controlplanes.count ?? len(cluster.controlplanes.nodes ?? {}))
-            + (cluster.workers.count ?? len(cluster.workers.nodes ?? {}))) > 0
-            ? (
-                ((cluster.controlplanes.count ?? len(cluster.controlplanes.nodes ?? {}))
-                  + (cluster.workers.count ?? len(cluster.workers.nodes ?? {}))) == 1
-                  ? 'single-node'
-                  : (cluster.controlplanes.count ?? len(cluster.controlplanes.nodes ?? {})) >= 3
-                    ? 'ha'
-                    : 'multi-node'
-              )
-            : workstation.runtime != ''
-              ? 'single-node'
-              : 'multi-node'
+          (cluster_nodes_effective.controlplanes + cluster_nodes_effective.workers) == 1
+            ? 'single-node'
+            : (cluster_nodes_effective.controlplanes >= 3 ? 'ha' : 'multi-node')
         )
       }
 
@@ -301,6 +311,7 @@ flux:
       - components:
           - "${(policies.resource_limits_requests ?? 'enabled') != 'disabled' ? 'kyverno/resource-limits-requests' : ''}"
           - "${(policies.require_image_digest ?? 'enabled') != 'disabled' ? 'kyverno/require-image-digest' : ''}"
+          - "${(policies.external_dns_ttl ?? 'enabled') != 'disabled' ? 'kyverno/external-dns-ttl' : ''}"
         timeout: 5m
         interval: 5m
         retryInterval: 1m
