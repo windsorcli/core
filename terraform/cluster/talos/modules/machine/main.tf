@@ -129,6 +129,13 @@ resource "null_resource" "node_healthcheck" {
     # race against the reboot. When apply is skipped (out-of-band config
     # delivery) the trigger is constant — the config can't drift here.
     config_hash = try(talos_machine_configuration_apply.this[0].machine_configuration_hash, "skipped")
+
+    # Re-run when the Talos version changes: it reboots the node, or replaces it
+    # where the version is the node image (compute/docker). The triggers above
+    # miss that (var.node keeps the reused IP, the machineconfig is unchanged),
+    # so a replaced node only surfaced as a downstream failure against an
+    # unreachable API.
+    talos_version = var.talos_version
   }
 
   depends_on = [
