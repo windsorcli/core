@@ -32,12 +32,12 @@ variable "hcloud_token" {
 #---------------------------------------------------------------------------------------------------
 
 variable "talos_version" {
-  description = "Talos version used to build the Image Factory snapshot (e.g. 1.13.6)."
+  description = "Talos version used to build the Image Factory snapshot (e.g. 1.13.7)."
   type        = string
-  default     = "1.13.6"
+  default     = "1.13.7"
   validation {
     condition     = can(regex("^[0-9]+\\.[0-9]+\\.[0-9]+$", var.talos_version))
-    error_message = "talos_version must be a bare semver like 1.13.6."
+    error_message = "talos_version must be a bare semver like 1.13.7."
   }
 }
 

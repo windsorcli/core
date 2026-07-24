@@ -60,7 +60,7 @@ cases:
             - cluster
             - cni
           inputs:
-            # Default control plane is cpx31 (4 vCPU/8 GB); Flux concurrency
+            # Default control plane is cpx32 (4 vCPU/8 GB); Flux concurrency
             # floors at 4.
             concurrency: 4
           destroy: false
@@ -86,7 +86,7 @@ cases:
                 - public-issuer/selfsigned
 
   # Flux controller concurrency scales above the floor of 4 for a large control
-  # plane: cpx51 (16 vCPU/32 GB) → 8, and its server_type flows to compute.
+  # plane: cpx62 (16 vCPU/32 GB) → 8, and its server_type flows to compute.
   - name: control-plane instance type drives flux concurrency and server_type
     values:
       platform: hetzner
@@ -94,7 +94,7 @@ cases:
       cluster:
         controlplanes:
           count: 1
-          instance_type: cpx51
+          instance_type: cpx62
         workers:
           count: 1
       gateway:
@@ -110,11 +110,11 @@ cases:
               - name: controlplane
                 role: controlplane
                 count: 1
-                server_type: cpx51
+                server_type: cpx62
               - name: worker
                 role: worker
                 count: 1
-                server_type: cpx31
+                server_type: cpx32
         - name: gitops
           path: gitops/flux
           inputs:
@@ -250,3 +250,25 @@ cases:
       network: *default-network
     terraformOutputs: *default-terraform-outputs
     expectError: true
+
+  # env fallback: HCLOUD_TOKEN in the environment satisfies the token
+  # requirement, so composition succeeds without hetzner.token set. The token
+  # flows to the hcloud_token var and the hcloud/hetzner-dns secrets via the same
+  # ${hetzner.token ?? env("HCLOUD_TOKEN")} expression (sensitive, not asserted).
+  - name: HCLOUD_TOKEN env var satisfies the token requirement
+    env:
+      HCLOUD_TOKEN: env-token
+    values:
+      platform: hetzner
+      hetzner:
+        location: ash
+        network_zone: us-east
+      network: *default-network
+    terraformOutputs: *default-terraform-outputs
+    expect:
+      terraform:
+        - name: compute
+          path: compute/hcloud
+          inputs:
+            location: ash
+            network_zone: us-east

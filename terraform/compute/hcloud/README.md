@@ -63,7 +63,7 @@ No modules.
 | <a name="input_network_cidr"></a> [network\_cidr](#input\_network\_cidr) | CIDR for the private network. A /24 node subnet is carved from it automatically. | `string` | `"10.5.0.0/16"` | no |
 | <a name="input_network_zone"></a> [network\_zone](#input\_network\_zone) | Hetzner network zone the private network spans (e.g. eu-central, us-east, us-west, ap-southeast). | `string` | `"eu-central"` | no |
 | <a name="input_talos_schematic_id"></a> [talos\_schematic\_id](#input\_talos\_schematic\_id) | Talos Image Factory schematic id for the hcloud image. Defaults to the empty (no-extension) schematic. | `string` | `"376567988ad370138ad8b2698212367b8edcb69b5fd68c80be1f2ec7d603b4ba"` | no |
-| <a name="input_talos_version"></a> [talos\_version](#input\_talos\_version) | Talos version used to build the Image Factory snapshot (e.g. 1.13.6). | `string` | `"1.13.6"` | no |
+| <a name="input_talos_version"></a> [talos\_version](#input\_talos\_version) | Talos version used to build the Image Factory snapshot (e.g. 1.13.7). | `string` | `"1.13.7"` | no |
 
 ## Outputs
 

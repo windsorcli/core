@@ -314,7 +314,7 @@ properties:
       token:
         type: string
         sensitive: true
-        description: Hetzner Cloud API token. Drives the Terraform hcloud/imager providers, is materialized as the in-cluster `hcloud` Secret for the cloud-controller-manager and CSI driver, and (DNS being part of the Cloud API) the `hetzner-dns` Secret for external-dns and the cert-manager ACME webhook. Set via a secret() reference.
+        description: Hetzner Cloud API token for the Terraform providers and in-cluster hcloud/DNS secrets. Set via a secret() reference or the HCLOUD_TOKEN environment variable.
       dns_parent_zone:
         $ref: '#/$defs/dnsHostname'
         description: Parent DNS zone in the same Hetzner account for auto-delegating dns.public_domain (e.g. windsorcli.dev when public_domain is hetzner.windsorcli.dev). When set, Terraform creates the NS delegation record in the parent. Leave unset to delegate manually.
