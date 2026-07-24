@@ -42,7 +42,7 @@ vendors:
 
   - name: aws-load-balancer-controller
     # renovate: datasource=helm depName=aws-load-balancer-controller package=aws-load-balancer-controller helmRepo=https://aws.github.io/eks-charts
-    version: 3.4.1
+    version: 3.4.2
     helm:
       repo: https://aws.github.io/eks-charts
       chart: aws-load-balancer-controller
