@@ -42,6 +42,21 @@ config:
       cni:
         driver: "${cluster.cni.driver ?? 'flannel'}"
 
+  # Node CPU/memory defaults. The CLI no longer injects these (it leaves them nil
+  # when unset so facets own the defaults). Consumers read cluster_resources_effective
+  # rather than cluster.* because some platform facets replace cluster.controlplanes
+  # with a terraform list. A controlplane that runs workloads — flagged schedulable
+  # or in a workerless cluster — gets a larger baseline than a dedicated one.
+  # Dedicated memory is 8Gi (not 4) to leave etcd + kube-apiserver headroom.
+  - name: cluster_resources_effective
+    value:
+      controlplanes:
+        cpu: "${cluster.controlplanes.cpu ?? (((cluster.workers.count ?? len(cluster.workers.nodes ?? {})) == 0 || (cluster.controlplanes.schedulable ?? false)) ? 8 : 4)}"
+        memory: "${cluster.controlplanes.memory ?? (((cluster.workers.count ?? len(cluster.workers.nodes ?? {})) == 0 || (cluster.controlplanes.schedulable ?? false)) ? 12 : 8)}"
+      workers:
+        cpu: "${cluster.workers.cpu ?? 4}"
+        memory: "${cluster.workers.memory ?? 8}"
+
   # Gateway driver. First non-null wins: explicit gateway.driver; legacy
   # ingress.driver alias (envoy-gateway/nginx → envoy); else platform default
   # — docker-desktop and AWS use envoy, otherwise cilium when it's the CNI.
