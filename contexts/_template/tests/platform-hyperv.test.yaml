@@ -66,6 +66,42 @@ cases:
             - cluster
           destroy: false
 
+  # An unset cidr_block must still compose. The schema default does not reach
+  # facet expressions, so every read carries its own fallback; a site that
+  # misses one fails composition with "cidrhost() ... got <nil>". Assert the
+  # bootstrap-critical derivations alongside network_cidr: cluster_endpoint and
+  # k8s_service_host both come from cidrhost(cidr, 10), so a regressed fallback
+  # at either site would crash or resolve wrong here. cilium is set so
+  # k8s_service_host surfaces as a cni substitution (hyperv defaults to flannel,
+  # which composes no cni system); the cidr fallbacks are CNI-independent.
+  - name: unset cidr_block composes from the per-usage default
+    values:
+      platform: hyperv
+      gateway:
+        enabled: false
+      network:
+        nameservers: ['1.1.1.1']
+      cluster:
+        <<: *default-cluster
+        cni:
+          driver: cilium
+    terraformOutputs: *default-terraform-outputs
+    expect:
+      terraform:
+        - name: compute
+          path: compute/hyperv
+          inputs:
+            network_cidr: 10.5.0.0/16
+        - name: cluster-config
+          path: cluster/talos/config
+          inputs:
+            cluster_endpoint: https://10.5.0.10:6443
+      flux:
+        - name: cni
+          install:
+            substitutions:
+              k8s_service_host: "10.5.0.10"
+
   # External switch when net_adapter is set (the L2-routable path that lets
   # MetalLB / Cilium L2 announcements reach the bench's LAN).
   - name: net_adapter implies External switch
