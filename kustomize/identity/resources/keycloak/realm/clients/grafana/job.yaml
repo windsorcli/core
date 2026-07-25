@@ -88,6 +88,12 @@ spec:
                 secretKeyRef:
                   name: ${keycloak_admin_secret}
                   key: password
+            # With a read-only root filesystem, point HOME and TMPDIR at the writable
+            # in-memory volume so kubectl's discovery cache and any temp files land there.
+            - name: HOME
+              value: /work
+            - name: TMPDIR
+              value: /work
           # Shell variables are escaped $${...} so Flux postBuild envsubst leaves them for
           # the shell; ${keycloak_realm} is a Windsor substitution and stays single-$.
           command: ["/bin/sh", "-c"]
@@ -136,6 +142,7 @@ spec:
                 --dry-run=client -o yaml | kubectl apply -f -
           securityContext:
             allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
             capabilities:
               drop:
                 - ALL
