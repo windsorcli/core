@@ -1,0 +1,34 @@
+---
+# Dev-only SSO users. Passwords satisfy the realm's length(12) policy.
+apiVersion: k8s.keycloak.org/v2beta1
+kind: KeycloakRealmImport
+metadata:
+  name: ${keycloak_realm}
+  namespace: system-identity
+spec:
+  realm:
+    users:
+      # Admin, in platform-admins.
+      - username: admin
+        enabled: true
+        emailVerified: true
+        email: admin@local.test
+        firstName: Admin
+        lastName: User
+        credentials:
+          - type: password
+            value: ${dev_admin_password}
+            temporary: false
+        groups:
+          - /platform-admins
+      # Read-only, no group.
+      - username: viewer
+        enabled: true
+        emailVerified: true
+        email: viewer@local.test
+        firstName: Viewer
+        lastName: User
+        credentials:
+          - type: password
+            value: viewer-password
+            temporary: false
