@@ -215,15 +215,27 @@ flux:
 messages:
   # SSO on: the seeded users work for every SSO app.
   - when: dev == true && addons.observability.dashboards == 'grafana' && identity.enabled == true && addons.observability.grafana.sso != false
-    text: >-
-      Grafana is at ${grafana_effective.url}. Single sign-on is enabled and skips Grafana's
-      own login page. Sign in as 'admin' / 'admin-password' (admin) or
-      'viewer' / 'viewer-password' (read-only); these users work for every SSO app. The
-      gateway cert is self-signed, so trust the local CA or click through the browser warning.
+    text: |-
+      Grafana is ready at ${grafana_effective.url}
+
+      Single sign-on is on: clicking Grafana goes straight to the login.
+      Sign in with either seeded user (they work for every SSO app):
+
+        ┌──────────┬─────────────────┬────────────┐
+        │ username │ password        │ role       │
+        ├──────────┼─────────────────┼────────────┤
+        │ admin    │ admin-password  │ full admin │
+        │ viewer   │ viewer-password │ read-only  │
+        └──────────┴─────────────────┴────────────┘
+
+      The gateway cert is self-signed. Trust the local CA, or click through
+      the browser warning on your first visit.
   # SSO off: local Grafana admin form.
   - when: dev == true && addons.observability.dashboards == 'grafana' && (identity.enabled != true || addons.observability.grafana.sso == false)
-    text: >-
-      Observe your cluster in Grafana at ${grafana_effective.url}. Sign in with
-      username 'admin' and password '${addons.observability.admin_password ??
-      'grafana'}'. The gateway cert is self-signed, so trust the local CA or
-      click through the browser warning on your first visit.
+    text: |-
+      Grafana is ready at ${grafana_effective.url}
+
+      Sign in with username 'admin' and password '${addons.observability.admin_password ?? 'grafana'}'.
+
+      The gateway cert is self-signed. Trust the local CA, or click through
+      the browser warning on your first visit.
