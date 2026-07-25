@@ -1,7 +1,7 @@
 apiVersion: kustomize.config.k8s.io/v1alpha1
 kind: Component
-resources:
-  - cluster-policy.yaml
+# Enables Cilium's Gateway API controller (helm patch). The LBIPAM sharing policy
+# lives in the ./lbipam sub-component, composed only for L2/LBIPAM environments.
 patches:
   - path: patches/helm-release.yaml
     target:

@@ -113,8 +113,6 @@ cases:
             concurrency: 5
       flux:
         - name: gateway
-          dependsOn:
-            - pki-install
           install:
             components:
               - envoy
@@ -245,14 +243,13 @@ cases:
               substitutions:
                 gateway_cert_issuer: public-acme
                 external_domain: example.com
-        # Gateway-on + public-domain path: external-dns must wait for
-        # gateway-install (HTTPRoute CRDs) and layer the gateway-httproute
-        # source on top of the route53 provider. Locks the conditional
-        # in platform-aws.yaml's dns system for the public branch.
+        # Gateway-on + public-domain path: external-dns layers the
+        # gateway-httproute source on top of the route53 provider. HTTPRoute
+        # CRDs come from the crds layer, so no gateway-install dep. Locks the
+        # conditional in platform-aws.yaml's dns system for the public branch.
         - name: dns
           dependsOn:
             - policy-resources
-            - gateway-install
           install:
             components:
               - external-dns
@@ -698,9 +695,6 @@ cases:
         - name: dns
           dependsOn:
             - policy-resources
-            # gateway-install must be in deps when gateway is on so HTTPRoute
-            # CRDs are present before external-dns reconciles.
-            - gateway-install
           install:
             components:
               - external-dns

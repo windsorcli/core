@@ -121,6 +121,115 @@ cases:
               k8s_service_host: "10.5.0.10"
               operator_replicas: "1"
 
+  # Workstation layouts (docker/colima) don't declare cluster.controlplanes.nodes
+  # — terraform provisions them — so the node list is empty at compose time. The
+  # controlplane count floors at 1, so 1 cp + 0 workers resolves single-node →
+  # operator_replicas=1 from the node counts alone, independent of when
+  # workstation.runtime becomes visible to the topology derivation.
+  - name: nodeless colima single node resolves single-node operator replicas
+    values:
+      platform: docker
+      workstation:
+        enabled: true
+        runtime: colima
+      dns:
+        domain: test
+      gateway:
+        enabled: false
+      network: *default-network
+      cluster:
+        driver: talos
+        cni:
+          driver: cilium
+    terraformOutputs:
+      compute:
+        controlplanes:
+          - endpoint: 10.5.0.10:6443
+            node: 10.5.0.10
+            hostname: controlplane-1
+        workers: []
+    expect:
+      terraform:
+        - name: cni
+          path: cni/cilium
+          inputs:
+            operator_replicas: 1
+
+  # A single control plane with no workers pool declared stays single-node →
+  # operator_replicas=1. cluster.workers has no schema default node, so a
+  # workerless cluster must not read as a phantom worker (which would flip
+  # topology to multi-node and scale cilium-operator to 2 replicas that can't
+  # both schedule on one node). The regression this guards lived in real
+  # composition, where a default worker-1 was materialized and the resolver
+  # derived cluster.workers.count=1; asserted here at the topology level.
+  - name: workerless single control plane stays single-node
+    values:
+      platform: metal
+      gateway:
+        enabled: false
+      network: *default-network
+      cluster:
+        driver: talos
+        controlplanes:
+          nodes:
+            controlplane-1: *cp1-node
+        cni:
+          driver: cilium
+    expect:
+      terraform:
+        - name: cni
+          path: cni/cilium
+          inputs:
+            operator_replicas: 1
+
+  # An explicitly declared worker makes it a real multi-node cluster, so
+  # operator_replicas scales to 2 even without an explicit workers.count.
+  - name: explicit worker node makes topology multi-node
+    values:
+      platform: metal
+      gateway:
+        enabled: false
+      network: *default-network
+      cluster:
+        driver: talos
+        controlplanes:
+          nodes:
+            controlplane-1: *cp1-node
+        workers:
+          nodes:
+            worker-1:
+              endpoint: 10.5.0.2
+              node: 10.5.0.2
+              hostname: worker-1
+        cni:
+          driver: cilium
+    expect:
+      terraform:
+        - name: cni
+          path: cni/cilium
+          inputs:
+            operator_replicas: 2
+        # A worker declared via nodes: (no count:) must also taint the control
+        # plane. The schedulable heuristic used to key off cluster.workers.count
+        # alone, so a declared-node worker read as workerless here.
+        - name: cluster
+          path: cluster/talos
+          inputs:
+            common_config_patches: |-
+              cluster:
+                allowSchedulingOnControlPlanes: false
+                extraManifests:
+                - https://raw.githubusercontent.com/alex1989hu/kubelet-serving-cert-approver/v0.8.7/deploy/standalone-install.yaml
+                network:
+                  cni:
+                    name: none
+                proxy:
+                  disabled: true
+              machine:
+                kubelet:
+                  extraArgs:
+                    rotate-server-certificates: "true"
+
   # Cilium + HA: operator replicas scale from 1 (single-node) to 2 via substitution.
   - name: cilium with topology=ha sets operator_replicas to 2
     values:
@@ -169,7 +278,6 @@ cases:
           dependsOn:
             - policy-resources
             - telemetry-install
-            - gateway-install
           install:
             components:
               - cilium

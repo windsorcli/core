@@ -1,0 +1,24 @@
+apiVersion: cert-manager.io/v1
+kind: ClusterIssuer
+metadata:
+  name: public-acme
+spec:
+  acme:
+    server: ${acme_server}
+    email: ${acme_email}
+    privateKeySecretRef:
+      name: acme-account-key
+    solvers:
+      - selector:
+          dnsZones:
+            - ${acme_dns_zone}
+        dns01:
+          webhook:
+            groupName: acme.hetzner.com
+            solverName: hetzner
+            config:
+              # References the `hetzner-dns` Secret (key token) the platform facet
+              # materializes into system-pki. token is a Hetzner Cloud API token.
+              tokenSecretKeyRef:
+                name: hetzner-dns
+                key: token

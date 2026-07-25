@@ -1,0 +1,71 @@
+---
+apiVersion: helm.toolkit.fluxcd.io/v2
+kind: HelmRelease
+metadata:
+  name: hcloud-csi
+  namespace: system-csi
+spec:
+  interval: 5m
+  timeout: 10m
+  targetNamespace: system-csi
+  install:
+    createNamespace: false
+    remediation:
+      retries: 3
+  upgrade:
+    remediation:
+      retries: 3
+  chart:
+    spec:
+      chart: hcloud-csi
+      # renovate: datasource=helm depName=hcloud-csi package=hcloud-csi helmRepo=https://charts.hetzner.cloud
+      version: 2.22.0
+      sourceRef:
+        kind: HelmRepository
+        name: hcloud
+  values:
+    # Reads the API token from the `hcloud` Secret (key `token`) the platform
+    # facet materializes into system-csi. All images pinned tag@digest (renovate).
+    controller:
+      hcloudToken:
+        existingSecret:
+          name: hcloud
+          key: token
+      image:
+        csiAttacher:
+          name: registry.k8s.io/sig-storage/csi-attacher
+          # renovate: datasource=docker depName=registry.k8s.io/sig-storage/csi-attacher
+          tag: v4.11.0@sha256:b74b05b39501565022883fc128002b4cb857a7bb6c858606bcb3fdedba0b0b80
+        csiResizer:
+          name: registry.k8s.io/sig-storage/csi-resizer
+          # renovate: datasource=docker depName=registry.k8s.io/sig-storage/csi-resizer
+          tag: v2.1.0@sha256:589e525cddef6d768e68da1f0bc9ffd0a24bf3add3dd010648eb7189976fde79
+        csiProvisioner:
+          name: registry.k8s.io/sig-storage/csi-provisioner
+          # renovate: datasource=docker depName=registry.k8s.io/sig-storage/csi-provisioner
+          tag: v6.2.0@sha256:6be9f63ca4caa6c46aae55aa372500949d8a21473d72f819da1f746076b32d4e
+        livenessProbe:
+          name: registry.k8s.io/sig-storage/livenessprobe
+          # renovate: datasource=docker depName=registry.k8s.io/sig-storage/livenessprobe
+          tag: v2.18.0@sha256:c4cc074199c045dd73ab85f28897e2a32f4d6f38ffdba4f3b13b8007ccbd3570
+        hcloudCSIDriver:
+          name: docker.io/hetznercloud/hcloud-csi-driver
+          # renovate: datasource=docker depName=docker.io/hetznercloud/hcloud-csi-driver
+          tag: v2.22.0@sha256:459090f3c173d6708dcb3d85801509b371c9b8fffd76d704f482de3099729664
+    node:
+      image:
+        csiNodeDriverRegistrar:
+          name: registry.k8s.io/sig-storage/csi-node-driver-registrar
+          # renovate: datasource=docker depName=registry.k8s.io/sig-storage/csi-node-driver-registrar
+          tag: v2.16.0@sha256:ab482308a4921e28a6df09a16ab99a457e9af9641ff44fb1be1a690d07ce8b70
+        livenessProbe:
+          name: registry.k8s.io/sig-storage/livenessprobe
+          # renovate: datasource=docker depName=registry.k8s.io/sig-storage/livenessprobe
+          tag: v2.18.0@sha256:c4cc074199c045dd73ab85f28897e2a32f4d6f38ffdba4f3b13b8007ccbd3570
+        hcloudCSIDriver:
+          name: docker.io/hetznercloud/hcloud-csi-driver
+          # renovate: datasource=docker depName=docker.io/hetznercloud/hcloud-csi-driver
+          tag: v2.22.0@sha256:459090f3c173d6708dcb3d85801509b371c9b8fffd76d704f482de3099729664
+    # The chart's built-in StorageClass is disabled; storageclass.yaml ships the
+    # windsor-canonical `single` default class instead.
+    storageClasses: []

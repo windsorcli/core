@@ -72,6 +72,7 @@ cases:
             - components:
                 - kyverno/resource-limits-requests
                 - kyverno/require-image-digest
+                - kyverno/external-dns-ttl
               timeout: 5m
               interval: 5m
         - name: telemetry
@@ -192,6 +193,7 @@ cases:
             - components:
                 - kyverno/resource-limits-requests
                 - kyverno/require-image-digest
+                - kyverno/external-dns-ttl
               timeout: 5m
               interval: 5m
         - name: telemetry

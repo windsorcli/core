@@ -1,0 +1,403 @@
+# platform-hetzner.yaml facet tests
+# Talos on Hetzner Cloud: compute/hcloud → cluster/talos → cni → gitops, with
+# cilium CNI, envoy gateway fronted by a Hetzner Cloud LB (hcloud CCM), hcloud-csi
+# storage, and Hetzner DNS + ACME for public TLS.
+#
+# Tests must provide terraformOutputs.compute to mock terraform_output() calls.
+
+x-defaults:
+  network: &default-network
+    cidr_block: 10.5.0.0/16
+
+  hetzner: &default-hetzner
+    token: test-token
+    location: fsn1
+    network_zone: eu-central
+
+  terraform-outputs: &default-terraform-outputs
+    compute:
+      controlplanes:
+        - endpoint: 10.5.0.10:6443
+          node: 10.5.0.10
+          hostname: controlplane-1
+      workers: []
+
+cases:
+  # Minimal: compute/cluster/cni/gitops chain, cilium CNI, hcloud CSI + CCM,
+  # selfsigned PKI (no public domain).
+  - name: minimal config creates hcloud compute and talos cluster with cloud CSI/CCM
+    values:
+      platform: hetzner
+      hetzner: *default-hetzner
+      gateway:
+        enabled: false
+      network: *default-network
+    terraformOutputs: *default-terraform-outputs
+    expect:
+      terraform:
+        - name: compute
+          path: compute/hcloud
+          inputs:
+            location: fsn1
+            network_zone: eu-central
+            api_allowed_cidrs:
+              - "0.0.0.0/0"
+        - name: cluster
+          path: cluster/talos
+          dependsOn:
+            - compute
+          parallelism: 1
+          inputs:
+            cluster_endpoint: https://10.5.0.10:6443
+            cluster_name: talos
+        - name: cni
+          path: cni/cilium
+          dependsOn:
+            - cluster
+        - name: gitops
+          path: gitops/flux
+          dependsOn:
+            - cluster
+            - cni
+          inputs:
+            # Default control plane is cpx31 (4 vCPU/8 GB); Flux concurrency
+            # floors at 4.
+            concurrency: 4
+          destroy: false
+      flux:
+        - name: cni
+          install:
+            components:
+              - cilium
+              - cilium/talos
+            substitutions:
+              k8s_service_host: "10.5.0.10"
+        - name: csi
+          install:
+            components:
+              - hcloud-csi
+        - name: lb
+          install:
+            components:
+              - hcloud-ccm
+        - name: pki
+          resources:
+            - components:
+                - public-issuer/selfsigned
+
+  # With no cluster block the facet still provisions a worker, so the cluster must
+  # resolve multi-node and leave the control plane tainted. Regression: the worker
+  # default lived only in the compute inputs, so topology and the schedulable
+  # heuristic read the cluster as workerless and every workload landed on the
+  # control plane.
+  - name: default worker keeps control plane unschedulable
+    values:
+      platform: hetzner
+      hetzner: *default-hetzner
+      gateway:
+        enabled: false
+      network: *default-network
+    terraformOutputs: *default-terraform-outputs
+    expect:
+      terraform:
+        - name: compute
+          path: compute/hcloud
+          inputs:
+            instances:
+              - name: controlplane
+                role: controlplane
+                count: 1
+                server_type: cpx31
+              - name: worker
+                role: worker
+                count: 1
+                server_type: cpx31
+        - name: cluster
+          path: cluster/talos
+          inputs:
+            common_config_patches: |-
+              cluster:
+                allowSchedulingOnControlPlanes: false
+                extraManifests:
+                - https://raw.githubusercontent.com/alex1989hu/kubelet-serving-cert-approver/v0.8.7/deploy/standalone-install.yaml
+                network:
+                  cni:
+                    name: none
+                proxy:
+                  disabled: true
+              machine:
+                kubelet:
+                  extraArgs:
+                    rotate-server-certificates: "true"
+        # multi-node topology, not the single-node replica count of 1
+        - name: cni
+          path: cni/cilium
+          inputs:
+            operator_replicas: 2
+
+  # Flux controller concurrency scales above the floor of 4 for a large control
+  # plane: cpx62 (16 vCPU/32 GB) → 8, and its server_type flows to compute.
+  - name: control-plane instance type drives flux concurrency and server_type
+    values:
+      platform: hetzner
+      hetzner: *default-hetzner
+      cluster:
+        controlplanes:
+          count: 1
+          instance_type: cpx62
+        workers:
+          count: 1
+      gateway:
+        enabled: false
+      network: *default-network
+    terraformOutputs: *default-terraform-outputs
+    expect:
+      terraform:
+        - name: compute
+          path: compute/hcloud
+          inputs:
+            instances:
+              - name: controlplane
+                role: controlplane
+                count: 1
+                server_type: cpx62
+              - name: worker
+                role: worker
+                count: 1
+                server_type: cpx31
+        - name: gitops
+          path: gitops/flux
+          inputs:
+            concurrency: 8
+
+  # US location (ash) with the default cpx31 (Gen1) composes: cpx31 is orderable
+  # in ash, unlike the Gen2 cpx32.
+  - name: US location with default instance type composes
+    values:
+      platform: hetzner
+      hetzner:
+        token: test-token
+        location: ash
+        network_zone: us-east
+      gateway:
+        enabled: false
+      network: *default-network
+    terraformOutputs: *default-terraform-outputs
+    expect:
+      terraform:
+        - name: compute
+          path: compute/hcloud
+          inputs:
+            location: ash
+            instances:
+              - name: controlplane
+                role: controlplane
+                count: 1
+                server_type: cpx31
+              - name: worker
+                role: worker
+                count: 1
+                server_type: cpx31
+
+  # A Gen2 cpx*2 type in a US location is not orderable there; composition fails
+  # with a readable message instead of an opaque Hetzner API error at apply.
+  - name: US location with Gen2 instance type fails composition
+    values:
+      platform: hetzner
+      hetzner:
+        token: test-token
+        location: ash
+        network_zone: us-east
+      cluster:
+        controlplanes:
+          instance_type: cpx32
+      network: *default-network
+    terraformOutputs: *default-terraform-outputs
+    expectError: true
+
+  # CCX (dedicated) types are orderable in US locations, so ash + ccx composes.
+  - name: US location with ccx instance type composes
+    values:
+      platform: hetzner
+      hetzner:
+        token: test-token
+        location: ash
+        network_zone: us-east
+      gateway:
+        enabled: false
+      cluster:
+        controlplanes:
+          count: 1
+          instance_type: ccx23
+        workers:
+          count: 1
+          instance_type: ccx23
+      network: *default-network
+    terraformOutputs: *default-terraform-outputs
+    expect:
+      terraform:
+        - name: compute
+          path: compute/hcloud
+          inputs:
+            instances:
+              - name: controlplane
+                role: controlplane
+                count: 1
+                server_type: ccx23
+              - name: worker
+                role: worker
+                count: 1
+                server_type: ccx23
+
+  # Operator-supplied cluster.api_allowed_cidrs restricts the node firewall to
+  # those source ranges instead of the open default.
+  - name: cluster.api_allowed_cidrs restricts the compute firewall source ranges
+    values:
+      platform: hetzner
+      hetzner: *default-hetzner
+      cluster:
+        api_allowed_cidrs:
+          - "203.0.113.0/24"
+          - "198.51.100.7/32"
+      gateway:
+        enabled: false
+      network: *default-network
+    terraformOutputs: *default-terraform-outputs
+    expect:
+      terraform:
+        - name: compute
+          path: compute/hcloud
+          inputs:
+            api_allowed_cidrs:
+              - "203.0.113.0/24"
+              - "198.51.100.7/32"
+
+  # Public domain: envoy gateway fronted by the Hetzner Cloud LB overlay, ACME
+  # (Hetzner DNS-01) issuer, and external-dns via the Hetzner webhook provider.
+  - name: public domain wires cloud LB, ACME hetzner issuer, and external-dns
+    values:
+      id: htz1
+      platform: hetzner
+      email: ops@example.com
+      dns:
+        public_domain: example.com
+      hetzner:
+        token: test-token
+        location: fsn1
+        network_zone: eu-central
+        dns_parent_zone: example.org
+      gateway:
+        enabled: true
+        driver: envoy
+      network: *default-network
+    terraformOutputs: *default-terraform-outputs
+    expect:
+      terraform:
+        - name: dns-zone
+          path: dns/zone/hetzner
+          inputs:
+            domain_name: example.com
+            parent_zone_name: example.org
+      flux:
+        - name: gateway
+          install:
+            components:
+              - envoy/loadbalancer/hcloud-lb
+            substitutions:
+              hcloud_location: fsn1
+        - name: pki
+          resources:
+            - components:
+                - public-issuer/acme/hetzner
+              substitutions:
+                acme_dns_zone: example.com
+                acme_email: ops@example.com
+        - name: dns
+          install:
+            components:
+              - external-dns
+              - external-dns/providers/hetzner
+              - external-dns/sources/gateway-httproute
+            substitutions:
+              external_domain: example.com
+              txt_owner_id: htz1
+
+  # Private gateway: private selfsigned issuer. Hetzner DNS is public-only, so
+  # private access relies on the private-dns addon (CoreDNS) for the private zone;
+  # the Hetzner external-dns provider does not render.
+  - name: private gateway uses private selfsigned issuer via the private-dns addon
+    values:
+      platform: hetzner
+      hetzner: *default-hetzner
+      dns:
+        private_domain: internal.example.com
+      gateway:
+        enabled: true
+        driver: envoy
+        access: private
+      addons:
+        private_dns:
+          enabled: true
+      network: *default-network
+    terraformOutputs: *default-terraform-outputs
+    expect:
+      flux:
+        - name: pki
+          resources:
+            - components:
+                - private-issuer/selfsigned
+        - name: dns
+          install:
+            components:
+              - external-dns/providers/coredns
+
+  # Defaults: with only the token set, the facet defaults the region to ash/us-east.
+  - name: facet defaults region to ash/us-east when region fields are unset
+    values:
+      platform: hetzner
+      hetzner:
+        token: test-token
+      gateway:
+        enabled: false
+      network: *default-network
+    terraformOutputs: *default-terraform-outputs
+    expect:
+      terraform:
+        - name: compute
+          path: compute/hcloud
+          inputs:
+            location: ash
+            network_zone: us-east
+
+  # hetzner.token is required.
+  - name: missing hetzner.token fails composition
+    values:
+      platform: hetzner
+      hetzner:
+        location: ash
+        network_zone: us-east
+      network: *default-network
+    terraformOutputs: *default-terraform-outputs
+    expectError: true
+
+  # env fallback: HCLOUD_TOKEN in the environment satisfies the token
+  # requirement, so composition succeeds without hetzner.token set. The token
+  # flows to the hcloud_token var and the hcloud/hetzner-dns secrets via the same
+  # ${hetzner.token ?? env("HCLOUD_TOKEN")} expression (sensitive, not asserted).
+  - name: HCLOUD_TOKEN env var satisfies the token requirement
+    env:
+      HCLOUD_TOKEN: env-token
+    values:
+      platform: hetzner
+      hetzner:
+        location: ash
+        network_zone: us-east
+      network: *default-network
+    terraformOutputs: *default-terraform-outputs
+    expect:
+      terraform:
+        - name: compute
+          path: compute/hcloud
+          inputs:
+            location: ash
+            network_zone: us-east
