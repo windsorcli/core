@@ -1,0 +1,129 @@
+# =============================================================================
+# setup-tools composite action
+# =============================================================================
+# Installs the pinned CLIs the Windsor jobs need. `tools` is a comma-separated
+# list selecting which to install, so a job installs only what it runs (the
+# tests job skips the Flux CLI it never calls). Versions live here, so a bump
+# reaches Core and every downstream blueprint that consumes this action.
+#
+# Selectable: terraform, task, yq, promtool, kubectl, flux, kustomize, helm,
+# support-bundle.
+name: Setup tools
+description: Install the pinned Windsor CLIs selected by the tools input.
+
+inputs:
+  tools:
+    description: Comma-separated list of tools to install (e.g. "terraform,flux,kubectl").
+    required: true
+
+runs:
+  using: composite
+  steps:
+    - name: Setup Terraform
+      if: contains(format(',{0},', inputs.tools), ',terraform,')
+      uses: hashicorp/setup-terraform@dfe3c3f87815947d99a8997f908cb6525fc44e9e # v4.0.1
+      with:
+        # renovate: datasource=github-releases depName=terraform package=hashicorp/terraform
+        terraform_version: 1.12.2
+
+    - name: Install Task
+      if: contains(format(',{0},', inputs.tools), ',task,')
+      uses: go-task/setup-task@01a4adf9db2d14c1de7a560f09170b6e0df736aa # v2.1.0
+      with:
+        version: 3.x
+
+    - name: Setup kubectl
+      if: contains(format(',{0},', inputs.tools), ',kubectl,')
+      uses: azure/setup-kubectl@829323503d1be3d00ca8346e5391ca0b07a9ab0d # v5.1.0
+      with:
+        # renovate: datasource=github-releases depName=kubectl package=kubernetes/kubectl
+        version: v1.34.1
+
+    - name: Install yq
+      if: contains(format(',{0},', inputs.tools), ',yq,')
+      shell: bash
+      env:
+        # renovate: datasource=github-releases depName=yq package=mikefarah/yq
+        YQ_VERSION: v4.53.3
+      run: |
+        cd "$(mktemp -d)" &&
+        curl -fsSLO "https://github.com/mikefarah/yq/releases/download/${YQ_VERSION}/yq_linux_amd64" &&
+        sudo install -m 0755 -o root -g root yq_linux_amd64 /usr/local/bin/yq &&
+        cd - &&
+        rm -rf "$OLDPWD" &&
+        yq --version
+
+    - name: Install promtool
+      if: contains(format(',{0},', inputs.tools), ',promtool,')
+      shell: bash
+      env:
+        # renovate: datasource=github-releases depName=prometheus/prometheus package=prometheus/prometheus
+        PROMETHEUS_VERSION: v3.13.1
+      run: |
+        cd "$(mktemp -d)" &&
+        curl -fsSLO "https://github.com/prometheus/prometheus/releases/download/${PROMETHEUS_VERSION}/prometheus-${PROMETHEUS_VERSION#v}.linux-amd64.tar.gz" &&
+        tar xzf "prometheus-${PROMETHEUS_VERSION#v}.linux-amd64.tar.gz" &&
+        sudo install -m 0755 -o root -g root "prometheus-${PROMETHEUS_VERSION#v}.linux-amd64/promtool" /usr/local/bin/promtool &&
+        cd - &&
+        rm -rf "$OLDPWD" &&
+        promtool --version
+
+    - name: Install Flux CLI
+      if: contains(format(',{0},', inputs.tools), ',flux,')
+      shell: bash
+      env:
+        # renovate: datasource=github-releases depName=flux package=fluxcd/flux2
+        FLUX_VERSION: v2.9.3
+      run: |
+        cd "$(mktemp -d)" &&
+        curl -fsSLO "https://github.com/fluxcd/flux2/releases/download/${FLUX_VERSION}/flux_${FLUX_VERSION#v}_linux_amd64.tar.gz" &&
+        tar xzf "flux_${FLUX_VERSION#v}_linux_amd64.tar.gz" &&
+        sudo install -m 0755 -o root -g root flux /usr/local/bin/ &&
+        cd - &&
+        rm -rf "$OLDPWD" &&
+        flux --version
+
+    - name: Install kustomize
+      if: contains(format(',{0},', inputs.tools), ',kustomize,')
+      shell: bash
+      env:
+        # renovate: datasource=github-releases depName=kustomize package=kubernetes-sigs/kustomize
+        KUSTOMIZE_VERSION: v5.8.1
+      run: |
+        cd "$(mktemp -d)" &&
+        curl -fsSLO "https://github.com/kubernetes-sigs/kustomize/releases/download/kustomize%2F${KUSTOMIZE_VERSION}/kustomize_${KUSTOMIZE_VERSION}_linux_amd64.tar.gz" &&
+        tar xzf "kustomize_${KUSTOMIZE_VERSION}_linux_amd64.tar.gz" &&
+        sudo install -m 0755 -o root -g root kustomize /usr/local/bin/ &&
+        cd - &&
+        rm -rf "$OLDPWD" &&
+        kustomize version
+
+    - name: Install Helm
+      if: contains(format(',{0},', inputs.tools), ',helm,')
+      shell: bash
+      env:
+        # renovate: datasource=github-releases depName=helm package=helm/helm
+        HELM_VERSION: v4.2.3
+      run: |
+        cd "$(mktemp -d)" &&
+        curl -fsSLO "https://get.helm.sh/helm-${HELM_VERSION}-linux-amd64.tar.gz" &&
+        tar xzf "helm-${HELM_VERSION}-linux-amd64.tar.gz" &&
+        sudo install -m 0755 -o root -g root linux-amd64/helm /usr/local/bin/helm &&
+        cd - &&
+        rm -rf "$OLDPWD" &&
+        helm version
+
+    - name: Install support-bundle CLI
+      if: contains(format(',{0},', inputs.tools), ',support-bundle,')
+      shell: bash
+      env:
+        # renovate: datasource=github-releases depName=troubleshoot package=replicatedhq/troubleshoot
+        SUPPORT_BUNDLE_VERSION: v0.131.1
+      run: |
+        cd "$(mktemp -d)" &&
+        curl -fsSLO "https://github.com/replicatedhq/troubleshoot/releases/download/${SUPPORT_BUNDLE_VERSION}/support-bundle_linux_amd64.tar.gz" &&
+        tar xzf support-bundle_linux_amd64.tar.gz &&
+        sudo install -m 0755 -o root -g root support-bundle /usr/local/bin/ &&
+        cd - &&
+        rm -rf "$OLDPWD" &&
+        support-bundle version
