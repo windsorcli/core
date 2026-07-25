@@ -18,7 +18,7 @@
 #
 # Why vendor: Helm never upgrades crds/-dir CRDs, and deletes templated CRDs on
 # uninstall (cascade-deleting their CRs into finalizer deadlocks). The crds: layer
-# (prune: false) owns the CRD lifecycle instead. See docs/adr/0003.
+# (prune: false) owns the CRD lifecycle instead.
 vendors:
   - name: gateway-api-experimental
     # renovate: datasource=github-releases depName=kubernetes-sigs/gateway-api package=kubernetes-sigs/gateway-api
