@@ -29,9 +29,7 @@ config:
       backchannel_issuer: >-
         ${(identity.driver ?? 'keycloak') == 'oidc' ? (identity.oidc.issuer ?? '') :
         ('http://keycloak-service.system-identity:8080/realms/' + (identity.keycloak.realm ?? 'platform'))}
-      # One admin password for the Keycloak console admin and, in dev, the SSO admin user.
-      # A supplied value wins anywhere; dev falls back to a known default so both log in the
-      # same way. Must satisfy the realm password policy (length 12) since it seeds the user.
+      # Admin password for the console admin and the dev SSO admin user.
       admin_password: >-
         ${(identity.keycloak.admin.password ?? '') != '' ? identity.keycloak.admin.password :
         (dev == true ? 'admin-password' : '')}
@@ -83,9 +81,7 @@ flux:
           - "${topology == 'ha' ? 'keycloak/ha' : ''}"
           # Cilium gateway: restrict Keycloak ingress to the gateway proxy.
           - "${gateway.driver == 'cilium' ? 'keycloak/cilium' : ''}"
-          # Bootstrap admin: point the CR at the keycloak-bootstrap-admin secret instead of
-          # the operator's temporary admin. Active whenever an admin password resolves (dev
-          # always resolves one; other environments only when supplied).
+          # Bootstrap admin overlay, on when an admin password resolves.
           - "${(identity_effective.admin_password ?? '') != '' ? 'keycloak/admin' : ''}"
         timeout: 10m
         interval: 5m
@@ -133,28 +129,23 @@ flux:
           - identity-install
         components:
           - keycloak/realm
-          # Grafana: one component registers the realm client and copies Keycloak's generated
-          # secret into Grafana's namespace. Inferred on when Grafana SSO is.
+          # Grafana client + secret-copy Job, on when Grafana SSO is.
           - "${addons.observability.enabled == true && addons.observability.grafana.sso != false ? 'keycloak/realm/clients/grafana' : ''}"
-          # Dev-only: standard admin/viewer users in the platform realm for local SSO testing.
+          # Dev-only admin/viewer users.
           - "${dev == true ? 'keycloak/realm/dev-user' : ''}"
         timeout: 10m
         interval: 5m
         substitutions:
           keycloak_realm: "${identity.keycloak.realm ?? 'platform'}"
-          # Grafana client fields for the realm-client patch (null-safe when observability is
-          # off and the patch is not applied). No secret: Keycloak generates it, the Job reads it.
+          # Grafana client fields for the realm-client patch.
           grafana_url: "${grafana_effective.url ?? ''}"
           grafana_redirect_uri: "${(grafana_effective.url ?? '') + '/login/generic_oauth'}"
-          # Admin credentials the secret-copy Job authenticates with: the bootstrap admin
-          # when an admin password resolves, else the operator's temporary one.
+          # Admin secret the copy Job authenticates with.
           keycloak_admin_secret: "${(identity_effective.admin_password ?? '') != '' ? 'keycloak-bootstrap-admin' : 'keycloak-initial-admin'}"
-          # Dev SSO admin user password, shared with the console admin (empty when not dev).
+          # Dev SSO admin user password.
           dev_admin_password: "${identity_effective.admin_password ?? ''}"
 
-  # Bootstrap admin credentials. Secret values are bare, so the supplied case (a literal or
-  # ${secret(...)} ref, any environment) and the dev default are separate when-gated entries;
-  # both mirror identity_effective.admin_password. Consumed by the keycloak/admin overlay.
+  # Bootstrap admin, supplied case.
   - name: identity
     when: (identity.driver ?? 'keycloak') == 'keycloak' && (identity.keycloak.admin.password ?? '') != ''
     secrets:
@@ -162,8 +153,7 @@ flux:
         data:
           username: ${identity.keycloak.admin.username ?? 'admin'}
           password: ${identity.keycloak.admin.password}
-  # Dev default when none is supplied: the known fallback from identity_effective (a plain
-  # literal there), so the console and the SSO admin user share one password.
+  # Bootstrap admin, dev default.
   - name: identity
     when: (identity.driver ?? 'keycloak') == 'keycloak' && (identity.keycloak.admin.password ?? '') == '' && dev == true
     secrets:

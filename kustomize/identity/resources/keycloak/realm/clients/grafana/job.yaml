@@ -1,19 +1,11 @@
 ---
-# Copies the Grafana OIDC client secret that Keycloak generated for the realm client
-# (realm-client.patch.yaml sets no secret, so Keycloak mints one) into Grafana's namespace
-# as grafana-oidc-client. The keycloak driver's zero-touch alternative to an operator-
-# supplied secret: Keycloak owns the value, Grafana reads the copy. Idempotent, and the
-# value is stable because the realm import runs with --override=false.
+# Copies Keycloak's generated grafana client secret into Grafana's namespace as grafana-oidc-client.
 apiVersion: v1
 kind: ServiceAccount
 metadata:
   name: keycloak-grafana-oidc
   namespace: system-identity
 ---
-# Write access to the one Secret in Grafana's namespace. create can't be scoped by name
-# (the object doesn't exist yet), so the mutating verbs are pinned to grafana-oidc-client.
-# A RoleBinding there (below) grants this to the system-identity ServiceAccount, so identity
-# owns the client and pushes the copy outward; the consumer namespace holds no credentials.
 apiVersion: rbac.authorization.k8s.io/v1
 kind: Role
 metadata:
@@ -52,8 +44,6 @@ metadata:
 spec:
   backoffLimit: 10
   ttlSecondsAfterFinished: 86400
-  # Hard cap on total runtime, in case the admin API never becomes reachable. The
-  # in-script poll caps a single attempt at ~5 min; this bounds retries across pods.
   activeDeadlineSeconds: 900
   template:
     spec:
@@ -64,8 +54,6 @@ spec:
         runAsUser: 1000
         runAsGroup: 1000
       volumes:
-        # In-memory scratch for the admin password, bearer token, and client secret, so
-        # they never touch disk and never land in process argv.
         - name: work
           emptyDir:
             medium: Memory
@@ -78,9 +66,6 @@ spec:
             - name: work
               mountPath: /work
           env:
-            # Admin credentials from the bootstrap admin (the operator's temporary one when
-            # the blueprint supplies none). kubelet injects these; the ServiceAccount needs
-            # no read access to the Secret.
             - name: ADMIN_USER
               valueFrom:
                 secretKeyRef:
@@ -91,14 +76,11 @@ spec:
                 secretKeyRef:
                   name: ${keycloak_admin_secret}
                   key: password
-            # With a read-only root filesystem, point HOME and TMPDIR at the writable
-            # in-memory volume so kubectl's discovery cache and any temp files land there.
             - name: HOME
               value: /work
             - name: TMPDIR
               value: /work
-          # Shell variables are escaped $${...} so Flux postBuild envsubst leaves them for
-          # the shell; ${keycloak_realm} is a Windsor substitution and stays single-$.
+          # $${...} are shell variables; ${keycloak_realm} is a Windsor substitution.
           command: ["/bin/sh", "-c"]
           args:
             - |
@@ -106,11 +88,8 @@ spec:
               umask 077
               KC="http://keycloak-service.system-identity:8080"
               REALM="${keycloak_realm}"
-              # Stage the password in a file so it stays out of curl's argv (readable via
-              # /proc and process-list scrapers); same for the token header and the secret.
               printf '%s' "$${ADMIN_PASS}" > /work/pw
-              # The realm import runs in the same kustomization, so the client may not exist
-              # yet. Poll the admin API until it does and exposes a secret (~5 min cap).
+              # Poll until the grafana client exists and exposes a secret.
               i=0
               while :; do
                 token=$(curl -sf --connect-timeout 5 --max-time 15 \
@@ -139,7 +118,6 @@ spec:
                 fi
                 sleep 5
               done
-              # --from-file keeps the value off argv; the manifest carries it on stdin.
               kubectl create secret generic grafana-oidc-client -n system-observability \
                 --from-file=clientSecret=/work/secret \
                 --dry-run=client -o yaml | kubectl apply -f -

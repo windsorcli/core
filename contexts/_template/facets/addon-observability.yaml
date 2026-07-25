@@ -19,8 +19,7 @@ config:
       observability:
         dashboards: "${addons.observability.dashboards ?? 'grafana'}"
 
-  # Derived external Grafana URL, read by the identity facet to set the client's redirect
-  # URI. docker-desktop reaches the gateway on :8443 (its NodePort host-forward); else :443.
+  # External Grafana URL (docker-desktop: :8443, else :443).
   - name: grafana_effective
     value:
       url: >-
@@ -34,8 +33,7 @@ requires:
     paths:
       - identity.enabled
     message: Grafana SSO authenticates against the cluster identity provider — enable identity.
-  # The keycloak driver generates the client secret in-cluster and copies it to Grafana; the
-  # oidc driver points at an external provider, so its client secret must be supplied.
+  # oidc driver: the client secret must be supplied.
   - when: identity.enabled == true && addons.observability.grafana.sso != false && (identity.driver ?? 'keycloak') == 'oidc'
     paths:
       - addons.observability.grafana.client_secret
@@ -124,9 +122,7 @@ flux:
           date_interval_hour: "${time_format == '12h' ? 'MMM DD hh:mm a' : 'MM/DD HH:mm'}"
           date_interval_day: "${time_format == '12h' ? 'MMM DD' : 'MM/DD'}"
 
-  # Grafana's copy of the OIDC client secret, read by generic_oauth (grafana/oidc). For the
-  # oidc driver this is the supplied external value. The keycloak driver instead generates it
-  # in Keycloak and copies it here via identity's clients/grafana Job, so this does not apply.
+  # Grafana's copy of the OIDC client secret (oidc driver; keycloak driver's copy Job handles it otherwise).
   - name: observability
     when: identity.enabled == true && addons.observability.grafana.sso != false && (identity.driver ?? 'keycloak') == 'oidc'
     secrets:
@@ -209,11 +205,9 @@ flux:
 # =============================================================================
 # Messages — post-run notes printed on bootstrap
 # =============================================================================
-# In dev, tell the operator how to sign in. When SSO is on the platform realm seeds
-# 'admin' and 'viewer' users (identity's keycloak/realm/dev-user), so point at single
-# sign-on; otherwise fall back to Grafana's local admin form (option-dev installs grafana/dev).
+# Dev sign-in notes: SSO users when identity is on, else the local Grafana admin.
 messages:
-  # SSO on: the seeded users work for every SSO app.
+  # SSO on.
   - when: dev == true && addons.observability.dashboards == 'grafana' && identity.enabled == true && addons.observability.grafana.sso != false
     text: |-
       Grafana is ready at ${grafana_effective.url}
@@ -230,7 +224,7 @@ messages:
 
       The gateway cert is self-signed. Trust the local CA, or click through
       the browser warning on your first visit.
-  # SSO off: local Grafana admin form.
+  # SSO off.
   - when: dev == true && addons.observability.dashboards == 'grafana' && (identity.enabled != true || addons.observability.grafana.sso == false)
     text: |-
       Grafana is ready at ${grafana_effective.url}

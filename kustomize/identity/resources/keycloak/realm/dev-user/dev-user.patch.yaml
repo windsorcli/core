@@ -1,8 +1,5 @@
 ---
-# Dev-only convenience: standard local SSO users, so any consumer (Grafana, MinIO,
-# gateway auth, …) can be signed in out of the box on a local cluster. Applied only in
-# dev — real users are deployment-specific and never live in git. Passwords satisfy the
-# realm's length(12) policy (validated at import), so the security baseline stays intact.
+# Dev-only SSO users. Passwords satisfy the realm's length(12) policy.
 apiVersion: k8s.keycloak.org/v2beta1
 kind: KeycloakRealmImport
 metadata:
@@ -11,8 +8,7 @@ metadata:
 spec:
   realm:
     users:
-      # Admin: in platform-admins, so it maps to each SSO consumer's admin role. Password is
-      # shared with the Keycloak console admin (identity_effective.admin_password).
+      # Admin, in platform-admins.
       - username: admin
         enabled: true
         emailVerified: true
@@ -25,8 +21,7 @@ spec:
             temporary: false
         groups:
           - /platform-admins
-      # Read-only: no group, so it maps to the consumer's viewer/default role — handy
-      # for seeing the platform-admins → admin role mapping actually take effect.
+      # Read-only, no group.
       - username: viewer
         enabled: true
         emailVerified: true

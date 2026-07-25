@@ -1,10 +1,5 @@
 ---
-# Registers Grafana as an OIDC client by patching it into the platform realm import
-# (v2beta1, the stable path: no client-admin-api:v2, no operator admin bootstrap). No
-# secret is set, so Keycloak generates one for this confidential client at import; the
-# clients/grafana Job then reads it back and writes Grafana's copy, so both sides match
-# without an operator-supplied value. The realm's built-in client scopes apply, so Grafana
-# receives the groups claim for role mapping.
+# Grafana OIDC client, patched into the platform realm import. No secret set (Keycloak generates it).
 apiVersion: k8s.keycloak.org/v2beta1
 kind: KeycloakRealmImport
 metadata:
@@ -22,9 +17,6 @@ spec:
           - ${grafana_redirect_uri}
         webOrigins:
           - ${grafana_url}
-        # A realm-import client doesn't inherit the realm's default scopes, so assign the
-        # built-ins Grafana needs (it requests openid email profile). These exist because
-        # the realm import leaves Keycloak's built-in scopes intact.
         defaultClientScopes:
           - web-origins
           - acr
@@ -32,8 +24,7 @@ spec:
           - roles
           - email
           - basic
-        # Carry group membership into the token (/platform-admins) so Grafana can map it
-        # to the Admin role. A per-client mapper, so no realm-wide scope is needed.
+        # groups claim for role mapping.
         protocolMappers:
           - name: groups
             protocol: openid-connect
