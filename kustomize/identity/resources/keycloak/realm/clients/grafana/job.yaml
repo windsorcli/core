@@ -1,0 +1,138 @@
+---
+# Copies Keycloak's generated grafana client secret into Grafana's namespace as grafana-oidc-client.
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: keycloak-grafana-oidc
+  namespace: system-identity
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: keycloak-grafana-oidc
+  namespace: system-observability
+rules:
+  - apiGroups: [""]
+    resources: ["secrets"]
+    verbs: ["create"]
+  - apiGroups: [""]
+    resources: ["secrets"]
+    resourceNames: ["grafana-oidc-client"]
+    verbs: ["get", "update", "patch"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: keycloak-grafana-oidc
+  namespace: system-observability
+subjects:
+  - kind: ServiceAccount
+    name: keycloak-grafana-oidc
+    namespace: system-identity
+roleRef:
+  kind: Role
+  name: keycloak-grafana-oidc
+  apiGroup: rbac.authorization.k8s.io
+---
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: keycloak-grafana-oidc-secret
+  namespace: system-identity
+  annotations:
+    kustomize.toolkit.fluxcd.io/force: enabled
+spec:
+  backoffLimit: 10
+  ttlSecondsAfterFinished: 86400
+  activeDeadlineSeconds: 900
+  template:
+    spec:
+      restartPolicy: Never
+      serviceAccountName: keycloak-grafana-oidc
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1000
+        runAsGroup: 1000
+      volumes:
+        - name: work
+          emptyDir:
+            medium: Memory
+            sizeLimit: 1Mi
+      containers:
+        - name: copy-secret
+          # renovate: datasource=docker depName=kubectl package=alpine/k8s
+          image: alpine/k8s:1.36.2@sha256:44ef4942e171939b9c665a4a84beb80e2dcdb9a24330d4651cfdfd2e9deecc47
+          volumeMounts:
+            - name: work
+              mountPath: /work
+          env:
+            - name: ADMIN_USER
+              valueFrom:
+                secretKeyRef:
+                  name: ${keycloak_admin_secret}
+                  key: username
+            - name: ADMIN_PASS
+              valueFrom:
+                secretKeyRef:
+                  name: ${keycloak_admin_secret}
+                  key: password
+            - name: HOME
+              value: /work
+            - name: TMPDIR
+              value: /work
+          # $${...} are shell variables; ${keycloak_realm} is a Windsor substitution.
+          command: ["/bin/sh", "-c"]
+          args:
+            - |
+              set -eu
+              umask 077
+              KC="http://keycloak-service.system-identity:8080"
+              REALM="${keycloak_realm}"
+              printf '%s' "$${ADMIN_PASS}" > /work/pw
+              # Poll until the grafana client exists and exposes a secret.
+              i=0
+              while :; do
+                token=$(curl -sf --connect-timeout 5 --max-time 15 \
+                  --data-urlencode "client_id=admin-cli" \
+                  --data-urlencode "username=$${ADMIN_USER}" \
+                  --data-urlencode "password@/work/pw" \
+                  --data-urlencode "grant_type=password" \
+                  "$${KC}/realms/master/protocol/openid-connect/token" 2>/dev/null \
+                  | jq -r '.access_token // empty') || true
+                if [ -n "$${token}" ]; then
+                  printf 'Authorization: Bearer %s' "$${token}" > /work/hdr
+                  cid=$(curl -sf --connect-timeout 5 --max-time 15 -H @/work/hdr \
+                    "$${KC}/admin/realms/$${REALM}/clients?clientId=grafana" 2>/dev/null \
+                    | jq -r '.[0].id // empty') || true
+                  if [ -n "$${cid}" ]; then
+                    curl -sf --connect-timeout 5 --max-time 15 -H @/work/hdr \
+                      "$${KC}/admin/realms/$${REALM}/clients/$${cid}/client-secret" 2>/dev/null \
+                      | jq -rj '.value // empty' > /work/secret || true
+                    if [ -s /work/secret ]; then break; fi
+                  fi
+                fi
+                i=$$((i + 1))
+                if [ "$${i}" -ge 60 ]; then
+                  echo "timed out waiting for the grafana client secret" >&2
+                  exit 1
+                fi
+                sleep 5
+              done
+              kubectl create secret generic grafana-oidc-client -n system-observability \
+                --from-file=clientSecret=/work/secret \
+                --dry-run=client -o yaml | kubectl apply -f -
+          resources:
+            requests:
+              cpu: 10m
+              memory: 32Mi
+            limits:
+              cpu: 200m
+              memory: 64Mi
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop:
+                - ALL
+            seccompProfile:
+              type: RuntimeDefault

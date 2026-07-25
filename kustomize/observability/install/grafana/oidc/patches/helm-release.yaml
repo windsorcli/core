@@ -1,0 +1,35 @@
+apiVersion: helm.toolkit.fluxcd.io/v2
+kind: HelmRelease
+metadata:
+  name: grafana
+  namespace: system-observability
+spec:
+  values:
+    # Client secret from the grafana-oidc-client Secret in this namespace, provisioned
+    # either declaratively (a supplied ${secret(...)}) or by the in-cluster IdP's
+    # generator. optional:false makes the pod wait for the Secret and start clean once
+    # it lands — no misconfigured boot, no restart needed.
+    envValueFrom:
+      GF_AUTH_GENERIC_OAUTH_CLIENT_SECRET:
+        secretKeyRef:
+          name: grafana-oidc-client
+          key: clientSecret
+    grafana.ini:
+      server:
+        # External URL Grafana advertises; the OAuth redirect_uri is built from it.
+        root_url: ${grafana_root_url}
+      # Provider-agnostic OIDC. The label and endpoints come from the identity facet
+      # (one place, either driver); the client id and role mapping from grafana.*.
+      auth.generic_oauth:
+        enabled: true
+        # Dev only: skip Grafana's own login form and go straight to SSO (one click).
+        auto_login: ${oidc_auto_login}
+        name: ${oidc_name}
+        client_id: ${oidc_client_id}
+        scopes: openid email profile
+        auth_url: ${oidc_auth_url}
+        token_url: ${oidc_token_url}
+        api_url: ${oidc_userinfo_url}
+        use_pkce: true
+        role_attribute_path: ${oidc_role_attribute_path}
+        role_attribute_strict: false

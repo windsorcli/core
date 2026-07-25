@@ -1,0 +1,32 @@
+---
+# Platform realm — the security baseline and RBAC anchor core owns. Apps never
+# live in master; every consumer targets this realm. One-shot import: the
+# operator applies the RealmRepresentation once, later edits happen in-console.
+apiVersion: k8s.keycloak.org/v2beta1
+kind: KeycloakRealmImport
+metadata:
+  name: ${keycloak_realm}
+  namespace: system-identity
+spec:
+  keycloakCRName: keycloak
+  realm:
+    realm: ${keycloak_realm}
+    enabled: true
+    # Security baseline every deployment wants, independent of what runs on it.
+    sslRequired: external
+    bruteForceProtected: true
+    passwordPolicy: "length(12) and notUsername and notEmail"
+    # Short-lived access tokens; bounded idle and absolute SSO session lifetimes.
+    accessTokenLifespan: 300
+    ssoSessionIdleTimeout: 1800
+    ssoSessionMaxLifespan: 36000
+    # RBAC anchor: one place to grant realm administration. Core creates the
+    # group; members are deployment-specific and never live in git.
+    # No clientScopes here on purpose — specifying them replaces Keycloak's built-in
+    # scopes (email/profile/…). Each consumer's client assigns the built-ins it needs
+    # and carries its own group-membership mapper for role mapping.
+    groups:
+      - name: platform-admins
+        clientRoles:
+          realm-management:
+            - realm-admin

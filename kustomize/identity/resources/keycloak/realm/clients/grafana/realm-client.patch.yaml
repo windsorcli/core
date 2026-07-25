@@ -1,0 +1,37 @@
+---
+# Grafana OIDC client, patched into the platform realm import. No secret set (Keycloak generates it).
+apiVersion: k8s.keycloak.org/v2beta1
+kind: KeycloakRealmImport
+metadata:
+  name: ${keycloak_realm}
+  namespace: system-identity
+spec:
+  realm:
+    clients:
+      - clientId: grafana
+        enabled: true
+        protocol: openid-connect
+        publicClient: false
+        standardFlowEnabled: true
+        redirectUris:
+          - ${grafana_redirect_uri}
+        webOrigins:
+          - ${grafana_url}
+        defaultClientScopes:
+          - web-origins
+          - acr
+          - profile
+          - roles
+          - email
+          - basic
+        # groups claim for role mapping.
+        protocolMappers:
+          - name: groups
+            protocol: openid-connect
+            protocolMapper: oidc-group-membership-mapper
+            config:
+              full.path: "true"
+              id.token.claim: "true"
+              access.token.claim: "true"
+              userinfo.token.claim: "true"
+              claim.name: groups

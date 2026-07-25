@@ -11,7 +11,7 @@ metadata:
 spec:
   # Single instance by default; the ha/ overlay scales this under topology: ha.
   instances: 1
-  # Image + optimized mode come from the facet (addons.keycloak.image): a stock,
+  # Image + optimized mode come from the facet (identity.keycloak.image): a stock,
   # digest-pinned default built at boot, or a user-supplied pre-built optimized image.
   image: ${keycloak_image}
   startOptimized: ${keycloak_start_optimized}

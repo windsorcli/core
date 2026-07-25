@@ -24,6 +24,90 @@ x-defaults:
         - /var/mnt/local
 
 cases:
+  # Grafana SSO against a hosted Keycloak is inferred from identity + observability both
+  # being on, with no grafana.sso. The keycloak driver generates the client secret, so none
+  # is supplied here.
+  - name: grafana sso is inferred and wires generic oauth against the identity issuer
+    values:
+      platform: metal
+      dns:
+        domain: example.local
+      gateway:
+        enabled: true
+      network: *default-network
+      cluster: *default-cluster
+      identity:
+        enabled: true
+      addons:
+        observability:
+          enabled: true
+    expect:
+      flux:
+        - name: observability
+          install:
+            components:
+              - grafana
+              - grafana/prometheus
+              - grafana/oidc
+            substitutions:
+              oidc_name: SSO
+              oidc_client_id: grafana
+              oidc_auth_url: https://keycloak.example.local/realms/platform/protocol/openid-connect/auth
+              oidc_token_url: http://keycloak-service.system-identity:8080/realms/platform/protocol/openid-connect/token
+              grafana_root_url: https://grafana.example.local
+
+  # External OIDC issuer (identity driver oidc): the effective issuer flows straight
+  # through to Grafana's generic_oauth; the external client secret is supplied.
+  - name: external oidc issuer flows to grafana sso
+    values:
+      platform: metal
+      dns:
+        domain: example.local
+      gateway:
+        enabled: true
+      network: *default-network
+      cluster: *default-cluster
+      identity:
+        enabled: true
+        driver: oidc
+        oidc:
+          issuer: https://sso.corp/realms/platform
+      addons:
+        observability:
+          enabled: true
+          grafana:
+            client_secret: ${secret("v", "grafana", "s")}
+    expect:
+      flux:
+        - name: observability
+          install:
+            components:
+              - grafana/oidc
+            substitutions:
+              oidc_auth_url: https://sso.corp/realms/platform/protocol/openid-connect/auth
+
+  # Grafana SSO outside dev must be given a client secret.
+  # External OIDC (driver oidc) must be given a client secret; the hosted keycloak
+  # driver generates its own, so only oidc fails without one.
+  - name: external oidc sso without a client secret fails composition
+    values:
+      platform: metal
+      dns:
+        domain: example.local
+      gateway:
+        enabled: true
+      network: *default-network
+      cluster: *default-cluster
+      identity:
+        enabled: true
+        driver: oidc
+        oidc:
+          issuer: https://sso.corp/realms/platform
+      addons:
+        observability:
+          enabled: true
+    expectError: true
+
   # Minimal: dev mode enables observability addon; addon wins (last-wins)
   # Metal defaults to cilium gateway driver, cilium dashboard included.
   - name: minimal config creates observability with defaults via dev mode
@@ -60,6 +144,45 @@ cases:
                 date_interval_minute: "HH:mm"
                 date_interval_hour: "MM/DD HH:mm"
                 date_interval_day: "MM/DD"
+      messages:
+        - text: |-
+            Grafana is ready at https://grafana.example.local
+
+            Sign in with username 'admin' and password 'grafana'.
+
+            The gateway cert is self-signed. Trust the local CA, or click through
+            the browser warning on your first visit.
+
+  # Dev + identity: the SSO login message replaces the Grafana admin one.
+  - name: dev sso message replaces the grafana admin message
+    values:
+      platform: metal
+      dev: true
+      dns:
+        domain: example.local
+      gateway:
+        enabled: true
+      network: *default-network
+      cluster: *default-cluster
+      identity:
+        enabled: true
+    expect:
+      messages:
+        - text: |-
+            Grafana is ready at https://grafana.example.local
+
+            Single sign-on is on: clicking Grafana goes straight to the login.
+            Sign in with either seeded user (they work for every SSO app):
+
+              ┌──────────┬─────────────────┬────────────┐
+              │ username │ password        │ role       │
+              ├──────────┼─────────────────┼────────────┤
+              │ admin    │ admin-password  │ full admin │
+              │ viewer   │ viewer-password │ read-only  │
+              └──────────┴─────────────────┴────────────┘
+
+            The gateway cert is self-signed. Trust the local CA, or click through
+            the browser warning on your first visit.
 
   # Full: stdout driver with Gateway API (envoy); grafana/gateway route included.
   - name: full config with stdout driver creates FluentD pipeline and log filtering

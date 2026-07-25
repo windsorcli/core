@@ -1,0 +1,164 @@
+kind: Facet
+apiVersion: blueprints.windsorcli.dev/v1alpha1
+metadata:
+  name: identity
+  description: Cluster identity provider (SSO) — hosts Keycloak, or points at an external OIDC issuer
+
+when: identity.enabled == true
+
+config:
+  # The OIDC contract every consumer reads: the effective issuer (derived for the
+  # hosted keycloak driver, taken as-is for an external oidc issuer) and the realm.
+  # keycloak can't infer the external gateway port, so the derived issuer bakes it
+  # in (docker-desktop :8443 host-forward; loadbalancer/cloud :443).
+  - name: identity_effective
+    value:
+      realm: "${identity.keycloak.realm ?? 'platform'}"
+      display_name: "${identity.display_name ?? 'SSO'}"
+      issuer: >-
+        ${(identity.driver ?? 'keycloak') == 'oidc' ? (identity.oidc.issuer ?? '') :
+        (((identity.keycloak.hostname ?? '') == '' ?
+        ('https://keycloak.' +
+        ((dns.public_domain ?? '') == '' ? (dns.private_domain ?? '') : dns.public_domain) +
+        (workstation.runtime == 'docker-desktop' ? ':8443' : '')) :
+        identity.keycloak.hostname) +
+        '/realms/' + (identity.keycloak.realm ?? 'platform'))}
+      # Back-channel issuer for in-cluster consumers' server-side calls (token, userinfo).
+      # The hosted server is reached by its cluster Service (the external URL doesn't
+      # resolve inside the cluster); an external oidc provider is reachable as-is.
+      backchannel_issuer: >-
+        ${(identity.driver ?? 'keycloak') == 'oidc' ? (identity.oidc.issuer ?? '') :
+        ('http://keycloak-service.system-identity:8080/realms/' + (identity.keycloak.realm ?? 'platform'))}
+      # Admin password for the console admin and the dev SSO admin user.
+      admin_password: >-
+        ${(identity.keycloak.admin.password ?? '') != '' ? identity.keycloak.admin.password :
+        (dev == true ? 'admin-password' : '')}
+
+  # The hosted server needs PostgreSQL, so the keycloak driver turns on the database
+  # addon by default (on unless explicitly disabled). The oidc driver hosts nothing,
+  # so it leaves the database setting untouched.
+  - name: addons
+    value:
+      database:
+        postgres:
+          enabled: "${(identity.driver ?? 'keycloak') == 'keycloak' ? (addons.database.postgres.enabled != false) : (addons.database.postgres.enabled ?? false)}"
+          driver: "${addons.database.postgres.driver ?? 'cloudnativepg'}"
+
+# The hosted server is reached over HTTPS via the gateway. An external issuer needs none.
+requires:
+  - when: (identity.driver ?? 'keycloak') == 'keycloak'
+    paths:
+      - gateway.enabled
+    message: The hosted identity server is reached over HTTPS through the cluster gateway — enable the gateway.
+
+# Keycloak's CRDs are vendored (kustomize/crds/keycloak-26.7.0), owned by the crds:
+# layer, not the operator. Only the hosted keycloak driver needs them.
+# renovate: datasource=github-releases depName=keycloak/keycloak-k8s-resources package=keycloak/keycloak-k8s-resources
+crds:
+  - "${(identity.driver ?? 'keycloak') == 'keycloak' ? 'keycloak-26.7.0' : ''}"
+
+# =============================================================================
+# Flux systems — hosted Keycloak (driver: keycloak). The oidc driver hosts none
+# of this; consumers just read identity_effective.issuer above.
+# =============================================================================
+flux:
+
+  # Operator install (Deployment/RBAC). CRDs arrive via the crds: layer.
+  - name: identity
+    when: (identity.driver ?? 'keycloak') == 'keycloak'
+    install:
+      components:
+        - keycloak-operator
+      timeout: 10m
+      interval: 5m
+    # Keycloak CR + its CNPG cluster. Waits for the database operator so the
+    # Cluster CRD exists; the Keycloak CRD is already applied by the crds: layer.
+    resources:
+      - dependsOn:
+          - database-install
+        components:
+          - keycloak
+          - "${topology == 'ha' ? 'keycloak/ha' : ''}"
+          # Cilium gateway: restrict Keycloak ingress to the gateway proxy.
+          - "${gateway.driver == 'cilium' ? 'keycloak/cilium' : ''}"
+          # Bootstrap admin overlay, on when an admin password resolves.
+          - "${(identity_effective.admin_password ?? '') != '' ? 'keycloak/admin' : ''}"
+        timeout: 10m
+        interval: 5m
+        substitutions:
+          # Full frontend URL, since Keycloak can't infer the external port (the
+          # gateway port lives outside the cluster; the proxy forwards a standard one).
+          # docker-desktop reaches the gateway on :8443 (its NodePort host-forward);
+          # loadbalancer/cloud use :443. Set identity.keycloak.hostname to override (e.g. a
+          # plain-NodePort Talos VM on :30443, or a canonical production URL).
+          keycloak_hostname: >-
+            ${(identity.keycloak.hostname ?? '') == '' ?
+            ('https://keycloak.' +
+            ((dns.public_domain ?? '') == '' ? (dns.private_domain ?? '') : dns.public_domain) +
+            (workstation.runtime == 'docker-desktop' ? ':8443' : '')) :
+            identity.keycloak.hostname}
+          # A user-supplied image is assumed pre-built, so start optimized. The stock
+          # default is not augmented, so it builds at boot (startOptimized false).
+          # Custom images must be digest-pinned (system-identity is policy-managed).
+          # renovate: datasource=docker depName=keycloak/keycloak package=quay.io/keycloak/keycloak
+          keycloak_image: "${(identity.keycloak.image ?? '') == '' ? 'quay.io/keycloak/keycloak:26.7.0@sha256:0f198be292568439d700cdbfb893e69a6009bb43a94a06a945b1d3d506c76b13' : identity.keycloak.image}"
+          keycloak_start_optimized: "${(identity.keycloak.image ?? '') == '' ? 'false' : 'true'}"
+
+  # Gateway route — waits for the shared Gateway to exist.
+  - name: identity
+    when: (identity.driver ?? 'keycloak') == 'keycloak'
+    resources:
+      - dependsOn:
+          - gateway-resources
+        components:
+          - keycloak/gateway
+        timeout: 10m
+        interval: 5m
+        substitutions:
+          external_domain: "${(dns.public_domain ?? '') == '' ? (dns.private_domain ?? '') : dns.public_domain}"
+
+  # Platform realm — the security baseline and RBAC anchor core owns, plus the OIDC
+  # clients for enabled consumers. A one-shot KeycloakRealmImport; the operator
+  # sequences it after the server is up. Waits for the operator (identity-install).
+  # Consumers target this realm by name; each consumer's clients/ folder patches its
+  # client into the import (Grafana inferred on when Grafana is enabled).
+  - name: identity
+    when: (identity.driver ?? 'keycloak') == 'keycloak'
+    resources:
+      - dependsOn:
+          - identity-install
+        components:
+          - keycloak/realm
+          # Grafana client + secret-copy Job, on when Grafana SSO is.
+          - "${addons.observability.enabled == true && addons.observability.grafana.sso != false ? 'keycloak/realm/clients/grafana' : ''}"
+          # Dev-only admin/viewer users.
+          - "${dev == true ? 'keycloak/realm/dev-user' : ''}"
+        timeout: 10m
+        interval: 5m
+        substitutions:
+          keycloak_realm: "${identity.keycloak.realm ?? 'platform'}"
+          # Grafana client fields for the realm-client patch.
+          grafana_url: "${grafana_effective.url ?? ''}"
+          grafana_redirect_uri: "${(grafana_effective.url ?? '') + '/login/generic_oauth'}"
+          # Admin secret the copy Job authenticates with.
+          keycloak_admin_secret: "${(identity_effective.admin_password ?? '') != '' ? 'keycloak-bootstrap-admin' : 'keycloak-initial-admin'}"
+          # Dev SSO admin user password.
+          dev_admin_password: "${identity_effective.admin_password ?? ''}"
+
+  # Bootstrap admin, supplied case.
+  - name: identity
+    when: (identity.driver ?? 'keycloak') == 'keycloak' && (identity.keycloak.admin.password ?? '') != ''
+    secrets:
+      keycloak-bootstrap-admin:
+        data:
+          username: ${identity.keycloak.admin.username ?? 'admin'}
+          password: ${identity.keycloak.admin.password}
+  # Bootstrap admin, dev default.
+  - name: identity
+    when: (identity.driver ?? 'keycloak') == 'keycloak' && (identity.keycloak.admin.password ?? '') == '' && dev == true
+    secrets:
+      keycloak-bootstrap-admin:
+        data:
+          username: ${identity.keycloak.admin.username ?? 'admin'}
+          password: ${identity_effective.admin_password}
+
