@@ -53,8 +53,8 @@ requires:
 
 # Keycloak's CRDs are vendored (kustomize/crds/keycloak-26.7.0), owned by the crds:
 # layer, not the operator. Only the hosted keycloak driver needs them.
-# renovate: datasource=github-releases depName=keycloak/keycloak-k8s-resources package=keycloak/keycloak-k8s-resources
 crds:
+  # renovate: datasource=github-releases depName=keycloak/keycloak-k8s-resources package=keycloak/keycloak-k8s-resources
   - "${(identity.driver ?? 'keycloak') == 'keycloak' ? 'keycloak-26.7.0' : ''}"
 
 # =============================================================================
