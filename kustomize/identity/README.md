@@ -232,7 +232,7 @@ a per-consumer folder under `clients/` (Grafana today; MinIO and gateway edge-au
 follow). This uses the stable v2beta1 `KeycloakRealmImport` — not the v2alpha1
 `KeycloakOIDCClient` CRDs, which need the preview `client-admin-api:v2` feature plus a
 manually bootstrapped admin service-account. The realm import is one-shot, so adding a
-client re-imports the realm. See [docs/adrs/0001-cluster-identity-and-sso.md](../../docs/adrs/0001-cluster-identity-and-sso.md).
+client re-imports the realm. See `docs/adr/0008-cluster-identity-and-sso.md`.
 
 ## Security
 
@@ -291,6 +291,6 @@ client re-imports the realm. See [docs/adrs/0001-cluster-identity-and-sso.md](..
 ## See also
 
 - [contexts/_template/facets/addon-identity.yaml](../../contexts/_template/facets/addon-identity.yaml) for the canonical wiring.
-- [docs/adrs/0001-cluster-identity-and-sso.md](../../docs/adrs/0001-cluster-identity-and-sso.md) for the identity capability and SSO model.
+- `docs/adr/0008-cluster-identity-and-sso.md` (internal) for the identity capability and SSO model.
 - [kustomize/crds/sources.yaml](../crds/sources.yaml) for the vendored operator + CRD versions.
 - Related add-ons: [database](../database/) (backing Postgres), [gateway](../gateway/) (ingress + TLS).
