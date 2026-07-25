@@ -6,6 +6,10 @@
 # tests job skips the Flux CLI it never calls). Versions live here, so a bump
 # reaches Core and every downstream blueprint that consumes this action.
 #
+# Each curl-installed binary is verified against the release's own SHA-256
+# checksums file before install. Only the version string is pinned here, so a
+# Renovate bump needs no checksum update — verification tracks the new release.
+#
 # Selectable: terraform, task, yq, promtool, kubectl, flux, kustomize, helm,
 # support-bundle.
 name: Setup tools
@@ -46,11 +50,18 @@ runs:
         # renovate: datasource=github-releases depName=yq package=mikefarah/yq
         YQ_VERSION: v4.53.3
       run: |
-        cd "$(mktemp -d)" &&
-        curl -fsSLO "https://github.com/mikefarah/yq/releases/download/${YQ_VERSION}/yq_linux_amd64" &&
-        sudo install -m 0755 -o root -g root yq_linux_amd64 /usr/local/bin/yq &&
-        cd - &&
-        rm -rf "$OLDPWD" &&
+        cd "$(mktemp -d)"
+        base="https://github.com/mikefarah/yq/releases/download/${YQ_VERSION}"
+        curl -fsSLO "${base}/yq_linux_amd64"
+        curl -fsSL "${base}/checksums" -o checksums
+        curl -fsSL "${base}/checksums_hashes_order" -o checksums_hashes_order
+        # The checksums table is one column per hash type; take the SHA-256
+        # column (+1 for the leading filename field) and verify that entry.
+        col=$(( $(grep -n '^SHA-256$' checksums_hashes_order | cut -d: -f1) + 1 ))
+        want=$(awk -v c="$col" '$1 == "yq_linux_amd64" { print $c }' checksums)
+        [ -n "$want" ] || { echo "::error::no SHA-256 checksum for yq_linux_amd64"; exit 1; }
+        [ "$want" = "$(sha256sum yq_linux_amd64 | awk '{print $1}')" ] || { echo "::error::checksum mismatch for yq_linux_amd64"; exit 1; }
+        sudo install -m 0755 -o root -g root yq_linux_amd64 /usr/local/bin/yq
         yq --version
 
     - name: Install promtool
@@ -60,12 +71,16 @@ runs:
         # renovate: datasource=github-releases depName=prometheus/prometheus package=prometheus/prometheus
         PROMETHEUS_VERSION: v3.13.1
       run: |
-        cd "$(mktemp -d)" &&
-        curl -fsSLO "https://github.com/prometheus/prometheus/releases/download/${PROMETHEUS_VERSION}/prometheus-${PROMETHEUS_VERSION#v}.linux-amd64.tar.gz" &&
-        tar xzf "prometheus-${PROMETHEUS_VERSION#v}.linux-amd64.tar.gz" &&
-        sudo install -m 0755 -o root -g root "prometheus-${PROMETHEUS_VERSION#v}.linux-amd64/promtool" /usr/local/bin/promtool &&
-        cd - &&
-        rm -rf "$OLDPWD" &&
+        cd "$(mktemp -d)"
+        base="https://github.com/prometheus/prometheus/releases/download/${PROMETHEUS_VERSION}"
+        asset="prometheus-${PROMETHEUS_VERSION#v}.linux-amd64.tar.gz"
+        curl -fsSLO "${base}/${asset}"
+        curl -fsSL "${base}/sha256sums.txt" -o checksums.txt
+        want=$(awk -v f="$asset" '$2 == f || $2 == "*" f { print $1; exit }' checksums.txt)
+        [ -n "$want" ] || { echo "::error::no checksum listed for $asset"; exit 1; }
+        [ "$want" = "$(sha256sum "$asset" | awk '{print $1}')" ] || { echo "::error::checksum mismatch for $asset"; exit 1; }
+        tar xzf "$asset"
+        sudo install -m 0755 -o root -g root "prometheus-${PROMETHEUS_VERSION#v}.linux-amd64/promtool" /usr/local/bin/promtool
         promtool --version
 
     - name: Install Flux CLI
@@ -75,12 +90,16 @@ runs:
         # renovate: datasource=github-releases depName=flux package=fluxcd/flux2
         FLUX_VERSION: v2.9.3
       run: |
-        cd "$(mktemp -d)" &&
-        curl -fsSLO "https://github.com/fluxcd/flux2/releases/download/${FLUX_VERSION}/flux_${FLUX_VERSION#v}_linux_amd64.tar.gz" &&
-        tar xzf "flux_${FLUX_VERSION#v}_linux_amd64.tar.gz" &&
-        sudo install -m 0755 -o root -g root flux /usr/local/bin/ &&
-        cd - &&
-        rm -rf "$OLDPWD" &&
+        cd "$(mktemp -d)"
+        base="https://github.com/fluxcd/flux2/releases/download/${FLUX_VERSION}"
+        asset="flux_${FLUX_VERSION#v}_linux_amd64.tar.gz"
+        curl -fsSLO "${base}/${asset}"
+        curl -fsSL "${base}/flux_${FLUX_VERSION#v}_checksums.txt" -o checksums.txt
+        want=$(awk -v f="$asset" '$2 == f || $2 == "*" f { print $1; exit }' checksums.txt)
+        [ -n "$want" ] || { echo "::error::no checksum listed for $asset"; exit 1; }
+        [ "$want" = "$(sha256sum "$asset" | awk '{print $1}')" ] || { echo "::error::checksum mismatch for $asset"; exit 1; }
+        tar xzf "$asset"
+        sudo install -m 0755 -o root -g root flux /usr/local/bin/
         flux --version
 
     - name: Install kustomize
@@ -90,12 +109,16 @@ runs:
         # renovate: datasource=github-releases depName=kustomize package=kubernetes-sigs/kustomize
         KUSTOMIZE_VERSION: v5.8.1
       run: |
-        cd "$(mktemp -d)" &&
-        curl -fsSLO "https://github.com/kubernetes-sigs/kustomize/releases/download/kustomize%2F${KUSTOMIZE_VERSION}/kustomize_${KUSTOMIZE_VERSION}_linux_amd64.tar.gz" &&
-        tar xzf "kustomize_${KUSTOMIZE_VERSION}_linux_amd64.tar.gz" &&
-        sudo install -m 0755 -o root -g root kustomize /usr/local/bin/ &&
-        cd - &&
-        rm -rf "$OLDPWD" &&
+        cd "$(mktemp -d)"
+        base="https://github.com/kubernetes-sigs/kustomize/releases/download/kustomize%2F${KUSTOMIZE_VERSION}"
+        asset="kustomize_${KUSTOMIZE_VERSION}_linux_amd64.tar.gz"
+        curl -fsSLO "${base}/${asset}"
+        curl -fsSL "${base}/checksums.txt" -o checksums.txt
+        want=$(awk -v f="$asset" '$2 == f || $2 == "*" f { print $1; exit }' checksums.txt)
+        [ -n "$want" ] || { echo "::error::no checksum listed for $asset"; exit 1; }
+        [ "$want" = "$(sha256sum "$asset" | awk '{print $1}')" ] || { echo "::error::checksum mismatch for $asset"; exit 1; }
+        tar xzf "$asset"
+        sudo install -m 0755 -o root -g root kustomize /usr/local/bin/
         kustomize version
 
     - name: Install Helm
@@ -105,12 +128,15 @@ runs:
         # renovate: datasource=github-releases depName=helm package=helm/helm
         HELM_VERSION: v4.2.3
       run: |
-        cd "$(mktemp -d)" &&
-        curl -fsSLO "https://get.helm.sh/helm-${HELM_VERSION}-linux-amd64.tar.gz" &&
-        tar xzf "helm-${HELM_VERSION}-linux-amd64.tar.gz" &&
-        sudo install -m 0755 -o root -g root linux-amd64/helm /usr/local/bin/helm &&
-        cd - &&
-        rm -rf "$OLDPWD" &&
+        cd "$(mktemp -d)"
+        asset="helm-${HELM_VERSION}-linux-amd64.tar.gz"
+        curl -fsSLO "https://get.helm.sh/${asset}"
+        curl -fsSL "https://get.helm.sh/${asset}.sha256sum" -o checksums.txt
+        want=$(awk '{ print $1; exit }' checksums.txt)
+        [ -n "$want" ] || { echo "::error::no checksum for $asset"; exit 1; }
+        [ "$want" = "$(sha256sum "$asset" | awk '{print $1}')" ] || { echo "::error::checksum mismatch for $asset"; exit 1; }
+        tar xzf "$asset"
+        sudo install -m 0755 -o root -g root linux-amd64/helm /usr/local/bin/helm
         helm version
 
     - name: Install support-bundle CLI
@@ -120,10 +146,14 @@ runs:
         # renovate: datasource=github-releases depName=troubleshoot package=replicatedhq/troubleshoot
         SUPPORT_BUNDLE_VERSION: v0.131.1
       run: |
-        cd "$(mktemp -d)" &&
-        curl -fsSLO "https://github.com/replicatedhq/troubleshoot/releases/download/${SUPPORT_BUNDLE_VERSION}/support-bundle_linux_amd64.tar.gz" &&
-        tar xzf support-bundle_linux_amd64.tar.gz &&
-        sudo install -m 0755 -o root -g root support-bundle /usr/local/bin/ &&
-        cd - &&
-        rm -rf "$OLDPWD" &&
+        cd "$(mktemp -d)"
+        base="https://github.com/replicatedhq/troubleshoot/releases/download/${SUPPORT_BUNDLE_VERSION}"
+        asset="support-bundle_linux_amd64.tar.gz"
+        curl -fsSLO "${base}/${asset}"
+        curl -fsSL "${base}/troubleshoot_${SUPPORT_BUNDLE_VERSION#v}_checksums.txt" -o checksums.txt
+        want=$(awk -v f="$asset" '$2 == f || $2 == "*" f { print $1; exit }' checksums.txt)
+        [ -n "$want" ] || { echo "::error::no checksum listed for $asset"; exit 1; }
+        [ "$want" = "$(sha256sum "$asset" | awk '{print $1}')" ] || { echo "::error::checksum mismatch for $asset"; exit 1; }
+        tar xzf "$asset"
+        sudo install -m 0755 -o root -g root support-bundle /usr/local/bin/
         support-bundle version
