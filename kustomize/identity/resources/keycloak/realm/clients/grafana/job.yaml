@@ -52,6 +52,9 @@ metadata:
 spec:
   backoffLimit: 10
   ttlSecondsAfterFinished: 86400
+  # Hard cap on total runtime, in case the admin API never becomes reachable. The
+  # in-script poll caps a single attempt at ~5 min; this bounds retries across pods.
+  activeDeadlineSeconds: 900
   template:
     spec:
       restartPolicy: Never
@@ -110,7 +113,7 @@ spec:
               # yet. Poll the admin API until it does and exposes a secret (~5 min cap).
               i=0
               while :; do
-                token=$(curl -sf \
+                token=$(curl -sf --connect-timeout 5 --max-time 15 \
                   --data-urlencode "client_id=admin-cli" \
                   --data-urlencode "username=$${ADMIN_USER}" \
                   --data-urlencode "password@/work/pw" \
@@ -119,11 +122,11 @@ spec:
                   | jq -r '.access_token // empty') || true
                 if [ -n "$${token}" ]; then
                   printf 'Authorization: Bearer %s' "$${token}" > /work/hdr
-                  cid=$(curl -sf -H @/work/hdr \
+                  cid=$(curl -sf --connect-timeout 5 --max-time 15 -H @/work/hdr \
                     "$${KC}/admin/realms/$${REALM}/clients?clientId=grafana" 2>/dev/null \
                     | jq -r '.[0].id // empty') || true
                   if [ -n "$${cid}" ]; then
-                    curl -sf -H @/work/hdr \
+                    curl -sf --connect-timeout 5 --max-time 15 -H @/work/hdr \
                       "$${KC}/admin/realms/$${REALM}/clients/$${cid}/client-secret" 2>/dev/null \
                       | jq -rj '.value // empty' > /work/secret || true
                     if [ -s /work/secret ]; then break; fi
@@ -140,6 +143,13 @@ spec:
               kubectl create secret generic grafana-oidc-client -n system-observability \
                 --from-file=clientSecret=/work/secret \
                 --dry-run=client -o yaml | kubectl apply -f -
+          resources:
+            requests:
+              cpu: 10m
+              memory: 32Mi
+            limits:
+              cpu: 200m
+              memory: 64Mi
           securityContext:
             allowPrivilegeEscalation: false
             readOnlyRootFilesystem: true
