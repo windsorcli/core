@@ -1,0 +1,143 @@
+---
+# Copies the Grafana OIDC client secret that Keycloak generated for the realm client
+# (realm-client.patch.yaml sets no secret, so Keycloak mints one) into Grafana's namespace
+# as grafana-oidc-client. The keycloak driver's zero-touch alternative to an operator-
+# supplied secret: Keycloak owns the value, Grafana reads the copy. Idempotent, and the
+# value is stable because the realm import runs with --override=false.
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: keycloak-grafana-oidc
+  namespace: system-identity
+---
+# Write access to the one Secret in Grafana's namespace. create can't be scoped by name
+# (the object doesn't exist yet), so the mutating verbs are pinned to grafana-oidc-client.
+# A RoleBinding there (below) grants this to the system-identity ServiceAccount, so identity
+# owns the client and pushes the copy outward; the consumer namespace holds no credentials.
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: keycloak-grafana-oidc
+  namespace: system-observability
+rules:
+  - apiGroups: [""]
+    resources: ["secrets"]
+    verbs: ["create"]
+  - apiGroups: [""]
+    resources: ["secrets"]
+    resourceNames: ["grafana-oidc-client"]
+    verbs: ["get", "update", "patch"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: keycloak-grafana-oidc
+  namespace: system-observability
+subjects:
+  - kind: ServiceAccount
+    name: keycloak-grafana-oidc
+    namespace: system-identity
+roleRef:
+  kind: Role
+  name: keycloak-grafana-oidc
+  apiGroup: rbac.authorization.k8s.io
+---
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: keycloak-grafana-oidc-secret
+  namespace: system-identity
+  annotations:
+    kustomize.toolkit.fluxcd.io/force: enabled
+spec:
+  backoffLimit: 10
+  ttlSecondsAfterFinished: 86400
+  template:
+    spec:
+      restartPolicy: Never
+      serviceAccountName: keycloak-grafana-oidc
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1000
+        runAsGroup: 1000
+      volumes:
+        # In-memory scratch for the admin password, bearer token, and client secret, so
+        # they never touch disk and never land in process argv.
+        - name: work
+          emptyDir:
+            medium: Memory
+            sizeLimit: 1Mi
+      containers:
+        - name: copy-secret
+          # renovate: datasource=docker depName=kubectl package=alpine/k8s
+          image: alpine/k8s:1.36.2@sha256:44ef4942e171939b9c665a4a84beb80e2dcdb9a24330d4651cfdfd2e9deecc47
+          volumeMounts:
+            - name: work
+              mountPath: /work
+          env:
+            # Admin credentials from the bootstrap admin (the operator's temporary one when
+            # the blueprint supplies none). kubelet injects these; the ServiceAccount needs
+            # no read access to the Secret.
+            - name: ADMIN_USER
+              valueFrom:
+                secretKeyRef:
+                  name: ${keycloak_admin_secret}
+                  key: username
+            - name: ADMIN_PASS
+              valueFrom:
+                secretKeyRef:
+                  name: ${keycloak_admin_secret}
+                  key: password
+          # Shell variables are escaped $${...} so Flux postBuild envsubst leaves them for
+          # the shell; ${keycloak_realm} is a Windsor substitution and stays single-$.
+          command: ["/bin/sh", "-c"]
+          args:
+            - |
+              set -eu
+              umask 077
+              KC="http://keycloak-service.system-identity:8080"
+              REALM="${keycloak_realm}"
+              # Stage the password in a file so it stays out of curl's argv (readable via
+              # /proc and process-list scrapers); same for the token header and the secret.
+              printf '%s' "$${ADMIN_PASS}" > /work/pw
+              # The realm import runs in the same kustomization, so the client may not exist
+              # yet. Poll the admin API until it does and exposes a secret (~5 min cap).
+              i=0
+              while :; do
+                token=$(curl -sf \
+                  --data-urlencode "client_id=admin-cli" \
+                  --data-urlencode "username=$${ADMIN_USER}" \
+                  --data-urlencode "password@/work/pw" \
+                  --data-urlencode "grant_type=password" \
+                  "$${KC}/realms/master/protocol/openid-connect/token" 2>/dev/null \
+                  | jq -r '.access_token // empty') || true
+                if [ -n "$${token}" ]; then
+                  printf 'Authorization: Bearer %s' "$${token}" > /work/hdr
+                  cid=$(curl -sf -H @/work/hdr \
+                    "$${KC}/admin/realms/$${REALM}/clients?clientId=grafana" 2>/dev/null \
+                    | jq -r '.[0].id // empty') || true
+                  if [ -n "$${cid}" ]; then
+                    curl -sf -H @/work/hdr \
+                      "$${KC}/admin/realms/$${REALM}/clients/$${cid}/client-secret" 2>/dev/null \
+                      | jq -rj '.value // empty' > /work/secret || true
+                    if [ -s /work/secret ]; then break; fi
+                  fi
+                fi
+                i=$$((i + 1))
+                if [ "$${i}" -ge 60 ]; then
+                  echo "timed out waiting for the grafana client secret" >&2
+                  exit 1
+                fi
+                sleep 5
+              done
+              # --from-file keeps the value off argv; the manifest carries it on stdin.
+              kubectl create secret generic grafana-oidc-client -n system-observability \
+                --from-file=clientSecret=/work/secret \
+                --dry-run=client -o yaml | kubectl apply -f -
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop:
+                - ALL
+            seccompProfile:
+              type: RuntimeDefault

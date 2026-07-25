@@ -19,9 +19,8 @@ config:
       observability:
         dashboards: "${addons.observability.dashboards ?? 'grafana'}"
 
-  # Derived external Grafana URL. The identity facet reads this to set the OIDC
-  # client's redirect URI, and grafana/oidc uses it for server.root_url. docker-desktop
-  # reaches the gateway on :8443 (its NodePort host-forward); elsewhere on :443.
+  # Derived external Grafana URL, read by the identity facet to set the client's redirect
+  # URI. docker-desktop reaches the gateway on :8443 (its NodePort host-forward); else :443.
   - name: grafana_effective
     value:
       url: >-
@@ -35,12 +34,12 @@ requires:
     paths:
       - identity.enabled
     message: Grafana SSO authenticates against the cluster identity provider — enable identity.
-  # An external IdP owns its client secret, so the oidc driver must be given one. The
-  # hosted keycloak driver generates its own, so it needs nothing.
-  - when: identity.enabled == true && addons.observability.grafana.sso != false && identity.driver == 'oidc'
+  # The keycloak driver generates the client secret in-cluster and copies it to Grafana; the
+  # oidc driver points at an external provider, so its client secret must be supplied.
+  - when: identity.enabled == true && addons.observability.grafana.sso != false && (identity.driver ?? 'keycloak') == 'oidc'
     paths:
       - addons.observability.grafana.client_secret
-    message: Grafana SSO against an external OIDC provider needs a client secret — set addons.observability.grafana.client_secret (a ${secret(...)} ref).
+    message: External OIDC needs Grafana's client secret from your provider. Set addons.observability.grafana.client_secret (a ${secret(...)} ref).
 
 # =============================================================================
 # Flux systems — observability install entries, telemetry override
@@ -97,9 +96,15 @@ flux:
         # mapping defaults to platform-admins → Grafana Admin. All leaves are null-safe.
         oidc_name: "${identity_effective.display_name ?? 'SSO'}"
         oidc_client_id: grafana
+        # Dev: one-click — clicking Grafana goes straight to the SSO login. Off elsewhere
+        # so the local admin form stays reachable.
+        oidc_auto_login: "${dev == true ? 'true' : 'false'}"
+        # auth_url is the browser redirect (external issuer); token/userinfo are Grafana's
+        # server-side calls (back-channel issuer — the in-cluster Service for the hosted
+        # driver, since the external URL doesn't resolve inside the cluster).
         oidc_auth_url: "${(identity.oidc.auth_url ?? '') != '' ? identity.oidc.auth_url : ((identity_effective.issuer ?? '') + '/protocol/openid-connect/auth')}"
-        oidc_token_url: "${(identity.oidc.token_url ?? '') != '' ? identity.oidc.token_url : ((identity_effective.issuer ?? '') + '/protocol/openid-connect/token')}"
-        oidc_userinfo_url: "${(identity.oidc.userinfo_url ?? '') != '' ? identity.oidc.userinfo_url : ((identity_effective.issuer ?? '') + '/protocol/openid-connect/userinfo')}"
+        oidc_token_url: "${(identity.oidc.token_url ?? '') != '' ? identity.oidc.token_url : ((identity_effective.backchannel_issuer ?? '') + '/protocol/openid-connect/token')}"
+        oidc_userinfo_url: "${(identity.oidc.userinfo_url ?? '') != '' ? identity.oidc.userinfo_url : ((identity_effective.backchannel_issuer ?? '') + '/protocol/openid-connect/userinfo')}"
         oidc_role_attribute_path: "${addons.observability.grafana.role_attribute_path ?? \"contains(groups[*], '/platform-admins') && 'Admin' || 'Viewer'\"}"
     resources:
       - timeout: 10m
@@ -119,11 +124,11 @@ flux:
           date_interval_hour: "${time_format == '12h' ? 'MMM DD hh:mm a' : 'MM/DD HH:mm'}"
           date_interval_day: "${time_format == '12h' ? 'MMM DD' : 'MM/DD'}"
 
-  # External OIDC driver: Grafana's client secret is supplied and lands directly in its
-  # namespace (no in-cluster client, so nothing to replicate). The hosted keycloak
-  # driver instead gets this Secret via keycloak/grafana-sync (Kyverno clone).
+  # Grafana's copy of the OIDC client secret, read by generic_oauth (grafana/oidc). For the
+  # oidc driver this is the supplied external value. The keycloak driver instead generates it
+  # in Keycloak and copies it here via identity's clients/grafana Job, so this does not apply.
   - name: observability
-    when: identity.enabled == true && addons.observability.grafana.sso != false && identity.driver == 'oidc'
+    when: identity.enabled == true && addons.observability.grafana.sso != false && (identity.driver ?? 'keycloak') == 'oidc'
     secrets:
       grafana-oidc-client:
         data:
@@ -200,3 +205,25 @@ flux:
           - kibana/gateway
         substitutions:
           external_domain: "${(dns.public_domain ?? '') == '' ? (dns.private_domain ?? '') : dns.public_domain}"
+
+# =============================================================================
+# Messages — post-run notes printed on bootstrap
+# =============================================================================
+# In dev, tell the operator how to sign in. When SSO is on the platform realm seeds
+# 'admin' and 'viewer' users (identity's keycloak/realm/dev-user), so point at single
+# sign-on; otherwise fall back to Grafana's local admin form (option-dev installs grafana/dev).
+messages:
+  # SSO on: the seeded users work for every SSO app.
+  - when: dev == true && addons.observability.dashboards == 'grafana' && identity.enabled == true && addons.observability.grafana.sso != false
+    text: >-
+      Grafana is at ${grafana_effective.url}. Single sign-on is enabled and skips Grafana's
+      own login page. Sign in as 'admin' / 'admin-password' (admin) or
+      'viewer' / 'viewer-password' (read-only); these users work for every SSO app. The
+      gateway cert is self-signed, so trust the local CA or click through the browser warning.
+  # SSO off: local Grafana admin form.
+  - when: dev == true && addons.observability.dashboards == 'grafana' && (identity.enabled != true || addons.observability.grafana.sso == false)
+    text: >-
+      Observe your cluster in Grafana at ${grafana_effective.url}. Sign in with
+      username 'admin' and password '${addons.observability.admin_password ??
+      'grafana'}'. The gateway cert is self-signed, so trust the local CA or
+      click through the browser warning on your first visit.

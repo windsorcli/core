@@ -22,28 +22,11 @@ spec:
     ssoSessionMaxLifespan: 36000
     # RBAC anchor: one place to grant realm administration. Core creates the
     # group; members are deployment-specific and never live in git.
+    # No clientScopes here on purpose — specifying them replaces Keycloak's built-in
+    # scopes (email/profile/…). Each consumer's client assigns the built-ins it needs
+    # and carries its own group-membership mapper for role mapping.
     groups:
       - name: platform-admins
         clientRoles:
           realm-management:
             - realm-admin
-    # Group membership in every client's tokens, so consumers (Grafana first) can
-    # map platform-admins to their own admin role. Added as a realm default scope.
-    clientScopes:
-      - name: groups
-        protocol: openid-connect
-        attributes:
-          include.in.token.scope: "true"
-          display.on.consent.screen: "false"
-        protocolMappers:
-          - name: groups
-            protocol: openid-connect
-            protocolMapper: oidc-group-membership-mapper
-            config:
-              full.path: "true"
-              id.token.claim: "true"
-              access.token.claim: "true"
-              userinfo.token.claim: "true"
-              claim.name: groups
-    defaultDefaultClientScopes:
-      - groups

@@ -22,6 +22,8 @@ spec:
       # (one place, either driver); the client id and role mapping from grafana.*.
       auth.generic_oauth:
         enabled: true
+        # Dev only: skip Grafana's own login form and go straight to SSO (one click).
+        auto_login: ${oidc_auto_login}
         name: ${oidc_name}
         client_id: ${oidc_client_id}
         scopes: openid email profile

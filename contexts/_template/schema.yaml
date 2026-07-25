@@ -1165,7 +1165,7 @@ properties:
                 description: Bootstrap admin username; seeds the initial admin only at first creation
               password:
                 type: string
-                description: Bootstrap admin password (supports ${secret(...)} refs); when unset the operator generates a temporary admin
+                description: Admin password for the Keycloak console and, in dev, the SSO admin user (supports ${secret(...)} refs); unset means a dev default, or the operator's temporary admin elsewhere
             additionalProperties: false
         additionalProperties: false
     additionalProperties: false

@@ -23,6 +23,18 @@ config:
         (workstation.runtime == 'docker-desktop' ? ':8443' : '')) :
         identity.keycloak.hostname) +
         '/realms/' + (identity.keycloak.realm ?? 'platform'))}
+      # Back-channel issuer for in-cluster consumers' server-side calls (token, userinfo).
+      # The hosted server is reached by its cluster Service (the external URL doesn't
+      # resolve inside the cluster); an external oidc provider is reachable as-is.
+      backchannel_issuer: >-
+        ${(identity.driver ?? 'keycloak') == 'oidc' ? (identity.oidc.issuer ?? '') :
+        ('http://keycloak-service.system-identity:8080/realms/' + (identity.keycloak.realm ?? 'platform'))}
+      # One admin password for the Keycloak console admin and, in dev, the SSO admin user.
+      # A supplied value wins anywhere; dev falls back to a known default so both log in the
+      # same way. Must satisfy the realm password policy (length 12) since it seeds the user.
+      admin_password: >-
+        ${(identity.keycloak.admin.password ?? '') != '' ? identity.keycloak.admin.password :
+        (dev == true ? 'admin-password' : '')}
 
   # The hosted server needs PostgreSQL, so the keycloak driver turns on the database
   # addon by default (on unless explicitly disabled). The oidc driver hosts nothing,
@@ -71,9 +83,10 @@ flux:
           - "${topology == 'ha' ? 'keycloak/ha' : ''}"
           # Cilium gateway: restrict Keycloak ingress to the gateway proxy.
           - "${gateway.driver == 'cilium' ? 'keycloak/cilium' : ''}"
-          # Supplied bootstrap admin: point the CR at the keycloak-bootstrap-admin
-          # secret instead of the operator's auto-generated temporary admin.
-          - "${(identity.keycloak.admin.password ?? '') != '' ? 'keycloak/admin' : ''}"
+          # Bootstrap admin: point the CR at the keycloak-bootstrap-admin secret instead of
+          # the operator's temporary admin. Active whenever an admin password resolves (dev
+          # always resolves one; other environments only when supplied).
+          - "${(identity_effective.admin_password ?? '') != '' ? 'keycloak/admin' : ''}"
         timeout: 10m
         interval: 5m
         substitutions:
@@ -108,9 +121,11 @@ flux:
         substitutions:
           external_domain: "${(dns.public_domain ?? '') == '' ? (dns.private_domain ?? '') : dns.public_domain}"
 
-  # Platform realm — the security baseline and RBAC anchor core owns. A one-shot
-  # KeycloakRealmImport; the operator sequences it after the server is up. Waits
-  # for the operator (identity-install). Consumers target this realm by name.
+  # Platform realm — the security baseline and RBAC anchor core owns, plus the OIDC
+  # clients for enabled consumers. A one-shot KeycloakRealmImport; the operator
+  # sequences it after the server is up. Waits for the operator (identity-install).
+  # Consumers target this realm by name; each consumer's clients/ folder patches its
+  # client into the import (Grafana inferred on when Grafana is enabled).
   - name: identity
     when: (identity.driver ?? 'keycloak') == 'keycloak'
     resources:
@@ -118,36 +133,28 @@ flux:
           - identity-install
         components:
           - keycloak/realm
+          # Grafana: one component registers the realm client and copies Keycloak's generated
+          # secret into Grafana's namespace. Inferred on when Grafana SSO is.
+          - "${addons.observability.enabled == true && addons.observability.grafana.sso != false ? 'keycloak/realm/clients/grafana' : ''}"
+          # Dev-only: standard admin/viewer users in the platform realm for local SSO testing.
+          - "${dev == true ? 'keycloak/realm/dev-user' : ''}"
         timeout: 10m
         interval: 5m
         substitutions:
           keycloak_realm: "${identity.keycloak.realm ?? 'platform'}"
+          # Grafana client fields for the realm-client patch (null-safe when observability is
+          # off and the patch is not applied). No secret: Keycloak generates it, the Job reads it.
+          grafana_url: "${grafana_effective.url ?? ''}"
+          grafana_redirect_uri: "${(grafana_effective.url ?? '') + '/login/generic_oauth'}"
+          # Admin credentials the secret-copy Job authenticates with: the bootstrap admin
+          # when an admin password resolves, else the operator's temporary one.
+          keycloak_admin_secret: "${(identity_effective.admin_password ?? '') != '' ? 'keycloak-bootstrap-admin' : 'keycloak-initial-admin'}"
+          # Dev SSO admin user password, shared with the console admin (empty when not dev).
+          dev_admin_password: "${identity_effective.admin_password ?? ''}"
 
-  # Grafana SSO — registers the OIDC client, generates its secret when none is
-  # supplied, and replicates that secret to Grafana's namespace via Kyverno. Inferred
-  # on whenever identity and Grafana are both enabled (opt out with grafana.sso: false).
-  # Grafana's own generic_oauth wiring lives in the observability facet.
-  - name: identity
-    when: (identity.driver ?? 'keycloak') == 'keycloak' && addons.observability.enabled == true && addons.observability.grafana.sso != false
-    resources:
-      - dependsOn:
-          - identity-install
-        components:
-          - keycloak/grafana
-          # Replicate the client secret from system-identity into Grafana's namespace.
-          - keycloak/grafana-sync
-          # Generate the secret unless the blueprint supplied one.
-          - "${(addons.observability.grafana.client_secret ?? '') == '' ? 'keycloak/grafana-secret' : ''}"
-        timeout: 10m
-        interval: 5m
-        substitutions:
-          keycloak_realm: "${identity.keycloak.realm ?? 'platform'}"
-          grafana_url: "${grafana_effective.url}"
-          grafana_redirect_uri: "${grafana_effective.url}/login/generic_oauth"
-
-  # Supplied bootstrap admin credentials. Materialized only when a password is given
-  # (a literal or a ${secret(...)} ref); otherwise the operator generates a temporary
-  # admin. Consumed by the keycloak/admin overlay via bootstrapAdmin.
+  # Bootstrap admin credentials. Secret values are bare, so the supplied case (a literal or
+  # ${secret(...)} ref, any environment) and the dev default are separate when-gated entries;
+  # both mirror identity_effective.admin_password. Consumed by the keycloak/admin overlay.
   - name: identity
     when: (identity.driver ?? 'keycloak') == 'keycloak' && (identity.keycloak.admin.password ?? '') != ''
     secrets:
@@ -155,13 +162,13 @@ flux:
         data:
           username: ${identity.keycloak.admin.username ?? 'admin'}
           password: ${identity.keycloak.admin.password}
-
-  # Supplied Grafana client secret → system-identity (the client CR's secretRef reads
-  # it here; keycloak/grafana-sync replicates it to Grafana). When unset, the
-  # keycloak/grafana-secret Job generates one instead.
+  # Dev default when none is supplied: the known fallback from identity_effective (a plain
+  # literal there), so the console and the SSO admin user share one password.
   - name: identity
-    when: (identity.driver ?? 'keycloak') == 'keycloak' && addons.observability.enabled == true && addons.observability.grafana.sso != false && (addons.observability.grafana.client_secret ?? '') != ''
+    when: (identity.driver ?? 'keycloak') == 'keycloak' && (identity.keycloak.admin.password ?? '') == '' && dev == true
     secrets:
-      grafana-oidc-client:
+      keycloak-bootstrap-admin:
         data:
-          clientSecret: ${addons.observability.grafana.client_secret}
+          username: ${identity.keycloak.admin.username ?? 'admin'}
+          password: ${identity_effective.admin_password}
+
