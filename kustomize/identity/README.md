@@ -132,11 +132,34 @@ addons:
     enabled: true
 ```
 
-### Declarative realms and clients (follow-up)
+### Platform realm
 
-The vendored CRDs include `KeycloakRealmImport`, `KeycloakOIDCClient`, and
-`KeycloakSAMLClient`. Realms and clients are managed as those custom resources in
-a later change; this add-on stands up the server only.
+Enabling Keycloak also imports a `platform` realm (apps never live in `master`).
+It ships a security baseline — `sslRequired: external`, brute-force detection, a
+`length(12) and notUsername and notEmail` password policy, and short access-token
+plus bounded SSO-session lifetimes — and a `platform-admins` group mapped to the
+realm-management `realm-admin` role as the one place to grant realm administration.
+Core creates the group; its members are deployment-specific and are not managed in
+git.
+
+Rename the realm to fit an existing naming convention:
+
+```yaml
+addons:
+  keycloak:
+    enabled: true
+    realm: corp
+```
+
+The import is one-shot: the operator applies the realm once via
+`KeycloakRealmImport`, so later edits happen in-console (or by recreating the CR),
+not by continuous reconciliation.
+
+### Declarative clients (follow-up)
+
+The vendored CRDs also include `KeycloakOIDCClient` and `KeycloakSAMLClient`.
+Consuming blueprints add their own clients to the platform realm as those custom
+resources; SSO for core's own add-ons (Grafana first) lands in a follow-up change.
 
 ## Security
 
@@ -151,6 +174,10 @@ a later change; this add-on stands up the server only.
 - **Admin credentials.** The operator generates a temporary admin by default; supply
   your own via `addons.keycloak.admin` (see Recipes). `bootstrapAdmin` seeds the
   initial admin only, not a rotation path.
+- **Realm baseline.** The platform realm enforces `sslRequired: external`, brute-force
+  detection, and a `length(12) and notUsername and notEmail` password policy, with
+  short access tokens and bounded SSO sessions. Realm administration is granted through
+  the `platform-admins` group (`realm-admin`), not by handing out the master admin.
 - **Images.** `system-identity` is policy-managed (Kyverno `require-image-digest`); the
   operator, server, and Postgres images are all digest-pinned.
 
@@ -162,6 +189,7 @@ a later change; this add-on stands up the server only.
 |---|---|---|
 | `keycloak-operator` | `addons.keycloak.enabled == true` | Keycloak Operator (Deployment + RBAC) in `system-identity`, vendored verbatim from keycloak-k8s-resources. Reconciles `Keycloak` custom resources; installs no server by itself. CRDs are applied separately by the `crds:` layer. |
 | `keycloak` | `addons.keycloak.enabled == true` | The `Keycloak` server CR and its CloudNativePG `Cluster`. Keycloak serves HTTP internally (TLS terminates at the gateway) and stores realms in the `keycloak` database. |
+| `keycloak/realm` | `addons.keycloak.enabled == true` | One-shot `KeycloakRealmImport` for the platform realm (name from `addons.keycloak.realm`, default `platform`): a security baseline (sslRequired, brute-force detection, password policy, token/session lifetimes) and a `platform-admins` group mapped to `realm-admin`. Consumers target this realm by name. |
 | `keycloak/gateway` | `gateway.enabled == true` | HTTPRoute publishing `keycloak.${external_domain}` through the shared external Gateway to the operator-managed `keycloak-service`. |
 | `keycloak/cilium` | `gateway.driver == 'cilium'` | CiliumNetworkPolicy restricting Keycloak ingress to the gateway proxy. Cilium-enforced, so gated on the Cilium gateway driver. |
 | `keycloak/admin` | `addons.keycloak.admin.password` set | Points the `Keycloak` CR at the supplied `keycloak-bootstrap-admin` secret via `spec.bootstrapAdmin`, instead of the operator's auto-generated temporary admin. Honored only at initial cluster creation. |

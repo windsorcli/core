@@ -10,6 +10,9 @@ components:
   keycloak:
     enable_when: "`addons.keycloak.enabled == true`"
     description: "The `Keycloak` server CR and its CloudNativePG `Cluster`. Keycloak serves HTTP internally (TLS terminates at the gateway) and stores realms in the `keycloak` database."
+  keycloak/realm:
+    enable_when: "`addons.keycloak.enabled == true`"
+    description: "One-shot `KeycloakRealmImport` for the platform realm (name from `addons.keycloak.realm`, default `platform`): a security baseline (sslRequired, brute-force detection, password policy, token/session lifetimes) and a `platform-admins` group mapped to `realm-admin`. Consumers target this realm by name."
   keycloak/gateway:
     enable_when: "`gateway.enabled == true`"
     description: "HTTPRoute publishing `keycloak.${external_domain}` through the shared external Gateway to the operator-managed `keycloak-service`."

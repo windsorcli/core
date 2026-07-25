@@ -63,6 +63,14 @@ cases:
                 - keycloak/gateway
               substitutions:
                 external_domain: example.local
+            # Platform realm import — created whenever keycloak is enabled;
+            # realm name defaults to platform.
+            - dependsOn:
+                - identity-install
+              components:
+                - keycloak/realm
+              substitutions:
+                keycloak_realm: platform
         # Auto-enabled by the keycloak facet's config: block.
         - name: database
           install:
@@ -234,6 +242,29 @@ cases:
             - components:
                 - keycloak
                 - keycloak/admin
+
+  # Custom realm name flows through to the realm import substitution.
+  - name: custom realm name overrides the platform default
+    values:
+      platform: metal
+      dns:
+        domain: example.local
+      gateway:
+        enabled: true
+      network: *default-network
+      cluster: *default-cluster
+      addons:
+        keycloak:
+          enabled: true
+          realm: corp
+    expect:
+      flux:
+        - name: identity
+          resources:
+            - components:
+                - keycloak/realm
+              substitutions:
+                keycloak_realm: corp
 
   # Disabled: no identity system and no Keycloak CRDs.
   - name: excludes keycloak when addon disabled

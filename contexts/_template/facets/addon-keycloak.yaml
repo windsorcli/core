@@ -82,6 +82,21 @@ flux:
         substitutions:
           external_domain: "${(dns.public_domain ?? '') == '' ? (dns.private_domain ?? '') : dns.public_domain}"
 
+  # Platform realm — the security baseline and RBAC anchor core owns. A one-shot
+  # KeycloakRealmImport; the operator sequences it after the server is up. Waits
+  # for the operator (identity-install) to exist. Consumers add their own clients
+  # to this realm by name (addons.keycloak.realm).
+  - name: identity
+    resources:
+      - dependsOn:
+          - identity-install
+        components:
+          - keycloak/realm
+        timeout: 10m
+        interval: 5m
+        substitutions:
+          keycloak_realm: "${addons.keycloak.realm ?? 'platform'}"
+
   # Supplied bootstrap admin credentials. Only materialized when a password is
   # given (a literal or a ${secret(...)} ref); otherwise the operator generates a
   # temporary admin. Consumed by the keycloak/admin overlay via bootstrapAdmin.

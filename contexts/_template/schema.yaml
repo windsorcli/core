@@ -1197,6 +1197,10 @@ properties:
               - keycloak
             default: keycloak
             description: Identity provider driver
+          realm:
+            type: string
+            default: platform
+            description: Platform realm created for SSO clients; consumers target it by this name
           image:
             type: string
             description: Pre-built optimized server image (digest-pinned); defaults to the stock image built at boot
