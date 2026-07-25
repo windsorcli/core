@@ -12,16 +12,13 @@ components:
     description: "The `Keycloak` server CR and its CloudNativePG `Cluster`. Keycloak serves HTTP internally (TLS terminates at the gateway) and stores realms in the `keycloak` database."
   keycloak/realm:
     enable_when: "`identity.driver == 'keycloak'`"
-    description: "One-shot `KeycloakRealmImport` for the platform realm (name from `identity.keycloak.realm`, default `platform`): a security baseline (sslRequired, brute-force detection, password policy, token/session lifetimes), a `platform-admins` group mapped to `realm-admin`, and a groups client scope for role mapping. Consumers target this realm by name."
-  keycloak/grafana:
+    description: "One-shot `KeycloakRealmImport` for the platform realm (name from `identity.keycloak.realm`, default `platform`): a security baseline (sslRequired, brute-force detection, password policy, token/session lifetimes), a `platform-admins` group mapped to `realm-admin`. Consumers target this realm by name."
+  keycloak/realm/clients/grafana:
     enable_when: "identity + Grafana both enabled (`grafana.sso != false`)"
-    description: "`KeycloakOIDCClient` registering Grafana in the platform realm (client id `grafana`; v2alpha1 derives it from the resource name). Reads the `grafana-oidc-client` Secret in `system-identity`."
-  keycloak/grafana-secret:
-    enable_when: "SSO inferred on and `grafana.client_secret` unset"
-    description: "One-shot Job that generates the `grafana-oidc-client` Secret in `system-identity` when the blueprint did not supply one. Idempotent; leaves an existing secret untouched."
-  keycloak/grafana-sync:
-    enable_when: "identity + Grafana both enabled (`grafana.sso != false`)"
-    description: "Kyverno `ClusterPolicy` (plus a background-controller RBAC grant) that replicates the `grafana-oidc-client` Secret from `system-identity` into `system-observability` and keeps it in sync."
+    description: "Onboards Grafana as an SSO consumer: a patch registers the `grafana` OIDC client in the platform `KeycloakRealmImport` (v2beta1, no client-admin-api CRDs) with no secret, so Keycloak generates one; a Job then reads that generated secret over the admin API and writes it into Grafana's namespace as `grafana-oidc-client`. No operator-supplied secret; stable because the realm import runs with `--override=false`. One folder per consumer under `realm/clients/`."
+  keycloak/realm/dev-user:
+    enable_when: "`dev == true`"
+    description: "Dev-only patch seeding standard platform-realm users so local SSO works out of the box: `admin` / `admin-password` (in `platform-admins` → admin everywhere) and `viewer` / `viewer-password` (no group → read-only). Passwords satisfy the realm's length(12) policy. Never applied outside dev."
   keycloak/gateway:
     enable_when: "`gateway.enabled == true`"
     description: "HTTPRoute publishing `keycloak.${external_domain}` through the shared external Gateway to the operator-managed `keycloak-service`."
@@ -29,8 +26,8 @@ components:
     enable_when: "`gateway.driver == 'cilium'`"
     description: "CiliumNetworkPolicy restricting Keycloak ingress to the gateway proxy. Cilium-enforced, so gated on the Cilium gateway driver."
   keycloak/admin:
-    enable_when: "`identity.keycloak.admin.password` set"
-    description: "Points the `Keycloak` CR at the supplied `keycloak-bootstrap-admin` secret via `spec.bootstrapAdmin`, instead of the operator's auto-generated temporary admin. Honored only at initial cluster creation."
+    enable_when: "`identity.keycloak.admin.password` set, or `dev == true`"
+    description: "Points the `Keycloak` CR at the `keycloak-bootstrap-admin` secret via `spec.bootstrapAdmin`, instead of the operator's auto-generated temporary admin. The password is the supplied one, or in dev a known default shared with the SSO admin user. Honored only at initial cluster creation."
 
 dependencies:
   database:

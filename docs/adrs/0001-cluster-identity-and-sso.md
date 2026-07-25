@@ -35,8 +35,8 @@ wrong in three ways:
   IdP is out of reach by construction. That case must be expressible as "point at
   an issuer," not "run Keycloak here."
 
-Kyverno is always present in the cluster (policy tier), which makes declarative,
-self-healing secret provisioning available without an imperative Job.
+Keycloak mints a secret for any confidential client that declares none, so a client's
+secret can be read back over the admin API rather than supplied out of band or cloned.
 
 ## Decision
 
@@ -97,39 +97,45 @@ A consumer never references Keycloak. The facets read `identity` and route the
 values; a consumer contributes only what can't be inferred (its external client
 secret, an opt-out, a role-mapping override).
 
-### 3. Client registration follows the driver
+### 3. Client registration: patch the client into the realm import
 
-- **`driver: keycloak`** — core registers a `KeycloakOIDCClient` per enabled
-  consumer in `system-identity` (client id = the app name; v2alpha1 has no
-  `clientId` field, so the resource name is the client id). The realm's groups
-  scope carries `platform-admins` into tokens for role mapping.
-- **`driver: oidc`** — no in-cluster client. The client is registered on the
-  external IdP out of band; the consumer supplies `client_id` + `client_secret`.
+- **`driver: keycloak`** — each opted-in consumer patches its OIDC client into the
+  platform `KeycloakRealmImport` from a per-consumer folder under `clients/`. This is
+  the **stable v2beta1** path (the same realm import that ships the baseline). The
+  realm's default groups scope carries `platform-admins` into tokens for role mapping.
+- **`driver: oidc`** — no in-cluster client. The client is registered on the external
+  IdP out of band; the consumer supplies `client_id` + `client_secret`.
 
-### 4. Client secrets: generate with a Job, replicate with Kyverno
+The v2alpha1 `KeycloakOIDCClient` CRD was tried first and abandoned: it needs the
+preview `client-admin-api:v2` server feature **and** a manually bootstrapped admin
+service-account (a `<cr-name>-admin` secret with a master-realm client's
+`client-id`/`client-secret`) that the operator authenticates with. Too much
+alpha-stage surface for a baseline; the realm import needs none of it. The cost is
+that the realm import is one-shot — adding a client re-imports the realm.
 
-The client secret's source of truth lives in `system-identity` (where the
-`KeycloakOIDCClient` reads it); consumers get a replicated copy.
+### 4. Client secrets: Keycloak generates, a Job copies it out
 
-- **Supplied or generated at the source.** If the blueprint provides `client_secret`
-  (a literal or `${secret(...)}` ref) it is materialized into `system-identity` via a
-  facet `secrets:` block. Otherwise a **one-shot Job** generates a random secret there
-  — idempotent (it leaves an existing secret untouched) and single-namespace, so no
-  cross-namespace RBAC. The `oidc` driver has no in-cluster client, so its consumer
-  secret is supplied straight into the consumer namespace and must be provided.
-- **Kyverno replicates outward.** A `ClusterPolicy` clones the `system-identity`
-  secret into each consuming namespace and keeps it in sync. This is the split that
-  makes Kyverno the right tool: it *clones an existing* secret (stable), it does not
-  *generate a random one* (which would churn under `synchronize: true`). It needs a
-  background-controller RBAC grant over secrets (an aggregated ClusterRole).
+- **`driver: keycloak`** — the realm-import client sets no secret, so Keycloak generates
+  one for the confidential client. A one-shot Job (`clients/grafana`) reads it back over
+  the stable admin REST API and writes it into the consumer's namespace as a Secret. No
+  value is supplied and none lands in git; the secret is stable because the realm import
+  runs with `--override=false`, so re-imports never regenerate it.
+- **`driver: oidc`** — no realm to generate from. The consumer supplies `client_secret`
+  (a literal or `${secret(...)}` ref) from the external provider, and the observability
+  facet writes it into Grafana's namespace.
 - **Consumers wait, they do not misboot.** The client-secret env is `optional: false`,
-  so the consumer pod blocks until the replicated Secret lands (kubelet-native retry).
+  so the consumer pod blocks until the Secret lands.
 
-Generation belongs in a Job (one-shot, its natural fit); replication belongs in
-Kyverno (declarative sync, its natural fit); `system-identity` is the hub that fans
-one secret out to N consumers. A Terraform `random_password` → `terraform_output`
-approach was prototyped and dropped: it put the secret in TF state and added a TF
-stack to an otherwise kustomize-only addon.
+The copy Job authenticates with the bootstrap admin (supplied, or the operator's
+temporary one) and uses the stable admin REST API, not the alpha `client-admin-api:v2`
+feature the v2alpha1 `KeycloakOIDCClient` CRD needs (decision 3). Two alternatives were
+dropped: a Kyverno `generate`/`clone` policy (extra policy plus background-controller
+RBAC to move a secret one Job can write directly), and a Terraform `random_password` →
+`terraform_output` (secret-in-state, a TF stack on a kustomize-only addon).
+
+The Keycloak console admin and, in dev, the seeded SSO admin user share one password
+(`identity.keycloak.admin.password`, a dev default when unset), so a single override
+sets both.
 
 ## Consequences
 
@@ -137,10 +143,14 @@ stack to an otherwise kustomize-only addon.
   (`addon-keycloak.yaml` → an `identity` facet), tests, the identity stack README,
   and three memory notes. The blueprint is pre-release, so the key can move; a
   deprecation alias is an open question below.
-- **New Kyverno pattern.** First `generate`/`clone` policy; needs background
-  controller secret RBAC and a policy test.
-- **v2alpha1 client CRD risk** is unchanged — client CRDs are less stable than the
-  server/realm CRDs; guard with tests and watch operator bumps.
+- **Copy Job depends on admin creds.** The `clients/grafana` Job authenticates to the
+  admin REST API with the bootstrap admin (supplied, or the operator's temporary one),
+  and writes the Secret cross-namespace into the consumer's namespace (a Role there
+  granted to the identity ServiceAccount). It waits for the realm client to exist, since
+  the realm import runs in the same reconciliation.
+- **No client CRD, no alpha feature.** Staying on the realm import avoids the v2alpha1
+  `KeycloakOIDCClient` CRD and its `client-admin-api:v2` preview feature; the one-shot
+  Job reads the generated secret over the stable admin API instead.
 - **Realm baseline (PR 2a) is unaffected** beyond gating rename; it already ships
   the groups scope this model relies on.
 
@@ -153,8 +163,11 @@ stack to an otherwise kustomize-only addon.
   (external); `enabled`/`driver`/`display_name` flat.
 - **SSO is inferred, not opted into.** Both enabled → wired; optional `grafana.sso:
   false` opt-out, `client_secret` (oidc only), and `role_attribute_path` override.
-- **Job generates, Kyverno replicates.** Rejected: Terraform-in-state generation, and
-  Kyverno *generating* a random secret (churns under `synchronize`).
+- **Keycloak generates, a Job copies.** Rejected: Kyverno clone (extra policy plus
+  background-controller RBAC for a one-Job write), Terraform-in-state generation, and the
+  v2alpha1 client CRD (alpha feature plus admin bootstrap).
+- **Shared admin password.** One `identity.keycloak.admin.password` drives the console
+  admin and the dev SSO admin user, with a dev default when unset.
 
 ## Open decisions
 
@@ -168,7 +181,7 @@ stack to an otherwise kustomize-only addon.
 ## Rollout
 
 - **PR 2b (this work).** Hoist to `identity`; Grafana as the reference consumer
-  (inferred SSO); Job + Kyverno secret provisioning; realm baseline retained.
+  (inferred SSO); Keycloak-generated client secret with a copy Job; realm baseline retained.
 - **Fast-follow.** MinIO console, then gateway edge auth — each inferred the same way.
 - **Later.** DB sizing/Pooler, realm reconciliation (keycloak-config-cli) — as in
   the existing plan.
