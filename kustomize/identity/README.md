@@ -1,16 +1,19 @@
 ---
 title: Identity add-on
-description: Keycloak identity provider (OIDC / SSO) via the Keycloak Operator.
+description: Cluster identity provider (SSO) — hosted Keycloak or an external OIDC issuer.
 ---
 
 # Identity
 
-In-cluster identity provider. The add-on installs the Keycloak Operator and a
-single `Keycloak` server backed by its own CloudNativePG database, reachable at
-`keycloak.${external_domain}` through the shared gateway.
+The cluster identity provider (SSO). `identity.driver: keycloak` (default) hosts
+Keycloak in-cluster — the operator plus a single `Keycloak` server backed by its
+own CloudNativePG database, reachable at `keycloak.${external_domain}` through the
+shared gateway. `identity.driver: oidc` hosts nothing and points consumers at an
+external issuer (`identity.issuer`).
 
-The default (and only) driver is `keycloak`. The schema accepts additional
-drivers as future `identity` `flux:` entries gated on `addons.keycloak.driver`.
+Either way, `identity` exposes an effective issuer and realm that SSO consumers
+read; consumers opt in with their own switch (e.g. `addons.observability.grafana.sso`)
+and never name Keycloak. This page covers the hosted `keycloak` driver.
 
 Keycloak has no first-party Helm chart, so the operator's Deployment/RBAC is
 vendored verbatim (`install/keycloak-operator/operator.yaml`) and its CRDs are
@@ -63,13 +66,13 @@ windsor exec -- kubectl -n system-identity get secret keycloak-initial-admin \
   -o jsonpath='{.data.password}' | base64 -d
 ```
 
-To seed a known admin instead of the generated one, set `addons.keycloak.admin`
+To seed a known admin instead of the generated one, set `identity.keycloak.admin`
 (the password takes a `${secret(...)}` reference or a literal):
 
 ```yaml
-addons:
+identity:
+  enabled: true
   keycloak:
-    enabled: true
     admin:
       username: admin
       password: ${secret("MyVault", "keycloak-admin", "password")}
@@ -95,9 +98,9 @@ Override for anything else — a plain-NodePort Talos VM on `:30443`, or a fixed
 canonical production URL:
 
 ```yaml
-addons:
+identity:
+  enabled: true
   keycloak:
-    enabled: true
     hostname: https://sso.example.com
 ```
 
@@ -109,9 +112,9 @@ backend. For faster, production-grade startup, pre-build an optimized image
 (`kc.sh build --db=postgres …`), push it digest-pinned to your registry, and set:
 
 ```yaml
-addons:
+identity:
+  enabled: true
   keycloak:
-    enabled: true
     image: registry.example.com/keycloak-optimized:26.7.0@sha256:<digest>
 ```
 
@@ -127,9 +130,8 @@ replicas with automatic failover). `single-node` and `multi-node` keep both at 1
 
 ```yaml
 topology: ha
-addons:
-  keycloak:
-    enabled: true
+identity:
+  enabled: true
 ```
 
 ### Platform realm
@@ -145,9 +147,9 @@ git.
 Rename the realm to fit an existing naming convention:
 
 ```yaml
-addons:
+identity:
+  enabled: true
   keycloak:
-    enabled: true
     realm: corp
 ```
 
@@ -155,11 +157,62 @@ The import is one-shot: the operator applies the realm once via
 `KeycloakRealmImport`, so later edits happen in-console (or by recreating the CR),
 not by continuous reconciliation.
 
-### Declarative clients (follow-up)
+### Grafana single sign-on
 
-The vendored CRDs also include `KeycloakOIDCClient` and `KeycloakSAMLClient`.
-Consuming blueprints add their own clients to the platform realm as those custom
-resources; SSO for core's own add-ons (Grafana first) lands in a follow-up change.
+Opt a consumer into SSO and it authenticates against the platform realm. For a
+hosted Keycloak, core registers the OIDC client and provisions its secret; Grafana
+maps the `platform-admins` group to the Grafana Admin role:
+
+```yaml
+identity:
+  enabled: true
+addons:
+  observability:
+    enabled: true
+    grafana:
+      sso: true
+```
+
+Supply the client secret from a store instead of generating it (recommended for
+production), and override the client id or role mapping if needed:
+
+```yaml
+addons:
+  observability:
+    grafana:
+      sso: true
+      client_secret: ${secret("MyVault", "grafana-oidc", "clientSecret")}
+```
+
+### External identity provider
+
+Point the cluster at an issuer you already run — a remote Keycloak, or any OIDC
+provider — instead of hosting one. Nothing is deployed in `system-identity`;
+consumers read the external issuer and bring their own client credentials. The
+login button label is `identity.display_name` (default `SSO`), and endpoints are
+derived from the issuer's standard OIDC path — override them if the provider differs:
+
+```yaml
+identity:
+  enabled: true
+  driver: oidc
+  issuer: https://sso.corp/realms/platform
+  display_name: Acme SSO
+  # auth_url / token_url / userinfo_url  # only if the provider's paths are non-standard
+addons:
+  observability:
+    grafana:
+      sso: true
+      client_secret: ${secret("MyVault", "grafana-oidc", "clientSecret")}
+```
+
+### Declarative clients
+
+Core registers a `KeycloakOIDCClient` per opted-in consumer (Grafana today; MinIO
+and gateway edge-auth to follow). Consuming blueprints add their own clients to the
+platform realm the same way — a `KeycloakOIDCClient` (or `KeycloakSAMLClient`) in
+`system-identity` — reading the realm name from `identity.keycloak.realm`. No core
+change needed. See [docs/adrs/0001-cluster-identity-and-sso.md](../../docs/adrs/0001-cluster-identity-and-sso.md).
 
 ## Security
 
@@ -172,12 +225,17 @@ resources; SSO for core's own add-ons (Grafana first) lands in a follow-up chang
   `keycloak/cilium` further restricts Keycloak ingress to the gateway proxy via
   CiliumNetworkPolicy.
 - **Admin credentials.** The operator generates a temporary admin by default; supply
-  your own via `addons.keycloak.admin` (see Recipes). `bootstrapAdmin` seeds the
+  your own via `identity.keycloak.admin` (see Recipes). `bootstrapAdmin` seeds the
   initial admin only, not a rotation path.
 - **Realm baseline.** The platform realm enforces `sslRequired: external`, brute-force
   detection, and a `length(12) and notUsername and notEmail` password policy, with
   short access tokens and bounded SSO sessions. Realm administration is granted through
   the `platform-admins` group (`realm-admin`), not by handing out the master admin.
+- **Client secrets.** SSO client secrets never land in git. Supply one from a store
+  (`grafana.client_secret: ${secret(...)}`) and it is materialized only in the
+  namespaces that consume it; otherwise a Job generates a random secret in-cluster.
+  Consumer pods use `optional: false` and wait for the Secret rather than start
+  misconfigured.
 - **Images.** `system-identity` is policy-managed (Kyverno `require-image-digest`); the
   operator, server, and Postgres images are all digest-pinned.
 
@@ -187,24 +245,26 @@ resources; SSO for core's own add-ons (Grafana first) lands in a follow-up chang
 
 | Component | Enable when | Effect |
 |---|---|---|
-| `keycloak-operator` | `addons.keycloak.enabled == true` | Keycloak Operator (Deployment + RBAC) in `system-identity`, vendored verbatim from keycloak-k8s-resources. Reconciles `Keycloak` custom resources; installs no server by itself. CRDs are applied separately by the `crds:` layer. |
-| `keycloak` | `addons.keycloak.enabled == true` | The `Keycloak` server CR and its CloudNativePG `Cluster`. Keycloak serves HTTP internally (TLS terminates at the gateway) and stores realms in the `keycloak` database. |
-| `keycloak/realm` | `addons.keycloak.enabled == true` | One-shot `KeycloakRealmImport` for the platform realm (name from `addons.keycloak.realm`, default `platform`): a security baseline (sslRequired, brute-force detection, password policy, token/session lifetimes) and a `platform-admins` group mapped to `realm-admin`. Consumers target this realm by name. |
+| `keycloak-operator` | `identity.driver == 'keycloak'` | Keycloak Operator (Deployment + RBAC) in `system-identity`, vendored verbatim from keycloak-k8s-resources. Reconciles `Keycloak` custom resources; installs no server by itself. CRDs are applied separately by the `crds:` layer. |
+| `keycloak` | `identity.driver == 'keycloak'` | The `Keycloak` server CR and its CloudNativePG `Cluster`. Keycloak serves HTTP internally (TLS terminates at the gateway) and stores realms in the `keycloak` database. |
+| `keycloak/realm` | `identity.driver == 'keycloak'` | One-shot `KeycloakRealmImport` for the platform realm (name from `identity.keycloak.realm`, default `platform`): a security baseline (sslRequired, brute-force detection, password policy, token/session lifetimes), a `platform-admins` group mapped to `realm-admin`, and a groups client scope for role mapping. Consumers target this realm by name. |
+| `keycloak/grafana` | `addons.observability.grafana.sso == true` | `KeycloakOIDCClient` registering Grafana in the platform realm (client id `grafana`; v2alpha1 derives it from the resource name). Reads the `grafana-oidc-client` Secret, materialized in this namespace from the supplied (or dev-default) client secret. |
 | `keycloak/gateway` | `gateway.enabled == true` | HTTPRoute publishing `keycloak.${external_domain}` through the shared external Gateway to the operator-managed `keycloak-service`. |
 | `keycloak/cilium` | `gateway.driver == 'cilium'` | CiliumNetworkPolicy restricting Keycloak ingress to the gateway proxy. Cilium-enforced, so gated on the Cilium gateway driver. |
-| `keycloak/admin` | `addons.keycloak.admin.password` set | Points the `Keycloak` CR at the supplied `keycloak-bootstrap-admin` secret via `spec.bootstrapAdmin`, instead of the operator's auto-generated temporary admin. Honored only at initial cluster creation. |
+| `keycloak/admin` | `identity.keycloak.admin.password` set | Points the `Keycloak` CR at the supplied `keycloak-bootstrap-admin` secret via `spec.bootstrapAdmin`, instead of the operator's auto-generated temporary admin. Honored only at initial cluster creation. |
 
 ## Dependencies
 
 | Add-on | Required when | Reason |
 |---|---|---|
-| `database` | always | Keycloak stores realm data in PostgreSQL; the CloudNativePG operator (database addon) must exist before its `Cluster` CR applies. |
+| `database` | `identity.driver == 'keycloak'` | Keycloak stores realm data in PostgreSQL; the CloudNativePG operator (database addon) must exist before its `Cluster` CR applies. |
 | `gateway-resources` | `gateway.enabled == true` | The shared Gateway must exist before the Keycloak HTTPRoute attaches to it. |
 
 <!-- END_KUSTOMIZE_DOCS -->
 
 ## See also
 
-- [contexts/_template/facets/addon-keycloak.yaml](../../contexts/_template/facets/addon-keycloak.yaml) for the canonical wiring.
+- [contexts/_template/facets/addon-identity.yaml](../../contexts/_template/facets/addon-identity.yaml) for the canonical wiring.
+- [docs/adrs/0001-cluster-identity-and-sso.md](../../docs/adrs/0001-cluster-identity-and-sso.md) for the identity capability and SSO model.
 - [kustomize/crds/sources.yaml](../crds/sources.yaml) for the vendored operator + CRD versions.
 - Related add-ons: [database](../database/) (backing Postgres), [gateway](../gateway/) (ingress + TLS).

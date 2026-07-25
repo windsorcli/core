@@ -1105,6 +1105,66 @@ properties:
         description: Git livereload credentials and push-mode toggle
     additionalProperties: false
 
+  # Cluster identity provider (SSO). driver keycloak hosts one in-cluster; driver
+  # oidc points at an external issuer. Consumers read the effective issuer/realm.
+  identity:
+    type: object
+    properties:
+      enabled:
+        type: boolean
+        default: false
+        description: Enable the cluster identity provider (SSO)
+      driver:
+        type: string
+        enum:
+          - keycloak
+          - oidc
+        default: keycloak
+        description: keycloak hosts one in-cluster; oidc points at an external issuer
+      display_name:
+        type: string
+        default: SSO
+        description: Login button label consumers show (e.g. "Sign in with <name>")
+      issuer:
+        type: string
+        description: External OIDC issuer base URL (required for driver oidc; derived for keycloak)
+      auth_url:
+        type: string
+        description: Override the OIDC authorization endpoint (defaults to the issuer's standard path)
+      token_url:
+        type: string
+        description: Override the OIDC token endpoint (defaults to the issuer's standard path)
+      userinfo_url:
+        type: string
+        description: Override the OIDC userinfo endpoint (defaults to the issuer's standard path)
+      keycloak:
+        type: object
+        description: Hosted Keycloak settings (driver keycloak)
+        properties:
+          realm:
+            type: string
+            default: platform
+            description: Realm consumers target; also the issuer path; default platform
+          hostname:
+            type: string
+            description: External hostname or base URL for the hosted server; defaults to keycloak.<domain>
+          image:
+            type: string
+            description: Pre-built optimized server image, digest-pinned; defaults to the stock image built at boot
+          admin:
+            type: object
+            properties:
+              username:
+                type: string
+                default: admin
+                description: Bootstrap admin username; seeds the initial admin only at first creation
+              password:
+                type: string
+                description: Bootstrap admin password (supports ${secret(...)} refs); when unset the operator generates a temporary admin
+            additionalProperties: false
+        additionalProperties: false
+    additionalProperties: false
+
   # Optional addons
   addons:
     type: object
@@ -1152,6 +1212,24 @@ properties:
           admin_password:
             type: string
             description: Grafana admin password
+          grafana:
+            type: object
+            properties:
+              sso:
+                type: boolean
+                default: false
+                description: Single sign-on against the cluster identity provider (reads identity.issuer)
+              client_id:
+                type: string
+                default: grafana
+                description: OIDC client id
+              client_secret:
+                type: string
+                description: Client secret (supports ${secret(...)}); required for identity.driver oidc, generated for keycloak
+              role_attribute_path:
+                type: string
+                description: Grafana role mapping as a JMESPath over token claims
+            additionalProperties: false
         additionalProperties: false
       object_store:
         type: object
@@ -1184,41 +1262,6 @@ properties:
                 description: PostgreSQL database driver
             additionalProperties: false
         additionalProperties: false
-      keycloak:
-        type: object
-        properties:
-          enabled:
-            type: boolean
-            default: false
-            description: Enable Keycloak identity provider
-          driver:
-            type: string
-            enum:
-              - keycloak
-            default: keycloak
-            description: Identity provider driver
-          realm:
-            type: string
-            default: platform
-            description: Platform realm created for SSO clients; consumers target it by this name
-          image:
-            type: string
-            description: Pre-built optimized server image (digest-pinned); defaults to the stock image built at boot
-          hostname:
-            type: string
-            description: External hostname or base URL for Keycloak; defaults to keycloak.<domain> (port/scheme resolved from the request)
-          admin:
-            type: object
-            properties:
-              username:
-                type: string
-                default: admin
-                description: Bootstrap admin username; seeds the initial admin only at first creation
-              password:
-                type: string
-                description: Bootstrap admin password (supports ${secret(...)} refs); when unset the operator generates a temporary admin
-            additionalProperties: false
-        additionalProperties: false
     additionalProperties: false
 
 required: []
@@ -1229,6 +1272,25 @@ additionalProperties: false
 # time instead of at terraform/cluster apply time.
 #
 allOf:
+  # An external identity provider (driver: oidc) hosts nothing, so it must be
+  # told where to authenticate — the issuer URL is the only usable contract.
+  - if:
+      properties:
+        identity:
+          type: object
+          properties:
+            driver:
+              const: oidc
+          required:
+            - driver
+      required:
+        - identity
+    then:
+      properties:
+        identity:
+          required:
+            - issuer
+
   # Managed-cluster drivers ↔ platform coherence. cluster.driver: eks
   # binds to AWS EKS (Route53, AWS provider, EKS control plane); aks
   # binds to Azure AKS. They only make sense on the matching platform,

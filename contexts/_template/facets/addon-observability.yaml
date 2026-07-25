@@ -19,6 +19,36 @@ config:
       observability:
         dashboards: "${addons.observability.dashboards ?? 'grafana'}"
 
+  # Derived external Grafana URL. The identity facet reads this to set the OIDC
+  # client's redirect URI, and grafana/oidc uses it for server.root_url. docker-desktop
+  # reaches the gateway on :8443 (its NodePort host-forward); elsewhere on :443.
+  # Effective client secret: the supplied value, or a dev throwaway so local SSO is
+  # zero-config (mirrors the dev Grafana admin password). Written into both the client
+  # CR's namespace (identity facet) and Grafana's (below), so the copies match.
+  - name: grafana_effective
+    value:
+      url: >-
+        ${'https://grafana.' +
+        ((dns.public_domain ?? '') == '' ? (dns.private_domain ?? '') : dns.public_domain) +
+        (workstation.runtime == 'docker-desktop' ? ':8443' : '')}
+      client_secret: >-
+        ${(addons.observability.grafana.client_secret ?? '') != '' ?
+        addons.observability.grafana.client_secret :
+        (dev == true ? 'grafana-oidc-dev' : '')}
+
+requires:
+  # Grafana SSO needs a cluster identity provider to authenticate against.
+  - when: addons.observability.grafana.sso == true
+    paths:
+      - identity.enabled
+    message: Grafana SSO authenticates against the cluster identity provider — enable identity.
+  # A client secret must be supplied outside dev — an external IdP always owns it, and
+  # the hosted provider no longer generates one. Dev fills a throwaway automatically.
+  - when: addons.observability.grafana.sso == true && (identity.driver == 'oidc' || dev != true)
+    paths:
+      - addons.observability.grafana.client_secret
+    message: Grafana SSO needs a client secret — set addons.observability.grafana.client_secret (a ${secret(...)} ref).
+
 # =============================================================================
 # Flux systems — observability install entries, telemetry override
 # =============================================================================
@@ -61,8 +91,23 @@ flux:
       components:
         - grafana
         - grafana/prometheus
+        # Single sign-on against the cluster identity provider. Provider-agnostic:
+        # the issuer comes from identity_effective, the client id/role from grafana.*.
+        - "${addons.observability.grafana.sso == true ? 'grafana/oidc' : ''}"
       substitutions:
         external_domain: "${(dns.public_domain ?? '') == '' ? (dns.private_domain ?? '') : dns.public_domain}"
+        grafana_root_url: "${grafana_effective.url}"
+        # generic_oauth inputs — the provider label, issuer, and endpoint overrides come
+        # from identity (one place, both drivers); endpoints default to the issuer's
+        # standard OIDC path. Client id and role mapping from grafana.*. All leaves are
+        # null-safe, so these stay valid when SSO is off. Role mapping defaults to
+        # platform-admins → Grafana Admin.
+        oidc_name: "${identity_effective.display_name ?? 'SSO'}"
+        oidc_client_id: "${addons.observability.grafana.client_id ?? 'grafana'}"
+        oidc_auth_url: "${(identity.auth_url ?? '') != '' ? identity.auth_url : ((identity_effective.issuer ?? '') + '/protocol/openid-connect/auth')}"
+        oidc_token_url: "${(identity.token_url ?? '') != '' ? identity.token_url : ((identity_effective.issuer ?? '') + '/protocol/openid-connect/token')}"
+        oidc_userinfo_url: "${(identity.userinfo_url ?? '') != '' ? identity.userinfo_url : ((identity_effective.issuer ?? '') + '/protocol/openid-connect/userinfo')}"
+        oidc_role_attribute_path: "${addons.observability.grafana.role_attribute_path ?? \"contains(groups[*], '/platform-admins') && 'Admin' || 'Viewer'\"}"
     resources:
       - timeout: 10m
         interval: 5m
@@ -80,6 +125,16 @@ flux:
           date_interval_minute: "${time_format == '12h' ? 'hh:mm a' : 'HH:mm'}"
           date_interval_hour: "${time_format == '12h' ? 'MMM DD hh:mm a' : 'MM/DD HH:mm'}"
           date_interval_day: "${time_format == '12h' ? 'MMM DD' : 'MM/DD'}"
+
+  # Grafana OIDC client secret in Grafana's namespace, read by generic_oauth
+  # (grafana/oidc). The effective value is the supplied client_secret or a dev
+  # throwaway; the identity facet writes the same value into the client CR's namespace.
+  - name: observability
+    when: addons.observability.grafana.sso == true
+    secrets:
+      grafana-oidc-client:
+        data:
+          clientSecret: ${grafana_effective.client_secret}
 
   # Gateway route + Envoy-specific dashboards when the cluster has a Gateway.
   # Waits for gateway-resources so the Gateway exists before the HTTPRoute applies.

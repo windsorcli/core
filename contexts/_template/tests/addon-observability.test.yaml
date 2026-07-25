@@ -24,6 +24,89 @@ x-defaults:
         - /var/mnt/local
 
 cases:
+  # Grafana SSO against a hosted Keycloak: the generic_oauth patch (grafana/oidc)
+  # wires up with the effective issuer, client id, and external root_url.
+  - name: grafana sso wires generic oauth against the identity issuer
+    values:
+      platform: metal
+      dns:
+        domain: example.local
+      gateway:
+        enabled: true
+      network: *default-network
+      cluster: *default-cluster
+      identity:
+        enabled: true
+      addons:
+        observability:
+          enabled: true
+          grafana:
+            sso: true
+            client_secret: s3cret-oidc
+    expect:
+      flux:
+        - name: observability
+          install:
+            components:
+              - grafana
+              - grafana/prometheus
+              - grafana/oidc
+            substitutions:
+              oidc_name: SSO
+              oidc_client_id: grafana
+              oidc_auth_url: https://keycloak.example.local/realms/platform/protocol/openid-connect/auth
+              oidc_token_url: https://keycloak.example.local/realms/platform/protocol/openid-connect/token
+              grafana_root_url: https://grafana.example.local
+
+  # External OIDC issuer (identity driver oidc): the effective issuer flows straight
+  # through to Grafana's generic_oauth — no in-cluster provider involved.
+  - name: external oidc issuer flows to grafana sso
+    values:
+      platform: metal
+      dns:
+        domain: example.local
+      gateway:
+        enabled: true
+      network: *default-network
+      cluster: *default-cluster
+      identity:
+        enabled: true
+        driver: oidc
+        issuer: https://sso.corp/realms/platform
+      addons:
+        observability:
+          enabled: true
+          grafana:
+            sso: true
+            client_secret: ${secret("v", "grafana", "s")}
+    expect:
+      flux:
+        - name: observability
+          install:
+            components:
+              - grafana/oidc
+            substitutions:
+              oidc_auth_url: https://sso.corp/realms/platform/protocol/openid-connect/auth
+
+  # Grafana SSO outside dev must be given a client secret.
+  - name: grafana sso without a client secret fails composition
+    values:
+      platform: metal
+      dns:
+        domain: example.local
+      gateway:
+        enabled: true
+      network: *default-network
+      cluster: *default-cluster
+      identity:
+        enabled: true
+      addons:
+        observability:
+          enabled: true
+          grafana:
+            sso: true
+    expectError: true
+
   # Minimal: dev mode enables observability addon; addon wins (last-wins)
   # Metal defaults to cilium gateway driver, cilium dashboard included.
   - name: minimal config creates observability with defaults via dev mode

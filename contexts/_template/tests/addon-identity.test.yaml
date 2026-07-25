@@ -1,5 +1,6 @@
-# addon-keycloak.yaml facet tests
-# Keycloak identity provider: operator install, server + CNPG resources, gateway route.
+# addon-identity.yaml facet tests
+# Cluster identity provider: hosted Keycloak (driver keycloak) or an external OIDC
+# issuer (driver oidc); the platform realm; and per-consumer SSO clients.
 
 x-defaults:
   network: &default-network
@@ -23,11 +24,9 @@ x-defaults:
         - /var/mnt/local
 
 cases:
-  # Enabled: the database addon is NOT set here — enabling keycloak auto-enables
-  # postgres. The Keycloak resources depend on database-install, so composition
-  # only succeeds if that auto-enable fired. Also asserts the operator install,
-  # gateway route, and vendored CRDs.
-  - name: enabled auto-enables postgres and creates operator, resources, route, crds
+  # Enabled (keycloak driver by default): auto-enables postgres, installs the
+  # operator, server + CNPG resources, gateway route, platform realm, and CRDs.
+  - name: enabled hosts keycloak, auto-enables postgres, creates realm and crds
     values:
       platform: metal
       dns:
@@ -36,9 +35,8 @@ cases:
         enabled: true
       network: *default-network
       cluster: *default-cluster
-      addons:
-        keycloak:
-          enabled: true
+      identity:
+        enabled: true
     expect:
       flux:
         - name: identity
@@ -48,11 +46,8 @@ cases:
           resources:
             - dependsOn:
                 - database-install
-              # No topology: ha → no keycloak/ha overlay (single instance).
               components:
                 - keycloak
-              # No image/hostname set → stock image built at boot; non-docker-desktop
-              # so no :8443 (loadbalancer/cloud reach the gateway on :443).
               substitutions:
                 keycloak_hostname: https://keycloak.example.local
                 keycloak_image: quay.io/keycloak/keycloak:26.7.0@sha256:0f198be292568439d700cdbfb893e69a6009bb43a94a06a945b1d3d506c76b13
@@ -63,15 +58,12 @@ cases:
                 - keycloak/gateway
               substitutions:
                 external_domain: example.local
-            # Platform realm import — created whenever keycloak is enabled;
-            # realm name defaults to platform.
             - dependsOn:
                 - identity-install
               components:
                 - keycloak/realm
               substitutions:
                 keycloak_realm: platform
-        # Auto-enabled by the keycloak facet's config: block.
         - name: database
           install:
             components:
@@ -91,9 +83,9 @@ cases:
         enabled: true
       network: *default-network
       cluster: *default-cluster
-      addons:
+      identity:
+        enabled: true
         keycloak:
-          enabled: true
           image: registry.example.com/keycloak-optimized:26.7.0@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
     expect:
       flux:
@@ -104,8 +96,6 @@ cases:
               substitutions:
                 keycloak_image: registry.example.com/keycloak-optimized:26.7.0@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
                 keycloak_start_optimized: "true"
-            - components:
-                - keycloak/gateway
 
   # Explicit hostname pins a fixed base URL instead of the bare default.
   - name: custom hostname pins the base url
@@ -117,9 +107,9 @@ cases:
         enabled: true
       network: *default-network
       cluster: *default-cluster
-      addons:
+      identity:
+        enabled: true
         keycloak:
-          enabled: true
           hostname: https://sso.example.com
     expect:
       flux:
@@ -129,8 +119,6 @@ cases:
                 - keycloak
               substitutions:
                 keycloak_hostname: https://sso.example.com
-            - components:
-                - keycloak/gateway
 
   # docker-desktop reaches the gateway on :8443, so the derived hostname keeps that port.
   - name: docker-desktop derives the 8443 gateway port
@@ -146,9 +134,8 @@ cases:
         runtime: docker-desktop
       network: *default-network
       cluster: *default-cluster
-      addons:
-        keycloak:
-          enabled: true
+      identity:
+        enabled: true
     terraformOutputs:
       compute:
         controlplanes:
@@ -166,8 +153,6 @@ cases:
                 - keycloak
               substitutions:
                 keycloak_hostname: https://keycloak.example.local:8443
-            - components:
-                - keycloak/gateway
 
   # HA topology: the keycloak/ha overlay is flagged on (scales server + Postgres).
   - name: ha topology adds the keycloak ha overlay
@@ -180,9 +165,8 @@ cases:
       topology: ha
       network: *default-network
       cluster: *default-cluster
-      addons:
-        keycloak:
-          enabled: true
+      identity:
+        enabled: true
     expect:
       flux:
         - name: identity
@@ -190,11 +174,8 @@ cases:
             - components:
                 - keycloak
                 - keycloak/ha
-            - components:
-                - keycloak/gateway
 
-  # Cilium gateway: the keycloak/cilium overlay is flagged on (restricts Keycloak
-  # ingress to the gateway proxy via CiliumNetworkPolicy).
+  # Cilium gateway: the keycloak/cilium overlay is flagged on.
   - name: cilium gateway adds the keycloak cilium netpol overlay
     values:
       platform: metal
@@ -205,9 +186,8 @@ cases:
         driver: cilium
       network: *default-network
       cluster: *default-cluster
-      addons:
-        keycloak:
-          enabled: true
+      identity:
+        enabled: true
     expect:
       flux:
         - name: identity
@@ -215,8 +195,6 @@ cases:
             - components:
                 - keycloak
                 - keycloak/cilium
-            - components:
-                - keycloak/gateway
 
   # Supplied admin: the keycloak/admin overlay is flagged on and the
   # keycloak-bootstrap-admin secret is materialized from the given credentials.
@@ -229,9 +207,9 @@ cases:
         enabled: true
       network: *default-network
       cluster: *default-cluster
-      addons:
+      identity:
+        enabled: true
         keycloak:
-          enabled: true
           admin:
             username: root
             password: s3cret
@@ -253,9 +231,9 @@ cases:
         enabled: true
       network: *default-network
       cluster: *default-cluster
-      addons:
+      identity:
+        enabled: true
         keycloak:
-          enabled: true
           realm: corp
     expect:
       flux:
@@ -266,17 +244,103 @@ cases:
               substitutions:
                 keycloak_realm: corp
 
+  # Grafana SSO opt-in with a supplied secret: the OIDC client (keycloak/grafana)
+  # registers, and the client secret is materialized into system-identity for the
+  # client CR's secretRef, matching what Grafana's namespace gets.
+  - name: grafana sso registers the oidc client with a supplied secret
+    values:
+      platform: metal
+      dns:
+        domain: example.local
+      gateway:
+        enabled: true
+      network: *default-network
+      cluster: *default-cluster
+      identity:
+        enabled: true
+      addons:
+        observability:
+          enabled: true
+          grafana:
+            sso: true
+            client_secret: s3cret-oidc
+    expect:
+      flux:
+        - name: identity
+          resources:
+            - components:
+                - keycloak/grafana
+              substitutions:
+                keycloak_realm: platform
+                grafana_url: https://grafana.example.local
+                grafana_redirect_uri: https://grafana.example.local/login/generic_oauth
+          secrets:
+            grafana-oidc-client:
+              data:
+                clientSecret: s3cret-oidc
+
+  # Dev mode fills a throwaway client secret so local SSO is zero-config (no supplied
+  # secret needed). The same value lands in both namespaces.
+  - name: dev mode fills a throwaway grafana client secret
+    values:
+      platform: metal
+      dev: true
+      dns:
+        domain: example.local
+      gateway:
+        enabled: true
+      network: *default-network
+      cluster: *default-cluster
+      identity:
+        enabled: true
+      addons:
+        observability:
+          enabled: true
+          grafana:
+            sso: true
+    expect:
+      flux:
+        - name: identity
+          resources:
+            - components:
+                - keycloak/grafana
+          secrets:
+            grafana-oidc-client:
+              data:
+                clientSecret: grafana-oidc-dev
+
+  # External OIDC issuer (driver oidc): host nothing — no operator, no server, no
+  # realm, no CRDs. Consumers read identity_effective.issuer instead.
+  - name: oidc driver hosts nothing and skips keycloak crds
+    values:
+      platform: metal
+      dns:
+        domain: example.local
+      gateway:
+        enabled: true
+      network: *default-network
+      cluster: *default-cluster
+      identity:
+        enabled: true
+        driver: oidc
+        issuer: https://sso.corp/realms/platform
+    exclude:
+      flux:
+        - name: identity
+      crds:
+        - keycloak-26.7.0
+
   # Disabled: no identity system and no Keycloak CRDs.
-  - name: excludes keycloak when addon disabled
+  - name: excludes identity when disabled
     values:
       platform: metal
       gateway:
         enabled: true
       network: *default-network
       cluster: *default-cluster
+      identity:
+        enabled: false
       addons:
-        keycloak:
-          enabled: false
         database:
           postgres:
             enabled: true

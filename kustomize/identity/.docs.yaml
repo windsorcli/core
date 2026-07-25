@@ -5,14 +5,17 @@
 
 components:
   keycloak-operator:
-    enable_when: "`addons.keycloak.enabled == true`"
+    enable_when: "`identity.driver == 'keycloak'`"
     description: "Keycloak Operator (Deployment + RBAC) in `system-identity`, vendored verbatim from keycloak-k8s-resources. Reconciles `Keycloak` custom resources; installs no server by itself. CRDs are applied separately by the `crds:` layer."
   keycloak:
-    enable_when: "`addons.keycloak.enabled == true`"
+    enable_when: "`identity.driver == 'keycloak'`"
     description: "The `Keycloak` server CR and its CloudNativePG `Cluster`. Keycloak serves HTTP internally (TLS terminates at the gateway) and stores realms in the `keycloak` database."
   keycloak/realm:
-    enable_when: "`addons.keycloak.enabled == true`"
-    description: "One-shot `KeycloakRealmImport` for the platform realm (name from `addons.keycloak.realm`, default `platform`): a security baseline (sslRequired, brute-force detection, password policy, token/session lifetimes) and a `platform-admins` group mapped to `realm-admin`. Consumers target this realm by name."
+    enable_when: "`identity.driver == 'keycloak'`"
+    description: "One-shot `KeycloakRealmImport` for the platform realm (name from `identity.keycloak.realm`, default `platform`): a security baseline (sslRequired, brute-force detection, password policy, token/session lifetimes), a `platform-admins` group mapped to `realm-admin`, and a groups client scope for role mapping. Consumers target this realm by name."
+  keycloak/grafana:
+    enable_when: "`addons.observability.grafana.sso == true`"
+    description: "`KeycloakOIDCClient` registering Grafana in the platform realm (client id `grafana`; v2alpha1 derives it from the resource name). Reads the `grafana-oidc-client` Secret, materialized in this namespace from the supplied (or dev-default) client secret."
   keycloak/gateway:
     enable_when: "`gateway.enabled == true`"
     description: "HTTPRoute publishing `keycloak.${external_domain}` through the shared external Gateway to the operator-managed `keycloak-service`."
@@ -20,12 +23,12 @@ components:
     enable_when: "`gateway.driver == 'cilium'`"
     description: "CiliumNetworkPolicy restricting Keycloak ingress to the gateway proxy. Cilium-enforced, so gated on the Cilium gateway driver."
   keycloak/admin:
-    enable_when: "`addons.keycloak.admin.password` set"
+    enable_when: "`identity.keycloak.admin.password` set"
     description: "Points the `Keycloak` CR at the supplied `keycloak-bootstrap-admin` secret via `spec.bootstrapAdmin`, instead of the operator's auto-generated temporary admin. Honored only at initial cluster creation."
 
 dependencies:
   database:
-    required_when: "always"
+    required_when: "`identity.driver == 'keycloak'`"
     reason: "Keycloak stores realm data in PostgreSQL; the CloudNativePG operator (database addon) must exist before its `Cluster` CR applies."
   gateway-resources:
     required_when: "`gateway.enabled == true`"

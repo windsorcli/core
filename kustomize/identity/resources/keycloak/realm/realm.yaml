@@ -27,3 +27,23 @@ spec:
         clientRoles:
           realm-management:
             - realm-admin
+    # Group membership in every client's tokens, so consumers (Grafana first) can
+    # map platform-admins to their own admin role. Added as a realm default scope.
+    clientScopes:
+      - name: groups
+        protocol: openid-connect
+        attributes:
+          include.in.token.scope: "true"
+          display.on.consent.screen: "false"
+        protocolMappers:
+          - name: groups
+            protocol: openid-connect
+            protocolMapper: oidc-group-membership-mapper
+            config:
+              full.path: "true"
+              id.token.claim: "true"
+              access.token.claim: "true"
+              userinfo.token.claim: "true"
+              claim.name: groups
+    defaultDefaultClientScopes:
+      - groups
