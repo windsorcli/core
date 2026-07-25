@@ -24,9 +24,9 @@ x-defaults:
         - /var/mnt/local
 
 cases:
-  # Grafana SSO against a hosted Keycloak: the generic_oauth patch (grafana/oidc)
-  # wires up with the effective issuer, client id, and external root_url.
-  - name: grafana sso wires generic oauth against the identity issuer
+  # Grafana SSO against a hosted Keycloak is inferred from identity + observability both
+  # being on — no grafana.sso, no client_secret (the secret is generated + replicated).
+  - name: grafana sso is inferred and wires generic oauth against the identity issuer
     values:
       platform: metal
       dns:
@@ -40,9 +40,6 @@ cases:
       addons:
         observability:
           enabled: true
-          grafana:
-            sso: true
-            client_secret: s3cret-oidc
     expect:
       flux:
         - name: observability
@@ -59,7 +56,7 @@ cases:
               grafana_root_url: https://grafana.example.local
 
   # External OIDC issuer (identity driver oidc): the effective issuer flows straight
-  # through to Grafana's generic_oauth — no in-cluster provider involved.
+  # through to Grafana's generic_oauth; the external client secret is supplied.
   - name: external oidc issuer flows to grafana sso
     values:
       platform: metal
@@ -72,12 +69,12 @@ cases:
       identity:
         enabled: true
         driver: oidc
-        issuer: https://sso.corp/realms/platform
+        oidc:
+          issuer: https://sso.corp/realms/platform
       addons:
         observability:
           enabled: true
           grafana:
-            sso: true
             client_secret: ${secret("v", "grafana", "s")}
     expect:
       flux:
@@ -89,7 +86,9 @@ cases:
               oidc_auth_url: https://sso.corp/realms/platform/protocol/openid-connect/auth
 
   # Grafana SSO outside dev must be given a client secret.
-  - name: grafana sso without a client secret fails composition
+  # External OIDC (driver oidc) must be given a client secret; the hosted keycloak
+  # driver generates its own, so only oidc fails without one.
+  - name: external oidc sso without a client secret fails composition
     values:
       platform: metal
       dns:
@@ -100,11 +99,12 @@ cases:
       cluster: *default-cluster
       identity:
         enabled: true
+        driver: oidc
+        oidc:
+          issuer: https://sso.corp/realms/platform
       addons:
         observability:
           enabled: true
-          grafana:
-            sso: true
     expectError: true
 
   # Minimal: dev mode enables observability addon; addon wins (last-wins)

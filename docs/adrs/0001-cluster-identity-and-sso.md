@@ -45,50 +45,57 @@ self-healing secret provisioning available without an imperative Job.
 `identity` is the one-stop home for the cluster IdP and the OIDC contract
 consumers read.
 
+Common fields sit flat; driver-specific config is grouped under `identity.keycloak`
+(hosted) and `identity.oidc` (external), symmetric and self-documenting:
+
 ```yaml
 identity:
   enabled: true
   driver: keycloak        # keycloak (host in-cluster) | oidc (external / BYO)
-  realm: platform         # realm/issuer path; default platform
+  display_name: SSO       # login button label
 
-  # driver: keycloak — hosting config (today's addons.keycloak fields)
-  hostname: https://sso.example.com   # optional; derived otherwise
-  image: ...                          # optional pre-built optimized image
-  admin:
-    username: admin
-    password: ${secret(...)}
+  # driver: keycloak — hosted server
+  keycloak:
+    realm: platform       # realm/issuer path; default platform
+    hostname: https://sso.example.com   # optional; derived otherwise
+    image: ...                          # optional pre-built optimized image
+    admin: { username: admin, password: ${secret(...)} }
 
-  # driver: oidc — point at an external issuer, no hosting
-  issuer: https://sso.corp/realms/platform
+  # driver: oidc — external provider
+  oidc:
+    issuer: https://sso.corp/realms/platform
+    # auth_url / token_url / userinfo_url — override only for non-standard paths
 ```
 
 - **`driver: keycloak`** deploys the existing identity stack (operator, `Keycloak`
   CR, CNPG, realm import, gateway route) and derives the effective issuer from
-  `hostname`/domain + `realm`, exactly as today.
-- **`driver: oidc`** hosts nothing. `issuer` is required and taken as-is; the
+  `keycloak.hostname`/domain + `keycloak.realm`, exactly as today.
+- **`driver: oidc`** hosts nothing. `oidc.issuer` is required and taken as-is; the
   remote/third-party IdP owns its realm and clients.
 
-Either way, `identity` exposes an **effective issuer + realm** as the contract
-every consumer ingests. This is the only thing core owes a consumer.
+Either way, `identity` exposes an **effective issuer, realm, display name, and
+endpoints** (`identity_effective.*`) as the contract every consumer ingests.
 
-### 2. Consumers opt in with `sso`, provider-agnostic
+### 2. Consumers infer SSO; provider-agnostic
 
-Each SSO-capable addon gains an intent-level switch; the client specifics default
-and only surface for overrides or the external case:
+SSO is inferred, not opted into per app: when `identity` and a capable consumer are
+both enabled, the consumer wires up. No `sso: true`, no per-client schema — the
+client id is the app name, the redirect derives from the app's URL, endpoints and
+label come from `identity`, and role mapping defaults to platform-admins → admin.
+Only escape hatches remain, all optional:
 
 ```yaml
 addons:
   observability:
     grafana:
-      sso: true                 # ingest identity.issuer; wire generic OIDC
-      # optional:
-      # client_id: grafana                       # default: the app name
-      # client_secret: ${secret(...)}            # required for driver: oidc
-      # role_attribute_path: "<jmespath>"        # default maps platform-admins → admin
+      # sso: false                                 # opt out
+      # client_secret: ${secret(...)}              # required for driver: oidc only
+      # role_attribute_path: "<jmespath>"          # override role mapping
 ```
 
-A consumer never references Keycloak. It reads the effective issuer from
-`identity` and contributes its own client id, secret, and role mapping.
+A consumer never references Keycloak. The facets read `identity` and route the
+values; a consumer contributes only what can't be inferred (its external client
+secret, an opt-out, a role-mapping override).
 
 ### 3. Client registration follows the driver
 
@@ -99,28 +106,30 @@ A consumer never references Keycloak. It reads the effective issuer from
 - **`driver: oidc`** — no in-cluster client. The client is registered on the
   external IdP out of band; the consumer supplies `client_id` + `client_secret`.
 
-### 4. Client secrets are declarative; dev fills a throwaway
+### 4. Client secrets: generate with a Job, replicate with Kyverno
 
-The consumer's client secret must exist in the consumer's namespace, and (for
-`driver: keycloak`) in `system-identity` where the `KeycloakOIDCClient` reads it.
+The client secret's source of truth lives in `system-identity` (where the
+`KeycloakOIDCClient` reads it); consumers get a replicated copy.
 
-- **Supplied.** The blueprint provides `client_secret` (a literal or a
-  `${secret(...)}` ref), required whenever `sso` is on outside dev — an external IdP
-  always owns it, and nothing is generated. It is materialized declaratively via
-  facet `secrets:` blocks: one per namespace that needs it, both from the same
-  reference, so the copies match. No controller, no Job.
-- **Dev default.** In dev mode a throwaway `client_secret` is filled automatically,
-  the same way dev defaults the Grafana admin password, so local SSO is zero-config.
-- **Consumers wait, they do not misboot.** The client-secret env is
-  `optional: false`, so the consumer pod blocks until the Secret exists and starts
-  clean once it lands (kubelet-native retry).
+- **Supplied or generated at the source.** If the blueprint provides `client_secret`
+  (a literal or `${secret(...)}` ref) it is materialized into `system-identity` via a
+  facet `secrets:` block. Otherwise a **one-shot Job** generates a random secret there
+  — idempotent (it leaves an existing secret untouched) and single-namespace, so no
+  cross-namespace RBAC. The `oidc` driver has no in-cluster client, so its consumer
+  secret is supplied straight into the consumer namespace and must be provided.
+- **Kyverno replicates outward.** A `ClusterPolicy` clones the `system-identity`
+  secret into each consuming namespace and keeps it in sync. This is the split that
+  makes Kyverno the right tool: it *clones an existing* secret (stable), it does not
+  *generate a random one* (which would churn under `synchronize: true`). It needs a
+  background-controller RBAC grant over secrets (an aggregated ClusterRole).
+- **Consumers wait, they do not misboot.** The client-secret env is `optional: false`,
+  so the consumer pod blocks until the replicated Secret lands (kubelet-native retry).
 
-Two alternatives were rejected. A one-shot generation Job (imperative kubectl,
-cross-namespace RBAC) was removed in favor of the declarative supplied path plus the
-dev default. Kyverno `generate`+`clone` is always available and fits *mirroring* a
-secret across namespaces, but not *generating* a random one — `random()` under
-`synchronize: true` churns the secret on every reconcile. A `clone` policy remains an
-option if cross-namespace mirroring grows beyond one consumer.
+Generation belongs in a Job (one-shot, its natural fit); replication belongs in
+Kyverno (declarative sync, its natural fit); `system-identity` is the hub that fans
+one secret out to N consumers. A Terraform `random_password` → `terraform_output`
+approach was prototyped and dropped: it put the secret in TF state and added a TF
+stack to an otherwise kustomize-only addon.
 
 ## Consequences
 
@@ -140,21 +149,26 @@ option if cross-namespace mirroring grows beyond one consumer.
 - **Hard-cut, no alias.** `addons.keycloak` is removed outright; only `identity.*`
   is valid. The blueprint is pre-release, and in-repo contexts are updated in the
   same change.
-- **Consumer switch is `sso: true`.** With optional `client_id` /
-  `client_secret` / `role_attribute_path` overrides that surface only for the
-  external-IdP case or non-default role mapping.
+- **Symmetric structure.** `identity.keycloak.*` (hosted) and `identity.oidc.*`
+  (external); `enabled`/`driver`/`display_name` flat.
+- **SSO is inferred, not opted into.** Both enabled → wired; optional `grafana.sso:
+  false` opt-out, `client_secret` (oidc only), and `role_attribute_path` override.
+- **Job generates, Kyverno replicates.** Rejected: Terraform-in-state generation, and
+  Kyverno *generating* a random secret (churns under `synchronize`).
 
 ## Open decisions
 
 - **Endpoint derivation.** Grafana `generic_oauth` needs explicit auth/token/api
   URLs; deriving them from the issuer assumes the Keycloak/OIDC path convention.
-  Fine for Keycloak (in-cluster and remote); non-Keycloak IdPs with other paths
-  need explicit endpoint overrides — defer until a real one appears.
+  Fine for Keycloak (in-cluster and remote); non-Keycloak IdPs with other paths use
+  the `identity.oidc.{auth,token,userinfo}_url` overrides.
+- **Config can't reference computed config** (windsorcli/cli#3086) forces the endpoint
+  derivation into the consumer's substitutions rather than `identity_effective`.
 
 ## Rollout
 
 - **PR 2b (this work).** Hoist to `identity`; Grafana as the reference consumer
-  (`grafana.sso`); Kyverno generate/clone secret policy; realm baseline retained.
-- **Fast-follow.** MinIO console, then gateway edge auth, each `sso: true`.
+  (inferred SSO); Job + Kyverno secret provisioning; realm baseline retained.
+- **Fast-follow.** MinIO console, then gateway edge auth — each inferred the same way.
 - **Later.** DB sizing/Pooler, realm reconciliation (keycloak-config-cli) — as in
   the existing plan.

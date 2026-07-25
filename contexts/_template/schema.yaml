@@ -1125,18 +1125,23 @@ properties:
         type: string
         default: SSO
         description: Login button label consumers show (e.g. "Sign in with <name>")
-      issuer:
-        type: string
-        description: External OIDC issuer base URL (required for driver oidc; derived for keycloak)
-      auth_url:
-        type: string
-        description: Override the OIDC authorization endpoint (defaults to the issuer's standard path)
-      token_url:
-        type: string
-        description: Override the OIDC token endpoint (defaults to the issuer's standard path)
-      userinfo_url:
-        type: string
-        description: Override the OIDC userinfo endpoint (defaults to the issuer's standard path)
+      oidc:
+        type: object
+        description: External OIDC provider settings (driver oidc)
+        properties:
+          issuer:
+            type: string
+            description: External OIDC issuer base URL (required for driver oidc)
+          auth_url:
+            type: string
+            description: Override the OIDC authorization endpoint (defaults to the issuer's standard path)
+          token_url:
+            type: string
+            description: Override the OIDC token endpoint (defaults to the issuer's standard path)
+          userinfo_url:
+            type: string
+            description: Override the OIDC userinfo endpoint (defaults to the issuer's standard path)
+        additionalProperties: false
       keycloak:
         type: object
         description: Hosted Keycloak settings (driver keycloak)
@@ -1217,12 +1222,7 @@ properties:
             properties:
               sso:
                 type: boolean
-                default: false
-                description: Single sign-on against the cluster identity provider (reads identity.issuer)
-              client_id:
-                type: string
-                default: grafana
-                description: OIDC client id
+                description: Force or disable Grafana SSO; inferred on when identity is enabled
               client_secret:
                 type: string
                 description: Client secret (supports ${secret(...)}); required for identity.driver oidc, generated for keycloak
@@ -1289,7 +1289,11 @@ allOf:
       properties:
         identity:
           required:
-            - issuer
+            - oidc
+          properties:
+            oidc:
+              required:
+                - issuer
 
   # Managed-cluster drivers ↔ platform coherence. cluster.driver: eks
   # binds to AWS EKS (Route53, AWS provider, EKS control plane); aks

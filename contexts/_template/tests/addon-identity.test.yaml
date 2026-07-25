@@ -244,10 +244,39 @@ cases:
               substitutions:
                 keycloak_realm: corp
 
-  # Grafana SSO opt-in with a supplied secret: the OIDC client (keycloak/grafana)
-  # registers, and the client secret is materialized into system-identity for the
-  # client CR's secretRef, matching what Grafana's namespace gets.
-  - name: grafana sso registers the oidc client with a supplied secret
+  # Inferred SSO, generated secret: identity + Grafana both on (no grafana.sso needed)
+  # registers the OIDC client, replicates via Kyverno (keycloak/grafana-sync), and
+  # generates the secret (keycloak/grafana-secret) since none was supplied.
+  - name: grafana sso is inferred and generates the client secret
+    values:
+      platform: metal
+      dns:
+        domain: example.local
+      gateway:
+        enabled: true
+      network: *default-network
+      cluster: *default-cluster
+      identity:
+        enabled: true
+      addons:
+        observability:
+          enabled: true
+    expect:
+      flux:
+        - name: identity
+          resources:
+            - components:
+                - keycloak/grafana
+                - keycloak/grafana-sync
+                - keycloak/grafana-secret
+              substitutions:
+                keycloak_realm: platform
+                grafana_url: https://grafana.example.local
+                grafana_redirect_uri: https://grafana.example.local/login/generic_oauth
+
+  # Supplied secret: the generation Job is dropped; the secret is materialized into
+  # system-identity for the client CR (Kyverno still replicates it to Grafana).
+  - name: supplied grafana client secret drops the generation job
     values:
       platform: metal
       dns:
@@ -262,7 +291,6 @@ cases:
         observability:
           enabled: true
           grafana:
-            sso: true
             client_secret: s3cret-oidc
     expect:
       flux:
@@ -270,44 +298,11 @@ cases:
           resources:
             - components:
                 - keycloak/grafana
-              substitutions:
-                keycloak_realm: platform
-                grafana_url: https://grafana.example.local
-                grafana_redirect_uri: https://grafana.example.local/login/generic_oauth
+                - keycloak/grafana-sync
           secrets:
             grafana-oidc-client:
               data:
                 clientSecret: s3cret-oidc
-
-  # Dev mode fills a throwaway client secret so local SSO is zero-config (no supplied
-  # secret needed). The same value lands in both namespaces.
-  - name: dev mode fills a throwaway grafana client secret
-    values:
-      platform: metal
-      dev: true
-      dns:
-        domain: example.local
-      gateway:
-        enabled: true
-      network: *default-network
-      cluster: *default-cluster
-      identity:
-        enabled: true
-      addons:
-        observability:
-          enabled: true
-          grafana:
-            sso: true
-    expect:
-      flux:
-        - name: identity
-          resources:
-            - components:
-                - keycloak/grafana
-          secrets:
-            grafana-oidc-client:
-              data:
-                clientSecret: grafana-oidc-dev
 
   # External OIDC issuer (driver oidc): host nothing — no operator, no server, no
   # realm, no CRDs. Consumers read identity_effective.issuer instead.
@@ -323,7 +318,8 @@ cases:
       identity:
         enabled: true
         driver: oidc
-        issuer: https://sso.corp/realms/platform
+        oidc:
+          issuer: https://sso.corp/realms/platform
     exclude:
       flux:
         - name: identity

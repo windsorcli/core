@@ -14,8 +14,14 @@ components:
     enable_when: "`identity.driver == 'keycloak'`"
     description: "One-shot `KeycloakRealmImport` for the platform realm (name from `identity.keycloak.realm`, default `platform`): a security baseline (sslRequired, brute-force detection, password policy, token/session lifetimes), a `platform-admins` group mapped to `realm-admin`, and a groups client scope for role mapping. Consumers target this realm by name."
   keycloak/grafana:
-    enable_when: "`addons.observability.grafana.sso == true`"
-    description: "`KeycloakOIDCClient` registering Grafana in the platform realm (client id `grafana`; v2alpha1 derives it from the resource name). Reads the `grafana-oidc-client` Secret, materialized in this namespace from the supplied (or dev-default) client secret."
+    enable_when: "identity + Grafana both enabled (`grafana.sso != false`)"
+    description: "`KeycloakOIDCClient` registering Grafana in the platform realm (client id `grafana`; v2alpha1 derives it from the resource name). Reads the `grafana-oidc-client` Secret in `system-identity`."
+  keycloak/grafana-secret:
+    enable_when: "SSO inferred on and `grafana.client_secret` unset"
+    description: "One-shot Job that generates the `grafana-oidc-client` Secret in `system-identity` when the blueprint did not supply one. Idempotent; leaves an existing secret untouched."
+  keycloak/grafana-sync:
+    enable_when: "identity + Grafana both enabled (`grafana.sso != false`)"
+    description: "Kyverno `ClusterPolicy` (plus a background-controller RBAC grant) that replicates the `grafana-oidc-client` Secret from `system-identity` into `system-observability` and keeps it in sync."
   keycloak/gateway:
     enable_when: "`gateway.enabled == true`"
     description: "HTTPRoute publishing `keycloak.${external_domain}` through the shared external Gateway to the operator-managed `keycloak-service`."

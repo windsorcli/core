@@ -1,0 +1,75 @@
+---
+# Generates the Grafana OIDC client secret when the blueprint did not supply one.
+# It writes only into system-identity — the client CR's home and the single source of
+# truth; keycloak/grafana-sync replicates it to Grafana's namespace. Idempotent: it
+# leaves an existing secret untouched, so re-runs (and a supplied secret) are safe.
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: keycloak-grafana-oidc
+  namespace: system-identity
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: keycloak-grafana-oidc
+  namespace: system-identity
+rules:
+  - apiGroups: [""]
+    resources: ["secrets"]
+    verbs: ["get", "create"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: keycloak-grafana-oidc
+  namespace: system-identity
+subjects:
+  - kind: ServiceAccount
+    name: keycloak-grafana-oidc
+    namespace: system-identity
+roleRef:
+  kind: Role
+  name: keycloak-grafana-oidc
+  apiGroup: rbac.authorization.k8s.io
+---
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: keycloak-grafana-oidc-secret
+  namespace: system-identity
+  annotations:
+    kustomize.toolkit.fluxcd.io/force: enabled
+spec:
+  backoffLimit: 10
+  ttlSecondsAfterFinished: 86400
+  template:
+    spec:
+      restartPolicy: Never
+      serviceAccountName: keycloak-grafana-oidc
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1000
+        runAsGroup: 1000
+      containers:
+        - name: generate-secret
+          # renovate: datasource=docker depName=kubectl package=alpine/k8s
+          image: alpine/k8s:1.36.2@sha256:44ef4942e171939b9c665a4a84beb80e2dcdb9a24330d4651cfdfd2e9deecc47
+          command: ["/bin/sh", "-c"]
+          args:
+            - |
+              set -e
+              # Leave an existing (or supplied) secret untouched; otherwise generate one.
+              if kubectl get secret grafana-oidc-client -n system-identity >/dev/null 2>&1; then
+                echo "grafana-oidc-client already exists; leaving it untouched"
+                exit 0
+              fi
+              kubectl create secret generic grafana-oidc-client -n system-identity \
+                --from-literal=clientSecret="$(openssl rand -hex 24)"
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop:
+                - ALL
+            seccompProfile:
+              type: RuntimeDefault

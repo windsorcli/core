@@ -16,7 +16,7 @@ config:
       realm: "${identity.keycloak.realm ?? 'platform'}"
       display_name: "${identity.display_name ?? 'SSO'}"
       issuer: >-
-        ${(identity.driver ?? 'keycloak') == 'oidc' ? (identity.issuer ?? '') :
+        ${(identity.driver ?? 'keycloak') == 'oidc' ? (identity.oidc.issuer ?? '') :
         (((identity.keycloak.hostname ?? '') == '' ?
         ('https://keycloak.' +
         ((dns.public_domain ?? '') == '' ? (dns.private_domain ?? '') : dns.public_domain) +
@@ -123,16 +123,21 @@ flux:
         substitutions:
           keycloak_realm: "${identity.keycloak.realm ?? 'platform'}"
 
-  # Grafana SSO client — registers the OIDC client in the platform realm when Grafana
-  # opts in (addons.observability.grafana.sso). Grafana's generic_oauth wiring lives in
-  # the observability facet; the client secret is materialized below.
+  # Grafana SSO — registers the OIDC client, generates its secret when none is
+  # supplied, and replicates that secret to Grafana's namespace via Kyverno. Inferred
+  # on whenever identity and Grafana are both enabled (opt out with grafana.sso: false).
+  # Grafana's own generic_oauth wiring lives in the observability facet.
   - name: identity
-    when: (identity.driver ?? 'keycloak') == 'keycloak' && addons.observability.grafana.sso == true
+    when: (identity.driver ?? 'keycloak') == 'keycloak' && addons.observability.enabled == true && addons.observability.grafana.sso != false
     resources:
       - dependsOn:
           - identity-install
         components:
           - keycloak/grafana
+          # Replicate the client secret from system-identity into Grafana's namespace.
+          - keycloak/grafana-sync
+          # Generate the secret unless the blueprint supplied one.
+          - "${(addons.observability.grafana.client_secret ?? '') == '' ? 'keycloak/grafana-secret' : ''}"
         timeout: 10m
         interval: 5m
         substitutions:
@@ -151,12 +156,12 @@ flux:
           username: ${identity.keycloak.admin.username ?? 'admin'}
           password: ${identity.keycloak.admin.password}
 
-  # Grafana client secret in system-identity, where the client CR's secretRef reads it.
-  # The observability facet writes the same effective value into Grafana's namespace,
-  # so both copies match. Effective = supplied client_secret, or a dev throwaway.
+  # Supplied Grafana client secret → system-identity (the client CR's secretRef reads
+  # it here; keycloak/grafana-sync replicates it to Grafana). When unset, the
+  # keycloak/grafana-secret Job generates one instead.
   - name: identity
-    when: (identity.driver ?? 'keycloak') == 'keycloak' && addons.observability.grafana.sso == true
+    when: (identity.driver ?? 'keycloak') == 'keycloak' && addons.observability.enabled == true && addons.observability.grafana.sso != false && (addons.observability.grafana.client_secret ?? '') != ''
     secrets:
       grafana-oidc-client:
         data:
-          clientSecret: ${grafana_effective.client_secret}
+          clientSecret: ${addons.observability.grafana.client_secret}
