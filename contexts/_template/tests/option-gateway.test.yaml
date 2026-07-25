@@ -672,3 +672,23 @@ cases:
       network: *default-network
       cluster: *default-cluster
     expectError: true
+
+  # Regression (#2311): dns.public_domain enables dns without shipping dns-install on
+  # metal/incus. The gateway resources tier must depend only on pki-install, or composition
+  # dangles on a dns-install that was never contributed.
+  - name: gateway resources omit dns-install when dns is enabled on a provider-less platform
+    values:
+      platform: metal
+      dns:
+        domain: example.com
+        public_domain: example.com
+      gateway:
+        enabled: true
+        driver: envoy
+      network: *default-network
+      cluster: *default-cluster
+    expect:
+      flux:
+        - name: gateway
+          resources:
+            - <<: *gateway-resources-envoy

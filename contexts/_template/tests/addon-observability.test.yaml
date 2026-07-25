@@ -434,3 +434,24 @@ cases:
               components:
                 - grafana/gateway
                 - kibana/gateway
+
+  # Regression (#2311): dns.public_domain sets dns.enabled=true, but metal/incus ship no
+  # dns-install (external-dns needs a provider only cloud platforms have). The observability
+  # install tier must not depend on dns-install, or composition dangles on a system that was
+  # never contributed and blueprint load fails.
+  - name: observability omits dns-install dependency when dns is enabled on a provider-less platform
+    values:
+      platform: metal
+      dns:
+        domain: example.com
+        public_domain: example.com
+      network: *default-network
+      cluster: *default-cluster
+      addons:
+        observability:
+          enabled: true
+    expect:
+      flux:
+        - name: observability
+          dependsOn:
+            - telemetry-install

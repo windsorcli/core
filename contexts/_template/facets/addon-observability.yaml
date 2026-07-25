@@ -74,7 +74,6 @@ flux:
     when: addons.observability.dashboards == 'grafana'
     dependsOn:
       - telemetry-install
-      - "${dns.enabled ? 'dns-install' : ''}"
     install:
       timeout: 15m
       interval: 10m

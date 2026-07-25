@@ -49,7 +49,7 @@ flowchart LR
 
 ```yaml
 - name: observability
-  dependsOn: [telemetry-install, dns-install]
+  dependsOn: [telemetry-install]
   install:
     components:
       - grafana
