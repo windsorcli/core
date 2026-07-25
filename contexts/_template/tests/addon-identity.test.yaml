@@ -244,12 +244,13 @@ cases:
               substitutions:
                 keycloak_realm: corp
 
-  # Inferred SSO, generated secret: identity + Grafana both on (no grafana.sso needed)
-  # registers the OIDC client, replicates via Kyverno (keycloak/grafana-sync), and
-  # generates the secret (keycloak/grafana-secret) since none was supplied.
-  - name: grafana sso is inferred and generates the client secret
+  # Inferred SSO (dev): identity + Grafana both on registers the grafana realm client and
+  # the Job that copies Keycloak's generated secret to Grafana. Dev seeds the admin/viewer
+  # users and shares one admin password with the console (keycloak-bootstrap-admin).
+  - name: grafana sso is inferred and patches the client into the realm
     values:
       platform: metal
+      dev: true
       dns:
         domain: example.local
       gateway:
@@ -266,19 +267,22 @@ cases:
         - name: identity
           resources:
             - components:
-                - keycloak/grafana
-                - keycloak/grafana-sync
-                - keycloak/grafana-secret
+                - keycloak/realm
+                - keycloak/realm/clients/grafana
+                - keycloak/realm/dev-user
               substitutions:
                 keycloak_realm: platform
                 grafana_url: https://grafana.example.local
                 grafana_redirect_uri: https://grafana.example.local/login/generic_oauth
+                keycloak_admin_secret: keycloak-bootstrap-admin
+                dev_admin_password: admin-password
 
-  # Supplied secret: the generation Job is dropped; the secret is materialized into
-  # system-identity for the client CR (Kyverno still replicates it to Grafana).
-  - name: supplied grafana client secret drops the generation job
+  # A supplied admin password overrides the dev default and drives both the Keycloak console
+  # admin and the dev SSO admin user.
+  - name: supplied admin password drives the console and dev sso user
     values:
       platform: metal
+      dev: true
       dns:
         domain: example.local
       gateway:
@@ -287,22 +291,23 @@ cases:
       cluster: *default-cluster
       identity:
         enabled: true
+        keycloak:
+          admin:
+            password: sup3r-secret-admin
       addons:
         observability:
           enabled: true
-          grafana:
-            client_secret: s3cret-oidc
     expect:
       flux:
         - name: identity
           resources:
             - components:
-                - keycloak/grafana
-                - keycloak/grafana-sync
-          secrets:
-            grafana-oidc-client:
-              data:
-                clientSecret: s3cret-oidc
+                - keycloak/realm
+                - keycloak/realm/clients/grafana
+                - keycloak/realm/dev-user
+              substitutions:
+                keycloak_admin_secret: keycloak-bootstrap-admin
+                dev_admin_password: sup3r-secret-admin
 
   # External OIDC issuer (driver oidc): host nothing — no operator, no server, no
   # realm, no CRDs. Consumers read identity_effective.issuer instead.
