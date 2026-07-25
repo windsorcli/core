@@ -715,22 +715,8 @@ jobs:
           ref: main
           context: local
 
-      - name: Login to GitHub Container Registry
-        uses: docker/login-action@af1e73f918a031802d376d3c8bbc3fe56130a9b0 # v4.4.0
+      - name: Publish OCI package
+        uses: ./.github/actions/publish-oci
         with:
-          registry: ghcr.io
-          username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Publish to OCI Registry
-        env:
-          TAG: ${{ github.ref_name }}
-        run: |
-          windsor push oci://ghcr.io/windsorcli/core:${TAG}
-
-      - name: Publish Latest Tag
-        if: github.ref == 'refs/heads/main'
-        env:
-          TAG: latest
-        run: |
-          windsor push oci://ghcr.io/windsorcli/core:${TAG}
+          image: ghcr.io/windsorcli/core
+          token: ${{ secrets.GITHUB_TOKEN }}

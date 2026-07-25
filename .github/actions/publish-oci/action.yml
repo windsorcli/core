@@ -1,0 +1,49 @@
+# =============================================================================
+# publish-oci composite action
+# =============================================================================
+# Logs in to the container registry and pushes the Windsor bundle under the
+# current ref, plus a `latest` tag on main. `image` is the only per-repo input,
+# so Core and every downstream blueprint publish the same way. Requires the
+# Windsor CLI to already be installed in the job.
+name: Publish OCI package
+description: Log in and push the Windsor bundle under the current ref (and latest on main).
+
+inputs:
+  image:
+    description: OCI image path without tag, e.g. ghcr.io/windsorcli/core.
+    required: true
+  registry:
+    description: Container registry host.
+    required: false
+    default: ghcr.io
+  username:
+    description: Registry username.
+    required: false
+    default: ${{ github.actor }}
+  token:
+    description: Registry password or token, from a secret with packages:write.
+    required: true
+
+runs:
+  using: composite
+  steps:
+    - name: Login to container registry
+      uses: docker/login-action@af1e73f918a031802d376d3c8bbc3fe56130a9b0 # v4.4.0
+      with:
+        registry: ${{ inputs.registry }}
+        username: ${{ inputs.username }}
+        password: ${{ inputs.token }}
+
+    - name: Publish to OCI registry
+      shell: bash
+      env:
+        IMAGE: ${{ inputs.image }}
+        TAG: ${{ github.ref_name }}
+      run: windsor push "oci://${IMAGE}:${TAG}"
+
+    - name: Publish latest tag
+      if: github.ref == 'refs/heads/main'
+      shell: bash
+      env:
+        IMAGE: ${{ inputs.image }}
+      run: windsor push "oci://${IMAGE}:latest"
