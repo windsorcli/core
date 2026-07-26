@@ -45,7 +45,7 @@ spec:
         patch:
           image:
             # renovate: datasource=docker depName=ghcr.io/jkroepke/kube-webhook-certgen package=ghcr.io/jkroepke/kube-webhook-certgen
-            tag: 1.8.4@sha256:76a2170cd0c9a7758c4ac8ac5bbe9b6f73e869a15ffb77d9f684664f7d7b96b1
+            tag: 1.8.5@sha256:d0e80b2f62fe43bb5e1b96adc692132fb4522e802f4cf673c09b1f94722b8cb6
     prometheus:
       prometheusSpec:
         # renovate: datasource=github-releases depName=prometheus/prometheus package=prometheus/prometheus
