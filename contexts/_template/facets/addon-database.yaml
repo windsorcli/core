@@ -29,7 +29,5 @@ flux:
   - name: observability
     when: addons.database.postgres.driver == 'cloudnativepg' && addons.observability.enabled == true
     resources:
-      - dependsOn:
-          - telemetry-install
-        components:
+      - components:
           - grafana/dashboards/cloudnativepg

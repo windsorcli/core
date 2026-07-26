@@ -223,18 +223,9 @@ config:
         - prometheus/alerts/flux
         - "${gateway.enabled == true && gateway.driver == 'envoy' ? 'prometheus/alerts/envoy' : ''}"
 
-  # Observability addon forces both pipelines on.
-  - name: telemetry
-    when: addons.observability.enabled == true
-    value:
-      metrics:
-        enabled: true
-      logs:
-        enabled: true
-
   # No logs pipeline → nothing to aggregate.
   - name: telemetry
-    when: telemetry.logs.enabled == false && addons.observability.enabled != true
+    when: telemetry.logs.enabled == false
     value:
       logs:
         driver: none
