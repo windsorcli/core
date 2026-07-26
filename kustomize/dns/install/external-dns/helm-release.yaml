@@ -29,6 +29,8 @@ spec:
     env: []
     extraVolumes: []
     extraVolumeMounts: []
+    # Reconcile on Service/HTTPRoute events, not just the interval poll.
+    triggerLoopOnEvent: true
     sources:
       - ingress
     domainFilters:
