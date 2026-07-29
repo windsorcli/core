@@ -29,6 +29,7 @@ spec:
     env: []
     extraVolumes: []
     extraVolumeMounts: []
+    triggerLoopOnEvent: true
     sources:
       - ingress
     domainFilters:
