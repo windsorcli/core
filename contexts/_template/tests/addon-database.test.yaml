@@ -43,9 +43,7 @@ cases:
               - cloudnativepg/prometheus
         - name: observability
           resources:
-            - dependsOn:
-                - telemetry-install
-              components:
+            - components:
                 - grafana/dashboards/cloudnativepg
 
   # Full: database with HA and observability. Intended: addon observability overrides. See docs/cli-bugs.md if this fails.
@@ -74,9 +72,34 @@ cases:
               - cloudnativepg/ha
         - name: observability
           resources:
-            - dependsOn:
-                - telemetry-install
-              components:
+            - components:
+                - grafana/dashboards/cloudnativepg
+
+  # Regression: the dashboard patch has no dependency on telemetry-install (a plain
+  # ConfigMap Grafana's sidecar loads regardless of the telemetry pipeline's state), so
+  # disabling telemetry entirely must not affect composition.
+  - name: cloudnativepg dashboard patch composes with telemetry fully disabled
+    values:
+      platform: metal
+      network: *default-network
+      cluster: *default-cluster
+      telemetry:
+        metrics:
+          enabled: false
+        logs:
+          enabled: false
+      addons:
+        database:
+          postgres:
+            enabled: true
+            driver: cloudnativepg
+        observability:
+          enabled: true
+    expect:
+      flux:
+        - name: observability
+          resources:
+            - components:
                 - grafana/dashboards/cloudnativepg
 
   # Edge case: Explicit disable

@@ -720,9 +720,12 @@ cases:
         # renovate: datasource=github-releases depName=prometheus-operator/prometheus-operator package=prometheus-operator/prometheus-operator
         - prometheus-operator-0.92.1
 
-  # Observability addon force-overrides both telemetry toggles — Grafana needs
-  # Prometheus to scrape and the fluentbit→fluentd path to ship logs.
-  - name: observability addon overrides telemetry metrics and logs disabled
+  # Both telemetry pipelines off means telemetry-install itself doesn't compose. Observability
+  # has no dependency on it (a plain ordering nicety that bought nothing — external-dns-style
+  # watchers don't need it), so Grafana still installs. grafana/prometheus is separately
+  # gated on telemetry.metrics.enabled and correctly drops out — its ServiceMonitor CRD and
+  # its HelmRelease-level dependsOn on kube-prometheus-stack are only real when metrics is on.
+  - name: observability with both telemetry pipelines disabled still composes
     values:
       platform: metal
       gateway:
@@ -739,18 +742,33 @@ cases:
           enabled: true
     expect:
       flux:
+        - name: observability
+          install:
+            components:
+              - grafana
+    exclude:
+      flux:
+        - name: telemetry
+
+  # metrics off but logs on still composes telemetry-install; the operator's metrics
+  # opt-out is respected (no prometheus in telemetry's own components).
+  - name: observability with only metrics disabled still composes
+    values:
+      platform: metal
+      gateway:
+        enabled: false
+      network: *default-network
+      cluster: *default-cluster
+      telemetry:
+        metrics:
+          enabled: false
+      addons:
+        observability:
+          enabled: true
+    expect:
+      flux:
         - name: telemetry
           install:
             components:
-              - prometheus
-              - prometheus/flux
               - fluentbit
-        - name: pki
-          dependsOn:
-            - policy-resources
-            - telemetry-install
-          install:
-            components:
-              - cert-manager
-              - cert-manager/prometheus
 

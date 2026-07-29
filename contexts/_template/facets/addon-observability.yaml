@@ -72,14 +72,12 @@ flux:
   # format to panel defs so timestamps match operator locale.
   - name: observability
     when: addons.observability.dashboards == 'grafana'
-    dependsOn:
-      - telemetry-install
     install:
       timeout: 15m
       interval: 10m
       components:
         - grafana
-        - grafana/prometheus
+        - "${telemetry.metrics.enabled ? 'grafana/prometheus' : ''}"
         # Single sign-on against the cluster identity provider. Inferred on when identity
         # is enabled (opt out with grafana.sso: false); provider-agnostic — label,
         # issuer, and endpoints come from identity.

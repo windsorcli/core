@@ -44,8 +44,6 @@ flux:
   # Grafana dev credentials (default admin password "grafana"). In production
   # observability.admin_password is expected to come from a secret.
   - name: observability
-    dependsOn:
-      - telemetry-install
     install:
       components:
         - grafana/dev

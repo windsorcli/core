@@ -61,3 +61,26 @@ cases:
         - name: pki-resources
     # pki-resources (the compiled tier name) doesn't exist on non-dev,
     # non-private-ca metal — no facet contributes any resources components.
+
+  # Regression: dev mode auto-enables observability; the dev-credentials patch (a plain
+  # HelmRelease values patch) has no dependency on telemetry-install, so disabling
+  # telemetry entirely must not affect composition.
+  - name: dev grafana credentials patch composes with telemetry fully disabled
+    values:
+      platform: metal
+      dev: true
+      gateway:
+        enabled: false
+      network: *default-network
+      cluster: *default-cluster
+      telemetry:
+        metrics:
+          enabled: false
+        logs:
+          enabled: false
+    expect:
+      flux:
+        - name: observability
+          install:
+            components:
+              - grafana/dev

@@ -476,8 +476,7 @@ properties:
             description: >
               Deploy the metrics pipeline (Prometheus operator, kube-prometheus-stack, metrics-server)
               and all per-component ServiceMonitors. Disable on resource-constrained clusters that
-              don't need in-cluster metrics. Force-on when addons.observability.enabled is true,
-              since the observability addon requires Prometheus to scrape.
+              don't need in-cluster metrics.
         additionalProperties: false
       logs:
         type: object

@@ -84,6 +84,40 @@ cases:
               - longhorn
               - longhorn/ha
 
+  # Regression: the dashboard patch has no dependency on telemetry-install (a plain
+  # ConfigMap Grafana's sidecar loads regardless of the telemetry pipeline's state), so
+  # disabling telemetry entirely must not affect composition.
+  - name: longhorn dashboard patch composes with telemetry fully disabled
+    values:
+      platform: metal
+      gateway:
+        enabled: false
+      network: *default-network
+      cluster:
+        driver: talos
+        controlplanes:
+          nodes:
+            controlplane-1: *cp1-node
+        workers:
+          volumes:
+            - /var/mnt/local
+        storage:
+          driver: longhorn
+      telemetry:
+        metrics:
+          enabled: false
+        logs:
+          enabled: false
+      addons:
+        observability:
+          enabled: true
+    expect:
+      flux:
+        - name: observability
+          resources:
+            - components:
+                - grafana/dashboards/longhorn
+
   # Explicit openebs driver is same as default
   - name: explicit openebs driver produces same result as default
     values:
