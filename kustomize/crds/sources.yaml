@@ -27,7 +27,7 @@ vendors:
 
   - name: envoy-gateway
     # renovate: datasource=github-releases depName=envoyproxy/gateway package=envoyproxy/gateway
-    version: 1.8.2
+    version: 1.8.3
     url: https://github.com/envoyproxy/gateway/releases/download/v${version}/envoy-gateway-crds.yaml
 
   - name: cert-manager
