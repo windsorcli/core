@@ -18,7 +18,7 @@ spec:
             value: quickwit-quickwit-datasource
           - name: PLUGIN_VERSION
             # renovate: datasource=github-releases depName=quickwit-oss/quickwit-datasource package=quickwit-oss/quickwit-datasource
-            value: "0.6.1"
+            value: "0.6.3"
           # SHA256 of quickwit-quickwit-datasource-0.6.1.zip - update when version changes
           - name: PLUGIN_SHA256
             value: 446cada992d4ecee5d0c50977bf4fcca51e20fd5a62efb9bec1ecbd3ed5e99dc
