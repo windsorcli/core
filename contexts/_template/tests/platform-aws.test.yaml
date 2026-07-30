@@ -47,7 +47,7 @@ cases:
               - aws-ebs
       crds:
         # renovate: datasource=helm depName=aws-load-balancer-controller package=aws-load-balancer-controller helmRepo=https://aws.github.io/eks-charts
-        - aws-load-balancer-controller-3.4.2
+        - aws-load-balancer-controller-3.4.3
 
   # Regression: workstation.runtime must not activate option-workstation on AWS.
   # If option-workstation applied, it would replace provider gitops inputs and set local dev defaults.
