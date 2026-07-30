@@ -97,10 +97,10 @@ cases:
         - name: csi
           dependsOn:
             - policy-resources
-            - telemetry-install
           install:
             components:
-              - longhorn
+              - openebs
+              - openebs/dynamic-localpv
     exclude:
       kustomize:
         - name: lb-install
@@ -216,10 +216,10 @@ cases:
         - name: csi
           dependsOn:
             - policy-resources
-            - telemetry-install
           install:
             components:
-              - longhorn
+              - openebs
+              - openebs/dynamic-localpv
 
   # Edge case: colima-incus uses Incus path (platform selects compute/incus; option-workstation does not apply)
   - name: colima-incus uses compute/incus not docker stack
