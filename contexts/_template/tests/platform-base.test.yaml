@@ -114,10 +114,9 @@ cases:
       telemetry:
         logs:
           driver: fluentd
-      addons:
-        observability:
-          enabled: true
-          logs_driver: stdout
+      observability:
+        enabled: true
+        logs_driver: stdout
     expect:
       flux:
         - name: telemetry
@@ -163,9 +162,8 @@ cases:
         enabled: false
       network: *default-network
       cluster: *default-cluster
-      addons:
-        observability:
-          enabled: false
+      observability:
+        enabled: false
     expect:
       flux:
         - name: telemetry
@@ -192,10 +190,9 @@ cases:
         driver: envoy
       network: *default-network
       cluster: *default-cluster
-      addons:
-        observability:
-          enabled: true
-          logs_driver: elasticsearch
+      observability:
+        enabled: true
+        logs_driver: elasticsearch
     expect:
       flux:
         - name: telemetry
@@ -737,9 +734,8 @@ cases:
           enabled: false
         logs:
           enabled: false
-      addons:
-        observability:
-          enabled: true
+      observability:
+        enabled: true
     expect:
       flux:
         - name: observability
@@ -762,9 +758,8 @@ cases:
       telemetry:
         metrics:
           enabled: false
-      addons:
-        observability:
-          enabled: true
+      observability:
+        enabled: true
     expect:
       flux:
         - name: telemetry

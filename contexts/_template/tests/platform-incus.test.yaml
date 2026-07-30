@@ -112,12 +112,11 @@ cases:
       platform: incus
       dns:
         private_domain: test
+        private:
+          enabled: true
       gateway:
         enabled: true
         driver: envoy
-      addons:
-        private_dns:
-          enabled: true
       network:
         cidr_block: 10.10.0.0/16
         loadbalancer_driver: metallb

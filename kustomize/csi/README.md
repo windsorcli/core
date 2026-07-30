@@ -166,7 +166,7 @@ for explicit multi-replica volumes.
 | `longhorn` | `cluster.storage.driver: longhorn` | Helm release of Longhorn in `system-csi`, plus a StorageClass `single` (default class) using `driver.longhorn.io` with `numberOfReplicas: "1"`, `volumeBindingMode: Immediate`, `allowVolumeExpansion: true`. |
 | `longhorn/single-node` | longhorn driver AND (single-node topology OR `cluster.controlplanes.schedulable: true`) | Patches the longhorn HelmRelease to add `defaultSettings.taintToleration: "node-role.kubernetes.io/control-plane:NoSchedule"` so Longhorn pods schedule on tainted control planes. |
 | `longhorn/ha` | longhorn driver AND ha topology | Patches the longhorn HelmRelease for HA: `defaultReplicaCount: 3`, hard `replicaSoftAntiAffinity: false`, `longhornUI.replicas: 2`, CSI sidecar replicas at 3. Adds a second StorageClass `replicated` with `numberOfReplicas: "3"` for explicit multi-replica volumes. |
-| `longhorn/prometheus` | longhorn driver AND `addons.observability.enabled: true` | ServiceMonitor for `longhorn-manager` metrics on the `manager` port. |
+| `longhorn/prometheus` | longhorn driver AND `observability.enabled: true` | ServiceMonitor for `longhorn-manager` metrics on the `manager` port. |
 
 ## Dependencies
 

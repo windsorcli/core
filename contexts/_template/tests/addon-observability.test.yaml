@@ -38,9 +38,8 @@ cases:
       cluster: *default-cluster
       identity:
         enabled: true
-      addons:
-        observability:
-          enabled: true
+      observability:
+        enabled: true
     expect:
       flux:
         - name: observability
@@ -72,11 +71,10 @@ cases:
         driver: oidc
         oidc:
           issuer: https://sso.corp/realms/platform
-      addons:
-        observability:
-          enabled: true
-          grafana:
-            client_secret: ${secret("v", "grafana", "s")}
+      observability:
+        enabled: true
+        grafana:
+          client_secret: ${secret("v", "grafana", "s")}
     expect:
       flux:
         - name: observability
@@ -103,9 +101,8 @@ cases:
         driver: oidc
         oidc:
           issuer: https://sso.corp/realms/platform
-      addons:
-        observability:
-          enabled: true
+      observability:
+        enabled: true
     expectError: true
 
   # Minimal: dev mode enables observability addon; addon wins (last-wins)
@@ -197,10 +194,9 @@ cases:
         driver: envoy
       network: *default-network
       cluster: *default-cluster
-      addons:
-        observability:
-          enabled: true
-          logs_driver: stdout
+      observability:
+        enabled: true
+        logs_driver: stdout
     expect:
       flux:
         - name: telemetry
@@ -244,10 +240,9 @@ cases:
         domain: quickwit.example.com
       network: *default-network
       cluster: *default-cluster
-      addons:
-        observability:
-          enabled: true
-          logs_driver: quickwit
+      observability:
+        enabled: true
+        logs_driver: quickwit
     expect:
       flux:
         - name: telemetry
@@ -286,10 +281,9 @@ cases:
         driver: envoy
       network: *default-network
       cluster: *default-cluster
-      addons:
-        observability:
-          enabled: true
-          logs_driver: elasticsearch
+      observability:
+        enabled: true
+        logs_driver: elasticsearch
     expect:
       flux:
         - name: telemetry
@@ -341,9 +335,8 @@ cases:
         enabled: false
       network: *default-network
       cluster: *default-cluster
-      addons:
-        observability:
-          enabled: false
+      observability:
+        enabled: false
     expect:
       flux:
         - name: observability
@@ -364,10 +357,9 @@ cases:
       network: *default-network
       cluster: *default-cluster
       log_level: trace
-      addons:
-        observability:
-          enabled: true
-          logs_driver: stdout
+      observability:
+        enabled: true
+        logs_driver: stdout
     expect:
       flux:
         - name: observability
@@ -397,10 +389,9 @@ cases:
         enabled: false
       network: *default-network
       cluster: *default-cluster
-      addons:
-        observability:
-          enabled: true
-          logs_driver: elasticsearch
+      observability:
+        enabled: true
+        logs_driver: elasticsearch
     expect:
       flux:
         - name: telemetry
@@ -419,10 +410,9 @@ cases:
         domain: envoy-observability.example.com
       network: *default-network
       cluster: *default-cluster
-      addons:
-        observability:
-          enabled: true
-          logs_driver: elasticsearch
+      observability:
+        enabled: true
+        logs_driver: elasticsearch
     expect:
       flux:
         - name: observability
@@ -447,9 +437,8 @@ cases:
         public_domain: example.com
       network: *default-network
       cluster: *default-cluster
-      addons:
-        observability:
-          enabled: true
+      observability:
+        enabled: true
     expect:
       flux:
         - name: observability

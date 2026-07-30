@@ -108,9 +108,8 @@ cases:
           enabled: false
         logs:
           enabled: false
-      addons:
-        observability:
-          enabled: true
+      observability:
+        enabled: true
     expect:
       flux:
         - name: observability

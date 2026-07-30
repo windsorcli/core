@@ -4,7 +4,7 @@ metadata:
   name: database
   description: PostgreSQL database service with CloudNativePG
 
-when: addons.database.postgres.enabled == true
+when: database.postgres.enabled == true
 
 # =============================================================================
 # Flux systems — CloudNativePG operator
@@ -14,20 +14,20 @@ flux:
   # CloudNativePG operator. Depends on csi for WAL/data PVCs; `ha` topology
   # adds anti-affinity and PDBs. Install-only — manages Cluster CRs, creates none.
   - name: database
-    when: addons.database.postgres.driver == 'cloudnativepg'
+    when: database.postgres.driver == 'cloudnativepg'
     dependsOn:
       - csi
     install:
       components:
         - cloudnativepg
         - cloudnativepg/prometheus
-        - "${addons.database.postgres.driver == 'cloudnativepg' && topology == 'ha' ? 'cloudnativepg/ha' : ''}"
+        - "${database.postgres.driver == 'cloudnativepg' && topology == 'ha' ? 'cloudnativepg/ha' : ''}"
       timeout: 15m
       interval: 10m
 
   # Grafana dashboard patch — only when observability is active.
   - name: observability
-    when: addons.database.postgres.driver == 'cloudnativepg' && addons.observability.enabled == true
+    when: database.postgres.driver == 'cloudnativepg' && observability.enabled == true
     resources:
       - components:
           - grafana/dashboards/cloudnativepg

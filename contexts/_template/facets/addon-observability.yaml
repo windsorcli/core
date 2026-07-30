@@ -4,20 +4,19 @@ metadata:
   name: observability
   description: Observability stack with metrics backends, log storage drivers, and dashboarding
 
-when: addons.observability.enabled == true
+when: observability.enabled == true
 
 # =============================================================================
 # Config — dashboard backend default
 # =============================================================================
-# Land `addons.observability.dashboards` so other facets can read it without
+# Land `observability.dashboards` so other facets can read it without
 # re-applying the fallback. logs_driver has no default — unset means "no external
 # log storage, fluentd aggregator only".
 config:
 
-  - name: addons
+  - name: observability
     value:
-      observability:
-        dashboards: "${addons.observability.dashboards ?? 'grafana'}"
+      dashboards: "${observability.dashboards ?? 'grafana'}"
 
   # External Grafana URL (docker-desktop: :8443, else :443).
   - name: grafana_effective
@@ -29,15 +28,15 @@ config:
 
 requires:
   # Explicitly enabling Grafana SSO needs a cluster identity provider to authenticate against.
-  - when: addons.observability.grafana.sso == true
+  - when: observability.grafana.sso == true
     paths:
       - identity.enabled
     message: Grafana SSO authenticates against the cluster identity provider — enable identity.
   # oidc driver: the client secret must be supplied.
-  - when: identity.enabled == true && addons.observability.grafana.sso != false && (identity.driver ?? 'keycloak') == 'oidc'
+  - when: identity.enabled == true && observability.grafana.sso != false && (identity.driver ?? 'keycloak') == 'oidc'
     paths:
-      - addons.observability.grafana.client_secret
-    message: External OIDC needs Grafana's client secret from your provider. Set addons.observability.grafana.client_secret (a ${secret(...)} ref).
+      - observability.grafana.client_secret
+    message: External OIDC needs Grafana's client secret from your provider. Set observability.grafana.client_secret (a ${secret(...)} ref).
 
 # =============================================================================
 # Flux systems — observability install entries, telemetry override
@@ -50,7 +49,7 @@ flux:
   # When Elasticsearch is the log store, replace platform-base's telemetry system:
   # swap fluent-bit for filebeat (native ES shipper) and drop the fluentbit stack.
   - name: telemetry
-    when: addons.observability.logs_driver == 'elasticsearch' && gateway.enabled == true
+    when: observability.logs_driver == 'elasticsearch' && gateway.enabled == true
     strategy: replace
     install:
       components:
@@ -71,7 +70,7 @@ flux:
   # Base Grafana + standard dashboards. Substitutions propagate timezone/time
   # format to panel defs so timestamps match operator locale.
   - name: observability
-    when: addons.observability.dashboards == 'grafana'
+    when: observability.dashboards == 'grafana'
     install:
       timeout: 15m
       interval: 10m
@@ -81,7 +80,7 @@ flux:
         # Single sign-on against the cluster identity provider. Inferred on when identity
         # is enabled (opt out with grafana.sso: false); provider-agnostic — label,
         # issuer, and endpoints come from identity.
-        - "${identity.enabled == true && addons.observability.grafana.sso != false ? 'grafana/oidc' : ''}"
+        - "${identity.enabled == true && observability.grafana.sso != false ? 'grafana/oidc' : ''}"
       substitutions:
         external_domain: "${(dns.public_domain ?? '') == '' ? (dns.private_domain ?? '') : dns.public_domain}"
         grafana_root_url: "${grafana_effective.url}"
@@ -100,7 +99,7 @@ flux:
         oidc_auth_url: "${(identity.oidc.auth_url ?? '') != '' ? identity.oidc.auth_url : ((identity_effective.issuer ?? '') + '/protocol/openid-connect/auth')}"
         oidc_token_url: "${(identity.oidc.token_url ?? '') != '' ? identity.oidc.token_url : ((identity_effective.backchannel_issuer ?? '') + '/protocol/openid-connect/token')}"
         oidc_userinfo_url: "${(identity.oidc.userinfo_url ?? '') != '' ? identity.oidc.userinfo_url : ((identity_effective.backchannel_issuer ?? '') + '/protocol/openid-connect/userinfo')}"
-        oidc_role_attribute_path: "${addons.observability.grafana.role_attribute_path ?? \"contains(groups[*], '/platform-admins') && 'Admin' || 'Viewer'\"}"
+        oidc_role_attribute_path: "${observability.grafana.role_attribute_path ?? \"contains(groups[*], '/platform-admins') && 'Admin' || 'Viewer'\"}"
     resources:
       - timeout: 10m
         interval: 5m
@@ -121,16 +120,16 @@ flux:
 
   # Grafana's copy of the OIDC client secret (oidc driver; keycloak driver's copy Job handles it otherwise).
   - name: observability
-    when: identity.enabled == true && addons.observability.grafana.sso != false && (identity.driver ?? 'keycloak') == 'oidc'
+    when: identity.enabled == true && observability.grafana.sso != false && (identity.driver ?? 'keycloak') == 'oidc'
     secrets:
       grafana-oidc-client:
         data:
-          clientSecret: ${addons.observability.grafana.client_secret}
+          clientSecret: ${observability.grafana.client_secret}
 
   # Gateway route + Envoy-specific dashboards when the cluster has a Gateway.
   # Waits for gateway-resources so the Gateway exists before the HTTPRoute applies.
   - name: observability
-    when: addons.observability.dashboards == 'grafana' && gateway.enabled == true
+    when: observability.dashboards == 'grafana' && gateway.enabled == true
     resources:
       - dependsOn:
           - gateway-resources
@@ -146,7 +145,7 @@ flux:
 
   # stdout: write logs to container stdout (no external store). Dev default.
   - name: observability
-    when: addons.observability.logs_driver == 'stdout'
+    when: observability.logs_driver == 'stdout'
     resources:
       - dependsOn:
           - telemetry-resources
@@ -156,7 +155,7 @@ flux:
   # Quickwit: search-optimized log store on object storage (PVC for staging).
   # Install waits for csi (staging PVC).
   - name: observability
-    when: addons.observability.logs_driver == 'quickwit'
+    when: observability.logs_driver == 'quickwit'
     dependsOn:
       - csi
     install:
@@ -166,7 +165,7 @@ flux:
         - quickwit
         - quickwit/pvc
         - quickwit/prometheus
-        - "${addons.observability.dashboards == 'grafana' ? 'grafana/quickwit' : ''}"
+        - "${observability.dashboards == 'grafana' ? 'grafana/quickwit' : ''}"
     resources:
       - dependsOn:
           - telemetry-resources
@@ -174,13 +173,13 @@ flux:
         interval: 5m
         components:
           - fluentd/outputs/quickwit
-          - "${addons.observability.dashboards == 'grafana' ? 'grafana/dashboards/logs/quickwit' : ''}"
-          - "${addons.observability.dashboards == 'grafana' ? 'grafana/dashboards/quickwit' : ''}"
+          - "${observability.dashboards == 'grafana' ? 'grafana/dashboards/logs/quickwit' : ''}"
+          - "${observability.dashboards == 'grafana' ? 'grafana/dashboards/quickwit' : ''}"
 
   # Elasticsearch + Kibana. Gated on gateway.enabled (Kibana needs an HTTPRoute
   # to be reachable). Install waits for csi (ES data PVCs).
   - name: observability
-    when: addons.observability.logs_driver == 'elasticsearch' && gateway.enabled == true
+    when: observability.logs_driver == 'elasticsearch' && gateway.enabled == true
     dependsOn:
       - csi
     install:
@@ -205,7 +204,7 @@ flux:
 # Dev sign-in notes: SSO users when identity is on, else the local Grafana admin.
 messages:
   # SSO on.
-  - when: dev == true && addons.observability.dashboards == 'grafana' && identity.enabled == true && addons.observability.grafana.sso != false
+  - when: dev == true && observability.dashboards == 'grafana' && identity.enabled == true && observability.grafana.sso != false
     text: |-
       Grafana is ready at ${grafana_effective.url}
 
@@ -222,11 +221,11 @@ messages:
       The gateway cert is self-signed. Trust the local CA, or click through
       the browser warning on your first visit.
   # SSO off.
-  - when: dev == true && addons.observability.dashboards == 'grafana' && (identity.enabled != true || addons.observability.grafana.sso == false)
+  - when: dev == true && observability.dashboards == 'grafana' && (identity.enabled != true || observability.grafana.sso == false)
     text: |-
       Grafana is ready at ${grafana_effective.url}
 
-      Sign in with username 'admin' and password '${addons.observability.admin_password ?? 'grafana'}'.
+      Sign in with username 'admin' and password '${observability.admin_password ?? 'grafana'}'.
 
       The gateway cert is self-signed. Trust the local CA, or click through
       the browser warning on your first visit.

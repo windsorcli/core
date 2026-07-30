@@ -12,7 +12,7 @@ automatically. Provisioning an actual MinIO cluster is a separate step
 
 The default driver is `minio`. The schema is set up to accept additional
 drivers (cloud-managed S3, Ceph, etc.) as future `object-store` `flux:`
-entries gated on `addons.object_store.driver`.
+entries gated on `object_store.driver`.
 
 ## Architecture
 
@@ -87,7 +87,7 @@ on the completed Job, not the Secret.
 
 | Component | Enable when | Effect |
 |---|---|---|
-| `minio` | `addons.object_store.driver == 'minio'` | Helm release of the MinIO Operator (`operator` chart) in `system-object-store`. Installs only the Operator (CRDs + Deployment); does not create any MinIO Tenant by itself. Operator runs as `uid 1000`, baseline PSA-compatible. |
+| `minio` | `object_store.driver == 'minio'` | Helm release of the MinIO Operator (`operator` chart) in `system-object-store`. Installs only the Operator (CRDs + Deployment); does not create any MinIO Tenant by itself. Operator runs as `uid 1000`, baseline PSA-compatible. |
 
 ## Dependencies
 

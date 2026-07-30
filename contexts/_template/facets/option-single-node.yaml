@@ -26,15 +26,15 @@ terraform:
 # =============================================================================
 # Flux systems — pki install overlay
 # =============================================================================
-# Single-node leader-election toggles per chart; trust-manager only with the
-# private-ca addon, openebs only on that driver, database only when enabled.
+# Single-node leader-election toggles per chart; trust-manager only when pki
+# is enabled, openebs only on that driver, database only when enabled.
 flux:
 
   - name: pki
     install:
       components:
         - cert-manager/single-node
-        - "${addons.private_ca.enabled == true ? 'trust-manager/single-node' : ''}"
+        - "${pki.enabled == true ? 'trust-manager/single-node' : ''}"
 
   # openebs only; longhorn has its own single-node component in option-storage.
   - name: csi
@@ -46,7 +46,7 @@ flux:
   # Guard on `enabled`: this is a patch-only component, so without the base
   # HelmRelease from addon-database flux errors on "no matches for Id".
   - name: database
-    when: addons.database.postgres.enabled == true && addons.database.postgres.driver == 'cloudnativepg'
+    when: database.postgres.enabled == true && database.postgres.driver == 'cloudnativepg'
     install:
       components:
         - cloudnativepg/single-node

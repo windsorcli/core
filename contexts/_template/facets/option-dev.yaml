@@ -5,33 +5,36 @@ metadata:
   description: "Development mode configurations including selfsigned certificates and dev-specific resources"
 
 # Dev mode: enable local-iteration conveniences unsuitable for production
-# (selfsigned certs, default Grafana password, auto-enabled addons).
+# (selfsigned certs, default Grafana password, auto-enabled capabilities).
 when: dev == true
 
 # =============================================================================
-# Config — auto-enable common addons
+# Config — auto-enable common capabilities
 # =============================================================================
-# Enable common addons unless explicitly set to false; `!= false` preserves
+# Enable common capabilities unless explicitly set to false; `!= false` preserves
 # user overrides while defaulting unset fields on.
 config:
-  - name: addons
+  - name: pki
     value:
-      private_ca:
-        enabled: ${addons.private_ca.enabled != false}
-      private_dns:
-        enabled: ${addons.private_dns.enabled != false}
-      observability:
-        enabled: ${addons.observability.enabled != false}
-      database:
-        postgres:
-          enabled: ${addons.database.postgres.enabled != false}
-          driver: "${addons.database.postgres.driver ?? 'cloudnativepg'}"
+      enabled: ${pki.enabled != false}
+  - name: dns
+    value:
+      private:
+        enabled: ${dns.private.enabled != false}
+  - name: observability
+    value:
+      enabled: ${observability.enabled != false}
+  - name: database
+    value:
+      postgres:
+        enabled: ${database.postgres.enabled != false}
+        driver: "${database.postgres.driver ?? 'cloudnativepg'}"
 
 # =============================================================================
 # Flux systems — pki resources overlay
 # =============================================================================
 # Local-dev PKI: a selfsigned ClusterIssuer so certificates work without an
-# external trust anchor. Production uses letsencrypt or addon-private-ca.
+# external trust anchor. Production uses letsencrypt or pki.enabled.
 flux:
 
   - name: pki
@@ -48,4 +51,4 @@ flux:
       components:
         - grafana/dev
       substitutions:
-        admin_password: ${addons.observability.admin_password ?? "grafana"}
+        admin_password: ${observability.admin_password ?? "grafana"}

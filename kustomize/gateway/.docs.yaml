@@ -51,7 +51,7 @@ components:
     description: "Patches the `external` `EnvoyProxy` so the data-plane Service is `type: NodePort`. Used on local clusters where no LoadBalancer provider exists."
   envoy/nodeport/dns:
     facet: gateway-install
-    enable_when: "envoy/nodeport AND `addons.private_dns.enabled: true` (default in `dev`)"
+    enable_when: "envoy/nodeport AND `dns.private.enabled: true` (default in `dev`)"
     description: "Opens an additional NodePort for the cluster's private DNS resolver (UDP/TCP 53). Lets a workstation point at the host's IP for `*.<dns.private_domain>` resolution."
   envoy/nodeport/flux-webhook:
     facet: gateway-install
@@ -83,7 +83,7 @@ components:
     description: "Adds the `external-dns.alpha.kubernetes.io/hostname` annotation to the 404 catch-all route so external-dns publishes the gateway hostname for the bare domain (not just per-app HTTPRoutes)."
   dns:
     facet: gateway-resources
-    enable_when: "envoy driver AND `addons.private_dns.enabled: true` (default in `dev`)"
+    enable_when: "envoy driver AND `dns.private.enabled: true` (default in `dev`)"
     description: "Patches the `external` Gateway with `external-dns.alpha.kubernetes.io/target: ${gateway_dns_target}` and adds UDPRoute / TCPRoute listeners on port 53 for in-cluster DNS service exposure."
   lb-address:
     facet: gateway-resources

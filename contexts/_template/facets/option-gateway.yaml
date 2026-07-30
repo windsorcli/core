@@ -88,7 +88,7 @@ flux:
         - "${gateway.driver}"
         - "${gateway.driver == 'envoy' ? 'envoy/' + lb_effective.mode : ''}"
         - "${gateway.driver == 'envoy' && lb_effective.mode == 'loadbalancer' && lb_effective.enabled == true ? 'envoy/loadbalancer/fixed-ip' : ''}"
-        - "${gateway.driver == 'envoy' && lb_effective.mode == 'nodeport' && (addons.private_dns.enabled ?? (dev == true)) == true ? 'envoy/nodeport/dns' : ''}"
+        - "${gateway.driver == 'envoy' && lb_effective.mode == 'nodeport' && (dns.private.enabled ?? (dev == true)) == true ? 'envoy/nodeport/dns' : ''}"
         - "${gateway.driver == 'envoy' && lb_effective.mode == 'nodeport' && (gitops.mode ?? 'push') == 'push' ? 'envoy/nodeport/flux-webhook' : ''}"
         - "${gateway.driver == 'envoy' ? 'envoy/prometheus' : ''}"
       substitutions:
@@ -126,7 +126,7 @@ flux:
           # external-dns hostname annotation on the 404 route; fires when a
           # gateway-managed DNS zone exists (public, or private when access=private).
           - "${gateway.driver != 'cilium' && ((dns.public_domain ?? '') != '' || (gateway.access == 'private' && (dns.private_domain ?? '') != '')) ? 'envoy/default-404/external-dns' : ''}"
-          - "${gateway.driver != 'cilium' && (addons.private_dns.enabled ?? (dev == true)) == true ? 'dns' : ''}"
+          - "${gateway.driver != 'cilium' && (dns.private.enabled ?? (dev == true)) == true ? 'dns' : ''}"
           - "${lb_effective.enabled == true ? 'lb-address' : ''}"
           - "${(gitops.mode ?? 'push') == 'push' ? 'flux-webhook' : ''}"
         substitutions:

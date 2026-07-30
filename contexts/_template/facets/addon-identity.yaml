@@ -34,15 +34,14 @@ config:
         ${(identity.keycloak.admin.password ?? '') != '' ? identity.keycloak.admin.password :
         (dev == true ? 'admin-password' : '')}
 
-  # The hosted server needs PostgreSQL, so the keycloak driver turns on the database
-  # addon by default (on unless explicitly disabled). The oidc driver hosts nothing,
+  # The hosted server needs PostgreSQL, so the keycloak driver turns database on
+  # by default (on unless explicitly disabled). The oidc driver hosts nothing,
   # so it leaves the database setting untouched.
-  - name: addons
+  - name: database
     value:
-      database:
-        postgres:
-          enabled: "${(identity.driver ?? 'keycloak') == 'keycloak' ? (addons.database.postgres.enabled != false) : (addons.database.postgres.enabled ?? false)}"
-          driver: "${addons.database.postgres.driver ?? 'cloudnativepg'}"
+      postgres:
+        enabled: "${(identity.driver ?? 'keycloak') == 'keycloak' ? (database.postgres.enabled != false) : (database.postgres.enabled ?? false)}"
+        driver: "${database.postgres.driver ?? 'cloudnativepg'}"
 
 # The hosted server is reached over HTTPS via the gateway. An external issuer needs none.
 requires:
@@ -130,7 +129,7 @@ flux:
         components:
           - keycloak/realm
           # Grafana client + secret-copy Job, on when Grafana SSO is.
-          - "${addons.observability.enabled == true && addons.observability.grafana.sso != false ? 'keycloak/realm/clients/grafana' : ''}"
+          - "${observability.enabled == true && observability.grafana.sso != false ? 'keycloak/realm/clients/grafana' : ''}"
           # Dev-only admin/viewer users.
           - "${dev == true ? 'keycloak/realm/dev-user' : ''}"
         timeout: 10m

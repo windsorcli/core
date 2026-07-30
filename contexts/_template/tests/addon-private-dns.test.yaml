@@ -129,14 +129,13 @@ cases:
       platform: metal
       dns:
         private_domain: test
+        private:
+          enabled: true
       gateway:
         enabled: true
         driver: cilium
       network: *default-network
       cluster: *default-cluster
-      addons:
-        private_dns:
-          enabled: true
     expect:
       flux:
         - name: dns
@@ -161,14 +160,13 @@ cases:
       platform: metal
       dns:
         private_domain: test
+        private:
+          enabled: true
       gateway:
         enabled: true
         driver: envoy
       network: *default-network
       cluster: *default-cluster
-      addons:
-        private_dns:
-          enabled: true
     expect:
       flux:
         - name: dns
@@ -190,6 +188,8 @@ cases:
       platform: metal
       dns:
         private_domain: test
+        private:
+          enabled: true
       gateway:
         enabled: false
         driver: envoy
@@ -198,37 +198,34 @@ cases:
         <<: *default-cluster
         cni:
           driver: flannel
-      addons:
-        private_dns:
-          enabled: true
     expect:
       flux:
         - name: dns
           dependsOn:
             - pki-install
 
-  # Edge case: Addon disabled
-  - name: excludes DNS when addon disabled
+  # Edge case: private DNS disabled
+  - name: excludes DNS when private DNS disabled
     values:
       platform: metal
       gateway:
         enabled: false
       network: *default-network
       cluster: *default-cluster
-      addons:
-        private_dns:
+      dns:
+        private:
           enabled: false
     exclude:
       flux:
         - name: dns
 
-  # Requires: enabling the addon without a private DNS zone fails at config-load.
+  # Requires: enabling private DNS without a private zone fails at config-load.
   - name: missing dns.private_domain fails composition
     values:
       platform: metal
       network: *default-network
       cluster: *default-cluster
-      addons:
-        private_dns:
+      dns:
+        private:
           enabled: true
     expectError: true

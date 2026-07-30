@@ -144,7 +144,7 @@ config:
       tcp_forwards: >-
         ${fromPairs(concat(
           [["6443", 6443]],
-          (addons.private_dns.enabled ?? (dev == true)) == true ? [["30053", 30053]] : [],
+          (dns.private.enabled ?? (dev == true)) == true ? [["30053", 30053]] : [],
           (gitops.mode ?? "push") == "push" ? [["30292", 30292]] : [],
           map(
             concat(hyperv_controlplanes.for_cluster, hyperv_workers.for_cluster),
@@ -152,7 +152,7 @@ config:
           )
         ))}
       udp_forwards: >-
-        ${(addons.private_dns.enabled ?? (dev == true)) == true ? {"30053": 30053} : {}}
+        ${(dns.private.enabled ?? (dev == true)) == true ? {"30053": 30053} : {}}
       talos_api_targets: >-
         ${fromPairs(map(
           concat(hyperv_controlplanes.for_cluster, hyperv_workers.for_cluster),
@@ -412,7 +412,7 @@ terraform:
 flux:
 
   - name: pki
-    when: (addons.private_ca.enabled ?? false) != true
+    when: (pki.enabled ?? false) != true
     resources:
       - components:
           - private-issuer/selfsigned

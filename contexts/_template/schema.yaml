@@ -486,8 +486,8 @@ properties:
             default: true
             description: >
               Deploy the logs pipeline (fluent-bit per-node shipper + fluentd aggregator). Disable
-              on resource-constrained clusters. Force-on when addons.observability.enabled is true,
-              since the observability addon's log sinks need the fluent-bit/fluentd path.
+              on resource-constrained clusters. Force-on when observability.enabled is true,
+              since observability's log sinks need the fluent-bit/fluentd path.
           driver:
             type: string
             enum:
@@ -529,6 +529,50 @@ properties:
                 description: Alert severities routed to Slack.
             additionalProperties: false
             description: Route alerts to Slack. Set webhook_url (sensitive) to the incoming webhook.
+        additionalProperties: false
+    additionalProperties: false
+
+  observability:
+    type: object
+    properties:
+      enabled:
+        type: boolean
+        description: Enable observability stack
+      metrics_backend:
+        type: string
+        enum:
+          - prometheus
+        default: prometheus
+        description: Metrics backend (prometheus is default and included in base telemetry)
+      dashboards:
+        type: string
+        enum:
+          - grafana
+        default: grafana
+        description: Dashboards provider (grafana for self-hosted Grafana)
+      logs_driver:
+        type: string
+        enum:
+          - stdout
+          - quickwit
+          - elasticsearch
+        default: quickwit
+        description: Log storage driver (stdout for console output, quickwit for local storage, elasticsearch for ELK stack)
+      admin_password:
+        type: string
+        description: Grafana admin password
+      grafana:
+        type: object
+        properties:
+          sso:
+            type: boolean
+            description: Force or disable Grafana SSO; inferred on when identity is enabled
+          client_secret:
+            type: string
+            description: Client secret (supports ${secret(...)}); required for identity.driver oidc, generated for keycloak
+          role_attribute_path:
+            type: string
+            description: Grafana role mapping as a JMESPath over token claims
         additionalProperties: false
     additionalProperties: false
 
@@ -900,6 +944,22 @@ properties:
       private_domain:
         $ref: '#/$defs/dnsHostname'
         description: Private DNS zone (e.g. in-cluster CoreDNS, workstation resolver). Lowercase DNS labels separated by dots.
+      private:
+        type: object
+        properties:
+          enabled:
+            type: boolean
+            description: Enable self-hosted CoreDNS for private DNS zones
+        additionalProperties: false
+    additionalProperties: false
+
+  # PKI configuration
+  pki:
+    type: object
+    properties:
+      enabled:
+        type: boolean
+        description: Enable private certificate authority with trust-manager
     additionalProperties: false
 
   # GitOps configuration
@@ -1168,98 +1228,37 @@ properties:
         additionalProperties: false
     additionalProperties: false
 
-  # Optional addons
-  addons:
+  database:
     type: object
     properties:
-      private_ca:
+      postgres:
         type: object
         properties:
           enabled:
             type: boolean
-            description: Enable private certificate authority with trust-manager
-        additionalProperties: false
-      private_dns:
-        type: object
-        properties:
-          enabled:
-            type: boolean
-            description: Enable self-hosted CoreDNS for private DNS zones
-        additionalProperties: false
-      observability:
-        type: object
-        properties:
-          enabled:
-            type: boolean
-            description: Enable observability stack
-          metrics_backend:
-            type: string
-            enum:
-              - prometheus
-            default: prometheus
-            description: Metrics backend (prometheus is default and included in base telemetry)
-          dashboards:
-            type: string
-            enum:
-              - grafana
-            default: grafana
-            description: Dashboards provider (grafana for self-hosted Grafana)
-          logs_driver:
-            type: string
-            enum:
-              - stdout
-              - quickwit
-              - elasticsearch
-            default: quickwit
-            description: Log storage driver (stdout for console output, quickwit for local storage, elasticsearch for ELK stack)
-          admin_password:
-            type: string
-            description: Grafana admin password
-          grafana:
-            type: object
-            properties:
-              sso:
-                type: boolean
-                description: Force or disable Grafana SSO; inferred on when identity is enabled
-              client_secret:
-                type: string
-                description: Client secret (supports ${secret(...)}); required for identity.driver oidc, generated for keycloak
-              role_attribute_path:
-                type: string
-                description: Grafana role mapping as a JMESPath over token claims
-            additionalProperties: false
-        additionalProperties: false
-      object_store:
-        type: object
-        properties:
-          enabled:
-            type: boolean
-            default: false
-            description: Enable object storage service
+            description: Enable PostgreSQL database service
           driver:
             type: string
             enum:
-              - minio
-            default: minio
-            description: Object storage driver
+              - cloudnativepg
+            default: cloudnativepg
+            description: PostgreSQL database driver
         additionalProperties: false
-      database:
-        type: object
-        properties:
-          postgres:
-            type: object
-            properties:
-              enabled:
-                type: boolean
-                description: Enable PostgreSQL database service
-              driver:
-                type: string
-                enum:
-                  - cloudnativepg
-                default: cloudnativepg
-                description: PostgreSQL database driver
-            additionalProperties: false
-        additionalProperties: false
+    additionalProperties: false
+
+  object_store:
+    type: object
+    properties:
+      enabled:
+        type: boolean
+        default: false
+        description: Enable object storage service
+      driver:
+        type: string
+        enum:
+          - minio
+        default: minio
+        description: Object storage driver
     additionalProperties: false
 
 required: []

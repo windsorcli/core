@@ -4,12 +4,12 @@ metadata:
   name: private-dns
   description: Self-hosted CoreDNS for private DNS zones
 
-when: addons.private_dns.enabled == true
+when: dns.private.enabled == true
 
 requires:
   - paths:
       - dns.private_domain
-    message: The private DNS addon serves and publishes records into this zone.
+    message: Self-hosted private DNS serves and publishes records into this zone.
 
 # =============================================================================
 # Kustomize — CoreDNS + external-dns

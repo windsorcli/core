@@ -53,13 +53,12 @@ cases:
       network: *default-network
       cluster: *default-cluster
       topology: ha
-      addons:
-        database:
-          postgres:
-            enabled: true
-            driver: cloudnativepg
-        observability:
+      database:
+        postgres:
           enabled: true
+          driver: cloudnativepg
+      observability:
+        enabled: true
     expect:
       flux:
         - name: database
@@ -88,13 +87,12 @@ cases:
           enabled: false
         logs:
           enabled: false
-      addons:
-        database:
-          postgres:
-            enabled: true
-            driver: cloudnativepg
-        observability:
+      database:
+        postgres:
           enabled: true
+          driver: cloudnativepg
+      observability:
+        enabled: true
     expect:
       flux:
         - name: observability
@@ -103,17 +101,16 @@ cases:
                 - grafana/dashboards/cloudnativepg
 
   # Edge case: Explicit disable
-  - name: excludes database when addon disabled
+  - name: excludes database when disabled
     values:
       platform: metal
       gateway:
         enabled: false
       network: *default-network
       cluster: *default-cluster
-      addons:
-        database:
-          postgres:
-            enabled: false
+      database:
+        postgres:
+          enabled: false
     exclude:
       flux:
         - name: database
@@ -127,11 +124,10 @@ cases:
       network: *default-network
       cluster: *default-cluster
       topology: multi-node
-      addons:
-        database:
-          postgres:
-            enabled: true
-            driver: cloudnativepg
+      database:
+        postgres:
+          enabled: true
+          driver: cloudnativepg
     expect:
       flux:
         - name: database

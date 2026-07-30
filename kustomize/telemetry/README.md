@@ -122,7 +122,7 @@ flux:
 
 ### Elasticsearch-mode (filebeat replaces FluentBit)
 
-When `addons.observability.logs_driver == 'elasticsearch'`, the
+When `observability.logs_driver == 'elasticsearch'`, the
 addon-observability facet declares `strategy: replace` on its own
 `telemetry` system entry, overriding the whole system as one unit. The
 install tier's `prometheus` and `prometheus/flux` components stay.
@@ -137,7 +137,7 @@ install tier's `prometheus` and `prometheus/flux` components stay.
 | `install/prometheus` | `telemetry.metrics.enabled: true` | Helm release of `kube-prometheus-stack` (chart) in `system-telemetry`. Provides Prometheus, Alertmanager, node-exporter, kube-state-metrics. Grafana sub-chart is disabled (Grafana lives in the observability add-on). Chart CRD install is skipped; the prometheus-operator CRDs are vendored under `kustomize/crds/` and applied ahead of the controller via the facet `crds:` section. |
 | `install/prometheus/flux` | `telemetry.metrics.enabled: true` | Patches the kube-prometheus-stack HelmRelease to scrape Flux controller metrics and enable the bundled Flux dashboards. |
 | `install/fluentbit` | `telemetry.logs.enabled: true` | Helm release of the `fluent-operator` chart in `system-telemetry`. Installs the operator and a FluentBit DaemonSet on every node (chart CRD install is skipped). The operator's CRDs are vendored under `kustomize/crds/` and applied via the facet `crds:` section, so an operator teardown can't cascade-delete its CRs. The actual collector configuration ships as the `resources/fluentbit/*` components. |
-| `install/filebeat` | `addons.observability.logs_driver == 'elasticsearch'` (telemetry-install is replaced) | Helm release of Elastic's Filebeat chart, used instead of FluentBit when Elasticsearch is the log driver. Wired by the `addon-observability` facet's `strategy: replace` override of telemetry-install. |
+| `install/filebeat` | `observability.logs_driver == 'elasticsearch'` (telemetry-install is replaced) | Helm release of Elastic's Filebeat chart, used instead of FluentBit when Elasticsearch is the log driver. Wired by the `addon-observability` facet's `strategy: replace` override of telemetry-install. |
 | `install/metrics-server` | `telemetry.metrics.enabled: true` AND `telemetry.metrics_server_enabled: true` | Helm release of `metrics-server` for `kubectl top` and HPA. Some platforms (EKS / AKS) ship a managed metrics-server; gate this off when one is already present. |
 | `install/metrics-server/skip-tls` | default (when metrics-server is enabled in a cluster with selfsigned kubelet certs) | Patches the metrics-server Deployment to add `--kubelet-insecure-tls`. Required on Talos and other distros where kubelet serves cert-manager-issued or selfsigned certs. |
 

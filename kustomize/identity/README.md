@@ -12,7 +12,7 @@ shared gateway. `identity.driver: oidc` hosts nothing and points consumers at an
 external issuer (`identity.oidc.issuer`).
 
 Either way, `identity` exposes an effective issuer and realm that SSO consumers
-read; consumers opt in with their own switch (e.g. `addons.observability.grafana.sso`)
+read; consumers opt in with their own switch (e.g. `observability.grafana.sso`)
 and never name Keycloak. This page covers the hosted `keycloak` driver.
 
 Keycloak has no first-party Helm chart, so the operator's Deployment/RBAC is
@@ -177,11 +177,10 @@ identity:
   driver: oidc
   oidc:
     issuer: https://sso.example.com/realms/platform
-addons:
-  observability:
-    enabled: true
-    grafana:
-      client_secret: ${secret("MyVault", "grafana-oidc", "clientSecret")}
+observability:
+  enabled: true
+  grafana:
+    client_secret: ${secret("MyVault", "grafana-oidc", "clientSecret")}
 ```
 
 In dev mode the platform realm seeds standard users so local SSO works out of the box
@@ -195,11 +194,10 @@ outside dev.
 Opt out or override the role mapping:
 
 ```yaml
-addons:
-  observability:
-    grafana:
-      # sso: false                                              # opt out of SSO
-      role_attribute_path: "contains(groups[*], '/platform-admins') && 'Admin' || 'Viewer'"
+observability:
+  grafana:
+    # sso: false                                              # opt out of SSO
+    role_attribute_path: "contains(groups[*], '/platform-admins') && 'Admin' || 'Viewer'"
 ```
 
 ### External identity provider
@@ -219,10 +217,9 @@ identity:
   oidc:
     issuer: https://sso.corp/realms/platform
     # auth_url / token_url / userinfo_url  # only if the provider's paths are non-standard
-addons:
-  observability:
-    grafana:
-      client_secret: ${secret("MyVault", "grafana-oidc", "clientSecret")}
+observability:
+  grafana:
+    client_secret: ${secret("MyVault", "grafana-oidc", "clientSecret")}
 ```
 
 ### Declarative clients
