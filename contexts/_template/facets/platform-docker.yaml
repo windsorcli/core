@@ -105,30 +105,3 @@ terraform:
       worker_config_patches: "${talos_common_docker.worker_config_patches ?? \"\"}"
       controlplane_volumes: ${talos_common.controlplane_volumes ?? []}
       worker_volumes: ${talos_common.worker_volumes ?? []}
-
-# =============================================================================
-# Flux systems — MetalLB / kube-vip for colima / docker / linux runtimes
-# =============================================================================
-# Skipped on docker-desktop (no node-level IP routing). colima/native linux use
-# MetalLB or kube-vip. install ships the driver's controller HelmRelease (plus
-# kube-vip's arp patch); resources ships metallb's IPAddressPool/L2Advertisement CRs.
-flux:
-
-  - name: lb
-    when: workstation.runtime != 'docker-desktop' && lb_effective.enabled
-    install:
-      components:
-        - ${lb_effective.driver}
-        - "${lb_effective.driver == 'kube-vip' ? lb_effective.driver + '/' + (network.loadbalancer_mode ?? 'arp') : ''}"
-        - "${lb_effective.driver == 'kube-vip' && topology == 'single-node' ? 'kube-vip/single-node' : ''}"
-      substitutions:
-        loadbalancer_ip_range: ${network.loadbalancer_ips.start + '-' + network.loadbalancer_ips.end}
-      timeout: 5m
-      interval: 5m
-    resources:
-      - components:
-          - "${lb_effective.driver == 'metallb' ? lb_effective.driver + '/' + (network.loadbalancer_mode ?? 'arp') : ''}"
-        substitutions:
-          loadbalancer_ip_range: ${network.loadbalancer_ips.start + '-' + network.loadbalancer_ips.end}
-        timeout: 5m
-        interval: 5m
