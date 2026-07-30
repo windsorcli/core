@@ -18,11 +18,12 @@ backend: cluster
 # =============================================================================
 config:
 
-  # Incus VMs have dedicated block devices, so Longhorn is the default storage.
-  # Controlplane sits at CIDR offset 10 for a stable k8s_service_host.
+  # openebs is the default storage: Incus's Talos image has no extensions mechanism
+  # (unlike metal/cloud image factories), so longhorn's iscsi-tools requirement can't
+  # be met here. Controlplane sits at CIDR offset 10 for a stable k8s_service_host.
   - name: talos_common
     value:
-      storage_driver: "${cluster.storage.driver ?? 'longhorn'}"
+      storage_driver: "${cluster.storage.driver ?? 'openebs'}"
       longhorn_default_disk:
         - name: longhorn
           size: 30

@@ -850,7 +850,7 @@ properties:
             enum:
               - openebs
               - longhorn
-            description: CSI storage driver. openebs for directory-based local storage; longhorn for block device storage (requires a dedicated disk, mandatory on Talos). Defaults to longhorn on incus, openebs elsewhere.
+            description: CSI storage driver. openebs for directory-based local storage; longhorn for block device storage (requires a dedicated disk and the iscsi-tools Talos extension, unavailable on Incus). Defaults to openebs.
         additionalProperties: false
       cni:
         type: object
@@ -1034,7 +1034,6 @@ properties:
         enum:
           - amd64
           - arm64
-        default: amd64
         description: CPU architecture for Incus Talos images (host arch when workstation enabled; target arch for server deployments). Used by talos.incus_image.
       address:
         type: string

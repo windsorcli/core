@@ -271,6 +271,41 @@ cases:
           inputs:
             concurrency: 2
 
+  # Regression: colima-incus with no worker nodes configured resolves cluster.workers.nodes to an
+  # empty map, not null — `!= null` alone doesn't guard the values(...)[0] index, so composition must
+  # check length instead.
+  - name: incus with colima and zero workers composes without indexing an empty nodes map
+    values:
+      platform: incus
+      workstation:
+        runtime: colima
+      dns: *default-dns
+      gateway:
+        enabled: false
+      network: *default-network
+      cluster:
+        driver: talos
+        controlplanes:
+          nodes:
+            controlplane-1:
+              endpoint: 10.5.0.10:50000
+              node: 10.5.0.10
+              hostname: controlplane-1
+        workers:
+          count: 0
+          nodes: {}
+    terraformOutputs:
+      compute:
+        controlplanes:
+          - endpoint: 10.5.0.10:6443
+            node: 10.5.0.10
+            hostname: controlplane-1
+        workers: []
+    expect:
+      terraform:
+        - name: compute
+          path: compute/incus
+
   # Edge: flux concurrency derived from cluster CPU on docker workstation (not clamped).
   - name: docker workstation derives flux concurrency from cpu/memory
     values:
