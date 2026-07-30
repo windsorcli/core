@@ -315,3 +315,46 @@ cases:
     expect:
       flux:
         - name: csi
+
+  # Regression (#2315): a bridged LAN puts the controlplane at a DHCP-reserved
+  # address, not the CIDR offset 10 the compute module assigns. An explicit
+  # cluster.endpoint must drive k8s_service_host, or kube-proxy-replacement
+  # Cilium never reaches the real API server.
+  - name: explicit cluster.endpoint on a bridged network drives k8s_service_host
+    values:
+      platform: incus
+      gateway:
+        enabled: false
+      network: *default-network
+      cluster:
+        driver: talos
+        endpoint: https://192.168.2.160:6443
+        controlplanes:
+          nodes:
+            controlplane-1: *cp1-node
+        workers: *default-workers
+    terraformOutputs: *default-terraform-outputs
+    expect:
+      flux:
+        - name: cni
+          install:
+            substitutions:
+              k8s_service_host: "192.168.2.160"
+
+  # Without an explicit endpoint, the CIDR-offset-10 fallback still applies
+  # (already covered by the minimal-config case above; asserted again here
+  # to pin it directly against this fix rather than incidentally).
+  - name: no cluster.endpoint falls back to CIDR offset 10 for k8s_service_host
+    values:
+      platform: incus
+      gateway:
+        enabled: false
+      network: *default-network
+      cluster: *default-cluster
+    terraformOutputs: *default-terraform-outputs
+    expect:
+      flux:
+        - name: cni
+          install:
+            substitutions:
+              k8s_service_host: "10.5.0.10"
