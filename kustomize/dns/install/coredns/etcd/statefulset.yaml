@@ -29,7 +29,7 @@ spec:
       containers:
       - name: etcd
         # renovate: datasource=docker depName=quay.io/coreos/etcd package=quay.io/coreos/etcd
-        image: quay.io/coreos/etcd:v3.7.0@sha256:b46d81d4039b08142390ff031d9871a1fc07b213c034b94a032f3a54e3819f51
+        image: quay.io/coreos/etcd:v3.7.1@sha256:3c66a5191d37a11af19f50ad49beed162a988bd1752eabc9fe6b164f7ee443e5
         imagePullPolicy: IfNotPresent
         securityContext:
           allowPrivilegeEscalation: false
