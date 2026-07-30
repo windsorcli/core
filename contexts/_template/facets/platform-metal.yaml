@@ -87,6 +87,7 @@ flux:
       components:
         - ${lb_effective.driver}
         - "${lb_effective.driver == 'kube-vip' ? lb_effective.driver + '/' + (network.loadbalancer_mode ?? 'arp') : ''}"
+        - "${lb_effective.driver == 'kube-vip' && topology == 'single-node' ? 'kube-vip/single-node' : ''}"
       substitutions:
         loadbalancer_ip_range: ${network.loadbalancer_ips.start + '-' + network.loadbalancer_ips.end}
       timeout: 5m

@@ -1,0 +1,10 @@
+---
+apiVersion: helm.toolkit.fluxcd.io/v2
+kind: HelmRelease
+metadata:
+  name: kube-vip
+  namespace: system-lb
+spec:
+  values:
+    env:
+      svc_election: "false"
