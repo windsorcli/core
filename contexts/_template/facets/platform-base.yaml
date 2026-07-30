@@ -307,6 +307,26 @@ flux:
         interval: 5m
         retryInterval: 1m
 
+  # In-cluster LB (kube-vip/metallb) whenever the CNI doesn't already provide one and
+  # a driver is set. docker-desktop has no routable node network for LoadBalancer
+  # Services, so it's excluded regardless of driver.
+  - name: lb
+    when: lb_effective.enabled && workstation.runtime != 'docker-desktop'
+    install:
+      components:
+        - ${lb_effective.driver}
+        - "${lb_effective.driver == 'kube-vip' ? lb_effective.driver + '/' + (network.loadbalancer_mode ?? 'arp') : ''}"
+        - "${lb_effective.driver == 'kube-vip' && topology == 'single-node' ? 'kube-vip/single-node' : ''}"
+      substitutions:
+        loadbalancer_ip_range: "${network.loadbalancer_ips.start + '-' + network.loadbalancer_ips.end}"
+      timeout: 5m
+      interval: 5m
+    resources:
+      - components:
+          - "${lb_effective.driver == 'metallb' ? lb_effective.driver + '/' + (network.loadbalancer_mode ?? 'arp') : ''}"
+        substitutions:
+          loadbalancer_ip_range: "${network.loadbalancer_ips.start + '-' + network.loadbalancer_ips.end}"
+
   - name: telemetry
     when: telemetry.metrics.enabled || telemetry.logs.enabled
     install:

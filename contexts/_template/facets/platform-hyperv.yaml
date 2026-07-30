@@ -418,27 +418,3 @@ flux:
           - private-issuer/selfsigned
         timeout: 5m
         interval: 5m
-
-  # MetalLB / kube-vip. External switches L2-bridge to the LAN so MetalLB ARP /
-  # Cilium L2 announcements reach it; Internal switches stay host-only.
-  # lb_effective.enabled is false under Cilium (its built-in LB is preferred).
-  # install ships the driver's controller; kube-vip/arp is a patch on that
-  # HelmRelease. resources ships metallb's IPAddressPool / L2Advertisement CRs
-  # (kube-vip needs no resources once install has run).
-  - name: lb
-    when: lb_effective.enabled
-    install:
-      components:
-        - ${lb_effective.driver}
-        - "${lb_effective.driver == 'kube-vip' ? lb_effective.driver + '/' + (network.loadbalancer_mode ?? 'arp') : ''}"
-      substitutions:
-        loadbalancer_ip_range: "${network.loadbalancer_ips.start + '-' + network.loadbalancer_ips.end}"
-      timeout: 5m
-      interval: 5m
-    resources:
-      - components:
-          - "${lb_effective.driver == 'metallb' ? lb_effective.driver + '/' + (network.loadbalancer_mode ?? 'arp') : ''}"
-        substitutions:
-          loadbalancer_ip_range: "${network.loadbalancer_ips.start + '-' + network.loadbalancer_ips.end}"
-        timeout: 5m
-        interval: 5m

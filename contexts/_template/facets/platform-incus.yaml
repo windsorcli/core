@@ -143,29 +143,3 @@ terraform:
       # nested VM with slower vCPUs, so higher concurrency floods the apiserver.
       concurrency: ${max(2, min(floor(cluster_resources_effective.controlplanes.cpu / 2), floor(cluster_resources_effective.controlplanes.memory / 2), 10))}
     destroy: false
-
-# =============================================================================
-# Flux systems — MetalLB / kube-vip
-# =============================================================================
-# Incus always has a real bridge network, so MetalLB or kube-vip works whenever
-# an LB is requested. install ships the driver's controller HelmRelease (plus
-# kube-vip's arp patch); resources ships metallb's IPAddressPool/L2Advertisement CRs.
-flux:
-
-  - name: lb
-    when: lb_effective.enabled
-    install:
-      components:
-        - ${lb_effective.driver}
-        - "${lb_effective.driver == 'kube-vip' ? lb_effective.driver + '/' + (network.loadbalancer_mode ?? 'arp') : ''}"
-      substitutions:
-        loadbalancer_ip_range: "${network.loadbalancer_ips.start + '-' + network.loadbalancer_ips.end}"
-      timeout: 5m
-      interval: 5m
-    resources:
-      - components:
-          - "${lb_effective.driver == 'metallb' ? lb_effective.driver + '/' + (network.loadbalancer_mode ?? 'arp') : ''}"
-        substitutions:
-          loadbalancer_ip_range: "${network.loadbalancer_ips.start + '-' + network.loadbalancer_ips.end}"
-        timeout: 5m
-        interval: 5m

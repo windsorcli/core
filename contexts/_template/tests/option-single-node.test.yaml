@@ -96,3 +96,69 @@ cases:
             components:
               - cert-manager
               - cert-manager/prometheus
+
+  # kube-vip's per-service leader election has no other node to fail over to on a
+  # single-node cluster, and is the exact mechanism behind a documented, unresolved
+  # upstream bug (kube-vip#475) where a lost lease is never reclaimed.
+  - name: single-node disables kube-vip per-service election
+    values:
+      platform: metal
+      topology: single-node
+      gateway:
+        enabled: true
+        driver: envoy
+      network: *default-network
+      cluster:
+        driver: talos
+        cni:
+          driver: flannel
+        controlplanes:
+          nodes:
+            controlplane-1:
+              endpoint: 10.5.0.10:50000
+              node: 10.5.0.10
+              hostname: controlplane-1
+        workers:
+          volumes:
+            - /var/mnt/local
+    expect:
+      flux:
+        - name: lb
+          install:
+            components:
+              - kube-vip
+              - kube-vip/arp
+              - kube-vip/single-node
+
+  # Note: expect: does subset matching (cli#3103), so this only proves multi-node
+  # still composes kube-vip/arp correctly — it can't assert kube-vip/single-node's
+  # absence. Verified by inspection: the facet's ternary is topology-gated, so it
+  # can only ever add the component, never on multi-node.
+  - name: multi-node topology still composes kube-vip with arp
+    values:
+      platform: metal
+      topology: multi-node
+      gateway:
+        enabled: true
+        driver: envoy
+      network: *default-network
+      cluster:
+        driver: talos
+        cni:
+          driver: flannel
+        controlplanes:
+          nodes:
+            controlplane-1:
+              endpoint: 10.5.0.10:50000
+              node: 10.5.0.10
+              hostname: controlplane-1
+        workers:
+          volumes:
+            - /var/mnt/local
+    expect:
+      flux:
+        - name: lb
+          install:
+            components:
+              - kube-vip
+              - kube-vip/arp
