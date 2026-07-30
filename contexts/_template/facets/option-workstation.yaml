@@ -254,7 +254,7 @@ terraform:
             memory: ${string(cluster_resources_effective.workers.memory) + "GB"}
           disks: ${talos_common.worker_disks}
           config:
-            user.hostname: "${cluster.workers.nodes != null ? (values(cluster.workers.nodes)[0].hostname ?? 'worker-1') : 'worker-1'}"
+            user.hostname: "${len(cluster.workers.nodes ?? {}) > 0 ? (values(cluster.workers.nodes)[0].hostname ?? 'worker-1') : 'worker-1'}"
             environment.TALOSSKU: "${string(cluster_resources_effective.workers.cpu) + 'CPU-' + string(cluster_resources_effective.workers.memory * 1024) + 'RAM'}"
             raw.qemu: -boot order=c,menu=off
 
