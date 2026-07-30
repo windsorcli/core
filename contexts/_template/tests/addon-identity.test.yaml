@@ -259,9 +259,8 @@ cases:
       cluster: *default-cluster
       identity:
         enabled: true
-      addons:
-        observability:
-          enabled: true
+      observability:
+        enabled: true
     expect:
       flux:
         - name: identity
@@ -294,9 +293,8 @@ cases:
         keycloak:
           admin:
             password: sup3r-secret-admin
-      addons:
-        observability:
-          enabled: true
+      observability:
+        enabled: true
     expect:
       flux:
         - name: identity
@@ -342,10 +340,9 @@ cases:
       cluster: *default-cluster
       identity:
         enabled: false
-      addons:
-        database:
-          postgres:
-            enabled: true
+      database:
+        postgres:
+          enabled: true
     exclude:
       flux:
         - name: identity

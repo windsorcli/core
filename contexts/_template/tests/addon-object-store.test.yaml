@@ -36,10 +36,9 @@ cases:
         driver: envoy
       network: *default-network
       cluster: *default-cluster
-      addons:
-        object_store:
-          enabled: true
-          driver: minio
+      object_store:
+        enabled: true
+        driver: minio
     expect:
       flux:
         - name: object-store
@@ -51,15 +50,14 @@ cases:
             timeout: 10m
             interval: 5m
 
-  # Edge case: Addon disabled
-  - name: excludes object store when addon disabled
+  # Edge case: object store disabled
+  - name: excludes object store when object store disabled
     values:
       platform: metal
       network: *default-network
       cluster: *default-cluster
-      addons:
-        object_store:
-          enabled: false
+      object_store:
+        enabled: false
     exclude:
       flux:
         - name: object-store
@@ -74,10 +72,9 @@ cases:
         enabled: false
       network: *default-network
       cluster: *default-cluster
-      addons:
-        object_store:
-          enabled: true
-          driver: minio
+      object_store:
+        enabled: true
+        driver: minio
     expect:
       flux:
         - name: object-store

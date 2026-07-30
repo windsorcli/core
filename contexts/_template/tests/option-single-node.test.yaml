@@ -48,17 +48,16 @@ cases:
           inputs:
             leader_election: false
 
-  - name: single-node with cnpg database addon adds cloudnativepg/single-node overlay
+  - name: single-node with cnpg database adds cloudnativepg/single-node overlay
     values:
       platform: metal
       topology: single-node
       network: *default-network
       cluster: *default-cluster
-      addons:
-        database:
-          postgres:
-            enabled: true
-            driver: cloudnativepg
+      database:
+        postgres:
+          enabled: true
+          driver: cloudnativepg
     expect:
       flux:
         - name: database
@@ -66,15 +65,14 @@ cases:
             components:
               - cloudnativepg/single-node
 
-  - name: single-node with private-ca addon also adds trust-manager/single-node
+  - name: single-node with pki enabled also adds trust-manager/single-node
     values:
       platform: metal
       topology: single-node
       network: *default-network
       cluster: *default-cluster
-      addons:
-        private_ca:
-          enabled: true
+      pki:
+        enabled: true
     expect:
       flux:
         - name: pki

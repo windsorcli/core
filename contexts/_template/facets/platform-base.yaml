@@ -150,7 +150,7 @@ config:
       domain: "${dns.domain ?? (dev == true ? 'test' : '')}"
       public_domain: "${dns.public_domain ?? ''}"
       private_domain: "${dns.private_domain ?? dns.domain ?? (dev == true ? 'test' : '')}"
-      enabled: "${(addons.private_dns.enabled ?? false) == true || (dns.public_domain ?? '') != '' || (gateway.access == 'private' && (dns.private_domain ?? '') != '')}"
+      enabled: "${(dns.private.enabled ?? false) == true || (dns.public_domain ?? '') != '' || (gateway.access == 'private' && (dns.private_domain ?? '') != '')}"
 
   # Cluster provisioning flags. cluster_provisioned: a cluster should exist —
   # on docker only when a workstation runtime is set (bare `platform: docker`
@@ -198,9 +198,9 @@ config:
         end: "${cidrhost(network.cidr_block ?? '10.5.0.0/16', 356)}"
 
   # Telemetry driver. metrics/logs: independent gates, both default on.
-  # addons.observability forces both on. logs.driver: 'fluentd' (default),
+  # observability forces both on. logs.driver: 'fluentd' (default),
   # 'none' (shipper only, no aggregator), or 'elasticsearch' (via
-  # addon-observability); coerced to 'none' when the logs pipeline is off.
+  # the observability facet); coerced to 'none' when the logs pipeline is off.
   - name: telemetry
     value:
       metrics:
@@ -399,12 +399,12 @@ flux:
   # Central FluentD aggregator. Runs in the observability namespace (where
   # fluent-operator has RBAC). Skipped when logs_driver='none' (aggregation
   # disabled entirely) or when logs_driver='elasticsearch' (filebeat → ES
-  # replaces the fluentbit→fluentd path; see addon-observability).
+  # replaces the fluentbit→fluentd path; see the observability facet).
   #
   # The log-level filter is attached unless log_level='trace' (trace wants
   # every log, unfiltered).
   - name: observability
-    when: telemetry.logs.driver == 'fluentd' && (addons.observability.logs_driver ?? '') != 'elasticsearch'
+    when: telemetry.logs.driver == 'fluentd' && (observability.logs_driver ?? '') != 'elasticsearch'
     dependsOn:
       - telemetry-install
     install:

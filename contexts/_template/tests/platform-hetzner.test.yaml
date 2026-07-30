@@ -323,21 +323,20 @@ cases:
               txt_owner_id: htz1
 
   # Private gateway: private selfsigned issuer. Hetzner DNS is public-only, so
-  # private access relies on the private-dns addon (CoreDNS) for the private zone;
+  # private access relies on self-hosted private DNS (CoreDNS) for the private zone;
   # the Hetzner external-dns provider does not render.
-  - name: private gateway uses private selfsigned issuer via the private-dns addon
+  - name: private gateway uses private selfsigned issuer via self-hosted private DNS
     values:
       platform: hetzner
       hetzner: *default-hetzner
       dns:
         private_domain: internal.example.com
+        private:
+          enabled: true
       gateway:
         enabled: true
         driver: envoy
         access: private
-      addons:
-        private_dns:
-          enabled: true
       network: *default-network
     terraformOutputs: *default-terraform-outputs
     expect:

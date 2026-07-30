@@ -364,21 +364,20 @@ cases:
               "40000": 10.99.0.10
               "40100": 10.99.0.20
 
-  # NodePort + private-dns addon: 30053 (DNS) appears in tcp_forwards and
+  # NodePort + private DNS: 30053 (DNS) appears in tcp_forwards and
   # 30053 also in udp_forwards (DNS needs both protocols). 30292 still in
   # because gitops.mode defaults to push. Mirrors the gating on the
   # envoy/nodeport/dns kustomize component in option-gateway.
-  - name: NodePort with private-dns addon adds 30053 forwards
+  - name: NodePort with private DNS adds 30053 forwards
     values:
       platform: hyperv
       dns:
         private_domain: test
+        private:
+          enabled: true
       gateway:
         service_type: NodePort
       network: *default-network
-      addons:
-        private_dns:
-          enabled: true
       cluster:
         driver: talos
         endpoint: https://192.168.3.77:6443

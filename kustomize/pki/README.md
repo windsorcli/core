@@ -218,15 +218,15 @@ converge.
 | `cert-manager/single-node` | single-node topology | Patches the cert-manager HelmRelease to disable leader election on the controller (single replica has nothing to elect against). |
 | `cert-manager/azure-workload-identity` | platform is Azure AND `dns.public_domain` is set | Patches the cert-manager Deployment to attach the AKS federated workload identity used by the DNS-01 ACME solver against Azure DNS. Reads `cert_manager_client_id` and `cert_manager_tenant_id`. |
 | `cert-manager/prometheus` | `telemetry.metrics.enabled: true` | Patches the cert-manager HelmRelease to enable Prometheus annotations / ServiceMonitor on the controller and webhook. |
-| `trust-manager` | `addons.private_ca.enabled: true` | Helm release of the `trust-manager` chart in `system-pki-trust` (PSA `restricted`). Depends on cert-manager. Consumes `Bundle` CRs to distribute the private CA into workload namespaces. |
-| `trust-manager/single-node` | single-node topology AND `addons.private_ca.enabled: true` | Patches the trust-manager HelmRelease to disable leader election. |
+| `trust-manager` | `pki.enabled: true` | Helm release of the `trust-manager` chart in `system-pki-trust` (PSA `restricted`). Depends on cert-manager. Consumes `Bundle` CRs to distribute the private CA into workload namespaces. |
+| `trust-manager/single-node` | single-node topology AND `pki.enabled: true` | Patches the trust-manager HelmRelease to disable leader election. |
 
 ## Components — `pki-resources`
 
 | Component | Enable when | Effect |
 |---|---|---|
 | `private-issuer/selfsigned` | `gateway.access == 'private'` AND `dns.private_domain` is set | ClusterIssuer `private-selfsigned` with `selfSigned: {}`. Used for the private gateway certificate when no private CA is configured; browsers warn until the CA cert is added to a trust store. |
-| `private-issuer/ca` | `addons.private_ca.enabled: true` | Full private CA: a `selfSigned` issuer mints a CA `Certificate`, a `ca`-type `ClusterIssuer` (`private-ca`) signs against it, plus an init / sync Job pair that copies the CA cert into a `Bundle` for trust-manager and a Kyverno mutation policy that injects the trust bundle into workload Pods. |
+| `private-issuer/ca` | `pki.enabled: true` | Full private CA: a `selfSigned` issuer mints a CA `Certificate`, a `ca`-type `ClusterIssuer` (`private-ca`) signs against it, plus an init / sync Job pair that copies the CA cert into a `Bundle` for trust-manager and a Kyverno mutation policy that injects the trust bundle into workload Pods. |
 | `public-issuer/selfsigned` | `dns.public_domain` is unset (default) | ClusterIssuer `public-selfsigned`. Bootstraps a working gateway cert immediately; flip to `acme/*` by setting `dns.public_domain` and cert-manager reissues into the same Secret. |
 | `public-issuer/acme/route53` | platform is AWS AND `dns.public_domain` is set | ClusterIssuer `public-acme` using the ACME DNS-01 solver against Route53. Auth is via the Pod Identity binding provisioned by the cluster Terraform module. |
 | `public-issuer/acme/azuredns` | platform is Azure AND `dns.public_domain` is set | ClusterIssuer `public-acme` using the ACME DNS-01 solver against Azure DNS. Auth is via the federated workload identity (see `cert-manager/azure-workload-identity`). |

@@ -46,15 +46,14 @@ cases:
               components:
                 - private-issuer/ca
 
-  # Full: addon explicitly enabled. Intended: addon pki install tier (trust-manager) overrides. See docs/cli-bugs.md if this fails.
-  - name: full config creates private CA when addon explicitly enabled
+  # Full: pki explicitly enabled. Intended: addon pki install tier (trust-manager) overrides. See docs/cli-bugs.md if this fails.
+  - name: full config creates private CA when pki explicitly enabled
     values:
       platform: metal
       network: *default-network
       cluster: *default-cluster
-      addons:
-        private_ca:
-          enabled: true
+      pki:
+        enabled: true
     expect:
       flux:
         - name: pki
@@ -69,17 +68,16 @@ cases:
               components:
                 - private-issuer/ca
 
-  # Edge case: Addon disabled
-  - name: excludes private CA when addon disabled
+  # Edge case: pki disabled
+  - name: excludes private CA when pki disabled
     values:
       platform: metal
       gateway:
         enabled: false
       network: *default-network
       cluster: *default-cluster
-      addons:
-        private_ca:
-          enabled: false
+      pki:
+        enabled: false
     exclude:
       kustomize:
         - name: pki-resources
