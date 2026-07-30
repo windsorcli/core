@@ -5,7 +5,7 @@
 
 components:
   minio:
-    enable_when: "`addons.object_store.driver == 'minio'`"
+    enable_when: "`object_store.driver == 'minio'`"
     description: "Helm release of the MinIO Operator (`operator` chart) in `system-object-store`. Installs only the Operator (CRDs + Deployment); does not create any MinIO Tenant by itself. Operator runs as `uid 1000`, baseline PSA-compatible."
 
 dependencies:

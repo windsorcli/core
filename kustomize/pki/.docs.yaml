@@ -52,11 +52,11 @@ components:
     description: "Patches the cert-manager HelmRelease to enable Prometheus annotations / ServiceMonitor on the controller and webhook."
   trust-manager:
     facet: pki-install
-    enable_when: "`addons.private_ca.enabled: true`"
+    enable_when: "`pki.enabled: true`"
     description: "Helm release of the `trust-manager` chart in `system-pki-trust` (PSA `restricted`). Depends on cert-manager. Consumes `Bundle` CRs to distribute the private CA into workload namespaces."
   trust-manager/single-node:
     facet: pki-install
-    enable_when: "single-node topology AND `addons.private_ca.enabled: true`"
+    enable_when: "single-node topology AND `pki.enabled: true`"
     description: "Patches the trust-manager HelmRelease to disable leader election."
   private-issuer/selfsigned:
     facet: pki-resources
@@ -64,7 +64,7 @@ components:
     description: "ClusterIssuer `private-selfsigned` with `selfSigned: {}`. Used for the private gateway certificate when no private CA is configured; browsers warn until the CA cert is added to a trust store."
   private-issuer/ca:
     facet: pki-resources
-    enable_when: "`addons.private_ca.enabled: true`"
+    enable_when: "`pki.enabled: true`"
     description: "Full private CA: a `selfSigned` issuer mints a CA `Certificate`, a `ca`-type `ClusterIssuer` (`private-ca`) signs against it, plus an init / sync Job pair that copies the CA cert into a `Bundle` for trust-manager and a Kyverno mutation policy that injects the trust bundle into workload Pods."
   public-issuer/selfsigned:
     facet: pki-resources

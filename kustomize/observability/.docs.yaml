@@ -28,22 +28,22 @@ substitutions:
 
 components:
   grafana:
-    enable_when: "`addons.observability.dashboards == 'grafana'`"
+    enable_when: "`observability.dashboards == 'grafana'`"
     description: "Helm release of the Grafana chart in `system-observability`. Provides the Grafana UI, sidecar dashboard loader, and a default Prometheus datasource. Image tag and chart version tracked by Renovate."
   grafana/prometheus:
-    enable_when: "`addons.observability.dashboards == 'grafana'`"
+    enable_when: "`observability.dashboards == 'grafana'`"
     description: "Patches the grafana HelmRelease with the Prometheus datasource URL. Pure HelmRelease patch (install tier); the prometheus-internals dashboards ship separately under `grafana/dashboards/` in the resources tier."
   grafana/dashboards/*:
     enable_when: "varies per dashboard"
     description: "Per-topic dashboard ConfigMaps loaded by the Grafana sidecar. Always-on: `node`, `kubernetes`, `flux`, `cert-manager`, `fluent-bit`, `fluentd`. Conditional: `cloudnativepg` (when CNPG is the database driver), `longhorn` (when csi=longhorn), `cilium` (when cni=cilium), `envoy` (when gateway.driver=envoy), `logs/quickwit` and `quickwit` (when logs_driver=quickwit). Each ships as a separate component path."
   grafana/gateway:
-    enable_when: "`addons.observability.dashboards == 'grafana'` AND `gateway.enabled: true`"
+    enable_when: "`observability.dashboards == 'grafana'` AND `gateway.enabled: true`"
     description: "HTTPRoute exposing Grafana at `grafana.${external_domain}` through the cluster Gateway. Skipped on clusters without Gateway API."
   grafana/dev:
     enable_when: "`dev == true`"
     description: "Patches the grafana HelmRelease to disable persistence and lower resource requests. Used by dev contexts to keep the footprint small."
   grafana/quickwit:
-    enable_when: "`addons.observability.dashboards == 'grafana'` AND `logs_driver == 'quickwit'`"
+    enable_when: "`observability.dashboards == 'grafana'` AND `logs_driver == 'quickwit'`"
     description: "Adds the Quickwit datasource to Grafana so logs-explore dashboards can query the quickwit indexer. Pure HelmRelease patch (install tier); the logs dashboard ships separately as `grafana/dashboards/logs/quickwit` in the resources tier."
   fluentd:
     enable_when: "`telemetry.logs.driver == 'fluentd'`"
@@ -58,28 +58,28 @@ components:
     enable_when: "`telemetry.logs.driver == 'fluentd'` AND `telemetry.metrics.enabled: true`"
     description: "Patches the fluentd DaemonSet to expose Prometheus metrics and adds a ServiceMonitor in `system-observability`."
   fluentd/outputs/stdout:
-    enable_when: "`addons.observability.logs_driver == 'stdout'`"
+    enable_when: "`observability.logs_driver == 'stdout'`"
     description: "Routes fluentd records to container stdout. No external store. Dev / smoke-test default."
   fluentd/outputs/quickwit:
-    enable_when: "`addons.observability.logs_driver == 'quickwit'`"
+    enable_when: "`observability.logs_driver == 'quickwit'`"
     description: "Routes fluentd records to the quickwit ingest API with batching and retry tuned for the quickwit `0.8.x` chart."
   quickwit:
-    enable_when: "`addons.observability.logs_driver == 'quickwit'`"
+    enable_when: "`observability.logs_driver == 'quickwit'`"
     description: "Helm release of the Quickwit chart in `system-observability`. Search-optimized log store backed by object storage (S3 / Azure Blob / GCS via add-on `object-store`)."
   quickwit/pvc:
-    enable_when: "`addons.observability.logs_driver == 'quickwit'`"
+    enable_when: "`observability.logs_driver == 'quickwit'`"
     description: "PVC for the quickwit indexer's staging data. Bound by `csi`'s default StorageClass."
   quickwit/prometheus:
-    enable_when: "`addons.observability.logs_driver == 'quickwit'`"
+    enable_when: "`observability.logs_driver == 'quickwit'`"
     description: "ServiceMonitor for quickwit metrics."
   elasticsearch:
-    enable_when: "`addons.observability.logs_driver == 'elasticsearch'`"
+    enable_when: "`observability.logs_driver == 'elasticsearch'`"
     description: "Helm release of the Elastic-published Elasticsearch chart in `system-observability`. Bundles a Certificate (issuer = cluster CA) for TLS between client and the ES cluster."
   kibana:
-    enable_when: "`addons.observability.logs_driver == 'elasticsearch'`"
+    enable_when: "`observability.logs_driver == 'elasticsearch'`"
     description: "Helm release of the Kibana chart, wired to the elasticsearch service."
   kibana/gateway:
-    enable_when: "`addons.observability.logs_driver == 'elasticsearch'` AND `gateway.enabled: true`"
+    enable_when: "`observability.logs_driver == 'elasticsearch'` AND `gateway.enabled: true`"
     description: "HTTPRoute exposing Kibana at `kibana.${external_domain}` through the cluster Gateway."
 
 dependencies:
@@ -96,5 +96,5 @@ dependencies:
     required_when: "`logs_driver == 'elasticsearch'` (always) OR `grafana/gateway` is enabled"
     reason: "HTTPRoutes need the cluster Gateway to be Programmed first."
   dns:
-    required_when: "`dns.enabled: true` AND `addons.observability.dashboards == 'grafana'`"
+    required_when: "`dns.enabled: true` AND `observability.dashboards == 'grafana'`"
     reason: "External DNS records for `grafana.${external_domain}` and `kibana.${external_domain}` are managed by the dns add-on; without it, hostnames don't resolve."
