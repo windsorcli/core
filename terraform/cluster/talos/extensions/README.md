@@ -45,6 +45,7 @@ No modules.
 | <a name="input_context_path"></a> [context\_path](#input\_context\_path) | The path to the context folder, where kubeconfig and talosconfig are stored | `string` | `""` | no |
 | <a name="input_controlplanes"></a> [controlplanes](#input\_controlplanes) | List of controlplane nodes to upgrade. Only node and endpoint are required. | <pre>list(object({<br/>    node     = string<br/>    endpoint = string<br/>  }))</pre> | `[]` | no |
 | <a name="input_extensions"></a> [extensions](#input\_extensions) | Talos Image Factory extension names to install (e.g. ["siderolabs/iscsi-tools"]). | `list(string)` | `[]` | no |
+| <a name="input_powercycle_reboot"></a> [powercycle\_reboot](#input\_powercycle\_reboot) | Use a full ACPI power-cycle reboot instead of the default kexec. Needed on platforms where kexec doesn't reliably register as an offline transition (e.g. nested virtualization). | `bool` | `false` | no |
 | <a name="input_talos_version"></a> [talos\_version](#input\_talos\_version) | The talos version to deploy. | `string` | n/a | yes |
 | <a name="input_workers"></a> [workers](#input\_workers) | List of worker nodes to upgrade. Only node and endpoint are required. | <pre>list(object({<br/>    node     = string<br/>    endpoint = string<br/>  }))</pre> | `[]` | no |
 
