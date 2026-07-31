@@ -291,6 +291,7 @@ cases:
             extensions:
               - siderolabs/iscsi-tools
               - siderolabs/util-linux-tools
+            powercycle_reboot: false
             controlplanes:
               - node: 10.5.0.10
                 endpoint: 10.5.0.10:50000
