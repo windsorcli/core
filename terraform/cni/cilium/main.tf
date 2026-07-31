@@ -33,18 +33,17 @@ locals {
 # (hubble, gateway, prometheus, l2, bpf perf, cluster identity).
 #
 # The values below deliberately overlap with the Flux HelmRelease base so the two agree on
-# the baseline (IPAM mode, kube-proxy wiring, operator replicas, Talos capabilities). We do
-# *not* use lifecycle.ignore_changes on `values` here: the hashicorp/helm provider rewrites
-# user-supplied values on every apply regardless of that directive, so the only way to
-# prevent drift between `windsor up` and steady-state is to keep the two sides in sync.
-# Feature patches (hubble, gateway, etc.) live only in Flux — Terraform will not stomp them
-# because it doesn't know about them; Flux reconciles them back on top of this baseline
-# within seconds of any bootstrap re-run.
+# the baseline (IPAM mode, kube-proxy wiring, operator replicas, Talos capabilities).
+# reuse_values makes re-applying this baseline (e.g. a later `windsor up`) merge onto
+# whatever Flux has already layered on top, instead of overwriting the release back to
+# this minimal set — so Flux-owned features (hubble, gateway, l2, prometheus) survive
+# a bootstrap re-run instead of disappearing until Flux's next reconcile.
 
 resource "helm_release" "cilium" {
-  repository = "https://helm.cilium.io"
-  chart      = "cilium"
-  name       = "cilium"
+  repository   = "https://helm.cilium.io"
+  chart        = "cilium"
+  name         = "cilium"
+  reuse_values = true
   # renovate: datasource=helm depName=cilium package=cilium helmRepo=https://helm.cilium.io
   version   = var.cilium_version
   namespace = "kube-system"

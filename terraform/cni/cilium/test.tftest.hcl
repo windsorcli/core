@@ -78,6 +78,11 @@ run "minimal_configuration" {
     condition     = helm_release.cilium.take_ownership == true
     error_message = "take_ownership should be true so the bootstrap upgrade can adopt unowned resources like cilium-ca instead of erroring"
   }
+
+  assert {
+    condition     = helm_release.cilium.reuse_values == true
+    error_message = "reuse_values should be true so a bootstrap re-apply merges onto Flux-owned values (hubble, gateway, l2) instead of overwriting them"
+  }
 }
 
 # Verifies privileged=false swaps full-privileged mode for an explicit Linux
