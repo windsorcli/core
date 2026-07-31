@@ -36,3 +36,9 @@ variable "workers" {
   }))
   default = []
 }
+
+variable "powercycle_reboot" {
+  description = "Use a full ACPI power-cycle reboot instead of the default kexec. Needed on platforms where kexec doesn't reliably register as an offline transition (e.g. nested virtualization)."
+  type        = bool
+  default     = false
+}

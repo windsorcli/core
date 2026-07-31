@@ -358,3 +358,36 @@ cases:
           install:
             substitutions:
               k8s_service_host: "10.5.0.10"
+
+  # Regression (#2319): kexec doesn't reliably register as an offline transition
+  # on Incus's nested virtualization, leaving Talos extension upgrades stuck
+  # reporting the node as still online. powercycle_reboot forces a full ACPI
+  # reset instead, only on Incus (other platforms keep the faster kexec default).
+  - name: longhorn storage driver requests powercycle reboot for extensions on incus
+    values:
+      platform: incus
+      gateway:
+        enabled: false
+      network: *default-network
+      cluster:
+        driver: talos
+        controlplanes:
+          nodes:
+            controlplane-1: *cp1-node
+        workers:
+          count: 1
+          volumes:
+            - /var/mnt/longhorn
+        storage:
+          driver: longhorn
+          local_base_path: /var/mnt/longhorn
+    terraformOutputs: *default-terraform-outputs
+    expect:
+      terraform:
+        - name: cluster-extensions
+          path: cluster/talos/extensions
+          inputs:
+            extensions:
+              - siderolabs/iscsi-tools
+              - siderolabs/util-linux-tools
+            powercycle_reboot: true

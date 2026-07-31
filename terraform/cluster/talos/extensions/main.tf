@@ -66,7 +66,7 @@ resource "null_resource" "upgrade_controlplane" {
   }
 
   provisioner "local-exec" {
-    command = "windsor upgrade node --node ${each.value.node} --image ${local.upgrade_image} --timeout 15m"
+    command = "windsor upgrade node --node ${each.value.node} --image ${local.upgrade_image} --timeout 15m${var.powercycle_reboot ? " --reboot-mode powercycle" : ""}"
     environment = {
       TALOSCONFIG = local.talosconfig_path
       KUBECONFIG  = local.kubeconfig_path
@@ -84,7 +84,7 @@ resource "null_resource" "upgrade_worker" {
   }
 
   provisioner "local-exec" {
-    command = "windsor upgrade node --node ${each.value.node} --image ${local.upgrade_image} --timeout 15m"
+    command = "windsor upgrade node --node ${each.value.node} --image ${local.upgrade_image} --timeout 15m${var.powercycle_reboot ? " --reboot-mode powercycle" : ""}"
     environment = {
       TALOSCONFIG = local.talosconfig_path
       KUBECONFIG  = local.kubeconfig_path

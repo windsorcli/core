@@ -32,6 +32,7 @@ terraform:
       controlplanes: ${talos_node_targets.controlplanes ?? []}
       workers: ${talos_node_targets.workers ?? []}
       extensions: ${talos_common.extensions ?? []}
+      powercycle_reboot: ${platform == 'incus'}
 
   # Dependency merge: Flux waits for extensions so CSI DaemonSets find their kernel modules.
   - name: gitops
