@@ -24,6 +24,17 @@ spec:
       allowPrivilegeEscalation: true
     searcher:
       replicaCount: 1
+      # quickwit-indexes is ReadWriteOnce, shared with the indexer — pin the
+      # searcher to the indexer's node so both can mount it without a
+      # Multi-Attach failure on multi-node clusters.
+      affinity:
+        podAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+            - labelSelector:
+                matchLabels:
+                  app.kubernetes.io/name: quickwit
+                  app.kubernetes.io/component: indexer
+              topologyKey: kubernetes.io/hostname
       extraVolumes:
         - name: quickwit-indexes
           persistentVolumeClaim:
