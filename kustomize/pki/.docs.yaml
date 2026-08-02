@@ -68,7 +68,7 @@ components:
   private-issuer/ca:
     facet: pki-resources
     enable_when: "`pki.enabled: true`"
-    description: "Full private CA: the CA cert/key (generated or BYO, from `terraform_output('pki', ...)`) populate the `private-ca-cert` Secret cert-manager's `ca`-type `ClusterIssuer` (`private`) signs against — the key via the facet's `secrets:` block (never rendered in the Kustomization spec), the cert via a plain substitution since it isn't sensitive — plus the `private-ca-cert` ConfigMap trust-manager's `Bundle` distributes to workload namespaces, and a Kyverno mutation policy that injects the trust bundle into workload Pods."
+    description: "Full private CA: the CA cert/key (generated or BYO, from `terraform_output('pki', ...)`) populate the `private-ca-keypair` Secret cert-manager's `ca`-type `ClusterIssuer` (`private`) signs against — the key via the facet's `secrets:` block (never rendered in the Kustomization spec), the cert via a plain substitution since it isn't sensitive — plus the `private-ca-cert` ConfigMap trust-manager's `Bundle` distributes to workload namespaces, and a Kyverno mutation policy that injects the trust bundle into workload Pods."
   public-issuer/selfsigned:
     facet: pki-resources
     enable_when: "`dns.public_domain` is unset (default)"

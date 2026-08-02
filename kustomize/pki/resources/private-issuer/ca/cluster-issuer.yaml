@@ -4,4 +4,4 @@ metadata:
   name: private
 spec:
   ca:
-    secretName: private-ca-cert
+    secretName: private-ca-keypair

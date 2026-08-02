@@ -68,7 +68,7 @@ cases:
               components:
                 - private-issuer/ca
 
-  # pki/ca terraform_output flows into the private-ca-cert Secret (key, via
+  # pki/ca terraform_output flows into the private-ca-keypair Secret (key, via
   # secrets: so it never lands in the Kustomization spec) and the trust
   # ConfigMap substitution (cert, not sensitive).
   - name: pki enabled materializes the CA cert/key from the pki terraform output
@@ -92,7 +92,7 @@ cases:
       flux:
         - name: pki
           secrets:
-            private-ca-cert:
+            private-ca-keypair:
               namespaces: [system-pki]
               data:
                 tls.crt: |-
