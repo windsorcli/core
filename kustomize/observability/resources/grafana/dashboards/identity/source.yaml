@@ -7,6 +7,6 @@ upstream:
 
 files:
   - name: keycloak-capacity-planning-dashboard.json
-    patch: patches/capacity-planning-title.json
+    patch: patches/capacity-planning.json
   - name: keycloak-troubleshooting-dashboard.json
-    patch: patches/troubleshooting-title.json
+    patch: patches/troubleshooting.json

@@ -1,7 +1,0 @@
-[
-  {
-    "op": "replace",
-    "path": "/title",
-    "value": "Keycloak / Capacity Planning"
-  }
-]

@@ -1,14 +1,4 @@
 {
-  "__inputs": [
-    {
-      "name": "DS_PROMETHEUS",
-      "label": "Prometheus",
-      "description": "",
-      "type": "datasource",
-      "pluginId": "prometheus",
-      "pluginName": "Prometheus"
-    }
-  ],
   "__elements": {},
   "__requires": [
     {
@@ -97,7 +87,7 @@
     {
       "datasource": {
         "type": "prometheus",
-        "uid": "$${DS_PROMETHEUS}"
+        "uid": "$${datasource}"
       },
       "fieldConfig": {
         "defaults": {
@@ -152,7 +142,7 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "$${DS_PROMETHEUS}"
+            "uid": "$${datasource}"
           },
           "editorMode": "code",
           "expr": "count_over_time(\n  sum (up{\n    container=\"keycloak\", \n    namespace=\"$namespace\"\n  } > 0)[$__range:$__interval]\n)\n/\ncount_over_time(vector(1)[$__range:$__interval])",
@@ -168,7 +158,7 @@
     {
       "datasource": {
         "type": "prometheus",
-        "uid": "$${DS_PROMETHEUS}"
+        "uid": "$${datasource}"
       },
       "fieldConfig": {
         "defaults": {
@@ -223,7 +213,7 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "$${DS_PROMETHEUS}"
+            "uid": "$${datasource}"
           },
           "editorMode": "code",
           "expr": "sum(\n  rate(\n    http_server_requests_seconds_bucket{\n      uri=~\"/realms/{realm}/protocol/{protocol}/.*|/realms/{realm}/login-actions/.*\", \n      le=\"0.25\", \n      container=\"keycloak\", \n      namespace=\"$namespace\"}\n    [$__range] \n  )\n) without (le,uri,status,outcome,method,pod,instance) \n/\nsum(\n  rate(\n    http_server_requests_seconds_count{\n      uri=~\"/realms/{realm}/protocol/{protocol}/.*|/realms/{realm}/login-actions/.*\", \n      container=\"keycloak\",\n      namespace=\"$namespace\"}\n    [$__range] \n  )\n) without (le,uri,status,outcome,method,pod,instance)",
@@ -238,7 +228,7 @@
     {
       "datasource": {
         "type": "prometheus",
-        "uid": "$${DS_PROMETHEUS}"
+        "uid": "$${datasource}"
       },
       "fieldConfig": {
         "defaults": {
@@ -290,7 +280,7 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "$${DS_PROMETHEUS}"
+            "uid": "$${datasource}"
           },
           "editorMode": "code",
           "expr": "sum(\n  rate(\n    http_server_requests_seconds_count{\n      uri=~\"/realms/{realm}/protocol/{protocol}.*|/realms/{realm}/login-actions.*\", \n      outcome=\"SERVER_ERROR\", \n      container=\"keycloak\", \n      namespace=\"$namespace\"}\n    [$__range] \n  )\n) or vector(0) \n/\nsum(\n  rate(\n    http_server_requests_seconds_count{\n      uri=~\"/realms/{realm}/protocol/{protocol}.*|/realms/{realm}/login-actions.*\", \n      container=\"keycloak\", \n      namespace=\"$namespace\"}\n    [$__range] \n  )\n)",
@@ -305,7 +295,7 @@
     {
       "datasource": {
         "type": "prometheus",
-        "uid": "$${DS_PROMETHEUS}"
+        "uid": "$${datasource}"
       },
       "description": "This Prometheus query calculates the percentage of authentication requests that completed within 0.25 seconds relative to all authentication requests for specific Keycloak endpoints, targeting a particular namespace and pod, over the past 5 minutes.",
       "fieldConfig": {
@@ -394,7 +384,7 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "$${DS_PROMETHEUS}"
+            "uid": "$${datasource}"
           },
           "editorMode": "code",
           "exemplar": true,
@@ -407,7 +397,7 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "$${DS_PROMETHEUS}"
+            "uid": "$${datasource}"
           },
           "editorMode": "code",
           "expr": "sum(\n  irate(\n    http_server_requests_seconds_bucket{\n      uri=~\"/realms/{realm}/protocol/{protocol}/.*|/realms/{realm}/login-actions/.*\", \n      le=\"0.25\", \n      container=\"keycloak\", \n      namespace=\"$namespace\"}\n    [5m] \n  )\n) without (le,uri,status,outcome,method,pod,instance) \n/\nsum(\n  irate(\n    http_server_requests_seconds_count{\n      uri=~\"/realms/{realm}/protocol/{protocol}/.*|/realms/{realm}/login-actions/.*\", \n      container=\"keycloak\",\n      namespace=\"$namespace\"}\n    [5m] \n  )\n) without (le,uri,status,outcome,method,pod,instance)",
@@ -423,7 +413,7 @@
     {
       "datasource": {
         "type": "prometheus",
-        "uid": "$${DS_PROMETHEUS}"
+        "uid": "$${datasource}"
       },
       "description": "This Prometheus query calculates the percentage of authentication requests that returned a server side error for all authentication requests, targeting a particular namespace, over the past 5 minutes.",
       "fieldConfig": {
@@ -504,7 +494,7 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "$${DS_PROMETHEUS}"
+            "uid": "$${datasource}"
           },
           "editorMode": "code",
           "expr": "sum by(uri)\n(\n  rate(\n    http_server_requests_seconds_count{\n      outcome=\"SERVER_ERROR\",\n      uri=~\"/realms/{realm}/protocol/{protocol}.*|/realms/{realm}/login-actions/.*\", \n      container=\"keycloak\", \n      namespace=\"$namespace\"}\n    [5m] \n  )\n)\n/\nsum by (uri)\n(\n  rate(\n    http_server_requests_seconds_count{\n      uri=~\"/realms/{realm}/protocol/{protocol}.*|/realms/{realm}/login-actions/.*\", \n      container=\"keycloak\",\n      namespace=\"$namespace\"}\n    [5m] \n  )\n)",
@@ -530,7 +520,7 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "$${DS_PROMETHEUS}"
+            "uid": "$${datasource}"
           },
           "fieldConfig": {
             "defaults": {
@@ -595,7 +585,7 @@
             {
               "datasource": {
                 "type": "prometheus",
-                "uid": "$${DS_PROMETHEUS}"
+                "uid": "$${datasource}"
               },
               "editorMode": "code",
               "exemplar": true,
@@ -626,7 +616,7 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "$${DS_PROMETHEUS}"
+            "uid": "$${datasource}"
           },
           "description": "This is available only in Kubernetes and only if your pods have cpu limits set",
           "fieldConfig": {
@@ -711,7 +701,7 @@
             {
               "datasource": {
                 "type": "prometheus",
-                "uid": "$${DS_PROMETHEUS}"
+                "uid": "$${datasource}"
               },
               "editorMode": "code",
               "expr": "sum(rate(container_cpu_usage_seconds_total{container=\"keycloak\", namespace=\"$namespace\"}[5m])) by (pod) /\nsum(container_spec_cpu_quota{container=\"keycloak\", namespace=\"$namespace\"}/container_spec_cpu_period{container=\"keycloak\", namespace=\"$namespace\"}) by (pod)",
@@ -727,7 +717,7 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "$${DS_PROMETHEUS}"
+            "uid": "$${datasource}"
           },
           "fieldConfig": {
             "defaults": {
@@ -777,7 +767,7 @@
             {
               "datasource": {
                 "type": "prometheus",
-                "uid": "$${DS_PROMETHEUS}"
+                "uid": "$${datasource}"
               },
               "editorMode": "code",
               "expr": "sum_over_time((sum by (pod) (jvm_memory_used_bytes{namespace=\"$namespace\"}))[$__range:$__interval]) / count_over_time((sum by (pod) (jvm_memory_used_bytes{namespace=\"$namespace\"}))[$__range:$__interval]) ",
@@ -793,7 +783,7 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "$${DS_PROMETHEUS}"
+            "uid": "$${datasource}"
           },
           "fieldConfig": {
             "defaults": {
@@ -878,7 +868,7 @@
             {
               "datasource": {
                 "type": "prometheus",
-                "uid": "$${DS_PROMETHEUS}"
+                "uid": "$${datasource}"
               },
               "editorMode": "code",
               "expr": "sum by (pod) (jvm_memory_used_bytes{namespace=\"$namespace\"})",
@@ -890,7 +880,7 @@
             {
               "datasource": {
                 "type": "prometheus",
-                "uid": "$${DS_PROMETHEUS}"
+                "uid": "$${datasource}"
               },
               "editorMode": "code",
               "expr": "sum by (pod) (jvm_memory_committed_bytes{namespace=\"$namespace\"})",
@@ -906,7 +896,7 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "$${DS_PROMETHEUS}"
+            "uid": "$${datasource}"
           },
           "fieldConfig": {
             "defaults": {
@@ -956,14 +946,14 @@
             {
               "datasource": {
                 "type": "prometheus",
-                "uid": "$${DS_PROMETHEUS}"
+                "uid": "$${datasource}"
               },
               "refId": "A"
             },
             {
               "datasource": {
                 "type": "prometheus",
-                "uid": "$${DS_PROMETHEUS}"
+                "uid": "$${datasource}"
               },
               "editorMode": "code",
               "expr": "sum(\n  rate(\n    jvm_gc_pause_seconds_sum{\n      container=\"keycloak\", \n      namespace=\"$namespace\"}\n    [$__range] \n  )\n) without (action,instance,cause) \n/\nsum(\n  rate(\n    jvm_gc_pause_seconds_count{\n      container=\"keycloak\",\n      namespace=\"$namespace\"}\n    [$__range] \n  )\n) without (action,instance,cause)",
@@ -979,7 +969,7 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "$${DS_PROMETHEUS}"
+            "uid": "$${datasource}"
           },
           "fieldConfig": {
             "defaults": {
@@ -1066,7 +1056,7 @@
             {
               "datasource": {
                 "type": "prometheus",
-                "uid": "$${DS_PROMETHEUS}"
+                "uid": "$${datasource}"
               },
               "editorMode": "code",
               "expr": "sum by (pod,cause)(irate(jvm_gc_pause_seconds_sum{container=\"keycloak\", namespace=\"$namespace\"}[5m]))",
@@ -1081,7 +1071,7 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "$${DS_PROMETHEUS}"
+            "uid": "$${datasource}"
           },
           "fieldConfig": {
             "defaults": {
@@ -1165,7 +1155,7 @@
             {
               "datasource": {
                 "type": "prometheus",
-                "uid": "$${DS_PROMETHEUS}"
+                "uid": "$${datasource}"
               },
               "editorMode": "code",
               "expr": "sum by (pod,cause)(irate(jvm_gc_pause_seconds_count{container=\"keycloak\", namespace=\"$namespace\"}[5m]))",
@@ -1180,7 +1170,7 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "$${DS_PROMETHEUS}"
+            "uid": "$${datasource}"
           },
           "description": "I am not sure about this metric. I would expect _max to be only increasing number while here it is going up and down so I am not sure what this really means",
           "fieldConfig": {
@@ -1264,7 +1254,7 @@
             {
               "datasource": {
                 "type": "prometheus",
-                "uid": "$${DS_PROMETHEUS}"
+                "uid": "$${datasource}"
               },
               "editorMode": "code",
               "expr": "max by (pod,cause) (jvm_gc_pause_seconds_max{container=\"keycloak\", namespace=\"$namespace\"})",
@@ -1279,7 +1269,7 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "$${DS_PROMETHEUS}"
+            "uid": "$${datasource}"
           },
           "description": "The percentage of CPU time spent on garbage collection, indicating the impact of GC on application performance in the JVM. It refers to the proportion of the total CPU processing time that is dedicated to executing garbage collection (GC) operations, as opposed to running application code or performing other tasks. This metric helps determine how much overhead GC introduces, affecting the overall performance of the Keycloak’s JVM.",
           "fieldConfig": {
@@ -1363,7 +1353,7 @@
             {
               "datasource": {
                 "type": "prometheus",
-                "uid": "$${DS_PROMETHEUS}"
+                "uid": "$${datasource}"
               },
               "editorMode": "code",
               "expr": "sum by (pod) (jvm_gc_overhead{container=\"keycloak\", namespace=\"$namespace\"})",
@@ -1378,7 +1368,7 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "$${DS_PROMETHEUS}"
+            "uid": "$${datasource}"
           },
           "fieldConfig": {
             "defaults": {
@@ -1466,7 +1456,7 @@
             {
               "datasource": {
                 "type": "prometheus",
-                "uid": "$${DS_PROMETHEUS}"
+                "uid": "$${datasource}"
               },
               "editorMode": "code",
               "exemplar": true,
@@ -1485,7 +1475,7 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "$${DS_PROMETHEUS}"
+            "uid": "$${datasource}"
           },
           "fieldConfig": {
             "defaults": {
@@ -1604,7 +1594,7 @@
               "refId": "A",
               "datasource": {
                 "type": "prometheus",
-                "uid": "$${DS_PROMETHEUS}"
+                "uid": "$${datasource}"
               }
             }
           ],
@@ -1628,7 +1618,7 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "$${DS_PROMETHEUS}"
+            "uid": "$${datasource}"
           },
           "fieldConfig": {
             "defaults": {
@@ -1678,7 +1668,7 @@
             {
               "datasource": {
                 "type": "prometheus",
-                "uid": "$${DS_PROMETHEUS}"
+                "uid": "$${datasource}"
               },
               "editorMode": "code",
               "expr": "avg by (pod) (sum_over_time(agroal_active_count{namespace=\"$namespace\"}[$__range:$__interval]) / sum_over_time((agroal_active_count{namespace=\"$namespace\"} + agroal_available_count{namespace=\"$namespace\"})[$__range:$__interval]))",
@@ -1693,7 +1683,7 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "$${DS_PROMETHEUS}"
+            "uid": "$${datasource}"
           },
           "fieldConfig": {
             "defaults": {
@@ -1771,7 +1761,7 @@
             {
               "datasource": {
                 "type": "prometheus",
-                "uid": "$${DS_PROMETHEUS}"
+                "uid": "$${datasource}"
               },
               "editorMode": "code",
               "expr": "agroal_awaiting_count{container=\"keycloak\", namespace=\"$namespace\"}",
@@ -1786,7 +1776,7 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "$${DS_PROMETHEUS}"
+            "uid": "$${datasource}"
           },
           "fieldConfig": {
             "defaults": {
@@ -1866,7 +1856,7 @@
             {
               "datasource": {
                 "type": "prometheus",
-                "uid": "$${DS_PROMETHEUS}"
+                "uid": "$${datasource}"
               },
               "editorMode": "code",
               "expr": "agroal_available_count{job=~\"$${namespace}/keycloak-metrics|keycloak-service\",namespace=\"$${namespace}\"}",
@@ -1877,7 +1867,7 @@
             {
               "datasource": {
                 "type": "prometheus",
-                "uid": "$${DS_PROMETHEUS}"
+                "uid": "$${datasource}"
               },
               "editorMode": "code",
               "expr": "agroal_active_count{job=~\"$${namespace}/keycloak-metrics|keycloak-service\",namespace=\"$${namespace}\"}",
@@ -1893,7 +1883,7 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "$${DS_PROMETHEUS}"
+            "uid": "$${datasource}"
           },
           "fieldConfig": {
             "defaults": {
@@ -1969,7 +1959,7 @@
             {
               "datasource": {
                 "type": "prometheus",
-                "uid": "$${DS_PROMETHEUS}"
+                "uid": "$${datasource}"
               },
               "editorMode": "code",
               "expr": "sum by (pod)(irate(agroal_acquire_count_total{container=\"keycloak\", namespace=\"$namespace\"}[5m]))",
@@ -1998,7 +1988,7 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "$${DS_PROMETHEUS}"
+            "uid": "$${datasource}"
           },
           "fieldConfig": {
             "defaults": {
@@ -2084,7 +2074,7 @@
             {
               "datasource": {
                 "type": "prometheus",
-                "uid": "$${DS_PROMETHEUS}"
+                "uid": "$${datasource}"
               },
               "editorMode": "code",
               "expr": "sum by (pod) (\n  irate(\n    http_server_requests_seconds_count{\n      container=\"keycloak\",\n      namespace=\"$namespace\"}\n    [5m] \n  )\n)",
@@ -2099,7 +2089,7 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "$${DS_PROMETHEUS}"
+            "uid": "$${datasource}"
           },
           "fieldConfig": {
             "defaults": {
@@ -2187,7 +2177,7 @@
             {
               "datasource": {
                 "type": "prometheus",
-                "uid": "$${DS_PROMETHEUS}"
+                "uid": "$${datasource}"
               },
               "editorMode": "code",
               "expr": "sum by (uri,outcome) (http_server_requests_seconds_count{container=\"keycloak\", namespace=\"$namespace\"})",
@@ -2203,7 +2193,7 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "$${DS_PROMETHEUS}"
+            "uid": "$${datasource}"
           },
           "fieldConfig": {
             "defaults": {
@@ -2268,7 +2258,7 @@
             {
               "datasource": {
                 "type": "prometheus",
-                "uid": "$${DS_PROMETHEUS}"
+                "uid": "$${datasource}"
               },
               "editorMode": "code",
               "exemplar": true,
@@ -2285,7 +2275,7 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "$${DS_PROMETHEUS}"
+            "uid": "$${datasource}"
           },
           "fieldConfig": {
             "defaults": {
@@ -2370,7 +2360,7 @@
             {
               "datasource": {
                 "type": "prometheus",
-                "uid": "$${DS_PROMETHEUS}"
+                "uid": "$${datasource}"
               },
               "editorMode": "code",
               "expr": "sum by (uri,outcome) (irate(http_server_requests_seconds_count{container=\"keycloak\", namespace=\"$namespace\"}[5m]))",
@@ -2386,7 +2376,7 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "$${DS_PROMETHEUS}"
+            "uid": "$${datasource}"
           },
           "description": "The current number of active requests processed by each pod",
           "fieldConfig": {
@@ -2468,7 +2458,7 @@
             {
               "datasource": {
                 "type": "prometheus",
-                "uid": "$${DS_PROMETHEUS}"
+                "uid": "$${datasource}"
               },
               "editorMode": "code",
               "expr": "sum by (pod) (http_server_active_requests{container=\"keycloak\", namespace=\"$namespace\"})",
@@ -2483,7 +2473,7 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "$${DS_PROMETHEUS}"
+            "uid": "$${datasource}"
           },
           "fieldConfig": {
             "defaults": {
@@ -2570,7 +2560,7 @@
             {
               "datasource": {
                 "type": "prometheus",
-                "uid": "$${DS_PROMETHEUS}"
+                "uid": "$${datasource}"
               },
               "editorMode": "code",
               "expr": "sum by (pod,outcome) (irate(http_server_requests_seconds_count{container=\"keycloak\", namespace=\"$namespace\"}[5m]))",
@@ -2586,7 +2576,7 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "$${DS_PROMETHEUS}"
+            "uid": "$${datasource}"
           },
           "fieldConfig": {
             "defaults": {
@@ -2673,7 +2663,7 @@
             {
               "datasource": {
                 "type": "prometheus",
-                "uid": "$${DS_PROMETHEUS}"
+                "uid": "$${datasource}"
               },
               "editorMode": "code",
               "expr": "sum by (pod)(\n  irate(\n    http_server_bytes_written_sum{\n      container=\"keycloak\", \n      namespace=\"$namespace\"}\n    [5m] \n  )\n)\n/\nsum by (pod)(\n  irate(\n    http_server_bytes_written_count{\n      container=\"keycloak\",\n      namespace=\"$namespace\"}\n    [5m] \n  )\n)",
@@ -2689,7 +2679,7 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "$${DS_PROMETHEUS}"
+            "uid": "$${datasource}"
           },
           "fieldConfig": {
             "defaults": {
@@ -2739,7 +2729,7 @@
             {
               "datasource": {
                 "type": "prometheus",
-                "uid": "$${DS_PROMETHEUS}"
+                "uid": "$${datasource}"
               },
               "editorMode": "code",
               "expr": "sum by (pod)(\n  rate(\n    http_server_bytes_written_sum{\n      container=\"keycloak\", \n      namespace=\"$namespace\"}\n    [$__range] \n  )\n)\n/\nsum by(pod)(\n  rate(\n    http_server_bytes_written_count{\n      container=\"keycloak\",\n      namespace=\"$namespace\"}\n    [$__range] \n  )\n)",
@@ -2751,7 +2741,7 @@
             {
               "datasource": {
                 "type": "prometheus",
-                "uid": "$${DS_PROMETHEUS}"
+                "uid": "$${datasource}"
               },
               "editorMode": "code",
               "expr": "http_server_bytes_written_sum{\n      container=\"keycloak\", \n      namespace=\"$namespace\"}",
@@ -2767,7 +2757,7 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "$${DS_PROMETHEUS}"
+            "uid": "$${datasource}"
           },
           "fieldConfig": {
             "defaults": {
@@ -2817,7 +2807,7 @@
             {
               "datasource": {
                 "type": "prometheus",
-                "uid": "$${DS_PROMETHEUS}"
+                "uid": "$${datasource}"
               },
               "editorMode": "code",
               "expr": "sum by (pod)(\n  rate(\n    http_server_bytes_read_sum{\n      container=\"keycloak\", \n      namespace=\"$namespace\"}\n    [$__range] \n  )\n)\n/\nsum by(pod)(\n  rate(\n    http_server_bytes_read_count{\n      container=\"keycloak\",\n      namespace=\"$namespace\"}\n    [$__range] \n  )\n)",
@@ -2829,7 +2819,7 @@
             {
               "datasource": {
                 "type": "prometheus",
-                "uid": "$${DS_PROMETHEUS}"
+                "uid": "$${datasource}"
               },
               "editorMode": "code",
               "expr": "http_server_bytes_written_sum{\n      container=\"keycloak\", \n      namespace=\"$namespace\"}",
@@ -2845,7 +2835,7 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "$${DS_PROMETHEUS}"
+            "uid": "$${datasource}"
           },
           "fieldConfig": {
             "defaults": {
@@ -2932,7 +2922,7 @@
             {
               "datasource": {
                 "type": "prometheus",
-                "uid": "$${DS_PROMETHEUS}"
+                "uid": "$${datasource}"
               },
               "editorMode": "code",
               "expr": "sum by (pod)(\n  irate(\n    http_server_bytes_read_sum{\n      container=\"keycloak\", \n      namespace=\"$namespace\"}\n    [5m] \n  )\n)\n/\nsum by (pod)(\n  irate(\n    http_server_bytes_read_count{\n      container=\"keycloak\",\n      namespace=\"$namespace\"}\n    [5m] \n  )\n)",
@@ -2962,7 +2952,7 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "$${DS_PROMETHEUS}"
+            "uid": "$${datasource}"
           },
           "fieldConfig": {
             "defaults": {
@@ -3050,7 +3040,7 @@
               "refId": "A",
               "datasource": {
                 "type": "prometheus",
-                "uid": "$${DS_PROMETHEUS}"
+                "uid": "$${datasource}"
               }
             }
           ],
@@ -3060,7 +3050,7 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "$${DS_PROMETHEUS}"
+            "uid": "$${datasource}"
           },
           "fieldConfig": {
             "defaults": {
@@ -3156,7 +3146,7 @@
               "refId": "A",
               "datasource": {
                 "type": "prometheus",
-                "uid": "$${DS_PROMETHEUS}"
+                "uid": "$${datasource}"
               }
             }
           ],
@@ -3166,7 +3156,7 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "$${DS_PROMETHEUS}"
+            "uid": "$${datasource}"
           },
           "description": "",
           "fieldConfig": {
@@ -3256,7 +3246,7 @@
               "refId": "A",
               "datasource": {
                 "type": "prometheus",
-                "uid": "$${DS_PROMETHEUS}"
+                "uid": "$${datasource}"
               }
             }
           ],
@@ -3266,7 +3256,7 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "$${DS_PROMETHEUS}"
+            "uid": "$${datasource}"
           },
           "fieldConfig": {
             "defaults": {
@@ -3355,7 +3345,7 @@
               "refId": "A",
               "datasource": {
                 "type": "prometheus",
-                "uid": "$${DS_PROMETHEUS}"
+                "uid": "$${datasource}"
               }
             }
           ],
@@ -3365,7 +3355,7 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "$${DS_PROMETHEUS}"
+            "uid": "$${datasource}"
           },
           "fieldConfig": {
             "defaults": {
@@ -3454,7 +3444,7 @@
               "refId": "A",
               "datasource": {
                 "type": "prometheus",
-                "uid": "$${DS_PROMETHEUS}"
+                "uid": "$${datasource}"
               }
             }
           ],
@@ -3464,7 +3454,7 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "$${DS_PROMETHEUS}"
+            "uid": "$${datasource}"
           },
           "fieldConfig": {
             "defaults": {
@@ -3553,13 +3543,13 @@
               "refId": "A",
               "datasource": {
                 "type": "prometheus",
-                "uid": "$${DS_PROMETHEUS}"
+                "uid": "$${datasource}"
               }
             },
             {
               "datasource": {
                 "type": "prometheus",
-                "uid": "$${DS_PROMETHEUS}"
+                "uid": "$${datasource}"
               },
               "editorMode": "builder",
               "expr": "rate(vendor_jgroups_tcp_get_num_msgs_received{namespace=\"$namespace\", container=\"keycloak\"}[$__rate_interval]) * -1",
@@ -3590,7 +3580,7 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "$${DS_PROMETHEUS}"
+            "uid": "$${datasource}"
           },
           "description": "The approximate number of entries stored by the node, excluding backup copies.",
           "fieldConfig": {
@@ -3674,7 +3664,7 @@
             {
               "datasource": {
                 "type": "prometheus",
-                "uid": "$${DS_PROMETHEUS}"
+                "uid": "$${datasource}"
               },
               "editorMode": "code",
               "expr": "sum by (pod)(vendor_statistics_approximate_entries_unique{container=\"keycloak\", namespace=\"$namespace\", cache=\"$jdbc_cache_names\"})",
@@ -3689,7 +3679,7 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "$${DS_PROMETHEUS}"
+            "uid": "$${datasource}"
           },
           "description": "The approximate number of entries stored by the node, including backup copies.",
           "fieldConfig": {
@@ -3773,7 +3763,7 @@
             {
               "datasource": {
                 "type": "prometheus",
-                "uid": "$${DS_PROMETHEUS}"
+                "uid": "$${datasource}"
               },
               "editorMode": "code",
               "expr": "sum by (pod)(vendor_statistics_approximate_entries_unique{container=\"keycloak\", namespace=\"$namespace\", cache=\"$jdbc_cache_names\"})",
@@ -3788,7 +3778,7 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "$${DS_PROMETHEUS}"
+            "uid": "$${datasource}"
           },
           "description": "Eviction is the process to limit the cache size and, when full, an entry is removed to make room for a new entry to be cached. As Keycloak caches the database entities in the users, realms and authorization, database access always proceeds with an eviction event.\n\nA rapid increase of eviction and very high database CPU usage means the users or realms cache is too small for smooth Keycloak operation, as data needs to be re-loaded very often from the database which slows down responses. If enough memory is available, consider increasing the max cache size using the CLI options cache-embedded-users-max-count or cache-embedded-realms-max-count",
           "fieldConfig": {
@@ -3875,7 +3865,7 @@
             {
               "datasource": {
                 "type": "prometheus",
-                "uid": "$${DS_PROMETHEUS}"
+                "uid": "$${datasource}"
               },
               "editorMode": "code",
               "expr": "sum by (pod)(irate(vendor_statistics_evictions{container=\"keycloak\", namespace=\"$namespace\", cache=\"$jdbc_cache_names\"}[5m]))",
@@ -3890,7 +3880,7 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "$${DS_PROMETHEUS}"
+            "uid": "$${datasource}"
           },
           "fieldConfig": {
             "defaults": {
@@ -3973,7 +3963,7 @@
             {
               "datasource": {
                 "type": "prometheus",
-                "uid": "$${DS_PROMETHEUS}"
+                "uid": "$${datasource}"
               },
               "editorMode": "code",
               "expr": "sum by (pod)(irate(vendor_statistics_store_times_seconds_count{container=\"keycloak\", namespace=\"$namespace\", cache=\"$jdbc_cache_names\"}[5m]))",
@@ -3988,7 +3978,7 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "$${DS_PROMETHEUS}"
+            "uid": "$${datasource}"
           },
           "fieldConfig": {
             "defaults": {
@@ -4072,7 +4062,7 @@
             {
               "datasource": {
                 "type": "prometheus",
-                "uid": "$${DS_PROMETHEUS}"
+                "uid": "$${datasource}"
               },
               "editorMode": "code",
               "expr": "avg by (pod)((\nirate(vendor_statistics_hit_times_seconds_count{container=\"keycloak\", namespace=\"$namespace\", cache=\"$jdbc_cache_names\"}[5m]) + irate(vendor_statistics_miss_times_seconds_count{container=\"keycloak\", namespace=\"$namespace\", cache=\"$jdbc_cache_names\"}[5m]))\n/\n(\n    irate(vendor_statistics_hit_times_seconds_count{container=\"keycloak\", namespace=\"$namespace\", cache=\"$jdbc_cache_names\"}[5m]) + irate(vendor_statistics_miss_times_seconds_count{container=\"keycloak\", namespace=\"$namespace\", cache=\"$jdbc_cache_names\"}[5m])\n    + \n    irate(vendor_statistics_remove_hit_times_seconds_count{container=\"keycloak\", namespace=\"$namespace\", cache=\"$jdbc_cache_names\"}[5m]) + irate(vendor_statistics_remove_miss_times_seconds_count{container=\"keycloak\", namespace=\"$namespace\", cache=\"$jdbc_cache_names\"}[5m]) \n    + \n    irate(vendor_statistics_store_times_seconds_count{container=\"keycloak\", namespace=\"$namespace\", cache=\"$jdbc_cache_names\"}[5m])\n))",
@@ -4087,7 +4077,7 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "$${DS_PROMETHEUS}"
+            "uid": "$${datasource}"
           },
           "fieldConfig": {
             "defaults": {
@@ -4137,7 +4127,7 @@
             {
               "datasource": {
                 "type": "prometheus",
-                "uid": "$${DS_PROMETHEUS}"
+                "uid": "$${datasource}"
               },
               "editorMode": "code",
               "expr": "avg by (pod)(\n  rate(\n    vendor_statistics_store_times_seconds_sum{\n      container=\"keycloak\", \n      namespace=\"$namespace\",\n      cache=\"$jdbc_cache_names\"}\n    [$__range] \n  )\n)\n/\nsum by(pod)(\n  rate(\n    vendor_statistics_store_times_seconds_count{\n      container=\"keycloak\",\n      namespace=\"$namespace\",\n      cache=\"$jdbc_cache_names\"}\n    [$__range] \n  )\n)",
@@ -4152,7 +4142,7 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "$${DS_PROMETHEUS}"
+            "uid": "$${datasource}"
           },
           "description": "A read operation reads a value from the cache. It divides into two groups, a hit if a value is found, and a miss if not found.",
           "fieldConfig": {
@@ -4236,7 +4226,7 @@
             {
               "datasource": {
                 "type": "prometheus",
-                "uid": "$${DS_PROMETHEUS}"
+                "uid": "$${datasource}"
               },
               "editorMode": "code",
               "expr": "sum by (pod) (irate(vendor_statistics_hit_times_seconds_count{container=\"keycloak\", namespace=\"$namespace\", cache=\"$jdbc_cache_names\"}[5m]) + irate(vendor_statistics_miss_times_seconds_count{container=\"keycloak\", namespace=\"$namespace\", cache=\"$jdbc_cache_names\"}[5m]))",
@@ -4251,7 +4241,7 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "$${DS_PROMETHEUS}"
+            "uid": "$${datasource}"
           },
           "fieldConfig": {
             "defaults": {
@@ -4336,7 +4326,7 @@
             {
               "datasource": {
                 "type": "prometheus",
-                "uid": "$${DS_PROMETHEUS}"
+                "uid": "$${datasource}"
               },
               "editorMode": "code",
               "expr": "avg by (pod)(irate(vendor_statistics_hit_times_seconds_count{container=\"keycloak\", cache=\"$jdbc_cache_names\", namespace=\"$namespace\"}[5m]) / (irate(vendor_statistics_hit_times_seconds_count{cache=\"$jdbc_cache_names\", namespace=\"$namespace\", container=\"keycloak\"}[5m]) + irate(vendor_statistics_miss_times_seconds_count{cache=\"$jdbc_cache_names\", namespace=\"$namespace\", container=\"keycloak\"}[5m])))",
@@ -4352,7 +4342,7 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "$${DS_PROMETHEUS}"
+            "uid": "$${datasource}"
           },
           "description": "A read operation reads a value from the cache. It divides into two groups, a hit if a value is found, and a miss if not found.",
           "fieldConfig": {
@@ -4436,7 +4426,7 @@
             {
               "datasource": {
                 "type": "prometheus",
-                "uid": "$${DS_PROMETHEUS}"
+                "uid": "$${datasource}"
               },
               "editorMode": "code",
               "expr": "sum by (pod) (irate(vendor_statistics_miss_times_seconds_count{container=\"keycloak\", namespace=\"$namespace\", cache=\"$jdbc_cache_names\"}[5m]))",
@@ -4451,7 +4441,7 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "$${DS_PROMETHEUS}"
+            "uid": "$${datasource}"
           },
           "description": "A remove operation removes a value from the cache. It divides in two groups, a hit if a value exists, and a miss if the value does not exist.",
           "fieldConfig": {
@@ -4535,7 +4525,7 @@
             {
               "datasource": {
                 "type": "prometheus",
-                "uid": "$${DS_PROMETHEUS}"
+                "uid": "$${datasource}"
               },
               "editorMode": "code",
               "expr": "sum by (pod)(irate(vendor_statistics_remove_hit_times_seconds_count{container=\"keycloak\", namespace=\"$namespace\", cache=\"$jdbc_cache_names\"}[5m]) + irate(vendor_statistics_remove_miss_times_seconds_count{container=\"keycloak\", namespace=\"$namespace\", cache=\"$jdbc_cache_names\"}[5m]))",
@@ -4550,7 +4540,7 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "$${DS_PROMETHEUS}"
+            "uid": "$${datasource}"
           },
           "fieldConfig": {
             "defaults": {
@@ -4635,7 +4625,7 @@
             {
               "datasource": {
                 "type": "prometheus",
-                "uid": "$${DS_PROMETHEUS}"
+                "uid": "$${datasource}"
               },
               "editorMode": "code",
               "expr": "avg by (pod)(irate(vendor_statistics_remove_hit_times_seconds_count{container=\"keycloak\", cache=\"$jdbc_cache_names\", namespace=\"$namespace\"}[5m]) / (irate(vendor_statistics_remove_hit_times_seconds_count{cache=\"$jdbc_cache_names\", namespace=\"$namespace\", container=\"keycloak\"}[5m]) + irate(vendor_statistics_remove_miss_times_seconds_count{cache=\"$jdbc_cache_names\", namespace=\"$namespace\", container=\"keycloak\"}[5m])))",
@@ -4651,7 +4641,7 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "$${DS_PROMETHEUS}"
+            "uid": "$${datasource}"
           },
           "description": "A remove operation removes a value from the cache. It divides in two groups, a hit if a value exists, and a miss if the value does not exist.",
           "fieldConfig": {
@@ -4731,7 +4721,7 @@
             {
               "datasource": {
                 "type": "prometheus",
-                "uid": "$${DS_PROMETHEUS}"
+                "uid": "$${datasource}"
               },
               "editorMode": "code",
               "expr": "sum by (pod) (irate(vendor_statistics_remove_miss_times_seconds_count{container=\"keycloak\", namespace=\"$namespace\", cache=\"$jdbc_cache_names\"}[5m]))",
@@ -4761,7 +4751,7 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "$${DS_PROMETHEUS}"
+            "uid": "$${datasource}"
           },
           "fieldConfig": {
             "defaults": {
@@ -4849,7 +4839,7 @@
               "refId": "A",
               "datasource": {
                 "type": "prometheus",
-                "uid": "$${DS_PROMETHEUS}"
+                "uid": "$${datasource}"
               }
             }
           ],
@@ -4859,7 +4849,7 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "$${DS_PROMETHEUS}"
+            "uid": "$${datasource}"
           },
           "fieldConfig": {
             "defaults": {
@@ -4948,7 +4938,7 @@
               "refId": "A",
               "datasource": {
                 "type": "prometheus",
-                "uid": "$${DS_PROMETHEUS}"
+                "uid": "$${datasource}"
               }
             }
           ],
@@ -4958,7 +4948,7 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "$${DS_PROMETHEUS}"
+            "uid": "$${datasource}"
           },
           "fieldConfig": {
             "defaults": {
@@ -5047,7 +5037,7 @@
               "refId": "A",
               "datasource": {
                 "type": "prometheus",
-                "uid": "$${DS_PROMETHEUS}"
+                "uid": "$${datasource}"
               }
             }
           ],
@@ -5057,7 +5047,7 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "$${DS_PROMETHEUS}"
+            "uid": "$${datasource}"
           },
           "fieldConfig": {
             "defaults": {
@@ -5146,7 +5136,7 @@
               "refId": "A",
               "datasource": {
                 "type": "prometheus",
-                "uid": "$${DS_PROMETHEUS}"
+                "uid": "$${datasource}"
               }
             }
           ],
@@ -5171,7 +5161,7 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "$${DS_PROMETHEUS}"
+            "uid": "$${datasource}"
           },
           "fieldConfig": {
             "defaults": {
@@ -5259,7 +5249,7 @@
               "refId": "A",
               "datasource": {
                 "type": "prometheus",
-                "uid": "$${DS_PROMETHEUS}"
+                "uid": "$${datasource}"
               }
             }
           ],
@@ -5269,7 +5259,7 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "$${DS_PROMETHEUS}"
+            "uid": "$${datasource}"
           },
           "fieldConfig": {
             "defaults": {
@@ -5358,7 +5348,7 @@
               "refId": "A",
               "datasource": {
                 "type": "prometheus",
-                "uid": "$${DS_PROMETHEUS}"
+                "uid": "$${datasource}"
               }
             }
           ],
@@ -5368,7 +5358,7 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "$${DS_PROMETHEUS}"
+            "uid": "$${datasource}"
           },
           "fieldConfig": {
             "defaults": {
@@ -5457,7 +5447,7 @@
               "refId": "A",
               "datasource": {
                 "type": "prometheus",
-                "uid": "$${DS_PROMETHEUS}"
+                "uid": "$${datasource}"
               }
             }
           ],
@@ -5467,7 +5457,7 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "$${DS_PROMETHEUS}"
+            "uid": "$${datasource}"
           },
           "fieldConfig": {
             "defaults": {
@@ -5556,7 +5546,7 @@
               "refId": "A",
               "datasource": {
                 "type": "prometheus",
-                "uid": "$${DS_PROMETHEUS}"
+                "uid": "$${datasource}"
               }
             }
           ],
@@ -5581,7 +5571,7 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "$${DS_PROMETHEUS}"
+            "uid": "$${datasource}"
           },
           "description": "",
           "fieldConfig": {
@@ -5670,7 +5660,7 @@
               "refId": "A",
               "datasource": {
                 "type": "prometheus",
-                "uid": "$${DS_PROMETHEUS}"
+                "uid": "$${datasource}"
               }
             }
           ],
@@ -5680,7 +5670,7 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "$${DS_PROMETHEUS}"
+            "uid": "$${datasource}"
           },
           "fieldConfig": {
             "defaults": {
@@ -5769,7 +5759,7 @@
               "refId": "A",
               "datasource": {
                 "type": "prometheus",
-                "uid": "$${DS_PROMETHEUS}"
+                "uid": "$${datasource}"
               }
             }
           ],
@@ -5779,7 +5769,7 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "$${DS_PROMETHEUS}"
+            "uid": "$${datasource}"
           },
           "fieldConfig": {
             "defaults": {
@@ -5868,7 +5858,7 @@
               "refId": "A",
               "datasource": {
                 "type": "prometheus",
-                "uid": "$${DS_PROMETHEUS}"
+                "uid": "$${datasource}"
               }
             }
           ],
@@ -5878,7 +5868,7 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "$${DS_PROMETHEUS}"
+            "uid": "$${datasource}"
           },
           "fieldConfig": {
             "defaults": {
@@ -5967,7 +5957,7 @@
               "refId": "A",
               "datasource": {
                 "type": "prometheus",
-                "uid": "$${DS_PROMETHEUS}"
+                "uid": "$${datasource}"
               }
             }
           ],
@@ -5977,7 +5967,7 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "$${DS_PROMETHEUS}"
+            "uid": "$${datasource}"
           },
           "fieldConfig": {
             "defaults": {
@@ -6066,7 +6056,7 @@
               "refId": "A",
               "datasource": {
                 "type": "prometheus",
-                "uid": "$${DS_PROMETHEUS}"
+                "uid": "$${datasource}"
               }
             }
           ],
@@ -6076,7 +6066,7 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "$${DS_PROMETHEUS}"
+            "uid": "$${datasource}"
           },
           "fieldConfig": {
             "defaults": {
@@ -6160,7 +6150,7 @@
             {
               "datasource": {
                 "type": "prometheus",
-                "uid": "$${DS_PROMETHEUS}"
+                "uid": "$${datasource}"
               },
               "editorMode": "builder",
               "expr": "rate(vendor_statistics_evictions{namespace=\"$namespace\", container=\"keycloak\", cache=\"$ispn_clustered_caches\"}[$__rate_interval])",
@@ -6177,7 +6167,7 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "$${DS_PROMETHEUS}"
+            "uid": "$${datasource}"
           },
           "fieldConfig": {
             "defaults": {
@@ -6266,7 +6256,7 @@
               "refId": "A",
               "datasource": {
                 "type": "prometheus",
-                "uid": "$${DS_PROMETHEUS}"
+                "uid": "$${datasource}"
               }
             }
           ],
@@ -6276,7 +6266,7 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "$${DS_PROMETHEUS}"
+            "uid": "$${datasource}"
           },
           "fieldConfig": {
             "defaults": {
@@ -6365,7 +6355,7 @@
               "refId": "A",
               "datasource": {
                 "type": "prometheus",
-                "uid": "$${DS_PROMETHEUS}"
+                "uid": "$${datasource}"
               }
             }
           ],
@@ -6375,7 +6365,7 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "$${DS_PROMETHEUS}"
+            "uid": "$${datasource}"
           },
           "fieldConfig": {
             "defaults": {
@@ -6464,7 +6454,7 @@
               "refId": "A",
               "datasource": {
                 "type": "prometheus",
-                "uid": "$${DS_PROMETHEUS}"
+                "uid": "$${datasource}"
               }
             }
           ],
@@ -6474,7 +6464,7 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "$${DS_PROMETHEUS}"
+            "uid": "$${datasource}"
           },
           "fieldConfig": {
             "defaults": {
@@ -6563,7 +6553,7 @@
               "refId": "A",
               "datasource": {
                 "type": "prometheus",
-                "uid": "$${DS_PROMETHEUS}"
+                "uid": "$${datasource}"
               }
             }
           ],
@@ -6585,7 +6575,7 @@
         "current": {},
         "datasource": {
           "type": "prometheus",
-          "uid": "$${DS_PROMETHEUS}"
+          "uid": "$${datasource}"
         },
         "definition": "label_values(namespace)",
         "includeAll": false,
@@ -6690,6 +6680,24 @@
         "refresh": 1,
         "regex": "",
         "type": "query"
+      },
+      {
+        "current": {
+          "selected": true,
+          "text": "Prometheus",
+          "value": "prometheus"
+        },
+        "hide": 0,
+        "includeAll": false,
+        "label": "Datasource",
+        "multi": false,
+        "name": "datasource",
+        "options": [],
+        "query": "prometheus",
+        "refresh": 1,
+        "regex": "",
+        "skipUrlSync": false,
+        "type": "datasource"
       }
     ]
   },
