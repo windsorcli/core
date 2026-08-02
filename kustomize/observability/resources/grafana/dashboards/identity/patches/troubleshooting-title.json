@@ -1,0 +1,7 @@
+[
+  {
+    "op": "replace",
+    "path": "/title",
+    "value": "Keycloak / Troubleshooting"
+  }
+]
