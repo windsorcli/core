@@ -4,5 +4,3 @@ patches:
   - path: realm-client.patch.yaml
     target:
       kind: KeycloakRealmImport
-resources:
-  - job.yaml
