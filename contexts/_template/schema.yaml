@@ -909,6 +909,29 @@ properties:
               cilium bootstraps Cilium via terraform/cni/cilium before Flux starts (disables
               flannel and kube-proxy in Talos machine config) and manages it via Flux GitOps.
         additionalProperties: false
+      oidc:
+        type: object
+        properties:
+          enabled:
+            type: boolean
+            default: false
+            description: Enable OIDC authentication on the kube-apiserver. Talos only; independent of the cluster identity provider.
+          issuer_url:
+            type: string
+            pattern: '^https://.+'
+            description: OIDC issuer URL the kube-apiserver validates tokens against. Required when enabled.
+          client_id:
+            type: string
+            description: OIDC client ID the kube-apiserver expects in the token audience. Required when enabled.
+          username_claim:
+            type: string
+            default: sub
+            description: JWT claim mapped to the Kubernetes username.
+          groups_claim:
+            type: string
+            default: groups
+            description: JWT claim mapped to Kubernetes groups.
+        additionalProperties: false
     additionalProperties: false
 
   # Operator contact
@@ -960,6 +983,18 @@ properties:
       enabled:
         type: boolean
         description: Enable private certificate authority with trust-manager
+      private_ca:
+        type: object
+        properties:
+          cert:
+            type: string
+            sensitive: true
+            description: PEM-encoded CA certificate. Supply alongside key to bring your own; leave both unset to generate one via Terraform.
+          key:
+            type: string
+            sensitive: true
+            description: PEM-encoded CA private key. Supply alongside cert to bring your own; leave both unset to generate one via Terraform.
+        additionalProperties: false
     additionalProperties: false
 
   # GitOps configuration
@@ -1291,6 +1326,83 @@ allOf:
             oidc:
               required:
                 - issuer
+
+  # issuer_url required unless a hosted or external identity provider covers it.
+  - if:
+      properties:
+        cluster:
+          type: object
+          properties:
+            oidc:
+              type: object
+              properties:
+                enabled:
+                  const: true
+              required:
+                - enabled
+          required:
+            - oidc
+        identity:
+          type: object
+          properties:
+            enabled:
+              not:
+                const: true
+      required:
+        - cluster
+    then:
+      properties:
+        cluster:
+          properties:
+            oidc:
+              required:
+                - issuer_url
+
+  # client_id required unless the hosted keycloak driver covers it.
+  - if:
+      properties:
+        cluster:
+          type: object
+          properties:
+            oidc:
+              type: object
+              properties:
+                enabled:
+                  const: true
+              required:
+                - enabled
+          required:
+            - oidc
+      required:
+        - cluster
+      anyOf:
+        - properties:
+            identity:
+              type: object
+              properties:
+                enabled:
+                  not:
+                    const: true
+        - properties:
+            identity:
+              type: object
+              properties:
+                enabled:
+                  const: true
+                driver:
+                  const: oidc
+              required:
+                - enabled
+                - driver
+          required:
+            - identity
+    then:
+      properties:
+        cluster:
+          properties:
+            oidc:
+              required:
+                - client_id
 
   # Managed-cluster drivers ↔ platform coherence. cluster.driver: eks
   # binds to AWS EKS (Route53, AWS provider, EKS control plane); aks

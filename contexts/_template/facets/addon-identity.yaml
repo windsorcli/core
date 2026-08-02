@@ -130,8 +130,12 @@ flux:
           - keycloak/realm
           # Grafana client + secret-copy Job, on when Grafana SSO is.
           - "${observability.enabled == true && observability.grafana.sso != false ? 'keycloak/realm/clients/grafana' : ''}"
+          # kube-apiserver OIDC client, on when cluster.oidc is on.
+          - "${cluster.oidc.enabled == true && (cluster.oidc.client_id ?? 'kubernetes') == 'kubernetes' ? 'keycloak/realm/clients/kubernetes' : ''}"
           # Dev-only admin/viewer users.
           - "${dev == true ? 'keycloak/realm/dev-user' : ''}"
+          # Dev-only: binds platform-admins to cluster-admin for kubectl OIDC login.
+          - "${dev == true && cluster.oidc.enabled == true && (cluster.oidc.client_id ?? 'kubernetes') == 'kubernetes' ? 'keycloak/realm/clients/kubernetes/dev-rbac' : ''}"
         timeout: 10m
         interval: 5m
         substitutions:

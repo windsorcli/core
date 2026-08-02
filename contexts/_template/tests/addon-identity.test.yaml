@@ -307,6 +307,100 @@ cases:
                 keycloak_admin_secret: keycloak-bootstrap-admin
                 dev_admin_password: sup3r-secret-admin
 
+  # API-server OIDC (cluster.oidc.enabled) registers the kubernetes realm client.
+  - name: cluster oidc enabled patches the kubernetes client into the realm
+    values:
+      platform: metal
+      dns:
+        domain: example.local
+      gateway:
+        enabled: true
+      network: *default-network
+      cluster:
+        <<: *default-cluster
+        oidc:
+          enabled: true
+      identity:
+        enabled: true
+    expect:
+      flux:
+        - name: identity
+          resources:
+            - components:
+                - keycloak/realm
+                - keycloak/realm/clients/kubernetes
+
+  # Dev + cluster oidc: binds platform-admins to cluster-admin so the seeded
+  # dev admin user can do something after a kubectl OIDC login.
+  - name: dev with cluster oidc enabled adds the dev rbac binding
+    values:
+      platform: metal
+      dev: true
+      dns:
+        domain: example.local
+      gateway:
+        enabled: true
+      network: *default-network
+      cluster:
+        <<: *default-cluster
+        oidc:
+          enabled: true
+      identity:
+        enabled: true
+    expect:
+      flux:
+        - name: identity
+          resources:
+            - components:
+                - keycloak/realm/clients/kubernetes
+                - keycloak/realm/clients/kubernetes/dev-rbac
+
+  # Outside dev, no cluster-admin binding is auto-created.
+  - name: cluster oidc enabled without dev skips the dev rbac binding
+    values:
+      platform: metal
+      dns:
+        domain: example.local
+      gateway:
+        enabled: true
+      network: *default-network
+      cluster:
+        <<: *default-cluster
+        oidc:
+          enabled: true
+      identity:
+        enabled: true
+    exclude:
+      flux:
+        - name: identity
+          resources:
+            - components:
+                - keycloak/realm/clients/kubernetes/dev-rbac
+
+  # An overridden client_id means the operator already has their own client;
+  # core doesn't patch a competing "kubernetes" one into the realm.
+  - name: overridden oidc client_id skips the kubernetes realm client
+    values:
+      platform: metal
+      dns:
+        domain: example.local
+      gateway:
+        enabled: true
+      network: *default-network
+      cluster:
+        <<: *default-cluster
+        oidc:
+          enabled: true
+          client_id: other-client
+      identity:
+        enabled: true
+    exclude:
+      flux:
+        - name: identity
+          resources:
+            - components:
+                - keycloak/realm/clients/kubernetes
+
   # External OIDC issuer (driver oidc): host nothing — no operator, no server, no
   # realm, no CRDs. Consumers read identity_effective.issuer instead.
   - name: oidc driver hosts nothing and skips keycloak crds

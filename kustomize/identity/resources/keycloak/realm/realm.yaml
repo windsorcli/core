@@ -20,6 +20,8 @@ spec:
     accessTokenLifespan: 300
     ssoSessionIdleTimeout: 1800
     ssoSessionMaxLifespan: 36000
+    # Each consumer appends its own client via clients/*/realm-client.patch.yaml.
+    clients: []
     # RBAC anchor: one place to grant realm administration. Core creates the
     # group; members are deployment-specific and never live in git.
     # No clientScopes here on purpose — specifying them replaces Keycloak's built-in

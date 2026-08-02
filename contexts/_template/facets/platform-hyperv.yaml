@@ -275,12 +275,15 @@ terraform:
   # apply (delivered via CIDATA) and runs straight to bootstrap + health.
   - name: cluster-config
     path: cluster/talos/config
+    dependsOn:
+      - "${pki.enabled == true ? 'pki' : ''}"
     inputs:
       talos_version: ${talos.talos_version}
       cluster_name: talos
       cluster_endpoint: "${cluster.endpoint ?? ('https://' + cidrhost(network.cidr_block ?? '10.5.0.0/16', 10) + ':6443')}"
       destination_dir: "${hyperv_effective.images_dir}"
       common_config_patches: ${talos_common.common_config_patches}
+      controlplane_config_patches: "${talos_common.oidc_ca_file_patch ?? ''}"
       network:
         cidr_block: ${network.cidr_block ?? '10.5.0.0/16'}
         gateway: ${network.gateway}
@@ -370,6 +373,7 @@ terraform:
     path: cluster/talos
     dependsOn:
       - compute
+      - "${pki.enabled == true ? 'pki' : ''}"
       - cluster-config
     parallelism: 1
     inputs:

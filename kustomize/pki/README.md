@@ -201,6 +201,7 @@ converge.
 
 | Name | Required when | Effect |
 |---|---|---|
+| `private_ca_cert` | `private-issuer/ca` is enabled | PEM-encoded CA certificate. Sourced from `terraform_output('pki', 'cert')`. |
 | `cert_manager_client_id` | `cert-manager/azure-workload-identity` is enabled | Azure AD client ID for the cert-manager managed identity. Sourced from `terraform_output('cluster', 'cert_manager_client_id')`. |
 | `cert_manager_tenant_id` | `cert-manager/azure-workload-identity` is enabled | Azure AD tenant ID for the federated workload identity credential. |
 | `acme_server` | any `public-issuer/acme/*` component is enabled | ACME directory URL. Resolves to `acme-staging-v02.api.letsencrypt.org` in dev, `acme-v02.api.letsencrypt.org` otherwise. |
@@ -226,7 +227,7 @@ converge.
 | Component | Enable when | Effect |
 |---|---|---|
 | `private-issuer/selfsigned` | `gateway.access == 'private'` AND `dns.private_domain` is set | ClusterIssuer `private-selfsigned` with `selfSigned: {}`. Used for the private gateway certificate when no private CA is configured; browsers warn until the CA cert is added to a trust store. |
-| `private-issuer/ca` | `pki.enabled: true` | Full private CA: a `selfSigned` issuer mints a CA `Certificate`, a `ca`-type `ClusterIssuer` (`private-ca`) signs against it, plus an init / sync Job pair that copies the CA cert into a `Bundle` for trust-manager and a Kyverno mutation policy that injects the trust bundle into workload Pods. |
+| `private-issuer/ca` | `pki.enabled: true` | Full private CA: the CA cert/key (generated or BYO, from `terraform_output('pki', ...)`) populate the `private-ca-keypair` Secret cert-manager's `ca`-type `ClusterIssuer` (`private`) signs against — the key via the facet's `secrets:` block (never rendered in the Kustomization spec), the cert via a plain substitution since it isn't sensitive — plus the `private-ca-cert` ConfigMap trust-manager's `Bundle` distributes to workload namespaces, and a Kyverno mutation policy that injects the trust bundle into workload Pods. |
 | `public-issuer/selfsigned` | `dns.public_domain` is unset (default) | ClusterIssuer `public-selfsigned`. Bootstraps a working gateway cert immediately; flip to `acme/*` by setting `dns.public_domain` and cert-manager reissues into the same Secret. |
 | `public-issuer/acme/route53` | platform is AWS AND `dns.public_domain` is set | ClusterIssuer `public-acme` using the ACME DNS-01 solver against Route53. Auth is via the Pod Identity binding provisioned by the cluster Terraform module. |
 | `public-issuer/acme/azuredns` | platform is Azure AND `dns.public_domain` is set | ClusterIssuer `public-acme` using the ACME DNS-01 solver against Azure DNS. Auth is via the federated workload identity (see `cert-manager/azure-workload-identity`). |

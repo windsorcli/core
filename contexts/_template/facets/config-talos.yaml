@@ -2,7 +2,7 @@ kind: Facet
 apiVersion: blueprints.windsorcli.dev/v1alpha1
 metadata:
   name: talos
-  description: Talos common patches (cert rotation, volume mounts, allow scheduling on control planes)
+  description: Talos common patches (cert rotation, volume mounts, allow scheduling on control planes, API-server OIDC)
 
 # Only relevant when Talos is the cluster driver. Managed clusters (EKS, AKS)
 # build their own machine images and don't take Talos patches.
@@ -104,6 +104,57 @@ config:
               # 3/3 (default 5/5): no peers to catch up, saves ~128 MiB on disk.
               max-snapshots: "3"
               max-wals: "3"
+
+  # API-server OIDC: maps cluster.oidc.* to the kube-apiserver --oidc-* flags.
+  # issuer_url/client_id fall back to the hosted Keycloak identity provider when unset.
+  - name: talos_common
+    when: cluster.oidc.enabled == true
+    value:
+      oidc_issuer_url: "${cluster.oidc.issuer_url ?? (identity.enabled == true ? identity_effective.issuer : '')}"
+      oidc_client_id: "${cluster.oidc.client_id ?? ((identity.enabled == true && (identity.driver ?? 'keycloak') == 'keycloak') ? 'kubernetes' : '')}"
+      common_patch:
+        cluster:
+          apiServer:
+            extraArgs:
+              oidc-issuer-url: ${talos_common.oidc_issuer_url}
+              oidc-client-id: ${talos_common.oidc_client_id}
+              oidc-username-claim: "${cluster.oidc.username_claim ?? 'sub'}"
+              oidc-groups-claim: "${cluster.oidc.groups_claim ?? 'groups'}"
+
+  # Trusts the Windsor-managed private CA for OIDC token verification. The
+  # cert comes from the pki/ca terraform step, which runs ahead of this
+  # machine config so it's available at first bootstrap. Without pki
+  # enabled, oidc-ca-file is left unset and the issuer must carry a
+  # publicly-trusted certificate instead.
+  #
+  # oidc_ca_file_patch is a standalone literal-YAML string (cert substituted
+  # inline), fed to controlplane_config_patches rather than merged into
+  # common_patch: terraform_output()'s cert value is deferred until pki/ca
+  # applies, and a deferred plain-string leaf nested inside a map that
+  # common_config_patches later stringifies loses its YAML block-scalar
+  # formatting on resolution. A deferred value substituted directly into
+  # literal text (this pattern, also used by docker's certSANs patch)
+  # doesn't hit that path.
+  - name: talos_common
+    when: cluster.oidc.enabled == true && pki.enabled == true
+    value:
+      common_patch:
+        cluster:
+          apiServer:
+            extraArgs:
+              oidc-ca-file: /etc/kubernetes/oidc-ca.crt
+            extraVolumes:
+              - hostPath: /var/kubernetes/oidc-ca.crt
+                mountPath: /etc/kubernetes/oidc-ca.crt
+                readonly: true
+      oidc_ca_file_patch: |-
+        machine:
+          files:
+          - op: create
+            path: /var/kubernetes/oidc-ca.crt
+            permissions: 420
+            content: |
+              ${terraform_output('pki', 'cert')}
 
   # Pinned Talos version; Renovate watches the string below.
   - name: talos

@@ -1,0 +1,245 @@
+# config-talos.yaml facet tests
+# Tests API-server OIDC (cluster.oidc) — Talos machine config patch composition.
+# Uses platform: metal and flannel CNI to isolate the OIDC patch from the
+# cilium-driver and single-node-topology patches (covered by option-cni and
+# option-single-node tests).
+
+x-defaults:
+  network: &default-network
+    cidr_block: 10.5.0.0/16
+    loadbalancer_driver: kube-vip
+    loadbalancer_mode: arp
+    loadbalancer_ips:
+      start: "10.5.1.10"
+      end: "10.5.1.100"
+
+  cluster: &default-cluster
+    driver: talos
+    controlplanes:
+      nodes:
+        controlplane-1:
+          endpoint: 10.5.0.10:50000
+          node: 10.5.0.10
+          hostname: controlplane-1
+    workers:
+      nodes:
+        worker-1:
+          endpoint: 10.5.0.20:50000
+          node: 10.5.0.20
+          hostname: worker-1
+      volumes:
+        - /var/mnt/local
+    cni:
+      driver: flannel
+
+cases:
+  - name: oidc disabled by default omits apiServer patch
+    values:
+      platform: metal
+      gateway:
+        enabled: false
+      network: *default-network
+      cluster: *default-cluster
+    expect:
+      terraform:
+        - name: cluster
+          path: cluster/talos
+          inputs:
+            common_config_patches: |-
+              cluster:
+                allowSchedulingOnControlPlanes: false
+                extraManifests:
+                - https://raw.githubusercontent.com/alex1989hu/kubelet-serving-cert-approver/v0.8.7/deploy/standalone-install.yaml
+              machine:
+                kubelet:
+                  extraArgs:
+                    rotate-server-certificates: "true"
+
+  - name: oidc enabled maps issuer/client_id/claims to apiServer extraArgs
+    values:
+      platform: metal
+      gateway:
+        enabled: false
+      network: *default-network
+      cluster:
+        <<: *default-cluster
+        oidc:
+          enabled: true
+          issuer_url: https://keycloak.example.com/realms/windsor
+          client_id: kubernetes
+    expect:
+      terraform:
+        - name: cluster
+          path: cluster/talos
+          inputs:
+            common_config_patches: |-
+              cluster:
+                allowSchedulingOnControlPlanes: false
+                apiServer:
+                  extraArgs:
+                    oidc-client-id: kubernetes
+                    oidc-groups-claim: groups
+                    oidc-issuer-url: https://keycloak.example.com/realms/windsor
+                    oidc-username-claim: sub
+                extraManifests:
+                - https://raw.githubusercontent.com/alex1989hu/kubelet-serving-cert-approver/v0.8.7/deploy/standalone-install.yaml
+              machine:
+                kubelet:
+                  extraArgs:
+                    rotate-server-certificates: "true"
+
+  - name: oidc enabled with keycloak identity infers issuer and client_id
+    values:
+      platform: metal
+      dns:
+        domain: example.local
+      gateway:
+        enabled: true
+        driver: envoy
+      network: *default-network
+      cluster:
+        <<: *default-cluster
+        oidc:
+          enabled: true
+      identity:
+        enabled: true
+    expect:
+      terraform:
+        - name: cluster
+          path: cluster/talos
+          inputs:
+            common_config_patches: |-
+              cluster:
+                allowSchedulingOnControlPlanes: false
+                apiServer:
+                  extraArgs:
+                    oidc-client-id: kubernetes
+                    oidc-groups-claim: groups
+                    oidc-issuer-url: https://keycloak.example.local/realms/platform
+                    oidc-username-claim: sub
+                extraManifests:
+                - https://raw.githubusercontent.com/alex1989hu/kubelet-serving-cert-approver/v0.8.7/deploy/standalone-install.yaml
+              machine:
+                kubelet:
+                  extraArgs:
+                    rotate-server-certificates: "true"
+
+  - name: oidc issuer_url/client_id overrides take precedence over keycloak inference
+    values:
+      platform: metal
+      dns:
+        domain: example.local
+      gateway:
+        enabled: true
+        driver: envoy
+      network: *default-network
+      cluster:
+        <<: *default-cluster
+        oidc:
+          enabled: true
+          issuer_url: https://sso.corp/realms/other
+          client_id: other-client
+      identity:
+        enabled: true
+    expect:
+      terraform:
+        - name: cluster
+          path: cluster/talos
+          inputs:
+            common_config_patches: |-
+              cluster:
+                allowSchedulingOnControlPlanes: false
+                apiServer:
+                  extraArgs:
+                    oidc-client-id: other-client
+                    oidc-groups-claim: groups
+                    oidc-issuer-url: https://sso.corp/realms/other
+                    oidc-username-claim: sub
+                extraManifests:
+                - https://raw.githubusercontent.com/alex1989hu/kubelet-serving-cert-approver/v0.8.7/deploy/standalone-install.yaml
+              machine:
+                kubelet:
+                  extraArgs:
+                    rotate-server-certificates: "true"
+
+  - name: oidc enabled with pki enabled adds oidc-ca-file from the pki terraform output
+    values:
+      platform: metal
+      gateway:
+        enabled: false
+      network: *default-network
+      cluster:
+        <<: *default-cluster
+        oidc:
+          enabled: true
+          issuer_url: https://keycloak.example.com/realms/windsor
+          client_id: kubernetes
+      pki:
+        enabled: true
+    terraformOutputs:
+      pki:
+        cert: |-
+          -----BEGIN CERTIFICATE-----
+          FAKECERT
+          -----END CERTIFICATE-----
+    expect:
+      terraform:
+        - name: cluster
+          path: cluster/talos
+          inputs:
+            common_config_patches: |-
+              cluster:
+                allowSchedulingOnControlPlanes: false
+                apiServer:
+                  extraArgs:
+                    oidc-ca-file: /etc/kubernetes/oidc-ca.crt
+                    oidc-client-id: kubernetes
+                    oidc-groups-claim: groups
+                    oidc-issuer-url: https://keycloak.example.com/realms/windsor
+                    oidc-username-claim: sub
+                  extraVolumes:
+                  - hostPath: /var/kubernetes/oidc-ca.crt
+                    mountPath: /etc/kubernetes/oidc-ca.crt
+                    readonly: true
+                extraManifests:
+                - https://raw.githubusercontent.com/alex1989hu/kubelet-serving-cert-approver/v0.8.7/deploy/standalone-install.yaml
+              machine:
+                kubelet:
+                  extraArgs:
+                    rotate-server-certificates: "true"
+            controlplane_config_patches: "machine:\n  files:\n  - op: create\n    path: /var/kubernetes/oidc-ca.crt\n    permissions: 420\n    content: |\n      \n        -----BEGIN CERTIFICATE-----\n        FAKECERT\n        -----END CERTIFICATE-----"
+
+  - name: oidc username_claim and groups_claim overrides pass through
+    values:
+      platform: metal
+      gateway:
+        enabled: false
+      network: *default-network
+      cluster:
+        <<: *default-cluster
+        oidc:
+          enabled: true
+          issuer_url: https://keycloak.example.com/realms/windsor
+          client_id: kubernetes
+          username_claim: email
+          groups_claim: roles
+    expect:
+      terraform:
+        - name: cluster
+          path: cluster/talos
+          inputs:
+            common_config_patches: |-
+              cluster:
+                allowSchedulingOnControlPlanes: false
+                apiServer:
+                  extraArgs:
+                    oidc-client-id: kubernetes
+                    oidc-groups-claim: roles
+                    oidc-issuer-url: https://keycloak.example.com/realms/windsor
+                    oidc-username-claim: email
+                extraManifests:
+                - https://raw.githubusercontent.com/alex1989hu/kubelet-serving-cert-approver/v0.8.7/deploy/standalone-install.yaml
+              machine:
+                kubelet:
+                  extraArgs:
+                    rotate-server-certificates: "true"

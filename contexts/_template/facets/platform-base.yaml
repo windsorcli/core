@@ -278,6 +278,16 @@ terraform:
     inputs:
       mode: ${gitops.mode ?? 'push'}
 
+  # Root CA for the private-CA add-on and Talos apiserver OIDC trust. Runs
+  # ahead of cluster/talos so the cert is available for the first machine
+  # config apply, not just a post-hoc reconfigure.
+  - name: pki
+    when: pki.enabled == true
+    path: pki/ca
+    inputs:
+      cert: ${pki.private_ca.cert ?? ''}
+      key: ${pki.private_ca.key ?? ''}
+
 # =============================================================================
 # Flux systems — policy, telemetry, pki (install/resources tier split)
 # =============================================================================
