@@ -129,6 +129,9 @@ cases:
                 kubelet:
                   extraArgs:
                     rotate-server-certificates: "true"
+                  nodeIP:
+                    validSubnets:
+                    - 10.5.0.0/16
         # multi-node topology, not the single-node replica count of 1
         - name: cni
           path: cni/cilium
