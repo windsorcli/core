@@ -220,6 +220,7 @@ terraform:
     path: cluster/talos
     dependsOn:
       - compute
+      - "${pki.enabled == true ? 'pki' : ''}"
     parallelism: 1
     inputs:
       cluster_endpoint: "${cluster.endpoint ?? cluster_endpoint_fallback.endpoint}"
@@ -230,6 +231,7 @@ terraform:
       controlplane_disks: ${talos_common.controlplane_disks}
       worker_disks: ${talos_common.worker_disks}
       common_config_patches: ${talos_common.common_config_patches}
+      controlplane_config_patches: "${talos_common.oidc_ca_file_patch ?? ''}"
       controlplane_volumes: ${talos_common.controlplane_volumes ?? []}
       worker_volumes: ${talos_common.worker_volumes ?? []}
 

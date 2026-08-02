@@ -983,6 +983,18 @@ properties:
       enabled:
         type: boolean
         description: Enable private certificate authority with trust-manager
+      private_ca:
+        type: object
+        properties:
+          cert:
+            type: string
+            sensitive: true
+            description: PEM-encoded CA certificate. Supply alongside key to bring your own; leave both unset to generate one via Terraform.
+          key:
+            type: string
+            sensitive: true
+            description: PEM-encoded CA private key. Supply alongside cert to bring your own; leave both unset to generate one via Terraform.
+        additionalProperties: false
     additionalProperties: false
 
   # GitOps configuration

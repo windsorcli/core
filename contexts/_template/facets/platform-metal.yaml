@@ -51,6 +51,8 @@ terraform:
   - name: cluster
     path: cluster/talos
     parallelism: 1
+    dependsOn:
+      - "${pki.enabled == true ? 'pki' : ''}"
     inputs:
       cluster_endpoint: ${cluster.endpoint ?? ("https://" + split(values(cluster.controlplanes.nodes)[0].endpoint, ":")[0] + ":6443")}
       cluster_name: talos
@@ -60,6 +62,7 @@ terraform:
       controlplane_disks: ${talos_common.controlplane_disks}
       worker_disks: ${talos_common.worker_disks}
       common_config_patches: ${talos_common.common_config_patches}
+      controlplane_config_patches: "${talos_common.oidc_ca_file_patch ?? ''}"
       controlplane_volumes: ${talos_common.controlplane_volumes ?? []}
       worker_volumes: ${talos_common.worker_volumes ?? []}
 

@@ -56,6 +56,7 @@ terraform:
     path: cluster/talos
     dependsOn:
       - compute
+      - "${pki.enabled == true ? 'pki' : ''}"
     parallelism: 1
     inputs:
       cluster_endpoint: "${cluster.endpoint ?? cluster_endpoint_fallback.endpoint}"
@@ -101,7 +102,16 @@ terraform:
       controlplane_disks: ${cluster.controlplanes.disks ?? []}
       worker_disks: ${cluster.workers.disks ?? []}
       common_config_patches: ${talos_common.common_config_patches}
-      controlplane_config_patches: "${talos_common_docker.controlplane_config_patches ?? \"\"}"
+      # Both patches are standalone "machine:\n  <child>:..." documents; when
+      # both are present, docker's own patch (with its "machine:" header)
+      # keeps that header and oidc's patch has it stripped so its "files:"
+      # child nests under the same "machine:" instead of starting a second one.
+      controlplane_config_patches: >-
+        ${(talos_common_docker.controlplane_config_patches ?? '') == ''
+          ? (talos_common.oidc_ca_file_patch ?? '')
+          : (talos_common.oidc_ca_file_patch ?? '') == ''
+            ? talos_common_docker.controlplane_config_patches
+            : talos_common_docker.controlplane_config_patches + '\n' + trimPrefix(talos_common.oidc_ca_file_patch, 'machine:\n')}
       worker_config_patches: "${talos_common_docker.worker_config_patches ?? \"\"}"
       controlplane_volumes: ${talos_common.controlplane_volumes ?? []}
       worker_volumes: ${talos_common.worker_volumes ?? []}

@@ -6,17 +6,35 @@ metadata:
 
 when: pki.enabled == true
 
+requires:
+  - when: (pki.private_ca.cert ?? '') != '' || (pki.private_ca.key ?? '') != ''
+    paths:
+      - pki.private_ca.cert
+      - pki.private_ca.key
+    message: Bringing your own CA needs both the certificate and private key.
+
 # =============================================================================
 # Flux systems — pki (trust-manager + private CA issuer)
 # =============================================================================
 #
 # Layers trust-manager (install) and the private-issuer/ca ClusterIssuer
 # (resources) onto the pki tiers from platform-base. The issuer becomes the
-# default for workload certificates.
+# default for workload certificates. The CA cert/key come from the pki/ca
+# terraform step (generated or BYO), no in-cluster minting or sync job
+# involved. The key is materialized straight into the private-ca-cert
+# Secret via `secrets:` (never rendered in the Kustomization spec); the
+# cert isn't sensitive, so trust-manager's ConfigMap gets it via a plain
+# Flux substitution.
 #
 flux:
 
   - name: pki
+    secrets:
+      private-ca-cert:
+        namespaces: [system-pki]
+        data:
+          tls.crt: ${terraform_output('pki', 'cert')}
+          tls.key: ${terraform_output('pki', 'key')}
     install:
       components:
         - trust-manager
@@ -27,3 +45,5 @@ flux:
         interval: 5m
         components:
           - private-issuer/ca
+        substitutions:
+          private_ca_cert: "${terraform_output('pki', 'cert')}"

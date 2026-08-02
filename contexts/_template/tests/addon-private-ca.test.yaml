@@ -68,6 +68,61 @@ cases:
               components:
                 - private-issuer/ca
 
+  # pki/ca terraform_output flows into the private-ca-cert Secret (key, via
+  # secrets: so it never lands in the Kustomization spec) and the trust
+  # ConfigMap substitution (cert, not sensitive).
+  - name: pki enabled materializes the CA cert/key from the pki terraform output
+    values:
+      platform: metal
+      network: *default-network
+      cluster: *default-cluster
+      pki:
+        enabled: true
+    terraformOutputs:
+      pki:
+        cert: |-
+          -----BEGIN CERTIFICATE-----
+          FAKECERT
+          -----END CERTIFICATE-----
+        key: |-
+          -----BEGIN EC PRIVATE KEY-----
+          FAKEKEY
+          -----END EC PRIVATE KEY-----
+    expect:
+      flux:
+        - name: pki
+          secrets:
+            private-ca-cert:
+              namespaces: [system-pki]
+              data:
+                tls.crt: |-
+                  -----BEGIN CERTIFICATE-----
+                  FAKECERT
+                  -----END CERTIFICATE-----
+                tls.key: |-
+                  -----BEGIN EC PRIVATE KEY-----
+                  FAKEKEY
+                  -----END EC PRIVATE KEY-----
+          resources:
+            - substitutions:
+                private_ca_cert: |-
+                  -----BEGIN CERTIFICATE-----
+                  FAKECERT
+                  -----END CERTIFICATE-----
+
+  # Supplying only one of cert/key must fail composition, not silently fall
+  # back to a generated CA.
+  - name: cert without key fails composition
+    values:
+      platform: metal
+      network: *default-network
+      cluster: *default-cluster
+      pki:
+        enabled: true
+        private_ca:
+          cert: "-----BEGIN CERTIFICATE-----\nFAKE\n-----END CERTIFICATE-----"
+    expectError: true
+
   # Edge case: pki disabled
   - name: excludes private CA when pki disabled
     values:

@@ -162,6 +162,53 @@ cases:
                   extraArgs:
                     rotate-server-certificates: "true"
 
+  - name: oidc enabled with pki enabled adds oidc-ca-file from the pki terraform output
+    values:
+      platform: metal
+      gateway:
+        enabled: false
+      network: *default-network
+      cluster:
+        <<: *default-cluster
+        oidc:
+          enabled: true
+          issuer_url: https://keycloak.example.com/realms/windsor
+          client_id: kubernetes
+      pki:
+        enabled: true
+    terraformOutputs:
+      pki:
+        cert: |-
+          -----BEGIN CERTIFICATE-----
+          FAKECERT
+          -----END CERTIFICATE-----
+    expect:
+      terraform:
+        - name: cluster
+          path: cluster/talos
+          inputs:
+            common_config_patches: |-
+              cluster:
+                allowSchedulingOnControlPlanes: false
+                apiServer:
+                  extraArgs:
+                    oidc-ca-file: /etc/kubernetes/oidc-ca.crt
+                    oidc-client-id: kubernetes
+                    oidc-groups-claim: groups
+                    oidc-issuer-url: https://keycloak.example.com/realms/windsor
+                    oidc-username-claim: sub
+                  extraVolumes:
+                  - hostPath: /var/kubernetes/oidc-ca.crt
+                    mountPath: /etc/kubernetes/oidc-ca.crt
+                    readonly: true
+                extraManifests:
+                - https://raw.githubusercontent.com/alex1989hu/kubelet-serving-cert-approver/v0.8.7/deploy/standalone-install.yaml
+              machine:
+                kubelet:
+                  extraArgs:
+                    rotate-server-certificates: "true"
+            controlplane_config_patches: "machine:\n  files:\n  - op: create\n    path: /var/kubernetes/oidc-ca.crt\n    permissions: 420\n    content: |\n      \n        -----BEGIN CERTIFICATE-----\n        FAKECERT\n        -----END CERTIFICATE-----"
+
   - name: oidc username_claim and groups_claim overrides pass through
     values:
       platform: metal
