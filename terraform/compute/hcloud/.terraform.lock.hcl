@@ -2,16 +2,21 @@
 # Manual edits may be lost in future updates.
 
 provider "registry.terraform.io/hcloud-talos/imager" {
-  version     = "1.0.16"
-  constraints = "1.0.16"
+  version     = "1.0.19"
+  constraints = "1.0.19"
   hashes = [
-    "h1:oM8LbVR8g82F/I+zYVJ7aXca4r0ETWpB0Oi1lMapuzM=",
-    "zh:0d0302680146bc95124dec237bd0d28710d53d52267cf496ba191a32d0cf56f2",
-    "zh:4976e3d20423d289f75d9c972b1a1589369ce2f7d45ee5997910913f43e25dbb",
-    "zh:552b7bc7c22d9bf87353ccd14bdf0189acca87c62faeef12b14b08b0843241c7",
-    "zh:72feeffc055376af92298ce8b0accf6b3a5e4d8d802a25b09102c6c1f8bc5886",
-    "zh:a7973d5b4c5d58c654953ec6a6f8685562c5bc4e4c323ec23427600ee241e588",
-    "zh:b4b44edfa1fc3d5f32a31fb2b7e41cd9b653ea03cc00b6c8109e4a351310ecba",
+    "h1:EUdGrCO8/KY7pq6palESUGMxmd4/QOJSxY/76tusEcI=",
+    "h1:I7ZvpL0j+Ga+HsrjYBv7dFxx41rkWlaqOabtzi5HSr8=",
+    "h1:YWv2ztt1LpAnuJxcdzlQWyKAL/QrCVbFNRNpaqzINyg=",
+    "h1:fFEZctLRY3lQKyON7twuSU5bxdsOmGc+Tpu1394zAMg=",
+    "h1:kgsr9wDI8+2+8qp5YRsvp0kLRMaycpXyWvOu2slUhJQ=",
+    "h1:vFdFZrexi8UKqLIxQjpmsELQ7GTkFnplqeen18gOr7k=",
+    "zh:31bca414187723f423a368821d00e6cb83f092b4d0d56a07dacbe74b2283349d",
+    "zh:9c43de8944992a2bf75cb3d9aeb372bb443016dac8196c57d867c96f33e6a9a7",
+    "zh:a8f07b6063b2ed65c6cd3487ad5c4889771daf392138a9c8f423216b0d892e7d",
+    "zh:a9194b5fb1509a1118299114c7ce0dbe8bdd5a9479d3d30f2286cfbbad793380",
+    "zh:de197d8ea93005efede9e63174b0ceba6ec03b25cc35a2ed0d1c96bee001e7ac",
+    "zh:e86dbc0d9f41e87c1c8ea60c6c74463b79475a96383e13b1bca8c380d3336fcb",
   ]
 }
 
