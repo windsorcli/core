@@ -50,11 +50,20 @@ config:
   # Cloud block storage (Hetzner Volumes via hcloud-csi) is the default; the
   # control plane sits at CIDR offset 10 so Cilium's k8sServiceHost is stable and
   # reachable over the private network. compute/hcloud pins the first control
-  # plane's private IP to the same offset.
+  # plane's private IP to the same offset. Every node also has a public NIC;
+  # nodeIP.validSubnets pins kubelet to the private one, since with no hint it
+  # picks the default route (public), and the apiserver then can't reach it on
+  # 10250 past the hcloud firewall.
   - name: talos_common
     value:
       storage_driver: "${cluster.storage.driver ?? 'hcloud'}"
       k8s_service_host: "${cidrhost(network.cidr_block ?? '10.5.0.0/16', 10)}"
+      common_patch:
+        machine:
+          kubelet:
+            nodeIP:
+              validSubnets:
+                - "${network.cidr_block ?? '10.5.0.0/16'}"
 
   # vCPU/memory (GB) by Hetzner instance type. Hetzner sizes nodes via
   # instance_type, not cluster.controlplanes.cpu/memory, so this map feeds the
