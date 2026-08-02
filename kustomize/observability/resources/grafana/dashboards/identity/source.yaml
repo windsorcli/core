@@ -1,0 +1,10 @@
+# Keycloak Grafana Dashboards
+# Run: task dashboards
+
+upstream:
+  # renovate: datasource=github-releases depName=keycloak-grafana-dashboard versioning=semver packageName=keycloak/keycloak-grafana-dashboard
+  url: https://raw.githubusercontent.com/keycloak/keycloak-grafana-dashboard/26.4.0/dashboards
+
+files:
+  - name: keycloak-capacity-planning-dashboard.json
+  - name: keycloak-troubleshooting-dashboard.json

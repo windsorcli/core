@@ -767,3 +767,38 @@ cases:
             components:
               - fluentbit
 
+
+  # identity.enabled adds prometheus/alerts/identity to the shared alert
+  # component list (the same central-list convention envoy's alert uses).
+  - name: identity enabled adds the identity alert component
+    values:
+      platform: metal
+      dns:
+        domain: example.local
+      gateway:
+        enabled: true
+      network: *default-network
+      cluster: *default-cluster
+      identity:
+        enabled: true
+    expect:
+      flux:
+        - name: telemetry
+          resources:
+            - components:
+                - prometheus/alerts/identity
+
+  # identity disabled (default): no Keycloak, so no identity alert rules.
+  - name: identity disabled skips the identity alert component
+    values:
+      platform: metal
+      gateway:
+        enabled: false
+      network: *default-network
+      cluster: *default-cluster
+    exclude:
+      flux:
+        - name: telemetry
+          resources:
+            - components:
+                - prometheus/alerts/identity

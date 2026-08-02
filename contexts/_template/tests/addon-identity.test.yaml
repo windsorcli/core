@@ -443,3 +443,91 @@ cases:
       crds:
         # renovate: datasource=github-releases depName=keycloak/keycloak-k8s-resources package=keycloak/keycloak-k8s-resources
         - keycloak-26.7.0
+
+  # Metrics enabled (default): keycloak/prometheus overlay wires the operator's
+  # own ServiceMonitor + Keycloak's server/user-event metrics, and the resources
+  # block waits for telemetry-install so the ServiceMonitor CRD exists.
+  - name: metrics enabled adds the keycloak prometheus overlay and waits on telemetry-install
+    values:
+      platform: metal
+      dns:
+        domain: example.local
+      gateway:
+        enabled: true
+      network: *default-network
+      cluster: *default-cluster
+      identity:
+        enabled: true
+    expect:
+      flux:
+        - name: identity
+          resources:
+            - dependsOn:
+                - database-install
+                - telemetry-install
+              components:
+                - keycloak
+                - keycloak/prometheus
+
+  # Metrics disabled: no point wiring a ServiceMonitor for a server with no
+  # metrics endpoint enabled.
+  - name: metrics disabled skips the keycloak prometheus overlay
+    values:
+      platform: metal
+      dns:
+        domain: example.local
+      gateway:
+        enabled: true
+      network: *default-network
+      cluster: *default-cluster
+      identity:
+        enabled: true
+      telemetry:
+        metrics:
+          enabled: false
+    exclude:
+      flux:
+        - name: identity
+          resources:
+            - components:
+                - keycloak/prometheus
+
+  # Observability enabled: Keycloak dashboards land in the Identity folder.
+  - name: observability enabled adds the keycloak grafana dashboards
+    values:
+      platform: metal
+      dns:
+        domain: example.local
+      gateway:
+        enabled: true
+      network: *default-network
+      cluster: *default-cluster
+      identity:
+        enabled: true
+      observability:
+        enabled: true
+    expect:
+      flux:
+        - name: observability
+          resources:
+            - components:
+                - grafana/dashboards/identity
+
+  # Observability disabled (default): no dashboard ConfigMap to place.
+  - name: observability disabled skips the keycloak grafana dashboards
+    values:
+      platform: metal
+      dns:
+        domain: example.local
+      gateway:
+        enabled: true
+      network: *default-network
+      cluster: *default-cluster
+      identity:
+        enabled: true
+    exclude:
+      flux:
+        - name: observability
+          resources:
+            - components:
+                - grafana/dashboards/identity
