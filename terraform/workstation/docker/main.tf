@@ -76,16 +76,18 @@ locals {
   # Corefile forward: localhost mode = gateway:8053, else loadbalancer_start_ip
   dns_forward_target = coalesce(var.dns_forward_target, local.use_localhost_networking ? "${local.gateway}:8053" : local.loadbalancer_start_ip)
 
-  # Corefile hosts: localhost mode uses 127.0.0.1 (host via published ports), else CIDR-derived IPs
+  # Corefile hosts: only rendered in advanced-networking mode (CIDR-derived IPs); localhost
+  # mode answers the whole zone via a wildcard template instead (see Corefile.tpl).
   corefile_host_entries = concat(
-    var.enable_dns ? ["${local.use_localhost_networking ? "127.0.0.1" : local.dns_ip} dns.${local.domain_name}"] : [],
-    [for k in local.registry_keys_sorted : "${local.use_localhost_networking ? "127.0.0.1" : local.registry_ips[k]} ${local.registry_host_prefix[k]}.${local.domain_name}"],
-    var.enable_git ? ["${local.use_localhost_networking ? "127.0.0.1" : local.git_ip} git.${local.domain_name}"] : []
+    var.enable_dns ? ["${local.dns_ip} dns.${local.domain_name}"] : [],
+    [for k in local.registry_keys_sorted : "${local.registry_ips[k]} ${local.registry_host_prefix[k]}.${local.domain_name}"],
+    var.enable_git ? ["${local.git_ip} git.${local.domain_name}"] : []
   )
   corefile_content = var.enable_dns ? templatefile("${path.module}/templates/Corefile.tpl", {
-    context            = local.domain_name
-    host_entries       = local.corefile_host_entries
-    dns_forward_target = local.dns_forward_target
+    context                  = local.domain_name
+    host_entries             = local.corefile_host_entries
+    dns_forward_target       = local.dns_forward_target
+    use_localhost_networking = local.use_localhost_networking
   }) : ""
 }
 
