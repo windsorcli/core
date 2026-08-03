@@ -50,7 +50,7 @@ cases:
               - external-dns/providers/coredns
 
   # Full: Test all options with Docker Desktop (envoy gateway — docker-desktop default).
-  - name: full config creates CoreDNS with localhost external-dns on Docker Desktop
+  - name: full config creates CoreDNS on Docker Desktop
     values:
       platform: metal
       dev: true
@@ -82,7 +82,6 @@ cases:
               - coredns/gateway
               - external-dns
               - external-dns/providers/coredns
-              - external-dns/localhost
 
   # Docker platform + docker-desktop + dev: gateway defaults to envoy (no cilium CNI on docker-desktop),
   # so dns depends on gateway-install (not cni) and gets coredns/gateway instead of coredns/loadbalancer.
@@ -118,7 +117,6 @@ cases:
               - coredns/gateway
               - external-dns
               - external-dns/providers/coredns
-              - external-dns/localhost
     exclude:
       flux:
         - name: cni
