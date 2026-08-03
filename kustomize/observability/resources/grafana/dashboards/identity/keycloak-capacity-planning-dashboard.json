@@ -833,7 +833,11 @@
   "templating": {
     "list": [
       {
-        "current": {},
+        "current": {
+          "selected": true,
+          "text": "system-identity",
+          "value": "system-identity"
+        },
         "datasource": {
           "type": "prometheus",
           "uid": "$${datasource}"

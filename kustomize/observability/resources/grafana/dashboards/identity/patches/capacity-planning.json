@@ -200,6 +200,15 @@
   },
   {
     "op": "replace",
+    "path": "/templating/list/0/current",
+    "value": {
+      "selected": true,
+      "text": "system-identity",
+      "value": "system-identity"
+    }
+  },
+  {
+    "op": "replace",
     "path": "/templating/list/1/datasource",
     "value": {
       "type": "prometheus",
