@@ -1,5 +1,11 @@
 apiVersion: kustomize.config.k8s.io/v1alpha1
 kind: Component
 
+# Hand-written against the Keycloak Operator's built-in Quarkus/Micrometer
+# metrics (--metrics-enabled). samber/awesome-prometheus-alerts does have a
+# Keycloak section, but it targets the third-party aerogear/keycloak-metrics-spi
+# exporter (keycloak_logins_total, keycloak_failed_login_attempts_total, etc.),
+# which this install doesn't run, so those rules don't apply here.
+
 resources:
   - prometheus-rule.yaml

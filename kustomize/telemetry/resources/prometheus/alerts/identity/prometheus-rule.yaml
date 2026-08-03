@@ -20,10 +20,13 @@ spec:
             description: "Keycloak has disappeared from Prometheus service discovery. No user can authenticate against any client relying on it until it's back.\n  VALUE = {{ $value }}\n  LABELS = {{ $labels }}"
 
         # outcome is the standard Micrometer/Quarkus HTTP tag
-        # (SUCCESS/CLIENT_ERROR/SERVER_ERROR/REDIRECTION/INFORMATIONAL),
-        # independent of the job-naming uncertainty above.
+        # (SUCCESS/CLIENT_ERROR/SERVER_ERROR/REDIRECTION/INFORMATIONAL).
+        # http_server_requests_seconds_count is a generic Micrometer metric
+        # name, not Keycloak-specific, so it's scoped by job the same way as
+        # KeycloakAbsent above -- otherwise any other Micrometer/Quarkus
+        # service in the cluster would dilute the ratio.
         - alert: KeycloakHighServerErrorRate
-          expr: sum(rate(http_server_requests_seconds_count{outcome="SERVER_ERROR"}[5m])) / sum(rate(http_server_requests_seconds_count[5m])) > 0.05
+          expr: sum(rate(http_server_requests_seconds_count{job=~".*keycloak.*",outcome="SERVER_ERROR"}[5m])) / sum(rate(http_server_requests_seconds_count{job=~".*keycloak.*"}[5m])) > 0.05
           for: 10m
           labels:
             severity: warning

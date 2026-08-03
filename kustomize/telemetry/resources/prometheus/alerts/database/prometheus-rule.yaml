@@ -7,61 +7,65 @@ spec:
   groups:
     - name: database-supplemental.rules
       rules:
-        # cnpg_collector_last_collection_error always exists once the exporter
-        # is scraped successfully, so absent() here is a safer "the whole
-        # pod/exporter is gone" signal than guessing at up{job=...}'s exact
-        # job-naming convention (the podMonitor's job label isn't something
-        # this facet controls directly).
-        - alert: CloudNativePGAbsent
-          expr: absent(cnpg_collector_last_collection_error)
-          for: 10m
-          labels:
-            severity: critical
-          annotations:
-            summary: CloudNativePG absent from Prometheus service discovery
-            description: "No cnpg_collector_last_collection_error series found. Either every CloudNativePG instance is down, or metrics collection has stopped entirely.\n  VALUE = {{ $value }}\n  LABELS = {{ $labels }}"
-
-        - alert: CloudNativePGCollectorError
-          expr: max by (namespace, pod) (cnpg_collector_last_collection_error{}) == 1
-          for: 10m
+        - alert: LongRunningTransaction
+          expr: cnpg_backends_max_tx_duration_seconds > 300
+          for: 1m
           labels:
             severity: warning
           annotations:
-            summary: CloudNativePG metrics collector reporting an error (pod {{ $labels.pod }})
-            description: "The exporter in pod {{ $labels.pod }} (namespace {{ $labels.namespace }}) has been failing to collect one or more PostgreSQL statistics for 10 minutes -- some panels/alerts may be silently stale until this clears.\n  VALUE = {{ $value }}\n  LABELS = {{ $labels }}"
+            summary: CloudNativePG query running longer than 5 minutes (pod {{ $labels.pod }})
+            description: "Pod {{ $labels.pod }} is taking more than 5 minutes (300 seconds) for a query.\n  VALUE = {{ $value }}\n  LABELS = {{ $labels }}"
 
-        # Combined lag (replication_lag is the primary signal; the write/flush/replay
-        # components add detail but rarely diverge much from it) mirrors the
-        # dashboard's own "Replication Lag" panel. Only fires where a replica
-        # actually exists -- a single-instance (non-HA) cluster has no series here.
-        - alert: CloudNativePGReplicationLagHigh
-          expr: max by (namespace, pod) (cnpg_pg_replication_lag{}) > 30
-          for: 5m
+        - alert: BackendsWaiting
+          expr: cnpg_backends_waiting_total > 300
+          for: 1m
           labels:
             severity: warning
           annotations:
-            summary: CloudNativePG replication lag above 30s (pod {{ $labels.pod }})
-            description: "Replica {{ $labels.pod }} in namespace {{ $labels.namespace }} has been more than 30 seconds behind its primary for 5 minutes. A failover now would lose recent writes.\n  VALUE = {{ $value }}\n  LABELS = {{ $labels }}"
+            summary: CloudNativePG backend waiting on another query (pod {{ $labels.pod }})
+            description: "Pod {{ $labels.pod }} has been waiting for longer than 5 minutes.\n  VALUE = {{ $value }}\n  LABELS = {{ $labels }}"
 
-        # datname="" (the default in the dashboard's own query) scopes this to
-        # cluster-wide deadlocks rather than per-database noise.
-        - alert: CloudNativePGDeadlocksDetected
-          expr: sum by (namespace, pod) (rate(cnpg_pg_stat_database_deadlocks{datname="",namespace=~".*",pod=~".*"}[5m])) > 0
-          for: 5m
+        - alert: PGDatabase
+          expr: cnpg_pg_database_xid_age > 300000000
+          for: 1m
+          labels:
+            severity: warning
+          annotations:
+            summary: CloudNativePG transaction ID age high (pod {{ $labels.pod }})
+            description: "Over 300,000,000 transactions from the frozen XID to the current one on pod {{ $labels.pod }}.\n  VALUE = {{ $value }}\n  LABELS = {{ $labels }}"
+
+        - alert: PGReplication
+          expr: cnpg_pg_replication_lag > 300
+          for: 1m
+          labels:
+            severity: warning
+          annotations:
+            summary: CloudNativePG standby lagging behind primary (pod {{ $labels.pod }})
+            description: "Standby {{ $labels.pod }} is lagging behind by over 300 seconds (5 minutes).\n  VALUE = {{ $value }}\n  LABELS = {{ $labels }}"
+
+        - alert: LastFailedArchiveTime
+          expr: (cnpg_pg_stat_archiver_last_failed_time - cnpg_pg_stat_archiver_last_archived_time) > 1
+          for: 1m
+          labels:
+            severity: warning
+          annotations:
+            summary: CloudNativePG WAL archiving failed (pod {{ $labels.pod }})
+            description: "Archiving failed for pod {{ $labels.pod }}. Will be negative when archiving hasn't failed.\n  VALUE = {{ $value }}\n  LABELS = {{ $labels }}"
+
+        - alert: DatabaseDeadlockConflicts
+          expr: cnpg_pg_stat_database_deadlocks > 10
+          for: 1m
           labels:
             severity: warning
           annotations:
             summary: CloudNativePG deadlocks detected (pod {{ $labels.pod }})
-            description: "PostgreSQL instance {{ $labels.pod }} in namespace {{ $labels.namespace }} has recorded deadlocks in the last 5 minutes -- consistent with lock contention between concurrent transactions.\n  VALUE = {{ $value }}\n  LABELS = {{ $labels }}"
+            description: "There are over 10 deadlock conflicts on pod {{ $labels.pod }}.\n  VALUE = {{ $value }}\n  LABELS = {{ $labels }}"
 
-        # rate(), not increase(): a single archiver retry loop can log several
-        # failures in one scrape interval, so this catches a sustained failure
-        # rate rather than one-off blips gated purely on count.
-        - alert: CloudNativePGWalArchivingFailing
-          expr: max by (namespace, pod) (rate(cnpg_pg_stat_archiver_failed_count{}[5m])) > 0
-          for: 15m
+        - alert: ReplicaFailingReplication
+          expr: cnpg_pg_replication_in_recovery > cnpg_pg_replication_is_wal_receiver_up
+          for: 1m
           labels:
-            severity: critical
+            severity: warning
           annotations:
-            summary: CloudNativePG WAL archiving failing (pod {{ $labels.pod }})
-            description: "PostgreSQL instance {{ $labels.pod }} in namespace {{ $labels.namespace }} has been failing to archive WAL segments for 15 minutes. Point-in-time recovery is degrading the longer this continues.\n  VALUE = {{ $value }}\n  LABELS = {{ $labels }}"
+            summary: CloudNativePG replica failing to replicate (pod {{ $labels.pod }})
+            description: "Replica {{ $labels.pod }} is failing to replicate.\n  VALUE = {{ $value }}\n  LABELS = {{ $labels }}"
