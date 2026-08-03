@@ -53,11 +53,14 @@ cases:
                 keycloak_image: quay.io/keycloak/keycloak:26.7.0@sha256:0f198be292568439d700cdbfb893e69a6009bb43a94a06a945b1d3d506c76b13
                 keycloak_start_optimized: "false"
             - dependsOn:
-                - gateway-resources
+                - gateway-resources-internal
               components:
                 - keycloak/gateway
+                - keycloak/gateway-admin
               substitutions:
                 external_domain: example.local
+                internal_domain: example.local
+                keycloak_gateway_name: internal
             - dependsOn:
                 - identity-install
               components:

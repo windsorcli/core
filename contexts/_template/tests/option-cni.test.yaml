@@ -335,6 +335,8 @@ cases:
   - name: cilium gateway driver makes gateway-resources depend on cni
     values:
       platform: metal
+      dns:
+        private_domain: test
       gateway:
         enabled: true
         driver: cilium
@@ -344,7 +346,8 @@ cases:
       flux:
         - name: gateway
           resources:
-            - dependsOn:
+            - name: internal
+              dependsOn:
                 - cni-install
 
   # network.loadbalancer_ips: derived from CIDR when not explicitly set (workstation layer active).

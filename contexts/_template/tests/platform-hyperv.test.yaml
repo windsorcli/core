@@ -411,10 +411,13 @@ cases:
           install:
             components:
               - envoy
-              - envoy/nodeport
-              - envoy/nodeport/dns
-              - envoy/nodeport/flux-webhook
               - envoy/prometheus
+          resources:
+            - name: internal
+              components:
+                - envoy/nodeport
+                - envoy/nodeport/dns
+                - envoy/nodeport/flux-webhook
 
   # NodePort + gitops.mode=pull: 30292 (Flux webhook) drops out of the
   # baseline forwards and the envoy/nodeport/flux-webhook component drops
@@ -480,9 +483,9 @@ cases:
         - path: compute/docker
 
   # dns.private_domain fallback ladder (surfaced via the gateway cert SAN):
-  # an explicit private_domain is kept (never self-overwritten), dns.domain
-  # is the next fallback, and '<id>.local' is the floor so the cert is valid
-  # with no DNS configured at all.
+  # an explicit private_domain is kept (never self-overwritten), and
+  # dns.domain is the fallback. With no domain at all (ADR-0004), no gateway
+  # is provisioned -- there's no more '<id>.local' floor.
   - name: explicit dns.private_domain is kept for the gateway cert SAN
     values:
       platform: hyperv
@@ -498,8 +501,9 @@ cases:
       flux:
         - name: gateway
           resources:
-            - substitutions:
-                external_domain: hv.example
+            - name: internal
+              substitutions:
+                gateway_domain: hv.example
 
   - name: dns.private_domain falls back to dns.domain
     values:
@@ -516,10 +520,15 @@ cases:
       flux:
         - name: gateway
           resources:
-            - substitutions:
-                external_domain: example.com
+            - name: internal
+              substitutions:
+                gateway_domain: example.com
 
-  - name: dns.private_domain defaults to id.local with no DNS configured
+  # Hyper-V keeps its own private_domain floor ('<id>.local') independent of
+  # ADR-0004's generic "no domain = no gateway" rule -- Hyper-V clusters are
+  # always local/on-prem, so a gateway cert SAN with no DNS configured at all
+  # must still resolve to something valid.
+  - name: no domain configured still provisions the internal gateway via id.local floor
     values:
       platform: hyperv
       gateway:
@@ -532,8 +541,9 @@ cases:
       flux:
         - name: gateway
           resources:
-            - substitutions:
-                external_domain: windsor.local
+            - name: internal
+              substitutions:
+                gateway_domain: windsor.local
 
   # Requires: NodePort mode parses the bench IP from cluster.endpoint; without
   # it bench_ip is empty and the per-node port forwards become unreachable.

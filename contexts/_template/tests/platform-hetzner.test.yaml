@@ -303,11 +303,12 @@ cases:
             parent_zone_name: example.org
       flux:
         - name: gateway
-          install:
-            components:
-              - envoy/loadbalancer/hcloud-lb
-            substitutions:
-              hcloud_location: fsn1
+          resources:
+            - name: external
+              components:
+                - envoy/loadbalancer/hcloud-lb
+              substitutions:
+                hcloud_location: fsn1
         - name: pki
           resources:
             - components:

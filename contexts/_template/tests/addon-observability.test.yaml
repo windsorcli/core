@@ -123,7 +123,7 @@ cases:
               - grafana
               - grafana/prometheus
             substitutions:
-              external_domain: example.local
+              internal_domain: example.local
           resources:
             - timeout: 10m
               interval: 5m
@@ -209,10 +209,10 @@ cases:
               - grafana
               - grafana/prometheus
             substitutions:
-              external_domain: full.example.com
+              internal_domain: full.example.com
           resources:
             - dependsOn:
-                - gateway-resources
+                - gateway-resources-internal
                 - telemetry-resources
               components:
                 - grafana/dashboards/node
@@ -225,7 +225,7 @@ cases:
                 - grafana/gateway
                 - fluentd/outputs/stdout
               substitutions:
-                external_domain: full.example.com
+                internal_domain: full.example.com
                 date_full: "YYYY-MM-DD HH:mm:ss"
                 date_interval_second: "HH:mm:ss"
                 date_interval_minute: "HH:mm"
@@ -318,13 +318,13 @@ cases:
               - kibana
           resources:
             - dependsOn:
-                - gateway-resources
+                - gateway-resources-internal
               timeout: 10m
               interval: 5m
               components:
                 - kibana/gateway
               substitutions:
-                external_domain: elk.example.com
+                internal_domain: elk.example.com
 
   # Addon disabled: Grafana / log-storage outputs are not created, but the FluentD
   # aggregator (part of base telemetry) still runs.
@@ -420,7 +420,7 @@ cases:
             - csi-install
           resources:
             - dependsOn:
-                - gateway-resources
+                - gateway-resources-internal
               components:
                 - grafana/gateway
                 - kibana/gateway

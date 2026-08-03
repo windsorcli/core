@@ -225,11 +225,11 @@ cases:
               - kibana
           resources:
             - dependsOn:
-                - gateway-resources
+                - gateway-resources-internal
               components:
                 - kibana/gateway
               substitutions:
-                external_domain: elk.example.com
+                internal_domain: elk.example.com
 
   # Edge case: None driver disables log aggregation
   - name: none driver disables log aggregation

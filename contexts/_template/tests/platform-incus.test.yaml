@@ -124,6 +124,7 @@ cases:
         loadbalancer_ips:
           start: "10.10.1.10"
           end: "10.10.1.100"
+          internal_start: "10.10.1.11"
       cluster:
         driver: talos
         cni:
@@ -200,16 +201,23 @@ cases:
           install:
             components:
               - envoy
-              - envoy/loadbalancer
-              - envoy/loadbalancer/fixed-ip
               - envoy/prometheus
-            substitutions:
-              loadbalancer_start_ip: "10.10.1.10"
             timeout: 10m
             interval: 5m
           resources:
-            - components:
+            - name: internal
+              components:
+                - envoy/proxy
+                - envoy/loadbalancer
+                - envoy/loadbalancer/fixed-ip
+                - envoy/parameters
+                - envoy/default-404
+                - envoy/default-404/external-dns
+                - lb-address
                 - dns
+                - flux-webhook
+              substitutions:
+                gateway_loadbalancer_ip: "10.10.1.11"
               timeout: 10m
               interval: 5m
         - name: csi
