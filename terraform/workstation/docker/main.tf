@@ -86,6 +86,7 @@ locals {
     context            = local.domain_name
     host_entries       = local.corefile_host_entries
     dns_forward_target = local.dns_forward_target
+    public_domain_name = var.public_domain_name != null ? var.public_domain_name : ""
   }) : ""
 }
 

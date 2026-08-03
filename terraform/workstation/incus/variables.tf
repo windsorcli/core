@@ -18,6 +18,12 @@ variable "domain_name" {
   default     = null
 }
 
+variable "public_domain_name" {
+  description = "Second domain the local Corefile resolves, forwarded to the same dns_forward_target as domain_name. Lets a local cluster rehearse both the external and internal gateway (e.g. public.test alongside domain_name's private.test). Unset skips the second zone block."
+  type        = string
+  default     = null
+}
+
 variable "network_name" {
   description = "Name of the Incus bridge network. When create_network is true, defaults to windsor-{context}. When create_network is false, must be the existing network (e.g. incusbr0 for Colima)."
   type        = string

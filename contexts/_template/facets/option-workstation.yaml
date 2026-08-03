@@ -148,6 +148,7 @@ terraform:
     inputs:
       runtime: 'docker-desktop'
       domain_name: ${dns.private_domain}
+      public_domain_name: ${dns.public_domain ?? ''}
       network_name: windsor-${context}
       network_cidr: ${network.cidr_block}
       dns_forward_target: "${cidrhost(network.cidr_block, 10) + \":30053\"}"
@@ -170,6 +171,7 @@ terraform:
       runtime: >-
         ${workstation.runtime == "docker" ? "linux" : (workstation.runtime ?? "linux")}
       domain_name: ${dns.private_domain}
+      public_domain_name: ${dns.public_domain ?? ''}
       network_name: windsor-${context}
       network_cidr: ${network.cidr_block}
       dns_forward_target: ${network.loadbalancer_ips.start}
@@ -189,6 +191,7 @@ terraform:
     path: workstation/incus
     inputs:
       domain_name: ${dns.private_domain}
+      public_domain_name: ${dns.public_domain ?? ''}
       network_name: "${(workstation.runtime ?? '') == 'colima' ? 'incusbr0' : ''}"
       create_network: "${(workstation.runtime ?? '') != 'colima'}"
       network_cidr: ${network.cidr_block}
