@@ -222,6 +222,8 @@ config:
         - prometheus/alerts/cert-manager
         - prometheus/alerts/flux
         - "${gateway.enabled == true && gateway.driver == 'envoy' ? 'prometheus/alerts/envoy' : ''}"
+        - "${(identity.driver ?? 'keycloak') == 'keycloak' && identity.enabled == true ? 'prometheus/alerts/identity' : ''}"
+        - "${(database.postgres.driver ?? 'cloudnativepg') == 'cloudnativepg' && database.postgres.enabled == true ? 'prometheus/alerts/database' : ''}"
 
   # No logs pipeline → nothing to aggregate.
   - name: telemetry

@@ -1,0 +1,35 @@
+# Enables Keycloak's own metrics (server + user event counters, e.g.
+# keycloak_user_events_total{event="login"|"login_error"}), histogram
+# variants for cache and HTTP request-duration metrics (the troubleshooting
+# dashboard's latency/cache panels need these; base counters like
+# agroal_active_count and jvm_memory_used_bytes are on unconditionally once
+# metrics-enabled is set), and the operator's native ServiceMonitor
+# generation. additionalOptions is a JSON6902 append, not a strategic-merge
+# patch: the base CR already sets db-url-properties there, and Kustomize's
+# strategic merge has no merge key for this CRD's list, so a second entry
+# would silently replace the first instead of appending (see the realm
+# client patches for the same fix).
+- op: add
+  path: /spec/additionalOptions/-
+  value:
+    name: metrics-enabled
+    value: "true"
+- op: add
+  path: /spec/additionalOptions/-
+  value:
+    name: event-metrics-user-enabled
+    value: "true"
+- op: add
+  path: /spec/additionalOptions/-
+  value:
+    name: cache-metrics-histograms-enabled
+    value: "true"
+- op: add
+  path: /spec/additionalOptions/-
+  value:
+    name: http-metrics-histograms-enabled
+    value: "true"
+- op: add
+  path: /spec/serviceMonitor
+  value:
+    enabled: true

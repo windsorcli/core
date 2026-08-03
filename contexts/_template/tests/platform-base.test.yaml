@@ -767,3 +767,72 @@ cases:
             components:
               - fluentbit
 
+
+  # identity.enabled adds prometheus/alerts/identity to the shared alert
+  # component list (the same central-list convention envoy's alert uses).
+  - name: identity enabled adds the identity alert component
+    values:
+      platform: metal
+      dns:
+        domain: example.local
+      gateway:
+        enabled: true
+      network: *default-network
+      cluster: *default-cluster
+      identity:
+        enabled: true
+    expect:
+      flux:
+        - name: telemetry
+          resources:
+            - components:
+                - prometheus/alerts/identity
+
+  # identity disabled (default): no Keycloak, so no identity alert rules.
+  - name: identity disabled skips the identity alert component
+    values:
+      platform: metal
+      gateway:
+        enabled: false
+      network: *default-network
+      cluster: *default-cluster
+    exclude:
+      flux:
+        - name: telemetry
+          resources:
+            - components:
+                - prometheus/alerts/identity
+
+  # database.postgres.enabled (cloudnativepg driver, the default) adds
+  # prometheus/alerts/database to the shared alert component list.
+  - name: cloudnativepg database enabled adds the database alert component
+    values:
+      platform: metal
+      gateway:
+        enabled: false
+      network: *default-network
+      cluster: *default-cluster
+      database:
+        postgres:
+          enabled: true
+    expect:
+      flux:
+        - name: telemetry
+          resources:
+            - components:
+                - prometheus/alerts/database
+
+  # database disabled (default): no CloudNativePG, so no database alert rules.
+  - name: database disabled skips the database alert component
+    values:
+      platform: metal
+      gateway:
+        enabled: false
+      network: *default-network
+      cluster: *default-cluster
+    exclude:
+      flux:
+        - name: telemetry
+          resources:
+            - components:
+                - prometheus/alerts/database

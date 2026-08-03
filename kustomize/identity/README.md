@@ -299,6 +299,7 @@ client re-imports the realm.
 | `keycloak/gateway` | `gateway.enabled == true` | HTTPRoute publishing `keycloak.${external_domain}` through the shared external Gateway to the operator-managed `keycloak-service`. |
 | `keycloak/cilium` | `gateway.driver == 'cilium'` | CiliumNetworkPolicy restricting Keycloak ingress to the gateway proxy. Cilium-enforced, so gated on the Cilium gateway driver. |
 | `keycloak/admin` | `identity.keycloak.admin.password` set, or `dev == true` | Points the `Keycloak` CR at the `keycloak-bootstrap-admin` secret via `spec.bootstrapAdmin`, instead of the operator's auto-generated temporary admin. The password is the supplied one, or in dev a known default shared with the SSO admin user. Honored only at initial cluster creation. |
+| `keycloak/prometheus` | `telemetry.metrics.enabled: true` | JSON6902 patch enabling Keycloak's own server and user-event metrics (`metrics-enabled`, `event-metrics-user-enabled`) and the operator's native `spec.serviceMonitor`, so Prometheus scrapes the management-interface `/metrics` endpoint with no hand-rolled ServiceMonitor needed. Also ships a hand-rolled `PodMonitor` for the `keycloak-db` CloudNativePG cluster's own postgres-exporter metrics -- CNPG's `Cluster.spec.monitoring.enablePodMonitor` convenience field is deprecated upstream, so this cluster is scraped the same way fluent-bit's ServiceMonitor is hand-rolled elsewhere. Without it, the CloudNativePG dashboard's namespace/cluster template variables (which query `cnpg_collector_up`) never discover this cluster. |
 
 ## Dependencies
 
@@ -306,6 +307,7 @@ client re-imports the realm.
 |---|---|---|
 | `database` | `identity.driver == 'keycloak'` | Keycloak stores realm data in PostgreSQL; the CloudNativePG operator (database addon) must exist before its `Cluster` CR applies. |
 | `gateway-resources` | `gateway.enabled == true` | The shared Gateway must exist before the Keycloak HTTPRoute attaches to it. |
+| `telemetry-install` | `telemetry.metrics.enabled: true` | The Keycloak CR's `keycloak/prometheus` overlay enables the operator's native ServiceMonitor generation, which needs the ServiceMonitor CRD (installed alongside kube-prometheus-stack) to already exist. |
 
 <!-- END_KUSTOMIZE_DOCS -->
 

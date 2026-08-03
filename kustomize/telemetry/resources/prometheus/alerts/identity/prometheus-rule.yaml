@@ -1,0 +1,51 @@
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: identity-alerts
+  namespace: system-telemetry
+spec:
+  groups:
+    - name: identity-supplemental.rules
+      rules:
+        # Job name is operator-assigned (the Keycloak CR's generated
+        # ServiceMonitor, not something this facet names directly), so this
+        # matches on substring rather than an assumed exact value.
+        - alert: KeycloakAbsent
+          expr: absent(up{job=~".*keycloak.*"})
+          for: 10m
+          labels:
+            severity: critical
+          annotations:
+            summary: Keycloak absent (job {{ $labels.job }})
+            description: "Keycloak has disappeared from Prometheus service discovery. No user can authenticate against any client relying on it until it's back.\n  VALUE = {{ $value }}\n  LABELS = {{ $labels }}"
+
+        # outcome is the standard Micrometer/Quarkus HTTP tag
+        # (SUCCESS/CLIENT_ERROR/SERVER_ERROR/REDIRECTION/INFORMATIONAL).
+        # http_server_requests_seconds_count is a generic Micrometer metric
+        # name, not Keycloak-specific, so it's scoped by job the same way as
+        # KeycloakAbsent above -- otherwise any other Micrometer/Quarkus
+        # service in the cluster would dilute the ratio.
+        - alert: KeycloakHighServerErrorRate
+          expr: sum(rate(http_server_requests_seconds_count{job=~".*keycloak.*",outcome="SERVER_ERROR"}[5m])) / sum(rate(http_server_requests_seconds_count{job=~".*keycloak.*"}[5m])) > 0.05
+          for: 10m
+          labels:
+            severity: warning
+          annotations:
+            summary: Keycloak server error rate above 5%
+            description: "More than 5% of Keycloak's HTTP responses have been 5xx over the last 5 minutes.\n  VALUE = {{ $value }}\n  LABELS = {{ $labels }}"
+
+        # keycloak_user_events_total{event="login"|"login_error"} needs
+        # event-metrics-user-enabled (set alongside metrics-enabled). No
+        # aggregation beyond realm, so a spike in one realm doesn't get
+        # diluted by quiet realms elsewhere.
+        - alert: KeycloakLoginFailureRateHigh
+          expr: |
+            sum by (realm) (rate(keycloak_user_events_total{event="login_error"}[15m]))
+            /
+            sum by (realm) (rate(keycloak_user_events_total{event=~"login|login_error"}[15m])) > 0.3
+          for: 15m
+          labels:
+            severity: warning
+          annotations:
+            summary: Keycloak login failure rate above 30% (realm {{ $labels.realm }})
+            description: "More than 30% of login attempts in realm {{ $labels.realm }} have failed over the last 15 minutes -- consistent with a credential-stuffing attempt, a misconfigured client, or an upstream identity provider outage.\n  VALUE = {{ $value }}\n  LABELS = {{ $labels }}"
