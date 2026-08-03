@@ -46,8 +46,8 @@ crds:
 # gateway.driver selects 'envoy' or 'cilium'. Downstream facets dependsOn the
 # canonical names gateway-install / gateway-resources regardless of driver.
 #
-# Two gateways, each provisioned from its own domain (ADR-0004): 'external'
-# when dns.public_domain is set, 'internal' when dns.private_domain is set.
+# Two gateways, each provisioned from its own domain: 'external' when
+# dns.public_domain is set, 'internal' when dns.private_domain is set.
 # Neither, one, or both may exist on a given cluster. A route's audience is
 # fixed by which gateway its component set attaches it to — this replaces the
 # old gateway.access global flip.
@@ -56,9 +56,9 @@ crds:
 # lives in the resources tier, not install — install is a single Kustomization
 # per system (FluxSystem.Install), so it can't carry two independently-
 # substituted copies of the same file the way resources' named variants can.
-# EnvoyProxy is a CR (ADR-0003 puts CRs in resources, not install) configuring
-# it there lets both gateways share one parameterized ${gateway_name} file set
-# instead of a duplicated "-internal" tree.
+# EnvoyProxy is a custom resource, not a controller install artifact, so
+# configuring it in resources lets both gateways share one parameterized
+# ${gateway_name} file set instead of a duplicated "-internal" tree.
 flux:
 
   # Envoy path: install the controller + prometheus only. Per-gateway

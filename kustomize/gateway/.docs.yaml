@@ -8,55 +8,39 @@ facets:
   - gateway-resources
 
 substitutions:
+  gateway_name:
+    required_when: "`gateway-resources-external` or `gateway-resources-internal` is composed"
+    description: "`external` or `internal` -- the Gateway/EnvoyProxy/Certificate name this resources variant renders. Every resource and patch in the resources tier is parameterized by this one substitution, so both gateways share the same files."
   gateway_class_name:
     required_when: always
     description: "Name of the `GatewayClass` the cluster Gateway references. Sourced from `gateway.driver` (`envoy` or `cilium`)."
+  gateway_domain:
+    required_when: "`gateway-resources-external` or `gateway-resources-internal` is composed"
+    description: "Cert SAN and DNS target domain for this gateway. `dns.public_domain` for external, `dns.private_domain` for internal -- no fallback ladder, since each variant only composes when its own domain is set."
+  gateway_cert_issuer:
+    required_when: "`gateway-resources-external` or `gateway-resources-internal` is composed"
+    description: "TLS `ClusterIssuer` name. External: the public issuer (`public-acme` once `dns.public_domain` is set, guaranteed ACME-eligible). Internal: always `private` -- a VPC-only/local zone can't validate ACME DNS-01."
   gateway_dns_target:
-    required_when: "`dns` is enabled and `gateway-resources/dns` is composed"
-    description: "External hostname/IP that external-dns publishes as the gateway target. Resolves to `network.loadbalancer_ips.start` when `lb_effective.enabled`, empty otherwise."
-  external_domain:
-    required_when: "`gateway-resources` is composed"
-    description: "Cert SAN domain. `dns.private_domain` when `gateway.access: private` (and the private domain is set); otherwise `dns.public_domain` if set, falling back to `dns.private_domain`."
-  loadbalancer_start_ip:
-    required_when: "`lb-address` or `cilium` (resources) is composed"
-    description: "Fixed IP the Gateway advertises. Used in the cilium variant's `lbipam.cilium.io/ips` annotation and in the envoy variant's `spec.addresses` patch."
+    required_when: "`dns` is enabled and gateway-resources/dns is composed"
+    description: "Hostname/IP that external-dns publishes as this gateway's target. Resolves to `network.loadbalancer_ips.start` (external) or `.internal_start` (internal) when `lb_effective.enabled`, empty otherwise."
+  gateway_loadbalancer_ip:
+    required_when: "`lb-address` or `cilium/fixed-ip` is composed"
+    description: "Fixed IP this gateway advertises. Used in the cilium variant's `lbipam.cilium.io/ips` annotation and in the envoy variant's `spec.addresses` / `loadBalancerIP` patches. External: `network.loadbalancer_ips.start`. Internal: `.internal_start`, only set when the operator explicitly configures it -- otherwise the driver auto-assigns."
+  gateway_lb_scheme:
+    required_when: "AWS platform, `envoy/loadbalancer/aws-nlb` is composed"
+    description: "`internet-facing` for external, `internal` for internal -- the internal gateway is never internet-facing, so this needs no ternary."
   gateway_redirect_port:
-    required_when: "`gateway-resources` is composed"
-    description: "HTTPS port the `https-redirect` route's 301 targets. `443` for cloud/LB; `8443` on docker-desktop (its NodePort host-forward)."
+    required_when: "`gateway-resources-external` or `gateway-resources-internal` is composed"
+    description: "HTTPS port the `https-redirect` route's 301 targets. `443` for cloud/LB; docker-desktop's NodePort host-forward otherwise (`8443` external, `8444` internal)."
+  gateway_nodeport_http / gateway_nodeport_https:
+    required_when: "`lb_effective.mode == 'nodeport'`"
+    description: "NodePort numbers for this gateway's data-plane Service. External: 30080/30443. Internal: 30081/30444 -- distinct so both can coexist on the same node set."
 
 components:
   envoy:
     facet: gateway-install
     enable_when: "`gateway.driver == 'envoy'`"
-    description: "Helm release of `envoy-gateway` in `system-gateway`. Installs the Envoy Gateway operator (chart CRD install is skipped) and the self-contained `external` `EnvoyProxy` resource that owns the per-gateway data-plane config (digest-pinned proxy image plus the Service patches layered on by the loadbalancer/nodeport components). The EnvoyGateway config keeps no default proxy patch, so the EnvoyProxy each Gateway references via `parametersRef` is authoritative. The Envoy Gateway and shared Gateway API CRDs are vendored under `kustomize/crds/` and applied ahead of the controller via the facet `crds:` section."
-  envoy/loadbalancer:
-    facet: gateway-install
-    enable_when: "envoy driver AND `lb_effective.mode == 'loadbalancer'`"
-    description: "Patches the `external` `EnvoyProxy` so the data-plane Envoy Service is `type: LoadBalancer`, with no fixed IP -- correct for cloud LB controllers, which auto-assign. Cloud-specific annotation patches (aws-nlb / azure-lb-internal) and the local fixed-ip component merge on top."
-  envoy/loadbalancer/fixed-ip:
-    facet: gateway-install
-    enable_when: "envoy driver AND `lb_effective.mode == 'loadbalancer'` AND `lb_effective.enabled: true` (a local, fixed-pool LB controller -- MetalLB/kube-vip -- is actually running)"
-    description: "Requests a specific address from the local LB pool via `loadBalancerIP`. Must not apply on cloud platforms, where the LB controller auto-assigns and this field would be meaningless or rejected (issue #2259)."
-  envoy/loadbalancer/aws-nlb:
-    facet: gateway-install
-    enable_when: "envoy driver AND platform is AWS AND `lb_effective.mode == 'loadbalancer'`"
-    description: "Adds NLB annotations onto the Envoy data-plane Service so the AWS Load Balancer Controller provisions an NLB with target-type=ip. Traffic reaches Envoy pods directly, source IP preserved."
-  envoy/loadbalancer/azure-lb-internal:
-    facet: gateway-install
-    enable_when: "envoy driver AND platform is Azure AND `gateway.access == 'private'`"
-    description: "Adds Azure ILB annotations so the Envoy data-plane Service provisions an internal load balancer (subnet-bound, no public IP)."
-  envoy/nodeport:
-    facet: gateway-install
-    enable_when: "envoy driver AND `lb_effective.mode == 'nodeport'`"
-    description: "Patches the `external` `EnvoyProxy` so the data-plane Service is `type: NodePort`. Used on local clusters where no LoadBalancer provider exists."
-  envoy/nodeport/dns:
-    facet: gateway-install
-    enable_when: "envoy/nodeport AND `dns.private.enabled: true` (default in `dev`)"
-    description: "Opens an additional NodePort for the cluster's private DNS resolver (UDP/TCP 53). Lets a workstation point at the host's IP for `*.<dns.private_domain>` resolution."
-  envoy/nodeport/flux-webhook:
-    facet: gateway-install
-    enable_when: "envoy/nodeport AND `gitops.mode == 'push'`"
-    description: "Opens an additional NodePort for the Flux notification-controller webhook (port 9292). Lets the GitOps push pipeline reach in-cluster receivers."
+    description: "Helm release of `envoy-gateway` in `system-gateway`. Installs the Envoy Gateway operator only (chart CRD install is skipped). Per-gateway data-plane config (`EnvoyProxy`, LB/nodeport annotations) lives in the resources tier, not here -- it's a custom resource the controller reconciles, and only the resources tier supports the external/internal named variants needed to configure two EnvoyProxy objects independently."
   envoy/prometheus:
     facet: gateway-install
     enable_when: "envoy driver"
@@ -65,45 +49,85 @@ components:
     facet: gateway-install
     enable_when: "`gateway.driver == 'cilium'`"
     description: "Installs the Gateway API CRDs and a `GatewayClass` referencing the `cilium` controller. The Cilium HelmRelease itself is owned by the `cni` add-on (see option-cni's `cilium/gateway` component). Operator references this as `components: [cilium]` under `gateway-install`."
+  envoy/proxy:
+    facet: gateway-resources
+    enable_when: "envoy driver"
+    description: "The self-contained `EnvoyProxy` resource (`${gateway_name}`) referenced from the Gateway via `spec.infrastructure.parametersRef` (see `envoy/parameters`). Carries the digest-pinned proxy image (Kyverno requires pinned images); the loadbalancer/nodeport components layer the envoyService Service config in. The EnvoyGateway helm config keeps no default proxy patch, so this resource is authoritative."
+  envoy/loadbalancer:
+    facet: gateway-resources
+    enable_when: "envoy driver AND `lb_effective.mode == 'loadbalancer'`"
+    description: "Patches this gateway's `EnvoyProxy` so the data-plane Service is `type: LoadBalancer`, with no fixed IP -- correct for cloud LB controllers, which auto-assign. Cloud-specific annotation patches (aws-nlb / azure) and the fixed-ip component merge on top."
+  envoy/loadbalancer/fixed-ip:
+    facet: gateway-resources
+    enable_when: "envoy driver AND `lb_effective.mode == 'loadbalancer'` AND this gateway's `loadbalancer_ips` field is set (a local, fixed-pool LB controller -- MetalLB/kube-vip -- is actually running)"
+    description: "Requests a specific address from the local LB pool via `loadBalancerIP`. Must not apply on cloud platforms, where the LB controller auto-assigns and this field would be meaningless or rejected (issue #2259)."
+  envoy/loadbalancer/aws-nlb:
+    facet: gateway-resources
+    enable_when: "envoy driver AND platform is AWS AND `lb_effective.mode == 'loadbalancer'`"
+    description: "Adds NLB annotations onto the Envoy data-plane Service so the AWS Load Balancer Controller provisions an NLB with target-type=ip. Traffic reaches Envoy pods directly, source IP preserved. Scheme comes from `gateway_lb_scheme`."
+  envoy/loadbalancer/azure:
+    facet: gateway-resources
+    enable_when: "envoy driver AND platform is Azure AND the internal gateway"
+    description: "Adds Azure ILB annotations so the Envoy data-plane Service provisions an internal load balancer (subnet-bound, no public IP). Always applied for internal -- AKS's CCM gives the external gateway a public LB by default, no annotation needed there."
+  envoy/loadbalancer/hcloud-lb:
+    facet: gateway-resources
+    enable_when: "envoy driver AND platform is Hetzner"
+    description: "Hetzner-specific annotations so hcloud cloud-controller-manager provisions a Hetzner Cloud Load Balancer for the type=LoadBalancer Service."
+  envoy/nodeport:
+    facet: gateway-resources
+    enable_when: "envoy driver AND `lb_effective.mode == 'nodeport'`"
+    description: "Patches this gateway's `EnvoyProxy` so the data-plane Service is `type: NodePort` (external: 30080/30443, internal: 30081/30444). Used on local clusters where no LoadBalancer provider exists."
+  envoy/nodeport/dns:
+    facet: gateway-resources
+    enable_when: "envoy/nodeport AND internal gateway"
+    description: "Opens an additional NodePort for the cluster's private DNS resolver (UDP/TCP 53). Lets a workstation point at the host's IP for `*.<dns.private_domain>` resolution. Internal-only, since DNS is a utility surface."
+  envoy/nodeport/flux-webhook:
+    facet: gateway-resources
+    enable_when: "envoy/nodeport AND internal gateway AND `gitops.mode == 'push'`"
+    description: "Opens an additional NodePort for the Flux notification-controller webhook (port 9292). Internal-only, since the webhook receiver is a utility surface."
   resources/cilium:
     facet: gateway-resources
-    enable_when: "`gateway.driver == 'cilium'`"
-    description: "Patches the `external` Gateway with `lbipam.cilium.io/ips: ${loadbalancer_start_ip}` and the LBIPAM sharing annotations so multiple Gateways can share a single IP. Operator references this as `components: [cilium]` under `gateway-resources`."
+    enable_when: "`gateway.driver == 'cilium'` AND no cloud LB controller owns the IP"
+    description: "Patches this Gateway with the `lbipam.cilium.io/sharing-key: ${gateway_name}` and sharing-cross-namespace annotations. Operator references this as `components: [cilium]` under `gateway-resources`."
+  cilium/fixed-ip:
+    facet: gateway-resources
+    enable_when: "cilium driver AND this gateway's `loadbalancer_ips` field is explicitly set"
+    description: "Adds `lbipam.cilium.io/ips: ${gateway_loadbalancer_ip}` to pin a specific address. Omitted otherwise, letting Cilium auto-assign from the pool."
   envoy/parameters:
     facet: gateway-resources
     enable_when: "envoy driver"
-    description: "Patches the `external` Gateway's `spec.infrastructure.parametersRef` to point at the `external` `EnvoyProxy`, so the data-plane Service is configured per gateway rather than through the controller-global EnvoyGateway default. Cilium gateways don't use the `EnvoyProxy` resource."
+    description: "Patches this Gateway's `spec.infrastructure.parametersRef` to point at its own `EnvoyProxy` (`${gateway_name}`), so the data-plane Service is configured per gateway rather than through the controller-global EnvoyGateway default. Cilium gateways don't use the `EnvoyProxy` resource."
   envoy/default-404:
     facet: gateway-resources
     enable_when: "envoy driver"
-    description: "Catch-all `HTTPRouteFilter` returning a 404 directResponse for any request that doesn't match a real app's HTTPRoute. Cilium clusters don't ship this (the Envoy-specific CRD isn't available there)."
+    description: "Catch-all `HTTPRoute` (`default-404-${gateway_name}`) returning a 404 directResponse for any request that doesn't match a real app's HTTPRoute, via a shared `HTTPRouteFilter` referenced by both gateways. Cilium clusters don't ship this (the Envoy-specific CRD isn't available there)."
   envoy/default-404/external-dns:
     facet: gateway-resources
-    enable_when: "envoy driver AND (public OR private gateway-managed DNS zone exists)"
+    enable_when: "envoy driver AND this gateway's own DNS zone exists"
     description: "Adds the `external-dns.alpha.kubernetes.io/hostname` annotation to the 404 catch-all route so external-dns publishes the gateway hostname for the bare domain (not just per-app HTTPRoutes)."
   dns:
     facet: gateway-resources
-    enable_when: "envoy driver AND `dns.private.enabled: true` (default in `dev`)"
-    description: "Patches the `external` Gateway with `external-dns.alpha.kubernetes.io/target: ${gateway_dns_target}` and adds UDPRoute / TCPRoute listeners on port 53 for in-cluster DNS service exposure."
+    enable_when: "internal gateway only"
+    description: "Patches the internal Gateway with `external-dns.alpha.kubernetes.io/target: ${gateway_dns_target}` and adds UDPRoute / TCPRoute listeners on port 53 for in-cluster DNS service exposure. Always internal -- CoreDNS is a utility surface, never internet-facing."
   lb-address:
     facet: gateway-resources
-    enable_when: "`lb_effective.enabled: true`"
-    description: "Patches the `external` Gateway's `spec.addresses` to pin a fixed IPAddress (`${loadbalancer_start_ip}`). Skipped when no LB is enabled (NodePort mode picks node IP at apply time)."
+    enable_when: "`lb_effective.enabled: true` (and, for internal, its `loadbalancer_ips` field is explicitly set)"
+    description: "Patches this Gateway's `spec.addresses` to pin a fixed IPAddress (`${gateway_loadbalancer_ip}`). Skipped when no LB is enabled (NodePort mode picks node IP at apply time)."
   flux-webhook:
     facet: gateway-resources
-    enable_when: "`gitops.mode == 'push'`"
-    description: "Adds an HTTP listener on port 9292 to the `external` Gateway for the Flux notification-controller webhook. Paired with `envoy/nodeport/flux-webhook` on nodeport-mode clusters."
+    enable_when: "internal gateway AND `gitops.mode == 'push'`"
+    description: "Adds an HTTP listener on port 9292 to the internal Gateway for the Flux notification-controller webhook. Paired with `envoy/nodeport/flux-webhook` on nodeport-mode clusters. Always internal -- the webhook receiver is a utility surface."
 
 dependencies:
   pki-install:
     required_when: "always"
-    reason: "gateway-install needs cert-manager CRDs reconciling so the `Certificate` for the external Gateway can be issued before the Gateway is admitted."
+    reason: "gateway-resources needs cert-manager CRDs reconciling so each Gateway's `Certificate` can be issued before the Gateway is admitted."
   lb-install:
     required_when: "`lb_effective.controller_required: true` (e.g., metallb-driven clusters; AWS via aws-lb-controller)"
     reason: "The LB controller must be live so the data-plane Service can get an external IP."
   dns:
     required_when: "`dns.enabled: true`"
-    reason: "external-dns must be reconciling so the gateway hostname is published when the Gateway comes up."
+    reason: "external-dns must be reconciling so each gateway's hostname is published when it comes up."
   cni:
     required_when: "`gateway.driver == 'cilium'` (declared by option-gateway as a cross-stack merge into option-cni)"
     reason: "Cilium's Gateway controller needs the Gateway API CRDs from gateway-install before its operator starts watching."

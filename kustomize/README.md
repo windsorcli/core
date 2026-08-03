@@ -22,7 +22,7 @@ composition. Links from there land here.
 | [database](database/) | CloudNativePG operator for in-cluster PostgreSQL. |
 | [demo](demo/) | Sample applications (PostgreSQL cluster, static website, Istio bookinfo) for blueprint validation. |
 | [dns](dns/) | external-dns for hostname publication and (opt-in) coredns for in-cluster private DNS. |
-| [gateway](gateway/) | Gateway API implementation (Envoy Gateway or Cilium) and the cluster's external Gateway. |
+| [gateway](gateway/) | Gateway API implementation (Envoy Gateway or Cilium) and the cluster's external and internal Gateways. |
 | [identity](identity/) | Cluster identity provider (SSO) — hosted Keycloak or an external OIDC issuer. |
 | [lb](lb/) | LoadBalancer Service implementation (AWS LB Controller, MetalLB, or kube-vip) for non-managed clusters. |
 | [object-store](object-store/) | MinIO Operator for in-cluster S3-compatible object storage. |

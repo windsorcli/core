@@ -684,7 +684,7 @@ cases:
                 gateway_cert_issuer: private
                 gateway_domain: cluster.local
 
-  # No domain set at all (ADR-0004): neither gateway is provisioned. This
+  # No domain set at all: neither gateway is provisioned. This
   # replaced the old single-gateway "<id>.local" selfsigned floor — a
   # cluster with no dns.public_domain and no dns.private_domain now has no
   # ingress, cert, or LB of any kind.

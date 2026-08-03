@@ -13,8 +13,9 @@ CRs that depend on it. `install` installs cert-manager (trust-manager
 is added when the private-CA addon is enabled), plus optional patches
 that enable Prometheus scraping, Azure workload identity, and
 single-node leader-election tweaks. `resources` applies one or more
-ClusterIssuers depending on the cluster's DNS and gateway-access
-posture, and implicitly depends on `install` (compiled name:
+ClusterIssuers depending on which of `dns.public_domain` /
+`dns.private_domain` are set (both can be, one per gateway), and
+implicitly depends on `install` (compiled name:
 `pki-install` / `pki-resources`); the ACME and private-CA variants
 also depend on `policy-resources` for the private-CA inject policy.
 
@@ -226,7 +227,7 @@ converge.
 
 | Component | Enable when | Effect |
 |---|---|---|
-| `private-issuer/selfsigned` | `gateway.access == 'private'` AND `dns.private_domain` is set | ClusterIssuer `private-selfsigned` with `selfSigned: {}`. Used for the private gateway certificate when no private CA is configured; browsers warn until the CA cert is added to a trust store. |
+| `private-issuer/selfsigned` | `dns.private_domain` is set | ClusterIssuer `private-selfsigned` with `selfSigned: {}`. Used for the internal gateway's certificate when no private CA is configured; browsers warn until the CA cert is added to a trust store. |
 | `private-issuer/ca` | `pki.enabled: true` | Full private CA: the CA cert/key (generated or BYO, from `terraform_output('pki', ...)`) populate the `private-ca-keypair` Secret cert-manager's `ca`-type `ClusterIssuer` (`private`) signs against — the key via the facet's `secrets:` block (never rendered in the Kustomization spec), the cert via a plain substitution since it isn't sensitive — plus the `private-ca-cert` ConfigMap trust-manager's `Bundle` distributes to workload namespaces, and a Kyverno mutation policy that injects the trust bundle into workload Pods. |
 | `public-issuer/selfsigned` | `dns.public_domain` is unset (default) | ClusterIssuer `public-selfsigned`. Bootstraps a working gateway cert immediately; flip to `acme/*` by setting `dns.public_domain` and cert-manager reissues into the same Secret. |
 | `public-issuer/acme/route53` | platform is AWS AND `dns.public_domain` is set | ClusterIssuer `public-acme` using the ACME DNS-01 solver against Route53. Auth is via the Pod Identity binding provisioned by the cluster Terraform module. |
