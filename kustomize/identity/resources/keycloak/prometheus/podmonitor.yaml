@@ -1,0 +1,16 @@
+---
+# CloudNativePG's own Cluster.spec.monitoring.enablePodMonitor is deprecated
+# (being removed upstream) in favor of hand-rolling this directly, so
+# keycloak-db's postgres-exporter metrics get scraped the same way
+# fluent-bit's ServiceMonitor is hand-rolled elsewhere in this repo.
+apiVersion: monitoring.coreos.com/v1
+kind: PodMonitor
+metadata:
+  name: keycloak-db
+  namespace: system-identity
+spec:
+  selector:
+    matchLabels:
+      cnpg.io/cluster: keycloak-db
+  podMetricsEndpoints:
+    - port: metrics
