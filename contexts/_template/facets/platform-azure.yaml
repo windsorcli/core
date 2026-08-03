@@ -30,19 +30,21 @@ config:
     value:
       metrics_server_enabled: false
 
-  # issuer_component selected in order (last match wins): selfsigned floor → ACME
-  # (azuredns) on public domain → private selfsigned on private access.
+  # public_issuer_component: selfsigned floor → ACME (azuredns) once a public
+  # domain is set. private_issuer_component: independent — set whenever a
+  # private domain is set, since the external and internal gateways can now
+  # both exist at once and each needs its own issuer.
   - name: pki_effective
     value:
-      issuer_component: public-issuer/selfsigned
+      public_issuer_component: public-issuer/selfsigned
   - name: pki_effective
     when: (dns.public_domain ?? '') != ''
     value:
-      issuer_component: public-issuer/acme/azuredns
+      public_issuer_component: public-issuer/acme/azuredns
   - name: pki_effective
-    when: gateway.access == 'private' && (dns.private_domain ?? '') != ''
+    when: (dns.private_domain ?? '') != ''
     value:
-      issuer_component: private-issuer/selfsigned
+      private_issuer_component: private-issuer/selfsigned
 
 # =============================================================================
 # Terraform — AzureRM state backend, VNet, AKS, optional public DNS zone
@@ -93,7 +95,17 @@ terraform:
       availability_zones: "${topology == 'ha' ? ['1','2','3'] : null}"
       create_cert_manager_identity: "${(dns.public_domain ?? '') != ''}"
       cert_manager_dns_zone_ids: "${(dns.public_domain ?? '') != '' && (terraform_output('dns-zone', 'zone_id') ?? '') != '' ? [terraform_output('dns-zone', 'zone_id')] : []}"
-      external_dns_dns_zone_ids: "${gateway.access == 'private' && (dns.private_domain ?? '') != '' && (terraform_output('network', 'private_zone_id') ?? '') != '' ? [terraform_output('network', 'private_zone_id')] : ((dns.public_domain ?? '') != '' && (terraform_output('dns-zone', 'zone_id') ?? '') != '' ? [terraform_output('dns-zone', 'zone_id')] : [])}"
+      # Union of both zones' role assignments — external and internal can both
+      # be provisioned at once now, so this covers all four combinations
+      # rather than either/or (list `+` isn't supported by the expression
+      # evaluator, hence the nested ternary instead of concatenation).
+      external_dns_dns_zone_ids: >-
+        ${(dns.private_domain ?? '') != '' && (terraform_output('network', 'private_zone_id') ?? '') != '' && (dns.public_domain ?? '') != '' && (terraform_output('dns-zone', 'zone_id') ?? '') != '' ?
+        [terraform_output('network', 'private_zone_id'), terraform_output('dns-zone', 'zone_id')] :
+        ((dns.private_domain ?? '') != '' && (terraform_output('network', 'private_zone_id') ?? '') != '' ?
+        [terraform_output('network', 'private_zone_id')] :
+        ((dns.public_domain ?? '') != '' && (terraform_output('dns-zone', 'zone_id') ?? '') != '' ?
+        [terraform_output('dns-zone', 'zone_id')] : []))}
       # Portable user pools alongside the inline default (system) pool; defaults
       # to one general pool. Declaring cluster.pools replaces this.
       pools: >-
@@ -137,7 +149,8 @@ flux:
   - name: pki
     resources:
       - components:
-          - "${pki_effective.issuer_component}"
+          - "${pki_effective.public_issuer_component}"
+          - "${pki_effective.private_issuer_component ?? ''}"
         timeout: 5m
         interval: 5m
         substitutions:
@@ -152,17 +165,18 @@ flux:
           cert_manager_client_id: "${terraform_output('cluster', 'cert_manager_client_id') ?? ''}"
           cert_manager_tenant_id: "${terraform_output('cluster', 'tenant_id') ?? ''}"
 
-  # Merges into option-gateway's install tier. AKS's CCM gives any Service:
-  # LoadBalancer a public LB by default; the only customization is flipping it
-  # internal for private clusters by conditionally including azure-lb-internal
-  # (the annotation is a bool token that wouldn't survive substitution, so
-  # component inclusion is the toggle). Gated on dns.private_domain — no zone,
-  # no internal LB target.
+  # Merges into option-gateway's internal resources variant. AKS's CCM gives
+  # any Service:LoadBalancer a public LB by default, so the external gateway
+  # needs no extra annotation; the internal gateway always flips to an
+  # internal LB via envoy/loadbalancer/azure (the annotation is a bool token
+  # that wouldn't survive substitution, so component inclusion is the
+  # toggle). Gated on dns.private_domain — no zone, no internal LB target.
   - name: gateway
-    when: "gateway.enabled == true && gateway.driver == 'envoy' && lb_effective.mode == 'loadbalancer'"
-    install:
-      components:
-        - "${gateway.access == 'private' && (dns.private_domain ?? '') != '' ? 'envoy/loadbalancer/azure-lb-internal' : ''}"
+    when: "gateway.enabled == true && gateway.driver == 'envoy' && lb_effective.mode == 'loadbalancer' && (dns.private_domain ?? '') != ''"
+    resources:
+      - name: internal
+        components:
+          - envoy/loadbalancer/azure
 
   # Azure Disk CSI is preinstalled on AKS; this only adds a `single`
   # StorageClass. StandardSSD_LRS balances cost and performance.
@@ -176,11 +190,12 @@ flux:
         single_storage_type: ${cluster.storage.single_storage_type ?? "StandardSSD_LRS"}
 
   # external-dns writes A/CNAME records from annotated Ingress/HTTPRoute into an
-  # Azure DNS zone. Public mode (dns.public_domain) targets the dns-zone stack's
-  # zone; private mode (gateway.access=private + dns.private_domain) targets the
-  # VNet-linked zone. Workload Identity is wired by the cluster module.
+  # Azure DNS zone. Two independent instances, one per zone: public
+  # (dns.public_domain → dns-zone stack) and internal (dns.private_domain →
+  # the VNet-linked zone) — both can run at once. Workload Identity is wired
+  # by the cluster module.
   - name: dns
-    when: "(dns.public_domain ?? '') != '' || (gateway.access == 'private' && (dns.private_domain ?? '') != '')"
+    when: "(dns.public_domain ?? '') != ''"
     install:
       components:
         - external-dns
@@ -189,21 +204,28 @@ flux:
       timeout: 5m
       interval: 5m
       substitutions:
-        # Private mode wins: a private gateway's hostname is internal-only and
-        # unusable on the public zone.
-        external_domain: "${gateway.access == 'private' && (dns.private_domain ?? '') != '' ? dns.private_domain : (dns.public_domain ?? '')}"
-        # Pins external-dns to one zone: private from the network module, public
-        # from the dns-zone stack.
-        zone_id_filter: "${gateway.access == 'private' && (dns.private_domain ?? '') != '' ? (terraform_output('network', 'private_zone_id') ?? '') : (terraform_output('dns-zone', 'zone_id') ?? '')}"
+        external_domain: "${dns.public_domain ?? ''}"
         # Context id in TXT records so multiple external-dns instances in a zone
         # don't clobber each other.
         txt_owner_id: "${id}"
         external_dns_client_id: "${terraform_output('cluster', 'external_dns_client_id') ?? ''}"
         external_dns_tenant_id: "${terraform_output('cluster', 'tenant_id') ?? ''}"
-        # Subscription/RG of the target zone for azure.json: network module in
-        # private mode, dns-zone stack in public mode.
-        external_dns_dns_zone_subscription_id: "${gateway.access == 'private' && (dns.private_domain ?? '') != '' ? (terraform_output('network', 'subscription_id') ?? '') : (terraform_output('dns-zone', 'subscription_id') ?? '')}"
-        external_dns_dns_zone_resource_group: "${gateway.access == 'private' && (dns.private_domain ?? '') != '' ? (terraform_output('network', 'resource_group_name') ?? '') : (terraform_output('dns-zone', 'resource_group_name') ?? '')}"
-        # Public and private zones use different provider implementations; without
-        # flipping this, private mode lists dnszones and skips privateDnsZones.
-        external_dns_azure_provider: "${gateway.access == 'private' && (dns.private_domain ?? '') != '' ? 'azure-private-dns' : 'azure'}"
+        external_dns_dns_zone_subscription_id: "${terraform_output('dns-zone', 'subscription_id') ?? ''}"
+        external_dns_dns_zone_resource_group: "${terraform_output('dns-zone', 'resource_group_name') ?? ''}"
+
+  - name: dns
+    when: "(dns.private_domain ?? '') != ''"
+    install:
+      components:
+        - external-dns-internal
+        - external-dns-internal/providers/azure
+        - "${gateway.enabled == true ? 'external-dns-internal/sources/gateway-httproute' : ''}"
+      timeout: 5m
+      interval: 5m
+      substitutions:
+        internal_domain: "${dns.private_domain ?? ''}"
+        txt_owner_id: "${id}"
+        external_dns_client_id: "${terraform_output('cluster', 'external_dns_client_id') ?? ''}"
+        external_dns_tenant_id: "${terraform_output('cluster', 'tenant_id') ?? ''}"
+        external_dns_dns_zone_subscription_id_internal: "${terraform_output('network', 'subscription_id') ?? ''}"
+        external_dns_dns_zone_resource_group_internal: "${terraform_output('network', 'resource_group_name') ?? ''}"

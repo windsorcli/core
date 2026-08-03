@@ -1,0 +1,36 @@
+---
+apiVersion: helm.toolkit.fluxcd.io/v2
+kind: HelmRelease
+metadata:
+  name: external-dns-internal
+  namespace: system-dns
+spec:
+  values:
+    provider:
+      aws:
+        usePodIdentity: true
+        region: ${aws_region}
+        zoneType: ${zone_type_internal:-public}
+    policy: sync
+    registry: txt
+    # Unique TXT-record owner ID — keeps multiple external-dns instances in
+    # the same zone from clobbering each other's records. Sourced from the
+    # platform facet's dns kustomization substitution, fed by Flux postBuild
+    # via the values-dns ConfigMap the CLI generates. (The previous valuesFrom
+    # ConfigMap reference pointed at an `external-dns` CM that nothing in the
+    # repo ever created — silently broke fresh deploys.)
+    txtOwnerId: ${txt_owner_id}
+    domainFilters:
+      - ${internal_domain:-test}
+    extraArgs:
+      # Lock the controller to a specific hosted zone ID. Belt-and-braces
+      # alongside zoneType: a same-named public+private zone pair could
+      # exist (split-horizon DNS), and zoneType alone would still match
+      # both — the ID filter pins it to exactly the zone we provisioned.
+      # Empty fallback is harmless: --zone-id-filter="" is treated as
+      # unset by external-dns.
+      - --zone-id-filter=${zone_id_filter_internal:-}
+    serviceAccount:
+      create: true
+      name: external-dns-internal
+      annotations: {}

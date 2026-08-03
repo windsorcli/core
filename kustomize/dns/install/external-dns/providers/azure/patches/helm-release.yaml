@@ -6,12 +6,13 @@ metadata:
   namespace: system-dns
 spec:
   values:
-    # azure for public Azure DNS zones, azure-private-dns for VNet-linked
-    # private zones. Defaults to azure to preserve public-mode behavior.
-    # Object form (provider.name) is required by chart >=1.21; the legacy
+    # Always the public Azure DNS zone provider -- this instance only ever
+    # serves the external gateway's zone (kustomize/dns/install/external-dns-
+    # internal/providers/azure is the azure-private-dns counterpart). Object
+    # form (provider.name) is required by chart >=1.21; the legacy
     # `provider: <string>` form emits a deprecation notice.
     provider:
-      name: ${external_dns_azure_provider:-azure}
+      name: azure
     policy: sync
     registry: txt
     # Unique TXT-record owner ID — keeps multiple external-dns instances

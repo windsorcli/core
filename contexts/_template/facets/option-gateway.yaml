@@ -5,15 +5,6 @@ metadata:
   description: Configurable cluster traffic entrypoint
 
 # =============================================================================
-# Requires
-# =============================================================================
-requires:
-  - when: gateway.access == 'private'
-    paths:
-      - dns.private_domain
-    message: Private gateway access requires a private DNS domain.
-
-# =============================================================================
 # Config — derived values consumed by this facet
 # =============================================================================
 # cert_effective.public_issuer: selfsigned and ACME public issuers are distinct
@@ -24,41 +15,19 @@ config:
     value:
       public_issuer: "${(dns.public_domain ?? '') != '' ? 'public-acme' : 'public-selfsigned'}"
 
-  # gateway_effective.external_domain — cert SAN; ordered fallback, last match
-  # wins. Floor '<id>.local' keeps a valid SAN on the no-domain selfsigned path.
+  # gateway_effective.external_domain / internal_domain: cert SANs and route
+  # hostname suffixes for each gateway. Each gateway is provisioned only when
+  # its own domain is set (see the flux entries below), so no fallback ladder
+  # is needed here — external is always dns.public_domain, internal is always
+  # dns.private_domain. cert_issuer is always the public issuer for external
+  # (guaranteed ACME-eligible since public_domain is set whenever this
+  # matters) and always 'private' for internal — a VPC-only zone can't
+  # validate ACME DNS-01.
   - name: gateway_effective
     value:
-      external_domain: "${(id ?? 'windsor') + '.local'}"
-  - name: gateway_effective
-    when: (dns.domain ?? '') != ''
-    value:
-      external_domain: "${dns.domain}"
-  - name: gateway_effective
-    when: (dns.private_domain ?? '') != ''
-    value:
-      external_domain: "${dns.private_domain}"
-  - name: gateway_effective
-    when: (dns.public_domain ?? '') != ''
-    value:
-      external_domain: "${dns.public_domain}"
-  - name: gateway_effective
-    when: gateway.access == 'private' && (dns.private_domain ?? '') != ''
-    value:
-      external_domain: "${dns.private_domain}"
-
-  # gateway_effective.cert_issuer — gateway TLS ClusterIssuer; last match wins.
-  # Private access forces 'private': ACME DNS-01 can't validate a VPC-only zone.
-  - name: gateway_effective
-    value:
-      cert_issuer: private
-  - name: gateway_effective
-    when: platform == 'aws' || platform == 'azure' || platform == 'hetzner' || (dns.public_domain ?? '') != ''
-    value:
+      external_domain: "${dns.public_domain ?? ''}"
+      internal_domain: "${dns.private_domain ?? ''}"
       cert_issuer: "${cert_effective.public_issuer}"
-  - name: gateway_effective
-    when: gateway.access == 'private' && (dns.private_domain ?? '') != ''
-    value:
-      cert_issuer: private
 
 # =============================================================================
 # CRDs — vendored, applied ahead of the controller
@@ -72,27 +41,34 @@ crds:
   - "${gateway.enabled == true && gateway.driver == 'envoy' ? 'envoy-gateway-1.8.3' : ''}"
 
 # =============================================================================
-# Flux systems — Gateway API controller + shared Gateway resource
+# Flux systems — Gateway API controller + external/internal Gateway resources
 # =============================================================================
 # gateway.driver selects 'envoy' or 'cilium'. Downstream facets dependsOn the
 # canonical names gateway-install / gateway-resources regardless of driver.
+#
+# Two gateways, each provisioned from its own domain (ADR-0004): 'external'
+# when dns.public_domain is set, 'internal' when dns.private_domain is set.
+# Neither, one, or both may exist on a given cluster. A route's audience is
+# fixed by which gateway its component set attaches it to — this replaces the
+# old gateway.access global flip.
+#
+# Per-gateway data-plane config (EnvoyProxy + its LB/nodeport annotations)
+# lives in the resources tier, not install — install is a single Kustomization
+# per system (FluxSystem.Install), so it can't carry two independently-
+# substituted copies of the same file the way resources' named variants can.
+# EnvoyProxy is a CR (ADR-0003 puts CRs in resources, not install) configuring
+# it there lets both gateways share one parameterized ${gateway_name} file set
+# instead of a duplicated "-internal" tree.
 flux:
 
-  # Envoy path: install Envoy Gateway + service variant (lb_effective.mode) +
-  # prometheus. Installs independently of pki/lb; the Gateway cert and IP are
-  # wired in resources, which carries those deps.
+  # Envoy path: install the controller + prometheus only. Per-gateway
+  # data-plane config is wired in the resources variants below.
   - name: gateway
     when: gateway.enabled == true && gateway.driver != 'cilium'
     install:
       components:
         - "${gateway.driver}"
-        - "${gateway.driver == 'envoy' ? 'envoy/' + lb_effective.mode : ''}"
-        - "${gateway.driver == 'envoy' && lb_effective.mode == 'loadbalancer' && lb_effective.enabled == true ? 'envoy/loadbalancer/fixed-ip' : ''}"
-        - "${gateway.driver == 'envoy' && lb_effective.mode == 'nodeport' && (dns.private.enabled ?? (dev == true)) == true ? 'envoy/nodeport/dns' : ''}"
-        - "${gateway.driver == 'envoy' && lb_effective.mode == 'nodeport' && (gitops.mode ?? 'push') == 'push' ? 'envoy/nodeport/flux-webhook' : ''}"
         - "${gateway.driver == 'envoy' ? 'envoy/prometheus' : ''}"
-      substitutions:
-        loadbalancer_start_ip: "${lb_effective.enabled == true ? network.loadbalancer_ips.start : ''}"
       timeout: 10m
       interval: 5m
 
@@ -106,40 +82,88 @@ flux:
       timeout: 10m
       interval: 5m
 
-  # resources — shared Gateway CR + TLS certificate. gateway_class_name drives
-  # spec.gatewayClassName; gateway_dns_target is the IP external-dns advertises
-  # for Gateway-attached hostnames.
+  # resources — one named variant per gateway, both sharing the same
+  # gateway/resources components (gateway.yaml, certificate.yaml,
+  # https-redirect.yaml, envoy-proxy.yaml, and the cilium/envoy-loadbalancer/
+  # envoy-nodeport/envoy-parameters/default-404/lb-address sub-components are
+  # all parameterized by ${gateway_name} rather than duplicated — each
+  # variant's own substitutions drive which concrete Gateway/EnvoyProxy/domain
+  # it renders). gateway_class_name drives spec.gatewayClassName;
+  # gateway_dns_target is the IP external-dns advertises for this gateway's
+  # hostnames.
+  #
+  # external: provisioned only when dns.public_domain is set.
   - name: gateway
-    when: gateway.enabled == true
+    when: gateway.enabled == true && (dns.public_domain ?? '') != ''
     resources:
-      - dependsOn:
+      - name: external
+        dependsOn:
           - pki-install
         components:
-          # cilium LBIPAM patch (lbipam.cilium.io/ips) — skipped when a cloud LB
-          # controller owns the IP (hetzner CCM); the plain Gateway Service is
-          # then filled by the cloud LB instead of Cilium LBIPAM.
+          # cilium LBIPAM patch — skipped when a cloud LB controller owns the
+          # IP (hetzner CCM); the plain Gateway Service is then filled by the
+          # cloud LB instead of Cilium LBIPAM.
           - "${gateway.driver == 'cilium' && lb_effective.controller_required != true ? 'cilium' : ''}"
+          - "${gateway.driver == 'cilium' && lb_effective.controller_required != true ? 'cilium/fixed-ip' : ''}"
+          - "${gateway.driver != 'cilium' ? 'envoy/proxy' : ''}"
+          - "${gateway.driver == 'envoy' ? 'envoy/' + lb_effective.mode : ''}"
+          - "${gateway.driver == 'envoy' && lb_effective.mode == 'loadbalancer' ? 'envoy/loadbalancer/fixed-ip' : ''}"
           # Points the Gateway at its EnvoyProxy (envoy-only data-plane Service config).
           - "${gateway.driver != 'cilium' ? 'envoy/parameters' : ''}"
           # Catch-all 404 (Envoy directResponse) for unmatched HTTPRoutes; envoy-only.
           - "${gateway.driver != 'cilium' ? 'envoy/default-404' : ''}"
-          # external-dns hostname annotation on the 404 route; fires when a
-          # gateway-managed DNS zone exists (public, or private when access=private).
-          - "${gateway.driver != 'cilium' && ((dns.public_domain ?? '') != '' || (gateway.access == 'private' && (dns.private_domain ?? '') != '')) ? 'envoy/default-404/external-dns' : ''}"
-          - "${gateway.driver != 'cilium' && (dns.private.enabled ?? (dev == true)) == true ? 'dns' : ''}"
+          - "${gateway.driver != 'cilium' ? 'envoy/default-404/external-dns' : ''}"
           - "${lb_effective.enabled == true ? 'lb-address' : ''}"
-          - "${(gitops.mode ?? 'push') == 'push' ? 'flux-webhook' : ''}"
         substitutions:
+          gateway_name: external
           gateway_class_name: ${gateway.driver}
+          gateway_domain: "${gateway_effective.external_domain}"
+          gateway_cert_issuer: "${gateway_effective.cert_issuer}"
+          gateway_lb_scheme: internet-facing
+          gateway_loadbalancer_ip: "${(lb_effective.enabled == true || (gateway.driver == 'cilium' && lb_effective.controller_required != true)) ? network.loadbalancer_ips.start : ''}"
           gateway_dns_target: "${lb_effective.enabled == true ? network.loadbalancer_ips.start : ''}"
           # HTTPS port the https-redirect 301 targets: docker-desktop forwards the
           # gateway to host :8443, cloud/LB use the standard :443.
           gateway_redirect_port: "${workstation.runtime == 'docker-desktop' ? '8443' : '443'}"
-          # Cert SAN domain and TLS issuer — resolved in the config section above.
-          external_domain: "${gateway_effective.external_domain}"
-          gateway_cert_issuer: "${gateway_effective.cert_issuer}"
-          # Only emitted when a consumer is active (in-cluster LB or cilium gateway);
-          # empty otherwise and the harness drops it.
-          loadbalancer_start_ip: "${(lb_effective.enabled == true || (gateway.driver == 'cilium' && lb_effective.controller_required != true)) ? network.loadbalancer_ips.start : ''}"
+          gateway_nodeport_http: 30080
+          gateway_nodeport_https: 30443
+        timeout: 10m
+        interval: 5m
+
+  # internal: provisioned only when dns.private_domain is set (workstation/dev
+  # mode defaults this to 'test', so local clusters get an internal gateway
+  # with no configuration). Every utility surface (CoreDNS listeners, Flux
+  # webhook) always binds here rather than to an operator choice.
+  - name: gateway
+    when: gateway.enabled == true && (dns.private_domain ?? '') != ''
+    resources:
+      - name: internal
+        dependsOn:
+          - pki-install
+        components:
+          - "${gateway.driver == 'cilium' && lb_effective.controller_required != true ? 'cilium' : ''}"
+          - "${gateway.driver == 'cilium' && lb_effective.controller_required != true && (network.loadbalancer_ips.internal_start ?? '') != '' ? 'cilium/fixed-ip' : ''}"
+          - "${gateway.driver != 'cilium' ? 'envoy/proxy' : ''}"
+          - "${gateway.driver == 'envoy' ? 'envoy/' + lb_effective.mode : ''}"
+          - "${gateway.driver == 'envoy' && lb_effective.mode == 'loadbalancer' && (network.loadbalancer_ips.internal_start ?? '') != '' ? 'envoy/loadbalancer/fixed-ip' : ''}"
+          - "${gateway.driver == 'envoy' && lb_effective.mode == 'nodeport' ? 'envoy/nodeport/dns' : ''}"
+          - "${gateway.driver == 'envoy' && lb_effective.mode == 'nodeport' && (gitops.mode ?? 'push') == 'push' ? 'envoy/nodeport/flux-webhook' : ''}"
+          - "${gateway.driver != 'cilium' ? 'envoy/parameters' : ''}"
+          - "${gateway.driver != 'cilium' ? 'envoy/default-404' : ''}"
+          - "${gateway.driver != 'cilium' ? 'envoy/default-404/external-dns' : ''}"
+          - "${lb_effective.enabled == true && (network.loadbalancer_ips.internal_start ?? '') != '' ? 'lb-address' : ''}"
+          - dns
+          - "${(gitops.mode ?? 'push') == 'push' ? 'flux-webhook' : ''}"
+        substitutions:
+          gateway_name: internal
+          gateway_class_name: ${gateway.driver}
+          gateway_domain: "${gateway_effective.internal_domain}"
+          gateway_cert_issuer: private
+          gateway_lb_scheme: internal
+          gateway_loadbalancer_ip: "${(lb_effective.enabled == true || (gateway.driver == 'cilium' && lb_effective.controller_required != true)) ? (network.loadbalancer_ips.internal_start ?? '') : ''}"
+          gateway_dns_target: "${lb_effective.enabled == true ? (network.loadbalancer_ips.internal_start ?? '') : ''}"
+          gateway_redirect_port: "${workstation.runtime == 'docker-desktop' ? '8444' : '443'}"
+          gateway_nodeport_http: 30081
+          gateway_nodeport_https: 30444
         timeout: 10m
         interval: 5m

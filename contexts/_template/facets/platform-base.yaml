@@ -150,7 +150,7 @@ config:
       domain: "${dns.domain ?? (dev == true ? 'test' : '')}"
       public_domain: "${dns.public_domain ?? ''}"
       private_domain: "${dns.private_domain ?? dns.domain ?? (dev == true ? 'test' : '')}"
-      enabled: "${(dns.private.enabled ?? false) == true || (dns.public_domain ?? '') != '' || (gateway.access == 'private' && (dns.private_domain ?? '') != '')}"
+      enabled: "${(dns.private.enabled ?? false) == true || (dns.public_domain ?? '') != '' || (dns.private_domain ?? '') != ''}"
 
   # Cluster provisioning flags. cluster_provisioned: a cluster should exist —
   # on docker only when a workstation runtime is set (bare `platform: docker`
@@ -441,12 +441,14 @@ flux:
     path: gitops
     when: (gitops.mode ?? 'push') == 'push'
     dependsOn:
-      - "${gateway.enabled == true ? 'gateway-resources' : ''}"
+      - "${gateway.enabled == true && (dns.private_domain ?? '') != '' ? 'gateway-resources-internal' : ''}"
     resources:
       - components:
           - webhook
-          - "${gateway.enabled == true ? 'webhook/gateway' : ''}"
-          - "${gateway.enabled == true && gateway.driver == 'cilium' ? 'webhook/gateway/cilium' : ''}"
+          # The webhook route binds to the internal gateway (operational
+          # surface), so it needs dns.private_domain set, not just gateway.enabled.
+          - "${gateway.enabled == true && (dns.private_domain ?? '') != '' ? 'webhook/gateway' : ''}"
+          - "${gateway.enabled == true && (dns.private_domain ?? '') != '' && gateway.driver == 'cilium' ? 'webhook/gateway/cilium' : ''}"
         substitutions:
           git_repository_name: ${gitops.repository.name ?? "local"}
         timeout: 5m
@@ -461,14 +463,14 @@ flux:
   # there), not gateway-install.
   - name: gitops
     path: gitops
-    when: gateway.enabled == true && (gitops.web_ui ?? false) == true
+    when: gateway.enabled == true && (gitops.web_ui ?? false) == true && (dns.private_domain ?? '') != ''
     dependsOn:
-      - gateway-resources
+      - gateway-resources-internal
     resources:
       - components:
           - ui
           - "${gateway.driver == 'cilium' ? 'ui/cilium' : ''}"
         substitutions:
-          external_domain: ${gateway_effective.external_domain}
+          internal_domain: ${gateway_effective.internal_domain}
         timeout: 5m
         interval: 5m

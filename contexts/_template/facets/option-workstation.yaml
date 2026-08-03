@@ -279,14 +279,14 @@ terraform:
           image: ${cluster.controlplanes.image ?? talos.docker_image}
           cpu: ${cluster_resources_effective.controlplanes.cpu}
           memory: ${cluster_resources_effective.controlplanes.memory}
-          hostports: "${workstation.runtime == \"docker-desktop\" ? (cluster.controlplanes.hostports ?? [\"8080:30080/tcp\", \"8443:30443/tcp\"]) : []}"
+          hostports: "${workstation.runtime == \"docker-desktop\" ? (cluster.controlplanes.hostports ?? [\"8080:30080/tcp\", \"8443:30443/tcp\", \"8081:30081/tcp\", \"8444:30444/tcp\"]) : []}"
           volumes: ${cluster.controlplanes.volumes ?? []}
         workers:
           count: ${cluster.workers.count ?? 0}
           image: ${cluster.workers.image ?? talos.docker_image}
           cpu: ${cluster_resources_effective.workers.cpu}
           memory: ${cluster_resources_effective.workers.memory}
-          hostports: "${workstation.runtime == \"docker-desktop\" ? (cluster.workers.hostports ?? [\"8080:30080/tcp\", \"8443:30443/tcp\"]) : []}"
+          hostports: "${workstation.runtime == \"docker-desktop\" ? (cluster.workers.hostports ?? [\"8080:30080/tcp\", \"8443:30443/tcp\", \"8081:30081/tcp\", \"8444:30444/tcp\"]) : []}"
           volumes: ${cluster.workers.volumes ?? []}
 
   # cluster — Talos bootstrap/apply

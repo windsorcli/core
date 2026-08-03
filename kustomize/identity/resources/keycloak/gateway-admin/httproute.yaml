@@ -1,0 +1,23 @@
+---
+# Routes keycloak-admin.${internal_domain} through the internal gateway to the
+# operator-managed keycloak-service. Keycloak differentiates the admin console
+# from the login/account UI by the Host header (spec.hostname.admin on the
+# Keycloak CR), not a separate backend Service.
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: keycloak-admin
+  namespace: system-identity
+spec:
+  parentRefs:
+    - kind: Gateway
+      name: internal
+      namespace: system-gateway
+      sectionName: web-https
+  hostnames:
+    - keycloak-admin.${internal_domain}
+  rules:
+    - backendRefs:
+        - kind: Service
+          name: keycloak-service
+          port: 8080

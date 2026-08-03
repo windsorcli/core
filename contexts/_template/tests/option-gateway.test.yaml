@@ -28,24 +28,12 @@ x-defaults:
   # dependsOn; the composer wires only dependency-less roots to the `crds` layer,
   # and gateway-install/gateway-resources are not roots.
 
-  # Shared assertion: gateway install tier with envoy loadbalancer. No
-  # fixed-ip here: *default-cluster leaves cni.driver unset, which defaults
-  # to cilium on talos, so lb_effective.enabled is false even though
-  # *default-network sets loadbalancer_driver (cilium has its own L2/BGP LB,
-  # kube-vip's pool goes unused). See the incus fixture for the enabled case.
-  gateway-install-envoy-lb: &gateway-install-envoy-lb
+  # Shared assertion: gateway install tier with envoy. Per-gateway data-plane
+  # config (EnvoyProxy, loadbalancer/nodeport annotations) lives in the
+  # resources tier now, not install — see gateway-resources-envoy-lb/np below.
+  gateway-install-envoy: &gateway-install-envoy
     components:
       - envoy
-      - envoy/loadbalancer
-      - envoy/prometheus
-    timeout: 10m
-    interval: 5m
-
-  # Shared assertion: gateway install tier with envoy nodeport
-  gateway-install-envoy-np: &gateway-install-envoy-np
-    components:
-      - envoy
-      - envoy/nodeport
       - envoy/prometheus
     timeout: 10m
     interval: 5m
@@ -59,13 +47,21 @@ x-defaults:
     timeout: 10m
     interval: 5m
 
-  # Shared assertion: gateway resources tier. The Gateway cert needs cert-manager
-  # (pki-install) for admission, so the resources tier carries that dep.
+  # Shared assertion: external gateway resources variant, envoy + loadbalancer
+  # mode. The Gateway cert needs cert-manager (pki-install) for admission.
   gateway-resources-envoy: &gateway-resources-envoy
     dependsOn:
       - pki-install
+    components:
+      - envoy/proxy
+      - envoy/loadbalancer
+      - envoy/parameters
+      - envoy/default-404
+      - envoy/default-404/external-dns
     substitutions:
+      gateway_name: external
       gateway_class_name: envoy
+      gateway_lb_scheme: internet-facing
     timeout: 10m
     interval: 5m
 
@@ -75,15 +71,19 @@ x-defaults:
       - cni-install
     substitutions:
       gateway_class_name: cilium
-      loadbalancer_start_ip: "10.5.1.10"
+      gateway_loadbalancer_ip: "10.5.1.10"
     timeout: 10m
     interval: 5m
 
 cases:
-  # Minimal: zero-config on metal defaults to cilium CNI → cilium gateway
+  # Minimal: zero-config on metal defaults to cilium CNI → cilium gateway.
+  # dns.private_domain: test stands in for dev-mode's default so the internal
+  # gateway (the only one reachable with no dns.public_domain) is provisioned.
   - name: zero config on metal defaults to cilium gateway
     values:
       platform: metal
+      dns:
+        private_domain: test
       network: *default-network
       cluster: *default-cluster
     expect:
@@ -92,7 +92,14 @@ cases:
           install:
             <<: *gateway-install-cilium
           resources:
-            - <<: *gateway-resources-cilium
+            - name: internal
+              dependsOn:
+                - pki-install
+                - cni-install
+              substitutions:
+                gateway_class_name: cilium
+              timeout: 10m
+              interval: 5m
       crds:
         # renovate: datasource=github-releases depName=kubernetes-sigs/gateway-api package=kubernetes-sigs/gateway-api
         - gateway-api-experimental-1.6.1
@@ -126,7 +133,7 @@ cases:
       flux:
         - name: gateway
           install:
-            <<: *gateway-install-envoy-np
+            <<: *gateway-install-envoy
           resources:
             # docker-desktop reaches HTTPS on host :8443, so the redirect targets it.
             - substitutions:
@@ -157,7 +164,7 @@ cases:
       flux:
         - name: gateway
           install:
-            <<: *gateway-install-envoy-lb
+            <<: *gateway-install-envoy
           resources:
             - <<: *gateway-resources-envoy
 
@@ -174,7 +181,7 @@ cases:
       flux:
         - name: gateway
           install:
-            <<: *gateway-install-envoy-lb
+            <<: *gateway-install-envoy
           resources:
             - <<: *gateway-resources-envoy
       crds:
@@ -208,7 +215,7 @@ cases:
       flux:
         - name: gateway
           install:
-            <<: *gateway-install-envoy-np
+            <<: *gateway-install-envoy
           resources:
             - <<: *gateway-resources-envoy
 
@@ -230,7 +237,7 @@ cases:
       flux:
         - name: gateway
           install:
-            <<: *gateway-install-envoy-np
+            <<: *gateway-install-envoy
           resources:
             - <<: *gateway-resources-envoy
 
@@ -255,7 +262,7 @@ cases:
       flux:
         - name: gateway
           install:
-            <<: *gateway-install-envoy-np
+            <<: *gateway-install-envoy
           resources:
             - components:
                 - flux-webhook
@@ -289,7 +296,7 @@ cases:
       flux:
         - name: gateway
           install:
-            <<: *gateway-install-envoy-lb
+            <<: *gateway-install-envoy
           resources:
             - <<: *gateway-resources-envoy
 
@@ -306,7 +313,7 @@ cases:
       flux:
         - name: gateway
           install:
-            <<: *gateway-install-envoy-lb
+            <<: *gateway-install-envoy
           resources:
             - <<: *gateway-resources-envoy
       crds:
@@ -327,7 +334,7 @@ cases:
       flux:
         - name: gateway
           install:
-            <<: *gateway-install-envoy-lb
+            <<: *gateway-install-envoy
           resources:
             - <<: *gateway-resources-envoy
 
@@ -409,7 +416,7 @@ cases:
       flux:
         - name: gateway
           install:
-            <<: *gateway-install-envoy-lb
+            <<: *gateway-install-envoy
 
   # Cilium driver — GatewayClass only; controller is part of Cilium CNI DaemonSet
   - name: cilium driver deploys gateway-install with cilium and gateway-resources
@@ -658,20 +665,6 @@ cases:
     exclude:
       flux:
         - name: gitops
-
-  # Requires: private gateway without dns.private_domain silently falls back
-  # to the public branch (cert, DNS, LB scheme), so option-gateway fails at
-  # config-load instead.
-  - name: gateway access private without dns.private_domain fails composition
-    values:
-      platform: metal
-      gateway:
-        enabled: true
-        driver: envoy
-        access: private
-      network: *default-network
-      cluster: *default-cluster
-    expectError: true
 
   # Regression (#2311): dns.public_domain enables dns without shipping dns-install on
   # metal/incus. The gateway resources tier must depend only on pki-install, or composition

@@ -7,5 +7,5 @@ patches:
       group: gateway.networking.k8s.io
       version: v1
       kind: Gateway
-      name: external
+      name: ${gateway_name}
       namespace: system-gateway

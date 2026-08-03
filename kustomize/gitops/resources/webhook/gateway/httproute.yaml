@@ -5,10 +5,10 @@ metadata:
   namespace: system-gitops
 spec:
   parentRefs:
-    - name: external
+    - name: internal
       namespace: system-gateway
       sectionName: web-http
-    - name: external
+    - name: internal
       namespace: system-gateway
       sectionName: flux-webhook
   rules:

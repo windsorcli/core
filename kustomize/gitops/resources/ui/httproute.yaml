@@ -6,12 +6,13 @@ metadata:
 spec:
   parentRefs:
     # web-https only; plain HTTP is 301-redirected by the gateway's https-redirect.
+    # internal: the Flux UI is an operational surface, never internet-facing.
     - kind: Gateway
-      name: external
+      name: internal
       namespace: system-gateway
       sectionName: web-https
   hostnames:
-    - flux.${external_domain}
+    - flux.${internal_domain}
   rules:
     - backendRefs:
         - kind: Service

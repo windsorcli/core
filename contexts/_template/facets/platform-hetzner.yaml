@@ -138,19 +138,21 @@ config:
   # Flux-installed CCM can still map nodes to servers for Cloud LB targets. Full
   # cloud node lifecycle (topology labels) is not managed; not needed here.
 
-  # issuer_component selects the ClusterIssuer variant (last match wins):
-  # selfsigned floor → ACME/hetzner with a public domain → private selfsigned.
+  # public_issuer_component: selfsigned floor → ACME/hetzner once a public
+  # domain is set. private_issuer_component: independent — set whenever a
+  # private domain is set, since the external and internal gateways can now
+  # both exist at once and each needs its own issuer.
   - name: pki_effective
     value:
-      issuer_component: public-issuer/selfsigned
+      public_issuer_component: public-issuer/selfsigned
   - name: pki_effective
     when: (dns.public_domain ?? '') != ''
     value:
-      issuer_component: public-issuer/acme/hetzner
+      public_issuer_component: public-issuer/acme/hetzner
   - name: pki_effective
-    when: gateway.access == 'private' && (dns.private_domain ?? '') != ''
+    when: (dns.private_domain ?? '') != ''
     value:
-      issuer_component: private-issuer/selfsigned
+      private_issuer_component: private-issuer/selfsigned
 
   # Derivable only from compute output; empty string otherwise, so the caller
   # falls back to an explicit cluster.endpoint.
@@ -264,7 +266,8 @@ flux:
   - name: pki
     resources:
       - components:
-          - "${pki_effective.issuer_component}"
+          - "${pki_effective.public_issuer_component}"
+          - "${pki_effective.private_issuer_component ?? ''}"
         timeout: 5m
         interval: 5m
         substitutions:
@@ -276,12 +279,22 @@ flux:
   # data-plane Service when the gateway runs in loadbalancer mode. hcloud CCM sees
   # the type=LoadBalancer Service and provisions a Hetzner Cloud Load Balancer.
   - name: gateway
-    when: "gateway.enabled == true && gateway.driver == 'envoy' && lb_effective.mode == 'loadbalancer'"
-    install:
-      components:
-        - envoy/loadbalancer/hcloud-lb
-      substitutions:
-        hcloud_location: "${hetzner.location ?? 'ash'}"
+    when: "gateway.enabled == true && gateway.driver == 'envoy' && lb_effective.mode == 'loadbalancer' && (dns.public_domain ?? '') != ''"
+    resources:
+      - name: external
+        components:
+          - envoy/loadbalancer/hcloud-lb
+        substitutions:
+          hcloud_location: "${hetzner.location ?? 'ash'}"
+
+  - name: gateway
+    when: "gateway.enabled == true && gateway.driver == 'envoy' && lb_effective.mode == 'loadbalancer' && (dns.private_domain ?? '') != ''"
+    resources:
+      - name: internal
+        components:
+          - envoy/loadbalancer/hcloud-lb
+        substitutions:
+          hcloud_location: "${hetzner.location ?? 'ash'}"
 
   # hcloud cloud-controller-manager — Cloud LB provisioning. windsor materializes
   # the `hcloud` Secret (token + network id) into system-lb from the secrets: block.

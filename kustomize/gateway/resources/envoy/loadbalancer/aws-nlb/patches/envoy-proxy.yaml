@@ -1,0 +1,26 @@
+---
+# AWS-specific annotations on this gateway's Envoy data-plane Service. These
+# tell the AWS Load Balancer Controller to provision an NLB (not the in-tree
+# CCM's classic ELB) with target-type=ip -- traffic goes directly to Envoy
+# pods, source IP preserved, no kube-proxy hop. lb_scheme differs per gateway
+# (external: internet-facing, internal: always internal) -- supplied by each
+# resources variant's own substitutions. Stacks on top of
+# loadbalancer/patches/envoy-proxy.yaml, which sets type=LoadBalancer.
+apiVersion: gateway.envoyproxy.io/v1alpha1
+kind: EnvoyProxy
+metadata:
+  name: ${gateway_name}
+  namespace: system-gateway
+spec:
+  provider:
+    kubernetes:
+      envoyService:
+        patch:
+          type: StrategicMerge
+          value:
+            metadata:
+              annotations:
+                service.beta.kubernetes.io/aws-load-balancer-type: external
+                service.beta.kubernetes.io/aws-load-balancer-nlb-target-type: ip
+                service.beta.kubernetes.io/aws-load-balancer-scheme: ${gateway_lb_scheme}
+                service.beta.kubernetes.io/aws-load-balancer-cross-zone-load-balancing-enabled: "true"

@@ -1,0 +1,30 @@
+---
+# Self-contained per-gateway data-plane config, referenced from the Gateway
+# via spec.infrastructure.parametersRef (see envoy/parameters). Carries the
+# digest-pinned envoyDeployment patch (Kyverno requires pinned images); the
+# loadbalancer/nodeport and cloud components layer the envoyService config in.
+# The EnvoyGateway helm config keeps no default envoyProxy patch, so this
+# resource fully owns the proxy config with no cross-tier merge. Lives in the
+# resources tier (not install) so it rides the same external/internal
+# resources-variant substitution pass as the Gateway it configures.
+apiVersion: gateway.envoyproxy.io/v1alpha1
+kind: EnvoyProxy
+metadata:
+  name: ${gateway_name}
+  namespace: system-gateway
+spec:
+  provider:
+    type: Kubernetes
+    kubernetes:
+      # Enforce digest pinning on the generated Envoy proxy workload to satisfy Kyverno policy.
+      envoyDeployment:
+        patch:
+          type: StrategicMerge
+          value:
+            spec:
+              template:
+                spec:
+                  containers:
+                    # renovate: datasource=docker depName=docker.io/envoyproxy/envoy package=docker.io/envoyproxy/envoy
+                    - name: envoy
+                      image: docker.io/envoyproxy/envoy:distroless-v1.37.1@sha256:4d9226b9fd4d1449887de7cde785beb24b12e47d6e79021dec3c79e362609432

@@ -703,10 +703,13 @@ properties:
         properties:
           start:
             $ref: '#/$defs/ipv4'
-            description: Load balancer IP pool start (IPv4 dotted-quad; each octet 0-255).
+            description: Load balancer IP pool start (IPv4 dotted-quad; each octet 0-255). Used by the external gateway when both external and internal gateways are provisioned.
           end:
             $ref: '#/$defs/ipv4'
             description: Load balancer IP pool end (IPv4 dotted-quad; each octet 0-255).
+          internal_start:
+            $ref: '#/$defs/ipv4'
+            description: Load balancer IP for the internal gateway (IPv4 dotted-quad). Defaults to unset, letting the in-cluster LB driver auto-assign from the pool; set explicitly to pin it, same as start does for the external gateway.
         additionalProperties: false
       loadbalancer_driver:
         type: string

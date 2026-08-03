@@ -1,0 +1,19 @@
+---
+# Flips the AKS Standard LB to internal. Only included for the internal
+# gateway (AKS's CCM gives any Service:LoadBalancer a public LB by default,
+# so external needs no extra annotation).
+apiVersion: gateway.envoyproxy.io/v1alpha1
+kind: EnvoyProxy
+metadata:
+  name: ${gateway_name}
+  namespace: system-gateway
+spec:
+  provider:
+    kubernetes:
+      envoyService:
+        patch:
+          type: StrategicMerge
+          value:
+            metadata:
+              annotations:
+                service.beta.kubernetes.io/azure-load-balancer-internal: "true"

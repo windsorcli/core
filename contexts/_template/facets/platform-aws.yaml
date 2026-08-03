@@ -29,19 +29,21 @@ requires:
 # =============================================================================
 config:
 
-  # issuer_component selects the ClusterIssuer variant (last match wins):
-  # selfsigned floor → ACME/route53 with a public domain → private selfsigned.
+  # public_issuer_component: selfsigned floor → ACME/route53 once a public
+  # domain is set. private_issuer_component: independent — set whenever a
+  # private domain is set, since the external and internal gateways can now
+  # both exist at once and each needs its own issuer.
   - name: pki_effective
     value:
-      issuer_component: public-issuer/selfsigned
+      public_issuer_component: public-issuer/selfsigned
   - name: pki_effective
     when: (dns.public_domain ?? '') != ''
     value:
-      issuer_component: public-issuer/acme/route53
+      public_issuer_component: public-issuer/acme/route53
   - name: pki_effective
-    when: gateway.access == 'private' && (dns.private_domain ?? '') != ''
+    when: (dns.private_domain ?? '') != ''
     value:
-      issuer_component: private-issuer/selfsigned
+      private_issuer_component: private-issuer/selfsigned
 
 # =============================================================================
 # CRDs — vendored, applied ahead of the controller
@@ -176,7 +178,8 @@ flux:
       - components:
           # acme_hosted_zone_id defers terraform_output until dns-zone applies;
           # an eager lookup panics on first bootstrap.
-          - "${pki_effective.issuer_component}"
+          - "${pki_effective.public_issuer_component}"
+          - "${pki_effective.private_issuer_component ?? ''}"
         timeout: 5m
         interval: 5m
         substitutions:
@@ -193,15 +196,18 @@ flux:
   # of option-gateway. NLB not ALB: Envoy already does L7, so an ALB would
   # double-terminate. ALB stays available per-Ingress via the alb ingress class.
   - name: gateway
-    when: "gateway.enabled == true && gateway.driver == 'envoy' && lb_effective.mode == 'loadbalancer'"
-    install:
-      components:
-        - envoy/loadbalancer/aws-nlb
-      substitutions:
-        # Maps gateway.access to the aws-load-balancer-scheme annotation. Only
-        # `internal` overrides; else empty and the kustomize default applies.
-        # Gated on dns.private_domain to stay consistent with the private cascade.
-        lb_scheme: "${gateway.access == 'private' && (dns.private_domain ?? '') != '' ? 'internal' : ''}"
+    when: "gateway.enabled == true && gateway.driver == 'envoy' && lb_effective.mode == 'loadbalancer' && (dns.public_domain ?? '') != ''"
+    resources:
+      - name: external
+        components:
+          - envoy/loadbalancer/aws-nlb
+
+  - name: gateway
+    when: "gateway.enabled == true && gateway.driver == 'envoy' && lb_effective.mode == 'loadbalancer' && (dns.private_domain ?? '') != ''"
+    resources:
+      - name: internal
+        components:
+          - envoy/loadbalancer/aws-nlb
 
   # AWS Load Balancer Controller — provisions NLB/ALB via the EKS API (else the
   # in-tree CCM makes classic ELBs). Always rendered. IAM wired by the cluster
@@ -246,12 +252,13 @@ flux:
 
   # DNS — external-dns + Route53 record automation. Anchored on the shared `dns`
   # Kustomization so it composes with addon-private-dns. external-dns writes
-  # A/CNAME records from annotated Ingress/HTTPRoute resources. Two modes: public
-  # (dns.public_domain → dns-zone stack) and private (gateway.access=private +
-  # dns.private_domain → the VPC zone). IAM wired by the cluster module
-  # (create_external_dns_role, Pod Identity in system-dns).
+  # A/CNAME records from annotated Ingress/HTTPRoute resources. Two independent
+  # instances, one per zone: public (dns.public_domain → dns-zone stack, feeds
+  # the external gateway) and internal (dns.private_domain → the VPC zone,
+  # feeds the internal gateway) — both can run at once. IAM wired by the
+  # cluster module (create_external_dns_role, Pod Identity in system-dns).
   - name: dns
-    when: "(dns.public_domain ?? '') != '' || (gateway.access == 'private' && (dns.private_domain ?? '') != '')"
+    when: "(dns.public_domain ?? '') != ''"
     install:
       components:
         - external-dns
@@ -262,15 +269,26 @@ flux:
       timeout: 5m
       interval: 5m
       substitutions:
-        # Private mode wins over public_domain: a private gateway's hostname is
-        # internal-only, so it publishes to the private zone.
-        external_domain: "${gateway.access == 'private' && (dns.private_domain ?? '') != '' ? dns.private_domain : (dns.public_domain ?? '')}"
-        zone_type: "${gateway.access == 'private' && (dns.private_domain ?? '') != '' ? 'private' : 'public'}"
-        # Lock external-dns to the zone ID: public from dns-zone, private from
-        # the network module. Deferred terraform_output handles bootstrap order.
-        zone_id_filter: "${gateway.access == 'private' && (dns.private_domain ?? '') != '' ? (terraform_output('network', 'private_zone_id') ?? '') : (terraform_output('dns-zone', 'zone_id') ?? '')}"
-        # Region passed via Flux postBuild substitution.
+        external_domain: "${dns.public_domain ?? ''}"
+        zone_type: public
+        zone_id_filter: "${terraform_output('dns-zone', 'zone_id') ?? ''}"
         aws_region: "${aws.region ?? 'us-east-1'}"
         # Owner ID stamped into TXT records so external-dns instances sharing a
         # zone don't clobber each other; the context id is unique per cluster.
+        txt_owner_id: "${id}"
+
+  - name: dns
+    when: "(dns.private_domain ?? '') != ''"
+    install:
+      components:
+        - external-dns-internal
+        - external-dns-internal/providers/route53
+        - "${gateway.enabled == true ? 'external-dns-internal/sources/gateway-httproute' : ''}"
+      timeout: 5m
+      interval: 5m
+      substitutions:
+        internal_domain: "${dns.private_domain ?? ''}"
+        zone_type_internal: private
+        zone_id_filter_internal: "${terraform_output('network', 'private_zone_id') ?? ''}"
+        aws_region: "${aws.region ?? 'us-east-1'}"
         txt_owner_id: "${id}"
