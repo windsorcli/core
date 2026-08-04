@@ -394,6 +394,12 @@ properties:
           Resource pool path relative to the compute cluster
           (e.g. "talos-pool"). Leave unset to use the cluster's root resource
           pool.
+      host_system:
+        type: string
+        description: >
+          ESXi host name or IP to place VMs on (e.g. "esxi-01.dc-prod.local").
+          Required when the datacenter has more than one host; leave unset
+          only for single-host datacenters.
     description: VMware vSphere infrastructure configuration
 
   # Free-form env vars injected by `windsor exec` and into terraform applies.

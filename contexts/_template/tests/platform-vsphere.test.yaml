@@ -169,6 +169,29 @@ cases:
             folder: prod/talos
             resource_pool: talos-pool
 
+  # host_system flows through to compute inputs when set. Required for
+  # multi-host / DRS clusters where the vsphere_host data source cannot
+  # auto-select a sole host.
+  - name: host_system flows through to compute inputs
+    values:
+      platform: vsphere
+      gateway:
+        enabled: false
+      network: *default-network
+      cluster: *default-cluster
+      vsphere:
+        datacenter: dc-prod
+        cluster: cluster-01
+        datastore: datastore-01
+        network: VM Network
+        host_system: esxi-01.dc-prod.local
+    terraformOutputs: *default-terraform-outputs
+    expect:
+      terraform:
+        - name: compute
+          path: compute/vsphere
+          inputs:
+            host_system: esxi-01.dc-prod.local
 
   # With workers: instances list includes a worker pool entry. Both
   # controlplanes and workers appear in the cluster step's inputs from compute
