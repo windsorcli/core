@@ -74,6 +74,16 @@ run "minimal_configuration" {
   }
 
   assert {
+    condition     = aws_eks_cluster.main.access_config[0].authentication_mode == "API_AND_CONFIG_MAP"
+    error_message = "Cluster should support both EKS API and aws-auth ConfigMap access by default"
+  }
+
+  assert {
+    condition     = aws_eks_cluster.main.access_config[0].bootstrap_cluster_creator_admin_permissions == true
+    error_message = "Cluster creator should be granted admin access entry by default"
+  }
+
+  assert {
     condition     = var.enable_ebs_encryption == true
     error_message = "enable_ebs_encryption should default to true"
   }
