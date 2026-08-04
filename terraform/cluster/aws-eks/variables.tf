@@ -85,6 +85,16 @@ variable "cluster_api_access_cidr_block" {
   default     = "0.0.0.0/0"
 }
 
+variable "authentication_mode" {
+  description = "EKS cluster access authentication mode. AWS treats this as a one-way transition away from CONFIG_MAP, so pin it explicitly if an existing cluster must stay on CONFIG_MAP."
+  type        = string
+  default     = "API_AND_CONFIG_MAP"
+  validation {
+    condition     = contains(["CONFIG_MAP", "API_AND_CONFIG_MAP", "API"], var.authentication_mode)
+    error_message = "authentication_mode must be one of: CONFIG_MAP, API_AND_CONFIG_MAP, API"
+  }
+}
+
 variable "vpc_id" {
   description = "ID of the VPC where the EKS cluster will be created. Pipe network/aws-vpc's vpc_id output."
   type        = string

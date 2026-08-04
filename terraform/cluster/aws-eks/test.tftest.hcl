@@ -99,6 +99,37 @@ run "minimal_configuration" {
   }
 }
 
+# Pinning to CONFIG_MAP must stay available for existing clusters, since AWS never allows moving
+# an EKS_AND_CONFIG_MAP or API cluster back to CONFIG_MAP.
+run "authentication_mode_can_be_pinned_to_config_map" {
+  command = plan
+
+  variables {
+    context_id          = "test"
+    kubernetes_version  = "1.32"
+    authentication_mode = "CONFIG_MAP"
+  }
+
+  assert {
+    condition     = aws_eks_cluster.main.access_config[0].authentication_mode == "CONFIG_MAP"
+    error_message = "authentication_mode should be overridable to CONFIG_MAP for existing clusters"
+  }
+}
+
+run "authentication_mode_rejects_invalid_value" {
+  command = plan
+
+  variables {
+    context_id          = "test"
+    kubernetes_version  = "1.32"
+    authentication_mode = "INVALID"
+  }
+
+  expect_failures = [
+    var.authentication_mode,
+  ]
+}
+
 run "cloudwatch_logs_disabled" {
   command = plan
 
