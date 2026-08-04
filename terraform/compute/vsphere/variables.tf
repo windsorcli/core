@@ -110,10 +110,9 @@ variable "per_node_config_patches" {
 }
 
 variable "images" {
-  description = "Map of image references the module deploys via OVF. Each entry is deployed with ovf_deploy on first apply and ignored on subsequent applies (lifecycle.ignore_changes). Instances reference an image by its map key; when an instance's image field is empty, no OVF deploy is performed and the VM boots from a blank disk."
+  description = "Map of image references the module deploys via OVF. Each entry is deployed with ovf_deploy on first apply and ignored on subsequent applies (lifecycle.ignore_changes). Instances reference an image by its map key; when an instance's image field is empty, no OVF deploy is performed and the VM boots from a blank disk. There is no keep-on-destroy option: ovf_deploy has no separate cached-template resource to preserve, unlike compute/hyperv's downloaded VHD — destroying an instance always destroys its VM."
   type = map(object({
-    url             = string
-    keep_on_destroy = optional(bool, false)
+    url = string
   }))
   default = {}
 

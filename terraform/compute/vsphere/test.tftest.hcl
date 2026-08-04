@@ -76,8 +76,7 @@ run "controlplane_from_ova" {
     }
     images = {
       talos = {
-        url             = "https://factory.talos.dev/image/903b2da78f99adef03cbbd4df6714563823f63218508800751560d3bc3557e40/v1.10.3/vmware-amd64.ova"
-        keep_on_destroy = true
+        url = "https://factory.talos.dev/image/903b2da78f99adef03cbbd4df6714563823f63218508800751560d3bc3557e40/v1.10.3/vmware-amd64.ova"
       }
     }
     instances = [

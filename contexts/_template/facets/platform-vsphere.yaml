@@ -231,7 +231,6 @@ terraform:
       images:
         talos:
           url: ${vsphere_effective.image_url}
-          keep_on_destroy: true
       instances: >-
         ${concat(
           [fromPairs([

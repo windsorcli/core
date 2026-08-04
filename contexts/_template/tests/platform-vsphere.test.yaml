@@ -61,9 +61,6 @@ cases:
             datastore: datastore-01
             network: VM Network
             cluster_name: talos
-            images:
-              talos:
-                keep_on_destroy: true
         - name: cluster
           path: cluster/talos
           dependsOn:
