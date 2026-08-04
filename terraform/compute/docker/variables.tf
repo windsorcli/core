@@ -67,6 +67,12 @@ variable "compose_project" {
   default     = null
 }
 
+variable "dns_servers" {
+  description = "Nameservers for container /etc/resolv.conf (e.g. terraform_output(workstation, dns_internal_ip)). Applies to every container this module creates (cluster_nodes and instances alike). When unset, containers use the Docker daemon's default embedded resolver."
+  type        = list(string)
+  default     = null
+}
+
 variable "cluster_nodes" {
   description = "Declare controlplanes and workers by count and image. Module expands to N+M containers; shape (ports, volumes, env) is chosen by distribution. hostports: first controlplane gets controlplanes.hostports when no workers, else first worker gets workers.hostports."
   type = object({

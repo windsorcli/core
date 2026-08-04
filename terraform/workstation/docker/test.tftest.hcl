@@ -65,6 +65,16 @@ run "minimal_configuration" {
     condition     = local.git_repo_name == "windsor-test" && one(docker_container.git[0].volumes).container_path == "/repos/mount/windsor-test"
     error_message = "Git mount path should use basename(project_root) for repo naming"
   }
+
+  assert {
+    condition     = output.dns_internal_ip == local.dns_ip
+    error_message = "dns_internal_ip should equal the bridge IP outside docker-desktop mode too"
+  }
+
+  assert {
+    condition     = !strcontains(one(docker_container.dns[0].upload).content, "view host")
+    error_message = "Advanced-networking Corefile should not use the host/view split (no localhost ambiguity to resolve)"
+  }
 }
 
 # Full: all optional variables set; asserts custom network, domain_name, compose_project, custom registries, sequential IPs, runtime logic.
@@ -159,6 +169,16 @@ run "full_configuration" {
   assert {
     condition     = local.git_repo_name == "repo" && one(docker_container.git[0].volumes).container_path == "/repos/mount/repo"
     error_message = "Git mount path should follow basename(project_root) in full configuration"
+  }
+
+  assert {
+    condition     = output.dns_internal_ip == "10.20.0.2"
+    error_message = "dns_internal_ip should be the bridge IP (cidrhost(network_cidr, 2)) even in docker-desktop mode"
+  }
+
+  assert {
+    condition     = strcontains(one(docker_container.dns[0].upload).content, "view host") && strcontains(one(docker_container.dns[0].upload).content, "client_ip() == '10.20.0.1'")
+    error_message = "docker-desktop Corefile should gate the wildcard 127.0.0.1 answer to the bridge gateway IP via a view block"
   }
 }
 

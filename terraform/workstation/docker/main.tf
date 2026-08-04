@@ -88,6 +88,7 @@ locals {
     host_entries             = local.corefile_host_entries
     dns_forward_target       = local.dns_forward_target
     use_localhost_networking = local.use_localhost_networking
+    gateway                  = local.gateway
   }) : ""
 }
 

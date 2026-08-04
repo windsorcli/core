@@ -51,6 +51,11 @@ run "minimal_configuration" {
   }
 
   assert {
+    condition     = docker_container.containers["controlplane-1"].dns == null
+    error_message = "dns should be unset when dns_servers is not provided (Docker's default embedded resolver)"
+  }
+
+  assert {
     condition     = length(output.controlplanes) == 1 && length(output.workers) == 0
     error_message = "controlplanes output length 1, workers length 0"
   }
@@ -70,6 +75,7 @@ run "full_configuration" {
     network_cidr   = "10.20.0.0/16"
     create_network = true
     runtime        = "docker-desktop"
+    dns_servers    = ["10.20.0.2"]
     cluster_nodes = {
       distribution = "talos"
       controlplanes = {
@@ -109,6 +115,11 @@ run "full_configuration" {
   assert {
     condition     = output.network_name == "windsor-dev"
     error_message = "network_name is windsor-{context}"
+  }
+
+  assert {
+    condition     = alltrue([for c in docker_container.containers : contains(c.dns, "10.20.0.2")])
+    error_message = "All node containers should get dns_servers when set"
   }
 }
 
