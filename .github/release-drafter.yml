@@ -24,10 +24,10 @@ version-resolver:
   major:
     labels:
       - 'major'
-      - 'breaking'
   minor:
     labels:
       - 'feature'
+      - 'breaking'
   patch:
     labels:
       - 'fix'
