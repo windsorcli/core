@@ -385,3 +385,51 @@ run "validation_image_url_missing_scheme" {
     var.images,
   ]
 }
+
+# Last-octet overflow: a pool starting at .254 with count=3 would need octets
+# .254-.256, which is invalid. The instances validation should reject it.
+run "validation_ipv4_octet_overflow" {
+  command = plan
+
+  variables {
+    instances = [
+      {
+        name  = "worker"
+        role  = "worker"
+        count = 3
+        ipv4  = "10.5.0.254"
+      }
+    ]
+  }
+
+  expect_failures = [
+    var.instances,
+  ]
+}
+
+# Boundary case: a pool ending exactly at .255 is valid.
+run "validation_ipv4_octet_at_boundary" {
+  command = plan
+
+  variables {
+    talos_version    = "1.12.6"
+    cluster_endpoint = "https://10.5.0.10:6443"
+    per_node_config_patches = {
+      "worker-1" = "machine:\n  network:\n    interfaces: []\n"
+      "worker-2" = "machine:\n  network:\n    interfaces: []\n"
+    }
+    instances = [
+      {
+        name  = "worker"
+        role  = "worker"
+        count = 2
+        ipv4  = "10.5.0.254"
+      }
+    ]
+  }
+
+  assert {
+    condition     = length(vsphere_virtual_machine.instances) == 2
+    error_message = "count=2 starting at .254 should produce 2 VMs (.254, .255)"
+  }
+}

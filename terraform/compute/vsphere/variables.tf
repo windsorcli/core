@@ -138,4 +138,13 @@ variable "instances" {
     notes          = optional(string)
   }))
   default = []
+
+  validation {
+    condition = alltrue([
+      for inst in var.instances : inst.ipv4 == null || inst.count <= 1 || (
+        tonumber(split(".", split("/", inst.ipv4)[0])[3]) + (inst.count - 1) <= 255
+      )
+    ])
+    error_message = "instances: ipv4 starting octet plus (count - 1) must not exceed 255"
+  }
 }
