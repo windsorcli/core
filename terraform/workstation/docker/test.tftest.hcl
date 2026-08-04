@@ -187,12 +187,12 @@ run "full_configuration" {
   }
 
   assert {
-    condition     = [for p in docker_container.dns[0].ports : p.internal if p.external == 53 && p.protocol == "tcp"][0] == 5300
+    condition     = try([for p in docker_container.dns[0].ports : p.internal if p.external == 53 && p.protocol == "tcp"][0], null) == 5300
     error_message = "Published host port 53 should DNAT to the internal host-only answer port"
   }
 
   assert {
-    condition     = [for p in docker_container.dns[0].ports : p.internal if p.external == 53 && p.protocol == "udp"][0] == 5300
+    condition     = try([for p in docker_container.dns[0].ports : p.internal if p.external == 53 && p.protocol == "udp"][0], null) == 5300
     error_message = "Published host port 53 should DNAT to the internal host-only answer port (udp)"
   }
 }
