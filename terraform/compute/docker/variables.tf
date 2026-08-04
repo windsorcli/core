@@ -68,7 +68,7 @@ variable "compose_project" {
 }
 
 variable "dns_servers" {
-  description = "Nameservers for container /etc/resolv.conf (e.g. terraform_output(workstation, dns_internal_ip)). When unset, containers use the Docker daemon's default embedded resolver."
+  description = "Nameservers for container /etc/resolv.conf (e.g. terraform_output(workstation, dns_internal_ip)). Applies to every container this module creates (cluster_nodes and instances alike). When unset, containers use the Docker daemon's default embedded resolver."
   type        = list(string)
   default     = null
 }
