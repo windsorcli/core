@@ -90,6 +90,7 @@ flux:
         - "${gateway.driver == 'envoy' && lb_effective.mode == 'loadbalancer' && lb_effective.enabled == true ? 'envoy/loadbalancer/fixed-ip' : ''}"
         - "${gateway.driver == 'envoy' && lb_effective.mode == 'nodeport' && (dns.private.enabled ?? (dev == true)) == true ? 'envoy/nodeport/dns' : ''}"
         - "${gateway.driver == 'envoy' && lb_effective.mode == 'nodeport' && (gitops.mode ?? 'push') == 'push' ? 'envoy/nodeport/flux-webhook' : ''}"
+        - "${gateway.driver == 'envoy' && lb_effective.mode == 'nodeport' && workstation.runtime == 'docker-desktop' ? 'envoy/nodeport/docker-desktop' : ''}"
         - "${gateway.driver == 'envoy' ? 'envoy/prometheus' : ''}"
       substitutions:
         loadbalancer_start_ip: "${lb_effective.enabled == true ? network.loadbalancer_ips.start : ''}"

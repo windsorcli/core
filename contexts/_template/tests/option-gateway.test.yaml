@@ -126,7 +126,13 @@ cases:
       flux:
         - name: gateway
           install:
-            <<: *gateway-install-envoy-np
+            components:
+              - envoy
+              - envoy/nodeport
+              - envoy/nodeport/docker-desktop
+              - envoy/prometheus
+            timeout: 10m
+            interval: 5m
           resources:
             # docker-desktop reaches HTTPS on host :8443, so the redirect targets it.
             - substitutions:

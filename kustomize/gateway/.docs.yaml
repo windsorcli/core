@@ -57,6 +57,10 @@ components:
     facet: gateway-install
     enable_when: "envoy/nodeport AND `gitops.mode == 'push'`"
     description: "Opens an additional NodePort for the Flux notification-controller webhook (port 9292). Lets the GitOps push pipeline reach in-cluster receivers."
+  envoy/nodeport/docker-desktop:
+    facet: gateway-install
+    enable_when: "envoy/nodeport AND `workstation.runtime == 'docker-desktop'`"
+    description: "Adds ClusterIP-reachable 8443/8080 entries to the data-plane Service, matching the host-published ports Docker maps straight onto the node container. Lets in-cluster callers reach workstation-domain hostnames at the same port a browser would, since Docker gives those host ports no in-cluster listener otherwise."
   envoy/prometheus:
     facet: gateway-install
     enable_when: "envoy driver"

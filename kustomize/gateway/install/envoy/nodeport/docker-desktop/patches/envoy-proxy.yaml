@@ -1,0 +1,20 @@
+# Appends the docker-desktop host-published ports (8443/8080 → 10443/10080) to
+# the envoyService patch's spec.ports list, ClusterIP-reachable alongside the
+# NodePort entries. Docker maps the host's published 8443/8080 straight onto
+# the node container (terraform/compute/docker), which has no in-cluster
+# listener on those ports otherwise; every hostname under the workstation
+# domain is built with this port suffix regardless of caller.
+- op: add
+  path: /spec/provider/kubernetes/envoyService/patch/value/spec/ports/-
+  value:
+    name: https-8443
+    protocol: TCP
+    port: 8443
+    targetPort: 10443
+- op: add
+  path: /spec/provider/kubernetes/envoyService/patch/value/spec/ports/-
+  value:
+    name: http-8080
+    protocol: TCP
+    port: 8080
+    targetPort: 10080
