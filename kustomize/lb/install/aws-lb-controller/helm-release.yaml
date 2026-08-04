@@ -38,7 +38,7 @@ spec:
     image:
       repository: public.ecr.aws/eks/aws-load-balancer-controller
       # renovate: datasource=docker depName=public.ecr.aws/eks/aws-load-balancer-controller package=public.ecr.aws/eks/aws-load-balancer-controller
-      tag: v3.4.3@sha256:ab6e54bc49d7e247aa9a3dbf675d57fcd6529396dac91341a53c57764296b64c
+      tag: v3.5.0@sha256:298acdff5a571731276aaea3d5cc450a264e4ad710a5bddf3e518f68a3f9f6cb
     serviceAccount:
       create: true
       name: aws-load-balancer-controller
