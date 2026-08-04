@@ -74,6 +74,16 @@ run "minimal_configuration" {
   }
 
   assert {
+    condition     = aws_eks_cluster.main.access_config[0].authentication_mode == "API_AND_CONFIG_MAP"
+    error_message = "Cluster should support both EKS API and aws-auth ConfigMap access by default"
+  }
+
+  assert {
+    condition     = aws_eks_cluster.main.access_config[0].bootstrap_cluster_creator_admin_permissions == true
+    error_message = "Cluster creator should be granted admin access entry by default"
+  }
+
+  assert {
     condition     = var.enable_ebs_encryption == true
     error_message = "enable_ebs_encryption should default to true"
   }
@@ -87,6 +97,37 @@ run "minimal_configuration" {
     condition     = length(aws_kms_key.ebs_encryption_key) == 1
     error_message = "EBS encryption key should be created when enable_ebs_encryption is true and no key is provided"
   }
+}
+
+# Pinning to CONFIG_MAP must stay available for existing clusters, since AWS never allows moving
+# an EKS_AND_CONFIG_MAP or API cluster back to CONFIG_MAP.
+run "authentication_mode_can_be_pinned_to_config_map" {
+  command = plan
+
+  variables {
+    context_id          = "test"
+    kubernetes_version  = "1.32"
+    authentication_mode = "CONFIG_MAP"
+  }
+
+  assert {
+    condition     = aws_eks_cluster.main.access_config[0].authentication_mode == "CONFIG_MAP"
+    error_message = "authentication_mode should be overridable to CONFIG_MAP for existing clusters"
+  }
+}
+
+run "authentication_mode_rejects_invalid_value" {
+  command = plan
+
+  variables {
+    context_id          = "test"
+    kubernetes_version  = "1.32"
+    authentication_mode = "INVALID"
+  }
+
+  expect_failures = [
+    var.authentication_mode,
+  ]
 }
 
 run "cloudwatch_logs_disabled" {

@@ -76,6 +76,14 @@ resource "aws_eks_cluster" "main" {
     security_group_ids      = [aws_security_group.cluster_api_access.id]
   }
 
+  # authentication_mode is a one-way transition: AWS never allows moving back to CONFIG_MAP once
+  # changed. bootstrap_cluster_creator_admin_permissions only applies at cluster creation; it has
+  # no effect on re-apply against an existing cluster.
+  access_config {
+    authentication_mode                         = var.authentication_mode
+    bootstrap_cluster_creator_admin_permissions = true
+  }
+
   # Enable control plane logging for all log types
   enabled_cluster_log_types = var.enable_cloudwatch_logs ? [
     "api",
