@@ -284,9 +284,8 @@ cases:
       network: *default-network
       cluster: *default-cluster
       vsphere: *default-vsphere
-      addons:
-        private_ca:
-          enabled: true
+      pki:
+        enabled: true
     terraformOutputs: *default-terraform-outputs
     expect:
       flux:
