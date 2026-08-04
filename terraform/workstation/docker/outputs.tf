@@ -36,6 +36,11 @@ output "dns_ip" {
   value       = local.use_localhost_networking ? "127.0.0.1" : local.dns_ip
 }
 
+output "dns_internal_ip" {
+  description = "Bridge-network IP for the DNS container (cidrhost(network_cidr, 2)), regardless of runtime. Use for peer containers (e.g. compute/docker nodes) that need to reach the DNS container directly rather than via the host-published address."
+  value       = local.dns_ip
+}
+
 output "domain_name" {
   description = "Domain name used for DNS zone and hostnames (dns.domain_name, git.domain_name, etc.). Equal to var.domain_name when set, otherwise var.context."
   value       = local.domain_name

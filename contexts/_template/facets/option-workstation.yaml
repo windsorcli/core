@@ -273,6 +273,7 @@ terraform:
       start_ip: ${terraform_output("workstation", "next_ip")}
       runtime: ${workstation.runtime ?? "linux"}
       compose_project: ${terraform_output("workstation", "compose_project")}
+      dns_servers: "${workstation.runtime == \"docker-desktop\" ? [terraform_output(\"workstation\", \"dns_internal_ip\")] : null}"
       cluster_nodes:
         controlplanes:
           count: ${cluster.controlplanes.count ?? 1}

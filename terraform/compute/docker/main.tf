@@ -270,6 +270,7 @@ resource "docker_container" "containers" {
   restart    = try(each.value.restart, "unless-stopped")
   privileged = try(each.value.privileged, false)
   read_only  = try(each.value.read_only, false)
+  dns        = var.dns_servers
 
   security_opts = toset(coalesce(try(each.value.security_opt, null), []))
 
