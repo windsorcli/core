@@ -177,8 +177,23 @@ run "full_configuration" {
   }
 
   assert {
-    condition     = strcontains(one(docker_container.dns[0].upload).content, "view host") && strcontains(one(docker_container.dns[0].upload).content, "client_ip() == '10.20.0.1'")
-    error_message = "docker-desktop Corefile should gate the wildcard 127.0.0.1 answer to the bridge gateway IP via a view block"
+    condition     = strcontains(one(docker_container.dns[0].upload).content, "local.dev:5300")
+    error_message = "docker-desktop Corefile should answer the wildcard 127.0.0.1 record on the host-only internal port"
+  }
+
+  assert {
+    condition     = !strcontains(one(docker_container.dns[0].upload).content, "view host")
+    error_message = "docker-desktop Corefile should not gate on client_ip; source IPs are indistinguishable on this platform"
+  }
+
+  assert {
+    condition     = [for p in docker_container.dns[0].ports : p.internal if p.external == 53 && p.protocol == "tcp"][0] == 5300
+    error_message = "Published host port 53 should DNAT to the internal host-only answer port"
+  }
+
+  assert {
+    condition     = [for p in docker_container.dns[0].ports : p.internal if p.external == 53 && p.protocol == "udp"][0] == 5300
+    error_message = "Published host port 53 should DNAT to the internal host-only answer port (udp)"
   }
 }
 

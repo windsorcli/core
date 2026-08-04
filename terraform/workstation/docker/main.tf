@@ -45,9 +45,11 @@ locals {
   registries = coalesce(var.registries, {})
   # Fixed layout: 1=gateway, 2=dns, 3=git, 4..(node_start_offset-1)=registries, node_start_offset=first node.
   # Registries fill a reserved block so adding/removing one never shifts the first-node IP returned by next_ip.
-  gateway              = cidrhost(var.network_cidr, 1)
-  dns_ip               = cidrhost(var.network_cidr, 2)
-  git_ip               = cidrhost(var.network_cidr, 3)
+  gateway = cidrhost(var.network_cidr, 1)
+  dns_ip  = cidrhost(var.network_cidr, 2)
+  git_ip  = cidrhost(var.network_cidr, 3)
+  # docker-desktop only: internal port the published host port 53 DNATs to.
+  dns_host_answer_port = 5300
   registry_ip_base     = 4
   registry_ip_capacity = var.node_start_offset - local.registry_ip_base
   registry_keys_sorted = sort(keys(local.registries))
@@ -88,7 +90,7 @@ locals {
     host_entries             = local.corefile_host_entries
     dns_forward_target       = local.dns_forward_target
     use_localhost_networking = local.use_localhost_networking
-    gateway                  = local.gateway
+    host_answer_port         = local.dns_host_answer_port
   }) : ""
 }
 
@@ -173,7 +175,7 @@ resource "docker_container" "dns" {
   dynamic "ports" {
     for_each = local.publish_ports ? [1] : []
     content {
-      internal = 53
+      internal = local.dns_host_answer_port
       external = 53
       ip       = "127.0.0.1"
       protocol = "tcp"
@@ -182,7 +184,7 @@ resource "docker_container" "dns" {
   dynamic "ports" {
     for_each = local.publish_ports ? [1] : []
     content {
-      internal = 53
+      internal = local.dns_host_answer_port
       external = 53
       ip       = "127.0.0.1"
       protocol = "udp"

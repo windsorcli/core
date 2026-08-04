@@ -1,8 +1,5 @@
 %{ if use_localhost_networking ~}
-${context}:53 {
-    view host {
-        expr client_ip() == '${gateway}'
-    }
+${context}:${host_answer_port} {
     template IN A {
         match "^.*\.${context}\.$"
         answer "{{ .Name }} 60 IN A 127.0.0.1"
