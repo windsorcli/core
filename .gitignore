@@ -23,7 +23,3 @@ contexts/**/.gcp/
 .cursor/
 .vscode/*.local.*
 
-# docs/ is committed, except docs/adr/ and docs/plans/, which are internal
-# records and planning notes kept local.
-docs/adr/
-docs/plans/
