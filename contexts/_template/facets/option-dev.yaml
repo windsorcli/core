@@ -52,3 +52,17 @@ flux:
         - grafana/dev
       substitutions:
         admin_password: ${observability.admin_password ?? "grafana"}
+
+  # OpenBao dev credentials — a local userpass admin user, so the UI is
+  # reachable without pasting the root token. admin_password is sensitive,
+  # so it's placed as a Secret rather than a plaintext substitution.
+  - name: secrets
+    when: secrets_store.enabled == true && (secrets_store.driver ?? 'openbao') == 'openbao'
+    secrets:
+      openbao-dev-password:
+        namespaces: [system-secrets-store]
+        data:
+          password: ${secrets_store.admin_password ?? "openbao"}
+    install:
+      components:
+        - openbao/dev
