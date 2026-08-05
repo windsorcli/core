@@ -1348,6 +1348,52 @@ properties:
         description: Object storage driver
     additionalProperties: false
 
+  external_secrets:
+    type: object
+    properties:
+      enabled:
+        type: boolean
+        default: false
+        description: Enable External Secrets Operator for runtime secret sync
+    additionalProperties: false
+
+  secrets_store:
+    type: object
+    properties:
+      enabled:
+        type: boolean
+        default: false
+        description: Enable a secrets store for External Secrets Operator to read from
+      driver:
+        type: string
+        enum:
+          - openbao
+          - external
+        default: openbao
+        description: openbao self-hosts a single-cluster store; external points at a Vault-API-compatible instance this cluster doesn't own
+      admin_password:
+        type: string
+        sensitive: true
+        description: OpenBao dev userpass admin password
+      external:
+        type: object
+        properties:
+          url:
+            type: string
+            description: Vault-API-compatible address (OpenBao or HashiCorp Vault). Only consumed when driver is external.
+          kubernetes_auth:
+            type: object
+            properties:
+              mount_path:
+                type: string
+                description: Kubernetes auth mount path this cluster was registered under
+              role:
+                type: string
+                description: Role bound to that mount
+            additionalProperties: false
+        additionalProperties: false
+    additionalProperties: false
+
 required: []
 additionalProperties: false
 
