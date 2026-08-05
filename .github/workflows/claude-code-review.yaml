@@ -311,7 +311,7 @@ jobs:
                       }
                     }
                   }
-                }' -F owner="${GH_REPO%/*}" -F repo="${GH_REPO#*/}" -F num="$PR_NUMBER"
+                }' -F owner="${{ github.repository_owner }}" -F repo="${{ github.event.repository.name }}" -F num="${{ github.event.pull_request.number }}"
 
             2. For each unresolved thread authored by the bot (login ending
                in `[bot]`, `github-actions`, or `claude`):
