@@ -621,6 +621,21 @@ run "workload_identity_defaults" {
     condition     = azurerm_federated_identity_credential.external_dns[0].subject == "system:serviceaccount:system-dns:external-dns"
     error_message = "Default federated credential subject must target the external-dns SA in system-dns."
   }
+
+  assert {
+    condition     = length(azurerm_key_vault.openbao) == 0
+    error_message = "OpenBao Key Vault must not be provisioned by default."
+  }
+
+  assert {
+    condition     = length(azurerm_user_assigned_identity.openbao) == 0
+    error_message = "OpenBao UAMI must not be provisioned by default."
+  }
+
+  assert {
+    condition     = length(azurerm_federated_identity_credential.openbao) == 0
+    error_message = "OpenBao federated credential must not be provisioned by default."
+  }
 }
 
 # Tests cert-manager Workload Identity provisioning end-to-end: the UAMI is
@@ -664,6 +679,60 @@ run "cert_manager_workload_identity" {
 
   assert {
     condition     = contains(azurerm_federated_identity_credential.cert_manager[0].audience, "api://AzureADTokenExchange")
+    error_message = "Audience must include api://AzureADTokenExchange — Azure AD rejects the token exchange otherwise."
+  }
+}
+
+# Tests OpenBao Workload Identity provisioning end-to-end: the Key Vault,
+# key, UAMI, both role assignments, and the federated credential subject
+# targeting the openbao SA in system-secrets-store.
+run "openbao_workload_identity" {
+  command = plan
+
+  variables {
+    context_id              = "test"
+    name                    = "windsor-aks"
+    kubernetes_version      = "1.34"
+    create_openbao_identity = true
+  }
+
+  assert {
+    condition     = length(azurerm_key_vault.openbao) == 1
+    error_message = "OpenBao Key Vault should be provisioned when create_openbao_identity is true."
+  }
+
+  assert {
+    condition     = azurerm_key_vault.openbao[0].rbac_authorization_enabled == true
+    error_message = "OpenBao Key Vault should use RBAC authorization, not access policies."
+  }
+
+  assert {
+    condition     = length(azurerm_key_vault_key.openbao_unseal) == 1
+    error_message = "OpenBao unseal key should be provisioned when create_openbao_identity is true."
+  }
+
+  assert {
+    condition     = length(azurerm_user_assigned_identity.openbao) == 1
+    error_message = "OpenBao UAMI should be provisioned when create_openbao_identity is true."
+  }
+
+  assert {
+    condition     = azurerm_user_assigned_identity.openbao[0].name == "windsor-aks-test-openbao"
+    error_message = "OpenBao UAMI name should follow <cluster_name>-openbao."
+  }
+
+  assert {
+    condition     = length(azurerm_role_assignment.openbao_key_vault_user) == 1
+    error_message = "OpenBao UAMI should get a Key Vault Crypto User role assignment."
+  }
+
+  assert {
+    condition     = azurerm_federated_identity_credential.openbao[0].subject == "system:serviceaccount:system-secrets-store:openbao"
+    error_message = "Federated credential subject must target the openbao SA in system-secrets-store."
+  }
+
+  assert {
+    condition     = contains(azurerm_federated_identity_credential.openbao[0].audience, "api://AzureADTokenExchange")
     error_message = "Audience must include api://AzureADTokenExchange — Azure AD rejects the token exchange otherwise."
   }
 }

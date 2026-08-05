@@ -50,3 +50,20 @@ output "external_dns_principal_id" {
   description = "Principal (object) ID of the external-dns UAMI — useful for ad-hoc role grants outside this module."
   value       = try(azurerm_user_assigned_identity.external_dns[0].principal_id, null)
 }
+
+# OpenBao Workload Identity outputs — null when create_openbao_identity is false.
+
+output "openbao_client_id" {
+  description = "Client ID of the OpenBao User-Assigned Managed Identity. Annotate the OpenBao ServiceAccount with azure.workload.identity/client-id=<this> so token exchange targets the right identity. Null when the identity isn't provisioned."
+  value       = try(azurerm_user_assigned_identity.openbao[0].client_id, null)
+}
+
+output "openbao_key_vault_name" {
+  description = "Name of the Key Vault holding OpenBao's auto-unseal key. Null when the vault isn't provisioned."
+  value       = try(azurerm_key_vault.openbao[0].name, null)
+}
+
+output "openbao_key_name" {
+  description = "Name of the key OpenBao's Azure Key Vault seal wraps/unwraps with. Null when the key isn't provisioned."
+  value       = try(azurerm_key_vault_key.openbao_unseal[0].name, null)
+}
