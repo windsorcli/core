@@ -59,6 +59,16 @@ vendors:
         - fluentbit.crdsEnable=true
         - fluentd.crdsEnable=true
 
+  - name: external-secrets
+    # renovate: datasource=helm depName=external-secrets package=external-secrets helmRepo=https://charts.external-secrets.io
+    version: 2.8.0
+    helm:
+      repo: https://charts.external-secrets.io
+      chart: external-secrets
+      mode: template
+      set:
+        - installCRDs=true
+
   - name: keycloak
     # renovate: datasource=github-releases depName=keycloak/keycloak-k8s-resources package=keycloak/keycloak-k8s-resources
     version: 26.7.0
