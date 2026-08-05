@@ -34,7 +34,7 @@ jobs:
           fetch-depth: 0
       - name: Fetch base ref
         run: git fetch --depth=1 origin ${{ github.base_ref }}
-      - uses: anthropics/claude-code-action@86180fa9e4d311eed10c9cc49854c53dab5d517a # v1.0.184
+      - uses: anthropics/claude-code-action@9db594c7a0e82298c121c18b7f08aa1579ce7341 # v1.0.185
         env:
           PR_NUMBER: ${{ github.event.pull_request.number }}
           PR_HEAD_SHA: ${{ github.event.pull_request.head.sha }}
@@ -151,7 +151,7 @@ jobs:
           fetch-depth: 0
       - name: Fetch base ref
         run: git fetch --depth=1 origin ${{ steps.pr.outputs.base_ref }}
-      - uses: anthropics/claude-code-action@86180fa9e4d311eed10c9cc49854c53dab5d517a # v1.0.184
+      - uses: anthropics/claude-code-action@9db594c7a0e82298c121c18b7f08aa1579ce7341 # v1.0.185
         env:
           PR_NUMBER: ${{ github.event.issue.number }}
           PR_HEAD_SHA: ${{ steps.pr.outputs.head_sha }}
@@ -283,7 +283,7 @@ jobs:
         if: steps.check.outputs.count != '0'
         with:
           fetch-depth: 1
-      - uses: anthropics/claude-code-action@86180fa9e4d311eed10c9cc49854c53dab5d517a # v1.0.184
+      - uses: anthropics/claude-code-action@9db594c7a0e82298c121c18b7f08aa1579ce7341 # v1.0.185
         if: steps.check.outputs.count != '0'
         env:
           PR_NUMBER: ${{ github.event.pull_request.number }}
@@ -311,7 +311,7 @@ jobs:
                       }
                     }
                   }
-                }' -F owner="${GH_REPO%/*}" -F repo="${GH_REPO#*/}" -F num="$PR_NUMBER"
+                }' -F owner="${{ github.repository_owner }}" -F repo="${{ github.event.repository.name }}" -F num="${{ github.event.pull_request.number }}"
 
             2. For each unresolved thread authored by the bot (login ending
                in `[bot]`, `github-actions`, or `claude`):
