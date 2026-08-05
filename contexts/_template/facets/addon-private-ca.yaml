@@ -21,26 +21,33 @@ requires:
 # (resources) onto the pki tiers from platform-base. The issuer becomes the
 # default for workload certificates. The CA cert/key come from the pki/ca
 # terraform step (generated or BYO), no in-cluster minting or sync job
-# involved. Both cert and key are materialized straight into the
-# private-ca-keypair Secret via `secrets:` (never rendered in the
-# Kustomization spec) — the cert isn't sensitive, but trust-manager's Bundle
-# reads it as a Secret source too, not a plain Flux substitution: a
-# substituted multi-line PEM value loses its line breaks, which trust-manager's
-# PEM decoder silently treats as "no certificates found" rather than an
-# error. Named distinctly from the pre-existing private-ca-cert Secret
-# (cert-manager self-signed, type kubernetes.io/tls): Secret type is
-# immutable, so reusing that name would fail to apply on any cluster
-# upgrading from the old self-signed design.
+# involved. Placed via `secrets:` (never rendered in the Kustomization
+# spec), not a plain Flux substitution: a substituted multi-line PEM value
+# loses its line breaks, which trust-manager's PEM decoder silently treats
+# as "no certificates found" rather than an error. Two separate Secrets,
+# not one replicated across namespaces: private-ca-keypair (cert+key) stays
+# system-pki-only for the ClusterIssuer to sign against; private-ca-trust-cert
+# (cert only, no key) goes to system-pki-trust for trust-manager's Bundle —
+# trust-manager only ever needs the public half, so the private key never
+# lands anywhere outside the namespace that actually signs with it. Named
+# distinctly from the pre-existing private-ca-cert Secret (cert-manager
+# self-signed, type kubernetes.io/tls): Secret type is immutable, so
+# reusing that name for an Opaque cert-only Secret would fail to apply on
+# any cluster upgrading from the old self-signed design.
 #
 flux:
 
   - name: pki
     secrets:
       private-ca-keypair:
-        namespaces: [system-pki, system-pki-trust]
+        namespaces: [system-pki]
         data:
           tls.crt: ${terraform_output('pki', 'cert')}
           tls.key: ${terraform_output('pki', 'key')}
+      private-ca-trust-cert:
+        namespaces: [system-pki-trust]
+        data:
+          tls.crt: ${terraform_output('pki', 'cert')}
     install:
       components:
         - trust-manager

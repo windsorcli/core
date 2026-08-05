@@ -7,7 +7,7 @@ spec:
   sources:
   - useDefaultCAs: true
   - secret:
-      name: private-ca-keypair
+      name: private-ca-trust-cert
       key: tls.crt
   target:
     configMap:

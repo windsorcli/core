@@ -93,7 +93,7 @@ cases:
         - name: pki
           secrets:
             private-ca-keypair:
-              namespaces: [system-pki, system-pki-trust]
+              namespaces: [system-pki]
               data:
                 tls.crt: |-
                   -----BEGIN CERTIFICATE-----
@@ -103,6 +103,13 @@ cases:
                   -----BEGIN EC PRIVATE KEY-----
                   FAKEKEY
                   -----END EC PRIVATE KEY-----
+            private-ca-trust-cert:
+              namespaces: [system-pki-trust]
+              data:
+                tls.crt: |-
+                  -----BEGIN CERTIFICATE-----
+                  FAKECERT
+                  -----END CERTIFICATE-----
 
   # Supplying only one of cert/key must fail composition, not silently fall
   # back to a generated CA.
