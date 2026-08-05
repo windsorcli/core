@@ -8,9 +8,6 @@ facets:
   - pki-resources
 
 substitutions:
-  private_ca_cert:
-    required_when: "`private-issuer/ca` is enabled"
-    description: "PEM-encoded CA certificate. Sourced from `terraform_output('pki', 'cert')`."
   cert_manager_client_id:
     required_when: "`cert-manager/azure-workload-identity` is enabled"
     description: "Azure AD client ID for the cert-manager managed identity. Sourced from `terraform_output('cluster', 'cert_manager_client_id')`."
@@ -68,7 +65,7 @@ components:
   private-issuer/ca:
     facet: pki-resources
     enable_when: "`pki.enabled: true`"
-    description: "Full private CA: the CA cert/key (generated or BYO, from `terraform_output('pki', ...)`) populate the `private-ca-keypair` Secret cert-manager's `ca`-type `ClusterIssuer` (`private`) signs against — the key via the facet's `secrets:` block (never rendered in the Kustomization spec), the cert via a plain substitution since it isn't sensitive — plus the `private-ca-cert` ConfigMap trust-manager's `Bundle` distributes to workload namespaces, and a Kyverno mutation policy that injects the trust bundle into workload Pods."
+    description: "Full private CA: the CA cert/key (generated or BYO, from `terraform_output('pki', ...)`) populate the `private-ca-keypair` Secret cert-manager's `ca`-type `ClusterIssuer` (`private`) signs against, placed in both `system-pki` and `system-pki-trust` via the facet's `secrets:` block (never rendered in the Kustomization spec, and never through a Flux substitution — a substituted multi-line PEM value loses its line breaks). trust-manager's `Bundle` reads the cert straight from that Secret and distributes it to workload namespaces; a Kyverno mutation policy injects the trust bundle into workload Pods."
   public-issuer/selfsigned:
     facet: pki-resources
     enable_when: "`dns.public_domain` is unset (default)"

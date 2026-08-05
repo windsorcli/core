@@ -6,9 +6,9 @@ metadata:
 spec:
   sources:
   - useDefaultCAs: true
-  - configMap:
-      name: private-ca-cert
-      key: ca.crt
+  - secret:
+      name: private-ca-keypair
+      key: tls.crt
   target:
     configMap:
       key: trust-bundle.pem
