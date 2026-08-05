@@ -335,12 +335,17 @@ terraform:
 # =============================================================================
 # Flux systems — docker-desktop DNS override
 # =============================================================================
-# Docker Desktop's LB IP is unreachable from the host, so advertise 127.0.0.1
-# via gateway_dns_target — reached through the Talos container's host-port map.
+# Docker Desktop's LB IP is unreachable, so gateway_dns_target points
+# external-dns at gateway/resources/dns/docker-desktop's fixed-address
+# ClusterIP Service instead. The host answers its own queries separately via
+# the workstation Corefile (terraform/workstation/docker) and never consults
+# this record.
 flux:
 
   - name: gateway
-    when: "platform == 'docker' && workstation.runtime == 'docker-desktop' && gateway.enabled == true"
+    when: "platform == 'docker' && workstation.runtime == 'docker-desktop' && gateway.enabled == true && (dns.private.enabled ?? (dev == true)) == true"
     resources:
-      - substitutions:
-          gateway_dns_target: "127.0.0.1"
+      - components:
+          - "${gateway.driver != 'cilium' ? 'dns/docker-desktop' : ''}"
+        substitutions:
+          gateway_dns_target: "10.96.0.53"

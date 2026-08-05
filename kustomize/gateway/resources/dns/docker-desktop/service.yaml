@@ -1,0 +1,34 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: gateway
+  namespace: system-gateway
+spec:
+  type: ClusterIP
+  # Fixed address (same convention as kube-dns's own 10.96.0.10) so
+  # gateway_dns_target can publish a literal A record: CoreDNS's etcd/skydns
+  # backend can't chase a CNAME into a different zone/plugin in the same
+  # Corefile, so a hostname target here would resolve to nothing in-cluster.
+  clusterIP: 10.96.0.53
+  selector:
+    app.kubernetes.io/name: envoy
+    app.kubernetes.io/managed-by: envoy-gateway
+    gateway.envoyproxy.io/owning-gateway-name: external
+    gateway.envoyproxy.io/owning-gateway-namespace: system-gateway
+  ports:
+    - name: http-80
+      protocol: TCP
+      port: 80
+      targetPort: 10080
+    - name: https-443
+      protocol: TCP
+      port: 443
+      targetPort: 10443
+    - name: https-8443
+      protocol: TCP
+      port: 8443
+      targetPort: 10443
+    - name: http-8080
+      protocol: TCP
+      port: 8080
+      targetPort: 10080

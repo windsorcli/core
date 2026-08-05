@@ -89,6 +89,10 @@ components:
     facet: gateway-resources
     enable_when: "envoy driver AND `dns.private.enabled: true` (default in `dev`)"
     description: "Patches the `external` Gateway with `external-dns.alpha.kubernetes.io/target: ${gateway_dns_target}` and adds UDPRoute / TCPRoute listeners on port 53 for in-cluster DNS service exposure."
+  dns/docker-desktop:
+    facet: gateway-resources
+    enable_when: "dns AND `workstation.runtime == 'docker-desktop'` AND envoy driver"
+    description: "Adds a fixed-address (`10.96.0.53`) ClusterIP Service selecting the same Envoy pods as the data-plane Service. `gateway_dns_target` points external-dns at that address instead of a literal `127.0.0.1`, so in-cluster callers resolve the workstation domain to a real, correctly-ported listener. A literal A record, not a CNAME to the Service's DNS name: the private coredns's etcd backend can't chase a CNAME into a different zone."
   lb-address:
     facet: gateway-resources
     enable_when: "`lb_effective.enabled: true`"
