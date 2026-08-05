@@ -9,6 +9,9 @@ spec:
   # gateway_dns_target can publish a literal A record: CoreDNS's etcd/skydns
   # backend can't chase a CNAME into a different zone/plugin in the same
   # Corefile, so a hostname target here would resolve to nothing in-cluster.
+  # Assumes Talos's default service CIDR (10.96.0.0/12); terraform/cluster/talos
+  # doesn't expose a service_subnet variable, so every context in this repo
+  # gets that default today. Revisit this address if that ever changes.
   clusterIP: 10.96.0.53
   selector:
     app.kubernetes.io/name: envoy
