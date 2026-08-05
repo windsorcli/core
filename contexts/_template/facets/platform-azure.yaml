@@ -93,6 +93,7 @@ terraform:
       availability_zones: "${topology == 'ha' ? ['1','2','3'] : null}"
       create_cert_manager_identity: "${(dns.public_domain ?? '') != ''}"
       cert_manager_dns_zone_ids: "${(dns.public_domain ?? '') != '' && (terraform_output('dns-zone', 'zone_id') ?? '') != '' ? [terraform_output('dns-zone', 'zone_id')] : []}"
+      create_openbao_identity: "${secrets_store.enabled == true && (secrets_store.driver ?? 'openbao') == 'openbao'}"
       external_dns_dns_zone_ids: "${gateway.access == 'private' && (dns.private_domain ?? '') != '' && (terraform_output('network', 'private_zone_id') ?? '') != '' ? [terraform_output('network', 'private_zone_id')] : ((dns.public_domain ?? '') != '' && (terraform_output('dns-zone', 'zone_id') ?? '') != '' ? [terraform_output('dns-zone', 'zone_id')] : [])}"
       # Portable user pools alongside the inline default (system) pool; defaults
       # to one general pool. Declaring cluster.pools replaces this.
@@ -174,6 +175,24 @@ flux:
       interval: 5m
       substitutions:
         single_storage_type: ${cluster.storage.single_storage_type ?? "StandardSSD_LRS"}
+
+  # OpenBao auto-unseal — layers a seal "azurekeyvault" stanza onto the base
+  # standalone.config via a full-config-replace patch (Kustomize can't
+  # append into a scalar string field), plus the Workload Identity
+  # annotations/label so the pod can exchange its SA token for an Azure AD
+  # token. Key Vault and identity wired by the cluster module
+  # (create_openbao_identity, Pod Identity in system-secrets-store).
+  - name: secrets
+    when: "secrets_store.enabled == true && (secrets_store.driver ?? 'openbao') == 'openbao'"
+    install:
+      components:
+        - openbao/azure-keyvault-unseal
+        - openbao/azure-workload-identity
+      substitutions:
+        openbao_tenant_id: "${terraform_output('cluster', 'tenant_id') ?? ''}"
+        openbao_client_id: "${terraform_output('cluster', 'openbao_client_id') ?? ''}"
+        openbao_vault_name: "${terraform_output('cluster', 'openbao_key_vault_name') ?? ''}"
+        openbao_key_name: "${terraform_output('cluster', 'openbao_key_name') ?? ''}"
 
   # external-dns writes A/CNAME records from annotated Ingress/HTTPRoute into an
   # Azure DNS zone. Public mode (dns.public_domain) targets the dns-zone stack's

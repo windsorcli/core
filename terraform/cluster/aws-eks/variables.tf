@@ -67,6 +67,12 @@ variable "cert_manager_hosted_zone_ids" {
   default     = []
 }
 
+variable "create_openbao_kms_role" {
+  description = "Whether to create a KMS key and the IAM role, policy, and Pod Identity association for OpenBao's AWS KMS auto-unseal. Enable when the secrets_store addon runs OpenBao with the openbao driver."
+  type        = bool
+  default     = false
+}
+
 variable "endpoint_public_access" {
   description = "Whether to enable public access to the EKS cluster."
   type        = bool
