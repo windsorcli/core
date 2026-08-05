@@ -139,6 +139,39 @@ cases:
                 gateway_class_name: envoy
                 gateway_redirect_port: "8443"
 
+  # Docker Desktop with private DNS: external-dns needs an in-cluster target
+  # other than 127.0.0.1 (unreachable from pods). gateway_dns_target points at
+  # the dns/docker-desktop Service's fixed ClusterIP instead.
+  - name: Docker Desktop with private DNS targets the docker-desktop gateway Service
+    values:
+      platform: docker
+      dev: true
+      gateway:
+        enabled: true
+        driver: envoy
+      workstation:
+        enabled: true
+        runtime: docker-desktop
+      network: *default-network
+      cluster: *default-cluster
+    terraformOutputs:
+      compute:
+        controlplanes:
+          - endpoint: 10.5.0.10:6443
+            node: 10.5.0.10
+            hostname: controlplane-1
+        workers: []
+      workstation:
+        registries: {}
+    expect:
+      flux:
+        - name: gateway
+          resources:
+            - components:
+                - dns/docker-desktop
+              substitutions:
+                gateway_dns_target: "10.96.0.53"
+
   - name: platform docker with runtime colima uses gateway loadbalancer
     values:
       platform: docker
