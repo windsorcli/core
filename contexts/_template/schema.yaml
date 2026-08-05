@@ -1348,6 +1348,15 @@ properties:
         description: Object storage driver
     additionalProperties: false
 
+  external_secrets:
+    type: object
+    properties:
+      enabled:
+        type: boolean
+        default: false
+        description: Enable External Secrets Operator for runtime secret sync
+    additionalProperties: false
+
 required: []
 additionalProperties: false
 
