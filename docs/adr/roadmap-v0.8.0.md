@@ -88,6 +88,8 @@ From the prior cycle's pruning:
 - **Keycloak realm reconciliation** — realm config is one-shot import only; no `keycloak-config-cli`-style continuous reconciliation.
 - **ADR-0008 (deleted, identity)'s own fast-follow items** (not gaps, just not yet started): MinIO console SSO, gateway edge auth via the identity provider, and non-Keycloak `oidc` endpoint-derivation assumptions for providers that don't follow the Keycloak URL convention.
 
+- **Terraform stage after the blueprint is healthy** — Windsor's apply pipeline runs the blueprint's `terraform:` stack before the Kustomize/Flux blueprint applies, so no terraform step can reach a resource that only exists after Flux reconciles it. Blocks configuring OpenBao's OIDC auth method against Keycloak declaratively via the `hashicorp/vault` provider (OpenBao is API-compatible) — currently only buildable as an imperative Job, the same workaround Keycloak's own realm/client config already uses for the identical reason. Needs a `cli`-side capability (a terraform stack entry able to run after specific Kustomizations report healthy) before any core-side work can start; not yet filed as an issue.
+
 From this cycle's manager/hardening review, considered and not carried as an
 ADR — either not urgent enough or not grounded enough yet:
 
