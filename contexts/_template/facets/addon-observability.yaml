@@ -71,6 +71,10 @@ flux:
   # format to panel defs so timestamps match operator locale.
   - name: observability
     when: observability.dashboards == 'grafana'
+    dependsOn:
+      # Grafana's OIDC client secret is written by identity-resources (realm import +
+      # copy Job); without this, a cold start can bring Grafana up before it exists.
+      - "${identity.enabled == true && observability.grafana.sso != false && (identity.driver ?? 'keycloak') == 'keycloak' ? 'identity-resources' : ''}"
     install:
       timeout: 15m
       interval: 10m
