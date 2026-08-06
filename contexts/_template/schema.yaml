@@ -127,13 +127,11 @@ $defs:
     cpu:
       type: integer
       minimum: 1
-      default: 4
-      description: CPU cores per node. Default 4 applies to both controlplane and worker pools.
+      description: CPU cores per node. Unset lets cluster_resources_effective apply a topology-aware default.
     memory:
       type: integer
       minimum: 1
-      default: 8
-      description: Memory in GB per node. Default 8 applies to both controlplane and worker pools.
+      description: Memory in GB per node. Unset lets cluster_resources_effective apply a topology-aware default.
     root_disk_size:
       type: integer
       minimum: 1
