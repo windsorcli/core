@@ -103,9 +103,10 @@ cases:
                   -----BEGIN EC PRIVATE KEY-----
                   FAKEKEY
                   -----END EC PRIVATE KEY-----
-          resources:
-            - substitutions:
-                private_ca_cert: |-
+            private-ca-trust-cert:
+              namespaces: [system-pki-trust]
+              data:
+                tls.crt: |-
                   -----BEGIN CERTIFICATE-----
                   FAKECERT
                   -----END CERTIFICATE-----
