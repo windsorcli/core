@@ -46,3 +46,13 @@ spec:
     headers: xforwarded
   ingress:
     enabled: false
+  # Explicit rather than inherited from the operator's own default (memory
+  # only — the operator sets no CPU request/limit), so the server's
+  # footprint is a deliberate, visible choice — and so KeycloakRealmImport
+  # pods (which inherit this same value when they set no resources of
+  # their own) don't silently double it. See realm.yaml.
+  resources:
+    requests:
+      memory: 1700Mi
+    limits:
+      memory: 2Gi
