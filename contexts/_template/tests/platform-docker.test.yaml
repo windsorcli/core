@@ -393,9 +393,9 @@ cases:
             substitutions:
               local_volume_path: /mnt/data
 
-  # Workerless single-node: the controlplane runs everything itself, so it gets the
-  # larger baseline (cluster_resources_effective's schema-unset default, not a flat 4/8).
-  - name: workerless single-node controlplane defaults to the larger cpu/memory baseline
+  # Workerless single-node: the controlplane runs everything itself, so memory gets the
+  # larger baseline; cpu stays flat since it can't scale without knowing host capacity.
+  - name: workerless single-node controlplane defaults to the larger memory baseline
     values:
       platform: docker
       workstation:
@@ -413,7 +413,7 @@ cases:
           inputs:
             cluster_nodes:
               controlplanes:
-                cpu: 8
+                cpu: 4
                 memory: 12
 
   # Dedicated controlplane sharing load with real workers gets the smaller baseline.
