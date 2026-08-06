@@ -127,13 +127,11 @@ $defs:
     cpu:
       type: integer
       minimum: 1
-      default: 4
-      description: CPU cores per node. Default 4 applies to both controlplane and worker pools.
+      description: CPU cores per node. Unset lets the platform facet default it (cluster_resources_effective).
     memory:
       type: integer
       minimum: 1
-      default: 8
-      description: Memory in GB per node. Default 8 applies to both controlplane and worker pools.
+      description: Memory in GB per node. Unset lets the platform facet default it (cluster_resources_effective).
     root_disk_size:
       type: integer
       minimum: 1
@@ -819,8 +817,7 @@ properties:
             description: Named control plane node configurations
           schedulable:
             type: boolean
-            default: false
-            description: Allow scheduling workloads on control plane nodes (useful for single-node clusters or resource-constrained environments)
+            description: Allow scheduling workloads on control plane nodes. Unset lets the platform facet default it (true for a workerless single control plane).
         additionalProperties: false
       workers:
         type: object

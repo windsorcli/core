@@ -56,7 +56,7 @@ run "minimal_configuration" {
   }
 
   assert {
-    condition     = docker_container.containers["controlplane-1"].cpus == "2"
+    condition     = docker_container.containers["controlplane-1"].cpus == "2.0"
     error_message = "Container cpus should match cluster_nodes.controlplanes.cpu"
   }
 
@@ -133,7 +133,7 @@ run "full_configuration" {
   }
 
   assert {
-    condition     = alltrue([for name, c in docker_container.containers : c.cpus == "4" if startswith(name, "controlplane-") || startswith(name, "worker-")])
+    condition     = alltrue([for name, c in docker_container.containers : c.cpus == "4.0" if startswith(name, "controlplane-") || startswith(name, "worker-")])
     error_message = "Controlplane and worker containers should both get cpus == 4"
   }
 
