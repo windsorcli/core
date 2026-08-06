@@ -9,6 +9,12 @@ metadata:
   namespace: system-identity
 spec:
   keycloakCRName: keycloak
+  # One-shot import; own resources instead of inheriting the server's.
+  resources:
+    requests:
+      memory: 768Mi
+    limits:
+      memory: 1536Mi
   realm:
     realm: ${keycloak_realm}
     enabled: true
