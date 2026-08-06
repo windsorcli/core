@@ -134,7 +134,8 @@ spec:
                 | jq --arg s "$${desired}" '.secret = $s' > /work/client.json
               curl -sf --connect-timeout 5 --max-time 15 -X PUT -H @/work/hdr \
                 -H 'Content-Type: application/json' --data @/work/client.json \
-                "$${KC}/admin/realms/$${REALM}/clients/$${cid}"
+                "$${KC}/admin/realms/$${REALM}/clients/$${cid}" \
+                || { echo "failed to set the grafana client secret in Keycloak" >&2; exit 1; }
               kubectl create secret generic grafana-oidc-client -n system-observability \
                 --from-literal=clientSecret="$${desired}" \
                 --dry-run=client -o yaml | kubectl apply -f -
