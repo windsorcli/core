@@ -99,6 +99,8 @@ locals {
       image    = var.cluster_nodes.controlplanes.image
       hostname = "controlplane-${i + 1}"
       ports    = local._cp_ports_with_auto[i]
+      cpus     = var.cluster_nodes.controlplanes.cpu
+      memory   = var.cluster_nodes.controlplanes.memory * 1024
       env = merge(
         { PLATFORM = "container" },
         { (local.shape.controlplane.env_sku_key) = "${var.cluster_nodes.controlplanes.cpu}CPU-${var.cluster_nodes.controlplanes.memory * 1024}RAM" }
@@ -115,6 +117,8 @@ locals {
       image    = var.cluster_nodes.workers.image
       hostname = "worker-${i + 1}"
       ports    = local._worker_ports_with_auto[i]
+      cpus     = var.cluster_nodes.workers.cpu
+      memory   = var.cluster_nodes.workers.memory * 1024
       env = merge(
         { PLATFORM = "container" },
         { (local.shape.worker.env_sku_key) = "${var.cluster_nodes.workers.cpu}CPU-${var.cluster_nodes.workers.memory * 1024}RAM" }
@@ -271,6 +275,8 @@ resource "docker_container" "containers" {
   privileged = try(each.value.privileged, false)
   read_only  = try(each.value.read_only, false)
   dns        = var.dns_servers
+  cpus       = try(each.value.cpus, null)
+  memory     = try(each.value.memory, null)
 
   security_opts = toset(coalesce(try(each.value.security_opt, null), []))
 

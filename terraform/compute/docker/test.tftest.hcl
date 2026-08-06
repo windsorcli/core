@@ -56,6 +56,16 @@ run "minimal_configuration" {
   }
 
   assert {
+    condition     = docker_container.containers["controlplane-1"].cpus == "2"
+    error_message = "Container cpus should match cluster_nodes.controlplanes.cpu"
+  }
+
+  assert {
+    condition     = docker_container.containers["controlplane-1"].memory == 2048
+    error_message = "Container memory (MB) should match cluster_nodes.controlplanes.memory (GB) * 1024"
+  }
+
+  assert {
     condition     = length(output.controlplanes) == 1 && length(output.workers) == 0
     error_message = "controlplanes output length 1, workers length 0"
   }
@@ -120,6 +130,16 @@ run "full_configuration" {
   assert {
     condition     = alltrue([for c in docker_container.containers : contains(c.dns, "10.20.0.2")])
     error_message = "All node containers should get dns_servers when set"
+  }
+
+  assert {
+    condition     = alltrue([for name, c in docker_container.containers : c.cpus == "4"])
+    error_message = "Controlplane and worker containers should both get cpus == 4"
+  }
+
+  assert {
+    condition     = docker_container.containers["worker-1"].memory == 8192
+    error_message = "Worker container memory (MB) should match cluster_nodes.workers.memory (GB) * 1024"
   }
 }
 
