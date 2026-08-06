@@ -275,8 +275,11 @@ resource "docker_container" "containers" {
   privileged = try(each.value.privileged, false)
   read_only  = try(each.value.read_only, false)
   dns        = var.dns_servers
-  cpus       = try(each.value.cpus, null)
-  memory     = try(each.value.memory, null)
+  # kreuzwerker/docker's cpus field is a string; format it to match the
+  # provider's own "N.0" refresh representation, or a whole-number config
+  # value ("3") never matches refreshed state ("3.0") and forces a replace.
+  cpus   = try(format("%.1f", each.value.cpus), null)
+  memory = try(each.value.memory, null)
 
   security_opts = toset(coalesce(try(each.value.security_opt, null), []))
 
