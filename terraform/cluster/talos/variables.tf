@@ -103,6 +103,7 @@ variable "controlplanes" {
     wipe_disk         = optional(bool, true)
     extra_kernel_args = optional(list(string), [])
     config_patches    = optional(string, "")
+    instance_id       = optional(string)
   }))
   default = []
 
@@ -132,6 +133,7 @@ variable "workers" {
     wipe_disk         = optional(bool, true)
     extra_kernel_args = optional(list(string), [])
     config_patches    = optional(string, "")
+    instance_id       = optional(string)
   }))
   default = []
 

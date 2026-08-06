@@ -129,3 +129,9 @@ variable "skip_machine_config_apply" {
   type        = bool
   default     = false
 }
+
+variable "instance_id" {
+  description = "Identity of the underlying compute instance (e.g. container id). Changing it forces the machine config and bootstrap to reapply."
+  type        = string
+  default     = null
+}

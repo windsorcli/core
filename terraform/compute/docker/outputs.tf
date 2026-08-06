@@ -54,17 +54,20 @@ locals {
   ]
 
   # Controlplanes for cluster/talos (hostname, endpoint, node; role == "controlplane"). Endpoint host-reachable when docker-desktop.
+  # instance_id is the container's id; it changes whenever the container is replaced (e.g. cpus/memory force a
+  # recreate), so cluster/talos can key config re-apply and re-bootstrap off it instead of missing the change.
   controlplanes = [
     for k, v in docker_container.containers : {
-      hostname = local.instance_hostnames[k]
-      endpoint = local.instance_ips[k] != null ? local._endpoint_cp[k] : null
-      node     = local.instance_ips[k]
-      name     = v.name
-      ipv4     = local.instance_ips[k]
-      ipv6     = null
-      status   = null
-      type     = "container"
-      image    = local.containers_by_name[k].image
+      hostname    = local.instance_hostnames[k]
+      endpoint    = local.instance_ips[k] != null ? local._endpoint_cp[k] : null
+      node        = local.instance_ips[k]
+      name        = v.name
+      ipv4        = local.instance_ips[k]
+      ipv6        = null
+      status      = null
+      type        = "container"
+      image       = local.containers_by_name[k].image
+      instance_id = v.id
     }
     if local.instance_roles[k] == "controlplane" && local.instance_ips[k] != null
   ]
@@ -72,15 +75,16 @@ locals {
   # Workers for cluster/talos (same shape)
   workers = [
     for k, v in docker_container.containers : {
-      hostname = local.instance_hostnames[k]
-      endpoint = local.instance_ips[k] != null ? local._endpoint_worker[k] : null
-      node     = local.instance_ips[k]
-      name     = v.name
-      ipv4     = local.instance_ips[k]
-      ipv6     = null
-      status   = null
-      type     = "container"
-      image    = local.containers_by_name[k].image
+      hostname    = local.instance_hostnames[k]
+      endpoint    = local.instance_ips[k] != null ? local._endpoint_worker[k] : null
+      node        = local.instance_ips[k]
+      name        = v.name
+      ipv4        = local.instance_ips[k]
+      ipv6        = null
+      status      = null
+      type        = "container"
+      image       = local.containers_by_name[k].image
+      instance_id = v.id
     }
     if local.instance_roles[k] == "worker" && local.instance_ips[k] != null
   ]

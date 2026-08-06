@@ -11,3 +11,8 @@ output "kubeconfig" {
   value       = var.bootstrap ? talos_cluster_kubeconfig.this[0].kubeconfig_raw : null
   sensitive   = true
 }
+
+output "instance_id" {
+  description = "Identity of the underlying compute instance, as passed in."
+  value       = var.instance_id
+}

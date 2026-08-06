@@ -148,6 +148,7 @@ module "controlplane_bootstrap" {
   kubeconfig_path           = local.kubeconfig_path
   enable_health_check       = true
   skip_machine_config_apply = local.skip_machine_config_apply
+  instance_id               = var.controlplanes[0].instance_id
   config_patches = [for p in compact(concat([
     var.common_config_patches,
     var.controlplane_config_patches,
@@ -178,6 +179,7 @@ module "controlplanes" {
   kubeconfig_path           = local.kubeconfig_path
   enable_health_check       = true
   skip_machine_config_apply = local.skip_machine_config_apply
+  instance_id               = var.controlplanes[count.index + 1].instance_id
   config_patches = [for p in compact(concat([
     var.common_config_patches,
     var.controlplane_config_patches,
@@ -211,6 +213,7 @@ module "workers" {
   kubeconfig_path           = local.kubeconfig_path
   enable_health_check       = true
   skip_machine_config_apply = local.skip_machine_config_apply
+  instance_id               = var.workers[count.index].instance_id
   config_patches = [for p in compact(concat([
     var.common_config_patches,
     var.worker_config_patches,
