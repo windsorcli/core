@@ -21,4 +21,4 @@ spec:
     requests:
       memory: 1700Mi
     limits:
-      memory: 2Gi
+      memory: 2560Mi
