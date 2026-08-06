@@ -208,6 +208,44 @@ run "no_config_files" {
 
 }
 
+# Verifies instance_id flows through to the machine module so replace_triggered_by
+# can react when the underlying compute instance (e.g. a docker_container) is recreated.
+run "instance_id_propagates" {
+  command = plan
+
+  variables {
+    cluster_name       = "test-cluster"
+    cluster_endpoint   = "https://test.example.com:6443"
+    kubernetes_version = "1.34.1"
+    talos_version      = "1.10.1"
+    controlplanes = [
+      {
+        hostname    = "cp1"
+        endpoint    = "https://cp1.example.com:6443"
+        node        = "192.168.1.10"
+        instance_id = "container-abc123"
+      }
+    ]
+    workers = [
+      {
+        hostname    = "worker1"
+        endpoint    = "https://worker1.example.com:6443"
+        node        = "192.168.1.20"
+        instance_id = "container-def456"
+      }
+    ]
+  }
+
+  assert {
+    condition     = module.controlplane_bootstrap.instance_id == "container-abc123"
+    error_message = "controlplane_bootstrap should receive the controlplane's instance_id"
+  }
+  assert {
+    condition     = module.workers[0].instance_id == "container-def456"
+    error_message = "worker module should receive the worker's instance_id"
+  }
+}
+
 # Verifies that all input validation rules are enforced simultaneously, ensuring that
 # invalid values for kubernetes_version, talos_version, cluster_name,
 # cluster_endpoint, and YAML configs are properly caught and reported

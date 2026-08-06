@@ -75,6 +75,52 @@ both still fully in place. This will get its own ADR once the NodePool schema
 redesign — the load-bearing decision — needs to be written down; until then
 it's tracked here as in-progress work, not a design question.
 
+## Flagged for investigation: Talos upgradeability
+
+Not an ADR yet — grounded enough to name as a real gap, not grounded enough
+to write a decision. Needs platform-by-platform investigation and testing
+before it can become one.
+
+ADR-0003 named the docker case (container-mode Talos has no in-place
+upgrade, so a `talos_version` bump forces a control-plane rebuild) as the
+one verified instance of a broader problem. It's broader than that single
+case:
+
+- **The only in-place upgrade path in the repo is `cluster/talos/extensions`**
+  (`null_resource.upgrade_controlplane`/`upgrade_worker`, controlplane-first,
+  serialized via `parallelism = 1`, driven by `windsor upgrade node` which
+  sends the upgrade, waits for reboot, and verifies health). It's wired by
+  exactly one facet, `option-storage.yaml`, gated on
+  `cluster.storage.driver == 'longhorn'` — the default `openebs` driver
+  never routes through it.
+- **Everywhere else, a `talos_version` bump does one of two things, neither
+  of which is a real in-place upgrade:**
+  - **Forces full node replacement** on docker (`talos_version` is the
+    container image tag — [main.tf](../../terraform/compute/docker/main.tf))
+    and hcloud (`talos_version` is baked into the Image Factory `image_url`
+    — [main.tf:140](../../terraform/compute/hcloud/main.tf#L140)).
+  - **Silently drifts** on vsphere/hyperv/incus: `talos_version` only feeds
+    `data.talos_machine_configuration` (the generated machine config), not
+    the VM's boot image/ISO/template, which is selected independently. The
+    machine config says the new version; the running node's installed Talos
+    does not change.
+- Even the extensions path itself only fires when `var.extensions` is
+  non-empty (`length(var.extensions) > 0 ? "factory.talos.dev/installer/...:v${var.talos_version}" : ""`
+  — [extensions/main.tf:47](../../terraform/cluster/talos/extensions/main.tf#L47)),
+  so a longhorn cluster with no other extensions still gets the upgrade
+  path; an openebs cluster gets nothing.
+
+There's real prior art to build from — `windsor upgrade node`'s
+send-upgrade/wait/health-check sequencing and the controlplane-first
+serialized ordering are already correct patterns, just scoped too narrowly.
+The actual design work (extending that mechanism to every platform, or
+accepting node-replacement as the contract on docker/hcloud specifically and
+making that explicit and safe, versus fixing the silent-drift case on
+vsphere/hyperv/incus, plus etcd-quorum-safe sequencing, k8s version skew
+rules, and rollback) needs real investigation and testing per platform
+before it's decidable — this is a placeholder for that work, not the
+answer.
+
 ## Backlog (pruned or considered, no ADR carried)
 
 From the prior cycle's pruning:
