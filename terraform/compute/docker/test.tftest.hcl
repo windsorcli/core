@@ -143,6 +143,48 @@ run "full_configuration" {
   }
 }
 
+# Regression: a bare (colon-less) volume entry — the schema's own default for
+# cluster.workers.volumes — must map host and container path to the same value,
+# not an empty container_path.
+run "bare_path_volume_entry" {
+  command = plan
+
+  variables {
+    context        = "test"
+    network_cidr   = "10.5.0.0/16"
+    create_network = true
+    cluster_nodes = {
+      distribution = "talos"
+      controlplanes = {
+        count     = 1
+        image     = "ghcr.io/siderolabs/talos:v1.11.5"
+        cpu       = 2
+        memory    = 2
+        volumes   = []
+        hostports = []
+      }
+      workers = {
+        count     = 1
+        image     = "ghcr.io/siderolabs/talos:v1.11.5"
+        cpu       = 4
+        memory    = 4
+        volumes   = ["/var/mnt/local"]
+        hostports = []
+      }
+    }
+  }
+
+  assert {
+    condition     = contains([for v in docker_container.containers["worker-1"].volumes : v.container_path], "/var/mnt/local")
+    error_message = "Bare volume entry must set container_path, not an empty string"
+  }
+
+  assert {
+    condition     = contains([for v in docker_container.containers["worker-1"].volumes : v.host_path], "/var/mnt/local")
+    error_message = "Bare volume entry must set host_path to the same value as container_path"
+  }
+}
+
 # Complex: cluster_nodes = null yields no cluster containers; only instances when provided.
 run "no_cluster_nodes_no_containers" {
   command = plan
