@@ -133,7 +133,7 @@ run "full_configuration" {
   }
 
   assert {
-    condition     = alltrue([for name, c in docker_container.containers : c.cpus == "4"])
+    condition     = alltrue([for name, c in docker_container.containers : c.cpus == "4" if startswith(name, "controlplane-") || startswith(name, "worker-")])
     error_message = "Controlplane and worker containers should both get cpus == 4"
   }
 
