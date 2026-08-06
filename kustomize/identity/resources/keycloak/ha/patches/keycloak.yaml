@@ -17,3 +17,8 @@ spec:
                 app.kubernetes.io/instance: keycloak
                 app.kubernetes.io/component: server
             topologyKey: kubernetes.io/hostname
+  resources:
+    requests:
+      memory: 1700Mi
+    limits:
+      memory: 2Gi

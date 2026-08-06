@@ -9,10 +9,7 @@ metadata:
   namespace: system-identity
 spec:
   keycloakCRName: keycloak
-  # Explicit, well under the server's own footprint (keycloak.yaml) — this
-  # pod runs one JVM boot to apply a RealmRepresentation, not steady-state
-  # serving. Left unset, it inherits the server's full request, and the two
-  # together can exceed a single-node cluster's allocatable memory.
+  # One-shot import; own resources instead of inheriting the server's.
   resources:
     requests:
       memory: 768Mi
