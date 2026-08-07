@@ -29,5 +29,6 @@ composition. Links from there land here.
 | [observability](observability/) | Grafana dashboards and the cluster's log store (stdout, Quickwit, or Elasticsearch + Kibana). |
 | [pki](pki/) | cert-manager, trust-manager, and the cluster's ClusterIssuers (selfsigned, private CA, ACME). |
 | [policy](policy/) | Kyverno admission controller and the cluster's baseline ClusterPolicies. |
+| [secrets](secrets/) | External Secrets Operator and its self-hosted or external secrets store. |
 | [telemetry](telemetry/) | kube-prometheus-stack and FluentBit for cluster-level metrics and log collection. |
 <!-- END_INDEX -->

@@ -84,3 +84,39 @@ cases:
           install:
             components:
               - grafana/dev
+
+  # openbao/dev only composes when secrets_store is actually enabled — no
+  # openbao component to attach a userpass admin to otherwise.
+  - name: dev mode adds openbao userpass admin when secrets_store is enabled
+    values:
+      platform: metal
+      dev: true
+      gateway:
+        enabled: false
+      network: *default-network
+      cluster: *default-cluster
+      external_secrets:
+        enabled: true
+      secrets_store:
+        enabled: true
+    expect:
+      flux:
+        - name: secrets
+          install:
+            components:
+              - openbao/dev
+
+  - name: excludes openbao dev component when secrets_store disabled
+    values:
+      platform: metal
+      dev: true
+      gateway:
+        enabled: false
+      network: *default-network
+      cluster: *default-cluster
+    exclude:
+      flux:
+        - name: secrets
+          install:
+            components:
+              - openbao/dev

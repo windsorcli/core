@@ -466,6 +466,31 @@ run "cert_manager_role_disabled_by_default" {
   }
 }
 
+# Verifies the OpenBao KMS key + IAM role + Pod Identity association are NOT
+# created by default (var.create_openbao_kms_role defaults to false).
+run "openbao_kms_role_disabled_by_default" {
+  command = plan
+
+  variables {
+    context_id = "test"
+  }
+
+  assert {
+    condition     = length(aws_kms_key.openbao_unseal) == 0
+    error_message = "OpenBao KMS key should not be created when create_openbao_kms_role is false"
+  }
+
+  assert {
+    condition     = length(aws_iam_role.openbao) == 0
+    error_message = "OpenBao IAM role should not be created when create_openbao_kms_role is false"
+  }
+
+  assert {
+    condition     = length(aws_eks_pod_identity_association.openbao) == 0
+    error_message = "OpenBao Pod Identity association should not be created when create_openbao_kms_role is false"
+  }
+}
+
 # Verifies the AWS LB Controller IAM role + policy + Pod Identity binding
 # (system-lb / aws-load-balancer-controller service account) are created by
 # default. Opt out via create_aws_lb_controller_role = false.
@@ -576,6 +601,52 @@ run "cert_manager_role_enabled" {
   assert {
     condition     = strcontains(aws_iam_policy.cert_manager[0].policy, "\"arn:aws:route53:::hostedzone/*\"")
     error_message = "cert-manager policy should fall back to a wildcard zone ARN when no zone IDs are supplied"
+  }
+}
+
+# Verifies the OpenBao KMS key, IAM role/policy, and Pod Identity binding
+# (system-secrets-store / openbao service account) are created when opted in.
+run "openbao_kms_role_enabled" {
+  command = plan
+
+  variables {
+    context_id              = "test"
+    create_openbao_kms_role = true
+  }
+
+  assert {
+    condition     = length(aws_kms_key.openbao_unseal) == 1
+    error_message = "OpenBao KMS key should be created when create_openbao_kms_role is true"
+  }
+
+  assert {
+    condition     = length(aws_iam_role.openbao) == 1
+    error_message = "OpenBao IAM role should be created when create_openbao_kms_role is true"
+  }
+
+  assert {
+    condition     = aws_iam_role.openbao[0].name == "cluster-test-openbao"
+    error_message = "OpenBao IAM role name should follow the cluster naming convention"
+  }
+
+  assert {
+    condition     = length(aws_iam_policy.openbao) == 1
+    error_message = "OpenBao IAM policy should be created when create_openbao_kms_role is true"
+  }
+
+  assert {
+    condition     = length(aws_eks_pod_identity_association.openbao) == 1
+    error_message = "OpenBao Pod Identity association should be created when create_openbao_kms_role is true"
+  }
+
+  assert {
+    condition     = aws_eks_pod_identity_association.openbao[0].namespace == "system-secrets-store"
+    error_message = "OpenBao Pod Identity association should target the system-secrets-store namespace"
+  }
+
+  assert {
+    condition     = aws_eks_pod_identity_association.openbao[0].service_account == "openbao"
+    error_message = "OpenBao Pod Identity association should target the openbao service account"
   }
 }
 
