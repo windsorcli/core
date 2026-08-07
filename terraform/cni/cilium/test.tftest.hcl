@@ -75,6 +75,11 @@ run "minimal_configuration" {
   }
 
   assert {
+    condition     = yamldecode(helm_release.cilium.values[0]).encryption.ztunnel.image.digest == ""
+    error_message = "ztunnel image digest should be pinned to a non-null string regardless of encryption mode"
+  }
+
+  assert {
     condition     = helm_release.cilium.take_ownership == true
     error_message = "take_ownership should be true so the bootstrap upgrade can adopt unowned resources like cilium-ca instead of erroring"
   }
