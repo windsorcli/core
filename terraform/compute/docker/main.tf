@@ -330,7 +330,7 @@ resource "docker_container" "containers" {
         ),
         "{index}", tostring(each.value.index)
       )
-      container_path = join(":", slice(split(":", volumes.value), 1, length(split(":", volumes.value))))
+      container_path = length(split(":", volumes.value)) > 1 ? join(":", slice(split(":", volumes.value), 1, length(split(":", volumes.value)))) : split(":", volumes.value)[0]
       read_only      = false
     }
   }
