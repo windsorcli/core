@@ -393,6 +393,69 @@ cases:
             substitutions:
               local_volume_path: /mnt/data
 
+  # Workerless single-node: the controlplane runs everything itself, so memory gets the
+  # larger baseline; cpu stays flat since it can't scale without knowing host capacity.
+  - name: workerless single-node controlplane defaults to the larger memory baseline
+    values:
+      platform: docker
+      workstation:
+        runtime: colima
+      dns: *default-dns
+      gateway:
+        enabled: false
+      network: *default-network
+      cluster: *default-cluster
+    terraformOutputs: *default-terraform-outputs
+    expect:
+      terraform:
+        - name: compute
+          path: compute/docker
+          inputs:
+            cluster_nodes:
+              controlplanes:
+                cpu: 4
+                memory: 12
+
+  # Dedicated controlplane sharing load with real workers gets the smaller baseline.
+  - name: controlplane with workers defaults to the dedicated cpu/memory baseline
+    values:
+      platform: docker
+      workstation:
+        runtime: colima
+      dns: *default-dns
+      gateway:
+        enabled: false
+      network: *default-network
+      cluster:
+        driver: talos
+        controlplanes:
+          nodes:
+            controlplane-1: *cp1-node
+        workers:
+          count: 1
+    terraformOutputs:
+      compute:
+        controlplanes:
+          - endpoint: 10.5.0.10:6443
+            node: 10.5.0.10
+            hostname: controlplane-1
+        workers:
+          - endpoint: 10.5.0.20:6443
+            node: 10.5.0.20
+            hostname: worker-1
+    expect:
+      terraform:
+        - name: compute
+          path: compute/docker
+          inputs:
+            cluster_nodes:
+              controlplanes:
+                cpu: 4
+                memory: 8
+              workers:
+                cpu: 4
+                memory: 8
+
   # Edge: docker without workstation yields no cluster and no gitops (gitops always dependsOn cluster; cluster only when workstation enabled).
   - name: docker without workstation has no cluster terraform
     values:

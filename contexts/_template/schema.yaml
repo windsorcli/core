@@ -127,11 +127,11 @@ $defs:
     cpu:
       type: integer
       minimum: 1
-      description: CPU cores per node. Unset lets the platform facet default it (cluster_resources_effective).
+      description: CPU cores per node. Unset lets cluster_resources_effective default it.
     memory:
       type: integer
       minimum: 1
-      description: Memory in GB per node. Unset lets the platform facet default it (cluster_resources_effective).
+      description: Memory in GB per node. Unset lets cluster_resources_effective apply a topology-aware default.
     root_disk_size:
       type: integer
       minimum: 1
