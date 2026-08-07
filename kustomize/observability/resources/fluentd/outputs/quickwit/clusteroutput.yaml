@@ -7,5 +7,5 @@ metadata:
 spec:
   outputs:
     - http:
-        endpoint: http://quickwit-indexer.system-observability.svc.cluster.local:7280/api/v1/otel-logs-v0_7/ingest
+        endpoint: http://quickwit-indexer.system-observability.svc.cluster.local:7280/api/v1/otel-logs-v0_9/ingest
         contentType: application/json
