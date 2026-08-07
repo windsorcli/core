@@ -69,6 +69,16 @@ resource "helm_release" "cilium" {
       operator = {
         replicas = var.operator_replicas
       }
+
+      # ztunnel encryption is unused (encryption.type stays at its ipsec default); the
+      # digest must still be a non-null string to satisfy the chart's values schema.
+      encryption = {
+        ztunnel = {
+          image = {
+            digest = ""
+          }
+        }
+      }
     },
 
     # kube-proxy replacement: set k8sServiceHost/k8sServicePort so Cilium can reach the API

@@ -56,7 +56,7 @@ run "minimal_configuration" {
   }
 
   assert {
-    condition     = docker_container.containers["controlplane-1"].cpus == "2"
+    condition     = docker_container.containers["controlplane-1"].cpus == "2.0"
     error_message = "Container cpus should match cluster_nodes.controlplanes.cpu"
   }
 
@@ -133,13 +133,55 @@ run "full_configuration" {
   }
 
   assert {
-    condition     = alltrue([for name, c in docker_container.containers : c.cpus == "4" if startswith(name, "controlplane-") || startswith(name, "worker-")])
+    condition     = alltrue([for name, c in docker_container.containers : c.cpus == "4.0" if startswith(name, "controlplane-") || startswith(name, "worker-")])
     error_message = "Controlplane and worker containers should both get cpus == 4"
   }
 
   assert {
     condition     = docker_container.containers["worker-1"].memory == 8192
     error_message = "Worker container memory (MB) should match cluster_nodes.workers.memory (GB) * 1024"
+  }
+}
+
+# Regression: a bare (colon-less) volume entry — the schema's own default for
+# cluster.workers.volumes — must map host and container path to the same value,
+# not an empty container_path.
+run "bare_path_volume_entry" {
+  command = plan
+
+  variables {
+    context        = "test"
+    network_cidr   = "10.5.0.0/16"
+    create_network = true
+    cluster_nodes = {
+      distribution = "talos"
+      controlplanes = {
+        count     = 1
+        image     = "ghcr.io/siderolabs/talos:v1.11.5"
+        cpu       = 2
+        memory    = 2
+        volumes   = []
+        hostports = []
+      }
+      workers = {
+        count     = 1
+        image     = "ghcr.io/siderolabs/talos:v1.11.5"
+        cpu       = 4
+        memory    = 4
+        volumes   = ["/var/mnt/local"]
+        hostports = []
+      }
+    }
+  }
+
+  assert {
+    condition     = contains([for v in docker_container.containers["worker-1"].volumes : v.container_path], "/var/mnt/local")
+    error_message = "Bare volume entry must set container_path, not an empty string"
+  }
+
+  assert {
+    condition     = contains([for v in docker_container.containers["worker-1"].volumes : v.host_path], "/var/mnt/local")
+    error_message = "Bare volume entry must set host_path to the same value as container_path"
   }
 }
 

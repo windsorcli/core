@@ -127,7 +127,7 @@ $defs:
     cpu:
       type: integer
       minimum: 1
-      description: CPU cores per node. Unset lets cluster_resources_effective apply a topology-aware default.
+      description: CPU cores per node. Unset lets cluster_resources_effective default it.
     memory:
       type: integer
       minimum: 1
@@ -817,8 +817,7 @@ properties:
             description: Named control plane node configurations
           schedulable:
             type: boolean
-            default: false
-            description: Allow scheduling workloads on control plane nodes (useful for single-node clusters or resource-constrained environments)
+            description: Allow scheduling workloads on control plane nodes. Unset lets the platform facet default it (true for a workerless single control plane).
         additionalProperties: false
       workers:
         type: object

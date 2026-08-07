@@ -59,7 +59,7 @@ jobs:
           echo "1" | sudo tee /proc/sys/net/bridge/bridge-nf-call-ip6tables
 
       - name: Set up Python
-        uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6.3.0
+        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7
         with:
           python-version: '3.x'
 
@@ -310,9 +310,14 @@ jobs:
           git fetch origin main
           git checkout origin/main
 
+      # The runner's 4 vCPUs host the entire single-node Talos container; a
+      # cgroup quota at the runner's core count throttles every pod at once.
+      # Memory is pinned too so the container spec stays identical to the
+      # upgrade test's baseline phase — an unpinned change replaces the
+      # container mid-test and re-bootstrap fails on the surviving etcd data.
       - name: Baseline — Windsor Init
         if: matrix.mode == 'upgrade' && steps.infra_diff.outputs.skip != 'true'
-        run: windsor init local --reset
+        run: windsor init local --reset --set cluster.controlplanes.cpu=3 --set cluster.controlplanes.memory=8
 
       - name: Baseline — Show blueprint
         if: matrix.mode == 'upgrade' && steps.infra_diff.outputs.skip != 'true'
@@ -371,9 +376,12 @@ jobs:
         if: matrix.mode == 'upgrade' && steps.infra_diff.outputs.skip != 'true'
         run: windsor plan
 
+      # The runner's 4 vCPUs host the entire single-node Talos container; a
+      # cgroup quota at the runner's core count throttles every pod at once.
+      # Memory is pinned alongside it to keep the container spec deterministic.
       - name: Windsor Init
         if: matrix.mode == 'fresh'
-        run: windsor init local --reset
+        run: windsor init local --reset --set cluster.controlplanes.cpu=3 --set cluster.controlplanes.memory=8
 
       - name: Show blueprint
         if: matrix.mode == 'fresh'
