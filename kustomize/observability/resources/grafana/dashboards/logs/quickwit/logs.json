@@ -64,7 +64,7 @@
       }
     ]
   },
-  "description": "Unified logs overview from Quickwit (otel-logs-v0_7)",
+  "description": "Unified logs overview from Quickwit (otel-logs-v0_9)",
   "editable": true,
   "fiscalYearStartMonth": 0,
   "graphTooltip": 0,
