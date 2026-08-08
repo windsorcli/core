@@ -43,6 +43,8 @@ cases:
     expect:
       flux:
         - name: observability
+          dependsOn:
+            - identity-resources
           install:
             components:
               - grafana

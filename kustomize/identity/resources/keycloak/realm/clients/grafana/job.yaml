@@ -1,5 +1,6 @@
 ---
-# Copies Keycloak's generated grafana client secret into Grafana's namespace as grafana-oidc-client.
+# Converges Keycloak's grafana client secret to the value already stored in grafana-oidc-client
+# (Grafana's namespace), or seeds that Secret from Keycloak's generated value on first run.
 apiVersion: v1
 kind: ServiceAccount
 metadata:
@@ -89,7 +90,7 @@ spec:
               KC="http://keycloak-service.system-identity:8080"
               REALM="${keycloak_realm}"
               printf '%s' "$${ADMIN_PASS}" > /work/pw
-              # Poll until the grafana client exists and exposes a secret.
+              # Poll until the grafana client exists.
               i=0
               while :; do
                 token=$(curl -sf --connect-timeout 5 --max-time 15 \
@@ -104,22 +105,39 @@ spec:
                   cid=$(curl -sf --connect-timeout 5 --max-time 15 -H @/work/hdr \
                     "$${KC}/admin/realms/$${REALM}/clients?clientId=grafana" 2>/dev/null \
                     | jq -r '.[0].id // empty') || true
-                  if [ -n "$${cid}" ]; then
-                    curl -sf --connect-timeout 5 --max-time 15 -H @/work/hdr \
-                      "$${KC}/admin/realms/$${REALM}/clients/$${cid}/client-secret" 2>/dev/null \
-                      | jq -rj '.value // empty' > /work/secret || true
-                    if [ -s /work/secret ]; then break; fi
-                  fi
+                  if [ -n "$${cid}" ]; then break; fi
                 fi
                 i=$$((i + 1))
                 if [ "$${i}" -ge 60 ]; then
-                  echo "timed out waiting for the grafana client secret" >&2
+                  echo "timed out waiting for the grafana client" >&2
                   exit 1
                 fi
                 sleep 5
               done
+              # The grafana-oidc-client Secret is the canonical value once it exists — a realm
+              # re-import regenerates the client's secret on Keycloak's side, so converge Keycloak
+              # back to it instead of copying whatever the import produced. First run: no Secret
+              # yet, so seed from Keycloak's freshly-generated value.
+              desired=""
+              if kubectl get secret grafana-oidc-client -n system-observability >/dev/null 2>&1; then
+                desired=$(kubectl get secret grafana-oidc-client -n system-observability \
+                  -o jsonpath='{.data.clientSecret}' | base64 -d)
+              fi
+              if [ -z "$${desired}" ]; then
+                desired=$(curl -sf --connect-timeout 5 --max-time 15 -H @/work/hdr \
+                  "$${KC}/admin/realms/$${REALM}/clients/$${cid}/client-secret" \
+                  | jq -rj '.value // empty')
+              fi
+              [ -n "$${desired}" ] || { echo "could not determine the grafana client secret" >&2; exit 1; }
+              curl -sf --connect-timeout 5 --max-time 15 -H @/work/hdr \
+                "$${KC}/admin/realms/$${REALM}/clients/$${cid}" \
+                | jq --arg s "$${desired}" '.secret = $s' > /work/client.json
+              curl -sf --connect-timeout 5 --max-time 15 -X PUT -H @/work/hdr \
+                -H 'Content-Type: application/json' --data @/work/client.json \
+                "$${KC}/admin/realms/$${REALM}/clients/$${cid}" \
+                || { echo "failed to set the grafana client secret in Keycloak" >&2; exit 1; }
               kubectl create secret generic grafana-oidc-client -n system-observability \
-                --from-file=clientSecret=/work/secret \
+                --from-literal=clientSecret="$${desired}" \
                 --dry-run=client -o yaml | kubectl apply -f -
           resources:
             requests:
