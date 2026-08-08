@@ -9,6 +9,8 @@ metadata:
   namespace: system-identity
 spec:
   keycloakCRName: keycloak
+  # Each consumer adds its own key via clients/*/placeholder.patch.yaml.
+  placeholders: {}
   # One-shot import; own resources instead of inheriting the server's.
   resources:
     requests:

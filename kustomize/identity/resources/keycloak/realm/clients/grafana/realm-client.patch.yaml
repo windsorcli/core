@@ -1,9 +1,10 @@
-# Grafana OIDC client, appended to the realm import's clients array. No secret
-# set (Keycloak generates it).
+# Grafana OIDC client, appended to the realm import's clients array. Secret
+# resolved via placeholder.patch.yaml; $${...} escapes Flux's postBuild substitution.
 - op: add
   path: /spec/realm/clients/-
   value:
     clientId: grafana
+    secret: $${GRAFANA_CLIENT_SECRET}
     enabled: true
     protocol: openid-connect
     publicClient: false

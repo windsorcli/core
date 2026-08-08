@@ -15,7 +15,7 @@ components:
     description: "One-shot `KeycloakRealmImport` for the platform realm (name from `identity.keycloak.realm`, default `platform`): a security baseline (sslRequired, brute-force detection, password policy, token/session lifetimes), a `platform-admins` group mapped to `realm-admin`. Consumers target this realm by name."
   keycloak/realm/clients/grafana:
     enable_when: "identity + Grafana both enabled (`grafana.sso != false`)"
-    description: "Onboards Grafana as an SSO consumer: a patch registers the `grafana` OIDC client in the platform `KeycloakRealmImport` (v2beta1, no client-admin-api CRDs) with no secret, so Keycloak generates one; a Job then reads that generated secret over the admin API and writes it into Grafana's namespace as `grafana-oidc-client`. No operator-supplied secret; stable because the realm import runs with `--override=false`. One folder per consumer under `realm/clients/`."
+    description: "Registers the `grafana` OIDC client in the platform `KeycloakRealmImport` (v2beta1, no client-admin-api CRDs). The secret resolves from a `GRAFANA_CLIENT_SECRET` placeholder (`spec.placeholders`) backed by `identity.keycloak.grafana_client_secret`, and the same value is copied into Grafana's namespace as `grafana-oidc-client`. One folder per consumer under `realm/clients/`."
   keycloak/realm/clients/kubernetes:
     enable_when: "`cluster.oidc.enabled == true`"
     description: "Registers the `kubernetes` OIDC client (public, PKCE) in the platform `KeycloakRealmImport` for kube-apiserver token validation. `cluster.oidc.issuer_url`/`client_id` are auto-inferred from this realm when unset, so enabling identity plus `cluster.oidc.enabled: true` needs no manual issuer/client config."

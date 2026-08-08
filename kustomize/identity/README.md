@@ -163,10 +163,10 @@ not by continuous reconciliation.
 
 SSO is inferred: with a cluster identity provider and Grafana both enabled, Grafana
 authenticates against the platform realm, with no per-app flag. Core patches a `grafana`
-client into the platform realm import with no secret set, so Keycloak generates one for
-the confidential client; a Job then reads it back and writes it into Grafana's namespace.
-Nothing has to be supplied and no secret lands in git. The client carries a mapper that
-puts the `platform-admins` group into the token, which Grafana maps to the Admin role.
+client into the platform realm import with its secret pinned via
+`identity.keycloak.grafana_client_secret` (a dev default applies in dev mode; required
+otherwise) and copies the same value into Grafana's namespace. The client carries a mapper
+that puts the `platform-admins` group into the token, which Grafana maps to the Admin role.
 
 For an external OIDC provider (`identity.driver: oidc`) there is no realm to generate the
 secret, so supply the client secret from your provider:
@@ -270,16 +270,11 @@ client re-imports the realm.
   detection, and a `length(12) and notUsername and notEmail` password policy, with
   short access tokens and bounded SSO sessions. Realm administration is granted through
   the `platform-admins` group (`realm-admin`), not by handing out the master admin.
-- **Client secrets.** SSO client secrets never land in git. For the hosted keycloak driver
-  Keycloak generates the client secret and a Job copies it into the consumer's namespace, so
-  none is supplied. For an external `oidc` provider, supply it from a store
+- **Client secrets.** SSO client secrets never land in git. For the hosted keycloak driver,
+  `identity.keycloak.grafana_client_secret` is pinned into a Secret referenced by the realm
+  import's `spec.placeholders`. For an external `oidc` provider, supply it from a store
   (`grafana.client_secret: ${secret(...)}`). Consumer pods use `optional: false` and wait for
   the Secret rather than start misconfigured.
-- **Copy Job credentials.** The secret-copy Job authenticates to the admin API with the
-  bootstrap admin, staging the password, token, and secret on an in-memory volume so they
-  stay off disk and out of process arguments. Set `identity.keycloak.admin.password` outside
-  dev so it uses the persistent bootstrap admin; the operator's temporary admin is meant to
-  be deleted once a permanent one exists.
 - **Images.** `system-identity` is policy-managed (Kyverno `require-image-digest`); the
   operator, server, and Postgres images are all digest-pinned.
 
@@ -292,7 +287,7 @@ client re-imports the realm.
 | `keycloak-operator` | `identity.driver == 'keycloak'` | Keycloak Operator (Deployment + RBAC) in `system-identity`, vendored verbatim from keycloak-k8s-resources. Reconciles `Keycloak` custom resources; installs no server by itself. CRDs are applied separately by the `crds:` layer. |
 | `keycloak` | `identity.driver == 'keycloak'` | The `Keycloak` server CR and its CloudNativePG `Cluster`. Keycloak serves HTTP internally (TLS terminates at the gateway) and stores realms in the `keycloak` database. |
 | `keycloak/realm` | `identity.driver == 'keycloak'` | One-shot `KeycloakRealmImport` for the platform realm (name from `identity.keycloak.realm`, default `platform`): a security baseline (sslRequired, brute-force detection, password policy, token/session lifetimes), a `platform-admins` group mapped to `realm-admin`. Consumers target this realm by name. |
-| `keycloak/realm/clients/grafana` | identity + Grafana both enabled (`grafana.sso != false`) | Onboards Grafana as an SSO consumer: a patch registers the `grafana` OIDC client in the platform `KeycloakRealmImport` (v2beta1, no client-admin-api CRDs) with no secret, so Keycloak generates one; a Job then reads that generated secret over the admin API and writes it into Grafana's namespace as `grafana-oidc-client`. No operator-supplied secret; stable because the realm import runs with `--override=false`. One folder per consumer under `realm/clients/`. |
+| `keycloak/realm/clients/grafana` | identity + Grafana both enabled (`grafana.sso != false`) | Registers the `grafana` OIDC client in the platform `KeycloakRealmImport` (v2beta1, no client-admin-api CRDs). The secret resolves from a `GRAFANA_CLIENT_SECRET` placeholder (`spec.placeholders`) backed by `identity.keycloak.grafana_client_secret`, and the same value is copied into Grafana's namespace as `grafana-oidc-client`. One folder per consumer under `realm/clients/`. |
 | `keycloak/realm/clients/kubernetes` | `cluster.oidc.enabled == true` | Registers the `kubernetes` OIDC client (public, PKCE) in the platform `KeycloakRealmImport` for kube-apiserver token validation. `cluster.oidc.issuer_url`/`client_id` are auto-inferred from this realm when unset, so enabling identity plus `cluster.oidc.enabled: true` needs no manual issuer/client config. |
 | `keycloak/realm/dev-user` | `dev == true` | Dev-only patch seeding standard platform-realm users so local SSO works out of the box: `admin` / `admin-password` (in `platform-admins` → admin everywhere) and `viewer` / `viewer-password` (no group → read-only). Passwords satisfy the realm's length(12) policy. Never applied outside dev. |
 | `keycloak/realm/clients/kubernetes/dev-rbac` | `dev == true` and `cluster.oidc.enabled == true` | Dev-only `ClusterRoleBinding` mapping the `platform-admins` group to `cluster-admin`, so the seeded dev `admin` user can do something after logging in via kubectl OIDC. Never applied outside dev. |
