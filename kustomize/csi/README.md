@@ -135,10 +135,13 @@ flowchart LR
 ```yaml
 flux:
   - name: csi
-    dependsOn: [policy-resources, telemetry-install, cni]
+    dependsOn: [policy-resources, cni]
     install:
-      components: [longhorn, longhorn/ha, longhorn/prometheus]
+      components: [longhorn, longhorn/ha]
       timeout: 20m
+    resources:
+      - dependsOn: [telemetry-install]
+        components: [longhorn/prometheus]
 ```
 
 Longhorn installs a distributed block-storage system that replicates

@@ -24,19 +24,10 @@ x-defaults:
         - /var/mnt/local
 
 
-  # cilium/prometheus is a ServiceMonitor, moved to the resources tier so
-  # cni-install doesn't wait on telemetry-install (that edge would cycle
-  # with telemetry-install's own dependsOn: csi-install, since csi-install
-  # depends on cni-install).
   cni-install: &cni-install
     name: cni
     dependsOn:
       - policy-resources
-    resources:
-      - dependsOn:
-          - telemetry-install
-        components:
-          - cilium/prometheus
 
 cases:
   # Default: no CNI config — cilium is the default, cni terraform + kustomize are deployed.
@@ -61,6 +52,7 @@ cases:
             components:
               - cilium
               - cilium/talos
+              - cilium/prometheus
               - cilium/hubble
               - cilium/l2
             substitutions:
@@ -121,6 +113,7 @@ cases:
             components:
               - cilium
               - cilium/talos
+              - cilium/prometheus
               - cilium/hubble
               - cilium/l2
             substitutions:
@@ -262,6 +255,7 @@ cases:
             components:
               - cilium
               - cilium/talos
+              - cilium/prometheus
               - cilium/hubble
               - cilium/l2
             substitutions:
@@ -287,15 +281,11 @@ cases:
               - cilium
               - cilium/talos
               - cilium/gateway
+              - cilium/prometheus
               - cilium/hubble
               - cilium/l2
             substitutions:
               k8s_service_host: "10.5.0.10"
-          resources:
-            - dependsOn:
-                - telemetry-install
-              components:
-                - cilium/prometheus
 
   # Cilium: Talos cluster terraform receives the CNI patch merged into common_config_patches.
   - name: cilium driver merges cni patch into common_config_patches for cluster/talos terraform
@@ -375,6 +365,7 @@ cases:
             components:
               - cilium
               - cilium/talos
+              - cilium/prometheus
               - cilium/hubble
               - cilium/l2
             substitutions:
@@ -407,8 +398,7 @@ cases:
             - cni
 
   # telemetry.metrics.enabled=false drops the cilium/prometheus ServiceMonitor
-  # (no Prometheus to scrape) and its telemetry-install dependency from the
-  # resources tier — the install tier never depended on telemetry-install.
+  # (no Prometheus to scrape).
   - name: telemetry metrics disabled strips cilium/prometheus component
     values:
       platform: metal
@@ -431,9 +421,8 @@ cases:
               - cilium/hubble
               - cilium/l2
 
-  # Both halves of telemetry disabled: drop the cilium/prometheus component
-  # AND the telemetry-install dependency (the kustomization isn't emitted).
-  - name: telemetry metrics and logs disabled drops cilium/prometheus and telemetry-install dep
+  # Both halves of telemetry disabled: drop the cilium/prometheus component too.
+  - name: telemetry metrics and logs disabled drops cilium/prometheus
     values:
       platform: metal
       gateway:
@@ -474,10 +463,6 @@ cases:
             components:
               - cilium
               - cilium/talos
+              - cilium/prometheus
               - cilium/hubble
               - cilium/l2
-          resources:
-            - dependsOn:
-                - telemetry-install
-              components:
-                - cilium/prometheus

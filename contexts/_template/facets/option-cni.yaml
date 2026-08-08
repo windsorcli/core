@@ -72,6 +72,7 @@ flux:
         # LBIPAM sharing policy — L2 environments only; a cloud LB controller
         # (hetzner CCM) fills the plain Gateway Service instead.
         - "${(gateway.enabled == true && gateway.driver == 'cilium' && lb_effective.controller_required != true) ? 'cilium/gateway/lbipam' : ''}"
+        - "${telemetry.metrics.enabled ? 'cilium/prometheus' : ''}"
         - cilium/hubble
         - "${lb_effective.controller_required == true ? '' : 'cilium/l2'}"
       substitutions:
@@ -82,16 +83,6 @@ flux:
         operator_replicas: "${topology == 'single-node' ? 1 : 2}"
       timeout: 15m
       interval: 5m
-    # cilium/prometheus is a ServiceMonitor and needs Prometheus's CRDs, but
-    # cni-install itself must not wait on telemetry-install — csi-install
-    # depends on cni-install, and telemetry-install depends on csi-install
-    # (PVC needs the storage driver present at both install and destroy time).
-    # Keeping the CRD-dependent component in the resources tier avoids that cycle.
-    resources:
-      - dependsOn:
-          - "${telemetry.metrics.enabled ? 'telemetry-install' : ''}"
-        components:
-          - "${telemetry.metrics.enabled ? 'cilium/prometheus' : ''}"
 
   # EKS: no Talos-specific settings, no L2 component (EKS has its own LB).
   # k8s_service_host is parsed from the EKS cluster_endpoint terraform output.
@@ -104,6 +95,7 @@ flux:
         # LBIPAM sharing policy — L2 environments only; a cloud LB controller
         # (hetzner CCM) fills the plain Gateway Service instead.
         - "${(gateway.enabled == true && gateway.driver == 'cilium' && lb_effective.controller_required != true) ? 'cilium/gateway/lbipam' : ''}"
+        - "${telemetry.metrics.enabled ? 'cilium/prometheus' : ''}"
         - cilium/hubble
       substitutions:
         k8s_service_host: "${split(split(terraform_output(\"cluster\", \"cluster_endpoint\") ?? \"https://localhost:443\", \"://\")[1], \":\")[0]}"
@@ -111,11 +103,6 @@ flux:
         operator_replicas: "${topology == 'single-node' ? 1 : 2}"
       timeout: 15m
       interval: 5m
-    resources:
-      - dependsOn:
-          - "${telemetry.metrics.enabled ? 'telemetry-install' : ''}"
-        components:
-          - "${telemetry.metrics.enabled ? 'cilium/prometheus' : ''}"
 
   # csi must wait for cni so it installs after Cilium's eBPF is fully loaded.
   # Without this, CSI node-driver-registrar can see transient loopback
