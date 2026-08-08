@@ -244,9 +244,7 @@ cases:
               substitutions:
                 keycloak_realm: corp
 
-  # Inferred SSO (dev): identity + Grafana both on registers the grafana realm client and
-  # the Job that copies Keycloak's generated secret to Grafana. Dev seeds the admin/viewer
-  # users and shares one admin password with the console (keycloak-bootstrap-admin).
+  # Inferred SSO (dev): identity + Grafana both on registers the grafana realm client.
   - name: grafana sso is inferred and patches the client into the realm
     values:
       platform: metal
@@ -273,7 +271,6 @@ cases:
                 keycloak_realm: platform
                 grafana_url: https://grafana.example.local
                 grafana_redirect_uri: https://grafana.example.local/login/generic_oauth
-                keycloak_admin_secret: keycloak-bootstrap-admin
                 dev_admin_password: admin-password
 
   # A supplied admin password overrides the dev default and drives both the Keycloak console
@@ -304,7 +301,6 @@ cases:
                 - keycloak/realm/clients/grafana
                 - keycloak/realm/dev-user
               substitutions:
-                keycloak_admin_secret: keycloak-bootstrap-admin
                 dev_admin_password: sup3r-secret-admin
 
   # API-server OIDC (cluster.oidc.enabled) registers the kubernetes realm client.
@@ -504,6 +500,8 @@ cases:
       cluster: *default-cluster
       identity:
         enabled: true
+        keycloak:
+          grafana_client_secret: sup3r-secret-oidc
       observability:
         enabled: true
     expect:

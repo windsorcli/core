@@ -33,6 +33,10 @@ config:
       admin_password: >-
         ${(identity.keycloak.admin.password ?? '') != '' ? identity.keycloak.admin.password :
         (dev == true ? 'admin-password' : '')}
+      # Grafana's pinned OIDC client secret.
+      grafana_client_secret: >-
+        ${(identity.keycloak.grafana_client_secret ?? '') != '' ? identity.keycloak.grafana_client_secret :
+        (dev == true ? 'grafana-oidc-dev-secret' : '')}
 
   # The hosted server needs PostgreSQL, so the keycloak driver turns database on
   # by default (on unless explicitly disabled). The oidc driver hosts nothing,
@@ -49,6 +53,10 @@ requires:
     paths:
       - gateway.enabled
     message: The hosted identity server is reached over HTTPS through the cluster gateway — enable the gateway.
+  - when: (identity.driver ?? 'keycloak') == 'keycloak' && observability.enabled == true && observability.grafana.sso != false && dev != true
+    paths:
+      - identity.keycloak.grafana_client_secret
+    message: Grafana SSO against the hosted Keycloak needs a pinned client secret outside dev mode — set identity.keycloak.grafana_client_secret.
 
 # Keycloak's CRDs are vendored (kustomize/crds/keycloak-26.7.0), owned by the crds:
 # layer, not the operator. Only the hosted keycloak driver needs them.
@@ -133,7 +141,7 @@ flux:
           - identity-install
         components:
           - keycloak/realm
-          # Grafana client + secret-copy Job, on when Grafana SSO is.
+          # Grafana client, on when Grafana SSO is.
           - "${observability.enabled == true && observability.grafana.sso != false ? 'keycloak/realm/clients/grafana' : ''}"
           # kube-apiserver OIDC client, on when cluster.oidc is on.
           - "${cluster.oidc.enabled == true && (cluster.oidc.client_id ?? 'kubernetes') == 'kubernetes' ? 'keycloak/realm/clients/kubernetes' : ''}"
@@ -148,10 +156,16 @@ flux:
           # Grafana client fields for the realm-client patch.
           grafana_url: "${grafana_effective.url ?? ''}"
           grafana_redirect_uri: "${(grafana_effective.url ?? '') + '/login/generic_oauth'}"
-          # Admin secret the copy Job authenticates with.
-          keycloak_admin_secret: "${(identity_effective.admin_password ?? '') != '' ? 'keycloak-bootstrap-admin' : 'keycloak-initial-admin'}"
           # Dev SSO admin user password.
           dev_admin_password: "${identity_effective.admin_password ?? ''}"
+
+  # Grafana's client secret, referenced by the realm import via spec.placeholders.
+  - name: identity
+    when: (identity.driver ?? 'keycloak') == 'keycloak' && observability.enabled == true && observability.grafana.sso != false
+    secrets:
+      grafana-oidc-client-secret:
+        data:
+          clientSecret: ${identity_effective.grafana_client_secret}
 
   # Bootstrap admin, supplied case.
   - name: identity

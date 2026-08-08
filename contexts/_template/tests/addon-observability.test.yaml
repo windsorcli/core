@@ -24,9 +24,7 @@ x-defaults:
         - /var/mnt/local
 
 cases:
-  # Grafana SSO against a hosted Keycloak is inferred from identity + observability both
-  # being on, with no grafana.sso. The keycloak driver generates the client secret, so none
-  # is supplied here.
+  # Grafana SSO against a hosted Keycloak is inferred from identity + observability both on.
   - name: grafana sso is inferred and wires generic oauth against the identity issuer
     values:
       platform: metal
@@ -38,6 +36,8 @@ cases:
       cluster: *default-cluster
       identity:
         enabled: true
+        keycloak:
+          grafana_client_secret: sup3r-secret-oidc
       observability:
         enabled: true
     expect:
@@ -84,9 +84,7 @@ cases:
             substitutions:
               oidc_auth_url: https://sso.corp/realms/platform/protocol/openid-connect/auth
 
-  # Grafana SSO outside dev must be given a client secret.
-  # External OIDC (driver oidc) must be given a client secret; the hosted keycloak
-  # driver generates its own, so only oidc fails without one.
+  # Grafana SSO outside dev requires a client secret for either driver.
   - name: external oidc sso without a client secret fails composition
     values:
       platform: metal
@@ -101,6 +99,21 @@ cases:
         driver: oidc
         oidc:
           issuer: https://sso.corp/realms/platform
+      observability:
+        enabled: true
+    expectError: true
+
+  - name: hosted keycloak sso without a pinned client secret fails composition
+    values:
+      platform: metal
+      dns:
+        domain: example.local
+      gateway:
+        enabled: true
+      network: *default-network
+      cluster: *default-cluster
+      identity:
+        enabled: true
       observability:
         enabled: true
     expectError: true
