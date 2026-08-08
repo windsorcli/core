@@ -101,7 +101,7 @@ before reconciling.
 |---|---|---|
 | `cloudnativepg` | `database.postgres.driver == 'cloudnativepg'` | Helm release of CloudNativePG in `system-database`. `clusterWide: true` so the operator reconciles `Cluster` CRs in any namespace. Mutating and validating webhooks default to `failurePolicy: Fail` so misconfigured Clusters are rejected at admission. |
 | `cloudnativepg/prometheus` | `database.postgres.driver == 'cloudnativepg'` AND `observability.enabled: true` | Patches the operator HelmRelease to depend on `kube-prometheus-stack` (system-telemetry) and enable `monitoring.podMonitorEnabled: true` with `release: kube-prometheus-stack` discovery labels. |
-| `cloudnativepg/ha` | `database.postgres.driver == 'cloudnativepg'` AND `topology == 'ha'` | Patches the operator HelmRelease for HA: `operator.replicaCount: 2`, hostname-key pod anti-affinity, PodDisruptionBudget `minAvailable: 1`, rolling update `maxUnavailable: 1`. |
+| `cloudnativepg/ha` | `database.postgres.driver == 'cloudnativepg'` AND `topology == 'ha'` | Patches the operator HelmRelease for HA: `replicaCount: 2`, hostname-key pod anti-affinity, rolling update `maxUnavailable: 1`. Adds a `PodDisruptionBudget` (`minAvailable: 1`) selecting the operator pods. |
 | `cloudnativepg/single-node` | `database.postgres.driver == 'cloudnativepg'` AND `topology == 'single-node'` | Patches the operator HelmRelease to append `--leader-elect=false` via `additionalArgs`. The chart unconditionally passes `--leader-elect`; Go's flag parser is last-wins so the override wins. |
 
 ## Dependencies

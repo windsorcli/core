@@ -12,7 +12,7 @@ components:
     description: "Patches the operator HelmRelease to depend on `kube-prometheus-stack` (system-telemetry) and enable `monitoring.podMonitorEnabled: true` with `release: kube-prometheus-stack` discovery labels."
   cloudnativepg/ha:
     enable_when: "`database.postgres.driver == 'cloudnativepg'` AND `topology == 'ha'`"
-    description: "Patches the operator HelmRelease for HA: `operator.replicaCount: 2`, hostname-key pod anti-affinity, PodDisruptionBudget `minAvailable: 1`, rolling update `maxUnavailable: 1`."
+    description: "Patches the operator HelmRelease for HA: `replicaCount: 2`, hostname-key pod anti-affinity, rolling update `maxUnavailable: 1`. Adds a `PodDisruptionBudget` (`minAvailable: 1`) selecting the operator pods."
   cloudnativepg/single-node:
     enable_when: "`database.postgres.driver == 'cloudnativepg'` AND `topology == 'single-node'`"
     description: "Patches the operator HelmRelease to append `--leader-elect=false` via `additionalArgs`. The chart unconditionally passes `--leader-elect`; Go's flag parser is last-wins so the override wins."
