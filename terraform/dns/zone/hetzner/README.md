@@ -19,13 +19,13 @@ Cloud API.
 | Name | Version |
 |------|---------|
 | <a name="requirement_terraform"></a> [terraform](#requirement\_terraform) | >= 1.12.2 |
-| <a name="requirement_hcloud"></a> [hcloud](#requirement\_hcloud) | 1.66.1 |
+| <a name="requirement_hcloud"></a> [hcloud](#requirement\_hcloud) | 1.68.0 |
 
 ## Providers
 
 | Name | Version |
 |------|---------|
-| <a name="provider_hcloud"></a> [hcloud](#provider\_hcloud) | 1.66.1 |
+| <a name="provider_hcloud"></a> [hcloud](#provider\_hcloud) | 1.68.0 |
 
 ## Modules
 
@@ -35,8 +35,8 @@ No modules.
 
 | Name | Type |
 |------|------|
-| [hcloud_zone.this](https://registry.terraform.io/providers/hetznercloud/hcloud/1.66.1/docs/resources/zone) | resource |
-| [hcloud_zone_rrset.delegation](https://registry.terraform.io/providers/hetznercloud/hcloud/1.66.1/docs/resources/zone_rrset) | resource |
+| [hcloud_zone.this](https://registry.terraform.io/providers/hetznercloud/hcloud/1.68.0/docs/resources/zone) | resource |
+| [hcloud_zone_rrset.delegation](https://registry.terraform.io/providers/hetznercloud/hcloud/1.68.0/docs/resources/zone_rrset) | resource |
 
 ## Inputs
 
