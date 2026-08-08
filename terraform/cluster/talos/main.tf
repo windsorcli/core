@@ -23,11 +23,9 @@ terraform {
 # below stays at zero. local.machine_secrets / local.client_configuration pick
 # whichever source is active.
 #
-# Teardown caveat: regenerating secrets produces a NEW CA. Container nodes
-# keep Talos state in Docker volumes; if those volumes were not removed,
-# nodes still hold the OLD CA and the TLS handshake fails. Fix: full
-# teardown including compute so controlplane container and its volumes are
-# removed, then windsor apply (fresh node + fresh secrets).
+# Full teardown (including compute) is required before re-apply: regenerating
+# secrets mints a new CA, and leftover Docker volumes holding the old CA break
+# the TLS handshake otherwise.
 resource "talos_machine_secrets" "this" {
   count = var.machine_secrets == null ? 1 : 0
 

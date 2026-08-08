@@ -45,7 +45,7 @@ components:
   metallb/layer2:
     facet: lb-resources
     enable_when: "metallb driver AND `network.loadbalancer_mode == 'layer2'`"
-    description: "MetalLB layer2 advertisement variant. (See `MOVED.md` in this component's directory — kept for compatibility while the canonical entry is consolidating.)"
+    description: "Deprecated alias for `metallb/arp` (same L2Advertisement mechanism). Removed in v0.8.0."
 
 dependencies:
   policy-resources:

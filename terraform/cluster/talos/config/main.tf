@@ -47,9 +47,9 @@ terraform {
 # Talos cluster identity (CA, etcd CA, k8s CA, bootstrap token, encryption
 # secret). cluster/talos has its own count-gated copy of the same resource for
 # the non-hyperv path; on hyperv this one is the producer and its outputs flow
-# back via terraform_output. Inlined directly rather than wrapped in a submodule
-# because the wrapper is one resource and the indirection makes state-address
-# migrations (e.g. adding a count gate) needlessly painful.
+# back via terraform_output. Inlined rather than a submodule, since this is a
+# single resource and submodule indirection complicates its state address if
+# a count gate is added later.
 resource "talos_machine_secrets" "this" {
   talos_version = "v${var.talos_version}"
 }
@@ -100,9 +100,8 @@ locals {
           # Talos, and a name mismatch causes Talos to silently skip the
           # static config and fall back to platform-level DHCP. Single-NIC
           # VMs (the common case here) match exactly one device this way.
-          # dhcp: false is REQUIRED to suppress DHCP even when addresses
-          # are set — empirically observed: without it, DHCP-leased
-          # addresses win over the static config.
+          # dhcp: false is required to suppress DHCP even when addresses are set, or
+          # DHCP-leased addresses win over the static config.
           interfaces = [{
             deviceSelector = {
               physical = true
@@ -135,9 +134,8 @@ locals {
           # Talos, and a name mismatch causes Talos to silently skip the
           # static config and fall back to platform-level DHCP. Single-NIC
           # VMs (the common case here) match exactly one device this way.
-          # dhcp: false is REQUIRED to suppress DHCP even when addresses
-          # are set — empirically observed: without it, DHCP-leased
-          # addresses win over the static config.
+          # dhcp: false is required to suppress DHCP even when addresses are set, or
+          # DHCP-leased addresses win over the static config.
           interfaces = [{
             deviceSelector = {
               physical = true

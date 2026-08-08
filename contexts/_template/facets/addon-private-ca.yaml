@@ -30,10 +30,9 @@ requires:
 # (cert only, no key) goes to system-pki-trust for trust-manager's Bundle —
 # trust-manager only ever needs the public half, so the private key never
 # lands anywhere outside the namespace that actually signs with it. Named
-# distinctly from the pre-existing private-ca-cert Secret (cert-manager
-# self-signed, type kubernetes.io/tls): Secret type is immutable, so
-# reusing that name for an Opaque cert-only Secret would fail to apply on
-# any cluster upgrading from the old self-signed design.
+# distinctly from private-ca-cert (cert-manager's self-signed, type
+# kubernetes.io/tls, Secret): Secret type is immutable, so this name can't
+# be reused for an Opaque cert-only Secret.
 #
 flux:
 

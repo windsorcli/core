@@ -969,7 +969,7 @@ resource "aws_iam_policy" "cert_manager" {
 
   # Scope record-write actions to the operator-supplied zone IDs when set,
   # so cert-manager can't touch unrelated zones in the same account. Falls
-  # back to a wildcard when no zones are passed (legacy direct-module use).
+  # back to a wildcard when no zones are passed.
   # ListHostedZonesByName remains '*' — the cert-manager solver calls it
   # without a zone ID and AWS doesn't accept resource-level constraints
   # on it.
