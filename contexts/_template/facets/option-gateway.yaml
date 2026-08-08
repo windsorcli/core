@@ -98,7 +98,7 @@ flux:
       interval: 5m
 
   # Cilium path: only installs the Gateway API CRDs; the Cilium HelmRelease is owned by option-cni.
-  # Gateway API CRDs come from the crds layer, so cni no longer waits on this.
+  # Gateway API CRDs come from the crds layer, so cni does not depend on this.
   - name: gateway
     when: gateway.enabled == true && gateway.driver == 'cilium'
     install:

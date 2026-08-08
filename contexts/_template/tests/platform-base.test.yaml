@@ -837,10 +837,7 @@ cases:
             - components:
                 - prometheus/alerts/database
 
-  # telemetry-install must wait on csi-install (openebs, metal's default driver):
-  # Prometheus's PVC needs a live storage driver to bind, and on `windsor destroy`
-  # this ordering makes telemetry-install tear down before csi-install, instead of
-  # leaving the PVC's finalizer stuck on an already-gone CSI controller.
+  # telemetry-install depends on csi-install with the openebs driver (metal's default).
   - name: telemetry-install depends on csi-install with the default openebs driver
     values:
       platform: metal
@@ -854,8 +851,7 @@ cases:
           dependsOn:
             - csi-install
 
-  # Longhorn is also a real CSI driver with a PVC-backed Prometheus, so the same
-  # destroy-ordering guarantee applies.
+  # Same dependency, longhorn driver.
   - name: telemetry-install depends on csi-install with the longhorn driver
     values:
       platform: metal
@@ -881,9 +877,7 @@ cases:
           dependsOn:
             - csi-install
 
-  # Managed clouds (EKS here) install their own cloud CSI driver outside this
-  # facet's talos_common.storage_driver, so telemetry-install must not gain a
-  # dangling dependency on a csi-install kustomization that never composes.
+  # Managed clouds (EKS here) install their own cloud CSI driver.
   - name: telemetry-install has no csi-install dependency on eks
     values:
       platform: aws

@@ -70,11 +70,8 @@ flux:
         - "${topology == 'ha' ? 'longhorn/ha' : ''}"
       timeout: 20m
       interval: 5m
-    # longhorn/prometheus is a ServiceMonitor and needs Prometheus's CRDs, but
-    # csi-install itself must not wait on telemetry-install — telemetry-install
-    # depends on csi-install (Prometheus's PVC needs the storage driver present
-    # at both install and destroy time). Keeping the CRD-dependent component in
-    # the resources tier avoids that cycle.
+    # longhorn/prometheus in resources, not install: avoids a csi-install <->
+    # telemetry-install cycle.
     resources:
       - dependsOn:
           - "${telemetry.metrics.enabled || telemetry.logs.enabled ? 'telemetry-install' : ''}"

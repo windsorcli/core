@@ -33,6 +33,7 @@ layer. Links from there land here.
 | [compute/hcloud](compute/hcloud/) | Provisions Talos Linux nodes on Hetzner Cloud. |
 | [compute/hyperv](compute/hyperv/) | Talos VMs on Hyper-V (Windows host). |
 | [compute/incus](compute/incus/) | Talos VMs on Incus. |
+| [compute/vsphere](compute/vsphere/) | Talos VMs on VMware vSphere. |
 | [dns](dns/) | Public DNS zones for ACME certificates and external-dns. |
 | [dns/zone/azure-dns](dns/zone/azure-dns/) | DNS zone on Azure DNS. |
 | [dns/zone/hetzner](dns/zone/hetzner/) | Creates a primary Hetzner DNS zone via the official hcloud provider. |

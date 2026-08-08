@@ -44,11 +44,11 @@ config:
       driver: "${cluster.driver ?? (platform == 'aws' ? 'eks' : (platform == 'azure' ? 'aks' : 'talos'))}"
       cni:
         driver: "${cluster.cni.driver ?? ((cluster.driver ?? (platform == 'aws' ? 'eks' : (platform == 'azure' ? 'aks' : 'talos'))) == 'talos' ? 'cilium' : '')}"
-      # Schedulable defaulting moved out of the CLI config resolver (windsorcli/cli #3062): a
-      # single-controlplane, workerless cluster runs workloads on the control plane. An explicit
-      # cluster.controlplanes.schedulable still wins, and consumers keep reading it via `?? false`.
-      # The counts are spelled out rather than read from cluster_nodes_effective, which derives
-      # from `cluster` and would make this block circular. Keep the two in step.
+      # A single-controlplane, workerless cluster runs workloads on the control plane
+      # by default. An explicit cluster.controlplanes.schedulable still wins, and
+      # consumers keep reading it via `?? false`. The counts are spelled out rather
+      # than read from cluster_nodes_effective, which derives from `cluster` and
+      # would make this block circular. Keep the two in step.
       controlplanes:
         schedulable: >-
           ${cluster.controlplanes.schedulable
@@ -67,8 +67,8 @@ config:
       cni:
         driver: "${cluster.cni.driver ?? 'flannel'}"
 
-  # Node CPU/memory defaults. The CLI no longer injects these (it leaves them nil
-  # when unset so facets own the defaults). Consumers read cluster_resources_effective
+  # Node CPU/memory defaults. The CLI leaves these nil when unset so facets own
+  # the defaults. Consumers read cluster_resources_effective
   # rather than cluster.* because some platform facets replace cluster.controlplanes
   # with a terraform list. A controlplane that runs workloads — flagged schedulable
   # or in a workerless cluster — gets a larger memory baseline than a dedicated one
@@ -258,7 +258,7 @@ substitutions:
 # =============================================================================
 # cert-manager, prometheus-operator, fluent-operator CRDs vendored under
 # kustomize/crds/, applied before the controllers (charts run CRD-install off).
-# Every kustomization auto-depends on this layer (see issue #2021).
+# Every kustomization auto-depends on this layer.
 crds:
   # renovate: datasource=github-releases depName=cert-manager/cert-manager package=cert-manager/cert-manager
   - cert-manager-1.21.1
@@ -341,11 +341,8 @@ flux:
         substitutions:
           loadbalancer_ip_range: "${network.loadbalancer_ips.start + '-' + network.loadbalancer_ips.end}"
 
-  # csi-install must be up before telemetry-install so Prometheus's PVC binds
-  # against a live storage driver, and — just as importantly — so `windsor
-  # destroy` tears down telemetry-install (and its PVC) before csi-install,
-  # instead of leaving the PVC's finalizer stuck on an already-gone CSI
-  # controller.
+  # csi-install before telemetry-install: Prometheus's PVC needs a live storage
+  # driver, both to bind on install and to release its finalizer on destroy.
   - name: telemetry
     when: telemetry.metrics.enabled || telemetry.logs.enabled
     dependsOn:

@@ -172,7 +172,7 @@ driver. Advertises a VIP over ARP.
 | Component | Enable when | Effect |
 |---|---|---|
 | `metallb/arp` | metallb driver AND `network.loadbalancer_mode == 'arp'` (default) | MetalLB `IPAddressPool` (range = `${loadbalancer_ip_range}`) plus an `L2Advertisement` selecting it. Use this for flat L2 networks where speakers can ARP-respond on the cluster subnet. |
-| `metallb/layer2` | metallb driver AND `network.loadbalancer_mode == 'layer2'` | MetalLB layer2 advertisement variant. (See `MOVED.md` in this component's directory — kept for compatibility while the canonical entry is consolidating.) |
+| `metallb/layer2` | metallb driver AND `network.loadbalancer_mode == 'layer2'` | Deprecated alias for `metallb/arp` (same L2Advertisement mechanism). Removed in v0.8.0. |
 
 ## Dependencies
 
