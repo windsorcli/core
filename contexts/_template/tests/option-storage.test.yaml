@@ -35,7 +35,6 @@ x-defaults:
     name: csi
     dependsOn:
       - policy-resources
-      - telemetry-install
 
 cases:
   # Minimal: no explicit storage config — defaults to openebs

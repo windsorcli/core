@@ -64,8 +64,6 @@ flux:
   # domain, so ARP-announced pool IPs never route.
   - name: cni
     when: talos_enabled
-    dependsOn:
-      - "${telemetry.metrics.enabled || telemetry.logs.enabled ? 'telemetry-install' : ''}"
     install:
       components:
         - cilium
@@ -90,8 +88,6 @@ flux:
   # k8s_service_host is parsed from the EKS cluster_endpoint terraform output.
   - name: cni
     when: eks_enabled
-    dependsOn:
-      - "${telemetry.metrics.enabled || telemetry.logs.enabled ? 'telemetry-install' : ''}"
     install:
       components:
         - cilium

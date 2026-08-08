@@ -28,7 +28,6 @@ x-defaults:
     name: cni
     dependsOn:
       - policy-resources
-      - telemetry-install
 
 cases:
   # Default: no CNI config — cilium is the default, cni terraform + kustomize are deployed.
@@ -277,7 +276,6 @@ cases:
         - name: cni
           dependsOn:
             - policy-resources
-            - telemetry-install
           install:
             components:
               - cilium
@@ -400,7 +398,7 @@ cases:
             - cni
 
   # telemetry.metrics.enabled=false drops the cilium/prometheus ServiceMonitor
-  # (no Prometheus to scrape). telemetry-install dep stays because logs still need it.
+  # (no Prometheus to scrape).
   - name: telemetry metrics disabled strips cilium/prometheus component
     values:
       platform: metal
@@ -416,7 +414,6 @@ cases:
         - name: cni
           dependsOn:
             - policy-resources
-            - telemetry-install
           install:
             components:
               - cilium
@@ -424,9 +421,8 @@ cases:
               - cilium/hubble
               - cilium/l2
 
-  # Both halves of telemetry disabled: drop the cilium/prometheus component
-  # AND the telemetry-install dependency (the kustomization isn't emitted).
-  - name: telemetry metrics and logs disabled drops cilium/prometheus and telemetry-install dep
+  # Both halves of telemetry disabled: drop the cilium/prometheus component too.
+  - name: telemetry metrics and logs disabled drops cilium/prometheus
     values:
       platform: metal
       gateway:
@@ -463,8 +459,6 @@ cases:
     expect:
       flux:
         - name: cni
-          dependsOn:
-            - telemetry-install
           install:
             components:
               - cilium

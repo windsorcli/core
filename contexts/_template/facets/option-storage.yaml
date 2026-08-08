@@ -63,16 +63,23 @@ flux:
   # Longhorn — distributed block storage.
   - name: csi
     when: talos_common.storage_driver == 'longhorn'
-    dependsOn:
-      - "${telemetry.metrics.enabled || telemetry.logs.enabled ? 'telemetry-install' : ''}"
     install:
       components:
         - longhorn
         - "${((cluster.controlplanes.schedulable ?? false) || topology == 'single-node') ? 'longhorn/single-node' : ''}"
         - "${topology == 'ha' ? 'longhorn/ha' : ''}"
-        - "${observability.enabled == true ? 'longhorn/prometheus' : ''}"
       timeout: 20m
       interval: 5m
+    # longhorn/prometheus is a ServiceMonitor and needs Prometheus's CRDs, but
+    # csi-install itself must not wait on telemetry-install — telemetry-install
+    # depends on csi-install (Prometheus's PVC needs the storage driver present
+    # at both install and destroy time). Keeping the CRD-dependent component in
+    # the resources tier avoids that cycle.
+    resources:
+      - dependsOn:
+          - "${telemetry.metrics.enabled || telemetry.logs.enabled ? 'telemetry-install' : ''}"
+        components:
+          - "${observability.enabled == true ? 'longhorn/prometheus' : ''}"
 
   # Grafana dashboard patch: inject the Longhorn dashboard into observability-resources
   # when Longhorn is active and observability is on; the driver gate is required
