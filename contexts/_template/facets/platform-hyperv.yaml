@@ -39,13 +39,10 @@ config:
   # Network gateway and nameserver defaults for the CIDATA seed. Written only
   # when unset; see platform-base.yaml "Network defaults" for the pattern.
   #
-  # Every network.cidr_block read below repeats `?? '10.5.0.0/16'`. The schema
-  # default does not reach facet expressions, and platform-base's when:-gated
-  # default cannot supply it either: that guard reads the key it writes, so the
-  # entry resolves after other consumers of `network`. A read that omits the
-  # fallback fails composition with "cidrhost() ... got <nil>" whenever
-  # cidr_block is unset. All of these collapse to a bare read once the schema
-  # default is applied at composition (windsorcli/cli#3031).
+  # Every network.cidr_block read below repeats `?? '10.5.0.0/16'`: neither the
+  # schema default nor platform-base's when:-gated default reaches these
+  # expressions yet, so an unguarded read fails composition with
+  # "cidrhost() ... got <nil>" whenever cidr_block is unset.
   - name: network
     when: (network.gateway ?? '') == ''
     value:

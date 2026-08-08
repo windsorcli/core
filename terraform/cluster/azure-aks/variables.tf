@@ -44,7 +44,7 @@ variable "private_subnet_ids" {
   default     = null
   validation {
     condition     = try(length(var.private_subnet_ids), 0) > 0
-    error_message = "private_subnet_ids is required and must be non-empty. The VNet/subnet data lookup this module previously used has been removed; pipe network/azure-vnet's private_subnet_ids output, e.g. inputs.private_subnet_ids = terraform_output('network', 'private_subnet_ids') in the platform-azure facet."
+    error_message = "private_subnet_ids is required and must be non-empty; pipe network/azure-vnet's private_subnet_ids output, e.g. inputs.private_subnet_ids = terraform_output('network', 'private_subnet_ids') in the platform-azure facet."
   }
 }
 

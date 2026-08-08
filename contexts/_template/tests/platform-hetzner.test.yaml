@@ -85,11 +85,8 @@ cases:
             - components:
                 - public-issuer/selfsigned
 
-  # With no cluster block the facet still provisions a worker, so the cluster must
-  # resolve multi-node and leave the control plane tainted. Regression: the worker
-  # default lived only in the compute inputs, so topology and the schedulable
-  # heuristic read the cluster as workerless and every workload landed on the
-  # control plane.
+  # With no cluster block the facet still provisions a worker, so topology
+  # resolves multi-node and the control plane stays tainted.
   - name: default worker keeps control plane unschedulable
     values:
       platform: hetzner
