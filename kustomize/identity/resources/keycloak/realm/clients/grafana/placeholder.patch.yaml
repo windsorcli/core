@@ -1,0 +1,7 @@
+# Resolves ${GRAFANA_CLIENT_SECRET} from realm-client.patch.yaml.
+- op: add
+  path: /spec/placeholders/GRAFANA_CLIENT_SECRET
+  value:
+    secret:
+      name: grafana-oidc-client-secret
+      key: clientSecret
