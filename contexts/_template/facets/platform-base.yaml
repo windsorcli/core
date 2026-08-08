@@ -341,8 +341,15 @@ flux:
         substitutions:
           loadbalancer_ip_range: "${network.loadbalancer_ips.start + '-' + network.loadbalancer_ips.end}"
 
+  # csi-install must be up before telemetry-install so Prometheus's PVC binds
+  # against a live storage driver, and — just as importantly — so `windsor
+  # destroy` tears down telemetry-install (and its PVC) before csi-install,
+  # instead of leaving the PVC's finalizer stuck on an already-gone CSI
+  # controller.
   - name: telemetry
     when: telemetry.metrics.enabled || telemetry.logs.enabled
+    dependsOn:
+      - "${cluster.driver == 'talos' && (talos_common.storage_driver == 'openebs' || talos_common.storage_driver == 'longhorn') ? 'csi-install' : ''}"
     install:
       components:
         - "${telemetry.metrics.enabled ? 'prometheus' : ''}"
