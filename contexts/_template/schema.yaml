@@ -1080,6 +1080,10 @@ properties:
         type: boolean
         default: false
         description: Expose the flux-operator web UI through the gateway at flux.<domain>. The UI is unauthenticated, so only enable it behind a trusted or private gateway. Off by default; always reachable via port-forward regardless.
+      concurrency:
+        type: integer
+        minimum: 1
+        description: Override the CPU/memory-derived Flux controller --concurrent value. For constrained hosts (e.g. CI runners) where the control-plane container's quota is a small slice of the whole host, not just of a roomy dev machine.
     additionalProperties: false
 
   # Gateway configuration
