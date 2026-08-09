@@ -317,10 +317,14 @@ jobs:
       # container mid-test and re-bootstrap fails on the surviving etcd data.
       # gitops.concurrency is pinned low: the CPU-derived formula assumes a
       # roomy host, but here the 3-vCPU quota is most of the runner's own 4
-      # vCPUs, so Flux's default concurrency floods etcd/apiserver.
+      # vCPUs, so Flux's default concurrency floods etcd/apiserver. Falls
+      # back to the plain init if origin/main predates the gitops.concurrency
+      # schema field (this PR adds it).
       - name: Baseline — Windsor Init
         if: matrix.mode == 'upgrade' && steps.infra_diff.outputs.skip != 'true'
-        run: windsor init local --reset --set cluster.controlplanes.cpu=3 --set cluster.controlplanes.memory=8 --set gitops.concurrency=2
+        run: |
+          windsor init local --reset --set cluster.controlplanes.cpu=3 --set cluster.controlplanes.memory=8 --set gitops.concurrency=2 \
+            || windsor init local --reset --set cluster.controlplanes.cpu=3 --set cluster.controlplanes.memory=8
 
       - name: Baseline — Show blueprint
         if: matrix.mode == 'upgrade' && steps.infra_diff.outputs.skip != 'true'
