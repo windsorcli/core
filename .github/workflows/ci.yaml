@@ -315,9 +315,16 @@ jobs:
       # Memory is pinned too so the container spec stays identical to the
       # upgrade test's baseline phase — an unpinned change replaces the
       # container mid-test and re-bootstrap fails on the surviving etcd data.
+      # gitops.concurrency is pinned low: the CPU-derived formula assumes a
+      # roomy host, but here the 3-vCPU quota is most of the runner's own 4
+      # vCPUs, so Flux's default concurrency floods etcd/apiserver. Falls
+      # back to the plain init if origin/main predates the gitops.concurrency
+      # schema field (this PR adds it).
       - name: Baseline — Windsor Init
         if: matrix.mode == 'upgrade' && steps.infra_diff.outputs.skip != 'true'
-        run: windsor init local --reset --set cluster.controlplanes.cpu=3 --set cluster.controlplanes.memory=8
+        run: |
+          windsor init local --reset --set cluster.controlplanes.cpu=3 --set cluster.controlplanes.memory=8 --set gitops.concurrency=2 \
+            || windsor init local --reset --set cluster.controlplanes.cpu=3 --set cluster.controlplanes.memory=8
 
       - name: Baseline — Show blueprint
         if: matrix.mode == 'upgrade' && steps.infra_diff.outputs.skip != 'true'
@@ -379,9 +386,10 @@ jobs:
       # The runner's 4 vCPUs host the entire single-node Talos container; a
       # cgroup quota at the runner's core count throttles every pod at once.
       # Memory is pinned alongside it to keep the container spec deterministic.
+      # gitops.concurrency is pinned low: see the baseline init step above.
       - name: Windsor Init
         if: matrix.mode == 'fresh'
-        run: windsor init local --reset --set cluster.controlplanes.cpu=3 --set cluster.controlplanes.memory=8
+        run: windsor init local --reset --set cluster.controlplanes.cpu=3 --set cluster.controlplanes.memory=8 --set gitops.concurrency=2
 
       - name: Show blueprint
         if: matrix.mode == 'fresh'

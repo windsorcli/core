@@ -128,12 +128,16 @@ terraform:
     inputs:
       # Incus runs the cluster in a nested VM with slower vCPUs, so the
       # CPU-derived formula overshoots and floods apiserver. Clamp to 2 there.
+      # gitops.concurrency overrides both: the formula assumes the
+      # container's cpu/memory quota is carved from a roomy host, which
+      # doesn't hold on a constrained host (e.g. a CI runner) where the
+      # quota is most of the host's own capacity.
       concurrency: >-
-        ${platform == 'incus' ? 2 : max(4, min(
+        ${gitops.concurrency ?? (platform == 'incus' ? 2 : max(4, min(
           floor(cluster_resources_effective.controlplanes.cpu / 2),
           floor(cluster_resources_effective.controlplanes.memory / 2),
           10
-        ))}
+        )))}
       git_username: ${workstation.git.username ?? "local"}
       git_password: ${workstation.git.password ?? "local"}
       webhook_token: ${gitops.webhook.token ?? "abcdef123456"}
