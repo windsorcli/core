@@ -1,16 +1,8 @@
 #!/usr/bin/env bash
-# Resolves the PR review threads the agent step identified as addressed.
-# The agent writes /tmp/resolve-thread-ids.txt (one GraphQL thread node ID
-# per line, judgment already applied); this script does the actual
-# resolveReviewThread mutation. Runs here — not in the model's sandbox — so
-# a denied or malformed tool call in the agent step can never leave a
-# thread silently unresolved, and a script bug can't silently mark a live
-# finding as addressed (the agent's judgment call already happened).
-#
-# Required env: GH_TOKEN, GH_REPO (owner/repo).
+# Resolves the review threads listed in /tmp/resolve-thread-ids.txt, one GraphQL
+# thread node ID per line. Runs inside the claude-code-action step, the only
+# context whose token can resolve threads.
 set -euo pipefail
-
-: "${GH_REPO:?}"
 
 IDS_FILE=/tmp/resolve-thread-ids.txt
 
@@ -19,14 +11,21 @@ if [ ! -s "$IDS_FILE" ]; then
   exit 0
 fi
 
+failed=0
 while IFS= read -r tid; do
   [ -n "$tid" ] || continue
   # shellcheck disable=SC2016  # $id is a GraphQL variable, passed via -F
-  if gh api graphql -f query='
+  if err="$(gh api graphql -f query='
     mutation($id:ID!){ resolveReviewThread(input:{threadId:$id}){ thread{ id } } }' \
-    -F id="$tid" > /dev/null; then
+    -F id="$tid" 2>&1 >/dev/null)"; then
     echo "Resolved thread $tid"
   else
-    echo "::warning::Failed to resolve thread $tid"
+    echo "error: failed to resolve thread $tid: $err" >&2
+    failed=$((failed + 1))
   fi
 done < "$IDS_FILE"
+
+if [ "$failed" -ne 0 ]; then
+  echo "error: $failed thread(s) could not be resolved" >&2
+  exit 1
+fi
