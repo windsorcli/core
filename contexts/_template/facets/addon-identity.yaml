@@ -15,6 +15,7 @@ config:
     value:
       realm: "${identity.keycloak.realm ?? 'platform'}"
       display_name: "${identity.display_name ?? 'SSO'}"
+      admin_group: "${identity.admin_group ?? 'platform-admins'}"
       issuer: >-
         ${(identity.driver ?? 'keycloak') == 'oidc' ? (identity.oidc.issuer ?? '') :
         (((identity.keycloak.hostname ?? '') == '' ?
@@ -155,12 +156,13 @@ flux:
           - "${cluster.oidc.enabled == true && (cluster.oidc.client_id ?? 'kubernetes') == 'kubernetes' ? 'keycloak/realm/clients/kubernetes' : ''}"
           # Dev-only admin/viewer users.
           - "${dev == true ? 'keycloak/realm/dev-user' : ''}"
-          # Dev-only: binds platform-admins to cluster-admin for kubectl OIDC login.
+          # Dev-only: binds the admin group to cluster-admin for kubectl OIDC login.
           - "${dev == true && cluster.oidc.enabled == true && (cluster.oidc.client_id ?? 'kubernetes') == 'kubernetes' ? 'keycloak/realm/clients/kubernetes/dev-rbac' : ''}"
         timeout: 10m
         interval: 5m
         substitutions:
           keycloak_realm: "${identity.keycloak.realm ?? 'platform'}"
+          keycloak_admin_group: "${identity_effective.admin_group}"
           # Grafana client fields for the realm-client patch.
           grafana_url: "${grafana_effective.url ?? ''}"
           grafana_redirect_uri: "${(grafana_effective.url ?? '') + '/login/generic_oauth'}"

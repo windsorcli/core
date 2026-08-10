@@ -36,7 +36,7 @@ spec:
     # scopes (email/profile/…). Each consumer's client assigns the built-ins it needs
     # and carries its own group-membership mapper for role mapping.
     groups:
-      - name: platform-admins
+      - name: ${keycloak_admin_group}
         clientRoles:
           realm-management:
             - realm-admin

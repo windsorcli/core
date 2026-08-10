@@ -1,12 +1,12 @@
-# Dev-only: binds the seeded platform-admins group to cluster-admin so the
-# dev admin user can actually do something after an OIDC login.
+# Dev-only: binds the seeded admin group to cluster-admin so the dev admin user
+# can actually do something after an OIDC login.
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRoleBinding
 metadata:
   name: oidc-platform-admins
 subjects:
   - kind: Group
-    name: /platform-admins
+    name: /${keycloak_admin_group}
     apiGroup: rbac.authorization.k8s.io
 roleRef:
   kind: ClusterRole

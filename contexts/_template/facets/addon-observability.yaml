@@ -87,7 +87,7 @@ flux:
         # generic_oauth inputs — the provider label and endpoints come from identity (one
         # place, both drivers); endpoints default to the issuer's standard OIDC path, with
         # per-provider overrides under identity.oidc. client_id is the app name; role
-        # mapping defaults to platform-admins → Grafana Admin. All leaves are null-safe.
+        # mapping promotes the contract's admin group to Grafana Admin. All leaves are null-safe.
         oidc_name: "${identity_effective.display_name ?? 'SSO'}"
         oidc_client_id: grafana
         # Dev: one-click — clicking Grafana goes straight to the SSO login. Off elsewhere
@@ -99,7 +99,10 @@ flux:
         oidc_auth_url: "${(identity.oidc.auth_url ?? '') != '' ? identity.oidc.auth_url : ((identity_effective.issuer ?? '') + '/protocol/openid-connect/auth')}"
         oidc_token_url: "${(identity.oidc.token_url ?? '') != '' ? identity.oidc.token_url : ((identity_effective.backchannel_issuer ?? '') + '/protocol/openid-connect/token')}"
         oidc_userinfo_url: "${(identity.oidc.userinfo_url ?? '') != '' ? identity.oidc.userinfo_url : ((identity_effective.backchannel_issuer ?? '') + '/protocol/openid-connect/userinfo')}"
-        oidc_role_attribute_path: "${observability.grafana.role_attribute_path ?? \"contains(groups[*], '/platform-admins') && 'Admin' || 'Viewer'\"}"
+        oidc_role_attribute_path: >-
+          ${observability.grafana.role_attribute_path ??
+          ("contains(groups[*], '/" + (identity_effective.admin_group ?? 'platform-admins') +
+          "') && 'Admin' || 'Viewer'")}
     resources:
       - timeout: 10m
         interval: 5m
