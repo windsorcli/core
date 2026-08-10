@@ -49,6 +49,7 @@ spec:
   # Single-node default; ha/ overlay overrides for topology: ha.
   resources:
     requests:
+      cpu: 500m
       memory: 768Mi
     limits:
       memory: 1536Mi
