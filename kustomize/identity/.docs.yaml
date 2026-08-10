@@ -9,7 +9,7 @@ components:
     description: "Keycloak Operator (Deployment + RBAC) in `system-identity`, vendored verbatim from keycloak-k8s-resources. Reconciles `Keycloak` custom resources; installs no server by itself. CRDs are applied separately by the `crds:` layer."
   keycloak/database:
     enable_when: "`identity.driver == 'keycloak'`"
-    description: "The CloudNativePG `Cluster` backing Keycloak: a `keycloak` database owned by role `keycloak`, published as the `keycloak-db-app` secret and the `keycloak-db-rw` service. Applied by the `identity-resources-database` tier, which the server tier waits on. That tier carries a `healthCheckExprs` gate on the `Cluster`\s `Ready` condition, since kstatus reports a CNPG `Cluster` Current the moment it is applied."
+    description: "The CloudNativePG `Cluster` backing Keycloak: a `keycloak` database owned by role `keycloak`, published as the `keycloak-db-app` secret and the `keycloak-db-rw` service. Applied by the `identity-resources-database` tier, which gates on the `Cluster`'s `Ready` condition via `healthCheckExprs` and which the server tier waits on."
   keycloak/database/ha:
     enable_when: "`topology: ha`"
     description: "Scales the CloudNativePG `Cluster` to 3 instances with required pod anti-affinity, so each Postgres instance lands on a distinct node."
