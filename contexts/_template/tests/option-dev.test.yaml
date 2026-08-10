@@ -48,7 +48,9 @@ cases:
                 - private-issuer/ca
 
   # Edge case: Non-dev mode excludes selfsigned issuer
-  - name: excludes selfsigned issuer when dev disabled
+  # Non-dev metal falls back to the platform's private-issuer/selfsigned rather
+  # than dev's public-issuer/selfsigned.
+  - name: dev disabled falls back to the platform selfsigned issuer
     values:
       platform: metal
       dev: false
@@ -56,11 +58,12 @@ cases:
         enabled: false
       network: *default-network
       cluster: *default-cluster
-    exclude:
-      kustomize:
-        - name: pki-resources
-    # pki-resources (the compiled tier name) doesn't exist on non-dev,
-    # non-private-ca metal — no facet contributes any resources components.
+    expect:
+      flux:
+        - name: pki
+          resources:
+            - components:
+                - private-issuer/selfsigned
 
   # Regression: dev mode auto-enables observability; the dev-credentials patch (a plain
   # HelmRelease values patch) has no dependency on telemetry-install, so disabling

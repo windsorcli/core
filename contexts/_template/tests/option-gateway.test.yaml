@@ -59,11 +59,11 @@ x-defaults:
     timeout: 10m
     interval: 5m
 
-  # Shared assertion: gateway resources tier. The Gateway cert needs cert-manager
-  # (pki-install) for admission, so the resources tier carries that dep.
+  # Shared assertion: gateway resources tier. The Gateway cert is issued by the
+  # ClusterIssuer pki-resources creates, so the resources tier carries that dep.
   gateway-resources-envoy: &gateway-resources-envoy
     dependsOn:
-      - pki-install
+      - pki-resources
     substitutions:
       gateway_class_name: envoy
     timeout: 10m
@@ -71,7 +71,7 @@ x-defaults:
 
   gateway-resources-cilium: &gateway-resources-cilium
     dependsOn:
-      - pki-install
+      - pki-resources
       - cni-install
     substitutions:
       gateway_class_name: cilium
@@ -713,7 +713,7 @@ cases:
     expectError: true
 
   # Regression (#2311): dns.public_domain enables dns without shipping dns-install on
-  # metal/incus. The gateway resources tier must depend only on pki-install, or composition
+  # metal/incus. The gateway resources tier must depend only on pki-resources, or composition
   # dangles on a dns-install that was never contributed.
   - name: gateway resources omit dns-install when dns is enabled on a provider-less platform
     values:

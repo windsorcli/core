@@ -16,8 +16,10 @@ requires:
 # =============================================================================
 #
 # Single kustomization with many conditional components. The dependency on
-# pki-install is unconditional (CoreDNS needs TLS for DoT/DoH); the second
-# dep depends on the gateway driver:
+# pki-resources is unconditional: the etcd certificates are issued by the
+# ClusterIssuer that tier creates, so waiting on pki-install alone admits this
+# kustomization into a health check no issuer can satisfy. The second dep
+# depends on the gateway driver:
 #
 #   - Cilium: CoreDNS is exposed via a LoadBalancer Service with LBIPAM, so
 #     we wait for cni (Cilium's Gateway controller is part of the CNI).
@@ -40,7 +42,7 @@ flux:
 
   - name: dns
     dependsOn:
-      - pki-install
+      - pki-resources
       - "${gateway.driver == 'cilium' ? 'cni' : (gateway.enabled == true ? 'gateway-install' : '')}"
     install:
       components:
