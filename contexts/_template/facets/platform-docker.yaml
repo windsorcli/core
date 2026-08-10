@@ -115,19 +115,3 @@ terraform:
       worker_config_patches: "${talos_common_docker.worker_config_patches ?? \"\"}"
       controlplane_volumes: ${talos_common.controlplane_volumes ?? []}
       worker_volumes: ${talos_common.worker_volumes ?? []}
-
-# =============================================================================
-# Flux systems — pki resources overlay
-# =============================================================================
-# The gateway cert references a ClusterIssuer named `private`, which the
-# private-issuer/selfsigned component creates. Skipped when addon-private-ca
-# is enabled — it emits its own CA-backed `private` issuer (both would conflict).
-flux:
-
-  - name: pki
-    when: (pki.enabled ?? false) != true
-    resources:
-      - components:
-          - private-issuer/selfsigned
-        timeout: 5m
-        interval: 5m

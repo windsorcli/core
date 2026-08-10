@@ -292,11 +292,10 @@ cases:
             substitutions:
               loadbalancer_ip_range: 10.10.0.100-10.10.0.110
 
-  # pki-resources selfsigned issuer: present by default (no public domain, not
-  # aws/azure). When addon-private-ca is enabled, that addon takes over pki-resources
-  # with private-issuer/ca — the vsphere selfsigned entry is suppressed and the
-  # CA-backed component appears instead (verifies both facets cooperate correctly).
-  - name: pki-resources uses ca issuer when private_ca addon is enabled
+  # pki.enabled swaps the `private` ClusterIssuer from platform-base's selfsigned
+  # variant to addon-private-ca's CA-backed one. Both carry the name `private`, so
+  # exactly one must render; two would collide in the same kustomization.
+  - name: pki enabled uses the ca issuer and not the selfsigned one
     values:
       platform: vsphere
       gateway:
@@ -313,6 +312,12 @@ cases:
           resources:
             - components:
                 - private-issuer/ca
+    exclude:
+      flux:
+        - name: pki
+          resources:
+            - components:
+                - private-issuer/selfsigned
 
   - name: pki-resources selfsigned issuer present by default
     values:
