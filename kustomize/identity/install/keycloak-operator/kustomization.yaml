@@ -40,7 +40,7 @@ patches:
                   - name: RELATED_IMAGE_KEYCLOAK
                     # renovate: datasource=docker depName=keycloak/keycloak package=quay.io/keycloak/keycloak
                     value: quay.io/keycloak/keycloak:26.7.1@sha256:f1f1f01e472c8a78df40d8f2a49a925274eda4d3d80d5f6edbb5c880ee3c01c6
-  # Widen the startup budget and stop re-pulling the digest-pinned image.
+  # Pull policy and startup probe budget for the operator container.
   - patch: |
       apiVersion: apps/v1
       kind: Deployment
