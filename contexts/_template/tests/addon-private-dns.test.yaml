@@ -37,7 +37,7 @@ cases:
       flux:
         - name: dns
           dependsOn:
-            - pki-install
+            - pki-resources
             - cni-install
           install:
             components:
@@ -71,7 +71,7 @@ cases:
       flux:
         - name: dns
           dependsOn:
-            - pki-install
+            - pki-resources
             - gateway-install
             - policy-resources
           install:
@@ -106,7 +106,7 @@ cases:
       flux:
         - name: dns
           dependsOn:
-            - pki-install
+            - pki-resources
             - gateway-install
             - policy-resources
           install:
@@ -138,7 +138,7 @@ cases:
       flux:
         - name: dns
           dependsOn:
-            - pki-install
+            - pki-resources
             - cni-install
           install:
             components:
@@ -169,7 +169,7 @@ cases:
       flux:
         - name: dns
           dependsOn:
-            - pki-install
+            - pki-resources
           install:
             components:
               - coredns
@@ -200,7 +200,7 @@ cases:
       flux:
         - name: dns
           dependsOn:
-            - pki-install
+            - pki-resources
 
   # Edge case: private DNS disabled
   - name: excludes DNS when private DNS disabled

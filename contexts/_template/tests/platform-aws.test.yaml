@@ -173,6 +173,33 @@ cases:
       terraform:
         - name: dns-zone
 
+  # A public ACME issuer does not displace the `private` one: self-hosted CoreDNS
+  # names ClusterIssuer `private` directly in its etcd certificates, so both land
+  # on pki-resources together.
+  - name: public acme and private issuers coexist with self-hosted dns
+    values:
+      platform: aws
+      aws: *default-aws
+      gateway:
+        enabled: true
+        driver: envoy
+      dns:
+        public_domain: example.com
+        private_domain: internal.example.com
+        private:
+          enabled: true
+      email: ops@example.com
+    terraformOutputs:
+      dns-zone:
+        zone_id: Z1ABCDEF12345
+    expect:
+      flux:
+        - name: pki
+          resources:
+            - components:
+                - public-issuer/acme/route53
+                - private-issuer/selfsigned
+
   # ACME path on (production): dns.public_domain triggers the standalone
   # dns-zone stack, the cert-manager IAM role on the cluster, the
   # public-issuer/acme/route53 component on pki-resources, and the gateway TLS

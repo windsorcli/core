@@ -60,8 +60,8 @@ components:
     description: "Patches the trust-manager HelmRelease to disable leader election."
   private-issuer/selfsigned:
     facet: pki-resources
-    enable_when: "`gateway.access == 'private'` AND `dns.private_domain` is set"
-    description: "ClusterIssuer `private-selfsigned` with `selfSigned: {}`. Used for the private gateway certificate when no private CA is configured; browsers warn until the CA cert is added to a trust store."
+    enable_when: "`pki.enabled` is not set"
+    description: "ClusterIssuer `private` with `selfSigned: {}`, the cluster's internal trust anchor. Issues the etcd and private gateway certificates; browsers warn on anything it signs. `pki.enabled` replaces it with the CA-backed `private-issuer/ca` under the same name."
   private-issuer/ca:
     facet: pki-resources
     enable_when: "`pki.enabled: true`"

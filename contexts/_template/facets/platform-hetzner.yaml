@@ -138,8 +138,9 @@ config:
   # Flux-installed CCM can still map nodes to servers for Cloud LB targets. Full
   # cloud node lifecycle (topology labels) is not managed; not needed here.
 
-  # issuer_component selects the ClusterIssuer variant (last match wins):
-  # selfsigned floor → ACME/hetzner with a public domain → private selfsigned.
+  # issuer_component selects the public ClusterIssuer variant (last match wins):
+  # selfsigned floor → ACME/hetzner with a public domain → none in private mode,
+  # where the gateway cert uses the `private` issuer platform-base ships.
   - name: pki_effective
     value:
       issuer_component: public-issuer/selfsigned
@@ -150,7 +151,7 @@ config:
   - name: pki_effective
     when: gateway.access == 'private' && (dns.private_domain ?? '') != ''
     value:
-      issuer_component: private-issuer/selfsigned
+      issuer_component: ""
 
   # Derivable only from compute output; empty string otherwise, so the caller
   # falls back to an explicit cluster.endpoint.

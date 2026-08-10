@@ -30,8 +30,9 @@ config:
     value:
       metrics_server_enabled: false
 
-  # issuer_component selected in order (last match wins): selfsigned floor → ACME
-  # (azuredns) on public domain → private selfsigned on private access.
+  # issuer_component selects the public ClusterIssuer variant (last match wins):
+  # selfsigned floor → ACME (azuredns) on public domain → none in private mode,
+  # where the gateway cert uses the `private` issuer platform-base ships.
   - name: pki_effective
     value:
       issuer_component: public-issuer/selfsigned
@@ -42,7 +43,7 @@ config:
   - name: pki_effective
     when: gateway.access == 'private' && (dns.private_domain ?? '') != ''
     value:
-      issuer_component: private-issuer/selfsigned
+      issuer_component: ""
 
 # =============================================================================
 # Terraform — AzureRM state backend, VNet, AKS, optional public DNS zone

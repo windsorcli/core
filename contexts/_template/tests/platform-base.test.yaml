@@ -85,6 +85,11 @@ cases:
               - cert-manager/prometheus
             timeout: 20m
             interval: 5m
+          resources:
+            - components:
+                - private-issuer/selfsigned
+              timeout: 5m
+              interval: 5m
         - name: observability
           install:
             components:

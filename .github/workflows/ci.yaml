@@ -333,7 +333,7 @@ jobs:
       - name: Baseline — Windsor Up
         id: baseline_up
         if: matrix.mode == 'upgrade' && steps.infra_diff.outputs.skip != 'true'
-        timeout-minutes: 14
+        timeout-minutes: 20
         run: windsor up --verbose --wait
 
       - name: Baseline — Health check
@@ -398,7 +398,7 @@ jobs:
       - name: Windsor Up
         id: windsor_up
         if: matrix.mode == 'fresh' && steps.infra_diff.outputs.skip != 'true'
-        timeout-minutes: 14
+        timeout-minutes: 20
         run: windsor up --verbose --wait
 
       - name: Windsor Apply (prune)

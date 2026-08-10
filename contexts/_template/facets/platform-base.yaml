@@ -404,6 +404,12 @@ flux:
 
   # Depends on telemetry-install so cert-manager's ServiceMonitor has a
   # working Prometheus target from the moment it's created.
+  #
+  # resources ships ClusterIssuer `private`, the cluster's internal trust anchor:
+  # the etcd certificates name it directly and the gateway certificate resolves
+  # to it whenever there's no public issuer. It exists on every cluster so no
+  # consumer has to test for it. addon-private-ca supplies the CA-backed variant
+  # under the same name when pki.enabled, so this one stands down.
   - name: pki
     dependsOn:
       - "${telemetry.metrics.enabled || telemetry.logs.enabled ? 'telemetry-install' : ''}"
@@ -413,6 +419,11 @@ flux:
         - "${telemetry.metrics.enabled ? 'cert-manager/prometheus' : ''}"
       timeout: 20m
       interval: 5m
+    resources:
+      - components:
+          - "${(pki.enabled ?? false) != true ? 'private-issuer/selfsigned' : ''}"
+        timeout: 5m
+        interval: 5m
 
   # Central FluentD aggregator. Runs in the observability namespace (where
   # fluent-operator has RBAC). Skipped when logs_driver='none' (aggregation

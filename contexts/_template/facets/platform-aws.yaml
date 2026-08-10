@@ -29,8 +29,9 @@ requires:
 # =============================================================================
 config:
 
-  # issuer_component selects the ClusterIssuer variant (last match wins):
-  # selfsigned floor → ACME/route53 with a public domain → private selfsigned.
+  # issuer_component selects the public ClusterIssuer variant (last match wins):
+  # selfsigned floor → ACME/route53 with a public domain → none in private mode,
+  # where the gateway cert uses the `private` issuer platform-base ships.
   - name: pki_effective
     value:
       issuer_component: public-issuer/selfsigned
@@ -41,7 +42,7 @@ config:
   - name: pki_effective
     when: gateway.access == 'private' && (dns.private_domain ?? '') != ''
     value:
-      issuer_component: private-issuer/selfsigned
+      issuer_component: ""
 
 # =============================================================================
 # CRDs — vendored, applied ahead of the controller
