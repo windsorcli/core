@@ -154,10 +154,23 @@ process_dir() {
     echo "error: $readme missing $END_MARKER" >&2
     return 1
   fi
+  # Parse up front: the section renderers probe with `yq -e`, which cannot tell an
+  # absent key from an unreadable file, so a malformed descriptor would otherwise
+  # inject an empty region over the README's tables.
+  local parse_err
+  if ! parse_err="$(yq '.' "$docs" 2>&1 >/dev/null)"; then
+    echo "error: $docs is not valid YAML: $parse_err" >&2
+    return 1
+  fi
 
   local rendered_file
   rendered_file="$(mktemp)"
   render_tables "$docs" > "$rendered_file"
+  if [ ! -s "$rendered_file" ]; then
+    rm -f "$rendered_file"
+    echo "error: $docs declares no substitutions, components, or dependencies" >&2
+    return 1
+  fi
   inject "$readme" "$rendered_file"
   rm -f "$rendered_file"
   echo "ok: $readme" >&2
