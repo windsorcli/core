@@ -78,14 +78,24 @@ flux:
         - keycloak-operator
       timeout: 10m
       interval: 5m
-    # Keycloak CR + its CNPG cluster. Waits for the database operator so the
-    # Cluster CRD exists; the Keycloak CRD is already applied by the crds: layer.
-    # Also waits for telemetry-install when metrics are on, since the
-    # ServiceMonitor the prometheus overlay enables needs that CRD to exist.
     resources:
-      - dependsOn:
+      # Postgres, gated on the Cluster's Ready condition.
+      - name: database
+        dependsOn:
           - database-install
-          - "${telemetry.metrics.enabled ? 'telemetry-install' : ''}"
+        components:
+          - keycloak/database
+          - "${topology == 'ha' ? 'keycloak/database/ha' : ''}"
+        healthCheckExprs:
+          - apiVersion: postgresql.cnpg.io/v1
+            kind: Cluster
+            current: status.conditions.exists(e, e.type == 'Ready' && e.status == 'True')
+        timeout: 15m
+        interval: 5m
+
+      # Keycloak server CR. The Keycloak CRD comes from the crds: layer.
+      - dependsOn:
+          - identity-resources-database
         components:
           - keycloak
           - "${topology == 'ha' ? 'keycloak/ha' : ''}"
@@ -131,15 +141,13 @@ flux:
 
   # Platform realm — the security baseline and RBAC anchor core owns, plus the OIDC
   # clients for enabled consumers. A one-shot KeycloakRealmImport; the operator
-  # sequences it after the server is up. Waits for the operator (identity-install).
-  # Consumers target this realm by name; each consumer's clients/ folder patches its
-  # client into the import (Grafana inferred on when Grafana is enabled).
+  # sequences it after the server is up. Consumers target this realm by name; each
+  # consumer's clients/ folder patches its client into the import (Grafana inferred
+  # on when Grafana is enabled).
   - name: identity
     when: (identity.driver ?? 'keycloak') == 'keycloak'
     resources:
-      - dependsOn:
-          - identity-install
-        components:
+      - components:
           - keycloak/realm
           # Grafana client, on when Grafana SSO is.
           - "${observability.enabled == true && observability.grafana.sso != false ? 'keycloak/realm/clients/grafana' : ''}"

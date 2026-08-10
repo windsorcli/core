@@ -285,7 +285,9 @@ client re-imports the realm.
 | Component | Enable when | Effect |
 |---|---|---|
 | `keycloak-operator` | `identity.driver == 'keycloak'` | Keycloak Operator (Deployment + RBAC) in `system-identity`, vendored verbatim from keycloak-k8s-resources. Reconciles `Keycloak` custom resources; installs no server by itself. CRDs are applied separately by the `crds:` layer. |
-| `keycloak` | `identity.driver == 'keycloak'` | The `Keycloak` server CR and its CloudNativePG `Cluster`. Keycloak serves HTTP internally (TLS terminates at the gateway) and stores realms in the `keycloak` database. |
+| `keycloak/database` | `identity.driver == 'keycloak'` | The CloudNativePG `Cluster` backing Keycloak: a `keycloak` database owned by role `keycloak`, published as the `keycloak-db-app` secret and the `keycloak-db-rw` service. Applied by the `identity-resources-database` tier, which gates on the `Cluster`'s `Ready` condition via `healthCheckExprs` and which the server tier waits on. |
+| `keycloak/database/ha` | `topology: ha` | Scales the CloudNativePG `Cluster` to 3 instances with required pod anti-affinity, so each Postgres instance lands on a distinct node. |
+| `keycloak` | `identity.driver == 'keycloak'` | The `Keycloak` server CR. Keycloak serves HTTP internally (TLS terminates at the gateway) and stores realms in the `keycloak` database. |
 | `keycloak/realm` | `identity.driver == 'keycloak'` | One-shot `KeycloakRealmImport` for the platform realm (name from `identity.keycloak.realm`, default `platform`): a security baseline (sslRequired, brute-force detection, password policy, token/session lifetimes), a `platform-admins` group mapped to `realm-admin`. Consumers target this realm by name. |
 | `keycloak/realm/clients/grafana` | identity + Grafana both enabled (`grafana.sso != false`) | Registers the `grafana` OIDC client in the platform `KeycloakRealmImport` (v2beta1, no client-admin-api CRDs). The secret resolves from a `GRAFANA_CLIENT_SECRET` placeholder (`spec.placeholders`) backed by `identity.keycloak.grafana_client_secret`, and the same value is copied into Grafana's namespace as `grafana-oidc-client`. One folder per consumer under `realm/clients/`. |
 | `keycloak/realm/clients/kubernetes` | `cluster.oidc.enabled == true` | Registers the `kubernetes` OIDC client (public, PKCE) in the platform `KeycloakRealmImport` for kube-apiserver token validation. `cluster.oidc.issuer_url`/`client_id` are auto-inferred from this realm when unset, so enabling identity plus `cluster.oidc.enabled: true` needs no manual issuer/client config. |
@@ -301,8 +303,8 @@ client re-imports the realm.
 | Add-on | Required when | Reason |
 |---|---|---|
 | `database` | `identity.driver == 'keycloak'` | Keycloak stores realm data in PostgreSQL; the CloudNativePG operator (database addon) must exist before its `Cluster` CR applies. |
+| `identity-resources-database` | `identity.driver == 'keycloak'` | The `Keycloak` server CR waits for the CloudNativePG `Cluster` to report Ready; a server started without a database exits 1 and repeats its whole Quarkus build on restart. |
 | `gateway-resources` | `gateway.enabled == true` | The shared Gateway must exist before the Keycloak HTTPRoute attaches to it. |
-| `telemetry-install` | `telemetry.metrics.enabled: true` | The Keycloak CR's `keycloak/prometheus` overlay enables the operator's native ServiceMonitor generation, which needs the ServiceMonitor CRD (installed alongside kube-prometheus-stack) to already exist. |
 
 <!-- END_KUSTOMIZE_DOCS -->
 

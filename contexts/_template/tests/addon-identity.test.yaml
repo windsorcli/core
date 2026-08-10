@@ -25,7 +25,7 @@ x-defaults:
 
 cases:
   # Enabled (keycloak driver by default): auto-enables postgres, installs the
-  # operator, server + CNPG resources, gateway route, platform realm, and CRDs.
+  # operator, CNPG cluster, server CR, gateway route, platform realm, and CRDs.
   - name: enabled hosts keycloak, auto-enables postgres, creates realm and crds
     values:
       platform: metal
@@ -44,8 +44,17 @@ cases:
             components:
               - keycloak-operator
           resources:
-            - dependsOn:
+            - name: database
+              dependsOn:
                 - database-install
+              components:
+                - keycloak/database
+              healthCheckExprs:
+                - apiVersion: postgresql.cnpg.io/v1
+                  kind: Cluster
+                  current: status.conditions.exists(e, e.type == 'Ready' && e.status == 'True')
+            - dependsOn:
+                - identity-resources-database
               components:
                 - keycloak
               substitutions:
@@ -58,9 +67,7 @@ cases:
                 - keycloak/gateway
               substitutions:
                 external_domain: example.local
-            - dependsOn:
-                - identity-install
-              components:
+            - components:
                 - keycloak/realm
               substitutions:
                 keycloak_realm: platform
@@ -154,7 +161,7 @@ cases:
               substitutions:
                 keycloak_hostname: https://keycloak.example.local:8443
 
-  # HA topology: the keycloak/ha overlay is flagged on (scales server + Postgres).
+  # HA topology: the ha overlays are flagged on (scales server + Postgres).
   - name: ha topology adds the keycloak ha overlay
     values:
       platform: metal
@@ -171,6 +178,10 @@ cases:
       flux:
         - name: identity
           resources:
+            - name: database
+              components:
+                - keycloak/database
+                - keycloak/database/ha
             - components:
                 - keycloak
                 - keycloak/ha
@@ -441,9 +452,9 @@ cases:
         - keycloak-26.7.0
 
   # Metrics enabled (default): keycloak/prometheus overlay wires the operator's
-  # own ServiceMonitor + Keycloak's server/user-event metrics, and the resources
-  # block waits for telemetry-install so the ServiceMonitor CRD exists.
-  - name: metrics enabled adds the keycloak prometheus overlay and waits on telemetry-install
+  # own ServiceMonitor + Keycloak's server/user-event metrics. The ServiceMonitor
+  # and PodMonitor CRDs come from the crds: layer, so no telemetry-install wait.
+  - name: metrics enabled adds the keycloak prometheus overlay
     values:
       platform: metal
       dns:
@@ -458,10 +469,7 @@ cases:
       flux:
         - name: identity
           resources:
-            - dependsOn:
-                - database-install
-                - telemetry-install
-              components:
+            - components:
                 - keycloak
                 - keycloak/prometheus
 
