@@ -53,7 +53,62 @@ cases:
               oidc_client_id: grafana
               oidc_auth_url: https://keycloak.example.local/realms/platform/protocol/openid-connect/auth
               oidc_token_url: http://keycloak-service.system-identity:8080/realms/platform/protocol/openid-connect/token
+              oidc_role_attribute_path: contains(groups[*], '/platform-admins') && 'Admin' || 'Viewer'
               grafana_root_url: https://grafana.example.local
+
+  # A custom identity admin group drives Grafana's role mapping.
+  - name: identity admin group drives the grafana role mapping
+    values:
+      platform: metal
+      dns:
+        domain: example.local
+      gateway:
+        enabled: true
+      network: *default-network
+      cluster: *default-cluster
+      identity:
+        enabled: true
+        admin_group: corp-sre
+        keycloak:
+          grafana_client_secret: sup3r-secret-oidc
+      observability:
+        enabled: true
+    expect:
+      flux:
+        - name: observability
+          install:
+            components:
+              - grafana/oidc
+            substitutions:
+              oidc_role_attribute_path: contains(groups[*], '/corp-sre') && 'Admin' || 'Viewer'
+
+  # An explicit role_attribute_path wins over the derived admin-group mapping.
+  - name: explicit role attribute path overrides the derived mapping
+    values:
+      platform: metal
+      dns:
+        domain: example.local
+      gateway:
+        enabled: true
+      network: *default-network
+      cluster: *default-cluster
+      identity:
+        enabled: true
+        admin_group: corp-sre
+        keycloak:
+          grafana_client_secret: sup3r-secret-oidc
+      observability:
+        enabled: true
+        grafana:
+          role_attribute_path: "'Editor'"
+    expect:
+      flux:
+        - name: observability
+          install:
+            components:
+              - grafana/oidc
+            substitutions:
+              oidc_role_attribute_path: "'Editor'"
 
   # External OIDC issuer (identity driver oidc): the effective issuer flows straight
   # through to Grafana's generic_oauth; the external client secret is supplied.

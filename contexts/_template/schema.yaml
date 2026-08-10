@@ -1271,6 +1271,10 @@ properties:
         type: string
         default: SSO
         description: Login button label consumers show (e.g. "Sign in with <name>")
+      admin_group:
+        type: string
+        default: platform-admins
+        description: Group whose members SSO consumers treat as administrators
       oidc:
         type: object
         description: External OIDC provider settings (driver oidc)

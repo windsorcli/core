@@ -8,7 +8,7 @@ metadata:
 spec:
   realm:
     users:
-      # Admin, in platform-admins.
+      # Admin, in the realm's admin group.
       - username: admin
         enabled: true
         emailVerified: true
@@ -20,7 +20,7 @@ spec:
             value: ${dev_admin_password}
             temporary: false
         groups:
-          - /platform-admins
+          - /${keycloak_admin_group}
       # Read-only, no group.
       - username: viewer
         enabled: true

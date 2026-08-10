@@ -71,6 +71,7 @@ cases:
                 - keycloak/realm
               substitutions:
                 keycloak_realm: platform
+                keycloak_admin_group: platform-admins
         - name: database
           install:
             components:
@@ -254,6 +255,29 @@ cases:
                 - keycloak/realm
               substitutions:
                 keycloak_realm: corp
+
+  # Custom admin group flows through to the realm import substitution, which names
+  # the realm group, the dev user's membership, and the dev cluster-admin binding.
+  - name: custom admin group overrides the platform-admins default
+    values:
+      platform: metal
+      dns:
+        domain: example.local
+      gateway:
+        enabled: true
+      network: *default-network
+      cluster: *default-cluster
+      identity:
+        enabled: true
+        admin_group: corp-sre
+    expect:
+      flux:
+        - name: identity
+          resources:
+            - components:
+                - keycloak/realm
+              substitutions:
+                keycloak_admin_group: corp-sre
 
   # Inferred SSO (dev): identity + Grafana both on registers the grafana realm client.
   - name: grafana sso is inferred and patches the client into the realm
