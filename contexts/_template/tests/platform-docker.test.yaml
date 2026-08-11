@@ -272,6 +272,7 @@ cases:
                 kubelet:
                   extraArgs:
                     rotate-server-certificates: "true"
+                  extraConfig: {}
                 registries:
                   config: {}
                   mirrors:

@@ -81,6 +81,7 @@ cases:
                 kubelet:
                   extraArgs:
                     rotate-server-certificates: "true"
+                  extraConfig: {}
                 registries:
                   config: {}
                   mirrors: {}
@@ -544,3 +545,187 @@ cases:
     exclude:
       flux:
         - name: gitops
+
+  # compute.host_cpu/host_memory (from the Docker daemon, via `docker info`)
+  # exceed the quota: the kubelet reserves the gap plus the control-plane slice.
+  - name: docker workstation reserves the host-to-quota gap for the control plane
+    values:
+      platform: docker
+      workstation:
+        runtime: colima
+      dns: *default-dns
+      gateway:
+        enabled: false
+      network: *default-network
+      cluster:
+        driver: talos
+        controlplanes:
+          cpu: 3
+          memory: 8
+          nodes:
+            controlplane-1:
+              endpoint: 10.5.0.10:50000
+              node: 10.5.0.10
+              hostname: controlplane-1
+    terraformOutputs:
+      compute:
+        controlplanes:
+          - endpoint: 10.5.0.10:6443
+            node: 10.5.0.10
+            hostname: controlplane-1
+        workers: []
+        host_cpu: 4
+        host_memory: 16
+    expect:
+      terraform:
+        - name: cluster
+          path: cluster/talos
+          inputs:
+            common_config_patches: |-
+              cluster:
+                allowSchedulingOnControlPlanes: true
+                controllerManager:
+                  extraArgs:
+                    leader-elect: "false"
+                etcd:
+                  extraArgs:
+                    auto-compaction-mode: revision
+                    auto-compaction-retention: "1000"
+                    max-snapshots: "3"
+                    max-wals: "3"
+                extraManifests:
+                - https://raw.githubusercontent.com/alex1989hu/kubelet-serving-cert-approver/v0.8.7/deploy/standalone-install.yaml
+                network:
+                  cni:
+                    name: none
+                proxy:
+                  disabled: true
+                scheduler:
+                  extraArgs:
+                    leader-elect: "false"
+              machine:
+                kubelet:
+                  extraArgs:
+                    rotate-server-certificates: "true"
+                  extraConfig:
+                    systemReserved:
+                      cpu: 1500m
+                      memory: 9Gi
+                registries:
+                  config: {}
+                  mirrors: {}
+
+  # compute.host_cpu matches the quota (host and quota are the same size, e.g.
+  # a dedicated runner): no gap to reserve.
+  - name: docker workstation with host at quota size sets no kubelet reservation
+    values:
+      platform: docker
+      workstation:
+        runtime: colima
+      dns: *default-dns
+      gateway:
+        enabled: false
+      network: *default-network
+      cluster:
+        driver: talos
+        controlplanes:
+          cpu: 4
+          memory: 8
+          nodes:
+            controlplane-1:
+              endpoint: 10.5.0.10:50000
+              node: 10.5.0.10
+              hostname: controlplane-1
+    terraformOutputs:
+      compute:
+        controlplanes:
+          - endpoint: 10.5.0.10:6443
+            node: 10.5.0.10
+            hostname: controlplane-1
+        workers: []
+        host_cpu: 4
+        host_memory: 8
+    expect:
+      terraform:
+        - name: cluster
+          path: cluster/talos
+          inputs:
+            common_config_patches: |-
+              cluster:
+                allowSchedulingOnControlPlanes: true
+                controllerManager:
+                  extraArgs:
+                    leader-elect: "false"
+                etcd:
+                  extraArgs:
+                    auto-compaction-mode: revision
+                    auto-compaction-retention: "1000"
+                    max-snapshots: "3"
+                    max-wals: "3"
+                extraManifests:
+                - https://raw.githubusercontent.com/alex1989hu/kubelet-serving-cert-approver/v0.8.7/deploy/standalone-install.yaml
+                network:
+                  cni:
+                    name: none
+                proxy:
+                  disabled: true
+                scheduler:
+                  extraArgs:
+                    leader-elect: "false"
+              machine:
+                kubelet:
+                  extraArgs:
+                    rotate-server-certificates: "true"
+                  extraConfig: {}
+                registries:
+                  config: {}
+                  mirrors: {}
+
+  # compute.host_cpu absent (e.g. an upgrade where the compute step hasn't
+  # re-applied yet): no reservation, not a composition error.
+  - name: docker workstation without compute host output sets no kubelet reservation
+    values:
+      platform: docker
+      workstation:
+        runtime: colima
+      dns: *default-dns
+      gateway:
+        enabled: false
+      network: *default-network
+      cluster: *default-cluster
+    terraformOutputs: *default-terraform-outputs
+    expect:
+      terraform:
+        - name: cluster
+          path: cluster/talos
+          inputs:
+            common_config_patches: |-
+              cluster:
+                allowSchedulingOnControlPlanes: true
+                controllerManager:
+                  extraArgs:
+                    leader-elect: "false"
+                etcd:
+                  extraArgs:
+                    auto-compaction-mode: revision
+                    auto-compaction-retention: "1000"
+                    max-snapshots: "3"
+                    max-wals: "3"
+                extraManifests:
+                - https://raw.githubusercontent.com/alex1989hu/kubelet-serving-cert-approver/v0.8.7/deploy/standalone-install.yaml
+                network:
+                  cni:
+                    name: none
+                proxy:
+                  disabled: true
+                scheduler:
+                  extraArgs:
+                    leader-elect: "false"
+              machine:
+                kubelet:
+                  extraArgs:
+                    rotate-server-certificates: "true"
+                  extraConfig: {}
+                registries:
+                  config: {}
+                  mirrors: {}

@@ -18,12 +18,14 @@ brings up via the Talos API.
 |------|---------|
 | <a name="requirement_terraform"></a> [terraform](#requirement\_terraform) | >= 1.12.2 |
 | <a name="requirement_docker"></a> [docker](#requirement\_docker) | 4.5.0 |
+| <a name="requirement_external"></a> [external](#requirement\_external) | ~> 2.3 |
 
 ## Providers
 
 | Name | Version |
 |------|---------|
 | <a name="provider_docker"></a> [docker](#provider\_docker) | 4.5.0 |
+| <a name="provider_external"></a> [external](#provider\_external) | 2.4.0 |
 
 ## Modules
 
@@ -37,6 +39,7 @@ No modules.
 | [docker_image.instances](https://registry.terraform.io/providers/kreuzwerker/docker/4.5.0/docs/resources/image) | resource |
 | [docker_network.main](https://registry.terraform.io/providers/kreuzwerker/docker/4.5.0/docs/resources/network) | resource |
 | [docker_volume.named](https://registry.terraform.io/providers/kreuzwerker/docker/4.5.0/docs/resources/volume) | resource |
+| [external_external.docker_host](https://registry.terraform.io/providers/hashicorp/external/latest/docs/data-sources/external) | data source |
 
 ## Inputs
 
@@ -62,6 +65,8 @@ No modules.
 |------|-------------|
 | <a name="output_container_ports"></a> [container\_ports](#output\_container\_ports) | Port list per container name (for tests: hostports only on first controlplane when no workers, first worker when workers exist). |
 | <a name="output_controlplanes"></a> [controlplanes](#output\_controlplanes) | List of controlplane instances for cluster/talos (hostname, endpoint, node). Consumed by provider-docker → cluster/talos when workstation enabled. |
+| <a name="output_host_cpu"></a> [host\_cpu](#output\_host\_cpu) | CPU cores the Docker daemon reports for its host. |
+| <a name="output_host_memory"></a> [host\_memory](#output\_host\_memory) | Memory in GB the Docker daemon reports for its host. |
 | <a name="output_instances"></a> [instances](#output\_instances) | Flat list of all instances. Same shape as compute/incus (name, hostname, ipv4, ipv6, status, type, image, role). |
 | <a name="output_network_managed"></a> [network\_managed](#output\_network\_managed) | Whether the network was created by this module (true when create\_network is true) |
 | <a name="output_network_name"></a> [network\_name](#output\_network\_name) | The name of the network being used |

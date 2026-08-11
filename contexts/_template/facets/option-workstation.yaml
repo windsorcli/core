@@ -88,6 +88,33 @@ config:
               - ignore: true
                 interface: eth0
 
+  # Docker only: the kubelet sizes the node from the Docker daemon's host, not
+  # the container's cgroup quota, so reserve the gap plus a control-plane
+  # slice. Always active (no host-vs-quota check in `when:`: a facet's `when:`
+  # only sees raw schema fields, not terraform outputs or another facet's
+  # computed `_effective` config); extraConfig stays out of the patch when
+  # there's no gap to reserve.
+  - name: talos_common
+    when: cluster.driver == 'talos' && (cluster.enabled ?? true) && platform == 'docker'
+    value:
+      common_patch:
+        machine:
+          kubelet:
+            extraConfig: >-
+              ${(terraform_output("compute", "host_cpu") ?? 0) > cluster_resources_effective.controlplanes.cpu
+                ? {
+                    systemReserved: {
+                      cpu: string(max(500,
+                        ((terraform_output("compute", "host_cpu") ?? 0) - cluster_resources_effective.controlplanes.cpu) * 1000 + 500
+                      )) + 'm',
+                      memory: string(max(1,
+                        (terraform_output("compute", "host_memory") ?? cluster_resources_effective.controlplanes.memory)
+                          - cluster_resources_effective.controlplanes.memory + 1
+                      )) + 'Gi'
+                    }
+                  }
+                : {}}
+
   # Empty per-role patch slots for platform-docker to populate.
   - name: talos_common_docker
     when: cluster.driver == 'talos' && (cluster.enabled ?? true)
