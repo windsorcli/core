@@ -88,39 +88,55 @@ config:
               - ignore: true
                 interface: eth0
 
-  # Docker only: the kubelet sizes the node from the Docker daemon's host, not
-  # the container's cgroup quota, so reserve the gap plus a control-plane
-  # slice. Always active (no host-vs-quota check in `when:`: a facet's `when:`
-  # only sees raw schema fields, not terraform outputs or another facet's
-  # computed `_effective` config); extraConfig stays out of the patch when
-  # there's no gap to reserve.
-  - name: talos_common
-    when: cluster.driver == 'talos' && (cluster.enabled ?? true) && platform == 'docker'
-    value:
-      common_patch:
-        machine:
-          kubelet:
-            extraConfig: >-
-              ${(terraform_output("compute", "host_cpu") ?? 0) > cluster_resources_effective.controlplanes.cpu
-                ? {
-                    systemReserved: {
-                      cpu: string(max(500,
-                        ((terraform_output("compute", "host_cpu") ?? 0) - cluster_resources_effective.controlplanes.cpu) * 1000 + 500
-                      )) + 'm',
-                      memory: string(max(1,
-                        (terraform_output("compute", "host_memory") ?? cluster_resources_effective.controlplanes.memory)
-                          - cluster_resources_effective.controlplanes.memory + 1
-                      )) + 'Gi'
-                    }
-                  }
-                : {}}
-
-  # Empty per-role patch slots for platform-docker to populate.
+  # Per-role patch slots for platform-docker to populate. Docker only: every
+  # node's kubelet sizes itself from the shared Docker daemon's host, not its
+  # own container's cgroup quota, so each role reserves its own gap against
+  # that host — computed per role since controlplanes and workers commonly
+  # run different quotas against the same host. `let` keeps host_cpu/
+  # host_memory resolved once per patch; string() only ever marshals them
+  # once they're concrete numbers, never a still-deferred terraform_output
+  # call, so there's nothing left to mis-scan on a later composition pass.
   - name: talos_common_docker
     when: cluster.driver == 'talos' && (cluster.enabled ?? true)
     value:
-      controlplane_config_patches: ""
-      worker_config_patches: ""
+      controlplane_config_patches: >-
+        ${let host_cpu = terraform_output('compute', 'host_cpu') ?? 0;
+          let host_memory = terraform_output('compute', 'host_memory') ?? cluster_resources_effective.controlplanes.memory;
+          let quota_cpu = cluster_resources_effective.controlplanes.cpu;
+          let quota_memory = cluster_resources_effective.controlplanes.memory;
+          platform != 'docker' || (host_cpu <= quota_cpu && host_memory <= quota_memory)
+            ? ''
+            : trimSuffix(string({
+                machine: {
+                  kubelet: {
+                    extraConfig: {
+                      systemReserved: {
+                        cpu: (host_cpu > quota_cpu ? string(max(500, (host_cpu - quota_cpu) * 1000 + 500)) : '0') + 'm',
+                        memory: (host_memory > quota_memory ? string(max(1, host_memory - quota_memory + 1)) : '0') + 'Gi'
+                      }
+                    }
+                  }
+                }
+              }), '\n')}
+      worker_config_patches: >-
+        ${let host_cpu = terraform_output('compute', 'host_cpu') ?? 0;
+          let host_memory = terraform_output('compute', 'host_memory') ?? cluster_resources_effective.workers.memory;
+          let quota_cpu = cluster_resources_effective.workers.cpu;
+          let quota_memory = cluster_resources_effective.workers.memory;
+          platform != 'docker' || (host_cpu <= quota_cpu && host_memory <= quota_memory)
+            ? ''
+            : trimSuffix(string({
+                machine: {
+                  kubelet: {
+                    extraConfig: {
+                      systemReserved: {
+                        cpu: (host_cpu > quota_cpu ? string(max(500, (host_cpu - quota_cpu) * 1000 + 500)) : '0') + 'm',
+                        memory: (host_memory > quota_memory ? string(max(1, host_memory - quota_memory + 1)) : '0') + 'Gi'
+                      }
+                    }
+                  }
+                }
+              }), '\n')}
 
   # Colima-on-Incus is a storage-driver test rig; force flannel (Cilium's eBPF
   # skews tests) and pair with kube-vip so LoadBalancer services still get an IP.

@@ -81,7 +81,6 @@ cases:
                 kubelet:
                   extraArgs:
                     rotate-server-certificates: "true"
-                  extraConfig: {}
                 registries:
                   config: {}
                   mirrors: {}
@@ -547,7 +546,9 @@ cases:
         - name: gitops
 
   # compute.host_cpu/host_memory (from the Docker daemon, via `docker info`)
-  # exceed the quota: the kubelet reserves the gap plus the control-plane slice.
+  # exceed the quota: the control plane reserves the gap plus the
+  # control-plane slice. Only controlplane_config_patches carries it —
+  # common_config_patches (shared with workers) stays untouched.
   - name: docker workstation reserves the host-to-quota gap for the control plane
     values:
       platform: docker
@@ -581,39 +582,164 @@ cases:
         - name: cluster
           path: cluster/talos
           inputs:
-            common_config_patches: |-
-              cluster:
-                allowSchedulingOnControlPlanes: true
-                controllerManager:
-                  extraArgs:
-                    leader-elect: "false"
-                etcd:
-                  extraArgs:
-                    auto-compaction-mode: revision
-                    auto-compaction-retention: "1000"
-                    max-snapshots: "3"
-                    max-wals: "3"
-                extraManifests:
-                - https://raw.githubusercontent.com/alex1989hu/kubelet-serving-cert-approver/v0.8.7/deploy/standalone-install.yaml
-                network:
-                  cni:
-                    name: none
-                proxy:
-                  disabled: true
-                scheduler:
-                  extraArgs:
-                    leader-elect: "false"
+            controlplane_config_patches: |-
               machine:
                 kubelet:
-                  extraArgs:
-                    rotate-server-certificates: "true"
                   extraConfig:
                     systemReserved:
                       cpu: 1500m
                       memory: 9Gi
-                registries:
-                  config: {}
-                  mirrors: {}
+
+  # compute.host_cpu exceeds the quota but host_memory matches it: only the
+  # cpu key reserves a gap, memory is omitted (regression for a bug where
+  # the memory floor activated on the cpu gap instead of its own).
+  - name: docker workstation reserves a cpu gap without inflating memory
+    values:
+      platform: docker
+      workstation:
+        runtime: colima
+      dns: *default-dns
+      gateway:
+        enabled: false
+      network: *default-network
+      cluster:
+        driver: talos
+        controlplanes:
+          cpu: 3
+          memory: 8
+          nodes:
+            controlplane-1:
+              endpoint: 10.5.0.10:50000
+              node: 10.5.0.10
+              hostname: controlplane-1
+    terraformOutputs:
+      compute:
+        controlplanes:
+          - endpoint: 10.5.0.10:6443
+            node: 10.5.0.10
+            hostname: controlplane-1
+        workers: []
+        host_cpu: 4
+        host_memory: 8
+    expect:
+      terraform:
+        - name: cluster
+          path: cluster/talos
+          inputs:
+            controlplane_config_patches: |-
+              machine:
+                kubelet:
+                  extraConfig:
+                    systemReserved:
+                      cpu: 1500m
+                      memory: 0Gi
+
+  # compute.host_memory exceeds the quota but host_cpu matches it: only the
+  # memory key reserves a gap. Regression for the mirror-image bug where a
+  # cpu-only gate would have skipped the memory reservation entirely.
+  - name: docker workstation reserves a memory gap without a cpu gap
+    values:
+      platform: docker
+      workstation:
+        runtime: colima
+      dns: *default-dns
+      gateway:
+        enabled: false
+      network: *default-network
+      cluster:
+        driver: talos
+        controlplanes:
+          cpu: 4
+          memory: 8
+          nodes:
+            controlplane-1:
+              endpoint: 10.5.0.10:50000
+              node: 10.5.0.10
+              hostname: controlplane-1
+    terraformOutputs:
+      compute:
+        controlplanes:
+          - endpoint: 10.5.0.10:6443
+            node: 10.5.0.10
+            hostname: controlplane-1
+        workers: []
+        host_cpu: 4
+        host_memory: 10
+    expect:
+      terraform:
+        - name: cluster
+          path: cluster/talos
+          inputs:
+            controlplane_config_patches: |-
+              machine:
+                kubelet:
+                  extraConfig:
+                    systemReserved:
+                      cpu: 0m
+                      memory: 3Gi
+
+  # Controlplanes and workers commonly run different quotas against the same
+  # shared host; each role reserves its own gap independently, not the
+  # controlplane's gap broadcast to every node.
+  - name: docker workstation reserves independent gaps for controlplanes and workers
+    values:
+      platform: docker
+      workstation:
+        runtime: colima
+      dns: *default-dns
+      gateway:
+        enabled: false
+      network: *default-network
+      cluster:
+        driver: talos
+        controlplanes:
+          cpu: 3
+          memory: 8
+          nodes:
+            controlplane-1:
+              endpoint: 10.5.0.10:50000
+              node: 10.5.0.10
+              hostname: controlplane-1
+        workers:
+          count: 1
+          cpu: 6
+          memory: 10
+          nodes:
+            worker-1:
+              endpoint: 10.5.0.20:50000
+              node: 10.5.0.20
+              hostname: worker-1
+    terraformOutputs:
+      compute:
+        controlplanes:
+          - endpoint: 10.5.0.10:6443
+            node: 10.5.0.10
+            hostname: controlplane-1
+        workers:
+          - endpoint: 10.5.0.20:6443
+            node: 10.5.0.20
+            hostname: worker-1
+        host_cpu: 8
+        host_memory: 20
+    expect:
+      terraform:
+        - name: cluster
+          path: cluster/talos
+          inputs:
+            controlplane_config_patches: |-
+              machine:
+                kubelet:
+                  extraConfig:
+                    systemReserved:
+                      cpu: 5500m
+                      memory: 13Gi
+            worker_config_patches: |-
+              machine:
+                kubelet:
+                  extraConfig:
+                    systemReserved:
+                      cpu: 2500m
+                      memory: 11Gi
 
   # compute.host_cpu matches the quota (host and quota are the same size, e.g.
   # a dedicated runner): no gap to reserve.
@@ -649,37 +775,6 @@ cases:
       terraform:
         - name: cluster
           path: cluster/talos
-          inputs:
-            common_config_patches: |-
-              cluster:
-                allowSchedulingOnControlPlanes: true
-                controllerManager:
-                  extraArgs:
-                    leader-elect: "false"
-                etcd:
-                  extraArgs:
-                    auto-compaction-mode: revision
-                    auto-compaction-retention: "1000"
-                    max-snapshots: "3"
-                    max-wals: "3"
-                extraManifests:
-                - https://raw.githubusercontent.com/alex1989hu/kubelet-serving-cert-approver/v0.8.7/deploy/standalone-install.yaml
-                network:
-                  cni:
-                    name: none
-                proxy:
-                  disabled: true
-                scheduler:
-                  extraArgs:
-                    leader-elect: "false"
-              machine:
-                kubelet:
-                  extraArgs:
-                    rotate-server-certificates: "true"
-                  extraConfig: {}
-                registries:
-                  config: {}
-                  mirrors: {}
 
   # compute.host_cpu absent (e.g. an upgrade where the compute step hasn't
   # re-applied yet): no reservation, not a composition error.
@@ -698,34 +793,3 @@ cases:
       terraform:
         - name: cluster
           path: cluster/talos
-          inputs:
-            common_config_patches: |-
-              cluster:
-                allowSchedulingOnControlPlanes: true
-                controllerManager:
-                  extraArgs:
-                    leader-elect: "false"
-                etcd:
-                  extraArgs:
-                    auto-compaction-mode: revision
-                    auto-compaction-retention: "1000"
-                    max-snapshots: "3"
-                    max-wals: "3"
-                extraManifests:
-                - https://raw.githubusercontent.com/alex1989hu/kubelet-serving-cert-approver/v0.8.7/deploy/standalone-install.yaml
-                network:
-                  cni:
-                    name: none
-                proxy:
-                  disabled: true
-                scheduler:
-                  extraArgs:
-                    leader-elect: "false"
-              machine:
-                kubelet:
-                  extraArgs:
-                    rotate-server-certificates: "true"
-                  extraConfig: {}
-                registries:
-                  config: {}
-                  mirrors: {}
