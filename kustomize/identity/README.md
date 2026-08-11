@@ -184,9 +184,10 @@ observability:
 ```
 
 In dev mode the platform realm seeds standard users so local SSO works out of the box
-across every consumer (Grafana and any future one): **`admin` / `admin-password`** (in
-`platform-admins` → admin) and **`viewer` / `viewer-password`** (no group → read-only), so you can
-see the role mapping take effect. The `admin` password is shared with the Keycloak console
+across every consumer (Grafana and any future one): **`dev-admin` / `admin-password`** (in
+`platform-admins` → admin) and **`dev-viewer` / `viewer-password`** (no group → read-only), so you
+can see the role mapping take effect. Neither name collides with the local `admin` account
+consumers reserve for themselves. The `dev-admin` password is shared with the Keycloak console
 admin and is overridable through `identity.keycloak.admin.password`. Grafana also uses
 `auto_login` in dev, so clicking it goes straight to the SSO login. None of this is created
 outside dev.
@@ -219,7 +220,7 @@ The client is public (PKCE, no secret) — pair it with a `kubectl` OIDC login p
 inference, e.g. to point at a different realm or an already-existing client.
 
 OIDC only authenticates; it grants no RBAC on its own. In `dev`, a `ClusterRoleBinding`
-maps `platform-admins` to `cluster-admin` so the seeded `admin` user can do something
+maps `platform-admins` to `cluster-admin` so the seeded `dev-admin` user can do something
 after logging in. Outside dev, bind `platform-admins` (or another claim) to a role yourself.
 
 ### External identity provider
@@ -291,8 +292,8 @@ client re-imports the realm.
 | `keycloak/realm` | `identity.driver == 'keycloak'` | One-shot `KeycloakRealmImport` for the platform realm (name from `identity.keycloak.realm`, default `platform`): a security baseline (sslRequired, brute-force detection, password policy, token/session lifetimes), a `platform-admins` group mapped to `realm-admin`. Consumers target this realm by name. |
 | `keycloak/realm/clients/grafana` | identity + Grafana both enabled (`grafana.sso != false`) | Registers the `grafana` OIDC client in the platform `KeycloakRealmImport` (v2beta1, no client-admin-api CRDs). The secret resolves from a `GRAFANA_CLIENT_SECRET` placeholder (`spec.placeholders`) backed by `identity.keycloak.grafana_client_secret`, and the same value is copied into Grafana's namespace as `grafana-oidc-client`. One folder per consumer under `realm/clients/`. |
 | `keycloak/realm/clients/kubernetes` | `cluster.oidc.enabled == true` | Registers the `kubernetes` OIDC client (public, PKCE) in the platform `KeycloakRealmImport` for kube-apiserver token validation. `cluster.oidc.issuer_url`/`client_id` are auto-inferred from this realm when unset, so enabling identity plus `cluster.oidc.enabled: true` needs no manual issuer/client config. |
-| `keycloak/realm/dev-user` | `dev == true` | Dev-only patch seeding standard platform-realm users so local SSO works out of the box: `admin` / `admin-password` (in `platform-admins` → admin everywhere) and `viewer` / `viewer-password` (no group → read-only). Passwords satisfy the realm's length(12) policy. Never applied outside dev. |
-| `keycloak/realm/clients/kubernetes/dev-rbac` | `dev == true` and `cluster.oidc.enabled == true` | Dev-only `ClusterRoleBinding` mapping the `platform-admins` group to `cluster-admin`, so the seeded dev `admin` user can do something after logging in via kubectl OIDC. Never applied outside dev. |
+| `keycloak/realm/dev-user` | `dev == true` | Dev-only patch seeding standard platform-realm users so local SSO works out of the box: `dev-admin` / `admin-password` (in `platform-admins` → admin everywhere) and `dev-viewer` / `viewer-password` (no group → read-only). Neither name collides with a consumer's reserved local admin. Passwords satisfy the realm's length(12) policy. Never applied outside dev. |
+| `keycloak/realm/clients/kubernetes/dev-rbac` | `dev == true` and `cluster.oidc.enabled == true` | Dev-only `ClusterRoleBinding` mapping the `platform-admins` group to `cluster-admin`, so the seeded `dev-admin` user can do something after logging in via kubectl OIDC. Never applied outside dev. |
 | `keycloak/gateway` | `gateway.enabled == true` | HTTPRoute publishing `keycloak.${external_domain}` through the shared external Gateway to the operator-managed `keycloak-service`. |
 | `keycloak/cilium` | `gateway.driver == 'cilium'` | CiliumNetworkPolicy restricting Keycloak ingress to the gateway proxy. Cilium-enforced, so gated on the Cilium gateway driver. |
 | `keycloak/admin` | `identity.keycloak.admin.password` set, or `dev == true` | Points the `Keycloak` CR at the `keycloak-bootstrap-admin` secret via `spec.bootstrapAdmin`, instead of the operator's auto-generated temporary admin. The password is the supplied one, or in dev a known default shared with the SSO admin user. Honored only at initial cluster creation. |
