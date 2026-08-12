@@ -27,10 +27,10 @@ components:
     description: "Registers the `kubernetes` OIDC client (public, PKCE) in the platform `KeycloakRealmImport` for kube-apiserver token validation. `cluster.oidc.issuer_url`/`client_id` are auto-inferred from this realm when unset, so enabling identity plus `cluster.oidc.enabled: true` needs no manual issuer/client config."
   keycloak/realm/dev-user:
     enable_when: "`dev == true`"
-    description: "Dev-only patch seeding standard platform-realm users so local SSO works out of the box: `admin` / `admin-password` (in `platform-admins` → admin everywhere) and `viewer` / `viewer-password` (no group → read-only). Passwords satisfy the realm's length(12) policy. Never applied outside dev."
+    description: "Dev-only patch seeding standard platform-realm users so local SSO works out of the box: `dev-admin` / `admin-password` (in `platform-admins` → admin everywhere) and `dev-viewer` / `viewer-password` (no group → read-only). Neither name collides with a consumer's reserved local admin. Passwords satisfy the realm's length(12) policy. Never applied outside dev."
   keycloak/realm/clients/kubernetes/dev-rbac:
     enable_when: "`dev == true` and `cluster.oidc.enabled == true`"
-    description: "Dev-only `ClusterRoleBinding` mapping the `platform-admins` group to `cluster-admin`, so the seeded dev `admin` user can do something after logging in via kubectl OIDC. Never applied outside dev."
+    description: "Dev-only `ClusterRoleBinding` mapping the `platform-admins` group to `cluster-admin`, so the seeded `dev-admin` user can do something after logging in via kubectl OIDC. Never applied outside dev."
   keycloak/gateway:
     enable_when: "`gateway.enabled == true`"
     description: "HTTPRoute publishing `keycloak.${external_domain}` through the shared external Gateway to the operator-managed `keycloak-service`."

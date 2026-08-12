@@ -8,13 +8,14 @@ metadata:
 spec:
   realm:
     users:
-      # Admin, in platform-admins.
-      - username: admin
+      # Admin, in platform-admins. Not named "admin": consumers reserve that
+      # username for their own local admin and refuse to onboard it via OIDC.
+      - username: dev-admin
         enabled: true
         emailVerified: true
-        email: admin@local.test
-        firstName: Admin
-        lastName: User
+        email: dev-admin@local.test
+        firstName: Dev
+        lastName: Admin
         credentials:
           - type: password
             value: ${dev_admin_password}
@@ -22,12 +23,12 @@ spec:
         groups:
           - /platform-admins
       # Read-only, no group.
-      - username: viewer
+      - username: dev-viewer
         enabled: true
         emailVerified: true
-        email: viewer@local.test
-        firstName: Viewer
-        lastName: User
+        email: dev-viewer@local.test
+        firstName: Dev
+        lastName: Viewer
         credentials:
           - type: password
             value: viewer-password
