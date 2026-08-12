@@ -128,3 +128,13 @@ output "container_ports" {
   description = "Port list per container name (for tests: hostports only on first controlplane when no workers, first worker when workers exist)."
   value       = { for k, c in local.containers_by_name : k => coalesce(c.ports, []) }
 }
+
+output "host_cpu" {
+  description = "CPU cores the Docker daemon reports for its host."
+  value       = local.host_cpu
+}
+
+output "host_memory" {
+  description = "Memory in GB the Docker daemon reports for its host."
+  value       = local.host_memory
+}

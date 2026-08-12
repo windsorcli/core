@@ -358,6 +358,8 @@ cases:
         loadbalancer_driver: kube-vip
         loadbalancer_mode: arp
       cluster: *default-cluster
+    terraformOutputs:
+      compute: {}
     expect:
       flux:
         - <<: *cni-install

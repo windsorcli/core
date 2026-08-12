@@ -13,6 +13,10 @@ terraform {
       source  = "kreuzwerker/docker"
       version = "4.5.0"
     }
+    external = {
+      source  = "hashicorp/external"
+      version = "~> 2.3"
+    }
   }
 }
 
@@ -226,6 +230,22 @@ locals {
     ])
     : x if x != null
   ])
+}
+
+# =============================================================================
+# Host Detection
+# =============================================================================
+
+# The Docker daemon's own view of its host. The kubelet inside each container
+# reads capacity from this, not from the container's cpu/memory quota, so
+# callers reserve the gap themselves (see cluster/talos systemReserved).
+data "external" "docker_host" {
+  program = ["docker", "info", "--format", "{\"ncpu\":\"{{.NCPU}}\",\"memtotal\":\"{{.MemTotal}}\"}"]
+}
+
+locals {
+  host_cpu    = tonumber(data.external.docker_host.result.ncpu)
+  host_memory = floor(tonumber(data.external.docker_host.result.memtotal) / pow(1024, 3))
 }
 
 # =============================================================================
