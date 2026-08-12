@@ -6,6 +6,17 @@ mock_provider "docker" {
   mock_resource "docker_container" {}
 }
 
+# Applies to every run below, so tests don't shell out to a real Docker daemon.
+override_data {
+  target = data.external.docker_host
+  values = {
+    result = {
+      ncpu     = "4"
+      memtotal = "17179869184"
+    }
+  }
+}
+
 # Minimal: required for cluster path — context, network_cidr, create_network, cluster_nodes (1 cp, 0 workers). Default runtime colima.
 run "minimal_configuration" {
   command = plan
@@ -73,6 +84,11 @@ run "minimal_configuration" {
   assert {
     condition     = output.network_name == "windsor-test"
     error_message = "network_name output should match created network"
+  }
+
+  assert {
+    condition     = output.host_cpu == 4 && output.host_memory == 16
+    error_message = "host_cpu/host_memory should come from the docker info override"
   }
 }
 
