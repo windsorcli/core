@@ -251,6 +251,49 @@ resource "aws_kms_alias" "ebs_encryption_key" {
   target_key_id = aws_kms_key.ebs_encryption_key[0].key_id
 }
 
+resource "aws_kms_key" "openbao_unseal" {
+  # checkov:skip=CKV2_AWS_64:Policy is defined inline via jsonencode; checkov's graph engine can't trace the conditional concat() over Statement.
+  count                   = var.create_openbao_kms_role ? 1 : 0
+  description             = "KMS key for EKS cluster ${local.name} OpenBao auto-unseal"
+  deletion_window_in_days = var.kms_key_deletion_window_in_days
+  enable_key_rotation     = true
+
+  policy = jsonencode({
+    Version = "2012-10-17",
+    Statement = [
+      {
+        Sid    = "Enable IAM User Permissions",
+        Effect = "Allow",
+        Principal = {
+          AWS = "arn:aws:iam::${data.aws_caller_identity.current.account_id}:root"
+        },
+        Action   = "kms:*",
+        Resource = "*"
+      },
+      {
+        Sid    = "Allow OpenBao to use the key for auto-unseal",
+        Effect = "Allow",
+        Principal = {
+          AWS = aws_iam_role.openbao[0].arn
+        },
+        Action = [
+          "kms:Encrypt",
+          "kms:Decrypt",
+          "kms:DescribeKey",
+          "kms:GenerateDataKey"
+        ],
+        Resource = "*"
+      }
+    ]
+  })
+}
+
+resource "aws_kms_alias" "openbao_unseal" {
+  count         = var.create_openbao_kms_role ? 1 : 0
+  name          = "alias/${local.name}-openbao-unseal"
+  target_key_id = aws_kms_key.openbao_unseal[0].key_id
+}
+
 data "aws_caller_identity" "current" {}
 
 #-----------------------------------------------------------------------------------------------------------------------
@@ -1011,6 +1054,64 @@ resource "aws_iam_role_policy_attachment" "cert_manager" {
 }
 
 #-----------------------------------------------------------------------------------------------------------------------
+# OpenBao IAM Role (KMS auto-unseal)
+#-----------------------------------------------------------------------------------------------------------------------
+
+resource "aws_iam_role" "openbao" {
+  count = var.create_openbao_kms_role ? 1 : 0
+  name  = "${local.name}-openbao"
+
+  assume_role_policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Action = ["sts:AssumeRole", "sts:TagSession"]
+        Effect = "Allow"
+        Principal = {
+          Service = "pods.eks.amazonaws.com"
+        }
+      }
+    ]
+  })
+
+  tags = {
+    Name = "${local.name}-openbao"
+  }
+}
+
+resource "aws_iam_policy" "openbao" {
+  count       = var.create_openbao_kms_role ? 1 : 0
+  name        = "${local.name}-openbao"
+  description = "IAM policy for OpenBao KMS auto-unseal"
+
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Effect = "Allow"
+        Action = [
+          "kms:Encrypt",
+          "kms:Decrypt",
+          "kms:DescribeKey",
+          "kms:GenerateDataKey"
+        ]
+        Resource = aws_kms_key.openbao_unseal[0].arn
+      }
+    ]
+  })
+
+  tags = {
+    Name = "${local.name}-openbao"
+  }
+}
+
+resource "aws_iam_role_policy_attachment" "openbao" {
+  count      = var.create_openbao_kms_role ? 1 : 0
+  policy_arn = aws_iam_policy.openbao[0].arn
+  role       = aws_iam_role.openbao[0].name
+}
+
+#-----------------------------------------------------------------------------------------------------------------------
 # Create Add-Ons
 #-----------------------------------------------------------------------------------------------------------------------
 
@@ -1109,6 +1210,15 @@ resource "aws_eks_pod_identity_association" "cert_manager" {
   namespace       = "system-pki"
   service_account = "cert-manager"
   role_arn        = aws_iam_role.cert_manager[0].arn
+}
+
+resource "aws_eks_pod_identity_association" "openbao" {
+  count = var.create_openbao_kms_role ? 1 : 0
+
+  cluster_name    = aws_eks_cluster.main.name
+  namespace       = "system-secrets-store"
+  service_account = "openbao"
+  role_arn        = aws_iam_role.openbao[0].arn
 }
 
 #-----------------------------------------------------------------------------------------------------------------------

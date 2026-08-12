@@ -43,6 +43,11 @@ output "cluster_name" {
   value       = local.name
 }
 
+output "openbao_kms_key_id" {
+  description = "ID of the KMS key for OpenBao's AWS KMS auto-unseal"
+  value       = try(aws_kms_key.openbao_unseal[0].key_id, null)
+}
+
 output "karpenter_controller_role_arn" {
   description = "ARN of the Karpenter controller IAM role (assumed via Pod Identity)"
   value       = try(aws_iam_role.karpenter_controller[0].arn, null)

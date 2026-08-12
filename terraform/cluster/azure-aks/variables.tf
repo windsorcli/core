@@ -446,6 +446,12 @@ variable "external_dns_dns_zone_ids" {
   default     = []
 }
 
+variable "create_openbao_identity" {
+  description = "Whether to provision a dedicated Key Vault and key, a User-Assigned Managed Identity, Key Vault role assignments, and a Federated Identity Credential for OpenBao's Azure Key Vault auto-unseal. Enable when the secrets_store addon runs OpenBao with the openbao driver."
+  type        = bool
+  default     = false
+}
+
 variable "kubelogin_mode" {
   description = "Login mode for kubelogin convert-kubeconfig. If set, converts the kubeconfig to use this login mode. Valid values: devicecode, interactive, spn, ropc, msi, azurecli, azd, workloadidentity, azurepipelines. Leave empty to skip conversion and use the default devicecode mode from Azure."
   type        = string
