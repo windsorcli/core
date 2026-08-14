@@ -551,7 +551,7 @@ jobs:
 
       - name: Investigate failure with Claude
         if: always() && steps.seed.outcome == 'success' && steps.phase.outputs.phase != 'none' && steps.phase.outputs.phase != 'baseline' && github.event_name == 'pull_request' && github.event.action == 'opened'
-        uses: anthropics/claude-code-action@239e3a730883eeb5c53db12b0fc9573b3024b126 # v1.0.191
+        uses: anthropics/claude-code-action@e63208cb983318a44e3f945e959ef894b707dcfa # v1.0.192
         env:
           RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
           RUN_ID: ${{ github.run_id }}
