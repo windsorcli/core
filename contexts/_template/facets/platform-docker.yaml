@@ -102,16 +102,45 @@ terraform:
       controlplane_disks: ${cluster.controlplanes.disks ?? []}
       worker_disks: ${cluster.workers.disks ?? []}
       common_config_patches: ${talos_common.common_config_patches}
+      # Docker only: the control plane's kubelet sizes itself from the shared
+      # Docker daemon's host, not its own container's cgroup quota, so it
+      # reserves its own gap against that host (host_cpu/host_memory) and
+      # merges that with the oidc CA-file patch when both apply. Inlined as
+      # one expression, not split into a separate config value referenced
+      # here: gap and oidc's own emptiness aren't knowable until compute/pki
+      # actually apply, so any expression that reads a deferred value back
+      # from a different config block sees composition-time placeholder text
+      # instead of the real (possibly empty) result, and branches on it
+      # wrong. One atomic expression either composes fully now or defers
+      # fully to generate time, never a mix of the two.
+      #
       # Both patches are standalone "machine:\n  <child>:..." documents; when
-      # both are present, docker's own patch (with its "machine:" header)
-      # keeps that header and oidc's patch has it stripped so its "files:"
-      # child nests under the same "machine:" instead of starting a second one.
+      # both are present, the gap patch (with its "machine:" header) keeps
+      # that header and oidc's patch has it stripped so its "files:" child
+      # nests under the same "machine:" instead of starting a second one.
       controlplane_config_patches: >-
-        ${(talos_common_docker.controlplane_config_patches ?? '') == ''
-          ? (talos_common.oidc_ca_file_patch ?? '')
-          : (talos_common.oidc_ca_file_patch ?? '') == ''
-            ? talos_common_docker.controlplane_config_patches
-            : talos_common_docker.controlplane_config_patches + '\n' + trimPrefix(talos_common.oidc_ca_file_patch, 'machine:\n')}
+        ${let host_cpu = terraform_output('compute', 'host_cpu') ?? 0;
+          let host_memory = terraform_output('compute', 'host_memory') ?? cluster_resources_effective.controlplanes.memory;
+          let quota_cpu = cluster_resources_effective.controlplanes.cpu;
+          let quota_memory = cluster_resources_effective.controlplanes.memory;
+          let gap = (host_cpu <= quota_cpu && host_memory <= quota_memory)
+            ? ''
+            : trimSuffix(string({
+                machine: {
+                  kubelet: {
+                    extraConfig: {
+                      systemReserved: {
+                        cpu: (host_cpu > quota_cpu ? string(max(500, (host_cpu - quota_cpu) * 1000 + 500)) : '0') + 'm',
+                        memory: (host_memory > quota_memory ? string(max(1, host_memory - quota_memory + 1)) : '0') + 'Gi'
+                      }
+                    }
+                  }
+                }
+              }), '\n');
+          let oidc = talos_common.oidc_ca_file_patch ?? '';
+          gap == ''
+            ? oidc
+            : (oidc == '' ? gap : gap + '\n' + trimPrefix(oidc, 'machine:\n'))}
       worker_config_patches: "${talos_common_docker.worker_config_patches ?? \"\"}"
       controlplane_volumes: ${talos_common.controlplane_volumes ?? []}
       worker_volumes: ${talos_common.worker_volumes ?? []}

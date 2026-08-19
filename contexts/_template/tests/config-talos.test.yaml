@@ -16,6 +16,10 @@ x-defaults:
   cluster: &default-cluster
     driver: talos
     controlplanes:
+      # Above the resource_constrained thresholds so OIDC cases below don't
+      # also carry the small-control-plane patch (covered separately).
+      cpu: 8
+      memory: 16
       nodes:
         controlplane-1:
           endpoint: 10.5.0.10:50000
@@ -208,6 +212,54 @@ cases:
                   extraArgs:
                     rotate-server-certificates: "true"
             controlplane_config_patches: "machine:\n  files:\n  - op: create\n    path: /var/kubernetes/oidc-ca.crt\n    permissions: 420\n    content: |\n      \n        -----BEGIN CERTIFICATE-----\n        FAKECERT\n        -----END CERTIFICATE-----"
+
+  - name: small control plane adds kubelet reservation and control-plane resource requests
+    values:
+      platform: metal
+      gateway:
+        enabled: false
+      network: *default-network
+      cluster:
+        <<: *default-cluster
+        controlplanes:
+          nodes:
+            controlplane-1:
+              endpoint: 10.5.0.10:50000
+              node: 10.5.0.10
+              hostname: controlplane-1
+    expect:
+      terraform:
+        - name: cluster
+          path: cluster/talos
+          inputs:
+            common_config_patches: |-
+              cluster:
+                allowSchedulingOnControlPlanes: false
+                apiServer:
+                  resources:
+                    requests:
+                      cpu: 100m
+                      memory: 128Mi
+                controllerManager:
+                  resources:
+                    requests:
+                      cpu: 50m
+                      memory: 64Mi
+                extraManifests:
+                - https://raw.githubusercontent.com/alex1989hu/kubelet-serving-cert-approver/v0.8.7/deploy/standalone-install.yaml
+                scheduler:
+                  resources:
+                    requests:
+                      cpu: 50m
+                      memory: 64Mi
+              machine:
+                kubelet:
+                  extraArgs:
+                    rotate-server-certificates: "true"
+                  extraConfig:
+                    kubeReserved:
+                      cpu: 100m
+                      memory: 256Mi
 
   - name: oidc username_claim and groups_claim overrides pass through
     values:

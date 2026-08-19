@@ -39,6 +39,10 @@ config:
       controlplane_disks: "${cluster.controlplanes.disks ?? (talos_common.storage_driver == 'longhorn' ? talos_common.longhorn_default_disk : [])}"
       worker_disks: "${cluster.workers.disks ?? (talos_common.storage_driver == 'longhorn' ? talos_common.longhorn_default_disk : [])}"
 
+      # Small control-plane node: cpu/memory reflect real VM/box sizing here
+      # (cluster.driver == 'talos' excludes managed eks/aks, where they're unused).
+      resource_constrained: "${cluster_resources_effective.controlplanes.cpu <= 4 || cluster_resources_effective.controlplanes.memory <= 12}"
+
       # Kubelet serving-cert rotation via a static (pre-Flux) manifest so certs
       # rotate during bootstrap; the Talos default self-signed certs don't match node IPs.
       cert_rotation:
@@ -104,6 +108,46 @@ config:
               # 3/3 (default 5/5): no peers to catch up, saves ~128 MiB on disk.
               max-snapshots: "3"
               max-wals: "3"
+
+  # Small control plane: reserve a little kubelet/containerd cgroup headroom
+  # (otherwise zero) so bursty pod scheduling during bootstrap doesn't starve
+  # them, and give apiServer/controllerManager/scheduler enough CPU shares
+  # that the kernel favors them under contention. etcd runs outside
+  # kubepods.slice already, so it isn't set here.
+  #
+  # Sized small deliberately: every millicore/Mi reserved here, or requested
+  # by a static pod below, comes straight off Allocatable, and on a genuinely
+  # small box (the case this exists for) that's the same budget workloads
+  # need to schedule at all. kubeReserved only, not systemReserved: docker's
+  # own host-quota-gap correction (option-workstation.yaml) already sets
+  # systemReserved on this platform, and a second value on the same key would
+  # just overwrite this one, not add to it.
+  - name: talos_common
+    when: talos_common.resource_constrained
+    value:
+      common_patch:
+        machine:
+          kubelet:
+            extraConfig:
+              kubeReserved:
+                cpu: 100m
+                memory: 256Mi
+        cluster:
+          apiServer:
+            resources:
+              requests:
+                cpu: 100m
+                memory: 128Mi
+          controllerManager:
+            resources:
+              requests:
+                cpu: 50m
+                memory: 64Mi
+          scheduler:
+            resources:
+              requests:
+                cpu: 50m
+                memory: 64Mi
 
   # API-server OIDC: maps cluster.oidc.* to the kube-apiserver --oidc-* flags.
   # issuer_url/client_id fall back to the hosted Keycloak identity provider when unset.
