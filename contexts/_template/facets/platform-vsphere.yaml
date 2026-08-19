@@ -158,6 +158,14 @@ config:
     value:
       private_domain: "${(id ?? 'windsor') + '.local'}"
 
+  # CloudNativePG is on by default. Set enabled: false to turn it off.
+  - name: addons
+    value:
+      database:
+        postgres:
+          enabled: ${addons.database.postgres.enabled != false}
+          driver: "${addons.database.postgres.driver ?? 'cloudnativepg'}"
+
 # =============================================================================
 # Terraform — compute → cluster → gitops
 # =============================================================================

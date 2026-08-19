@@ -77,6 +77,48 @@ cases:
             - cluster
           destroy: false
 
+  - name: vsphere defaults cloudnativepg database addon on
+    values:
+      platform: vsphere
+      gateway:
+        enabled: false
+      network: *default-network
+      cluster: *default-cluster
+      vsphere: *default-vsphere
+    terraformOutputs: *default-terraform-outputs
+    expect:
+      config:
+        addons:
+          database:
+            postgres:
+              enabled: true
+              driver: cloudnativepg
+      flux:
+        - name: database
+          dependsOn:
+            - csi-install
+          install:
+            components:
+              - cloudnativepg
+              - cloudnativepg/prometheus
+
+  - name: vsphere excludes database when addon disabled
+    values:
+      platform: vsphere
+      gateway:
+        enabled: false
+      network: *default-network
+      cluster: *default-cluster
+      vsphere: *default-vsphere
+      addons:
+        database:
+          postgres:
+            enabled: false
+    terraformOutputs: *default-terraform-outputs
+    exclude:
+      flux:
+        - name: database
+
   # Cluster endpoint: when cluster.endpoint is set, it takes precedence over
   # the compute output fallback in the cluster step.
   - name: explicit cluster endpoint flows through to cluster step
