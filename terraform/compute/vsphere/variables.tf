@@ -82,7 +82,7 @@ variable "kubernetes_version" {
   description = "Kubernetes version to install."
   type        = string
   # renovate: datasource=github-releases depName=kubernetes package=kubernetes/kubernetes
-  default = "1.36.3"
+  default = "1.36.4"
 }
 
 variable "common_config_patches" {
