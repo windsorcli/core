@@ -115,6 +115,16 @@ cases:
             common_config_patches: |-
               cluster:
                 allowSchedulingOnControlPlanes: false
+                apiServer:
+                  resources:
+                    requests:
+                      cpu: 250m
+                      memory: 256Mi
+                controllerManager:
+                  resources:
+                    requests:
+                      cpu: 100m
+                      memory: 128Mi
                 extraManifests:
                 - https://raw.githubusercontent.com/alex1989hu/kubelet-serving-cert-approver/v0.8.7/deploy/standalone-install.yaml
                 network:
@@ -122,10 +132,19 @@ cases:
                     name: none
                 proxy:
                   disabled: true
+                scheduler:
+                  resources:
+                    requests:
+                      cpu: 100m
+                      memory: 128Mi
               machine:
                 kubelet:
                   extraArgs:
                     rotate-server-certificates: "true"
+                  extraConfig:
+                    kubeReserved:
+                      cpu: 500m
+                      memory: 512Mi
                   nodeIP:
                     validSubnets:
                     - 10.5.0.0/16
