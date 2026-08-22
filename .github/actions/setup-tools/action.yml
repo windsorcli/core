@@ -48,7 +48,7 @@ runs:
       shell: bash
       env:
         # renovate: datasource=github-releases depName=yq package=mikefarah/yq
-        YQ_VERSION: v4.53.3
+        YQ_VERSION: v4.53.6
       run: |
         cd "$(mktemp -d)"
         base="https://github.com/mikefarah/yq/releases/download/${YQ_VERSION}"
