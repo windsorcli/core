@@ -109,45 +109,51 @@ config:
               max-snapshots: "3"
               max-wals: "3"
 
-  # Small control plane: reserve a little kubelet/containerd cgroup headroom
-  # (otherwise zero) so bursty pod scheduling during bootstrap doesn't starve
-  # them, and give apiServer/controllerManager/scheduler enough CPU shares
-  # that the kernel favors them under contention. etcd runs outside
-  # kubepods.slice already, so it isn't set here.
+  # Small control plane: reserve kubelet/containerd cgroup headroom (otherwise
+  # zero) so bursty pod scheduling during bootstrap doesn't starve them, and
+  # give apiServer/controllerManager/scheduler enough CPU shares that the
+  # kernel favors them under contention. etcd runs outside kubepods.slice
+  # already, so it isn't set here.
   #
-  # Sized small deliberately: every millicore/Mi reserved here, or requested
-  # by a static pod below, comes straight off Allocatable, and on a genuinely
-  # small box (the case this exists for) that's the same budget workloads
-  # need to schedule at all. kubeReserved only, not systemReserved: docker's
-  # own host-quota-gap correction (option-workstation.yaml) already sets
-  # systemReserved on this platform, and a second value on the same key would
-  # just overwrite this one, not add to it.
+  # Two tiers, keyed on whether workloads share this node. A schedulable
+  # control plane (single-node, or controlplanes.schedulable) competes with
+  # real workload Pods for every millicore reserved here, so stays minimal.
+  # A dedicated control plane only shares the node with DaemonSets (CNI/CSI/
+  # log agents), so it can afford the larger reservation for etcd/apiserver
+  # bootstrap stability. kubeReserved only, not systemReserved: docker's own
+  # host-quota-gap correction (option-workstation.yaml) already sets
+  # systemReserved on that platform, and a second value on the same key
+  # would just overwrite this one, not add to it.
   - name: talos_common
     when: talos_common.resource_constrained
     value:
+      cp_reserve: >-
+        ${talos_common.allowSchedulingOnControlPlanes
+          ? {kubelet_cpu: '100m', kubelet_memory: '256Mi', api_cpu: '100m', api_memory: '128Mi', cm_cpu: '50m', cm_memory: '64Mi', sched_cpu: '50m', sched_memory: '64Mi'}
+          : {kubelet_cpu: '500m', kubelet_memory: '512Mi', api_cpu: '250m', api_memory: '256Mi', cm_cpu: '100m', cm_memory: '128Mi', sched_cpu: '100m', sched_memory: '128Mi'}}
       common_patch:
         machine:
           kubelet:
             extraConfig:
               kubeReserved:
-                cpu: 100m
-                memory: 256Mi
+                cpu: ${talos_common.cp_reserve.kubelet_cpu}
+                memory: ${talos_common.cp_reserve.kubelet_memory}
         cluster:
           apiServer:
             resources:
               requests:
-                cpu: 100m
-                memory: 128Mi
+                cpu: ${talos_common.cp_reserve.api_cpu}
+                memory: ${talos_common.cp_reserve.api_memory}
           controllerManager:
             resources:
               requests:
-                cpu: 50m
-                memory: 64Mi
+                cpu: ${talos_common.cp_reserve.cm_cpu}
+                memory: ${talos_common.cp_reserve.cm_memory}
           scheduler:
             resources:
               requests:
-                cpu: 50m
-                memory: 64Mi
+                cpu: ${talos_common.cp_reserve.sched_cpu}
+                memory: ${talos_common.cp_reserve.sched_memory}
 
   # API-server OIDC: maps cluster.oidc.* to the kube-apiserver --oidc-* flags.
   # issuer_url/client_id fall back to the hosted Keycloak identity provider when unset.

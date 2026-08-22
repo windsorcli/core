@@ -118,13 +118,13 @@ cases:
                 apiServer:
                   resources:
                     requests:
-                      cpu: 100m
-                      memory: 128Mi
+                      cpu: 250m
+                      memory: 256Mi
                 controllerManager:
                   resources:
                     requests:
-                      cpu: 50m
-                      memory: 64Mi
+                      cpu: 100m
+                      memory: 128Mi
                 extraManifests:
                 - https://raw.githubusercontent.com/alex1989hu/kubelet-serving-cert-approver/v0.8.7/deploy/standalone-install.yaml
                 network:
@@ -135,16 +135,16 @@ cases:
                 scheduler:
                   resources:
                     requests:
-                      cpu: 50m
-                      memory: 64Mi
+                      cpu: 100m
+                      memory: 128Mi
               machine:
                 kubelet:
                   extraArgs:
                     rotate-server-certificates: "true"
                   extraConfig:
                     kubeReserved:
-                      cpu: 100m
-                      memory: 256Mi
+                      cpu: 500m
+                      memory: 512Mi
                   nodeIP:
                     validSubnets:
                     - 10.5.0.0/16
