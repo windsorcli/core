@@ -210,4 +210,4 @@ config:
   - name: talos
     value:
       # renovate: datasource=github-releases depName=talos package=siderolabs/talos
-      talos_version: "1.13.8"
+      talos_version: "1.13.9"

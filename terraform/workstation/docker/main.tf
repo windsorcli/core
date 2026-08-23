@@ -138,7 +138,7 @@ resource "docker_network" "main" {
 
 resource "docker_image" "coredns" {
   count = var.enable_dns ? 1 : 0
-  name  = "coredns/coredns:1.14.6@sha256:900f9c109f7a33545d3c811516e8376df9019147b750f5ce3e254468769176ea"
+  name  = "coredns/coredns:1.14.7@sha256:7efd3c635b03efd68c4e8398fc45f0d993d0e9ab016f72c1cefb0fd6d01aa286"
 }
 
 resource "docker_image" "git_livereload" {
