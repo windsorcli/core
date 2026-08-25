@@ -261,6 +261,56 @@ cases:
                       cpu: 500m
                       memory: 512Mi
 
+  - name: control plane constrained on cpu alone still gets the reservation
+    values:
+      platform: metal
+      gateway:
+        enabled: false
+      network: *default-network
+      cluster:
+        <<: *default-cluster
+        controlplanes:
+          cpu: 4
+          memory: 32
+          nodes:
+            controlplane-1:
+              endpoint: 10.5.0.10:50000
+              node: 10.5.0.10
+              hostname: controlplane-1
+    expect:
+      terraform:
+        - name: cluster
+          path: cluster/talos
+          inputs:
+            common_config_patches: |-
+              cluster:
+                allowSchedulingOnControlPlanes: false
+                apiServer:
+                  resources:
+                    requests:
+                      cpu: 250m
+                      memory: 256Mi
+                controllerManager:
+                  resources:
+                    requests:
+                      cpu: 100m
+                      memory: 128Mi
+                extraManifests:
+                - https://raw.githubusercontent.com/alex1989hu/kubelet-serving-cert-approver/v0.8.7/deploy/standalone-install.yaml
+                scheduler:
+                  resources:
+                    requests:
+                      cpu: 100m
+                      memory: 128Mi
+              machine:
+                kubelet:
+                  extraArgs:
+                    rotate-server-certificates: "true"
+                  extraConfig:
+                    kubeReserved:
+                      cpu: 500m
+                      memory: 512Mi
+
   - name: small schedulable control plane gets the minimal reservation tier
     values:
       platform: metal
