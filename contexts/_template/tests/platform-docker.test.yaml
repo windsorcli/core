@@ -234,7 +234,15 @@ cases:
       gateway:
         enabled: false
       network: *default-network
-      cluster: *default-cluster
+      cluster:
+        <<: *default-cluster
+        controlplanes:
+          # Above the resource_constrained thresholds: isolates this case from
+          # config-talos's small-control-plane patch (covered separately).
+          cpu: 8
+          memory: 16
+          nodes:
+            controlplane-1: *cp1-node
       docker:
         registries:
           gcr.io:

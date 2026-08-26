@@ -104,6 +104,14 @@ config:
   - name: hetzner_effective
     value:
       controlplane_size: "${get(hetzner_sizes_by_type, cluster.controlplanes.instance_type ?? 'cpx31') ?? { cpu: 4, memory: 8 }}"
+      worker_size: "${get(hetzner_sizes_by_type, cluster.workers.instance_type ?? 'cpx31') ?? { cpu: 4, memory: 8 }}"
+
+  # Real per-server_type sizing, not the generic schema default, so
+  # config-talos's small-control-plane detection reflects the actual instance.
+  - name: cluster_resources_effective
+    value:
+      controlplanes: ${hetzner_effective.controlplane_size}
+      workers: ${hetzner_effective.worker_size}
 
   # Instance types orderable in the US locations (ash, hil): Gen1 CPX and CCX only.
   # Gen2 CPX (cpx*2) and ARM (cax*) are EU/Asia-only. Drives the US requires check.
@@ -242,6 +250,7 @@ terraform:
       worker_disks: ${talos_common.worker_disks}
       common_config_patches: ${talos_common.common_config_patches}
       controlplane_config_patches: "${talos_common.oidc_ca_file_patch ?? ''}"
+      worker_config_patches: "${talos_common.worker_config_patches ?? ''}"
       controlplane_volumes: ${talos_common.controlplane_volumes ?? []}
       worker_volumes: ${talos_common.worker_volumes ?? []}
 

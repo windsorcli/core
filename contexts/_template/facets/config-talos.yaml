@@ -39,6 +39,23 @@ config:
       controlplane_disks: "${cluster.controlplanes.disks ?? (talos_common.storage_driver == 'longhorn' ? talos_common.longhorn_default_disk : [])}"
       worker_disks: "${cluster.workers.disks ?? (talos_common.storage_driver == 'longhorn' ? talos_common.longhorn_default_disk : [])}"
 
+      # Reservation tiers keyed on schedulable vs dedicated. Schedulable
+      # competes with real Pods so stays light; dedicated only shares with
+      # DaemonSets so affords more. max is raw millicores/Mi, scaled below.
+      cp_tiers:
+        schedulable:
+          threshold: { cpu: 4, memory: 12 }
+          max: { kubelet_cpu: 100, kubelet_memory: 256, api_cpu: 100, api_memory: 128, cm_cpu: 50, cm_memory: 64, sched_cpu: 50, sched_memory: 64 }
+        dedicated:
+          threshold: { cpu: 2, memory: 4 }
+          max: { kubelet_cpu: 500, kubelet_memory: 512, api_cpu: 250, api_memory: 256, cm_cpu: 100, cm_memory: 128, sched_cpu: 100, sched_memory: 128 }
+      cp_tier: "${talos_common.allowSchedulingOnControlPlanes ? talos_common.cp_tiers.schedulable : talos_common.cp_tiers.dedicated}"
+
+      # Worker reservation: single tier (workers always run Pods). Anchored
+      # to GKE's kubeReserved formula at a 4 CPU/8GB node (80m, 1843Mi).
+      worker_threshold: { cpu: 4, memory: 8 }
+      worker_max: { kubelet_cpu: 80, kubelet_memory: 1843 }
+
       # Kubelet serving-cert rotation via a static (pre-Flux) manifest so certs
       # rotate during bootstrap; the Talos default self-signed certs don't match node IPs.
       cert_rotation:
@@ -72,6 +89,28 @@ config:
       # this safe to evaluate while platform-metal defers metal-without-nodes.
       k8s_service_host: "${len(cluster.controlplanes.nodes ?? {}) > 0 ? split(values(cluster.controlplanes.nodes)[0].endpoint, ':')[0] : ''}"
 
+  # Reservation tapers linearly from full at the threshold to zero at 2x it,
+  # driven by whichever axis (cpu/memory) is proportionally smaller.
+  - name: talos_common
+    value:
+      cp_cpu_ratio: "${cluster_resources_effective.controlplanes.cpu / talos_common.cp_tier.threshold.cpu}"
+      cp_memory_ratio: "${cluster_resources_effective.controlplanes.memory / talos_common.cp_tier.threshold.memory}"
+      cp_ratio: "${talos_common.cp_cpu_ratio < talos_common.cp_memory_ratio ? talos_common.cp_cpu_ratio : talos_common.cp_memory_ratio}"
+      cp_factor: "${talos_common.cp_ratio > 2 ? 0 : (talos_common.cp_ratio < 1 ? 1 : (2 - talos_common.cp_ratio))}"
+      resource_constrained: "${talos_common.cp_factor > 0}"
+
+      worker_cpu_ratio: "${cluster_resources_effective.workers.cpu / talos_common.worker_threshold.cpu}"
+      worker_memory_ratio: "${cluster_resources_effective.workers.memory / talos_common.worker_threshold.memory}"
+      worker_ratio: "${talos_common.worker_cpu_ratio < talos_common.worker_memory_ratio ? talos_common.worker_cpu_ratio : talos_common.worker_memory_ratio}"
+      worker_factor: "${talos_common.worker_ratio > 2 ? 0 : (talos_common.worker_ratio < 1 ? 1 : (2 - talos_common.worker_ratio))}"
+      worker_constrained: "${talos_common.worker_factor > 0}"
+      worker_reserve_needed: "${talos_common.resource_constrained || talos_common.worker_constrained}"
+      worker_patch_emit: "${talos_common.worker_reserve_needed || platform == 'docker'}"
+
+      # Base for worker_patch: platform blocks (docker's systemReserved gap)
+      # and the kubeReserved block below each merge a sibling key into this.
+      worker_patch: {}
+
   # Cilium machine patch: disable the built-in flannel CNI and kube-proxy.
   - name: talos_common
     when: cluster.cni.driver == 'cilium'
@@ -104,6 +143,75 @@ config:
               # 3/3 (default 5/5): no peers to catch up, saves ~128 MiB on disk.
               max-snapshots: "3"
               max-wals: "3"
+
+  # Small control plane: reserve kubelet/containerd cgroup headroom (otherwise
+  # zero) so bursty pod scheduling during bootstrap doesn't starve them, and
+  # give apiServer/controllerManager/scheduler enough CPU shares that the
+  # kernel favors them under contention. etcd runs outside kubepods.slice
+  # already, so it isn't set here. kubeReserved only, not systemReserved:
+  # docker's own host-quota-gap correction (option-workstation.yaml) already
+  # sets systemReserved on that platform, and a second value on the same key
+  # would just overwrite this one, not add to it.
+  - name: talos_common
+    when: talos_common.resource_constrained
+    value:
+      cp_reserve:
+        kubelet_cpu: "${string(int(talos_common.cp_tier.max.kubelet_cpu * talos_common.cp_factor + 0.5)) + 'm'}"
+        kubelet_memory: "${string(int(talos_common.cp_tier.max.kubelet_memory * talos_common.cp_factor + 0.5)) + 'Mi'}"
+        api_cpu: "${string(int(talos_common.cp_tier.max.api_cpu * talos_common.cp_factor + 0.5)) + 'm'}"
+        api_memory: "${string(int(talos_common.cp_tier.max.api_memory * talos_common.cp_factor + 0.5)) + 'Mi'}"
+        cm_cpu: "${string(int(talos_common.cp_tier.max.cm_cpu * talos_common.cp_factor + 0.5)) + 'm'}"
+        cm_memory: "${string(int(talos_common.cp_tier.max.cm_memory * talos_common.cp_factor + 0.5)) + 'Mi'}"
+        sched_cpu: "${string(int(talos_common.cp_tier.max.sched_cpu * talos_common.cp_factor + 0.5)) + 'm'}"
+        sched_memory: "${string(int(talos_common.cp_tier.max.sched_memory * talos_common.cp_factor + 0.5)) + 'Mi'}"
+      common_patch:
+        machine:
+          kubelet:
+            extraConfig:
+              kubeReserved:
+                cpu: ${talos_common.cp_reserve.kubelet_cpu}
+                memory: ${talos_common.cp_reserve.kubelet_memory}
+        cluster:
+          apiServer:
+            resources:
+              requests:
+                cpu: ${talos_common.cp_reserve.api_cpu}
+                memory: ${talos_common.cp_reserve.api_memory}
+          controllerManager:
+            resources:
+              requests:
+                cpu: ${talos_common.cp_reserve.cm_cpu}
+                memory: ${talos_common.cp_reserve.cm_memory}
+          scheduler:
+            resources:
+              requests:
+                cpu: ${talos_common.cp_reserve.sched_cpu}
+                memory: ${talos_common.cp_reserve.sched_memory}
+
+  # Merges into worker_patch (base above), not common_patch (shared by every
+  # role): a worker's own size decides this. Later patches override earlier
+  # ones on the same field, so this also corrects the leak from above.
+  - name: talos_common
+    when: talos_common.worker_reserve_needed
+    value:
+      # Recomputes the factor from worker_ratio instead of referencing
+      # worker_factor directly: read cross-block, worker_factor evaluates to
+      # cp_factor's value instead of its own (composer bug, not ours).
+      worker_reserve:
+        kubelet_cpu: "${let f = talos_common.worker_ratio > 2 ? 0 : (talos_common.worker_ratio < 1 ? 1 : (2 - talos_common.worker_ratio)); string(int(talos_common.worker_max.kubelet_cpu * f + 0.5)) + 'm'}"
+        kubelet_memory: "${let f = talos_common.worker_ratio > 2 ? 0 : (talos_common.worker_ratio < 1 ? 1 : (2 - talos_common.worker_ratio)); string(int(talos_common.worker_max.kubelet_memory * f + 0.5)) + 'Mi'}"
+      worker_patch:
+        machine:
+          kubelet:
+            extraConfig:
+              kubeReserved:
+                cpu: ${talos_common.worker_reserve.kubelet_cpu}
+                memory: ${talos_common.worker_reserve.kubelet_memory}
+
+  - name: talos_common
+    when: talos_common.worker_patch_emit
+    value:
+      worker_config_patches: "${string(talos_common.worker_patch)}"
 
   # API-server OIDC: maps cluster.oidc.* to the kube-apiserver --oidc-* flags.
   # issuer_url/client_id fall back to the hosted Keycloak identity provider when unset.

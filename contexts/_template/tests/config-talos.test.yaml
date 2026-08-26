@@ -16,6 +16,10 @@ x-defaults:
   cluster: &default-cluster
     driver: talos
     controlplanes:
+      # Above the resource_constrained thresholds so OIDC cases below don't
+      # also carry the small-control-plane patch (covered separately).
+      cpu: 8
+      memory: 16
       nodes:
         controlplane-1:
           endpoint: 10.5.0.10:50000
@@ -208,6 +212,400 @@ cases:
                   extraArgs:
                     rotate-server-certificates: "true"
             controlplane_config_patches: "machine:\n  files:\n  - op: create\n    path: /var/kubernetes/oidc-ca.crt\n    permissions: 420\n    content: |\n      \n        -----BEGIN CERTIFICATE-----\n        FAKECERT\n        -----END CERTIFICATE-----"
+
+  - name: small dedicated control plane gets the larger reservation tier
+    values:
+      platform: metal
+      gateway:
+        enabled: false
+      network: *default-network
+      cluster:
+        <<: *default-cluster
+        controlplanes:
+          cpu: 2
+          memory: 4
+          nodes:
+            controlplane-1:
+              endpoint: 10.5.0.10:50000
+              node: 10.5.0.10
+              hostname: controlplane-1
+    expect:
+      terraform:
+        - name: cluster
+          path: cluster/talos
+          inputs:
+            common_config_patches: |-
+              cluster:
+                allowSchedulingOnControlPlanes: false
+                apiServer:
+                  resources:
+                    requests:
+                      cpu: 250m
+                      memory: 256Mi
+                controllerManager:
+                  resources:
+                    requests:
+                      cpu: 100m
+                      memory: 128Mi
+                extraManifests:
+                - https://raw.githubusercontent.com/alex1989hu/kubelet-serving-cert-approver/v0.8.7/deploy/standalone-install.yaml
+                scheduler:
+                  resources:
+                    requests:
+                      cpu: 100m
+                      memory: 128Mi
+              machine:
+                kubelet:
+                  extraArgs:
+                    rotate-server-certificates: "true"
+                  extraConfig:
+                    kubeReserved:
+                      cpu: 500m
+                      memory: 512Mi
+
+  - name: control plane constrained on cpu alone still gets the reservation
+    values:
+      platform: metal
+      gateway:
+        enabled: false
+      network: *default-network
+      cluster:
+        <<: *default-cluster
+        controlplanes:
+          cpu: 2
+          memory: 64
+          nodes:
+            controlplane-1:
+              endpoint: 10.5.0.10:50000
+              node: 10.5.0.10
+              hostname: controlplane-1
+    expect:
+      terraform:
+        - name: cluster
+          path: cluster/talos
+          inputs:
+            common_config_patches: |-
+              cluster:
+                allowSchedulingOnControlPlanes: false
+                apiServer:
+                  resources:
+                    requests:
+                      cpu: 250m
+                      memory: 256Mi
+                controllerManager:
+                  resources:
+                    requests:
+                      cpu: 100m
+                      memory: 128Mi
+                extraManifests:
+                - https://raw.githubusercontent.com/alex1989hu/kubelet-serving-cert-approver/v0.8.7/deploy/standalone-install.yaml
+                scheduler:
+                  resources:
+                    requests:
+                      cpu: 100m
+                      memory: 128Mi
+              machine:
+                kubelet:
+                  extraArgs:
+                    rotate-server-certificates: "true"
+                  extraConfig:
+                    kubeReserved:
+                      cpu: 500m
+                      memory: 512Mi
+
+  - name: control plane between the threshold and 2x it gets a tapered reservation
+    values:
+      platform: metal
+      gateway:
+        enabled: false
+      network: *default-network
+      cluster:
+        <<: *default-cluster
+        controlplanes:
+          cpu: 3
+          memory: 8
+          nodes:
+            controlplane-1:
+              endpoint: 10.5.0.10:50000
+              node: 10.5.0.10
+              hostname: controlplane-1
+    expect:
+      terraform:
+        - name: cluster
+          path: cluster/talos
+          inputs:
+            common_config_patches: |-
+              cluster:
+                allowSchedulingOnControlPlanes: false
+                apiServer:
+                  resources:
+                    requests:
+                      cpu: 125m
+                      memory: 128Mi
+                controllerManager:
+                  resources:
+                    requests:
+                      cpu: 50m
+                      memory: 64Mi
+                extraManifests:
+                - https://raw.githubusercontent.com/alex1989hu/kubelet-serving-cert-approver/v0.8.7/deploy/standalone-install.yaml
+                scheduler:
+                  resources:
+                    requests:
+                      cpu: 50m
+                      memory: 64Mi
+              machine:
+                kubelet:
+                  extraArgs:
+                    rotate-server-certificates: "true"
+                  extraConfig:
+                    kubeReserved:
+                      cpu: 250m
+                      memory: 256Mi
+
+  - name: default-sized worker gets its own kubeReserved independent of the control plane
+    values:
+      platform: metal
+      gateway:
+        enabled: false
+      network: *default-network
+      cluster:
+        <<: *default-cluster
+    expect:
+      terraform:
+        - name: cluster
+          path: cluster/talos
+          inputs:
+            worker_config_patches: |-
+              machine:
+                kubelet:
+                  extraConfig:
+                    kubeReserved:
+                      cpu: 80m
+                      memory: 1843Mi
+
+  - name: large worker gets an explicit zero override, correcting the small control plane's leaked kubeReserved
+    values:
+      platform: metal
+      gateway:
+        enabled: false
+      network: *default-network
+      cluster:
+        driver: talos
+        controlplanes:
+          cpu: 2
+          memory: 4
+          nodes:
+            controlplane-1:
+              endpoint: 10.5.0.10:50000
+              node: 10.5.0.10
+              hostname: controlplane-1
+        workers:
+          cpu: 16
+          memory: 32
+          nodes:
+            worker-1:
+              endpoint: 10.5.0.20:50000
+              node: 10.5.0.20
+              hostname: worker-1
+        cni:
+          driver: flannel
+    expect:
+      terraform:
+        - name: cluster
+          path: cluster/talos
+          inputs:
+            # The small control plane's kubeReserved lands in
+            # common_config_patches, which every role shares.
+            common_config_patches: |-
+              cluster:
+                allowSchedulingOnControlPlanes: false
+                apiServer:
+                  resources:
+                    requests:
+                      cpu: 250m
+                      memory: 256Mi
+                controllerManager:
+                  resources:
+                    requests:
+                      cpu: 100m
+                      memory: 128Mi
+                extraManifests:
+                - https://raw.githubusercontent.com/alex1989hu/kubelet-serving-cert-approver/v0.8.7/deploy/standalone-install.yaml
+                scheduler:
+                  resources:
+                    requests:
+                      cpu: 100m
+                      memory: 128Mi
+              machine:
+                kubelet:
+                  extraArgs:
+                    rotate-server-certificates: "true"
+                  extraConfig:
+                    kubeReserved:
+                      cpu: 500m
+                      memory: 512Mi
+            # worker_config_patches applies after common_config_patches, so
+            # this zero override wins on the worker and cancels the leak.
+            worker_config_patches: |-
+              machine:
+                kubelet:
+                  extraConfig:
+                    kubeReserved:
+                      cpu: 0m
+                      memory: 0Mi
+
+  - name: small worker gets its own reservation even when the control plane is comfortably large
+    values:
+      platform: metal
+      gateway:
+        enabled: false
+      network: *default-network
+      cluster:
+        <<: *default-cluster
+        workers:
+          cpu: 2
+          memory: 4
+          nodes:
+            worker-1:
+              endpoint: 10.5.0.20:50000
+              node: 10.5.0.20
+              hostname: worker-1
+          volumes:
+            - /var/mnt/local
+    expect:
+      terraform:
+        - name: cluster
+          path: cluster/talos
+          inputs:
+            worker_config_patches: |-
+              machine:
+                kubelet:
+                  extraConfig:
+                    kubeReserved:
+                      cpu: 80m
+                      memory: 1843Mi
+
+  - name: worker between its threshold and 2x it gets a tapered reservation
+    values:
+      platform: metal
+      gateway:
+        enabled: false
+      network: *default-network
+      cluster:
+        <<: *default-cluster
+        workers:
+          cpu: 6
+          memory: 12
+          nodes:
+            worker-1:
+              endpoint: 10.5.0.20:50000
+              node: 10.5.0.20
+              hostname: worker-1
+          volumes:
+            - /var/mnt/local
+    expect:
+      terraform:
+        - name: cluster
+          path: cluster/talos
+          inputs:
+            worker_config_patches: |-
+              machine:
+                kubelet:
+                  extraConfig:
+                    kubeReserved:
+                      cpu: 40m
+                      memory: 922Mi
+
+  - name: default dedicated control plane gets no reservation
+    values:
+      platform: metal
+      gateway:
+        enabled: false
+      network: *default-network
+      cluster:
+        <<: *default-cluster
+        controlplanes:
+          nodes:
+            controlplane-1:
+              endpoint: 10.5.0.10:50000
+              node: 10.5.0.10
+              hostname: controlplane-1
+    expect:
+      terraform:
+        - name: cluster
+          path: cluster/talos
+          inputs:
+            common_config_patches: |-
+              cluster:
+                allowSchedulingOnControlPlanes: false
+                extraManifests:
+                - https://raw.githubusercontent.com/alex1989hu/kubelet-serving-cert-approver/v0.8.7/deploy/standalone-install.yaml
+              machine:
+                kubelet:
+                  extraArgs:
+                    rotate-server-certificates: "true"
+
+  - name: small schedulable control plane gets the minimal reservation tier
+    values:
+      platform: metal
+      # Explicit multi-node + controlplanes.schedulable: isolates this case
+      # from the single-node-topology patches (leader-elect, etcd compaction),
+      # covered separately by option-single-node tests.
+      topology: multi-node
+      gateway:
+        enabled: false
+      network: *default-network
+      cluster:
+        driver: talos
+        controlplanes:
+          schedulable: true
+          nodes:
+            controlplane-1:
+              endpoint: 10.5.0.10:50000
+              node: 10.5.0.10
+              hostname: controlplane-1
+        workers:
+          nodes:
+            worker-1:
+              endpoint: 10.5.0.20:50000
+              node: 10.5.0.20
+              hostname: worker-1
+        cni:
+          driver: flannel
+    expect:
+      terraform:
+        - name: cluster
+          path: cluster/talos
+          inputs:
+            common_config_patches: |-
+              cluster:
+                allowSchedulingOnControlPlanes: true
+                apiServer:
+                  resources:
+                    requests:
+                      cpu: 100m
+                      memory: 128Mi
+                controllerManager:
+                  resources:
+                    requests:
+                      cpu: 50m
+                      memory: 64Mi
+                extraManifests:
+                - https://raw.githubusercontent.com/alex1989hu/kubelet-serving-cert-approver/v0.8.7/deploy/standalone-install.yaml
+                scheduler:
+                  resources:
+                    requests:
+                      cpu: 50m
+                      memory: 64Mi
+              machine:
+                kubelet:
+                  extraArgs:
+                    rotate-server-certificates: "true"
+                  extraConfig:
+                    kubeReserved:
+                      cpu: 100m
+                      memory: 256Mi
 
   - name: oidc username_claim and groups_claim overrides pass through
     values:
