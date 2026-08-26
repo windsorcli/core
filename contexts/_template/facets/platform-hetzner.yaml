@@ -108,8 +108,6 @@ config:
 
   # Real per-server_type sizing, not the generic schema default, so
   # config-talos's small-control-plane detection reflects the actual instance.
-  # cpx31, the default instance type, crosses the schedulable-tier threshold,
-  # so a default-sized control plane gets the reservation on reconcile.
   - name: cluster_resources_effective
     value:
       controlplanes: ${hetzner_effective.controlplane_size}
