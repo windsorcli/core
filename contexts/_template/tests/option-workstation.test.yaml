@@ -746,6 +746,9 @@ cases:
               machine:
                 kubelet:
                   extraConfig:
+                    kubeReserved:
+                      cpu: 60m
+                      memory: 1382Mi
                     systemReserved:
                       cpu: 2500m
                       memory: 11Gi

@@ -39,26 +39,22 @@ config:
       controlplane_disks: "${cluster.controlplanes.disks ?? (talos_common.storage_driver == 'longhorn' ? talos_common.longhorn_default_disk : [])}"
       worker_disks: "${cluster.workers.disks ?? (talos_common.storage_driver == 'longhorn' ? talos_common.longhorn_default_disk : [])}"
 
-      # Small control-plane reservation tiers, keyed on whether the control
-      # plane also runs workloads. Each tier owns both its trigger threshold
-      # and its reserved amounts together, so the two can't drift apart. A
-      # schedulable control plane competes with real Pods for every
-      # millicore reserved, so it counts as small at a larger size and stays
-      # minimal. A dedicated control plane only shares the node with
-      # DaemonSets, so it needs a much smaller box to count as small, but can
-      # then afford a bigger reservation.
+      # Reservation tiers keyed on schedulable vs dedicated. Schedulable
+      # competes with real Pods so stays light; dedicated only shares with
+      # DaemonSets so affords more. max is raw millicores/Mi, scaled below.
       cp_tiers:
         schedulable:
           threshold: { cpu: 4, memory: 12 }
-          reserve: { kubelet_cpu: '100m', kubelet_memory: '256Mi', api_cpu: '100m', api_memory: '128Mi', cm_cpu: '50m', cm_memory: '64Mi', sched_cpu: '50m', sched_memory: '64Mi' }
+          max: { kubelet_cpu: 100, kubelet_memory: 256, api_cpu: 100, api_memory: 128, cm_cpu: 50, cm_memory: 64, sched_cpu: 50, sched_memory: 64 }
         dedicated:
           threshold: { cpu: 2, memory: 4 }
-          reserve: { kubelet_cpu: '500m', kubelet_memory: '512Mi', api_cpu: '250m', api_memory: '256Mi', cm_cpu: '100m', cm_memory: '128Mi', sched_cpu: '100m', sched_memory: '128Mi' }
+          max: { kubelet_cpu: 500, kubelet_memory: 512, api_cpu: 250, api_memory: 256, cm_cpu: 100, cm_memory: 128, sched_cpu: 100, sched_memory: 128 }
       cp_tier: "${talos_common.allowSchedulingOnControlPlanes ? talos_common.cp_tiers.schedulable : talos_common.cp_tiers.dedicated}"
 
-      # cpu/memory reflect real VM/box sizing (cluster.driver == 'talos' excludes
-      # managed eks/aks, where they're unused).
-      resource_constrained: "${cluster_resources_effective.controlplanes.cpu <= talos_common.cp_tier.threshold.cpu || cluster_resources_effective.controlplanes.memory <= talos_common.cp_tier.threshold.memory}"
+      # Worker reservation: single tier (workers always run Pods). Anchored
+      # to GKE's kubeReserved formula at a 4 CPU/8GB node (80m, 1843Mi).
+      worker_threshold: { cpu: 4, memory: 8 }
+      worker_max: { kubelet_cpu: 80, kubelet_memory: 1843 }
 
       # Kubelet serving-cert rotation via a static (pre-Flux) manifest so certs
       # rotate during bootstrap; the Talos default self-signed certs don't match node IPs.
@@ -92,6 +88,23 @@ config:
       # replacement (incus/docker override with cidrhost). The len() guard keeps
       # this safe to evaluate while platform-metal defers metal-without-nodes.
       k8s_service_host: "${len(cluster.controlplanes.nodes ?? {}) > 0 ? split(values(cluster.controlplanes.nodes)[0].endpoint, ':')[0] : ''}"
+
+  # Reservation tapers linearly from full at the threshold to zero at 2x it,
+  # driven by whichever axis (cpu/memory) is proportionally smaller.
+  - name: talos_common
+    value:
+      cp_cpu_ratio: "${cluster_resources_effective.controlplanes.cpu / talos_common.cp_tier.threshold.cpu}"
+      cp_memory_ratio: "${cluster_resources_effective.controlplanes.memory / talos_common.cp_tier.threshold.memory}"
+      cp_ratio: "${talos_common.cp_cpu_ratio < talos_common.cp_memory_ratio ? talos_common.cp_cpu_ratio : talos_common.cp_memory_ratio}"
+      cp_factor: "${talos_common.cp_ratio > 2 ? 0 : (talos_common.cp_ratio < 1 ? 1 : (2 - talos_common.cp_ratio))}"
+      resource_constrained: "${talos_common.cp_factor > 0}"
+
+      worker_cpu_ratio: "${cluster_resources_effective.workers.cpu / talos_common.worker_threshold.cpu}"
+      worker_memory_ratio: "${cluster_resources_effective.workers.memory / talos_common.worker_threshold.memory}"
+      worker_ratio: "${talos_common.worker_cpu_ratio < talos_common.worker_memory_ratio ? talos_common.worker_cpu_ratio : talos_common.worker_memory_ratio}"
+      worker_factor: "${talos_common.worker_ratio > 2 ? 0 : (talos_common.worker_ratio < 1 ? 1 : (2 - talos_common.worker_ratio))}"
+      worker_constrained: "${talos_common.worker_factor > 0}"
+      worker_patch_needed: "${talos_common.resource_constrained || talos_common.worker_constrained}"
 
   # Cilium machine patch: disable the built-in flannel CNI and kube-proxy.
   - name: talos_common
@@ -137,7 +150,15 @@ config:
   - name: talos_common
     when: talos_common.resource_constrained
     value:
-      cp_reserve: ${talos_common.cp_tier.reserve}
+      cp_reserve:
+        kubelet_cpu: "${string(int(talos_common.cp_tier.max.kubelet_cpu * talos_common.cp_factor + 0.5)) + 'm'}"
+        kubelet_memory: "${string(int(talos_common.cp_tier.max.kubelet_memory * talos_common.cp_factor + 0.5)) + 'Mi'}"
+        api_cpu: "${string(int(talos_common.cp_tier.max.api_cpu * talos_common.cp_factor + 0.5)) + 'm'}"
+        api_memory: "${string(int(talos_common.cp_tier.max.api_memory * talos_common.cp_factor + 0.5)) + 'Mi'}"
+        cm_cpu: "${string(int(talos_common.cp_tier.max.cm_cpu * talos_common.cp_factor + 0.5)) + 'm'}"
+        cm_memory: "${string(int(talos_common.cp_tier.max.cm_memory * talos_common.cp_factor + 0.5)) + 'Mi'}"
+        sched_cpu: "${string(int(talos_common.cp_tier.max.sched_cpu * talos_common.cp_factor + 0.5)) + 'm'}"
+        sched_memory: "${string(int(talos_common.cp_tier.max.sched_memory * talos_common.cp_factor + 0.5)) + 'Mi'}"
       common_patch:
         machine:
           kubelet:
@@ -161,6 +182,24 @@ config:
               requests:
                 cpu: ${talos_common.cp_reserve.sched_cpu}
                 memory: ${talos_common.cp_reserve.sched_memory}
+
+  # Routed to worker_config_patches, not common_patch (shared by every
+  # role): a worker's own size decides this. Later patches override earlier
+  # ones on the same field, so this also corrects the leak from above.
+  - name: talos_common
+    when: talos_common.worker_patch_needed
+    value:
+      worker_reserve:
+        kubelet_cpu: "${string(int(talos_common.worker_max.kubelet_cpu * talos_common.worker_factor + 0.5)) + 'm'}"
+        kubelet_memory: "${string(int(talos_common.worker_max.kubelet_memory * talos_common.worker_factor + 0.5)) + 'Mi'}"
+      worker_patch:
+        machine:
+          kubelet:
+            extraConfig:
+              kubeReserved:
+                cpu: ${talos_common.worker_reserve.kubelet_cpu}
+                memory: ${talos_common.worker_reserve.kubelet_memory}
+      worker_config_patches: "${string(talos_common.worker_patch)}"
 
   # API-server OIDC: maps cluster.oidc.* to the kube-apiserver --oidc-* flags.
   # issuer_url/client_id fall back to the hosted Keycloak identity provider when unset.

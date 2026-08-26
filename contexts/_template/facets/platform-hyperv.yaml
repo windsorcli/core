@@ -281,6 +281,7 @@ terraform:
       destination_dir: "${hyperv_effective.images_dir}"
       common_config_patches: ${talos_common.common_config_patches}
       controlplane_config_patches: "${talos_common.oidc_ca_file_patch ?? ''}"
+      worker_config_patches: "${talos_common.worker_config_patches ?? ''}"
       network:
         cidr_block: ${network.cidr_block ?? '10.5.0.0/16'}
         gateway: ${network.gateway}
@@ -388,6 +389,7 @@ terraform:
       controlplane_disks: ${talos_common.controlplane_disks}
       worker_disks: ${talos_common.worker_disks}
       common_config_patches: ${talos_common.common_config_patches}
+      worker_config_patches: "${talos_common.worker_config_patches ?? ''}"
       controlplane_volumes: ${talos_common.controlplane_volumes ?? []}
       worker_volumes: ${talos_common.worker_volumes ?? []}
       # Shared identity from cluster-config: when non-null, cluster/talos skips

@@ -88,17 +88,10 @@ config:
               - ignore: true
                 interface: eth0
 
-  # Worker patch slot for platform-docker to populate. Docker only: every
-  # node's kubelet sizes itself from the shared Docker daemon's host, not its
-  # own container's cgroup quota, so the worker role reserves its own gap
-  # against that host. `let` keeps host_cpu/host_memory resolved once;
-  # string() only ever marshals them once they're concrete numbers, never a
-  # still-deferred terraform_output call, so there's nothing left to mis-scan
-  # on a later composition pass. Controlplane's equivalent is inlined
-  # directly into platform-docker.yaml's controlplane_config_patches: it also
-  # has to merge with the oidc CA-file patch, and that merge decision can't
-  # be split across a separate config value the way this one can (see the
-  # comment there).
+  # Sibling reservations under one extraConfig: systemReserved (docker's
+  # host-quota gap) and kubeReserved (talos_common's worker size taper).
+  # One expression, not split fields: host_cpu/host_memory are deferred
+  # until compute applies.
   - name: talos_common_docker
     when: cluster.driver == 'talos' && (cluster.enabled ?? true)
     value:
@@ -107,15 +100,19 @@ config:
           let host_memory = terraform_output('compute', 'host_memory') ?? cluster_resources_effective.workers.memory;
           let quota_cpu = cluster_resources_effective.workers.cpu;
           let quota_memory = cluster_resources_effective.workers.memory;
-          platform != 'docker' || (host_cpu <= quota_cpu && host_memory <= quota_memory)
+          (platform != 'docker' || (host_cpu <= quota_cpu && host_memory <= quota_memory)) && talos_common.worker_factor == 0
             ? ''
             : trimSuffix(string({
                 machine: {
                   kubelet: {
                     extraConfig: {
                       systemReserved: {
-                        cpu: (host_cpu > quota_cpu ? string(max(500, (host_cpu - quota_cpu) * 1000 + 500)) : '0') + 'm',
-                        memory: (host_memory > quota_memory ? string(max(1, host_memory - quota_memory + 1)) : '0') + 'Gi'
+                        cpu: (platform == 'docker' && host_cpu > quota_cpu ? string(max(500, (host_cpu - quota_cpu) * 1000 + 500)) : '0') + 'm',
+                        memory: (platform == 'docker' && host_memory > quota_memory ? string(max(1, host_memory - quota_memory + 1)) : '0') + 'Gi'
+                      },
+                      kubeReserved: {
+                        cpu: string(int(talos_common.worker_max.kubelet_cpu * talos_common.worker_factor + 0.5)) + 'm',
+                        memory: string(int(talos_common.worker_max.kubelet_memory * talos_common.worker_factor + 0.5)) + 'Mi'
                       }
                     }
                   }
