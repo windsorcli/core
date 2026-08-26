@@ -222,6 +222,8 @@ cases:
       cluster:
         <<: *default-cluster
         controlplanes:
+          cpu: 2
+          memory: 4
           nodes:
             controlplane-1:
               endpoint: 10.5.0.10:50000
@@ -270,8 +272,8 @@ cases:
       cluster:
         <<: *default-cluster
         controlplanes:
-          cpu: 4
-          memory: 32
+          cpu: 2
+          memory: 64
           nodes:
             controlplane-1:
               endpoint: 10.5.0.10:50000
@@ -310,6 +312,35 @@ cases:
                     kubeReserved:
                       cpu: 500m
                       memory: 512Mi
+
+  - name: default dedicated control plane gets no reservation
+    values:
+      platform: metal
+      gateway:
+        enabled: false
+      network: *default-network
+      cluster:
+        <<: *default-cluster
+        controlplanes:
+          nodes:
+            controlplane-1:
+              endpoint: 10.5.0.10:50000
+              node: 10.5.0.10
+              hostname: controlplane-1
+    expect:
+      terraform:
+        - name: cluster
+          path: cluster/talos
+          inputs:
+            common_config_patches: |-
+              cluster:
+                allowSchedulingOnControlPlanes: false
+                extraManifests:
+                - https://raw.githubusercontent.com/alex1989hu/kubelet-serving-cert-approver/v0.8.7/deploy/standalone-install.yaml
+              machine:
+                kubelet:
+                  extraArgs:
+                    rotate-server-certificates: "true"
 
   - name: small schedulable control plane gets the minimal reservation tier
     values:
