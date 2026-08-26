@@ -10,7 +10,7 @@ spec:
     spec:
       chart: kube-vip
       # renovate: datasource=helm depName=kube-vip package=kube-vip helmRepo=https://kube-vip.github.io/helm-charts
-      version: 0.11.0
+      version: 0.11.1
       sourceRef:
         kind: HelmRepository
         name: kube-vip
