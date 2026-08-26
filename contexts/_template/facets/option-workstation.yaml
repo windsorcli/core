@@ -88,43 +88,27 @@ config:
               - ignore: true
                 interface: eth0
 
-  # Sibling reservations under one extraConfig: systemReserved (docker's
-  # host-quota gap) and kubeReserved (talos_common's worker size taper).
-  # One expression, not split fields: host_cpu/host_memory are deferred
-  # until compute applies.
-  - name: talos_common_docker
-    when: cluster.driver == 'talos' && (cluster.enabled ?? true)
+  # Docker's own gap against the shared Docker daemon's host, merged as a
+  # sibling of kubeReserved into worker_patch (config-talos.yaml's base).
+  - name: talos_common
+    when: platform == 'docker' && cluster.driver == 'talos' && (cluster.enabled ?? true)
     value:
-      worker_config_patches: >-
-        ${let host_cpu = terraform_output('compute', 'host_cpu') ?? 0;
-          let host_memory = terraform_output('compute', 'host_memory') ?? cluster_resources_effective.workers.memory;
-          let quota_cpu = cluster_resources_effective.workers.cpu;
-          let quota_memory = cluster_resources_effective.workers.memory;
-          let kube_reserved = {
-            cpu: string(int(talos_common.worker_max.kubelet_cpu * talos_common.worker_factor + 0.5)) + 'm',
-            memory: string(int(talos_common.worker_max.kubelet_memory * talos_common.worker_factor + 0.5)) + 'Mi'
-          };
-          platform == 'docker'
-            ? ((host_cpu <= quota_cpu && host_memory <= quota_memory) && talos_common.worker_factor == 0
-                ? ''
-                : trimSuffix(string({
-                    machine: {
-                      kubelet: {
-                        extraConfig: {
-                          systemReserved: {
-                            cpu: (host_cpu > quota_cpu ? string(max(500, (host_cpu - quota_cpu) * 1000 + 500)) : '0') + 'm',
-                            memory: (host_memory > quota_memory ? string(max(1, host_memory - quota_memory + 1)) : '0') + 'Gi'
-                          },
-                          kubeReserved: kube_reserved
-                        }
-                      }
-                    }
-                  }), '\n'))
-            : (talos_common.worker_factor == 0
-                ? ''
-                : trimSuffix(string({
-                    machine: { kubelet: { extraConfig: { kubeReserved: kube_reserved } } }
-                  }), '\n'))}
+      docker_worker_gap:
+        cpu: >-
+          ${let host_cpu = terraform_output('compute', 'host_cpu') ?? 0;
+            let quota_cpu = cluster_resources_effective.workers.cpu;
+            (host_cpu > quota_cpu ? string(max(500, (host_cpu - quota_cpu) * 1000 + 500)) : '0') + 'm'}
+        memory: >-
+          ${let host_memory = terraform_output('compute', 'host_memory') ?? cluster_resources_effective.workers.memory;
+            let quota_memory = cluster_resources_effective.workers.memory;
+            (host_memory > quota_memory ? string(max(1, host_memory - quota_memory + 1)) : '0') + 'Gi'}
+      worker_patch:
+        machine:
+          kubelet:
+            extraConfig:
+              systemReserved:
+                cpu: ${talos_common.docker_worker_gap.cpu}
+                memory: ${talos_common.docker_worker_gap.memory}
 
   # Colima-on-Incus is a storage-driver test rig; force flannel (Cilium's eBPF
   # skews tests) and pair with kube-vip so LoadBalancer services still get an IP.

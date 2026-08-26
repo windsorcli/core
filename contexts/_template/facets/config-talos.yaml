@@ -104,7 +104,12 @@ config:
       worker_ratio: "${talos_common.worker_cpu_ratio < talos_common.worker_memory_ratio ? talos_common.worker_cpu_ratio : talos_common.worker_memory_ratio}"
       worker_factor: "${talos_common.worker_ratio > 2 ? 0 : (talos_common.worker_ratio < 1 ? 1 : (2 - talos_common.worker_ratio))}"
       worker_constrained: "${talos_common.worker_factor > 0}"
-      worker_patch_needed: "${talos_common.resource_constrained || talos_common.worker_constrained}"
+      worker_reserve_needed: "${talos_common.resource_constrained || talos_common.worker_constrained}"
+      worker_patch_emit: "${talos_common.worker_reserve_needed || platform == 'docker'}"
+
+      # Base for worker_patch: platform blocks (docker's systemReserved gap)
+      # and the kubeReserved block below each merge a sibling key into this.
+      worker_patch: {}
 
   # Cilium machine patch: disable the built-in flannel CNI and kube-proxy.
   - name: talos_common
@@ -183,15 +188,18 @@ config:
                 cpu: ${talos_common.cp_reserve.sched_cpu}
                 memory: ${talos_common.cp_reserve.sched_memory}
 
-  # Routed to worker_config_patches, not common_patch (shared by every
+  # Merges into worker_patch (base above), not common_patch (shared by every
   # role): a worker's own size decides this. Later patches override earlier
   # ones on the same field, so this also corrects the leak from above.
   - name: talos_common
-    when: talos_common.worker_patch_needed
+    when: talos_common.worker_reserve_needed
     value:
+      # Recomputes the factor from worker_ratio instead of referencing
+      # worker_factor directly: read cross-block, worker_factor evaluates to
+      # cp_factor's value instead of its own (composer bug, not ours).
       worker_reserve:
-        kubelet_cpu: "${string(int(talos_common.worker_max.kubelet_cpu * talos_common.worker_factor + 0.5)) + 'm'}"
-        kubelet_memory: "${string(int(talos_common.worker_max.kubelet_memory * talos_common.worker_factor + 0.5)) + 'Mi'}"
+        kubelet_cpu: "${let f = talos_common.worker_ratio > 2 ? 0 : (talos_common.worker_ratio < 1 ? 1 : (2 - talos_common.worker_ratio)); string(int(talos_common.worker_max.kubelet_cpu * f + 0.5)) + 'm'}"
+        kubelet_memory: "${let f = talos_common.worker_ratio > 2 ? 0 : (talos_common.worker_ratio < 1 ? 1 : (2 - talos_common.worker_ratio)); string(int(talos_common.worker_max.kubelet_memory * f + 0.5)) + 'Mi'}"
       worker_patch:
         machine:
           kubelet:
@@ -199,6 +207,10 @@ config:
               kubeReserved:
                 cpu: ${talos_common.worker_reserve.kubelet_cpu}
                 memory: ${talos_common.worker_reserve.kubelet_memory}
+
+  - name: talos_common
+    when: talos_common.worker_patch_emit
+    value:
       worker_config_patches: "${string(talos_common.worker_patch)}"
 
   # API-server OIDC: maps cluster.oidc.* to the kube-apiserver --oidc-* flags.
