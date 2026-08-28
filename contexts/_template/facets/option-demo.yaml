@@ -11,20 +11,24 @@ when: demo.enabled == true
 # =============================================================================
 #
 # Sample apps reconciled onto the running cluster, so a resources-only system.
-# Each demo.resources.* flag toggles one app. The database entry also drives a
-# system dependency on the `database` install tier (from addon-database) so
-# CNPG is up before the sample app tries to create its DB.
+# Each demo.resources.* flag toggles one app. database is a shared namespace
+# plus a driver variant (cloudnativepg or rds); dependsOn tracks whichever
+# operator's install tier owns that driver.
 #
 flux:
 
   - name: demo
     path: demo
     dependsOn:
-      - "${demo.resources.database == true ? 'database' : ''}"
+      - "${demo.resources.database == true ? (database.postgres.driver == 'rds' ? 'provisioning' : 'database') : ''}"
     resources:
       - components:
           - "${demo.resources.database == true ? 'database' : ''}"
+          - "${demo.resources.database == true ? (database.postgres.driver == 'rds' ? 'database/rds' : 'database/cloudnativepg') : ''}"
           - "${demo.resources.static == true ? 'static' : ''}"
           - "${demo.resources.bookinfo == true ? 'bookinfo' : ''}"
+        substitutions:
+          cluster_name: "${terraform_output('cluster', 'cluster_name') ?? ''}"
+          aws_region: "${aws.region ?? ''}"
         timeout: 10m
         interval: 5m

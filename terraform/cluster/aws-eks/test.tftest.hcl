@@ -608,6 +608,53 @@ run "cert_manager_policy_scoped_to_zone_ids" {
   }
 }
 
+# Verifies the crossplane_iam module gets an empty resource set, and the DB
+# subnet group isn't created, by default. IAM/Pod Identity content itself is
+# covered by modules/crossplane-iam's own tests.
+run "crossplane_resources_empty_by_default" {
+  command = plan
+
+  variables {
+    context_id = "test"
+  }
+
+  assert {
+    condition     = length(module.crossplane_iam.role_arns) == 0
+    error_message = "No Crossplane IAM roles should be created when crossplane_resources is empty"
+  }
+
+  assert {
+    condition     = length(aws_db_subnet_group.crossplane_rds) == 0
+    error_message = "crossplane-rds DB subnet group should not be created when crossplane_resources omits rds"
+  }
+}
+
+# Verifies crossplane_resources = ["rds"] wires the module and creates the
+# DB subnet group.
+run "crossplane_rds_resource_enabled" {
+  command = plan
+
+  variables {
+    context_id           = "test"
+    crossplane_resources = ["rds"]
+  }
+
+  assert {
+    condition     = contains(keys(module.crossplane_iam.role_arns), "rds")
+    error_message = "crossplane_iam module should receive rds in its resources set"
+  }
+
+  assert {
+    condition     = length(aws_db_subnet_group.crossplane_rds) == 1
+    error_message = "crossplane-rds DB subnet group should be created when crossplane_resources includes rds"
+  }
+
+  assert {
+    condition     = toset(aws_db_subnet_group.crossplane_rds[0].subnet_ids) == toset(var.private_subnet_ids)
+    error_message = "crossplane-rds DB subnet group should use the module's private subnet IDs"
+  }
+}
+
 # Verifies the pools path: when var.pools is non-empty, it replaces var.node_groups
 # entirely. Class maps to a default instance family, lifecycle maps to capacity_type,
 # and the pool name + class are auto-injected as windsorcli.dev/pool labels.

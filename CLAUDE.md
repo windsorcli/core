@@ -4,6 +4,7 @@ Apply to every comment in every file (YAML, Terraform, Go, Markdown code fences,
 
 - Describe active functionality: say what the code does, at its current site, in present tense. A comment is not the place to argue for the code.
 - Tasteful and terse: a comment should let another developer pick up what's going on quickly, not slow them down. Say what's needed, specifically, and stop — no filler, no restating what the code already makes obvious, no padding a short fact into a long sentence. One line is the norm; two is the ceiling.
+- One idea per sentence (Simplified Technical English's core rule): don't chain multiple facts with dashes, semicolons, or "so"/"which" clauses. Short sentences in plain words, active voice, simple present tense. A comment needing three chained facts to make its point belongs in a design doc, not a comment.
 - No justification: don't explain why a value was chosen, what breaks without it, what upstream does differently, or what a tool does internally. A short "why" is fine only when it is the operative fact (e.g. "avoids a dependency cycle"). Never narrate a tradeoff, an alternative considered, a failure mode, or the debugging story behind it. If it needs more than a couple of lines, it belongs in a design doc.
 - No migration/WIP narration: never "now lives in X", "moved to Y", "used to be Z", "previously". A comment describes the code at its current site, present tense.
 - Don't comment the diff: a comment explains the file as it stands, never what changed or why it changed. Reviewers read the diff; the comment outlives it.
@@ -38,4 +39,18 @@ Bad:
 Good:
 ```yaml
 # Postgres, gated on the Cluster's Ready condition.
+```
+
+Bad:
+```yaml
+# Provider package install, plus a ClusterPolicy that force-sets the
+# windsorcli.dev/cluster tag on every Instance CR — the crossplane_rds
+# IAM role's tag condition needs it, so it ships bundled with the
+# provider rather than requiring a chart author to remember it.
+```
+
+Good:
+```yaml
+# Provider package install. Bundles a ClusterPolicy that force-sets
+# the windsorcli.dev/cluster tag the IAM role's condition requires.
 ```

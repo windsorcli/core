@@ -1332,6 +1332,7 @@ properties:
             type: string
             enum:
               - cloudnativepg
+              - rds
             default: cloudnativepg
             description: PostgreSQL database driver
         additionalProperties: false
@@ -1527,3 +1528,29 @@ allOf:
           properties:
             driver:
               const: talos
+
+  # database.postgres.driver: rds installs Crossplane's provider-aws-rds,
+  # wired to AWS credentials by the aws-eks Terraform module's Pod Identity
+  # association — AWS-only.
+  - if:
+      properties:
+        database:
+          type: object
+          properties:
+            postgres:
+              type: object
+              properties:
+                driver:
+                  const: rds
+              required:
+                - driver
+          required:
+            - postgres
+      required:
+        - database
+    then:
+      properties:
+        platform:
+          const: aws
+      required:
+        - platform

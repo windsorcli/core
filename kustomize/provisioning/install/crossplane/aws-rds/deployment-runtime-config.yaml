@@ -1,0 +1,27 @@
+---
+# Pins the provider-aws-rds pod's ServiceAccount name so Terraform's Pod
+# Identity association (fixed to the same name) can target it.
+apiVersion: pkg.crossplane.io/v1beta1
+kind: DeploymentRuntimeConfig
+metadata:
+  name: provider-aws-rds
+spec:
+  serviceAccountTemplate:
+    metadata:
+      name: provider-aws-rds
+  # provider-aws-rds runs as non-root by default; these close the rest of
+  # PSA restricted for system-provisioning. Container name is fixed by
+  # Crossplane's own package runtime, not ours to choose.
+  deploymentTemplate:
+    spec:
+      template:
+        spec:
+          securityContext:
+            seccompProfile:
+              type: RuntimeDefault
+          containers:
+            - name: package-runtime
+              securityContext:
+                allowPrivilegeEscalation: false
+                capabilities:
+                  drop: ["ALL"]

@@ -67,6 +67,12 @@ variable "cert_manager_hosted_zone_ids" {
   default     = []
 }
 
+variable "crossplane_resources" {
+  description = "Crossplane-managed AWS resource types to provision IAM, Pod Identity, and any supporting infra for. Supported: rds."
+  type        = set(string)
+  default     = []
+}
+
 variable "endpoint_public_access" {
   description = "Whether to enable public access to the EKS cluster."
   type        = bool

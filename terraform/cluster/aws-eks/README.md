@@ -32,7 +32,9 @@ and EBS CSI driver helpers that EKS expects out-of-band.
 
 ## Modules
 
-No modules.
+| Name | Source | Version |
+|------|--------|---------|
+| <a name="module_crossplane_iam"></a> [crossplane\_iam](#module\_crossplane\_iam) | ./modules/crossplane-iam | n/a |
 
 ## Resources
 
@@ -43,6 +45,7 @@ No modules.
 | [aws_cloudwatch_event_rule.karpenter](https://registry.terraform.io/providers/hashicorp/aws/6.58.0/docs/resources/cloudwatch_event_rule) | resource |
 | [aws_cloudwatch_event_target.karpenter](https://registry.terraform.io/providers/hashicorp/aws/6.58.0/docs/resources/cloudwatch_event_target) | resource |
 | [aws_cloudwatch_log_group.eks_cluster](https://registry.terraform.io/providers/hashicorp/aws/6.58.0/docs/resources/cloudwatch_log_group) | resource |
+| [aws_db_subnet_group.crossplane_rds](https://registry.terraform.io/providers/hashicorp/aws/6.58.0/docs/resources/db_subnet_group) | resource |
 | [aws_ec2_tag.karpenter_discovery_sg](https://registry.terraform.io/providers/hashicorp/aws/6.58.0/docs/resources/ec2_tag) | resource |
 | [aws_ec2_tag.karpenter_discovery_subnet](https://registry.terraform.io/providers/hashicorp/aws/6.58.0/docs/resources/ec2_tag) | resource |
 | [aws_eks_addon.main](https://registry.terraform.io/providers/hashicorp/aws/6.58.0/docs/resources/eks_addon) | resource |
@@ -120,6 +123,7 @@ No modules.
 | <a name="input_create_cert_manager_role"></a> [create\_cert\_manager\_role](#input\_create\_cert\_manager\_role) | Whether to create the IAM role, policy, and Pod Identity association for cert-manager's Route53 ACME DNS-01 solver. Enable when cert-manager will issue ACME certificates against a Route53 hosted zone in this account. | `bool` | `false` | no |
 | <a name="input_create_cluster_autoscaler_role"></a> [create\_cluster\_autoscaler\_role](#input\_create\_cluster\_autoscaler\_role) | Whether to create the IAM role, policy, and Pod Identity association for the Kubernetes cluster-autoscaler, plus the ASG auto-discovery tags. Default true; set false to bound node groups without deploying the autoscaler. | `bool` | `true` | no |
 | <a name="input_create_external_dns_role"></a> [create\_external\_dns\_role](#input\_create\_external\_dns\_role) | Whether to create IAM role and policy for external-dns. Set to true if external-dns will be used in the cluster, even if not installed as an EKS addon. | `bool` | `true` | no |
+| <a name="input_crossplane_resources"></a> [crossplane\_resources](#input\_crossplane\_resources) | Crossplane-managed AWS resource types to provision IAM, Pod Identity, and any supporting infra for. Supported: rds. | `set(string)` | `[]` | no |
 | <a name="input_ebs_volume_kms_key_id"></a> [ebs\_volume\_kms\_key\_id](#input\_ebs\_volume\_kms\_key\_id) | KMS key ARN or ID to use for EBS volume encryption in node group launch templates. ARN is preferred for cross-account scenarios. If enable\_ebs\_encryption is true and this is null, a cluster-specific key is created. | `string` | `null` | no |
 | <a name="input_enable_cloudwatch_logs"></a> [enable\_cloudwatch\_logs](#input\_enable\_cloudwatch\_logs) | Whether the cluster emits control plane logs to CloudWatch. | `bool` | `true` | no |
 | <a name="input_enable_ebs_encryption"></a> [enable\_ebs\_encryption](#input\_enable\_ebs\_encryption) | Whether to enable EBS volume encryption for node group instances. If true and ebs\_volume\_kms\_key\_id is null, a cluster-specific KMS key will be created. | `bool` | `true` | no |
@@ -151,6 +155,7 @@ No modules.
 | <a name="output_cluster_id"></a> [cluster\_id](#output\_cluster\_id) | The name/id of the EKS cluster. |
 | <a name="output_cluster_name"></a> [cluster\_name](#output\_cluster\_name) | Name of the EKS cluster |
 | <a name="output_cluster_security_group_id"></a> [cluster\_security\_group\_id](#output\_cluster\_security\_group\_id) | The security group ID attached to the EKS cluster. |
+| <a name="output_crossplane_rds_db_subnet_group_name"></a> [crossplane\_rds\_db\_subnet\_group\_name](#output\_crossplane\_rds\_db\_subnet\_group\_name) | Name of the DB subnet group Crossplane-managed rds.aws.upbound.io Instance resources reference |
 | <a name="output_external_dns_role_arn"></a> [external\_dns\_role\_arn](#output\_external\_dns\_role\_arn) | ARN of the IAM role for external-dns |
 | <a name="output_karpenter_controller_role_arn"></a> [karpenter\_controller\_role\_arn](#output\_karpenter\_controller\_role\_arn) | ARN of the Karpenter controller IAM role (assumed via Pod Identity) |
 | <a name="output_karpenter_interruption_queue_name"></a> [karpenter\_interruption\_queue\_name](#output\_karpenter\_interruption\_queue\_name) | Name of the Karpenter spot-interruption SQS queue |

@@ -1,0 +1,12 @@
+# Descriptor consumed by scripts/kustomize-docs.sh to populate the
+# BEGIN_KUSTOMIZE_DOCS / END_KUSTOMIZE_DOCS region of README.md.
+# Edit this file (not the README tables) when substitutions, components,
+# or dependencies change.
+
+components:
+  crossplane:
+    enable_when: "`database.postgres.driver == 'rds'`"
+    description: "Helm release of Crossplane in `system-provisioning`."
+  crossplane/aws-rds:
+    enable_when: "`database.postgres.driver == 'rds'`"
+    description: "In `install:`: a `Provider` CR requesting `provider-aws-rds`, pinned to a `DeploymentRuntimeConfig` that fixes the provider pod's ServiceAccount name to `provider-aws-rds` so the cluster/aws-eks Terraform module's Pod Identity association can target it. In `resources:`, once the Provider reports Healthy/Installed: the `default` `ProviderConfig` (credentials source `PodIdentity`, so a consuming `Instance` CR needs no `providerConfigRef`), plus a Kyverno `ClusterPolicy` that force-sets the `windsorcli.dev/cluster` tag on every `Instance`."

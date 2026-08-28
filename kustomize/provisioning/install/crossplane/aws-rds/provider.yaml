@@ -1,0 +1,10 @@
+---
+apiVersion: pkg.crossplane.io/v1
+kind: Provider
+metadata:
+  name: provider-aws-rds
+spec:
+  # renovate: datasource=github-releases depName=crossplane-contrib/provider-upjet-aws package=crossplane-contrib/provider-upjet-aws
+  package: xpkg.upbound.io/upbound/provider-aws-rds:v2.7.1
+  runtimeConfigRef:
+    name: provider-aws-rds

@@ -1,0 +1,37 @@
+---
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: crossplane-rds-tag
+  annotations:
+    policies.kyverno.io/title: Crossplane RDS cluster tag
+    policies.kyverno.io/category: AWS
+    policies.kyverno.io/severity: medium
+    policies.kyverno.io/subject: Instance
+    policies.kyverno.io/description: >-
+      Force-sets the windsorcli.dev/cluster tag on every Crossplane
+      rds.aws.upbound.io Instance to this cluster's name, overwriting
+      whatever value (if any) the resource was submitted with. The
+      crossplane_rds IAM role's policy conditions on this tag, so an
+      Instance can only be created or modified within this cluster's own
+      scope regardless of what a chart submits.
+spec:
+  # Fail-open: if the mutation webhook is unreachable, the create still goes
+  # through and IAM's own tag condition is the backstop that rejects it.
+  failurePolicy: Ignore
+  background: false
+  rules:
+    - name: set-cluster-tag
+      match:
+        any:
+          - resources:
+              kinds:
+                - rds.aws.upbound.io/v1beta1/Instance
+                - rds.aws.upbound.io/v1beta2/Instance
+                - rds.aws.upbound.io/v1beta3/Instance
+      mutate:
+        patchStrategicMerge:
+          spec:
+            forProvider:
+              tags:
+                windsorcli.dev/cluster: ${cluster_name}

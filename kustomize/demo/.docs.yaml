@@ -10,11 +10,23 @@ substitutions:
   REGISTRY_URL:
     required_when: "`demo.resources.static: true`"
     description: "Image registry hosting the demo static-site container image (`${REGISTRY_URL}/demo:1.0.6`). No fallback; the static workload's pod will fail to pull if the variable is not set at the Flux Kustomization level."
+  cluster_name:
+    required_when: "`demo.resources.database: true` AND `database.postgres.driver == 'rds'`"
+    description: "Cluster name, from `terraform_output('cluster', 'cluster_name')`. Used to build the `demo-db` Instance's `dbSubnetGroupName`. Passed by the facet itself."
+  aws_region:
+    required_when: "`demo.resources.database: true` AND `database.postgres.driver == 'rds'`"
+    description: "AWS region for the `demo-db` Instance, from `aws.region`. Passed by the facet itself."
 
 components:
   database:
     enable_when: "`demo.resources.database: true`"
-    description: "Creates the `demo-database` namespace and a `Cluster` CR `demo-cluster` (2 instances, 100 max_connections, 1Gi PVC, PodMonitor enabled). Requires the `database` add-on so the CloudNativePG operator can reconcile the CR."
+    description: "Creates the `demo-database` namespace. Always paired with a driver variant below."
+  database/cloudnativepg:
+    enable_when: "`demo.resources.database: true` AND `database.postgres.driver == 'cloudnativepg'`"
+    description: "A `Cluster` CR `demo-cluster` (2 instances, 100 max_connections, 1Gi PVC, PodMonitor enabled). Requires the `database` add-on so the CloudNativePG operator can reconcile the CR."
+  database/rds:
+    enable_when: "`demo.resources.database: true` AND `database.postgres.driver == 'rds'`"
+    description: "An `rds.aws.upbound.io/v1beta3` `Instance` CR `demo-db` (db.t4g.micro, 20Gi, AWS-managed master password) — the worked example for `kustomize/provisioning`'s contract: just the database definition, no provider wiring."
   static:
     enable_when: "`demo.resources.static: true`"
     description: "Creates the `demo-static` namespace (PSA `restricted`) with a `website` Deployment pulling `${REGISTRY_URL}/demo:1.0.6`, a Service, a 100Mi ReadWriteOnce PVC named `content`, and an Ingress."
@@ -24,5 +36,8 @@ components:
 
 dependencies:
   database:
-    required_when: "`demo.resources.database: true`"
+    required_when: "`demo.resources.database: true` AND `database.postgres.driver == 'cloudnativepg'`"
     reason: "The CloudNativePG operator must be reconciling before the `demo-cluster` Cluster CR can come up. Wired as a conditional `dependsOn` in the facet."
+  provisioning:
+    required_when: "`demo.resources.database: true` AND `database.postgres.driver == 'rds'`"
+    reason: "Crossplane's provider-aws-rds must finish installing before the `demo-db` Instance CR's CRD is registered. Wired as a conditional `dependsOn` in the facet."

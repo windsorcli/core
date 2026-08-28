@@ -48,6 +48,43 @@ cases:
               interval: 5m
               components:
                 - database
+                - database/cloudnativepg
+
+  # rds driver: demo database creates an Instance CR and depends on
+  # provisioning instead of database.
+  - name: demo mode with rds driver creates demo rds instance
+    values:
+      platform: aws
+      aws:
+        region: us-west-2
+      dev: true
+      demo:
+        enabled: true
+        resources:
+          database: true
+      gateway:
+        enabled: false
+      database:
+        postgres:
+          enabled: true
+          driver: rds
+    expect:
+      flux:
+        - name: demo
+          path: demo
+          dependsOn:
+            - provisioning-install
+          resources:
+            - timeout: 10m
+              interval: 5m
+              components:
+                - database
+                - database/rds
+              substitutions:
+                aws_region: us-west-2
+    exclude:
+      flux:
+        - name: database
 
   # static + bookinfo apps carry no database dependency, and demo is a
   # resources-only system, so no demo-install tier is emitted.

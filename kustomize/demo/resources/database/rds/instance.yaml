@@ -1,0 +1,23 @@
+---
+# Worked example of the kustomize/provisioning contract: just the database
+# definition, no provider wiring. The windsorcli.dev/cluster tag and
+# providerConfigRef are both handled by the provisioning add-on.
+apiVersion: rds.aws.upbound.io/v1beta3
+kind: Instance
+metadata:
+  name: demo-db
+  namespace: demo-database
+spec:
+  deletionPolicy: Delete
+  forProvider:
+    region: ${aws_region}
+    engine: postgres
+    engineVersion: "16"
+    instanceClass: db.t4g.micro
+    allocatedStorage: 20
+    dbSubnetGroupName: ${cluster_name}-crossplane-rds
+    username: demo
+    manageMasterUserPassword: true
+    storageEncrypted: true
+    publiclyAccessible: false
+    skipFinalSnapshot: true

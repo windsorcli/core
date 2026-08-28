@@ -1,0 +1,11 @@
+---
+# Named "default" so a consuming Instance CR needs no providerConfigRef at
+# all — that's the field's own default. Credentials resolve via the pod's
+# EKS Pod Identity association; no static keys.
+apiVersion: aws.upbound.io/v1beta1
+kind: ProviderConfig
+metadata:
+  name: default
+spec:
+  credentials:
+    source: PodIdentity

@@ -2,9 +2,15 @@ kind: Facet
 apiVersion: blueprints.windsorcli.dev/v1alpha1
 metadata:
   name: database
-  description: PostgreSQL database service with CloudNativePG
+  description: PostgreSQL database service — in-cluster via CloudNativePG, or a cloud-managed instance via Crossplane
 
 when: database.postgres.enabled == true
+
+# Crossplane's own CRDs, vendored (kustomize/crds/crossplane-2.4.0), owned by
+# the crds: layer, not the chart. Only the rds driver needs them.
+crds:
+  # renovate: datasource=github-releases depName=crossplane/crossplane package=crossplane/crossplane
+  - "${database.postgres.driver == 'rds' ? 'crossplane-2.4.0' : ''}"
 
 # =============================================================================
 # Flux systems — CloudNativePG operator
@@ -31,3 +37,29 @@ flux:
     resources:
       - components:
           - grafana/dashboards/cloudnativepg
+
+  # Crossplane (kustomize/provisioning) — a chart creates the Instance CR;
+  # core only installs the engine and wires AWS credentials.
+  - name: provisioning
+    when: database.postgres.driver == 'rds'
+    install:
+      # Provider CR + DeploymentRuntimeConfig. Crossplane's own CRDs are
+      # vendored (crds: above), so these are as safe here as the HelmRelease.
+      components:
+        - crossplane
+        - crossplane/aws-rds
+      healthCheckExprs:
+        - apiVersion: pkg.crossplane.io/v1
+          kind: Provider
+          current: status.conditions.exists(e, e.type == 'Healthy' && e.status == 'True') && status.conditions.exists(e, e.type == 'Installed' && e.status == 'True')
+      timeout: 15m
+      interval: 5m
+    resources:
+      # ProviderConfig + the tag policy. ProviderConfig's CRD registers only
+      # once install: reports the Provider Healthy/Installed.
+      - components:
+          - crossplane/aws-rds
+        substitutions:
+          cluster_name: "${terraform_output('cluster', 'cluster_name') ?? ''}"
+        timeout: 5m
+        interval: 5m

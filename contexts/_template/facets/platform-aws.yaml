@@ -109,6 +109,7 @@ terraform:
       manage_log_group: ${!(ephemeral ?? false)}
       create_cert_manager_role: "${(dns.public_domain ?? '') != ''}"
       cert_manager_hosted_zone_ids: "${(dns.public_domain ?? '') != '' ? [terraform_output('dns-zone', 'zone_id')] : []}"
+      crossplane_resources: "${database.postgres.enabled == true && database.postgres.driver == 'rds' ? ['rds'] : []}"
       # Portable node-pool input. Default: fixed system pool + autoscaling
       # general pool (matches AKS); the aws-eks module fills in class-conditional
       # autoscaling and the system taint. Declaring cluster.pools replaces this.

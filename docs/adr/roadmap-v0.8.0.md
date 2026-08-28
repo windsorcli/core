@@ -49,6 +49,7 @@ The prior cycle's ADRs (0001-0009) and plans were audited against the shipped co
 | [0006](0006-object-store-seaweedfs.md) | SeaweedFS as a second `object_store` driver | A lighter-weight alternative to MinIO's Operator+Tenant split for platforms without cloud CSI economics. |
 | [0007](0007-backup-restore-velero.md) | Backup and restore — Velero over `object_store` | Confirmed absent on every platform today; the single largest capability gap found. Also the prerequisite Manager's own-state backup (its ADR slot 0007) layers onto. |
 | [0008](0008-platform-hardening-parity.md) | Platform hardening parity | Every self-managed Talos platform ships etcd/disk unencrypted and with no audit trail, where AWS/Azure default both on; no platform has a network-policy default-deny baseline. The widest present/absent split found in the cross-platform audit. |
+| [0009](0009-crossplane-cloud-databases.md) | Crossplane — application-requested cloud databases | Formalizes [core#2515](https://github.com/windsorcli/core/issues/2515), scoped to one customer need: a Helm chart installed on top of core must be able to request a cloud-managed Postgres database without the customer authoring their own blueprint. |
 
 **Going forward, `docs/adr/` is tracked in git, not gitignored, and there is no
 more `docs/plans/`** (the plan carried from the prior cycle, karpenter
