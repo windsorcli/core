@@ -121,6 +121,16 @@ variable "private_subnet_ids" {
   }
 }
 
+variable "isolated_subnet_ids" {
+  description = "Isolated (zero-egress) subnet IDs for the Crossplane RDS DB subnet group. Pipe network/aws-vpc's isolated_subnet_ids output. Required when crossplane_resources includes rds."
+  type        = list(string)
+  default     = []
+  validation {
+    condition     = !contains(var.crossplane_resources, "rds") || length(var.isolated_subnet_ids) > 0
+    error_message = "isolated_subnet_ids is required and must be non-empty when crossplane_resources includes rds; pipe network/aws-vpc's isolated_subnet_ids output, e.g. inputs.isolated_subnet_ids = terraform_output('network', 'isolated_subnet_ids') in the platform-aws facet."
+  }
+}
+
 variable "node_subnet_ids" {
   description = "Private subnet IDs node groups launch into. Null uses all of private_subnet_ids; pass a subset to constrain node placement to specific AZs. The control plane always uses private_subnet_ids."
   type        = list(string)

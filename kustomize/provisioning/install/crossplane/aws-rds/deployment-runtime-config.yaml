@@ -9,19 +9,3 @@ spec:
   serviceAccountTemplate:
     metadata:
       name: provider-aws-rds
-  # provider-aws-rds runs as non-root by default; these close the rest of
-  # PSA restricted for system-provisioning. Container name is fixed by
-  # Crossplane's own package runtime, not ours to choose.
-  deploymentTemplate:
-    spec:
-      template:
-        spec:
-          securityContext:
-            seccompProfile:
-              type: RuntimeDefault
-          containers:
-            - name: package-runtime
-              securityContext:
-                allowPrivilegeEscalation: false
-                capabilities:
-                  drop: ["ALL"]

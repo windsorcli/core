@@ -1026,10 +1026,12 @@ module "crossplane_iam" {
 
 # Subnet group Crossplane-managed Instance resources reference by name; keeps
 # subnet/VPC placement in Terraform's hands, out of Crossplane's IAM scope.
+# Isolated (zero-egress), not private (NAT-routed) — RDS doesn't need
+# outbound internet access.
 resource "aws_db_subnet_group" "crossplane_rds" {
   count      = contains(var.crossplane_resources, "rds") ? 1 : 0
   name       = "${local.name}-crossplane-rds"
-  subnet_ids = var.private_subnet_ids
+  subnet_ids = var.isolated_subnet_ids
 
   tags = {
     Name = "${local.name}-crossplane-rds"

@@ -137,11 +137,14 @@ For `rds`, the module creates `aws_iam_role`, `aws_iam_policy`, and
 `aws_iam_role_policy_attachment`, plus an `aws_eks_pod_identity_association`
 — `cluster/aws-eks/main.tf` itself keeps only the `aws_db_subnet_group`
 Crossplane-managed `Instance` resources reference by name (not an IAM
-concern, out of the submodule's scope). The policy is scoped to RDS
-instance lifecycle actions (`CreateDBInstance`, `ModifyDBInstance`,
-`DeleteDBInstance`, tagging, snapshotting) within the cluster's existing
-VPC and subnet group — no VPC, subnet, or security-group creation rights,
-out of Crossplane's reach. The trust policy also carries an
+concern, out of the submodule's scope), spanning `isolated_subnet_ids`
+(zero-egress, no NAT route), not `private_subnet_ids` (NAT-routed, what
+EKS nodes use) — an RDS instance has no need for outbound internet access.
+The policy is scoped to RDS instance lifecycle actions (`CreateDBInstance`,
+`ModifyDBInstance`, `DeleteDBInstance`, tagging, snapshotting) within that
+subnet group and the cluster's existing VPC — no VPC, subnet, or
+security-group creation rights, out of Crossplane's reach. The trust
+policy also carries an
 `aws:SourceAccount`/`aws:SourceArn` condition scoping it to this
 cluster's own Pod Identity Agent — a hardening step the other 7 Pod
 Identity roles in `main.tf` don't have yet
@@ -191,16 +194,24 @@ Workload Identity in place of Pod Identity) and isn't decided by this ADR.
 
 ## Consequences
 
-- `system-provisioning` runs at PSA `restricted`, not the `baseline` every
-  other `system-*` namespace in this repo defaults to — matching
-  `system-pki-trust` (also `restricted`, next to `system-pki`'s
-  `baseline`), this repo already tightens per-namespace when the workload
-  supports it rather than defaulting uniformly. Crossplane's chart values
-  and the provider's own `DeploymentRuntimeConfig` both add
-  `capabilities.drop: [ALL]` and `seccompProfile: RuntimeDefault`, the two
-  fields neither ships with by default; the rest of `restricted`
-  (non-root, no privilege escalation, read-only root FS) Crossplane
-  already provides.
+- `crossplane_rds`'s DB subnet group is the first consumer anywhere in
+  this repo of `network/aws-vpc`'s `isolated_subnet_ids` output — the
+  zero-egress subnet tier existed, unused, before this ADR.
+- `system-provisioning` stays at PSA `baseline`, matching `system-database`
+  — `restricted` (which `system-pki-trust` proves this repo does adopt
+  per-namespace when the workload supports it) was tried and reverted.
+  Crossplane's own chart carries the extra `securityContext` fields
+  (`capabilities.drop: [ALL]`, `seccompProfile: RuntimeDefault`)
+  `restricted` needs beyond its defaults — verified with `kustomize
+  build`, kept even at `baseline` since it doesn't hurt. The provider pod
+  (`provider-aws-rds`) doesn't have the equivalent: its
+  `DeploymentRuntimeConfig.spec.deploymentTemplate.spec` reuses
+  `apps/v1 DeploymentSpec` verbatim, which requires `selector`, and
+  Crossplane assigns that provider pod's real labels dynamically
+  per-revision — a hand-written `selector` isn't safely determinable
+  without deeper visibility into Crossplane's own labeling. Caught by a
+  live cluster's dry-run validation, not `kustomize build`. `restricted`
+  for this namespace is a real follow-up, not decided here.
 - The customer's chart is coupled to `provider-aws-rds`'s own CR shape.
   Its API stability becomes something core's `Provider` package pin
   governs, the same exposure CNPG's `Cluster` CR already carries.

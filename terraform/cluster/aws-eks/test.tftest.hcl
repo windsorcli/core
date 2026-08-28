@@ -637,6 +637,7 @@ run "crossplane_rds_resource_enabled" {
   variables {
     context_id           = "test"
     crossplane_resources = ["rds"]
+    isolated_subnet_ids  = ["subnet-aaaaaaaa", "subnet-bbbbbbbb", "subnet-cccccccc"]
   }
 
   assert {
@@ -650,9 +651,22 @@ run "crossplane_rds_resource_enabled" {
   }
 
   assert {
-    condition     = toset(aws_db_subnet_group.crossplane_rds[0].subnet_ids) == toset(var.private_subnet_ids)
-    error_message = "crossplane-rds DB subnet group should use the module's private subnet IDs"
+    condition     = toset(aws_db_subnet_group.crossplane_rds[0].subnet_ids) == toset(var.isolated_subnet_ids)
+    error_message = "crossplane-rds DB subnet group should use the isolated (zero-egress) subnet IDs, not private"
   }
+}
+
+# Verifies isolated_subnet_ids is required when crossplane_resources includes rds.
+run "crossplane_rds_requires_isolated_subnet_ids" {
+  command = plan
+
+  variables {
+    context_id           = "test"
+    crossplane_resources = ["rds"]
+    isolated_subnet_ids  = []
+  }
+
+  expect_failures = [var.isolated_subnet_ids]
 }
 
 # Verifies the pools path: when var.pools is non-empty, it replaces var.node_groups

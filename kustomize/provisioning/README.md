@@ -21,12 +21,17 @@ installed on top of core creates the actual `rds.aws.upbound.io/v1beta3`
 `Instance` directly — the same posture as CloudNativePG's `Cluster` CR in
 `kustomize/database`.
 
-`system-provisioning` runs at PSA `restricted` — the same level as
-`system-pki-trust`, tighter than `system-database`'s `baseline`.
-Crossplane's chart and the provider pod's own `DeploymentRuntimeConfig`
-both carry the extra `securityContext` fields (`capabilities.drop: [ALL]`,
-`seccompProfile: RuntimeDefault`) `restricted` needs beyond the chart's
-own defaults.
+`system-provisioning` runs at PSA `baseline`, matching `system-database`.
+The Crossplane chart's own `securityContext` values are hardened past the
+chart defaults (`capabilities.drop: [ALL]`, `seccompProfile:
+RuntimeDefault`) — enough to satisfy `restricted`, verified with
+`kustomize build`. The provider pod (`provider-aws-rds`, via
+`DeploymentRuntimeConfig`) isn't: `deploymentTemplate.spec` requires a
+`selector` matching pod template labels Crossplane assigns dynamically
+per revision, so a correct override isn't safely hand-writable without
+deeper visibility into Crossplane's own labeling — confirmed against a
+live cluster, not just `kustomize build`. `restricted` for this namespace
+is a real follow-up, not decided here.
 
 ## Architecture
 
