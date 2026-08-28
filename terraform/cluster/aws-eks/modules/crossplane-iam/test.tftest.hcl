@@ -59,6 +59,11 @@ run "rds_selected" {
   }
 
   assert {
+    condition     = strcontains(aws_iam_policy.this["rds"].policy, "arn:aws:iam::123456789012:role/aws-service-role/rds.amazonaws.com/AWSServiceRoleForRDS")
+    error_message = "Policy should allow creating the RDS service-linked role, required once per account before any DB instance can be created"
+  }
+
+  assert {
     condition     = strcontains(aws_iam_policy.this["rds"].policy, "\"aws:ResourceTag/windsorcli.dev/cluster\":\"cluster-test\"")
     error_message = "Policy should condition modify/delete actions on the windsorcli.dev/cluster resource tag"
   }

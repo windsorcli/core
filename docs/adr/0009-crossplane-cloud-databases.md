@@ -149,7 +149,19 @@ the instance references, not just the `db:*` ARN it creates — AWS
 authorizes the action against every resource it touches, not only the one
 being created. Found live: an `Instance` create failed with an
 `AccessDenied` naming the DB subnet group ARN specifically, not the
-instance ARN the policy already covered. The trust
+instance ARN the policy already covered.
+
+The policy also allows `iam:CreateServiceLinkedRole`, scoped to
+`AWSServiceRoleForRDS` with a condition on `iam:AWSServiceName`, matching
+[AWS's own documented policy for it](https://docs.aws.amazon.com/AmazonRDS/latest/UserGuide/UsingWithRDS.IAM.ServiceLinkedRoles.html)
+— every AWS account needs this service-linked role to exist once before
+any RDS instance can ever be created in it, and this role has no other
+IAM permissions to self-bootstrap it otherwise. Found live: `demo-db`'s
+first create attempt (once the subnet-group ARN fix above landed) failed
+with `InvalidParameterValue: ... permission to create service linked
+role` — `aws-test`'s first RDS instance in this account.
+
+The trust
 policy also carries an
 `aws:SourceAccount`/`aws:SourceArn` condition scoping it to this
 cluster's own Pod Identity Agent — a hardening step the other 7 Pod

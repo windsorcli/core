@@ -77,6 +77,18 @@ locals {
             ]
             Resource = "*"
           },
+          {
+            # One-time-per-account: RDS needs its service-linked role to
+            # exist before it can create any DB instance.
+            Effect   = "Allow"
+            Action   = "iam:CreateServiceLinkedRole"
+            Resource = "arn:aws:iam::${data.aws_caller_identity.current.account_id}:role/aws-service-role/rds.amazonaws.com/AWSServiceRoleForRDS"
+            Condition = {
+              StringLike = {
+                "iam:AWSServiceName" = "rds.amazonaws.com"
+              }
+            }
+          },
         ]
       })
     }
