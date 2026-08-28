@@ -3,3 +3,4 @@ kind: Component
 resources:
   - deployment-runtime-config.yaml
   - provider.yaml
+  - provider-family-aws.yaml

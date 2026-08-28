@@ -194,6 +194,19 @@ Workload Identity in place of Pod Identity) and isn't decided by this ADR.
 
 ## Consequences
 
+- `Provider.spec.package` is digest-pinned
+  (`provider-aws-rds:v2.7.1@sha256:...`), not just tagged — confirmed live
+  that `ProviderRevision.spec.image` propagates this reference verbatim
+  into the provider's runtime Deployment, so the digest satisfies
+  `require-image-digest` with no policy exemption needed. Found live: the
+  `Provider` resource first reported `Installed=True, Healthy=False`,
+  blocked by a Kyverno admission denial on the provider's own runtime
+  Deployment for lacking a digest. `provider-family-aws` (an automatic
+  dependency of `provider-aws-rds`) hit the same denial and isn't
+  reachable through a `Provider` CR of ours to pin directly — resolved by
+  declaring it explicitly, also digest-pinned, with
+  `skipDependencyResolution: true` on `provider-aws-rds` so Crossplane
+  doesn't auto-resolve its own unpinned copy.
 - `crossplane_rds`'s DB subnet group is the first consumer anywhere in
   this repo of `network/aws-vpc`'s `isolated_subnet_ids` output — the
   zero-egress subnet tier existed, unused, before this ADR.
