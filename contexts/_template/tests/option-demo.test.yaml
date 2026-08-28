@@ -51,7 +51,10 @@ cases:
                 - database/cloudnativepg
 
   # rds driver: demo database creates an Instance CR and depends on
-  # provisioning instead of database.
+  # provisioning instead of database. dbSubnetGroupName/kmsKeyId read the
+  # real terraform outputs directly — the demo is Windsor's own tooling,
+  # unlike a third-party chart, which has to use the documented naming
+  # convention instead (see ADR-0009 §3).
   - name: demo mode with rds driver creates demo rds instance
     values:
       platform: aws
@@ -68,6 +71,11 @@ cases:
         postgres:
           enabled: true
           driver: rds
+    terraformOutputs:
+      network:
+        db_subnet_group_name: test-rds
+      database:
+        kms_key_arn: arn:aws:kms:us-west-2:123456789012:key/abcd1234-5678-90ab-cdef-1234567890ab
     expect:
       flux:
         - name: demo
@@ -82,6 +90,8 @@ cases:
                 - database/rds
               substitutions:
                 aws_region: us-west-2
+                db_subnet_group_name: test-rds
+                kms_key_arn: arn:aws:kms:us-west-2:123456789012:key/abcd1234-5678-90ab-cdef-1234567890ab
     exclude:
       flux:
         - name: database

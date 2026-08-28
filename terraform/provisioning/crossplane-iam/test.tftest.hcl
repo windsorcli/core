@@ -9,9 +9,11 @@ mock_provider "aws" {
 }
 
 variables {
-  cluster_name = "cluster-test"
-  cluster_arn  = "arn:aws:eks:us-west-2:123456789012:cluster/cluster-test"
-  cluster_tag  = "cluster-test"
+  cluster_name         = "cluster-test"
+  cluster_arn          = "arn:aws:eks:us-west-2:123456789012:cluster/cluster-test"
+  cluster_tag          = "cluster-test"
+  db_subnet_group_name = "test-rds"
+  kms_key_arn          = "arn:aws:kms:us-west-2:123456789012:key/abcd1234-5678-90ab-cdef-1234567890ab"
 }
 
 # Verifies no roles are created with an empty resource set.
@@ -49,8 +51,8 @@ run "rds_selected" {
   }
 
   assert {
-    condition     = strcontains(aws_iam_policy.this["rds"].policy, "arn:aws:rds:*:123456789012:subgrp:cluster-test-crossplane-rds")
-    error_message = "Policy should authorize CreateDBInstance against the DB subnet group ARN it references, not just the resulting instance ARN"
+    condition     = strcontains(aws_iam_policy.this["rds"].policy, "arn:aws:rds:*:123456789012:subgrp:test-rds")
+    error_message = "Policy should authorize CreateDBInstance against the supplied DB subnet group ARN, not just the resulting instance ARN"
   }
 
   assert {
@@ -61,6 +63,16 @@ run "rds_selected" {
   assert {
     condition     = strcontains(aws_iam_policy.this["rds"].policy, "arn:aws:iam::123456789012:role/aws-service-role/rds.amazonaws.com/AWSServiceRoleForRDS")
     error_message = "Policy should allow creating the RDS service-linked role, required once per account before any DB instance can be created"
+  }
+
+  assert {
+    condition     = strcontains(aws_iam_policy.this["rds"].policy, "\"kms:DescribeKey\"") && strcontains(aws_iam_policy.this["rds"].policy, "arn:aws:kms:us-west-2:123456789012:key/abcd1234-5678-90ab-cdef-1234567890ab")
+    error_message = "Policy should allow describing the supplied KMS key"
+  }
+
+  assert {
+    condition     = strcontains(aws_iam_policy.this["rds"].policy, "\"kms:CreateGrant\"") && strcontains(aws_iam_policy.this["rds"].policy, "\"kms:GrantIsForAWSResource\":\"true\"")
+    error_message = "Policy should allow creating a grant on the supplied KMS key, scoped to grants made on RDS's own behalf"
   }
 
   assert {
@@ -88,4 +100,16 @@ run "unsupported_resource_rejected" {
   }
 
   expect_failures = [var.resources]
+}
+
+# Verifies a malformed KMS key ARN is rejected.
+run "malformed_kms_key_arn_rejected" {
+  command = plan
+
+  variables {
+    resources   = ["rds"]
+    kms_key_arn = "not-an-arn"
+  }
+
+  expect_failures = [var.kms_key_arn]
 }

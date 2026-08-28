@@ -28,7 +28,12 @@ flux:
           - "${demo.resources.static == true ? 'static' : ''}"
           - "${demo.resources.bookinfo == true ? 'bookinfo' : ''}"
         substitutions:
-          cluster_name: "${terraform_output('cluster', 'cluster_name') ?? ''}"
+          # The demo is Windsor's own tooling, so it reads the real
+          # terraform outputs directly rather than reconstructing the
+          # naming convention a third-party chart (with no Flux
+          # substitution access) has to use instead — see ADR-0009 §3.
+          db_subnet_group_name: "${terraform_output('network', 'db_subnet_group_name') ?? ''}"
+          kms_key_arn: "${terraform_output('database', 'kms_key_arn') ?? ''}"
           aws_region: "${aws.region ?? ''}"
         timeout: 10m
         interval: 5m

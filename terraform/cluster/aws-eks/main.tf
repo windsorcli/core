@@ -1011,34 +1011,6 @@ resource "aws_iam_role_policy_attachment" "cert_manager" {
 }
 
 #-----------------------------------------------------------------------------------------------------------------------
-# Crossplane IAM and DB Subnet Group
-#-----------------------------------------------------------------------------------------------------------------------
-
-# IAM role, policy, and Pod Identity association per Crossplane-managed AWS
-# resource type in var.crossplane_resources — see modules/crossplane-iam.
-module "crossplane_iam" {
-  source       = "./modules/crossplane-iam"
-  cluster_name = aws_eks_cluster.main.name
-  cluster_arn  = aws_eks_cluster.main.arn
-  cluster_tag  = local.name
-  resources    = var.crossplane_resources
-}
-
-# Subnet group Crossplane-managed Instance resources reference by name; keeps
-# subnet/VPC placement in Terraform's hands, out of Crossplane's IAM scope.
-# Isolated (zero-egress), not private (NAT-routed) — RDS doesn't need
-# outbound internet access.
-resource "aws_db_subnet_group" "crossplane_rds" {
-  count      = contains(var.crossplane_resources, "rds") ? 1 : 0
-  name       = "${local.name}-crossplane-rds"
-  subnet_ids = var.isolated_subnet_ids
-
-  tags = {
-    Name = "${local.name}-crossplane-rds"
-  }
-}
-
-#-----------------------------------------------------------------------------------------------------------------------
 # Create Add-Ons
 #-----------------------------------------------------------------------------------------------------------------------
 

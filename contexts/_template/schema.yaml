@@ -1335,6 +1335,13 @@ properties:
               - rds
             default: cloudnativepg
             description: PostgreSQL database driver
+          encryption:
+            type: object
+            properties:
+              kms_key_arn:
+                type: string
+                description: Existing AWS KMS key ARN for RDS storage encryption. Omit to let Windsor manage its own key.
+            additionalProperties: false
         additionalProperties: false
     additionalProperties: false
 

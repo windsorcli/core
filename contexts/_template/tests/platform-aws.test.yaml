@@ -544,6 +544,102 @@ cases:
               - subnet-bbb
               - subnet-ccc
 
+  # database.postgres.driver: rds wires a dedicated KMS key (database stack,
+  # manage_encryption_key defaults on) and the Crossplane IAM/Pod-Identity
+  # stack, both independent of the cluster stack itself.
+  - name: rds driver wires the database key and crossplane-iam stacks
+    values:
+      platform: aws
+      aws: *default-aws
+      gateway:
+        enabled: false
+      database:
+        postgres:
+          enabled: true
+          driver: rds
+    terraformOutputs:
+      network:
+        db_subnet_group_name: test-rds
+      cluster:
+        cluster_name: cluster-test
+        cluster_arn: arn:aws:eks:us-west-2:123456789012:cluster/cluster-test
+      database:
+        kms_key_arn: arn:aws:kms:us-west-2:123456789012:key/abcd1234-5678-90ab-cdef-1234567890ab
+    expect:
+      terraform:
+        - name: database
+          path: database/aws-rds
+          dependsOn:
+            - backend
+          inputs:
+            manage_encryption_key: true
+        - name: crossplane-iam
+          path: provisioning/crossplane-iam
+          dependsOn:
+            - network
+            - cluster
+            - database
+          inputs:
+            resources:
+              - rds
+            cluster_name: cluster-test
+            cluster_arn: arn:aws:eks:us-west-2:123456789012:cluster/cluster-test
+            db_subnet_group_name: test-rds
+            kms_key_arn: arn:aws:kms:us-west-2:123456789012:key/abcd1234-5678-90ab-cdef-1234567890ab
+
+  # ephemeral contexts skip the dedicated CMK in favor of the AWS-managed
+  # default key.
+  - name: ephemeral rds context skips the dedicated encryption key
+    values:
+      platform: aws
+      aws: *default-aws
+      ephemeral: true
+      gateway:
+        enabled: false
+      database:
+        postgres:
+          enabled: true
+          driver: rds
+    expect:
+      terraform:
+        - name: database
+          path: database/aws-rds
+          inputs:
+            manage_encryption_key: false
+
+  # database.postgres.encryption.kms_key_arn threads a caller-supplied key
+  # straight through, bypassing the dedicated CMK entirely.
+  - name: rds driver with a supplied kms_key_arn passes it through
+    values:
+      platform: aws
+      aws: *default-aws
+      gateway:
+        enabled: false
+      database:
+        postgres:
+          enabled: true
+          driver: rds
+          encryption:
+            kms_key_arn: arn:aws:kms:us-west-2:123456789012:key/abcd1234-5678-90ab-cdef-1234567890ab
+    expect:
+      terraform:
+        - name: database
+          path: database/aws-rds
+          inputs:
+            kms_key_arn: arn:aws:kms:us-west-2:123456789012:key/abcd1234-5678-90ab-cdef-1234567890ab
+
+  # database disabled (default cloudnativepg driver) renders neither stack.
+  - name: no rds driver excludes the database and crossplane-iam stacks
+    values:
+      platform: aws
+      aws: *default-aws
+      gateway:
+        enabled: false
+    exclude:
+      terraform:
+        - name: database
+        - name: crossplane-iam
+
   # AWS Load Balancer Controller is rendered on every AWS cluster — it's
   # required to get NLBs / ALBs (the in-tree CCM only creates classic ELBs).
   # The component lives at lb/install/aws-lb-controller (sibling of

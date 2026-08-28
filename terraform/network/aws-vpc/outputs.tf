@@ -22,6 +22,11 @@ output "isolated_subnet_ids" {
   value       = aws_subnet.isolated[*].id
 }
 
+output "db_subnet_group_name" {
+  description = "Name of the DB subnet group spanning the isolated subnets"
+  value       = aws_db_subnet_group.main.name
+}
+
 output "private_zone_id" {
   description = "ID of the VPC-attached private Route53 hosted zone created from var.domain_name. Null when no domain_name was supplied."
   value       = try(aws_route53_zone.main[0].zone_id, null)

@@ -1,12 +1,26 @@
 #-----------------------------------------------------------------------------------------------------------------------
-# Providers
+# Provider Configuration
 #-----------------------------------------------------------------------------------------------------------------------
 
 terraform {
+  required_version = ">= 1.12.2"
   required_providers {
     aws = {
-      source = "hashicorp/aws"
+      source  = "hashicorp/aws"
+      version = "6.58.0"
     }
+  }
+}
+
+provider "aws" {
+  default_tags {
+    tags = merge(
+      var.tags,
+      {
+        WindsorContextID = var.context_id
+        ManagedBy        = "Terraform"
+      }
+    )
   }
 }
 
@@ -40,7 +54,7 @@ locals {
             Action = "rds:CreateDBInstance"
             Resource = [
               "arn:aws:rds:*:${data.aws_caller_identity.current.account_id}:db:*",
-              "arn:aws:rds:*:${data.aws_caller_identity.current.account_id}:subgrp:${var.cluster_tag}-crossplane-rds",
+              "arn:aws:rds:*:${data.aws_caller_identity.current.account_id}:subgrp:${var.db_subnet_group_name}",
             ]
             Condition = {
               StringEquals = {
@@ -86,6 +100,23 @@ locals {
             Condition = {
               StringLike = {
                 "iam:AWSServiceName" = "rds.amazonaws.com"
+              }
+            }
+          },
+          {
+            Effect   = "Allow"
+            Action   = "kms:DescribeKey"
+            Resource = var.kms_key_arn
+          },
+          {
+            # Lets RDS create a grant on the key for storage encryption;
+            # scoped to grants made on RDS's own behalf.
+            Effect   = "Allow"
+            Action   = "kms:CreateGrant"
+            Resource = var.kms_key_arn
+            Condition = {
+              Bool = {
+                "kms:GrantIsForAWSResource" = "true"
               }
             }
           },

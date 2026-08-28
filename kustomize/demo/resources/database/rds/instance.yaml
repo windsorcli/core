@@ -15,9 +15,10 @@ spec:
     engineVersion: "16"
     instanceClass: db.t4g.micro
     allocatedStorage: 20
-    dbSubnetGroupName: ${cluster_name}-crossplane-rds
+    dbSubnetGroupName: ${db_subnet_group_name}
     username: demo
     manageMasterUserPassword: true
     storageEncrypted: true
+    kmsKeyId: ${kms_key_arn}
     publiclyAccessible: false
     skipFinalSnapshot: true

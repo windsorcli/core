@@ -62,8 +62,3 @@ output "karpenter_interruption_queue_name" {
   description = "Name of the Karpenter spot-interruption SQS queue"
   value       = try(aws_sqs_queue.karpenter[0].name, null)
 }
-
-output "crossplane_rds_db_subnet_group_name" {
-  description = "Name of the DB subnet group Crossplane-managed rds.aws.upbound.io Instance resources reference"
-  value       = try(aws_db_subnet_group.crossplane_rds[0].name, null)
-}

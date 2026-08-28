@@ -67,12 +67,6 @@ variable "cert_manager_hosted_zone_ids" {
   default     = []
 }
 
-variable "crossplane_resources" {
-  description = "Crossplane-managed AWS resource types to provision IAM, Pod Identity, and any supporting infra for. Supported: rds."
-  type        = set(string)
-  default     = []
-}
-
 variable "endpoint_public_access" {
   description = "Whether to enable public access to the EKS cluster."
   type        = bool
@@ -118,16 +112,6 @@ variable "private_subnet_ids" {
   validation {
     condition     = try(length(var.private_subnet_ids), 0) > 0
     error_message = "private_subnet_ids is required and must be non-empty; pipe network/aws-vpc's private_subnet_ids output, e.g. inputs.private_subnet_ids = terraform_output('network', 'private_subnet_ids') in the platform-aws facet."
-  }
-}
-
-variable "isolated_subnet_ids" {
-  description = "Isolated (zero-egress) subnet IDs for the Crossplane RDS DB subnet group. Pipe network/aws-vpc's isolated_subnet_ids output. Required when crossplane_resources includes rds."
-  type        = list(string)
-  default     = []
-  validation {
-    condition     = !contains(var.crossplane_resources, "rds") || length(var.isolated_subnet_ids) > 0
-    error_message = "isolated_subnet_ids is required and must be non-empty when crossplane_resources includes rds; pipe network/aws-vpc's isolated_subnet_ids output, e.g. inputs.isolated_subnet_ids = terraform_output('network', 'isolated_subnet_ids') in the platform-aws facet."
   }
 }
 

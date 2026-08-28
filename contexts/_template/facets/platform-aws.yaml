@@ -58,6 +58,8 @@ crds:
 # =============================================================================
 # Dependency chain:
 #   backend (S3) → network (VPC) → cluster (EKS) → cluster-additions → cni? → gitops
+#   database (KMS key) and crossplane-iam (IAM/Pod Identity) branch off this
+#   chain when database.postgres.driver == 'rds' — see their own entries below.
 # Reverse-order teardown lets dependent stacks empty their state before the
 # backend bucket is removed. Cilium (optional) bootstraps before Flux.
 terraform:
@@ -90,6 +92,20 @@ terraform:
     inputs:
       domain_name: ${dns.public_domain}
 
+  # KMS key for RDS storage encryption, shared across every database in this
+  # context regardless of how many exist. Independent of network/cluster —
+  # encryption is a property of the data, not the engine that creates it.
+  - name: database
+    path: database/aws-rds
+    when: "database.postgres.enabled == true && database.postgres.driver == 'rds'"
+    dependsOn:
+      - backend
+    inputs:
+      # Dedicated CMK unless the context is ephemeral (CI, throwaway test
+      # contexts), where the AWS-managed default key is cheaper and disposable.
+      manage_encryption_key: ${!(ephemeral ?? false)}
+      kms_key_arn: "${database.postgres.encryption.kms_key_arn ?? ''}"
+
   # EKS cluster. cert-manager IAM role + Pod Identity only when ACME is on
   # (public_domain set); cert_manager_hosted_zone_ids scopes Route53 writes to
   # just the dns-zone, empty when ACME is off.
@@ -109,8 +125,6 @@ terraform:
       manage_log_group: ${!(ephemeral ?? false)}
       create_cert_manager_role: "${(dns.public_domain ?? '') != ''}"
       cert_manager_hosted_zone_ids: "${(dns.public_domain ?? '') != '' ? [terraform_output('dns-zone', 'zone_id')] : []}"
-      crossplane_resources: "${database.postgres.enabled == true && database.postgres.driver == 'rds' ? ['rds'] : []}"
-      isolated_subnet_ids: "${database.postgres.enabled == true && database.postgres.driver == 'rds' ? terraform_output('network', 'isolated_subnet_ids') : []}"
       # Portable node-pool input. Default: fixed system pool + autoscaling
       # general pool (matches AKS); the aws-eks module fills in class-conditional
       # autoscaling and the system taint. Declaring cluster.pools replaces this.
@@ -131,6 +145,26 @@ terraform:
     dependsOn:
       - cluster
     destroy: false
+
+  # IAM role, policy, and Pod Identity association for Crossplane's AWS
+  # provider pods — genuinely engine-specific (a Terraform-native database
+  # mode wouldn't need any of this, no in-cluster pod calling AWS on its
+  # behalf), unlike the KMS key above.
+  - name: crossplane-iam
+    path: provisioning/crossplane-iam
+    when: "database.postgres.enabled == true && database.postgres.driver == 'rds'"
+    dependsOn:
+      - network
+      - cluster
+      - database
+    inputs:
+      cluster_name: ${terraform_output('cluster', 'cluster_name')}
+      cluster_arn: ${terraform_output('cluster', 'cluster_arn')}
+      cluster_tag: ${terraform_output('cluster', 'cluster_name')}
+      db_subnet_group_name: ${terraform_output('network', 'db_subnet_group_name')}
+      kms_key_arn: ${terraform_output('database', 'kms_key_arn')}
+      resources:
+        - rds
 
   # Optional Cilium bootstrap (full BYO-CNI). EKS uses chart-default cgroup
   # auto-mount, unlike the Talos path, so no privileged/cgroup overrides here.

@@ -111,45 +111,73 @@ closing the CNPG analogy exactly: the chart supplies only the database
 definition. The customer's chart cannot safely create the `ProviderConfig`
 itself, since it binds to a privileged IAM role.
 
-### 3. IAM lives in `cluster/aws-eks/modules/crossplane-iam`
+### 3. Support infra splits three ways, by what actually varies together
 
 Every existing "a pod in this cluster needs an AWS IAM role via Pod
 Identity" case — cert-manager, aws-lb-controller, cluster-autoscaler,
 Karpenter's substrate, vpc-cni, ebs-csi, efs-csi — is wired directly in
 [main.tf](../../terraform/cluster/aws-eks/main.tf), one flat hardcoded
-block each, gated behind its own boolean var. Crossplane's IAM doesn't
-follow that shape: it's a nested submodule,
-[modules/crossplane-iam](../../terraform/cluster/aws-eks/modules/crossplane-iam),
-`for_each` over a `crossplane_resources` set (currently `["rds"]` when
-`database.postgres.driver == 'rds'`), matching the nesting pattern
-[modules/machine](../../terraform/cluster/talos/modules/machine) already
-uses under `cluster/talos/`. The module carries an internal catalog
-mapping each supported resource type to its IAM policy, ServiceAccount,
-and namespace — a second Crossplane-managed AWS resource type (S3, say)
-means one new catalog entry, not a copy-pasted block in `main.tf`. Still
-scoped under `cluster/aws-eks/` (§ Alternatives), not a new top-level
-Terraform layer: a Pod Identity association is inherently
-EKS-cluster-scoped, and none of the 9 existing layers (`backend`,
-`network`, `cluster`, `cni`, `compute`, `dns`, `gitops`, `pki`,
-`workstation`) are addon-scoped the way a `database` layer would be.
+block each, gated behind its own boolean var. RDS support infra doesn't
+belong there at all: none of it describes the EKS cluster, and unlike
+those cases it's a capability a *customer's chart* opts into, not one of
+core's own add-ons. It splits into three pieces, each living where its
+own reason to change actually points:
 
-For `rds`, the module creates `aws_iam_role`, `aws_iam_policy`, and
-`aws_iam_role_policy_attachment`, plus an `aws_eks_pod_identity_association`
-— `cluster/aws-eks/main.tf` itself keeps only the `aws_db_subnet_group`
-Crossplane-managed `Instance` resources reference by name (not an IAM
-concern, out of the submodule's scope), spanning `isolated_subnet_ids`
-(zero-egress, no NAT route), not `private_subnet_ids` (NAT-routed, what
-EKS nodes use) — an RDS instance has no need for outbound internet access.
-The policy is scoped to RDS instance lifecycle actions (`CreateDBInstance`,
-`ModifyDBInstance`, `DeleteDBInstance`, tagging, snapshotting) within that
-subnet group and the cluster's existing VPC — no VPC, subnet, or
-security-group creation rights, out of Crossplane's reach.
-`CreateDBInstance` also needs an explicit `Allow` on the `subgrp:*` ARN
-the instance references, not just the `db:*` ARN it creates — AWS
-authorizes the action against every resource it touches, not only the one
-being created. Found live: an `Instance` create failed with an
-`AccessDenied` naming the DB subnet group ARN specifically, not the
-instance ARN the policy already covered.
+**`network/aws-vpc`** gains `aws_db_subnet_group.main`, spanning the
+isolated (zero-egress, no NAT route) subnets — created unconditionally,
+the same way the isolated subnet tier itself already is, regardless of
+whether `database.postgres.driver` is even `rds`. It's the most neutral
+of the three: a pure networking construct, naturally shared across every
+database in a context rather than created per-instance, with no engine or
+encryption opinion of its own.
+
+**`terraform/database/aws-rds`**, a new top-level layer, owns the KMS key
+RDS storage encryption uses. Named for the capability, not the mechanism
+— encryption is a property of the data, independent of whether Crossplane
+or (someday) Terraform itself creates the actual RDS instance. A
+Terraform-native database mode, decided at blueprint-compose time instead
+of by a customer's chart, is a real future shape and a fundamentally
+different mechanism from this ADR's — but it would *extend* this same
+layer (add the instance resource, still keyed by the same encryption
+story) rather than need a new one, so the name was never reserved against
+a collision, it just never described an engine to begin with.
+
+**`terraform/provisioning/crossplane-iam`**, also a new top-level layer,
+owns the IAM role, policy, and Pod Identity association Crossplane's
+`provider-aws-rds` pod needs. Unlike the KMS key, this genuinely *is*
+engine-specific: Pod Identity exists only because a Crossplane provider
+pod needs credentials to call AWS on the cluster's behalf, a need no
+Terraform-native mode would share (`windsor apply`'s own credentials
+would create that instance directly, no in-cluster pod involved). Named
+`provisioning` to match `kustomize/provisioning/`'s own top-level name for
+the identical reason — this is Crossplane's own wiring, not a database
+concept. It keeps the `for_each`-over-a-`resources`-set catalog shape a
+single, un-split module used to have: a second Crossplane-managed AWS
+resource type (S3, say) means one new catalog entry here, a genuinely
+repeated shape IAM policies share and KMS keys don't.
+
+Both new layers are top-level, not nested under `cluster/aws-eks/` the
+way an earlier version of this design put them — matching precedent this
+ADR previously undersold. `pki/ca` and `dns/zone/route53` are both already
+addon-scoped top-level Terraform layers, gated by their own `when:` the
+same way `database`/`crossplane-iam` are gated on
+`database.postgres.driver == 'rds'`; a Pod Identity association being
+EKS-cluster-scoped was never actually a reason it had to live *inside*
+the cluster module, only that it needs the cluster's outputs — the same
+relationship `dns-zone`'s `zone_id` already has to `cluster`, just with
+the dependency direction reversed (`crossplane-iam` depends on `cluster`
+and `database`'s outputs, not the other way around).
+
+`crossplane-iam`'s policy is scoped to RDS instance lifecycle actions
+(`CreateDBInstance`, `ModifyDBInstance`, `DeleteDBInstance`, tagging,
+snapshotting) within the shared subnet group and the cluster's existing
+VPC — no VPC, subnet, or security-group creation rights, out of
+Crossplane's reach. `CreateDBInstance` also needs an explicit `Allow` on
+the `subgrp:*` ARN the instance references, not just the `db:*` ARN it
+creates — AWS authorizes the action against every resource it touches,
+not only the one being created. Found live: an `Instance` create failed
+with an `AccessDenied` naming the DB subnet group ARN specifically, not
+the instance ARN the policy already covered.
 
 The policy also allows `iam:CreateServiceLinkedRole`, scoped to
 `AWSServiceRoleForRDS` with a condition on `iam:AWSServiceName`, matching
@@ -161,11 +189,68 @@ first create attempt (once the subnet-group ARN fix above landed) failed
 with `InvalidParameterValue: ... permission to create service linked
 role` — `aws-test`'s first RDS instance in this account.
 
-The trust
-policy also carries an
+The policy also allows `kms:DescribeKey` and `kms:CreateGrant` (the
+latter conditioned on `kms:GrantIsForAWSResource`) against whichever KMS
+key ARN `database/aws-rds` resolves — even an AWS-managed key needs the
+calling role's own IAM grant to use it, since its key policy delegates
+back to identity-based policy rather than allowing every principal
+outright. Found live: `demo-db`'s create attempt (once the
+service-linked-role fix above landed) failed with
+`KMSKeyNotAccessibleFault` naming the key `[null]` — leaving `kmsKeyId`
+unset on the `Instance` CR and relying on `storageEncrypted: true` to
+imply the default key doesn't satisfy this IAM policy's scoped grant, even
+though AWS resolves the same default key either way.
+
+`database/aws-rds` resolves that ARN with the same precedence
+`secrets_encryption_kms_key_id`/`ebs_volume_kms_key_id` already use in
+`cluster/aws-eks`: an explicit `kms_key_arn`
+(`database.postgres.encryption.kms_key_arn` in schema — BYOK, for a
+key the customer already manages) wins if set; otherwise a dedicated
+`aws_kms_key.rds` is created, one per context, shared across every
+database rather than one per resource or per instance — AWS's own
+guidance is to key per use-case, not key per resource, and
+rotation/revocation/audit trail are exactly what the AWS-managed default
+key can't give a customer. `ephemeral == true` (CI, throwaway test
+contexts) skips the dedicated key in favor of the AWS-managed default
+(`alias/aws/rds`, looked up via `data.aws_kms_key.rds_default`), the same
+posture `manage_log_group` already uses for the control-plane log group —
+a short-lived context's data has no lifetime for a CMK's rotation/audit
+story to matter for.
+
+**Naming convention is the documented contract for a third-party chart,
+not for the demo.** `dbSubnetGroupName` and `kmsKeyId` both have to be
+values a *third-party* chart — installed separately from core's own
+blueprint — can supply itself. That chart has no access to Flux's
+`postBuild.substitute`; that mechanism only resolves inside Windsor's own
+blueprint-compiled Kustomizations. So the documented contract is a
+deterministic name, not a `terraform_output` pass-through: the subnet
+group is always named `<context_id>-rds`, and the dedicated CMK (the
+self-managed path only — AWS-managed keys can't take a custom alias, per
+[AWS's own docs](https://docs.aws.amazon.com/kms/latest/developerguide/alias-authorization.html))
+gets a matching `alias/<context_id>-rds` alias. The ephemeral path
+references `alias/aws/rds` directly — already a fixed AWS name, not one
+Windsor invents. BYOK isn't coverable by an alias at all: aliasing a key
+the operator owns would need `kms:CreateAlias`/`kms:DeleteAlias`
+permission on it, which core has no business assuming — the operator who
+set `database.postgres.encryption.kms_key_arn` already knows that ARN and
+hands it to their chart some other way.
+
+The demo itself doesn't use this convention — it's Windsor's own tooling,
+with real Flux substitution access a third-party chart lacks, so it reads
+`terraform_output('network', 'db_subnet_group_name')` and
+`terraform_output('database', 'kms_key_arn')` directly. That's strictly
+better for the demo specifically: no risk of drifting from whatever
+`network`/`database` actually name things if that logic ever changes, and
+it covers BYOK correctly too, since the module's own precedence already
+resolves to the right ARN regardless of path — the alias convention above
+can't. The naming-convention paragraph above stays the reference for
+what a real chart has to do; the demo simply isn't bound by the same
+constraint that makes it necessary.
+
+`crossplane-iam`'s trust policy also carries an
 `aws:SourceAccount`/`aws:SourceArn` condition scoping it to this
 cluster's own Pod Identity Agent — a hardening step the other 7 Pod
-Identity roles in `main.tf` don't have yet
+Identity roles in `cluster/aws-eks/main.tf` don't have yet
 ([core#2584](https://github.com/windsorcli/core/issues/2584)).
 
 An RDS ARN can't name an instance that doesn't exist yet, so the `Resource`
@@ -225,9 +310,13 @@ Workload Identity in place of Pod Identity) and isn't decided by this ADR.
   declaring it explicitly, also digest-pinned, with
   `skipDependencyResolution: true` on `provider-aws-rds` so Crossplane
   doesn't auto-resolve its own unpinned copy.
-- `crossplane_rds`'s DB subnet group is the first consumer anywhere in
-  this repo of `network/aws-vpc`'s `isolated_subnet_ids` output — the
-  zero-egress subnet tier existed, unused, before this ADR.
+- `network/aws-vpc`'s DB subnet group is the first real consumer of the
+  isolated (zero-egress) subnet tier — it existed, unused, before this
+  ADR. Created unconditionally alongside the subnets themselves, on every
+  AWS context regardless of `database.postgres.driver`, the same way the
+  subnets already are — not gated the way the KMS key and IAM/Pod-Identity
+  wiring are, since it costs nothing idle and a subnet group with no
+  databases pointed at it is inert.
 - `system-provisioning` stays at PSA `baseline`, matching `system-database`
   — `restricted` (which `system-pki-trust` proves this repo does adopt
   per-namespace when the workload supports it) was tried and reverted.
@@ -252,20 +341,28 @@ Workload Identity in place of Pod Identity) and isn't decided by this ADR.
   same install tier and adds its own `install/crossplane/<provider>` +
   `resources/crossplane/<provider>` pair alongside `aws-rds` — the domain
   is already structured for that, it just isn't built yet.
-- Crossplane's IAM is a submodule, `cluster/aws-eks/modules/crossplane-iam`
-  — `for_each` over a `crossplane_resources` set, with an internal
-  per-resource-type catalog (policy document, ServiceAccount, namespace).
-  Adding a second Crossplane-managed AWS resource type (e.g. S3) means one
-  new catalog entry and one new allowed value in `crossplane_resources`,
-  not a copy-pasted IAM block — unlike every *other* addon's Pod Identity
-  role in `cluster/aws-eks/main.tf` (cert-manager, aws-lb-controller,
-  cluster-autoscaler, Karpenter), which stay flat, one block each, since
-  none of those are a family of similar resources expected to grow the way
-  Crossplane's is. `crossplane-iam`'s trust policy also carries an
-  `aws:SourceAccount`/`aws:SourceArn` condition scoping it to this
-  cluster's Pod Identity Agent specifically — the other Pod Identity roles
-  in this file don't have that yet ([core#2584](https://github.com/windsorcli/core/issues/2584)
-  tracks bringing them in line).
+- `crossplane-iam`'s catalog stays a plain `for_each` over its own
+  `resources` set even after moving to a top-level layer — unlike every
+  *other* addon's Pod Identity role in `cluster/aws-eks/main.tf`
+  (cert-manager, aws-lb-controller, cluster-autoscaler, Karpenter), which
+  stay flat, one block each, since none of those are a family of similar
+  resources expected to grow the way Crossplane's provider pods are. The
+  `database/aws-rds` KMS key, by contrast, dropped the equivalent
+  catalog/`for_each` indirection entirely once it moved out — it's one
+  key, not a family, so the abstraction wasn't earning its keep there,
+  only for the IAM piece.
+- This split moved five resources that already existed live in
+  `aws-test`'s `cluster` state (the IAM role/policy/attachment, the Pod
+  Identity association, the DB subnet group) into two different state
+  files. `moved {}` blocks only relocate addresses within one root
+  module's state; across separate Terraform states, `windsor plan` shows
+  these as destroy-then-create rather than an in-place move. Safe here
+  because none of the five carry a lifecycle of their own and the
+  dedicated CMK this ADR's earlier revision added had never actually been
+  applied — nothing was encrypted under a key a destroy-and-recreate would
+  orphan. That won't stay true forever: once a real Crossplane-managed
+  `Instance` is encrypted under a key this repo manages, a restructuring
+  like this one needs real state surgery first, not a plan-and-apply.
 - Enabling `driver: rds` with no chart installed does nothing observable,
   same as `external_secrets` alone: the `ProviderConfig` exists, nothing
   references it yet.
@@ -316,14 +413,17 @@ CRDs (§2) removed the actual race that motivated keeping `Provider` out of
 `install:`, so it moved there instead, leaving `resources:` with exactly
 the one CR (`ProviderConfig`) whose CRD genuinely isn't available yet.
 
-**A new top-level Terraform layer for the Crossplane IAM substrate**
-(e.g. `terraform/database/`). Rejected: no existing layer is addon-scoped
-— the 9 layers (`backend`, `network`, `cluster`, `cni`, `compute`, `dns`,
-`gitops`, `pki`, `workstation`) are horizontal infra concerns, and a Pod
-Identity association is inherently an EKS-cluster-scoped object. A nested
-submodule under `cluster/aws-eks/` (§3, `modules/crossplane-iam`) is the
-accepted answer instead — matching `cluster/talos/modules/machine`'s own
-shape, not inventing a new top-level layer.
+**A nested submodule under `cluster/aws-eks/modules/`, not a top-level
+layer.** This ADR's first version put all of RDS's support infra —
+IAM/Pod-Identity, the KMS key, the DB subnet group — in
+`cluster/aws-eks/modules/crossplane-iam` and `main.tf` directly, on the
+reasoning that no existing layer was addon-scoped and a Pod Identity
+association is inherently EKS-cluster-scoped. Both turned out wrong on
+inspection: `pki/ca` and `dns/zone/route53` already are addon-scoped
+top-level layers, and being EKS-cluster-scoped only meant Pod Identity
+needed the cluster's *outputs*, not that it had to live inside the
+cluster's own module — the same relationship `dns-zone` already has to
+`cluster`. Superseded by §3's three-way split once that was clear.
 
 **Every Pod Identity role in `cluster/aws-eks/main.tf` stays a flat,
 individually-hardcoded block, including Crossplane's.** Matches the
@@ -344,10 +444,10 @@ usual bar of three proven instantiations.
   consumer-creates-the-CR precedent this ADR follows.
 - [main.tf](../../terraform/cluster/aws-eks/main.tf) (`aws_iam_role.ebs_csi`,
   `efs_csi`, `karpenter_controller`) — the EKS Pod Identity role pattern
-  this ADR's IAM wiring follows, and the precedent for keeping addon IAM
-  colocated with the cluster module rather than split into a new layer.
-- [modules/machine](../../terraform/cluster/talos/modules/machine) — the
-  nested-submodule precedent `modules/crossplane-iam` follows.
+  `crossplane-iam` follows.
+- [pki/ca](../../terraform/pki/ca), [dns/zone/route53](../../terraform/dns/zone/route53)
+  — the addon-scoped, top-level-Terraform-layer precedent `database/aws-rds`
+  and `provisioning/crossplane-iam` both follow.
 - [ADR-0004](0004-external-secrets-operator.md) — the other
   install-only-controller precedent in this sequence.
 - `kustomize/crds/sources.yaml` — the `crossplane` vendor entry and the
