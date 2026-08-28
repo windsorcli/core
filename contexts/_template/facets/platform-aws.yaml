@@ -109,6 +109,7 @@ terraform:
       manage_log_group: ${!(ephemeral ?? false)}
       create_cert_manager_role: "${(dns.public_domain ?? '') != ''}"
       cert_manager_hosted_zone_ids: "${(dns.public_domain ?? '') != '' ? [terraform_output('dns-zone', 'zone_id')] : []}"
+      create_openbao_kms_role: "${secrets_store.enabled == true && (secrets_store.driver ?? 'openbao') == 'openbao'}"
       # Portable node-pool input. Default: fixed system pool + autoscaling
       # general pool (matches AKS); the aws-eks module fills in class-conditional
       # autoscaling and the system taint. Declaring cluster.pools replaces this.
@@ -244,6 +245,19 @@ flux:
       interval: 5m
       substitutions:
         single_storage_type: ${cluster.storage.single_storage_type ?? "gp3"}
+
+  # OpenBao auto-unseal — layers a seal "awskms" stanza onto the base
+  # standalone.config via a full-config-replace patch (Kustomize can't
+  # append into a scalar string field). IAM wired by the cluster module
+  # (create_openbao_kms_role, Pod Identity in system-secrets-store).
+  - name: secrets
+    when: "secrets_store.enabled == true && (secrets_store.driver ?? 'openbao') == 'openbao'"
+    install:
+      components:
+        - openbao/aws-kms-unseal
+      substitutions:
+        aws_region: "${aws.region ?? ''}"
+        openbao_kms_key_id: "${terraform_output('cluster', 'openbao_kms_key_id') ?? ''}"
 
   # DNS — external-dns + Route53 record automation. Anchored on the shared `dns`
   # Kustomization so it composes with addon-private-dns. external-dns writes

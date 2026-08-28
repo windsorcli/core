@@ -54,12 +54,14 @@ No modules.
 | [aws_eks_pod_identity_association.cluster_autoscaler](https://registry.terraform.io/providers/hashicorp/aws/6.58.0/docs/resources/eks_pod_identity_association) | resource |
 | [aws_eks_pod_identity_association.external_dns](https://registry.terraform.io/providers/hashicorp/aws/6.58.0/docs/resources/eks_pod_identity_association) | resource |
 | [aws_eks_pod_identity_association.karpenter](https://registry.terraform.io/providers/hashicorp/aws/6.58.0/docs/resources/eks_pod_identity_association) | resource |
+| [aws_eks_pod_identity_association.openbao](https://registry.terraform.io/providers/hashicorp/aws/6.58.0/docs/resources/eks_pod_identity_association) | resource |
 | [aws_iam_instance_profile.karpenter_node](https://registry.terraform.io/providers/hashicorp/aws/6.58.0/docs/resources/iam_instance_profile) | resource |
 | [aws_iam_policy.aws_lb_controller](https://registry.terraform.io/providers/hashicorp/aws/6.58.0/docs/resources/iam_policy) | resource |
 | [aws_iam_policy.cert_manager](https://registry.terraform.io/providers/hashicorp/aws/6.58.0/docs/resources/iam_policy) | resource |
 | [aws_iam_policy.cluster_autoscaler](https://registry.terraform.io/providers/hashicorp/aws/6.58.0/docs/resources/iam_policy) | resource |
 | [aws_iam_policy.external_dns](https://registry.terraform.io/providers/hashicorp/aws/6.58.0/docs/resources/iam_policy) | resource |
 | [aws_iam_policy.karpenter_controller](https://registry.terraform.io/providers/hashicorp/aws/6.58.0/docs/resources/iam_policy) | resource |
+| [aws_iam_policy.openbao](https://registry.terraform.io/providers/hashicorp/aws/6.58.0/docs/resources/iam_policy) | resource |
 | [aws_iam_policy.pod_identity_agent](https://registry.terraform.io/providers/hashicorp/aws/6.58.0/docs/resources/iam_policy) | resource |
 | [aws_iam_role.aws_lb_controller](https://registry.terraform.io/providers/hashicorp/aws/6.58.0/docs/resources/iam_role) | resource |
 | [aws_iam_role.cert_manager](https://registry.terraform.io/providers/hashicorp/aws/6.58.0/docs/resources/iam_role) | resource |
@@ -72,6 +74,7 @@ No modules.
 | [aws_iam_role.karpenter_controller](https://registry.terraform.io/providers/hashicorp/aws/6.58.0/docs/resources/iam_role) | resource |
 | [aws_iam_role.karpenter_node](https://registry.terraform.io/providers/hashicorp/aws/6.58.0/docs/resources/iam_role) | resource |
 | [aws_iam_role.node_group](https://registry.terraform.io/providers/hashicorp/aws/6.58.0/docs/resources/iam_role) | resource |
+| [aws_iam_role.openbao](https://registry.terraform.io/providers/hashicorp/aws/6.58.0/docs/resources/iam_role) | resource |
 | [aws_iam_role.pod_identity_agent](https://registry.terraform.io/providers/hashicorp/aws/6.58.0/docs/resources/iam_role) | resource |
 | [aws_iam_role.vpc_cni](https://registry.terraform.io/providers/hashicorp/aws/6.58.0/docs/resources/iam_role) | resource |
 | [aws_iam_role_policy_attachment.aws_lb_controller](https://registry.terraform.io/providers/hashicorp/aws/6.58.0/docs/resources/iam_role_policy_attachment) | resource |
@@ -88,12 +91,15 @@ No modules.
 | [aws_iam_role_policy_attachment.node_group_AmazonEC2ContainerRegistryReadOnly](https://registry.terraform.io/providers/hashicorp/aws/6.58.0/docs/resources/iam_role_policy_attachment) | resource |
 | [aws_iam_role_policy_attachment.node_group_AmazonEKSWorkerNodePolicy](https://registry.terraform.io/providers/hashicorp/aws/6.58.0/docs/resources/iam_role_policy_attachment) | resource |
 | [aws_iam_role_policy_attachment.node_group_AmazonEKS_CNI_Policy](https://registry.terraform.io/providers/hashicorp/aws/6.58.0/docs/resources/iam_role_policy_attachment) | resource |
+| [aws_iam_role_policy_attachment.openbao](https://registry.terraform.io/providers/hashicorp/aws/6.58.0/docs/resources/iam_role_policy_attachment) | resource |
 | [aws_iam_role_policy_attachment.pod_identity_agent](https://registry.terraform.io/providers/hashicorp/aws/6.58.0/docs/resources/iam_role_policy_attachment) | resource |
 | [aws_iam_role_policy_attachment.vpc_cni](https://registry.terraform.io/providers/hashicorp/aws/6.58.0/docs/resources/iam_role_policy_attachment) | resource |
 | [aws_kms_alias.ebs_encryption_key](https://registry.terraform.io/providers/hashicorp/aws/6.58.0/docs/resources/kms_alias) | resource |
 | [aws_kms_alias.eks_encryption_key](https://registry.terraform.io/providers/hashicorp/aws/6.58.0/docs/resources/kms_alias) | resource |
+| [aws_kms_alias.openbao_unseal](https://registry.terraform.io/providers/hashicorp/aws/6.58.0/docs/resources/kms_alias) | resource |
 | [aws_kms_key.ebs_encryption_key](https://registry.terraform.io/providers/hashicorp/aws/6.58.0/docs/resources/kms_key) | resource |
 | [aws_kms_key.eks_encryption_key](https://registry.terraform.io/providers/hashicorp/aws/6.58.0/docs/resources/kms_key) | resource |
+| [aws_kms_key.openbao_unseal](https://registry.terraform.io/providers/hashicorp/aws/6.58.0/docs/resources/kms_key) | resource |
 | [aws_launch_template.node_group](https://registry.terraform.io/providers/hashicorp/aws/6.58.0/docs/resources/launch_template) | resource |
 | [aws_security_group.cluster_api_access](https://registry.terraform.io/providers/hashicorp/aws/6.58.0/docs/resources/security_group) | resource |
 | [aws_sqs_queue.karpenter](https://registry.terraform.io/providers/hashicorp/aws/6.58.0/docs/resources/sqs_queue) | resource |
@@ -120,6 +126,7 @@ No modules.
 | <a name="input_create_cert_manager_role"></a> [create\_cert\_manager\_role](#input\_create\_cert\_manager\_role) | Whether to create the IAM role, policy, and Pod Identity association for cert-manager's Route53 ACME DNS-01 solver. Enable when cert-manager will issue ACME certificates against a Route53 hosted zone in this account. | `bool` | `false` | no |
 | <a name="input_create_cluster_autoscaler_role"></a> [create\_cluster\_autoscaler\_role](#input\_create\_cluster\_autoscaler\_role) | Whether to create the IAM role, policy, and Pod Identity association for the Kubernetes cluster-autoscaler, plus the ASG auto-discovery tags. Default true; set false to bound node groups without deploying the autoscaler. | `bool` | `true` | no |
 | <a name="input_create_external_dns_role"></a> [create\_external\_dns\_role](#input\_create\_external\_dns\_role) | Whether to create IAM role and policy for external-dns. Set to true if external-dns will be used in the cluster, even if not installed as an EKS addon. | `bool` | `true` | no |
+| <a name="input_create_openbao_kms_role"></a> [create\_openbao\_kms\_role](#input\_create\_openbao\_kms\_role) | Whether to create a KMS key and the IAM role, policy, and Pod Identity association for OpenBao's AWS KMS auto-unseal. Enable when the secrets\_store addon runs OpenBao with the openbao driver. | `bool` | `false` | no |
 | <a name="input_ebs_volume_kms_key_id"></a> [ebs\_volume\_kms\_key\_id](#input\_ebs\_volume\_kms\_key\_id) | KMS key ARN or ID to use for EBS volume encryption in node group launch templates. ARN is preferred for cross-account scenarios. If enable\_ebs\_encryption is true and this is null, a cluster-specific key is created. | `string` | `null` | no |
 | <a name="input_enable_cloudwatch_logs"></a> [enable\_cloudwatch\_logs](#input\_enable\_cloudwatch\_logs) | Whether the cluster emits control plane logs to CloudWatch. | `bool` | `true` | no |
 | <a name="input_enable_ebs_encryption"></a> [enable\_ebs\_encryption](#input\_enable\_ebs\_encryption) | Whether to enable EBS volume encryption for node group instances. If true and ebs\_volume\_kms\_key\_id is null, a cluster-specific KMS key will be created. | `bool` | `true` | no |
@@ -157,4 +164,5 @@ No modules.
 | <a name="output_karpenter_node_instance_profile_name"></a> [karpenter\_node\_instance\_profile\_name](#output\_karpenter\_node\_instance\_profile\_name) | Name of the instance profile the EC2NodeClass attaches to Karpenter nodes |
 | <a name="output_karpenter_node_role_name"></a> [karpenter\_node\_role\_name](#output\_karpenter\_node\_role\_name) | Name of the IAM role for Karpenter-provisioned nodes |
 | <a name="output_kubeconfig_certificate_authority_data"></a> [kubeconfig\_certificate\_authority\_data](#output\_kubeconfig\_certificate\_authority\_data) | The base64 encoded certificate data required to communicate with the cluster. |
+| <a name="output_openbao_kms_key_id"></a> [openbao\_kms\_key\_id](#output\_openbao\_kms\_key\_id) | ID of the KMS key for OpenBao's AWS KMS auto-unseal |
 <!-- END_TF_DOCS -->

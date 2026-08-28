@@ -767,3 +767,87 @@ resource "azurerm_federated_identity_credential" "external_dns" {
   user_assigned_identity_id = azurerm_user_assigned_identity.external_dns[0].id
   subject                   = "system:serviceaccount:system-dns:external-dns"
 }
+
+#-----------------------------------------------------------------------------------------------------------------------
+# Workload Identity for OpenBao (Azure Key Vault auto-unseal)
+#
+# Same Workload Identity trio as cert-manager/external-dns, scoped to a
+# dedicated Key Vault rather than a DNS zone. RBAC-authorization vault
+# (enable_rbac_authorization = true) rather than the access-policy model
+# the disk-encryption key_vault above uses, so the openbao identity and the
+# Terraform caller both get scoped data-plane roles via azurerm_role_assignment
+# instead of vault-wide access policies.
+#
+# Off by default — only provisioned when the secrets_store addon runs
+# OpenBao with the openbao driver.
+#-----------------------------------------------------------------------------------------------------------------------
+
+resource "azurerm_key_vault" "openbao" {
+  count                         = var.create_openbao_identity ? 1 : 0
+  name                          = "${var.name}-openbao-${random_string.key.result}"
+  location                      = azurerm_resource_group.aks.location
+  resource_group_name           = azurerm_resource_group.aks.name
+  tenant_id                     = data.azurerm_client_config.current.tenant_id
+  sku_name                      = "standard"
+  rbac_authorization_enabled    = true
+  purge_protection_enabled      = true
+  soft_delete_retention_days    = var.soft_delete_retention_days
+  public_network_access_enabled = var.public_network_access_enabled
+
+  network_acls {
+    default_action = var.network_acls_default_action
+    bypass         = "AzureServices"
+  }
+
+  tags = merge({
+    Name = "${var.name}-openbao-${random_string.key.result}"
+  }, local.tags)
+}
+
+resource "azurerm_role_assignment" "openbao_key_vault_officer" {
+  count                = var.create_openbao_identity ? 1 : 0
+  scope                = azurerm_key_vault.openbao[0].id
+  role_definition_name = "Key Vault Crypto Officer"
+  principal_id         = data.azurerm_client_config.current.object_id
+}
+
+resource "azurerm_key_vault_key" "openbao_unseal" {
+  count        = var.create_openbao_identity ? 1 : 0
+  name         = "${local.cluster_name}-openbao-unseal"
+  key_vault_id = azurerm_key_vault.openbao[0].id
+  key_type     = "RSA"
+  key_size     = 2048
+
+  key_opts = [
+    "unwrapKey",
+    "wrapKey",
+  ]
+
+  depends_on = [
+    azurerm_role_assignment.openbao_key_vault_officer
+  ]
+}
+
+resource "azurerm_user_assigned_identity" "openbao" {
+  count               = var.create_openbao_identity ? 1 : 0
+  name                = "${local.cluster_name}-openbao"
+  resource_group_name = azurerm_resource_group.aks.name
+  location            = azurerm_resource_group.aks.location
+  tags                = local.tags
+}
+
+resource "azurerm_role_assignment" "openbao_key_vault_user" {
+  count                = var.create_openbao_identity ? 1 : 0
+  scope                = azurerm_key_vault.openbao[0].id
+  role_definition_name = "Key Vault Crypto User"
+  principal_id         = azurerm_user_assigned_identity.openbao[0].principal_id
+}
+
+resource "azurerm_federated_identity_credential" "openbao" {
+  count                     = var.create_openbao_identity ? 1 : 0
+  name                      = "openbao"
+  audience                  = ["api://AzureADTokenExchange"]
+  issuer                    = azurerm_kubernetes_cluster.main.oidc_issuer_url
+  user_assigned_identity_id = azurerm_user_assigned_identity.openbao[0].id
+  subject                   = "system:serviceaccount:system-secrets-store:openbao"
+}
