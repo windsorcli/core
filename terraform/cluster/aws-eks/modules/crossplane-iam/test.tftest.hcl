@@ -49,6 +49,11 @@ run "rds_selected" {
   }
 
   assert {
+    condition     = strcontains(aws_iam_policy.this["rds"].policy, "arn:aws:rds:*:123456789012:subgrp:cluster-test-crossplane-rds")
+    error_message = "Policy should authorize CreateDBInstance against the DB subnet group ARN it references, not just the resulting instance ARN"
+  }
+
+  assert {
     condition     = strcontains(aws_iam_policy.this["rds"].policy, "\"aws:RequestTag/windsorcli.dev/cluster\":\"cluster-test\"")
     error_message = "Policy should condition create actions on the windsorcli.dev/cluster request tag"
   }

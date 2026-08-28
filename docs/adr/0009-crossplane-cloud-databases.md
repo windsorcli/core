@@ -143,7 +143,13 @@ EKS nodes use) — an RDS instance has no need for outbound internet access.
 The policy is scoped to RDS instance lifecycle actions (`CreateDBInstance`,
 `ModifyDBInstance`, `DeleteDBInstance`, tagging, snapshotting) within that
 subnet group and the cluster's existing VPC — no VPC, subnet, or
-security-group creation rights, out of Crossplane's reach. The trust
+security-group creation rights, out of Crossplane's reach.
+`CreateDBInstance` also needs an explicit `Allow` on the `subgrp:*` ARN
+the instance references, not just the `db:*` ARN it creates — AWS
+authorizes the action against every resource it touches, not only the one
+being created. Found live: an `Instance` create failed with an
+`AccessDenied` naming the DB subnet group ARN specifically, not the
+instance ARN the policy already covered. The trust
 policy also carries an
 `aws:SourceAccount`/`aws:SourceArn` condition scoping it to this
 cluster's own Pod Identity Agent — a hardening step the other 7 Pod

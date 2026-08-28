@@ -34,9 +34,14 @@ locals {
         Version = "2012-10-17"
         Statement = [
           {
-            Effect   = "Allow"
-            Action   = "rds:CreateDBInstance"
-            Resource = ["arn:aws:rds:*:${data.aws_caller_identity.current.account_id}:db:*"]
+            # CreateDBInstance also touches the DB subnet group it
+            # references, not just the instance ARN it creates.
+            Effect = "Allow"
+            Action = "rds:CreateDBInstance"
+            Resource = [
+              "arn:aws:rds:*:${data.aws_caller_identity.current.account_id}:db:*",
+              "arn:aws:rds:*:${data.aws_caller_identity.current.account_id}:subgrp:${var.cluster_tag}-crossplane-rds",
+            ]
             Condition = {
               StringEquals = {
                 "aws:RequestTag/windsorcli.dev/cluster" = var.cluster_tag
