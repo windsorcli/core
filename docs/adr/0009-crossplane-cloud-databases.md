@@ -658,6 +658,11 @@ between the two drivers worth resolving one way or the other later.
   (`GRANT`/`GRANT`/`GRANT`/`ALTER DEFAULT PRIVILEGES`, matching what the
   facet supplied), and the password-reuse fix held
   (`secret ... unchanged`).
+- The `postgres-exporter-alerts` `PrometheusRule` has been verified live
+  beyond `promtool`: `windsor install` landed all 12 rules in
+  Prometheus's own `/api/v1/rules`, every one reporting `health: ok`,
+  and every one `inactive` against the real, healthy `demo-db` — no
+  false positives against live data.
 
 ## Alternatives considered
 
