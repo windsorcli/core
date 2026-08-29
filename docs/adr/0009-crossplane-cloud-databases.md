@@ -496,8 +496,15 @@ security group already scoped to the cluster's nodes in §6.
 `addon-database.yaml` already targets — the same cross-domain-entry
 pattern §2 established, now used by a *chart's* facet instead of a
 driving one. `app-role` fires whenever `driver: rds`; `postgres-exporter`
-is additionally gated on `observability.enabled`, since there's no
-dashboard to feed otherwise.
+is additionally gated on `telemetry.metrics.enabled` (default `true`) —
+what the exporter actually needs is a Prometheus to scrape it, not a
+Grafana to render its dashboard. `observability.enabled` gates the
+*whole* `addon-observability.yaml` facet — Grafana, Quickwit, fluentd,
+none of which the exporter depends on — so gating on it instead would
+have meant a perfectly normal `observability.enabled: false` +
+`telemetry.metrics.enabled: true` setup (alerting via Alertmanager,
+no Grafana) silently getting no exporter and no data for the alerts
+below to evaluate. Found on review, fixed here, not left as a named gap.
 
 The `PodMonitor`'s `instance` label is relabeled to `pg_instance_name`
 rather than left at its default (the exporter pod's own IP) — otherwise
@@ -518,14 +525,16 @@ exporter's default collectors don't expose — confirmed against the live
 (`prometheus-rule.test.yaml`, this repo's existing convention for
 hand-curated alerts) covering every alert, both firing and clear.
 
-Worth naming, not yet resolved: the alert rules fire independent of
-`observability.enabled`, but the exporter that feeds them is gated on
-it (`option-demo.yaml`'s own choice, avoiding a second pod and RDS
-connection when nobody's watching a dashboard) — the same asymmetry
-CNPG doesn't have, since its metrics ride the existing `Cluster` pod at
-no extra cost. With `observability.enabled: false`, these alerts exist
-but have no data to evaluate. Not a bug, but a real inconsistency
-between the two drivers worth resolving one way or the other later.
+A first pass at this gated the exporter on `observability.enabled`
+instead — matching the dashboard's own gate rather than the alerts'.
+That left a real gap: `observability.enabled: false` with
+`telemetry.metrics.enabled: true` (a normal alerting-without-Grafana
+setup) got a `PrometheusRule` with nothing feeding it. Corrected in
+`option-demo.yaml` to gate on `telemetry.metrics.enabled` instead, the
+same flag the alerts themselves are implicitly downstream of via
+`platform-base.yaml`'s `telemetry.alert_components` gate. CNPG doesn't
+have this seam at all — its metrics ride the existing `Cluster` pod at
+no extra cost, so there was never a decision to gate.
 
 ## Consequences
 
