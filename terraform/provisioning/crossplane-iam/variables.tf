@@ -34,6 +34,11 @@ variable "kms_key_arn" {
     condition     = var.kms_key_arn == "" || can(regex("^arn:aws:kms:[a-z0-9-]+:\\d{12}:key/[a-f0-9-]+$", var.kms_key_arn))
     error_message = "kms_key_arn must be empty or a KMS key ARN."
   }
+
+  validation {
+    condition     = var.kms_key_arn != "" || !contains(var.resources, "rds")
+    error_message = "kms_key_arn is required when resources includes rds."
+  }
 }
 
 variable "resources" {

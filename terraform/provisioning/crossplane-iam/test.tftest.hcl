@@ -128,3 +128,16 @@ run "malformed_kms_key_arn_rejected" {
 
   expect_failures = [var.kms_key_arn]
 }
+
+# Verifies rds without a KMS key ARN is rejected, rather than producing an
+# invalid IAM policy with an empty Resource field.
+run "rds_without_kms_key_arn_rejected" {
+  command = plan
+
+  variables {
+    resources   = ["rds"]
+    kms_key_arn = ""
+  }
+
+  expect_failures = [var.kms_key_arn]
+}
