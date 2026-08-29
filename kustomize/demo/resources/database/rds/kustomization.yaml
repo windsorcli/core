@@ -3,4 +3,4 @@ kind: Component
 resources:
   - instance.yaml
   - rbac.yaml
-  - provision-app-role-job.yaml
+  - provision-app-role-cronjob.yaml

@@ -360,7 +360,7 @@ for exactly that, but isn't merged to `main` (only on the unmerged
 `feat/secrets-store-openbao` branch) — checked directly rather than
 assumed. Rather than wait on it, or bring in a second Crossplane provider
 (`provider-sql`) that would still need the same runtime-secret bridge for
-its own `ProviderConfig`, this ADR adds a purpose-built one-shot Job:
+its own `ProviderConfig`, this ADR adds a purpose-built CronJob:
 
 - **`database/aws-rds`** gains a fourth IAM role, `secret_reader`, scoped
   to `secretsmanager:GetSecretValue` on `secret:rds!*` — read-only,
@@ -383,16 +383,18 @@ its own `ProviderConfig`, this ADR adds a purpose-built one-shot Job:
   scoped by `resourceNames` to that single object. Any real chart wanting
   this pattern brings the identical `Role`/`RoleBinding` into its own
   namespace and its own named `ClusterRole`/`ClusterRoleBinding` pair.
-- **The job** (`provision-app-role-job.yaml`) runs in `system-provisioning`
-  in three steps: an init container polls the `Instance` until Ready,
-  reads its `masterUserSecret[0].secretArn` and `address`, and resolves
-  the admin credential from Secrets Manager; a second init container
-  connects with `psql` as the admin user and idempotently
-  (`IF NOT EXISTS` / `ALTER ROLE`, safe to rerun) creates `demo_app` with
-  `SELECT`/`INSERT`/`UPDATE`/`DELETE` on the `demo` database only — no
-  DDL, no other database, no superuser; the main container publishes the
-  generated password as `demo-db-app-credentials` in `demo-database`,
-  which the application consumes with an ordinary `secretKeyRef`, the
+- **The CronJob** (`provision-app-role-cronjob.yaml`) runs in
+  `system-provisioning` on a 15-minute schedule, in three steps: an init
+  container checks the `Instance` for Ready and, if it isn't yet, exits
+  the tick clean; once Ready, it reads `masterUserSecret[0].secretArn`
+  and `address` and resolves the admin credential from Secrets Manager.
+  A second init container connects with `psql` as the admin user and
+  idempotently (`IF NOT EXISTS` / `ALTER ROLE`, safe to rerun) creates
+  `demo_app` with `SELECT`/`INSERT`/`UPDATE`/`DELETE` on the `demo`
+  database only — no DDL, no other database, no superuser; the main
+  container publishes the generated password as `demo-db-app-credentials`
+  in `demo-database`, which the application consumes with an ordinary
+  `secretKeyRef`, the
   same shape CNPG's own generated secret already has. Images
   (`alpine/k8s`, `postgres:16-alpine`) are digest-pinned per this repo's
   own convention; chosen specifically because both bundle a real shell
@@ -415,19 +417,23 @@ application beyond reading a `Secret` the same way CNPG's app secret
 already works. Worth adopting per-application once that's viable, not a
 blocking prerequisite for this ADR.
 
-**The job is one-shot, deliberately.** It doesn't re-run if `demo-db` is
-ever deleted and recreated (`demo_app` and its grants go with the old
-instance, nothing re-triggers), and it doesn't rotate `demo_app`'s
-password on any schedule — only the admin credential rotates, via AWS.
-The natural fix for both is a `CronJob` instead of a `Job`, reusing the
-same already-idempotent script — but a periodically-rotated `Secret`
-reopens the same problem discussed earlier for ESO: updating a `Secret`
-object doesn't propagate to a running pod's env vars, so rotation without
-a `Reloader`-style companion just breaks the app silently on whatever
-interval gets picked. Deliberately out of scope here — this ADR proves
-the CNPG-parity pattern works, not a rotation platform. Recovering from
-an instance recreation today means manually deleting the Job so Flux
-(with `kustomize.toolkit.fluxcd.io/force: enabled`) recreates it.
+**A `CronJob`, not a one-shot `Job`.** A `Job`'s pod template is
+immutable and doesn't re-run on its own, which meant `demo-db` being
+deleted and recreated (as it was live, for the `dbName` fix below)
+required manually deleting the Job so Flux (with
+`kustomize.toolkit.fluxcd.io/force: enabled`) could recreate it. A
+`CronJob` reuses the same already-idempotent script on a schedule
+(every 15 minutes): a tick before the Instance is Ready, or after
+`demo_app` already exists with the grants it needs, exits clean, and
+its `jobTemplate` is an ordinary mutable field, so the force annotation
+is no longer needed either. This does not cover rotating `demo_app`'s
+password on a schedule — only the admin credential rotates, via AWS.
+A periodically-rotated `Secret` reopens the same problem discussed
+earlier for ESO: updating a `Secret` object doesn't propagate to a
+running pod's env vars, so rotation without a `Reloader`-style
+companion just breaks the app silently on whatever interval got
+picked. Deliberately out of scope here — this ADR proves the
+CNPG-parity pattern works, not a rotation platform.
 
 ## Consequences
 
@@ -513,14 +519,14 @@ an instance recreation today means manually deleting the Job so Flux
   the running chart's embedded schema can drift on a version mismatch,
   unlike cert-manager's vendored CRDs, which the chart never touches at
   all once `crds: Skip` is set.
-- §7's bootstrap job is unverified against a live cluster, unlike
-  everything else in this ADR — every prior fix here (subnet group ARN,
-  service-linked role, both KMS gaps) was root-caused from a real
-  failure, not designed ahead of one. `kubectl`/`psql` behavior, RBAC
-  scoping, and the job's own retry timing are all correctness-by-review
-  right now, not correctness-by-observation. Expect at least one more
-  round of live-discovered fixes before this is proven, the same as
-  everything else in this sequence was.
+- §7's bootstrap CronJob has been verified end-to-end against a live
+  cluster: `demo-db` reached `Ready`/`Synced`, the CronJob's tick
+  created `demo_app` and published `demo-db-app-credentials`. Two real
+  bugs surfaced in the process and are fixed in what's described above
+  rather than left as review-only fixes: `Instance` is cluster-scoped,
+  so the RBAC needed a `ClusterRole`, not a `Role`; and `dbName` is a
+  create-only field, so the Instance created before this ADR added it
+  needed deleting and recreating rather than updating in place.
 
 ## Alternatives considered
 
