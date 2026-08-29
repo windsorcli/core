@@ -69,7 +69,7 @@ runs:
       shell: bash
       env:
         # renovate: datasource=github-releases depName=prometheus/prometheus package=prometheus/prometheus
-        PROMETHEUS_VERSION: v3.13.2
+        PROMETHEUS_VERSION: v3.14.0
       run: |
         cd "$(mktemp -d)"
         base="https://github.com/prometheus/prometheus/releases/download/${PROMETHEUS_VERSION}"
