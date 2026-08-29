@@ -626,10 +626,14 @@ it's meaningless and churns on every pod restart.
   Confirmed live: a manually-triggered tick reported
   `secret ... unchanged` and the exporter stayed connected across it.
 - `§7`'s `app-role` component (chart-supplied `pg_grant_sql`, generalized
-  from what was originally demo-only CronJob/RBAC) has not yet been
-  re-verified live in this shape — the extraction mirrors
-  `postgres-exporter`'s, already proven, but hasn't been independently
-  confirmed the same way.
+  from what was originally demo-only CronJob/RBAC) has been re-verified
+  live the same way `postgres-exporter`'s extraction was: the old
+  demo-owned RBAC/CronJob pruned cleanly, the parameterized version came
+  up under the new name in `provisioning-resources`, a manually
+  triggered tick ran the chart's own `pg_grant_sql` correctly
+  (`GRANT`/`GRANT`/`GRANT`/`ALTER DEFAULT PRIVILEGES`, matching what the
+  facet supplied), and the password-reuse fix held
+  (`secret ... unchanged`).
 
 ## Alternatives considered
 
