@@ -68,5 +68,5 @@ No modules.
 | <a name="output_kms_key_alias"></a> [kms\_key\_alias](#output\_kms\_key\_alias) | Alias name for the dedicated CMK, null when BYOK or the AWS-managed default key are in use |
 | <a name="output_kms_key_arn"></a> [kms\_key\_arn](#output\_kms\_key\_arn) | KMS key ARN for RDS storage encryption |
 | <a name="output_secret_reader_role_arn"></a> [secret\_reader\_role\_arn](#output\_secret\_reader\_role\_arn) | IAM role ARN a bootstrap job in system-provisioning/rds-secret-reader assumes via Pod Identity to read RDS-managed master password secrets. |
-| <a name="output_security_group_id"></a> [security\_group\_id](#output\_security\_group\_id) | Security group ID allowing Postgres access from anywhere in the VPC. Reference from an Instance CR's vpcSecurityGroupIds. |
+| <a name="output_security_group_id"></a> [security\_group\_id](#output\_security\_group\_id) | Security group ID with Postgres ingress restricted to this cluster's node security group. Reference from an Instance CR's vpcSecurityGroupIds. |
 <!-- END_TF_DOCS -->
