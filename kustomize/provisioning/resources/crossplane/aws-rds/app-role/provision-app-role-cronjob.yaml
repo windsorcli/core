@@ -79,6 +79,7 @@ spec:
                     echo -n "$EXISTING" > /shared/app-password
                   else
                     head -c 24 /dev/urandom | base64 | tr -d '/+=\n' > /shared/app-password
+                    touch /shared/needs-password-set
                   fi
               volumeMounts:
                 - name: shared
@@ -107,6 +108,10 @@ spec:
                   ADDRESS=$(cat /shared/address)
                   ADMIN_USER=$(cat /shared/admin-username)
                   APP_PASSWORD=$(cat /shared/app-password)
+                  NEEDS_PASSWORD_SET=false
+                  if [ -f /shared/needs-password-set ]; then
+                    NEEDS_PASSWORD_SET=true
+                  fi
 
                   PGPASSWORD=$(cat /shared/admin-password) psql -h "$ADDRESS" -U "$ADMIN_USER" \
                     -d ${pg_database_name} -v ON_ERROR_STOP=1 <<SQL
@@ -114,7 +119,7 @@ spec:
                   BEGIN
                     IF NOT EXISTS (SELECT FROM pg_roles WHERE rolname = '${pg_database_name}_app') THEN
                       CREATE ROLE ${pg_database_name}_app WITH LOGIN PASSWORD '$APP_PASSWORD';
-                    ELSE
+                    ELSIF $NEEDS_PASSWORD_SET THEN
                       ALTER ROLE ${pg_database_name}_app WITH PASSWORD '$APP_PASSWORD';
                     END IF;
                   END

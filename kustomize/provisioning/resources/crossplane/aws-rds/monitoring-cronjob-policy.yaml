@@ -100,6 +100,7 @@ spec:
                               echo -n "$EXISTING" > /shared/monitor-password
                             else
                               head -c 24 /dev/urandom | base64 | tr -d '/+=\n' > /shared/monitor-password
+                              touch /shared/needs-password-set
                             fi
                         volumeMounts:
                           - name: shared
@@ -128,6 +129,10 @@ spec:
                             ADDRESS=$(cat /shared/address)
                             ADMIN_USER=$(cat /shared/admin-username)
                             MONITOR_PASSWORD=$(cat /shared/monitor-password)
+                            NEEDS_PASSWORD_SET=false
+                            if [ -f /shared/needs-password-set ]; then
+                              NEEDS_PASSWORD_SET=true
+                            fi
 
                             PGPASSWORD=$(cat /shared/admin-password) psql -h "$ADDRESS" -U "$ADMIN_USER" \
                               -d {{request.object.spec.forProvider.dbName}} -v ON_ERROR_STOP=1 <<SQL
@@ -135,7 +140,7 @@ spec:
                             BEGIN
                               IF NOT EXISTS (SELECT FROM pg_roles WHERE rolname = '{{request.object.spec.forProvider.dbName}}_monitor') THEN
                                 CREATE ROLE {{request.object.spec.forProvider.dbName}}_monitor WITH LOGIN PASSWORD '$MONITOR_PASSWORD';
-                              ELSE
+                              ELSIF $NEEDS_PASSWORD_SET THEN
                                 ALTER ROLE {{request.object.spec.forProvider.dbName}}_monitor WITH PASSWORD '$MONITOR_PASSWORD';
                               END IF;
                             END
