@@ -51,7 +51,7 @@ spec:
               echo "Waiting for demo-db Instance to become Ready..."
               READY=""
               for i in $(seq 1 60); do
-                READY=$(kubectl get instance.rds.aws.upbound.io demo-db -n demo-database \
+                READY=$(kubectl get instance.rds.aws.upbound.io demo-db \
                   -o jsonpath='{.status.conditions[?(@.type=="Ready")].status}' 2>/dev/null || echo "")
                 if [ "$READY" = "True" ]; then
                   echo "Instance is Ready."
@@ -66,10 +66,10 @@ spec:
                 exit 1
               fi
 
-              kubectl get instance.rds.aws.upbound.io demo-db -n demo-database \
+              kubectl get instance.rds.aws.upbound.io demo-db \
                 -o jsonpath='{.status.atProvider.address}' > /shared/address
 
-              SECRET_ARN=$(kubectl get instance.rds.aws.upbound.io demo-db -n demo-database \
+              SECRET_ARN=$(kubectl get instance.rds.aws.upbound.io demo-db \
                 -o jsonpath='{.status.atProvider.masterUserSecret[0].secretArn}')
 
               SECRET_JSON=$(aws secretsmanager get-secret-value --secret-id "$SECRET_ARN" \

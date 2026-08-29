@@ -6,7 +6,6 @@ apiVersion: rds.aws.upbound.io/v1beta3
 kind: Instance
 metadata:
   name: demo-db
-  namespace: demo-database
 spec:
   deletionPolicy: Delete
   forProvider:

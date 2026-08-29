@@ -375,11 +375,14 @@ its own `ProviderConfig`, this ADR adds a purpose-built one-shot Job:
   `ServiceAccount`, alongside the `ProviderConfig`/tag policy it already
   ships — a shared, core-provided identity multiple consumers can reuse.
 - **The consuming namespace opts in.** `kustomize/demo/resources/database/rds/`
-  grants `system-provisioning/rds-secret-reader` a narrow `Role` in
-  `demo-database` — `get` on the one named `Instance`, `create`/`update`
-  on `Secret`s — via a `RoleBinding` the *chart* authors, not core
-  reaching into a namespace uninvited. Any real chart wanting this
-  pattern brings the identical `RoleBinding` into its own namespace.
+  grants `system-provisioning/rds-secret-reader` `create`/`update` on
+  `Secret`s via a `Role`/`RoleBinding` the *chart* authors, not core
+  reaching into a namespace uninvited. `Instance` itself is cluster-scoped
+  (`rds.aws.upbound.io` has no namespaced kinds), so reading the one named
+  `Instance` needs a `ClusterRole`/`ClusterRoleBinding` instead — still
+  scoped by `resourceNames` to that single object. Any real chart wanting
+  this pattern brings the identical `Role`/`RoleBinding` into its own
+  namespace and its own named `ClusterRole`/`ClusterRoleBinding` pair.
 - **The job** (`provision-app-role-job.yaml`) runs in `system-provisioning`
   in three steps: an init container polls the `Instance` until Ready,
   reads its `masterUserSecret[0].secretArn` and `address`, and resolves
