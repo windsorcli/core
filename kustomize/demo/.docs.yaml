@@ -10,11 +10,32 @@ substitutions:
   REGISTRY_URL:
     required_when: "`demo.resources.static: true`"
     description: "Image registry hosting the demo static-site container image (`${REGISTRY_URL}/demo:1.0.6`). No fallback; the static workload's pod will fail to pull if the variable is not set at the Flux Kustomization level."
+  db_subnet_group_name:
+    required_when: "`demo.resources.database: true` AND `database.postgres.driver == 'rds'`"
+    description: "From `terraform_output('network', 'db_subnet_group_name')`. Sets the `demo-db` Instance's `dbSubnetGroupName` directly — the demo reads the real output rather than reconstructing the naming convention a third-party chart (with no Flux substitution access) has to use instead. Passed by the facet itself."
+  kms_key_arn:
+    required_when: "`demo.resources.database: true` AND `database.postgres.driver == 'rds'`"
+    description: "From `terraform_output('database', 'kms_key_arn')`. Sets the `demo-db` Instance's `kmsKeyId`. Passed by the facet itself."
+  rds_security_group_id:
+    required_when: "`demo.resources.database: true` AND `database.postgres.driver == 'rds'`"
+    description: "From `terraform_output('database', 'security_group_id')`. Sets the `demo-db` Instance's `vpcSecurityGroupIds` — scoped to the EKS cluster's own security group, not the whole VPC CIDR. Passed by the facet itself."
+  aws_region:
+    required_when: "`demo.resources.database: true` AND `database.postgres.driver == 'rds'`"
+    description: "AWS region for the `demo-db` Instance, from `aws.region`. Passed by the facet itself."
+  demo_db_name:
+    required_when: "`demo.resources.database: true` AND `database.postgres.driver == 'rds'`"
+    description: "Fixed value `demo`. Single source of truth for the `demo-db` Instance's `dbName`, referenced by both the Instance CR and the bootstrap job's SQL so the two can't drift independently. Passed by the facet itself."
 
 components:
   database:
     enable_when: "`demo.resources.database: true`"
-    description: "Creates the `demo-database` namespace and a `Cluster` CR `demo-cluster` (2 instances, 100 max_connections, 1Gi PVC, PodMonitor enabled). Requires the `database` add-on so the CloudNativePG operator can reconcile the CR."
+    description: "Creates the `demo-database` namespace. Always paired with a driver variant below."
+  database/cloudnativepg:
+    enable_when: "`demo.resources.database: true` AND `database.postgres.driver == 'cloudnativepg'`"
+    description: "A `Cluster` CR `demo-cluster` (2 instances, 100 max_connections, 1Gi PVC, PodMonitor enabled). Requires the `database` add-on so the CloudNativePG operator can reconcile the CR."
+  database/rds:
+    enable_when: "`demo.resources.database: true` AND `database.postgres.driver == 'rds'`"
+    description: "An `rds.aws.upbound.io/v1beta3` `Instance` CR `demo-db` (db.t4g.micro, 20Gi, AWS-managed master password, network-scoped to the cluster's own security group) — just the database definition, no provider wiring, no RBAC, no CronJob of its own. The application credential (`demo_app`, least-privilege CRUD, via `crossplane/aws-rds/app-role`, this facet's own `provisioning` entry) is opt-in per chart; monitoring (`demo_monitor`/`postgres_exporter`) is automatic for every `Instance`, provisioned by `kustomize/provisioning`'s Kyverno `generate` policies — nothing here wires it in."
   static:
     enable_when: "`demo.resources.static: true`"
     description: "Creates the `demo-static` namespace (PSA `restricted`) with a `website` Deployment pulling `${REGISTRY_URL}/demo:1.0.6`, a Service, a 100Mi ReadWriteOnce PVC named `content`, and an Ingress."
@@ -24,5 +45,8 @@ components:
 
 dependencies:
   database:
-    required_when: "`demo.resources.database: true`"
+    required_when: "`demo.resources.database: true` AND `database.postgres.driver == 'cloudnativepg'`"
     reason: "The CloudNativePG operator must be reconciling before the `demo-cluster` Cluster CR can come up. Wired as a conditional `dependsOn` in the facet."
+  provisioning:
+    required_when: "`demo.resources.database: true` AND `database.postgres.driver == 'rds'`"
+    reason: "Crossplane's provider-aws-rds must finish installing before the `demo-db` Instance CR's CRD is registered. Wired as a conditional `dependsOn` in the facet."

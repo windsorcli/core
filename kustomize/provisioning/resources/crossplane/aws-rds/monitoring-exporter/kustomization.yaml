@@ -1,0 +1,11 @@
+apiVersion: kustomize.config.k8s.io/v1alpha1
+kind: Component
+
+# Split out from crossplane/aws-rds's own always-on resources: this is
+# the one piece that needs telemetry.metrics.enabled, since PodMonitor
+# (monitoring.coreos.com/v1) only exists when the metrics pipeline
+# vendors prometheus-operator's CRDs. The RBAC and monitor-role CronJob
+# generate policies don't touch that CRD, so they stay unconditional.
+
+resources:
+  - policy.yaml

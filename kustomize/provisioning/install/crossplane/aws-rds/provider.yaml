@@ -1,0 +1,12 @@
+---
+apiVersion: pkg.crossplane.io/v1
+kind: Provider
+metadata:
+  name: provider-aws-rds
+spec:
+  # renovate: datasource=docker depName=xpkg.upbound.io/upbound/provider-aws-rds package=xpkg.upbound.io/upbound/provider-aws-rds
+  package: xpkg.upbound.io/upbound/provider-aws-rds:v2.7.1@sha256:9da209d0f42dd8e87b4d7d0b8a2b692f5d98d922b51763fb7d1939c288c05626
+  # provider-family-aws.yaml installs the dependency explicitly, pinned too.
+  skipDependencyResolution: true
+  runtimeConfigRef:
+    name: provider-aws-rds

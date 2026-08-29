@@ -1,0 +1,66 @@
+---
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: rds-instance-monitor-rbac
+  annotations:
+    policies.kyverno.io/title: RDS instance monitor RBAC
+    policies.kyverno.io/category: AWS
+    policies.kyverno.io/severity: medium
+    policies.kyverno.io/subject: Instance
+    policies.kyverno.io/description: >-
+      Generates the ClusterRole/ClusterRoleBinding rds-secret-reader
+      needs to read a new Instance's status, scoped by resourceNames to
+      that one Instance. Runs in the background too, so an Instance that
+      already existed before this policy was installed still gets RBAC.
+      Secret access is a static Role (monitoring-secret-rbac.yaml), not
+      generated here — every monitor Secret lands in system-provisioning
+      regardless of instance.
+spec:
+  background: true
+  rules:
+    - name: generate-monitor-clusterrole
+      match:
+        any:
+          - resources:
+              kinds:
+                - rds.aws.upbound.io/v1beta1/Instance
+                - rds.aws.upbound.io/v1beta2/Instance
+                - rds.aws.upbound.io/v1beta3/Instance
+      generate:
+        apiVersion: rbac.authorization.k8s.io/v1
+        kind: ClusterRole
+        name: "{{request.object.metadata.name}}-monitor-reader"
+        synchronize: true
+        data:
+          rules:
+            - apiGroups:
+                - rds.aws.upbound.io
+              resources:
+                - instances
+              resourceNames:
+                - "{{request.object.metadata.name}}"
+              verbs:
+                - get
+    - name: generate-monitor-clusterrolebinding
+      match:
+        any:
+          - resources:
+              kinds:
+                - rds.aws.upbound.io/v1beta1/Instance
+                - rds.aws.upbound.io/v1beta2/Instance
+                - rds.aws.upbound.io/v1beta3/Instance
+      generate:
+        apiVersion: rbac.authorization.k8s.io/v1
+        kind: ClusterRoleBinding
+        name: "{{request.object.metadata.name}}-monitor-reader"
+        synchronize: true
+        data:
+          roleRef:
+            apiGroup: rbac.authorization.k8s.io
+            kind: ClusterRole
+            name: "{{request.object.metadata.name}}-monitor-reader"
+          subjects:
+            - kind: ServiceAccount
+              name: rds-secret-reader
+              namespace: system-provisioning

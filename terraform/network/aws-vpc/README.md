@@ -34,6 +34,7 @@ No modules.
 | Name | Type |
 |------|------|
 | [aws_cloudwatch_log_group.vpc_flow_logs](https://registry.terraform.io/providers/hashicorp/aws/6.58.0/docs/resources/cloudwatch_log_group) | resource |
+| [aws_db_subnet_group.main](https://registry.terraform.io/providers/hashicorp/aws/6.58.0/docs/resources/db_subnet_group) | resource |
 | [aws_default_security_group.default](https://registry.terraform.io/providers/hashicorp/aws/6.58.0/docs/resources/default_security_group) | resource |
 | [aws_eip.nat](https://registry.terraform.io/providers/hashicorp/aws/6.58.0/docs/resources/eip) | resource |
 | [aws_flow_log.main](https://registry.terraform.io/providers/hashicorp/aws/6.58.0/docs/resources/flow_log) | resource |
@@ -81,6 +82,7 @@ No modules.
 
 | Name | Description |
 |------|-------------|
+| <a name="output_db_subnet_group_name"></a> [db\_subnet\_group\_name](#output\_db\_subnet\_group\_name) | Name of the DB subnet group spanning the isolated subnets |
 | <a name="output_isolated_subnet_ids"></a> [isolated\_subnet\_ids](#output\_isolated\_subnet\_ids) | List of isolated subnet IDs |
 | <a name="output_private_subnet_ids"></a> [private\_subnet\_ids](#output\_private\_subnet\_ids) | List of private subnet IDs |
 | <a name="output_private_zone_id"></a> [private\_zone\_id](#output\_private\_zone\_id) | ID of the VPC-attached private Route53 hosted zone created from var.domain\_name. Null when no domain\_name was supplied. |

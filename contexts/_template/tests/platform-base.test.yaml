@@ -827,6 +827,32 @@ cases:
             - components:
                 - prometheus/alerts/database
 
+  # rds driver adds prometheus/alerts/postgres-exporter instead,
+  # gated on driver alone, not observability.enabled.
+  - name: rds database enabled adds the postgres-exporter alert component
+    values:
+      platform: aws
+      aws:
+        region: us-west-2
+      gateway:
+        enabled: false
+      database:
+        postgres:
+          enabled: true
+          driver: rds
+    expect:
+      flux:
+        - name: telemetry
+          resources:
+            - components:
+                - prometheus/alerts/postgres-exporter
+    exclude:
+      flux:
+        - name: telemetry
+          resources:
+            - components:
+                - prometheus/alerts/database
+
   # database disabled (default): no CloudNativePG, so no database alert rules.
   - name: database disabled skips the database alert component
     values:

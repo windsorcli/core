@@ -1,0 +1,152 @@
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: postgres-exporter-alerts
+  namespace: system-telemetry
+spec:
+  groups:
+    - name: postgres-exporter-supplemental.rules
+      rules:
+        # sum by(...) isn't aggregating multiple series -- it's dropping
+        # __name__ so {{ $labels }} in the annotation below doesn't show
+        # the raw metric name alongside job/instance.
+        - alert: PostgreSQLDown
+          expr: sum by (job, instance) (pg_up) != 1
+          for: 1m
+          labels:
+            severity: critical
+          annotations:
+            summary: PostgreSQL unreachable (instance {{ $labels.instance }})
+            description: "The exporter for {{ $labels.instance }} can't connect to Postgres. Applications using this database are likely failing too.\n  VALUE = {{ $value }}\n  LABELS = {{ $labels }}"
+
+        - alert: PostgreSQLExporterErrors
+          expr: sum by (instance) (pg_exporter_last_scrape_error) > 0
+          for: 30m
+          labels:
+            severity: warning
+          annotations:
+            summary: postgres_exporter scrape errors (instance {{ $labels.instance }})
+            description: "The last scrape for {{ $labels.instance }} failed. Metrics may be stale or missing until it recovers.\n  VALUE = {{ $value }}\n  LABELS = {{ $labels }}"
+
+        - alert: PostgreSQLMaxConnectionsReached
+          expr: sum by (instance) (pg_stat_activity_count >= (pg_settings_max_connections - pg_settings_superuser_reserved_connections))
+          for: 1m
+          labels:
+            severity: critical
+          annotations:
+            summary: Postgres at its connection limit (instance {{ $labels.instance }})
+            description: "{{ $labels.instance }} has {{ $value }} connections, at or above max_connections minus the superuser reserve. New non-superuser connections are being rejected.\n  VALUE = {{ $value }}\n  LABELS = {{ $labels }}"
+
+        - alert: PostgreSQLHighConnections
+          expr: sum by (instance) (pg_stat_activity_count > (pg_settings_max_connections - pg_settings_superuser_reserved_connections) * 0.8)
+          for: 10m
+          labels:
+            severity: warning
+          annotations:
+            summary: Postgres connections over 80% of limit (instance {{ $labels.instance }})
+            description: "{{ $labels.instance }} has been using over 80% of its available connections for 10 minutes.\n  VALUE = {{ $value }}\n  LABELS = {{ $labels }}"
+
+        - alert: PostgreSQLSlowQueries
+          expr: sum by (instance) (pg_stat_activity_max_tx_duration > 300)
+          for: 2m
+          labels:
+            severity: warning
+          annotations:
+            summary: Postgres query running longer than 5 minutes (instance {{ $labels.instance }})
+            description: "{{ $labels.instance }} has a transaction that has been running for over 5 minutes.\n  VALUE = {{ $value }}\n  LABELS = {{ $labels }}"
+
+        # datname!~"template.*" drops the two built-in template databases,
+        # which never see application traffic and would otherwise dilute
+        # or falsely-zero this ratio.
+        - alert: PostgreSQLCacheHitRatio
+          expr: |
+            sum by (datname, instance) (rate(pg_stat_database_blks_hit{datname!~"template.*"}[5m]))
+            /
+            (
+              sum by (datname, instance) (rate(pg_stat_database_blks_hit{datname!~"template.*"}[5m]))
+              +
+              sum by (datname, instance) (rate(pg_stat_database_blks_read{datname!~"template.*"}[5m]))
+            )
+            < 0.98
+          for: 5m
+          labels:
+            severity: warning
+          annotations:
+            summary: Postgres cache hit ratio low (database {{ $labels.datname }})
+            description: "Database {{ $labels.datname }} on {{ $labels.instance }} is reading from disk for more than 2% of block accesses, which usually means shared_buffers is undersized for the working set.\n  VALUE = {{ $value }}\n  LABELS = {{ $labels }}"
+
+        - alert: PostgreSQLTooManyRollbacks
+          expr: |
+            sum by (datname, instance) (rate(pg_stat_database_xact_rollback{datname!~"template.*"}[5m]))
+            /
+            (
+              sum by (datname, instance) (rate(pg_stat_database_xact_commit{datname!~"template.*"}[5m]))
+              +
+              sum by (datname, instance) (rate(pg_stat_database_xact_rollback{datname!~"template.*"}[5m]))
+            )
+            > 0.10
+          for: 5m
+          labels:
+            severity: warning
+          annotations:
+            summary: Postgres high rollback rate (database {{ $labels.datname }})
+            description: "Over 10% of transactions on database {{ $labels.datname }} ({{ $labels.instance }}) are rolling back, which usually points at application-level errors or contention.\n  VALUE = {{ $value }}\n  LABELS = {{ $labels }}"
+
+        - alert: PostgreSQLHighDeadlocks
+          expr: rate(pg_stat_database_deadlocks{datname!~"template.*"}[5m]) * 60 > 5
+          for: 5m
+          labels:
+            severity: warning
+          annotations:
+            summary: Postgres high deadlock rate (database {{ $labels.datname }})
+            description: "Database {{ $labels.datname }} on {{ $labels.instance }} is hitting more than 5 deadlocks per minute.\n  VALUE = {{ $value }}\n  LABELS = {{ $labels }}"
+
+        # pg_locks_count has no per-database max; the ceiling is
+        # max_locks_per_transaction times max_connections, a per-instance
+        # constant, so this compares the live count directly against it.
+        # The division drops __name__ before the comparison sees it, so
+        # this doesn't need a sum by() wrapper like the alerts above.
+        - alert: PostgreSQLAcquiredTooManyLocks
+          expr: pg_locks_count / (pg_settings_max_locks_per_transaction * pg_settings_max_connections) > 0.20
+          for: 5m
+          labels:
+            severity: warning
+          annotations:
+            summary: Postgres high lock usage (instance {{ $labels.instance }})
+            description: "{{ $labels.instance }} is using over 20% of its lock table capacity.\n  VALUE = {{ $value }}\n  LABELS = {{ $labels }}"
+
+        - alert: PostgreSQLReplicationLagging
+          expr: sum by (instance) ((pg_replication_lag_seconds > 3600) and on (instance) (pg_replication_is_replica == 1))
+          for: 5m
+          labels:
+            severity: warning
+          annotations:
+            summary: Postgres replica lagging over 1 hour (instance {{ $labels.instance }})
+            description: "Replica {{ $labels.instance }} is more than 1 hour behind its primary.\n  VALUE = {{ $value }}\n  LABELS = {{ $labels }}"
+
+        # changes() catches the transition itself, distinguishing "is a
+        # replica" (expected, constant) from "just became one" (the
+        # actual signal, e.g. an unplanned failover). The range needs to
+        # be at least 2 scrape intervals wide -- a window exactly one
+        # interval wide can align to include only one sample on either
+        # side of a transition, missing it.
+        - alert: PostgreSQLReplicationRoleChanged
+          expr: changes(pg_replication_is_replica[2m]) > 0
+          labels:
+            severity: warning
+          annotations:
+            summary: Postgres replication role changed (instance {{ $labels.instance }})
+            description: "{{ $labels.instance }}'s primary/replica role just changed. Verify whether this was an expected operation or an unplanned failover.\n  VALUE = {{ $value }}\n  LABELS = {{ $labels }}"
+
+        - alert: PostgreSQLTooManyCheckpointsRequested
+          expr: |
+            rate(pg_stat_bgwriter_checkpoints_req_total[5m])
+            /
+            (rate(pg_stat_bgwriter_checkpoints_timed_total[5m]) + rate(pg_stat_bgwriter_checkpoints_req_total[5m]))
+            > 0.5
+          for: 5m
+          labels:
+            severity: warning
+          annotations:
+            summary: Postgres checkpoints mostly requested, not scheduled (instance {{ $labels.instance }})
+            description: "Over half of {{ $labels.instance }}'s recent checkpoints were forced rather than scheduled, which usually means checkpoint_timeout or max_wal_size is too low for the write volume.\n  VALUE = {{ $value }}\n  LABELS = {{ $labels }}"

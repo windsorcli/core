@@ -58,6 +58,24 @@ run "minimal_configuration" {
     condition     = length(aws_nat_gateway.main) == 3
     error_message = "Three NAT Gateways should be created by default (one per AZ)"
   }
+
+  assert {
+    condition     = aws_db_subnet_group.main.name == "test-rds"
+    error_message = "DB subnet group should be named <context_id>-rds"
+  }
+}
+
+# Verifies availability_zones is rejected below the minimum RDS DB subnet
+# groups need.
+run "availability_zones_below_minimum_rejected" {
+  command = plan
+
+  variables {
+    context_id         = "test"
+    availability_zones = 1
+  }
+
+  expect_failures = [var.availability_zones]
 }
 
 # Tests a full configuration with all optional variables explicitly set.

@@ -68,6 +68,34 @@ vendors:
       - https://raw.githubusercontent.com/keycloak/keycloak-k8s-resources/${version}/kubernetes/keycloakoidcclients.k8s.keycloak.org-v1.yml
       - https://raw.githubusercontent.com/keycloak/keycloak-k8s-resources/${version}/kubernetes/keycloaksamlclients.k8s.keycloak.org-v1.yml
 
+  - name: crossplane
+    # Crossplane's own core CRDs. Its chart's init container re-applies these
+    # regardless; vendoring exists only for install: tier ordering.
+    # renovate: datasource=github-releases depName=crossplane/crossplane package=crossplane/crossplane
+    version: 2.4.0
+    urls:
+      - https://raw.githubusercontent.com/crossplane/crossplane/v${version}/cluster/crds/apiextensions.crossplane.io_compositeresourcedefinitions.yaml
+      - https://raw.githubusercontent.com/crossplane/crossplane/v${version}/cluster/crds/apiextensions.crossplane.io_compositionrevisions.yaml
+      - https://raw.githubusercontent.com/crossplane/crossplane/v${version}/cluster/crds/apiextensions.crossplane.io_compositions.yaml
+      - https://raw.githubusercontent.com/crossplane/crossplane/v${version}/cluster/crds/apiextensions.crossplane.io_environmentconfigs.yaml
+      - https://raw.githubusercontent.com/crossplane/crossplane/v${version}/cluster/crds/apiextensions.crossplane.io_managedresourceactivationpolicies.yaml
+      - https://raw.githubusercontent.com/crossplane/crossplane/v${version}/cluster/crds/apiextensions.crossplane.io_managedresourcedefinitions.yaml
+      - https://raw.githubusercontent.com/crossplane/crossplane/v${version}/cluster/crds/apiextensions.crossplane.io_usages.yaml
+      - https://raw.githubusercontent.com/crossplane/crossplane/v${version}/cluster/crds/ops.crossplane.io_cronoperations.yaml
+      - https://raw.githubusercontent.com/crossplane/crossplane/v${version}/cluster/crds/ops.crossplane.io_operations.yaml
+      - https://raw.githubusercontent.com/crossplane/crossplane/v${version}/cluster/crds/ops.crossplane.io_watchoperations.yaml
+      - https://raw.githubusercontent.com/crossplane/crossplane/v${version}/cluster/crds/pkg.crossplane.io_configurationrevisions.yaml
+      - https://raw.githubusercontent.com/crossplane/crossplane/v${version}/cluster/crds/pkg.crossplane.io_configurations.yaml
+      - https://raw.githubusercontent.com/crossplane/crossplane/v${version}/cluster/crds/pkg.crossplane.io_deploymentruntimeconfigs.yaml
+      - https://raw.githubusercontent.com/crossplane/crossplane/v${version}/cluster/crds/pkg.crossplane.io_functionrevisions.yaml
+      - https://raw.githubusercontent.com/crossplane/crossplane/v${version}/cluster/crds/pkg.crossplane.io_functions.yaml
+      - https://raw.githubusercontent.com/crossplane/crossplane/v${version}/cluster/crds/pkg.crossplane.io_imageconfigs.yaml
+      - https://raw.githubusercontent.com/crossplane/crossplane/v${version}/cluster/crds/pkg.crossplane.io_locks.yaml
+      - https://raw.githubusercontent.com/crossplane/crossplane/v${version}/cluster/crds/pkg.crossplane.io_providerrevisions.yaml
+      - https://raw.githubusercontent.com/crossplane/crossplane/v${version}/cluster/crds/pkg.crossplane.io_providers.yaml
+      - https://raw.githubusercontent.com/crossplane/crossplane/v${version}/cluster/crds/protection.crossplane.io_clusterusages.yaml
+      - https://raw.githubusercontent.com/crossplane/crossplane/v${version}/cluster/crds/protection.crossplane.io_usages.yaml
+
 # Non-CRD upstream manifests vendored verbatim to a path (workloads with no Helm
 # chart). Regenerated and drift-checked by the same task as the CRDs above.
 manifests:

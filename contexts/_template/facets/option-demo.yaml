@@ -6,25 +6,61 @@ metadata:
 
 when: demo.enabled == true
 
+# Single source of truth for demo-db's database name, used by the
+# Instance CR and the app-role component below.
+config:
+  - name: demo_database_name
+    value: demo
+
 # =============================================================================
 # Flux — demo applications
 # =============================================================================
 #
-# Sample apps reconciled onto the running cluster, so a resources-only system.
-# Each demo.resources.* flag toggles one app. The database entry also drives a
-# system dependency on the `database` install tier (from addon-database) so
-# CNPG is up before the sample app tries to create its DB.
+# Sample apps reconciled onto the running cluster, a resources-only system.
+# Each demo.resources.* flag toggles one app. database adds a shared
+# namespace plus a driver variant (cloudnativepg or rds). dependsOn
+# follows whichever operator owns the active driver.
 #
 flux:
 
   - name: demo
     path: demo
     dependsOn:
-      - "${demo.resources.database == true ? 'database' : ''}"
+      - "${demo.resources.database == true ? (database.postgres.driver == 'rds' ? 'provisioning-resources' : 'database') : ''}"
     resources:
       - components:
           - "${demo.resources.database == true ? 'database' : ''}"
+          - "${demo.resources.database == true ? (database.postgres.driver == 'rds' ? 'database/rds' : 'database/cloudnativepg') : ''}"
           - "${demo.resources.static == true ? 'static' : ''}"
           - "${demo.resources.bookinfo == true ? 'bookinfo' : ''}"
+        substitutions:
+          # The demo reads the real terraform outputs directly; a
+          # third-party chart (no Flux substitution access) has to
+          # reconstruct the naming convention instead.
+          db_subnet_group_name: "${terraform_output('network', 'db_subnet_group_name') ?? ''}"
+          kms_key_arn: "${terraform_output('database', 'kms_key_arn') ?? ''}"
+          rds_security_group_id: "${terraform_output('database', 'security_group_id') ?? ''}"
+          demo_db_name: "${demo_database_name}"
+          aws_region: "${aws.region ?? ''}"
         timeout: 10m
+        interval: 5m
+
+  # Application credential for demo-db — core-provided and reusable by
+  # any RDS-backed chart. Merges into the same provisioning-resources
+  # Kustomization addon-database.yaml already targets. Monitoring isn't
+  # wired here at all — a Kyverno policy generates it automatically for
+  # every Instance, no chart opt-in needed.
+  - name: provisioning
+    when: demo.resources.database == true && database.postgres.driver == 'rds'
+    resources:
+      - components:
+          - crossplane/aws-rds/app-role
+        substitutions:
+          pg_instance_name: demo-db
+          pg_database_name: "${demo_database_name}"
+          pg_target_namespace: demo-database
+          # One line — Flux substitution is literal text replacement, so
+          # a multi-line value here would corrupt the CronJob's YAML.
+          pg_grant_sql: "GRANT CONNECT ON DATABASE ${demo_database_name} TO ${demo_database_name}_app; GRANT USAGE ON SCHEMA public TO ${demo_database_name}_app; GRANT SELECT, INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA public TO ${demo_database_name}_app; ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT SELECT, INSERT, UPDATE, DELETE ON TABLES TO ${demo_database_name}_app;"
+        timeout: 5m
         interval: 5m

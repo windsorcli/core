@@ -1,0 +1,11 @@
+---
+# Pins the provider-aws-rds pod's ServiceAccount name so Terraform's Pod
+# Identity association (fixed to the same name) can target it.
+apiVersion: pkg.crossplane.io/v1beta1
+kind: DeploymentRuntimeConfig
+metadata:
+  name: provider-aws-rds
+spec:
+  serviceAccountTemplate:
+    metadata:
+      name: provider-aws-rds

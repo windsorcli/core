@@ -24,6 +24,12 @@ variable "availability_zones" {
   description = "Number of availability zones to use for the subnets"
   type        = number
   default     = 3
+  validation {
+    # The DB subnet group spans the isolated subnets unconditionally; RDS
+    # requires a subnet group to cover at least 2 Availability Zones.
+    condition     = var.availability_zones >= 2
+    error_message = "availability_zones must be at least 2."
+  }
 }
 
 variable "subnet_newbits" {
