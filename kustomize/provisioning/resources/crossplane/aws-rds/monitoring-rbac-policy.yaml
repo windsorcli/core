@@ -9,11 +9,13 @@ metadata:
     policies.kyverno.io/severity: medium
     policies.kyverno.io/subject: Instance
     policies.kyverno.io/description: >-
-      Generates the ClusterRole/ClusterRoleBinding and Role/RoleBinding
-      rds-secret-reader needs to read a new Instance's status and manage
-      its monitor credentials Secret, both scoped by resourceNames to
+      Generates the ClusterRole/ClusterRoleBinding rds-secret-reader
+      needs to read a new Instance's status, scoped by resourceNames to
       that one Instance. Runs in the background too, so an Instance that
       already existed before this policy was installed still gets RBAC.
+      Secret access is a static Role (monitoring-secret-rbac.yaml), not
+      generated here — every monitor Secret lands in system-provisioning
+      regardless of instance.
 spec:
   background: true
   rules:
@@ -57,61 +59,6 @@ spec:
           roleRef:
             apiGroup: rbac.authorization.k8s.io
             kind: ClusterRole
-            name: "{{request.object.metadata.name}}-monitor-reader"
-          subjects:
-            - kind: ServiceAccount
-              name: rds-secret-reader
-              namespace: system-provisioning
-    - name: generate-monitor-role
-      match:
-        any:
-          - resources:
-              kinds:
-                - rds.aws.upbound.io/v1beta1/Instance
-                - rds.aws.upbound.io/v1beta2/Instance
-                - rds.aws.upbound.io/v1beta3/Instance
-      generate:
-        apiVersion: rbac.authorization.k8s.io/v1
-        kind: Role
-        name: "{{request.object.metadata.name}}-monitor-reader"
-        namespace: system-provisioning
-        synchronize: true
-        data:
-          rules:
-            - apiGroups:
-                - ""
-              resources:
-                - secrets
-              resourceNames:
-                - "{{request.object.metadata.name}}-monitor-credentials"
-              verbs:
-                - get
-                - update
-                - patch
-            - apiGroups:
-                - ""
-              resources:
-                - secrets
-              verbs:
-                - create
-    - name: generate-monitor-rolebinding
-      match:
-        any:
-          - resources:
-              kinds:
-                - rds.aws.upbound.io/v1beta1/Instance
-                - rds.aws.upbound.io/v1beta2/Instance
-                - rds.aws.upbound.io/v1beta3/Instance
-      generate:
-        apiVersion: rbac.authorization.k8s.io/v1
-        kind: RoleBinding
-        name: "{{request.object.metadata.name}}-monitor-reader"
-        namespace: system-provisioning
-        synchronize: true
-        data:
-          roleRef:
-            apiGroup: rbac.authorization.k8s.io
-            kind: Role
             name: "{{request.object.metadata.name}}-monitor-reader"
           subjects:
             - kind: ServiceAccount

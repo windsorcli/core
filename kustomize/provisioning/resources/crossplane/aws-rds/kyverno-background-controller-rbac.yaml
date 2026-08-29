@@ -16,33 +16,22 @@ rules:
     resources:
       - clusterroles
       - clusterrolebindings
-      - roles
-      - rolebindings
     verbs:
       - get
       - create
       - update
       - delete
-  # Kubernetes' own privilege-escalation check: to generate a ClusterRole/
-  # Role granting these permissions, background-controller must hold them
-  # itself. Granted here to Kyverno's own controller, not to
-  # rds-secret-reader — the workload identity the generated RBAC actually
-  # scopes stays exactly as narrow as before.
+  # Kubernetes' own privilege-escalation check: to generate a ClusterRole
+  # granting this, background-controller must hold it itself. Granted
+  # here to Kyverno's own controller, not to rds-secret-reader — the
+  # workload identity the generated RBAC actually scopes stays exactly
+  # as narrow as before.
   - apiGroups:
       - rds.aws.upbound.io
     resources:
       - instances
     verbs:
       - get
-  - apiGroups:
-      - ""
-    resources:
-      - secrets
-    verbs:
-      - get
-      - create
-      - update
-      - patch
   - apiGroups:
       - batch
     resources:
@@ -95,8 +84,6 @@ rules:
     resources:
       - clusterroles
       - clusterrolebindings
-      - roles
-      - rolebindings
     verbs:
       - get
       - list
