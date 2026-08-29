@@ -72,9 +72,19 @@ spec:
                   echo "$SECRET_JSON" | jq -r '.username' > /shared/admin-username
                   echo "$SECRET_JSON" | jq -r '.password' > /shared/admin-password
 
-                  # The app credential this job creates, independent of the
-                  # admin password's own AWS-managed rotation schedule.
-                  head -c 24 /dev/urandom | base64 | tr -d '/+=\n' > /shared/app-password
+                  # Reuse the password already published, so a role that
+                  # already exists doesn't get a new one every tick — an
+                  # app reading this Secret via env var wouldn't see the
+                  # change anyway. Only a fresh role gets a fresh one,
+                  # independent of the admin password's own AWS-managed
+                  # rotation schedule.
+                  EXISTING=$(kubectl get secret demo-db-app-credentials \
+                    -n demo-database -o jsonpath='{.data.password}' 2>/dev/null | base64 -d || echo "")
+                  if [ -n "$EXISTING" ]; then
+                    echo -n "$EXISTING" > /shared/app-password
+                  else
+                    head -c 24 /dev/urandom | base64 | tr -d '/+=\n' > /shared/app-password
+                  fi
                   echo -n "demo_app" > /shared/app-username
               volumeMounts:
                 - name: shared

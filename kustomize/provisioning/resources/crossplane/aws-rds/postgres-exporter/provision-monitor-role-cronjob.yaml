@@ -67,9 +67,19 @@ spec:
                   echo "$SECRET_JSON" | jq -r '.username' > /shared/admin-username
                   echo "$SECRET_JSON" | jq -r '.password' > /shared/admin-password
 
-                  # Independent of the admin password's own AWS-managed
-                  # rotation schedule.
-                  head -c 24 /dev/urandom | base64 | tr -d '/+=\n' > /shared/monitor-password
+                  # Reuse the password already published, so a role that
+                  # already exists doesn't get a new one every tick — the
+                  # exporter's DSN is read once at pod start and wouldn't
+                  # see the change anyway. Only a fresh role gets a fresh
+                  # one, independent of the admin password's own
+                  # AWS-managed rotation schedule.
+                  EXISTING=$(kubectl get secret ${pg_instance_name}-monitor-credentials \
+                    -n ${pg_target_namespace} -o jsonpath='{.data.password}' 2>/dev/null | base64 -d || echo "")
+                  if [ -n "$EXISTING" ]; then
+                    echo -n "$EXISTING" > /shared/monitor-password
+                  else
+                    head -c 24 /dev/urandom | base64 | tr -d '/+=\n' > /shared/monitor-password
+                  fi
               volumeMounts:
                 - name: shared
                   mountPath: /shared
