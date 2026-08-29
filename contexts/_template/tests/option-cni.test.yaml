@@ -192,10 +192,12 @@ cases:
       cluster:
         driver: talos
         controlplanes:
-          # Above the resource_constrained thresholds: isolates this case from
-          # config-talos's small-control-plane patch (covered separately).
+          # Above the resource_constrained thresholds on both axes: isolates
+          # this case from config-talos's small-control-plane patch (covered
+          # separately). memory must clear 2x its threshold (24) too, not
+          # just cpu's.
           cpu: 8
-          memory: 16
+          memory: 24
           nodes:
             controlplane-1: *cp1-node
         workers:
@@ -305,10 +307,12 @@ cases:
       cluster:
         driver: talos
         controlplanes:
-          # Above the resource_constrained thresholds: isolates this case from
-          # config-talos's small-control-plane patch (covered separately).
+          # Above the resource_constrained thresholds on both axes: isolates
+          # this case from config-talos's small-control-plane patch (covered
+          # separately). memory must clear 2x its threshold (24) too, not
+          # just cpu's.
           cpu: 8
-          memory: 16
+          memory: 24
           nodes:
             controlplane-1: *cp1-node
         workers:
