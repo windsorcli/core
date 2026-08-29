@@ -2,11 +2,10 @@
 # Provisions a read-only pg_monitor Postgres role, ${pg_database_name}_monitor,
 # for ${pg_instance_name} from its RDS-managed master password — never
 # the master credential itself, the same posture as the app-role
-# component uses for application credentials (see ADR-0009 §7, §8).
-# Publishes its DSN as ${pg_instance_name}-monitor-credentials for
-# deployment.yaml to read. Idempotent and safe to skip — a tick that
-# finds the Instance not yet Ready, or the role already provisioned,
-# exits clean and the next tick retries.
+# component uses for application credentials. Publishes its DSN as
+# ${pg_instance_name}-monitor-credentials for deployment.yaml to read.
+# A tick before the Instance is Ready, or after the role already
+# exists, exits clean.
 apiVersion: batch/v1
 kind: CronJob
 metadata:

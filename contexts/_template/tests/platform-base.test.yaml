@@ -827,10 +827,8 @@ cases:
             - components:
                 - prometheus/alerts/database
 
-  # rds driver adds prometheus/alerts/postgres-exporter instead, gated
-  # the same way as the dashboard -- see ADR-0009 §8, but on driver
-  # alone, not observability.enabled: alerts fire independent of
-  # whether anyone's looking at a dashboard.
+  # rds driver adds prometheus/alerts/postgres-exporter instead,
+  # gated on driver alone, not observability.enabled.
   - name: rds database enabled adds the postgres-exporter alert component
     values:
       platform: aws

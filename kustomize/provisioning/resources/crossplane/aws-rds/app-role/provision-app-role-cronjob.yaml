@@ -2,12 +2,11 @@
 # Provisions ${pg_database_name}_app for ${pg_instance_name} from its
 # RDS-managed master password — never the master credential itself,
 # matching CNPG's own separation of its superuser and app-database
-# secrets (see ADR-0009 §7). The role's grants are entirely the
-# consuming chart's own SQL (pg_grant_sql below); this component only
-# owns the mechanics: idempotent role creation, password handling,
-# publishing ${pg_instance_name}-app-credentials. Idempotent and safe
-# to skip — a tick that finds the Instance not yet Ready, or the role
-# already provisioned, exits clean and the next tick retries.
+# secrets. The role's grants come from the consuming chart's own SQL
+# (pg_grant_sql below); this component owns the mechanics: idempotent
+# role creation, password handling, publishing
+# ${pg_instance_name}-app-credentials. A tick before the Instance is
+# Ready, or after the role already exists, exits clean.
 apiVersion: batch/v1
 kind: CronJob
 metadata:

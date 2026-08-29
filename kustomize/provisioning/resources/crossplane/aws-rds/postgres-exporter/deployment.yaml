@@ -1,8 +1,8 @@
 ---
 # Scrapes ${pg_instance_name} as its pg_monitor role (no admin access) so
-# the vendored postgres_exporter Grafana dashboard has data — see
-# ADR-0009 §8 and provision-monitor-role-cronjob.yaml, which provisions
-# the role and publishes its DSN as ${pg_instance_name}-monitor-credentials.
+# the vendored postgres_exporter Grafana dashboard has data.
+# provision-monitor-role-cronjob.yaml provisions the role and publishes
+# its DSN as ${pg_instance_name}-monitor-credentials.
 apiVersion: apps/v1
 kind: Deployment
 metadata:

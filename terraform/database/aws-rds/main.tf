@@ -41,10 +41,8 @@ data "aws_kms_key" "rds_default" {
 # KMS Key
 #-----------------------------------------------------------------------------------------------------------------------
 
-# Encryption key for RDS storage in this context. Shared across every
-# database, not created per instance. AWS managed keys need explicit IAM
-# grants from the calling role just like this one, so a dedicated CMK also
-# gives rotation, audit trail, and revocation the default key can't.
+# Encryption key for RDS storage in this context, shared across every
+# database, not created per instance.
 resource "aws_kms_key" "rds" {
   count                   = var.manage_encryption_key && var.kms_key_arn == "" ? 1 : 0
   description             = "KMS key for RDS storage encryption in context ${var.context_id}"
@@ -95,12 +93,9 @@ resource "aws_kms_alias" "rds" {
 # Security Group
 #-----------------------------------------------------------------------------------------------------------------------
 
-# Allows Postgres access only from this cluster's own nodes, identified by
-# EKS's auto-created cluster security group (attached to every node's
-# primary ENI regardless of CNI driver, so this covers pod traffic under
-# both the AWS VPC CNI and Cilium). The default security group (network/
-# aws-vpc) denies all traffic, so an RDS Instance with no explicit
-# vpcSecurityGroupIds is otherwise unreachable from any pod.
+# Allows Postgres access only from this cluster's own nodes, via EKS's
+# auto-created cluster security group (attached to every node's primary
+# ENI). The default security group (network/aws-vpc) denies all traffic.
 resource "aws_security_group" "rds" {
   # checkov:skip=CKV2_AWS_5: Attached via a chart's Instance CR (vpcSecurityGroupIds), outside Terraform's own graph.
   name        = "${var.context_id}-rds"
@@ -124,11 +119,9 @@ resource "aws_security_group" "rds" {
 # Secret Reader Role
 #-----------------------------------------------------------------------------------------------------------------------
 
-# Read-only access to the RDS-managed master password, for a namespace-agnostic
-# bootstrap job to use in provisioning a scoped, least-privilege application
-# credential — never the master credential itself, matching CNPG's own
-# separation of its superuser and app-database secrets. Engine-agnostic like
-# the KMS key: any database, however created, needs this same step.
+# Read-only access to the RDS-managed master password, for a bootstrap
+# job that provisions a scoped, least-privilege application credential
+# from it — never the master credential itself.
 resource "aws_iam_role" "secret_reader" {
   name = "${var.context_id}-rds-secret-reader"
 
@@ -183,11 +176,9 @@ resource "aws_iam_role_policy_attachment" "secret_reader" {
   role       = aws_iam_role.secret_reader.name
 }
 
-# Fixed (namespace, service_account) pair, not per-consumer — the bootstrap
-# job runs once in system-provisioning regardless of which app namespace it
-# publishes the resulting credential into. Cross-namespace publication is a
-# Kubernetes RBAC concern (a RoleBinding the target namespace grants), not an
-# AWS IAM one, so this role never needs to change as consumers are added.
+# Fixed (namespace, service_account) pair, not per-consumer — the
+# bootstrap job runs once in system-provisioning regardless of which
+# app namespace it publishes the resulting credential into.
 resource "aws_eks_pod_identity_association" "secret_reader" {
   cluster_name    = var.cluster_name
   namespace       = "system-provisioning"

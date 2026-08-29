@@ -132,13 +132,9 @@ terraform:
       - cluster
     destroy: false
 
-  # KMS key, security group, and secret-reader role for RDS storage, shared
-  # across every database in this context regardless of how many exist. The
-  # KMS key and security group are independent of the engine that creates
-  # the database; the secret-reader role backs a bootstrap job that scopes
-  # the RDS-managed master credential down to a least-privilege application
-  # credential (see the naming-convention/CNPG-parity note in ADR-0009 §3) —
-  # all engine-agnostic, unlike crossplane-iam below.
+  # KMS key, security group, and secret-reader role for RDS storage —
+  # shared across every database in this context, engine-agnostic
+  # unlike crossplane-iam below.
   - name: database
     path: database/aws-rds
     when: "database.postgres.enabled == true && database.postgres.driver == 'rds'"
