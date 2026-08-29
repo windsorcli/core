@@ -477,34 +477,74 @@ infra metrics (CPU, IOPS, storage) that Postgres itself can't see are a
 real complement, not addressed here — the same kind of scoped-out,
 named fast-follow as Azure in §5.
 
-Every `Instance`, however created, wants the same `pg_monitor` role and
-the same exporter — same reasoning as §7's `app-role` component, and the
-same shape: `kustomize/provisioning/resources/crossplane/aws-rds/postgres-exporter`,
-reusable, not demo-authored YAML. A chart opts in with three
-substitutions (`pg_instance_name`, `pg_database_name`,
-`pg_target_namespace`) — one fewer than `app-role`, since there's no
-`pg_grant_sql` to supply: the role it provisions
-(`<pg_database_name>_monitor`) always gets the same grant, Postgres's
-built-in `pg_monitor`. It brings its own `CronJob` (the same idempotent
-create-or-reuse-password pattern as `app-role`'s), its own scoped
-`ClusterRole`/`Role` against the shared `rds-secret-reader` identity, and
-a `postgres_exporter` `Deployment`/`PodMonitor` reading the published DSN
-via `DATA_SOURCE_NAME` — no new AWS IAM, no new network path beyond the
-security group already scoped to the cluster's nodes in §6.
-`option-demo.yaml` wires both components into the same `provisioning`
-`flux:` entry, merging into the `provisioning-resources` Kustomization
-`addon-database.yaml` already targets — the same cross-domain-entry
-pattern §2 established, now used by a *chart's* facet instead of a
-driving one. `app-role` fires whenever `driver: rds`; `postgres-exporter`
-is additionally gated on `telemetry.metrics.enabled` (default `true`) —
-what the exporter actually needs is a Prometheus to scrape it, not a
-Grafana to render its dashboard. `observability.enabled` gates the
-*whole* `addon-observability.yaml` facet — Grafana, Quickwit, fluentd,
-none of which the exporter depends on — so gating on it instead would
-have meant a perfectly normal `observability.enabled: false` +
-`telemetry.metrics.enabled: true` setup (alerting via Alertmanager,
-no Grafana) silently getting no exporter and no data for the alerts
-below to evaluate. Found on review, fixed here, not left as a named gap.
+Unlike §7's application credential, monitoring isn't chart-specific at
+all — it's not just that every `Instance` wants the same `pg_monitor`
+role, it's that the exporter has no reason to live in the *consuming*
+chart's namespace either. `app-role`'s `Secret` has to sit in the app's
+namespace because the app's own Deployment mounts it there via
+`secretKeyRef`; the exporter has no such consumer — Prometheus discovers
+`PodMonitor`s cluster-wide (`podMonitorNamespaceSelector: {}`) regardless
+of which namespace the exporter pod lives in. Once that's true, nothing
+about monitoring needs a chart to opt in at all: everything it needs —
+the instance name, the database name — already lives on the `Instance`
+object itself. So this isn't wired per-chart with Flux substitutions the
+way `app-role` is; it's a Kyverno `generate` `ClusterPolicy` that reacts
+to *any* `rds.aws.upbound.io Instance`, in any namespace, created by any
+chart, and materializes the role-provisioning `CronJob` and the
+`postgres_exporter` `Deployment`/`Service`/`PodMonitor` into
+`system-provisioning` automatically — deriving `pg_instance_name` from
+`{{request.object.metadata.name}}` and `pg_database_name` from
+`{{request.object.spec.forProvider.dbName}}`. No chart opt-in, no
+substitutions to remember; create an `Instance` anywhere and monitoring
+exists, the closest this gets to CNPG's own `enablePodMonitor: true`
+given `provider-aws-rds` (a generic Terraform-bridged CRUD layer, not an
+operator that owns anything inside the database it provisions) has no
+equivalent field of its own to hang that off of. `background: true` on
+each policy means an `Instance` that existed before the policy was
+installed still gets monitoring — Kyverno backfills it, not just new
+creates.
+
+Splitting the generated resources by concern mirrors the file split
+`app-role` and the old per-chart component already had: one policy
+(`monitoring-rbac-policy.yaml`) generates the `ClusterRole`/`Role` pair
+scoping `rds-secret-reader` to the one named `Instance` and its one
+`Secret`, resourceNames-scoped exactly as before; a second
+(`monitoring-cronjob-policy.yaml`) generates the `CronJob`, the same
+idempotent create-or-reuse-password script `app-role`'s already
+established, unchanged apart from where its substitutions now come
+from; a third (`monitoring-exporter-policy.yaml`, kept in its own
+gated component — see below) generates the exporter itself. Landing all
+three in `system-provisioning` — the identity's own home namespace —
+also simplifies the RBAC: no more per-instance `ClusterRole` *and*
+namespaced `Role` split across two namespaces, just two objects, both
+in the one namespace everything already runs in.
+
+Kyverno's `background-controller` and `admission-controller` only
+generate or read resource kinds they've been explicitly granted —
+by default neither can touch `ClusterRole`, `CronJob`, `Deployment`, or
+`PodMonitor` at all, confirmed live: applying the first version of
+these policies without the extra grant failed at Kyverno's own admission
+webhook, not silently. `kyverno-background-controller-rbac.yaml` adds
+two `ClusterRole`s labeled `rbac.kyverno.io/aggregate-to-background-controller`
+and `rbac.kyverno.io/aggregate-to-admission-controller` — the extension
+point Kyverno's own chart ships for exactly this, aggregating
+automatically into `kyverno:background-controller` and
+`kyverno:admission-controller` with no Helm values to touch.
+
+The exporter's own policy lives in a separate `monitoring-exporter`
+component, gated on `telemetry.metrics.enabled` (default `true`),
+because `PodMonitor` (`monitoring.coreos.com/v1`) only exists once the
+metrics pipeline vendors prometheus-operator's CRDs — a real correctness
+issue, not a style choice: a policy that unconditionally tries to
+`generate` a kind the cluster hasn't registered fails, it doesn't no-op.
+The RBAC and `CronJob` policies don't reference that CRD at all, so they
+stay unconditional on `driver: rds` alone — the monitor role and its
+`Secret` are still useful (manual `psql` access, say) even with no
+Prometheus to scrape it. `observability.enabled` never gates any of
+this: it's the flag for the *whole* `addon-observability.yaml` facet —
+Grafana, Quickwit, fluentd — none of which the exporter depends on,
+where `telemetry.metrics.enabled` is specifically "does Prometheus
+exist to scrape this."
 
 The `PodMonitor`'s `instance` label is relabeled to `pg_instance_name`
 rather than left at its default (the exporter pod's own IP) — otherwise
@@ -525,16 +565,22 @@ exporter's default collectors don't expose — confirmed against the live
 (`prometheus-rule.test.yaml`, this repo's existing convention for
 hand-curated alerts) covering every alert, both firing and clear.
 
-A first pass at this gated the exporter on `observability.enabled`
-instead — matching the dashboard's own gate rather than the alerts'.
-That left a real gap: `observability.enabled: false` with
-`telemetry.metrics.enabled: true` (a normal alerting-without-Grafana
-setup) got a `PrometheusRule` with nothing feeding it. Corrected in
-`option-demo.yaml` to gate on `telemetry.metrics.enabled` instead, the
-same flag the alerts themselves are implicitly downstream of via
-`platform-base.yaml`'s `telemetry.alert_components` gate. CNPG doesn't
-have this seam at all — its metrics ride the existing `Cluster` pod at
-no extra cost, so there was never a decision to gate.
+Two corrections landed on the way to what's described above, both worth
+naming rather than silently absorbing into the final shape. First: an
+early pass gated the exporter on `observability.enabled` — matching the
+dashboard's own gate rather than the alerts'. That left a real gap:
+`observability.enabled: false` with `telemetry.metrics.enabled: true`
+(a normal alerting-without-Grafana setup) got a `PrometheusRule` with
+nothing feeding it, since `observability.enabled` gates the unrelated
+Grafana/Quickwit/fluentd facet, not Prometheus. Second, and larger: the
+exporter was originally wired the same way `app-role` is — a component a
+chart opts into with substitutions, initially including a
+`pg_target_namespace` copied from `app-role` without asking whether
+monitoring actually needed one. It didn't; that's what motivated
+replacing per-chart opt-in with the Kyverno `generate` policies
+described above. CNPG doesn't have either seam — its metrics ride the
+existing `Cluster` pod at no extra cost and need no separate wiring at
+all — which is exactly the parity gap this section closes.
 
 ## Consequences
 
@@ -672,6 +718,17 @@ no extra cost, so there was never a decision to gate.
   Prometheus's own `/api/v1/rules`, every one reporting `health: ok`,
   and every one `inactive` against the real, healthy `demo-db` — no
   false positives against live data.
+- The bullets above describe the `crossplane/aws-rds/postgres-exporter`
+  *component* — a chart-authored opt-in, since superseded by the
+  Kyverno `generate` policies §8 now describes. That component no
+  longer exists; the CronJob/RBAC content these bullets verified
+  carried forward into the `generate` policies largely unchanged, and
+  was re-verified again in that shape: applying the policies live
+  correctly failed at Kyverno's own admission webhook until the
+  `background-controller`/`admission-controller` RBAC aggregation was
+  added, and once added, a background scan against the already-existing
+  `demo-db` `Instance` generated a working exporter with no chart-side
+  action at all.
 
 ## Alternatives considered
 

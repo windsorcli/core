@@ -164,11 +164,43 @@ cases:
           resources:
             - components:
                 - crossplane/aws-rds
+                - crossplane/aws-rds/monitoring-exporter
       crds:
         - crossplane-2.4.0
     exclude:
       flux:
         - name: database
+
+  # PodMonitor only exists once the metrics pipeline vendors
+  # prometheus-operator's CRDs, so the exporter's generate policy is
+  # excluded when it's off — the RBAC/CronJob generate policies (plain
+  # crossplane/aws-rds) don't touch that CRD and stay unconditional.
+  - name: rds driver excludes monitoring-exporter when metrics disabled
+    values:
+      platform: aws
+      aws:
+        region: us-west-2
+      gateway:
+        enabled: false
+      database:
+        postgres:
+          enabled: true
+          driver: rds
+      telemetry:
+        metrics:
+          enabled: false
+    expect:
+      flux:
+        - name: provisioning
+          resources:
+            - components:
+                - crossplane/aws-rds
+    exclude:
+      flux:
+        - name: provisioning
+          resources:
+            - components:
+                - crossplane/aws-rds/monitoring-exporter
 
   # rds driver with observability enabled gets the postgres_exporter
   # dashboard, not the cloudnativepg one — the two are mutually exclusive.

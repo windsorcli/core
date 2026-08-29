@@ -4,3 +4,6 @@ resources:
   - provider-config.yaml
   - tag-policy.yaml
   - secret-reader-service-account.yaml
+  - kyverno-background-controller-rbac.yaml
+  - monitoring-rbac-policy.yaml
+  - monitoring-cronjob-policy.yaml

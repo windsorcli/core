@@ -94,16 +94,14 @@ cases:
                 kms_key_arn: arn:aws:kms:us-west-2:123456789012:key/abcd1234-5678-90ab-cdef-1234567890ab
                 rds_security_group_id: sg-0abcd1234
                 demo_db_name: demo
-        # app-role is unconditional whenever driver: rds. postgres-exporter
-        # needs telemetry.metrics.enabled (default true here), not
-        # observability.enabled (unset here).
+        # app-role is unconditional whenever driver: rds. Monitoring isn't
+        # wired here at all anymore — see addon-database.test.yaml.
         - name: provisioning
           resources:
             - timeout: 5m
               interval: 5m
               components:
                 - crossplane/aws-rds/app-role
-                - crossplane/aws-rds/postgres-exporter
               substitutions:
                 pg_instance_name: demo-db
                 pg_database_name: demo
@@ -112,78 +110,6 @@ cases:
     exclude:
       flux:
         - name: database
-
-  # Disabling the metrics pipeline (not observability/Grafana) excludes
-  # postgres-exporter — there's nothing to scrape it. app-role, which
-  # doesn't depend on metrics at all, stays.
-  - name: demo mode with rds driver excludes postgres-exporter when metrics disabled
-    values:
-      platform: aws
-      aws:
-        region: us-west-2
-      dev: true
-      demo:
-        enabled: true
-        resources:
-          database: true
-      gateway:
-        enabled: false
-      database:
-        postgres:
-          enabled: true
-          driver: rds
-      telemetry:
-        metrics:
-          enabled: false
-    terraformOutputs:
-      network:
-        db_subnet_group_name: test-rds
-      database:
-        kms_key_arn: arn:aws:kms:us-west-2:123456789012:key/abcd1234-5678-90ab-cdef-1234567890ab
-        security_group_id: sg-0abcd1234
-    expect:
-      flux:
-        - name: provisioning
-          resources:
-            - components:
-                - crossplane/aws-rds/app-role
-
-  # observability.enabled (Grafana) alone doesn't gate the exporter —
-  # only telemetry.metrics.enabled does. This proves the two are
-  # decoupled: metrics off but observability on still excludes it.
-  - name: demo mode with rds driver excludes postgres-exporter when metrics disabled even with observability enabled
-    values:
-      platform: aws
-      aws:
-        region: us-west-2
-      dev: true
-      demo:
-        enabled: true
-        resources:
-          database: true
-      gateway:
-        enabled: false
-      database:
-        postgres:
-          enabled: true
-          driver: rds
-      observability:
-        enabled: true
-      telemetry:
-        metrics:
-          enabled: false
-    terraformOutputs:
-      network:
-        db_subnet_group_name: test-rds
-      database:
-        kms_key_arn: arn:aws:kms:us-west-2:123456789012:key/abcd1234-5678-90ab-cdef-1234567890ab
-        security_group_id: sg-0abcd1234
-    expect:
-      flux:
-        - name: provisioning
-          resources:
-            - components:
-                - crossplane/aws-rds/app-role
 
   # static + bookinfo apps carry no database dependency, and demo is a
   # resources-only system, so no demo-install tier is emitted.

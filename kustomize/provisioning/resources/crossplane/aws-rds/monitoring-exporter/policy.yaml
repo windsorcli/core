@@ -1,0 +1,124 @@
+---
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: rds-instance-monitor-exporter
+  annotations:
+    policies.kyverno.io/title: RDS instance postgres_exporter
+    policies.kyverno.io/category: AWS
+    policies.kyverno.io/severity: medium
+    policies.kyverno.io/subject: Instance
+    policies.kyverno.io/description: >-
+      Generates a postgres_exporter Deployment/Service/PodMonitor in
+      system-provisioning for a new Instance, scraping it as the
+      pg_monitor role rds-instance-monitor-role.yaml provisions. Runs in
+      the background too, so an Instance that already existed before
+      this policy was installed still gets an exporter.
+spec:
+  background: true
+  rules:
+    - name: generate-monitor-deployment
+      match:
+        any:
+          - resources:
+              kinds:
+                - rds.aws.upbound.io/v1beta1/Instance
+                - rds.aws.upbound.io/v1beta2/Instance
+                - rds.aws.upbound.io/v1beta3/Instance
+      generate:
+        apiVersion: apps/v1
+        kind: Deployment
+        name: "{{request.object.metadata.name}}-postgres-exporter"
+        namespace: system-provisioning
+        synchronize: true
+        data:
+          spec:
+            replicas: 1
+            selector:
+              matchLabels:
+                app: "{{request.object.metadata.name}}-postgres-exporter"
+            template:
+              metadata:
+                labels:
+                  app: "{{request.object.metadata.name}}-postgres-exporter"
+              spec:
+                containers:
+                  - name: postgres-exporter
+                    # renovate: datasource=docker depName=quay.io/prometheuscommunity/postgres-exporter
+                    image: quay.io/prometheuscommunity/postgres-exporter:v0.20.1@sha256:ac5ec343104fae0e2d84a27bb8d69b38430a11910c5382cad85d478d2bab713e
+                    ports:
+                      - name: metrics
+                        containerPort: 9187
+                    env:
+                      - name: DATA_SOURCE_NAME
+                        valueFrom:
+                          secretKeyRef:
+                            name: "{{request.object.metadata.name}}-monitor-credentials"
+                            key: uri
+                    securityContext:
+                      runAsNonRoot: true
+                      runAsUser: 1000
+                      runAsGroup: 1000
+                      allowPrivilegeEscalation: false
+                      readOnlyRootFilesystem: true
+                      capabilities:
+                        drop:
+                          - ALL
+                      seccompProfile:
+                        type: RuntimeDefault
+                    resources:
+                      # No CPU limit, to avoid CFS throttling on bursty scrapes.
+                      limits:
+                        memory: 64Mi
+                      requests:
+                        memory: 32Mi
+                        cpu: 25m
+    - name: generate-monitor-service
+      match:
+        any:
+          - resources:
+              kinds:
+                - rds.aws.upbound.io/v1beta1/Instance
+                - rds.aws.upbound.io/v1beta2/Instance
+                - rds.aws.upbound.io/v1beta3/Instance
+      generate:
+        apiVersion: v1
+        kind: Service
+        name: "{{request.object.metadata.name}}-postgres-exporter"
+        namespace: system-provisioning
+        synchronize: true
+        data:
+          spec:
+            selector:
+              app: "{{request.object.metadata.name}}-postgres-exporter"
+            ports:
+              - name: metrics
+                port: 9187
+                targetPort: metrics
+    - name: generate-monitor-podmonitor
+      match:
+        any:
+          - resources:
+              kinds:
+                - rds.aws.upbound.io/v1beta1/Instance
+                - rds.aws.upbound.io/v1beta2/Instance
+                - rds.aws.upbound.io/v1beta3/Instance
+      generate:
+        apiVersion: monitoring.coreos.com/v1
+        kind: PodMonitor
+        name: "{{request.object.metadata.name}}-postgres-exporter"
+        namespace: system-provisioning
+        synchronize: true
+        data:
+          spec:
+            selector:
+              matchLabels:
+                app: "{{request.object.metadata.name}}-postgres-exporter"
+            podMetricsEndpoints:
+              - port: metrics
+                # Without this, instance defaults to the exporter pod's own IP —
+                # meaningless, and it churns on every pod restart. Naming the
+                # actual Instance instead keeps it stable and readable.
+                relabelings:
+                  - targetLabel: instance
+                    replacement: "{{request.object.metadata.name}}"

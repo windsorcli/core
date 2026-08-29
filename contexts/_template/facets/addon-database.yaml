@@ -59,10 +59,15 @@ flux:
       timeout: 15m
       interval: 5m
     resources:
-      # ProviderConfig + the tag policy. ProviderConfig's CRD registers only
-      # once install: reports the Provider Healthy/Installed.
+      # ProviderConfig + the tag policy + the always-on monitoring
+      # generate policies. ProviderConfig's CRD registers only once
+      # install: reports the Provider Healthy/Installed. The exporter's
+      # own generate policy is separate (monitoring-exporter component)
+      # since it needs telemetry.metrics.enabled — PodMonitor only
+      # exists once the metrics pipeline vendors that CRD.
       - components:
           - crossplane/aws-rds
+          - "${(telemetry.metrics.enabled ?? true) ? 'crossplane/aws-rds/monitoring-exporter' : ''}"
         substitutions:
           cluster_name: "${terraform_output('cluster', 'cluster_name') ?? ''}"
         timeout: 5m
