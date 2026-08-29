@@ -14,7 +14,7 @@ metadata:
   name: demo-db-provision-app-role
   namespace: system-provisioning
 spec:
-  schedule: "*/15 * * * *"
+  schedule: "*/5 * * * *"
   concurrencyPolicy: Forbid
   startingDeadlineSeconds: 300
   successfulJobsHistoryLimit: 3

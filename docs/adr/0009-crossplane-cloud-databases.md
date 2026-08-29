@@ -384,7 +384,7 @@ its own `ProviderConfig`, this ADR adds a purpose-built CronJob:
   this pattern brings the identical `Role`/`RoleBinding` into its own
   namespace and its own named `ClusterRole`/`ClusterRoleBinding` pair.
 - **The CronJob** (`provision-app-role-cronjob.yaml`) runs in
-  `system-provisioning` on a 15-minute schedule, in three steps: an init
+  `system-provisioning` on a 5-minute schedule, in three steps: an init
   container checks the `Instance` for Ready and, if it isn't yet, exits
   the tick clean; once Ready, it reads `masterUserSecret[0].secretArn`
   and `address` and resolves the admin credential from Secrets Manager.
@@ -423,7 +423,7 @@ deleted and recreated (as it was live, for the `dbName` fix below)
 required manually deleting the Job so Flux (with
 `kustomize.toolkit.fluxcd.io/force: enabled`) could recreate it. A
 `CronJob` reuses the same already-idempotent script on a schedule
-(every 15 minutes): a tick before the Instance is Ready, or after
+(every 5 minutes): a tick before the Instance is Ready, or after
 `demo_app` already exists with the grants it needs, exits clean, and
 its `jobTemplate` is an ordinary mutable field, so the force annotation
 is no longer needed either. This does not cover rotating `demo_app`'s
