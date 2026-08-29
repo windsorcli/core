@@ -19,7 +19,7 @@ output "kms_key_alias" {
 }
 
 output "security_group_id" {
-  description = "Security group ID allowing Postgres access from anywhere in the VPC. Reference from an Instance CR's vpcSecurityGroupIds."
+  description = "Security group ID with Postgres ingress restricted to this cluster's node security group. Reference from an Instance CR's vpcSecurityGroupIds."
   value       = aws_security_group.rds.id
 }
 
