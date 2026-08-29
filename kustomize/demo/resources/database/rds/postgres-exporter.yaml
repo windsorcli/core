@@ -1,0 +1,76 @@
+---
+# Scrapes demo-db as demo_monitor (pg_monitor, no admin access) so the
+# vendored postgres_exporter Grafana dashboard has data — see
+# ADR-0009 §7 and provision-app-role-cronjob.yaml, which provisions the
+# role and publishes its DSN as demo-db-monitor-credentials.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: demo-db-postgres-exporter
+  namespace: demo-database
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: demo-db-postgres-exporter
+  template:
+    metadata:
+      labels:
+        app: demo-db-postgres-exporter
+    spec:
+      containers:
+        - name: postgres-exporter
+          # renovate: datasource=docker depName=quay.io/prometheuscommunity/postgres-exporter
+          image: quay.io/prometheuscommunity/postgres-exporter:v0.20.1@sha256:ac5ec343104fae0e2d84a27bb8d69b38430a11910c5382cad85d478d2bab713e
+          ports:
+            - name: metrics
+              containerPort: 9187
+          env:
+            - name: DATA_SOURCE_NAME
+              valueFrom:
+                secretKeyRef:
+                  name: demo-db-monitor-credentials
+                  key: uri
+          securityContext:
+            runAsNonRoot: true
+            runAsUser: 1000
+            runAsGroup: 1000
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop:
+                - ALL
+            seccompProfile:
+              type: RuntimeDefault
+          resources:
+            limits:
+              memory: 64Mi
+              cpu: 100m
+            requests:
+              memory: 32Mi
+              cpu: 25m
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: demo-db-postgres-exporter
+  namespace: demo-database
+spec:
+  selector:
+    app: demo-db-postgres-exporter
+  ports:
+    - name: metrics
+      port: 9187
+      targetPort: metrics
+---
+apiVersion: monitoring.coreos.com/v1
+kind: PodMonitor
+metadata:
+  name: demo-db-postgres-exporter
+  namespace: demo-database
+spec:
+  selector:
+    matchLabels:
+      app: demo-db-postgres-exporter
+  podMetricsEndpoints:
+    - port: metrics

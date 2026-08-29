@@ -31,12 +31,16 @@ flux:
       timeout: 15m
       interval: 10m
 
-  # Grafana dashboard patch — only when observability is active.
+  # Grafana dashboard — only when observability is active. Matches the
+  # active driver: CloudNativePG's own metrics, or postgres_exporter for
+  # rds (see kustomize/demo/resources/database/rds for a worked example
+  # of deploying it against a chart's own Instance).
   - name: observability
-    when: database.postgres.driver == 'cloudnativepg' && observability.enabled == true
+    when: (database.postgres.driver == 'cloudnativepg' || database.postgres.driver == 'rds') && observability.enabled == true
     resources:
       - components:
-          - grafana/dashboards/cloudnativepg
+          - "${database.postgres.driver == 'cloudnativepg' ? 'grafana/dashboards/cloudnativepg' : ''}"
+          - "${database.postgres.driver == 'rds' ? 'grafana/dashboards/postgres-exporter' : ''}"
 
   # Crossplane (kustomize/provisioning) — a chart creates the Instance CR;
   # core only installs the engine and wires AWS credentials.

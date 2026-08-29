@@ -31,7 +31,7 @@ subjects:
 ---
 # Grants the shared rds-secret-reader identity (provisioning add-on) access
 # into this namespace specifically — this namespace opts in, not core
-# reaching into it uninvited. Scoped to the one Secret this bootstrap job
+# reaching into it uninvited. Scoped to the two Secrets this bootstrap job
 # publishes, not every Secret in the namespace. create can't be scoped by
 # resourceNames (the object doesn't exist yet), so it stays kind-level for
 # that verb only.
@@ -47,6 +47,7 @@ rules:
       - secrets
     resourceNames:
       - demo-db-app-credentials
+      - demo-db-monitor-credentials
     verbs:
       - get
       - update

@@ -170,6 +170,28 @@ cases:
       flux:
         - name: database
 
+  # rds driver with observability enabled gets the postgres_exporter
+  # dashboard, not the cloudnativepg one — the two are mutually exclusive.
+  - name: rds driver with observability enables postgres-exporter dashboard
+    values:
+      platform: aws
+      aws:
+        region: us-west-2
+      gateway:
+        enabled: false
+      database:
+        postgres:
+          enabled: true
+          driver: rds
+      observability:
+        enabled: true
+    expect:
+      flux:
+        - name: observability
+          resources:
+            - components:
+                - grafana/dashboards/postgres-exporter
+
   # Regression: the cloudnativepg driver (default) must not install Crossplane.
   - name: cloudnativepg driver excludes crossplane provisioning
     values:

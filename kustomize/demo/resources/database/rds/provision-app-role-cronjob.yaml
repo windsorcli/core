@@ -1,13 +1,16 @@
 ---
-# Provisions a least-privilege application credential for demo-db, scoped
-# to the demo database only — never the RDS master credential, matching
-# CNPG's own separation of its superuser and app-database secrets (see
-# ADR-0009 §7, "app credentials, not the admin secret"). Runs on a
-# schedule rather than once: reads the RDS-managed master password via
-# rds-secret-reader, creates demo_app with narrow grants, and publishes
-# its password as demo-db-app-credentials in this namespace. Idempotent
-# and safe to skip — a tick that finds the Instance not yet Ready, or
-# demo_app already provisioned, exits clean and the next tick retries.
+# Provisions the demo_app and demo_monitor Postgres roles for demo-db,
+# scoped to the demo database only — never the RDS master credential,
+# matching CNPG's own separation of its superuser and app-database
+# secrets (see ADR-0009 §7, "app credentials, not the admin secret").
+# demo_monitor carries the built-in pg_monitor role, for
+# postgres-exporter.yaml to scrape rather than connecting as an admin.
+# Runs on a schedule rather than once: reads the RDS-managed master
+# password via rds-secret-reader, provisions both roles, and publishes
+# their passwords as demo-db-app-credentials/demo-db-monitor-credentials
+# in this namespace. Idempotent and safe to skip — a tick that finds the
+# Instance not yet Ready, or both roles already provisioned, exits clean
+# and the next tick retries.
 apiVersion: batch/v1
 kind: CronJob
 metadata:
@@ -68,10 +71,13 @@ spec:
                   echo "$SECRET_JSON" | jq -r '.username' > /shared/admin-username
                   echo "$SECRET_JSON" | jq -r '.password' > /shared/admin-password
 
-                  # The app credential this job creates, independent of the
-                  # admin password's own AWS-managed rotation schedule.
+                  # The app and monitor credentials this job creates,
+                  # independent of the admin password's own AWS-managed
+                  # rotation schedule.
                   head -c 24 /dev/urandom | base64 | tr -d '/+=\n' > /shared/app-password
                   echo -n "demo_app" > /shared/app-username
+                  head -c 24 /dev/urandom | base64 | tr -d '/+=\n' > /shared/monitor-password
+                  echo -n "demo_monitor" > /shared/monitor-username
               volumeMounts:
                 - name: shared
                   mountPath: /shared
@@ -100,6 +106,8 @@ spec:
                   ADMIN_USER=$(cat /shared/admin-username)
                   APP_USER=$(cat /shared/app-username)
                   APP_PASSWORD=$(cat /shared/app-password)
+                  MONITOR_USER=$(cat /shared/monitor-username)
+                  MONITOR_PASSWORD=$(cat /shared/monitor-password)
 
                   PGPASSWORD=$(cat /shared/admin-password) psql -h "$ADDRESS" -U "$ADMIN_USER" \
                     -d ${demo_db_name} -v ON_ERROR_STOP=1 <<SQL
@@ -116,6 +124,17 @@ spec:
                   GRANT USAGE ON SCHEMA public TO $APP_USER;
                   GRANT SELECT, INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA public TO $APP_USER;
                   ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT SELECT, INSERT, UPDATE, DELETE ON TABLES TO $APP_USER;
+
+                  DO \$\$
+                  BEGIN
+                    IF NOT EXISTS (SELECT FROM pg_roles WHERE rolname = '$MONITOR_USER') THEN
+                      CREATE ROLE $MONITOR_USER WITH LOGIN PASSWORD '$MONITOR_PASSWORD';
+                    ELSE
+                      ALTER ROLE $MONITOR_USER WITH PASSWORD '$MONITOR_PASSWORD';
+                    END IF;
+                  END
+                  \$\$;
+                  GRANT pg_monitor TO $MONITOR_USER;
                   SQL
               volumeMounts:
                 - name: shared
@@ -146,6 +165,16 @@ spec:
                     -n demo-database \
                     --from-literal=username="$(cat /shared/app-username)" \
                     --from-literal=password="$(cat /shared/app-password)" \
+                    --dry-run=client -o yaml | kubectl apply -f -
+
+                  ADDRESS=$(cat /shared/address)
+                  MONITOR_USER=$(cat /shared/monitor-username)
+                  MONITOR_PASSWORD=$(cat /shared/monitor-password)
+                  kubectl create secret generic demo-db-monitor-credentials \
+                    -n demo-database \
+                    --from-literal=username="$MONITOR_USER" \
+                    --from-literal=password="$MONITOR_PASSWORD" \
+                    --from-literal=uri="postgresql://$MONITOR_USER:$MONITOR_PASSWORD@$ADDRESS:5432/${demo_db_name}?sslmode=require" \
                     --dry-run=client -o yaml | kubectl apply -f -
               volumeMounts:
                 - name: shared

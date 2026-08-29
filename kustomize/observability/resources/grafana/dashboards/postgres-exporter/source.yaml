@@ -1,0 +1,9 @@
+# postgres_exporter Grafana dashboard
+# Run: task dashboards
+
+upstream:
+  # renovate: datasource=github-releases depName=prometheus-community/postgres_exporter versioning=semver
+  url: https://raw.githubusercontent.com/prometheus-community/postgres_exporter/v0.20.1/postgres_mixin/dashboards
+
+files:
+  - name: postgres-overview.json

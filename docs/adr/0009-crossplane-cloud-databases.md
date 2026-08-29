@@ -435,6 +435,36 @@ companion just breaks the app silently on whatever interval got
 picked. Deliberately out of scope here — this ADR proves the
 CNPG-parity pattern works, not a rotation platform.
 
+### 8. Observability matches CNPG's own dashboard, not CloudWatch
+
+CNPG's Grafana dashboard (`kustomize/observability/resources/grafana/dashboards/cloudnativepg`)
+is ordinary PromQL against metrics CNPG's operator exposes natively — it
+embeds `prometheus-community/postgres_exporter`'s own collector logic and
+Prometheus scrapes it via the `Cluster`'s `PodMonitor`. RDS has no
+in-cluster metrics endpoint at all; everything lives in CloudWatch. Two
+genuinely different ways to close that gap: point Grafana's native
+`cloudwatch` datasource (or a CloudWatch-to-Prometheus bridge like
+`yet-another-cloudwatch-exporter`) at AWS directly, or run
+`postgres_exporter` itself in-cluster against `demo-db`, the same tool
+CNPG already embeds. The second is what's built here — it's the one that
+actually produces a *consistent* dashboard, not just *a* dashboard: same
+exporter, same metric vocabulary (connections, replication, cache hit
+ratio, per-table stats), same `ConfigMap`+sidecar delivery, wired into
+`addon-database.yaml`'s existing `observability` entry the same way
+CNPG's is, gated on the opposite `driver` value. CloudWatch-sourced
+infra metrics (CPU, IOPS, storage) that Postgres itself can't see are a
+real complement, not addressed here — the same kind of scoped-out,
+named fast-follow as Azure in §5.
+
+`provision-app-role-cronjob.yaml` gained a second role for this: `demo_monitor`,
+granted Postgres's built-in `pg_monitor` (read-only, no table grants
+needed — the same idempotent create-or-alter pattern as `demo_app`), with
+its DSN published as `demo-db-monitor-credentials`. `postgres-exporter.yaml`
+runs `quay.io/prometheuscommunity/postgres-exporter` as an ordinary
+Deployment reading that DSN via `DATA_SOURCE_NAME`, with a `PodMonitor`
+scraping it — no new AWS IAM, no new network path beyond the security
+group already scoped to the cluster's nodes in §6.
+
 ## Consequences
 
 - `Provider.spec.package` is digest-pinned
@@ -527,6 +557,10 @@ CNPG-parity pattern works, not a rotation platform.
   so the RBAC needed a `ClusterRole`, not a `Role`; and `dbName` is a
   create-only field, so the Instance created before this ADR added it
   needed deleting and recreating rather than updating in place.
+- §8's `postgres_exporter`/dashboard pair is unverified against a live
+  cluster, unlike §7's CronJob at this point. `demo_monitor`'s grant,
+  the exporter's DSN parsing, and the dashboard's panels actually
+  rendering non-empty data are correctness-by-review right now.
 
 ## Alternatives considered
 
