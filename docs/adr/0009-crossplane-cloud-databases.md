@@ -557,10 +557,17 @@ group already scoped to the cluster's nodes in §6.
   so the RBAC needed a `ClusterRole`, not a `Role`; and `dbName` is a
   create-only field, so the Instance created before this ADR added it
   needed deleting and recreating rather than updating in place.
-- §8's `postgres_exporter`/dashboard pair is unverified against a live
-  cluster, unlike §7's CronJob at this point. `demo_monitor`'s grant,
-  the exporter's DSN parsing, and the dashboard's panels actually
-  rendering non-empty data are correctness-by-review right now.
+- §8's `postgres_exporter`/dashboard pair has been verified end-to-end
+  against a live cluster: `demo_monitor`'s `pg_monitor` grant works
+  (`pg_stat_database_numbackends` and other admin-only views return
+  real data), the exporter connects and Prometheus scrapes it via the
+  `PodMonitor`, and Grafana's sidecar loads the dashboard. Landing it
+  needed an explicit `windsor install` beyond the git push: a
+  `Kustomization`'s `spec.components` list is generated client-side by
+  the CLI, not continuously reconciled in-cluster, so a *new* component
+  name (unlike editing files inside a component already referenced,
+  which Flux's normal git polling picks up on its own) needs that
+  extra step to land.
 
 ## Alternatives considered
 
