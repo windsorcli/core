@@ -90,6 +90,7 @@ resource "azurerm_key_vault" "key_vault" {
   enabled_for_disk_encryption = var.disk_encryption_enabled
   purge_protection_enabled    = true
   soft_delete_retention_days  = var.soft_delete_retention_days
+  rbac_authorization_enabled  = false
   # checkov:skip=CKV_AZURE_189: We are using a public cluster for testing
   # private services are encouraged for production
   public_network_access_enabled = var.public_network_access_enabled
@@ -239,14 +240,6 @@ resource "azurerm_monitor_diagnostic_setting" "aks_cluster" {
     for_each = var.diagnostic_log_categories
     content {
       category = enabled_log.value
-
-      dynamic "retention_policy" {
-        for_each = var.diagnostic_log_retention_days != null ? [1] : []
-        content {
-          enabled = true
-          days    = var.diagnostic_log_retention_days
-        }
-      }
     }
   }
 
@@ -367,6 +360,10 @@ resource "azurerm_kubernetes_cluster" "main" {
         node_soak_duration_in_minutes = upgrade_settings.value.node_soak_duration_in_minutes
       }
     }
+  }
+
+  node_provisioning_profile {
+    mode = "Manual"
   }
 
   auto_scaler_profile {
