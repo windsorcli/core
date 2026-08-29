@@ -45,10 +45,17 @@ tasks:
           if [ -d "$MODULE" ]; then
             # Create a temporary directory for test results
             TEMP_DIR=$(mktemp -d)
-            # Find all test files and run them in parallel
-            find "$MODULE" -type f -name '*.tftest.hcl' | while read testfile; do
-              testdir=$(dirname "$testfile")
-              (
+            export TEMP_DIR
+            # Run each module's tests as its own process via xargs, not a
+            # shell background job in a loop. A `(...) &` loop shares the
+            # loop variable across jobs under task's shell, so most
+            # directories race and silently test against the wrong path.
+            # -n1 passes one file per invocation as $1, avoiding -I{}'s
+            # small substituted-command-length limit on BSD xargs.
+            find "$MODULE" -type f -name '*.tftest.hcl' -print0 | \
+              xargs -0 -n1 -P0 sh -c '
+                testfile="$1"
+                testdir=$(dirname "$testfile")
                 cd "$testdir" && \
                 echo "Running tests in $testdir..." && \
                 terraform init -input=false -reconfigure && \
@@ -62,10 +69,7 @@ tasks:
                 if echo "$OUTPUT" | grep -qi "Warning:"; then
                   echo "WARNINGS: $testfile" >> "$TEMP_DIR/warnings"
                 fi
-              ) &
-            done
-            # Wait for all background jobs to complete
-            wait
+              ' _
             # Check if any tests failed
             if [ -f "$TEMP_DIR/failures" ]; then
               echo "Test failures:"
