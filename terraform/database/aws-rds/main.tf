@@ -102,6 +102,7 @@ resource "aws_kms_alias" "rds" {
 # aws-vpc) denies all traffic, so an RDS Instance with no explicit
 # vpcSecurityGroupIds is otherwise unreachable from any pod.
 resource "aws_security_group" "rds" {
+  # checkov:skip=CKV2_AWS_5: Attached via a chart's Instance CR (vpcSecurityGroupIds), outside Terraform's own graph.
   name        = "${var.context_id}-rds"
   description = "Allow Postgres access to RDS instances in context ${var.context_id}"
   vpc_id      = var.vpc_id
