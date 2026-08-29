@@ -1,52 +1,49 @@
 ---
 # Instance is cluster-scoped (rds.aws.upbound.io has no namespaced kinds),
-# so reading it needs a ClusterRole even though this job only ever touches
-# demo-db. Named for that one Instance to keep the grant obviously scoped.
+# so reading it needs a ClusterRole even though this only ever touches
+# the one named Instance. Named for it to keep the grant obviously scoped.
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
 metadata:
-  name: demo-db-instance-reader
+  name: ${pg_instance_name}-monitor-reader
 rules:
   - apiGroups:
       - rds.aws.upbound.io
     resources:
       - instances
     resourceNames:
-      - demo-db
+      - ${pg_instance_name}
     verbs:
       - get
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRoleBinding
 metadata:
-  name: demo-db-instance-reader
+  name: ${pg_instance_name}-monitor-reader
 roleRef:
   apiGroup: rbac.authorization.k8s.io
   kind: ClusterRole
-  name: demo-db-instance-reader
+  name: ${pg_instance_name}-monitor-reader
 subjects:
   - kind: ServiceAccount
     name: rds-secret-reader
     namespace: system-provisioning
 ---
-# Grants the shared rds-secret-reader identity (provisioning add-on) access
-# into this namespace specifically — this namespace opts in, not core
-# reaching into it uninvited. Scoped to the one Secret this bootstrap job
-# publishes, not every Secret in the namespace. create can't be scoped by
-# resourceNames (the object doesn't exist yet), so it stays kind-level for
-# that verb only.
+# Opts the target namespace into the shared rds-secret-reader identity,
+# scoped to the one Secret this provisions. create can't be scoped by
+# resourceNames (the object doesn't exist yet), so it stays kind-level.
 apiVersion: rbac.authorization.k8s.io/v1
 kind: Role
 metadata:
-  name: rds-secret-reader
-  namespace: demo-database
+  name: ${pg_instance_name}-monitor-reader
+  namespace: ${pg_target_namespace}
 rules:
   - apiGroups:
       - ""
     resources:
       - secrets
     resourceNames:
-      - demo-db-app-credentials
+      - ${pg_instance_name}-monitor-credentials
     verbs:
       - get
       - update
@@ -61,12 +58,12 @@ rules:
 apiVersion: rbac.authorization.k8s.io/v1
 kind: RoleBinding
 metadata:
-  name: rds-secret-reader
-  namespace: demo-database
+  name: ${pg_instance_name}-monitor-reader
+  namespace: ${pg_target_namespace}
 roleRef:
   apiGroup: rbac.authorization.k8s.io
   kind: Role
-  name: rds-secret-reader
+  name: ${pg_instance_name}-monitor-reader
 subjects:
   - kind: ServiceAccount
     name: rds-secret-reader

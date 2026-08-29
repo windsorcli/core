@@ -6,6 +6,13 @@ metadata:
 
 when: demo.enabled == true
 
+# Single source of truth for demo-db's own database name — referenced by
+# the Instance CR, the app-role CronJob's SQL, and the monitoring
+# component's substitutions below, so none of them can drift apart.
+config:
+  - name: demo_database_name
+    value: demo
+
 # =============================================================================
 # Flux — demo applications
 # =============================================================================
@@ -35,10 +42,24 @@ flux:
           db_subnet_group_name: "${terraform_output('network', 'db_subnet_group_name') ?? ''}"
           kms_key_arn: "${terraform_output('database', 'kms_key_arn') ?? ''}"
           rds_security_group_id: "${terraform_output('database', 'security_group_id') ?? ''}"
-          # Single source of truth for the demo-db Instance's own database
-          # name, referenced both by the Instance CR and the bootstrap
-          # job's SQL — one literal, not two independently hardcoded ones.
-          demo_db_name: demo
+          demo_db_name: "${demo_database_name}"
           aws_region: "${aws.region ?? ''}"
         timeout: 10m
+        interval: 5m
+
+  # postgres_exporter monitoring for demo-db — core-provided and reusable
+  # by any RDS-backed chart, not authored per-chart (see ADR-0009 §8).
+  # Merges into the same provisioning-resources Kustomization
+  # addon-database.yaml already targets.
+  - name: provisioning
+    when: demo.resources.database == true && database.postgres.driver == 'rds' && observability.enabled == true
+    resources:
+      - components:
+          - crossplane/aws-rds/postgres-exporter
+        substitutions:
+          pg_instance_name: demo-db
+          pg_database_name: "${demo_database_name}"
+          pg_role_name: demo_monitor
+          pg_target_namespace: demo-database
+        timeout: 5m
         interval: 5m

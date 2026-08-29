@@ -456,14 +456,30 @@ infra metrics (CPU, IOPS, storage) that Postgres itself can't see are a
 real complement, not addressed here — the same kind of scoped-out,
 named fast-follow as Azure in §5.
 
-`provision-app-role-cronjob.yaml` gained a second role for this: `demo_monitor`,
-granted Postgres's built-in `pg_monitor` (read-only, no table grants
-needed — the same idempotent create-or-alter pattern as `demo_app`), with
-its DSN published as `demo-db-monitor-credentials`. `postgres-exporter.yaml`
-runs `quay.io/prometheuscommunity/postgres-exporter` as an ordinary
-Deployment reading that DSN via `DATA_SOURCE_NAME`, with a `PodMonitor`
-scraping it — no new AWS IAM, no new network path beyond the security
-group already scoped to the cluster's nodes in §6.
+Unlike §7's application credential — access patterns are inherently
+chart-specific, so `demo_app`'s CronJob stays chart-owned — monitoring
+isn't: every `Instance`, however created, wants the same `pg_monitor`
+role and the same exporter. So the pipeline that produces it lives in
+`kustomize/provisioning/resources/crossplane/aws-rds/postgres-exporter`,
+a reusable component, not demo-authored YAML. A chart opts in with four
+substitutions (`pg_instance_name`, `pg_database_name`, `pg_role_name`,
+`pg_target_namespace`) instead of hand-rolling a role-provisioning
+CronJob and an exporter Deployment itself. It brings its own `CronJob`
+(granting Postgres's built-in `pg_monitor` — read-only, no table grants
+needed, the same idempotent create-or-alter pattern as §7's `demo_app`),
+its own scoped `ClusterRole`/`Role` against the shared `rds-secret-reader`
+identity, and a `postgres_exporter` `Deployment`/`PodMonitor` reading the
+published DSN via `DATA_SOURCE_NAME` — no new AWS IAM, no new network
+path beyond the security group already scoped to the cluster's nodes in
+§6. `option-demo.yaml` wires it in as a second `flux:` entry named
+`provisioning`, merging into the same `provisioning-resources`
+Kustomization `addon-database.yaml` already targets — the same
+cross-domain-entry pattern §2 established, now used by a *chart's*
+facet instead of a driving one.
+
+The `PodMonitor`'s `instance` label is relabeled to `pg_instance_name`
+rather than left at its default (the exporter pod's own IP) — otherwise
+it's meaningless and churns on every pod restart.
 
 ## Consequences
 
@@ -558,7 +574,7 @@ group already scoped to the cluster's nodes in §6.
   create-only field, so the Instance created before this ADR added it
   needed deleting and recreating rather than updating in place.
 - §8's `postgres_exporter`/dashboard pair has been verified end-to-end
-  against a live cluster: `demo_monitor`'s `pg_monitor` grant works
+  against a live cluster: the `pg_monitor` grant works
   (`pg_stat_database_numbackends` and other admin-only views return
   real data), the exporter connects and Prometheus scrapes it via the
   `PodMonitor`, and Grafana's sidecar loads the dashboard. Landing it
@@ -567,7 +583,11 @@ group already scoped to the cluster's nodes in §6.
   the CLI, not continuously reconciled in-cluster, so a *new* component
   name (unlike editing files inside a component already referenced,
   which Flux's normal git polling picks up on its own) needs that
-  extra step to land.
+  extra step to land. That verification ran against the pipeline living
+  directly in `kustomize/demo/`; extracting it into the reusable
+  `crossplane/aws-rds/postgres-exporter` component afterward (moving
+  files, parameterizing names) is structurally the same thing but
+  hasn't been re-verified live in that shape yet.
 
 ## Alternatives considered
 

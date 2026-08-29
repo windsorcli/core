@@ -1,22 +1,22 @@
 ---
-# Scrapes demo-db as demo_monitor (pg_monitor, no admin access) so the
-# vendored postgres_exporter Grafana dashboard has data — see
-# ADR-0009 §7 and provision-app-role-cronjob.yaml, which provisions the
-# role and publishes its DSN as demo-db-monitor-credentials.
+# Scrapes ${pg_instance_name} as its pg_monitor role (no admin access) so
+# the vendored postgres_exporter Grafana dashboard has data — see
+# ADR-0009 §8 and provision-monitor-role-cronjob.yaml, which provisions
+# the role and publishes its DSN as ${pg_instance_name}-monitor-credentials.
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: demo-db-postgres-exporter
-  namespace: demo-database
+  name: ${pg_instance_name}-postgres-exporter
+  namespace: ${pg_target_namespace}
 spec:
   replicas: 1
   selector:
     matchLabels:
-      app: demo-db-postgres-exporter
+      app: ${pg_instance_name}-postgres-exporter
   template:
     metadata:
       labels:
-        app: demo-db-postgres-exporter
+        app: ${pg_instance_name}-postgres-exporter
     spec:
       containers:
         - name: postgres-exporter
@@ -29,7 +29,7 @@ spec:
             - name: DATA_SOURCE_NAME
               valueFrom:
                 secretKeyRef:
-                  name: demo-db-monitor-credentials
+                  name: ${pg_instance_name}-monitor-credentials
                   key: uri
           securityContext:
             runAsNonRoot: true
@@ -53,11 +53,11 @@ spec:
 apiVersion: v1
 kind: Service
 metadata:
-  name: demo-db-postgres-exporter
-  namespace: demo-database
+  name: ${pg_instance_name}-postgres-exporter
+  namespace: ${pg_target_namespace}
 spec:
   selector:
-    app: demo-db-postgres-exporter
+    app: ${pg_instance_name}-postgres-exporter
   ports:
     - name: metrics
       port: 9187
@@ -66,11 +66,17 @@ spec:
 apiVersion: monitoring.coreos.com/v1
 kind: PodMonitor
 metadata:
-  name: demo-db-postgres-exporter
-  namespace: demo-database
+  name: ${pg_instance_name}-postgres-exporter
+  namespace: ${pg_target_namespace}
 spec:
   selector:
     matchLabels:
-      app: demo-db-postgres-exporter
+      app: ${pg_instance_name}-postgres-exporter
   podMetricsEndpoints:
     - port: metrics
+      # Without this, instance defaults to the exporter pod's own IP —
+      # meaningless, and it churns on every pod restart. Naming the
+      # actual Instance instead keeps it stable and readable.
+      relabelings:
+        - targetLabel: instance
+          replacement: ${pg_instance_name}

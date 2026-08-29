@@ -99,6 +99,47 @@ cases:
       flux:
         - name: database
 
+  # rds driver with observability enabled also wires the reusable
+  # postgres-exporter component into provisioning-resources — see
+  # ADR-0009 §8. Without observability, this entry stays excluded.
+  - name: demo mode with rds driver and observability wires postgres-exporter
+    values:
+      platform: aws
+      aws:
+        region: us-west-2
+      dev: true
+      demo:
+        enabled: true
+        resources:
+          database: true
+      gateway:
+        enabled: false
+      database:
+        postgres:
+          enabled: true
+          driver: rds
+      observability:
+        enabled: true
+    terraformOutputs:
+      network:
+        db_subnet_group_name: test-rds
+      database:
+        kms_key_arn: arn:aws:kms:us-west-2:123456789012:key/abcd1234-5678-90ab-cdef-1234567890ab
+        security_group_id: sg-0abcd1234
+    expect:
+      flux:
+        - name: provisioning
+          resources:
+            - timeout: 5m
+              interval: 5m
+              components:
+                - crossplane/aws-rds/postgres-exporter
+              substitutions:
+                pg_instance_name: demo-db
+                pg_database_name: demo
+                pg_role_name: demo_monitor
+                pg_target_namespace: demo-database
+
   # static + bookinfo apps carry no database dependency, and demo is a
   # resources-only system, so no demo-install tier is emitted.
   - name: demo static and bookinfo apps compose as resources tier without install

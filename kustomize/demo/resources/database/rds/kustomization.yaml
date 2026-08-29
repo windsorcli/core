@@ -4,4 +4,3 @@ resources:
   - instance.yaml
   - rbac.yaml
   - provision-app-role-cronjob.yaml
-  - postgres-exporter.yaml
