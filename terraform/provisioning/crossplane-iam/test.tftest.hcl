@@ -6,6 +6,11 @@ mock_provider "aws" {
       user_id    = "AIDAJQABLZS4A3QDU576Q"
     }
   }
+  mock_data "aws_kms_key" {
+    defaults = {
+      arn = "arn:aws:kms:us-west-2:123456789012:key/secretsmanager-default-key"
+    }
+  }
 }
 
 variables {
@@ -73,6 +78,16 @@ run "rds_selected" {
   assert {
     condition     = strcontains(aws_iam_policy.this["rds"].policy, "\"kms:CreateGrant\"") && strcontains(aws_iam_policy.this["rds"].policy, "\"kms:GrantIsForAWSResource\":\"true\"")
     error_message = "Policy should allow creating a grant on the supplied KMS key, scoped to grants made on RDS's own behalf"
+  }
+
+  assert {
+    condition     = strcontains(aws_iam_policy.this["rds"].policy, "\"secretsmanager:CreateSecret\"") && strcontains(aws_iam_policy.this["rds"].policy, "arn:aws:secretsmanager:*:123456789012:secret:rds!*")
+    error_message = "Policy should allow creating the manageMasterUserPassword secret, scoped to RDS-managed secret names"
+  }
+
+  assert {
+    condition     = strcontains(aws_iam_policy.this["rds"].policy, "arn:aws:kms:us-west-2:123456789012:key/secretsmanager-default-key")
+    error_message = "Policy should allow describing the account's default Secrets Manager key, required regardless of which key ends up encrypting the secret"
   }
 
   assert {

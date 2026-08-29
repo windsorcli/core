@@ -14,7 +14,11 @@ mock_provider "aws" {
 }
 
 variables {
-  context_id = "test"
+  context_id                = "test"
+  cluster_name              = "cluster-test"
+  cluster_arn               = "arn:aws:eks:us-west-2:123456789012:cluster/cluster-test"
+  vpc_id                    = "vpc-12345678"
+  cluster_security_group_id = "sg-0eks1234"
 }
 
 # Verifies the default path: a dedicated CMK is created with a stable alias.
@@ -34,6 +38,31 @@ run "manages_dedicated_key_by_default" {
   assert {
     condition     = length(data.aws_kms_key.rds_default) == 0
     error_message = "The AWS-managed default key should not be looked up when managing a dedicated CMK"
+  }
+
+  assert {
+    condition     = aws_security_group.rds.vpc_id == "vpc-12345678"
+    error_message = "The RDS security group should be created in the supplied VPC"
+  }
+
+  assert {
+    condition     = contains(aws_security_group.rds.ingress[*].to_port, 5432)
+    error_message = "The RDS security group should allow inbound on the Postgres port"
+  }
+
+  assert {
+    condition     = contains(flatten(aws_security_group.rds.ingress[*].security_groups), "sg-0eks1234")
+    error_message = "The RDS security group should scope ingress to the cluster's own security group, not an open CIDR"
+  }
+
+  assert {
+    condition     = strcontains(aws_iam_policy.secret_reader.policy, "\"secretsmanager:GetSecretValue\"") && strcontains(aws_iam_policy.secret_reader.policy, "secret:rds!*")
+    error_message = "The secret-reader policy should allow reading RDS-managed master password secrets"
+  }
+
+  assert {
+    condition     = aws_eks_pod_identity_association.secret_reader.namespace == "system-provisioning" && aws_eks_pod_identity_association.secret_reader.service_account == "rds-secret-reader"
+    error_message = "The secret-reader Pod Identity association should target a fixed system-provisioning/rds-secret-reader identity"
   }
 }
 
@@ -96,4 +125,26 @@ run "malformed_kms_key_arn_rejected" {
   }
 
   expect_failures = [var.kms_key_arn]
+}
+
+# Verifies vpc_id is required.
+run "vpc_id_required" {
+  command = plan
+
+  variables {
+    vpc_id = null
+  }
+
+  expect_failures = [var.vpc_id]
+}
+
+# Verifies cluster_security_group_id is required.
+run "cluster_security_group_id_required" {
+  command = plan
+
+  variables {
+    cluster_security_group_id = null
+  }
+
+  expect_failures = [var.cluster_security_group_id]
 }

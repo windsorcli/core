@@ -34,6 +34,11 @@ flux:
           # substitution access) has to use instead — see ADR-0009 §3.
           db_subnet_group_name: "${terraform_output('network', 'db_subnet_group_name') ?? ''}"
           kms_key_arn: "${terraform_output('database', 'kms_key_arn') ?? ''}"
+          rds_security_group_id: "${terraform_output('database', 'security_group_id') ?? ''}"
+          # Single source of truth for the demo-db Instance's own database
+          # name, referenced both by the Instance CR and the bootstrap
+          # job's SQL — one literal, not two independently hardcoded ones.
+          demo_db_name: demo
           aws_region: "${aws.region ?? ''}"
         timeout: 10m
         interval: 5m

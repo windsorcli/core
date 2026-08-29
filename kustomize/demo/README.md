@@ -123,8 +123,11 @@ provisions.
 |---|---|---|
 | `DOMAIN` | `demo.resources.bookinfo: true` | Host suffix for the bookinfo Ingress (`bookinfo.${DOMAIN}`). Falls back to `test` if not provided. Must be set via Flux Kustomization-level substitution (the demo facet does not pass one). |
 | `REGISTRY_URL` | `demo.resources.static: true` | Image registry hosting the demo static-site container image (`${REGISTRY_URL}/demo:1.0.6`). No fallback; the static workload's pod will fail to pull if the variable is not set at the Flux Kustomization level. |
-| `cluster_name` | `demo.resources.database: true` AND `database.postgres.driver == 'rds'` | Cluster name, from `terraform_output('cluster', 'cluster_name')`. Used to build the `demo-db` Instance's `dbSubnetGroupName`. Passed by the facet itself. |
+| `db_subnet_group_name` | `demo.resources.database: true` AND `database.postgres.driver == 'rds'` | From `terraform_output('network', 'db_subnet_group_name')`. Sets the `demo-db` Instance's `dbSubnetGroupName` directly — the demo reads the real output rather than reconstructing the naming convention a third-party chart (with no Flux substitution access) has to use instead. Passed by the facet itself. |
+| `kms_key_arn` | `demo.resources.database: true` AND `database.postgres.driver == 'rds'` | From `terraform_output('database', 'kms_key_arn')`. Sets the `demo-db` Instance's `kmsKeyId`. Passed by the facet itself. |
+| `rds_security_group_id` | `demo.resources.database: true` AND `database.postgres.driver == 'rds'` | From `terraform_output('database', 'security_group_id')`. Sets the `demo-db` Instance's `vpcSecurityGroupIds` — scoped to the EKS cluster's own security group, not the whole VPC CIDR. Passed by the facet itself. |
 | `aws_region` | `demo.resources.database: true` AND `database.postgres.driver == 'rds'` | AWS region for the `demo-db` Instance, from `aws.region`. Passed by the facet itself. |
+| `demo_db_name` | `demo.resources.database: true` AND `database.postgres.driver == 'rds'` | Fixed value `demo`. Single source of truth for the `demo-db` Instance's `dbName`, referenced by both the Instance CR and the bootstrap job's SQL so the two can't drift independently. Passed by the facet itself. |
 
 ## Components
 
@@ -132,7 +135,7 @@ provisions.
 |---|---|---|
 | `database` | `demo.resources.database: true` | Creates the `demo-database` namespace. Always paired with a driver variant below. |
 | `database/cloudnativepg` | `demo.resources.database: true` AND `database.postgres.driver == 'cloudnativepg'` | A `Cluster` CR `demo-cluster` (2 instances, 100 max_connections, 1Gi PVC, PodMonitor enabled). Requires the `database` add-on so the CloudNativePG operator can reconcile the CR. |
-| `database/rds` | `demo.resources.database: true` AND `database.postgres.driver == 'rds'` | An `rds.aws.upbound.io/v1beta3` `Instance` CR `demo-db` (db.t4g.micro, 20Gi, AWS-managed master password) — the worked example for `kustomize/provisioning`'s contract: just the database definition, no provider wiring. |
+| `database/rds` | `demo.resources.database: true` AND `database.postgres.driver == 'rds'` | An `rds.aws.upbound.io/v1beta3` `Instance` CR `demo-db` (db.t4g.micro, 20Gi, AWS-managed master password, network-scoped to the cluster's own security group) — the worked example for `kustomize/provisioning`'s contract: just the database definition, no provider wiring. Also bundles the RBAC opting `system-provisioning/rds-secret-reader` into this namespace, and a one-shot Job that, once the Instance is Ready, creates a least-privilege `demo_app` Postgres role from the RDS-managed master password and publishes it as `demo-db-app-credentials` — never the master credential itself. See ADR-0009 §7. |
 | `static` | `demo.resources.static: true` | Creates the `demo-static` namespace (PSA `restricted`) with a `website` Deployment pulling `${REGISTRY_URL}/demo:1.0.6`, a Service, a 100Mi ReadWriteOnce PVC named `content`, and an Ingress. |
 | `bookinfo` | `demo.resources.bookinfo: true` | Pulls the upstream Istio bookinfo sample at tag `1.22.8` into `demo-bookinfo` (PSA `restricted`) and applies SecurityContext patches to the four Deployments (productpage, details, ratings, reviews) so the upstream manifests satisfy the namespace's PSA. Ingress at `bookinfo.${DOMAIN}`. |
 

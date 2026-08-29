@@ -217,6 +217,19 @@ posture `manage_log_group` already uses for the control-plane log group —
 a short-lived context's data has no lifetime for a CMK's rotation/audit
 story to matter for.
 
+`manageMasterUserPassword: true` needs a second, unrelated set of
+permissions: `secretsmanager:CreateSecret` and `secretsmanager:TagResource`
+(scoped to `secret:rds!*`, the fixed prefix RDS-managed secrets always
+use), plus `kms:DescribeKey` against the account's `aws/secretsmanager`
+key — required per
+[AWS's own documented permissions for this integration](https://docs.aws.amazon.com/AmazonRDS/latest/UserGuide/rds-secrets-manager.html#rds-secrets-manager-permissions)
+regardless of which key ends up encrypting the secret, since the
+`Instance` CR doesn't set `masterUserSecretKmsKeyId` and RDS defaults to
+that key. Found live: once the storage-encryption KMS grant above was in
+place, `demo-db` hit the exact same `KMSKeyNotAccessibleFault` error
+shape again — a second, different KMS key this time, for a completely
+separate purpose RDS's error message doesn't distinguish from the first.
+
 **Naming convention is the documented contract for a third-party chart,
 not for the demo.** `dbSubnetGroupName` and `kmsKeyId` both have to be
 values a *third-party* chart — installed separately from core's own
@@ -294,6 +307,124 @@ on purpose; there's no cross-cloud abstraction to preserve, matching
 `driver: rds` is AWS-only. A second value (Azure Database for PostgreSQL
 via `provider-azure`) is a tracked gap — it needs its own IAM story (Azure
 Workload Identity in place of Pod Identity) and isn't decided by this ADR.
+
+### 6. Network access is scoped to the cluster's own security group
+
+`network/aws-vpc`'s default security group denies all traffic
+(`ingress = []`), so an `Instance` with no explicit `vpcSecurityGroupIds`
+is unreachable from any pod — found by inspection, not live, while
+designing the credential path below: nothing had actually verified an
+application could reach the database at all. `database/aws-rds` creates
+a dedicated security group allowing Postgres (5432) from
+`cluster/aws-eks`'s own auto-created cluster security group, not the
+whole VPC CIDR. That security group is attached directly to every node's
+primary ENI by EKS itself, so it scopes correctly regardless of CNI
+driver (AWS VPC CNI or Cilium) without needing per-pod security groups
+(an AWS VPC CNI-only feature — Cilium can't do it, so it isn't a
+CNI-portable answer here). It's tighter than the VPC CIDR without adding
+any new moving parts: no per-namespace or per-pod security-group
+mechanism exists at the AWS networking layer at all — that boundary has
+to be enforced by the database's own authentication instead (§7).
+
+Maintenance and developer access follows the same shape this repo
+already uses for everything else — no VPN or bastion host. A temporary
+pod with a Postgres client, started inside the cluster
+(`kubectl run ... --image=postgres:16-alpine -- sleep infinity`, then
+`kubectl exec`), already sits inside the allowed security group and
+needs no new AWS infrastructure. `kubectl port-forward` to that pod
+extends the same access to a developer's local client without a private
+network path from their machine to the VPC at all. A Client VPN or SSM
+Session Manager port-forwarding setup is a reasonable upgrade if there's
+ever a need for persistent private network access for other reasons —
+it isn't justified for this alone.
+
+### 7. Application credentials, not the admin secret
+
+`manageMasterUserPassword: true` generates the RDS master user — full
+superuser privileges, DDL and GRANT included — and AWS's API design means
+even Terraform's own `aws_db_instance` resource can't read its plaintext;
+only the calling principal's own IAM can, via
+`secretsmanager:GetSecretValue`. Handing that credential straight to a
+consuming application, even in a genuinely 1:1 microservice-to-database
+pattern, throws away CNPG's own convention this ADR otherwise mirrors:
+CNPG never gives an app its superuser secret, only a separate,
+database-scoped one. A compromised app with the master credential can do
+far more than exfiltrate its own data — alter the schema, drop tables,
+grant itself new privileges that outlive the original compromise. 1:1
+ownership narrows *whose* data is at risk, not *how much* an app's own
+vulnerability can do once it has admin rights.
+
+No existing mechanism in this repo bridges an AWS-generated runtime
+secret into Kubernetes. External Secrets Operator is the standard tool
+for exactly that, but isn't merged to `main` (only on the unmerged
+`feat/secrets-store-openbao` branch) — checked directly rather than
+assumed. Rather than wait on it, or bring in a second Crossplane provider
+(`provider-sql`) that would still need the same runtime-secret bridge for
+its own `ProviderConfig`, this ADR adds a purpose-built one-shot Job:
+
+- **`database/aws-rds`** gains a fourth IAM role, `secret_reader`, scoped
+  to `secretsmanager:GetSecretValue` on `secret:rds!*` — read-only,
+  engine-agnostic like the KMS key and security group (any database,
+  however created, needs this same step; it isn't a Crossplane concept).
+  Its Pod Identity association targets a *fixed* identity,
+  `system-provisioning/rds-secret-reader`, not one per consumer — the job
+  always runs there regardless of which application namespace it
+  publishes into, since cross-namespace publication is a Kubernetes RBAC
+  question, not an AWS IAM one.
+- **`kustomize/provisioning/resources/crossplane/aws-rds/`** creates that
+  `ServiceAccount`, alongside the `ProviderConfig`/tag policy it already
+  ships — a shared, core-provided identity multiple consumers can reuse.
+- **The consuming namespace opts in.** `kustomize/demo/resources/database/rds/`
+  grants `system-provisioning/rds-secret-reader` a narrow `Role` in
+  `demo-database` — `get` on the one named `Instance`, `create`/`update`
+  on `Secret`s — via a `RoleBinding` the *chart* authors, not core
+  reaching into a namespace uninvited. Any real chart wanting this
+  pattern brings the identical `RoleBinding` into its own namespace.
+- **The job** (`provision-app-role-job.yaml`) runs in `system-provisioning`
+  in three steps: an init container polls the `Instance` until Ready,
+  reads its `masterUserSecret[0].secretArn` and `address`, and resolves
+  the admin credential from Secrets Manager; a second init container
+  connects with `psql` as the admin user and idempotently
+  (`IF NOT EXISTS` / `ALTER ROLE`, safe to rerun) creates `demo_app` with
+  `SELECT`/`INSERT`/`UPDATE`/`DELETE` on the `demo` database only — no
+  DDL, no other database, no superuser; the main container publishes the
+  generated password as `demo-db-app-credentials` in `demo-database`,
+  which the application consumes with an ordinary `secretKeyRef`, the
+  same shape CNPG's own generated secret already has. Images
+  (`alpine/k8s`, `postgres:16-alpine`) are digest-pinned per this repo's
+  own convention; chosen specifically because both bundle a real shell
+  (`bash`) and the exact tools needed (`kubectl`+`aws`+`jq`, `psql`) —
+  `rancher/kubectl`, considered first, is a scratch image with no shell
+  at all and can't run a wait loop.
+- `Instance.spec.forProvider.dbName` was unset before this — found while
+  designing the job's own `GRANT ... ON DATABASE demo`: with no `dbName`,
+  Postgres RDS creates no user database beyond the built-in `postgres`,
+  so there was nothing to scope `demo_app`'s grants to at all.
+
+**IAM database authentication** (`iamDatabaseAuthenticationEnabled`) is a
+stronger alternative worth naming: an application authenticates with a
+short-lived token derived from its own Pod Identity role instead of a
+password at all, no secret to rotate or leak. Not adopted here because it
+changes the application's own connection code (most AWS SDKs support the
+token flow natively, but it's not a drop-in for something expecting a
+plain password), where this job's approach needs nothing from the
+application beyond reading a `Secret` the same way CNPG's app secret
+already works. Worth adopting per-application once that's viable, not a
+blocking prerequisite for this ADR.
+
+**The job is one-shot, deliberately.** It doesn't re-run if `demo-db` is
+ever deleted and recreated (`demo_app` and its grants go with the old
+instance, nothing re-triggers), and it doesn't rotate `demo_app`'s
+password on any schedule — only the admin credential rotates, via AWS.
+The natural fix for both is a `CronJob` instead of a `Job`, reusing the
+same already-idempotent script — but a periodically-rotated `Secret`
+reopens the same problem discussed earlier for ESO: updating a `Secret`
+object doesn't propagate to a running pod's env vars, so rotation without
+a `Reloader`-style companion just breaks the app silently on whatever
+interval gets picked. Deliberately out of scope here — this ADR proves
+the CNPG-parity pattern works, not a rotation platform. Recovering from
+an instance recreation today means manually deleting the Job so Flux
+(with `kustomize.toolkit.fluxcd.io/force: enabled`) recreates it.
 
 ## Consequences
 
@@ -379,6 +510,14 @@ Workload Identity in place of Pod Identity) and isn't decided by this ADR.
   the running chart's embedded schema can drift on a version mismatch,
   unlike cert-manager's vendored CRDs, which the chart never touches at
   all once `crds: Skip` is set.
+- §7's bootstrap job is unverified against a live cluster, unlike
+  everything else in this ADR — every prior fix here (subnet group ARN,
+  service-linked role, both KMS gaps) was root-caused from a real
+  failure, not designed ahead of one. `kubectl`/`psql` behavior, RBAC
+  scoping, and the job's own retry timing are all correctness-by-review
+  right now, not correctness-by-observation. Expect at least one more
+  round of live-discovered fixes before this is proven, the same as
+  everything else in this sequence was.
 
 ## Alternatives considered
 

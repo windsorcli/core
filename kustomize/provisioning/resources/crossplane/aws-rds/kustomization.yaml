@@ -3,3 +3,4 @@ kind: Component
 resources:
   - provider-config.yaml
   - tag-policy.yaml
+  - secret-reader-service-account.yaml

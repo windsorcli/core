@@ -16,6 +16,9 @@ spec:
     instanceClass: db.t4g.micro
     allocatedStorage: 20
     dbSubnetGroupName: ${db_subnet_group_name}
+    vpcSecurityGroupIds:
+      - ${rds_security_group_id}
+    dbName: ${demo_db_name}
     username: demo
     manageMasterUserPassword: true
     storageEncrypted: true

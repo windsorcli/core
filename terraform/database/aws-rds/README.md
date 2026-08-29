@@ -37,8 +37,13 @@ No modules.
 
 | Name | Type |
 |------|------|
+| [aws_eks_pod_identity_association.secret_reader](https://registry.terraform.io/providers/hashicorp/aws/6.58.0/docs/resources/eks_pod_identity_association) | resource |
+| [aws_iam_policy.secret_reader](https://registry.terraform.io/providers/hashicorp/aws/6.58.0/docs/resources/iam_policy) | resource |
+| [aws_iam_role.secret_reader](https://registry.terraform.io/providers/hashicorp/aws/6.58.0/docs/resources/iam_role) | resource |
+| [aws_iam_role_policy_attachment.secret_reader](https://registry.terraform.io/providers/hashicorp/aws/6.58.0/docs/resources/iam_role_policy_attachment) | resource |
 | [aws_kms_alias.rds](https://registry.terraform.io/providers/hashicorp/aws/6.58.0/docs/resources/kms_alias) | resource |
 | [aws_kms_key.rds](https://registry.terraform.io/providers/hashicorp/aws/6.58.0/docs/resources/kms_key) | resource |
+| [aws_security_group.rds](https://registry.terraform.io/providers/hashicorp/aws/6.58.0/docs/resources/security_group) | resource |
 | [aws_caller_identity.current](https://registry.terraform.io/providers/hashicorp/aws/6.58.0/docs/data-sources/caller_identity) | data source |
 | [aws_kms_key.rds_default](https://registry.terraform.io/providers/hashicorp/aws/6.58.0/docs/data-sources/kms_key) | data source |
 
@@ -46,11 +51,15 @@ No modules.
 
 | Name | Description | Type | Default | Required |
 |------|-------------|------|---------|:--------:|
+| <a name="input_cluster_arn"></a> [cluster\_arn](#input\_cluster\_arn) | ARN of the EKS cluster, scoping the secret-reader role's trust policy to this cluster's Pod Identity Agent. | `string` | n/a | yes |
+| <a name="input_cluster_name"></a> [cluster\_name](#input\_cluster\_name) | Name of the EKS cluster the secret-reader role's Pod Identity association targets. | `string` | n/a | yes |
+| <a name="input_cluster_security_group_id"></a> [cluster\_security\_group\_id](#input\_cluster\_security\_group\_id) | EKS cluster security group ID, allowed to reach RDS instances on the Postgres port. Attached to every node's ENI regardless of CNI driver. Pipe cluster/aws-eks's cluster\_security\_group\_id output. | `string` | `null` | no |
 | <a name="input_context_id"></a> [context\_id](#input\_context\_id) | The windsor context id for this deployment | `string` | `""` | no |
 | <a name="input_kms_key_arn"></a> [kms\_key\_arn](#input\_kms\_key\_arn) | Existing KMS key ARN for RDS storage encryption. Set to use a key you already manage instead of one this module creates. | `string` | `""` | no |
 | <a name="input_kms_key_deletion_window_in_days"></a> [kms\_key\_deletion\_window\_in\_days](#input\_kms\_key\_deletion\_window\_in\_days) | The waiting period, specified in number of days, after which the KMS key is deleted. Valid values are 7-30. Default is 7. For compliance requirements (PCI DSS, SOC 2, HIPAA), 30 days is often required for critical keys to allow time for audit and recovery. | `number` | `7` | no |
 | <a name="input_manage_encryption_key"></a> [manage\_encryption\_key](#input\_manage\_encryption\_key) | Whether to create a dedicated KMS key for RDS storage encryption. False falls back to the account's AWS-managed default key. | `bool` | `true` | no |
 | <a name="input_tags"></a> [tags](#input\_tags) | Additional tags to apply to all resources | `map(string)` | `{}` | no |
+| <a name="input_vpc_id"></a> [vpc\_id](#input\_vpc\_id) | ID of the VPC to create the RDS security group in. Pipe network/aws-vpc's vpc\_id output. | `string` | `null` | no |
 
 ## Outputs
 
@@ -58,4 +67,6 @@ No modules.
 |------|-------------|
 | <a name="output_kms_key_alias"></a> [kms\_key\_alias](#output\_kms\_key\_alias) | Alias name for the dedicated CMK, null when BYOK or the AWS-managed default key are in use |
 | <a name="output_kms_key_arn"></a> [kms\_key\_arn](#output\_kms\_key\_arn) | KMS key ARN for RDS storage encryption |
+| <a name="output_secret_reader_role_arn"></a> [secret\_reader\_role\_arn](#output\_secret\_reader\_role\_arn) | IAM role ARN a bootstrap job in system-provisioning/rds-secret-reader assumes via Pod Identity to read RDS-managed master password secrets. |
+| <a name="output_security_group_id"></a> [security\_group\_id](#output\_security\_group\_id) | Security group ID allowing Postgres access from anywhere in the VPC. Reference from an Instance CR's vpcSecurityGroupIds. |
 <!-- END_TF_DOCS -->

@@ -92,20 +92,6 @@ terraform:
     inputs:
       domain_name: ${dns.public_domain}
 
-  # KMS key for RDS storage encryption, shared across every database in this
-  # context regardless of how many exist. Independent of network/cluster —
-  # encryption is a property of the data, not the engine that creates it.
-  - name: database
-    path: database/aws-rds
-    when: "database.postgres.enabled == true && database.postgres.driver == 'rds'"
-    dependsOn:
-      - backend
-    inputs:
-      # Dedicated CMK unless the context is ephemeral (CI, throwaway test
-      # contexts), where the AWS-managed default key is cheaper and disposable.
-      manage_encryption_key: ${!(ephemeral ?? false)}
-      kms_key_arn: "${database.postgres.encryption.kms_key_arn ?? ''}"
-
   # EKS cluster. cert-manager IAM role + Pod Identity only when ACME is on
   # (public_domain set); cert_manager_hosted_zone_ids scopes Route53 writes to
   # just the dns-zone, empty when ACME is off.
@@ -145,6 +131,32 @@ terraform:
     dependsOn:
       - cluster
     destroy: false
+
+  # KMS key, security group, and secret-reader role for RDS storage, shared
+  # across every database in this context regardless of how many exist. The
+  # KMS key and security group are independent of the engine that creates
+  # the database; the secret-reader role backs a bootstrap job that scopes
+  # the RDS-managed master credential down to a least-privilege application
+  # credential (see the naming-convention/CNPG-parity note in ADR-0009 §3) —
+  # all engine-agnostic, unlike crossplane-iam below.
+  - name: database
+    path: database/aws-rds
+    when: "database.postgres.enabled == true && database.postgres.driver == 'rds'"
+    dependsOn:
+      - network
+      - cluster
+    inputs:
+      # Dedicated CMK unless the context is ephemeral (CI, throwaway test
+      # contexts), where the AWS-managed default key is cheaper and disposable.
+      manage_encryption_key: ${!(ephemeral ?? false)}
+      kms_key_arn: "${database.postgres.encryption.kms_key_arn ?? ''}"
+      vpc_id: ${terraform_output('network', 'vpc_id')}
+      cluster_name: ${terraform_output('cluster', 'cluster_name')}
+      cluster_arn: ${terraform_output('cluster', 'cluster_arn')}
+      # Scopes RDS ingress to this cluster's own nodes rather than the whole
+      # VPC CIDR — tighter, and CNI-agnostic since it's attached to every
+      # node's ENI directly by EKS, not something the CNI driver controls.
+      cluster_security_group_id: ${terraform_output('cluster', 'cluster_security_group_id')}
 
   # IAM role, policy, and Pod Identity association for Crossplane's AWS
   # provider pods — genuinely engine-specific (a Terraform-native database

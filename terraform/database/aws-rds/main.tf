@@ -90,3 +90,106 @@ resource "aws_kms_alias" "rds" {
   name          = "alias/${var.context_id}-rds"
   target_key_id = aws_kms_key.rds[0].key_id
 }
+
+#-----------------------------------------------------------------------------------------------------------------------
+# Security Group
+#-----------------------------------------------------------------------------------------------------------------------
+
+# Allows Postgres access only from this cluster's own nodes, identified by
+# EKS's auto-created cluster security group (attached to every node's
+# primary ENI regardless of CNI driver, so this covers pod traffic under
+# both the AWS VPC CNI and Cilium). The default security group (network/
+# aws-vpc) denies all traffic, so an RDS Instance with no explicit
+# vpcSecurityGroupIds is otherwise unreachable from any pod.
+resource "aws_security_group" "rds" {
+  name        = "${var.context_id}-rds"
+  description = "Allow Postgres access to RDS instances in context ${var.context_id}"
+  vpc_id      = var.vpc_id
+
+  ingress {
+    from_port       = 5432
+    to_port         = 5432
+    protocol        = "tcp"
+    security_groups = [var.cluster_security_group_id]
+    description     = "Postgres from the cluster nodes"
+  }
+
+  tags = {
+    Name = "${var.context_id}-rds"
+  }
+}
+
+#-----------------------------------------------------------------------------------------------------------------------
+# Secret Reader Role
+#-----------------------------------------------------------------------------------------------------------------------
+
+# Read-only access to the RDS-managed master password, for a namespace-agnostic
+# bootstrap job to use in provisioning a scoped, least-privilege application
+# credential — never the master credential itself, matching CNPG's own
+# separation of its superuser and app-database secrets. Engine-agnostic like
+# the KMS key: any database, however created, needs this same step.
+resource "aws_iam_role" "secret_reader" {
+  name = "${var.context_id}-rds-secret-reader"
+
+  assume_role_policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Action = ["sts:AssumeRole", "sts:TagSession"]
+        Effect = "Allow"
+        Principal = {
+          Service = "pods.eks.amazonaws.com"
+        }
+        Condition = {
+          StringEquals = {
+            "aws:SourceAccount" = data.aws_caller_identity.current.account_id
+          }
+          ArnEquals = {
+            "aws:SourceArn" = var.cluster_arn
+          }
+        }
+      }
+    ]
+  })
+
+  tags = {
+    Name = "${var.context_id}-rds-secret-reader"
+  }
+}
+
+resource "aws_iam_policy" "secret_reader" {
+  name        = "${var.context_id}-rds-secret-reader"
+  description = "Read-only access to RDS-managed master password secrets, for provisioning scoped application credentials"
+
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Effect   = "Allow"
+        Action   = "secretsmanager:GetSecretValue"
+        Resource = "arn:aws:secretsmanager:*:${data.aws_caller_identity.current.account_id}:secret:rds!*"
+      }
+    ]
+  })
+
+  tags = {
+    Name = "${var.context_id}-rds-secret-reader"
+  }
+}
+
+resource "aws_iam_role_policy_attachment" "secret_reader" {
+  policy_arn = aws_iam_policy.secret_reader.arn
+  role       = aws_iam_role.secret_reader.name
+}
+
+# Fixed (namespace, service_account) pair, not per-consumer — the bootstrap
+# job runs once in system-provisioning regardless of which app namespace it
+# publishes the resulting credential into. Cross-namespace publication is a
+# Kubernetes RBAC concern (a RoleBinding the target namespace grants), not an
+# AWS IAM one, so this role never needs to change as consumers are added.
+resource "aws_eks_pod_identity_association" "secret_reader" {
+  cluster_name    = var.cluster_name
+  namespace       = "system-provisioning"
+  service_account = "rds-secret-reader"
+  role_arn        = aws_iam_role.secret_reader.arn
+}

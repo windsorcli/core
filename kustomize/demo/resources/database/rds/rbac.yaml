@@ -1,0 +1,51 @@
+---
+# Grants the shared rds-secret-reader identity (provisioning add-on) access
+# into this namespace specifically — this namespace opts in, not core
+# reaching into it uninvited. Scoped to the one Instance and the one
+# Secret this bootstrap job actually touches, not every object of either
+# kind in the namespace. create can't be scoped by resourceNames (the
+# object doesn't exist yet), so it stays kind-level for that verb only.
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: rds-secret-reader
+  namespace: demo-database
+rules:
+  - apiGroups:
+      - rds.aws.upbound.io
+    resources:
+      - instances
+    resourceNames:
+      - demo-db
+    verbs:
+      - get
+  - apiGroups:
+      - ""
+    resources:
+      - secrets
+    resourceNames:
+      - demo-db-app-credentials
+    verbs:
+      - get
+      - update
+      - patch
+  - apiGroups:
+      - ""
+    resources:
+      - secrets
+    verbs:
+      - create
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: rds-secret-reader
+  namespace: demo-database
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: rds-secret-reader
+subjects:
+  - kind: ServiceAccount
+    name: rds-secret-reader
+    namespace: system-provisioning

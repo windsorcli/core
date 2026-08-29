@@ -10,12 +10,21 @@ substitutions:
   REGISTRY_URL:
     required_when: "`demo.resources.static: true`"
     description: "Image registry hosting the demo static-site container image (`${REGISTRY_URL}/demo:1.0.6`). No fallback; the static workload's pod will fail to pull if the variable is not set at the Flux Kustomization level."
-  cluster_name:
+  db_subnet_group_name:
     required_when: "`demo.resources.database: true` AND `database.postgres.driver == 'rds'`"
-    description: "Cluster name, from `terraform_output('cluster', 'cluster_name')`. Used to build the `demo-db` Instance's `dbSubnetGroupName`. Passed by the facet itself."
+    description: "From `terraform_output('network', 'db_subnet_group_name')`. Sets the `demo-db` Instance's `dbSubnetGroupName` directly — the demo reads the real output rather than reconstructing the naming convention a third-party chart (with no Flux substitution access) has to use instead. Passed by the facet itself."
+  kms_key_arn:
+    required_when: "`demo.resources.database: true` AND `database.postgres.driver == 'rds'`"
+    description: "From `terraform_output('database', 'kms_key_arn')`. Sets the `demo-db` Instance's `kmsKeyId`. Passed by the facet itself."
+  rds_security_group_id:
+    required_when: "`demo.resources.database: true` AND `database.postgres.driver == 'rds'`"
+    description: "From `terraform_output('database', 'security_group_id')`. Sets the `demo-db` Instance's `vpcSecurityGroupIds` — scoped to the EKS cluster's own security group, not the whole VPC CIDR. Passed by the facet itself."
   aws_region:
     required_when: "`demo.resources.database: true` AND `database.postgres.driver == 'rds'`"
     description: "AWS region for the `demo-db` Instance, from `aws.region`. Passed by the facet itself."
+  demo_db_name:
+    required_when: "`demo.resources.database: true` AND `database.postgres.driver == 'rds'`"
+    description: "Fixed value `demo`. Single source of truth for the `demo-db` Instance's `dbName`, referenced by both the Instance CR and the bootstrap job's SQL so the two can't drift independently. Passed by the facet itself."
 
 components:
   database:
@@ -26,7 +35,7 @@ components:
     description: "A `Cluster` CR `demo-cluster` (2 instances, 100 max_connections, 1Gi PVC, PodMonitor enabled). Requires the `database` add-on so the CloudNativePG operator can reconcile the CR."
   database/rds:
     enable_when: "`demo.resources.database: true` AND `database.postgres.driver == 'rds'`"
-    description: "An `rds.aws.upbound.io/v1beta3` `Instance` CR `demo-db` (db.t4g.micro, 20Gi, AWS-managed master password) — the worked example for `kustomize/provisioning`'s contract: just the database definition, no provider wiring."
+    description: "An `rds.aws.upbound.io/v1beta3` `Instance` CR `demo-db` (db.t4g.micro, 20Gi, AWS-managed master password, network-scoped to the cluster's own security group) — the worked example for `kustomize/provisioning`'s contract: just the database definition, no provider wiring. Also bundles the RBAC opting `system-provisioning/rds-secret-reader` into this namespace, and a one-shot Job that, once the Instance is Ready, creates a least-privilege `demo_app` Postgres role from the RDS-managed master password and publishes it as `demo-db-app-credentials` — never the master credential itself. See ADR-0009 §7."
   static:
     enable_when: "`demo.resources.static: true`"
     description: "Creates the `demo-static` namespace (PSA `restricted`) with a `website` Deployment pulling `${REGISTRY_URL}/demo:1.0.6`, a Service, a 100Mi ReadWriteOnce PVC named `content`, and an Ingress."

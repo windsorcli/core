@@ -30,6 +30,13 @@ provider "aws" {
 
 data "aws_caller_identity" "current" {}
 
+# manageMasterUserPassword auto-generates the master password into Secrets
+# Manager, encrypted by this key unless a customer-managed one is given.
+# RDS calls kms:DescribeKey against it regardless of which key is used.
+data "aws_kms_key" "secretsmanager_default" {
+  key_id = "alias/aws/secretsmanager"
+}
+
 #-----------------------------------------------------------------------------------------------------------------------
 # Resource Catalog
 #-----------------------------------------------------------------------------------------------------------------------
@@ -119,6 +126,23 @@ locals {
                 "kms:GrantIsForAWSResource" = "true"
               }
             }
+          },
+          {
+            # manageMasterUserPassword auto-creates the master password
+            # secret, encrypted by the account's default Secrets Manager
+            # key unless the Instance names a different one explicitly.
+            # https://docs.aws.amazon.com/AmazonRDS/latest/UserGuide/rds-secrets-manager.html#rds-secrets-manager-permissions
+            Effect = "Allow"
+            Action = [
+              "secretsmanager:CreateSecret",
+              "secretsmanager:TagResource",
+            ]
+            Resource = "arn:aws:secretsmanager:*:${data.aws_caller_identity.current.account_id}:secret:rds!*"
+          },
+          {
+            Effect   = "Allow"
+            Action   = "kms:DescribeKey"
+            Resource = data.aws_kms_key.secretsmanager_default.arn
           },
         ]
       })

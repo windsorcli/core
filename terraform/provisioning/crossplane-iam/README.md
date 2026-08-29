@@ -40,6 +40,7 @@ No modules.
 | [aws_iam_role.this](https://registry.terraform.io/providers/hashicorp/aws/6.58.0/docs/resources/iam_role) | resource |
 | [aws_iam_role_policy_attachment.this](https://registry.terraform.io/providers/hashicorp/aws/6.58.0/docs/resources/iam_role_policy_attachment) | resource |
 | [aws_caller_identity.current](https://registry.terraform.io/providers/hashicorp/aws/6.58.0/docs/data-sources/caller_identity) | data source |
+| [aws_kms_key.secretsmanager_default](https://registry.terraform.io/providers/hashicorp/aws/6.58.0/docs/data-sources/kms_key) | data source |
 
 ## Inputs
 
