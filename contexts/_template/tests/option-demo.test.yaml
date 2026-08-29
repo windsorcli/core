@@ -51,9 +51,11 @@ cases:
                 - database/cloudnativepg
 
   # rds driver: demo database creates an Instance CR and depends on
-  # provisioning instead of database. dbSubnetGroupName/kmsKeyId read
-  # the real terraform outputs directly, unlike a third-party chart,
-  # which has to use the documented naming convention instead.
+  # provisioning-resources, not just provisioning-install — the
+  # ProviderConfig the Instance references lives in the resources tier.
+  # dbSubnetGroupName/kmsKeyId read the real terraform outputs directly,
+  # unlike a third-party chart, which has to use the documented naming
+  # convention instead.
   - name: demo mode with rds driver creates demo rds instance
     values:
       platform: aws
@@ -81,7 +83,7 @@ cases:
         - name: demo
           path: demo
           dependsOn:
-            - provisioning-install
+            - provisioning-resources
           resources:
             - timeout: 10m
               interval: 5m
