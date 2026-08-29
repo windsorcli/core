@@ -43,9 +43,12 @@ spec:
             seccompProfile:
               type: RuntimeDefault
           resources:
+            # No CPU limit: a bursty, low-usage exporter like this gets
+            # CFS-throttled by a tight limit even when the node is
+            # otherwise idle. The request alone protects scheduling
+            # fairness without capping real bursts.
             limits:
               memory: 64Mi
-              cpu: 100m
             requests:
               memory: 32Mi
               cpu: 25m
