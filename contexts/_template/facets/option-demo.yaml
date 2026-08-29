@@ -47,19 +47,23 @@ flux:
         timeout: 10m
         interval: 5m
 
-  # postgres_exporter monitoring for demo-db — core-provided and reusable
-  # by any RDS-backed chart, not authored per-chart (see ADR-0009 §8).
-  # Merges into the same provisioning-resources Kustomization
-  # addon-database.yaml already targets.
+  # Application credential and (when observability is active)
+  # postgres_exporter monitoring for demo-db — core-provided and
+  # reusable by any RDS-backed chart, not authored per-chart (see
+  # ADR-0009 §7, §8). Merges into the same provisioning-resources
+  # Kustomization addon-database.yaml already targets.
   - name: provisioning
-    when: demo.resources.database == true && database.postgres.driver == 'rds' && observability.enabled == true
+    when: demo.resources.database == true && database.postgres.driver == 'rds'
     resources:
       - components:
-          - crossplane/aws-rds/postgres-exporter
+          - crossplane/aws-rds/app-role
+          - "${observability.enabled == true ? 'crossplane/aws-rds/postgres-exporter' : ''}"
         substitutions:
           pg_instance_name: demo-db
           pg_database_name: "${demo_database_name}"
-          pg_role_name: demo_monitor
           pg_target_namespace: demo-database
+          # One line — Flux substitution is literal text replacement, so
+          # a multi-line value here would corrupt the CronJob's YAML.
+          pg_grant_sql: "GRANT CONNECT ON DATABASE ${demo_database_name} TO ${demo_database_name}_app; GRANT USAGE ON SCHEMA public TO ${demo_database_name}_app; GRANT SELECT, INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA public TO ${demo_database_name}_app; ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT SELECT, INSERT, UPDATE, DELETE ON TABLES TO ${demo_database_name}_app;"
         timeout: 5m
         interval: 5m

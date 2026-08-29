@@ -1,0 +1,25 @@
+apiVersion: kustomize.config.k8s.io/v1alpha1
+kind: Component
+
+# Reusable application-credential provisioning for any provider-aws-rds
+# Instance — never the master credential, matching CNPG's own app-secret
+# separation. A chart opts in with its own grants, not its own CronJob.
+# See ADR-0009 §7.
+#
+# Required substitutions:
+#   pg_instance_name     Instance CR's name, e.g. demo-db
+#   pg_database_name     Database inside it to connect to, e.g. demo
+#   pg_target_namespace  Namespace for the Secret, e.g. demo-database
+#   pg_grant_sql         GRANT/ALTER DEFAULT PRIVILEGES statements to run
+#                         after role creation, referencing the role by
+#                         name directly (${pg_database_name}_app) — one
+#                         line, semicolon-separated. Flux substitution is
+#                         literal text replacement, so a multi-line value
+#                         here would corrupt the surrounding YAML.
+#
+# Provisions ${pg_database_name}_app, so it can't collide with the role
+# postgres-exporter/ provisions for the same database.
+
+resources:
+  - rbac.yaml
+  - provision-app-role-cronjob.yaml

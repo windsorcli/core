@@ -1,21 +1,17 @@
 ---
-# Provisions a least-privilege application credential for demo-db, scoped
-# to the demo database only — never the RDS master credential, matching
-# CNPG's own separation of its superuser and app-database secrets (see
-# ADR-0009 §7, "app credentials, not the admin secret"). Runs on a
-# schedule rather than once: reads the RDS-managed master password via
-# rds-secret-reader, creates demo_app with narrow grants, and publishes
-# its password as demo-db-app-credentials in this namespace. Idempotent
-# and safe to skip — a tick that finds the Instance not yet Ready, or
-# demo_app already provisioned, exits clean and the next tick retries.
-#
-# Monitoring is separate: kustomize/provisioning's reusable
-# postgres-exporter component provisions its own pg_monitor role
-# (see ADR-0009 §8), wired in by this facet's option-demo.yaml entry.
+# Provisions ${pg_database_name}_app for ${pg_instance_name} from its
+# RDS-managed master password — never the master credential itself,
+# matching CNPG's own separation of its superuser and app-database
+# secrets (see ADR-0009 §7). The role's grants are entirely the
+# consuming chart's own SQL (pg_grant_sql below); this component only
+# owns the mechanics: idempotent role creation, password handling,
+# publishing ${pg_instance_name}-app-credentials. Idempotent and safe
+# to skip — a tick that finds the Instance not yet Ready, or the role
+# already provisioned, exits clean and the next tick retries.
 apiVersion: batch/v1
 kind: CronJob
 metadata:
-  name: demo-db-provision-app-role
+  name: ${pg_instance_name}-provision-app-role
   namespace: system-provisioning
 spec:
   schedule: "*/5 * * * *"
@@ -53,18 +49,18 @@ spec:
                 - |
                   set -euo pipefail
 
-                  READY=$(kubectl get instance.rds.aws.upbound.io demo-db \
+                  READY=$(kubectl get instance.rds.aws.upbound.io ${pg_instance_name} \
                     -o jsonpath='{.status.conditions[?(@.type=="Ready")].status}' 2>/dev/null || echo "")
                   if [ "$READY" != "True" ]; then
-                    echo "demo-db Instance not Ready yet, skipping this tick."
+                    echo "${pg_instance_name} Instance not Ready yet, skipping this tick."
                     touch /shared/skip
                     exit 0
                   fi
 
-                  kubectl get instance.rds.aws.upbound.io demo-db \
+                  kubectl get instance.rds.aws.upbound.io ${pg_instance_name} \
                     -o jsonpath='{.status.atProvider.address}' > /shared/address
 
-                  SECRET_ARN=$(kubectl get instance.rds.aws.upbound.io demo-db \
+                  SECRET_ARN=$(kubectl get instance.rds.aws.upbound.io ${pg_instance_name} \
                     -o jsonpath='{.status.atProvider.masterUserSecret[0].secretArn}')
 
                   SECRET_JSON=$(aws secretsmanager get-secret-value --secret-id "$SECRET_ARN" \
@@ -78,14 +74,13 @@ spec:
                   # change anyway. Only a fresh role gets a fresh one,
                   # independent of the admin password's own AWS-managed
                   # rotation schedule.
-                  EXISTING=$(kubectl get secret demo-db-app-credentials \
-                    -n demo-database -o jsonpath='{.data.password}' 2>/dev/null | base64 -d || echo "")
+                  EXISTING=$(kubectl get secret ${pg_instance_name}-app-credentials \
+                    -n ${pg_target_namespace} -o jsonpath='{.data.password}' 2>/dev/null | base64 -d || echo "")
                   if [ -n "$EXISTING" ]; then
                     echo -n "$EXISTING" > /shared/app-password
                   else
                     head -c 24 /dev/urandom | base64 | tr -d '/+=\n' > /shared/app-password
                   fi
-                  echo -n "demo_app" > /shared/app-username
               volumeMounts:
                 - name: shared
                   mountPath: /shared
@@ -112,24 +107,20 @@ spec:
 
                   ADDRESS=$(cat /shared/address)
                   ADMIN_USER=$(cat /shared/admin-username)
-                  APP_USER=$(cat /shared/app-username)
                   APP_PASSWORD=$(cat /shared/app-password)
 
                   PGPASSWORD=$(cat /shared/admin-password) psql -h "$ADDRESS" -U "$ADMIN_USER" \
-                    -d ${demo_db_name} -v ON_ERROR_STOP=1 <<SQL
+                    -d ${pg_database_name} -v ON_ERROR_STOP=1 <<SQL
                   DO \$\$
                   BEGIN
-                    IF NOT EXISTS (SELECT FROM pg_roles WHERE rolname = '$APP_USER') THEN
-                      CREATE ROLE $APP_USER WITH LOGIN PASSWORD '$APP_PASSWORD';
+                    IF NOT EXISTS (SELECT FROM pg_roles WHERE rolname = '${pg_database_name}_app') THEN
+                      CREATE ROLE ${pg_database_name}_app WITH LOGIN PASSWORD '$APP_PASSWORD';
                     ELSE
-                      ALTER ROLE $APP_USER WITH PASSWORD '$APP_PASSWORD';
+                      ALTER ROLE ${pg_database_name}_app WITH PASSWORD '$APP_PASSWORD';
                     END IF;
                   END
                   \$\$;
-                  GRANT CONNECT ON DATABASE ${demo_db_name} TO $APP_USER;
-                  GRANT USAGE ON SCHEMA public TO $APP_USER;
-                  GRANT SELECT, INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA public TO $APP_USER;
-                  ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT SELECT, INSERT, UPDATE, DELETE ON TABLES TO $APP_USER;
+                  ${pg_grant_sql}
                   SQL
               volumeMounts:
                 - name: shared
@@ -156,9 +147,9 @@ spec:
                     exit 0
                   fi
 
-                  kubectl create secret generic demo-db-app-credentials \
-                    -n demo-database \
-                    --from-literal=username="$(cat /shared/app-username)" \
+                  kubectl create secret generic ${pg_instance_name}-app-credentials \
+                    -n ${pg_target_namespace} \
+                    --from-literal=username="${pg_database_name}_app" \
                     --from-literal=password="$(cat /shared/app-password)" \
                     --dry-run=client -o yaml | kubectl apply -f -
               volumeMounts:

@@ -374,37 +374,55 @@ its own `ProviderConfig`, this ADR adds a purpose-built CronJob:
 - **`kustomize/provisioning/resources/crossplane/aws-rds/`** creates that
   `ServiceAccount`, alongside the `ProviderConfig`/tag policy it already
   ships — a shared, core-provided identity multiple consumers can reuse.
-- **The consuming namespace opts in.** `kustomize/demo/resources/database/rds/`
-  grants `system-provisioning/rds-secret-reader` `create`/`update` on
-  `Secret`s via a `Role`/`RoleBinding` the *chart* authors, not core
-  reaching into a namespace uninvited. `Instance` itself is cluster-scoped
-  (`rds.aws.upbound.io` has no namespaced kinds), so reading the one named
-  `Instance` needs a `ClusterRole`/`ClusterRoleBinding` instead — still
-  scoped by `resourceNames` to that single object. Any real chart wanting
-  this pattern brings the identical `Role`/`RoleBinding` into its own
-  namespace and its own named `ClusterRole`/`ClusterRoleBinding` pair.
-- **The CronJob** (`provision-app-role-cronjob.yaml`) runs in
-  `system-provisioning` on a 5-minute schedule, in three steps: an init
-  container checks the `Instance` for Ready and, if it isn't yet, exits
-  the tick clean; once Ready, it reads `masterUserSecret[0].secretArn`
-  and `address` and resolves the admin credential from Secrets Manager.
-  A second init container connects with `psql` as the admin user and
-  idempotently (`IF NOT EXISTS` / `ALTER ROLE`, safe to rerun) creates
-  `demo_app` with `SELECT`/`INSERT`/`UPDATE`/`DELETE` on the `demo`
-  database only — no DDL, no other database, no superuser; the main
-  container publishes the generated password as `demo-db-app-credentials`
-  in `demo-database`, which the application consumes with an ordinary
-  `secretKeyRef`, the
-  same shape CNPG's own generated secret already has. Images
-  (`alpine/k8s`, `postgres:16-alpine`) are digest-pinned per this repo's
-  own convention; chosen specifically because both bundle a real shell
+- **Reusable, not per-chart.** The mechanics (idempotent role creation,
+  password handling, publishing a `Secret`) are identical for any
+  `Instance`; only the grants differ. So
+  `kustomize/provisioning/resources/crossplane/aws-rds/app-role` owns the
+  mechanics, and a consuming chart supplies four substitutions —
+  `pg_instance_name`, `pg_database_name`, `pg_target_namespace`, and
+  `pg_grant_sql` (its own `GRANT`/`ALTER DEFAULT PRIVILEGES` statements,
+  referencing the role the component provisions,
+  `<pg_database_name>_app`) — instead of authoring a ~150-line CronJob of
+  its own. `pg_grant_sql` is one line, semicolon-separated: Flux
+  substitution is literal text replacement on the rendered manifest, so a
+  multi-line value would corrupt the surrounding YAML block scalar.
+  `kustomize/demo/resources/database/rds/` opts into it the same way any
+  chart would, via `option-demo.yaml`'s own `provisioning` entry —
+  closing the CNPG-parity gap this ADR set out to match: a chart gets a
+  scoped credential without hand-rolling the machinery, the same way
+  CNPG's operator hands it one for free.
+- **The consuming namespace opts in via RBAC**, not core reaching into it
+  uninvited: the component's own `ClusterRole`/`ClusterRoleBinding`
+  (`Instance` is cluster-scoped — `rds.aws.upbound.io` has no namespaced
+  kinds — so reading the one named `Instance` needs cluster scope, still
+  bounded by `resourceNames` to that single object) plus a `Role`/`RoleBinding`
+  in the target namespace, both parameterized by `pg_instance_name`.
+- **The CronJob** runs in `system-provisioning` on a 5-minute schedule,
+  in three steps: an init container checks the `Instance` for Ready and,
+  if it isn't yet, exits the tick clean; once Ready, it reads
+  `masterUserSecret[0].secretArn` and `address` and resolves the admin
+  credential from Secrets Manager, reusing whatever password is already
+  published rather than generating a new one when the role already
+  exists (an env-var-based DSN doesn't see a rotated `Secret` until its
+  pod restarts, so rotating on every tick silently broke every consumer
+  reading it — found live, fixed here). A second init container connects
+  with `psql` as the admin user and idempotently (`IF NOT EXISTS` /
+  `ALTER ROLE`, safe to rerun) creates the role, then runs the chart's
+  own `pg_grant_sql` — no DDL, no other database, no superuser, unless
+  the chart's own grants ask for it; the main container publishes the
+  password as `<pg_instance_name>-app-credentials`, which the
+  application consumes with an ordinary `secretKeyRef`, the same shape
+  CNPG's own generated secret already has. Images (`alpine/k8s`,
+  `postgres:16-alpine`) are digest-pinned per this repo's own
+  convention; chosen specifically because both bundle a real shell
   (`bash`) and the exact tools needed (`kubectl`+`aws`+`jq`, `psql`) —
   `rancher/kubectl`, considered first, is a scratch image with no shell
   at all and can't run a wait loop.
 - `Instance.spec.forProvider.dbName` was unset before this — found while
-  designing the job's own `GRANT ... ON DATABASE demo`: with no `dbName`,
-  Postgres RDS creates no user database beyond the built-in `postgres`,
-  so there was nothing to scope `demo_app`'s grants to at all.
+  designing the app role's own `GRANT ... ON DATABASE demo`: with no
+  `dbName`, Postgres RDS creates no user database beyond the built-in
+  `postgres`, so there was nothing to scope the app role's grants to at
+  all.
 
 **IAM database authentication** (`iamDatabaseAuthenticationEnabled`) is a
 stronger alternative worth naming: an application authenticates with a
@@ -423,17 +441,20 @@ deleted and recreated (as it was live, for the `dbName` fix below)
 required manually deleting the Job so Flux (with
 `kustomize.toolkit.fluxcd.io/force: enabled`) could recreate it. A
 `CronJob` reuses the same already-idempotent script on a schedule
-(every 5 minutes): a tick before the Instance is Ready, or after
-`demo_app` already exists with the grants it needs, exits clean, and
-its `jobTemplate` is an ordinary mutable field, so the force annotation
-is no longer needed either. This does not cover rotating `demo_app`'s
-password on a schedule — only the admin credential rotates, via AWS.
-A periodically-rotated `Secret` reopens the same problem discussed
-earlier for ESO: updating a `Secret` object doesn't propagate to a
-running pod's env vars, so rotation without a `Reloader`-style
-companion just breaks the app silently on whatever interval got
-picked. Deliberately out of scope here — this ADR proves the
-CNPG-parity pattern works, not a rotation platform.
+(every 5 minutes): a tick before the Instance is Ready, or after the
+role already exists with the grants it needs, exits clean, and its
+`jobTemplate` is an ordinary mutable field, so the force annotation is
+no longer needed either. This does not cover rotating the role's
+password on a schedule — only the admin credential rotates, via AWS —
+and for good reason: a `Secret` consumed via `secretKeyRef` env var
+doesn't propagate to a running pod without a restart, so rotating on a
+schedule would silently break every consumer between rotation and
+their next restart. The CronJob itself reuses whatever password is
+already published rather than generating a fresh one on every tick, for
+the same reason (found live — see Consequences). Real rotation needs a
+`Reloader`-style companion watching for `Secret` changes and restarting
+consumers, which is deliberately out of scope here — this ADR proves
+the CNPG-parity pattern works, not a rotation platform.
 
 ### 8. Observability matches CNPG's own dashboard, not CloudWatch
 
@@ -456,26 +477,27 @@ infra metrics (CPU, IOPS, storage) that Postgres itself can't see are a
 real complement, not addressed here — the same kind of scoped-out,
 named fast-follow as Azure in §5.
 
-Unlike §7's application credential — access patterns are inherently
-chart-specific, so `demo_app`'s CronJob stays chart-owned — monitoring
-isn't: every `Instance`, however created, wants the same `pg_monitor`
-role and the same exporter. So the pipeline that produces it lives in
-`kustomize/provisioning/resources/crossplane/aws-rds/postgres-exporter`,
-a reusable component, not demo-authored YAML. A chart opts in with four
-substitutions (`pg_instance_name`, `pg_database_name`, `pg_role_name`,
-`pg_target_namespace`) instead of hand-rolling a role-provisioning
-CronJob and an exporter Deployment itself. It brings its own `CronJob`
-(granting Postgres's built-in `pg_monitor` — read-only, no table grants
-needed, the same idempotent create-or-alter pattern as §7's `demo_app`),
-its own scoped `ClusterRole`/`Role` against the shared `rds-secret-reader`
-identity, and a `postgres_exporter` `Deployment`/`PodMonitor` reading the
-published DSN via `DATA_SOURCE_NAME` — no new AWS IAM, no new network
-path beyond the security group already scoped to the cluster's nodes in
-§6. `option-demo.yaml` wires it in as a second `flux:` entry named
-`provisioning`, merging into the same `provisioning-resources`
-Kustomization `addon-database.yaml` already targets — the same
-cross-domain-entry pattern §2 established, now used by a *chart's*
-facet instead of a driving one.
+Every `Instance`, however created, wants the same `pg_monitor` role and
+the same exporter — same reasoning as §7's `app-role` component, and the
+same shape: `kustomize/provisioning/resources/crossplane/aws-rds/postgres-exporter`,
+reusable, not demo-authored YAML. A chart opts in with three
+substitutions (`pg_instance_name`, `pg_database_name`,
+`pg_target_namespace`) — one fewer than `app-role`, since there's no
+`pg_grant_sql` to supply: the role it provisions
+(`<pg_database_name>_monitor`) always gets the same grant, Postgres's
+built-in `pg_monitor`. It brings its own `CronJob` (the same idempotent
+create-or-reuse-password pattern as `app-role`'s), its own scoped
+`ClusterRole`/`Role` against the shared `rds-secret-reader` identity, and
+a `postgres_exporter` `Deployment`/`PodMonitor` reading the published DSN
+via `DATA_SOURCE_NAME` — no new AWS IAM, no new network path beyond the
+security group already scoped to the cluster's nodes in §6.
+`option-demo.yaml` wires both components into the same `provisioning`
+`flux:` entry, merging into the `provisioning-resources` Kustomization
+`addon-database.yaml` already targets — the same cross-domain-entry
+pattern §2 established, now used by a *chart's* facet instead of a
+driving one. `app-role` fires whenever `driver: rds`; `postgres-exporter`
+is additionally gated on `observability.enabled`, since there's no
+dashboard to feed otherwise.
 
 The `PodMonitor`'s `instance` label is relabeled to `pg_instance_name`
 rather than left at its default (the exporter pod's own IP) — otherwise
@@ -590,6 +612,24 @@ it's meaningless and churns on every pod restart.
   names in `provisioning-resources`' inventory, and Prometheus's actual
   scrape target confirmed the `instance` relabel resolves to
   `demo-db` rather than the exporter pod's IP.
+- A real bug surfaced during that live verification, not caught by
+  review: both the `app-role` and `postgres-exporter` CronJobs
+  regenerated a random password on *every* tick, even when the role
+  already existed — `ALTER ROLE` doesn't check whether the password
+  actually changed before applying it. Since the exporter (and any
+  consuming app) reads its DSN once at pod start via `secretKeyRef`, the
+  password silently drifted out from under it a few ticks later,
+  producing `password authentication failed` with no corresponding
+  config change to point at. Fixed by having the init container check
+  for an already-published `Secret` and reuse its password when the
+  role already exists, generating a fresh one only on first creation.
+  Confirmed live: a manually-triggered tick reported
+  `secret ... unchanged` and the exporter stayed connected across it.
+- `§7`'s `app-role` component (chart-supplied `pg_grant_sql`, generalized
+  from what was originally demo-only CronJob/RBAC) has not yet been
+  re-verified live in this shape — the extraction mirrors
+  `postgres-exporter`'s, already proven, but hasn't been independently
+  confirmed the same way.
 
 ## Alternatives considered
 

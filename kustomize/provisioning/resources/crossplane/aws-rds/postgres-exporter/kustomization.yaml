@@ -8,8 +8,10 @@ kind: Component
 # Required substitutions:
 #   pg_instance_name     Instance CR's name, e.g. demo-db
 #   pg_database_name     Database inside it to connect to, e.g. demo
-#   pg_role_name         Postgres role to create, e.g. demo_monitor
 #   pg_target_namespace  Namespace for the Secret and exporter, e.g. demo-database
+#
+# Provisions ${pg_database_name}_monitor, so it can't collide with the
+# role app-role/ provisions for the same database.
 
 resources:
   - rbac.yaml
