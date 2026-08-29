@@ -684,6 +684,8 @@ cases:
     expect:
       flux:
         - name: gateway
+          dependsOn:
+            - lb-install
           install:
             components:
               - envoy

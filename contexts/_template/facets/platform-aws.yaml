@@ -210,50 +210,56 @@ terraform:
 # =============================================================================
 # Flux systems — pki resources overlay
 # =============================================================================
-# pki-resources always renders so the gateway cert has a ClusterIssuer. Two
-# modes, switchable with no manual cert changes: selfsigned default (browsers
-# warn), or ACME when dns.public_domain is set (DNS-01 against the Route53 zone,
-# using the cluster module's IAM role). dev == true uses staging, else prod.
+# pki-resources always renders. The gateway cert needs a ClusterIssuer.
+# Two modes: selfsigned by default, or ACME when dns.public_domain is set.
+# ACME runs DNS-01 against the Route53 zone through the cluster module's
+# IAM role. dev == true selects the ACME staging server.
 flux:
 
   - name: pki
     resources:
       - components:
-          # acme_hosted_zone_id defers terraform_output until dns-zone applies;
-          # an eager lookup panics on first bootstrap.
+          # acme_hosted_zone_id defers terraform_output until dns-zone applies.
+          # An eager lookup panics on first bootstrap.
           - "${pki_effective.issuer_component}"
         timeout: 5m
         interval: 5m
         substitutions:
-          # ACME-only; selfsigned doesn't reference these. acme_hosted_zone_id
-          # gates on public_domain since dns-zone is absent in selfsigned mode.
+          # ACME-only. Selfsigned doesn't reference these. acme_hosted_zone_id
+          # gates on public_domain. dns-zone doesn't exist in selfsigned mode.
           acme_server: "${dev == true ? 'https://acme-staging-v02.api.letsencrypt.org/directory' : 'https://acme-v02.api.letsencrypt.org/directory'}"
           acme_email: "${email ?? ''}"
           acme_dns_zone: "${dns.public_domain ?? ''}"
           acme_region: "${aws.region ?? 'us-east-1'}"
           acme_hosted_zone_id: "${(dns.public_domain ?? '') != '' ? (terraform_output('dns-zone', 'zone_id') ?? '') : ''}"
 
-  # Gateway install merge — appends envoy/loadbalancer/aws-nlb (NLB annotations)
-  # when the Envoy gateway runs in loadbalancer mode, keeping AWS specifics out
-  # of option-gateway. NLB not ALB: Envoy already does L7, so an ALB would
-  # double-terminate. ALB stays available per-Ingress via the alb ingress class.
+  # Gateway install merge. Adds envoy/loadbalancer/aws-nlb (NLB annotations)
+  # when Envoy runs in loadbalancer mode. Provisions an NLB, not an ALB: Envoy
+  # already terminates L7 traffic. ALB stays available per-Ingress via the
+  # alb ingress class.
+  #
+  # dependsOn lb-install: the Service these annotations create is finalized
+  # by aws-load-balancer-controller. Ordering the controller to tear down
+  # after the Service avoids stuck finalizers on destroy.
   - name: gateway
     when: "gateway.enabled == true && gateway.driver == 'envoy' && lb_effective.mode == 'loadbalancer'"
+    dependsOn:
+      - lb-install
     install:
       components:
         - envoy/loadbalancer/aws-nlb
       substitutions:
         # Maps gateway.access to the aws-load-balancer-scheme annotation. Only
-        # `internal` overrides; else empty and the kustomize default applies.
-        # Gated on dns.private_domain to stay consistent with the private cascade.
+        # `internal` overrides. Empty otherwise. The kustomize default applies.
+        # Gated on dns.private_domain, matching the rest of the private cascade.
         lb_scheme: "${gateway.access == 'private' && (dns.private_domain ?? '') != '' ? 'internal' : ''}"
 
-  # AWS Load Balancer Controller — provisions NLB/ALB via the EKS API (else the
-  # in-tree CCM makes classic ELBs). Always rendered. IAM wired by the cluster
-  # module (create_aws_lb_controller_role, Pod Identity in system-lb). vpc_id +
-  # aws_region passed explicitly so LBC skips IMDS (worker hop-limit=1 blocks
-  # pod-network IMDS). aws_region has no default — a wrong region silently fails
-  # LBC, so propagate empty over guessing.
+  # AWS Load Balancer Controller. Provisions NLB/ALB through the EKS API.
+  # The in-tree CCM makes classic ELBs instead. Always rendered.
+  #
+  # IAM comes from the cluster module (create_aws_lb_controller_role, Pod
+  # Identity in system-lb). vpc_id and aws_region pass explicitly: worker
+  # hop-limit 1 blocks pod-network IMDS. aws_region has no default.
   - name: lb
     install:
       components:

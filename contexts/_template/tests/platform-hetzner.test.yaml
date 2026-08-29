@@ -300,6 +300,8 @@ cases:
             parent_zone_name: example.org
       flux:
         - name: gateway
+          dependsOn:
+            - lb-install
           install:
             components:
               - envoy/loadbalancer/hcloud-lb
