@@ -503,6 +503,30 @@ The `PodMonitor`'s `instance` label is relabeled to `pg_instance_name`
 rather than left at its default (the exporter pod's own IP) — otherwise
 it's meaningless and churns on every pod restart.
 
+`kustomize/telemetry/resources/prometheus/alerts/postgres-exporter`
+adds a `PrometheusRule` alongside the dashboard, matching the existing
+`prometheus/alerts/database` (CNPG) precedent and wired into
+`platform-base.yaml`'s shared `alert_components` the same way — on
+`driver: rds` alone, not `observability.enabled`, since alerts should
+fire whether or not anyone's looking at a dashboard. Adapted by hand from
+`postgres_exporter`'s own `postgres_mixin/alerts/postgres.libsonnet`
+rather than vendored verbatim: its jsonnet templates assume a
+multi-cluster grouping this repo doesn't have, and two of its alerts
+(replication slot usage, unvacuumed tables) reference metrics this
+exporter's default collectors don't expose — confirmed against the live
+`/metrics` output, not assumed. Ported with `promtool`-tested rules
+(`prometheus-rule.test.yaml`, this repo's existing convention for
+hand-curated alerts) covering every alert, both firing and clear.
+
+Worth naming, not yet resolved: the alert rules fire independent of
+`observability.enabled`, but the exporter that feeds them is gated on
+it (`option-demo.yaml`'s own choice, avoiding a second pod and RDS
+connection when nobody's watching a dashboard) — the same asymmetry
+CNPG doesn't have, since its metrics ride the existing `Cluster` pod at
+no extra cost. With `observability.enabled: false`, these alerts exist
+but have no data to evaluate. Not a bug, but a real inconsistency
+between the two drivers worth resolving one way or the other later.
+
 ## Consequences
 
 - `Provider.spec.package` is digest-pinned

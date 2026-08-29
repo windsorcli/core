@@ -1,0 +1,354 @@
+rule_files:
+  - .rendered-rule.yml
+
+evaluation_interval: 1m
+
+tests:
+  - interval: 1m
+    input_series:
+      - series: 'pg_up{job="postgres-exporter",instance="demo-db"}'
+        values: '0+0x20'
+    alert_rule_test:
+      - eval_time: 2m
+        alertname: PostgreSQLDown
+        exp_alerts:
+          - exp_labels:
+              severity: critical
+              job: postgres-exporter
+              instance: demo-db
+            exp_annotations:
+              summary: 'PostgreSQL unreachable (instance demo-db)'
+              description: "The exporter for demo-db can't connect to Postgres. Applications using this database are likely failing too.\n  VALUE = 0\n  LABELS = map[instance:demo-db job:postgres-exporter]"
+
+  - interval: 1m
+    input_series:
+      - series: 'pg_up{job="postgres-exporter",instance="demo-db"}'
+        values: '1+0x20'
+    alert_rule_test:
+      - eval_time: 2m
+        alertname: PostgreSQLDown
+        exp_alerts: []
+
+  - interval: 1m
+    input_series:
+      - series: 'pg_exporter_last_scrape_error{instance="demo-db"}'
+        values: '1+0x40'
+    alert_rule_test:
+      - eval_time: 20m
+        alertname: PostgreSQLExporterErrors
+        exp_alerts: []
+      - eval_time: 35m
+        alertname: PostgreSQLExporterErrors
+        exp_alerts:
+          - exp_labels:
+              severity: warning
+              instance: demo-db
+            exp_annotations:
+              summary: 'postgres_exporter scrape errors (instance demo-db)'
+              description: "The last scrape for demo-db failed. Metrics may be stale or missing until it recovers.\n  VALUE = 1\n  LABELS = map[instance:demo-db]"
+
+  - interval: 1m
+    input_series:
+      - series: 'pg_exporter_last_scrape_error{instance="demo-db"}'
+        values: '0+0x40'
+    alert_rule_test:
+      - eval_time: 35m
+        alertname: PostgreSQLExporterErrors
+        exp_alerts: []
+
+  - interval: 1m
+    input_series:
+      - series: 'pg_stat_activity_count{instance="demo-db"}'
+        values: '98+0x10'
+      - series: 'pg_settings_max_connections{instance="demo-db"}'
+        values: '100+0x10'
+      - series: 'pg_settings_superuser_reserved_connections{instance="demo-db"}'
+        values: '3+0x10'
+    alert_rule_test:
+      - eval_time: 2m
+        alertname: PostgreSQLMaxConnectionsReached
+        exp_alerts:
+          - exp_labels:
+              severity: critical
+              instance: demo-db
+            exp_annotations:
+              summary: 'Postgres at its connection limit (instance demo-db)'
+              description: "demo-db has 98 connections, at or above max_connections minus the superuser reserve. New non-superuser connections are being rejected.\n  VALUE = 98\n  LABELS = map[instance:demo-db]"
+
+  - interval: 1m
+    input_series:
+      - series: 'pg_stat_activity_count{instance="demo-db"}'
+        values: '50+0x10'
+      - series: 'pg_settings_max_connections{instance="demo-db"}'
+        values: '100+0x10'
+      - series: 'pg_settings_superuser_reserved_connections{instance="demo-db"}'
+        values: '3+0x10'
+    alert_rule_test:
+      - eval_time: 2m
+        alertname: PostgreSQLMaxConnectionsReached
+        exp_alerts: []
+
+  - interval: 1m
+    input_series:
+      - series: 'pg_stat_activity_count{instance="demo-db"}'
+        values: '80+0x15'
+      - series: 'pg_settings_max_connections{instance="demo-db"}'
+        values: '100+0x15'
+      - series: 'pg_settings_superuser_reserved_connections{instance="demo-db"}'
+        values: '3+0x15'
+    alert_rule_test:
+      - eval_time: 12m
+        alertname: PostgreSQLHighConnections
+        exp_alerts:
+          - exp_labels:
+              severity: warning
+              instance: demo-db
+            exp_annotations:
+              summary: 'Postgres connections over 80% of limit (instance demo-db)'
+              description: "demo-db has been using over 80% of its available connections for 10 minutes.\n  VALUE = 80\n  LABELS = map[instance:demo-db]"
+
+  - interval: 1m
+    input_series:
+      - series: 'pg_stat_activity_count{instance="demo-db"}'
+        values: '50+0x15'
+      - series: 'pg_settings_max_connections{instance="demo-db"}'
+        values: '100+0x15'
+      - series: 'pg_settings_superuser_reserved_connections{instance="demo-db"}'
+        values: '3+0x15'
+    alert_rule_test:
+      - eval_time: 12m
+        alertname: PostgreSQLHighConnections
+        exp_alerts: []
+
+  - interval: 1m
+    input_series:
+      - series: 'pg_stat_activity_max_tx_duration{instance="demo-db"}'
+        values: '400+0x5'
+    alert_rule_test:
+      - eval_time: 3m
+        alertname: PostgreSQLSlowQueries
+        exp_alerts:
+          - exp_labels:
+              severity: warning
+              instance: demo-db
+            exp_annotations:
+              summary: 'Postgres query running longer than 5 minutes (instance demo-db)'
+              description: "demo-db has a transaction that has been running for over 5 minutes.\n  VALUE = 400\n  LABELS = map[instance:demo-db]"
+
+  - interval: 1m
+    input_series:
+      - series: 'pg_stat_activity_max_tx_duration{instance="demo-db"}'
+        values: '100+0x5'
+    alert_rule_test:
+      - eval_time: 3m
+        alertname: PostgreSQLSlowQueries
+        exp_alerts: []
+
+  # blks_hit flat, blks_read climbing fast -- cache hit ratio collapses
+  # toward 0 as the read rate dominates.
+  - interval: 1m
+    input_series:
+      - series: 'pg_stat_database_blks_hit{datname="demo",instance="demo-db"}'
+        values: '1000+0x10'
+      - series: 'pg_stat_database_blks_read{datname="demo",instance="demo-db"}'
+        values: '1000+1000x10'
+    alert_rule_test:
+      - eval_time: 8m
+        alertname: PostgreSQLCacheHitRatio
+        exp_alerts:
+          - exp_labels:
+              severity: warning
+              datname: demo
+              instance: demo-db
+            exp_annotations:
+              summary: 'Postgres cache hit ratio low (database demo)'
+              description: "Database demo on demo-db is reading from disk for more than 2% of block accesses, which usually means shared_buffers is undersized for the working set.\n  VALUE = 0\n  LABELS = map[datname:demo instance:demo-db]"
+
+  # blks_hit climbing fast, blks_read flat -- ratio stays near 1.
+  - interval: 1m
+    input_series:
+      - series: 'pg_stat_database_blks_hit{datname="demo",instance="demo-db"}'
+        values: '1000+1000x10'
+      - series: 'pg_stat_database_blks_read{datname="demo",instance="demo-db"}'
+        values: '1000+0x10'
+    alert_rule_test:
+      - eval_time: 8m
+        alertname: PostgreSQLCacheHitRatio
+        exp_alerts: []
+
+  # xact_rollback climbing fast, xact_commit flat -- rollback share
+  # dominates the ratio.
+  - interval: 1m
+    input_series:
+      - series: 'pg_stat_database_xact_commit{datname="demo",instance="demo-db"}'
+        values: '1000+0x10'
+      - series: 'pg_stat_database_xact_rollback{datname="demo",instance="demo-db"}'
+        values: '1000+1000x10'
+    alert_rule_test:
+      - eval_time: 8m
+        alertname: PostgreSQLTooManyRollbacks
+        exp_alerts:
+          - exp_labels:
+              severity: warning
+              datname: demo
+              instance: demo-db
+            exp_annotations:
+              summary: 'Postgres high rollback rate (database demo)'
+              description: "Over 10% of transactions on database demo (demo-db) are rolling back, which usually points at application-level errors or contention.\n  VALUE = 1\n  LABELS = map[datname:demo instance:demo-db]"
+
+  - interval: 1m
+    input_series:
+      - series: 'pg_stat_database_xact_commit{datname="demo",instance="demo-db"}'
+        values: '1000+1000x10'
+      - series: 'pg_stat_database_xact_rollback{datname="demo",instance="demo-db"}'
+        values: '1000+0x10'
+    alert_rule_test:
+      - eval_time: 8m
+        alertname: PostgreSQLTooManyRollbacks
+        exp_alerts: []
+
+  - interval: 1m
+    input_series:
+      - series: 'pg_stat_database_deadlocks{datname="demo",instance="demo-db"}'
+        values: '0+10x10'
+    alert_rule_test:
+      - eval_time: 8m
+        alertname: PostgreSQLHighDeadlocks
+        exp_alerts:
+          - exp_labels:
+              severity: warning
+              datname: demo
+              instance: demo-db
+            exp_annotations:
+              summary: 'Postgres high deadlock rate (database demo)'
+              description: "Database demo on demo-db is hitting more than 5 deadlocks per minute.\n  VALUE = 10\n  LABELS = map[datname:demo instance:demo-db]"
+
+  - interval: 1m
+    input_series:
+      - series: 'pg_stat_database_deadlocks{datname="demo",instance="demo-db"}'
+        values: '0+0x10'
+    alert_rule_test:
+      - eval_time: 8m
+        alertname: PostgreSQLHighDeadlocks
+        exp_alerts: []
+
+  - interval: 1m
+    input_series:
+      - series: 'pg_locks_count{instance="demo-db"}'
+        values: '300+0x10'
+      - series: 'pg_settings_max_locks_per_transaction{instance="demo-db"}'
+        values: '64+0x10'
+      - series: 'pg_settings_max_connections{instance="demo-db"}'
+        values: '20+0x10'
+    alert_rule_test:
+      - eval_time: 8m
+        alertname: PostgreSQLAcquiredTooManyLocks
+        exp_alerts:
+          - exp_labels:
+              severity: warning
+              instance: demo-db
+            exp_annotations:
+              summary: 'Postgres high lock usage (instance demo-db)'
+              description: "demo-db is using over 20% of its lock table capacity.\n  VALUE = 0.234375\n  LABELS = map[instance:demo-db]"
+
+  - interval: 1m
+    input_series:
+      - series: 'pg_locks_count{instance="demo-db"}'
+        values: '10+0x10'
+      - series: 'pg_settings_max_locks_per_transaction{instance="demo-db"}'
+        values: '64+0x10'
+      - series: 'pg_settings_max_connections{instance="demo-db"}'
+        values: '20+0x10'
+    alert_rule_test:
+      - eval_time: 8m
+        alertname: PostgreSQLAcquiredTooManyLocks
+        exp_alerts: []
+
+  - interval: 1m
+    input_series:
+      - series: 'pg_replication_lag_seconds{instance="demo-replica"}'
+        values: '4000+0x10'
+      - series: 'pg_replication_is_replica{instance="demo-replica"}'
+        values: '1+0x10'
+    alert_rule_test:
+      - eval_time: 8m
+        alertname: PostgreSQLReplicationLagging
+        exp_alerts:
+          - exp_labels:
+              severity: warning
+              instance: demo-replica
+            exp_annotations:
+              summary: 'Postgres replica lagging over 1 hour (instance demo-replica)'
+              description: "Replica demo-replica is more than 1 hour behind its primary.\n  VALUE = 4000\n  LABELS = map[instance:demo-replica]"
+
+  - interval: 1m
+    input_series:
+      - series: 'pg_replication_lag_seconds{instance="demo-replica"}'
+        values: '10+0x10'
+      - series: 'pg_replication_is_replica{instance="demo-replica"}'
+        values: '1+0x10'
+    alert_rule_test:
+      - eval_time: 8m
+        alertname: PostgreSQLReplicationLagging
+        exp_alerts: []
+
+  # Constant 0 (never a replica) has zero changes -- no alert.
+  - interval: 1m
+    input_series:
+      - series: 'pg_replication_is_replica{instance="demo-db"}'
+        values: '0+0x10'
+    alert_rule_test:
+      - eval_time: 5m
+        alertname: PostgreSQLReplicationRoleChanged
+        exp_alerts: []
+
+  # Flips 0->1 between t=5m and t=6m -- changes() over the trailing 2m
+  # window catches it at t=6m (window (4m,6m] spans both samples) and
+  # clears again by t=8m (window (6m,8m] sees only post-transition 1s).
+  - interval: 1m
+    input_series:
+      - series: 'pg_replication_is_replica{instance="demo-db"}'
+        values: '0+0x5 1+0x10'
+    alert_rule_test:
+      - eval_time: 6m
+        alertname: PostgreSQLReplicationRoleChanged
+        exp_alerts:
+          - exp_labels:
+              severity: warning
+              instance: demo-db
+            exp_annotations:
+              summary: 'Postgres replication role changed (instance demo-db)'
+              description: "demo-db's primary/replica role just changed. Verify whether this was an expected operation or an unplanned failover.\n  VALUE = 1\n  LABELS = map[instance:demo-db]"
+      - eval_time: 8m
+        alertname: PostgreSQLReplicationRoleChanged
+        exp_alerts: []
+
+  # checkpoints_req climbing fast, checkpoints_timed flat -- forced
+  # checkpoints dominate.
+  - interval: 1m
+    input_series:
+      - series: 'pg_stat_bgwriter_checkpoints_timed_total{instance="demo-db"}'
+        values: '10+0x10'
+      - series: 'pg_stat_bgwriter_checkpoints_req_total{instance="demo-db"}'
+        values: '10+10x10'
+    alert_rule_test:
+      - eval_time: 8m
+        alertname: PostgreSQLTooManyCheckpointsRequested
+        exp_alerts:
+          - exp_labels:
+              severity: warning
+              instance: demo-db
+            exp_annotations:
+              summary: 'Postgres checkpoints mostly requested, not scheduled (instance demo-db)'
+              description: "Over half of demo-db's recent checkpoints were forced rather than scheduled, which usually means checkpoint_timeout or max_wal_size is too low for the write volume.\n  VALUE = 1\n  LABELS = map[instance:demo-db]"
+
+  - interval: 1m
+    input_series:
+      - series: 'pg_stat_bgwriter_checkpoints_timed_total{instance="demo-db"}'
+        values: '10+10x10'
+      - series: 'pg_stat_bgwriter_checkpoints_req_total{instance="demo-db"}'
+        values: '10+0x10'
+    alert_rule_test:
+      - eval_time: 8m
+        alertname: PostgreSQLTooManyCheckpointsRequested
+        exp_alerts: []
