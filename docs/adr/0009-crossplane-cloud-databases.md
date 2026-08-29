@@ -583,11 +583,13 @@ it's meaningless and churns on every pod restart.
   the CLI, not continuously reconciled in-cluster, so a *new* component
   name (unlike editing files inside a component already referenced,
   which Flux's normal git polling picks up on its own) needs that
-  extra step to land. That verification ran against the pipeline living
-  directly in `kustomize/demo/`; extracting it into the reusable
-  `crossplane/aws-rds/postgres-exporter` component afterward (moving
-  files, parameterizing names) is structurally the same thing but
-  hasn't been re-verified live in that shape yet.
+  extra step to land. Extracting it afterward into the reusable
+  `crossplane/aws-rds/postgres-exporter` component was re-verified the
+  same way: the old demo-embedded `Deployment`/`Service`/`PodMonitor`
+  pruned cleanly, the parameterized versions came up under the new
+  names in `provisioning-resources`' inventory, and Prometheus's actual
+  scrape target confirmed the `instance` relabel resolves to
+  `demo-db` rather than the exporter pod's IP.
 
 ## Alternatives considered
 
