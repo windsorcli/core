@@ -18,10 +18,12 @@ x-defaults:
   cluster: &default-cluster
     driver: talos
     controlplanes:
-      # Above the resource_constrained thresholds so common_config_patches
-      # cases below don't also carry config-talos's small-control-plane patch.
+      # Above the resource_constrained thresholds on both axes, so
+      # common_config_patches cases below don't also carry config-talos's
+      # small-control-plane patch. memory must clear 2x its threshold (24)
+      # too, not just cpu's.
       cpu: 8
-      memory: 16
+      memory: 24
       nodes:
         controlplane-1: &cp1-node
           endpoint: 10.5.0.10:50000

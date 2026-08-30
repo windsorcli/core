@@ -6,7 +6,8 @@
 terraform {
   required_providers {
     talos = {
-      source = "siderolabs/talos"
+      source  = "siderolabs/talos"
+      version = "0.11.0"
     }
     null = {
       source = "hashicorp/null"
@@ -128,9 +129,15 @@ resource "local_sensitive_file" "kubeconfig" {
 #-----------------------------------------------------------------------------------------------------------------------
 
 locals {
-  # var.node is the Talos node identity apid routes to. The endpoint host
-  # may be a forwarder address (loopback, bench NAT), not a valid identity.
-  health_check_node    = var.node
+  # var.node may be a hostname the health check host can't resolve. var.endpoint
+  # is always an address that host can reach, so extract its bare IP/host,
+  # stripping any scheme, path, and port. IPv4/hostname only, matching the
+  # schema's endpoint validation: splits on ":", so a bracketed IPv6 address
+  # would parse wrong.
+  endpoint_no_scheme   = strcontains(var.endpoint, "://") ? split("://", var.endpoint)[1] : var.endpoint
+  endpoint_host_port   = split("/", local.endpoint_no_scheme)[0]
+  endpoint_ip          = split(":", local.endpoint_host_port)[0]
+  health_check_node    = local.endpoint_ip
   health_check_command = var.bootstrap ? "windsor check node-health --nodes ${local.health_check_node} --timeout 5m --k8s-endpoint --skip-services dashboard" : "windsor check node-health --nodes ${local.health_check_node} --timeout 5m --skip-services dashboard"
 }
 
@@ -144,7 +151,7 @@ resource "null_resource" "node_healthcheck" {
     # for subsequent config diffs, leaving downstream terraform steps to
     # race against the reboot. When apply is skipped (out-of-band config
     # delivery) the trigger is constant — the config can't drift here.
-    config_hash = try(talos_machine_configuration_apply.this[0].machine_configuration_hash, "skipped")
+    config_hash = try(sha256(talos_machine_configuration_apply.this[0].machine_configuration), "skipped")
 
     # Re-run when the Talos version changes: it reboots the node, or replaces it
     # where the version is the node image (compute/docker). The triggers above

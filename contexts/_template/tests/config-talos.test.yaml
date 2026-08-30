@@ -16,10 +16,12 @@ x-defaults:
   cluster: &default-cluster
     driver: talos
     controlplanes:
-      # Above the resource_constrained thresholds so OIDC cases below don't
-      # also carry the small-control-plane patch (covered separately).
+      # Above the resource_constrained thresholds on both axes, so OIDC cases
+      # below don't also carry the small-control-plane patch (covered
+      # separately). memory must clear 2x its threshold (24) too, not just
+      # cpu's.
       cpu: 8
-      memory: 16
+      memory: 24
       nodes:
         controlplane-1:
           endpoint: 10.5.0.10:50000
