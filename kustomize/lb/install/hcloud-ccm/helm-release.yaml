@@ -19,7 +19,7 @@ spec:
     spec:
       chart: hcloud-cloud-controller-manager
       # renovate: datasource=helm depName=hcloud-cloud-controller-manager package=hcloud-cloud-controller-manager helmRepo=https://charts.hetzner.cloud
-      version: 1.35.0
+      version: 1.36.0
       sourceRef:
         kind: HelmRepository
         name: hcloud
