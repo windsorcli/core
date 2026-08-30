@@ -90,7 +90,9 @@ resource "azurerm_key_vault" "key_vault" {
   enabled_for_disk_encryption = var.disk_encryption_enabled
   purge_protection_enabled    = true
   soft_delete_retention_days  = var.soft_delete_retention_days
-  rbac_authorization_enabled  = false
+  # Vault access policies below grant key/secret permissions; RBAC mode
+  # would make those no-ops.
+  rbac_authorization_enabled = false
   # checkov:skip=CKV_AZURE_189: We are using a public cluster for testing
   # private services are encouraged for production
   public_network_access_enabled = var.public_network_access_enabled
