@@ -131,7 +131,9 @@ resource "local_sensitive_file" "kubeconfig" {
 locals {
   # var.node may be a hostname the health check host can't resolve. var.endpoint
   # is always an address that host can reach, so extract its bare IP/host,
-  # stripping any scheme, path, and port.
+  # stripping any scheme, path, and port. IPv4/hostname only, matching the
+  # schema's endpoint validation: splits on ":", so a bracketed IPv6 address
+  # would parse wrong.
   endpoint_no_scheme   = strcontains(var.endpoint, "://") ? split("://", var.endpoint)[1] : var.endpoint
   endpoint_host_port   = split("/", local.endpoint_no_scheme)[0]
   endpoint_ip          = split(":", local.endpoint_host_port)[0]
