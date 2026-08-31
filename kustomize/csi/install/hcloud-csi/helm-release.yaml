@@ -19,7 +19,7 @@ spec:
     spec:
       chart: hcloud-csi
       # renovate: datasource=helm depName=hcloud-csi package=hcloud-csi helmRepo=https://charts.hetzner.cloud
-      version: 2.22.1
+      version: 2.22.2
       sourceRef:
         kind: HelmRepository
         name: hcloud
