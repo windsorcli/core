@@ -88,7 +88,7 @@ runs:
       shell: bash
       env:
         # renovate: datasource=github-releases depName=flux package=fluxcd/flux2
-        FLUX_VERSION: v2.9.4
+        FLUX_VERSION: v2.9.5
       run: |
         cd "$(mktemp -d)"
         base="https://github.com/fluxcd/flux2/releases/download/${FLUX_VERSION}"
