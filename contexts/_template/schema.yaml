@@ -748,6 +748,14 @@ properties:
           - "1.1.1.1"
           - "8.8.8.8"
         description: DNS resolvers seeded into guest network config. Same delivery path as gateway (CIDATA on hyperv, etc.).
+      ntp_servers:
+        type: array
+        items:
+          type: string
+          anyOf:
+            - pattern: '^[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?(\.[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?)*$'
+            - pattern: '^((25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.){3}(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)$'
+        description: NTP servers for Talos's machine.time.servers. Unset keeps Talos's own default (time.cloudflare.com).
       loadbalancer_ips:
         type: object
         properties:

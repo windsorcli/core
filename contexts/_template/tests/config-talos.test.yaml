@@ -1,8 +1,8 @@
 # config-talos.yaml facet tests
-# Tests API-server OIDC (cluster.oidc) — Talos machine config patch composition.
-# Uses platform: metal and flannel CNI to isolate the OIDC patch from the
-# cilium-driver and single-node-topology patches (covered by option-cni and
-# option-single-node tests).
+# Tests API-server OIDC (cluster.oidc) and network.ntp_servers — Talos machine
+# config patch composition. Uses platform: metal and flannel CNI to isolate
+# these patches from the cilium-driver and single-node-topology patches
+# (covered by option-cni and option-single-node tests).
 
 x-defaults:
   network: &default-network
@@ -637,6 +637,58 @@ cases:
                     oidc-groups-claim: roles
                     oidc-issuer-url: https://keycloak.example.com/realms/windsor
                     oidc-username-claim: email
+                extraManifests:
+                - https://raw.githubusercontent.com/alex1989hu/kubelet-serving-cert-approver/v0.8.7/deploy/standalone-install.yaml
+              machine:
+                kubelet:
+                  extraArgs:
+                    rotate-server-certificates: "true"
+
+  - name: network.ntp_servers sets machine.time.servers
+    values:
+      platform: metal
+      gateway:
+        enabled: false
+      network:
+        <<: *default-network
+        ntp_servers:
+          - 10.5.0.1
+          - pool.ntp.org
+      cluster: *default-cluster
+    expect:
+      terraform:
+        - name: cluster
+          path: cluster/talos
+          inputs:
+            common_config_patches: |-
+              cluster:
+                allowSchedulingOnControlPlanes: false
+                extraManifests:
+                - https://raw.githubusercontent.com/alex1989hu/kubelet-serving-cert-approver/v0.8.7/deploy/standalone-install.yaml
+              machine:
+                kubelet:
+                  extraArgs:
+                    rotate-server-certificates: "true"
+                time:
+                  servers:
+                  - 10.5.0.1
+                  - pool.ntp.org
+
+  - name: no ntp_servers omits machine.time patch
+    values:
+      platform: metal
+      gateway:
+        enabled: false
+      network: *default-network
+      cluster: *default-cluster
+    expect:
+      terraform:
+        - name: cluster
+          path: cluster/talos
+          inputs:
+            common_config_patches: |-
+              cluster:
+                allowSchedulingOnControlPlanes: false
                 extraManifests:
                 - https://raw.githubusercontent.com/alex1989hu/kubelet-serving-cert-approver/v0.8.7/deploy/standalone-install.yaml
               machine:

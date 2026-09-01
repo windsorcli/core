@@ -2,7 +2,7 @@ kind: Facet
 apiVersion: blueprints.windsorcli.dev/v1alpha1
 metadata:
   name: talos
-  description: Talos common patches (cert rotation, volume mounts, allow scheduling on control planes, API-server OIDC)
+  description: Talos common patches (cert rotation, volume mounts, allow scheduling on control planes, API-server OIDC, NTP servers)
 
 # Only relevant when Talos is the cluster driver. Managed clusters (EKS, AKS)
 # build their own machine images and don't take Talos patches.
@@ -122,6 +122,17 @@ config:
               name: none
           proxy:
             disabled: true
+
+  # NTP servers: overrides Talos's built-in default (time.cloudflare.com).
+  # Applies to every platform since common_patch flows into every cluster/talos
+  # invocation, not just the ones with a per-platform network patch.
+  - name: talos_common
+    when: len(network.ntp_servers ?? []) > 0
+    value:
+      common_patch:
+        machine:
+          time:
+            servers: ${network.ntp_servers}
 
   # Single-node topology: no peers, so disable leader election (avoids a ~2s etcd
   # lease write) and enable etcd auto-compaction (upstream default is off).
