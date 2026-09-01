@@ -1,0 +1,8 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+namespace: demo-bookinfo
+resources:
+  # renovate: datasource=github-releases depName=istio/istio package=bookinfo
+  - https://raw.githubusercontent.com/istio/istio/refs/tags/1.22.8/samples/bookinfo/platform/kube/bookinfo.yaml
+patches:
+  - path: patches/deployments.yaml
