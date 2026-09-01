@@ -99,7 +99,7 @@ cases:
     exclude:
       crds:
         # renovate: datasource=github-releases depName=envoyproxy/gateway package=envoyproxy/gateway
-        - envoy-gateway-1.8.3
+        - envoy-gateway-1.9.1
 
   # Docker Desktop: nodeport (docker-desktop defaults to envoy; no cilium bootstrap)
   - name: Docker Desktop uses nodeport gateway
@@ -220,7 +220,7 @@ cases:
         # renovate: datasource=github-releases depName=kubernetes-sigs/gateway-api package=kubernetes-sigs/gateway-api
         - gateway-api-experimental-1.6.1
         # renovate: datasource=github-releases depName=envoyproxy/gateway package=envoyproxy/gateway
-        - envoy-gateway-1.8.3
+        - envoy-gateway-1.9.1
 
   # Envoy + Docker Desktop: nodeport variant
   - name: envoy on Docker Desktop uses nodeport variant
@@ -352,7 +352,7 @@ cases:
         # renovate: datasource=github-releases depName=kubernetes-sigs/gateway-api package=kubernetes-sigs/gateway-api
         - gateway-api-experimental-1.6.1
         # renovate: datasource=github-releases depName=envoyproxy/gateway package=envoyproxy/gateway
-        - envoy-gateway-1.8.3
+        - envoy-gateway-1.9.1
 
   - name: legacy ingress alias maps nginx to envoy
     values:
@@ -386,7 +386,7 @@ cases:
         # renovate: datasource=github-releases depName=kubernetes-sigs/gateway-api package=kubernetes-sigs/gateway-api
         - gateway-api-experimental-1.6.1
         # renovate: datasource=github-releases depName=envoyproxy/gateway package=envoyproxy/gateway
-        - envoy-gateway-1.8.3
+        - envoy-gateway-1.9.1
 
   # Gateway disabled: gitops is a resources-only system, so it composes to a
   # gitops-resources kustomization with the plain webhook (no webhook/gateway,
