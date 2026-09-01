@@ -36,10 +36,12 @@ flux:
         substitutions:
           # The demo reads the real terraform outputs directly; a
           # third-party chart (no Flux substitution access) has to
-          # reconstruct the naming convention instead.
-          db_subnet_group_name: "${terraform_output('network', 'db_subnet_group_name') ?? ''}"
-          kms_key_arn: "${terraform_output('database', 'kms_key_arn') ?? ''}"
-          rds_security_group_id: "${terraform_output('database', 'security_group_id') ?? ''}"
+          # reconstruct the naming convention instead. Gated on the
+          # rds driver: terraform_output() errors on a missing
+          # component, not just a missing output key.
+          db_subnet_group_name: "${database.postgres.driver == 'rds' ? (terraform_output('network', 'db_subnet_group_name') ?? '') : ''}"
+          kms_key_arn: "${database.postgres.driver == 'rds' ? (terraform_output('database', 'kms_key_arn') ?? '') : ''}"
+          rds_security_group_id: "${database.postgres.driver == 'rds' ? (terraform_output('database', 'security_group_id') ?? '') : ''}"
           demo_db_name: "${demo_database_name}"
           aws_region: "${aws.region ?? ''}"
         timeout: 10m
