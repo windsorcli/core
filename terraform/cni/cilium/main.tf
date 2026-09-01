@@ -79,6 +79,10 @@ resource "helm_release" "cilium" {
           }
         }
       }
+
+      # Must be a non-null string to satisfy the chart's values schema; reuse_values
+      # would otherwise carry forward a stale null from a prior release.
+      endpointPolicyUpdateTimeoutDuration = ""
     },
 
     # kube-proxy replacement: set k8sServiceHost/k8sServicePort so Cilium can reach the API
