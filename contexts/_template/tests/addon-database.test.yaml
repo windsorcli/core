@@ -96,6 +96,29 @@ cases:
             - csi-install
             - telemetry-install
 
+  # Regression: the dependsOn expression is an OR across metrics and logs, so the
+  # logs-only branch needs its own case independent of the metrics one above.
+  - name: database depends on telemetry when only the logs pipeline is enabled
+    values:
+      platform: metal
+      network: *default-network
+      cluster: *default-cluster
+      telemetry:
+        metrics:
+          enabled: false
+        logs:
+          enabled: true
+      database:
+        postgres:
+          enabled: true
+          driver: cloudnativepg
+    expect:
+      flux:
+        - name: database
+          dependsOn:
+            - csi-install
+            - telemetry-install
+
   # Regression: the dashboard patch has no dependency on telemetry-install (a plain
   # ConfigMap Grafana's sidecar loads regardless of the telemetry pipeline's state), so
   # disabling telemetry entirely must not affect composition.
