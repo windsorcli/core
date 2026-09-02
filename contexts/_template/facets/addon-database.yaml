@@ -17,12 +17,15 @@ crds:
 # =============================================================================
 flux:
 
-  # CloudNativePG operator. Depends on csi for WAL/data PVCs; `ha` topology
-  # adds anti-affinity and PDBs. Install-only — manages Cluster CRs, creates none.
+  # CloudNativePG operator. Depends on csi for WAL/data PVCs and telemetry so
+  # kube-prometheus-stack's admission webhook is up before its own PodMonitor
+  # lands; `ha` topology adds anti-affinity and PDBs. Install-only — manages
+  # Cluster CRs, creates none.
   - name: database
     when: database.postgres.driver == 'cloudnativepg'
     dependsOn:
       - csi
+      - "${telemetry.metrics.enabled || telemetry.logs.enabled ? 'telemetry' : ''}"
     install:
       components:
         - cloudnativepg
