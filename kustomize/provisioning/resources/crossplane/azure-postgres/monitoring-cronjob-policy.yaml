@@ -1,0 +1,188 @@
+---
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: flexibleserver-monitor-role
+  annotations:
+    policies.kyverno.io/title: Flexible Server monitor role provisioning
+    policies.kyverno.io/category: Azure
+    policies.kyverno.io/severity: medium
+    policies.kyverno.io/subject: FlexibleServer
+    policies.kyverno.io/description: >-
+      Generates a CronJob that provisions a read-only pg_monitor Postgres
+      role for a new FlexibleServer from its admin credential Secret,
+      never the admin credential itself. Publishes its DSN as
+      <server>-monitor-credentials in system-provisioning. Connects to
+      the postgres maintenance database. pg_monitor's views report every
+      database on the server, not just the one a session connects to, so
+      no chart-supplied database name is needed. Runs in the background
+      too, so a FlexibleServer that already existed before this policy
+      was installed still gets a CronJob.
+spec:
+  background: true
+  rules:
+    - name: generate-monitor-cronjob
+      match:
+        any:
+          - resources:
+              kinds:
+                - dbforpostgresql.azure.upbound.io/v1beta1/FlexibleServer
+      generate:
+        apiVersion: batch/v1
+        kind: CronJob
+        name: "{{request.object.metadata.name}}-provision-monitor-role"
+        namespace: system-provisioning
+        synchronize: true
+        data:
+          spec:
+            schedule: "*/5 * * * *"
+            concurrencyPolicy: Forbid
+            startingDeadlineSeconds: 300
+            successfulJobsHistoryLimit: 3
+            failedJobsHistoryLimit: 3
+            jobTemplate:
+              spec:
+                backoffLimit: 2
+                activeDeadlineSeconds: 600
+                template:
+                  spec:
+                    serviceAccountName: flexibleserver-bootstrap
+                    restartPolicy: Never
+                    securityContext:
+                      runAsNonRoot: true
+                      runAsUser: 1000
+                      runAsGroup: 1000
+                      fsGroup: 1000
+                    initContainers:
+                      - name: fetch-admin-credentials
+                        # renovate: datasource=docker depName=alpine/k8s
+                        image: alpine/k8s:1.34.9@sha256:72c921a10c53ab749674e828ad12b776d006481c852bba7dd89e149ceed666f3
+                        securityContext:
+                          allowPrivilegeEscalation: false
+                          capabilities:
+                            drop:
+                              - ALL
+                          seccompProfile:
+                            type: RuntimeDefault
+                        command:
+                          - /bin/bash
+                          - -c
+                          - |
+                            set -euo pipefail
+
+                            READY=$(kubectl get flexibleserver.dbforpostgresql.azure.upbound.io {{request.object.metadata.name}} \
+                              -o jsonpath='{.status.conditions[?(@.type=="Ready")].status}' 2>/dev/null || echo "")
+                            if [ "$READY" != "True" ]; then
+                              echo "{{request.object.metadata.name}} FlexibleServer not Ready yet, skipping this tick."
+                              touch /shared/skip
+                              exit 0
+                            fi
+
+                            kubectl get flexibleserver.dbforpostgresql.azure.upbound.io {{request.object.metadata.name}} \
+                              -o jsonpath='{.status.atProvider.fqdn}' > /shared/address
+                            kubectl get flexibleserver.dbforpostgresql.azure.upbound.io {{request.object.metadata.name}} \
+                              -o jsonpath='{.spec.forProvider.administratorLogin}' > /shared/admin-username
+
+                            kubectl get secret {{request.object.metadata.name}}-admin-credentials \
+                              -n system-provisioning -o jsonpath='{.data.password}' | base64 -d > /shared/admin-password
+
+                            # Reuse the password already published, so a role that
+                            # already exists doesn't get a new one every tick — the
+                            # exporter's DSN is read once at pod start and wouldn't
+                            # see the change anyway. Only a fresh role gets a fresh
+                            # one, independent of the admin password's own rotation.
+                            EXISTING=$(kubectl get secret {{request.object.metadata.name}}-monitor-credentials \
+                              -n system-provisioning -o jsonpath='{.data.password}' 2>/dev/null | base64 -d || echo "")
+                            if [ -n "$EXISTING" ]; then
+                              echo -n "$EXISTING" > /shared/monitor-password
+                            else
+                              head -c 24 /dev/urandom | base64 | tr -d '/+=\n' > /shared/monitor-password
+                              touch /shared/needs-password-set
+                            fi
+                        volumeMounts:
+                          - name: shared
+                            mountPath: /shared
+                      - name: provision-monitor-role
+                        # renovate: datasource=docker depName=postgres
+                        image: postgres:16.15-alpine@sha256:cf78e76683b9ca8c5733cbbdce6c9262b45b6767934dd0a95e671f9a0fc20685
+                        securityContext:
+                          allowPrivilegeEscalation: false
+                          capabilities:
+                            drop:
+                              - ALL
+                          seccompProfile:
+                            type: RuntimeDefault
+                        command:
+                          - /bin/bash
+                          - -c
+                          - |
+                            set -euo pipefail
+
+                            if [ -f /shared/skip ]; then
+                              echo "Skipping, nothing to provision this tick."
+                              exit 0
+                            fi
+
+                            ADDRESS=$(cat /shared/address)
+                            ADMIN_USER=$(cat /shared/admin-username)
+                            MONITOR_PASSWORD=$(cat /shared/monitor-password)
+                            NEEDS_PASSWORD_SET=false
+                            if [ -f /shared/needs-password-set ]; then
+                              NEEDS_PASSWORD_SET=true
+                            fi
+
+                            PGPASSWORD=$(cat /shared/admin-password) psql -h "$ADDRESS" -U "$ADMIN_USER" \
+                              -d postgres -v ON_ERROR_STOP=1 <<SQL
+                            DO \$\$
+                            BEGIN
+                              IF NOT EXISTS (SELECT FROM pg_roles WHERE rolname = '{{request.object.metadata.name}}_monitor') THEN
+                                CREATE ROLE {{request.object.metadata.name}}_monitor WITH LOGIN PASSWORD '$MONITOR_PASSWORD';
+                              ELSIF $NEEDS_PASSWORD_SET THEN
+                                ALTER ROLE {{request.object.metadata.name}}_monitor WITH PASSWORD '$MONITOR_PASSWORD';
+                              END IF;
+                            END
+                            \$\$;
+                            GRANT pg_monitor TO {{request.object.metadata.name}}_monitor;
+                            SQL
+                        volumeMounts:
+                          - name: shared
+                            mountPath: /shared
+                    containers:
+                      - name: publish-monitor-secret
+                        # renovate: datasource=docker depName=alpine/k8s
+                        image: alpine/k8s:1.34.9@sha256:72c921a10c53ab749674e828ad12b776d006481c852bba7dd89e149ceed666f3
+                        securityContext:
+                          allowPrivilegeEscalation: false
+                          capabilities:
+                            drop:
+                              - ALL
+                          seccompProfile:
+                            type: RuntimeDefault
+                        command:
+                          - /bin/bash
+                          - -c
+                          - |
+                            set -euo pipefail
+
+                            if [ -f /shared/skip ]; then
+                              echo "Skipping, nothing to publish this tick."
+                              exit 0
+                            fi
+
+                            ADDRESS=$(cat /shared/address)
+                            MONITOR_PASSWORD=$(cat /shared/monitor-password)
+                            kubectl create secret generic {{request.object.metadata.name}}-monitor-credentials \
+                              -n system-provisioning \
+                              --from-literal=username="{{request.object.metadata.name}}_monitor" \
+                              --from-literal=password="$MONITOR_PASSWORD" \
+                              --from-literal=uri="postgresql://{{request.object.metadata.name}}_monitor:$MONITOR_PASSWORD@$ADDRESS:5432/postgres?sslmode=require" \
+                              --dry-run=client -o yaml | kubectl apply -f -
+                        volumeMounts:
+                          - name: shared
+                            mountPath: /shared
+                    volumes:
+                      # Memory-backed: the admin and monitor passwords transiting
+                      # this volume never touch node disk.
+                      - name: shared
+                        emptyDir:
+                          medium: Memory

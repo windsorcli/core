@@ -1341,6 +1341,7 @@ properties:
             enum:
               - cloudnativepg
               - rds
+              - flexibleserver
             default: cloudnativepg
             description: PostgreSQL database driver
           encryption:
@@ -1349,6 +1350,9 @@ properties:
               kms_key_arn:
                 type: string
                 description: Existing AWS KMS key ARN for RDS storage encryption. Omit to let Windsor manage its own key.
+              key_vault_key_id:
+                type: string
+                description: Existing Azure Key Vault key ID for Flexible Server storage encryption. Omit to let Windsor manage its own key.
             additionalProperties: false
         additionalProperties: false
     additionalProperties: false
@@ -1567,5 +1571,29 @@ allOf:
       properties:
         platform:
           const: aws
+
+  # database.postgres.driver: flexibleserver installs Crossplane's
+  # provider-azure-dbforpostgresql, wired to Azure credentials by the
+  # azure-aks Terraform module's Workload Identity federation — Azure-only.
+  - if:
+      properties:
+        database:
+          type: object
+          properties:
+            postgres:
+              type: object
+              properties:
+                driver:
+                  const: flexibleserver
+              required:
+                - driver
+          required:
+            - postgres
+      required:
+        - database
+    then:
+      properties:
+        platform:
+          const: azure
       required:
         - platform

@@ -1,0 +1,117 @@
+---
+# Kyverno's background-controller only generates resource kinds it's been
+# explicitly granted. This label aggregates into its own ClusterRole
+# (kyverno:background-controller), the extension point its chart ships
+# for exactly this — see rbac.kyverno.io/aggregate-to-background-controller
+# in Kyverno's own RBAC.
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: flexibleserver-monitoring-generate
+  labels:
+    rbac.kyverno.io/aggregate-to-background-controller: "true"
+rules:
+  - apiGroups:
+      - rbac.authorization.k8s.io
+    resources:
+      - clusterroles
+      - clusterrolebindings
+    verbs:
+      - get
+      - create
+      - update
+      - delete
+  # Kubernetes' own privilege-escalation check: to generate a ClusterRole
+  # granting this, background-controller must hold it itself. Granted
+  # here to Kyverno's own controller, not to the bootstrap ServiceAccount —
+  # the identity the generated RBAC actually scopes stays exactly as
+  # narrow as before.
+  - apiGroups:
+      - dbforpostgresql.azure.upbound.io
+    resources:
+      - flexibleservers
+    verbs:
+      - get
+  - apiGroups:
+      - batch
+    resources:
+      - cronjobs
+    verbs:
+      - get
+      - create
+      - update
+      - delete
+  - apiGroups:
+      - apps
+    resources:
+      - deployments
+    verbs:
+      - get
+      - create
+      - update
+      - delete
+  - apiGroups:
+      - ""
+    resources:
+      - services
+    verbs:
+      - get
+      - create
+      - update
+      - delete
+  - apiGroups:
+      - monitoring.coreos.com
+    resources:
+      - podmonitors
+    verbs:
+      - get
+      - create
+      - update
+      - delete
+---
+# The admission-controller checks for a generate rule's existing target
+# before deciding to create or update it, so it needs read access to the
+# same kinds, aggregated the same way via its own extension point.
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: flexibleserver-monitoring-generate-read
+  labels:
+    rbac.kyverno.io/aggregate-to-admission-controller: "true"
+rules:
+  - apiGroups:
+      - rbac.authorization.k8s.io
+    resources:
+      - clusterroles
+      - clusterrolebindings
+    verbs:
+      - get
+      - list
+  - apiGroups:
+      - batch
+    resources:
+      - cronjobs
+    verbs:
+      - get
+      - list
+  - apiGroups:
+      - apps
+    resources:
+      - deployments
+    verbs:
+      - get
+      - list
+  - apiGroups:
+      - ""
+    resources:
+      - services
+    verbs:
+      - get
+      - list
+  - apiGroups:
+      - monitoring.coreos.com
+    resources:
+      - podmonitors
+    verbs:
+      - get
+      - list

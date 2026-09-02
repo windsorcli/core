@@ -1,0 +1,13 @@
+---
+# The database itself, a separate CR from the server — Flexible Server has
+# no dbName-equivalent field the way rds.aws.upbound.io Instance does.
+apiVersion: dbforpostgresql.azure.upbound.io/v1beta1
+kind: FlexibleServerDatabase
+metadata:
+  name: demo
+spec:
+  deletionPolicy: Delete
+  forProvider:
+    name: demo
+    serverIdRef:
+      name: demo-db

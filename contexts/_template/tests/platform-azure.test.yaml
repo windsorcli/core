@@ -420,3 +420,103 @@ cases:
               - envoy
               - envoy/nodeport
               - envoy/prometheus
+
+  # flexibleserver driver wires database/azure-postgres and
+  # crossplane-identity-azure — Azure twin of the AWS rds test.
+  - name: flexibleserver driver wires the database and crossplane-identity-azure stacks
+    values:
+      platform: azure
+      gateway:
+        enabled: false
+      database:
+        postgres:
+          enabled: true
+          driver: flexibleserver
+    terraformOutputs:
+      network:
+        vnet_id: /subscriptions/sub/resourceGroups/rg-net/providers/Microsoft.Network/virtualNetworks/vnet-test
+        flexibleserver_subnet_id: /subscriptions/sub/resourceGroups/rg-net/providers/Microsoft.Network/virtualNetworks/vnet-test/subnets/flexibleserver-test
+        private_subnet_cidrs:
+          - 10.0.0.0/20
+      cluster:
+        cluster_name: cluster-test
+        resource_group_name: cluster-test-rg
+        cluster_oidc_issuer_url: https://eastus.oic.prod-aks.azure.com/tenant-id/oidc-id/
+      database:
+        resource_group_id: /subscriptions/sub/resourceGroups/cluster-test-postgres
+    expect:
+      terraform:
+        - name: database
+          path: database/azure-postgres
+          dependsOn:
+            - network
+            - cluster
+          inputs:
+            manage_encryption_key: true
+            vnet_id: /subscriptions/sub/resourceGroups/rg-net/providers/Microsoft.Network/virtualNetworks/vnet-test
+            flexibleserver_subnet_id: /subscriptions/sub/resourceGroups/rg-net/providers/Microsoft.Network/virtualNetworks/vnet-test/subnets/flexibleserver-test
+            allowed_subnet_cidrs:
+              - 10.0.0.0/20
+        - name: crossplane-identity-azure
+          path: provisioning/crossplane-identity-azure
+          dependsOn:
+            - network
+            - cluster
+            - database
+          inputs:
+            resources:
+              - postgres
+            resource_group_name: cluster-test-rg
+            cluster_name: cluster-test
+            oidc_issuer_url: https://eastus.oic.prod-aks.azure.com/tenant-id/oidc-id/
+            postgres_resource_group_id: /subscriptions/sub/resourceGroups/cluster-test-postgres
+
+  # ephemeral contexts skip the dedicated Key Vault key in favor of
+  # Flexible Server's platform-managed encryption.
+  - name: ephemeral flexibleserver context skips the dedicated encryption key
+    values:
+      platform: azure
+      ephemeral: true
+      gateway:
+        enabled: false
+      database:
+        postgres:
+          enabled: true
+          driver: flexibleserver
+    expect:
+      terraform:
+        - name: database
+          path: database/azure-postgres
+          inputs:
+            manage_encryption_key: false
+
+  # database.postgres.encryption.key_vault_key_id threads a caller-supplied
+  # key straight through, bypassing the dedicated Key Vault entirely.
+  - name: flexibleserver driver with a supplied key_vault_key_id passes it through
+    values:
+      platform: azure
+      gateway:
+        enabled: false
+      database:
+        postgres:
+          enabled: true
+          driver: flexibleserver
+          encryption:
+            key_vault_key_id: https://byok.vault.azure.net/keys/postgres/abcd1234
+    expect:
+      terraform:
+        - name: database
+          path: database/azure-postgres
+          inputs:
+            key_vault_key_id: https://byok.vault.azure.net/keys/postgres/abcd1234
+
+  # database disabled (default cloudnativepg driver) renders neither stack.
+  - name: no flexibleserver driver excludes the database and crossplane-identity-azure stacks
+    values:
+      platform: azure
+      gateway:
+        enabled: false
+    exclude:
+      terraform:
+        - name: database
+        - name: crossplane-identity-azure

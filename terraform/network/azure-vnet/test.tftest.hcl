@@ -41,6 +41,16 @@ run "minimal_configuration" {
   }
 
   assert {
+    condition     = azurerm_subnet.flexibleserver.address_prefixes[0] == "10.0.60.0/24"
+    error_message = "Flexible Server delegated subnet should default to 10.0.60.0/24"
+  }
+
+  assert {
+    condition     = azurerm_subnet.flexibleserver.delegation[0].service_delegation[0].name == "Microsoft.DBforPostgreSQL/flexibleServers"
+    error_message = "Flexible Server subnet should delegate to Microsoft.DBforPostgreSQL/flexibleServers"
+  }
+
+  assert {
     condition     = length(azurerm_nat_gateway.main) == 1
     error_message = "One NAT Gateway should be created by default"
   }
@@ -296,6 +306,11 @@ run "automatic_subnet_creation" {
   assert {
     condition     = azurerm_subnet.public[2].address_prefixes[0] == "10.0.53.0/24"
     error_message = "Third public subnet should be 10.0.53.0/24"
+  }
+
+  assert {
+    condition     = azurerm_subnet.flexibleserver.address_prefixes[0] == "10.0.60.0/24"
+    error_message = "Flexible Server subnet stays a single subnet regardless of vnet_zones"
   }
 
   assert {

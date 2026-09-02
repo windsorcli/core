@@ -1,0 +1,36 @@
+---
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: crossplane-flexibleserver-rg
+  annotations:
+    policies.kyverno.io/title: Crossplane Flexible Server resource group
+    policies.kyverno.io/category: Azure
+    policies.kyverno.io/severity: medium
+    policies.kyverno.io/subject: FlexibleServer
+    policies.kyverno.io/description: >-
+      Force-sets resourceGroupName on every Crossplane
+      dbforpostgresql.azure.upbound.io FlexibleServer to this context's
+      dedicated postgres resource group, overwriting whatever value (if
+      any) the resource was submitted with. crossplane-identity-azure's
+      role assignment is scoped to that resource group, so a
+      FlexibleServer can only be created or modified within it regardless
+      of what a chart submits.
+spec:
+  # Fail-open: if the mutation webhook is unreachable, the create still goes
+  # through and the role assignment's own scope is the backstop that
+  # rejects it.
+  failurePolicy: Ignore
+  background: false
+  rules:
+    - name: set-resource-group
+      match:
+        any:
+          - resources:
+              kinds:
+                - dbforpostgresql.azure.upbound.io/v1beta1/FlexibleServer
+      mutate:
+        patchStrategicMerge:
+          spec:
+            forProvider:
+              resourceGroupName: ${flexibleserver_resource_group_name}

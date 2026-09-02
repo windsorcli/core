@@ -3,18 +3,25 @@ kind: Component
 
 # Reusable application-credential provisioning for any provider-aws-rds
 # Instance — never the master credential, matching CNPG's own app-secret
-# separation. A chart opts in with its own grants, not its own CronJob.
+# separation. The role owns its database, matching CNPG's own default
+# "app" user, so a chart can run its own schema migrations without
+# authoring its own CronJob.
 #
 # Required substitutions:
 #   pg_instance_name     Instance CR's name, e.g. demo-db
 #   pg_database_name     Database inside it to connect to, e.g. demo
 #   pg_target_namespace  Namespace for the Secret, e.g. demo-database
-#   pg_grant_sql         GRANT/ALTER DEFAULT PRIVILEGES statements to run
-#                         after role creation, referencing the role by
-#                         name directly (${pg_database_name}_app) — one
-#                         line, semicolon-separated. Flux substitution is
-#                         literal text replacement, so a multi-line value
-#                         here would corrupt the surrounding YAML.
+#
+# Optional substitutions:
+#   pg_grant_sql         Extra GRANT statements to run after ownership is
+#                        set, for anything ownership doesn't cover — e.g.
+#                        a second, read-only consumer of the same
+#                        database. Referencing the role by name directly
+#                        (${pg_database_name}_app), one line,
+#                        semicolon-separated. Flux substitution is literal
+#                        text replacement, so a multi-line value here
+#                        would corrupt the surrounding YAML. Defaults to
+#                        empty.
 #
 # Provisions ${pg_database_name}_app, so it can't collide with the role
 # postgres-exporter/ provisions for the same database.

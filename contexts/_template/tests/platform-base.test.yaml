@@ -853,6 +853,28 @@ cases:
             - components:
                 - prometheus/alerts/database
 
+  - name: flexibleserver database enabled adds the postgres-exporter alert component
+    values:
+      platform: azure
+      gateway:
+        enabled: false
+      database:
+        postgres:
+          enabled: true
+          driver: flexibleserver
+    expect:
+      flux:
+        - name: telemetry
+          resources:
+            - components:
+                - prometheus/alerts/postgres-exporter
+    exclude:
+      flux:
+        - name: telemetry
+          resources:
+            - components:
+                - prometheus/alerts/database
+
   # database disabled (default): no CloudNativePG, so no database alert rules.
   - name: database disabled skips the database alert component
     values:

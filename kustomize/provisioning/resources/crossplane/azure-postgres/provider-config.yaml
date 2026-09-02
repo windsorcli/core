@@ -1,0 +1,14 @@
+---
+# Named "default" so a consuming FlexibleServer CR needs no
+# providerConfigRef at all — that's the field's own default. Credentials
+# resolve via the pod's AKS Workload Identity federation; no static keys.
+apiVersion: azure.upbound.io/v1beta1
+kind: ProviderConfig
+metadata:
+  name: default
+spec:
+  subscriptionID: ${crossplane_azure_subscription_id}
+  tenantID: ${crossplane_azure_tenant_id}
+  clientID: ${crossplane_azure_client_id}
+  credentials:
+    source: OIDCTokenFile

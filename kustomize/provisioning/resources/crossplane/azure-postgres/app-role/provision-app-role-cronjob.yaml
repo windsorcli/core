@@ -1,12 +1,12 @@
 ---
 # Provisions ${pg_database_name}_app for ${pg_instance_name} from its
-# RDS-managed master password, never the master credential itself.
+# admin credential Secret, never the admin credential itself.
 # The role owns its database, matching CNPG's own default "app" user, so
 # the chart can run its own schema migrations. pg_grant_sql adds grants
 # ownership doesn't cover, like a second read-only consumer. This
 # component handles role creation, password handling, and publishing
-# ${pg_instance_name}-app-credentials. A tick before the Instance is
-# Ready, or after the role already exists, exits clean.
+# ${pg_instance_name}-app-credentials. A tick before the FlexibleServer
+# is Ready, or after the role already exists, exits clean.
 apiVersion: batch/v1
 kind: CronJob
 metadata:
@@ -24,7 +24,7 @@ spec:
       activeDeadlineSeconds: 600
       template:
         spec:
-          serviceAccountName: rds-secret-reader
+          serviceAccountName: flexibleserver-bootstrap
           restartPolicy: Never
           securityContext:
             runAsNonRoot: true
@@ -48,31 +48,27 @@ spec:
                 - |
                   set -euo pipefail
 
-                  READY=$(kubectl get instance.rds.aws.upbound.io ${pg_instance_name} \
+                  READY=$(kubectl get flexibleserver.dbforpostgresql.azure.upbound.io ${pg_instance_name} \
                     -o jsonpath='{.status.conditions[?(@.type=="Ready")].status}' 2>/dev/null || echo "")
                   if [ "$READY" != "True" ]; then
-                    echo "${pg_instance_name} Instance not Ready yet, skipping this tick."
+                    echo "${pg_instance_name} FlexibleServer not Ready yet, skipping this tick."
                     touch /shared/skip
                     exit 0
                   fi
 
-                  kubectl get instance.rds.aws.upbound.io ${pg_instance_name} \
-                    -o jsonpath='{.status.atProvider.address}' > /shared/address
+                  kubectl get flexibleserver.dbforpostgresql.azure.upbound.io ${pg_instance_name} \
+                    -o jsonpath='{.status.atProvider.fqdn}' > /shared/address
+                  kubectl get flexibleserver.dbforpostgresql.azure.upbound.io ${pg_instance_name} \
+                    -o jsonpath='{.spec.forProvider.administratorLogin}' > /shared/admin-username
 
-                  SECRET_ARN=$(kubectl get instance.rds.aws.upbound.io ${pg_instance_name} \
-                    -o jsonpath='{.status.atProvider.masterUserSecret[0].secretArn}')
-
-                  SECRET_JSON=$(aws secretsmanager get-secret-value --secret-id "$SECRET_ARN" \
-                    --query SecretString --output text)
-                  echo "$SECRET_JSON" | jq -r '.username' > /shared/admin-username
-                  echo "$SECRET_JSON" | jq -r '.password' > /shared/admin-password
+                  kubectl get secret ${pg_instance_name}-admin-credentials \
+                    -n system-provisioning -o jsonpath='{.data.password}' | base64 -d > /shared/admin-password
 
                   # Reuse the password already published, so a role that
                   # already exists doesn't get a new one every tick — an
                   # app reading this Secret via env var wouldn't see the
                   # change anyway. Only a fresh role gets a fresh one,
-                  # independent of the admin password's own AWS-managed
-                  # rotation schedule.
+                  # independent of the admin password's own rotation.
                   EXISTING=$(kubectl get secret ${pg_instance_name}-app-credentials \
                     -n ${pg_target_namespace} -o jsonpath='{.data.password}' 2>/dev/null | base64 -d || echo "")
                   if [ -n "$EXISTING" ]; then
