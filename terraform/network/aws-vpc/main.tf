@@ -339,11 +339,11 @@ resource "aws_route_table_association" "isolated" {
 # Spans the isolated (zero-egress) subnets, always created alongside them.
 # Shared by every RDS instance in this context, not created per-database.
 resource "aws_db_subnet_group" "main" {
-  name       = "${var.context_id}-rds"
+  name       = "rds-${var.context_id}"
   subnet_ids = aws_subnet.isolated[*].id
 
   tags = {
-    Name = "${var.context_id}-rds"
+    Name = "rds-${var.context_id}"
   }
 }
 
