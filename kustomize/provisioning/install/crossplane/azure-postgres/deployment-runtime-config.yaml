@@ -19,6 +19,10 @@ spec:
         azure.workload.identity/tenant-id: ${crossplane_azure_tenant_id}
   deploymentTemplate:
     spec:
+      # selector is a required field on apps/v1 DeploymentSpec, but empty
+      # satisfies it: Crossplane computes and applies the real selector
+      # itself when it merges this template onto the Deployment it creates.
+      selector: {}
       template:
         metadata:
           labels:

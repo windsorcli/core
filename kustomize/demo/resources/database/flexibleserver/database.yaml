@@ -1,6 +1,9 @@
 ---
 # The database itself, a separate CR from the server — Flexible Server has
 # no dbName-equivalent field the way rds.aws.upbound.io Instance does.
+# forProvider has no name field (additionalProperties: false rejects one);
+# the actual Postgres database name comes from Crossplane's external-name,
+# metadata.name by default.
 apiVersion: dbforpostgresql.azure.upbound.io/v1beta1
 kind: FlexibleServerDatabase
 metadata:
@@ -8,6 +11,5 @@ metadata:
 spec:
   deletionPolicy: Delete
   forProvider:
-    name: demo
     serverIdRef:
       name: demo-db
