@@ -336,22 +336,10 @@ jobs:
         timeout-minutes: 20
         run: windsor up --verbose --wait
 
-      - name: Baseline — Health check
+      - name: Baseline — HelmRelease health check
         id: baseline_health
         if: matrix.mode == 'upgrade' && steps.infra_diff.outputs.skip != 'true'
-        run: |
-          windsor exec -- kubectl wait --for=condition=Ready --timeout=300s \
-            kustomizations --all -A || {
-            echo "Baseline: not-ready resources:";
-            windsor exec -- kubectl get kustomizations,helmreleases -A;
-            exit 1;
-          }
-          windsor exec -- kubectl wait --for=condition=Ready --timeout=300s \
-            helmreleases --all -A || {
-            echo "Baseline: not-ready resources:";
-            windsor exec -- kubectl get kustomizations,helmreleases -A;
-            exit 1;
-          }
+        run: .github/scripts/wait-for-ready.sh 300
 
       - name: Baseline — Capture GitRepository revision
         id: baseline_rev
@@ -409,7 +397,7 @@ jobs:
         # --prune exercises the orphaned-Kustomization cleanup an in-place
         # upgrade relies on, which `windsor up` never performs.
         timeout-minutes: 20
-        run: windsor apply --prune --verbose
+        run: windsor apply --prune --verbose --wait
 
       - name: HEAD — Wait for GitRepository revision bump
         id: gitrepo_bump
@@ -432,22 +420,10 @@ jobs:
           windsor exec -- kubectl get gitrepository -A
           exit 1
 
-      - name: Health check
+      - name: HelmRelease health check
         id: windsor_health
         if: steps.infra_diff.outputs.skip != 'true'
-        run: |
-          windsor exec -- kubectl wait --for=condition=Ready --timeout=300s \
-            kustomizations --all -A || {
-            echo "HEAD: not-ready resources:";
-            windsor exec -- kubectl get kustomizations,helmreleases -A;
-            exit 1;
-          }
-          windsor exec -- kubectl wait --for=condition=Ready --timeout=300s \
-            helmreleases --all -A || {
-            echo "HEAD: not-ready resources:";
-            windsor exec -- kubectl get kustomizations,helmreleases -A;
-            exit 1;
-          }
+        run: .github/scripts/wait-for-ready.sh 300
 
       # -----------------------------------------------------------------------
       # Phase classification + diagnostics collection
