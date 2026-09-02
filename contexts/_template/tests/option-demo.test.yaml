@@ -50,13 +50,12 @@ cases:
                 - database
                 - database/cloudnativepg
 
-  # rds driver: demo database creates an Instance CR and depends on
-  # provisioning-resources, not just provisioning-install — the
-  # ProviderConfig the Instance references lives in the resources tier.
-  # dbSubnetGroupName/kmsKeyId read the real terraform outputs directly,
-  # unlike a third-party chart, which has to use the documented naming
-  # convention instead. app-role is its own Kustomization, depending on
-  # demo-resources so its RBAC never races the demo-database namespace.
+  # rds driver: creates an Instance CR. Depends on provisioning-resources
+  # for its ProviderConfig, not just provisioning-install.
+  # dbSubnetGroupName/kmsKeyId read the real terraform outputs directly.
+  # A third-party chart uses the documented naming convention instead.
+  # app-role is its own Kustomization, dependent on demo-resources for
+  # namespace-before-RBAC ordering.
   - name: demo mode with rds driver creates demo rds instance
     values:
       platform: aws
