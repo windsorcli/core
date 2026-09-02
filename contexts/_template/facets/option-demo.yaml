@@ -38,10 +38,7 @@ flux:
         timeout: 10m
         interval: 5m
 
-  # rds driver: shared namespace, the Instance CR, and its application
-  # credential (crossplane/aws-rds/app-role). All three land in one
-  # Kustomization so Flux's Namespace-before-Role apply order satisfies
-  # app-role's RBAC without a cross-Kustomization dependency.
+  # rds driver: shared namespace and the Instance CR.
   - name: demo
     path: demo
     when: demo.resources.database == true && database.postgres.driver == 'rds'
@@ -51,7 +48,6 @@ flux:
       - components:
           - database
           - database/rds
-          - crossplane/aws-rds/app-role
         substitutions:
           # The demo reads the real terraform outputs directly; a
           # third-party chart (no Flux substitution access) has to
@@ -61,13 +57,27 @@ flux:
           rds_security_group_id: "${terraform_output('database', 'security_group_id') ?? ''}"
           demo_db_name: "${demo_database_name}"
           aws_region: "${aws.region ?? ''}"
+        timeout: 10m
+        interval: 5m
+
+  # Application credential for demo-db. Depends on demo-resources for
+  # namespace-before-RBAC ordering.
+  - name: demo-app-role
+    path: provisioning
+    when: demo.resources.database == true && database.postgres.driver == 'rds'
+    dependsOn:
+      - demo-resources
+    resources:
+      - components:
+          - crossplane/aws-rds/app-role
+        substitutions:
           pg_instance_name: demo-db
           pg_database_name: "${demo_database_name}"
           pg_target_namespace: demo-database
           # One line — Flux substitution is literal text replacement, so
           # a multi-line value here would corrupt the CronJob's YAML.
           pg_grant_sql: "GRANT CONNECT ON DATABASE ${demo_database_name} TO ${demo_database_name}_app; GRANT USAGE ON SCHEMA public TO ${demo_database_name}_app; GRANT SELECT, INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA public TO ${demo_database_name}_app; ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT SELECT, INSERT, UPDATE, DELETE ON TABLES TO ${demo_database_name}_app;"
-        timeout: 10m
+        timeout: 5m
         interval: 5m
 
   # static and bookinfo carry no database dependency.
