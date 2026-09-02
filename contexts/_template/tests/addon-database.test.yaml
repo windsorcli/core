@@ -117,6 +117,9 @@ cases:
         enabled: true
     expect:
       flux:
+        - name: database
+          dependsOn:
+            - csi-install
         - name: observability
           resources:
             - components:
