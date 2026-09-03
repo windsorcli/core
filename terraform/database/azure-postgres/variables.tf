@@ -2,6 +2,10 @@ variable "context_id" {
   type        = string
   description = "The windsor context id for this deployment"
   default     = ""
+  validation {
+    condition     = length(var.context_id) <= 22
+    error_message = "context_id must be 22 characters or fewer; the Key Vault this module creates needs Azure's 24-character name limit for \"pg\" + context_id."
+  }
 }
 
 variable "region" {
