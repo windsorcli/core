@@ -56,6 +56,24 @@ variable "key_vault_key_id" {
   default     = ""
 }
 
+variable "public_network_access_enabled" {
+  type        = bool
+  description = "Whether to enable public network access for the Key Vault"
+  default     = true
+}
+
+variable "network_acls_default_action" {
+  type        = string
+  description = "The default action for the Key Vault's network ACLs"
+  default     = "Allow"
+}
+
+variable "expiration_date" {
+  type        = string
+  description = "The expiration date for the Key Vault key"
+  default     = null
+}
+
 variable "tags" {
   description = "Additional tags to apply to all resources"
   type        = map(string)

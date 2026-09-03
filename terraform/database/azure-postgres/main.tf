@@ -114,25 +114,48 @@ resource "azurerm_subnet_network_security_group_association" "flexibleserver" {
 # encryption instead, with nothing created here. Unlike RDS, Azure needs
 # no dedicated-key step for encryption at rest.
 resource "azurerm_key_vault" "postgres" {
+  # checkov:skip=CKV2_AZURE_32: We are using a public cluster for testing, there is no need for private endpoints.
   count                      = var.manage_encryption_key && var.key_vault_key_id == "" ? 1 : 0
   name                       = replace("pg-${var.context_id}", "-", "")
   location                   = azurerm_resource_group.postgres.location
   resource_group_name        = azurerm_resource_group.postgres.name
   tenant_id                  = data.azurerm_client_config.current.tenant_id
-  sku_name                   = "standard"
+  sku_name                   = "premium"
   rbac_authorization_enabled = true
   purge_protection_enabled   = true
   soft_delete_retention_days = 7
-  tags                       = var.tags
+  # checkov:skip=CKV_AZURE_189: We are using a public cluster for testing
+  # private services are encouraged for production
+  public_network_access_enabled = var.public_network_access_enabled
+
+  # checkov:skip=CKV_AZURE_109: We are using a public cluster for testing
+  # private services are encouraged for production. Change to "Deny" for production.
+  network_acls {
+    default_action = var.network_acls_default_action
+    bypass         = "AzureServices"
+  }
+  tags = var.tags
 }
 
+resource "time_static" "postgres_key_expiry" {}
+
 resource "azurerm_key_vault_key" "postgres" {
-  count        = length(azurerm_key_vault.postgres)
-  name         = "postgres-${var.context_id}"
-  key_vault_id = azurerm_key_vault.postgres[0].id
-  key_type     = "RSA"
-  key_size     = 2048
-  key_opts     = ["decrypt", "encrypt", "sign", "unwrapKey", "verify", "wrapKey"]
+  count           = length(azurerm_key_vault.postgres)
+  name            = "postgres-${var.context_id}"
+  key_vault_id    = azurerm_key_vault.postgres[0].id
+  key_type        = "RSA-HSM"
+  key_size        = 2048
+  expiration_date = var.expiration_date != null ? var.expiration_date : timeadd(time_static.postgres_key_expiry.rfc3339, "8760h")
+  key_opts        = ["decrypt", "encrypt", "sign", "unwrapKey", "verify", "wrapKey"]
+
+  rotation_policy {
+    automatic {
+      time_before_expiry = "P30D"
+    }
+
+    expire_after         = "P90D"
+    notify_before_expiry = "P29D"
+  }
 
   depends_on = [azurerm_role_assignment.key_vault_admin]
 }
