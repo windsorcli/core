@@ -33,6 +33,7 @@ rules:
       - instances
     verbs:
       - get
+      - list
   - apiGroups:
       - batch
     resources:
