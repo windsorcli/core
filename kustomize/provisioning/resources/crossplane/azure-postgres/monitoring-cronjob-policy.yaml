@@ -136,13 +136,13 @@ spec:
                             DO \$\$
                             BEGIN
                               IF NOT EXISTS (SELECT FROM pg_roles WHERE rolname = '{{request.object.metadata.name}}_monitor') THEN
-                                CREATE ROLE {{request.object.metadata.name}}_monitor WITH LOGIN PASSWORD '$MONITOR_PASSWORD';
+                                CREATE ROLE "{{request.object.metadata.name}}_monitor" WITH LOGIN PASSWORD '$MONITOR_PASSWORD';
                               ELSIF $NEEDS_PASSWORD_SET THEN
-                                ALTER ROLE {{request.object.metadata.name}}_monitor WITH PASSWORD '$MONITOR_PASSWORD';
+                                ALTER ROLE "{{request.object.metadata.name}}_monitor" WITH PASSWORD '$MONITOR_PASSWORD';
                               END IF;
                             END
                             \$\$;
-                            GRANT pg_monitor TO {{request.object.metadata.name}}_monitor;
+                            GRANT pg_monitor TO "{{request.object.metadata.name}}_monitor";
                             SQL
                         volumeMounts:
                           - name: shared
