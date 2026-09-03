@@ -15,6 +15,7 @@ description: Resource group, private DNS zone, NSG, and optional customer-manage
 | Name | Version |
 |------|---------|
 | <a name="provider_azurerm"></a> [azurerm](#provider\_azurerm) | 5.0.1 |
+| <a name="provider_time"></a> [time](#provider\_time) | 0.14.1 |
 
 ## Modules
 
@@ -34,6 +35,7 @@ No modules.
 | [azurerm_role_assignment.key_vault_admin](https://registry.terraform.io/providers/hashicorp/azurerm/latest/docs/resources/role_assignment) | resource |
 | [azurerm_subnet_network_security_group_association.flexibleserver](https://registry.terraform.io/providers/hashicorp/azurerm/latest/docs/resources/subnet_network_security_group_association) | resource |
 | [azurerm_user_assigned_identity.flexibleserver_cmk](https://registry.terraform.io/providers/hashicorp/azurerm/latest/docs/resources/user_assigned_identity) | resource |
+| [time_static.postgres_key_expiry](https://registry.terraform.io/providers/hashicorp/time/latest/docs/resources/static) | resource |
 | [azurerm_client_config.current](https://registry.terraform.io/providers/hashicorp/azurerm/latest/docs/data-sources/client_config) | data source |
 
 ## Inputs
@@ -42,9 +44,12 @@ No modules.
 |------|-------------|------|---------|:--------:|
 | <a name="input_allowed_subnet_cidrs"></a> [allowed\_subnet\_cidrs](#input\_allowed\_subnet\_cidrs) | Subnet CIDRs allowed to reach Flexible Server on port 5432. Pipe network/azure-vnet's private\_subnet\_cidrs output (the AKS node subnets). | `list(string)` | `[]` | no |
 | <a name="input_context_id"></a> [context\_id](#input\_context\_id) | The windsor context id for this deployment | `string` | `""` | no |
+| <a name="input_expiration_date"></a> [expiration\_date](#input\_expiration\_date) | The expiration date for the Key Vault key | `string` | `null` | no |
 | <a name="input_flexibleserver_subnet_id"></a> [flexibleserver\_subnet\_id](#input\_flexibleserver\_subnet\_id) | ID of the subnet delegated to Microsoft.DBforPostgreSQL/flexibleServers. Pipe network/azure-vnet's flexibleserver\_subnet\_id output. | `string` | `null` | no |
 | <a name="input_key_vault_key_id"></a> [key\_vault\_key\_id](#input\_key\_vault\_key\_id) | Existing Key Vault key ID (versionless) for Flexible Server storage encryption. Set to use a key you already manage instead of one this module creates. | `string` | `""` | no |
 | <a name="input_manage_encryption_key"></a> [manage\_encryption\_key](#input\_manage\_encryption\_key) | Whether to create a dedicated Key Vault and key for Flexible Server storage encryption. False falls back to Flexible Server's platform-managed encryption. | `bool` | `true` | no |
+| <a name="input_network_acls_default_action"></a> [network\_acls\_default\_action](#input\_network\_acls\_default\_action) | The default action for the Key Vault's network ACLs | `string` | `"Allow"` | no |
+| <a name="input_public_network_access_enabled"></a> [public\_network\_access\_enabled](#input\_public\_network\_access\_enabled) | Whether to enable public network access for the Key Vault | `bool` | `true` | no |
 | <a name="input_region"></a> [region](#input\_region) | Azure region for the resource group and its resources | `string` | `"eastus"` | no |
 | <a name="input_tags"></a> [tags](#input\_tags) | Additional tags to apply to all resources | `map(string)` | `{}` | no |
 | <a name="input_vnet_id"></a> [vnet\_id](#input\_vnet\_id) | ID of the VNet to link the Flexible Server private DNS zone to. Pipe network/azure-vnet's vnet\_id output. | `string` | `null` | no |
