@@ -25,41 +25,15 @@ rules:
       - apps
     resources:
       - statefulsets
-    verbs:
-      - get
-      - list
----
-# The patch/update the mutate rule needs stays namespace-scoped instead of
-# joining the cluster-wide aggregation above.
-apiVersion: rbac.authorization.k8s.io/v1
-kind: Role
-metadata:
-  name: fluentd-config-restart
-  namespace: system-observability
-rules:
-  - apiGroups:
-      - apps
-    resources:
-      - statefulsets
+    # Kyverno's mutate-existing auth check only recognizes permissions granted
+    # through this aggregation. resourceNames narrows it to the one target.
     resourceNames:
       - fluentd
     verbs:
+      - get
+      - list
       - patch
       - update
----
-apiVersion: rbac.authorization.k8s.io/v1
-kind: RoleBinding
-metadata:
-  name: fluentd-config-restart
-  namespace: system-observability
-roleRef:
-  apiGroup: rbac.authorization.k8s.io
-  kind: Role
-  name: fluentd-config-restart
-subjects:
-  - kind: ServiceAccount
-    name: kyverno-background-controller
-    namespace: system-policy
 ---
 # The admission-controller applies a mutate-existing rule inline during the
 # trigger's own admission review, so it needs the same read access, aggregated
