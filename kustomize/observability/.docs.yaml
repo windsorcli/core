@@ -47,7 +47,7 @@ components:
     description: "Adds the Quickwit datasource to Grafana so logs-explore dashboards can query the quickwit indexer. Pure HelmRelease patch (install tier); the logs dashboard ships separately as `grafana/dashboards/logs/quickwit` in the resources tier."
   fluentd:
     enable_when: "`telemetry.logs.driver == 'fluentd'`"
-    description: "Helm release of the `fluent-operator` chart sourced from a GitRepository (chart embedded in `system-gitops`). Installs the fluent-operator CR controller and a fluentd DaemonSet. Container runtime pinned to `containerd`."
+    description: "Helm release of the `fluent-operator` chart sourced from a GitRepository (chart embedded in `system-gitops`). Installs the fluent-operator CR controller and a fluentd DaemonSet. Container runtime pinned to `containerd`. Includes a Kyverno policy that restarts the fluentd StatefulSet when a ClusterFilter, ClusterInput, ClusterOutput, or ClusterFluentdConfig changes, since fluent-operator regenerates fluentd's config Secret but never rolls the pod."
   fluentd/filters/otel:
     enable_when: "`telemetry.logs.driver == 'fluentd'`"
     description: "Fluentd CRDs that normalize log records into OpenTelemetry severity / body / resource fields before they hit the output."
