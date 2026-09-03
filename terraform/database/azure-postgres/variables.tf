@@ -34,6 +34,10 @@ variable "allowed_subnet_cidrs" {
   type        = list(string)
   description = "Subnet CIDRs allowed to reach Flexible Server on port 5432. Pipe network/azure-vnet's private_subnet_cidrs output (the AKS node subnets)."
   default     = []
+  validation {
+    condition     = length(var.allowed_subnet_cidrs) > 0
+    error_message = "allowed_subnet_cidrs must not be empty; Azure rejects an NSG rule with no source address."
+  }
 }
 
 variable "manage_encryption_key" {
