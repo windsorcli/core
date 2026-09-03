@@ -1,0 +1,45 @@
+---
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: fluentd-config-restart
+  annotations:
+    policies.kyverno.io/title: Fluentd config-change restart
+    policies.kyverno.io/category: Observability
+    policies.kyverno.io/severity: low
+    policies.kyverno.io/subject: ClusterFilter, ClusterInput, ClusterOutput, ClusterFluentdConfig
+    policies.kyverno.io/description: >-
+      Stamps a checksum annotation on the fluentd StatefulSet's pod template
+      whenever a ClusterFilter, ClusterInput, ClusterOutput, or
+      ClusterFluentdConfig changes. fluent-operator regenerates fluentd's
+      config Secret on such a change but never touches the StatefulSet, so
+      the running process keeps its stale, already-loaded config until
+      something else forces a rollout. This gives it one.
+spec:
+  background: true
+  rules:
+    - name: bump-fluentd-checksum
+      # Kyverno's own default skips background-request queuing for ordinary
+      # admission events, so an admission-time UPDATE on the trigger would
+      # never enqueue the UpdateRequest that patches the target StatefulSet.
+      skipBackgroundRequests: false
+      match:
+        any:
+          - resources:
+              kinds:
+                - fluentd.fluent.io/v1alpha1/ClusterFilter
+                - fluentd.fluent.io/v1alpha1/ClusterInput
+                - fluentd.fluent.io/v1alpha1/ClusterOutput
+                - fluentd.fluent.io/v1alpha1/ClusterFluentdConfig
+      mutate:
+        targets:
+          - apiVersion: apps/v1
+            kind: StatefulSet
+            name: fluentd
+            namespace: system-observability
+        patchStrategicMerge:
+          spec:
+            template:
+              metadata:
+                annotations:
+                  checksum/config: "{{ request.object.metadata.resourceVersion }}"

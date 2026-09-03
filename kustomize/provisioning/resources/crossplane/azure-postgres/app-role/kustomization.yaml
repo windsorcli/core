@@ -1,0 +1,40 @@
+apiVersion: kustomize.config.k8s.io/v1alpha1
+kind: Component
+
+# Reusable application-credential provisioning for any
+# provider-azure-dbforpostgresql FlexibleServer — never the admin
+# credential, matching CNPG's own app-secret separation. The role owns
+# its database, matching CNPG's own default "app" user, so a chart can
+# run its own schema migrations without authoring its own CronJob.
+#
+# Required substitutions:
+#   pg_instance_name     FlexibleServer CR's name, e.g. demo-db
+#   pg_database_name     Database inside it to connect to, e.g. demo —
+#                        created by the chart's own FlexibleServerDatabase
+#                        CR; FlexibleServer carries no dbName field of its
+#                        own the way rds.aws.upbound.io Instance does.
+#   pg_target_namespace  Namespace for the Secret, e.g. demo-database
+#
+# Optional substitutions:
+#   pg_grant_sql         Extra GRANT statements to run after ownership is
+#                        set, for anything ownership doesn't cover — e.g.
+#                        a second, read-only consumer of the same
+#                        database. Referencing the role by name directly
+#                        (${pg_database_name}_app), one line,
+#                        semicolon-separated. Flux substitution is literal
+#                        text replacement, so a multi-line value here
+#                        would corrupt the surrounding YAML. Defaults to
+#                        empty.
+#
+# The FlexibleServer's own admin credential is expected at
+# <pg_instance_name>-admin-credentials in system-provisioning (key
+# "password"), matching FlexibleServer's administratorPasswordSecretRef —
+# the documented contract, the same role db_subnet_group_name's fixed name
+# plays for provider-aws-rds.
+#
+# Provisions ${pg_database_name}_app, so it can't collide with the role
+# monitoring-cronjob-policy.yaml provisions for the same server.
+
+resources:
+  - rbac.yaml
+  - provision-app-role-cronjob.yaml

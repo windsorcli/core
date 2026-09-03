@@ -1,0 +1,29 @@
+---
+# Pins the provider-azure-dbforpostgresql pod's ServiceAccount name for
+# Terraform's federated identity credential. Wires AKS Workload Identity:
+# client-id/tenant-id annotations on the ServiceAccount, and the
+# azure.workload.identity/use label on both the ServiceAccount and the
+# pod, matching cert-manager's own HelmRelease values.
+apiVersion: pkg.crossplane.io/v1beta1
+kind: DeploymentRuntimeConfig
+metadata:
+  name: provider-azure-dbforpostgresql
+spec:
+  serviceAccountTemplate:
+    metadata:
+      name: provider-azure-dbforpostgresql
+      labels:
+        azure.workload.identity/use: "true"
+      annotations:
+        azure.workload.identity/client-id: ${crossplane_azure_client_id}
+        azure.workload.identity/tenant-id: ${crossplane_azure_tenant_id}
+  deploymentTemplate:
+    spec:
+      # selector is a required field on apps/v1 DeploymentSpec, but empty
+      # satisfies it: Crossplane computes and applies the real selector
+      # itself when it merges this template onto the Deployment it creates.
+      selector: {}
+      template:
+        metadata:
+          labels:
+            azure.workload.identity/use: "true"

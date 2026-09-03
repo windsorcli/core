@@ -1,0 +1,12 @@
+---
+# provider-azure-dbforpostgresql's own dependency, declared explicitly so
+# it's digest-pinned too — skipDependencyResolution: true on
+# provider-azure-dbforpostgresql means Crossplane won't auto-resolve an
+# unpinned copy of it.
+apiVersion: pkg.crossplane.io/v1
+kind: Provider
+metadata:
+  name: provider-family-azure
+spec:
+  # renovate: datasource=docker depName=xpkg.upbound.io/upbound/provider-family-azure package=xpkg.upbound.io/upbound/provider-family-azure
+  package: xpkg.upbound.io/upbound/provider-family-azure:v2.7.1@sha256:54b4cffd178642a8f0329367d43fc4c4db51a668b59849d196b964b6e9e94631

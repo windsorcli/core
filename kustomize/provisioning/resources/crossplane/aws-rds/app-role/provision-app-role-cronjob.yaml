@@ -1,10 +1,10 @@
 ---
 # Provisions ${pg_database_name}_app for ${pg_instance_name} from its
-# RDS-managed master password — never the master credential itself,
-# matching CNPG's own separation of its superuser and app-database
-# secrets. The role's grants come from the consuming chart's own SQL
-# (pg_grant_sql below); this component owns the mechanics: idempotent
-# role creation, password handling, publishing
+# RDS-managed master password, never the master credential itself.
+# The role owns its database, matching CNPG's own default "app" user, so
+# the chart can run its own schema migrations. pg_grant_sql adds grants
+# ownership doesn't cover, like a second read-only consumer. This
+# component handles role creation, password handling, and publishing
 # ${pg_instance_name}-app-credentials. A tick before the Instance is
 # Ready, or after the role already exists, exits clean.
 apiVersion: batch/v1
@@ -118,12 +118,14 @@ spec:
                   DO \$\$
                   BEGIN
                     IF NOT EXISTS (SELECT FROM pg_roles WHERE rolname = '${pg_database_name}_app') THEN
-                      CREATE ROLE ${pg_database_name}_app WITH LOGIN PASSWORD '$APP_PASSWORD';
+                      CREATE ROLE "${pg_database_name}_app" WITH LOGIN PASSWORD '$APP_PASSWORD';
                     ELSIF $NEEDS_PASSWORD_SET THEN
-                      ALTER ROLE ${pg_database_name}_app WITH PASSWORD '$APP_PASSWORD';
+                      ALTER ROLE "${pg_database_name}_app" WITH PASSWORD '$APP_PASSWORD';
                     END IF;
                   END
                   \$\$;
+                  GRANT "${pg_database_name}_app" TO "$ADMIN_USER";
+                  ALTER DATABASE "${pg_database_name}" OWNER TO "${pg_database_name}_app";
                   ${pg_grant_sql}
                   SQL
               volumeMounts:

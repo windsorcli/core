@@ -89,6 +89,26 @@ resource "azurerm_subnet" "isolated" {
   address_prefixes     = length(var.vnet_subnets["isolated"]) > 0 ? [var.vnet_subnets["isolated"][count.index]] : ["${join(".", slice(split(".", var.vnet_cidr), 0, 2))}.${48 + count.index}.0/24"]
 }
 
+# Delegated subnet for Azure Database for PostgreSQL Flexible Server's
+# VNet-integrated mode. One subnet, not one per zone: unlike the tiers
+# above, Azure subnets aren't zone-scoped, and a delegated subnet can't be
+# shared with any other resource type. Created unconditionally, the same
+# way the isolated subnets are, regardless of database.postgres.driver.
+resource "azurerm_subnet" "flexibleserver" {
+  name                 = "flexibleserver-${var.context_id}"
+  resource_group_name  = azurerm_resource_group.main.name
+  virtual_network_name = azurerm_virtual_network.main.name
+  address_prefixes     = ["${join(".", slice(split(".", var.vnet_cidr), 0, 2))}.60.0/24"]
+
+  delegation {
+    name = "flexibleserver"
+    service_delegation {
+      name    = "Microsoft.DBforPostgreSQL/flexibleServers"
+      actions = ["Microsoft.Network/virtualNetworks/subnets/join/action"]
+    }
+  }
+}
+
 #-----------------------------------------------------------------------------------------------------------------------
 # NAT Gateway
 #-----------------------------------------------------------------------------------------------------------------------

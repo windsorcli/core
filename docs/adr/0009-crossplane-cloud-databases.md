@@ -374,16 +374,30 @@ its own `ProviderConfig`, this ADR adds a purpose-built CronJob:
 - **`kustomize/provisioning/resources/crossplane/aws-rds/`** creates that
   `ServiceAccount`, alongside the `ProviderConfig`/tag policy it already
   ships — a shared, core-provided identity multiple consumers can reuse.
+- **The role owns its database**, matching CNPG's own default `app` user
+  rather than a fixed grant list — a chart's application code routinely
+  runs its own schema migrations (Rails, Django, Prisma, Flyway,
+  golang-migrate all DDL as the app's own runtime user), which a
+  `SELECT`/`INSERT`/`UPDATE`/`DELETE` grant list can't support. The
+  CronJob runs `ALTER DATABASE <db> OWNER TO <db>_app` once the role
+  exists (idempotent, a no-op if already owner) instead of a chart-supplied
+  grant list. Ownership stays confined to that one database — no
+  `CREATEDB`/`CREATEROLE` — so a compromised app still can't touch another
+  database on the same instance or provision new roles of its own; a chart
+  that wants a second database provisions a second `Instance`, the same
+  1:1 shape this ADR already uses, rather than the app creating one at
+  runtime.
 - **Reusable, not per-chart.** The mechanics (idempotent role creation,
-  password handling, publishing a `Secret`) are identical for any
-  `Instance`; only the grants differ. So
+  ownership transfer, password handling, publishing a `Secret`) are
+  identical for any `Instance`. So
   `kustomize/provisioning/resources/crossplane/aws-rds/app-role` owns the
-  mechanics, and a consuming chart supplies four substitutions —
-  `pg_instance_name`, `pg_database_name`, `pg_target_namespace`, and
-  `pg_grant_sql` (its own `GRANT`/`ALTER DEFAULT PRIVILEGES` statements,
-  referencing the role the component provisions,
-  `<pg_database_name>_app`) — instead of authoring a ~150-line CronJob of
-  its own. `pg_grant_sql` is one line, semicolon-separated: Flux
+  mechanics, and a consuming chart supplies three required substitutions —
+  `pg_instance_name`, `pg_database_name`, `pg_target_namespace` — plus an
+  optional fourth, `pg_grant_sql`, for anything ownership doesn't cover
+  (e.g. a second, read-only consumer of the same database), referencing
+  the role the component provisions, `<pg_database_name>_app` — instead of
+  authoring a ~150-line CronJob of its own. `pg_grant_sql` is one line,
+  semicolon-separated: Flux
   substitution is literal text replacement on the rendered manifest, so a
   multi-line value would corrupt the surrounding YAML block scalar.
   `kustomize/demo/resources/database/rds/` opts into it the same way any
@@ -713,6 +727,16 @@ all — which is exactly the parity gap this section closes.
   (`GRANT`/`GRANT`/`GRANT`/`ALTER DEFAULT PRIVILEGES`, matching what the
   facet supplied), and the password-reuse fix held
   (`secret ... unchanged`).
+- **Correction, not yet re-verified live:** the bullet above describes
+  `app-role`'s original fixed-grant-list design. It didn't support a chart
+  running its own schema migrations — no design here granted `CREATE` on
+  anything — which is a common pattern real charts need (Rails, Django,
+  Prisma, and similar all run DDL as the app's own runtime user). §7 now
+  has the role own its database instead (`ALTER DATABASE ... OWNER TO
+  <db>_app`), matching CNPG's own default `app` user; `pg_grant_sql` is
+  optional, for anything ownership doesn't cover. This needs its own live
+  pass before shipping — ownership transfer from an RDS master user hasn't
+  been confirmed live the way the grant-list version above was.
 - The `postgres-exporter-alerts` `PrometheusRule` has been verified live
   beyond `promtool`: `windsor install` landed all 12 rules in
   Prometheus's own `/api/v1/rules`, every one reporting `health: ok`,

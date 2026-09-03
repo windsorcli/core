@@ -1,0 +1,28 @@
+---
+# Worked example of the kustomize/provisioning contract: just the server
+# definition, no provider wiring. resourceGroupName and providerConfigRef
+# are both handled by the provisioning add-on. administratorPasswordSecretRef
+# names the fixed Secret app-role's own CronJob reads the admin credential
+# from — the documented contract, matching rds/instance.yaml's
+# manageMasterUserPassword precedent.
+apiVersion: dbforpostgresql.azure.upbound.io/v1beta1
+kind: FlexibleServer
+metadata:
+  name: demo-db
+spec:
+  deletionPolicy: Delete
+  forProvider:
+    # Must match the delegated subnet's own region (network/azure-vnet).
+    location: ${flexibleserver_region}
+    version: "16"
+    skuName: B_Standard_B1ms
+    storageMb: 32768
+    administratorLogin: demo
+    administratorPasswordSecretRef:
+      name: demo-db-admin-credentials
+      namespace: system-provisioning
+      key: password
+    autoGeneratePassword: true
+    delegatedSubnetId: ${flexibleserver_subnet_id}
+    privateDnsZoneId: ${flexibleserver_private_dns_zone_id}
+    publicNetworkAccessEnabled: false

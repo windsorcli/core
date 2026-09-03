@@ -60,6 +60,27 @@ flux:
         timeout: 10m
         interval: 5m
 
+  # flexibleserver driver: shared namespace and the FlexibleServer +
+  # FlexibleServerDatabase CRs — Azure twin of the rds entry above.
+  - name: demo
+    path: demo
+    when: demo.resources.database == true && database.postgres.driver == 'flexibleserver'
+    dependsOn:
+      - provisioning-resources
+    resources:
+      - components:
+          - database
+          - database/flexibleserver
+        substitutions:
+          # The demo reads the real terraform outputs directly; a
+          # third-party chart (no Flux substitution access) has to
+          # reconstruct the naming convention instead.
+          flexibleserver_subnet_id: "${terraform_output('network', 'flexibleserver_subnet_id') ?? ''}"
+          flexibleserver_private_dns_zone_id: "${terraform_output('database', 'private_dns_zone_id') ?? ''}"
+          flexibleserver_region: "${terraform_output('network', 'region') ?? ''}"
+        timeout: 10m
+        interval: 5m
+
   # Application credential for demo-db. Depends on demo-resources for
   # namespace-before-RBAC ordering.
   - name: demo-app-role
@@ -74,9 +95,26 @@ flux:
           pg_instance_name: demo-db
           pg_database_name: "${demo_database_name}"
           pg_target_namespace: demo-database
-          # One line — Flux substitution is literal text replacement, so
-          # a multi-line value here would corrupt the CronJob's YAML.
-          pg_grant_sql: "GRANT CONNECT ON DATABASE ${demo_database_name} TO ${demo_database_name}_app; GRANT USAGE ON SCHEMA public TO ${demo_database_name}_app; GRANT SELECT, INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA public TO ${demo_database_name}_app; ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT SELECT, INSERT, UPDATE, DELETE ON TABLES TO ${demo_database_name}_app;"
+          # Ownership already covers everything the demo needs; no extra
+          # grants to layer on.
+          pg_grant_sql: ""
+        timeout: 5m
+        interval: 5m
+
+  # Application credential for demo-db — Azure twin of the rds entry above.
+  - name: demo-app-role
+    path: provisioning
+    when: demo.resources.database == true && database.postgres.driver == 'flexibleserver'
+    dependsOn:
+      - demo-resources
+    resources:
+      - components:
+          - crossplane/azure-postgres/app-role
+        substitutions:
+          pg_instance_name: demo-db
+          pg_database_name: "${demo_database_name}"
+          pg_target_namespace: demo-database
+          pg_grant_sql: ""
         timeout: 5m
         interval: 5m
 

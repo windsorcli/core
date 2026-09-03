@@ -66,6 +66,7 @@ terraform:
     dependsOn:
       - backend
     inputs:
+      region: ${azure.region ?? 'eastus'}
       vnet_cidr: ${network.cidr_block}
       domain_name: ${dns.private_domain ?? ""}
 
@@ -89,6 +90,9 @@ terraform:
     dependsOn:
       - network
     inputs:
+      # Derived from network's own output, not azure.region directly — AKS
+      # must colocate with the VNet regardless of how region was set.
+      region: ${terraform_output('network', 'region')}
       private_subnet_ids: ${terraform_output('network', 'private_subnet_ids')}
       # Single-zone by default; topology: ha spreads pools across zones 1-3.
       availability_zones: "${topology == 'ha' ? ['1','2','3'] : null}"
@@ -107,6 +111,49 @@ terraform:
     when: "(dns.public_domain ?? '') != ''"
     dependsOn:
       - dns-zone
+
+  # Resource group, private DNS zone, NSG, and optional customer-managed
+  # key for Flexible Server. Shared across every database in a context.
+  # Engine-agnostic, unlike crossplane-identity-azure below.
+  - name: database
+    path: database/azure-postgres
+    when: "database.postgres.enabled == true && database.postgres.driver == 'flexibleserver'"
+    dependsOn:
+      - network
+      - cluster
+    inputs:
+      # Derived from network's own output, not azure.region directly —
+      # Flexible Server must colocate with its delegated subnet.
+      region: ${terraform_output('network', 'region')}
+      vnet_id: ${terraform_output('network', 'vnet_id')}
+      flexibleserver_subnet_id: ${terraform_output('network', 'flexibleserver_subnet_id')}
+      # Scopes Postgres ingress to this cluster's own node subnets rather
+      # than the whole VNet.
+      allowed_subnet_cidrs: ${terraform_output('network', 'private_subnet_cidrs')}
+      # Dedicated key unless the context is ephemeral (CI, throwaway test
+      # contexts), where Flexible Server's platform-managed encryption is
+      # cheaper and disposable.
+      manage_encryption_key: ${!(ephemeral ?? false)}
+      key_vault_key_id: "${database.postgres.encryption.key_vault_key_id ?? ''}"
+
+  # Workload Identity and RBAC for Crossplane's Azure provider pods.
+  # Genuinely engine-specific, unlike the resource group above: a
+  # Terraform-native database mode needs none of this, no in-cluster pod
+  # calling Azure on its behalf.
+  - name: crossplane-identity-azure
+    path: provisioning/crossplane-identity-azure
+    when: "database.postgres.enabled == true && database.postgres.driver == 'flexibleserver'"
+    dependsOn:
+      - network
+      - cluster
+      - database
+    inputs:
+      resource_group_name: ${terraform_output('cluster', 'resource_group_name')}
+      cluster_name: ${terraform_output('cluster', 'cluster_name')}
+      oidc_issuer_url: ${terraform_output('cluster', 'cluster_oidc_issuer_url')}
+      postgres_resource_group_id: ${terraform_output('database', 'resource_group_id')}
+      resources:
+        - postgres
 
   # destroy: false — Flux is tied to the cluster; AKS teardown takes it.
   - name: gitops
