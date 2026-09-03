@@ -74,6 +74,7 @@ No modules.
 | <a name="output_private_zone_id"></a> [private\_zone\_id](#output\_private\_zone\_id) | Resource ID of the VNet-linked private DNS zone created from var.domain\_name. Null when no domain\_name was supplied. |
 | <a name="output_private_zone_name"></a> [private\_zone\_name](#output\_private\_zone\_name) | Name of the VNet-linked private DNS zone. Null when no domain\_name was supplied. |
 | <a name="output_public_subnet_ids"></a> [public\_subnet\_ids](#output\_public\_subnet\_ids) | List of public subnet IDs |
+| <a name="output_region"></a> [region](#output\_region) | Azure region the VNet and its subnets are created in. Single source of truth for other Azure modules that must colocate with the delegated Flexible Server subnet. |
 | <a name="output_resource_group_name"></a> [resource\_group\_name](#output\_resource\_group\_name) | Name of the resource group holding the VNet and (when set) the private DNS zone. |
 | <a name="output_subscription_id"></a> [subscription\_id](#output\_subscription\_id) | Subscription ID resolved from the VNet resource. |
 | <a name="output_vnet_id"></a> [vnet\_id](#output\_vnet\_id) | The ID of the VNet |

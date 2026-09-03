@@ -251,6 +251,10 @@ properties:
       tenant_id:
         $ref: '#/$defs/uuid'
         description: Azure tenant identifier (UUID, same format as subscription_id).
+      region:
+        type: string
+        pattern: '^[a-z][a-z0-9]*$'
+        description: Azure region for network, cluster, and database resources. Defaults to eastus when unset.
       environment:
         type: string
         enum:

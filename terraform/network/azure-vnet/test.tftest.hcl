@@ -16,6 +16,11 @@ run "minimal_configuration" {
   }
 
   assert {
+    condition     = output.region == "eastus"
+    error_message = "region output should default to eastus"
+  }
+
+  assert {
     condition     = azurerm_virtual_network.main.name == "windsor-vnet-test"
     error_message = "VNet name should follow default naming convention"
   }
@@ -160,6 +165,11 @@ run "full_configuration" {
     }
     context_id = "test"
     name       = "custom"
+  }
+
+  assert {
+    condition     = output.region == "westus"
+    error_message = "region output should reflect the supplied region override"
   }
 
   assert {

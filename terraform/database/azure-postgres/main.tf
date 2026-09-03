@@ -34,7 +34,7 @@ data "azurerm_client_config" "current" {}
 # crossplane-identity-azure's role assignment scopes to it, Azure's
 # replacement for AWS's per-resource tag condition.
 resource "azurerm_resource_group" "postgres" {
-  name     = "${var.context_id}-postgres"
+  name     = "postgres-${var.context_id}"
   location = var.region
   tags     = var.tags
 }
@@ -53,7 +53,7 @@ resource "azurerm_private_dns_zone" "postgres" {
 }
 
 resource "azurerm_private_dns_zone_virtual_network_link" "postgres" {
-  name                 = "${var.context_id}-postgres-link"
+  name                 = "postgres-${var.context_id}-link"
   private_dns_zone_id  = azurerm_private_dns_zone.postgres.id
   virtual_network_id   = var.vnet_id
   registration_enabled = false
@@ -69,7 +69,7 @@ resource "azurerm_private_dns_zone_virtual_network_link" "postgres" {
 # VNet. The explicit deny below overrides it for anything this NSG
 # doesn't allow first.
 resource "azurerm_network_security_group" "flexibleserver" {
-  name                = "${var.context_id}-flexibleserver"
+  name                = "flexibleserver-${var.context_id}"
   location            = azurerm_resource_group.postgres.location
   resource_group_name = azurerm_resource_group.postgres.name
   tags                = var.tags
@@ -115,7 +115,7 @@ resource "azurerm_subnet_network_security_group_association" "flexibleserver" {
 # no dedicated-key step for encryption at rest.
 resource "azurerm_key_vault" "postgres" {
   count                      = var.manage_encryption_key && var.key_vault_key_id == "" ? 1 : 0
-  name                       = replace("${var.context_id}-pg", "-", "")
+  name                       = replace("pg-${var.context_id}", "-", "")
   location                   = azurerm_resource_group.postgres.location
   resource_group_name        = azurerm_resource_group.postgres.name
   tenant_id                  = data.azurerm_client_config.current.tenant_id
@@ -128,7 +128,7 @@ resource "azurerm_key_vault" "postgres" {
 
 resource "azurerm_key_vault_key" "postgres" {
   count        = length(azurerm_key_vault.postgres)
-  name         = "${var.context_id}-postgres"
+  name         = "postgres-${var.context_id}"
   key_vault_id = azurerm_key_vault.postgres[0].id
   key_type     = "RSA"
   key_size     = 2048
@@ -151,7 +151,7 @@ resource "azurerm_role_assignment" "key_vault_admin" {
 # calls the ARM API to create the server.
 resource "azurerm_user_assigned_identity" "flexibleserver_cmk" {
   count               = length(azurerm_key_vault.postgres)
-  name                = "${var.context_id}-flexibleserver-cmk"
+  name                = "flexibleserver-cmk-${var.context_id}"
   resource_group_name = azurerm_resource_group.postgres.name
   location            = azurerm_resource_group.postgres.location
   tags                = var.tags

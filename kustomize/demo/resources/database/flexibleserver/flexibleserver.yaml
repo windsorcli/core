@@ -12,9 +12,8 @@ metadata:
 spec:
   deletionPolicy: Delete
   forProvider:
-    # No schema field exposes Azure region yet; every azure-vnet/azure-aks
-    # module defaults to eastus the same way.
-    location: eastus
+    # Must match the delegated subnet's own region (network/azure-vnet).
+    location: ${flexibleserver_region}
     version: "16"
     skuName: B_Standard_B1ms
     storageMb: 32768

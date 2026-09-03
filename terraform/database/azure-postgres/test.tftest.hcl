@@ -39,8 +39,8 @@ run "manages_dedicated_key_by_default" {
   }
 
   assert {
-    condition     = azurerm_resource_group.postgres.name == "test-postgres"
-    error_message = "The dedicated resource group should follow the <context_id>-postgres convention"
+    condition     = azurerm_resource_group.postgres.name == "postgres-test"
+    error_message = "The dedicated resource group should follow the postgres-<context_id> convention, matching network/azure-vnet and cluster/azure-aks"
   }
 
   assert {

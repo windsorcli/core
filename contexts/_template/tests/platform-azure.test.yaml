@@ -28,6 +28,53 @@ cases:
             components:
               - azure-disk
 
+  # azure.region defaults to eastus, unset, matching every azure module's
+  # own Terraform default.
+  - name: unset azure.region defaults network to eastus
+    values:
+      platform: azure
+      gateway:
+        enabled: false
+    expect:
+      terraform:
+        - name: network
+          path: network/azure-vnet
+          inputs:
+            region: eastus
+
+  # azure.region flows into network directly. cluster and database derive
+  # theirs from network's own output instead of azure.region a second
+  # time — both must colocate with the VNet's delegated subnet regardless
+  # of how region was set.
+  - name: azure.region flows to network directly and cluster/database via network's output
+    values:
+      platform: azure
+      azure:
+        region: westus2
+      gateway:
+        enabled: false
+      database:
+        postgres:
+          enabled: true
+          driver: flexibleserver
+    terraformOutputs:
+      network:
+        region: westus2
+    expect:
+      terraform:
+        - name: network
+          path: network/azure-vnet
+          inputs:
+            region: westus2
+        - name: cluster
+          path: cluster/azure-aks
+          inputs:
+            region: westus2
+        - name: database
+          path: database/azure-postgres
+          inputs:
+            region: westus2
+
   # cluster.pools wires to the azure-aks module's var.pools (mirrors AWS).
   # With no cluster.pools set, the facet defaults to one autoscaling general
   # pool; the cluster's inline default_node_pool already covers the fixed system

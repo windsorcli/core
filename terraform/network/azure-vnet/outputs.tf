@@ -47,6 +47,11 @@ output "resource_group_name" {
   value       = azurerm_resource_group.main.name
 }
 
+output "region" {
+  description = "Azure region the VNet and its subnets are created in. Single source of truth for other Azure modules that must colocate with the delegated Flexible Server subnet."
+  value       = azurerm_resource_group.main.location
+}
+
 output "subscription_id" {
   description = "Subscription ID resolved from the VNet resource."
   value       = element(split("/", azurerm_virtual_network.main.id), 2)

@@ -131,6 +131,7 @@ cases:
     terraformOutputs:
       network:
         flexibleserver_subnet_id: /subscriptions/sub/resourceGroups/rg/providers/Microsoft.Network/virtualNetworks/vnet-test/subnets/flexibleserver-test
+        region: eastus2
       database:
         private_dns_zone_id: /subscriptions/sub/resourceGroups/test-postgres/providers/Microsoft.Network/privateDnsZones/test.postgres.database.azure.com
     expect:
@@ -148,6 +149,7 @@ cases:
               substitutions:
                 flexibleserver_subnet_id: /subscriptions/sub/resourceGroups/rg/providers/Microsoft.Network/virtualNetworks/vnet-test/subnets/flexibleserver-test
                 flexibleserver_private_dns_zone_id: /subscriptions/sub/resourceGroups/test-postgres/providers/Microsoft.Network/privateDnsZones/test.postgres.database.azure.com
+                flexibleserver_region: eastus2
         - name: demo-app-role
           path: provisioning
           dependsOn:

@@ -77,6 +77,7 @@ flux:
           # reconstruct the naming convention instead.
           flexibleserver_subnet_id: "${terraform_output('network', 'flexibleserver_subnet_id') ?? ''}"
           flexibleserver_private_dns_zone_id: "${terraform_output('database', 'private_dns_zone_id') ?? ''}"
+          flexibleserver_region: "${terraform_output('network', 'region') ?? ''}"
         timeout: 10m
         interval: 5m
 
