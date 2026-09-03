@@ -24,7 +24,7 @@ patches:
       - op: replace
         path: /spec/template/spec/containers/0/image
         # renovate: datasource=docker depName=keycloak/keycloak-operator package=quay.io/keycloak/keycloak-operator
-        value: quay.io/keycloak/keycloak-operator:26.7.2@sha256:f6079999aa773f1846de01c9014d19c3c677d35570361fd7c01c0830836e4041
+        value: quay.io/keycloak/keycloak-operator:26.7.3@sha256:e3856fd1aeb404f0e6ae2180b01875c8eeebd3748b0e5d955da77b5d41095ae4
   # Keyed by env name (not index) so it survives upstream env reordering on a bump.
   - patch: |
       apiVersion: apps/v1
