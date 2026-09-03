@@ -420,7 +420,7 @@ cases:
   - name: dns.private_domain defaults to id.local
     values:
       platform: vsphere
-      id: my-plant
+      id: myplant
       gateway:
         enabled: false
       network: *default-network
@@ -430,7 +430,7 @@ cases:
     expect:
       config:
         dns:
-          private_domain: my-plant.local
+          private_domain: myplant.local
 
   # dns.private_domain falls back to dns.domain when domain is set but
   # private_domain is not. Verifies the first dns config branch (domain != '').
