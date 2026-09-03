@@ -109,7 +109,61 @@ cases:
                 pg_instance_name: demo-db
                 pg_database_name: demo
                 pg_target_namespace: demo-database
-                pg_grant_sql: "GRANT CONNECT ON DATABASE demo TO demo_app; GRANT USAGE ON SCHEMA public TO demo_app; GRANT SELECT, INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA public TO demo_app; ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT SELECT, INSERT, UPDATE, DELETE ON TABLES TO demo_app;"
+                pg_grant_sql: ""
+    exclude:
+      flux:
+        - name: database
+
+  - name: demo mode with flexibleserver driver creates demo flexibleserver instance
+    values:
+      platform: azure
+      dev: true
+      demo:
+        enabled: true
+        resources:
+          database: true
+      gateway:
+        enabled: false
+      database:
+        postgres:
+          enabled: true
+          driver: flexibleserver
+    terraformOutputs:
+      network:
+        flexibleserver_subnet_id: /subscriptions/sub/resourceGroups/rg/providers/Microsoft.Network/virtualNetworks/vnet-test/subnets/flexibleserver-test
+        region: eastus2
+      database:
+        private_dns_zone_id: /subscriptions/sub/resourceGroups/test-postgres/providers/Microsoft.Network/privateDnsZones/test.postgres.database.azure.com
+    expect:
+      flux:
+        - name: demo
+          path: demo
+          dependsOn:
+            - provisioning-resources
+          resources:
+            - timeout: 10m
+              interval: 5m
+              components:
+                - database
+                - database/flexibleserver
+              substitutions:
+                flexibleserver_subnet_id: /subscriptions/sub/resourceGroups/rg/providers/Microsoft.Network/virtualNetworks/vnet-test/subnets/flexibleserver-test
+                flexibleserver_private_dns_zone_id: /subscriptions/sub/resourceGroups/test-postgres/providers/Microsoft.Network/privateDnsZones/test.postgres.database.azure.com
+                flexibleserver_region: eastus2
+        - name: demo-app-role
+          path: provisioning
+          dependsOn:
+            - demo-resources
+          resources:
+            - timeout: 5m
+              interval: 5m
+              components:
+                - crossplane/azure-postgres/app-role
+              substitutions:
+                pg_instance_name: demo-db
+                pg_database_name: demo
+                pg_target_namespace: demo-database
+                pg_grant_sql: ""
     exclude:
       flux:
         - name: database

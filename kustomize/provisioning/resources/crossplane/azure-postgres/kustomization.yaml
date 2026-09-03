@@ -1,0 +1,10 @@
+apiVersion: kustomize.config.k8s.io/v1alpha1
+kind: Component
+resources:
+  - provider-config.yaml
+  - resourcegroup-policy.yaml
+  - bootstrap-service-account.yaml
+  - bootstrap-secret-rbac.yaml
+  - kyverno-background-controller-rbac.yaml
+  - monitoring-rbac-policy.yaml
+  - monitoring-cronjob-policy.yaml

@@ -34,6 +34,8 @@ layer. Links from there land here.
 | [compute/hyperv](compute/hyperv/) | Talos VMs on Hyper-V (Windows host). |
 | [compute/incus](compute/incus/) | Talos VMs on Incus. |
 | [compute/vsphere](compute/vsphere/) | Talos VMs on VMware vSphere. |
+| [database/aws-rds](database/aws-rds/) | KMS encryption key for RDS storage, shared across every database in a context. |
+| [database/azure-postgres](database/azure-postgres/) | Resource group, private DNS zone, NSG, and optional customer-managed key for Azure Database for PostgreSQL Flexible Server. |
 | [dns](dns/) | Public DNS zones for ACME certificates and external-dns. |
 | [dns/zone/azure-dns](dns/zone/azure-dns/) | DNS zone on Azure DNS. |
 | [dns/zone/hetzner](dns/zone/hetzner/) | Creates a primary Hetzner DNS zone via the official hcloud provider. |
@@ -44,6 +46,8 @@ layer. Links from there land here.
 | [network/aws-vpc](network/aws-vpc/) | VPC + public/private subnets + NAT for EKS. |
 | [network/azure-vnet](network/azure-vnet/) | VNet + subnets for AKS. |
 | [pki/ca](pki/ca/) | Root CA generation (or BYO passthrough) for the private-CA add-on and Talos apiserver OIDC trust. |
+| [provisioning/crossplane-iam](provisioning/crossplane-iam/) | IAM and Pod Identity for Crossplane's AWS provider pods. |
+| [provisioning/crossplane-identity-azure](provisioning/crossplane-identity-azure/) | Workload Identity and RBAC for Crossplane's Azure provider pods. |
 | [workstation](workstation/) | Local-host networking, registry, and DNS for developer clusters. |
 | [workstation/docker](workstation/docker/) | Local-host Docker network + registry. |
 | [workstation/incus](workstation/incus/) | Local-host Incus bridge + registry. |

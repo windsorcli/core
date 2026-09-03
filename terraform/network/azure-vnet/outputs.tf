@@ -17,9 +17,19 @@ output "private_subnet_ids" {
   value       = azurerm_subnet.private[*].id
 }
 
+output "private_subnet_cidrs" {
+  description = "List of private subnet address prefixes, for NSG rules that scope to the AKS node subnets by CIDR."
+  value       = [for s in azurerm_subnet.private : s.address_prefixes[0]]
+}
+
 output "isolated_subnet_ids" {
   description = "List of isolated subnet IDs"
   value       = azurerm_subnet.isolated[*].id
+}
+
+output "flexibleserver_subnet_id" {
+  description = "ID of the subnet delegated to Microsoft.DBforPostgreSQL/flexibleServers"
+  value       = azurerm_subnet.flexibleserver.id
 }
 
 output "private_zone_id" {
@@ -35,6 +45,11 @@ output "private_zone_name" {
 output "resource_group_name" {
   description = "Name of the resource group holding the VNet and (when set) the private DNS zone."
   value       = azurerm_resource_group.main.name
+}
+
+output "region" {
+  description = "Azure region the VNet and its subnets are created in. Single source of truth for other Azure modules that must colocate with the delegated Flexible Server subnet."
+  value       = azurerm_resource_group.main.location
 }
 
 output "subscription_id" {

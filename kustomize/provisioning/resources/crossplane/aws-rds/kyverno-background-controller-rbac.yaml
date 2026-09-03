@@ -18,6 +18,7 @@ rules:
       - clusterrolebindings
     verbs:
       - get
+      - list
       - create
       - update
       - delete
@@ -32,12 +33,14 @@ rules:
       - instances
     verbs:
       - get
+      - list
   - apiGroups:
       - batch
     resources:
       - cronjobs
     verbs:
       - get
+      - list
       - create
       - update
       - delete
@@ -47,6 +50,7 @@ rules:
       - deployments
     verbs:
       - get
+      - list
       - create
       - update
       - delete
@@ -56,6 +60,7 @@ rules:
       - services
     verbs:
       - get
+      - list
       - create
       - update
       - delete
@@ -65,6 +70,7 @@ rules:
       - podmonitors
     verbs:
       - get
+      - list
       - create
       - update
       - delete
