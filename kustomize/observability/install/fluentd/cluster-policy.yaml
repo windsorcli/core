@@ -19,6 +19,10 @@ spec:
   background: true
   rules:
     - name: bump-fluentd-checksum
+      # Kyverno's own default skips background-request queuing for ordinary
+      # admission events, so an admission-time UPDATE on the trigger would
+      # never enqueue the UpdateRequest that patches the target StatefulSet.
+      skipBackgroundRequests: false
       match:
         any:
           - resources:
