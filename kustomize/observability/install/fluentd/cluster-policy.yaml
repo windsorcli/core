@@ -16,7 +16,9 @@ metadata:
       the running process keeps its stale, already-loaded config until
       something else forces a rollout. This gives it one.
 spec:
-  background: true
+  # A background scan re-evaluates every trigger resource each pass, which
+  # would flip the checksum between them when more than one exists.
+  background: false
   rules:
     - name: bump-fluentd-checksum
       # Kyverno's own default skips background-request queuing for ordinary

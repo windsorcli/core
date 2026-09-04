@@ -25,6 +25,10 @@ rules:
       - apps
     resources:
       - statefulsets
+    # Kyverno's mutate-existing auth check only recognizes permissions granted
+    # through this aggregation. resourceNames narrows it to the one target.
+    resourceNames:
+      - fluentd
     verbs:
       - get
       - list
