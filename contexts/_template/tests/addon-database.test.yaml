@@ -204,20 +204,77 @@ cases:
           install:
             components:
               - crossplane
+          resources:
+            - dependsOn:
+                - provisioning-providers-install
+              components:
+                - crossplane/aws-rds
+                - crossplane/aws-rds/monitoring-exporter
+        - name: provisioning-providers
+          dependsOn:
+            - provisioning-install
+          install:
+            components:
               - crossplane/aws-rds
             healthCheckExprs:
               - apiVersion: pkg.crossplane.io/v1
                 kind: Provider
                 current: status.conditions.exists(e, e.type == 'Healthy' && e.status == 'True') && status.conditions.exists(e, e.type == 'Installed' && e.status == 'True')
-          resources:
-            - components:
-                - crossplane/aws-rds
-                - crossplane/aws-rds/monitoring-exporter
       crds:
         - crossplane-2.4.0
     exclude:
       flux:
         - name: database
+
+  # Regression (#2653): provisioning-install must outlive the Provider CR so
+  # destroy tears the Provider down while Crossplane's engine can still clear
+  # its package-manager finalizer, instead of leaving it stuck and blocking
+  # crds-core's CRD cleanup. provisioning-providers-install carries the
+  # dependsOn on provisioning-install directly; provisioning-resources adds
+  # an explicit dependsOn on provisioning-providers alongside its implicit
+  # dependsOn on provisioning-install.
+  - name: rds driver keeps provisioning-install alive until the Provider CR is gone
+    values:
+      platform: aws
+      aws:
+        region: us-west-2
+      gateway:
+        enabled: false
+      database:
+        postgres:
+          enabled: true
+          driver: rds
+    expect:
+      flux:
+        - name: provisioning-providers
+          dependsOn:
+            - provisioning-install
+        - name: provisioning
+          resources:
+            - dependsOn:
+                - provisioning-providers-install
+
+  # Regression (#2653): Azure twin of the rds case above. Same ordering
+  # guarantee, and the Azure path also moves crossplane_azure_client_id/
+  # crossplane_azure_tenant_id substitutions onto provisioning-providers.
+  - name: flexibleserver driver keeps provisioning-install alive until the Provider CR is gone
+    values:
+      platform: azure
+      gateway:
+        enabled: false
+      database:
+        postgres:
+          enabled: true
+          driver: flexibleserver
+    expect:
+      flux:
+        - name: provisioning-providers
+          dependsOn:
+            - provisioning-install
+        - name: provisioning
+          resources:
+            - dependsOn:
+                - provisioning-providers-install
 
   # PodMonitor only exists once the metrics pipeline vendors
   # prometheus-operator's CRDs, so the exporter's generate policy is
@@ -287,6 +344,7 @@ cases:
     exclude:
       flux:
         - name: provisioning
+        - name: provisioning-providers
 
   # Schema: driver: rds installs AWS-specific IAM/Terraform wiring, so it's
   # rejected on any other platform rather than silently composing nothing.
