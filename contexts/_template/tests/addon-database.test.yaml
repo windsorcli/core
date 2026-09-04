@@ -211,6 +211,7 @@ cases:
                 - crossplane/aws-rds
                 - crossplane/aws-rds/monitoring-exporter
         - name: provisioning-providers
+          path: provisioning
           dependsOn:
             - provisioning-install
           install:
@@ -247,6 +248,7 @@ cases:
     expect:
       flux:
         - name: provisioning-providers
+          path: provisioning
           dependsOn:
             - provisioning-install
         - name: provisioning
@@ -269,6 +271,7 @@ cases:
     expect:
       flux:
         - name: provisioning-providers
+          path: provisioning
           dependsOn:
             - provisioning-install
         - name: provisioning

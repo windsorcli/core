@@ -81,6 +81,7 @@ flux:
   # engine pod is still running. Crossplane's own CRDs are vendored
   # (crds: above), so these are as safe here as the HelmRelease.
   - name: provisioning-providers
+    path: provisioning
     when: database.postgres.driver == 'rds'
     dependsOn:
       - provisioning
@@ -132,6 +133,7 @@ flux:
   # Crossplane's own CRDs are vendored (crds: above), so these are as
   # safe here as the HelmRelease.
   - name: provisioning-providers
+    path: provisioning
     when: database.postgres.driver == 'flexibleserver'
     dependsOn:
       - provisioning
