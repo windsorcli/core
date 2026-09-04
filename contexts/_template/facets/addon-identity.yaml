@@ -47,12 +47,7 @@ config:
         enabled: "${(identity.driver ?? 'keycloak') == 'keycloak' ? (database.postgres.enabled != false) : (database.postgres.enabled ?? false)}"
         driver: "${database.postgres.driver ?? 'cloudnativepg'}"
 
-# The hosted server is reached over HTTPS via the gateway. An external issuer needs none.
 requires:
-  - when: (identity.driver ?? 'keycloak') == 'keycloak'
-    paths:
-      - gateway.enabled
-    message: The hosted identity server is reached over HTTPS through the cluster gateway — enable the gateway.
   - when: (identity.driver ?? 'keycloak') == 'keycloak' && observability.enabled == true && observability.grafana.sso != false && dev != true
     paths:
       - identity.keycloak.grafana_client_secret
@@ -126,9 +121,10 @@ flux:
           keycloak_image: "${(identity.keycloak.image ?? '') == '' ? 'quay.io/keycloak/keycloak:26.7.1@sha256:f1f1f01e472c8a78df40d8f2a49a925274eda4d3d80d5f6edbb5c880ee3c01c6' : identity.keycloak.image}"
           keycloak_start_optimized: "${(identity.keycloak.image ?? '') == '' ? 'false' : 'true'}"
 
-  # Gateway route — waits for the shared Gateway to exist.
+  # Gateway route — waits for the shared Gateway to exist. Without a gateway, reach
+  # Keycloak by port-forwarding the keycloak-service Service in system-identity.
   - name: identity
-    when: (identity.driver ?? 'keycloak') == 'keycloak'
+    when: (identity.driver ?? 'keycloak') == 'keycloak' && gateway.enabled == true
     resources:
       - dependsOn:
           - gateway-resources

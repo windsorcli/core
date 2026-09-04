@@ -80,6 +80,40 @@ cases:
         # renovate: datasource=github-releases depName=keycloak/keycloak-k8s-resources package=keycloak/keycloak-k8s-resources
         - keycloak-26.7.0
 
+  # No gateway needed to install — Keycloak still comes up (port-forward
+  # keycloak-service to reach it), just without the gateway route.
+  - name: installs without a route when no gateway is enabled
+    values:
+      platform: metal
+      dns:
+        domain: example.local
+      gateway:
+        enabled: false
+      network: *default-network
+      cluster: *default-cluster
+      identity:
+        enabled: true
+    expect:
+      flux:
+        - name: identity
+          install:
+            components:
+              - keycloak-operator
+          resources:
+            - name: database
+              dependsOn:
+                - database-install
+              components:
+                - keycloak/database
+            - dependsOn:
+                - identity-resources-database
+              components:
+                - keycloak
+            - components:
+                - keycloak/realm
+              substitutions:
+                keycloak_realm: platform
+
   # Custom pre-built image: use it verbatim and start optimized.
   - name: custom image runs optimized
     values:
