@@ -148,6 +148,7 @@ terraform:
       - cluster
       - database
     inputs:
+      region: ${terraform_output('network', 'region')}
       resource_group_name: ${terraform_output('cluster', 'resource_group_name')}
       cluster_name: ${terraform_output('cluster', 'cluster_name')}
       oidc_issuer_url: ${terraform_output('cluster', 'cluster_oidc_issuer_url')}
