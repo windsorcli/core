@@ -113,6 +113,12 @@ cases:
                 - keycloak/realm
               substitutions:
                 keycloak_realm: platform
+    exclude:
+      flux:
+        - name: identity
+          resources:
+            - components:
+                - keycloak/gateway
 
   # Custom pre-built image: use it verbatim and start optimized.
   - name: custom image runs optimized
@@ -261,6 +267,12 @@ cases:
           resources:
             - components:
                 - keycloak
+    exclude:
+      flux:
+        - name: identity
+          resources:
+            - components:
+                - keycloak/cilium
 
   # Supplied admin: the keycloak/admin overlay is flagged on and the
   # keycloak-bootstrap-admin secret is materialized from the given credentials.
@@ -338,6 +350,24 @@ cases:
                 grafana_url: https://grafana.example.local
                 grafana_redirect_uri: https://grafana.example.local/login/generic_oauth
                 dev_admin_password: admin-password
+
+  # Grafana SSO needs Keycloak reachable over HTTPS through the gateway. Without
+  # it, the realm client would point at an issuer the browser can never reach.
+  - name: grafana sso without a gateway fails composition
+    values:
+      platform: metal
+      dev: true
+      dns:
+        domain: example.local
+      gateway:
+        enabled: false
+      network: *default-network
+      cluster: *default-cluster
+      identity:
+        enabled: true
+      observability:
+        enabled: true
+    expectError: true
 
   # A supplied admin password overrides the dev default and drives both the Keycloak console
   # admin and the dev SSO admin user.
