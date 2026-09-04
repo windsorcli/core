@@ -130,6 +130,24 @@ cases:
                   extraArgs:
                     rotate-server-certificates: "true"
 
+  # kube-apiserver fetches the inferred issuer's JWKS itself, and kubectl clients
+  # validate the same token against it — without a gateway neither can reach it.
+  - name: oidc enabled with keycloak identity fails without a gateway
+    values:
+      platform: metal
+      dns:
+        domain: example.local
+      gateway:
+        enabled: false
+      network: *default-network
+      cluster:
+        <<: *default-cluster
+        oidc:
+          enabled: true
+      identity:
+        enabled: true
+    expectError: true
+
   - name: oidc issuer_url/client_id overrides take precedence over keycloak inference
     values:
       platform: metal
