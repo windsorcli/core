@@ -481,6 +481,7 @@ cases:
           driver: flexibleserver
     terraformOutputs:
       network:
+        region: eastus2
         vnet_id: /subscriptions/sub/resourceGroups/rg-net/providers/Microsoft.Network/virtualNetworks/vnet-test
         flexibleserver_subnet_id: /subscriptions/sub/resourceGroups/rg-net/providers/Microsoft.Network/virtualNetworks/vnet-test/subnets/flexibleserver-test
         private_subnet_cidrs:
@@ -499,6 +500,7 @@ cases:
             - network
             - cluster
           inputs:
+            region: eastus2
             manage_encryption_key: true
             vnet_id: /subscriptions/sub/resourceGroups/rg-net/providers/Microsoft.Network/virtualNetworks/vnet-test
             flexibleserver_subnet_id: /subscriptions/sub/resourceGroups/rg-net/providers/Microsoft.Network/virtualNetworks/vnet-test/subnets/flexibleserver-test
@@ -511,6 +513,7 @@ cases:
             - cluster
             - database
           inputs:
+            region: eastus2
             resources:
               - postgres
             resource_group_name: cluster-test-rg
