@@ -241,6 +241,27 @@ cases:
                 - keycloak
                 - keycloak/cilium
 
+  # No gateway means no proxy identity for the Cilium netpol to allow, so the
+  # keycloak/cilium overlay stays off even when the driver resolves to cilium.
+  - name: cilium driver without a gateway skips the keycloak cilium netpol overlay
+    values:
+      platform: metal
+      dns:
+        domain: example.local
+      gateway:
+        enabled: false
+        driver: cilium
+      network: *default-network
+      cluster: *default-cluster
+      identity:
+        enabled: true
+    expect:
+      flux:
+        - name: identity
+          resources:
+            - components:
+                - keycloak
+
   # Supplied admin: the keycloak/admin overlay is flagged on and the
   # keycloak-bootstrap-admin secret is materialized from the given credentials.
   - name: supplied admin credentials add the bootstrap admin overlay and secret

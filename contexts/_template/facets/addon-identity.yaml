@@ -94,8 +94,10 @@ flux:
         components:
           - keycloak
           - "${topology == 'ha' ? 'keycloak/ha' : ''}"
-          # Cilium gateway: restrict Keycloak ingress to the gateway proxy.
-          - "${gateway.driver == 'cilium' ? 'keycloak/cilium' : ''}"
+          # Cilium gateway: restrict Keycloak ingress to the gateway proxy. Without
+          # a gateway there is no proxy identity to allow, so this would block all
+          # traffic to Keycloak, not just external — gate on gateway.enabled too.
+          - "${gateway.enabled == true && gateway.driver == 'cilium' ? 'keycloak/cilium' : ''}"
           # Bootstrap admin overlay, on when an admin password resolves.
           - "${(identity_effective.admin_password ?? '') != '' ? 'keycloak/admin' : ''}"
           # Server + user-event metrics, and the operator's own ServiceMonitor.
