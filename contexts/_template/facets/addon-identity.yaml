@@ -37,6 +37,11 @@ config:
       grafana_client_secret: >-
         ${(identity.keycloak.grafana_client_secret ?? '') != '' ? identity.keycloak.grafana_client_secret :
         (dev == true ? 'grafana-oidc-dev-secret' : '')}
+      # Non-empty only when the hosted server's issuer is actually reachable
+      # (gateway enabled). requires: paths only test presence, not booleans, so
+      # consumers needing browser/apiserver access to the issuer check this
+      # instead of gateway.enabled directly.
+      gateway_reachable: "${(identity.driver ?? 'keycloak') == 'keycloak' && gateway.enabled == true ? 'yes' : ''}"
 
   # The hosted server needs PostgreSQL, so the keycloak driver turns database on
   # by default (on unless explicitly disabled). The oidc driver hosts nothing,

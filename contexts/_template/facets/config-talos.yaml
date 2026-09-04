@@ -8,6 +8,15 @@ metadata:
 # build their own machine images and don't take Talos patches.
 when: cluster.driver == 'talos'
 
+requires:
+  # kube-apiserver fetches the issuer's JWKS itself and clients validate the same
+  # token `iss` claim, both against the hosted Keycloak's gateway URL — without a
+  # gateway neither can reach it.
+  - when: cluster.oidc.enabled == true && (cluster.oidc.issuer_url ?? '') == '' && identity.enabled == true && (identity.driver ?? 'keycloak') == 'keycloak'
+    paths:
+      - identity_effective.gateway_reachable
+    message: kube-apiserver OIDC against the hosted Keycloak needs it reachable through the gateway — enable the gateway, or set cluster.oidc.issuer_url explicitly.
+
 # =============================================================================
 # Config — Talos machine patch + extension catalog
 # =============================================================================
