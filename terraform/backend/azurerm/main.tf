@@ -21,7 +21,7 @@ provider "azurerm" {
 resource "azurerm_resource_group" "this" {
   name     = local.resource_group_name
   location = var.location
-  tags     = var.tags
+  tags     = local.tags
 }
 
 resource "azurerm_storage_account" "this" {
@@ -77,7 +77,7 @@ resource "azurerm_storage_account" "this" {
   }
 
   tags = merge(
-    var.tags,
+    local.tags,
     {
       ManagedBy = "Terraform"
     }
@@ -119,6 +119,9 @@ locals {
   default_storage_account_name = var.storage_account_name != "" ? var.storage_account_name : replace(lower("tfstate${var.context_id}"), "/[^a-z0-9]/", "")
   resource_group_name          = var.resource_group_name != "" ? var.resource_group_name : "rg-tfstate-${var.context_id}"
   container_name               = var.container_name != "" ? var.container_name : "tfstate-${var.context_id}"
+  tags = merge({
+    WindsorContextID = var.context_id
+  }, var.tags)
 }
 
 #---------------------------------------------------------------------------------------------------

@@ -48,6 +48,16 @@ run "minimal_configuration" {
     condition     = azurerm_storage_account.this.min_tls_version == "TLS1_2"
     error_message = "Default TLS version should be 'TLS1_2'"
   }
+
+  assert {
+    condition     = azurerm_resource_group.this.tags["WindsorContextID"] == "test"
+    error_message = "Resource group should be tagged with WindsorContextID"
+  }
+
+  assert {
+    condition     = azurerm_storage_account.this.tags["WindsorContextID"] == "test"
+    error_message = "Storage account should be tagged with WindsorContextID"
+  }
 }
 
 # Tests a full configuration with all optional variables explicitly set.
