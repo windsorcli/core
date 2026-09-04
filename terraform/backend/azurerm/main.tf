@@ -119,9 +119,9 @@ locals {
   default_storage_account_name = var.storage_account_name != "" ? var.storage_account_name : replace(lower("tfstate${var.context_id}"), "/[^a-z0-9]/", "")
   resource_group_name          = var.resource_group_name != "" ? var.resource_group_name : "rg-tfstate-${var.context_id}"
   container_name               = var.container_name != "" ? var.container_name : "tfstate-${var.context_id}"
-  tags = merge({
+  tags = merge(var.tags, {
     WindsorContextID = var.context_id
-  }, var.tags)
+  })
 }
 
 #---------------------------------------------------------------------------------------------------

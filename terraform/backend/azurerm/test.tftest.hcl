@@ -60,6 +60,31 @@ run "minimal_configuration" {
   }
 }
 
+# Regression: WindsorContextID must stay authoritative even if a caller passes
+# a conflicting value through var.tags, since tag-based sweeping relies on it.
+run "windsor_context_id_not_overridable" {
+  command = plan
+
+  variables {
+    context_id     = "test"
+    location       = "eastus2"
+    container_name = "tfstate-test"
+    tags = {
+      WindsorContextID = "spoofed"
+    }
+  }
+
+  assert {
+    condition     = azurerm_resource_group.this.tags["WindsorContextID"] == "test"
+    error_message = "Resource group's WindsorContextID tag must not be overridable via var.tags"
+  }
+
+  assert {
+    condition     = azurerm_storage_account.this.tags["WindsorContextID"] == "test"
+    error_message = "Storage account's WindsorContextID tag must not be overridable via var.tags"
+  }
+}
+
 # Tests a full configuration with all optional variables explicitly set.
 # Validates that user-supplied values correctly override defaults for:
 # - Resource naming
