@@ -21,14 +21,14 @@ providers.
 |------|---------|
 | <a name="requirement_terraform"></a> [terraform](#requirement\_terraform) | >= 1.12.2 |
 | <a name="requirement_hcloud"></a> [hcloud](#requirement\_hcloud) | 1.68.0 |
-| <a name="requirement_imager"></a> [imager](#requirement\_imager) | 1.0.19 |
+| <a name="requirement_imager"></a> [imager](#requirement\_imager) | 1.0.20 |
 
 ## Providers
 
 | Name | Version |
 |------|---------|
 | <a name="provider_hcloud"></a> [hcloud](#provider\_hcloud) | 1.68.0 |
-| <a name="provider_imager"></a> [imager](#provider\_imager) | 1.0.19 |
+| <a name="provider_imager"></a> [imager](#provider\_imager) | 1.0.20 |
 | <a name="provider_terraform"></a> [terraform](#provider\_terraform) | n/a |
 
 ## Modules
@@ -45,7 +45,7 @@ No modules.
 | [hcloud_placement_group.this](https://registry.terraform.io/providers/hetznercloud/hcloud/1.68.0/docs/resources/placement_group) | resource |
 | [hcloud_server.this](https://registry.terraform.io/providers/hetznercloud/hcloud/1.68.0/docs/resources/server) | resource |
 | [hcloud_server_network.this](https://registry.terraform.io/providers/hetznercloud/hcloud/1.68.0/docs/resources/server_network) | resource |
-| [imager_image.this](https://registry.terraform.io/providers/hcloud-talos/imager/1.0.19/docs/resources/image) | resource |
+| [imager_image.this](https://registry.terraform.io/providers/hcloud-talos/imager/1.0.20/docs/resources/image) | resource |
 | [terraform_data.node_replacement](https://registry.terraform.io/providers/hashicorp/terraform/latest/docs/resources/data) | resource |
 
 ## Inputs
