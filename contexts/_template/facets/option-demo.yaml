@@ -125,3 +125,16 @@ flux:
       - components:
           - "${demo.resources.static == true ? 'static' : ''}"
           - "${demo.resources.bookinfo == true ? 'bookinfo' : ''}"
+
+  # Bookinfo's productpage route. Waits for gateway-resources since the
+  # HTTPRoute parents to the Gateway object created there.
+  - name: demo
+    path: demo
+    when: demo.resources.bookinfo == true && gateway.enabled == true
+    resources:
+      - dependsOn:
+          - gateway-resources
+        components:
+          - bookinfo/gateway
+        substitutions:
+          external_domain: ${gateway_effective.external_domain}

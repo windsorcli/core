@@ -1,0 +1,19 @@
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: productpage
+  namespace: demo-bookinfo
+spec:
+  parentRefs:
+    # web-https only; plain HTTP is 301-redirected by the gateway's https-redirect.
+    - kind: Gateway
+      name: external
+      namespace: system-gateway
+      sectionName: web-https
+  hostnames:
+    - bookinfo.${external_domain}
+  rules:
+    - backendRefs:
+        - kind: Service
+          name: productpage
+          port: 9080
