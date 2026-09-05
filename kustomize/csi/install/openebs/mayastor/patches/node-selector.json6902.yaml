@@ -1,0 +1,7 @@
+- op: add
+  path: /spec/values/mayastor/nodeSelector
+  value:
+    kubernetes.io/arch: null
+- op: add
+  path: /spec/values/mayastor/io_engine/nodeSelector/kubernetes.io~1arch
+  value: null

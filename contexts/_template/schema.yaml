@@ -775,7 +775,8 @@ properties:
         enum:
           - metallb
           - kube-vip
-        description: In-cluster load balancer driver
+          - none
+        description: In-cluster load balancer driver. none disables lb-install where it would otherwise default on.
       loadbalancer_mode:
         type: string
         enum:
@@ -955,7 +956,8 @@ properties:
             enum:
               - openebs
               - longhorn
-            description: CSI storage driver. openebs for directory-based local storage; longhorn for block device storage (requires a dedicated disk and the iscsi-tools Talos extension, unavailable on Incus). Defaults to openebs.
+              - mayastor
+            description: CSI storage driver. openebs for directory-based local storage; longhorn or mayastor for replicated block storage (each needs a dedicated disk and a Talos extension). Defaults to openebs.
         additionalProperties: false
       cni:
         type: object

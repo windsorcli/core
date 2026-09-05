@@ -1,0 +1,115 @@
+---
+# The DiskPool operator requires an explicit CR per node with no
+# auto-discovery. This DaemonSet registers one per matching node.
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: mayastor-diskpool-registrar
+  namespace: system-csi
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: mayastor-diskpool-registrar
+  namespace: system-csi
+rules:
+  - apiGroups: [openebs.io]
+    resources: [diskpools]
+    verbs: [get, create, patch]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: mayastor-diskpool-registrar
+  namespace: system-csi
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: mayastor-diskpool-registrar
+subjects:
+  - kind: ServiceAccount
+    name: mayastor-diskpool-registrar
+    namespace: system-csi
+---
+apiVersion: apps/v1
+kind: DaemonSet
+metadata:
+  name: mayastor-diskpool-registrar
+  namespace: system-csi
+spec:
+  selector:
+    matchLabels:
+      app: mayastor-diskpool-registrar
+  template:
+    metadata:
+      labels:
+        app: mayastor-diskpool-registrar
+    spec:
+      serviceAccountName: mayastor-diskpool-registrar
+      nodeSelector:
+        openebs.io/engine: mayastor
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1000
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+        - name: registrar
+          # renovate: datasource=docker depName=openebs/kubectl package=openebs/kubectl
+          image: docker.io/openebs/kubectl:1.25.15@sha256:7a8d6955f40da47707896368ec4e7f9029ca643986af4ebcf4cbeb7798f0f896
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop: [ALL]
+          env:
+            - name: NODE_NAME
+              valueFrom:
+                fieldRef:
+                  fieldPath: spec.nodeName
+            - name: POOL_DEVICES
+              value: ${mayastor_pool_devices}
+          command:
+            - sh
+            - -c
+            - |
+              # Reconciles on an interval, recreating a DiskPool if it's
+              # deleted. One pool per configured disk. $$ escapes these
+              # variables from Flux's postBuild substitution; the shell
+              # resolves them at runtime.
+              while true; do
+                for pair in $${POOL_DEVICES}; do
+                  name=$${pair%%:*}
+                  device=$${pair#*:}
+                  if [ ! -b "$${device}" ]; then
+                    echo "skipping $${name}: $${device} not present on $${NODE_NAME}"
+                    continue
+                  fi
+                  cat <<EOF | kubectl apply -f -
+              apiVersion: openebs.io/v1beta3
+              kind: DiskPool
+              metadata:
+                name: pool-$${NODE_NAME}-$${name}
+                namespace: system-csi
+              spec:
+                node: $${NODE_NAME}
+                disks:
+                  - $${device}
+              EOF
+                done
+                sleep 60
+              done
+          resources:
+            requests:
+              cpu: 10m
+              memory: 32Mi
+            limits:
+              memory: 64Mi
+          volumeMounts:
+            # Read-only access to host block devices, to check a configured disk exists.
+            - name: dev
+              mountPath: /dev
+              readOnly: true
+      volumes:
+        - name: dev
+          hostPath:
+            path: /dev
