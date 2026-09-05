@@ -72,6 +72,9 @@ terraform:
   - name: compute
     when: "workstation.runtime == null || workstation.runtime == ''"
     path: compute/incus
+    # Serialized: concurrent instance creation triggers concurrent Talos image
+    # fetches, and images.windsorcli.dev rate-limits those (429).
+    parallelism: 1
     inputs:
       network_name: ""
       create_network: true

@@ -57,3 +57,5 @@ flux:
         interval: 5m
         components:
           - private-issuer/ca
+          # CA auto-injection is a Kyverno mutation; skip it when policies are off.
+          - "${(policies.enabled ?? true) == true ? 'private-issuer/ca/kyverno-inject' : ''}"

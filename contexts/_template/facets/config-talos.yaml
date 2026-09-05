@@ -41,7 +41,7 @@ config:
       # single-node forces the control plane to schedule workloads.
       allowSchedulingOnControlPlanes: "${(cluster.controlplanes.schedulable ?? false) || topology == 'single-node'}"
       controlplane_volumes: "${cluster.controlplanes.volumes ?? []}"
-      worker_volumes: "${cluster.workers.volumes ?? []}"
+      worker_volumes: "${let vols = cluster.workers.volumes ?? []; talos_common.storage_driver == 'mayastor' ? concat(vols, ['/var/local']) : vols}"
       csi_local_volume_path: "${cluster.storage.local_base_path ?? \"/var/mnt/local\"}"
 
       # Default to the longhorn disk when longhorn is the driver, else no disks.
@@ -90,6 +90,8 @@ config:
         longhorn:
           - siderolabs/iscsi-tools
           - siderolabs/util-linux-tools
+        mayastor:
+          - siderolabs/nvme-cli
 
       extensions: "${get(talos_common.csi_extensions, talos_common.storage_driver) ?? []}"
 
@@ -114,7 +116,7 @@ config:
       worker_factor: "${talos_common.worker_ratio > 2 ? 0 : (talos_common.worker_ratio < 1 ? 1 : (2 - talos_common.worker_ratio))}"
       worker_constrained: "${talos_common.worker_factor > 0}"
       worker_reserve_needed: "${talos_common.resource_constrained || talos_common.worker_constrained}"
-      worker_patch_emit: "${talos_common.worker_reserve_needed || platform == 'docker'}"
+      worker_patch_emit: "${talos_common.worker_reserve_needed || platform == 'docker' || talos_common.storage_driver == 'mayastor'}"
 
       # Base for worker_patch: platform blocks (docker's systemReserved gap)
       # and the kubeReserved block below each merge a sibling key into this.
@@ -227,6 +229,21 @@ config:
               kubeReserved:
                 cpu: ${talos_common.worker_reserve.kubelet_cpu}
                 memory: ${talos_common.worker_reserve.kubelet_memory}
+
+  # Mayastor: hugepages, the nvme_tcp module, a node label for io-engine.
+  # Its /var/local mount goes through worker_volumes instead, not here (extraMounts replaces rather than merges).
+  - name: talos_common
+    when: talos_common.storage_driver == 'mayastor'
+    value:
+      worker_patch:
+        machine:
+          sysctls:
+            vm.nr_hugepages: "1024"
+          nodeLabels:
+            openebs.io/engine: mayastor
+          kernel:
+            modules:
+              - name: nvme_tcp
 
   - name: talos_common
     when: talos_common.worker_patch_emit

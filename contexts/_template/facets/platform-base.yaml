@@ -440,6 +440,8 @@ flux:
     install:
       components:
         - fluentd
+        # RBAC for the Kyverno mutation fluentd's ClusterPolicy needs; skip when policies are off.
+        - "${(policies.enabled ?? true) == true ? 'fluentd/kyverno-inject' : ''}"
       timeout: 15m
       interval: 10m
     resources:

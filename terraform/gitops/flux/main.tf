@@ -102,6 +102,27 @@ locals {
             }
           }
         })
+      },
+      {
+        # source-controller's GOMEMLIMIT tracks its memory limit. A cold
+        # cache resync of every tracked source at once exceeds the default
+        # 1Gi and the Go runtime exits fatally rather than degrading.
+        target = { kind = "Deployment", name = "source-controller" }
+        patch = yamlencode({
+          apiVersion = "apps/v1"
+          kind       = "Deployment"
+          metadata   = { name = "source-controller" }
+          spec = {
+            template = {
+              spec = {
+                containers = [{
+                  name      = "manager"
+                  resources = { limits = { memory = "2Gi" } }
+                }]
+              }
+            }
+          }
+        })
       }
     ]
   )
@@ -314,7 +335,7 @@ resource "kubernetes_job_v1" "flux_ready_gate" {
     # Re-run the gate only when the flux-instance release actually changes
     # (e.g. a flux_version or flux_operator_version bump bumps the release
     # revision), not on every apply.
-    replace_triggered_by = [helm_release.flux_instance.metadata[0].revision]
+    replace_triggered_by = [helm_release.flux_instance.metadata.revision]
   }
 }
 

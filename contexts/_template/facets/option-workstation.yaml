@@ -121,7 +121,7 @@ config:
   - name: lb_effective
     when: platform == 'incus' && workstation.runtime == 'colima'
     value:
-      enabled: true
+      enabled: "${(network.loadbalancer_driver ?? 'kube-vip') != 'none'}"
       driver: "${network.loadbalancer_driver ?? 'kube-vip'}"
       mode: loadbalancer
 
@@ -226,14 +226,17 @@ terraform:
 
   # compute — Talos nodes
 
-  # Incus: provision Talos VMs on the workstation network. Under colima, use
-  # the local `dir` storage driver; otherwise use incus `default`.
+  # Incus: provision Talos VMs on the workstation network. Controlplane
+  # stays on the `dir` pool for etcd's fsync path; workers use `default` (zfs).
   - name: compute
     when: "platform == 'incus' && (cluster.enabled ?? true)"
     path: compute/incus
     strategy: replace
     dependsOn:
       - workstation
+    # Serialized: concurrent instance creation triggers concurrent Talos image
+    # fetches, and images.windsorcli.dev rate-limits those (429).
+    parallelism: 1
     inputs:
       create_network: false
       network_name: ${terraform_output("workstation", "network_name")}
@@ -266,7 +269,7 @@ terraform:
           image: ${cluster.workers.image ?? talos.incus_image}
           type: virtual-machine
           description: Talos worker node
-          storage_pool: "${(workstation.runtime ?? '') == 'colima' ? 'local' : 'default'}"
+          storage_pool: default
           root_disk_size: ${string(cluster.workers.root_disk_size ?? 50) + "GB"}
           limits:
             cpu: ${string(cluster_resources_effective.workers.cpu)}
@@ -341,6 +344,7 @@ terraform:
       worker_disks: ${talos_common.worker_disks}
       common_config_patches: ${talos_common.common_config_patches}
       controlplane_config_patches: "${talos_common.oidc_ca_file_patch ?? ''}"
+      worker_config_patches: "${talos_common.worker_config_patches ?? ''}"
       controlplane_volumes: ${talos_common.controlplane_volumes ?? []}
       worker_volumes: ${talos_common.worker_volumes ?? []}
 
