@@ -4,9 +4,9 @@
 # or dependencies change.
 
 substitutions:
-  DOMAIN:
-    required_when: "`demo.resources.bookinfo: true`"
-    description: "Host suffix for the bookinfo Ingress (`bookinfo.${DOMAIN}`). Falls back to `test` if not provided. Must be set via Flux Kustomization-level substitution (the demo facet does not pass one)."
+  external_domain:
+    required_when: "`demo.resources.bookinfo: true` AND `gateway.enabled: true`"
+    description: "Hostname suffix for the bookinfo HTTPRoute (`bookinfo.${external_domain}`). Passed by the facet itself, from `gateway_effective.external_domain`."
   REGISTRY_URL:
     required_when: "`demo.resources.static: true`"
     description: "Image registry hosting the demo static-site container image (`${REGISTRY_URL}/demo:1.0.6`). No fallback; the static workload's pod will fail to pull if the variable is not set at the Flux Kustomization level."
@@ -44,7 +44,10 @@ components:
     description: "Creates the `demo-static` namespace (PSA `restricted`) with a `website` Deployment pulling `${REGISTRY_URL}/demo:1.0.6`, a Service, a 100Mi ReadWriteOnce PVC named `content`, and an Ingress."
   bookinfo:
     enable_when: "`demo.resources.bookinfo: true`"
-    description: "Pulls the upstream Istio bookinfo sample at tag `1.22.8` into `demo-bookinfo` (PSA `restricted`) and applies SecurityContext patches to the four Deployments (productpage, details, ratings, reviews) so the upstream manifests satisfy the namespace's PSA. Ingress at `bookinfo.${DOMAIN}`."
+    description: "Pulls the upstream Istio bookinfo sample at tag `1.22.8` into `demo-bookinfo` (PSA `restricted`) and applies SecurityContext patches to the four Deployments (productpage, details, ratings, reviews) so the upstream manifests satisfy the namespace's PSA."
+  bookinfo/gateway:
+    enable_when: "`demo.resources.bookinfo: true` AND `gateway.enabled: true`"
+    description: "HTTPRoute exposing productpage at `bookinfo.${external_domain}` through the cluster Gateway. Skipped on clusters without Gateway API."
 
 dependencies:
   database:
@@ -53,3 +56,6 @@ dependencies:
   provisioning:
     required_when: "`demo.resources.database: true` AND `database.postgres.driver == 'rds'`"
     reason: "Crossplane's provider-aws-rds must finish installing before the `demo-db` Instance CR's CRD is registered. Wired as a conditional `dependsOn` in the facet."
+  gateway-resources:
+    required_when: "`bookinfo/gateway` is enabled"
+    reason: "The HTTPRoute needs the cluster Gateway to be Programmed first. Wired as a conditional `dependsOn` in the facet."
