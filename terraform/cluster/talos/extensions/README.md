@@ -23,7 +23,7 @@ worker nodes when the image changes.
 
 | Name | Version |
 |------|---------|
-| <a name="provider_null"></a> [null](#provider\_null) | 3.3.0 |
+| <a name="provider_null"></a> [null](#provider\_null) | 3.3.1 |
 | <a name="provider_talos"></a> [talos](#provider\_talos) | 0.11.0 |
 
 ## Modules
