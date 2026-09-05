@@ -16,7 +16,7 @@ packages:
   - name: prometheus/prometheus@v3.14.0
   - name: siderolabs/talos@v1.14.0
   - name: siderolabs/omni/omnictl@v1.10.5
-  - name: siderolabs/omni/omni@v1.10.5
+  - name: siderolabs/omni/omni@v1.11.0
   - name: kubernetes/kubectl@v1.37.0
   - name: go-task/task@v3.53.1
   - name: golang/go@go1.27.1
