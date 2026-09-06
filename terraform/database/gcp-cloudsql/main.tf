@@ -69,6 +69,8 @@ resource "google_kms_key_ring" "cloudsql" {
 }
 
 resource "google_kms_crypto_key" "cloudsql" {
+  # checkov:skip=CKV_GCP_82: Only created when kms_key_name is unset; durable
+  # deployments supply an externally-managed key instead of this one.
   count           = var.manage_encryption_key && var.kms_key_name == "" ? 1 : 0
   name            = "cloudsql-${var.context_id}"
   key_ring        = google_kms_key_ring.cloudsql[0].id
