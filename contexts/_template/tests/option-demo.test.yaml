@@ -85,7 +85,7 @@ cases:
           dependsOn:
             - provisioning-resources
           resources:
-            - timeout: 10m
+            - timeout: 20m
               interval: 5m
               components:
                 - database
@@ -96,6 +96,10 @@ cases:
                 kms_key_arn: arn:aws:kms:us-west-2:123456789012:key/abcd1234-5678-90ab-cdef-1234567890ab
                 rds_security_group_id: sg-0abcd1234
                 demo_db_name: demo
+              healthCheckExprs:
+                - apiVersion: rds.aws.upbound.io/v1beta3
+                  kind: Instance
+                  current: status.conditions.exists(e, e.type == 'Ready' && e.status == 'True')
         - name: demo-app-role
           path: provisioning
           dependsOn:
@@ -141,7 +145,7 @@ cases:
           dependsOn:
             - provisioning-resources
           resources:
-            - timeout: 10m
+            - timeout: 20m
               interval: 5m
               components:
                 - database
@@ -150,6 +154,10 @@ cases:
                 flexibleserver_subnet_id: /subscriptions/sub/resourceGroups/rg/providers/Microsoft.Network/virtualNetworks/vnet-test/subnets/flexibleserver-test
                 flexibleserver_private_dns_zone_id: /subscriptions/sub/resourceGroups/test-postgres/providers/Microsoft.Network/privateDnsZones/test.postgres.database.azure.com
                 flexibleserver_region: eastus2
+              healthCheckExprs:
+                - apiVersion: dbforpostgresql.azure.upbound.io/v1beta1
+                  kind: FlexibleServer
+                  current: status.conditions.exists(e, e.type == 'Ready' && e.status == 'True')
         - name: demo-app-role
           path: provisioning
           dependsOn:
@@ -200,7 +208,7 @@ cases:
           dependsOn:
             - provisioning-resources
           resources:
-            - timeout: 10m
+            - timeout: 20m
               interval: 5m
               components:
                 - database
@@ -209,6 +217,10 @@ cases:
                 cloudsql_network_id: projects/windsor-test/global/networks/vpc-test
                 cloudsql_kms_key_name: projects/windsor-test/locations/us-central1/keyRings/cloudsql-test/cryptoKeys/cloudsql-test
                 cloudsql_region: us-central1
+              healthCheckExprs:
+                - apiVersion: sql.gcp.upbound.io/v1beta2
+                  kind: DatabaseInstance
+                  current: status.conditions.exists(e, e.type == 'Ready' && e.status == 'True')
         - name: demo-app-role
           path: provisioning
           dependsOn:

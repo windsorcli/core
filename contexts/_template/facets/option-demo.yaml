@@ -73,7 +73,14 @@ flux:
           rds_security_group_id: "${terraform_output('database', 'security_group_id') ?? ''}"
           demo_db_name: "${demo_database_name}"
           aws_region: "${aws.region ?? ''}"
-        timeout: 10m
+        healthCheckExprs:
+          - apiVersion: rds.aws.upbound.io/v1beta3
+            kind: Instance
+            current: status.conditions.exists(e, e.type == 'Ready' && e.status == 'True')
+        # Gated on the Instance's own Ready condition, not just the CR apply,
+        # so windsor apply --wait blocks until RDS actually finishes
+        # provisioning. 20m covers RDS's real provisioning time.
+        timeout: 20m
         interval: 5m
 
   # flexibleserver driver: shared namespace and the FlexibleServer +
@@ -94,7 +101,14 @@ flux:
           flexibleserver_subnet_id: "${terraform_output('network', 'flexibleserver_subnet_id') ?? ''}"
           flexibleserver_private_dns_zone_id: "${terraform_output('database', 'private_dns_zone_id') ?? ''}"
           flexibleserver_region: "${terraform_output('network', 'region') ?? ''}"
-        timeout: 10m
+        healthCheckExprs:
+          - apiVersion: dbforpostgresql.azure.upbound.io/v1beta1
+            kind: FlexibleServer
+            current: status.conditions.exists(e, e.type == 'Ready' && e.status == 'True')
+        # Gated on the FlexibleServer's own Ready condition, not just the CR
+        # apply, so windsor apply --wait blocks until it actually finishes
+        # provisioning. 20m covers Flexible Server's real provisioning time.
+        timeout: 20m
         interval: 5m
 
   # cloudsql driver: shared namespace and the DatabaseInstance + User +
@@ -115,7 +129,14 @@ flux:
           cloudsql_network_id: "${terraform_output('network', 'network_id') ?? ''}"
           cloudsql_kms_key_name: "${terraform_output('database', 'kms_key_name') ?? ''}"
           cloudsql_region: "${terraform_output('network', 'region') ?? ''}"
-        timeout: 10m
+        healthCheckExprs:
+          - apiVersion: sql.gcp.upbound.io/v1beta2
+            kind: DatabaseInstance
+            current: status.conditions.exists(e, e.type == 'Ready' && e.status == 'True')
+        # Gated on the DatabaseInstance's own Ready condition, not just the
+        # CR apply, so windsor apply --wait blocks until Cloud SQL actually
+        # finishes provisioning. 20m covers Cloud SQL's real provisioning time.
+        timeout: 20m
         interval: 5m
 
   # Application credential for demo-db. Depends on demo-resources for
