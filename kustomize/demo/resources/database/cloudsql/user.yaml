@@ -1,10 +1,6 @@
 ---
-# The admin user, a separate CR from the instance — Cloud SQL's
-# DatabaseInstance carries no administratorLogin-equivalent field the way
-# dbforpostgresql.azure.upbound.io FlexibleServer does. passwordSecretRef
-# reads the credential database/gcp-cloudsql's Terraform already wrote;
-# unlike Flexible Server's autoGeneratePassword, Cloud SQL never generates
-# and writes one itself.
+# The admin user. passwordSecretRef reads the credential
+# database/gcp-cloudsql's Terraform already wrote.
 apiVersion: sql.gcp.upbound.io/v1beta2
 kind: User
 metadata:

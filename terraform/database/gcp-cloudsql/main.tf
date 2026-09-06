@@ -31,10 +31,8 @@ provider "google-beta" {}
 
 #---------------------------------------------------------------------------------------------------
 # Private Service Connection
-# Cloud SQL's private-IP mode peers through Service Networking, which needs
-# a reserved address range and a VPC peering connection — the GCP
-# equivalent of RDS's DB subnet group and Flexible Server's delegated
-# subnet and private DNS zone.
+# GCP's equivalent of RDS's DB subnet group and Flexible Server's
+# delegated subnet.
 #---------------------------------------------------------------------------------------------------
 
 resource "google_compute_global_address" "private_service_connection" {
@@ -53,15 +51,11 @@ resource "google_service_networking_connection" "cloudsql" {
 
 #---------------------------------------------------------------------------------------------------
 # Customer-Managed Encryption Key (optional)
-# Same BYOK precedence as database/aws-rds and database/azure-postgres: an
-# explicit key wins. Otherwise a dedicated key, unless the context is
-# ephemeral — an ephemeral context uses Cloud SQL's platform-managed
-# encryption instead.
+# BYOK precedence matches database/aws-rds and database/azure-postgres.
 #---------------------------------------------------------------------------------------------------
 
-# Cloud SQL's service agent is provisioned lazily by GCP, only on a
-# project's first real Cloud SQL Admin API call. This forces it into
-# existence up front so the IAM grant below has a real principal to target.
+# GCP provisions this service agent lazily. Force it up front for the
+# IAM grant below.
 resource "google_project_service_identity" "cloudsql" {
   provider = google-beta
   project  = var.project_id
@@ -96,18 +90,13 @@ resource "google_kms_crypto_key_iam_member" "cloudsql" {
 
 #---------------------------------------------------------------------------------------------------
 # Admin Credentials
-# Cloud SQL's User resource (unlike RDS's Instance or Flexible Server's own
-# resource) has no auto-generate-and-write-to-secret mechanism for Postgres —
-# passwordSecretRef only ever reads an existing Secret. This module
-# generates the password and writes the Secret itself, one per named
-# instance in var.admin_credentials, so the rest of the app-role/monitoring
-# CronJob pattern (unchanged from RDS/Flexible Server) can read it the same
-# way.
+# Cloud SQL's User resource has no auto-generate-and-write-to-secret
+# mechanism. This module generates the password and writes the Secret
+# itself, one per named instance in var.admin_credentials.
 #
 # Terraform runs before Flux, so this module creates its own copy of the
-# system-provisioning namespace rather than depending on the one
-# kustomize/provisioning creates later, mirroring cluster/aws-eks/additions's
-# system-dns namespace and gitops/flux's flux-system namespace.
+# system-provisioning namespace, matching cluster/aws-eks/additions's
+# system-dns and gitops/flux's flux-system.
 #---------------------------------------------------------------------------------------------------
 
 resource "kubernetes_namespace_v1" "system_provisioning" {

@@ -9,9 +9,6 @@ when: demo.enabled == true
 # =============================================================================
 # Terraform — Cloud SQL admin credential
 # =============================================================================
-# Cloud SQL's own User resource has no auto-generate mechanism the way
-# rds.aws.upbound.io Instance or dbforpostgresql.azure.upbound.io
-# FlexibleServer do, so the demo declares which instance name needs one.
 # Merges into platform-gcp.yaml's own "database" terraform entry.
 terraform:
   - name: database
@@ -77,11 +74,7 @@ flux:
           - apiVersion: rds.aws.upbound.io/v1beta3
             kind: Instance
             current: status.conditions.exists(e, e.type == 'Ready' && e.status == 'True')
-        # Gated on the Instance's own Ready condition, not just the CR apply,
-        # so windsor apply --wait blocks until RDS actually finishes
-        # provisioning. A generous timeout costs nothing on the happy
-        # path — it only affects how long Flux waits before giving up on
-        # an unusually slow provision.
+        # Gated on the Instance's own Ready condition, not the CR apply.
         timeout: 30m
         interval: 5m
 
@@ -107,11 +100,7 @@ flux:
           - apiVersion: dbforpostgresql.azure.upbound.io/v1beta1
             kind: FlexibleServer
             current: status.conditions.exists(e, e.type == 'Ready' && e.status == 'True')
-        # Gated on the FlexibleServer's own Ready condition, not just the CR
-        # apply, so windsor apply --wait blocks until it actually finishes
-        # provisioning. A generous timeout costs nothing on the happy
-        # path — it only affects how long Flux waits before giving up on
-        # an unusually slow provision.
+        # Gated on the FlexibleServer's own Ready condition, not the CR apply.
         timeout: 30m
         interval: 5m
 
@@ -127,9 +116,8 @@ flux:
           - database
           - database/cloudsql
         substitutions:
-          # The demo reads the real terraform outputs directly; a
-          # third-party chart (no Flux substitution access) has to
-          # reconstruct the naming convention instead.
+          # The demo reads terraform outputs directly, unlike a
+          # third-party chart with no Flux substitution access.
           cloudsql_network_id: "${terraform_output('network', 'network_id') ?? ''}"
           cloudsql_kms_key_name: "${terraform_output('database', 'kms_key_name') ?? ''}"
           cloudsql_region: "${terraform_output('network', 'region') ?? ''}"
@@ -137,12 +125,8 @@ flux:
           - apiVersion: sql.gcp.upbound.io/v1beta2
             kind: DatabaseInstance
             current: status.conditions.exists(e, e.type == 'Ready' && e.status == 'True')
-        # Gated on the DatabaseInstance's own Ready condition, not just the
-        # CR apply, so windsor apply --wait blocks until Cloud SQL actually
-        # finishes provisioning. A generous timeout costs nothing on the
-        # happy path — it only affects how long Flux waits before giving up
-        # on an unusually slow provision. Empirically ~9m for a
-        # db-f1-micro instance to go Ready.
+        # Gated on the DatabaseInstance's own Ready condition, not the CR
+        # apply. A db-f1-micro instance takes ~9m to go Ready.
         timeout: 30m
         interval: 5m
 
@@ -164,9 +148,7 @@ flux:
           # grants to layer on.
           pg_grant_sql: ""
         healthCheckExprs:
-          # Gated on the one-shot Job's own Complete condition, not just its
-          # apply, so windsor apply --wait blocks until the app credential
-          # Secret genuinely exists.
+          # Gated on the Job's Complete condition, not its apply.
           - apiVersion: batch/v1
             kind: Job
             current: status.conditions.exists(e, e.type == 'Complete' && e.status == 'True')
@@ -188,9 +170,7 @@ flux:
           pg_target_namespace: demo-database
           pg_grant_sql: ""
         healthCheckExprs:
-          # Gated on the one-shot Job's own Complete condition, not just its
-          # apply, so windsor apply --wait blocks until the app credential
-          # Secret genuinely exists.
+          # Gated on the Job's Complete condition, not its apply.
           - apiVersion: batch/v1
             kind: Job
             current: status.conditions.exists(e, e.type == 'Complete' && e.status == 'True')
@@ -213,9 +193,7 @@ flux:
           pg_target_namespace: demo-database
           pg_grant_sql: ""
         healthCheckExprs:
-          # Gated on the one-shot Job's own Complete condition, not just its
-          # apply, so windsor apply --wait blocks until the app credential
-          # Secret genuinely exists.
+          # Gated on the Job's Complete condition, not its apply.
           - apiVersion: batch/v1
             kind: Job
             current: status.conditions.exists(e, e.type == 'Complete' && e.status == 'True')

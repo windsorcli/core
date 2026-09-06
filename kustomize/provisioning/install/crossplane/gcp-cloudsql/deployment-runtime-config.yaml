@@ -1,8 +1,6 @@
 ---
 # Pins the provider-gcp-sql pod's ServiceAccount name for Terraform's
-# Workload Identity binding. GKE resolves the identity from this one
-# annotation — no pod label or token-volume injection needed, unlike AKS's
-# workload identity webhook.
+# Workload Identity binding.
 apiVersion: pkg.crossplane.io/v1beta1
 kind: DeploymentRuntimeConfig
 metadata:

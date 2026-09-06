@@ -110,9 +110,8 @@ spec:
                 app: "{{request.object.metadata.name}}-postgres-exporter"
             podMetricsEndpoints:
               - port: metrics
-                # Without this, instance defaults to the exporter pod's own IP —
-                # meaningless, and it churns on every pod restart. Naming the
-                # actual DatabaseInstance instead keeps it stable and readable.
+                # Labels the DatabaseInstance instead of the exporter pod's
+                # own, unstable IP.
                 relabelings:
                   - targetLabel: instance
                     replacement: "{{request.object.metadata.name}}"

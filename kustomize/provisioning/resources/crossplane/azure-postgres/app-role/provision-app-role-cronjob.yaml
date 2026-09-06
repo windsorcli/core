@@ -1,15 +1,8 @@
 ---
-# Provisions ${pg_database_name}_app for ${pg_instance_name} from its
-# admin credential Secret, never the admin credential itself.
-# The role owns its database, matching CNPG's own default "app" user, so
-# the chart can run its own schema migrations. pg_grant_sql adds grants
-# ownership doesn't cover, like a second read-only consumer. This
-# component handles role creation, password handling, and publishing
-# ${pg_instance_name}-app-credentials. A tick before the FlexibleServer
-# is Ready, or after the role already exists, exits clean. Runs the same
-# scripts as provision-app-role-job.yaml, mounted from the ConfigMaps the
-# kustomization.yaml generator and _shared/app-role-scripts build, so the
-# logic exists once.
+# Provisions ${pg_database_name}_app for ${pg_instance_name} from the
+# admin credential Secret, and publishes ${pg_instance_name}-app-credentials.
+# Exits clean before the FlexibleServer is Ready or once the role exists.
+# Runs the same mounted scripts as provision-app-role-job.yaml.
 apiVersion: batch/v1
 kind: CronJob
 metadata:

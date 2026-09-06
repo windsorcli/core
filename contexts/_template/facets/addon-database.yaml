@@ -6,9 +6,8 @@ metadata:
 
 when: database.postgres.enabled == true
 
-# Crossplane's own CRDs, vendored (kustomize/crds/crossplane-2.4.0), owned by
-# the crds: layer, not the chart. Only the rds, flexibleserver, and
-# cloudsql drivers need them.
+# Crossplane's own CRDs, vendored (kustomize/crds/crossplane-2.4.0), for
+# the rds/flexibleserver/cloudsql drivers.
 crds:
   # renovate: datasource=github-releases depName=crossplane/crossplane package=crossplane/crossplane
   - "${(database.postgres.driver == 'rds' || database.postgres.driver == 'flexibleserver' || database.postgres.driver == 'cloudsql') ? 'crossplane-2.4.0' : ''}"
@@ -58,13 +57,7 @@ flux:
       timeout: 15m
       interval: 5m
     resources:
-      # ProviderConfig + the tag policy + the always-on monitoring
-      # generate policies. ProviderConfig's CRD registers only once
-      # provisioning-providers reports the Provider Healthy/Installed.
-      # The exporter's own generate policy is separate
-      # (monitoring-exporter component) since it needs
-      # telemetry.metrics.enabled — PodMonitor only exists once the
-      # metrics pipeline vendors that CRD.
+      # Waits for Healthy/Installed so ProviderConfig's CRD exists.
       - dependsOn:
           - provisioning-providers-install
         components:
@@ -106,13 +99,7 @@ flux:
       timeout: 15m
       interval: 5m
     resources:
-      # ProviderConfig + the resource-group policy + the always-on
-      # monitoring generate policies. ProviderConfig's CRD registers only
-      # once provisioning-providers reports the Provider
-      # Healthy/Installed. The exporter's own generate policy is
-      # separate (monitoring-exporter component) since it needs
-      # telemetry.metrics.enabled — PodMonitor only exists once the
-      # metrics pipeline vendors that CRD.
+      # Waits for Healthy/Installed so ProviderConfig's CRD exists.
       - dependsOn:
           - provisioning-providers-install
         components:
@@ -150,10 +137,7 @@ flux:
         crossplane_azure_client_id: "${terraform_output('crossplane-identity-azure', 'client_ids')['postgres'] ?? ''}"
         crossplane_azure_tenant_id: "${terraform_output('crossplane-identity-azure', 'tenant_id') ?? ''}"
 
-  # Crossplane engine (kustomize/provisioning) — GCP twin of the rds/
-  # flexibleserver entries above. A chart creates the DatabaseInstance CR.
-  # Core only installs the engine and wires GCP Workload Identity
-  # credentials.
+  # Installs the Crossplane engine and wires GCP Workload Identity.
   - name: provisioning
     when: database.postgres.driver == 'cloudsql'
     install:
@@ -162,13 +146,7 @@ flux:
       timeout: 15m
       interval: 5m
     resources:
-      # ProviderConfig + the project policy + the always-on monitoring
-      # generate policies. ProviderConfig's CRD registers only once
-      # provisioning-providers reports the Provider Healthy/Installed.
-      # The exporter's own generate policy is separate
-      # (monitoring-exporter component) since it needs
-      # telemetry.metrics.enabled — PodMonitor only exists once the
-      # metrics pipeline vendors that CRD.
+      # Waits for Healthy/Installed so ProviderConfig's CRD exists.
       - dependsOn:
           - provisioning-providers-install
         components:
@@ -179,11 +157,7 @@ flux:
         timeout: 5m
         interval: 5m
 
-  # provider-gcp-sql's Provider CR + DeploymentRuntimeConfig, a system of
-  # its own so destroy can remove it before provisioning-install. Left in
-  # place, its package-manager finalizer only clears while the Crossplane
-  # engine pod is still running. Crossplane's own CRDs are vendored
-  # (crds: above), so these are as safe here as the HelmRelease.
+  # provider-gcp-sql's Provider CR and DeploymentRuntimeConfig.
   - name: provisioning-providers
     path: provisioning
     when: database.postgres.driver == 'cloudsql'

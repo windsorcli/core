@@ -86,11 +86,8 @@ spec:
                             kubectl get secret {{request.object.metadata.name}}-admin-credentials \
                               -n system-provisioning -o jsonpath='{.data.password}' | base64 -d > /shared/admin-password
 
-                            # Reuse the password already published, so a role that
-                            # already exists doesn't get a new one every tick — the
-                            # exporter's DSN is read once at pod start and wouldn't
-                            # see the change anyway. Only a fresh role gets a fresh
-                            # one, independent of the admin password's own rotation.
+                            # Reuse the published password. Only a fresh role
+                            # gets a fresh one.
                             EXISTING=$(kubectl get secret {{request.object.metadata.name}}-monitor-credentials \
                               -n system-provisioning -o jsonpath='{.data.password}' 2>/dev/null | base64 -d || echo "")
                             if [ -n "$EXISTING" ]; then

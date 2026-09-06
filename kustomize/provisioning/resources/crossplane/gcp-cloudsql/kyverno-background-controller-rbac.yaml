@@ -1,9 +1,6 @@
 ---
-# Kyverno's background-controller only generates resource kinds it's been
-# explicitly granted. This label aggregates into its own ClusterRole
-# (kyverno:background-controller), the extension point its chart ships
-# for exactly this — see rbac.kyverno.io/aggregate-to-background-controller
-# in Kyverno's own RBAC.
+# Aggregates into kyverno:background-controller via
+# rbac.kyverno.io/aggregate-to-background-controller.
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
 metadata:
@@ -22,11 +19,8 @@ rules:
       - create
       - update
       - delete
-  # Kubernetes' own privilege-escalation check: to generate a ClusterRole
-  # granting this, background-controller must hold it itself. Granted
-  # here to Kyverno's own controller, not to the bootstrap ServiceAccount —
-  # the identity the generated RBAC actually scopes stays exactly as
-  # narrow as before.
+  # background-controller must hold this to generate a ClusterRole
+  # granting it (Kubernetes' privilege-escalation check).
   - apiGroups:
       - sql.gcp.upbound.io
     resources:

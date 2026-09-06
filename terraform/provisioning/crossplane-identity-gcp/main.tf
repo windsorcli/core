@@ -18,12 +18,8 @@ provider "google" {}
 # Resource Catalog
 #---------------------------------------------------------------------------------------------------
 
-# Per-resource-type ServiceAccount, namespace, and IAM role. Adding a new
-# Crossplane-managed GCP resource type means adding an entry here. Same
-# catalog shape as crossplane-identity-azure. roles/cloudsql.admin is
-# Google's own predefined least-privilege role for this — unlike AWS/Azure,
-# GCP's IAM model has no per-resource scoping to further narrow it with a
-# custom role.
+# Per-resource-type ServiceAccount, namespace, and IAM role. Same catalog
+# shape as crossplane-identity-azure.
 locals {
   catalog = {
     postgres = {

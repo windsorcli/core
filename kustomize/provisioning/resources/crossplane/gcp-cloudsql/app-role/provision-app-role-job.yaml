@@ -1,14 +1,7 @@
 ---
-# One-shot twin of provision-app-role-cronjob.yaml: runs the same mounted
-# scripts the moment Flux applies this manifest, instead of waiting for the
-# CronJob's next scheduled tick. Flux's dependsOn on demo-resources's own
-# healthCheckExprs already guarantees the DatabaseInstance is Ready by the
-# time this applies, so the "not Ready yet" skip branch in
-# fetch-admin-credentials.sh never fires here — it stays only for
-# defense-in-depth. The CronJob remains the ongoing self-healing mechanism;
-# this Job exists purely so a Kustomization healthCheckExprs gate has a
-# fixed-name, Flux-tracked resource to wait on for the app credential's
-# availability.
+# One-shot twin of provision-app-role-cronjob.yaml. Runs the mounted
+# scripts immediately on apply, giving demo-app-role's healthCheckExprs
+# a Job to gate on. The CronJob keeps handling ongoing self-healing.
 apiVersion: batch/v1
 kind: Job
 metadata:

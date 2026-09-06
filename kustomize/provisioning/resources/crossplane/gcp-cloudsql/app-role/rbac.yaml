@@ -1,8 +1,6 @@
 ---
-# DatabaseInstance is cluster-scoped (sql.gcp.upbound.io has no namespaced
-# kinds), so reading it needs a ClusterRole even though this only ever
-# touches the one named DatabaseInstance. Named for it to keep the grant
-# obviously scoped.
+# DatabaseInstance is cluster-scoped, so reading it needs a ClusterRole.
+# Named for the one DatabaseInstance it grants access to.
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
 metadata:
