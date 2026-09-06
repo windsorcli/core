@@ -96,9 +96,8 @@ config:
   # server doesn't have Windsor context). Default gateway and nameservers here
   # so the operator only needs to declare cidr_block.
   - name: network
-    when: (network.gateway ?? '') == ''
     value:
-      gateway: "${cidrhost(network.cidr_block ?? '10.5.0.0/16', 1)}"
+      gateway: "${network.gateway ?? cidrhost(network.cidr_block, 1)}"
   - name: network
     when: len(network.nameservers ?? []) == 0
     value:
