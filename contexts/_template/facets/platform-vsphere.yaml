@@ -95,9 +95,14 @@ config:
   # vSphere VMs on a plant network typically don't have DHCP (or the DHCP
   # server doesn't have Windsor context). Default gateway and nameservers here
   # so the operator only needs to declare cidr_block.
-  - name: network
+  #
+  # gateway lives under network_effective, not network: a same-block
+  # cidrhost() call on network.cidr_block never converges (composer treats a
+  # function argument referencing the block's own name as derived and leaves
+  # it unevaluated). Consumers read network_effective.gateway instead.
+  - name: network_effective
     value:
-      gateway: "${network.gateway ?? cidrhost(network.cidr_block, 1)}"
+      gateway: "${network.gateway ?? cidrhost(network.cidr_block ?? '10.5.0.0/16', 1)}"
   - name: network
     when: len(network.nameservers ?? []) == 0
     value:
@@ -209,7 +214,7 @@ terraform:
                 deviceSelector: {physical: true},
                 dhcp: false,
                 addresses: [cidrhost(network.cidr_block, 9 + #) + "/" + split(network.cidr_block, "/")[1]],
-                routes: [{network: "0.0.0.0/0", gateway: network.gateway}]
+                routes: [{network: "0.0.0.0/0", gateway: network_effective.gateway}]
               }],
               nameservers: network.nameservers
             }}})
@@ -221,7 +226,7 @@ terraform:
                 deviceSelector: {physical: true},
                 dhcp: false,
                 addresses: [cidrhost(network.cidr_block, 19 + #) + "/" + split(network.cidr_block, "/")[1]],
-                routes: [{network: "0.0.0.0/0", gateway: network.gateway}]
+                routes: [{network: "0.0.0.0/0", gateway: network_effective.gateway}]
               }],
               nameservers: network.nameservers
             }}})

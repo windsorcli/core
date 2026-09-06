@@ -410,8 +410,9 @@ cases:
     terraformOutputs: *default-terraform-outputs
     expect:
       config:
-        network:
+        network_effective:
           gateway: 10.10.0.1
+        network:
           nameservers:
             - "1.1.1.1"
             - "8.8.8.8"
