@@ -38,14 +38,35 @@ contract and with running Cilium as the CNI (Autopilot fixes the dataplane).
 Recommend Standard, for parity with the other two platforms and because it's
 the only mode that supports a customer-chosen CNI.
 
-**CNI: Cilium vs GKE Dataplane V2.** GKE's default dataplane is itself
-eBPF-based (Cilium-derived) and conflicts with running an independent Cilium
-install the way EKS/AKS do. `cluster/gcp-gke` needs
-`network_policy { enabled = false }` / `datapath_provider =
-"ADVANCED_DATAPATH"` disabled at the GKE API level so Cilium owns the CNI,
-matching how EKS/AKS are provisioned without their respective default CNIs.
-Needs verification against current GKE API behavior before `cluster/gcp-gke`
-is written — this is the highest-risk unknown in the whole plan.
+**CNI: Cilium vs GKE Dataplane V2. Resolved — GKE Dataplane V2, matching the
+AKS precedent already in this repo.** This repo's own `cluster/azure-aks`
+answered the "cloud-managed Kubernetes + Cilium" question already:
+`network_profile { network_policy = "cilium", network_data_plane = "cilium"
+}` is unconditional in that module, using Azure's own managed Cilium
+integration rather than a self-managed Helm install layered on top —
+`cluster.cni.driver` stays empty for `platform == 'azure'`
+(`platform-base.yaml`), so Windsor's own `terraform/cni/cilium` +
+`option-cni.yaml` never fire there. `cluster/aws-eks` takes the opposite
+default (AWS's native `vpc-cni` addon, no Cilium at all) but supports
+opting into self-managed Cilium.
+
+GKE Dataplane V2 (`datapath_provider = "ADVANCED_DATAPATH"`) is Google's
+equivalent of AKS's managed Cilium integration — implemented with Cilium's
+eBPF, run and configured entirely by Google. The AKS shape is the right one
+to copy: enable Dataplane V2 unconditionally in `cluster/gcp-gke`, leave
+`cluster.cni.driver` empty for `platform == 'gcp'` (same as azure/aws), and
+never attempt a self-managed Cilium Helm install on top. That last part is
+GKE-specific and not optional the way it is on AKS/EKS: Google's own docs
+state Dataplane V2 doesn't support installing custom eBPF programs on its
+nodes at all, unlike Azure CNI Powered by Cilium, which is explicitly
+designed to be user-configurable. So `cluster.cni.driver == 'cilium'`
+should never become a supported override for `platform == 'gcp'` the way it
+is for `platform == 'aws'`.
+
+The tradeoff: GKE clusters won't get the Hubble/Gateway-API/L2/Prometheus
+features Windsor's own `cni/cilium` kustomize component provides on Talos
+platforms — same tradeoff AKS and EKS already accept today, not a
+regression specific to GKE.
 
 **Workload Identity Federation for Crossplane.** GCP's equivalent of AWS Pod
 Identity / Azure Workload Identity is Workload Identity Federation: a GCP
@@ -165,3 +186,14 @@ Autopilot support, GCP Filestore (the EFS-equivalent), and Anthos/multi-
 cluster mesh integration are all out of scope — none are needed to reach
 parity with what AWS/Azure already support, and each is its own follow-on
 scope once the base platform lands.
+
+## Known gaps
+
+`cluster/gcp-gke`'s `class: storage` pool resolves to a plain general-purpose
+machine (`n2-standard-8`/`n2-standard-16`) with no local SSD attached — a
+no-op compared to AWS's `i3`/`i4i` or Azure's `Lsv3`, both of which ship
+local NVMe SSD as the defining feature of that class. GCP has no fixed
+storage-optimized machine family; local SSD is a separate node-pool
+attachment (`ephemeral_storage_local_ssd_config`), and making it actually
+usable by pods needs a CSI provisioner on top, not just the attachment.
+Scoped out until a real `class: storage` consumer on GCP needs it.
