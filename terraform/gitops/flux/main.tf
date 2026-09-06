@@ -217,7 +217,7 @@ resource "helm_release" "flux_instance" {
 
 locals {
   # renovate: datasource=docker depName=kubectl package=alpine/k8s
-  ready_gate_image = "alpine/k8s:1.36.2@sha256:44ef4942e171939b9c665a4a84beb80e2dcdb9a24330d4651cfdfd2e9deecc47"
+  ready_gate_image = "alpine/k8s:1.37.0@sha256:b421c2e9419edb98db39b6ab641669f4db7bb2acf354f22450c6b7e7176d1ff4"
 }
 
 # The ServiceAccount the readiness gate Job runs as.
