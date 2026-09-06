@@ -67,7 +67,7 @@ spec:
         volumePermissions:
           image:
             # renovate: datasource=docker depName=openebs/alpine-bash package=openebs/alpine-bash
-            tag: 4.5.0@sha256:4a8ddc93cf9071d0fa36a0fc1fd20be56037aac4eb07adb8f273f34763396839
+            tag: 4.6.0@sha256:366d6c5f18c3ea9d54f5ddb4fd4e305ae40339137ba24818d86fbd0d0b590dbc
         # Reuse our own local class instead of the chart's own hostpath
         # StorageClass. Stays local (not the mayastor CSI classes): etcd is
         # what agent-core needs to come up, so it can't depend on the data
