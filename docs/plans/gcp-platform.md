@@ -184,9 +184,14 @@ Pod Identity).
    bare cluster this phase originally targeted.
 4. **DNS + cert-manager**: `dns/zone/gcp-dns`, the `clouddns` ACME solver,
    the `google` external-dns provider. Unlocks `dns.public_domain` on GCP.
-5. **Database + Crossplane identity**: `database/gcp-cloudsql`,
-   `provisioning/crossplane-identity-gcp`. Unlocks
-   `database.postgres.driver` and the `provisioning` add-on on GCP.
+5. **Done.** `database/gcp-cloudsql`, `provisioning/crossplane-identity-gcp`,
+   and the `cloudsql` `database.postgres.driver`. Landed ahead of phase 4.
+   Cloud SQL's `User` CR has no auto-generate mechanism for Postgres (unlike
+   RDS/Flexible Server), so `gcp-cloudsql` generates the admin password
+   itself and writes it to a Secret a chart's `User` CR reads via
+   `passwordSecretRef`. Uses `roles/cloudsql.admin` at project scope —
+   GCP's IAM model has no per-resource-group scoping the way Azure RBAC
+   does, so this is a weaker boundary than the Azure equivalent.
 6. **Full `platform-gcp.test.yaml`** covering every branch the equivalent
    AWS/Azure test files cover (minimal config, public domain, private
    gateway access, topology variants) plus docs (`docs/compatibility.md`

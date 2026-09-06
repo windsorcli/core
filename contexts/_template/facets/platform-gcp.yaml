@@ -69,6 +69,44 @@ terraform:
       pools: >-
         ${cluster.pools ?? {"general": {"class": "general", "count": 1}}}
 
+  # Private service connection and KMS key for Cloud SQL. Shared across
+  # every database in a context. Engine-agnostic, unlike
+  # crossplane-identity-gcp below.
+  - name: database
+    path: database/gcp-cloudsql
+    when: "database.postgres.enabled == true && database.postgres.driver == 'cloudsql'"
+    dependsOn:
+      - network
+      - cluster
+    inputs:
+      project_id: ${gcp.project_id}
+      # Derived from network's own output, not gcp.region directly — Cloud
+      # SQL's KMS key ring must colocate with the VPC regardless of how
+      # region was set.
+      region: ${terraform_output('network', 'region')}
+      network_id: ${terraform_output('network', 'network_id')}
+      # Dedicated key unless the context is ephemeral (CI, throwaway test
+      # contexts), where Cloud SQL's platform-managed encryption is cheaper
+      # and disposable.
+      manage_encryption_key: ${!(ephemeral ?? false)}
+      kms_key_name: "${database.postgres.encryption.kms_key_name ?? ''}"
+
+  # Workload Identity for Crossplane's provider-gcp-sql pod. Genuinely
+  # engine-specific, unlike the KMS key above: a Terraform-native database
+  # mode needs none of this, no in-cluster pod calling GCP on its behalf.
+  - name: crossplane-identity-gcp
+    path: provisioning/crossplane-identity-gcp
+    when: "database.postgres.enabled == true && database.postgres.driver == 'cloudsql'"
+    dependsOn:
+      - network
+      - cluster
+      - database
+    inputs:
+      project_id: ${gcp.project_id}
+      cluster_name: ${terraform_output('cluster', 'cluster_name')}
+      resources:
+        - postgres
+
   # destroy: false — Flux is tied to the cluster; GKE teardown takes it.
   - name: gitops
     path: gitops/flux

@@ -1,0 +1,24 @@
+---
+# Worked example of the kustomize/provisioning contract: just the instance
+# definition, no provider wiring. project and providerConfigRef are both
+# handled by the provisioning add-on. The admin credential lives at
+# demo-db-admin-credentials in system-provisioning — database/gcp-cloudsql's
+# Terraform writes it, since Cloud SQL's own User resource (below) has no
+# auto-generate-and-write mechanism the way rds.aws.upbound.io Instance or
+# dbforpostgresql.azure.upbound.io FlexibleServer do.
+apiVersion: sql.gcp.upbound.io/v1beta2
+kind: DatabaseInstance
+metadata:
+  name: demo-db
+spec:
+  deletionPolicy: Delete
+  forProvider:
+    region: ${cloudsql_region}
+    databaseVersion: POSTGRES_16
+    deletionProtection: false
+    encryptionKeyName: ${cloudsql_kms_key_name}
+    settings:
+      tier: db-f1-micro
+      ipConfiguration:
+        ipv4Enabled: false
+        privateNetwork: ${cloudsql_network_id}

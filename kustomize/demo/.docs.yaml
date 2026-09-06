@@ -25,6 +25,15 @@ substitutions:
   demo_db_name:
     required_when: "`demo.resources.database: true` AND `database.postgres.driver == 'rds'`"
     description: "Fixed value `demo`. Single source of truth for the `demo-db` Instance's `dbName`, referenced by both the Instance CR and the bootstrap job's SQL so the two can't drift independently. Passed by the facet itself."
+  cloudsql_network_id:
+    required_when: "`demo.resources.database: true` AND `database.postgres.driver == 'cloudsql'`"
+    description: "From `terraform_output('network', 'network_id')`. Sets the `demo-db` DatabaseInstance's `privateNetwork` — the demo reads the real output rather than reconstructing the naming convention a third-party chart (with no Flux substitution access) has to use instead. Passed by the facet itself."
+  cloudsql_kms_key_name:
+    required_when: "`demo.resources.database: true` AND `database.postgres.driver == 'cloudsql'`"
+    description: "From `terraform_output('database', 'kms_key_name')`. Sets the `demo-db` DatabaseInstance's `encryptionKeyName`. Passed by the facet itself."
+  cloudsql_region:
+    required_when: "`demo.resources.database: true` AND `database.postgres.driver == 'cloudsql'`"
+    description: "From `terraform_output('network', 'region')`. Sets the `demo-db` DatabaseInstance's `region`. Passed by the facet itself."
 
 components:
   database:
@@ -39,6 +48,9 @@ components:
   database/flexibleserver:
     enable_when: "`demo.resources.database: true` AND `database.postgres.driver == 'flexibleserver'`"
     description: "A `dbforpostgresql.azure.upbound.io/v1beta1` `FlexibleServer` CR `demo-db` (B_Standard_B1ms, 32Gi, Crossplane-generated admin password, VNet-integrated with no public access) plus a `FlexibleServerDatabase` CR `demo` — just the database definition, no provider wiring, no RBAC, no CronJob of its own. The application credential (`demo_app`, owner of the `demo` database, via `crossplane/azure-postgres/app-role`, wired into this facet's own `demo-app-role` flux entry) is opt-in per chart; monitoring (`demo-db_monitor`/`postgres_exporter`) is automatic for every `FlexibleServer`, provisioned by `kustomize/provisioning`'s Kyverno `generate` policies — nothing here wires it in."
+  database/cloudsql:
+    enable_when: "`demo.resources.database: true` AND `database.postgres.driver == 'cloudsql'`"
+    description: "A `sql.gcp.upbound.io/v1beta2` `DatabaseInstance` CR `demo-db` (db-f1-micro, private IP only, Terraform-generated admin password) plus a `User` CR reading that password and a `Database` CR `demo` — just the database definition, no provider wiring, no RBAC, no CronJob of its own. The application credential (`demo_app`, owner of the `demo` database, via `crossplane/gcp-cloudsql/app-role`, wired into this facet's own `demo-app-role` flux entry) is opt-in per chart; monitoring (`demo-db_monitor`/`postgres_exporter`) is automatic for every `DatabaseInstance`, provisioned by `kustomize/provisioning`'s Kyverno `generate` policies — nothing here wires it in."
   static:
     enable_when: "`demo.resources.static: true`"
     description: "Creates the `demo-static` namespace (PSA `restricted`) with a `website` Deployment pulling `${REGISTRY_URL}/demo:1.0.6`, a Service, a 100Mi ReadWriteOnce PVC named `content`, and an Ingress."
@@ -54,8 +66,8 @@ dependencies:
     required_when: "`demo.resources.database: true` AND `database.postgres.driver == 'cloudnativepg'`"
     reason: "The CloudNativePG operator must be reconciling before the `demo-cluster` Cluster CR can come up. Wired as a conditional `dependsOn` in the facet."
   provisioning:
-    required_when: "`demo.resources.database: true` AND `database.postgres.driver == 'rds'`"
-    reason: "Crossplane's provider-aws-rds must finish installing before the `demo-db` Instance CR's CRD is registered. Wired as a conditional `dependsOn` in the facet."
+    required_when: "`demo.resources.database: true` AND `database.postgres.driver` is `rds`, `flexibleserver`, or `cloudsql`"
+    reason: "Crossplane's provider must finish installing before the `demo-db` CR's CRD is registered. Wired as a conditional `dependsOn` in the facet."
   gateway-resources:
     required_when: "`bookinfo/gateway` is enabled"
     reason: "The HTTPRoute needs the cluster Gateway to be Programmed first. Wired as a conditional `dependsOn` in the facet."

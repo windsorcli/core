@@ -1,0 +1,11 @@
+---
+# provider-gcp-sql's own dependency, declared explicitly so it's
+# digest-pinned too — skipDependencyResolution: true on provider-gcp-sql
+# means Crossplane won't auto-resolve an unpinned copy of it.
+apiVersion: pkg.crossplane.io/v1
+kind: Provider
+metadata:
+  name: provider-family-gcp
+spec:
+  # renovate: datasource=docker depName=xpkg.upbound.io/upbound/provider-family-gcp package=xpkg.upbound.io/upbound/provider-family-gcp
+  package: xpkg.upbound.io/upbound/provider-family-gcp:v3.0.1@sha256:7f5a0df0761efc6ea19a72be2fa06cf7e187becf7bba5a32db165a3deec43df7
