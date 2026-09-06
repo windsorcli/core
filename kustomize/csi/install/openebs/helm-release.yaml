@@ -39,7 +39,7 @@ spec:
       lvmPlugin:
         image:
           # renovate: datasource=docker depName=openebs/lvm-driver package=openebs/lvm-driver
-          tag: 1.9.1@sha256:8ee8221f13075c138dc6bba605b2190e70912fd5edc85fbd93ebd7d602becab1
+          tag: 1.10.0@sha256:b5932b4df5cde1f72914f665a4e4b480afd38dbc6577d7552b9f509d52e8c094
     mayastor:
       enabled: false
       image:
