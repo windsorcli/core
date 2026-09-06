@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
+# shellcheck disable=SC2154  # pg_* vars are Flux postBuild.substitute placeholders, not shell vars
 set -euo pipefail
 
-READY=$(kubectl get instance.rds.aws.upbound.io ${pg_instance_name} \
+READY=$(kubectl get instance.rds.aws.upbound.io "${pg_instance_name}" \
   -o jsonpath='{.status.conditions[?(@.type=="Ready")].status}' 2>/dev/null || echo "")
 if [ "$READY" != "True" ]; then
   echo "${pg_instance_name} Instance not Ready yet, skipping this tick."
@@ -9,10 +10,10 @@ if [ "$READY" != "True" ]; then
   exit 0
 fi
 
-kubectl get instance.rds.aws.upbound.io ${pg_instance_name} \
+kubectl get instance.rds.aws.upbound.io "${pg_instance_name}" \
   -o jsonpath='{.status.atProvider.address}' > /shared/address
 
-SECRET_ARN=$(kubectl get instance.rds.aws.upbound.io ${pg_instance_name} \
+SECRET_ARN=$(kubectl get instance.rds.aws.upbound.io "${pg_instance_name}" \
   -o jsonpath='{.status.atProvider.masterUserSecret[0].secretArn}')
 
 SECRET_JSON=$(aws secretsmanager get-secret-value --secret-id "$SECRET_ARN" \
@@ -24,8 +25,8 @@ echo "$SECRET_JSON" | jq -r '.password' > /shared/admin-password
 # doesn't get a new one every tick — an app reading this Secret via env
 # var wouldn't see the change anyway. Only a fresh role gets a fresh one,
 # independent of the admin password's own AWS-managed rotation schedule.
-EXISTING=$(kubectl get secret ${pg_instance_name}-app-credentials \
-  -n ${pg_target_namespace} -o jsonpath='{.data.password}' 2>/dev/null | base64 -d || echo "")
+EXISTING=$(kubectl get secret "${pg_instance_name}"-app-credentials \
+  -n "${pg_target_namespace}" -o jsonpath='{.data.password}' 2>/dev/null | base64 -d || echo "")
 if [ -n "$EXISTING" ]; then
   echo -n "$EXISTING" > /shared/app-password
 else

@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+# shellcheck disable=SC2154  # pg_* vars are Flux postBuild.substitute placeholders, not shell vars
 set -euo pipefail
 
 if [ -f /shared/skip ]; then
@@ -15,7 +16,7 @@ if [ -f /shared/needs-password-set ]; then
 fi
 
 PGPASSWORD=$(cat /shared/admin-password) psql -h "$ADDRESS" -U "$ADMIN_USER" \
-  -d ${pg_database_name} -v ON_ERROR_STOP=1 <<SQL
+  -d "${pg_database_name}" -v ON_ERROR_STOP=1 <<SQL
 DO \$\$
 BEGIN
   IF NOT EXISTS (SELECT FROM pg_roles WHERE rolname = '${pg_database_name}_app') THEN
