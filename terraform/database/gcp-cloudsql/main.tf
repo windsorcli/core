@@ -91,7 +91,29 @@ resource "google_kms_crypto_key_iam_member" "cloudsql" {
 # instance in var.admin_credentials, so the rest of the app-role/monitoring
 # CronJob pattern (unchanged from RDS/Flexible Server) can read it the same
 # way.
+#
+# Terraform runs before Flux, so this module creates its own copy of the
+# system-provisioning namespace rather than depending on the one
+# kustomize/provisioning creates later, mirroring cluster/aws-eks/additions's
+# system-dns namespace and gitops/flux's flux-system namespace.
 #---------------------------------------------------------------------------------------------------
+
+resource "kubernetes_namespace_v1" "system_provisioning" {
+  metadata {
+    name = "system-provisioning"
+    labels = {
+      "pod-security.kubernetes.io/enforce" = "baseline"
+      "pod-security.kubernetes.io/audit"   = "baseline"
+      "pod-security.kubernetes.io/warn"    = "baseline"
+    }
+  }
+
+  lifecycle {
+    ignore_changes = [
+      metadata[0].labels
+    ]
+  }
+}
 
 resource "random_password" "admin" {
   for_each = var.admin_credentials
@@ -103,7 +125,7 @@ resource "kubernetes_secret_v1" "admin_credentials" {
   for_each = var.admin_credentials
   metadata {
     name      = "${each.key}-admin-credentials"
-    namespace = "system-provisioning"
+    namespace = kubernetes_namespace_v1.system_provisioning.metadata[0].name
   }
   data = {
     username = each.value.username

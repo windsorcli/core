@@ -14,6 +14,31 @@ restricted to `authorized_networks`. Workload Identity is enabled at the
 cluster level for later Workload Identity Federation bindings. Consumes a
 VPC network and private subnet from `network/gcp-vpc`.
 
+## Notes
+
+### Prerequisites
+
+GCP disables most APIs per-project by default. Enable them once, before the
+first apply:
+
+```bash
+gcloud services enable \
+  container.googleapis.com compute.googleapis.com dns.googleapis.com \
+  iam.googleapis.com cloudkms.googleapis.com sqladmin.googleapis.com \
+  servicenetworking.googleapis.com \
+  --project=<project-id>
+```
+
+Requires a linked billing account; GKE's control plane and Compute Engine
+nodes have no free tier.
+
+`kubectl`/client-go authentication against a GKE cluster needs the
+`gke-gcloud-auth-plugin` binary, not bundled with a base `gcloud` install:
+
+```bash
+gcloud components install gke-gcloud-auth-plugin
+```
+
 <!-- BEGIN_TF_DOCS -->
 ## Requirements
 

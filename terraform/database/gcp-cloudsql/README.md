@@ -50,6 +50,7 @@ No modules.
 | [google_kms_crypto_key_iam_member.cloudsql](https://registry.terraform.io/providers/hashicorp/google/8.1.0/docs/resources/kms_crypto_key_iam_member) | resource |
 | [google_kms_key_ring.cloudsql](https://registry.terraform.io/providers/hashicorp/google/8.1.0/docs/resources/kms_key_ring) | resource |
 | [google_service_networking_connection.cloudsql](https://registry.terraform.io/providers/hashicorp/google/8.1.0/docs/resources/service_networking_connection) | resource |
+| [kubernetes_namespace_v1.system_provisioning](https://registry.terraform.io/providers/hashicorp/kubernetes/latest/docs/resources/namespace_v1) | resource |
 | [kubernetes_secret_v1.admin_credentials](https://registry.terraform.io/providers/hashicorp/kubernetes/latest/docs/resources/secret_v1) | resource |
 | [random_password.admin](https://registry.terraform.io/providers/hashicorp/random/latest/docs/resources/password) | resource |
 | [google_project.this](https://registry.terraform.io/providers/hashicorp/google/8.1.0/docs/data-sources/project) | data source |

@@ -108,6 +108,7 @@ IAM the long-lived deploy credential shouldn't need to carry.
 gcloud services enable \
   container.googleapis.com compute.googleapis.com dns.googleapis.com \
   iam.googleapis.com cloudkms.googleapis.com sqladmin.googleapis.com \
+  servicenetworking.googleapis.com \
   --project=<project-id>
 ```
 
