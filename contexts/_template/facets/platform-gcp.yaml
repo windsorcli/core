@@ -1,0 +1,79 @@
+kind: Facet
+apiVersion: blueprints.windsorcli.dev/v1alpha1
+metadata:
+  name: gcp
+  description: "GCP provider basic infrastructure"
+
+when: platform == 'gcp'
+
+# Remote state lives in the GCS bucket the `backend` component provisions;
+# `backend` itself uses local state, downstream components point at the bucket.
+backend: backend
+
+# =============================================================================
+# Requires
+# =============================================================================
+requires:
+  - paths:
+      - gcp.project_id
+    message: The GCP provider needs a project ID for every API call.
+
+# =============================================================================
+# Config — platform-specific overrides
+# =============================================================================
+# GKE ships metrics-server as a built-in add-on; suppress the platform-base
+# copy to avoid two instances fighting on the same APIService.
+config:
+
+  - name: telemetry
+    value:
+      metrics_server_enabled: false
+
+# =============================================================================
+# Terraform — GCS state backend, VPC, GKE
+# =============================================================================
+# Chain: backend (gcs) → network (vpc) → cluster (gke) → gitops. GKE's
+# Dataplane V2 is Google's managed Cilium integration, wired inline on the
+# cluster module — Windsor's own cni/cilium kustomize component never
+# installs here (cluster.cni.driver stays empty for platform == 'gcp',
+# same as aws/azure).
+terraform:
+
+  # GCS bucket for Terraform state; per-context id isolates state across
+  # contexts in one project.
+  - name: backend
+    path: backend/gcs
+
+  # VPC at the requested CIDR; GKE attaches to the private subnet.
+  - name: network
+    path: network/gcp-vpc
+    dependsOn:
+      - backend
+    inputs:
+      region: ${gcp.region ?? 'us-central1'}
+      cidr_block: ${network.cidr_block}
+
+  # GKE cluster. Portable user pools alongside the inline system pool;
+  # defaults to one general pool. Declaring cluster.pools replaces this.
+  - name: cluster
+    path: cluster/gcp-gke
+    dependsOn:
+      - network
+    inputs:
+      project_id: ${gcp.project_id}
+      # Derived from network's own output, not gcp.region directly — GKE
+      # must colocate with the VPC regardless of how region was set.
+      region: ${terraform_output('network', 'region')}
+      network_id: ${terraform_output('network', 'network_id')}
+      subnetwork_id: ${terraform_output('network', 'private_subnet_id')}
+      pools: >-
+        ${cluster.pools ?? {"general": {"class": "general", "count": 1}}}
+
+  # destroy: false — Flux is tied to the cluster; GKE teardown takes it.
+  - name: gitops
+    path: gitops/flux
+    destroy: false
+    dependsOn:
+      - cluster
+    inputs:
+      concurrency: 5

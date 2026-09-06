@@ -114,6 +114,23 @@ gcloud services enable \
 plus a billing note mirroring Azure's ("requires a linked billing account;
 GKE's control plane and Compute Engine nodes have no free tier").
 
+**`gke-gcloud-auth-plugin`**, confirmed as a real, blocking prerequisite
+during a live `windsor apply`: GKE has required this separate binary for
+kubectl/client-go authentication since Kubernetes 1.26, and it isn't bundled
+with a base `gcloud` install (`gcloud components install
+gke-gcloud-auth-plugin`). Without it, Terraform's `kubernetes` provider
+(used by `gitops/flux` to create the `flux-system` namespace) fails outright
+— every other cluster resource in the chain applies fine first.
+
+**metrics-server on GKE**, also found during the same live apply: GKE's own
+`gcp-critical-pods` ResourceQuota (which every namespace needs to run a pod
+at `system-cluster-critical` priority, the upstream metrics-server chart's
+default) only ever gets created in `kube-system` — a namespace-scoped
+restriction unique to GKE, not present on EKS/AKS. `platform-gcp.yaml`
+suppresses Windsor's own metrics-server install (`metrics_server_enabled:
+false`) since GKE already ships one built-in, the same fix
+`platform-azure.yaml` already applies for AKS's own built-in copy.
+
 **Auth**: matches `aws.profile` (assumes `aws configure sso` already ran)
 and `azure.subscription_id`/`tenant_id` (assumes `az login` already ran).
 GCP's equivalent is `gcloud auth application-default login` locally, or
@@ -155,18 +172,16 @@ Pod Identity).
 
 ## Phase order
 
-1. **`backend/gcs` + `network/gcp-vpc`.** No facet yet. Validates that the
-   module conventions (naming, `test.tftest.hcl` shape, `windsor plan`
-   ergonomics) transfer cleanly to GCP's provider before committing to the
-   larger surface. Low risk, fully reversible, needed regardless of any
-   other decision above.
-2. **`cluster/gcp-gke`** with the CNI decision resolved and verified against
-   a real GKE cluster. This is the phase that either confirms or kills the
-   "Cilium on GKE Standard" assumption above.
-3. **`platform-gcp.yaml`** wiring backend → network → cluster, gated
-   `platform == 'gcp'`, enough for `windsor apply` to produce a bare
-   cluster with Cilium and no add-ons — mirrors the minimal end of
-   `platform-metal.test.yaml`.
+1. **Done.** `backend/gcs` + `network/gcp-vpc`. No facet yet. Validated that
+   the module conventions (naming, `test.tftest.hcl` shape, `windsor plan`
+   ergonomics) transfer cleanly to GCP's provider.
+2. **Done.** `cluster/gcp-gke` with the CNI decision resolved: GKE Dataplane
+   V2, matching the AKS precedent, confirmed against a real GKE cluster.
+3. **Done.** `platform-gcp.yaml` wiring backend → network → cluster →
+   gitops, gated `platform == 'gcp'`. Verified end-to-end with a real
+   `windsor apply --wait`: every kustomization (gateway, observability, pki,
+   policy, telemetry) reconciled Ready on a live GKE cluster, not just the
+   bare cluster this phase originally targeted.
 4. **DNS + cert-manager**: `dns/zone/gcp-dns`, the `clouddns` ACME solver,
    the `google` external-dns provider. Unlocks `dns.public_domain` on GCP.
 5. **Database + Crossplane identity**: `database/gcp-cloudsql`,
@@ -190,10 +205,18 @@ scope once the base platform lands.
 ## Known gaps
 
 `cluster/gcp-gke`'s `class: storage` pool resolves to a plain general-purpose
-machine (`n2-standard-8`/`n2-standard-16`) with no local SSD attached — a
+machine (`n4-standard-8`/`n4-standard-16`) with no local SSD attached — a
 no-op compared to AWS's `i3`/`i4i` or Azure's `Lsv3`, both of which ship
 local NVMe SSD as the defining feature of that class. GCP has no fixed
 storage-optimized machine family; local SSD is a separate node-pool
 attachment (`ephemeral_storage_local_ssd_config`), and making it actually
 usable by pods needs a CSI provisioner on top, not just the attachment.
 Scoped out until a real `class: storage` consumer on GCP needs it.
+
+`cluster/gcp-gke`'s `pools` model is explicit, fixed node pools per class —
+matching what `cluster/aws-eks` and `cluster/azure-aks` both actually ship
+today. AWS is moving to self-hosted Karpenter and Azure is converging on
+Node Auto-Provisioning (NAP); GKE has its own NAP that's the direct GCP
+counterpart. Revisit this module's pools model once that migration actually
+lands on AWS/Azure, rather than designing GCP's node-provisioning story
+ahead of precedent that doesn't exist yet.
