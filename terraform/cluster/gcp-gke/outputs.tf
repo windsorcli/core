@@ -32,3 +32,15 @@ output "region" {
   description = "GCP region the cluster lives in."
   value       = var.region
 }
+
+# cert-manager Workload Identity output — null when create_cert_manager_identity is false.
+output "cert_manager_service_account_email" {
+  description = "Email of the cert-manager Google Service Account. Annotate cert-manager's KSA with iam.gke.io/gcp-service-account to bind it."
+  value       = try(google_service_account.cert_manager[0].email, null)
+}
+
+# external-dns Workload Identity output — null when create_external_dns_identity is false.
+output "external_dns_service_account_email" {
+  description = "Email of the external-dns Google Service Account. Annotate external-dns's KSA with iam.gke.io/gcp-service-account to bind it."
+  value       = try(google_service_account.external_dns[0].email, null)
+}

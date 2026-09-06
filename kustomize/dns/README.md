@@ -165,6 +165,8 @@ In both cases `loadbalancer_start_ip` must fall inside
 | `zone_type` | platform is AWS | `public` or `private`. Combined with `zone_id_filter` to lock external-dns onto a single Route53 zone in split-horizon setups. |
 | `zone_id_filter` | platform is AWS or Azure | Hosted-zone ID to constrain external-dns to. AWS: `terraform_output('dns-zone', 'zone_id')`. Azure: `terraform_output('network', 'private_zone_id')` for private mode. Belt-and-braces alongside `zone_type` for split-horizon DNS. |
 | `aws_region` | `external-dns/providers/route53` is enabled | AWS region for external-dns's Route53 API calls. Sourced from top-level `aws.region`. |
+| `google_project_id` | `external-dns/providers/google` is enabled | GCP project external-dns's Cloud DNS API calls run against. Sourced from `gcp.project_id`. |
+| `external_dns_service_account_email` | `external-dns/providers/google` is enabled | Email of the external-dns Google Service Account. Sourced from `terraform_output('cluster', 'external_dns_service_account_email')`. |
 | `txt_owner_id` | `external-dns` is enabled | Unique TXT-record owner ID for external-dns's registry. Keeps multiple external-dns instances in the same zone from clobbering each other's records. Threaded via Flux postBuild from the `values-dns` ConfigMap the CLI generates. |
 | `loadbalancer_start_ip` | `coredns/loadbalancer` is enabled (private-DNS LB Service) | External IP for the coredns Service when private DNS is exposed via the gateway LB. Sourced from `network.loadbalancer_ips.start`. |
 
@@ -176,6 +178,7 @@ In both cases `loadbalancer_start_ip` must fall inside
 | `external-dns/ha` | `topology == 'ha'` | Patches the external-dns Deployment to multi-replica with leader election. Skipped on single-node — one replica has nothing to elect against. |
 | `external-dns/providers/route53` | platform is AWS AND public/private DNS zone is set | Patches the external-dns HelmRelease for the Route53 provider: `provider.aws.usePodIdentity: true`, `region: ${aws_region}`, `zoneType: ${zone_type}`, `--zone-id-filter=${zone_id_filter}`. |
 | `external-dns/providers/azure` | platform is Azure AND DNS zone is set | Patches the external-dns HelmRelease for the Azure provider: federated workload identity, zone-id filter via `${zone_id_filter}`. |
+| `external-dns/providers/google` | platform is GCP AND `dns.public_domain` is set | Patches the external-dns HelmRelease for the Google provider: `provider.name: google`, `--google-project=${google_project_id}`, GKE Workload Identity binding via `${external_dns_service_account_email}`. |
 | `external-dns/providers/coredns` | `dns.private.enabled: true` (provides private DNS via in-cluster coredns) | Patches the external-dns HelmRelease for the CoreDNS provider, writing records into the in-cluster coredns etcd backend instead of a cloud DNS zone. |
 | `external-dns/sources/gateway-httproute` | `gateway.enabled: true` | Adds `gateway-httproute` to external-dns's `sources` list so the Gateway API's `HTTPRoute` hostnames are published. Requires the Gateway API CRDs to be present (hence the `gateway-install` dependency). |
 | `coredns` | `dns.private.enabled: true` | Helm release of `coredns` in `system-dns`. In-cluster private DNS server. The default plugin chain serves cluster.local and forwards everything else upstream. |

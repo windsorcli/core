@@ -66,6 +66,14 @@ No modules.
 | [google_container_cluster.this](https://registry.terraform.io/providers/hashicorp/google/8.1.0/docs/resources/container_cluster) | resource |
 | [google_container_node_pool.pools](https://registry.terraform.io/providers/hashicorp/google/8.1.0/docs/resources/container_node_pool) | resource |
 | [google_container_node_pool.system](https://registry.terraform.io/providers/hashicorp/google/8.1.0/docs/resources/container_node_pool) | resource |
+| [google_dns_managed_zone_iam_member.cert_manager_dns](https://registry.terraform.io/providers/hashicorp/google/8.1.0/docs/resources/dns_managed_zone_iam_member) | resource |
+| [google_dns_managed_zone_iam_member.external_dns_dns](https://registry.terraform.io/providers/hashicorp/google/8.1.0/docs/resources/dns_managed_zone_iam_member) | resource |
+| [google_project_iam_member.cert_manager_dns_list](https://registry.terraform.io/providers/hashicorp/google/8.1.0/docs/resources/project_iam_member) | resource |
+| [google_project_iam_member.external_dns_dns_list](https://registry.terraform.io/providers/hashicorp/google/8.1.0/docs/resources/project_iam_member) | resource |
+| [google_service_account.cert_manager](https://registry.terraform.io/providers/hashicorp/google/8.1.0/docs/resources/service_account) | resource |
+| [google_service_account.external_dns](https://registry.terraform.io/providers/hashicorp/google/8.1.0/docs/resources/service_account) | resource |
+| [google_service_account_iam_member.cert_manager_workload_identity](https://registry.terraform.io/providers/hashicorp/google/8.1.0/docs/resources/service_account_iam_member) | resource |
+| [google_service_account_iam_member.external_dns_workload_identity](https://registry.terraform.io/providers/hashicorp/google/8.1.0/docs/resources/service_account_iam_member) | resource |
 | [null_resource.kubeconfig](https://registry.terraform.io/providers/hashicorp/null/latest/docs/resources/resource) | resource |
 | [google_compute_zones.available](https://registry.terraform.io/providers/hashicorp/google/8.1.0/docs/data-sources/compute_zones) | data source |
 
@@ -74,10 +82,14 @@ No modules.
 | Name | Description | Type | Default | Required |
 |------|-------------|------|---------|:--------:|
 | <a name="input_authorized_networks"></a> [authorized\_networks](#input\_authorized\_networks) | CIDR blocks allowed to reach the control plane's public endpoint | `list(string)` | <pre>[<br/>  "0.0.0.0/0"<br/>]</pre> | no |
+| <a name="input_cert_manager_dns_zone_names"></a> [cert\_manager\_dns\_zone\_names](#input\_cert\_manager\_dns\_zone\_names) | Names of the Cloud DNS managed zones cert-manager is allowed to write ACME challenge records to. The roles/dns.admin grant is scoped to these zones — leave empty when create\_cert\_manager\_identity is false. | `list(string)` | `[]` | no |
 | <a name="input_class_machine_types"></a> [class\_machine\_types](#input\_class\_machine\_types) | Default GCE machine type list per portable pool class. Only the first entry is used; remaining entries document an operator preference order. A pool's explicit instance\_types overrides this map. When overriding this variable, all seven class keys must be supplied — partial overrides are rejected at validate time. GCP has no leaner-memory-ratio compute family the way AWS (c6i) and Azure (Fsv2) do — C2 stays near N2's 4GB/vCPU ratio, differing instead in sustained clock speed. GCP also has no fixed storage-optimized machine family; class: storage resolves to a general-purpose machine with no local SSD attached, unlike AWS (i3/i4i) and Azure (Lsv3). | `map(list(string))` | <pre>{<br/>  "arm64": [<br/>    "t2a-standard-4",<br/>    "t2a-standard-8"<br/>  ],<br/>  "compute": [<br/>    "c2-standard-4",<br/>    "c2-standard-8",<br/>    "c2-standard-16"<br/>  ],<br/>  "general": [<br/>    "n2-standard-4",<br/>    "n2-standard-8"<br/>  ],<br/>  "gpu": [<br/>    "g2-standard-4",<br/>    "g2-standard-8"<br/>  ],<br/>  "memory": [<br/>    "n2-highmem-4",<br/>    "n2-highmem-8"<br/>  ],<br/>  "storage": [<br/>    "n2-standard-8",<br/>    "n2-standard-16"<br/>  ],<br/>  "system": [<br/>    "n2-standard-2",<br/>    "n2-standard-4"<br/>  ]<br/>}</pre> | no |
 | <a name="input_cluster_name"></a> [cluster\_name](#input\_cluster\_name) | Name of the GKE cluster. If not provided, a default name will be generated | `string` | `""` | no |
 | <a name="input_context_id"></a> [context\_id](#input\_context\_id) | Context ID for the resources | `string` | n/a | yes |
 | <a name="input_context_path"></a> [context\_path](#input\_context\_path) | The path to the context folder, where kubeconfig is stored | `string` | `""` | no |
+| <a name="input_create_cert_manager_identity"></a> [create\_cert\_manager\_identity](#input\_create\_cert\_manager\_identity) | Whether to provision a Google Service Account, Workload Identity binding, and roles/dns.admin grants for cert-manager's cloudDNS ACME DNS-01 solver. Enable when cert-manager will issue ACME certificates against a Cloud DNS zone. | `bool` | `false` | no |
+| <a name="input_create_external_dns_identity"></a> [create\_external\_dns\_identity](#input\_create\_external\_dns\_identity) | Whether to provision a Google Service Account, Workload Identity binding, and roles/dns.admin grants for external-dns. Enable when external-dns will publish records to a Cloud DNS zone. | `bool` | `true` | no |
+| <a name="input_external_dns_dns_zone_names"></a> [external\_dns\_dns\_zone\_names](#input\_external\_dns\_dns\_zone\_names) | Names of the Cloud DNS managed zones external-dns is allowed to manage records in. The roles/dns.admin grant is scoped to these zones — leave empty when create\_external\_dns\_identity is false. | `list(string)` | `[]` | no |
 | <a name="input_master_ipv4_cidr_block"></a> [master\_ipv4\_cidr\_block](#input\_master\_ipv4\_cidr\_block) | A /28 CIDR block for the private control plane's internal address, disjoint from every subnet in the VPC | `string` | `"172.16.0.0/28"` | no |
 | <a name="input_name"></a> [name](#input\_name) | Name prefix for the GKE cluster | `string` | `"cluster"` | no |
 | <a name="input_network_id"></a> [network\_id](#input\_network\_id) | ID of the VPC network the cluster attaches to. Pipe network/gcp-vpc's network\_id output. | `string` | n/a | yes |
@@ -92,9 +104,11 @@ No modules.
 
 | Name | Description |
 |------|-------------|
+| <a name="output_cert_manager_service_account_email"></a> [cert\_manager\_service\_account\_email](#output\_cert\_manager\_service\_account\_email) | Email of the cert-manager Google Service Account. Annotate cert-manager's KSA with iam.gke.io/gcp-service-account to bind it. |
 | <a name="output_cluster_id"></a> [cluster\_id](#output\_cluster\_id) | Fully qualified ID of the GKE cluster. |
 | <a name="output_cluster_name"></a> [cluster\_name](#output\_cluster\_name) | Name of the GKE cluster. Consumed by kustomize substitutions (txt-owner-id, etc.). |
 | <a name="output_endpoint"></a> [endpoint](#output\_endpoint) | IP address of the cluster's control plane endpoint. |
+| <a name="output_external_dns_service_account_email"></a> [external\_dns\_service\_account\_email](#output\_external\_dns\_service\_account\_email) | Email of the external-dns Google Service Account. Annotate external-dns's KSA with iam.gke.io/gcp-service-account to bind it. |
 | <a name="output_project_id"></a> [project\_id](#output\_project\_id) | GCP project the cluster lives in. |
 | <a name="output_region"></a> [region](#output\_region) | GCP region the cluster lives in. |
 | <a name="output_workload_pool"></a> [workload\_pool](#output\_workload\_pool) | Workload Identity pool (PROJECT\_ID.svc.id.goog). Required to bind Workload Identity Federation credentials to Kubernetes ServiceAccounts. |

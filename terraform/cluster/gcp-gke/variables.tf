@@ -121,6 +121,34 @@ variable "system_node_pool" {
 }
 
 #---------------------------------------------------------------------------------------------------
+# Workload Identity for cert-manager and external-dns
+#---------------------------------------------------------------------------------------------------
+
+variable "create_cert_manager_identity" {
+  description = "Whether to provision a Google Service Account, Workload Identity binding, and roles/dns.admin grants for cert-manager's cloudDNS ACME DNS-01 solver. Enable when cert-manager will issue ACME certificates against a Cloud DNS zone."
+  type        = bool
+  default     = false
+}
+
+variable "cert_manager_dns_zone_names" {
+  description = "Names of the Cloud DNS managed zones cert-manager is allowed to write ACME challenge records to. The roles/dns.admin grant is scoped to these zones — leave empty when create_cert_manager_identity is false."
+  type        = list(string)
+  default     = []
+}
+
+variable "create_external_dns_identity" {
+  description = "Whether to provision a Google Service Account, Workload Identity binding, and roles/dns.admin grants for external-dns. Enable when external-dns will publish records to a Cloud DNS zone."
+  type        = bool
+  default     = true
+}
+
+variable "external_dns_dns_zone_names" {
+  description = "Names of the Cloud DNS managed zones external-dns is allowed to manage records in. The roles/dns.admin grant is scoped to these zones — leave empty when create_external_dns_identity is false."
+  type        = list(string)
+  default     = []
+}
+
+#---------------------------------------------------------------------------------------------------
 # Portable User Pools
 #---------------------------------------------------------------------------------------------------
 
