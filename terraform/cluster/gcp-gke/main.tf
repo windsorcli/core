@@ -55,6 +55,8 @@ resource "google_container_cluster" "this" {
   name     = local.cluster_name
   location = var.region
 
+  deletion_protection = false
+
   network    = var.network_id
   subnetwork = var.subnetwork_id
 
