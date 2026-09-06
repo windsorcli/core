@@ -1,9 +1,7 @@
 ---
-title: compute/incus
+title: Incus
 description: Talos VMs on Incus.
 ---
-
-# compute/incus
 
 VM substrate for Talos clusters on Incus (LXD's fork). Provisions Talos
 VMs as full-VM instances on the local Incus daemon — pick this over

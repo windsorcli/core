@@ -1,27 +1,76 @@
 ---
-title: backend/azurerm
+title: AzureRM
 description: Remote Terraform state on Azure Blob + native lease.
 ---
-
-# backend/azurerm
 
 Remote Terraform state for Azure contexts. The bootstrap pass runs this
 module with a local backend, provisioning a Storage Account and Blob
 container; subsequent applies use Azure's native blob lease for state
 locking — no separate lock table.
 
+## Recipe
+
+```mermaid
+flowchart LR
+  apply[windsor apply]
+
+  subgraph azure[Azure resource group]
+    sa[Storage account]
+    container[Blob container]
+    state[(state.tfstate<br/>+ blob lease)]
+  end
+
+  apply -.acquire lease.-> state
+  apply -.read / write.-> state
+  state -.in.-> container
+  container -.in.-> sa
+```
+
+```yaml
+platform: azure
+terraform:
+  backend:
+    type: azurerm
+```
+
+The module provisions a Storage Account and a Blob container. Locking
+uses the native blob lease on the state object itself, so there's no
+separate lock table to manage.
+
+## Operations
+
+The bootstrap pass runs this module with a local backend first, then
+hands the state location to the remote backend for subsequent
+`windsor apply` runs.
+
+A crashed `windsor apply` leaves the blob lease held. Release it on
+the state blob before retrying — audit the state first, because the
+lease exists for a reason.
+
+Switching away from `azurerm` on a context that already has remote
+state here requires manual migration via
+`terraform init -migrate-state`. Windsor doesn't auto-migrate.
+
+## Security
+
+The lease ID used for locking is scoped to the Storage Account
+credential and isn't visible from outside it. The module doesn't make
+the state object public; Storage Account network rules follow account
+defaults, so tighten them to private subnets or service endpoints in
+production.
+
 <!-- BEGIN_TF_DOCS -->
 ## Requirements
 
 | Name | Version |
 |------|---------|
-| <a name="requirement_azurerm"></a> [azurerm](#requirement\_azurerm) | 5.0.1 |
+| <a name="requirement_azurerm"></a> [azurerm](#requirement\_azurerm) | 5.4.0 |
 
 ## Providers
 
 | Name | Version |
 |------|---------|
-| <a name="provider_azurerm"></a> [azurerm](#provider\_azurerm) | 5.0.1 |
+| <a name="provider_azurerm"></a> [azurerm](#provider\_azurerm) | 5.4.0 |
 | <a name="provider_local"></a> [local](#provider\_local) | 2.6.1 |
 
 ## Modules
@@ -32,10 +81,10 @@ No modules.
 
 | Name | Type |
 |------|------|
-| [azurerm_resource_group.this](https://registry.terraform.io/providers/hashicorp/azurerm/5.0.1/docs/resources/resource_group) | resource |
-| [azurerm_storage_account.this](https://registry.terraform.io/providers/hashicorp/azurerm/5.0.1/docs/resources/storage_account) | resource |
-| [azurerm_storage_container.this](https://registry.terraform.io/providers/hashicorp/azurerm/5.0.1/docs/resources/storage_container) | resource |
-| [azurerm_user_assigned_identity.storage](https://registry.terraform.io/providers/hashicorp/azurerm/5.0.1/docs/resources/user_assigned_identity) | resource |
+| [azurerm_resource_group.this](https://registry.terraform.io/providers/hashicorp/azurerm/5.4.0/docs/resources/resource_group) | resource |
+| [azurerm_storage_account.this](https://registry.terraform.io/providers/hashicorp/azurerm/5.4.0/docs/resources/storage_account) | resource |
+| [azurerm_storage_container.this](https://registry.terraform.io/providers/hashicorp/azurerm/5.4.0/docs/resources/storage_container) | resource |
+| [azurerm_user_assigned_identity.storage](https://registry.terraform.io/providers/hashicorp/azurerm/5.4.0/docs/resources/user_assigned_identity) | resource |
 | [local_file.backend_config](https://registry.terraform.io/providers/hashicorp/local/latest/docs/resources/file) | resource |
 
 ## Inputs

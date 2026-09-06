@@ -1,9 +1,9 @@
 ---
 title: CNI
 description: Out-of-band Cilium bootstrap for Talos clusters before Flux.
+stack_name: CNI
+stack_backing: Cilium bootstrap
 ---
-
-# CNI
 
 The cni category has one driver, `cilium`, which only runs when
 `cluster.driver: talos` and `cluster.cni.driver: cilium`. Managed
@@ -14,8 +14,8 @@ so this category doesn't run for them. Talos with the default
 The module exists because Talos starts with `kubeProxyReplacement:
 true` and no built-in CNI when Cilium is chosen, and Flux can't
 reconcile until Pods can network. So this module installs Cilium
-directly via Helm against the Talos API, and `kustomize/cni/` then
-adopts the running release so day-2 changes flow through GitOps.
+directly via Helm against the Talos API. Flux then adopts the running
+release through `kustomize/cni/` so day-2 changes flow through GitOps.
 
 ## Recipe
 
@@ -53,11 +53,6 @@ driver selector. The tunables (operator replica count, Hubble
 settings, LBIPAM ranges) flow through the `kustomize/cni/`
 substitutions rather than through this module.
 
-The bootstrap-then-adopt handoff is the architectural point.
-Terraform installs Cilium via the Talos API before Flux can run.
-After Flux comes up, it adopts the HelmRelease that already exists
-and takes ownership of subsequent upgrades.
-
 ## Operations
 
 If the module runs but Cilium pods crash on Talos, the `cilium/talos`
@@ -73,8 +68,14 @@ derive from `topology`.
 Leaving `cluster.cni.driver` unset (or `flannel`) skips this module
 entirely. Flannel is the Talos built-in and needs no bootstrap.
 
+<!-- BEGIN_TERRAFORM_MODULES -->
+
+## Modules
+
+- [cilium](cilium/) — Out-of-band Cilium bootstrap for Talos clusters.
+<!-- END_TERRAFORM_MODULES -->
+
 ## See also
 
-- [cilium/](cilium/) for the per-module Terraform reference.
 - [../../kustomize/cni/](../../kustomize/cni/) for the adopting HelmRelease and the full operational guide for Cilium (substitutions, components, dependencies).
 - [../cluster/](../cluster/) for the cluster module that produces the kubeconfig this bootstrap uses.

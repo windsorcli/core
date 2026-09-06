@@ -3,8 +3,6 @@ title: "ADR-0003: Upgrade-path contract over bundled dependencies — autolabeli
 description: "core bundles many dependencies (Talos, k8s-versions, CRD-vendored charts) that Renovate updates automatically and release-drafter buckets as patch; some of those are structural — any version change forces a rebuild regardless of the size of the upstream bump — so a nominal patch release can silently break the 0.X.x -> 0.X.(x+1) upgrade contract. Adds autolabeling plus Renovate policy keyed to the same structural files CI already treats specially."
 ---
 
-# ADR-0003: Upgrade-path contract over bundled dependencies — autolabeling and Renovate policy
-
 ## Status
 
 Proposed. Revised (2026-08-04): the label-mapping fix (`breaking` resolves

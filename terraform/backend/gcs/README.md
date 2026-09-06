@@ -1,14 +1,63 @@
 ---
-title: backend/gcs
+title: GCS
 description: Remote Terraform state on Google Cloud Storage.
 ---
-
-# backend/gcs
 
 Remote Terraform state for GCP contexts. The bootstrap pass runs this
 module with a local backend, provisioning a GCS bucket; subsequent
 applies use GCS's native object-generation locking — no separate lock
 table.
+
+## Recipe
+
+```mermaid
+flowchart LR
+  apply[windsor apply]
+
+  subgraph gcp[GCP project]
+    bucket[(state.tfstate<br/>in GCS bucket<br/>object versioning)]
+    kms[KMS key<br/>optional CMEK]
+  end
+
+  apply -.generation precondition.-> bucket
+  apply -.read / write.-> bucket
+  bucket -.encrypted by.-> kms
+```
+
+```yaml
+platform: gcp
+terraform:
+  backend:
+    type: gcs
+```
+
+The module provisions a GCS bucket, keyed under `terraform/state` by
+default (`prefix`). Locking relies on GCS's own object-generation
+preconditions on the state object, so there's no separate lock table
+to manage. Encryption is Google-managed by default; set `enable_cmek`
+to encrypt the bucket with a customer-managed KMS key instead.
+
+## Operations
+
+The bootstrap pass runs this module with a local backend first, then
+hands the state location to the remote backend for subsequent
+`windsor apply` runs.
+
+There's no separate lock to clean up after a crash: object-generation
+preconditions aren't held across runs, so a crashed `windsor apply`
+leaves nothing stale.
+
+Switching away from `gcs` on a context that already has remote state
+here requires manual migration via `terraform init -migrate-state`.
+Windsor doesn't auto-migrate.
+
+## Security
+
+IAM access to the bucket is least-privilege by default — grant
+readers/writers explicitly via `terraform_state_principals` rather
+than relying on project-wide roles. The module doesn't make the state
+object public; bucket IAM follows project defaults, so tighten it to
+private service connections in production.
 
 <!-- BEGIN_TF_DOCS -->
 ## Requirements
@@ -16,13 +65,13 @@ table.
 | Name | Version |
 |------|---------|
 | <a name="requirement_terraform"></a> [terraform](#requirement\_terraform) | >= 1.12.2 |
-| <a name="requirement_google"></a> [google](#requirement\_google) | 8.1.0 |
+| <a name="requirement_google"></a> [google](#requirement\_google) | 8.2.0 |
 
 ## Providers
 
 | Name | Version |
 |------|---------|
-| <a name="provider_google"></a> [google](#provider\_google) | 8.1.0 |
+| <a name="provider_google"></a> [google](#provider\_google) | 8.2.0 |
 | <a name="provider_local"></a> [local](#provider\_local) | 2.9.0 |
 
 ## Modules
@@ -33,13 +82,13 @@ No modules.
 
 | Name | Type |
 |------|------|
-| [google_kms_crypto_key.this](https://registry.terraform.io/providers/hashicorp/google/8.1.0/docs/resources/kms_crypto_key) | resource |
-| [google_kms_crypto_key_iam_member.gcs](https://registry.terraform.io/providers/hashicorp/google/8.1.0/docs/resources/kms_crypto_key_iam_member) | resource |
-| [google_kms_key_ring.this](https://registry.terraform.io/providers/hashicorp/google/8.1.0/docs/resources/kms_key_ring) | resource |
-| [google_storage_bucket.this](https://registry.terraform.io/providers/hashicorp/google/8.1.0/docs/resources/storage_bucket) | resource |
-| [google_storage_bucket_iam_member.terraform_state](https://registry.terraform.io/providers/hashicorp/google/8.1.0/docs/resources/storage_bucket_iam_member) | resource |
+| [google_kms_crypto_key.this](https://registry.terraform.io/providers/hashicorp/google/8.2.0/docs/resources/kms_crypto_key) | resource |
+| [google_kms_crypto_key_iam_member.gcs](https://registry.terraform.io/providers/hashicorp/google/8.2.0/docs/resources/kms_crypto_key_iam_member) | resource |
+| [google_kms_key_ring.this](https://registry.terraform.io/providers/hashicorp/google/8.2.0/docs/resources/kms_key_ring) | resource |
+| [google_storage_bucket.this](https://registry.terraform.io/providers/hashicorp/google/8.2.0/docs/resources/storage_bucket) | resource |
+| [google_storage_bucket_iam_member.terraform_state](https://registry.terraform.io/providers/hashicorp/google/8.2.0/docs/resources/storage_bucket_iam_member) | resource |
 | [local_file.backend_config](https://registry.terraform.io/providers/hashicorp/local/latest/docs/resources/file) | resource |
-| [google_storage_project_service_account.this](https://registry.terraform.io/providers/hashicorp/google/8.1.0/docs/data-sources/storage_project_service_account) | data source |
+| [google_storage_project_service_account.this](https://registry.terraform.io/providers/hashicorp/google/8.2.0/docs/data-sources/storage_project_service_account) | data source |
 
 ## Inputs
 

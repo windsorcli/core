@@ -8,12 +8,64 @@
 #   scripts/kustomize-docs.sh --all                  # every add-on with .docs.yaml
 #   scripts/kustomize-docs.sh --check                # CI: fail on drift
 #
+# components: schema — each top-level key gets its own "### `key`" section:
+#   components:
+#     <key>:
+#       enable_when: <string>    # optional, default "always"
+#       description: <string>    # optional
+#       heading_only: true       # optional; true = a pure grouping heading
+#                                 # over its variants, not a gated component
+#                                 # of its own (skips the "Enabled when" line)
+#       facet: <string>          # optional; multi-facet add-ons only
+#       variants:                # optional; conditional patches of this
+#         <variant-key>:         # component, rendered as a table underneath
+#           enable_when: <string>
+#           description: <string>
+#
 # Requires: yq v4 (mikefarah). Available via aqua.
 
 set -euo pipefail
 
 BEGIN_MARKER='<!-- BEGIN_KUSTOMIZE_DOCS -->'
 END_MARKER='<!-- END_KUSTOMIZE_DOCS -->'
+
+# Render one component's own "### `key`" section: an optional "Enabled
+# when" line, its description, and (if it has any) a Variants table for the
+# conditional patches nested under it. Each section heading is real
+# markdown, so the site's normal heading-to-anchor mechanism gives it a
+# real, addressable URL — no injected HTML needed.
+render_component_group() {
+  local docs="$1" key="$2"
+  local enable_when description heading_only variant_count
+  # shellcheck disable=SC2016
+  enable_when="$(KEY="$key" yq -r '.components[strenv(KEY)].enable_when // "always"' "$docs")"
+  # shellcheck disable=SC2016
+  description="$(KEY="$key" yq -r '.components[strenv(KEY)].description // ""' "$docs")"
+  # shellcheck disable=SC2016
+  heading_only="$(KEY="$key" yq -r '.components[strenv(KEY)].heading_only // false' "$docs")"
+
+  printf '### `%s`\n\n' "$key"
+  if [ "$heading_only" != "true" ]; then
+    printf '_Enabled when %s._\n\n' "$enable_when"
+  fi
+  if [ -n "$description" ]; then
+    printf '%s\n\n' "$description"
+  fi
+
+  # shellcheck disable=SC2016
+  variant_count="$(KEY="$key" yq -r '.components[strenv(KEY)].variants // {} | length' "$docs")"
+  if [ "$variant_count" -gt 0 ]; then
+    printf '| Variant | Enabled when | Effect |\n'
+    printf '|---|---|---|\n'
+    # shellcheck disable=SC2016
+    KEY="$key" yq -r '
+      .components[strenv(KEY)].variants | to_entries[] |
+      "| `" + .key + "` | " + (.value.enable_when // "always") + " | " +
+      (.value.description // "") + " |"
+    ' "$docs"
+    printf '\n'
+  fi
+}
 
 # Render Substitutions / Components / Dependencies tables to stdout.
 render_tables() {
@@ -37,9 +89,10 @@ render_tables() {
 
   if yq -e '.components' "$docs" >/dev/null 2>&1; then
     if yq -e '.facets' "$docs" >/dev/null 2>&1; then
-      # Multi-facet add-on (e.g. base/resources split). Validate that every
-      # component declares a `facet:` matching one in `.facets[]`, then
-      # render one Components sub-table per facet in declared order.
+      # Multi-facet add-on (e.g. install/resources split). Validate that
+      # every top-level component declares a `facet:` matching one in
+      # `.facets[]`, then render one Components sub-table per facet in
+      # declared order — each holding its own component sections.
       local facets_file errors=0
       facets_file="$(mktemp)"
       yq -r '.facets[]' "$docs" > "$facets_file"
@@ -61,31 +114,16 @@ render_tables() {
         # quoted expression won't expand" is a false positive here.
         # shellcheck disable=SC2016
         printf '## Components — `%s`\n\n' "$facet"
-        printf '| Component | Enable when | Effect |\n'
-        printf '|---|---|---|\n'
-        # shellcheck disable=SC2016
-        FACET="$facet" yq -r '
-          .components | to_entries[] |
-          select(.value.facet == strenv(FACET)) |
-          "| `" + .key + "` | " +
-          (.value.enable_when // "always") + " | " +
-          (.value.description // "") + " |"
-        ' "$docs"
-        printf '\n'
+        while IFS= read -r key; do
+          render_component_group "$docs" "$key"
+        done < <(FACET="$facet" yq -r '.components | to_entries[] | select(.value.facet == strenv(FACET)) | .key' "$docs")
       done < "$facets_file"
       rm -f "$facets_file"
     else
       printf '## Components\n\n'
-      printf '| Component | Enable when | Effect |\n'
-      printf '|---|---|---|\n'
-      # shellcheck disable=SC2016
-      yq -r '
-        .components | to_entries[] |
-        "| `" + .key + "` | " +
-        (.value.enable_when // "always") + " | " +
-        (.value.description // "") + " |"
-      ' "$docs"
-      printf '\n'
+      while IFS= read -r key; do
+        render_component_group "$docs" "$key"
+      done < <(yq -r '.components | keys | .[]' "$docs")
     fi
   fi
 

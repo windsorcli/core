@@ -1,9 +1,7 @@
 ---
-title: dns/zone/gcp-dns
+title: GCP DNS
 description: DNS zone on Google Cloud DNS.
 ---
-
-# dns/zone/gcp-dns
 
 Creates a public Cloud DNS managed zone for a domain, independent of any
 cluster — useful for zone-only deployments and for cases where DNS infra
@@ -15,13 +13,13 @@ has a different lifecycle than compute.
 | Name | Version |
 |------|---------|
 | <a name="requirement_terraform"></a> [terraform](#requirement\_terraform) | >= 1.12.2 |
-| <a name="requirement_google"></a> [google](#requirement\_google) | 8.1.0 |
+| <a name="requirement_google"></a> [google](#requirement\_google) | 8.2.0 |
 
 ## Providers
 
 | Name | Version |
 |------|---------|
-| <a name="provider_google"></a> [google](#provider\_google) | 8.1.0 |
+| <a name="provider_google"></a> [google](#provider\_google) | 8.2.0 |
 
 ## Modules
 
@@ -31,7 +29,7 @@ No modules.
 
 | Name | Type |
 |------|------|
-| [google_dns_managed_zone.main](https://registry.terraform.io/providers/hashicorp/google/8.1.0/docs/resources/dns_managed_zone) | resource |
+| [google_dns_managed_zone.main](https://registry.terraform.io/providers/hashicorp/google/8.2.0/docs/resources/dns_managed_zone) | resource |
 
 ## Inputs
 

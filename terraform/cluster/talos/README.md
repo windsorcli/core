@@ -1,9 +1,7 @@
 ---
-title: cluster/talos
+title: Talos
 description: Self-hosted Kubernetes control plane via the Talos API.
 ---
-
-# cluster/talos
 
 Self-hosted Kubernetes control plane via the Talos API. Provisioning is
 fully Terraform-driven through the Talos provider — no operator-side

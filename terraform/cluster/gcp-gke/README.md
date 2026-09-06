@@ -1,9 +1,7 @@
 ---
-title: cluster/gcp-gke
+title: GCP GKE
 description: Managed Kubernetes control plane on GCP.
 ---
-
-# cluster/gcp-gke
 
 Managed Kubernetes control plane on GCP. GKE Standard with Dataplane V2
 enabled — Google's own managed Cilium integration, the same shape

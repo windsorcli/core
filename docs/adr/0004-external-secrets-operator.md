@@ -3,8 +3,6 @@ title: "ADR-0004: External Secrets Operator — runtime secret sync addon"
 description: Adds a top-level external_secrets capability that installs External Secrets Operator, install-only, off by default. Closes core#2284. The controller alone does nothing without a ClusterSecretStore; ADR-0005 supplies one.
 ---
 
-# ADR-0004: External Secrets Operator — runtime secret sync addon
-
 ## Status
 
 Proposed. Formalizes [core#2284](https://github.com/windsorcli/core/issues/2284).

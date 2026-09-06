@@ -64,15 +64,26 @@ components:
     facet: pki-install
     enable_when: "`pki.enabled: true`"
     description: "Helm release of the `trust-manager` chart in `system-pki-trust` (PSA `restricted`). Depends on cert-manager. Consumes `Bundle` CRs to distribute the private CA into workload namespaces."
-  trust-manager/single-node:
-    facet: pki-install
-    enable_when: "single-node topology AND `pki.enabled: true`"
-    description: "Patches the trust-manager HelmRelease to disable leader election."
-  private-issuer/selfsigned:
+    variants:
+      single-node:
+        enable_when: "single-node topology AND `pki.enabled: true`"
+        description: "Patches the trust-manager HelmRelease to disable leader election."
+  # private-issuer / public-issuer are heading_only: neither issuer choice
+  # below has a bare key of its own — each pair is genuinely two mutually
+  # exclusive implementations of one concept, not a driver + its patches —
+  # so the group itself gates nothing; only its variants do.
+  private-issuer:
     facet: pki-resources
-    enable_when: "`pki.enabled` is not set"
-    description: "ClusterIssuer `private` with `selfSigned: {}`, the cluster's internal trust anchor. Issues the etcd and private gateway certificates; browsers warn on anything it signs. `pki.enabled` replaces it with the CA-backed `private-issuer/ca` under the same name."
-  private-issuer/ca:
+    heading_only: true
+    description: "The cluster's internal trust anchor, issuing the etcd and private-gateway certificates. Exactly one variant is active at a time."
+    variants:
+      selfsigned:
+        enable_when: "`pki.enabled` is not set"
+        description: "ClusterIssuer `private` with `selfSigned: {}`. Browsers warn on anything it signs. `pki.enabled` replaces it with the CA-backed `ca` variant under the same name."
+      ca:
+        enable_when: "`pki.enabled: true`"
+        description: "Full private CA: the CA cert/key (generated or BYO, from `terraform_output('pki', ...)`) populate the `private-ca-keypair` Secret (`system-pki` only) cert-manager's `ca`-type `ClusterIssuer` (`private`) signs against, and the cert alone populates the `private-ca-trust-cert` Secret (`system-pki-trust` only, no private key) trust-manager's `Bundle` reads from — both via the facet's `secrets:` block (never rendered in the Kustomization spec, and never through a Flux substitution — a substituted multi-line PEM value loses its line breaks). A Kyverno mutation policy injects the resulting trust bundle into workload Pods."
+  public-issuer:
     facet: pki-resources
     enable_when: "`pki.enabled: true`"
     description: "Full private CA: the CA cert/key (generated or BYO, from `terraform_output('pki', ...)`) populate the `private-ca-keypair` Secret (`system-pki` only) cert-manager's `ca`-type `ClusterIssuer` (`private`) signs against, and the cert alone populates the `private-ca-trust-cert` Secret (`system-pki-trust` only, no private key) trust-manager's `Bundle` reads from — both via the facet's `secrets:` block (never rendered in the Kustomization spec, and never through a Flux substitution — a substituted multi-line PEM value loses its line breaks). A Kyverno mutation policy injects the resulting trust bundle into workload Pods."

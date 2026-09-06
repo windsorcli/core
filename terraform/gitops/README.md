@@ -1,16 +1,15 @@
 ---
 title: GitOps
 description: Flux installation that hands reconciliation to the kustomize layer.
+stack_name: GitOps
+stack_backing: Flux
 ---
-
-# GitOps
 
 The gitops category has one module, `flux`, which runs after the cluster
 module on every platform. It installs the Flux CRDs and controllers and
 then creates a root `GitRepository` plus root `Kustomization` pointing at
 the context's GitOps repo. Once those exist, Flux watches the repo and
-reconciles whatever's under `kustomize/`. The terraform module itself
-doesn't have much to do on subsequent applies.
+reconciles whatever's under `kustomize/`.
 
 `gitops.mode` controls how Flux learns about new commits. The default
 is `push`, which creates a Flux Receiver so a webhook POST from the repo
@@ -98,13 +97,12 @@ support webhooks.
 
 If push-mode reconciliation doesn't fire on a push, the Receiver
 Secret token has to match the token the repo's webhook is signing
-with. Check both sides. The workstation default value is a placeholder
-and should be rotated if it ever leaked into production.
+with. Check both sides.
 
 Flux controllers stuck in CrashLoopBackOff after install almost always
 mean pod networking isn't up. On Talos + Cilium, the `cni/cilium`
-bootstrap step has to complete before this module runs, which the
-stack ordering in the `platform-*` facets enforces.
+bootstrap step has to complete before this module runs. The stack
+ordering in the `platform-*` facets enforces that.
 
 A root Kustomization stuck in NotReady usually means the GitOps repo
 doesn't contain the path the module configured, or the URL or branch
@@ -116,8 +114,14 @@ Production clusters need to set `gitops.webhook.token` explicitly and
 pull the value from a secret store rather than checking it into the
 values file.
 
+<!-- BEGIN_TERRAFORM_MODULES -->
+
+## Modules
+
+- [flux](flux/) — Flux installation; hands reconciliation to the kustomize/ layer.
+<!-- END_TERRAFORM_MODULES -->
+
 ## See also
 
-- [flux/](flux/) for the per-module Terraform reference.
 - [../cluster/](../cluster/) for the cluster module that produces the kubeconfig used here.
 - [../../kustomize/](../../kustomize/) for the layer Flux reconciles once the install completes.

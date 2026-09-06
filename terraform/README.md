@@ -16,7 +16,7 @@ layer. Links from there land here.
 
 | Path | Purpose |
 |---|---|
-| [backend](backend/) | Remote Terraform state for cloud contexts (S3, AzureRM). |
+| [backend](backend/) | Remote Terraform state for cloud contexts (S3, AzureRM, GCS). |
 | [backend/azurerm](backend/azurerm/) | Remote Terraform state on Azure Blob + native lease. |
 | [backend/gcs](backend/gcs/) | Remote Terraform state on Google Cloud Storage. |
 | [backend/s3](backend/s3/) | Remote Terraform state on S3 + DynamoDB lock. |
@@ -36,6 +36,7 @@ layer. Links from there land here.
 | [compute/hyperv](compute/hyperv/) | Talos VMs on Hyper-V (Windows host). |
 | [compute/incus](compute/incus/) | Talos VMs on Incus. |
 | [compute/vsphere](compute/vsphere/) | Talos VMs on VMware vSphere. |
+| [database](database/) | Cloud-managed database infrastructure for application-requested Postgres. |
 | [database/aws-rds](database/aws-rds/) | KMS encryption key for RDS storage, shared across every database in a context. |
 | [database/azure-postgres](database/azure-postgres/) | Resource group, private DNS zone, NSG, and optional customer-managed key for Azure Database for PostgreSQL Flexible Server. |
 | [database/gcp-cloudsql](database/gcp-cloudsql/) | Private service connection, KMS key, and admin credentials for Cloud SQL. |
@@ -50,7 +51,9 @@ layer. Links from there land here.
 | [network/aws-vpc](network/aws-vpc/) | VPC + public/private subnets + NAT for EKS. |
 | [network/azure-vnet](network/azure-vnet/) | VNet + subnets for AKS. |
 | [network/gcp-vpc](network/gcp-vpc/) | VPC, subnets, and firewall rules for GKE. |
+| [pki](pki/) | Private certificate authority for in-cluster TLS and Talos apiserver OIDC trust. |
 | [pki/ca](pki/ca/) | Root CA generation (or BYO passthrough) for the private-CA add-on and Talos apiserver OIDC trust. |
+| [provisioning](provisioning/) | IAM and Pod Identity plumbing that lets Crossplane's cloud providers act on the account. |
 | [provisioning/crossplane-identity/aws](provisioning/crossplane-identity/aws/) | IAM and Pod Identity for Crossplane's AWS provider pods. |
 | [provisioning/crossplane-identity/azure](provisioning/crossplane-identity/azure/) | Workload Identity and RBAC for Crossplane's Azure provider pods. |
 | [provisioning/crossplane-identity/gcp](provisioning/crossplane-identity/gcp/) | Workload Identity Federation for Crossplane's GCP provider pods. |

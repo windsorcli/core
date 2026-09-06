@@ -1,9 +1,7 @@
 ---
-title: compute/vsphere
+title: vSphere
 description: Talos VMs on VMware vSphere.
 ---
-
-# compute/vsphere
 
 VM substrate for Talos clusters on VMware vSphere. Provisions Talos
 control-plane and worker VMs from the Talos vmware OVA, delivering

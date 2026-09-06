@@ -1,9 +1,8 @@
 ---
 title: Network
 description: Cloud network fabric for managed Kubernetes clusters.
+stack_backing: VPC · VNet
 ---
-
-# Network
 
 The network category has two drivers. `aws-vpc` builds a VPC with
 public and private subnets, an Internet Gateway, and per-AZ NAT
@@ -12,8 +11,7 @@ isolated subnets along with a NAT Gateway for private egress. The
 driver is selected by `platform`. Local platforms (`docker`,
 `hyperv`, `incus`, and `metal`) don't use this layer; their compute
 driver creates networking directly on the host (bridges, NAT,
-NodePort forwards). The shared `network.cidr_block` schema field is
-what drives both paths.
+NodePort forwards). Both paths read `network.cidr_block`.
 
 The network module runs after `backend` and before `cluster`. The
 cluster modules then consume the VPC or VNet IDs and subnet IDs as
@@ -87,11 +85,9 @@ The module provisions a resource group, a VNet with three subnets
 (public, private, isolated), and a NAT Gateway with a dedicated
 public IP. The NAT Gateway is associated with the private subnet so
 egress goes through it. A private DNS zone is linked to the VNet so
-internal names resolve inside it. Subnet sizing matters here because
-AKS with Azure CNI pulls Pod IPs straight from the VNet (each Pod
-consumes one VNet IP). Undersized subnets exhaust quickly. The
-default `/16` accommodates production-scale clusters; smaller blocks
-are only fine for fixed-size clusters with known pod counts.
+internal names resolve inside it. See Operations below for subnet
+sizing — AKS pulls Pod IPs straight from the VNet, so an undersized
+block exhausts quickly.
 
 ### Local (no terraform/network module)
 
@@ -140,9 +136,17 @@ Azure VNet subnets carry no NSG by default. Security boundaries are
 enforced by AKS network policies and the cluster's CNI rather than at
 the subnet layer.
 
+<!-- BEGIN_TERRAFORM_MODULES -->
+
+## Modules
+
+- [aws-vpc](aws-vpc/) — VPC + public/private subnets + NAT for EKS.
+- [azure-vnet](azure-vnet/) — VNet + subnets for AKS.
+- [gcp-vpc](gcp-vpc/) — VPC, subnets, and firewall rules for GKE.
+<!-- END_TERRAFORM_MODULES -->
+
 ## See also
 
-- [aws-vpc/](aws-vpc/) and [azure-vnet/](azure-vnet/) for the per-driver Terraform reference.
 - [../cluster/](../cluster/) for the managed-cluster modules that consume the network.
 - [../dns/](../dns/) for the public DNS zones (the private zone inside the VPC module is separate).
 - [../compute/](../compute/) for the local compute drivers that create their own host networking.

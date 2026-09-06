@@ -1,7 +1,19 @@
 ---
-title: database/azure-postgres
+title: Azure Postgres
 description: Resource group, private DNS zone, NSG, and optional customer-managed key for Azure Database for PostgreSQL Flexible Server.
 ---
+
+Per-context infrastructure for Azure Database for PostgreSQL Flexible Server: a
+dedicated resource group, the private DNS zone Flexible Server's VNet-integrated
+mode requires for name resolution, and a network security group scoping Postgres
+(5432) to the cluster's own subnets.
+
+Customer-managed encryption follows the same precedence as `database/aws-rds`: an
+operator-supplied `key_vault_key_id` wins, otherwise the module creates a dedicated
+Key Vault and key. An ephemeral context skips both and uses Flexible Server's
+platform-managed encryption instead — unlike RDS, Flexible Server needs no
+dedicated key-creation step to encrypt at rest.
+
 <!-- BEGIN_TF_DOCS -->
 ## Requirements
 
