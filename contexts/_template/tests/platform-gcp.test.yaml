@@ -1,0 +1,163 @@
+# platform-gcp.yaml facet tests
+
+cases:
+  # GKE ships metrics-server as a built-in add-on.
+  - name: gke's built-in metrics-server suppresses the platform-base copy
+    values:
+      platform: gcp
+      gcp:
+        project_id: windsor-test
+      gateway:
+        enabled: false
+    exclude:
+      flux:
+        - name: telemetry
+          install:
+            components:
+              - metrics-server
+
+
+  - name: creates GCS backend, VPC, GKE, and GitOps terraform chain
+    values:
+      platform: gcp
+      gcp:
+        project_id: windsor-test
+      gateway:
+        enabled: false
+    expect:
+      terraform:
+        - name: backend
+          path: backend/gcs
+        - name: network
+          path: network/gcp-vpc
+          dependsOn:
+            - backend
+        - name: cluster
+          path: cluster/gcp-gke
+          dependsOn:
+            - network
+        - name: gitops
+          path: gitops/flux
+          dependsOn:
+            - cluster
+
+  # Missing gcp.project_id fails composition with a guided message rather
+  # than a raw terraform validate error.
+  - name: missing gcp.project_id fails composition
+    values:
+      platform: gcp
+      gateway:
+        enabled: false
+    expectError: true
+
+  # gcp.region defaults to us-central1, unset, matching cluster/gcp-gke's
+  # own Terraform default.
+  - name: unset gcp.region defaults network to us-central1
+    values:
+      platform: gcp
+      gcp:
+        project_id: windsor-test
+      gateway:
+        enabled: false
+    expect:
+      terraform:
+        - name: network
+          path: network/gcp-vpc
+          inputs:
+            region: us-central1
+
+  # gcp.region flows into network directly. cluster derives its region from
+  # network's own output instead of gcp.region a second time — both must
+  # colocate with the VPC regardless of how region was set.
+  - name: gcp.region flows to network directly and cluster via network's output
+    values:
+      platform: gcp
+      gcp:
+        project_id: windsor-test
+        region: us-east1
+      gateway:
+        enabled: false
+    terraformOutputs:
+      network:
+        region: us-east1
+    expect:
+      terraform:
+        - name: network
+          path: network/gcp-vpc
+          inputs:
+            region: us-east1
+        - name: cluster
+          path: cluster/gcp-gke
+          inputs:
+            region: us-east1
+
+  # cluster.driver defaults to gke for platform == 'gcp' (platform-base.yaml).
+  - name: cluster.driver defaults to gke
+    values:
+      platform: gcp
+      gcp:
+        project_id: windsor-test
+      gateway:
+        enabled: false
+    expect:
+      terraform:
+        - name: cluster
+          path: cluster/gcp-gke
+
+  # cluster.pools wires to the gcp-gke module's var.pools (mirrors AWS/AKS).
+  # With no cluster.pools set, the facet defaults to one autoscaling general
+  # pool; the cluster's inline system pool already covers the fixed system
+  # role.
+  - name: default pools are a single autoscaling general pool
+    values:
+      platform: gcp
+      gcp:
+        project_id: windsor-test
+      gateway:
+        enabled: false
+    expect:
+      terraform:
+        - name: cluster
+          path: cluster/gcp-gke
+          inputs:
+            pools:
+              general:
+                class: general
+                count: 1
+
+  - name: cluster.pools wires through to gcp-gke module
+    values:
+      platform: gcp
+      gcp:
+        project_id: windsor-test
+      gateway:
+        enabled: false
+      cluster:
+        pools:
+          general:
+            class: general
+            count: 3
+    expect:
+      terraform:
+        - name: cluster
+          path: cluster/gcp-gke
+          inputs:
+            pools:
+              general:
+                class: general
+                count: 3
+
+  # gitops is tied to the cluster's own lifecycle — GKE teardown takes Flux
+  # with it, matching every other managed-cloud platform.
+  - name: gitops does not destroy independently of the cluster
+    values:
+      platform: gcp
+      gcp:
+        project_id: windsor-test
+      gateway:
+        enabled: false
+    expect:
+      terraform:
+        - name: gitops
+          path: gitops/flux
+          destroy: false

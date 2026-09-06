@@ -58,12 +58,10 @@ cases:
             substitutions:
               k8s_service_host: "10.5.0.10"
 
-  # gcp and gcp.project_id/region are schema-valid, with no dedicated platform
-  # facet yet. cluster.driver still defaults to talos (platform-base.yaml), so
-  # cni wants to wire in — but no facet contributes the "cluster" terraform
-  # component for platform == 'gcp', so composition fails on the missing
-  # dependency rather than silently producing a half-provisioned cluster.
-  - name: gcp has no platform facet yet, so composition fails on the missing cluster dependency
+  # gcp uses GKE Dataplane V2 (Google's managed Cilium integration), wired
+  # inline on cluster/gcp-gke — cluster.cni.driver stays empty, same as
+  # aws/azure, so Windsor's own cni/cilium component never installs.
+  - name: gcp uses Dataplane V2 natively, not Windsor's own cni/cilium component
     values:
       platform: gcp
       gcp:
@@ -72,8 +70,11 @@ cases:
       gateway:
         enabled: false
       network: *default-network
-      cluster: *default-cluster
-    expectError: true
+    exclude:
+      flux:
+        - name: cni
+      terraform:
+        - name: cni
 
   # Explicit flannel: opt-out of cilium — no cni kustomize component deployed.
   - name: explicit flannel driver omits cni kustomize component

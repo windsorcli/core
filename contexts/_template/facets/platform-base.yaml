@@ -37,13 +37,15 @@ config:
       workers: "${cluster.workers.count ?? (len(cluster.workers.nodes ?? {}) > 0 ? len(cluster.workers.nodes) : (platform == 'hetzner' ? 1 : 0))}"
 
   # Cluster driver and CNI. Managed clouds imply their driver (aws→eks,
-  # azure→aks); else talos. Talos defaults CNI to cilium; managed clouds leave
-  # it empty. driver is re-derived inline since siblings see user input only.
+  # azure→aks, gcp→gke); else talos. Talos defaults CNI to cilium; managed
+  # clouds leave it empty — gke's own Dataplane V2 is Google's managed Cilium
+  # integration, so Windsor's own cni/cilium layer must not also install.
+  # driver is re-derived inline since siblings see user input only.
   - name: cluster
     value:
-      driver: "${cluster.driver ?? (platform == 'aws' ? 'eks' : (platform == 'azure' ? 'aks' : 'talos'))}"
+      driver: "${cluster.driver ?? (platform == 'aws' ? 'eks' : (platform == 'azure' ? 'aks' : (platform == 'gcp' ? 'gke' : 'talos')))}"
       cni:
-        driver: "${cluster.cni.driver ?? ((cluster.driver ?? (platform == 'aws' ? 'eks' : (platform == 'azure' ? 'aks' : 'talos'))) == 'talos' ? 'cilium' : '')}"
+        driver: "${cluster.cni.driver ?? ((cluster.driver ?? (platform == 'aws' ? 'eks' : (platform == 'azure' ? 'aks' : (platform == 'gcp' ? 'gke' : 'talos')))) == 'talos' ? 'cilium' : '')}"
       # A single-controlplane, workerless cluster runs workloads on the control plane
       # by default. An explicit cluster.controlplanes.schedulable still wins, and
       # consumers keep reading it via `?? false`. The counts are spelled out rather
