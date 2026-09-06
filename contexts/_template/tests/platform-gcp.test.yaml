@@ -366,6 +366,39 @@ cases:
               google_project_id: windsor-test
               external_dns_service_account_email: external-dns@windsor-test.iam.gserviceaccount.com
 
+  # Gateway disabled: the dns Kustomization still ships (public_domain alone
+  # is enough to want Cloud DNS record management for ingress hostnames),
+  # but the gateway-httproute source ternary must resolve to an empty
+  # string and get dropped rather than land as a literal '' entry in
+  # components — same engine behavior the AWS facet's equivalent case
+  # already covers.
+  - name: external-dns deploys when dns.public_domain is set without a gateway
+    values:
+      platform: gcp
+      gcp:
+        project_id: windsor-test
+      gateway:
+        enabled: false
+      dns:
+        public_domain: example.com
+      email: ops@example.com
+    terraformOutputs:
+      dns-zone:
+        zone_name: dns-windsor-test
+      cluster:
+        external_dns_service_account_email: external-dns@windsor-test.iam.gserviceaccount.com
+    expect:
+      flux:
+        - name: dns
+          install:
+            components:
+              - external-dns
+              - external-dns/providers/google
+            substitutions:
+              external_domain: example.com
+              google_project_id: windsor-test
+              external_dns_service_account_email: external-dns@windsor-test.iam.gserviceaccount.com
+
   # Dev mode flips the ACME server to Let's Encrypt staging to avoid burning
   # Let's Encrypt prod rate limits during iteration. database.postgres
   # disabled explicitly: dev mode default-enables it, and cluster/gcp-gke has
