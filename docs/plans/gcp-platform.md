@@ -183,8 +183,14 @@ Pod Identity).
    `windsor apply --wait`: every kustomization (gateway, observability, pki,
    policy, telemetry) reconciled Ready on a live GKE cluster, not just the
    bare cluster this phase originally targeted.
-4. **DNS + cert-manager**: `dns/zone/gcp-dns`, the `clouddns` ACME solver,
-   the `google` external-dns provider. Unlocks `dns.public_domain` on GCP.
+4. **Done.** `dns/zone/gcp-dns`, the `clouddns` ACME solver, the `google`
+   external-dns provider. Unlocks `dns.public_domain` on GCP. cert-manager
+   and external-dns each get a Google Service Account bound to their KSA via
+   GKE Workload Identity, inline on `cluster/gcp-gke` — same shape as the
+   AKS federated-credential pair. No private-zone wiring yet: unlike
+   AWS/Azure, `network/gcp-vpc` has no VPC-linked private zone, so
+   `gateway.access == 'private'` gets no GCP-specific issuer or external-dns
+   override the way it does on AWS/Azure.
 5. **Done.** `database/gcp-cloudsql`, `provisioning/crossplane-identity-gcp`,
    and the `cloudsql` `database.postgres.driver`. Landed ahead of phase 4.
    Cloud SQL's `User` CR has no auto-generate mechanism for Postgres (unlike
@@ -226,3 +232,11 @@ Node Auto-Provisioning (NAP); GKE has its own NAP that's the direct GCP
 counterpart. Revisit this module's pools model once that migration actually
 lands on AWS/Azure, rather than designing GCP's node-provisioning story
 ahead of precedent that doesn't exist yet.
+
+`platform-gcp.yaml` has no `csi` flux entry at all, unlike every other
+managed-cloud platform (`aws-ebs`, `azure-disk`). GKE ships the Persistent
+Disk CSI driver as a built-in add-on, so wiring a default StorageClass is
+cheap, but until that lands, any addon that default-enables a PVC-backed
+workload (e.g. `option-dev`'s CloudNativePG default) fails composition on
+GCP with a missing `csi` dependency. Found while testing phase 4; fixing it
+is its own follow-on scope, not a DNS concern.

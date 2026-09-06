@@ -17,17 +17,34 @@ requires:
   - paths:
       - gcp.project_id
     message: The GCP provider needs a project ID for every API call.
+  - when: (dns.public_domain ?? '') != ''
+    paths:
+      - email
+    message: Public DNS requires an operator email for TLS certificate registration.
 
 # =============================================================================
 # Config — platform-specific overrides
 # =============================================================================
-# GKE ships metrics-server as a built-in add-on; suppress the platform-base
-# copy to avoid two instances fighting on the same APIService.
 config:
 
+  # GKE ships metrics-server as a built-in add-on; suppress the
+  # platform-base copy to avoid two instances fighting on the same
+  # APIService.
   - name: telemetry
     value:
       metrics_server_enabled: false
+
+  # issuer_component selects the public ClusterIssuer variant (last match
+  # wins): selfsigned floor → ACME (clouddns) once a public domain is set.
+  # GCP has no private-zone wiring yet, unlike AWS/Azure, so there's no
+  # private-mode override here.
+  - name: pki_effective
+    value:
+      issuer_component: public-issuer/selfsigned
+  - name: pki_effective
+    when: (dns.public_domain ?? '') != ''
+    value:
+      issuer_component: public-issuer/acme/clouddns
 
 # =============================================================================
 # Terraform — GCS state backend, VPC, GKE
@@ -53,8 +70,23 @@ terraform:
       region: ${gcp.region ?? 'us-central1'}
       cidr_block: ${network.cidr_block}
 
-  # GKE cluster. Portable user pools alongside the inline system pool;
-  # defaults to one general pool. Declaring cluster.pools replaces this.
+  # Public Cloud DNS zone when dns.public_domain is set. Own stack so its
+  # lifecycle (and NS delegation) is independent of the cluster's.
+  - name: dns-zone
+    path: dns/zone/gcp-dns
+    when: "(dns.public_domain ?? '') != ''"
+    dependsOn:
+      - backend
+    inputs:
+      project_id: ${gcp.project_id}
+      domain_name: ${dns.public_domain}
+
+  # GKE cluster. cert-manager Workload Identity only when ACME is on
+  # (public_domain set); cert_manager_dns_zone_names scopes Cloud DNS
+  # writes to just the dns-zone. external-dns Workload Identity is
+  # default-on but only granted a zone once one is provisioned. Portable
+  # user pools alongside the inline system pool; defaults to one general
+  # pool. Declaring cluster.pools replaces this.
   - name: cluster
     path: cluster/gcp-gke
     dependsOn:
@@ -66,8 +98,20 @@ terraform:
       region: ${terraform_output('network', 'region')}
       network_id: ${terraform_output('network', 'network_id')}
       subnetwork_id: ${terraform_output('network', 'private_subnet_id')}
+      create_cert_manager_identity: "${(dns.public_domain ?? '') != ''}"
+      cert_manager_dns_zone_names: "${(dns.public_domain ?? '') != '' && (terraform_output('dns-zone', 'zone_name') ?? '') != '' ? [terraform_output('dns-zone', 'zone_name')] : []}"
+      external_dns_dns_zone_names: "${(dns.public_domain ?? '') != '' && (terraform_output('dns-zone', 'zone_name') ?? '') != '' ? [terraform_output('dns-zone', 'zone_name')] : []}"
       pools: >-
         ${cluster.pools ?? {"general": {"class": "general", "count": 1}}}
+
+  # Dependency-edge injector: when ACME is on, cluster must wait for
+  # dns-zone so terraform_output('dns-zone', 'zone_name') resolves before
+  # the IAM member list is rendered (otherwise the guard evaluates false —
+  # no zone access).
+  - name: cluster
+    when: "(dns.public_domain ?? '') != ''"
+    dependsOn:
+      - dns-zone
 
   # Private service connection and KMS key for Cloud SQL. Shared across
   # every database in a context.
@@ -107,3 +151,55 @@ terraform:
       - cluster
     inputs:
       concurrency: 5
+
+# =============================================================================
+# Flux systems — pki install/resources overlay
+# =============================================================================
+# install: annotates the cert-manager ServiceAccount with the GKE Workload
+# Identity binding so the cloudDNS solver can mint Google access tokens
+# (ACME only). resources: renders the public ClusterIssuer — selfsigned
+# default, ACME (clouddns) when a zone is set.
+flux:
+
+  # Workload Identity for the cert-manager pod, gated on ACME.
+  - name: pki
+    when: "(dns.public_domain ?? '') != ''"
+    install:
+      components:
+        - cert-manager/gcp-workload-identity
+      substitutions:
+        cert_manager_service_account_email: "${terraform_output('cluster', 'cert_manager_service_account_email') ?? ''}"
+
+  - name: pki
+    resources:
+      - components:
+          - "${pki_effective.issuer_component}"
+        timeout: 5m
+        interval: 5m
+        substitutions:
+          acme_server: "${dev == true ? 'https://acme-staging-v02.api.letsencrypt.org/directory' : 'https://acme-v02.api.letsencrypt.org/directory'}"
+          acme_email: "${email ?? ''}"
+          acme_dns_zone: "${dns.public_domain ?? ''}"
+          acme_dns_zone_project: "${gcp.project_id}"
+
+  # DNS — external-dns + Cloud DNS record automation. external-dns writes
+  # A/CNAME records from annotated Ingress/HTTPRoute resources into the
+  # dns-zone stack's zone. Workload Identity is wired by the cluster module.
+  # No private-mode wiring yet — GCP has no VPC-linked private zone, unlike
+  # AWS/Azure.
+  - name: dns
+    when: "(dns.public_domain ?? '') != ''"
+    install:
+      components:
+        - external-dns
+        - external-dns/providers/google
+        - "${gateway.enabled == true ? 'external-dns/sources/gateway-httproute' : ''}"
+      timeout: 5m
+      interval: 5m
+      substitutions:
+        external_domain: "${dns.public_domain}"
+        google_project_id: "${gcp.project_id}"
+        external_dns_service_account_email: "${terraform_output('cluster', 'external_dns_service_account_email') ?? ''}"
+        # Context id in TXT records so multiple external-dns instances in a
+        # zone don't clobber each other.
+        txt_owner_id: "${id}"

@@ -260,3 +260,178 @@ cases:
       terraform:
         - name: database
         - name: crossplane-identity-gcp
+
+  # ACME off by default — no public domain configured. pki-resources still
+  # renders so the gateway cert always has a working ClusterIssuer (just-works
+  # default), but using public-issuer/selfsigned (no Cloud DNS wiring needed).
+  # Cluster's cert-manager identity and the dns-zone stack stay off.
+  - name: default selfsigned mode without a public domain
+    values:
+      platform: gcp
+      gcp:
+        project_id: windsor-test
+      gateway:
+        enabled: false
+    expect:
+      terraform:
+        - name: cluster
+          path: cluster/gcp-gke
+          # No dns-zone edge when ACME is off — the path-less injector is
+          # gated on dns.public_domain and drops out here.
+          dependsOn:
+            - network
+          inputs:
+            create_cert_manager_identity: "false"
+            # Empty list (not an eager terraform_output('dns-zone', ...)
+            # call) when ACME is off — dns-zone isn't registered, so
+            # referencing its output would hard-error at bootstrap.
+            cert_manager_dns_zone_names: []
+            external_dns_dns_zone_names: []
+      flux:
+        - name: pki
+          resources:
+            - components:
+                - public-issuer/selfsigned
+    exclude:
+      terraform:
+        - name: dns-zone
+
+  # ACME path on (production): dns.public_domain triggers the standalone
+  # dns-zone stack, cert-manager's Workload Identity on the cluster, the
+  # public-issuer/acme/clouddns component on pki-resources, and external-dns.
+  - name: dns.public_domain wires up ACME clouddns issuer end to end
+    values:
+      platform: gcp
+      gcp:
+        project_id: windsor-test
+      gateway:
+        enabled: true
+        driver: envoy
+      dns:
+        public_domain: example.com
+      email: ops@example.com
+    terraformOutputs:
+      dns-zone:
+        zone_name: dns-windsor-test
+      cluster:
+        cert_manager_service_account_email: cert-manager@windsor-test.iam.gserviceaccount.com
+        external_dns_service_account_email: external-dns@windsor-test.iam.gserviceaccount.com
+    expect:
+      terraform:
+        - name: dns-zone
+          path: dns/zone/gcp-dns
+          dependsOn:
+            - backend
+          inputs:
+            project_id: windsor-test
+            domain_name: example.com
+        - name: cluster
+          path: cluster/gcp-gke
+          # cluster must wait for dns-zone so terraform_output('dns-zone',
+          # 'zone_name') is resolved before the IAM member list is rendered
+          # — without this edge the guard evaluates false and no zone is
+          # granted.
+          dependsOn:
+            - network
+            - dns-zone
+          inputs:
+            create_cert_manager_identity: "true"
+            cert_manager_dns_zone_names:
+              - dns-windsor-test
+            external_dns_dns_zone_names:
+              - dns-windsor-test
+      flux:
+        - name: pki
+          install:
+            components:
+              - cert-manager/gcp-workload-identity
+            substitutions:
+              cert_manager_service_account_email: cert-manager@windsor-test.iam.gserviceaccount.com
+          resources:
+            - components:
+                - public-issuer/acme/clouddns
+              substitutions:
+                acme_server: https://acme-v02.api.letsencrypt.org/directory
+                acme_email: ops@example.com
+                acme_dns_zone: example.com
+                acme_dns_zone_project: windsor-test
+        - name: dns
+          install:
+            components:
+              - external-dns
+              - external-dns/providers/google
+              - external-dns/sources/gateway-httproute
+            substitutions:
+              external_domain: example.com
+              google_project_id: windsor-test
+              external_dns_service_account_email: external-dns@windsor-test.iam.gserviceaccount.com
+
+  # Dev mode flips the ACME server to Let's Encrypt staging to avoid burning
+  # Let's Encrypt prod rate limits during iteration. database.postgres
+  # disabled explicitly: dev mode default-enables it, and cluster/gcp-gke has
+  # no CSI wiring yet for its PVC to bind against — a pre-existing gap
+  # unrelated to DNS.
+  - name: dev mode uses Let's Encrypt staging server
+    values:
+      platform: gcp
+      gcp:
+        project_id: windsor-test
+      dev: true
+      database:
+        postgres:
+          enabled: false
+      gateway:
+        enabled: true
+        driver: envoy
+      dns:
+        public_domain: dev.example.com
+      email: dev@example.com
+    terraformOutputs:
+      dns-zone:
+        zone_name: dns-windsor-test
+    expect:
+      flux:
+        - name: pki
+          resources:
+            - components:
+                - public-issuer/acme/clouddns
+              substitutions:
+                acme_server: https://acme-staging-v02.api.letsencrypt.org/directory
+                acme_email: dev@example.com
+
+  # When dns.public_domain is set, pki-resources renders the ACME
+  # ClusterIssuer regardless of whether the dns-zone terraform output is
+  # available yet. acme_dns_zone_project comes straight from gcp.project_id,
+  # not a terraform_output, so it never needs deferred evaluation.
+  - name: pki-resources renders ACME when public_domain set even without dns-zone output yet
+    values:
+      platform: gcp
+      gcp:
+        project_id: windsor-test
+      gateway:
+        enabled: true
+        driver: envoy
+      dns:
+        public_domain: example.com
+      email: ops@example.com
+    terraformOutputs:
+      dns-zone: {}
+    expect:
+      flux:
+        - name: pki
+          resources:
+            - components:
+                - public-issuer/acme/clouddns
+
+  # Requires: ACME registration with Let's Encrypt needs an operator email.
+  - name: ACME mode without email fails composition
+    values:
+      platform: gcp
+      gcp:
+        project_id: windsor-test
+      gateway:
+        enabled: true
+        driver: envoy
+      dns:
+        public_domain: example.com
+    expectError: true

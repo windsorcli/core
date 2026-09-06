@@ -301,3 +301,70 @@ resource "null_resource" "kubeconfig" {
     }
   }
 }
+
+#---------------------------------------------------------------------------------------------------
+# Workload Identity for cert-manager
+#
+# GKE analogue of the AKS federated-identity-credential pair and the EKS
+# create_cert_manager_role + Pod Identity association. cert-manager
+# authenticates to Cloud DNS via GKE's own Workload Identity: the pod's
+# ServiceAccount token is exchanged for a Google access token, scoped to a
+# dedicated Google Service Account with roles/dns.admin on the specified
+# zone(s). No key file stored anywhere.
+#
+# Off by default — only provisioned when ACME is in play (operator set
+# dns.public_domain and the facet flips create_cert_manager_identity on).
+#---------------------------------------------------------------------------------------------------
+
+resource "google_service_account" "cert_manager" {
+  count        = var.create_cert_manager_identity ? 1 : 0
+  account_id   = "${local.cluster_name}-cert-manager"
+  display_name = "cert-manager for ${local.cluster_name}"
+  project      = var.project_id
+}
+
+resource "google_service_account_iam_member" "cert_manager_workload_identity" {
+  count              = var.create_cert_manager_identity ? 1 : 0
+  service_account_id = google_service_account.cert_manager[0].name
+  role               = "roles/iam.workloadIdentityUser"
+  member             = "serviceAccount:${var.project_id}.svc.id.goog[system-pki/cert-manager]"
+}
+
+resource "google_dns_managed_zone_iam_member" "cert_manager_dns" {
+  for_each     = var.create_cert_manager_identity ? toset(var.cert_manager_dns_zone_names) : toset([])
+  project      = var.project_id
+  managed_zone = each.value
+  role         = "roles/dns.admin"
+  member       = "serviceAccount:${google_service_account.cert_manager[0].email}"
+}
+
+#---------------------------------------------------------------------------------------------------
+# Workload Identity for external-dns
+#
+# Same pattern as cert-manager. external-dns needs roles/dns.admin to
+# create/update/delete record sets in the target zone. Default-on so any
+# cluster on GKE can publish hostnames once the operator passes a zone
+# name — matches the EKS/AKS facets' create_external_dns_role default.
+#---------------------------------------------------------------------------------------------------
+
+resource "google_service_account" "external_dns" {
+  count        = var.create_external_dns_identity ? 1 : 0
+  account_id   = "${local.cluster_name}-external-dns"
+  display_name = "external-dns for ${local.cluster_name}"
+  project      = var.project_id
+}
+
+resource "google_service_account_iam_member" "external_dns_workload_identity" {
+  count              = var.create_external_dns_identity ? 1 : 0
+  service_account_id = google_service_account.external_dns[0].name
+  role               = "roles/iam.workloadIdentityUser"
+  member             = "serviceAccount:${var.project_id}.svc.id.goog[system-dns/external-dns]"
+}
+
+resource "google_dns_managed_zone_iam_member" "external_dns_dns" {
+  for_each     = var.create_external_dns_identity ? toset(var.external_dns_dns_zone_names) : toset([])
+  project      = var.project_id
+  managed_zone = each.value
+  role         = "roles/dns.admin"
+  member       = "serviceAccount:${google_service_account.external_dns[0].email}"
+}

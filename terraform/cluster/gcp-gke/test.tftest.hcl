@@ -301,6 +301,64 @@ run "pools_invalid_name_rejected" {
   }
 }
 
+# cert-manager identity is off by default and external-dns is on, matching
+# the AKS/EKS facets' defaults.
+run "workload_identity_defaults" {
+  command = plan
+
+  variables {
+    context_id    = "test"
+    project_id    = "test-project"
+    network_id    = "projects/test-project/global/networks/network-test"
+    subnetwork_id = "projects/test-project/regions/us-central1/subnetworks/private-test"
+  }
+
+  assert {
+    condition     = length(google_service_account.cert_manager) == 0
+    error_message = "cert-manager identity should not be created by default."
+  }
+
+  assert {
+    condition     = length(google_service_account.external_dns) == 1
+    error_message = "external-dns identity should be created by default."
+  }
+
+  assert {
+    condition     = google_service_account_iam_member.external_dns_workload_identity[0].member == "serviceAccount:test-project.svc.id.goog[system-dns/external-dns]"
+    error_message = "external-dns Workload Identity binding should target the system-dns/external-dns KSA."
+  }
+}
+
+# Enabling cert-manager's identity scopes roles/dns.admin to exactly the
+# zones passed in, one IAM member per zone.
+run "cert_manager_identity_scoped_to_zones" {
+  command = plan
+
+  variables {
+    context_id                   = "test"
+    project_id                   = "test-project"
+    network_id                   = "projects/test-project/global/networks/network-test"
+    subnetwork_id                = "projects/test-project/regions/us-central1/subnetworks/private-test"
+    create_cert_manager_identity = true
+    cert_manager_dns_zone_names  = ["dns-test"]
+  }
+
+  assert {
+    condition     = length(google_service_account.cert_manager) == 1
+    error_message = "cert-manager identity should be created when requested."
+  }
+
+  assert {
+    condition     = google_service_account_iam_member.cert_manager_workload_identity[0].member == "serviceAccount:test-project.svc.id.goog[system-pki/cert-manager]"
+    error_message = "cert-manager Workload Identity binding should target the system-pki/cert-manager KSA."
+  }
+
+  assert {
+    condition     = google_dns_managed_zone_iam_member.cert_manager_dns["dns-test"].role == "roles/dns.admin"
+    error_message = "cert-manager should be granted roles/dns.admin on the requested zone."
+  }
+}
+
 # Verifies that a missing project_id is rejected.
 run "missing_project_id" {
   command = plan

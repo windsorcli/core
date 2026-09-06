@@ -41,6 +41,7 @@ layer. Links from there land here.
 | [database/gcp-cloudsql](database/gcp-cloudsql/) | Private service connection, KMS key, and admin credentials for Cloud SQL. |
 | [dns](dns/) | Public DNS zones for ACME certificates and external-dns. |
 | [dns/zone/azure-dns](dns/zone/azure-dns/) | DNS zone on Azure DNS. |
+| [dns/zone/gcp-dns](dns/zone/gcp-dns/) | DNS zone on Google Cloud DNS. |
 | [dns/zone/hetzner](dns/zone/hetzner/) | Creates a primary Hetzner DNS zone via the official hcloud provider. |
 | [dns/zone/route53](dns/zone/route53/) | Public DNS zone on AWS Route53. |
 | [gitops](gitops/) | Flux installation that hands reconciliation to the kustomize layer. |
