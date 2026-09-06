@@ -94,10 +94,6 @@ resource "google_kms_crypto_key" "this" {
   name            = "terraform-state-${var.context_id}"
   key_ring        = google_kms_key_ring.this[0].id
   rotation_period = "7776000s" # 90 days
-
-  lifecycle {
-    prevent_destroy = true
-  }
 }
 
 data "google_storage_project_service_account" "this" {

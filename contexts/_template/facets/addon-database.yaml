@@ -6,12 +6,11 @@ metadata:
 
 when: database.postgres.enabled == true
 
-# Crossplane's own CRDs, vendored (kustomize/crds/crossplane-2.4.0), owned by
-# the crds: layer, not the chart. Only the rds and flexibleserver drivers
-# need them.
+# Crossplane's own CRDs, vendored (kustomize/crds/crossplane-2.4.0), for
+# the rds/flexibleserver/cloudsql drivers.
 crds:
   # renovate: datasource=github-releases depName=crossplane/crossplane package=crossplane/crossplane
-  - "${(database.postgres.driver == 'rds' || database.postgres.driver == 'flexibleserver') ? 'crossplane-2.4.0' : ''}"
+  - "${(database.postgres.driver == 'rds' || database.postgres.driver == 'flexibleserver' || database.postgres.driver == 'cloudsql') ? 'crossplane-2.4.0' : ''}"
 
 # =============================================================================
 # Flux systems — CloudNativePG operator
@@ -40,11 +39,11 @@ flux:
   # rds/flexibleserver (see kustomize/demo/resources/database/rds for a
   # worked example of deploying it against a chart's own Instance).
   - name: observability
-    when: (database.postgres.driver == 'cloudnativepg' || database.postgres.driver == 'rds' || database.postgres.driver == 'flexibleserver') && observability.enabled == true
+    when: (database.postgres.driver == 'cloudnativepg' || database.postgres.driver == 'rds' || database.postgres.driver == 'flexibleserver' || database.postgres.driver == 'cloudsql') && observability.enabled == true
     resources:
       - components:
           - "${database.postgres.driver == 'cloudnativepg' ? 'grafana/dashboards/cloudnativepg' : ''}"
-          - "${(database.postgres.driver == 'rds' || database.postgres.driver == 'flexibleserver') ? 'grafana/dashboards/postgres-exporter' : ''}"
+          - "${(database.postgres.driver == 'rds' || database.postgres.driver == 'flexibleserver' || database.postgres.driver == 'cloudsql') ? 'grafana/dashboards/postgres-exporter' : ''}"
 
   # Crossplane engine (kustomize/provisioning) — a chart creates the
   # Instance CR; core only installs the engine and wires AWS credentials.
@@ -58,13 +57,7 @@ flux:
       timeout: 15m
       interval: 5m
     resources:
-      # ProviderConfig + the tag policy + the always-on monitoring
-      # generate policies. ProviderConfig's CRD registers only once
-      # provisioning-providers reports the Provider Healthy/Installed.
-      # The exporter's own generate policy is separate
-      # (monitoring-exporter component) since it needs
-      # telemetry.metrics.enabled — PodMonitor only exists once the
-      # metrics pipeline vendors that CRD.
+      # Waits for Healthy/Installed so ProviderConfig's CRD exists.
       - dependsOn:
           - provisioning-providers-install
         components:
@@ -106,13 +99,7 @@ flux:
       timeout: 15m
       interval: 5m
     resources:
-      # ProviderConfig + the resource-group policy + the always-on
-      # monitoring generate policies. ProviderConfig's CRD registers only
-      # once provisioning-providers reports the Provider
-      # Healthy/Installed. The exporter's own generate policy is
-      # separate (monitoring-exporter component) since it needs
-      # telemetry.metrics.enabled — PodMonitor only exists once the
-      # metrics pipeline vendors that CRD.
+      # Waits for Healthy/Installed so ProviderConfig's CRD exists.
       - dependsOn:
           - provisioning-providers-install
         components:
@@ -149,3 +136,41 @@ flux:
       substitutions:
         crossplane_azure_client_id: "${terraform_output('crossplane-identity-azure', 'client_ids')['postgres'] ?? ''}"
         crossplane_azure_tenant_id: "${terraform_output('crossplane-identity-azure', 'tenant_id') ?? ''}"
+
+  # Installs the Crossplane engine and wires GCP Workload Identity.
+  - name: provisioning
+    when: database.postgres.driver == 'cloudsql'
+    install:
+      components:
+        - crossplane
+      timeout: 15m
+      interval: 5m
+    resources:
+      # Waits for Healthy/Installed so ProviderConfig's CRD exists.
+      - dependsOn:
+          - provisioning-providers-install
+        components:
+          - crossplane/gcp-cloudsql
+          - "${(telemetry.metrics.enabled ?? true) ? 'crossplane/gcp-cloudsql/monitoring-exporter' : ''}"
+        substitutions:
+          crossplane_gcp_project_id: "${gcp.project_id ?? ''}"
+        timeout: 5m
+        interval: 5m
+
+  # provider-gcp-sql's Provider CR and DeploymentRuntimeConfig.
+  - name: provisioning-providers
+    path: provisioning
+    when: database.postgres.driver == 'cloudsql'
+    dependsOn:
+      - provisioning
+    install:
+      components:
+        - crossplane/gcp-cloudsql
+      healthCheckExprs:
+        - apiVersion: pkg.crossplane.io/v1
+          kind: Provider
+          current: status.conditions.exists(e, e.type == 'Healthy' && e.status == 'True') && status.conditions.exists(e, e.type == 'Installed' && e.status == 'True')
+      timeout: 15m
+      interval: 5m
+      substitutions:
+        crossplane_gcp_service_account_email: "${terraform_output('crossplane-identity-gcp', 'service_account_emails')['postgres'] ?? ''}"

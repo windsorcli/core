@@ -1,12 +1,8 @@
 ---
-# Provisions ${pg_database_name}_app for ${pg_instance_name} from its
-# admin credential Secret, never the admin credential itself.
-# The role owns its database, matching CNPG's own default "app" user, so
-# the chart can run its own schema migrations. pg_grant_sql adds grants
-# ownership doesn't cover, like a second read-only consumer. This
-# component handles role creation, password handling, and publishing
-# ${pg_instance_name}-app-credentials. A tick before the FlexibleServer
-# is Ready, or after the role already exists, exits clean.
+# Provisions ${pg_database_name}_app for ${pg_instance_name} from the
+# admin credential Secret, and publishes ${pg_instance_name}-app-credentials.
+# Exits clean before the FlexibleServer is Ready or once the role exists.
+# Runs the same mounted scripts as provision-app-role-job.yaml.
 apiVersion: batch/v1
 kind: CronJob
 metadata:
@@ -44,42 +40,12 @@ spec:
                   type: RuntimeDefault
               command:
                 - /bin/bash
-                - -c
-                - |
-                  set -euo pipefail
-
-                  READY=$(kubectl get flexibleserver.dbforpostgresql.azure.upbound.io ${pg_instance_name} \
-                    -o jsonpath='{.status.conditions[?(@.type=="Ready")].status}' 2>/dev/null || echo "")
-                  if [ "$READY" != "True" ]; then
-                    echo "${pg_instance_name} FlexibleServer not Ready yet, skipping this tick."
-                    touch /shared/skip
-                    exit 0
-                  fi
-
-                  kubectl get flexibleserver.dbforpostgresql.azure.upbound.io ${pg_instance_name} \
-                    -o jsonpath='{.status.atProvider.fqdn}' > /shared/address
-                  kubectl get flexibleserver.dbforpostgresql.azure.upbound.io ${pg_instance_name} \
-                    -o jsonpath='{.spec.forProvider.administratorLogin}' > /shared/admin-username
-
-                  kubectl get secret ${pg_instance_name}-admin-credentials \
-                    -n system-provisioning -o jsonpath='{.data.password}' | base64 -d > /shared/admin-password
-
-                  # Reuse the password already published, so a role that
-                  # already exists doesn't get a new one every tick — an
-                  # app reading this Secret via env var wouldn't see the
-                  # change anyway. Only a fresh role gets a fresh one,
-                  # independent of the admin password's own rotation.
-                  EXISTING=$(kubectl get secret ${pg_instance_name}-app-credentials \
-                    -n ${pg_target_namespace} -o jsonpath='{.data.password}' 2>/dev/null | base64 -d || echo "")
-                  if [ -n "$EXISTING" ]; then
-                    echo -n "$EXISTING" > /shared/app-password
-                  else
-                    head -c 24 /dev/urandom | base64 | tr -d '/+=\n' > /shared/app-password
-                    touch /shared/needs-password-set
-                  fi
+                - /scripts/fetch-admin-credentials.sh
               volumeMounts:
                 - name: shared
                   mountPath: /shared
+                - name: scripts
+                  mountPath: /scripts
             - name: provision-app-role
               # renovate: datasource=docker depName=postgres
               image: postgres:16.15-alpine@sha256:cf78e76683b9ca8c5733cbbdce6c9262b45b6767934dd0a95e671f9a0fc20685
@@ -92,41 +58,12 @@ spec:
                   type: RuntimeDefault
               command:
                 - /bin/bash
-                - -c
-                - |
-                  set -euo pipefail
-
-                  if [ -f /shared/skip ]; then
-                    echo "Skipping, nothing to provision this tick."
-                    exit 0
-                  fi
-
-                  ADDRESS=$(cat /shared/address)
-                  ADMIN_USER=$(cat /shared/admin-username)
-                  APP_PASSWORD=$(cat /shared/app-password)
-                  NEEDS_PASSWORD_SET=false
-                  if [ -f /shared/needs-password-set ]; then
-                    NEEDS_PASSWORD_SET=true
-                  fi
-
-                  PGPASSWORD=$(cat /shared/admin-password) psql -h "$ADDRESS" -U "$ADMIN_USER" \
-                    -d ${pg_database_name} -v ON_ERROR_STOP=1 <<SQL
-                  DO \$\$
-                  BEGIN
-                    IF NOT EXISTS (SELECT FROM pg_roles WHERE rolname = '${pg_database_name}_app') THEN
-                      CREATE ROLE "${pg_database_name}_app" WITH LOGIN PASSWORD '$APP_PASSWORD';
-                    ELSIF $NEEDS_PASSWORD_SET THEN
-                      ALTER ROLE "${pg_database_name}_app" WITH PASSWORD '$APP_PASSWORD';
-                    END IF;
-                  END
-                  \$\$;
-                  GRANT "${pg_database_name}_app" TO "$ADMIN_USER";
-                  ALTER DATABASE "${pg_database_name}" OWNER TO "${pg_database_name}_app";
-                  ${pg_grant_sql}
-                  SQL
+                - /scripts/provision-app-role.sh
               volumeMounts:
                 - name: shared
                   mountPath: /shared
+                - name: scripts
+                  mountPath: /scripts
           containers:
             - name: publish-app-secret
               # renovate: datasource=docker depName=alpine/k8s
@@ -140,26 +77,25 @@ spec:
                   type: RuntimeDefault
               command:
                 - /bin/bash
-                - -c
-                - |
-                  set -euo pipefail
-
-                  if [ -f /shared/skip ]; then
-                    echo "Skipping, nothing to publish this tick."
-                    exit 0
-                  fi
-
-                  kubectl create secret generic ${pg_instance_name}-app-credentials \
-                    -n ${pg_target_namespace} \
-                    --from-literal=username="${pg_database_name}_app" \
-                    --from-literal=password="$(cat /shared/app-password)" \
-                    --dry-run=client -o yaml | kubectl apply -f -
+                - /scripts/publish-app-secret.sh
               volumeMounts:
                 - name: shared
                   mountPath: /shared
+                - name: scripts
+                  mountPath: /scripts
           volumes:
             # Memory-backed: the admin and app passwords transiting this
             # volume never touch node disk.
             - name: shared
               emptyDir:
                 medium: Memory
+            # Merges this driver's fetch-admin-credentials.sh with the
+            # cloud-agnostic provision-app-role.sh/publish-app-secret.sh
+            # from _shared/app-role-scripts into one directory.
+            - name: scripts
+              projected:
+                sources:
+                  - configMap:
+                      name: ${pg_instance_name}-provision-app-role-scripts
+                  - configMap:
+                      name: provision-app-role-common-scripts

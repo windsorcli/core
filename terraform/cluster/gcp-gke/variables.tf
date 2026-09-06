@@ -107,13 +107,14 @@ variable "system_node_pool" {
     max_count           = number
   })
   default = {
-    # n4-standard-2 (2 vCPU / 8 GB), GA and broadly available across regions.
-    # System pool stays small — the CriticalAddonsOnly taint keeps user
-    # workloads off it, this pool only hosts cluster operators.
-    machine_type        = "n4-standard-2"
-    disk_size_gb        = 50
-    node_count          = 1
-    autoscaling_enabled = true
+    # n2-standard-2 (2 vCPU / 8 GB). System pool stays small — the
+    # CriticalAddonsOnly taint keeps user workloads off it, this pool only
+    # hosts cluster operators.
+    machine_type = "n2-standard-2"
+    disk_size_gb = 50
+    node_count   = 1
+    # GKE won't scale an idle pool up from zero on its own.
+    autoscaling_enabled = false
     min_count           = 1
     max_count           = 3
   }
@@ -197,16 +198,16 @@ variable "pools" {
 }
 
 variable "class_machine_types" {
-  description = "Default GCE machine type list per portable pool class. Only the first entry is used; remaining entries document an operator preference order. A pool's explicit instance_types overrides this map. When overriding this variable, all seven class keys must be supplied — partial overrides are rejected at validate time. GCP has no leaner-memory-ratio compute family the way AWS (c6i) and Azure (Fsv2) do — C4 stays near N4's 4GB/vCPU ratio, differing instead in sustained clock speed. GCP also has no fixed storage-optimized machine family; class: storage resolves to a general-purpose machine with no local SSD attached, unlike AWS (i3/i4i) and Azure (Lsv3)."
+  description = "Default GCE machine type list per portable pool class. Only the first entry is used; remaining entries document an operator preference order. A pool's explicit instance_types overrides this map. When overriding this variable, all seven class keys must be supplied — partial overrides are rejected at validate time. GCP has no leaner-memory-ratio compute family the way AWS (c6i) and Azure (Fsv2) do — C2 stays near N2's 4GB/vCPU ratio, differing instead in sustained clock speed. GCP also has no fixed storage-optimized machine family; class: storage resolves to a general-purpose machine with no local SSD attached, unlike AWS (i3/i4i) and Azure (Lsv3)."
   type        = map(list(string))
   default = {
-    system  = ["n4-standard-2", "n4-standard-4"]
-    general = ["n4-standard-4", "n4-standard-8"]
-    compute = ["c4-standard-4", "c4-standard-8", "c4-standard-16"]
-    memory  = ["n4-highmem-4", "n4-highmem-8"]
-    storage = ["n4-standard-8", "n4-standard-16"]
+    system  = ["n2-standard-2", "n2-standard-4"]
+    general = ["n2-standard-4", "n2-standard-8"]
+    compute = ["c2-standard-4", "c2-standard-8", "c2-standard-16"]
+    memory  = ["n2-highmem-4", "n2-highmem-8"]
+    storage = ["n2-standard-8", "n2-standard-16"]
     gpu     = ["g2-standard-4", "g2-standard-8"]
-    arm64   = ["c4a-standard-4", "c4a-standard-8"]
+    arm64   = ["t2a-standard-4", "t2a-standard-8"]
   }
 
   validation {

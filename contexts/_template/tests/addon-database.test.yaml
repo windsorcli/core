@@ -279,6 +279,72 @@ cases:
             - dependsOn:
                 - provisioning-providers-install
 
+  # cloudsql driver installs Crossplane (kustomize/provisioning) instead of
+  # CNPG — GCP twin of the rds case above.
+  - name: cloudsql driver installs crossplane and provider-gcp-sql
+    values:
+      platform: gcp
+      gcp:
+        project_id: windsor-test
+      gateway:
+        enabled: false
+      database:
+        postgres:
+          enabled: true
+          driver: cloudsql
+    expect:
+      flux:
+        - name: provisioning
+          install:
+            components:
+              - crossplane
+          resources:
+            - dependsOn:
+                - provisioning-providers-install
+              components:
+                - crossplane/gcp-cloudsql
+                - crossplane/gcp-cloudsql/monitoring-exporter
+        - name: provisioning-providers
+          path: provisioning
+          dependsOn:
+            - provisioning-install
+          install:
+            components:
+              - crossplane/gcp-cloudsql
+            healthCheckExprs:
+              - apiVersion: pkg.crossplane.io/v1
+                kind: Provider
+                current: status.conditions.exists(e, e.type == 'Healthy' && e.status == 'True') && status.conditions.exists(e, e.type == 'Installed' && e.status == 'True')
+      crds:
+        - crossplane-2.4.0
+    exclude:
+      flux:
+        - name: database
+
+  # Regression (#2653): GCP twin of the rds/flexibleserver cases above. Same
+  # ordering guarantee.
+  - name: cloudsql driver keeps provisioning-install alive until the Provider CR is gone
+    values:
+      platform: gcp
+      gcp:
+        project_id: windsor-test
+      gateway:
+        enabled: false
+      database:
+        postgres:
+          enabled: true
+          driver: cloudsql
+    expect:
+      flux:
+        - name: provisioning-providers
+          path: provisioning
+          dependsOn:
+            - provisioning-install
+        - name: provisioning
+          resources:
+            - dependsOn:
+                - provisioning-providers-install
+
   # PodMonitor only exists once the metrics pipeline vendors
   # prometheus-operator's CRDs, so the exporter's generate policy is
   # excluded when it's off — the RBAC/CronJob generate policies (plain
@@ -310,6 +376,35 @@ cases:
             - components:
                 - crossplane/aws-rds/monitoring-exporter
 
+  # PodMonitor only exists once the metrics pipeline vendors
+  # prometheus-operator's CRDs — GCP twin of the rds case above.
+  - name: cloudsql driver excludes monitoring-exporter when metrics disabled
+    values:
+      platform: gcp
+      gcp:
+        project_id: windsor-test
+      gateway:
+        enabled: false
+      database:
+        postgres:
+          enabled: true
+          driver: cloudsql
+      telemetry:
+        metrics:
+          enabled: false
+    expect:
+      flux:
+        - name: provisioning
+          resources:
+            - components:
+                - crossplane/gcp-cloudsql
+    exclude:
+      flux:
+        - name: provisioning
+          resources:
+            - components:
+                - crossplane/gcp-cloudsql/monitoring-exporter
+
   # rds driver with observability enabled gets the postgres_exporter
   # dashboard, not the cloudnativepg one — the two are mutually exclusive.
   - name: rds driver with observability enables postgres-exporter dashboard
@@ -323,6 +418,28 @@ cases:
         postgres:
           enabled: true
           driver: rds
+      observability:
+        enabled: true
+    expect:
+      flux:
+        - name: observability
+          resources:
+            - components:
+                - grafana/dashboards/postgres-exporter
+
+  # cloudsql driver with observability enabled gets the postgres_exporter
+  # dashboard, not the cloudnativepg one — GCP twin of the rds case above.
+  - name: cloudsql driver with observability enables postgres-exporter dashboard
+    values:
+      platform: gcp
+      gcp:
+        project_id: windsor-test
+      gateway:
+        enabled: false
+      database:
+        postgres:
+          enabled: true
+          driver: cloudsql
       observability:
         enabled: true
     expect:

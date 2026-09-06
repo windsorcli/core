@@ -1,0 +1,93 @@
+---
+# One-shot twin of provision-app-role-cronjob.yaml. Runs the mounted
+# scripts immediately on apply, giving demo-app-role's healthCheckExprs
+# a Job to gate on. The CronJob keeps handling ongoing self-healing.
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: ${pg_instance_name}-provision-app-role-initial
+  namespace: system-provisioning
+spec:
+  backoffLimit: 2
+  activeDeadlineSeconds: 600
+  template:
+    spec:
+      serviceAccountName: rds-secret-reader
+      restartPolicy: Never
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1000
+        runAsGroup: 1000
+        fsGroup: 1000
+      initContainers:
+        - name: fetch-admin-credentials
+          # renovate: datasource=docker depName=alpine/k8s
+          image: alpine/k8s:1.34.9@sha256:72c921a10c53ab749674e828ad12b776d006481c852bba7dd89e149ceed666f3
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop:
+                - ALL
+            seccompProfile:
+              type: RuntimeDefault
+          command:
+            - /bin/bash
+            - /scripts/fetch-admin-credentials.sh
+          volumeMounts:
+            - name: shared
+              mountPath: /shared
+            - name: scripts
+              mountPath: /scripts
+        - name: provision-app-role
+          # renovate: datasource=docker depName=postgres
+          image: postgres:16.15-alpine@sha256:cf78e76683b9ca8c5733cbbdce6c9262b45b6767934dd0a95e671f9a0fc20685
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop:
+                - ALL
+            seccompProfile:
+              type: RuntimeDefault
+          command:
+            - /bin/bash
+            - /scripts/provision-app-role.sh
+          volumeMounts:
+            - name: shared
+              mountPath: /shared
+            - name: scripts
+              mountPath: /scripts
+      containers:
+        - name: publish-app-secret
+          # renovate: datasource=docker depName=alpine/k8s
+          image: alpine/k8s:1.34.9@sha256:72c921a10c53ab749674e828ad12b776d006481c852bba7dd89e149ceed666f3
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop:
+                - ALL
+            seccompProfile:
+              type: RuntimeDefault
+          command:
+            - /bin/bash
+            - /scripts/publish-app-secret.sh
+          volumeMounts:
+            - name: shared
+              mountPath: /shared
+            - name: scripts
+              mountPath: /scripts
+      volumes:
+        # Memory-backed: the admin and app passwords transiting this
+        # volume never touch node disk.
+        - name: shared
+          emptyDir:
+            medium: Memory
+        # Merges this driver's fetch-admin-credentials.sh with the
+        # cloud-agnostic provision-app-role.sh/publish-app-secret.sh from
+        # _shared/app-role-scripts into one directory.
+        - name: scripts
+          projected:
+            sources:
+              - configMap:
+                  name: ${pg_instance_name}-provision-app-role-scripts
+              - configMap:
+                  name: provision-app-role-common-scripts

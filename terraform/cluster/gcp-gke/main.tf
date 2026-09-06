@@ -27,6 +27,14 @@ locals {
   kubeconfig_path = "${var.context_path}/.kube/config"
 }
 
+# Every zone available in var.region. Node pools span all of them instead of
+# GKE's own default subset, so a stockout in one zone doesn't leave a pool
+# stuck retrying a single unavailable zone.
+data "google_compute_zones" "available" {
+  region = var.region
+  status = "UP"
+}
+
 #---------------------------------------------------------------------------------------------------
 # GKE Cluster
 # GKE Standard control plane with Dataplane V2, Google's managed Cilium
@@ -46,6 +54,8 @@ resource "google_container_cluster" "this" {
   # the legacy network_policy addon is for Calico on the legacy datapath.
   name     = local.cluster_name
   location = var.region
+
+  deletion_protection = false
 
   network    = var.network_id
   subnetwork = var.subnetwork_id
@@ -127,6 +137,9 @@ resource "google_container_node_pool" "system" {
   name     = "system"
   cluster  = google_container_cluster.this.id
   location = var.region
+  # A single zone: GKE creates one instance group per listed zone, so a
+  # fixed-count pool spanning every zone would run N nodes, not N total.
+  node_locations = [data.google_compute_zones.available.names[0]]
 
   node_count = var.system_node_pool.autoscaling_enabled ? null : var.system_node_pool.node_count
 
@@ -220,10 +233,11 @@ locals {
 }
 
 resource "google_container_node_pool" "pools" {
-  for_each = local.pools_resolved
-  name     = each.key
-  cluster  = google_container_cluster.this.id
-  location = var.region
+  for_each       = local.pools_resolved
+  name           = each.key
+  cluster        = google_container_cluster.this.id
+  location       = var.region
+  node_locations = data.google_compute_zones.available.names
 
   node_count = each.value.autoscaling_enabled ? null : each.value.node_count
 

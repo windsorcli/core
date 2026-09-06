@@ -38,3 +38,18 @@ kind: Component
 resources:
   - rbac.yaml
   - provision-app-role-cronjob.yaml
+  - provision-app-role-job.yaml
+
+# Merges the cloud-agnostic scripts in _shared/app-role-scripts into one
+# /scripts mount via a projected volume.
+components:
+  - ../../_shared/app-role-scripts
+
+# The Job and CronJob invoke this script by path.
+configMapGenerator:
+  - name: ${pg_instance_name}-provision-app-role-scripts
+    namespace: system-provisioning
+    files:
+      - scripts/fetch-admin-credentials.sh
+    options:
+      disableNameSuffixHash: true

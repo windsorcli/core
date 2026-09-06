@@ -1,0 +1,12 @@
+---
+# The database itself, a separate CR from the instance. Its Postgres
+# name comes from metadata.name.
+apiVersion: sql.gcp.upbound.io/v1beta1
+kind: Database
+metadata:
+  name: demo
+spec:
+  deletionPolicy: Delete
+  forProvider:
+    instanceRef:
+      name: demo-db

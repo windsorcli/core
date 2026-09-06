@@ -1371,6 +1371,7 @@ properties:
               - cloudnativepg
               - rds
               - flexibleserver
+              - cloudsql
             default: cloudnativepg
             description: PostgreSQL database driver
           encryption:
@@ -1382,6 +1383,9 @@ properties:
               key_vault_key_id:
                 type: string
                 description: Existing Azure Key Vault key ID for Flexible Server storage encryption. Omit to let Windsor manage its own key.
+              kms_key_name:
+                type: string
+                description: Existing GCP KMS CryptoKey resource name for Cloud SQL storage encryption. Omit to let Windsor manage its own key.
             additionalProperties: false
         additionalProperties: false
     additionalProperties: false
@@ -1624,5 +1628,31 @@ allOf:
       properties:
         platform:
           const: azure
+      required:
+        - platform
+
+  # database.postgres.driver: cloudsql installs Crossplane's
+  # provider-gcp-sql, wired to GCP credentials by the gcp-gke Terraform
+  # module's Workload Identity Federation — GCP-only.
+  - if:
+      properties:
+        database:
+          type: object
+          properties:
+            postgres:
+              type: object
+              properties:
+                driver:
+                  const: cloudsql
+              required:
+                - driver
+          required:
+            - postgres
+      required:
+        - database
+    then:
+      properties:
+        platform:
+          const: gcp
       required:
         - platform
