@@ -212,6 +212,8 @@ cases:
     expect:
       flux:
         - name: gateway
+          dependsOn:
+            - telemetry-install
           install:
             <<: *gateway-install-envoy-lb
           resources:
