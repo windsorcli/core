@@ -45,7 +45,7 @@ spec:
         initContainers:
           image:
             # renovate: datasource=docker depName=openebs/alpine-sh package=openebs/alpine-sh
-            tag: 4.5.0@sha256:9e06f1a04161add9aba237f6fca4a89edf38ae381d4f206770b6851c07444675
+            tag: 4.6.0@sha256:640c187dccdaa305ce96deba8b57387aeab15e3456deff2efc0470e38f355369
       csi:
         image:
           # renovate: datasource=docker depName=registry.k8s.io/sig-storage/csi-provisioner package=registry.k8s.io/sig-storage/csi-provisioner
