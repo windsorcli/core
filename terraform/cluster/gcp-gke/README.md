@@ -68,6 +68,8 @@ No modules.
 | [google_container_node_pool.system](https://registry.terraform.io/providers/hashicorp/google/8.1.0/docs/resources/container_node_pool) | resource |
 | [google_dns_managed_zone_iam_member.cert_manager_dns](https://registry.terraform.io/providers/hashicorp/google/8.1.0/docs/resources/dns_managed_zone_iam_member) | resource |
 | [google_dns_managed_zone_iam_member.external_dns_dns](https://registry.terraform.io/providers/hashicorp/google/8.1.0/docs/resources/dns_managed_zone_iam_member) | resource |
+| [google_project_iam_member.cert_manager_dns_list](https://registry.terraform.io/providers/hashicorp/google/8.1.0/docs/resources/project_iam_member) | resource |
+| [google_project_iam_member.external_dns_dns_list](https://registry.terraform.io/providers/hashicorp/google/8.1.0/docs/resources/project_iam_member) | resource |
 | [google_service_account.cert_manager](https://registry.terraform.io/providers/hashicorp/google/8.1.0/docs/resources/service_account) | resource |
 | [google_service_account.external_dns](https://registry.terraform.io/providers/hashicorp/google/8.1.0/docs/resources/service_account) | resource |
 | [google_service_account_iam_member.cert_manager_workload_identity](https://registry.terraform.io/providers/hashicorp/google/8.1.0/docs/resources/service_account_iam_member) | resource |

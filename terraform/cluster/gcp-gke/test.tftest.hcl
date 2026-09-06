@@ -327,6 +327,11 @@ run "workload_identity_defaults" {
     condition     = google_service_account_iam_member.external_dns_workload_identity[0].member == "serviceAccount:test-project.svc.id.goog[system-dns/external-dns]"
     error_message = "external-dns Workload Identity binding should target the system-dns/external-dns KSA."
   }
+
+  assert {
+    condition     = google_project_iam_member.external_dns_dns_list[0].role == "roles/dns.reader"
+    error_message = "external-dns should hold project-wide roles/dns.reader so it can list zones before filtering by domain."
+  }
 }
 
 # Enabling cert-manager's identity scopes roles/dns.admin to exactly the
@@ -356,6 +361,11 @@ run "cert_manager_identity_scoped_to_zones" {
   assert {
     condition     = google_dns_managed_zone_iam_member.cert_manager_dns["dns-test"].role == "roles/dns.admin"
     error_message = "cert-manager should be granted roles/dns.admin on the requested zone."
+  }
+
+  assert {
+    condition     = google_project_iam_member.cert_manager_dns_list[0].role == "roles/dns.reader"
+    error_message = "cert-manager should hold project-wide roles/dns.reader — its cloudDNS solver calls ManagedZones.List and can't be scoped to one zone."
   }
 }
 

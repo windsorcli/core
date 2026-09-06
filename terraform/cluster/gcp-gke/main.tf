@@ -338,6 +338,17 @@ resource "google_dns_managed_zone_iam_member" "cert_manager_dns" {
   member       = "serviceAccount:${google_service_account.cert_manager[0].email}"
 }
 
+# cert-manager's cloudDNS solver has no way to target a zone by name — it
+# calls ManagedZones.List to find the zone matching the challenge domain,
+# an operation Cloud DNS IAM can't scope to a single zone resource. Granted
+# project-wide, read-only; the write grant above stays zone-scoped.
+resource "google_project_iam_member" "cert_manager_dns_list" {
+  count   = var.create_cert_manager_identity ? 1 : 0
+  project = var.project_id
+  role    = "roles/dns.reader"
+  member  = "serviceAccount:${google_service_account.cert_manager[0].email}"
+}
+
 #---------------------------------------------------------------------------------------------------
 # Workload Identity for external-dns
 #
@@ -367,4 +378,14 @@ resource "google_dns_managed_zone_iam_member" "external_dns_dns" {
   managed_zone = each.value
   role         = "roles/dns.admin"
   member       = "serviceAccount:${google_service_account.external_dns[0].email}"
+}
+
+# external-dns's google provider always enumerates every zone in the
+# project before filtering by domain, the same ManagedZones.List
+# limitation as cert-manager above. Granted project-wide, read-only.
+resource "google_project_iam_member" "external_dns_dns_list" {
+  count   = var.create_external_dns_identity ? 1 : 0
+  project = var.project_id
+  role    = "roles/dns.reader"
+  member  = "serviceAccount:${google_service_account.external_dns[0].email}"
 }
