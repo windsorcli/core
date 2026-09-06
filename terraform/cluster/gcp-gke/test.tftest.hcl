@@ -48,7 +48,7 @@ run "minimal_configuration" {
   }
 
   assert {
-    condition     = google_container_node_pool.pools["general"].node_config[0].machine_type == "n4-standard-4"
+    condition     = google_container_node_pool.pools["general"].node_config[0].machine_type == "n2-standard-4"
     error_message = "The fallback general pool should resolve to the default general machine type"
   }
 }
@@ -165,7 +165,7 @@ run "pools_resolves_class_to_machine_type" {
   }
 
   assert {
-    condition     = google_container_node_pool.pools["workers"].node_config[0].machine_type == "c4-standard-4"
+    condition     = google_container_node_pool.pools["workers"].node_config[0].machine_type == "c2-standard-4"
     error_message = "A compute-class pool should resolve to the default compute machine type"
   }
 }
@@ -185,13 +185,13 @@ run "pools_explicit_machine_type_and_spot_lifecycle" {
         class          = "general"
         count          = 3
         lifecycle      = "spot"
-        instance_types = ["n4-standard-16"]
+        instance_types = ["n2-standard-16"]
       }
     }
   }
 
   assert {
-    condition     = google_container_node_pool.pools["batch"].node_config[0].machine_type == "n4-standard-16"
+    condition     = google_container_node_pool.pools["batch"].node_config[0].machine_type == "n2-standard-16"
     error_message = "Explicit instance_types should override the class default"
   }
 

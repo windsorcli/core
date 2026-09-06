@@ -210,7 +210,7 @@ scope once the base platform lands.
 ## Known gaps
 
 `cluster/gcp-gke`'s `class: storage` pool resolves to a plain general-purpose
-machine (`n4-standard-8`/`n4-standard-16`) with no local SSD attached — a
+machine (`n2-standard-8`/`n2-standard-16`) with no local SSD attached — a
 no-op compared to AWS's `i3`/`i4i` or Azure's `Lsv3`, both of which ship
 local NVMe SSD as the defining feature of that class. GCP has no fixed
 storage-optimized machine family; local SSD is a separate node-pool
