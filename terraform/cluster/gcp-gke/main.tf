@@ -132,10 +132,12 @@ resource "google_container_cluster" "this" {
 #---------------------------------------------------------------------------------------------------
 
 resource "google_container_node_pool" "system" {
-  name           = "system"
-  cluster        = google_container_cluster.this.id
-  location       = var.region
-  node_locations = data.google_compute_zones.available.names
+  name     = "system"
+  cluster  = google_container_cluster.this.id
+  location = var.region
+  # A single zone: GKE creates one instance group per listed zone, so a
+  # fixed-count pool spanning every zone would run N nodes, not N total.
+  node_locations = [data.google_compute_zones.available.names[0]]
 
   node_count = var.system_node_pool.autoscaling_enabled ? null : var.system_node_pool.node_count
 

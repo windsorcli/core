@@ -1,5 +1,14 @@
 mock_provider "google" {}
 
+# Applies to every run: the system pool indexes into this list directly, so
+# even a plan-only run needs a non-empty mock.
+override_data {
+  target = data.google_compute_zones.available
+  values = {
+    names = ["us-central1-a", "us-central1-b", "us-central1-c", "us-central1-f"]
+  }
+}
+
 # Verifies default naming, Dataplane V2, workload identity, and the system
 # node pool with no optional variables set.
 run "minimal_configuration" {
@@ -10,13 +19,6 @@ run "minimal_configuration" {
     project_id    = "test-project"
     network_id    = "projects/test-project/global/networks/network-test"
     subnetwork_id = "projects/test-project/regions/us-central1/subnetworks/private-test"
-  }
-
-  override_data {
-    target = data.google_compute_zones.available
-    values = {
-      names = ["us-central1-a", "us-central1-b", "us-central1-c", "us-central1-f"]
-    }
   }
 
   assert {
@@ -71,8 +73,10 @@ run "minimal_configuration" {
   }
 
   assert {
-    condition     = toset(google_container_node_pool.system.node_locations) == toset(data.google_compute_zones.available.names)
-    error_message = "Node pools should span every available zone in the region, not GKE's own default subset"
+    # A fixed-count pool spanning every zone would run one node per zone,
+    # not one node total.
+    condition     = toset(google_container_node_pool.system.node_locations) == toset([data.google_compute_zones.available.names[0]])
+    error_message = "System pool should stay in a single zone"
   }
 
   assert {
