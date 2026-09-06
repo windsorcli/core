@@ -149,7 +149,7 @@ cases:
           dependsOn:
             - provisioning-resources
           resources:
-            - timeout: 20m
+            - timeout: 30m
               interval: 5m
               components:
                 - database
@@ -212,7 +212,7 @@ cases:
           dependsOn:
             - provisioning-resources
           resources:
-            - timeout: 20m
+            - timeout: 30m
               interval: 5m
               components:
                 - database
