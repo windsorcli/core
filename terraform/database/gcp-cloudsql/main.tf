@@ -9,6 +9,12 @@ terraform {
       source  = "hashicorp/google"
       version = "8.1.0"
     }
+    # google_project_service_identity has no GA counterpart yet; every other
+    # resource in this module stays on the google provider.
+    google-beta = {
+      source  = "hashicorp/google-beta"
+      version = "8.1.0"
+    }
     random = {
       source  = "hashicorp/random"
       version = "~> 3.6"
@@ -21,10 +27,7 @@ terraform {
 }
 
 provider "google" {}
-
-data "google_project" "this" {
-  project_id = var.project_id
-}
+provider "google-beta" {}
 
 #---------------------------------------------------------------------------------------------------
 # Private Service Connection
@@ -56,6 +59,15 @@ resource "google_service_networking_connection" "cloudsql" {
 # encryption instead.
 #---------------------------------------------------------------------------------------------------
 
+# Cloud SQL's service agent is provisioned lazily by GCP, only on a
+# project's first real Cloud SQL Admin API call. This forces it into
+# existence up front so the IAM grant below has a real principal to target.
+resource "google_project_service_identity" "cloudsql" {
+  provider = google-beta
+  project  = var.project_id
+  service  = "sqladmin.googleapis.com"
+}
+
 resource "google_kms_key_ring" "cloudsql" {
   count    = var.manage_encryption_key && var.kms_key_name == "" ? 1 : 0
   name     = "cloudsql-${var.context_id}"
@@ -79,7 +91,7 @@ resource "google_kms_crypto_key_iam_member" "cloudsql" {
   count         = var.manage_encryption_key && var.kms_key_name == "" ? 1 : 0
   crypto_key_id = google_kms_crypto_key.cloudsql[0].id
   role          = "roles/cloudkms.cryptoKeyEncrypterDecrypter"
-  member        = "serviceAccount:service-${data.google_project.this.number}@gcp-sa-cloud-sql.iam.gserviceaccount.com"
+  member        = "serviceAccount:${google_project_service_identity.cloudsql.email}"
 }
 
 #---------------------------------------------------------------------------------------------------
