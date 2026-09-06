@@ -1,0 +1,167 @@
+# GCP platform support
+
+`platform` has no `gcp` value today (`none | aws | azure | hetzner | incus
+| metal | docker | hyperv | vsphere`). This lays out what a `gcp` platform
+needs, mapped against the AWS and Azure precedent already in this repo, the
+decisions that need an explicit answer before writing Terraform, and a phase
+order to deliver it incrementally.
+
+## Precedent map
+
+Each hyperscaler platform is the same set of layers, one implementation per
+cloud. GCP's column is what this plan adds.
+
+| Layer | AWS | Azure | GCP |
+|---|---|---|---|
+| State backend | `backend/s3` | `backend/azurerm` | `backend/gcs` |
+| Network | `network/aws-vpc` | `network/azure-vnet` | `network/gcp-vpc` |
+| Cluster | `cluster/aws-eks` (EKS) | `cluster/azure-aks` (AKS) | `cluster/gcp-gke` (GKE) |
+| Public DNS zone | `dns/zone/route53` | `dns/zone/azure-dns` | `dns/zone/gcp-dns` |
+| cert-manager ACME solver | `pki/resources/public-issuer/acme/route53` | `.../azuredns` | `.../clouddns` |
+| external-dns provider | `dns/install/external-dns/providers/route53` | `.../azure` | `.../google` |
+| Database support infra | `database/aws-rds` (KMS key) | `database/azure-postgres` (RG, private DNS zone, NSG, CMK) | `database/gcp-cloudsql` (KMS key, private VPC peering) |
+| Crossplane provider identity | inline on `cluster/aws-eks` (Pod Identity) | `provisioning/crossplane-identity-azure` (Workload Identity) | `provisioning/crossplane-identity-gcp` (Workload Identity Federation) |
+| Cluster driver | `eks` | `aks` | `gke` |
+
+`cluster.driver` gains a fourth enum value, `gke`, defaulted by
+`platform-base.yaml` the same way `aws → eks` and `azure → aks` are today.
+
+## Open decisions
+
+These need an answer before any Terraform gets written — each one changes
+the module boundary, not just an input.
+
+**GKE Standard vs Autopilot.** Standard gives node-pool control matching
+`cluster.pools` (the same shape AWS/Azure already expose). Autopilot removes
+node management entirely, which conflicts with `cluster.pools`'s existing
+contract and with running Cilium as the CNI (Autopilot fixes the dataplane).
+Recommend Standard, for parity with the other two platforms and because it's
+the only mode that supports a customer-chosen CNI.
+
+**CNI: Cilium vs GKE Dataplane V2.** GKE's default dataplane is itself
+eBPF-based (Cilium-derived) and conflicts with running an independent Cilium
+install the way EKS/AKS do. `cluster/gcp-gke` needs
+`network_policy { enabled = false }` / `datapath_provider =
+"ADVANCED_DATAPATH"` disabled at the GKE API level so Cilium owns the CNI,
+matching how EKS/AKS are provisioned without their respective default CNIs.
+Needs verification against current GKE API behavior before `cluster/gcp-gke`
+is written — this is the highest-risk unknown in the whole plan.
+
+**Workload Identity Federation for Crossplane.** GCP's equivalent of AWS Pod
+Identity / Azure Workload Identity is Workload Identity Federation: a GCP
+service account bound to a Kubernetes service account via an IAM policy
+binding, no long-lived key. Maps cleanly to a new
+`provisioning/crossplane-identity-gcp` layer, same shape as
+`crossplane-identity-azure`.
+
+**Storage CSI default.** AWS/Azure both bundle their CSI driver as a
+cluster-addon IAM role inline on the cluster module (`aws-ebs-csi-driver`,
+Azure Disk CSI). GKE ships the Persistent Disk CSI driver as a built-in
+add-on (`gce_persistent_disk_csi_driver_config`) — no separate IAM wiring
+needed, just enabling the add-on block, similar to how AKS's `azuredns`
+add-ons are toggled.
+
+**Database instance.** Following `database/aws-rds` / `database/azure-postgres`,
+`database/gcp-cloudsql` owns the KMS key and any network prerequisite (Cloud
+SQL needs private VPC peering when not using public IP) — not the Cloud SQL
+instance itself, matching the existing pattern where the demo's `Instance`
+CR is Crossplane-managed, not Terraform-managed.
+
+## Project bootstrap (operator prerequisites)
+
+GCP disables most APIs per-project by default, unlike AWS (always on) or
+Azure (resource providers, mostly auto-registered). This is the same class
+of problem `cluster/azure-aks` already solved for
+`EncryptionAtHost`/`Microsoft.Compute`: a one-time, account-level
+enablement step, documented as a `### Prerequisites` section in the
+module's README, not managed by Terraform.
+
+Reasons to keep it manual rather than a `google_project_service` resource:
+`windsor destroy` must never disable project-level APIs (they can serve
+things outside this module's scope), and enabling APIs needs Owner/Editor
+IAM the long-lived deploy credential shouldn't need to carry.
+
+`cluster/gcp-gke/README.md` documents:
+
+```bash
+gcloud services enable \
+  container.googleapis.com compute.googleapis.com dns.googleapis.com \
+  iam.googleapis.com cloudkms.googleapis.com sqladmin.googleapis.com \
+  --project=<project-id>
+```
+
+plus a billing note mirroring Azure's ("requires a linked billing account;
+GKE's control plane and Compute Engine nodes have no free tier").
+
+**Auth**: matches `aws.profile` (assumes `aws configure sso` already ran)
+and `azure.subscription_id`/`tenant_id` (assumes `az login` already ran).
+GCP's equivalent is `gcloud auth application-default login` locally, or
+Workload Identity Federation for CI. New schema block:
+
+```yaml
+gcp:
+  project_id: <string>   # required when platform == 'gcp'
+  region: <string>       # defaults to us-central1 when unset
+```
+
+Windsor doesn't create the GCP project itself, the same way it doesn't
+create AWS accounts or Azure subscriptions — project creation and billing
+linkage stay a manual, one-time operator step.
+
+## New pieces, by directory
+
+```
+terraform/backend/gcs/                       state backend
+terraform/network/gcp-vpc/                   VPC, subnets, firewall rules
+terraform/cluster/gcp-gke/                   GKE Standard control plane, node pools
+terraform/dns/zone/gcp-dns/                  public Cloud DNS zone
+terraform/database/gcp-cloudsql/             KMS key, private service connection
+terraform/provisioning/crossplane-identity-gcp/   Workload Identity Federation binding
+
+kustomize/pki/resources/public-issuer/acme/clouddns/     cert-manager DNS-01 solver
+kustomize/dns/install/external-dns/providers/google/     external-dns provider
+
+contexts/_template/facets/platform-gcp.yaml
+contexts/_template/tests/platform-gcp.test.yaml
+```
+
+Each new Terraform module gets its own `README.md` (terraform-docs
+generated) and `test.tftest.hcl`, per the `terraform-style` skill's
+conventions. `platform-gcp.yaml` follows `platform-azure.yaml`'s structure
+directly — it's the closer precedent of the two (both are managed-control-
+plane platforms with Workload Identity-style Crossplane auth, unlike AWS's
+Pod Identity).
+
+## Phase order
+
+1. **`backend/gcs` + `network/gcp-vpc`.** No facet yet. Validates that the
+   module conventions (naming, `test.tftest.hcl` shape, `windsor plan`
+   ergonomics) transfer cleanly to GCP's provider before committing to the
+   larger surface. Low risk, fully reversible, needed regardless of any
+   other decision above.
+2. **`cluster/gcp-gke`** with the CNI decision resolved and verified against
+   a real GKE cluster. This is the phase that either confirms or kills the
+   "Cilium on GKE Standard" assumption above.
+3. **`platform-gcp.yaml`** wiring backend → network → cluster, gated
+   `platform == 'gcp'`, enough for `windsor apply` to produce a bare
+   cluster with Cilium and no add-ons — mirrors the minimal end of
+   `platform-metal.test.yaml`.
+4. **DNS + cert-manager**: `dns/zone/gcp-dns`, the `clouddns` ACME solver,
+   the `google` external-dns provider. Unlocks `dns.public_domain` on GCP.
+5. **Database + Crossplane identity**: `database/gcp-cloudsql`,
+   `provisioning/crossplane-identity-gcp`. Unlocks
+   `database.postgres.driver` and the `provisioning` add-on on GCP.
+6. **Full `platform-gcp.test.yaml`** covering every branch the equivalent
+   AWS/Azure test files cover (minimal config, public domain, private
+   gateway access, topology variants) plus docs (`docs/compatibility.md`
+   gains a GCP row).
+
+Each phase is a mergeable PR on its own, same granularity as the recent
+single-platform-feature PRs in this repo's history.
+
+## What this plan doesn't cover
+
+Autopilot support, GCP Filestore (the EFS-equivalent), and Anthos/multi-
+cluster mesh integration are all out of scope — none are needed to reach
+parity with what AWS/Azure already support, and each is its own follow-on
+scope once the base platform lands.

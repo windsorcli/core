@@ -166,6 +166,7 @@ properties:
       - none
       - aws
       - azure
+      - gcp
       - hetzner
       - incus
       - metal
@@ -285,6 +286,22 @@ properties:
           is managed identity (msi) or another mode that lacks a process-env
           signal windsor can detect.
     description: Azure provider authentication configuration
+
+  # GCP provider configuration. GCP integration activates whenever this block is
+  # present or `platform: gcp` is set, mirroring the AWS/Azure schemas.
+  gcp:
+    type: object
+    additionalProperties: false
+    properties:
+      project_id:
+        type: string
+        pattern: '^[a-z][a-z0-9-]{4,28}[a-z0-9]$'
+        description: GCP project ID for API calls and resource provisioning.
+      region:
+        type: string
+        pattern: '^[a-z]+-[a-z]+\d+$'
+        description: GCP region for network, cluster, and database resources. Defaults to us-central1 when unset.
+    description: GCP provider authentication and project configuration
 
   # Hetzner Cloud provider configuration (only consumed when platform == 'hetzner').
   # The API token is env-driven (HCLOUD_TOKEN) like other providers' credentials;
