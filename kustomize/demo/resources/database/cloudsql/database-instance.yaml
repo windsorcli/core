@@ -18,6 +18,10 @@ spec:
     deletionProtection: false
     encryptionKeyName: ${cloudsql_kms_key_name}
     settings:
+      # Enterprise Plus is Cloud SQL's default edition and only accepts
+      # db-perf-optimized-N-* tiers. Enterprise unlocks the cheaper
+      # shared-core tiers this demo uses.
+      edition: ENTERPRISE
       tier: db-f1-micro
       ipConfiguration:
         ipv4Enabled: false
