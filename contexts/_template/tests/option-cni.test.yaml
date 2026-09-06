@@ -58,6 +58,23 @@ cases:
             substitutions:
               k8s_service_host: "10.5.0.10"
 
+  # gcp and gcp.project_id/region are schema-valid, with no dedicated platform
+  # facet yet. cluster.driver still defaults to talos (platform-base.yaml), so
+  # cni wants to wire in — but no facet contributes the "cluster" terraform
+  # component for platform == 'gcp', so composition fails on the missing
+  # dependency rather than silently producing a half-provisioned cluster.
+  - name: gcp has no platform facet yet, so composition fails on the missing cluster dependency
+    values:
+      platform: gcp
+      gcp:
+        project_id: windsor-test
+        region: us-central1
+      gateway:
+        enabled: false
+      network: *default-network
+      cluster: *default-cluster
+    expectError: true
+
   # Explicit flannel: opt-out of cilium — no cni kustomize component deployed.
   - name: explicit flannel driver omits cni kustomize component
     values:
