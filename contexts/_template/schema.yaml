@@ -450,9 +450,10 @@ properties:
               - local
               - s3
               - azurerm
+              - gcs
               - kubernetes
               - none
-            description: Backend type (local, s3, azurerm, kubernetes, or none)
+            description: Backend type (local, s3, azurerm, gcs, kubernetes, or none)
           prefix:
             type: string
             description: Optional state key/prefix applied per module
@@ -472,6 +473,10 @@ properties:
             type: object
             additionalProperties: true
             description: AzureRM backend configuration (https://developer.hashicorp.com/terraform/language/backend/azurerm)
+          gcs:
+            type: object
+            additionalProperties: true
+            description: GCS backend configuration (https://developer.hashicorp.com/terraform/language/backend/gcs)
         description: Terraform backend configuration
     additionalProperties: true
     description: Terraform execution and backend overrides
