@@ -85,7 +85,7 @@ cases:
           dependsOn:
             - provisioning-resources
           resources:
-            - timeout: 20m
+            - timeout: 30m
               interval: 5m
               components:
                 - database
@@ -114,6 +114,10 @@ cases:
                 pg_database_name: demo
                 pg_target_namespace: demo-database
                 pg_grant_sql: ""
+              healthCheckExprs:
+                - apiVersion: batch/v1
+                  kind: Job
+                  current: status.conditions.exists(e, e.type == 'Complete' && e.status == 'True')
     exclude:
       flux:
         - name: database

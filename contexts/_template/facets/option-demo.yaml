@@ -79,8 +79,10 @@ flux:
             current: status.conditions.exists(e, e.type == 'Ready' && e.status == 'True')
         # Gated on the Instance's own Ready condition, not just the CR apply,
         # so windsor apply --wait blocks until RDS actually finishes
-        # provisioning. 20m covers RDS's real provisioning time.
-        timeout: 20m
+        # provisioning. A generous timeout costs nothing on the happy
+        # path — it only affects how long Flux waits before giving up on
+        # an unusually slow provision.
+        timeout: 30m
         interval: 5m
 
   # flexibleserver driver: shared namespace and the FlexibleServer +
@@ -107,8 +109,10 @@ flux:
             current: status.conditions.exists(e, e.type == 'Ready' && e.status == 'True')
         # Gated on the FlexibleServer's own Ready condition, not just the CR
         # apply, so windsor apply --wait blocks until it actually finishes
-        # provisioning. 20m covers Flexible Server's real provisioning time.
-        timeout: 20m
+        # provisioning. A generous timeout costs nothing on the happy
+        # path — it only affects how long Flux waits before giving up on
+        # an unusually slow provision.
+        timeout: 30m
         interval: 5m
 
   # cloudsql driver: shared namespace and the DatabaseInstance + User +
@@ -135,8 +139,11 @@ flux:
             current: status.conditions.exists(e, e.type == 'Ready' && e.status == 'True')
         # Gated on the DatabaseInstance's own Ready condition, not just the
         # CR apply, so windsor apply --wait blocks until Cloud SQL actually
-        # finishes provisioning. 20m covers Cloud SQL's real provisioning time.
-        timeout: 20m
+        # finishes provisioning. A generous timeout costs nothing on the
+        # happy path — it only affects how long Flux waits before giving up
+        # on an unusually slow provision. Empirically ~9m for a
+        # db-f1-micro instance to go Ready.
+        timeout: 30m
         interval: 5m
 
   # Application credential for demo-db. Depends on demo-resources for
@@ -156,6 +163,13 @@ flux:
           # Ownership already covers everything the demo needs; no extra
           # grants to layer on.
           pg_grant_sql: ""
+        healthCheckExprs:
+          # Gated on the one-shot Job's own Complete condition, not just its
+          # apply, so windsor apply --wait blocks until the app credential
+          # Secret genuinely exists.
+          - apiVersion: batch/v1
+            kind: Job
+            current: status.conditions.exists(e, e.type == 'Complete' && e.status == 'True')
         timeout: 5m
         interval: 5m
 
@@ -173,6 +187,13 @@ flux:
           pg_database_name: "${demo_database_name}"
           pg_target_namespace: demo-database
           pg_grant_sql: ""
+        healthCheckExprs:
+          # Gated on the one-shot Job's own Complete condition, not just its
+          # apply, so windsor apply --wait blocks until the app credential
+          # Secret genuinely exists.
+          - apiVersion: batch/v1
+            kind: Job
+            current: status.conditions.exists(e, e.type == 'Complete' && e.status == 'True')
         timeout: 5m
         interval: 5m
 
@@ -191,6 +212,13 @@ flux:
           pg_database_name: "${demo_database_name}"
           pg_target_namespace: demo-database
           pg_grant_sql: ""
+        healthCheckExprs:
+          # Gated on the one-shot Job's own Complete condition, not just its
+          # apply, so windsor apply --wait blocks until the app credential
+          # Secret genuinely exists.
+          - apiVersion: batch/v1
+            kind: Job
+            current: status.conditions.exists(e, e.type == 'Complete' && e.status == 'True')
         timeout: 5m
         interval: 5m
 

@@ -38,3 +38,20 @@ kind: Component
 resources:
   - rbac.yaml
   - provision-app-role-cronjob.yaml
+  - provision-app-role-job.yaml
+
+# provision-app-role.sh and publish-app-secret.sh are cloud-agnostic and
+# live in _shared/app-role-scripts instead, merged with this driver's own
+# ConfigMap into one /scripts mount via a projected volume.
+components:
+  - ../../_shared/app-role-scripts
+
+# The Job and CronJob mount this and invoke the script by path, so the
+# credential-fetching logic exists once instead of duplicated per workload.
+configMapGenerator:
+  - name: ${pg_instance_name}-provision-app-role-scripts
+    namespace: system-provisioning
+    files:
+      - scripts/fetch-admin-credentials.sh
+    options:
+      disableNameSuffixHash: true

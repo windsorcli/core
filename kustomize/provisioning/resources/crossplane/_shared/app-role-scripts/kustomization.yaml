@@ -1,0 +1,19 @@
+apiVersion: kustomize.config.k8s.io/v1alpha1
+kind: Component
+
+# provision-app-role.sh and publish-app-secret.sh have no cloud-specific
+# logic — both work from whatever $ADDRESS/$ADMIN_USER/$APP_PASSWORD the
+# driver's own fetch-admin-credentials.sh already wrote to /shared. Each
+# driver's app-role Component pulls this in and merges it with its own
+# ConfigMap into one /scripts mount via a projected volume, so the shared
+# scripts exist once instead of duplicated across aws-rds,
+# azure-postgres, and gcp-cloudsql.
+
+configMapGenerator:
+  - name: provision-app-role-common-scripts
+    namespace: system-provisioning
+    files:
+      - provision-app-role.sh
+      - publish-app-secret.sh
+    options:
+      disableNameSuffixHash: true
