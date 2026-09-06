@@ -73,10 +73,6 @@ resource "google_kms_crypto_key" "cloudsql" {
   name            = "cloudsql-${var.context_id}"
   key_ring        = google_kms_key_ring.cloudsql[0].id
   rotation_period = "7776000s" # 90 days
-
-  lifecycle {
-    prevent_destroy = true
-  }
 }
 
 # Cloud SQL's own service agent needs encrypt/decrypt on the key before it
