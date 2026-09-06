@@ -12,6 +12,13 @@ run "minimal_configuration" {
     subnetwork_id = "projects/test-project/regions/us-central1/subnetworks/private-test"
   }
 
+  override_data {
+    target = data.google_compute_zones.available
+    values = {
+      names = ["us-central1-a", "us-central1-b", "us-central1-c", "us-central1-f"]
+    }
+  }
+
   assert {
     condition     = google_container_cluster.this.name == "cluster-test"
     error_message = "Cluster name should follow default naming convention"
@@ -50,6 +57,16 @@ run "minimal_configuration" {
   assert {
     condition     = google_container_node_pool.pools["general"].node_config[0].machine_type == "n2-standard-4"
     error_message = "The fallback general pool should resolve to the default general machine type"
+  }
+
+  assert {
+    condition     = toset(google_container_node_pool.system.node_locations) == toset(data.google_compute_zones.available.names)
+    error_message = "Node pools should span every available zone in the region, not GKE's own default subset"
+  }
+
+  assert {
+    condition     = toset(google_container_node_pool.pools["general"].node_locations) == toset(data.google_compute_zones.available.names)
+    error_message = "Node pools should span every available zone in the region, not GKE's own default subset"
   }
 }
 
