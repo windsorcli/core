@@ -18,11 +18,13 @@ layer. Links from there land here.
 |---|---|
 | [backend](backend/) | Remote Terraform state for cloud contexts (S3, AzureRM). |
 | [backend/azurerm](backend/azurerm/) | Remote Terraform state on Azure Blob + native lease. |
+| [backend/gcs](backend/gcs/) | Remote Terraform state on Google Cloud Storage. |
 | [backend/s3](backend/s3/) | Remote Terraform state on S3 + DynamoDB lock. |
 | [cluster](cluster/) | Kubernetes control plane provisioning across Talos, EKS, and AKS. |
 | [cluster/aws-eks](cluster/aws-eks/) | Managed Kubernetes control plane on AWS. |
 | [cluster/aws-eks/additions](cluster/aws-eks/additions/) | system-dns namespace and external-dns ConfigMap for EKS. |
 | [cluster/azure-aks](cluster/azure-aks/) | Managed Kubernetes control plane on Azure. |
+| [cluster/gcp-gke](cluster/gcp-gke/) | Managed Kubernetes control plane on GCP. |
 | [cluster/talos](cluster/talos/) | Self-hosted Kubernetes control plane via the Talos API. |
 | [cluster/talos/config](cluster/talos/config/) | Per-node Talos machine config + CIDATA seeds. |
 | [cluster/talos/extensions](cluster/talos/extensions/) | Talos image build with system extensions. |
@@ -46,6 +48,7 @@ layer. Links from there land here.
 | [network](network/) | Cloud network fabric for managed Kubernetes clusters. |
 | [network/aws-vpc](network/aws-vpc/) | VPC + public/private subnets + NAT for EKS. |
 | [network/azure-vnet](network/azure-vnet/) | VNet + subnets for AKS. |
+| [network/gcp-vpc](network/gcp-vpc/) | VPC, subnets, and firewall rules for GKE. |
 | [pki/ca](pki/ca/) | Root CA generation (or BYO passthrough) for the private-CA add-on and Talos apiserver OIDC trust. |
 | [provisioning/crossplane-iam](provisioning/crossplane-iam/) | IAM and Pod Identity for Crossplane's AWS provider pods. |
 | [provisioning/crossplane-identity-azure](provisioning/crossplane-identity-azure/) | Workload Identity and RBAC for Crossplane's Azure provider pods. |

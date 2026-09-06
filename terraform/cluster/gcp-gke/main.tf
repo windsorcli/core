@@ -146,6 +146,8 @@ resource "google_container_node_pool" "system" {
   node_config {
     machine_type = var.system_node_pool.machine_type
     disk_size_gb = var.system_node_pool.disk_size_gb
+    # N4 boot disks support only Hyperdisk Balanced, not the pd-balanced default.
+    disk_type = "hyperdisk-balanced"
 
     workload_metadata_config {
       mode = "GKE_METADATA"
@@ -243,7 +245,10 @@ resource "google_container_node_pool" "pools" {
   node_config {
     machine_type = each.value.machine_type
     disk_size_gb = each.value.disk_size_gb
-    spot         = each.value.spot
+    # N4/C4/C4A boot disks support only Hyperdisk Balanced, not the
+    # pd-balanced default.
+    disk_type = "hyperdisk-balanced"
+    spot      = each.value.spot
 
     workload_metadata_config {
       mode = "GKE_METADATA"
