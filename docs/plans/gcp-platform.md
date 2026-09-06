@@ -186,3 +186,14 @@ Autopilot support, GCP Filestore (the EFS-equivalent), and Anthos/multi-
 cluster mesh integration are all out of scope — none are needed to reach
 parity with what AWS/Azure already support, and each is its own follow-on
 scope once the base platform lands.
+
+## Known gaps
+
+`cluster/gcp-gke`'s `class: storage` pool resolves to a plain general-purpose
+machine (`n2-standard-8`/`n2-standard-16`) with no local SSD attached — a
+no-op compared to AWS's `i3`/`i4i` or Azure's `Lsv3`, both of which ship
+local NVMe SSD as the defining feature of that class. GCP has no fixed
+storage-optimized machine family; local SSD is a separate node-pool
+attachment (`ephemeral_storage_local_ssd_config`), and making it actually
+usable by pods needs a CSI provisioner on top, not just the attachment.
+Scoped out until a real `class: storage` consumer on GCP needs it.
