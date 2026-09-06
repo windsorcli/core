@@ -86,7 +86,7 @@ No modules.
 | <a name="input_region"></a> [region](#input\_region) | GCP region for the cluster | `string` | `"us-central1"` | no |
 | <a name="input_release_channel"></a> [release\_channel](#input\_release\_channel) | GKE release channel: RAPID, REGULAR, or STABLE | `string` | `"REGULAR"` | no |
 | <a name="input_subnetwork_id"></a> [subnetwork\_id](#input\_subnetwork\_id) | ID of the private subnet nodes attach to. Pipe network/gcp-vpc's private\_subnet\_id output. | `string` | n/a | yes |
-| <a name="input_system_node_pool"></a> [system\_node\_pool](#input\_system\_node\_pool) | Configuration for the system node pool | <pre>object({<br/>    machine_type        = string<br/>    disk_size_gb        = number<br/>    node_count          = number<br/>    autoscaling_enabled = bool<br/>    min_count           = number<br/>    max_count           = number<br/>  })</pre> | <pre>{<br/>  "autoscaling_enabled": true,<br/>  "disk_size_gb": 50,<br/>  "machine_type": "n2-standard-2",<br/>  "max_count": 3,<br/>  "min_count": 1,<br/>  "node_count": 1<br/>}</pre> | no |
+| <a name="input_system_node_pool"></a> [system\_node\_pool](#input\_system\_node\_pool) | Configuration for the system node pool | <pre>object({<br/>    machine_type        = string<br/>    disk_size_gb        = number<br/>    node_count          = number<br/>    autoscaling_enabled = bool<br/>    min_count           = number<br/>    max_count           = number<br/>  })</pre> | <pre>{<br/>  "autoscaling_enabled": false,<br/>  "disk_size_gb": 50,<br/>  "machine_type": "n2-standard-2",<br/>  "max_count": 3,<br/>  "min_count": 1,<br/>  "node_count": 1<br/>}</pre> | no |
 
 ## Outputs
 

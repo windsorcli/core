@@ -110,10 +110,11 @@ variable "system_node_pool" {
     # n2-standard-2 (2 vCPU / 8 GB). System pool stays small — the
     # CriticalAddonsOnly taint keeps user workloads off it, this pool only
     # hosts cluster operators.
-    machine_type        = "n2-standard-2"
-    disk_size_gb        = 50
-    node_count          = 1
-    autoscaling_enabled = true
+    machine_type = "n2-standard-2"
+    disk_size_gb = 50
+    node_count   = 1
+    # GKE won't scale an idle pool up from zero on its own.
+    autoscaling_enabled = false
     min_count           = 1
     max_count           = 3
   }

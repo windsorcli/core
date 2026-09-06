@@ -50,6 +50,17 @@ run "minimal_configuration" {
   }
 
   assert {
+    # GKE won't scale an idle pool up from zero on its own.
+    condition     = google_container_node_pool.system.node_count == 1
+    error_message = "System pool should start with an explicit fixed node count"
+  }
+
+  assert {
+    condition     = length(google_container_node_pool.system.autoscaling) == 0
+    error_message = "System pool should not be autoscaled by default"
+  }
+
+  assert {
     condition     = length(google_container_node_pool.pools) == 1
     error_message = "No pools declared should fall back to one general pool"
   }
