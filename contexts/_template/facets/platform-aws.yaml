@@ -108,6 +108,10 @@ terraform:
       # topology: ha spreads them across all private subnets. The control plane
       # always uses the full private_subnet_ids set (EKS needs >=2 AZs).
       node_subnet_ids: "${topology == 'ha' ? terraform_output('network', 'private_subnet_ids') : [terraform_output('network', 'private_subnet_ids')[0]]}"
+      # topology: ha doubles the always-on system pool so a leader-election
+      # standby survives a single node loss; no quorum is needed here.
+      system_node_pool:
+        desired_size: "${topology == 'ha' ? 2 : 1}"
       manage_log_group: ${!(ephemeral ?? false)}
       create_cert_manager_role: "${(dns.public_domain ?? '') != ''}"
       cert_manager_hosted_zone_ids: "${(dns.public_domain ?? '') != '' ? [terraform_output('dns-zone', 'zone_id')] : []}"

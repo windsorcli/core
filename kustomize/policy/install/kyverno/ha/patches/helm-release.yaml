@@ -1,7 +1,8 @@
 ---
-# Run the admission controller with multiple replicas and a PDB so the webhook
-# backend stays reachable during node drains and rollouts. Pod anti-affinity is
-# already enabled by the chart. Layered in only on topology=ha.
+# Run the admission and background controllers with multiple replicas and a
+# PDB each so they stay reachable during node drains and rollouts. Pod
+# anti-affinity is already enabled by the chart. Layered in only on
+# topology=ha.
 apiVersion: helm.toolkit.fluxcd.io/v2
 kind: HelmRelease
 metadata:
@@ -17,3 +18,10 @@ spec:
         # so a drain can't degrade the fail-closed webhook backend to a single
         # pod. Still permits one-node-at-a-time rolling drains.
         minAvailable: 2
+    backgroundController:
+      # Only one replica ever reconciles at a time (leader election), so 2 is
+      # a standby, not extra throughput — unlike admissionController.
+      replicas: 2
+      podDisruptionBudget:
+        enabled: true
+        minAvailable: 1

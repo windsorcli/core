@@ -374,6 +374,24 @@ cases:
               - kyverno
               - kyverno/ha
 
+  # topology=ha layers in the cert-manager/ha component (standby replica on
+  # the controller, webhook, and cainjector) so it survives a node loss.
+  - name: topology ha adds cert-manager/ha component
+    values:
+      platform: metal
+      gateway:
+        enabled: false
+      network: *default-network
+      cluster: *default-cluster
+      topology: ha
+    expect:
+      flux:
+        - name: pki
+          install:
+            components:
+              - cert-manager
+              - cert-manager/ha
+
   # policies.enabled=false skips both policy kustomizations entirely and
   # drops the policy-resources dep from pki-install.
   - name: policies.enabled false excludes policy kustomizations and drops pki-install dep

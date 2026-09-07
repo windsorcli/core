@@ -247,21 +247,15 @@ variable "class_instance_types" {
 }
 
 variable "system_node_pool" {
-  description = "Sizing for the always-on system node group. Instance types come from class_instance_types[\"system\"]."
+  description = "Sizing for the always-on system node group. Instance types come from class_instance_types[\"system\"]. Fields default independently, so a caller can override just desired_size."
   type = object({
-    desired_size        = number
-    disk_size           = number
-    autoscaling_enabled = bool
-    min_size            = number
-    max_size            = number
+    desired_size        = optional(number, 1)
+    disk_size           = optional(number, 64)
+    autoscaling_enabled = optional(bool, false)
+    min_size            = optional(number, 1)
+    max_size            = optional(number, 3)
   })
-  default = {
-    desired_size        = 1
-    disk_size           = 64
-    autoscaling_enabled = false
-    min_size            = 1
-    max_size            = 3
-  }
+  default = {}
 }
 
 variable "max_pods_per_node" {

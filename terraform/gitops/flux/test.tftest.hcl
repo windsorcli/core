@@ -287,6 +287,44 @@ run "system_pool_patches_all_default_controllers" {
   }
 }
 
+# var.replicas patches every default controller's replica count explicitly,
+# on top of the always-on toleration/affinity/priorityClassName patches.
+run "replicas_patches_all_default_controllers" {
+  command = plan
+
+  variables {
+    replicas = 2
+  }
+
+  assert {
+    condition = alltrue([
+      for name in ["source-controller", "kustomize-controller", "helm-controller", "notification-controller"] :
+      length([
+        for p in yamldecode(helm_release.flux_instance.values[0]).instance.kustomize.patches :
+        p if p.target.name == name && strcontains(p.patch, "\"path\": \"/spec/replicas\"") && strcontains(p.patch, "\"value\": 2")
+      ]) > 0
+    ])
+    error_message = "var.replicas should patch every default controller's replica count"
+  }
+}
+
+# Default (replicas = 1) still patches explicitly, matching the implicit
+# Kubernetes default — harmless, and keeps the mechanism uniform.
+run "replicas_defaults_to_one" {
+  command = plan
+
+  assert {
+    condition = alltrue([
+      for name in ["source-controller", "kustomize-controller", "helm-controller", "notification-controller"] :
+      length([
+        for p in yamldecode(helm_release.flux_instance.values[0]).instance.kustomize.patches :
+        p if p.target.name == name && strcontains(p.patch, "\"path\": \"/spec/replicas\"") && strcontains(p.patch, "\"value\": 1")
+      ]) > 0
+    ])
+    error_message = "Default replicas (1) should still be patched explicitly"
+  }
+}
+
 # Verifies leader_election=false appends --enable-leader-election=false to every
 # controller via a patch. Default (true) is covered by the clean run below.
 run "leader_election_disabled" {

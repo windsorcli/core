@@ -182,6 +182,36 @@ run "minimal_configuration" {
   }
 }
 
+# default_node_pool's fields default independently, so a caller overriding
+# just node_count (e.g. for topology: ha) doesn't have to restate the rest.
+run "default_node_pool_partial_override_keeps_other_defaults" {
+  command = plan
+
+  variables {
+    context_id         = "test"
+    name               = "windsor-aks"
+    kubernetes_version = "1.34"
+    default_node_pool = {
+      node_count = 2
+    }
+  }
+
+  assert {
+    condition     = azurerm_kubernetes_cluster.main.default_node_pool[0].node_count == 2
+    error_message = "Overriding only node_count should take effect"
+  }
+
+  assert {
+    condition     = azurerm_kubernetes_cluster.main.default_node_pool[0].vm_size == "Standard_D2s_v3"
+    error_message = "Overriding only node_count should leave vm_size at its default"
+  }
+
+  assert {
+    condition     = azurerm_kubernetes_cluster.main.default_node_pool[0].upgrade_settings[0].drain_timeout_in_minutes == 30
+    error_message = "Overriding only node_count should leave upgrade_settings at its default rather than dropping it to null"
+  }
+}
+
 # Tests a full configuration with all optional variables explicitly set,
 # verifying that the module correctly applies all user-supplied values for node pools and feature flags.
 run "full_configuration" {

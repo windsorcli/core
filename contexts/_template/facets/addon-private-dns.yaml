@@ -36,7 +36,10 @@ requires:
 #   - coredns/loadbalancer:   Service type LoadBalancer (Cilium only).
 #   - coredns/cilium:         LBIPAM annotation to share the gateway IP.
 #   - coredns/gateway:        TCPRoute/UDPRoute on port 53 (Envoy only).
-#   - external-dns/ha:        replicas/PDBs for external-dns.
+#
+# external-dns has no topology: ha component: it has no confirmed leader
+# election at the pinned version, so running more than one replica risks
+# racy or duplicate DNS provider writes rather than clean failover.
 #
 flux:
 
@@ -55,7 +58,6 @@ flux:
         - "${gateway.driver == 'envoy' && gateway.enabled == true ? 'coredns/gateway' : ''}"
         - external-dns
         - external-dns/providers/coredns
-        - "${topology == 'ha' ? 'external-dns/ha' : ''}"
         # Gateway API HTTPRoute source — pulled in only when the cluster has a
         # Gateway controller. external-dns crashes on startup if it's told to
         # watch HTTPRoute resources whose CRDs aren't installed.
