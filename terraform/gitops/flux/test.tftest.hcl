@@ -237,6 +237,28 @@ run "concurrency_patches_controllers" {
   }
 }
 
+# Verifies every default controller gets a priorityClassName patch referencing
+# the platform_critical PriorityClass.
+run "priority_class_patches_all_default_controllers" {
+  command = plan
+
+  assert {
+    condition     = kubernetes_priority_class_v1.platform_critical.metadata[0].name == "windsorcli-platform-critical"
+    error_message = "platform_critical PriorityClass should be named windsorcli-platform-critical"
+  }
+
+  assert {
+    condition = alltrue([
+      for name in ["source-controller", "kustomize-controller", "helm-controller", "notification-controller"] :
+      length([
+        for p in yamldecode(helm_release.flux_instance.values[0]).instance.kustomize.patches :
+        p if p.target.name == name && strcontains(p.patch, "windsorcli-platform-critical")
+      ]) > 0
+    ])
+    error_message = "every default controller (source/kustomize/helm/notification) should receive a priorityClassName patch"
+  }
+}
+
 # Verifies leader_election=false appends --enable-leader-election=false to every
 # controller via a patch. Default (true) is covered by the clean run below.
 run "leader_election_disabled" {
@@ -276,9 +298,9 @@ run "leader_election_default_leaves_flags_clean" {
   assert {
     condition = length([
       for p in yamldecode(helm_release.flux_instance.values[0]).instance.kustomize.patches :
-      p if p.target.name == "notification-controller"
+      p if p.target.name == "notification-controller" && strcontains(p.patch, "/args/-")
     ]) == 0
-    error_message = "notification-controller should have no patch by default"
+    error_message = "notification-controller should have no args patch by default"
   }
 }
 

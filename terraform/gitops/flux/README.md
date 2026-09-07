@@ -56,6 +56,7 @@ No modules.
 | [helm_release.flux_operator](https://registry.terraform.io/providers/hashicorp/helm/3.2.0/docs/resources/release) | resource |
 | [kubernetes_job_v1.flux_ready_gate](https://registry.terraform.io/providers/hashicorp/kubernetes/3.2.1/docs/resources/job_v1) | resource |
 | [kubernetes_namespace_v1.flux_system](https://registry.terraform.io/providers/hashicorp/kubernetes/3.2.1/docs/resources/namespace_v1) | resource |
+| [kubernetes_priority_class_v1.platform_critical](https://registry.terraform.io/providers/hashicorp/kubernetes/3.2.1/docs/resources/priority_class_v1) | resource |
 | [kubernetes_role_binding_v1.flux_ready_gate](https://registry.terraform.io/providers/hashicorp/kubernetes/3.2.1/docs/resources/role_binding_v1) | resource |
 | [kubernetes_role_v1.flux_ready_gate](https://registry.terraform.io/providers/hashicorp/kubernetes/3.2.1/docs/resources/role_v1) | resource |
 | [kubernetes_secret_v1.git_auth](https://registry.terraform.io/providers/hashicorp/kubernetes/3.2.1/docs/resources/secret_v1) | resource |
