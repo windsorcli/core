@@ -23,11 +23,31 @@ spec:
   values:
     controller:
       priorityClassName: windsorcli-platform-critical
+      tolerations:
+        - key: CriticalAddonsOnly
+          operator: Exists
+          effect: NoSchedule
+      affinity:
+        nodeAffinity:
+          preferredDuringSchedulingIgnoredDuringExecution:
+            - weight: 100
+              preference:
+                matchExpressions:
+                  - key: windsorcli.dev/pool-class
+                    operator: In
+                    values:
+                      - system
       image:
         # renovate: datasource=docker depName=quay.io/metallb/controller package=quay.io/metallb/controller
         tag: v0.16.1@sha256:f51ab515de9ccd20dc3dccb093e48df8adddac019326c456f449e55ba91b6420
     speaker:
       priorityClassName: windsorcli-platform-critical
+      # DaemonSet: only the taint toleration applies, so it can still land on
+      # system nodes too. A scheduling preference has no effect on a DaemonSet.
+      tolerations:
+        - key: CriticalAddonsOnly
+          operator: Exists
+          effect: NoSchedule
       image:
         # renovate: datasource=docker depName=quay.io/metallb/speaker package=quay.io/metallb/speaker
         tag: v0.16.1@sha256:16561e96531e1852d5c229ad7fae6e994dcfa983ff7f4de6b6208b34a4e2ddbc

@@ -26,6 +26,21 @@ spec:
   values:
     deployment:
       priorityClassName: windsorcli-platform-critical
+      pod:
+        tolerations:
+          - key: CriticalAddonsOnly
+            operator: Exists
+            effect: NoSchedule
+        affinity:
+          nodeAffinity:
+            preferredDuringSchedulingIgnoredDuringExecution:
+              - weight: 100
+                preference:
+                  matchExpressions:
+                    - key: windsorcli.dev/pool-class
+                      operator: In
+                      values:
+                        - system
     global:
       images:
         envoyGateway:

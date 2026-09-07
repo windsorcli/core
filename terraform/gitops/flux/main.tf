@@ -134,6 +134,40 @@ locals {
           value = kubernetes_priority_class_v1.platform_critical.metadata[0].name
         }])
       }
+    ],
+    [
+      for name in local.flux_components : {
+        target = { kind = "Deployment", name = name }
+        patch = yamlencode([
+          {
+            op   = "add"
+            path = "/spec/template/spec/tolerations"
+            value = [{
+              key      = "CriticalAddonsOnly"
+              operator = "Exists"
+              effect   = "NoSchedule"
+            }]
+          },
+          {
+            op   = "add"
+            path = "/spec/template/spec/affinity"
+            value = {
+              nodeAffinity = {
+                preferredDuringSchedulingIgnoredDuringExecution = [{
+                  weight = 100
+                  preference = {
+                    matchExpressions = [{
+                      key      = "windsorcli.dev/pool-class"
+                      operator = "In"
+                      values   = ["system"]
+                    }]
+                  }
+                }]
+              }
+            }
+          }
+        ])
+      }
     ]
   )
 }

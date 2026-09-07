@@ -259,6 +259,34 @@ run "priority_class_patches_all_default_controllers" {
   }
 }
 
+# Verifies every default controller also gets the CriticalAddonsOnly toleration
+# and a preferred nodeAffinity toward the system pool, alongside priorityClassName.
+run "system_pool_patches_all_default_controllers" {
+  command = plan
+
+  assert {
+    condition = alltrue([
+      for name in ["source-controller", "kustomize-controller", "helm-controller", "notification-controller"] :
+      length([
+        for p in yamldecode(helm_release.flux_instance.values[0]).instance.kustomize.patches :
+        p if p.target.name == name && strcontains(p.patch, "CriticalAddonsOnly")
+      ]) > 0
+    ])
+    error_message = "every default controller should receive the CriticalAddonsOnly toleration patch"
+  }
+
+  assert {
+    condition = alltrue([
+      for name in ["source-controller", "kustomize-controller", "helm-controller", "notification-controller"] :
+      length([
+        for p in yamldecode(helm_release.flux_instance.values[0]).instance.kustomize.patches :
+        p if p.target.name == name && strcontains(p.patch, "windsorcli.dev/pool-class")
+      ]) > 0
+    ])
+    error_message = "every default controller should receive the system pool-class nodeAffinity patch"
+  }
+}
+
 # Verifies leader_election=false appends --enable-leader-election=false to every
 # controller via a patch. Default (true) is covered by the clean run below.
 run "leader_election_disabled" {
