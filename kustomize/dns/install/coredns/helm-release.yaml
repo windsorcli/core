@@ -10,10 +10,10 @@ spec:
   dependsOn: []
   install:
     remediation:
-      retries: 3
+      retries: 5
   upgrade:
     remediation:
-      retries: 3
+      retries: 5
   chart:
     spec:
       chart: coredns
