@@ -54,6 +54,15 @@ patches:
                 imagePullPolicy: IfNotPresent
                 startupProbe:
                   failureThreshold: 30
+  - patch: |
+      apiVersion: apps/v1
+      kind: Deployment
+      metadata:
+        name: keycloak-operator
+      spec:
+        template:
+          spec:
+            priorityClassName: windsorcli-platform-critical
 transformers:
   - |-
     apiVersion: builtin

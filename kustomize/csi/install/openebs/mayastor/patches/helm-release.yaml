@@ -16,6 +16,7 @@ spec:
           enabled: true
     mayastor:
       enabled: true
+      priorityClassName: windsorcli-platform-critical
       io_engine:
         # va needs IOMMU/VFIO; pa skips it for nested virtualization.
         envcontext: iova-mode=${mayastor_iova_mode:-va}

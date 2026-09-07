@@ -16,6 +16,7 @@ spec:
         kind: HelmRepository
         name: cloudnativepg
   values:
+    priorityClassName: windsorcli-platform-critical
     config:
       clusterWide: true
     image:
