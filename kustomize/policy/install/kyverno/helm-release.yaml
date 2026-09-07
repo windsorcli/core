@@ -23,10 +23,6 @@ spec:
   values:
     global:
       priorityClassName: windsorcli-platform-critical
-      tolerations:
-        - key: CriticalAddonsOnly
-          operator: Exists
-          effect: NoSchedule
     # The kube-apiserver enforces the webhook namespaceSelector even when the
     # admission controller is unreachable. Excluding the GitOps and kube-system
     # namespaces keeps Flux able to reconcile a fix if Kyverno is ever down.
@@ -46,6 +42,10 @@ spec:
           tag: v1.19.0@sha256:f40718123e3eea8dc36960023e2af7a980bcc76dec24842ad8705c82f4c9172e
     # Disable ANSI color codes in logs
     admissionController:
+      tolerations:
+        - key: CriticalAddonsOnly
+          operator: Exists
+          effect: NoSchedule
       nodeAffinity:
         preferredDuringSchedulingIgnoredDuringExecution:
           - weight: 100
@@ -67,6 +67,10 @@ spec:
         - name: NO_COLOR
           value: "1"
     backgroundController:
+      tolerations:
+        - key: CriticalAddonsOnly
+          operator: Exists
+          effect: NoSchedule
       nodeAffinity:
         preferredDuringSchedulingIgnoredDuringExecution:
           - weight: 100
