@@ -898,7 +898,7 @@ properties:
                 - storage
                 - gpu
                 - arm64
-              description: Portable pool class. Maps to a per-provider instance family and emits a windsor.io/pool-class label so workloads target pools uniformly across clouds.
+              description: Portable pool class. Maps to a per-provider instance family and emits a windsorcli.dev/pool-class label so workloads target pools uniformly across clouds.
             count:
               type: integer
               minimum: 0
@@ -941,7 +941,7 @@ properties:
                 $ref: '#/$defs/k8sLabelKey'
               additionalProperties:
                 $ref: '#/$defs/k8sLabelValue'
-              description: Kubernetes labels applied to nodes in this pool, on top of the auto-injected windsor.io/pool=<name> and windsor.io/pool-class=<class>. Keys and values follow the k8s label spec.
+              description: Kubernetes labels applied to nodes in this pool, on top of the auto-injected windsorcli.dev/pool=<name> and windsorcli.dev/pool-class=<class>. Keys and values follow the k8s label spec.
             taints:
               type: array
               items:

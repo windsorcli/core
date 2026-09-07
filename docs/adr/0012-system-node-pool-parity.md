@@ -1,0 +1,151 @@
+---
+title: "ADR-0012: System node pool parity across AWS, Azure, and GCP"
+description: "Azure and GCP always provision a tainted system node pool independent of user pool config; AWS's only exists as a facet default that a user's own cluster.pools silently drops. No provider schedules platform-tier controllers onto the system pool it creates. Closes both gaps by making AWS's system pool module-level like GCP's, and by tolerating/preferring the existing platform-critical component list onto system capacity where it exists."
+---
+
+# ADR-0012: System node pool parity across AWS, Azure, and GCP
+
+## Status
+
+Proposed.
+
+## Context
+
+"System node pool" is Azure's own term: AKS has a native `mode: System` /
+`mode: User` distinction, and a system-mode pool is required to host
+AKS-managed critical pods (CoreDNS, metrics-server, konnectivity). AWS and
+GCP have no equivalent API primitive, but the same isolation pattern —
+a dedicated node pool tainted `CriticalAddonsOnly=true:NoSchedule` — is
+the documented community best practice for both: the
+[AWS EKS best-practices guide](https://docs.aws.amazon.com/eks/latest/best-practices/reliability.html)
+recommends a dedicated node group for critical add-ons, and
+[GKE's workload-isolation guide](https://docs.cloud.google.com/kubernetes-engine/docs/how-to/isolate-workloads-dedicated-nodes)
+recommends the same taint to protect GKE-managed privileged workloads.
+Reusing "system" and the `CriticalAddonsOnly` taint across all three
+providers extends existing ecosystem vocabulary rather than inventing a
+new one.
+
+Where the three providers actually diverge is whether that pool is
+guaranteed:
+
+| | AWS EKS | Azure AKS | GCP GKE |
+|---|---|---|---|
+| System pool creation | Facet default only (`cluster/aws-eks/variables.tf:178` defaults `var.pools` to `{}`) | Module-level, unconditional (`cluster/azure-aks/main.tf:340` inline `default_node_pool`) | Module-level, unconditional (`cluster/gcp-gke/main.tf:129` dedicated `google_container_node_pool.system`) |
+| Survives a user-supplied `cluster.pools` | **No** — the facet default (`facets/platform-aws.yaml:117`) is replaced wholesale the moment `cluster.pools` is set | Yes — the inline pool is independent of `var.pools` | Yes — the dedicated resource is independent of `var.pools` |
+| `windsorcli.dev/pool[-class]` labels on the system pool | Yes (`cluster/aws-eks/main.tf:350-356`) | **No** — `default_node_pool` sets no `node_labels` | Yes (`cluster/gcp-gke/main.tf:169-172`) |
+| Native `mode: System` set on a user-declared `class: system` pool | N/A (no such field on EKS) | **No** — `azurerm_kubernetes_cluster_node_pool.pools` hardcodes `mode = "User"` (`cluster/azure-aks/main.tf:499`) | N/A (no such field on GKE) |
+
+The AWS gap is concrete, not theoretical:
+`contexts/_template/tests/platform-aws.test.yaml:466` runs a `cluster.pools`
+config with only a `gpu` entry and asserts Terraform receives exactly
+that, no `system` entry synthesized. A user who customizes AWS pools at
+all can end up with zero `CriticalAddonsOnly`-tainted nodes, while the
+identical customization on Azure or GCP cannot remove their inline
+system pool. GCP's own module carries a comment claiming parity it
+doesn't have: `cluster/gcp-gke/main.tf:126` describes its taint as
+"matching the inline system pool on aws-eks/azure-aks" — aws-eks has no
+inline system pool.
+
+Separately, `schema.yaml:901` and `:944` document the auto-injected
+label keys as `windsor.io/pool[-class]`; every provider actually emits
+`windsorcli.dev/pool[-class]` (`cluster/aws-eks/main.tf:352`,
+`cluster/gcp-gke/main.tf:171`). Code is consistent across providers; the
+schema text is stale.
+
+Finally, no provider schedules anything onto the system pool it
+creates. Commit 43be8d88 gave a fixed list of platform-tier components
+(Flux controllers, CoreDNS, external-dns, cert-manager, MetalLB,
+kube-vip, Kyverno, Envoy Gateway, CloudNativePG, Crossplane, Prometheus,
+OpenEBS, Keycloak Operator) a shared `priorityClassName:
+windsorcli-platform-critical`, which protects them from eviction under
+node pressure but does not place them anywhere — none of them carries a
+toleration for `CriticalAddonsOnly`, so they land wherever the scheduler
+puts them, same as any other workload.
+
+Static-node providers (Talos: metal, docker, incus, hyperv) have no
+pool concept at all, by design — `schema.yaml:877-880` already scopes
+`cluster.pools` to "elastic providers (aws, azure, gcp, omni)". This ADR
+doesn't extend the concept there: a 1-3 node dev cluster loses more
+capacity cordoning off a system node than it gains from isolation.
+
+## Decision
+
+### 1. AWS EKS gets a module-level system node group, independent of `var.pools`
+
+Add a dedicated system-pool resource to `terraform/cluster/aws-eks`,
+mirroring GCP's standalone `google_container_node_pool.system` rather
+than sourcing the system pool from `var.pools`. `facets/platform-aws.yaml`
+drops the `system` entry from its `cluster.pools` default, matching how
+`platform-azure.yaml` and `platform-gcp.yaml` already default to
+`general` only. A user's `cluster.pools` can no longer remove AWS's
+system pool, same as Azure and GCP today.
+
+### 2. Azure gets the labels and native `mode` it's missing
+
+`default_node_pool` gets a `node_labels` block setting
+`windsorcli.dev/pool=<name>` / `windsorcli.dev/pool-class=system`, matching
+AWS and GCP. `azurerm_kubernetes_cluster_node_pool.pools` sets
+`mode = each.value.class == "system" ? "System" : "User"` instead of the
+hardcoded `"User"`, so a user-declared additional `class: system` pool on
+Azure gets AKS's own native system-pool semantics, not just the taint.
+
+### 3. Fix the `schema.yaml` label documentation
+
+Change `windsor.io/pool[-class]` to `windsorcli.dev/pool[-class]` at
+`schema.yaml:901` and `:944`. Text-only; no behavior change.
+
+### 4. Tolerate and prefer the system pool for the existing platform-critical list
+
+Reuse the exact component list from commit 43be8d88 — no new list. In
+each component's `helm-release.yaml` values, alongside the existing
+`priorityClassName`:
+
+- Deployments get a toleration for `CriticalAddonsOnly=true:NoSchedule`
+  plus a `preferredDuringSchedulingIgnoredDuringExecution` node affinity
+  toward `windsorcli.dev/pool-class: system`. Soft, not required — these
+  still schedule normally where no system pool exists.
+- DaemonSets (MetalLB speaker, kube-vip) get the toleration only. A
+  DaemonSet already runs on every eligible node; a scheduling preference
+  has no effect on it.
+
+## Consequences
+
+- Every AWS EKS cluster now provisions at least two node groups (system
+  + general) at minimum, same baseline Azure and GCP already carry. AWS
+  clusters that today rely on a single implicit pool see a real
+  infrastructure change and a small cost increase on next apply.
+- Azure's `mode = "System"` change only affects a `cluster.pools` entry
+  explicitly declared `class: system` in addition to the default pool;
+  no existing config without one is affected.
+- The toleration/affinity addition is additive and safe on every
+  provider and topology, including Talos, where the label/taint simply
+  never matches and the preference is a no-op.
+- Platform-tier components gain an actual placement preference to match
+  the eviction protection they already have, closing the gap where
+  43be8d88's "shielding" protected components that weren't reliably
+  landing on protected capacity in the first place.
+
+## Alternatives considered
+
+**Leave AWS's system pool as a facet default.** Rejected — it's silently
+droppable by any user who sets `cluster.pools`, which is the opposite of
+parity with Azure and GCP.
+
+**Invent a new pool class name instead of reusing "system."** Rejected —
+`system` is AKS's own native term and matches the taint convention AWS's
+and GCP's own best-practice docs already recommend; a new name would add
+vocabulary without adding clarity.
+
+**Hard-require platform-tier pods onto the system pool via
+`nodeSelector` instead of a soft affinity.** Rejected — breaks any AWS
+cluster with no system pool declared and breaks Talos entirely, where no
+system pool exists at all.
+
+## References
+
+- [Use System Node Pools in AKS](https://learn.microsoft.com/en-us/azure/aks/use-system-pools) — AKS's native `mode: System`/`CriticalAddonsOnly` primitive.
+- [Amazon EKS Best Practices Guide — Reliability](https://docs.aws.amazon.com/eks/latest/best-practices/reliability.html) — dedicated node group for critical add-ons as a documented pattern, not an API primitive.
+- [Isolate workloads in dedicated node pools (GKE)](https://docs.cloud.google.com/kubernetes-engine/docs/how-to/isolate-workloads-dedicated-nodes) — taint/affinity as the GKE-recommended mechanism, no native "system" mode.
+- `terraform/cluster/aws-eks/variables.tf:178`, `terraform/cluster/azure-aks/main.tf:340`, `terraform/cluster/gcp-gke/main.tf:129` — current per-provider system pool creation.
+- `contexts/_template/tests/platform-aws.test.yaml:466` — the test demonstrating AWS's system pool can be dropped entirely.
+- `schema.yaml:877-880` — the existing elastic-vs-static-node provider scope for `cluster.pools`.

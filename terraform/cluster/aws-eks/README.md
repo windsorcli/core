@@ -7,12 +7,14 @@ description: Managed Kubernetes control plane on AWS.
 
 Managed Kubernetes control plane on AWS. The module consumes the VPC and
 private subnet IDs from the `network/aws-vpc` outputs, provisions the
-EKS cluster and its managed node groups (from `var.pools`, or the
-`var.node_groups` fallback when pools is empty), and creates an OIDC
-provider so in-cluster ServiceAccounts can assume IAM roles via IRSA. The
-blueprint's platform-aws facet defaults to a fixed `system` pool plus an
-autoscaling `general` pool. The `additions/` submodule wires the VPC CNI
-and EBS CSI driver helpers that EKS expects out-of-band.
+EKS cluster and its managed node groups, and creates an OIDC provider so
+in-cluster ServiceAccounts can assume IAM roles via IRSA. A fixed
+`system` node group, tainted `CriticalAddonsOnly=true:NoSchedule`, is
+always created regardless of `var.pools`; additional pools come from
+`var.pools`, or the `var.node_groups` fallback when pools is empty. The
+blueprint's platform-aws facet defaults to one autoscaling `general`
+pool alongside it. The `additions/` submodule wires the VPC CNI and EBS
+CSI driver helpers that EKS expects out-of-band.
 
 <!-- BEGIN_TF_DOCS -->
 ## Requirements
@@ -134,9 +136,10 @@ No modules.
 | <a name="input_max_pods_per_node"></a> [max\_pods\_per\_node](#input\_max\_pods\_per\_node) | Maximum number of pods that can run on a single node | `number` | `64` | no |
 | <a name="input_node_groups"></a> [node\_groups](#input\_node\_groups) | Map of EKS managed node group definitions to create. Used when var.pools is empty; otherwise pools wins. | <pre>map(object({<br/>    instance_types = list(string)<br/>    min_size       = number<br/>    max_size       = number<br/>    desired_size   = number<br/>    capacity_type  = optional(string, "ON_DEMAND")<br/>    disk_size      = optional(number, 64)<br/>    labels         = optional(map(string), {})<br/>    taints = optional(list(object({<br/>      key    = string<br/>      value  = string<br/>      effect = string<br/>    })), [])<br/>  }))</pre> | <pre>{<br/>  "default": {<br/>    "desired_size": 2,<br/>    "instance_types": [<br/>      "t3.xlarge"<br/>    ],<br/>    "max_size": 3,<br/>    "min_size": 1<br/>  }<br/>}</pre> | no |
 | <a name="input_node_subnet_ids"></a> [node\_subnet\_ids](#input\_node\_subnet\_ids) | Private subnet IDs node groups launch into. Null uses all of private\_subnet\_ids; pass a subset to constrain node placement to specific AZs. The control plane always uses private\_subnet\_ids. | `list(string)` | `null` | no |
-| <a name="input_pools"></a> [pools](#input\_pools) | Portable node pool definitions, keyed by pool name; takes precedence over var.node\_groups when non-empty. Each pool maps a class to an EKS managed node group. Autoscaling defaults on (min 1, max 3) for every class except system. System-class pools get a CriticalAddonsOnly=true:NoSchedule taint unless they declare one. | <pre>map(object({<br/>    class          = string<br/>    count          = number<br/>    lifecycle      = optional(string, "on-demand")<br/>    instance_types = optional(list(string))<br/>    root_disk_size = optional(number)<br/>    autoscaling = optional(object({<br/>      enabled = optional(bool)<br/>      min     = optional(number)<br/>      max     = optional(number)<br/>    }))<br/>    labels = optional(map(string), {})<br/>    taints = optional(list(object({<br/>      key    = string<br/>      value  = optional(string)<br/>      effect = string<br/>    })), [])<br/>  }))</pre> | `{}` | no |
+| <a name="input_pools"></a> [pools](#input\_pools) | Portable node pool definitions, keyed by pool name; takes precedence over var.node\_groups when non-empty. Each pool maps a class to an EKS managed node group. Autoscaling defaults on (min 1, max 3) for every class except system. System-class pools get a CriticalAddonsOnly=true:NoSchedule taint unless they declare one. An entry named "system" overrides the module's own always-on system node group; without one, both are created. | <pre>map(object({<br/>    class          = string<br/>    count          = number<br/>    lifecycle      = optional(string, "on-demand")<br/>    instance_types = optional(list(string))<br/>    root_disk_size = optional(number)<br/>    autoscaling = optional(object({<br/>      enabled = optional(bool)<br/>      min     = optional(number)<br/>      max     = optional(number)<br/>    }))<br/>    labels = optional(map(string), {})<br/>    taints = optional(list(object({<br/>      key    = string<br/>      value  = optional(string)<br/>      effect = string<br/>    })), [])<br/>  }))</pre> | `{}` | no |
 | <a name="input_private_subnet_ids"></a> [private\_subnet\_ids](#input\_private\_subnet\_ids) | Private subnet IDs for EKS control plane ENIs and node groups. Pipe network/aws-vpc's private\_subnet\_ids output. | `list(string)` | `null` | no |
 | <a name="input_secrets_encryption_kms_key_id"></a> [secrets\_encryption\_kms\_key\_id](#input\_secrets\_encryption\_kms\_key\_id) | ID of an existing KMS key to use for EKS secrets encryption. If enable\_secrets\_encryption is true and this is null, an internal key is created. | `string` | `null` | no |
+| <a name="input_system_node_pool"></a> [system\_node\_pool](#input\_system\_node\_pool) | Sizing for the always-on system node group. Instance types come from class\_instance\_types["system"]. | <pre>object({<br/>    desired_size        = number<br/>    disk_size           = number<br/>    autoscaling_enabled = bool<br/>    min_size            = number<br/>    max_size            = number<br/>  })</pre> | <pre>{<br/>  "autoscaling_enabled": false,<br/>  "desired_size": 1,<br/>  "disk_size": 64,<br/>  "max_size": 3,<br/>  "min_size": 1<br/>}</pre> | no |
 | <a name="input_tags"></a> [tags](#input\_tags) | Additional tags to apply to all resources | `map(string)` | `{}` | no |
 | <a name="input_vpc_cni_config"></a> [vpc\_cni\_config](#input\_vpc\_cni\_config) | Configuration for the VPC CNI addon | <pre>object({<br/>    enable_prefix_delegation = bool<br/>    warm_prefix_target       = number<br/>    warm_ip_target           = number<br/>    minimum_ip_target        = number<br/>  })</pre> | <pre>{<br/>  "enable_prefix_delegation": true,<br/>  "minimum_ip_target": 3,<br/>  "warm_ip_target": 1,<br/>  "warm_prefix_target": 1<br/>}</pre> | no |
 | <a name="input_vpc_id"></a> [vpc\_id](#input\_vpc\_id) | ID of the VPC where the EKS cluster will be created. Pipe network/aws-vpc's vpc\_id output. | `string` | `null` | no |

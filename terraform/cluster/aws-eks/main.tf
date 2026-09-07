@@ -372,7 +372,30 @@ locals {
     }
   }
 
-  effective_node_groups = length(var.pools) > 0 ? local.pools_node_groups : {
+  # Always-on system node group, independent of var.pools/var.node_groups. A
+  # "system" entry in either variable overrides it, since map keys collide.
+  system_node_group = {
+    system = {
+      instance_types      = var.class_instance_types["system"]
+      capacity_type       = "ON_DEMAND"
+      desired_size        = var.system_node_pool.desired_size
+      autoscaling_enabled = var.system_node_pool.autoscaling_enabled
+      min_size            = var.system_node_pool.autoscaling_enabled ? var.system_node_pool.min_size : var.system_node_pool.desired_size
+      max_size            = var.system_node_pool.autoscaling_enabled ? var.system_node_pool.max_size : var.system_node_pool.desired_size
+      disk_size           = var.system_node_pool.disk_size
+      labels = {
+        "windsorcli.dev/pool"       = "system"
+        "windsorcli.dev/pool-class" = "system"
+      }
+      taints = [{
+        key    = "CriticalAddonsOnly"
+        value  = "true"
+        effect = "NO_SCHEDULE"
+      }]
+    }
+  }
+
+  effective_node_groups = merge(local.system_node_group, length(var.pools) > 0 ? local.pools_node_groups : {
     for name, ng in var.node_groups : name => {
       instance_types      = ng.instance_types
       capacity_type       = ng.capacity_type
@@ -384,7 +407,7 @@ locals {
       labels              = ng.labels
       taints              = ng.taints
     }
-  }
+  })
 
   # Node groups the cluster-autoscaler should manage, for ASG discovery tagging.
   autoscaler_node_groups = {
