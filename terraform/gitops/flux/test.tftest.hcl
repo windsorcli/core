@@ -249,13 +249,13 @@ run "priority_class_patches_all_default_controllers" {
 
   assert {
     condition = alltrue([
-      for name in ["source-controller", "kustomize-controller", "helm-controller"] :
+      for name in ["source-controller", "kustomize-controller", "helm-controller", "notification-controller"] :
       length([
         for p in yamldecode(helm_release.flux_instance.values[0]).instance.kustomize.patches :
         p if p.target.name == name && strcontains(p.patch, "windsorcli-platform-critical")
       ]) > 0
     ])
-    error_message = "source/kustomize/helm-controller should each receive a priorityClassName patch"
+    error_message = "every default controller (source/kustomize/helm/notification) should receive a priorityClassName patch"
   }
 }
 
