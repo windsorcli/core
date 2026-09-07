@@ -774,6 +774,48 @@ run "system_node_group_always_created" {
   }
 }
 
+# The always-on system pool flows through autoscaler_node_groups the same as
+# any other pool, so turning on its autoscaling gets it ASG discovery tags.
+run "system_node_pool_autoscaling_gets_discovery_tags" {
+  command = plan
+
+  variables {
+    context_id         = "test"
+    kubernetes_version = "1.34"
+    pools = {
+      general = {
+        class = "general"
+        count = 1
+        autoscaling = {
+          enabled = false
+        }
+      }
+    }
+    system_node_pool = {
+      desired_size        = 1
+      disk_size           = 64
+      autoscaling_enabled = true
+      min_size            = 1
+      max_size            = 3
+    }
+  }
+
+  assert {
+    condition     = aws_eks_node_group.main["system"].scaling_config[0].min_size == 1 && aws_eks_node_group.main["system"].scaling_config[0].max_size == 3 && aws_eks_node_group.main["system"].scaling_config[0].desired_size == 1
+    error_message = "An autoscaling-enabled system pool should use the supplied bounds"
+  }
+
+  assert {
+    condition     = contains(keys(aws_autoscaling_group_tag.cluster_autoscaler_enabled), "system") && contains(keys(aws_autoscaling_group_tag.cluster_autoscaler_owned), "system")
+    error_message = "An autoscaling-enabled system pool should get the cluster-autoscaler ASG discovery tags"
+  }
+
+  assert {
+    condition     = length(aws_autoscaling_group_tag.cluster_autoscaler_enabled) == 1
+    error_message = "Only the system pool should be tagged when the general pool has autoscaling disabled"
+  }
+}
+
 # A "system"-named pool overrides the module's built-in one rather than
 # creating a duplicate resource, since both resolve to the same map key.
 run "explicit_system_pool_overrides_the_builtin" {
@@ -799,6 +841,14 @@ run "explicit_system_pool_overrides_the_builtin" {
   assert {
     condition     = aws_eks_node_group.main["system"].instance_types[0] == "m5.large"
     error_message = "A declared system pool's instance_types should win over the built-in default"
+  }
+
+  assert {
+    condition = length([
+      for t in aws_eks_node_group.main["system"].taint :
+      t if t.key == "CriticalAddonsOnly" && t.value == "true" && t.effect == "NO_SCHEDULE"
+    ]) == 1
+    error_message = "A declared system pool should still carry the CriticalAddonsOnly=true:NO_SCHEDULE taint"
   }
 }
 
