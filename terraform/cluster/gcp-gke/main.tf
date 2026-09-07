@@ -132,19 +132,20 @@ resource "google_container_node_pool" "system" {
   location       = var.region
   node_locations = var.node_locations
 
-  node_count = var.system_node_pool.autoscaling_enabled ? null : var.system_node_pool.node_count
-
   management {
     auto_repair  = true
     auto_upgrade = true
   }
 
-  dynamic "autoscaling" {
-    for_each = var.system_node_pool.autoscaling_enabled ? [1] : []
-    content {
-      min_node_count = var.system_node_pool.min_count
-      max_node_count = var.system_node_pool.max_count
-    }
+  # total_*_node_count (not the per-zone min/max_node_count) so the system
+  # pool's size stays a fixed total regardless of how many zones
+  # node_locations spans, while every listed zone stays schedulable for
+  # rebalancing. BALANCED spreads nodes across those zones instead of
+  # packing them into whichever has capacity first.
+  autoscaling {
+    total_min_node_count = var.system_node_pool.autoscaling_enabled ? var.system_node_pool.min_count : var.system_node_pool.node_count
+    total_max_node_count = var.system_node_pool.autoscaling_enabled ? var.system_node_pool.max_count : var.system_node_pool.node_count
+    location_policy      = "BALANCED"
   }
 
   node_config {

@@ -72,45 +72,34 @@ variable "availability_zones" {
 }
 
 variable "default_node_pool" {
-  description = "Configuration for the default node pool"
+  description = "Configuration for the default node pool. Fields default independently, so a caller can override just node_count."
   type = object({
-    name                         = string
-    vm_size                      = string
-    os_disk_type                 = string
-    max_pods                     = number
-    host_encryption_enabled      = bool
-    min_count                    = number
-    max_count                    = number
-    node_count                   = number
-    only_critical_addons_enabled = bool
-    upgrade_settings = optional(object({
-      drain_timeout_in_minutes      = number
-      max_surge                     = string
-      node_soak_duration_in_minutes = number
-    }))
-  })
-  default = {
-    name = "system"
     # D2s_v3 (2 vCPU / 8 GB) for broad availability: the Dsv5 family must be
     # enabled per subscription+region and is absent from restricted offers
     # (sponsored/free), where AKS create fails with "VM size not allowed".
     # Dsv3 is GA in effectively every region. System pool stays small —
     # only_critical_addons_enabled puts a CriticalAddonsOnly:NoSchedule taint
     # on it, so user workloads avoid it; this pool only hosts cluster operators.
-    vm_size                      = "Standard_D2s_v3"
-    os_disk_type                 = "Managed"
-    max_pods                     = 48
-    host_encryption_enabled      = true
-    min_count                    = 1
-    max_count                    = 3
-    node_count                   = 1
-    only_critical_addons_enabled = true
-    upgrade_settings = {
+    name                         = optional(string, "system")
+    vm_size                      = optional(string, "Standard_D2s_v3")
+    os_disk_type                 = optional(string, "Managed")
+    max_pods                     = optional(number, 48)
+    host_encryption_enabled      = optional(bool, true)
+    min_count                    = optional(number, 1)
+    max_count                    = optional(number, 3)
+    node_count                   = optional(number, 1)
+    only_critical_addons_enabled = optional(bool, true)
+    upgrade_settings = optional(object({
+      drain_timeout_in_minutes      = number
+      max_surge                     = string
+      node_soak_duration_in_minutes = number
+      }), {
       drain_timeout_in_minutes      = 30
       max_surge                     = "10%"
       node_soak_duration_in_minutes = 10
-    }
-  }
+    })
+  })
+  default = {}
 }
 
 variable "pools" {

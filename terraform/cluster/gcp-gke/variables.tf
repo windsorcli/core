@@ -106,27 +106,16 @@ variable "release_channel" {
 #---------------------------------------------------------------------------------------------------
 
 variable "system_node_pool" {
-  description = "Configuration for the system node pool"
+  description = "Configuration for the system node pool. Fields default independently, so a caller can override just node_count."
   type = object({
-    machine_type        = string
-    disk_size_gb        = number
-    node_count          = number
-    autoscaling_enabled = bool
-    min_count           = number
-    max_count           = number
+    machine_type        = optional(string, "n2-standard-2")
+    disk_size_gb        = optional(number, 50)
+    node_count          = optional(number, 1)
+    autoscaling_enabled = optional(bool, false)
+    min_count           = optional(number, 1)
+    max_count           = optional(number, 3)
   })
-  default = {
-    # n2-standard-2 (2 vCPU / 8 GB). System pool stays small — the
-    # CriticalAddonsOnly taint keeps user workloads off it, this pool only
-    # hosts cluster operators.
-    machine_type = "n2-standard-2"
-    disk_size_gb = 50
-    node_count   = 1
-    # GKE won't scale an idle pool up from zero on its own.
-    autoscaling_enabled = false
-    min_count           = 1
-    max_count           = 3
-  }
+  default = {}
 }
 
 #---------------------------------------------------------------------------------------------------

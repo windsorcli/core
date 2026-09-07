@@ -512,6 +512,8 @@ cases:
           inputs:
             node_subnet_ids:
               - subnet-aaa
+            system_node_pool:
+              desired_size: 1
 
   # topology: ha is the additive multi-zone transition — one NAT per AZ and
   # node groups spread across every private subnet.
@@ -541,6 +543,8 @@ cases:
               - subnet-aaa
               - subnet-bbb
               - subnet-ccc
+            system_node_pool:
+              desired_size: 2
 
   # database.postgres.driver: rds wires a dedicated KMS key (database stack,
   # manage_encryption_key defaults on) and the Crossplane IAM/Pod-Identity

@@ -44,14 +44,16 @@ run "minimal_configuration" {
   }
 
   assert {
-    # GKE won't scale an idle pool up from zero on its own.
-    condition     = google_container_node_pool.system.node_count == 1
-    error_message = "System pool should start with an explicit fixed node count"
+    # A fixed total (min == max) via total_*_node_count, not node_count
+    # directly — node_count on this resource is per zone, which would
+    # multiply the pool's size under a multi-zone node_locations.
+    condition     = google_container_node_pool.system.autoscaling[0].total_min_node_count == 1 && google_container_node_pool.system.autoscaling[0].total_max_node_count == 1
+    error_message = "System pool should start with a fixed total of 1 node"
   }
 
   assert {
-    condition     = length(google_container_node_pool.system.autoscaling) == 0
-    error_message = "System pool should not be autoscaled by default"
+    condition     = google_container_node_pool.system.autoscaling[0].location_policy == "BALANCED"
+    error_message = "System pool should spread across its eligible zones rather than pack into whichever has capacity first"
   }
 
   assert {
@@ -80,8 +82,42 @@ run "minimal_configuration" {
   }
 }
 
-# topology: ha wires a multi-zone list; every pool spreads across it and a
-# fixed-count pool's node_count multiplies per zone.
+# system_node_pool's fields default independently, so a caller overriding
+# just node_count (e.g. for topology: ha) doesn't have to restate the rest.
+run "system_node_pool_partial_override_keeps_other_defaults" {
+  command = plan
+
+  variables {
+    context_id     = "test"
+    project_id     = "test-project"
+    network_id     = "projects/test-project/global/networks/network-test"
+    subnetwork_id  = "projects/test-project/regions/us-central1/subnetworks/private-test"
+    node_locations = ["us-central1-a"]
+    system_node_pool = {
+      node_count = 2
+    }
+  }
+
+  assert {
+    condition     = google_container_node_pool.system.autoscaling[0].total_min_node_count == 2 && google_container_node_pool.system.autoscaling[0].total_max_node_count == 2
+    error_message = "Overriding only node_count should take effect as the fixed total"
+  }
+
+  assert {
+    condition     = google_container_node_pool.system.node_config[0].machine_type == "n2-standard-2"
+    error_message = "Overriding only node_count should leave machine_type at its default"
+  }
+
+  assert {
+    condition     = google_container_node_pool.system.node_config[0].disk_size_gb == 50
+    error_message = "Overriding only node_count should leave disk_size_gb at its default"
+  }
+}
+
+# topology: ha wires a multi-zone list; the cluster's bootstrap pool, the
+# portable pools, and the system pool all stay eligible for every zone in it
+# (a fixed-count portable pool's node_count multiplies per zone — the system
+# pool doesn't, see below).
 run "multi_zone_node_locations_spread_every_pool" {
   command = plan
 
@@ -99,13 +135,37 @@ run "multi_zone_node_locations_spread_every_pool" {
   }
 
   assert {
-    condition     = toset(google_container_node_pool.system.node_locations) == toset(["us-central1-a", "us-central1-b", "us-central1-c"])
-    error_message = "System pool should span every zone in var.node_locations"
+    condition     = toset(google_container_node_pool.pools["general"].node_locations) == toset(["us-central1-a", "us-central1-b", "us-central1-c"])
+    error_message = "Node pools should span every zone in var.node_locations"
   }
 
   assert {
-    condition     = toset(google_container_node_pool.pools["general"].node_locations) == toset(["us-central1-a", "us-central1-b", "us-central1-c"])
-    error_message = "Node pools should span every zone in var.node_locations"
+    condition     = toset(google_container_node_pool.system.node_locations) == toset(["us-central1-a", "us-central1-b", "us-central1-c"])
+    error_message = "System pool should also stay eligible for every zone, not just a subset"
+  }
+}
+
+# node_count on this resource is per zone, so a plain fixed node_count would
+# multiply the system pool's size across a multi-zone node_locations.
+# total_*_node_count keeps the total fixed regardless of zone count, while
+# every zone in node_locations (asserted above) stays eligible for placement.
+run "system_pool_total_stays_fixed_across_multiple_zones" {
+  command = plan
+
+  variables {
+    context_id     = "test"
+    project_id     = "test-project"
+    network_id     = "projects/test-project/global/networks/network-test"
+    subnetwork_id  = "projects/test-project/regions/us-central1/subnetworks/private-test"
+    node_locations = ["us-central1-a", "us-central1-b", "us-central1-c"]
+    system_node_pool = {
+      node_count = 2
+    }
+  }
+
+  assert {
+    condition     = google_container_node_pool.system.autoscaling[0].total_min_node_count == 2 && google_container_node_pool.system.autoscaling[0].total_max_node_count == 2
+    error_message = "System pool total should stay at 2 regardless of how many zones are eligible"
   }
 }
 

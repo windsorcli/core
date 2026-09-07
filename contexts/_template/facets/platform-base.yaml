@@ -284,6 +284,9 @@ terraform:
     path: gitops/flux
     inputs:
       mode: ${gitops.mode ?? 'push'}
+      # topology: ha runs a standby replica of each default controller so
+      # one survives a single system node loss.
+      replicas: "${topology == 'ha' ? 2 : 1}"
 
   # Root CA for the private-CA add-on and Talos apiserver OIDC trust. Runs
   # ahead of cluster/talos so the cert is available for the first machine
@@ -429,6 +432,7 @@ flux:
       components:
         - cert-manager
         - "${telemetry.metrics.enabled ? 'cert-manager/prometheus' : ''}"
+        - "${topology == 'ha' ? 'cert-manager/ha' : ''}"
       timeout: 20m
       interval: 5m
     resources:

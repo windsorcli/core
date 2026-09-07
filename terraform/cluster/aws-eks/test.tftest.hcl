@@ -816,6 +816,35 @@ run "system_node_pool_autoscaling_gets_discovery_tags" {
   }
 }
 
+# system_node_pool's fields default independently, so a caller overriding
+# just desired_size (e.g. for topology: ha) doesn't have to restate the rest.
+run "system_node_pool_partial_override_keeps_other_defaults" {
+  command = plan
+
+  variables {
+    context_id         = "test"
+    kubernetes_version = "1.34"
+    system_node_pool = {
+      desired_size = 2
+    }
+  }
+
+  assert {
+    condition     = aws_eks_node_group.main["system"].scaling_config[0].min_size == 2 && aws_eks_node_group.main["system"].scaling_config[0].max_size == 2 && aws_eks_node_group.main["system"].scaling_config[0].desired_size == 2
+    error_message = "Overriding only desired_size should fix min=max=desired at the new size (autoscaling_enabled still defaults false)"
+  }
+
+  assert {
+    condition     = aws_eks_node_group.main["system"].instance_types[0] == "t3.large"
+    error_message = "Overriding only desired_size should leave instance_types at the class default"
+  }
+
+  assert {
+    condition     = aws_launch_template.node_group["system"].block_device_mappings[0].ebs[0].volume_size == 64
+    error_message = "Overriding only desired_size should leave disk_size at its default of 64"
+  }
+}
+
 # A "system"-named pool overrides the module's built-in one rather than
 # creating a duplicate resource, since both resolve to the same map key.
 run "explicit_system_pool_overrides_the_builtin" {

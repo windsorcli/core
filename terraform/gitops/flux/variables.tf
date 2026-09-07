@@ -87,6 +87,12 @@ variable "leader_election" {
   default     = true
 }
 
+variable "replicas" {
+  description = "Replica count for the default Flux controllers (source, kustomize, helm, notification). Values above 1 require leader_election."
+  type        = number
+  default     = 1
+}
+
 variable "image_automation" {
   description = "Enable the Flux image-automation-controller. Only needed for automated image tag updates committed back to Git."
   type        = bool

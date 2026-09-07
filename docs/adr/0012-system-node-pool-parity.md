@@ -1,6 +1,6 @@
 ---
 title: "ADR-0012: System node pool parity across AWS, Azure, and GCP"
-description: "Azure and GCP always provision a tainted system node pool independent of user pool config; AWS's only exists as a facet default that a user's own cluster.pools silently drops. No provider schedules platform-tier controllers onto the system pool it creates, and none makes it highly available under topology: ha. Closes these gaps by making AWS's system pool module-level like GCP's, tolerating/preferring only the control-glue half of the platform-critical list onto system capacity, and wiring topology: ha to a 2-node system pool with doubled replicas on the components that support leader election."
+description: "Azure and GCP always provision a tainted system node pool independent of user pool config; AWS's only exists as a facet default that a user's own cluster.pools silently drops. No provider schedules platform-tier controllers onto the system pool it creates, and none makes it highly available under topology: ha. Closes these gaps by making AWS's system pool module-level like GCP's, tolerating/preferring only the control-glue half of the platform-critical list onto system capacity, and wiring topology: ha to a 2-node system pool with raised replicas on the components individually confirmed to support it safely."
 ---
 
 # ADR-0012: System node pool parity across AWS, Azure, and GCP
@@ -9,8 +9,9 @@ description: "Azure and GCP always provision a tainted system node pool independ
 
 Proposed. Decisions 1 and 3 merged in
 [PR #2719](https://github.com/windsorcli/core/pull/2719); decision 2 merged
-in [PR #2721](https://github.com/windsorcli/core/pull/2721); decision 4 is
-in review. Decisions 5 and 6 are scoped, not yet implemented.
+in [PR #2721](https://github.com/windsorcli/core/pull/2721); decision 4
+merged in [PR #2724](https://github.com/windsorcli/core/pull/2724).
+Decisions 5 and 6 are implemented, in review.
 
 ## Context
 
@@ -203,8 +204,6 @@ rearchitecture.
 
 ### 5. `topology: ha` makes the system pool 2 fixed nodes
 
-Deferred — scoped here, not yet implemented.
-
 Wire the system pool's node count to `topology` at the facet layer, the
 same place `availability_zones`/`node_locations`/`node_subnet_ids`
 already branch on `topology == 'ha'` today: `system_node_pool.desired_size`
@@ -227,9 +226,24 @@ count. Two nodes still gives CoreDNS's own AZ-spread
 `topologySpreadConstraints` real capacity to use instead of collapsing
 onto a single node.
 
-### 6. `topology: ha` doubles replicas on the leader-election-capable subset of decision 4's list
+**2 total nodes only helps if they land in different zones**, so this
+was checked per provider rather than assumed. AWS's `desired_size` and
+Azure's `node_count` are both already totals — each cloud's own
+infrastructure layer (EC2 Auto Scaling's default launch behavior for
+AWS, AKS's own "best-effort zone balancing" for Azure) spreads a fixed
+count across the eligible AZs/zones without any extra configuration
+from this module. GCP is the exception: `google_container_node_pool`'s
+`node_count` is **per zone**, not total — under `topology: ha`,
+`node_locations` spans every available zone (often 3), so a plain
+`node_count = 2` would silently create 6 nodes, not 2. The fix uses
+`autoscaling.total_min_node_count`/`total_max_node_count` (mutually
+exclusive with plain `node_count`) instead, with `location_policy =
+"BALANCED"` — this keeps the total fixed at 2 while leaving every zone
+in `node_locations` schedulable, so GKE can still place (or later
+rebalance) into whichever zone actually has capacity, rather than
+hard-restricting eligibility to a fixed 2-zone subset.
 
-Deferred — scoped here, not yet implemented.
+### 6. `topology: ha` raises replicas on the components verified to support it safely
 
 Decision 5 alone doesn't deliver zero-downtime HA. Verified live against
 a running single-node cluster: cert-manager, its webhook and cainjector,
@@ -237,28 +251,79 @@ CoreDNS, external-dns, the CloudNativePG operator, and both Kyverno
 controllers (admission and background) all run at a single replica
 today. A 2-node system pool with every controller still at one replica
 gives self-healing (Kubernetes reschedules the lone pod onto the
-surviving node) but not zero downtime — there's a restart gap. Doubling
-replicas, one per node, closes that gap for the components that support
-it safely:
+surviving node) but not zero downtime — there's a restart gap. Raising
+replicas closes that gap, but only for components confirmed — against
+their own project's documentation or source, not assumed from "it's an
+operator/controller so it probably has leader election" — to support
+running more than one safely:
 
 - **Bump to 2 replicas under `ha`**: Flux's four default controllers
   (all support `--enable-leader-election`, already wired via this
   module's `leader_election` variable), cert-manager plus its webhook
-  and cainjector (leader election on by default), Kyverno's admission
-  and background controllers (leader election on by default), the
-  CloudNativePG operator (built-in leader election), the MetalLB
-  controller (leader election on by default), Keycloak Operator
-  (operator-pattern leader election), and CoreDNS (fully stateless,
+  and cainjector (leader election on by default), the CloudNativePG
+  operator (leader election built in; `replicaCount: 2` is CNPG's own
+  documented HA pattern), Kyverno's `backgroundController` (requires
+  leader election to serialize generate/mutate-existing reconciliation,
+  so a standby is exactly what 2 buys), and CoreDNS (fully stateless,
   needs no leader election at all to run N replicas safely).
-- **Leave at 1, pending verification**: external-dns. It lacks reliable
+- **Bump to 3 replicas under `ha`**: Kyverno's `admissionController`
+  specifically. Unlike `backgroundController`, it doesn't use leader
+  election for handling requests — replicas actively load-balance
+  incoming AdmissionReviews rather than one standing by — and Kyverno's
+  own docs state 3 as the minimum for a genuinely highly-available
+  admission controller. 2 wouldn't be wrong, exactly, but it undersells
+  what this component actually needs; 3 still fits comfortably on a
+  2-node system pool, it just means one node runs two of its pods.
+- **Leave at 1, pending verification**: external-dns, the MetalLB
+  controller, and Keycloak Operator. External-dns lacks reliable
   built-in leader election at the pinned version — running 2 replicas
-  risks racy or duplicate DNS provider API writes rather than clean
-  failover. Verify `--enable-leader-election` support at the pinned
-  version before including it; until then, doubling it is a
-  reliability regression, not an improvement.
+  risks racy or duplicate DNS provider API writes. The MetalLB
+  controller has none at all: the chart's Deployment template has no
+  `replicas` field, and the MetalLB project explicitly advises against
+  scaling it past 1 — multiple controllers can race to update the same
+  LoadBalancer Service. Keycloak Operator's framework (the Java
+  Operator SDK) *supports* leader election, but only when explicitly
+  enabled, and the vendored manifest here doesn't enable it — assuming
+  the capability exists is not the same as confirming it's on. For all
+  three, doubling replicas without confirmed leader election is a
+  reliability regression dressed up as an HA improvement, not one.
 - MetalLB's speaker and kube-vip are DaemonSets, already running on
   every eligible node regardless of topology; replica count doesn't
   apply to them.
+
+The mechanism turned out to already exist: this codebase has an
+established `<component>/ha` kustomize-component convention (a
+`topology == 'ha'`-gated component per install, e.g. `coredns/ha`,
+`cloudnativepg/ha`), so decision 6 extends that pattern rather than
+introducing a parallel one. Flux is the one exception — it's
+Terraform-managed, not kustomize, so it gets an explicit `var.replicas`
+(number, not a `var.ha` boolean — Terraform inputs should say what they
+configure, not encode a topology decision implicitly) instead.
+
+Auditing the existing `<component>/ha` components against this decision
+surfaced three corrections, made alongside it rather than deferred:
+
+- **`coredns/ha` set `replicaCount: 3`**, which doesn't fit a 2-node
+  system pool cleanly (2 replicas share one node). CoreDNS needs no
+  leader election and no vendor-mandated minimum, so it's reduced to 2
+  — a clean one-per-node spread, consistent with the "2 is enough, no
+  quorum needed" reasoning behind decision 5's own node count.
+- **`kyverno/ha` didn't touch `backgroundController`**, only
+  `admissionController`. Since `backgroundController` genuinely needs
+  leader election (serializing generate/mutate-existing
+  reconciliation), it now gets the standard 2-replica-plus-PDB
+  treatment alongside `admissionController`'s pre-existing 3.
+- **`external-dns/ha` was broken.** It set `extraArgs:
+  [--enable-leader-election]`, but that flag doesn't exist in the
+  pinned external-dns version — confirmed by searching the entire
+  v0.22.0 source tree, not just its documented flags, which returned
+  zero references to leader election outside a proposal doc. Any
+  cluster that has actually run `topology: ha` with the private-dns
+  addon enabled has likely had a crash-looping external-dns pod. Fixed
+  by removing the component and its wiring entirely — running
+  external-dns at 2 replicas without real leader election is a
+  regression (racy/duplicate provider writes), not a fix, so there is
+  currently no safe `ha` treatment for it to fall back to.
 
 ## Consequences
 
@@ -287,9 +352,20 @@ it safely:
   what leader-election-based redundancy actually needs rather than a
   quorum count borrowed from etcd/control-plane thinking.
 - Decision 6 only closes the zero-downtime gap for components verified
-  to support leader election safely; external-dns stays at 1 replica
-  until that's confirmed, so decision 5 alone (self-healing, not
-  zero-downtime) is what it gets in the meantime.
+  to support it safely; external-dns, the MetalLB controller, and
+  Keycloak Operator stay at 1 replica, so decision 5 alone (self-healing,
+  not zero-downtime) is what they get in the meantime. Kyverno's
+  `admissionController` gets 3 rather than 2, matching its own
+  documented HA minimum rather than the standby-replica count that
+  fits everything else.
+- CoreDNS's private-zone data still comes from a single-member etcd
+  `StatefulSet` (`coredns/etcd`), untouched by `topology: ha` and
+  unrelated to CoreDNS's own replica count. Not a hard outage — the
+  `etcd` plugin falls through to public forwarders on failure — but
+  private-domain resolution breaks until that one pod recovers. Real
+  etcd HA needs an odd member count (3, not 2) with per-member peer
+  TLS and `--initial-cluster` wiring, a separate piece of work from
+  this ADR.
 
 ## Alternatives considered
 
@@ -333,11 +409,17 @@ hardcodes a node count instead of following the pattern every other
 pool in these facets uses — widening zone eligibility under `ha`
 without forcing a specific count.
 
-**Bump every component in decision 4's list to 2 replicas for decision
-6, including external-dns.** Rejected — external-dns lacks confirmed
-leader-election support at the pinned version. Running 2 replicas
-without it risks racy or duplicate DNS provider API writes, which is a
-reliability regression dressed up as an HA improvement.
+**Bump every component in decision 4's list uniformly to 2 replicas for
+decision 6.** Rejected — assuming leader election from "it's an
+operator/controller" is exactly the mistake this decision is built to
+avoid. External-dns lacks confirmed leader election at the pinned
+version; the MetalLB controller has none and the project explicitly
+advises against scaling it; Keycloak Operator's framework supports it
+but the vendored manifest doesn't confirm it's enabled. Running 2
+replicas on any of these is a reliability regression dressed up as an
+HA improvement. Kyverno's `admissionController` cuts the other way — a
+uniform "2 for everything" would undersell it, since Kyverno's own docs
+call for 3 as the minimum for genuine HA there.
 
 ## References
 
@@ -349,3 +431,7 @@ reliability regression dressed up as an HA improvement.
 - `contexts/_template/tests/platform-aws.test.yaml:466` — the test demonstrating AWS's system pool can be dropped entirely.
 - `schema.yaml:877-880` — the existing elastic-vs-static-node provider scope for `cluster.pools`.
 - [Recent changes to the CoreDNS add-on](https://aws.amazon.com/blogs/containers/recent-changes-to-the-coredns-add-on/) — the default `topologySpreadConstraints` decision 5 gives real capacity to use.
+- [Kyverno High Availability](https://kyverno.io/docs/guides/high-availability/) — `admissionController` uses no leader election and needs 3 replicas minimum for real HA; `backgroundController` does use leader election, where 2 is enough.
+- [MetalLB controller leader election tracking issue](https://github.com/metallb/metallb/issues/2226) — confirms the controller has none today and the project advises against scaling it past 1 replica.
+- [CloudNativePG Installation and upgrades](https://cloudnative-pg.io/documentation/1.27/installation_upgrade/) — `replicaCount: 2` as CNPG's own documented operator HA pattern, leader election built in.
+- [`google_container_node_pool` (Terraform Registry)](https://registry.terraform.io/providers/hashicorp/google/latest/docs/resources/container_node_pool) — `node_count` is per zone; `total_min_node_count`/`total_max_node_count` and `location_policy` are the total-across-zones alternative decision 5 uses for GCP.

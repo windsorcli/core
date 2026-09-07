@@ -168,6 +168,16 @@ locals {
           }
         ])
       }
+    ],
+    [
+      for name in local.flux_components : {
+        target = { kind = "Deployment", name = name }
+        patch = yamlencode([{
+          op    = "add"
+          path  = "/spec/replicas"
+          value = var.replicas
+        }])
+      }
     ]
   )
 }
