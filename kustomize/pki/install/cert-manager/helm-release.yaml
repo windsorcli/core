@@ -16,6 +16,8 @@ spec:
         kind: HelmRepository
         name: jetstack
   values:
+    global:
+      priorityClassName: windsorcli-platform-critical
     image:
       # renovate: datasource=docker depName=quay.io/jetstack/cert-manager-controller package=quay.io/jetstack/cert-manager-controller
       tag: v1.21.1@sha256:416a2d76870d996460e62bd7f521bf14fa017be9e3e904aab92163a331fcb61a

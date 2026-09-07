@@ -34,6 +34,7 @@ spec:
         # renovate: datasource=docker depName=registry.k8s.io/kube-state-metrics/kube-state-metrics package=registry.k8s.io/kube-state-metrics/kube-state-metrics
         tag: v2.20.0@sha256:42cfe3723a5f058171c627537fb57a3ea0f26e4380fa18555a95cb1a1b4cfc5b
     prometheusOperator:
+      priorityClassName: windsorcli-platform-critical
       image:
         # renovate: datasource=docker depName=quay.io/prometheus-operator/prometheus-operator package=quay.io/prometheus-operator/prometheus-operator
         tag: v0.93.1@sha256:e52bb28fd41c98dd407c7a8cba8bdcfe7eabd7447e250afaf1fe7bb816dedbff
@@ -48,6 +49,7 @@ spec:
             tag: 1.8.8@sha256:cd85a621724cd9043a5b46a784578fa159437712f920166389fce830554e1c44
     prometheus:
       prometheusSpec:
+        priorityClassName: windsorcli-platform-critical
         # renovate: datasource=github-releases depName=prometheus/prometheus package=prometheus/prometheus
         version: v3.14.0
         image:
@@ -63,6 +65,7 @@ spec:
         podMonitorSelector: { }
     alertmanager:
       alertmanagerSpec:
+        priorityClassName: windsorcli-platform-critical
         # renovate: datasource=github-releases depName=prometheus/alertmanager package=prometheus/alertmanager
         version: v0.34.0
         image:

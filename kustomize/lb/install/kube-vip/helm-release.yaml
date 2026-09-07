@@ -15,6 +15,7 @@ spec:
         kind: HelmRepository
         name: kube-vip
   values:
+    priorityClassName: windsorcli-platform-critical
     image:
       repository: ghcr.io/kube-vip/kube-vip
       # renovate: datasource=docker depName=ghcr.io/kube-vip/kube-vip package=ghcr.io/kube-vip/kube-vip

@@ -124,6 +124,16 @@ locals {
           }
         })
       }
+    ],
+    [
+      for name in local.flux_components : {
+        target = { kind = "Deployment", name = name }
+        patch = yamlencode([{
+          op    = "add"
+          path  = "/spec/template/spec/priorityClassName"
+          value = kubernetes_priority_class_v1.platform_critical.metadata[0].name
+        }])
+      }
     ]
   )
 }
@@ -164,6 +174,16 @@ resource "kubernetes_namespace_v1" "flux_system" {
     # no fixed value here would ever stay accurate.
     ignore_changes = [metadata[0].labels["app.kubernetes.io/managed-by"]]
   }
+}
+
+# The PriorityClass shields platform-tier controllers from eviction under node pressure.
+# Kyverno, cert-manager, and the Prometheus stack reference it by name from their own charts.
+resource "kubernetes_priority_class_v1" "platform_critical" {
+  metadata {
+    name = "windsorcli-platform-critical"
+  }
+  value       = 1000000
+  description = "Platform-tier controllers other systems depend on."
 }
 
 # The operator installs the Flux CRDs and controllers and owns the FluxInstance CRD.

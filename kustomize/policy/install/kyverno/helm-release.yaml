@@ -15,6 +15,8 @@ spec:
         kind: HelmRepository
         name: kyverno
   values:
+    global:
+      priorityClassName: windsorcli-platform-critical
     # The kube-apiserver enforces the webhook namespaceSelector even when the
     # admission controller is unreachable. Excluding the GitOps and kube-system
     # namespaces keeps Flux able to reconcile a fix if Kyverno is ever down.
