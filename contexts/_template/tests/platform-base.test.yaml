@@ -39,6 +39,15 @@ cases:
           install:
             components:
               - kyverno
+            healthChecks:
+              - apiVersion: helm.toolkit.fluxcd.io/v2
+                kind: HelmRelease
+                name: kyverno
+                namespace: system-policy
+              - apiVersion: apps/v1
+                kind: Deployment
+                name: kyverno-admission-controller
+                namespace: system-policy
             timeout: 30m
             interval: 5m
           resources:
