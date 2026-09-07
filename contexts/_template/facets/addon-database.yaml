@@ -65,7 +65,7 @@ flux:
           - "${(telemetry.metrics.enabled ?? true) ? 'crossplane/aws-rds/monitoring-exporter' : ''}"
         substitutions:
           cluster_name: "${terraform_output('cluster', 'cluster_name') ?? ''}"
-          context_id: ${context}
+          context_id: ${id}
         timeout: 5m
         interval: 5m
 
@@ -111,7 +111,7 @@ flux:
           crossplane_azure_tenant_id: "${terraform_output('crossplane-identity-azure', 'tenant_id') ?? ''}"
           crossplane_azure_subscription_id: "${terraform_output('network', 'subscription_id') ?? ''}"
           flexibleserver_resource_group_name: "${terraform_output('database', 'resource_group_name') ?? ''}"
-          context_id: ${context}
+          context_id: ${id}
         timeout: 5m
         interval: 5m
 
@@ -156,7 +156,7 @@ flux:
           - "${(telemetry.metrics.enabled ?? true) ? 'crossplane/gcp-cloudsql/monitoring-exporter' : ''}"
         substitutions:
           crossplane_gcp_project_id: "${gcp.project_id ?? ''}"
-          context_id: ${context}
+          context_id: ${id}
         timeout: 5m
         interval: 5m
 
