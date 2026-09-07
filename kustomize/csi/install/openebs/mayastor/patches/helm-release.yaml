@@ -58,7 +58,7 @@ spec:
           # renovate: datasource=docker depName=registry.k8s.io/sig-storage/snapshot-controller package=registry.k8s.io/sig-storage/snapshot-controller
           snapshotControllerTag: v8.2.0@sha256:9dade8f2f3ab29e3919c41b343f8d77b12178ac51f25574d7ed2d45a3e3ef69d
           # renovate: datasource=docker depName=registry.k8s.io/sig-storage/csi-node-driver-registrar package=registry.k8s.io/sig-storage/csi-node-driver-registrar
-          registrarTag: v2.13.0@sha256:d7138bcc3aa5f267403d45ad4292c95397e421ea17a0035888850f424c7de25d
+          registrarTag: v2.17.0@sha256:f9de845b170155199f2a2a3f9531cf13d78e31235e9db6b6582a8b0db0a50dad
           # renovate: datasource=docker depName=registry.k8s.io/sig-storage/csi-resizer package=registry.k8s.io/sig-storage/csi-resizer
           resizerTag: v1.14.0@sha256:5e7cbb63fd497fa913caa21fee1a69f727c220c6fa83c5f8bb0995e2ad73a474
       etcd:
