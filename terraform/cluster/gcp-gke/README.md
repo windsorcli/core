@@ -32,6 +32,34 @@ gcloud services enable \
 Requires a linked billing account; GKE's control plane and Compute Engine
 nodes have no free tier.
 
+The identity running `terraform apply`/`destroy` needs project roles
+beyond `roles/editor` alone. GCP excludes several service boundaries
+from it entirely, confirmed directly against real `apply`/`destroy`
+cycles through this module and `database/gcp-cloudsql`:
+
+```bash
+for ROLE in roles/editor roles/resourcemanager.projectIamAdmin \
+  roles/iam.serviceAccountAdmin roles/cloudkms.admin \
+  roles/servicenetworking.networksAdmin roles/container.admin; do
+  gcloud projects add-iam-policy-binding <project-id> \
+    --member="serviceAccount:<identity>" --role="$ROLE"
+done
+```
+
+- `roles/cloudkms.admin` — `roles/editor` excludes Cloud KMS.
+  `database/gcp-cloudsql`'s key needs it.
+- `roles/servicenetworking.networksAdmin` — `roles/editor` excludes
+  Service Networking peering management. `database/gcp-cloudsql`'s
+  private connection needs it.
+- `roles/container.admin` — creating a `Role`, `ClusterRole`, or
+  `ClusterRoleBinding` inside the cluster (`gitops/flux` does this)
+  needs `container.roles.create`/`container.clusterRoles.create`/
+  `container.clusterRoleBindings.create`, none of which
+  `roles/editor` grants. This is a GKE-specific guard against RBAC
+  privilege escalation, on top of standard Kubernetes RBAC.
+- `roles/resourcemanager.projectIamAdmin`, `roles/iam.serviceAccountAdmin` —
+  the IAM bindings `provisioning/crossplane-identity-gcp` creates.
+
 `kubectl`/client-go authentication against a GKE cluster needs the
 `gke-gcloud-auth-plugin` binary, not bundled with a base `gcloud` install:
 

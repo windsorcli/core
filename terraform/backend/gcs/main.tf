@@ -15,8 +15,6 @@ terraform {
   }
 }
 
-provider "google" {}
-
 #---------------------------------------------------------------------------------------------------
 # GCS Bucket Creation
 # This section creates the GCS bucket used for storing Terraform state.
