@@ -345,6 +345,10 @@ resource "azurerm_kubernetes_cluster" "main" {
     orchestrator_version         = var.kubernetes_version
     only_critical_addons_enabled = var.default_node_pool.only_critical_addons_enabled
     zones                        = var.availability_zones
+    node_labels = {
+      "windsorcli.dev/pool"       = var.default_node_pool.name
+      "windsorcli.dev/pool-class" = "system"
+    }
 
     # checkov:skip=CKV_AZURE_226: we are using the managed disk type to reduce costs
     os_disk_type            = var.default_node_pool.os_disk_type
@@ -470,6 +474,7 @@ locals {
       : lookup(var.class_instance_types, p.class, [""])[0])
       priority        = p.lifecycle == "spot" ? "Spot" : "Regular"
       eviction_policy = p.lifecycle == "spot" ? "Delete" : null
+      mode            = p.class == "system" ? "System" : "User"
       # node_count is the initial size; with autoscaling on the autoscaler owns
       # it thereafter (ignore_changes on the resource).
       node_count = p.count
@@ -486,7 +491,10 @@ locals {
           "windsorcli.dev/pool-class" = p.class
         }
       )
-      taints = [for t in p.taints : "${t.key}=${t.value != null ? t.value : ""}:${t.effect}"]
+      taints = concat(
+        [for t in p.taints : "${t.key}=${t.value != null ? t.value : ""}:${t.effect}"],
+        p.class == "system" && !contains([for t in p.taints : t.key], "CriticalAddonsOnly") ? ["CriticalAddonsOnly=true:NoSchedule"] : []
+      )
     }
   }
 }
@@ -496,7 +504,7 @@ resource "azurerm_kubernetes_cluster_node_pool" "pools" {
   name                  = each.key
   kubernetes_cluster_id = azurerm_kubernetes_cluster.main.id
   vm_size               = each.value.vm_size
-  mode                  = "User"
+  mode                  = each.value.mode
   auto_scaling_enabled  = each.value.autoscaling_enabled
   min_count             = each.value.min_count
   max_count             = each.value.max_count
