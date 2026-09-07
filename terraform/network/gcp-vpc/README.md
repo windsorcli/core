@@ -45,6 +45,7 @@ No modules.
 | [google_compute_subnetwork.isolated](https://registry.terraform.io/providers/hashicorp/google/8.1.0/docs/resources/compute_subnetwork) | resource |
 | [google_compute_subnetwork.private](https://registry.terraform.io/providers/hashicorp/google/8.1.0/docs/resources/compute_subnetwork) | resource |
 | [google_compute_subnetwork.public](https://registry.terraform.io/providers/hashicorp/google/8.1.0/docs/resources/compute_subnetwork) | resource |
+| [google_compute_zones.available](https://registry.terraform.io/providers/hashicorp/google/8.1.0/docs/data-sources/compute_zones) | data source |
 
 ## Inputs
 
@@ -61,11 +62,13 @@ No modules.
 | <a name="input_private_subnet_cidr"></a> [private\_subnet\_cidr](#input\_private\_subnet\_cidr) | CIDR range for the private subnet. If not provided, a default range is derived from cidr\_block | `string` | `""` | no |
 | <a name="input_public_subnet_cidr"></a> [public\_subnet\_cidr](#input\_public\_subnet\_cidr) | CIDR range for the public subnet. If not provided, a default range is derived from cidr\_block | `string` | `""` | no |
 | <a name="input_region"></a> [region](#input\_region) | GCP region for the network and its subnets | `string` | `"us-central1"` | no |
+| <a name="input_zone_count"></a> [zone\_count](#input\_zone\_count) | Number of the region's zones to expose via available\_zones, for downstream node placement | `number` | `3` | no |
 
 ## Outputs
 
 | Name | Description |
 |------|-------------|
+| <a name="output_available_zones"></a> [available\_zones](#output\_available\_zones) | Zones downstream node placement chooses from, capped to var.zone\_count |
 | <a name="output_isolated_subnet_id"></a> [isolated\_subnet\_id](#output\_isolated\_subnet\_id) | ID of the isolated subnet |
 | <a name="output_network_id"></a> [network\_id](#output\_network\_id) | The ID of the VPC network |
 | <a name="output_network_name"></a> [network\_name](#output\_network\_name) | The name of the VPC network |

@@ -44,6 +44,15 @@ variable "region" {
   default     = "us-central1"
 }
 
+variable "node_locations" {
+  description = "Zones the cluster's own bootstrap pool and every node pool are placed in. GKE creates one instance group per zone listed here, so a fixed-count pool's node_count multiplies by length(node_locations)."
+  type        = list(string)
+  validation {
+    condition     = length(var.node_locations) > 0
+    error_message = "node_locations must contain at least one zone."
+  }
+}
+
 #---------------------------------------------------------------------------------------------------
 # Networking
 #---------------------------------------------------------------------------------------------------

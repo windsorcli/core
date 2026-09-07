@@ -23,6 +23,7 @@ provider "google" {}
 
 locals {
   network_name = var.network_name != "" ? var.network_name : "${var.name}-${var.context_id}"
+  zone_names   = slice(data.google_compute_zones.available.names, 0, min(var.zone_count, length(data.google_compute_zones.available.names)))
 }
 
 #---------------------------------------------------------------------------------------------------
@@ -34,6 +35,16 @@ locals {
 resource "google_compute_network" "this" {
   name                    = local.network_name
   auto_create_subnetworks = false
+}
+
+#---------------------------------------------------------------------------------------------------
+# Zones
+# Zones downstream node placement chooses from, capped to var.zone_count.
+#---------------------------------------------------------------------------------------------------
+
+data "google_compute_zones" "available" {
+  region = var.region
+  status = "UP"
 }
 
 #---------------------------------------------------------------------------------------------------

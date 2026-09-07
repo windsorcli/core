@@ -98,6 +98,9 @@ terraform:
       region: ${terraform_output('network', 'region')}
       network_id: ${terraform_output('network', 'network_id')}
       subnetwork_id: ${terraform_output('network', 'private_subnet_id')}
+      # Single-zone by default; topology: ha spreads pools across every zone
+      # network's available_zones exposes.
+      node_locations: "${topology == 'ha' ? terraform_output('network', 'available_zones') : [terraform_output('network', 'available_zones')[0]]}"
       create_cert_manager_identity: "${(dns.public_domain ?? '') != ''}"
       cert_manager_dns_zone_names: "${(dns.public_domain ?? '') != '' && (terraform_output('dns-zone', 'zone_name') ?? '') != '' ? [terraform_output('dns-zone', 'zone_name')] : []}"
       external_dns_dns_zone_names: "${(dns.public_domain ?? '') != '' && (terraform_output('dns-zone', 'zone_name') ?? '') != '' ? [terraform_output('dns-zone', 'zone_name')] : []}"

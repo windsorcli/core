@@ -1,5 +1,12 @@
 mock_provider "google" {}
 
+override_data {
+  target = data.google_compute_zones.available
+  values = {
+    names = ["us-central1-a", "us-central1-b", "us-central1-c", "us-central1-f"]
+  }
+}
+
 # Verifies default naming, subnet CIDR derivation, and firewall/NAT wiring
 # with no optional variables set.
 run "minimal_configuration" {
@@ -7,6 +14,11 @@ run "minimal_configuration" {
 
   variables {
     context_id = "test"
+  }
+
+  assert {
+    condition     = toset(local.zone_names) == toset(["us-central1-a", "us-central1-b", "us-central1-c"])
+    error_message = "available_zones should cap at zone_count's default of 3"
   }
 
   assert {
@@ -161,6 +173,36 @@ run "unconditional_firewall_rules_always_present" {
   assert {
     condition     = contains(google_compute_firewall.health_checks.source_ranges, "130.211.0.0/22")
     error_message = "Health check firewall rule should include the load balancer range"
+  }
+}
+
+# zone_count below the discovered zone count truncates available_zones;
+# above it, available_zones caps at what the region actually has.
+run "zone_count_bounds_available_zones" {
+  command = plan
+
+  variables {
+    context_id = "test"
+    zone_count = 1
+  }
+
+  assert {
+    condition     = toset(output.available_zones) == toset(["us-central1-a"])
+    error_message = "available_zones should truncate to zone_count"
+  }
+}
+
+run "zone_count_clamps_to_region_maximum" {
+  command = plan
+
+  variables {
+    context_id = "test"
+    zone_count = 10
+  }
+
+  assert {
+    condition     = toset(output.available_zones) == toset(["us-central1-a", "us-central1-b", "us-central1-c", "us-central1-f"])
+    error_message = "available_zones should clamp to the region's actual zone count"
   }
 }
 
