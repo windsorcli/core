@@ -22,6 +22,16 @@ spec:
         name: kube-vip
   values:
     priorityClassName: windsorcli-platform-critical
+    # DaemonSet: only the taint toleration applies. The chart's own
+    # control-plane toleration is carried over verbatim, since setting
+    # tolerations here replaces its default rather than appending to it.
+    tolerations:
+      - effect: NoSchedule
+        key: node-role.kubernetes.io/control-plane
+        operator: Exists
+      - key: CriticalAddonsOnly
+        operator: Exists
+        effect: NoSchedule
     image:
       repository: ghcr.io/kube-vip/kube-vip
       # renovate: datasource=docker depName=ghcr.io/kube-vip/kube-vip package=ghcr.io/kube-vip/kube-vip

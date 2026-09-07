@@ -42,6 +42,19 @@ spec:
           tag: v1.19.0@sha256:f40718123e3eea8dc36960023e2af7a980bcc76dec24842ad8705c82f4c9172e
     # Disable ANSI color codes in logs
     admissionController:
+      tolerations:
+        - key: CriticalAddonsOnly
+          operator: Exists
+          effect: NoSchedule
+      nodeAffinity:
+        preferredDuringSchedulingIgnoredDuringExecution:
+          - weight: 100
+            preference:
+              matchExpressions:
+                - key: windsorcli.dev/pool-class
+                  operator: In
+                  values:
+                    - system
       initContainer:
         image:
           # renovate: datasource=docker depName=reg.kyverno.io/kyverno/kyvernopre package=reg.kyverno.io/kyverno/kyvernopre
@@ -54,6 +67,19 @@ spec:
         - name: NO_COLOR
           value: "1"
     backgroundController:
+      tolerations:
+        - key: CriticalAddonsOnly
+          operator: Exists
+          effect: NoSchedule
+      nodeAffinity:
+        preferredDuringSchedulingIgnoredDuringExecution:
+          - weight: 100
+            preference:
+              matchExpressions:
+                - key: windsorcli.dev/pool-class
+                  operator: In
+                  values:
+                    - system
       image:
         # renovate: datasource=docker depName=reg.kyverno.io/kyverno/background-controller package=reg.kyverno.io/kyverno/background-controller
         tag: v1.19.0@sha256:5d9a49b0a36bb25c981bd55e57f360850ea37bfe1b4914e00ec898cc5d27cc4f

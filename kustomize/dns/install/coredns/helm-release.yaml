@@ -24,6 +24,20 @@ spec:
         name: coredns
   values:
     priorityClassName: windsorcli-platform-critical
+    tolerations:
+      - key: CriticalAddonsOnly
+        operator: Exists
+        effect: NoSchedule
+    affinity:
+      nodeAffinity:
+        preferredDuringSchedulingIgnoredDuringExecution:
+          - weight: 100
+            preference:
+              matchExpressions:
+                - key: windsorcli.dev/pool-class
+                  operator: In
+                  values:
+                    - system
     image:
       # renovate: datasource=docker depName=coredns/coredns package=coredns/coredns
       tag: 1.14.7@sha256:7efd3c635b03efd68c4e8398fc45f0d993d0e9ab016f72c1cefb0fd6d01aa286
