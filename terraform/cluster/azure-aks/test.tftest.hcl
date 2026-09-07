@@ -62,6 +62,11 @@ run "minimal_configuration" {
   }
 
   assert {
+    condition     = azurerm_kubernetes_cluster.main.default_node_pool[0].node_labels["windsorcli.dev/pool"] == "system" && azurerm_kubernetes_cluster.main.default_node_pool[0].node_labels["windsorcli.dev/pool-class"] == "system"
+    error_message = "Default node pool should carry the windsorcli.dev/pool[-class] labels, matching AWS and GCP"
+  }
+
+  assert {
     condition     = azurerm_kubernetes_cluster.main.role_based_access_control_enabled == true
     error_message = "RBAC should be enabled by default"
   }
@@ -794,7 +799,7 @@ run "pools_resolves_class_to_vm_size" {
 
   assert {
     condition     = azurerm_kubernetes_cluster_node_pool.pools["app"].mode == "User"
-    error_message = "Pools must be created in User mode — the cluster's inline default_node_pool stays the system pool."
+    error_message = "Non-system pools must be created in User mode."
   }
 
   assert {
@@ -849,6 +854,26 @@ run "pools_autoscaling_class_defaults_and_override" {
   }
 
   assert {
+    condition     = azurerm_kubernetes_cluster_node_pool.pools["sys"].mode == "System"
+    error_message = "A class: system pool should get AKS's native System mode, not just the taint."
+  }
+
+  assert {
+    condition     = azurerm_kubernetes_cluster_node_pool.pools["gen"].mode == "User" && azurerm_kubernetes_cluster_node_pool.pools["big"].mode == "User"
+    error_message = "Non-system-class pools should stay in User mode."
+  }
+
+  assert {
+    condition     = contains(azurerm_kubernetes_cluster_node_pool.pools["sys"].node_taints, "CriticalAddonsOnly=true:NoSchedule")
+    error_message = "A class: system pool should carry the CriticalAddonsOnly=true:NoSchedule taint, matching AWS and GCP."
+  }
+
+  assert {
+    condition     = length(azurerm_kubernetes_cluster_node_pool.pools["gen"].node_taints) == 0 && length(azurerm_kubernetes_cluster_node_pool.pools["big"].node_taints) == 0
+    error_message = "Non-system-class pools should not get the CriticalAddonsOnly taint."
+  }
+
+  assert {
     condition     = azurerm_kubernetes_cluster_node_pool.pools["gen"].auto_scaling_enabled == false
     error_message = "Explicitly disabled autoscaling should pin a non-system pool to fixed count."
   }
@@ -856,6 +881,34 @@ run "pools_autoscaling_class_defaults_and_override" {
   assert {
     condition     = azurerm_kubernetes_cluster_node_pool.pools["big"].auto_scaling_enabled == true && azurerm_kubernetes_cluster_node_pool.pools["big"].min_count == 2 && azurerm_kubernetes_cluster_node_pool.pools["big"].max_count == 10
     error_message = "Explicit autoscaling bounds should be used verbatim."
+  }
+}
+
+# A system-class pool that already declares its own CriticalAddonsOnly taint
+# is not given a second copy by the class default.
+run "pools_system_taint_not_duplicated" {
+  command = plan
+
+  variables {
+    context_id         = "test"
+    name               = "windsor-aks"
+    kubernetes_version = "1.34"
+    pools = {
+      sys = {
+        class = "system"
+        count = 1
+        taints = [{
+          key    = "CriticalAddonsOnly"
+          value  = "true"
+          effect = "NoSchedule"
+        }]
+      }
+    }
+  }
+
+  assert {
+    condition     = length(azurerm_kubernetes_cluster_node_pool.pools["sys"].node_taints) == 1
+    error_message = "An operator-declared CriticalAddonsOnly taint should not be duplicated."
   }
 }
 

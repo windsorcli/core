@@ -114,7 +114,7 @@ variable "default_node_pool" {
 }
 
 variable "pools" {
-  description = "Portable user-pool definitions, keyed by pool name; mirrors the AWS-EKS pools input. Empty falls back to one autoscaling general pool. Autoscaling defaults on (min 1, max 3) for every class except system."
+  description = "Portable user-pool definitions, keyed by pool name; mirrors the AWS-EKS pools input. Empty falls back to one autoscaling general pool. Autoscaling defaults on (min 1, max 3) for every class except system. A class: system entry gets AKS's native System pool mode, alongside the always-on default_node_pool, and a CriticalAddonsOnly=true:NoSchedule taint unless it declares one."
   type = map(object({
     class          = string
     count          = number
