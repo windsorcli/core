@@ -59,7 +59,7 @@ spec:
           # renovate: datasource=docker depName=registry.k8s.io/sig-storage/csi-node-driver-registrar package=registry.k8s.io/sig-storage/csi-node-driver-registrar
           registrarTag: v2.13.0@sha256:d7138bcc3aa5f267403d45ad4292c95397e421ea17a0035888850f424c7de25d
           # renovate: datasource=docker depName=registry.k8s.io/sig-storage/csi-resizer package=registry.k8s.io/sig-storage/csi-resizer
-          resizerTag: v1.13.2@sha256:8ddd178ba5d08973f1607f9b84619b58320948de494b31c9d7cd5375b316d6d4
+          resizerTag: v1.14.0@sha256:5e7cbb63fd497fa913caa21fee1a69f727c220c6fa83c5f8bb0995e2ad73a474
       etcd:
         image:
           # renovate: datasource=docker depName=openebs/etcd package=openebs/etcd
