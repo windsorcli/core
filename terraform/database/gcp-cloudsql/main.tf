@@ -26,9 +26,6 @@ terraform {
   }
 }
 
-provider "google" {}
-provider "google-beta" {}
-
 #---------------------------------------------------------------------------------------------------
 # Private Service Connection
 # GCP's equivalent of RDS's DB subnet group and Flexible Server's
