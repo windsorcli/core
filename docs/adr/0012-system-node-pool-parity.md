@@ -1,6 +1,6 @@
 ---
 title: "ADR-0012: System node pool parity across AWS, Azure, and GCP"
-description: "Azure and GCP always provision a tainted system node pool independent of user pool config; AWS's only exists as a facet default that a user's own cluster.pools silently drops. No provider schedules platform-tier controllers onto the system pool it creates. Closes both gaps by making AWS's system pool module-level like GCP's, and by tolerating/preferring the existing platform-critical component list onto system capacity where it exists."
+description: "Azure and GCP always provision a tainted system node pool independent of user pool config; AWS's only exists as a facet default that a user's own cluster.pools silently drops. No provider schedules platform-tier controllers onto the system pool it creates, and none makes it highly available under topology: ha. Closes these gaps by making AWS's system pool module-level like GCP's, tolerating/preferring the existing platform-critical component list onto system capacity, and wiring topology: ha to a 3-node system pool."
 ---
 
 # ADR-0012: System node pool parity across AWS, Azure, and GCP
@@ -82,6 +82,24 @@ pool concept at all, by design — `schema.yaml:877-880` already scopes
 doesn't extend the concept there: a 1-3 node dev cluster loses more
 capacity cordoning off a system node than it gains from isolation.
 
+None of the three providers make the system pool highly available, and
+`topology: ha` doesn't touch it. AWS's `system_node_pool.desired_size`,
+Azure's `default_node_pool.node_count`, and GCP's
+`system_node_pool.node_count` all default to a single fixed node with
+autoscaling off. `topology == 'ha'` only widens which AZs a pool's nodes
+may land in (`node_subnet_ids`, `availability_zones`, `node_locations`)
+for pools that already have enough replicas to spread — a single node
+can't be spread across AZs regardless of how many are eligible. This
+bites concretely on AWS: the EKS-managed `coredns` addon ships a default
+`topologySpreadConstraints` keyed on `topology.kubernetes.io/zone`
+specifically to land its 2 replicas in different AZs when capacity
+allows, but a single-node system pool forces both CoreDNS replicas and
+both CSI controllers onto that one node regardless of topology, making
+DNS resolution and volume provisioning a single point of failure in an
+`ha` cluster. All three modules already carry a `max_size`/`max_count`
+of 3 on the system pool, currently dead code since autoscaling is off by
+default — a strong signal this was anticipated and never finished.
+
 ## Decision
 
 ### 1. AWS EKS gets a module-level system node group, independent of `var.pools`
@@ -124,6 +142,23 @@ values, alongside the existing `priorityClassName`:
   DaemonSet already runs on every eligible node; a scheduling preference
   has no effect on it.
 
+### 5. `topology: ha` makes the system pool 3 fixed nodes, one per AZ
+
+Deferred — scoped here, not yet implemented.
+
+Wire the system pool's node count to `topology` at the facet layer, the
+same place `availability_zones`/`node_locations`/`node_subnet_ids`
+already branch on `topology == 'ha'` today: `system_node_pool.desired_size`
+(AWS), `default_node_pool.node_count` (Azure), and
+`system_node_pool.node_count` (GCP) become 3 under `ha`, 1 otherwise. The
+Terraform modules keep their single-node default unchanged for bare
+callers; the facet supplies the topology-aware override, matching how
+every other topology-driven knob in these facets is layered. Three nodes
+matches the AZ count these same facets already use for `ha` (AWS/GCP
+spread across all available zones, Azure across zones `1`-`3`), giving
+CoreDNS's own AZ-spread `topologySpreadConstraints` real capacity to use
+instead of collapsing onto a single node.
+
 ## Consequences
 
 - Every AWS EKS cluster now provisions at least two node groups (system
@@ -140,6 +175,10 @@ values, alongside the existing `priorityClassName`:
   the eviction protection they already have, closing the gap where
   43be8d88's "shielding" protected components that weren't reliably
   landing on protected capacity in the first place.
+- Once decision 5 lands, an `ha` cluster pays for 3 small system nodes
+  instead of 1 on every provider, in exchange for CoreDNS and the CSI
+  controllers surviving a single node loss — the same cost/redundancy
+  trade `topology: ha` already makes elsewhere in these facets.
 
 ## Alternatives considered
 
@@ -157,6 +196,12 @@ vocabulary without adding clarity.
 cluster with no system pool declared and breaks Talos entirely, where no
 system pool exists at all.
 
+**Make the system pool autoscale instead of a fixed 3 nodes under
+`ha`.** Rejected for decision 5 — CoreDNS and the CSI controllers need
+fixed redundancy across AZs, not elastic capacity that can scale to 1
+under low load and reintroduce the single-node problem this decision
+exists to close.
+
 ## References
 
 - [Use System Node Pools in AKS](https://learn.microsoft.com/en-us/azure/aks/use-system-pools) — AKS's native `mode: System`/`CriticalAddonsOnly` primitive.
@@ -166,3 +211,4 @@ system pool exists at all.
 - `terraform/cluster/aws-eks/variables.tf:178`, `terraform/cluster/azure-aks/main.tf:340`, `terraform/cluster/gcp-gke/main.tf:129` — current per-provider system pool creation.
 - `contexts/_template/tests/platform-aws.test.yaml:466` — the test demonstrating AWS's system pool can be dropped entirely.
 - `schema.yaml:877-880` — the existing elastic-vs-static-node provider scope for `cluster.pools`.
+- [Recent changes to the CoreDNS add-on](https://aws.amazon.com/blogs/containers/recent-changes-to-the-coredns-add-on/) — the default `topologySpreadConstraints` decision 5 gives real capacity to use.
