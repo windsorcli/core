@@ -6,6 +6,12 @@ metadata:
 spec:
   interval: 5m
   timeout: 10m
+  install:
+    remediation:
+      retries: 10
+  upgrade:
+    remediation:
+      retries: 10
   chart:
     spec:
       chart: metallb

@@ -6,6 +6,12 @@ metadata:
 spec:
   interval: 5m
   timeout: 10m
+  install:
+    remediation:
+      retries: 5
+  upgrade:
+    remediation:
+      retries: 5
   chart:
     spec:
       chart: operator

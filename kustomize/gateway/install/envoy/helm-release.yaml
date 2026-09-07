@@ -10,11 +10,11 @@ spec:
   install:
     crds: Skip
     remediation:
-      retries: 3
+      retries: 10
   upgrade:
     crds: Skip
     remediation:
-      retries: 3
+      retries: 10
   chart:
     spec:
       chart: gateway-helm
