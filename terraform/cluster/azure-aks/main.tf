@@ -338,11 +338,12 @@ resource "azurerm_kubernetes_cluster" "main" {
   }
 
   default_node_pool {
-    name                         = var.default_node_pool.name
-    node_count                   = var.default_node_pool.node_count
-    vm_size                      = var.default_node_pool.vm_size
-    vnet_subnet_id               = var.private_subnet_ids[0]
-    orchestrator_version         = var.kubernetes_version
+    name                 = var.default_node_pool.name
+    node_count           = var.default_node_pool.node_count
+    vm_size              = var.default_node_pool.vm_size
+    vnet_subnet_id       = var.private_subnet_ids[0]
+    orchestrator_version = var.kubernetes_version
+    # checkov:skip=CKV_AZURE_232: This is set in the variable by default to true
     only_critical_addons_enabled = var.default_node_pool.only_critical_addons_enabled
     zones                        = var.availability_zones
     node_labels = {
@@ -351,7 +352,8 @@ resource "azurerm_kubernetes_cluster" "main" {
     }
 
     # checkov:skip=CKV_AZURE_226: we are using the managed disk type to reduce costs
-    os_disk_type            = var.default_node_pool.os_disk_type
+    os_disk_type = var.default_node_pool.os_disk_type
+    # checkov:skip=CKV_AZURE_227: This is set in the variable by default to true
     host_encryption_enabled = var.default_node_pool.host_encryption_enabled
 
     # checkov:skip=CKV_AZURE_168: This is set in the variable by default to 50
