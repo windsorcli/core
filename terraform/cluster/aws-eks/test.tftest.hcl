@@ -636,8 +636,8 @@ run "pools_drive_node_groups_when_set" {
   }
 
   assert {
-    condition     = aws_eks_node_group.main["system"].instance_types[0] == "t3.medium"
-    error_message = "system class should default to t3.medium head of the instance_types list"
+    condition     = aws_eks_node_group.main["system"].instance_types[0] == "t3.large"
+    error_message = "system class should default to t3.large head of the instance_types list"
   }
 
   assert {
@@ -725,6 +725,130 @@ run "pools_autoscale_general_by_default" {
   assert {
     condition     = length(aws_autoscaling_group_tag.cluster_autoscaler_enabled) == 1 && length(aws_autoscaling_group_tag.cluster_autoscaler_owned) == 1
     error_message = "Autoscaling-enabled pools should get the cluster-autoscaler ASG discovery tags"
+  }
+}
+
+# The module always creates a "system" node group, independent of var.pools,
+# mirroring azure-aks's inline default_node_pool and gcp-gke's dedicated
+# google_container_node_pool.system.
+run "system_node_group_always_created" {
+  command = plan
+
+  variables {
+    context_id         = "test"
+    kubernetes_version = "1.34"
+    pools = {
+      general = {
+        class = "general"
+        count = 2
+      }
+    }
+  }
+
+  assert {
+    condition     = length(aws_eks_node_group.main) == 2
+    error_message = "A pools config with no system entry should still get a system node group alongside general"
+  }
+
+  assert {
+    condition     = aws_eks_node_group.main["system"].instance_types[0] == "t3.large"
+    error_message = "The always-on system node group should default to t3.large head of the instance_types list"
+  }
+
+  assert {
+    condition     = aws_eks_node_group.main["system"].scaling_config[0].min_size == 1 && aws_eks_node_group.main["system"].scaling_config[0].max_size == 1 && aws_eks_node_group.main["system"].scaling_config[0].desired_size == 1
+    error_message = "The always-on system node group should be fixed at 1 node by default"
+  }
+
+  assert {
+    condition     = aws_eks_node_group.main["system"].labels["windsorcli.dev/pool"] == "system" && aws_eks_node_group.main["system"].labels["windsorcli.dev/pool-class"] == "system"
+    error_message = "The always-on system node group should carry the windsorcli.dev/pool[-class] labels"
+  }
+
+  assert {
+    condition = length([
+      for t in aws_eks_node_group.main["system"].taint :
+      t if t.key == "CriticalAddonsOnly" && t.value == "true" && t.effect == "NO_SCHEDULE"
+    ]) == 1
+    error_message = "The always-on system node group should carry the CriticalAddonsOnly=true:NO_SCHEDULE taint"
+  }
+}
+
+# The always-on system pool flows through autoscaler_node_groups the same as
+# any other pool, so turning on its autoscaling gets it ASG discovery tags.
+run "system_node_pool_autoscaling_gets_discovery_tags" {
+  command = plan
+
+  variables {
+    context_id         = "test"
+    kubernetes_version = "1.34"
+    pools = {
+      general = {
+        class = "general"
+        count = 1
+        autoscaling = {
+          enabled = false
+        }
+      }
+    }
+    system_node_pool = {
+      desired_size        = 1
+      disk_size           = 64
+      autoscaling_enabled = true
+      min_size            = 1
+      max_size            = 3
+    }
+  }
+
+  assert {
+    condition     = aws_eks_node_group.main["system"].scaling_config[0].min_size == 1 && aws_eks_node_group.main["system"].scaling_config[0].max_size == 3 && aws_eks_node_group.main["system"].scaling_config[0].desired_size == 1
+    error_message = "An autoscaling-enabled system pool should use the supplied bounds"
+  }
+
+  assert {
+    condition     = contains(keys(aws_autoscaling_group_tag.cluster_autoscaler_enabled), "system") && contains(keys(aws_autoscaling_group_tag.cluster_autoscaler_owned), "system")
+    error_message = "An autoscaling-enabled system pool should get the cluster-autoscaler ASG discovery tags"
+  }
+
+  assert {
+    condition     = length(aws_autoscaling_group_tag.cluster_autoscaler_enabled) == 1
+    error_message = "Only the system pool should be tagged when the general pool has autoscaling disabled"
+  }
+}
+
+# A "system"-named pool overrides the module's built-in one rather than
+# creating a duplicate resource, since both resolve to the same map key.
+run "explicit_system_pool_overrides_the_builtin" {
+  command = plan
+
+  variables {
+    context_id         = "test"
+    kubernetes_version = "1.34"
+    pools = {
+      system = {
+        class          = "system"
+        count          = 2
+        instance_types = ["m5.large"]
+      }
+    }
+  }
+
+  assert {
+    condition     = length(aws_eks_node_group.main) == 1
+    error_message = "A declared system pool should replace the built-in, not add a second node group"
+  }
+
+  assert {
+    condition     = aws_eks_node_group.main["system"].instance_types[0] == "m5.large"
+    error_message = "A declared system pool's instance_types should win over the built-in default"
+  }
+
+  assert {
+    condition = length([
+      for t in aws_eks_node_group.main["system"].taint :
+      t if t.key == "CriticalAddonsOnly" && t.value == "true" && t.effect == "NO_SCHEDULE"
+    ]) == 1
+    error_message = "A declared system pool should still carry the CriticalAddonsOnly=true:NO_SCHEDULE taint"
   }
 }
 

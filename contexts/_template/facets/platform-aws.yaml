@@ -111,11 +111,10 @@ terraform:
       manage_log_group: ${!(ephemeral ?? false)}
       create_cert_manager_role: "${(dns.public_domain ?? '') != ''}"
       cert_manager_hosted_zone_ids: "${(dns.public_domain ?? '') != '' ? [terraform_output('dns-zone', 'zone_id')] : []}"
-      # Portable node-pool input. Default: fixed system pool + autoscaling
-      # general pool (matches AKS); the aws-eks module fills in class-conditional
-      # autoscaling and the system taint. Declaring cluster.pools replaces this.
+      # Portable user pools alongside the module's always-on system pool;
+      # defaults to one general pool. Declaring cluster.pools replaces this.
       pools: >-
-        ${cluster.pools ?? {"system": {"class": "system", "count": 1}, "general": {"class": "general", "count": 1}}}
+        ${cluster.pools ?? {"general": {"class": "general", "count": 1}}}
 
   # Dependency-edge only: with ACME on, cluster must wait for dns-zone so
   # zone_id resolves before the cert-manager policy renders — else it falls
