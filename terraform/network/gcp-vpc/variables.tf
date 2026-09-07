@@ -17,6 +17,12 @@ variable "region" {
   default     = "us-central1"
 }
 
+variable "zone_count" {
+  description = "Number of the region's zones to expose via available_zones, for downstream node placement"
+  type        = number
+  default     = 3
+}
+
 variable "name" {
   description = "Name prefix for the VPC network"
   type        = string

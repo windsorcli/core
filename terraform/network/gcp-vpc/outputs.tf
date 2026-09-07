@@ -31,3 +31,8 @@ output "region" {
   description = "GCP region the network and its subnets are created in"
   value       = var.region
 }
+
+output "available_zones" {
+  description = "Zones downstream node placement chooses from, capped to var.zone_count"
+  value       = local.zone_names
+}

@@ -1,24 +1,16 @@
 mock_provider "google" {}
 
-# Applies to every run: the system pool indexes into this list directly, so
-# even a plan-only run needs a non-empty mock.
-override_data {
-  target = data.google_compute_zones.available
-  values = {
-    names = ["us-central1-a", "us-central1-b", "us-central1-c", "us-central1-f"]
-  }
-}
-
 # Verifies default naming, Dataplane V2, workload identity, and the system
 # node pool with no optional variables set.
 run "minimal_configuration" {
   command = plan
 
   variables {
-    context_id    = "test"
-    project_id    = "test-project"
-    network_id    = "projects/test-project/global/networks/network-test"
-    subnetwork_id = "projects/test-project/regions/us-central1/subnetworks/private-test"
+    context_id     = "test"
+    project_id     = "test-project"
+    network_id     = "projects/test-project/global/networks/network-test"
+    subnetwork_id  = "projects/test-project/regions/us-central1/subnetworks/private-test"
+    node_locations = ["us-central1-a"]
   }
 
   assert {
@@ -73,15 +65,62 @@ run "minimal_configuration" {
   }
 
   assert {
-    # A fixed-count pool spanning every zone would run one node per zone,
-    # not one node total.
-    condition     = toset(google_container_node_pool.system.node_locations) == toset([data.google_compute_zones.available.names[0]])
-    error_message = "System pool should stay in a single zone"
+    condition     = toset(google_container_cluster.this.node_locations) == toset(["us-central1-a"])
+    error_message = "The cluster's own bootstrap pool should stay in var.node_locations"
   }
 
   assert {
-    condition     = toset(google_container_node_pool.pools["general"].node_locations) == toset(data.google_compute_zones.available.names)
-    error_message = "Node pools should span every available zone in the region, not GKE's own default subset"
+    condition     = toset(google_container_node_pool.system.node_locations) == toset(["us-central1-a"])
+    error_message = "System pool should stay in var.node_locations"
+  }
+
+  assert {
+    condition     = toset(google_container_node_pool.pools["general"].node_locations) == toset(["us-central1-a"])
+    error_message = "Node pools should stay in var.node_locations"
+  }
+}
+
+# topology: ha wires a multi-zone list; every pool spreads across it and a
+# fixed-count pool's node_count multiplies per zone.
+run "multi_zone_node_locations_spread_every_pool" {
+  command = plan
+
+  variables {
+    context_id     = "test"
+    project_id     = "test-project"
+    network_id     = "projects/test-project/global/networks/network-test"
+    subnetwork_id  = "projects/test-project/regions/us-central1/subnetworks/private-test"
+    node_locations = ["us-central1-a", "us-central1-b", "us-central1-c"]
+  }
+
+  assert {
+    condition     = toset(google_container_cluster.this.node_locations) == toset(["us-central1-a", "us-central1-b", "us-central1-c"])
+    error_message = "The cluster's own bootstrap pool should span every zone in var.node_locations"
+  }
+
+  assert {
+    condition     = toset(google_container_node_pool.system.node_locations) == toset(["us-central1-a", "us-central1-b", "us-central1-c"])
+    error_message = "System pool should span every zone in var.node_locations"
+  }
+
+  assert {
+    condition     = toset(google_container_node_pool.pools["general"].node_locations) == toset(["us-central1-a", "us-central1-b", "us-central1-c"])
+    error_message = "Node pools should span every zone in var.node_locations"
+  }
+}
+
+# An empty node_locations list is rejected at validate time.
+run "node_locations_empty_rejected" {
+  command = plan
+  expect_failures = [
+    var.node_locations,
+  ]
+  variables {
+    context_id     = "test"
+    project_id     = "test-project"
+    network_id     = "projects/test-project/global/networks/network-test"
+    subnetwork_id  = "projects/test-project/regions/us-central1/subnetworks/private-test"
+    node_locations = []
   }
 }
 
@@ -94,6 +133,7 @@ run "full_configuration" {
     project_id             = "test-project"
     network_id             = "projects/test-project/global/networks/network-test"
     subnetwork_id          = "projects/test-project/regions/us-east1/subnetworks/private-test"
+    node_locations         = ["us-east1-b"]
     cluster_name           = "custom-cluster"
     region                 = "us-east1"
     release_channel        = "STABLE"
@@ -132,11 +172,12 @@ run "kubeconfig_generated_with_context_path" {
   command = plan
 
   variables {
-    context_id    = "test"
-    project_id    = "test-project"
-    network_id    = "projects/test-project/global/networks/network-test"
-    subnetwork_id = "projects/test-project/regions/us-central1/subnetworks/private-test"
-    context_path  = "test"
+    context_id     = "test"
+    project_id     = "test-project"
+    network_id     = "projects/test-project/global/networks/network-test"
+    subnetwork_id  = "projects/test-project/regions/us-central1/subnetworks/private-test"
+    node_locations = ["us-central1-a"]
+    context_path   = "test"
   }
 
   assert {
@@ -149,11 +190,12 @@ run "no_kubeconfig_without_context_path" {
   command = plan
 
   variables {
-    context_id    = "test"
-    project_id    = "test-project"
-    network_id    = "projects/test-project/global/networks/network-test"
-    subnetwork_id = "projects/test-project/regions/us-central1/subnetworks/private-test"
-    context_path  = ""
+    context_id     = "test"
+    project_id     = "test-project"
+    network_id     = "projects/test-project/global/networks/network-test"
+    subnetwork_id  = "projects/test-project/regions/us-central1/subnetworks/private-test"
+    node_locations = ["us-central1-a"]
+    context_path   = ""
   }
 
   assert {
@@ -167,10 +209,11 @@ run "pools_empty_falls_back_to_general_pool" {
   command = plan
 
   variables {
-    context_id    = "test"
-    project_id    = "test-project"
-    network_id    = "projects/test-project/global/networks/network-test"
-    subnetwork_id = "projects/test-project/regions/us-central1/subnetworks/private-test"
+    context_id     = "test"
+    project_id     = "test-project"
+    network_id     = "projects/test-project/global/networks/network-test"
+    subnetwork_id  = "projects/test-project/regions/us-central1/subnetworks/private-test"
+    node_locations = ["us-central1-a"]
   }
 
   assert {
@@ -184,10 +227,11 @@ run "pools_resolves_class_to_machine_type" {
   command = plan
 
   variables {
-    context_id    = "test"
-    project_id    = "test-project"
-    network_id    = "projects/test-project/global/networks/network-test"
-    subnetwork_id = "projects/test-project/regions/us-central1/subnetworks/private-test"
+    context_id     = "test"
+    project_id     = "test-project"
+    network_id     = "projects/test-project/global/networks/network-test"
+    subnetwork_id  = "projects/test-project/regions/us-central1/subnetworks/private-test"
+    node_locations = ["us-central1-a"]
     pools = {
       workers = {
         class = "compute"
@@ -208,10 +252,11 @@ run "pools_explicit_machine_type_and_spot_lifecycle" {
   command = plan
 
   variables {
-    context_id    = "test"
-    project_id    = "test-project"
-    network_id    = "projects/test-project/global/networks/network-test"
-    subnetwork_id = "projects/test-project/regions/us-central1/subnetworks/private-test"
+    context_id     = "test"
+    project_id     = "test-project"
+    network_id     = "projects/test-project/global/networks/network-test"
+    subnetwork_id  = "projects/test-project/regions/us-central1/subnetworks/private-test"
+    node_locations = ["us-central1-a"]
     pools = {
       batch = {
         class          = "general"
@@ -239,10 +284,11 @@ run "pools_system_class_defaults_to_fixed" {
   command = plan
 
   variables {
-    context_id    = "test"
-    project_id    = "test-project"
-    network_id    = "projects/test-project/global/networks/network-test"
-    subnetwork_id = "projects/test-project/regions/us-central1/subnetworks/private-test"
+    context_id     = "test"
+    project_id     = "test-project"
+    network_id     = "projects/test-project/global/networks/network-test"
+    subnetwork_id  = "projects/test-project/regions/us-central1/subnetworks/private-test"
+    node_locations = ["us-central1-a"]
     pools = {
       ops = {
         class = "system"
@@ -269,10 +315,11 @@ run "pools_invalid_class_rejected" {
     var.pools,
   ]
   variables {
-    context_id    = "test"
-    project_id    = "test-project"
-    network_id    = "projects/test-project/global/networks/network-test"
-    subnetwork_id = "projects/test-project/regions/us-central1/subnetworks/private-test"
+    context_id     = "test"
+    project_id     = "test-project"
+    network_id     = "projects/test-project/global/networks/network-test"
+    subnetwork_id  = "projects/test-project/regions/us-central1/subnetworks/private-test"
+    node_locations = ["us-central1-a"]
     pools = {
       bad = {
         class = "not-a-real-class"
@@ -288,10 +335,11 @@ run "pools_invalid_name_rejected" {
     var.pools,
   ]
   variables {
-    context_id    = "test"
-    project_id    = "test-project"
-    network_id    = "projects/test-project/global/networks/network-test"
-    subnetwork_id = "projects/test-project/regions/us-central1/subnetworks/private-test"
+    context_id     = "test"
+    project_id     = "test-project"
+    network_id     = "projects/test-project/global/networks/network-test"
+    subnetwork_id  = "projects/test-project/regions/us-central1/subnetworks/private-test"
+    node_locations = ["us-central1-a"]
     pools = {
       "Not_Valid" = {
         class = "general"
@@ -307,10 +355,11 @@ run "workload_identity_defaults" {
   command = plan
 
   variables {
-    context_id    = "test"
-    project_id    = "test-project"
-    network_id    = "projects/test-project/global/networks/network-test"
-    subnetwork_id = "projects/test-project/regions/us-central1/subnetworks/private-test"
+    context_id     = "test"
+    project_id     = "test-project"
+    network_id     = "projects/test-project/global/networks/network-test"
+    subnetwork_id  = "projects/test-project/regions/us-central1/subnetworks/private-test"
+    node_locations = ["us-central1-a"]
   }
 
   assert {
@@ -344,6 +393,7 @@ run "cert_manager_identity_scoped_to_zones" {
     project_id                   = "test-project"
     network_id                   = "projects/test-project/global/networks/network-test"
     subnetwork_id                = "projects/test-project/regions/us-central1/subnetworks/private-test"
+    node_locations               = ["us-central1-a"]
     create_cert_manager_identity = true
     cert_manager_dns_zone_names  = ["dns-test"]
   }
@@ -376,9 +426,10 @@ run "missing_project_id" {
     var.project_id,
   ]
   variables {
-    context_id    = "test"
-    project_id    = ""
-    network_id    = "projects/test-project/global/networks/network-test"
-    subnetwork_id = "projects/test-project/regions/us-central1/subnetworks/private-test"
+    context_id     = "test"
+    project_id     = ""
+    network_id     = "projects/test-project/global/networks/network-test"
+    subnetwork_id  = "projects/test-project/regions/us-central1/subnetworks/private-test"
+    node_locations = ["us-central1-a"]
   }
 }

@@ -91,6 +91,55 @@ cases:
           inputs:
             region: us-east1
 
+  # Cheap single-zone default (no topology set → cloud derives multi-node):
+  # every node pool pins to the first zone network's available_zones exposes.
+  - name: cheap default pins node pools to a single zone
+    values:
+      platform: gcp
+      gcp:
+        project_id: windsor-test
+      gateway:
+        enabled: false
+    terraformOutputs:
+      network:
+        available_zones:
+          - us-central1-a
+          - us-central1-b
+          - us-central1-c
+    expect:
+      terraform:
+        - name: cluster
+          path: cluster/gcp-gke
+          inputs:
+            node_locations:
+              - us-central1-a
+
+  # topology: ha spreads node pools across every zone network's
+  # available_zones exposes.
+  - name: topology ha spreads node pools across every available zone
+    values:
+      platform: gcp
+      gcp:
+        project_id: windsor-test
+      topology: ha
+      gateway:
+        enabled: false
+    terraformOutputs:
+      network:
+        available_zones:
+          - us-central1-a
+          - us-central1-b
+          - us-central1-c
+    expect:
+      terraform:
+        - name: cluster
+          path: cluster/gcp-gke
+          inputs:
+            node_locations:
+              - us-central1-a
+              - us-central1-b
+              - us-central1-c
+
   # cluster.driver defaults to gke for platform == 'gcp' (platform-base.yaml).
   - name: cluster.driver defaults to gke
     values:

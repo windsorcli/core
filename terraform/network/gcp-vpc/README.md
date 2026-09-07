@@ -28,24 +28,6 @@ VPCs deny all ingress by default.
 |------|---------|
 | <a name="provider_google"></a> [google](#provider\_google) | 8.1.0 |
 
-## Modules
-
-No modules.
-
-## Resources
-
-| Name | Type |
-|------|------|
-| [google_compute_firewall.health_checks](https://registry.terraform.io/providers/hashicorp/google/8.1.0/docs/resources/compute_firewall) | resource |
-| [google_compute_firewall.iap_ingress](https://registry.terraform.io/providers/hashicorp/google/8.1.0/docs/resources/compute_firewall) | resource |
-| [google_compute_firewall.internal](https://registry.terraform.io/providers/hashicorp/google/8.1.0/docs/resources/compute_firewall) | resource |
-| [google_compute_network.this](https://registry.terraform.io/providers/hashicorp/google/8.1.0/docs/resources/compute_network) | resource |
-| [google_compute_router.this](https://registry.terraform.io/providers/hashicorp/google/8.1.0/docs/resources/compute_router) | resource |
-| [google_compute_router_nat.this](https://registry.terraform.io/providers/hashicorp/google/8.1.0/docs/resources/compute_router_nat) | resource |
-| [google_compute_subnetwork.isolated](https://registry.terraform.io/providers/hashicorp/google/8.1.0/docs/resources/compute_subnetwork) | resource |
-| [google_compute_subnetwork.private](https://registry.terraform.io/providers/hashicorp/google/8.1.0/docs/resources/compute_subnetwork) | resource |
-| [google_compute_subnetwork.public](https://registry.terraform.io/providers/hashicorp/google/8.1.0/docs/resources/compute_subnetwork) | resource |
-
 ## Inputs
 
 | Name | Description | Type | Default | Required |
@@ -61,15 +43,31 @@ No modules.
 | <a name="input_private_subnet_cidr"></a> [private\_subnet\_cidr](#input\_private\_subnet\_cidr) | CIDR range for the private subnet. If not provided, a default range is derived from cidr\_block | `string` | `""` | no |
 | <a name="input_public_subnet_cidr"></a> [public\_subnet\_cidr](#input\_public\_subnet\_cidr) | CIDR range for the public subnet. If not provided, a default range is derived from cidr\_block | `string` | `""` | no |
 | <a name="input_region"></a> [region](#input\_region) | GCP region for the network and its subnets | `string` | `"us-central1"` | no |
+| <a name="input_zone_count"></a> [zone\_count](#input\_zone\_count) | Number of the region's zones to expose via available\_zones, for downstream node placement | `number` | `3` | no |
 
 ## Outputs
 
 | Name | Description |
 |------|-------------|
+| <a name="output_available_zones"></a> [available\_zones](#output\_available\_zones) | Zones downstream node placement chooses from, capped to var.zone\_count |
 | <a name="output_isolated_subnet_id"></a> [isolated\_subnet\_id](#output\_isolated\_subnet\_id) | ID of the isolated subnet |
 | <a name="output_network_id"></a> [network\_id](#output\_network\_id) | The ID of the VPC network |
 | <a name="output_network_name"></a> [network\_name](#output\_network\_name) | The name of the VPC network |
 | <a name="output_private_subnet_id"></a> [private\_subnet\_id](#output\_private\_subnet\_id) | ID of the private subnet |
 | <a name="output_public_subnet_id"></a> [public\_subnet\_id](#output\_public\_subnet\_id) | ID of the public subnet |
 | <a name="output_region"></a> [region](#output\_region) | GCP region the network and its subnets are created in |
+
+## Resources
+
+| Name | Type |
+|------|------|
+| [google_compute_firewall.health_checks](https://registry.terraform.io/providers/hashicorp/google/8.1.0/docs/resources/compute_firewall) | resource |
+| [google_compute_firewall.iap_ingress](https://registry.terraform.io/providers/hashicorp/google/8.1.0/docs/resources/compute_firewall) | resource |
+| [google_compute_firewall.internal](https://registry.terraform.io/providers/hashicorp/google/8.1.0/docs/resources/compute_firewall) | resource |
+| [google_compute_network.this](https://registry.terraform.io/providers/hashicorp/google/8.1.0/docs/resources/compute_network) | resource |
+| [google_compute_router.this](https://registry.terraform.io/providers/hashicorp/google/8.1.0/docs/resources/compute_router) | resource |
+| [google_compute_router_nat.this](https://registry.terraform.io/providers/hashicorp/google/8.1.0/docs/resources/compute_router_nat) | resource |
+| [google_compute_subnetwork.isolated](https://registry.terraform.io/providers/hashicorp/google/8.1.0/docs/resources/compute_subnetwork) | resource |
+| [google_compute_subnetwork.private](https://registry.terraform.io/providers/hashicorp/google/8.1.0/docs/resources/compute_subnetwork) | resource |
+| [google_compute_subnetwork.public](https://registry.terraform.io/providers/hashicorp/google/8.1.0/docs/resources/compute_subnetwork) | resource |
 <!-- END_TF_DOCS -->
