@@ -228,7 +228,7 @@ variable "class_instance_types" {
   description = "Default instance type list per portable pool class. Multi-type lists guard against single-instance-type capacity shortages. A pool's explicit instance_types overrides this map. When overriding this variable, all seven class keys must be supplied — partial overrides are rejected at validate time rather than panicking mid-plan."
   type        = map(list(string))
   default = {
-    system  = ["t3.medium", "t3a.medium", "t3.large", "t3a.large"]
+    system  = ["t3.large", "t3a.large", "m5.large", "m5a.large"]
     general = ["t3.xlarge", "t3a.xlarge", "m5.xlarge", "m5a.xlarge"]
     compute = ["c6i.xlarge", "c6a.xlarge", "c5.xlarge"]
     memory  = ["r6i.xlarge", "r6a.xlarge", "r5.xlarge"]

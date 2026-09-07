@@ -636,8 +636,8 @@ run "pools_drive_node_groups_when_set" {
   }
 
   assert {
-    condition     = aws_eks_node_group.main["system"].instance_types[0] == "t3.medium"
-    error_message = "system class should default to t3.medium head of the instance_types list"
+    condition     = aws_eks_node_group.main["system"].instance_types[0] == "t3.large"
+    error_message = "system class should default to t3.large head of the instance_types list"
   }
 
   assert {
@@ -751,8 +751,8 @@ run "system_node_group_always_created" {
   }
 
   assert {
-    condition     = aws_eks_node_group.main["system"].instance_types[0] == "t3.medium"
-    error_message = "The always-on system node group should default to t3.medium head of the instance_types list"
+    condition     = aws_eks_node_group.main["system"].instance_types[0] == "t3.large"
+    error_message = "The always-on system node group should default to t3.large head of the instance_types list"
   }
 
   assert {
