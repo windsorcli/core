@@ -7,7 +7,8 @@ description: "Azure and GCP always provision a tainted system node pool independ
 
 ## Status
 
-Proposed.
+Proposed. Decision 1 is in review as
+[PR #2719](https://github.com/windsorcli/core/pull/2719).
 
 ## Context
 
@@ -52,15 +53,28 @@ label keys as `windsor.io/pool[-class]`; every provider actually emits
 `cluster/gcp-gke/main.tf:171`). Code is consistent across providers; the
 schema text is stale.
 
-Finally, no provider schedules anything onto the system pool it
-creates. Commit 43be8d88 gave a fixed list of platform-tier components
-(Flux controllers, CoreDNS, external-dns, cert-manager, MetalLB,
-kube-vip, Kyverno, Envoy Gateway, CloudNativePG, Crossplane, Prometheus,
-OpenEBS, Keycloak Operator) a shared `priorityClassName:
+Finally, no provider schedules any Windsor-deployed component onto the
+system pool it creates. Something does already land there on every
+provider — each cloud's own vendor-managed system pods ship a
+`CriticalAddonsOnly:Exists` toleration in their default manifests, a
+convention old enough to predate all three clouds (EKS-managed
+`coredns`, GKE's `kube-dns`, AKS's CoreDNS/metrics-server/konnectivity).
+That's cloud-vendor behavior, not anything Windsor configured. AWS's own
+guidance goes further and names the pattern Windsor doesn't yet follow:
+["Addons deployed using Kubernetes resources, like Deployment, should
+always tolerate the CriticalAddonsOnly taint and have nodeAffinity to be
+deployed to system worker
+nodes"](https://docs.aws.amazon.com/eks/latest/userguide/critical-workload.html).
+
+Commit 43be8d88 gave a fixed list of platform-tier components (Flux
+controllers, CoreDNS, external-dns, cert-manager, MetalLB, kube-vip,
+Kyverno, Envoy Gateway, CloudNativePG, Crossplane, Prometheus, OpenEBS,
+Keycloak Operator) a shared `priorityClassName:
 windsorcli-platform-critical`, which protects them from eviction under
 node pressure but does not place them anywhere — none of them carries a
-toleration for `CriticalAddonsOnly`, so they land wherever the scheduler
-puts them, same as any other workload.
+toleration for `CriticalAddonsOnly`, so the taint excludes every one of
+them from the system pool outright; they land on general/user capacity
+wherever the scheduler puts them, same as any other workload.
 
 Static-node providers (Talos: metal, docker, incus, hyperv) have no
 pool concept at all, by design — `schema.yaml:877-880` already scopes
@@ -96,9 +110,11 @@ Change `windsor.io/pool[-class]` to `windsorcli.dev/pool[-class]` at
 
 ### 4. Tolerate and prefer the system pool for the existing platform-critical list
 
-Reuse the exact component list from commit 43be8d88 — no new list. In
-each component's `helm-release.yaml` values, alongside the existing
-`priorityClassName`:
+Reuse the exact component list from commit 43be8d88 — no new list. This
+follows AWS's own documented pattern for critical Deployments (toleration
+plus nodeAffinity toward system capacity), extended to all three
+providers rather than AWS alone. In each component's `helm-release.yaml`
+values, alongside the existing `priorityClassName`:
 
 - Deployments get a toleration for `CriticalAddonsOnly=true:NoSchedule`
   plus a `preferredDuringSchedulingIgnoredDuringExecution` node affinity
@@ -146,6 +162,7 @@ system pool exists at all.
 - [Use System Node Pools in AKS](https://learn.microsoft.com/en-us/azure/aks/use-system-pools) — AKS's native `mode: System`/`CriticalAddonsOnly` primitive.
 - [Amazon EKS Best Practices Guide — Reliability](https://docs.aws.amazon.com/eks/latest/best-practices/reliability.html) — dedicated node group for critical add-ons as a documented pattern, not an API primitive.
 - [Isolate workloads in dedicated node pools (GKE)](https://docs.cloud.google.com/kubernetes-engine/docs/how-to/isolate-workloads-dedicated-nodes) — taint/affinity as the GKE-recommended mechanism, no native "system" mode.
+- [Manage system critical workloads (EKS)](https://docs.aws.amazon.com/eks/latest/userguide/critical-workload.html) — AWS's own recommendation that critical Deployments carry both the `CriticalAddonsOnly` toleration and a system-pool nodeAffinity, the pattern decision 4 extends to all three providers.
 - `terraform/cluster/aws-eks/variables.tf:178`, `terraform/cluster/azure-aks/main.tf:340`, `terraform/cluster/gcp-gke/main.tf:129` — current per-provider system pool creation.
 - `contexts/_template/tests/platform-aws.test.yaml:466` — the test demonstrating AWS's system pool can be dropped entirely.
 - `schema.yaml:877-880` — the existing elastic-vs-static-node provider scope for `cluster.pools`.
