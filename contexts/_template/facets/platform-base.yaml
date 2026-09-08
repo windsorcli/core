@@ -328,7 +328,7 @@ flux:
             kind: ValidatingWebhookConfiguration
             name: kyverno-resource-validating-webhook-cfg
         healthCheckExprs:
-          - apiVersion: admissionregistration.k8s.io
+          - apiVersion: admissionregistration.k8s.io/v1
             kind: ValidatingWebhookConfiguration
             current: webhooks.size() > 0 && webhooks.all(w, has(w.clientConfig.caBundle) && size(w.clientConfig.caBundle) > 0 && has(w.rules) && size(w.rules) > 0)
         timeout: 5m
