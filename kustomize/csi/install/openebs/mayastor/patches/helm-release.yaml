@@ -54,7 +54,7 @@ spec:
           # renovate: datasource=docker depName=registry.k8s.io/sig-storage/csi-attacher package=registry.k8s.io/sig-storage/csi-attacher
           attacherTag: v4.12.0@sha256:b9dc9a714a484ccdeeb6f86d88d4db9b7a5ecfc5a55da6db3a60bb3fa33c278a
           # renovate: datasource=docker depName=registry.k8s.io/sig-storage/csi-snapshotter package=registry.k8s.io/sig-storage/csi-snapshotter
-          snapshotterTag: v8.2.0@sha256:dd788d79cf4c1b8edee6d9b80b8a1ebfc51a38a365c5be656986b129be9ac784
+          snapshotterTag: v8.6.0@sha256:42af0929bcd60a43499825c078a60ff0534e08af8fbeb283aa391be40feb9f3e
           # renovate: datasource=docker depName=registry.k8s.io/sig-storage/snapshot-controller package=registry.k8s.io/sig-storage/snapshot-controller
           snapshotControllerTag: v8.2.0@sha256:9dade8f2f3ab29e3919c41b343f8d77b12178ac51f25574d7ed2d45a3e3ef69d
           # renovate: datasource=docker depName=registry.k8s.io/sig-storage/csi-node-driver-registrar package=registry.k8s.io/sig-storage/csi-node-driver-registrar
