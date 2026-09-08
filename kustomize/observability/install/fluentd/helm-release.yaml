@@ -28,6 +28,22 @@ spec:
       # renovate: datasource=docker depName=ghcr.io/fluent/fluent-operator/fluent-operator package=ghcr.io/fluent/fluent-operator/fluent-operator
       tag: 3.10.0@sha256:3108194a4ecc063f55371476775ddb8a36a1c7613fd03cfd13d05141e1b0bd0e
     containerRuntime: containerd
+    operator:
+      tolerations:
+        - key: CriticalAddonsOnly
+          operator: Exists
+          effect: NoSchedule
+      affinity:
+        nodeAffinity:
+          preferredDuringSchedulingIgnoredDuringExecution:
+            - weight: 100
+              preference:
+                matchExpressions:
+                  - key: windsorcli.dev/pool-class
+                    operator: In
+                    values:
+                      - system
+      priorityClassName: windsorcli-platform-critical
     fluentd:
       image:
         # renovate: datasource=docker depName=ghcr.io/fluent/fluent-operator/fluentd package=ghcr.io/fluent/fluent-operator/fluentd

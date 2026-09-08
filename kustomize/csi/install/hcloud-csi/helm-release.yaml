@@ -52,6 +52,28 @@ spec:
           name: docker.io/hetznercloud/hcloud-csi-driver
           # renovate: datasource=docker depName=docker.io/hetznercloud/hcloud-csi-driver
           tag: v2.22.0@sha256:459090f3c173d6708dcb3d85801509b371c9b8fffd76d704f482de3099729664
+      affinity:
+        nodeAffinity:
+          preferredDuringSchedulingIgnoredDuringExecution:
+            - weight: 1
+              preference:
+                matchExpressions:
+                  - key: "instance.hetzner.cloud/provided-by"
+                    operator: In
+                    values:
+                      - "cloud"
+            - weight: 100
+              preference:
+                matchExpressions:
+                  - key: windsorcli.dev/pool-class
+                    operator: In
+                    values:
+                      - system
+      tolerations:
+        - key: CriticalAddonsOnly
+          operator: Exists
+          effect: NoSchedule
+      priorityClassName: windsorcli-platform-critical
     node:
       image:
         csiNodeDriverRegistrar:
@@ -66,6 +88,11 @@ spec:
           name: docker.io/hetznercloud/hcloud-csi-driver
           # renovate: datasource=docker depName=docker.io/hetznercloud/hcloud-csi-driver
           tag: v2.22.0@sha256:459090f3c173d6708dcb3d85801509b371c9b8fffd76d704f482de3099729664
+      tolerations:
+        - key: CriticalAddonsOnly
+          operator: Exists
+          effect: NoSchedule
+      priorityClassName: windsorcli-platform-critical
     # The chart's built-in StorageClass is disabled; storageclass.yaml ships the
     # windsor-canonical `single` default class instead.
     storageClasses: []

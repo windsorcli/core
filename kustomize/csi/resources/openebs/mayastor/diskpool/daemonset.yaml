@@ -46,6 +46,7 @@ spec:
         app: mayastor-diskpool-registrar
     spec:
       serviceAccountName: mayastor-diskpool-registrar
+      priorityClassName: windsorcli-platform-critical
       nodeSelector:
         openebs.io/engine: mayastor
       securityContext:

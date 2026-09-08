@@ -30,6 +30,21 @@ spec:
         image:
           # renovate: datasource=docker depName=docker.io/library/docker package=docker.io/library/docker
           tag: 20.10@sha256:2967f0819c84dd589ed0a023b9d25dcfe7a3c123d5bf784ffbb77edf55335f0c
+      tolerations:
+        - key: CriticalAddonsOnly
+          operator: Exists
+          effect: NoSchedule
+      affinity:
+        nodeAffinity:
+          preferredDuringSchedulingIgnoredDuringExecution:
+            - weight: 100
+              preference:
+                matchExpressions:
+                  - key: windsorcli.dev/pool-class
+                    operator: In
+                    values:
+                      - system
+      priorityClassName: windsorcli-platform-critical
     containerRuntime: containerd
     Kubernetes: false
     fluentd:
