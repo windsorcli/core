@@ -256,6 +256,24 @@ cases:
             location: sin
             network_zone: ap-southeast
 
+  - name: EU location with no network_zone derives eu-central
+    values:
+      platform: hetzner
+      hetzner:
+        token: test-token
+        location: nbg1
+      gateway:
+        enabled: false
+      network: *default-network
+    terraformOutputs: *default-terraform-outputs
+    expect:
+      terraform:
+        - name: compute
+          path: compute/hcloud
+          inputs:
+            location: nbg1
+            network_zone: eu-central
+
   # Explicit network_zone still wins even when it doesn't match location, so an
   # operator can intentionally pair a location with a network created earlier.
   - name: explicit network_zone overrides the location-derived default
