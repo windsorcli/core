@@ -105,6 +105,23 @@ config:
     value:
       controlplane_size: "${get(hetzner_sizes_by_type, cluster.controlplanes.instance_type ?? 'cpx31') ?? { cpu: 4, memory: 8 }}"
       worker_size: "${get(hetzner_sizes_by_type, cluster.workers.instance_type ?? 'cpx31') ?? { cpu: 4, memory: 8 }}"
+      # Zone containing the chosen location, so the private network always
+      # lands in the same zone as the servers. Hetzner's API permanently
+      # refuses to attach a Cloud LB across a network/location zone
+      # mismatch, so this pairing must stay derived, not independently
+      # defaulted.
+      network_zone: "${hetzner.network_zone ?? get(hetzner_zones_by_location, hetzner.location ?? 'ash') ?? 'us-east'}"
+
+  # Network zone each location belongs to. eu-central: fsn1/nbg1/hel1.
+  # us-east: ash. us-west: hil. ap-southeast: sin.
+  - name: hetzner_zones_by_location
+    value:
+      fsn1: eu-central
+      nbg1: eu-central
+      hel1: eu-central
+      ash: us-east
+      hil: us-west
+      sin: ap-southeast
 
   # Real per-server_type sizing, not the generic schema default, so
   # config-talos's small-control-plane detection reflects the actual instance.
@@ -207,7 +224,7 @@ terraform:
       hcloud_token: ${hetzner.token}
       talos_version: ${talos.talos_version}
       location: ${hetzner.location ?? 'ash'}
-      network_zone: ${hetzner.network_zone ?? 'us-east'}
+      network_zone: ${hetzner_effective.network_zone}
       network_cidr: ${network.cidr_block ?? '10.5.0.0/16'}
       api_allowed_cidrs: ${cluster.api_allowed_cidrs ?? ['0.0.0.0/0']}
       instances:

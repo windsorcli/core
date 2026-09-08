@@ -199,6 +199,84 @@ cases:
                 count: 1
                 server_type: cpx31
 
+  # network_zone left unset derives from location, not a fixed default: a
+  # mismatched pairing makes Hetzner permanently refuse to attach the Cloud LB
+  # to the private network.
+  - name: US location with no network_zone derives us-east
+    values:
+      platform: hetzner
+      hetzner:
+        token: test-token
+        location: ash
+      gateway:
+        enabled: false
+      network: *default-network
+    terraformOutputs: *default-terraform-outputs
+    expect:
+      terraform:
+        - name: compute
+          path: compute/hcloud
+          inputs:
+            location: ash
+            network_zone: us-east
+
+  - name: hil location with no network_zone derives us-west
+    values:
+      platform: hetzner
+      hetzner:
+        token: test-token
+        location: hil
+      gateway:
+        enabled: false
+      network: *default-network
+    terraformOutputs: *default-terraform-outputs
+    expect:
+      terraform:
+        - name: compute
+          path: compute/hcloud
+          inputs:
+            location: hil
+            network_zone: us-west
+
+  - name: sin location with no network_zone derives ap-southeast
+    values:
+      platform: hetzner
+      hetzner:
+        token: test-token
+        location: sin
+      gateway:
+        enabled: false
+      network: *default-network
+    terraformOutputs: *default-terraform-outputs
+    expect:
+      terraform:
+        - name: compute
+          path: compute/hcloud
+          inputs:
+            location: sin
+            network_zone: ap-southeast
+
+  # Explicit network_zone still wins even when it doesn't match location, so an
+  # operator can intentionally pair a location with a network created earlier.
+  - name: explicit network_zone overrides the location-derived default
+    values:
+      platform: hetzner
+      hetzner:
+        token: test-token
+        location: ash
+        network_zone: eu-central
+      gateway:
+        enabled: false
+      network: *default-network
+    terraformOutputs: *default-terraform-outputs
+    expect:
+      terraform:
+        - name: compute
+          path: compute/hcloud
+          inputs:
+            location: ash
+            network_zone: eu-central
+
   # A Gen2 cpx*2 type in a US location is not orderable there; composition fails
   # with a readable message instead of an opaque Hetzner API error at apply.
   - name: US location with Gen2 instance type fails composition

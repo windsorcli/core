@@ -329,8 +329,7 @@ properties:
           - us-east
           - us-west
           - ap-southeast
-        default: eu-central
-        description: Network zone the private network spans. Must contain the chosen location (eu-central covers fsn1/nbg1/hel1, us-east covers ash, us-west covers hil, ap-southeast covers sin).
+        description: Network zone the private network spans. Defaults to the zone containing the chosen location; set explicitly only to override that pairing.
       token:
         type: string
         sensitive: true
