@@ -50,7 +50,7 @@ spec:
       csi:
         image:
           # renovate: datasource=docker depName=registry.k8s.io/sig-storage/csi-provisioner package=registry.k8s.io/sig-storage/csi-provisioner
-          provisionerTag: v5.2.0@sha256:d5e46da8aff7d73d6f00c761dae94472bcda6e78f4f17b3802dc89d44de0111b
+          provisionerTag: v5.3.0@sha256:bb057f866177d5f4139a1527e594499cbe0feeb67b63aaca8679dfdf0a6016f9
           # renovate: datasource=docker depName=registry.k8s.io/sig-storage/csi-attacher package=registry.k8s.io/sig-storage/csi-attacher
           attacherTag: v4.12.0@sha256:b9dc9a714a484ccdeeb6f86d88d4db9b7a5ecfc5a55da6db3a60bb3fa33c278a
           # renovate: datasource=docker depName=registry.k8s.io/sig-storage/csi-snapshotter package=registry.k8s.io/sig-storage/csi-snapshotter
