@@ -199,9 +199,6 @@ cases:
                 count: 1
                 server_type: cpx31
 
-  # network_zone left unset derives from location, not a fixed default: a
-  # mismatched pairing makes Hetzner permanently refuse to attach the Cloud LB
-  # to the private network.
   - name: US location with no network_zone derives us-east
     values:
       platform: hetzner
@@ -274,8 +271,6 @@ cases:
             location: nbg1
             network_zone: eu-central
 
-  # Explicit network_zone still wins even when it doesn't match location, so an
-  # operator can intentionally pair a location with a network created earlier.
   - name: explicit network_zone overrides the location-derived default
     values:
       platform: hetzner

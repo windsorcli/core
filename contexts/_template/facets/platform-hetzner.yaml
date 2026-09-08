@@ -105,15 +105,9 @@ config:
     value:
       controlplane_size: "${get(hetzner_sizes_by_type, cluster.controlplanes.instance_type ?? 'cpx31') ?? { cpu: 4, memory: 8 }}"
       worker_size: "${get(hetzner_sizes_by_type, cluster.workers.instance_type ?? 'cpx31') ?? { cpu: 4, memory: 8 }}"
-      # Zone containing the chosen location, so the private network always
-      # lands in the same zone as the servers. Hetzner's API permanently
-      # refuses to attach a Cloud LB across a network/location zone
-      # mismatch, so this pairing must stay derived, not independently
-      # defaulted.
       network_zone: "${hetzner.network_zone ?? get(hetzner_zones_by_location, hetzner.location ?? 'ash') ?? 'us-east'}"
 
-  # Network zone each location belongs to. eu-central: fsn1/nbg1/hel1.
-  # us-east: ash. us-west: hil. ap-southeast: sin.
+  # Network zone per Hetzner location.
   - name: hetzner_zones_by_location
     value:
       fsn1: eu-central

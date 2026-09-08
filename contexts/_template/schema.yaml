@@ -329,7 +329,7 @@ properties:
           - us-east
           - us-west
           - ap-southeast
-        description: Network zone the private network spans. Defaults to the zone containing the chosen location; set explicitly only to override that pairing.
+        description: Network zone for the private network. Defaults to the zone of the chosen location.
       token:
         type: string
         sensitive: true
