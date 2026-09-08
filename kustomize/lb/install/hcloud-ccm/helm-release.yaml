@@ -68,3 +68,17 @@ spec:
     # are disabled above); networking.enabled would turn it on and conflict.
     networking:
       enabled: false
+    additionalTolerations:
+      - key: CriticalAddonsOnly
+        operator: Exists
+        effect: NoSchedule
+    affinity:
+      nodeAffinity:
+        preferredDuringSchedulingIgnoredDuringExecution:
+          - weight: 100
+            preference:
+              matchExpressions:
+                - key: windsorcli.dev/pool-class
+                  operator: In
+                  values:
+                    - system

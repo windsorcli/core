@@ -23,3 +23,32 @@ spec:
     cm:
       data:
         range-global: ${loadbalancer_ip_range}
+    tolerations:
+      - key: node-role.kubernetes.io/master
+        effect: NoSchedule
+      - key: node-role.kubernetes.io/control-plane
+        effect: NoSchedule
+      - key: CriticalAddonsOnly
+        operator: Exists
+        effect: NoSchedule
+    affinity:
+      nodeAffinity:
+        preferredDuringSchedulingIgnoredDuringExecution:
+          - weight: 10
+            preference:
+              matchExpressions:
+                - key: node-role.kubernetes.io/control-plane
+                  operator: Exists
+          - weight: 10
+            preference:
+              matchExpressions:
+                - key: node-role.kubernetes.io/master
+                  operator: Exists
+          - weight: 100
+            preference:
+              matchExpressions:
+                - key: windsorcli.dev/pool-class
+                  operator: In
+                  values:
+                    - system
+    priorityClassName: windsorcli-platform-critical

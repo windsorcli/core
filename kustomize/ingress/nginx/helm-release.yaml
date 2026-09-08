@@ -33,3 +33,4 @@ spec:
         enableTls: false
       ingressClassResource:
         default: true
+      priorityClassName: windsorcli-platform-critical

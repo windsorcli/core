@@ -8,3 +8,16 @@ spec:
   values:
     cleanupController:
       enabled: true
+      tolerations:
+        - key: CriticalAddonsOnly
+          operator: Exists
+          effect: NoSchedule
+      nodeAffinity:
+        preferredDuringSchedulingIgnoredDuringExecution:
+          - weight: 100
+            preference:
+              matchExpressions:
+                - key: windsorcli.dev/pool-class
+                  operator: In
+                  values:
+                    - system

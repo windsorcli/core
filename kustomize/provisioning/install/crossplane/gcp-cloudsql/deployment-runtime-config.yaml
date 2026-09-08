@@ -11,3 +11,12 @@ spec:
       name: provider-gcp-sql
       annotations:
         iam.gke.io/gcp-service-account: ${crossplane_gcp_service_account_email}
+  deploymentTemplate:
+    spec:
+      # selector is a required field on apps/v1 DeploymentSpec, but empty
+      # satisfies it: Crossplane computes and applies the real selector
+      # itself when it merges this template onto the Deployment it creates.
+      selector: {}
+      template:
+        spec:
+          priorityClassName: windsorcli-platform-critical
