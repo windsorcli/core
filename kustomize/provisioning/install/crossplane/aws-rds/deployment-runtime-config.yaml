@@ -11,10 +11,9 @@ spec:
       name: provider-aws-rds
   deploymentTemplate:
     spec:
-      # selector is a required field on apps/v1 DeploymentSpec, but empty
-      # satisfies it: Crossplane computes and applies the real selector
-      # itself when it merges this template onto the Deployment it creates.
       selector: {}
       template:
         spec:
           priorityClassName: windsorcli-platform-critical
+          containers:
+            - name: package-runtime
