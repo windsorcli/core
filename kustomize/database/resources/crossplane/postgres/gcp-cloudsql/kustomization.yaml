@@ -13,6 +13,7 @@ resources:
 
 configMapGenerator:
   - name: monitoring-driver-config
+    namespace: system-database
     literals:
       - PG_CRD_GROUP=sql.gcp.upbound.io
       - PG_CRD_KIND_LOWER=databaseinstance

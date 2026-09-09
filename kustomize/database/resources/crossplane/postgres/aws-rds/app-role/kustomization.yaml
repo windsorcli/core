@@ -9,6 +9,7 @@ components:
 
 configMapGenerator:
   - name: ${pg_instance_name}-app-role-driver-config
+    namespace: ${pg_target_namespace}
     literals:
       - PG_CRD_GROUP=rds.aws.upbound.io
       - PG_CRD_RESOURCE=instances

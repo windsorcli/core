@@ -12,6 +12,7 @@ resources:
 
 configMapGenerator:
   - name: monitoring-driver-config
+    namespace: system-database
     literals:
       - PG_CRD_GROUP=rds.aws.upbound.io
       - PG_CRD_KIND_LOWER=instance
