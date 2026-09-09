@@ -135,6 +135,8 @@ flux:
   - name: database
     path: database
     when: demo.resources.database == true && database.postgres.driver == 'rds'
+    dependsOn:
+      - provisioning-resources
     resources:
       - components:
           - crossplane/postgres/aws-rds/app-role
@@ -154,6 +156,8 @@ flux:
   - name: database
     path: database
     when: demo.resources.database == true && database.postgres.driver == 'flexibleserver'
+    dependsOn:
+      - provisioning-resources
     resources:
       - components:
           - crossplane/postgres/azure-postgres/app-role
@@ -174,6 +178,8 @@ flux:
   - name: database
     path: database
     when: demo.resources.database == true && database.postgres.driver == 'cloudsql'
+    dependsOn:
+      - provisioning-resources
     resources:
       - components:
           - crossplane/postgres/gcp-cloudsql/app-role

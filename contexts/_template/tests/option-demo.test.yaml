@@ -102,6 +102,8 @@ cases:
                   current: status.conditions.exists(e, e.type == 'Ready' && e.status == 'True')
         - name: database
           path: database
+          dependsOn:
+            - provisioning-resources
           resources:
             - timeout: 10m
               interval: 5m
@@ -158,6 +160,8 @@ cases:
                   current: status.conditions.exists(e, e.type == 'Ready' && e.status == 'True')
         - name: database
           path: database
+          dependsOn:
+            - provisioning-resources
           resources:
             - timeout: 10m
               interval: 5m
@@ -215,6 +219,8 @@ cases:
                   current: status.conditions.exists(e, e.type == 'Ready' && e.status == 'True')
         - name: database
           path: database
+          dependsOn:
+            - provisioning-resources
           resources:
             - timeout: 10m
               interval: 5m
