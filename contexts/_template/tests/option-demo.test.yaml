@@ -100,7 +100,7 @@ cases:
                 - apiVersion: rds.aws.upbound.io/v1beta3
                   kind: Instance
                   current: status.conditions.exists(e, e.type == 'Ready' && e.status == 'True')
-        - name: demo-app-role
+        - name: database
           path: database
           dependsOn:
             - demo-resources
@@ -158,7 +158,7 @@ cases:
                 - apiVersion: dbforpostgresql.azure.upbound.io/v1beta1
                   kind: FlexibleServer
                   current: status.conditions.exists(e, e.type == 'Ready' && e.status == 'True')
-        - name: demo-app-role
+        - name: database
           path: database
           dependsOn:
             - demo-resources
@@ -217,7 +217,7 @@ cases:
                 - apiVersion: sql.gcp.upbound.io/v1beta2
                   kind: DatabaseInstance
                   current: status.conditions.exists(e, e.type == 'Ready' && e.status == 'True')
-        - name: demo-app-role
+        - name: database
           path: database
           dependsOn:
             - demo-resources

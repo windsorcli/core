@@ -248,7 +248,7 @@ with no engine opinion to begin with.
 `kustomize/demo/resources/database/flexibleserver/` holds the worked example
 — a `FlexibleServer` and `FlexibleServerDatabase`, no provider wiring, the
 same contract `rds/instance.yaml` documents. `option-demo.yaml` gains the
-Azure-driver twin of its existing `demo-database`/`demo-app-role` entries,
+Azure-driver twin of its existing `demo-database`/`database` entries,
 gated on `database.postgres.driver == 'flexibleserver'` instead of `'rds'`,
 substituting `terraform_output('database', ...)` and
 `terraform_output('crossplane-identity-azure', ...)` outputs the same way.

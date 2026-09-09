@@ -6,12 +6,6 @@ metadata:
 
 when: database.postgres.enabled == true
 
-# Crossplane's own CRDs, vendored (kustomize/crds/crossplane-2.4.0), for
-# the rds/flexibleserver/cloudsql drivers.
-crds:
-  # renovate: datasource=github-releases depName=crossplane/crossplane package=crossplane/crossplane
-  - "${(database.postgres.driver == 'rds' || database.postgres.driver == 'flexibleserver' || database.postgres.driver == 'cloudsql') ? 'crossplane-2.4.0' : ''}"
-
 # =============================================================================
 # Terraform — driver-specific cloud infrastructure and Crossplane identity.
 # network/cluster come from the active platform's own terraform: block.

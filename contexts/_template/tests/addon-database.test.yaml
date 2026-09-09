@@ -228,8 +228,6 @@ cases:
                 - crossplane/postgres
                 - crossplane/postgres/_shared/monitoring-exporter
                 - crossplane/postgres/aws-rds
-      crds:
-        - crossplane-2.4.0
 
   # Regression (#2653): provisioning-install must outlive the Provider CR so
   # destroy tears the Provider down while Crossplane's engine can still clear
@@ -311,8 +309,6 @@ cases:
                 - crossplane/postgres
                 - crossplane/postgres/_shared/monitoring-exporter
                 - crossplane/postgres/gcp-cloudsql
-      crds:
-        - crossplane-2.4.0
 
   # Regression (#2653): GCP twin of the rds/flexibleserver cases above. Same
   # ordering guarantee.
