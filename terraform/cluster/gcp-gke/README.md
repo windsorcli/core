@@ -73,14 +73,14 @@ gcloud components install gke-gcloud-auth-plugin
 | Name | Version |
 |------|---------|
 | <a name="requirement_terraform"></a> [terraform](#requirement\_terraform) | >= 1.12.2 |
-| <a name="requirement_google"></a> [google](#requirement\_google) | 8.1.0 |
+| <a name="requirement_google"></a> [google](#requirement\_google) | 8.2.0 |
 | <a name="requirement_null"></a> [null](#requirement\_null) | ~> 3.2 |
 
 ## Providers
 
 | Name | Version |
 |------|---------|
-| <a name="provider_google"></a> [google](#provider\_google) | 8.1.0 |
+| <a name="provider_google"></a> [google](#provider\_google) | 8.2.0 |
 | <a name="provider_null"></a> [null](#provider\_null) | 3.3.1 |
 
 ## Modules
@@ -91,17 +91,17 @@ No modules.
 
 | Name | Type |
 |------|------|
-| [google_container_cluster.this](https://registry.terraform.io/providers/hashicorp/google/8.1.0/docs/resources/container_cluster) | resource |
-| [google_container_node_pool.pools](https://registry.terraform.io/providers/hashicorp/google/8.1.0/docs/resources/container_node_pool) | resource |
-| [google_container_node_pool.system](https://registry.terraform.io/providers/hashicorp/google/8.1.0/docs/resources/container_node_pool) | resource |
-| [google_dns_managed_zone_iam_member.cert_manager_dns](https://registry.terraform.io/providers/hashicorp/google/8.1.0/docs/resources/dns_managed_zone_iam_member) | resource |
-| [google_dns_managed_zone_iam_member.external_dns_dns](https://registry.terraform.io/providers/hashicorp/google/8.1.0/docs/resources/dns_managed_zone_iam_member) | resource |
-| [google_project_iam_member.cert_manager_dns_list](https://registry.terraform.io/providers/hashicorp/google/8.1.0/docs/resources/project_iam_member) | resource |
-| [google_project_iam_member.external_dns_dns_list](https://registry.terraform.io/providers/hashicorp/google/8.1.0/docs/resources/project_iam_member) | resource |
-| [google_service_account.cert_manager](https://registry.terraform.io/providers/hashicorp/google/8.1.0/docs/resources/service_account) | resource |
-| [google_service_account.external_dns](https://registry.terraform.io/providers/hashicorp/google/8.1.0/docs/resources/service_account) | resource |
-| [google_service_account_iam_member.cert_manager_workload_identity](https://registry.terraform.io/providers/hashicorp/google/8.1.0/docs/resources/service_account_iam_member) | resource |
-| [google_service_account_iam_member.external_dns_workload_identity](https://registry.terraform.io/providers/hashicorp/google/8.1.0/docs/resources/service_account_iam_member) | resource |
+| [google_container_cluster.this](https://registry.terraform.io/providers/hashicorp/google/8.2.0/docs/resources/container_cluster) | resource |
+| [google_container_node_pool.pools](https://registry.terraform.io/providers/hashicorp/google/8.2.0/docs/resources/container_node_pool) | resource |
+| [google_container_node_pool.system](https://registry.terraform.io/providers/hashicorp/google/8.2.0/docs/resources/container_node_pool) | resource |
+| [google_dns_managed_zone_iam_member.cert_manager_dns](https://registry.terraform.io/providers/hashicorp/google/8.2.0/docs/resources/dns_managed_zone_iam_member) | resource |
+| [google_dns_managed_zone_iam_member.external_dns_dns](https://registry.terraform.io/providers/hashicorp/google/8.2.0/docs/resources/dns_managed_zone_iam_member) | resource |
+| [google_project_iam_member.cert_manager_dns_list](https://registry.terraform.io/providers/hashicorp/google/8.2.0/docs/resources/project_iam_member) | resource |
+| [google_project_iam_member.external_dns_dns_list](https://registry.terraform.io/providers/hashicorp/google/8.2.0/docs/resources/project_iam_member) | resource |
+| [google_service_account.cert_manager](https://registry.terraform.io/providers/hashicorp/google/8.2.0/docs/resources/service_account) | resource |
+| [google_service_account.external_dns](https://registry.terraform.io/providers/hashicorp/google/8.2.0/docs/resources/service_account) | resource |
+| [google_service_account_iam_member.cert_manager_workload_identity](https://registry.terraform.io/providers/hashicorp/google/8.2.0/docs/resources/service_account_iam_member) | resource |
+| [google_service_account_iam_member.external_dns_workload_identity](https://registry.terraform.io/providers/hashicorp/google/8.2.0/docs/resources/service_account_iam_member) | resource |
 | [null_resource.kubeconfig](https://registry.terraform.io/providers/hashicorp/null/latest/docs/resources/resource) | resource |
 
 ## Inputs
