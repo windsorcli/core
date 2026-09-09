@@ -224,7 +224,7 @@ variable "pools" {
 }
 
 variable "class_machine_types" {
-  description = "Default GCE machine type list per portable pool class. Only the first entry is used; remaining entries document an operator preference order. A pool's explicit instance_types overrides this map. When overriding this variable, all seven class keys must be supplied — partial overrides are rejected at validate time. GCP has no leaner-memory-ratio compute family the way AWS (c6i) and Azure (Fsv2) do — C2 stays near N2's 4GB/vCPU ratio, differing instead in sustained clock speed. GCP also has no fixed storage-optimized machine family; class: storage resolves to a general-purpose machine with no local SSD attached, unlike AWS (i3/i4i) and Azure (Lsv3)."
+  description = "Default GCE machine type list per portable pool class, in fallback order. An autoscaling pool creates one node pool per entry so cluster-autoscaler can fall over to the next type when the primary is out of capacity in a zone; a fixed-count pool only ever uses the first entry. A pool's explicit instance_types overrides this map with the same fallback semantics. When overriding this variable, all seven class keys must be supplied — partial overrides are rejected at validate time. GCP has no leaner-memory-ratio compute family the way AWS (c6i) and Azure (Fsv2) do — C2 stays near N2's 4GB/vCPU ratio, differing instead in sustained clock speed. GCP also has no fixed storage-optimized machine family; class: storage resolves to a general-purpose machine with no local SSD attached, unlike AWS (i3/i4i) and Azure (Lsv3)."
   type        = map(list(string))
   default = {
     system  = ["n2-standard-2", "n2-standard-4"]
