@@ -1,0 +1,11 @@
+- op: replace
+  path: /rules
+  value:
+    - apiGroups:
+        - rds.aws.upbound.io
+      resources:
+        - instances
+      resourceNames:
+        - ${pg_instance_name}
+      verbs:
+        - get

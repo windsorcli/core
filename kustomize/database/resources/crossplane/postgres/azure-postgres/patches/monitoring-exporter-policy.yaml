@@ -1,0 +1,19 @@
+- op: replace
+  path: /metadata/annotations/policies.kyverno.io~1title
+  value: Flexible Server postgres_exporter
+- op: replace
+  path: /metadata/annotations/policies.kyverno.io~1category
+  value: Azure
+- op: replace
+  path: /metadata/annotations/policies.kyverno.io~1subject
+  value: FlexibleServer
+- op: replace
+  path: /spec/rules/0/match/any/0/resources/kinds
+  value: &flexibleserverKinds
+    - dbforpostgresql.azure.upbound.io/v1beta1/FlexibleServer
+- op: replace
+  path: /spec/rules/1/match/any/0/resources/kinds
+  value: *flexibleserverKinds
+- op: replace
+  path: /spec/rules/2/match/any/0/resources/kinds
+  value: *flexibleserverKinds

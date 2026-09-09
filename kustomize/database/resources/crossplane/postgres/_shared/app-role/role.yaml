@@ -1,0 +1,19 @@
+---
+# Auto-generates its own password when passwordSecretRef is unset, and
+# publishes username/password/endpoint/port to writeConnectionSecretToRef.
+apiVersion: postgresql.sql.crossplane.io/v1alpha1
+kind: Role
+metadata:
+  name: ${pg_database_name}-app
+spec:
+  # Orphan, not Delete: the Database CR's ownerRef makes this role own its
+  # database, and PostgreSQL refuses DROP ROLE on a role that still owns
+  # objects.
+  deletionPolicy: Orphan
+  providerConfigRef:
+    name: provider-sql-${pg_instance_name}
+  privileges:
+    login: true
+  writeConnectionSecretToRef:
+    name: ${pg_instance_name}-app-credentials
+    namespace: ${pg_target_namespace}

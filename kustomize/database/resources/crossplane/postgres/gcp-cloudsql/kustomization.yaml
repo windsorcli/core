@@ -1,0 +1,42 @@
+apiVersion: kustomize.config.k8s.io/v1alpha1
+kind: Component
+
+# Cloud SQL's own pieces on top of the driver-agnostic ../postgres base.
+# Reference both together — a caller lists crossplane/postgres and
+# crossplane/postgres/gcp-cloudsql as peer components, in that order;
+# this directory can't pull in its own parent without a kustomize cycle.
+
+resources:
+  - provider-config.yaml
+  - project-policy.yaml
+  - tag-policy.yaml
+
+configMapGenerator:
+  - name: monitoring-driver-config
+    literals:
+      - PG_CRD_GROUP=sql.gcp.upbound.io
+      - PG_CRD_KIND_LOWER=databaseinstance
+      - PG_ENDPOINT_FIELD=privateIpAddress
+      - PG_USERNAME_FROM_SECRET=true
+      - PG_USERNAME_FIELD=username
+    options:
+      disableNameSuffixHash: true
+
+patches:
+  - path: patches/monitor-generate-rbac.yaml
+    target:
+      kind: ClusterRole
+      name: monitor-generate
+  - path: patches/monitoring-rbac-policy.yaml
+    target:
+      kind: ClusterPolicy
+      name: instance-monitor-rbac
+  - path: patches/monitoring-cronjob-policy.yaml
+    target:
+      kind: ClusterPolicy
+      name: instance-monitor-role
+  # No-op unless the caller also includes crossplane/postgres/_shared/monitoring-exporter.
+  - path: patches/monitoring-exporter-policy.yaml
+    target:
+      kind: ClusterPolicy
+      name: instance-monitor-exporter

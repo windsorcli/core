@@ -31,8 +31,8 @@ data "azurerm_client_config" "current" {}
 #-----------------------------------------------------------------------------------------------------------------------
 
 # Dedicated resource group for every Flexible Server in this context.
-# crossplane-identity-azure's role assignment scopes to it, Azure's
-# replacement for AWS's per-resource tag condition.
+# provisioning/crossplane-identity/azure's role assignment scopes to it,
+# Azure's replacement for AWS's per-resource tag condition.
 resource "azurerm_resource_group" "postgres" {
   name     = "postgres-${var.context_id}"
   location = var.region
@@ -170,8 +170,8 @@ resource "azurerm_role_assignment" "key_vault_admin" {
 }
 
 # Flexible Server's CMK access uses its own resource identity, not
-# Crossplane's. crossplane-identity-azure only authenticates the pod that
-# calls the ARM API to create the server.
+# Crossplane's. provisioning/crossplane-identity/azure only authenticates
+# the pod that calls the ARM API to create the server.
 resource "azurerm_user_assigned_identity" "flexibleserver_cmk" {
   count               = length(azurerm_key_vault.postgres)
   name                = "flexibleserver-cmk-${var.context_id}"

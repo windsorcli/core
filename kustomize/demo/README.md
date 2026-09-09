@@ -11,7 +11,7 @@ add-on itself is gated by `demo.enabled == true`.
 
 The three options aren't related to each other beyond living in sibling
 `demo-*` namespaces. `database` creates a `Cluster` CR (CloudNativePG
-driver) or an `Instance` CR (`rds` driver, the `kustomize/provisioning`
+driver) or an `Instance` CR (`rds` driver, the `kustomize/database`
 worked example), matching `database.postgres.driver`; `static` exercises
 image-pull plus PVC plus ingress; `bookinfo` exercises a non-trivial
 multi-service upstream manifest with Pod Security Admission constraints.
@@ -57,9 +57,11 @@ flowchart LR
 ```
 
 The three sub-stacks are independent, so disabling one doesn't affect
-the others. `database` is the only one with a cross-add-on dependency —
-either `database` (CloudNativePG) or `provisioning` (Crossplane), never
-both, matching `database.postgres.driver`.
+the others. `database` is the only one with a cross-add-on dependency, on
+the `database` add-on itself — its CloudNativePG install tier for the
+`cloudnativepg` driver, or its Crossplane-driver resources tier (the
+`ProviderConfig` a chart's `Instance`/`FlexibleServer`/`DatabaseInstance`
+CR needs) for the other three, matching `database.postgres.driver`.
 
 ## Recipes
 
@@ -104,17 +106,18 @@ instances against the default StorageClass.
 ```yaml
 - name: demo
   path: demo
-  dependsOn: [provisioning]
+  dependsOn: [database]
   components: [database, database/rds]
   substitutions:
     cluster_name: cluster-<context-id>
     aws_region: us-east-2
 ```
 
-Requires the `provisioning` add-on (`database.postgres.driver: rds`,
-AWS-only). The Instance CR creates one `db.t4g.micro` Postgres instance
-against the `<cluster-name>-crossplane-rds` DB subnet group Terraform
-provisions.
+Requires the `database` add-on (`database.postgres.driver: rds`,
+AWS-only), which also brings in the Crossplane engine and
+`provider-aws-rds` from the `provisioning` add-on. The Instance CR
+creates one `db.t4g.micro` Postgres instance against the
+`<cluster-name>-crossplane-rds` DB subnet group Terraform provisions.
 
 <!-- BEGIN_KUSTOMIZE_DOCS -->
 
@@ -139,9 +142,9 @@ provisions.
 |---|---|---|
 | `database` | `demo.resources.database: true` | Creates the `demo-database` namespace. Always paired with a driver variant below. |
 | `database/cloudnativepg` | `demo.resources.database: true` AND `database.postgres.driver == 'cloudnativepg'` | A `Cluster` CR `demo-cluster` (2 instances, 100 max_connections, 1Gi PVC, PodMonitor enabled). Requires the `database` add-on so the CloudNativePG operator can reconcile the CR. |
-| `database/rds` | `demo.resources.database: true` AND `database.postgres.driver == 'rds'` | An `rds.aws.upbound.io/v1beta3` `Instance` CR `demo-db` (db.t4g.micro, 20Gi, AWS-managed master password, network-scoped to the cluster's own security group) — just the database definition, no provider wiring, no RBAC, no CronJob of its own. The application credential (`demo_app`, owner of the `demo` database, via `crossplane/aws-rds/app-role`, wired into this facet's own `demo-app-role` flux entry) is opt-in per chart; monitoring (`demo_monitor`/`postgres_exporter`) is automatic for every `Instance`, provisioned by `kustomize/provisioning`'s Kyverno `generate` policies — nothing here wires it in. |
-| `database/flexibleserver` | `demo.resources.database: true` AND `database.postgres.driver == 'flexibleserver'` | A `dbforpostgresql.azure.upbound.io/v1beta1` `FlexibleServer` CR `demo-db` (B_Standard_B1ms, 32Gi, Crossplane-generated admin password, VNet-integrated with no public access) plus a `FlexibleServerDatabase` CR `demo` — just the database definition, no provider wiring, no RBAC, no CronJob of its own. The application credential (`demo_app`, owner of the `demo` database, via `crossplane/azure-postgres/app-role`, wired into this facet's own `demo-app-role` flux entry) is opt-in per chart; monitoring (`demo-db_monitor`/`postgres_exporter`) is automatic for every `FlexibleServer`, provisioned by `kustomize/provisioning`'s Kyverno `generate` policies — nothing here wires it in. |
-| `database/cloudsql` | `demo.resources.database: true` AND `database.postgres.driver == 'cloudsql'` | A `sql.gcp.upbound.io/v1beta2` `DatabaseInstance` CR `demo-db` (db-f1-micro, private IP only, Terraform-generated admin password) plus a `User` CR reading that password and a `Database` CR `demo` — just the database definition, no provider wiring, no RBAC, no CronJob of its own. The application credential (`demo_app`, owner of the `demo` database, via `crossplane/gcp-cloudsql/app-role`, wired into this facet's own `demo-app-role` flux entry) is opt-in per chart; monitoring (`demo-db_monitor`/`postgres_exporter`) is automatic for every `DatabaseInstance`, provisioned by `kustomize/provisioning`'s Kyverno `generate` policies — nothing here wires it in. |
+| `database/rds` | `demo.resources.database: true` AND `database.postgres.driver == 'rds'` | An `rds.aws.upbound.io/v1beta3` `Instance` CR `demo-db` (db.t4g.micro, 20Gi, Crossplane-generated admin password, network-scoped to the cluster's own security group) — just the database definition, no provider wiring, no RBAC, no CronJob of its own. The application credential (`demo_app`, owner of the `demo` database, via `crossplane/postgres/_shared/app-role`, wired into this facet's own `demo-app-role` flux entry) is opt-in per chart; monitoring (`demo_monitor`/`postgres_exporter`) is automatic for every `Instance`, provisioned by `kustomize/database`'s Kyverno `generate` policies — nothing here wires it in. |
+| `database/flexibleserver` | `demo.resources.database: true` AND `database.postgres.driver == 'flexibleserver'` | A `dbforpostgresql.azure.upbound.io/v1beta1` `FlexibleServer` CR `demo-db` (B_Standard_B1ms, 32Gi, Crossplane-generated admin password, VNet-integrated with no public access) plus a `FlexibleServerDatabase` CR `demo` — just the database definition, no provider wiring, no RBAC, no CronJob of its own. The application credential (`demo_app`, owner of the `demo` database, via `crossplane/postgres/_shared/app-role`, wired into this facet's own `demo-app-role` flux entry) is opt-in per chart; monitoring (`demo-db_monitor`/`postgres_exporter`) is automatic for every `FlexibleServer`, provisioned by `kustomize/database`'s Kyverno `generate` policies — nothing here wires it in. |
+| `database/cloudsql` | `demo.resources.database: true` AND `database.postgres.driver == 'cloudsql'` | A `sql.gcp.upbound.io/v1beta2` `DatabaseInstance` CR `demo-db` (db-f1-micro, private IP only, Terraform-generated admin password) plus a `User` CR reading that password and a `Database` CR `demo` — just the database definition, no provider wiring, no RBAC, no CronJob of its own. The application credential (`demo_app`, owner of the `demo` database, via `crossplane/postgres/_shared/app-role`, wired into this facet's own `demo-app-role` flux entry) is opt-in per chart; monitoring (`demo-db_monitor`/`postgres_exporter`) is automatic for every `DatabaseInstance`, provisioned by `kustomize/database`'s Kyverno `generate` policies — nothing here wires it in. |
 | `static` | `demo.resources.static: true` | Creates the `demo-static` namespace (PSA `restricted`) with a `website` Deployment pulling `${REGISTRY_URL}/demo:1.0.6`, a Service, a 100Mi ReadWriteOnce PVC named `content`, and an Ingress. |
 | `bookinfo` | `demo.resources.bookinfo: true` | Pulls the upstream Istio bookinfo sample at tag `1.22.8` into `demo-bookinfo` (PSA `restricted`) and applies SecurityContext patches to the four Deployments (productpage, details, ratings, reviews) so the upstream manifests satisfy the namespace's PSA. |
 | `bookinfo/gateway` | `demo.resources.bookinfo: true` AND `gateway.enabled: true` | HTTPRoute exposing productpage at `bookinfo.${external_domain}` through the cluster Gateway. Skipped on clusters without Gateway API. |

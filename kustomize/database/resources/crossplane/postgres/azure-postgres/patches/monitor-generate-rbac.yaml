@@ -1,0 +1,6 @@
+- op: replace
+  path: /rules/1/apiGroups/0
+  value: dbforpostgresql.azure.upbound.io
+- op: replace
+  path: /rules/1/resources/0
+  value: flexibleservers

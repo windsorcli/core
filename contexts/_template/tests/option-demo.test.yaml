@@ -83,7 +83,7 @@ cases:
         - name: demo
           path: demo
           dependsOn:
-            - provisioning-resources
+            - database-resources-rds
           resources:
             - timeout: 30m
               interval: 5m
@@ -101,26 +101,22 @@ cases:
                   kind: Instance
                   current: status.conditions.exists(e, e.type == 'Ready' && e.status == 'True')
         - name: demo-app-role
-          path: provisioning
+          path: database
           dependsOn:
             - demo-resources
           resources:
-            - timeout: 5m
+            - timeout: 10m
               interval: 5m
               components:
-                - crossplane/aws-rds/app-role
+                - crossplane/postgres/aws-rds/app-role
               substitutions:
                 pg_instance_name: demo-db
                 pg_database_name: demo
                 pg_target_namespace: demo-database
-                pg_grant_sql: ""
               healthCheckExprs:
-                - apiVersion: batch/v1
-                  kind: Job
-                  current: status.conditions.exists(e, e.type == 'Complete' && e.status == 'True')
-    exclude:
-      flux:
-        - name: database
+                - apiVersion: postgresql.sql.crossplane.io/v1alpha1
+                  kind: Role
+                  current: status.conditions.exists(e, e.type == 'Synced' && e.status == 'True')
 
   - name: demo mode with flexibleserver driver creates demo flexibleserver instance
     values:
@@ -147,7 +143,7 @@ cases:
         - name: demo
           path: demo
           dependsOn:
-            - provisioning-resources
+            - database-resources-flexibleserver
           resources:
             - timeout: 30m
               interval: 5m
@@ -163,22 +159,18 @@ cases:
                   kind: FlexibleServer
                   current: status.conditions.exists(e, e.type == 'Ready' && e.status == 'True')
         - name: demo-app-role
-          path: provisioning
+          path: database
           dependsOn:
             - demo-resources
           resources:
-            - timeout: 5m
+            - timeout: 10m
               interval: 5m
               components:
-                - crossplane/azure-postgres/app-role
+                - crossplane/postgres/azure-postgres/app-role
               substitutions:
                 pg_instance_name: demo-db
                 pg_database_name: demo
                 pg_target_namespace: demo-database
-                pg_grant_sql: ""
-    exclude:
-      flux:
-        - name: database
 
   # cloudsql driver: creates a DatabaseInstance + User + Database CR trio.
   # GCP twin of the rds/flexibleserver cases above. network_id/kms_key_name
@@ -210,7 +202,7 @@ cases:
         - name: demo
           path: demo
           dependsOn:
-            - provisioning-resources
+            - database-resources-cloudsql
           resources:
             - timeout: 30m
               interval: 5m
@@ -226,22 +218,18 @@ cases:
                   kind: DatabaseInstance
                   current: status.conditions.exists(e, e.type == 'Ready' && e.status == 'True')
         - name: demo-app-role
-          path: provisioning
+          path: database
           dependsOn:
             - demo-resources
           resources:
-            - timeout: 5m
+            - timeout: 10m
               interval: 5m
               components:
-                - crossplane/gcp-cloudsql/app-role
+                - crossplane/postgres/gcp-cloudsql/app-role
               substitutions:
                 pg_instance_name: demo-db
                 pg_database_name: demo
                 pg_target_namespace: demo-database
-                pg_grant_sql: ""
-    exclude:
-      flux:
-        - name: database
 
   # cloudsql's admin credential Secret is declared here (the instance name is
   # demo-specific) but the terraform component itself lives in

@@ -1,0 +1,26 @@
+apiVersion: kustomize.config.k8s.io/v1alpha1
+kind: Component
+
+# RDS's CRD identity and status field names for the shared
+# ../../_shared/app-role component.
+
+components:
+  - ../../_shared/app-role
+
+configMapGenerator:
+  - name: ${pg_instance_name}-app-role-driver-config
+    literals:
+      - PG_CRD_GROUP=rds.aws.upbound.io
+      - PG_CRD_RESOURCE=instances
+      - PG_CRD_KIND_LOWER=instance
+      - PG_CRD_KIND=Instance
+      - PG_ENDPOINT_FIELD=address
+      - PG_USERNAME_FROM_SECRET=false
+      - PG_USERNAME_FIELD=username
+    options:
+      disableNameSuffixHash: true
+
+patches:
+  - path: patches/rbac.yaml
+    target:
+      kind: ClusterRole

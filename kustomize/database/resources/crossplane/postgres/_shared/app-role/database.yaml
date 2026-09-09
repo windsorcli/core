@@ -1,0 +1,13 @@
+---
+# Adopts the database each driver's own instance component already
+# created, and reconciles its owner to the Role above.
+apiVersion: postgresql.sql.crossplane.io/v1alpha1
+kind: Database
+metadata:
+  name: ${pg_database_name}
+spec:
+  deletionPolicy: Orphan
+  providerConfigRef:
+    name: provider-sql-${pg_instance_name}
+  ownerRef:
+    name: ${pg_database_name}-app

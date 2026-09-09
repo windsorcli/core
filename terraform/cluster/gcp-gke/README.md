@@ -58,7 +58,7 @@ done
   `roles/editor` grants. This is a GKE-specific guard against RBAC
   privilege escalation, on top of standard Kubernetes RBAC.
 - `roles/resourcemanager.projectIamAdmin`, `roles/iam.serviceAccountAdmin` —
-  the IAM bindings `provisioning/crossplane-identity-gcp` creates.
+  the IAM bindings `provisioning/crossplane-identity/gcp` creates.
 
 `kubectl`/client-go authentication against a GKE cluster needs the
 `gke-gcloud-auth-plugin` binary, not bundled with a base `gcloud` install:

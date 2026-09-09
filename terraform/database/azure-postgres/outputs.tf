@@ -8,7 +8,7 @@ output "resource_group_name" {
 }
 
 output "resource_group_id" {
-  description = "ID of the dedicated resource group, for scoping crossplane-identity-azure's role assignment."
+  description = "ID of the dedicated resource group, for scoping provisioning/crossplane-identity/azure's role assignment."
   value       = azurerm_resource_group.postgres.id
 }
 

@@ -61,6 +61,6 @@ No modules.
 | <a name="output_flexibleserver_cmk_identity_id"></a> [flexibleserver\_cmk\_identity\_id](#output\_flexibleserver\_cmk\_identity\_id) | ID of the user-assigned identity Flexible Server's own identity block references to read the CMK. Null when using platform-managed encryption or a BYOK key (the operator's own identity already has access to that key). |
 | <a name="output_key_vault_key_id"></a> [key\_vault\_key\_id](#output\_key\_vault\_key\_id) | Versionless Key Vault key ID for Flexible Server storage encryption. Null when using platform-managed encryption. |
 | <a name="output_private_dns_zone_id"></a> [private\_dns\_zone\_id](#output\_private\_dns\_zone\_id) | ID of the private DNS zone Flexible Server's VNet-integrated mode resolves names against. |
-| <a name="output_resource_group_id"></a> [resource\_group\_id](#output\_resource\_group\_id) | ID of the dedicated resource group, for scoping crossplane-identity-azure's role assignment. |
+| <a name="output_resource_group_id"></a> [resource\_group\_id](#output\_resource\_group\_id) | ID of the dedicated resource group, for scoping provisioning/crossplane-identity/azure's role assignment. |
 | <a name="output_resource_group_name"></a> [resource\_group\_name](#output\_resource\_group\_name) | Name of the dedicated resource group every Flexible Server in this context is created in. |
 <!-- END_TF_DOCS -->

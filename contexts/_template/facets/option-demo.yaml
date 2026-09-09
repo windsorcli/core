@@ -56,7 +56,7 @@ flux:
     path: demo
     when: demo.resources.database == true && database.postgres.driver == 'rds'
     dependsOn:
-      - provisioning-resources
+      - database-resources-rds
     resources:
       - components:
           - database
@@ -84,7 +84,7 @@ flux:
     path: demo
     when: demo.resources.database == true && database.postgres.driver == 'flexibleserver'
     dependsOn:
-      - provisioning-resources
+      - database-resources-flexibleserver
     resources:
       - components:
           - database
@@ -110,7 +110,7 @@ flux:
     path: demo
     when: demo.resources.database == true && database.postgres.driver == 'cloudsql'
     dependsOn:
-      - provisioning-resources
+      - database-resources-cloudsql
     resources:
       - components:
           - database
@@ -133,71 +133,66 @@ flux:
   # Application credential for demo-db. Depends on demo-resources for
   # namespace-before-RBAC ordering.
   - name: demo-app-role
-    path: provisioning
+    path: database
     when: demo.resources.database == true && database.postgres.driver == 'rds'
     dependsOn:
       - demo-resources
     resources:
       - components:
-          - crossplane/aws-rds/app-role
+          - crossplane/postgres/aws-rds/app-role
         substitutions:
           pg_instance_name: demo-db
           pg_database_name: "${demo_database_name}"
           pg_target_namespace: demo-database
-          # Ownership already covers everything the demo needs; no extra
-          # grants to layer on.
-          pg_grant_sql: ""
         healthCheckExprs:
-          # Gated on the Job's Complete condition, not its apply.
-          - apiVersion: batch/v1
-            kind: Job
-            current: status.conditions.exists(e, e.type == 'Complete' && e.status == 'True')
-        timeout: 5m
+          # Gated on the Role's own Synced condition, not its apply.
+          - apiVersion: postgresql.sql.crossplane.io/v1alpha1
+            kind: Role
+            current: status.conditions.exists(e, e.type == 'Synced' && e.status == 'True')
+        timeout: 10m
         interval: 5m
 
   # Application credential for demo-db — Azure twin of the rds entry above.
   - name: demo-app-role
-    path: provisioning
+    path: database
     when: demo.resources.database == true && database.postgres.driver == 'flexibleserver'
     dependsOn:
       - demo-resources
     resources:
       - components:
-          - crossplane/azure-postgres/app-role
+          - crossplane/postgres/azure-postgres/app-role
         substitutions:
           pg_instance_name: demo-db
           pg_database_name: "${demo_database_name}"
           pg_target_namespace: demo-database
-          pg_grant_sql: ""
         healthCheckExprs:
-          # Gated on the Job's Complete condition, not its apply.
-          - apiVersion: batch/v1
-            kind: Job
-            current: status.conditions.exists(e, e.type == 'Complete' && e.status == 'True')
-        timeout: 5m
+          # Gated on the Role's own Synced condition, not its apply.
+          - apiVersion: postgresql.sql.crossplane.io/v1alpha1
+            kind: Role
+            current: status.conditions.exists(e, e.type == 'Synced' && e.status == 'True')
+        timeout: 10m
         interval: 5m
 
   # Application credential for demo-db — GCP twin of the rds/flexibleserver
   # entries above.
   - name: demo-app-role
-    path: provisioning
+    path: database
     when: demo.resources.database == true && database.postgres.driver == 'cloudsql'
     dependsOn:
       - demo-resources
     resources:
       - components:
-          - crossplane/gcp-cloudsql/app-role
+          - crossplane/postgres/gcp-cloudsql/app-role
         substitutions:
           pg_instance_name: demo-db
           pg_database_name: "${demo_database_name}"
           pg_target_namespace: demo-database
-          pg_grant_sql: ""
         healthCheckExprs:
-          # Gated on the Job's Complete condition, not its apply.
-          - apiVersion: batch/v1
-            kind: Job
-            current: status.conditions.exists(e, e.type == 'Complete' && e.status == 'True')
-        timeout: 5m
+          # Gated on the Role's own Synced condition, not its apply.
+          - apiVersion: postgresql.sql.crossplane.io/v1alpha1
+            kind: Role
+            current: status.conditions.exists(e, e.type == 'Synced' && e.status == 'True')
+        timeout: 10m
         interval: 5m
 
   # static and bookinfo carry no database dependency.

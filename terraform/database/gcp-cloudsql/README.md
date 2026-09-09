@@ -53,7 +53,7 @@ No modules.
 | [google_kms_crypto_key_iam_member.cloudsql](https://registry.terraform.io/providers/hashicorp/google/8.1.0/docs/resources/kms_crypto_key_iam_member) | resource |
 | [google_kms_key_ring.cloudsql](https://registry.terraform.io/providers/hashicorp/google/8.1.0/docs/resources/kms_key_ring) | resource |
 | [google_service_networking_connection.cloudsql](https://registry.terraform.io/providers/hashicorp/google/8.1.0/docs/resources/service_networking_connection) | resource |
-| [kubernetes_namespace_v1.system_provisioning](https://registry.terraform.io/providers/hashicorp/kubernetes/latest/docs/resources/namespace_v1) | resource |
+| [kubernetes_namespace_v1.system_database](https://registry.terraform.io/providers/hashicorp/kubernetes/latest/docs/resources/namespace_v1) | resource |
 | [kubernetes_secret_v1.admin_credentials](https://registry.terraform.io/providers/hashicorp/kubernetes/latest/docs/resources/secret_v1) | resource |
 | [random_password.admin](https://registry.terraform.io/providers/hashicorp/random/latest/docs/resources/password) | resource |
 
@@ -61,7 +61,7 @@ No modules.
 
 | Name | Description | Type | Default | Required |
 |------|-------------|------|---------|:--------:|
-| <a name="input_admin_credentials"></a> [admin\_credentials](#input\_admin\_credentials) | Admin credential Secrets to create, keyed by Cloud SQL instance name. Each entry generates a random password and writes it to <key>-admin-credentials in system-provisioning, the fixed name a chart's User CR reads via passwordSecretRef. | <pre>map(object({<br/>    username = string<br/>  }))</pre> | `{}` | no |
+| <a name="input_admin_credentials"></a> [admin\_credentials](#input\_admin\_credentials) | Admin credential Secrets to create, keyed by Cloud SQL instance name. Each entry generates a random password and writes it to <key>-admin-credentials in system-database, the fixed name a chart's User CR reads via passwordSecretRef. | <pre>map(object({<br/>    username = string<br/>  }))</pre> | `{}` | no |
 | <a name="input_context_id"></a> [context\_id](#input\_context\_id) | The windsor context id for this deployment | `string` | `""` | no |
 | <a name="input_kms_key_name"></a> [kms\_key\_name](#input\_kms\_key\_name) | Existing KMS CryptoKey resource name for Cloud SQL storage encryption. Set to use a key you already manage instead of one this module creates. | `string` | `""` | no |
 | <a name="input_manage_encryption_key"></a> [manage\_encryption\_key](#input\_manage\_encryption\_key) | Whether to create a dedicated KMS key ring and key for Cloud SQL storage encryption. False falls back to Cloud SQL's platform-managed encryption. | `bool` | `true` | no |

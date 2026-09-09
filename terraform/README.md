@@ -51,9 +51,9 @@ layer. Links from there land here.
 | [network/azure-vnet](network/azure-vnet/) | VNet + subnets for AKS. |
 | [network/gcp-vpc](network/gcp-vpc/) | VPC, subnets, and firewall rules for GKE. |
 | [pki/ca](pki/ca/) | Root CA generation (or BYO passthrough) for the private-CA add-on and Talos apiserver OIDC trust. |
-| [provisioning/crossplane-iam](provisioning/crossplane-iam/) | IAM and Pod Identity for Crossplane's AWS provider pods. |
-| [provisioning/crossplane-identity-azure](provisioning/crossplane-identity-azure/) | Workload Identity and RBAC for Crossplane's Azure provider pods. |
-| [provisioning/crossplane-identity-gcp](provisioning/crossplane-identity-gcp/) | Workload Identity Federation for Crossplane's GCP provider pods. |
+| [provisioning/crossplane-identity/aws](provisioning/crossplane-identity/aws/) | IAM and Pod Identity for Crossplane's AWS provider pods. |
+| [provisioning/crossplane-identity/azure](provisioning/crossplane-identity/azure/) | Workload Identity and RBAC for Crossplane's Azure provider pods. |
+| [provisioning/crossplane-identity/gcp](provisioning/crossplane-identity/gcp/) | Workload Identity Federation for Crossplane's GCP provider pods. |
 | [workstation](workstation/) | Local-host networking, registry, and DNS for developer clusters. |
 | [workstation/docker](workstation/docker/) | Local-host Docker network + registry. |
 | [workstation/incus](workstation/incus/) | Local-host Incus bridge + registry. |

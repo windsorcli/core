@@ -1,0 +1,6 @@
+- op: replace
+  path: /rules/1/apiGroups/0
+  value: sql.gcp.upbound.io
+- op: replace
+  path: /rules/1/resources/0
+  value: databaseinstances
