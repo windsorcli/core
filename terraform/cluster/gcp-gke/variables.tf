@@ -221,6 +221,14 @@ variable "pools" {
     condition     = alltrue([for k, v in var.pools : can(regex("^[a-z][-a-z0-9]{0,39}$", k))])
     error_message = "Each pool name (map key) must be 1-40 characters, lowercase alphanumeric and hyphens, and begin with a letter (GKE node pool naming rule)."
   }
+
+  # pools_resolved (main.tf) names each machine-type fallback
+  # "<pool>-alt<N>" — a pool name matching that pattern would collide with
+  # a generated fallback key and get silently overwritten by merge().
+  validation {
+    condition     = alltrue([for k, v in var.pools : !can(regex("-alt[0-9]+$", k))])
+    error_message = "Pool names may not end in \"-alt<N>\" (e.g. general-alt1) — that suffix is reserved for machine-type fallback pools generated from class_machine_types."
+  }
 }
 
 variable "class_machine_types" {

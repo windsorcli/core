@@ -424,6 +424,28 @@ run "pools_invalid_name_rejected" {
   }
 }
 
+# A pool named like a generated machine-type fallback key would collide
+# with pools_resolved's own "<pool>-alt<N>" naming in main.tf.
+run "pools_alt_suffix_name_rejected" {
+  command = plan
+  expect_failures = [
+    var.pools,
+  ]
+  variables {
+    context_id     = "test"
+    project_id     = "test-project"
+    network_id     = "projects/test-project/global/networks/network-test"
+    subnetwork_id  = "projects/test-project/regions/us-central1/subnetworks/private-test"
+    node_locations = ["us-central1-a"]
+    pools = {
+      "general-alt1" = {
+        class = "general"
+        count = 1
+      }
+    }
+  }
+}
+
 # cert-manager identity is off by default and external-dns is on, matching
 # the AKS/EKS facets' defaults.
 run "workload_identity_defaults" {
