@@ -73,14 +73,14 @@ gcloud components install gke-gcloud-auth-plugin
 | Name | Version |
 |------|---------|
 | <a name="requirement_terraform"></a> [terraform](#requirement\_terraform) | >= 1.12.2 |
-| <a name="requirement_google"></a> [google](#requirement\_google) | 8.1.0 |
+| <a name="requirement_google"></a> [google](#requirement\_google) | 8.2.0 |
 | <a name="requirement_null"></a> [null](#requirement\_null) | ~> 3.2 |
 
 ## Providers
 
 | Name | Version |
 |------|---------|
-| <a name="provider_google"></a> [google](#provider\_google) | 8.1.0 |
+| <a name="provider_google"></a> [google](#provider\_google) | 8.2.0 |
 | <a name="provider_null"></a> [null](#provider\_null) | 3.3.1 |
 
 ## Modules
@@ -91,17 +91,17 @@ No modules.
 
 | Name | Type |
 |------|------|
-| [google_container_cluster.this](https://registry.terraform.io/providers/hashicorp/google/8.1.0/docs/resources/container_cluster) | resource |
-| [google_container_node_pool.pools](https://registry.terraform.io/providers/hashicorp/google/8.1.0/docs/resources/container_node_pool) | resource |
-| [google_container_node_pool.system](https://registry.terraform.io/providers/hashicorp/google/8.1.0/docs/resources/container_node_pool) | resource |
-| [google_dns_managed_zone_iam_member.cert_manager_dns](https://registry.terraform.io/providers/hashicorp/google/8.1.0/docs/resources/dns_managed_zone_iam_member) | resource |
-| [google_dns_managed_zone_iam_member.external_dns_dns](https://registry.terraform.io/providers/hashicorp/google/8.1.0/docs/resources/dns_managed_zone_iam_member) | resource |
-| [google_project_iam_member.cert_manager_dns_list](https://registry.terraform.io/providers/hashicorp/google/8.1.0/docs/resources/project_iam_member) | resource |
-| [google_project_iam_member.external_dns_dns_list](https://registry.terraform.io/providers/hashicorp/google/8.1.0/docs/resources/project_iam_member) | resource |
-| [google_service_account.cert_manager](https://registry.terraform.io/providers/hashicorp/google/8.1.0/docs/resources/service_account) | resource |
-| [google_service_account.external_dns](https://registry.terraform.io/providers/hashicorp/google/8.1.0/docs/resources/service_account) | resource |
-| [google_service_account_iam_member.cert_manager_workload_identity](https://registry.terraform.io/providers/hashicorp/google/8.1.0/docs/resources/service_account_iam_member) | resource |
-| [google_service_account_iam_member.external_dns_workload_identity](https://registry.terraform.io/providers/hashicorp/google/8.1.0/docs/resources/service_account_iam_member) | resource |
+| [google_container_cluster.this](https://registry.terraform.io/providers/hashicorp/google/8.2.0/docs/resources/container_cluster) | resource |
+| [google_container_node_pool.pools](https://registry.terraform.io/providers/hashicorp/google/8.2.0/docs/resources/container_node_pool) | resource |
+| [google_container_node_pool.system](https://registry.terraform.io/providers/hashicorp/google/8.2.0/docs/resources/container_node_pool) | resource |
+| [google_dns_managed_zone_iam_member.cert_manager_dns](https://registry.terraform.io/providers/hashicorp/google/8.2.0/docs/resources/dns_managed_zone_iam_member) | resource |
+| [google_dns_managed_zone_iam_member.external_dns_dns](https://registry.terraform.io/providers/hashicorp/google/8.2.0/docs/resources/dns_managed_zone_iam_member) | resource |
+| [google_project_iam_member.cert_manager_dns_list](https://registry.terraform.io/providers/hashicorp/google/8.2.0/docs/resources/project_iam_member) | resource |
+| [google_project_iam_member.external_dns_dns_list](https://registry.terraform.io/providers/hashicorp/google/8.2.0/docs/resources/project_iam_member) | resource |
+| [google_service_account.cert_manager](https://registry.terraform.io/providers/hashicorp/google/8.2.0/docs/resources/service_account) | resource |
+| [google_service_account.external_dns](https://registry.terraform.io/providers/hashicorp/google/8.2.0/docs/resources/service_account) | resource |
+| [google_service_account_iam_member.cert_manager_workload_identity](https://registry.terraform.io/providers/hashicorp/google/8.2.0/docs/resources/service_account_iam_member) | resource |
+| [google_service_account_iam_member.external_dns_workload_identity](https://registry.terraform.io/providers/hashicorp/google/8.2.0/docs/resources/service_account_iam_member) | resource |
 | [null_resource.kubeconfig](https://registry.terraform.io/providers/hashicorp/null/latest/docs/resources/resource) | resource |
 
 ## Inputs
@@ -110,7 +110,7 @@ No modules.
 |------|-------------|------|---------|:--------:|
 | <a name="input_authorized_networks"></a> [authorized\_networks](#input\_authorized\_networks) | CIDR blocks allowed to reach the control plane's public endpoint | `list(string)` | <pre>[<br/>  "0.0.0.0/0"<br/>]</pre> | no |
 | <a name="input_cert_manager_dns_zone_names"></a> [cert\_manager\_dns\_zone\_names](#input\_cert\_manager\_dns\_zone\_names) | Names of the Cloud DNS managed zones cert-manager is allowed to write ACME challenge records to. The roles/dns.admin grant is scoped to these zones — leave empty when create\_cert\_manager\_identity is false. | `list(string)` | `[]` | no |
-| <a name="input_class_machine_types"></a> [class\_machine\_types](#input\_class\_machine\_types) | Default GCE machine type list per portable pool class. Only the first entry is used; remaining entries document an operator preference order. A pool's explicit instance\_types overrides this map. When overriding this variable, all seven class keys must be supplied — partial overrides are rejected at validate time. GCP has no leaner-memory-ratio compute family the way AWS (c6i) and Azure (Fsv2) do — C2 stays near N2's 4GB/vCPU ratio, differing instead in sustained clock speed. GCP also has no fixed storage-optimized machine family; class: storage resolves to a general-purpose machine with no local SSD attached, unlike AWS (i3/i4i) and Azure (Lsv3). | `map(list(string))` | <pre>{<br/>  "arm64": [<br/>    "t2a-standard-4",<br/>    "t2a-standard-8"<br/>  ],<br/>  "compute": [<br/>    "c2-standard-4",<br/>    "c2-standard-8",<br/>    "c2-standard-16"<br/>  ],<br/>  "general": [<br/>    "n2-standard-4",<br/>    "n2-standard-8"<br/>  ],<br/>  "gpu": [<br/>    "g2-standard-4",<br/>    "g2-standard-8"<br/>  ],<br/>  "memory": [<br/>    "n2-highmem-4",<br/>    "n2-highmem-8"<br/>  ],<br/>  "storage": [<br/>    "n2-standard-8",<br/>    "n2-standard-16"<br/>  ],<br/>  "system": [<br/>    "n2-standard-2",<br/>    "n2-standard-4"<br/>  ]<br/>}</pre> | no |
+| <a name="input_class_machine_types"></a> [class\_machine\_types](#input\_class\_machine\_types) | GCE machine type list per portable pool class, in fallback order. An autoscaling pool creates one node pool per entry, falling over to the next on a capacity failure; a fixed-count pool only uses the first. A pool's explicit instance\_types overrides this map with the same semantics. Overriding requires all seven class keys — partial overrides are rejected at validate time. | `map(list(string))` | <pre>{<br/>  "arm64": [<br/>    "t2a-standard-4",<br/>    "t2a-standard-8"<br/>  ],<br/>  "compute": [<br/>    "c2-standard-4",<br/>    "c2-standard-8",<br/>    "c2-standard-16"<br/>  ],<br/>  "general": [<br/>    "n2-standard-4",<br/>    "n2-standard-8"<br/>  ],<br/>  "gpu": [<br/>    "g2-standard-4",<br/>    "g2-standard-8"<br/>  ],<br/>  "memory": [<br/>    "n2-highmem-4",<br/>    "n2-highmem-8"<br/>  ],<br/>  "storage": [<br/>    "n2-standard-8",<br/>    "n2-standard-16"<br/>  ],<br/>  "system": [<br/>    "n2-standard-2",<br/>    "n2-standard-4"<br/>  ]<br/>}</pre> | no |
 | <a name="input_cluster_name"></a> [cluster\_name](#input\_cluster\_name) | Name of the GKE cluster. If not provided, a default name will be generated | `string` | `""` | no |
 | <a name="input_context_id"></a> [context\_id](#input\_context\_id) | Context ID for the resources | `string` | n/a | yes |
 | <a name="input_context_path"></a> [context\_path](#input\_context\_path) | The path to the context folder, where kubeconfig is stored | `string` | `""` | no |

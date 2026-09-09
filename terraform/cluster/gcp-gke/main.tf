@@ -204,24 +204,46 @@ locals {
     }
   }
 
-  pools_resolved = {
-    for name, p in local.effective_pools : name => {
-      machine_type = (try(length(p.instance_types), 0) > 0
-        ? p.instance_types[0]
-      : lookup(var.class_machine_types, p.class, [""])[0])
-      spot                = p.lifecycle == "spot"
-      node_count          = p.count
-      autoscaling_enabled = local.pools_autoscaling[name].enabled
-      min_count           = local.pools_autoscaling[name].enabled ? coalesce(local.pools_autoscaling[name].min, min(p.count, 1)) : null
-      max_count           = local.pools_autoscaling[name].enabled ? coalesce(local.pools_autoscaling[name].max, max(p.count, 3)) : null
-      disk_size_gb        = coalesce(p.root_disk_size, 100)
-      labels = merge(p.labels, {
-        "windsorcli.dev/pool"       = name
-        "windsorcli.dev/pool-class" = p.class
-      })
-      taints = p.taints
-    }
+  # Machine type candidates per pool, in fallback order: an explicit
+  # instance_types override if set, else the pool's class list.
+  pools_machine_types = {
+    for name, p in local.effective_pools : name => (
+      try(length(p.instance_types), 0) > 0
+      ? p.instance_types
+      : lookup(var.class_machine_types, p.class, [""])
+    )
   }
+
+  # Fans each portable pool out into one GKE node pool per candidate
+  # machine type, so cluster-autoscaler falls over to an alternate type
+  # when the primary's zone/type combination hits ZONE_RESOURCE_POOL_EXHAUSTED.
+  # Only the primary (index 0) is created for a fixed-count pool with
+  # autoscaling off — there's no scale-up event to trigger a fallback, so
+  # extra types would just be redundant standing capacity. An autoscaling
+  # pool's fallbacks start at min 0 and share the primary's max, costing
+  # nothing until the primary can't be scheduled.
+  pools_resolved = merge([
+    for name, p in local.effective_pools : {
+      for idx, mtype in(
+        local.pools_autoscaling[name].enabled
+        ? local.pools_machine_types[name]
+        : slice(local.pools_machine_types[name], 0, 1)
+        ) : (idx == 0 ? name : "${name}-alt${idx}") => {
+        machine_type        = mtype
+        spot                = p.lifecycle == "spot"
+        node_count          = idx == 0 ? p.count : null
+        autoscaling_enabled = local.pools_autoscaling[name].enabled
+        min_count           = local.pools_autoscaling[name].enabled ? (idx == 0 ? coalesce(local.pools_autoscaling[name].min, min(p.count, 1)) : 0) : null
+        max_count           = local.pools_autoscaling[name].enabled ? coalesce(local.pools_autoscaling[name].max, max(p.count, 3)) : null
+        disk_size_gb        = coalesce(p.root_disk_size, 100)
+        labels = merge(p.labels, {
+          "windsorcli.dev/pool"       = name
+          "windsorcli.dev/pool-class" = p.class
+        })
+        taints = p.taints
+      }
+    }
+  ]...)
 }
 
 resource "google_container_node_pool" "pools" {

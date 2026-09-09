@@ -221,10 +221,18 @@ variable "pools" {
     condition     = alltrue([for k, v in var.pools : can(regex("^[a-z][-a-z0-9]{0,39}$", k))])
     error_message = "Each pool name (map key) must be 1-40 characters, lowercase alphanumeric and hyphens, and begin with a letter (GKE node pool naming rule)."
   }
+
+  # pools_resolved (main.tf) names each machine-type fallback
+  # "<pool>-alt<N>" — a pool name matching that pattern would collide with
+  # a generated fallback key and get silently overwritten by merge().
+  validation {
+    condition     = alltrue([for k, v in var.pools : !can(regex("-alt[0-9]+$", k))])
+    error_message = "Pool names may not end in \"-alt<N>\" (e.g. general-alt1) — that suffix is reserved for machine-type fallback pools generated from class_machine_types."
+  }
 }
 
 variable "class_machine_types" {
-  description = "Default GCE machine type list per portable pool class. Only the first entry is used; remaining entries document an operator preference order. A pool's explicit instance_types overrides this map. When overriding this variable, all seven class keys must be supplied — partial overrides are rejected at validate time. GCP has no leaner-memory-ratio compute family the way AWS (c6i) and Azure (Fsv2) do — C2 stays near N2's 4GB/vCPU ratio, differing instead in sustained clock speed. GCP also has no fixed storage-optimized machine family; class: storage resolves to a general-purpose machine with no local SSD attached, unlike AWS (i3/i4i) and Azure (Lsv3)."
+  description = "GCE machine type list per portable pool class, in fallback order. An autoscaling pool creates one node pool per entry, falling over to the next on a capacity failure; a fixed-count pool only uses the first. A pool's explicit instance_types overrides this map with the same semantics. Overriding requires all seven class keys — partial overrides are rejected at validate time."
   type        = map(list(string))
   default = {
     system  = ["n2-standard-2", "n2-standard-4"]

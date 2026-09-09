@@ -57,13 +57,23 @@ run "minimal_configuration" {
   }
 
   assert {
-    condition     = length(google_container_node_pool.pools) == 1
-    error_message = "No pools declared should fall back to one general pool"
+    condition     = length(google_container_node_pool.pools) == 2
+    error_message = "The fallback general pool should fan out across its class's two default machine types"
   }
 
   assert {
     condition     = google_container_node_pool.pools["general"].node_config[0].machine_type == "n2-standard-4"
     error_message = "The fallback general pool should resolve to the default general machine type"
+  }
+
+  assert {
+    condition     = google_container_node_pool.pools["general-alt1"].node_config[0].machine_type == "n2-standard-8"
+    error_message = "The second class default machine type should back the general pool as a fallback"
+  }
+
+  assert {
+    condition     = google_container_node_pool.pools["general-alt1"].autoscaling[0].min_node_count == 0
+    error_message = "A fallback pool should start at 0 nodes, costing nothing until the primary can't be scheduled"
   }
 
   assert {
@@ -366,6 +376,11 @@ run "pools_system_class_defaults_to_fixed" {
     condition     = google_container_node_pool.pools["ops"].node_count == 2
     error_message = "A fixed pool should set node_count directly"
   }
+
+  assert {
+    condition     = length(google_container_node_pool.pools) == 1
+    error_message = "A fixed-count pool has no scale-up event to trigger a fallback, so it should not fan out across machine types"
+  }
 }
 
 # Invalid pool class and pool name are both rejected at validate time.
@@ -402,6 +417,28 @@ run "pools_invalid_name_rejected" {
     node_locations = ["us-central1-a"]
     pools = {
       "Not_Valid" = {
+        class = "general"
+        count = 1
+      }
+    }
+  }
+}
+
+# A pool named like a generated machine-type fallback key would collide
+# with pools_resolved's own "<pool>-alt<N>" naming in main.tf.
+run "pools_alt_suffix_name_rejected" {
+  command = plan
+  expect_failures = [
+    var.pools,
+  ]
+  variables {
+    context_id     = "test"
+    project_id     = "test-project"
+    network_id     = "projects/test-project/global/networks/network-test"
+    subnetwork_id  = "projects/test-project/regions/us-central1/subnetworks/private-test"
+    node_locations = ["us-central1-a"]
+    pools = {
+      "general-alt1" = {
         class = "general"
         count = 1
       }
