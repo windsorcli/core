@@ -39,7 +39,7 @@ run "minimal_configuration" {
   }
 
   assert {
-    condition     = google_container_node_pool.system.node_config[0].taint[0].key == "CriticalAddonsOnly"
+    condition     = google_container_node_pool.system["system"].node_config[0].taint[0].key == "CriticalAddonsOnly"
     error_message = "System pool should carry the CriticalAddonsOnly taint"
   }
 
@@ -47,28 +47,48 @@ run "minimal_configuration" {
     # A fixed total (min == max) via total_*_node_count, not node_count
     # directly — node_count on this resource is per zone, which would
     # multiply the pool's size under a multi-zone node_locations.
-    condition     = google_container_node_pool.system.autoscaling[0].total_min_node_count == 1 && google_container_node_pool.system.autoscaling[0].total_max_node_count == 1
+    condition     = google_container_node_pool.system["system"].autoscaling[0].total_min_node_count == 1 && google_container_node_pool.system["system"].autoscaling[0].total_max_node_count == 1
     error_message = "System pool should start with a fixed total of 1 node"
   }
 
   assert {
-    condition     = google_container_node_pool.system.autoscaling[0].location_policy == "BALANCED"
+    condition     = google_container_node_pool.system["system"].autoscaling[0].location_policy == "BALANCED"
     error_message = "System pool should spread across its eligible zones rather than pack into whichever has capacity first"
   }
 
   assert {
-    condition     = length(google_container_node_pool.pools) == 2
-    error_message = "The fallback general pool should fan out across its class's two default machine types"
+    condition     = length(google_container_node_pool.system) == 3
+    error_message = "The system pool should fan out across its three default machine types, same as a portable pool"
   }
 
   assert {
-    condition     = google_container_node_pool.pools["general"].node_config[0].machine_type == "n2-standard-4"
+    condition     = google_container_node_pool.system["system-alt1"].node_config[0].machine_type == "n2d-standard-2"
+    error_message = "The second default machine type should back the system pool as a fallback"
+  }
+
+  assert {
+    condition     = google_container_node_pool.system["system-alt1"].autoscaling[0].total_min_node_count == 0
+    error_message = "A system pool fallback should start at 0 nodes, costing nothing until the primary can't be scheduled"
+  }
+
+  assert {
+    condition     = length(google_container_node_pool.pools) == 3
+    error_message = "The fallback general pool should fan out across its class's three default machine types"
+  }
+
+  assert {
+    condition     = google_container_node_pool.pools["general"].node_config[0].machine_type == "e2-standard-4"
     error_message = "The fallback general pool should resolve to the default general machine type"
   }
 
   assert {
-    condition     = google_container_node_pool.pools["general-alt1"].node_config[0].machine_type == "n2-standard-8"
-    error_message = "The second class default machine type should back the general pool as a fallback"
+    condition     = google_container_node_pool.pools["general-alt1"].node_config[0].machine_type == "n2d-standard-4"
+    error_message = "The second class default machine type (a separate AMD capacity pool from the primary) should back the general pool as a fallback"
+  }
+
+  assert {
+    condition     = google_container_node_pool.pools["general-alt2"].node_config[0].machine_type == "n2-standard-4"
+    error_message = "The third class default machine type should back the general pool as a last-resort fallback"
   }
 
   assert {
@@ -82,7 +102,7 @@ run "minimal_configuration" {
   }
 
   assert {
-    condition     = toset(google_container_node_pool.system.node_locations) == toset(["us-central1-a"])
+    condition     = toset(google_container_node_pool.system["system"].node_locations) == toset(["us-central1-a"])
     error_message = "System pool should stay in var.node_locations"
   }
 
@@ -109,17 +129,17 @@ run "system_node_pool_partial_override_keeps_other_defaults" {
   }
 
   assert {
-    condition     = google_container_node_pool.system.autoscaling[0].total_min_node_count == 2 && google_container_node_pool.system.autoscaling[0].total_max_node_count == 2
+    condition     = google_container_node_pool.system["system"].autoscaling[0].total_min_node_count == 2 && google_container_node_pool.system["system"].autoscaling[0].total_max_node_count == 2
     error_message = "Overriding only node_count should take effect as the fixed total"
   }
 
   assert {
-    condition     = google_container_node_pool.system.node_config[0].machine_type == "n2-standard-2"
+    condition     = google_container_node_pool.system["system"].node_config[0].machine_type == "e2-standard-2"
     error_message = "Overriding only node_count should leave machine_type at its default"
   }
 
   assert {
-    condition     = google_container_node_pool.system.node_config[0].disk_size_gb == 50
+    condition     = google_container_node_pool.system["system"].node_config[0].disk_size_gb == 50
     error_message = "Overriding only node_count should leave disk_size_gb at its default"
   }
 }
@@ -150,7 +170,7 @@ run "multi_zone_node_locations_spread_every_pool" {
   }
 
   assert {
-    condition     = toset(google_container_node_pool.system.node_locations) == toset(["us-central1-a", "us-central1-b", "us-central1-c"])
+    condition     = toset(google_container_node_pool.system["system"].node_locations) == toset(["us-central1-a", "us-central1-b", "us-central1-c"])
     error_message = "System pool should also stay eligible for every zone, not just a subset"
   }
 }
@@ -174,7 +194,7 @@ run "system_pool_total_stays_fixed_across_multiple_zones" {
   }
 
   assert {
-    condition     = google_container_node_pool.system.autoscaling[0].total_min_node_count == 2 && google_container_node_pool.system.autoscaling[0].total_max_node_count == 2
+    condition     = google_container_node_pool.system["system"].autoscaling[0].total_min_node_count == 2 && google_container_node_pool.system["system"].autoscaling[0].total_max_node_count == 2
     error_message = "System pool total should stay at 2 regardless of how many zones are eligible"
   }
 }

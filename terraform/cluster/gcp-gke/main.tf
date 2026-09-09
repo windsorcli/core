@@ -126,8 +126,25 @@ resource "google_container_cluster" "this" {
 # workloads off it, matching the inline system pool on aws-eks/azure-aks.
 #---------------------------------------------------------------------------------------------------
 
+locals {
+  # Fans system_node_pool.machine_type out into one node pool per candidate
+  # type, mirroring pools_resolved's fallback fan-out below. The primary
+  # keeps the pool's configured total; fallbacks start at total_min 0 and
+  # share the same total_max. This pool always goes through the total_*
+  # autoscaling mechanism (even when "fixed"), so every entry gets a real
+  # scale-up event for cluster-autoscaler to retry on a capacity failure.
+  system_pool_resolved = {
+    for idx, mtype in var.system_node_pool.machine_type : (idx == 0 ? "system" : "system-alt${idx}") => {
+      machine_type    = mtype
+      total_min_count = idx == 0 ? (var.system_node_pool.autoscaling_enabled ? var.system_node_pool.min_count : var.system_node_pool.node_count) : 0
+      total_max_count = var.system_node_pool.autoscaling_enabled ? var.system_node_pool.max_count : var.system_node_pool.node_count
+    }
+  }
+}
+
 resource "google_container_node_pool" "system" {
-  name           = "system"
+  for_each       = local.system_pool_resolved
+  name           = each.key
   cluster        = google_container_cluster.this.id
   location       = var.region
   node_locations = var.node_locations
@@ -143,13 +160,13 @@ resource "google_container_node_pool" "system" {
   # rebalancing. BALANCED spreads nodes across those zones instead of
   # packing them into whichever has capacity first.
   autoscaling {
-    total_min_node_count = var.system_node_pool.autoscaling_enabled ? var.system_node_pool.min_count : var.system_node_pool.node_count
-    total_max_node_count = var.system_node_pool.autoscaling_enabled ? var.system_node_pool.max_count : var.system_node_pool.node_count
+    total_min_node_count = each.value.total_min_count
+    total_max_node_count = each.value.total_max_count
     location_policy      = "BALANCED"
   }
 
   node_config {
-    machine_type = var.system_node_pool.machine_type
+    machine_type = each.value.machine_type
     disk_size_gb = var.system_node_pool.disk_size_gb
 
     workload_metadata_config {

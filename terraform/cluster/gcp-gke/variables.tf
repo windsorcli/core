@@ -106,9 +106,9 @@ variable "release_channel" {
 #---------------------------------------------------------------------------------------------------
 
 variable "system_node_pool" {
-  description = "Configuration for the system node pool. Fields default independently, so a caller can override just node_count."
+  description = "Configuration for the system node pool. Fields default independently, so a caller can override just node_count. machine_type is a fallback-ordered list, same semantics as class_machine_types: the primary keeps the pool's configured size, and each additional entry backs a fallback pool GKE's autoscaler can fall over to when the primary is out of capacity."
   type = object({
-    machine_type        = optional(string, "n2-standard-2")
+    machine_type        = optional(list(string), ["e2-standard-2", "n2d-standard-2", "n2-standard-2"])
     disk_size_gb        = optional(number, 50)
     node_count          = optional(number, 1)
     autoscaling_enabled = optional(bool, false)
@@ -116,6 +116,11 @@ variable "system_node_pool" {
     max_count           = optional(number, 3)
   })
   default = {}
+
+  validation {
+    condition     = length(var.system_node_pool.machine_type) > 0
+    error_message = "system_node_pool.machine_type must contain at least one machine type."
+  }
 }
 
 #---------------------------------------------------------------------------------------------------
@@ -235,8 +240,8 @@ variable "class_machine_types" {
   description = "GCE machine type list per portable pool class, in fallback order. An autoscaling pool creates one node pool per entry, falling over to the next on a capacity failure; a fixed-count pool only uses the first. A pool's explicit instance_types overrides this map with the same semantics. Overriding requires all seven class keys — partial overrides are rejected at validate time."
   type        = map(list(string))
   default = {
-    system  = ["n2-standard-2", "n2-standard-4"]
-    general = ["n2-standard-4", "n2-standard-8"]
+    system  = ["e2-standard-2", "n2d-standard-2", "n2-standard-2"]
+    general = ["e2-standard-4", "n2d-standard-4", "n2-standard-4"]
     compute = ["c2-standard-4", "c2-standard-8", "c2-standard-16"]
     memory  = ["n2-highmem-4", "n2-highmem-8"]
     storage = ["n2-standard-8", "n2-standard-16"]
