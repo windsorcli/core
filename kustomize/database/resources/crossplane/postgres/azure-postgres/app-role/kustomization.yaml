@@ -9,7 +9,7 @@ components:
 
 configMapGenerator:
   - name: ${pg_instance_name}-app-role-driver-config
-    namespace: ${pg_target_namespace}
+    namespace: system-database
     literals:
       - PG_CRD_GROUP=dbforpostgresql.azure.upbound.io
       - PG_CRD_RESOURCE=flexibleservers

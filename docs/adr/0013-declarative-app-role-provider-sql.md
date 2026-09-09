@@ -17,7 +17,7 @@ for `cloudsql`. Not yet verified live — see Verification needed below.
 
 A `windsor` acceptance run against `azure` failed on 2026-09-08: the
 `Setup` step hung until CI's 30-minute timeout, waiting on the
-`database-resources` Kustomization, which never went Ready.
+`demo-app-role-resources` Kustomization, which never went Ready.
 
 The support bundle traced it to a lost race. `demo-db-provision-app-role-initial`,
 the one-shot Job ADR-0009 §7 added specifically to "ensure this ran once
@@ -25,7 +25,7 @@ reliably," ran three attempts within 35 seconds and exhausted
 `backoffLimit: 2` — every attempt failed instantly, not on a timeout,
 because the admin credential Secret the provider auto-generates for
 `FlexibleServer` hadn't been written yet on the reconcile immediately
-following `Ready`. The `database-resources` Kustomization's
+following `Ready`. The `demo-app-role-resources` Kustomization's
 `healthCheckExprs` gated on that one Job's `Complete` condition, and a
 failed Job never re-runs on its own. The CronJob ADR-0009 §7 also installs
 kept retrying every 5 minutes and would have succeeded eventually. Flux

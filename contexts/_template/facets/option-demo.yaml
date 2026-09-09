@@ -130,13 +130,11 @@ flux:
         timeout: 30m
         interval: 5m
 
-  # Application credential for demo-db. Depends on demo-resources for
-  # namespace-before-RBAC ordering.
+  # Application credential for demo-db. Merges into the database system's
+  # resources tier; the Role's own Synced condition covers readiness.
   - name: database
     path: database
     when: demo.resources.database == true && database.postgres.driver == 'rds'
-    dependsOn:
-      - demo-resources
     resources:
       - components:
           - crossplane/postgres/aws-rds/app-role
@@ -156,8 +154,6 @@ flux:
   - name: database
     path: database
     when: demo.resources.database == true && database.postgres.driver == 'flexibleserver'
-    dependsOn:
-      - demo-resources
     resources:
       - components:
           - crossplane/postgres/azure-postgres/app-role
@@ -178,8 +174,6 @@ flux:
   - name: database
     path: database
     when: demo.resources.database == true && database.postgres.driver == 'cloudsql'
-    dependsOn:
-      - demo-resources
     resources:
       - components:
           - crossplane/postgres/gcp-cloudsql/app-role

@@ -105,7 +105,7 @@ behavior confirms the render is correct. Tests assert the `resources:`
 tier only for these entries; the `install:` behavior is verified against
 the CLI's own source, not the test DSL.
 
-### 4. `demo`'s and `database`'s `dependsOn`/`path` follow the move
+### 4. `demo`'s and `demo-app-role`'s `dependsOn`/`path` follow the move
 
 `option-demo.yaml`'s three driver-specific `demo` entries depended on
 `provisioning-resources`, which no longer exists as a name (the
@@ -113,7 +113,7 @@ the CLI's own source, not the test DSL.
 which render as `database-resources` — the standard `<name>-resources`
 convention, unaffected by the rename since `database` was already a name
 in use, just for a different driver each time). Updated to
-`dependsOn: [database-resources]`. The three `database` entries'
+`dependsOn: [database-resources]`. The three `demo-app-role` entries'
 `path: provisioning` becomes `path: database`, matching where
 `crossplane/{aws-rds,azure-postgres,gcp-cloudsql}/app-role` now live.
 
@@ -210,7 +210,7 @@ confirm zero unresolved placeholders and valid bash (`bash -n`,
 With both files converged, the per-driver `app-role/` subdirectories
 (`aws-rds/app-role/`, `azure-postgres/app-role/`, `gcp-cloudsql/app-role/`)
 had nothing left in them — every file they held had moved into
-`postgresql-app-role/`. Deleted; `option-demo.yaml`'s three `database`
+`postgresql-app-role/`. Deleted; `option-demo.yaml`'s three `demo-app-role`
 Flux entries reference `crossplane/postgresql-app-role` directly. The
 `pg_provider_config` substitution also dropped out entirely: every
 driver computed it identically as `provider-sql-${pg_instance_name}`, so
