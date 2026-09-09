@@ -9,5 +9,5 @@ spec:
   deletionPolicy: Orphan
   providerConfigRef:
     name: provider-sql-${pg_instance_name}
-  ownerRef:
-    name: ${pg_database_name}-app
+  forProvider:
+    owner: ${pg_database_name}-app

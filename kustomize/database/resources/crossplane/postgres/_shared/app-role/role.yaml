@@ -12,8 +12,9 @@ spec:
   deletionPolicy: Orphan
   providerConfigRef:
     name: provider-sql-${pg_instance_name}
-  privileges:
-    login: true
+  forProvider:
+    privileges:
+      login: true
   writeConnectionSecretToRef:
     name: ${pg_instance_name}-app-credentials
     namespace: ${pg_target_namespace}
