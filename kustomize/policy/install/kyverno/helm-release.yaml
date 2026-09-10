@@ -7,16 +7,19 @@ spec:
   interval: 5m
   timeout: 30m
   install:
-    remediation:
-      retries: 10
+    # No uninstall on failed install: kyverno is a globalDependency, so a wedged
+    # uninstall blocks every other install behind it.
+    strategy:
+      name: RetryOnFailure
+      retryInterval: 5m
   upgrade:
     remediation:
-      retries: 10
+      retries: 5
   chart:
     spec:
       chart: kyverno
       # renovate: datasource=helm depName=kyverno package=kyverno helmRepo=https://kyverno.github.io/kyverno/
-      version: 3.9.0
+      version: 3.9.1
       sourceRef:
         kind: HelmRepository
         name: kyverno
@@ -42,6 +45,9 @@ spec:
           tag: v1.19.0@sha256:f40718123e3eea8dc36960023e2af7a980bcc76dec24842ad8705c82f4c9172e
     # Disable ANSI color codes in logs
     admissionController:
+      # 2 replicas: no leader election on inbound webhook requests, so each
+      # adds real parallel serving capacity during startup and node drains.
+      replicas: 2
       tolerations:
         - key: CriticalAddonsOnly
           operator: Exists

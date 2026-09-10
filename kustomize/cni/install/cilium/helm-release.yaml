@@ -15,11 +15,14 @@ spec:
   storageNamespace: kube-system
   install:
     createNamespace: false
-    remediation:
-      retries: 10
+    # No uninstall on failed install: cilium is the CNI, so an uninstall
+    # mid-retry cuts pod networking cluster-wide until it reinstalls.
+    strategy:
+      name: RetryOnFailure
+      retryInterval: 5m
   upgrade:
     remediation:
-      retries: 10
+      retries: 5
   chart:
     spec:
       chart: cilium

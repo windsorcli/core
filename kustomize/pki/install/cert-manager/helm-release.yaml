@@ -8,11 +8,13 @@ spec:
   interval: 5m
   timeout: 20m
   install:
-    remediation:
-      retries: 10
+    # No uninstall on failed install: ships its own webhook gating every Certificate/Issuer platform-wide.
+    strategy:
+      name: RetryOnFailure
+      retryInterval: 5m
   upgrade:
     remediation:
-      retries: 10
+      retries: 5
   chart:
     spec:
       chart: cert-manager
