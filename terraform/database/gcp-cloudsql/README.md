@@ -25,8 +25,8 @@ identical to RDS/Flexible Server's.
 | Name | Version |
 |------|---------|
 | <a name="requirement_terraform"></a> [terraform](#requirement\_terraform) | >= 1.12.2 |
-| <a name="requirement_google"></a> [google](#requirement\_google) | 8.1.0 |
-| <a name="requirement_google-beta"></a> [google-beta](#requirement\_google-beta) | 8.1.0 |
+| <a name="requirement_google"></a> [google](#requirement\_google) | 8.2.0 |
+| <a name="requirement_google-beta"></a> [google-beta](#requirement\_google-beta) | 8.2.0 |
 | <a name="requirement_kubernetes"></a> [kubernetes](#requirement\_kubernetes) | ~> 3.2 |
 | <a name="requirement_random"></a> [random](#requirement\_random) | ~> 3.6 |
 
@@ -34,8 +34,8 @@ identical to RDS/Flexible Server's.
 
 | Name | Version |
 |------|---------|
-| <a name="provider_google"></a> [google](#provider\_google) | 8.1.0 |
-| <a name="provider_google-beta"></a> [google-beta](#provider\_google-beta) | 8.1.0 |
+| <a name="provider_google"></a> [google](#provider\_google) | 8.2.0 |
+| <a name="provider_google-beta"></a> [google-beta](#provider\_google-beta) | 8.2.0 |
 | <a name="provider_kubernetes"></a> [kubernetes](#provider\_kubernetes) | 3.2.1 |
 | <a name="provider_random"></a> [random](#provider\_random) | 3.9.0 |
 
@@ -47,12 +47,12 @@ No modules.
 
 | Name | Type |
 |------|------|
-| [google-beta_google_project_service_identity.cloudsql](https://registry.terraform.io/providers/hashicorp/google-beta/8.1.0/docs/resources/google_project_service_identity) | resource |
-| [google_compute_global_address.private_service_connection](https://registry.terraform.io/providers/hashicorp/google/8.1.0/docs/resources/compute_global_address) | resource |
-| [google_kms_crypto_key.cloudsql](https://registry.terraform.io/providers/hashicorp/google/8.1.0/docs/resources/kms_crypto_key) | resource |
-| [google_kms_crypto_key_iam_member.cloudsql](https://registry.terraform.io/providers/hashicorp/google/8.1.0/docs/resources/kms_crypto_key_iam_member) | resource |
-| [google_kms_key_ring.cloudsql](https://registry.terraform.io/providers/hashicorp/google/8.1.0/docs/resources/kms_key_ring) | resource |
-| [google_service_networking_connection.cloudsql](https://registry.terraform.io/providers/hashicorp/google/8.1.0/docs/resources/service_networking_connection) | resource |
+| [google-beta_google_project_service_identity.cloudsql](https://registry.terraform.io/providers/hashicorp/google-beta/8.2.0/docs/resources/google_project_service_identity) | resource |
+| [google_compute_global_address.private_service_connection](https://registry.terraform.io/providers/hashicorp/google/8.2.0/docs/resources/compute_global_address) | resource |
+| [google_kms_crypto_key.cloudsql](https://registry.terraform.io/providers/hashicorp/google/8.2.0/docs/resources/kms_crypto_key) | resource |
+| [google_kms_crypto_key_iam_member.cloudsql](https://registry.terraform.io/providers/hashicorp/google/8.2.0/docs/resources/kms_crypto_key_iam_member) | resource |
+| [google_kms_key_ring.cloudsql](https://registry.terraform.io/providers/hashicorp/google/8.2.0/docs/resources/kms_key_ring) | resource |
+| [google_service_networking_connection.cloudsql](https://registry.terraform.io/providers/hashicorp/google/8.2.0/docs/resources/service_networking_connection) | resource |
 | [kubernetes_namespace_v1.system_provisioning](https://registry.terraform.io/providers/hashicorp/kubernetes/latest/docs/resources/namespace_v1) | resource |
 | [kubernetes_secret_v1.admin_credentials](https://registry.terraform.io/providers/hashicorp/kubernetes/latest/docs/resources/secret_v1) | resource |
 | [random_password.admin](https://registry.terraform.io/providers/hashicorp/random/latest/docs/resources/password) | resource |

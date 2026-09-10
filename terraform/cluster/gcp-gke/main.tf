@@ -126,8 +126,27 @@ resource "google_container_cluster" "this" {
 # workloads off it, matching the inline system pool on aws-eks/azure-aks.
 #---------------------------------------------------------------------------------------------------
 
+locals {
+  # Fans system_node_pool.machine_type out into one node pool per candidate
+  # type, mirroring pools_resolved's fallback fan-out below. Fallback keys
+  # name the machine type itself rather than its list position, so
+  # reordering the list never renames an existing pool. The primary keeps
+  # the pool's configured total; fallbacks start at total_min 0 and share
+  # the same total_max. This pool always goes through the total_*
+  # autoscaling mechanism (even when "fixed"), so every entry gets a real
+  # scale-up event for cluster-autoscaler to retry on a capacity failure.
+  system_pool_resolved = {
+    for idx, mtype in var.system_node_pool.machine_type : (idx == 0 ? "system" : "system-${mtype}") => {
+      machine_type    = mtype
+      total_min_count = idx == 0 ? (var.system_node_pool.autoscaling_enabled ? var.system_node_pool.min_count : var.system_node_pool.node_count) : 0
+      total_max_count = var.system_node_pool.autoscaling_enabled ? var.system_node_pool.max_count : var.system_node_pool.node_count
+    }
+  }
+}
+
 resource "google_container_node_pool" "system" {
-  name           = "system"
+  for_each       = local.system_pool_resolved
+  name           = each.key
   cluster        = google_container_cluster.this.id
   location       = var.region
   node_locations = var.node_locations
@@ -143,13 +162,13 @@ resource "google_container_node_pool" "system" {
   # rebalancing. BALANCED spreads nodes across those zones instead of
   # packing them into whichever has capacity first.
   autoscaling {
-    total_min_node_count = var.system_node_pool.autoscaling_enabled ? var.system_node_pool.min_count : var.system_node_pool.node_count
-    total_max_node_count = var.system_node_pool.autoscaling_enabled ? var.system_node_pool.max_count : var.system_node_pool.node_count
+    total_min_node_count = each.value.total_min_count
+    total_max_node_count = each.value.total_max_count
     location_policy      = "BALANCED"
   }
 
   node_config {
-    machine_type = var.system_node_pool.machine_type
+    machine_type = each.value.machine_type
     disk_size_gb = var.system_node_pool.disk_size_gb
 
     workload_metadata_config {
@@ -217,18 +236,20 @@ locals {
   # Fans each portable pool out into one GKE node pool per candidate
   # machine type, so cluster-autoscaler falls over to an alternate type
   # when the primary's zone/type combination hits ZONE_RESOURCE_POOL_EXHAUSTED.
-  # Only the primary (index 0) is created for a fixed-count pool with
-  # autoscaling off — there's no scale-up event to trigger a fallback, so
-  # extra types would just be redundant standing capacity. An autoscaling
-  # pool's fallbacks start at min 0 and share the primary's max, costing
-  # nothing until the primary can't be scheduled.
+  # Fallback keys name the machine type itself rather than its list
+  # position, so reordering class_machine_types never renames an existing
+  # pool. Only the primary (index 0) is created for a fixed-count pool
+  # with autoscaling off — there's no scale-up event to trigger a
+  # fallback, so extra types would just be redundant standing capacity.
+  # An autoscaling pool's fallbacks start at min 0 and share the
+  # primary's max, costing nothing until the primary can't be scheduled.
   pools_resolved = merge([
     for name, p in local.effective_pools : {
       for idx, mtype in(
         local.pools_autoscaling[name].enabled
         ? local.pools_machine_types[name]
         : slice(local.pools_machine_types[name], 0, 1)
-        ) : (idx == 0 ? name : "${name}-alt${idx}") => {
+        ) : (idx == 0 ? name : "${name}-${mtype}") => {
         machine_type        = mtype
         spot                = p.lifecycle == "spot"
         node_count          = idx == 0 ? p.count : null
