@@ -7,8 +7,10 @@ spec:
   interval: 5m
   timeout: 30m
   install:
-    remediation:
-      retries: 5
+    # No uninstall on failed install: ships its own admission webhook for PrometheusRule objects.
+    strategy:
+      name: RetryOnFailure
+      retryInterval: 5m
   upgrade:
     remediation:
       retries: 5

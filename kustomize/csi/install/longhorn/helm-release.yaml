@@ -10,8 +10,10 @@ spec:
   targetNamespace: system-csi
   install:
     createNamespace: false
-    remediation:
-      retries: 5
+    # No uninstall on failed install: this is the CSI storage driver managing live volumes.
+    strategy:
+      name: RetryOnFailure
+      retryInterval: 5m
   upgrade:
     remediation:
       retries: 5

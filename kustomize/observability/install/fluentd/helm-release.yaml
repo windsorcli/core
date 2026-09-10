@@ -8,8 +8,11 @@ spec:
   interval: 5m
   timeout: 20m
   install:
-    remediation:
-      retries: 5
+    # No uninstall on failed install: the operator manages the live Fluentd
+    # StatefulSet and its PVC-backed buffer.
+    strategy:
+      name: RetryOnFailure
+      retryInterval: 5m
   upgrade:
     remediation:
       retries: 5

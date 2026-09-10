@@ -7,10 +7,11 @@ spec:
   interval: 5m
   timeout: 15m
   dependsOn: []
-  # Unlimited retries: recovers from a transient dependency gap on its own.
+  # No uninstall on failed install: retries indefinitely, recovering from a
+  # transient dependency gap on its own.
   install:
-    remediation:
-      retries: -1
+    strategy:
+      name: RetryOnFailure
   upgrade:
     remediation:
       retries: -1

@@ -7,8 +7,11 @@ spec:
   interval: 5m
   timeout: 30m
   install:
-    remediation:
-      retries: 5
+    # No uninstall on failed install: kyverno is a globalDependency, so a wedged
+    # uninstall blocks every other install behind it.
+    strategy:
+      name: RetryOnFailure
+      retryInterval: 5m
   upgrade:
     remediation:
       retries: 5
