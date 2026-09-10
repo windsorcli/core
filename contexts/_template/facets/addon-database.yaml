@@ -144,7 +144,7 @@ flux:
       timeout: 15m
       interval: 10m
     dependsOn:
-      - "${database.postgres.driver == 'cloudnativepg' ? 'csi' : ''}"
+      - "${database.postgres.driver == 'cloudnativepg' ? 'csi-install' : ''}"
       - "${database.postgres.driver == 'cloudnativepg' && (telemetry.metrics.enabled || telemetry.logs.enabled) ? 'telemetry' : ''}"
     resources:
       # Each variant waits for Healthy/Installed so its ProviderConfig's

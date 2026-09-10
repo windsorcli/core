@@ -17,7 +17,7 @@ flux:
   - name: object-store
     when: object_store.driver == 'minio'
     dependsOn:
-      - csi
+      - csi-install
     install:
       components:
         - minio

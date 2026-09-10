@@ -41,7 +41,7 @@ flux:
     path: demo
     when: demo.resources.database == true && database.postgres.driver == 'cloudnativepg'
     dependsOn:
-      - database
+      - database-install
     resources:
       - components:
           - database

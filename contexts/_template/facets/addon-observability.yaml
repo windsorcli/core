@@ -171,7 +171,7 @@ flux:
   - name: observability
     when: observability.logs_driver == 'quickwit'
     dependsOn:
-      - csi
+      - csi-install
     install:
       timeout: 20m
       interval: 5m
@@ -195,7 +195,7 @@ flux:
   - name: observability
     when: observability.logs_driver == 'elasticsearch' && gateway.enabled == true
     dependsOn:
-      - csi
+      - csi-install
     install:
       timeout: 20m
       interval: 5m
