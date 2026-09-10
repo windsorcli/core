@@ -228,11 +228,16 @@ variable "pools" {
   }
 
   # pools_resolved (main.tf) names each machine-type fallback
-  # "<pool>-alt<N>" — a pool name matching that pattern would collide with
-  # a generated fallback key and get silently overwritten by merge().
+  # "<pool>-<machine-type>" — a pool named "<other-pool>-<anything>" could
+  # always collide with some fallback key generated from that other pool's
+  # class_machine_types list and get silently overwritten by merge().
   validation {
-    condition     = alltrue([for k, v in var.pools : !can(regex("-alt[0-9]+$", k))])
-    error_message = "Pool names may not end in \"-alt<N>\" (e.g. general-alt1) — that suffix is reserved for machine-type fallback pools generated from class_machine_types."
+    condition = alltrue([
+      for k, v in var.pools : !anytrue([
+        for k2, v2 in var.pools : k2 != k && startswith(k, "${k2}-")
+      ])
+    ])
+    error_message = "A pool name may not start with another pool's name followed by a hyphen (e.g. \"general\" and \"general-big\") — that pattern is reserved for machine-type fallback pools generated from class_machine_types."
   }
 }
 

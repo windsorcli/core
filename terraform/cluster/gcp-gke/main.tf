@@ -128,13 +128,15 @@ resource "google_container_cluster" "this" {
 
 locals {
   # Fans system_node_pool.machine_type out into one node pool per candidate
-  # type, mirroring pools_resolved's fallback fan-out below. The primary
-  # keeps the pool's configured total; fallbacks start at total_min 0 and
-  # share the same total_max. This pool always goes through the total_*
+  # type, mirroring pools_resolved's fallback fan-out below. Fallback keys
+  # name the machine type itself rather than its list position, so
+  # reordering the list never renames an existing pool. The primary keeps
+  # the pool's configured total; fallbacks start at total_min 0 and share
+  # the same total_max. This pool always goes through the total_*
   # autoscaling mechanism (even when "fixed"), so every entry gets a real
   # scale-up event for cluster-autoscaler to retry on a capacity failure.
   system_pool_resolved = {
-    for idx, mtype in var.system_node_pool.machine_type : (idx == 0 ? "system" : "system-alt${idx}") => {
+    for idx, mtype in var.system_node_pool.machine_type : (idx == 0 ? "system" : "system-${mtype}") => {
       machine_type    = mtype
       total_min_count = idx == 0 ? (var.system_node_pool.autoscaling_enabled ? var.system_node_pool.min_count : var.system_node_pool.node_count) : 0
       total_max_count = var.system_node_pool.autoscaling_enabled ? var.system_node_pool.max_count : var.system_node_pool.node_count
@@ -191,14 +193,6 @@ resource "google_container_node_pool" "system" {
   }
 }
 
-# Preserves the existing system pool's state under its new address instead
-# of destroying and recreating it now that the resource fans out per
-# machine type.
-moved {
-  from = google_container_node_pool.system
-  to   = google_container_node_pool.system["system"]
-}
-
 #---------------------------------------------------------------------------------------------------
 # Portable User Pools (var.pools)
 # Resolves each portable pool into GKE-specific fields, mirroring
@@ -242,18 +236,20 @@ locals {
   # Fans each portable pool out into one GKE node pool per candidate
   # machine type, so cluster-autoscaler falls over to an alternate type
   # when the primary's zone/type combination hits ZONE_RESOURCE_POOL_EXHAUSTED.
-  # Only the primary (index 0) is created for a fixed-count pool with
-  # autoscaling off — there's no scale-up event to trigger a fallback, so
-  # extra types would just be redundant standing capacity. An autoscaling
-  # pool's fallbacks start at min 0 and share the primary's max, costing
-  # nothing until the primary can't be scheduled.
+  # Fallback keys name the machine type itself rather than its list
+  # position, so reordering class_machine_types never renames an existing
+  # pool. Only the primary (index 0) is created for a fixed-count pool
+  # with autoscaling off — there's no scale-up event to trigger a
+  # fallback, so extra types would just be redundant standing capacity.
+  # An autoscaling pool's fallbacks start at min 0 and share the
+  # primary's max, costing nothing until the primary can't be scheduled.
   pools_resolved = merge([
     for name, p in local.effective_pools : {
       for idx, mtype in(
         local.pools_autoscaling[name].enabled
         ? local.pools_machine_types[name]
         : slice(local.pools_machine_types[name], 0, 1)
-        ) : (idx == 0 ? name : "${name}-alt${idx}") => {
+        ) : (idx == 0 ? name : "${name}-${mtype}") => {
         machine_type        = mtype
         spot                = p.lifecycle == "spot"
         node_count          = idx == 0 ? p.count : null

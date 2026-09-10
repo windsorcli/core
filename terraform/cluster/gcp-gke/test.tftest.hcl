@@ -62,12 +62,12 @@ run "minimal_configuration" {
   }
 
   assert {
-    condition     = google_container_node_pool.system["system-alt1"].node_config[0].machine_type == "n2d-standard-2"
+    condition     = google_container_node_pool.system["system-n2d-standard-2"].node_config[0].machine_type == "n2d-standard-2"
     error_message = "The second default machine type should back the system pool as a fallback"
   }
 
   assert {
-    condition     = google_container_node_pool.system["system-alt1"].autoscaling[0].total_min_node_count == 0
+    condition     = google_container_node_pool.system["system-n2d-standard-2"].autoscaling[0].total_min_node_count == 0
     error_message = "A system pool fallback should start at 0 nodes, costing nothing until the primary can't be scheduled"
   }
 
@@ -82,17 +82,17 @@ run "minimal_configuration" {
   }
 
   assert {
-    condition     = google_container_node_pool.pools["general-alt1"].node_config[0].machine_type == "n2d-standard-4"
+    condition     = google_container_node_pool.pools["general-n2d-standard-4"].node_config[0].machine_type == "n2d-standard-4"
     error_message = "The second class default machine type (a separate AMD capacity pool from the primary) should back the general pool as a fallback"
   }
 
   assert {
-    condition     = google_container_node_pool.pools["general-alt2"].node_config[0].machine_type == "n2-standard-4"
+    condition     = google_container_node_pool.pools["general-n2-standard-4"].node_config[0].machine_type == "n2-standard-4"
     error_message = "The third class default machine type should back the general pool as a last-resort fallback"
   }
 
   assert {
-    condition     = google_container_node_pool.pools["general-alt1"].autoscaling[0].min_node_count == 0
+    condition     = google_container_node_pool.pools["general-n2d-standard-4"].autoscaling[0].min_node_count == 0
     error_message = "A fallback pool should start at 0 nodes, costing nothing until the primary can't be scheduled"
   }
 
@@ -444,8 +444,9 @@ run "pools_invalid_name_rejected" {
   }
 }
 
-# A pool named like a generated machine-type fallback key would collide
-# with pools_resolved's own "<pool>-alt<N>" naming in main.tf.
+# A pool named "<other-pool>-<anything>" could collide with a
+# machine-type fallback key pools_resolved generates from that other
+# pool's class_machine_types list in main.tf.
 run "pools_alt_suffix_name_rejected" {
   command = plan
   expect_failures = [
@@ -458,7 +459,11 @@ run "pools_alt_suffix_name_rejected" {
     subnetwork_id  = "projects/test-project/regions/us-central1/subnetworks/private-test"
     node_locations = ["us-central1-a"]
     pools = {
-      "general-alt1" = {
+      "general" = {
+        class = "general"
+        count = 1
+      }
+      "general-big" = {
         class = "general"
         count = 1
       }
