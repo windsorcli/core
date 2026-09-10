@@ -14,10 +14,8 @@ spec:
   targetNamespace: system-pki
   install:
     createNamespace: false
-    # No uninstall on failed install: this chart is itself a cert-manager webhook server.
-    strategy:
-      name: RetryOnFailure
-      retryInterval: 5m
+    remediation:
+      retries: 5
   upgrade:
     remediation:
       retries: 5
