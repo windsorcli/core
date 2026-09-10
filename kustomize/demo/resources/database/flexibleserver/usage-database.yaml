@@ -1,0 +1,20 @@
+---
+# Blocks demo-db's deletion until this FlexibleServerDatabase is gone, so
+# Crossplane doesn't delete the server out from under what's inside it.
+apiVersion: protection.crossplane.io/v1beta1
+kind: Usage
+metadata:
+  name: demo-database-uses-demo-db
+  namespace: demo-database
+spec:
+  replayDeletion: true
+  of:
+    apiVersion: dbforpostgresql.azure.upbound.io/v1beta1
+    kind: FlexibleServer
+    resourceRef:
+      name: demo-db
+  by:
+    apiVersion: dbforpostgresql.azure.upbound.io/v1beta1
+    kind: FlexibleServerDatabase
+    resourceRef:
+      name: demo

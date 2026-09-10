@@ -4,3 +4,5 @@ resources:
   - database-instance.yaml
   - user.yaml
   - database.yaml
+  - usage-database.yaml
+  - usage-user.yaml

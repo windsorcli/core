@@ -1,0 +1,20 @@
+---
+# Blocks demo-db's deletion until this Database is gone, so Crossplane
+# doesn't delete the instance out from under what's inside it.
+apiVersion: protection.crossplane.io/v1beta1
+kind: Usage
+metadata:
+  name: demo-database-uses-demo-db
+  namespace: demo-database
+spec:
+  replayDeletion: true
+  of:
+    apiVersion: sql.gcp.upbound.io/v1beta2
+    kind: DatabaseInstance
+    resourceRef:
+      name: demo-db
+  by:
+    apiVersion: sql.gcp.upbound.io/v1beta1
+    kind: Database
+    resourceRef:
+      name: demo
