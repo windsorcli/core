@@ -9,8 +9,11 @@ spec:
   timeout: 15m
   dependsOn: []
   install:
-    remediation:
-      retries: 5
+    # No uninstall on failed install: in-cluster DNS, so an uninstall mid-retry
+    # breaks name resolution cluster-wide.
+    strategy:
+      name: RetryOnFailure
+      retryInterval: 5m
   upgrade:
     remediation:
       retries: 5

@@ -8,10 +8,10 @@ spec:
   timeout: 10m
   install:
     remediation:
-      retries: 10
+      retries: 5
   upgrade:
     remediation:
-      retries: 10
+      retries: 5
   chart:
     spec:
       chart: metrics-server

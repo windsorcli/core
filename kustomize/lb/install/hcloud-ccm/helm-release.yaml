@@ -11,10 +11,10 @@ spec:
   install:
     createNamespace: false
     remediation:
-      retries: 10
+      retries: 5
   upgrade:
     remediation:
-      retries: 10
+      retries: 5
   chart:
     spec:
       chart: hcloud-cloud-controller-manager

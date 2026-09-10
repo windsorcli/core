@@ -9,12 +9,14 @@ spec:
   timeout: 10m
   install:
     crds: Skip
-    remediation:
-      retries: 10
+    # No uninstall on failed install: ships its own webhook for its CRDs.
+    strategy:
+      name: RetryOnFailure
+      retryInterval: 5m
   upgrade:
     crds: Skip
     remediation:
-      retries: 10
+      retries: 5
   uninstall:
     deletionPropagation: foreground
     disableWait: false

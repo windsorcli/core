@@ -9,10 +9,10 @@ spec:
   timeout: 10m
   install:
     remediation:
-      retries: 10
+      retries: 5
   upgrade:
     remediation:
-      retries: 10
+      retries: 5
   dependsOn:
     - name: cert-manager
       namespace: system-pki
