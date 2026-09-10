@@ -102,10 +102,11 @@ cases:
                   current: status.conditions.exists(e, e.type == 'Ready' && e.status == 'True')
         - name: database
           path: database
-          dependsOn:
-            - provisioning-resources
           resources:
-            - timeout: 10m
+            - dependsOn:
+                - provisioning-resources
+                - database-resources-rds
+              timeout: 10m
               interval: 5m
               components:
                 - crossplane/postgres/aws-rds/app-role
@@ -160,10 +161,11 @@ cases:
                   current: status.conditions.exists(e, e.type == 'Ready' && e.status == 'True')
         - name: database
           path: database
-          dependsOn:
-            - provisioning-resources
           resources:
-            - timeout: 10m
+            - dependsOn:
+                - provisioning-resources
+                - database-resources-flexibleserver
+              timeout: 10m
               interval: 5m
               components:
                 - crossplane/postgres/azure-postgres/app-role
@@ -219,10 +221,11 @@ cases:
                   current: status.conditions.exists(e, e.type == 'Ready' && e.status == 'True')
         - name: database
           path: database
-          dependsOn:
-            - provisioning-resources
           resources:
-            - timeout: 10m
+            - dependsOn:
+                - provisioning-resources
+                - database-resources-cloudsql
+              timeout: 10m
               interval: 5m
               components:
                 - crossplane/postgres/gcp-cloudsql/app-role
