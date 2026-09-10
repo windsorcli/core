@@ -191,6 +191,14 @@ resource "google_container_node_pool" "system" {
   }
 }
 
+# Preserves the existing system pool's state under its new address instead
+# of destroying and recreating it now that the resource fans out per
+# machine type.
+moved {
+  from = google_container_node_pool.system
+  to   = google_container_node_pool.system["system"]
+}
+
 #---------------------------------------------------------------------------------------------------
 # Portable User Pools (var.pools)
 # Resolves each portable pool into GKE-specific fields, mirroring
