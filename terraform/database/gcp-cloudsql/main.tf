@@ -13,7 +13,7 @@ terraform {
     # resource in this module stays on the google provider.
     google-beta = {
       source  = "hashicorp/google-beta"
-      version = "8.1.0"
+      version = "8.2.0"
     }
     random = {
       source  = "hashicorp/random"

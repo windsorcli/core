@@ -39,7 +39,7 @@ run "minimal_configuration" {
   }
 
   assert {
-    condition     = google_container_node_pool.system.node_config[0].taint[0].key == "CriticalAddonsOnly"
+    condition     = google_container_node_pool.system["system"].node_config[0].taint[0].key == "CriticalAddonsOnly"
     error_message = "System pool should carry the CriticalAddonsOnly taint"
   }
 
@@ -47,23 +47,53 @@ run "minimal_configuration" {
     # A fixed total (min == max) via total_*_node_count, not node_count
     # directly — node_count on this resource is per zone, which would
     # multiply the pool's size under a multi-zone node_locations.
-    condition     = google_container_node_pool.system.autoscaling[0].total_min_node_count == 1 && google_container_node_pool.system.autoscaling[0].total_max_node_count == 1
+    condition     = google_container_node_pool.system["system"].autoscaling[0].total_min_node_count == 1 && google_container_node_pool.system["system"].autoscaling[0].total_max_node_count == 1
     error_message = "System pool should start with a fixed total of 1 node"
   }
 
   assert {
-    condition     = google_container_node_pool.system.autoscaling[0].location_policy == "BALANCED"
+    condition     = google_container_node_pool.system["system"].autoscaling[0].location_policy == "BALANCED"
     error_message = "System pool should spread across its eligible zones rather than pack into whichever has capacity first"
   }
 
   assert {
-    condition     = length(google_container_node_pool.pools) == 1
-    error_message = "No pools declared should fall back to one general pool"
+    condition     = length(google_container_node_pool.system) == 3
+    error_message = "The system pool should fan out across its three default machine types, same as a portable pool"
   }
 
   assert {
-    condition     = google_container_node_pool.pools["general"].node_config[0].machine_type == "n2-standard-4"
+    condition     = google_container_node_pool.system["system-n2d-standard-2"].node_config[0].machine_type == "n2d-standard-2"
+    error_message = "The second default machine type should back the system pool as a fallback"
+  }
+
+  assert {
+    condition     = google_container_node_pool.system["system-n2d-standard-2"].autoscaling[0].total_min_node_count == 0
+    error_message = "A system pool fallback should start at 0 nodes, costing nothing until the primary can't be scheduled"
+  }
+
+  assert {
+    condition     = length(google_container_node_pool.pools) == 3
+    error_message = "The fallback general pool should fan out across its class's three default machine types"
+  }
+
+  assert {
+    condition     = google_container_node_pool.pools["general"].node_config[0].machine_type == "e2-standard-4"
     error_message = "The fallback general pool should resolve to the default general machine type"
+  }
+
+  assert {
+    condition     = google_container_node_pool.pools["general-n2d-standard-4"].node_config[0].machine_type == "n2d-standard-4"
+    error_message = "The second class default machine type (a separate AMD capacity pool from the primary) should back the general pool as a fallback"
+  }
+
+  assert {
+    condition     = google_container_node_pool.pools["general-n2-standard-4"].node_config[0].machine_type == "n2-standard-4"
+    error_message = "The third class default machine type should back the general pool as a last-resort fallback"
+  }
+
+  assert {
+    condition     = google_container_node_pool.pools["general-n2d-standard-4"].autoscaling[0].min_node_count == 0
+    error_message = "A fallback pool should start at 0 nodes, costing nothing until the primary can't be scheduled"
   }
 
   assert {
@@ -72,7 +102,7 @@ run "minimal_configuration" {
   }
 
   assert {
-    condition     = toset(google_container_node_pool.system.node_locations) == toset(["us-central1-a"])
+    condition     = toset(google_container_node_pool.system["system"].node_locations) == toset(["us-central1-a"])
     error_message = "System pool should stay in var.node_locations"
   }
 
@@ -99,17 +129,17 @@ run "system_node_pool_partial_override_keeps_other_defaults" {
   }
 
   assert {
-    condition     = google_container_node_pool.system.autoscaling[0].total_min_node_count == 2 && google_container_node_pool.system.autoscaling[0].total_max_node_count == 2
+    condition     = google_container_node_pool.system["system"].autoscaling[0].total_min_node_count == 2 && google_container_node_pool.system["system"].autoscaling[0].total_max_node_count == 2
     error_message = "Overriding only node_count should take effect as the fixed total"
   }
 
   assert {
-    condition     = google_container_node_pool.system.node_config[0].machine_type == "n2-standard-2"
+    condition     = google_container_node_pool.system["system"].node_config[0].machine_type == "e2-standard-2"
     error_message = "Overriding only node_count should leave machine_type at its default"
   }
 
   assert {
-    condition     = google_container_node_pool.system.node_config[0].disk_size_gb == 50
+    condition     = google_container_node_pool.system["system"].node_config[0].disk_size_gb == 50
     error_message = "Overriding only node_count should leave disk_size_gb at its default"
   }
 }
@@ -140,7 +170,7 @@ run "multi_zone_node_locations_spread_every_pool" {
   }
 
   assert {
-    condition     = toset(google_container_node_pool.system.node_locations) == toset(["us-central1-a", "us-central1-b", "us-central1-c"])
+    condition     = toset(google_container_node_pool.system["system"].node_locations) == toset(["us-central1-a", "us-central1-b", "us-central1-c"])
     error_message = "System pool should also stay eligible for every zone, not just a subset"
   }
 }
@@ -164,7 +194,7 @@ run "system_pool_total_stays_fixed_across_multiple_zones" {
   }
 
   assert {
-    condition     = google_container_node_pool.system.autoscaling[0].total_min_node_count == 2 && google_container_node_pool.system.autoscaling[0].total_max_node_count == 2
+    condition     = google_container_node_pool.system["system"].autoscaling[0].total_min_node_count == 2 && google_container_node_pool.system["system"].autoscaling[0].total_max_node_count == 2
     error_message = "System pool total should stay at 2 regardless of how many zones are eligible"
   }
 }
@@ -366,6 +396,11 @@ run "pools_system_class_defaults_to_fixed" {
     condition     = google_container_node_pool.pools["ops"].node_count == 2
     error_message = "A fixed pool should set node_count directly"
   }
+
+  assert {
+    condition     = length(google_container_node_pool.pools) == 1
+    error_message = "A fixed-count pool has no scale-up event to trigger a fallback, so it should not fan out across machine types"
+  }
 }
 
 # Invalid pool class and pool name are both rejected at validate time.
@@ -402,6 +437,33 @@ run "pools_invalid_name_rejected" {
     node_locations = ["us-central1-a"]
     pools = {
       "Not_Valid" = {
+        class = "general"
+        count = 1
+      }
+    }
+  }
+}
+
+# A pool named "<other-pool>-<anything>" could collide with a
+# machine-type fallback key pools_resolved generates from that other
+# pool's class_machine_types list in main.tf.
+run "pools_alt_suffix_name_rejected" {
+  command = plan
+  expect_failures = [
+    var.pools,
+  ]
+  variables {
+    context_id     = "test"
+    project_id     = "test-project"
+    network_id     = "projects/test-project/global/networks/network-test"
+    subnetwork_id  = "projects/test-project/regions/us-central1/subnetworks/private-test"
+    node_locations = ["us-central1-a"]
+    pools = {
+      "general" = {
+        class = "general"
+        count = 1
+      }
+      "general-big" = {
         class = "general"
         count = 1
       }
