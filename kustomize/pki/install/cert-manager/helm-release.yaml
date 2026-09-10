@@ -9,10 +9,10 @@ spec:
   timeout: 20m
   install:
     remediation:
-      retries: 10
+      retries: 5
   upgrade:
     remediation:
-      retries: 10
+      retries: 5
   chart:
     spec:
       chart: cert-manager

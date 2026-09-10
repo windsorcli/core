@@ -10,11 +10,11 @@ spec:
   install:
     crds: Skip
     remediation:
-      retries: 10
+      retries: 5
   upgrade:
     crds: Skip
     remediation:
-      retries: 10
+      retries: 5
   uninstall:
     deletionPropagation: foreground
     disableWait: false

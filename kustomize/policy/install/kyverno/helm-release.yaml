@@ -8,10 +8,10 @@ spec:
   timeout: 30m
   install:
     remediation:
-      retries: 10
+      retries: 5
   upgrade:
     remediation:
-      retries: 10
+      retries: 5
   chart:
     spec:
       chart: kyverno
@@ -42,6 +42,9 @@ spec:
           tag: v1.19.0@sha256:f40718123e3eea8dc36960023e2af7a980bcc76dec24842ad8705c82f4c9172e
     # Disable ANSI color codes in logs
     admissionController:
+      # 2 replicas: no leader election on inbound webhook requests, so each
+      # adds real parallel serving capacity during startup and node drains.
+      replicas: 2
       tolerations:
         - key: CriticalAddonsOnly
           operator: Exists
