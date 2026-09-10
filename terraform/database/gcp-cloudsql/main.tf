@@ -44,6 +44,10 @@ resource "google_service_networking_connection" "cloudsql" {
   network                 = var.network_id
   service                 = "servicenetworking.googleapis.com"
   reserved_peering_ranges = [google_compute_global_address.private_service_connection.name]
+  # Falls back to removing the VPC peering directly when the API refuses a
+  # normal delete because it still sees the (already-gone) Cloud SQL instance
+  # as a producer of this connection.
+  deletion_policy = "REMOVE_PEERING"
 }
 
 #---------------------------------------------------------------------------------------------------
