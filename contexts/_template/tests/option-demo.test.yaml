@@ -50,9 +50,8 @@ cases:
                 - database
                 - database/cloudnativepg
 
-  # rds driver: creates an Instance CR. Depends on provisioning-resources,
-  # not database-resources: app-role's Role lives there and needs this
-  # Instance's connection secret, which would deadlock the two.
+  # rds driver: creates an Instance CR. demo depends on provisioning-resources,
+  # not database-resources, since app-role's Role lives there and would cycle.
   # dbSubnetGroupName/kmsKeyId read the real terraform outputs directly.
   # A third-party chart uses the documented naming convention instead.
   - name: demo mode with rds driver creates demo rds instance
@@ -104,6 +103,7 @@ cases:
           resources:
             - dependsOn:
                 - provisioning-resources
+                - demo-resources
               timeout: 10m
               interval: 5m
               components:
@@ -167,6 +167,7 @@ cases:
           resources:
             - dependsOn:
                 - provisioning-resources
+                - demo-resources
               timeout: 10m
               interval: 5m
               components:
@@ -231,6 +232,7 @@ cases:
           resources:
             - dependsOn:
                 - provisioning-resources
+                - demo-resources
               timeout: 10m
               interval: 5m
               components:
