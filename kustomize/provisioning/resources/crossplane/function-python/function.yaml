@@ -1,0 +1,10 @@
+---
+apiVersion: pkg.crossplane.io/v1
+kind: Function
+metadata:
+  name: function-python
+spec:
+  # renovate: datasource=docker depName=xpkg.crossplane.io/crossplane-contrib/function-python package=xpkg.crossplane.io/crossplane-contrib/function-python
+  package: xpkg.crossplane.io/crossplane-contrib/function-python:v0.2.0@sha256:a1b6a393270471163599590fdc45f2290c56e8188354a997b20d61663d5da88e
+  runtimeConfigRef:
+    name: function-python

@@ -10,6 +10,9 @@ components:
   crossplane/provider-sql:
     enable_when: "`database.postgres.driver == 'rds'` OR `database.postgres.driver == 'flexibleserver'` OR `database.postgres.driver == 'cloudsql'`"
     description: "Digest-pinned `Provider` CR for `crossplane-contrib/provider-sql` plus a `DeploymentRuntimeConfig` setting its resource requests/limits. Installed once per context alongside whichever cloud provider is active — its `Role`/`Database`/`Grant` CRDs speak the Postgres wire protocol, not a cloud API, so the same install serves all three drivers' `app-role` components in `kustomize/database`."
+  crossplane/function-python:
+    enable_when: "`database.postgres.driver == 'rds'` OR `database.postgres.driver == 'flexibleserver'` OR `database.postgres.driver == 'cloudsql'`"
+    description: "Digest-pinned `Function` CR for `crossplane-contrib/function-python` plus a `DeploymentRuntimeConfig` setting its resource requests/limits. Runs the `WatchOperation` pipeline `kustomize/database`'s `app-role` component uses to mirror an instance's connection details; requires Crossplane's `--enable-operations` alpha flag, set on this component's own `helm-release.yaml`."
   crossplane/aws-rds:
     enable_when: "`database.postgres.driver == 'rds'`"
     description: "Digest-pinned `Provider` CRs for `provider-aws-rds` (`skipDependencyResolution: true`) and its `provider-family-aws` dependency, plus a `DeploymentRuntimeConfig` that fixes the provider pod's ServiceAccount name to `provider-aws-rds` so the `provisioning/crossplane-identity/aws` Terraform module's Pod Identity association can target it. Its own database-specific consumption (`ProviderConfig`, tag policy, monitoring, `app-role`) is `kustomize/database`'s `crossplane/aws-rds` component instead."

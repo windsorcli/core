@@ -56,7 +56,7 @@ flux:
     path: demo
     when: demo.resources.database == true && database.postgres.driver == 'rds'
     dependsOn:
-      - database-resources
+      - provisioning-resources
     resources:
       - components:
           - database
@@ -84,7 +84,7 @@ flux:
     path: demo
     when: demo.resources.database == true && database.postgres.driver == 'flexibleserver'
     dependsOn:
-      - database-resources
+      - provisioning-resources
     resources:
       - components:
           - database
@@ -110,7 +110,7 @@ flux:
     path: demo
     when: demo.resources.database == true && database.postgres.driver == 'cloudsql'
     dependsOn:
-      - database-resources
+      - provisioning-resources
     resources:
       - components:
           - database
@@ -139,11 +139,16 @@ flux:
       - dependsOn:
           - provisioning-resources
         components:
-          - crossplane/postgres/aws-rds/app-role
+          - crossplane/postgres/_shared/app-role
         substitutions:
           pg_instance_name: demo-db
           pg_database_name: "${demo_database_name}"
           pg_target_namespace: demo-database
+          pg_crd_apiversion: rds.aws.upbound.io/v1beta3
+          pg_crd_kind: Instance
+          pg_endpoint_field: address
+          pg_username_field: username
+          pg_username_from_secret: "false"
         healthCheckExprs:
           # Gated on the Role's own Synced condition, not its apply.
           - apiVersion: postgresql.sql.crossplane.io/v1alpha1
@@ -160,11 +165,16 @@ flux:
       - dependsOn:
           - provisioning-resources
         components:
-          - crossplane/postgres/azure-postgres/app-role
+          - crossplane/postgres/_shared/app-role
         substitutions:
           pg_instance_name: demo-db
           pg_database_name: "${demo_database_name}"
           pg_target_namespace: demo-database
+          pg_crd_apiversion: dbforpostgresql.azure.upbound.io/v1beta1
+          pg_crd_kind: FlexibleServer
+          pg_endpoint_field: fqdn
+          pg_username_field: administratorLogin
+          pg_username_from_secret: "false"
         healthCheckExprs:
           # Gated on the Role's own Synced condition, not its apply.
           - apiVersion: postgresql.sql.crossplane.io/v1alpha1
@@ -182,11 +192,16 @@ flux:
       - dependsOn:
           - provisioning-resources
         components:
-          - crossplane/postgres/gcp-cloudsql/app-role
+          - crossplane/postgres/_shared/app-role
         substitutions:
           pg_instance_name: demo-db
           pg_database_name: "${demo_database_name}"
           pg_target_namespace: demo-database
+          pg_crd_apiversion: sql.gcp.upbound.io/v1beta2
+          pg_crd_kind: DatabaseInstance
+          pg_endpoint_field: privateIpAddress
+          pg_username_field: username
+          pg_username_from_secret: "true"
         healthCheckExprs:
           # Gated on the Role's own Synced condition, not its apply.
           - apiVersion: postgresql.sql.crossplane.io/v1alpha1

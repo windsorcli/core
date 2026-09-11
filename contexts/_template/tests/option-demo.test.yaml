@@ -50,12 +50,11 @@ cases:
                 - database
                 - database/cloudnativepg
 
-  # rds driver: creates an Instance CR. Depends on provisioning-resources
-  # for its ProviderConfig, not just provisioning-install.
+  # rds driver: creates an Instance CR. Depends on provisioning-resources,
+  # not database-resources: app-role's Role lives there and needs this
+  # Instance's connection secret, which would deadlock the two.
   # dbSubnetGroupName/kmsKeyId read the real terraform outputs directly.
   # A third-party chart uses the documented naming convention instead.
-  # app-role is its own Kustomization, dependent on demo-resources for
-  # namespace-before-RBAC ordering.
   - name: demo mode with rds driver creates demo rds instance
     values:
       platform: aws
@@ -83,7 +82,7 @@ cases:
         - name: demo
           path: demo
           dependsOn:
-            - database-resources
+            - provisioning-resources
           resources:
             - timeout: 30m
               interval: 5m
@@ -108,11 +107,16 @@ cases:
               timeout: 10m
               interval: 5m
               components:
-                - crossplane/postgres/aws-rds/app-role
+                - crossplane/postgres/_shared/app-role
               substitutions:
                 pg_instance_name: demo-db
                 pg_database_name: demo
                 pg_target_namespace: demo-database
+                pg_crd_apiversion: rds.aws.upbound.io/v1beta3
+                pg_crd_kind: Instance
+                pg_endpoint_field: address
+                pg_username_field: username
+                pg_username_from_secret: "false"
               healthCheckExprs:
                 - apiVersion: postgresql.sql.crossplane.io/v1alpha1
                   kind: Role
@@ -143,7 +147,7 @@ cases:
         - name: demo
           path: demo
           dependsOn:
-            - database-resources
+            - provisioning-resources
           resources:
             - timeout: 30m
               interval: 5m
@@ -166,11 +170,16 @@ cases:
               timeout: 10m
               interval: 5m
               components:
-                - crossplane/postgres/azure-postgres/app-role
+                - crossplane/postgres/_shared/app-role
               substitutions:
                 pg_instance_name: demo-db
                 pg_database_name: demo
                 pg_target_namespace: demo-database
+                pg_crd_apiversion: dbforpostgresql.azure.upbound.io/v1beta1
+                pg_crd_kind: FlexibleServer
+                pg_endpoint_field: fqdn
+                pg_username_field: administratorLogin
+                pg_username_from_secret: "false"
 
   # cloudsql driver: creates a DatabaseInstance + User + Database CR trio.
   # GCP twin of the rds/flexibleserver cases above. network_id/kms_key_name
@@ -202,7 +211,7 @@ cases:
         - name: demo
           path: demo
           dependsOn:
-            - database-resources
+            - provisioning-resources
           resources:
             - timeout: 30m
               interval: 5m
@@ -225,11 +234,16 @@ cases:
               timeout: 10m
               interval: 5m
               components:
-                - crossplane/postgres/gcp-cloudsql/app-role
+                - crossplane/postgres/_shared/app-role
               substitutions:
                 pg_instance_name: demo-db
                 pg_database_name: demo
                 pg_target_namespace: demo-database
+                pg_crd_apiversion: sql.gcp.upbound.io/v1beta2
+                pg_crd_kind: DatabaseInstance
+                pg_endpoint_field: privateIpAddress
+                pg_username_field: username
+                pg_username_from_secret: "true"
 
   # cloudsql's admin credential Secret is declared here (the instance name is
   # demo-specific) but the terraform component itself lives in

@@ -220,9 +220,13 @@ flux:
           - "${database.postgres.driver == 'flexibleserver' ? 'crossplane/azure-postgres' : ''}"
           - "${database.postgres.driver == 'cloudsql' ? 'crossplane/gcp-cloudsql' : ''}"
           - crossplane/provider-sql
+          - crossplane/function-python
         healthCheckExprs:
           - apiVersion: pkg.crossplane.io/v1
             kind: Provider
+            current: status.conditions.exists(e, e.type == 'Healthy' && e.status == 'True') && status.conditions.exists(e, e.type == 'Installed' && e.status == 'True')
+          - apiVersion: pkg.crossplane.io/v1
+            kind: Function
             current: status.conditions.exists(e, e.type == 'Healthy' && e.status == 'True') && status.conditions.exists(e, e.type == 'Installed' && e.status == 'True')
         timeout: 15m
         interval: 5m

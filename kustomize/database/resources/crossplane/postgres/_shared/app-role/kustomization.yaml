@@ -5,19 +5,22 @@ kind: Component
 # instance CR — never the admin credential, matching CNPG's own
 # app-secret separation. The role owns its database, matching CNPG's own
 # default "app" user, so a chart can migrate its own schema without its
-# own CronJob. Driver-agnostic: a per-instance ProviderConfig, a CronJob
-# mirroring the instance's endpoint and admin credential into the
-# connection Secret that ProviderConfig reads, the RBAC letting it read
-# the named instance CR, and the Role/Database themselves. Optional:
-# referenced only through a driver's own app-role sub-component
-# (../../aws-rds/app-role, etc.), which supplies the CRD identity, status
-# field names, and bootstrap ServiceAccount this component needs but
-# never varies by instance.
+# own CronJob. Driver-agnostic: a per-instance ProviderConfig, a
+# WatchOperation mirroring the instance's endpoint and admin credential
+# into the connection Secret that ProviderConfig reads, and the
+# Role/Database themselves.
 #
 # Required substitutions:
 #   pg_instance_name       Instance CR's name, e.g. demo-db
 #   pg_database_name       Database inside it to connect to, e.g. demo
 #   pg_target_namespace    Namespace for the published credentials Secret
+#   pg_crd_apiversion      Instance CR's apiVersion, e.g. rds.aws.upbound.io/v1beta3
+#   pg_crd_kind            Instance CR's kind, e.g. Instance
+#   pg_endpoint_field      status.atProvider field holding its address
+#   pg_username_field      Field holding the admin username
+#   pg_username_from_secret  "true" if pg_username_field is read from the
+#                            admin credentials Secret, "false" if it's on
+#                            the instance CR's own spec.forProvider
 #
 # A second, read-only consumer of the same database, or anything else
 # ownership doesn't cover, is a plain provider-sql Grant referencing the
@@ -28,6 +31,5 @@ kind: Component
 resources:
   - role.yaml
   - database.yaml
-  - rbac.yaml
   - provider-config.yaml
-  - connection-secret-cronjob.yaml
+  - connection-secret-watch-operation.yaml

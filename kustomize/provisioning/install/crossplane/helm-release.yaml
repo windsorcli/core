@@ -26,6 +26,11 @@ spec:
         namespace: system-provisioning
   values:
     priorityClassName: windsorcli-platform-critical
+    # Alpha feature: WatchOperations react to a driver instance's own
+    # status changes, mirroring its connection details on demand instead
+    # of polling on a fixed schedule.
+    args:
+      - --enable-operations
     image:
       # renovate: datasource=docker depName=xpkg.crossplane.io/crossplane/crossplane package=xpkg.crossplane.io/crossplane/crossplane
       tag: v2.4.0@sha256:c5d773aa940041475e2cf6b9adf3512cb382b1a6b889f53ed791192ed8ada75b
