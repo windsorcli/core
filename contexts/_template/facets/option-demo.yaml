@@ -130,9 +130,11 @@ flux:
         timeout: 30m
         interval: 5m
 
-  # Application credential for demo-db. Merges into the database system's
-  # resources tier; the Role's own Synced condition covers readiness.
-  - name: database
+  # Application credential for demo-db. Its own Kustomization, not merged
+  # into database-resources: that Kustomization owns the driver's default
+  # ProviderConfig, which demo-resources' Instance still references on
+  # teardown, so depending on demo-resources there would deadlock destroy.
+  - name: database-app-role
     path: database
     when: demo.resources.database == true && database.postgres.driver == 'rds'
     resources:
@@ -160,7 +162,7 @@ flux:
         interval: 5m
 
   # Application credential for demo-db — Azure twin of the rds entry above.
-  - name: database
+  - name: database-app-role
     path: database
     when: demo.resources.database == true && database.postgres.driver == 'flexibleserver'
     resources:
@@ -189,7 +191,7 @@ flux:
 
   # Application credential for demo-db — GCP twin of the rds/flexibleserver
   # entries above.
-  - name: database
+  - name: database-app-role
     path: database
     when: demo.resources.database == true && database.postgres.driver == 'cloudsql'
     resources:

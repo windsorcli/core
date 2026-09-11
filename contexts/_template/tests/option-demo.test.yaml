@@ -50,8 +50,7 @@ cases:
                 - database
                 - database/cloudnativepg
 
-  # rds driver: creates an Instance CR. demo depends on provisioning-resources,
-  # not database-resources, since app-role's Role lives there and would cycle.
+  # rds driver: creates an Instance CR.
   # dbSubnetGroupName/kmsKeyId read the real terraform outputs directly.
   # A third-party chart uses the documented naming convention instead.
   - name: demo mode with rds driver creates demo rds instance
@@ -98,7 +97,7 @@ cases:
                 - apiVersion: rds.aws.upbound.io/v1beta3
                   kind: Instance
                   current: status.conditions.exists(e, e.type == 'Ready' && e.status == 'True')
-        - name: database
+        - name: database-app-role
           path: database
           resources:
             - dependsOn:
@@ -162,7 +161,7 @@ cases:
                 - apiVersion: dbforpostgresql.azure.upbound.io/v1beta1
                   kind: FlexibleServer
                   current: status.conditions.exists(e, e.type == 'Ready' && e.status == 'True')
-        - name: database
+        - name: database-app-role
           path: database
           resources:
             - dependsOn:
@@ -227,7 +226,7 @@ cases:
                 - apiVersion: sql.gcp.upbound.io/v1beta2
                   kind: DatabaseInstance
                   current: status.conditions.exists(e, e.type == 'Ready' && e.status == 'True')
-        - name: database
+        - name: database-app-role
           path: database
           resources:
             - dependsOn:
