@@ -149,8 +149,7 @@ flux:
     resources:
       # Each variant waits for Healthy/Installed so its ProviderConfig's
       # CRD exists.
-      - name: rds
-        when: database.postgres.driver == 'rds'
+      - when: database.postgres.driver == 'rds'
         dependsOn:
           - provisioning-resources
         components:
@@ -162,8 +161,7 @@ flux:
           context_id: ${id}
         timeout: 5m
         interval: 5m
-      - name: flexibleserver
-        when: database.postgres.driver == 'flexibleserver'
+      - when: database.postgres.driver == 'flexibleserver'
         dependsOn:
           - provisioning-resources
         components:
@@ -178,8 +176,7 @@ flux:
           context_id: ${id}
         timeout: 5m
         interval: 5m
-      - name: cloudsql
-        when: database.postgres.driver == 'cloudsql'
+      - when: database.postgres.driver == 'cloudsql'
         dependsOn:
           - provisioning-resources
         components:

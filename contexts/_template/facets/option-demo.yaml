@@ -56,7 +56,7 @@ flux:
     path: demo
     when: demo.resources.database == true && database.postgres.driver == 'rds'
     dependsOn:
-      - database-resources-rds
+      - database-resources
     resources:
       - components:
           - database
@@ -84,7 +84,7 @@ flux:
     path: demo
     when: demo.resources.database == true && database.postgres.driver == 'flexibleserver'
     dependsOn:
-      - database-resources-flexibleserver
+      - database-resources
     resources:
       - components:
           - database
@@ -110,7 +110,7 @@ flux:
     path: demo
     when: demo.resources.database == true && database.postgres.driver == 'cloudsql'
     dependsOn:
-      - database-resources-cloudsql
+      - database-resources
     resources:
       - components:
           - database
@@ -138,7 +138,6 @@ flux:
     resources:
       - dependsOn:
           - provisioning-resources
-          - database-resources-rds
         components:
           - crossplane/postgres/aws-rds/app-role
         substitutions:
@@ -160,7 +159,6 @@ flux:
     resources:
       - dependsOn:
           - provisioning-resources
-          - database-resources-flexibleserver
         components:
           - crossplane/postgres/azure-postgres/app-role
         substitutions:
@@ -183,7 +181,6 @@ flux:
     resources:
       - dependsOn:
           - provisioning-resources
-          - database-resources-cloudsql
         components:
           - crossplane/postgres/gcp-cloudsql/app-role
         substitutions:
