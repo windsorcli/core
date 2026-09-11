@@ -5,9 +5,7 @@
 # the actual Postgres database name comes from Crossplane's external-name,
 # metadata.name by default.
 #
-# Orphan, not Delete: deleting the server deletes everything inside it
-# anyway, and Azure refuses to drop a database while the server is still
-# reachable to check.
+# Orphan, not Delete: deleting the server deletes this too.
 apiVersion: dbforpostgresql.azure.upbound.io/v1beta1
 kind: FlexibleServerDatabase
 metadata:
