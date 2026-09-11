@@ -107,7 +107,7 @@ cases:
               timeout: 10m
               interval: 5m
               components:
-                - crossplane/postgres/_shared/app-role
+                - crossplane/postgres/app-role
               substitutions:
                 pg_instance_name: demo-db
                 pg_database_name: demo
@@ -170,7 +170,7 @@ cases:
               timeout: 10m
               interval: 5m
               components:
-                - crossplane/postgres/_shared/app-role
+                - crossplane/postgres/app-role
               substitutions:
                 pg_instance_name: demo-db
                 pg_database_name: demo
@@ -234,7 +234,7 @@ cases:
               timeout: 10m
               interval: 5m
               components:
-                - crossplane/postgres/_shared/app-role
+                - crossplane/postgres/app-role
               substitutions:
                 pg_instance_name: demo-db
                 pg_database_name: demo

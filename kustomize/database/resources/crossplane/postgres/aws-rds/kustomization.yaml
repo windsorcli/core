@@ -35,7 +35,7 @@ patches:
     target:
       kind: ClusterPolicy
       name: instance-monitor-role
-  # No-op unless the caller also includes crossplane/postgres/_shared/monitoring-exporter.
+  # No-op unless the caller also includes crossplane/postgres/monitoring-exporter.
   - path: patches/monitoring-exporter-policy.yaml
     target:
       kind: ClusterPolicy

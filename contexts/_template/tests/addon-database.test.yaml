@@ -230,7 +230,7 @@ cases:
                 - provisioning-resources
               components:
                 - crossplane/postgres
-                - crossplane/postgres/_shared/monitoring-exporter
+                - crossplane/postgres/monitoring-exporter
                 - crossplane/postgres/aws-rds
 
   # Regression (#2653): provisioning-install must outlive the Provider CR so
@@ -315,7 +315,7 @@ cases:
                 - provisioning-resources
               components:
                 - crossplane/postgres
-                - crossplane/postgres/_shared/monitoring-exporter
+                - crossplane/postgres/monitoring-exporter
                 - crossplane/postgres/gcp-cloudsql
 
   # Regression (#2653): GCP twin of the rds/flexibleserver cases above. Same
@@ -367,7 +367,7 @@ cases:
         - name: database
           resources:
             - components:
-                - crossplane/postgres/_shared/monitoring-exporter
+                - crossplane/postgres/monitoring-exporter
 
   # PodMonitor only exists once the metrics pipeline vendors
   # prometheus-operator's CRDs — GCP twin of the rds case above.
@@ -396,7 +396,7 @@ cases:
         - name: database
           resources:
             - components:
-                - crossplane/postgres/_shared/monitoring-exporter
+                - crossplane/postgres/monitoring-exporter
 
   # rds driver with observability enabled gets the postgres_exporter
   # dashboard, not the cloudnativepg one — the two are mutually exclusive.
