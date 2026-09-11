@@ -3,4 +3,3 @@ kind: Component
 resources:
   - flexibleserver.yaml
   - database.yaml
-  - usage-database.yaml

@@ -1,12 +1,16 @@
 ---
 # The database itself, a separate CR from the instance. Its Postgres
 # name comes from metadata.name.
+#
+# Orphan, not Delete: deleting the instance deletes everything inside it
+# anyway, and GCP refuses to drop a database while the instance is still
+# reachable to check.
 apiVersion: sql.gcp.upbound.io/v1beta1
 kind: Database
 metadata:
   name: demo
 spec:
-  deletionPolicy: Delete
+  deletionPolicy: Orphan
   forProvider:
     instanceRef:
       name: demo-db

@@ -1,12 +1,16 @@
 ---
 # The admin user. passwordSecretRef reads the credential
 # database/gcp-cloudsql's Terraform already wrote.
+#
+# Orphan, not Delete: deleting the instance deletes everything inside it
+# anyway, and GCP refuses to drop a user while the instance is still
+# reachable to check.
 apiVersion: sql.gcp.upbound.io/v1beta2
 kind: User
 metadata:
   name: demo
 spec:
-  deletionPolicy: Delete
+  deletionPolicy: Orphan
   forProvider:
     instanceRef:
       name: demo-db
