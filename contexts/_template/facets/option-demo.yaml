@@ -115,6 +115,7 @@ flux:
       - components:
           - database
           - database/cloudsql
+          - "${(database.postgres.encryption.managed ?? false) ? 'database/cloudsql/encryption-key' : ''}"
         substitutions:
           # The demo reads terraform outputs directly, unlike a
           # third-party chart with no Flux substitution access.

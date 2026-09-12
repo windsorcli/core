@@ -12,7 +12,6 @@ spec:
     region: ${cloudsql_region}
     databaseVersion: POSTGRES_16
     deletionProtection: false
-    encryptionKeyName: "${cloudsql_kms_key_name}"
     settings:
       # Enterprise unlocks db-f1-micro; Enterprise Plus (the default)
       # rejects it.

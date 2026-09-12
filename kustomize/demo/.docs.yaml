@@ -51,6 +51,9 @@ components:
   database/cloudsql:
     enable_when: "`demo.resources.database: true` AND `database.postgres.driver == 'cloudsql'`"
     description: "A `sql.gcp.upbound.io/v1beta2` `DatabaseInstance` CR `demo-db` (db-f1-micro, private IP only, Terraform-generated admin password) plus a `User` CR reading that password and a `Database` CR `demo` — just the database definition, no provider wiring. The application credential (`demo-app`, owner of the `demo` database, via `crossplane/postgres/app-role`, wired into this facet's own `database` flux entry) is opt-in per chart, as is the `demo-db_monitor` monitoring role, via `crossplane/postgres/monitor-role` wired into the same `database-credentials` flux entry; `crossplane/postgres/monitoring-exporter` scrapes it there too, gated on `telemetry.metrics.enabled` (default true)."
+  database/cloudsql/encryption-key:
+    enable_when: "`demo.resources.database: true` AND `database.postgres.driver == 'cloudsql'` AND `database.postgres.encryption.managed: true`"
+    description: "Patches `encryptionKeyName` onto the `DatabaseInstance` CR. Absent rather than empty when unmanaged, since the field's type is `string`."
   static:
     enable_when: "`demo.resources.static: true`"
     description: "Creates the `demo-static` namespace (PSA `restricted`) with a `website` Deployment pulling `${REGISTRY_URL}/demo:1.0.6`, a Service, a 100Mi ReadWriteOnce PVC named `content`, and an Ingress."
