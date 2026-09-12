@@ -4,7 +4,11 @@
 apiVersion: postgresql.sql.crossplane.io/v1alpha1
 kind: Database
 metadata:
-  name: ${pg_database_name}
+  # Disambiguates the cluster-scoped object across instances sharing a
+  # database name; the actual Postgres database stays ${pg_database_name}.
+  name: ${pg_instance_name}-${pg_database_name}
+  annotations:
+    crossplane.io/external-name: ${pg_database_name}
 spec:
   deletionPolicy: Orphan
   providerConfigRef:
