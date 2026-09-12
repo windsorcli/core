@@ -20,7 +20,7 @@ spec:
     administratorLogin: demo
     administratorPasswordSecretRef:
       name: demo-db-admin-credentials
-      namespace: system-provisioning
+      namespace: system-database
       key: password
     autoGeneratePassword: true
     delegatedSubnetId: ${flexibleserver_subnet_id}

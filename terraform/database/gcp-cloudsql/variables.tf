@@ -45,7 +45,7 @@ variable "kms_key_name" {
 }
 
 variable "admin_credentials" {
-  description = "Admin credential Secrets to create, keyed by Cloud SQL instance name. Each entry generates a random password and writes it to <key>-admin-credentials in system-provisioning, the fixed name a chart's User CR reads via passwordSecretRef."
+  description = "Admin credential Secrets to create, keyed by Cloud SQL instance name. Each entry generates a random password and writes it to <key>-admin-credentials in system-database, the fixed name a chart's User CR reads via passwordSecretRef."
   type = map(object({
     username = string
   }))
