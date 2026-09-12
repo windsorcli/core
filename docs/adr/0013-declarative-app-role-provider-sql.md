@@ -208,20 +208,19 @@ schedule room inside one reconcile attempt without cycling through a
 
 ## Verification needed before merge
 
-Source-verified against `provider-sql`'s own code and validated with
-`kustomize build` against every changed component; not yet verified
-against a live cluster.
+Source-verified against `provider-sql`'s own code, validated with
+`kustomize build` against every changed component, and confirmed against
+a live cluster for all three backends (full `windsor bootstrap` on
+aws-test, azure-test, and gcp-test).
 
 - **`Role`/`Database` `Ready`/`Synced` semantics under `healthCheckExprs`**
-  — standard Crossplane MR conditions, expected to behave like every
-  other MR already gated this way in this repo, but not yet confirmed
-  against these specific resource types live.
-- **`sslMode: require`** — set explicitly rather than the provider's
-  `verify-full` default, since no CA bundle is sourced for a stricter
-  check. Not confirmed live against any of the three backends.
-- **Connection reachability** — `provider-sql`'s own provider pod (not
-  the mirror CronJob) is what actually opens the Postgres connection now;
-  not confirmed live that it reaches all three VPC-private instances.
+  — confirmed live on all three: the `Role`'s `Synced` condition gated
+  `database-resources` as expected.
+- **`sslMode: require`** — confirmed live on all three: `provider-sql`
+  connected to each backend over TLS with no CA bundle sourced.
+- **Connection reachability** — confirmed live on all three:
+  `provider-sql`'s own provider pod reached each VPC-private instance
+  directly.
 ## Alternatives considered
 
 **Keep the CronJob, patched.** The interim fix (polling, health-gate on
