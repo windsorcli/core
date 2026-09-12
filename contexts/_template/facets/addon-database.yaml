@@ -20,8 +20,8 @@ terraform:
       - network
       - cluster
     inputs:
-      # Dedicated CMK except for ephemeral contexts.
-      manage_encryption_key: ${!(ephemeral ?? false)}
+      # Opt-in, and never for ephemeral contexts.
+      manage_encryption_key: ${(database.postgres.encryption.managed ?? false) && !(ephemeral ?? false)}
       kms_key_arn: "${database.postgres.encryption.kms_key_arn ?? ''}"
       vpc_id: ${terraform_output('network', 'vpc_id')}
       # Scopes RDS ingress to this cluster's own nodes, not the whole VPC CIDR.
@@ -62,8 +62,8 @@ terraform:
       # Scopes Postgres ingress to this cluster's own node subnets rather
       # than the whole VNet.
       allowed_subnet_cidrs: ${terraform_output('network', 'private_subnet_cidrs')}
-      # Dedicated key except for ephemeral contexts.
-      manage_encryption_key: ${!(ephemeral ?? false)}
+      # Opt-in, and never for ephemeral contexts.
+      manage_encryption_key: ${(database.postgres.encryption.managed ?? false) && !(ephemeral ?? false)}
       key_vault_key_id: "${database.postgres.encryption.key_vault_key_id ?? ''}"
 
   # Workload Identity and RBAC for Crossplane's Azure provider pods.
@@ -95,8 +95,8 @@ terraform:
       project_id: ${gcp.project_id}
       region: ${terraform_output('network', 'region')}
       network_id: ${terraform_output('network', 'network_id')}
-      # Dedicated key unless the context is ephemeral.
-      manage_encryption_key: ${!(ephemeral ?? false)}
+      # Opt-in, and never for ephemeral contexts.
+      manage_encryption_key: ${(database.postgres.encryption.managed ?? false) && !(ephemeral ?? false)}
       kms_key_name: "${database.postgres.encryption.kms_key_name ?? ''}"
 
   # Workload Identity for Crossplane's provider-gcp-sql pod.

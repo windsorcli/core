@@ -395,7 +395,8 @@ cases:
           driver: rds
     expectError: true
 
-  # rds driver wires the database KMS key and crossplane-identity stacks.
+  # rds driver wires the database and crossplane-identity stacks; no
+  # dedicated CMK unless encryption.managed opts in.
   - name: rds driver wires the database key and crossplane-identity stacks
     values:
       platform: aws
@@ -425,7 +426,7 @@ cases:
             - network
             - cluster
           inputs:
-            manage_encryption_key: true
+            manage_encryption_key: false
             vpc_id: vpc-12345678
             cluster_security_group_id: sg-0eks1234
         - name: crossplane-identity
@@ -442,8 +443,27 @@ cases:
             db_subnet_group_name: test-rds
             kms_key_arn: arn:aws:kms:us-west-2:123456789012:key/abcd1234-5678-90ab-cdef-1234567890ab
 
-  # ephemeral contexts skip the dedicated CMK in favor of the AWS-managed
-  # default key.
+  - name: database.postgres.encryption.managed enables the dedicated rds CMK
+    values:
+      platform: aws
+      aws:
+        region: us-west-2
+      gateway:
+        enabled: false
+      database:
+        postgres:
+          enabled: true
+          driver: rds
+          encryption:
+            managed: true
+    expect:
+      terraform:
+        - name: database
+          path: database/aws-rds
+          inputs:
+            manage_encryption_key: true
+
+  # Ephemeral contexts never get a dedicated CMK, even with encryption.managed set.
   - name: ephemeral rds context skips the dedicated encryption key
     values:
       platform: aws
@@ -456,6 +476,8 @@ cases:
         postgres:
           enabled: true
           driver: rds
+          encryption:
+            managed: true
     expect:
       terraform:
         - name: database
@@ -531,7 +553,7 @@ cases:
             - cluster
           inputs:
             region: eastus2
-            manage_encryption_key: true
+            manage_encryption_key: false
             vnet_id: /subscriptions/sub/resourceGroups/rg-net/providers/Microsoft.Network/virtualNetworks/vnet-test
             flexibleserver_subnet_id: /subscriptions/sub/resourceGroups/rg-net/providers/Microsoft.Network/virtualNetworks/vnet-test/subnets/flexibleserver-test
             allowed_subnet_cidrs:
@@ -551,8 +573,25 @@ cases:
             oidc_issuer_url: https://eastus.oic.prod-aks.azure.com/tenant-id/oidc-id/
             postgres_resource_group_id: /subscriptions/sub/resourceGroups/cluster-test-postgres
 
-  # ephemeral contexts skip the dedicated Key Vault key in favor of
-  # Flexible Server's platform-managed encryption.
+  - name: database.postgres.encryption.managed enables the dedicated flexibleserver key
+    values:
+      platform: azure
+      gateway:
+        enabled: false
+      database:
+        postgres:
+          enabled: true
+          driver: flexibleserver
+          encryption:
+            managed: true
+    expect:
+      terraform:
+        - name: database
+          path: database/azure-postgres
+          inputs:
+            manage_encryption_key: true
+
+  # Ephemeral contexts never get a dedicated Key Vault key, even with encryption.managed set.
   - name: ephemeral flexibleserver context skips the dedicated encryption key
     values:
       platform: azure
@@ -563,6 +602,8 @@ cases:
         postgres:
           enabled: true
           driver: flexibleserver
+          encryption:
+            managed: true
     expect:
       terraform:
         - name: database
@@ -631,7 +672,7 @@ cases:
             project_id: windsor-test
             region: us-east1
             network_id: projects/windsor-test/global/networks/vpc-test
-            manage_encryption_key: true
+            manage_encryption_key: false
         - name: crossplane-identity
           path: provisioning/crossplane-identity/gcp
           dependsOn:
@@ -644,8 +685,27 @@ cases:
             resources:
               - postgres
 
-  # ephemeral contexts skip the dedicated KMS key in favor of Cloud SQL's
-  # platform-managed encryption.
+  - name: database.postgres.encryption.managed enables the dedicated cloudsql key
+    values:
+      platform: gcp
+      gcp:
+        project_id: windsor-test
+      gateway:
+        enabled: false
+      database:
+        postgres:
+          enabled: true
+          driver: cloudsql
+          encryption:
+            managed: true
+    expect:
+      terraform:
+        - name: database
+          path: database/gcp-cloudsql
+          inputs:
+            manage_encryption_key: true
+
+  # Ephemeral contexts never get a dedicated KMS key, even with encryption.managed set.
   - name: ephemeral cloudsql context skips the dedicated encryption key
     values:
       platform: gcp
@@ -658,6 +718,8 @@ cases:
         postgres:
           enabled: true
           driver: cloudsql
+          encryption:
+            managed: true
     expect:
       terraform:
         - name: database
