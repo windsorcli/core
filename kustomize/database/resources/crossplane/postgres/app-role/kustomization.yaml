@@ -2,13 +2,12 @@ apiVersion: kustomize.config.k8s.io/v1alpha1
 kind: Component
 
 # Application-credential provisioning for any provider-sql-fronted
-# instance CR — never the admin credential, matching CNPG's own
-# app-secret separation. The role owns its database, matching CNPG's own
-# default "app" user, so a chart can migrate its own schema without its
-# own CronJob. Driver-agnostic: a per-instance ProviderConfig, a
-# WatchOperation mirroring the instance's endpoint and admin credential
-# into the connection Secret that ProviderConfig reads, and the
-# Role/Database themselves.
+# instance CR, never the admin credential.
+#
+# The role owns its database, matching CNPG's own default "app" user.
+#
+# Driver-agnostic: a per-instance ProviderConfig, a WatchOperation
+# mirroring the instance into the connection Secret, and the Role/Database.
 #
 # Required substitutions:
 #   pg_instance_name       Instance CR's name, e.g. demo-db
@@ -22,11 +21,8 @@ kind: Component
 #                            admin credentials Secret, "false" if it's on
 #                            the instance CR's own spec.forProvider
 #
-# A second, read-only consumer of the same database, or anything else
-# ownership doesn't cover, is a plain provider-sql Grant referencing the
-# ${pg_database_name}-app Role this component creates — no substitution
-# surface of its own, the same posture as any other chart adding its own
-# Crossplane resource directly.
+# A second, read-only consumer needs only a plain provider-sql Grant
+# referencing the ${pg_database_name}-app Role this component creates.
 
 resources:
   - role.yaml

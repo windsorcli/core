@@ -2,9 +2,10 @@ apiVersion: kustomize.config.k8s.io/v1alpha1
 kind: Component
 
 # Flexible Server's own pieces on top of the driver-agnostic ../postgres
-# base. Reference both together — a caller lists crossplane/postgres and
-# crossplane/postgres/azure-postgres as peer components, in that order;
-# this directory can't pull in its own parent without a kustomize cycle.
+# base.
+#
+# Reference both as peer components, in that order: this directory can't
+# pull in its own parent without a kustomize cycle.
 
 resources:
   - provider-config.yaml

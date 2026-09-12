@@ -190,7 +190,7 @@ no `dbName` field the way `rds.aws.upbound.io` `Instance` does.
 bundles a Kyverno `ClusterPolicy` that force-sets it on every
 `FlexibleServer` admission to the context's dedicated postgres resource
 group, the same overwrite-on-admission posture as the AWS tag policy.
-`crossplane-identity-azure`'s custom role is scoped to that resource
+`crossplane-identity/azure`'s custom role is scoped to that resource
 group, so the identity can't touch a server it didn't create.
 
 <!-- BEGIN_KUSTOMIZE_DOCS -->
@@ -211,6 +211,6 @@ group, so the identity can't touch a server it didn't create.
 ## See also
 
 - [contexts/_template/facets/addon-database.yaml](../../contexts/_template/facets/addon-database.yaml) for the `provisioning` `flux:` system entries.
-- [terraform/cluster/aws-eks](../../terraform/cluster/aws-eks/), [terraform/database/aws-rds](../../terraform/database/aws-rds/), [terraform/provisioning/crossplane-iam](../../terraform/provisioning/crossplane-iam/) for the AWS IAM role, Pod Identity association, and DB subnet group.
-- [terraform/database/azure-postgres](../../terraform/database/azure-postgres/), [terraform/provisioning/crossplane-identity-azure](../../terraform/provisioning/crossplane-identity-azure/) for the Azure resource group, private DNS zone, and Workload Identity federation.
+- [terraform/cluster/aws-eks](../../terraform/cluster/aws-eks/), [terraform/database/aws-rds](../../terraform/database/aws-rds/), [terraform/provisioning/crossplane-identity/aws](../../terraform/provisioning/crossplane-identity/aws/) for the AWS IAM role, Pod Identity association, and DB subnet group.
+- [terraform/database/azure-postgres](../../terraform/database/azure-postgres/), [terraform/provisioning/crossplane-identity/azure](../../terraform/provisioning/crossplane-identity/azure/) for the Azure resource group, private DNS zone, and Workload Identity federation.
 - Related add-ons: [database](../database/) (the `database.postgres.driver` gate).

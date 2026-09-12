@@ -1,10 +1,9 @@
 ---
 # Worked example of the kustomize/database contract: just the server
-# definition, no provider wiring. resourceGroupName and providerConfigRef
-# are both handled by the database add-on. administratorPasswordSecretRef
-# names the fixed Secret app-role's own CronJob reads the admin credential
-# from — the documented contract, matching rds/instance.yaml's own
-# autoGeneratePassword/passwordSecretRef pair.
+# definition, no provider wiring.
+# resourceGroupName and providerConfigRef are handled by the database add-on.
+# administratorPasswordSecretRef names the Secret app-role's WatchOperation
+# reads the admin credential from.
 apiVersion: dbforpostgresql.azure.upbound.io/v1beta1
 kind: FlexibleServer
 metadata:

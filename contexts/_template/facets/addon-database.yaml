@@ -12,9 +12,9 @@ when: database.postgres.enabled == true
 # =============================================================================
 terraform:
 
-  # KMS key, security group, and secret-reader role for RDS storage —
-  # shared across every database in this context, engine-agnostic unlike
-  # crossplane-identity below.
+  # KMS key and security group for RDS storage, shared across every
+  # database in this context, engine-agnostic unlike crossplane-identity
+  # below.
   - name: database
     path: database/aws-rds
     when: "database.postgres.driver == 'rds'"

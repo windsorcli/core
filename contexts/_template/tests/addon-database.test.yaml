@@ -190,10 +190,8 @@ cases:
   # the driver's own database-specific consumption (ProviderConfig,
   # monitoring, app-role) is a separate database-named system so it lands
   # in system-database, not system-provisioning.
-  # Regression (cli#3303): an install tier with an empty components list
-  # used to compile to no Kustomization at all; install: {} here confirms
-  # it still renders, so the namespace its own kustomization.yaml carries
-  # still lands.
+  # install: {} with no components still renders the namespace its own
+  # kustomization.yaml carries.
   - name: rds driver installs crossplane and provider-aws-rds
     values:
       platform: aws
