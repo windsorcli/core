@@ -19,5 +19,5 @@ spec:
     privileges:
       login: true
   writeConnectionSecretToRef:
-    name: ${pg_instance_name}-app-credentials
+    name: ${pg_instance_name}-${pg_database_name}-app-credentials
     namespace: ${pg_target_namespace}
