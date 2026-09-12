@@ -124,9 +124,7 @@ cases:
                   kind: Role
                   current: status.conditions.exists(e, e.type == 'Synced' && e.status == 'True')
 
-  # PodMonitor only exists once the metrics pipeline vendors
-  # prometheus-operator's CRDs, so monitoring-exporter is excluded when
-  # it's off; app-role/monitor-role stay unconditional.
+  # app-role and monitor-role stay unconditional.
   - name: demo mode with rds driver excludes monitoring-exporter when metrics disabled
     values:
       platform: aws

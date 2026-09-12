@@ -4,15 +4,14 @@
 apiVersion: postgresql.sql.crossplane.io/v1alpha1
 kind: Role
 metadata:
-  # Disambiguates the cluster-scoped object across instances sharing a
-  # database name; the actual Postgres role stays ${pg_database_name}-app.
+  # Disambiguates the cluster-scoped object across instances: the actual
+  # Postgres role stays ${pg_database_name}-app.
   name: ${pg_instance_name}-${pg_database_name}-app
   annotations:
     crossplane.io/external-name: ${pg_database_name}-app
 spec:
-  # Orphan, not Delete: the Database CR's ownerRef makes this role own its
-  # database, and PostgreSQL refuses DROP ROLE on a role that still owns
-  # objects.
+  # Orphan, not Delete: PostgreSQL refuses DROP ROLE on a role that still
+  # owns objects.
   deletionPolicy: Orphan
   providerConfigRef:
     name: provider-sql-${pg_instance_name}

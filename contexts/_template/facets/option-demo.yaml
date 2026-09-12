@@ -130,11 +130,8 @@ flux:
         timeout: 30m
         interval: 5m
 
-  # Application and monitoring credentials for demo-db, across all three
-  # drivers. Its own Kustomization, not merged into database-resources:
-  # that Kustomization owns the driver's default ProviderConfig, which
-  # demo-resources' Instance still references on teardown, so depending
-  # on demo-resources there would deadlock destroy.
+  # Its own Kustomization, not merged into database-resources: depending
+  # on demo-resources would deadlock destroy against its ProviderConfig.
   - name: database-credentials
     path: database
     when: demo.resources.database == true && (database.postgres.driver == 'rds' || database.postgres.driver == 'flexibleserver' || database.postgres.driver == 'cloudsql')

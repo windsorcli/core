@@ -3,8 +3,7 @@ apiVersion: postgresql.sql.crossplane.io/v1alpha1
 kind: ProviderConfig
 metadata:
   # Per-instance, not per-driver: a consumer may create more than one
-  # instance on the same driver, and one ProviderConfig can only ever
-  # point at one connection Secret.
+  # instance per driver.
   name: provider-sql-${pg_instance_name}
 spec:
   # require, not the provider's own verify-full default: no CA bundle is

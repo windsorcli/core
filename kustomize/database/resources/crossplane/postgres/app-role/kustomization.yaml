@@ -1,21 +1,8 @@
 apiVersion: kustomize.config.k8s.io/v1alpha1
 kind: Component
 
-# Application-credential provisioning for any provider-sql-fronted
-# instance CR, never the admin credential.
-#
-# The role owns its database, matching CNPG's own default "app" user.
-#
-# Reference ../instance-connection as a peer component: it provides the
-# ProviderConfig this component's Role/Database use.
-#
-# Required substitutions:
-#   pg_instance_name       Instance CR's name, e.g. demo-db
-#   pg_database_name       Database inside it to connect to, e.g. demo
-#   pg_target_namespace    Namespace for the published credentials Secret
-#
-# A second, read-only consumer needs only a plain provider-sql Grant
-# referencing the ${pg_database_name}-app Role this component creates.
+# Application-credential Role and Database. Peer to ../instance-connection
+# for the ProviderConfig.
 
 resources:
   - role.yaml

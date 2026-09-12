@@ -186,12 +186,7 @@ cases:
               - cloudnativepg
               - cloudnativepg/prometheus
 
-  # rds driver installs Crossplane (kustomize/provisioning) instead of CNPG;
-  # the driver's own database-specific consumption (ProviderConfig,
-  # monitoring, app-role) is a separate database-named system so it lands
-  # in system-database, not system-provisioning.
-  # install: {} with no components still renders the namespace its own
-  # kustomization.yaml carries.
+  # rds driver installs Crossplane (kustomize/provisioning) instead of CNPG.
   - name: rds driver installs crossplane and provider-aws-rds
     values:
       platform: aws
@@ -229,12 +224,8 @@ cases:
               components:
                 - crossplane/postgres/aws-rds
 
-  # Regression (#2653): provisioning-install must outlive the Provider CR so
-  # destroy tears the Provider down while Crossplane's engine can still clear
-  # its package-manager finalizer, instead of leaving it stuck and blocking
-  # crds-core's CRD cleanup. provisioning-resources depending on
-  # provisioning-install is implicit in the tier model, not assertable here;
-  # database-resources's own dependsOn on provisioning-resources is.
+  # Regression (#2653): asserts database-resources's dependsOn on
+  # provisioning-resources, keeping provisioning-install alive for destroy.
   - name: rds driver keeps provisioning-install alive until the Provider CR is gone
     values:
       platform: aws
@@ -253,10 +244,7 @@ cases:
             - dependsOn:
                 - provisioning-resources
 
-  # Regression (#2653): Azure twin of the rds case above. Same ordering
-  # guarantee, and the Azure path also carries crossplane_azure_client_id/
-  # crossplane_azure_tenant_id substitutions on provisioning's own resources
-  # tier.
+  # Regression (#2653): Azure twin of the rds case above.
   - name: flexibleserver driver keeps provisioning-install alive until the Provider CR is gone
     values:
       platform: azure
@@ -407,9 +395,7 @@ cases:
           driver: rds
     expectError: true
 
-  # database.postgres.driver: rds wires a dedicated KMS key (database stack,
-  # manage_encryption_key defaults on) and the Crossplane IAM/Pod-Identity
-  # stack, both independent of the cluster stack itself.
+  # rds driver wires the database KMS key and crossplane-identity stacks.
   - name: rds driver wires the database key and crossplane-identity stacks
     values:
       platform: aws

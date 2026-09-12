@@ -41,9 +41,8 @@ locals {
     rds = {
       namespace       = "system-provisioning"
       service_account = "provider-aws-rds"
-      # Describe/List actions don't support resource-level restriction in
-      # RDS's IAM action reference; scoped to db:*/snapshot:* everywhere
-      # else, via the windsorcli.dev/cluster request/resource tag.
+      # Describe/List actions don't support resource-level restriction:
+      # everything else scopes to db:*/snapshot:* via the cluster tag.
       policy = jsonencode({
         Version = "2012-10-17"
         Statement = [
@@ -109,8 +108,8 @@ locals {
             Resource = var.kms_key_arn
           },
           {
-            # Lets RDS create a grant on the key for storage encryption;
-            # scoped to grants made on RDS's own behalf.
+            # Scoped to grants RDS makes on its own behalf, for storage
+            # encryption.
             Effect   = "Allow"
             Action   = "kms:CreateGrant"
             Resource = var.kms_key_arn

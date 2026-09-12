@@ -17,9 +17,8 @@ metadata:
       FlexibleServer can only be created or modified within it regardless
       of what a chart submits.
 spec:
-  # Fail-open: if the mutation webhook is unreachable, the create still goes
-  # through and the role assignment's own scope is the backstop that
-  # rejects it.
+  # Fail-open: the role assignment's own scope backstops a create that
+  # slips through an unreachable webhook.
   failurePolicy: Ignore
   background: false
   rules:

@@ -12,9 +12,7 @@ when: database.postgres.enabled == true
 # =============================================================================
 terraform:
 
-  # KMS key and security group for RDS storage, shared across every
-  # database in this context, engine-agnostic unlike crossplane-identity
-  # below.
+  # KMS key and security group for RDS storage.
   - name: database
     path: database/aws-rds
     when: "database.postgres.driver == 'rds'"
@@ -22,18 +20,15 @@ terraform:
       - network
       - cluster
     inputs:
-      # Dedicated CMK unless the context is ephemeral (CI, throwaway test
-      # contexts), where the AWS-managed default key is cheaper and disposable.
+      # Dedicated CMK except for ephemeral contexts.
       manage_encryption_key: ${!(ephemeral ?? false)}
       kms_key_arn: "${database.postgres.encryption.kms_key_arn ?? ''}"
       vpc_id: ${terraform_output('network', 'vpc_id')}
-      # Scopes RDS ingress to this cluster's own nodes rather than the whole
-      # VPC CIDR — tighter, and CNI-agnostic since it's attached to every
-      # node's ENI directly by EKS, not something the CNI driver controls.
+      # Scopes RDS ingress to this cluster's own nodes, not the whole VPC CIDR.
       cluster_security_group_id: ${terraform_output('cluster', 'cluster_security_group_id')}
 
   # IAM role, policy, and Pod Identity association for Crossplane's AWS
-  # provider pods — genuinely engine-specific, unlike the KMS key above.
+  # provider pods.
   - name: crossplane-identity
     path: provisioning/crossplane-identity/aws
     when: "database.postgres.driver == 'rds'"
@@ -51,8 +46,7 @@ terraform:
         - rds
 
   # Resource group, private DNS zone, NSG, and optional customer-managed
-  # key for Flexible Server. Shared across every database in a context.
-  # Engine-agnostic, unlike crossplane-identity below.
+  # key for Flexible Server.
   - name: database
     path: database/azure-postgres
     when: "database.postgres.driver == 'flexibleserver'"
@@ -60,24 +54,19 @@ terraform:
       - network
       - cluster
     inputs:
-      # Derived from network's own output, not azure.region directly —
-      # Flexible Server must colocate with its delegated subnet.
+      # Derived from network's own output: Flexible Server must colocate
+      # with its delegated subnet.
       region: ${terraform_output('network', 'region')}
       vnet_id: ${terraform_output('network', 'vnet_id')}
       flexibleserver_subnet_id: ${terraform_output('network', 'flexibleserver_subnet_id')}
       # Scopes Postgres ingress to this cluster's own node subnets rather
       # than the whole VNet.
       allowed_subnet_cidrs: ${terraform_output('network', 'private_subnet_cidrs')}
-      # Dedicated key unless the context is ephemeral (CI, throwaway test
-      # contexts), where Flexible Server's platform-managed encryption is
-      # cheaper and disposable.
+      # Dedicated key except for ephemeral contexts.
       manage_encryption_key: ${!(ephemeral ?? false)}
       key_vault_key_id: "${database.postgres.encryption.key_vault_key_id ?? ''}"
 
   # Workload Identity and RBAC for Crossplane's Azure provider pods.
-  # Genuinely engine-specific, unlike the resource group above: a
-  # Terraform-native database mode needs none of this, no in-cluster pod
-  # calling Azure on its behalf.
   - name: crossplane-identity
     path: provisioning/crossplane-identity/azure
     when: "database.postgres.driver == 'flexibleserver'"
@@ -130,11 +119,7 @@ terraform:
 flux:
 
   # CloudNativePG operator, or (rds/flexibleserver/cloudsql) just this
-  # domain's namespace — those drivers' own mechanics live in the
-  # resources tier below, once Crossplane's providers are up. `ha`
-  # topology adds anti-affinity and PDBs to the operator. The install
-  # tier's own kustomization.yaml always carries the namespace, so it
-  # renders even with no components.
+  # domain's namespace.
   - name: database
     install:
       components:
@@ -147,8 +132,8 @@ flux:
       - "${database.postgres.driver == 'cloudnativepg' ? 'csi-install' : ''}"
       - "${database.postgres.driver == 'cloudnativepg' && (telemetry.metrics.enabled || telemetry.logs.enabled) ? 'telemetry' : ''}"
     resources:
-      # Each variant waits for Healthy/Installed so its ProviderConfig's
-      # CRD exists.
+      # Depends on provisioning-resources: gated on the Provider's own
+      # Healthy/Installed conditions.
       - when: database.postgres.driver == 'rds'
         dependsOn:
           - provisioning-resources
@@ -183,10 +168,7 @@ flux:
         timeout: 5m
         interval: 5m
 
-  # Grafana dashboard — only when observability is active. Matches the
-  # active driver: CloudNativePG's own metrics, or postgres_exporter for
-  # rds/flexibleserver/cloudsql (see kustomize/demo/resources/database/rds
-  # for a worked example of deploying it against a chart's own Instance).
+  # Grafana dashboard matching the active driver.
   - name: observability
     when: (database.postgres.driver == 'cloudnativepg' || database.postgres.driver == 'rds' || database.postgres.driver == 'flexibleserver' || database.postgres.driver == 'cloudsql') && observability.enabled == true
     resources:
@@ -194,13 +176,8 @@ flux:
           - "${database.postgres.driver == 'cloudnativepg' ? 'grafana/dashboards/cloudnativepg' : ''}"
           - "${(database.postgres.driver == 'rds' || database.postgres.driver == 'flexibleserver' || database.postgres.driver == 'cloudsql') ? 'grafana/dashboards/postgres-exporter' : ''}"
 
-  # Crossplane engine (kustomize/provisioning), and the active driver's
-  # provider + provider-sql's Provider CRs and DeploymentRuntimeConfigs.
-  # The resources tier always depends on install, so destroy removes the
-  # providers before the engine — their package-manager finalizers only
-  # clear while the Crossplane engine pod is still running. A chart
-  # creates the Instance CR against whatever ProviderConfig the database
-  # system above sets up.
+  # Resources tier depends on install: destroy clears the driver's
+  # provider before the Crossplane engine its finalizer needs running.
   - name: provisioning
     when: database.postgres.driver == 'rds' || database.postgres.driver == 'flexibleserver' || database.postgres.driver == 'cloudsql'
     install:

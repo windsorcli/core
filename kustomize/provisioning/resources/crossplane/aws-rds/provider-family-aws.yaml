@@ -1,7 +1,6 @@
 ---
-# provider-aws-rds's own dependency, declared explicitly so it's
-# digest-pinned too — skipDependencyResolution: true on provider-aws-rds
-# means Crossplane won't auto-resolve an unpinned copy of it.
+# provider-aws-rds's own dependency, digest-pinned explicitly: its
+# skipDependencyResolution: true skips Crossplane's own resolution.
 apiVersion: pkg.crossplane.io/v1
 kind: Provider
 metadata:

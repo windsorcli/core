@@ -21,10 +21,7 @@ provider "azurerm" {
 #-----------------------------------------------------------------------------------------------------------------------
 
 # Per-resource-type ServiceAccount, namespace, RBAC scope, and action set.
-# Adding a new Crossplane-managed Azure resource type means adding an
-# entry here. Same catalog shape as provisioning/crossplane-identity/aws.
-# Kept as its own module: an azurerm and an aws provider can't share one
-# Terraform root.
+# Its own module: an azurerm and an aws provider can't share one root.
 locals {
   catalog = {
     postgres = {
@@ -36,9 +33,7 @@ locals {
         "Microsoft.DBforPostgreSQL/flexibleServers/databases/*",
         "Microsoft.DBforPostgreSQL/flexibleServers/configurations/*",
         # Attaching the delegated subnet and linking the private DNS zone
-        # both need an explicit join/action grant. AWS's CreateDBInstance
-        # needs the same: an explicit Allow on the subnet group ARN it
-        # references, not just the instance ARN it creates.
+        # both need an explicit join/action grant.
         "Microsoft.Network/virtualNetworks/subnets/join/action",
         "Microsoft.Network/virtualNetworks/subnets/read",
         "Microsoft.Network/privateDnsZones/join/action",
@@ -77,11 +72,8 @@ resource "azurerm_federated_identity_credential" "this" {
 # RBAC
 #-----------------------------------------------------------------------------------------------------------------------
 
-# A custom role, not the built-in Contributor. Scoped to exactly the
-# actions each resource type needs, at the dedicated resource group its
-# own Terraform layer created. Azure's replacement for AWS's per-resource
-# tag condition: Azure RBAC's ABAC condition support doesn't cover
-# Microsoft.DBforPostgreSQL.
+# Custom role, not Contributor: Azure RBAC's ABAC condition support
+# doesn't cover Microsoft.DBforPostgreSQL.
 resource "azurerm_role_definition" "this" {
   for_each    = local.selected
   name        = "${var.cluster_name}-crossplane-${each.key}"

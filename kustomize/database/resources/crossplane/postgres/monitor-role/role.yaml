@@ -4,7 +4,7 @@
 apiVersion: postgresql.sql.crossplane.io/v1alpha1
 kind: Role
 metadata:
-  # Disambiguates the cluster-scoped object across instances; the actual
+  # Disambiguates the cluster-scoped object across instances: the actual
   # Postgres role stays ${pg_instance_name}_monitor.
   name: ${pg_instance_name}-monitor
   annotations:

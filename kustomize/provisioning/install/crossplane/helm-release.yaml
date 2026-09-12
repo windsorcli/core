@@ -26,9 +26,7 @@ spec:
         namespace: system-provisioning
   values:
     priorityClassName: windsorcli-platform-critical
-    # Alpha feature: WatchOperations react to a driver instance's own
-    # status changes, mirroring its connection details on demand instead
-    # of polling on a fixed schedule.
+    # Alpha feature: enables WatchOperations.
     args:
       - --enable-operations
     image:
