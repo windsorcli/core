@@ -10,7 +10,7 @@
 - op: replace
   path: /spec/rules/0/match/any/0/resources/kinds
   value: &databaseinstanceKinds
-    - sql.gcp.upbound.io/v1beta1/DatabaseInstance
+    - sql.gcp.upbound.io/v1beta2/DatabaseInstance
 - op: replace
   path: /spec/rules/1/match/any/0/resources/kinds
   value: *databaseinstanceKinds
