@@ -139,7 +139,7 @@ terraform:
 
   # Workload Identity for Crossplane's provider-gcp-sql pod.
   - name: crossplane-identity-gcp
-    path: provisioning/crossplane-identity-gcp
+    path: provisioning/crossplane-identity/gcp
     when: "database.postgres.enabled == true && database.postgres.driver == 'cloudsql'"
     dependsOn:
       - network

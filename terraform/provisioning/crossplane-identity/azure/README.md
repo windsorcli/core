@@ -1,5 +1,5 @@
 ---
-title: provisioning/crossplane-identity-azure
+title: provisioning/crossplane-identity/azure
 description: Workload Identity and RBAC for Crossplane's Azure provider pods.
 ---
 <!-- BEGIN_TF_DOCS -->

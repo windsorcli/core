@@ -583,7 +583,7 @@ cases:
             cluster_name: cluster-test
             cluster_arn: arn:aws:eks:us-west-2:123456789012:cluster/cluster-test
         - name: crossplane-iam
-          path: provisioning/crossplane-iam
+          path: provisioning/crossplane-identity/aws
           dependsOn:
             - network
             - cluster

@@ -1,9 +1,9 @@
 ---
-title: provisioning/crossplane-iam
+title: provisioning/crossplane-identity/aws
 description: IAM and Pod Identity for Crossplane's AWS provider pods.
 ---
 
-# provisioning/crossplane-iam
+# provisioning/crossplane-identity/aws
 
 IAM role, policy, and EKS Pod Identity association per Crossplane-managed
 AWS resource type, keyed by an internal catalog and `for_each` over

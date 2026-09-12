@@ -162,7 +162,7 @@ terraform:
   # mode wouldn't need any of this, no in-cluster pod calling AWS on its
   # behalf), unlike the KMS key above.
   - name: crossplane-iam
-    path: provisioning/crossplane-iam
+    path: provisioning/crossplane-identity/aws
     when: "database.postgres.enabled == true && database.postgres.driver == 'rds'"
     dependsOn:
       - network

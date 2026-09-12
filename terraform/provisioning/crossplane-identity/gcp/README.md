@@ -1,12 +1,12 @@
 ---
-title: provisioning/crossplane-identity-gcp
+title: provisioning/crossplane-identity/gcp
 description: Workload Identity Federation for Crossplane's GCP provider pods.
 ---
 
-# provisioning/crossplane-identity-gcp
+# provisioning/crossplane-identity/gcp
 
 Workload Identity for Crossplane's `provider-gcp-sql` pod — the GCP
-counterpart to `provisioning/crossplane-identity-azure`'s federated
+counterpart to `provisioning/crossplane-identity/azure`'s federated
 credential and `cluster/aws-eks`'s inline Pod Identity association. Binds
 the provider pod's Kubernetes ServiceAccount to a dedicated Google Service
 Account via `roles/iam.workloadIdentityUser`, then grants that service
