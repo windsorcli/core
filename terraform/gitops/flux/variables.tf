@@ -88,7 +88,7 @@ variable "leader_election" {
 }
 
 variable "replicas" {
-  description = "Replica count for the default Flux controllers (source, kustomize, helm, notification). Values above 1 require leader_election."
+  description = "Replica count for kustomize-controller, helm-controller, and notification-controller. source-controller stays pinned to 1 regardless of this value. Values above 1 require leader_election."
   type        = number
   default     = 1
 }
