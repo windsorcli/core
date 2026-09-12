@@ -22,8 +22,8 @@ provider "azurerm" {
 
 # Per-resource-type ServiceAccount, namespace, RBAC scope, and action set.
 # Adding a new Crossplane-managed Azure resource type means adding an
-# entry here. Same catalog shape as provisioning/crossplane-iam. Kept as
-# its own module: an azurerm and an aws provider can't share one
+# entry here. Same catalog shape as provisioning/crossplane-identity/aws.
+# Kept as its own module: an azurerm and an aws provider can't share one
 # Terraform root.
 locals {
   catalog = {

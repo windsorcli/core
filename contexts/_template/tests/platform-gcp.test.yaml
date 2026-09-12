@@ -247,7 +247,7 @@ cases:
             network_id: projects/windsor-test/global/networks/vpc-test
             manage_encryption_key: true
         - name: crossplane-identity-gcp
-          path: provisioning/crossplane-identity-gcp
+          path: provisioning/crossplane-identity/gcp
           dependsOn:
             - network
             - cluster

@@ -17,7 +17,7 @@ terraform {
 #---------------------------------------------------------------------------------------------------
 
 # Per-resource-type ServiceAccount, namespace, and IAM role. Same catalog
-# shape as crossplane-identity-azure.
+# shape as provisioning/crossplane-identity/azure.
 locals {
   catalog = {
     postgres = {

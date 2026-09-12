@@ -1,9 +1,9 @@
 ---
-title: provisioning/crossplane-iam
+title: provisioning/crossplane-identity/aws
 description: IAM and Pod Identity for Crossplane's AWS provider pods.
 ---
 
-# provisioning/crossplane-iam
+# provisioning/crossplane-identity/aws
 
 IAM role, policy, and EKS Pod Identity association per Crossplane-managed
 AWS resource type, keyed by an internal catalog and `for_each` over
@@ -19,13 +19,13 @@ not a copy-pasted IAM block.
 | Name | Version |
 |------|---------|
 | <a name="requirement_terraform"></a> [terraform](#requirement\_terraform) | >= 1.12.2 |
-| <a name="requirement_aws"></a> [aws](#requirement\_aws) | 6.58.0 |
+| <a name="requirement_aws"></a> [aws](#requirement\_aws) | 6.63.0 |
 
 ## Providers
 
 | Name | Version |
 |------|---------|
-| <a name="provider_aws"></a> [aws](#provider\_aws) | 6.58.0 |
+| <a name="provider_aws"></a> [aws](#provider\_aws) | 6.63.0 |
 
 ## Modules
 
@@ -35,12 +35,12 @@ No modules.
 
 | Name | Type |
 |------|------|
-| [aws_eks_pod_identity_association.this](https://registry.terraform.io/providers/hashicorp/aws/6.58.0/docs/resources/eks_pod_identity_association) | resource |
-| [aws_iam_policy.this](https://registry.terraform.io/providers/hashicorp/aws/6.58.0/docs/resources/iam_policy) | resource |
-| [aws_iam_role.this](https://registry.terraform.io/providers/hashicorp/aws/6.58.0/docs/resources/iam_role) | resource |
-| [aws_iam_role_policy_attachment.this](https://registry.terraform.io/providers/hashicorp/aws/6.58.0/docs/resources/iam_role_policy_attachment) | resource |
-| [aws_caller_identity.current](https://registry.terraform.io/providers/hashicorp/aws/6.58.0/docs/data-sources/caller_identity) | data source |
-| [aws_kms_key.secretsmanager_default](https://registry.terraform.io/providers/hashicorp/aws/6.58.0/docs/data-sources/kms_key) | data source |
+| [aws_eks_pod_identity_association.this](https://registry.terraform.io/providers/hashicorp/aws/6.63.0/docs/resources/eks_pod_identity_association) | resource |
+| [aws_iam_policy.this](https://registry.terraform.io/providers/hashicorp/aws/6.63.0/docs/resources/iam_policy) | resource |
+| [aws_iam_role.this](https://registry.terraform.io/providers/hashicorp/aws/6.63.0/docs/resources/iam_role) | resource |
+| [aws_iam_role_policy_attachment.this](https://registry.terraform.io/providers/hashicorp/aws/6.63.0/docs/resources/iam_role_policy_attachment) | resource |
+| [aws_caller_identity.current](https://registry.terraform.io/providers/hashicorp/aws/6.63.0/docs/data-sources/caller_identity) | data source |
+| [aws_kms_key.secretsmanager_default](https://registry.terraform.io/providers/hashicorp/aws/6.63.0/docs/data-sources/kms_key) | data source |
 
 ## Inputs
 

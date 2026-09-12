@@ -145,7 +145,7 @@ terraform:
   # Terraform-native database mode needs none of this, no in-cluster pod
   # calling Azure on its behalf.
   - name: crossplane-identity-azure
-    path: provisioning/crossplane-identity-azure
+    path: provisioning/crossplane-identity/azure
     when: "database.postgres.enabled == true && database.postgres.driver == 'flexibleserver'"
     dependsOn:
       - network

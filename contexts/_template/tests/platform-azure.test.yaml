@@ -511,7 +511,7 @@ cases:
             allowed_subnet_cidrs:
               - 10.0.0.0/20
         - name: crossplane-identity-azure
-          path: provisioning/crossplane-identity-azure
+          path: provisioning/crossplane-identity/azure
           dependsOn:
             - network
             - cluster
