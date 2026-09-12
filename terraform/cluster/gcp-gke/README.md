@@ -75,6 +75,7 @@ gcloud components install gke-gcloud-auth-plugin
 | <a name="requirement_terraform"></a> [terraform](#requirement\_terraform) | >= 1.12.2 |
 | <a name="requirement_google"></a> [google](#requirement\_google) | 8.2.0 |
 | <a name="requirement_null"></a> [null](#requirement\_null) | ~> 3.2 |
+| <a name="requirement_time"></a> [time](#requirement\_time) | ~> 0.13 |
 
 ## Providers
 
@@ -82,6 +83,7 @@ gcloud components install gke-gcloud-auth-plugin
 |------|---------|
 | <a name="provider_google"></a> [google](#provider\_google) | 8.2.0 |
 | <a name="provider_null"></a> [null](#provider\_null) | 3.3.1 |
+| <a name="provider_time"></a> [time](#provider\_time) | 0.14.2 |
 
 ## Modules
 
@@ -103,6 +105,7 @@ No modules.
 | [google_service_account_iam_member.cert_manager_workload_identity](https://registry.terraform.io/providers/hashicorp/google/8.2.0/docs/resources/service_account_iam_member) | resource |
 | [google_service_account_iam_member.external_dns_workload_identity](https://registry.terraform.io/providers/hashicorp/google/8.2.0/docs/resources/service_account_iam_member) | resource |
 | [null_resource.kubeconfig](https://registry.terraform.io/providers/hashicorp/null/latest/docs/resources/resource) | resource |
+| [time_sleep.post_delete_firewall_buffer](https://registry.terraform.io/providers/hashicorp/time/latest/docs/resources/sleep) | resource |
 
 ## Inputs
 

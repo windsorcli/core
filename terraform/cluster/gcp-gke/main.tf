@@ -13,6 +13,10 @@ terraform {
       source  = "hashicorp/null"
       version = "~> 3.2"
     }
+    time = {
+      source  = "hashicorp/time"
+      version = "~> 0.13"
+    }
   }
 }
 
@@ -35,6 +39,15 @@ locals {
 # and cluster/azure-aks expose their API servers.
 #---------------------------------------------------------------------------------------------------
 
+#---------------------------------------------------------------------------------------------------
+# Destroy-time buffer: GKE's cluster-wide node health-check firewall rule
+# lags the DeleteCluster call, otherwise blocking network/gcp-vpc's destroy.
+#---------------------------------------------------------------------------------------------------
+
+resource "time_sleep" "post_delete_firewall_buffer" {
+  destroy_duration = "90s"
+}
+
 resource "google_container_cluster" "this" {
   # checkov:skip=CKV_GCP_65: Google Groups RBAC needs a pre-existing Workspace
   # security group; out of scope for a bootstrap infra module.
@@ -42,8 +55,9 @@ resource "google_container_cluster" "this" {
   # pipeline this blueprint doesn't provide yet.
   # checkov:skip=CKV_GCP_12: Dataplane V2 enforces network policy natively;
   # the legacy network_policy addon is for Calico on the legacy datapath.
-  name     = local.cluster_name
-  location = var.region
+  depends_on = [time_sleep.post_delete_firewall_buffer]
+  name       = local.cluster_name
+  location   = var.region
   # Scopes the ephemeral bootstrap pool below to var.node_locations instead
   # of GKE's own regional-cluster default of every zone in the region.
   node_locations = var.node_locations
