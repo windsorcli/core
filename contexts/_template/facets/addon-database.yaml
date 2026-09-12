@@ -153,7 +153,6 @@ flux:
         dependsOn:
           - provisioning-resources
         components:
-          - "${(telemetry.metrics.enabled ?? true) ? 'crossplane/postgres/monitoring-exporter' : ''}"
           - crossplane/postgres/aws-rds
         substitutions:
           cluster_name: "${terraform_output('cluster', 'cluster_name') ?? ''}"
@@ -164,7 +163,6 @@ flux:
         dependsOn:
           - provisioning-resources
         components:
-          - "${(telemetry.metrics.enabled ?? true) ? 'crossplane/postgres/monitoring-exporter' : ''}"
           - crossplane/postgres/azure-postgres
         substitutions:
           crossplane_azure_client_id: "${terraform_output('crossplane-identity', 'client_ids')['postgres'] ?? ''}"
@@ -178,7 +176,6 @@ flux:
         dependsOn:
           - provisioning-resources
         components:
-          - "${(telemetry.metrics.enabled ?? true) ? 'crossplane/postgres/monitoring-exporter' : ''}"
           - crossplane/postgres/gcp-cloudsql
         substitutions:
           crossplane_gcp_project_id: "${gcp.project_id ?? ''}"

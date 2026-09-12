@@ -109,6 +109,7 @@ cases:
                 - crossplane/postgres/instance-connection
                 - crossplane/postgres/app-role
                 - crossplane/postgres/monitor-role
+                - crossplane/postgres/monitoring-exporter
               substitutions:
                 pg_instance_name: demo-db
                 pg_database_name: demo
@@ -122,6 +123,51 @@ cases:
                 - apiVersion: postgresql.sql.crossplane.io/v1alpha1
                   kind: Role
                   current: status.conditions.exists(e, e.type == 'Synced' && e.status == 'True')
+
+  # PodMonitor only exists once the metrics pipeline vendors
+  # prometheus-operator's CRDs, so monitoring-exporter is excluded when
+  # it's off; app-role/monitor-role stay unconditional.
+  - name: demo mode with rds driver excludes monitoring-exporter when metrics disabled
+    values:
+      platform: aws
+      aws:
+        region: us-west-2
+      dev: true
+      demo:
+        enabled: true
+        resources:
+          database: true
+      gateway:
+        enabled: false
+      database:
+        postgres:
+          enabled: true
+          driver: rds
+      telemetry:
+        metrics:
+          enabled: false
+    terraformOutputs:
+      network:
+        db_subnet_group_name: test-rds
+      database:
+        kms_key_arn: arn:aws:kms:us-west-2:123456789012:key/abcd1234-5678-90ab-cdef-1234567890ab
+        security_group_id: sg-0abcd1234
+    expect:
+      flux:
+        - name: database-credentials
+          path: database
+          resources:
+            - components:
+                - crossplane/postgres/instance-connection
+                - crossplane/postgres/app-role
+                - crossplane/postgres/monitor-role
+    exclude:
+      flux:
+        - name: database-credentials
+          path: database
+          resources:
+            - components:
+                - crossplane/postgres/monitoring-exporter
 
   - name: demo mode with flexibleserver driver creates demo flexibleserver instance
     values:
@@ -175,6 +221,7 @@ cases:
                 - crossplane/postgres/instance-connection
                 - crossplane/postgres/app-role
                 - crossplane/postgres/monitor-role
+                - crossplane/postgres/monitoring-exporter
               substitutions:
                 pg_instance_name: demo-db
                 pg_database_name: demo
@@ -242,6 +289,7 @@ cases:
                 - crossplane/postgres/instance-connection
                 - crossplane/postgres/app-role
                 - crossplane/postgres/monitor-role
+                - crossplane/postgres/monitoring-exporter
               substitutions:
                 pg_instance_name: demo-db
                 pg_database_name: demo

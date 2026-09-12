@@ -147,6 +147,7 @@ flux:
           - crossplane/postgres/instance-connection
           - crossplane/postgres/app-role
           - crossplane/postgres/monitor-role
+          - "${(telemetry.metrics.enabled ?? true) ? 'crossplane/postgres/monitoring-exporter' : ''}"
         substitutions:
           pg_instance_name: demo-db
           pg_database_name: "${demo_database_name}"
@@ -177,6 +178,7 @@ flux:
           - crossplane/postgres/instance-connection
           - crossplane/postgres/app-role
           - crossplane/postgres/monitor-role
+          - "${(telemetry.metrics.enabled ?? true) ? 'crossplane/postgres/monitoring-exporter' : ''}"
         substitutions:
           pg_instance_name: demo-db
           pg_database_name: "${demo_database_name}"
@@ -207,6 +209,7 @@ flux:
           - crossplane/postgres/instance-connection
           - crossplane/postgres/app-role
           - crossplane/postgres/monitor-role
+          - "${(telemetry.metrics.enabled ?? true) ? 'crossplane/postgres/monitoring-exporter' : ''}"
         substitutions:
           pg_instance_name: demo-db
           pg_database_name: "${demo_database_name}"
