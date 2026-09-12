@@ -130,11 +130,12 @@ flux:
         timeout: 30m
         interval: 5m
 
-  # Application credential for demo-db. Its own Kustomization, not merged
-  # into database-resources: that Kustomization owns the driver's default
-  # ProviderConfig, which demo-resources' Instance still references on
-  # teardown, so depending on demo-resources there would deadlock destroy.
-  - name: database-app-role
+  # Application and monitoring credentials for demo-db. Its own
+  # Kustomization, not merged into database-resources: that Kustomization
+  # owns the driver's default ProviderConfig, which demo-resources'
+  # Instance still references on teardown, so depending on demo-resources
+  # there would deadlock destroy.
+  - name: database-credentials
     path: database
     when: demo.resources.database == true && database.postgres.driver == 'rds'
     resources:
@@ -143,7 +144,9 @@ flux:
           # Waits for the Instance's own Ready condition, not just its apply.
           - demo-resources
         components:
+          - crossplane/postgres/instance-connection
           - crossplane/postgres/app-role
+          - crossplane/postgres/monitor-role
         substitutions:
           pg_instance_name: demo-db
           pg_database_name: "${demo_database_name}"
@@ -161,8 +164,8 @@ flux:
         timeout: 10m
         interval: 5m
 
-  # Application credential for demo-db — Azure twin of the rds entry above.
-  - name: database-app-role
+  # Azure twin of the rds entry above.
+  - name: database-credentials
     path: database
     when: demo.resources.database == true && database.postgres.driver == 'flexibleserver'
     resources:
@@ -171,7 +174,9 @@ flux:
           # Waits for the FlexibleServer's own Ready condition, not just its apply.
           - demo-resources
         components:
+          - crossplane/postgres/instance-connection
           - crossplane/postgres/app-role
+          - crossplane/postgres/monitor-role
         substitutions:
           pg_instance_name: demo-db
           pg_database_name: "${demo_database_name}"
@@ -189,9 +194,8 @@ flux:
         timeout: 10m
         interval: 5m
 
-  # Application credential for demo-db — GCP twin of the rds/flexibleserver
-  # entries above.
-  - name: database-app-role
+  # GCP twin of the rds/flexibleserver entries above.
+  - name: database-credentials
     path: database
     when: demo.resources.database == true && database.postgres.driver == 'cloudsql'
     resources:
@@ -200,7 +204,9 @@ flux:
           # Waits for the DatabaseInstance's own Ready condition, not just its apply.
           - demo-resources
         components:
+          - crossplane/postgres/instance-connection
           - crossplane/postgres/app-role
+          - crossplane/postgres/monitor-role
         substitutions:
           pg_instance_name: demo-db
           pg_database_name: "${demo_database_name}"

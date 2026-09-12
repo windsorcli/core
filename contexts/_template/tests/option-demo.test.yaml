@@ -97,7 +97,7 @@ cases:
                 - apiVersion: rds.aws.upbound.io/v1beta3
                   kind: Instance
                   current: status.conditions.exists(e, e.type == 'Ready' && e.status == 'True')
-        - name: database-app-role
+        - name: database-credentials
           path: database
           resources:
             - dependsOn:
@@ -106,7 +106,9 @@ cases:
               timeout: 10m
               interval: 5m
               components:
+                - crossplane/postgres/instance-connection
                 - crossplane/postgres/app-role
+                - crossplane/postgres/monitor-role
               substitutions:
                 pg_instance_name: demo-db
                 pg_database_name: demo
@@ -161,7 +163,7 @@ cases:
                 - apiVersion: dbforpostgresql.azure.upbound.io/v1beta1
                   kind: FlexibleServer
                   current: status.conditions.exists(e, e.type == 'Ready' && e.status == 'True')
-        - name: database-app-role
+        - name: database-credentials
           path: database
           resources:
             - dependsOn:
@@ -170,7 +172,9 @@ cases:
               timeout: 10m
               interval: 5m
               components:
+                - crossplane/postgres/instance-connection
                 - crossplane/postgres/app-role
+                - crossplane/postgres/monitor-role
               substitutions:
                 pg_instance_name: demo-db
                 pg_database_name: demo
@@ -226,7 +230,7 @@ cases:
                 - apiVersion: sql.gcp.upbound.io/v1beta2
                   kind: DatabaseInstance
                   current: status.conditions.exists(e, e.type == 'Ready' && e.status == 'True')
-        - name: database-app-role
+        - name: database-credentials
           path: database
           resources:
             - dependsOn:
@@ -235,7 +239,9 @@ cases:
               timeout: 10m
               interval: 5m
               components:
+                - crossplane/postgres/instance-connection
                 - crossplane/postgres/app-role
+                - crossplane/postgres/monitor-role
               substitutions:
                 pg_instance_name: demo-db
                 pg_database_name: demo

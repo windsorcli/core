@@ -227,7 +227,6 @@ cases:
             - dependsOn:
                 - provisioning-resources
               components:
-                - crossplane/postgres
                 - crossplane/postgres/monitoring-exporter
                 - crossplane/postgres/aws-rds
 
@@ -312,7 +311,6 @@ cases:
             - dependsOn:
                 - provisioning-resources
               components:
-                - crossplane/postgres
                 - crossplane/postgres/monitoring-exporter
                 - crossplane/postgres/gcp-cloudsql
 

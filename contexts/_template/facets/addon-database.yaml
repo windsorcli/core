@@ -153,7 +153,6 @@ flux:
         dependsOn:
           - provisioning-resources
         components:
-          - crossplane/postgres
           - "${(telemetry.metrics.enabled ?? true) ? 'crossplane/postgres/monitoring-exporter' : ''}"
           - crossplane/postgres/aws-rds
         substitutions:
@@ -165,7 +164,6 @@ flux:
         dependsOn:
           - provisioning-resources
         components:
-          - crossplane/postgres
           - "${(telemetry.metrics.enabled ?? true) ? 'crossplane/postgres/monitoring-exporter' : ''}"
           - crossplane/postgres/azure-postgres
         substitutions:
@@ -180,7 +178,6 @@ flux:
         dependsOn:
           - provisioning-resources
         components:
-          - crossplane/postgres
           - "${(telemetry.metrics.enabled ?? true) ? 'crossplane/postgres/monitoring-exporter' : ''}"
           - crossplane/postgres/gcp-cloudsql
         substitutions:
