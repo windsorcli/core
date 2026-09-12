@@ -130,18 +130,18 @@ flux:
         timeout: 30m
         interval: 5m
 
-  # Application and monitoring credentials for demo-db. Its own
-  # Kustomization, not merged into database-resources: that Kustomization
-  # owns the driver's default ProviderConfig, which demo-resources'
-  # Instance still references on teardown, so depending on demo-resources
-  # there would deadlock destroy.
+  # Application and monitoring credentials for demo-db, across all three
+  # drivers. Its own Kustomization, not merged into database-resources:
+  # that Kustomization owns the driver's default ProviderConfig, which
+  # demo-resources' Instance still references on teardown, so depending
+  # on demo-resources there would deadlock destroy.
   - name: database-credentials
     path: database
-    when: demo.resources.database == true && database.postgres.driver == 'rds'
+    when: demo.resources.database == true && (database.postgres.driver == 'rds' || database.postgres.driver == 'flexibleserver' || database.postgres.driver == 'cloudsql')
     resources:
       - dependsOn:
           - provisioning-resources
-          # Waits for the Instance's own Ready condition, not just its apply.
+          # Waits for the instance's own Ready condition, not just its apply.
           - demo-resources
         components:
           - crossplane/postgres/instance-connection
@@ -152,73 +152,11 @@ flux:
           pg_instance_name: demo-db
           pg_database_name: "${demo_database_name}"
           pg_target_namespace: demo-database
-          pg_crd_apiversion: rds.aws.upbound.io/v1beta3
-          pg_crd_kind: Instance
-          pg_endpoint_field: address
-          pg_username_field: username
-          pg_username_from_secret: "false"
-        healthCheckExprs:
-          # Gated on the Role's own Synced condition, not its apply.
-          - apiVersion: postgresql.sql.crossplane.io/v1alpha1
-            kind: Role
-            current: status.conditions.exists(e, e.type == 'Synced' && e.status == 'True')
-        timeout: 10m
-        interval: 5m
-
-  # Azure twin of the rds entry above.
-  - name: database-credentials
-    path: database
-    when: demo.resources.database == true && database.postgres.driver == 'flexibleserver'
-    resources:
-      - dependsOn:
-          - provisioning-resources
-          # Waits for the FlexibleServer's own Ready condition, not just its apply.
-          - demo-resources
-        components:
-          - crossplane/postgres/instance-connection
-          - crossplane/postgres/app-role
-          - crossplane/postgres/monitor-role
-          - "${(telemetry.metrics.enabled ?? true) ? 'crossplane/postgres/monitoring-exporter' : ''}"
-        substitutions:
-          pg_instance_name: demo-db
-          pg_database_name: "${demo_database_name}"
-          pg_target_namespace: demo-database
-          pg_crd_apiversion: dbforpostgresql.azure.upbound.io/v1beta1
-          pg_crd_kind: FlexibleServer
-          pg_endpoint_field: fqdn
-          pg_username_field: administratorLogin
-          pg_username_from_secret: "false"
-        healthCheckExprs:
-          # Gated on the Role's own Synced condition, not its apply.
-          - apiVersion: postgresql.sql.crossplane.io/v1alpha1
-            kind: Role
-            current: status.conditions.exists(e, e.type == 'Synced' && e.status == 'True')
-        timeout: 10m
-        interval: 5m
-
-  # GCP twin of the rds/flexibleserver entries above.
-  - name: database-credentials
-    path: database
-    when: demo.resources.database == true && database.postgres.driver == 'cloudsql'
-    resources:
-      - dependsOn:
-          - provisioning-resources
-          # Waits for the DatabaseInstance's own Ready condition, not just its apply.
-          - demo-resources
-        components:
-          - crossplane/postgres/instance-connection
-          - crossplane/postgres/app-role
-          - crossplane/postgres/monitor-role
-          - "${(telemetry.metrics.enabled ?? true) ? 'crossplane/postgres/monitoring-exporter' : ''}"
-        substitutions:
-          pg_instance_name: demo-db
-          pg_database_name: "${demo_database_name}"
-          pg_target_namespace: demo-database
-          pg_crd_apiversion: sql.gcp.upbound.io/v1beta2
-          pg_crd_kind: DatabaseInstance
-          pg_endpoint_field: privateIpAddress
-          pg_username_field: username
-          pg_username_from_secret: "true"
+          pg_crd_apiversion: "${database.postgres.driver == 'rds' ? 'rds.aws.upbound.io/v1beta3' : (database.postgres.driver == 'flexibleserver' ? 'dbforpostgresql.azure.upbound.io/v1beta1' : 'sql.gcp.upbound.io/v1beta2')}"
+          pg_crd_kind: "${database.postgres.driver == 'rds' ? 'Instance' : (database.postgres.driver == 'flexibleserver' ? 'FlexibleServer' : 'DatabaseInstance')}"
+          pg_endpoint_field: "${database.postgres.driver == 'rds' ? 'address' : (database.postgres.driver == 'flexibleserver' ? 'fqdn' : 'privateIpAddress')}"
+          pg_username_field: "${database.postgres.driver == 'flexibleserver' ? 'administratorLogin' : 'username'}"
+          pg_username_from_secret: "${database.postgres.driver == 'cloudsql' ? 'true' : 'false'}"
         healthCheckExprs:
           # Gated on the Role's own Synced condition, not its apply.
           - apiVersion: postgresql.sql.crossplane.io/v1alpha1
