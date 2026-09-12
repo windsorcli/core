@@ -154,6 +154,7 @@ flux:
           pg_endpoint_field: "${database.postgres.driver == 'rds' ? 'address' : (database.postgres.driver == 'flexibleserver' ? 'fqdn' : 'privateIpAddress')}"
           pg_username_field: "${database.postgres.driver == 'flexibleserver' ? 'administratorLogin' : 'username'}"
           pg_username_from_secret: "${database.postgres.driver == 'cloudsql' ? 'true' : 'false'}"
+          pg_admin_username: demo
         healthCheckExprs:
           # Gated on the Role's own Synced condition, not its apply.
           - apiVersion: postgresql.sql.crossplane.io/v1alpha1

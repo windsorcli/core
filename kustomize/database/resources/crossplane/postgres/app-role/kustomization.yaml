@@ -7,3 +7,4 @@ kind: Component
 resources:
   - role.yaml
   - database.yaml
+  - grant.yaml

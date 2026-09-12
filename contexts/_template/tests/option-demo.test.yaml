@@ -119,6 +119,7 @@ cases:
                 pg_endpoint_field: address
                 pg_username_field: username
                 pg_username_from_secret: "false"
+                pg_admin_username: demo
               healthCheckExprs:
                 - apiVersion: postgresql.sql.crossplane.io/v1alpha1
                   kind: Role
@@ -229,6 +230,7 @@ cases:
                 pg_endpoint_field: fqdn
                 pg_username_field: administratorLogin
                 pg_username_from_secret: "false"
+                pg_admin_username: demo
 
   # cloudsql driver: creates a DatabaseInstance + User + Database CR trio.
   # GCP twin of the rds/flexibleserver cases above. network_id/kms_key_name
@@ -297,6 +299,7 @@ cases:
                 pg_endpoint_field: privateIpAddress
                 pg_username_field: username
                 pg_username_from_secret: "true"
+                pg_admin_username: demo
 
   # cloudsql's admin credential Secret is declared here (the instance name is
   # demo-specific) but the terraform component itself lives in
