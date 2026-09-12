@@ -1,0 +1,16 @@
+---
+apiVersion: monitoring.coreos.com/v1
+kind: PodMonitor
+metadata:
+  name: ${pg_instance_name}-postgres-exporter
+  namespace: system-database
+spec:
+  selector:
+    matchLabels:
+      app: ${pg_instance_name}-postgres-exporter
+  podMetricsEndpoints:
+    - port: metrics
+      # Labels the instance instead of the exporter pod's own, unstable IP.
+      relabelings:
+        - targetLabel: instance
+          replacement: ${pg_instance_name}

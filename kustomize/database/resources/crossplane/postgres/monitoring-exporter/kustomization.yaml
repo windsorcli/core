@@ -1,11 +1,17 @@
 apiVersion: kustomize.config.k8s.io/v1alpha1
 kind: Component
 
+# postgres_exporter scraping the instance monitor-role provisions.
+# Driver-agnostic: reads the monitor-credentials Secret monitor-role
+# publishes, keyed only by pg_instance_name.
+#
 # Needs telemetry.metrics.enabled: PodMonitor (monitoring.coreos.com/v1)
 # only exists when the metrics pipeline vendors prometheus-operator's CRDs.
 #
-# Driver-agnostic: annotations and the watched CRD are set by a driver's
-# own monitoring-exporter sub-component.
+# Required substitutions:
+#   pg_instance_name       Instance CR's name, e.g. demo-db
 
 resources:
-  - policy.yaml
+  - deployment.yaml
+  - service.yaml
+  - podmonitor.yaml

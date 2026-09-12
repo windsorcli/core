@@ -6,10 +6,3 @@ kind: Component
 resources:
   - provider-config.yaml
   - tag-policy.yaml
-
-patches:
-  # No-op unless the caller also includes crossplane/postgres/monitoring-exporter.
-  - path: patches/monitoring-exporter-policy.yaml
-    target:
-      kind: ClusterPolicy
-      name: instance-monitor-exporter
