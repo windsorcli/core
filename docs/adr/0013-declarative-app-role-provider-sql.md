@@ -194,23 +194,36 @@ moved 5m → 10m to give the connection-secret CronJob's own 5-minute
 schedule room inside one reconcile attempt without cycling through a
 "not ready" state every time.
 
+## Monitoring also moves to provider-sql
+
+ADR-0009 §8's `monitor` role moves off its CronJob onto the same model as
+the application credential: a `crossplane/postgres/monitor-role`
+component (a `Role` granted `pg_monitor` via a `Grant`), sharing
+`instance-connection`'s `ProviderConfig`/`WatchOperation` with `app-role`
+rather than duplicating it.
+
+`postgres_exporter`'s Deployment/Service/PodMonitor move off ADR-0009
+§8's Kyverno `generate` policy too, onto plain substitution-driven
+manifests — `crossplane/postgres/monitoring-exporter`, keyed only by
+`pg_instance_name`, no per-driver patch needed since the generated
+content never varied by driver. It reads the `Role`'s own
+`writeConnectionSecretToRef` Secret
+(`username`/`password`/`endpoint`/`port`) instead of a CronJob-composed
+`uri`, via Kubernetes' own interdependent-env-var expansion.
+
+Both lose the old mechanism's zero-config reach: Kyverno's
+`background: true` generation matched any instance admission regardless
+of name, while a Flux substitution needs a concrete `pg_instance_name`
+supplied by a facet entry. Monitoring is now opt-in per chart, exactly
+like the application credential already was.
+
 ## What's unchanged
 
 - **Admin/master credential provisioning** — still whatever each driver
   already does. This ADR only changes what reads that credential and how
-  the *application* credential gets derived from it.
+  the *application* and *monitor* credentials get derived from it.
 - **IAM, security groups, KMS, subnet wiring** — ADR-0009 §3, §6
   unchanged.
-- **Monitoring's `postgres_exporter` Deployment/Service/PodMonitor** —
-  still ADR-0009 §8's Kyverno `generate` policy. What changed: the
-  `monitor` role itself moves off that section's CronJob onto the same
-  model as the application credential — a `crossplane/postgres/monitor-role`
-  component (a `Role` granted `pg_monitor` via a `Grant`), sharing
-  `instance-connection`'s `ProviderConfig`/`WatchOperation` with
-  `app-role` rather than duplicating it. `postgres_exporter` reads the
-  `Role`'s own `writeConnectionSecretToRef` Secret
-  (`username`/`password`/`endpoint`/`port`) instead of a CronJob-composed
-  `uri`.
 
 ## Verification needed before merge
 
