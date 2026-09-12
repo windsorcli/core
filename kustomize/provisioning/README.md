@@ -41,7 +41,6 @@ checked against a live cluster yet.
 
 ```mermaid
 flowchart LR
-  crds[(crds: crossplane-2.4.0)]
   flux[Flux helm-controller]
 
   subgraph install[install: system-provisioning]
@@ -74,7 +73,6 @@ flowchart LR
   aws[(AWS RDS)]
   azure[(Azure Flexible Server)]
 
-  crds ==> flux
   flux ==> operator_hr --> operator_pod
   flux ==> aws_provider_cr & aws_drc & azure_provider_cr & azure_drc
   operator_pod -.installs.-> aws_provider_cr & azure_provider_cr
@@ -103,9 +101,9 @@ The `provisioning` `flux:` system entry that turns this on lives in
 `database.postgres.driver` — the same cross-domain-entry-in-a-driving-facet
 shape that facet's `observability` entry already uses to target
 `kustomize/observability/`. `install:` carries the HelmRelease plus the
-`Provider` and `DeploymentRuntimeConfig` CRs — safe there because
-Crossplane's own CRDs are vendored under `kustomize/crds/crossplane-2.4.0`,
-ahead of `install:`, the same as any other operator's CRDs. `resources:`
+`Provider` and `DeploymentRuntimeConfig` CRs — safe there because the
+Crossplane chart's own init container reapplies its core CRDs on every
+install. `resources:`
 carries the `ProviderConfig` and the Kyverno policy: neither provider's own
 CRD is registered until Crossplane's package manager finishes installing
 it, which is exactly what `install:`'s `healthCheckExprs` on the

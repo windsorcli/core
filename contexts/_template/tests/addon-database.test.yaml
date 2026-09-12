@@ -221,8 +221,6 @@ cases:
               - apiVersion: pkg.crossplane.io/v1
                 kind: Provider
                 current: status.conditions.exists(e, e.type == 'Healthy' && e.status == 'True') && status.conditions.exists(e, e.type == 'Installed' && e.status == 'True')
-      crds:
-        - crossplane-2.4.0
     exclude:
       flux:
         - name: database
@@ -315,8 +313,6 @@ cases:
               - apiVersion: pkg.crossplane.io/v1
                 kind: Provider
                 current: status.conditions.exists(e, e.type == 'Healthy' && e.status == 'True') && status.conditions.exists(e, e.type == 'Installed' && e.status == 'True')
-      crds:
-        - crossplane-2.4.0
     exclude:
       flux:
         - name: database
