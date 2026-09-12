@@ -6,12 +6,6 @@ metadata:
 
 when: database.postgres.enabled == true
 
-# Crossplane's own CRDs, vendored (kustomize/crds/crossplane-2.4.0), for
-# the rds/flexibleserver/cloudsql drivers.
-crds:
-  # renovate: datasource=github-releases depName=crossplane/crossplane package=crossplane/crossplane
-  - "${(database.postgres.driver == 'rds' || database.postgres.driver == 'flexibleserver' || database.postgres.driver == 'cloudsql') ? 'crossplane-2.4.0' : ''}"
-
 # =============================================================================
 # Flux systems — CloudNativePG operator
 # =============================================================================
@@ -72,8 +66,7 @@ flux:
   # provider-aws-rds's Provider CR + DeploymentRuntimeConfig, a system of
   # its own so destroy can remove it before provisioning-install. Left in
   # place, its package-manager finalizer only clears while the Crossplane
-  # engine pod is still running. Crossplane's own CRDs are vendored
-  # (crds: above), so these are as safe here as the HelmRelease.
+  # engine pod is still running.
   - name: provisioning-providers
     path: provisioning
     when: database.postgres.driver == 'rds'
@@ -119,8 +112,6 @@ flux:
   # a system of its own so destroy can remove it before
   # provisioning-install. Left in place, its package-manager finalizer
   # only clears while the Crossplane engine pod is still running.
-  # Crossplane's own CRDs are vendored (crds: above), so these are as
-  # safe here as the HelmRelease.
   - name: provisioning-providers
     path: provisioning
     when: database.postgres.driver == 'flexibleserver'
