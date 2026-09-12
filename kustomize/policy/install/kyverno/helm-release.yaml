@@ -42,7 +42,7 @@ spec:
       migration:
         image:
           # renovate: datasource=docker depName=reg.kyverno.io/kyverno/kyverno-cli package=reg.kyverno.io/kyverno/kyverno-cli
-          tag: v1.19.0@sha256:f40718123e3eea8dc36960023e2af7a980bcc76dec24842ad8705c82f4c9172e
+          tag: v1.19.1@sha256:ced7b2be0b04250cabfe695f15307f69eb715fe23234816388af4f3812915b2a
     # Disable ANSI color codes in logs
     admissionController:
       # 2 replicas: no leader election on inbound webhook requests, so each
