@@ -1,6 +1,6 @@
 ---
 title: "ADR-0013: Declarative app-role credentials via provider-sql"
-description: Replaces the per-driver CronJob/bash mechanism ADR-0009 §7 built for provisioning a chart's app-role Postgres credential with crossplane-contrib/provider-sql's declarative Role/Database resources, across rds, flexibleserver, and cloudsql. Scoped to the app-role step only — admin credentials, networking, IAM, and monitoring are unchanged.
+description: Replaces the per-driver CronJob/bash mechanism ADR-0009 §7 built for provisioning a chart's app-role Postgres credential, and §8's monitor-role CronJob, with crossplane-contrib/provider-sql's declarative Role/Database/Grant resources, across rds, flexibleserver, and cloudsql. Admin credentials, networking, and IAM are unchanged.
 ---
 
 # ADR-0013: Declarative app-role credentials via provider-sql
@@ -8,10 +8,11 @@ description: Replaces the per-driver CronJob/bash mechanism ADR-0009 §7 built f
 ## Status
 
 Proposed, implemented on `feat/provider-sql-app-role`. Supersedes
-[ADR-0009](0009-crossplane-cloud-databases.md) §7 and the equivalent
-mechanism [ADR-0011](0011-crossplane-azure-flexible-server.md) carried
-forward for `flexibleserver`, plus the same shape's undocumented third copy
-for `cloudsql`. Not yet verified live — see Verification needed below.
+[ADR-0009](0009-crossplane-cloud-databases.md) §7 and §8, and the
+equivalent mechanism [ADR-0011](0011-crossplane-azure-flexible-server.md)
+carried forward for `flexibleserver`, plus the same shape's undocumented
+third copy for `cloudsql`. Verified live for app-role; see Verification
+needed below for what's still outstanding on monitor-role.
 
 ## Context
 
@@ -200,18 +201,23 @@ schedule room inside one reconcile attempt without cycling through a
   the *application* credential gets derived from it.
 - **IAM, security groups, KMS, subnet wiring** — ADR-0009 §3, §6
   unchanged.
-- **Monitoring** — ADR-0009 §8's Kyverno-`generate`d `postgres_exporter`
-  CronJob and its own `monitor` role are a separate mechanism with no
-  Flux health-check gate at all (`background: true` generation isn't
-  Flux-reconciled), so they never hit this ADR's race and aren't touched
-  here.
+- **Monitoring's `postgres_exporter` Deployment/Service/PodMonitor** —
+  still ADR-0009 §8's Kyverno `generate` policy. What changed: the
+  `monitor` role itself moves off that section's CronJob onto the same
+  model as the application credential — a `crossplane/postgres/monitor-role`
+  component (a `Role` granted `pg_monitor` via a `Grant`), sharing
+  `instance-connection`'s `ProviderConfig`/`WatchOperation` with
+  `app-role` rather than duplicating it. `postgres_exporter` reads the
+  `Role`'s own `writeConnectionSecretToRef` Secret
+  (`username`/`password`/`endpoint`/`port`) instead of a CronJob-composed
+  `uri`.
 
 ## Verification needed before merge
 
-Source-verified against `provider-sql`'s own code, validated with
-`kustomize build` against every changed component, and confirmed against
-a live cluster for all three backends (full `windsor bootstrap` on
-aws-test, azure-test, and gcp-test).
+**app-role**: source-verified against `provider-sql`'s own code,
+validated with `kustomize build` against every changed component, and
+confirmed against a live cluster for all three backends (full
+`windsor bootstrap` on aws-test, azure-test, and gcp-test).
 
 - **`Role`/`Database` `Ready`/`Synced` semantics under `healthCheckExprs`**
   — confirmed live on all three: the `Role`'s `Synced` condition gated
@@ -221,6 +227,24 @@ aws-test, azure-test, and gcp-test).
 - **Connection reachability** — confirmed live on all three:
   `provider-sql`'s own provider pod reached each VPC-private instance
   directly.
+
+**monitor-role**: source-verified against `provider-sql`'s `Grant` CRD
+and validated with `kustomize build`; not yet verified against a live
+cluster.
+
+- **`Grant`'s `role`/`memberOf` fields** — confirmed against
+  `provider-sql`'s CRD schema directly (`role`: the grantee; `memberOf`:
+  the role granted), not yet confirmed that Postgres accepts the
+  generated `GRANT pg_monitor TO <role>` live.
+- **`postgres_exporter`'s `DATA_SOURCE_URI`/`DATA_SOURCE_USER`/
+  `DATA_SOURCE_PASS` env vars** — Kubernetes' own interdependent-env-var
+  expansion, not yet confirmed that `postgres_exporter` v0.20.1 parses
+  the resulting DSN correctly live.
+- **`instance-connection` shared by two components** — validated that
+  `app-role` and `monitor-role` both referencing it in one Kustomization
+  doesn't duplicate the `ProviderConfig`/`WatchOperation` (`kustomize
+  build` only), not yet confirmed Crossplane reconciles the shared
+  `ProviderConfig` correctly when both consumers are present live.
 ## Alternatives considered
 
 **Keep the CronJob, patched.** The interim fix (polling, health-gate on
