@@ -173,9 +173,11 @@ locals {
       for name in local.flux_components : {
         target = { kind = "Deployment", name = name }
         patch = yamlencode([{
-          op    = "add"
-          path  = "/spec/replicas"
-          value = var.replicas
+          op   = "add"
+          path = "/spec/replicas"
+          # source-controller's standby replica never reports ready under
+          # leader election, unlike the other controllers.
+          value = name == "source-controller" ? 1 : var.replicas
         }])
       }
     ]
