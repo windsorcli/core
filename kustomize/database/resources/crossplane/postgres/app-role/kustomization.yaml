@@ -6,20 +6,13 @@ kind: Component
 #
 # The role owns its database, matching CNPG's own default "app" user.
 #
-# Driver-agnostic: a per-instance ProviderConfig, a WatchOperation
-# mirroring the instance into the connection Secret, and the Role/Database.
+# Reference ../instance-connection as a peer component: it provides the
+# ProviderConfig this component's Role/Database use.
 #
 # Required substitutions:
 #   pg_instance_name       Instance CR's name, e.g. demo-db
 #   pg_database_name       Database inside it to connect to, e.g. demo
 #   pg_target_namespace    Namespace for the published credentials Secret
-#   pg_crd_apiversion      Instance CR's apiVersion, e.g. rds.aws.upbound.io/v1beta3
-#   pg_crd_kind            Instance CR's kind, e.g. Instance
-#   pg_endpoint_field      status.atProvider field holding its address
-#   pg_username_field      Field holding the admin username
-#   pg_username_from_secret  "true" if pg_username_field is read from the
-#                            admin credentials Secret, "false" if it's on
-#                            the instance CR's own spec.forProvider
 #
 # A second, read-only consumer needs only a plain provider-sql Grant
 # referencing the ${pg_database_name}-app Role this component creates.
@@ -27,5 +20,3 @@ kind: Component
 resources:
   - role.yaml
   - database.yaml
-  - provider-config.yaml
-  - connection-secret-watch-operation.yaml

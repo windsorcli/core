@@ -1,42 +1,15 @@
 apiVersion: kustomize.config.k8s.io/v1alpha1
 kind: Component
 
-# Flexible Server's own pieces on top of the driver-agnostic ../postgres
-# base.
-#
-# Reference both as peer components, in that order: this directory can't
-# pull in its own parent without a kustomize cycle.
+# Flexible Server's own ProviderConfig, resource-group policy, and
+# tagging policy.
 
 resources:
   - provider-config.yaml
   - resourcegroup-policy.yaml
   - tag-policy.yaml
 
-configMapGenerator:
-  - name: monitoring-driver-config
-    namespace: system-database
-    literals:
-      - PG_CRD_GROUP=dbforpostgresql.azure.upbound.io
-      - PG_CRD_KIND_LOWER=flexibleserver
-      - PG_ENDPOINT_FIELD=fqdn
-      - PG_USERNAME_FROM_SECRET=false
-      - PG_USERNAME_FIELD=administratorLogin
-    options:
-      disableNameSuffixHash: true
-
 patches:
-  - path: patches/monitor-generate-rbac.yaml
-    target:
-      kind: ClusterRole
-      name: monitor-generate
-  - path: patches/monitoring-rbac-policy.yaml
-    target:
-      kind: ClusterPolicy
-      name: instance-monitor-rbac
-  - path: patches/monitoring-cronjob-policy.yaml
-    target:
-      kind: ClusterPolicy
-      name: instance-monitor-role
   # No-op unless the caller also includes crossplane/postgres/monitoring-exporter.
   - path: patches/monitoring-exporter-policy.yaml
     target:

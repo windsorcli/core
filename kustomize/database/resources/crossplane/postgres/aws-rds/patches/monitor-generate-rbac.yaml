@@ -1,6 +1,0 @@
-- op: replace
-  path: /rules/1/apiGroups/0
-  value: rds.aws.upbound.io
-- op: replace
-  path: /rules/1/resources/0
-  value: instances

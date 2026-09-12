@@ -11,9 +11,9 @@ metadata:
     policies.kyverno.io/description: >-
       Generates a postgres_exporter Deployment/Service/PodMonitor in
       system-database for a new instance, scraping it as the pg_monitor
-      role instance-monitor-role provisions. Runs in the background too,
-      so an instance that already existed before this policy was
-      installed still gets an exporter.
+      role crossplane/postgres/monitor-role provisions. Runs in the
+      background too, so an instance that already existed before this
+      policy was installed still gets an exporter.
 spec:
   background: true
   rules:
@@ -48,11 +48,28 @@ spec:
                       - name: metrics
                         containerPort: 9187
                     env:
-                      - name: DATA_SOURCE_NAME
+                      - name: PGHOST
                         valueFrom:
                           secretKeyRef:
                             name: "{{request.object.metadata.name}}-monitor-credentials"
-                            key: uri
+                            key: endpoint
+                      - name: PGPORT
+                        valueFrom:
+                          secretKeyRef:
+                            name: "{{request.object.metadata.name}}-monitor-credentials"
+                            key: port
+                      - name: DATA_SOURCE_USER
+                        valueFrom:
+                          secretKeyRef:
+                            name: "{{request.object.metadata.name}}-monitor-credentials"
+                            key: username
+                      - name: DATA_SOURCE_PASS
+                        valueFrom:
+                          secretKeyRef:
+                            name: "{{request.object.metadata.name}}-monitor-credentials"
+                            key: password
+                      - name: DATA_SOURCE_URI
+                        value: "$(PGHOST):$(PGPORT)/postgres?sslmode=require"
                     securityContext:
                       runAsNonRoot: true
                       runAsUser: 1000

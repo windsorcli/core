@@ -1,0 +1,22 @@
+apiVersion: kustomize.config.k8s.io/v1alpha1
+kind: Component
+
+# Per-instance admin connection for provider-sql: a ProviderConfig reading
+# a mirrored Secret, and the WatchOperation that mirrors it.
+#
+# Shared by app-role and monitor-role, which both need an admin-level
+# provider-sql connection to the same instance.
+#
+# Required substitutions:
+#   pg_instance_name       Instance CR's name, e.g. demo-db
+#   pg_crd_apiversion      Instance CR's apiVersion, e.g. rds.aws.upbound.io/v1beta3
+#   pg_crd_kind            Instance CR's kind, e.g. Instance
+#   pg_endpoint_field      status.atProvider field holding its address
+#   pg_username_field      Field holding the admin username
+#   pg_username_from_secret  "true" if pg_username_field is read from the
+#                            admin credentials Secret, "false" if it's on
+#                            the instance CR's own spec.forProvider
+
+resources:
+  - provider-config.yaml
+  - connection-secret-watch-operation.yaml
