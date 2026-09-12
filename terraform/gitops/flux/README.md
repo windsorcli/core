@@ -32,7 +32,7 @@ and HelmRelease in the cluster, so do not run it by hand.
 | Name | Version |
 |------|---------|
 | <a name="requirement_terraform"></a> [terraform](#requirement\_terraform) | >= 1.12.2 |
-| <a name="requirement_helm"></a> [helm](#requirement\_helm) | 3.2.0 |
+| <a name="requirement_helm"></a> [helm](#requirement\_helm) | 3.3.0 |
 | <a name="requirement_kubernetes"></a> [kubernetes](#requirement\_kubernetes) | 3.2.1 |
 | <a name="requirement_random"></a> [random](#requirement\_random) | 3.9.0 |
 
@@ -40,7 +40,7 @@ and HelmRelease in the cluster, so do not run it by hand.
 
 | Name | Version |
 |------|---------|
-| <a name="provider_helm"></a> [helm](#provider\_helm) | 3.2.0 |
+| <a name="provider_helm"></a> [helm](#provider\_helm) | 3.3.0 |
 | <a name="provider_kubernetes"></a> [kubernetes](#provider\_kubernetes) | 3.2.1 |
 | <a name="provider_random"></a> [random](#provider\_random) | 3.9.0 |
 
@@ -52,8 +52,8 @@ No modules.
 
 | Name | Type |
 |------|------|
-| [helm_release.flux_instance](https://registry.terraform.io/providers/hashicorp/helm/3.2.0/docs/resources/release) | resource |
-| [helm_release.flux_operator](https://registry.terraform.io/providers/hashicorp/helm/3.2.0/docs/resources/release) | resource |
+| [helm_release.flux_instance](https://registry.terraform.io/providers/hashicorp/helm/3.3.0/docs/resources/release) | resource |
+| [helm_release.flux_operator](https://registry.terraform.io/providers/hashicorp/helm/3.3.0/docs/resources/release) | resource |
 | [kubernetes_job_v1.flux_ready_gate](https://registry.terraform.io/providers/hashicorp/kubernetes/3.2.1/docs/resources/job_v1) | resource |
 | [kubernetes_namespace_v1.flux_system](https://registry.terraform.io/providers/hashicorp/kubernetes/3.2.1/docs/resources/namespace_v1) | resource |
 | [kubernetes_priority_class_v1.platform_critical](https://registry.terraform.io/providers/hashicorp/kubernetes/3.2.1/docs/resources/priority_class_v1) | resource |
@@ -79,7 +79,7 @@ No modules.
 | <a name="input_image_reflection"></a> [image\_reflection](#input\_image\_reflection) | Enable the Flux image-reflector-controller. Only needed alongside image-automation-controller to scan image registries. | `bool` | `false` | no |
 | <a name="input_leader_election"></a> [leader\_election](#input\_leader\_election) | Enable leader election on Flux controllers. Disable on single-node clusters to eliminate lease-renewal traffic against etcd. | `bool` | `true` | no |
 | <a name="input_mode"></a> [mode](#input\_mode) | GitOps reconciliation mode. 'push' installs notification-controller and creates the webhook-token secret. 'pull' omits both. | `string` | `"push"` | no |
-| <a name="input_replicas"></a> [replicas](#input\_replicas) | Replica count for the default Flux controllers (source, kustomize, helm, notification). Values above 1 require leader\_election. | `number` | `1` | no |
+| <a name="input_replicas"></a> [replicas](#input\_replicas) | Replica count for kustomize-controller, helm-controller, and notification-controller. source-controller stays pinned to 1 regardless of this value. Values above 1 require leader\_election. | `number` | `1` | no |
 | <a name="input_ssh_known_hosts"></a> [ssh\_known\_hosts](#input\_ssh\_known\_hosts) | The known hosts to use for SSH authentication | `string` | `""` | no |
 | <a name="input_ssh_private_key"></a> [ssh\_private\_key](#input\_ssh\_private\_key) | The private key to use for SSH authentication | `string` | `""` | no |
 | <a name="input_ssh_public_key"></a> [ssh\_public\_key](#input\_ssh\_public\_key) | The public key to use for SSH authentication | `string` | `""` | no |

@@ -125,6 +125,9 @@ resource "google_container_cluster" "this" {
     horizontal_pod_autoscaling {
       disabled = false
     }
+    http_load_balancing {
+      disabled = true
+    }
   }
 
   enable_shielded_nodes = true
