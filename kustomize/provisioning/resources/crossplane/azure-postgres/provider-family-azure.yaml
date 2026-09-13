@@ -7,4 +7,4 @@ metadata:
   name: provider-family-azure
 spec:
   # renovate: datasource=docker depName=xpkg.upbound.io/upbound/provider-family-azure package=xpkg.upbound.io/upbound/provider-family-azure
-  package: xpkg.upbound.io/upbound/provider-family-azure:v2.7.1@sha256:54b4cffd178642a8f0329367d43fc4c4db51a668b59849d196b964b6e9e94631
+  package: xpkg.upbound.io/upbound/provider-family-azure:v2.7.2@sha256:c13f2f0d36a2b6c06fffdea3efdce0934324a4df8baf829186aed0432df2eaa8
