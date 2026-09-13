@@ -1,17 +1,19 @@
 # Comments
 
-Apply to every comment in every file (YAML, Terraform, Go, Markdown code fences, everywhere):
+This section applies to every comment in every file: YAML, Terraform, Go, Markdown code fences, everywhere. Rules below use RFC 2119 keywords (MUST, MUST NOT, SHOULD, MAY). Comments that state an obligation or constraint about the code MUST use the same words, not hedged phrasing ("this needs to", "it's important that").
 
-- Describe active functionality: say what the code does, at its current site, in present tense. A comment is not the place to argue for the code.
-- Tasteful and terse: a comment should let another developer pick up what's going on quickly, not slow them down. Say what's needed, specifically, and stop — no filler, no restating what the code already makes obvious, no padding a short fact into a long sentence. One line is the norm; two is the ceiling.
-- One idea per sentence (Simplified Technical English's core rule): don't chain multiple facts with dashes, semicolons, or "so"/"which" clauses. Short sentences in plain words, active voice, simple present tense. A comment needing three chained facts to make its point belongs in a design doc, not a comment.
-- No justification: don't explain why a value was chosen, what breaks without it, what upstream does differently, or what a tool does internally. A short "why" is fine only when it is the operative fact (e.g. "avoids a dependency cycle"). Never narrate a tradeoff, an alternative considered, a failure mode, or the debugging story behind it. If it needs more than a couple of lines, it belongs in a design doc.
-- No migration/WIP narration: never "now lives in X", "moved to Y", "used to be Z", "previously". A comment describes the code at its current site, present tense.
-- Don't comment the diff: a comment explains the file as it stands, never what changed or why it changed. Reviewers read the diff; the comment outlives it.
-- No ADR references: no links, no "See docs/adr/0003", no "ADR-0008". ADRs are internal/gitignored.
-- No AI-punchy prose voice: no em-dashes as a rhetorical device, no antithesis ("not X, but Y"), no bold-headword bullets, no quotable fragments. Plain, flat, informational.
+Comments exist only to clarify code that is not self-evident. They MUST NOT narrate.
 
-Default to no comment at all when the code is self-evident. When a comment is warranted, prefer the shorter version that still carries the specific, useful fact — not the shortest possible string, and not an exhaustive one.
+- A comment MUST describe active functionality: what the code does, at its current site, present tense.
+- A comment MUST be one line. It MAY run to two lines only when a single short "why" clause is the operative fact (e.g. "avoids a dependency cycle"). Never three.
+- A comment MUST carry exactly one idea. It MUST NOT chain facts with dashes, semicolons, or "so"/"which" clauses.
+- A comment MUST NOT justify: no rationale for a value, no "what breaks without it", no what upstream does internally, no tradeoffs, no alternatives considered, no debugging story. That belongs in a design doc, not a comment.
+- A comment MUST NOT narrate migration or WIP history: never "now lives in X", "moved to Y", "used to be Z", "previously".
+- A comment MUST NOT describe the diff. It explains the file as it stands. Reviewers read the diff; the comment outlives it.
+- A comment MUST NOT reference ADRs: no links, no "See docs/adr/0003". ADRs are internal and gitignored.
+- A comment MUST NOT use AI-punchy prose: no em-dash as rhetoric, no antithesis ("not X, but Y"), no bold-headword bullets, no quotable fragments.
+
+Default: no comment. Add one only when its absence would leave the code genuinely unclear.
 
 Bad:
 ```yaml
@@ -54,3 +56,10 @@ Good:
 # Provider package install. Bundles a ClusterPolicy that force-sets
 # the windsorcli.dev/cluster tag the IAM role's condition requires.
 ```
+
+# Commits
+
+- The subject line MUST be a short imperative sentence (Conventional Commits format, as already used in this repo's history).
+- The body MUST be omitted by default.
+- The body MAY exist only to state a fact the diff itself cannot show: a live-verified result, an issue number, a measured number. It MUST NOT restate what the diff already shows.
+- The body MUST NOT narrate the debugging process, alternatives considered, or tradeoffs weighed. That belongs in the PR discussion, never in permanent commit history.

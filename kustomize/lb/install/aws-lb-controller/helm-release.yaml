@@ -9,12 +9,14 @@ spec:
   timeout: 10m
   install:
     crds: Skip
-    remediation:
-      retries: 3
+    # No uninstall on failed install: ships its own webhook for its CRDs.
+    strategy:
+      name: RetryOnFailure
+      retryInterval: 5m
   upgrade:
     crds: Skip
     remediation:
-      retries: 3
+      retries: 5
   uninstall:
     deletionPropagation: foreground
     disableWait: false
@@ -47,6 +49,10 @@ spec:
     # Two replicas with HA-friendly anti-affinity. Falls back to single
     # replica on single-node clusters via the topologyKey at zone level.
     replicaCount: 2
+    tolerations:
+      - key: CriticalAddonsOnly
+        operator: Exists
+        effect: NoSchedule
     affinity:
       podAntiAffinity:
         preferredDuringSchedulingIgnoredDuringExecution:
@@ -56,3 +62,12 @@ spec:
                 matchLabels:
                   app.kubernetes.io/name: aws-load-balancer-controller
               topologyKey: kubernetes.io/hostname
+      nodeAffinity:
+        preferredDuringSchedulingIgnoredDuringExecution:
+          - weight: 100
+            preference:
+              matchExpressions:
+                - key: windsorcli.dev/pool-class
+                  operator: In
+                  values:
+                    - system

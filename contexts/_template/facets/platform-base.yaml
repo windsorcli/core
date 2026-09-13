@@ -37,13 +37,15 @@ config:
       workers: "${cluster.workers.count ?? (len(cluster.workers.nodes ?? {}) > 0 ? len(cluster.workers.nodes) : (platform == 'hetzner' ? 1 : 0))}"
 
   # Cluster driver and CNI. Managed clouds imply their driver (aws→eks,
-  # azure→aks); else talos. Talos defaults CNI to cilium; managed clouds leave
-  # it empty. driver is re-derived inline since siblings see user input only.
+  # azure→aks, gcp→gke); else talos. Talos defaults CNI to cilium; managed
+  # clouds leave it empty — gke's own Dataplane V2 is Google's managed Cilium
+  # integration, so Windsor's own cni/cilium layer must not also install.
+  # driver is re-derived inline since siblings see user input only.
   - name: cluster
     value:
-      driver: "${cluster.driver ?? (platform == 'aws' ? 'eks' : (platform == 'azure' ? 'aks' : 'talos'))}"
+      driver: "${cluster.driver ?? (platform == 'aws' ? 'eks' : (platform == 'azure' ? 'aks' : (platform == 'gcp' ? 'gke' : 'talos')))}"
       cni:
-        driver: "${cluster.cni.driver ?? ((cluster.driver ?? (platform == 'aws' ? 'eks' : (platform == 'azure' ? 'aks' : 'talos'))) == 'talos' ? 'cilium' : '')}"
+        driver: "${cluster.cni.driver ?? ((cluster.driver ?? (platform == 'aws' ? 'eks' : (platform == 'azure' ? 'aks' : (platform == 'gcp' ? 'gke' : 'talos')))) == 'talos' ? 'cilium' : '')}"
       # A single-controlplane, workerless cluster runs workloads on the control plane
       # by default. An explicit cluster.controlplanes.schedulable still wins, and
       # consumers keep reading it via `?? false`. The counts are spelled out rather
@@ -282,6 +284,9 @@ terraform:
     path: gitops/flux
     inputs:
       mode: ${gitops.mode ?? 'push'}
+      # topology: ha runs a standby replica of each default controller so
+      # one survives a single system node loss.
+      replicas: "${topology == 'ha' ? 2 : 1}"
 
   # Root CA for the private-CA add-on and Talos apiserver OIDC trust. Runs
   # ahead of cluster/talos so the cert is available for the first machine
@@ -318,6 +323,14 @@ flux:
           - "${(policies.resource_limits_requests ?? 'enabled') != 'disabled' ? 'kyverno/resource-limits-requests' : ''}"
           - "${(policies.require_image_digest ?? 'enabled') != 'disabled' ? 'kyverno/require-image-digest' : ''}"
           - "${(policies.external_dns_ttl ?? 'enabled') != 'disabled' ? 'kyverno/external-dns-ttl' : ''}"
+        healthChecks:
+          - apiVersion: admissionregistration.k8s.io/v1
+            kind: ValidatingWebhookConfiguration
+            name: kyverno-resource-validating-webhook-cfg
+        healthCheckExprs:
+          - apiVersion: admissionregistration.k8s.io/v1
+            kind: ValidatingWebhookConfiguration
+            current: webhooks.size() > 0 && webhooks.all(w, has(w.clientConfig.caBundle) && size(w.clientConfig.caBundle) > 0 && has(w.rules) && size(w.rules) > 0)
         timeout: 5m
         interval: 5m
         retryInterval: 1m
@@ -418,6 +431,7 @@ flux:
       components:
         - cert-manager
         - "${telemetry.metrics.enabled ? 'cert-manager/prometheus' : ''}"
+        - "${topology == 'ha' ? 'cert-manager/ha' : ''}"
       timeout: 20m
       interval: 5m
     resources:
@@ -440,6 +454,8 @@ flux:
     install:
       components:
         - fluentd
+        # RBAC for the Kyverno mutation fluentd's ClusterPolicy needs; skip when policies are off.
+        - "${(policies.enabled ?? true) == true ? 'fluentd/kyverno-inject' : ''}"
       timeout: 15m
       interval: 10m
     resources:

@@ -39,6 +39,15 @@ cases:
           install:
             components:
               - kyverno
+            healthChecks:
+              - apiVersion: helm.toolkit.fluxcd.io/v2
+                kind: HelmRelease
+                name: kyverno
+                namespace: system-policy
+              - apiVersion: apps/v1
+                kind: Deployment
+                name: kyverno-admission-controller
+                namespace: system-policy
             timeout: 30m
             interval: 5m
           resources:
@@ -364,6 +373,24 @@ cases:
             components:
               - kyverno
               - kyverno/ha
+
+  # topology=ha layers in the cert-manager/ha component (standby replica on
+  # the controller, webhook, and cainjector) so it survives a node loss.
+  - name: topology ha adds cert-manager/ha component
+    values:
+      platform: metal
+      gateway:
+        enabled: false
+      network: *default-network
+      cluster: *default-cluster
+      topology: ha
+    expect:
+      flux:
+        - name: pki
+          install:
+            components:
+              - cert-manager
+              - cert-manager/ha
 
   # policies.enabled=false skips both policy kustomizations entirely and
   # drops the policy-resources dep from pki-install.

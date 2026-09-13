@@ -156,7 +156,7 @@ variable "node_groups" {
 }
 
 variable "pools" {
-  description = "Portable node pool definitions, keyed by pool name; takes precedence over var.node_groups when non-empty. Each pool maps a class to an EKS managed node group. Autoscaling defaults on (min 1, max 3) for every class except system. System-class pools get a CriticalAddonsOnly=true:NoSchedule taint unless they declare one."
+  description = "Portable node pool definitions, keyed by pool name; takes precedence over var.node_groups when non-empty. Each pool maps a class to an EKS managed node group. Autoscaling defaults on (min 1, max 3) for every class except system. System-class pools get a CriticalAddonsOnly=true:NoSchedule taint unless they declare one. An entry named \"system\" overrides the module's own always-on system node group; without one, both are created."
   type = map(object({
     class          = string
     count          = number
@@ -228,7 +228,7 @@ variable "class_instance_types" {
   description = "Default instance type list per portable pool class. Multi-type lists guard against single-instance-type capacity shortages. A pool's explicit instance_types overrides this map. When overriding this variable, all seven class keys must be supplied — partial overrides are rejected at validate time rather than panicking mid-plan."
   type        = map(list(string))
   default = {
-    system  = ["t3.medium", "t3a.medium", "t3.large", "t3a.large"]
+    system  = ["t3.large", "t3a.large", "m5.large", "m5a.large"]
     general = ["t3.xlarge", "t3a.xlarge", "m5.xlarge", "m5a.xlarge"]
     compute = ["c6i.xlarge", "c6a.xlarge", "c5.xlarge"]
     memory  = ["r6i.xlarge", "r6a.xlarge", "r5.xlarge"]
@@ -244,6 +244,18 @@ variable "class_instance_types" {
     ])
     error_message = "class_instance_types must contain a non-empty list for every pool class: system, general, compute, memory, storage, gpu, arm64."
   }
+}
+
+variable "system_node_pool" {
+  description = "Sizing for the always-on system node group. Instance types come from class_instance_types[\"system\"]. Fields default independently, so a caller can override just desired_size."
+  type = object({
+    desired_size        = optional(number, 1)
+    disk_size           = optional(number, 64)
+    autoscaling_enabled = optional(bool, false)
+    min_size            = optional(number, 1)
+    max_size            = optional(number, 3)
+  })
+  default = {}
 }
 
 variable "max_pods_per_node" {

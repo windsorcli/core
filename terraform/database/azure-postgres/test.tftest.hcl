@@ -79,8 +79,8 @@ run "falls_back_to_platform_managed_encryption_when_unmanaged" {
   }
 
   assert {
-    condition     = output.key_vault_key_id == null
-    error_message = "key_vault_key_id output should be null when using platform-managed encryption"
+    condition     = output.key_vault_key_id == ""
+    error_message = "key_vault_key_id output should be empty when using platform-managed encryption"
   }
 
   assert {

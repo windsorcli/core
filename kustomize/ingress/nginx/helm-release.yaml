@@ -7,6 +7,14 @@ metadata:
 spec:
   interval: 5m
   timeout: 10m
+  install:
+    # No uninstall on failed install: ships its own validating webhook for Ingress objects.
+    strategy:
+      name: RetryOnFailure
+      retryInterval: 5m
+  upgrade:
+    remediation:
+      retries: 5
   chart:
     spec:
       chart: ingress-nginx
@@ -27,3 +35,4 @@ spec:
         enableTls: false
       ingressClassResource:
         default: true
+      priorityClassName: windsorcli-platform-critical

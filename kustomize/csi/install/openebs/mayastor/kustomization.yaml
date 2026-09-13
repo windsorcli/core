@@ -1,0 +1,11 @@
+apiVersion: kustomize.config.k8s.io/v1alpha1
+kind: Component
+resources:
+  - storageclass.yaml
+patches:
+  - path: patches/helm-release.yaml
+  # JSON6902: a strategic-merge null here has no prior key to delete.
+  - target:
+      kind: HelmRelease
+      name: openebs
+    path: patches/node-selector.json6902.yaml

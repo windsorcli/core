@@ -1,0 +1,11 @@
+---
+apiVersion: helm.toolkit.fluxcd.io/v2
+kind: HelmRelease
+metadata:
+  name: cert-manager
+  namespace: system-pki
+spec:
+  values:
+    serviceAccount:
+      annotations:
+        iam.gke.io/gcp-service-account: ${cert_manager_service_account_email}

@@ -25,7 +25,7 @@ brings up via the Talos API.
 | Name | Version |
 |------|---------|
 | <a name="provider_docker"></a> [docker](#provider\_docker) | 4.5.0 |
-| <a name="provider_external"></a> [external](#provider\_external) | 2.4.0 |
+| <a name="provider_external"></a> [external](#provider\_external) | 2.4.1 |
 
 ## Modules
 

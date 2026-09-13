@@ -11,7 +11,7 @@ add-on itself is gated by `demo.enabled == true`.
 
 The three options aren't related to each other beyond living in sibling
 `demo-*` namespaces. `database` creates a `Cluster` CR (CloudNativePG
-driver) or an `Instance` CR (`rds` driver, the `kustomize/provisioning`
+driver) or an `Instance` CR (`rds` driver, the `kustomize/database`
 worked example), matching `database.postgres.driver`; `static` exercises
 image-pull plus PVC plus ingress; `bookinfo` exercises a non-trivial
 multi-service upstream manifest with Pod Security Admission constraints.
@@ -27,7 +27,7 @@ flowchart LR
   flux[Flux helm-controller]
 
   subgraph demobook[demo-bookinfo]
-    book_ingress[Ingress<br/>bookinfo.DOMAIN]
+    book_route[HTTPRoute<br/>bookinfo.EXTERNAL_DOMAIN]
     book_svcs[productpage / details<br/>reviews / ratings]
   end
 
@@ -45,13 +45,14 @@ flowchart LR
   cnpg[(CloudNativePG operator<br/>from database add-on)]
   crossplane[(provider-aws-rds<br/>from provisioning add-on)]
   registry[(REGISTRY_URL)]
+  gateway[Cluster Gateway]
 
   flux ==> book_svcs & static_dep & demo_cluster & demo_instance
   static_dep --> static_pvc
   static_dep -.pulls.-> registry
   cnpg -.reconciles.-> demo_cluster
   crossplane -.reconciles.-> demo_instance
-  book_ingress --> book_svcs
+  gateway --> book_route --> book_svcs
   static_ingress --> static_dep
 ```
 
@@ -121,13 +122,16 @@ provisions.
 
 | Name | Required when | Effect |
 |---|---|---|
-| `DOMAIN` | `demo.resources.bookinfo: true` | Host suffix for the bookinfo Ingress (`bookinfo.${DOMAIN}`). Falls back to `test` if not provided. Must be set via Flux Kustomization-level substitution (the demo facet does not pass one). |
+| `external_domain` | `demo.resources.bookinfo: true` AND `gateway.enabled: true` | Hostname suffix for the bookinfo HTTPRoute (`bookinfo.${external_domain}`). Passed by the facet itself, from `gateway_effective.external_domain`. |
 | `REGISTRY_URL` | `demo.resources.static: true` | Image registry hosting the demo static-site container image (`${REGISTRY_URL}/demo:1.0.6`). No fallback; the static workload's pod will fail to pull if the variable is not set at the Flux Kustomization level. |
 | `db_subnet_group_name` | `demo.resources.database: true` AND `database.postgres.driver == 'rds'` | From `terraform_output('network', 'db_subnet_group_name')`. Sets the `demo-db` Instance's `dbSubnetGroupName` directly — the demo reads the real output rather than reconstructing the naming convention a third-party chart (with no Flux substitution access) has to use instead. Passed by the facet itself. |
 | `kms_key_arn` | `demo.resources.database: true` AND `database.postgres.driver == 'rds'` | From `terraform_output('database', 'kms_key_arn')`. Sets the `demo-db` Instance's `kmsKeyId`. Passed by the facet itself. |
 | `rds_security_group_id` | `demo.resources.database: true` AND `database.postgres.driver == 'rds'` | From `terraform_output('database', 'security_group_id')`. Sets the `demo-db` Instance's `vpcSecurityGroupIds` — scoped to the EKS cluster's own security group, not the whole VPC CIDR. Passed by the facet itself. |
 | `aws_region` | `demo.resources.database: true` AND `database.postgres.driver == 'rds'` | AWS region for the `demo-db` Instance, from `aws.region`. Passed by the facet itself. |
 | `demo_db_name` | `demo.resources.database: true` AND `database.postgres.driver == 'rds'` | Fixed value `demo`. Single source of truth for the `demo-db` Instance's `dbName`, referenced by both the Instance CR and the bootstrap job's SQL so the two can't drift independently. Passed by the facet itself. |
+| `cloudsql_network_id` | `demo.resources.database: true` AND `database.postgres.driver == 'cloudsql'` | From `terraform_output('network', 'network_id')`. Sets the `demo-db` DatabaseInstance's `privateNetwork` — the demo reads the real output rather than reconstructing the naming convention a third-party chart (with no Flux substitution access) has to use instead. Passed by the facet itself. |
+| `cloudsql_kms_key_name` | `demo.resources.database: true` AND `database.postgres.driver == 'cloudsql'` | From `terraform_output('database', 'kms_key_name')`. Sets the `demo-db` DatabaseInstance's `encryptionKeyName`. Passed by the facet itself. |
+| `cloudsql_region` | `demo.resources.database: true` AND `database.postgres.driver == 'cloudsql'` | From `terraform_output('network', 'region')`. Sets the `demo-db` DatabaseInstance's `region`. Passed by the facet itself. |
 
 ## Components
 
@@ -135,17 +139,21 @@ provisions.
 |---|---|---|
 | `database` | `demo.resources.database: true` | Creates the `demo-database` namespace. Always paired with a driver variant below. |
 | `database/cloudnativepg` | `demo.resources.database: true` AND `database.postgres.driver == 'cloudnativepg'` | A `Cluster` CR `demo-cluster` (2 instances, 100 max_connections, 1Gi PVC, PodMonitor enabled). Requires the `database` add-on so the CloudNativePG operator can reconcile the CR. |
-| `database/rds` | `demo.resources.database: true` AND `database.postgres.driver == 'rds'` | An `rds.aws.upbound.io/v1beta3` `Instance` CR `demo-db` (db.t4g.micro, 20Gi, AWS-managed master password, network-scoped to the cluster's own security group) — just the database definition, no provider wiring, no RBAC, no CronJob of its own. The application credential (`demo_app`, owner of the `demo` database, via `crossplane/aws-rds/app-role`, wired into this facet's own `demo-app-role` flux entry) is opt-in per chart; monitoring (`demo_monitor`/`postgres_exporter`) is automatic for every `Instance`, provisioned by `kustomize/provisioning`'s Kyverno `generate` policies — nothing here wires it in. |
-| `database/flexibleserver` | `demo.resources.database: true` AND `database.postgres.driver == 'flexibleserver'` | A `dbforpostgresql.azure.upbound.io/v1beta1` `FlexibleServer` CR `demo-db` (B_Standard_B1ms, 32Gi, Crossplane-generated admin password, VNet-integrated with no public access) plus a `FlexibleServerDatabase` CR `demo` — just the database definition, no provider wiring, no RBAC, no CronJob of its own. The application credential (`demo_app`, owner of the `demo` database, via `crossplane/azure-postgres/app-role`, wired into this facet's own `demo-app-role` flux entry) is opt-in per chart; monitoring (`demo-db_monitor`/`postgres_exporter`) is automatic for every `FlexibleServer`, provisioned by `kustomize/provisioning`'s Kyverno `generate` policies — nothing here wires it in. |
+| `database/rds` | `demo.resources.database: true` AND `database.postgres.driver == 'rds'` | An `rds.aws.upbound.io/v1beta3` `Instance` CR `demo-db` (db.t4g.micro, 20Gi, Crossplane-generated admin password, network-scoped to the cluster's own security group) — just the database definition, no provider wiring. The application credential (`demo-app`, owner of the `demo` database, via `crossplane/postgres/app-role`, wired into this facet's own `database` flux entry) is opt-in per chart, as is the `demo-db_monitor` monitoring role, via `crossplane/postgres/monitor-role` wired into the same `database-credentials` flux entry; `crossplane/postgres/monitoring-exporter` scrapes it there too, gated on `telemetry.metrics.enabled` (default true). |
+| `database/flexibleserver` | `demo.resources.database: true` AND `database.postgres.driver == 'flexibleserver'` | A `dbforpostgresql.azure.upbound.io/v1beta1` `FlexibleServer` CR `demo-db` (B_Standard_B1ms, 32Gi, Crossplane-generated admin password, VNet-integrated with no public access) plus a `FlexibleServerDatabase` CR `demo` — just the database definition, no provider wiring. The application credential (`demo-app`, owner of the `demo` database, via `crossplane/postgres/app-role`, wired into this facet's own `database` flux entry) is opt-in per chart, as is the `demo-db_monitor` monitoring role, via `crossplane/postgres/monitor-role` wired into the same `database-credentials` flux entry; `crossplane/postgres/monitoring-exporter` scrapes it there too, gated on `telemetry.metrics.enabled` (default true). |
+| `database/cloudsql` | `demo.resources.database: true` AND `database.postgres.driver == 'cloudsql'` | A `sql.gcp.upbound.io/v1beta2` `DatabaseInstance` CR `demo-db` (db-f1-micro, private IP only, Terraform-generated admin password) plus a `User` CR reading that password and a `Database` CR `demo` — just the database definition, no provider wiring. The application credential (`demo-app`, owner of the `demo` database, via `crossplane/postgres/app-role`, wired into this facet's own `database` flux entry) is opt-in per chart, as is the `demo-db_monitor` monitoring role, via `crossplane/postgres/monitor-role` wired into the same `database-credentials` flux entry; `crossplane/postgres/monitoring-exporter` scrapes it there too, gated on `telemetry.metrics.enabled` (default true). |
+| `database/cloudsql/encryption-key` | `demo.resources.database: true` AND `database.postgres.driver == 'cloudsql'` AND `database.postgres.encryption.managed: true` | Patches `encryptionKeyName` onto the `DatabaseInstance` CR. Absent rather than empty when unmanaged, since the field's type is `string`. |
 | `static` | `demo.resources.static: true` | Creates the `demo-static` namespace (PSA `restricted`) with a `website` Deployment pulling `${REGISTRY_URL}/demo:1.0.6`, a Service, a 100Mi ReadWriteOnce PVC named `content`, and an Ingress. |
-| `bookinfo` | `demo.resources.bookinfo: true` | Pulls the upstream Istio bookinfo sample at tag `1.22.8` into `demo-bookinfo` (PSA `restricted`) and applies SecurityContext patches to the four Deployments (productpage, details, ratings, reviews) so the upstream manifests satisfy the namespace's PSA. Ingress at `bookinfo.${DOMAIN}`. |
+| `bookinfo` | `demo.resources.bookinfo: true` | Pulls the upstream Istio bookinfo sample at tag `1.22.8` into `demo-bookinfo` (PSA `restricted`) and applies SecurityContext patches to the four Deployments (productpage, details, ratings, reviews) so the upstream manifests satisfy the namespace's PSA. |
+| `bookinfo/gateway` | `demo.resources.bookinfo: true` AND `gateway.enabled: true` | HTTPRoute exposing productpage at `bookinfo.${external_domain}` through the cluster Gateway. Skipped on clusters without Gateway API. |
 
 ## Dependencies
 
 | Add-on | Required when | Reason |
 |---|---|---|
 | `database` | `demo.resources.database: true` AND `database.postgres.driver == 'cloudnativepg'` | The CloudNativePG operator must be reconciling before the `demo-cluster` Cluster CR can come up. Wired as a conditional `dependsOn` in the facet. |
-| `provisioning` | `demo.resources.database: true` AND `database.postgres.driver == 'rds'` | Crossplane's provider-aws-rds must finish installing before the `demo-db` Instance CR's CRD is registered. Wired as a conditional `dependsOn` in the facet. |
+| `provisioning` | `demo.resources.database: true` AND `database.postgres.driver` is `rds`, `flexibleserver`, or `cloudsql` | Crossplane's provider must finish installing before the `demo-db` CR's CRD is registered. Wired as a conditional `dependsOn` in the facet. |
+| `gateway-resources` | `bookinfo/gateway` is enabled | The HTTPRoute needs the cluster Gateway to be Programmed first. Wired as a conditional `dependsOn` in the facet. |
 
 <!-- END_KUSTOMIZE_DOCS -->
 

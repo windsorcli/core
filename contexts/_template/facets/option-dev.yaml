@@ -47,6 +47,7 @@ flux:
   # Grafana dev credentials (default admin password "grafana"). In production
   # observability.admin_password is expected to come from a secret.
   - name: observability
+    when: observability.enabled != false
     install:
       components:
         - grafana/dev

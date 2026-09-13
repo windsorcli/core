@@ -1,0 +1,64 @@
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: ${pg_instance_name}-postgres-exporter
+  namespace: system-database
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: ${pg_instance_name}-postgres-exporter
+  template:
+    metadata:
+      labels:
+        app: ${pg_instance_name}-postgres-exporter
+    spec:
+      containers:
+        - name: postgres-exporter
+          # renovate: datasource=docker depName=quay.io/prometheuscommunity/postgres-exporter
+          image: quay.io/prometheuscommunity/postgres-exporter:v0.20.1@sha256:ac5ec343104fae0e2d84a27bb8d69b38430a11910c5382cad85d478d2bab713e
+          ports:
+            - name: metrics
+              containerPort: 9187
+          env:
+            - name: PGHOST
+              valueFrom:
+                secretKeyRef:
+                  name: ${pg_instance_name}-monitor-credentials
+                  key: endpoint
+            - name: PGPORT
+              valueFrom:
+                secretKeyRef:
+                  name: ${pg_instance_name}-monitor-credentials
+                  key: port
+            - name: DATA_SOURCE_USER
+              valueFrom:
+                secretKeyRef:
+                  name: ${pg_instance_name}-monitor-credentials
+                  key: username
+            - name: DATA_SOURCE_PASS
+              valueFrom:
+                secretKeyRef:
+                  name: ${pg_instance_name}-monitor-credentials
+                  key: password
+            - name: DATA_SOURCE_URI
+              value: "$(PGHOST):$(PGPORT)/postgres?sslmode=require"
+          securityContext:
+            runAsNonRoot: true
+            runAsUser: 1000
+            runAsGroup: 1000
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop:
+                - ALL
+            seccompProfile:
+              type: RuntimeDefault
+          resources:
+            # No CPU limit, to avoid CFS throttling on bursty scrapes.
+            limits:
+              memory: 64Mi
+            requests:
+              memory: 32Mi
+              cpu: 25m

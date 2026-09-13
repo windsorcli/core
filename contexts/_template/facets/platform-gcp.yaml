@@ -1,0 +1,183 @@
+kind: Facet
+apiVersion: blueprints.windsorcli.dev/v1alpha1
+metadata:
+  name: gcp
+  description: "GCP provider basic infrastructure"
+
+when: platform == 'gcp'
+
+# Remote state lives in the GCS bucket the `backend` component provisions;
+# `backend` itself uses local state, downstream components point at the bucket.
+backend: backend
+
+# =============================================================================
+# Requires
+# =============================================================================
+requires:
+  - paths:
+      - gcp.project_id
+    message: The GCP provider needs a project ID for every API call.
+  - when: (dns.public_domain ?? '') != ''
+    paths:
+      - email
+    message: Public DNS requires an operator email for TLS certificate registration.
+
+# =============================================================================
+# Config — platform-specific overrides
+# =============================================================================
+config:
+
+  # GKE ships metrics-server as a built-in add-on; suppress the
+  # platform-base copy to avoid two instances fighting on the same
+  # APIService.
+  - name: telemetry
+    value:
+      metrics_server_enabled: false
+
+  # issuer_component selects the public ClusterIssuer variant (last match
+  # wins): selfsigned floor → ACME (clouddns) once a public domain is set.
+  # GCP has no private-zone wiring yet, unlike AWS/Azure, so there's no
+  # private-mode override here.
+  - name: pki_effective
+    value:
+      issuer_component: public-issuer/selfsigned
+  - name: pki_effective
+    when: (dns.public_domain ?? '') != ''
+    value:
+      issuer_component: public-issuer/acme/clouddns
+
+# =============================================================================
+# Terraform — GCS state backend, VPC, GKE
+# =============================================================================
+# Chain: backend (gcs) → network (vpc) → cluster (gke) → gitops. GKE's
+# Dataplane V2 is Google's managed Cilium integration, wired inline on the
+# cluster module — Windsor's own cni/cilium kustomize component never
+# installs here (cluster.cni.driver stays empty for platform == 'gcp',
+# same as aws/azure).
+terraform:
+
+  # GCS bucket for Terraform state; per-context id isolates state across
+  # contexts in one project.
+  - name: backend
+    path: backend/gcs
+
+  # VPC at the requested CIDR; GKE attaches to the private subnet.
+  - name: network
+    path: network/gcp-vpc
+    dependsOn:
+      - backend
+    inputs:
+      region: ${gcp.region ?? 'us-central1'}
+      cidr_block: ${network.cidr_block}
+
+  # Public Cloud DNS zone when dns.public_domain is set. Own stack so its
+  # lifecycle (and NS delegation) is independent of the cluster's.
+  - name: dns-zone
+    path: dns/zone/gcp-dns
+    when: "(dns.public_domain ?? '') != ''"
+    dependsOn:
+      - backend
+    inputs:
+      project_id: ${gcp.project_id}
+      domain_name: ${dns.public_domain}
+
+  # GKE cluster. cert-manager Workload Identity only when ACME is on
+  # (public_domain set); cert_manager_dns_zone_names scopes Cloud DNS
+  # writes to just the dns-zone. external-dns Workload Identity is
+  # default-on but only granted a zone once one is provisioned. Portable
+  # user pools alongside the inline system pool; defaults to one general
+  # pool. Declaring cluster.pools replaces this.
+  - name: cluster
+    path: cluster/gcp-gke
+    dependsOn:
+      - network
+    inputs:
+      project_id: ${gcp.project_id}
+      # Derived from network's own output, not gcp.region directly — GKE
+      # must colocate with the VPC regardless of how region was set.
+      region: ${terraform_output('network', 'region')}
+      network_id: ${terraform_output('network', 'network_id')}
+      subnetwork_id: ${terraform_output('network', 'private_subnet_id')}
+      # Single-zone by default; topology: ha spreads pools across every zone
+      # network's available_zones exposes.
+      node_locations: "${topology == 'ha' ? terraform_output('network', 'available_zones') : [terraform_output('network', 'available_zones')[0]]}"
+      # topology: ha doubles the always-on system pool so a leader-election
+      # standby survives a single node loss; no quorum is needed here. All
+      # zones in node_locations stay schedulable regardless (total_*_node_count).
+      system_node_pool:
+        node_count: "${topology == 'ha' ? 2 : 1}"
+      create_cert_manager_identity: "${(dns.public_domain ?? '') != ''}"
+      cert_manager_dns_zone_names: "${(dns.public_domain ?? '') != '' && (terraform_output('dns-zone', 'zone_name') ?? '') != '' ? [terraform_output('dns-zone', 'zone_name')] : []}"
+      external_dns_dns_zone_names: "${(dns.public_domain ?? '') != '' && (terraform_output('dns-zone', 'zone_name') ?? '') != '' ? [terraform_output('dns-zone', 'zone_name')] : []}"
+      pools: >-
+        ${cluster.pools ?? {"general": {"class": "general", "count": 1}}}
+
+  # Dependency-edge injector: when ACME is on, cluster must wait for
+  # dns-zone so terraform_output('dns-zone', 'zone_name') resolves before
+  # the IAM member list is rendered (otherwise the guard evaluates false —
+  # no zone access).
+  - name: cluster
+    when: "(dns.public_domain ?? '') != ''"
+    dependsOn:
+      - dns-zone
+
+  # destroy: false — Flux is tied to the cluster; GKE teardown takes it.
+  - name: gitops
+    path: gitops/flux
+    destroy: false
+    dependsOn:
+      - cluster
+    inputs:
+      concurrency: 5
+
+# =============================================================================
+# Flux systems — pki install/resources overlay
+# =============================================================================
+# install: annotates the cert-manager ServiceAccount with the GKE Workload
+# Identity binding so the cloudDNS solver can mint Google access tokens
+# (ACME only). resources: renders the public ClusterIssuer — selfsigned
+# default, ACME (clouddns) when a zone is set.
+flux:
+
+  # Workload Identity for the cert-manager pod, gated on ACME.
+  - name: pki
+    when: "(dns.public_domain ?? '') != ''"
+    install:
+      components:
+        - cert-manager/gcp-workload-identity
+      substitutions:
+        cert_manager_service_account_email: "${terraform_output('cluster', 'cert_manager_service_account_email') ?? ''}"
+
+  - name: pki
+    resources:
+      - components:
+          - "${pki_effective.issuer_component}"
+        timeout: 5m
+        interval: 5m
+        substitutions:
+          acme_server: "${dev == true ? 'https://acme-staging-v02.api.letsencrypt.org/directory' : 'https://acme-v02.api.letsencrypt.org/directory'}"
+          acme_email: "${email ?? ''}"
+          acme_dns_zone: "${dns.public_domain ?? ''}"
+          acme_dns_zone_project: "${gcp.project_id}"
+
+  # DNS — external-dns + Cloud DNS record automation. external-dns writes
+  # A/CNAME records from annotated Ingress/HTTPRoute resources into the
+  # dns-zone stack's zone. Workload Identity is wired by the cluster module.
+  # No private-mode wiring yet — GCP has no VPC-linked private zone, unlike
+  # AWS/Azure.
+  - name: dns
+    when: "(dns.public_domain ?? '') != ''"
+    install:
+      components:
+        - external-dns
+        - external-dns/providers/google
+        - "${gateway.enabled == true ? 'external-dns/sources/gateway-httproute' : ''}"
+      timeout: 5m
+      interval: 5m
+      substitutions:
+        external_domain: "${dns.public_domain}"
+        google_project_id: "${gcp.project_id}"
+        external_dns_service_account_email: "${terraform_output('cluster', 'external_dns_service_account_email') ?? ''}"
+        # Context id in TXT records so multiple external-dns instances in a
+        # zone don't clobber each other.
+        txt_owner_id: "${id}"

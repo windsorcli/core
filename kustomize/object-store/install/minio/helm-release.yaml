@@ -6,6 +6,14 @@ metadata:
 spec:
   interval: 5m
   timeout: 10m
+  install:
+    # No uninstall on failed install: the operator manages PVC-backed object storage.
+    strategy:
+      name: RetryOnFailure
+      retryInterval: 5m
+  upgrade:
+    remediation:
+      retries: 5
   chart:
     spec:
       chart: operator

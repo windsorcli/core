@@ -7,6 +7,14 @@ metadata:
 spec:
   interval: 5m
   timeout: 10m
+  install:
+    # No uninstall on failed install: it reconciles every cloud-managed resource in the cluster.
+    strategy:
+      name: RetryOnFailure
+      retryInterval: 5m
+  upgrade:
+    remediation:
+      retries: 5
   chart:
     spec:
       chart: crossplane
@@ -17,6 +25,11 @@ spec:
         name: crossplane
         namespace: system-provisioning
   values:
+    priorityClassName: windsorcli-platform-critical
+    # Alpha feature: enables WatchOperations. Scoped to crossplane database
+    # contexts — this HelmRelease only installs when one is active.
+    args:
+      - --enable-operations
     image:
       # renovate: datasource=docker depName=xpkg.crossplane.io/crossplane/crossplane package=xpkg.crossplane.io/crossplane/crossplane
       tag: v2.4.0@sha256:c5d773aa940041475e2cf6b9adf3512cb382b1a6b889f53ed791192ed8ada75b

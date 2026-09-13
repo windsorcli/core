@@ -1,0 +1,20 @@
+---
+# Auto-generates its own password, and publishes
+# username/password/endpoint/port to writeConnectionSecretToRef.
+apiVersion: postgresql.sql.crossplane.io/v1alpha1
+kind: Role
+metadata:
+  # Disambiguates the cluster-scoped object across instances: the actual
+  # Postgres role stays ${pg_instance_name}_monitor.
+  name: ${pg_instance_name}-monitor
+  annotations:
+    crossplane.io/external-name: ${pg_instance_name}_monitor
+spec:
+  providerConfigRef:
+    name: provider-sql-${pg_instance_name}
+  forProvider:
+    privileges:
+      login: true
+  writeConnectionSecretToRef:
+    name: ${pg_instance_name}-monitor-credentials
+    namespace: system-database

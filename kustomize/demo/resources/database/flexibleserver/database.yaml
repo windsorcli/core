@@ -4,12 +4,14 @@
 # forProvider has no name field (additionalProperties: false rejects one);
 # the actual Postgres database name comes from Crossplane's external-name,
 # metadata.name by default.
+#
+# Orphan, not Delete: deleting the server deletes this too.
 apiVersion: dbforpostgresql.azure.upbound.io/v1beta1
 kind: FlexibleServerDatabase
 metadata:
   name: demo
 spec:
-  deletionPolicy: Delete
+  deletionPolicy: Orphan
   forProvider:
     serverIdRef:
       name: demo-db

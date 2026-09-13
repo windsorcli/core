@@ -1,7 +1,7 @@
 ---
-# Worked example of the kustomize/provisioning contract: just the database
+# Worked example of the kustomize/database contract: just the database
 # definition, no provider wiring. The windsorcli.dev/cluster tag and
-# providerConfigRef are both handled by the provisioning add-on.
+# providerConfigRef are both handled by the database add-on.
 apiVersion: rds.aws.upbound.io/v1beta3
 kind: Instance
 metadata:
@@ -19,7 +19,11 @@ spec:
       - ${rds_security_group_id}
     dbName: ${demo_db_name}
     username: demo
-    manageMasterUserPassword: true
+    autoGeneratePassword: true
+    passwordSecretRef:
+      name: demo-db-admin-credentials
+      namespace: system-database
+      key: password
     storageEncrypted: true
     kmsKeyId: ${kms_key_arn}
     publiclyAccessible: false
