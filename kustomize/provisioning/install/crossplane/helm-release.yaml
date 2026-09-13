@@ -26,6 +26,10 @@ spec:
         namespace: system-provisioning
   values:
     priorityClassName: windsorcli-platform-critical
+    # Alpha feature: enables WatchOperations. Scoped to crossplane database
+    # contexts — this HelmRelease only installs when one is active.
+    args:
+      - --enable-operations
     image:
       # renovate: datasource=docker depName=xpkg.crossplane.io/crossplane/crossplane package=xpkg.crossplane.io/crossplane/crossplane
       tag: v2.4.0@sha256:c5d773aa940041475e2cf6b9adf3512cb382b1a6b889f53ed791192ed8ada75b

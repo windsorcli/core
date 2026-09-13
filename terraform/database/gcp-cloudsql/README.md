@@ -73,6 +73,6 @@ No modules.
 
 | Name | Description |
 |------|-------------|
-| <a name="output_kms_key_name"></a> [kms\_key\_name](#output\_kms\_key\_name) | KMS CryptoKey resource name for Cloud SQL storage encryption. Null when using platform-managed encryption. |
+| <a name="output_kms_key_name"></a> [kms\_key\_name](#output\_kms\_key\_name) | KMS CryptoKey resource name for Cloud SQL storage encryption. Empty when using platform-managed encryption. |
 | <a name="output_private_vpc_connection"></a> [private\_vpc\_connection](#output\_private\_vpc\_connection) | Service Networking connection Cloud SQL's private-IP mode peers through. A DatabaseInstance depends on this existing, not on any value it exposes. |
 <!-- END_TF_DOCS -->

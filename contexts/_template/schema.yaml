@@ -1376,15 +1376,19 @@ properties:
           encryption:
             type: object
             properties:
+              managed:
+                type: boolean
+                default: false
+                description: Create a dedicated customer-managed key instead of the driver's platform-managed default.
               kms_key_arn:
                 type: string
-                description: Existing AWS KMS key ARN for RDS storage encryption. Omit to let Windsor manage its own key.
+                description: Existing AWS KMS key ARN for RDS storage encryption, overriding managed.
               key_vault_key_id:
                 type: string
-                description: Existing Azure Key Vault key ID for Flexible Server storage encryption. Omit to let Windsor manage its own key.
+                description: Existing Azure Key Vault key ID for Flexible Server storage encryption, overriding managed.
               kms_key_name:
                 type: string
-                description: Existing GCP KMS CryptoKey resource name for Cloud SQL storage encryption. Omit to let Windsor manage its own key.
+                description: Existing GCP KMS CryptoKey resource name for Cloud SQL storage encryption, overriding managed.
             additionalProperties: false
         additionalProperties: false
     additionalProperties: false

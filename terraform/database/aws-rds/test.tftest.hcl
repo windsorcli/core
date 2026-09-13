@@ -15,8 +15,6 @@ mock_provider "aws" {
 
 variables {
   context_id                = "test"
-  cluster_name              = "cluster-test"
-  cluster_arn               = "arn:aws:eks:us-west-2:123456789012:cluster/cluster-test"
   vpc_id                    = "vpc-12345678"
   cluster_security_group_id = "sg-0eks1234"
 }
@@ -53,16 +51,6 @@ run "manages_dedicated_key_by_default" {
   assert {
     condition     = contains(flatten(aws_security_group.rds.ingress[*].security_groups), "sg-0eks1234")
     error_message = "The RDS security group should scope ingress to the cluster's own security group, not an open CIDR"
-  }
-
-  assert {
-    condition     = strcontains(aws_iam_policy.secret_reader.policy, "\"secretsmanager:GetSecretValue\"") && strcontains(aws_iam_policy.secret_reader.policy, "secret:rds!*")
-    error_message = "The secret-reader policy should allow reading RDS-managed master password secrets"
-  }
-
-  assert {
-    condition     = aws_eks_pod_identity_association.secret_reader.namespace == "system-provisioning" && aws_eks_pod_identity_association.secret_reader.service_account == "rds-secret-reader"
-    error_message = "The secret-reader Pod Identity association should target a fixed system-provisioning/rds-secret-reader identity"
   }
 }
 

@@ -1,0 +1,9 @@
+apiVersion: kustomize.config.k8s.io/v1alpha1
+kind: Component
+
+# Read-only monitoring Role granted pg_monitor. Peer to
+# ../instance-connection for the ProviderConfig.
+
+resources:
+  - role.yaml
+  - grant.yaml

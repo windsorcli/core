@@ -20,16 +20,6 @@ variable "kms_key_arn" {
   }
 }
 
-variable "cluster_name" {
-  type        = string
-  description = "Name of the EKS cluster the secret-reader role's Pod Identity association targets."
-}
-
-variable "cluster_arn" {
-  type        = string
-  description = "ARN of the EKS cluster, scoping the secret-reader role's trust policy to this cluster's Pod Identity Agent."
-}
-
 variable "vpc_id" {
   description = "ID of the VPC to create the RDS security group in. Pipe network/aws-vpc's vpc_id output."
   type        = string

@@ -1,5 +1,5 @@
 ---
-# Worked example of the kustomize/provisioning contract. The admin
+# Worked example of the kustomize/database contract. The admin
 # credential lives at demo-db-admin-credentials in system-database,
 # written by database/gcp-cloudsql's Terraform.
 apiVersion: sql.gcp.upbound.io/v1beta2
@@ -12,7 +12,6 @@ spec:
     region: ${cloudsql_region}
     databaseVersion: POSTGRES_16
     deletionProtection: false
-    encryptionKeyName: ${cloudsql_kms_key_name}
     settings:
       # Enterprise unlocks db-f1-micro; Enterprise Plus (the default)
       # rejects it.

@@ -1,0 +1,11 @@
+---
+apiVersion: postgresql.sql.crossplane.io/v1alpha1
+kind: Grant
+metadata:
+  name: ${pg_instance_name}-monitor-pg-monitor
+spec:
+  providerConfigRef:
+    name: provider-sql-${pg_instance_name}
+  forProvider:
+    role: ${pg_instance_name}_monitor
+    memberOf: pg_monitor

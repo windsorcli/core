@@ -8,7 +8,7 @@ output "resource_group_name" {
 }
 
 output "resource_group_id" {
-  description = "ID of the dedicated resource group, for scoping crossplane-identity-azure's role assignment."
+  description = "ID of the dedicated resource group, for scoping provisioning/crossplane-identity/azure's role assignment."
   value       = azurerm_resource_group.postgres.id
 }
 
@@ -18,11 +18,11 @@ output "private_dns_zone_id" {
 }
 
 # Precedence: an explicitly supplied key, then the dedicated key this module
-# creates, then null (Flexible Server's platform-managed encryption).
+# creates, then empty string (Flexible Server's platform-managed encryption).
 output "key_vault_key_id" {
-  description = "Versionless Key Vault key ID for Flexible Server storage encryption. Null when using platform-managed encryption."
+  description = "Versionless Key Vault key ID for Flexible Server storage encryption. Empty when using platform-managed encryption."
   value = var.key_vault_key_id != "" ? var.key_vault_key_id : (
-    length(azurerm_key_vault_key.postgres) > 0 ? azurerm_key_vault_key.postgres[0].versionless_id : null
+    length(azurerm_key_vault_key.postgres) > 0 ? azurerm_key_vault_key.postgres[0].versionless_id : ""
   )
 }
 
