@@ -50,12 +50,9 @@ cases:
                 - database
                 - database/cloudnativepg
 
-  # rds driver: creates an Instance CR. Depends on provisioning-resources
-  # for its ProviderConfig, not just provisioning-install.
+  # rds driver: creates an Instance CR.
   # dbSubnetGroupName/kmsKeyId read the real terraform outputs directly.
   # A third-party chart uses the documented naming convention instead.
-  # app-role is its own Kustomization, dependent on demo-resources for
-  # namespace-before-RBAC ordering.
   - name: demo mode with rds driver creates demo rds instance
     values:
       platform: aws
@@ -100,27 +97,76 @@ cases:
                 - apiVersion: rds.aws.upbound.io/v1beta3
                   kind: Instance
                   current: status.conditions.exists(e, e.type == 'Ready' && e.status == 'True')
-        - name: demo-app-role
-          path: provisioning
-          dependsOn:
-            - demo-resources
+        - name: database-credentials
+          path: database
           resources:
-            - timeout: 5m
+            - dependsOn:
+                - provisioning-resources
+                - demo-resources
+              timeout: 10m
               interval: 5m
               components:
-                - crossplane/aws-rds/app-role
+                - crossplane/postgres/instance-connection
+                - crossplane/postgres/app-role
+                - crossplane/postgres/monitor-role
+                - crossplane/postgres/monitoring-exporter
               substitutions:
                 pg_instance_name: demo-db
                 pg_database_name: demo
                 pg_target_namespace: demo-database
-                pg_grant_sql: ""
+                pg_crd_apiversion: rds.aws.upbound.io/v1beta3
+                pg_crd_kind: Instance
+                pg_endpoint_field: address
+                pg_username_field: username
+                pg_username_from_secret: "false"
+                pg_admin_username: demo
               healthCheckExprs:
-                - apiVersion: batch/v1
-                  kind: Job
-                  current: status.conditions.exists(e, e.type == 'Complete' && e.status == 'True')
+                - apiVersion: postgresql.sql.crossplane.io/v1alpha1
+                  kind: Role
+                  current: status.conditions.exists(e, e.type == 'Synced' && e.status == 'True')
+
+  # app-role and monitor-role stay unconditional.
+  - name: demo mode with rds driver excludes monitoring-exporter when metrics disabled
+    values:
+      platform: aws
+      aws:
+        region: us-west-2
+      dev: true
+      demo:
+        enabled: true
+        resources:
+          database: true
+      gateway:
+        enabled: false
+      database:
+        postgres:
+          enabled: true
+          driver: rds
+      telemetry:
+        metrics:
+          enabled: false
+    terraformOutputs:
+      network:
+        db_subnet_group_name: test-rds
+      database:
+        kms_key_arn: arn:aws:kms:us-west-2:123456789012:key/abcd1234-5678-90ab-cdef-1234567890ab
+        security_group_id: sg-0abcd1234
+    expect:
+      flux:
+        - name: database-credentials
+          path: database
+          resources:
+            - components:
+                - crossplane/postgres/instance-connection
+                - crossplane/postgres/app-role
+                - crossplane/postgres/monitor-role
     exclude:
       flux:
-        - name: database
+        - name: database-credentials
+          path: database
+          resources:
+            - components:
+                - crossplane/postgres/monitoring-exporter
 
   - name: demo mode with flexibleserver driver creates demo flexibleserver instance
     values:
@@ -162,23 +208,29 @@ cases:
                 - apiVersion: dbforpostgresql.azure.upbound.io/v1beta1
                   kind: FlexibleServer
                   current: status.conditions.exists(e, e.type == 'Ready' && e.status == 'True')
-        - name: demo-app-role
-          path: provisioning
-          dependsOn:
-            - demo-resources
+        - name: database-credentials
+          path: database
           resources:
-            - timeout: 5m
+            - dependsOn:
+                - provisioning-resources
+                - demo-resources
+              timeout: 10m
               interval: 5m
               components:
-                - crossplane/azure-postgres/app-role
+                - crossplane/postgres/instance-connection
+                - crossplane/postgres/app-role
+                - crossplane/postgres/monitor-role
+                - crossplane/postgres/monitoring-exporter
               substitutions:
                 pg_instance_name: demo-db
                 pg_database_name: demo
                 pg_target_namespace: demo-database
-                pg_grant_sql: ""
-    exclude:
-      flux:
-        - name: database
+                pg_crd_apiversion: dbforpostgresql.azure.upbound.io/v1beta1
+                pg_crd_kind: FlexibleServer
+                pg_endpoint_field: fqdn
+                pg_username_field: administratorLogin
+                pg_username_from_secret: "false"
+                pg_admin_username: demo
 
   # cloudsql driver: creates a DatabaseInstance + User + Database CR trio.
   # GCP twin of the rds/flexibleserver cases above. network_id/kms_key_name
@@ -225,23 +277,65 @@ cases:
                 - apiVersion: sql.gcp.upbound.io/v1beta2
                   kind: DatabaseInstance
                   current: status.conditions.exists(e, e.type == 'Ready' && e.status == 'True')
-        - name: demo-app-role
-          path: provisioning
-          dependsOn:
-            - demo-resources
+        - name: database-credentials
+          path: database
           resources:
-            - timeout: 5m
+            - dependsOn:
+                - provisioning-resources
+                - demo-resources
+              timeout: 10m
               interval: 5m
               components:
-                - crossplane/gcp-cloudsql/app-role
+                - crossplane/postgres/instance-connection
+                - crossplane/postgres/app-role
+                - crossplane/postgres/monitor-role
+                - crossplane/postgres/monitoring-exporter
               substitutions:
                 pg_instance_name: demo-db
                 pg_database_name: demo
                 pg_target_namespace: demo-database
-                pg_grant_sql: ""
-    exclude:
+                pg_crd_apiversion: sql.gcp.upbound.io/v1beta2
+                pg_crd_kind: DatabaseInstance
+                pg_endpoint_field: privateIpAddress
+                pg_username_field: username
+                pg_username_from_secret: "true"
+                pg_admin_username: demo
+
+  # database.postgres.encryption.managed adds the encryption-key component,
+  # setting encryptionKeyName only when a real key exists.
+  - name: demo mode with cloudsql driver and managed encryption sets the CMK
+    values:
+      platform: gcp
+      gcp:
+        project_id: windsor-test
+      dev: true
+      demo:
+        enabled: true
+        resources:
+          database: true
+      gateway:
+        enabled: false
+      database:
+        postgres:
+          enabled: true
+          driver: cloudsql
+          encryption:
+            managed: true
+    terraformOutputs:
+      network:
+        network_id: projects/windsor-test/global/networks/vpc-test
+        region: us-central1
+      database:
+        kms_key_name: projects/windsor-test/locations/us-central1/keyRings/cloudsql-test/cryptoKeys/cloudsql-test
+    expect:
       flux:
-        - name: database
+        - name: demo
+          path: demo
+          resources:
+            - components:
+                - database
+                - database/cloudsql
+                - database/cloudsql/encryption-key
 
   # cloudsql's admin credential Secret is declared here (the instance name is
   # demo-specific) but the terraform component itself lives in

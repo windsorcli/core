@@ -1,0 +1,9 @@
+apiVersion: kustomize.config.k8s.io/v1alpha1
+kind: Component
+
+# Per-instance admin connection for provider-sql. Shared by app-role and
+# monitor-role.
+
+resources:
+  - provider-config.yaml
+  - connection-secret-watch-operation.yaml

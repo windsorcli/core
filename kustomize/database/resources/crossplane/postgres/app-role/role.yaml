@@ -1,0 +1,23 @@
+---
+# Auto-generates its own password when passwordSecretRef is unset, and
+# publishes username/password/endpoint/port to writeConnectionSecretToRef.
+apiVersion: postgresql.sql.crossplane.io/v1alpha1
+kind: Role
+metadata:
+  # Disambiguates the cluster-scoped object across instances: the actual
+  # Postgres role stays ${pg_database_name}-app.
+  name: ${pg_instance_name}-${pg_database_name}-app
+  annotations:
+    crossplane.io/external-name: ${pg_database_name}-app
+spec:
+  # Orphan, not Delete: PostgreSQL refuses DROP ROLE on a role that still
+  # owns objects.
+  deletionPolicy: Orphan
+  providerConfigRef:
+    name: provider-sql-${pg_instance_name}
+  forProvider:
+    privileges:
+      login: true
+  writeConnectionSecretToRef:
+    name: ${pg_instance_name}-${pg_database_name}-app-credentials
+    namespace: ${pg_target_namespace}

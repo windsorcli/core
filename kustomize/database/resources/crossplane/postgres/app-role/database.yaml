@@ -1,0 +1,17 @@
+---
+# Adopts the database each driver's own instance component already
+# created, and reconciles its owner to the Role above.
+apiVersion: postgresql.sql.crossplane.io/v1alpha1
+kind: Database
+metadata:
+  # Disambiguates the cluster-scoped object across instances: the actual
+  # Postgres database stays ${pg_database_name}.
+  name: ${pg_instance_name}-${pg_database_name}
+  annotations:
+    crossplane.io/external-name: ${pg_database_name}
+spec:
+  deletionPolicy: Orphan
+  providerConfigRef:
+    name: provider-sql-${pg_instance_name}
+  forProvider:
+    owner: ${pg_database_name}-app

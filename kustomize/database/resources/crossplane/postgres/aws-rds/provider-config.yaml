@@ -1,0 +1,9 @@
+---
+# Named "default": a consuming Instance CR needs no providerConfigRef.
+apiVersion: aws.upbound.io/v1beta1
+kind: ProviderConfig
+metadata:
+  name: default
+spec:
+  credentials:
+    source: PodIdentity

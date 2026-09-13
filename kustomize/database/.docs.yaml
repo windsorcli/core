@@ -16,6 +16,27 @@ components:
   cloudnativepg/single-node:
     enable_when: "`database.postgres.driver == 'cloudnativepg'` AND `topology == 'single-node'`"
     description: "Patches the operator HelmRelease to append `--leader-elect=false` via `additionalArgs`. The chart unconditionally passes `--leader-elect`; Go's flag parser is last-wins so the override wins."
+  crossplane/postgres/instance-connection:
+    enable_when: "a chart opts into `app-role` and/or `monitor-role` — always paired with at least one of them as a peer component"
+    description: "Per-instance admin connection for `provider-sql`: a `ProviderConfig` reading a `<pg_instance_name>-connection` Secret, and the `WatchOperation` that mirrors it — reacting to the instance CR's own changes, copying its endpoint and admin credential into that Secret (reading the admin username from the instance CR's own spec or from its admin credential Secret, depending on the driver). Shared by `app-role` and `monitor-role`, which both need this same admin-level connection. Requires `pg_instance_name`, `pg_crd_apiversion`, `pg_crd_kind`, `pg_endpoint_field`, `pg_username_field`, and `pg_username_from_secret` — the driver's own CRD identity and status field names, supplied as Flux substitutions. Needs `crossplane/function-python` and Crossplane's `--enable-operations` alpha flag (see `kustomize/provisioning`)."
+  crossplane/postgres/app-role:
+    enable_when: "a chart opts in, combined with `instance-connection` as a peer component — see `kustomize/demo/resources/database/{rds,flexibleserver,cloudsql}` for a worked example"
+    description: "Application-credential provisioning for any `provider-sql`-fronted instance CR, driver-agnostic — the role owns its database, matching CNPG's own default `app` user. The `postgresql.sql.crossplane.io` `Role` (auto-generates its own password, publishes `<pg_instance_name>-<pg_database_name>-app-credentials` via `writeConnectionSecretToRef`), `Database` (adopts the database the driver's own instance component already created, reconciling its `ownerRef` to that `Role`), and a `Grant` giving the admin connection membership in the new role, required by PostgreSQL before it can reassign the database's owner. Requires `pg_instance_name`, `pg_database_name`, `pg_target_namespace`, and `pg_admin_username`."
+  crossplane/postgres/monitor-role:
+    enable_when: "a chart opts in, combined with `instance-connection` as a peer component"
+    description: "Read-only monitoring credential for any `provider-sql`-fronted instance CR, driver-agnostic — a `Role` (auto-generates its own password, publishes `<pg_instance_name>-monitor-credentials` via `writeConnectionSecretToRef`) granted the `pg_monitor` role via a `Grant`. Requires `pg_instance_name`."
+  crossplane/postgres/monitoring-exporter:
+    enable_when: "a chart opts in, combined with `monitor-role` as a peer component — `telemetry.metrics.enabled` (default true) gates it in `kustomize/demo`'s own facet entry"
+    description: "A `postgres_exporter` Deployment/Service/PodMonitor in `system-database`, driver-agnostic, reading the Secret `monitor-role` publishes. Requires `pg_instance_name`. `PodMonitor` (`monitoring.coreos.com/v1`) only exists once the metrics pipeline vendors prometheus-operator's CRDs."
+  crossplane/postgres/aws-rds:
+    enable_when: "`database.postgres.driver == 'rds'`"
+    description: "RDS's own `default` `ProviderConfig` (credentials source `PodIdentity`, so a consuming `Instance` CR needs no `providerConfigRef`), and a Kyverno `ClusterPolicy` that force-sets the `windsorcli.dev/cluster` tag on every `Instance`. No chart opt-in, matching CNPG's own free monitoring. Requires `kustomize/provisioning`'s `Provider` to report Healthy/Installed first."
+  crossplane/postgres/azure-postgres:
+    enable_when: "`database.postgres.driver == 'flexibleserver'`"
+    description: "Azure twin of `crossplane/postgres/aws-rds`. The `default` `ProviderConfig` (credentials source `OIDCTokenFile`, so a consuming `FlexibleServer` CR needs no `providerConfigRef`), and a Kyverno `ClusterPolicy` that force-sets `resourceGroupName` on every `FlexibleServer` to the context's dedicated postgres resource group. No chart opt-in, matching CNPG's own free monitoring."
+  crossplane/postgres/gcp-cloudsql:
+    enable_when: "`database.postgres.driver == 'cloudsql'`"
+    description: "GCP twin of `crossplane/postgres/aws-rds`. The `default` `ProviderConfig` (credentials source `InjectedIdentity`, so a consuming `DatabaseInstance` CR needs no `providerConfigRef`), and a Kyverno `ClusterPolicy` that force-sets `project` on every `DatabaseInstance` to the context's GCP project. No chart opt-in, matching CNPG's own free monitoring."
 
 dependencies:
   csi:
