@@ -6,8 +6,8 @@ metadata:
   # instance per driver.
   name: provider-sql-${pg_instance_name}
 spec:
-  # require, not the provider's own verify-full default: no CA bundle is
-  # sourced and mounted for a stricter certificate check.
+  # require, not verify-full: provider-sql's ProviderConfig has no field
+  # for a custom CA certificate, so full server verification isn't possible.
   sslMode: require
   credentials:
     source: PostgreSQLConnectionSecret

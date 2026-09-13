@@ -26,7 +26,8 @@ spec:
         namespace: system-provisioning
   values:
     priorityClassName: windsorcli-platform-critical
-    # Alpha feature: enables WatchOperations.
+    # Alpha feature: enables WatchOperations. Scoped to crossplane database
+    # contexts — this HelmRelease only installs when one is active.
     args:
       - --enable-operations
     image:
