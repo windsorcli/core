@@ -131,3 +131,12 @@ resource "kubernetes_secret_v1" "admin_credentials" {
     password = random_password.admin[each.key].result
   }
 }
+
+#---------------------------------------------------------------------------------------------------
+# State migration blocks
+#---------------------------------------------------------------------------------------------------
+
+moved {
+  from = kubernetes_namespace_v1.system_provisioning
+  to   = kubernetes_namespace_v1.system_database
+}
