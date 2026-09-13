@@ -100,6 +100,10 @@ flux:
           - apiVersion: dbforpostgresql.azure.upbound.io/v1beta1
             kind: FlexibleServer
             current: status.conditions.exists(e, e.type == 'Ready' && e.status == 'True')
+          # FlexibleServerDatabase is the CR that actually creates the database.
+          - apiVersion: dbforpostgresql.azure.upbound.io/v1beta1
+            kind: FlexibleServerDatabase
+            current: status.conditions.exists(e, e.type == 'Ready' && e.status == 'True')
         # Gated on the FlexibleServer's own Ready condition, not the CR apply.
         timeout: 30m
         interval: 5m
@@ -125,6 +129,13 @@ flux:
         healthCheckExprs:
           - apiVersion: sql.gcp.upbound.io/v1beta2
             kind: DatabaseInstance
+            current: status.conditions.exists(e, e.type == 'Ready' && e.status == 'True')
+          # Database and User are the CRs that actually create the database and admin user.
+          - apiVersion: sql.gcp.upbound.io/v1beta1
+            kind: Database
+            current: status.conditions.exists(e, e.type == 'Ready' && e.status == 'True')
+          - apiVersion: sql.gcp.upbound.io/v1beta2
+            kind: User
             current: status.conditions.exists(e, e.type == 'Ready' && e.status == 'True')
         # Gated on the DatabaseInstance's own Ready condition, not the CR
         # apply. A db-f1-micro instance takes ~9m to go Ready.
