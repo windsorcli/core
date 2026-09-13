@@ -1,0 +1,10 @@
+---
+apiVersion: pkg.crossplane.io/v1
+kind: Provider
+metadata:
+  name: provider-sql
+spec:
+  # renovate: datasource=docker depName=xpkg.upbound.io/crossplane-contrib/provider-sql package=xpkg.upbound.io/crossplane-contrib/provider-sql
+  package: xpkg.upbound.io/crossplane-contrib/provider-sql:v0.14.0@sha256:d14af3510c4034ec0d80c4de0ff495f8bb147779877dc3db3022f0a879f37389
+  runtimeConfigRef:
+    name: provider-sql

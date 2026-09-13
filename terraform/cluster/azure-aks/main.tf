@@ -7,7 +7,7 @@ terraform {
   required_providers {
     azurerm = {
       source  = "hashicorp/azurerm"
-      version = "~> 5.0.0"
+      version = "~> 5.4.0"
     }
     null = {
       source  = "hashicorp/null"
@@ -338,16 +338,22 @@ resource "azurerm_kubernetes_cluster" "main" {
   }
 
   default_node_pool {
-    name                         = var.default_node_pool.name
-    node_count                   = var.default_node_pool.node_count
-    vm_size                      = var.default_node_pool.vm_size
-    vnet_subnet_id               = var.private_subnet_ids[0]
-    orchestrator_version         = var.kubernetes_version
+    name                 = var.default_node_pool.name
+    node_count           = var.default_node_pool.node_count
+    vm_size              = var.default_node_pool.vm_size
+    vnet_subnet_id       = var.private_subnet_ids[0]
+    orchestrator_version = var.kubernetes_version
+    # checkov:skip=CKV_AZURE_232: This is set in the variable by default to true
     only_critical_addons_enabled = var.default_node_pool.only_critical_addons_enabled
     zones                        = var.availability_zones
+    node_labels = {
+      "windsorcli.dev/pool"       = var.default_node_pool.name
+      "windsorcli.dev/pool-class" = "system"
+    }
 
     # checkov:skip=CKV_AZURE_226: we are using the managed disk type to reduce costs
-    os_disk_type            = var.default_node_pool.os_disk_type
+    os_disk_type = var.default_node_pool.os_disk_type
+    # checkov:skip=CKV_AZURE_227: This is set in the variable by default to true
     host_encryption_enabled = var.default_node_pool.host_encryption_enabled
 
     # checkov:skip=CKV_AZURE_168: This is set in the variable by default to 50
@@ -470,6 +476,7 @@ locals {
       : lookup(var.class_instance_types, p.class, [""])[0])
       priority        = p.lifecycle == "spot" ? "Spot" : "Regular"
       eviction_policy = p.lifecycle == "spot" ? "Delete" : null
+      mode            = p.class == "system" ? "System" : "User"
       # node_count is the initial size; with autoscaling on the autoscaler owns
       # it thereafter (ignore_changes on the resource).
       node_count = p.count
@@ -486,7 +493,10 @@ locals {
           "windsorcli.dev/pool-class" = p.class
         }
       )
-      taints = [for t in p.taints : "${t.key}=${t.value != null ? t.value : ""}:${t.effect}"]
+      taints = concat(
+        [for t in p.taints : "${t.key}=${t.value != null ? t.value : ""}:${t.effect}"],
+        p.class == "system" && !contains([for t in p.taints : t.key], "CriticalAddonsOnly") ? ["CriticalAddonsOnly=true:NoSchedule"] : []
+      )
     }
   }
 }
@@ -496,7 +506,7 @@ resource "azurerm_kubernetes_cluster_node_pool" "pools" {
   name                  = each.key
   kubernetes_cluster_id = azurerm_kubernetes_cluster.main.id
   vm_size               = each.value.vm_size
-  mode                  = "User"
+  mode                  = each.value.mode
   auto_scaling_enabled  = each.value.autoscaling_enabled
   min_count             = each.value.min_count
   max_count             = each.value.max_count

@@ -11,11 +11,11 @@ terraform {
     }
     helm = {
       source  = "hashicorp/helm"
-      version = "3.2.0"
+      version = "3.3.0"
     }
     random = {
       source  = "hashicorp/random"
-      version = "3.9.0"
+      version = "3.9.1"
     }
   }
 }
@@ -102,6 +102,83 @@ locals {
             }
           }
         })
+      },
+      {
+        # source-controller's GOMEMLIMIT tracks its memory limit. A cold
+        # cache resync of every tracked source at once exceeds the default
+        # 1Gi and the Go runtime exits fatally rather than degrading.
+        target = { kind = "Deployment", name = "source-controller" }
+        patch = yamlencode({
+          apiVersion = "apps/v1"
+          kind       = "Deployment"
+          metadata   = { name = "source-controller" }
+          spec = {
+            template = {
+              spec = {
+                containers = [{
+                  name      = "manager"
+                  resources = { limits = { memory = "2Gi" } }
+                }]
+              }
+            }
+          }
+        })
+      }
+    ],
+    [
+      for name in local.flux_components : {
+        target = { kind = "Deployment", name = name }
+        patch = yamlencode([{
+          op    = "add"
+          path  = "/spec/template/spec/priorityClassName"
+          value = kubernetes_priority_class_v1.platform_critical.metadata[0].name
+        }])
+      }
+    ],
+    [
+      for name in local.flux_components : {
+        target = { kind = "Deployment", name = name }
+        patch = yamlencode([
+          {
+            op   = "add"
+            path = "/spec/template/spec/tolerations"
+            value = [{
+              key      = "CriticalAddonsOnly"
+              operator = "Exists"
+              effect   = "NoSchedule"
+            }]
+          },
+          {
+            op   = "add"
+            path = "/spec/template/spec/affinity"
+            value = {
+              nodeAffinity = {
+                preferredDuringSchedulingIgnoredDuringExecution = [{
+                  weight = 100
+                  preference = {
+                    matchExpressions = [{
+                      key      = "windsorcli.dev/pool-class"
+                      operator = "In"
+                      values   = ["system"]
+                    }]
+                  }
+                }]
+              }
+            }
+          }
+        ])
+      }
+    ],
+    [
+      for name in local.flux_components : {
+        target = { kind = "Deployment", name = name }
+        patch = yamlencode([{
+          op   = "add"
+          path = "/spec/replicas"
+          # source-controller's standby replica never reports ready under
+          # leader election, unlike the other controllers.
+          value = name == "source-controller" ? 1 : var.replicas
+        }])
       }
     ]
   )
@@ -143,6 +220,16 @@ resource "kubernetes_namespace_v1" "flux_system" {
     # no fixed value here would ever stay accurate.
     ignore_changes = [metadata[0].labels["app.kubernetes.io/managed-by"]]
   }
+}
+
+# The PriorityClass shields platform-tier controllers from eviction under node pressure.
+# Kyverno, cert-manager, and the Prometheus stack reference it by name from their own charts.
+resource "kubernetes_priority_class_v1" "platform_critical" {
+  metadata {
+    name = "windsorcli-platform-critical"
+  }
+  value       = 1000000
+  description = "Platform-tier controllers other systems depend on."
 }
 
 # The operator installs the Flux CRDs and controllers and owns the FluxInstance CRD.
@@ -196,7 +283,7 @@ resource "helm_release" "flux_instance" {
 
 locals {
   # renovate: datasource=docker depName=kubectl package=alpine/k8s
-  ready_gate_image = "alpine/k8s:1.36.2@sha256:44ef4942e171939b9c665a4a84beb80e2dcdb9a24330d4651cfdfd2e9deecc47"
+  ready_gate_image = "alpine/k8s:1.37.0@sha256:b421c2e9419edb98db39b6ab641669f4db7bb2acf354f22450c6b7e7176d1ff4"
 }
 
 # The ServiceAccount the readiness gate Job runs as.
@@ -314,7 +401,7 @@ resource "kubernetes_job_v1" "flux_ready_gate" {
     # Re-run the gate only when the flux-instance release actually changes
     # (e.g. a flux_version or flux_operator_version bump bumps the release
     # revision), not on every apply.
-    replace_triggered_by = [helm_release.flux_instance.metadata[0].revision]
+    replace_triggered_by = [helm_release.flux_instance.metadata.revision]
   }
 }
 

@@ -7,6 +7,14 @@ metadata:
 spec:
   interval: 5m
   timeout: 10m
+  install:
+    # No uninstall on failed install: the pvc component gives this a PVC-backed search index.
+    strategy:
+      name: RetryOnFailure
+      retryInterval: 5m
+  upgrade:
+    remediation:
+      retries: 5
   chart:
     spec:
       chart: quickwit

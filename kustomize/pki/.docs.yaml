@@ -32,6 +32,12 @@ substitutions:
   acme_dns_zone_subscription_id:
     required_when: "`public-issuer/acme/azuredns` is enabled"
     description: "Azure subscription ID for the public DNS zone. Sourced from `terraform_output('dns-zone', 'subscription_id')`."
+  acme_dns_zone_project:
+    required_when: "`public-issuer/acme/clouddns` is enabled"
+    description: "GCP project holding the public Cloud DNS zone. Sourced from `gcp.project_id`."
+  cert_manager_service_account_email:
+    required_when: "`cert-manager/gcp-workload-identity` is enabled"
+    description: "Email of the cert-manager Google Service Account. Sourced from `terraform_output('cluster', 'cert_manager_service_account_email')`."
 
 components:
   cert-manager:
@@ -46,6 +52,10 @@ components:
     facet: pki-install
     enable_when: "platform is Azure AND `dns.public_domain` is set"
     description: "Patches the cert-manager Deployment to attach the AKS federated workload identity used by the DNS-01 ACME solver against Azure DNS. Reads `cert_manager_client_id` and `cert_manager_tenant_id`."
+  cert-manager/gcp-workload-identity:
+    facet: pki-install
+    enable_when: "platform is GCP AND `dns.public_domain` is set"
+    description: "Annotates the cert-manager ServiceAccount with the GKE Workload Identity binding used by the DNS-01 ACME solver against Cloud DNS. Reads `cert_manager_service_account_email`."
   cert-manager/prometheus:
     facet: pki-install
     enable_when: "`telemetry.metrics.enabled: true`"
@@ -78,6 +88,10 @@ components:
     facet: pki-resources
     enable_when: "platform is Azure AND `dns.public_domain` is set"
     description: "ClusterIssuer `public-acme` using the ACME DNS-01 solver against Azure DNS. Auth is via the federated workload identity (see `cert-manager/azure-workload-identity`)."
+  public-issuer/acme/clouddns:
+    facet: pki-resources
+    enable_when: "platform is GCP AND `dns.public_domain` is set"
+    description: "ClusterIssuer `public-acme` using the ACME DNS-01 solver against Cloud DNS. Auth is via the GKE Workload Identity binding (see `cert-manager/gcp-workload-identity`)."
 
 dependencies:
   policy-resources:

@@ -60,8 +60,8 @@ run "minimal_configuration" {
   }
 
   assert {
-    condition     = aws_db_subnet_group.main.name == "test-rds"
-    error_message = "DB subnet group should be named <context_id>-rds"
+    condition     = aws_db_subnet_group.main.name == "rds-test"
+    error_message = "DB subnet group should be named rds-<context_id>"
   }
 }
 
@@ -76,6 +76,21 @@ run "availability_zones_below_minimum_rejected" {
   }
 
   expect_failures = [var.availability_zones]
+}
+
+# Verifies the DB subnet group name stays valid when context_id starts
+# with a digit, since RDS resource names must start with a letter.
+run "db_subnet_group_name_valid_with_leading_digit_context_id" {
+  command = plan
+
+  variables {
+    context_id = "1abc2345"
+  }
+
+  assert {
+    condition     = aws_db_subnet_group.main.name == "rds-1abc2345"
+    error_message = "DB subnet group should be named rds-<context_id> even when context_id starts with a digit"
+  }
 }
 
 # Tests a full configuration with all optional variables explicitly set.

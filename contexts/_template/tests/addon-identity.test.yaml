@@ -80,6 +80,46 @@ cases:
         # renovate: datasource=github-releases depName=keycloak/keycloak-k8s-resources package=keycloak/keycloak-k8s-resources
         - keycloak-26.7.0
 
+  # No gateway needed to install — Keycloak still comes up (port-forward
+  # keycloak-service to reach it), just without the gateway route.
+  - name: installs without a route when no gateway is enabled
+    values:
+      platform: metal
+      dns:
+        domain: example.local
+      gateway:
+        enabled: false
+      network: *default-network
+      cluster: *default-cluster
+      identity:
+        enabled: true
+    expect:
+      flux:
+        - name: identity
+          install:
+            components:
+              - keycloak-operator
+          resources:
+            - name: database
+              dependsOn:
+                - database-install
+              components:
+                - keycloak/database
+            - dependsOn:
+                - identity-resources-database
+              components:
+                - keycloak
+            - components:
+                - keycloak/realm
+              substitutions:
+                keycloak_realm: platform
+    exclude:
+      flux:
+        - name: identity
+          resources:
+            - components:
+                - keycloak/gateway
+
   # Custom pre-built image: use it verbatim and start optimized.
   - name: custom image runs optimized
     values:
@@ -207,6 +247,33 @@ cases:
                 - keycloak
                 - keycloak/cilium
 
+  # No gateway means no proxy identity for the Cilium netpol to allow, so the
+  # keycloak/cilium overlay stays off even when the driver resolves to cilium.
+  - name: cilium driver without a gateway skips the keycloak cilium netpol overlay
+    values:
+      platform: metal
+      dns:
+        domain: example.local
+      gateway:
+        enabled: false
+        driver: cilium
+      network: *default-network
+      cluster: *default-cluster
+      identity:
+        enabled: true
+    expect:
+      flux:
+        - name: identity
+          resources:
+            - components:
+                - keycloak
+    exclude:
+      flux:
+        - name: identity
+          resources:
+            - components:
+                - keycloak/cilium
+
   # Supplied admin: the keycloak/admin overlay is flagged on and the
   # keycloak-bootstrap-admin secret is materialized from the given credentials.
   - name: supplied admin credentials add the bootstrap admin overlay and secret
@@ -283,6 +350,24 @@ cases:
                 grafana_url: https://grafana.example.local
                 grafana_redirect_uri: https://grafana.example.local/login/generic_oauth
                 dev_admin_password: admin-password
+
+  # Grafana SSO needs Keycloak reachable over HTTPS through the gateway. Without
+  # it, the realm client would point at an issuer the browser can never reach.
+  - name: grafana sso without a gateway fails composition
+    values:
+      platform: metal
+      dev: true
+      dns:
+        domain: example.local
+      gateway:
+        enabled: false
+      network: *default-network
+      cluster: *default-cluster
+      identity:
+        enabled: true
+      observability:
+        enabled: true
+    expectError: true
 
   # A supplied admin password overrides the dev default and drives both the Keycloak console
   # admin and the dev SSO admin user.

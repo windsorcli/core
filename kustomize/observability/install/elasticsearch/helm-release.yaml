@@ -1,4 +1,4 @@
-apiVersion: helm.toolkit.fluxcd.io/v2beta1
+apiVersion: helm.toolkit.fluxcd.io/v2
 kind: HelmRelease
 metadata:
   name: elasticsearch
@@ -6,6 +6,14 @@ metadata:
 spec:
   interval: 15m
   timeout: 10m
+  install:
+    # No uninstall on failed install: PVC-backed search index (volumeClaimTemplate below).
+    strategy:
+      name: RetryOnFailure
+      retryInterval: 5m
+  upgrade:
+    remediation:
+      retries: 5
   chart:
     spec:
       chart: elasticsearch

@@ -1,0 +1,22 @@
+---
+apiVersion: helm.toolkit.fluxcd.io/v2
+kind: HelmRelease
+metadata:
+  name: external-dns
+  namespace: system-dns
+spec:
+  values:
+    provider:
+      name: google
+    policy: sync
+    registry: txt
+    txtOwnerId: ${txt_owner_id}
+    domainFilters:
+      - ${external_domain:-test}
+    extraArgs:
+      - --google-project=${google_project_id}
+    serviceAccount:
+      create: true
+      name: external-dns
+      annotations:
+        iam.gke.io/gcp-service-account: ${external_dns_service_account_email}

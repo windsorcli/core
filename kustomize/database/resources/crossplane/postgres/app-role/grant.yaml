@@ -1,0 +1,13 @@
+---
+# PostgreSQL requires membership in a role before reassigning a
+# database's owner to it.
+apiVersion: postgresql.sql.crossplane.io/v1alpha1
+kind: Grant
+metadata:
+  name: ${pg_instance_name}-${pg_database_name}-app-admin
+spec:
+  providerConfigRef:
+    name: provider-sql-${pg_instance_name}
+  forProvider:
+    role: ${pg_admin_username}
+    memberOf: ${pg_database_name}-app

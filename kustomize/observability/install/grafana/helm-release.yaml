@@ -7,10 +7,11 @@ spec:
   interval: 5m
   timeout: 15m
   dependsOn: []
-  # Unlimited retries: recovers from a transient dependency gap on its own.
+  # No uninstall on failed install: retries indefinitely, recovering from a
+  # transient dependency gap on its own.
   install:
-    remediation:
-      retries: -1
+    strategy:
+      name: RetryOnFailure
   upgrade:
     remediation:
       retries: -1
@@ -36,18 +37,18 @@ spec:
         timezone: ${timezone:-utc}
     image:
       # renovate: datasource=docker depName=grafana/grafana package=grafana/grafana
-      tag: 13.2.0@sha256:3fd54ae1214669f8355f065ec9f6445d5279a3d77095ab048ca045685272429b
+      tag: 13.2.1@sha256:f772d434e8fab0049deb2b1b30abd43342bcfca1537614aa8d36080232cf4283
     initChownData:
       image:
         # renovate: datasource=docker depName=library/busybox package=library/busybox
         tag: 1.38.0@sha256:dc2d74b28e4cf8984fa52af1f39bc7c3d9c73760b41a74d629f5d11b1ab28616
     downloadDashboardsImage:
       # renovate: datasource=docker depName=curlimages/curl package=curlimages/curl
-      tag: 8.21.0@sha256:7c12af72ceb38b7432ab85e1a265cff6ae58e06f95539d539b654f2cfa64bb13
+      tag: 8.22.0@sha256:58adaa4e8dca9c988bae2aba4ab3434a0bb2da16bbe3f92dec39ec7785166777
     sidecar:
       image:
         # renovate: datasource=docker depName=kiwigrid/k8s-sidecar package=kiwigrid/k8s-sidecar
-        tag: 2.10.3@sha256:e8fb0c4fa3c5a22d9d0eabd9c13cf5df9ce65cba6a062272f2a762f7a78284d6
+        tag: 2.11.2@sha256:2912be006f62f9ea080194cf6d3afcd90daead8d101d0ba686a137a849f6a4f6
       dashboards:
         enabled: true
         label: grafana_dashboard

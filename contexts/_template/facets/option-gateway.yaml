@@ -83,6 +83,10 @@ flux:
   # wired in resources, which carries those deps.
   - name: gateway
     when: gateway.enabled == true && gateway.driver != 'cilium'
+    # dependsOn telemetry-install: keeps destroy order in sync with
+    # envoy-gateway's HelmRelease dependsOn on kube-prometheus-stack.
+    dependsOn:
+      - "${gateway.driver == 'envoy' && telemetry.metrics.enabled ? 'telemetry-install' : ''}"
     install:
       components:
         - "${gateway.driver}"

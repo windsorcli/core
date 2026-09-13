@@ -7,6 +7,14 @@ metadata:
 spec:
   interval: 5m
   timeout: 10m
+  install:
+    # No uninstall on failed install: the operator manages live Postgres Clusters.
+    strategy:
+      name: RetryOnFailure
+      retryInterval: 5m
+  upgrade:
+    remediation:
+      retries: 5
   chart:
     spec:
       chart: cloudnative-pg
@@ -16,6 +24,21 @@ spec:
         kind: HelmRepository
         name: cloudnativepg
   values:
+    priorityClassName: windsorcli-platform-critical
+    tolerations:
+      - key: CriticalAddonsOnly
+        operator: Exists
+        effect: NoSchedule
+    affinity:
+      nodeAffinity:
+        preferredDuringSchedulingIgnoredDuringExecution:
+          - weight: 100
+            preference:
+              matchExpressions:
+                - key: windsorcli.dev/pool-class
+                  operator: In
+                  values:
+                    - system
     config:
       clusterWide: true
     image:

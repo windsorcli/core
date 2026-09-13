@@ -1,6 +1,6 @@
 - op: add
   path: /spec/values/replicaCount
-  value: 3
+  value: 2
 - op: add
   path: /spec/values/affinity
   value:

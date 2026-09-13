@@ -1,0 +1,12 @@
+---
+apiVersion: pkg.crossplane.io/v1
+kind: Provider
+metadata:
+  name: provider-azure-dbforpostgresql
+spec:
+  # renovate: datasource=docker depName=xpkg.upbound.io/upbound/provider-azure-dbforpostgresql package=xpkg.upbound.io/upbound/provider-azure-dbforpostgresql
+  package: xpkg.upbound.io/upbound/provider-azure-dbforpostgresql:v2.7.1@sha256:193abc44b604cc7fd1aa7f7ee54cc72639f5b1423c358442ea41cd981ec5620d
+  # provider-family-azure.yaml installs the dependency explicitly, pinned too.
+  skipDependencyResolution: true
+  runtimeConfigRef:
+    name: provider-azure-dbforpostgresql

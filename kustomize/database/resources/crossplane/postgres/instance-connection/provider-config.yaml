@@ -1,0 +1,16 @@
+---
+apiVersion: postgresql.sql.crossplane.io/v1alpha1
+kind: ProviderConfig
+metadata:
+  # Per-instance, not per-driver: a consumer may create more than one
+  # instance per driver.
+  name: provider-sql-${pg_instance_name}
+spec:
+  # require, not verify-full: provider-sql's ProviderConfig has no field
+  # for a custom CA certificate, so full server verification isn't possible.
+  sslMode: require
+  credentials:
+    source: PostgreSQLConnectionSecret
+    connectionSecretRef:
+      namespace: system-database
+      name: ${pg_instance_name}-connection

@@ -7,6 +7,12 @@ metadata:
 spec:
   interval: 5m
   timeout: 10m
+  install:
+    remediation:
+      retries: 5
+  upgrade:
+    remediation:
+      retries: 5
   dependsOn:
     - name: cert-manager
       namespace: system-pki
@@ -29,3 +35,18 @@ spec:
     app:
       trust:
         namespace: system-pki-trust
+    tolerations:
+      - key: CriticalAddonsOnly
+        operator: Exists
+        effect: NoSchedule
+    affinity:
+      nodeAffinity:
+        preferredDuringSchedulingIgnoredDuringExecution:
+          - weight: 100
+            preference:
+              matchExpressions:
+                - key: windsorcli.dev/pool-class
+                  operator: In
+                  values:
+                    - system
+    priorityClassName: windsorcli-platform-critical

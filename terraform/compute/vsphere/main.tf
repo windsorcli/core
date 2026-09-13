@@ -46,9 +46,8 @@ terraform {
   }
 }
 
-# Provider block is intentionally empty — all connection settings are read from
-# VSPHERE_SERVER / VSPHERE_USER / VSPHERE_PASSWORD / VSPHERE_ALLOW_UNVERIFIED_SSL.
-provider "vsphere" {}
+# Connection settings are read from VSPHERE_SERVER / VSPHERE_USER /
+# VSPHERE_PASSWORD / VSPHERE_ALLOW_UNVERIFIED_SSL.
 
 # =============================================================================
 # Locals — context and inventory IDs

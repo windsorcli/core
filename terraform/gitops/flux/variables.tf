@@ -8,7 +8,7 @@ variable "flux_operator_version" {
   description = "The version of the flux-operator and flux-instance Helm charts to install"
   type        = string
   # renovate: datasource=github-releases depName=flux-operator package=controlplaneio-fluxcd/flux-operator
-  default = "0.58.1"
+  default = "0.59.0"
 
   validation {
     condition     = can(regex("^[0-9]+\\.[0-9]+\\.[0-9]+$", var.flux_operator_version))
@@ -85,6 +85,12 @@ variable "leader_election" {
   description = "Enable leader election on Flux controllers. Disable on single-node clusters to eliminate lease-renewal traffic against etcd."
   type        = bool
   default     = true
+}
+
+variable "replicas" {
+  description = "Replica count for kustomize-controller, helm-controller, and notification-controller. source-controller stays pinned to 1 regardless of this value. Values above 1 require leader_election."
+  type        = number
+  default     = 1
 }
 
 variable "image_automation" {

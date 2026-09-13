@@ -1,0 +1,216 @@
+---
+apiVersion: helm.toolkit.fluxcd.io/v2
+kind: HelmRelease
+metadata:
+  name: openebs
+  namespace: system-csi
+spec:
+  values:
+    # The chart's own default StorageClass (openebs-single-replica);
+    # redundant with our own single/replicated/local classes.
+    storageClass:
+      enabled: false
+    engines:
+      replicated:
+        mayastor:
+          enabled: true
+    mayastor:
+      enabled: true
+      priorityClassName: windsorcli-platform-critical
+      io_engine:
+        # va needs IOMMU/VFIO; pa skips it for nested virtualization.
+        envcontext: iova-mode=${mayastor_iova_mode:-va}
+        nodeSelector:
+          openebs.io/engine: mayastor
+        resources:
+          # Reactor core count scales with worker node size.
+          requests:
+            cpu: "${mayastor_io_engine_cpu:-2}"
+          limits:
+            cpu: "${mayastor_io_engine_cpu:-2}"
+      operators:
+        pool:
+          resources:
+            limits:
+              memory: 64Mi
+            requests:
+              cpu: 50m
+              memory: 64Mi
+      obs:
+        callhome:
+          enabled: false
+      base:
+        # Crash-loops on the develop tag: PodIPError("Unable to get pod ip").
+        metrics:
+          enabled: false
+        initContainers:
+          image:
+            # renovate: datasource=docker depName=openebs/alpine-sh package=openebs/alpine-sh
+            tag: 4.6.0@sha256:640c187dccdaa305ce96deba8b57387aeab15e3456deff2efc0470e38f355369
+      csi:
+        image:
+          # renovate: datasource=docker depName=registry.k8s.io/sig-storage/csi-provisioner package=registry.k8s.io/sig-storage/csi-provisioner
+          provisionerTag: v5.3.0@sha256:bb057f866177d5f4139a1527e594499cbe0feeb67b63aaca8679dfdf0a6016f9
+          # renovate: datasource=docker depName=registry.k8s.io/sig-storage/csi-attacher package=registry.k8s.io/sig-storage/csi-attacher
+          attacherTag: v4.12.0@sha256:b9dc9a714a484ccdeeb6f86d88d4db9b7a5ecfc5a55da6db3a60bb3fa33c278a
+          # renovate: datasource=docker depName=registry.k8s.io/sig-storage/csi-snapshotter package=registry.k8s.io/sig-storage/csi-snapshotter
+          snapshotterTag: v8.6.0@sha256:42af0929bcd60a43499825c078a60ff0534e08af8fbeb283aa391be40feb9f3e
+          # renovate: datasource=docker depName=registry.k8s.io/sig-storage/snapshot-controller package=registry.k8s.io/sig-storage/snapshot-controller
+          snapshotControllerTag: v8.6.0@sha256:81e79f205083f105e573ba2ebfe5964ede7f69a154e8627f53ebbbccd3ed9f70
+          # renovate: datasource=docker depName=registry.k8s.io/sig-storage/csi-node-driver-registrar package=registry.k8s.io/sig-storage/csi-node-driver-registrar
+          registrarTag: v2.17.0@sha256:f9de845b170155199f2a2a3f9531cf13d78e31235e9db6b6582a8b0db0a50dad
+          # renovate: datasource=docker depName=registry.k8s.io/sig-storage/csi-resizer package=registry.k8s.io/sig-storage/csi-resizer
+          resizerTag: v1.14.0@sha256:5e7cbb63fd497fa913caa21fee1a69f727c220c6fa83c5f8bb0995e2ad73a474
+      etcd:
+        image:
+          # renovate: datasource=docker depName=openebs/etcd package=openebs/etcd
+          tag: 3.6.4-debian-12-r0@sha256:c86c06f1ce6a08b6df21eb7a9655b1818778b64c85b5cbb8413ebf7534789730
+        volumePermissions:
+          image:
+            # renovate: datasource=docker depName=openebs/alpine-bash package=openebs/alpine-bash
+            tag: 4.6.0@sha256:366d6c5f18c3ea9d54f5ddb4fd4e305ae40339137ba24818d86fbd0d0b590dbc
+        # Reuse our own local class instead of the chart's own hostpath
+        # StorageClass. Stays local (not the mayastor CSI classes): etcd is
+        # what agent-core needs to come up, so it can't depend on the data
+        # plane it's bootstrapping.
+        localpvScConfig:
+          enabled: false
+        persistence:
+          storageClass: local
+      preUpgradeHook:
+        image:
+          # renovate: datasource=docker depName=openebs/kubectl package=openebs/kubectl
+          tag: 1.32.4@sha256:9524faf8e3cefb47fa28244a5d15f95ec21a73d963273798e593e61f80712333
+      eventing:
+        enabled: false
+  # Nine mayastor images share three tag slots between them, so a values
+  # override can't give each its own digest. Patch each container directly.
+  postRenderers:
+    - kustomize:
+        patches:
+          - target:
+              kind: Deployment
+              name: openebs-agent-core
+            patch: |
+              apiVersion: apps/v1
+              kind: Deployment
+              metadata:
+                name: openebs-agent-core
+              spec:
+                template:
+                  spec:
+                    containers:
+                      - name: agent-core
+                        # renovate: datasource=docker depName=openebs/mayastor-agent-core package=openebs/mayastor-agent-core
+                        image: docker.io/openebs/mayastor-agent-core:${mayastor_agent_core_tag:-v2.11.1@sha256:f4f4b85b67b399cfb6452e139680cb35b788574f626ca27094bd7fda7fb8e6f3}
+                      - name: agent-ha-cluster
+                        # renovate: datasource=docker depName=openebs/mayastor-agent-ha-cluster package=openebs/mayastor-agent-ha-cluster
+                        image: docker.io/openebs/mayastor-agent-ha-cluster:${mayastor_agent_ha_cluster_tag:-v2.11.1@sha256:5007ae0a38bf52fa51744d845325038327fe03c626c3f95f954c98cd100aed9d}
+          - target:
+              kind: Deployment
+              name: openebs-agent-core
+            patch: |
+              # agent-core has no TLS listener. The chart's https:// scheme
+              # here triggers a client TLS handshake the server can't answer.
+              - op: replace
+                path: /spec/template/spec/containers/1/args/2
+                value: --core-grpc=http://openebs-agent-core:50051
+          - target:
+              kind: DaemonSet
+              name: openebs-agent-ha-node
+            patch: |
+              apiVersion: apps/v1
+              kind: DaemonSet
+              metadata:
+                name: openebs-agent-ha-node
+              spec:
+                template:
+                  spec:
+                    containers:
+                      - name: agent-ha-node
+                        # renovate: datasource=docker depName=openebs/mayastor-agent-ha-node package=openebs/mayastor-agent-ha-node
+                        image: docker.io/openebs/mayastor-agent-ha-node:${mayastor_agent_ha_node_tag:-v2.11.1@sha256:27ea3280d3e71213f31e4815b7935f828ecc1cf0e8802e74aa2934b989ee5a43}
+          - target:
+              kind: Deployment
+              name: openebs-api-rest
+            patch: |
+              apiVersion: apps/v1
+              kind: Deployment
+              metadata:
+                name: openebs-api-rest
+              spec:
+                template:
+                  spec:
+                    containers:
+                      - name: api-rest
+                        # renovate: datasource=docker depName=openebs/mayastor-api-rest package=openebs/mayastor-api-rest
+                        image: docker.io/openebs/mayastor-api-rest:${mayastor_api_rest_tag:-v2.11.1@sha256:2e60c6fc69970a4dccc2d9b0f0719e6d272858c63c3a1dc24c38abac5853d0ec}
+          - target:
+              kind: Deployment
+              name: openebs-api-rest
+            patch: |
+              # agent-core has no TLS listener. The chart's https:// scheme
+              # here triggers a client TLS handshake the server can't answer.
+              - op: replace
+                path: /spec/template/spec/containers/0/args/4
+                value: --core-grpc=http://openebs-agent-core:50051
+          - target:
+              kind: Deployment
+              name: openebs-csi-controller
+            patch: |
+              apiVersion: apps/v1
+              kind: Deployment
+              metadata:
+                name: openebs-csi-controller
+              spec:
+                template:
+                  spec:
+                    containers:
+                      - name: csi-controller
+                        # renovate: datasource=docker depName=openebs/mayastor-csi-controller package=openebs/mayastor-csi-controller
+                        image: docker.io/openebs/mayastor-csi-controller:${mayastor_csi_controller_tag:-v2.11.1@sha256:f4f442d8ce7ea8b3e410c4cfe8540b1e8a3250ed91c025d83f1b870f119acb97}
+          - target:
+              kind: DaemonSet
+              name: openebs-csi-node
+            patch: |
+              apiVersion: apps/v1
+              kind: DaemonSet
+              metadata:
+                name: openebs-csi-node
+              spec:
+                template:
+                  spec:
+                    containers:
+                      - name: csi-node
+                        # renovate: datasource=docker depName=openebs/mayastor-csi-node package=openebs/mayastor-csi-node
+                        image: docker.io/openebs/mayastor-csi-node:${mayastor_csi_node_tag:-v2.11.1@sha256:0946de2b2fd44275ec60bc146cdb7ca917ec5cabfde9b21b64c2bfe532f41dd4}
+          - target:
+              kind: DaemonSet
+              name: openebs-io-engine
+            patch: |
+              apiVersion: apps/v1
+              kind: DaemonSet
+              metadata:
+                name: openebs-io-engine
+              spec:
+                template:
+                  spec:
+                    containers:
+                      - name: io-engine
+                        # renovate: datasource=docker depName=openebs/mayastor-io-engine package=openebs/mayastor-io-engine
+                        image: docker.io/openebs/mayastor-io-engine:${mayastor_io_engine_tag:-v2.11.1@sha256:b88de71674405f4fa0f755f0eb246e0eafc0d0f1473263852fd039e45e1b3553}
+          - target:
+              kind: Deployment
+              name: openebs-operator-diskpool
+            patch: |
+              apiVersion: apps/v1
+              kind: Deployment
+              metadata:
+                name: openebs-operator-diskpool
+              spec:
+                template:
+                  spec:
+                    containers:
+                      - name: operator-diskpool
+                        # renovate: datasource=docker depName=openebs/mayastor-operator-diskpool package=openebs/mayastor-operator-diskpool
+                        image: docker.io/openebs/mayastor-operator-diskpool:${mayastor_operator_diskpool_tag:-v2.11.1@sha256:231020f43edb57a31d3fc9626f67251f8bd7e356d362aeddbcd675eee7adc417}

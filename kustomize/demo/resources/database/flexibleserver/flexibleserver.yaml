@@ -1,0 +1,23 @@
+---
+# resourceGroupName and providerConfigRef come from the database add-on.
+apiVersion: dbforpostgresql.azure.upbound.io/v1beta1
+kind: FlexibleServer
+metadata:
+  name: demo-db
+spec:
+  deletionPolicy: Delete
+  forProvider:
+    # Must match the delegated subnet's own region (network/azure-vnet).
+    location: ${flexibleserver_region}
+    version: "16"
+    skuName: B_Standard_B1ms
+    storageMb: 32768
+    administratorLogin: demo
+    administratorPasswordSecretRef:
+      name: demo-db-admin-credentials
+      namespace: system-database
+      key: password
+    autoGeneratePassword: true
+    delegatedSubnetId: ${flexibleserver_subnet_id}
+    privateDnsZoneId: ${flexibleserver_private_dns_zone_id}
+    publicNetworkAccessEnabled: false

@@ -7,6 +7,14 @@ metadata:
 spec:
   interval: 5m
   timeout: 20m
+  install:
+    # No uninstall on failed install: this is the CSI storage driver managing live volumes.
+    strategy:
+      name: RetryOnFailure
+      retryInterval: 5m
+  upgrade:
+    remediation:
+      retries: 5
   chart:
     spec:
       chart: openebs
@@ -21,7 +29,7 @@ spec:
       localpv:
         image:
           # renovate: datasource=docker depName=openebs/provisioner-localpv package=openebs/provisioner-localpv
-          tag: 4.5.1@sha256:a1b4659ea4bba01235593ab796424d1503cf25e1b31fe278fef2a4829385fc61
+          tag: 4.6.0@sha256:99f5116f5cb83fb9d046ef5ff5b8ea98da90e7da5250d7b101bd650662238a0a
       helperPod:
         image:
           # renovate: datasource=docker depName=openebs/linux-utils package=openebs/linux-utils
@@ -33,18 +41,18 @@ spec:
       zfsPlugin:
         image:
           # renovate: datasource=docker depName=openebs/zfs-driver package=openebs/zfs-driver
-          tag: 2.10.1@sha256:f9eeeefe1dd50f400d8a5dce8e748f8fffa92def86fcf9610583a3d7ec2fc291
+          tag: 2.11.1@sha256:16f1a74bb2495c78f9652be5d7cd6e869cb212c9decd42cac63e6566b07fa5f2
     lvm-localpv:
       enabled: false
       lvmPlugin:
         image:
           # renovate: datasource=docker depName=openebs/lvm-driver package=openebs/lvm-driver
-          tag: 1.9.1@sha256:8ee8221f13075c138dc6bba605b2190e70912fd5edc85fbd93ebd7d602becab1
+          tag: 1.10.1@sha256:41f73aba7f31eee4a033053d9c2f203e007a838c14823f3fd472c50651a98999
     mayastor:
       enabled: false
       image:
         # renovate: datasource=docker depName=openebs/mayastor-io-engine package=openebs/mayastor-io-engine
-        tag: v2.11.1@sha256:b88de71674405f4fa0f755f0eb246e0eafc0d0f1473263852fd039e45e1b3553
+        tag: v2.12.1@sha256:bbe5e87b69afe8e5711e1259ad91bdac7fea6f79486c8d0b318f33adcf60fece
       base:
         metrics:
           enabled: false

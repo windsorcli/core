@@ -166,6 +166,7 @@ properties:
       - none
       - aws
       - azure
+      - gcp
       - hetzner
       - incus
       - metal
@@ -251,6 +252,10 @@ properties:
       tenant_id:
         $ref: '#/$defs/uuid'
         description: Azure tenant identifier (UUID, same format as subscription_id).
+      region:
+        type: string
+        pattern: '^[a-z][a-z0-9]*$'
+        description: Azure region for network, cluster, and database resources. Defaults to eastus when unset.
       environment:
         type: string
         enum:
@@ -282,6 +287,22 @@ properties:
           signal windsor can detect.
     description: Azure provider authentication configuration
 
+  # GCP provider configuration. GCP integration activates whenever this block is
+  # present or `platform: gcp` is set, mirroring the AWS/Azure schemas.
+  gcp:
+    type: object
+    additionalProperties: false
+    properties:
+      project_id:
+        type: string
+        pattern: '^[a-z][a-z0-9-]{4,28}[a-z0-9]$'
+        description: GCP project ID for API calls and resource provisioning.
+      region:
+        type: string
+        pattern: '^[a-z]+-[a-z]+\d+$'
+        description: GCP region for network, cluster, and database resources. Defaults to us-central1 when unset.
+    description: GCP provider authentication and project configuration
+
   # Hetzner Cloud provider configuration (only consumed when platform == 'hetzner').
   # The API token is env-driven (HCLOUD_TOKEN) like other providers' credentials;
   # this block carries only region placement — which datacenter servers and the
@@ -308,8 +329,7 @@ properties:
           - us-east
           - us-west
           - ap-southeast
-        default: eu-central
-        description: Network zone the private network spans. Must contain the chosen location (eu-central covers fsn1/nbg1/hel1, us-east covers ash, us-west covers hil, ap-southeast covers sin).
+        description: Network zone for the private network. Defaults to the zone of the chosen location.
       token:
         type: string
         sensitive: true
@@ -429,9 +449,10 @@ properties:
               - local
               - s3
               - azurerm
+              - gcs
               - kubernetes
               - none
-            description: Backend type (local, s3, azurerm, kubernetes, or none)
+            description: Backend type (local, s3, azurerm, gcs, kubernetes, or none)
           prefix:
             type: string
             description: Optional state key/prefix applied per module
@@ -451,6 +472,10 @@ properties:
             type: object
             additionalProperties: true
             description: AzureRM backend configuration (https://developer.hashicorp.com/terraform/language/backend/azurerm)
+          gcs:
+            type: object
+            additionalProperties: true
+            description: GCS backend configuration (https://developer.hashicorp.com/terraform/language/backend/gcs)
         description: Terraform backend configuration
     additionalProperties: true
     description: Terraform execution and backend overrides
@@ -771,7 +796,8 @@ properties:
         enum:
           - metallb
           - kube-vip
-        description: In-cluster load balancer driver
+          - none
+        description: In-cluster load balancer driver. none disables lb-install where it would otherwise default on.
       loadbalancer_mode:
         type: string
         enum:
@@ -793,7 +819,8 @@ properties:
           - talos
           - aks
           - eks
-        description: Cluster driver. Defaulted by platform-base based on the active platform (aws → eks, azure → aks, otherwise → talos); an explicit value here wins.
+          - gke
+        description: Cluster driver. Defaulted by platform-base based on the active platform (aws → eks, azure → aks, gcp → gke, otherwise → talos); an explicit value here wins.
       endpoint:
         type: string
         pattern: '^https://[A-Za-z0-9.\-]+(:([1-9][0-9]{0,3}|[1-5][0-9]{4}|6[0-4][0-9]{3}|65[0-4][0-9]{2}|655[0-2][0-9]|6553[0-5]))?(/.*)?$'
@@ -870,7 +897,7 @@ properties:
                 - storage
                 - gpu
                 - arm64
-              description: Portable pool class. Maps to a per-provider instance family and emits a windsor.io/pool-class label so workloads target pools uniformly across clouds.
+              description: Portable pool class. Maps to a per-provider instance family and emits a windsorcli.dev/pool-class label so workloads target pools uniformly across clouds.
             count:
               type: integer
               minimum: 0
@@ -913,7 +940,7 @@ properties:
                 $ref: '#/$defs/k8sLabelKey'
               additionalProperties:
                 $ref: '#/$defs/k8sLabelValue'
-              description: Kubernetes labels applied to nodes in this pool, on top of the auto-injected windsor.io/pool=<name> and windsor.io/pool-class=<class>. Keys and values follow the k8s label spec.
+              description: Kubernetes labels applied to nodes in this pool, on top of the auto-injected windsorcli.dev/pool=<name> and windsorcli.dev/pool-class=<class>. Keys and values follow the k8s label spec.
             taints:
               type: array
               items:
@@ -951,7 +978,8 @@ properties:
             enum:
               - openebs
               - longhorn
-            description: CSI storage driver. openebs for directory-based local storage; longhorn for block device storage (requires a dedicated disk and the iscsi-tools Talos extension, unavailable on Incus). Defaults to openebs.
+              - mayastor
+            description: CSI storage driver. openebs for directory-based local storage; longhorn or mayastor for replicated block storage (each needs a dedicated disk and a Talos extension). Defaults to openebs.
         additionalProperties: false
       cni:
         type: object
@@ -1341,14 +1369,26 @@ properties:
             enum:
               - cloudnativepg
               - rds
+              - flexibleserver
+              - cloudsql
             default: cloudnativepg
             description: PostgreSQL database driver
           encryption:
             type: object
             properties:
+              managed:
+                type: boolean
+                default: false
+                description: Create a dedicated customer-managed key instead of the driver's platform-managed default.
               kms_key_arn:
                 type: string
-                description: Existing AWS KMS key ARN for RDS storage encryption. Omit to let Windsor manage its own key.
+                description: Existing AWS KMS key ARN for RDS storage encryption, overriding managed.
+              key_vault_key_id:
+                type: string
+                description: Existing Azure Key Vault key ID for Flexible Server storage encryption, overriding managed.
+              kms_key_name:
+                type: string
+                description: Existing GCP KMS CryptoKey resource name for Cloud SQL storage encryption, overriding managed.
             additionalProperties: false
         additionalProperties: false
     additionalProperties: false
@@ -1567,5 +1607,55 @@ allOf:
       properties:
         platform:
           const: aws
+
+  # database.postgres.driver: flexibleserver installs Crossplane's
+  # provider-azure-dbforpostgresql, wired to Azure credentials by the
+  # azure-aks Terraform module's Workload Identity federation — Azure-only.
+  - if:
+      properties:
+        database:
+          type: object
+          properties:
+            postgres:
+              type: object
+              properties:
+                driver:
+                  const: flexibleserver
+              required:
+                - driver
+          required:
+            - postgres
+      required:
+        - database
+    then:
+      properties:
+        platform:
+          const: azure
+      required:
+        - platform
+
+  # database.postgres.driver: cloudsql installs Crossplane's
+  # provider-gcp-sql, wired to GCP credentials by the gcp-gke Terraform
+  # module's Workload Identity Federation — GCP-only.
+  - if:
+      properties:
+        database:
+          type: object
+          properties:
+            postgres:
+              type: object
+              properties:
+                driver:
+                  const: cloudsql
+              required:
+                - driver
+          required:
+            - postgres
+      required:
+        - database
+    then:
+      properties:
+        platform:
+          const: gcp
       required:
         - platform
