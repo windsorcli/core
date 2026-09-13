@@ -14,5 +14,5 @@ spec:
       name: demo-db
     passwordSecretRef:
       name: demo-db-admin-credentials
-      namespace: system-provisioning
+      namespace: system-database
       key: password

@@ -93,13 +93,13 @@ resource "google_kms_crypto_key_iam_member" "cloudsql" {
 # itself, one per named instance in var.admin_credentials.
 #
 # Terraform runs before Flux, so this module creates its own copy of the
-# system-provisioning namespace, matching cluster/aws-eks/additions's
+# system-database namespace, matching cluster/aws-eks/additions's
 # system-dns and gitops/flux's flux-system.
 #---------------------------------------------------------------------------------------------------
 
-resource "kubernetes_namespace_v1" "system_provisioning" {
+resource "kubernetes_namespace_v1" "system_database" {
   metadata {
-    name = "system-provisioning"
+    name = "system-database"
     labels = {
       "pod-security.kubernetes.io/enforce" = "baseline"
       "pod-security.kubernetes.io/audit"   = "baseline"
@@ -124,10 +124,19 @@ resource "kubernetes_secret_v1" "admin_credentials" {
   for_each = var.admin_credentials
   metadata {
     name      = "${each.key}-admin-credentials"
-    namespace = kubernetes_namespace_v1.system_provisioning.metadata[0].name
+    namespace = kubernetes_namespace_v1.system_database.metadata[0].name
   }
   data = {
     username = each.value.username
     password = random_password.admin[each.key].result
   }
+}
+
+#---------------------------------------------------------------------------------------------------
+# State migration blocks
+#---------------------------------------------------------------------------------------------------
+
+moved {
+  from = kubernetes_namespace_v1.system_provisioning
+  to   = kubernetes_namespace_v1.system_database
 }

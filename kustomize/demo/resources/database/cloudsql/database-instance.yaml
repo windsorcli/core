@@ -1,6 +1,6 @@
 ---
 # Worked example of the kustomize/provisioning contract. The admin
-# credential lives at demo-db-admin-credentials in system-provisioning,
+# credential lives at demo-db-admin-credentials in system-database,
 # written by database/gcp-cloudsql's Terraform.
 apiVersion: sql.gcp.upbound.io/v1beta2
 kind: DatabaseInstance

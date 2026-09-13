@@ -103,8 +103,8 @@ run "admin_credentials_generates_secret_per_instance" {
   }
 
   assert {
-    condition     = kubernetes_secret_v1.admin_credentials["demo-db"].metadata[0].namespace == "system-provisioning"
-    error_message = "Admin credential Secret should land in system-provisioning"
+    condition     = kubernetes_secret_v1.admin_credentials["demo-db"].metadata[0].namespace == "system-database"
+    error_message = "Admin credential Secret should land in system-database"
   }
 
   assert {
