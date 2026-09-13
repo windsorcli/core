@@ -580,8 +580,6 @@ cases:
             manage_encryption_key: true
             vpc_id: vpc-12345678
             cluster_security_group_id: sg-0eks1234
-            cluster_name: cluster-test
-            cluster_arn: arn:aws:eks:us-west-2:123456789012:cluster/cluster-test
         - name: crossplane-iam
           path: provisioning/crossplane-identity/aws
           dependsOn:

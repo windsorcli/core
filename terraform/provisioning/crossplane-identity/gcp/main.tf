@@ -43,9 +43,8 @@ resource "google_service_account" "this" {
   project      = var.project_id
 }
 
-# Binds the Kubernetes ServiceAccount to this Google Service Account —
-# GKE's own Workload Identity mechanism, the equivalent of Azure's
-# federated credential and AWS's Pod Identity association.
+# Binds the Kubernetes ServiceAccount to this Google Service Account via
+# GKE Workload Identity.
 resource "google_service_account_iam_member" "workload_identity" {
   for_each           = local.selected
   service_account_id = google_service_account.this[each.key].name

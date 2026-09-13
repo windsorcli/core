@@ -22,8 +22,3 @@ output "security_group_id" {
   description = "Security group ID with Postgres ingress restricted to this cluster's node security group. Reference from an Instance CR's vpcSecurityGroupIds."
   value       = aws_security_group.rds.id
 }
-
-output "secret_reader_role_arn" {
-  description = "IAM role ARN a bootstrap job in system-provisioning/rds-secret-reader assumes via Pod Identity to read RDS-managed master password secrets."
-  value       = aws_iam_role.secret_reader.arn
-}
