@@ -135,8 +135,9 @@ spec:
                       },
                   },
               })
-              if is_ready(req, "provider-config"):
-                  rsp.desired.resources["provider-config"].ready = True
+              # ProviderConfig has no status.conditions at all (just a Users
+              # count), so there's nothing for is_ready() to check.
+              rsp.desired.resources["provider-config"].ready = True
 
               rsp.desired.resources["role"].resource.update({
                   "apiVersion": "postgresql.sql.m.crossplane.io/v1alpha1",
