@@ -197,9 +197,25 @@ fixed:
   all — confirmed via `kubectl explain` against the live cluster.
   `managementPolicies` without `Delete` is the real equivalent.
 
+Two more, once the app credential's `Role` actually started reconciling:
+
+- Nothing auto-detects a composed resource's readiness from its own
+  `status.conditions` — that's what the separate `function-auto-ready`
+  function is for. Without it (or without checking manually), the XR's
+  own `Ready` condition never flips even once every composed resource is
+  genuinely healthy. Fixed by reading `req.observed.resources.get(name)`
+  and only marking `rsp.desired.resources[name].ready = True` once that
+  resource's own `Ready` condition is `True` — except the plain `v1/Secret`
+  connection mirror, which has no conditions at all and is marked ready
+  unconditionally once written.
+- A `Grant`'s Kubernetes object name can't contain the underscores real
+  Postgres role names do (`pg_monitor` fails RFC 1123 validation). The
+  `memberOf` value passed to Postgres stays as-is; only the k8s name gets
+  a sanitized slug.
+
 `providerConfigRef: {kind: ProviderConfig, name: ...}` was confirmed
 correct as originally guessed — no error on that field once the above
-three were fixed.
+were fixed.
 
 Still open:
 
@@ -207,8 +223,6 @@ Still open:
   `databaseName` under Postgres's default `PUBLIC CONNECT`, or whether an
   explicit grant is needed in practice — not yet reached in live testing,
   blocked on the above until now.
-- The namespaced `Role`/`ProviderConfig`'s `Ready` aggregation behavior
-  under `mode: Pipeline` composition — not yet observed live for this XRD.
 - The GCP `WatchOperation`'s behavior against multiple `DatabaseInstance`s
   appearing concurrently (cluster-wide, unfiltered) — validated with
   `kustomize build` only.
