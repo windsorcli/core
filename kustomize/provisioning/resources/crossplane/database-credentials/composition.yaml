@@ -57,6 +57,12 @@ spec:
           }
 
 
+          def is_ready(req, name):
+              # Nothing auto-detects readiness from a composed resource's own
+              # conditions; it has to be read from its prior observed state.
+              return resource.get_condition(req.observed.resources.get(name), "Ready").status == "True"
+
+
           def compose(req: fnv1.RunFunctionRequest, rsp: fnv1.RunFunctionResponse):
               # observed.composite.resource is a raw protobuf Struct: [] works, .get() doesn't.
               xr = resource.struct_to_dict(req.observed.composite.resource)
@@ -111,6 +117,7 @@ spec:
                       "password": admin_password,
                   },
               })
+              rsp.desired.resources["connection-secret"].ready = True
 
               rsp.desired.resources["provider-config"].resource.update({
                   "apiVersion": "postgresql.sql.m.crossplane.io/v1alpha1",
@@ -124,6 +131,8 @@ spec:
                       },
                   },
               })
+              if is_ready(req, "provider-config"):
+                  rsp.desired.resources["provider-config"].ready = True
 
               rsp.desired.resources["role"].resource.update({
                   "apiVersion": "postgresql.sql.m.crossplane.io/v1alpha1",
@@ -140,10 +149,16 @@ spec:
                       "writeConnectionSecretToRef": {"name": f"{role_name}-credentials"},
                   },
               })
+              if is_ready(req, "role"):
+                  rsp.desired.resources["role"].ready = True
 
               for grant in grants:
-                  grant_name = f"{role_name}-{grant['memberOf']}"
-                  rsp.desired.resources[f"grant-{grant['memberOf']}"].resource.update({
+                  # memberOf is a real Postgres role name (may contain underscores);
+                  # the k8s object name can't, so it gets its own slug.
+                  grant_slug = grant["memberOf"].replace("_", "-").lower()
+                  grant_key = f"grant-{grant_slug}"
+                  grant_name = f"{role_name}-{grant_slug}"
+                  rsp.desired.resources[grant_key].resource.update({
                       "apiVersion": "postgresql.sql.m.crossplane.io/v1alpha1",
                       "kind": "Grant",
                       "metadata": {"name": grant_name, "namespace": namespace},
@@ -153,6 +168,8 @@ spec:
                           "forProvider": {"role": role_name, "memberOf": grant["memberOf"]},
                       },
                   })
+                  if is_ready(req, grant_key):
+                      rsp.desired.resources[grant_key].ready = True
 
               status = {
                   "connectionSecretRef": {"name": f"{role_name}-credentials", "namespace": namespace},
