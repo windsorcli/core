@@ -171,6 +171,17 @@ creates its `DatabaseInstance`, with no manifest of its own — matching
 RDS/FlexibleServer's native ergonomics instead of pushing the gap onto
 every chart.
 
+Unlike RDS/FlexibleServer, whose provider writes the admin password
+directly onto the instance it creates, `provider-gcp-sql` has no such
+field — a Secret alone changes nothing on the real database until a
+`User` CR reads it. The `WatchOperation` composes that `User` too,
+independently of whether it created the Secret itself: when the Secret
+already exists (Terraform-written, as the demo does), the `User` still
+gets created, using that Secret's own `username`. This is what lets a
+chart's contract stay identical across all three drivers — create the
+instance CR, nothing else — instead of CloudSQL alone needing a
+hand-authored `User` CR the other two drivers don't.
+
 ### 6. Lives under `kustomize/provisioning/resources/crossplane/`, not
 `kustomize/database/resources/crossplane/`
 
@@ -266,6 +277,12 @@ Still open:
   (naming the exact missing resource instead of stalling silently) were
   added after the live `gcp-test` run and haven't themselves been
   reconciled against a real cluster yet.
+- The `WatchOperation`'s new admin `User` composition hasn't been
+  reconciled live either. The one case actually exercised on `gcp-test`
+  (Terraform pre-writes the Secret) previously relied on the demo's own
+  hand-authored `User` CR, now deleted; the `WatchOperation`-composed
+  `User`, and the from-scratch case where it also generates the Secret
+  itself, are both unverified.
 
 ## Alternatives considered
 

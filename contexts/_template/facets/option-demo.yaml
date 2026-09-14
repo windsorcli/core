@@ -6,19 +6,6 @@ metadata:
 
 when: demo.enabled == true
 
-# =============================================================================
-# Terraform — Cloud SQL admin credential
-# =============================================================================
-# Merges into platform-gcp.yaml's own "database" terraform entry.
-terraform:
-  - name: database
-    path: database/gcp-cloudsql
-    when: demo.resources.database == true && database.postgres.driver == 'cloudsql'
-    inputs:
-      admin_credentials:
-        demo-db:
-          username: demo
-
 # Single source of truth for demo-db's database name, used by the
 # Instance CR and its DatabaseCredentials resources below.
 config:

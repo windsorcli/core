@@ -308,34 +308,6 @@ cases:
                 - database/cloudsql
                 - database/cloudsql/encryption-key
 
-  # cloudsql's admin credential Secret is declared here (the instance name is
-  # demo-specific) but the terraform component itself lives in
-  # platform-gcp.yaml — confirms the two facets' inputs merge into one call.
-  - name: demo mode with cloudsql driver merges admin_credentials into the shared database component
-    values:
-      platform: gcp
-      gcp:
-        project_id: windsor-test
-      demo:
-        enabled: true
-        resources:
-          database: true
-      gateway:
-        enabled: false
-      database:
-        postgres:
-          enabled: true
-          driver: cloudsql
-    expect:
-      terraform:
-        - name: database
-          path: database/gcp-cloudsql
-          inputs:
-            project_id: windsor-test
-            admin_credentials:
-              demo-db:
-                username: demo
-
   # static + bookinfo apps carry no database dependency, and demo is a
   # resources-only system, so no demo-install tier is emitted.
   - name: demo static and bookinfo apps compose as resources tier without install
