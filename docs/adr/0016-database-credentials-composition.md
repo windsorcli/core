@@ -9,9 +9,16 @@ description: Introduces a Crossplane XRD/Composition, DatabaseCredentials, so a 
 
 Proposed, implemented on `feat/database-credentials-composition`. Migrates
 `option-demo.yaml` fully onto `DatabaseCredentials` and deletes `app-role`,
-`monitor-role`, and `instance-connection` — see Verification needed below
-for what's still outstanding before this should be treated as confirmed
-working.
+`monitor-role`, and `instance-connection`.
+
+Verified live against a real `gcp-test` (cloudsql) bring-up: both
+`demo-app` and `demo-db-monitor` reach `Synced: True, Ready: True`, their
+`Role`/`Grant` are `Ready` in Postgres with real privileges, the
+`postgres_exporter` pod scrapes successfully, and every Kustomization in
+the cluster — including the pruned handoff from the old
+`database-credentials-resources` to the new merged `demo-resources` —
+converges to `Ready: True`. See Verification needed below for what's
+still open.
 
 ## Context
 
@@ -223,13 +230,14 @@ were fixed.
 
 Still open:
 
-- Whether a bare `Role` (no `Grant`) can actually connect to
-  `databaseName` under Postgres's default `PUBLIC CONNECT`, or whether an
-  explicit grant is needed in practice — not yet reached in live testing,
-  blocked on the above until now.
-- The GCP `WatchOperation`'s behavior against multiple `DatabaseInstance`s
-  appearing concurrently (cluster-wide, unfiltered) — validated with
-  `kustomize build` only.
+- The bare `demo-app` `Role` (no `Grant`) reached `Ready` cleanly, but
+  actually connecting to the `demo` database with it — confirming
+  Postgres's default `PUBLIC CONNECT` covers the case, not just that the
+  role object exists — hasn't been tested from an application pod.
+- The GCP `gcp-admin-password` `WatchOperation` correctly bootstrapped the
+  admin secret for this cluster's one `DatabaseInstance`. Its behavior
+  against multiple `DatabaseInstance`s appearing concurrently is still
+  unverified.
 
 ## Alternatives considered
 
