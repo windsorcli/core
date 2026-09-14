@@ -103,10 +103,8 @@ cases:
           inputs:
             cluster_endpoint: https://10.10.0.10:6443
 
-  # Compute cluster_endpoint defaults: when cluster.endpoint is unset, the
-  # compute step receives https://cidrhost(cidr, 10):6443. This is the static
-  # address vSphere bootstraps from before vmtoolsd reports a guest IP.
-  - name: compute cluster_endpoint defaults to cidrhost(cidr, 10) when not set
+  # Compute cluster_endpoint uses the first control-plane IPv4 when unset.
+  - name: compute cluster_endpoint defaults to first control-plane IP when not set
     values:
       platform: vsphere
       gateway:
@@ -116,6 +114,9 @@ cases:
       vsphere: *default-vsphere
     terraformOutputs: *default-terraform-outputs
     expect:
+      config:
+        talos_common:
+          k8s_service_host: "10.10.0.10"
       terraform:
         - name: compute
           path: compute/vsphere
@@ -249,6 +250,360 @@ cases:
               - endpoint: 10.10.0.21:50000
                 node: 10.10.0.21
                 hostname: worker-2
+
+  # Guest IPv4 from cluster.*.nodes; cidr_block and gateway stay the shared LAN.
+  - name: declared node IPs override cidrhost offsets on a shared LAN
+    values:
+      platform: vsphere
+      gateway:
+        enabled: false
+      network:
+        cidr_block: 10.41.0.0/22
+        gateway: 10.41.3.1
+        loadbalancer_ips:
+          start: "10.41.3.10"
+          end: "10.41.3.20"
+      cluster:
+        driver: talos
+        controlplanes:
+          count: 1
+          nodes:
+            controlplane-1:
+              endpoint: 10.41.0.30:50000
+              node: 10.41.0.30
+              hostname: controlplane-1
+        workers:
+          count: 1
+          nodes:
+            worker-1:
+              endpoint: 10.41.0.40:50000
+              node: 10.41.0.40
+              hostname: worker-1
+      vsphere: *default-vsphere
+    terraformOutputs:
+      compute:
+        controlplanes:
+          - endpoint: 10.41.0.30:50000
+            node: 10.41.0.30
+            hostname: controlplane
+        workers:
+          - endpoint: 10.41.0.40:50000
+            node: 10.41.0.40
+            hostname: worker
+    expect:
+      config:
+        network_effective:
+          gateway: 10.41.3.1
+        talos_common:
+          k8s_service_host: "10.41.0.30"
+        vsphere_controlplanes:
+          nodes:
+            - name: controlplane
+              ipv4: 10.41.0.30
+        vsphere_workers:
+          nodes:
+            - name: worker
+              ipv4: 10.41.0.40
+      terraform:
+        - name: compute
+          path: compute/vsphere
+          inputs:
+            cluster_endpoint: https://10.41.0.30:6443
+            instances:
+              - name: controlplane
+                role: controlplane
+                count: 1
+                ipv4: 10.41.0.30
+              - name: worker
+                role: worker
+                count: 1
+                ipv4: 10.41.0.40
+
+  # Non-sequential control-plane IPs emit one count-1 instance each.
+  - name: non-sequential control-plane IPs emit one instance each
+    values:
+      platform: vsphere
+      gateway:
+        enabled: false
+      network:
+        cidr_block: 10.41.0.0/22
+        gateway: 10.41.3.1
+        loadbalancer_ips:
+          start: "10.41.3.10"
+          end: "10.41.3.20"
+      cluster:
+        driver: talos
+        controlplanes:
+          count: 2
+          nodes:
+            controlplane-1:
+              endpoint: 10.41.0.30:50000
+              node: 10.41.0.30
+              hostname: controlplane-1
+            controlplane-2:
+              endpoint: 10.41.0.35:50000
+              node: 10.41.0.35
+              hostname: controlplane-2
+        workers:
+          count: 0
+      vsphere: *default-vsphere
+    terraformOutputs:
+      compute:
+        controlplanes:
+          - endpoint: 10.41.0.30:50000
+            node: 10.41.0.30
+            hostname: controlplane-1
+          - endpoint: 10.41.0.35:50000
+            node: 10.41.0.35
+            hostname: controlplane-2
+        workers: []
+    expect:
+      config:
+        talos_common:
+          k8s_service_host: "10.41.0.30"
+        vsphere_controlplanes:
+          nodes:
+            - name: controlplane-1
+              ipv4: 10.41.0.30
+            - name: controlplane-2
+              ipv4: 10.41.0.35
+      terraform:
+        - name: compute
+          path: compute/vsphere
+          inputs:
+            cluster_endpoint: https://10.41.0.30:6443
+            instances:
+              - name: controlplane-1
+                role: controlplane
+                count: 1
+                ipv4: 10.41.0.30
+              - name: controlplane-2
+                role: controlplane
+                count: 1
+                ipv4: 10.41.0.35
+
+  # Omitted nodes map uses cidrhost offsets (.10 / .20).
+  - name: cidrhost offsets when nodes are omitted
+    values:
+      platform: vsphere
+      gateway:
+        enabled: false
+      network:
+        cidr_block: 10.10.0.0/24
+        loadbalancer_ips:
+          start: "10.10.0.100"
+          end: "10.10.0.110"
+      cluster:
+        driver: talos
+        controlplanes:
+          count: 1
+        workers:
+          count: 1
+      vsphere: *default-vsphere
+    terraformOutputs:
+      compute:
+        controlplanes:
+          - endpoint: 10.10.0.10:50000
+            node: 10.10.0.10
+            hostname: controlplane
+        workers:
+          - endpoint: 10.10.0.20:50000
+            node: 10.10.0.20
+            hostname: worker
+    expect:
+      config:
+        talos_common:
+          k8s_service_host: "10.10.0.10"
+        vsphere_controlplanes:
+          nodes:
+            - name: controlplane
+              ipv4: 10.10.0.10
+        vsphere_workers:
+          nodes:
+            - name: worker
+              ipv4: 10.10.0.20
+      terraform:
+        - name: compute
+          path: compute/vsphere
+          inputs:
+            cluster_endpoint: https://10.10.0.10:6443
+            instances:
+              - name: controlplane
+                role: controlplane
+                count: 1
+                ipv4: 10.10.0.10
+              - name: worker
+                role: worker
+                count: 1
+                ipv4: 10.10.0.20
+
+  # DHCP guests omit static ipv4; cluster.endpoint is the API URL.
+  - name: dhcp guests omit static ipv4 and use cluster.endpoint
+    values:
+      platform: vsphere
+      gateway:
+        enabled: false
+      network:
+        cidr_block: 10.41.0.0/22
+        dhcp: true
+        loadbalancer_ips:
+          start: "10.41.3.10"
+          end: "10.41.3.20"
+      cluster:
+        driver: talos
+        endpoint: https://talos.plant.local:6443
+        controlplanes:
+          count: 1
+        workers:
+          count: 1
+      vsphere: *default-vsphere
+    terraformOutputs:
+      compute:
+        controlplanes:
+          - endpoint: 10.41.0.80:50000
+            node: 10.41.0.80
+            hostname: controlplane
+        workers:
+          - endpoint: 10.41.0.81:50000
+            node: 10.41.0.81
+            hostname: worker
+    expect:
+      config:
+        vsphere_effective:
+          dhcp: true
+        talos_common:
+          k8s_service_host: talos.plant.local
+        vsphere_controlplanes:
+          nodes:
+            - name: controlplane
+              ipv4: null
+        vsphere_workers:
+          nodes:
+            - name: worker
+              ipv4: null
+      terraform:
+        - name: compute
+          path: compute/vsphere
+          inputs:
+            cluster_endpoint: https://talos.plant.local:6443
+            instances:
+              - name: controlplane
+                role: controlplane
+                count: 1
+                ipv4: null
+              - name: worker
+                role: worker
+                count: 1
+                ipv4: null
+        - name: cluster
+          path: cluster/talos
+          inputs:
+            cluster_endpoint: https://talos.plant.local:6443
+
+  # DHCP ignores declared node IPs for guest addressing.
+  - name: dhcp ignores declared node IPs
+    values:
+      platform: vsphere
+      gateway:
+        enabled: false
+      network:
+        cidr_block: 10.41.0.0/22
+        dhcp: true
+        loadbalancer_ips:
+          start: "10.41.3.10"
+          end: "10.41.3.20"
+      cluster:
+        driver: talos
+        endpoint: https://10.41.3.50:6443
+        controlplanes:
+          count: 1
+          nodes:
+            controlplane-1:
+              endpoint: 10.41.0.30:50000
+              node: 10.41.0.30
+              hostname: controlplane-1
+        workers:
+          count: 0
+      vsphere: *default-vsphere
+    terraformOutputs:
+      compute:
+        controlplanes:
+          - endpoint: 10.41.0.80:50000
+            node: 10.41.0.80
+            hostname: controlplane
+        workers: []
+    expect:
+      config:
+        talos_common:
+          k8s_service_host: "10.41.3.50"
+        vsphere_controlplanes:
+          nodes:
+            - name: controlplane
+              ipv4: null
+      terraform:
+        - name: compute
+          path: compute/vsphere
+          inputs:
+            cluster_endpoint: https://10.41.3.50:6443
+            instances:
+              - name: controlplane
+                role: controlplane
+                count: 1
+                ipv4: null
+
+  # DHCP without cluster.endpoint: compute leaves cluster_endpoint empty so
+  # GuestInfo is not baked; cluster derives https://<first-cp>:6443 from
+  # compute's controlplanes output after vmtoolsd reports the lease.
+  - name: dhcp without cluster.endpoint derives API URL from compute output
+    values:
+      platform: vsphere
+      gateway:
+        enabled: false
+      network:
+        cidr_block: 10.41.0.0/22
+        dhcp: true
+        loadbalancer_ips:
+          start: "10.41.3.10"
+          end: "10.41.3.20"
+      cluster:
+        driver: talos
+        controlplanes:
+          count: 1
+        workers:
+          count: 0
+      vsphere: *default-vsphere
+    terraformOutputs:
+      compute:
+        controlplanes:
+          - endpoint: 10.41.0.80:50000
+            node: 10.41.0.80
+            hostname: controlplane
+        workers: []
+    expect:
+      config:
+        vsphere_effective:
+          dhcp: true
+        talos_common:
+          k8s_service_host: "10.41.0.80"
+        vsphere_controlplanes:
+          nodes:
+            - name: controlplane
+              ipv4: null
+        cluster_endpoint_fallback:
+          endpoint: https://10.41.0.80:6443
+      terraform:
+        - name: compute
+          path: compute/vsphere
+          inputs:
+            instances:
+              - name: controlplane
+                role: controlplane
+                count: 1
+                ipv4: null
+        - name: cluster
+          path: cluster/talos
+          inputs:
+            cluster_endpoint: https://10.41.0.80:6443
 
   # kube-vip: the lb flux system's install tier lands when loadbalancer_driver
   # is kube-vip and the CNI is flannel (Cilium uses its own L2 path;

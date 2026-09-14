@@ -73,28 +73,55 @@ config:
       host_system: "${vsphere.host_system ?? ''}"
       talos_schematic_id: "903b2da78f99adef03cbbd4df6714563823f63218508800751560d3bc3557e40"
       image_url: "${'https://factory.talos.dev/image/903b2da78f99adef03cbbd4df6714563823f63218508800751560d3bc3557e40/v' + talos.talos_version + '/vmware-amd64.ova'}"
+      dhcp: ${network.dhcp == true}
 
-  # ---------------------------------------------------------------------------
-  # talos_common.k8s_service_host — Cilium kube-proxy-replacement API endpoint
-  # ---------------------------------------------------------------------------
-  #
-  # Storage falls through to config-talos.yaml's openebs default. The
-  # controlplane sits at CIDR offset 10 (see compute instances below), so pin
-  # k8s_service_host there rather than the nodes map — the compute step derives
-  # nodes from cluster.controlplanes.count, so a nodes map is not required and
-  # config-talos.yaml's node-based default would otherwise resolve empty and
-  # leave Cilium unable to reach the API before its eBPF rules are active.
+  # Guest IPv4 per control plane: cluster.controlplanes.nodes, else cidrhost offset 10.
+  - name: vsphere_controlplanes
+    value:
+      nodes: >-
+        ${map(1..int(cluster.controlplanes.count ?? 1), fromPairs([
+          ["name", int(cluster.controlplanes.count ?? 1) > 1 ? "controlplane-" + string(#) : "controlplane"],
+          ["ipv4", vsphere_effective.dhcp ? null
+            : (get(cluster.controlplanes.nodes ?? {}, "controlplane-" + string(#)) != null
+            || len(values(cluster.controlplanes.nodes ?? {})) >= #
+            ? ((get(cluster.controlplanes.nodes ?? {}, "controlplane-" + string(#))
+                ?? values(cluster.controlplanes.nodes)[# - 1]).node
+               ?? split((get(cluster.controlplanes.nodes ?? {}, "controlplane-" + string(#))
+                ?? values(cluster.controlplanes.nodes)[# - 1]).endpoint, ":")[0])
+            : cidrhost(network.cidr_block ?? '10.5.0.0/16', 9 + #))]
+        ]))}
+
+  # Guest IPv4 per worker: cluster.workers.nodes, else cidrhost offset 20.
+  - name: vsphere_workers
+    value:
+      nodes: >-
+        ${(cluster.workers.count ?? 0) == 0 ? [] : map(1..int(cluster.workers.count), fromPairs([
+          ["name", int(cluster.workers.count) > 1 ? "worker-" + string(#) : "worker"],
+          ["ipv4", vsphere_effective.dhcp ? null
+            : (get(cluster.workers.nodes ?? {}, "worker-" + string(#)) != null
+            || len(values(cluster.workers.nodes ?? {})) >= #
+            ? ((get(cluster.workers.nodes ?? {}, "worker-" + string(#))
+                ?? values(cluster.workers.nodes)[# - 1]).node
+               ?? split((get(cluster.workers.nodes ?? {}, "worker-" + string(#))
+                ?? values(cluster.workers.nodes)[# - 1]).endpoint, ":")[0])
+            : cidrhost(network.cidr_block ?? '10.5.0.0/16', 19 + #))]
+        ]))}
+
+  # First control-plane IPv4 for Cilium kube-proxy-replacement.
   - name: talos_common
     value:
-      k8s_service_host: "${cidrhost(network.cidr_block, 10)}"
+      k8s_service_host: >-
+        ${(cluster.endpoint ?? '') != ''
+          ? split(split(cluster.endpoint, '://')[1], ':')[0]
+          : (len(terraform_output("compute", "controlplanes") ?? []) > 0
+            ? split(terraform_output("compute", "controlplanes")[0].endpoint, ':')[0]
+            : (vsphere_effective.dhcp ? '' : vsphere_controlplanes.nodes[0].ipv4))}
 
   # ---------------------------------------------------------------------------
   # Network gateway and nameservers — delivered to each node via guestinfo
   # ---------------------------------------------------------------------------
   #
-  # vSphere VMs on a plant network typically don't have DHCP (or the DHCP
-  # server doesn't have Windsor context). Default gateway and nameservers here
-  # so the operator only needs to declare cidr_block.
+  # Default gateway and nameservers for static guests.
   #
   # gateway lives under network_effective, not network: a same-block
   # cidrhost() call on network.cidr_block never converges (composer treats a
@@ -104,7 +131,7 @@ config:
     value:
       gateway: "${network.gateway ?? cidrhost(network.cidr_block ?? '10.5.0.0/16', 1)}"
   - name: network
-    when: len(network.nameservers ?? []) == 0
+    when: len(network.nameservers ?? []) == 0 && network.dhcp != true
     value:
       nameservers: ['1.1.1.1', '8.8.8.8']
 
@@ -113,9 +140,7 @@ config:
   # ---------------------------------------------------------------------------
   #
   # Once vmtoolsd reports guest IPs, compute's controlplanes output has real
-  # endpoints. Before that (e.g. initial plan), fall back to an explicit
-  # cluster.endpoint or to the first controlplane's declared ipv4 at CIDR
-  # offset 10.
+  # endpoints. The cluster step uses this when cluster.endpoint is unset.
   - name: cluster_endpoint_fallback
     value:
       endpoint: >-
@@ -135,13 +160,14 @@ config:
         ${map(
           len(terraform_output("compute", "controlplanes") ?? []) > 0
             ? terraform_output("compute", "controlplanes")
-            : values(cluster.controlplanes.nodes ?? {}),
+            : (vsphere_effective.dhcp ? [] : values(cluster.controlplanes.nodes ?? {})),
           fromPairs(filter(toPairs(#), get(#, 0) == "node" || get(#, 0) == "endpoint")))}
       workers: >-
         ${map(
           len(terraform_output("compute", "workers") ?? []) > 0
             ? terraform_output("compute", "workers")
-            : ((cluster.workers.count ?? 0) > 0 ? values(cluster.workers.nodes ?? {}) : []),
+            : (vsphere_effective.dhcp ? []
+              : ((cluster.workers.count ?? 0) > 0 ? values(cluster.workers.nodes ?? {}) : [])),
           fromPairs(filter(toPairs(#), get(#, 0) == "node" || get(#, 0) == "endpoint")))}
 
   # ---------------------------------------------------------------------------
@@ -178,19 +204,11 @@ terraform:
   # compute — Talos VMs on a vSphere cluster
   # ---------------------------------------------------------------------------
   #
-  # Deploys VMs from the Talos vmware OVA and sets per-node machineconfig via
-  # guestinfo (base64-encoded, generated internally). The cluster step receives
-  # machine_secrets + client_configuration from compute so it can skip
-  # machineconfig re-apply and go straight to bootstrap + health.
+  # Deploys VMs from the Talos vmware OVA. GuestInfo machineconfig is baked
+  # when cluster.endpoint is set; otherwise compute waits for vmtoolsd and
+  # cluster/talos applies using the leased control-plane IP.
   #
-  # Static IPs follow the same offset scheme as other Windsor platforms:
-  #   controlplane-N → cidrhost(cidr, 10 + N - 1)  (cp-1 = .10, cp-2 = .11, …)
-  #   worker-N       → cidrhost(cidr, 20 + N - 1)  (worker-1 = .20, …)
-  #
-  # Operators with custom IP assignments can express them via
-  # cluster.controlplanes.nodes / cluster.workers.nodes and pass the concrete
-  # endpoint list to the cluster step — the facet reads from compute output
-  # when available, and from the node map as fallback.
+  # Guest IPv4 from vsphere_controlplanes / vsphere_workers, or DHCP.
   - name: compute
     path: compute/vsphere
     inputs:
@@ -202,63 +220,73 @@ terraform:
       resource_pool: "${vsphere_effective.resource_pool}"
       host_system: "${vsphere_effective.host_system}"
       cluster_name: talos
-      cluster_endpoint: "${cluster.endpoint ?? ('https://' + cidrhost(network.cidr_block, 10) + ':6443')}"
+      cluster_endpoint: "${(cluster.endpoint ?? '') != '' ? cluster.endpoint : (vsphere_effective.dhcp ? '' : ('https://' + vsphere_controlplanes.nodes[0].ipv4 + ':6443'))}"
       talos_version: ${talos.talos_version}
       common_config_patches: ${talos_common.common_config_patches}
       per_node_config_patches: >-
         ${fromPairs(concat(
-          map(1..int(cluster.controlplanes.count ?? 1), [
-            int(cluster.controlplanes.count ?? 1) > 1 ? "controlplane-" + string(#) : "controlplane",
-            string({machine: {network: {
-              interfaces: [{
-                deviceSelector: {physical: true},
-                dhcp: false,
-                addresses: [cidrhost(network.cidr_block, 9 + #) + "/" + split(network.cidr_block, "/")[1]],
-                routes: [{network: "0.0.0.0/0", gateway: network_effective.gateway}]
-              }],
-              nameservers: network.nameservers
-            }}})
+          map(vsphere_controlplanes.nodes, [
+            get(#, "name"),
+            vsphere_effective.dhcp
+              ? string({machine: {network: fromPairs(concat(
+                  [["interfaces", [{deviceSelector: {physical: true}, dhcp: true}]]],
+                  len(network.nameservers ?? []) > 0 ? [["nameservers", network.nameservers]] : []
+                ))}})
+              : string({machine: {network: {
+                  interfaces: [{
+                    deviceSelector: {physical: true},
+                    dhcp: false,
+                    addresses: [get(#, "ipv4") + "/" + split(network.cidr_block ?? '10.5.0.0/16', "/")[1]],
+                    routes: [{network: "0.0.0.0/0", gateway: network_effective.gateway}]
+                  }],
+                  nameservers: network.nameservers
+                }}})
           ]),
-          (cluster.workers.count ?? 0) > 0 ? map(1..int(cluster.workers.count), [
-            int(cluster.workers.count) > 1 ? "worker-" + string(#) : "worker",
-            string({machine: {network: {
-              interfaces: [{
-                deviceSelector: {physical: true},
-                dhcp: false,
-                addresses: [cidrhost(network.cidr_block, 19 + #) + "/" + split(network.cidr_block, "/")[1]],
-                routes: [{network: "0.0.0.0/0", gateway: network_effective.gateway}]
-              }],
-              nameservers: network.nameservers
-            }}})
-          ]) : []
+          map(vsphere_workers.nodes, [
+            get(#, "name"),
+            vsphere_effective.dhcp
+              ? string({machine: {network: fromPairs(concat(
+                  [["interfaces", [{deviceSelector: {physical: true}, dhcp: true}]]],
+                  len(network.nameservers ?? []) > 0 ? [["nameservers", network.nameservers]] : []
+                ))}})
+              : string({machine: {network: {
+                  interfaces: [{
+                    deviceSelector: {physical: true},
+                    dhcp: false,
+                    addresses: [get(#, "ipv4") + "/" + split(network.cidr_block ?? '10.5.0.0/16', "/")[1]],
+                    routes: [{network: "0.0.0.0/0", gateway: network_effective.gateway}]
+                  }],
+                  nameservers: network.nameservers
+                }}})
+          ])
         ))}
       images:
         talos:
           url: ${vsphere_effective.image_url}
       instances: >-
         ${concat(
-          [fromPairs([
-            ["name", "controlplane"],
+          map(vsphere_controlplanes.nodes, fromPairs([
+            ["name", get(#, "name")],
             ["role", "controlplane"],
             ["image", "talos"],
-            ["count", cluster.controlplanes.count ?? 1],
-            ["ipv4", cidrhost(network.cidr_block, 10)],
+            ["count", 1],
+            ["ipv4", get(#, "ipv4")],
             ["cpu", cluster.controlplanes.cpu],
             ["memory", cluster.controlplanes.memory],
             ["root_disk_size", cluster.controlplanes.root_disk_size ?? 30],
             ["notes", "Talos control plane node"]
-          ])],
-          (cluster.workers.count ?? 0) > 0 ? [fromPairs([
-            ["name", "worker"],
+          ])),
+          map(vsphere_workers.nodes, fromPairs([
+            ["name", get(#, "name")],
             ["role", "worker"],
             ["image", "talos"],
-            ["count", cluster.workers.count ?? 0],
-            ["ipv4", cidrhost(network.cidr_block, 20)],
+            ["count", 1],
+            ["ipv4", get(#, "ipv4")],
             ["cpu", cluster.workers.cpu],
             ["memory", cluster.workers.memory],
             ["root_disk_size", cluster.workers.root_disk_size ?? 50],
             ["notes", "Talos worker node"]
-          ])] : []
+          ]))
         )}
 
   - name: cluster
@@ -273,8 +301,15 @@ terraform:
       # Prefer compute output (real IPs from vmtoolsd) over the schema-declared
       # node map. Fall through to the node map when compute hasn't run yet or
       # vmtoolsd hasn't reported an IP (e.g. during initial plan).
-      controlplanes: "${len(terraform_output(\"compute\", \"controlplanes\") ?? []) > 0 ? terraform_output(\"compute\", \"controlplanes\") : values(cluster.controlplanes.nodes ?? {})}"
-      workers: "${len(terraform_output(\"compute\", \"workers\") ?? []) > 0 ? terraform_output(\"compute\", \"workers\") : ((cluster.workers.count ?? 0) > 0 ? values(cluster.workers.nodes ?? {}) : [])}"
+      controlplanes: >-
+        ${len(terraform_output("compute", "controlplanes") ?? []) > 0
+          ? terraform_output("compute", "controlplanes")
+          : (vsphere_effective.dhcp ? [] : values(cluster.controlplanes.nodes ?? {}))}
+      workers: >-
+        ${len(terraform_output("compute", "workers") ?? []) > 0
+          ? terraform_output("compute", "workers")
+          : (vsphere_effective.dhcp ? [] : ((cluster.workers.count ?? 0) > 0
+            ? values(cluster.workers.nodes ?? {}) : []))}
       controlplane_disks: ${talos_common.controlplane_disks}
       worker_disks: ${talos_common.worker_disks}
       common_config_patches: ${talos_common.common_config_patches}

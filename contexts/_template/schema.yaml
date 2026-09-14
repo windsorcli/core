@@ -752,18 +752,17 @@ properties:
           Cluster network CIDR. Windsor either creates this network
           (cloud VPCs, incus bridges, docker bridges, hyperv NodePort
           NetNat) or attaches to an existing one at this address (metal,
-          hyperv with net_adapter). Override when the default conflicts
-          with existing routes on the host.
+          vSphere, hyperv with net_adapter). Override when the default
+          conflicts with existing routes on the host.
       gateway:
         type: string
         pattern: "^([0-9]{1,3}\\.){3}[0-9]{1,3}$"
         description: >
           IPv4 default-route gateway for the cluster network. Required for
-          platforms that deliver static network config to the guest (Hyper-V
-          via CIDATA; future libvirt/proxmox). Defaults to cidrhost(cidr_block, 1)
-          — correct for the common case where the gateway is the first usable
-          host in the subnet, set explicitly when it isn't (e.g. /22 LANs where
-          the router doesn't sit at .0.1).
+          platforms that deliver static network config to the guest (vSphere
+          guestinfo, Hyper-V CIDATA). Defaults to cidrhost(cidr_block, 1).
+          Set explicitly when the router is not the first usable host (for
+          example a /22 plant LAN shared by more than one cluster).
       nameservers:
         type: array
         items:
@@ -773,6 +772,15 @@ properties:
           - "1.1.1.1"
           - "8.8.8.8"
         description: DNS resolvers seeded into guest network config. Same delivery path as gateway (CIDATA on hyperv, etc.).
+      dhcp:
+        type: boolean
+        default: false
+        description: >
+          When true, vSphere guests take IPv4 from DHCP instead of static
+          addresses (cluster.*.nodes or cidrhost offsets). Compute waits for
+          vmtoolsd and outputs leased IPs; cluster.endpoint is optional and
+          otherwise derived from the first control-plane output. Unset or
+          false keeps static addressing.
       ntp_servers:
         type: array
         items:
@@ -849,7 +857,10 @@ properties:
                 endpoint: 10.5.0.1
                 node: 10.5.0.1
                 hostname: controlplane-1
-            description: Named control plane node configurations
+            description: >
+              Named control plane node configurations. On vSphere, node/endpoint
+              IPv4 is the guest NIC address unless network.dhcp is true;
+              network.cidr_block and network.gateway stay the shared LAN.
           schedulable:
             type: boolean
             description: Allow scheduling workloads on control plane nodes. Unset lets the platform facet default it (true for a workerless single control plane).
@@ -864,7 +875,9 @@ properties:
             description: Number of worker nodes; unset lets the platform facet default it (hetzner defaults to 1)
           nodes:
             <<: *nodesSchema
-            description: Named worker node configurations
+            description: >
+              Named worker node configurations. On vSphere, node/endpoint IPv4
+              is the guest NIC address unless network.dhcp is true.
           volumes:
             type: array
             items:

@@ -13,11 +13,10 @@
 #   Talos cluster nodes (role = "controlplane" | "worker")
 #     Deployed from an OVA in var.images (reference by key in instance.image).
 #     Machine secrets and per-node machineconfigs are generated inside this
-#     module (not in a separate cluster-config step). This is possible because
-#     guestinfo delivery happens at VM-creation time — no pre-boot ISO staging
-#     required. The module sets guestinfo.talos.config at VM creation time;
-#     Talos reads the GuestInfo key on the vmware platform before maintenance
-#     mode and applies the config, coming up at the static IP without DHCP.
+#     module when cluster_endpoint is set. guestinfo.talos.config is set at VM
+#     creation; Talos applies it on the vmware platform before maintenance mode.
+#     Empty cluster_endpoint skips GuestInfo so cluster/talos can apply after
+#     vmtoolsd reports DHCP leases.
 #
 #   Non-cluster VMs (any other role, or no role)
 #     Any image in var.images, or a blank disk when image is empty. No
@@ -115,6 +114,9 @@ locals {
     if v.role == "controlplane" || v.role == "worker"
   ]) > 0
 
+  # GuestInfo bake needs a known API URL; empty skips bake for DHCP.
+  bake_machineconfig = local.has_cluster_nodes && var.cluster_endpoint != ""
+
   controlplane_nodes = {
     for k, v in local.instances_by_name : k => v
     if v.role == "controlplane"
@@ -127,12 +129,12 @@ locals {
 }
 
 resource "talos_machine_secrets" "this" {
-  count         = local.has_cluster_nodes ? 1 : 0
+  count         = local.bake_machineconfig ? 1 : 0
   talos_version = "v${var.talos_version}"
 }
 
 data "talos_machine_configuration" "controlplane" {
-  for_each = local.has_cluster_nodes ? local.controlplane_nodes : {}
+  for_each = local.bake_machineconfig ? local.controlplane_nodes : {}
 
   cluster_name       = var.cluster_name
   cluster_endpoint   = var.cluster_endpoint
@@ -149,7 +151,7 @@ data "talos_machine_configuration" "controlplane" {
 }
 
 data "talos_machine_configuration" "worker" {
-  for_each = local.has_cluster_nodes ? local.worker_nodes : {}
+  for_each = local.bake_machineconfig ? local.worker_nodes : {}
 
   cluster_name       = var.cluster_name
   cluster_endpoint   = var.cluster_endpoint
@@ -197,6 +199,12 @@ locals {
   ])
 
   instances_by_name = { for inst in local.expanded_instances : inst.name => inst }
+
+  # Wait for vmtoolsd only when a cluster VM has no static ipv4 (DHCP).
+  wait_for_guest_ip = anytrue([
+    for inst in local.expanded_instances :
+    inst.ipv4 == null && inst.role != null && contains(["controlplane", "worker"], inst.role)
+  ])
 
   # Resolve image key → OVA URL. Blank or absent image key means no OVF deploy.
   instance_image_urls = {
@@ -285,14 +293,8 @@ resource "vsphere_virtual_machine" "instances" {
     "guestinfo.talos.config.base64" = "true"
   } : {}
 
-  # Do not block VM creation on the guest-IP waiter. With Talos'
-  # vmtoolsd-guest-agent the hashicorp/vsphere waiter times out even though
-  # vCenter reports a healthy guest.ipAddress + toolsOk (observed on 2.12.0);
-  # node IPs are static and known from the machineconfig, so outputs derive
-  # from guest_ip_addresses on refresh and the facet falls back to the declared
-  # ipv4 offset in the meantime. A negative value disables each waiter.
-  wait_for_guest_ip_timeout  = -1
-  wait_for_guest_net_timeout = -1
+  wait_for_guest_ip_timeout  = local.wait_for_guest_ip ? 10 : -1
+  wait_for_guest_net_timeout = local.wait_for_guest_ip ? 10 : -1
 
   lifecycle {
     ignore_changes = [
@@ -308,8 +310,7 @@ resource "vsphere_virtual_machine" "instances" {
 # IP Derivation
 # =============================================================================
 #
-# Prefer the vCenter-reported guest IP (via vmtoolsd) over the user-declared
-# ipv4 field. The declared IP is the bootstrap fallback before vmtools starts.
+# Prefer vmtoolsd guest IP; fall back to the declared static ipv4.
 
 locals {
   instance_ips = {
