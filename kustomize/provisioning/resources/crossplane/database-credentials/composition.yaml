@@ -28,6 +28,10 @@ spec:
           # apiVersion/kind/status-field-name/username-field-name/username-source
           # for each driver. The one thing every DatabaseCredentials consumer
           # would otherwise have to re-derive per instance.
+          # The namespaced API has no deletionPolicy field; management
+          # policies without Delete is its Orphan equivalent.
+          ORPHAN_POLICIES = ["Observe", "Create", "Update", "LateInitialize"]
+
           DRIVER_FACTS = {
               "rds": {
                   "apiVersion": "rds.aws.upbound.io/v1beta3",
@@ -130,7 +134,7 @@ spec:
                       "annotations": {"crossplane.io/external-name": role_name},
                   },
                   "spec": {
-                      "deletionPolicy": "Orphan",
+                      "managementPolicies": ORPHAN_POLICIES,
                       "providerConfigRef": {"kind": "ProviderConfig", "name": f"provider-sql-{instance_name}"},
                       "forProvider": {"privileges": {"login": True}},
                       "writeConnectionSecretToRef": {"name": f"{role_name}-credentials"},
@@ -144,7 +148,7 @@ spec:
                       "kind": "Grant",
                       "metadata": {"name": grant_name, "namespace": namespace},
                       "spec": {
-                          "deletionPolicy": "Orphan",
+                          "managementPolicies": ORPHAN_POLICIES,
                           "providerConfigRef": {"kind": "ProviderConfig", "name": f"provider-sql-{instance_name}"},
                           "forProvider": {"role": role_name, "memberOf": grant["memberOf"]},
                       },

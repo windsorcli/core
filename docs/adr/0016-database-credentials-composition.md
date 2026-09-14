@@ -175,21 +175,40 @@ ADR-0014 §2's split, not an oversight.
 - Charts still create their own database-creation CR where the cloud
   requires one (Azure's `FlexibleServerDatabase`, GCP's `Database`) — that
   stays driver-specific, at the same layer as creating the instance.
-- `provider-sql`'s `Role`/`Database` semantics, and `deletionPolicy: Orphan`
-  as the thing that keeps deletion safe against `Role.Delete()`'s
-  known hang-on-unreachable-instance behavior (confirmed from source), are
-  unchanged and preserved on every composed resource.
+- `provider-sql`'s `Role`/`Database` semantics are unchanged. The namespaced
+  API has no `deletionPolicy` field at all (confirmed live against the
+  installed CRDs) — `managementPolicies` without `Delete` is its
+  equivalent, and is what every composed `Role`/`Grant` here sets to guard
+  against `Role.Delete()`'s known hang-on-unreachable-instance behavior.
 
 ## Verification needed before merge
 
+Live-testing against a real `gcp-test` bring-up (cloudsql driver) surfaced
+three bugs no amount of `kustomize build`/unit testing caught, all now
+fixed:
+
+- `req.observed.composite.resource` is a raw protobuf `Struct` — `[]` and
+  `in` work, `.get()`/`.setdefault()` don't. Fixed by converting via
+  `resource.struct_to_dict()` up front, matching what
+  `request.get_required_resource()` already does internally.
+- `rsp.desired.composite.resource` is the same kind of Struct wrapper on
+  the output side — `.update()` works, `.setdefault()` doesn't.
+- The namespaced `Role`/`Grant` CRDs have no `deletionPolicy` field at
+  all — confirmed via `kubectl explain` against the live cluster.
+  `managementPolicies` without `Delete` is the real equivalent.
+
+`providerConfigRef: {kind: ProviderConfig, name: ...}` was confirmed
+correct as originally guessed — no error on that field once the above
+three were fixed.
+
+Still open:
+
 - Whether a bare `Role` (no `Grant`) can actually connect to
   `databaseName` under Postgres's default `PUBLIC CONNECT`, or whether an
-  explicit grant is needed in practice — reasoned from Postgres defaults,
-  not yet confirmed live.
+  explicit grant is needed in practice — not yet reached in live testing,
+  blocked on the above until now.
 - The namespaced `Role`/`ProviderConfig`'s `Ready` aggregation behavior
-  under `mode: Pipeline` composition, gating `healthCheckExprs` the same
-  way `option-demo.yaml` already gates on plain managed resources today —
-  not yet observed live for this XRD.
+  under `mode: Pipeline` composition — not yet observed live for this XRD.
 - The GCP `WatchOperation`'s behavior against multiple `DatabaseInstance`s
   appearing concurrently (cluster-wide, unfiltered) — validated with
   `kustomize build` only.
