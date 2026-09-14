@@ -1,0 +1,55 @@
+---
+# Ensures every Cloud SQL DatabaseInstance has an admin-credentials Secret,
+# generating one the first time it sees a given instance name.
+apiVersion: ops.crossplane.io/v1alpha1
+kind: WatchOperation
+metadata:
+  name: cloudsql-admin-password
+spec:
+  watch:
+    apiVersion: sql.gcp.upbound.io/v1beta2
+    kind: DatabaseInstance
+  concurrencyPolicy: Replace
+  successfulHistoryLimit: 1
+  failedHistoryLimit: 3
+  operationTemplate:
+    spec:
+      mode: Pipeline
+      pipeline:
+        - step: ensure-admin-password
+          functionRef:
+            name: function-python
+          input:
+            apiVersion: python.fn.crossplane.io/v1beta1
+            kind: Script
+            script: |
+              import secrets
+
+              from crossplane.function import request, response
+
+
+              def operate(req, rsp):
+                  instance = request.get_required_resource(req, "ops.crossplane.io/watched-resource")
+                  instance_name = instance["metadata"]["name"]
+                  secret_name = f"{instance_name}-admin-credentials"
+
+                  response.require_resources(
+                      rsp, name="admin-secret", api_version="v1", kind="Secret",
+                      match_name=secret_name, namespace="system-database",
+                  )
+                  existing = request.get_optional_resource(req, "admin-secret")
+                  if existing is not None:
+                      response.set_output(rsp, {"skipped": f"{secret_name} already exists"})
+                      return
+
+                  rsp.desired.resources["admin-secret"].resource.update({
+                      "apiVersion": "v1",
+                      "kind": "Secret",
+                      "metadata": {"name": secret_name, "namespace": "system-database"},
+                      "type": "Opaque",
+                      "stringData": {
+                          "username": "postgres",
+                          "password": secrets.token_urlsafe(32),
+                      },
+                  })
+                  response.set_output(rsp, {"created": secret_name})

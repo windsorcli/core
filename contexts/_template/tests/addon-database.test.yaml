@@ -209,6 +209,7 @@ cases:
                 - crossplane/aws-rds
                 - crossplane/provider-sql
                 - crossplane/function-python
+                - crossplane/database-credentials
               healthCheckExprs:
                 - apiVersion: pkg.crossplane.io/v1
                   kind: Provider
@@ -216,6 +217,9 @@ cases:
                 - apiVersion: pkg.crossplane.io/v1
                   kind: Function
                   current: status.conditions.exists(e, e.type == 'Healthy' && e.status == 'True') && status.conditions.exists(e, e.type == 'Installed' && e.status == 'True')
+                - apiVersion: apiextensions.crossplane.io/v2
+                  kind: CompositeResourceDefinition
+                  current: status.conditions.exists(e, e.type == 'Established' && e.status == 'True')
         - name: database
           install: {}
           resources:
@@ -285,6 +289,8 @@ cases:
                 - crossplane/gcp-cloudsql
                 - crossplane/provider-sql
                 - crossplane/function-python
+                - crossplane/database-credentials
+                - crossplane/gcp-admin-password
               healthCheckExprs:
                 - apiVersion: pkg.crossplane.io/v1
                   kind: Provider
@@ -292,6 +298,9 @@ cases:
                 - apiVersion: pkg.crossplane.io/v1
                   kind: Function
                   current: status.conditions.exists(e, e.type == 'Healthy' && e.status == 'True') && status.conditions.exists(e, e.type == 'Installed' && e.status == 'True')
+                - apiVersion: apiextensions.crossplane.io/v2
+                  kind: CompositeResourceDefinition
+                  current: status.conditions.exists(e, e.type == 'Established' && e.status == 'True')
         - name: database
           install: {}
           resources:

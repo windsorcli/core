@@ -1,0 +1,158 @@
+---
+# Renders a per-instance ProviderConfig, connection Secret, and Role,
+# namespaced to whichever chart owns the dedicated instance.
+apiVersion: apiextensions.crossplane.io/v1
+kind: Composition
+metadata:
+  name: database-credentials-postgres
+  labels:
+    engine: postgres
+spec:
+  compositeTypeRef:
+    apiVersion: database.windsorcli.dev/v1alpha1
+    kind: DatabaseCredentials
+  mode: Pipeline
+  pipeline:
+    - step: compose-postgres-credentials
+      functionRef:
+        name: function-python
+      input:
+        apiVersion: python.fn.crossplane.io/v1beta1
+        kind: Script
+        script: |
+          import base64
+
+          from crossplane.function import request, resource, response
+          from crossplane.function.proto.v1 import run_function_pb2 as fnv1
+
+          # apiVersion/kind/status-field-name/username-field-name/username-source
+          # for each driver. The one thing every DatabaseCredentials consumer
+          # would otherwise have to re-derive per instance.
+          DRIVER_FACTS = {
+              "rds": {
+                  "apiVersion": "rds.aws.upbound.io/v1beta3",
+                  "kind": "Instance",
+                  "endpointField": "address",
+                  "usernameField": "username",
+                  "usernameFromSecret": False,
+              },
+              "flexibleserver": {
+                  "apiVersion": "dbforpostgresql.azure.upbound.io/v1beta1",
+                  "kind": "FlexibleServer",
+                  "endpointField": "fqdn",
+                  "usernameField": "administratorLogin",
+                  "usernameFromSecret": False,
+              },
+              "cloudsql": {
+                  "apiVersion": "sql.gcp.upbound.io/v1beta2",
+                  "kind": "DatabaseInstance",
+                  "endpointField": "privateIpAddress",
+                  "usernameField": "username",
+                  "usernameFromSecret": True,
+              },
+          }
+
+
+          def compose(req: fnv1.RunFunctionRequest, rsp: fnv1.RunFunctionResponse):
+              xr = req.observed.composite.resource
+              namespace = xr["metadata"]["namespace"]
+              driver = xr["spec"]["driver"]
+              instance_name = xr["spec"]["instanceName"]
+              database_name = xr["spec"].get("databaseName")
+              role_name = xr["spec"].get("roleName") or f"{database_name}-app"
+              grants = xr["spec"].get("grants", [])
+              facts = DRIVER_FACTS[driver]
+              admin_secret_name = f"{instance_name}-admin-credentials"
+
+              response.require_resources(
+                  rsp, name="instance", api_version=facts["apiVersion"],
+                  kind=facts["kind"], match_name=instance_name,
+              )
+              response.require_resources(
+                  rsp, name="admin-credentials", api_version="v1", kind="Secret",
+                  match_name=admin_secret_name, namespace="system-database",
+              )
+
+              instance = request.get_required_resource(req, "instance")
+              admin_secret = request.get_required_resource(req, "admin-credentials")
+              if instance is None or admin_secret is None:
+                  return
+
+              if resource.get_condition(instance, "Ready").status != "True":
+                  return
+
+              password_b64 = admin_secret.get("data", {}).get("password")
+              if not password_b64:
+                  return
+              admin_password = base64.b64decode(password_b64).decode()
+
+              endpoint = instance.get("status", {}).get("atProvider", {}).get(facts["endpointField"], "")
+
+              if facts["usernameFromSecret"]:
+                  username_b64 = admin_secret.get("data", {}).get(facts["usernameField"])
+                  admin_username = base64.b64decode(username_b64).decode() if username_b64 else ""
+              else:
+                  admin_username = instance.get("spec", {}).get("forProvider", {}).get(facts["usernameField"], "")
+
+              rsp.desired.resources["connection-secret"].resource.update({
+                  "apiVersion": "v1",
+                  "kind": "Secret",
+                  "metadata": {"name": f"provider-sql-{instance_name}-connection", "namespace": namespace},
+                  "type": "Opaque",
+                  "stringData": {
+                      "endpoint": endpoint,
+                      "port": "5432",
+                      "username": admin_username,
+                      "password": admin_password,
+                  },
+              })
+
+              rsp.desired.resources["provider-config"].resource.update({
+                  "apiVersion": "postgresql.sql.m.crossplane.io/v1alpha1",
+                  "kind": "ProviderConfig",
+                  "metadata": {"name": f"provider-sql-{instance_name}", "namespace": namespace},
+                  "spec": {
+                      "sslMode": "require",
+                      "credentials": {
+                          "source": "PostgreSQLConnectionSecret",
+                          "connectionSecretRef": {"name": f"provider-sql-{instance_name}-connection"},
+                      },
+                  },
+              })
+
+              rsp.desired.resources["role"].resource.update({
+                  "apiVersion": "postgresql.sql.m.crossplane.io/v1alpha1",
+                  "kind": "Role",
+                  "metadata": {
+                      "name": role_name,
+                      "namespace": namespace,
+                      "annotations": {"crossplane.io/external-name": role_name},
+                  },
+                  "spec": {
+                      "deletionPolicy": "Orphan",
+                      "providerConfigRef": {"kind": "ProviderConfig", "name": f"provider-sql-{instance_name}"},
+                      "forProvider": {"privileges": {"login": True}},
+                      "writeConnectionSecretToRef": {"name": f"{role_name}-credentials"},
+                  },
+              })
+
+              for grant in grants:
+                  grant_name = f"{role_name}-{grant['memberOf']}"
+                  rsp.desired.resources[f"grant-{grant['memberOf']}"].resource.update({
+                      "apiVersion": "postgresql.sql.m.crossplane.io/v1alpha1",
+                      "kind": "Grant",
+                      "metadata": {"name": grant_name, "namespace": namespace},
+                      "spec": {
+                          "deletionPolicy": "Orphan",
+                          "providerConfigRef": {"kind": "ProviderConfig", "name": f"provider-sql-{instance_name}"},
+                          "forProvider": {"role": role_name, "memberOf": grant["memberOf"]},
+                      },
+                  })
+
+              status = {
+                  "connectionSecretRef": {"name": f"{role_name}-credentials", "namespace": namespace},
+                  "roleName": role_name,
+              }
+              if database_name:
+                  status["databaseName"] = database_name
+              rsp.desired.composite.resource.setdefault("status", {}).update(status)

@@ -1,0 +1,75 @@
+---
+# Namespaced (Crossplane v2): the XR is created directly, no Claim kind exists.
+apiVersion: apiextensions.crossplane.io/v2
+kind: CompositeResourceDefinition
+metadata:
+  name: databasecredentials.database.windsorcli.dev
+spec:
+  scope: Namespaced
+  group: database.windsorcli.dev
+  names:
+    kind: DatabaseCredentials
+    plural: databasecredentials
+  versions:
+    - name: v1alpha1
+      served: true
+      referenceable: true
+      schema:
+        openAPIV3Schema:
+          type: object
+          properties:
+            spec:
+              type: object
+              required:
+                - driver
+                - instanceName
+              x-kubernetes-validations:
+                - rule: "has(self.roleName) || has(self.databaseName)"
+                  message: "roleName is required when databaseName is not set"
+              properties:
+                engine:
+                  type: string
+                  enum:
+                    - postgres
+                  default: postgres
+                  description: Database engine. Only postgres exists today.
+                driver:
+                  type: string
+                  enum:
+                    - rds
+                    - flexibleserver
+                    - cloudsql
+                  description: Same enum as database.postgres.driver. Selects which Crossplane provider owns the referenced instance.
+                instanceName:
+                  type: string
+                  description: Name of the already-created Instance/FlexibleServer/DatabaseInstance CR.
+                roleName:
+                  type: string
+                  description: Postgres role name. Defaults to "<databaseName>-app" when databaseName is set.
+                databaseName:
+                  type: string
+                  description: Database this role is primarily used against. Omit for a role not tied to one database, such as a monitoring role.
+                grants:
+                  type: array
+                  description: Postgres roles/groups this role should be granted membership in, e.g. pg_monitor.
+                  items:
+                    type: object
+                    required:
+                      - memberOf
+                    properties:
+                      memberOf:
+                        type: string
+            status:
+              type: object
+              properties:
+                connectionSecretRef:
+                  type: object
+                  properties:
+                    name:
+                      type: string
+                    namespace:
+                      type: string
+                roleName:
+                  type: string
+                databaseName:
+                  type: string
