@@ -42,7 +42,7 @@ spec:
                   description: Same enum as database.postgres.driver. Selects which Crossplane provider owns the referenced instance.
                 instanceName:
                   type: string
-                  description: Name of the already-created Instance/FlexibleServer/DatabaseInstance CR.
+                  description: Name of the already-created Instance/FlexibleServer/DatabaseInstance CR. Its admin credentials must exist as Secret "<instanceName>-admin-credentials" in system-database.
                 roleName:
                   type: string
                   description: Postgres role name. Defaults to "<databaseName>-app" when databaseName is set.

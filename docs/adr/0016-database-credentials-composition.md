@@ -144,6 +144,15 @@ merges it with the instance's live endpoint into a *new*, namespaced
 connection Secret inside the chart's own namespace — satisfying the
 namespaced `ProviderConfig`'s same-namespace-only `connectionSecretRef`.
 
+The naming itself lives in one function (`admin_credentials_secret_name`)
+rather than being re-derived at each call site, and `instanceName`'s XRD
+description states the convention directly, so it's discoverable without
+reading the Composition's Python. Each point where the function would
+otherwise stall silently (instance or admin Secret not yet observed,
+instance not `Ready`, Secret missing its `password` key) calls
+`response.fatal` naming the exact resource it's waiting on, surfaced as a
+condition/event on the XR itself.
+
 ### 5. A cluster-wide `WatchOperation` closes the GCP admin-credential gap
 
 Today's GCP admin credential is Terraform-written (`terraform/database/gcp-cloudsql`),
@@ -228,6 +237,21 @@ Two more, once the app credential's `Role` actually started reconciling:
 correct as originally guessed — no error on that field once the above
 were fixed.
 
+A code-review pass after the live run above found the same RFC 1123 gap
+applied to `roleName` itself, not just `grants[].memberOf`: an explicit
+`roleName` containing an underscore would have produced an invalid `Role`
+object name, a bug the demo's own `roleName`s (`demo-db-monitor`, and the
+default `<databaseName>-app`) never happened to trigger. Fixed the same
+way — `role_slug` sanitizes every k8s object name (`Role`, `Grant`, the
+written connection Secret); `role_name` itself, unsanitized, stays the
+value written to `external-name` and `forProvider.role`. The Composition's
+pure builder functions (`slugify`, `resolve_role_name`,
+`admin_credentials_secret_name`, `build_role`, `build_grant`,
+`build_status`) now have unit tests (`composition.test.py`, run via
+`task test:composition-functions`) covering this case directly — the
+first case in this repo where the Composition's own logic is unit-tested
+rather than relying solely on a live cluster.
+
 Still open:
 
 - The bare `demo-app` `Role` (no `Grant`) reached `Ready` cleanly, but
@@ -238,6 +262,10 @@ Still open:
   admin secret for this cluster's one `DatabaseInstance`. Its behavior
   against multiple `DatabaseInstance`s appearing concurrently is still
   unverified.
+- The `roleName`-sanitization fix and the new `response.fatal` calls
+  (naming the exact missing resource instead of stalling silently) were
+  added after the live `gcp-test` run and haven't themselves been
+  reconciled against a real cluster yet.
 
 ## Alternatives considered
 
