@@ -20,13 +20,15 @@ VPCs deny all ingress by default.
 | Name | Version |
 |------|---------|
 | <a name="requirement_terraform"></a> [terraform](#requirement\_terraform) | >= 1.12.2 |
-| <a name="requirement_google"></a> [google](#requirement\_google) | 8.1.0 |
+| <a name="requirement_google"></a> [google](#requirement\_google) | 8.2.0 |
+| <a name="requirement_null"></a> [null](#requirement\_null) | ~> 3.2 |
 
 ## Providers
 
 | Name | Version |
 |------|---------|
-| <a name="provider_google"></a> [google](#provider\_google) | 8.1.0 |
+| <a name="provider_google"></a> [google](#provider\_google) | 8.2.0 |
+| <a name="provider_null"></a> [null](#provider\_null) | 3.3.2 |
 
 ## Modules
 
@@ -36,16 +38,17 @@ No modules.
 
 | Name | Type |
 |------|------|
-| [google_compute_firewall.health_checks](https://registry.terraform.io/providers/hashicorp/google/8.1.0/docs/resources/compute_firewall) | resource |
-| [google_compute_firewall.iap_ingress](https://registry.terraform.io/providers/hashicorp/google/8.1.0/docs/resources/compute_firewall) | resource |
-| [google_compute_firewall.internal](https://registry.terraform.io/providers/hashicorp/google/8.1.0/docs/resources/compute_firewall) | resource |
-| [google_compute_network.this](https://registry.terraform.io/providers/hashicorp/google/8.1.0/docs/resources/compute_network) | resource |
-| [google_compute_router.this](https://registry.terraform.io/providers/hashicorp/google/8.1.0/docs/resources/compute_router) | resource |
-| [google_compute_router_nat.this](https://registry.terraform.io/providers/hashicorp/google/8.1.0/docs/resources/compute_router_nat) | resource |
-| [google_compute_subnetwork.isolated](https://registry.terraform.io/providers/hashicorp/google/8.1.0/docs/resources/compute_subnetwork) | resource |
-| [google_compute_subnetwork.private](https://registry.terraform.io/providers/hashicorp/google/8.1.0/docs/resources/compute_subnetwork) | resource |
-| [google_compute_subnetwork.public](https://registry.terraform.io/providers/hashicorp/google/8.1.0/docs/resources/compute_subnetwork) | resource |
-| [google_compute_zones.available](https://registry.terraform.io/providers/hashicorp/google/8.1.0/docs/data-sources/compute_zones) | data source |
+| [google_compute_firewall.health_checks](https://registry.terraform.io/providers/hashicorp/google/8.2.0/docs/resources/compute_firewall) | resource |
+| [google_compute_firewall.iap_ingress](https://registry.terraform.io/providers/hashicorp/google/8.2.0/docs/resources/compute_firewall) | resource |
+| [google_compute_firewall.internal](https://registry.terraform.io/providers/hashicorp/google/8.2.0/docs/resources/compute_firewall) | resource |
+| [google_compute_network.this](https://registry.terraform.io/providers/hashicorp/google/8.2.0/docs/resources/compute_network) | resource |
+| [google_compute_router.this](https://registry.terraform.io/providers/hashicorp/google/8.2.0/docs/resources/compute_router) | resource |
+| [google_compute_router_nat.this](https://registry.terraform.io/providers/hashicorp/google/8.2.0/docs/resources/compute_router_nat) | resource |
+| [google_compute_subnetwork.isolated](https://registry.terraform.io/providers/hashicorp/google/8.2.0/docs/resources/compute_subnetwork) | resource |
+| [google_compute_subnetwork.private](https://registry.terraform.io/providers/hashicorp/google/8.2.0/docs/resources/compute_subnetwork) | resource |
+| [google_compute_subnetwork.public](https://registry.terraform.io/providers/hashicorp/google/8.2.0/docs/resources/compute_subnetwork) | resource |
+| [null_resource.remove_orphaned_firewalls](https://registry.terraform.io/providers/hashicorp/null/latest/docs/resources/resource) | resource |
+| [google_compute_zones.available](https://registry.terraform.io/providers/hashicorp/google/8.2.0/docs/data-sources/compute_zones) | data source |
 
 ## Inputs
 
@@ -59,6 +62,7 @@ No modules.
 | <a name="input_isolated_subnet_cidr"></a> [isolated\_subnet\_cidr](#input\_isolated\_subnet\_cidr) | CIDR range for the isolated subnet. If not provided, a default range is derived from cidr\_block | `string` | `""` | no |
 | <a name="input_name"></a> [name](#input\_name) | Name prefix for the VPC network | `string` | `"network"` | no |
 | <a name="input_network_name"></a> [network\_name](#input\_network\_name) | Name of the VPC network. If not provided, a default name will be generated | `string` | `""` | no |
+| <a name="input_os_type"></a> [os\_type](#input\_os\_type) | Host OS running Terraform. Windsor CLI >= v0.9.0 injects this as TF\_VAR\_os\_type; older CLIs leave it at the unix default | `string` | `"unix"` | no |
 | <a name="input_private_subnet_cidr"></a> [private\_subnet\_cidr](#input\_private\_subnet\_cidr) | CIDR range for the private subnet. If not provided, a default range is derived from cidr\_block | `string` | `""` | no |
 | <a name="input_public_subnet_cidr"></a> [public\_subnet\_cidr](#input\_public\_subnet\_cidr) | CIDR range for the public subnet. If not provided, a default range is derived from cidr\_block | `string` | `""` | no |
 | <a name="input_region"></a> [region](#input\_region) | GCP region for the network and its subnets | `string` | `"us-central1"` | no |
