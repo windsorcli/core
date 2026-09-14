@@ -55,14 +55,14 @@ credentials via `GOVC_URL` (`https://$VSPHERE_SERVER`), `GOVC_USERNAME`,
 |------|---------|
 | <a name="requirement_terraform"></a> [terraform](#requirement\_terraform) | >= 1.12.2 |
 | <a name="requirement_talos"></a> [talos](#requirement\_talos) | 0.11.0 |
-| <a name="requirement_vsphere"></a> [vsphere](#requirement\_vsphere) | ~> 2.10 |
+| <a name="requirement_vsphere"></a> [vsphere](#requirement\_vsphere) | ~> 2.17 |
 
 ## Providers
 
 | Name | Version |
 |------|---------|
 | <a name="provider_talos"></a> [talos](#provider\_talos) | 0.11.0 |
-| <a name="provider_vsphere"></a> [vsphere](#provider\_vsphere) | 2.12.0 |
+| <a name="provider_vsphere"></a> [vsphere](#provider\_vsphere) | 2.17.0 |
 
 ## Modules
 

@@ -36,7 +36,7 @@ terraform {
   required_providers {
     vsphere = {
       source  = "vmware/vsphere"
-      version = "~> 2.10"
+      version = "~> 2.17"
     }
     talos = {
       source  = "siderolabs/talos"
@@ -114,7 +114,7 @@ locals {
     if v.role == "controlplane" || v.role == "worker"
   ]) > 0
 
-  # GuestInfo bake needs a known API URL; empty skips bake for DHCP.
+  # Empty cluster_endpoint skips the GuestInfo bake (DHCP).
   bake_machineconfig = local.has_cluster_nodes && var.cluster_endpoint != ""
 
   controlplane_nodes = {
@@ -200,11 +200,11 @@ locals {
 
   instances_by_name = { for inst in local.expanded_instances : inst.name => inst }
 
-  # Wait for vmtoolsd only when a cluster VM has no static ipv4 (DHCP).
-  wait_for_guest_ip = anytrue([
-    for inst in local.expanded_instances :
-    inst.ipv4 == null && inst.role != null && contains(["controlplane", "worker"], inst.role)
-  ])
+  # Wait on guest.net per DHCP cluster VM (no static ipv4).
+  wait_for_guest_net = {
+    for k, v in local.instances_by_name : k =>
+    v.ipv4 == null && v.role != null && contains(["controlplane", "worker"], v.role)
+  }
 
   # Resolve image key → OVA URL. Blank or absent image key means no OVF deploy.
   instance_image_urls = {
@@ -293,8 +293,9 @@ resource "vsphere_virtual_machine" "instances" {
     "guestinfo.talos.config.base64" = "true"
   } : {}
 
-  wait_for_guest_ip_timeout  = local.wait_for_guest_ip ? 10 : -1
-  wait_for_guest_net_timeout = local.wait_for_guest_ip ? 10 : -1
+  wait_for_guest_ip_timeout   = -1
+  wait_for_guest_net_timeout  = local.wait_for_guest_net[each.key] ? 10 : -1
+  wait_for_guest_net_routable = false
 
   lifecycle {
     ignore_changes = [

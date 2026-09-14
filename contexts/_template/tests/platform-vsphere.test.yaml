@@ -437,6 +437,60 @@ cases:
                 count: 1
                 ipv4: 10.10.0.20
 
+  # Sparse nodes map: an unmatched index takes its cidrhost offset, never
+  # another node's declared IP.
+  - name: sparse nodes map falls back to cidrhost without duplicating IPs
+    values:
+      platform: vsphere
+      gateway:
+        enabled: false
+      network:
+        cidr_block: 10.41.0.0/22
+        gateway: 10.41.3.1
+        loadbalancer_ips:
+          start: "10.41.3.10"
+          end: "10.41.3.20"
+      cluster:
+        driver: talos
+        controlplanes:
+          count: 2
+          nodes:
+            controlplane-2:
+              endpoint: 10.41.0.35:50000
+              node: 10.41.0.35
+              hostname: controlplane-2
+        workers:
+          count: 0
+      vsphere: *default-vsphere
+    terraformOutputs:
+      compute:
+        controlplanes: []
+        workers: []
+    expect:
+      config:
+        talos_common:
+          k8s_service_host: "10.41.0.10"
+        vsphere_controlplanes:
+          nodes:
+            - name: controlplane-1
+              ipv4: 10.41.0.10
+            - name: controlplane-2
+              ipv4: 10.41.0.35
+      terraform:
+        - name: compute
+          path: compute/vsphere
+          inputs:
+            cluster_endpoint: https://10.41.0.10:6443
+            instances:
+              - name: controlplane-1
+                role: controlplane
+                count: 1
+                ipv4: 10.41.0.10
+              - name: controlplane-2
+                role: controlplane
+                count: 1
+                ipv4: 10.41.0.35
+
   # DHCP guests omit static ipv4; cluster.endpoint is the API URL.
   - name: dhcp guests omit static ipv4 and use cluster.endpoint
     values:

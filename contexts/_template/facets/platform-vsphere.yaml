@@ -83,11 +83,8 @@ config:
           ["name", int(cluster.controlplanes.count ?? 1) > 1 ? "controlplane-" + string(#) : "controlplane"],
           ["ipv4", vsphere_effective.dhcp ? null
             : (get(cluster.controlplanes.nodes ?? {}, "controlplane-" + string(#)) != null
-            || len(values(cluster.controlplanes.nodes ?? {})) >= #
-            ? ((get(cluster.controlplanes.nodes ?? {}, "controlplane-" + string(#))
-                ?? values(cluster.controlplanes.nodes)[# - 1]).node
-               ?? split((get(cluster.controlplanes.nodes ?? {}, "controlplane-" + string(#))
-                ?? values(cluster.controlplanes.nodes)[# - 1]).endpoint, ":")[0])
+            ? (get(cluster.controlplanes.nodes ?? {}, "controlplane-" + string(#)).node
+               ?? split(get(cluster.controlplanes.nodes ?? {}, "controlplane-" + string(#)).endpoint, ":")[0])
             : cidrhost(network.cidr_block ?? '10.5.0.0/16', 9 + #))]
         ]))}
 
@@ -99,11 +96,8 @@ config:
           ["name", int(cluster.workers.count) > 1 ? "worker-" + string(#) : "worker"],
           ["ipv4", vsphere_effective.dhcp ? null
             : (get(cluster.workers.nodes ?? {}, "worker-" + string(#)) != null
-            || len(values(cluster.workers.nodes ?? {})) >= #
-            ? ((get(cluster.workers.nodes ?? {}, "worker-" + string(#))
-                ?? values(cluster.workers.nodes)[# - 1]).node
-               ?? split((get(cluster.workers.nodes ?? {}, "worker-" + string(#))
-                ?? values(cluster.workers.nodes)[# - 1]).endpoint, ":")[0])
+            ? (get(cluster.workers.nodes ?? {}, "worker-" + string(#)).node
+               ?? split(get(cluster.workers.nodes ?? {}, "worker-" + string(#)).endpoint, ":")[0])
             : cidrhost(network.cidr_block ?? '10.5.0.0/16', 19 + #))]
         ]))}
 
