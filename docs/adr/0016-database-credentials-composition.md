@@ -204,10 +204,14 @@ Two more, once the app credential's `Role` actually started reconciling:
   function is for. Without it (or without checking manually), the XR's
   own `Ready` condition never flips even once every composed resource is
   genuinely healthy. Fixed by reading `req.observed.resources.get(name)`
-  and only marking `rsp.desired.resources[name].ready = True` once that
-  resource's own `Ready` condition is `True` — except the plain `v1/Secret`
-  connection mirror, which has no conditions at all and is marked ready
-  unconditionally once written.
+  (its `.resource` extracted via `struct_to_dict()` first — the SDK's
+  documented `get_condition(fnv1.Resource, ...)` path errored against the
+  pinned `function-python:v0.2.0`, a likely version mismatch with the
+  `main`-branch docs) and only marking `rsp.desired.resources[name].ready
+  = True` once that resource's own `Ready` condition is `True`. Two
+  resources have no `Ready` condition to check at all and are marked
+  ready unconditionally instead: the plain `v1/Secret` connection mirror,
+  and `ProviderConfig` (its own `status` is just a `Users` count).
 - A `Grant`'s Kubernetes object name can't contain the underscores real
   Postgres role names do (`pg_monitor` fails RFC 1123 validation). The
   `memberOf` value passed to Postgres stays as-is; only the k8s name gets
