@@ -54,7 +54,8 @@ spec:
 
 
           def compose(req: fnv1.RunFunctionRequest, rsp: fnv1.RunFunctionResponse):
-              xr = req.observed.composite.resource
+              # observed.composite.resource is a raw protobuf Struct: [] works, .get() doesn't.
+              xr = resource.struct_to_dict(req.observed.composite.resource)
               namespace = xr["metadata"]["namespace"]
               driver = xr["spec"]["driver"]
               instance_name = xr["spec"]["instanceName"]
