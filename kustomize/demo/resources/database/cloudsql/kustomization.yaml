@@ -4,3 +4,5 @@ resources:
   - database-instance.yaml
   - user.yaml
   - database.yaml
+  - app-credentials.yaml
+  - monitor-credentials.yaml

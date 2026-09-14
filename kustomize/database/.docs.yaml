@@ -16,9 +16,6 @@ components:
   cloudnativepg/single-node:
     enable_when: "`database.postgres.driver == 'cloudnativepg'` AND `topology == 'single-node'`"
     description: "Patches the operator HelmRelease to append `--leader-elect=false` via `additionalArgs`. The chart unconditionally passes `--leader-elect`; Go's flag parser is last-wins so the override wins."
-  crossplane/postgres/monitoring-exporter:
-    enable_when: "a chart opts in — `telemetry.metrics.enabled` (default true) gates it in `kustomize/demo`'s own facet entry"
-    description: "A `postgres_exporter` Deployment/Service/PodMonitor in `system-database`, driver-agnostic, reading the Secret a `DatabaseCredentials` resource with `roleName: <pg_instance_name>-monitor` publishes (see `kustomize/provisioning`'s `crossplane/database-credentials`). Requires `pg_instance_name`. `PodMonitor` (`monitoring.coreos.com/v1`) only exists once the metrics pipeline vendors prometheus-operator's CRDs."
   crossplane/postgres/aws-rds:
     enable_when: "`database.postgres.driver == 'rds'`"
     description: "RDS's own `default` `ProviderConfig` (credentials source `PodIdentity`, so a consuming `Instance` CR needs no `providerConfigRef`), and a Kyverno `ClusterPolicy` that force-sets the `windsorcli.dev/cluster` tag on every `Instance`. No chart opt-in, matching CNPG's own free monitoring. Requires `kustomize/provisioning`'s `Provider` to report Healthy/Installed first."

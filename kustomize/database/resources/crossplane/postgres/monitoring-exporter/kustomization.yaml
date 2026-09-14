@@ -1,7 +1,7 @@
 apiVersion: kustomize.config.k8s.io/v1alpha1
 kind: Component
 
-# postgres_exporter scraping the Secret monitor-role publishes.
+# postgres_exporter scraping the Secret the monitor DatabaseCredentials publishes.
 
 resources:
   - deployment.yaml

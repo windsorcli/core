@@ -3,3 +3,5 @@ kind: Component
 resources:
   - flexibleserver.yaml
   - database.yaml
+  - app-credentials.yaml
+  - monitor-credentials.yaml
