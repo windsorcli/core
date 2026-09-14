@@ -39,14 +39,25 @@ resource "google_compute_network" "this" {
   auto_create_subnetworks = false
 }
 
-# Deletes any firewall rule still referencing this network before destroy.
-# GKE's LoadBalancer health-check firewall outlives a torn-down cluster.
+# Deletes any firewall rule still referencing this network before destroy,
+# excluding the ones this module manages itself. GKE's LoadBalancer
+# health-check firewall outlives a torn-down cluster.
 resource "null_resource" "remove_orphaned_firewalls" {
-  depends_on = [google_compute_network.this]
+  depends_on = [
+    google_compute_network.this,
+    google_compute_firewall.internal,
+    google_compute_firewall.health_checks,
+    google_compute_firewall.iap_ingress,
+  ]
 
   triggers = {
     network_name = local.network_name
     os_type      = var.os_type
+    exclude_filter = join(" ", [
+      "AND NOT name:${local.network_name}-allow-internal",
+      "AND NOT name:${local.network_name}-allow-health-checks",
+      "AND NOT name:${local.network_name}-allow-iap-ingress",
+    ])
   }
 
   provisioner "local-exec" {
@@ -54,9 +65,9 @@ resource "null_resource" "remove_orphaned_firewalls" {
     on_failure  = continue
     interpreter = self.triggers.os_type == "windows" ? ["PowerShell", "-Command"] : ["/bin/sh", "-c"]
     command = self.triggers.os_type == "windows" ? (
-      "gcloud compute firewall-rules list --project=$env:GOOGLE_CLOUD_PROJECT --filter=\"network:${self.triggers.network_name}\" --format=\"value(name)\" | ForEach-Object { gcloud compute firewall-rules delete $_ --project=$env:GOOGLE_CLOUD_PROJECT --quiet }"
+      "gcloud compute firewall-rules list --project=$env:GOOGLE_CLOUD_PROJECT --filter=\"network:${self.triggers.network_name} ${self.triggers.exclude_filter}\" --format=\"value(name)\" | ForEach-Object { gcloud compute firewall-rules delete $_ --project=$env:GOOGLE_CLOUD_PROJECT --quiet }"
       ) : (
-      "gcloud compute firewall-rules list --project=\"$GOOGLE_CLOUD_PROJECT\" --filter=\"network:${self.triggers.network_name}\" --format=\"value(name)\" | xargs -I{} gcloud compute firewall-rules delete {} --project=\"$GOOGLE_CLOUD_PROJECT\" --quiet"
+      "gcloud compute firewall-rules list --project=\"$GOOGLE_CLOUD_PROJECT\" --filter=\"network:${self.triggers.network_name} ${self.triggers.exclude_filter}\" --format=\"value(name)\" | xargs -I{} gcloud compute firewall-rules delete {} --project=\"$GOOGLE_CLOUD_PROJECT\" --quiet"
     )
   }
 }

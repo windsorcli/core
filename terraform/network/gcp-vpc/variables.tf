@@ -36,7 +36,7 @@ variable "network_name" {
 }
 
 variable "os_type" {
-  description = "Host OS running Terraform, injected by the Windsor CLI as TF_VAR_os_type"
+  description = "Host OS running Terraform. Windsor CLI >= v0.9.0 injects this as TF_VAR_os_type; older CLIs leave it at the unix default"
   type        = string
   default     = "unix"
   validation {

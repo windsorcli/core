@@ -100,6 +100,15 @@ run "minimal_configuration" {
     condition     = null_resource.remove_orphaned_firewalls.triggers.os_type == "unix"
     error_message = "os_type should default to unix when the CLI does not inject it"
   }
+
+  assert {
+    condition = alltrue([
+      strcontains(null_resource.remove_orphaned_firewalls.triggers.exclude_filter, "NOT name:network-test-allow-internal"),
+      strcontains(null_resource.remove_orphaned_firewalls.triggers.exclude_filter, "NOT name:network-test-allow-health-checks"),
+      strcontains(null_resource.remove_orphaned_firewalls.triggers.exclude_filter, "NOT name:network-test-allow-iap-ingress"),
+    ])
+    error_message = "Orphaned-firewall cleanup should exclude every rule this module manages itself"
+  }
 }
 
 # Tests a full configuration with all optional variables explicitly set.
