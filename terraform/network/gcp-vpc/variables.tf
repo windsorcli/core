@@ -35,6 +35,16 @@ variable "network_name" {
   default     = ""
 }
 
+variable "os_type" {
+  description = "Host OS running Terraform, injected by the Windsor CLI as TF_VAR_os_type"
+  type        = string
+  default     = "unix"
+  validation {
+    condition     = contains(["windows", "unix"], var.os_type)
+    error_message = "os_type must be \"windows\" or \"unix\"."
+  }
+}
+
 #---------------------------------------------------------------------------------------------------
 # Subnets
 #---------------------------------------------------------------------------------------------------

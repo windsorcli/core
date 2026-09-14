@@ -16,6 +16,9 @@ contexts/**/.gcp/
 # macOS system files
 **/.DS_Store
 
+# Python bytecode cache from crossplane composition function tooling
+**/__pycache__/
+
 # scripts/test-prometheus-rules.sh promtool scratch output
 **/.rendered-rule.yml
 

@@ -12,6 +12,10 @@ terraform {
       source  = "hashicorp/google"
       version = "8.2.0"
     }
+    null = {
+      source  = "hashicorp/null"
+      version = "~> 3.2"
+    }
   }
 }
 
@@ -33,6 +37,28 @@ locals {
 resource "google_compute_network" "this" {
   name                    = local.network_name
   auto_create_subnetworks = false
+}
+
+# Deletes any firewall rule still referencing this network before destroy.
+# GKE's LoadBalancer health-check firewall outlives a torn-down cluster.
+resource "null_resource" "remove_orphaned_firewalls" {
+  depends_on = [google_compute_network.this]
+
+  triggers = {
+    network_name = local.network_name
+    os_type      = var.os_type
+  }
+
+  provisioner "local-exec" {
+    when        = destroy
+    on_failure  = continue
+    interpreter = self.triggers.os_type == "windows" ? ["PowerShell", "-Command"] : ["/bin/sh", "-c"]
+    command = self.triggers.os_type == "windows" ? (
+      "gcloud compute firewall-rules list --project=$env:GOOGLE_CLOUD_PROJECT --filter=\"network:${self.triggers.network_name}\" --format=\"value(name)\" | ForEach-Object { gcloud compute firewall-rules delete $_ --project=$env:GOOGLE_CLOUD_PROJECT --quiet }"
+      ) : (
+      "gcloud compute firewall-rules list --project=\"$GOOGLE_CLOUD_PROJECT\" --filter=\"network:${self.triggers.network_name}\" --format=\"value(name)\" | xargs -I{} gcloud compute firewall-rules delete {} --project=\"$GOOGLE_CLOUD_PROJECT\" --quiet"
+    )
+  }
 }
 
 #---------------------------------------------------------------------------------------------------
