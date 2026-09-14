@@ -60,7 +60,11 @@ spec:
           def is_ready(req, name):
               # Nothing auto-detects readiness from a composed resource's own
               # conditions; it has to be read from its prior observed state.
-              return resource.get_condition(req.observed.resources.get(name), "Ready").status == "True"
+              observed = req.observed.resources.get(name)
+              if observed is None:
+                  return False
+              observed_dict = resource.struct_to_dict(observed.resource)
+              return resource.get_condition(observed_dict, "Ready").status == "True"
 
 
           def compose(req: fnv1.RunFunctionRequest, rsp: fnv1.RunFunctionResponse):
