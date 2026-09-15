@@ -1,0 +1,91 @@
+---
+# Ensures every Cloud SQL DatabaseInstance has an admin-credentials Secret
+# and an admin User applying it, generating both the first time it sees a
+# given instance name.
+apiVersion: ops.crossplane.io/v1alpha1
+kind: WatchOperation
+metadata:
+  name: cloudsql-admin-password
+spec:
+  watch:
+    apiVersion: sql.gcp.upbound.io/v1beta2
+    kind: DatabaseInstance
+  concurrencyPolicy: Replace
+  successfulHistoryLimit: 1
+  failedHistoryLimit: 3
+  operationTemplate:
+    spec:
+      mode: Pipeline
+      pipeline:
+        - step: ensure-admin-password
+          functionRef:
+            name: function-python
+          input:
+            apiVersion: python.fn.crossplane.io/v1beta1
+            kind: Script
+            script: |
+              import base64
+              import secrets
+
+              from crossplane.function import request, response
+
+
+              def operate(req, rsp):
+                  instance = request.get_required_resource(req, "ops.crossplane.io/watched-resource")
+                  instance_name = instance["metadata"]["name"]
+                  secret_name = f"{instance_name}-admin-credentials"
+                  user_name = f"{instance_name}-admin"
+
+                  response.require_resources(
+                      rsp, name="admin-secret", api_version="v1", kind="Secret",
+                      match_name=secret_name, namespace="system-database",
+                  )
+                  response.require_resources(
+                      rsp, name="admin-user", api_version="sql.gcp.upbound.io/v1beta2",
+                      kind="User", match_name=user_name,
+                  )
+
+                  outputs = {}
+
+                  secret = request.get_required_resource(req, "admin-secret")
+                  if secret is None:
+                      admin_username = user_name
+                      rsp.desired.resources["admin-secret"].resource.update({
+                          "apiVersion": "v1",
+                          "kind": "Secret",
+                          "metadata": {"name": secret_name, "namespace": "system-database"},
+                          "type": "Opaque",
+                          "stringData": {
+                              "username": admin_username,
+                              "password": secrets.token_urlsafe(32),
+                          },
+                      })
+                      outputs["secret_created"] = secret_name
+                  else:
+                      # admin_username comes from the existing Secret when Terraform already created it.
+                      username_b64 = secret.get("data", {}).get("username")
+                      admin_username = base64.b64decode(username_b64).decode() if username_b64 else user_name
+
+                  if request.get_required_resource(req, "admin-user") is None:
+                      rsp.desired.resources["admin-user"].resource.update({
+                          "apiVersion": "sql.gcp.upbound.io/v1beta2",
+                          "kind": "User",
+                          "metadata": {
+                              "name": user_name,
+                              "annotations": {"crossplane.io/external-name": admin_username},
+                          },
+                          "spec": {
+                              "deletionPolicy": "Orphan",
+                              "forProvider": {
+                                  "instanceRef": {"name": instance_name},
+                                  "passwordSecretRef": {
+                                      "name": secret_name,
+                                      "namespace": "system-database",
+                                      "key": "password",
+                                  },
+                              },
+                          },
+                      })
+                      outputs["user_created"] = user_name
+
+                  response.set_output(rsp, outputs or {"skipped": f"{secret_name} and {user_name} already exist"})

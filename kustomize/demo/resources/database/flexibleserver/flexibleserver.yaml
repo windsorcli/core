@@ -3,7 +3,7 @@
 apiVersion: dbforpostgresql.azure.upbound.io/v1beta1
 kind: FlexibleServer
 metadata:
-  name: demo-db
+  name: ${database_instance_name}
 spec:
   deletionPolicy: Delete
   forProvider:
@@ -14,7 +14,7 @@ spec:
     storageMb: 32768
     administratorLogin: demo
     administratorPasswordSecretRef:
-      name: demo-db-admin-credentials
+      name: ${database_instance_name}-admin-credentials
       namespace: system-database
       key: password
     autoGeneratePassword: true

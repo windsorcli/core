@@ -1,0 +1,229 @@
+---
+# Renders a per-instance connection Secret, ProviderConfig, Role, and any
+# Grants, namespaced to whichever chart owns the dedicated instance.
+apiVersion: apiextensions.crossplane.io/v1
+kind: Composition
+metadata:
+  name: database-credentials-postgres
+  labels:
+    engine: postgres
+spec:
+  compositeTypeRef:
+    apiVersion: database.windsorcli.dev/v1alpha1
+    kind: DatabaseCredentials
+  mode: Pipeline
+  pipeline:
+    - step: compose-postgres-credentials
+      functionRef:
+        name: function-python
+      input:
+        apiVersion: python.fn.crossplane.io/v1beta1
+        kind: Script
+        script: |
+          import base64
+
+          from crossplane.function import request, resource, response
+          from crossplane.function.proto.v1 import run_function_pb2 as fnv1
+
+          # Field conventions for each supported target kind.
+          ORPHAN_POLICIES = ["Observe", "Create", "Update", "LateInitialize"]
+
+          DRIVER_FACTS = {
+              "Instance": {
+                  "endpointField": "address",
+                  "usernameField": "username",
+                  "usernameFromSecret": False,
+              },
+              "FlexibleServer": {
+                  "endpointField": "fqdn",
+                  "usernameField": "administratorLogin",
+                  "usernameFromSecret": False,
+              },
+              "DatabaseInstance": {
+                  "endpointField": "privateIpAddress",
+                  "usernameField": "username",
+                  "usernameFromSecret": True,
+              },
+          }
+
+          def slugify(name):
+              # Sanitizes a Postgres identifier into a valid Kubernetes object name.
+              return name.replace("_", "-").lower()
+
+
+          def resolve_role_name(role_name, xr_name):
+              # xr_name is already namespace-unique, so it can't collide the way a
+              # databaseName-derived default could across multiple claims.
+              return role_name or xr_name
+
+
+          def admin_credentials_secret_name(instance_name):
+              return f"{instance_name}-admin-credentials"
+
+
+          def build_connection_secret(instance_name, namespace, endpoint, port, username, password):
+              return {
+                  "apiVersion": "v1",
+                  "kind": "Secret",
+                  "metadata": {"name": f"provider-sql-{instance_name}-connection", "namespace": namespace},
+                  "type": "Opaque",
+                  "stringData": {
+                      "endpoint": endpoint,
+                      "port": port,
+                      "username": username,
+                      "password": password,
+                  },
+              }
+
+
+          def build_provider_config(instance_name, namespace):
+              return {
+                  "apiVersion": "postgresql.sql.m.crossplane.io/v1alpha1",
+                  "kind": "ProviderConfig",
+                  "metadata": {"name": f"provider-sql-{instance_name}", "namespace": namespace},
+                  "spec": {
+                      "sslMode": "require",
+                      "credentials": {
+                          "source": "PostgreSQLConnectionSecret",
+                          "connectionSecretRef": {"name": f"provider-sql-{instance_name}-connection"},
+                      },
+                  },
+              }
+
+
+          def build_role(role_name, role_slug, namespace, instance_name, secret_name):
+              # external-name annotation holds the real Postgres role name.
+              return {
+                  "apiVersion": "postgresql.sql.m.crossplane.io/v1alpha1",
+                  "kind": "Role",
+                  "metadata": {
+                      "name": role_slug,
+                      "namespace": namespace,
+                      "annotations": {"crossplane.io/external-name": role_name},
+                  },
+                  "spec": {
+                      "managementPolicies": ORPHAN_POLICIES,
+                      "providerConfigRef": {"kind": "ProviderConfig", "name": f"provider-sql-{instance_name}"},
+                      "forProvider": {"privileges": {"login": True}},
+                      "writeConnectionSecretToRef": {"name": secret_name},
+                  },
+              }
+
+
+          def build_grant(role_name, role_slug, namespace, instance_name, member_of):
+              # grant_slug is member_of sanitized to a valid Kubernetes name.
+              grant_slug = slugify(member_of)
+              grant = {
+                  "apiVersion": "postgresql.sql.m.crossplane.io/v1alpha1",
+                  "kind": "Grant",
+                  "metadata": {"name": f"{role_slug}-{grant_slug}", "namespace": namespace},
+                  "spec": {
+                      "managementPolicies": ORPHAN_POLICIES,
+                      "providerConfigRef": {"kind": "ProviderConfig", "name": f"provider-sql-{instance_name}"},
+                      "forProvider": {"role": role_name, "memberOf": member_of},
+                  },
+              }
+              return grant_slug, grant
+
+
+          def build_status(role_name, namespace, database_name, secret_name):
+              status = {
+                  "connectionSecretRef": {"name": secret_name, "namespace": namespace},
+                  "roleName": role_name,
+              }
+              if database_name:
+                  status["databaseName"] = database_name
+              return status
+
+
+          def is_ready(req, name):
+              # Reads Ready from the named resource's last observed state.
+              observed = req.observed.resources.get(name)
+              if observed is None:
+                  return False
+              observed_dict = resource.struct_to_dict(observed.resource)
+              return resource.get_condition(observed_dict, "Ready").status == "True"
+
+
+          def compose(req: fnv1.RunFunctionRequest, rsp: fnv1.RunFunctionResponse):
+              # observed.composite.resource is a raw protobuf Struct: [] works, .get() doesn't.
+              xr = resource.struct_to_dict(req.observed.composite.resource)
+              xr_name = xr["metadata"]["name"]
+              namespace = xr["metadata"]["namespace"]
+              target = xr["spec"]["target"]
+              target_api_version = target["apiVersion"]
+              target_kind = target["kind"]
+              instance_name = target["name"]
+              database_name = xr["spec"].get("databaseName")
+              role_name = resolve_role_name(xr["spec"].get("roleName"), xr_name)
+              role_slug = slugify(role_name)
+              grants = xr["spec"].get("grants", [])
+              facts = DRIVER_FACTS[target_kind]
+
+              admin_secret_ref = xr["spec"].get("adminSecretRef") or {}
+              admin_secret_name = admin_secret_ref.get("name") or admin_credentials_secret_name(instance_name)
+              admin_secret_namespace = admin_secret_ref.get("namespace") or "system-database"
+
+              secret_name = xr["spec"].get("secretName") or f"{role_slug}-credentials"
+
+              response.require_resources(
+                  rsp, name="instance", api_version=target_api_version,
+                  kind=target_kind, match_name=instance_name,
+              )
+              response.require_resources(
+                  rsp, name="admin-credentials", api_version="v1", kind="Secret",
+                  match_name=admin_secret_name, namespace=admin_secret_namespace,
+              )
+
+              instance = request.get_required_resource(req, "instance")
+              admin_secret = request.get_required_resource(req, "admin-credentials")
+              if instance is None:
+                  response.warning(rsp, f"waiting for {target_kind}/{instance_name}")
+                  return
+              if admin_secret is None:
+                  response.warning(rsp, f"waiting for Secret/{admin_secret_name} in {admin_secret_namespace}")
+                  return
+
+              if resource.get_condition(instance, "Ready").status != "True":
+                  response.warning(rsp, f"waiting for {target_kind}/{instance_name} to become Ready")
+                  return
+
+              password_b64 = admin_secret.get("data", {}).get("password")
+              if not password_b64:
+                  response.warning(rsp, f"Secret/{admin_secret_name} in {admin_secret_namespace} has no password key yet")
+                  return
+              admin_password = base64.b64decode(password_b64).decode()
+
+              endpoint = instance.get("status", {}).get("atProvider", {}).get(facts["endpointField"], "")
+
+              if facts["usernameFromSecret"]:
+                  username_b64 = admin_secret.get("data", {}).get(facts["usernameField"])
+                  admin_username = base64.b64decode(username_b64).decode() if username_b64 else ""
+              else:
+                  admin_username = instance.get("spec", {}).get("forProvider", {}).get(facts["usernameField"], "")
+
+              rsp.desired.resources["connection-secret"].resource.update(
+                  build_connection_secret(instance_name, namespace, endpoint, "5432", admin_username, admin_password)
+              )
+              rsp.desired.resources["connection-secret"].ready = True
+
+              rsp.desired.resources["provider-config"].resource.update(build_provider_config(instance_name, namespace))
+              # ProviderConfig has no status.conditions to check.
+              rsp.desired.resources["provider-config"].ready = True
+
+              rsp.desired.resources["role"].resource.update(build_role(role_name, role_slug, namespace, instance_name, secret_name))
+              if is_ready(req, "role"):
+                  rsp.desired.resources["role"].ready = True
+
+              for grant in grants:
+                  grant_slug, grant_resource = build_grant(role_name, role_slug, namespace, instance_name, grant["memberOf"])
+                  grant_key = f"grant-{grant_slug}"
+                  rsp.desired.resources[grant_key].resource.update(grant_resource)
+                  if is_ready(req, grant_key):
+                      rsp.desired.resources[grant_key].ready = True
+
+              status = build_status(role_name, namespace, database_name, secret_name)
+              # rsp.desired.composite.resource is a raw Struct: [] and .update() work, .get()/.setdefault() don't.
+              if "status" not in rsp.desired.composite.resource:
+                  rsp.desired.composite.resource["status"] = {}
+              rsp.desired.composite.resource["status"].update(status)

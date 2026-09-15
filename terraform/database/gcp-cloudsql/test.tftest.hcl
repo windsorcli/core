@@ -1,6 +1,5 @@
 mock_provider "google" {}
 mock_provider "google-beta" {}
-mock_provider "random" {}
 mock_provider "kubernetes" {}
 
 # Verifies the private service connection and default CMK creation with no
@@ -32,11 +31,6 @@ run "minimal_configuration" {
   assert {
     condition     = length(google_kms_crypto_key_iam_member.cloudsql) == 1
     error_message = "Cloud SQL's service agent should be granted encrypt/decrypt on the key"
-  }
-
-  assert {
-    condition     = length(kubernetes_secret_v1.admin_credentials) == 0
-    error_message = "No admin credential Secrets should be created with an empty admin_credentials map"
   }
 }
 
@@ -78,38 +72,6 @@ run "explicit_kms_key_name_skips_dedicated_key" {
   assert {
     condition     = length(google_kms_crypto_key.cloudsql) == 0
     error_message = "No dedicated KMS key should be created when kms_key_name is explicitly set"
-  }
-}
-
-# Each entry in admin_credentials generates its own password and Secret,
-# named by the fixed <key>-admin-credentials convention.
-run "admin_credentials_generates_secret_per_instance" {
-  command = plan
-
-  variables {
-    context_id = "test"
-    project_id = "test-project"
-    network_id = "projects/test-project/global/networks/network-test"
-    admin_credentials = {
-      demo-db = {
-        username = "demo"
-      }
-    }
-  }
-
-  assert {
-    condition     = kubernetes_secret_v1.admin_credentials["demo-db"].metadata[0].name == "demo-db-admin-credentials"
-    error_message = "Admin credential Secret should follow the fixed <instance>-admin-credentials naming convention"
-  }
-
-  assert {
-    condition     = kubernetes_secret_v1.admin_credentials["demo-db"].metadata[0].namespace == "system-database"
-    error_message = "Admin credential Secret should land in system-database"
-  }
-
-  assert {
-    condition     = kubernetes_secret_v1.admin_credentials["demo-db"].data["username"] == "demo"
-    error_message = "Admin credential Secret should carry the configured username"
   }
 }
 
