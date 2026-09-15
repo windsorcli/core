@@ -65,15 +65,15 @@ The next apply will then only show creates.
 | Name | Version |
 |------|---------|
 | <a name="requirement_terraform"></a> [terraform](#requirement\_terraform) | >= 1.12.2 |
-| <a name="requirement_azurerm"></a> [azurerm](#requirement\_azurerm) | ~> 5.0.0 |
+| <a name="requirement_azurerm"></a> [azurerm](#requirement\_azurerm) | ~> 5.4.0 |
 | <a name="requirement_null"></a> [null](#requirement\_null) | ~> 3.2 |
 
 ## Providers
 
 | Name | Version |
 |------|---------|
-| <a name="provider_azurerm"></a> [azurerm](#provider\_azurerm) | 5.0.1 |
-| <a name="provider_null"></a> [null](#provider\_null) | 3.3.1 |
+| <a name="provider_azurerm"></a> [azurerm](#provider\_azurerm) | 5.4.0 |
+| <a name="provider_null"></a> [null](#provider\_null) | 3.3.2 |
 | <a name="provider_random"></a> [random](#provider\_random) | 3.8.1 |
 | <a name="provider_time"></a> [time](#provider\_time) | 0.13.1 |
 
@@ -153,6 +153,7 @@ No modules.
 | <a name="input_name"></a> [name](#input\_name) | Name of the resource | `string` | `"cluster"` | no |
 | <a name="input_network_acls_default_action"></a> [network\_acls\_default\_action](#input\_network\_acls\_default\_action) | The default action for the AKS cluster's network ACLs | `string` | `"Allow"` | no |
 | <a name="input_oidc_issuer_enabled"></a> [oidc\_issuer\_enabled](#input\_oidc\_issuer\_enabled) | Enable OIDC issuer for the AKS cluster | `bool` | `true` | no |
+| <a name="input_os_type"></a> [os\_type](#input\_os\_type) | Host OS running Terraform. Windsor CLI >= v0.9.0 injects this as TF\_VAR\_os\_type; older CLIs leave it at the unix default | `string` | `"unix"` | no |
 | <a name="input_outbound_type"></a> [outbound\_type](#input\_outbound\_type) | The outbound (egress) routing method which should be used for this Kubernetes Cluster. | `string` | `"userAssignedNATGateway"` | no |
 | <a name="input_pools"></a> [pools](#input\_pools) | Portable user-pool definitions, keyed by pool name; mirrors the AWS-EKS pools input. Empty falls back to one autoscaling general pool. Autoscaling defaults on (min 1, max 3) for every class except system. A class: system entry gets AKS's native System pool mode, alongside the always-on default\_node\_pool, and a CriticalAddonsOnly=true:NoSchedule taint unless it declares one. | <pre>map(object({<br/>    class          = string<br/>    count          = number<br/>    lifecycle      = optional(string, "on-demand")<br/>    instance_types = optional(list(string))<br/>    root_disk_size = optional(number)<br/>    autoscaling = optional(object({<br/>      enabled = optional(bool)<br/>      min     = optional(number)<br/>      max     = optional(number)<br/>    }))<br/>    labels = optional(map(string), {})<br/>    taints = optional(list(object({<br/>      key    = string<br/>      value  = optional(string)<br/>      effect = string<br/>    })), [])<br/>  }))</pre> | `{}` | no |
 | <a name="input_private_cluster_enabled"></a> [private\_cluster\_enabled](#input\_private\_cluster\_enabled) | Whether to enable private cluster for the AKS cluster | `bool` | `false` | no |

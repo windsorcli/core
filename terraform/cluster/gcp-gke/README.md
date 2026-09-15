@@ -82,7 +82,7 @@ gcloud components install gke-gcloud-auth-plugin
 | Name | Version |
 |------|---------|
 | <a name="provider_google"></a> [google](#provider\_google) | 8.2.0 |
-| <a name="provider_null"></a> [null](#provider\_null) | 3.3.1 |
+| <a name="provider_null"></a> [null](#provider\_null) | 3.3.2 |
 | <a name="provider_time"></a> [time](#provider\_time) | 0.14.2 |
 
 ## Modules
@@ -124,6 +124,7 @@ No modules.
 | <a name="input_name"></a> [name](#input\_name) | Name prefix for the GKE cluster | `string` | `"cluster"` | no |
 | <a name="input_network_id"></a> [network\_id](#input\_network\_id) | ID of the VPC network the cluster attaches to. Pipe network/gcp-vpc's network\_id output. | `string` | n/a | yes |
 | <a name="input_node_locations"></a> [node\_locations](#input\_node\_locations) | Zones the cluster's own bootstrap pool and every node pool are placed in. GKE creates one instance group per zone listed here, so a fixed-count pool's node\_count multiplies by length(node\_locations). | `list(string)` | n/a | yes |
+| <a name="input_os_type"></a> [os\_type](#input\_os\_type) | Host OS running Terraform. Windsor CLI >= v0.9.0 injects this as TF\_VAR\_os\_type; older CLIs leave it at the unix default | `string` | `"unix"` | no |
 | <a name="input_pools"></a> [pools](#input\_pools) | Portable user-pool definitions, keyed by pool name; mirrors the AWS-EKS/AKS pools input. Empty falls back to one autoscaling general pool. Autoscaling defaults on (min 1, max 3) for every class except system. | <pre>map(object({<br/>    class          = string<br/>    count          = number<br/>    lifecycle      = optional(string, "on-demand")<br/>    instance_types = optional(list(string))<br/>    root_disk_size = optional(number)<br/>    autoscaling = optional(object({<br/>      enabled = optional(bool)<br/>      min     = optional(number)<br/>      max     = optional(number)<br/>    }))<br/>    labels = optional(map(string), {})<br/>    taints = optional(list(object({<br/>      key    = string<br/>      value  = optional(string)<br/>      effect = string<br/>    })), [])<br/>  }))</pre> | `{}` | no |
 | <a name="input_project_id"></a> [project\_id](#input\_project\_id) | GCP project ID the cluster is created in | `string` | n/a | yes |
 | <a name="input_region"></a> [region](#input\_region) | GCP region for the cluster | `string` | `"us-central1"` | no |
