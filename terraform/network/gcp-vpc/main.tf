@@ -53,11 +53,9 @@ resource "null_resource" "remove_orphaned_firewalls" {
   triggers = {
     network_name = local.network_name
     os_type      = var.os_type
-    exclude_filter = join(" ", [
-      "AND NOT name:${local.network_name}-allow-internal",
-      "AND NOT name:${local.network_name}-allow-health-checks",
-      "AND NOT name:${local.network_name}-allow-iap-ingress",
-    ])
+    # gcloud's filter grammar can't chain multiple "AND NOT name:x" clauses;
+    # negating one OR-group works.
+    exclude_filter = "AND NOT (name:${local.network_name}-allow-internal OR name:${local.network_name}-allow-health-checks OR name:${local.network_name}-allow-iap-ingress)"
   }
 
   provisioner "local-exec" {
