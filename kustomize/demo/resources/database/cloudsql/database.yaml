@@ -11,4 +11,4 @@ spec:
   deletionPolicy: Orphan
   forProvider:
     instanceRef:
-      name: demo-db
+      name: ${database_instance_name}

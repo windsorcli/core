@@ -5,7 +5,7 @@
 apiVersion: rds.aws.upbound.io/v1beta3
 kind: Instance
 metadata:
-  name: demo-db
+  name: ${database_instance_name}
 spec:
   deletionPolicy: Delete
   forProvider:
@@ -21,7 +21,7 @@ spec:
     username: demo
     autoGeneratePassword: true
     passwordSecretRef:
-      name: demo-db-admin-credentials
+      name: ${database_instance_name}-admin-credentials
       namespace: system-database
       key: password
     storageEncrypted: true

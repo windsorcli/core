@@ -95,6 +95,7 @@ cases:
                 kms_key_arn: arn:aws:kms:us-west-2:123456789012:key/abcd1234-5678-90ab-cdef-1234567890ab
                 rds_security_group_id: sg-0abcd1234
                 demo_database_name: demo
+                database_instance_name: demo-db
               healthCheckExprs:
                 - apiVersion: rds.aws.upbound.io/v1beta3
                   kind: Instance
@@ -108,6 +109,8 @@ cases:
                 - database/rds/credentials
               substitutions:
                 demo_database_name: demo
+                database_instance_name: demo-db
+                demo_monitor_secret_name: demo-db-monitor-credentials
               healthCheckExprs:
                 - apiVersion: database.windsorcli.dev/v1alpha1
                   kind: DatabaseCredentials
@@ -120,7 +123,9 @@ cases:
               components:
                 - crossplane/postgres/monitoring-exporter
               substitutions:
-                pg_instance_name: demo-db
+                pg_exporter_name: demo-db
+                pg_monitor_secret_name: demo-db-monitor-credentials
+                database_instance_name: demo-db
 
   # database/<driver> always bundles its credentials; only monitoring-exporter's
   # own Kustomization is gated on telemetry.metrics.enabled.
@@ -199,7 +204,7 @@ cases:
                 flexibleserver_subnet_id: /subscriptions/sub/resourceGroups/rg/providers/Microsoft.Network/virtualNetworks/vnet-test/subnets/flexibleserver-test
                 flexibleserver_private_dns_zone_id: /subscriptions/sub/resourceGroups/test-postgres/providers/Microsoft.Network/privateDnsZones/test.postgres.database.azure.com
                 flexibleserver_region: eastus2
-                context_id: test1
+                database_instance_name: demo-db-test1
               healthCheckExprs:
                 - apiVersion: dbforpostgresql.azure.upbound.io/v1beta1
                   kind: FlexibleServer
@@ -216,7 +221,8 @@ cases:
                 - database/flexibleserver/credentials
               substitutions:
                 demo_database_name: demo
-                context_id: test1
+                database_instance_name: demo-db-test1
+                demo_monitor_secret_name: demo-db-test1-monitor-credentials
               healthCheckExprs:
                 - apiVersion: database.windsorcli.dev/v1alpha1
                   kind: DatabaseCredentials
@@ -229,7 +235,9 @@ cases:
               components:
                 - crossplane/postgres/monitoring-exporter
               substitutions:
-                pg_instance_name: demo-db
+                pg_exporter_name: demo-db
+                pg_monitor_secret_name: demo-db-test1-monitor-credentials
+                database_instance_name: demo-db-test1
 
   # cloudsql driver: creates a DatabaseInstance + User + Database CR trio.
   # GCP twin of the rds/flexibleserver cases above. network_id/kms_key_name
@@ -272,6 +280,7 @@ cases:
                 cloudsql_network_id: projects/windsor-test/global/networks/vpc-test
                 cloudsql_kms_key_name: projects/windsor-test/locations/us-central1/keyRings/cloudsql-test/cryptoKeys/cloudsql-test
                 cloudsql_region: us-central1
+                database_instance_name: demo-db
               healthCheckExprs:
                 - apiVersion: sql.gcp.upbound.io/v1beta2
                   kind: DatabaseInstance
@@ -288,6 +297,8 @@ cases:
                 - database/cloudsql/credentials
               substitutions:
                 demo_database_name: demo
+                database_instance_name: demo-db
+                demo_monitor_secret_name: demo-db-monitor-credentials
               healthCheckExprs:
                 - apiVersion: database.windsorcli.dev/v1alpha1
                   kind: DatabaseCredentials
@@ -300,7 +311,9 @@ cases:
               components:
                 - crossplane/postgres/monitoring-exporter
               substitutions:
-                pg_instance_name: demo-db
+                pg_exporter_name: demo-db
+                pg_monitor_secret_name: demo-db-monitor-credentials
+                database_instance_name: demo-db
 
   # database.postgres.encryption.managed adds the encryption-key component,
   # setting encryptionKeyName only when a real key exists.

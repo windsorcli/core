@@ -2,17 +2,17 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: ${pg_instance_name}-postgres-exporter
+  name: ${pg_exporter_name}-postgres-exporter
   namespace: system-database
 spec:
   replicas: 1
   selector:
     matchLabels:
-      app: ${pg_instance_name}-postgres-exporter
+      app: ${pg_exporter_name}-postgres-exporter
   template:
     metadata:
       labels:
-        app: ${pg_instance_name}-postgres-exporter
+        app: ${pg_exporter_name}-postgres-exporter
     spec:
       containers:
         - name: postgres-exporter
@@ -25,22 +25,22 @@ spec:
             - name: PGHOST
               valueFrom:
                 secretKeyRef:
-                  name: ${pg_instance_name}-monitor-credentials
+                  name: ${pg_monitor_secret_name}
                   key: endpoint
             - name: PGPORT
               valueFrom:
                 secretKeyRef:
-                  name: ${pg_instance_name}-monitor-credentials
+                  name: ${pg_monitor_secret_name}
                   key: port
             - name: DATA_SOURCE_USER
               valueFrom:
                 secretKeyRef:
-                  name: ${pg_instance_name}-monitor-credentials
+                  name: ${pg_monitor_secret_name}
                   key: username
             - name: DATA_SOURCE_PASS
               valueFrom:
                 secretKeyRef:
-                  name: ${pg_instance_name}-monitor-credentials
+                  name: ${pg_monitor_secret_name}
                   key: password
             - name: DATA_SOURCE_URI
               value: "$(PGHOST):$(PGPORT)/postgres?sslmode=require"

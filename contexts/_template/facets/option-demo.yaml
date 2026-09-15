@@ -11,6 +11,14 @@ when: demo.enabled == true
 config:
   - name: demo_database_name
     value: demo
+  # Flexible Server names are globally unique in Azure; other drivers
+  # keep the plain literal.
+  - name: database_instance_name
+    value: "${database.postgres.driver == 'flexibleserver' ? 'demo-db-' + id : 'demo-db'}"
+  # Explicit secretName: system-database is a shared namespace, so a
+  # bare name could collide with another consumer.
+  - name: demo_monitor_secret_name
+    value: "${database_instance_name}-monitor-credentials"
 
 # =============================================================================
 # Flux — demo applications
@@ -43,10 +51,8 @@ flux:
         timeout: 10m
         interval: 5m
 
-  # rds driver: shared namespace, the Instance CR, and its credentials as a
-  # named variant. Its own dependsOn on the unnamed variant makes Flux
-  # delete it first, dropping the Role/Grant while the Instance still
-  # answers connections.
+  # rds driver: the Instance CR and its credentials as a named variant.
+  # dependsOn drops the Role/Grant before the Instance goes away.
   - name: demo
     path: demo
     when: demo.resources.database == true && database.postgres.driver == 'rds'
@@ -61,6 +67,7 @@ flux:
           kms_key_arn: "${terraform_output('database', 'kms_key_arn') ?? ''}"
           rds_security_group_id: "${terraform_output('database', 'security_group_id') ?? ''}"
           demo_database_name: "${demo_database_name}"
+          database_instance_name: "${database_instance_name}"
           aws_region: "${aws.region ?? ''}"
         healthCheckExprs:
           # Gated on the Instance's own Ready condition, not the CR apply.
@@ -76,6 +83,8 @@ flux:
           - database/rds/credentials
         substitutions:
           demo_database_name: "${demo_database_name}"
+          database_instance_name: "${database_instance_name}"
+          demo_monitor_secret_name: "${demo_monitor_secret_name}"
         healthCheckExprs:
           - apiVersion: database.windsorcli.dev/v1alpha1
             kind: DatabaseCredentials
@@ -83,11 +92,7 @@ flux:
         timeout: 10m
         interval: 5m
 
-  # flexibleserver driver: shared namespace, the FlexibleServer +
-  # FlexibleServerDatabase CRs, and its credentials as a named variant —
-  # Azure twin of rds. Its own dependsOn on the unnamed variant makes Flux
-  # delete it first, dropping the Role/Grant while the server still
-  # answers connections.
+  # flexibleserver driver: Azure twin of rds.
   - name: demo
     path: demo
     when: demo.resources.database == true && database.postgres.driver == 'flexibleserver'
@@ -101,7 +106,7 @@ flux:
           flexibleserver_subnet_id: "${terraform_output('network', 'flexibleserver_subnet_id') ?? ''}"
           flexibleserver_private_dns_zone_id: "${terraform_output('database', 'private_dns_zone_id') ?? ''}"
           flexibleserver_region: "${terraform_output('network', 'region') ?? ''}"
-          context_id: ${id}
+          database_instance_name: "${database_instance_name}"
         healthCheckExprs:
           - apiVersion: dbforpostgresql.azure.upbound.io/v1beta1
             kind: FlexibleServer
@@ -120,7 +125,8 @@ flux:
           - database/flexibleserver/credentials
         substitutions:
           demo_database_name: "${demo_database_name}"
-          context_id: ${id}
+          database_instance_name: "${database_instance_name}"
+          demo_monitor_secret_name: "${demo_monitor_secret_name}"
         healthCheckExprs:
           - apiVersion: database.windsorcli.dev/v1alpha1
             kind: DatabaseCredentials
@@ -128,10 +134,7 @@ flux:
         timeout: 10m
         interval: 5m
 
-  # cloudsql driver: shared namespace, the DatabaseInstance + Database CRs,
-  # and its credentials as a named variant — GCP twin of rds/flexibleserver.
-  # Its own dependsOn on the unnamed variant makes Flux delete it first,
-  # dropping the Role/Grant while the instance still answers connections.
+  # cloudsql driver: GCP twin of rds/flexibleserver.
   - name: demo
     path: demo
     when: demo.resources.database == true && database.postgres.driver == 'cloudsql'
@@ -146,6 +149,7 @@ flux:
           cloudsql_network_id: "${terraform_output('network', 'network_id') ?? ''}"
           cloudsql_kms_key_name: "${terraform_output('database', 'kms_key_name') ?? ''}"
           cloudsql_region: "${terraform_output('network', 'region') ?? ''}"
+          database_instance_name: "${database_instance_name}"
         healthCheckExprs:
           - apiVersion: sql.gcp.upbound.io/v1beta2
             kind: DatabaseInstance
@@ -165,6 +169,8 @@ flux:
           - database/cloudsql/credentials
         substitutions:
           demo_database_name: "${demo_database_name}"
+          database_instance_name: "${database_instance_name}"
+          demo_monitor_secret_name: "${demo_monitor_secret_name}"
         healthCheckExprs:
           - apiVersion: database.windsorcli.dev/v1alpha1
             kind: DatabaseCredentials
@@ -182,9 +188,10 @@ flux:
       - components:
           - crossplane/postgres/monitoring-exporter
         substitutions:
-          # Matches the DatabaseCredentials claim's fixed name, not the
-          # cloud instance name, which is scoped per-context separately.
-          pg_instance_name: demo-db
+          # The component is generic; only these values are demo-specific.
+          pg_exporter_name: demo-db
+          pg_monitor_secret_name: "${demo_monitor_secret_name}"
+          database_instance_name: "${database_instance_name}"
         timeout: 5m
         interval: 5m
 
