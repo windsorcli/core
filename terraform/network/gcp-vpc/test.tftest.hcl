@@ -102,11 +102,7 @@ run "minimal_configuration" {
   }
 
   assert {
-    condition = alltrue([
-      strcontains(null_resource.remove_orphaned_firewalls.triggers.exclude_filter, "NOT name:network-test-allow-internal"),
-      strcontains(null_resource.remove_orphaned_firewalls.triggers.exclude_filter, "NOT name:network-test-allow-health-checks"),
-      strcontains(null_resource.remove_orphaned_firewalls.triggers.exclude_filter, "NOT name:network-test-allow-iap-ingress"),
-    ])
+    condition     = null_resource.remove_orphaned_firewalls.triggers.exclude_filter == "AND NOT (name:network-test-allow-internal OR name:network-test-allow-health-checks OR name:network-test-allow-iap-ingress)"
     error_message = "Orphaned-firewall cleanup should exclude every rule this module manages itself"
   }
 }
