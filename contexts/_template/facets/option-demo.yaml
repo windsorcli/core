@@ -149,9 +149,9 @@ flux:
       - components:
           - crossplane/postgres/monitoring-exporter
         substitutions:
-          # Flexible Server names are globally unique in Azure; every other
-          # driver's instance name stays the plain literal.
-          pg_instance_name: "${database.postgres.driver == 'flexibleserver' ? 'demo-db-' + id : 'demo-db'}"
+          # Matches the DatabaseCredentials claim's fixed name, not the
+          # cloud instance name, which is scoped per-context separately.
+          pg_instance_name: demo-db
         timeout: 5m
         interval: 5m
 
