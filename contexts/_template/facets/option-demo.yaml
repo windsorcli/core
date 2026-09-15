@@ -87,6 +87,7 @@ flux:
           flexibleserver_private_dns_zone_id: "${terraform_output('database', 'private_dns_zone_id') ?? ''}"
           flexibleserver_region: "${terraform_output('network', 'region') ?? ''}"
           demo_database_name: "${demo_database_name}"
+          context_id: ${id}
         healthCheckExprs:
           - apiVersion: dbforpostgresql.azure.upbound.io/v1beta1
             kind: FlexibleServer
@@ -148,7 +149,9 @@ flux:
       - components:
           - crossplane/postgres/monitoring-exporter
         substitutions:
-          pg_instance_name: demo-db
+          # Flexible Server names are globally unique in Azure; every other
+          # driver's instance name stays the plain literal.
+          pg_instance_name: "${database.postgres.driver == 'flexibleserver' ? 'demo-db-' + id : 'demo-db'}"
         timeout: 5m
         interval: 5m
 

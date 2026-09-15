@@ -14,4 +14,4 @@ spec:
   deletionPolicy: Orphan
   forProvider:
     serverIdRef:
-      name: demo-db
+      name: demo-db-${context_id}
