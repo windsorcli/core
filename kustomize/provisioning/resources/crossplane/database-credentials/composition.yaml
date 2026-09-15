@@ -175,19 +175,19 @@ spec:
               instance = request.get_required_resource(req, "instance")
               admin_secret = request.get_required_resource(req, "admin-credentials")
               if instance is None:
-                  response.fatal(rsp, f"waiting for {facts['kind']}/{instance_name}")
+                  response.warning(rsp, f"waiting for {facts['kind']}/{instance_name}")
                   return
               if admin_secret is None:
-                  response.fatal(rsp, f"waiting for Secret/{admin_secret_name} in system-database")
+                  response.warning(rsp, f"waiting for Secret/{admin_secret_name} in system-database")
                   return
 
               if resource.get_condition(instance, "Ready").status != "True":
-                  response.fatal(rsp, f"waiting for {facts['kind']}/{instance_name} to become Ready")
+                  response.warning(rsp, f"waiting for {facts['kind']}/{instance_name} to become Ready")
                   return
 
               password_b64 = admin_secret.get("data", {}).get("password")
               if not password_b64:
-                  response.fatal(rsp, f"Secret/{admin_secret_name} in system-database has no password key yet")
+                  response.warning(rsp, f"Secret/{admin_secret_name} in system-database has no password key yet")
                   return
               admin_password = base64.b64decode(password_b64).decode()
 

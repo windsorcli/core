@@ -263,26 +263,52 @@ pure builder functions (`slugify`, `resolve_role_name`,
 first case in this repo where the Composition's own logic is unit-tested
 rather than relying solely on a live cluster.
 
+A second live run (fresh `aws-test`/`gcp-test`/`azure-test` bring-ups)
+surfaced two more bugs, one in each Python function this ADR ships:
+
+- `response.fatal` and `response.require_resources` don't compose.
+  Crossplane never fulfilled either `require_resources` call
+  (`instance`, `admin-credentials`) on any driver — confirmed via a
+  live debug patch that `req.required_resources` stayed empty across
+  40+ minutes and dozens of reconciles, even for a `DatabaseCredentials`
+  created after its target instance was already `Ready`. Removing the
+  `response.fatal` call let the same requirement resolve within two
+  reconciles; a `SEVERITY_FATAL` result appears to short-circuit
+  Crossplane's required-resources negotiation before it ever fetches
+  anything. Fixed by switching all four `response.fatal` calls in the
+  compose step to `response.warning` — non-fatal severity still
+  surfaces the wait reason on the XR's `Synced` condition without
+  blocking the fetch. Verified live end to end on `rds` and `cloudsql`:
+  `Role`/`Grant` reach `Ready` with real Postgres privileges applied.
+- `gcp-admin-password`'s `WatchOperation` called
+  `request.get_optional_resource`, which doesn't exist on the pinned
+  `function-python:v0.2.0` SDK (`AttributeError`, confirmed via the
+  live pod's own module listing) — every invocation crashed, hit the
+  Operation's 5-run failure limit, and left `demo-db-admin-credentials`
+  deleted with nothing left to recreate it. `get_required_resource` has
+  the same "returns `None` if absent" behavior the code actually wants;
+  fixed by using that name instead. Verified live: a fresh `Operation`
+  run reports `Succeeded: True`, the admin Secret and `User` both
+  reconcile, and every downstream Kustomization on `gcp-test` reaches
+  `Ready: True`, including the `postgres_exporter` pod.
+
 Still open:
 
 - The bare `demo-app` `Role` (no `Grant`) reached `Ready` cleanly, but
   actually connecting to the `demo` database with it — confirming
   Postgres's default `PUBLIC CONNECT` covers the case, not just that the
   role object exists — hasn't been tested from an application pod.
-- The GCP `gcp-admin-password` `WatchOperation` correctly bootstrapped the
-  admin secret for this cluster's one `DatabaseInstance`. Its behavior
-  against multiple `DatabaseInstance`s appearing concurrently is still
-  unverified.
-- The `roleName`-sanitization fix and the new `response.fatal` calls
-  (naming the exact missing resource instead of stalling silently) were
-  added after the live `gcp-test` run and haven't themselves been
-  reconciled against a real cluster yet.
-- The `WatchOperation`'s new admin `User` composition hasn't been
-  reconciled live either. The one case actually exercised on `gcp-test`
-  (Terraform pre-writes the Secret) previously relied on the demo's own
-  hand-authored `User` CR, now deleted; the `WatchOperation`-composed
-  `User`, and the from-scratch case where it also generates the Secret
-  itself, are both unverified.
+- The GCP `gcp-admin-password` `WatchOperation` correctly bootstraps the
+  admin secret and the `User` for this cluster's one `DatabaseInstance`
+  (verified live above, post-fix). Its behavior against multiple
+  `DatabaseInstance`s appearing concurrently is still unverified.
+- `flexibleserver` (Azure) never reached the same end-to-end
+  confirmation: `demo`'s `FlexibleServer` failed to create with
+  `ServerNameAlreadyExists` — Azure Flexible Server names are globally
+  unique, and `kustomize/demo/resources/database/flexibleserver/` has
+  hardcoded the same literal `demo-db` name since before this ADR
+  (`#2656`). Pre-existing, not introduced by this change, but it blocks
+  a live check of the `flexibleserver` driver path specifically.
 
 ## Alternatives considered
 

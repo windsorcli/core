@@ -47,7 +47,7 @@ spec:
 
                   outputs = {}
 
-                  secret = request.get_optional_resource(req, "admin-secret")
+                  secret = request.get_required_resource(req, "admin-secret")
                   if secret is None:
                       admin_username = user_name
                       rsp.desired.resources["admin-secret"].resource.update({
@@ -66,7 +66,7 @@ spec:
                       username_b64 = secret.get("data", {}).get("username")
                       admin_username = base64.b64decode(username_b64).decode() if username_b64 else user_name
 
-                  if request.get_optional_resource(req, "admin-user") is None:
+                  if request.get_required_resource(req, "admin-user") is None:
                       rsp.desired.resources["admin-user"].resource.update({
                           "apiVersion": "sql.gcp.upbound.io/v1beta2",
                           "kind": "User",
