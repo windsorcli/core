@@ -22,9 +22,6 @@ spec:
               type: object
               required:
                 - target
-              x-kubernetes-validations:
-                - rule: "has(self.roleName) || has(self.databaseName)"
-                  message: "roleName is required when databaseName is not set"
               properties:
                 engine:
                   type: string
@@ -55,7 +52,12 @@ spec:
                       description: Name of the referenced instance CR.
                 adminSecretRef:
                   type: object
-                  description: Reference to the Secret holding target's admin username/password. Defaults to a Secret named "<target.name>-admin-credentials" in system-database.
+                  description: >-
+                    Reference to the Secret holding target's admin username/password.
+                    Defaults to "<target.name>-admin-credentials" in system-database.
+                    Not honored for a DatabaseInstance target: a separate
+                    WatchOperation creates that Secret and has no way to learn of an
+                    override here.
                   properties:
                     name:
                       type: string
@@ -66,13 +68,13 @@ spec:
                   description: Name of the generated connection Secret, in this object's own namespace. Defaults to "<role name>-credentials".
                 roleName:
                   type: string
-                  description: Postgres role name. Defaults to "<databaseName>-app" when databaseName is set.
+                  description: Postgres role name. Defaults to this object's own name, unique within its namespace.
                 databaseName:
                   type: string
                   description: Database this role is primarily used against. Omit for a role not tied to one database, such as a monitoring role.
                 grants:
                   type: array
-                  description: Postgres roles/groups this role should be granted membership in, e.g. pg_monitor.
+                  description: Postgres roles/groups this role should be granted membership in.
                   items:
                     type: object
                     required:

@@ -46,14 +46,15 @@ spec:
               },
           }
 
-
           def slugify(name):
               # Sanitizes a Postgres identifier into a valid Kubernetes object name.
               return name.replace("_", "-").lower()
 
 
-          def resolve_role_name(role_name, database_name):
-              return role_name or f"{database_name}-app"
+          def resolve_role_name(role_name, xr_name):
+              # xr_name is already namespace-unique, so it can't collide the way a
+              # databaseName-derived default could across multiple claims.
+              return role_name or xr_name
 
 
           def admin_credentials_secret_name(instance_name):
@@ -147,13 +148,14 @@ spec:
           def compose(req: fnv1.RunFunctionRequest, rsp: fnv1.RunFunctionResponse):
               # observed.composite.resource is a raw protobuf Struct: [] works, .get() doesn't.
               xr = resource.struct_to_dict(req.observed.composite.resource)
+              xr_name = xr["metadata"]["name"]
               namespace = xr["metadata"]["namespace"]
               target = xr["spec"]["target"]
               target_api_version = target["apiVersion"]
               target_kind = target["kind"]
               instance_name = target["name"]
               database_name = xr["spec"].get("databaseName")
-              role_name = resolve_role_name(xr["spec"].get("roleName"), database_name)
+              role_name = resolve_role_name(xr["spec"].get("roleName"), xr_name)
               role_slug = slugify(role_name)
               grants = xr["spec"].get("grants", [])
               facts = DRIVER_FACTS[target_kind]

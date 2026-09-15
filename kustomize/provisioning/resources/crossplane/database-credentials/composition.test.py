@@ -66,13 +66,13 @@ class SlugifyTests(unittest.TestCase):
 class ResolveRoleNameTests(unittest.TestCase):
     def test_explicit_role_name_wins(self):
         self.assertEqual(
-            composition.resolve_role_name("demo-db-monitor", "demo"),
-            "demo-db-monitor",
+            composition.resolve_role_name("monitor", "demo-db-monitor"),
+            "monitor",
         )
 
-    def test_defaults_to_database_name_app_suffix(self):
+    def test_defaults_to_the_claims_own_name(self):
         self.assertEqual(
-            composition.resolve_role_name(None, "demo"), "demo-app"
+            composition.resolve_role_name(None, "demo-app"), "demo-app"
         )
 
 
