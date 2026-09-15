@@ -97,6 +97,16 @@ cases:
                 - apiVersion: rds.aws.upbound.io/v1beta3
                   kind: Instance
                   current: status.conditions.exists(e, e.type == 'Ready' && e.status == 'True')
+            - name: credentials
+              dependsOn:
+                - demo-resources
+              timeout: 10m
+              interval: 5m
+              components:
+                - database/rds/credentials
+              substitutions:
+                demo_database_name: demo
+              healthCheckExprs:
                 - apiVersion: database.windsorcli.dev/v1alpha1
                   kind: DatabaseCredentials
                   current: status.conditions.exists(e, e.type == 'Ready' && e.status == 'True')
@@ -187,7 +197,6 @@ cases:
                 flexibleserver_subnet_id: /subscriptions/sub/resourceGroups/rg/providers/Microsoft.Network/virtualNetworks/vnet-test/subnets/flexibleserver-test
                 flexibleserver_private_dns_zone_id: /subscriptions/sub/resourceGroups/test-postgres/providers/Microsoft.Network/privateDnsZones/test.postgres.database.azure.com
                 flexibleserver_region: eastus2
-                demo_database_name: demo
                 context_id: test1
               healthCheckExprs:
                 - apiVersion: dbforpostgresql.azure.upbound.io/v1beta1
@@ -196,6 +205,17 @@ cases:
                 - apiVersion: dbforpostgresql.azure.upbound.io/v1beta1
                   kind: FlexibleServerDatabase
                   current: status.conditions.exists(e, e.type == 'Ready' && e.status == 'True')
+            - name: credentials
+              dependsOn:
+                - demo-resources
+              timeout: 10m
+              interval: 5m
+              components:
+                - database/flexibleserver/credentials
+              substitutions:
+                demo_database_name: demo
+                context_id: test1
+              healthCheckExprs:
                 - apiVersion: database.windsorcli.dev/v1alpha1
                   kind: DatabaseCredentials
                   current: status.conditions.exists(e, e.type == 'Ready' && e.status == 'True')
@@ -250,7 +270,6 @@ cases:
                 cloudsql_network_id: projects/windsor-test/global/networks/vpc-test
                 cloudsql_kms_key_name: projects/windsor-test/locations/us-central1/keyRings/cloudsql-test/cryptoKeys/cloudsql-test
                 cloudsql_region: us-central1
-                demo_database_name: demo
               healthCheckExprs:
                 - apiVersion: sql.gcp.upbound.io/v1beta2
                   kind: DatabaseInstance
@@ -258,9 +277,16 @@ cases:
                 - apiVersion: sql.gcp.upbound.io/v1beta1
                   kind: Database
                   current: status.conditions.exists(e, e.type == 'Ready' && e.status == 'True')
-                - apiVersion: sql.gcp.upbound.io/v1beta2
-                  kind: User
-                  current: status.conditions.exists(e, e.type == 'Ready' && e.status == 'True')
+            - name: credentials
+              dependsOn:
+                - demo-resources
+              timeout: 10m
+              interval: 5m
+              components:
+                - database/cloudsql/credentials
+              substitutions:
+                demo_database_name: demo
+              healthCheckExprs:
                 - apiVersion: database.windsorcli.dev/v1alpha1
                   kind: DatabaseCredentials
                   current: status.conditions.exists(e, e.type == 'Ready' && e.status == 'True')

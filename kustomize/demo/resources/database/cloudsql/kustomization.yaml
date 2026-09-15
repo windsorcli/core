@@ -3,5 +3,3 @@ kind: Component
 resources:
   - database-instance.yaml
   - database.yaml
-  - app-credentials.yaml
-  - monitor-credentials.yaml

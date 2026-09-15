@@ -41,10 +41,10 @@ flux:
         timeout: 10m
         interval: 5m
 
-  # rds driver: shared namespace, the Instance CR, and its credentials.
-  # Crossplane's own Role/ProviderConfig reconcile retries independently of
-  # Flux apply order, so credentials don't need to wait on the Instance's
-  # own Ready condition here — the Composition already defers internally.
+  # rds driver: shared namespace, the Instance CR, and its credentials as a
+  # named variant. Its own dependsOn on the unnamed variant makes Flux
+  # delete it first, dropping the Role/Grant while the Instance still
+  # answers connections.
   - name: demo
     path: demo
     when: demo.resources.database == true && database.postgres.driver == 'rds'
@@ -65,14 +65,27 @@ flux:
           - apiVersion: rds.aws.upbound.io/v1beta3
             kind: Instance
             current: status.conditions.exists(e, e.type == 'Ready' && e.status == 'True')
+        timeout: 30m
+        interval: 5m
+      - name: credentials
+        dependsOn:
+          - demo-resources
+        components:
+          - database/rds/credentials
+        substitutions:
+          demo_database_name: "${demo_database_name}"
+        healthCheckExprs:
           - apiVersion: database.windsorcli.dev/v1alpha1
             kind: DatabaseCredentials
             current: status.conditions.exists(e, e.type == 'Ready' && e.status == 'True')
-        timeout: 30m
+        timeout: 10m
         interval: 5m
 
   # flexibleserver driver: shared namespace, the FlexibleServer +
-  # FlexibleServerDatabase CRs, and its credentials — Azure twin of rds.
+  # FlexibleServerDatabase CRs, and its credentials as a named variant —
+  # Azure twin of rds. Its own dependsOn on the unnamed variant makes Flux
+  # delete it first, dropping the Role/Grant while the server still
+  # answers connections.
   - name: demo
     path: demo
     when: demo.resources.database == true && database.postgres.driver == 'flexibleserver'
@@ -86,7 +99,6 @@ flux:
           flexibleserver_subnet_id: "${terraform_output('network', 'flexibleserver_subnet_id') ?? ''}"
           flexibleserver_private_dns_zone_id: "${terraform_output('database', 'private_dns_zone_id') ?? ''}"
           flexibleserver_region: "${terraform_output('network', 'region') ?? ''}"
-          demo_database_name: "${demo_database_name}"
           context_id: ${id}
         healthCheckExprs:
           - apiVersion: dbforpostgresql.azure.upbound.io/v1beta1
@@ -96,15 +108,28 @@ flux:
           - apiVersion: dbforpostgresql.azure.upbound.io/v1beta1
             kind: FlexibleServerDatabase
             current: status.conditions.exists(e, e.type == 'Ready' && e.status == 'True')
-          - apiVersion: database.windsorcli.dev/v1alpha1
-            kind: DatabaseCredentials
-            current: status.conditions.exists(e, e.type == 'Ready' && e.status == 'True')
         # Gated on the FlexibleServer's own Ready condition, not the CR apply.
         timeout: 30m
         interval: 5m
+      - name: credentials
+        dependsOn:
+          - demo-resources
+        components:
+          - database/flexibleserver/credentials
+        substitutions:
+          demo_database_name: "${demo_database_name}"
+          context_id: ${id}
+        healthCheckExprs:
+          - apiVersion: database.windsorcli.dev/v1alpha1
+            kind: DatabaseCredentials
+            current: status.conditions.exists(e, e.type == 'Ready' && e.status == 'True')
+        timeout: 10m
+        interval: 5m
 
-  # cloudsql driver: shared namespace, the DatabaseInstance + User +
-  # Database CRs, and its credentials — GCP twin of rds/flexibleserver.
+  # cloudsql driver: shared namespace, the DatabaseInstance + Database CRs,
+  # and its credentials as a named variant — GCP twin of rds/flexibleserver.
+  # Its own dependsOn on the unnamed variant makes Flux delete it first,
+  # dropping the Role/Grant while the instance still answers connections.
   - name: demo
     path: demo
     when: demo.resources.database == true && database.postgres.driver == 'cloudsql'
@@ -119,24 +144,30 @@ flux:
           cloudsql_network_id: "${terraform_output('network', 'network_id') ?? ''}"
           cloudsql_kms_key_name: "${terraform_output('database', 'kms_key_name') ?? ''}"
           cloudsql_region: "${terraform_output('network', 'region') ?? ''}"
-          demo_database_name: "${demo_database_name}"
         healthCheckExprs:
           - apiVersion: sql.gcp.upbound.io/v1beta2
             kind: DatabaseInstance
             current: status.conditions.exists(e, e.type == 'Ready' && e.status == 'True')
-          # Database and User are the CRs that actually create the database and admin user.
+          # Database is the CR that actually creates the database.
           - apiVersion: sql.gcp.upbound.io/v1beta1
             kind: Database
-            current: status.conditions.exists(e, e.type == 'Ready' && e.status == 'True')
-          - apiVersion: sql.gcp.upbound.io/v1beta2
-            kind: User
-            current: status.conditions.exists(e, e.type == 'Ready' && e.status == 'True')
-          - apiVersion: database.windsorcli.dev/v1alpha1
-            kind: DatabaseCredentials
             current: status.conditions.exists(e, e.type == 'Ready' && e.status == 'True')
         # Gated on the DatabaseInstance's own Ready condition, not the CR
         # apply. A db-f1-micro instance takes ~9m to go Ready.
         timeout: 30m
+        interval: 5m
+      - name: credentials
+        dependsOn:
+          - demo-resources
+        components:
+          - database/cloudsql/credentials
+        substitutions:
+          demo_database_name: "${demo_database_name}"
+        healthCheckExprs:
+          - apiVersion: database.windsorcli.dev/v1alpha1
+            kind: DatabaseCredentials
+            current: status.conditions.exists(e, e.type == 'Ready' && e.status == 'True')
+        timeout: 10m
         interval: 5m
 
   # Core-owned, driver-agnostic — not part of the demo's own database/
