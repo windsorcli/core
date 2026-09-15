@@ -344,10 +344,18 @@ resource "null_resource" "kubeconfig" {
 
   triggers = {
     cluster_id = google_container_cluster.this.id
+    os_type    = var.os_type
   }
 
   provisioner "local-exec" {
-    command = "gcloud container clusters get-credentials ${google_container_cluster.this.name} --region ${var.region} --project ${var.project_id}"
+    interpreter = var.os_type == "windows" ? ["PowerShell", "-Command"] : ["/bin/sh", "-c"]
+    # Deletes any existing file first so gcloud can't merge onto a stale
+    # current-context left by a prior cluster at the same path.
+    command = var.os_type == "windows" ? (
+      "Remove-Item -Force -ErrorAction SilentlyContinue '${local.kubeconfig_path}'; gcloud container clusters get-credentials ${google_container_cluster.this.name} --region ${var.region} --project ${var.project_id}"
+      ) : (
+      "rm -f '${local.kubeconfig_path}'; gcloud container clusters get-credentials ${google_container_cluster.this.name} --region ${var.region} --project ${var.project_id}"
+    )
     environment = {
       KUBECONFIG = local.kubeconfig_path
     }

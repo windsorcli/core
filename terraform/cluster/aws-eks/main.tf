@@ -1162,8 +1162,4 @@ resource "local_sensitive_file" "kubeconfig" {
   })
   filename        = local.kubeconfig_path
   file_permission = "0600"
-
-  lifecycle {
-    ignore_changes = [content]
-  }
 }

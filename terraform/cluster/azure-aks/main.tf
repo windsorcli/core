@@ -640,10 +640,18 @@ resource "null_resource" "kubeconfig" {
 
   triggers = {
     cluster_id = azurerm_kubernetes_cluster.main.id
+    os_type    = var.os_type
   }
 
   provisioner "local-exec" {
-    command = "az aks get-credentials --resource-group ${azurerm_kubernetes_cluster.main.resource_group_name} --name ${azurerm_kubernetes_cluster.main.name} --file ${local.kubeconfig_path} --overwrite-existing --only-show-errors"
+    interpreter = var.os_type == "windows" ? ["PowerShell", "-Command"] : ["/bin/sh", "-c"]
+    # Deletes any existing file first so az can't merge onto a stale
+    # current-context left by a prior cluster at the same path.
+    command = var.os_type == "windows" ? (
+      "Remove-Item -Force -ErrorAction SilentlyContinue '${local.kubeconfig_path}'; az aks get-credentials --resource-group ${azurerm_kubernetes_cluster.main.resource_group_name} --name ${azurerm_kubernetes_cluster.main.name} --file ${local.kubeconfig_path} --only-show-errors"
+      ) : (
+      "rm -f '${local.kubeconfig_path}'; az aks get-credentials --resource-group ${azurerm_kubernetes_cluster.main.resource_group_name} --name ${azurerm_kubernetes_cluster.main.name} --file ${local.kubeconfig_path} --only-show-errors"
+    )
   }
 }
 
