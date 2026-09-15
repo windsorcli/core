@@ -38,6 +38,8 @@ flux:
       - components:
           - database
           - database/cloudnativepg
+        substitutions:
+          demo_database_name: "${demo_database_name}"
         timeout: 10m
         interval: 5m
 

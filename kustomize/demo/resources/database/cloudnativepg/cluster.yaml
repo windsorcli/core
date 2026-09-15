@@ -6,6 +6,9 @@ metadata:
   namespace: demo-database
 spec:
   instances: 2
+  bootstrap:
+    initdb:
+      database: ${demo_database_name}
   postgresql:
     parameters:
       max_connections: "100"

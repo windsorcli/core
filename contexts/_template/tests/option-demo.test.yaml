@@ -49,6 +49,8 @@ cases:
               components:
                 - database
                 - database/cloudnativepg
+              substitutions:
+                demo_database_name: demo
 
   # rds driver: creates an Instance CR.
   # dbSubnetGroupName/kmsKeyId read the real terraform outputs directly.
