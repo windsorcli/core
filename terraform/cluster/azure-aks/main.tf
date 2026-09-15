@@ -46,6 +46,7 @@ data "azurerm_subscription" "current" {}
 
 locals {
   kubeconfig_path          = "${var.context_path}/.kube/config"
+  kubeconfig_tmp_path      = "${local.kubeconfig_path}.tmp"
   rg_name                  = var.resource_group_name == null ? "${var.name}-${var.context_id}" : var.resource_group_name
   cluster_name             = var.cluster_name == null ? "${var.name}-${var.context_id}" : var.cluster_name
   node_resource_group_name = split("/", azurerm_kubernetes_cluster.main.node_resource_group_id)[4]
@@ -645,12 +646,13 @@ resource "null_resource" "kubeconfig" {
 
   provisioner "local-exec" {
     interpreter = var.os_type == "windows" ? ["PowerShell", "-Command"] : ["/bin/sh", "-c"]
-    # Deletes any existing file first so az can't merge onto a stale
-    # current-context left by a prior cluster at the same path.
+    # Writes into a temp file and only replaces the real one on success, so
+    # az can't merge onto a stale current-context, and a failed fetch never
+    # leaves the path with no kubeconfig at all.
     command = var.os_type == "windows" ? (
-      "Remove-Item -Force -ErrorAction SilentlyContinue '${local.kubeconfig_path}'; az aks get-credentials --resource-group ${azurerm_kubernetes_cluster.main.resource_group_name} --name ${azurerm_kubernetes_cluster.main.name} --file ${local.kubeconfig_path} --only-show-errors"
+      "Remove-Item -Force -ErrorAction SilentlyContinue '${local.kubeconfig_tmp_path}'; az aks get-credentials --resource-group ${azurerm_kubernetes_cluster.main.resource_group_name} --name ${azurerm_kubernetes_cluster.main.name} --file ${local.kubeconfig_tmp_path} --only-show-errors; if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }; Move-Item -Force '${local.kubeconfig_tmp_path}' '${local.kubeconfig_path}'"
       ) : (
-      "rm -f '${local.kubeconfig_path}'; az aks get-credentials --resource-group ${azurerm_kubernetes_cluster.main.resource_group_name} --name ${azurerm_kubernetes_cluster.main.name} --file ${local.kubeconfig_path} --only-show-errors"
+      "rm -f '${local.kubeconfig_tmp_path}'; az aks get-credentials --resource-group ${azurerm_kubernetes_cluster.main.resource_group_name} --name ${azurerm_kubernetes_cluster.main.name} --file ${local.kubeconfig_tmp_path} --only-show-errors && mv -f '${local.kubeconfig_tmp_path}' '${local.kubeconfig_path}'"
     )
   }
 }

@@ -25,8 +25,9 @@ terraform {
 #---------------------------------------------------------------------------------------------------
 
 locals {
-  cluster_name    = var.cluster_name != "" ? var.cluster_name : "${var.name}-${var.context_id}"
-  kubeconfig_path = "${var.context_path}/.kube/config"
+  cluster_name        = var.cluster_name != "" ? var.cluster_name : "${var.name}-${var.context_id}"
+  kubeconfig_path     = "${var.context_path}/.kube/config"
+  kubeconfig_tmp_path = "${local.kubeconfig_path}.tmp"
 }
 
 #---------------------------------------------------------------------------------------------------
@@ -349,16 +350,14 @@ resource "null_resource" "kubeconfig" {
 
   provisioner "local-exec" {
     interpreter = var.os_type == "windows" ? ["PowerShell", "-Command"] : ["/bin/sh", "-c"]
-    # Deletes any existing file first so gcloud can't merge onto a stale
-    # current-context left by a prior cluster at the same path.
+    # Writes into a temp file and only replaces the real one on success, so
+    # gcloud can't merge onto a stale current-context, and a failed fetch
+    # never leaves the path with no kubeconfig at all.
     command = var.os_type == "windows" ? (
-      "Remove-Item -Force -ErrorAction SilentlyContinue '${local.kubeconfig_path}'; gcloud container clusters get-credentials ${google_container_cluster.this.name} --region ${var.region} --project ${var.project_id}"
+      "Remove-Item -Force -ErrorAction SilentlyContinue '${local.kubeconfig_tmp_path}'; $env:KUBECONFIG = '${local.kubeconfig_tmp_path}'; gcloud container clusters get-credentials ${google_container_cluster.this.name} --region ${var.region} --project ${var.project_id}; if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }; Move-Item -Force '${local.kubeconfig_tmp_path}' '${local.kubeconfig_path}'"
       ) : (
-      "rm -f '${local.kubeconfig_path}'; gcloud container clusters get-credentials ${google_container_cluster.this.name} --region ${var.region} --project ${var.project_id}"
+      "rm -f '${local.kubeconfig_tmp_path}'; KUBECONFIG='${local.kubeconfig_tmp_path}' gcloud container clusters get-credentials ${google_container_cluster.this.name} --region ${var.region} --project ${var.project_id} && mv -f '${local.kubeconfig_tmp_path}' '${local.kubeconfig_path}'"
     )
-    environment = {
-      KUBECONFIG = local.kubeconfig_path
-    }
   }
 }
 
