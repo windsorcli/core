@@ -25,27 +25,21 @@ spec:
           from crossplane.function import request, resource, response
           from crossplane.function.proto.v1 import run_function_pb2 as fnv1
 
-          # apiVersion, kind, and field names for each supported driver.
+          # Field conventions for each supported target kind.
           ORPHAN_POLICIES = ["Observe", "Create", "Update", "LateInitialize"]
 
           DRIVER_FACTS = {
-              "rds": {
-                  "apiVersion": "rds.aws.upbound.io/v1beta3",
-                  "kind": "Instance",
+              "Instance": {
                   "endpointField": "address",
                   "usernameField": "username",
                   "usernameFromSecret": False,
               },
-              "flexibleserver": {
-                  "apiVersion": "dbforpostgresql.azure.upbound.io/v1beta1",
-                  "kind": "FlexibleServer",
+              "FlexibleServer": {
                   "endpointField": "fqdn",
                   "usernameField": "administratorLogin",
                   "usernameFromSecret": False,
               },
-              "cloudsql": {
-                  "apiVersion": "sql.gcp.upbound.io/v1beta2",
-                  "kind": "DatabaseInstance",
+              "DatabaseInstance": {
                   "endpointField": "privateIpAddress",
                   "usernameField": "username",
                   "usernameFromSecret": True,
@@ -96,7 +90,7 @@ spec:
               }
 
 
-          def build_role(role_name, role_slug, namespace, instance_name):
+          def build_role(role_name, role_slug, namespace, instance_name, secret_name):
               # external-name annotation holds the real Postgres role name.
               return {
                   "apiVersion": "postgresql.sql.m.crossplane.io/v1alpha1",
@@ -110,7 +104,7 @@ spec:
                       "managementPolicies": ORPHAN_POLICIES,
                       "providerConfigRef": {"kind": "ProviderConfig", "name": f"provider-sql-{instance_name}"},
                       "forProvider": {"privileges": {"login": True}},
-                      "writeConnectionSecretToRef": {"name": f"{role_slug}-credentials"},
+                      "writeConnectionSecretToRef": {"name": secret_name},
                   },
               }
 
@@ -131,9 +125,9 @@ spec:
               return grant_slug, grant
 
 
-          def build_status(role_name, role_slug, namespace, database_name):
+          def build_status(role_name, namespace, database_name, secret_name):
               status = {
-                  "connectionSecretRef": {"name": f"{role_slug}-credentials", "namespace": namespace},
+                  "connectionSecretRef": {"name": secret_name, "namespace": namespace},
                   "roleName": role_name,
               }
               if database_name:
@@ -154,40 +148,47 @@ spec:
               # observed.composite.resource is a raw protobuf Struct: [] works, .get() doesn't.
               xr = resource.struct_to_dict(req.observed.composite.resource)
               namespace = xr["metadata"]["namespace"]
-              driver = xr["spec"]["driver"]
-              instance_name = xr["spec"]["instanceName"]
+              target = xr["spec"]["target"]
+              target_api_version = target["apiVersion"]
+              target_kind = target["kind"]
+              instance_name = target["name"]
               database_name = xr["spec"].get("databaseName")
               role_name = resolve_role_name(xr["spec"].get("roleName"), database_name)
               role_slug = slugify(role_name)
               grants = xr["spec"].get("grants", [])
-              facts = DRIVER_FACTS[driver]
-              admin_secret_name = admin_credentials_secret_name(instance_name)
+              facts = DRIVER_FACTS[target_kind]
+
+              admin_secret_ref = xr["spec"].get("adminSecretRef") or {}
+              admin_secret_name = admin_secret_ref.get("name") or admin_credentials_secret_name(instance_name)
+              admin_secret_namespace = admin_secret_ref.get("namespace") or "system-database"
+
+              secret_name = xr["spec"].get("secretName") or f"{role_slug}-credentials"
 
               response.require_resources(
-                  rsp, name="instance", api_version=facts["apiVersion"],
-                  kind=facts["kind"], match_name=instance_name,
+                  rsp, name="instance", api_version=target_api_version,
+                  kind=target_kind, match_name=instance_name,
               )
               response.require_resources(
                   rsp, name="admin-credentials", api_version="v1", kind="Secret",
-                  match_name=admin_secret_name, namespace="system-database",
+                  match_name=admin_secret_name, namespace=admin_secret_namespace,
               )
 
               instance = request.get_required_resource(req, "instance")
               admin_secret = request.get_required_resource(req, "admin-credentials")
               if instance is None:
-                  response.warning(rsp, f"waiting for {facts['kind']}/{instance_name}")
+                  response.warning(rsp, f"waiting for {target_kind}/{instance_name}")
                   return
               if admin_secret is None:
-                  response.warning(rsp, f"waiting for Secret/{admin_secret_name} in system-database")
+                  response.warning(rsp, f"waiting for Secret/{admin_secret_name} in {admin_secret_namespace}")
                   return
 
               if resource.get_condition(instance, "Ready").status != "True":
-                  response.warning(rsp, f"waiting for {facts['kind']}/{instance_name} to become Ready")
+                  response.warning(rsp, f"waiting for {target_kind}/{instance_name} to become Ready")
                   return
 
               password_b64 = admin_secret.get("data", {}).get("password")
               if not password_b64:
-                  response.warning(rsp, f"Secret/{admin_secret_name} in system-database has no password key yet")
+                  response.warning(rsp, f"Secret/{admin_secret_name} in {admin_secret_namespace} has no password key yet")
                   return
               admin_password = base64.b64decode(password_b64).decode()
 
@@ -208,7 +209,7 @@ spec:
               # ProviderConfig has no status.conditions to check.
               rsp.desired.resources["provider-config"].ready = True
 
-              rsp.desired.resources["role"].resource.update(build_role(role_name, role_slug, namespace, instance_name))
+              rsp.desired.resources["role"].resource.update(build_role(role_name, role_slug, namespace, instance_name, secret_name))
               if is_ready(req, "role"):
                   rsp.desired.resources["role"].ready = True
 
@@ -219,7 +220,7 @@ spec:
                   if is_ready(req, grant_key):
                       rsp.desired.resources[grant_key].ready = True
 
-              status = build_status(role_name, role_slug, namespace, database_name)
+              status = build_status(role_name, namespace, database_name, secret_name)
               # rsp.desired.composite.resource is a raw Struct: [] and .update() work, .get()/.setdefault() don't.
               if "status" not in rsp.desired.composite.resource:
                   rsp.desired.composite.resource["status"] = {}

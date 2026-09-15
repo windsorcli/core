@@ -87,7 +87,11 @@ class AdminCredentialsSecretNameTests(unittest.TestCase):
 class BuildRoleTests(unittest.TestCase):
     def test_k8s_name_sanitized_external_name_keeps_real_role(self):
         role = composition.build_role(
-            "demo_monitor", "demo-monitor", "demo-database", "demo-db"
+            "demo_monitor",
+            "demo-monitor",
+            "demo-database",
+            "demo-db",
+            "demo-monitor-credentials",
         )
         self.assertEqual(role["metadata"]["name"], "demo-monitor")
         self.assertEqual(
@@ -99,9 +103,21 @@ class BuildRoleTests(unittest.TestCase):
             "demo-monitor-credentials",
         )
 
+    def test_writes_to_the_given_secret_name(self):
+        role = composition.build_role(
+            "demo-app", "demo-app", "demo-database", "demo-db", "custom-name"
+        )
+        self.assertEqual(
+            role["spec"]["writeConnectionSecretToRef"]["name"], "custom-name"
+        )
+
     def test_uses_orphan_management_policies(self):
         role = composition.build_role(
-            "demo-app", "demo-app", "demo-database", "demo-db"
+            "demo-app",
+            "demo-app",
+            "demo-database",
+            "demo-db",
+            "demo-app-credentials",
         )
         self.assertEqual(
             role["spec"]["managementPolicies"], composition.ORPHAN_POLICIES
@@ -132,7 +148,7 @@ class BuildGrantTests(unittest.TestCase):
 class BuildStatusTests(unittest.TestCase):
     def test_includes_database_name_when_set(self):
         status = composition.build_status(
-            "demo-app", "demo-app", "demo-database", "demo"
+            "demo-app", "demo-database", "demo", "demo-app-credentials"
         )
         self.assertEqual(status["databaseName"], "demo")
         self.assertEqual(
@@ -142,16 +158,25 @@ class BuildStatusTests(unittest.TestCase):
 
     def test_omits_database_name_when_unset(self):
         status = composition.build_status(
-            "demo-db-monitor", "demo-db-monitor", "system-database", None
+            "demo-db-monitor",
+            "system-database",
+            None,
+            "demo-db-monitor-credentials",
         )
         self.assertNotIn("databaseName", status)
 
+    def test_uses_the_given_secret_name(self):
+        status = composition.build_status(
+            "demo-app", "demo-database", "demo", "custom-name"
+        )
+        self.assertEqual(status["connectionSecretRef"]["name"], "custom-name")
+
 
 class DriverFactsTests(unittest.TestCase):
-    def test_every_xrd_driver_enum_value_has_facts(self):
-        # Keep in sync with xrd.yaml's spec.driver enum.
-        for driver in ("rds", "flexibleserver", "cloudsql"):
-            self.assertIn(driver, composition.DRIVER_FACTS)
+    def test_every_xrd_target_kind_has_facts(self):
+        # Keep in sync with xrd.yaml's spec.target.kind enum.
+        for kind in ("Instance", "FlexibleServer", "DatabaseInstance"):
+            self.assertIn(kind, composition.DRIVER_FACTS)
 
 
 if __name__ == "__main__":

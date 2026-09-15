@@ -21,8 +21,7 @@ spec:
             spec:
               type: object
               required:
-                - driver
-                - instanceName
+                - target
               x-kubernetes-validations:
                 - rule: "has(self.roleName) || has(self.databaseName)"
                   message: "roleName is required when databaseName is not set"
@@ -33,16 +32,38 @@ spec:
                     - postgres
                   default: postgres
                   description: Database engine. Only postgres exists today.
-                driver:
+                target:
+                  type: object
+                  required:
+                    - apiVersion
+                    - kind
+                    - name
+                  description: Reference to the already-created Instance/FlexibleServer/DatabaseInstance CR this role is provisioned against.
+                  properties:
+                    apiVersion:
+                      type: string
+                      description: apiVersion of the referenced instance CR.
+                    kind:
+                      type: string
+                      enum:
+                        - Instance
+                        - FlexibleServer
+                        - DatabaseInstance
+                      description: Kind of the referenced instance CR. Selects which provider's field conventions apply.
+                    name:
+                      type: string
+                      description: Name of the referenced instance CR.
+                adminSecretRef:
+                  type: object
+                  description: Reference to the Secret holding target's admin username/password. Defaults to a Secret named "<target.name>-admin-credentials" in system-database.
+                  properties:
+                    name:
+                      type: string
+                    namespace:
+                      type: string
+                secretName:
                   type: string
-                  enum:
-                    - rds
-                    - flexibleserver
-                    - cloudsql
-                  description: Same enum as database.postgres.driver. Selects which Crossplane provider owns the referenced instance.
-                instanceName:
-                  type: string
-                  description: Name of the already-created Instance/FlexibleServer/DatabaseInstance CR. Its admin credentials must exist as Secret "<instanceName>-admin-credentials" in system-database.
+                  description: Name of the generated connection Secret, in this object's own namespace. Defaults to "<role name>-credentials".
                 roleName:
                   type: string
                   description: Postgres role name. Defaults to "<databaseName>-app" when databaseName is set.
