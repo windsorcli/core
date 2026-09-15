@@ -107,6 +107,7 @@ cases:
               interval: 5m
               components:
                 - database/rds/credentials
+                - database/rds/monitor
               substitutions:
                 demo_database_name: demo
                 database_instance_name: demo-db
@@ -115,21 +116,10 @@ cases:
                 - apiVersion: database.windsorcli.dev/v1alpha1
                   kind: DatabaseCredentials
                   current: status.conditions.exists(e, e.type == 'Ready' && e.status == 'True')
-        - name: monitoring-exporter
-          path: database
-          resources:
-            - timeout: 5m
-              interval: 5m
-              components:
-                - crossplane/postgres/monitoring-exporter
-              substitutions:
-                pg_exporter_name: demo-db
-                pg_monitor_secret_name: demo-db-monitor-credentials
-                database_instance_name: demo-db
 
-  # database/<driver> always bundles its credentials; only monitoring-exporter's
-  # own Kustomization is gated on telemetry.metrics.enabled.
-  - name: demo mode with rds driver excludes monitoring-exporter when metrics disabled
+  # database/<driver> always bundles its app credentials; only the monitor
+  # component is gated on telemetry.metrics.enabled.
+  - name: demo mode with rds driver excludes the monitor component when metrics disabled
     values:
       platform: aws
       aws:
@@ -162,9 +152,16 @@ cases:
             - components:
                 - database
                 - database/rds
+            - name: credentials
+              components:
+                - database/rds/credentials
     exclude:
       flux:
-        - name: monitoring-exporter
+        - name: demo
+          resources:
+            - name: credentials
+              components:
+                - database/rds/monitor
           path: database
 
   - name: demo mode with flexibleserver driver creates demo flexibleserver instance
@@ -219,6 +216,7 @@ cases:
               interval: 5m
               components:
                 - database/flexibleserver/credentials
+                - database/flexibleserver/monitor
               substitutions:
                 demo_database_name: demo
                 database_instance_name: demo-db-test1
@@ -227,17 +225,6 @@ cases:
                 - apiVersion: database.windsorcli.dev/v1alpha1
                   kind: DatabaseCredentials
                   current: status.conditions.exists(e, e.type == 'Ready' && e.status == 'True')
-        - name: monitoring-exporter
-          path: database
-          resources:
-            - timeout: 5m
-              interval: 5m
-              components:
-                - crossplane/postgres/monitoring-exporter
-              substitutions:
-                pg_exporter_name: demo-db
-                pg_monitor_secret_name: demo-db-test1-monitor-credentials
-                database_instance_name: demo-db-test1
 
   # cloudsql driver: creates a DatabaseInstance + User + Database CR trio.
   # GCP twin of the rds/flexibleserver cases above. network_id/kms_key_name
@@ -295,6 +282,7 @@ cases:
               interval: 5m
               components:
                 - database/cloudsql/credentials
+                - database/cloudsql/monitor
               substitutions:
                 demo_database_name: demo
                 database_instance_name: demo-db
@@ -303,17 +291,6 @@ cases:
                 - apiVersion: database.windsorcli.dev/v1alpha1
                   kind: DatabaseCredentials
                   current: status.conditions.exists(e, e.type == 'Ready' && e.status == 'True')
-        - name: monitoring-exporter
-          path: database
-          resources:
-            - timeout: 5m
-              interval: 5m
-              components:
-                - crossplane/postgres/monitoring-exporter
-              substitutions:
-                pg_exporter_name: demo-db
-                pg_monitor_secret_name: demo-db-monitor-credentials
-                database_instance_name: demo-db
 
   # database.postgres.encryption.managed adds the encryption-key component,
   # setting encryptionKeyName only when a real key exists.

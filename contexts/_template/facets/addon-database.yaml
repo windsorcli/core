@@ -194,6 +194,7 @@ flux:
           - crossplane/function-python
           - crossplane/database-credentials
           - "${database.postgres.driver == 'cloudsql' ? 'crossplane/gcp-admin-password' : ''}"
+          - "${(telemetry.metrics.enabled ?? true) ? 'crossplane/postgres-exporter' : ''}"
         healthCheckExprs:
           - apiVersion: pkg.crossplane.io/v1
             kind: Provider

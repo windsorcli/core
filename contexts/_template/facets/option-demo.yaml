@@ -27,8 +27,10 @@ config:
 # Sample apps reconciled onto the running cluster, a resources-only system.
 # Each demo.resources.* flag toggles one app. database adds a shared
 # namespace plus a driver variant (cloudnativepg, rds, flexibleserver, or
-# cloudsql), bundling that driver's own credentials. dependsOn follows
-# whichever operator owns the active driver.
+# cloudsql), bundling that driver's own credentials. Granting pg_monitor on
+# the monitor credential provisions its own exporter automatically, via
+# the postgres-exporter WatchOperation rather than a facet component.
+# dependsOn follows whichever operator owns the active driver.
 #
 # The three managed drivers read their own terraform outputs directly
 # below; a third-party chart, with no Flux substitution access, has to
@@ -81,6 +83,7 @@ flux:
           - demo-resources
         components:
           - database/rds/credentials
+          - "${(telemetry.metrics.enabled ?? true) ? 'database/rds/monitor' : ''}"
         substitutions:
           demo_database_name: "${demo_database_name}"
           database_instance_name: "${database_instance_name}"
@@ -123,6 +126,7 @@ flux:
           - demo-resources
         components:
           - database/flexibleserver/credentials
+          - "${(telemetry.metrics.enabled ?? true) ? 'database/flexibleserver/monitor' : ''}"
         substitutions:
           demo_database_name: "${demo_database_name}"
           database_instance_name: "${database_instance_name}"
@@ -167,6 +171,7 @@ flux:
           - demo-resources
         components:
           - database/cloudsql/credentials
+          - "${(telemetry.metrics.enabled ?? true) ? 'database/cloudsql/monitor' : ''}"
         substitutions:
           demo_database_name: "${demo_database_name}"
           database_instance_name: "${database_instance_name}"
@@ -176,23 +181,6 @@ flux:
             kind: DatabaseCredentials
             current: status.conditions.exists(e, e.type == 'Ready' && e.status == 'True')
         timeout: 10m
-        interval: 5m
-
-  # Core-owned, driver-agnostic — not part of the demo's own database/
-  # tree. Its Deployment waits on the monitor credential Secret the same
-  # way any Kubernetes workload waits on a Secret, no Flux dependsOn needed.
-  - name: monitoring-exporter
-    path: database
-    when: demo.resources.database == true && (database.postgres.driver == 'rds' || database.postgres.driver == 'flexibleserver' || database.postgres.driver == 'cloudsql') && (telemetry.metrics.enabled ?? true)
-    resources:
-      - components:
-          - crossplane/postgres/monitoring-exporter
-        substitutions:
-          # The component is generic; only these values are demo-specific.
-          pg_exporter_name: demo-db
-          pg_monitor_secret_name: "${demo_monitor_secret_name}"
-          database_instance_name: "${database_instance_name}"
-        timeout: 5m
         interval: 5m
 
   # static and bookinfo carry no database dependency.
