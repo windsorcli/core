@@ -4,6 +4,12 @@ variable "context_id" {
   default     = ""
 }
 
+variable "operation" {
+  description = "Windsor-supplied operation context: \"apply\" or \"destroy\". Relaxes validation on inputs wired from sibling components, whose values are irrelevant to a delete."
+  type        = string
+  default     = "apply"
+}
+
 variable "manage_encryption_key" {
   description = "Whether to create a dedicated KMS key for RDS storage encryption. False falls back to the account's AWS-managed default key."
   type        = bool
@@ -25,7 +31,7 @@ variable "vpc_id" {
   type        = string
   default     = null
   validation {
-    condition     = var.vpc_id != null
+    condition     = var.operation == "destroy" || var.vpc_id != null
     error_message = "vpc_id is required; pipe network/aws-vpc's vpc_id output, e.g. inputs.vpc_id = terraform_output('network', 'vpc_id') in the platform-aws facet."
   }
 }
@@ -35,7 +41,7 @@ variable "cluster_security_group_id" {
   type        = string
   default     = null
   validation {
-    condition     = var.cluster_security_group_id != null
+    condition     = var.operation == "destroy" || var.cluster_security_group_id != null
     error_message = "cluster_security_group_id is required; pipe cluster/aws-eks's cluster_security_group_id output, e.g. inputs.cluster_security_group_id = terraform_output('cluster', 'cluster_security_group_id') in the platform-aws facet."
   }
 }

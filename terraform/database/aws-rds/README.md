@@ -52,6 +52,7 @@ No modules.
 | <a name="input_kms_key_arn"></a> [kms\_key\_arn](#input\_kms\_key\_arn) | Existing KMS key ARN for RDS storage encryption. Set to use a key you already manage instead of one this module creates. | `string` | `""` | no |
 | <a name="input_kms_key_deletion_window_in_days"></a> [kms\_key\_deletion\_window\_in\_days](#input\_kms\_key\_deletion\_window\_in\_days) | The waiting period, specified in number of days, after which the KMS key is deleted. Valid values are 7-30. Default is 7. For compliance requirements (PCI DSS, SOC 2, HIPAA), 30 days is often required for critical keys to allow time for audit and recovery. | `number` | `7` | no |
 | <a name="input_manage_encryption_key"></a> [manage\_encryption\_key](#input\_manage\_encryption\_key) | Whether to create a dedicated KMS key for RDS storage encryption. False falls back to the account's AWS-managed default key. | `bool` | `true` | no |
+| <a name="input_operation"></a> [operation](#input\_operation) | Windsor-supplied operation context: "apply" or "destroy". Relaxes validation on inputs wired from sibling components, whose values are irrelevant to a delete. | `string` | `"apply"` | no |
 | <a name="input_tags"></a> [tags](#input\_tags) | Additional tags to apply to all resources | `map(string)` | `{}` | no |
 | <a name="input_vpc_id"></a> [vpc\_id](#input\_vpc\_id) | ID of the VPC to create the RDS security group in. Pipe network/aws-vpc's vpc\_id output. | `string` | `null` | no |
 

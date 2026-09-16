@@ -49,6 +49,7 @@ No modules.
 | <a name="input_key_vault_key_id"></a> [key\_vault\_key\_id](#input\_key\_vault\_key\_id) | Existing Key Vault key ID (versionless) for Flexible Server storage encryption. Set to use a key you already manage instead of one this module creates. | `string` | `""` | no |
 | <a name="input_manage_encryption_key"></a> [manage\_encryption\_key](#input\_manage\_encryption\_key) | Whether to create a dedicated Key Vault and key for Flexible Server storage encryption. False falls back to Flexible Server's platform-managed encryption. | `bool` | `true` | no |
 | <a name="input_network_acls_default_action"></a> [network\_acls\_default\_action](#input\_network\_acls\_default\_action) | The default action for the Key Vault's network ACLs | `string` | `"Allow"` | no |
+| <a name="input_operation"></a> [operation](#input\_operation) | Windsor-supplied operation context: "apply" or "destroy". Relaxes validation on inputs wired from sibling components, whose values are irrelevant to a delete. | `string` | `"apply"` | no |
 | <a name="input_public_network_access_enabled"></a> [public\_network\_access\_enabled](#input\_public\_network\_access\_enabled) | Whether to enable public network access for the Key Vault | `bool` | `true` | no |
 | <a name="input_region"></a> [region](#input\_region) | Azure region for the resource group and its resources | `string` | `"eastus"` | no |
 | <a name="input_tags"></a> [tags](#input\_tags) | Additional tags to apply to all resources | `map(string)` | `{}` | no |

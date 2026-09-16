@@ -136,3 +136,15 @@ run "cluster_security_group_id_required" {
 
   expect_failures = [var.cluster_security_group_id]
 }
+
+# Verifies a destroy operation relaxes both sibling-input validations, so a
+# plan can still be produced once network/aws-vpc or cluster/aws-eks is gone.
+run "destroy_operation_relaxes_sibling_input_validation" {
+  command = plan
+
+  variables {
+    operation                 = "destroy"
+    vpc_id                    = null
+    cluster_security_group_id = null
+  }
+}

@@ -56,6 +56,12 @@ locals {
   tags = merge({
     WindsorContextID = var.context_id
   }, var.tags)
+
+  # A syntactically valid but non-existent Azure subnet ID: azurerm's
+  # client-side ID parser rejects an arbitrary placeholder string outright.
+  destroy_placeholder_subnet_id = "/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/destroy-placeholder/providers/Microsoft.Network/virtualNetworks/destroy-placeholder/subnets/destroy-placeholder"
+  # Single-element placeholder list used only when operation is destroy and the sibling value is unavailable.
+  private_subnet_ids = var.operation == "destroy" && try(length(var.private_subnet_ids), 0) == 0 ? [local.destroy_placeholder_subnet_id] : var.private_subnet_ids
 }
 
 #-----------------------------------------------------------------------------------------------------------------------
@@ -341,7 +347,7 @@ resource "azurerm_kubernetes_cluster" "main" {
     name                 = var.default_node_pool.name
     node_count           = var.default_node_pool.node_count
     vm_size              = var.default_node_pool.vm_size
-    vnet_subnet_id       = var.private_subnet_ids[0]
+    vnet_subnet_id       = local.private_subnet_ids[0]
     orchestrator_version = var.kubernetes_version
     # checkov:skip=CKV_AZURE_232: This is set in the variable by default to true
     only_critical_addons_enabled = var.default_node_pool.only_critical_addons_enabled
@@ -516,7 +522,7 @@ resource "azurerm_kubernetes_cluster_node_pool" "pools" {
   node_count           = each.value.autoscaling_enabled ? null : each.value.node_count
   os_disk_size_gb      = each.value.os_disk_size_gb
   zones                = var.availability_zones
-  vnet_subnet_id       = var.private_subnet_ids[length(var.private_subnet_ids) - 1]
+  vnet_subnet_id       = local.private_subnet_ids[length(local.private_subnet_ids) - 1]
   orchestrator_version = var.kubernetes_version
   priority             = each.value.priority
   eviction_policy      = each.value.eviction_policy
@@ -537,7 +543,7 @@ resource "azurerm_kubernetes_cluster_node_pool" "pools" {
 # Scoped per-subnet so every subnet a node pool may attach to is covered, not just the first.
 # Reference: https://learn.microsoft.com/azure/aks/configure-kubenet
 resource "azurerm_role_assignment" "subnet_network_contributor_cp" {
-  for_each             = toset(var.private_subnet_ids)
+  for_each             = toset(local.private_subnet_ids)
   scope                = each.value
   role_definition_name = "Network Contributor"
   principal_id         = azurerm_kubernetes_cluster.main.identity[0].principal_id
