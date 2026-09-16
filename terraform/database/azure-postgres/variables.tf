@@ -14,12 +14,18 @@ variable "region" {
   default     = "eastus"
 }
 
+variable "operation" {
+  description = "Windsor-supplied operation context: \"apply\" or \"destroy\". Relaxes validation on inputs wired from sibling components, whose values are irrelevant to a delete."
+  type        = string
+  default     = "apply"
+}
+
 variable "vnet_id" {
   type        = string
   description = "ID of the VNet to link the Flexible Server private DNS zone to. Pipe network/azure-vnet's vnet_id output."
   default     = null
   validation {
-    condition     = var.vnet_id != null
+    condition     = var.operation == "destroy" || var.vnet_id != null
     error_message = "vnet_id is required; pipe network/azure-vnet's vnet_id output."
   }
 }
@@ -29,7 +35,7 @@ variable "flexibleserver_subnet_id" {
   description = "ID of the subnet delegated to Microsoft.DBforPostgreSQL/flexibleServers. Pipe network/azure-vnet's flexibleserver_subnet_id output."
   default     = null
   validation {
-    condition     = var.flexibleserver_subnet_id != null
+    condition     = var.operation == "destroy" || var.flexibleserver_subnet_id != null
     error_message = "flexibleserver_subnet_id is required; pipe network/azure-vnet's flexibleserver_subnet_id output."
   }
 }
@@ -39,7 +45,7 @@ variable "allowed_subnet_cidrs" {
   description = "Subnet CIDRs allowed to reach Flexible Server on port 5432. Pipe network/azure-vnet's private_subnet_cidrs output (the AKS node subnets)."
   default     = []
   validation {
-    condition     = length(var.allowed_subnet_cidrs) > 0
+    condition     = var.operation == "destroy" || length(var.allowed_subnet_cidrs) > 0
     error_message = "allowed_subnet_cidrs must not be empty; Azure rejects an NSG rule with no source address."
   }
 }

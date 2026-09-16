@@ -555,3 +555,34 @@ run "missing_project_id" {
     node_locations = ["us-central1-a"]
   }
 }
+
+# Verifies network_id and subnetwork_id are required during a normal apply.
+run "network_and_subnetwork_id_required" {
+  command = plan
+  expect_failures = [
+    var.network_id,
+    var.subnetwork_id,
+  ]
+  variables {
+    context_id     = "test"
+    project_id     = "test-project"
+    network_id     = null
+    subnetwork_id  = null
+    node_locations = ["us-central1-a"]
+  }
+}
+
+# Verifies a destroy operation relaxes the network_id/subnetwork_id
+# validations, so a plan can still be produced once network/gcp-vpc is gone.
+run "destroy_operation_relaxes_sibling_input_validation" {
+  command = plan
+
+  variables {
+    context_id     = "test"
+    project_id     = "test-project"
+    operation      = "destroy"
+    network_id     = null
+    subnetwork_id  = null
+    node_locations = ["us-central1-a"]
+  }
+}

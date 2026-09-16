@@ -53,6 +53,12 @@ variable "node_locations" {
   }
 }
 
+variable "operation" {
+  description = "Windsor-supplied operation context: \"apply\" or \"destroy\". Relaxes validation on inputs wired from sibling components, whose values are irrelevant to a delete."
+  type        = string
+  default     = "apply"
+}
+
 #---------------------------------------------------------------------------------------------------
 # Networking
 #---------------------------------------------------------------------------------------------------
@@ -60,8 +66,9 @@ variable "node_locations" {
 variable "network_id" {
   description = "ID of the VPC network the cluster attaches to. Pipe network/gcp-vpc's network_id output."
   type        = string
+  default     = null
   validation {
-    condition     = var.network_id != null && var.network_id != ""
+    condition     = var.operation == "destroy" || (var.network_id != null && var.network_id != "")
     error_message = "network_id is required; pipe network/gcp-vpc's network_id output."
   }
 }
@@ -69,8 +76,9 @@ variable "network_id" {
 variable "subnetwork_id" {
   description = "ID of the private subnet nodes attach to. Pipe network/gcp-vpc's private_subnet_id output."
   type        = string
+  default     = null
   validation {
-    condition     = var.subnetwork_id != null && var.subnetwork_id != ""
+    condition     = var.operation == "destroy" || (var.subnetwork_id != null && var.subnetwork_id != "")
     error_message = "subnetwork_id is required; pipe network/gcp-vpc's private_subnet_id output."
   }
 }

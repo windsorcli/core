@@ -82,7 +82,7 @@ gcloud components install gke-gcloud-auth-plugin
 | Name | Version |
 |------|---------|
 | <a name="provider_google"></a> [google](#provider\_google) | 8.2.0 |
-| <a name="provider_null"></a> [null](#provider\_null) | 3.3.1 |
+| <a name="provider_null"></a> [null](#provider\_null) | 3.3.2 |
 | <a name="provider_time"></a> [time](#provider\_time) | 0.14.2 |
 
 ## Modules
@@ -122,13 +122,14 @@ No modules.
 | <a name="input_external_dns_dns_zone_names"></a> [external\_dns\_dns\_zone\_names](#input\_external\_dns\_dns\_zone\_names) | Names of the Cloud DNS managed zones external-dns is allowed to manage records in. The roles/dns.admin grant is scoped to these zones — leave empty when create\_external\_dns\_identity is false. | `list(string)` | `[]` | no |
 | <a name="input_master_ipv4_cidr_block"></a> [master\_ipv4\_cidr\_block](#input\_master\_ipv4\_cidr\_block) | A /28 CIDR block for the private control plane's internal address, disjoint from every subnet in the VPC | `string` | `"172.16.0.0/28"` | no |
 | <a name="input_name"></a> [name](#input\_name) | Name prefix for the GKE cluster | `string` | `"cluster"` | no |
-| <a name="input_network_id"></a> [network\_id](#input\_network\_id) | ID of the VPC network the cluster attaches to. Pipe network/gcp-vpc's network\_id output. | `string` | n/a | yes |
+| <a name="input_network_id"></a> [network\_id](#input\_network\_id) | ID of the VPC network the cluster attaches to. Pipe network/gcp-vpc's network\_id output. | `string` | `null` | no |
 | <a name="input_node_locations"></a> [node\_locations](#input\_node\_locations) | Zones the cluster's own bootstrap pool and every node pool are placed in. GKE creates one instance group per zone listed here, so a fixed-count pool's node\_count multiplies by length(node\_locations). | `list(string)` | n/a | yes |
+| <a name="input_operation"></a> [operation](#input\_operation) | Windsor-supplied operation context: "apply" or "destroy". Relaxes validation on inputs wired from sibling components, whose values are irrelevant to a delete. | `string` | `"apply"` | no |
 | <a name="input_pools"></a> [pools](#input\_pools) | Portable user-pool definitions, keyed by pool name; mirrors the AWS-EKS/AKS pools input. Empty falls back to one autoscaling general pool. Autoscaling defaults on (min 1, max 3) for every class except system. | <pre>map(object({<br/>    class          = string<br/>    count          = number<br/>    lifecycle      = optional(string, "on-demand")<br/>    instance_types = optional(list(string))<br/>    root_disk_size = optional(number)<br/>    autoscaling = optional(object({<br/>      enabled = optional(bool)<br/>      min     = optional(number)<br/>      max     = optional(number)<br/>    }))<br/>    labels = optional(map(string), {})<br/>    taints = optional(list(object({<br/>      key    = string<br/>      value  = optional(string)<br/>      effect = string<br/>    })), [])<br/>  }))</pre> | `{}` | no |
 | <a name="input_project_id"></a> [project\_id](#input\_project\_id) | GCP project ID the cluster is created in | `string` | n/a | yes |
 | <a name="input_region"></a> [region](#input\_region) | GCP region for the cluster | `string` | `"us-central1"` | no |
 | <a name="input_release_channel"></a> [release\_channel](#input\_release\_channel) | GKE release channel: RAPID, REGULAR, or STABLE | `string` | `"REGULAR"` | no |
-| <a name="input_subnetwork_id"></a> [subnetwork\_id](#input\_subnetwork\_id) | ID of the private subnet nodes attach to. Pipe network/gcp-vpc's private\_subnet\_id output. | `string` | n/a | yes |
+| <a name="input_subnetwork_id"></a> [subnetwork\_id](#input\_subnetwork\_id) | ID of the private subnet nodes attach to. Pipe network/gcp-vpc's private\_subnet\_id output. | `string` | `null` | no |
 | <a name="input_system_node_pool"></a> [system\_node\_pool](#input\_system\_node\_pool) | Configuration for the system node pool. Fields default independently, so a caller can override just node\_count. machine\_type is a fallback-ordered list, same semantics as class\_machine\_types: the primary keeps the pool's configured size, and each additional entry backs a fallback pool GKE's autoscaler can fall over to when the primary is out of capacity. | <pre>object({<br/>    machine_type        = optional(list(string), ["e2-standard-2", "n2d-standard-2", "n2-standard-2"])<br/>    disk_size_gb        = optional(number, 50)<br/>    node_count          = optional(number, 1)<br/>    autoscaling_enabled = optional(bool, false)<br/>    min_count           = optional(number, 1)<br/>    max_count           = optional(number, 3)<br/>  })</pre> | `{}` | no |
 
 ## Outputs

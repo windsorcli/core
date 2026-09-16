@@ -33,9 +33,10 @@ No modules.
 
 | Name | Description | Type | Default | Required |
 |------|-------------|------|---------|:--------:|
-| <a name="input_cluster_name"></a> [cluster\_name](#input\_cluster\_name) | Name of the AKS cluster, used to name each identity and role definition. | `string` | n/a | yes |
+| <a name="input_cluster_name"></a> [cluster\_name](#input\_cluster\_name) | Name of the AKS cluster, used to name each identity and role definition. Pipe cluster/azure-aks's cluster\_name output. | `string` | `null` | no |
 | <a name="input_context_id"></a> [context\_id](#input\_context\_id) | The windsor context id for this deployment | `string` | `""` | no |
 | <a name="input_oidc_issuer_url"></a> [oidc\_issuer\_url](#input\_oidc\_issuer\_url) | AKS cluster's OIDC issuer URL, the federated credential's trust anchor. Pipe cluster/azure-aks's cluster\_oidc\_issuer\_url output. | `string` | `null` | no |
+| <a name="input_operation"></a> [operation](#input\_operation) | Windsor-supplied operation context: "apply" or "destroy". Relaxes validation on inputs wired from sibling components, whose values are irrelevant to a delete. | `string` | `"apply"` | no |
 | <a name="input_postgres_resource_group_id"></a> [postgres\_resource\_group\_id](#input\_postgres\_resource\_group\_id) | ID of the dedicated resource group the postgres resource type's role assignment scopes to. Required when resources includes postgres. Pipe database/azure-postgres's resource\_group\_id output. | `string` | `""` | no |
 | <a name="input_region"></a> [region](#input\_region) | Azure region for the identities this module creates | `string` | `"eastus"` | no |
 | <a name="input_resource_group_name"></a> [resource\_group\_name](#input\_resource\_group\_name) | Resource group the Crossplane identities themselves are created in. Pipe cluster/azure-aks's resource\_group\_name output. | `string` | `null` | no |

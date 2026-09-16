@@ -446,6 +446,19 @@ run "private_subnet_ids_empty_emits_migration_error" {
   expect_failures = [var.private_subnet_ids]
 }
 
+# Verifies a destroy operation relaxes both sibling-input validations, so a
+# plan can still be produced once network/aws-vpc is gone.
+run "destroy_operation_relaxes_sibling_input_validation" {
+  command = plan
+
+  variables {
+    context_id         = "test"
+    operation          = "destroy"
+    vpc_id             = null
+    private_subnet_ids = null
+  }
+}
+
 # Verifies the cert-manager IAM role + Pod Identity association are NOT
 # created by default (var.create_cert_manager_role defaults to false).
 run "cert_manager_role_disabled_by_default" {

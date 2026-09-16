@@ -95,12 +95,18 @@ variable "authentication_mode" {
   }
 }
 
+variable "operation" {
+  description = "Windsor-supplied operation context: \"apply\" or \"destroy\". Relaxes validation on inputs wired from sibling components, whose values are irrelevant to a delete."
+  type        = string
+  default     = "apply"
+}
+
 variable "vpc_id" {
   description = "ID of the VPC where the EKS cluster will be created. Pipe network/aws-vpc's vpc_id output."
   type        = string
   default     = null
   validation {
-    condition     = var.vpc_id != null
+    condition     = var.operation == "destroy" || var.vpc_id != null
     error_message = "vpc_id is required; pipe network/aws-vpc's vpc_id output, e.g. inputs.vpc_id = terraform_output('network', 'vpc_id') in the platform-aws facet."
   }
 }
@@ -110,7 +116,7 @@ variable "private_subnet_ids" {
   type        = list(string)
   default     = null
   validation {
-    condition     = try(length(var.private_subnet_ids), 0) > 0
+    condition     = var.operation == "destroy" || try(length(var.private_subnet_ids), 0) > 0
     error_message = "private_subnet_ids is required and must be non-empty; pipe network/aws-vpc's private_subnet_ids output, e.g. inputs.private_subnet_ids = terraform_output('network', 'private_subnet_ids') in the platform-aws facet."
   }
 }
