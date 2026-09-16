@@ -72,3 +72,16 @@ run "missing_cluster_name" {
     cluster_name = ""
   }
 }
+
+# Verifies a destroy operation relaxes both sibling-input validations, so a
+# plan can still be produced once network/gcp-vpc or cluster/gcp-gke is gone.
+run "destroy_operation_relaxes_sibling_input_validation" {
+  command = plan
+
+  variables {
+    operation    = "destroy"
+    resources    = ["postgres"]
+    project_id   = null
+    cluster_name = null
+  }
+}

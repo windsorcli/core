@@ -44,8 +44,9 @@ No modules.
 
 | Name | Description | Type | Default | Required |
 |------|-------------|------|---------|:--------:|
-| <a name="input_cluster_name"></a> [cluster\_name](#input\_cluster\_name) | Name of the GKE cluster, used to name each service account | `string` | n/a | yes |
-| <a name="input_project_id"></a> [project\_id](#input\_project\_id) | GCP project ID the identities are created in | `string` | n/a | yes |
+| <a name="input_cluster_name"></a> [cluster\_name](#input\_cluster\_name) | Name of the GKE cluster, used to name each service account. Pipe cluster/gcp-gke's cluster\_name output. | `string` | `null` | no |
+| <a name="input_operation"></a> [operation](#input\_operation) | Windsor-supplied operation context: "apply" or "destroy". Relaxes validation on inputs wired from sibling components, whose values are irrelevant to a delete. | `string` | `"apply"` | no |
+| <a name="input_project_id"></a> [project\_id](#input\_project\_id) | GCP project ID the identities are created in | `string` | `null` | no |
 | <a name="input_resources"></a> [resources](#input\_resources) | Crossplane-managed GCP resource types to provision identity and IAM for. Supported: postgres. | `set(string)` | `[]` | no |
 
 ## Outputs

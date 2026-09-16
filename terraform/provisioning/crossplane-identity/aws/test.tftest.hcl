@@ -126,3 +126,18 @@ run "rds_without_kms_key_arn_rejected" {
 
   expect_failures = [var.kms_key_arn]
 }
+
+# Verifies a destroy operation relaxes every sibling-input validation, so a
+# plan can still be produced once cluster/aws-eks is gone.
+run "destroy_operation_relaxes_sibling_input_validation" {
+  command = plan
+
+  variables {
+    operation    = "destroy"
+    resources    = ["rds"]
+    cluster_name = null
+    cluster_arn  = null
+    cluster_tag  = null
+    kms_key_arn  = ""
+  }
+}
