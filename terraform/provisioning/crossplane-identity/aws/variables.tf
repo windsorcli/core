@@ -8,6 +8,10 @@ variable "operation" {
   description = "Windsor-supplied operation context: \"apply\" or \"destroy\". Relaxes validation on inputs wired from sibling components, whose values are irrelevant to a delete."
   type        = string
   default     = "apply"
+  validation {
+    condition     = contains(["apply", "destroy"], var.operation)
+    error_message = "operation must be \"apply\" or \"destroy\"."
+  }
 }
 
 variable "cluster_name" {

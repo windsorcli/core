@@ -29,6 +29,7 @@ provider "aws" {
 #-----------------------------------------------------------------------------------------------------------------------
 
 data "aws_caller_identity" "current" {}
+data "aws_region" "current" {}
 
 #-----------------------------------------------------------------------------------------------------------------------
 # Destroy-Safe Sibling Inputs
@@ -37,7 +38,7 @@ data "aws_caller_identity" "current" {}
 locals {
   # Non-null placeholder used only when operation is destroy and the sibling value is unavailable.
   cluster_name = var.operation == "destroy" ? coalesce(var.cluster_name, "destroy-placeholder") : var.cluster_name
-  cluster_arn  = var.operation == "destroy" ? coalesce(var.cluster_arn, "arn:aws:eks:us-east-1:000000000000:cluster/destroy-placeholder") : var.cluster_arn
+  cluster_arn  = var.operation == "destroy" ? coalesce(var.cluster_arn, "arn:aws:eks:${data.aws_region.current.region}:000000000000:cluster/destroy-placeholder") : var.cluster_arn
   cluster_tag  = var.operation == "destroy" ? coalesce(var.cluster_tag, "destroy-placeholder") : var.cluster_tag
 }
 
