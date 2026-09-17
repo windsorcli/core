@@ -23,11 +23,18 @@ variable "region" {
   default     = "us-central1"
 }
 
+variable "operation" {
+  description = "Windsor-supplied operation context: \"apply\" or \"destroy\". Relaxes validation on inputs wired from sibling components, whose values are irrelevant to a delete."
+  type        = string
+  default     = "apply"
+}
+
 variable "network_id" {
   type        = string
   description = "ID of the VPC network Cloud SQL peers with for private IP connectivity. Pipe network/gcp-vpc's network_id output."
+  default     = null
   validation {
-    condition     = var.network_id != null && var.network_id != ""
+    condition     = var.operation == "destroy" || (var.network_id != null && var.network_id != "")
     error_message = "network_id is required; pipe network/gcp-vpc's network_id output."
   }
 }

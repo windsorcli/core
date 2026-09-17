@@ -48,12 +48,18 @@ variable "cluster_name" {
   default     = null
 }
 
+variable "operation" {
+  description = "Windsor-supplied operation context: \"apply\" or \"destroy\". Relaxes validation on inputs wired from sibling components, whose values are irrelevant to a delete."
+  type        = string
+  default     = "apply"
+}
+
 variable "private_subnet_ids" {
   description = "Private subnet IDs the AKS node pools attach to. The inline default (system) pool uses the first; user pools use the last. Pipe network/azure-vnet's private_subnet_ids output."
   type        = list(string)
   default     = null
   validation {
-    condition     = try(length(var.private_subnet_ids), 0) > 0
+    condition     = var.operation == "destroy" || try(length(var.private_subnet_ids), 0) > 0
     error_message = "private_subnet_ids is required and must be non-empty; pipe network/azure-vnet's private_subnet_ids output, e.g. inputs.private_subnet_ids = terraform_output('network', 'private_subnet_ids') in the platform-azure facet."
   }
 }

@@ -16,6 +16,14 @@ terraform {
 # Resource Catalog
 #---------------------------------------------------------------------------------------------------
 
+# Non-null placeholder used only when operation is destroy and the sibling value is unavailable.
+locals {
+  project_id = var.operation == "destroy" ? coalesce(var.project_id, "destroy-placeholder") : var.project_id
+  # google_service_account.account_id caps out at 30 characters, so the
+  # placeholder stays short even with the "-cp-<resource>" suffix appended.
+  cluster_name = var.operation == "destroy" ? coalesce(var.cluster_name, "destroy-ph") : var.cluster_name
+}
+
 # Per-resource-type ServiceAccount, namespace, and IAM role. Same catalog
 # shape as provisioning/crossplane-identity/azure.
 locals {
@@ -38,9 +46,9 @@ locals {
 # authenticates as via Workload Identity.
 resource "google_service_account" "this" {
   for_each     = local.selected
-  account_id   = "${var.cluster_name}-cp-${each.key}"
-  display_name = "Crossplane provider-gcp-${each.key} for ${var.cluster_name}"
-  project      = var.project_id
+  account_id   = "${local.cluster_name}-cp-${each.key}"
+  display_name = "Crossplane provider-gcp-${each.key} for ${local.cluster_name}"
+  project      = local.project_id
 }
 
 # Binds the Kubernetes ServiceAccount to this Google Service Account via
@@ -49,7 +57,7 @@ resource "google_service_account_iam_member" "workload_identity" {
   for_each           = local.selected
   service_account_id = google_service_account.this[each.key].name
   role               = "roles/iam.workloadIdentityUser"
-  member             = "serviceAccount:${var.project_id}.svc.id.goog[${each.value.namespace}/${each.value.service_account}]"
+  member             = "serviceAccount:${local.project_id}.svc.id.goog[${each.value.namespace}/${each.value.service_account}]"
 }
 
 #---------------------------------------------------------------------------------------------------
@@ -58,7 +66,7 @@ resource "google_service_account_iam_member" "workload_identity" {
 
 resource "google_project_iam_member" "this" {
   for_each = local.selected
-  project  = var.project_id
+  project  = local.project_id
   role     = each.value.role
   member   = "serviceAccount:${google_service_account.this[each.key].email}"
 }

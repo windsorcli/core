@@ -40,17 +40,19 @@ No modules.
 | [aws_iam_role.this](https://registry.terraform.io/providers/hashicorp/aws/6.63.0/docs/resources/iam_role) | resource |
 | [aws_iam_role_policy_attachment.this](https://registry.terraform.io/providers/hashicorp/aws/6.63.0/docs/resources/iam_role_policy_attachment) | resource |
 | [aws_caller_identity.current](https://registry.terraform.io/providers/hashicorp/aws/6.63.0/docs/data-sources/caller_identity) | data source |
+| [aws_region.current](https://registry.terraform.io/providers/hashicorp/aws/6.63.0/docs/data-sources/region) | data source |
 
 ## Inputs
 
 | Name | Description | Type | Default | Required |
 |------|-------------|------|---------|:--------:|
-| <a name="input_cluster_arn"></a> [cluster\_arn](#input\_cluster\_arn) | ARN of the EKS cluster, scoping each role's trust policy to this cluster's Pod Identity Agent. | `string` | n/a | yes |
-| <a name="input_cluster_name"></a> [cluster\_name](#input\_cluster\_name) | Name of the EKS cluster the Pod Identity associations target. | `string` | n/a | yes |
-| <a name="input_cluster_tag"></a> [cluster\_tag](#input\_cluster\_tag) | Value for the windsorcli.dev/cluster tag condition scoping each resource type's IAM policy. | `string` | n/a | yes |
+| <a name="input_cluster_arn"></a> [cluster\_arn](#input\_cluster\_arn) | ARN of the EKS cluster, scoping each role's trust policy to this cluster's Pod Identity Agent. Pipe cluster/aws-eks's cluster\_arn output. | `string` | `null` | no |
+| <a name="input_cluster_name"></a> [cluster\_name](#input\_cluster\_name) | Name of the EKS cluster the Pod Identity associations target. Pipe cluster/aws-eks's cluster\_name output. | `string` | `null` | no |
+| <a name="input_cluster_tag"></a> [cluster\_tag](#input\_cluster\_tag) | Value for the windsorcli.dev/cluster tag condition scoping each resource type's IAM policy. Pipe cluster/aws-eks's cluster\_tag output. | `string` | `null` | no |
 | <a name="input_context_id"></a> [context\_id](#input\_context\_id) | The windsor context id for this deployment | `string` | `""` | no |
 | <a name="input_db_subnet_group_name"></a> [db\_subnet\_group\_name](#input\_db\_subnet\_group\_name) | Name of the DB subnet group rds:CreateDBInstance references, granted alongside the instance ARN it creates. | `string` | `""` | no |
 | <a name="input_kms_key_arn"></a> [kms\_key\_arn](#input\_kms\_key\_arn) | KMS key ARN the rds resource type's role may use for storage encryption. | `string` | `""` | no |
+| <a name="input_operation"></a> [operation](#input\_operation) | Windsor-supplied operation context: "apply" or "destroy". Relaxes validation on inputs wired from sibling components, whose values are irrelevant to a delete. | `string` | `"apply"` | no |
 | <a name="input_resources"></a> [resources](#input\_resources) | Crossplane-managed AWS resource types to provision IAM and Pod Identity for. Supported: rds. | `set(string)` | `[]` | no |
 | <a name="input_tags"></a> [tags](#input\_tags) | Additional tags to apply to all resources | `map(string)` | `{}` | no |
 

@@ -22,6 +22,11 @@ terraform {
   }
 }
 
+locals {
+  # Non-null placeholder used only when operation is destroy and the sibling value is unavailable.
+  network_id = var.operation == "destroy" ? coalesce(var.network_id, "projects/destroy-placeholder/global/networks/destroy-placeholder") : var.network_id
+}
+
 #---------------------------------------------------------------------------------------------------
 # Private Service Connection
 # GCP's equivalent of RDS's DB subnet group and Flexible Server's
@@ -33,11 +38,11 @@ resource "google_compute_global_address" "private_service_connection" {
   purpose       = "VPC_PEERING"
   address_type  = "INTERNAL"
   prefix_length = 16
-  network       = var.network_id
+  network       = local.network_id
 }
 
 resource "google_service_networking_connection" "cloudsql" {
-  network                 = var.network_id
+  network                 = local.network_id
   service                 = "servicenetworking.googleapis.com"
   reserved_peering_ranges = [google_compute_global_address.private_service_connection.name]
   # Removes the peering directly: a normal delete can be refused with the

@@ -107,3 +107,19 @@ run "postgres_without_resource_group_id_rejected" {
 
   expect_failures = [var.postgres_resource_group_id]
 }
+
+# Verifies a destroy operation relaxes all three sibling-input validations,
+# so a plan can still be produced once cluster/azure-aks or
+# database/azure-postgres is gone.
+run "destroy_operation_relaxes_sibling_input_validation" {
+  command = plan
+
+  variables {
+    operation                  = "destroy"
+    resources                  = ["postgres"]
+    resource_group_name        = null
+    cluster_name               = null
+    oidc_issuer_url            = null
+    postgres_resource_group_id = ""
+  }
+}

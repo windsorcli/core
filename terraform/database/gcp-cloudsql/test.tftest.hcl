@@ -87,3 +87,29 @@ run "missing_project_id" {
     network_id = "projects/test-project/global/networks/network-test"
   }
 }
+
+# Verifies network_id is required during a normal apply.
+run "network_id_required" {
+  command = plan
+
+  variables {
+    context_id = "test"
+    project_id = "test-project"
+    network_id = null
+  }
+
+  expect_failures = [var.network_id]
+}
+
+# Verifies a destroy operation relaxes the network_id validation, so a plan
+# can still be produced once network/gcp-vpc is gone.
+run "destroy_operation_relaxes_sibling_input_validation" {
+  command = plan
+
+  variables {
+    context_id = "test"
+    project_id = "test-project"
+    operation  = "destroy"
+    network_id = null
+  }
+}

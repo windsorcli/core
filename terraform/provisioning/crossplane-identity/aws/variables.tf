@@ -4,19 +4,32 @@ variable "context_id" {
   default     = ""
 }
 
+variable "operation" {
+  description = "Windsor-supplied operation context: \"apply\" or \"destroy\". Relaxes validation on inputs wired from sibling components, whose values are irrelevant to a delete."
+  type        = string
+  default     = "apply"
+  validation {
+    condition     = contains(["apply", "destroy"], var.operation)
+    error_message = "operation must be \"apply\" or \"destroy\"."
+  }
+}
+
 variable "cluster_name" {
   type        = string
-  description = "Name of the EKS cluster the Pod Identity associations target."
+  description = "Name of the EKS cluster the Pod Identity associations target. Pipe cluster/aws-eks's cluster_name output."
+  default     = null
 }
 
 variable "cluster_arn" {
   type        = string
-  description = "ARN of the EKS cluster, scoping each role's trust policy to this cluster's Pod Identity Agent."
+  description = "ARN of the EKS cluster, scoping each role's trust policy to this cluster's Pod Identity Agent. Pipe cluster/aws-eks's cluster_arn output."
+  default     = null
 }
 
 variable "cluster_tag" {
   type        = string
-  description = "Value for the windsorcli.dev/cluster tag condition scoping each resource type's IAM policy."
+  description = "Value for the windsorcli.dev/cluster tag condition scoping each resource type's IAM policy. Pipe cluster/aws-eks's cluster_tag output."
+  default     = null
 }
 
 variable "db_subnet_group_name" {
@@ -36,7 +49,7 @@ variable "kms_key_arn" {
   }
 
   validation {
-    condition     = var.kms_key_arn != "" || !contains(var.resources, "rds")
+    condition     = var.operation == "destroy" || var.kms_key_arn != "" || !contains(var.resources, "rds")
     error_message = "kms_key_arn is required when resources includes rds."
   }
 }

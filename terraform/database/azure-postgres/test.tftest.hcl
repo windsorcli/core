@@ -135,3 +135,16 @@ run "flexibleserver_subnet_id_required" {
 
   expect_failures = [var.flexibleserver_subnet_id]
 }
+
+# Verifies a destroy operation relaxes the sibling-input validations, so a
+# plan can still be produced once network/azure-vnet is gone.
+run "destroy_operation_relaxes_sibling_input_validation" {
+  command = plan
+
+  variables {
+    operation                = "destroy"
+    vnet_id                  = null
+    flexibleserver_subnet_id = null
+    allowed_subnet_cidrs     = []
+  }
+}

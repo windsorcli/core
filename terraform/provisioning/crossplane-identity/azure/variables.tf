@@ -10,19 +10,26 @@ variable "region" {
   default     = "eastus"
 }
 
+variable "operation" {
+  description = "Windsor-supplied operation context: \"apply\" or \"destroy\". Relaxes validation on inputs wired from sibling components, whose values are irrelevant to a delete."
+  type        = string
+  default     = "apply"
+}
+
 variable "resource_group_name" {
   type        = string
   description = "Resource group the Crossplane identities themselves are created in. Pipe cluster/azure-aks's resource_group_name output."
   default     = null
   validation {
-    condition     = var.resource_group_name != null
+    condition     = var.operation == "destroy" || var.resource_group_name != null
     error_message = "resource_group_name is required; pipe cluster/azure-aks's resource_group_name output."
   }
 }
 
 variable "cluster_name" {
   type        = string
-  description = "Name of the AKS cluster, used to name each identity and role definition."
+  description = "Name of the AKS cluster, used to name each identity and role definition. Pipe cluster/azure-aks's cluster_name output."
+  default     = null
 }
 
 variable "oidc_issuer_url" {
@@ -30,7 +37,7 @@ variable "oidc_issuer_url" {
   description = "AKS cluster's OIDC issuer URL, the federated credential's trust anchor. Pipe cluster/azure-aks's cluster_oidc_issuer_url output."
   default     = null
   validation {
-    condition     = var.oidc_issuer_url != null
+    condition     = var.operation == "destroy" || var.oidc_issuer_url != null
     error_message = "oidc_issuer_url is required; pipe cluster/azure-aks's cluster_oidc_issuer_url output."
   }
 }
@@ -41,7 +48,7 @@ variable "postgres_resource_group_id" {
   default     = ""
 
   validation {
-    condition     = var.postgres_resource_group_id != "" || !contains(var.resources, "postgres")
+    condition     = var.operation == "destroy" || var.postgres_resource_group_id != "" || !contains(var.resources, "postgres")
     error_message = "postgres_resource_group_id is required when resources includes postgres."
   }
 }

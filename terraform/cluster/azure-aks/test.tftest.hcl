@@ -1169,3 +1169,26 @@ run "volume_snapshots_disabled" {
     error_message = "Core disk permissions should still be included when enable_volume_snapshots is false"
   }
 }
+
+# Verifies a destroy operation relaxes the private_subnet_ids validation and
+# substitutes a placeholder subnet ID, so a plan can still be produced once
+# network/azure-vnet is gone. Only a create-mode plan is exercised here:
+# terraform test's plan_options.mode does not support "destroy", so whether
+# the for_each key change correctly resolves against real prior state during
+# an actual destroy remains unverified by this suite.
+run "destroy_operation_relaxes_sibling_input_validation" {
+  command = plan
+
+  variables {
+    context_id         = "test"
+    name               = "windsor-aks"
+    kubernetes_version = "1.34"
+    operation          = "destroy"
+    private_subnet_ids = null
+  }
+
+  assert {
+    condition     = length(azurerm_role_assignment.subnet_network_contributor_cp) == 1
+    error_message = "The placeholder subnet ID should fan out to exactly one role assignment"
+  }
+}

@@ -27,6 +27,22 @@ provider "azurerm" {
 data "azurerm_client_config" "current" {}
 
 #-----------------------------------------------------------------------------------------------------------------------
+# Destroy-Safe Sibling Inputs
+#-----------------------------------------------------------------------------------------------------------------------
+
+locals {
+  # A syntactically valid but non-existent Azure resource ID: azurerm's
+  # client-side ID parser rejects an arbitrary placeholder string outright.
+  destroy_placeholder_vnet_id   = "/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/destroy-placeholder/providers/Microsoft.Network/virtualNetworks/destroy-placeholder"
+  destroy_placeholder_subnet_id = "${local.destroy_placeholder_vnet_id}/subnets/destroy-placeholder"
+
+  # Non-null placeholder used only when operation is destroy and the sibling value is unavailable.
+  vnet_id = var.operation == "destroy" ? coalesce(var.vnet_id, local.destroy_placeholder_vnet_id) : var.vnet_id
+  # Non-null placeholder used only when operation is destroy and the sibling value is unavailable.
+  flexibleserver_subnet_id = var.operation == "destroy" ? coalesce(var.flexibleserver_subnet_id, local.destroy_placeholder_subnet_id) : var.flexibleserver_subnet_id
+}
+
+#-----------------------------------------------------------------------------------------------------------------------
 # Resource Group
 #-----------------------------------------------------------------------------------------------------------------------
 
@@ -55,7 +71,7 @@ resource "azurerm_private_dns_zone" "postgres" {
 resource "azurerm_private_dns_zone_virtual_network_link" "postgres" {
   name                 = "postgres-${var.context_id}-link"
   private_dns_zone_id  = azurerm_private_dns_zone.postgres.id
-  virtual_network_id   = var.vnet_id
+  virtual_network_id   = local.vnet_id
   registration_enabled = false
   tags                 = var.tags
 }
@@ -100,7 +116,7 @@ resource "azurerm_network_security_group" "flexibleserver" {
 }
 
 resource "azurerm_subnet_network_security_group_association" "flexibleserver" {
-  subnet_id                 = var.flexibleserver_subnet_id
+  subnet_id                 = local.flexibleserver_subnet_id
   network_security_group_id = azurerm_network_security_group.flexibleserver.id
 }
 

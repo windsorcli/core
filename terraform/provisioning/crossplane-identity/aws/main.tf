@@ -29,6 +29,18 @@ provider "aws" {
 #-----------------------------------------------------------------------------------------------------------------------
 
 data "aws_caller_identity" "current" {}
+data "aws_region" "current" {}
+
+#-----------------------------------------------------------------------------------------------------------------------
+# Destroy-Safe Sibling Inputs
+#-----------------------------------------------------------------------------------------------------------------------
+
+locals {
+  # Non-null placeholder used only when operation is destroy and the sibling value is unavailable.
+  cluster_name = var.operation == "destroy" ? coalesce(var.cluster_name, "destroy-placeholder") : var.cluster_name
+  cluster_arn  = var.operation == "destroy" ? coalesce(var.cluster_arn, "arn:aws:eks:${data.aws_region.current.region}:000000000000:cluster/destroy-placeholder") : var.cluster_arn
+  cluster_tag  = var.operation == "destroy" ? coalesce(var.cluster_tag, "destroy-placeholder") : var.cluster_tag
+}
 
 #-----------------------------------------------------------------------------------------------------------------------
 # Resource Catalog
@@ -57,7 +69,7 @@ locals {
             ]
             Condition = {
               StringEquals = {
-                "aws:RequestTag/windsorcli.dev/cluster" = var.cluster_tag
+                "aws:RequestTag/windsorcli.dev/cluster" = local.cluster_tag
               }
             }
           },
@@ -76,7 +88,7 @@ locals {
             ]
             Condition = {
               StringEquals = {
-                "aws:ResourceTag/windsorcli.dev/cluster" = var.cluster_tag
+                "aws:ResourceTag/windsorcli.dev/cluster" = local.cluster_tag
               }
             }
           },
@@ -135,7 +147,7 @@ locals {
 # EKS Pod Identity, scoped to this cluster's Pod Identity Agent.
 resource "aws_iam_role" "this" {
   for_each = local.selected
-  name     = "${var.cluster_name}-crossplane-${each.key}"
+  name     = "${local.cluster_name}-crossplane-${each.key}"
 
   assume_role_policy = jsonencode({
     Version = "2012-10-17"
@@ -151,7 +163,7 @@ resource "aws_iam_role" "this" {
             "aws:SourceAccount" = data.aws_caller_identity.current.account_id
           }
           ArnEquals = {
-            "aws:SourceArn" = var.cluster_arn
+            "aws:SourceArn" = local.cluster_arn
           }
         }
       }
@@ -159,18 +171,18 @@ resource "aws_iam_role" "this" {
   })
 
   tags = {
-    Name = "${var.cluster_name}-crossplane-${each.key}"
+    Name = "${local.cluster_name}-crossplane-${each.key}"
   }
 }
 
 resource "aws_iam_policy" "this" {
   for_each    = local.selected
-  name        = "${var.cluster_name}-crossplane-${each.key}"
+  name        = "${local.cluster_name}-crossplane-${each.key}"
   description = "IAM policy for Crossplane's provider-aws-${each.key}"
   policy      = each.value.policy
 
   tags = {
-    Name = "${var.cluster_name}-crossplane-${each.key}"
+    Name = "${local.cluster_name}-crossplane-${each.key}"
   }
 }
 
@@ -182,7 +194,7 @@ resource "aws_iam_role_policy_attachment" "this" {
 
 resource "aws_eks_pod_identity_association" "this" {
   for_each        = local.selected
-  cluster_name    = var.cluster_name
+  cluster_name    = local.cluster_name
   namespace       = each.value.namespace
   service_account = each.value.service_account
   role_arn        = aws_iam_role.this[each.key].arn

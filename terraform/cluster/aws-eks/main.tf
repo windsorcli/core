@@ -36,6 +36,11 @@ locals {
       length(aws_kms_key.ebs_encryption_key) > 0 ? aws_kms_key.ebs_encryption_key[0].key_id : null
     )
   ) : null
+
+  # Non-null placeholder used only when operation is destroy and the sibling value is unavailable.
+  vpc_id = var.operation == "destroy" ? coalesce(var.vpc_id, "vpc-destroyplaceholder") : var.vpc_id
+  # Non-null placeholder used only when operation is destroy and the sibling value is unavailable.
+  private_subnet_ids = var.operation == "destroy" ? coalesce(var.private_subnet_ids, ["subnet-destroyplaceholder"]) : var.private_subnet_ids
 }
 
 #-----------------------------------------------------------------------------------------------------------------------
@@ -70,7 +75,7 @@ resource "aws_eks_cluster" "main" {
   version  = var.kubernetes_version
 
   vpc_config {
-    subnet_ids              = var.private_subnet_ids
+    subnet_ids              = local.private_subnet_ids
     endpoint_private_access = var.endpoint_private_access
     endpoint_public_access  = var.endpoint_public_access
     security_group_ids      = [aws_security_group.cluster_api_access.id]
@@ -114,7 +119,7 @@ resource "aws_eks_cluster" "main" {
 resource "aws_security_group" "cluster_api_access" {
   name        = "${local.name}-cluster-api-access"
   description = "Security group for EKS cluster API access"
-  vpc_id      = var.vpc_id
+  vpc_id      = local.vpc_id
 
   ingress {
     from_port   = 443
@@ -323,7 +328,7 @@ resource "aws_iam_role_policy_attachment" "node_group_AmazonEC2ContainerRegistry
 locals {
   # Node groups launch into node_subnet_ids when set, else all private subnets.
   # The control plane keeps private_subnet_ids — EKS requires ENIs in >=2 AZs.
-  node_subnet_ids = var.node_subnet_ids != null ? var.node_subnet_ids : var.private_subnet_ids
+  node_subnet_ids = var.node_subnet_ids != null ? var.node_subnet_ids : local.private_subnet_ids
 
   # Per-pool autoscaling resolution. An explicit pool.autoscaling.enabled wins;
   # otherwise system-class pools are fixed and every other class autoscales.
@@ -564,7 +569,7 @@ resource "aws_eks_fargate_profile" "main" {
   cluster_name           = aws_eks_cluster.main.name
   fargate_profile_name   = each.key
   pod_execution_role_arn = aws_iam_role.fargate.arn
-  subnet_ids             = var.private_subnet_ids
+  subnet_ids             = local.private_subnet_ids
 
   dynamic "selector" {
     for_each = each.value.selectors

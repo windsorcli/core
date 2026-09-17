@@ -20,6 +20,16 @@ provider "azurerm" {
 # Resource Catalog
 #-----------------------------------------------------------------------------------------------------------------------
 
+# Non-null placeholder used only when operation is destroy and the sibling value is unavailable.
+locals {
+  resource_group_name = var.operation == "destroy" ? coalesce(var.resource_group_name, "destroy-placeholder") : var.resource_group_name
+  oidc_issuer_url     = var.operation == "destroy" ? coalesce(var.oidc_issuer_url, "https://destroy-placeholder.oic.prod-aks.azure.com/00000000-0000-0000-0000-000000000000/00000000-0000-0000-0000-000000000000/") : var.oidc_issuer_url
+  cluster_name        = var.operation == "destroy" ? coalesce(var.cluster_name, "destroy-placeholder") : var.cluster_name
+  # A syntactically valid but non-existent Azure scope: azurerm's role
+  # definition rejects an arbitrary placeholder string outright.
+  postgres_resource_group_id = var.operation == "destroy" && var.postgres_resource_group_id == "" ? "/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/destroy-placeholder" : var.postgres_resource_group_id
+}
+
 # Per-resource-type ServiceAccount, namespace, RBAC scope, and action set.
 # Its own module: an azurerm and an aws provider can't share one root.
 locals {
@@ -27,7 +37,7 @@ locals {
     postgres = {
       namespace       = "system-provisioning"
       service_account = "provider-azure-dbforpostgresql"
-      scope           = var.postgres_resource_group_id
+      scope           = local.postgres_resource_group_id
       actions = [
         "Microsoft.DBforPostgreSQL/flexibleServers/*",
         "Microsoft.DBforPostgreSQL/flexibleServers/databases/*",
@@ -53,8 +63,8 @@ locals {
 # authenticates as via Workload Identity.
 resource "azurerm_user_assigned_identity" "this" {
   for_each            = local.selected
-  name                = "${var.cluster_name}-crossplane-${each.key}"
-  resource_group_name = var.resource_group_name
+  name                = "${local.cluster_name}-crossplane-${each.key}"
+  resource_group_name = local.resource_group_name
   location            = var.region
   tags                = var.tags
 }
@@ -63,7 +73,7 @@ resource "azurerm_federated_identity_credential" "this" {
   for_each                  = local.selected
   name                      = "crossplane-${each.key}"
   audience                  = ["api://AzureADTokenExchange"]
-  issuer                    = var.oidc_issuer_url
+  issuer                    = local.oidc_issuer_url
   user_assigned_identity_id = azurerm_user_assigned_identity.this[each.key].id
   subject                   = "system:serviceaccount:${each.value.namespace}:${each.value.service_account}"
 }
@@ -76,9 +86,9 @@ resource "azurerm_federated_identity_credential" "this" {
 # doesn't cover Microsoft.DBforPostgreSQL.
 resource "azurerm_role_definition" "this" {
   for_each    = local.selected
-  name        = "${var.cluster_name}-crossplane-${each.key}"
+  name        = "${local.cluster_name}-crossplane-${each.key}"
   scope       = each.value.scope
-  description = "Crossplane provider-azure-${each.key} access for ${var.cluster_name}"
+  description = "Crossplane provider-azure-${each.key} access for ${local.cluster_name}"
 
   permissions {
     actions     = each.value.actions
