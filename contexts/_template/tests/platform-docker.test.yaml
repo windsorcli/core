@@ -252,42 +252,41 @@ cases:
             hostname: "gcr.test"
     terraformOutputs: *terraform-outputs-with-workstation-registries
     expect:
+      config:
+        talos_common:
+          common_patch:
+            cluster:
+              allowSchedulingOnControlPlanes: true
+              controllerManager:
+                extraArgs:
+                  leader-elect: "false"
+              etcd:
+                extraArgs:
+                  auto-compaction-mode: revision
+                  auto-compaction-retention: "1000"
+                  max-snapshots: "3"
+                  max-wals: "3"
+              network:
+                cni:
+                  name: none
+              proxy:
+                disabled: true
+              scheduler:
+                extraArgs:
+                  leader-elect: "false"
+            machine:
+              kubelet:
+                extraArgs:
+                  rotate-server-certificates: "true"
+              registries:
+                config: {}
+                mirrors:
+                  gcr.io:
+                    endpoints:
+                    - http://gcr.test:5000
       terraform:
         - name: cluster
           path: cluster/talos
-          inputs:
-            common_config_patches: |-
-              cluster:
-                allowSchedulingOnControlPlanes: true
-                controllerManager:
-                  extraArgs:
-                    leader-elect: "false"
-                etcd:
-                  extraArgs:
-                    auto-compaction-mode: revision
-                    auto-compaction-retention: "1000"
-                    max-snapshots: "3"
-                    max-wals: "3"
-                extraManifests:
-                - https://raw.githubusercontent.com/alex1989hu/kubelet-serving-cert-approver/v0.8.7/deploy/standalone-install.yaml
-                network:
-                  cni:
-                    name: none
-                proxy:
-                  disabled: true
-                scheduler:
-                  extraArgs:
-                    leader-elect: "false"
-              machine:
-                kubelet:
-                  extraArgs:
-                    rotate-server-certificates: "true"
-                registries:
-                  config: {}
-                  mirrors:
-                    gcr.io:
-                      endpoints:
-                      - http://gcr.test:5000
 
   # Full: workstation path with fully populated cluster, ingress, volumes (flannel + kube-vip to exercise lb path)
   - name: full config creates workstation compute cluster chain with all options
