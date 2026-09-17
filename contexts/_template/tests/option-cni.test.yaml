@@ -125,6 +125,7 @@ cases:
             privileged: false
             cgroup_auto_mount: false
             operator_replicas: 1
+            chart_repository: https://helm.cilium.io
       flux:
         - <<: *cni-install
           install:
@@ -252,6 +253,24 @@ cases:
                 kubelet:
                   extraArgs:
                     rotate-server-certificates: "true"
+
+  - name: cluster.cni.chart_repository is passed to the cni terraform component
+    values:
+      platform: metal
+      gateway:
+        enabled: false
+      network: *default-network
+      cluster:
+        <<: *default-cluster
+        cni:
+          driver: cilium
+          chart_repository: oci://registry.example.com/charts
+    expect:
+      terraform:
+        - name: cni
+          path: cni/cilium
+          inputs:
+            chart_repository: oci://registry.example.com/charts
 
   # Cilium + HA: operator replicas scale from 1 (single-node) to 2 via substitution.
   - name: cilium with topology=ha sets operator_replicas to 2
