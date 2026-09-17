@@ -30,6 +30,11 @@ provider "aws" {
 
 data "aws_caller_identity" "current" {}
 
+locals {
+  # Non-null placeholder for destroy: AWS rejects a null element inside ingress.security_groups outright.
+  cluster_security_group_id = var.operation == "destroy" ? coalesce(var.cluster_security_group_id, "sg-00000000000000000") : var.cluster_security_group_id
+}
+
 # Account's default RDS encryption key, used when manage_encryption_key is
 # false and no key ARN is supplied.
 data "aws_kms_key" "rds_default" {
@@ -106,7 +111,7 @@ resource "aws_security_group" "rds" {
     from_port       = 5432
     to_port         = 5432
     protocol        = "tcp"
-    security_groups = [var.cluster_security_group_id]
+    security_groups = [local.cluster_security_group_id]
     description     = "Postgres from the cluster nodes"
   }
 

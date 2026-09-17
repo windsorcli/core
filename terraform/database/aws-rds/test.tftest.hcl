@@ -140,11 +140,16 @@ run "cluster_security_group_id_required" {
 # Verifies a destroy operation relaxes both sibling-input validations, so a
 # plan can still be produced once network/aws-vpc or cluster/aws-eks is gone.
 run "destroy_operation_relaxes_sibling_input_validation" {
-  command = plan
+  command = apply
 
   variables {
     operation                 = "destroy"
     vpc_id                    = null
     cluster_security_group_id = null
+  }
+
+  assert {
+    condition     = contains(flatten(aws_security_group.rds.ingress[*].security_groups), "sg-00000000000000000")
+    error_message = "cluster_security_group_id should fall back to a non-null placeholder when operation is destroy"
   }
 }
