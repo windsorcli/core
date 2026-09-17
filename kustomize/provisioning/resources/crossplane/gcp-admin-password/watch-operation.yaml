@@ -35,6 +35,13 @@ spec:
                   instance_name = instance["metadata"]["name"]
                   secret_name = f"{instance_name}-admin-credentials"
                   user_name = f"{instance_name}-admin"
+                  owner_refs = [{
+                      "apiVersion": instance["apiVersion"],
+                      "kind": instance["kind"],
+                      "name": instance_name,
+                      "uid": instance["metadata"]["uid"],
+                      "blockOwnerDeletion": False,
+                  }]
 
                   response.require_resources(
                       rsp, name="admin-secret", api_version="v1", kind="Secret",
@@ -53,7 +60,11 @@ spec:
                       rsp.desired.resources["admin-secret"].resource.update({
                           "apiVersion": "v1",
                           "kind": "Secret",
-                          "metadata": {"name": secret_name, "namespace": "system-database"},
+                          "metadata": {
+                              "name": secret_name,
+                              "namespace": "system-database",
+                              "ownerReferences": owner_refs,
+                          },
                           "type": "Opaque",
                           "stringData": {
                               "username": admin_username,
@@ -73,6 +84,7 @@ spec:
                           "metadata": {
                               "name": user_name,
                               "annotations": {"crossplane.io/external-name": admin_username},
+                              "ownerReferences": owner_refs,
                           },
                           "spec": {
                               "deletionPolicy": "Orphan",
