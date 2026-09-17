@@ -545,3 +545,60 @@ cases:
       network: *default-network
       cluster: *default-cluster
     expectError: true
+
+  - name: cluster common_config_patches includes registry mirrors when docker.registries have hostname
+    values:
+      platform: hyperv
+      gateway:
+        enabled: false
+      network: *default-network
+      cluster:
+        <<: *default-cluster
+        controlplanes:
+          cpu: 8
+          memory: 24
+          nodes:
+            controlplane-1:
+              endpoint: 10.20.0.10:50000
+              node: 10.20.0.10
+              hostname: controlplane-1
+      docker:
+        registries:
+          registry-1.docker.io:
+            remote: "https://registry-1.docker.io"
+            local: "docker.io"
+            hostname: "mirror.plant.local"
+            hostport: 5001
+    terraformOutputs: *default-terraform-outputs
+    expect:
+      terraform:
+        - name: cluster
+          path: cluster/talos
+          inputs:
+            common_config_patches: |-
+              cluster:
+                allowSchedulingOnControlPlanes: true
+                controllerManager:
+                  extraArgs:
+                    leader-elect: "false"
+                etcd:
+                  extraArgs:
+                    auto-compaction-mode: revision
+                    auto-compaction-retention: "1000"
+                    max-snapshots: "3"
+                    max-wals: "3"
+                extraManifests:
+                - https://raw.githubusercontent.com/alex1989hu/kubelet-serving-cert-approver/v0.8.7/deploy/standalone-install.yaml
+                scheduler:
+                  extraArgs:
+                    leader-elect: "false"
+              machine:
+                kubelet:
+                  extraArgs:
+                    rotate-server-certificates: "true"
+                registries:
+                  config: {}
+                  mirrors:
+                    docker.io:
+                      endpoints:
+                      - http://mirror.plant.local:5001
