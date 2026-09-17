@@ -15,10 +15,6 @@ terraform {
       source  = "hashicorp/google-beta"
       version = "8.2.0"
     }
-    kubernetes = {
-      source  = "hashicorp/kubernetes"
-      version = "~> 3.2"
-    }
   }
 }
 
@@ -87,35 +83,3 @@ resource "google_kms_crypto_key_iam_member" "cloudsql" {
   member        = "serviceAccount:${google_project_service_identity.cloudsql.email}"
 }
 
-#---------------------------------------------------------------------------------------------------
-# system-database Namespace
-# Terraform runs before Flux, so this module creates its own copy,
-# matching cluster/aws-eks/additions's system-dns and gitops/flux's
-# flux-system.
-#---------------------------------------------------------------------------------------------------
-
-resource "kubernetes_namespace_v1" "system_database" {
-  metadata {
-    name = "system-database"
-    labels = {
-      "pod-security.kubernetes.io/enforce" = "baseline"
-      "pod-security.kubernetes.io/audit"   = "baseline"
-      "pod-security.kubernetes.io/warn"    = "baseline"
-    }
-  }
-
-  lifecycle {
-    ignore_changes = [
-      metadata[0].labels
-    ]
-  }
-}
-
-#---------------------------------------------------------------------------------------------------
-# State migration blocks
-#---------------------------------------------------------------------------------------------------
-
-moved {
-  from = kubernetes_namespace_v1.system_provisioning
-  to   = kubernetes_namespace_v1.system_database
-}

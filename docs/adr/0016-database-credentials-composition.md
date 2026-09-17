@@ -174,13 +174,23 @@ every chart.
 Unlike RDS/FlexibleServer, whose provider writes the admin password
 directly onto the instance it creates, `provider-gcp-sql` has no such
 field — a Secret alone changes nothing on the real database until a
-`User` CR reads it. The `WatchOperation` composes that `User` too,
-independently of whether it created the Secret itself: when the Secret
-already exists (Terraform-written, as the demo does), the `User` still
-gets created, using that Secret's own `username`. This is what lets a
-chart's contract stay identical across all three drivers — create the
-instance CR, nothing else — instead of CloudSQL alone needing a
-hand-authored `User` CR the other two drivers don't.
+`User` CR reads it. The `WatchOperation` composes that `User` too. This
+is what lets a chart's contract stay identical across all three drivers —
+create the instance CR, nothing else — instead of CloudSQL alone needing
+a hand-authored `User` CR the other two drivers don't.
+
+`terraform/database/gcp-cloudsql` no longer creates `system-database`
+itself. It previously pre-created the namespace because it wrote the
+admin-credentials Secret into it before Flux existed; with the
+`WatchOperation` now the only source of that Secret, the module has
+nothing left to write there. The namespace resource stayed in config
+regardless, an inert leftover that `windsor destroy` could still plan to
+delete — a normal, correctly-ordered destroy of just `database`, not any
+out-of-order scenario, would have cascaded through everything Flux
+manages in `system-database`, since Kubernetes namespace deletion doesn't
+distinguish which controller owns which object inside it. Removed
+entirely; `kustomize/database/install/namespace.yaml` is `system-database`'s
+only owner now.
 
 ### 6. Lives under `kustomize/provisioning/resources/crossplane/`, not
 `kustomize/database/resources/crossplane/`

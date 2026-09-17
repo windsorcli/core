@@ -1,6 +1,5 @@
 mock_provider "google" {}
 mock_provider "google-beta" {}
-mock_provider "kubernetes" {}
 
 # Verifies the private service connection and default CMK creation with no
 # optional variables set.
