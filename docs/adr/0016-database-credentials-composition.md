@@ -309,16 +309,19 @@ Still open:
   Postgres's default `PUBLIC CONNECT` covers the case, not just that the
   role object exists — hasn't been tested from an application pod.
 - The GCP `gcp-admin-password` `WatchOperation` correctly bootstraps the
-  admin secret and the `User` for this cluster's one `DatabaseInstance`
-  (verified live above, post-fix). Its behavior against multiple
-  `DatabaseInstance`s appearing concurrently is still unverified.
-- `flexibleserver` (Azure) never reached the same end-to-end
+  admin secret and the `User` for a single `DatabaseInstance` (verified
+  live above, post-fix). Verified live again with a second, concurrently
+  present `DatabaseInstance` (applied directly, no facet changes): each
+  gets its own independent `<name>-admin-credentials` Secret, neither
+  interferes with the other's `User`, and both reach `Ready`.
+- `flexibleserver` (Azure) previously never reached end-to-end
   confirmation: `demo`'s `FlexibleServer` failed to create with
-  `ServerNameAlreadyExists` — Azure Flexible Server names are globally
-  unique, and `kustomize/demo/resources/database/flexibleserver/` has
-  hardcoded the same literal `demo-db` name since before this ADR
-  (`#2656`). Pre-existing, not introduced by this change, but it blocks
-  a live check of the `flexibleserver` driver path specifically.
+  `ServerNameAlreadyExists`, since Azure Flexible Server names are
+  globally unique and `kustomize/demo/resources/database/flexibleserver/`
+  hardcoded the same literal `demo-db` name every other driver uses.
+  Fixed in `54a15e5e` (`database_instance_name` config, `option-demo.yaml`):
+  `flexibleserver` alone gets `demo-db-${id}`, unique per context; the
+  other drivers keep the plain literal.
 
 ## Alternatives considered
 
