@@ -19,9 +19,9 @@ output "private_dns_zone_id" {
 
 # Precedence: an explicitly supplied key, then the dedicated key this module
 # creates, then empty string (Flexible Server's platform-managed encryption).
-output "key_vault_key_id" {
+output "key_id" {
   description = "Versionless Key Vault key ID for Flexible Server storage encryption. Empty when using platform-managed encryption."
-  value = var.key_vault_key_id != "" ? var.key_vault_key_id : (
+  value = var.key_id != "" ? var.key_id : (
     length(azurerm_key_vault_key.postgres) > 0 ? azurerm_key_vault_key.postgres[0].versionless_id : ""
   )
 }

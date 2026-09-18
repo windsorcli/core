@@ -4,9 +4,9 @@
 
 # Precedence: an explicitly supplied key, then the dedicated key this module
 # creates, then empty string (Cloud SQL's platform-managed encryption).
-output "kms_key_name" {
+output "key_id" {
   description = "KMS CryptoKey resource name for Cloud SQL storage encryption. Empty when using platform-managed encryption."
-  value = var.kms_key_name != "" ? var.kms_key_name : (
+  value = var.key_id != "" ? var.key_id : (
     length(google_kms_crypto_key.cloudsql) > 0 ? google_kms_crypto_key.cloudsql[0].id : ""
   )
 }

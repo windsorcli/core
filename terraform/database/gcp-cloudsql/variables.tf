@@ -45,7 +45,7 @@ variable "manage_encryption_key" {
   default     = true
 }
 
-variable "kms_key_name" {
+variable "key_id" {
   description = "Existing KMS CryptoKey resource name for Cloud SQL storage encryption. Set to use a key you already manage instead of one this module creates."
   type        = string
   default     = ""
