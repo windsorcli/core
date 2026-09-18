@@ -8,10 +8,10 @@ mock_provider "azurerm" {
 }
 
 variables {
-  context_id               = "test"
-  vnet_id                  = "/subscriptions/sub/resourceGroups/rg/providers/Microsoft.Network/virtualNetworks/vnet-test"
-  azuredb_subnet_id = "/subscriptions/sub/resourceGroups/rg/providers/Microsoft.Network/virtualNetworks/vnet-test/subnets/azuredb-test"
-  allowed_subnet_cidrs     = ["10.0.0.0/20"]
+  context_id           = "test"
+  vnet_id              = "/subscriptions/sub/resourceGroups/rg/providers/Microsoft.Network/virtualNetworks/vnet-test"
+  azuredb_subnet_id    = "/subscriptions/sub/resourceGroups/rg/providers/Microsoft.Network/virtualNetworks/vnet-test/subnets/azuredb-test"
+  allowed_subnet_cidrs = ["10.0.0.0/20"]
 }
 
 # Verifies the default path: a dedicated Key Vault and key are created.
@@ -142,9 +142,9 @@ run "destroy_operation_relaxes_sibling_input_validation" {
   command = plan
 
   variables {
-    operation                = "destroy"
-    vnet_id                  = null
-    azuredb_subnet_id = null
-    allowed_subnet_cidrs     = []
+    operation            = "destroy"
+    vnet_id              = null
+    azuredb_subnet_id    = null
+    allowed_subnet_cidrs = []
   }
 }
