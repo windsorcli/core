@@ -30,13 +30,13 @@ variable "vnet_id" {
   }
 }
 
-variable "flexibleserver_subnet_id" {
+variable "azuredb_subnet_id" {
   type        = string
-  description = "ID of the subnet delegated to Microsoft.DBforPostgreSQL/flexibleServers. Pipe network/azure-vnet's flexibleserver_subnet_id output."
+  description = "ID of the subnet delegated to Microsoft.DBforPostgreSQL/flexibleServers. Pipe network/azure-vnet's azuredb_subnet_id output."
   default     = null
   validation {
-    condition     = var.operation == "destroy" || var.flexibleserver_subnet_id != null
-    error_message = "flexibleserver_subnet_id is required; pipe network/azure-vnet's flexibleserver_subnet_id output."
+    condition     = var.operation == "destroy" || var.azuredb_subnet_id != null
+    error_message = "azuredb_subnet_id is required; pipe network/azure-vnet's azuredb_subnet_id output."
   }
 }
 

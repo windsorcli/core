@@ -880,7 +880,7 @@ cases:
             - components:
                 - prometheus/alerts/database
 
-  - name: flexibleserver database enabled adds the postgres-exporter alert component
+  - name: azuredb database enabled adds the postgres-exporter alert component
     values:
       platform: azure
       gateway:
@@ -888,7 +888,7 @@ cases:
       database:
         postgres:
           enabled: true
-          driver: flexibleserver
+          driver: azuredb
     expect:
       flux:
         - name: telemetry

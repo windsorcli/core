@@ -282,7 +282,7 @@ cases:
                 - provisioning-resources
 
   # Regression (#2653): Azure twin of the rds case above.
-  - name: flexibleserver driver keeps provisioning-install alive until the Provider CR is gone
+  - name: azuredb driver keeps provisioning-install alive until the Provider CR is gone
     values:
       platform: azure
       gateway:
@@ -290,7 +290,7 @@ cases:
       database:
         postgres:
           enabled: true
-          driver: flexibleserver
+          driver: azuredb
     expect:
       flux:
         - name: database
@@ -344,7 +344,7 @@ cases:
               components:
                 - crossplane/postgres/gcp-cloudsql
 
-  # Regression (#2653): GCP twin of the rds/flexibleserver cases above. Same
+  # Regression (#2653): GCP twin of the rds/azuredb cases above. Same
   # ordering guarantee.
   - name: cloudsql driver keeps provisioning-install alive until the Provider CR is gone
     values:
@@ -564,9 +564,9 @@ cases:
         - name: database
         - name: crossplane-identity
 
-  # flexibleserver driver wires database/azure-postgres and
+  # azuredb driver wires database/azure-postgres and
   # crossplane-identity — Azure twin of the rds test above.
-  - name: flexibleserver driver wires the database and crossplane-identity stacks
+  - name: azuredb driver wires the database and crossplane-identity stacks
     values:
       platform: azure
       gateway:
@@ -574,12 +574,12 @@ cases:
       database:
         postgres:
           enabled: true
-          driver: flexibleserver
+          driver: azuredb
     terraformOutputs:
       network:
         region: eastus2
         vnet_id: /subscriptions/sub/resourceGroups/rg-net/providers/Microsoft.Network/virtualNetworks/vnet-test
-        flexibleserver_subnet_id: /subscriptions/sub/resourceGroups/rg-net/providers/Microsoft.Network/virtualNetworks/vnet-test/subnets/flexibleserver-test
+        azuredb_subnet_id: /subscriptions/sub/resourceGroups/rg-net/providers/Microsoft.Network/virtualNetworks/vnet-test/subnets/azuredb-test
         private_subnet_cidrs:
           - 10.0.0.0/20
       cluster:
@@ -599,7 +599,7 @@ cases:
             region: eastus2
             manage_encryption_key: false
             vnet_id: /subscriptions/sub/resourceGroups/rg-net/providers/Microsoft.Network/virtualNetworks/vnet-test
-            flexibleserver_subnet_id: /subscriptions/sub/resourceGroups/rg-net/providers/Microsoft.Network/virtualNetworks/vnet-test/subnets/flexibleserver-test
+            azuredb_subnet_id: /subscriptions/sub/resourceGroups/rg-net/providers/Microsoft.Network/virtualNetworks/vnet-test/subnets/azuredb-test
             allowed_subnet_cidrs:
               - 10.0.0.0/20
         - name: crossplane-identity
@@ -617,7 +617,7 @@ cases:
             oidc_issuer_url: https://eastus.oic.prod-aks.azure.com/tenant-id/oidc-id/
             postgres_resource_group_id: /subscriptions/sub/resourceGroups/cluster-test-postgres
 
-  - name: database.postgres.encryption.managed enables the dedicated flexibleserver key
+  - name: database.postgres.encryption.managed enables the dedicated azuredb key
     values:
       platform: azure
       gateway:
@@ -625,7 +625,7 @@ cases:
       database:
         postgres:
           enabled: true
-          driver: flexibleserver
+          driver: azuredb
           encryption:
             managed: true
     expect:
@@ -636,7 +636,7 @@ cases:
             manage_encryption_key: true
 
   # Ephemeral contexts never get a dedicated Key Vault key, even with encryption.managed set.
-  - name: ephemeral flexibleserver context skips the dedicated encryption key
+  - name: ephemeral azuredb context skips the dedicated encryption key
     values:
       platform: azure
       ephemeral: true
@@ -645,7 +645,7 @@ cases:
       database:
         postgres:
           enabled: true
-          driver: flexibleserver
+          driver: azuredb
           encryption:
             managed: true
     expect:
@@ -657,7 +657,7 @@ cases:
 
   # database.postgres.encryption.key_id threads a caller-supplied key
   # straight through, bypassing the dedicated Key Vault entirely.
-  - name: flexibleserver driver with a supplied key_id passes it through
+  - name: azuredb driver with a supplied key_id passes it through
     values:
       platform: azure
       gateway:
@@ -665,7 +665,7 @@ cases:
       database:
         postgres:
           enabled: true
-          driver: flexibleserver
+          driver: azuredb
           encryption:
             key_id: https://byok.vault.azure.net/keys/postgres/abcd1234
     expect:
@@ -676,7 +676,7 @@ cases:
             key_id: https://byok.vault.azure.net/keys/postgres/abcd1234
 
   # database disabled (default cloudnativepg driver) renders neither stack.
-  - name: no flexibleserver driver excludes the database and crossplane-identity stacks
+  - name: no azuredb driver excludes the database and crossplane-identity stacks
     values:
       platform: azure
       gateway:
@@ -687,7 +687,7 @@ cases:
         - name: crossplane-identity
 
   # cloudsql driver wires database/gcp-cloudsql and crossplane-identity —
-  # GCP twin of the rds/flexibleserver tests above.
+  # GCP twin of the rds/azuredb tests above.
   - name: cloudsql driver wires the database and crossplane-identity stacks
     values:
       platform: gcp

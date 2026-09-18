@@ -26,7 +26,7 @@ output "key_id" {
   )
 }
 
-output "flexibleserver_cmk_identity_id" {
+output "azuredb_cmk_identity_id" {
   description = "ID of the user-assigned identity Flexible Server's own identity block references to read the CMK. Null when using platform-managed encryption or a BYOK key (the operator's own identity already has access to that key)."
-  value       = try(azurerm_user_assigned_identity.flexibleserver_cmk[0].id, null)
+  value       = try(azurerm_user_assigned_identity.azuredb_cmk[0].id, null)
 }

@@ -115,7 +115,7 @@ cases:
                   kind: DatabaseCredentials
                   current: status.conditions.exists(e, e.type == 'Ready' && e.status == 'True')
 
-  - name: demo mode with flexibleserver driver creates demo flexibleserver instance
+  - name: demo mode with azuredb driver creates demo azuredb instance
     values:
       id: test1
       platform: azure
@@ -129,10 +129,10 @@ cases:
       database:
         postgres:
           enabled: true
-          driver: flexibleserver
+          driver: azuredb
     terraformOutputs:
       network:
-        flexibleserver_subnet_id: /subscriptions/sub/resourceGroups/rg/providers/Microsoft.Network/virtualNetworks/vnet-test/subnets/flexibleserver-test
+        azuredb_subnet_id: /subscriptions/sub/resourceGroups/rg/providers/Microsoft.Network/virtualNetworks/vnet-test/subnets/azuredb-test
         region: eastus2
       database:
         private_dns_zone_id: /subscriptions/sub/resourceGroups/test-postgres/providers/Microsoft.Network/privateDnsZones/test.postgres.database.azure.com
@@ -147,11 +147,11 @@ cases:
               interval: 5m
               components:
                 - database
-                - database/flexibleserver
+                - database/azuredb
               substitutions:
-                flexibleserver_subnet_id: /subscriptions/sub/resourceGroups/rg/providers/Microsoft.Network/virtualNetworks/vnet-test/subnets/flexibleserver-test
-                flexibleserver_private_dns_zone_id: /subscriptions/sub/resourceGroups/test-postgres/providers/Microsoft.Network/privateDnsZones/test.postgres.database.azure.com
-                flexibleserver_region: eastus2
+                azuredb_subnet_id: /subscriptions/sub/resourceGroups/rg/providers/Microsoft.Network/virtualNetworks/vnet-test/subnets/azuredb-test
+                azuredb_private_dns_zone_id: /subscriptions/sub/resourceGroups/test-postgres/providers/Microsoft.Network/privateDnsZones/test.postgres.database.azure.com
+                azuredb_region: eastus2
                 database_instance_name: demo-db-test1
               healthCheckExprs:
                 - apiVersion: dbforpostgresql.azure.upbound.io/v1beta1
@@ -166,7 +166,7 @@ cases:
               timeout: 10m
               interval: 5m
               components:
-                - database/flexibleserver/credentials
+                - database/azuredb/credentials
               substitutions:
                 demo_database_name: demo
                 database_instance_name: demo-db-test1
@@ -176,7 +176,7 @@ cases:
                   current: status.conditions.exists(e, e.type == 'Ready' && e.status == 'True')
 
   # cloudsql driver: creates a DatabaseInstance + User + Database CR trio.
-  # GCP twin of the rds/flexibleserver cases above. network_id/key_id
+  # GCP twin of the rds/azuredb cases above. network_id/key_id
   # read the real terraform outputs directly, matching that convention.
   - name: demo mode with cloudsql driver creates demo cloudsql instance
     values:

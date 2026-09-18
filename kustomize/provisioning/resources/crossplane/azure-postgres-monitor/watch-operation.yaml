@@ -4,7 +4,7 @@
 apiVersion: ops.crossplane.io/v1alpha1
 kind: WatchOperation
 metadata:
-  name: flexibleserver-monitor
+  name: azuredb-monitor
 spec:
   watch:
     apiVersion: dbforpostgresql.azure.upbound.io/v1beta1

@@ -2,7 +2,7 @@
 apiVersion: kyverno.io/v1
 kind: ClusterPolicy
 metadata:
-  name: crossplane-flexibleserver-rg
+  name: crossplane-azuredb-rg
   annotations:
     policies.kyverno.io/title: Crossplane Flexible Server resource group
     policies.kyverno.io/category: Azure
@@ -32,4 +32,4 @@ spec:
         patchStrategicMerge:
           spec:
             forProvider:
-              resourceGroupName: ${flexibleserver_resource_group_name}
+              resourceGroupName: ${azuredb_resource_group_name}
