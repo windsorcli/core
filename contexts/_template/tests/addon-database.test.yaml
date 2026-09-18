@@ -211,6 +211,7 @@ cases:
                 - crossplane/function-python
                 - crossplane/database-credentials
                 - crossplane/postgres-exporter
+                - crossplane/aws-rds-monitor
               healthCheckExprs:
                 - apiVersion: pkg.crossplane.io/v1
                   kind: Provider
@@ -229,8 +230,8 @@ cases:
               components:
                 - crossplane/postgres/aws-rds
 
-  # provisioning's own postgres-exporter WatchOperation, not a per-driver
-  # component, is what telemetry.metrics.enabled actually gates.
+  # telemetry.metrics.enabled gates both the exporter and the monitor
+  # DatabaseCredentials WatchOperation that feeds it.
   - name: rds driver excludes postgres-exporter when metrics disabled
     values:
       platform: aws
@@ -258,6 +259,7 @@ cases:
           resources:
             - components:
                 - crossplane/postgres-exporter
+                - crossplane/aws-rds-monitor
 
   # Regression (#2653): asserts database-resources's dependsOn on
   # provisioning-resources, keeping provisioning-install alive for destroy.
@@ -323,6 +325,7 @@ cases:
                 - crossplane/database-credentials
                 - crossplane/gcp-admin-password
                 - crossplane/postgres-exporter
+                - crossplane/gcp-cloudsql-monitor
               healthCheckExprs:
                 - apiVersion: pkg.crossplane.io/v1
                   kind: Provider

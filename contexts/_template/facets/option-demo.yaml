@@ -15,10 +15,6 @@ config:
   # keep the plain literal.
   - name: database_instance_name
     value: "${database.postgres.driver == 'flexibleserver' ? 'demo-db-' + id : 'demo-db'}"
-  # Explicit secretName: system-database is a shared namespace, so a
-  # bare name could collide with another consumer.
-  - name: demo_monitor_secret_name
-    value: "${database_instance_name}-monitor-credentials"
 
 # =============================================================================
 # Flux — demo applications
@@ -27,9 +23,9 @@ config:
 # Sample apps reconciled onto the running cluster, a resources-only system.
 # Each demo.resources.* flag toggles one app. database adds a shared
 # namespace plus a driver variant (cloudnativepg, rds, flexibleserver, or
-# cloudsql), bundling that driver's own credentials. Granting pg_monitor on
-# the monitor credential provisions its own exporter automatically, via
-# the postgres-exporter WatchOperation rather than a facet component.
+# cloudsql), bundling that driver's own app credentials. The monitor
+# credential and its exporter are provisioned automatically by the
+# database facet's own WatchOperations, not by this facet.
 # dependsOn follows whichever operator owns the active driver.
 #
 # The three managed drivers read their own terraform outputs directly
@@ -83,11 +79,9 @@ flux:
           - demo-resources
         components:
           - database/rds/credentials
-          - "${(telemetry.metrics.enabled ?? true) ? 'database/rds/monitor' : ''}"
         substitutions:
           demo_database_name: "${demo_database_name}"
           database_instance_name: "${database_instance_name}"
-          demo_monitor_secret_name: "${demo_monitor_secret_name}"
         healthCheckExprs:
           - apiVersion: database.windsorcli.dev/v1alpha1
             kind: DatabaseCredentials
@@ -126,11 +120,9 @@ flux:
           - demo-resources
         components:
           - database/flexibleserver/credentials
-          - "${(telemetry.metrics.enabled ?? true) ? 'database/flexibleserver/monitor' : ''}"
         substitutions:
           demo_database_name: "${demo_database_name}"
           database_instance_name: "${database_instance_name}"
-          demo_monitor_secret_name: "${demo_monitor_secret_name}"
         healthCheckExprs:
           - apiVersion: database.windsorcli.dev/v1alpha1
             kind: DatabaseCredentials
@@ -171,11 +163,9 @@ flux:
           - demo-resources
         components:
           - database/cloudsql/credentials
-          - "${(telemetry.metrics.enabled ?? true) ? 'database/cloudsql/monitor' : ''}"
         substitutions:
           demo_database_name: "${demo_database_name}"
           database_instance_name: "${database_instance_name}"
-          demo_monitor_secret_name: "${demo_monitor_secret_name}"
         healthCheckExprs:
           - apiVersion: database.windsorcli.dev/v1alpha1
             kind: DatabaseCredentials

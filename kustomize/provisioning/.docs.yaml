@@ -19,6 +19,18 @@ components:
   crossplane/gcp-admin-password:
     enable_when: "`database.postgres.driver == 'cloudsql'`"
     description: "A `WatchOperation` watching every `sql.gcp.upbound.io` `DatabaseInstance` cluster-wide, unfiltered by name. Ensures `<instance-name>-admin-credentials` exists in `system-database` and an admin `User` CR applies it, generating each independently the first time it's missing — `provider-gcp-sql` has no auto-generate-password field of its own, unlike RDS/Azure."
+  crossplane/postgres-exporter:
+    enable_when: "`telemetry.metrics.enabled` (default true)"
+    description: "A `WatchOperation` watching every `DatabaseCredentials` XR cluster-wide. For any with a `pg_monitor` grant, applies a `postgres_exporter` Deployment/Service/PodMonitor in the XR's own namespace, reading its connection Secret."
+  crossplane/aws-rds-monitor:
+    enable_when: "`database.postgres.driver == 'rds'` AND `telemetry.metrics.enabled` (default true)"
+    description: "A `WatchOperation` watching every `rds.aws.upbound.io` `Instance` cluster-wide. Creates a `<instance-name>-monitor` `DatabaseCredentials` XR in `system-database`, `roleName: monitor` granted `pg_monitor`, for `crossplane/postgres-exporter` to pick up."
+  crossplane/azure-postgres-monitor:
+    enable_when: "`database.postgres.driver == 'flexibleserver'` AND `telemetry.metrics.enabled` (default true)"
+    description: "Azure twin of `crossplane/aws-rds-monitor`, watching `dbforpostgresql.azure.upbound.io` `FlexibleServer` CRs instead."
+  crossplane/gcp-cloudsql-monitor:
+    enable_when: "`database.postgres.driver == 'cloudsql'` AND `telemetry.metrics.enabled` (default true)"
+    description: "GCP twin of `crossplane/aws-rds-monitor`, watching `sql.gcp.upbound.io` `DatabaseInstance` CRs instead."
   crossplane/aws-rds:
     enable_when: "`database.postgres.driver == 'rds'`"
     description: "Digest-pinned `Provider` CRs for `provider-aws-rds` (`skipDependencyResolution: true`) and its `provider-family-aws` dependency, plus a `DeploymentRuntimeConfig` that fixes the provider pod's ServiceAccount name to `provider-aws-rds` so the `provisioning/crossplane-identity/aws` Terraform module's Pod Identity association can target it. Its own database-specific consumption (`ProviderConfig`, tag policy, monitoring, `app-role`) is `kustomize/database`'s `crossplane/aws-rds` component instead."
