@@ -49,7 +49,7 @@ terraform:
   # key for Flexible Server.
   - name: database
     path: database/azure-postgres
-    when: "database.postgres.driver == 'flexibleserver'"
+    when: "database.postgres.driver == 'azuredb'"
     dependsOn:
       - network
       - cluster
@@ -58,7 +58,7 @@ terraform:
       # with its delegated subnet.
       region: ${terraform_output('network', 'region')}
       vnet_id: ${terraform_output('network', 'vnet_id')}
-      flexibleserver_subnet_id: ${terraform_output('network', 'flexibleserver_subnet_id')}
+      azuredb_subnet_id: ${terraform_output('network', 'azuredb_subnet_id')}
       # Scopes Postgres ingress to this cluster's own node subnets rather
       # than the whole VNet.
       allowed_subnet_cidrs: ${terraform_output('network', 'private_subnet_cidrs')}
@@ -69,7 +69,7 @@ terraform:
   # Workload Identity and RBAC for Crossplane's Azure provider pods.
   - name: crossplane-identity
     path: provisioning/crossplane-identity/azure
-    when: "database.postgres.driver == 'flexibleserver'"
+    when: "database.postgres.driver == 'azuredb'"
     dependsOn:
       - network
       - cluster
@@ -118,7 +118,7 @@ terraform:
 # =============================================================================
 flux:
 
-  # CloudNativePG operator, or (rds/flexibleserver/cloudsql) just this
+  # CloudNativePG operator, or (rds/azuredb/cloudsql) just this
   # domain's namespace.
   - name: database
     install:
@@ -144,7 +144,7 @@ flux:
           context_id: ${id}
         timeout: 5m
         interval: 5m
-      - when: database.postgres.driver == 'flexibleserver'
+      - when: database.postgres.driver == 'azuredb'
         dependsOn:
           - provisioning-resources
         components:
@@ -153,7 +153,7 @@ flux:
           crossplane_azure_client_id: "${terraform_output('crossplane-identity', 'client_ids')['postgres'] ?? ''}"
           crossplane_azure_tenant_id: "${terraform_output('crossplane-identity', 'tenant_id') ?? ''}"
           crossplane_azure_subscription_id: "${terraform_output('network', 'subscription_id') ?? ''}"
-          flexibleserver_resource_group_name: "${terraform_output('database', 'resource_group_name') ?? ''}"
+          azuredb_resource_group_name: "${terraform_output('database', 'resource_group_name') ?? ''}"
           context_id: ${id}
         timeout: 5m
         interval: 5m
@@ -170,16 +170,16 @@ flux:
 
   # Grafana dashboard matching the active driver.
   - name: observability
-    when: (database.postgres.driver == 'cloudnativepg' || database.postgres.driver == 'rds' || database.postgres.driver == 'flexibleserver' || database.postgres.driver == 'cloudsql') && observability.enabled == true
+    when: (database.postgres.driver == 'cloudnativepg' || database.postgres.driver == 'rds' || database.postgres.driver == 'azuredb' || database.postgres.driver == 'cloudsql') && observability.enabled == true
     resources:
       - components:
           - "${database.postgres.driver == 'cloudnativepg' ? 'grafana/dashboards/cloudnativepg' : ''}"
-          - "${(database.postgres.driver == 'rds' || database.postgres.driver == 'flexibleserver' || database.postgres.driver == 'cloudsql') ? 'grafana/dashboards/postgres-exporter' : ''}"
+          - "${(database.postgres.driver == 'rds' || database.postgres.driver == 'azuredb' || database.postgres.driver == 'cloudsql') ? 'grafana/dashboards/postgres-exporter' : ''}"
 
   # Resources tier depends on install: destroy clears the driver's
   # provider before the Crossplane engine its finalizer needs running.
   - name: provisioning
-    when: database.postgres.driver == 'rds' || database.postgres.driver == 'flexibleserver' || database.postgres.driver == 'cloudsql'
+    when: database.postgres.driver == 'rds' || database.postgres.driver == 'azuredb' || database.postgres.driver == 'cloudsql'
     install:
       components:
         - crossplane
@@ -188,7 +188,7 @@ flux:
     resources:
       - components:
           - "${database.postgres.driver == 'rds' ? 'crossplane/aws-rds' : ''}"
-          - "${database.postgres.driver == 'flexibleserver' ? 'crossplane/azure-postgres' : ''}"
+          - "${database.postgres.driver == 'azuredb' ? 'crossplane/azure-postgres' : ''}"
           - "${database.postgres.driver == 'cloudsql' ? 'crossplane/gcp-cloudsql' : ''}"
           - crossplane/provider-sql
           - crossplane/function-python
@@ -196,7 +196,7 @@ flux:
           - "${database.postgres.driver == 'cloudsql' ? 'crossplane/gcp-admin-password' : ''}"
           - "${(telemetry.metrics.enabled ?? true) ? 'crossplane/postgres-exporter' : ''}"
           - "${(database.postgres.driver == 'rds' && (telemetry.metrics.enabled ?? true)) ? 'crossplane/aws-rds-monitor' : ''}"
-          - "${(database.postgres.driver == 'flexibleserver' && (telemetry.metrics.enabled ?? true)) ? 'crossplane/azure-postgres-monitor' : ''}"
+          - "${(database.postgres.driver == 'azuredb' && (telemetry.metrics.enabled ?? true)) ? 'crossplane/azure-postgres-monitor' : ''}"
           - "${(database.postgres.driver == 'cloudsql' && (telemetry.metrics.enabled ?? true)) ? 'crossplane/gcp-cloudsql-monitor' : ''}"
         healthCheckExprs:
           - apiVersion: pkg.crossplane.io/v1
@@ -211,6 +211,6 @@ flux:
         timeout: 15m
         interval: 5m
         substitutions:
-          crossplane_azure_client_id: "${database.postgres.driver == 'flexibleserver' ? (terraform_output('crossplane-identity', 'client_ids')['postgres'] ?? '') : ''}"
-          crossplane_azure_tenant_id: "${database.postgres.driver == 'flexibleserver' ? (terraform_output('crossplane-identity', 'tenant_id') ?? '') : ''}"
+          crossplane_azure_client_id: "${database.postgres.driver == 'azuredb' ? (terraform_output('crossplane-identity', 'client_ids')['postgres'] ?? '') : ''}"
+          crossplane_azure_tenant_id: "${database.postgres.driver == 'azuredb' ? (terraform_output('crossplane-identity', 'tenant_id') ?? '') : ''}"
           crossplane_gcp_service_account_email: "${database.postgres.driver == 'cloudsql' ? (terraform_output('crossplane-identity', 'service_account_emails')['postgres'] ?? '') : ''}"

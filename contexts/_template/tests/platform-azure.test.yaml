@@ -56,7 +56,7 @@ cases:
       database:
         postgres:
           enabled: true
-          driver: flexibleserver
+          driver: azuredb
     terraformOutputs:
       network:
         region: westus2

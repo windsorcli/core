@@ -94,14 +94,14 @@ resource "azurerm_subnet" "isolated" {
 # above, Azure subnets aren't zone-scoped, and a delegated subnet can't be
 # shared with any other resource type. Created unconditionally, the same
 # way the isolated subnets are, regardless of database.postgres.driver.
-resource "azurerm_subnet" "flexibleserver" {
-  name                 = "flexibleserver-${var.context_id}"
+resource "azurerm_subnet" "azuredb" {
+  name                 = "azuredb-${var.context_id}"
   resource_group_name  = azurerm_resource_group.main.name
   virtual_network_name = azurerm_virtual_network.main.name
   address_prefixes     = ["${join(".", slice(split(".", var.vnet_cidr), 0, 2))}.60.0/24"]
 
   delegation {
-    name = "flexibleserver"
+    name = "azuredb"
     service_delegation {
       name    = "Microsoft.DBforPostgreSQL/flexibleServers"
       actions = ["Microsoft.Network/virtualNetworks/subnets/join/action"]

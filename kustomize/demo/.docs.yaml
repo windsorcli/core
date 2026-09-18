@@ -23,7 +23,7 @@ substitutions:
     required_when: "`demo.resources.database: true` AND `database.postgres.driver == 'rds'`"
     description: "AWS region for the `demo-db` Instance, from `aws.region`. Passed by the facet itself."
   demo_database_name:
-    required_when: "`demo.resources.database: true` AND driver is `rds`, `flexibleserver`, or `cloudsql`"
+    required_when: "`demo.resources.database: true` AND driver is `rds`, `azuredb`, or `cloudsql`"
     description: "Fixed value `demo`, from the facet's own `demo_database_name` config. Sets RDS's `dbName` directly, and names the database each driver's `DatabaseCredentials` resources target. Passed by the facet itself."
   cloudsql_network_id:
     required_when: "`demo.resources.database: true` AND `database.postgres.driver == 'cloudsql'`"
@@ -40,7 +40,7 @@ components:
     enable_when: "`demo.resources.database: true`"
     description: "Creates the `demo-database` namespace. Always paired with a driver variant below."
   database-credentials:
-    enable_when: "`demo.resources.database: true` AND driver is `rds`, `flexibleserver`, or `cloudsql`"
+    enable_when: "`demo.resources.database: true` AND driver is `rds`, `azuredb`, or `cloudsql`"
     description: "A `demo-app` `DatabaseCredentials` resource in `demo-database`, naming `demo-db` and the `demo` database. Requires `kustomize/provisioning`'s `crossplane/database-credentials` Composition. The monitoring role is provisioned automatically instead, by `kustomize/provisioning`'s own driver-specific `*-monitor` `WatchOperation`."
   database/cloudnativepg:
     enable_when: "`demo.resources.database: true` AND `database.postgres.driver == 'cloudnativepg'`"
@@ -48,8 +48,8 @@ components:
   database/rds:
     enable_when: "`demo.resources.database: true` AND `database.postgres.driver == 'rds'`"
     description: "An `rds.aws.upbound.io/v1beta3` `Instance` CR `demo-db` (db.t4g.micro, 20Gi, Crossplane-generated admin password, network-scoped to the cluster's own security group) — just the database definition, no provider wiring. `kustomize/provisioning`'s `crossplane/aws-rds-monitor` `WatchOperation` reacts to this CR directly, provisioning the monitoring role without this facet's involvement."
-  database/flexibleserver:
-    enable_when: "`demo.resources.database: true` AND `database.postgres.driver == 'flexibleserver'`"
+  database/azuredb:
+    enable_when: "`demo.resources.database: true` AND `database.postgres.driver == 'azuredb'`"
     description: "A `dbforpostgresql.azure.upbound.io/v1beta1` `FlexibleServer` CR `demo-db` (B_Standard_B1ms, 32Gi, Crossplane-generated admin password, VNet-integrated with no public access) plus a `FlexibleServerDatabase` CR `demo` — just the database definition, no provider wiring. `kustomize/provisioning`'s `crossplane/azure-postgres-monitor` `WatchOperation` reacts to this CR directly, provisioning the monitoring role without this facet's involvement."
   database/cloudsql:
     enable_when: "`demo.resources.database: true` AND `database.postgres.driver == 'cloudsql'`"
@@ -72,7 +72,7 @@ dependencies:
     required_when: "`demo.resources.database: true` AND `database.postgres.driver == 'cloudnativepg'`"
     reason: "The CloudNativePG operator must be reconciling before the `demo-cluster` Cluster CR can come up. Wired as a conditional `dependsOn` in the facet."
   provisioning:
-    required_when: "`demo.resources.database: true` AND `database.postgres.driver` is `rds`, `flexibleserver`, or `cloudsql`"
+    required_when: "`demo.resources.database: true` AND `database.postgres.driver` is `rds`, `azuredb`, or `cloudsql`"
     reason: "Crossplane's provider must finish installing before the `demo-db` CR's CRD is registered. Wired as a conditional `dependsOn` in the facet."
   gateway-resources:
     required_when: "`bookinfo/gateway` is enabled"

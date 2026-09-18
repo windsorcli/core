@@ -14,7 +14,7 @@ config:
   # Flexible Server names are globally unique in Azure; other drivers
   # keep the plain literal.
   - name: database_instance_name
-    value: "${database.postgres.driver == 'flexibleserver' ? 'demo-db-' + id : 'demo-db'}"
+    value: "${database.postgres.driver == 'azuredb' ? 'demo-db-' + id : 'demo-db'}"
 
 # =============================================================================
 # Flux — demo applications
@@ -22,7 +22,7 @@ config:
 #
 # Sample apps reconciled onto the running cluster, a resources-only system.
 # Each demo.resources.* flag toggles one app. database adds a shared
-# namespace plus a driver variant (cloudnativepg, rds, flexibleserver, or
+# namespace plus a driver variant (cloudnativepg, rds, azuredb, or
 # cloudsql), bundling that driver's own app credentials. The monitor
 # credential and its exporter are provisioned automatically by the
 # database facet's own WatchOperations, not by this facet.
@@ -89,20 +89,20 @@ flux:
         timeout: 10m
         interval: 5m
 
-  # flexibleserver driver: Azure twin of rds.
+  # azuredb driver: Azure twin of rds.
   - name: demo
     path: demo
-    when: demo.resources.database == true && database.postgres.driver == 'flexibleserver'
+    when: demo.resources.database == true && database.postgres.driver == 'azuredb'
     dependsOn:
       - provisioning-resources
     resources:
       - components:
           - database
-          - database/flexibleserver
+          - database/azuredb
         substitutions:
-          flexibleserver_subnet_id: "${terraform_output('network', 'flexibleserver_subnet_id') ?? ''}"
-          flexibleserver_private_dns_zone_id: "${terraform_output('database', 'private_dns_zone_id') ?? ''}"
-          flexibleserver_region: "${terraform_output('network', 'region') ?? ''}"
+          azuredb_subnet_id: "${terraform_output('network', 'azuredb_subnet_id') ?? ''}"
+          azuredb_private_dns_zone_id: "${terraform_output('database', 'private_dns_zone_id') ?? ''}"
+          azuredb_region: "${terraform_output('network', 'region') ?? ''}"
           database_instance_name: "${database_instance_name}"
         healthCheckExprs:
           - apiVersion: dbforpostgresql.azure.upbound.io/v1beta1
@@ -119,7 +119,7 @@ flux:
         dependsOn:
           - demo-resources
         components:
-          - database/flexibleserver/credentials
+          - database/azuredb/credentials
         substitutions:
           demo_database_name: "${demo_database_name}"
           database_instance_name: "${database_instance_name}"
@@ -130,7 +130,7 @@ flux:
         timeout: 10m
         interval: 5m
 
-  # cloudsql driver: GCP twin of rds/flexibleserver.
+  # cloudsql driver: GCP twin of rds/azuredb.
   - name: demo
     path: demo
     when: demo.resources.database == true && database.postgres.driver == 'cloudsql'

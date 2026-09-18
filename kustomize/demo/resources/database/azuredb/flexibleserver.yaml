@@ -8,7 +8,7 @@ spec:
   deletionPolicy: Delete
   forProvider:
     # Must match the delegated subnet's own region (network/azure-vnet).
-    location: ${flexibleserver_region}
+    location: ${azuredb_region}
     version: "16"
     skuName: B_Standard_B1ms
     storageMb: 32768
@@ -18,6 +18,6 @@ spec:
       namespace: system-database
       key: password
     autoGeneratePassword: true
-    delegatedSubnetId: ${flexibleserver_subnet_id}
-    privateDnsZoneId: ${flexibleserver_private_dns_zone_id}
+    delegatedSubnetId: ${azuredb_subnet_id}
+    privateDnsZoneId: ${azuredb_private_dns_zone_id}
     publicNetworkAccessEnabled: false
