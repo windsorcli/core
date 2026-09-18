@@ -79,8 +79,8 @@ run "falls_back_to_platform_managed_encryption_when_unmanaged" {
   }
 
   assert {
-    condition     = output.key_vault_key_id == ""
-    error_message = "key_vault_key_id output should be empty when using platform-managed encryption"
+    condition     = output.key_id == ""
+    error_message = "key_id output should be empty when using platform-managed encryption"
   }
 
   assert {
@@ -89,23 +89,23 @@ run "falls_back_to_platform_managed_encryption_when_unmanaged" {
   }
 }
 
-# Verifies an explicit key_vault_key_id skips creating a dedicated Key Vault
-# entirely, even when manage_encryption_key is left at its default.
-run "byok_key_vault_key_id_skips_dedicated_key" {
+# Verifies an explicit key_id skips creating a dedicated Key Vault entirely,
+# even when manage_encryption_key is left at its default.
+run "byok_key_id_skips_dedicated_key" {
   command = plan
 
   variables {
-    key_vault_key_id = "https://byok.vault.azure.net/keys/postgres/abcd1234"
+    key_id = "https://byok.vault.azure.net/keys/postgres/abcd1234"
   }
 
   assert {
     condition     = length(azurerm_key_vault.postgres) == 0
-    error_message = "No dedicated Key Vault should be created when key_vault_key_id supplies an existing key"
+    error_message = "No dedicated Key Vault should be created when key_id supplies an existing key"
   }
 
   assert {
-    condition     = output.key_vault_key_id == "https://byok.vault.azure.net/keys/postgres/abcd1234"
-    error_message = "key_vault_key_id output should pass the supplied key ID through unchanged"
+    condition     = output.key_id == "https://byok.vault.azure.net/keys/postgres/abcd1234"
+    error_message = "key_id output should pass the supplied key ID through unchanged"
   }
 
   assert {

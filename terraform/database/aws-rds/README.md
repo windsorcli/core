@@ -10,7 +10,7 @@ dedicated CMK by default, with an `alias/<context_id>-rds` alias any
 consumer (Crossplane-managed `Instance` CRs, or a future Terraform-native
 database resource in this same module) can reference by name. Falls back
 to the account's AWS-managed default key when `manage_encryption_key` is
-false, or passes an operator-supplied `kms_key_arn` straight through.
+false, or passes an operator-supplied `key_id` straight through.
 
 One key per context, not one per database — shared by every RDS instance
 regardless of how many exist or which mechanism creates them.
@@ -49,7 +49,7 @@ No modules.
 |------|-------------|------|---------|:--------:|
 | <a name="input_cluster_security_group_id"></a> [cluster\_security\_group\_id](#input\_cluster\_security\_group\_id) | EKS cluster security group ID, allowed to reach RDS instances on the Postgres port. Attached to every node's ENI regardless of CNI driver. Pipe cluster/aws-eks's cluster\_security\_group\_id output. | `string` | `null` | no |
 | <a name="input_context_id"></a> [context\_id](#input\_context\_id) | The windsor context id for this deployment | `string` | `""` | no |
-| <a name="input_kms_key_arn"></a> [kms\_key\_arn](#input\_kms\_key\_arn) | Existing KMS key ARN for RDS storage encryption. Set to use a key you already manage instead of one this module creates. | `string` | `""` | no |
+| <a name="input_key_id"></a> [key\_id](#input\_key\_id) | Existing KMS key ARN for RDS storage encryption. Set to use a key you already manage instead of one this module creates. | `string` | `""` | no |
 | <a name="input_kms_key_deletion_window_in_days"></a> [kms\_key\_deletion\_window\_in\_days](#input\_kms\_key\_deletion\_window\_in\_days) | The waiting period, specified in number of days, after which the KMS key is deleted. Valid values are 7-30. Default is 7. For compliance requirements (PCI DSS, SOC 2, HIPAA), 30 days is often required for critical keys to allow time for audit and recovery. | `number` | `7` | no |
 | <a name="input_manage_encryption_key"></a> [manage\_encryption\_key](#input\_manage\_encryption\_key) | Whether to create a dedicated KMS key for RDS storage encryption. False falls back to the account's AWS-managed default key. | `bool` | `true` | no |
 | <a name="input_operation"></a> [operation](#input\_operation) | Windsor-supplied operation context: "apply" or "destroy". Relaxes validation on inputs wired from sibling components, whose values are irrelevant to a delete. | `string` | `"apply"` | no |
@@ -60,7 +60,7 @@ No modules.
 
 | Name | Description |
 |------|-------------|
+| <a name="output_key_id"></a> [key\_id](#output\_key\_id) | KMS key ARN for RDS storage encryption |
 | <a name="output_kms_key_alias"></a> [kms\_key\_alias](#output\_kms\_key\_alias) | Alias name for the dedicated CMK, null when BYOK or the AWS-managed default key are in use |
-| <a name="output_kms_key_arn"></a> [kms\_key\_arn](#output\_kms\_key\_arn) | KMS key ARN for RDS storage encryption |
 | <a name="output_security_group_id"></a> [security\_group\_id](#output\_security\_group\_id) | Security group ID with Postgres ingress restricted to this cluster's node security group. Reference from an Instance CR's vpcSecurityGroupIds. |
 <!-- END_TF_DOCS -->

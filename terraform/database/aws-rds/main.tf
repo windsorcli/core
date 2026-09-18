@@ -38,7 +38,7 @@ locals {
 # Account's default RDS encryption key, used when manage_encryption_key is
 # false and no key ARN is supplied.
 data "aws_kms_key" "rds_default" {
-  count  = var.manage_encryption_key || var.kms_key_arn != "" ? 0 : 1
+  count  = var.manage_encryption_key || var.key_id != "" ? 0 : 1
   key_id = "alias/aws/rds"
 }
 
@@ -49,7 +49,7 @@ data "aws_kms_key" "rds_default" {
 # Encryption key for RDS storage in this context, shared across every
 # database, not created per instance.
 resource "aws_kms_key" "rds" {
-  count                   = var.manage_encryption_key && var.kms_key_arn == "" ? 1 : 0
+  count                   = var.manage_encryption_key && var.key_id == "" ? 1 : 0
   description             = "KMS key for RDS storage encryption in context ${var.context_id}"
   deletion_window_in_days = var.kms_key_deletion_window_in_days
   enable_key_rotation     = true

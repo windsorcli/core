@@ -75,7 +75,7 @@ cases:
       network:
         db_subnet_group_name: test-rds
       database:
-        kms_key_arn: arn:aws:kms:us-west-2:123456789012:key/abcd1234-5678-90ab-cdef-1234567890ab
+        key_id: arn:aws:kms:us-west-2:123456789012:key/abcd1234-5678-90ab-cdef-1234567890ab
         security_group_id: sg-0abcd1234
     expect:
       flux:
@@ -142,7 +142,7 @@ cases:
       network:
         db_subnet_group_name: test-rds
       database:
-        kms_key_arn: arn:aws:kms:us-west-2:123456789012:key/abcd1234-5678-90ab-cdef-1234567890ab
+        key_id: arn:aws:kms:us-west-2:123456789012:key/abcd1234-5678-90ab-cdef-1234567890ab
         security_group_id: sg-0abcd1234
     expect:
       flux:
@@ -227,7 +227,7 @@ cases:
                   current: status.conditions.exists(e, e.type == 'Ready' && e.status == 'True')
 
   # cloudsql driver: creates a DatabaseInstance + User + Database CR trio.
-  # GCP twin of the rds/flexibleserver cases above. network_id/kms_key_name
+  # GCP twin of the rds/flexibleserver cases above. network_id/key_id
   # read the real terraform outputs directly, matching that convention.
   - name: demo mode with cloudsql driver creates demo cloudsql instance
     values:
@@ -250,7 +250,7 @@ cases:
         network_id: projects/windsor-test/global/networks/vpc-test
         region: us-central1
       database:
-        kms_key_name: projects/windsor-test/locations/us-central1/keyRings/cloudsql-test/cryptoKeys/cloudsql-test
+        key_id: projects/windsor-test/locations/us-central1/keyRings/cloudsql-test/cryptoKeys/cloudsql-test
     expect:
       flux:
         - name: demo
@@ -317,7 +317,7 @@ cases:
         network_id: projects/windsor-test/global/networks/vpc-test
         region: us-central1
       database:
-        kms_key_name: projects/windsor-test/locations/us-central1/keyRings/cloudsql-test/cryptoKeys/cloudsql-test
+        key_id: projects/windsor-test/locations/us-central1/keyRings/cloudsql-test/cryptoKeys/cloudsql-test
     expect:
       flux:
         - name: demo

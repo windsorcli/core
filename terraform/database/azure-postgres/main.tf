@@ -131,7 +131,7 @@ resource "azurerm_subnet_network_security_group_association" "flexibleserver" {
 # no dedicated-key step for encryption at rest.
 resource "azurerm_key_vault" "postgres" {
   # checkov:skip=CKV2_AZURE_32: We are using a public cluster for testing, there is no need for private endpoints.
-  count                      = var.manage_encryption_key && var.key_vault_key_id == "" ? 1 : 0
+  count                      = var.manage_encryption_key && var.key_id == "" ? 1 : 0
   name                       = replace("pg-${var.context_id}", "-", "")
   location                   = azurerm_resource_group.postgres.location
   resource_group_name        = azurerm_resource_group.postgres.name

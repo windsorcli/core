@@ -66,7 +66,7 @@ flux:
           - database/rds
         substitutions:
           db_subnet_group_name: "${terraform_output('network', 'db_subnet_group_name') ?? ''}"
-          kms_key_arn: "${terraform_output('database', 'kms_key_arn') ?? ''}"
+          kms_key_arn: "${terraform_output('database', 'key_id') ?? ''}"
           rds_security_group_id: "${terraform_output('database', 'security_group_id') ?? ''}"
           demo_database_name: "${demo_database_name}"
           database_instance_name: "${database_instance_name}"
@@ -151,7 +151,7 @@ flux:
           - "${(database.postgres.encryption.managed ?? false) ? 'database/cloudsql/encryption-key' : ''}"
         substitutions:
           cloudsql_network_id: "${terraform_output('network', 'network_id') ?? ''}"
-          cloudsql_kms_key_name: "${terraform_output('database', 'kms_key_name') ?? ''}"
+          cloudsql_kms_key_name: "${terraform_output('database', 'key_id') ?? ''}"
           cloudsql_region: "${terraform_output('network', 'region') ?? ''}"
           database_instance_name: "${database_instance_name}"
         healthCheckExprs:

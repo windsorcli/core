@@ -458,7 +458,7 @@ cases:
         cluster_arn: arn:aws:eks:us-west-2:123456789012:cluster/cluster-test
         cluster_security_group_id: sg-0eks1234
       database:
-        kms_key_arn: arn:aws:kms:us-west-2:123456789012:key/abcd1234-5678-90ab-cdef-1234567890ab
+        key_id: arn:aws:kms:us-west-2:123456789012:key/abcd1234-5678-90ab-cdef-1234567890ab
     expect:
       terraform:
         - name: database
@@ -526,9 +526,9 @@ cases:
           inputs:
             manage_encryption_key: false
 
-  # database.postgres.encryption.kms_key_arn threads a caller-supplied key
+  # database.postgres.encryption.key_id threads a caller-supplied key
   # straight through, bypassing the dedicated CMK entirely.
-  - name: rds driver with a supplied kms_key_arn passes it through
+  - name: rds driver with a supplied key_id passes it through
     values:
       platform: aws
       aws:
@@ -540,13 +540,13 @@ cases:
           enabled: true
           driver: rds
           encryption:
-            kms_key_arn: arn:aws:kms:us-west-2:123456789012:key/abcd1234-5678-90ab-cdef-1234567890ab
+            key_id: arn:aws:kms:us-west-2:123456789012:key/abcd1234-5678-90ab-cdef-1234567890ab
     expect:
       terraform:
         - name: database
           path: database/aws-rds
           inputs:
-            kms_key_arn: arn:aws:kms:us-west-2:123456789012:key/abcd1234-5678-90ab-cdef-1234567890ab
+            key_id: arn:aws:kms:us-west-2:123456789012:key/abcd1234-5678-90ab-cdef-1234567890ab
 
   # database disabled (default cloudnativepg driver) renders neither stack.
   - name: no rds driver excludes the database and crossplane-identity stacks
@@ -652,9 +652,9 @@ cases:
           inputs:
             manage_encryption_key: false
 
-  # database.postgres.encryption.key_vault_key_id threads a caller-supplied
-  # key straight through, bypassing the dedicated Key Vault entirely.
-  - name: flexibleserver driver with a supplied key_vault_key_id passes it through
+  # database.postgres.encryption.key_id threads a caller-supplied key
+  # straight through, bypassing the dedicated Key Vault entirely.
+  - name: flexibleserver driver with a supplied key_id passes it through
     values:
       platform: azure
       gateway:
@@ -664,13 +664,13 @@ cases:
           enabled: true
           driver: flexibleserver
           encryption:
-            key_vault_key_id: https://byok.vault.azure.net/keys/postgres/abcd1234
+            key_id: https://byok.vault.azure.net/keys/postgres/abcd1234
     expect:
       terraform:
         - name: database
           path: database/azure-postgres
           inputs:
-            key_vault_key_id: https://byok.vault.azure.net/keys/postgres/abcd1234
+            key_id: https://byok.vault.azure.net/keys/postgres/abcd1234
 
   # database disabled (default cloudnativepg driver) renders neither stack.
   - name: no flexibleserver driver excludes the database and crossplane-identity stacks
@@ -768,9 +768,9 @@ cases:
           inputs:
             manage_encryption_key: false
 
-  # database.postgres.encryption.kms_key_name threads a caller-supplied key
+  # database.postgres.encryption.key_id threads a caller-supplied key
   # straight through, bypassing the dedicated key ring entirely.
-  - name: cloudsql driver with a supplied kms_key_name passes it through
+  - name: cloudsql driver with a supplied key_id passes it through
     values:
       platform: gcp
       gcp:
@@ -782,13 +782,13 @@ cases:
           enabled: true
           driver: cloudsql
           encryption:
-            kms_key_name: projects/windsor-test/locations/us-central1/keyRings/byok/cryptoKeys/postgres
+            key_id: projects/windsor-test/locations/us-central1/keyRings/byok/cryptoKeys/postgres
     expect:
       terraform:
         - name: database
           path: database/gcp-cloudsql
           inputs:
-            kms_key_name: projects/windsor-test/locations/us-central1/keyRings/byok/cryptoKeys/postgres
+            key_id: projects/windsor-test/locations/us-central1/keyRings/byok/cryptoKeys/postgres
 
   # database disabled (default cloudnativepg driver) renders neither stack.
   - name: no cloudsql driver excludes the database and crossplane-identity stacks

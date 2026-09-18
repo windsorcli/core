@@ -60,15 +60,15 @@ resource "google_project_service_identity" "cloudsql" {
 }
 
 resource "google_kms_key_ring" "cloudsql" {
-  count    = var.manage_encryption_key && var.kms_key_name == "" ? 1 : 0
+  count    = var.manage_encryption_key && var.key_id == "" ? 1 : 0
   name     = "cloudsql-${var.context_id}"
   location = var.region
 }
 
 resource "google_kms_crypto_key" "cloudsql" {
-  # checkov:skip=CKV_GCP_82: Only created when kms_key_name is unset; durable
+  # checkov:skip=CKV_GCP_82: Only created when key_id is unset; durable
   # deployments supply an externally-managed key instead of this one.
-  count           = var.manage_encryption_key && var.kms_key_name == "" ? 1 : 0
+  count           = var.manage_encryption_key && var.key_id == "" ? 1 : 0
   name            = "cloudsql-${var.context_id}"
   key_ring        = google_kms_key_ring.cloudsql[0].id
   rotation_period = "7776000s" # 90 days
@@ -77,7 +77,7 @@ resource "google_kms_crypto_key" "cloudsql" {
 # Cloud SQL's own service agent needs encrypt/decrypt on the key before it
 # can use it for disk encryption.
 resource "google_kms_crypto_key_iam_member" "cloudsql" {
-  count         = var.manage_encryption_key && var.kms_key_name == "" ? 1 : 0
+  count         = var.manage_encryption_key && var.key_id == "" ? 1 : 0
   crypto_key_id = google_kms_crypto_key.cloudsql[0].id
   role          = "roles/cloudkms.cryptoKeyEncrypterDecrypter"
   member        = "serviceAccount:${google_project_service_identity.cloudsql.email}"

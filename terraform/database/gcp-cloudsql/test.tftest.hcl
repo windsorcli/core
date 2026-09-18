@@ -56,21 +56,21 @@ run "manage_encryption_key_false_skips_kms" {
   }
 }
 
-# An explicit kms_key_name wins over the dedicated key this module would
+# An explicit key_id wins over the dedicated key this module would
 # otherwise create.
-run "explicit_kms_key_name_skips_dedicated_key" {
+run "explicit_key_id_skips_dedicated_key" {
   command = plan
 
   variables {
-    context_id   = "test"
-    project_id   = "test-project"
-    network_id   = "projects/test-project/global/networks/network-test"
-    kms_key_name = "projects/test-project/locations/us-central1/keyRings/existing/cryptoKeys/existing"
+    context_id = "test"
+    project_id = "test-project"
+    network_id = "projects/test-project/global/networks/network-test"
+    key_id     = "projects/test-project/locations/us-central1/keyRings/existing/cryptoKeys/existing"
   }
 
   assert {
     condition     = length(google_kms_crypto_key.cloudsql) == 0
-    error_message = "No dedicated KMS key should be created when kms_key_name is explicitly set"
+    error_message = "No dedicated KMS key should be created when key_id is explicitly set"
   }
 }
 
