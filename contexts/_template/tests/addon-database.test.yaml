@@ -209,6 +209,8 @@ cases:
                 - crossplane/aws-rds
                 - crossplane/provider-sql
                 - crossplane/function-python
+                - crossplane/database-credentials
+                - crossplane/postgres-exporter
               healthCheckExprs:
                 - apiVersion: pkg.crossplane.io/v1
                   kind: Provider
@@ -216,6 +218,9 @@ cases:
                 - apiVersion: pkg.crossplane.io/v1
                   kind: Function
                   current: status.conditions.exists(e, e.type == 'Healthy' && e.status == 'True') && status.conditions.exists(e, e.type == 'Installed' && e.status == 'True')
+                - apiVersion: apiextensions.crossplane.io/v2
+                  kind: CompositeResourceDefinition
+                  current: status.conditions.exists(e, e.type == 'Established' && e.status == 'True')
         - name: database
           install: {}
           resources:
@@ -223,6 +228,36 @@ cases:
                 - provisioning-resources
               components:
                 - crossplane/postgres/aws-rds
+
+  # provisioning's own postgres-exporter WatchOperation, not a per-driver
+  # component, is what telemetry.metrics.enabled actually gates.
+  - name: rds driver excludes postgres-exporter when metrics disabled
+    values:
+      platform: aws
+      aws:
+        region: us-west-2
+      gateway:
+        enabled: false
+      database:
+        postgres:
+          enabled: true
+          driver: rds
+      telemetry:
+        metrics:
+          enabled: false
+    expect:
+      flux:
+        - name: provisioning
+          resources:
+            - components:
+                - crossplane/aws-rds
+                - crossplane/database-credentials
+    exclude:
+      flux:
+        - name: provisioning
+          resources:
+            - components:
+                - crossplane/postgres-exporter
 
   # Regression (#2653): asserts database-resources's dependsOn on
   # provisioning-resources, keeping provisioning-install alive for destroy.
@@ -285,6 +320,9 @@ cases:
                 - crossplane/gcp-cloudsql
                 - crossplane/provider-sql
                 - crossplane/function-python
+                - crossplane/database-credentials
+                - crossplane/gcp-admin-password
+                - crossplane/postgres-exporter
               healthCheckExprs:
                 - apiVersion: pkg.crossplane.io/v1
                   kind: Provider
@@ -292,6 +330,9 @@ cases:
                 - apiVersion: pkg.crossplane.io/v1
                   kind: Function
                   current: status.conditions.exists(e, e.type == 'Healthy' && e.status == 'True') && status.conditions.exists(e, e.type == 'Installed' && e.status == 'True')
+                - apiVersion: apiextensions.crossplane.io/v2
+                  kind: CompositeResourceDefinition
+                  current: status.conditions.exists(e, e.type == 'Established' && e.status == 'True')
         - name: database
           install: {}
           resources:

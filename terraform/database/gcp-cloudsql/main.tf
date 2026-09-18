@@ -15,14 +15,6 @@ terraform {
       source  = "hashicorp/google-beta"
       version = "8.2.0"
     }
-    random = {
-      source  = "hashicorp/random"
-      version = "~> 3.6"
-    }
-    kubernetes = {
-      source  = "hashicorp/kubernetes"
-      version = "~> 3.2"
-    }
   }
 }
 
@@ -91,57 +83,3 @@ resource "google_kms_crypto_key_iam_member" "cloudsql" {
   member        = "serviceAccount:${google_project_service_identity.cloudsql.email}"
 }
 
-#---------------------------------------------------------------------------------------------------
-# Admin Credentials
-# Cloud SQL's User resource has no auto-generate-and-write-to-secret
-# mechanism. This module generates the password and writes the Secret
-# itself, one per named instance in var.admin_credentials.
-#
-# Terraform runs before Flux, so this module creates its own copy of the
-# system-database namespace, matching cluster/aws-eks/additions's
-# system-dns and gitops/flux's flux-system.
-#---------------------------------------------------------------------------------------------------
-
-resource "kubernetes_namespace_v1" "system_database" {
-  metadata {
-    name = "system-database"
-    labels = {
-      "pod-security.kubernetes.io/enforce" = "baseline"
-      "pod-security.kubernetes.io/audit"   = "baseline"
-      "pod-security.kubernetes.io/warn"    = "baseline"
-    }
-  }
-
-  lifecycle {
-    ignore_changes = [
-      metadata[0].labels
-    ]
-  }
-}
-
-resource "random_password" "admin" {
-  for_each = var.admin_credentials
-  length   = 24
-  special  = false
-}
-
-resource "kubernetes_secret_v1" "admin_credentials" {
-  for_each = var.admin_credentials
-  metadata {
-    name      = "${each.key}-admin-credentials"
-    namespace = kubernetes_namespace_v1.system_database.metadata[0].name
-  }
-  data = {
-    username = each.value.username
-    password = random_password.admin[each.key].result
-  }
-}
-
-#---------------------------------------------------------------------------------------------------
-# State migration blocks
-#---------------------------------------------------------------------------------------------------
-
-moved {
-  from = kubernetes_namespace_v1.system_provisioning
-  to   = kubernetes_namespace_v1.system_database
-}

@@ -22,6 +22,10 @@ contexts/**/.gcp/
 # scripts/test-prometheus-rules.sh promtool scratch output
 **/.rendered-rule.yml
 
+# scripts/test-composition-functions.sh extraction scratch output
+**/.rendered-composition.py
+__pycache__/
+
 # IDE user config
 .cursor/
 .vscode/*.local.*
