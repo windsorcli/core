@@ -1,9 +1,7 @@
 ---
-title: cluster/talos/config
+title: Talos Config
 description: Per-node Talos machine config + CIDATA seeds.
 ---
-
-# cluster/talos/config
 
 The before-compute stage for hypervisors with no metadata service or DHCP
 (Hyper-V today). Generates the cluster identity, signs per-node machine
@@ -18,14 +16,14 @@ kubeconfig flow run without a redundant machine-config apply.
 | Name | Version |
 |------|---------|
 | <a name="requirement_terraform"></a> [terraform](#requirement\_terraform) | >= 1.12.2 |
-| <a name="requirement_hyperv"></a> [hyperv](#requirement\_hyperv) | 0.3.1 |
+| <a name="requirement_hyperv"></a> [hyperv](#requirement\_hyperv) | 0.4.0 |
 | <a name="requirement_talos"></a> [talos](#requirement\_talos) | 0.11.0 |
 
 ## Providers
 
 | Name | Version |
 |------|---------|
-| <a name="provider_hyperv"></a> [hyperv](#provider\_hyperv) | 0.3.1 |
+| <a name="provider_hyperv"></a> [hyperv](#provider\_hyperv) | 0.4.0 |
 | <a name="provider_talos"></a> [talos](#provider\_talos) | 0.11.0 |
 
 ## Modules
@@ -36,9 +34,9 @@ No modules.
 
 | Name | Type |
 |------|------|
-| [hyperv_image_file.cidata](https://registry.terraform.io/providers/windsorcli/hyperv/0.3.1/docs/resources/image_file) | resource |
+| [hyperv_image_file.cidata](https://registry.terraform.io/providers/windsorcli/hyperv/0.4.0/docs/resources/image_file) | resource |
 | [talos_machine_secrets.this](https://registry.terraform.io/providers/siderolabs/talos/0.11.0/docs/resources/machine_secrets) | resource |
-| [hyperv_iso_volume.cidata](https://registry.terraform.io/providers/windsorcli/hyperv/0.3.1/docs/data-sources/iso_volume) | data source |
+| [hyperv_iso_volume.cidata](https://registry.terraform.io/providers/windsorcli/hyperv/0.4.0/docs/data-sources/iso_volume) | data source |
 | [talos_machine_configuration.controlplane](https://registry.terraform.io/providers/siderolabs/talos/0.11.0/docs/data-sources/machine_configuration) | data source |
 | [talos_machine_configuration.worker](https://registry.terraform.io/providers/siderolabs/talos/0.11.0/docs/data-sources/machine_configuration) | data source |
 

@@ -1,9 +1,7 @@
 ---
-title: gitops/flux
+title: Flux
 description: Flux installation; hands reconciliation to the kustomize/ layer.
 ---
-
-# gitops/flux
 
 Installs Flux into a freshly-provisioned cluster so the Kustomize layer
 under `core/kustomize/` can take over reconciliation. The module installs
@@ -11,14 +9,20 @@ the [flux-operator](https://fluxoperator.dev) and a `FluxInstance` (the
 `flux-operator` and `flux-instance` Helm charts), which the operator
 reconciles into the Flux CRDs and controllers. The windsor CLI creates the
 root `GitRepository` and `Kustomization`, so the `FluxInstance` omits its
-`sync` block and manages controllers only. Controller tuning (concurrency,
-leader election, helm cache, the kustomize-controller memory limit) is applied
-through `spec.kustomize.patches`. Controller images resolve by distribution
-version rather than per-image digest, so the `require-image-digest` Kyverno
-policy exempts the Flux namespace. A readiness-gate Job blocks the apply until
-the operator reports the `FluxInstance` Ready, so the toolkit CRDs exist before
-the windsor CLI applies the blueprint. After bootstrap this layer is mostly
-inert — Flux self-manages from the repo going forward.
+`sync` block and manages controllers only.
+
+Controller tuning (concurrency, leader election, helm cache, the
+kustomize-controller memory limit) is applied through
+`spec.kustomize.patches`.
+
+Controller images resolve by distribution version rather than per-image
+digest, so the `require-image-digest` Kyverno policy exempts the Flux
+namespace.
+
+A readiness-gate Job blocks the apply until the operator reports the
+`FluxInstance` Ready, so the toolkit CRDs exist before the windsor CLI
+applies the blueprint. After bootstrap this layer is mostly inert — Flux
+self-manages from the repo going forward.
 
 A `removed` block drops the previous `fluxcd-community/flux2` Helm release from
 Terraform state without uninstalling it, so the operator adopts the live
@@ -34,7 +38,7 @@ and HelmRelease in the cluster, so do not run it by hand.
 | <a name="requirement_terraform"></a> [terraform](#requirement\_terraform) | >= 1.12.2 |
 | <a name="requirement_helm"></a> [helm](#requirement\_helm) | 3.3.0 |
 | <a name="requirement_kubernetes"></a> [kubernetes](#requirement\_kubernetes) | 3.2.1 |
-| <a name="requirement_random"></a> [random](#requirement\_random) | 3.9.0 |
+| <a name="requirement_random"></a> [random](#requirement\_random) | 3.9.1 |
 
 ## Providers
 
@@ -42,7 +46,7 @@ and HelmRelease in the cluster, so do not run it by hand.
 |------|---------|
 | <a name="provider_helm"></a> [helm](#provider\_helm) | 3.3.0 |
 | <a name="provider_kubernetes"></a> [kubernetes](#provider\_kubernetes) | 3.2.1 |
-| <a name="provider_random"></a> [random](#provider\_random) | 3.9.0 |
+| <a name="provider_random"></a> [random](#provider\_random) | 3.9.1 |
 
 ## Modules
 
@@ -62,7 +66,7 @@ No modules.
 | [kubernetes_secret_v1.git_auth](https://registry.terraform.io/providers/hashicorp/kubernetes/3.2.1/docs/resources/secret_v1) | resource |
 | [kubernetes_secret_v1.webhook_token](https://registry.terraform.io/providers/hashicorp/kubernetes/3.2.1/docs/resources/secret_v1) | resource |
 | [kubernetes_service_account_v1.flux_ready_gate](https://registry.terraform.io/providers/hashicorp/kubernetes/3.2.1/docs/resources/service_account_v1) | resource |
-| [random_password.webhook_token](https://registry.terraform.io/providers/hashicorp/random/3.9.0/docs/resources/password) | resource |
+| [random_password.webhook_token](https://registry.terraform.io/providers/hashicorp/random/3.9.1/docs/resources/password) | resource |
 
 ## Inputs
 
@@ -70,7 +74,7 @@ No modules.
 |------|-------------|------|---------|:--------:|
 | <a name="input_concurrency"></a> [concurrency](#input\_concurrency) | Number of concurrent reconciliations per Flux controller | `number` | `2` | no |
 | <a name="input_flux_namespace"></a> [flux\_namespace](#input\_flux\_namespace) | The namespace in which Flux will be installed | `string` | `"system-gitops"` | no |
-| <a name="input_flux_operator_version"></a> [flux\_operator\_version](#input\_flux\_operator\_version) | The version of the flux-operator and flux-instance Helm charts to install | `string` | `"0.59.0"` | no |
+| <a name="input_flux_operator_version"></a> [flux\_operator\_version](#input\_flux\_operator\_version) | The version of the flux-operator and flux-instance Helm charts to install | `string` | `"0.60.0"` | no |
 | <a name="input_flux_version"></a> [flux\_version](#input\_flux\_version) | The Flux distribution version the operator installs (FluxInstance spec.distribution.version) | `string` | `"2.9.5"` | no |
 | <a name="input_git_auth_secret"></a> [git\_auth\_secret](#input\_git\_auth\_secret) | The name of the secret to store the git authentication details | `string` | `"flux-system"` | no |
 | <a name="input_git_password"></a> [git\_password](#input\_git\_password) | The git password or PAT used to authenticte with the git provider | `string` | `""` | no |

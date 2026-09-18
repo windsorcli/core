@@ -1,9 +1,7 @@
 ---
-title: cni/cilium
+title: Cilium
 description: Out-of-band Cilium bootstrap for Talos clusters.
 ---
-
-# cni/cilium
 
 Installs Cilium directly via Helm against the Talos API before Flux exists,
 so Pods can network during cluster bring-up. `kustomize/cni/` adopts the
@@ -15,13 +13,13 @@ running release afterward and takes over day-2 changes.
 | Name | Version |
 |------|---------|
 | <a name="requirement_terraform"></a> [terraform](#requirement\_terraform) | >= 1.12.2 |
-| <a name="requirement_helm"></a> [helm](#requirement\_helm) | 3.2.0 |
+| <a name="requirement_helm"></a> [helm](#requirement\_helm) | 3.3.0 |
 
 ## Providers
 
 | Name | Version |
 |------|---------|
-| <a name="provider_helm"></a> [helm](#provider\_helm) | 3.2.0 |
+| <a name="provider_helm"></a> [helm](#provider\_helm) | 3.3.0 |
 
 ## Modules
 
@@ -31,7 +29,7 @@ No modules.
 
 | Name | Type |
 |------|------|
-| [helm_release.cilium](https://registry.terraform.io/providers/hashicorp/helm/3.2.0/docs/resources/release) | resource |
+| [helm_release.cilium](https://registry.terraform.io/providers/hashicorp/helm/3.3.0/docs/resources/release) | resource |
 
 ## Inputs
 

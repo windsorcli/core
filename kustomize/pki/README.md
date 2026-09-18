@@ -1,9 +1,9 @@
 ---
-title: PKI add-on
+title: PKI
 description: cert-manager, trust-manager, and the cluster's ClusterIssuers (selfsigned, private CA, ACME).
+stack_name: PKI
+stack_backing: TLS certificates
 ---
-
-# PKI
 
 The cluster's certificate-issuance layer. cert-manager's CRDs are
 vendored under `kustomize/crds/` and applied ahead of the stack via
@@ -27,13 +27,8 @@ reissues into the same Secret.
 
 ## Recipes
 
-The ClusterIssuers are named consistently across platforms
-(`public-selfsigned`, `public-acme`, `private-selfsigned`,
-`private-ca`), so switching between selfsigned and ACME is a
-substitution flip, not a Certificate spec change — cert-manager
-reissues into the same Secret. cert-manager runs in `system-pki` (PSA
-`baseline`); trust-manager, when present, runs in `system-pki-trust`
-(PSA `restricted`).
+cert-manager runs in `system-pki` (PSA `baseline`); trust-manager, when
+present, runs in `system-pki-trust` (PSA `restricted`).
 
 ### Baseline (selfsigned, no private CA)
 
@@ -65,8 +60,8 @@ flux:
         timeout: 5m
 ```
 
-Issues against `public-selfsigned`. Browser warnings until the CA
-cert is trusted out-of-band. Good first-cluster setup.
+Issues against `public-selfsigned`. Start here on a first cluster; expect
+browser warnings until the CA cert is trusted out-of-band.
 
 ### Public ACME on AWS
 
@@ -186,14 +181,12 @@ namespaces can mount.
 If `cert-manager-controller` restarts with `Last State: Terminated,
 Reason: Completed` and its logs show `clockHealth failed: the system
 clock is out of sync with the internal monotonic clock`, this is
-expected on docker-desktop/colima after the host laptop sleeps: the
-VM pauses, and on wake its wall clock steps forward while the
-already-running controller's monotonic baseline doesn't, tripping
-cert-manager's built-in `/livez` clock check (~5m tolerance, not
-configurable via Helm values). The restart itself resets the
-baseline and self-heals; no action needed. It stops recurring once
-the host stays awake long enough for the VM's clock sync to
-converge.
+expected on docker-desktop/colima after the host laptop sleeps. The VM
+pauses. On wake its wall clock steps forward while the running
+controller's monotonic baseline does not, which trips cert-manager's
+`/livez` clock check (~5m tolerance, not configurable through Helm
+values). The restart resets the baseline. It stops recurring once the
+host stays awake long enough for the VM's clock sync to converge.
 
 <!-- BEGIN_KUSTOMIZE_DOCS -->
 
@@ -214,26 +207,86 @@ converge.
 
 ## Components — `pki-install`
 
-| Component | Enable when | Effect |
+### `cert-manager`
+
+_Enabled when always._
+
+Helm release of the `cert-manager` chart in `system-pki`. Installs the controller, webhook, and cainjector (chart CRD install is skipped). The cert-manager CRDs are vendored under `kustomize/crds/` and applied ahead of the controller via the facet `crds:` section, so `pki-resources` can consume ClusterIssuer / Certificate CRs.
+
+### `cert-manager/single-node`
+
+_Enabled when single-node topology._
+
+Patches the cert-manager HelmRelease to disable leader election on the controller (single replica has nothing to elect against).
+
+### `cert-manager/azure-workload-identity`
+
+_Enabled when platform is Azure AND `dns.public_domain` is set._
+
+Patches the cert-manager Deployment to attach the AKS federated workload identity used by the DNS-01 ACME solver against Azure DNS. Reads `cert_manager_client_id` and `cert_manager_tenant_id`.
+
+### `cert-manager/gcp-workload-identity`
+
+_Enabled when platform is GCP AND `dns.public_domain` is set._
+
+Annotates the cert-manager ServiceAccount with the GKE Workload Identity binding used by the DNS-01 ACME solver against Cloud DNS. Reads `cert_manager_service_account_email`.
+
+### `cert-manager/prometheus`
+
+_Enabled when `telemetry.metrics.enabled: true`._
+
+Patches the cert-manager HelmRelease to enable Prometheus annotations / ServiceMonitor on the controller and webhook.
+
+### `trust-manager`
+
+_Enabled when `pki.enabled: true`._
+
+Helm release of the `trust-manager` chart in `system-pki-trust` (PSA `restricted`). Depends on cert-manager. Consumes `Bundle` CRs to distribute the private CA into workload namespaces.
+
+| Variant | Enabled when | Effect |
 |---|---|---|
-| `cert-manager` | always | Helm release of the `cert-manager` chart in `system-pki`. Installs the controller, webhook, and cainjector (chart CRD install is skipped). The cert-manager CRDs are vendored under `kustomize/crds/` and applied ahead of the controller via the facet `crds:` section, so `pki-resources` can consume ClusterIssuer / Certificate CRs. |
-| `cert-manager/single-node` | single-node topology | Patches the cert-manager HelmRelease to disable leader election on the controller (single replica has nothing to elect against). |
-| `cert-manager/azure-workload-identity` | platform is Azure AND `dns.public_domain` is set | Patches the cert-manager Deployment to attach the AKS federated workload identity used by the DNS-01 ACME solver against Azure DNS. Reads `cert_manager_client_id` and `cert_manager_tenant_id`. |
-| `cert-manager/gcp-workload-identity` | platform is GCP AND `dns.public_domain` is set | Annotates the cert-manager ServiceAccount with the GKE Workload Identity binding used by the DNS-01 ACME solver against Cloud DNS. Reads `cert_manager_service_account_email`. |
-| `cert-manager/prometheus` | `telemetry.metrics.enabled: true` | Patches the cert-manager HelmRelease to enable Prometheus annotations / ServiceMonitor on the controller and webhook. |
-| `trust-manager` | `pki.enabled: true` | Helm release of the `trust-manager` chart in `system-pki-trust` (PSA `restricted`). Depends on cert-manager. Consumes `Bundle` CRs to distribute the private CA into workload namespaces. |
-| `trust-manager/single-node` | single-node topology AND `pki.enabled: true` | Patches the trust-manager HelmRelease to disable leader election. |
+| `single-node` | single-node topology AND `pki.enabled: true` | Patches the trust-manager HelmRelease to disable leader election. |
 
 ## Components — `pki-resources`
 
-| Component | Enable when | Effect |
+### `private-issuer`
+
+The cluster's internal trust anchor, issuing the etcd and private-gateway certificates. Exactly one variant is active at a time.
+
+| Variant | Enabled when | Effect |
 |---|---|---|
-| `private-issuer/selfsigned` | `pki.enabled` is not set | ClusterIssuer `private` with `selfSigned: {}`, the cluster's internal trust anchor. Issues the etcd and private gateway certificates; browsers warn on anything it signs. `pki.enabled` replaces it with the CA-backed `private-issuer/ca` under the same name. |
-| `private-issuer/ca` | `pki.enabled: true` | Full private CA: the CA cert/key (generated or BYO, from `terraform_output('pki', ...)`) populate the `private-ca-keypair` Secret (`system-pki` only) cert-manager's `ca`-type `ClusterIssuer` (`private`) signs against, and the cert alone populates the `private-ca-trust-cert` Secret (`system-pki-trust` only, no private key) trust-manager's `Bundle` reads from — both via the facet's `secrets:` block (never rendered in the Kustomization spec, and never through a Flux substitution — a substituted multi-line PEM value loses its line breaks). A Kyverno mutation policy injects the resulting trust bundle into workload Pods. |
-| `public-issuer/selfsigned` | `dns.public_domain` is unset (default) | ClusterIssuer `public-selfsigned`. Bootstraps a working gateway cert immediately; flip to `acme/*` by setting `dns.public_domain` and cert-manager reissues into the same Secret. |
-| `public-issuer/acme/route53` | platform is AWS AND `dns.public_domain` is set | ClusterIssuer `public-acme` using the ACME DNS-01 solver against Route53. Auth is via the Pod Identity binding provisioned by the cluster Terraform module. |
-| `public-issuer/acme/azuredns` | platform is Azure AND `dns.public_domain` is set | ClusterIssuer `public-acme` using the ACME DNS-01 solver against Azure DNS. Auth is via the federated workload identity (see `cert-manager/azure-workload-identity`). |
-| `public-issuer/acme/clouddns` | platform is GCP AND `dns.public_domain` is set | ClusterIssuer `public-acme` using the ACME DNS-01 solver against Cloud DNS. Auth is via the GKE Workload Identity binding (see `cert-manager/gcp-workload-identity`). |
+| `selfsigned` | `pki.enabled` is not set | ClusterIssuer `private` with `selfSigned: {}`. Browsers warn on anything it signs. `pki.enabled` replaces it with the CA-backed `ca` variant under the same name. |
+| `ca` | `pki.enabled: true` | Full private CA: the CA cert/key (generated or BYO, from `terraform_output('pki', ...)`) populate the `private-ca-keypair` Secret (`system-pki` only) cert-manager's `ca`-type `ClusterIssuer` (`private`) signs against, and the cert alone populates the `private-ca-trust-cert` Secret (`system-pki-trust` only, no private key) trust-manager's `Bundle` reads from — both via the facet's `secrets:` block (never rendered in the Kustomization spec, and never through a Flux substitution — a substituted multi-line PEM value loses its line breaks). A Kyverno mutation policy injects the resulting trust bundle into workload Pods. |
+
+### `public-issuer`
+
+_Enabled when `pki.enabled: true`._
+
+Full private CA: the CA cert/key (generated or BYO, from `terraform_output('pki', ...)`) populate the `private-ca-keypair` Secret (`system-pki` only) cert-manager's `ca`-type `ClusterIssuer` (`private`) signs against, and the cert alone populates the `private-ca-trust-cert` Secret (`system-pki-trust` only, no private key) trust-manager's `Bundle` reads from — both via the facet's `secrets:` block (never rendered in the Kustomization spec, and never through a Flux substitution — a substituted multi-line PEM value loses its line breaks). A Kyverno mutation policy injects the resulting trust bundle into workload Pods.
+
+### `public-issuer/selfsigned`
+
+_Enabled when `dns.public_domain` is unset (default)._
+
+ClusterIssuer `public-selfsigned`. Bootstraps a working gateway cert immediately; flip to `acme/*` by setting `dns.public_domain` and cert-manager reissues into the same Secret.
+
+### `public-issuer/acme/route53`
+
+_Enabled when platform is AWS AND `dns.public_domain` is set._
+
+ClusterIssuer `public-acme` using the ACME DNS-01 solver against Route53. Auth is via the Pod Identity binding provisioned by the cluster Terraform module.
+
+### `public-issuer/acme/azuredns`
+
+_Enabled when platform is Azure AND `dns.public_domain` is set._
+
+ClusterIssuer `public-acme` using the ACME DNS-01 solver against Azure DNS. Auth is via the federated workload identity (see `cert-manager/azure-workload-identity`).
+
+### `public-issuer/acme/clouddns`
+
+_Enabled when platform is GCP AND `dns.public_domain` is set._
+
+ClusterIssuer `public-acme` using the ACME DNS-01 solver against Cloud DNS. Auth is via the GKE Workload Identity binding (see `cert-manager/gcp-workload-identity`).
 
 ## Dependencies
 

@@ -1,9 +1,7 @@
 ---
-title: network/azure-vnet
+title: Azure VNet
 description: VNet + subnets for AKS.
 ---
-
-# network/azure-vnet
 
 The cloud-side network fabric for AKS clusters: a VNet with private
 subnets carved from `cidr_block`. Size the subnets with enough headroom
@@ -16,13 +14,13 @@ Outputs feed the `cluster/azure-aks` module.
 | Name | Version |
 |------|---------|
 | <a name="requirement_terraform"></a> [terraform](#requirement\_terraform) | >= 1.12.2 |
-| <a name="requirement_azurerm"></a> [azurerm](#requirement\_azurerm) | ~> 5.0.0 |
+| <a name="requirement_azurerm"></a> [azurerm](#requirement\_azurerm) | ~> 5.4.0 |
 
 ## Providers
 
 | Name | Version |
 |------|---------|
-| <a name="provider_azurerm"></a> [azurerm](#provider\_azurerm) | 5.0.1 |
+| <a name="provider_azurerm"></a> [azurerm](#provider\_azurerm) | 5.4.0 |
 
 ## Modules
 

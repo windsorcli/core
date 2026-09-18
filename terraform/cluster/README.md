@@ -1,9 +1,8 @@
 ---
 title: Cluster
 description: Kubernetes control plane provisioning across Talos, EKS, and AKS.
+stack_backing: Talos · EKS · AKS
 ---
-
-# Cluster
 
 The cluster category has three drivers. `talos` provisions a self-hosted
 control plane and is the default on bare metal and local providers.
@@ -172,9 +171,21 @@ Talos enforces signed machine config, and rotation is handled inside
 from the control plane. That's fine for single-node clusters but
 worth reconsidering for anything multi-tenant.
 
+<!-- BEGIN_TERRAFORM_MODULES -->
+
+## Modules
+
+- [aws-eks](aws-eks/) — Managed Kubernetes control plane on AWS.
+- [aws-eks/additions](aws-eks/additions/) — system-dns namespace and external-dns ConfigMap for EKS.
+- [azure-aks](azure-aks/) — Managed Kubernetes control plane on Azure.
+- [gcp-gke](gcp-gke/) — Managed Kubernetes control plane on GCP.
+- [talos](talos/) — Self-hosted Kubernetes control plane via the Talos API.
+- [talos/config](talos/config/) — Per-node Talos machine config + CIDATA seeds.
+- [talos/extensions](talos/extensions/) — Talos image build with system extensions.
+<!-- END_TERRAFORM_MODULES -->
+
 ## See also
 
-- [talos/](talos/), [aws-eks/](aws-eks/), [azure-aks/](azure-aks/) for the per-driver Terraform reference.
 - [../network/](../network/) for the VPC and VNet modules that back the cluster on AWS and Azure.
 - [../compute/](../compute/) for Talos compute providers.
 - [../cni/](../cni/) for the Cilium bootstrap module on Talos.

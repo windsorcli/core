@@ -1,9 +1,8 @@
 ---
-title: Identity add-on
+title: Identity
 description: Cluster identity provider (SSO) — hosted Keycloak or an external OIDC issuer.
+stack_backing: Cluster single sign-on
 ---
-
-# Identity
 
 The cluster identity provider (SSO). `identity.driver: keycloak` (default) hosts
 Keycloak in-cluster — the operator plus a single `Keycloak` server backed by its
@@ -139,12 +138,13 @@ identity:
 ### Platform realm
 
 Enabling Keycloak also imports a `platform` realm (apps never live in `master`).
-It ships a security baseline — `sslRequired: external`, brute-force detection, a
+It ships a security baseline: `sslRequired: external`, brute-force detection, a
 `length(12) and notUsername and notEmail` password policy, and short access-token
-plus bounded SSO-session lifetimes — and a `platform-admins` group mapped to the
-realm-management `realm-admin` role as the one place to grant realm administration.
-Core creates the group; its members are deployment-specific and are not managed in
-git.
+plus bounded SSO-session lifetimes.
+
+It also creates a `platform-admins` group mapped to the realm-management
+`realm-admin` role, the one place to grant realm administration. Core creates
+the group; its members are deployment-specific and are not managed in git.
 
 Rename the realm to fit an existing naming convention:
 
@@ -161,7 +161,7 @@ not by continuous reconciliation.
 
 ### Grafana single sign-on
 
-SSO is inferred: with a cluster identity provider and Grafana both enabled, Grafana
+Core infers SSO: with a cluster identity provider and Grafana both enabled, Grafana
 authenticates against the platform realm, with no per-app flag. Core patches a `grafana`
 client into the platform realm import with its secret pinned via
 `identity.keycloak.grafana_client_secret` (a dev default applies in dev mode; required
@@ -183,14 +183,15 @@ observability:
     client_secret: ${secret("MyVault", "grafana-oidc", "clientSecret")}
 ```
 
-In dev mode the platform realm seeds standard users so local SSO works out of the box
-across every consumer (Grafana and any future one): **`dev-admin` / `admin-password`** (in
-`platform-admins` → admin) and **`dev-viewer` / `viewer-password`** (no group → read-only), so you
-can see the role mapping take effect. Neither name collides with the local `admin` account
-consumers reserve for themselves. The `dev-admin` password is shared with the Keycloak console
-admin and is overridable through `identity.keycloak.admin.password`. Grafana also uses
-`auto_login` in dev, so clicking it goes straight to the SSO login. None of this is created
-outside dev.
+In dev mode the platform realm seeds two standard users: **`dev-admin` /
+`admin-password`** (in `platform-admins` → admin) and **`dev-viewer` /
+`viewer-password`** (no group → read-only). Neither name collides with the local
+`admin` account consumers reserve for themselves.
+
+The `dev-admin` password is shared with the Keycloak console admin and is
+overridable through `identity.keycloak.admin.password`. Grafana also uses
+`auto_login` in dev, so clicking it goes straight to the SSO login. None of this
+is created outside dev.
 
 Opt out or override the role mapping:
 
@@ -226,11 +227,13 @@ after logging in. Outside dev, bind `platform-admins` (or another claim) to a ro
 ### External identity provider
 
 Point the cluster at an issuer you already run — a remote Keycloak, or any OIDC
-provider — instead of hosting one. Nothing is deployed in `system-identity`;
-consumers read the external issuer and bring their own client credentials (required
-for the `oidc` driver — the external provider owns them). The login button label is
-`identity.display_name` (default `SSO`); endpoints derive from the issuer's standard
-OIDC path — override under `identity.oidc` if the provider differs:
+provider — instead of hosting one. Nothing is deployed in `system-identity`.
+Consumers read the external issuer and bring their own client credentials,
+required for the `oidc` driver since the external provider owns them.
+
+The login button label is `identity.display_name` (default `SSO`). Endpoints
+derive from the issuer's standard OIDC path; override under `identity.oidc`
+if the provider differs:
 
 ```yaml
 identity:
@@ -283,21 +286,31 @@ client re-imports the realm.
 
 ## Components
 
-| Component | Enable when | Effect |
+### `keycloak-operator`
+
+_Enabled when `identity.driver == 'keycloak'`._
+
+Keycloak Operator (Deployment + RBAC) in `system-identity`, vendored verbatim from keycloak-k8s-resources. Reconciles `Keycloak` custom resources; installs no server by itself. CRDs are applied separately by the `crds:` layer.
+
+### `keycloak`
+
+_Enabled when `identity.driver == 'keycloak'`._
+
+The `Keycloak` server CR. Keycloak serves HTTP internally (TLS terminates at the gateway) and stores realms in the `keycloak` database.
+
+| Variant | Enabled when | Effect |
 |---|---|---|
-| `keycloak-operator` | `identity.driver == 'keycloak'` | Keycloak Operator (Deployment + RBAC) in `system-identity`, vendored verbatim from keycloak-k8s-resources. Reconciles `Keycloak` custom resources; installs no server by itself. CRDs are applied separately by the `crds:` layer. |
-| `keycloak/database` | `identity.driver == 'keycloak'` | The CloudNativePG `Cluster` backing Keycloak: a `keycloak` database owned by role `keycloak`, published as the `keycloak-db-app` secret and the `keycloak-db-rw` service. Applied by the `identity-resources-database` tier, which gates on the `Cluster`'s `Ready` condition via `healthCheckExprs` and which the server tier waits on. |
-| `keycloak/database/ha` | `topology: ha` | Scales the CloudNativePG `Cluster` to 3 instances with required pod anti-affinity, so each Postgres instance lands on a distinct node. |
-| `keycloak` | `identity.driver == 'keycloak'` | The `Keycloak` server CR. Keycloak serves HTTP internally (TLS terminates at the gateway) and stores realms in the `keycloak` database. |
-| `keycloak/realm` | `identity.driver == 'keycloak'` | One-shot `KeycloakRealmImport` for the platform realm (name from `identity.keycloak.realm`, default `platform`): a security baseline (sslRequired, brute-force detection, password policy, token/session lifetimes), a `platform-admins` group mapped to `realm-admin`. Consumers target this realm by name. |
-| `keycloak/realm/clients/grafana` | identity + Grafana both enabled (`grafana.sso != false`) | Registers the `grafana` OIDC client in the platform `KeycloakRealmImport` (v2beta1, no client-admin-api CRDs). The secret resolves from a `GRAFANA_CLIENT_SECRET` placeholder (`spec.placeholders`) backed by `identity.keycloak.grafana_client_secret`, and the same value is copied into Grafana's namespace as `grafana-oidc-client`. One folder per consumer under `realm/clients/`. |
-| `keycloak/realm/clients/kubernetes` | `cluster.oidc.enabled == true` | Registers the `kubernetes` OIDC client (public, PKCE) in the platform `KeycloakRealmImport` for kube-apiserver token validation. `cluster.oidc.issuer_url`/`client_id` are auto-inferred from this realm when unset, so enabling identity plus `cluster.oidc.enabled: true` needs no manual issuer/client config. |
-| `keycloak/realm/dev-user` | `dev == true` | Dev-only patch seeding standard platform-realm users so local SSO works out of the box: `dev-admin` / `admin-password` (in `platform-admins` → admin everywhere) and `dev-viewer` / `viewer-password` (no group → read-only). Neither name collides with a consumer's reserved local admin. Passwords satisfy the realm's length(12) policy. Never applied outside dev. |
-| `keycloak/realm/clients/kubernetes/dev-rbac` | `dev == true` and `cluster.oidc.enabled == true` | Dev-only `ClusterRoleBinding` mapping the `platform-admins` group to `cluster-admin`, so the seeded `dev-admin` user can do something after logging in via kubectl OIDC. Never applied outside dev. |
-| `keycloak/gateway` | `gateway.enabled == true` | HTTPRoute publishing `keycloak.${external_domain}` through the shared external Gateway to the operator-managed `keycloak-service`. |
-| `keycloak/cilium` | `gateway.driver == 'cilium'` | CiliumNetworkPolicy restricting Keycloak ingress to the gateway proxy. Cilium-enforced, so gated on the Cilium gateway driver. |
-| `keycloak/admin` | `identity.keycloak.admin.password` set, or `dev == true` | Points the `Keycloak` CR at the `keycloak-bootstrap-admin` secret via `spec.bootstrapAdmin`, instead of the operator's auto-generated temporary admin. The password is the supplied one, or in dev a known default shared with the SSO admin user. Honored only at initial cluster creation. |
-| `keycloak/prometheus` | `telemetry.metrics.enabled: true` | JSON6902 patch enabling Keycloak's own server and user-event metrics (`metrics-enabled`, `event-metrics-user-enabled`) and the operator's native `spec.serviceMonitor`, so Prometheus scrapes the management-interface `/metrics` endpoint with no hand-rolled ServiceMonitor needed. Also ships a hand-rolled `PodMonitor` for the `keycloak-db` CloudNativePG cluster's own postgres-exporter metrics -- CNPG's `Cluster.spec.monitoring.enablePodMonitor` convenience field is deprecated upstream, so this cluster is scraped the same way fluent-bit's ServiceMonitor is hand-rolled elsewhere. Without it, the CloudNativePG dashboard's namespace/cluster template variables (which query `cnpg_collector_up`) never discover this cluster. |
+| `database` | `identity.driver == 'keycloak'` | The CloudNativePG `Cluster` backing Keycloak: a `keycloak` database owned by role `keycloak`, published as the `keycloak-db-app` secret and the `keycloak-db-rw` service. Applied by the `identity-resources-database` tier, which gates on the `Cluster`'s `Ready` condition via `healthCheckExprs` and which the server tier waits on. |
+| `database/ha` | `topology: ha` | Scales the CloudNativePG `Cluster` to 3 instances with required pod anti-affinity, so each Postgres instance lands on a distinct node. |
+| `realm` | `identity.driver == 'keycloak'` | One-shot `KeycloakRealmImport` for the platform realm (name from `identity.keycloak.realm`, default `platform`): a security baseline (sslRequired, brute-force detection, password policy, token/session lifetimes), a `platform-admins` group mapped to `realm-admin`. Consumers target this realm by name. |
+| `realm/clients/grafana` | identity + Grafana both enabled (`grafana.sso != false`) | Registers the `grafana` OIDC client in the platform `KeycloakRealmImport` (v2beta1, no client-admin-api CRDs). The secret resolves from a `GRAFANA_CLIENT_SECRET` placeholder (`spec.placeholders`) backed by `identity.keycloak.grafana_client_secret`, and the same value is copied into Grafana's namespace as `grafana-oidc-client`. One folder per consumer under `realm/clients/`. |
+| `realm/clients/kubernetes` | `cluster.oidc.enabled == true` | Registers the `kubernetes` OIDC client (public, PKCE) in the platform `KeycloakRealmImport` for kube-apiserver token validation. `cluster.oidc.issuer_url`/`client_id` are auto-inferred from this realm when unset, so enabling identity plus `cluster.oidc.enabled: true` needs no manual issuer/client config. |
+| `realm/dev-user` | `dev == true` | Dev-only patch seeding standard platform-realm users so local SSO works out of the box: `dev-admin` / `admin-password` (in `platform-admins` → admin everywhere) and `dev-viewer` / `viewer-password` (no group → read-only). Neither name collides with a consumer's reserved local admin. Passwords satisfy the realm's length(12) policy. Never applied outside dev. |
+| `realm/clients/kubernetes/dev-rbac` | `dev == true` and `cluster.oidc.enabled == true` | Dev-only `ClusterRoleBinding` mapping the `platform-admins` group to `cluster-admin`, so the seeded `dev-admin` user can do something after logging in via kubectl OIDC. Never applied outside dev. |
+| `gateway` | `gateway.enabled == true` | HTTPRoute publishing `keycloak.${external_domain}` through the shared external Gateway to the operator-managed `keycloak-service`. |
+| `cilium` | `gateway.driver == 'cilium'` | CiliumNetworkPolicy restricting Keycloak ingress to the gateway proxy. Cilium-enforced, so gated on the Cilium gateway driver. |
+| `admin` | `identity.keycloak.admin.password` set, or `dev == true` | Points the `Keycloak` CR at the `keycloak-bootstrap-admin` secret via `spec.bootstrapAdmin`, instead of the operator's auto-generated temporary admin. The password is the supplied one, or in dev a known default shared with the SSO admin user. Honored only at initial cluster creation. |
+| `prometheus` | `telemetry.metrics.enabled: true` | JSON6902 patch enabling Keycloak's own server and user-event metrics (`metrics-enabled`, `event-metrics-user-enabled`) and the operator's native `spec.serviceMonitor`, so Prometheus scrapes the management-interface `/metrics` endpoint with no hand-rolled ServiceMonitor needed. Also ships a hand-rolled `PodMonitor` for the `keycloak-db` CloudNativePG cluster's own postgres-exporter metrics -- CNPG's `Cluster.spec.monitoring.enablePodMonitor` convenience field is deprecated upstream, so this cluster is scraped the same way fluent-bit's ServiceMonitor is hand-rolled elsewhere. Without it, the CloudNativePG dashboard's namespace/cluster template variables (which query `cnpg_collector_up`) never discover this cluster. |
 
 ## Dependencies
 
