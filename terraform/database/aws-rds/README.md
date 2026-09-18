@@ -29,6 +29,20 @@ regardless of how many exist or which mechanism creates them.
 |------|---------|
 | <a name="provider_aws"></a> [aws](#provider\_aws) | 6.63.0 |
 
+## Modules
+
+No modules.
+
+## Resources
+
+| Name | Type |
+|------|------|
+| [aws_kms_alias.rds](https://registry.terraform.io/providers/hashicorp/aws/6.63.0/docs/resources/kms_alias) | resource |
+| [aws_kms_key.rds](https://registry.terraform.io/providers/hashicorp/aws/6.63.0/docs/resources/kms_key) | resource |
+| [aws_security_group.rds](https://registry.terraform.io/providers/hashicorp/aws/6.63.0/docs/resources/security_group) | resource |
+| [aws_caller_identity.current](https://registry.terraform.io/providers/hashicorp/aws/6.63.0/docs/data-sources/caller_identity) | data source |
+| [aws_kms_key.rds_default](https://registry.terraform.io/providers/hashicorp/aws/6.63.0/docs/data-sources/kms_key) | data source |
+
 ## Inputs
 
 | Name | Description | Type | Default | Required |
@@ -49,12 +63,4 @@ regardless of how many exist or which mechanism creates them.
 | <a name="output_key_id"></a> [key\_id](#output\_key\_id) | KMS key ARN for RDS storage encryption |
 | <a name="output_kms_key_alias"></a> [kms\_key\_alias](#output\_kms\_key\_alias) | Alias name for the dedicated CMK, null when BYOK or the AWS-managed default key are in use |
 | <a name="output_security_group_id"></a> [security\_group\_id](#output\_security\_group\_id) | Security group ID with Postgres ingress restricted to this cluster's node security group. Reference from an Instance CR's vpcSecurityGroupIds. |
-
-## Resources
-
-| Name | Type |
-|------|------|
-| [aws_kms_alias.rds](https://registry.terraform.io/providers/hashicorp/aws/6.63.0/docs/resources/kms_alias) | resource |
-| [aws_kms_key.rds](https://registry.terraform.io/providers/hashicorp/aws/6.63.0/docs/resources/kms_key) | resource |
-| [aws_security_group.rds](https://registry.terraform.io/providers/hashicorp/aws/6.63.0/docs/resources/security_group) | resource |
 <!-- END_TF_DOCS -->
