@@ -195,6 +195,9 @@ flux:
           - crossplane/database-credentials
           - "${database.postgres.driver == 'cloudsql' ? 'crossplane/gcp-admin-password' : ''}"
           - "${(telemetry.metrics.enabled ?? true) ? 'crossplane/postgres-exporter' : ''}"
+          - "${(database.postgres.driver == 'rds' && (telemetry.metrics.enabled ?? true)) ? 'crossplane/aws-rds-monitor' : ''}"
+          - "${(database.postgres.driver == 'flexibleserver' && (telemetry.metrics.enabled ?? true)) ? 'crossplane/azure-postgres-monitor' : ''}"
+          - "${(database.postgres.driver == 'cloudsql' && (telemetry.metrics.enabled ?? true)) ? 'crossplane/gcp-cloudsql-monitor' : ''}"
         healthCheckExprs:
           - apiVersion: pkg.crossplane.io/v1
             kind: Provider
