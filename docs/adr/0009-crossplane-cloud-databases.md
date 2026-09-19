@@ -1,6 +1,6 @@
 ---
 title: "ADR-0009: Crossplane — application-requested cloud databases"
-description: Adds database.postgres.driver: rds, installing Crossplane and provider-aws-rds so a Helm chart installed on top of core can request a cloud-managed Postgres database without the customer authoring their own blueprint. Scopes core#2515 down to the grounded case; no cross-cloud abstraction, no general-purpose Crossplane surface.
+description: "Adds database.postgres.driver: rds, installing Crossplane and provider-aws-rds so a Helm chart installed on top of core can request a cloud-managed Postgres database without the customer authoring their own blueprint. Scopes core#2515 down to the grounded case; no cross-cloud abstraction, no general-purpose Crossplane surface."
 ---
 
 # ADR-0009: Crossplane — application-requested cloud databases
