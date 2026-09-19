@@ -174,3 +174,26 @@ run "destroy_operation_relaxes_sibling_input_validation" {
     allowed_subnet_cidrs = []
   }
 }
+
+# Verifies a caller-supplied var.tags entry can't override the module's own
+# WindsorContextID/Name values.
+run "var_tags_cannot_override_windsor_context_id_or_name" {
+  command = plan
+
+  variables {
+    tags = {
+      WindsorContextID = "not-the-real-context"
+      Name             = "not-the-real-name"
+    }
+  }
+
+  assert {
+    condition     = azurerm_resource_group.postgres.tags["WindsorContextID"] == "test"
+    error_message = "A caller-supplied WindsorContextID in var.tags must not override the module's own value"
+  }
+
+  assert {
+    condition     = azurerm_resource_group.postgres.tags["Name"] == azurerm_resource_group.postgres.name
+    error_message = "A caller-supplied Name in var.tags must not override the resource's own Name tag"
+  }
+}
