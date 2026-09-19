@@ -46,12 +46,12 @@ run "minimal_configuration" {
   }
 
   assert {
-    condition     = azurerm_subnet.flexibleserver.address_prefixes[0] == "10.0.60.0/24"
+    condition     = azurerm_subnet.azuredb.address_prefixes[0] == "10.0.60.0/24"
     error_message = "Flexible Server delegated subnet should default to 10.0.60.0/24"
   }
 
   assert {
-    condition     = azurerm_subnet.flexibleserver.delegation[0].service_delegation[0].name == "Microsoft.DBforPostgreSQL/flexibleServers"
+    condition     = azurerm_subnet.azuredb.delegation[0].service_delegation[0].name == "Microsoft.DBforPostgreSQL/flexibleServers"
     error_message = "Flexible Server subnet should delegate to Microsoft.DBforPostgreSQL/flexibleServers"
   }
 
@@ -319,7 +319,7 @@ run "automatic_subnet_creation" {
   }
 
   assert {
-    condition     = azurerm_subnet.flexibleserver.address_prefixes[0] == "10.0.60.0/24"
+    condition     = azurerm_subnet.azuredb.address_prefixes[0] == "10.0.60.0/24"
     error_message = "Flexible Server subnet stays a single subnet regardless of vnet_zones"
   }
 

@@ -22,9 +22,9 @@ substitutions:
   aws_region:
     required_when: "`demo.resources.database: true` AND `database.postgres.driver == 'rds'`"
     description: "AWS region for the `demo-db` Instance, from `aws.region`. Passed by the facet itself."
-  demo_db_name:
-    required_when: "`demo.resources.database: true` AND `database.postgres.driver == 'rds'`"
-    description: "Fixed value `demo`. Single source of truth for the `demo-db` Instance's `dbName`, referenced by both the Instance CR and the bootstrap job's SQL so the two can't drift independently. Passed by the facet itself."
+  demo_database_name:
+    required_when: "`demo.resources.database: true` AND driver is `rds`, `azuredb`, or `cloudsql`"
+    description: "Fixed value `demo`, from the facet's own `demo_database_name` config. Sets RDS's `dbName` directly, and names the database each driver's `DatabaseCredentials` resources target. Passed by the facet itself."
   cloudsql_network_id:
     required_when: "`demo.resources.database: true` AND `database.postgres.driver == 'cloudsql'`"
     description: "From `terraform_output('network', 'network_id')`. Sets the `demo-db` DatabaseInstance's `privateNetwork` — the demo reads the real output rather than reconstructing the naming convention a third-party chart (with no Flux substitution access) has to use instead. Passed by the facet itself."
@@ -39,18 +39,21 @@ components:
   database:
     enable_when: "`demo.resources.database: true`"
     description: "Creates the `demo-database` namespace. Always paired with a driver variant below."
+  database-credentials:
+    enable_when: "`demo.resources.database: true` AND driver is `rds`, `azuredb`, or `cloudsql`"
+    description: "A `demo-app` `DatabaseCredentials` resource in `demo-database`, naming `demo-db` and the `demo` database. Requires `kustomize/provisioning`'s `crossplane/database-credentials` Composition. The monitoring role is provisioned automatically instead, by `kustomize/provisioning`'s own driver-specific `*-monitor` `WatchOperation`."
   database/cloudnativepg:
     enable_when: "`demo.resources.database: true` AND `database.postgres.driver == 'cloudnativepg'`"
     description: "A `Cluster` CR `demo-cluster` (2 instances, 100 max_connections, 1Gi PVC, PodMonitor enabled). Requires the `database` add-on so the CloudNativePG operator can reconcile the CR."
   database/rds:
     enable_when: "`demo.resources.database: true` AND `database.postgres.driver == 'rds'`"
-    description: "An `rds.aws.upbound.io/v1beta3` `Instance` CR `demo-db` (db.t4g.micro, 20Gi, Crossplane-generated admin password, network-scoped to the cluster's own security group) — just the database definition, no provider wiring. The application credential (`demo-app`, owner of the `demo` database, via `crossplane/postgres/app-role`, wired into this facet's own `database` flux entry) is opt-in per chart, as is the `demo-db_monitor` monitoring role, via `crossplane/postgres/monitor-role` wired into the same `database-credentials` flux entry; `crossplane/postgres/monitoring-exporter` scrapes it there too, gated on `telemetry.metrics.enabled` (default true)."
-  database/flexibleserver:
-    enable_when: "`demo.resources.database: true` AND `database.postgres.driver == 'flexibleserver'`"
-    description: "A `dbforpostgresql.azure.upbound.io/v1beta1` `FlexibleServer` CR `demo-db` (B_Standard_B1ms, 32Gi, Crossplane-generated admin password, VNet-integrated with no public access) plus a `FlexibleServerDatabase` CR `demo` — just the database definition, no provider wiring. The application credential (`demo-app`, owner of the `demo` database, via `crossplane/postgres/app-role`, wired into this facet's own `database` flux entry) is opt-in per chart, as is the `demo-db_monitor` monitoring role, via `crossplane/postgres/monitor-role` wired into the same `database-credentials` flux entry; `crossplane/postgres/monitoring-exporter` scrapes it there too, gated on `telemetry.metrics.enabled` (default true)."
+    description: "An `rds.aws.upbound.io/v1beta3` `Instance` CR `demo-db` (db.t4g.micro, 20Gi, Crossplane-generated admin password, network-scoped to the cluster's own security group) — just the database definition, no provider wiring. `kustomize/provisioning`'s `crossplane/aws-rds-monitor` `WatchOperation` reacts to this CR directly, provisioning the monitoring role without this facet's involvement."
+  database/azuredb:
+    enable_when: "`demo.resources.database: true` AND `database.postgres.driver == 'azuredb'`"
+    description: "A `dbforpostgresql.azure.upbound.io/v1beta1` `FlexibleServer` CR `demo-db` (B_Standard_B1ms, 32Gi, Crossplane-generated admin password, VNet-integrated with no public access) plus a `FlexibleServerDatabase` CR `demo` — just the database definition, no provider wiring. `kustomize/provisioning`'s `crossplane/azure-postgres-monitor` `WatchOperation` reacts to this CR directly, provisioning the monitoring role without this facet's involvement."
   database/cloudsql:
     enable_when: "`demo.resources.database: true` AND `database.postgres.driver == 'cloudsql'`"
-    description: "A `sql.gcp.upbound.io/v1beta2` `DatabaseInstance` CR `demo-db` (db-f1-micro, private IP only, Terraform-generated admin password) plus a `User` CR reading that password and a `Database` CR `demo` — just the database definition, no provider wiring. The application credential (`demo-app`, owner of the `demo` database, via `crossplane/postgres/app-role`, wired into this facet's own `database` flux entry) is opt-in per chart, as is the `demo-db_monitor` monitoring role, via `crossplane/postgres/monitor-role` wired into the same `database-credentials` flux entry; `crossplane/postgres/monitoring-exporter` scrapes it there too, gated on `telemetry.metrics.enabled` (default true)."
+    description: "A `sql.gcp.upbound.io/v1beta2` `DatabaseInstance` CR `demo-db` (db-f1-micro, private IP only) plus a `Database` CR `demo` — just the database definition, no provider wiring. `kustomize/provisioning`'s `crossplane/gcp-admin-password` `WatchOperation` generates the admin password and applies it onto the instance's own admin `User`; its `crossplane/gcp-cloudsql-monitor` `WatchOperation` reacts to the same CR, provisioning the monitoring role without this facet's involvement."
   database/cloudsql/encryption-key:
     enable_when: "`demo.resources.database: true` AND `database.postgres.driver == 'cloudsql'` AND `database.postgres.encryption.managed: true`"
     description: "Patches `encryptionKeyName` onto the `DatabaseInstance` CR. Absent rather than empty when unmanaged, since the field's type is `string`."
@@ -69,7 +72,7 @@ dependencies:
     required_when: "`demo.resources.database: true` AND `database.postgres.driver == 'cloudnativepg'`"
     reason: "The CloudNativePG operator must be reconciling before the `demo-cluster` Cluster CR can come up. Wired as a conditional `dependsOn` in the facet."
   provisioning:
-    required_when: "`demo.resources.database: true` AND `database.postgres.driver` is `rds`, `flexibleserver`, or `cloudsql`"
+    required_when: "`demo.resources.database: true` AND `database.postgres.driver` is `rds`, `azuredb`, or `cloudsql`"
     reason: "Crossplane's provider must finish installing before the `demo-db` CR's CRD is registered. Wired as a conditional `dependsOn` in the facet."
   gateway-resources:
     required_when: "`bookinfo/gateway` is enabled"

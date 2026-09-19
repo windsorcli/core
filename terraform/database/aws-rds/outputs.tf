@@ -4,9 +4,9 @@
 
 # Precedence: an explicitly supplied key, then the dedicated CMK this
 # module creates, then the account's AWS-managed default key.
-output "kms_key_arn" {
+output "key_id" {
   description = "KMS key ARN for RDS storage encryption"
-  value = var.kms_key_arn != "" ? var.kms_key_arn : (
+  value = var.key_id != "" ? var.key_id : (
     length(aws_kms_key.rds) > 0 ? aws_kms_key.rds[0].arn : data.aws_kms_key.rds_default[0].arn
   )
 }

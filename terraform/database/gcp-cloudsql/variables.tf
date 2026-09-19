@@ -45,16 +45,8 @@ variable "manage_encryption_key" {
   default     = true
 }
 
-variable "kms_key_name" {
+variable "key_id" {
   description = "Existing KMS CryptoKey resource name for Cloud SQL storage encryption. Set to use a key you already manage instead of one this module creates."
   type        = string
   default     = ""
-}
-
-variable "admin_credentials" {
-  description = "Admin credential Secrets to create, keyed by Cloud SQL instance name. Each entry generates a random password and writes it to <key>-admin-credentials in system-database, the fixed name a chart's User CR reads via passwordSecretRef."
-  type = map(object({
-    username = string
-  }))
-  default = {}
 }

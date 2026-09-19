@@ -294,6 +294,42 @@ run "no_kubeconfig_without_context_path" {
   }
 }
 
+run "os_type_selects_windows_interpreter" {
+  command = plan
+
+  variables {
+    context_id     = "test"
+    project_id     = "test-project"
+    network_id     = "projects/test-project/global/networks/network-test"
+    subnetwork_id  = "projects/test-project/regions/us-central1/subnetworks/private-test"
+    node_locations = ["us-central1-a"]
+    context_path   = "test"
+    os_type        = "windows"
+  }
+
+  assert {
+    condition     = null_resource.kubeconfig[0].triggers.os_type == "windows"
+    error_message = "os_type trigger should carry the input value through to the kubeconfig provisioner"
+  }
+}
+
+# Rejects any os_type outside the two values the Windsor CLI ever injects.
+run "invalid_os_type_rejected" {
+  command = plan
+  expect_failures = [
+    var.os_type,
+  ]
+  variables {
+    context_id     = "test"
+    project_id     = "test-project"
+    network_id     = "projects/test-project/global/networks/network-test"
+    subnetwork_id  = "projects/test-project/regions/us-central1/subnetworks/private-test"
+    node_locations = ["us-central1-a"]
+    context_path   = "test"
+    os_type        = "plan9"
+  }
+}
+
 # Empty pools falls back to a single autoscaling general pool.
 run "pools_empty_falls_back_to_general_pool" {
   command = plan

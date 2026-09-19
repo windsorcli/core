@@ -1,0 +1,98 @@
+---
+# Namespaced (Crossplane v2): the XR is created directly, no Claim kind exists.
+apiVersion: apiextensions.crossplane.io/v2
+kind: CompositeResourceDefinition
+metadata:
+  name: databasecredentials.database.windsorcli.dev
+spec:
+  scope: Namespaced
+  group: database.windsorcli.dev
+  names:
+    kind: DatabaseCredentials
+    plural: databasecredentials
+  versions:
+    - name: v1alpha1
+      served: true
+      referenceable: true
+      schema:
+        openAPIV3Schema:
+          type: object
+          properties:
+            spec:
+              type: object
+              required:
+                - target
+              properties:
+                engine:
+                  type: string
+                  enum:
+                    - postgres
+                  default: postgres
+                  description: Database engine. Only postgres exists today.
+                target:
+                  type: object
+                  required:
+                    - apiVersion
+                    - kind
+                    - name
+                  description: Reference to the already-created Instance/FlexibleServer/DatabaseInstance CR this role is provisioned against.
+                  properties:
+                    apiVersion:
+                      type: string
+                      description: apiVersion of the referenced instance CR.
+                    kind:
+                      type: string
+                      enum:
+                        - Instance
+                        - FlexibleServer
+                        - DatabaseInstance
+                      description: Kind of the referenced instance CR. Selects which provider's field conventions apply.
+                    name:
+                      type: string
+                      description: Name of the referenced instance CR.
+                adminSecretRef:
+                  type: object
+                  description: >-
+                    Reference to the Secret holding target's admin username/password.
+                    Defaults to "<target.name>-admin-credentials" in system-database.
+                    Not honored for a DatabaseInstance target: a separate
+                    WatchOperation creates that Secret and has no way to learn of an
+                    override here.
+                  properties:
+                    name:
+                      type: string
+                    namespace:
+                      type: string
+                secretName:
+                  type: string
+                  description: Name of the generated connection Secret, in this object's own namespace. Defaults to "<role name>-credentials".
+                roleName:
+                  type: string
+                  description: Postgres role name. Defaults to this object's own name, unique within its namespace.
+                databaseName:
+                  type: string
+                  description: Database this role is primarily used against. Omit for a role not tied to one database, such as a monitoring role.
+                grants:
+                  type: array
+                  description: Postgres roles/groups this role should be granted membership in.
+                  items:
+                    type: object
+                    required:
+                      - memberOf
+                    properties:
+                      memberOf:
+                        type: string
+            status:
+              type: object
+              properties:
+                connectionSecretRef:
+                  type: object
+                  properties:
+                    name:
+                      type: string
+                    namespace:
+                      type: string
+                roleName:
+                  type: string
+                databaseName:
+                  type: string

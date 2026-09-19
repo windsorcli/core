@@ -39,7 +39,7 @@ locals {
   # Non-null placeholder used only when operation is destroy and the sibling value is unavailable.
   vnet_id = var.operation == "destroy" ? coalesce(var.vnet_id, local.destroy_placeholder_vnet_id) : var.vnet_id
   # Non-null placeholder used only when operation is destroy and the sibling value is unavailable.
-  flexibleserver_subnet_id = var.operation == "destroy" ? coalesce(var.flexibleserver_subnet_id, local.destroy_placeholder_subnet_id) : var.flexibleserver_subnet_id
+  azuredb_subnet_id = var.operation == "destroy" ? coalesce(var.azuredb_subnet_id, local.destroy_placeholder_subnet_id) : var.azuredb_subnet_id
 }
 
 #-----------------------------------------------------------------------------------------------------------------------
@@ -84,8 +84,8 @@ resource "azurerm_private_dns_zone_virtual_network_link" "postgres" {
 # AllowVnetInBound rule (priority 65000) permits any port from the whole
 # VNet. The explicit deny below overrides it for anything this NSG
 # doesn't allow first.
-resource "azurerm_network_security_group" "flexibleserver" {
-  name                = "flexibleserver-${var.context_id}"
+resource "azurerm_network_security_group" "azuredb" {
+  name                = "azuredb-${var.context_id}"
   location            = azurerm_resource_group.postgres.location
   resource_group_name = azurerm_resource_group.postgres.name
   tags                = var.tags
@@ -115,9 +115,9 @@ resource "azurerm_network_security_group" "flexibleserver" {
   }
 }
 
-resource "azurerm_subnet_network_security_group_association" "flexibleserver" {
-  subnet_id                 = local.flexibleserver_subnet_id
-  network_security_group_id = azurerm_network_security_group.flexibleserver.id
+resource "azurerm_subnet_network_security_group_association" "azuredb" {
+  subnet_id                 = local.azuredb_subnet_id
+  network_security_group_id = azurerm_network_security_group.azuredb.id
 }
 
 #-----------------------------------------------------------------------------------------------------------------------
@@ -131,7 +131,7 @@ resource "azurerm_subnet_network_security_group_association" "flexibleserver" {
 # no dedicated-key step for encryption at rest.
 resource "azurerm_key_vault" "postgres" {
   # checkov:skip=CKV2_AZURE_32: We are using a public cluster for testing, there is no need for private endpoints.
-  count                      = var.manage_encryption_key && var.key_vault_key_id == "" ? 1 : 0
+  count                      = var.manage_encryption_key && var.key_id == "" ? 1 : 0
   name                       = replace("pg-${var.context_id}", "-", "")
   location                   = azurerm_resource_group.postgres.location
   resource_group_name        = azurerm_resource_group.postgres.name
@@ -188,17 +188,17 @@ resource "azurerm_role_assignment" "key_vault_admin" {
 # Flexible Server's CMK access uses its own resource identity, not
 # Crossplane's. provisioning/crossplane-identity/azure only authenticates
 # the pod that calls the ARM API to create the server.
-resource "azurerm_user_assigned_identity" "flexibleserver_cmk" {
+resource "azurerm_user_assigned_identity" "azuredb_cmk" {
   count               = length(azurerm_key_vault.postgres)
-  name                = "flexibleserver-cmk-${var.context_id}"
+  name                = "azuredb-cmk-${var.context_id}"
   resource_group_name = azurerm_resource_group.postgres.name
   location            = azurerm_resource_group.postgres.location
   tags                = var.tags
 }
 
-resource "azurerm_role_assignment" "flexibleserver_cmk" {
+resource "azurerm_role_assignment" "azuredb_cmk" {
   count                = length(azurerm_key_vault.postgres)
   scope                = azurerm_key_vault.postgres[0].id
   role_definition_name = "Key Vault Crypto Service Encryption User"
-  principal_id         = azurerm_user_assigned_identity.flexibleserver_cmk[0].principal_id
+  principal_id         = azurerm_user_assigned_identity.azuredb_cmk[0].principal_id
 }

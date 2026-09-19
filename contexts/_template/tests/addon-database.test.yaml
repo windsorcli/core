@@ -209,6 +209,9 @@ cases:
                 - crossplane/aws-rds
                 - crossplane/provider-sql
                 - crossplane/function-python
+                - crossplane/database-credentials
+                - crossplane/postgres-exporter
+                - crossplane/aws-rds-monitor
               healthCheckExprs:
                 - apiVersion: pkg.crossplane.io/v1
                   kind: Provider
@@ -216,6 +219,9 @@ cases:
                 - apiVersion: pkg.crossplane.io/v1
                   kind: Function
                   current: status.conditions.exists(e, e.type == 'Healthy' && e.status == 'True') && status.conditions.exists(e, e.type == 'Installed' && e.status == 'True')
+                - apiVersion: apiextensions.crossplane.io/v2
+                  kind: CompositeResourceDefinition
+                  current: status.conditions.exists(e, e.type == 'Established' && e.status == 'True')
         - name: database
           install: {}
           resources:
@@ -223,6 +229,37 @@ cases:
                 - provisioning-resources
               components:
                 - crossplane/postgres/aws-rds
+
+  # telemetry.metrics.enabled gates both the exporter and the monitor
+  # DatabaseCredentials WatchOperation that feeds it.
+  - name: rds driver excludes postgres-exporter when metrics disabled
+    values:
+      platform: aws
+      aws:
+        region: us-west-2
+      gateway:
+        enabled: false
+      database:
+        postgres:
+          enabled: true
+          driver: rds
+      telemetry:
+        metrics:
+          enabled: false
+    expect:
+      flux:
+        - name: provisioning
+          resources:
+            - components:
+                - crossplane/aws-rds
+                - crossplane/database-credentials
+    exclude:
+      flux:
+        - name: provisioning
+          resources:
+            - components:
+                - crossplane/postgres-exporter
+                - crossplane/aws-rds-monitor
 
   # Regression (#2653): asserts database-resources's dependsOn on
   # provisioning-resources, keeping provisioning-install alive for destroy.
@@ -245,7 +282,7 @@ cases:
                 - provisioning-resources
 
   # Regression (#2653): Azure twin of the rds case above.
-  - name: flexibleserver driver keeps provisioning-install alive until the Provider CR is gone
+  - name: azuredb driver keeps provisioning-install alive until the Provider CR is gone
     values:
       platform: azure
       gateway:
@@ -253,7 +290,7 @@ cases:
       database:
         postgres:
           enabled: true
-          driver: flexibleserver
+          driver: azuredb
     expect:
       flux:
         - name: database
@@ -285,6 +322,10 @@ cases:
                 - crossplane/gcp-cloudsql
                 - crossplane/provider-sql
                 - crossplane/function-python
+                - crossplane/database-credentials
+                - crossplane/gcp-admin-password
+                - crossplane/postgres-exporter
+                - crossplane/gcp-cloudsql-monitor
               healthCheckExprs:
                 - apiVersion: pkg.crossplane.io/v1
                   kind: Provider
@@ -292,6 +333,9 @@ cases:
                 - apiVersion: pkg.crossplane.io/v1
                   kind: Function
                   current: status.conditions.exists(e, e.type == 'Healthy' && e.status == 'True') && status.conditions.exists(e, e.type == 'Installed' && e.status == 'True')
+                - apiVersion: apiextensions.crossplane.io/v2
+                  kind: CompositeResourceDefinition
+                  current: status.conditions.exists(e, e.type == 'Established' && e.status == 'True')
         - name: database
           install: {}
           resources:
@@ -300,7 +344,7 @@ cases:
               components:
                 - crossplane/postgres/gcp-cloudsql
 
-  # Regression (#2653): GCP twin of the rds/flexibleserver cases above. Same
+  # Regression (#2653): GCP twin of the rds/azuredb cases above. Same
   # ordering guarantee.
   - name: cloudsql driver keeps provisioning-install alive until the Provider CR is gone
     values:
@@ -417,7 +461,7 @@ cases:
         cluster_arn: arn:aws:eks:us-west-2:123456789012:cluster/cluster-test
         cluster_security_group_id: sg-0eks1234
       database:
-        kms_key_arn: arn:aws:kms:us-west-2:123456789012:key/abcd1234-5678-90ab-cdef-1234567890ab
+        key_id: arn:aws:kms:us-west-2:123456789012:key/abcd1234-5678-90ab-cdef-1234567890ab
     expect:
       terraform:
         - name: database
@@ -485,9 +529,9 @@ cases:
           inputs:
             manage_encryption_key: false
 
-  # database.postgres.encryption.kms_key_arn threads a caller-supplied key
+  # database.postgres.encryption.key_id threads a caller-supplied key
   # straight through, bypassing the dedicated CMK entirely.
-  - name: rds driver with a supplied kms_key_arn passes it through
+  - name: rds driver with a supplied key_id passes it through
     values:
       platform: aws
       aws:
@@ -499,13 +543,13 @@ cases:
           enabled: true
           driver: rds
           encryption:
-            kms_key_arn: arn:aws:kms:us-west-2:123456789012:key/abcd1234-5678-90ab-cdef-1234567890ab
+            key_id: arn:aws:kms:us-west-2:123456789012:key/abcd1234-5678-90ab-cdef-1234567890ab
     expect:
       terraform:
         - name: database
           path: database/aws-rds
           inputs:
-            kms_key_arn: arn:aws:kms:us-west-2:123456789012:key/abcd1234-5678-90ab-cdef-1234567890ab
+            key_id: arn:aws:kms:us-west-2:123456789012:key/abcd1234-5678-90ab-cdef-1234567890ab
 
   # database disabled (default cloudnativepg driver) renders neither stack.
   - name: no rds driver excludes the database and crossplane-identity stacks
@@ -520,9 +564,9 @@ cases:
         - name: database
         - name: crossplane-identity
 
-  # flexibleserver driver wires database/azure-postgres and
+  # azuredb driver wires database/azure-postgres and
   # crossplane-identity — Azure twin of the rds test above.
-  - name: flexibleserver driver wires the database and crossplane-identity stacks
+  - name: azuredb driver wires the database and crossplane-identity stacks
     values:
       platform: azure
       gateway:
@@ -530,12 +574,12 @@ cases:
       database:
         postgres:
           enabled: true
-          driver: flexibleserver
+          driver: azuredb
     terraformOutputs:
       network:
         region: eastus2
         vnet_id: /subscriptions/sub/resourceGroups/rg-net/providers/Microsoft.Network/virtualNetworks/vnet-test
-        flexibleserver_subnet_id: /subscriptions/sub/resourceGroups/rg-net/providers/Microsoft.Network/virtualNetworks/vnet-test/subnets/flexibleserver-test
+        azuredb_subnet_id: /subscriptions/sub/resourceGroups/rg-net/providers/Microsoft.Network/virtualNetworks/vnet-test/subnets/azuredb-test
         private_subnet_cidrs:
           - 10.0.0.0/20
       cluster:
@@ -555,7 +599,7 @@ cases:
             region: eastus2
             manage_encryption_key: false
             vnet_id: /subscriptions/sub/resourceGroups/rg-net/providers/Microsoft.Network/virtualNetworks/vnet-test
-            flexibleserver_subnet_id: /subscriptions/sub/resourceGroups/rg-net/providers/Microsoft.Network/virtualNetworks/vnet-test/subnets/flexibleserver-test
+            azuredb_subnet_id: /subscriptions/sub/resourceGroups/rg-net/providers/Microsoft.Network/virtualNetworks/vnet-test/subnets/azuredb-test
             allowed_subnet_cidrs:
               - 10.0.0.0/20
         - name: crossplane-identity
@@ -573,7 +617,7 @@ cases:
             oidc_issuer_url: https://eastus.oic.prod-aks.azure.com/tenant-id/oidc-id/
             postgres_resource_group_id: /subscriptions/sub/resourceGroups/cluster-test-postgres
 
-  - name: database.postgres.encryption.managed enables the dedicated flexibleserver key
+  - name: database.postgres.encryption.managed enables the dedicated azuredb key
     values:
       platform: azure
       gateway:
@@ -581,7 +625,7 @@ cases:
       database:
         postgres:
           enabled: true
-          driver: flexibleserver
+          driver: azuredb
           encryption:
             managed: true
     expect:
@@ -592,7 +636,7 @@ cases:
             manage_encryption_key: true
 
   # Ephemeral contexts never get a dedicated Key Vault key, even with encryption.managed set.
-  - name: ephemeral flexibleserver context skips the dedicated encryption key
+  - name: ephemeral azuredb context skips the dedicated encryption key
     values:
       platform: azure
       ephemeral: true
@@ -601,7 +645,7 @@ cases:
       database:
         postgres:
           enabled: true
-          driver: flexibleserver
+          driver: azuredb
           encryption:
             managed: true
     expect:
@@ -611,9 +655,9 @@ cases:
           inputs:
             manage_encryption_key: false
 
-  # database.postgres.encryption.key_vault_key_id threads a caller-supplied
-  # key straight through, bypassing the dedicated Key Vault entirely.
-  - name: flexibleserver driver with a supplied key_vault_key_id passes it through
+  # database.postgres.encryption.key_id threads a caller-supplied key
+  # straight through, bypassing the dedicated Key Vault entirely.
+  - name: azuredb driver with a supplied key_id passes it through
     values:
       platform: azure
       gateway:
@@ -621,18 +665,18 @@ cases:
       database:
         postgres:
           enabled: true
-          driver: flexibleserver
+          driver: azuredb
           encryption:
-            key_vault_key_id: https://byok.vault.azure.net/keys/postgres/abcd1234
+            key_id: https://byok.vault.azure.net/keys/postgres/abcd1234
     expect:
       terraform:
         - name: database
           path: database/azure-postgres
           inputs:
-            key_vault_key_id: https://byok.vault.azure.net/keys/postgres/abcd1234
+            key_id: https://byok.vault.azure.net/keys/postgres/abcd1234
 
   # database disabled (default cloudnativepg driver) renders neither stack.
-  - name: no flexibleserver driver excludes the database and crossplane-identity stacks
+  - name: no azuredb driver excludes the database and crossplane-identity stacks
     values:
       platform: azure
       gateway:
@@ -643,7 +687,7 @@ cases:
         - name: crossplane-identity
 
   # cloudsql driver wires database/gcp-cloudsql and crossplane-identity —
-  # GCP twin of the rds/flexibleserver tests above.
+  # GCP twin of the rds/azuredb tests above.
   - name: cloudsql driver wires the database and crossplane-identity stacks
     values:
       platform: gcp
@@ -727,9 +771,9 @@ cases:
           inputs:
             manage_encryption_key: false
 
-  # database.postgres.encryption.kms_key_name threads a caller-supplied key
+  # database.postgres.encryption.key_id threads a caller-supplied key
   # straight through, bypassing the dedicated key ring entirely.
-  - name: cloudsql driver with a supplied kms_key_name passes it through
+  - name: cloudsql driver with a supplied key_id passes it through
     values:
       platform: gcp
       gcp:
@@ -741,13 +785,13 @@ cases:
           enabled: true
           driver: cloudsql
           encryption:
-            kms_key_name: projects/windsor-test/locations/us-central1/keyRings/byok/cryptoKeys/postgres
+            key_id: projects/windsor-test/locations/us-central1/keyRings/byok/cryptoKeys/postgres
     expect:
       terraform:
         - name: database
           path: database/gcp-cloudsql
           inputs:
-            kms_key_name: projects/windsor-test/locations/us-central1/keyRings/byok/cryptoKeys/postgres
+            key_id: projects/windsor-test/locations/us-central1/keyRings/byok/cryptoKeys/postgres
 
   # database disabled (default cloudnativepg driver) renders neither stack.
   - name: no cloudsql driver excludes the database and crossplane-identity stacks

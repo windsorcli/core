@@ -16,13 +16,13 @@ variable "manage_encryption_key" {
   default     = true
 }
 
-variable "kms_key_arn" {
+variable "key_id" {
   description = "Existing KMS key ARN for RDS storage encryption. Set to use a key you already manage instead of one this module creates."
   type        = string
   default     = ""
   validation {
-    condition     = var.kms_key_arn == "" || can(regex("^arn:aws:kms:[a-z0-9-]+:\\d{12}:key/[a-f0-9-]+$", var.kms_key_arn))
-    error_message = "kms_key_arn must be empty or a valid KMS key ARN."
+    condition     = var.key_id == "" || can(regex("^arn:aws:kms:[a-z0-9-]+:\\d{12}:key/[a-f0-9-]+$", var.key_id))
+    error_message = "key_id must be empty or a valid KMS key ARN."
   }
 }
 

@@ -30,13 +30,13 @@ variable "vnet_id" {
   }
 }
 
-variable "flexibleserver_subnet_id" {
+variable "azuredb_subnet_id" {
   type        = string
-  description = "ID of the subnet delegated to Microsoft.DBforPostgreSQL/flexibleServers. Pipe network/azure-vnet's flexibleserver_subnet_id output."
+  description = "ID of the subnet delegated to Microsoft.DBforPostgreSQL/flexibleServers. Pipe network/azure-vnet's azuredb_subnet_id output."
   default     = null
   validation {
-    condition     = var.operation == "destroy" || var.flexibleserver_subnet_id != null
-    error_message = "flexibleserver_subnet_id is required; pipe network/azure-vnet's flexibleserver_subnet_id output."
+    condition     = var.operation == "destroy" || var.azuredb_subnet_id != null
+    error_message = "azuredb_subnet_id is required; pipe network/azure-vnet's azuredb_subnet_id output."
   }
 }
 
@@ -56,7 +56,7 @@ variable "manage_encryption_key" {
   default     = true
 }
 
-variable "key_vault_key_id" {
+variable "key_id" {
   description = "Existing Key Vault key ID (versionless) for Flexible Server storage encryption. Set to use a key you already manage instead of one this module creates."
   type        = string
   default     = ""

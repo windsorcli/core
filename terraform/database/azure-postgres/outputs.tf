@@ -19,14 +19,14 @@ output "private_dns_zone_id" {
 
 # Precedence: an explicitly supplied key, then the dedicated key this module
 # creates, then empty string (Flexible Server's platform-managed encryption).
-output "key_vault_key_id" {
+output "key_id" {
   description = "Versionless Key Vault key ID for Flexible Server storage encryption. Empty when using platform-managed encryption."
-  value = var.key_vault_key_id != "" ? var.key_vault_key_id : (
+  value = var.key_id != "" ? var.key_id : (
     length(azurerm_key_vault_key.postgres) > 0 ? azurerm_key_vault_key.postgres[0].versionless_id : ""
   )
 }
 
-output "flexibleserver_cmk_identity_id" {
+output "azuredb_cmk_identity_id" {
   description = "ID of the user-assigned identity Flexible Server's own identity block references to read the CMK. Null when using platform-managed encryption or a BYOK key (the operator's own identity already has access to that key)."
-  value       = try(azurerm_user_assigned_identity.flexibleserver_cmk[0].id, null)
+  value       = try(azurerm_user_assigned_identity.azuredb_cmk[0].id, null)
 }

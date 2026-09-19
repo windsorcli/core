@@ -1369,7 +1369,7 @@ properties:
             enum:
               - cloudnativepg
               - rds
-              - flexibleserver
+              - azuredb
               - cloudsql
             default: cloudnativepg
             description: PostgreSQL database driver
@@ -1380,15 +1380,9 @@ properties:
                 type: boolean
                 default: false
                 description: Create a dedicated customer-managed key instead of the driver's platform-managed default.
-              kms_key_arn:
+              key_id:
                 type: string
-                description: Existing AWS KMS key ARN for RDS storage encryption, overriding managed.
-              key_vault_key_id:
-                type: string
-                description: Existing Azure Key Vault key ID for Flexible Server storage encryption, overriding managed.
-              kms_key_name:
-                type: string
-                description: Existing GCP KMS CryptoKey resource name for Cloud SQL storage encryption, overriding managed.
+                description: Existing encryption key identifier for the active driver, overriding managed. Format is driver-dependent (an ARN for rds, a Key Vault key ID for azuredb, a CryptoKey resource name for cloudsql).
             additionalProperties: false
         additionalProperties: false
     additionalProperties: false
@@ -1608,7 +1602,7 @@ allOf:
         platform:
           const: aws
 
-  # database.postgres.driver: flexibleserver installs Crossplane's
+  # database.postgres.driver: azuredb installs Crossplane's
   # provider-azure-dbforpostgresql, wired to Azure credentials by the
   # azure-aks Terraform module's Workload Identity federation — Azure-only.
   - if:
@@ -1620,7 +1614,7 @@ allOf:
               type: object
               properties:
                 driver:
-                  const: flexibleserver
+                  const: azuredb
               required:
                 - driver
           required:
