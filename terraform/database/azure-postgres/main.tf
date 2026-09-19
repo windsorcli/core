@@ -27,6 +27,23 @@ provider "azurerm" {
 data "azurerm_client_config" "current" {}
 
 #-----------------------------------------------------------------------------------------------------------------------
+# Locals
+#-----------------------------------------------------------------------------------------------------------------------
+
+locals {
+  tags = merge({
+    WindsorContextID = var.context_id
+  }, var.tags)
+
+  resource_group_name         = "postgres-${var.context_id}"
+  private_dns_zone_name       = "${var.context_id}.postgres.database.azure.com"
+  private_dns_zone_link_name  = "postgres-${var.context_id}-link"
+  network_security_group_name = "azuredb-${var.context_id}"
+  key_vault_name              = replace("pg-${var.context_id}", "-", "")
+  cmk_identity_name           = "azuredb-cmk-${var.context_id}"
+}
+
+#-----------------------------------------------------------------------------------------------------------------------
 # Destroy-Safe Sibling Inputs
 #-----------------------------------------------------------------------------------------------------------------------
 
@@ -50,9 +67,11 @@ locals {
 # provisioning/crossplane-identity/azure's role assignment scopes to it,
 # Azure's replacement for AWS's per-resource tag condition.
 resource "azurerm_resource_group" "postgres" {
-  name     = "postgres-${var.context_id}"
+  name     = local.resource_group_name
   location = var.region
-  tags     = var.tags
+  tags = merge({
+    Name = local.resource_group_name
+  }, local.tags)
 }
 
 #-----------------------------------------------------------------------------------------------------------------------
@@ -63,17 +82,21 @@ resource "azurerm_resource_group" "postgres" {
 # zone for name resolution. Unlike RDS's DB subnet group, Flexible Server
 # refuses to provision without one.
 resource "azurerm_private_dns_zone" "postgres" {
-  name                = "${var.context_id}.postgres.database.azure.com"
+  name                = local.private_dns_zone_name
   resource_group_name = azurerm_resource_group.postgres.name
-  tags                = var.tags
+  tags = merge({
+    Name = local.private_dns_zone_name
+  }, local.tags)
 }
 
 resource "azurerm_private_dns_zone_virtual_network_link" "postgres" {
-  name                 = "postgres-${var.context_id}-link"
+  name                 = local.private_dns_zone_link_name
   private_dns_zone_id  = azurerm_private_dns_zone.postgres.id
   virtual_network_id   = local.vnet_id
   registration_enabled = false
-  tags                 = var.tags
+  tags = merge({
+    Name = local.private_dns_zone_link_name
+  }, local.tags)
 }
 
 #-----------------------------------------------------------------------------------------------------------------------
@@ -85,10 +108,12 @@ resource "azurerm_private_dns_zone_virtual_network_link" "postgres" {
 # VNet. The explicit deny below overrides it for anything this NSG
 # doesn't allow first.
 resource "azurerm_network_security_group" "azuredb" {
-  name                = "azuredb-${var.context_id}"
+  name                = local.network_security_group_name
   location            = azurerm_resource_group.postgres.location
   resource_group_name = azurerm_resource_group.postgres.name
-  tags                = var.tags
+  tags = merge({
+    Name = local.network_security_group_name
+  }, local.tags)
 
   security_rule {
     name                       = "AllowPostgresFromClusterNodes"
@@ -132,7 +157,7 @@ resource "azurerm_subnet_network_security_group_association" "azuredb" {
 resource "azurerm_key_vault" "postgres" {
   # checkov:skip=CKV2_AZURE_32: We are using a public cluster for testing, there is no need for private endpoints.
   count                      = var.manage_encryption_key && var.key_id == "" ? 1 : 0
-  name                       = replace("pg-${var.context_id}", "-", "")
+  name                       = local.key_vault_name
   location                   = azurerm_resource_group.postgres.location
   resource_group_name        = azurerm_resource_group.postgres.name
   tenant_id                  = data.azurerm_client_config.current.tenant_id
@@ -150,7 +175,9 @@ resource "azurerm_key_vault" "postgres" {
     default_action = var.network_acls_default_action
     bypass         = "AzureServices"
   }
-  tags = var.tags
+  tags = merge({
+    Name = local.key_vault_name
+  }, local.tags)
 }
 
 resource "time_static" "postgres_key_expiry" {}
@@ -190,10 +217,12 @@ resource "azurerm_role_assignment" "key_vault_admin" {
 # the pod that calls the ARM API to create the server.
 resource "azurerm_user_assigned_identity" "azuredb_cmk" {
   count               = length(azurerm_key_vault.postgres)
-  name                = "azuredb-cmk-${var.context_id}"
+  name                = local.cmk_identity_name
   resource_group_name = azurerm_resource_group.postgres.name
   location            = azurerm_resource_group.postgres.location
-  tags                = var.tags
+  tags = merge({
+    Name = local.cmk_identity_name
+  }, local.tags)
 }
 
 resource "azurerm_role_assignment" "azuredb_cmk" {
