@@ -16,6 +16,11 @@ metadata:
       the running process keeps its stale, already-loaded config until
       something else forces a rollout. This gives it one.
 spec:
+  # Stays on kyverno.io/v1: policies.kyverno.io's MutatingPolicy does not
+  # deliver admission-triggered mutateExisting across resource kinds yet.
+  #
+  # Tracked at windsorcli/core#2865.
+  #
   # A background scan re-evaluates every trigger resource each pass, which
   # would flip the checksum between them when more than one exists.
   background: false

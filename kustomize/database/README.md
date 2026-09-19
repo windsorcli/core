@@ -126,19 +126,19 @@ Patches the operator HelmRelease to append `--leader-elect=false` via `additiona
 
 _Enabled when `database.postgres.driver == 'rds'`._
 
-RDS's own `default` `ProviderConfig` (credentials source `PodIdentity`, so a consuming `Instance` CR needs no `providerConfigRef`), and a Kyverno `ClusterPolicy` that force-sets the `windsorcli.dev/cluster` tag on every `Instance`. No chart opt-in, matching CNPG's own free monitoring. Requires `kustomize/provisioning`'s `Provider` to report Healthy/Installed first.
+RDS's own `default` `ProviderConfig` (credentials source `PodIdentity`, so a consuming `Instance` CR needs no `providerConfigRef`), and a Kyverno `MutatingPolicy` that force-sets the `windsorcli.dev/cluster` tag on every `Instance`. No chart opt-in, matching CNPG's own free monitoring. Requires `kustomize/provisioning`'s `Provider` to report Healthy/Installed first.
 
 ### `crossplane/postgres/azure-postgres`
 
 _Enabled when `database.postgres.driver == 'azuredb'`._
 
-Azure twin of `crossplane/postgres/aws-rds`. The `default` `ProviderConfig` (credentials source `OIDCTokenFile`, so a consuming `FlexibleServer` CR needs no `providerConfigRef`), and a Kyverno `ClusterPolicy` that force-sets `resourceGroupName` on every `FlexibleServer` to the context's dedicated postgres resource group. No chart opt-in, matching CNPG's own free monitoring.
+Azure twin of `crossplane/postgres/aws-rds`. The `default` `ProviderConfig` (credentials source `OIDCTokenFile`, so a consuming `FlexibleServer` CR needs no `providerConfigRef`), and a Kyverno `MutatingPolicy` that force-sets `resourceGroupName` on every `FlexibleServer` to the context's dedicated postgres resource group. No chart opt-in, matching CNPG's own free monitoring.
 
 ### `crossplane/postgres/gcp-cloudsql`
 
 _Enabled when `database.postgres.driver == 'cloudsql'`._
 
-GCP twin of `crossplane/postgres/aws-rds`. The `default` `ProviderConfig` (credentials source `InjectedIdentity`, so a consuming `DatabaseInstance` CR needs no `providerConfigRef`), and a Kyverno `ClusterPolicy` that force-sets `project` on every `DatabaseInstance` to the context's GCP project. No chart opt-in, matching CNPG's own free monitoring.
+GCP twin of `crossplane/postgres/aws-rds`. The `default` `ProviderConfig` (credentials source `InjectedIdentity`, so a consuming `DatabaseInstance` CR needs no `providerConfigRef`), and a Kyverno `MutatingPolicy` that force-sets `project` on every `DatabaseInstance` to the context's GCP project. No chart opt-in, matching CNPG's own free monitoring.
 
 ## Dependencies
 

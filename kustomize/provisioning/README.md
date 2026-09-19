@@ -148,7 +148,7 @@ spec:
 `providerConfigRef` is omitted — `default` is the field's own default, and
 that's the name of the `ProviderConfig` this add-on creates. No
 `windsorcli.dev/cluster` tag either: `resources/crossplane/aws-rds`
-bundles a Kyverno `ClusterPolicy` that force-sets it on every `Instance`
+bundles a Kyverno `MutatingPolicy` that force-sets it on every `Instance`
 admission, overwriting whatever value (if any) the chart submitted. The
 `crossplane_rds` IAM role's policy conditions `CreateDBInstance` on that
 request tag and `ModifyDBInstance`/`DeleteDBInstance` on the same resource
@@ -189,7 +189,7 @@ spec:
 The database is a separate CR from the server — `FlexibleServer` carries
 no `dbName` field the way `rds.aws.upbound.io` `Instance` does.
 `resourceGroupName` is likewise omitted; `resources/crossplane/azure-postgres`
-bundles a Kyverno `ClusterPolicy` that force-sets it on every
+bundles a Kyverno `MutatingPolicy` that force-sets it on every
 `FlexibleServer` admission to the context's dedicated postgres resource
 group, the same overwrite-on-admission posture as the AWS tag policy.
 `crossplane-identity/azure`'s custom role is scoped to that resource

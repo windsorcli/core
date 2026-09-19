@@ -4,7 +4,7 @@
 # or dependencies change.
 
 # The policy add-on is split across two Kustomization paths so Flux can
-# reconcile the operator (CRDs + workloads) before the ClusterPolicies
+# reconcile the operator (CRDs + workloads) before the policies
 # that depend on those CRDs.
 facets:
   - policy-install
@@ -20,25 +20,23 @@ components:
     facet: policy-install
     enable_when: always
     description: "Helm release of Kyverno in `system-policy`. Installs the admission, background, and reports controllers (the cleanup controller is disabled at this layer; opt in via `kyverno/cleanup`). NO_COLOR is set on the admission and background containers."
-    variants:
-      reports:
-        enable_when: "`policies.reporting == 'enabled'`"
-        description: "Patches the kyverno HelmRelease to set `reportsController.enabled: true` so PolicyReport / ClusterPolicyReport CRs are written for evaluated policies."
-      cleanup:
-        enable_when: "`policies.cleanup == 'enabled'`"
-        description: "Patches the kyverno HelmRelease to set `cleanupController.enabled: true` so CleanupPolicy / ClusterCleanupPolicy CRs are executed on their cron schedules. Disabled by default because the blueprint ships no CleanupPolicy resources."
-      ha:
-        enable_when: "`topology == 'ha'`"
-        description: "Patches the kyverno HelmRelease to run the admission controller with `replicas: 3` and a PodDisruptionBudget, keeping the webhook backend reachable during node drains and rollouts (pod anti-affinity is on by default)."
-  # policy-resources, not policy-install like "kyverno" above — named
-  # without the kyverno/ prefix since it's already redundant with the
-  # ClusterPolicy's own name, same reasoning as gateway's cilium-crds /
-  # cilium-patch split.
-  resource-limits-requests:
+  kyverno/reports:
+    facet: policy-install
+    enable_when: "`policies.reporting == 'enabled'`"
+    description: "Patches the kyverno HelmRelease to set `reportsController.enabled: true` so PolicyReport / ClusterPolicyReport CRs are written for evaluated policies."
+  kyverno/cleanup:
+    facet: policy-install
+    enable_when: "`policies.cleanup == 'enabled'`"
+    description: "Patches the kyverno HelmRelease to set `cleanupController.enabled: true` so CleanupPolicy / ClusterCleanupPolicy CRs are executed on their cron schedules. Disabled by default because the blueprint ships no CleanupPolicy resources."
+  kyverno/ha:
+    facet: policy-install
+    enable_when: "`topology == 'ha'`"
+    description: "Patches the kyverno HelmRelease to run the admission controller with `replicas: 3` and a PodDisruptionBudget, keeping the webhook backend reachable during node drains and rollouts (pod anti-affinity is on by default)."
+  kyverno/resource-limits-requests:
     facet: policy-resources
     enable_when: "`policies.resource_limits_requests != 'disabled'`"
-    description: "ClusterPolicy `resource-limits-requests` validating (Audit) that every container has CPU and memory `resources.limits` + `resources.requests` set. Matches Pods in `system-*` namespaces and namespaces labeled `policy.windsorcli.dev/managed: true`. Skips `kube-system`."
-  require-image-digest:
+    description: "ValidatingPolicy `resource-limits-requests` (Audit) that every container has CPU and memory `resources.limits` + `resources.requests` set. Matches Pods in `system-*` namespaces and namespaces labeled `policy.windsorcli.dev/managed: true`. Skips `kube-system`."
+  kyverno/require-image-digest:
     facet: policy-resources
     enable_when: "`policies.require_image_digest != 'disabled'`"
-    description: "ClusterPolicy `require-image-digest` validating (Enforce) that every container image reference includes a `sha256:` digest (`repo:tag@sha256:…` or `repo@sha256:…`). Same namespace match scope as `resource-limits-requests`, plus an exemption for the Flux namespace (labelled `app.kubernetes.io/part-of: flux`) whose operator-installed controllers are version-pinned rather than digest-pinned."
+    description: "ValidatingPolicy `require-image-digest` (Deny) that every container image reference includes a `sha256:` digest (`repo:tag@sha256:…` or `repo@sha256:…`). Same namespace match scope as `resource-limits-requests`, plus an exemption for the Flux namespace (labelled `app.kubernetes.io/part-of: flux`) whose operator-installed controllers are version-pinned rather than digest-pinned."
