@@ -10,9 +10,10 @@
 # the same convention terraform-docs and kustomize-docs.sh already use.
 #
 # Usage:
-#   scripts/guide-scaffold.sh <schema-key>   # one guide, e.g. database
-#   scripts/guide-scaffold.sh --all          # every guide that already exists
-#   scripts/guide-scaffold.sh --check        # CI: fail if any guide has drifted
+#   scripts/guide-scaffold.sh <schema-key>            # one category guide, e.g. database
+#   scripts/guide-scaffold.sh <schema-key>/<vendor>    # one vendor sub-guide, e.g. database/rds
+#   scripts/guide-scaffold.sh --all                   # every guide that already exists
+#   scripts/guide-scaffold.sh --check                 # CI: fail if any guide has drifted
 #
 # How a schema key resolves to real paths (see docs/guides/README.md):
 #   - Terraform: every facets/*.yaml `terraform:` entry whose own `when:`
@@ -27,6 +28,17 @@
 # This is a heuristic, not a schema: `test($key)` is a plain substring match
 # against the `when:` string, so a very generic key name could over-match.
 # Review the generated block same as you'd review a terraform-docs diff.
+#
+# Vendor sub-guides (docs/guides/<key>/<vendor>.md, one per driver — see
+# blueprints/facets.md#config-blocks for why a driver-style schema key
+# often wants this): matched by convention, no manifest to keep in sync.
+# <vendor> must be the schema enum value verbatim (docs/guides/database/rds.md
+# for driver: rds); the match string is "== '<vendor>'", scoping to facet
+# entries gated on that exact driver rather than the whole category. Vendor
+# pages get only a Reference block — hand-write the one or two Configuration
+# rows that are actually driver-specific; regenerating a whole category's
+# Configuration table on every vendor page is the repeated-documentation
+# case worth avoiding.
 #
 # Requires: yq v4 (mikefarah), jq.
 
@@ -92,11 +104,28 @@ render_knobs() {
 }
 
 # ── Reference ───────────────────────────────────────────────────────────
-# Every quoted literal inside a `${ cond ? 'a' : 'b' }` template, or the
-# whole value verbatim when it isn't templated at all.
+# For "${ cond ? 'a' : 'b' }": only the true branch, and only when cond
+# itself mentions match — so a shared entry whose components list picks
+# between vendors via ternary (rather than a separate when: per vendor)
+# still scopes correctly to one vendor's page instead of pulling in every
+# branch. Falls back to every quoted literal for a ${...} that isn't a
+# plain ternary, and to the value verbatim when it isn't templated at all.
 extract_literals() {
-  local val="$1"
+  local val="$1" match="$2"
   if [[ "$val" == '${'*'}'* ]]; then
+    local inner="${val#\$\{}"
+    inner="${inner%\}}"
+    if [[ "$inner" == *"?"* ]]; then
+      local cond="${inner%%\?*}"
+      local rest="${inner#*\?}"
+      if [[ "$rest" =~ ^[[:space:]]*\'([^\']*)\'[[:space:]]*: ]]; then
+        local trueval="${BASH_REMATCH[1]}"
+        if [[ -n "$trueval" && "$cond" == *"$match"* ]]; then
+          echo "$trueval"
+        fi
+        return
+      fi
+    fi
     grep -oE "'[^']+'" <<<"$val" | tr -d "'" | grep -v '^$' || true
   elif [[ -n "$val" && "$val" != "null" ]]; then
     echo "$val"
@@ -105,6 +134,7 @@ extract_literals() {
 
 render_refs() {
   local key="$1"
+  local match="${2:-$key}"
   local tf_paths=() kz_bases=() kz_literals=()
 
   local facet
@@ -115,24 +145,29 @@ render_refs() {
 
     while IFS= read -r p; do
       [[ -n "$p" ]] && tf_paths+=("$p")
-    done < <(jq -r --arg key "$key" '
-      .terraform[]? | select((.when // "") | test($key)) | .path
+    done < <(jq -r --arg match "$match" '
+      .terraform[]? | select((.when // "") | test($match)) | .path
     ' <<<"$json")
 
     while IFS=$'\t' read -r base literal; do
       [[ -n "$base" ]] && kz_bases+=("$base")
       [[ -n "$literal" ]] && kz_literals+=("$base"$'\t'"$literal")
-    done < <(jq -r --arg key "$key" '
+    done < <(jq -r --arg match "$match" '
       .when as $topwhen |
       .flux[]? |
-      ((.when // $topwhen // "")) as $eff |
-      select($eff | test($key)) |
+      ((.when // $topwhen // "")) as $entrywhen |
       (.path // .name) as $base |
       (
-        [ (.install.components // [])[], ([.resources[]? | (.components // [])[]]) ] | flatten
-      ) as $comps |
+        (if ($entrywhen | test($match)) then ((.install.components // [])[]) else empty end),
+        (.resources[]? | ((.when // $entrywhen // "")) as $reswhen | select($reswhen | test($match)) | (.components // [])[])
+      ) as $comp0 |
+      # Each resources[]/install entry gates its own components independently
+      # of the others — a component gated on one driver never leaks onto
+      # another vendors page just because a sibling block in the same flux
+      # entry matched too.
+      [$comp0] as $comps |
       if ($comps | length) == 0 then
-        $base + "\t"
+        (if ($entrywhen | test($match)) then $base + "\t" else empty end)
       else
         $comps[] | $base + "\t" + .
       end
@@ -143,7 +178,8 @@ render_refs() {
   # kustomize/<base>/<component> if it has its own README, else kustomize/<base>.
   local kz_refs=()
   local pair base literal candidate
-  for pair in "${kz_literals[@]}"; do
+  for pair in "${kz_literals[@]:-}"; do
+    [[ -z "$pair" ]] && continue
     base="${pair%%$'\t'*}"
     literal="${pair#*$'\t'}"
     if [[ -z "$literal" ]]; then
@@ -159,12 +195,7 @@ render_refs() {
       else
         kz_refs+=("$base")
       fi
-    done < <(extract_literals "$literal")
-  done
-  for base in "${kz_bases[@]}"; do
-    # A matched entry with no components at all still counts as a reference
-    # to its own add-on.
-    :
+    done < <(extract_literals "$literal" "$match")
   done
 
   local tf_sorted kz_sorted
@@ -219,16 +250,49 @@ update_guide() {
   splice "$file" "$REFS_BEGIN" "$REFS_END" "$refs"
 }
 
+# update_vendor_guide only touches the Reference block — see the usage
+# comment above for why vendor pages don't get a generated Configuration
+# table.
+update_vendor_guide() {
+  local key="$1" vendor="$2"
+  local file="$GUIDES_DIR/${key}/${vendor}.md"
+  if [[ ! -f "$file" ]]; then
+    echo "guide-scaffold: no docs/guides/${key}/${vendor}.md yet — write the vendor page's intro/diagram/'Under the hood' by hand first, with a $REFS_BEGIN/$REFS_END marker pair where the generated Reference list goes" >&2
+    return 1
+  fi
+  local refs
+  refs="$(render_refs "$key" "== '${vendor}'")"
+  splice "$file" "$REFS_BEGIN" "$REFS_END" "$refs"
+}
+
+# every_vendor_page prints "<key> <vendor>" for each docs/guides/<key>/<vendor>.md.
+every_vendor_page() {
+  local d key f vendor
+  for d in "$GUIDES_DIR"/*/; do
+    [[ -d "$d" ]] || continue
+    key="$(basename "$d")"
+    for f in "$d"*.md; do
+      [[ -f "$f" ]] || continue
+      vendor="$(basename "$f" .md)"
+      echo "$key $vendor"
+    done
+  done
+}
+
 main() {
   local mode="${1:-}"
   case "$mode" in
     --all)
-      local f key
+      local f key vendor
       for f in "$GUIDES_DIR"/*.md; do
         [[ -f "$f" ]] || continue
         key="$(basename "$f" .md)"
         update_guide "$key"
       done
+      while read -r key vendor; do
+        [[ -n "$key" ]] || continue
+        update_vendor_guide "$key" "$vendor"
+      done < <(every_vendor_page)
       ;;
     --check)
       local f key tmp_repo
@@ -246,6 +310,9 @@ main() {
     ""|--help|-h)
       sed -n '2,20p' "$0" | sed 's/^# \{0,1\}//'
       exit 0
+      ;;
+    */*)
+      update_vendor_guide "${mode%%/*}" "${mode#*/}"
       ;;
     *)
       update_guide "$mode"

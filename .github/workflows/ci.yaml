@@ -149,6 +149,15 @@ jobs:
         if: ${{ github.event_name == 'pull_request' && !startsWith(github.head_ref, 'renovate/') }}
         run: task docs:stack:check
 
+      # Fail if any docs/guides/**.md's generated Reference block has drifted
+      # from the facets that implement it — the same silent-staleness risk
+      # docs:stack:check guards against, one layer down (per guide instead of
+      # per add-on). Full-tree for the same reason: a stale Reference list is
+      # wrong for every reader, not just whoever last touched that facet.
+      - name: Validate catalog guide references
+        if: ${{ github.event_name == 'pull_request' && !startsWith(github.head_ref, 'renovate/') }}
+        run: task docs:guides:check
+
       # Fail if any doc has drifted into future-work framing (a "not covered
       # yet" heading, roadmap/TODO phrasing about the doc's own subject).
       # Docs describe the current state; ADRs and roadmap files are excluded

@@ -31,6 +31,14 @@ description: Author and maintain reference Markdown for the core Windsor bluepri
 - **Reference only:** imperative, tables for inputs/vars, no marketing copy.
 - Link generic blueprint concepts to `https://www.windsorcli.dev/docs/blueprints/...` (schema, sharing, facets).
 
+## Catalog guides (`docs/guides/`)
+
+A Catalog guide is `docs/guides/<key>.md`, vendored to `/catalog/core/guides/<key>` on the site. Write the intro, diagram, and "Under the hood" prose by hand — `scripts/guide-scaffold.sh` only ever fills in one thing: the `## Reference` block, a list of every `terraform/` and `kustomize/` path the facets actually wire in for that guide's config key, derived from the real facet YAML rather than typed by hand and left to drift.
+
+Add a `<!-- BEGIN_GUIDE_REFS -->` / `<!-- END_GUIDE_REFS -->` marker pair wherever the generated list should go, then run `task docs:guides` (or target one guide directly: `scripts/guide-scaffold.sh <key>`). `task docs:guides:check` fails on drift — wired into CI the same way `docs:kustomize:check`/`docs:terraform:check` are. The generator only ever populates an existing file; it doesn't scaffold one, so the marker pair (and everything above it) has to exist first.
+
+**Vendor sub-guides.** When a schema key has more than one driver — `database.postgres.driver: cloudnativepg | rds | azuredb | cloudsql`, `identity.driver: keycloak | oidc` — split the guide into `docs/guides/<key>/<vendor>.md`, one file per enum value, filename matching the schema value verbatim (`azuredb.md`, not `flexibleserver.md`). There's no separate index page for the category; the site groups these into one expandable sidebar entry per key automatically. Generate with `scripts/guide-scaffold.sh <key>/<vendor>` (or `--all` picks up every vendor page that already exists). A driver with nothing to reference (an external service Windsor installs nothing for, e.g. `identity/oidc.md`) still needs the marker pair — an intentionally empty generated block is what lets `--check` catch it if that ever stops being true, and says so in the surrounding prose rather than silently having no `## Reference` section at all.
+
 ## Umbrella indices (`kustomize/README.md`, `terraform/README.md`)
 
 Both umbrella READMEs carry a `<!-- BEGIN_INDEX -->` / `<!-- END_INDEX -->` region populated by `scripts/umbrella-index.sh <root>`. The generator is bundled into the existing per-layer doc tasks: `task docs:kustomize` runs the kustomize index after the add-on tables, `task docs:terraform` runs the terraform index after terraform-docs. CI catches drift via `task docs:kustomize:check` and `task docs:terraform:check` — there is no standalone umbrella task. The generator walks each per-module README (kustomize 1-level-deep; terraform any depth, skipping `.terraform/`), pulls the frontmatter `description:`, and emits a `| path | purpose |` table; missing `description:` fields fail the build.
@@ -115,6 +123,7 @@ Reference: [kustomize/policy/](../../../kustomize/policy/) is the simplest multi
 
 - [ ] Module or stack behavior that affects operators reflected in the relevant per-module/stack `README.md`.
 - [ ] Generated Terraform docs refreshed if inputs/outputs changed.
+- [ ] Catalog guide `## Reference` blocks refreshed (`task docs:guides`) if a facet's `terraform:`/`kustomize:` wiring changed.
 - [ ] Links to Blueprint schema/facets point at windsorcli.dev `/docs/blueprints/...`, not duplicate prose.
 - [ ] No slug or path that implies generic blueprint authoring—that belongs on the website repo.
 
