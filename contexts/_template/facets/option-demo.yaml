@@ -73,6 +73,7 @@ flux:
             kind: Instance
             current: status.conditions.exists(e, e.type == 'Ready' && e.status == 'True')
         timeout: 30m
+        deleteTimeout: 45m
         interval: 5m
       - name: credentials
         dependsOn:
@@ -114,6 +115,7 @@ flux:
             current: status.conditions.exists(e, e.type == 'Ready' && e.status == 'True')
         # Gated on the FlexibleServer's own Ready condition, not the CR apply.
         timeout: 30m
+        deleteTimeout: 45m
         interval: 5m
       - name: credentials
         dependsOn:
