@@ -1,6 +1,6 @@
 ---
-apiVersion: kyverno.io/v1
-kind: ClusterPolicy
+apiVersion: policies.kyverno.io/v1
+kind: MutatingPolicy
 metadata:
   name: crossplane-cloudsql-project
   annotations:
@@ -20,16 +20,20 @@ spec:
   # Fail-open: if the mutation webhook is unreachable, the create still goes
   # through.
   failurePolicy: Ignore
-  background: false
-  rules:
-    - name: set-project
-      match:
-        any:
-          - resources:
-              kinds:
-                - sql.gcp.upbound.io/v1beta1/DatabaseInstance
-      mutate:
-        patchStrategicMerge:
-          spec:
-            forProvider:
-              project: ${crossplane_gcp_project_id}
+  matchConstraints:
+    resourceRules:
+      - apiGroups: [sql.gcp.upbound.io]
+        apiVersions: [v1beta1]
+        operations: [CREATE, UPDATE]
+        resources: [databaseinstances]
+  mutations:
+    - patchType: ApplyConfiguration
+      applyConfiguration:
+        expression: >
+          Object{
+            spec: Object.spec{
+              forProvider: Object.spec.forProvider{
+                project: "${crossplane_gcp_project_id}"
+              }
+            }
+          }

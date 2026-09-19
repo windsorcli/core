@@ -1,16 +1,17 @@
 ---
 title: Policy add-on
-description: Kyverno admission controller and the cluster's baseline ClusterPolicies.
+description: Kyverno admission controller and the cluster's baseline policies.
 ---
 
 # Policy
 
 Kyverno is the policy engine. The add-on is a `flux:` system entry
 (`policy`) so Flux can reconcile the operator (CRDs + workloads) before
-the ClusterPolicy CRs that depend on those CRDs. `install` installs the
-Kyverno Helm release, with optional patches that enable the reports and
-cleanup controllers. `resources` applies the baseline ClusterPolicies
-that this blueprint relies on, and implicitly depends on `install`
+the ValidatingPolicy/MutatingPolicy CRs that depend on those CRDs.
+`install` installs the Kyverno Helm release, with optional patches that
+enable the reports and cleanup controllers. `resources` applies the
+baseline policies that this blueprint relies on, and implicitly depends
+on `install`
 (compiled name: `policy-install` / `policy-resources`).
 
 The baseline policies match Pods in `system-*` namespaces and in
@@ -31,7 +32,7 @@ flowchart LR
     background[background-controller]
     reports[reports-controller · opt-in]
     cleanup[cleanup-controller · opt-in]
-    policies[ClusterPolicies:<br/>require-image-digest<br/>resource-limits-requests]
+    policies[Policies:<br/>require-image-digest<br/>resource-limits-requests]
   end
 
   req ==> api
@@ -43,7 +44,7 @@ flowchart LR
   flux[Flux] -. installs .-> admission & background & reports & cleanup
 ```
 
-The admission controller blocks Pod admission when an Enforce policy
+The admission controller blocks Pod admission when a Deny policy
 fails. The background controller audits existing Pods against Audit
 policies and writes Events and PolicyReports (the latter only when
 `kyverno/reports` is enabled).
@@ -69,7 +70,7 @@ out resource creation. Three things bound that risk:
 
 ## Recipes
 
-### Baseline (admission + ClusterPolicies)
+### Baseline (admission + policies)
 
 ```yaml
 flux:
@@ -133,14 +134,14 @@ to add your own.
 
 | Component | Enable when | Effect |
 |---|---|---|
-| `kyverno/resource-limits-requests` | `policies.resource_limits_requests != 'disabled'` | ClusterPolicy `resource-limits-requests` validating (Audit) that every container has CPU and memory `resources.limits` + `resources.requests` set. Matches Pods in `system-*` namespaces and namespaces labeled `policy.windsorcli.dev/managed: true`. Skips `kube-system`. |
-| `kyverno/require-image-digest` | `policies.require_image_digest != 'disabled'` | ClusterPolicy `require-image-digest` validating (Enforce) that every container image reference includes a `sha256:` digest (`repo:tag@sha256:…` or `repo@sha256:…`). Same namespace match scope as `resource-limits-requests`, plus an exemption for the Flux namespace (labelled `app.kubernetes.io/part-of: flux`) whose operator-installed controllers are version-pinned rather than digest-pinned. |
+| `kyverno/resource-limits-requests` | `policies.resource_limits_requests != 'disabled'` | ValidatingPolicy `resource-limits-requests` (Audit) that every container has CPU and memory `resources.limits` + `resources.requests` set. Matches Pods in `system-*` namespaces and namespaces labeled `policy.windsorcli.dev/managed: true`. Skips `kube-system`. |
+| `kyverno/require-image-digest` | `policies.require_image_digest != 'disabled'` | ValidatingPolicy `require-image-digest` (Deny) that every container image reference includes a `sha256:` digest (`repo:tag@sha256:…` or `repo@sha256:…`). Same namespace match scope as `resource-limits-requests`, plus an exemption for the Flux namespace (labelled `app.kubernetes.io/part-of: flux`) whose operator-installed controllers are version-pinned rather than digest-pinned. |
 
 <!-- END_KUSTOMIZE_DOCS -->
 
 ## See also
 
 - [contexts/_template/facets/platform-base.yaml](../../contexts/_template/facets/platform-base.yaml) for the canonical wiring for both facets.
-- [kustomize/policy/resources/kyverno/resource-limits-requests/cluster-policies.yaml](resources/kyverno/resource-limits-requests/cluster-policies.yaml) for the Audit policy.
-- [kustomize/policy/resources/kyverno/require-image-digest/cluster-policy.yaml](resources/kyverno/require-image-digest/cluster-policy.yaml) for the Enforce policy.
-- Related add-ons: [observability](../observability/) (`grafana/dashboards/*` for Kyverno metrics if added), [cni](../cni/) (depends on `policy-resources` for the cilium/gateway LBIPAM ClusterPolicy).
+- [kustomize/policy/resources/kyverno/resource-limits-requests/validating-policy.yaml](resources/kyverno/resource-limits-requests/validating-policy.yaml) for the Audit policy.
+- [kustomize/policy/resources/kyverno/require-image-digest/validating-policy.yaml](resources/kyverno/require-image-digest/validating-policy.yaml) for the Deny policy.
+- Related add-ons: [observability](../observability/) (`grafana/dashboards/*` for Kyverno metrics if added), [cni](../cni/) (depends on `policy-resources` for the cilium/gateway LBIPAM MutatingPolicy).
