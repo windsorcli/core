@@ -72,7 +72,7 @@ config:
       resource_pool: "${vsphere.resource_pool ?? ''}"
       host_system: "${vsphere.host_system ?? ''}"
       talos_schematic_id: "903b2da78f99adef03cbbd4df6714563823f63218508800751560d3bc3557e40"
-      image_url: "${'https://factory.talos.dev/image/903b2da78f99adef03cbbd4df6714563823f63218508800751560d3bc3557e40/v' + talos.talos_version + '/vmware-amd64.ova'}"
+      image_url: "${vsphere.image_url ?? ('https://factory.talos.dev/image/903b2da78f99adef03cbbd4df6714563823f63218508800751560d3bc3557e40/v' + talos.talos_version + '/vmware-amd64.ova')}"
 
   # ---------------------------------------------------------------------------
   # talos_common.k8s_service_host — Cilium kube-proxy-replacement API endpoint

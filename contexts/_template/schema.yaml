@@ -367,6 +367,14 @@ properties:
           Absolute path on the host. Per-VM VHDXs are written to
           <base_dir>/vhds and parent images to <base_dir>/images. Forward
           and back slashes are accepted equivalently by Hyper-V.
+      image_url:
+        $ref: '#/$defs/httpUrl'
+        description: >
+          Replaces the default download address of the Talos machine image.
+          The file at this address must be built for the Talos version that
+          windsor pins and must be the same image type as the default file,
+          which is a metal ISO for amd64. The default is the Talos Image
+          Factory address for that file.
     description: Hyper-V infrastructure configuration
 
   # VMware vSphere provider configuration (only consumed when platform == 'vsphere').
@@ -418,6 +426,14 @@ properties:
           ESXi host name or IP to place VMs on (e.g. "esxi-01.dc-prod.local").
           Required when the datacenter has more than one host; leave unset
           only for single-host datacenters.
+      image_url:
+        $ref: '#/$defs/httpUrl'
+        description: >
+          Replaces the default download address of the Talos machine image.
+          The file at this address must be built for the Talos version that
+          windsor pins and must be the same image type as the default file,
+          which is an OVA for vmware-amd64. The default is the Talos Image
+          Factory address for that file.
     description: VMware vSphere infrastructure configuration
 
   # Free-form env vars injected by `windsor exec` and into terraform applies.
