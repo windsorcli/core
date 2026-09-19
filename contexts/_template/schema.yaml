@@ -993,6 +993,13 @@ properties:
               CNI driver. flannel is the Talos built-in default and requires no extra bootstrap.
               cilium bootstraps Cilium via terraform/cni/cilium before Flux starts (disables
               flannel and kube-proxy in Talos machine config) and manages it via Flux GitOps.
+          chart_repository:
+            type: string
+            pattern: '^(https?://|oci://).+'
+            description: >
+              Helm repository the terraform/cni/cilium bootstrap reads the Cilium chart from.
+              A web address or an oci:// registry address is accepted. The chart name stays
+              cilium. Falls back to https://helm.cilium.io when unset.
         additionalProperties: false
       oidc:
         type: object

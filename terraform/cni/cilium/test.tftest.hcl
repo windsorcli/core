@@ -213,6 +213,25 @@ run "custom_cilium_version" {
   }
 }
 
+run "custom_chart_repository" {
+  command = plan
+
+  variables {
+    cluster_endpoint = "https://10.5.0.10:6443"
+    chart_repository = "oci://registry.example.com/charts"
+  }
+
+  assert {
+    condition     = helm_release.cilium.repository == "oci://registry.example.com/charts"
+    error_message = "Repository should reflect the chart_repository input"
+  }
+
+  assert {
+    condition     = helm_release.cilium.chart == "cilium"
+    error_message = "Chart name should stay 'cilium' when the repository is an OCI registry"
+  }
+}
+
 # Verifies operator_replicas=1 passes through (single-node caller wanting to
 # avoid the hostPort conflict from two replicas on one node).
 run "operator_replicas_one_passes_through" {
@@ -239,6 +258,7 @@ run "invalid_inputs_fail_validation" {
     cluster_endpoint  = "http://insecure" # not https
     ipam_mode         = "custom"          # not in allowed list
     operator_replicas = 99                # out of range
+    chart_repository  = "helm.cilium.io"  # no scheme
   }
 
   expect_failures = [
@@ -246,5 +266,6 @@ run "invalid_inputs_fail_validation" {
     var.cluster_endpoint,
     var.ipam_mode,
     var.operator_replicas,
+    var.chart_repository,
   ]
 }
