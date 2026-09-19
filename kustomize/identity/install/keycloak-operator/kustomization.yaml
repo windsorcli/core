@@ -39,7 +39,7 @@ patches:
                 env:
                   - name: RELATED_IMAGE_KEYCLOAK
                     # renovate: datasource=docker depName=keycloak/keycloak package=quay.io/keycloak/keycloak
-                    value: quay.io/keycloak/keycloak:26.7.3@sha256:29be7252db0a106f1cd2ac17b9a56ff2668073da645638a38b9fc67deeb2d6c4
+                    value: quay.io/keycloak/keycloak:26.7.4@sha256:82a77884f3af238beab1e7afd63b5f530e1b5c0590bd7aa60b40a40463e29b2c
   # Pull policy and startup probe budget for the operator container.
   - patch: |
       apiVersion: apps/v1
