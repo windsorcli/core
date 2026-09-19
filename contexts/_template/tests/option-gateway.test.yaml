@@ -95,7 +95,7 @@ cases:
             - <<: *gateway-resources-cilium
       crds:
         # renovate: datasource=github-releases depName=kubernetes-sigs/gateway-api package=kubernetes-sigs/gateway-api
-        - gateway-api-experimental-1.6.1
+        - gateway-api-experimental-1.6.2
     exclude:
       crds:
         # renovate: datasource=github-releases depName=envoyproxy/gateway package=envoyproxy/gateway
@@ -220,7 +220,7 @@ cases:
             - <<: *gateway-resources-envoy
       crds:
         # renovate: datasource=github-releases depName=kubernetes-sigs/gateway-api package=kubernetes-sigs/gateway-api
-        - gateway-api-experimental-1.6.1
+        - gateway-api-experimental-1.6.2
         # renovate: datasource=github-releases depName=envoyproxy/gateway package=envoyproxy/gateway
         - envoy-gateway-1.9.1
 
@@ -352,7 +352,7 @@ cases:
             - <<: *gateway-resources-envoy
       crds:
         # renovate: datasource=github-releases depName=kubernetes-sigs/gateway-api package=kubernetes-sigs/gateway-api
-        - gateway-api-experimental-1.6.1
+        - gateway-api-experimental-1.6.2
         # renovate: datasource=github-releases depName=envoyproxy/gateway package=envoyproxy/gateway
         - envoy-gateway-1.9.1
 
@@ -386,7 +386,7 @@ cases:
         - name: gateway
       crds:
         # renovate: datasource=github-releases depName=kubernetes-sigs/gateway-api package=kubernetes-sigs/gateway-api
-        - gateway-api-experimental-1.6.1
+        - gateway-api-experimental-1.6.2
         # renovate: datasource=github-releases depName=envoyproxy/gateway package=envoyproxy/gateway
         - envoy-gateway-1.9.1
 
