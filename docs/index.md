@@ -65,7 +65,7 @@ The default blueprint that includes base infrastructure and services. Cloud "pri
 
 ## Cluster
 
-### CNI — Pod networking
+### Cni — Cluster networking (CNI)
 - [cni](kustomize/cni)
 
 ### Compute — Node autoscaling
@@ -101,7 +101,7 @@ The default blueprint that includes base infrastructure and services. Cloud "pri
 ### PKI — TLS certificates
 - [pki](kustomize/pki)
 
-### Policy — Policy enforcement
+### Policy — Cluster-wide admission policy
 - [policy](kustomize/policy)
 
 ### Provisioning — Cloud resource provisioning via Crossplane

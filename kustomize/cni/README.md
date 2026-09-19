@@ -1,6 +1,7 @@
 ---
 title: CNI add-on
 description: Cilium as the cluster CNI, bootstrapped via Terraform and adopted by Flux.
+stack_backing: Cluster networking (CNI)
 ---
 
 # CNI

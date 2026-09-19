@@ -1,6 +1,7 @@
 ---
 title: Policy add-on
 description: Kyverno admission controller and the cluster's baseline policies.
+stack_backing: Cluster-wide admission policy
 ---
 
 # Policy
