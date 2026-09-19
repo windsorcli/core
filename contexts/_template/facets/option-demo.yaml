@@ -156,9 +156,9 @@ flux:
           - apiVersion: sql.gcp.upbound.io/v1beta1
             kind: Database
             current: status.conditions.exists(e, e.type == 'Ready' && e.status == 'True')
-        # Gated on the DatabaseInstance's own Ready condition, not the CR
-        # apply. A db-f1-micro instance takes ~9m to go Ready.
+        # Gated on the DatabaseInstance's own Ready condition, not the CR apply.
         timeout: 30m
+        deleteTimeout: 60m
         interval: 5m
       - name: credentials
         dependsOn:
