@@ -121,11 +121,16 @@ build_half() {
     # the repo root — every target needs the ../ back up to it.
     local links=""
     if [ "${#leaves[@]}" -gt 0 ]; then
-      IFS=$'\n' leaves=($(sort <<<"${leaves[*]}")); unset IFS
+      # mapfile/readarray needs bash 4+; macOS ships 3.2 by default.
+      local sorted_leaves=()
+      while IFS= read -r leaf; do
+        sorted_leaves+=("$leaf")
+      done < <(printf '%s\n' "${leaves[@]}" | sort)
+      leaves=("${sorted_leaves[@]}")
       for leaf in "${leaves[@]}"; do
         links+="- [$leaf](../$engine/$category/$leaf)$NL_PLACEHOLDER"
       done
-      links="${links%$NL_PLACEHOLDER}"
+      links="${links%"$NL_PLACEHOLDER"}"
     else
       links="- [$category](../$engine/$category)"
     fi

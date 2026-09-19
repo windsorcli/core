@@ -112,6 +112,7 @@ render_knobs() {
 # plain ternary, and to the value verbatim when it isn't templated at all.
 extract_literals() {
   local val="$1" match="$2"
+  # shellcheck disable=SC2016
   if [[ "$val" == '${'*'}'* ]]; then
     local inner="${val#\$\{}"
     inner="${inner%\}}"

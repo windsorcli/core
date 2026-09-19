@@ -44,6 +44,7 @@ render_component_group() {
   # shellcheck disable=SC2016
   heading_only="$(KEY="$key" yq -r '.components[strenv(KEY)].heading_only // false' "$docs")"
 
+  # shellcheck disable=SC2016
   printf '### `%s`\n\n' "$key"
   if [ "$heading_only" != "true" ]; then
     printf '_Enabled when %s._\n\n' "$enable_when"
