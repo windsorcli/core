@@ -74,10 +74,10 @@ The default blueprint that includes base infrastructure and services. Cloud "pri
 ### CSI — Persistent storage
 - [csi](kustomize/csi)
 
-### Database — In-cluster Postgres
+### Database — In-cluster and cloud-managed PostgreSQL
 - [database](kustomize/database)
 
-### Demo — Example workloads
+### Demo — Sample workloads for blueprint validation
 - [demo](kustomize/demo)
 
 ### DNS — Automatic DNS records
@@ -104,7 +104,7 @@ The default blueprint that includes base infrastructure and services. Cloud "pri
 ### Policy — Policy enforcement
 - [policy](kustomize/policy)
 
-### Provisioning — Cloud database provisioning
+### Provisioning — Cloud resource provisioning via Crossplane
 - [provisioning](kustomize/provisioning)
 
 ### Telemetry — Metrics & logs

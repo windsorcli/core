@@ -1,6 +1,7 @@
 ---
 title: Provisioning add-on
-description: Crossplane, provider-aws-rds, and provider-azure-dbforpostgresql for application-requested cloud databases.
+description: Crossplane, provider-aws-rds, provider-azure-dbforpostgresql, and provider-gcp-sql for application-requested cloud databases.
+stack_backing: Cloud resource provisioning via Crossplane
 ---
 
 # Provisioning
@@ -32,10 +33,10 @@ RuntimeDefault`) — enough to satisfy `restricted`, verified with
 `selector` matching pod template labels Crossplane assigns dynamically
 per revision, so a correct override isn't safely hand-writable without
 deeper visibility into Crossplane's own labeling — confirmed against a
-live cluster, not just `kustomize build`. `restricted` for this namespace
-is a real follow-up, not decided here. `provider-azure-dbforpostgresql`'s
-own runtime pod carries the same unresolved constraint; it hasn't been
-checked against a live cluster yet.
+live cluster, not just `kustomize build`. `system-provisioning` therefore
+runs at `baseline`, not `restricted`, until that override is worked out.
+`provider-azure-dbforpostgresql`'s own runtime pod carries the same
+unresolved constraint; it hasn't been checked against a live cluster yet.
 
 ## Architecture
 
@@ -198,20 +199,77 @@ group, so the identity can't touch a server it didn't create.
 
 ## Components
 
-| Component | Enable when | Effect |
-|---|---|---|
-| `crossplane` | `database.postgres.driver == 'rds'` OR `database.postgres.driver == 'azuredb'` OR `database.postgres.driver == 'cloudsql'` | Helm release of Crossplane in `system-provisioning`. Generic engine mechanics only — a driver's own database-specific consumption of it (ProviderConfig, monitoring, app-role) lives in `kustomize/database` instead, in `system-database`. |
-| `crossplane/provider-sql` | `database.postgres.driver == 'rds'` OR `database.postgres.driver == 'azuredb'` OR `database.postgres.driver == 'cloudsql'` | Digest-pinned `Provider` CR for `crossplane-contrib/provider-sql` plus a `DeploymentRuntimeConfig` setting its resource requests/limits. Installed once per context alongside whichever cloud provider is active — its `Role`/`Database`/`Grant` CRDs speak the Postgres wire protocol, not a cloud API, so the same install serves all three drivers' `app-role` components in `kustomize/database`. |
-| `crossplane/function-python` | `database.postgres.driver == 'rds'` OR `database.postgres.driver == 'azuredb'` OR `database.postgres.driver == 'cloudsql'` | Digest-pinned `Function` CR for `crossplane-contrib/function-python` plus a `DeploymentRuntimeConfig` setting its resource requests/limits. Runs `database-credentials`'s Composition pipeline and `gcp-admin-password`'s `WatchOperation`; the latter requires Crossplane's `--enable-operations` alpha flag, set on this component's own `helm-release.yaml`. |
-| `crossplane/database-credentials` | `database.postgres.driver == 'rds'` OR `database.postgres.driver == 'azuredb'` OR `database.postgres.driver == 'cloudsql'` | The `DatabaseCredentials` XRD and its Composition. A chart creates one namespaced `DatabaseCredentials` resource naming a driver and an already-`Ready` instance to get a Postgres role — `login`-only for an application credential (`databaseName` set), or with `grants` for a role like monitoring (`roleName` set instead). Renders a per-instance `ProviderConfig`, connection Secret, `Role`, and any `Grant`s, all namespaced to wherever the `DatabaseCredentials` resource itself was created. |
-| `crossplane/gcp-admin-password` | `database.postgres.driver == 'cloudsql'` | A `WatchOperation` watching every `sql.gcp.upbound.io` `DatabaseInstance` cluster-wide, unfiltered by name. Ensures `<instance-name>-admin-credentials` exists in `system-database` and an admin `User` CR applies it, generating each independently the first time it's missing — `provider-gcp-sql` has no auto-generate-password field of its own, unlike RDS/Azure. |
-| `crossplane/postgres-exporter` | `telemetry.metrics.enabled` (default true) | A `WatchOperation` watching every `DatabaseCredentials` XR cluster-wide. For any with a `pg_monitor` grant, applies a `postgres_exporter` Deployment/Service/PodMonitor in the XR's own namespace, reading its connection Secret. |
-| `crossplane/aws-rds-monitor` | `database.postgres.driver == 'rds'` AND `telemetry.metrics.enabled` (default true) | A `WatchOperation` watching every `rds.aws.upbound.io` `Instance` cluster-wide. Creates a `<instance-name>-monitor` `DatabaseCredentials` XR in `system-database`, `roleName: monitor` granted `pg_monitor`, for `crossplane/postgres-exporter` to pick up. |
-| `crossplane/azure-postgres-monitor` | `database.postgres.driver == 'azuredb'` AND `telemetry.metrics.enabled` (default true) | Azure twin of `crossplane/aws-rds-monitor`, watching `dbforpostgresql.azure.upbound.io` `FlexibleServer` CRs instead. |
-| `crossplane/gcp-cloudsql-monitor` | `database.postgres.driver == 'cloudsql'` AND `telemetry.metrics.enabled` (default true) | GCP twin of `crossplane/aws-rds-monitor`, watching `sql.gcp.upbound.io` `DatabaseInstance` CRs instead. |
-| `crossplane/aws-rds` | `database.postgres.driver == 'rds'` | Digest-pinned `Provider` CRs for `provider-aws-rds` (`skipDependencyResolution: true`) and its `provider-family-aws` dependency, plus a `DeploymentRuntimeConfig` that fixes the provider pod's ServiceAccount name to `provider-aws-rds` so the `provisioning/crossplane-identity/aws` Terraform module's Pod Identity association can target it. Its own database-specific consumption (`ProviderConfig`, tag policy, monitoring, `app-role`) is `kustomize/database`'s `crossplane/aws-rds` component instead. |
-| `crossplane/azure-postgres` | `database.postgres.driver == 'azuredb'` | Azure twin of `crossplane/aws-rds`. Digest-pinned `Provider` CRs for `provider-azure-dbforpostgresql` (`skipDependencyResolution: true`) and its `provider-family-azure` dependency, plus a `DeploymentRuntimeConfig` that fixes the provider pod's ServiceAccount name to `provider-azure-dbforpostgresql` and wires AKS Workload Identity (client-id/tenant-id annotations, the `azure.workload.identity/use` label on both the ServiceAccount and the pod) so the `provisioning/crossplane-identity/azure` Terraform module's federated credential can target it. |
-| `crossplane/gcp-cloudsql` | `database.postgres.driver == 'cloudsql'` | GCP twin of `crossplane/aws-rds`. Digest-pinned `Provider` CRs for `provider-gcp-sql` (`skipDependencyResolution: true`) and its `provider-family-gcp` dependency, plus a `DeploymentRuntimeConfig` that wires GKE Workload Identity (the `iam.gke.io/gcp-service-account` annotation on the provider ServiceAccount) so the `provisioning/crossplane-identity/gcp` Terraform module's Workload Identity binding can target it. |
+### `crossplane`
+
+_Enabled when `database.postgres.driver == 'rds'` OR `database.postgres.driver == 'azuredb'` OR `database.postgres.driver == 'cloudsql'`._
+
+Helm release of Crossplane in `system-provisioning`. Generic engine mechanics only — a driver's own database-specific consumption of it (ProviderConfig, monitoring, app-role) lives in `kustomize/database` instead, in `system-database`.
+
+### `crossplane/provider-sql`
+
+_Enabled when `database.postgres.driver == 'rds'` OR `database.postgres.driver == 'azuredb'` OR `database.postgres.driver == 'cloudsql'`._
+
+Digest-pinned `Provider` CR for `crossplane-contrib/provider-sql` plus a `DeploymentRuntimeConfig` setting its resource requests/limits. Installed once per context alongside whichever cloud provider is active — its `Role`/`Database`/`Grant` CRDs speak the Postgres wire protocol, not a cloud API, so the same install serves all three drivers' `app-role` components in `kustomize/database`.
+
+### `crossplane/function-python`
+
+_Enabled when `database.postgres.driver == 'rds'` OR `database.postgres.driver == 'azuredb'` OR `database.postgres.driver == 'cloudsql'`._
+
+Digest-pinned `Function` CR for `crossplane-contrib/function-python` plus a `DeploymentRuntimeConfig` setting its resource requests/limits. Runs `database-credentials`'s Composition pipeline and `gcp-admin-password`'s `WatchOperation`; the latter requires Crossplane's `--enable-operations` alpha flag, set on this component's own `helm-release.yaml`.
+
+### `crossplane/database-credentials`
+
+_Enabled when `database.postgres.driver == 'rds'` OR `database.postgres.driver == 'azuredb'` OR `database.postgres.driver == 'cloudsql'`._
+
+The `DatabaseCredentials` XRD and its Composition. A chart creates one namespaced `DatabaseCredentials` resource naming a driver and an already-`Ready` instance to get a Postgres role — `login`-only for an application credential (`databaseName` set), or with `grants` for a role like monitoring (`roleName` set instead). Renders a per-instance `ProviderConfig`, connection Secret, `Role`, and any `Grant`s, all namespaced to wherever the `DatabaseCredentials` resource itself was created.
+
+### `crossplane/gcp-admin-password`
+
+_Enabled when `database.postgres.driver == 'cloudsql'`._
+
+A `WatchOperation` watching every `sql.gcp.upbound.io` `DatabaseInstance` cluster-wide, unfiltered by name. Ensures `<instance-name>-admin-credentials` exists in `system-database` and an admin `User` CR applies it, generating each independently the first time it's missing — `provider-gcp-sql` has no auto-generate-password field of its own, unlike RDS/Azure.
+
+### `crossplane/postgres-exporter`
+
+_Enabled when `telemetry.metrics.enabled` (default true)._
+
+A `WatchOperation` watching every `DatabaseCredentials` XR cluster-wide. For any with a `pg_monitor` grant, applies a `postgres_exporter` Deployment/Service/PodMonitor in the XR's own namespace, reading its connection Secret.
+
+### `crossplane/aws-rds-monitor`
+
+_Enabled when `database.postgres.driver == 'rds'` AND `telemetry.metrics.enabled` (default true)._
+
+A `WatchOperation` watching every `rds.aws.upbound.io` `Instance` cluster-wide. Creates a `<instance-name>-monitor` `DatabaseCredentials` XR in `system-database`, `roleName: monitor` granted `pg_monitor`, for `crossplane/postgres-exporter` to pick up.
+
+### `crossplane/azure-postgres-monitor`
+
+_Enabled when `database.postgres.driver == 'azuredb'` AND `telemetry.metrics.enabled` (default true)._
+
+Azure twin of `crossplane/aws-rds-monitor`, watching `dbforpostgresql.azure.upbound.io` `FlexibleServer` CRs instead.
+
+### `crossplane/gcp-cloudsql-monitor`
+
+_Enabled when `database.postgres.driver == 'cloudsql'` AND `telemetry.metrics.enabled` (default true)._
+
+GCP twin of `crossplane/aws-rds-monitor`, watching `sql.gcp.upbound.io` `DatabaseInstance` CRs instead.
+
+### `crossplane/aws-rds`
+
+_Enabled when `database.postgres.driver == 'rds'`._
+
+Digest-pinned `Provider` CRs for `provider-aws-rds` (`skipDependencyResolution: true`) and its `provider-family-aws` dependency, plus a `DeploymentRuntimeConfig` that fixes the provider pod's ServiceAccount name to `provider-aws-rds` so the `provisioning/crossplane-identity/aws` Terraform module's Pod Identity association can target it. Its own database-specific consumption (`ProviderConfig`, tag policy, monitoring, `app-role`) is `kustomize/database`'s `crossplane/aws-rds` component instead.
+
+### `crossplane/azure-postgres`
+
+_Enabled when `database.postgres.driver == 'azuredb'`._
+
+Azure twin of `crossplane/aws-rds`. Digest-pinned `Provider` CRs for `provider-azure-dbforpostgresql` (`skipDependencyResolution: true`) and its `provider-family-azure` dependency, plus a `DeploymentRuntimeConfig` that fixes the provider pod's ServiceAccount name to `provider-azure-dbforpostgresql` and wires AKS Workload Identity (client-id/tenant-id annotations, the `azure.workload.identity/use` label on both the ServiceAccount and the pod) so the `provisioning/crossplane-identity/azure` Terraform module's federated credential can target it.
+
+### `crossplane/gcp-cloudsql`
+
+_Enabled when `database.postgres.driver == 'cloudsql'`._
+
+GCP twin of `crossplane/aws-rds`. Digest-pinned `Provider` CRs for `provider-gcp-sql` (`skipDependencyResolution: true`) and its `provider-family-gcp` dependency, plus a `DeploymentRuntimeConfig` that wires GKE Workload Identity (the `iam.gke.io/gcp-service-account` annotation on the provider ServiceAccount) so the `provisioning/crossplane-identity/gcp` Terraform module's Workload Identity binding can target it.
 
 <!-- END_KUSTOMIZE_DOCS -->
 

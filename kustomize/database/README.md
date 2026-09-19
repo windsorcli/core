@@ -1,6 +1,7 @@
 ---
 title: Database add-on
-description: CloudNativePG operator for in-cluster PostgreSQL.
+description: CloudNativePG operator for in-cluster PostgreSQL, plus the driver-specific resources (ProviderConfig, monitoring, app-role) for RDS, Azure Database for PostgreSQL, and Cloud SQL.
+stack_backing: In-cluster and cloud-managed PostgreSQL
 ---
 
 # Database
@@ -97,15 +98,47 @@ before reconciling.
 
 ## Components
 
-| Component | Enable when | Effect |
-|---|---|---|
-| `cloudnativepg` | `database.postgres.driver == 'cloudnativepg'` | Helm release of CloudNativePG in `system-database`. `clusterWide: true` so the operator reconciles `Cluster` CRs in any namespace. Mutating and validating webhooks default to `failurePolicy: Fail` so misconfigured Clusters are rejected at admission. |
-| `cloudnativepg/prometheus` | `database.postgres.driver == 'cloudnativepg'` AND `observability.enabled: true` | Patches the operator HelmRelease to depend on `kube-prometheus-stack` (system-telemetry) and enable `monitoring.podMonitorEnabled: true` with `release: kube-prometheus-stack` discovery labels. |
-| `cloudnativepg/ha` | `database.postgres.driver == 'cloudnativepg'` AND `topology == 'ha'` | Patches the operator HelmRelease for HA: `replicaCount: 2`, hostname-key pod anti-affinity, rolling update `maxUnavailable: 1`. Adds a `PodDisruptionBudget` (`minAvailable: 1`) selecting the operator pods. |
-| `cloudnativepg/single-node` | `database.postgres.driver == 'cloudnativepg'` AND `topology == 'single-node'` | Patches the operator HelmRelease to append `--leader-elect=false` via `additionalArgs`. The chart unconditionally passes `--leader-elect`; Go's flag parser is last-wins so the override wins. |
-| `crossplane/postgres/aws-rds` | `database.postgres.driver == 'rds'` | RDS's own `default` `ProviderConfig` (credentials source `PodIdentity`, so a consuming `Instance` CR needs no `providerConfigRef`), and a Kyverno `ClusterPolicy` that force-sets the `windsorcli.dev/cluster` tag on every `Instance`. No chart opt-in, matching CNPG's own free monitoring. Requires `kustomize/provisioning`'s `Provider` to report Healthy/Installed first. |
-| `crossplane/postgres/azure-postgres` | `database.postgres.driver == 'azuredb'` | Azure twin of `crossplane/postgres/aws-rds`. The `default` `ProviderConfig` (credentials source `OIDCTokenFile`, so a consuming `FlexibleServer` CR needs no `providerConfigRef`), and a Kyverno `ClusterPolicy` that force-sets `resourceGroupName` on every `FlexibleServer` to the context's dedicated postgres resource group. No chart opt-in, matching CNPG's own free monitoring. |
-| `crossplane/postgres/gcp-cloudsql` | `database.postgres.driver == 'cloudsql'` | GCP twin of `crossplane/postgres/aws-rds`. The `default` `ProviderConfig` (credentials source `InjectedIdentity`, so a consuming `DatabaseInstance` CR needs no `providerConfigRef`), and a Kyverno `ClusterPolicy` that force-sets `project` on every `DatabaseInstance` to the context's GCP project. No chart opt-in, matching CNPG's own free monitoring. |
+### `cloudnativepg`
+
+_Enabled when `database.postgres.driver == 'cloudnativepg'`._
+
+Helm release of CloudNativePG in `system-database`. `clusterWide: true` so the operator reconciles `Cluster` CRs in any namespace. Mutating and validating webhooks default to `failurePolicy: Fail` so misconfigured Clusters are rejected at admission.
+
+### `cloudnativepg/prometheus`
+
+_Enabled when `database.postgres.driver == 'cloudnativepg'` AND `observability.enabled: true`._
+
+Patches the operator HelmRelease to depend on `kube-prometheus-stack` (system-telemetry) and enable `monitoring.podMonitorEnabled: true` with `release: kube-prometheus-stack` discovery labels.
+
+### `cloudnativepg/ha`
+
+_Enabled when `database.postgres.driver == 'cloudnativepg'` AND `topology == 'ha'`._
+
+Patches the operator HelmRelease for HA: `replicaCount: 2`, hostname-key pod anti-affinity, rolling update `maxUnavailable: 1`. Adds a `PodDisruptionBudget` (`minAvailable: 1`) selecting the operator pods.
+
+### `cloudnativepg/single-node`
+
+_Enabled when `database.postgres.driver == 'cloudnativepg'` AND `topology == 'single-node'`._
+
+Patches the operator HelmRelease to append `--leader-elect=false` via `additionalArgs`. The chart unconditionally passes `--leader-elect`; Go's flag parser is last-wins so the override wins.
+
+### `crossplane/postgres/aws-rds`
+
+_Enabled when `database.postgres.driver == 'rds'`._
+
+RDS's own `default` `ProviderConfig` (credentials source `PodIdentity`, so a consuming `Instance` CR needs no `providerConfigRef`), and a Kyverno `ClusterPolicy` that force-sets the `windsorcli.dev/cluster` tag on every `Instance`. No chart opt-in, matching CNPG's own free monitoring. Requires `kustomize/provisioning`'s `Provider` to report Healthy/Installed first.
+
+### `crossplane/postgres/azure-postgres`
+
+_Enabled when `database.postgres.driver == 'azuredb'`._
+
+Azure twin of `crossplane/postgres/aws-rds`. The `default` `ProviderConfig` (credentials source `OIDCTokenFile`, so a consuming `FlexibleServer` CR needs no `providerConfigRef`), and a Kyverno `ClusterPolicy` that force-sets `resourceGroupName` on every `FlexibleServer` to the context's dedicated postgres resource group. No chart opt-in, matching CNPG's own free monitoring.
+
+### `crossplane/postgres/gcp-cloudsql`
+
+_Enabled when `database.postgres.driver == 'cloudsql'`._
+
+GCP twin of `crossplane/postgres/aws-rds`. The `default` `ProviderConfig` (credentials source `InjectedIdentity`, so a consuming `DatabaseInstance` CR needs no `providerConfigRef`), and a Kyverno `ClusterPolicy` that force-sets `project` on every `DatabaseInstance` to the context's GCP project. No chart opt-in, matching CNPG's own free monitoring.
 
 ## Dependencies
 
