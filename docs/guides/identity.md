@@ -189,5 +189,5 @@ consumer pods wait rather than start misconfigured.
 
 <!-- END_GUIDE_REFS -->
 
-- [Facets](https://www.windsorcli.dev/blueprints/facets), [Kustomize](https://www.windsorcli.dev/blueprints/kustomize) — how add-ons like this compose into a blueprint
+- [Facets](https://www.windsorcli.dev/blueprints/facets), [Kustomize](https://www.windsorcli.dev/components/kustomize) — how add-ons like this compose into a blueprint
 - [Expressions — secret()](https://www.windsorcli.dev/blueprints/expressions) — how `${secret(...)}` resolves
