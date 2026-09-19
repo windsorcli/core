@@ -31,9 +31,9 @@ data "azurerm_client_config" "current" {}
 #-----------------------------------------------------------------------------------------------------------------------
 
 locals {
-  tags = merge({
+  tags = merge(var.tags, {
     WindsorContextID = var.context_id
-  }, var.tags)
+  })
 
   resource_group_name         = "postgres-${var.context_id}"
   private_dns_zone_name       = "${var.context_id}.postgres.database.azure.com"
@@ -69,9 +69,9 @@ locals {
 resource "azurerm_resource_group" "postgres" {
   name     = local.resource_group_name
   location = var.region
-  tags = merge({
+  tags = merge(local.tags, {
     Name = local.resource_group_name
-  }, local.tags)
+  })
 }
 
 #-----------------------------------------------------------------------------------------------------------------------
@@ -84,9 +84,9 @@ resource "azurerm_resource_group" "postgres" {
 resource "azurerm_private_dns_zone" "postgres" {
   name                = local.private_dns_zone_name
   resource_group_name = azurerm_resource_group.postgres.name
-  tags = merge({
+  tags = merge(local.tags, {
     Name = local.private_dns_zone_name
-  }, local.tags)
+  })
 }
 
 resource "azurerm_private_dns_zone_virtual_network_link" "postgres" {
@@ -94,9 +94,9 @@ resource "azurerm_private_dns_zone_virtual_network_link" "postgres" {
   private_dns_zone_id  = azurerm_private_dns_zone.postgres.id
   virtual_network_id   = local.vnet_id
   registration_enabled = false
-  tags = merge({
+  tags = merge(local.tags, {
     Name = local.private_dns_zone_link_name
-  }, local.tags)
+  })
 }
 
 #-----------------------------------------------------------------------------------------------------------------------
@@ -111,9 +111,9 @@ resource "azurerm_network_security_group" "azuredb" {
   name                = local.network_security_group_name
   location            = azurerm_resource_group.postgres.location
   resource_group_name = azurerm_resource_group.postgres.name
-  tags = merge({
+  tags = merge(local.tags, {
     Name = local.network_security_group_name
-  }, local.tags)
+  })
 
   security_rule {
     name                       = "AllowPostgresFromClusterNodes"
@@ -175,9 +175,9 @@ resource "azurerm_key_vault" "postgres" {
     default_action = var.network_acls_default_action
     bypass         = "AzureServices"
   }
-  tags = merge({
+  tags = merge(local.tags, {
     Name = local.key_vault_name
-  }, local.tags)
+  })
 }
 
 resource "time_static" "postgres_key_expiry" {}
@@ -220,9 +220,9 @@ resource "azurerm_user_assigned_identity" "azuredb_cmk" {
   name                = local.cmk_identity_name
   resource_group_name = azurerm_resource_group.postgres.name
   location            = azurerm_resource_group.postgres.location
-  tags = merge({
+  tags = merge(local.tags, {
     Name = local.cmk_identity_name
-  }, local.tags)
+  })
 }
 
 resource "azurerm_role_assignment" "azuredb_cmk" {

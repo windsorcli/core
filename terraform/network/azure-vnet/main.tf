@@ -27,9 +27,9 @@ provider "azurerm" {
 locals {
   vnet_name = var.vnet_name == null ? "${var.name}-${var.context_id}" : var.vnet_name
   rg_name   = var.resource_group_name == null ? "${var.name}-${var.context_id}" : var.resource_group_name
-  tags = merge({
+  tags = merge(var.tags, {
     WindsorContextID = var.context_id
-  }, var.tags)
+  })
 }
 
 #-----------------------------------------------------------------------------------------------------------------------
@@ -39,9 +39,9 @@ locals {
 resource "azurerm_resource_group" "main" {
   name     = local.rg_name
   location = var.region
-  tags = merge({
+  tags = merge(local.tags, {
     Name = local.rg_name
-  }, local.tags)
+  })
 }
 
 #-----------------------------------------------------------------------------------------------------------------------
@@ -53,9 +53,9 @@ resource "azurerm_virtual_network" "main" {
   address_space       = [var.vnet_cidr]
   location            = azurerm_resource_group.main.location
   resource_group_name = azurerm_resource_group.main.name
-  tags = merge({
+  tags = merge(local.tags, {
     Name = local.vnet_name
-  }, local.tags)
+  })
 }
 
 #-----------------------------------------------------------------------------------------------------------------------
@@ -121,9 +121,9 @@ resource "azurerm_public_ip" "nat" {
   resource_group_name = azurerm_resource_group.main.name
   allocation_method   = "Static"
   sku                 = "Standard"
-  tags = merge({
+  tags = merge(local.tags, {
     Name = "${var.name}-${count.index + 1}-${var.context_id}"
-  }, local.tags)
+  })
 }
 
 # NAT Gateway
@@ -133,9 +133,9 @@ resource "azurerm_nat_gateway" "main" {
   location            = azurerm_resource_group.main.location
   resource_group_name = azurerm_resource_group.main.name
   sku_name            = "Standard"
-  tags = merge({
+  tags = merge(local.tags, {
     Name = "${var.name}-${count.index + 1}-${var.context_id}"
-  }, local.tags)
+  })
 }
 
 # Associate public IP with NAT Gateway
@@ -150,9 +150,9 @@ resource "azurerm_route_table" "private" {
   name                = "${var.name}-private-${count.index + 1}-${var.context_id}"
   location            = azurerm_resource_group.main.location
   resource_group_name = azurerm_resource_group.main.name
-  tags = merge({
+  tags = merge(local.tags, {
     Name = "${var.name}-private-${count.index + 1}-${var.context_id}"
-  }, local.tags)
+  })
 }
 
 resource "azurerm_subnet_route_table_association" "private" {
@@ -178,9 +178,9 @@ resource "azurerm_private_dns_zone" "main" {
   count               = var.domain_name != null && var.domain_name != "" ? 1 : 0
   name                = var.domain_name
   resource_group_name = azurerm_resource_group.main.name
-  tags = merge({
+  tags = merge(local.tags, {
     Name = var.domain_name
-  }, local.tags)
+  })
 }
 
 resource "azurerm_private_dns_zone_virtual_network_link" "main" {
