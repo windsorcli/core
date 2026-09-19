@@ -208,6 +208,7 @@ cases:
             - provisioning-resources
           resources:
             - timeout: 30m
+              deleteTimeout: 60m
               interval: 5m
               components:
                 - database
