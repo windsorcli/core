@@ -44,6 +44,32 @@ run "manages_dedicated_key_by_default" {
   }
 
   assert {
+    condition = alltrue([
+      for tags in [
+        azurerm_resource_group.postgres.tags,
+        azurerm_private_dns_zone.postgres.tags,
+        azurerm_private_dns_zone_virtual_network_link.postgres.tags,
+        azurerm_network_security_group.azuredb.tags,
+        azurerm_key_vault.postgres[0].tags,
+        azurerm_user_assigned_identity.azuredb_cmk[0].tags,
+      ] : tags["WindsorContextID"] == "test"
+    ])
+    error_message = "Every resource should carry the WindsorContextID tag, matching network/azure-vnet and cluster/azure-aks"
+  }
+
+  assert {
+    condition = alltrue([
+      azurerm_resource_group.postgres.tags["Name"] == azurerm_resource_group.postgres.name,
+      azurerm_private_dns_zone.postgres.tags["Name"] == azurerm_private_dns_zone.postgres.name,
+      azurerm_private_dns_zone_virtual_network_link.postgres.tags["Name"] == azurerm_private_dns_zone_virtual_network_link.postgres.name,
+      azurerm_network_security_group.azuredb.tags["Name"] == azurerm_network_security_group.azuredb.name,
+      azurerm_key_vault.postgres[0].tags["Name"] == azurerm_key_vault.postgres[0].name,
+      azurerm_user_assigned_identity.azuredb_cmk[0].tags["Name"] == azurerm_user_assigned_identity.azuredb_cmk[0].name,
+    ])
+    error_message = "Every resource should carry a Name tag matching its own name, matching network/azure-vnet and cluster/azure-aks"
+  }
+
+  assert {
     condition     = azurerm_private_dns_zone_virtual_network_link.postgres.virtual_network_id == var.vnet_id
     error_message = "The private DNS zone should link to the supplied VNet"
   }
