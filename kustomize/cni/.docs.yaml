@@ -29,7 +29,7 @@ components:
     description: "Replaces full privileged mode with explicit Linux capabilities (CHOWN, NET_ADMIN, etc.) and disables cgroup auto-mount (Talos already mounts cgroups at boot)."
   cilium/gateway:
     enable_when: "`gateway.driver: cilium`"
-    description: "Enables `gatewayAPI` on Cilium and ships a Kyverno ClusterPolicy that injects LBIPAM sharing annotations onto Cilium-owned Gateway services. Fixes a create-then-patch race in cilium-operator that would otherwise prevent IP sharing on first reconcile."
+    description: "Enables `gatewayAPI` on Cilium and ships a Kyverno MutatingPolicy that injects LBIPAM sharing annotations onto Cilium-owned Gateway services. Fixes a create-then-patch race in cilium-operator that would otherwise prevent IP sharing on first reconcile."
   cilium/prometheus:
     enable_when: "`telemetry.metrics.enabled: true`"
     description: "Enables Prometheus on the operator and agent and creates a ServiceMonitor for each."
@@ -43,7 +43,7 @@ components:
 dependencies:
   policy-resources:
     required_when: "`policies.enabled: true` or `gateway.driver: cilium`"
-    reason: "Re-rolls Cilium pods after Kyverno's mutation policies are live. When `cilium/gateway` is active, also provides the Kyverno CRDs the LBIPAM sharing ClusterPolicy depends on."
+    reason: "Re-rolls Cilium pods after Kyverno's mutation policies are live. When `cilium/gateway` is active, also provides the Kyverno CRDs the LBIPAM sharing MutatingPolicy depends on."
   telemetry-install:
     required_when: "`telemetry.metrics.enabled: true` or `telemetry.logs.enabled: true`"
     reason: "The `cilium/prometheus` ServiceMonitor and the Hubble ServiceMonitor target Prometheus from telemetry."

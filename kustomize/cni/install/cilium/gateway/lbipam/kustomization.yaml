@@ -5,4 +5,4 @@ kind: Component
 # gateway/resources/cilium). L2/LBIPAM environments only — skipped when a cloud LB
 # controller (e.g. hcloud CCM) owns the Service IP instead.
 resources:
-  - cluster-policy.yaml
+  - mutating-policy.yaml

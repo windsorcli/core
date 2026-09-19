@@ -28,7 +28,7 @@ composition. Links from there land here.
 | [object-store](object-store/) | MinIO Operator for in-cluster S3-compatible object storage. |
 | [observability](observability/) | Grafana dashboards and the cluster's log store (stdout, Quickwit, or Elasticsearch + Kibana). |
 | [pki](pki/) | cert-manager, trust-manager, and the cluster's ClusterIssuers (selfsigned, private CA, ACME). |
-| [policy](policy/) | Kyverno admission controller and the cluster's baseline ClusterPolicies. |
+| [policy](policy/) | Kyverno admission controller and the cluster's baseline policies. |
 | [provisioning](provisioning/) | Crossplane, provider-aws-rds, and provider-azure-dbforpostgresql for application-requested cloud databases. |
 | [telemetry](telemetry/) | kube-prometheus-stack and FluentBit for cluster-level metrics and log collection. |
 <!-- END_INDEX -->

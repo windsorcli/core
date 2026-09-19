@@ -1,0 +1,65 @@
+apiVersion: policies.kyverno.io/v1
+kind: MutatingPolicy
+metadata:
+  name: inject-private-ca
+spec:
+  # Fail closed: a pod must not start without the CA bundle it expects to trust.
+  failurePolicy: Fail
+  evaluation:
+    background:
+      enabled: false
+  autogen:
+    podControllers:
+      controllers: []
+  matchConstraints:
+    resourceRules:
+      - apiGroups: ['']
+        apiVersions: [v1]
+        operations: [CREATE]
+        resources: [pods]
+    objectSelector:
+      matchLabels:
+        use-custom-ca: "true"
+  mutations:
+    # JSONPatch, not ApplyConfiguration: ConfigMapVolumeSource.items is an
+    # atomic field and ApplyConfiguration refuses to set it.
+    - patchType: JSONPatch
+      # defaultMode 420 is 0644 (rw-r--r--) in decimal, since CEL integer literals are always decimal.
+      jsonPatch:
+        expression: >
+          [
+            JSONPatch{
+              op: "add",
+              path: "/spec/volumes",
+              value: dyn(has(object.spec.volumes) ? object.spec.volumes : []) + [
+                {
+                  "name": dyn("private-ca-bundle"),
+                  "configMap": dyn({
+                    "name": dyn("private-ca"),
+                    "defaultMode": dyn(420),
+                    "optional": dyn(false),
+                    "items": dyn([{"key": "trust-bundle.pem", "path": "ca.crt"}])
+                  })
+                }
+              ]
+            }
+          ] +
+          object.spec.containers.map(c,
+            JSONPatch{
+              op: "add",
+              path: "/spec/containers/" + string(object.spec.containers.indexOf(c)) + "/volumeMounts",
+              value: dyn(has(c.volumeMounts) ? c.volumeMounts : []) + [
+                {"name": "private-ca-bundle", "mountPath": "/usr/local/share/ca-certificates/ca.crt", "subPath": "ca.crt"}
+              ]
+            }
+          ) +
+          object.spec.containers.map(c,
+            JSONPatch{
+              op: "add",
+              path: "/spec/containers/" + string(object.spec.containers.indexOf(c)) + "/env",
+              value: dyn(has(c.env) ? c.env : []) + [
+                {"name": "SSL_CERT_FILE", "value": "/usr/local/share/ca-certificates/ca.crt"},
+                {"name": "REQUESTS_CA_BUNDLE", "value": "/usr/local/share/ca-certificates/ca.crt"}
+              ]
+            }
+          )

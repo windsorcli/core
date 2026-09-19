@@ -92,7 +92,7 @@ API CRDs were not present at start. Restart `cilium-operator` after the
 CRDs are installed.
 
 If the Cilium gateway Service has no LB IP, verify the
-`cilium-gateway-lbipam-sharing` ClusterPolicy is `Ready` and the
+`cilium-gateway-lbipam-sharing` MutatingPolicy is `Ready` and the
 `cilium-lbipam-config` ConfigMap in `system-gateway` exists.
 
 If `HelmRelease/cilium` reports `no matches for kind
@@ -133,7 +133,7 @@ cert-manager is not required for Hubble.
 |---|---|---|
 | `cilium` | always | Helm release of Cilium in `system-cni`, targeting `kube-system`. `kubeProxyReplacement: true`, `ipam.mode: kubernetes`, base values. |
 | `cilium/talos` | platform is Talos | Replaces full privileged mode with explicit Linux capabilities (CHOWN, NET_ADMIN, etc.) and disables cgroup auto-mount (Talos already mounts cgroups at boot). |
-| `cilium/gateway` | `gateway.driver: cilium` | Enables `gatewayAPI` on Cilium and ships a Kyverno ClusterPolicy that injects LBIPAM sharing annotations onto Cilium-owned Gateway services. Fixes a create-then-patch race in cilium-operator that would otherwise prevent IP sharing on first reconcile. |
+| `cilium/gateway` | `gateway.driver: cilium` | Enables `gatewayAPI` on Cilium and ships a Kyverno MutatingPolicy that injects LBIPAM sharing annotations onto Cilium-owned Gateway services. Fixes a create-then-patch race in cilium-operator that would otherwise prevent IP sharing on first reconcile. |
 | `cilium/prometheus` | `telemetry.metrics.enabled: true` | Enables Prometheus on the operator and agent and creates a ServiceMonitor for each. |
 | `cilium/hubble` | always | Hubble metrics (dns, drop, port-distribution, tcp, flow, icmp, http), Hubble Relay, Hubble UI, and the cronJob-based TLS rotation method (avoids a bug where `helm` mode re-renders server-secret on every upgrade). |
 | `cilium/l2` | platform is Talos | Enables `l2announcements` and `externalIPs` and creates `CiliumLoadBalancerIPPool/default` with the configured IP range plus `CiliumL2AnnouncementPolicy/default` matching `^eth[0-9]+` and `^ens[0-9]+` interfaces. Replaces kube-vip and MetalLB on Talos. |
@@ -142,7 +142,7 @@ cert-manager is not required for Hubble.
 
 | Add-on | Required when | Reason |
 |---|---|---|
-| `policy-resources` | `policies.enabled: true` or `gateway.driver: cilium` | Re-rolls Cilium pods after Kyverno's mutation policies are live. When `cilium/gateway` is active, also provides the Kyverno CRDs the LBIPAM sharing ClusterPolicy depends on. |
+| `policy-resources` | `policies.enabled: true` or `gateway.driver: cilium` | Re-rolls Cilium pods after Kyverno's mutation policies are live. When `cilium/gateway` is active, also provides the Kyverno CRDs the LBIPAM sharing MutatingPolicy depends on. |
 | `telemetry-install` | `telemetry.metrics.enabled: true` or `telemetry.logs.enabled: true` | The `cilium/prometheus` ServiceMonitor and the Hubble ServiceMonitor target Prometheus from telemetry. |
 
 <!-- END_KUSTOMIZE_DOCS -->

@@ -1,6 +1,6 @@
 ---
-apiVersion: kyverno.io/v1
-kind: ClusterPolicy
+apiVersion: policies.kyverno.io/v1
+kind: MutatingPolicy
 metadata:
   name: crossplane-azuredb-rg
   annotations:
@@ -20,16 +20,20 @@ spec:
   # Fail-open: the role assignment's own scope backstops a create that
   # slips through an unreachable webhook.
   failurePolicy: Ignore
-  background: false
-  rules:
-    - name: set-resource-group
-      match:
-        any:
-          - resources:
-              kinds:
-                - dbforpostgresql.azure.upbound.io/v1beta1/FlexibleServer
-      mutate:
-        patchStrategicMerge:
-          spec:
-            forProvider:
-              resourceGroupName: ${azuredb_resource_group_name}
+  matchConstraints:
+    resourceRules:
+      - apiGroups: [dbforpostgresql.azure.upbound.io]
+        apiVersions: [v1beta1]
+        operations: [CREATE, UPDATE]
+        resources: [flexibleservers]
+  mutations:
+    - patchType: ApplyConfiguration
+      applyConfiguration:
+        expression: >
+          Object{
+            spec: Object.spec{
+              forProvider: Object.spec.forProvider{
+                resourceGroupName: "${azuredb_resource_group_name}"
+              }
+            }
+          }
