@@ -1,6 +1,6 @@
 ---
-apiVersion: kyverno.io/v1
-kind: ClusterPolicy
+apiVersion: policies.kyverno.io/v1
+kind: MutatingPolicy
 metadata:
   name: crossplane-instance-tag
   annotations:
@@ -18,18 +18,24 @@ spec:
   # Fail-open: if the mutation webhook is unreachable, the create still goes
   # through.
   failurePolicy: Ignore
-  background: false
-  rules:
-    - name: set-context-label
-      match:
-        any:
-          - resources:
-              kinds:
-                - sql.gcp.upbound.io/v1beta1/DatabaseInstance
-      mutate:
-        patchStrategicMerge:
-          spec:
-            forProvider:
-              settings:
-                userLabels:
-                  windsor_context_id: ${context_id}
+  matchConstraints:
+    resourceRules:
+      - apiGroups: [sql.gcp.upbound.io]
+        apiVersions: [v1beta1]
+        operations: [CREATE, UPDATE]
+        resources: [databaseinstances]
+  mutations:
+    - patchType: ApplyConfiguration
+      applyConfiguration:
+        expression: >
+          Object{
+            spec: Object.spec{
+              forProvider: Object.spec.forProvider{
+                settings: Object.spec.forProvider.settings{
+                  userLabels: {
+                    "windsor_context_id": "${context_id}"
+                  }
+                }
+              }
+            }
+          }

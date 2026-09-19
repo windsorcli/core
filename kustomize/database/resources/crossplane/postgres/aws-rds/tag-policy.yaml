@@ -1,6 +1,6 @@
 ---
-apiVersion: kyverno.io/v1
-kind: ClusterPolicy
+apiVersion: policies.kyverno.io/v1
+kind: MutatingPolicy
 metadata:
   name: crossplane-instance-tag
   annotations:
@@ -21,20 +21,23 @@ spec:
   # Fail-open: if the mutation webhook is unreachable, the create still goes
   # through and IAM's own tag condition is the backstop that rejects it.
   failurePolicy: Ignore
-  background: false
-  rules:
-    - name: set-cluster-tag
-      match:
-        any:
-          - resources:
-              kinds:
-                - rds.aws.upbound.io/v1beta1/Instance
-                - rds.aws.upbound.io/v1beta2/Instance
-                - rds.aws.upbound.io/v1beta3/Instance
-      mutate:
-        patchStrategicMerge:
-          spec:
-            forProvider:
-              tags:
-                windsorcli.dev/cluster: ${cluster_name}
-                WindsorContextID: ${context_id}
+  matchConstraints:
+    resourceRules:
+      - apiGroups: [rds.aws.upbound.io]
+        apiVersions: [v1beta1, v1beta2, v1beta3]
+        operations: [CREATE, UPDATE]
+        resources: [instances]
+  mutations:
+    - patchType: ApplyConfiguration
+      applyConfiguration:
+        expression: >
+          Object{
+            spec: Object.spec{
+              forProvider: Object.spec.forProvider{
+                tags: {
+                  "windsorcli.dev/cluster": "${cluster_name}",
+                  "WindsorContextID": "${context_id}"
+                }
+              }
+            }
+          }
