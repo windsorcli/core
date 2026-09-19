@@ -142,6 +142,9 @@ flux:
         substitutions:
           cluster_name: "${terraform_output('cluster', 'cluster_name') ?? ''}"
           context_id: ${id}
+          db_subnet_group_name: "${terraform_output('network', 'db_subnet_group_name') ?? ''}"
+          kms_key_arn: "${terraform_output('database', 'key_id') ?? ''}"
+          rds_security_group_id: "${terraform_output('database', 'security_group_id') ?? ''}"
         timeout: 5m
         interval: 5m
       - when: database.postgres.driver == 'azuredb'
@@ -154,6 +157,8 @@ flux:
           crossplane_azure_tenant_id: "${terraform_output('crossplane-identity', 'tenant_id') ?? ''}"
           crossplane_azure_subscription_id: "${terraform_output('network', 'subscription_id') ?? ''}"
           azuredb_resource_group_name: "${terraform_output('database', 'resource_group_name') ?? ''}"
+          azuredb_subnet_id: "${terraform_output('network', 'azuredb_subnet_id') ?? ''}"
+          azuredb_private_dns_zone_id: "${terraform_output('database', 'private_dns_zone_id') ?? ''}"
           context_id: ${id}
         timeout: 5m
         interval: 5m
@@ -165,6 +170,8 @@ flux:
         substitutions:
           crossplane_gcp_project_id: "${gcp.project_id ?? ''}"
           context_id: ${id}
+          cloudsql_network_id: "${terraform_output('network', 'network_id') ?? ''}"
+          cloudsql_kms_key_name: "${terraform_output('database', 'key_id') ?? ''}"
         timeout: 5m
         interval: 5m
 
