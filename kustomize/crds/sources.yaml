@@ -78,3 +78,11 @@ manifests:
     version: 26.7.0
     url: https://raw.githubusercontent.com/keycloak/keycloak-k8s-resources/${version}/kubernetes/kubernetes.yml
     dest: kustomize/identity/install/keycloak-operator/operator.yaml
+
+talos_inline_manifests:
+  dest: contexts/_template/facets/config-talos-inline-manifests.yaml
+  entries:
+    - name: kubelet-serving-cert-approver
+      # renovate: datasource=github-releases depName=alex1989hu/kubelet-serving-cert-approver package=alex1989hu/kubelet-serving-cert-approver
+      version: 0.8.7
+      url: https://raw.githubusercontent.com/alex1989hu/kubelet-serving-cert-approver/v${version}/deploy/standalone-install.yaml
