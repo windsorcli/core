@@ -33,10 +33,11 @@ With this driver, Windsor deploys nothing into `system-identity` — no operator
 
 ## Reference
 
-Windsor installs nothing for this driver, so there's normally no `kustomize/` or `terraform/` reference to point at — the identity provider is yours to operate and document.
+Windsor installs no kustomize components for this driver — the identity provider is yours to operate and document. The one thing it does write is Grafana's OIDC client secret, into the observability add-on's own resources.
 
 <!-- BEGIN_GUIDE_REFS -->
 
+- [kustomize/observability](https://github.com/windsorcli/core/tree/main/kustomize/observability) on GitHub
 
 <!-- END_GUIDE_REFS -->
 

@@ -150,22 +150,30 @@ render_refs() {
     ' <<<"$json")
 
     while IFS=$'\t' read -r base literal; do
-      [[ -n "$base" ]] && kz_bases+=("$base")
-      [[ -n "$literal" ]] && kz_literals+=("$base"$'\t'"$literal")
+      if [[ -n "$literal" ]]; then
+        kz_literals+=("$base"$'\t'"$literal")
+      elif [[ -n "$base" ]]; then
+        # A matched entry with no components at all (bare path:/name:) — the
+        # base itself is the reference, nothing to resolve against .docs.yaml.
+        kz_bases+=("$base")
+      fi
     done < <(jq -r --arg match "$match" '
       .when as $topwhen |
       .flux[]? |
       ((.when // $topwhen // "")) as $entrywhen |
       (.path // .name) as $base |
-      (
-        (if ($entrywhen | test($match)) then ((.install.components // [])[]) else empty end),
-        (.resources[]? | ((.when // $entrywhen // "")) as $reswhen | select($reswhen | test($match)) | (.components // [])[])
-      ) as $comp0 |
       # Each resources[]/install entry gates its own components independently
       # of the others — a component gated on one driver never leaks onto
       # another vendors page just because a sibling block in the same flux
-      # entry matched too.
-      [$comp0] as $comps |
+      # entry matched too. Collected directly into an array (not via `as`
+      # on the raw generator first) so a genuinely empty result — no
+      # install.components, no resources[] — still yields length 0 instead
+      # of vanishing the whole .flux[] entry: `(empty) as $x | body` runs
+      # body zero times, same as the entry never existed.
+      [
+        (if ($entrywhen | test($match)) then ((.install.components // [])[]) else empty end),
+        (.resources[]? | ((.when // $entrywhen // "")) as $reswhen | select($reswhen | test($match)) | (.components // [])[])
+      ] as $comps |
       if ($comps | length) == 0 then
         (if ($entrywhen | test($match)) then $base + "\t" else empty end)
       else
@@ -196,6 +204,16 @@ render_refs() {
         kz_refs+=("$base")
       fi
     done < <(extract_literals "$literal" "$match")
+  done
+
+  # A matched entry with no components at all — the base itself is the
+  # reference. kz_bases never overlaps kz_literals' bases (populated
+  # mutually exclusively above), so this can't double up a more-specific
+  # ref the literals loop already resolved.
+  local base
+  for base in "${kz_bases[@]:-}"; do
+    [[ -z "$base" ]] && continue
+    kz_refs+=("$base")
   done
 
   local tf_sorted kz_sorted

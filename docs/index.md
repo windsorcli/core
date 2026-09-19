@@ -12,103 +12,103 @@ The default blueprint that includes base infrastructure and services. Cloud "pri
 ## Infrastructure
 
 ### Backend — S3 · AzureRM · GCS
-- [azurerm](terraform/backend/azurerm)
-- [gcs](terraform/backend/gcs)
-- [s3](terraform/backend/s3)
+- [azurerm](../terraform/backend/azurerm)
+- [gcs](../terraform/backend/gcs)
+- [s3](../terraform/backend/s3)
 
 ### Cluster — Talos · EKS · AKS
-- [aws-eks](terraform/cluster/aws-eks)
-- [azure-aks](terraform/cluster/azure-aks)
-- [gcp-gke](terraform/cluster/gcp-gke)
-- [talos](terraform/cluster/talos)
+- [aws-eks](../terraform/cluster/aws-eks)
+- [azure-aks](../terraform/cluster/azure-aks)
+- [gcp-gke](../terraform/cluster/gcp-gke)
+- [talos](../terraform/cluster/talos)
 
 ### CNI — Cilium bootstrap
-- [cilium](terraform/cni/cilium)
+- [cilium](../terraform/cni/cilium)
 
 ### Compute — Docker · Hyper-V · Incus · Hetzner
-- [docker](terraform/compute/docker)
-- [hcloud](terraform/compute/hcloud)
-- [hyperv](terraform/compute/hyperv)
-- [incus](terraform/compute/incus)
-- [vsphere](terraform/compute/vsphere)
+- [docker](../terraform/compute/docker)
+- [hcloud](../terraform/compute/hcloud)
+- [hyperv](../terraform/compute/hyperv)
+- [incus](../terraform/compute/incus)
+- [vsphere](../terraform/compute/vsphere)
 
 ### Database — Crossplane-managed Postgres
-- [aws-rds](terraform/database/aws-rds)
-- [azure-postgres](terraform/database/azure-postgres)
-- [gcp-cloudsql](terraform/database/gcp-cloudsql)
+- [aws-rds](../terraform/database/aws-rds)
+- [azure-postgres](../terraform/database/azure-postgres)
+- [gcp-cloudsql](../terraform/database/gcp-cloudsql)
 
 ### DNS — public zones
-- [zone/azure-dns](terraform/dns/zone/azure-dns)
-- [zone/gcp-dns](terraform/dns/zone/gcp-dns)
-- [zone/hetzner](terraform/dns/zone/hetzner)
-- [zone/route53](terraform/dns/zone/route53)
+- [zone/azure-dns](../terraform/dns/zone/azure-dns)
+- [zone/gcp-dns](../terraform/dns/zone/gcp-dns)
+- [zone/hetzner](../terraform/dns/zone/hetzner)
+- [zone/route53](../terraform/dns/zone/route53)
 
 ### GitOps — Flux
-- [flux](terraform/gitops/flux)
+- [flux](../terraform/gitops/flux)
 
 ### Network — VPC · VNet
-- [aws-vpc](terraform/network/aws-vpc)
-- [azure-vnet](terraform/network/azure-vnet)
-- [gcp-vpc](terraform/network/gcp-vpc)
+- [aws-vpc](../terraform/network/aws-vpc)
+- [azure-vnet](../terraform/network/azure-vnet)
+- [gcp-vpc](../terraform/network/gcp-vpc)
 
 ### PKI — Root CA · OIDC trust
-- [ca](terraform/pki/ca)
+- [ca](../terraform/pki/ca)
 
 ### Provisioning — Grants Crossplane AWS access
-- [crossplane-identity/aws](terraform/provisioning/crossplane-identity/aws)
-- [crossplane-identity/azure](terraform/provisioning/crossplane-identity/azure)
-- [crossplane-identity/gcp](terraform/provisioning/crossplane-identity/gcp)
+- [crossplane-identity/aws](../terraform/provisioning/crossplane-identity/aws)
+- [crossplane-identity/azure](../terraform/provisioning/crossplane-identity/azure)
+- [crossplane-identity/gcp](../terraform/provisioning/crossplane-identity/gcp)
 
 ### Workstation — local host
-- [docker](terraform/workstation/docker)
-- [incus](terraform/workstation/incus)
+- [docker](../terraform/workstation/docker)
+- [incus](../terraform/workstation/incus)
 
 ## Cluster
 
 ### Cni — Cluster networking (CNI)
-- [cni](kustomize/cni)
+- [cni](../kustomize/cni)
 
 ### Compute — Node autoscaling
-- [compute](kustomize/compute)
+- [compute](../kustomize/compute)
 
 ### CSI — Persistent storage
-- [csi](kustomize/csi)
+- [csi](../kustomize/csi)
 
 ### Database — In-cluster and cloud-managed PostgreSQL
-- [database](kustomize/database)
+- [database](../kustomize/database)
 
 ### Demo — Sample workloads for blueprint validation
-- [demo](kustomize/demo)
+- [demo](../kustomize/demo)
 
 ### DNS — Automatic DNS records
-- [dns](kustomize/dns)
+- [dns](../kustomize/dns)
 
 ### Gateway — Ingress traffic
-- [gateway](kustomize/gateway)
+- [gateway](../kustomize/gateway)
 
 ### Identity — Cluster single sign-on
-- [identity](kustomize/identity)
+- [identity](../kustomize/identity)
 
 ### LB — Load balancing
-- [lb](kustomize/lb)
+- [lb](../kustomize/lb)
 
 ### Object store — S3-compatible storage
-- [object-store](kustomize/object-store)
+- [object-store](../kustomize/object-store)
 
 ### Observability — Metrics dashboards
-- [observability](kustomize/observability)
+- [observability](../kustomize/observability)
 
 ### PKI — TLS certificates
-- [pki](kustomize/pki)
+- [pki](../kustomize/pki)
 
 ### Policy — Cluster-wide admission policy
-- [policy](kustomize/policy)
+- [policy](../kustomize/policy)
 
 ### Provisioning — Cloud resource provisioning via Crossplane
-- [provisioning](kustomize/provisioning)
+- [provisioning](../kustomize/provisioning)
 
 ### Telemetry — Metrics & logs
-- [telemetry](kustomize/telemetry)
+- [telemetry](../kustomize/telemetry)
 
 <!-- END_STACK_INDEX -->
 

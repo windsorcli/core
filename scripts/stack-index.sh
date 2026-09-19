@@ -117,15 +117,17 @@ build_half() {
       done
     done
 
+    # Links are relative to INDEX_FILE (docs/index.md, one level deep), not
+    # the repo root — every target needs the ../ back up to it.
     local links=""
     if [ "${#leaves[@]}" -gt 0 ]; then
       IFS=$'\n' leaves=($(sort <<<"${leaves[*]}")); unset IFS
       for leaf in "${leaves[@]}"; do
-        links+="- [$leaf]($engine/$category/$leaf)$NL_PLACEHOLDER"
+        links+="- [$leaf](../$engine/$category/$leaf)$NL_PLACEHOLDER"
       done
       links="${links%$NL_PLACEHOLDER}"
     else
-      links="- [$category]($engine/$category)"
+      links="- [$category](../$engine/$category)"
     fi
 
     entries+=("$name"$'\t'"### $name — $backing$NL_PLACEHOLDER$links")
