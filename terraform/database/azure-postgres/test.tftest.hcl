@@ -181,6 +181,7 @@ run "var_tags_cannot_override_windsor_context_id_or_name" {
   command = plan
 
   variables {
+    context_id = "test"
     tags = {
       WindsorContextID = "not-the-real-context"
       Name             = "not-the-real-name"
