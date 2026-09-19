@@ -145,6 +145,30 @@ config:
           time:
             servers: ${network.ntp_servers}
 
+  - name: talos_registry_mirrors
+    when: platform != 'docker' && platform != 'incus'
+    value:
+      mirrors: >-
+        ${fromPairs(map(
+          filter(toPairs(docker.registries ?? {}),
+            get(get(#, 1), "hostname") != null && get(get(#, 1), "hostname") != ""
+          ),
+          [
+            (get(get(#, 1), "local") != null && get(get(#, 1), "local") != "" ? get(get(#, 1), "local") : get(#, 0)),
+            { endpoints: ["http://" + get(get(#, 1), "hostname") + ":" + string(get(get(#, 1), "hostport") ?? 5000)] }
+          ]
+        ))}
+      config: {}
+
+  - name: talos_common
+    when: platform != 'docker' && platform != 'incus' && len(talos_registry_mirrors.mirrors ?? {}) > 0
+    value:
+      common_patch:
+        machine:
+          registries:
+            mirrors: ${talos_registry_mirrors.mirrors}
+            config: ${talos_registry_mirrors.config}
+
   # Single-node topology: no peers, so disable leader election (avoids a ~2s etcd
   # lease write) and enable etcd auto-compaction (upstream default is off).
   - name: talos_common

@@ -723,6 +723,10 @@ properties:
             hostname:
               $ref: '#/$defs/dnsHostname'
               description: Hostname for the mirror endpoint (e.g. registry.test). Lowercase DNS-labels separated by dots.
+            hostport:
+              type: integer
+              default: 5000
+              description: The port of the mirror endpoint. Talos nodes pull images from http://<hostname>:<hostport>.
           additionalProperties: false
         description: Registry mirror config keyed by registry host (e.g. gcr.io, ghcr.io). Used by workstation proxy/DNS and by Talos cluster mirrors. Keys are DNS hostnames.
     additionalProperties: false
