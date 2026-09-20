@@ -422,3 +422,17 @@ cases:
       dns:
         public_domain: example.com
     expectError: true
+
+  # Requires: GCP has no private DNS zone or private-gateway wiring yet.
+  - name: gateway.access private fails composition on GCP
+    values:
+      platform: gcp
+      gcp:
+        project_id: windsor-test
+      gateway:
+        enabled: true
+        driver: envoy
+        access: private
+      dns:
+        private_domain: internal.example.com
+    expectError: true
