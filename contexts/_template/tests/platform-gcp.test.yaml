@@ -436,3 +436,16 @@ cases:
       dns:
         private_domain: internal.example.com
     expectError: true
+
+  # Same guard, without a private domain set — access: private alone is
+  # unsupported on GCP regardless of dns.private_domain.
+  - name: gateway.access private without a private domain also fails composition on GCP
+    values:
+      platform: gcp
+      gcp:
+        project_id: windsor-test
+      gateway:
+        enabled: true
+        driver: envoy
+        access: private
+    expectError: true
