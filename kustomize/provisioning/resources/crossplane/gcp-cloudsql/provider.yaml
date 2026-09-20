@@ -5,7 +5,7 @@ metadata:
   name: provider-gcp-sql
 spec:
   # renovate: datasource=docker depName=xpkg.upbound.io/upbound/provider-gcp-sql package=xpkg.upbound.io/upbound/provider-gcp-sql
-  package: xpkg.upbound.io/upbound/provider-gcp-sql:v3.0.2@sha256:aac76a76c9730089fd64c990280e5a37a508f0ef98cec2bfc2322798a939c9db
+  package: xpkg.upbound.io/upbound/provider-gcp-sql:v3.0.3@sha256:51b7809a5f1d1f046729a42ed810f565337c2de30910293fefd9f41b77248b4c
   # provider-family-gcp.yaml installs the dependency explicitly, pinned too.
   skipDependencyResolution: true
   runtimeConfigRef:
