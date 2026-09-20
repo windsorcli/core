@@ -45,6 +45,8 @@ spec:
     extraVolumes: []
     extraVolumeMounts: []
     triggerLoopOnEvent: true
+    # policy has no chart default from v1.22.0. upsert-only matches the prior default.
+    policy: upsert-only
     sources:
       - ingress
     domainFilters:
