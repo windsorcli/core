@@ -7,4 +7,4 @@ metadata:
   name: provider-family-gcp
 spec:
   # renovate: datasource=docker depName=xpkg.upbound.io/upbound/provider-family-gcp package=xpkg.upbound.io/upbound/provider-family-gcp
-  package: xpkg.upbound.io/upbound/provider-family-gcp:v3.0.2@sha256:5bb1870eb1247fcc408587e720de623b6b7f9f31dcdf62ba641500fedd20623c
+  package: xpkg.upbound.io/upbound/provider-family-gcp:v3.0.3@sha256:ff9aba8e8d3f94efad32860d832ec75719db01d2db882b6d487ae6eb2fc0c207
