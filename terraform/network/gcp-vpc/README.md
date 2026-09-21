@@ -57,7 +57,7 @@ No modules.
 |------|-------------|------|---------|:--------:|
 | <a name="input_cidr_block"></a> [cidr\_block](#input\_cidr\_block) | CIDR block the subnet tiers are carved from | `string` | `"10.0.0.0/16"` | no |
 | <a name="input_context_id"></a> [context\_id](#input\_context\_id) | Context ID for the resources | `string` | n/a | yes |
-| <a name="input_domain_name"></a> [domain\_name](#input\_domain\_name) | The domain name for the VPC-linked private DNS zone. When unset, no private zone is created. | `string` | `null` | no |
+| <a name="input_domain_name"></a> [domain\_name](#input\_domain\_name) | The domain name for the VPC-linked private DNS zone. When unset, no private zone is created. Changing this value on an existing zone destroys it, and every record in it, before creating the replacement. | `string` | `null` | no |
 | <a name="input_enable_flow_logs"></a> [enable\_flow\_logs](#input\_enable\_flow\_logs) | Enable VPC Flow Logs on every subnet | `bool` | `true` | no |
 | <a name="input_enable_iap_ingress"></a> [enable\_iap\_ingress](#input\_enable\_iap\_ingress) | Allow SSH/RDP ingress from Identity-Aware Proxy's fixed range | `bool` | `true` | no |
 | <a name="input_enable_nat"></a> [enable\_nat](#input\_enable\_nat) | Create a Cloud Router and Cloud NAT for the private subnet's outbound access | `bool` | `true` | no |
