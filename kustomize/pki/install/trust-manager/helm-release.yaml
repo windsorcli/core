@@ -27,7 +27,7 @@ spec:
   values:
     image:
       # renovate: datasource=docker depName=quay.io/jetstack/trust-manager package=quay.io/jetstack/trust-manager
-      tag: v0.24.0@sha256:a7c1d71cad37b404738192213e3801dbf89fe797e72664b0ff0d498db35cea74
+      tag: v0.25.0@sha256:0521921c2a46d14d0417336b20bcde69215ef3164f2977cc939d53c6e5224a17
     defaultPackageImage:
       name: trust-pkg-debian-trixie
       # renovate: datasource=docker depName=quay.io/jetstack/trust-pkg-debian-trixie package=quay.io/jetstack/trust-pkg-debian-trixie
