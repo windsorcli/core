@@ -646,8 +646,9 @@ resource "null_resource" "kubeconfig" {
   count = local.kubeconfig_path != "" ? 1 : 0
 
   triggers = {
-    cluster_id = azurerm_kubernetes_cluster.main.id
-    os_type    = var.os_type
+    cluster_id      = azurerm_kubernetes_cluster.main.id
+    os_type         = var.os_type
+    kubeconfig_path = local.kubeconfig_path
   }
 
   provisioner "local-exec" {
@@ -659,6 +660,16 @@ resource "null_resource" "kubeconfig" {
       "Remove-Item -Force -ErrorAction SilentlyContinue '${local.kubeconfig_tmp_path}'; az aks get-credentials --resource-group ${azurerm_kubernetes_cluster.main.resource_group_name} --name ${azurerm_kubernetes_cluster.main.name} --file ${local.kubeconfig_tmp_path} --only-show-errors; if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }; Move-Item -Force '${local.kubeconfig_tmp_path}' '${local.kubeconfig_path}'"
       ) : (
       "rm -f '${local.kubeconfig_tmp_path}'; az aks get-credentials --resource-group ${azurerm_kubernetes_cluster.main.resource_group_name} --name ${azurerm_kubernetes_cluster.main.name} --file ${local.kubeconfig_tmp_path} --only-show-errors && mv -f '${local.kubeconfig_tmp_path}' '${local.kubeconfig_path}'"
+    )
+  }
+
+  provisioner "local-exec" {
+    when        = destroy
+    interpreter = self.triggers.os_type == "windows" ? ["PowerShell", "-Command"] : ["/bin/sh", "-c"]
+    command = self.triggers.os_type == "windows" ? (
+      "Remove-Item -Force -ErrorAction SilentlyContinue '${self.triggers.kubeconfig_path}'"
+      ) : (
+      "rm -f '${self.triggers.kubeconfig_path}'"
     )
   }
 }
