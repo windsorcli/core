@@ -1230,7 +1230,7 @@ run "pod_identity_roles_scope_trust_policy_to_this_cluster" {
         aws_iam_role.cluster_autoscaler[0],
         aws_iam_role.cert_manager[0],
         aws_iam_role.karpenter_controller[0],
-      ] : strcontains(role.assume_role_policy, "\"aws:SourceArn\"")
+      ] : strcontains(role.assume_role_policy, "\"aws:SourceArn\":\"arn:aws:eks:us-west-2:123456789012:cluster/cluster-test\"")
     ])
     error_message = "Every Pod Identity role's trust policy should condition on this cluster's aws:SourceArn"
   }
