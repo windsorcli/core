@@ -142,7 +142,7 @@ flux:
       - components:
           - database
           - database/cloudsql
-          - "${(database.postgres.encryption.managed ?? false) ? 'database/cloudsql/encryption-key' : ''}"
+          - "${(database.postgres.encryption.managed ?? false) || (database.postgres.encryption.key_id ?? '') != '' ? 'database/cloudsql/encryption-key' : ''}"
         substitutions:
           cloudsql_network_id: "${terraform_output('network', 'network_id') ?? ''}"
           cloudsql_kms_key_name: "${terraform_output('database', 'key_id') ?? ''}"

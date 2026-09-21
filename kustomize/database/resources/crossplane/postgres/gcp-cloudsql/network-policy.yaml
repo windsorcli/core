@@ -9,15 +9,14 @@ metadata:
     policies.kyverno.io/severity: medium
     policies.kyverno.io/subject: DatabaseInstance
     policies.kyverno.io/description: >-
-      Defaults settings.ipConfiguration.privateNetwork and
-      encryptionKeyName on every Crossplane sql.gcp.upbound.io
-      DatabaseInstance that doesn't already set them, so a third-party
-      chart with no Terraform or Flux substitution access can create a
-      working DatabaseInstance without knowing this cluster's networking.
-      A chart that sets its own value keeps it.
+      Defaults settings.ipConfiguration.privateNetwork on every Crossplane
+      sql.gcp.upbound.io DatabaseInstance that doesn't already set it, so a
+      third-party chart with no Terraform or Flux substitution access can
+      create a working DatabaseInstance without knowing this cluster's
+      networking. A chart that sets its own value keeps it.
 spec:
   # Fail closed: no backstop catches a DatabaseInstance left with no
-  # private network or encryption key.
+  # private network.
   failurePolicy: Fail
   matchConstraints:
     resourceRules:
@@ -32,7 +31,6 @@ spec:
           Object{
             spec: Object.spec{
               forProvider: Object.spec.forProvider{
-                encryptionKeyName: object.spec.forProvider.?encryptionKeyName.hasValue() ? object.spec.forProvider.encryptionKeyName : "${cloudsql_kms_key_name}",
                 settings: Object.spec.forProvider.settings{
                   ipConfiguration: Object.spec.forProvider.settings.ipConfiguration{
                     privateNetwork: object.spec.forProvider.?settings.?ipConfiguration.?privateNetwork.hasValue() ? object.spec.forProvider.settings.ipConfiguration.privateNetwork : "${cloudsql_network_id}"

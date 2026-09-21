@@ -171,7 +171,6 @@ flux:
           crossplane_gcp_project_id: "${gcp.project_id ?? ''}"
           context_id: ${id}
           cloudsql_network_id: "${terraform_output('network', 'network_id') ?? ''}"
-          cloudsql_kms_key_name: "${terraform_output('database', 'key_id') ?? ''}"
         timeout: 5m
         interval: 5m
 
