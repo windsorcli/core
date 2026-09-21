@@ -854,8 +854,8 @@ cases:
             - components:
                 - prometheus/alerts/database
 
-  # rds driver adds prometheus/alerts/postgres-exporter instead,
-  # gated on driver alone, not observability.enabled.
+  # A cloud driver adds prometheus/alerts/postgres-exporter instead,
+  # gated on cloud.driver alone, not observability.enabled.
   - name: rds database enabled adds the postgres-exporter alert component
     values:
       platform: aws
@@ -865,8 +865,9 @@ cases:
         enabled: false
       database:
         postgres:
-          enabled: true
-          driver: rds
+          cloud:
+            enabled: true
+            driver: rds
     expect:
       flux:
         - name: telemetry
@@ -887,8 +888,9 @@ cases:
         enabled: false
       database:
         postgres:
-          enabled: true
-          driver: azuredb
+          cloud:
+            enabled: true
+            driver: azuredb
     expect:
       flux:
         - name: telemetry

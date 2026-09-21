@@ -14,7 +14,7 @@ config:
   # Flexible Server names are globally unique in Azure; other drivers
   # keep the plain literal.
   - name: database_instance_name
-    value: "${database.postgres.driver == 'azuredb' ? 'demo-db-' + id : 'demo-db'}"
+    value: "${database.postgres.cloud.driver == 'azuredb' ? 'demo-db-' + id : 'demo-db'}"
 
 # =============================================================================
 # Flux — demo applications
@@ -37,7 +37,7 @@ flux:
   # cloudnativepg driver: shared namespace plus the in-cluster Cluster CR.
   - name: demo
     path: demo
-    when: demo.resources.database == true && database.postgres.driver == 'cloudnativepg'
+    when: demo.resources.database == true && database.postgres.enabled == true
     dependsOn:
       - database-install
     resources:
@@ -53,7 +53,7 @@ flux:
   # dependsOn drops the Role/Grant before the Instance goes away.
   - name: demo
     path: demo
-    when: demo.resources.database == true && database.postgres.driver == 'rds'
+    when: demo.resources.database == true && database.postgres.cloud.enabled == true && database.postgres.cloud.driver == 'rds'
     dependsOn:
       - provisioning-resources
     resources:
@@ -93,7 +93,7 @@ flux:
   # azuredb driver: Azure twin of rds.
   - name: demo
     path: demo
-    when: demo.resources.database == true && database.postgres.driver == 'azuredb'
+    when: demo.resources.database == true && database.postgres.cloud.enabled == true && database.postgres.cloud.driver == 'azuredb'
     dependsOn:
       - provisioning-resources
     resources:
@@ -135,14 +135,14 @@ flux:
   # cloudsql driver: GCP twin of rds/azuredb.
   - name: demo
     path: demo
-    when: demo.resources.database == true && database.postgres.driver == 'cloudsql'
+    when: demo.resources.database == true && database.postgres.cloud.enabled == true && database.postgres.cloud.driver == 'cloudsql'
     dependsOn:
       - provisioning-resources
     resources:
       - components:
           - database
           - database/cloudsql
-          - "${(database.postgres.encryption.managed ?? false) || (database.postgres.encryption.key_id ?? '') != '' ? 'database/cloudsql/encryption-key' : ''}"
+          - "${(database.postgres.cloud.encryption.managed ?? false) || (database.postgres.cloud.encryption.key_id ?? '') != '' ? 'database/cloudsql/encryption-key' : ''}"
         substitutions:
           cloudsql_network_id: "${terraform_output('network', 'network_id') ?? ''}"
           cloudsql_kms_key_name: "${terraform_output('database', 'key_id') ?? ''}"

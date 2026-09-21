@@ -56,7 +56,6 @@ cases:
       database:
         postgres:
           enabled: true
-          driver: cloudnativepg
       observability:
         enabled: true
     expect:
@@ -88,7 +87,6 @@ cases:
       database:
         postgres:
           enabled: true
-          driver: cloudnativepg
     expect:
       flux:
         - name: database
@@ -111,7 +109,6 @@ cases:
       database:
         postgres:
           enabled: true
-          driver: cloudnativepg
     expect:
       flux:
         - name: database
@@ -135,7 +132,6 @@ cases:
       database:
         postgres:
           enabled: true
-          driver: cloudnativepg
       observability:
         enabled: true
     expect:
@@ -175,7 +171,6 @@ cases:
       database:
         postgres:
           enabled: true
-          driver: cloudnativepg
     expect:
       flux:
         - name: database
@@ -196,8 +191,9 @@ cases:
         enabled: false
       database:
         postgres:
-          enabled: true
-          driver: rds
+          cloud:
+            enabled: true
+            driver: rds
     expect:
       flux:
         - name: provisioning
@@ -241,8 +237,9 @@ cases:
         enabled: false
       database:
         postgres:
-          enabled: true
-          driver: rds
+          cloud:
+            enabled: true
+            driver: rds
       telemetry:
         metrics:
           enabled: false
@@ -272,8 +269,9 @@ cases:
         enabled: false
       database:
         postgres:
-          enabled: true
-          driver: rds
+          cloud:
+            enabled: true
+            driver: rds
     expect:
       flux:
         - name: database
@@ -289,8 +287,9 @@ cases:
         enabled: false
       database:
         postgres:
-          enabled: true
-          driver: azuredb
+          cloud:
+            enabled: true
+            driver: azuredb
     expect:
       flux:
         - name: database
@@ -309,8 +308,9 @@ cases:
         enabled: false
       database:
         postgres:
-          enabled: true
-          driver: cloudsql
+          cloud:
+            enabled: true
+            driver: cloudsql
     expect:
       flux:
         - name: provisioning
@@ -355,8 +355,9 @@ cases:
         enabled: false
       database:
         postgres:
-          enabled: true
-          driver: cloudsql
+          cloud:
+            enabled: true
+            driver: cloudsql
     expect:
       flux:
         - name: database
@@ -375,8 +376,9 @@ cases:
         enabled: false
       database:
         postgres:
-          enabled: true
-          driver: rds
+          cloud:
+            enabled: true
+            driver: rds
       observability:
         enabled: true
     expect:
@@ -397,8 +399,9 @@ cases:
         enabled: false
       database:
         postgres:
-          enabled: true
-          driver: cloudsql
+          cloud:
+            enabled: true
+            driver: cloudsql
       observability:
         enabled: true
     expect:
@@ -407,6 +410,45 @@ cases:
           resources:
             - components:
                 - grafana/dashboards/postgres-exporter
+
+  # Regression (core#2864): CNPG and a cloud driver aren't mutually
+  # exclusive — a context can run both at once, and both dashboards render.
+  - name: cnpg and rds cloud driver together render both dashboards
+    values:
+      platform: aws
+      aws:
+        region: us-west-2
+      gateway:
+        enabled: false
+      database:
+        postgres:
+          enabled: true
+          cloud:
+            enabled: true
+            driver: rds
+      observability:
+        enabled: true
+    expect:
+      flux:
+        - name: observability
+          resources:
+            - components:
+                - grafana/dashboards/cloudnativepg
+                - grafana/dashboards/postgres-exporter
+
+  # Schema: cloud.enabled requires an explicit cloud.driver.
+  - name: database.postgres.cloud.enabled without a driver fails composition
+    values:
+      platform: aws
+      aws:
+        region: us-west-2
+      gateway:
+        enabled: false
+      database:
+        postgres:
+          cloud:
+            enabled: true
+    expectError: true
 
   # Regression: the cloudnativepg driver (default) must not install Crossplane.
   - name: cloudnativepg driver excludes crossplane provisioning
@@ -419,13 +461,12 @@ cases:
       database:
         postgres:
           enabled: true
-          driver: cloudnativepg
     exclude:
       flux:
         - name: provisioning
 
-  # Schema: driver: rds installs AWS-specific IAM/Terraform wiring, so it's
-  # rejected on any other platform rather than silently composing nothing.
+  # Schema: cloud.driver: rds installs AWS-specific IAM/Terraform wiring, so
+  # it's rejected on any other platform rather than silently composing nothing.
   - name: rds driver on a non-aws platform fails composition
     values:
       platform: metal
@@ -435,8 +476,9 @@ cases:
       cluster: *default-cluster
       database:
         postgres:
-          enabled: true
-          driver: rds
+          cloud:
+            enabled: true
+            driver: rds
     expectError: true
 
   # rds driver wires the database and crossplane-identity stacks; no
@@ -450,8 +492,9 @@ cases:
         enabled: false
       database:
         postgres:
-          enabled: true
-          driver: rds
+          cloud:
+            enabled: true
+            driver: rds
     terraformOutputs:
       network:
         vpc_id: vpc-12345678
@@ -487,7 +530,7 @@ cases:
             db_subnet_group_name: test-rds
             kms_key_arn: arn:aws:kms:us-west-2:123456789012:key/abcd1234-5678-90ab-cdef-1234567890ab
 
-  - name: database.postgres.encryption.managed enables the dedicated rds CMK
+  - name: database.postgres.cloud.encryption.managed enables the dedicated rds CMK
     values:
       platform: aws
       aws:
@@ -496,10 +539,11 @@ cases:
         enabled: false
       database:
         postgres:
-          enabled: true
-          driver: rds
-          encryption:
-            managed: true
+          cloud:
+            enabled: true
+            driver: rds
+            encryption:
+              managed: true
     expect:
       terraform:
         - name: database
@@ -518,10 +562,11 @@ cases:
         enabled: false
       database:
         postgres:
-          enabled: true
-          driver: rds
-          encryption:
-            managed: true
+          cloud:
+            enabled: true
+            driver: rds
+            encryption:
+              managed: true
     expect:
       terraform:
         - name: database
@@ -529,7 +574,7 @@ cases:
           inputs:
             manage_encryption_key: false
 
-  # database.postgres.encryption.key_id threads a caller-supplied key
+  # database.postgres.cloud.encryption.key_id threads a caller-supplied key
   # straight through, bypassing the dedicated CMK entirely.
   - name: rds driver with a supplied key_id passes it through
     values:
@@ -540,10 +585,11 @@ cases:
         enabled: false
       database:
         postgres:
-          enabled: true
-          driver: rds
-          encryption:
-            key_id: arn:aws:kms:us-west-2:123456789012:key/abcd1234-5678-90ab-cdef-1234567890ab
+          cloud:
+            enabled: true
+            driver: rds
+            encryption:
+              key_id: arn:aws:kms:us-west-2:123456789012:key/abcd1234-5678-90ab-cdef-1234567890ab
     expect:
       terraform:
         - name: database
@@ -551,7 +597,7 @@ cases:
           inputs:
             key_id: arn:aws:kms:us-west-2:123456789012:key/abcd1234-5678-90ab-cdef-1234567890ab
 
-  # database disabled (default cloudnativepg driver) renders neither stack.
+  # database disabled (cloud.enabled unset) renders neither stack.
   - name: no rds driver excludes the database and crossplane-identity stacks
     values:
       platform: aws
@@ -573,8 +619,9 @@ cases:
         enabled: false
       database:
         postgres:
-          enabled: true
-          driver: azuredb
+          cloud:
+            enabled: true
+            driver: azuredb
     terraformOutputs:
       network:
         region: eastus2
@@ -617,17 +664,18 @@ cases:
             oidc_issuer_url: https://eastus.oic.prod-aks.azure.com/tenant-id/oidc-id/
             postgres_resource_group_id: /subscriptions/sub/resourceGroups/cluster-test-postgres
 
-  - name: database.postgres.encryption.managed enables the dedicated azuredb key
+  - name: database.postgres.cloud.encryption.managed enables the dedicated azuredb key
     values:
       platform: azure
       gateway:
         enabled: false
       database:
         postgres:
-          enabled: true
-          driver: azuredb
-          encryption:
-            managed: true
+          cloud:
+            enabled: true
+            driver: azuredb
+            encryption:
+              managed: true
     expect:
       terraform:
         - name: database
@@ -644,10 +692,11 @@ cases:
         enabled: false
       database:
         postgres:
-          enabled: true
-          driver: azuredb
-          encryption:
-            managed: true
+          cloud:
+            enabled: true
+            driver: azuredb
+            encryption:
+              managed: true
     expect:
       terraform:
         - name: database
@@ -655,7 +704,7 @@ cases:
           inputs:
             manage_encryption_key: false
 
-  # database.postgres.encryption.key_id threads a caller-supplied key
+  # database.postgres.cloud.encryption.key_id threads a caller-supplied key
   # straight through, bypassing the dedicated Key Vault entirely.
   - name: azuredb driver with a supplied key_id passes it through
     values:
@@ -664,10 +713,11 @@ cases:
         enabled: false
       database:
         postgres:
-          enabled: true
-          driver: azuredb
-          encryption:
-            key_id: https://byok.vault.azure.net/keys/postgres/abcd1234
+          cloud:
+            enabled: true
+            driver: azuredb
+            encryption:
+              key_id: https://byok.vault.azure.net/keys/postgres/abcd1234
     expect:
       terraform:
         - name: database
@@ -675,7 +725,7 @@ cases:
           inputs:
             key_id: https://byok.vault.azure.net/keys/postgres/abcd1234
 
-  # database disabled (default cloudnativepg driver) renders neither stack.
+  # database disabled (cloud.enabled unset) renders neither stack.
   - name: no azuredb driver excludes the database and crossplane-identity stacks
     values:
       platform: azure
@@ -697,8 +747,9 @@ cases:
         enabled: false
       database:
         postgres:
-          enabled: true
-          driver: cloudsql
+          cloud:
+            enabled: true
+            driver: cloudsql
     terraformOutputs:
       network:
         region: us-east1
@@ -729,7 +780,7 @@ cases:
             resources:
               - postgres
 
-  - name: database.postgres.encryption.managed enables the dedicated cloudsql key
+  - name: database.postgres.cloud.encryption.managed enables the dedicated cloudsql key
     values:
       platform: gcp
       gcp:
@@ -738,10 +789,11 @@ cases:
         enabled: false
       database:
         postgres:
-          enabled: true
-          driver: cloudsql
-          encryption:
-            managed: true
+          cloud:
+            enabled: true
+            driver: cloudsql
+            encryption:
+              managed: true
     expect:
       terraform:
         - name: database
@@ -760,10 +812,11 @@ cases:
         enabled: false
       database:
         postgres:
-          enabled: true
-          driver: cloudsql
-          encryption:
-            managed: true
+          cloud:
+            enabled: true
+            driver: cloudsql
+            encryption:
+              managed: true
     expect:
       terraform:
         - name: database
@@ -771,7 +824,7 @@ cases:
           inputs:
             manage_encryption_key: false
 
-  # database.postgres.encryption.key_id threads a caller-supplied key
+  # database.postgres.cloud.encryption.key_id threads a caller-supplied key
   # straight through, bypassing the dedicated key ring entirely.
   - name: cloudsql driver with a supplied key_id passes it through
     values:
@@ -782,10 +835,11 @@ cases:
         enabled: false
       database:
         postgres:
-          enabled: true
-          driver: cloudsql
-          encryption:
-            key_id: projects/windsor-test/locations/us-central1/keyRings/byok/cryptoKeys/postgres
+          cloud:
+            enabled: true
+            driver: cloudsql
+            encryption:
+              key_id: projects/windsor-test/locations/us-central1/keyRings/byok/cryptoKeys/postgres
     expect:
       terraform:
         - name: database
@@ -793,7 +847,7 @@ cases:
           inputs:
             key_id: projects/windsor-test/locations/us-central1/keyRings/byok/cryptoKeys/postgres
 
-  # database disabled (default cloudnativepg driver) renders neither stack.
+  # database disabled (cloud.enabled unset) renders neither stack.
   - name: no cloudsql driver excludes the database and crossplane-identity stacks
     values:
       platform: gcp
