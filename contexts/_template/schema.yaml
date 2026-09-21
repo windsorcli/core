@@ -753,7 +753,9 @@ properties:
           (cloud VPCs, incus bridges, docker bridges, hyperv NodePort
           NetNat) or attaches to an existing one at this address (metal,
           hyperv with net_adapter). Override when the default conflicts
-          with existing routes on the host.
+          with existing routes on the host. On gcp, 172.16.0.0/12 is
+          reserved for the cluster's pod and Service ranges, the control
+          plane, and Cloud SQL's private service range.
       gateway:
         type: string
         pattern: "^([0-9]{1,3}\\.){3}[0-9]{1,3}$"
