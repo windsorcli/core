@@ -16,13 +16,13 @@ table.
 | Name | Version |
 |------|---------|
 | <a name="requirement_terraform"></a> [terraform](#requirement\_terraform) | >= 1.12.2 |
-| <a name="requirement_google"></a> [google](#requirement\_google) | 8.1.0 |
+| <a name="requirement_google"></a> [google](#requirement\_google) | 8.2.0 |
 
 ## Providers
 
 | Name | Version |
 |------|---------|
-| <a name="provider_google"></a> [google](#provider\_google) | 8.1.0 |
+| <a name="provider_google"></a> [google](#provider\_google) | 8.2.0 |
 | <a name="provider_local"></a> [local](#provider\_local) | 2.9.0 |
 
 ## Modules
@@ -33,13 +33,13 @@ No modules.
 
 | Name | Type |
 |------|------|
-| [google_kms_crypto_key.this](https://registry.terraform.io/providers/hashicorp/google/8.1.0/docs/resources/kms_crypto_key) | resource |
-| [google_kms_crypto_key_iam_member.gcs](https://registry.terraform.io/providers/hashicorp/google/8.1.0/docs/resources/kms_crypto_key_iam_member) | resource |
-| [google_kms_key_ring.this](https://registry.terraform.io/providers/hashicorp/google/8.1.0/docs/resources/kms_key_ring) | resource |
-| [google_storage_bucket.this](https://registry.terraform.io/providers/hashicorp/google/8.1.0/docs/resources/storage_bucket) | resource |
-| [google_storage_bucket_iam_member.terraform_state](https://registry.terraform.io/providers/hashicorp/google/8.1.0/docs/resources/storage_bucket_iam_member) | resource |
+| [google_kms_crypto_key.this](https://registry.terraform.io/providers/hashicorp/google/8.2.0/docs/resources/kms_crypto_key) | resource |
+| [google_kms_crypto_key_iam_member.gcs](https://registry.terraform.io/providers/hashicorp/google/8.2.0/docs/resources/kms_crypto_key_iam_member) | resource |
+| [google_kms_key_ring.this](https://registry.terraform.io/providers/hashicorp/google/8.2.0/docs/resources/kms_key_ring) | resource |
+| [google_storage_bucket.this](https://registry.terraform.io/providers/hashicorp/google/8.2.0/docs/resources/storage_bucket) | resource |
+| [google_storage_bucket_iam_member.terraform_state](https://registry.terraform.io/providers/hashicorp/google/8.2.0/docs/resources/storage_bucket_iam_member) | resource |
 | [local_file.backend_config](https://registry.terraform.io/providers/hashicorp/local/latest/docs/resources/file) | resource |
-| [google_storage_project_service_account.this](https://registry.terraform.io/providers/hashicorp/google/8.1.0/docs/data-sources/storage_project_service_account) | data source |
+| [google_storage_project_service_account.this](https://registry.terraform.io/providers/hashicorp/google/8.2.0/docs/data-sources/storage_project_service_account) | data source |
 
 ## Inputs
 
