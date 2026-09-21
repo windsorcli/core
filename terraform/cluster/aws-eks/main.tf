@@ -615,6 +615,14 @@ resource "aws_iam_role" "vpc_cni" {
         Principal = {
           Service = "pods.eks.amazonaws.com"
         }
+        Condition = {
+          StringEquals = {
+            "aws:SourceAccount" = data.aws_caller_identity.current.account_id
+          }
+          ArnEquals = {
+            "aws:SourceArn" = aws_eks_cluster.main.arn
+          }
+        }
       }
     ]
   })
@@ -648,6 +656,14 @@ resource "aws_iam_role" "ebs_csi" {
         Principal = {
           Service = "pods.eks.amazonaws.com"
         }
+        Condition = {
+          StringEquals = {
+            "aws:SourceAccount" = data.aws_caller_identity.current.account_id
+          }
+          ArnEquals = {
+            "aws:SourceArn" = aws_eks_cluster.main.arn
+          }
+        }
       }
     ]
   })
@@ -679,6 +695,14 @@ resource "aws_iam_role" "efs_csi" {
         Effect = "Allow"
         Principal = {
           Service = "pods.eks.amazonaws.com"
+        }
+        Condition = {
+          StringEquals = {
+            "aws:SourceAccount" = data.aws_caller_identity.current.account_id
+          }
+          ArnEquals = {
+            "aws:SourceArn" = aws_eks_cluster.main.arn
+          }
         }
       }
     ]
@@ -773,6 +797,14 @@ resource "aws_iam_role" "external_dns" {
         Principal = {
           Service = "pods.eks.amazonaws.com"
         }
+        Condition = {
+          StringEquals = {
+            "aws:SourceAccount" = data.aws_caller_identity.current.account_id
+          }
+          ArnEquals = {
+            "aws:SourceArn" = aws_eks_cluster.main.arn
+          }
+        }
       }
     ]
   })
@@ -844,6 +876,14 @@ resource "aws_iam_role" "aws_lb_controller" {
         Principal = {
           Service = "pods.eks.amazonaws.com"
         }
+        Condition = {
+          StringEquals = {
+            "aws:SourceAccount" = data.aws_caller_identity.current.account_id
+          }
+          ArnEquals = {
+            "aws:SourceArn" = aws_eks_cluster.main.arn
+          }
+        }
       }
     ]
   })
@@ -887,6 +927,14 @@ resource "aws_iam_role" "cluster_autoscaler" {
         Effect = "Allow"
         Principal = {
           Service = "pods.eks.amazonaws.com"
+        }
+        Condition = {
+          StringEquals = {
+            "aws:SourceAccount" = data.aws_caller_identity.current.account_id
+          }
+          ArnEquals = {
+            "aws:SourceArn" = aws_eks_cluster.main.arn
+          }
         }
       }
     ]
@@ -977,6 +1025,14 @@ resource "aws_iam_role" "cert_manager" {
         Effect = "Allow"
         Principal = {
           Service = "pods.eks.amazonaws.com"
+        }
+        Condition = {
+          StringEquals = {
+            "aws:SourceAccount" = data.aws_caller_identity.current.account_id
+          }
+          ArnEquals = {
+            "aws:SourceArn" = aws_eks_cluster.main.arn
+          }
         }
       }
     ]
