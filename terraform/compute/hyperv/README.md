@@ -16,13 +16,13 @@ Pairs with the `cluster/talos` module.
 | Name | Version |
 |------|---------|
 | <a name="requirement_terraform"></a> [terraform](#requirement\_terraform) | >= 1.12.2 |
-| <a name="requirement_hyperv"></a> [hyperv](#requirement\_hyperv) | 0.3.1 |
+| <a name="requirement_hyperv"></a> [hyperv](#requirement\_hyperv) | 0.4.0 |
 
 ## Providers
 
 | Name | Version |
 |------|---------|
-| <a name="provider_hyperv"></a> [hyperv](#provider\_hyperv) | 0.3.1 |
+| <a name="provider_hyperv"></a> [hyperv](#provider\_hyperv) | 0.4.0 |
 
 ## Modules
 
@@ -32,12 +32,12 @@ No modules.
 
 | Name | Type |
 |------|------|
-| [hyperv_image_file.images](https://registry.terraform.io/providers/windsorcli/hyperv/0.3.1/docs/resources/image_file) | resource |
-| [hyperv_nat_static_mapping.tcp](https://registry.terraform.io/providers/windsorcli/hyperv/0.3.1/docs/resources/nat_static_mapping) | resource |
-| [hyperv_nat_static_mapping.udp](https://registry.terraform.io/providers/windsorcli/hyperv/0.3.1/docs/resources/nat_static_mapping) | resource |
-| [hyperv_vhd.instance_root](https://registry.terraform.io/providers/windsorcli/hyperv/0.3.1/docs/resources/vhd) | resource |
-| [hyperv_virtual_switch.main](https://registry.terraform.io/providers/windsorcli/hyperv/0.3.1/docs/resources/virtual_switch) | resource |
-| [hyperv_vm.instances](https://registry.terraform.io/providers/windsorcli/hyperv/0.3.1/docs/resources/vm) | resource |
+| [hyperv_image_file.images](https://registry.terraform.io/providers/windsorcli/hyperv/0.4.0/docs/resources/image_file) | resource |
+| [hyperv_nat_static_mapping.tcp](https://registry.terraform.io/providers/windsorcli/hyperv/0.4.0/docs/resources/nat_static_mapping) | resource |
+| [hyperv_nat_static_mapping.udp](https://registry.terraform.io/providers/windsorcli/hyperv/0.4.0/docs/resources/nat_static_mapping) | resource |
+| [hyperv_vhd.instance_root](https://registry.terraform.io/providers/windsorcli/hyperv/0.4.0/docs/resources/vhd) | resource |
+| [hyperv_virtual_switch.main](https://registry.terraform.io/providers/windsorcli/hyperv/0.4.0/docs/resources/virtual_switch) | resource |
+| [hyperv_vm.instances](https://registry.terraform.io/providers/windsorcli/hyperv/0.4.0/docs/resources/vm) | resource |
 
 ## Inputs
 
