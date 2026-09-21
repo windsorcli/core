@@ -526,6 +526,6 @@ messages:
       Public DNS zone created for ${dns.public_domain}. Delegate it at your
       domain registrar by adding these as NS records:
 
-        ${join(terraform_output('dns-zone', 'name_servers'), ', ')}
+        ${join(terraform_output('dns-zone', 'name_servers') ?? [], ', ')}
 
       Certificate issuance won't succeed until delegation propagates.
