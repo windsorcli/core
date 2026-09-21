@@ -1,12 +1,11 @@
 ---
-title: Observability add-on
+title: Observability
 description: Grafana dashboards and the cluster's log store (stdout, Quickwit, or Elasticsearch + Kibana).
+stack_backing: Metrics dashboards
 ---
 
-# Observability
-
-The dashboards-and-logs layer. Two halves that can be enabled
-independently.
+The dashboards-and-logs layer. Its two halves, dashboards and the log
+store, are enabled independently.
 
 Dashboards run on Grafana with a Prometheus datasource and per-add-on
 dashboards. Set `observability.dashboards: grafana`.
@@ -22,11 +21,9 @@ metrics and shipping logs to fluentd's input.
 
 ## Recipes
 
-Everything runs in `system-observability`. The dashboards half (Grafana)
-and the log store are enabled independently; fluentd is the universal
-log shipper, and `logs_driver` selects which output component and
-back-end Helm release run alongside it. With no driver set, fluentd
-ships to stdout.
+Everything runs in `system-observability`. fluentd is the universal log
+shipper; `logs_driver` selects which output component and back-end Helm
+release run alongside it. With no driver set, fluentd ships to stdout.
 
 ### Grafana dashboards only (no log store)
 
@@ -167,26 +164,82 @@ and Kibana is exposed through the cluster Gateway.
 
 ## Components
 
-| Component | Enable when | Effect |
+### `grafana`
+
+_Enabled when `observability.dashboards == 'grafana'`._
+
+Helm release of the Grafana chart in `system-observability`. Provides the Grafana UI, sidecar dashboard loader, and a default Prometheus datasource. Image tag and chart version tracked by Renovate.
+
+| Variant | Enabled when | Effect |
 |---|---|---|
-| `grafana` | `observability.dashboards == 'grafana'` | Helm release of the Grafana chart in `system-observability`. Provides the Grafana UI, sidecar dashboard loader, and a default Prometheus datasource. Image tag and chart version tracked by Renovate. |
-| `grafana/prometheus` | `observability.dashboards == 'grafana'` | Patches the grafana HelmRelease with the Prometheus datasource URL. Pure HelmRelease patch (install tier); the prometheus-internals dashboards ship separately under `grafana/dashboards/` in the resources tier. |
-| `grafana/dashboards/*` | varies per dashboard | Per-topic dashboard ConfigMaps loaded by the Grafana sidecar. Always-on: `node`, `kubernetes`, `flux`, `cert-manager`, `fluent-bit`, `fluentd`. Conditional: `cloudnativepg` (when CNPG is the database driver), `postgres-exporter` (when rds is the database driver), `identity` (when identity.driver=keycloak), `longhorn` (when csi=longhorn), `cilium` (when cni=cilium), `envoy` (when gateway.driver=envoy), `logs/quickwit` and `quickwit` (when logs_driver=quickwit). Each ships as a separate component path. |
-| `grafana/gateway` | `observability.dashboards == 'grafana'` AND `gateway.enabled: true` | HTTPRoute exposing Grafana at `grafana.${external_domain}` through the cluster Gateway. Skipped on clusters without Gateway API. |
-| `grafana/dev` | `dev == true` | Patches the grafana HelmRelease to disable persistence and lower resource requests. Used by dev contexts to keep the footprint small. |
-| `grafana/quickwit` | `observability.dashboards == 'grafana'` AND `logs_driver == 'quickwit'` | Adds the Quickwit datasource to Grafana so logs-explore dashboards can query the quickwit indexer. Pure HelmRelease patch (install tier); the logs dashboard ships separately as `grafana/dashboards/logs/quickwit` in the resources tier. |
-| `fluentd` | `telemetry.logs.driver == 'fluentd'` | Helm release of the `fluent-operator` chart sourced from a GitRepository (chart embedded in `system-gitops`). Installs the fluent-operator CR controller and a fluentd DaemonSet. Container runtime pinned to `containerd`. Includes a Kyverno policy that restarts the fluentd StatefulSet when a ClusterFilter, ClusterInput, ClusterOutput, or ClusterFluentdConfig changes, since fluent-operator regenerates fluentd's config Secret but never rolls the pod. |
-| `fluentd/filters/otel` | `telemetry.logs.driver == 'fluentd'` | Fluentd CRDs that normalize log records into OpenTelemetry severity / body / resource fields before they hit the output. |
-| `fluentd/filters/log-level/*` | `telemetry.logs.driver == 'fluentd'` AND `log_level != 'trace'` | One of `info` / `debug` / `warn` filter variants — drops log records below the configured threshold so downstream stores only see what the operator asked for. `trace` skips this component entirely. |
-| `fluentd/prometheus` | `telemetry.logs.driver == 'fluentd'` AND `telemetry.metrics.enabled: true` | Patches the fluentd DaemonSet to expose Prometheus metrics and adds a ServiceMonitor in `system-observability`. |
-| `fluentd/outputs/stdout` | `observability.logs_driver == 'stdout'` | Routes fluentd records to container stdout. No external store. Dev / smoke-test default. |
-| `fluentd/outputs/quickwit` | `observability.logs_driver == 'quickwit'` | Routes fluentd records to the quickwit ingest API with batching and retry tuned for the quickwit `0.8.x` chart. |
-| `quickwit` | `observability.logs_driver == 'quickwit'` | Helm release of the Quickwit chart in `system-observability`. Search-optimized log store backed by object storage (S3 / Azure Blob / GCS via add-on `object-store`). |
-| `quickwit/pvc` | `observability.logs_driver == 'quickwit'` | PVC for the quickwit indexer's staging data. Bound by `csi`'s default StorageClass. |
-| `quickwit/prometheus` | `observability.logs_driver == 'quickwit'` | ServiceMonitor for quickwit metrics. |
-| `elasticsearch` | `observability.logs_driver == 'elasticsearch'` | Helm release of the Elastic-published Elasticsearch chart in `system-observability`. Bundles a Certificate (issuer = cluster CA) for TLS between client and the ES cluster. |
-| `kibana` | `observability.logs_driver == 'elasticsearch'` | Helm release of the Kibana chart, wired to the elasticsearch service. |
-| `kibana/gateway` | `observability.logs_driver == 'elasticsearch'` AND `gateway.enabled: true` | HTTPRoute exposing Kibana at `kibana.${external_domain}` through the cluster Gateway. |
+| `prometheus` | `observability.dashboards == 'grafana'` | Patches the grafana HelmRelease with the Prometheus datasource URL. Pure HelmRelease patch (install tier); the prometheus-internals dashboards ship separately under `grafana/dashboards/` in the resources tier. |
+| `dashboards/*` | varies per dashboard | Per-topic dashboard ConfigMaps loaded by the Grafana sidecar. Always-on: `node`, `kubernetes`, `flux`, `cert-manager`, `fluent-bit`, `fluentd`. Conditional: `cloudnativepg` (when CNPG is the database driver), `postgres-exporter` (when rds is the database driver), `identity` (when identity.driver=keycloak), `longhorn` (when csi=longhorn), `cilium` (when cni=cilium), `envoy` (when gateway.driver=envoy), `logs/quickwit` and `quickwit` (when logs_driver=quickwit). Each ships as a separate component path. |
+| `gateway` | `observability.dashboards == 'grafana'` AND `gateway.enabled: true` | HTTPRoute exposing Grafana at `grafana.${external_domain}` through the cluster Gateway. Skipped on clusters without Gateway API. |
+| `dev` | `dev == true` | Patches the grafana HelmRelease to disable persistence and lower resource requests. Used by dev contexts to keep the footprint small. |
+| `quickwit` | `observability.dashboards == 'grafana'` AND `logs_driver == 'quickwit'` | Adds the Quickwit datasource to Grafana so logs-explore dashboards can query the quickwit indexer. Pure HelmRelease patch (install tier); the logs dashboard ships separately as `grafana/dashboards/logs/quickwit` in the resources tier. |
+
+### `fluentd`
+
+_Enabled when `telemetry.logs.driver == 'fluentd'`._
+
+Helm release of the `fluent-operator` chart sourced from a GitRepository (chart embedded in `system-gitops`). Installs the fluent-operator CR controller and a fluentd DaemonSet. Container runtime pinned to `containerd`. Includes a Kyverno policy that restarts the fluentd StatefulSet when a ClusterFilter, ClusterInput, ClusterOutput, or ClusterFluentdConfig changes, since fluent-operator regenerates fluentd's config Secret but never rolls the pod.
+
+### `fluentd/filters/otel`
+
+_Enabled when `telemetry.logs.driver == 'fluentd'`._
+
+Fluentd CRDs that normalize log records into OpenTelemetry severity / body / resource fields before they hit the output.
+
+### `fluentd/filters/log-level/*`
+
+_Enabled when `telemetry.logs.driver == 'fluentd'` AND `log_level != 'trace'`._
+
+One of `info` / `debug` / `warn` filter variants — drops log records below the configured threshold so downstream stores only see what the operator asked for. `trace` skips this component entirely.
+
+### `fluentd/prometheus`
+
+_Enabled when `telemetry.logs.driver == 'fluentd'` AND `telemetry.metrics.enabled: true`._
+
+Patches the fluentd DaemonSet to expose Prometheus metrics and adds a ServiceMonitor in `system-observability`.
+
+### `fluentd/outputs/stdout`
+
+_Enabled when `observability.logs_driver == 'stdout'`._
+
+Routes fluentd records to container stdout. No external store. Dev / smoke-test default.
+
+### `fluentd/outputs/quickwit`
+
+_Enabled when `observability.logs_driver == 'quickwit'`._
+
+Routes fluentd records to the quickwit ingest API with batching and retry tuned for the quickwit `0.8.x` chart.
+
+### `quickwit`
+
+_Enabled when `observability.logs_driver == 'quickwit'`._
+
+Helm release of the Quickwit chart in `system-observability`. Search-optimized log store backed by object storage (S3 / Azure Blob / GCS via add-on `object-store`).
+
+| Variant | Enabled when | Effect |
+|---|---|---|
+| `pvc` | `observability.logs_driver == 'quickwit'` | PVC for the quickwit indexer's staging data. Bound by `csi`'s default StorageClass. |
+| `prometheus` | `observability.logs_driver == 'quickwit'` | ServiceMonitor for quickwit metrics. |
+
+### `elasticsearch`
+
+_Enabled when `observability.logs_driver == 'elasticsearch'`._
+
+Helm release of the Elastic-published Elasticsearch chart in `system-observability`. Bundles a Certificate (issuer = cluster CA) for TLS between client and the ES cluster.
+
+### `kibana`
+
+_Enabled when `observability.logs_driver == 'elasticsearch'`._
+
+Helm release of the Kibana chart, wired to the elasticsearch service.
+
+| Variant | Enabled when | Effect |
+|---|---|---|
+| `gateway` | `observability.logs_driver == 'elasticsearch'` AND `gateway.enabled: true` | HTTPRoute exposing Kibana at `kibana.${external_domain}` through the cluster Gateway. |
 
 ## Dependencies
 

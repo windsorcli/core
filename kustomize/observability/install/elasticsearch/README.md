@@ -1,6 +1,9 @@
-# Elasticsearch Configuration Requirements
+---
+title: Elasticsearch configuration requirements
+description: Talos machine config sysctl Elasticsearch needs to run.
+---
 
-For Elasticsearch to work properly on Talos Linux nodes, the following sysctl configuration must be applied in the Talos machine configuration:
+For Elasticsearch to work on Talos Linux nodes, apply this sysctl in the Talos machine configuration:
 
 ```
 "machine":

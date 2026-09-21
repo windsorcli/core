@@ -1,9 +1,7 @@
 ---
-title: cluster/azure-aks
+title: Azure AKS
 description: Managed Kubernetes control plane on Azure.
 ---
-
-# cluster/azure-aks
 
 Managed Kubernetes control plane on Azure. The module creates the AKS
 cluster with workload identity enabled (so in-cluster ServiceAccounts

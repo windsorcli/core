@@ -1,9 +1,9 @@
 ---
 title: DNS
 description: Public DNS zones for ACME certificates and external-dns.
+stack_name: DNS
+stack_backing: public zones
 ---
-
-# DNS
 
 The dns category has two drivers under `dns/zone/`. `route53`
 provisions a public Route53 hosted zone on AWS, and `azure-dns`
@@ -100,16 +100,15 @@ platform: aws    # or any platform
 ```
 
 No DNS zone module runs. The cluster uses a self-signed ClusterIssuer
-for gateway TLS, which is the just-works mode for dev clusters and
-local deployments. Browsers will warn on the cert, but everything
-else works.
+for gateway TLS. Browsers warn on the certificate; nothing else
+changes.
 
 ## Operations
 
 ACME challenges that fail with NXDOMAIN almost always mean NS
 delegation at the registrar hasn't propagated yet. Run
-`dig NS example.windsorcli.dev` against the public root resolvers;
-until that returns the zone's name servers, cert-manager can't write
+`dig NS example.windsorcli.dev` against the public root resolvers.
+Until that returns the zone's name servers, cert-manager can't write
 the DNS-01 record where ACME expects to read it.
 
 When external-dns logs `AccessDenied` on AWS, the cluster's
@@ -142,9 +141,18 @@ Self-signed mode generates a root CA inside the cluster. Trust that
 CA manually on developer machines rather than disabling TLS
 verification.
 
+<!-- BEGIN_TERRAFORM_MODULES -->
+
+## Modules
+
+- [zone/azure-dns](zone/azure-dns/) — DNS zone on Azure DNS.
+- [zone/gcp-dns](zone/gcp-dns/) — DNS zone on Google Cloud DNS.
+- [zone/hetzner](zone/hetzner/) — Creates a primary Hetzner DNS zone via the official hcloud provider.
+- [zone/route53](zone/route53/) — Public DNS zone on AWS Route53.
+<!-- END_TERRAFORM_MODULES -->
+
 ## See also
 
-- [zone/route53/](zone/route53/) and [zone/azure-dns/](zone/azure-dns/) for the per-driver Terraform reference.
 - [../cluster/](../cluster/) for the cluster module that provisions the identity binding (IAM Pod Identity, Workload Identity).
 - [../../kustomize/pki/](../../kustomize/pki/) for cert-manager and the ClusterIssuers.
 - [../../kustomize/dns/](../../kustomize/dns/) for the external-dns reconciler.

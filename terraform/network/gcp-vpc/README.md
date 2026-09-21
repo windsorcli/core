@@ -1,9 +1,7 @@
 ---
-title: network/gcp-vpc
+title: GCP VPC
 description: VPC, subnets, and firewall rules for GKE.
 ---
-
-# network/gcp-vpc
 
 A custom-mode VPC network with public, private, and isolated subnet tiers.
 GCP subnets are regional, not zonal, so one subnet per tier already spans

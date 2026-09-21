@@ -1,15 +1,13 @@
 ---
-title: Telemetry add-on
+title: Telemetry
 description: kube-prometheus-stack and FluentBit for cluster-level metrics and log collection.
+stack_backing: Metrics & logs
 ---
-
-# Telemetry
 
 The cluster's metrics and log-collection layer. Prometheus scrapes
 workloads, and FluentBit ships logs to whatever downstream the
-observability add-on wires up. Two flags drive it,
-`telemetry.metrics.enabled` and `telemetry.logs.enabled`,
-independently.
+observability add-on wires up. `telemetry.metrics.enabled` and
+`telemetry.logs.enabled` turn the two halves on independently.
 
 The add-on is a `flux:` system entry (`telemetry`) so Flux can install
 the chart-level CRDs before the cluster-resource CRs that depend on
@@ -20,8 +18,8 @@ ClusterFluentBitConfig / ClusterInput / ClusterFilter / ClusterParser
 CRs, and implicitly depends on `install` (compiled name:
 `telemetry-install` / `telemetry-resources`).
 
-Component-name collisions are worth flagging. `prometheus`,
-`prometheus/flux`, and `fluentbit` exist as components in BOTH tiers.
+`prometheus`, `prometheus/flux`, and `fluentbit` each name a component
+in both tiers.
 The same literal name points at the Helm release in `telemetry/install/`
 and at the consuming CR set in `telemetry/resources/`. The descriptor
 below disambiguates with `install/` and `resources/` prefixes. Facet
@@ -132,30 +130,66 @@ install tier's `prometheus` and `prometheus/flux` components stay.
 
 ## Components — `telemetry-install`
 
-| Component | Enable when | Effect |
+### `prometheus`
+
+_Enabled when `telemetry.metrics.enabled: true`._
+
+Helm release of `kube-prometheus-stack` (chart) in `system-telemetry`. Provides Prometheus, Alertmanager, node-exporter, kube-state-metrics. Grafana sub-chart is disabled (Grafana lives in the observability add-on). Chart CRD install is skipped; the prometheus-operator CRDs are vendored under `kustomize/crds/` and applied ahead of the controller via the facet `crds:` section.
+
+| Variant | Enabled when | Effect |
 |---|---|---|
-| `install/prometheus` | `telemetry.metrics.enabled: true` | Helm release of `kube-prometheus-stack` (chart) in `system-telemetry`. Provides Prometheus, Alertmanager, node-exporter, kube-state-metrics. Grafana sub-chart is disabled (Grafana lives in the observability add-on). Chart CRD install is skipped; the prometheus-operator CRDs are vendored under `kustomize/crds/` and applied ahead of the controller via the facet `crds:` section. |
-| `install/prometheus/flux` | `telemetry.metrics.enabled: true` | Patches the kube-prometheus-stack HelmRelease to scrape Flux controller metrics and enable the bundled Flux dashboards. |
-| `install/fluentbit` | `telemetry.logs.enabled: true` | Helm release of the `fluent-operator` chart in `system-telemetry`. Installs the operator and a FluentBit DaemonSet on every node (chart CRD install is skipped). The operator's CRDs are vendored under `kustomize/crds/` and applied via the facet `crds:` section, so an operator teardown can't cascade-delete its CRs. The actual collector configuration ships as the `resources/fluentbit/*` components. |
-| `install/filebeat` | `observability.logs_driver == 'elasticsearch'` (telemetry-install is replaced) | Helm release of Elastic's Filebeat chart, used instead of FluentBit when Elasticsearch is the log driver. Wired by the `addon-observability` facet's `strategy: replace` override of telemetry-install. |
-| `install/metrics-server` | `telemetry.metrics.enabled: true` AND `telemetry.metrics_server_enabled: true` | Helm release of `metrics-server` for `kubectl top` and HPA. Some platforms (EKS / AKS) ship a managed metrics-server; gate this off when one is already present. |
-| `install/metrics-server/skip-tls` | default (when metrics-server is enabled in a cluster with selfsigned kubelet certs) | Patches the metrics-server Deployment to add `--kubelet-insecure-tls`. Required on Talos and other distros where kubelet serves cert-manager-issued or selfsigned certs. |
+| `flux` | `telemetry.metrics.enabled: true` | Patches the kube-prometheus-stack HelmRelease to scrape Flux controller metrics and enable the bundled Flux dashboards. |
+
+### `fluentbit`
+
+_Enabled when `telemetry.logs.enabled: true`._
+
+Helm release of the `fluent-operator` chart in `system-telemetry`. Installs the operator and a FluentBit DaemonSet on every node (chart CRD install is skipped). The operator's CRDs are vendored under `kustomize/crds/` and applied via the facet `crds:` section, so an operator teardown can't cascade-delete its CRs. The actual collector configuration ships as the resources-tier `fluentbit-resources` variants.
+
+### `filebeat`
+
+_Enabled when `observability.logs_driver == 'elasticsearch'` (telemetry-install is replaced)._
+
+Helm release of Elastic's Filebeat chart, used instead of FluentBit when Elasticsearch is the log driver. Wired by the `addon-observability` facet's `strategy: replace` override of telemetry-install.
+
+### `metrics-server`
+
+_Enabled when `telemetry.metrics.enabled: true` AND `telemetry.metrics_server_enabled: true`._
+
+Helm release of `metrics-server` for `kubectl top` and HPA. Some platforms (EKS / AKS) ship a managed metrics-server; gate this off when one is already present.
+
+| Variant | Enabled when | Effect |
+|---|---|---|
+| `skip-tls` | default (when metrics-server is enabled in a cluster with selfsigned kubelet certs) | Patches the metrics-server Deployment to add `--kubelet-insecure-tls`. Required on Talos and other distros where kubelet serves cert-manager-issued or selfsigned certs. |
 
 ## Components — `telemetry-resources`
 
-| Component | Enable when | Effect |
+### `prometheus-resources`
+
+_Enabled when `telemetry.metrics.enabled: true`._
+
+Reserved anchor component for prometheus-adjacent resources; currently empty by itself. ServiceMonitors and PrometheusRules live in its variants below.
+
+| Variant | Enabled when | Effect |
 |---|---|---|
-| `resources/prometheus` | `telemetry.metrics.enabled: true` | Reserved anchor component for prometheus-adjacent resources; currently empty. ServiceMonitors and PrometheusRules live under `resources/prometheus/flux` and `resources/prometheus/alerts`. |
-| `resources/prometheus/flux` | `telemetry.metrics.enabled: true` | ServiceMonitor and PodMonitor for Flux controllers. |
-| `resources/prometheus/alerts` | `telemetry.alerts.enabled: true` (default) and `telemetry.metrics.enabled: true` | Bundle of PrometheusRule alerting rules, curated from samber/awesome-prometheus-alerts and official project docs, one system per sub-component (currently `node`, `prometheus`, `coredns`, `cert-manager`, `flux`, `envoy`, `identity`, `database`, `postgres-exporter`; more land incrementally). Deliberately supplemental to kube-prometheus-stack's own defaultRules where those already cover a system well -- not a wholesale replacement. Reference the bundle for all always-on systems or an individual system (e.g. `resources/prometheus/alerts/node`) for selective inclusion. |
-| `resources/prometheus/notifications/slack` | `telemetry.alerts.slack.webhook_url` is set and `telemetry.metrics.enabled: true` | AlertmanagerConfig routing alerts matching `telemetry.alerts.slack.severity` (default: warning and critical) to Slack, via `telemetry.alerts.slack.channel`. The webhook URL comes from `telemetry.alerts.slack.webhook_url` (sensitive; set via a secret() reference); windsor materializes it into the `alertmanager-notification-slack` Secret (key `url`) in `system-telemetry` through the telemetry system's secrets block. Additional drivers (PagerDuty, etc.) land as their own `telemetry.alerts.<driver>` field and sibling component when built. |
-| `resources/fluentbit` | `telemetry.logs.enabled: true` | `ClusterFluentBitConfig` + `ClusterOutput` (no-op by default; outputs are added by `addon-observability` based on `logs_driver`). Establishes the base FluentBit pipeline. |
-| `resources/fluentbit/containerd` | `telemetry.logs.enabled: true` | `ClusterInput` reading containerd logs from `/var/log/containers/*.log` with the multiline-parser configuration for containerd's CRI log format. |
-| `resources/fluentbit/kubernetes` | `telemetry.logs.enabled: true` | `ClusterFilter` enriching log records with Kubernetes metadata (Pod / Namespace / Container labels) from the kubelet API. |
-| `resources/fluentbit/parser` | `telemetry.logs.enabled: true` | Base parser definitions (JSON, logfmt) plus optional sub-overlays for `service-name`, `logfmt`, `grpc` that opt-in additional structured-log shapes. |
-| `resources/fluentbit/systemd` | `telemetry.logs.enabled: true` | `ClusterInput` reading systemd journal entries. Captures node-level events that don't reach the containerd log path. |
-| `resources/fluentbit/prometheus` | `telemetry.logs.enabled: true` AND `telemetry.metrics.enabled: true` | ServiceMonitor for FluentBit's metrics endpoint. |
-| `resources/fluentbit/fluentd` | `telemetry.logs.driver == 'fluentd'` | `ClusterOutput` shipping records to the central FluentD aggregator in `system-observability`. Activates when the observability add-on is in fluentd mode. |
+| `flux` | `telemetry.metrics.enabled: true` | ServiceMonitor and PodMonitor for Flux controllers. |
+| `alerts` | `telemetry.alerts.enabled: true` (default) and `telemetry.metrics.enabled: true` | Bundle of PrometheusRule alerting rules, curated from samber/awesome-prometheus-alerts and official project docs, one system per sub-component (currently `node`, `prometheus`, `coredns`, `cert-manager`, `flux`, `envoy`, `identity`, `database`, `postgres-exporter`; more land incrementally). Deliberately supplemental to kube-prometheus-stack's own defaultRules where those already cover a system well -- not a wholesale replacement. Reference the bundle for all always-on systems or an individual system (e.g. `resources/prometheus/alerts/node`) for selective inclusion. |
+| `notifications/slack` | `telemetry.alerts.slack.webhook_url` is set and `telemetry.metrics.enabled: true` | AlertmanagerConfig routing alerts matching `telemetry.alerts.slack.severity` (default: warning and critical) to Slack, via `telemetry.alerts.slack.channel`. The webhook URL comes from `telemetry.alerts.slack.webhook_url` (sensitive; set via a secret() reference); windsor materializes it into the `alertmanager-notification-slack` Secret (key `url`) in `system-telemetry` through the telemetry system's secrets block. Additional drivers (PagerDuty, etc.) land as their own `telemetry.alerts.<driver>` field and sibling component when built. |
+
+### `fluentbit-resources`
+
+_Enabled when `telemetry.logs.enabled: true`._
+
+`ClusterFluentBitConfig` + `ClusterOutput` (no-op by default; outputs are added by `addon-observability` based on `logs_driver`). Establishes the base FluentBit pipeline.
+
+| Variant | Enabled when | Effect |
+|---|---|---|
+| `containerd` | `telemetry.logs.enabled: true` | `ClusterInput` reading containerd logs from `/var/log/containers/*.log` with the multiline-parser configuration for containerd's CRI log format. |
+| `kubernetes` | `telemetry.logs.enabled: true` | `ClusterFilter` enriching log records with Kubernetes metadata (Pod / Namespace / Container labels) from the kubelet API. |
+| `parser` | `telemetry.logs.enabled: true` | Base parser definitions (JSON, logfmt) plus optional sub-overlays for `service-name`, `logfmt`, `grpc` that opt-in additional structured-log formats. |
+| `systemd` | `telemetry.logs.enabled: true` | `ClusterInput` reading systemd journal entries. Captures node-level events that don't reach the containerd log path. |
+| `prometheus` | `telemetry.logs.enabled: true` AND `telemetry.metrics.enabled: true` | ServiceMonitor for FluentBit's metrics endpoint. |
+| `fluentd` | `telemetry.logs.driver == 'fluentd'` | `ClusterOutput` shipping records to the central FluentD aggregator in `system-observability`. Activates when the observability add-on is in fluentd mode. |
 
 ## Dependencies
 

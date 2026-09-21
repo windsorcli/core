@@ -110,7 +110,7 @@ tasks:
       - cmd: terraform fmt -recursive
 
   docs:terraform:
-    desc: Generate the Inputs/Outputs/Resources tables inside every terraform/<module>/README.md via terraform-docs, plus the terraform/README.md umbrella index
+    desc: Generate the Inputs/Outputs/Resources tables inside every terraform/<module>/README.md via terraform-docs, the terraform/README.md umbrella index, and each category's Modules list
     silent: true
     cmds:
       - cmd: |
@@ -122,6 +122,7 @@ tasks:
             docker run --rm -v "$(pwd):/src" -w "/src/$dir" quay.io/terraform-docs/terraform-docs:0.20.0 markdown table --output-file README.md --output-mode inject .
           done
       - scripts/umbrella-index.sh terraform
+      - scripts/terraform-module-index.sh
 
   docs:terraform:check:
     desc: Fail if docs:terraform would produce drift (CI use)
@@ -147,3 +148,28 @@ tasks:
     cmds:
       - scripts/kustomize-docs.sh --check
       - scripts/umbrella-index.sh --check kustomize
+
+  docs:stack:
+    desc: Regenerate docs/index.md's Stack section from the terraform/ and kustomize/ trees
+    cmds:
+      - scripts/stack-index.sh
+
+  docs:stack:check:
+    desc: Fail if docs:stack would produce drift (CI use)
+    cmds:
+      - scripts/stack-index.sh --check
+
+  docs:guides:
+    desc: Regenerate the "The knobs" and "Reference" blocks in every docs/guides/*.md from schema.yaml and the facets that implement it
+    cmds:
+      - scripts/guide-scaffold.sh --all
+
+  docs:guides:check:
+    desc: Fail if docs:guides would produce drift (CI use)
+    cmds:
+      - scripts/guide-scaffold.sh --check
+
+  docs:no-future-work:
+    desc: Fail if any doc uses future-work framing (a "not covered yet" heading, roadmap/TODO phrasing) outside ADRs and roadmap files
+    cmds:
+      - scripts/no-future-work.sh

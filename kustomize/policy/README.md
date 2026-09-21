@@ -1,6 +1,7 @@
 ---
 title: Policy add-on
 description: Kyverno admission controller and the cluster's baseline policies.
+stack_backing: Cluster-wide admission policy
 ---
 
 # Policy
@@ -123,19 +124,43 @@ to add your own.
 
 ## Components — `policy-install`
 
-| Component | Enable when | Effect |
-|---|---|---|
-| `kyverno` | always | Helm release of Kyverno in `system-policy`. Installs the admission, background, and reports controllers (the cleanup controller is disabled at this layer; opt in via `kyverno/cleanup`). NO_COLOR is set on the admission and background containers. |
-| `kyverno/reports` | `policies.reporting == 'enabled'` | Patches the kyverno HelmRelease to set `reportsController.enabled: true` so PolicyReport / ClusterPolicyReport CRs are written for evaluated policies. |
-| `kyverno/cleanup` | `policies.cleanup == 'enabled'` | Patches the kyverno HelmRelease to set `cleanupController.enabled: true` so CleanupPolicy / ClusterCleanupPolicy CRs are executed on their cron schedules. Disabled by default because the blueprint ships no CleanupPolicy resources. |
-| `kyverno/ha` | `topology == 'ha'` | Patches the kyverno HelmRelease to run the admission controller with `replicas: 3` and a PodDisruptionBudget, keeping the webhook backend reachable during node drains and rollouts (pod anti-affinity is on by default). |
+### `kyverno`
+
+_Enabled when always._
+
+Helm release of Kyverno in `system-policy`. Installs the admission, background, and reports controllers (the cleanup controller is disabled at this layer; opt in via `kyverno/cleanup`). NO_COLOR is set on the admission and background containers.
+
+### `kyverno/reports`
+
+_Enabled when `policies.reporting == 'enabled'`._
+
+Patches the kyverno HelmRelease to set `reportsController.enabled: true` so PolicyReport / ClusterPolicyReport CRs are written for evaluated policies.
+
+### `kyverno/cleanup`
+
+_Enabled when `policies.cleanup == 'enabled'`._
+
+Patches the kyverno HelmRelease to set `cleanupController.enabled: true` so CleanupPolicy / ClusterCleanupPolicy CRs are executed on their cron schedules. Disabled by default because the blueprint ships no CleanupPolicy resources.
+
+### `kyverno/ha`
+
+_Enabled when `topology == 'ha'`._
+
+Patches the kyverno HelmRelease to run the admission controller with `replicas: 3` and a PodDisruptionBudget, keeping the webhook backend reachable during node drains and rollouts (pod anti-affinity is on by default).
 
 ## Components — `policy-resources`
 
-| Component | Enable when | Effect |
-|---|---|---|
-| `kyverno/resource-limits-requests` | `policies.resource_limits_requests != 'disabled'` | ValidatingPolicy `resource-limits-requests` (Audit) that every container has CPU and memory `resources.limits` + `resources.requests` set. Matches Pods in `system-*` namespaces and namespaces labeled `policy.windsorcli.dev/managed: true`. Skips `kube-system`. |
-| `kyverno/require-image-digest` | `policies.require_image_digest != 'disabled'` | ValidatingPolicy `require-image-digest` (Deny) that every container image reference includes a `sha256:` digest (`repo:tag@sha256:…` or `repo@sha256:…`). Same namespace match scope as `resource-limits-requests`, plus an exemption for the Flux namespace (labelled `app.kubernetes.io/part-of: flux`) whose operator-installed controllers are version-pinned rather than digest-pinned. |
+### `kyverno/resource-limits-requests`
+
+_Enabled when `policies.resource_limits_requests != 'disabled'`._
+
+ValidatingPolicy `resource-limits-requests` (Audit) that every container has CPU and memory `resources.limits` + `resources.requests` set. Matches Pods in `system-*` namespaces and namespaces labeled `policy.windsorcli.dev/managed: true`. Skips `kube-system`.
+
+### `kyverno/require-image-digest`
+
+_Enabled when `policies.require_image_digest != 'disabled'`._
+
+ValidatingPolicy `require-image-digest` (Deny) that every container image reference includes a `sha256:` digest (`repo:tag@sha256:…` or `repo@sha256:…`). Same namespace match scope as `resource-limits-requests`, plus an exemption for the Flux namespace (labelled `app.kubernetes.io/part-of: flux`) whose operator-installed controllers are version-pinned rather than digest-pinned.
 
 <!-- END_KUSTOMIZE_DOCS -->
 

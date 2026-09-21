@@ -1,11 +1,6 @@
 # =============================================================================
 # CI workflow
 # =============================================================================
-# Runs on push-to-main, tagged releases, and PRs against main. Four jobs:
-#   code-checks  — yamllint, shellcheck, terraform fmt, checkov, vendored-file drift
-#   tests        — unit tests
-#   integration  — end-to-end Windsor runs on a fresh + upgrade matrix
-#   publish      — push OCI package on main and tag pushes (gated on integration)
 name: CI
 
 on:
@@ -51,7 +46,7 @@ jobs:
           # Full history so the terraform-docs check can diff against the PR base.
           fetch-depth: 0
 
-      # br_netfilter is required to run Kubernetes on Docker; not loaded by default.
+      # br_netfilter is not loaded by default on this runner.
       - name: Load br_netfilter kernel module
         run: |
           sudo modprobe br_netfilter
@@ -100,24 +95,16 @@ jobs:
             exit 1
           fi
 
-      # Fail if kustomize/crds/<name>-<version>/ has drifted from the sources in
-      # kustomize/crds/sources.yaml (regenerate with 'task crds' and commit).
+      # Fail if kustomize/crds/ has drifted from crds/sources.yaml.
       - name: Validate vendored CRDs
         run: task crds:check
 
-      # Fail if kustomize/<add-on>/.docs.yaml has diverged from the rendered
-      # BEGIN_KUSTOMIZE_DOCS / END_KUSTOMIZE_DOCS region in README.md.
-      # Skipped on renovate PRs and on push-to-main; drift is reconciled
-      # during pre-release cycles.
+      # Fail if a kustomize add-on's README docs have drifted from .docs.yaml.
       - name: Validate kustomize add-on docs
         if: ${{ github.event_name == 'pull_request' && !startsWith(github.head_ref, 'renovate/') }}
         run: task docs:kustomize:check
 
-      # Regenerate terraform-docs and fail only on drift in modules THIS PR
-      # changed. Pre-existing drift in untouched modules — e.g. a renovate
-      # provider bump that auto-merged to main without a docs regen — does not
-      # block unrelated PRs; you only own the docs for modules whose .tf you
-      # edited. terraform-docs is per-module, so changed-module scoping is exact.
+      # Regenerate terraform-docs and fail only on drift in modules this PR changed.
       - name: Validate terraform module docs
         if: ${{ github.event_name == 'pull_request' && !startsWith(github.head_ref, 'renovate/') }}
         run: |
@@ -138,6 +125,20 @@ jobs:
           done
           git checkout -- terraform/
           exit $rc
+
+      # Fail if docs/index.md's Stack section has drifted from terraform/ and kustomize/.
+      - name: Validate stack index
+        if: ${{ github.event_name == 'pull_request' && !startsWith(github.head_ref, 'renovate/') }}
+        run: task docs:stack:check
+
+      # Fail if a docs/guides/**.md Reference block has drifted from its facets.
+      - name: Validate catalog guide references
+        if: ${{ github.event_name == 'pull_request' && !startsWith(github.head_ref, 'renovate/') }}
+        run: task docs:guides:check
+
+      - name: Validate no future-work framing in docs
+        if: ${{ github.event_name == 'pull_request' && !startsWith(github.head_ref, 'renovate/') }}
+        run: task docs:no-future-work
 
       - name: Checkov GitHub Action
         uses: bridgecrewio/checkov-action@68260132005eaae0e6f84c7a73cc3b1532f678bf # v12.3058.0
@@ -178,15 +179,8 @@ jobs:
   # ===========================================================================
   # Integration (fresh | upgrade)
   # ===========================================================================
-  # Two matrix modes per run:
-  #   fresh    — single `windsor up` on HEAD; simulates a new user bringing up
-  #              the cluster for the first time.
-  #   upgrade  — converge the baseline (origin/main), then apply HEAD on top
-  #              without reinit; simulates an existing user pulling + applying
-  #              this change. PR events only — skipped on push-to-main / tags.
-  # On PR failure, the still-running cluster is handed to a read-only Claude
-  # step that publishes a diagnosis to the PR / step summary / artifact.
-  # The Claude step is also skipped on push-to-main / tags.
+  # fresh runs `windsor up` on HEAD; upgrade converges origin/main first,
+  # then applies HEAD on top without reinit.
   integration:
     name: Integration (${{ matrix.mode }})
     runs-on: ubuntu-latest
@@ -200,22 +194,13 @@ jobs:
       # -----------------------------------------------------------------------
       # Runner preparation
       # -----------------------------------------------------------------------
-      # Fetch-depth is full for upgrade mode (needs origin/main), shallow for
-      # fresh. Kernel module, Docker daemon tuning, and required CLIs are
-      # installed here before anything Windsor-related runs.
+      # Fetch-depth is full for upgrade mode; shallow for fresh.
       - name: Checkout code
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           fetch-depth: ${{ matrix.mode == 'upgrade' && '0' || '1' }}
 
-      # Upgrade mode re-runs when anything that Windsor applies changes:
-      # terraform, kustomize, facets (contexts), or the root windsor.yaml.
-      # Only the kustomize/ tree is rsynced to the in-cluster git server
-      # (git_rsync_include default), so only kustomize changes advance the
-      # GitRepository revision. Terraform/contexts/windsor.yaml changes are
-      # applied locally by `windsor up` but never reach the git server — for
-      # those we still run the upgrade test, but skip the revision-bump gate
-      # (which would otherwise time out waiting for a bump that can't happen).
+      # Upgrade mode re-runs when terraform, kustomize, contexts, or windsor.yaml change.
       - name: Check infra changes
         id: infra_diff
         run: |
@@ -224,19 +209,13 @@ jobs:
             echo "expect_bump=false" >> $GITHUB_OUTPUT
             exit 0
           fi
-          # Upgrade mode only makes sense in a PR context — the diff base is
-          # origin/main, and on push-to-main origin/main == HEAD so the diff
-          # would always be empty. Fail loudly if this invariant is ever
-          # broken by re-adding upgrade to the push matrix.
+          # Upgrade mode requires a PR context.
           if [ "${{ github.event_name }}" != "pull_request" ]; then
             echo "::error::upgrade mode requires a PR context (origin/main == HEAD on push events)"
             exit 1
           fi
           git fetch origin main
-          # A Talos version bump replaces the docker control plane (the version is
-          # the node image) and container mode has no in-place upgrade, so the
-          # cluster must be rebuilt. Fresh mode covers that. Keyed to the one
-          # field that sets the version so it can't mask other upgrade breakage.
+          # A Talos version bump requires a full rebuild; skip upgrade mode for it.
           TALOS_VERSION_FILE=contexts/_template/facets/config-talos.yaml
           talos_version_of() { git show "$1:$TALOS_VERSION_FILE" 2>/dev/null | sed -n 's/^ *talos_version: *"\(.*\)"$/\1/p'; }
           base_talos=$(talos_version_of origin/main)
@@ -300,26 +279,15 @@ jobs:
       # -----------------------------------------------------------------------
       # Baseline phase — upgrade mode only
       # -----------------------------------------------------------------------
-      # Converge the "already-installed" state, then capture the Flux
-      # GitRepository revision. The HEAD phase gates its Ready wait on that
-      # revision advancing, so a slow git-livereload webhook can't let a
-      # stale baseline-Ready state pass for HEAD.
+      # Converges origin/main, then captures the Flux GitRepository revision.
       - name: Checkout baseline
         if: matrix.mode == 'upgrade' && steps.infra_diff.outputs.skip != 'true'
         run: |
           git fetch origin main
           git checkout origin/main
 
-      # The runner's 4 vCPUs host the entire single-node Talos container; a
-      # cgroup quota at the runner's core count throttles every pod at once.
-      # Memory is pinned too so the container spec stays identical to the
-      # upgrade test's baseline phase — an unpinned change replaces the
-      # container mid-test and re-bootstrap fails on the surviving etcd data.
-      # gitops.concurrency is pinned low: the CPU-derived formula assumes a
-      # roomy host, but here the 3-vCPU quota is most of the runner's own 4
-      # vCPUs, so Flux's default concurrency floods etcd/apiserver. Falls
-      # back to the plain init if origin/main predates the gitops.concurrency
-      # schema field (this PR adds it).
+      # CPU/memory are pinned to the runner's capacity.
+      # Falls back without gitops.concurrency if origin/main predates it.
       - name: Baseline — Windsor Init
         if: matrix.mode == 'upgrade' && steps.infra_diff.outputs.skip != 'true'
         run: |
@@ -358,10 +326,7 @@ jobs:
       # HEAD phase — both modes
       # -----------------------------------------------------------------------
       # Fresh: a single `windsor up` on HEAD.
-      # Upgrade: `windsor apply --prune` on top of the converged baseline
-      # without reinit, so orphaned Kustomizations from the baseline are
-      # cleaned up, then wait for Flux to catch up past the captured revision
-      # before checking health.
+      # Upgrade: `windsor apply --prune` on the converged baseline.
       - name: Checkout HEAD
         if: matrix.mode == 'upgrade' && steps.infra_diff.outputs.skip != 'true'
         run: git checkout ${{ github.sha }}
@@ -371,10 +336,7 @@ jobs:
         if: matrix.mode == 'upgrade' && steps.infra_diff.outputs.skip != 'true'
         run: windsor plan
 
-      # The runner's 4 vCPUs host the entire single-node Talos container; a
-      # cgroup quota at the runner's core count throttles every pod at once.
-      # Memory is pinned alongside it to keep the container spec deterministic.
-      # gitops.concurrency is pinned low: see the baseline init step above.
+      # CPU/memory are pinned to the runner's capacity.
       - name: Windsor Init
         if: matrix.mode == 'fresh'
         run: windsor init local --reset --set cluster.controlplanes.cpu=3 --set cluster.controlplanes.memory=8 --set gitops.concurrency=2
@@ -392,10 +354,8 @@ jobs:
       - name: Windsor Apply (prune)
         id: windsor_apply_prune
         if: matrix.mode == 'upgrade' && steps.infra_diff.outputs.skip != 'true'
-        # May reboot the Talos node (e.g. on a Talos version bump); post-reboot
-        # pod restart burst takes longer to settle than a fresh install.
-        # --prune exercises the orphaned-Kustomization cleanup an in-place
-        # upgrade relies on, which `windsor up` never performs.
+        # May reboot the Talos node on a version bump.
+        # --prune cleans up orphaned Kustomizations from the baseline.
         timeout-minutes: 20
         run: windsor apply --prune --verbose --wait
 
@@ -428,12 +388,7 @@ jobs:
       # -----------------------------------------------------------------------
       # Phase classification + diagnostics collection
       # -----------------------------------------------------------------------
-      # Classifies which phase failed so the Claude step gets the right
-      # framing:
-      #   baseline — upgrade baseline never converged (main is red, not PR)
-      #   install  — fresh-mode HEAD up failed
-      #   upgrade  — upgrade-mode HEAD applied but didn't reconcile cleanly
-      #   none     — everything passed
+      # Classifies which phase failed: baseline, install, upgrade, or none.
       - name: Determine failed phase
         if: always()
         id: phase
@@ -487,14 +442,7 @@ jobs:
       # -----------------------------------------------------------------------
       # Claude investigation (read-only, first-push-only)
       # -----------------------------------------------------------------------
-      # Three steps: (1) a cheap bash orientation glance — what's red plus the
-      # failed-test log tail, no tokens; (2) Claude investigates the LIVE
-      # cluster interactively from that starting point until it finds root
-      # cause; (3) a deterministic publish. Gated on the PR-open event so it
-      # runs at most once per PR — a renovate rebase is a `synchronize` event
-      # and is never eligible, and a breaking change rebased into many open
-      # PRs cannot trigger a storm. `baseline` phase is excluded (main is red,
-      # not this PR). No cluster mutation — strictly read-only tools.
+      # Runs at most once per PR, gated on the PR-open event.
       - name: Collect cluster glance
         id: seed
         if: always() && steps.phase.outputs.phase != 'none' && steps.phase.outputs.phase != 'baseline' && github.event_name == 'pull_request' && github.event.action == 'opened'
@@ -628,9 +576,7 @@ jobs:
             --allowedTools Read,Write,Bash(cat:*),Bash(windsor exec:*),Bash(tail:*),Bash(head:*),Bash(grep:*),Bash(jq:*)
             --disallowedTools WebSearch,WebFetch
 
-      # Deterministic publish. Runs even if the Claude step errored or hit the
-      # turn cap, so a cut-short investigation still ships whatever it wrote —
-      # or a stub pointing at the run. Never charges tokens.
+      # Runs even if the Claude step errored or hit its turn cap.
       - name: Publish diagnosis
         if: always() && steps.seed.outcome == 'success' && steps.phase.outputs.phase != 'none' && steps.phase.outputs.phase != 'baseline' && github.event_name == 'pull_request' && github.event.action == 'opened'
         env:
@@ -685,8 +631,7 @@ jobs:
   # ===========================================================================
   # Publish OCI Package
   # ===========================================================================
-  # Gated on successful integration. Pushes the Windsor bundle to GHCR under
-  # the current ref (tag name or "latest" on main).
+  # Pushes the Windsor bundle to GHCR under the current ref.
   publish:
     name: Publish OCI Package
     runs-on: ubuntu-latest

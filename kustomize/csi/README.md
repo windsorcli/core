@@ -1,9 +1,9 @@
 ---
-title: CSI add-on
+title: CSI
 description: Persistent storage drivers and StorageClasses. AWS EBS, Azure Disk, OpenEBS host-path, and Longhorn distributed.
+stack_name: CSI
+stack_backing: Persistent storage
 ---
-
-# CSI
 
 The cluster's persistent-volume layer. Four drivers ship in this add-on,
 one selected per cluster.
@@ -12,19 +12,19 @@ one selected per cluster.
 StorageClass-only wrappers around the cloud's preinstalled CSI driver,
 so volumes are AZ- or zone-pinned to the node that first mounts them.
 
-`openebs` is for local single-node clusters. It installs a Helm release
+Use `openebs` on local single-node clusters. It installs a Helm release
 plus a hostpath provisioner that allocates from a directory on each
 node. There's no replication, and volumes are tied to the node they
 were created on.
 
-`longhorn` is for HA or schedulable-controlplane clusters. It installs
+`longhorn` targets HA or schedulable-controlplane clusters. It installs
 a Helm release of a distributed block-storage system that replicates
 each volume across multiple nodes.
 
-The default StorageClass is always named `single` regardless of driver,
-so workloads asking for the default disk get a per-cluster-appropriate
-provisioner without knowing which one is wired. Longhorn HA clusters
-also expose a `replicated` class for explicit multi-replica volumes.
+The default StorageClass is always named `single`, whatever the driver.
+A workload asks for `single` and gets the provisioner that cluster
+wired. Longhorn HA clusters also expose a `replicated` class for
+explicit multi-replica volumes.
 
 ## Recipes
 
@@ -108,9 +108,8 @@ flux:
         local_volume_path: /var/mnt/local
 ```
 
-OpenEBS brings its own Helm release and a hostpath provisioner that
-allocates from a directory on each node. No replication — volumes are
-tied to the node they were created on.
+`local_volume_path` sets the host directory the provisioner allocates
+from.
 
 ### HA cluster with Longhorn
 
@@ -144,9 +143,8 @@ flux:
         components: [longhorn/prometheus]
 ```
 
-Longhorn installs a distributed block-storage system that replicates
-each volume across nodes. HA clusters also expose a `replicated` class
-for explicit multi-replica volumes.
+`longhorn/prometheus` adds a ServiceMonitor for Longhorn's own metrics,
+gated on `telemetry-install`.
 
 <!-- BEGIN_KUSTOMIZE_DOCS -->
 
@@ -159,17 +157,40 @@ for explicit multi-replica volumes.
 
 ## Components
 
-| Component | Enable when | Effect |
+### `aws-ebs`
+
+_Enabled when platform is AWS (EKS)._
+
+StorageClass `single` (default class) using `ebs.csi.aws.com`, `WaitForFirstConsumer`, `allowVolumeExpansion: true`, `encrypted: true`, `fsType: ext4`, `type: ${single_storage_type}`. The CSI driver itself is preinstalled by EKS; this component ships StorageClass only.
+
+### `azure-disk`
+
+_Enabled when platform is Azure (AKS)._
+
+StorageClass `single` (default class) using `disk.csi.azure.com`, `WaitForFirstConsumer`, `allowVolumeExpansion: true`, `cachingMode: ReadWrite`, `fsType: ext4`, `skuName: ${single_storage_type}`. The CSI driver itself is preinstalled by AKS.
+
+### `openebs`
+
+_Enabled when `cluster.storage.driver: openebs`._
+
+Helm release of the `openebs` chart in `system-csi`. `localpv-provisioner` is disabled at this layer and enabled by the variant components below so single-node clusters can disable leader election. zfs-localpv, lvm-localpv, and mayastor sub-charts are disabled.
+
+| Variant | Enabled when | Effect |
 |---|---|---|
-| `aws-ebs` | platform is AWS (EKS) | StorageClass `single` (default class) using `ebs.csi.aws.com`, `WaitForFirstConsumer`, `allowVolumeExpansion: true`, `encrypted: true`, `fsType: ext4`, `type: ${single_storage_type}`. The CSI driver itself is preinstalled by EKS; this component ships StorageClass only. |
-| `azure-disk` | platform is Azure (AKS) | StorageClass `single` (default class) using `disk.csi.azure.com`, `WaitForFirstConsumer`, `allowVolumeExpansion: true`, `cachingMode: ReadWrite`, `fsType: ext4`, `skuName: ${single_storage_type}`. The CSI driver itself is preinstalled by AKS. |
-| `openebs` | `cluster.storage.driver: openebs` | Helm release of the `openebs` chart in `system-csi`. `localpv-provisioner` is disabled at this layer and enabled by the variant components below so single-node clusters can disable leader election. zfs-localpv, lvm-localpv, and mayastor sub-charts are disabled. |
-| `openebs/single-node` | openebs driver AND single-node topology | Patches the openebs HelmRelease to set `localpv-provisioner.localpv.enableLeaderElection: false`. Avoids Lease churn on single-node clusters. |
-| `openebs/dynamic-localpv` | openebs driver | Enables the openebs localpv-provisioner and creates two StorageClasses (`local`, and `single` as default class). Both use `openebs.io/local` hostpath, `BasePath: ${local_volume_path}`, `WaitForFirstConsumer`. |
-| `longhorn` | `cluster.storage.driver: longhorn` | Helm release of Longhorn in `system-csi`, plus a StorageClass `single` (default class) using `driver.longhorn.io` with `numberOfReplicas: "1"`, `volumeBindingMode: Immediate`, `allowVolumeExpansion: true`. |
-| `longhorn/single-node` | longhorn driver AND (single-node topology OR `cluster.controlplanes.schedulable: true`) | Patches the longhorn HelmRelease to add `defaultSettings.taintToleration: "node-role.kubernetes.io/control-plane:NoSchedule"` so Longhorn pods schedule on tainted control planes. |
-| `longhorn/ha` | longhorn driver AND ha topology | Patches the longhorn HelmRelease for HA: `defaultReplicaCount: 3`, hard `replicaSoftAntiAffinity: false`, `longhornUI.replicas: 2`, CSI sidecar replicas at 3. Adds a second StorageClass `replicated` with `numberOfReplicas: "3"` for explicit multi-replica volumes. |
-| `longhorn/prometheus` | longhorn driver AND `observability.enabled: true` | ServiceMonitor for `longhorn-manager` metrics on the `manager` port. |
+| `single-node` | openebs driver AND single-node topology | Patches the openebs HelmRelease to set `localpv-provisioner.localpv.enableLeaderElection: false`. Avoids Lease churn on single-node clusters. |
+| `dynamic-localpv` | openebs driver | Enables the openebs localpv-provisioner and creates two StorageClasses (`local`, and `single` as default class). Both use `openebs.io/local` hostpath, `BasePath: ${local_volume_path}`, `WaitForFirstConsumer`. |
+
+### `longhorn`
+
+_Enabled when `cluster.storage.driver: longhorn`._
+
+Helm release of Longhorn in `system-csi`, plus a StorageClass `single` (default class) using `driver.longhorn.io` with `numberOfReplicas: "1"`, `volumeBindingMode: Immediate`, `allowVolumeExpansion: true`.
+
+| Variant | Enabled when | Effect |
+|---|---|---|
+| `single-node` | longhorn driver AND (single-node topology OR `cluster.controlplanes.schedulable: true`) | Patches the longhorn HelmRelease to add `defaultSettings.taintToleration: "node-role.kubernetes.io/control-plane:NoSchedule"` so Longhorn pods schedule on tainted control planes. |
+| `ha` | longhorn driver AND ha topology | Patches the longhorn HelmRelease for HA: `defaultReplicaCount: 3`, hard `replicaSoftAntiAffinity: false`, `longhornUI.replicas: 2`, CSI sidecar replicas at 3. Adds a second StorageClass `replicated` with `numberOfReplicas: "3"` for explicit multi-replica volumes. |
+| `prometheus` | longhorn driver AND `observability.enabled: true` | ServiceMonitor for `longhorn-manager` metrics on the `manager` port. |
 
 ## Dependencies
 

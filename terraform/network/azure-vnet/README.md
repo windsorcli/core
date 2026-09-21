@@ -1,9 +1,7 @@
 ---
-title: network/azure-vnet
+title: Azure VNet
 description: VNet + subnets for AKS.
 ---
-
-# network/azure-vnet
 
 The cloud-side network fabric for AKS clusters: a VNet with private
 subnets carved from `cidr_block`. Size the subnets with enough headroom

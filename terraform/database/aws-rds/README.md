@@ -1,12 +1,11 @@
 ---
-title: database/aws-rds
+title: AWS RDS
 description: KMS encryption key for RDS storage, shared across every database in a context.
 ---
 
-# database/aws-rds
-
-The KMS key RDS storage encryption uses in this context. Creates a
-dedicated CMK by default, with an `alias/<context_id>-rds` alias any
+This module creates the KMS key that encrypts RDS storage in the
+context. It creates a dedicated CMK by default, with an
+`alias/<context_id>-rds` alias any
 consumer (Crossplane-managed `Instance` CRs, or a future Terraform-native
 database resource in this same module) can reference by name. Falls back
 to the account's AWS-managed default key when `manage_encryption_key` is

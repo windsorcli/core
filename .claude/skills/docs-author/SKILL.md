@@ -17,19 +17,9 @@ description: Author and maintain reference Markdown for the core Windsor bluepri
 
 ## Contract with the docs site
 
-**Core is a blueprint**, not a separate product tier. Reference from this repo materializes under the **blueprint reference** URL prefix (not generic “how to write a blueprint,” which lives under `/docs/blueprints/*` on the site).
+**The site's Catalog only documents `values.yaml`.** It does not ingest `terraform/<module>/README.md` or `kustomize/<add-on>/README.md` into any page of its own — those READMEs stay this repo's reference, readable directly on GitHub. A Catalog guide (`docs/guides/<name>.md` in this repo, vendored to `/catalog/core/guides/<name>` on the site) links out to the real GitHub path (`https://github.com/windsorcli/core/tree/main/<terraform|kustomize>/<path>`) rather than the site hosting a mirrored copy. Author and generate the per-module/stack READMEs exactly as described below regardless — they're still the real reference, just not republished.
 
-The site ingests the per-module/stack READMEs in place — there is no generated `docs/reference/` tree in this repo. Author where the file lives:
-
-| Author in this repo | Public URL prefix |
-|---------------------|-------------------|
-| `terraform/<module>/README.md` (generated tables) | `https://www.windsorcli.dev/docs/reference/blueprints/core/terraform/**` |
-| `kustomize/<add-on>/README.md` | `https://www.windsorcli.dev/docs/reference/blueprints/core/kustomize/**` |
-| Blueprint-level pages (e.g. `docs/compatibility.md`) | `https://www.windsorcli.dev/docs/reference/blueprints/core/*` |
-
-Exact ingest globs live in the website `docs:vendor` script; treat the **public URL prefix** column as the stable link target for cross-repo links.
-
-**Editorial split:** `/docs/blueprints/*` on the site = Blueprint API, schema, facets for **any** author. Pages under `/docs/reference/blueprints/core/*` = **what is inside this blueprint release** (modules, stacks, substitutions).
+**Editorial split:** `/docs/blueprints/*` on the site = Blueprint API, schema, facets for **any** author. A Catalog guide here = a values.yaml-facing walkthrough for **this** blueprint's own config surface, diagram-first, linking to GitHub for anything deeper than the knob itself.
 
 ## Frontmatter (Markdown)
 
@@ -41,15 +31,23 @@ Exact ingest globs live in the website `docs:vendor` script; treat the **public 
 - **Reference only:** imperative, tables for inputs/vars, no marketing copy.
 - Link generic blueprint concepts to `https://www.windsorcli.dev/docs/blueprints/...` (schema, sharing, facets).
 
+## Catalog guides (`docs/guides/`)
+
+A Catalog guide is `docs/guides/<key>.md`, vendored to `/catalog/core/guides/<key>` on the site. Write the intro, diagram, and "Under the hood" prose by hand — `scripts/guide-scaffold.sh` only ever fills in one thing: the `## Reference` block, a list of every `terraform/` and `kustomize/` path the facets actually wire in for that guide's config key, derived from the real facet YAML rather than typed by hand and left to drift.
+
+Add a `<!-- BEGIN_GUIDE_REFS -->` / `<!-- END_GUIDE_REFS -->` marker pair wherever the generated list should go, then run `task docs:guides` (or target one guide directly: `scripts/guide-scaffold.sh <key>`). `task docs:guides:check` fails on drift — wired into CI the same way `docs:kustomize:check`/`docs:terraform:check` are. The generator only ever populates an existing file; it doesn't scaffold one, so the marker pair (and everything above it) has to exist first.
+
+**Vendor sub-guides.** When a schema key has more than one driver — `database.postgres.driver: cloudnativepg | rds | azuredb | cloudsql`, `identity.driver: keycloak | oidc` — split the guide into `docs/guides/<key>/<vendor>.md`, one file per enum value, filename matching the schema value verbatim (`azuredb.md`, not `flexibleserver.md`). There's no separate index page for the category; the site groups these into one expandable sidebar entry per key automatically. Generate with `scripts/guide-scaffold.sh <key>/<vendor>` (or `--all` picks up every vendor page that already exists). A driver with nothing to reference (an external service Windsor installs nothing for, e.g. `identity/oidc.md`) still needs the marker pair — an intentionally empty generated block is what lets `--check` catch it if that ever stops being true, and says so in the surrounding prose rather than silently having no `## Reference` section at all.
+
 ## Umbrella indices (`kustomize/README.md`, `terraform/README.md`)
 
 Both umbrella READMEs carry a `<!-- BEGIN_INDEX -->` / `<!-- END_INDEX -->` region populated by `scripts/umbrella-index.sh <root>`. The generator is bundled into the existing per-layer doc tasks: `task docs:kustomize` runs the kustomize index after the add-on tables, `task docs:terraform` runs the terraform index after terraform-docs. CI catches drift via `task docs:kustomize:check` and `task docs:terraform:check` — there is no standalone umbrella task. The generator walks each per-module README (kustomize 1-level-deep; terraform any depth, skipping `.terraform/`), pulls the frontmatter `description:`, and emits a `| path | purpose |` table; missing `description:` fields fail the build.
 
-The umbrellas exist purely as **reference indices** for the site's Infrastructure / Cluster narrative pages to link to. Don't put system overviews, decision matrices, or architecture diagrams in them — that content belongs on the site.
+The umbrellas exist purely as **reference indices** for browsing this repo on GitHub. Don't put system overviews, decision matrices, or architecture diagrams in them — that content belongs in a Catalog guide on the site instead.
 
 ## Terraform reference
 
-- Generate from modules in this repo with `task docs:terraform` (terraform-docs injected between `<!-- BEGIN_TF_DOCS -->` / `<!-- END_TF_DOCS -->` markers in each module's `README.md`). Commit the regenerated `terraform/<module-path>/README.md` (`cluster/talos`, `gitops/flux`, etc.). CI runs `task docs:terraform:check` to fail on drift. The site ingest pipeline pulls these READMEs in place from `terraform/<module-path>/README.md`; there is no `docs/reference/` tree in this repo.
+- Generate from modules in this repo with `task docs:terraform` (terraform-docs injected between `<!-- BEGIN_TF_DOCS -->` / `<!-- END_TF_DOCS -->` markers in each module's `README.md`). Commit the regenerated `terraform/<module-path>/README.md` (`cluster/talos`, `gitops/flux`, etc.). CI runs `task docs:terraform:check` to fail on drift. The site doesn't ingest these — link to `https://github.com/windsorcli/core/tree/main/terraform/<module-path>` from a Catalog guide instead.
 - Inputs, outputs, and gotchas belong here; high-level "what is Terraform in Windsor" stays on the site under `/docs/components/terraform`.
 
 ## Kustomize add-on README (per `kustomize/<add-on>/`)
@@ -125,6 +123,7 @@ Reference: [kustomize/policy/](../../../kustomize/policy/) is the simplest multi
 
 - [ ] Module or stack behavior that affects operators reflected in the relevant per-module/stack `README.md`.
 - [ ] Generated Terraform docs refreshed if inputs/outputs changed.
+- [ ] Catalog guide `## Reference` blocks refreshed (`task docs:guides`) if a facet's `terraform:`/`kustomize:` wiring changed.
 - [ ] Links to Blueprint schema/facets point at windsorcli.dev `/docs/blueprints/...`, not duplicate prose.
 - [ ] No slug or path that implies generic blueprint authoring—that belongs on the website repo.
 

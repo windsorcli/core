@@ -1,9 +1,8 @@
 ---
 title: Compute
 description: Local Talos compute substrate across Docker, Hyper-V, and Incus.
+stack_backing: Docker · Hyper-V · Incus · Hetzner
 ---
-
-# Compute
 
 The compute category has three drivers that provision Talos nodes on
 local hardware. `docker` runs nodes as containers and is the default
@@ -124,9 +123,9 @@ cluster:
 ```
 
 The module provisions Talos VMs on a local Incus daemon (KVM-backed).
-This is the right choice when you need real VM isolation, nested KVM,
-or kernel features that Docker on macOS can't expose.
-`workstation.arch` selects the Talos image architecture.
+Use it for real VM isolation, nested KVM, or kernel features that
+Docker on macOS can't expose. `workstation.arch` selects the Talos
+image architecture.
 
 ## Operations
 
@@ -169,9 +168,19 @@ Incus VMs run as full KVM instances with host-isolated kernels. Talos
 machine secrets are generated per cluster and never leave the
 operator's workstation in cleartext.
 
+<!-- BEGIN_TERRAFORM_MODULES -->
+
+## Modules
+
+- [docker](docker/) — Talos containers on Docker.
+- [hcloud](hcloud/) — Provisions Talos Linux nodes on Hetzner Cloud.
+- [hyperv](hyperv/) — Talos VMs on Hyper-V (Windows host).
+- [incus](incus/) — Talos VMs on Incus.
+- [vsphere](vsphere/) — Talos VMs on VMware vSphere.
+<!-- END_TERRAFORM_MODULES -->
+
 ## See also
 
-- [docker/](docker/), [hyperv/](hyperv/), and [incus/](incus/) for the per-driver Terraform reference.
 - [../cluster/](../cluster/) for the Talos control plane that adopts the compute nodes.
 - [../workstation/](../workstation/) for the host-side networking (registry, DNS) that local clusters depend on.
 - [../network/](../network/) for the cloud networking modules, which are skipped on local compute.
