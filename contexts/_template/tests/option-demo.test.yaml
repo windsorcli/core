@@ -84,8 +84,8 @@ cases:
           dependsOn:
             - provisioning-resources
           resources:
-            - timeout: 30m
-              deleteTimeout: 45m
+            - timeout: 45m
+              deleteTimeout: 60m
               interval: 5m
               components:
                 - database
@@ -144,8 +144,8 @@ cases:
           dependsOn:
             - provisioning-resources
           resources:
-            - timeout: 30m
-              deleteTimeout: 45m
+            - timeout: 45m
+              deleteTimeout: 60m
               interval: 5m
               components:
                 - database
@@ -209,7 +209,7 @@ cases:
           dependsOn:
             - provisioning-resources
           resources:
-            - timeout: 30m
+            - timeout: 45m
               deleteTimeout: 60m
               interval: 5m
               components:

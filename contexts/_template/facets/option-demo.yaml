@@ -72,8 +72,8 @@ flux:
           - apiVersion: rds.aws.upbound.io/v1beta3
             kind: Instance
             current: status.conditions.exists(e, e.type == 'Ready' && e.status == 'True')
-        timeout: 30m
-        deleteTimeout: 45m
+        timeout: 45m
+        deleteTimeout: 60m
         interval: 5m
       - name: credentials
         dependsOn:
@@ -114,8 +114,8 @@ flux:
             kind: FlexibleServerDatabase
             current: status.conditions.exists(e, e.type == 'Ready' && e.status == 'True')
         # Gated on the FlexibleServer's own Ready condition, not the CR apply.
-        timeout: 30m
-        deleteTimeout: 45m
+        timeout: 45m
+        deleteTimeout: 60m
         interval: 5m
       - name: credentials
         dependsOn:
@@ -157,7 +157,7 @@ flux:
             kind: Database
             current: status.conditions.exists(e, e.type == 'Ready' && e.status == 'True')
         # Gated on the DatabaseInstance's own Ready condition, not the CR apply.
-        timeout: 30m
+        timeout: 45m
         deleteTimeout: 60m
         interval: 5m
       - name: credentials
