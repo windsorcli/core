@@ -278,6 +278,42 @@ cases:
                 - database/cloudsql
                 - database/cloudsql/encryption-key
 
+  # A supplied key overrides managed, so the component is included on
+  # encryption.key_id alone.
+  - name: demo mode with cloudsql driver and a supplied key sets the CMK
+    values:
+      platform: gcp
+      gcp:
+        project_id: windsor-test
+      dev: true
+      demo:
+        enabled: true
+        resources:
+          database: true
+      gateway:
+        enabled: false
+      database:
+        postgres:
+          enabled: true
+          driver: cloudsql
+          encryption:
+            key_id: projects/windsor-test/locations/us-central1/keyRings/byok/cryptoKeys/byok
+    terraformOutputs:
+      network:
+        network_id: projects/windsor-test/global/networks/vpc-test
+        region: us-central1
+      database:
+        key_id: projects/windsor-test/locations/us-central1/keyRings/byok/cryptoKeys/byok
+    expect:
+      flux:
+        - name: demo
+          path: demo
+          resources:
+            - components:
+                - database
+                - database/cloudsql
+                - database/cloudsql/encryption-key
+
   # static + bookinfo apps carry no database dependency, and demo is a
   # resources-only system, so no demo-install tier is emitted.
   - name: demo static and bookinfo apps compose as resources tier without install
