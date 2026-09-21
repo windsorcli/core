@@ -423,6 +423,25 @@ cases:
         public_domain: example.com
     expectError: true
 
+  # Default (public) access: the gateway install-merge entry's when: fires
+  # (envoy + loadbalancer mode) but the ternary has nothing to select, so
+  # gcp-internal-lb must not appear — the empty string it evaluates to is
+  # pruned during composition, matching Azure's identical public-path case.
+  - name: gateway with envoy on GCP does not add gcp-internal-lb component by default
+    values:
+      platform: gcp
+      gcp:
+        project_id: windsor-test
+      gateway:
+        enabled: true
+        driver: envoy
+    exclude:
+      flux:
+        - name: gateway
+          install:
+            components:
+              - envoy/loadbalancer/gcp-internal-lb
+
   # gateway.access=private threads through the GCP facet's gateway install
   # merge, conditionally including gcp-internal-lb (GKE's CCM makes any
   # Service:LoadBalancer public by default; the annotation is what flips it).
