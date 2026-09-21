@@ -974,3 +974,41 @@ cases:
       flux:
         - name: telemetry
           dependsOn: []
+
+  # Regression (core#2804).
+  - name: dns.public_domain prints a registrar delegation message with the zone's name servers
+    values:
+      platform: aws
+      aws:
+        region: us-west-2
+      gateway:
+        enabled: false
+      dns:
+        public_domain: example.com
+      email: ops@example.com
+    terraformOutputs:
+      dns-zone:
+        name_servers:
+          - ns-1.awsdns-01.com
+          - ns-2.awsdns-02.org
+    expect:
+      messages:
+        - text: |-
+            Public DNS zone created for example.com. Delegate it at your
+            domain registrar by adding these as NS records:
+
+              ns-1.awsdns-01.com, ns-2.awsdns-02.org
+
+            Certificate issuance won't succeed until delegation propagates.
+
+  # No message without a public domain to delegate.
+  - name: no delegation message without dns.public_domain
+    values:
+      platform: metal
+      gateway:
+        enabled: false
+      network: *default-network
+      cluster: *default-cluster
+    exclude:
+      messages:
+        - text: Public DNS zone created
