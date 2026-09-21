@@ -1176,3 +1176,62 @@ run "karpenter_substrate_disabled_by_default" {
     error_message = "No Karpenter node policies, event rules, or discovery tags when disabled"
   }
 }
+
+# core#2584: every Pod Identity role's trust policy scopes assumption to this
+# cluster's own account and ARN, not just the (namespace, service_account) pair
+# the association itself already enforces.
+run "pod_identity_roles_scope_trust_policy_to_this_cluster" {
+  command = plan
+
+  variables {
+    context_id                     = "test"
+    create_external_dns_role       = true
+    create_aws_lb_controller_role  = true
+    create_cluster_autoscaler_role = true
+    create_cert_manager_role       = true
+    enable_karpenter               = true
+  }
+
+  # assume_role_policy embeds aws_eks_cluster.main.arn, otherwise unknown until
+  # apply. A known value here lets the assertions below evaluate under plan.
+  override_resource {
+    target          = aws_eks_cluster.main
+    override_during = plan
+    values = {
+      arn                   = "arn:aws:eks:us-west-2:123456789012:cluster/cluster-test"
+      certificate_authority = [{ data = "" }]
+    }
+  }
+
+  assert {
+    condition = alltrue([
+      for role in [
+        aws_iam_role.vpc_cni[0],
+        aws_iam_role.ebs_csi[0],
+        aws_iam_role.efs_csi[0],
+        aws_iam_role.external_dns[0],
+        aws_iam_role.aws_lb_controller[0],
+        aws_iam_role.cluster_autoscaler[0],
+        aws_iam_role.cert_manager[0],
+        aws_iam_role.karpenter_controller[0],
+      ] : strcontains(role.assume_role_policy, "\"aws:SourceAccount\":\"123456789012\"")
+    ])
+    error_message = "Every Pod Identity role's trust policy should condition on this account's aws:SourceAccount"
+  }
+
+  assert {
+    condition = alltrue([
+      for role in [
+        aws_iam_role.vpc_cni[0],
+        aws_iam_role.ebs_csi[0],
+        aws_iam_role.efs_csi[0],
+        aws_iam_role.external_dns[0],
+        aws_iam_role.aws_lb_controller[0],
+        aws_iam_role.cluster_autoscaler[0],
+        aws_iam_role.cert_manager[0],
+        aws_iam_role.karpenter_controller[0],
+      ] : strcontains(role.assume_role_policy, "\"aws:SourceArn\"")
+    ])
+    error_message = "Every Pod Identity role's trust policy should condition on this cluster's aws:SourceArn"
+  }
+}
