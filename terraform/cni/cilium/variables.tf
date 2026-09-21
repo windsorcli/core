@@ -9,6 +9,16 @@ variable "cilium_version" {
   }
 }
 
+variable "chart_repository" {
+  description = "Helm repository the Cilium chart is read from. A web address such as https://helm.cilium.io or an oci:// registry address such as oci://registry.example.com/charts is accepted. The chart name stays cilium in both cases."
+  type        = string
+  default     = "https://helm.cilium.io"
+  validation {
+    condition     = can(regex("^(https?://|oci://).+", var.chart_repository))
+    error_message = "chart_repository must start with 'https://', 'http://', or 'oci://'."
+  }
+}
+
 variable "cluster_endpoint" {
   description = "Kubernetes API server endpoint (https://host:port). Required when kube_proxy_replacement is true so Cilium can reach the API server before eBPF service rules are active."
   type        = string
