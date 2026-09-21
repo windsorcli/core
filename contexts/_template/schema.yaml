@@ -1580,34 +1580,14 @@ allOf:
             driver:
               const: talos
 
-  # database.postgres.driver: rds installs Crossplane's provider-aws-rds,
-  # wired to AWS credentials by the aws-eks Terraform module's Pod Identity
-  # association — AWS-only.
+  # platform: aws restricts database.postgres.driver to cloudnativepg or rds.
   - if:
-      properties:
-        database:
-          type: object
-          properties:
-            postgres:
-              type: object
-              properties:
-                driver:
-                  const: rds
-              required:
-                - driver
-          required:
-            - postgres
-      required:
-        - database
-    then:
       properties:
         platform:
           const: aws
-
-  # database.postgres.driver: azuredb installs Crossplane's
-  # provider-azure-dbforpostgresql, wired to Azure credentials by the
-  # azure-aks Terraform module's Workload Identity federation — Azure-only.
-  - if:
+      required:
+        - platform
+    then:
       properties:
         database:
           type: object
@@ -1616,24 +1596,18 @@ allOf:
               type: object
               properties:
                 driver:
-                  const: azuredb
-              required:
-                - driver
-          required:
-            - postgres
-      required:
-        - database
-    then:
+                  enum:
+                    - cloudnativepg
+                    - rds
+
+  # platform: azure restricts database.postgres.driver to cloudnativepg or azuredb.
+  - if:
       properties:
         platform:
           const: azure
       required:
         - platform
-
-  # database.postgres.driver: cloudsql installs Crossplane's
-  # provider-gcp-sql, wired to GCP credentials by the gcp-gke Terraform
-  # module's Workload Identity Federation — GCP-only.
-  - if:
+    then:
       properties:
         database:
           type: object
@@ -1642,16 +1616,48 @@ allOf:
               type: object
               properties:
                 driver:
-                  const: cloudsql
-              required:
-                - driver
-          required:
-            - postgres
-      required:
-        - database
-    then:
+                  enum:
+                    - cloudnativepg
+                    - azuredb
+
+  # platform: gcp restricts database.postgres.driver to cloudnativepg or cloudsql.
+  - if:
       properties:
         platform:
           const: gcp
       required:
         - platform
+    then:
+      properties:
+        database:
+          type: object
+          properties:
+            postgres:
+              type: object
+              properties:
+                driver:
+                  enum:
+                    - cloudnativepg
+                    - cloudsql
+
+  # Any other platform restricts database.postgres.driver to cloudnativepg.
+  - if:
+      properties:
+        platform:
+          not:
+            enum:
+              - aws
+              - azure
+              - gcp
+      required:
+        - platform
+    then:
+      properties:
+        database:
+          type: object
+          properties:
+            postgres:
+              type: object
+              properties:
+                driver:
+                  const: cloudnativepg
