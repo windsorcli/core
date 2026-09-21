@@ -39,8 +39,8 @@ variable "network_id" {
   }
 }
 
-variable "private_service_cidr" {
-  description = "Starting address of the /16 reserved for Cloud SQL's private service connection. Must not overlap any other range in the VPC."
+variable "private_service_address" {
+  description = "Starting address of the /16 CIDR reserved for Cloud SQL's private service connection. Must not overlap any other range in the VPC."
   type        = string
   default     = "172.28.0.0"
 }
