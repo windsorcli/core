@@ -99,6 +99,18 @@ variable "master_ipv4_cidr_block" {
   default     = "172.16.0.0/28"
 }
 
+variable "pod_ipv4_cidr_block" {
+  description = "CIDR block for the cluster's pod range. Must not overlap any other range in the VPC."
+  type        = string
+  default     = "172.20.0.0/14"
+}
+
+variable "service_ipv4_cidr_block" {
+  description = "CIDR block for the cluster's Service range. Must not overlap any other range in the VPC."
+  type        = string
+  default     = "172.24.0.0/20"
+}
+
 variable "authorized_networks" {
   description = "CIDR blocks allowed to reach the control plane's public endpoint"
   type        = list(string)
