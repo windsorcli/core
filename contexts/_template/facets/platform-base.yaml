@@ -516,3 +516,16 @@ flux:
           external_domain: ${gateway_effective.external_domain}
         timeout: 5m
         interval: 5m
+
+# =============================================================================
+# Messages — post-run notes printed on bootstrap
+# =============================================================================
+messages:
+  - when: (dns.public_domain ?? '') != '' && len(terraform_output('dns-zone', 'name_servers') ?? []) > 0
+    text: |-
+      Public DNS zone created for ${dns.public_domain}. Delegate it at your
+      domain registrar by adding these as NS records:
+
+        ${join(terraform_output('dns-zone', 'name_servers'), ', ')}
+
+      Certificate issuance won't succeed until delegation propagates.
