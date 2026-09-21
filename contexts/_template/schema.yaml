@@ -1042,15 +1042,15 @@ properties:
       public_domain:
         $ref: '#/$defs/dnsHostname'
         description: >
-          Publicly-routable DNS zone for the deployment. On AWS, setting
-          this provisions a public Route53 hosted zone in the same
-          account, the cert-manager IAM role + Pod Identity binding for
-          DNS-01 challenges, and an ACME ClusterIssuer that issues real
-          Let's Encrypt certificates for the gateway. The operator must
-          delegate this domain at their registrar to the name servers
-          the dns-zone module outputs. Leave unset for selfsigned-only
-          (just-works) mode. Lowercase DNS labels separated by dots; no
-          scheme, port, or trailing dot.
+          Publicly-routable DNS zone for the deployment. Provisions a
+          public DNS zone on the active platform (Route53, Azure DNS,
+          Cloud DNS, or Hetzner DNS), the cert-manager identity binding
+          for DNS-01 challenges, and an ACME ClusterIssuer that issues
+          real Let's Encrypt certificates for the gateway. The operator
+          must delegate this domain at their registrar to the name
+          servers the dns-zone module outputs. Leave unset for
+          selfsigned-only (just-works) mode. Lowercase DNS labels
+          separated by dots; no scheme, port, or trailing dot.
       private_domain:
         $ref: '#/$defs/dnsHostname'
         description: Private DNS zone (e.g. in-cluster CoreDNS, workstation resolver). Lowercase DNS labels separated by dots.
