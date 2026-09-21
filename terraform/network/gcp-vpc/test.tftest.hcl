@@ -257,3 +257,63 @@ run "invalid_os_type_rejected" {
     os_type    = "plan9"
   }
 }
+
+run "minimal_configuration_skips_private_zone" {
+  command = plan
+
+  variables {
+    context_id = "test"
+  }
+
+  assert {
+    condition     = length(google_dns_managed_zone.private) == 0
+    error_message = "Private DNS zone should not be created when domain_name is unset"
+  }
+}
+
+# The platform-gcp facet passes ${dns.private_domain ?? ""} (empty string,
+# not null) when private_domain is unset, so the count guard must reject
+# both null and "" — otherwise Terraform tries to create a zone with an
+# empty dns_name and Cloud DNS rejects it.
+run "empty_domain_name_skips_private_zone" {
+  command = plan
+
+  variables {
+    context_id  = "test"
+    domain_name = ""
+  }
+
+  assert {
+    condition     = length(google_dns_managed_zone.private) == 0
+    error_message = "Private DNS zone should not be created when domain_name is empty string"
+  }
+}
+
+run "private_dns_zone" {
+  command = plan
+
+  variables {
+    context_id  = "test"
+    domain_name = "internal.example.com"
+  }
+
+  assert {
+    condition     = length(google_dns_managed_zone.private) == 1
+    error_message = "Private DNS zone should be created when domain_name is set"
+  }
+
+  assert {
+    condition     = google_dns_managed_zone.private[0].dns_name == "internal.example.com."
+    error_message = "Private DNS zone dns_name should match domain_name input, dot-terminated"
+  }
+
+  assert {
+    condition     = google_dns_managed_zone.private[0].visibility == "private"
+    error_message = "Zone visibility should be private"
+  }
+
+  assert {
+    condition     = length(google_dns_managed_zone.private[0].private_visibility_config) == 1
+    error_message = "private_visibility_config should be set to link the zone to the VPC"
+  }
+}

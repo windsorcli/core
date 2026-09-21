@@ -21,10 +21,6 @@ requires:
     paths:
       - email
     message: Public DNS requires an operator email for TLS certificate registration.
-  - when: gateway.access == 'private'
-    paths:
-      - gcp_private_gateway_supported
-    message: GCP has no private DNS zone or private-gateway wiring yet. Use gateway.access public, or a different platform.
 
 # =============================================================================
 # Config — platform-specific overrides
@@ -38,10 +34,9 @@ config:
     value:
       metrics_server_enabled: false
 
-  # issuer_component selects the public ClusterIssuer variant (last match
-  # wins): selfsigned floor → ACME (clouddns) once a public domain is set.
-  # GCP has no private-zone wiring yet, unlike AWS/Azure, so there's no
-  # private-mode override here.
+  # issuer_component selects the public ClusterIssuer variant (last match wins):
+  # selfsigned floor → ACME (clouddns) with a public domain → none in private
+  # mode, where the gateway cert uses the `private` issuer platform-base ships.
   - name: pki_effective
     value:
       issuer_component: public-issuer/selfsigned
@@ -49,6 +44,10 @@ config:
     when: (dns.public_domain ?? '') != ''
     value:
       issuer_component: public-issuer/acme/clouddns
+  - name: pki_effective
+    when: gateway.access == 'private' && (dns.private_domain ?? '') != ''
+    value:
+      issuer_component: ""
 
 # =============================================================================
 # Terraform — GCS state backend, VPC, GKE
@@ -73,6 +72,7 @@ terraform:
     inputs:
       region: ${gcp.region ?? 'us-central1'}
       cidr_block: ${network.cidr_block}
+      domain_name: ${dns.private_domain ?? ''}
 
   # Public Cloud DNS zone when dns.public_domain is set. Own stack so its
   # lifecycle (and NS delegation) is independent of the cluster's.
@@ -112,7 +112,13 @@ terraform:
         node_count: "${topology == 'ha' ? 2 : 1}"
       create_cert_manager_identity: "${(dns.public_domain ?? '') != ''}"
       cert_manager_dns_zone_names: "${(dns.public_domain ?? '') != '' && (terraform_output('dns-zone', 'zone_name') ?? '') != '' ? [terraform_output('dns-zone', 'zone_name')] : []}"
-      external_dns_dns_zone_names: "${(dns.public_domain ?? '') != '' && (terraform_output('dns-zone', 'zone_name') ?? '') != '' ? [terraform_output('dns-zone', 'zone_name')] : []}"
+      # external-dns's roles/dns.admin grant is scoped per zone name, so both
+      # the public dns-zone and the private VPC-linked zone are listed when
+      # each is actually provisioned — a context can run both at once.
+      external_dns_dns_zone_names: >-
+        ${concat(
+          (dns.public_domain ?? '') != '' && (terraform_output('dns-zone', 'zone_name') ?? '') != '' ? [terraform_output('dns-zone', 'zone_name')] : [],
+          gateway.access == 'private' && (dns.private_domain ?? '') != '' && (terraform_output('network', 'private_zone_name') ?? '') != '' ? [terraform_output('network', 'private_zone_name')] : [])}
       pools: >-
         ${cluster.pools ?? {"general": {"class": "general", "count": 1}}}
 
@@ -165,12 +171,15 @@ flux:
           acme_dns_zone_project: "${gcp.project_id}"
 
   # DNS — external-dns + Cloud DNS record automation. external-dns writes
-  # A/CNAME records from annotated Ingress/HTTPRoute resources into the
-  # dns-zone stack's zone. Workload Identity is wired by the cluster module.
-  # No private-mode wiring yet — GCP has no VPC-linked private zone, unlike
-  # AWS/Azure.
+  # A/CNAME records from annotated Ingress/HTTPRoute resources. Two modes:
+  # public (dns.public_domain → dns-zone stack) and private (gateway.access
+  # private + dns.private_domain → the VPC-linked zone). Workload Identity is
+  # wired by the cluster module. Cloud DNS's own API serves both zone
+  # visibilities identically, so unlike AWS/Azure this needs no separate
+  # provider variant or zone-ID filter — domainFilters plus google_project_id
+  # already scope external-dns to the right zone.
   - name: dns
-    when: "(dns.public_domain ?? '') != ''"
+    when: "(dns.public_domain ?? '') != '' || (gateway.access == 'private' && (dns.private_domain ?? '') != '')"
     install:
       components:
         - external-dns
@@ -179,9 +188,23 @@ flux:
       timeout: 5m
       interval: 5m
       substitutions:
-        external_domain: "${dns.public_domain}"
+        # Private mode wins over public_domain: a private gateway's hostname is
+        # internal-only, so it publishes to the private zone.
+        external_domain: "${gateway.access == 'private' && (dns.private_domain ?? '') != '' ? dns.private_domain : (dns.public_domain ?? '')}"
         google_project_id: "${gcp.project_id}"
         external_dns_service_account_email: "${terraform_output('cluster', 'external_dns_service_account_email') ?? ''}"
         # Context id in TXT records so multiple external-dns instances in a
         # zone don't clobber each other.
         txt_owner_id: "${id}"
+
+  # Merges into option-gateway's install tier. GKE's CCM gives any Service:
+  # LoadBalancer a public LB by default; the only customization is flipping it
+  # internal for private clusters by conditionally including gcp-internal-lb
+  # (the annotation is a bool-like token that wouldn't survive substitution, so
+  # component inclusion is the toggle). Gated on dns.private_domain — no zone,
+  # no internal LB target.
+  - name: gateway
+    when: "gateway.enabled == true && gateway.driver == 'envoy' && lb_effective.mode == 'loadbalancer'"
+    install:
+      components:
+        - "${gateway.access == 'private' && (dns.private_domain ?? '') != '' ? 'envoy/loadbalancer/gcp-internal-lb' : ''}"
