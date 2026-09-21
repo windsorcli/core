@@ -316,6 +316,16 @@ flux:
         - "${(policies.reporting ?? 'disabled') == 'enabled' ? 'kyverno/reports' : ''}"
         - "${(policies.cleanup ?? 'disabled') == 'enabled' ? 'kyverno/cleanup' : ''}"
         - "${topology == 'ha' ? 'kyverno/ha' : ''}"
+      # Ready waits for the admission controller to serve, not just apply.
+      healthChecks:
+        - apiVersion: helm.toolkit.fluxcd.io/v2
+          kind: HelmRelease
+          name: kyverno
+          namespace: system-policy
+        - apiVersion: apps/v1
+          kind: Deployment
+          name: kyverno-admission-controller
+          namespace: system-policy
       timeout: 30m
       interval: 5m
     resources:
