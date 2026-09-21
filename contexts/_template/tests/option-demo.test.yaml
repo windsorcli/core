@@ -69,8 +69,10 @@ cases:
         enabled: false
       database:
         postgres:
-          enabled: true
-          driver: rds
+          enabled: false
+          cloud:
+            enabled: true
+            driver: rds
     terraformOutputs:
       network:
         db_subnet_group_name: test-rds
@@ -129,8 +131,10 @@ cases:
         enabled: false
       database:
         postgres:
-          enabled: true
-          driver: azuredb
+          enabled: false
+          cloud:
+            enabled: true
+            driver: azuredb
     terraformOutputs:
       network:
         azuredb_subnet_id: /subscriptions/sub/resourceGroups/rg/providers/Microsoft.Network/virtualNetworks/vnet-test/subnets/azuredb-test
@@ -194,8 +198,10 @@ cases:
         enabled: false
       database:
         postgres:
-          enabled: true
-          driver: cloudsql
+          enabled: false
+          cloud:
+            enabled: true
+            driver: cloudsql
     terraformOutputs:
       network:
         network_id: projects/windsor-test/global/networks/vpc-test
@@ -242,7 +248,7 @@ cases:
                   kind: DatabaseCredentials
                   current: status.conditions.exists(e, e.type == 'Ready' && e.status == 'True')
 
-  # database.postgres.encryption.managed adds the encryption-key component,
+  # database.postgres.cloud.encryption.managed adds the encryption-key component,
   # setting encryptionKeyName only when a real key exists.
   - name: demo mode with cloudsql driver and managed encryption sets the CMK
     values:
@@ -258,10 +264,12 @@ cases:
         enabled: false
       database:
         postgres:
-          enabled: true
-          driver: cloudsql
-          encryption:
-            managed: true
+          enabled: false
+          cloud:
+            enabled: true
+            driver: cloudsql
+            encryption:
+              managed: true
     terraformOutputs:
       network:
         network_id: projects/windsor-test/global/networks/vpc-test
@@ -294,10 +302,12 @@ cases:
         enabled: false
       database:
         postgres:
-          enabled: true
-          driver: cloudsql
-          encryption:
-            key_id: projects/windsor-test/locations/us-central1/keyRings/byok/cryptoKeys/byok
+          enabled: false
+          cloud:
+            enabled: true
+            driver: cloudsql
+            encryption:
+              key_id: projects/windsor-test/locations/us-central1/keyRings/byok/cryptoKeys/byok
     terraformOutputs:
       network:
         network_id: projects/windsor-test/global/networks/vpc-test

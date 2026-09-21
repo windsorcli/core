@@ -1365,26 +1365,32 @@ properties:
         properties:
           enabled:
             type: boolean
-            description: Enable PostgreSQL database service
-          driver:
-            type: string
-            enum:
-              - cloudnativepg
-              - rds
-              - azuredb
-              - cloudsql
-            default: cloudnativepg
-            description: PostgreSQL database driver
-          encryption:
+            description: Enable the in-cluster CloudNativePG Postgres service
+          cloud:
             type: object
             properties:
-              managed:
+              enabled:
                 type: boolean
                 default: false
-                description: Create a dedicated customer-managed key instead of the driver's platform-managed default.
-              key_id:
+                description: Also expose a cloud-managed Postgres instance for application charts to request
+              driver:
                 type: string
-                description: Existing encryption key identifier for the active driver, overriding managed. Format is driver-dependent (an ARN for rds, a Key Vault key ID for azuredb, a CryptoKey resource name for cloudsql).
+                enum:
+                  - rds
+                  - azuredb
+                  - cloudsql
+                description: Cloud Postgres driver. Required when cloud.enabled.
+              encryption:
+                type: object
+                properties:
+                  managed:
+                    type: boolean
+                    default: false
+                    description: Create a dedicated customer-managed key instead of the driver's platform-managed default.
+                  key_id:
+                    type: string
+                    description: Existing encryption key identifier for the active driver, overriding managed. Format is driver-dependent (an ARN for rds, a Key Vault key ID for azuredb, a CryptoKey resource name for cloudsql).
+                additionalProperties: false
             additionalProperties: false
         additionalProperties: false
     additionalProperties: false
@@ -1580,7 +1586,7 @@ allOf:
             driver:
               const: talos
 
-  # platform: aws restricts database.postgres.driver to cloudnativepg or rds.
+  # platform: aws restricts database.postgres.cloud.driver to rds.
   - if:
       properties:
         platform:
@@ -1595,12 +1601,13 @@ allOf:
             postgres:
               type: object
               properties:
-                driver:
-                  enum:
-                    - cloudnativepg
-                    - rds
+                cloud:
+                  type: object
+                  properties:
+                    driver:
+                      const: rds
 
-  # platform: azure restricts database.postgres.driver to cloudnativepg or azuredb.
+  # platform: azure restricts database.postgres.cloud.driver to azuredb.
   - if:
       properties:
         platform:
@@ -1615,12 +1622,13 @@ allOf:
             postgres:
               type: object
               properties:
-                driver:
-                  enum:
-                    - cloudnativepg
-                    - azuredb
+                cloud:
+                  type: object
+                  properties:
+                    driver:
+                      const: azuredb
 
-  # platform: gcp restricts database.postgres.driver to cloudnativepg or cloudsql.
+  # platform: gcp restricts database.postgres.cloud.driver to cloudsql.
   - if:
       properties:
         platform:
@@ -1635,12 +1643,13 @@ allOf:
             postgres:
               type: object
               properties:
-                driver:
-                  enum:
-                    - cloudnativepg
-                    - cloudsql
+                cloud:
+                  type: object
+                  properties:
+                    driver:
+                      const: cloudsql
 
-  # Any other platform restricts database.postgres.driver to cloudnativepg.
+  # Any other platform cannot serve a cloud-managed Postgres.
   - if:
       properties:
         platform:
@@ -1659,5 +1668,40 @@ allOf:
             postgres:
               type: object
               properties:
-                driver:
-                  const: cloudnativepg
+                cloud:
+                  type: object
+                  properties:
+                    enabled:
+                      const: false
+
+  # database.postgres.cloud.enabled requires an explicit cloud driver.
+  - if:
+      properties:
+        database:
+          type: object
+          properties:
+            postgres:
+              type: object
+              properties:
+                cloud:
+                  type: object
+                  properties:
+                    enabled:
+                      const: true
+                  required:
+                    - enabled
+              required:
+                - cloud
+          required:
+            - postgres
+      required:
+        - database
+    then:
+      properties:
+        database:
+          properties:
+            postgres:
+              properties:
+                cloud:
+                  required:
+                    - driver

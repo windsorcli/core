@@ -46,7 +46,7 @@ flux:
   # Guard on `enabled`: this is a patch-only component, so without the base
   # HelmRelease from addon-database flux errors on "no matches for Id".
   - name: database
-    when: database.postgres.enabled == true && database.postgres.driver == 'cloudnativepg'
+    when: database.postgres.enabled == true
     install:
       components:
         - cloudnativepg/single-node

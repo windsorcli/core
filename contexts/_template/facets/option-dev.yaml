@@ -28,7 +28,6 @@ config:
     value:
       postgres:
         enabled: ${database.postgres.enabled != false}
-        driver: "${database.postgres.driver ?? 'cloudnativepg'}"
 
 # =============================================================================
 # Flux systems — pki resources overlay

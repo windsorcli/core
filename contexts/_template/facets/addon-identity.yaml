@@ -43,14 +43,14 @@ config:
       # instead of gateway.enabled directly.
       gateway_reachable: "${(identity.driver ?? 'keycloak') == 'keycloak' && gateway.enabled == true ? 'yes' : ''}"
 
-  # The hosted server needs PostgreSQL, so the keycloak driver turns database on
+  # The hosted server needs CloudNativePG, so the keycloak driver turns it on
   # by default (on unless explicitly disabled). The oidc driver hosts nothing,
-  # so it leaves the database setting untouched.
+  # so it leaves the database setting untouched. Unrelated to
+  # database.postgres.cloud, which an app chart opts into independently.
   - name: database
     value:
       postgres:
         enabled: "${(identity.driver ?? 'keycloak') == 'keycloak' ? (database.postgres.enabled != false) : (database.postgres.enabled ?? false)}"
-        driver: "${database.postgres.driver ?? 'cloudnativepg'}"
 
 requires:
   - when: (identity.driver ?? 'keycloak') == 'keycloak' && observability.enabled == true && observability.grafana.sso != false && dev != true

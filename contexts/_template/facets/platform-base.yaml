@@ -227,8 +227,8 @@ config:
         - prometheus/alerts/flux
         - "${gateway.enabled == true && gateway.driver == 'envoy' ? 'prometheus/alerts/envoy' : ''}"
         - "${(identity.driver ?? 'keycloak') == 'keycloak' && identity.enabled == true ? 'prometheus/alerts/identity' : ''}"
-        - "${(database.postgres.driver ?? 'cloudnativepg') == 'cloudnativepg' && database.postgres.enabled == true ? 'prometheus/alerts/database' : ''}"
-        - "${(database.postgres.driver == 'rds' || database.postgres.driver == 'azuredb') && database.postgres.enabled == true ? 'prometheus/alerts/postgres-exporter' : ''}"
+        - "${database.postgres.enabled == true ? 'prometheus/alerts/database' : ''}"
+        - "${database.postgres.cloud.enabled == true && (database.postgres.cloud.driver == 'rds' || database.postgres.cloud.driver == 'azuredb') ? 'prometheus/alerts/postgres-exporter' : ''}"
 
   # No logs pipeline → nothing to aggregate.
   - name: telemetry
