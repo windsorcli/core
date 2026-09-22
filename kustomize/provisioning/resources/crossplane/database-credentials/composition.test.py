@@ -84,6 +84,41 @@ class AdminCredentialsSecretNameTests(unittest.TestCase):
         )
 
 
+class BuildProviderConfigUsageTests(unittest.TestCase):
+    def test_of_targets_the_instance_by_targets_the_provider_config(self):
+        usage = composition.build_provider_config_usage(
+            "demo-db",
+            "demo-database",
+            "rds.aws.upbound.io/v1beta3",
+            "Instance",
+        )
+        self.assertEqual(
+            usage["spec"]["of"],
+            {
+                "apiVersion": "rds.aws.upbound.io/v1beta3",
+                "kind": "Instance",
+                "resourceRef": {"name": "demo-db"},
+            },
+        )
+        self.assertEqual(
+            usage["spec"]["by"],
+            {
+                "apiVersion": "postgresql.sql.m.crossplane.io/v1alpha1",
+                "kind": "ProviderConfig",
+                "resourceRef": {"name": "provider-sql-demo-db"},
+            },
+        )
+
+    def test_replays_deletion(self):
+        usage = composition.build_provider_config_usage(
+            "demo-db",
+            "demo-database",
+            "rds.aws.upbound.io/v1beta3",
+            "Instance",
+        )
+        self.assertTrue(usage["spec"]["replayDeletion"])
+
+
 class BuildRoleTests(unittest.TestCase):
     def test_k8s_name_sanitized_external_name_keeps_real_role(self):
         role = composition.build_role(

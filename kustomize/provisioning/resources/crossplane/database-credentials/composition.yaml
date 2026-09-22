@@ -91,6 +91,28 @@ spec:
               }
 
 
+          def build_provider_config_usage(instance_name, namespace, target_api_version, target_kind):
+              # Blocks the target instance's deletion until its ProviderConfig is gone.
+              return {
+                  "apiVersion": "protection.crossplane.io/v1beta1",
+                  "kind": "Usage",
+                  "metadata": {"name": f"provider-sql-{instance_name}-usage", "namespace": namespace},
+                  "spec": {
+                      "of": {
+                          "apiVersion": target_api_version,
+                          "kind": target_kind,
+                          "resourceRef": {"name": instance_name},
+                      },
+                      "by": {
+                          "apiVersion": "postgresql.sql.m.crossplane.io/v1alpha1",
+                          "kind": "ProviderConfig",
+                          "resourceRef": {"name": f"provider-sql-{instance_name}"},
+                      },
+                      "replayDeletion": True,
+                  },
+              }
+
+
           def build_role(role_name, role_slug, namespace, instance_name, secret_name):
               # external-name annotation holds the real Postgres role name.
               return {
@@ -210,6 +232,12 @@ spec:
               rsp.desired.resources["provider-config"].resource.update(build_provider_config(instance_name, namespace))
               # ProviderConfig has no status.conditions to check.
               rsp.desired.resources["provider-config"].ready = True
+
+              rsp.desired.resources["provider-config-usage"].resource.update(
+                  build_provider_config_usage(instance_name, namespace, target_api_version, target_kind)
+              )
+              # Usage has no status.conditions to check.
+              rsp.desired.resources["provider-config-usage"].ready = True
 
               rsp.desired.resources["role"].resource.update(build_role(role_name, role_slug, namespace, instance_name, secret_name))
               if is_ready(req, "role"):
