@@ -228,7 +228,7 @@ config:
         - "${gateway.enabled == true && gateway.driver == 'envoy' ? 'prometheus/alerts/envoy' : ''}"
         - "${(identity.driver ?? 'keycloak') == 'keycloak' && identity.enabled == true ? 'prometheus/alerts/identity' : ''}"
         - "${database.postgres.enabled == true ? 'prometheus/alerts/database' : ''}"
-        - "${database.postgres.cloud.enabled == true && (database.postgres.cloud.driver == 'rds' || database.postgres.cloud.driver == 'azuredb') ? 'prometheus/alerts/postgres-exporter' : ''}"
+        - "${database.postgres.cloud.enabled == true && (database_effective.cloud_driver == 'rds' || database_effective.cloud_driver == 'azuredb') ? 'prometheus/alerts/postgres-exporter' : ''}"
 
   # No logs pipeline → nothing to aggregate.
   - name: telemetry
@@ -364,6 +364,8 @@ flux:
           - "${lb_effective.driver == 'metallb' ? lb_effective.driver + '/' + (network.loadbalancer_mode ?? 'arp') : ''}"
         substitutions:
           loadbalancer_ip_range: "${network.loadbalancer_ips.start + '-' + network.loadbalancer_ips.end}"
+        timeout: 5m
+        interval: 5m
 
   # csi-install before telemetry-install: Prometheus's PVC needs a live storage
   # driver, both to bind on install and to release its finalizer on destroy.

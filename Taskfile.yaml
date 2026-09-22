@@ -63,6 +63,9 @@ tasks:
               xargs -0 -n1 -P0 sh -c '
                 testfile="$1"
                 testdir=$(dirname "$testfile")
+                # An active windsor context exports TF_VAR_* (e.g. TF_VAR_region)
+                # into this shell, overriding module defaults the tests assert on.
+                for v in $(env | grep -o "^TF_VAR_[A-Za-z0-9_]*"); do unset "$v"; done
                 cd "$testdir" && \
                 echo "Running tests in $testdir..." && \
                 terraform init -input=false -reconfigure && \
