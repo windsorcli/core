@@ -7,10 +7,14 @@ description: "database.postgres.driver is one enum today — cloudnativepg | rds
 
 ## Status
 
-Proposed. Revises [ADR-0009](0009-crossplane-cloud-databases.md) §1's original
+Implemented ([core#2904](https://github.com/windsorcli/core/pull/2904)).
+Revises [ADR-0009](0009-crossplane-cloud-databases.md) §1's original
 "reuse `database.postgres`, `driver` selects the implementation" call, formalizing
-[core#2864](https://github.com/windsorcli/core/issues/2864). Not yet
-implemented or verified live.
+[core#2864](https://github.com/windsorcli/core/issues/2864). §1 and §4 were
+refined after landing by [core#2911](https://github.com/windsorcli/core/issues/2911):
+`cloud.driver` now defaults from `platform` instead of being a hard
+`requires:` failure, since each supported platform serves exactly one
+cloud Postgres driver.
 
 ## Context
 
@@ -150,12 +154,12 @@ concept to opt into; the field only ever meant something for
 instead of leaving it a sibling of `driver` that happened to be a no-op
 for one of that field's four values.
 
-`cloud.driver` has no default, matching `gateway.driver`'s own
-precedent (no default; a platform facet or a `requires:` check pins the
-valid value). `requires:` (§4) makes it mandatory the moment
-`cloud.enabled: true` is set, so composition fails at the field that's
-actually missing rather than silently picking a driver the platform can't
-serve.
+`cloud.driver` defaults from `platform` (§4) the moment `cloud.enabled: true`
+is set — `aws` → `rds`, `azure` → `azuredb`, `gcp` → `cloudsql` — since the
+platform/driver coherence checks already pin each platform to exactly one
+valid value, leaving nothing for an operator-supplied `driver` to resolve
+ambiguously. An explicit `driver` still overrides the default and is still
+validated by those same coherence checks.
 
 ### 2. Every `driver == 'cloudnativepg'` gate becomes `enabled == true`
 
@@ -218,37 +222,7 @@ This changes real behavior, not only naming: a context with both
 both dashboards, where today it can only ever get one — the exact
 capability this ADR is restoring.
 
-### 4. `requires:` closes the gap no check caught before
-
-`schema.yaml` gains a `required: [driver]` conditional keyed on
-`cloud.enabled`, next to the platform/driver coherence checks
-[core#2884](https://github.com/windsorcli/core/issues/2884) already fixed to key
-off `platform`:
-
-```yaml
-- if:
-    properties:
-      database:
-        properties:
-          postgres:
-            properties:
-              cloud:
-                properties:
-                  enabled:
-                    const: true
-                required: [enabled]
-            required: [cloud]
-        required: [postgres]
-    required: [database]
-  then:
-    properties:
-      database:
-        properties:
-          postgres:
-            properties:
-              cloud:
-                required: [driver]
-```
+### 4. `database_effective.cloud_driver` closes the gap no check caught before
 
 The four platform/driver coherence blocks from #2884 move to key off
 `cloud.driver` instead of `driver`, and the fourth block (any platform
@@ -276,6 +250,15 @@ a value for `cloud.driver` to fall back to on those platforms, since
                   enabled:
                     const: false
 ```
+
+`addon-database.yaml` gains a `config:` block computing
+`database_effective.cloud_driver`: one entry per platform (`aws` → `rds`,
+`azure` → `azuredb`, `gcp` → `cloudsql`), followed by an entry that
+overrides it with an explicit `database.postgres.cloud.driver` when the
+operator supplies one. Every site that gated on `driver == '<cloud>'`
+reads `database_effective.cloud_driver` instead of the raw schema field,
+so the default resolves the same way whether or not the operator wrote
+it out.
 
 `addon-identity.yaml`'s `database` config block's `driver` passthrough
 line (`driver: "${database.postgres.driver ?? 'cloudnativepg'}"`) is
@@ -392,7 +375,9 @@ value that names nothing.
 - [ADR-0009](0009-crossplane-cloud-databases.md) §1 — the original
   single-enum decision this ADR revises.
 - [core#2884](https://github.com/windsorcli/core/issues/2884) — the
-  platform/driver coherence-check fix §4's `requires:` blocks build on.
+  platform/driver coherence-check fix §4's blocks build on.
+- [core#2911](https://github.com/windsorcli/core/issues/2911) — refines
+  §1/§4 to default `cloud.driver` from `platform` instead of requiring it.
 - [ADR-0003](0003-versioning-and-upgrade-contract.md) — the pre-1.0 0ver
   contract this ADR's breaking change relies on.
 - `contexts/_template/facets/addon-database.yaml`,
