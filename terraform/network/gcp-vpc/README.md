@@ -47,6 +47,7 @@ No modules.
 | [google_compute_subnetwork.isolated](https://registry.terraform.io/providers/hashicorp/google/8.2.0/docs/resources/compute_subnetwork) | resource |
 | [google_compute_subnetwork.private](https://registry.terraform.io/providers/hashicorp/google/8.2.0/docs/resources/compute_subnetwork) | resource |
 | [google_compute_subnetwork.public](https://registry.terraform.io/providers/hashicorp/google/8.2.0/docs/resources/compute_subnetwork) | resource |
+| [google_dns_managed_zone.private](https://registry.terraform.io/providers/hashicorp/google/8.2.0/docs/resources/dns_managed_zone) | resource |
 | [null_resource.remove_orphaned_firewalls](https://registry.terraform.io/providers/hashicorp/null/latest/docs/resources/resource) | resource |
 | [google_compute_zones.available](https://registry.terraform.io/providers/hashicorp/google/8.2.0/docs/data-sources/compute_zones) | data source |
 
@@ -56,6 +57,7 @@ No modules.
 |------|-------------|------|---------|:--------:|
 | <a name="input_cidr_block"></a> [cidr\_block](#input\_cidr\_block) | CIDR block the subnet tiers are carved from | `string` | `"10.0.0.0/16"` | no |
 | <a name="input_context_id"></a> [context\_id](#input\_context\_id) | Context ID for the resources | `string` | n/a | yes |
+| <a name="input_domain_name"></a> [domain\_name](#input\_domain\_name) | The domain name for the VPC-linked private DNS zone. When unset, no private zone is created. Changing this value on an existing zone destroys it, and every record in it, before creating the replacement. | `string` | `null` | no |
 | <a name="input_enable_flow_logs"></a> [enable\_flow\_logs](#input\_enable\_flow\_logs) | Enable VPC Flow Logs on every subnet | `bool` | `true` | no |
 | <a name="input_enable_iap_ingress"></a> [enable\_iap\_ingress](#input\_enable\_iap\_ingress) | Allow SSH/RDP ingress from Identity-Aware Proxy's fixed range | `bool` | `true` | no |
 | <a name="input_enable_nat"></a> [enable\_nat](#input\_enable\_nat) | Create a Cloud Router and Cloud NAT for the private subnet's outbound access | `bool` | `true` | no |
@@ -77,6 +79,8 @@ No modules.
 | <a name="output_network_id"></a> [network\_id](#output\_network\_id) | The ID of the VPC network |
 | <a name="output_network_name"></a> [network\_name](#output\_network\_name) | The name of the VPC network |
 | <a name="output_private_subnet_id"></a> [private\_subnet\_id](#output\_private\_subnet\_id) | ID of the private subnet |
+| <a name="output_private_zone_id"></a> [private\_zone\_id](#output\_private\_zone\_id) | ID of the VPC-linked private DNS zone created from var.domain\_name. Null when no domain\_name was supplied. |
+| <a name="output_private_zone_name"></a> [private\_zone\_name](#output\_private\_zone\_name) | Name of the VPC-linked private DNS zone. Null when no domain\_name was supplied. |
 | <a name="output_public_subnet_id"></a> [public\_subnet\_id](#output\_public\_subnet\_id) | ID of the public subnet |
 | <a name="output_region"></a> [region](#output\_region) | GCP region the network and its subnets are created in |
 <!-- END_TF_DOCS -->

@@ -423,8 +423,31 @@ cases:
         public_domain: example.com
     expectError: true
 
-  # Requires: GCP has no private DNS zone or private-gateway wiring yet.
-  - name: gateway.access private fails composition on GCP
+  # Default (public) access: the gateway install-merge entry's when: fires
+  # (envoy + loadbalancer mode) but the ternary has nothing to select, so
+  # gcp-internal-lb must not appear — the empty string it evaluates to is
+  # pruned during composition, matching Azure's identical public-path case.
+  - name: gateway with envoy on GCP does not add gcp-internal-lb component by default
+    values:
+      platform: gcp
+      gcp:
+        project_id: windsor-test
+      gateway:
+        enabled: true
+        driver: envoy
+    exclude:
+      flux:
+        - name: gateway
+          install:
+            components:
+              - envoy/loadbalancer/gcp-internal-lb
+
+  # gateway.access=private threads through the GCP facet's gateway install
+  # merge, conditionally including gcp-internal-lb (GKE's CCM makes any
+  # Service:LoadBalancer public by default; the annotation is what flips it).
+  # dns.private_domain is required — without it the LB scheme stays public
+  # so the gateway doesn't end up internal-only with no DNS pointing at it.
+  - name: gateway.access=private flips the GKE LB to internal
     values:
       platform: gcp
       gcp:
@@ -435,11 +458,48 @@ cases:
         access: private
       dns:
         private_domain: internal.example.com
-    expectError: true
+    expect:
+      flux:
+        - name: gateway
+          install:
+            components:
+              - envoy/loadbalancer/gcp-internal-lb
 
-  # Same guard, without a private domain set — access: private alone is
-  # unsupported on GCP regardless of dns.private_domain.
-  - name: gateway.access private without a private domain also fails composition on GCP
+  # Private mode: gateway.access=private flips the DNS path away from the
+  # public zone and onto the VPC-private Cloud DNS zone the network module
+  # creates from dns.private_domain. external-dns is still rendered, pointed
+  # at the private domain — no zone_id_filter needed, domainFilters already
+  # scopes it. Cert issuer falls to private-issuer/selfsigned (ACME can't
+  # validate against a VPC-only zone).
+  - name: private mode targets external-dns at the private Cloud DNS zone
+    values:
+      platform: gcp
+      gcp:
+        project_id: windsor-test
+      gateway:
+        enabled: true
+        driver: envoy
+        access: private
+      dns:
+        private_domain: internal.example.com
+    expect:
+      flux:
+        - name: dns
+          install:
+            components:
+              - external-dns
+              - external-dns/providers/google
+              - external-dns/sources/gateway-httproute
+            substitutions:
+              external_domain: internal.example.com
+        - name: pki
+          resources:
+            - components:
+                - private-issuer/selfsigned
+
+  # option-gateway.yaml's own requires: rejects access: private without a
+  # private domain, platform-agnostically — nothing GCP-specific to guard.
+  - name: gateway.access private without a private domain fails composition
     values:
       platform: gcp
       gcp:
