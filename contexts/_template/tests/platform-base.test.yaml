@@ -39,15 +39,6 @@ cases:
           install:
             components:
               - kyverno
-            healthChecks:
-              - apiVersion: helm.toolkit.fluxcd.io/v2
-                kind: HelmRelease
-                name: kyverno
-                namespace: system-policy
-              - apiVersion: apps/v1
-                kind: Deployment
-                name: kyverno-admission-controller
-                namespace: system-policy
             timeout: 30m
             interval: 5m
           resources:
@@ -55,7 +46,13 @@ cases:
                 - kyverno/resource-limits-requests
                 - kyverno/require-image-digest
                 - kyverno/external-dns-ttl
-              timeout: 5m
+                - kyverno
+              healthChecks:
+                - apiVersion: batch/v1
+                  kind: Job
+                  name: kyverno-webhook-probe
+                  namespace: system-policy
+              timeout: 8m
               interval: 5m
         - name: telemetry
           install:
@@ -295,10 +292,18 @@ cases:
       flux:
         - name: policy
           resources:
-            - components: []
-              timeout: 5m
+            - components:
+                - kyverno
+              timeout: 8m
               interval: 5m
               retryInterval: 1m
+    exclude:
+      flux:
+        - name: policy
+          resources:
+            - components:
+                - kyverno/resource-limits-requests
+                - kyverno/require-image-digest
 
   # Kyverno reports-controller opt-in layers in the kyverno/reports component.
   - name: policies.reporting enabled adds kyverno/reports component

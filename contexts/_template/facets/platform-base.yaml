@@ -316,32 +316,20 @@ flux:
         - "${(policies.reporting ?? 'disabled') == 'enabled' ? 'kyverno/reports' : ''}"
         - "${(policies.cleanup ?? 'disabled') == 'enabled' ? 'kyverno/cleanup' : ''}"
         - "${topology == 'ha' ? 'kyverno/ha' : ''}"
-      # Ready waits for the admission controller to serve, not just apply.
-      healthChecks:
-        - apiVersion: helm.toolkit.fluxcd.io/v2
-          kind: HelmRelease
-          name: kyverno
-          namespace: system-policy
-        - apiVersion: apps/v1
-          kind: Deployment
-          name: kyverno-admission-controller
-          namespace: system-policy
       timeout: 30m
       interval: 5m
     resources:
       - components:
+          - kyverno
           - "${(policies.resource_limits_requests ?? 'enabled') != 'disabled' ? 'kyverno/resource-limits-requests' : ''}"
           - "${(policies.require_image_digest ?? 'enabled') != 'disabled' ? 'kyverno/require-image-digest' : ''}"
           - "${(policies.external_dns_ttl ?? 'enabled') != 'disabled' ? 'kyverno/external-dns-ttl' : ''}"
         healthChecks:
-          - apiVersion: admissionregistration.k8s.io/v1
-            kind: ValidatingWebhookConfiguration
-            name: kyverno-resource-validating-webhook-cfg
-        healthCheckExprs:
-          - apiVersion: admissionregistration.k8s.io/v1
-            kind: ValidatingWebhookConfiguration
-            current: webhooks.size() > 0 && webhooks.all(w, has(w.clientConfig.caBundle) && size(w.clientConfig.caBundle) > 0 && has(w.rules) && size(w.rules) > 0)
-        timeout: 5m
+          - apiVersion: batch/v1
+            kind: Job
+            name: kyverno-webhook-probe
+            namespace: system-policy
+        timeout: 8m
         interval: 5m
         retryInterval: 1m
 

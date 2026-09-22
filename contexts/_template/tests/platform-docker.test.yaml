@@ -160,7 +160,8 @@ cases:
                 - kyverno/resource-limits-requests
                 - kyverno/require-image-digest
                 - kyverno/external-dns-ttl
-              timeout: 5m
+                - kyverno
+              timeout: 8m
               interval: 5m
         - name: telemetry
           install:
@@ -343,7 +344,8 @@ cases:
                 - kyverno/resource-limits-requests
                 - kyverno/require-image-digest
                 - kyverno/external-dns-ttl
-              timeout: 5m
+                - kyverno
+              timeout: 8m
               interval: 5m
         - name: telemetry
           install:
