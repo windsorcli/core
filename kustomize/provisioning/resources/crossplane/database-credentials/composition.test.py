@@ -87,7 +87,10 @@ class AdminCredentialsSecretNameTests(unittest.TestCase):
 class BuildProviderConfigUsageTests(unittest.TestCase):
     def test_of_targets_the_instance_by_targets_the_provider_config(self):
         usage = composition.build_provider_config_usage(
-            "demo-db", "demo-database", "rds.aws.upbound.io/v1beta3", "Instance"
+            "demo-db",
+            "demo-database",
+            "rds.aws.upbound.io/v1beta3",
+            "Instance",
         )
         self.assertEqual(
             usage["spec"]["of"],
@@ -102,16 +105,16 @@ class BuildProviderConfigUsageTests(unittest.TestCase):
             {
                 "apiVersion": "postgresql.sql.m.crossplane.io/v1alpha1",
                 "kind": "ProviderConfig",
-                "resourceRef": {
-                    "name": "provider-sql-demo-db",
-                    "namespace": "demo-database",
-                },
+                "resourceRef": {"name": "provider-sql-demo-db"},
             },
         )
 
     def test_replays_deletion(self):
         usage = composition.build_provider_config_usage(
-            "demo-db", "demo-database", "rds.aws.upbound.io/v1beta3", "Instance"
+            "demo-db",
+            "demo-database",
+            "rds.aws.upbound.io/v1beta3",
+            "Instance",
         )
         self.assertTrue(usage["spec"]["replayDeletion"])
 

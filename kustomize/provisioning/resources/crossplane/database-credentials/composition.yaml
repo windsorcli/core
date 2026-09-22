@@ -106,7 +106,7 @@ spec:
                       "by": {
                           "apiVersion": "postgresql.sql.m.crossplane.io/v1alpha1",
                           "kind": "ProviderConfig",
-                          "resourceRef": {"name": f"provider-sql-{instance_name}", "namespace": namespace},
+                          "resourceRef": {"name": f"provider-sql-{instance_name}"},
                       },
                       "replayDeletion": True,
                   },
