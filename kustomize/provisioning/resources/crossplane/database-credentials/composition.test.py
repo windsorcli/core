@@ -85,9 +85,10 @@ class AdminCredentialsSecretNameTests(unittest.TestCase):
 
 
 class BuildProviderConfigUsageTests(unittest.TestCase):
-    def test_of_targets_the_instance_by_targets_the_provider_config(self):
+    def test_of_targets_a_cluster_scoped_instance(self):
         usage = composition.build_provider_config_usage(
             "demo-db",
+            "",
             "demo-database",
             "rds.aws.upbound.io/v1beta3",
             "Instance",
@@ -99,6 +100,28 @@ class BuildProviderConfigUsageTests(unittest.TestCase):
                 "kind": "Instance",
                 "resourceRef": {"name": "demo-db", "namespace": ""},
             },
+        )
+
+    def test_of_targets_a_namespaced_instance_in_its_own_namespace(self):
+        usage = composition.build_provider_config_usage(
+            "demo-db",
+            "some-instance-namespace",
+            "demo-database",
+            "rds.aws.upbound.io/v1beta3",
+            "Instance",
+        )
+        self.assertEqual(
+            usage["spec"]["of"]["resourceRef"],
+            {"name": "demo-db", "namespace": "some-instance-namespace"},
+        )
+
+    def test_by_targets_the_provider_config(self):
+        usage = composition.build_provider_config_usage(
+            "demo-db",
+            "",
+            "demo-database",
+            "rds.aws.upbound.io/v1beta3",
+            "Instance",
         )
         self.assertEqual(
             usage["spec"]["by"],
@@ -112,6 +135,7 @@ class BuildProviderConfigUsageTests(unittest.TestCase):
     def test_replays_deletion(self):
         usage = composition.build_provider_config_usage(
             "demo-db",
+            "",
             "demo-database",
             "rds.aws.upbound.io/v1beta3",
             "Instance",

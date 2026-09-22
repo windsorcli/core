@@ -91,7 +91,7 @@ spec:
               }
 
 
-          def build_provider_config_usage(instance_name, namespace, target_api_version, target_kind):
+          def build_provider_config_usage(instance_name, instance_namespace, namespace, target_api_version, target_kind):
               # Blocks the target instance's deletion until its ProviderConfig is gone.
               return {
                   "apiVersion": "protection.crossplane.io/v1beta1",
@@ -101,8 +101,7 @@ spec:
                       "of": {
                           "apiVersion": target_api_version,
                           "kind": target_kind,
-                          # Empty namespace: the target instance kinds are all cluster-scoped.
-                          "resourceRef": {"name": instance_name, "namespace": ""},
+                          "resourceRef": {"name": instance_name, "namespace": instance_namespace},
                       },
                       "by": {
                           "apiVersion": "postgresql.sql.m.crossplane.io/v1alpha1",
@@ -234,8 +233,9 @@ spec:
               # ProviderConfig has no status.conditions to check.
               rsp.desired.resources["provider-config"].ready = True
 
+              instance_namespace = instance.get("metadata", {}).get("namespace", "")
               rsp.desired.resources["provider-config-usage"].resource.update(
-                  build_provider_config_usage(instance_name, namespace, target_api_version, target_kind)
+                  build_provider_config_usage(instance_name, instance_namespace, namespace, target_api_version, target_kind)
               )
               # Usage has no status.conditions to check.
               rsp.desired.resources["provider-config-usage"].ready = True
