@@ -97,7 +97,7 @@ class BuildProviderConfigUsageTests(unittest.TestCase):
             {
                 "apiVersion": "rds.aws.upbound.io/v1beta3",
                 "kind": "Instance",
-                "resourceRef": {"name": "demo-db"},
+                "resourceRef": {"name": "demo-db", "namespace": ""},
             },
         )
         self.assertEqual(
