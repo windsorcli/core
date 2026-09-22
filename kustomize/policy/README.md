@@ -136,6 +136,7 @@ to add your own.
 |---|---|---|
 | `kyverno/resource-limits-requests` | `policies.resource_limits_requests != 'disabled'` | ValidatingPolicy `resource-limits-requests` (Audit) that every container has CPU and memory `resources.limits` + `resources.requests` set. Matches Pods in `system-*` namespaces and namespaces labeled `policy.windsorcli.dev/managed: true`. Skips `kube-system`. |
 | `kyverno/require-image-digest` | `policies.require_image_digest != 'disabled'` | ValidatingPolicy `require-image-digest` (Deny) that every container image reference includes a `sha256:` digest (`repo:tag@sha256:…` or `repo@sha256:…`). Same namespace match scope as `resource-limits-requests`, plus an exemption for the Flux namespace (labelled `app.kubernetes.io/part-of: flux`) whose operator-installed controllers are version-pinned rather than digest-pinned. |
+| `kyverno (resources)` | always | RBAC and a Job that retries a dry-run Pod create until Kyverno's admission webhook actually answers (allowed or denied), gating `policy-resources`' Ready condition. Kyverno's own readiness probe only validates its TLS certificate, not webhook reachability, so object status reports ready minutes before real admission calls succeed; this issues one instead. |
 
 <!-- END_KUSTOMIZE_DOCS -->
 

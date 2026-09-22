@@ -1,0 +1,45 @@
+# Retries a dry-run admission request until Kyverno's webhook actually answers.
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: kyverno-webhook-probe
+  namespace: system-policy
+spec:
+  backoffLimit: 0
+  activeDeadlineSeconds: 360
+  template:
+    spec:
+      restartPolicy: Never
+      serviceAccountName: kyverno-webhook-probe
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1000
+        runAsGroup: 1000
+      containers:
+      - name: probe
+        # renovate: datasource=docker depName=kubectl package=alpine/k8s
+        image: alpine/k8s:1.37.0@sha256:b421c2e9419edb98db39b6ab641669f4db7bb2acf354f22450c6b7e7176d1ff4
+        command: ["/bin/sh", "-c"]
+        args:
+        - |
+          i=1
+          while [ "$i" -le 60 ]; do
+            OUT=$(kubectl run kyverno-webhook-probe --image=does-not-matter --restart=Never -n system-policy --dry-run=server 2>&1)
+            STATUS=$?
+            if [ "$STATUS" -eq 0 ] || echo "$OUT" | grep -q "denied the request"; then
+              echo "Kyverno's admission webhook evaluated the request (allowed or denied)."
+              exit 0
+            fi
+            echo "Attempt $i/60: webhook not yet reachable: $OUT"
+            sleep 5
+            i=$((i + 1))
+          done
+          echo "Kyverno's admission webhook never became reachable within the timeout."
+          exit 1
+        securityContext:
+          allowPrivilegeEscalation: false
+          capabilities:
+            drop:
+              - ALL
+          seccompProfile:
+            type: RuntimeDefault
