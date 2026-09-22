@@ -101,7 +101,8 @@ spec:
                       "of": {
                           "apiVersion": target_api_version,
                           "kind": target_kind,
-                          "resourceRef": {"name": instance_name},
+                          # Empty namespace: the target instance kinds are all cluster-scoped.
+                          "resourceRef": {"name": instance_name, "namespace": ""},
                       },
                       "by": {
                           "apiVersion": "postgresql.sql.m.crossplane.io/v1alpha1",
