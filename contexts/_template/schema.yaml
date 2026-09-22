@@ -1379,7 +1379,7 @@ properties:
                   - rds
                   - azuredb
                   - cloudsql
-                description: Cloud Postgres driver. Required when cloud.enabled.
+                description: Cloud Postgres driver. Defaults from platform when cloud.enabled.
               encryption:
                 type: object
                 properties:
@@ -1673,35 +1673,3 @@ allOf:
                   properties:
                     enabled:
                       const: false
-
-  # database.postgres.cloud.enabled requires an explicit cloud driver.
-  - if:
-      properties:
-        database:
-          type: object
-          properties:
-            postgres:
-              type: object
-              properties:
-                cloud:
-                  type: object
-                  properties:
-                    enabled:
-                      const: true
-                  required:
-                    - enabled
-              required:
-                - cloud
-          required:
-            - postgres
-      required:
-        - database
-    then:
-      properties:
-        database:
-          properties:
-            postgres:
-              properties:
-                cloud:
-                  required:
-                    - driver
