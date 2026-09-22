@@ -52,7 +52,7 @@ cases:
                   kind: Job
                   name: kyverno-webhook-probe
                   namespace: system-policy
-              timeout: 6m
+              timeout: 8m
               interval: 5m
         - name: telemetry
           install:
@@ -294,7 +294,7 @@ cases:
           resources:
             - components:
                 - kyverno
-              timeout: 6m
+              timeout: 8m
               interval: 5m
               retryInterval: 1m
     exclude:
