@@ -69,6 +69,13 @@ config:
       cni:
         driver: "${cluster.cni.driver ?? 'flannel'}"
 
+  # Cloud Postgres driver defaults from platform (aws->rds, azure->azuredb, gcp->cloudsql).
+  - name: database
+    value:
+      postgres:
+        cloud:
+          driver: "${database.postgres.cloud.driver ?? (platform == 'aws' ? 'rds' : (platform == 'azure' ? 'azuredb' : (platform == 'gcp' ? 'cloudsql' : '')))}"
+
   # Node CPU/memory defaults. The CLI leaves these nil when unset so facets own
   # the defaults. Consumers read cluster_resources_effective
   # rather than cluster.* because some platform facets replace cluster.controlplanes

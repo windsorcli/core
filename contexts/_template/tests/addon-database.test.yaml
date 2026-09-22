@@ -436,8 +436,8 @@ cases:
                 - grafana/dashboards/cloudnativepg
                 - grafana/dashboards/postgres-exporter
 
-  # Schema: cloud.enabled requires an explicit cloud.driver.
-  - name: database.postgres.cloud.enabled without a driver fails composition
+  # platform-base defaults cloud.driver from platform when left unset.
+  - name: cloud.enabled without a driver defaults to rds on aws
     values:
       platform: aws
       aws:
@@ -448,7 +448,57 @@ cases:
         postgres:
           cloud:
             enabled: true
-    expectError: true
+    expect:
+      flux:
+        - name: database
+          install: {}
+          resources:
+            - dependsOn:
+                - provisioning-resources
+              components:
+                - crossplane/postgres/aws-rds
+
+  # platform-base defaults cloud.driver from platform when left unset — Azure twin.
+  - name: cloud.enabled without a driver defaults to azuredb on azure
+    values:
+      platform: azure
+      gateway:
+        enabled: false
+      database:
+        postgres:
+          cloud:
+            enabled: true
+    expect:
+      flux:
+        - name: database
+          install: {}
+          resources:
+            - dependsOn:
+                - provisioning-resources
+              components:
+                - crossplane/postgres/azure-postgres
+
+  # platform-base defaults cloud.driver from platform when left unset — GCP twin.
+  - name: cloud.enabled without a driver defaults to cloudsql on gcp
+    values:
+      platform: gcp
+      gcp:
+        project_id: windsor-test
+      gateway:
+        enabled: false
+      database:
+        postgres:
+          cloud:
+            enabled: true
+    expect:
+      flux:
+        - name: database
+          install: {}
+          resources:
+            - dependsOn:
+                - provisioning-resources
+              components:
+                - crossplane/postgres/gcp-cloudsql
 
   # Regression: the cloudnativepg driver (default) must not install Crossplane.
   - name: cloudnativepg driver excludes crossplane provisioning
