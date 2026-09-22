@@ -6,7 +6,7 @@ metadata:
   namespace: system-policy
 spec:
   backoffLimit: 0
-  activeDeadlineSeconds: 360
+  activeDeadlineSeconds: 300
   template:
     spec:
       restartPolicy: Never
@@ -23,14 +23,14 @@ spec:
         args:
         - |
           i=1
-          while [ "$i" -le 60 ]; do
+          while [ "$i" -le 48 ]; do
             OUT=$(kubectl run kyverno-webhook-probe --image=does-not-matter --restart=Never -n system-policy --dry-run=server 2>&1)
             STATUS=$?
             if [ "$STATUS" -eq 0 ] || echo "$OUT" | grep -q "denied the request"; then
               echo "Kyverno's admission webhook evaluated the request (allowed or denied)."
               exit 0
             fi
-            echo "Attempt $i/60: webhook not yet reachable: $OUT"
+            echo "Attempt $i/48: webhook not yet reachable: $OUT"
             sleep 5
             i=$((i + 1))
           done
