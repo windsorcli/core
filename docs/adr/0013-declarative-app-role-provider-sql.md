@@ -14,9 +14,9 @@ carried forward for `flexibleserver`, plus the same shape's undocumented
 third copy for `cloudsql`. Verified live for app-role; see Verification
 needed below for what's still outstanding on monitor-role.
 
-Superseded by [ADR-0016](0016-database-credentials-composition.md), which
-replaces `app-role`/`monitor-role`/`instance-connection` with a
-Composition. Left as historical record of why this mechanism was built.
+Superseded by [ADR-0016](0016-postgres-app-credentials.md), which
+replaces `app-role`/`monitor-role`/`instance-connection` with a shared
+ClusterProviderConfig and the AppRole XRD. Left as historical record of why this mechanism was built.
 
 ## Context
 

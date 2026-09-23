@@ -205,9 +205,9 @@ cases:
                 - crossplane/aws-rds
                 - crossplane/provider-sql
                 - crossplane/function-python
-                - crossplane/database-credentials
+                - crossplane/app-role
+                - crossplane/postgres-monitor
                 - crossplane/postgres-exporter
-                - crossplane/aws-rds-monitor
               healthCheckExprs:
                 - apiVersion: pkg.crossplane.io/v1
                   kind: Provider
@@ -226,8 +226,8 @@ cases:
               components:
                 - crossplane/postgres/aws-rds
 
-  # telemetry.metrics.enabled gates both the exporter and the monitor
-  # DatabaseCredentials WatchOperation that feeds it.
+  # telemetry.metrics.enabled gates both the exporter and the monitor Role
+  # WatchOperation that feeds it.
   - name: rds driver excludes postgres-exporter when metrics disabled
     values:
       platform: aws
@@ -249,14 +249,13 @@ cases:
           resources:
             - components:
                 - crossplane/aws-rds
-                - crossplane/database-credentials
     exclude:
       flux:
         - name: provisioning
           resources:
             - components:
                 - crossplane/postgres-exporter
-                - crossplane/aws-rds-monitor
+                - crossplane/postgres-monitor
 
   # Regression (#2653): asserts database-resources's dependsOn on
   # provisioning-resources, keeping provisioning-install alive for destroy.
@@ -322,10 +321,10 @@ cases:
                 - crossplane/gcp-cloudsql
                 - crossplane/provider-sql
                 - crossplane/function-python
-                - crossplane/database-credentials
+                - crossplane/app-role
                 - crossplane/gcp-admin-password
+                - crossplane/postgres-monitor
                 - crossplane/postgres-exporter
-                - crossplane/gcp-cloudsql-monitor
               healthCheckExprs:
                 - apiVersion: pkg.crossplane.io/v1
                   kind: Provider

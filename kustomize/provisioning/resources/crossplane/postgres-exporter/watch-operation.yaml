@@ -1,15 +1,14 @@
 ---
 # Provisions a postgres_exporter Deployment/Service/PodMonitor for every
-# DatabaseCredentials granted pg_monitor, named after that claim's own
-# unique name.
+# monitor Role, named after that Role's own unique name.
 apiVersion: ops.crossplane.io/v1alpha1
 kind: WatchOperation
 metadata:
   name: postgres-exporter
 spec:
   watch:
-    apiVersion: database.windsorcli.dev/v1alpha1
-    kind: DatabaseCredentials
+    apiVersion: postgresql.sql.m.crossplane.io/v1alpha1
+    kind: Role
   concurrencyPolicy: Replace
   successfulHistoryLimit: 1
   failedHistoryLimit: 3
@@ -26,13 +25,15 @@ spec:
             script: |
               from crossplane.function import request, response
 
-              MONITOR_GRANT = "pg_monitor"
+              # Only monitor Roles carry this label; postgres-monitor sets it.
+              INSTANCE_LABEL = "windsorcli.dev/postgres-instance"
 
               EXPORTER_IMAGE = "quay.io/prometheuscommunity/postgres-exporter:v0.20.1@sha256:ac5ec343104fae0e2d84a27bb8d69b38430a11910c5382cad85d478d2bab713e"
 
 
-              def has_monitor_grant(grants):
-                  return any(g.get("memberOf") == MONITOR_GRANT for g in grants)
+              def is_ready(role):
+                  conditions = role.get("status", {}).get("conditions", [])
+                  return any(c.get("type") == "Ready" and c.get("status") == "True" for c in conditions)
 
 
               def build_exporter_deployment(name, namespace, secret_name):
@@ -107,27 +108,27 @@ spec:
 
 
               def operate(req, rsp):
-                  claim = request.get_required_resource(req, "ops.crossplane.io/watched-resource")
-                  grants = claim.get("spec", {}).get("grants", [])
-                  if not has_monitor_grant(grants):
-                      response.set_output(rsp, {"skipped": "no pg_monitor grant"})
+                  role = request.get_required_resource(req, "ops.crossplane.io/watched-resource")
+                  instance_name = role["metadata"].get("labels", {}).get(INSTANCE_LABEL)
+                  if not instance_name:
+                      response.set_output(rsp, {"skipped": "not a monitor role"})
                       return
 
-                  claim_name = claim["metadata"]["name"]
-                  namespace = claim["metadata"]["namespace"]
-                  instance_name = claim["spec"]["target"]["name"]
-                  secret_name = claim.get("status", {}).get("connectionSecretRef", {}).get("name")
-                  if not secret_name:
-                      response.set_output(rsp, {"skipped": f"{claim_name} has no connectionSecretRef yet"})
+                  role_name = role["metadata"]["name"]
+                  if not is_ready(role):
+                      response.set_output(rsp, {"waiting": f"Role/{role_name} is not Ready yet"})
                       return
+
+                  namespace = role["metadata"]["namespace"]
+                  secret_name = role["spec"]["writeConnectionSecretToRef"]["name"]
 
                   rsp.desired.resources["exporter-deployment"].resource.update(
-                      build_exporter_deployment(claim_name, namespace, secret_name)
+                      build_exporter_deployment(role_name, namespace, secret_name)
                   )
                   rsp.desired.resources["exporter-service"].resource.update(
-                      build_exporter_service(claim_name, namespace)
+                      build_exporter_service(role_name, namespace)
                   )
                   rsp.desired.resources["exporter-podmonitor"].resource.update(
-                      build_exporter_podmonitor(claim_name, namespace, instance_name)
+                      build_exporter_podmonitor(role_name, namespace, instance_name)
                   )
-                  response.set_output(rsp, {"exporter": f"{claim_name}-exporter"})
+                  response.set_output(rsp, {"exporter": f"{role_name}-exporter"})

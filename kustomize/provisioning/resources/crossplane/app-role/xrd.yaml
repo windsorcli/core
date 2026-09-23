@@ -1,0 +1,51 @@
+---
+# Namespaced (Crossplane v2): the XR is created directly, no Claim kind exists.
+#
+# Deliberately narrow: the standard role for an application that manages its
+# own schema, the CNPG app-user equivalent. Login, plus full rights on one
+# database, and nothing else configurable. A role needing anything else —
+# membership in another role, a privilege subset, CREATEDB — authors
+# provider-sql's own Role/Grant against the instance's ClusterProviderConfig.
+apiVersion: apiextensions.crossplane.io/v2
+kind: CompositeResourceDefinition
+metadata:
+  name: approles.database.windsorcli.dev
+spec:
+  scope: Namespaced
+  group: database.windsorcli.dev
+  names:
+    kind: AppRole
+    plural: approles
+  versions:
+    - name: v1alpha1
+      served: true
+      referenceable: true
+      schema:
+        openAPIV3Schema:
+          type: object
+          properties:
+            spec:
+              type: object
+              required:
+                - instanceName
+                - databaseName
+              properties:
+                instanceName:
+                  type: string
+                  description: Name of the Instance/FlexibleServer/DatabaseInstance CR to provision against. Also names the ClusterProviderConfig this user connects through.
+                databaseName:
+                  type: string
+                  description: Database this role owns, giving it the DDL rights an ORM's migrations need. Must already exist on the instance.
+            status:
+              type: object
+              properties:
+                connectionSecretRef:
+                  type: object
+                  description: Secret holding this role's endpoint, port, username, and password.
+                  properties:
+                    name:
+                      type: string
+                    namespace:
+                      type: string
+                roleName:
+                  type: string

@@ -1,0 +1,99 @@
+---
+# Grants every Postgres instance a monitor Role for postgres-exporter to read.
+# Watches ClusterProviderConfig rather than the cloud instance kinds: by the
+# time one exists, every driver difference has already been resolved.
+apiVersion: ops.crossplane.io/v1alpha1
+kind: WatchOperation
+metadata:
+  name: postgres-monitor
+spec:
+  watch:
+    apiVersion: postgresql.sql.m.crossplane.io/v1alpha1
+    kind: ClusterProviderConfig
+  concurrencyPolicy: Replace
+  successfulHistoryLimit: 1
+  failedHistoryLimit: 3
+  operationTemplate:
+    spec:
+      mode: Pipeline
+      pipeline:
+        - step: ensure-monitor-role
+          functionRef:
+            name: function-python
+          input:
+            apiVersion: python.fn.crossplane.io/v1beta1
+            kind: Script
+            script: |
+              from crossplane.function import request, response
+
+              ADMIN_NAMESPACE = "system-database"
+              PROVIDER_SQL_API = "postgresql.sql.m.crossplane.io/v1alpha1"
+              MONITOR_ROLE = "monitor"
+              MONITOR_GRANT = "pg_monitor"
+              ORPHAN_POLICIES = ["Observe", "Create", "Update", "LateInitialize"]
+
+              # Labels the monitor Role so postgres-exporter can find it.
+              INSTANCE_LABEL = "windsorcli.dev/postgres-instance"
+
+
+              def monitor_role_name(instance_name):
+                  return f"{instance_name}-monitor"
+
+
+              def build_monitor_role(instance_name, owner_refs):
+                  name = monitor_role_name(instance_name)
+                  return {
+                      "apiVersion": PROVIDER_SQL_API,
+                      "kind": "Role",
+                      "metadata": {
+                          "name": name,
+                          "namespace": ADMIN_NAMESPACE,
+                          "labels": {INSTANCE_LABEL: instance_name},
+                          # external-name holds the real Postgres role name.
+                          "annotations": {"crossplane.io/external-name": MONITOR_ROLE},
+                          "ownerReferences": owner_refs,
+                      },
+                      "spec": {
+                          "managementPolicies": ORPHAN_POLICIES,
+                          "providerConfigRef": {"kind": "ClusterProviderConfig", "name": instance_name},
+                          "forProvider": {"privileges": {"login": True}},
+                          "writeConnectionSecretToRef": {"name": f"{name}-credentials"},
+                      },
+                  }
+
+
+              def build_monitor_grant(instance_name, owner_refs):
+                  return {
+                      "apiVersion": PROVIDER_SQL_API,
+                      "kind": "Grant",
+                      "metadata": {
+                          "name": f"{monitor_role_name(instance_name)}-pg-monitor",
+                          "namespace": ADMIN_NAMESPACE,
+                          "ownerReferences": owner_refs,
+                      },
+                      "spec": {
+                          "managementPolicies": ORPHAN_POLICIES,
+                          "providerConfigRef": {"kind": "ClusterProviderConfig", "name": instance_name},
+                          "forProvider": {"role": MONITOR_ROLE, "memberOf": MONITOR_GRANT},
+                      },
+                  }
+
+
+              def operate(req, rsp):
+                  config = request.get_required_resource(req, "ops.crossplane.io/watched-resource")
+                  instance_name = config["metadata"]["name"]
+                  owner_refs = [{
+                      "apiVersion": config["apiVersion"],
+                      "kind": config["kind"],
+                      "name": instance_name,
+                      "uid": config["metadata"]["uid"],
+                      "blockOwnerDeletion": False,
+                  }]
+
+                  rsp.desired.resources["monitor-role"].resource.update(
+                      build_monitor_role(instance_name, owner_refs)
+                  )
+                  rsp.desired.resources["monitor-grant"].resource.update(
+                      build_monitor_grant(instance_name, owner_refs)
+                  )
+                  response.set_output(rsp, {"monitorRole": monitor_role_name(instance_name)})
