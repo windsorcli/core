@@ -143,36 +143,55 @@ spec:
                   }]
 
                   response.require_resources(
-                      rsp, name="admin-secret", api_version="v1", kind="Secret",
-                      match_name=admin_secret_name(server_name), namespace=ADMIN_NAMESPACE,
-                  )
-                  response.require_resources(
                       rsp, name="admin-user", api_version="sql.gcp.upbound.io/v1beta2",
                       kind="User", match_name=admin_user_name(server_name),
                   )
+                  admin_user = request.get_required_resource(req, "admin-user")
 
-                  secret = request.get_required_resource(req, "admin-secret")
-                  if secret is None:
-                      admin_username = admin_user_name(server_name)
-                      rsp.desired.resources["admin-secret"].resource.update(
-                          build_admin_secret(server_name, owner_refs)
+                  if admin_user is None:
+                      response.require_resources(
+                          rsp, name="admin-secret", api_version="v1", kind="Secret",
+                          match_name=admin_secret_name(server_name), namespace=ADMIN_NAMESPACE,
                       )
-                      response.set_output(rsp, {"waiting": f"Secret/{admin_secret_name(server_name)} just created"})
-                      return
+                      secret = request.get_required_resource(req, "admin-secret")
+                      if secret is None:
+                          rsp.desired.resources["admin-secret"].resource.update(
+                              build_admin_secret(server_name, owner_refs)
+                          )
+                          response.set_output(rsp, {"waiting": f"Secret/{admin_secret_name(server_name)} just created"})
+                          return
 
-                  username_b64 = secret.get("data", {}).get("username")
-                  admin_username = base64.b64decode(username_b64).decode() if username_b64 else admin_user_name(server_name)
-
-                  if request.get_required_resource(req, "admin-user") is None:
+                      username_b64 = secret.get("data", {}).get("username")
+                      admin_username = base64.b64decode(username_b64).decode() if username_b64 else admin_user_name(server_name)
                       rsp.desired.resources["admin-user"].resource.update(
                           build_admin_user(server_name, admin_username, owner_refs)
                       )
                       response.set_output(rsp, {"waiting": f"User/{admin_user_name(server_name)} just created"})
                       return
 
-                  password_b64 = secret.get("data", {}).get("password")
+                  # Defers to an existing User's own passwordSecretRef, ours or a consumer's.
+                  password_ref = admin_user.get("spec", {}).get("forProvider", {}).get("passwordSecretRef", {})
+                  secret_name = password_ref.get("name")
+                  secret_namespace = password_ref.get("namespace", ADMIN_NAMESPACE)
+                  secret_key = password_ref.get("key", "password")
+                  if not secret_name:
+                      response.set_output(rsp, {"waiting": f"User/{admin_user_name(server_name)} has no passwordSecretRef yet"})
+                      return
+
+                  response.require_resources(
+                      rsp, name="admin-secret", api_version="v1", kind="Secret",
+                      match_name=secret_name, namespace=secret_namespace,
+                  )
+                  secret = request.get_required_resource(req, "admin-secret")
+                  if secret is None:
+                      response.set_output(rsp, {"waiting": f"Secret/{secret_namespace}/{secret_name} not found yet"})
+                      return
+
+                  username_b64 = secret.get("data", {}).get("username")
+                  admin_username = base64.b64decode(username_b64).decode() if username_b64 else admin_user_name(server_name)
+                  password_b64 = secret.get("data", {}).get(secret_key)
                   if not password_b64:
-                      response.set_output(rsp, {"waiting": f"Secret/{admin_secret_name(server_name)} has no password key yet"})
+                      response.set_output(rsp, {"waiting": f"Secret/{secret_namespace}/{secret_name} has no {secret_key} key yet"})
                       return
 
                   endpoint = server.get("status", {}).get("atProvider", {}).get("privateIpAddress", "")
