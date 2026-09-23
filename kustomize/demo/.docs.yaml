@@ -10,27 +10,12 @@ substitutions:
   REGISTRY_URL:
     required_when: "`demo.resources.static: true`"
     description: "Image registry hosting the demo static-site container image (`${REGISTRY_URL}/demo:1.0.6`). No fallback; the static workload's pod will fail to pull if the variable is not set at the Flux Kustomization level."
-  db_subnet_group_name:
-    required_when: "`demo.resources.database: true` AND `database.postgres.cloud.enabled: true` AND `database.postgres.cloud.driver == 'rds'`"
-    description: "From `terraform_output('network', 'db_subnet_group_name')`. Sets the `demo-db` Instance's `dbSubnetGroupName` directly — the demo reads the real output rather than reconstructing the naming convention a third-party chart (with no Flux substitution access) has to use instead. Passed by the facet itself."
-  kms_key_arn:
-    required_when: "`demo.resources.database: true` AND `database.postgres.cloud.enabled: true` AND `database.postgres.cloud.driver == 'rds'`"
-    description: "From `terraform_output('database', 'kms_key_arn')`. Sets the `demo-db` Instance's `kmsKeyId`. Passed by the facet itself."
-  rds_security_group_id:
-    required_when: "`demo.resources.database: true` AND `database.postgres.cloud.enabled: true` AND `database.postgres.cloud.driver == 'rds'`"
-    description: "From `terraform_output('database', 'security_group_id')`. Sets the `demo-db` Instance's `vpcSecurityGroupIds` — scoped to the EKS cluster's own security group, not the whole VPC CIDR. Passed by the facet itself."
   aws_region:
     required_when: "`demo.resources.database: true` AND `database.postgres.cloud.enabled: true` AND `database.postgres.cloud.driver == 'rds'`"
     description: "AWS region for the `demo-db` Instance, from `aws.region`. Passed by the facet itself."
   demo_database_name:
     required_when: "`demo.resources.database: true` AND `database.postgres.cloud.enabled: true`"
-    description: "Fixed value `demo`, from the facet's own `demo_database_name` config. Sets RDS's `dbName` directly, and names the database each driver's `DatabaseCredentials` resources target. Passed by the facet itself."
-  cloudsql_network_id:
-    required_when: "`demo.resources.database: true` AND `database.postgres.cloud.enabled: true` AND `database.postgres.cloud.driver == 'cloudsql'`"
-    description: "From `terraform_output('network', 'network_id')`. Sets the `demo-db` DatabaseInstance's `privateNetwork` — the demo reads the real output rather than reconstructing the naming convention a third-party chart (with no Flux substitution access) has to use instead. Passed by the facet itself."
-  cloudsql_kms_key_name:
-    required_when: "`demo.resources.database: true` AND `database.postgres.cloud.enabled: true` AND `database.postgres.cloud.driver == 'cloudsql'`"
-    description: "From `terraform_output('database', 'kms_key_name')`. Sets the `demo-db` DatabaseInstance's `encryptionKeyName`. Passed by the facet itself."
+    description: "Fixed value `demo`, from the facet's own `demo_database_name` config. Sets RDS's `dbName` directly, and names the database the demo `AppRole` owns. Passed by the facet itself."
   cloudsql_region:
     required_when: "`demo.resources.database: true` AND `database.postgres.cloud.enabled: true` AND `database.postgres.cloud.driver == 'cloudsql'`"
     description: "From `terraform_output('network', 'region')`. Sets the `demo-db` DatabaseInstance's `region`. Passed by the facet itself."
@@ -39,24 +24,21 @@ components:
   database:
     enable_when: "`demo.resources.database: true`"
     description: "Creates the `demo-database` namespace. Always paired with a driver variant below."
-  database-credentials:
+  database/credentials:
     enable_when: "`demo.resources.database: true` AND `database.postgres.cloud.enabled: true`"
-    description: "A `demo-app` `DatabaseCredentials` resource in `demo-database`, naming `demo-db` and the `demo` database. Requires `kustomize/provisioning`'s `crossplane/database-credentials` Composition. The monitoring role is provisioned automatically instead, by `kustomize/provisioning`'s own driver-specific `*-monitor` `WatchOperation`."
+    description: "A `demo-app` `AppRole` in `demo-database`, naming `demo-db` and the `demo` database. Requires `kustomize/provisioning`'s `crossplane/app-role` Composition. Driver-agnostic: the same component serves rds, azuredb, and cloudsql. The monitoring role is provisioned automatically instead, by `kustomize/provisioning`'s own `crossplane/postgres-monitor` `WatchOperation`."
   database/cloudnativepg:
     enable_when: "`demo.resources.database: true` AND `database.postgres.enabled == true`"
     description: "A `Cluster` CR `demo-cluster` (2 instances, 100 max_connections, 1Gi PVC, PodMonitor enabled). Requires the `database` add-on so the CloudNativePG operator can reconcile the CR."
   database/rds:
     enable_when: "`demo.resources.database: true` AND `database.postgres.cloud.enabled: true` AND `database.postgres.cloud.driver == 'rds'`"
-    description: "An `rds.aws.upbound.io/v1beta3` `Instance` CR `demo-db` (db.t4g.micro, 20Gi, Crossplane-generated admin password, network-scoped to the cluster's own security group) — just the database definition, no provider wiring. `kustomize/provisioning`'s `crossplane/aws-rds-monitor` `WatchOperation` reacts to this CR directly, provisioning the monitoring role without this facet's involvement."
+    description: "An `rds.aws.upbound.io/v1beta3` `Instance` CR `demo-db` (db.t4g.micro, 20Gi, Crossplane-generated admin password) — just the database definition, no provider wiring. `dbSubnetGroupName`, `vpcSecurityGroupIds`, and `kmsKeyId` all come from `kustomize/database`'s own Kyverno defaulting policy, same as any third-party chart gets them. `kustomize/provisioning`'s `crossplane/aws-rds` component's `WatchOperation` reacts to this CR directly, provisioning the connection config and monitoring role without this facet's involvement."
   database/azuredb:
     enable_when: "`demo.resources.database: true` AND `database.postgres.cloud.enabled: true` AND `database.postgres.cloud.driver == 'azuredb'`"
-    description: "A `dbforpostgresql.azure.upbound.io/v1beta1` `FlexibleServer` CR `demo-db` (B_Standard_B1ms, 32Gi, Crossplane-generated admin password, VNet-integrated with no public access) plus a `FlexibleServerDatabase` CR `demo` — just the database definition, no provider wiring. `kustomize/provisioning`'s `crossplane/azure-postgres-monitor` `WatchOperation` reacts to this CR directly, provisioning the monitoring role without this facet's involvement."
+    description: "A `dbforpostgresql.azure.upbound.io/v1beta1` `FlexibleServer` CR `demo-db` (B_Standard_B1ms, 32Gi, Crossplane-generated admin password, no public access) plus a `FlexibleServerDatabase` CR `demo` — just the database definition, no provider wiring. `resourceGroupName`, `delegatedSubnetId`, `privateDnsZoneId`, and any customer-managed key all come from `kustomize/database`'s own Kyverno defaulting policies, same as any third-party chart gets them. `kustomize/provisioning`'s `crossplane/azure-postgres` component's `WatchOperation` reacts to this CR directly, provisioning the connection config and monitoring role without this facet's involvement."
   database/cloudsql:
     enable_when: "`demo.resources.database: true` AND `database.postgres.cloud.enabled: true` AND `database.postgres.cloud.driver == 'cloudsql'`"
-    description: "A `sql.gcp.upbound.io/v1beta2` `DatabaseInstance` CR `demo-db` (db-f1-micro, private IP only) plus a `Database` CR `demo` — just the database definition, no provider wiring. `kustomize/provisioning`'s `crossplane/gcp-admin-password` `WatchOperation` generates the admin password and applies it onto the instance's own admin `User`; its `crossplane/gcp-cloudsql-monitor` `WatchOperation` reacts to the same CR, provisioning the monitoring role without this facet's involvement."
-  database/cloudsql/encryption-key:
-    enable_when: "`demo.resources.database: true` AND `database.postgres.cloud.enabled: true` AND `database.postgres.cloud.driver == 'cloudsql'` AND `database.postgres.cloud.encryption.managed: true`"
-    description: "Patches `encryptionKeyName` onto the `DatabaseInstance` CR. Absent rather than empty when unmanaged, since the field's type is `string`."
+    description: "A `sql.gcp.upbound.io/v1beta2` `DatabaseInstance` CR `demo-db` (db-f1-micro, private IP only) plus a `Database` CR `demo` — just the database definition, no provider wiring. `privateNetwork` and any customer-managed key both come from `kustomize/database`'s own Kyverno defaulting policies, same as any third-party chart gets them. `kustomize/provisioning`'s `crossplane/gcp-cloudsql` component's `WatchOperation` reacts to this CR directly, generating the admin password, applying it onto the instance's own admin `User`, and provisioning the connection config and monitoring role without this facet's involvement."
   static:
     enable_when: "`demo.resources.static: true`"
     description: "Creates the `demo-static` namespace (PSA `restricted`) with a `website` Deployment pulling `${REGISTRY_URL}/demo:1.0.6`, a Service, a 100Mi ReadWriteOnce PVC named `content`, and an Ingress."

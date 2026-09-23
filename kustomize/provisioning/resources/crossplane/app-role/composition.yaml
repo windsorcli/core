@@ -1,0 +1,110 @@
+---
+# Renders the Role and Grant behind an AppRole. The ClusterProviderConfig
+# they connect through belongs to the instance's own WatchOperation instead.
+apiVersion: apiextensions.crossplane.io/v1
+kind: Composition
+metadata:
+  name: app-role-postgres
+  labels:
+    engine: postgres
+spec:
+  compositeTypeRef:
+    apiVersion: database.windsorcli.dev/v1alpha1
+    kind: AppRole
+  mode: Pipeline
+  pipeline:
+    - step: compose-postgres-app-role
+      functionRef:
+        name: function-python
+      input:
+        apiVersion: python.fn.crossplane.io/v1beta1
+        kind: Script
+        script: |
+          from crossplane.function import resource, response
+          from crossplane.function.proto.v1 import run_function_pb2 as fnv1
+
+          PROVIDER_SQL_API = "postgresql.sql.m.crossplane.io/v1alpha1"
+
+          # No Delete: Postgres refuses DROP ROLE while the role owns objects.
+          ORPHAN_POLICIES = ["Observe", "Create", "Update", "LateInitialize"]
+
+
+          def secret_name(role_name):
+              return f"{role_name}-credentials"
+
+
+          def build_role(role_name, namespace, instance_name):
+              return {
+                  "apiVersion": PROVIDER_SQL_API,
+                  "kind": "Role",
+                  "metadata": {"name": role_name, "namespace": namespace},
+                  "spec": {
+                      "managementPolicies": ORPHAN_POLICIES,
+                      "providerConfigRef": {"kind": "ClusterProviderConfig", "name": instance_name},
+                      "forProvider": {"privileges": {"login": True}},
+                      "writeConnectionSecretToRef": {"name": secret_name(role_name)},
+                  },
+              }
+
+
+          def build_grant(role_name, namespace, instance_name, database_name):
+              return {
+                  "apiVersion": PROVIDER_SQL_API,
+                  "kind": "Grant",
+                  "metadata": {"name": f"{role_name}-database", "namespace": namespace},
+                  "spec": {
+                      "managementPolicies": ORPHAN_POLICIES,
+                      "providerConfigRef": {"kind": "ClusterProviderConfig", "name": instance_name},
+                      "forProvider": {
+                          "role": role_name,
+                          "database": database_name,
+                          "privileges": ["ALL"],
+                      },
+                  },
+              }
+
+
+          def build_status(role_name, namespace):
+              return {
+                  "connectionSecretRef": {"name": secret_name(role_name), "namespace": namespace},
+                  "roleName": role_name,
+              }
+
+
+          def is_ready(req, name):
+              # Reads Ready from the named resource's last observed state.
+              observed = req.observed.resources.get(name)
+              if observed is None:
+                  return False
+              observed_dict = resource.struct_to_dict(observed.resource)
+              return resource.get_condition(observed_dict, "Ready").status == "True"
+
+
+          def compose(req: fnv1.RunFunctionRequest, rsp: fnv1.RunFunctionResponse):
+              # observed.composite.resource is a raw protobuf Struct: [] works, .get() doesn't.
+              xr = resource.struct_to_dict(req.observed.composite.resource)
+              role_name = xr["metadata"]["name"]
+              namespace = xr["metadata"]["namespace"]
+              instance_name = xr["spec"]["instanceName"]
+              database_name = xr["spec"]["databaseName"]
+
+              rsp.desired.resources["role"].resource.update(
+                  build_role(role_name, namespace, instance_name)
+              )
+              role_ready = is_ready(req, "role")
+              if role_ready:
+                  rsp.desired.resources["role"].ready = True
+
+              # Withheld until the Role exists in Postgres: provider-sql would
+              # otherwise reconcile the Grant against a role that isn't there yet.
+              if role_ready:
+                  rsp.desired.resources["grant"].resource.update(
+                      build_grant(role_name, namespace, instance_name, database_name)
+                  )
+                  if is_ready(req, "grant"):
+                      rsp.desired.resources["grant"].ready = True
+
+              # rsp.desired.composite.resource is the same kind of Struct wrapper.
+              if "status" not in rsp.desired.composite.resource:
+                  rsp.desired.composite.resource["status"] = {}
+              rsp.desired.composite.resource["status"].update(build_status(role_name, namespace))

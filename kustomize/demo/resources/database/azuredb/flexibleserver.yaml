@@ -1,5 +1,6 @@
 ---
-# resourceGroupName and providerConfigRef come from the database add-on.
+# resourceGroupName, delegatedSubnetId, privateDnsZoneId, and providerConfigRef
+# all come from the database add-on's own Kyverno policies.
 apiVersion: dbforpostgresql.azure.upbound.io/v1beta1
 kind: FlexibleServer
 metadata:
@@ -18,6 +19,4 @@ spec:
       namespace: system-database
       key: password
     autoGeneratePassword: true
-    delegatedSubnetId: ${azuredb_subnet_id}
-    privateDnsZoneId: ${azuredb_private_dns_zone_id}
     publicNetworkAccessEnabled: false

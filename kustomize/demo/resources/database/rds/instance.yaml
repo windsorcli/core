@@ -1,7 +1,6 @@
 ---
 # Worked example of the kustomize/database contract: just the database
-# definition, no provider wiring. The windsorcli.dev/cluster tag and
-# providerConfigRef are both handled by the database add-on.
+# definition. Kyverno defaults the tag, subnet group, security group, and KMS key.
 apiVersion: rds.aws.upbound.io/v1beta3
 kind: Instance
 metadata:
@@ -14,9 +13,6 @@ spec:
     engineVersion: "16"
     instanceClass: db.t4g.micro
     allocatedStorage: 20
-    dbSubnetGroupName: ${db_subnet_group_name}
-    vpcSecurityGroupIds:
-      - ${rds_security_group_id}
     dbName: ${demo_database_name}
     username: demo
     autoGeneratePassword: true
@@ -25,6 +21,5 @@ spec:
       namespace: system-database
       key: password
     storageEncrypted: true
-    kmsKeyId: ${kms_key_arn}
     publiclyAccessible: false
     skipFinalSnapshot: true

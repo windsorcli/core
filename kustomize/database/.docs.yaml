@@ -25,6 +25,12 @@ components:
   crossplane/postgres/gcp-cloudsql:
     enable_when: "`database.postgres.cloud.enabled == true` AND `database.postgres.cloud.driver == 'cloudsql'`"
     description: "GCP twin of `crossplane/postgres/aws-rds`. The `default` `ProviderConfig` (credentials source `InjectedIdentity`, so a consuming `DatabaseInstance` CR needs no `providerConfigRef`), and a Kyverno `MutatingPolicy` that force-sets `project` on every `DatabaseInstance` to the context's GCP project. No chart opt-in, matching CNPG's own free monitoring."
+  crossplane/postgres/azure-postgres/encryption-key:
+    enable_when: "`database.postgres.cloud.enabled == true` AND `database.postgres.cloud.driver == 'azuredb'` AND (`database.postgres.cloud.encryption.managed: true` OR `database.postgres.cloud.encryption.key_id` set)"
+    description: "A Kyverno `MutatingPolicy` defaulting `identity` and `customerManagedKey` on every `FlexibleServer` that doesn't already set them, so a third-party chart gets an encrypted server with this context's own key with no knowledge of it. Only installed when a managed key actually exists for this context — an unconditional default would set an explicit empty key/identity rather than leaving them absent."
+  crossplane/postgres/gcp-cloudsql/encryption-key:
+    enable_when: "`database.postgres.cloud.enabled == true` AND `database.postgres.cloud.driver == 'cloudsql'` AND (`database.postgres.cloud.encryption.managed: true` OR `database.postgres.cloud.encryption.key_id` set)"
+    description: "GCP twin of `crossplane/postgres/azure-postgres/encryption-key`, defaulting `encryptionKeyName` on every `DatabaseInstance`."
 
 dependencies:
   csi:

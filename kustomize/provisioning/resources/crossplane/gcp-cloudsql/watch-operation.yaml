@@ -1,0 +1,194 @@
+---
+# Ensures every Cloud SQL DatabaseInstance has an admin Secret/User, then
+# its connection Secret and ClusterProviderConfig.
+apiVersion: ops.crossplane.io/v1alpha1
+kind: WatchOperation
+metadata:
+  name: databaseinstance-server-connection
+spec:
+  watch:
+    apiVersion: sql.gcp.upbound.io/v1beta2
+    kind: DatabaseInstance
+  concurrencyPolicy: Replace
+  successfulHistoryLimit: 1
+  failedHistoryLimit: 3
+  operationTemplate:
+    spec:
+      mode: Pipeline
+      pipeline:
+        - step: ensure-server-connection
+          functionRef:
+            name: function-python
+          input:
+            apiVersion: python.fn.crossplane.io/v1beta1
+            kind: Script
+            script: |
+              import base64
+              import secrets
+
+              from crossplane.function import request, response
+
+              ADMIN_NAMESPACE = "system-database"
+              PROVIDER_SQL_API = "postgresql.sql.m.crossplane.io/v1alpha1"
+
+
+              def admin_secret_name(server_name):
+                  return f"{server_name}-admin-credentials"
+
+
+              def admin_user_name(server_name):
+                  return f"{server_name}-admin"
+
+
+              def connection_secret_name(server_name):
+                  return f"{server_name}-connection"
+
+
+              def build_admin_secret(server_name, owner_refs):
+                  return {
+                      "apiVersion": "v1",
+                      "kind": "Secret",
+                      "metadata": {
+                          "name": admin_secret_name(server_name),
+                          "namespace": ADMIN_NAMESPACE,
+                          "ownerReferences": owner_refs,
+                      },
+                      "type": "Opaque",
+                      "stringData": {
+                          "username": admin_user_name(server_name),
+                          "password": secrets.token_urlsafe(32),
+                      },
+                  }
+
+
+              def build_admin_user(server_name, admin_username, owner_refs):
+                  return {
+                      "apiVersion": "sql.gcp.upbound.io/v1beta2",
+                      "kind": "User",
+                      "metadata": {
+                          "name": admin_user_name(server_name),
+                          "annotations": {"crossplane.io/external-name": admin_username},
+                          "ownerReferences": owner_refs,
+                      },
+                      "spec": {
+                          "deletionPolicy": "Orphan",
+                          "forProvider": {
+                              "instanceRef": {"name": server_name},
+                              "passwordSecretRef": {
+                                  "name": admin_secret_name(server_name),
+                                  "namespace": ADMIN_NAMESPACE,
+                                  "key": "password",
+                              },
+                          },
+                      },
+                  }
+
+
+              def build_connection_secret(server_name, endpoint, username, password, owner_refs):
+                  return {
+                      "apiVersion": "v1",
+                      "kind": "Secret",
+                      "metadata": {
+                          "name": connection_secret_name(server_name),
+                          "namespace": ADMIN_NAMESPACE,
+                          "ownerReferences": owner_refs,
+                      },
+                      "type": "Opaque",
+                      "stringData": {
+                          "endpoint": endpoint,
+                          "port": "5432",
+                          "username": username,
+                          "password": password,
+                      },
+                  }
+
+
+              def build_cluster_provider_config(server_name, server_api_version, server_kind, owner_refs):
+                  # Named after the server: what a consumer's Role references.
+                  # Annotations let postgres-monitor resolve the server kind it owns.
+                  return {
+                      "apiVersion": PROVIDER_SQL_API,
+                      "kind": "ClusterProviderConfig",
+                      "metadata": {
+                          "name": server_name,
+                          "ownerReferences": owner_refs,
+                          "annotations": {
+                              "database.windsorcli.dev/server-api-version": server_api_version,
+                              "database.windsorcli.dev/server-kind": server_kind,
+                          },
+                      },
+                      "spec": {
+                          "sslMode": "require",
+                          "credentials": {
+                              "source": "PostgreSQLConnectionSecret",
+                              "connectionSecretRef": {
+                                  "name": connection_secret_name(server_name),
+                                  "namespace": ADMIN_NAMESPACE,
+                              },
+                          },
+                      },
+                  }
+
+
+              def operate(req, rsp):
+                  server = request.get_required_resource(req, "ops.crossplane.io/watched-resource")
+                  server_name = server["metadata"]["name"]
+                  kind = server["kind"]
+                  owner_refs = [{
+                      "apiVersion": server["apiVersion"],
+                      "kind": kind,
+                      "name": server_name,
+                      "uid": server["metadata"]["uid"],
+                      "blockOwnerDeletion": False,
+                  }]
+
+                  response.require_resources(
+                      rsp, name="admin-secret", api_version="v1", kind="Secret",
+                      match_name=admin_secret_name(server_name), namespace=ADMIN_NAMESPACE,
+                  )
+                  response.require_resources(
+                      rsp, name="admin-user", api_version="sql.gcp.upbound.io/v1beta2",
+                      kind="User", match_name=admin_user_name(server_name),
+                  )
+
+                  secret = request.get_required_resource(req, "admin-secret")
+                  if secret is None:
+                      admin_username = admin_user_name(server_name)
+                      rsp.desired.resources["admin-secret"].resource.update(
+                          build_admin_secret(server_name, owner_refs)
+                      )
+                      response.set_output(rsp, {"waiting": f"Secret/{admin_secret_name(server_name)} just created"})
+                      return
+
+                  username_b64 = secret.get("data", {}).get("username")
+                  admin_username = base64.b64decode(username_b64).decode() if username_b64 else admin_user_name(server_name)
+
+                  if request.get_required_resource(req, "admin-user") is None:
+                      rsp.desired.resources["admin-user"].resource.update(
+                          build_admin_user(server_name, admin_username, owner_refs)
+                      )
+                      response.set_output(rsp, {"waiting": f"User/{admin_user_name(server_name)} just created"})
+                      return
+
+                  password_b64 = secret.get("data", {}).get("password")
+                  if not password_b64:
+                      response.set_output(rsp, {"waiting": f"Secret/{admin_secret_name(server_name)} has no password key yet"})
+                      return
+
+                  endpoint = server.get("status", {}).get("atProvider", {}).get("privateIpAddress", "")
+                  if not endpoint:
+                      response.set_output(rsp, {"waiting": f"{kind}/{server_name} has no endpoint yet"})
+                      return
+
+                  rsp.desired.resources["connection-secret"].resource.update(
+                      build_connection_secret(
+                          server_name, endpoint, admin_username,
+                          base64.b64decode(password_b64).decode(), owner_refs,
+                      )
+                  )
+                  rsp.desired.resources["cluster-provider-config"].resource.update(
+                      build_cluster_provider_config(
+                          server_name, server["apiVersion"], kind, owner_refs,
+                      )
+                  )
+                  response.set_output(rsp, {"providerConfig": server_name})
