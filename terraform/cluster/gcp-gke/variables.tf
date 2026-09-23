@@ -144,6 +144,7 @@ variable "system_node_pool" {
     autoscaling_enabled = optional(bool, false)
     min_count           = optional(number, 1)
     max_count           = optional(number, 3)
+    auto_repair         = optional(bool, true)
   })
   default = {}
 
@@ -204,6 +205,7 @@ variable "pools" {
       value  = optional(string)
       effect = string
     })), [])
+    auto_repair = optional(bool, true)
   }))
   default = {}
 

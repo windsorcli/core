@@ -108,8 +108,10 @@ terraform:
       # topology: ha doubles the always-on system pool so a leader-election
       # standby survives a single node loss; no quorum is needed here. All
       # zones in node_locations stay schedulable regardless (total_*_node_count).
+      # auto_repair off for ephemeral: avoids it racing the pool's own deletion.
       system_node_pool:
         node_count: "${topology == 'ha' ? 2 : 1}"
+        auto_repair: "${!(ephemeral ?? false)}"
       create_cert_manager_identity: "${(dns.public_domain ?? '') != ''}"
       cert_manager_dns_zone_names: "${(dns.public_domain ?? '') != '' && (terraform_output('dns-zone', 'zone_name') ?? '') != '' ? [terraform_output('dns-zone', 'zone_name')] : []}"
       # external-dns's roles/dns.admin grant is scoped per zone name, so both
@@ -120,7 +122,7 @@ terraform:
           (dns.public_domain ?? '') != '' && (terraform_output('dns-zone', 'zone_name') ?? '') != '' ? [terraform_output('dns-zone', 'zone_name')] : [],
           gateway.access == 'private' && (dns.private_domain ?? '') != '' && (terraform_output('network', 'private_zone_name') ?? '') != '' ? [terraform_output('network', 'private_zone_name')] : [])}
       pools: >-
-        ${cluster.pools ?? {"general": {"class": "general", "count": 1}}}
+        ${cluster.pools ?? {"general": {"class": "general", "count": 1, "auto_repair": !(ephemeral ?? false)}}}
 
   # Dependency-edge injector: when ACME is on, cluster must wait for
   # dns-zone so terraform_output('dns-zone', 'zone_name') resolves before

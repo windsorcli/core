@@ -162,6 +162,7 @@ locals {
       machine_type    = mtype
       total_min_count = idx == 0 ? (var.system_node_pool.autoscaling_enabled ? var.system_node_pool.min_count : var.system_node_pool.node_count) : 0
       total_max_count = var.system_node_pool.autoscaling_enabled ? var.system_node_pool.max_count : var.system_node_pool.node_count
+      auto_repair     = var.system_node_pool.auto_repair
     }
   }
 }
@@ -174,7 +175,7 @@ resource "google_container_node_pool" "system" {
   node_locations = var.node_locations
 
   management {
-    auto_repair  = true
+    auto_repair  = each.value.auto_repair
     auto_upgrade = true
   }
 
@@ -234,6 +235,7 @@ locals {
       autoscaling    = null
       labels         = {}
       taints         = []
+      auto_repair    = true
     }
   }
 
@@ -283,7 +285,8 @@ locals {
           "windsorcli.dev/pool"       = name
           "windsorcli.dev/pool-class" = p.class
         })
-        taints = p.taints
+        taints      = p.taints
+        auto_repair = p.auto_repair
       }
     }
   ]...)
@@ -299,7 +302,7 @@ resource "google_container_node_pool" "pools" {
   node_count = each.value.autoscaling_enabled ? null : each.value.node_count
 
   management {
-    auto_repair  = true
+    auto_repair  = each.value.auto_repair
     auto_upgrade = true
   }
 
