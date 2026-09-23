@@ -699,6 +699,12 @@ cases:
             cluster_name: cluster-test
             oidc_issuer_url: https://eastus.oic.prod-aks.azure.com/tenant-id/oidc-id/
             postgres_resource_group_id: /subscriptions/sub/resourceGroups/cluster-test-postgres
+    exclude:
+      flux:
+        - name: database
+          resources:
+            - components:
+                - crossplane/postgres/azure-postgres/encryption-key
 
   - name: database.postgres.cloud.encryption.managed enables the dedicated azuredb key
     values:
@@ -712,6 +718,10 @@ cases:
             driver: azuredb
             encryption:
               managed: true
+    terraformOutputs:
+      database:
+        key_id: https://kv-test.vault.azure.net/keys/postgres/abcd1234
+        azuredb_cmk_identity_id: /subscriptions/sub/resourceGroups/rg-test/providers/Microsoft.ManagedIdentity/userAssignedIdentities/azuredb-cmk
     expect:
       terraform:
         - name: database
@@ -723,6 +733,9 @@ cases:
           resources:
             - components:
                 - crossplane/postgres/azure-postgres/encryption-key
+              substitutions:
+                azuredb_kms_key_id: https://kv-test.vault.azure.net/keys/postgres/abcd1234
+                azuredb_cmk_identity_id: /subscriptions/sub/resourceGroups/rg-test/providers/Microsoft.ManagedIdentity/userAssignedIdentities/azuredb-cmk
 
   # Ephemeral contexts never get a dedicated Key Vault key, even with encryption.managed set.
   - name: ephemeral azuredb context skips the dedicated encryption key
@@ -765,6 +778,11 @@ cases:
           path: database/azure-postgres
           inputs:
             key_id: https://byok.vault.azure.net/keys/postgres/abcd1234
+      flux:
+        - name: database
+          resources:
+            - components:
+                - crossplane/postgres/azure-postgres/encryption-key
 
   # database disabled (cloud.enabled unset) renders neither stack.
   - name: no azuredb driver excludes the database and crossplane-identity stacks
@@ -820,6 +838,12 @@ cases:
             cluster_name: cluster-test
             resources:
               - postgres
+    exclude:
+      flux:
+        - name: database
+          resources:
+            - components:
+                - crossplane/postgres/gcp-cloudsql/encryption-key
 
   - name: database.postgres.cloud.encryption.managed enables the dedicated cloudsql key
     values:
@@ -835,6 +859,9 @@ cases:
             driver: cloudsql
             encryption:
               managed: true
+    terraformOutputs:
+      database:
+        key_id: projects/windsor-test/locations/us-central1/keyRings/cloudsql-test/cryptoKeys/postgres
     expect:
       terraform:
         - name: database
@@ -846,6 +873,8 @@ cases:
           resources:
             - components:
                 - crossplane/postgres/gcp-cloudsql/encryption-key
+              substitutions:
+                cloudsql_kms_key_name: projects/windsor-test/locations/us-central1/keyRings/cloudsql-test/cryptoKeys/postgres
 
   # Ephemeral contexts never get a dedicated KMS key, even with encryption.managed set.
   - name: ephemeral cloudsql context skips the dedicated encryption key
@@ -892,6 +921,11 @@ cases:
           path: database/gcp-cloudsql
           inputs:
             key_id: projects/windsor-test/locations/us-central1/keyRings/byok/cryptoKeys/postgres
+      flux:
+        - name: database
+          resources:
+            - components:
+                - crossplane/postgres/gcp-cloudsql/encryption-key
 
   # database disabled (cloud.enabled unset) renders neither stack.
   - name: no cloudsql driver excludes the database and crossplane-identity stacks
