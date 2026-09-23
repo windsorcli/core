@@ -172,9 +172,12 @@ spec:
               if role_ready:
                   rsp.desired.resources["monitor-role"].ready = True
 
-              rsp.desired.resources["monitor-grant"].resource.update(build_monitor_grant(server_name))
-              if is_ready(req, "monitor-grant"):
-                  rsp.desired.resources["monitor-grant"].ready = True
+              # Withheld until the Role exists in Postgres: provider-sql would
+              # otherwise reconcile the Grant against a role that isn't there yet.
+              if role_ready:
+                  rsp.desired.resources["monitor-grant"].resource.update(build_monitor_grant(server_name))
+                  if is_ready(req, "monitor-grant"):
+                      rsp.desired.resources["monitor-grant"].ready = True
 
               # The exporter needs the role's own credential Secret to exist first.
               if not role_ready:
