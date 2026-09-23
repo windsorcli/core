@@ -92,14 +92,18 @@ spec:
               rsp.desired.resources["role"].resource.update(
                   build_role(role_name, namespace, instance_name)
               )
-              if is_ready(req, "role"):
+              role_ready = is_ready(req, "role")
+              if role_ready:
                   rsp.desired.resources["role"].ready = True
 
-              rsp.desired.resources["grant"].resource.update(
-                  build_grant(role_name, namespace, instance_name, database_name)
-              )
-              if is_ready(req, "grant"):
-                  rsp.desired.resources["grant"].ready = True
+              # Withheld until the Role exists in Postgres: provider-sql would
+              # otherwise reconcile the Grant against a role that isn't there yet.
+              if role_ready:
+                  rsp.desired.resources["grant"].resource.update(
+                      build_grant(role_name, namespace, instance_name, database_name)
+                  )
+                  if is_ready(req, "grant"):
+                      rsp.desired.resources["grant"].ready = True
 
               # rsp.desired.composite.resource is the same kind of Struct wrapper.
               if "status" not in rsp.desired.composite.resource:
