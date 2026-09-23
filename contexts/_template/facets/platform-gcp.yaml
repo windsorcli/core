@@ -90,7 +90,9 @@ terraform:
   # writes to just the dns-zone. external-dns Workload Identity is
   # default-on but only granted a zone once one is provisioned. Portable
   # user pools alongside the inline system pool; defaults to one general
-  # pool. Declaring cluster.pools replaces this.
+  # pool, including its ephemeral-derived auto_repair. Declaring
+  # cluster.pools replaces this wholesale, auto_repair included — a chart
+  # that sets its own pools also owns each pool's auto_repair value.
   - name: cluster
     path: cluster/gcp-gke
     dependsOn:
