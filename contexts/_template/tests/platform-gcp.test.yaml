@@ -144,6 +144,28 @@ cases:
             system_node_pool:
               node_count: 2
 
+  # Ephemeral contexts disable node auto-repair: it can race a node pool's
+  # own deletion and stall teardown on short-lived clusters that recreate
+  # routinely (CI, integration testing).
+  - name: ephemeral context disables node pool auto-repair
+    values:
+      platform: gcp
+      gcp:
+        project_id: windsor-test
+      ephemeral: true
+      gateway:
+        enabled: false
+    expect:
+      terraform:
+        - name: cluster
+          path: cluster/gcp-gke
+          inputs:
+            system_node_pool:
+              auto_repair: "false"
+            pools:
+              general:
+                auto_repair: "false"
+
   # cluster.driver defaults to gke for platform == 'gcp' (platform-base.yaml).
   - name: cluster.driver defaults to gke
     values:
@@ -177,6 +199,7 @@ cases:
               general:
                 class: general
                 count: 1
+                auto_repair: "true"
 
   - name: cluster.pools wires through to gcp-gke module
     values:
