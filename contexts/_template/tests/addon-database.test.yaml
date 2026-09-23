@@ -207,7 +207,6 @@ cases:
                 - crossplane/function-python
                 - crossplane/app-role
                 - crossplane/postgres-monitor
-                - crossplane/postgres-exporter
               healthCheckExprs:
                 - apiVersion: pkg.crossplane.io/v1
                   kind: Provider
@@ -226,9 +225,9 @@ cases:
               components:
                 - crossplane/postgres/aws-rds
 
-  # telemetry.metrics.enabled gates both the exporter and the monitor Role
-  # WatchOperation that feeds it.
-  - name: rds driver excludes postgres-exporter when metrics disabled
+  # telemetry.metrics.enabled gates the monitor Role and the exporter it feeds,
+  # both from the same WatchOperation.
+  - name: rds driver excludes postgres-monitor when metrics disabled
     values:
       platform: aws
       aws:
@@ -254,7 +253,6 @@ cases:
         - name: provisioning
           resources:
             - components:
-                - crossplane/postgres-exporter
                 - crossplane/postgres-monitor
 
   # Regression (#2653): asserts database-resources's dependsOn on
@@ -322,9 +320,7 @@ cases:
                 - crossplane/provider-sql
                 - crossplane/function-python
                 - crossplane/app-role
-                - crossplane/gcp-admin-password
                 - crossplane/postgres-monitor
-                - crossplane/postgres-exporter
               healthCheckExprs:
                 - apiVersion: pkg.crossplane.io/v1
                   kind: Provider

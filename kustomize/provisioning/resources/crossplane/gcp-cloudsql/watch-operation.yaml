@@ -1,6 +1,8 @@
 ---
-# Ensures the DatabaseInstance has a ClusterProviderConfig, the connection Secret it
-# reads, and a ClusterUsage blocking the instance's deletion while that
+# Ensures every Cloud SQL DatabaseInstance has an admin-credentials Secret and
+# an admin User applying it (provider-gcp-sql has no auto-generate-password
+# field of its own, unlike RDS/Azure), then builds its ClusterProviderConfig,
+# connection Secret, and the ClusterUsage blocking its deletion while that
 # config still exists.
 apiVersion: ops.crossplane.io/v1alpha1
 kind: WatchOperation
@@ -25,6 +27,7 @@ spec:
             kind: Script
             script: |
               import base64
+              import secrets
 
               from crossplane.function import request, response
 
@@ -36,8 +39,52 @@ spec:
                   return f"{instance_name}-admin-credentials"
 
 
+              def admin_user_name(instance_name):
+                  return f"{instance_name}-admin"
+
+
               def connection_secret_name(instance_name):
                   return f"{instance_name}-connection"
+
+
+              def build_admin_secret(instance_name, owner_refs):
+                  return {
+                      "apiVersion": "v1",
+                      "kind": "Secret",
+                      "metadata": {
+                          "name": admin_secret_name(instance_name),
+                          "namespace": ADMIN_NAMESPACE,
+                          "ownerReferences": owner_refs,
+                      },
+                      "type": "Opaque",
+                      "stringData": {
+                          "username": admin_user_name(instance_name),
+                          "password": secrets.token_urlsafe(32),
+                      },
+                  }
+
+
+              def build_admin_user(instance_name, admin_username, owner_refs):
+                  return {
+                      "apiVersion": "sql.gcp.upbound.io/v1beta2",
+                      "kind": "User",
+                      "metadata": {
+                          "name": admin_user_name(instance_name),
+                          "annotations": {"crossplane.io/external-name": admin_username},
+                          "ownerReferences": owner_refs,
+                      },
+                      "spec": {
+                          "deletionPolicy": "Orphan",
+                          "forProvider": {
+                              "instanceRef": {"name": instance_name},
+                              "passwordSecretRef": {
+                                  "name": admin_secret_name(instance_name),
+                                  "namespace": ADMIN_NAMESPACE,
+                                  "key": "password",
+                              },
+                          },
+                      },
+                  }
 
 
               def build_connection_secret(instance_name, endpoint, username, password, owner_refs):
@@ -78,7 +125,7 @@ spec:
                   }
 
 
-              def build_cluster_usage(instance_name, owner_refs):
+              def build_cluster_usage(instance_name, api_version, kind, owner_refs):
                   # Blocks the instance's deletion until its ClusterProviderConfig is gone.
                   return {
                       "apiVersion": "protection.crossplane.io/v1beta1",
@@ -89,8 +136,8 @@ spec:
                       },
                       "spec": {
                           "of": {
-                              "apiVersion": "sql.gcp.upbound.io/v1beta2",
-                              "kind": "DatabaseInstance",
+                              "apiVersion": api_version,
+                              "kind": kind,
                               "resourceRef": {"name": instance_name},
                           },
                           "by": {
@@ -103,19 +150,13 @@ spec:
                   }
 
 
-              def resolve_admin_username(instance, secret):
-                  # GCP admin username lives on the admin Secret, not the instance spec.
-                  username_b64 = secret.get("data", {}).get("username")
-                  return base64.b64decode(username_b64).decode() if username_b64 else ""
-
-
               def operate(req, rsp):
                   instance = request.get_required_resource(req, "ops.crossplane.io/watched-resource")
                   instance_name = instance["metadata"]["name"]
-                  secret_name = admin_secret_name(instance_name)
+                  kind = instance["kind"]
                   owner_refs = [{
                       "apiVersion": instance["apiVersion"],
-                      "kind": instance["kind"],
+                      "kind": kind,
                       "name": instance_name,
                       "uid": instance["metadata"]["uid"],
                       "blockOwnerDeletion": False,
@@ -123,37 +164,50 @@ spec:
 
                   response.require_resources(
                       rsp, name="admin-secret", api_version="v1", kind="Secret",
-                      match_name=secret_name, namespace=ADMIN_NAMESPACE,
+                      match_name=admin_secret_name(instance_name), namespace=ADMIN_NAMESPACE,
+                  )
+                  response.require_resources(
+                      rsp, name="admin-user", api_version="sql.gcp.upbound.io/v1beta2",
+                      kind="User", match_name=admin_user_name(instance_name),
                   )
 
                   secret = request.get_required_resource(req, "admin-secret")
                   if secret is None:
-                      response.set_output(rsp, {"waiting": f"Secret/{secret_name} in {ADMIN_NAMESPACE}"})
+                      admin_username = admin_user_name(instance_name)
+                      rsp.desired.resources["admin-secret"].resource.update(
+                          build_admin_secret(instance_name, owner_refs)
+                      )
+                      response.set_output(rsp, {"waiting": f"Secret/{admin_secret_name(instance_name)} just created"})
                       return
+
+                  username_b64 = secret.get("data", {}).get("username")
+                  admin_username = base64.b64decode(username_b64).decode() if username_b64 else admin_user_name(instance_name)
+
+                  if request.get_required_resource(req, "admin-user") is None:
+                      rsp.desired.resources["admin-user"].resource.update(
+                          build_admin_user(instance_name, admin_username, owner_refs)
+                      )
 
                   password_b64 = secret.get("data", {}).get("password")
                   if not password_b64:
-                      response.set_output(rsp, {"waiting": f"Secret/{secret_name} has no password key yet"})
+                      response.set_output(rsp, {"waiting": f"Secret/{admin_secret_name(instance_name)} has no password key yet"})
                       return
 
                   endpoint = instance.get("status", {}).get("atProvider", {}).get("privateIpAddress", "")
                   if not endpoint:
-                      response.set_output(rsp, {"waiting": f"DatabaseInstance/{instance_name} has no endpoint yet"})
+                      response.set_output(rsp, {"waiting": f"{kind}/{instance_name} has no endpoint yet"})
                       return
 
                   rsp.desired.resources["connection-secret"].resource.update(
                       build_connection_secret(
-                          instance_name,
-                          endpoint,
-                          resolve_admin_username(instance, secret),
-                          base64.b64decode(password_b64).decode(),
-                          owner_refs,
+                          instance_name, endpoint, admin_username,
+                          base64.b64decode(password_b64).decode(), owner_refs,
                       )
                   )
                   rsp.desired.resources["cluster-provider-config"].resource.update(
                       build_cluster_provider_config(instance_name, owner_refs)
                   )
                   rsp.desired.resources["cluster-usage"].resource.update(
-                      build_cluster_usage(instance_name, owner_refs)
+                      build_cluster_usage(instance_name, instance["apiVersion"], kind, owner_refs)
                   )
                   response.set_output(rsp, {"providerConfig": instance_name})

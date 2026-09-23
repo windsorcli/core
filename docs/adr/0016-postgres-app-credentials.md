@@ -90,12 +90,13 @@ usage count spanning every namespace is then correct behaviour, not a bug.
 
 ### 2. The instance's own `WatchOperation` owns it, not any XR
 
-A per-driver `WatchOperation` — `aws-rds-instance`, `azure-postgres-instance`,
-`gcp-cloudsql-instance` — watches its instance kind and ensures three things
-exist for each one: the `<instance>-connection` Secret in `system-database`
-(the admin credential merged with the live endpoint), the
-`ClusterProviderConfig` reading it, and the `ClusterUsage` in §3. All three
-carry an `ownerReference` to the instance.
+A `WatchOperation` on each cloud driver's own component (`crossplane/aws-rds`,
+`crossplane/azure-postgres`, `crossplane/gcp-cloudsql` — not a separate
+component, since one is never installed without the other) watches its
+instance kind and ensures three things exist for each one: the
+`<instance>-connection` Secret in `system-database` (the admin credential
+merged with the live endpoint), the `ClusterProviderConfig` reading it, and
+the `ClusterUsage` in §3. All three carry an `ownerReference` to the instance.
 
 Ownership is what the first design could not express. A namespaced XR
 composing a cluster-scoped resource receives no owner reference at all
@@ -155,7 +156,7 @@ The Composition composes only `Role` and `Grant`. Both genuinely belong 1:1 to
 the request that asked for them, so XR ownership is correct for them in a way
 it never was for `ProviderConfig`.
 
-### 5. Monitoring becomes driver-agnostic
+### 5. Monitoring becomes driver-agnostic, and one WatchOperation, not two
 
 `postgres-monitor` watches `ClusterProviderConfig` rather than the three cloud
 instance kinds: once one exists, every driver difference is already resolved.
@@ -163,10 +164,24 @@ It creates the `<instance>-monitor` `Role` and its `pg_monitor` `Grant` in
 `system-database`, replacing `aws-rds-monitor`, `azure-postgres-monitor`, and
 `gcp-cloudsql-monitor` — three near-identical scripts collapsing into one.
 
-`postgres-exporter` follows the monitor `Role` instead of the retired XR,
-finding it by the label `postgres-monitor` sets and reading the Secret that
-`Role` writes. Both stay gated on `telemetry.metrics.enabled`; the components
-in §2 do not, since a chart's own credentials depend on them.
+The exporter Deployment/Service/PodMonitor was originally a second
+`WatchOperation`, watching every `Role` cluster-wide for a label the monitor
+one set, purely to learn the connection Secret's name — which it already
+knows, since it derives that name itself when building the `Role`. There was
+nothing the second hop learned that the first didn't already compute, so it's
+one `operate()` now: build the `Role`/`Grant`, and once the `Role` reports
+`Ready`, build the exporter reading the Secret that `Role` writes. Both stay
+gated on `telemetry.metrics.enabled`; the components in §2 do not, since a
+chart's own credentials depend on them regardless of whether anything scrapes
+metrics.
+
+The same reasoning folded `gcp-admin-password` into `crossplane/gcp-cloudsql`'s
+own `WatchOperation` rather than leaving it separate: both watched
+`DatabaseInstance` unconditionally, both were gated on the same
+`cloud_driver == 'cloudsql'` condition, and the connection watcher already
+waited on the admin Secret the password watcher produced. Two components that
+are always installed together, watching the same object, one waiting on the
+other's output, is one component that does two sequential things.
 
 ### 6. Anything `AppRole` does not cover is authored directly
 
