@@ -240,7 +240,6 @@ flux:
           - "${database_effective.cloud_driver == 'cloudsql' ? 'crossplane/gcp-cloudsql' : ''}"
           - crossplane/provider-sql
           - crossplane/function-python
-          - crossplane/instance-connection
           - crossplane/app-role
           - "${(telemetry.metrics.enabled ?? true) ? 'crossplane/postgres-monitor' : ''}"
         healthCheckExprs:

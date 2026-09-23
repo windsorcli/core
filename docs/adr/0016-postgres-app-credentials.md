@@ -1,6 +1,6 @@
 ---
 title: "ADR-0016: Postgres app credentials — a shared ClusterProviderConfig and a narrow AppRole"
-description: One ClusterProviderConfig per database instance, composed by a cluster-scoped InstanceConnection XR that a driver's WatchOperation ensures exists, plus an AppRole XRD covering only the application-credential case. Replaces this ADR's original per-XR ProviderConfig design, which live testing found deadlocks on teardown, and supersedes ADR-0013's app-role/monitor-role/instance-connection mechanism.
+description: One ClusterProviderConfig per database instance, owned by that instance's own WatchOperation, plus an AppRole XRD covering only the application-credential case. Replaces this ADR's original per-XR ProviderConfig design, which live testing found deadlocks on teardown, and supersedes ADR-0013's app-role/monitor-role/instance-connection mechanism.
 ---
 
 # ADR-0016: Postgres app credentials — a shared ClusterProviderConfig and a narrow AppRole
@@ -88,16 +88,17 @@ so nothing shares a name with anything, and the collision in Context becomes
 structurally impossible rather than merely unlikely. A cluster-scoped config's
 usage count spanning every namespace is then correct behaviour, not a bug.
 
-### 2. The instance's own `WatchOperation` ensures an `InstanceConnection` XR, not the plumbing itself
+### 2. The instance's own `WatchOperation` owns it, not any XR
 
 A `WatchOperation` on each cloud driver's own component (`crossplane/aws-rds`,
 `crossplane/azure-postgres`, `crossplane/gcp-cloudsql` — not a separate
 component, since one is never installed without the other) watches its
-instance kind and ensures exactly one thing: a cluster-scoped
-`InstanceConnection` XR named after the instance, carrying the four fields
-that vary by driver (`instanceApiVersion`, `instanceKind`, `endpointField`,
-`adminUsernameField`) and an `ownerReference` to the instance,
-`blockOwnerDeletion: false`, as a backstop.
+instance kind and ensures two things exist for each one: the
+`<instance>-connection` Secret in `system-database` (the admin credential
+merged with the live endpoint), and the `ClusterProviderConfig` reading it.
+Both carry an `ownerReference` to the instance, `blockOwnerDeletion: false`:
+the instance can delete freely, and Kubernetes garbage-collects these once
+it's actually gone.
 
 Ownership is what the first design could not express. A namespaced XR
 composing a cluster-scoped resource receives no owner reference at all
@@ -106,42 +107,33 @@ which is why the original went namespaced and per-XR. Here the owner is the
 instance itself, cluster-scoped owning cluster-scoped, with none of that
 problem.
 
-### 3. `InstanceConnection`'s Composition builds the plumbing, and prunes it on deletion
+The three components share one script; only `spec.watch` differs, patched by
+each driver's own component. The script keys off the watched resource's kind
+for the three fields that vary — endpoint, admin username, and whether that
+username comes from the Secret or the instance spec.
 
-A `WatchOperation` cannot delete anything it creates — Crossplane's own docs
-list this as a current limitation of Operations. An earlier revision of this
-ADR reached for a `ClusterUsage` (`of` the instance, `by` the
-`ClusterProviderConfig`, `replayDeletion: true`) built directly by the
-`WatchOperation`, the same guarantee #2918 and #2919 were after. Live, this
-recreated the deadlock it was meant to prevent: the webhook denies the
-instance's deletion outright, so the `WatchOperation` keeps re-asserting the
-same `ClusterUsage` it can never remove, forever.
+### 3. No `ClusterUsage`: ownership and orphan policies already cover teardown
 
-A follow-up revision dropped `ClusterUsage` outright, reasoning that `Role`
-and `Grant` exclude `Delete` from `managementPolicies` so their own removal
-needs no live connection. That missed that `Observe` is not excluded, and
-provider-sql's reconciler calls it before it can conclude an object is safe
-to orphan. Once the instance is actually gone, `Observe` fails forever and
-the finalizer never clears — reproduced live against `postgres-monitor`'s own
-`Role`/`Grant` in a full `gcp-test` teardown.
+An earlier revision of this ADR added a `ClusterUsage` (`of` the instance, `by`
+the `ClusterProviderConfig`, `replayDeletion: true`) to block the instance's
+deletion while its config existed, reaching for the same guarantee #2918 and
+#2919 were after. A live full-context `windsor destroy` against `gcp-test`
+showed it recreates the deadlock it was meant to prevent: the webhook denies
+the instance's delete outright, without ever setting a `deletionTimestamp` on
+it, so the owning `WatchOperation` gets no signal that deletion was attempted
+and keeps re-creating the `ClusterProviderConfig`/`ClusterUsage` pair on every
+reconcile. Flux tears down the `WatchOperation`'s own Kustomization only after
+the instance's, so nothing ever stops the loop without manual intervention.
 
-Only a Composition can prune what it creates: composing a resource once and
-omitting it on a later reconcile deletes it, which is exactly the capability
-Operations lack. `InstanceConnection`'s one Composition (shared by every
-driver, parameterized by the XR's own spec) requires the instance itself as
-an extra resource and checks its `deletionTimestamp`:
-
-- Not set: compose the `<instance>-connection` Secret (the admin credential
-  merged with the live endpoint), the `ClusterProviderConfig` reading it, and
-  the `ClusterUsage` blocking the instance's deletion while they exist.
-- Set: compose none of the three. Crossplane prunes them, and deleting the
-  `ClusterUsage` replays the instance's now-safe deletion.
-
-Pruning fires within a reconcile of the delete request, well before the
-instance's own provider finishes tearing down the real cloud resource — so
-`postgres-monitor`'s `Role`/`Grant`, garbage-collected once the
-`ClusterProviderConfig` they're owned by disappears, still find a live
-database to `Observe` against.
+Nothing needs that guard. `Role` and `Grant` both exclude `Delete` from
+`managementPolicies` (§4, §5) — provider-sql never opens a connection to
+process their removal from Kubernetes, so the instance disappearing first
+costs at most a few minutes of transient reconcile errors on objects already
+being garbage-collected, not a stuck or corrupted credential. Protection
+against deleting a live, in-use instance belongs on the instance CR itself —
+`deletionPolicy`/`deletionProtection`, the same fields RDS, Cloud SQL, and
+Flexible Server already expose — not on a second Kubernetes object with its
+own failure mode.
 
 ### 4. `AppRole` — deliberately narrow, the CloudNativePG app-user equivalent
 
@@ -232,34 +224,20 @@ outside the common case.
 
 ## Live verification
 
-Two full `windsor apply`/`windsor destroy` cycles against `gcp-test`, with
-the demo app's `AppRole` and the monitor's credentials both present,
-confirmed:
+A full `windsor apply`/`windsor destroy` cycle against `gcp-test`, with the
+demo app's `AppRole` and the monitor's credentials both present, confirmed:
 
 - `AppRole`'s `Role` resolving a `ClusterProviderConfig` reference and
-  connecting: the demo app's credentials worked end to end, across both
-  cycles.
+  connecting: the demo app's credentials worked end to end.
 - Ordering between the `WatchOperation` creating the `ClusterProviderConfig`
   and `AppRole`'s `Role` referencing it before that watcher had run once:
   no issue observed.
-- `demo-db`'s deletion no longer collides across namespaces the way #2917
-  did, in either cycle.
-- The `WatchOperation`-built `ClusterUsage` from this ADR's first revision
-  deadlocking a full teardown exactly as described in §3 — reproduced live,
-  which is what drove that section's redesign.
-- The no-`ClusterUsage` revision of §3 letting `postgres-monitor`'s own
-  `Role`/`Grant` outlive the database they connect through, stuck on a
-  failed `Observe` with no live controller path to clear it — also
-  reproduced live, which is what drove the `InstanceConnection` Composition
-  now in §3.
+- The teardown this ADR exists to fix: `demo-db`'s deletion no longer collides
+  across namespaces the way #2917 did. It did surface the `ClusterUsage`
+  deadlock §3 now describes and removes.
 - `GRANT ALL PRIVILEGES ON DATABASE` still needs a real migration run against
   Postgres 15+'s revoked `public` schema `CREATE` privilege — not exercised
-  by either cycle, and still open.
-
-**Not yet verified**: the `InstanceConnection` Composition itself (current
-§3) — both live cycles above ran against its two predecessors, not this
-version. `kustomize build` and the Composition script's syntax are checked;
-its actual prune-on-`deletionTimestamp` behavior is not.
+  by this pass, and still open.
 
 ## Alternatives considered
 
@@ -333,6 +311,3 @@ deleting it would leave the cloud database running and billing.
 - `crossplane-contrib/provider-sql` `apis/namespaced/postgresql/v1alpha1` —
   `clusterproviderconfigs`, listed as installed by this ADR's first revision
   and unused until now.
-- [Crossplane Operations docs](https://docs.crossplane.io/latest/operations/operation/)
-  — "delete resources" listed as a current limitation of the alpha
-  implementation, which is why §3 moved pruning to a Composition.

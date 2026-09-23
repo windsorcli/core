@@ -1,6 +1,6 @@
 ---
-# Ensures an InstanceConnection XR exists for the FlexibleServer. Its own
-# Composition builds the connection Secret and ClusterProviderConfig.
+# Ensures the FlexibleServer has the connection Secret it reads and a
+# ClusterProviderConfig.
 apiVersion: ops.crossplane.io/v1alpha1
 kind: WatchOperation
 metadata:
@@ -23,29 +23,68 @@ spec:
             apiVersion: python.fn.crossplane.io/v1beta1
             kind: Script
             script: |
+              import base64
+
               from crossplane.function import request, response
 
-              INSTANCE_CONNECTION_API = "database.windsorcli.dev/v1alpha1"
+              ADMIN_NAMESPACE = "system-database"
+              PROVIDER_SQL_API = "postgresql.sql.m.crossplane.io/v1alpha1"
 
 
-              def build_instance_connection(instance_name, owner_refs):
+              def admin_secret_name(instance_name):
+                  return f"{instance_name}-admin-credentials"
+
+
+              def connection_secret_name(instance_name):
+                  return f"{instance_name}-connection"
+
+
+              def build_connection_secret(instance_name, endpoint, username, password, owner_refs):
                   return {
-                      "apiVersion": INSTANCE_CONNECTION_API,
-                      "kind": "InstanceConnection",
-                      "metadata": {"name": instance_name, "ownerReferences": owner_refs},
-                      "spec": {
-                          "instanceName": instance_name,
-                          "instanceApiVersion": "dbforpostgresql.azure.upbound.io/v1beta1",
-                          "instanceKind": "FlexibleServer",
-                          "endpointField": "fqdn",
-                          "adminUsernameField": "administratorLogin",
+                      "apiVersion": "v1",
+                      "kind": "Secret",
+                      "metadata": {
+                          "name": connection_secret_name(instance_name),
+                          "namespace": ADMIN_NAMESPACE,
+                          "ownerReferences": owner_refs,
+                      },
+                      "type": "Opaque",
+                      "stringData": {
+                          "endpoint": endpoint,
+                          "port": "5432",
+                          "username": username,
+                          "password": password,
                       },
                   }
+
+
+              def build_cluster_provider_config(instance_name, owner_refs):
+                  # Named after the instance: what a consumer's Role references.
+                  return {
+                      "apiVersion": PROVIDER_SQL_API,
+                      "kind": "ClusterProviderConfig",
+                      "metadata": {"name": instance_name, "ownerReferences": owner_refs},
+                      "spec": {
+                          "sslMode": "require",
+                          "credentials": {
+                              "source": "PostgreSQLConnectionSecret",
+                              "connectionSecretRef": {
+                                  "name": connection_secret_name(instance_name),
+                                  "namespace": ADMIN_NAMESPACE,
+                              },
+                          },
+                      },
+                  }
+
+
+              def resolve_admin_username(instance, secret):
+                  return instance.get("spec", {}).get("forProvider", {}).get("administratorLogin", "")
 
 
               def operate(req, rsp):
                   instance = request.get_required_resource(req, "ops.crossplane.io/watched-resource")
                   instance_name = instance["metadata"]["name"]
+                  secret_name = admin_secret_name(instance_name)
                   owner_refs = [{
                       "apiVersion": instance["apiVersion"],
                       "kind": instance["kind"],
@@ -54,7 +93,36 @@ spec:
                       "blockOwnerDeletion": False,
                   }]
 
-                  rsp.desired.resources["instance-connection"].resource.update(
-                      build_instance_connection(instance_name, owner_refs)
+                  response.require_resources(
+                      rsp, name="admin-secret", api_version="v1", kind="Secret",
+                      match_name=secret_name, namespace=ADMIN_NAMESPACE,
                   )
-                  response.set_output(rsp, {"instanceConnection": instance_name})
+
+                  secret = request.get_required_resource(req, "admin-secret")
+                  if secret is None:
+                      response.set_output(rsp, {"waiting": f"Secret/{secret_name} in {ADMIN_NAMESPACE}"})
+                      return
+
+                  password_b64 = secret.get("data", {}).get("password")
+                  if not password_b64:
+                      response.set_output(rsp, {"waiting": f"Secret/{secret_name} has no password key yet"})
+                      return
+
+                  endpoint = instance.get("status", {}).get("atProvider", {}).get("fqdn", "")
+                  if not endpoint:
+                      response.set_output(rsp, {"waiting": f"FlexibleServer/{instance_name} has no endpoint yet"})
+                      return
+
+                  rsp.desired.resources["connection-secret"].resource.update(
+                      build_connection_secret(
+                          instance_name,
+                          endpoint,
+                          resolve_admin_username(instance, secret),
+                          base64.b64decode(password_b64).decode(),
+                          owner_refs,
+                      )
+                  )
+                  rsp.desired.resources["cluster-provider-config"].resource.update(
+                      build_cluster_provider_config(instance_name, owner_refs)
+                  )
+                  response.set_output(rsp, {"providerConfig": instance_name})
