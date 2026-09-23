@@ -180,11 +180,15 @@ spec:
 
 Two fields, and nothing else configurable. The Postgres role name is the
 object's own name; the Secret is `<name>-credentials` in the object's own
-namespace; the grant is `ALL` on `databaseName`, which is what an application
-running its own migrations needs and what CloudNativePG's `bootstrap.initdb.owner`
-already gives its app user. `providerConfigRef` is filled in from
-`instanceName`, so `ClusterProviderConfig` never appears in a consumer's
-manifest.
+namespace; two `Grant`s give it `ALL` on `databaseName` and `ALL` on the
+`public` schema, matching what CloudNativePG's `bootstrap.initdb.owner`
+already gives its app user. The second grant exists because Postgres 15+
+revoked schema-level `CREATE` on `public` from `PUBLIC`
+([core#2920](https://github.com/windsorcli/core/issues/2920)), and a
+database-level grant doesn't cover it — a genuinely separate privilege
+scope, only expressible with provider-sql `v0.16.1`'s `schema` field
+(`v0.14.0` had none). `providerConfigRef` is filled in from `instanceName`,
+so `ClusterProviderConfig` never appears in a consumer's manifest.
 
 The narrowness is the point. `superUser`, `createRole`, `createDb`,
 `bypassRls`, `replication`, role membership, and privilege subsets are all
@@ -289,9 +293,12 @@ confirmed:
 - The `InstanceConnection` Composition attempt deadlocking the same way
   `ClusterUsage` originally did, for the reason §3 now records — reproduced
   live in the third cycle, then reverted.
-- `GRANT ALL PRIVILEGES ON DATABASE` still needs a real migration run against
-  Postgres 15+'s revoked `public` schema `CREATE` privilege — not exercised
-  by any cycle, and still open.
+- `GRANT ALL PRIVILEGES ON DATABASE` not covering Postgres 15+'s revoked
+  `public` schema `CREATE` privilege — reproduced live in a fourth cycle
+  ([core#2920](https://github.com/windsorcli/core/issues/2920)), fixed by a
+  second, schema-scoped `Grant` (§4) on provider-sql `v0.16.1`. Live-verified
+  against the demo's own PG16 instance: connected as `demo-app` and ran
+  `CREATE TABLE`/`INSERT`/`SELECT`/`DROP TABLE`, all successful.
 
 **Not yet verified**: §5's `PostgresMonitor`. It rests on a signal confirmed
 live in the third cycle above — the instance's `deletionTimestamp` reliably
