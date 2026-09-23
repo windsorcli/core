@@ -15,7 +15,7 @@ composed its own `ProviderConfig` — which shipped, then deadlocked on
 teardown in a live `gcp-test` run. The Context section below records that
 failure, because the shape of this decision follows directly from it.
 
-Not yet verified live; see Verification needed.
+Verified live against `gcp-test`; see Live verification.
 
 ## Context
 
@@ -93,10 +93,12 @@ usage count spanning every namespace is then correct behaviour, not a bug.
 A `WatchOperation` on each cloud driver's own component (`crossplane/aws-rds`,
 `crossplane/azure-postgres`, `crossplane/gcp-cloudsql` — not a separate
 component, since one is never installed without the other) watches its
-instance kind and ensures three things exist for each one: the
+instance kind and ensures two things exist for each one: the
 `<instance>-connection` Secret in `system-database` (the admin credential
-merged with the live endpoint), the `ClusterProviderConfig` reading it, and
-the `ClusterUsage` in §3. All three carry an `ownerReference` to the instance.
+merged with the live endpoint), and the `ClusterProviderConfig` reading it.
+Both carry an `ownerReference` to the instance, `blockOwnerDeletion: false`:
+the instance can delete freely, and Kubernetes garbage-collects these once
+it's actually gone.
 
 Ownership is what the first design could not express. A namespaced XR
 composing a cluster-scoped resource receives no owner reference at all
@@ -110,15 +112,28 @@ each driver's own component. The script keys off the watched resource's kind
 for the three fields that vary — endpoint, admin username, and whether that
 username comes from the Secret or the instance spec.
 
-### 3. A `ClusterUsage` blocks the instance's deletion while its config exists
+### 3. No `ClusterUsage`: ownership and orphan policies already cover teardown
 
-The instance still MUST outlive the credentials that connect through it, which
-is what #2918 and #2919 were reaching for. With both sides cluster-scoped, a
-`ClusterUsage` (`of` the instance, `by` the `ClusterProviderConfig`,
-`replayDeletion: true`) fits without the namespace guessing that broke `Usage`.
-There is one per instance, created by the same `WatchOperation`, so it has
-nothing to collide with however many consumers reference the config it
-protects.
+An earlier revision of this ADR added a `ClusterUsage` (`of` the instance, `by`
+the `ClusterProviderConfig`, `replayDeletion: true`) to block the instance's
+deletion while its config existed, reaching for the same guarantee #2918 and
+#2919 were after. A live full-context `windsor destroy` against `gcp-test`
+showed it recreates the deadlock it was meant to prevent: the webhook denies
+the instance's delete outright, without ever setting a `deletionTimestamp` on
+it, so the owning `WatchOperation` gets no signal that deletion was attempted
+and keeps re-creating the `ClusterProviderConfig`/`ClusterUsage` pair on every
+reconcile. Flux tears down the `WatchOperation`'s own Kustomization only after
+the instance's, so nothing ever stops the loop without manual intervention.
+
+Nothing needs that guard. `Role` and `Grant` both exclude `Delete` from
+`managementPolicies` (§4, §5) — provider-sql never opens a connection to
+process their removal from Kubernetes, so the instance disappearing first
+costs at most a few minutes of transient reconcile errors on objects already
+being garbage-collected, not a stuck or corrupted credential. Protection
+against deleting a live, in-use instance belongs on the instance CR itself —
+`deletionPolicy`/`deletionProtection`, the same fields RDS, Cloud SQL, and
+Flexible Server already expose — not on a second Kubernetes object with its
+own failure mode.
 
 ### 4. `AppRole` — deliberately narrow, the CloudNativePG app-user equivalent
 
@@ -207,29 +222,22 @@ outside the common case.
 - The admin credential still lives only in `system-database`. Consumers still
   receive only their own scoped role's Secret.
 
-## Verification needed before merge
+## Live verification
 
-Nothing below has run against a live cluster. `windsor test` (372 cases),
-the Composition's unit tests, and `kustomize build` over every changed
-component all pass, and none of those would have caught any of the three
-bugs this ADR's Context describes.
+A full `windsor apply`/`windsor destroy` cycle against `gcp-test`, with the
+demo app's `AppRole` and the monitor's credentials both present, confirmed:
 
-- A namespaced `Role` resolving a `ClusterProviderConfig` reference and
-  actually connecting — confirmed against the CRD schema, not a live
-  reconcile.
-- `ClusterUsage` denying the instance's deletion the way `Usage` did in
-  #2919's run, with neither side namespaced this time.
-- `GRANT ALL PRIVILEGES ON DATABASE` giving an application enough for its
-  own migrations. Postgres 15+ revoked `CREATE` on the `public` schema from
-  `PUBLIC`, so database-level `ALL` may not cover table creation without a
-  schema-level grant. This is the one place `AppRole` may not yet match
-  CloudNativePG's ownership model, and it needs a real migration run, not a
-  reading of the docs.
-- Ordering between a `WatchOperation` creating the `ClusterProviderConfig`
-  and an `AppRole`'s `Role` referencing it before that watcher has run once.
-- The teardown this ADR exists to fix: a `windsor destroy` against `gcp-test`
-  with both the demo app and monitor credentials present, converging without
-  the circular wait.
+- `AppRole`'s `Role` resolving a `ClusterProviderConfig` reference and
+  connecting: the demo app's credentials worked end to end.
+- Ordering between the `WatchOperation` creating the `ClusterProviderConfig`
+  and `AppRole`'s `Role` referencing it before that watcher had run once:
+  no issue observed.
+- The teardown this ADR exists to fix: `demo-db`'s deletion no longer collides
+  across namespaces the way #2917 did. It did surface the `ClusterUsage`
+  deadlock §3 now describes and removes.
+- `GRANT ALL PRIVILEGES ON DATABASE` still needs a real migration run against
+  Postgres 15+'s revoked `public` schema `CREATE` privilege — not exercised
+  by this pass, and still open.
 
 ## Alternatives considered
 

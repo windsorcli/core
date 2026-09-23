@@ -1,6 +1,6 @@
 ---
-# Ensures the Instance has a ClusterProviderConfig, the connection Secret it
-# reads, and a ClusterUsage blocking the instance's deletion.
+# Ensures the Instance has the connection Secret it reads and a
+# ClusterProviderConfig.
 apiVersion: ops.crossplane.io/v1alpha1
 kind: WatchOperation
 metadata:
@@ -77,31 +77,6 @@ spec:
                   }
 
 
-              def build_cluster_usage(instance_name, owner_refs):
-                  # Blocks the instance's deletion until its ClusterProviderConfig is gone.
-                  return {
-                      "apiVersion": "protection.crossplane.io/v1beta1",
-                      "kind": "ClusterUsage",
-                      "metadata": {
-                          "name": f"{instance_name}-provider-config",
-                          "ownerReferences": owner_refs,
-                      },
-                      "spec": {
-                          "of": {
-                              "apiVersion": "rds.aws.upbound.io/v1beta3",
-                              "kind": "Instance",
-                              "resourceRef": {"name": instance_name},
-                          },
-                          "by": {
-                              "apiVersion": PROVIDER_SQL_API,
-                              "kind": "ClusterProviderConfig",
-                              "resourceRef": {"name": instance_name},
-                          },
-                          "replayDeletion": True,
-                      },
-                  }
-
-
               def resolve_admin_username(instance, secret):
                   return instance.get("spec", {}).get("forProvider", {}).get("username", "")
 
@@ -149,8 +124,5 @@ spec:
                   )
                   rsp.desired.resources["cluster-provider-config"].resource.update(
                       build_cluster_provider_config(instance_name, owner_refs)
-                  )
-                  rsp.desired.resources["cluster-usage"].resource.update(
-                      build_cluster_usage(instance_name, owner_refs)
                   )
                   response.set_output(rsp, {"providerConfig": instance_name})

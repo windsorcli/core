@@ -1,6 +1,6 @@
 ---
 # Ensures every Cloud SQL DatabaseInstance has an admin Secret/User, then
-# its ClusterProviderConfig, connection Secret, and blocking ClusterUsage.
+# its connection Secret and ClusterProviderConfig.
 apiVersion: ops.crossplane.io/v1alpha1
 kind: WatchOperation
 metadata:
@@ -122,31 +122,6 @@ spec:
                   }
 
 
-              def build_cluster_usage(instance_name, api_version, kind, owner_refs):
-                  # Blocks the instance's deletion until its ClusterProviderConfig is gone.
-                  return {
-                      "apiVersion": "protection.crossplane.io/v1beta1",
-                      "kind": "ClusterUsage",
-                      "metadata": {
-                          "name": f"{instance_name}-provider-config",
-                          "ownerReferences": owner_refs,
-                      },
-                      "spec": {
-                          "of": {
-                              "apiVersion": api_version,
-                              "kind": kind,
-                              "resourceRef": {"name": instance_name},
-                          },
-                          "by": {
-                              "apiVersion": PROVIDER_SQL_API,
-                              "kind": "ClusterProviderConfig",
-                              "resourceRef": {"name": instance_name},
-                          },
-                          "replayDeletion": True,
-                      },
-                  }
-
-
               def operate(req, rsp):
                   instance = request.get_required_resource(req, "ops.crossplane.io/watched-resource")
                   instance_name = instance["metadata"]["name"]
@@ -205,8 +180,5 @@ spec:
                   )
                   rsp.desired.resources["cluster-provider-config"].resource.update(
                       build_cluster_provider_config(instance_name, owner_refs)
-                  )
-                  rsp.desired.resources["cluster-usage"].resource.update(
-                      build_cluster_usage(instance_name, instance["apiVersion"], kind, owner_refs)
                   )
                   response.set_output(rsp, {"providerConfig": instance_name})
