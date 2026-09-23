@@ -61,9 +61,6 @@ flux:
           - database
           - database/rds
         substitutions:
-          db_subnet_group_name: "${terraform_output('network', 'db_subnet_group_name') ?? ''}"
-          kms_key_arn: "${terraform_output('database', 'key_id') ?? ''}"
-          rds_security_group_id: "${terraform_output('database', 'security_group_id') ?? ''}"
           demo_database_name: "${demo_database_name}"
           database_instance_name: "${database_instance_name}"
           aws_region: "${aws.region ?? ''}"
@@ -100,13 +97,8 @@ flux:
       - components:
           - database
           - database/azuredb
-          - "${database_effective.dedicated_encryption_key == true ? 'database/azuredb/encryption-key' : ''}"
         substitutions:
-          azuredb_subnet_id: "${terraform_output('network', 'azuredb_subnet_id') ?? ''}"
-          azuredb_private_dns_zone_id: "${terraform_output('database', 'private_dns_zone_id') ?? ''}"
           azuredb_region: "${terraform_output('network', 'region') ?? ''}"
-          azuredb_kms_key_id: "${terraform_output('database', 'key_id') ?? ''}"
-          azuredb_cmk_identity_id: "${terraform_output('database', 'azuredb_cmk_identity_id') ?? ''}"
           database_instance_name: "${database_instance_name}"
         healthCheckExprs:
           - apiVersion: dbforpostgresql.azure.upbound.io/v1beta1
@@ -145,10 +137,7 @@ flux:
       - components:
           - database
           - database/cloudsql
-          - "${database_effective.dedicated_encryption_key == true ? 'database/cloudsql/encryption-key' : ''}"
         substitutions:
-          cloudsql_network_id: "${terraform_output('network', 'network_id') ?? ''}"
-          cloudsql_kms_key_name: "${terraform_output('database', 'key_id') ?? ''}"
           cloudsql_region: "${terraform_output('network', 'region') ?? ''}"
           database_instance_name: "${database_instance_name}"
         healthCheckExprs:

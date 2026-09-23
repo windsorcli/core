@@ -119,9 +119,9 @@ the same leaf name on purpose, matching `csi/install/longhorn` and
 Every driver's admin password lands in a Kubernetes `Secret` in
 `system-database`: RDS/Flexible Server generate it via their own
 `passwordSecretRef`/`administratorPasswordSecretRef` field, Cloud SQL via
-`gcp-admin-password`'s `WatchOperation`, which also applies it onto the
-instance's own admin `User` — `provider-gcp-sql` has no such field of its
-own. The instance's own `WatchOperation` reads it to build the
+`crossplane/gcp-cloudsql`'s own `WatchOperation`, which also applies it
+onto the instance's own admin `User` — `provider-gcp-sql` has no such
+field of its own. Each driver's `WatchOperation` reads it to build the
 `ClusterProviderConfig` every chart's credential connects through.
 
 ## Consuming from a chart
