@@ -24,10 +24,10 @@ the environment when running `plan`/`apply`:
 | `VSPHERE_PASSWORD` | yes | vCenter password |
 | `VSPHERE_ALLOW_UNVERIFIED_SSL` | no | `true` to skip TLS verification (self-signed vCenter certs) |
 
-Under the Windsor CLI these are exported automatically from the context
-`vsphere` config block (`server`, `user`, `insecure`) plus a secret reference
-for the password — the password is never written to config in plaintext. Outside
-the CLI, export them directly before invoking Terraform.
+Under the Windsor CLI these are set in the context `environment:` block
+(`VSPHERE_SERVER`, `VSPHERE_USER`, `VSPHERE_ALLOW_UNVERIFIED_SSL`) plus a
+secret reference for the password. Outside the CLI, export them directly
+before invoking Terraform.
 
 ## Inventory prerequisites
 
