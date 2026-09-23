@@ -168,6 +168,8 @@ locals {
 }
 
 resource "google_container_node_pool" "system" {
+  # checkov:skip=CKV_GCP_9: auto_repair is off on purpose for ephemeral
+  # contexts, to avoid it racing the pool's own deletion.
   for_each       = local.system_pool_resolved
   name           = each.key
   cluster        = google_container_cluster.this.id
@@ -293,6 +295,8 @@ locals {
 }
 
 resource "google_container_node_pool" "pools" {
+  # checkov:skip=CKV_GCP_9: auto_repair is off on purpose for ephemeral
+  # contexts, to avoid it racing the pool's own deletion.
   for_each       = local.pools_resolved
   name           = each.key
   cluster        = google_container_cluster.this.id
