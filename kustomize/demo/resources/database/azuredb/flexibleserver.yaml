@@ -1,7 +1,6 @@
 ---
-# resourceGroupName, delegatedSubnetId, privateDnsZoneId, and
-# providerConfigRef all come from the database add-on's own Kyverno
-# policies, same as a third-party chart gets them.
+# resourceGroupName, delegatedSubnetId, privateDnsZoneId, and providerConfigRef
+# all come from the database add-on's own Kyverno policies.
 apiVersion: dbforpostgresql.azure.upbound.io/v1beta1
 kind: FlexibleServer
 metadata:

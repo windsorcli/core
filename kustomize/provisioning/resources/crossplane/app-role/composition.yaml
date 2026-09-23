@@ -1,7 +1,6 @@
 ---
 # Renders the Role and Grant behind an AppRole. The ClusterProviderConfig
-# they connect through is not composed here: the instance's own WatchOperation
-# owns it, so it outlives any one user.
+# they connect through belongs to the instance's own WatchOperation instead.
 apiVersion: apiextensions.crossplane.io/v1
 kind: Composition
 metadata:

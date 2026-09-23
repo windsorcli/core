@@ -1,8 +1,6 @@
 ---
 # Worked example of the kustomize/database contract: just the database
-# definition, no provider wiring. windsorcli.dev/cluster, dbSubnetGroupName,
-# vpcSecurityGroupIds, and kmsKeyId are all defaulted by the database
-# add-on's own Kyverno policies, same as a third-party chart gets them.
+# definition. Kyverno defaults the tag, subnet group, security group, and KMS key.
 apiVersion: rds.aws.upbound.io/v1beta3
 kind: Instance
 metadata:

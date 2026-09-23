@@ -1,7 +1,6 @@
 ---
-# Grants every Postgres instance a monitor Role for postgres_exporter to
-# scrape. Watches ClusterProviderConfig rather than the cloud instance kinds:
-# by the time one exists, every driver difference has already been resolved.
+# Watches ClusterProviderConfig rather than the cloud instance kinds: by the
+# time one exists, every driver difference is already resolved.
 apiVersion: ops.crossplane.io/v1alpha1
 kind: WatchOperation
 metadata:

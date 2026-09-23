@@ -52,9 +52,7 @@ cases:
               substitutions:
                 demo_database_name: demo
 
-  # rds driver: creates an Instance CR.
-  # dbSubnetGroupName/kmsKeyId read the real terraform outputs directly.
-  # A third-party chart uses the documented naming convention instead.
+  # rds driver: creates an Instance CR. Kyverno defaults its network/KMS fields.
   - name: demo mode with rds driver creates demo rds instance
     values:
       platform: aws
@@ -168,8 +166,7 @@ cases:
                   current: status.conditions.exists(e, e.type == 'Ready' && e.status == 'True')
 
   # cloudsql driver: creates a DatabaseInstance + User + Database CR trio.
-  # GCP twin of the rds/azuredb cases above. network_id/key_id
-  # read the real terraform outputs directly, matching that convention.
+  # GCP twin of the rds/azuredb cases above; Kyverno defaults its fields too.
   - name: demo mode with cloudsql driver creates demo cloudsql instance
     values:
       platform: gcp
@@ -230,8 +227,7 @@ cases:
                   current: status.conditions.exists(e, e.type == 'Ready' && e.status == 'True')
 
   # database.postgres.cloud.encryption.managed/key_id no longer touch the
-  # demo at all — the CMK lands via the database add-on's own Kyverno
-  # policy (addon-database.test.yaml), same as any third-party chart.
+  # demo — the CMK lands via the Kyverno policy tested in addon-database.test.yaml.
 
   # static + bookinfo apps carry no database dependency, and demo is a
   # resources-only system, so no demo-install tier is emitted.

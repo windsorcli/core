@@ -30,12 +30,8 @@ config:
     value:
       cloud_driver: "${database.postgres.cloud.driver}"
 
-# database_effective.dedicated_encryption_key: whether this context actually
-# has a customer-managed key a driver's Kyverno defaulting can wire onto a
-# chart's resource — true for an explicit key_id, or managed without
-# ephemeral (which skips creating the dedicated key). Split into two simple
-# conditions rather than one combined &&/||/! expression, which this
-# evaluator doesn't parse reliably.
+# database_effective.dedicated_encryption_key: whether a driver's Kyverno
+# policy has a real key to default onto a chart's resource.
   - name: database_effective
     when: database.postgres.cloud.encryption.managed == true && ephemeral != true
     value:

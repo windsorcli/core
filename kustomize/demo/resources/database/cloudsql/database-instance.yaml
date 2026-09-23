@@ -1,9 +1,6 @@
 ---
-# Worked example of the kustomize/database contract. The admin
-# credential lives at demo-db-admin-credentials in system-database,
-# written by kustomize/provisioning's crossplane/gcp-cloudsql WatchOperation.
-# privateNetwork and encryptionKeyName come from the database add-on's own
-# Kyverno policies, same as a third-party chart gets them.
+# Worked example of the kustomize/database contract: just the database
+# definition. Kyverno defaults privateNetwork and encryptionKeyName.
 apiVersion: sql.gcp.upbound.io/v1beta2
 kind: DatabaseInstance
 metadata:

@@ -1,7 +1,6 @@
 ---
-# Ensures the FlexibleServer has a ClusterProviderConfig, the connection Secret it
-# reads, and a ClusterUsage blocking the instance's deletion while that
-# config still exists.
+# Ensures the FlexibleServer has a ClusterProviderConfig, the connection
+# Secret it reads, and a ClusterUsage blocking its deletion.
 apiVersion: ops.crossplane.io/v1alpha1
 kind: WatchOperation
 metadata:
