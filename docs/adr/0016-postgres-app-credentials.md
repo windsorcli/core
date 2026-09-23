@@ -125,15 +125,33 @@ and keeps re-creating the `ClusterProviderConfig`/`ClusterUsage` pair on every
 reconcile. Flux tears down the `WatchOperation`'s own Kustomization only after
 the instance's, so nothing ever stops the loop without manual intervention.
 
-Nothing needs that guard. `Role` and `Grant` both exclude `Delete` from
-`managementPolicies` (§4, §5) — provider-sql never opens a connection to
-process their removal from Kubernetes, so the instance disappearing first
-costs at most a few minutes of transient reconcile errors on objects already
-being garbage-collected, not a stuck or corrupted credential. Protection
-against deleting a live, in-use instance belongs on the instance CR itself —
+`Role` and `Grant` exclude `Delete` from `managementPolicies` (§4, §5), so
+their own removal from Kubernetes issues no `DROP ROLE`/`REVOKE`. It does
+still call `Observe` first — that policy is not excluded, and provider-sql's
+reconciler needs it to succeed before it can conclude an object is safe to
+orphan. `postgres-monitor`'s `Role`/`Grant`, garbage-collected only once the
+`ClusterProviderConfig` they're owned by disappears — which itself only
+happens once the instance is completely gone — reliably lose that race:
+`Observe` fails against a database that no longer exists, and the finalizer
+never clears. Live, this needs one manual `kubectl patch ... finalizers: []`
+per full teardown. Still a smaller failure than the `ClusterUsage` deadlock
+above, but a real, open gap, not a cosmetic one.
+
+**Attempted fix, also reverted**: a cluster-scoped `InstanceConnection` XR,
+composed rather than built by a `WatchOperation`, on the theory that a
+Composition can prune what it creates (Operations cannot — see References)
+and so could react to the instance's `deletionTimestamp` by proactively
+dropping `ClusterProviderConfig`/`ClusterUsage` while the database was still
+reachable. Live, it reproduced the original deadlock: the `nousages`
+admission webhook denies a blocked delete synchronously, before Kubernetes
+persists anything, so `deletionTimestamp` never appears on an object whose
+deletion `ClusterUsage` is blocking — no matter what's watching for it.
+That's not an Operations-versus-Compositions gap; a blocked delete leaves no
+observable trace for any passive watcher. Protection against deleting a
+live, in-use instance belongs on the instance CR itself —
 `deletionPolicy`/`deletionProtection`, the same fields RDS, Cloud SQL, and
-Flexible Server already expose — not on a second Kubernetes object with its
-own failure mode.
+Flexible Server already expose — not on a second Kubernetes object whose own
+removal has no reliable trigger.
 
 ### 4. `AppRole` — deliberately narrow, the CloudNativePG app-user equivalent
 
@@ -224,20 +242,34 @@ outside the common case.
 
 ## Live verification
 
-A full `windsor apply`/`windsor destroy` cycle against `gcp-test`, with the
-demo app's `AppRole` and the monitor's credentials both present, confirmed:
+Three full `windsor apply`/`windsor destroy` cycles against `gcp-test`, with
+the demo app's `AppRole` and the monitor's credentials both present,
+confirmed:
 
 - `AppRole`'s `Role` resolving a `ClusterProviderConfig` reference and
-  connecting: the demo app's credentials worked end to end.
+  connecting: the demo app's credentials worked end to end, across all
+  three cycles.
 - Ordering between the `WatchOperation` creating the `ClusterProviderConfig`
   and `AppRole`'s `Role` referencing it before that watcher had run once:
   no issue observed.
-- The teardown this ADR exists to fix: `demo-db`'s deletion no longer collides
-  across namespaces the way #2917 did. It did surface the `ClusterUsage`
-  deadlock §3 now describes and removes.
+- `demo-db`'s deletion no longer collides across namespaces the way #2917
+  did, in any cycle.
+- The `WatchOperation`-built `ClusterUsage` deadlocking a full teardown,
+  exactly as §3 describes — reproduced live in the first cycle.
+- §3's current design (no `ClusterUsage`) letting `demo-resources`,
+  `database-resources`, and `provisioning-resources` all tear down with zero
+  manual intervention, in both the second and third cycles.
+- `postgres-monitor`'s own `Role`/`Grant` outliving the database they
+  connect through, stuck on a failed `Observe` with no live controller path
+  to clear it, needing one manual finalizer clear — reproduced live in both
+  the second and third cycles. Still open; see §3's discussion of what was
+  tried and reverted.
+- The `InstanceConnection` Composition attempt deadlocking the same way
+  `ClusterUsage` originally did, for the reason §3 now records — reproduced
+  live in the third cycle, then reverted.
 - `GRANT ALL PRIVILEGES ON DATABASE` still needs a real migration run against
   Postgres 15+'s revoked `public` schema `CREATE` privilege — not exercised
-  by this pass, and still open.
+  by any cycle, and still open.
 
 ## Alternatives considered
 
@@ -311,3 +343,7 @@ deleting it would leave the cloud database running and billing.
 - `crossplane-contrib/provider-sql` `apis/namespaced/postgresql/v1alpha1` —
   `clusterproviderconfigs`, listed as installed by this ADR's first revision
   and unused until now.
+- [Crossplane Operations docs](https://docs.crossplane.io/latest/operations/operation/)
+  — "delete resources" listed as a current limitation of the alpha
+  implementation, which is why the `InstanceConnection` attempt in §3 could
+  not have worked even without the `deletionTimestamp` problem it hit first.
