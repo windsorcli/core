@@ -5,6 +5,6 @@ metadata:
   name: provider-sql
 spec:
   # renovate: datasource=docker depName=xpkg.upbound.io/crossplane-contrib/provider-sql package=xpkg.upbound.io/crossplane-contrib/provider-sql
-  package: xpkg.upbound.io/crossplane-contrib/provider-sql:v0.14.0@sha256:d14af3510c4034ec0d80c4de0ff495f8bb147779877dc3db3022f0a879f37389
+  package: xpkg.upbound.io/crossplane-contrib/provider-sql:v0.16.1@sha256:015e9696f4044a67c6937b2a3ea60c0f9561e16ee7b023d43fa420b628340e62
   runtimeConfigRef:
     name: provider-sql
