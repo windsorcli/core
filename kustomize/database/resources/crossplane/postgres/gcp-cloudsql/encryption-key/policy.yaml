@@ -19,12 +19,14 @@ metadata:
       would set an explicit empty encryptionKeyName rather than leaving it
       absent when no key exists.
 spec:
+  # CREATE only: encryptionKeyName is ForceNew (confirmed against
+  # terraform-provider-google's own schema), matching the Azure twin.
   failurePolicy: Fail
   matchConstraints:
     resourceRules:
       - apiGroups: [sql.gcp.upbound.io]
         apiVersions: [v1beta2]
-        operations: [CREATE, UPDATE]
+        operations: [CREATE]
         resources: [databaseinstances]
   mutations:
     - patchType: ApplyConfiguration
