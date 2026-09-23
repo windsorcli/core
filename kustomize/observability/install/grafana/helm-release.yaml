@@ -41,7 +41,7 @@ spec:
     initChownData:
       image:
         # renovate: datasource=docker depName=library/busybox package=library/busybox
-        tag: 1.38.0@sha256:dc2d74b28e4cf8984fa52af1f39bc7c3d9c73760b41a74d629f5d11b1ab28616
+        tag: 1.38.0@sha256:cac8f90bbee42dc962a6b38bb1a235948d070385bb9d996bba15a6db8d364008
     downloadDashboardsImage:
       # renovate: datasource=docker depName=curlimages/curl package=curlimages/curl
       tag: 8.22.0@sha256:58adaa4e8dca9c988bae2aba4ab3434a0bb2da16bbe3f92dec39ec7785166777
