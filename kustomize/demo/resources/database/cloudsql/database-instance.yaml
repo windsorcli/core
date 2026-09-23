@@ -1,7 +1,7 @@
 ---
 # Worked example of the kustomize/database contract. The admin
 # credential lives at demo-db-admin-credentials in system-database,
-# written by provisioning's gcp-admin-password WatchOperation.
+# written by kustomize/provisioning's crossplane/gcp-cloudsql WatchOperation.
 apiVersion: sql.gcp.upbound.io/v1beta2
 kind: DatabaseInstance
 metadata:

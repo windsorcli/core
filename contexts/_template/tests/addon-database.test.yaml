@@ -718,6 +718,11 @@ cases:
           path: database/azure-postgres
           inputs:
             manage_encryption_key: true
+      flux:
+        - name: database
+          resources:
+            - components:
+                - crossplane/postgres/azure-postgres/encryption-key
 
   # Ephemeral contexts never get a dedicated Key Vault key, even with encryption.managed set.
   - name: ephemeral azuredb context skips the dedicated encryption key
@@ -836,6 +841,11 @@ cases:
           path: database/gcp-cloudsql
           inputs:
             manage_encryption_key: true
+      flux:
+        - name: database
+          resources:
+            - components:
+                - crossplane/postgres/gcp-cloudsql/encryption-key
 
   # Ephemeral contexts never get a dedicated KMS key, even with encryption.managed set.
   - name: ephemeral cloudsql context skips the dedicated encryption key
