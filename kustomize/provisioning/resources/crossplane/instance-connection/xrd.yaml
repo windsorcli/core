@@ -1,0 +1,44 @@
+---
+# Cluster-scoped so its Composition can prune ClusterProviderConfig on the
+# instance's deletionTimestamp, which a WatchOperation cannot do.
+apiVersion: apiextensions.crossplane.io/v2
+kind: CompositeResourceDefinition
+metadata:
+  name: instanceconnections.database.windsorcli.dev
+spec:
+  scope: Cluster
+  group: database.windsorcli.dev
+  names:
+    kind: InstanceConnection
+    plural: instanceconnections
+  versions:
+    - name: v1alpha1
+      served: true
+      referenceable: true
+      schema:
+        openAPIV3Schema:
+          type: object
+          properties:
+            spec:
+              type: object
+              required:
+                - instanceName
+                - instanceApiVersion
+                - instanceKind
+                - endpointField
+              properties:
+                instanceName:
+                  type: string
+                  description: Name of the Instance/FlexibleServer/DatabaseInstance this connects through.
+                instanceApiVersion:
+                  type: string
+                  description: apiVersion of the instance kind, driver-specific.
+                instanceKind:
+                  type: string
+                  description: Kind of the instance, driver-specific (Instance, FlexibleServer, DatabaseInstance).
+                endpointField:
+                  type: string
+                  description: Key under the instance's status.atProvider holding its connection address.
+                adminUsernameField:
+                  type: string
+                  description: Key under the instance's spec.forProvider holding the admin username. Omit to read it from the admin Secret's own username key instead.

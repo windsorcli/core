@@ -205,6 +205,7 @@ cases:
                 - crossplane/aws-rds
                 - crossplane/provider-sql
                 - crossplane/function-python
+                - crossplane/instance-connection
                 - crossplane/app-role
                 - crossplane/postgres-monitor
               healthCheckExprs:
@@ -319,6 +320,7 @@ cases:
                 - crossplane/gcp-cloudsql
                 - crossplane/provider-sql
                 - crossplane/function-python
+                - crossplane/instance-connection
                 - crossplane/app-role
                 - crossplane/postgres-monitor
               healthCheckExprs:
