@@ -1,6 +1,8 @@
 ---
-# Watches ClusterProviderConfig rather than the cloud instance kinds: by the
-# time one exists, every driver difference is already resolved.
+# Watches ClusterProviderConfig rather than the cloud server kinds: by the
+# time one exists, every driver difference is already resolved, except the
+# server kind/apiVersion its own Composition needs, read off its
+# annotations.
 apiVersion: ops.crossplane.io/v1alpha1
 kind: WatchOperation
 metadata:
@@ -16,182 +18,50 @@ spec:
     spec:
       mode: Pipeline
       pipeline:
-        - step: ensure-monitor-role
+        - step: ensure-postgres-monitor
           functionRef:
             name: function-python
           input:
             apiVersion: python.fn.crossplane.io/v1beta1
             kind: Script
             script: |
-              from crossplane.function import request, resource, response
+              from crossplane.function import request, response
 
-              ADMIN_NAMESPACE = "system-database"
-              PROVIDER_SQL_API = "postgresql.sql.m.crossplane.io/v1alpha1"
-              MONITOR_ROLE = "monitor"
-              MONITOR_GRANT = "pg_monitor"
-              ORPHAN_POLICIES = ["Observe", "Create", "Update", "LateInitialize"]
-
-              EXPORTER_IMAGE = "quay.io/prometheuscommunity/postgres-exporter:v0.20.1@sha256:ac5ec343104fae0e2d84a27bb8d69b38430a11910c5382cad85d478d2bab713e"
+              POSTGRES_MONITOR_API = "database.windsorcli.dev/v1alpha1"
 
 
-              def monitor_role_name(instance_name):
-                  return f"{instance_name}-monitor"
-
-
-              def secret_name(role_name):
-                  return f"{role_name}-credentials"
-
-
-              def build_monitor_role(instance_name, owner_refs):
-                  name = monitor_role_name(instance_name)
+              def build_postgres_monitor(server_name, server_api_version, server_kind, owner_refs):
                   return {
-                      "apiVersion": PROVIDER_SQL_API,
-                      "kind": "Role",
-                      "metadata": {
-                          "name": name,
-                          "namespace": ADMIN_NAMESPACE,
-                          # external-name holds the real Postgres role name.
-                          "annotations": {"crossplane.io/external-name": MONITOR_ROLE},
-                          "ownerReferences": owner_refs,
-                      },
+                      "apiVersion": POSTGRES_MONITOR_API,
+                      "kind": "PostgresMonitor",
+                      "metadata": {"name": server_name, "ownerReferences": owner_refs},
                       "spec": {
-                          "managementPolicies": ORPHAN_POLICIES,
-                          "providerConfigRef": {"kind": "ClusterProviderConfig", "name": instance_name},
-                          "forProvider": {"privileges": {"login": True}},
-                          "writeConnectionSecretToRef": {"name": secret_name(name)},
+                          "serverName": server_name,
+                          "serverApiVersion": server_api_version,
+                          "serverKind": server_kind,
                       },
                   }
-
-
-              def build_monitor_grant(instance_name, owner_refs):
-                  return {
-                      "apiVersion": PROVIDER_SQL_API,
-                      "kind": "Grant",
-                      "metadata": {
-                          "name": f"{monitor_role_name(instance_name)}-pg-monitor",
-                          "namespace": ADMIN_NAMESPACE,
-                          "ownerReferences": owner_refs,
-                      },
-                      "spec": {
-                          "managementPolicies": ORPHAN_POLICIES,
-                          "providerConfigRef": {"kind": "ClusterProviderConfig", "name": instance_name},
-                          "forProvider": {"role": MONITOR_ROLE, "memberOf": MONITOR_GRANT},
-                      },
-                  }
-
-
-              def build_exporter_deployment(role_name, secret):
-                  return {
-                      "apiVersion": "apps/v1",
-                      "kind": "Deployment",
-                      "metadata": {"name": f"{role_name}-exporter", "namespace": ADMIN_NAMESPACE},
-                      "spec": {
-                          "replicas": 1,
-                          "selector": {"matchLabels": {"app": f"{role_name}-exporter"}},
-                          "template": {
-                              "metadata": {"labels": {"app": f"{role_name}-exporter"}},
-                              "spec": {
-                                  "containers": [{
-                                      "name": "postgres-exporter",
-                                      "image": EXPORTER_IMAGE,
-                                      "ports": [{"name": "metrics", "containerPort": 9187}],
-                                      "env": [
-                                          {"name": "PGHOST", "valueFrom": {"secretKeyRef": {"name": secret, "key": "endpoint"}}},
-                                          {"name": "PGPORT", "valueFrom": {"secretKeyRef": {"name": secret, "key": "port"}}},
-                                          {"name": "DATA_SOURCE_USER", "valueFrom": {"secretKeyRef": {"name": secret, "key": "username"}}},
-                                          {"name": "DATA_SOURCE_PASS", "valueFrom": {"secretKeyRef": {"name": secret, "key": "password"}}},
-                                          {"name": "DATA_SOURCE_URI", "value": "$(PGHOST):$(PGPORT)/postgres?sslmode=require"},
-                                      ],
-                                      "securityContext": {
-                                          "runAsNonRoot": True,
-                                          "runAsUser": 1000,
-                                          "runAsGroup": 1000,
-                                          "allowPrivilegeEscalation": False,
-                                          "readOnlyRootFilesystem": True,
-                                          "capabilities": {"drop": ["ALL"]},
-                                          "seccompProfile": {"type": "RuntimeDefault"},
-                                      },
-                                      "resources": {
-                                          # No CPU limit, to avoid CFS throttling on bursty scrapes.
-                                          "limits": {"memory": "64Mi"},
-                                          "requests": {"memory": "32Mi", "cpu": "25m"},
-                                      },
-                                  }],
-                              },
-                          },
-                      },
-                  }
-
-
-              def build_exporter_service(role_name):
-                  return {
-                      "apiVersion": "v1",
-                      "kind": "Service",
-                      "metadata": {"name": f"{role_name}-exporter", "namespace": ADMIN_NAMESPACE},
-                      "spec": {
-                          "selector": {"app": f"{role_name}-exporter"},
-                          "ports": [{"name": "metrics", "port": 9187, "targetPort": "metrics"}],
-                      },
-                  }
-
-
-              def build_exporter_podmonitor(role_name, instance_name):
-                  return {
-                      "apiVersion": "monitoring.coreos.com/v1",
-                      "kind": "PodMonitor",
-                      "metadata": {"name": f"{role_name}-exporter", "namespace": ADMIN_NAMESPACE},
-                      "spec": {
-                          "selector": {"matchLabels": {"app": f"{role_name}-exporter"}},
-                          "podMetricsEndpoints": [{
-                              "port": "metrics",
-                              # Labels the instance instead of the exporter pod's own, unstable IP.
-                              "relabelings": [{"targetLabel": "instance", "replacement": instance_name}],
-                          }],
-                      },
-                  }
-
-
-              def is_ready(req, name):
-                  # Reads Ready from the named resource's last observed state.
-                  observed = req.observed.resources.get(name)
-                  if observed is None:
-                      return False
-                  observed_dict = resource.struct_to_dict(observed.resource)
-                  return resource.get_condition(observed_dict, "Ready").status == "True"
 
 
               def operate(req, rsp):
                   config = request.get_required_resource(req, "ops.crossplane.io/watched-resource")
-                  instance_name = config["metadata"]["name"]
+                  server_name = config["metadata"]["name"]
+                  annotations = config.get("metadata", {}).get("annotations") or {}
+                  server_api_version = annotations.get("database.windsorcli.dev/server-api-version", "")
+                  server_kind = annotations.get("database.windsorcli.dev/server-kind", "")
+                  if not server_api_version or not server_kind:
+                      response.set_output(rsp, {"waiting": f"ClusterProviderConfig/{server_name} has no server annotations yet"})
+                      return
+
                   owner_refs = [{
                       "apiVersion": config["apiVersion"],
                       "kind": config["kind"],
-                      "name": instance_name,
+                      "name": server_name,
                       "uid": config["metadata"]["uid"],
                       "blockOwnerDeletion": False,
                   }]
-                  role_name = monitor_role_name(instance_name)
 
-                  rsp.desired.resources["monitor-role"].resource.update(
-                      build_monitor_role(instance_name, owner_refs)
+                  rsp.desired.resources["postgres-monitor"].resource.update(
+                      build_postgres_monitor(server_name, server_api_version, server_kind, owner_refs)
                   )
-                  rsp.desired.resources["monitor-grant"].resource.update(
-                      build_monitor_grant(instance_name, owner_refs)
-                  )
-
-                  # The exporter needs the role's own credential Secret to exist first.
-                  if not is_ready(req, "monitor-role"):
-                      response.set_output(rsp, {"waiting": f"Role/{role_name} is not Ready yet"})
-                      return
-
-                  secret = secret_name(role_name)
-                  rsp.desired.resources["exporter-deployment"].resource.update(
-                      build_exporter_deployment(role_name, secret)
-                  )
-                  rsp.desired.resources["exporter-service"].resource.update(
-                      build_exporter_service(role_name)
-                  )
-                  rsp.desired.resources["exporter-podmonitor"].resource.update(
-                      build_exporter_podmonitor(role_name, instance_name)
-                  )
-                  response.set_output(rsp, {"monitorRole": role_name, "exporter": f"{role_name}-exporter"})
+                  response.set_output(rsp, {"postgresMonitor": server_name})

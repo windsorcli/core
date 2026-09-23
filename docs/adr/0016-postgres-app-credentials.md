@@ -95,10 +95,12 @@ A `WatchOperation` on each cloud driver's own component (`crossplane/aws-rds`,
 component, since one is never installed without the other) watches its
 instance kind and ensures two things exist for each one: the
 `<instance>-connection` Secret in `system-database` (the admin credential
-merged with the live endpoint), and the `ClusterProviderConfig` reading it.
-Both carry an `ownerReference` to the instance, `blockOwnerDeletion: false`:
-the instance can delete freely, and Kubernetes garbage-collects these once
-it's actually gone.
+merged with the live endpoint), and the `ClusterProviderConfig` reading it,
+annotated with the instance's own kind/apiVersion — which §5's
+`postgres-monitor` needs and `ClusterProviderConfig` has no field of its own
+to carry. Both carry an `ownerReference` to the instance,
+`blockOwnerDeletion: false`: the instance can delete freely, and Kubernetes
+garbage-collects these once it's actually gone.
 
 Ownership is what the first design could not express. A namespaced XR
 composing a cluster-scoped resource receives no owner reference at all
@@ -107,10 +109,13 @@ which is why the original went namespaced and per-XR. Here the owner is the
 instance itself, cluster-scoped owning cluster-scoped, with none of that
 problem.
 
-The three components share one script; only `spec.watch` differs, patched by
-each driver's own component. The script keys off the watched resource's kind
-for the three fields that vary — endpoint, admin username, and whether that
-username comes from the Secret or the instance spec.
+The three drivers' scripts are near-identical, differing only in the watched
+kind, the endpoint field, and how the admin username resolves — a `PostgresProviderConfig`
+XR wrapping a shared Composition briefly existed here to collapse them into
+one. It was reverted: consolidating three ~100-line scripts doesn't justify
+a new CRD, a new Composition, and a second ownership hop, especially stacked
+on top of two other new-XR mistakes already made and reverted earlier this
+same session (§3). Some duplication across three files is the cheaper cost.
 
 ### 3. No `ClusterUsage`: ownership and orphan policies already cover teardown
 
@@ -129,29 +134,33 @@ the instance's, so nothing ever stops the loop without manual intervention.
 their own removal from Kubernetes issues no `DROP ROLE`/`REVOKE`. It does
 still call `Observe` first — that policy is not excluded, and provider-sql's
 reconciler needs it to succeed before it can conclude an object is safe to
-orphan. `postgres-monitor`'s `Role`/`Grant`, garbage-collected only once the
-`ClusterProviderConfig` they're owned by disappears — which itself only
-happens once the instance is completely gone — reliably lose that race:
-`Observe` fails against a database that no longer exists, and the finalizer
-never clears. Live, this needs one manual `kubectl patch ... finalizers: []`
-per full teardown. Still a smaller failure than the `ClusterUsage` deadlock
-above, but a real, open gap, not a cosmetic one.
+orphan. Left to pure ownership GC, `postgres-monitor`'s `Role`/`Grant` —
+owned by `ClusterProviderConfig`, which itself only disappears once the
+instance is completely gone — reliably lost that race: `Observe` failed
+against a database that no longer existed, and the finalizer never cleared.
+Live, this needed one manual `kubectl patch ... finalizers: []` per full
+teardown. §5 fixes this properly now, rather than leaving it open.
 
-**Attempted fix, also reverted**: a cluster-scoped `InstanceConnection` XR,
-composed rather than built by a `WatchOperation`, on the theory that a
-Composition can prune what it creates (Operations cannot — see References)
-and so could react to the instance's `deletionTimestamp` by proactively
-dropping `ClusterProviderConfig`/`ClusterUsage` while the database was still
-reachable. Live, it reproduced the original deadlock: the `nousages`
-admission webhook denies a blocked delete synchronously, before Kubernetes
-persists anything, so `deletionTimestamp` never appears on an object whose
-deletion `ClusterUsage` is blocking — no matter what's watching for it.
-That's not an Operations-versus-Compositions gap; a blocked delete leaves no
-observable trace for any passive watcher. Protection against deleting a
-live, in-use instance belongs on the instance CR itself —
+**A first attempted fix here was reverted.** A cluster-scoped
+`InstanceConnection` XR, composed rather than built by a `WatchOperation`, on
+the theory that a Composition can prune what it creates (Operations cannot —
+see References) and so could react to the instance's `deletionTimestamp` by
+proactively dropping `ClusterProviderConfig`/`ClusterUsage` while the
+database was still reachable. Live, it reproduced the original deadlock: the
+`nousages` admission webhook denies a blocked delete synchronously, before
+Kubernetes persists anything, so `deletionTimestamp` never appears on an
+object whose deletion `ClusterUsage` is blocking — no matter what's watching
+for it. That's not an Operations-versus-Compositions gap; a blocked delete
+leaves no observable trace for any passive watcher. Protection against
+deleting a live, in-use instance belongs on the instance CR itself —
 `deletionPolicy`/`deletionProtection`, the same fields RDS, Cloud SQL, and
 Flexible Server already expose — not on a second Kubernetes object whose own
 removal has no reliable trigger.
+
+A second, unrelated XR briefly reused the name `InstanceConnection` for §2's
+own `ClusterProviderConfig`/Secret — pure DRY, not deletion ordering, and it
+never repeated this section's mistake (no `deletionTimestamp` check). It was
+reverted anyway, for cost rather than a live bug; see §2.
 
 ### 4. `AppRole` — deliberately narrow, the CloudNativePG app-user equivalent
 
@@ -189,20 +198,33 @@ The Composition composes only `Role` and `Grant`. Both genuinely belong 1:1 to
 the request that asked for them, so XR ownership is correct for them in a way
 it never was for `ProviderConfig`.
 
-### 5. Monitoring becomes driver-agnostic, and one WatchOperation, not two
+### 5. Monitoring is driver-agnostic, and composed, not built by a WatchOperation
 
-`postgres-monitor` watches `ClusterProviderConfig` rather than the three cloud
-instance kinds: once one exists, every driver difference is already resolved.
-It creates the `<instance>-monitor` `Role` and its `pg_monitor` `Grant` in
-`system-database`, replacing `aws-rds-monitor`, `azure-postgres-monitor`, and
-`gcp-cloudsql-monitor` — three near-identical scripts collapsing into one.
+`postgres-monitor`'s own `WatchOperation` watches `ClusterProviderConfig`
+rather than the three cloud instance kinds — once one exists, every driver
+difference is already resolved — but it now does only one thing: ensure a
+`PostgresMonitor` XR exists, named after the server. `ClusterProviderConfig`
+doesn't itself know what kind of server it belongs to, so §2's drivers
+annotate it (`database.windsorcli.dev/server-{api-version,kind}`) when they
+build it, and this `WatchOperation` copies those onto the XR's own spec.
+
+The XR's Composition does the actual work, and unlike the `WatchOperation`
+that used to build these directly, it can prune what it creates. It requires
+the instance itself (using the annotated kind/apiVersion) and checks its
+`deletionTimestamp`, the same pattern §3 rejected for `ClusterProviderConfig`
+itself but which holds here: without `ClusterUsage`, the instance's deletion
+is never blocked, so `deletionTimestamp` reliably appears and — confirmed
+live — stays for minutes before the database actually disappears. Composing
+none of `monitor-role`/`monitor-grant`/the exporter once it's set prunes
+them while `Observe` can still succeed, closing the gap §3 left open: the
+monitor's `Role`/`Grant` no longer race the database's own teardown.
 
 The exporter Deployment/Service/PodMonitor was originally a second
 `WatchOperation`, watching every `Role` cluster-wide for a label the monitor
 one set, purely to learn the connection Secret's name — which it already
 knows, since it derives that name itself when building the `Role`. There was
-nothing the second hop learned that the first didn't already compute, so it's
-one `operate()` now: build the `Role`/`Grant`, and once the `Role` reports
+nothing the second hop learned that the first didn't already compute, so
+it's one `compose()`: build the `Role`/`Grant`, and once the `Role` reports
 `Ready`, build the exporter reading the Secret that `Role` writes. Both stay
 gated on `telemetry.metrics.enabled`; the components in §2 do not, since a
 chart's own credentials depend on them regardless of whether anything scrapes
@@ -262,14 +284,20 @@ confirmed:
 - `postgres-monitor`'s own `Role`/`Grant` outliving the database they
   connect through, stuck on a failed `Observe` with no live controller path
   to clear it, needing one manual finalizer clear — reproduced live in both
-  the second and third cycles. Still open; see §3's discussion of what was
-  tried and reverted.
+  the second and third cycles. §5's `PostgresMonitor` Composition is meant
+  to close this; see Not yet verified below.
 - The `InstanceConnection` Composition attempt deadlocking the same way
   `ClusterUsage` originally did, for the reason §3 now records — reproduced
   live in the third cycle, then reverted.
 - `GRANT ALL PRIVILEGES ON DATABASE` still needs a real migration run against
   Postgres 15+'s revoked `public` schema `CREATE` privilege — not exercised
   by any cycle, and still open.
+
+**Not yet verified**: §5's `PostgresMonitor`. It rests on a signal confirmed
+live in the third cycle above — the instance's `deletionTimestamp` reliably
+appearing and holding for minutes once nothing blocks its deletion — but
+the Composition itself, and the annotations §2's drivers now write onto
+`ClusterProviderConfig` for it to read, have not.
 
 ## Alternatives considered
 

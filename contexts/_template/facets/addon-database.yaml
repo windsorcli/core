@@ -157,6 +157,9 @@ flux:
   # entry to exist so Crossplane's resources tier has an install tier to
   # depend on, hence the facet-wide when: rather than a per-entry one here.
   - name: database
+    dependsOn:
+      - "${database.postgres.enabled == true ? 'csi-install' : ''}"
+      - "${database.postgres.enabled == true && (telemetry.metrics.enabled || telemetry.logs.enabled) ? 'telemetry' : ''}"
     install:
       components:
         - "${database.postgres.enabled == true ? 'cloudnativepg' : ''}"
@@ -164,9 +167,6 @@ flux:
         - "${database.postgres.enabled == true && topology == 'ha' ? 'cloudnativepg/ha' : ''}"
       timeout: 15m
       interval: 10m
-    dependsOn:
-      - "${database.postgres.enabled == true ? 'csi-install' : ''}"
-      - "${database.postgres.enabled == true && (telemetry.metrics.enabled || telemetry.logs.enabled) ? 'telemetry' : ''}"
     resources:
       # Depends on provisioning-resources: gated on the Provider's own
       # Healthy/Installed conditions.

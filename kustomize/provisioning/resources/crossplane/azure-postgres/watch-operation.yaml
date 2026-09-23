@@ -4,7 +4,7 @@
 apiVersion: ops.crossplane.io/v1alpha1
 kind: WatchOperation
 metadata:
-  name: flexibleserver-instance-connection
+  name: flexibleserver-server-connection
 spec:
   watch:
     apiVersion: dbforpostgresql.azure.upbound.io/v1beta1
@@ -16,7 +16,7 @@ spec:
     spec:
       mode: Pipeline
       pipeline:
-        - step: ensure-instance-connection
+        - step: ensure-server-connection
           functionRef:
             name: function-python
           input:
@@ -31,20 +31,20 @@ spec:
               PROVIDER_SQL_API = "postgresql.sql.m.crossplane.io/v1alpha1"
 
 
-              def admin_secret_name(instance_name):
-                  return f"{instance_name}-admin-credentials"
+              def admin_secret_name(server_name):
+                  return f"{server_name}-admin-credentials"
 
 
-              def connection_secret_name(instance_name):
-                  return f"{instance_name}-connection"
+              def connection_secret_name(server_name):
+                  return f"{server_name}-connection"
 
 
-              def build_connection_secret(instance_name, endpoint, username, password, owner_refs):
+              def build_connection_secret(server_name, endpoint, username, password, owner_refs):
                   return {
                       "apiVersion": "v1",
                       "kind": "Secret",
                       "metadata": {
-                          "name": connection_secret_name(instance_name),
+                          "name": connection_secret_name(server_name),
                           "namespace": ADMIN_NAMESPACE,
                           "ownerReferences": owner_refs,
                       },
@@ -58,18 +58,26 @@ spec:
                   }
 
 
-              def build_cluster_provider_config(instance_name, owner_refs):
-                  # Named after the instance: what a consumer's Role references.
+              def build_cluster_provider_config(server_name, server_api_version, server_kind, owner_refs):
+                  # Named after the server: what a consumer's Role references.
+                  # Annotations let postgres-monitor resolve the server kind it owns.
                   return {
                       "apiVersion": PROVIDER_SQL_API,
                       "kind": "ClusterProviderConfig",
-                      "metadata": {"name": instance_name, "ownerReferences": owner_refs},
+                      "metadata": {
+                          "name": server_name,
+                          "ownerReferences": owner_refs,
+                          "annotations": {
+                              "database.windsorcli.dev/server-api-version": server_api_version,
+                              "database.windsorcli.dev/server-kind": server_kind,
+                          },
+                      },
                       "spec": {
                           "sslMode": "require",
                           "credentials": {
                               "source": "PostgreSQLConnectionSecret",
                               "connectionSecretRef": {
-                                  "name": connection_secret_name(instance_name),
+                                  "name": connection_secret_name(server_name),
                                   "namespace": ADMIN_NAMESPACE,
                               },
                           },
@@ -77,19 +85,19 @@ spec:
                   }
 
 
-              def resolve_admin_username(instance, secret):
-                  return instance.get("spec", {}).get("forProvider", {}).get("administratorLogin", "")
+              def resolve_admin_username(server, secret):
+                  return server.get("spec", {}).get("forProvider", {}).get("administratorLogin", "")
 
 
               def operate(req, rsp):
-                  instance = request.get_required_resource(req, "ops.crossplane.io/watched-resource")
-                  instance_name = instance["metadata"]["name"]
-                  secret_name = admin_secret_name(instance_name)
+                  server = request.get_required_resource(req, "ops.crossplane.io/watched-resource")
+                  server_name = server["metadata"]["name"]
+                  secret_name = admin_secret_name(server_name)
                   owner_refs = [{
-                      "apiVersion": instance["apiVersion"],
-                      "kind": instance["kind"],
-                      "name": instance_name,
-                      "uid": instance["metadata"]["uid"],
+                      "apiVersion": server["apiVersion"],
+                      "kind": server["kind"],
+                      "name": server_name,
+                      "uid": server["metadata"]["uid"],
                       "blockOwnerDeletion": False,
                   }]
 
@@ -108,21 +116,23 @@ spec:
                       response.set_output(rsp, {"waiting": f"Secret/{secret_name} has no password key yet"})
                       return
 
-                  endpoint = instance.get("status", {}).get("atProvider", {}).get("fqdn", "")
+                  endpoint = server.get("status", {}).get("atProvider", {}).get("fqdn", "")
                   if not endpoint:
-                      response.set_output(rsp, {"waiting": f"FlexibleServer/{instance_name} has no endpoint yet"})
+                      response.set_output(rsp, {"waiting": f"FlexibleServer/{server_name} has no endpoint yet"})
                       return
 
                   rsp.desired.resources["connection-secret"].resource.update(
                       build_connection_secret(
-                          instance_name,
+                          server_name,
                           endpoint,
-                          resolve_admin_username(instance, secret),
+                          resolve_admin_username(server, secret),
                           base64.b64decode(password_b64).decode(),
                           owner_refs,
                       )
                   )
                   rsp.desired.resources["cluster-provider-config"].resource.update(
-                      build_cluster_provider_config(instance_name, owner_refs)
+                      build_cluster_provider_config(
+                          server_name, server["apiVersion"], server["kind"], owner_refs,
+                      )
                   )
-                  response.set_output(rsp, {"providerConfig": instance_name})
+                  response.set_output(rsp, {"providerConfig": server_name})
