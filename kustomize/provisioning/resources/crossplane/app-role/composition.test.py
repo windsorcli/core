@@ -96,6 +96,28 @@ class BuildGrantTests(unittest.TestCase):
         self.assertEqual(grant["metadata"]["name"], "demo-app-database")
 
 
+class BuildSchemaGrantTests(unittest.TestCase):
+    def test_grants_all_privileges_on_the_public_schema(self):
+        grant = composition.build_schema_grant(
+            "demo-app", "demo-database", "demo-db", "demo"
+        )
+        self.assertEqual(
+            grant["spec"]["forProvider"],
+            {
+                "role": "demo-app",
+                "database": "demo",
+                "schema": "public",
+                "privileges": ["ALL"],
+            },
+        )
+
+    def test_name_does_not_collide_with_the_database_grant(self):
+        grant = composition.build_schema_grant(
+            "demo-app", "demo-database", "demo-db", "demo"
+        )
+        self.assertEqual(grant["metadata"]["name"], "demo-app-schema")
+
+
 class BuildStatusTests(unittest.TestCase):
     def test_reports_the_secret_and_role_name(self):
         status = composition.build_status("demo-app", "demo-database")

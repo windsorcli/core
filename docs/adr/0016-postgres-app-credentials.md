@@ -73,9 +73,9 @@ collision. This ADR stops duplicating it.
 
 `crossplane-contrib/provider-sql` ships `ClusterProviderConfig` alongside the
 namespaced `ProviderConfig` (`scope: Cluster`, confirmed against the installed
-`v0.14.0` package's CRD). Its `credentials.connectionSecretRef` requires both
-`name` and `namespace`, so a cluster-scoped config still reads a Secret in
-`system-database`.
+package's CRD — `v0.14.0` originally, `v0.16.1` since §4). Its
+`credentials.connectionSecretRef` requires both `name` and `namespace`, so a
+cluster-scoped config still reads a Secret in `system-database`.
 
 This is the mechanism provider-sql actually provides for one config serving
 many namespaces. The namespaced alternative cannot: `Role`'s
