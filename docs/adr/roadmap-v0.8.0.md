@@ -124,11 +124,15 @@ answer.
 
 ## Backlog (pruned or considered, no ADR carried)
 
-From the prior cycle's pruning:
+From the prior cycle's pruning. Bring-your-own network and DNS zone has
+since been promoted out of this list and is carried as
+[ADR-0018](0018-bring-your-own-network.md); the `cli`-side blocker
+recorded against it here does not apply, because component identity is
+the facet `name:` and two same-named components with mutually exclusive
+`when:` select the module today.
 
 - **Tunnel as an independent subsystem** (Cloudflare Tunnel first, ngrok/Tailscale Funnel/Inlets later) — a top-level schema concept and its own namespace, fronting the external gateway once ADR-0001's split lands. Zero code.
 - **Cloudflare auth via static in-cluster Secret** — the only viable auth model until ADR-0005's `external`/vault-compatible driver covers it too. Depends on the tunnel work above.
-- **Bring-your-own network and DNS zone** — sibling `terraform/<layer>/<project>-data` modules for landing in a pre-existing VPC/VNet or hosted zone, selected by an expression-evaluable `path:` field. Needs a `cli`-side change (`collectTerraformComponents` doesn't evaluate `Path` as an expression today) before any core-side work can start.
 - **Vercel parity** — a self-hosted Vercel-like experience (Knative + in-cluster buildpacks + an apps blueprint layered on core). No code exists.
 - **Cloud progressive scaling** — a documented cheap→elastic→HA→hardened upgrade path for AWS/Azure deploys, beyond the pool-level autoscaling that already exists.
 - **Keycloak database sizing/connection scaling** — `identity.keycloak` has no storage/resource or connection-pooler config yet.
