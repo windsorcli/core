@@ -33,5 +33,5 @@ packages:
   - name: mikefarah/yq@v4.53.6
   - name: bridgecrewio/checkov@3.3.19
   - name: kubernetes-sigs/krew@v0.5.0
-  - name: Azure/kubelogin@v0.2.19
+  - name: Azure/kubelogin@v0.2.20
   - name: twistedpair/google-cloud-sdk@562.0.0
