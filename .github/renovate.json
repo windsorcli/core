@@ -30,6 +30,11 @@
       "allowedVersions": "<1.13"
     },
     {
+      "description": "Keep the container-mode Talos pin on the 1.13 line; 1.14 hides Docker's /etc/hostname and /etc/resolv.conf behind its /etc overlay",
+      "matchDepNames": ["talos-container"],
+      "allowedVersions": "<1.14"
+    },
+    {
       "matchDatasources": ["terraform-provider"],
       "automerge": true,
       "automergeType": "pr",
