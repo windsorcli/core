@@ -149,14 +149,38 @@ variable "vhd_dir" {
   default     = "C:\\hyperv\\vhds"
 }
 
+variable "name_suffix" {
+  description = "Suffix for Hyper-V object names: the VM name and the default root VHDX filename. Keeps two contexts sharing one host from colliding. Output hostnames stay unsuffixed so Talos identity is unaffected."
+  type        = string
+  default     = ""
+}
+
+variable "guest_ipv4_timeout" {
+  description = "How long compute waits after creating a DHCP VM before reading guest IPs. A zero duration skips the wait. Instances with a declared ipv4 never wait."
+  type        = string
+  default     = "5m"
+
+  validation {
+    condition     = can(regex("^([0-9]+(\\.[0-9]+)?(ns|us|ms|s|m|h))+$", var.guest_ipv4_timeout))
+    error_message = "guest_ipv4_timeout must be a Go duration such as 5m, 90s, or 0s."
+  }
+}
+
 variable "images" {
-  description = "Map of image references the module places on the host. Each entry uses url-mode (provider downloads; SHA-256 verified when checksum is set), local_path-mode (streamed from the runner), or host_path-mode (file already exists). Instances reference an image by its map key; the resulting destination_path becomes the differencing-VHD parent."
+  description = <<-EOT
+    Map of image references the module places on the host. url-mode fetches on the
+    runner by default (runner_download) and streams to the host; set false for a
+    host-direct GET. local_path-mode streams from the runner; host_path-mode attests
+    the file already exists. Instances reference an image by map key;
+    destination_path is the differencing-VHD parent.
+  EOT
   type = map(object({
     destination_path = string
     keep_on_destroy  = optional(bool, false)
     url              = optional(string)
     checksum         = optional(string)
     compression      = optional(string)
+    runner_download  = optional(bool, true)
     local_path       = optional(string)
   }))
   default = {}
@@ -177,7 +201,7 @@ variable "images" {
 }
 
 variable "instances" {
-  description = "List of VM definitions. Use count > 1 to create pools (named {name}-1, {name}-2, …)"
+  description = "List of VM definitions. Use count > 1 to create pools (named {name}-1, {name}-2, …). Omit ipv4 for DHCP so outputs use Hyper-V integration-services addresses."
   type = list(object({
     name                 = string              # VM name (becomes prefix when count > 1)
     count                = optional(number, 1) # Number of VMs. >1 stamps a pool with -1, -2 suffixes
@@ -191,7 +215,7 @@ variable "instances" {
     memory_max           = optional(number)     # When set, dynamic memory is enabled with min=memory and max=memory_max
     root_disk_size       = optional(number, 30) # Root disk size in GiB; used only when image is empty (fresh dynamic VHDX)
     root_disk_path       = optional(string)     # Override path for the per-instance root VHDX. Defaults to vhd_dir\\<name>.vhdx
-    ipv4                 = optional(string)     # Informational only on Hyper-V; surfaced in outputs. CIDR or bare IP. Sequential when count > 1
+    ipv4                 = optional(string)     # Guest IPv4. Omit for DHCP; outputs then use integration-services addresses
     mac_address          = optional(string)     # Static MAC; leave unset for Hyper-V dynamic allocation
     vlan_id              = optional(number)     # Access-mode VLAN ID
     switch_name          = optional(string)     # Override the switch this VM's NIC binds to. Defaults to network_name

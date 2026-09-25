@@ -342,14 +342,19 @@ properties:
   # Hyper-V provider configuration (only consumed when platform == 'hyperv').
   # Connection details (host, credentials, transport) are env-var driven by the
   # provider itself (HYPERV_HOST, HYPERV_USERNAME, etc.); this block carries
-  # only the two host-side pointers the facet can't derive — which NIC the
-  # virtual switch should bind to, and where on disk to put VHDs/images. The
-  # CIDR the cluster lives on (LAN-bridged or NAT-internal) is the
-  # platform-agnostic `network.cidr_block`.
+  # only host-side pointers the facet cannot derive. The CIDR the cluster
+  # lives on (LAN-bridged or NAT-internal) is network.cidr_block.
   hyperv:
     type: object
     additionalProperties: false
     properties:
+      switch_name:
+        type: string
+        description: >
+          Existing Hyper-V virtual switch to attach VMs to. When set, Windsor
+          does not create a switch (create_network=false). Use this when the
+          host NIC is already bound to an External switch. Ignored when
+          gateway.service_type is NodePort, which still creates a NAT switch.
       net_adapter:
         type: array
         items:
@@ -358,7 +363,8 @@ properties:
           Host NIC(s) the virtual switch binds to. When set, windsor creates
           an External switch (L2-bridged, MetalLB/Cilium L2 reachable on the
           bench LAN). Unset uses Internal (host-only); flipped to NAT
-          automatically when gateway.service_type=NodePort.
+          automatically when gateway.service_type=NodePort. Ignored when
+          switch_name is set.
       base_dir:
         type: string
         pattern: '^[A-Za-z]:[\\/].*$'
@@ -752,9 +758,9 @@ properties:
           Cluster network CIDR. Windsor either creates this network
           (cloud VPCs, incus bridges, docker bridges, hyperv NodePort
           NetNat) or attaches to an existing one at this address (metal,
-          hyperv with net_adapter). Override when the default conflicts
-          with existing routes on the host. On gcp, 172.16.0.0/12 is
-          reserved for the cluster's pod and Service ranges, the control
+          vSphere, hyperv with net_adapter). Override when the default
+          conflicts with existing routes on the host. On gcp, 172.16.0.0/12
+          is reserved for the cluster's pod and Service ranges, the control
           plane, and Cloud SQL's private service range.
       gateway:
         type: string
@@ -762,10 +768,9 @@ properties:
         description: >
           IPv4 default-route gateway for the cluster network. Required for
           platforms that deliver static network config to the guest (Hyper-V
-          via CIDATA; future libvirt/proxmox). Defaults to cidrhost(cidr_block, 1)
-          — correct for the common case where the gateway is the first usable
-          host in the subnet, set explicitly when it isn't (e.g. /22 LANs where
-          the router doesn't sit at .0.1).
+          CIDATA, vSphere guestinfo). Defaults to cidrhost(cidr_block, 1).
+          Set explicitly when the router is not the first usable host (for
+          example a /22 plant LAN shared by more than one cluster).
       nameservers:
         type: array
         items:
@@ -775,6 +780,17 @@ properties:
           - "1.1.1.1"
           - "8.8.8.8"
         description: DNS resolvers seeded into guest network config. Same delivery path as gateway (CIDATA on hyperv, etc.).
+      dhcp:
+        type: boolean
+        default: false
+        description: >
+          When true, Hyper-V guests take IPv4 from DHCP instead of static
+          addresses (cluster.*.nodes or cidrhost offsets). CIDATA uses dhcp4;
+          compute omits ipv4 and surfaces leased IPs from integration services.
+          cluster.endpoint is optional and otherwise derived from the first
+          control-plane output, except with the cilium CNI, which needs a fixed
+          endpoint. Unset or false keeps static addressing. NodePort NAT still
+          uses static guest IPs.
       ntp_servers:
         type: array
         items:
@@ -851,7 +867,13 @@ properties:
                 endpoint: 10.5.0.1
                 node: 10.5.0.1
                 hostname: controlplane-1
-            description: Named control plane node configurations
+            description: >
+              Named control plane node configurations. On Hyper-V, node/endpoint
+              IPv4 is the guest NIC address unless network.dhcp is true;
+              network.cidr_block and network.gateway stay the shared LAN.
+              Hyper-V names guests by pool position (controlplane, or
+              controlplane-N when count > 1) and ignores hostname, which keys
+              the VM, its disk and its seed ISO.
           schedulable:
             type: boolean
             description: Allow scheduling workloads on control plane nodes. Unset lets the platform facet default it (true for a workerless single control plane).
@@ -866,7 +888,10 @@ properties:
             description: Number of worker nodes; unset lets the platform facet default it (hetzner defaults to 1)
           nodes:
             <<: *nodesSchema
-            description: Named worker node configurations
+            description: >
+              Named worker node configurations. On Hyper-V, node/endpoint IPv4
+              is the guest NIC address unless network.dhcp is true, and hostname
+              is ignored the same way it is for control planes.
           volumes:
             type: array
             items:

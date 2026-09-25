@@ -13,7 +13,7 @@ output "cidata_iso_shas" {
 }
 
 output "machine_secrets" {
-  description = "Talos cluster identity. Pass to cluster/talos as var.machine_secrets so it shares the same cluster CA — cluster/talos then skips talos_machine_configuration_apply (already delivered via CIDATA) and runs straight to bootstrap + kubeconfig + health checks."
+  description = "Talos cluster identity. Pass to cluster/talos as var.machine_secrets so it shares the same cluster CA. Pair it with skip_machine_config_apply when the bake delivered the machineconfig via CIDATA, so cluster/talos runs straight to bootstrap + kubeconfig + health checks."
   value       = talos_machine_secrets.this.machine_secrets
   sensitive   = true
 }

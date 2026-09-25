@@ -37,20 +37,21 @@ variable "cluster_name" {
 }
 
 variable "cluster_endpoint" {
-  description = "Cluster control-plane API endpoint baked into every per-node machineconfig (e.g. https://<vip-or-cp1>:6443). Must be reachable from worker nodes once the cluster is up."
+  description = "Cluster control-plane API endpoint baked into every per-node machineconfig (e.g. https://<vip-or-cp1>:6443). Empty skips the CIDATA machineconfig bake so cluster/talos can apply after DHCP leases exist."
   type        = string
+  default     = ""
   validation {
-    condition     = can(regex("^https://", var.cluster_endpoint))
-    error_message = "cluster_endpoint must start with https://"
+    condition     = var.cluster_endpoint == "" || can(regex("^https://", var.cluster_endpoint))
+    error_message = "cluster_endpoint must be empty or start with https://"
   }
 }
 
 variable "controlplanes" {
-  description = "Per-node controlplane definitions. hostname/node mirror compute output and cluster.controlplanes.nodes shape; address is the static IP delivered via CIDATA's network-config."
+  description = "Per-node controlplane definitions. hostname/node mirror compute output and cluster.controlplanes.nodes shape; address is the static IP delivered via CIDATA's network-config. Omit node/address when network.dhcp is true."
   type = list(object({
     hostname = string
-    node     = string
-    address  = optional(string) # static IP in CIDR form (e.g. 192.168.0.10/22). Defaults to "${node}/${prefix}".
+    node     = optional(string)
+    address  = optional(string)
   }))
   default = []
 }
@@ -59,25 +60,44 @@ variable "workers" {
   description = "Per-node worker definitions. Same shape as controlplanes."
   type = list(object({
     hostname = string
-    node     = string
+    node     = optional(string)
     address  = optional(string)
   }))
   default = []
 }
 
 variable "network" {
-  description = "Network config baked into each guest's CIDATA seed. cidr_block's prefix length is reused when a node's address is unset. interface is a netplan name glob (default e* matches eth0 and enX0)."
+  description = "Network config baked into each guest's CIDATA seed. cidr_block's prefix length is reused when a node's address is unset. interface is a netplan name glob (default e* matches eth0 and enX0). dhcp true writes dhcp4 instead of static addresses."
   type = object({
-    cidr_block  = string
-    gateway     = string
-    nameservers = list(string)
+    cidr_block  = optional(string)
+    gateway     = optional(string)
+    nameservers = optional(list(string), [])
     interface   = optional(string, "e*")
+    dhcp        = optional(bool, false)
   })
+
+  validation {
+    condition     = var.network.dhcp == true || (var.network.cidr_block != null && var.network.gateway != null)
+    error_message = "network.cidr_block and network.gateway are required unless network.dhcp is true"
+  }
+
+  validation {
+    condition = var.network.dhcp == true || alltrue([
+      for n in concat(var.controlplanes, var.workers) : n.node != null && n.node != ""
+    ])
+    error_message = "each controlplane and worker must set node unless network.dhcp is true"
+  }
 }
 
 variable "destination_dir" {
   description = "Directory on the host where per-node CIDATA ISOs land."
   type        = string
+}
+
+variable "name_suffix" {
+  description = "Suffix for CIDATA ISO filenames. Keeps two contexts sharing one host from writing the same seed path."
+  type        = string
+  default     = ""
 }
 
 variable "common_config_patches" {
