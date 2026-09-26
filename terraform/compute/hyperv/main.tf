@@ -15,6 +15,10 @@ terraform {
       source  = "windsorcli/hyperv"
       version = "0.4.0"
     }
+    time = {
+      source  = "hashicorp/time"
+      version = "~> 0.13"
+    }
   }
 }
 
@@ -110,9 +114,10 @@ resource "hyperv_image_file" "images" {
   destination_path = each.value.destination_path
   keep_on_destroy  = each.value.keep_on_destroy
   url = each.value.url == null ? null : {
-    url         = each.value.url
-    checksum    = each.value.checksum
-    compression = each.value.compression
+    url             = each.value.url
+    checksum        = each.value.checksum
+    compression     = each.value.compression
+    runner_download = each.value.runner_download
   }
   local_path = each.value.local_path
 }
@@ -198,7 +203,7 @@ resource "hyperv_vhd" "instance_root" {
   for_each = local.instances_by_name
 
   path = each.value.root_disk_path != null ? each.value.root_disk_path : (
-    "${local.default_vhd_dir}\\${each.value.name}.vhdx"
+    "${local.default_vhd_dir}\\${each.value.name}${var.name_suffix}.vhdx"
   )
 
   vhd_type = each.value.image != null && each.value.image != "" ? "differencing" : "dynamic"
@@ -234,7 +239,7 @@ resource "hyperv_vhd" "instance_root" {
 resource "hyperv_vm" "instances" {
   for_each = local.instances_by_name
 
-  name                 = each.value.name
+  name                 = "${each.value.name}${var.name_suffix}"
   generation           = each.value.generation
   secure_boot          = each.value.generation == 2 ? each.value.secure_boot : null
   secure_boot_template = each.value.generation == 2 && each.value.secure_boot ? each.value.secure_boot_template : null
@@ -314,4 +319,38 @@ resource "hyperv_vm" "instances" {
   # paths (not resource-instance refs), so add explicit deps to ensure they
   # exist on the host before the VM is registered.
   depends_on = [hyperv_virtual_switch.main, hyperv_image_file.images]
+}
+
+# =============================================================================
+# Guest IP Wait
+# =============================================================================
+
+locals {
+  # A duration with no non-zero digit is zero, whatever unit it is written in.
+  guest_ipv4_wait = length(regexall("[1-9]", var.guest_ipv4_timeout)) > 0
+
+  wait_for_guest_ipv4 = {
+    for k, v in local.instances_by_name : k => v
+    if v.ipv4 == null && v.desired_state == "Running" && local.guest_ipv4_wait
+  }
+}
+
+# Create-only pause so the following IP read is not the empty create-time snapshot.
+resource "time_sleep" "guest_ipv4" {
+  for_each = local.wait_for_guest_ipv4
+
+  create_duration = var.guest_ipv4_timeout
+  triggers = {
+    vm_id = hyperv_vm.instances[each.key].id
+  }
+
+  depends_on = [hyperv_vm.instances]
+}
+
+# Live KVP addresses after the wait. The empty substr defers the read until apply.
+data "hyperv_vm_state" "guest" {
+  for_each = local.wait_for_guest_ipv4
+
+  name       = "${hyperv_vm.instances[each.key].name}${substr(time_sleep.guest_ipv4[each.key].id, 0, 0)}"
+  depends_on = [time_sleep.guest_ipv4]
 }

@@ -7,6 +7,11 @@ mock_provider "hyperv" {
   }
   mock_resource "hyperv_vhd" {}
   mock_resource "hyperv_vm" {}
+  mock_data "hyperv_vm_state" {}
+}
+
+mock_provider "time" {
+  mock_resource "time_sleep" {}
 }
 
 # Verifies the module creates a virtual switch with the default Internal type
@@ -120,6 +125,11 @@ run "url_image_with_instance" {
   assert {
     condition     = hyperv_image_file.images["talos"].destination_path == "C:\\hyperv\\images\\talos.vhdx"
     error_message = "image_file destination_path should match the input"
+  }
+
+  assert {
+    condition     = hyperv_image_file.images["talos"].url.runner_download == true
+    error_message = "url.runner_download should default true"
   }
 
   assert {
@@ -249,6 +259,150 @@ run "url_image_with_compression" {
   assert {
     condition     = hyperv_image_file.images["talos"].destination_path == "C:\\hyperv\\images\\talos.vhdx"
     error_message = "destination_path should be the decompressed file's path, not the .xz path"
+  }
+}
+
+# name_suffix namespaces the Hyper-V VM name and the default root VHDX so two
+# contexts can share a host. Output hostnames stay unsuffixed for Talos identity.
+run "name_suffix_namespaces_host_objects" {
+  command = plan
+
+  variables {
+    context_id  = "test"
+    name_suffix = "-ctx1"
+    instances = [
+      {
+        name           = "controlplane"
+        role           = "controlplane"
+        count          = 2
+        root_disk_size = 30
+      },
+    ]
+  }
+
+  assert {
+    condition     = hyperv_vm.instances["controlplane-1"].name == "controlplane-1-ctx1"
+    error_message = "VM name should carry name_suffix after the pool index"
+  }
+
+  assert {
+    condition     = hyperv_vhd.instance_root["controlplane-1"].path == "C:\\hyperv\\vhds\\controlplane-1-ctx1.vhdx"
+    error_message = "Default root VHDX filename should carry name_suffix"
+  }
+
+  assert {
+    condition     = local.instances[0].hostname == "controlplane-1"
+    error_message = "Output hostname should stay unsuffixed"
+  }
+}
+
+# DHCP VMs wait after create so controlplanes is not empty on the first apply.
+run "dhcp_waits_for_guest_ipv4" {
+  command = plan
+
+  variables {
+    context_id = "test"
+    instances = [
+      {
+        name           = "controlplane"
+        role           = "controlplane"
+        count          = 1
+        root_disk_size = 30
+      },
+    ]
+  }
+
+  assert {
+    condition     = length(time_sleep.guest_ipv4) == 1
+    error_message = "DHCP instances should wait for a guest IPv4"
+  }
+}
+
+run "static_ipv4_skips_guest_wait" {
+  command = plan
+
+  variables {
+    context_id = "test"
+    instances = [
+      {
+        name           = "controlplane"
+        role           = "controlplane"
+        count          = 1
+        ipv4           = "10.5.0.10"
+        root_disk_size = 30
+      },
+    ]
+  }
+
+  assert {
+    condition     = length(time_sleep.guest_ipv4) == 0
+    error_message = "Declared ipv4 should skip the guest IP wait"
+  }
+}
+
+run "guest_ipv4_timeout_zero_skips_wait" {
+  command = plan
+
+  variables {
+    context_id         = "test"
+    guest_ipv4_timeout = "0s"
+    instances = [
+      {
+        name           = "controlplane"
+        role           = "controlplane"
+        count          = 1
+        root_disk_size = 30
+      },
+    ]
+  }
+
+  assert {
+    condition     = length(time_sleep.guest_ipv4) == 0
+    error_message = "guest_ipv4_timeout 0s should skip the wait"
+  }
+}
+
+# Any spelling of a zero duration skips the wait, not just the literal "0s".
+run "guest_ipv4_timeout_compound_zero_skips_wait" {
+  command = plan
+
+  variables {
+    context_id         = "test"
+    guest_ipv4_timeout = "0h0m0s"
+    instances = [
+      {
+        name           = "controlplane"
+        role           = "controlplane"
+        count          = 1
+        root_disk_size = 30
+      },
+    ]
+  }
+
+  assert {
+    condition     = length(time_sleep.guest_ipv4) == 0
+    error_message = "A zero duration in any unit should skip the wait"
+  }
+}
+
+# Host-direct url-mode: runner_download false leaves the GET on the Hyper-V host.
+run "url_image_host_download" {
+  command = plan
+
+  variables {
+    context_id = "test"
+    images = {
+      talos = {
+        destination_path = "C:\\hyperv\\images\\talos.vhdx"
+        url              = "https://factory.talos.dev/image/test/v1.12.6/hyperv-amd64.vhdx"
+        runner_download  = false
+      }
+    }
+  }
+
+  assert {
+    condition     = hyperv_image_file.images["talos"].url.runner_download == false
+    error_message = "url.runner_download false should reach the resource"
   }
 }
 

@@ -81,10 +81,9 @@ locals {
 
   cluster_endpoint = var.cluster_endpoint != "" ? var.cluster_endpoint : (length(var.controlplanes) > 0 ? "https://${split(":", var.controlplanes[0].endpoint)[0]}:6443" : "")
 
-  # When upstream secrets are supplied the per-node machineconfig was already
-  # delivered out-of-band (hyperv CIDATA). Re-applying here would regenerate
-  # without the per-node network patch and wipe the static IP back to DHCP.
-  skip_machine_config_apply = var.machine_secrets != null
+  # Callers that deliver the machineconfig out of band (hyperv CIDATA) skip the
+  # apply, which would otherwise wipe the per-node static IP back to DHCP.
+  skip_machine_config_apply = var.skip_machine_config_apply != null ? var.skip_machine_config_apply : var.machine_secrets != null
 
   # extraMounts from raw volume strings (path or host:dest; path = part after ":" if present).
   # yamlencode() produces quoted keys (Terraform/Go); common_config_patches from blueprint is unquoted YAML. Both valid.

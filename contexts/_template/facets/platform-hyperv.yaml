@@ -10,31 +10,37 @@ when: "platform == 'hyperv' && cluster.driver == 'talos'"
 # Remote state lives in the local Talos cluster (Kubernetes backend).
 backend: cluster
 
+requires:
+  # Cilium's kube-proxy replacement needs the API address at render time, which
+  # a DHCP lease cannot supply.
+  - when: network.dhcp == true && gateway.service_type != 'NodePort' && (cluster.cni.driver ?? 'flannel') == 'cilium'
+    paths:
+      - cluster.endpoint
+    message: Cilium on DHCP guests needs a fixed API endpoint for k8sServiceHost.
+
 # =============================================================================
 # Config — Hyper-V-specific Talos values
 # =============================================================================
 config:
 
-  # Resolve schema `hyperv.*` into concrete terraform inputs. Switch type is
-  # derived from intent, not picked directly: NodePort → NAT (layered below);
-  # net_adapter set → External (L2-bridged); else Internal (host-only). Paths
-  # derive from a single hyperv.base_dir (default C:/hyperv). Image URL derives
-  # from renovate-pinned talos_version + a hardcoded schematic that sets
-  # talos.platform=nocloud so Talos reads the CIDATA seed (Image Factory has no
-  # prebuilt hyperv VHDX; metal-amd64.iso + CIDATA is the canonical flow).
-  # Recompute schematic ID:
-  #   curl -X POST -H 'Content-Type: application/yaml' \
-  #     -d $'customization:\n  extraKernelArgs:\n    - talos.platform=nocloud\n' \
-  #     https://factory.talos.dev/schematics
+  # nocloud CIDATA schematic. hyperv-guest-agent runs hv_kvp_daemon so the guest
+  # reports its IP through integration services; DHCP discovery needs it.
+  # Recompute: curl -X POST -H 'Content-Type: application/yaml' \
+  #   -d $'customization:\n  extraKernelArgs:\n    - talos.platform=nocloud\n  systemExtensions:\n    officialExtensions:\n      - siderolabs/hyperv-guest-agent\n' \
+  #   https://factory.talos.dev/schematics
   - name: hyperv_effective
     value:
       switch_type: "${len(hyperv.net_adapter ?? []) > 0 ? 'External' : 'Internal'}"
       net_adapter: ${hyperv.net_adapter ?? []}
+      name_suffix: "${(id ?? '') != '' ? '-' + id : ''}"
       vhd_dir: "${(hyperv.base_dir ?? 'C:/hyperv') + '/vhds'}"
       images_dir: "${(hyperv.base_dir ?? 'C:/hyperv') + '/images'}"
-      talos_schematic_id: "a9999ca75e856f927166016d16df9f9705927a18fc2f7a0c92b1ac96a376f9a6"
-      image_destination: "${(hyperv.base_dir ?? 'C:/hyperv') + '/images/talos-' + talos.talos_version + '-metal-amd64.iso'}"
-      image_url: "${'https://factory.talos.dev/image/a9999ca75e856f927166016d16df9f9705927a18fc2f7a0c92b1ac96a376f9a6/v' + talos.talos_version + '/metal-amd64.iso'}"
+      talos_schematic_id: "a1f179c391c4f2dafe593c0a3d3fe95ce74e526c6e2e3120d46f230a2d24907b"
+      image_destination: "${(hyperv.base_dir ?? 'C:/hyperv') + '/images/talos-' + talos.talos_version + '-metal-amd64' + ((id ?? '') != '' ? '-' + id : '') + '.iso'}"
+      image_url: "${'https://factory.talos.dev/image/a1f179c391c4f2dafe593c0a3d3fe95ce74e526c6e2e3120d46f230a2d24907b/v' + talos.talos_version + '/metal-amd64.iso'}"
+      dhcp: ${network.dhcp == true && gateway.service_type != 'NodePort'}
+      # True when cluster-config signs machineconfigs into the CIDATA seed.
+      bake_machineconfig: ${(cluster.endpoint ?? '') != '' || network.dhcp != true || gateway.service_type == 'NodePort'}
 
   # Network gateway and nameserver defaults for the CIDATA seed. Written only
   # when unset; see platform-base.yaml "Network defaults" for the pattern.
@@ -44,11 +50,11 @@ config:
   # expressions yet, so an unguarded read fails composition with
   # "cidrhost() ... got <nil>" whenever cidr_block is unset.
   - name: network
-    when: (network.gateway ?? '') == ''
+    when: (network.gateway ?? '') == '' && hyperv_effective.dhcp != true
     value:
       gateway: "${cidrhost(network.cidr_block ?? '10.5.0.0/16', 1)}"
   - name: network
-    when: len(network.nameservers ?? []) == 0
+    when: len(network.nameservers ?? []) == 0 && hyperv_effective.dhcp != true
     value:
       nameservers: ['1.1.1.1', '8.8.8.8']
 
@@ -171,7 +177,7 @@ config:
             ["ipv4", get(#, "node")],
             ["image", ""],
             ["dvd_iso_path", "talos"],
-            ["cidata_iso_path", hyperv_effective.images_dir + "/" + get(#, "hostname") + "-cidata.iso"],
+            ["cidata_iso_path", hyperv_effective.images_dir + "/" + get(#, "hostname") + hyperv_effective.name_suffix + "-cidata.iso"],
             ["boot_from_dvd", false],
             ["generation", 2],
             ["secure_boot", false],
@@ -187,7 +193,7 @@ config:
             ["ipv4", get(#, "node")],
             ["image", ""],
             ["dvd_iso_path", "talos"],
-            ["cidata_iso_path", hyperv_effective.images_dir + "/" + get(#, "hostname") + "-cidata.iso"],
+            ["cidata_iso_path", hyperv_effective.images_dir + "/" + get(#, "hostname") + hyperv_effective.name_suffix + "-cidata.iso"],
             ["boot_from_dvd", false],
             ["generation", 2],
             ["secure_boot", false],
@@ -198,11 +204,96 @@ config:
           ]))
         )}
 
-  # Storage falls through to config-talos.yaml's openebs default (hostPath).
-  # Controlplane sits at CIDR offset 10 so k8s_service_host is DHCP-independent.
+  # Guest IPv4 per LAN control plane: cluster.controlplanes.nodes, else cidrhost
+  # offset 10. The name comes from the pool position, never nodes[].hostname:
+  # it keys the VM, its VHDX and its seed, which renaming would replace.
+  - name: hyperv_controlplanes
+    when: gateway.service_type != 'NodePort'
+    value:
+      nodes: >-
+        ${map(1..int(cluster.controlplanes.count ?? 1), fromPairs([
+          ["name", int(cluster.controlplanes.count ?? 1) > 1 ? "controlplane-" + string(#) : "controlplane"],
+          ["ipv4", hyperv_effective.dhcp ? null
+            : (get(cluster.controlplanes.nodes ?? {}, "controlplane-" + string(#)) != null
+            ? (get(cluster.controlplanes.nodes ?? {}, "controlplane-" + string(#)).node
+               ?? split(get(cluster.controlplanes.nodes ?? {}, "controlplane-" + string(#)).endpoint, ":")[0])
+            : cidrhost(network.cidr_block ?? '10.5.0.0/16', 9 + #))]
+        ]))}
+
+  # Guest IPv4 per LAN worker: cluster.workers.nodes, else cidrhost offset 20.
+  # Named by pool position, like the control planes.
+  - name: hyperv_workers
+    when: gateway.service_type != 'NodePort'
+    value:
+      nodes: >-
+        ${(cluster.workers.count ?? 0) == 0 ? [] : map(1..int(cluster.workers.count), fromPairs([
+          ["name", int(cluster.workers.count) > 1 ? "worker-" + string(#) : "worker"],
+          ["ipv4", hyperv_effective.dhcp ? null
+            : (get(cluster.workers.nodes ?? {}, "worker-" + string(#)) != null
+            ? (get(cluster.workers.nodes ?? {}, "worker-" + string(#)).node
+               ?? split(get(cluster.workers.nodes ?? {}, "worker-" + string(#)).endpoint, ":")[0])
+            : cidrhost(network.cidr_block ?? '10.5.0.0/16', 19 + #))]
+        ]))}
+
+  - name: hyperv_compute_instances
+    when: gateway.service_type != 'NodePort'
+    value:
+      list: >-
+        ${concat(
+          map(hyperv_controlplanes.nodes, fromPairs([
+            ["name", get(#, "name")],
+            ["role", "controlplane"],
+            ["count", 1],
+            ["ipv4", get(#, "ipv4")],
+            ["image", ""],
+            ["dvd_iso_path", "talos"],
+            ["cidata_iso_path", hyperv_effective.images_dir + "/" + get(#, "name") + hyperv_effective.name_suffix + "-cidata.iso"],
+            ["boot_from_dvd", false],
+            ["generation", 2],
+            ["secure_boot", false],
+            ["cpu", cluster_resources_effective.controlplanes.cpu],
+            ["memory", cluster_resources_effective.controlplanes.memory],
+            ["root_disk_size", cluster.controlplanes.root_disk_size ?? 30],
+            ["notes", "Talos control plane node"]
+          ])),
+          map(hyperv_workers.nodes, fromPairs([
+            ["name", get(#, "name")],
+            ["role", "worker"],
+            ["count", 1],
+            ["ipv4", get(#, "ipv4")],
+            ["image", ""],
+            ["dvd_iso_path", "talos"],
+            ["cidata_iso_path", hyperv_effective.images_dir + "/" + get(#, "name") + hyperv_effective.name_suffix + "-cidata.iso"],
+            ["boot_from_dvd", false],
+            ["generation", 2],
+            ["secure_boot", false],
+            ["cpu", cluster_resources_effective.workers.cpu],
+            ["memory", cluster_resources_effective.workers.memory],
+            ["root_disk_size", cluster.workers.root_disk_size ?? 50],
+            ["notes", "Talos worker node"]
+          ]))
+        )}
+
+  # First control-plane IPv4 for Cilium kube-proxy-replacement.
   - name: talos_common
     value:
-      k8s_service_host: "${cidrhost(network.cidr_block ?? '10.5.0.0/16', 10)}"
+      k8s_service_host: >-
+        ${gateway.service_type == 'NodePort'
+          ? cidrhost(network.cidr_block ?? '10.5.0.0/16', 10)
+          : ((cluster.endpoint ?? '') != ''
+            ? split(split(cluster.endpoint, '://')[1], ':')[0]
+            : (len(terraform_output("compute", "controlplanes") ?? []) > 0
+              ? split(terraform_output("compute", "controlplanes")[0].endpoint, ':')[0]
+              : (hyperv_effective.dhcp ? '' : hyperv_controlplanes.nodes[0].ipv4)))}
+
+  # Talos installs from the stock installer unless told otherwise, dropping the
+  # schematic's hv_kvp_daemon once the node boots from disk.
+  - name: talos_common
+    value:
+      common_patch:
+        machine:
+          install:
+            image: "${'factory.talos.dev/installer/' + hyperv_effective.talos_schematic_id + ':v' + talos.talos_version}"
 
   # NodePort certSANs: workstations reach both APIs at the bench external IP,
   # but Talos auto-derives SANs only from NAT-internal addresses. Add the bench
@@ -250,13 +341,16 @@ config:
         ${map(
           len(terraform_output("compute", "controlplanes") ?? []) > 0
             ? terraform_output("compute", "controlplanes")
-            : values(cluster.controlplanes.nodes ?? {}),
+            : (gateway.service_type == 'NodePort' ? hyperv_controlplanes.for_cluster
+              : (hyperv_effective.dhcp ? [] : values(cluster.controlplanes.nodes ?? {}))),
           fromPairs(filter(toPairs(#), get(#, 0) == "node" || get(#, 0) == "endpoint")))}
       workers: >-
         ${map(
           len(terraform_output("compute", "workers") ?? []) > 0
             ? terraform_output("compute", "workers")
-            : ((cluster.workers.count ?? 0) > 0 ? values(cluster.workers.nodes) : []),
+            : (gateway.service_type == 'NodePort' ? hyperv_workers.for_cluster
+              : (hyperv_effective.dhcp ? []
+                : ((cluster.workers.count ?? 0) > 0 ? values(cluster.workers.nodes ?? {}) : []))),
           fromPairs(filter(toPairs(#), get(#, 0) == "node" || get(#, 0) == "endpoint")))}
 
 # =============================================================================
@@ -268,8 +362,8 @@ terraform:
   # cluster-config — generates the Talos cluster identity, signs per-node
   # machineconfigs (with a static-IP interface patch), and wraps each into a
   # CIDATA seed ISO. Must complete before compute so VMs mount their seed at
-  # boot. Identity is exported to the cluster step, which then skips config
-  # apply (delivered via CIDATA) and runs straight to bootstrap + health.
+  # boot. Identity is exported to the cluster step, which skips config apply
+  # whenever CIDATA already carries the machineconfig.
   - name: cluster-config
     path: cluster/talos/config
     dependsOn:
@@ -277,19 +371,35 @@ terraform:
     inputs:
       talos_version: ${talos.talos_version}
       cluster_name: talos
-      cluster_endpoint: "${cluster.endpoint ?? ('https://' + cidrhost(network.cidr_block ?? '10.5.0.0/16', 10) + ':6443')}"
+      cluster_endpoint: "${(cluster.endpoint ?? '') != '' ? cluster.endpoint : (hyperv_effective.dhcp ? '' : ('https://' + (gateway.service_type == 'NodePort' ? cidrhost(network.cidr_block ?? '10.5.0.0/16', 10) : hyperv_controlplanes.nodes[0].ipv4) + ':6443'))}"
       destination_dir: "${hyperv_effective.images_dir}"
+      name_suffix: "${hyperv_effective.name_suffix}"
       common_config_patches: ${talos_common.common_config_patches}
       controlplane_config_patches: "${talos_common.oidc_ca_file_patch ?? ''}"
       worker_config_patches: "${talos_common.worker_config_patches ?? ''}"
       network:
         cidr_block: ${network.cidr_block ?? '10.5.0.0/16'}
         gateway: ${network.gateway}
-        nameservers: ${network.nameservers}
-      # In NodePort mode, feed the facet-built lists so CIDATA patches land
-      # NAT-internal static IPs (per the per-VM offset scheme) on each NIC.
-      controlplanes: "${gateway.service_type == 'NodePort' ? hyperv_controlplanes.for_config : values(cluster.controlplanes.nodes ?? {})}"
-      workers: "${gateway.service_type == 'NodePort' ? hyperv_workers.for_config : ((cluster.workers.count ?? 0) > 0 ? values(cluster.workers.nodes ?? {}) : [])}"
+        nameservers: ${network.nameservers ?? []}
+        dhcp: ${hyperv_effective.dhcp}
+      controlplanes: >-
+        ${gateway.service_type == 'NodePort' ? hyperv_controlplanes.for_config
+          : map(hyperv_controlplanes.nodes, fromPairs(concat(
+            [["hostname", get(#, "name")]],
+            hyperv_effective.dhcp ? [] : [
+              ["node", get(#, "ipv4")],
+              ["address", get(#, "ipv4") + "/" + split(network.cidr_block ?? '10.5.0.0/16', "/")[1]]
+            ]
+          )))}
+      workers: >-
+        ${gateway.service_type == 'NodePort' ? hyperv_workers.for_config
+          : map(hyperv_workers.nodes, fromPairs(concat(
+            [["hostname", get(#, "name")]],
+            hyperv_effective.dhcp ? [] : [
+              ["node", get(#, "ipv4")],
+              ["address", get(#, "ipv4") + "/" + split(network.cidr_block ?? '10.5.0.0/16', "/")[1]]
+            ]
+          )))}
 
   # compute — Talos VMs on a Hyper-V virtual switch. Each VM gets a fresh
   # dynamic VHDX, the metal-amd64.iso on DVD slot 1, and its CIDATA seed on
@@ -301,8 +411,8 @@ terraform:
     dependsOn:
       - cluster-config
     inputs:
-      network_name: ""
-      create_network: true
+      network_name: "${gateway.service_type == 'NodePort' ? '' : (hyperv.switch_name ?? '')}"
+      create_network: ${gateway.service_type == 'NodePort' || (hyperv.switch_name ?? '') == ''}
       switch_type: ${hyperv_effective.switch_type}
       net_adapter_names: ${hyperv_effective.net_adapter}
       # NAT-only inputs — null otherwise (compute ignores them when not NAT).
@@ -324,48 +434,14 @@ terraform:
       port_forward_name_prefix: "windsor-${id ?? 'hyperv'}"
       network_cidr: ${network.cidr_block ?? '10.5.0.0/16'}
       vhd_dir: "${hyperv_effective.vhd_dir}"
+      name_suffix: "${hyperv_effective.name_suffix}"
       images:
         talos:
           destination_path: "${hyperv_effective.image_destination}"
           url: ${hyperv_effective.image_url}
+          runner_download: true
           keep_on_destroy: true
-      # NodePort uses the flat per-VM list (own cidata_iso_path per VM).
-      # Otherwise fall back to the count-based two-entry form (single-VM today).
-      instances: >-
-        ${gateway.service_type == 'NodePort' ? hyperv_compute_instances.list : [
-          fromPairs([
-            ["name", "controlplane"],
-            ["role", "controlplane"],
-            ["count", cluster.controlplanes.count ?? 1],
-            ["ipv4", cidrhost(network.cidr_block ?? '10.5.0.0/16', 10)],
-            ["image", ""],
-            ["dvd_iso_path", "talos"],
-            ["cidata_iso_path", hyperv_effective.images_dir + "/" + ((values(cluster.controlplanes.nodes ?? {}))[0].hostname ?? "controlplane-1") + "-cidata.iso"],
-            ["boot_from_dvd", false],
-            ["generation", 2],
-            ["secure_boot", false],
-            ["cpu", cluster_resources_effective.controlplanes.cpu],
-            ["memory", cluster_resources_effective.controlplanes.memory],
-            ["root_disk_size", cluster.controlplanes.root_disk_size ?? 30],
-            ["notes", "Talos control plane node"]
-          ]),
-          fromPairs([
-            ["name", "worker"],
-            ["role", "worker"],
-            ["count", cluster.workers.count ?? 0],
-            ["ipv4", cidrhost(network.cidr_block ?? '10.5.0.0/16', 20)],
-            ["image", ""],
-            ["dvd_iso_path", "talos"],
-            ["cidata_iso_path", (cluster.workers.count ?? 0) > 0 ? (hyperv_effective.images_dir + "/" + ((values(cluster.workers.nodes ?? {}))[0].hostname ?? "worker-1") + "-cidata.iso") : ""],
-            ["boot_from_dvd", false],
-            ["generation", 2],
-            ["secure_boot", false],
-            ["cpu", cluster_resources_effective.workers.cpu],
-            ["memory", cluster_resources_effective.workers.memory],
-            ["root_disk_size", cluster.workers.root_disk_size ?? 50],
-            ["notes", "Talos worker node"]
-          ])
-        ]}
+      instances: ${hyperv_compute_instances.list}
 
   - name: cluster
     path: cluster/talos
@@ -375,27 +451,27 @@ terraform:
       - cluster-config
     parallelism: 1
     inputs:
-      # Prefer the schema-declared cluster.endpoint; the compute-derived fallback
-      # returns empty because Talos doesn't report IPs through Hyper-V KVP.
+      # Prefer the schema-declared cluster.endpoint; the compute-derived
+      # fallback carries the leased IP once the guest reports it.
       cluster_endpoint: "${(cluster.endpoint ?? '') != '' ? cluster.endpoint : cluster_endpoint_fallback.endpoint}"
       cluster_name: talos
       talos_version: ${talos.talos_version}
-      # Length-check compute output (empty list, not null, since Talos doesn't
-      # report through Hyper-V KVP) and fall through to schema-declared nodes.
+      # Length-check compute output (empty until the guest reports an IP) and
+      # fall through to schema-declared nodes.
       # In NodePort+NAT, compute's NAT-internal endpoints are unreachable from
       # the runner, so use for_cluster (bench-side host:port routing to each VM).
-      controlplanes: "${gateway.service_type == 'NodePort' ? hyperv_controlplanes.for_cluster : (len(terraform_output(\"compute\", \"controlplanes\") ?? []) > 0 ? terraform_output(\"compute\", \"controlplanes\") : values(cluster.controlplanes.nodes))}"
-      workers: "${gateway.service_type == 'NodePort' ? hyperv_workers.for_cluster : (len(terraform_output(\"compute\", \"workers\") ?? []) > 0 ? terraform_output(\"compute\", \"workers\") : ((cluster.workers.count ?? 0) > 0 ? values(cluster.workers.nodes) : []))}"
+      controlplanes: "${gateway.service_type == 'NodePort' ? hyperv_controlplanes.for_cluster : (len(terraform_output(\"compute\", \"controlplanes\") ?? []) > 0 ? terraform_output(\"compute\", \"controlplanes\") : (hyperv_effective.dhcp ? [] : values(cluster.controlplanes.nodes ?? {})))}"
+      workers: "${gateway.service_type == 'NodePort' ? hyperv_workers.for_cluster : (len(terraform_output(\"compute\", \"workers\") ?? []) > 0 ? terraform_output(\"compute\", \"workers\") : (hyperv_effective.dhcp ? [] : ((cluster.workers.count ?? 0) > 0 ? values(cluster.workers.nodes ?? {}) : [])))}"
       controlplane_disks: ${talos_common.controlplane_disks}
       worker_disks: ${talos_common.worker_disks}
       common_config_patches: ${talos_common.common_config_patches}
       worker_config_patches: "${talos_common.worker_config_patches ?? ''}"
       controlplane_volumes: ${talos_common.controlplane_volumes ?? []}
       worker_volumes: ${talos_common.worker_volumes ?? []}
-      # Shared identity from cluster-config: when non-null, cluster/talos skips
-      # machine_secrets and config apply (delivered via CIDATA). Bootstrap,
-      # kubeconfig download, and health-check still run.
+      # Shared identity from cluster-config. Bootstrap, kubeconfig download,
+      # and health-check still run here.
       machine_secrets: ${terraform_output("cluster-config", "machine_secrets")}
+      skip_machine_config_apply: ${hyperv_effective.bake_machineconfig}
       client_configuration: ${terraform_output("cluster-config", "client_configuration")}
 
   - name: gitops

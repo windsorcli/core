@@ -19,7 +19,7 @@ variable "talos_version" {
   description = "The talos version to deploy. Must match the node image tag (e.g. 1.12.1 for ghcr.io/siderolabs/talos:v1.12.1)."
   type        = string
   # renovate: datasource=github-releases depName=talos package=siderolabs/talos
-  default = "1.13.9"
+  default = "1.14.1"
   validation {
     condition     = can(regex("^\\d+\\.\\d+\\.\\d+$", var.talos_version))
     error_message = "The Talos version should be in semantic version format like '1.7.6'."
@@ -38,6 +38,12 @@ variable "machine_secrets" {
   description = "Pre-generated Talos machine_secrets (output of an upstream cluster/talos-secrets module). When null (default), cluster/talos generates its own. Must be supplied together with client_configuration."
   type        = any
   sensitive   = true
+  default     = null
+}
+
+variable "skip_machine_config_apply" {
+  description = "Skip talos_machine_configuration_apply because the machineconfig reached the nodes out of band (hyperv CIDATA). Null (default) infers it from machine_secrets being supplied."
+  type        = bool
   default     = null
 }
 

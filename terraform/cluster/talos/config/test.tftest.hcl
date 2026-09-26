@@ -73,6 +73,48 @@ run "single_controlplane" {
     condition     = length(data.talos_machine_configuration.worker) == 0
     error_message = "No worker configs expected when workers list is empty"
   }
+
+  assert {
+    condition     = hyperv_image_file.cidata["controlplane-1"].destination_path == "C:/hyperv/iso/controlplane-1-cidata.iso"
+    error_message = "Empty name_suffix should leave the seed filename bare"
+  }
+
+  assert {
+    condition     = hyperv_image_file.cidata["controlplane-1"].replace_while_mounted && hyperv_image_file.cidata["controlplane-1"].force_destroy
+    error_message = "Seed must set replace_while_mounted and force_destroy; the VM holds it open from another state"
+  }
+}
+
+# name_suffix namespaces the seed filename so two contexts sharing a host and a
+# destination_dir don't write the same path.
+run "name_suffix_namespaces_cidata" {
+  command = plan
+
+  variables {
+    talos_version    = "1.12.6"
+    cluster_endpoint = "https://192.168.0.10:6443"
+    destination_dir  = "C:/hyperv/iso"
+    name_suffix      = "-ctx1"
+    network = {
+      cidr_block  = "192.168.0.0/22"
+      gateway     = "192.168.1.0"
+      nameservers = ["1.1.1.1"]
+    }
+    controlplanes = [
+      { hostname = "controlplane", node = "192.168.0.10" }
+    ]
+    workers = []
+  }
+
+  assert {
+    condition     = hyperv_image_file.cidata["controlplane"].destination_path == "C:/hyperv/iso/controlplane-ctx1-cidata.iso"
+    error_message = "Seed filename should carry name_suffix"
+  }
+
+  assert {
+    condition     = data.hyperv_iso_volume.cidata["controlplane"].files["meta-data"] == yamlencode({ "instance-id" = "controlplane", "local-hostname" = "controlplane" })
+    error_message = "Talos hostname must stay unsuffixed"
+  }
 }
 
 # HA: 3 controlplanes + 2 workers — five CIDATA ISOs, five signed configs.
@@ -167,5 +209,77 @@ run "explicit_address_override" {
   assert {
     condition     = length(data.hyperv_iso_volume.cidata) == 1
     error_message = "Single CIDATA ISO expected"
+  }
+}
+
+# DHCP: network-config uses dhcp4; machineconfig still bakes when cluster_endpoint is set.
+run "dhcp_with_endpoint_bakes_dhcp4" {
+  command = plan
+
+  variables {
+    talos_version    = "1.12.6"
+    cluster_endpoint = "https://talos.plant.local:6443"
+    destination_dir  = "C:/hyperv/iso"
+    network = {
+      dhcp        = true
+      nameservers = ["1.1.1.1"]
+    }
+    controlplanes = [
+      { hostname = "controlplane" }
+    ]
+    workers = []
+  }
+
+  assert {
+    condition     = strcontains(data.hyperv_iso_volume.cidata["controlplane"].files["network-config"], "dhcp4: true")
+    error_message = "DHCP CIDATA network-config should set dhcp4: true"
+  }
+
+  assert {
+    condition     = contains(keys(data.hyperv_iso_volume.cidata["controlplane"].files), "user-data")
+    error_message = "cluster_endpoint set should still bake user-data machineconfig"
+  }
+
+  assert {
+    condition     = length(data.talos_machine_configuration.controlplane) == 1
+    error_message = "One controlplane machineconfig expected when baking"
+  }
+}
+
+# Empty cluster_endpoint skips machineconfig bake; CIDATA is network-only.
+run "dhcp_without_endpoint_skips_machineconfig" {
+  command = plan
+
+  variables {
+    talos_version    = "1.12.6"
+    cluster_endpoint = ""
+    destination_dir  = "C:/hyperv/iso"
+    network = {
+      dhcp = true
+    }
+    controlplanes = [
+      { hostname = "controlplane" }
+    ]
+    workers = []
+  }
+
+  assert {
+    condition     = talos_machine_secrets.this.talos_version == "v1.12.6"
+    error_message = "Cluster identity must exist even when the machineconfig is not baked"
+  }
+
+  assert {
+    condition     = length(data.talos_machine_configuration.controlplane) == 0
+    error_message = "Empty cluster_endpoint should skip machineconfig data sources"
+  }
+
+  assert {
+    condition     = !contains(keys(data.hyperv_iso_volume.cidata["controlplane"].files), "user-data")
+    error_message = "CIDATA should omit user-data when machineconfig is not baked"
+  }
+
+  assert {
+    condition     = strcontains(data.hyperv_iso_volume.cidata["controlplane"].files["network-config"], "dhcp4: true")
+    error_message = "DHCP CIDATA network-config should set dhcp4: true without a bake"
   }
 }
