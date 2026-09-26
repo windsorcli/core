@@ -499,3 +499,64 @@ cases:
               ca_certificate: mock-ca-crt
               client_certificate: mock-client-crt
               client_key: mock-client-key
+
+  - name: cluster common_config_patches includes registry mirrors when docker.registries have hostname
+    values:
+      platform: vsphere
+      gateway:
+        enabled: false
+      network: *default-network
+      cluster:
+        <<: *default-cluster
+        controlplanes:
+          cpu: 8
+          memory: 24
+          nodes:
+            controlplane-1:
+              endpoint: 10.10.0.10:50000
+              node: 10.10.0.10
+              hostname: controlplane-1
+      vsphere: *default-vsphere
+      docker:
+        registries:
+          gcr.io:
+            remote: "https://gcr.io"
+            hostname: "gcr.test"
+    terraformOutputs: *default-terraform-outputs
+    expect:
+      terraform:
+        - name: cluster
+          path: cluster/talos
+          inputs:
+            common_config_patches: |-
+              cluster:
+                allowSchedulingOnControlPlanes: true
+                controllerManager:
+                  extraArgs:
+                    leader-elect: "false"
+                etcd:
+                  extraArgs:
+                    auto-compaction-mode: revision
+                    auto-compaction-retention: "1000"
+                    max-snapshots: "3"
+                    max-wals: "3"
+                extraManifests:
+                - https://raw.githubusercontent.com/alex1989hu/kubelet-serving-cert-approver/v0.8.7/deploy/standalone-install.yaml
+                network:
+                  cni:
+                    name: none
+                proxy:
+                  disabled: true
+                scheduler:
+                  extraArgs:
+                    leader-elect: "false"
+              machine:
+                kubelet:
+                  extraArgs:
+                    rotate-server-certificates: "true"
+                registries:
+                  config: {}
+                  mirrors:
+                    gcr.io:
+                      endpoints:
+                      - http://gcr.test:5000
