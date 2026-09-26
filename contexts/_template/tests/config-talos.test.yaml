@@ -47,19 +47,20 @@ cases:
       network: *default-network
       cluster: *default-cluster
     expect:
+      config:
+        talos_common:
+          common_patch:
+            cluster:
+              allowSchedulingOnControlPlanes: false
+              inlineManifests:
+                - name: kubelet-serving-cert-approver
+            machine:
+              kubelet:
+                extraArgs:
+                  rotate-server-certificates: "true"
       terraform:
         - name: cluster
           path: cluster/talos
-          inputs:
-            common_config_patches: |-
-              cluster:
-                allowSchedulingOnControlPlanes: false
-                extraManifests:
-                - https://raw.githubusercontent.com/alex1989hu/kubelet-serving-cert-approver/v0.8.7/deploy/standalone-install.yaml
-              machine:
-                kubelet:
-                  extraArgs:
-                    rotate-server-certificates: "true"
 
   - name: oidc enabled maps issuer/client_id/claims to apiServer extraArgs
     values:
@@ -74,25 +75,24 @@ cases:
           issuer_url: https://keycloak.example.com/realms/windsor
           client_id: kubernetes
     expect:
+      config:
+        talos_common:
+          common_patch:
+            cluster:
+              allowSchedulingOnControlPlanes: false
+              apiServer:
+                extraArgs:
+                  oidc-client-id: kubernetes
+                  oidc-groups-claim: groups
+                  oidc-issuer-url: https://keycloak.example.com/realms/windsor
+                  oidc-username-claim: sub
+            machine:
+              kubelet:
+                extraArgs:
+                  rotate-server-certificates: "true"
       terraform:
         - name: cluster
           path: cluster/talos
-          inputs:
-            common_config_patches: |-
-              cluster:
-                allowSchedulingOnControlPlanes: false
-                apiServer:
-                  extraArgs:
-                    oidc-client-id: kubernetes
-                    oidc-groups-claim: groups
-                    oidc-issuer-url: https://keycloak.example.com/realms/windsor
-                    oidc-username-claim: sub
-                extraManifests:
-                - https://raw.githubusercontent.com/alex1989hu/kubelet-serving-cert-approver/v0.8.7/deploy/standalone-install.yaml
-              machine:
-                kubelet:
-                  extraArgs:
-                    rotate-server-certificates: "true"
 
   - name: oidc enabled with keycloak identity infers issuer and client_id
     values:
@@ -110,25 +110,24 @@ cases:
       identity:
         enabled: true
     expect:
+      config:
+        talos_common:
+          common_patch:
+            cluster:
+              allowSchedulingOnControlPlanes: false
+              apiServer:
+                extraArgs:
+                  oidc-client-id: kubernetes
+                  oidc-groups-claim: groups
+                  oidc-issuer-url: https://keycloak.example.local/realms/platform
+                  oidc-username-claim: sub
+            machine:
+              kubelet:
+                extraArgs:
+                  rotate-server-certificates: "true"
       terraform:
         - name: cluster
           path: cluster/talos
-          inputs:
-            common_config_patches: |-
-              cluster:
-                allowSchedulingOnControlPlanes: false
-                apiServer:
-                  extraArgs:
-                    oidc-client-id: kubernetes
-                    oidc-groups-claim: groups
-                    oidc-issuer-url: https://keycloak.example.local/realms/platform
-                    oidc-username-claim: sub
-                extraManifests:
-                - https://raw.githubusercontent.com/alex1989hu/kubelet-serving-cert-approver/v0.8.7/deploy/standalone-install.yaml
-              machine:
-                kubelet:
-                  extraArgs:
-                    rotate-server-certificates: "true"
 
   # kube-apiserver fetches the inferred issuer's JWKS itself, and kubectl clients
   # validate the same token against it — without a gateway neither can reach it.
@@ -166,25 +165,24 @@ cases:
       identity:
         enabled: true
     expect:
+      config:
+        talos_common:
+          common_patch:
+            cluster:
+              allowSchedulingOnControlPlanes: false
+              apiServer:
+                extraArgs:
+                  oidc-client-id: other-client
+                  oidc-groups-claim: groups
+                  oidc-issuer-url: https://sso.corp/realms/other
+                  oidc-username-claim: sub
+            machine:
+              kubelet:
+                extraArgs:
+                  rotate-server-certificates: "true"
       terraform:
         - name: cluster
           path: cluster/talos
-          inputs:
-            common_config_patches: |-
-              cluster:
-                allowSchedulingOnControlPlanes: false
-                apiServer:
-                  extraArgs:
-                    oidc-client-id: other-client
-                    oidc-groups-claim: groups
-                    oidc-issuer-url: https://sso.corp/realms/other
-                    oidc-username-claim: sub
-                extraManifests:
-                - https://raw.githubusercontent.com/alex1989hu/kubelet-serving-cert-approver/v0.8.7/deploy/standalone-install.yaml
-              machine:
-                kubelet:
-                  extraArgs:
-                    rotate-server-certificates: "true"
 
   - name: oidc enabled with pki enabled adds oidc-ca-file from the pki terraform output
     values:
@@ -207,30 +205,30 @@ cases:
           FAKECERT
           -----END CERTIFICATE-----
     expect:
+      config:
+        talos_common:
+          common_patch:
+            cluster:
+              allowSchedulingOnControlPlanes: false
+              apiServer:
+                extraArgs:
+                  oidc-ca-file: /etc/kubernetes/oidc-ca.crt
+                  oidc-client-id: kubernetes
+                  oidc-groups-claim: groups
+                  oidc-issuer-url: https://keycloak.example.com/realms/windsor
+                  oidc-username-claim: sub
+                extraVolumes:
+                - hostPath: /var/kubernetes/oidc-ca.crt
+                  mountPath: /etc/kubernetes/oidc-ca.crt
+                  readonly: true
+            machine:
+              kubelet:
+                extraArgs:
+                  rotate-server-certificates: "true"
       terraform:
         - name: cluster
           path: cluster/talos
           inputs:
-            common_config_patches: |-
-              cluster:
-                allowSchedulingOnControlPlanes: false
-                apiServer:
-                  extraArgs:
-                    oidc-ca-file: /etc/kubernetes/oidc-ca.crt
-                    oidc-client-id: kubernetes
-                    oidc-groups-claim: groups
-                    oidc-issuer-url: https://keycloak.example.com/realms/windsor
-                    oidc-username-claim: sub
-                  extraVolumes:
-                  - hostPath: /var/kubernetes/oidc-ca.crt
-                    mountPath: /etc/kubernetes/oidc-ca.crt
-                    readonly: true
-                extraManifests:
-                - https://raw.githubusercontent.com/alex1989hu/kubelet-serving-cert-approver/v0.8.7/deploy/standalone-install.yaml
-              machine:
-                kubelet:
-                  extraArgs:
-                    rotate-server-certificates: "true"
             controlplane_config_patches: "machine:\n  files:\n  - op: create\n    path: /var/kubernetes/oidc-ca.crt\n    permissions: 420\n    content: |\n      \n        -----BEGIN CERTIFICATE-----\n        FAKECERT\n        -----END CERTIFICATE-----"
 
   - name: small dedicated control plane gets the larger reservation tier
@@ -250,38 +248,37 @@ cases:
               node: 10.5.0.10
               hostname: controlplane-1
     expect:
+      config:
+        talos_common:
+          common_patch:
+            cluster:
+              allowSchedulingOnControlPlanes: false
+              apiServer:
+                resources:
+                  requests:
+                    cpu: 250m
+                    memory: 256Mi
+              controllerManager:
+                resources:
+                  requests:
+                    cpu: 100m
+                    memory: 128Mi
+              scheduler:
+                resources:
+                  requests:
+                    cpu: 100m
+                    memory: 128Mi
+            machine:
+              kubelet:
+                extraArgs:
+                  rotate-server-certificates: "true"
+                extraConfig:
+                  kubeReserved:
+                    cpu: 500m
+                    memory: 512Mi
       terraform:
         - name: cluster
           path: cluster/talos
-          inputs:
-            common_config_patches: |-
-              cluster:
-                allowSchedulingOnControlPlanes: false
-                apiServer:
-                  resources:
-                    requests:
-                      cpu: 250m
-                      memory: 256Mi
-                controllerManager:
-                  resources:
-                    requests:
-                      cpu: 100m
-                      memory: 128Mi
-                extraManifests:
-                - https://raw.githubusercontent.com/alex1989hu/kubelet-serving-cert-approver/v0.8.7/deploy/standalone-install.yaml
-                scheduler:
-                  resources:
-                    requests:
-                      cpu: 100m
-                      memory: 128Mi
-              machine:
-                kubelet:
-                  extraArgs:
-                    rotate-server-certificates: "true"
-                  extraConfig:
-                    kubeReserved:
-                      cpu: 500m
-                      memory: 512Mi
 
   - name: control plane constrained on cpu alone still gets the reservation
     values:
@@ -300,38 +297,37 @@ cases:
               node: 10.5.0.10
               hostname: controlplane-1
     expect:
+      config:
+        talos_common:
+          common_patch:
+            cluster:
+              allowSchedulingOnControlPlanes: false
+              apiServer:
+                resources:
+                  requests:
+                    cpu: 250m
+                    memory: 256Mi
+              controllerManager:
+                resources:
+                  requests:
+                    cpu: 100m
+                    memory: 128Mi
+              scheduler:
+                resources:
+                  requests:
+                    cpu: 100m
+                    memory: 128Mi
+            machine:
+              kubelet:
+                extraArgs:
+                  rotate-server-certificates: "true"
+                extraConfig:
+                  kubeReserved:
+                    cpu: 500m
+                    memory: 512Mi
       terraform:
         - name: cluster
           path: cluster/talos
-          inputs:
-            common_config_patches: |-
-              cluster:
-                allowSchedulingOnControlPlanes: false
-                apiServer:
-                  resources:
-                    requests:
-                      cpu: 250m
-                      memory: 256Mi
-                controllerManager:
-                  resources:
-                    requests:
-                      cpu: 100m
-                      memory: 128Mi
-                extraManifests:
-                - https://raw.githubusercontent.com/alex1989hu/kubelet-serving-cert-approver/v0.8.7/deploy/standalone-install.yaml
-                scheduler:
-                  resources:
-                    requests:
-                      cpu: 100m
-                      memory: 128Mi
-              machine:
-                kubelet:
-                  extraArgs:
-                    rotate-server-certificates: "true"
-                  extraConfig:
-                    kubeReserved:
-                      cpu: 500m
-                      memory: 512Mi
 
   - name: control plane between the threshold and 2x it gets a tapered reservation
     values:
@@ -350,38 +346,37 @@ cases:
               node: 10.5.0.10
               hostname: controlplane-1
     expect:
+      config:
+        talos_common:
+          common_patch:
+            cluster:
+              allowSchedulingOnControlPlanes: false
+              apiServer:
+                resources:
+                  requests:
+                    cpu: 125m
+                    memory: 128Mi
+              controllerManager:
+                resources:
+                  requests:
+                    cpu: 50m
+                    memory: 64Mi
+              scheduler:
+                resources:
+                  requests:
+                    cpu: 50m
+                    memory: 64Mi
+            machine:
+              kubelet:
+                extraArgs:
+                  rotate-server-certificates: "true"
+                extraConfig:
+                  kubeReserved:
+                    cpu: 250m
+                    memory: 256Mi
       terraform:
         - name: cluster
           path: cluster/talos
-          inputs:
-            common_config_patches: |-
-              cluster:
-                allowSchedulingOnControlPlanes: false
-                apiServer:
-                  resources:
-                    requests:
-                      cpu: 125m
-                      memory: 128Mi
-                controllerManager:
-                  resources:
-                    requests:
-                      cpu: 50m
-                      memory: 64Mi
-                extraManifests:
-                - https://raw.githubusercontent.com/alex1989hu/kubelet-serving-cert-approver/v0.8.7/deploy/standalone-install.yaml
-                scheduler:
-                  resources:
-                    requests:
-                      cpu: 50m
-                      memory: 64Mi
-              machine:
-                kubelet:
-                  extraArgs:
-                    rotate-server-certificates: "true"
-                  extraConfig:
-                    kubeReserved:
-                      cpu: 250m
-                      memory: 256Mi
 
   - name: default-sized worker gets its own kubeReserved independent of the control plane
     values:
@@ -431,40 +426,40 @@ cases:
         cni:
           driver: flannel
     expect:
+      config:
+        talos_common:
+          common_patch:
+            cluster:
+              allowSchedulingOnControlPlanes: false
+              apiServer:
+                resources:
+                  requests:
+                    cpu: 250m
+                    memory: 256Mi
+              controllerManager:
+                resources:
+                  requests:
+                    cpu: 100m
+                    memory: 128Mi
+              scheduler:
+                resources:
+                  requests:
+                    cpu: 100m
+                    memory: 128Mi
+            machine:
+              kubelet:
+                extraArgs:
+                  rotate-server-certificates: "true"
+                extraConfig:
+                  kubeReserved:
+                    cpu: 500m
+                    memory: 512Mi
       terraform:
         - name: cluster
           path: cluster/talos
           inputs:
             # The small control plane's kubeReserved lands in
             # common_config_patches, which every role shares.
-            common_config_patches: |-
-              cluster:
-                allowSchedulingOnControlPlanes: false
-                apiServer:
-                  resources:
-                    requests:
-                      cpu: 250m
-                      memory: 256Mi
-                controllerManager:
-                  resources:
-                    requests:
-                      cpu: 100m
-                      memory: 128Mi
-                extraManifests:
-                - https://raw.githubusercontent.com/alex1989hu/kubelet-serving-cert-approver/v0.8.7/deploy/standalone-install.yaml
-                scheduler:
-                  resources:
-                    requests:
-                      cpu: 100m
-                      memory: 128Mi
-              machine:
-                kubelet:
-                  extraArgs:
-                    rotate-server-certificates: "true"
-                  extraConfig:
-                    kubeReserved:
-                      cpu: 500m
-                      memory: 512Mi
             # worker_config_patches applies after common_config_patches, so
             # this zero override wins on the worker and cancels the leak.
             worker_config_patches: |-
@@ -552,19 +547,18 @@ cases:
               node: 10.5.0.10
               hostname: controlplane-1
     expect:
+      config:
+        talos_common:
+          common_patch:
+            cluster:
+              allowSchedulingOnControlPlanes: false
+            machine:
+              kubelet:
+                extraArgs:
+                  rotate-server-certificates: "true"
       terraform:
         - name: cluster
           path: cluster/talos
-          inputs:
-            common_config_patches: |-
-              cluster:
-                allowSchedulingOnControlPlanes: false
-                extraManifests:
-                - https://raw.githubusercontent.com/alex1989hu/kubelet-serving-cert-approver/v0.8.7/deploy/standalone-install.yaml
-              machine:
-                kubelet:
-                  extraArgs:
-                    rotate-server-certificates: "true"
 
   - name: small schedulable control plane gets the minimal reservation tier
     values:
@@ -594,38 +588,37 @@ cases:
         cni:
           driver: flannel
     expect:
+      config:
+        talos_common:
+          common_patch:
+            cluster:
+              allowSchedulingOnControlPlanes: true
+              apiServer:
+                resources:
+                  requests:
+                    cpu: 100m
+                    memory: 128Mi
+              controllerManager:
+                resources:
+                  requests:
+                    cpu: 50m
+                    memory: 64Mi
+              scheduler:
+                resources:
+                  requests:
+                    cpu: 50m
+                    memory: 64Mi
+            machine:
+              kubelet:
+                extraArgs:
+                  rotate-server-certificates: "true"
+                extraConfig:
+                  kubeReserved:
+                    cpu: 100m
+                    memory: 256Mi
       terraform:
         - name: cluster
           path: cluster/talos
-          inputs:
-            common_config_patches: |-
-              cluster:
-                allowSchedulingOnControlPlanes: true
-                apiServer:
-                  resources:
-                    requests:
-                      cpu: 100m
-                      memory: 128Mi
-                controllerManager:
-                  resources:
-                    requests:
-                      cpu: 50m
-                      memory: 64Mi
-                extraManifests:
-                - https://raw.githubusercontent.com/alex1989hu/kubelet-serving-cert-approver/v0.8.7/deploy/standalone-install.yaml
-                scheduler:
-                  resources:
-                    requests:
-                      cpu: 50m
-                      memory: 64Mi
-              machine:
-                kubelet:
-                  extraArgs:
-                    rotate-server-certificates: "true"
-                  extraConfig:
-                    kubeReserved:
-                      cpu: 100m
-                      memory: 256Mi
 
   - name: oidc username_claim and groups_claim overrides pass through
     values:
@@ -642,25 +635,24 @@ cases:
           username_claim: email
           groups_claim: roles
     expect:
+      config:
+        talos_common:
+          common_patch:
+            cluster:
+              allowSchedulingOnControlPlanes: false
+              apiServer:
+                extraArgs:
+                  oidc-client-id: kubernetes
+                  oidc-groups-claim: roles
+                  oidc-issuer-url: https://keycloak.example.com/realms/windsor
+                  oidc-username-claim: email
+            machine:
+              kubelet:
+                extraArgs:
+                  rotate-server-certificates: "true"
       terraform:
         - name: cluster
           path: cluster/talos
-          inputs:
-            common_config_patches: |-
-              cluster:
-                allowSchedulingOnControlPlanes: false
-                apiServer:
-                  extraArgs:
-                    oidc-client-id: kubernetes
-                    oidc-groups-claim: roles
-                    oidc-issuer-url: https://keycloak.example.com/realms/windsor
-                    oidc-username-claim: email
-                extraManifests:
-                - https://raw.githubusercontent.com/alex1989hu/kubelet-serving-cert-approver/v0.8.7/deploy/standalone-install.yaml
-              machine:
-                kubelet:
-                  extraArgs:
-                    rotate-server-certificates: "true"
 
   - name: network.ntp_servers sets machine.time.servers
     values:
@@ -674,23 +666,22 @@ cases:
           - pool.ntp.org
       cluster: *default-cluster
     expect:
+      config:
+        talos_common:
+          common_patch:
+            cluster:
+              allowSchedulingOnControlPlanes: false
+            machine:
+              kubelet:
+                extraArgs:
+                  rotate-server-certificates: "true"
+              time:
+                servers:
+                - 10.5.0.1
+                - pool.ntp.org
       terraform:
         - name: cluster
           path: cluster/talos
-          inputs:
-            common_config_patches: |-
-              cluster:
-                allowSchedulingOnControlPlanes: false
-                extraManifests:
-                - https://raw.githubusercontent.com/alex1989hu/kubelet-serving-cert-approver/v0.8.7/deploy/standalone-install.yaml
-              machine:
-                kubelet:
-                  extraArgs:
-                    rotate-server-certificates: "true"
-                time:
-                  servers:
-                  - 10.5.0.1
-                  - pool.ntp.org
 
   - name: no ntp_servers omits machine.time patch
     values:
@@ -700,16 +691,15 @@ cases:
       network: *default-network
       cluster: *default-cluster
     expect:
+      config:
+        talos_common:
+          common_patch:
+            cluster:
+              allowSchedulingOnControlPlanes: false
+            machine:
+              kubelet:
+                extraArgs:
+                  rotate-server-certificates: "true"
       terraform:
         - name: cluster
           path: cluster/talos
-          inputs:
-            common_config_patches: |-
-              cluster:
-                allowSchedulingOnControlPlanes: false
-                extraManifests:
-                - https://raw.githubusercontent.com/alex1989hu/kubelet-serving-cert-approver/v0.8.7/deploy/standalone-install.yaml
-              machine:
-                kubelet:
-                  extraArgs:
-                    rotate-server-certificates: "true"

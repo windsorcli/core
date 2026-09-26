@@ -68,8 +68,6 @@ config:
       # Kubelet serving-cert rotation via a static (pre-Flux) manifest so certs
       # rotate during bootstrap; the Talos default self-signed certs don't match node IPs.
       cert_rotation:
-        extra_manifests:
-          - "https://raw.githubusercontent.com/alex1989hu/kubelet-serving-cert-approver/v0.8.7/deploy/standalone-install.yaml"
         kubelet_extra_args:
           rotate-server-certificates: "true"
 
@@ -78,7 +76,6 @@ config:
       common_patch:
         cluster:
           allowSchedulingOnControlPlanes: ${talos_common.allowSchedulingOnControlPlanes}
-          extraManifests: ${talos_common.cert_rotation.extra_manifests}
         machine:
           kubelet:
             extraArgs: ${talos_common.cert_rotation.kubelet_extra_args}

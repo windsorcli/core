@@ -1,6 +1,6 @@
 # option-workstation.yaml facet tests
 # Tests workstation stack (workstation/docker or incus, compute, cluster/talos) when workstation.enabled.
-# Asserts cluster common_config_patches: cert_rotation (extraManifests + kubelet.extraArgs) and registries.mirrors
+# Asserts talos_common.common_patch: cert_rotation (kubelet.extraArgs) and registries.mirrors
 # so changes to config-talos or option-workstation patch logic are caught.
 
 x-defaults:
@@ -56,40 +56,40 @@ cases:
       cluster: *default-cluster
     terraformOutputs: *default-terraform-outputs
     expect:
+      config:
+        talos_common:
+          common_patch:
+            cluster:
+              allowSchedulingOnControlPlanes: true
+              controllerManager:
+                extraArgs:
+                  leader-elect: "false"
+              etcd:
+                extraArgs:
+                  auto-compaction-mode: revision
+                  auto-compaction-retention: "1000"
+                  max-snapshots: "3"
+                  max-wals: "3"
+              network:
+                cni:
+                  name: none
+              proxy:
+                disabled: true
+              scheduler:
+                extraArgs:
+                  leader-elect: "false"
+            machine:
+              kubelet:
+                extraArgs:
+                  rotate-server-certificates: "true"
+              registries:
+                config: {}
+                mirrors: {}
       terraform:
         - name: cluster
           path: cluster/talos
           inputs:
             cluster_name: talos
-            common_config_patches: |-
-              cluster:
-                allowSchedulingOnControlPlanes: true
-                controllerManager:
-                  extraArgs:
-                    leader-elect: "false"
-                etcd:
-                  extraArgs:
-                    auto-compaction-mode: revision
-                    auto-compaction-retention: "1000"
-                    max-snapshots: "3"
-                    max-wals: "3"
-                extraManifests:
-                - https://raw.githubusercontent.com/alex1989hu/kubelet-serving-cert-approver/v0.8.7/deploy/standalone-install.yaml
-                network:
-                  cni:
-                    name: none
-                proxy:
-                  disabled: true
-                scheduler:
-                  extraArgs:
-                    leader-elect: "false"
-              machine:
-                kubelet:
-                  extraArgs:
-                    rotate-server-certificates: "true"
-                registries:
-                  config: {}
-                  mirrors: {}
         - name: gitops
           path: gitops/flux
           destroy: false
@@ -253,6 +253,18 @@ cases:
             node: 10.5.0.20
             hostname: worker-1
     expect:
+      config:
+        talos_common:
+          common_patch:
+            cluster:
+              allowSchedulingOnControlPlanes: false
+            machine:
+              kubelet:
+                extraArgs:
+                  rotate-server-certificates: "true"
+              registries:
+                config: {}
+                mirrors: {}
       terraform:
         - name: workstation
           path: workstation/incus
@@ -264,19 +276,6 @@ cases:
           path: cluster/talos
           dependsOn:
             - compute
-          inputs:
-            common_config_patches: |-
-              cluster:
-                allowSchedulingOnControlPlanes: false
-                extraManifests:
-                - https://raw.githubusercontent.com/alex1989hu/kubelet-serving-cert-approver/v0.8.7/deploy/standalone-install.yaml
-              machine:
-                kubelet:
-                  extraArgs:
-                    rotate-server-certificates: "true"
-                registries:
-                  config: {}
-                  mirrors: {}
         - name: gitops
           path: gitops/flux
           inputs:

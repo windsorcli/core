@@ -96,6 +96,23 @@ cases:
       network: *default-network
     terraformOutputs: *default-terraform-outputs
     expect:
+      config:
+        talos_common:
+          common_patch:
+            cluster:
+              allowSchedulingOnControlPlanes: false
+              network:
+                cni:
+                  name: none
+              proxy:
+                disabled: true
+            machine:
+              kubelet:
+                extraArgs:
+                  rotate-server-certificates: "true"
+                nodeIP:
+                  validSubnets:
+                  - 10.5.0.0/16
       terraform:
         - name: compute
           path: compute/hcloud
@@ -111,24 +128,6 @@ cases:
                 server_type: cpx31
         - name: cluster
           path: cluster/talos
-          inputs:
-            common_config_patches: |-
-              cluster:
-                allowSchedulingOnControlPlanes: false
-                extraManifests:
-                - https://raw.githubusercontent.com/alex1989hu/kubelet-serving-cert-approver/v0.8.7/deploy/standalone-install.yaml
-                network:
-                  cni:
-                    name: none
-                proxy:
-                  disabled: true
-              machine:
-                kubelet:
-                  extraArgs:
-                    rotate-server-certificates: "true"
-                  nodeIP:
-                    validSubnets:
-                    - 10.5.0.0/16
         # multi-node topology, not the single-node replica count of 1
         - name: cni
           path: cni/cilium
