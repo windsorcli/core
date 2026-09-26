@@ -143,6 +143,25 @@ cases:
           inputs:
             vhd_dir: "D:/hyperv/vhds"
 
+  - name: hyperv.image_url replaces the default Talos ISO download address
+    values:
+      platform: hyperv
+      gateway:
+        enabled: false
+      network: *default-network
+      hyperv:
+        image_url: https://mirror.example.com/talos/metal-amd64.iso
+      cluster: *default-cluster
+    terraformOutputs: *default-terraform-outputs
+    expect:
+      terraform:
+        - name: compute
+          path: compute/hyperv
+          inputs:
+            images:
+              talos:
+                url: https://mirror.example.com/talos/metal-amd64.iso
+
   # MetalLB lb-install / lb-resources land when network.loadbalancer_driver is
   # set and the CNI is not Cilium (Cilium has its own L2 path).
   - name: metallb lb-install and lb-resources land with explicit flannel CNI

@@ -34,7 +34,7 @@ config:
       images_dir: "${(hyperv.base_dir ?? 'C:/hyperv') + '/images'}"
       talos_schematic_id: "a9999ca75e856f927166016d16df9f9705927a18fc2f7a0c92b1ac96a376f9a6"
       image_destination: "${(hyperv.base_dir ?? 'C:/hyperv') + '/images/talos-' + talos.talos_version + '-metal-amd64.iso'}"
-      image_url: "${'https://factory.talos.dev/image/a9999ca75e856f927166016d16df9f9705927a18fc2f7a0c92b1ac96a376f9a6/v' + talos.talos_version + '/metal-amd64.iso'}"
+      image_url: "${hyperv.image_url ?? ('https://factory.talos.dev/image/a9999ca75e856f927166016d16df9f9705927a18fc2f7a0c92b1ac96a376f9a6/v' + talos.talos_version + '/metal-amd64.iso')}"
 
   # Network gateway and nameserver defaults for the CIDATA seed. Written only
   # when unset; see platform-base.yaml "Network defaults" for the pattern.
