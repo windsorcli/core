@@ -145,12 +145,12 @@ locals {
           join(".", slice(split(".", split("/", instance.ipv4)[0]), 0, 3)),
           tostring(tonumber(split(".", split("/", instance.ipv4)[0])[3]) + i)
         ) : (instance.ipv4 != null ? split("/", instance.ipv4)[0] : null)
-        mac_address     = instance.mac_address
-        vlan_id         = instance.vlan_id
-        switch_name     = instance.switch_name
-        notes           = instance.notes
-        desired_state   = instance.desired_state
-        shutdown_mode   = instance.shutdown_mode
+        mac_address   = instance.mac_address
+        vlan_id       = instance.vlan_id
+        switch_name   = instance.switch_name
+        notes         = instance.notes
+        desired_state = instance.desired_state
+        shutdown_mode = instance.shutdown_mode
         dvd_iso_path  = instance.dvd_iso_path
         boot_from_dvd = instance.boot_from_dvd
         index         = i
@@ -320,7 +320,7 @@ locals {
   # Keyed by instance name (always known from var.instances) so for_each is plan-stable.
   cidata_nodes = {
     for k, v in local.instances_by_name : k => v
-    if (v.role == "controlplane" || v.role == "worker")
+    if(v.role == "controlplane" || v.role == "worker")
     && v.ipv4 != null
   }
 

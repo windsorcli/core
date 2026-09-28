@@ -66,11 +66,10 @@ resource "terraform_data" "endpoint_check" {
 #-----------------------------------------------------------------------------------------------------------------------
 
 locals {
-  # machine_secrets / client_configuration come from EITHER the upstream
-  # cluster/talos/config module (when var.machine_secrets is set) OR the
-  # locally-generated talos_machine_secrets resource (default). Every
-  # downstream reference uses these locals — never the resource attributes
-  # directly.
+  # machine_secrets / client_configuration come from EITHER an upstream
+  # compute module (when var.machine_secrets is set) OR the locally-generated
+  # talos_machine_secrets resource (default). Every downstream reference uses
+  # these locals — never the resource attributes directly.
   machine_secrets      = var.machine_secrets != null ? var.machine_secrets : talos_machine_secrets.this[0].machine_secrets
   client_configuration = var.client_configuration != null ? var.client_configuration : talos_machine_secrets.this[0].client_configuration
 
