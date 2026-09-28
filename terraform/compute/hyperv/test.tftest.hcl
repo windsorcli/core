@@ -205,6 +205,11 @@ run "instance_count_expansion" {
     condition     = hyperv_vhd.instance_root["worker-1"].vhd_type == "dynamic"
     error_message = "Empty image should produce a fresh dynamic VHDX (no parent)"
   }
+
+  assert {
+    condition     = alltrue([for w in output.workers : w.instance_id != null && w.instance_id != ""])
+    error_message = "workers[].instance_id should surface each VM's resource id"
+  }
 }
 
 # Dynamic memory: when memory_max is set, the module enables Hyper-V dynamic

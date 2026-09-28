@@ -40,14 +40,15 @@ locals {
   # Generic instances
   instances = [
     for k, v in module.instances : {
-      name     = v.name
-      hostname = local.instance_hostnames[k]
-      ipv4     = local.instance_ips[k]
-      ipv6     = v.ipv6
-      status   = v.status
-      type     = v.type
-      image    = v.image
-      role     = local.instance_roles[k]
+      name        = v.name
+      hostname    = local.instance_hostnames[k]
+      ipv4        = local.instance_ips[k]
+      ipv6        = v.ipv6
+      status      = v.status
+      type        = v.type
+      image       = v.image
+      role        = local.instance_roles[k]
+      instance_id = v.instance_id
     }
   ]
 
@@ -55,30 +56,32 @@ locals {
   # Endpoint is the Talos API endpoint (port 50000) for both controlplanes and workers
   controlplanes = [
     for k, v in module.instances : {
-      hostname = local.instance_hostnames[k]
-      endpoint = local.instance_ips[k] != null ? "${local.instance_ips[k]}:50000" : null
-      node     = local.instance_ips[k]
-      name     = v.name
-      ipv4     = local.instance_ips[k]
-      ipv6     = v.ipv6
-      status   = v.status
-      type     = v.type
-      image    = v.image
+      hostname    = local.instance_hostnames[k]
+      endpoint    = local.instance_ips[k] != null ? "${local.instance_ips[k]}:50000" : null
+      node        = local.instance_ips[k]
+      name        = v.name
+      ipv4        = local.instance_ips[k]
+      ipv6        = v.ipv6
+      status      = v.status
+      type        = v.type
+      image       = v.image
+      instance_id = v.instance_id
     }
     if local.instance_roles[k] == "controlplane" && local.instance_ips[k] != null
   ]
 
   workers = [
     for k, v in module.instances : {
-      hostname = local.instance_hostnames[k]
-      endpoint = local.instance_ips[k] != null ? "${local.instance_ips[k]}:50000" : null
-      node     = local.instance_ips[k]
-      name     = v.name
-      ipv4     = local.instance_ips[k]
-      ipv6     = v.ipv6
-      status   = v.status
-      type     = v.type
-      image    = v.image
+      hostname    = local.instance_hostnames[k]
+      endpoint    = local.instance_ips[k] != null ? "${local.instance_ips[k]}:50000" : null
+      node        = local.instance_ips[k]
+      name        = v.name
+      ipv4        = local.instance_ips[k]
+      ipv6        = v.ipv6
+      status      = v.status
+      type        = v.type
+      image       = v.image
+      instance_id = v.instance_id
     }
     if local.instance_roles[k] == "worker" && local.instance_ips[k] != null
   ]

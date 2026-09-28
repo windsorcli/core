@@ -7,6 +7,11 @@ output "name" {
   value       = incus_instance.this.name
 }
 
+output "instance_id" {
+  description = "The instance's provider-assigned MAC address. Changes whenever the instance is replaced (e.g. an image or profile change forces recreation), since Incus assigns a fresh MAC to each new instance"
+  value       = incus_instance.this.mac_address
+}
+
 output "type" {
   description = "The type of the Incus instance"
   value       = incus_instance.this.type
