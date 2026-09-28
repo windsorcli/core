@@ -117,3 +117,15 @@ output "udp_port_forwards" {
   description = "Map of installed UDP NAT port forwards keyed by bench-side external_port"
   value       = { for k, r in hyperv_nat_static_mapping.udp : k => r.id }
 }
+
+output "machine_secrets" {
+  description = "Talos cluster identity. Pass to cluster/talos as var.machine_secrets so it shares the same cluster CA."
+  value       = length(talos_machine_secrets.this) > 0 ? talos_machine_secrets.this[0].machine_secrets : null
+  sensitive   = true
+}
+
+output "client_configuration" {
+  description = "Talos client configuration (CA cert + admin cert/key). Pass to cluster/talos as var.client_configuration."
+  value       = length(talos_machine_secrets.this) > 0 ? talos_machine_secrets.this[0].client_configuration : null
+  sensitive   = true
+}

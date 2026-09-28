@@ -36,7 +36,7 @@ extract_description() {
 # List per-module README paths under $1, excluding the umbrella itself.
 # Kustomize add-ons are 1-level-deep (kustomize/<addon>/README.md); nested
 # READMEs there are component-level notes, not add-ons. Terraform modules
-# can be legitimately nested (cluster/talos/config, etc.), so allow any
+# can be legitimately nested (cluster/talos/extensions, etc.), so allow any
 # depth — but skip vendored provider READMEs under .terraform/.
 list_modules() {
   local root="$1"
