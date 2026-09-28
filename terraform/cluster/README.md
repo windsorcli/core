@@ -166,7 +166,8 @@ Managed clusters use cloud-native identity for in-cluster integrations
 leave the cluster boundary in either case.
 
 Talos enforces signed machine config, and rotation is handled inside
-`cluster/talos/config`.
+`cluster/talos` or, on platforms that deliver config out-of-band
+(hyperv, vsphere), inside the compute module.
 
 `cluster.controlplanes.schedulable: true` removes the NoSchedule taint
 from the control plane. That's fine for single-node clusters but

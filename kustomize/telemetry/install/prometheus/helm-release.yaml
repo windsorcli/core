@@ -45,16 +45,16 @@ spec:
       priorityClassName: windsorcli-platform-critical
       image:
         # renovate: datasource=docker depName=quay.io/prometheus-operator/prometheus-operator package=quay.io/prometheus-operator/prometheus-operator
-        tag: v0.94.0@sha256:cf153f64d6c38113fceb2cda7642365ea887f71edd7888f054e43e54cf177e55
+        tag: v0.94.1@sha256:7c88d4e7bae63bd8d0f8da986054337c23b4472fa8d3c6817f5bc4b8407a2d6a
       prometheusConfigReloader:
         image:
           # renovate: datasource=docker depName=quay.io/prometheus-operator/prometheus-config-reloader package=quay.io/prometheus-operator/prometheus-config-reloader
-          tag: v0.94.0@sha256:142a1f11df8dd165f00375b0b1826aecb9c9adeb05c39855893138d7c7575ff7
+          tag: v0.94.1@sha256:06b52bd4dbe3ed6dd5905aadaf8b9987d9da4c31d37bb86deaadae68cee2d26b
       admissionWebhooks:
         patch:
           image:
             # renovate: datasource=docker depName=ghcr.io/jkroepke/kube-webhook-certgen package=ghcr.io/jkroepke/kube-webhook-certgen
-            tag: 1.8.8@sha256:cd85a621724cd9043a5b46a784578fa159437712f920166389fce830554e1c44
+            tag: 1.8.9@sha256:58e4ac2e15bf7785eb00ac90d03f9be1ff3f2fe0add6c71b54af6e5c80031148
     prometheus:
       prometheusSpec:
         priorityClassName: windsorcli-platform-critical

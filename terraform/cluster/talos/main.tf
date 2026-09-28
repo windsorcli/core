@@ -17,8 +17,8 @@ terraform {
 #-----------------------------------------------------------------------------------------------------------------------
 # Cluster identity (CA, etcd CA, k8s CA, bootstrap token, encryption secret).
 # Generated locally when no upstream secrets are supplied — the default for
-# incus/metal/docker/aws/azure paths. On the hyperv CIDATA path, cluster/talos/config
-# generates and exports them ahead of compute; they flow back here via
+# incus/metal/docker/aws/azure paths. On the hyperv CIDATA path, compute/hyperv
+# generates and exports them; they flow back here via
 # var.machine_secrets / var.client_configuration and the count-gated resource
 # below stays at zero. local.machine_secrets / local.client_configuration pick
 # whichever source is active.
@@ -66,11 +66,10 @@ resource "terraform_data" "endpoint_check" {
 #-----------------------------------------------------------------------------------------------------------------------
 
 locals {
-  # machine_secrets / client_configuration come from EITHER the upstream
-  # cluster/talos/config module (when var.machine_secrets is set) OR the
-  # locally-generated talos_machine_secrets resource (default). Every
-  # downstream reference uses these locals — never the resource attributes
-  # directly.
+  # machine_secrets / client_configuration come from EITHER an upstream
+  # compute module (when var.machine_secrets is set) OR the locally-generated
+  # talos_machine_secrets resource (default). Every downstream reference uses
+  # these locals — never the resource attributes directly.
   machine_secrets      = var.machine_secrets != null ? var.machine_secrets : talos_machine_secrets.this[0].machine_secrets
   client_configuration = var.client_configuration != null ? var.client_configuration : talos_machine_secrets.this[0].client_configuration
 

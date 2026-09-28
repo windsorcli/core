@@ -64,6 +64,26 @@ spec:
               }
 
 
+          def build_schema_grant(role_name, namespace, instance_name, database_name):
+              # PG15+ revoked CREATE on public from PUBLIC; the database-level
+              # grant above doesn't cover it, since that's a schema privilege.
+              return {
+                  "apiVersion": PROVIDER_SQL_API,
+                  "kind": "Grant",
+                  "metadata": {"name": f"{role_name}-schema", "namespace": namespace},
+                  "spec": {
+                      "managementPolicies": ORPHAN_POLICIES,
+                      "providerConfigRef": {"kind": "ClusterProviderConfig", "name": instance_name},
+                      "forProvider": {
+                          "role": role_name,
+                          "database": database_name,
+                          "schema": "public",
+                          "privileges": ["ALL"],
+                      },
+                  },
+              }
+
+
           def build_status(role_name, namespace):
               return {
                   "connectionSecretRef": {"name": secret_name(role_name), "namespace": namespace},
@@ -103,6 +123,12 @@ spec:
                   )
                   if is_ready(req, "grant"):
                       rsp.desired.resources["grant"].ready = True
+
+                  rsp.desired.resources["schema-grant"].resource.update(
+                      build_schema_grant(role_name, namespace, instance_name, database_name)
+                  )
+                  if is_ready(req, "schema-grant"):
+                      rsp.desired.resources["schema-grant"].ready = True
 
               # rsp.desired.composite.resource is the same kind of Struct wrapper.
               if "status" not in rsp.desired.composite.resource:
