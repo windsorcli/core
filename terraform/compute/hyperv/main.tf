@@ -212,6 +212,8 @@ locals {
     if v.role == "worker" && v.ipv4 != null
   }
 
+  network_prefix_length = var.network_cidr != null ? tonumber(split("/", var.network_cidr)[1]) : 24
+
   # hostname is not set: Talos derives machine.network.hostname from CIDATA
   # meta-data and rejects an explicit override.
   controlplane_network_patches = {
@@ -323,8 +325,6 @@ locals {
     if(v.role == "controlplane" || v.role == "worker")
     && v.ipv4 != null
   }
-
-  network_prefix_length = var.network_cidr != null ? tonumber(split("/", var.network_cidr)[1]) : 24
 }
 
 data "hyperv_iso_volume" "cidata" {
