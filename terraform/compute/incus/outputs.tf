@@ -48,7 +48,7 @@ locals {
       type        = v.type
       image       = v.image
       role        = local.instance_roles[k]
-      instance_id = v.instance_id
+      instance_id = v.mac_address
     }
   ]
 
@@ -65,7 +65,7 @@ locals {
       status      = v.status
       type        = v.type
       image       = v.image
-      instance_id = v.instance_id
+      instance_id = v.mac_address
     }
     if local.instance_roles[k] == "controlplane" && local.instance_ips[k] != null
   ]
@@ -81,7 +81,7 @@ locals {
       status      = v.status
       type        = v.type
       image       = v.image
-      instance_id = v.instance_id
+      instance_id = v.mac_address
     }
     if local.instance_roles[k] == "worker" && local.instance_ips[k] != null
   ]

@@ -30,7 +30,7 @@ run "minimal_configuration" {
 }
 
 # mac_address is provider-computed, unknown until apply under the mock provider.
-run "instance_id_surfaces_mac_address" {
+run "mac_address_output" {
   command = apply
 
   variables {
@@ -40,8 +40,8 @@ run "instance_id_surfaces_mac_address" {
   }
 
   assert {
-    condition     = output.instance_id != null && output.instance_id != ""
-    error_message = "instance_id should surface the provider-assigned mac_address"
+    condition     = output.mac_address != null && output.mac_address != ""
+    error_message = "mac_address should surface the provider-assigned value"
   }
 }
 
