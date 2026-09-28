@@ -862,11 +862,6 @@ properties:
             description: Number of control plane nodes
           nodes:
             <<: *nodesSchema
-            default:
-              controlplane-1:
-                endpoint: 10.5.0.1
-                node: 10.5.0.1
-                hostname: controlplane-1
             description: >
               Named control plane node configurations. On Hyper-V, node/endpoint
               IPv4 is the guest NIC address unless network.dhcp is true;
