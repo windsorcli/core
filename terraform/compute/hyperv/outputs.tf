@@ -40,7 +40,7 @@ locals {
       type        = "virtual-machine"
       image       = local.instances_by_name[k].image
       role        = local.instance_roles[k]
-      instance_id = v.id
+      instance_id = v.vm_id
     }
   ]
 
@@ -55,7 +55,7 @@ locals {
       status      = try(v.state.current, null)
       type        = "virtual-machine"
       image       = local.instances_by_name[k].image
-      instance_id = v.id
+      instance_id = v.vm_id
     }
     if local.instance_roles[k] == "controlplane" && local.instance_ips[k] != null
   ]
@@ -71,7 +71,7 @@ locals {
       status      = try(v.state.current, null)
       type        = "virtual-machine"
       image       = local.instances_by_name[k].image
-      instance_id = v.id
+      instance_id = v.vm_id
     }
     if local.instance_roles[k] == "worker" && local.instance_ips[k] != null
   ]
