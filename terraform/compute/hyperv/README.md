@@ -23,7 +23,7 @@ Pairs with the `cluster/talos` module.
 
 | Name | Version |
 |------|---------|
-| <a name="provider_hyperv"></a> [hyperv](#provider\_hyperv) | 0.4.0 |
+| <a name="provider_hyperv"></a> [hyperv](#provider\_hyperv) | 0.5.0 |
 | <a name="provider_talos"></a> [talos](#provider\_talos) | 0.11.0 |
 
 ## Modules
