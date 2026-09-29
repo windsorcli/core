@@ -1,14 +1,16 @@
-# Grafana OIDC client, appended to the realm import's clients array. Secret
-# resolved via placeholder.patch.yaml; $${...} escapes Flux's postBuild substitution.
+# Grafana OIDC client, appended to the realm import's clients array. Public client
+# with PKCE, so it has no secret.
 - op: add
   path: /spec/realm/clients/-
   value:
     clientId: grafana
-    secret: $${GRAFANA_CLIENT_SECRET}
     enabled: true
     protocol: openid-connect
-    publicClient: false
+    publicClient: true
     standardFlowEnabled: true
+    directAccessGrantsEnabled: false
+    attributes:
+      pkce.code.challenge.method: S256
     redirectUris:
       - ${grafana_redirect_uri}
     webOrigins:

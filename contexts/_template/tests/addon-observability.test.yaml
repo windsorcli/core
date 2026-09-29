@@ -36,8 +36,6 @@ cases:
       cluster: *default-cluster
       identity:
         enabled: true
-        keycloak:
-          grafana_client_secret: sup3r-secret-oidc
       observability:
         enabled: true
     expect:
@@ -73,8 +71,6 @@ cases:
           issuer: https://sso.corp/realms/platform
       observability:
         enabled: true
-        grafana:
-          client_secret: ${secret("v", "grafana", "s")}
     expect:
       flux:
         - name: observability
@@ -83,40 +79,6 @@ cases:
               - grafana/oidc
             substitutions:
               oidc_auth_url: https://sso.corp/realms/platform/protocol/openid-connect/auth
-
-  # Grafana SSO outside dev requires a client secret for either driver.
-  - name: external oidc sso without a client secret fails composition
-    values:
-      platform: metal
-      dns:
-        domain: example.local
-      gateway:
-        enabled: true
-      network: *default-network
-      cluster: *default-cluster
-      identity:
-        enabled: true
-        driver: oidc
-        oidc:
-          issuer: https://sso.corp/realms/platform
-      observability:
-        enabled: true
-    expectError: true
-
-  - name: hosted keycloak sso without a pinned client secret fails composition
-    values:
-      platform: metal
-      dns:
-        domain: example.local
-      gateway:
-        enabled: true
-      network: *default-network
-      cluster: *default-cluster
-      identity:
-        enabled: true
-      observability:
-        enabled: true
-    expectError: true
 
   # Minimal: dev mode enables observability addon; addon wins (last-wins)
   # Metal defaults to cilium gateway driver, cilium dashboard included.
