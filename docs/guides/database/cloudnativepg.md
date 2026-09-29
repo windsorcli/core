@@ -13,7 +13,7 @@ database:
     enabled: true
 ```
 
-When enabled, the CloudNativePG operator is installed in the `system-database` namespace and watches every namespace. Windsor creates no application databases; add-ons that need Postgres, such as Keycloak, create their own `Cluster`.
+When enabled, the CloudNativePG operator is installed in the `system-database` namespace and watches every namespace. Core creates no application databases; add-ons that need Postgres, such as Keycloak, create their own `Cluster`.
 
 This setting is independent of `database.postgres.cloud`, so both can be enabled at once.
 
@@ -36,7 +36,7 @@ spec:
     enablePodMonitor: true
 ```
 
-The operator replicates and fails over the instances. Windsor configures no backups; set them in the `Cluster` spec. The operator also generates a `basic-auth` Secret named `<cluster name>-app` (`my-app-db-app` here) in the `Cluster`'s namespace. It holds the username, password, RW service hostname, port, database name, and ready-made connection URIs, and the user owns the database. See [Secrets](https://cloudnative-pg.io/documentation/current/applications/#secrets) in the CloudNativePG docs.
+The operator replicates and fails over the instances. Core configures no backups; set them in the `Cluster` spec. The operator also generates a `basic-auth` Secret named `<cluster name>-app` (`my-app-db-app` here) in the `Cluster`'s namespace. It holds the username, password, RW service hostname, port, database name, and ready-made connection URIs, and the user owns the database. See [Secrets](https://cloudnative-pg.io/documentation/current/applications/#secrets) in the CloudNativePG docs.
 
 ## Topology
 

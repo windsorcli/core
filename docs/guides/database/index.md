@@ -59,7 +59,7 @@ stringData:
 
 ## Monitoring
 
-When `telemetry.metrics.enabled` is true (the default), Windsor creates a monitor role for each instance and runs a `postgres_exporter` Deployment, Service, and PodMonitor against it. `observability.enabled` adds the Postgres exporter dashboard.
+When `telemetry.metrics.enabled` is true (the default), Core creates a monitor role for each instance and runs a `postgres_exporter` Deployment, Service, and PodMonitor against it. `observability.enabled` adds the Postgres exporter dashboard.
 
 When `telemetry.alerts.enabled` is also true (the default), the telemetry add-on installs Prometheus alert rules: one set for CloudNativePG when `database.postgres.enabled` is true, and one for the Postgres exporter on RDS and Azure. Cloud SQL has the exporter and dashboard but no alert rules yet.
 

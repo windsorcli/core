@@ -56,7 +56,7 @@ spec:
       name: my-app-db
 ```
 
-Cloud SQL cannot generate an admin password, so Windsor generates one, stores it in a Secret named `<instance>-admin-credentials` in `system-database`, and sets it on an admin user for the instance. You don't declare it.
+Cloud SQL cannot generate an admin password, so a Crossplane `WatchOperation` generates one, stores it in a Secret named `<instance>-admin-credentials` in `system-database`, and sets it on an admin user for the instance. You don't declare it.
 
 At admission, a Kyverno policy sets `project` to the context's project and the `windsor_context_id` label, and fills in `privateNetwork` if you leave it out. The Crossplane service account has project-wide access, so `project` keeps a chart from pointing at the wrong project but does not restrict what the account can reach.
 
