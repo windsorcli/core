@@ -13,7 +13,7 @@ terraform {
   required_providers {
     hyperv = {
       source  = "windsorcli/hyperv"
-      version = "0.4.0"
+      version = "0.5.0"
     }
     talos = {
       source  = "siderolabs/talos"

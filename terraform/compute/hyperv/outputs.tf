@@ -36,43 +36,46 @@ locals {
 
   instances = [
     for k, v in hyperv_vm.instances : {
-      name     = v.name
-      hostname = k
-      ipv4     = local.instance_ips[k]
-      ipv6     = local.instance_ipv6s[k]
-      status   = try(v.state.current, null)
-      type     = "virtual-machine"
-      image    = local.instances_by_name[k].image
-      role     = local.instance_roles[k]
+      name        = v.name
+      hostname    = k
+      ipv4        = local.instance_ips[k]
+      ipv6        = local.instance_ipv6s[k]
+      status      = try(v.state.current, null)
+      type        = "virtual-machine"
+      image       = local.instances_by_name[k].image
+      role        = local.instance_roles[k]
+      instance_id = v.vm_id
     }
   ]
 
   controlplanes = [
     for k, v in hyperv_vm.instances : {
-      hostname = k
-      endpoint = local.instance_ips[k] != null ? "${local.instance_ips[k]}:50000" : null
-      node     = local.instance_ips[k]
-      name     = v.name
-      ipv4     = local.instance_ips[k]
-      ipv6     = local.instance_ipv6s[k]
-      status   = try(v.state.current, null)
-      type     = "virtual-machine"
-      image    = local.instances_by_name[k].image
+      hostname    = k
+      endpoint    = local.instance_ips[k] != null ? "${local.instance_ips[k]}:50000" : null
+      node        = local.instance_ips[k]
+      name        = v.name
+      ipv4        = local.instance_ips[k]
+      ipv6        = local.instance_ipv6s[k]
+      status      = try(v.state.current, null)
+      type        = "virtual-machine"
+      image       = local.instances_by_name[k].image
+      instance_id = v.vm_id
     }
     if local.instance_roles[k] == "controlplane" && local.instance_ips[k] != null
   ]
 
   workers = [
     for k, v in hyperv_vm.instances : {
-      hostname = k
-      endpoint = local.instance_ips[k] != null ? "${local.instance_ips[k]}:50000" : null
-      node     = local.instance_ips[k]
-      name     = v.name
-      ipv4     = local.instance_ips[k]
-      ipv6     = local.instance_ipv6s[k]
-      status   = try(v.state.current, null)
-      type     = "virtual-machine"
-      image    = local.instances_by_name[k].image
+      hostname    = k
+      endpoint    = local.instance_ips[k] != null ? "${local.instance_ips[k]}:50000" : null
+      node        = local.instance_ips[k]
+      name        = v.name
+      ipv4        = local.instance_ips[k]
+      ipv6        = local.instance_ipv6s[k]
+      status      = try(v.state.current, null)
+      type        = "virtual-machine"
+      image       = local.instances_by_name[k].image
+      instance_id = v.vm_id
     }
     if local.instance_roles[k] == "worker" && local.instance_ips[k] != null
   ]
