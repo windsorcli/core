@@ -24,20 +24,27 @@ description: Author and maintain reference Markdown for the core Windsor bluepri
 ## Frontmatter (Markdown)
 
 - `title` (required), `description` (**required for per-module READMEs** — the umbrella generator pulls from it; missing descriptions fail CI).
-- Optional: `sidebar_order` for ingest nav.
+- Optional: `sidebar_order` (number) — sidebar position for a guide, or for a
+  vendor category's `index.md` (see below). Lower sorts first; guides without
+  it fall back to alphabetical by title, after any that have it set.
 
 ## Voice
 
 - **Reference only:** imperative, tables for inputs/vars, no marketing copy.
 - Link generic blueprint concepts to `https://www.windsorcli.dev/docs/blueprints/...` (schema, sharing, facets).
+- Load the `technical-writing` skill before drafting or editing any prose here; it's the baseline AI-tell catalog this section only adds to.
+- Never write "shape" for structure, layout, format, schema, or signature. Name the real one.
+- Avoid em dashes. Trading one for a colon or semicolon in the same spot isn't a fix; it keeps the same clause-stitching and just swaps the punctuation. Restructure instead: split the sentence, reorder the clause, or cut what wasn't carrying weight. The only em dashes that stay are `[Page — Section]` link labels and text inside code fences.
 
 ## Catalog guides (`docs/guides/`)
 
-A Catalog guide is `docs/guides/<key>.md`, vendored to `/catalog/core/guides/<key>` on the site. Write the intro, diagram, and "Under the hood" prose by hand — `scripts/guide-scaffold.sh` only ever fills in one thing: the `## Reference` block, a list of every `terraform/` and `kustomize/` path the facets actually wire in for that guide's config key, derived from the real facet YAML rather than typed by hand and left to drift.
+A Catalog guide is `docs/guides/<key>.md`, vendored to `/catalog/core/guides/<key>` on the site. It's plain hand-authored markdown end to end: intro, diagram, "Under the hood" prose, and the `## Reference` list, all written by whoever writes the guide. No generator, no marker comments, nothing to run before it's complete.
 
-Add a `<!-- BEGIN_GUIDE_REFS -->` / `<!-- END_GUIDE_REFS -->` marker pair wherever the generated list should go, then run `task docs:guides` (or target one guide directly: `scripts/guide-scaffold.sh <key>`). `task docs:guides:check` fails on drift — wired into CI the same way `docs:kustomize:check`/`docs:terraform:check` are. The generator only ever populates an existing file; it doesn't scaffold one, so the marker pair (and everything above it) has to exist first.
+Write the Reference list by reading the facets the guide's config key actually touches (`contexts/_template/facets/*.yaml`) and linking the real `terraform/`/`kustomize/` paths those facets wire in, as a normal repo-relative link from the guide's own location, e.g. `[terraform/database/aws-rds](../../../terraform/database/aws-rds)` from `docs/guides/database/rds.md`. Don't write the full `https://github.com/...` URL by hand: the site's vendoring step (`rewriteGuideLinks` in `windsorcli.github.io/scripts/vendor-docs.mjs`) turns every relative link in a vendored guide into the real GitHub URL automatically, and a link to another guide (`[Keycloak](../identity/keycloak.md)`) into a site-relative catalog link instead. Writing it relative is what makes the same file render correctly read straight on GitHub too. When you change a facet's wiring for a key that already has a guide, update its Reference list in the same PR; there's no CI check for drift here, so keeping it accurate is on the author, the same as the rest of the guide's prose.
 
-**Vendor sub-guides.** When a schema key has more than one driver — `database.postgres.driver: cloudnativepg | rds | azuredb | cloudsql`, `identity.driver: keycloak | oidc` — split the guide into `docs/guides/<key>/<vendor>.md`, one file per enum value, filename matching the schema value verbatim (`azuredb.md`, not `flexibleserver.md`). There's no separate index page for the category; the site groups these into one expandable sidebar entry per key automatically. Generate with `scripts/guide-scaffold.sh <key>/<vendor>` (or `--all` picks up every vendor page that already exists). A driver with nothing to reference (an external service Windsor installs nothing for, e.g. `identity/oidc.md`) still needs the marker pair — an intentionally empty generated block is what lets `--check` catch it if that ever stops being true, and says so in the surrounding prose rather than silently having no `## Reference` section at all.
+Keep the Reference list to `terraform/`/`kustomize/` paths only. General blueprint concepts (Facets, Expressions, Kustomize composition) don't belong here even when they're genuinely relevant; the Voice section above already covers where those go (`https://www.windsorcli.dev/docs/blueprints/...`), inline in the guide's own prose where the concept actually comes up, not tacked onto the end of the Reference list.
+
+**Vendor sub-guides.** When a schema key has more than one driver — `database.postgres.driver: cloudnativepg | rds | azuredb | cloudsql`, `identity.driver: keycloak | oidc` — split the guide into `docs/guides/<key>/<vendor>.md`, one file per enum value, filename matching the schema value verbatim (`azuredb.md`, not `flexibleserver.md`). The site groups these into one expandable sidebar entry per key automatically: its label is the directory name, sentence-cased, unless a `docs/guides/<key>/index.md` sits alongside the vendor pages, in which case that file's `title`, `description`, and `sidebar_order` take over, and its own prose renders as a real landing page linked from the category name (the vendor list still expands the same way). Adding `index.md` is optional; only do it when the category needs its own intro or an explicit sidebar position. A category with none still works exactly as before. A driver with nothing to reference (an external service Windsor installs nothing for, e.g. `identity/oidc.md`) still gets a `## Reference` section: say so in a sentence and link whatever real wiring does exist (`identity/oidc.md` links the observability add-on it writes a secret into), rather than omitting the section.
 
 ## Umbrella indices (`kustomize/README.md`, `terraform/README.md`)
 
@@ -123,7 +130,7 @@ Reference: [kustomize/policy/](../../../kustomize/policy/) is the simplest multi
 
 - [ ] Module or stack behavior that affects operators reflected in the relevant per-module/stack `README.md`.
 - [ ] Generated Terraform docs refreshed if inputs/outputs changed.
-- [ ] Catalog guide `## Reference` blocks refreshed (`task docs:guides`) if a facet's `terraform:`/`kustomize:` wiring changed.
+- [ ] Catalog guide `## Reference` lists updated by hand if a facet's `terraform:`/`kustomize:` wiring changed for a key that has a guide.
 - [ ] Links to Blueprint schema/facets point at windsorcli.dev `/docs/blueprints/...`, not duplicate prose.
 - [ ] No slug or path that implies generic blueprint authoring—that belongs on the website repo.
 

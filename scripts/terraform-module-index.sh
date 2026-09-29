@@ -9,8 +9,7 @@
 #   scripts/terraform-module-index.sh --check  # CI: fail on drift
 #
 # A "category" is any terraform/<name>/README.md whose frontmatter declares
-# stack_backing: — the same signal stack-index.sh uses to find layers for
-# docs/index.md. Every README.md nested under it (any depth, excluding
+# stack_backing:. Every README.md nested under it (any depth, excluding
 # itself and vendored .terraform/ provider docs) is a module; the generated
 # block links each one with the description from its own frontmatter.
 #

@@ -152,26 +152,6 @@ tasks:
       - scripts/kustomize-docs.sh --check
       - scripts/umbrella-index.sh --check kustomize
 
-  docs:stack:
-    desc: Regenerate docs/index.md's Stack section from the terraform/ and kustomize/ trees
-    cmds:
-      - scripts/stack-index.sh
-
-  docs:stack:check:
-    desc: Fail if docs:stack would produce drift (CI use)
-    cmds:
-      - scripts/stack-index.sh --check
-
-  docs:guides:
-    desc: Regenerate the "The knobs" and "Reference" blocks in every docs/guides/*.md from schema.yaml and the facets that implement it
-    cmds:
-      - scripts/guide-scaffold.sh --all
-
-  docs:guides:check:
-    desc: Fail if docs:guides would produce drift (CI use)
-    cmds:
-      - scripts/guide-scaffold.sh --check
-
   docs:no-future-work:
     desc: Fail if any doc uses future-work framing (a "not covered yet" heading, roadmap/TODO phrasing) outside ADRs and roadmap files
     cmds:

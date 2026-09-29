@@ -126,16 +126,6 @@ jobs:
           git checkout -- terraform/
           exit $rc
 
-      # Fail if docs/index.md's Stack section has drifted from terraform/ and kustomize/.
-      - name: Validate stack index
-        if: ${{ github.event_name == 'pull_request' && !startsWith(github.head_ref, 'renovate/') }}
-        run: task docs:stack:check
-
-      # Fail if a docs/guides/**.md Reference block has drifted from its facets.
-      - name: Validate catalog guide references
-        if: ${{ github.event_name == 'pull_request' && !startsWith(github.head_ref, 'renovate/') }}
-        run: task docs:guides:check
-
       - name: Validate no future-work framing in docs
         if: ${{ github.event_name == 'pull_request' && !startsWith(github.head_ref, 'renovate/') }}
         run: task docs:no-future-work
