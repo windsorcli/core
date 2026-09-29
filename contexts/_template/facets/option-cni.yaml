@@ -91,6 +91,7 @@ flux:
     install:
       components:
         - cilium
+        - cilium/eks
         - "${(gateway.enabled == true && gateway.driver == 'cilium') ? 'cilium/gateway' : ''}"
         # LBIPAM sharing policy — L2 environments only; a cloud LB controller
         # (hetzner CCM) fills the plain Gateway Service instead.
@@ -99,6 +100,7 @@ flux:
         - cilium/hubble
       substitutions:
         k8s_service_host: "${split(split(terraform_output(\"cluster\", \"cluster_endpoint\") ?? \"https://localhost:443\", \"://\")[1], \":\")[0]}"
+        k8s_service_port: "443"
         cluster_name: ${context}
         operator_replicas: "${topology == 'single-node' ? 1 : 2}"
       timeout: 15m

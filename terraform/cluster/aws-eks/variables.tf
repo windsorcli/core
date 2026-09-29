@@ -286,6 +286,12 @@ variable "vpc_cni_config" {
   }
 }
 
+variable "vpc_cni_enabled" {
+  description = "Whether the cluster runs the VPC CNI and kube-proxy. Set to false when another CNI owns pod networking; changing it replaces the cluster."
+  type        = bool
+  default     = true
+}
+
 variable "fargate_profiles" {
   description = "Map of EKS Fargate profile definitions to create."
   type = map(object({

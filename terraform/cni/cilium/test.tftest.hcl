@@ -65,13 +65,13 @@ run "minimal_configuration" {
   }
 
   assert {
-    condition     = yamldecode(helm_release.cilium.values[0]).securityContext == null
-    error_message = "securityContext should be null when privileged (chart default privileged:true applies)"
+    condition     = !contains(keys(yamldecode(helm_release.cilium.values[0])), "securityContext")
+    error_message = "securityContext should be omitted when privileged so chart defaults apply"
   }
 
   assert {
-    condition     = yamldecode(helm_release.cilium.values[0]).cgroup == null
-    error_message = "cgroup should be null when auto-mount is on (chart default)"
+    condition     = !contains(keys(yamldecode(helm_release.cilium.values[0])), "cgroup")
+    error_message = "cgroup should be omitted when auto-mount is on so chart defaults apply"
   }
 
   assert {
@@ -137,7 +137,7 @@ run "cgroup_auto_mount_false_configures_host_mount" {
   }
 }
 
-# Verifies that disabling kube-proxy replacement nulls out the API server wiring
+# Verifies that disabling kube-proxy replacement omits the API server wiring
 # so the chart falls back to in-cluster service discovery.
 run "kube_proxy_replacement_disabled" {
   command = plan
@@ -147,18 +147,18 @@ run "kube_proxy_replacement_disabled" {
   }
 
   assert {
-    condition     = yamldecode(helm_release.cilium.values[0]).kubeProxyReplacement == null
-    error_message = "kubeProxyReplacement should be null when disabled"
+    condition     = !contains(keys(yamldecode(helm_release.cilium.values[0])), "kubeProxyReplacement")
+    error_message = "kubeProxyReplacement should be omitted when disabled"
   }
 
   assert {
-    condition     = yamldecode(helm_release.cilium.values[0]).k8sServiceHost == null
-    error_message = "k8sServiceHost should be null when kube-proxy replacement is disabled"
+    condition     = !contains(keys(yamldecode(helm_release.cilium.values[0])), "k8sServiceHost")
+    error_message = "k8sServiceHost should be omitted when kube-proxy replacement is disabled"
   }
 
   assert {
-    condition     = yamldecode(helm_release.cilium.values[0]).k8sServicePort == null
-    error_message = "k8sServicePort should be null when kube-proxy replacement is disabled"
+    condition     = !contains(keys(yamldecode(helm_release.cilium.values[0])), "k8sServicePort")
+    error_message = "k8sServicePort should be omitted when kube-proxy replacement is disabled"
   }
 }
 
@@ -174,6 +174,40 @@ run "ipam_mode_eni" {
   assert {
     condition     = yamldecode(helm_release.cilium.values[0]).ipam.mode == "eni"
     error_message = "IPAM mode should reflect the input variable"
+  }
+
+  assert {
+    condition     = yamldecode(helm_release.cilium.values[0]).eni.enabled == true
+    error_message = "ENI support should be enabled in eni IPAM mode"
+  }
+
+  assert {
+    condition     = yamldecode(helm_release.cilium.values[0]).eni.awsEnablePrefixDelegation == true
+    error_message = "ENI prefix delegation should be enabled in eni IPAM mode"
+  }
+
+  assert {
+    condition     = yamldecode(helm_release.cilium.values[0]).routingMode == "native"
+    error_message = "Routing mode should be native in eni IPAM mode"
+  }
+}
+
+# Verifies an endpoint without a port, as EKS reports it, resolves to 443.
+run "cluster_endpoint_without_port" {
+  command = plan
+
+  variables {
+    cluster_endpoint = "https://ABC123.gr7.us-east-2.eks.amazonaws.com"
+  }
+
+  assert {
+    condition     = yamldecode(helm_release.cilium.values[0]).k8sServiceHost == "ABC123.gr7.us-east-2.eks.amazonaws.com"
+    error_message = "Hostname should be parsed from cluster_endpoint"
+  }
+
+  assert {
+    condition     = yamldecode(helm_release.cilium.values[0]).k8sServicePort == 443
+    error_message = "Port should default to 443 when cluster_endpoint has none"
   }
 }
 

@@ -21,7 +21,7 @@ locals {
   # is enabled. k8sServiceHost/k8sServicePort let Cilium reach the API server directly before
   # eBPF service rules are active.
   k8s_service_host = var.kube_proxy_replacement ? regex("https://([^/:]+)", var.cluster_endpoint)[0] : ""
-  k8s_service_port = var.kube_proxy_replacement ? try(tonumber(regex("https://[^:]+:([0-9]+)", var.cluster_endpoint)[0]), 6443) : 0
+  k8s_service_port = var.kube_proxy_replacement ? try(tonumber(regex("https://[^:/]+:([0-9]+)", var.cluster_endpoint)[0]), 443) : 0
 }
 
 #-----------------------------------------------------------------------------------------------------------------------
@@ -87,41 +87,42 @@ resource "helm_release" "cilium" {
 
     # kube-proxy replacement: set k8sServiceHost/k8sServicePort so Cilium can reach the API
     # server before its own eBPF service proxy is active.
-    var.kube_proxy_replacement ? {
+    { for k, v in {
       kubeProxyReplacement = true
       k8sServiceHost       = local.k8s_service_host
       k8sServicePort       = local.k8s_service_port
-      } : {
-      kubeProxyReplacement = null
-      k8sServiceHost       = null
-      k8sServicePort       = null
-    },
+    } : k => v if var.kube_proxy_replacement },
+
+    # ENI IPAM: pods draw VPC addresses from ENIs attached by the operator.
+    { for k, v in {
+      eni = {
+        enabled                   = true
+        awsEnablePrefixDelegation = true
+      }
+      routingMode = "native"
+    } : k => v if var.ipam_mode == "eni" },
 
     # Non-privileged mode: grant the explicit Linux capabilities Cilium needs instead of
     # running with full privileged=true. The capability list is fixed (upstream-recommended
     # minimum set); privileged-or-not is the caller's decision.
-    var.privileged ? {
-      securityContext = null
-      } : {
+    { for k, v in {
       securityContext = {
         capabilities = {
           ciliumAgent      = ["CHOWN", "KILL", "NET_ADMIN", "NET_RAW", "IPC_LOCK", "SYS_ADMIN", "SYS_RESOURCE", "DAC_OVERRIDE", "FOWNER", "SETGID", "SETUID"]
           cleanCiliumState = ["NET_ADMIN", "SYS_ADMIN", "SYS_RESOURCE"]
         }
       }
-    },
+    } : k => v if !var.privileged },
 
     # Skip Cilium's cgroup auto-mount on hosts that mount cgroups at init; point at the
     # standard cgroup v2 path (/sys/fs/cgroup) so the agent uses the existing mount.
-    var.cgroup_auto_mount ? {
-      cgroup = null
-      } : {
+    { for k, v in {
       cgroup = {
         autoMount = {
           enabled = false
         }
         hostRoot = "/sys/fs/cgroup"
       }
-    }
+    } : k => v if !var.cgroup_auto_mount }
   ))]
 }

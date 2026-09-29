@@ -113,6 +113,7 @@ terraform:
       system_node_pool:
         desired_size: "${topology == 'ha' ? 2 : 1}"
       manage_log_group: ${!(ephemeral ?? false)}
+      vpc_cni_enabled: "${cluster.cni.driver != 'cilium'}"
       create_cert_manager_role: "${(dns.public_domain ?? '') != ''}"
       cert_manager_hosted_zone_ids: "${(dns.public_domain ?? '') != '' ? [terraform_output('dns-zone', 'zone_id')] : []}"
       # Portable user pools alongside the module's always-on system pool;
@@ -135,8 +136,8 @@ terraform:
       - cluster
     destroy: false
 
-  # Optional Cilium bootstrap (full BYO-CNI). EKS uses chart-default cgroup
-  # auto-mount, unlike the Talos path, so no privileged/cgroup overrides here.
+  # Optional Cilium bootstrap (full BYO-CNI) with ENI IPAM. EKS uses chart-default
+  # cgroup auto-mount, unlike the Talos path, so no privileged/cgroup overrides here.
   - name: cni
     when: "cluster.cni.driver == 'cilium'"
     path: cni/cilium
@@ -146,6 +147,7 @@ terraform:
       # Endpoint exists only after cluster applies; pull from output by default.
       # Explicit cluster.endpoint still wins (proxied / air-gapped).
       cluster_endpoint: ${cluster.endpoint ?? terraform_output("cluster", "cluster_endpoint") ?? ""}
+      ipam_mode: eni
 
   # GitOps (two variants). Without Cilium: Flux starts as soon as EKS is up.
   # With Cilium: wait for the `cni` step so pod networking is healthy first.

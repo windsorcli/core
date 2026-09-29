@@ -74,6 +74,8 @@ resource "aws_eks_cluster" "main" {
   role_arn = aws_iam_role.cluster.arn
   version  = var.kubernetes_version
 
+  bootstrap_self_managed_addons = var.vpc_cni_enabled
+
   vpc_config {
     subnet_ids              = local.private_subnet_ids
     endpoint_private_access = var.endpoint_private_access
@@ -591,7 +593,7 @@ resource "aws_eks_fargate_profile" "main" {
 #-----------------------------------------------------------------------------------------------------------------------
 
 data "aws_eks_addon_version" "default" {
-  for_each = var.addons
+  for_each = local.addons
 
   addon_name         = each.key
   kubernetes_version = aws_eks_cluster.main.version
@@ -603,7 +605,7 @@ data "aws_eks_addon_version" "default" {
 #-----------------------------------------------------------------------------------------------------------------------
 
 resource "aws_iam_role" "vpc_cni" {
-  count = contains(keys(var.addons), "vpc-cni") ? 1 : 0
+  count = contains(keys(local.addons), "vpc-cni") ? 1 : 0
   name  = "${local.name}-vpc-cni"
 
   assume_role_policy = jsonencode({
@@ -633,7 +635,7 @@ resource "aws_iam_role" "vpc_cni" {
 }
 
 resource "aws_iam_role_policy_attachment" "vpc_cni" {
-  count      = contains(keys(var.addons), "vpc-cni") ? 1 : 0
+  count      = contains(keys(local.addons), "vpc-cni") ? 1 : 0
   policy_arn = "arn:aws:iam::aws:policy/AmazonEKS_CNI_Policy"
   role       = aws_iam_role.vpc_cni[0].name
 }
@@ -644,7 +646,7 @@ resource "aws_iam_role_policy_attachment" "vpc_cni" {
 #-----------------------------------------------------------------------------------------------------------------------
 
 resource "aws_iam_role" "ebs_csi" {
-  count = contains(keys(var.addons), "aws-ebs-csi-driver") ? 1 : 0
+  count = contains(keys(local.addons), "aws-ebs-csi-driver") ? 1 : 0
   name  = "${local.name}-aws-ebs-csi-driver"
 
   assume_role_policy = jsonencode({
@@ -674,7 +676,7 @@ resource "aws_iam_role" "ebs_csi" {
 }
 
 resource "aws_iam_role_policy_attachment" "ebs_csi" {
-  count      = contains(keys(var.addons), "aws-ebs-csi-driver") ? 1 : 0
+  count      = contains(keys(local.addons), "aws-ebs-csi-driver") ? 1 : 0
   policy_arn = "arn:aws:iam::aws:policy/service-role/AmazonEBSCSIDriverPolicy"
   role       = aws_iam_role.ebs_csi[0].name
 }
@@ -684,7 +686,7 @@ resource "aws_iam_role_policy_attachment" "ebs_csi" {
 #-----------------------------------------------------------------------------------------------------------------------
 
 resource "aws_iam_role" "efs_csi" {
-  count = contains(keys(var.addons), "aws-efs-csi-driver") ? 1 : 0
+  count = contains(keys(local.addons), "aws-efs-csi-driver") ? 1 : 0
   name  = "${local.name}-aws-efs-csi-driver"
 
   assume_role_policy = jsonencode({
@@ -714,7 +716,7 @@ resource "aws_iam_role" "efs_csi" {
 }
 
 resource "aws_iam_role_policy_attachment" "efs_csi" {
-  count      = contains(keys(var.addons), "aws-efs-csi-driver") ? 1 : 0
+  count      = contains(keys(local.addons), "aws-efs-csi-driver") ? 1 : 0
   policy_arn = "arn:aws:iam::aws:policy/service-role/AmazonEFSCSIDriverPolicy"
   role       = aws_iam_role.efs_csi[0].name
 }
@@ -724,7 +726,7 @@ resource "aws_iam_role_policy_attachment" "efs_csi" {
 #-----------------------------------------------------------------------------------------------------------------------
 
 resource "aws_iam_role" "pod_identity_agent" {
-  count = contains(keys(var.addons), "pod-identity-agent") ? 1 : 0
+  count = contains(keys(local.addons), "pod-identity-agent") ? 1 : 0
   name  = "${local.name}-pod-identity-agent"
 
   assume_role_policy = jsonencode({
@@ -746,7 +748,7 @@ resource "aws_iam_role" "pod_identity_agent" {
 }
 
 resource "aws_iam_policy" "pod_identity_agent" {
-  count       = contains(keys(var.addons), "pod-identity-agent") ? 1 : 0
+  count       = contains(keys(local.addons), "pod-identity-agent") ? 1 : 0
   name        = "${local.name}-pod-identity-agent"
   description = "IAM policy for EKS Pod Identity Agent"
 
@@ -774,7 +776,7 @@ resource "aws_iam_policy" "pod_identity_agent" {
 }
 
 resource "aws_iam_role_policy_attachment" "pod_identity_agent" {
-  count      = contains(keys(var.addons), "pod-identity-agent") ? 1 : 0
+  count      = contains(keys(local.addons), "pod-identity-agent") ? 1 : 0
   policy_arn = aws_iam_policy.pod_identity_agent[0].arn
   role       = aws_iam_role.pod_identity_agent[0].name
 }
@@ -785,7 +787,7 @@ resource "aws_iam_role_policy_attachment" "pod_identity_agent" {
 #-----------------------------------------------------------------------------------------------------------------------
 
 resource "aws_iam_role" "external_dns" {
-  count = var.create_external_dns_role || contains(keys(var.addons), "external-dns") ? 1 : 0
+  count = var.create_external_dns_role || contains(keys(local.addons), "external-dns") ? 1 : 0
   name  = "${local.name}-external-dns"
 
   assume_role_policy = jsonencode({
@@ -818,7 +820,7 @@ resource "aws_iam_policy" "external_dns" {
   # This policy is based on the official External DNS documentation for AWS
   # https://kubernetes-sigs.github.io/external-dns/v0.17.0/docs/tutorials/aws/#iam-policy
   # checkov:skip=CKV_AWS_355: This policy is straight from the External DNS documentation
-  count       = var.create_external_dns_role || contains(keys(var.addons), "external-dns") ? 1 : 0
+  count       = var.create_external_dns_role || contains(keys(local.addons), "external-dns") ? 1 : 0
   name        = "${local.name}-external-dns"
   description = "IAM policy for External DNS"
 
@@ -854,7 +856,7 @@ resource "aws_iam_policy" "external_dns" {
 }
 
 resource "aws_iam_role_policy_attachment" "external_dns" {
-  count      = var.create_external_dns_role || contains(keys(var.addons), "external-dns") ? 1 : 0
+  count      = var.create_external_dns_role || contains(keys(local.addons), "external-dns") ? 1 : 0
   policy_arn = aws_iam_policy.external_dns[0].arn
   role       = aws_iam_role.external_dns[0].name
 }
@@ -1099,8 +1101,10 @@ resource "aws_iam_role_policy_attachment" "cert_manager" {
 #-----------------------------------------------------------------------------------------------------------------------
 
 locals {
+  addons = var.vpc_cni_enabled ? var.addons : { for name, addon in var.addons : name => addon if name != "vpc-cni" }
+
   addon_configuration = {
-    for name, addon in var.addons : name => {
+    for name, addon in local.addons : name => {
       version = lookup(addon, "version", data.aws_eks_addon_version.default[name].version)
       role_arn = (
         name == "vpc-cni" ? try(aws_iam_role.vpc_cni[0].arn, null) :
@@ -1124,7 +1128,7 @@ locals {
 }
 
 resource "aws_eks_addon" "main" {
-  for_each = var.addons
+  for_each = local.addons
   depends_on = [
     aws_eks_node_group.main
   ]
@@ -1160,7 +1164,7 @@ resource "aws_eks_addon" "main" {
 }
 
 resource "aws_eks_pod_identity_association" "external_dns" {
-  count = var.create_external_dns_role && !contains(keys(var.addons), "external-dns") ? 1 : 0
+  count = var.create_external_dns_role && !contains(keys(local.addons), "external-dns") ? 1 : 0
 
   cluster_name    = aws_eks_cluster.main.name
   namespace       = "system-dns"

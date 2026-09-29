@@ -100,6 +100,62 @@ run "minimal_configuration" {
 }
 
 # Pinning to CONFIG_MAP must stay available for existing clusters, since AWS never allows moving
+
+# Verifies the VPC CNI addon, its IAM role, and self-managed networking addons
+# are present by default.
+run "vpc_cni_enabled_by_default" {
+  command = plan
+
+  variables {
+    context_id = "test"
+  }
+
+  assert {
+    condition     = contains(keys(aws_eks_addon.main), "vpc-cni")
+    error_message = "vpc-cni addon should be created by default"
+  }
+
+  assert {
+    condition     = length(aws_iam_role.vpc_cni) == 1
+    error_message = "vpc-cni IAM role should be created by default"
+  }
+
+  assert {
+    condition     = aws_eks_cluster.main.bootstrap_self_managed_addons == true
+    error_message = "Self-managed networking addons should be bootstrapped by default"
+  }
+}
+
+# Verifies disabling the VPC CNI drops the addon, its IAM role, and the
+# self-managed aws-node and kube-proxy bootstrap.
+run "vpc_cni_disabled" {
+  command = plan
+
+  variables {
+    context_id      = "test"
+    vpc_cni_enabled = false
+  }
+
+  assert {
+    condition     = !contains(keys(aws_eks_addon.main), "vpc-cni")
+    error_message = "vpc-cni addon should be omitted when vpc_cni_enabled is false"
+  }
+
+  assert {
+    condition     = contains(keys(aws_eks_addon.main), "coredns")
+    error_message = "Other addons should remain when vpc_cni_enabled is false"
+  }
+
+  assert {
+    condition     = length(aws_iam_role.vpc_cni) == 0
+    error_message = "vpc-cni IAM role should be omitted when vpc_cni_enabled is false"
+  }
+
+  assert {
+    condition     = aws_eks_cluster.main.bootstrap_self_managed_addons == false
+    error_message = "Self-managed networking addons should not be bootstrapped when vpc_cni_enabled is false"
+  }
+}
 # an EKS_AND_CONFIG_MAP or API cluster back to CONFIG_MAP.
 run "authentication_mode_can_be_pinned_to_config_map" {
   command = plan
