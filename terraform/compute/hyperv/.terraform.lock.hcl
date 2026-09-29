@@ -22,3 +22,25 @@ provider "registry.terraform.io/siderolabs/talos" {
     "zh:d218bab0f67a2a8b15add9b51df3d30f514b57e9a7c1d733ebe97966ea132acb",
   ]
 }
+
+provider "registry.terraform.io/windsorcli/hyperv" {
+  version     = "0.5.0"
+  constraints = "0.5.0"
+  hashes = [
+    "h1:QbpXtdSg9qWhMuCIdKptWahNQL2KNrZgRBefcQ8VsJg=",
+    "zh:057abdccd82ca03a34724a3143bdf38d5eec8e08432a259356a8b53886b5076c",
+    "zh:247cce363e30a08d1da87cb24d25587c0645ad08496709bfc4aa9b69878a1279",
+    "zh:51b9bf54ab1b76cb948c1b0a1ccd9a3ec30613fd6a438b8f1812ab4a28bf0b2e",
+    "zh:6c1e18090f1950cea476a9c75e8361d281322f1b8e276697a2e4cd8de9cd4098",
+    "zh:7027d6aab0f74a92034fe5df1bb2ea419eeeca42a944a7aa130ccd67627ac150",
+    "zh:73f4ab034da15ec2327670cecb73f3656855fd804d26e1807752bf2d7d65cb4a",
+    "zh:7793b5b1f0687bf0902d3532b8732e088fb6b2c09c1d88e184887bcdc22c0b6d",
+    "zh:86b54718e5d8b8a33dc1f87cd5a65b264d6863995ce16ea9374e2862aa72d088",
+    "zh:8bc0e3fb006d46d0683954419b071da66aec353599796cf0110beca00b9f76a6",
+    "zh:cd0bfd9e12b75389a2408fc221536d01715d9bc8e7e3eab4e7a19508661e16ce",
+    "zh:da8af058a21b4462b028a838a3a9350e4564a8d94ba0c03ccb0cb85720eb5011",
+    "zh:f809ab383cca0a5f83072981c64208cbd7fa67e986a86ee02dd2c82333221e32",
+    "zh:f9d526954ea639f3a8e4d7937e11906cc191381695de934f6db893c336a7ab3e",
+    "zh:ff5f7430257373d229a83f6f01f8a522ba976d4c44652b16545b8ec842312e92",
+  ]
+}
