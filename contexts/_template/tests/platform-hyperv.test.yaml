@@ -92,9 +92,6 @@ cases:
           path: compute/hyperv
           inputs:
             network_cidr: 10.5.0.0/16
-        - name: cluster-config
-          path: cluster/talos/config
-          inputs:
             cluster_endpoint: https://10.5.0.10:6443
       flux:
         - name: cni
@@ -212,18 +209,13 @@ cases:
         workers: []
     expect:
       terraform:
-        - name: cluster-config
-          path: cluster/talos/config
-          inputs:
-            controlplanes:
-              - hostname: controlplane-1
-                node: 10.20.0.10
-                address: 10.20.0.10/24
-            workers: []
         - name: compute
           path: compute/hyperv
           inputs:
             switch_type: NAT
+            instances:
+              - name: controlplane-1
+                ipv4: 10.20.0.10
             port_forwards:
               "6443": 6443
               "30292": 30292
@@ -243,9 +235,8 @@ cases:
   # NodePort multi-VM: 1 cp + 1 worker. Each VM gets a distinct bench-side
   # Talos API forward (40000 → cp-1, 40100 → worker-1) routed via per-port
   # target_overrides to its NAT-internal IP. The compute instance list is
-  # flat (one entry per VM, count=1 each) so cidata_iso_path can be unique
-  # per VM. cluster-config controlplanes / workers carry the NAT IPs as
-  # `node` and CIDR'd `address` fields for the per-VM static-network patch.
+  # flat (one entry per VM, count=1 each) so each instance's NAT-internal
+  # ipv4 feeds its own CIDATA seed.
   - name: NodePort multi-VM derives per-node IPs forwards and instances
     values:
       platform: hyperv
@@ -275,21 +266,15 @@ cases:
         workers: []
     expect:
       terraform:
-        - name: cluster-config
-          path: cluster/talos/config
-          inputs:
-            controlplanes:
-              - hostname: controlplane-1
-                node: 10.20.0.10
-                address: 10.20.0.10/24
-            workers:
-              - hostname: worker-1
-                node: 10.20.0.20
-                address: 10.20.0.20/24
         - name: compute
           path: compute/hyperv
           inputs:
             switch_type: NAT
+            instances:
+              - name: controlplane-1
+                ipv4: 10.20.0.10
+              - name: worker-1
+                ipv4: 10.20.0.20
             port_forwards:
               "6443": 6443
               "30292": 30292
@@ -340,23 +325,16 @@ cases:
         workers: []
     expect:
       terraform:
-        - name: cluster-config
-          path: cluster/talos/config
-          inputs:
-            controlplanes:
-              - hostname: controlplane-1
-                node: 10.99.0.10
-                address: 10.99.0.10/24
-            workers:
-              - hostname: worker-1
-                node: 10.99.0.20
-                address: 10.99.0.20/24
-            network:
-              cidr_block: 10.99.0.0/24
-              gateway: 10.99.0.1
         - name: compute
           path: compute/hyperv
           inputs:
+            instances:
+              - name: controlplane-1
+                ipv4: 10.99.0.10
+              - name: worker-1
+                ipv4: 10.99.0.20
+            network_cidr: 10.99.0.0/24
+            network_gateway: 10.99.0.1
             nat_internal_address_prefix: 10.99.0.0/24
             nat_host_address: 10.99.0.1
             port_forward_target_ip: 10.99.0.10

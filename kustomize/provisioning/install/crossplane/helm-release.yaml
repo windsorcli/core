@@ -19,7 +19,7 @@ spec:
     spec:
       chart: crossplane
       # renovate: datasource=helm depName=crossplane package=crossplane helmRepo=https://charts.crossplane.io/stable
-      version: "2.4.1"
+      version: "2.4.2"
       sourceRef:
         kind: HelmRepository
         name: crossplane
@@ -32,7 +32,7 @@ spec:
       - --enable-operations
     image:
       # renovate: datasource=docker depName=xpkg.crossplane.io/crossplane/crossplane package=xpkg.crossplane.io/crossplane/crossplane
-      tag: v2.4.1@sha256:d4a43dafa1114ad028db08e87f6d4a6850b1d5e501f59e9b921f43ed6a66a44a
+      tag: v2.4.2@sha256:cfa88491dca479686747ccd0f0d1888ec8a7d1ee34629f19d45f509d6995148b
     # Chart defaults already cover most of PSA restricted; these two close
     # the rest (capabilities drop-all, seccompProfile) for system-provisioning.
     securityContextCrossplane:

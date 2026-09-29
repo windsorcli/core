@@ -35,6 +35,10 @@ resource "aws_iam_role" "karpenter_controller" {
       Action    = ["sts:AssumeRole", "sts:TagSession"]
       Effect    = "Allow"
       Principal = { Service = "pods.eks.amazonaws.com" }
+      Condition = {
+        StringEquals = { "aws:SourceAccount" = data.aws_caller_identity.current.account_id }
+        ArnEquals    = { "aws:SourceArn" = aws_eks_cluster.main.arn }
+      }
     }]
   })
 

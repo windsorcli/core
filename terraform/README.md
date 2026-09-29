@@ -26,7 +26,6 @@ layer. Links from there land here.
 | [cluster/azure-aks](cluster/azure-aks/) | Managed Kubernetes control plane on Azure. |
 | [cluster/gcp-gke](cluster/gcp-gke/) | Managed Kubernetes control plane on GCP. |
 | [cluster/talos](cluster/talos/) | Self-hosted Kubernetes control plane via the Talos API. |
-| [cluster/talos/config](cluster/talos/config/) | Per-node Talos machine config + CIDATA seeds. |
 | [cluster/talos/extensions](cluster/talos/extensions/) | Talos image build with system extensions. |
 | [cni](cni/) | Out-of-band Cilium bootstrap for Talos clusters before Flux. |
 | [cni/cilium](cni/cilium/) | Out-of-band Cilium bootstrap for Talos clusters. |

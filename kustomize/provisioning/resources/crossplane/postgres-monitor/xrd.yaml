@@ -1,0 +1,37 @@
+---
+# Cluster-scoped so its Composition can prune the monitor Role/Grant/exporter
+# on the server's deletionTimestamp, which a WatchOperation cannot do.
+apiVersion: apiextensions.crossplane.io/v2
+kind: CompositeResourceDefinition
+metadata:
+  name: postgresmonitors.database.windsorcli.dev
+spec:
+  scope: Cluster
+  group: database.windsorcli.dev
+  names:
+    kind: PostgresMonitor
+    plural: postgresmonitors
+  versions:
+    - name: v1alpha1
+      served: true
+      referenceable: true
+      schema:
+        openAPIV3Schema:
+          type: object
+          properties:
+            spec:
+              type: object
+              required:
+                - serverName
+                - serverApiVersion
+                - serverKind
+              properties:
+                serverName:
+                  type: string
+                  description: Name of the server this monitors, and of its ClusterProviderConfig.
+                serverApiVersion:
+                  type: string
+                  description: apiVersion of the server kind, read off the ClusterProviderConfig's own annotations.
+                serverKind:
+                  type: string
+                  description: Kind of the server (Instance, FlexibleServer, DatabaseInstance).

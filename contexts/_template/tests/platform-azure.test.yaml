@@ -55,8 +55,9 @@ cases:
         enabled: false
       database:
         postgres:
-          enabled: true
-          driver: azuredb
+          cloud:
+            enabled: true
+            driver: azuredb
     terraformOutputs:
       network:
         region: westus2

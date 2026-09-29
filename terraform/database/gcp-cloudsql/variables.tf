@@ -39,6 +39,12 @@ variable "network_id" {
   }
 }
 
+variable "private_service_address" {
+  description = "Starting address of the /16 CIDR reserved for Cloud SQL's private service connection. Must not overlap any other range in the VPC."
+  type        = string
+  default     = "172.28.0.0"
+}
+
 variable "manage_encryption_key" {
   description = "Whether to create a dedicated KMS key ring and key for Cloud SQL storage encryption. False falls back to Cloud SQL's platform-managed encryption."
   type        = bool

@@ -1,7 +1,9 @@
 ---
-title: Azure DNS
+title: dns/zone/azure-dns
 description: DNS zone on Azure DNS.
 ---
+
+# dns/zone/azure-dns
 
 Creates a public Azure DNS zone for a domain in a self-contained resource
 group, so the zone's lifecycle is independent of any cluster — destroying
@@ -14,13 +16,13 @@ resources.
 | Name | Version |
 |------|---------|
 | <a name="requirement_terraform"></a> [terraform](#requirement\_terraform) | >= 1.12.2 |
-| <a name="requirement_azurerm"></a> [azurerm](#requirement\_azurerm) | ~> 5.4.0 |
+| <a name="requirement_azurerm"></a> [azurerm](#requirement\_azurerm) | ~> 5.7.0 |
 
 ## Providers
 
 | Name | Version |
 |------|---------|
-| <a name="provider_azurerm"></a> [azurerm](#provider\_azurerm) | 5.4.0 |
+| <a name="provider_azurerm"></a> [azurerm](#provider\_azurerm) | 5.7.0 |
 
 ## Modules
 

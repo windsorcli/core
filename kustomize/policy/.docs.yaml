@@ -40,3 +40,7 @@ components:
     facet: policy-resources
     enable_when: "`policies.require_image_digest != 'disabled'`"
     description: "ValidatingPolicy `require-image-digest` (Deny) that every container image reference includes a `sha256:` digest (`repo:tag@sha256:…` or `repo@sha256:…`). Same namespace match scope as `resource-limits-requests`, plus an exemption for the Flux namespace (labelled `app.kubernetes.io/part-of: flux`) whose operator-installed controllers are version-pinned rather than digest-pinned."
+  kyverno (resources):
+    facet: policy-resources
+    enable_when: always
+    description: "RBAC and a Job that retries a dry-run Pod create until Kyverno's admission webhook actually answers (allowed or denied), gating `policy-resources`' Ready condition. Kyverno's own readiness probe only validates its TLS certificate, not webhook reachability, so object status reports ready minutes before real admission calls succeed; this issues one instead."

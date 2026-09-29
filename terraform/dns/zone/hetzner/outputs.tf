@@ -8,7 +8,7 @@ output "zone_name" {
   value       = hcloud_zone.this.name
 }
 
-output "nameservers" {
-  description = "Authoritative Hetzner nameservers assigned to the zone. Delegate these at the parent (automated when parent_zone_name is set)."
+output "name_servers" {
+  description = "Authoritative name servers for the zone. Configure these as NS records at your domain registrar so public DNS queries resolve through this zone (automated when parent_zone_name is set)."
   value       = hcloud_zone.this.authoritative_nameservers.assigned
 }

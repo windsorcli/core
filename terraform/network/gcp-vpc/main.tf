@@ -10,7 +10,7 @@ terraform {
   required_providers {
     google = {
       source  = "hashicorp/google"
-      version = "8.2.0"
+      version = "8.4.0"
     }
     null = {
       source  = "hashicorp/null"
@@ -214,4 +214,30 @@ resource "google_compute_router_nat" "this" {
     name                    = google_compute_subnetwork.private.id
     source_ip_ranges_to_nat = ["ALL_IP_RANGES"]
   }
+}
+
+#---------------------------------------------------------------------------------------------------
+# Private DNS Zone
+# VPC-attached private zone, optional. Records here (e.g. external-dns
+# A/CNAME/TXT entries) only resolve from inside the VPC. Linked to the VPC
+# so resources in the network resolve names in the zone without per-VM agent setup.
+#---------------------------------------------------------------------------------------------------
+
+resource "google_dns_managed_zone" "private" {
+  count       = var.domain_name != null && var.domain_name != "" ? 1 : 0
+  name        = "${local.network_name}-private"
+  dns_name    = "${var.domain_name}."
+  description = "Private DNS zone for ${var.domain_name} (windsor context ${var.context_id})"
+  visibility  = "private"
+
+  private_visibility_config {
+    networks {
+      network_url = google_compute_network.this.self_link
+    }
+  }
+
+  # Records in this zone are only meaningful while the VPC exists, and
+  # external-dns may not finish reconciling deletions before the cluster API
+  # goes down on teardown. force_destroy lets the zone delete cleanly.
+  force_destroy = true
 }

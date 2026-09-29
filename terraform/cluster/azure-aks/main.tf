@@ -7,7 +7,7 @@ terraform {
   required_providers {
     azurerm = {
       source  = "hashicorp/azurerm"
-      version = "~> 5.4.0"
+      version = "~> 5.7.0"
     }
     null = {
       source  = "hashicorp/null"
@@ -54,9 +54,9 @@ locals {
   # Safely access kubelet identity (may not be available during plan in tests)
   kubelet_object_id      = try(azurerm_kubernetes_cluster.main.kubelet_identity[0].object_id, "00000000-0000-0000-0000-000000000000")
   disk_encryption_key_id = var.key_vault_key_id != null ? var.key_vault_key_id : try(azurerm_key_vault_key.key_vault_key[0].id, null)
-  tags = merge({
+  tags = merge(var.tags, {
     WindsorContextID = var.context_id
-  }, var.tags)
+  })
 
   # A syntactically valid but non-existent Azure subnet ID: azurerm's
   # client-side ID parser rejects an arbitrary placeholder string outright.
@@ -72,9 +72,9 @@ locals {
 resource "azurerm_resource_group" "aks" {
   name     = local.rg_name
   location = var.region
-  tags = merge({
+  tags = merge(local.tags, {
     Name = local.rg_name
-  }, local.tags)
+  })
 }
 
 #-----------------------------------------------------------------------------------------------------------------------
@@ -110,9 +110,9 @@ resource "azurerm_key_vault" "key_vault" {
     default_action = var.network_acls_default_action
     bypass         = "AzureServices"
   }
-  tags = merge({
+  tags = merge(local.tags, {
     Name = "${var.name}-${var.context_id}-${random_string.key.result}"
-  }, local.tags)
+  })
 }
 
 resource "azurerm_key_vault_access_policy" "key_vault_access_policy" {
@@ -235,9 +235,9 @@ resource "azurerm_log_analytics_workspace" "aks_logs" {
   resource_group_name = azurerm_resource_group.aks.name
   sku                 = "PerGB2018"
   retention_in_days   = 30
-  tags = merge({
+  tags = merge(local.tags, {
     Name = "${var.name}-${var.context_id}"
-  }, local.tags)
+  })
 }
 
 resource "azurerm_monitor_diagnostic_setting" "aks_cluster" {
@@ -427,9 +427,9 @@ resource "azurerm_kubernetes_cluster" "main" {
     type = "SystemAssigned"
   }
 
-  tags = merge({
+  tags = merge(local.tags, {
     Name = local.cluster_name
-  }, local.tags)
+  })
 }
 
 #-----------------------------------------------------------------------------------------------------------------------
@@ -534,9 +534,9 @@ resource "azurerm_kubernetes_cluster_node_pool" "pools" {
   # 50 satisfies CKV_AZURE_168 (>=50) directly without needing a suppression.
   max_pods = 50
 
-  tags = merge({
+  tags = merge(local.tags, {
     Name = each.key
-  }, local.tags)
+  })
 }
 
 # Assign Network Contributor role on each private subnet to the control plane identity
@@ -646,8 +646,9 @@ resource "null_resource" "kubeconfig" {
   count = local.kubeconfig_path != "" ? 1 : 0
 
   triggers = {
-    cluster_id = azurerm_kubernetes_cluster.main.id
-    os_type    = var.os_type
+    cluster_id      = azurerm_kubernetes_cluster.main.id
+    os_type         = var.os_type
+    kubeconfig_path = local.kubeconfig_path
   }
 
   provisioner "local-exec" {
@@ -659,6 +660,16 @@ resource "null_resource" "kubeconfig" {
       "Remove-Item -Force -ErrorAction SilentlyContinue '${local.kubeconfig_tmp_path}'; az aks get-credentials --resource-group ${azurerm_kubernetes_cluster.main.resource_group_name} --name ${azurerm_kubernetes_cluster.main.name} --file ${local.kubeconfig_tmp_path} --only-show-errors; if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }; Move-Item -Force '${local.kubeconfig_tmp_path}' '${local.kubeconfig_path}'"
       ) : (
       "rm -f '${local.kubeconfig_tmp_path}'; az aks get-credentials --resource-group ${azurerm_kubernetes_cluster.main.resource_group_name} --name ${azurerm_kubernetes_cluster.main.name} --file ${local.kubeconfig_tmp_path} --only-show-errors && mv -f '${local.kubeconfig_tmp_path}' '${local.kubeconfig_path}'"
+    )
+  }
+
+  provisioner "local-exec" {
+    when        = destroy
+    interpreter = self.triggers.os_type == "windows" ? ["PowerShell", "-Command"] : ["/bin/sh", "-c"]
+    command = self.triggers.os_type == "windows" ? (
+      "Remove-Item -Force -ErrorAction SilentlyContinue '${self.triggers.kubeconfig_path}'"
+      ) : (
+      "rm -f '${self.triggers.kubeconfig_path}'"
     )
   }
 }

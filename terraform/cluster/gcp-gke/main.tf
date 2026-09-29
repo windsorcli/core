@@ -7,7 +7,7 @@ terraform {
   required_providers {
     google = {
       source  = "hashicorp/google"
-      version = "8.2.0"
+      version = "8.4.0"
     }
     null = {
       source  = "hashicorp/null"
@@ -25,9 +25,10 @@ terraform {
 #---------------------------------------------------------------------------------------------------
 
 locals {
-  cluster_name        = var.cluster_name != "" ? var.cluster_name : "${var.name}-${var.context_id}"
-  kubeconfig_path     = "${var.context_path}/.kube/config"
-  kubeconfig_tmp_path = "${local.kubeconfig_path}.tmp"
+  cluster_name               = var.cluster_name != "" ? var.cluster_name : "${var.name}-${var.context_id}"
+  kubeconfig_path            = "${var.context_path}/.kube/config"
+  kubeconfig_tmp_path        = "${local.kubeconfig_path}.tmp"
+  gke_auth_plugin_cache_path = "${var.context_path}/.kube/gke_gcloud_auth_plugin_cache"
 }
 
 #---------------------------------------------------------------------------------------------------
@@ -87,7 +88,10 @@ resource "google_container_cluster" "this" {
   }
 
   networking_mode = "VPC_NATIVE"
-  ip_allocation_policy {}
+  ip_allocation_policy {
+    cluster_ipv4_cidr_block  = var.pod_ipv4_cidr_block
+    services_ipv4_cidr_block = var.service_ipv4_cidr_block
+  }
 
   datapath_provider           = "ADVANCED_DATAPATH"
   enable_intranode_visibility = true
@@ -158,11 +162,14 @@ locals {
       machine_type    = mtype
       total_min_count = idx == 0 ? (var.system_node_pool.autoscaling_enabled ? var.system_node_pool.min_count : var.system_node_pool.node_count) : 0
       total_max_count = var.system_node_pool.autoscaling_enabled ? var.system_node_pool.max_count : var.system_node_pool.node_count
+      auto_repair     = var.system_node_pool.auto_repair
     }
   }
 }
 
 resource "google_container_node_pool" "system" {
+  # checkov:skip=CKV_GCP_9: auto_repair is off on purpose for ephemeral
+  # contexts, to avoid it racing the pool's own deletion.
   for_each       = local.system_pool_resolved
   name           = each.key
   cluster        = google_container_cluster.this.id
@@ -170,7 +177,7 @@ resource "google_container_node_pool" "system" {
   node_locations = var.node_locations
 
   management {
-    auto_repair  = true
+    auto_repair  = each.value.auto_repair
     auto_upgrade = true
   }
 
@@ -230,6 +237,7 @@ locals {
       autoscaling    = null
       labels         = {}
       taints         = []
+      auto_repair    = true
     }
   }
 
@@ -279,13 +287,16 @@ locals {
           "windsorcli.dev/pool"       = name
           "windsorcli.dev/pool-class" = p.class
         })
-        taints = p.taints
+        taints      = p.taints
+        auto_repair = p.auto_repair
       }
     }
   ]...)
 }
 
 resource "google_container_node_pool" "pools" {
+  # checkov:skip=CKV_GCP_9: auto_repair is off on purpose for ephemeral
+  # contexts, to avoid it racing the pool's own deletion.
   for_each       = local.pools_resolved
   name           = each.key
   cluster        = google_container_cluster.this.id
@@ -295,7 +306,7 @@ resource "google_container_node_pool" "pools" {
   node_count = each.value.autoscaling_enabled ? null : each.value.node_count
 
   management {
-    auto_repair  = true
+    auto_repair  = each.value.auto_repair
     auto_upgrade = true
   }
 
@@ -344,8 +355,10 @@ resource "null_resource" "kubeconfig" {
   count = var.context_path != "" ? 1 : 0
 
   triggers = {
-    cluster_id = google_container_cluster.this.id
-    os_type    = var.os_type
+    cluster_id                 = google_container_cluster.this.id
+    os_type                    = var.os_type
+    kubeconfig_path            = local.kubeconfig_path
+    gke_auth_plugin_cache_path = local.gke_auth_plugin_cache_path
   }
 
   provisioner "local-exec" {
@@ -357,6 +370,16 @@ resource "null_resource" "kubeconfig" {
       "Remove-Item -Force -ErrorAction SilentlyContinue '${local.kubeconfig_tmp_path}'; $env:KUBECONFIG = '${local.kubeconfig_tmp_path}'; gcloud container clusters get-credentials ${google_container_cluster.this.name} --region ${var.region} --project ${var.project_id}; if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }; Move-Item -Force '${local.kubeconfig_tmp_path}' '${local.kubeconfig_path}'"
       ) : (
       "rm -f '${local.kubeconfig_tmp_path}'; KUBECONFIG='${local.kubeconfig_tmp_path}' gcloud container clusters get-credentials ${google_container_cluster.this.name} --region ${var.region} --project ${var.project_id} && mv -f '${local.kubeconfig_tmp_path}' '${local.kubeconfig_path}'"
+    )
+  }
+
+  provisioner "local-exec" {
+    when        = destroy
+    interpreter = self.triggers.os_type == "windows" ? ["PowerShell", "-Command"] : ["/bin/sh", "-c"]
+    command = self.triggers.os_type == "windows" ? (
+      "Remove-Item -Force -ErrorAction SilentlyContinue '${self.triggers.kubeconfig_path}', '${self.triggers.gke_auth_plugin_cache_path}'"
+      ) : (
+      "rm -f '${self.triggers.kubeconfig_path}' '${self.triggers.gke_auth_plugin_cache_path}'"
     )
   }
 }

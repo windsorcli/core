@@ -7,13 +7,13 @@ terraform {
   required_providers {
     google = {
       source  = "hashicorp/google"
-      version = "8.2.0"
+      version = "8.4.0"
     }
     # google_project_service_identity has no GA counterpart yet; every other
     # resource in this module stays on the google provider.
     google-beta = {
       source  = "hashicorp/google-beta"
-      version = "8.2.0"
+      version = "8.4.0"
     }
   }
 }
@@ -33,6 +33,7 @@ resource "google_compute_global_address" "private_service_connection" {
   name          = "cloudsql-${var.context_id}"
   purpose       = "VPC_PEERING"
   address_type  = "INTERNAL"
+  address       = var.private_service_address
   prefix_length = 16
   network       = local.network_id
 }
