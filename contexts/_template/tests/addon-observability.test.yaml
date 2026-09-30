@@ -178,12 +178,12 @@ cases:
             Single sign-on is on: clicking Grafana goes straight to the login.
             Sign in with either seeded user (they work for every SSO app):
 
-              ┌──────────┬─────────────────┬────────────┐
-              │ username │ password        │ role       │
-              ├──────────┼─────────────────┼────────────┤
-              │ admin    │ admin-password  │ full admin │
-              │ viewer   │ viewer-password │ read-only  │
-              └──────────┴─────────────────┴────────────┘
+              ┌────────────┬─────────────────┬────────────┐
+              │ username   │ password        │ role       │
+              ├────────────┼─────────────────┼────────────┤
+              │ dev-admin  │ admin-password  │ full admin │
+              │ dev-viewer │ viewer-password │ read-only  │
+              └────────────┴─────────────────┴────────────┘
 
             The gateway cert is self-signed. Trust the local CA, or click through
             the browser warning on your first visit.
