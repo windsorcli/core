@@ -1,9 +1,7 @@
 ---
-title: database/gcp-cloudsql
+title: GCP Cloud SQL
 description: Private service connection, KMS key, and admin credentials for Cloud SQL.
 ---
-
-# database/gcp-cloudsql
 
 Shared per-context infrastructure for Cloud SQL, not the database instance
 itself — mirrors `database/aws-rds` and `database/azure-postgres`: a

@@ -1,11 +1,9 @@
 ---
-title: compute/docker
+title: Docker
 description: Talos containers on Docker.
 ---
 
-# compute/docker
-
-VM substrate for Talos clusters when the host runtime is Docker. Default
+Container substrate for Talos clusters when the host runtime is Docker. Default
 on macOS / Linux developer machines; works against Docker Desktop or
 Colima — anything exposing a local Docker socket. Provisions Talos
 control-plane and worker containers that the `cluster/talos` module then

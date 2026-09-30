@@ -1,9 +1,7 @@
 ---
-title: workstation/docker
+title: Docker
 description: Local-host Docker network + registry.
 ---
-
-# workstation/docker
 
 Local-host runtime backing `windsor apply` on developer machines. Stands up
 the Docker network, optional local OCI registry, and volumes the cluster

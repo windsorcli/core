@@ -1,24 +1,24 @@
 ---
-title: Compute add-on
+title: Compute
 description: Node-lifecycle controllers for elastic clusters (EKS cluster-autoscaler).
+stack_backing: Node autoscaling
 ---
 
-# Compute
-
 Controllers that manage cluster compute capacity. Today this is the
-Kubernetes cluster-autoscaler for EKS; the namespace (`system-compute`)
-is the home for future node-lifecycle controllers.
+Kubernetes cluster-autoscaler for EKS. Future node-lifecycle controllers
+will land in `system-compute` alongside it.
 
 On EKS, a node group's min/max only *bounds* its ASG — nothing scales it
-on pending pods. `cluster-autoscaler` is the controller that does the
-scaling. It discovers the managed node-group ASGs by the
-`k8s.io/cluster-autoscaler` tags the `cluster/aws-eks` module applies to
-autoscaling-enabled pools, and authenticates through the IAM role + EKS
-Pod Identity association the same module provisions.
+on pending pods. `cluster-autoscaler` watches for unschedulable pods and
+raises the ASG's desired capacity to fit them. It discovers the managed
+node-group ASGs by the `k8s.io/cluster-autoscaler` tags the
+`cluster/aws-eks` module applies to autoscaling-enabled pools, and
+authenticates through the IAM role and EKS Pod Identity association the
+same module provisions.
 
-AKS autoscales natively (the managed cluster-autoscaler is part of the
-control plane), so there is no Azure equivalent here — the
-`cluster/azure-aks` module just sets `auto_scaling_enabled` on the pool.
+AKS autoscales natively: the managed cluster-autoscaler is part of the
+control plane, so there is no Azure equivalent here. The
+`cluster/azure-aks` module sets `auto_scaling_enabled` on the pool.
 
 The `compute` flux system has a single `install` tier (`compute-install`)
 that ships the Helm release. It is gated to AWS by the platform facet and
@@ -72,9 +72,11 @@ those bounds; raising a pool's ceiling is an in-place re-apply.
 
 ## Components — `compute-install`
 
-| Component | Enable when | Effect |
-|---|---|---|
-| `cluster-autoscaler` | platform is AWS | Helm release of the Kubernetes cluster-autoscaler in `system-compute`. Watches for unschedulable pods and adjusts the EKS managed node-group ASGs between each pool's min and max. Discovers groups by the `k8s.io/cluster-autoscaler` tags the aws-eks module applies to autoscaling-enabled pools, and authenticates via the IAM role + Pod Identity the module provisions. AKS autoscales natively, so there is no Azure equivalent component. |
+### `cluster-autoscaler`
+
+_Enabled when platform is AWS._
+
+Helm release of the Kubernetes cluster-autoscaler in `system-compute`. Watches for unschedulable pods and adjusts the EKS managed node-group ASGs between each pool's min and max. Discovers groups by the `k8s.io/cluster-autoscaler` tags the aws-eks module applies to autoscaling-enabled pools, and authenticates via the IAM role + Pod Identity the module provisions. AKS autoscales natively, so there is no Azure equivalent component.
 
 ## Dependencies
 

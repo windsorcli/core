@@ -1,7 +1,17 @@
 ---
-title: provisioning/crossplane-identity/azure
+title: Crossplane Identity (Azure)
 description: Workload Identity and RBAC for Crossplane's Azure provider pods.
 ---
+
+Federated identity credential and role, per Crossplane-managed Azure resource type,
+keyed by the same internal catalog and `for_each` over `resources` as
+`provisioning/crossplane-identity/aws`. Binds each resource type's Crossplane provider pod to
+a dedicated User-Assigned Identity via Workload Identity, then grants that identity a
+custom role scoped to exactly the actions the resource type needs, at the resource
+group its own Terraform layer created — Azure has no built-in role narrow enough, and
+its ABAC condition support doesn't cover `Microsoft.DBforPostgreSQL`, so a per-resource
+tag condition like AWS's isn't available here.
+
 <!-- BEGIN_TF_DOCS -->
 ## Requirements
 

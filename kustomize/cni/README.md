@@ -1,6 +1,7 @@
 ---
 title: CNI add-on
 description: Cilium as the cluster CNI, bootstrapped via Terraform and adopted by Flux.
+stack_backing: Cluster networking (CNI)
 ---
 
 # CNI
@@ -129,14 +130,41 @@ cert-manager is not required for Hubble.
 
 ## Components
 
-| Component | Enable when | Effect |
-|---|---|---|
-| `cilium` | always | Helm release of Cilium in `system-cni`, targeting `kube-system`. `kubeProxyReplacement: true`, `ipam.mode: kubernetes`, base values. |
-| `cilium/talos` | platform is Talos | Replaces full privileged mode with explicit Linux capabilities (CHOWN, NET_ADMIN, etc.) and disables cgroup auto-mount (Talos already mounts cgroups at boot). |
-| `cilium/gateway` | `gateway.driver: cilium` | Enables `gatewayAPI` on Cilium and ships a Kyverno MutatingPolicy that injects LBIPAM sharing annotations onto Cilium-owned Gateway services. Fixes a create-then-patch race in cilium-operator that would otherwise prevent IP sharing on first reconcile. |
-| `cilium/prometheus` | `telemetry.metrics.enabled: true` | Enables Prometheus on the operator and agent and creates a ServiceMonitor for each. |
-| `cilium/hubble` | always | Hubble metrics (dns, drop, port-distribution, tcp, flow, icmp, http), Hubble Relay, Hubble UI, and the cronJob-based TLS rotation method (avoids a bug where `helm` mode re-renders server-secret on every upgrade). |
-| `cilium/l2` | platform is Talos | Enables `l2announcements` and `externalIPs` and creates `CiliumLoadBalancerIPPool/default` with the configured IP range plus `CiliumL2AnnouncementPolicy/default` matching `^eth[0-9]+` and `^ens[0-9]+` interfaces. Replaces kube-vip and MetalLB on Talos. |
+### `cilium`
+
+_Enabled when always._
+
+Helm release of Cilium in `system-cni`, targeting `kube-system`. `kubeProxyReplacement: true`, `ipam.mode: kubernetes`, base values.
+
+### `cilium/talos`
+
+_Enabled when platform is Talos._
+
+Replaces full privileged mode with explicit Linux capabilities (CHOWN, NET_ADMIN, etc.) and disables cgroup auto-mount (Talos already mounts cgroups at boot).
+
+### `cilium/gateway`
+
+_Enabled when `gateway.driver: cilium`._
+
+Enables `gatewayAPI` on Cilium and ships a Kyverno MutatingPolicy that injects LBIPAM sharing annotations onto Cilium-owned Gateway services. Fixes a create-then-patch race in cilium-operator that would otherwise prevent IP sharing on first reconcile.
+
+### `cilium/prometheus`
+
+_Enabled when `telemetry.metrics.enabled: true`._
+
+Enables Prometheus on the operator and agent and creates a ServiceMonitor for each.
+
+### `cilium/hubble`
+
+_Enabled when always._
+
+Hubble metrics (dns, drop, port-distribution, tcp, flow, icmp, http), Hubble Relay, Hubble UI, and the cronJob-based TLS rotation method (avoids a bug where `helm` mode re-renders server-secret on every upgrade).
+
+### `cilium/l2`
+
+_Enabled when platform is Talos._
+
+Enables `l2announcements` and `externalIPs` and creates `CiliumLoadBalancerIPPool/default` with the configured IP range plus `CiliumL2AnnouncementPolicy/default` matching `^eth[0-9]+` and `^ens[0-9]+` interfaces. Replaces kube-vip and MetalLB on Talos.
 
 ## Dependencies
 

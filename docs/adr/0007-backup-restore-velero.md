@@ -3,8 +3,6 @@ title: "ADR-0007: Backup and restore — a Velero addon over the existing object
 description: "core has no backup capability on any platform today — confirmed absent repo-wide (no velero, restic, or CNPG barmanObjectStore config anywhere). Adds a top-level backup capability installing Velero, targeting the existing object_store addon as its object-storage backend rather than provisioning a second one. Scoped to workload PVCs and CNPG in this ADR; Manager's own state (Omni's etcd, the secrets backend) is fleet-only and out of scope."
 ---
 
-# ADR-0007: Backup and restore — a Velero addon over the existing `object_store` capability
-
 ## Status
 
 Proposed.

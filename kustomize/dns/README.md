@@ -1,9 +1,9 @@
 ---
-title: DNS add-on
+title: DNS
 description: external-dns for hostname publication and (opt-in) coredns for in-cluster private DNS.
+stack_name: DNS
+stack_backing: Automatic DNS records
 ---
-
-# DNS
 
 Two halves, both gated independently.
 
@@ -172,22 +172,62 @@ In both cases `loadbalancer_start_ip` must fall inside
 
 ## Components
 
-| Component | Enable when | Effect |
+### `external-dns`
+
+_Enabled when `dns.public_domain` set OR (`gateway.access == 'private'` AND `dns.private_domain` set)._
+
+Helm release of `external-dns` in `system-dns`. Watches Service / Ingress / Gateway / HTTPRoute resources and publishes their hostnames as DNS records. Pod runs as a workload identity-bound ServiceAccount; provider auth is handled by the provider-specific component.
+
+### `external-dns/ha`
+
+_Enabled when `topology == 'ha'`._
+
+Patches the external-dns Deployment to multi-replica with leader election. Skipped on single-node — one replica has nothing to elect against.
+
+### `external-dns/providers/route53`
+
+_Enabled when platform is AWS AND public/private DNS zone is set._
+
+Patches the external-dns HelmRelease for the Route53 provider: `provider.aws.usePodIdentity: true`, `region: ${aws_region}`, `zoneType: ${zone_type}`, `--zone-id-filter=${zone_id_filter}`.
+
+### `external-dns/providers/azure`
+
+_Enabled when platform is Azure AND DNS zone is set._
+
+Patches the external-dns HelmRelease for the Azure provider: federated workload identity, zone-id filter via `${zone_id_filter}`.
+
+### `external-dns/providers/google`
+
+_Enabled when platform is GCP AND `dns.public_domain` is set._
+
+Patches the external-dns HelmRelease for the Google provider: `provider.name: google`, `--google-project=${google_project_id}`, GKE Workload Identity binding via `${external_dns_service_account_email}`.
+
+### `external-dns/providers/coredns`
+
+_Enabled when `dns.private.enabled: true` (provides private DNS via in-cluster coredns)._
+
+Patches the external-dns HelmRelease for the CoreDNS provider, writing records into the in-cluster coredns etcd backend instead of a cloud DNS zone.
+
+### `external-dns/sources/gateway-httproute`
+
+_Enabled when `gateway.enabled: true`._
+
+Adds `gateway-httproute` to external-dns's `sources` list so the Gateway API's `HTTPRoute` hostnames are published. Requires the Gateway API CRDs to be present (hence the `gateway-install` dependency).
+
+### `coredns`
+
+_Enabled when `dns.private.enabled: true`._
+
+Helm release of `coredns` in `system-dns`. In-cluster private DNS server. The default plugin chain serves cluster.local and forwards everything else upstream.
+
+| Variant | Enabled when | Effect |
 |---|---|---|
-| `external-dns` | `dns.public_domain` set OR (`gateway.access == 'private'` AND `dns.private_domain` set) | Helm release of `external-dns` in `system-dns`. Watches Service / Ingress / Gateway / HTTPRoute resources and publishes their hostnames as DNS records. Pod runs as a workload identity-bound ServiceAccount; provider auth is handled by the provider-specific component. |
-| `external-dns/ha` | `topology == 'ha'` | Patches the external-dns Deployment to multi-replica with leader election. Skipped on single-node — one replica has nothing to elect against. |
-| `external-dns/providers/route53` | platform is AWS AND public/private DNS zone is set | Patches the external-dns HelmRelease for the Route53 provider: `provider.aws.usePodIdentity: true`, `region: ${aws_region}`, `zoneType: ${zone_type}`, `--zone-id-filter=${zone_id_filter}`. |
-| `external-dns/providers/azure` | platform is Azure AND DNS zone is set | Patches the external-dns HelmRelease for the Azure provider: federated workload identity, zone-id filter via `${zone_id_filter}`. |
-| `external-dns/providers/google` | platform is GCP AND `dns.public_domain` is set | Patches the external-dns HelmRelease for the Google provider: `provider.name: google`, `--google-project=${google_project_id}`, GKE Workload Identity binding via `${external_dns_service_account_email}`. |
-| `external-dns/providers/coredns` | `dns.private.enabled: true` (provides private DNS via in-cluster coredns) | Patches the external-dns HelmRelease for the CoreDNS provider, writing records into the in-cluster coredns etcd backend instead of a cloud DNS zone. |
-| `external-dns/sources/gateway-httproute` | `gateway.enabled: true` | Adds `gateway-httproute` to external-dns's `sources` list so the Gateway API's `HTTPRoute` hostnames are published. Requires the Gateway API CRDs to be present (hence the `gateway-install` dependency). |
-| `coredns` | `dns.private.enabled: true` | Helm release of `coredns` in `system-dns`. In-cluster private DNS server. The default plugin chain serves cluster.local and forwards everything else upstream. |
-| `coredns/etcd` | `dns.private.enabled: true` | etcd StatefulSet for coredns to use as a persistent backend for the `etcd` plugin. mTLS between coredns and etcd peers, certs issued by the `private` ClusterIssuer. |
-| `coredns/prometheus` | `dns.private.enabled: true` AND `telemetry.metrics.enabled: true` | Enables the chart's metrics Service and ServiceMonitor so this coredns instance is scraped by kube-prometheus-stack. The unfiltered `prometheus/alerts/coredns` rules then cover it automatically alongside the cluster's built-in CoreDNS. |
-| `coredns/ha` | `dns.private.enabled: true` AND `topology == 'ha'` | Patches the coredns HelmRelease for HA (multi-replica + leader election). |
-| `coredns/loadbalancer` | `dns.private.enabled: true` AND `gateway.driver == 'cilium'` | Adds a `Service type=LoadBalancer` for coredns at `${loadbalancer_start_ip}` so the cluster's private DNS is reachable from outside the cluster (workstation pointing at the bench IP). |
-| `coredns/cilium` | `dns.private.enabled: true` AND `gateway.driver == 'cilium'` | Cilium-specific patches on coredns (typically LB-sharing annotations matching the Cilium gateway's IP pool). |
-| `coredns/gateway` | `dns.private.enabled: true` AND `gateway.enabled: true` | Wires a Gateway API listener / route so coredns is reachable through the cluster Gateway (UDP/TCP 53). |
+| `etcd` | `dns.private.enabled: true` | etcd StatefulSet for coredns to use as a persistent backend for the `etcd` plugin. mTLS between coredns and etcd peers, certs issued by the `private` ClusterIssuer. |
+| `prometheus` | `dns.private.enabled: true` AND `telemetry.metrics.enabled: true` | Enables the chart's metrics Service and ServiceMonitor so this coredns instance is scraped by kube-prometheus-stack. The unfiltered `prometheus/alerts/coredns` rules then cover it automatically alongside the cluster's built-in CoreDNS. |
+| `ha` | `dns.private.enabled: true` AND `topology == 'ha'` | Patches the coredns HelmRelease for HA (multi-replica + leader election). |
+| `loadbalancer` | `dns.private.enabled: true` AND `gateway.driver == 'cilium'` | Adds a `Service type=LoadBalancer` for coredns at `${loadbalancer_start_ip}` so the cluster's private DNS is reachable from outside the cluster (workstation pointing at the bench IP). |
+| `cilium` | `dns.private.enabled: true` AND `gateway.driver == 'cilium'` | Cilium-specific patches on coredns (typically LB-sharing annotations matching the Cilium gateway's IP pool). |
+| `gateway` | `dns.private.enabled: true` AND `gateway.enabled: true` | Wires a Gateway API listener / route so coredns is reachable through the cluster Gateway (UDP/TCP 53). |
 
 ## Dependencies
 

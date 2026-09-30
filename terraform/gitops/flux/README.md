@@ -1,9 +1,7 @@
 ---
-title: gitops/flux
+title: Flux
 description: Flux installation; hands reconciliation to the kustomize/ layer.
 ---
-
-# gitops/flux
 
 Installs Flux into a freshly-provisioned cluster so the Kustomize layer
 under `core/kustomize/` can take over reconciliation. The module installs
@@ -11,14 +9,20 @@ the [flux-operator](https://fluxoperator.dev) and a `FluxInstance` (the
 `flux-operator` and `flux-instance` Helm charts), which the operator
 reconciles into the Flux CRDs and controllers. The windsor CLI creates the
 root `GitRepository` and `Kustomization`, so the `FluxInstance` omits its
-`sync` block and manages controllers only. Controller tuning (concurrency,
-leader election, helm cache, the kustomize-controller memory limit) is applied
-through `spec.kustomize.patches`. Controller images resolve by distribution
-version rather than per-image digest, so the `require-image-digest` Kyverno
-policy exempts the Flux namespace. A readiness-gate Job blocks the apply until
-the operator reports the `FluxInstance` Ready, so the toolkit CRDs exist before
-the windsor CLI applies the blueprint. After bootstrap this layer is mostly
-inert — Flux self-manages from the repo going forward.
+`sync` block and manages controllers only.
+
+Controller tuning (concurrency, leader election, helm cache, the
+kustomize-controller memory limit) is applied through
+`spec.kustomize.patches`.
+
+Controller images resolve by distribution version rather than per-image
+digest, so the `require-image-digest` Kyverno policy exempts the Flux
+namespace.
+
+A readiness-gate Job blocks the apply until the operator reports the
+`FluxInstance` Ready, so the toolkit CRDs exist before the windsor CLI
+applies the blueprint. After bootstrap this layer is mostly inert — Flux
+self-manages from the repo going forward.
 
 A `removed` block drops the previous `fluxcd-community/flux2` Helm release from
 Terraform state without uninstalling it, so the operator adopts the live

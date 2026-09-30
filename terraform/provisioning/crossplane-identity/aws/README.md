@@ -1,17 +1,13 @@
 ---
-title: provisioning/crossplane-identity/aws
+title: Crossplane Identity (AWS)
 description: IAM and Pod Identity for Crossplane's AWS provider pods.
 ---
 
-# provisioning/crossplane-identity/aws
-
 IAM role, policy, and EKS Pod Identity association per Crossplane-managed
 AWS resource type, keyed by an internal catalog and `for_each` over
-`resources`. Genuinely engine-specific: Pod Identity exists because a
-Crossplane provider pod needs credentials to call AWS on the cluster's
-behalf, a need no other database-creation mechanism shares. A second
-Crossplane-managed AWS resource type means one new catalog entry here,
-not a copy-pasted IAM block.
+`resources`. Pod Identity exists because a Crossplane provider pod needs
+credentials to call AWS on the cluster's behalf. A second
+Crossplane-managed AWS resource type needs one new catalog entry here.
 
 <!-- BEGIN_TF_DOCS -->
 ## Requirements

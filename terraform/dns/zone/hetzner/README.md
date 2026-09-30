@@ -1,9 +1,7 @@
 ---
-title: dns/zone/hetzner
+title: Hetzner
 description: Creates a primary Hetzner DNS zone via the official hcloud provider.
 ---
-
-# dns/zone/hetzner
 
 Creates a primary Hetzner DNS zone via the official hcloud provider. When
 `parent_zone_name` names a zone in the same Hetzner account, it also creates the
