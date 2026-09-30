@@ -1,14 +1,63 @@
 ---
-title: backend/gcs
+title: GCS
 description: Remote Terraform state on Google Cloud Storage.
 ---
-
-# backend/gcs
 
 Remote Terraform state for GCP contexts. The bootstrap pass runs this
 module with a local backend, provisioning a GCS bucket; subsequent
 applies use GCS's native object-generation locking — no separate lock
 table.
+
+## Recipe
+
+```mermaid
+flowchart LR
+  apply[windsor apply]
+
+  subgraph gcp[GCP project]
+    bucket[(state.tfstate<br/>in GCS bucket<br/>object versioning)]
+    kms[KMS key<br/>optional CMEK]
+  end
+
+  apply -.generation precondition.-> bucket
+  apply -.read / write.-> bucket
+  bucket -.encrypted by.-> kms
+```
+
+```yaml
+platform: gcp
+terraform:
+  backend:
+    type: gcs
+```
+
+The module provisions a GCS bucket, keyed under `terraform/state` by
+default (`prefix`). Locking relies on GCS's own object-generation
+preconditions on the state object, so there's no separate lock table
+to manage. Encryption is Google-managed by default; set `enable_cmek`
+to encrypt the bucket with a customer-managed KMS key instead.
+
+## Operations
+
+The bootstrap pass runs this module with a local backend first, then
+hands the state location to the remote backend for subsequent
+`windsor apply` runs.
+
+There's no separate lock to clean up after a crash: object-generation
+preconditions aren't held across runs, so a crashed `windsor apply`
+leaves nothing stale.
+
+Switching away from `gcs` on a context that already has remote state
+here requires manual migration via `terraform init -migrate-state`.
+Windsor doesn't auto-migrate.
+
+## Security
+
+IAM access to the bucket is least-privilege by default — grant
+readers/writers explicitly via `terraform_state_principals` rather
+than relying on project-wide roles. The module doesn't make the state
+object public; bucket IAM follows project defaults, so tighten it to
+private service connections in production.
 
 <!-- BEGIN_TF_DOCS -->
 ## Requirements

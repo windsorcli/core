@@ -1,9 +1,7 @@
 ---
-title: workstation/incus
+title: Incus
 description: Local-host Incus bridge + registry.
 ---
-
-# workstation/incus
 
 Local-host runtime backing `windsor apply` when `compute.driver` is
 `incus`. Provisions the LXC bridge and an optional local registry that

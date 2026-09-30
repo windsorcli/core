@@ -1,9 +1,7 @@
 ---
-title: dns/zone/gcp-dns
+title: GCP DNS
 description: DNS zone on Google Cloud DNS.
 ---
-
-# dns/zone/gcp-dns
 
 Creates a public Cloud DNS managed zone for a domain, independent of any
 cluster — useful for zone-only deployments and for cases where DNS infra

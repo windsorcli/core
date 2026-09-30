@@ -1,9 +1,7 @@
 ---
-title: provisioning/crossplane-identity/gcp
+title: Crossplane Identity (GCP)
 description: Workload Identity Federation for Crossplane's GCP provider pods.
 ---
-
-# provisioning/crossplane-identity/gcp
 
 Workload Identity for Crossplane's `provider-gcp-sql` pod — the GCP
 counterpart to `provisioning/crossplane-identity/azure`'s federated

@@ -1,9 +1,7 @@
 ---
-title: cluster/talos
+title: Talos
 description: Self-hosted Kubernetes control plane via the Talos API.
 ---
-
-# cluster/talos
 
 Self-hosted Kubernetes control plane via the Talos API. Provisioning is
 fully Terraform-driven through the Talos provider — no operator-side
@@ -65,7 +63,7 @@ extensions baked in.
 | <a name="input_machine_secrets"></a> [machine\_secrets](#input\_machine\_secrets) | Pre-generated Talos machine\_secrets (output of an upstream cluster/talos-secrets module). When null (default), cluster/talos generates its own. Must be supplied together with client\_configuration. | `any` | `null` | no |
 | <a name="input_skip_machine_config_apply"></a> [skip\_machine\_config\_apply](#input\_skip\_machine\_config\_apply) | Skip talos\_machine\_configuration\_apply because the machineconfig reached the nodes out of band (hyperv CIDATA). Null (default) infers it from machine\_secrets being supplied. | `bool` | `null` | no |
 | <a name="input_talos_node_image"></a> [talos\_node\_image](#input\_talos\_node\_image) | Literal Talos node image reference used to pin the image for mirror hydration. Kept in sync with talos\_version by Renovate. | `string` | `"ghcr.io/siderolabs/talos:v1.12.6"` | no |
-| <a name="input_talos_version"></a> [talos\_version](#input\_talos\_version) | The talos version to deploy. Must match the node image tag (e.g. 1.12.1 for ghcr.io/siderolabs/talos:v1.12.1). | `string` | `"1.14.1"` | no |
+| <a name="input_talos_version"></a> [talos\_version](#input\_talos\_version) | The talos version to deploy. Must match the node image tag (e.g. 1.12.1 for ghcr.io/siderolabs/talos:v1.12.1). | `string` | `"1.14.2"` | no |
 | <a name="input_worker_config_patches"></a> [worker\_config\_patches](#input\_worker\_config\_patches) | A YAML string of worker config patches to apply. Can be an empty string or valid YAML. | `string` | `""` | no |
 | <a name="input_worker_disks"></a> [worker\_disks](#input\_worker\_disks) | Pool-level disks; used when a worker node has no disks key. Per-node disks override. | `list(any)` | `[]` | no |
 | <a name="input_worker_volumes"></a> [worker\_volumes](#input\_worker\_volumes) | Raw volume strings (path or host:dest). Talos extraMounts use the path (part after ':' if present). | `list(string)` | `[]` | no |

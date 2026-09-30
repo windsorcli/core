@@ -3,8 +3,6 @@ title: "ADR-0008: Platform hardening parity — disk/etcd encryption, audit logg
 description: "AWS and Azure default to KMS-backed encryption and audit logging; every self-managed Talos platform (Hetzner, vSphere, Hyper-V, Incus, Docker, metal) ships etcd and node disks unencrypted with no audit trail, and no platform has a cluster-wide network-policy default-deny baseline. Sequences three decisions to close the widest present/absent split in the platform table, and records the Hetzner static-credential fallback as an accepted, documented boundary rather than a gap needing a fix."
 ---
 
-# ADR-0008: Platform hardening parity — disk/etcd encryption, audit logging, default-deny network policy
-
 ## Status
 
 Proposed.

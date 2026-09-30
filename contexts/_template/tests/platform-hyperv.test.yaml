@@ -175,7 +175,7 @@ cases:
             destination_dir: "C:/hyperv/images"
             images:
               talos:
-                destination_path: "C:/hyperv/images/talos-1.14.1-metal-amd64-ctx1.iso"
+                destination_path: "C:/hyperv/images/talos-1.14.2-metal-amd64-ctx1.iso"
             instances:
               - name: controlplane
 
@@ -915,7 +915,7 @@ cases:
           inputs:
             images:
               talos:
-                destination_path: "C:/hyperv/images/talos-1.14.1-metal-amd64.iso"
+                destination_path: "C:/hyperv/images/talos-1.14.2-metal-amd64.iso"
             instances:
               - name: controlplane
 
@@ -964,7 +964,7 @@ cases:
           common_patch:
             machine:
               install:
-                image: "factory.talos.dev/installer/a1f179c391c4f2dafe593c0a3d3fe95ce74e526c6e2e3120d46f230a2d24907b:v1.14.1"
+                image: "factory.talos.dev/installer/a1f179c391c4f2dafe593c0a3d3fe95ce74e526c6e2e3120d46f230a2d24907b:v1.14.2"
 
   # Cilium renders k8sServiceHost at plan time, which a lease cannot supply.
   - name: dhcp with cilium and no endpoint fails composition

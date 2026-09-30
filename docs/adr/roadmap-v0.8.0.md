@@ -3,8 +3,6 @@ title: Release v0.8.0 — Planning & ADR Sequence
 description: Seeds and sequences the ADRs that lead up to the v0.8.0 release. Living planning document, not an ADR.
 ---
 
-# Release v0.8.0 — Planning & ADR Sequence
-
 - Status: Drafting
 - Date: 2026-08-04
 - Deciders: Ryan VanGundy

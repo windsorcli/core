@@ -1,9 +1,7 @@
 ---
-title: compute/hcloud
+title: Hetzner Cloud
 description: Provisions Talos Linux nodes on Hetzner Cloud.
 ---
-
-# compute/hcloud
 
 Provisions Talos Linux nodes on Hetzner Cloud. Builds a Talos Image Factory
 snapshot with the `hcloud-talos/imager` provider (or reuses a supplied snapshot

@@ -650,7 +650,7 @@ properties:
             description: Force or disable Grafana SSO; inferred on when identity is enabled
           client_secret:
             type: string
-            description: Client secret (supports ${secret(...)}); required for identity.driver oidc, generated for keycloak
+            description: Client secret for an external oidc provider (supports ${secret(...)}). Unset registers Grafana as a public PKCE client.
           role_attribute_path:
             type: string
             description: Grafana role mapping as a JMESPath over token claims
@@ -1371,9 +1371,6 @@ properties:
                 type: string
                 description: Admin password for the Keycloak console and, in dev, the SSO admin user (supports ${secret(...)} refs); unset means a dev default, or the operator's temporary admin elsewhere
             additionalProperties: false
-          grafana_client_secret:
-            type: string
-            description: Grafana's pinned OIDC client secret (supports ${secret(...)} refs). Unset means a dev default.
         additionalProperties: false
     additionalProperties: false
 

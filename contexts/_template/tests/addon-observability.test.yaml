@@ -36,8 +36,6 @@ cases:
       cluster: *default-cluster
       identity:
         enabled: true
-        keycloak:
-          grafana_client_secret: sup3r-secret-oidc
       observability:
         enabled: true
     expect:
@@ -73,8 +71,6 @@ cases:
           issuer: https://sso.corp/realms/platform
       observability:
         enabled: true
-        grafana:
-          client_secret: ${secret("v", "grafana", "s")}
     expect:
       flux:
         - name: observability
@@ -84,8 +80,9 @@ cases:
             substitutions:
               oidc_auth_url: https://sso.corp/realms/platform/protocol/openid-connect/auth
 
-  # Grafana SSO outside dev requires a client secret for either driver.
-  - name: external oidc sso without a client secret fails composition
+  # External provider that requires a confidential client: the supplied secret becomes
+  # a Secret and Grafana reads it from the environment.
+  - name: external oidc client secret makes grafana a confidential client
     values:
       platform: metal
       dns:
@@ -101,22 +98,19 @@ cases:
           issuer: https://sso.corp/realms/platform
       observability:
         enabled: true
-    expectError: true
-
-  - name: hosted keycloak sso without a pinned client secret fails composition
-    values:
-      platform: metal
-      dns:
-        domain: example.local
-      gateway:
-        enabled: true
-      network: *default-network
-      cluster: *default-cluster
-      identity:
-        enabled: true
-      observability:
-        enabled: true
-    expectError: true
+        grafana:
+          client_secret: s3cret-from-provider
+    expect:
+      flux:
+        - name: observability
+          secrets:
+            grafana-oidc-client:
+              data:
+                clientSecret: s3cret-from-provider
+          install:
+            components:
+              - grafana/oidc
+              - grafana/oidc/client-secret
 
   # Minimal: dev mode enables observability addon; addon wins (last-wins)
   # Metal defaults to cilium gateway driver, cilium dashboard included.
@@ -184,12 +178,12 @@ cases:
             Single sign-on is on: clicking Grafana goes straight to the login.
             Sign in with either seeded user (they work for every SSO app):
 
-              ┌──────────┬─────────────────┬────────────┐
-              │ username │ password        │ role       │
-              ├──────────┼─────────────────┼────────────┤
-              │ admin    │ admin-password  │ full admin │
-              │ viewer   │ viewer-password │ read-only  │
-              └──────────┴─────────────────┴────────────┘
+              ┌────────────┬─────────────────┬────────────┐
+              │ username   │ password        │ role       │
+              ├────────────┼─────────────────┼────────────┤
+              │ dev-admin  │ admin-password  │ full admin │
+              │ dev-viewer │ viewer-password │ read-only  │
+              └────────────┴─────────────────┴────────────┘
 
             The gateway cert is self-signed. Trust the local CA, or click through
             the browser warning on your first visit.

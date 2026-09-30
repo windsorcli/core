@@ -351,6 +351,34 @@ cases:
                 grafana_redirect_uri: https://grafana.example.local/login/generic_oauth
                 dev_admin_password: admin-password
 
+  # Outside dev, Grafana SSO needs no client secret: the client is public with PKCE.
+  - name: grafana sso outside dev needs no client secret
+    values:
+      platform: metal
+      dns:
+        domain: example.local
+      gateway:
+        enabled: true
+      network: *default-network
+      cluster: *default-cluster
+      identity:
+        enabled: true
+      observability:
+        enabled: true
+    expect:
+      flux:
+        - name: identity
+          resources:
+            - components:
+                - keycloak/realm
+                - keycloak/realm/clients/grafana
+    exclude:
+      flux:
+        - name: identity
+          resources:
+            - components:
+                - keycloak/realm/dev-user
+
   # Grafana SSO needs Keycloak reachable over HTTPS through the gateway. Without
   # it, the realm client would point at an issuer the browser can never reach.
   - name: grafana sso without a gateway fails composition
@@ -593,8 +621,6 @@ cases:
       cluster: *default-cluster
       identity:
         enabled: true
-        keycloak:
-          grafana_client_secret: sup3r-secret-oidc
       observability:
         enabled: true
     expect:

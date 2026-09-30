@@ -31,6 +31,9 @@ spec:
                 databaseName:
                   type: string
                   description: Database this role owns, giving it the DDL rights an ORM's migrations need. Must already exist on the instance.
+                secretName:
+                  type: string
+                  description: Name of the connection Secret, in this object's own namespace. Defaults to "<name>-credentials".
             status:
               type: object
               properties:

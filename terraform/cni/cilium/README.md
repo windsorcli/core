@@ -1,9 +1,7 @@
 ---
-title: cni/cilium
+title: Cilium
 description: Out-of-band Cilium bootstrap for Talos clusters.
 ---
-
-# cni/cilium
 
 Installs Cilium directly via Helm against the Talos API before Flux exists,
 so Pods can network during cluster bring-up. `kustomize/cni/` adopts the
