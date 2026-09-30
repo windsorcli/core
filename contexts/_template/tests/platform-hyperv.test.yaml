@@ -66,6 +66,34 @@ cases:
             - cluster
           destroy: false
 
+  # The machineconfig installs from the factory image so hyperv-guest-agent
+  # survives the first reboot.
+  - name: install image pins the hyperv schematic
+    values:
+      platform: hyperv
+      gateway:
+        enabled: false
+      network: *default-network
+      cluster: *default-cluster
+    terraformOutputs: *default-terraform-outputs
+    expect:
+      terraform:
+        - name: compute
+          path: compute/hyperv
+          inputs:
+            images:
+              talos:
+                url: "https://factory.talos.dev/image/\
+                  a1f179c391c4f2dafe593c0a3d3fe95ce74e526c6e2e3120d46f230a2d24907b/\
+                  v1.14.2/metal-amd64.iso"
+      config:
+        talos_common:
+          common_patch:
+            machine:
+              install:
+                image: "factory.talos.dev/installer/\
+                  a1f179c391c4f2dafe593c0a3d3fe95ce74e526c6e2e3120d46f230a2d24907b:v1.14.2"
+
   # An unset cidr_block must still compose. The schema default does not reach
   # facet expressions, so every read carries its own fallback; a site that
   # misses one fails composition with "cidrhost() ... got <nil>". Assert the
