@@ -58,6 +58,10 @@ class SecretNameTests(unittest.TestCase):
         )
 
 
+    def test_uses_the_override_when_given(self):
+        self.assertEqual(composition.secret_name("demo-app", "db-creds"), "db-creds")
+
+
 class BuildRoleTests(unittest.TestCase):
     def test_references_the_instances_cluster_provider_config(self):
         role = composition.build_role("demo-app", "demo-database", "demo-db")
@@ -72,6 +76,12 @@ class BuildRoleTests(unittest.TestCase):
         self.assertEqual(
             role["spec"]["writeConnectionSecretToRef"]["name"],
             "demo-app-credentials",
+        )
+
+    def test_writes_the_override_secret_name_when_given(self):
+        role = composition.build_role("demo-app", "demo-database", "demo-db", "db-creds")
+        self.assertEqual(
+            role["spec"]["writeConnectionSecretToRef"]["name"], "db-creds"
         )
 
     def test_never_deletes_the_postgres_role(self):
@@ -131,6 +141,10 @@ class BuildStatusTests(unittest.TestCase):
                 "roleName": "demo-app",
             },
         )
+
+    def test_reports_the_override_secret_name_when_given(self):
+        status = composition.build_status("demo-app", "demo-database", "db-creds")
+        self.assertEqual(status["connectionSecretRef"]["name"], "db-creds")
 
 
 if __name__ == "__main__":

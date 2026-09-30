@@ -29,11 +29,11 @@ spec:
           ORPHAN_POLICIES = ["Observe", "Create", "Update", "LateInitialize"]
 
 
-          def secret_name(role_name):
-              return f"{role_name}-credentials"
+          def secret_name(role_name, override=None):
+              return override or f"{role_name}-credentials"
 
 
-          def build_role(role_name, namespace, instance_name):
+          def build_role(role_name, namespace, instance_name, secret=None):
               return {
                   "apiVersion": PROVIDER_SQL_API,
                   "kind": "Role",
@@ -42,7 +42,7 @@ spec:
                       "managementPolicies": ORPHAN_POLICIES,
                       "providerConfigRef": {"kind": "ClusterProviderConfig", "name": instance_name},
                       "forProvider": {"privileges": {"login": True}},
-                      "writeConnectionSecretToRef": {"name": secret_name(role_name)},
+                      "writeConnectionSecretToRef": {"name": secret_name(role_name, secret)},
                   },
               }
 
@@ -84,9 +84,9 @@ spec:
               }
 
 
-          def build_status(role_name, namespace):
+          def build_status(role_name, namespace, secret=None):
               return {
-                  "connectionSecretRef": {"name": secret_name(role_name), "namespace": namespace},
+                  "connectionSecretRef": {"name": secret_name(role_name, secret), "namespace": namespace},
                   "roleName": role_name,
               }
 
@@ -107,9 +107,10 @@ spec:
               namespace = xr["metadata"]["namespace"]
               instance_name = xr["spec"]["instanceName"]
               database_name = xr["spec"]["databaseName"]
+              secret = xr["spec"].get("secretName")
 
               rsp.desired.resources["role"].resource.update(
-                  build_role(role_name, namespace, instance_name)
+                  build_role(role_name, namespace, instance_name, secret)
               )
               role_ready = is_ready(req, "role")
               if role_ready:
@@ -133,4 +134,4 @@ spec:
               # rsp.desired.composite.resource is the same kind of Struct wrapper.
               if "status" not in rsp.desired.composite.resource:
                   rsp.desired.composite.resource["status"] = {}
-              rsp.desired.composite.resource["status"].update(build_status(role_name, namespace))
+              rsp.desired.composite.resource["status"].update(build_status(role_name, namespace, secret))
