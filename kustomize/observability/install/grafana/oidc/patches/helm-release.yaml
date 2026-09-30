@@ -21,8 +21,8 @@ spec:
         auth_url: ${oidc_auth_url}
         token_url: ${oidc_token_url}
         api_url: ${oidc_userinfo_url}
-        # Public client: PKCE replaces the client secret, sent in the request body.
         use_pkce: true
+        # Sends client_id in the request body.
         auth_style: InParams
         role_attribute_path: ${oidc_role_attribute_path}
         role_attribute_strict: false

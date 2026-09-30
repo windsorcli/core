@@ -1,5 +1,4 @@
-# Grafana OIDC client, appended to the realm import's clients array. Public client
-# with PKCE, so it has no secret.
+# Grafana public PKCE client, appended to the realm import's clients array.
 - op: add
   path: /spec/realm/clients/-
   value:
