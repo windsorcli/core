@@ -80,6 +80,38 @@ cases:
             substitutions:
               oidc_auth_url: https://sso.corp/realms/platform/protocol/openid-connect/auth
 
+  # External provider that requires a confidential client: the supplied secret becomes
+  # a Secret and Grafana reads it from the environment.
+  - name: external oidc client secret makes grafana a confidential client
+    values:
+      platform: metal
+      dns:
+        domain: example.local
+      gateway:
+        enabled: true
+      network: *default-network
+      cluster: *default-cluster
+      identity:
+        enabled: true
+        driver: oidc
+        oidc:
+          issuer: https://sso.corp/realms/platform
+      observability:
+        enabled: true
+        grafana:
+          client_secret: s3cret-from-provider
+    expect:
+      flux:
+        - name: observability
+          secrets:
+            grafana-oidc-client:
+              data:
+                clientSecret: s3cret-from-provider
+          install:
+            components:
+              - grafana/oidc
+              - grafana/oidc/client-secret
+
   # Minimal: dev mode enables observability addon; addon wins (last-wins)
   # Metal defaults to cilium gateway driver, cilium dashboard included.
   - name: minimal config creates observability with defaults via dev mode

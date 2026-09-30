@@ -180,6 +180,18 @@ identity:
     issuer: https://sso.example.com/realms/platform
 ```
 
+Some providers require a confidential client for server-side web apps. Register Grafana as
+a confidential client there and supply its secret, which Grafana then sends with PKCE:
+
+```yaml
+observability:
+  grafana:
+    client_secret: ${secret("MyVault", "grafana-oidc", "clientSecret")}
+```
+
+`observability.grafana.client_secret` applies to the `oidc` driver only. The hosted
+Keycloak client stays public.
+
 In dev mode the platform realm seeds standard users so local SSO works out of the box
 across every consumer (Grafana and any future one): **`dev-admin` / `admin-password`** (in
 `platform-admins` → admin) and **`dev-viewer` / `viewer-password`** (no group → read-only), so you
@@ -268,7 +280,8 @@ client re-imports the realm.
 - **Client secrets.** Grafana registers as a public client with PKCE, so no client secret
   exists. A public client cannot authenticate the Grafana server to the provider; the
   authorization code is bound to the login session by the PKCE verifier instead. Some
-  external providers restrict or disallow public clients.
+  external providers restrict or disallow public clients; for those, set
+  `observability.grafana.client_secret` to use a confidential client.
 - **Images.** `system-identity` is policy-managed (Kyverno `require-image-digest`); the
   operator, server, and Postgres images are all digest-pinned.
 

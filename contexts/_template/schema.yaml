@@ -642,6 +642,9 @@ properties:
           sso:
             type: boolean
             description: Force or disable Grafana SSO; inferred on when identity is enabled
+          client_secret:
+            type: string
+            description: Client secret for an external oidc provider (supports ${secret(...)}). Unset registers Grafana as a public PKCE client.
           role_attribute_path:
             type: string
             description: Grafana role mapping as a JMESPath over token claims
