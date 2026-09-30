@@ -47,6 +47,22 @@ The context's `topology` setting changes how the operator itself runs:
 
 `topology` does not affect your databases. The number of Postgres instances, and therefore whether a database fails over, comes from `spec.instances` on the `Cluster`. A `Cluster` with `instances: 1` is a single Postgres instance on any topology.
 
+## Alerts
+
+The telemetry add-on installs seven Prometheus alert rules for CloudNativePG, taken from the operator's own sample set. They are installed when `database.postgres.enabled`, `telemetry.metrics.enabled` and `telemetry.alerts.enabled` are all true, which is the default for the last two. They read the operator's `cnpg_*` metrics, so a `Cluster` needs `monitoring.enablePodMonitor: true` for its instances to be scraped.
+
+Every rule has severity `warning` and fires after its condition has held for one minute:
+
+| Alert | Fires when |
+|---|---|
+| `LongRunningTransaction` | A query has been running for more than 5 minutes. |
+| `BackendsWaiting` | More than 300 backends are waiting on another query. |
+| `PGDatabase` | Transaction ID age passes 300 million. |
+| `PGReplication` | A standby is more than 5 minutes behind the primary. |
+| `LastFailedArchiveTime` | WAL archiving failed more recently than it last succeeded. |
+| `DatabaseDeadlockConflicts` | More than 10 deadlocks are recorded. |
+| `ReplicaFailingReplication` | A replica is in recovery but its WAL receiver is not running. |
+
 ## Under the hood
 
 ```mermaid
@@ -72,3 +88,4 @@ flowchart LR
 - [kustomize/database](../../../kustomize/database)
 - [kustomize/demo/resources/database/cloudnativepg](../../../kustomize/demo/resources/database/cloudnativepg)
 - [kustomize/observability](../../../kustomize/observability)
+- [kustomize/telemetry](../../../kustomize/telemetry)
