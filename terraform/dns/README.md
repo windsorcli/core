@@ -1,6 +1,8 @@
 ---
 title: DNS
 description: Public DNS zones for ACME certificates and external-dns.
+stack_name: DNS
+stack_backing: public zones
 ---
 
 # DNS
@@ -219,6 +221,16 @@ is an out-of-band operation the operator does at their registrar.
 Self-signed mode generates a root CA inside the cluster. Trust that
 CA manually on developer machines rather than disabling TLS
 verification.
+
+<!-- BEGIN_TERRAFORM_MODULES -->
+
+## Modules
+
+- [zone/azure-dns](zone/azure-dns/) — DNS zone on Azure DNS.
+- [zone/gcp-dns](zone/gcp-dns/) — DNS zone on Google Cloud DNS.
+- [zone/hetzner](zone/hetzner/) — Creates a primary Hetzner DNS zone via the official hcloud provider.
+- [zone/route53](zone/route53/) — Public DNS zone on AWS Route53.
+<!-- END_TERRAFORM_MODULES -->
 
 ## See also
 

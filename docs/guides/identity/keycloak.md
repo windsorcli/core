@@ -172,8 +172,8 @@ flowchart LR
   keycloak_sts -->|JDBC over TLS| pg
   users -->|HTTPS| gateway
   gateway -->|HTTP| keycloak_sts
-  classDef k8s fill:#DCEBFF,stroke:#326CE5,color:#0B2A5B
-  classDef app fill:#DDF3E1,stroke:#2E7D32,color:#123D17
+  classDef k8s fill:#326CE533,stroke:#326CE5
+  classDef app fill:#2E7D3233,stroke:#2E7D32
   class flux,operator,keycloak_cr,keycloak_sts,realm,pg,gateway k8s
   class users app
 ```

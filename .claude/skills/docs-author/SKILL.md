@@ -46,6 +46,34 @@ Keep the Reference list to `terraform/`/`kustomize/` paths only. General bluepri
 
 **Vendor sub-guides.** When a schema key has more than one driver — `database.postgres.driver: cloudnativepg | rds | azuredb | cloudsql`, `identity.driver: keycloak | oidc` — split the guide into `docs/guides/<key>/<vendor>.md`, one file per enum value, filename matching the schema value verbatim (`azuredb.md`, not `flexibleserver.md`). The site groups these into one expandable sidebar entry per key automatically: its label is the directory name, sentence-cased, unless a `docs/guides/<key>/index.md` sits alongside the vendor pages, in which case that file's `title`, `description`, and `sidebar_order` take over, and its own prose renders as a real landing page linked from the category name (the vendor list still expands the same way). Adding `index.md` is optional; only do it when the category needs its own intro or an explicit sidebar position. A category with none still works exactly as before. A driver with nothing to reference (an external service Windsor installs nothing for, e.g. `identity/oidc.md`) still gets a `## Reference` section: say so in a sentence and link whatever real wiring does exist (`identity/oidc.md` links the observability add-on it writes a secret into), rather than omitting the section.
 
+## Blueprint tier diagrams
+
+The dependency diagram in `docs/index.md` is one stack of tiers: the Kustomize tiers on top of the Terraform tiers, with the foundation at the bottom. A component depends only on components in its own tier or below, and arrows point down to what a tier needs first. Use Mermaid `block-beta`, not a flowchart; a flowchart with every dependency edge becomes a tangle.
+
+```
+block-beta
+  columns 3
+
+  half0["Infrastructure · Terraform"]:3
+  tier2["Cluster"] t_cluster["cluster"] space:1
+  arrow2<[" "]>(down):3
+  tier1["Foundation"] t_network["network"] t_dns["dns-zone"]
+
+  style half0 fill:#6B35B0 !important,stroke:#B488FF !important,stroke-width:2px !important,color:#fff !important
+  style tier2 fill:#6B35B0 !important,stroke:#B488FF !important,stroke-width:2px !important,color:#fff !important
+  style t_cluster fill:#B488FF30 !important,stroke:#B488FF !important,stroke-width:2px !important
+  style arrow2 fill:#B488FF !important,stroke:#B488FF !important
+```
+
+- `columns` is one more than the chips per row. Two chips per row keeps the diagram narrow enough to render at the site's full 14px label size; wider grids are scaled down and the text shrinks. A tier with more chips continues on the next row, led by a bare `space`.
+- Every row is padded to the full width with `space:N`. Without the padding the next row flows into the same line.
+- Each arrow spans the full row, which centres it: `arrowN<[" "]>(down):<columns>`.
+- A banner row (`half0[...]:<columns>`) names each engine.
+- Style every cell with `style`. The site's theme overrides plain inline fills, so each property needs `!important`. Label bars use the dark solid colour with white text (the site keeps an explicit `color` on a node and applies its theme text colour to the rest), chips use the bright colour at about 20% fill with a solid stroke, and arrows use the bright colour.
+- Colours (solid, bright): Terraform `#6B35B0` and `#B488FF`, Kustomize `#2B59C3` and `#6BA0FF`.
+- Keep tier names and chip names to 19 characters or fewer; the longest text sets every cell's width.
+- Do not use `classDef` pastel fills. The site forces its own label colour, and a pastel fill makes it unreadable in dark mode.
+
 ## Umbrella indices (`kustomize/README.md`, `terraform/README.md`)
 
 Both umbrella READMEs carry a `<!-- BEGIN_INDEX -->` / `<!-- END_INDEX -->` region populated by `scripts/umbrella-index.sh <root>`. The generator is bundled into the existing per-layer doc tasks: `task docs:kustomize` runs the kustomize index after the add-on tables, `task docs:terraform` runs the terraform index after terraform-docs. CI catches drift via `task docs:kustomize:check` and `task docs:terraform:check` — there is no standalone umbrella task. The generator walks each per-module README (kustomize 1-level-deep; terraform any depth, skipping `.terraform/`), pulls the frontmatter `description:`, and emits a `| path | purpose |` table; missing `description:` fields fail the build.

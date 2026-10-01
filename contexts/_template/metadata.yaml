@@ -1,1 +1,2 @@
 cliVersion: ">=0.9.0"
+description: The default blueprint that includes base infrastructure and services. Cloud "primitives" provide storage, networking, security, and observability required to run a consistent platform across major cloud providers, virtualization platforms, and bare metal.
