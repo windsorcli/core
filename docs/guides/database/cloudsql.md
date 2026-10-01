@@ -97,9 +97,9 @@ flowchart LR
   app -->|declares| cr
   cr -->|reconciled by| crossplane
   crossplane -->|provisions| gcp
-  classDef terraform fill:#E6DAF5,stroke:#7B42BC,color:#2E1A4F
-  classDef k8s fill:#DCEBFF,stroke:#326CE5,color:#0B2A5B
-  classDef app fill:#DDF3E1,stroke:#2E7D32,color:#123D17
+  classDef terraform fill:#7B42BC33,stroke:#7B42BC
+  classDef k8s fill:#326CE533,stroke:#326CE5
+  classDef app fill:#2E7D3233,stroke:#2E7D32
   class tf terraform
   class crossplane,cr k8s
   class app app
