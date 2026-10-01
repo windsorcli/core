@@ -27,7 +27,8 @@ block-beta
   ktier3["Storage & telemetry"] k_csi_install["csi-install"] k_csi_resources["csi-resources"]
   space k_telemetry["telemetry"] k_object_store["object-store"]
   karrow3<[" "]>(down):3
-  ktier2["Networking"] k_cni["cni"] k_lb["lb"]
+  ktier2["Primitives"] k_cni["cni"] k_lb["lb"]
+  space k_compute["compute"] space:1
   karrow2<[" "]>(down):3
   ktier1["Base"] k_policy["policy"] k_crds_layer["crds layer"]
   karrow1<[" "]>(down):3
@@ -67,6 +68,7 @@ block-beta
   style ktier2 fill:#2B59C3 !important,stroke:#6BA0FF !important,stroke-width:2px !important,color:#fff !important
   style k_cni fill:#6BA0FF30 !important,stroke:#6BA0FF !important,stroke-width:2px !important
   style k_lb fill:#6BA0FF30 !important,stroke:#6BA0FF !important,stroke-width:2px !important
+  style k_compute fill:#6BA0FF30 !important,stroke:#6BA0FF !important,stroke-width:2px !important
   style karrow2 fill:#6BA0FF !important,stroke:#6BA0FF !important
   style ktier1 fill:#2B59C3 !important,stroke:#6BA0FF !important,stroke-width:2px !important,color:#fff !important
   style k_policy fill:#6BA0FF30 !important,stroke:#6BA0FF !important,stroke-width:2px !important
