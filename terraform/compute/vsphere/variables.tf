@@ -59,12 +59,12 @@ variable "cluster_name" {
 }
 
 variable "cluster_endpoint" {
-  description = "Cluster control-plane API endpoint baked into every per-node machineconfig (e.g. https://192.168.0.10:6443). Required when instances include controlplane or worker roles."
+  description = "Cluster control-plane API endpoint baked into every per-node machineconfig (e.g. https://192.168.0.10:6443). Empty skips GuestInfo bake so cluster/talos can apply after DHCP leases exist."
   type        = string
   default     = ""
   validation {
     condition     = var.cluster_endpoint == "" || can(regex("^https://", var.cluster_endpoint))
-    error_message = "cluster_endpoint must start with https://"
+    error_message = "cluster_endpoint must be empty or start with https://"
   }
 }
 
@@ -125,7 +125,7 @@ variable "images" {
 }
 
 variable "instances" {
-  description = "List of VM definitions. Use count > 1 to create pools (named {name}-1, {name}-2, …). ipv4 is the starting address; sequential instances increment the host octet. Set image to a key in var.images to deploy from OVA; leave empty for a blank-disk VM. GuestInfo machineconfig is generated inside this module for controlplane and worker roles."
+  description = "List of VM definitions. Use count > 1 to create pools (named {name}-1, {name}-2, …). ipv4 is the starting address; sequential instances increment the host octet. Omit ipv4 for DHCP so the module waits for vmtoolsd to report a guest address. Set image to a key in var.images to deploy from OVA; leave empty for a blank-disk VM. GuestInfo machineconfig is generated inside this module for controlplane and worker roles."
   type = list(object({
     name           = string
     count          = optional(number, 1)

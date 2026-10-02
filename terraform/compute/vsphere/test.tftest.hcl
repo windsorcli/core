@@ -138,6 +138,16 @@ run "controlplane_from_ova" {
     condition     = contains(keys(vsphere_virtual_machine.instances["controlplane"].extra_config), "guestinfo.talos.config.base64")
     error_message = "Controlplane VM extra_config should include guestinfo.talos.config.base64"
   }
+
+  assert {
+    condition     = vsphere_virtual_machine.instances["controlplane"].wait_for_guest_ip_timeout == -1
+    error_message = "Static ipv4 should skip the guest-IP waiter"
+  }
+
+  assert {
+    condition     = vsphere_virtual_machine.instances["controlplane"].wait_for_guest_net_timeout == -1
+    error_message = "Static ipv4 should skip the guest-net waiter"
+  }
 }
 
 # Worker role: guestinfo is delivered to the VM.
@@ -431,5 +441,160 @@ run "validation_ipv4_octet_at_boundary" {
   assert {
     condition     = length(vsphere_virtual_machine.instances) == 2
     error_message = "count=2 starting at .254 should produce 2 VMs (.254, .255)"
+  }
+}
+
+# Omit ipv4: cluster VMs wait on guest.net for a DHCP lease (no gateway required).
+run "dhcp_waits_for_guest_net" {
+  command = plan
+
+  variables {
+    talos_version    = "1.12.6"
+    cluster_endpoint = "https://talos.plant.local:6443"
+    per_node_config_patches = {
+      "controlplane" = "machine:\n  network:\n    interfaces:\n    - dhcp: true\n"
+    }
+    images = {
+      talos = {
+        url = "https://factory.talos.dev/image/903b2da78f99adef03cbbd4df6714563823f63218508800751560d3bc3557e40/v1.10.3/vmware-amd64.ova"
+      }
+    }
+    instances = [
+      {
+        name           = "controlplane"
+        role           = "controlplane"
+        count          = 1
+        image          = "talos"
+        cpu            = 4
+        memory         = 8
+        root_disk_size = 30
+      }
+    ]
+  }
+
+  assert {
+    condition     = vsphere_virtual_machine.instances["controlplane"].wait_for_guest_ip_timeout == -1
+    error_message = "DHCP must not use the legacy guest.ipAddress waiter"
+  }
+
+  assert {
+    condition     = vsphere_virtual_machine.instances["controlplane"].wait_for_guest_net_timeout == 10
+    error_message = "DHCP (no ipv4) should wait 10 minutes for guest net"
+  }
+
+  assert {
+    condition     = vsphere_virtual_machine.instances["controlplane"].wait_for_guest_net_routable == false
+    error_message = "Net waiter must not require a routable/default-gateway match (minimal vmtoolsd reports none)"
+  }
+}
+
+# Empty cluster_endpoint: no GuestInfo bake; cluster/talos applies after lease.
+run "dhcp_empty_endpoint_skips_guestinfo" {
+  command = plan
+
+  variables {
+    cluster_endpoint = ""
+    images = {
+      talos = {
+        url = "https://factory.talos.dev/image/903b2da78f99adef03cbbd4df6714563823f63218508800751560d3bc3557e40/v1.10.3/vmware-amd64.ova"
+      }
+    }
+    instances = [
+      {
+        name           = "controlplane"
+        role           = "controlplane"
+        count          = 1
+        image          = "talos"
+        cpu            = 4
+        memory         = 8
+        root_disk_size = 30
+      }
+    ]
+  }
+
+  assert {
+    condition     = length(talos_machine_secrets.this) == 0
+    error_message = "Empty cluster_endpoint should skip talos_machine_secrets"
+  }
+
+  assert {
+    condition     = length(keys(vsphere_virtual_machine.instances["controlplane"].extra_config)) == 0
+    error_message = "Empty cluster_endpoint should skip GuestInfo extra_config"
+  }
+
+  assert {
+    condition     = vsphere_virtual_machine.instances["controlplane"].wait_for_guest_ip_timeout == -1
+    error_message = "DHCP must not use the legacy guest.ipAddress waiter"
+  }
+
+  assert {
+    condition     = vsphere_virtual_machine.instances["controlplane"].wait_for_guest_net_timeout == 10
+    error_message = "DHCP (no ipv4) should wait 10 minutes for guest net"
+  }
+
+  assert {
+    condition     = vsphere_virtual_machine.instances["controlplane"].wait_for_guest_net_routable == false
+    error_message = "Net waiter must not require a routable/default-gateway match"
+  }
+}
+
+# Mixed static + DHCP: the waiter is per-VM, so a DHCP worker does not re-arm
+# the guest-net waiter on a static control plane.
+run "mixed_static_and_dhcp_waits_per_vm" {
+  command = plan
+
+  variables {
+    cluster_endpoint = "https://10.5.0.10:6443"
+    images = {
+      talos = {
+        url = "https://factory.talos.dev/image/903b2da78f99adef03cbbd4df6714563823f63218508800751560d3bc3557e40/v1.10.3/vmware-amd64.ova"
+      }
+    }
+    instances = [
+      {
+        name           = "controlplane"
+        role           = "controlplane"
+        count          = 1
+        image          = "talos"
+        cpu            = 4
+        memory         = 8
+        root_disk_size = 30
+        ipv4           = "10.5.0.10"
+      },
+      {
+        name           = "worker"
+        role           = "worker"
+        count          = 1
+        image          = "talos"
+        cpu            = 4
+        memory         = 8
+        root_disk_size = 30
+      }
+    ]
+  }
+
+  assert {
+    condition     = vsphere_virtual_machine.instances["controlplane"].wait_for_guest_ip_timeout == -1
+    error_message = "Static control plane should keep the guest-IP waiter disabled even when a DHCP worker is present"
+  }
+
+  assert {
+    condition     = vsphere_virtual_machine.instances["controlplane"].wait_for_guest_net_timeout == -1
+    error_message = "Static control plane should keep the guest-net waiter disabled even when a DHCP worker is present"
+  }
+
+  assert {
+    condition     = vsphere_virtual_machine.instances["worker"].wait_for_guest_ip_timeout == -1
+    error_message = "DHCP worker must not use the legacy guest.ipAddress waiter"
+  }
+
+  assert {
+    condition     = vsphere_virtual_machine.instances["worker"].wait_for_guest_net_timeout == 10
+    error_message = "DHCP worker (no ipv4) should wait 10 minutes for guest net"
+  }
+
+  assert {
+    condition     = vsphere_virtual_machine.instances["worker"].wait_for_guest_net_routable == false
+    error_message = "Net waiter must not require a routable/default-gateway match"
   }
 }
