@@ -41,6 +41,12 @@ variable "machine_secrets" {
   default     = null
 }
 
+variable "skip_machine_config_apply" {
+  description = "Skip talos_machine_configuration_apply because the machineconfig reached the nodes out of band (hyperv CIDATA). Null (default) infers it from machine_secrets being supplied."
+  type        = bool
+  default     = null
+}
+
 variable "client_configuration" {
   description = "Pre-generated Talos client_configuration (output of an upstream cluster/talos-secrets module). When null (default), cluster/talos derives it from the locally-generated talos_machine_secrets. Must be supplied together with machine_secrets."
   type        = any

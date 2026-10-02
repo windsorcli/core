@@ -16,6 +16,13 @@ backend: cluster
 # =============================================================================
 config:
 
+  # Container-mode pin: Talos 1.14 hides Docker's /etc/hostname and
+  # /etc/resolv.conf behind its own /etc overlay.
+  - name: talos
+    value:
+      # renovate: datasource=github-releases depName=talos-container package=siderolabs/talos
+      talos_version: "1.13.9"
+
   # Controlplane at CIDR offset 10; offsets 2–9 reserved for workstation services.
   - name: talos_common
     value:

@@ -205,8 +205,11 @@ jobs:
             exit 1
           fi
           git fetch origin main
-          # A Talos version bump requires a full rebuild; skip upgrade mode for it.
-          TALOS_VERSION_FILE=contexts/_template/facets/config-talos.yaml
+          # A Talos version bump replaces the docker control plane (the version is
+          # the node image) and container mode has no in-place upgrade, so the
+          # cluster must be rebuilt. Fresh mode covers that. Keyed to the one
+          # field that sets the version so it can't mask other upgrade breakage.
+          TALOS_VERSION_FILE=contexts/_template/facets/platform-docker.yaml
           talos_version_of() { git show "$1:$TALOS_VERSION_FILE" 2>/dev/null | sed -n 's/^ *talos_version: *"\(.*\)"$/\1/p'; }
           base_talos=$(talos_version_of origin/main)
           head_talos=$(talos_version_of HEAD)
