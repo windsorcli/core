@@ -9,29 +9,29 @@
 #   - all
 registries:
   - type: standard
-    ref: v4.558.1 # renovate: depName=aquaproj/aqua-registry
+    ref: v4.568.0 # renovate: depName=aquaproj/aqua-registry
 packages:
   # Pinned to the 1.12 line for OpenTofu compatibility; see required_version "~> 1.12".
   - name: hashicorp/terraform@v1.12.2
-  - name: prometheus/prometheus@v3.14.0
-  - name: siderolabs/talos@v1.14.0
-  - name: siderolabs/omni/omnictl@v1.11.0
-  - name: siderolabs/omni/omni@v1.11.0
-  - name: kubernetes/kubectl@v1.37.0
+  - name: prometheus/prometheus@v3.15.0
+  - name: siderolabs/talos@v1.14.2
+  - name: siderolabs/omni/omnictl@v1.12.3
+  - name: siderolabs/omni/omni@v1.12.3
+  - name: kubernetes/kubectl@v1.37.1
   - name: go-task/task@v3.53.1
   - name: golang/go@go1.27.1
   - name: docker/cli@v27.4.1
   - name: docker/compose@v5.5.1
-  - name: aws/aws-cli@2.36.43
-  - name: helm/helm@v4.2.4
+  - name: aws/aws-cli@2.37.8
+  - name: helm/helm@v4.3.0
   - name: fluxcd/flux2@v2.9.5
-  - name: hashicorp/vault@v2.1.0
+  - name: hashicorp/vault@v2.1.1
   - name: derailed/k9s@v0.51.0
   - name: getsops/sops@v3.13.3
   - name: 1password/cli@v2.30.3
-  - name: evilmartians/lefthook@v2.1.12
+  - name: evilmartians/lefthook@v2.1.16
   - name: mikefarah/yq@v4.53.6
-  - name: bridgecrewio/checkov@3.3.17
+  - name: bridgecrewio/checkov@3.3.20
   - name: kubernetes-sigs/krew@v0.5.0
-  - name: Azure/kubelogin@v0.2.19
+  - name: Azure/kubelogin@v0.2.20
   - name: twistedpair/google-cloud-sdk@562.0.0

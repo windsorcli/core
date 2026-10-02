@@ -23,13 +23,26 @@ variable "region" {
   default     = "us-central1"
 }
 
+variable "operation" {
+  description = "Windsor-supplied operation context: \"apply\" or \"destroy\". Relaxes validation on inputs wired from sibling components, whose values are irrelevant to a delete."
+  type        = string
+  default     = "apply"
+}
+
 variable "network_id" {
   type        = string
   description = "ID of the VPC network Cloud SQL peers with for private IP connectivity. Pipe network/gcp-vpc's network_id output."
+  default     = null
   validation {
-    condition     = var.network_id != null && var.network_id != ""
+    condition     = var.operation == "destroy" || (var.network_id != null && var.network_id != "")
     error_message = "network_id is required; pipe network/gcp-vpc's network_id output."
   }
+}
+
+variable "private_service_address" {
+  description = "Starting address of the /16 CIDR reserved for Cloud SQL's private service connection. Must not overlap any other range in the VPC."
+  type        = string
+  default     = "172.28.0.0"
 }
 
 variable "manage_encryption_key" {
@@ -38,16 +51,8 @@ variable "manage_encryption_key" {
   default     = true
 }
 
-variable "kms_key_name" {
+variable "key_id" {
   description = "Existing KMS CryptoKey resource name for Cloud SQL storage encryption. Set to use a key you already manage instead of one this module creates."
   type        = string
   default     = ""
-}
-
-variable "admin_credentials" {
-  description = "Admin credential Secrets to create, keyed by Cloud SQL instance name. Each entry generates a random password and writes it to <key>-admin-credentials in system-provisioning, the fixed name a chart's User CR reads via passwordSecretRef."
-  type = map(object({
-    username = string
-  }))
-  default = {}
 }

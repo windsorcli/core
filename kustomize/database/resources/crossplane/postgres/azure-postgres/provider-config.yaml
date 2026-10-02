@@ -1,0 +1,12 @@
+---
+# Named "default": a consuming FlexibleServer CR needs no providerConfigRef.
+apiVersion: azure.upbound.io/v1beta1
+kind: ProviderConfig
+metadata:
+  name: default
+spec:
+  subscriptionID: ${crossplane_azure_subscription_id}
+  tenantID: ${crossplane_azure_tenant_id}
+  clientID: ${crossplane_azure_client_id}
+  credentials:
+    source: OIDCTokenFile

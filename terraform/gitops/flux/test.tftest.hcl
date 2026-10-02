@@ -298,13 +298,21 @@ run "replicas_patches_all_default_controllers" {
 
   assert {
     condition = alltrue([
-      for name in ["source-controller", "kustomize-controller", "helm-controller", "notification-controller"] :
+      for name in ["kustomize-controller", "helm-controller", "notification-controller"] :
       length([
         for p in yamldecode(helm_release.flux_instance.values[0]).instance.kustomize.patches :
         p if p.target.name == name && strcontains(p.patch, "\"path\": \"/spec/replicas\"") && strcontains(p.patch, "\"value\": 2")
       ]) > 0
     ])
-    error_message = "var.replicas should patch every default controller's replica count"
+    error_message = "var.replicas should patch every default controller's replica count except source-controller"
+  }
+
+  assert {
+    condition = length([
+      for p in yamldecode(helm_release.flux_instance.values[0]).instance.kustomize.patches :
+      p if p.target.name == "source-controller" && strcontains(p.patch, "\"path\": \"/spec/replicas\"") && strcontains(p.patch, "\"value\": 1")
+    ]) > 0
+    error_message = "source-controller should stay pinned to 1 replica regardless of var.replicas — its standby replica never reports ready under leader election"
   }
 }
 

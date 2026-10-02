@@ -1,0 +1,42 @@
+---
+apiVersion: policies.kyverno.io/v1
+kind: MutatingPolicy
+metadata:
+  name: external-dns-default-ttl
+  annotations:
+    policies.kyverno.io/title: Default external-dns TTL
+    policies.kyverno.io/category: DNS
+    policies.kyverno.io/severity: low
+    policies.kyverno.io/subject: HTTPRoute
+    policies.kyverno.io/description: >-
+      Adds a default external-dns TTL annotation to HTTPRoutes so DNS record
+      changes (LB re-provision, failover) propagate on a short TTL instead of the
+      provider default. Routes that set the annotation themselves are unchanged.
+spec:
+  # Non-blocking convenience mutate: never gate route admission on the webhook.
+  failurePolicy: Ignore
+  evaluation:
+    background:
+      enabled: false
+  matchConstraints:
+    resourceRules:
+      - apiGroups: [gateway.networking.k8s.io]
+        apiVersions: [v1, v1beta1]
+        operations: [CREATE, UPDATE]
+        resources: [httproutes]
+  matchConditions:
+    - name: managed-namespace
+      expression: >-
+        object.metadata.namespace.startsWith('system-') ||
+        namespaceObject.metadata.?labels[?'policy.windsorcli.dev/managed'].orValue('') == 'true'
+  mutations:
+    - patchType: ApplyConfiguration
+      applyConfiguration:
+        expression: >
+          object.metadata.?annotations[?'external-dns.alpha.kubernetes.io/ttl'].hasValue() ?
+          Object{} :
+          Object{
+            metadata: Object.metadata{
+              annotations: {"external-dns.alpha.kubernetes.io/ttl": "300"}
+            }
+          }

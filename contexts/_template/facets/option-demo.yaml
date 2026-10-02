@@ -6,24 +6,15 @@ metadata:
 
 when: demo.enabled == true
 
-# =============================================================================
-# Terraform — Cloud SQL admin credential
-# =============================================================================
-# Merges into platform-gcp.yaml's own "database" terraform entry.
-terraform:
-  - name: database
-    path: database/gcp-cloudsql
-    when: demo.resources.database == true && database.postgres.driver == 'cloudsql'
-    inputs:
-      admin_credentials:
-        demo-db:
-          username: demo
-
 # Single source of truth for demo-db's database name, used by the
-# Instance CR and the app-role component below.
+# Instance CR and the AppRole below.
 config:
   - name: demo_database_name
     value: demo
+  # Flexible Server names are globally unique in Azure; other drivers
+  # keep the plain literal.
+  - name: database_instance_name
+    value: "${database_effective.cloud_driver == 'azuredb' ? 'demo-db-' + id : 'demo-db'}"
 
 # =============================================================================
 # Flux — demo applications
@@ -31,30 +22,38 @@ config:
 #
 # Sample apps reconciled onto the running cluster, a resources-only system.
 # Each demo.resources.* flag toggles one app. database adds a shared
-# namespace plus a driver variant (cloudnativepg or rds). dependsOn
-# follows whichever operator owns the active driver.
+# namespace plus a driver variant (cloudnativepg, rds, azuredb, or
+# cloudsql), plus the shared app credential. The monitor
+# credential and its exporter are provisioned automatically by the
+# database facet's own WatchOperations, not by this facet.
+# dependsOn follows whichever operator owns the active driver.
+#
+# The three managed drivers read their own terraform outputs directly
+# below; a third-party chart, with no Flux substitution access, has to
+# reconstruct the same naming convention instead.
 #
 flux:
 
   # cloudnativepg driver: shared namespace plus the in-cluster Cluster CR.
   - name: demo
     path: demo
-    when: demo.resources.database == true && database.postgres.driver == 'cloudnativepg'
+    when: demo.resources.database == true && database.postgres.enabled == true
     dependsOn:
-      - database
+      - database-install
     resources:
       - components:
           - database
           - database/cloudnativepg
         substitutions:
-          demo_db_name: "${demo_database_name}"
+          demo_database_name: "${demo_database_name}"
         timeout: 10m
         interval: 5m
 
-  # rds driver: shared namespace and the Instance CR.
+  # rds driver: the Instance CR and its credentials as a named variant.
+  # dependsOn drops the Role/Grant before the Instance goes away.
   - name: demo
     path: demo
-    when: demo.resources.database == true && database.postgres.driver == 'rds'
+    when: demo.resources.database == true && database.postgres.cloud.enabled == true && database_effective.cloud_driver == 'rds'
     dependsOn:
       - provisioning-resources
     resources:
@@ -62,53 +61,76 @@ flux:
           - database
           - database/rds
         substitutions:
-          # The demo reads the real terraform outputs directly; a
-          # third-party chart (no Flux substitution access) has to
-          # reconstruct the naming convention instead.
-          db_subnet_group_name: "${terraform_output('network', 'db_subnet_group_name') ?? ''}"
-          kms_key_arn: "${terraform_output('database', 'kms_key_arn') ?? ''}"
-          rds_security_group_id: "${terraform_output('database', 'security_group_id') ?? ''}"
-          demo_db_name: "${demo_database_name}"
+          demo_database_name: "${demo_database_name}"
+          database_instance_name: "${database_instance_name}"
           aws_region: "${aws.region ?? ''}"
         healthCheckExprs:
+          # Gated on the Instance's own Ready condition, not the CR apply.
           - apiVersion: rds.aws.upbound.io/v1beta3
             kind: Instance
             current: status.conditions.exists(e, e.type == 'Ready' && e.status == 'True')
-        # Gated on the Instance's own Ready condition, not the CR apply.
-        timeout: 30m
+        timeout: 45m
+        deleteTimeout: 60m
+        interval: 5m
+      - name: credentials
+        dependsOn:
+          - demo-resources
+        components:
+          - database/credentials
+        substitutions:
+          demo_database_name: "${demo_database_name}"
+          database_instance_name: "${database_instance_name}"
+        healthCheckExprs:
+          - apiVersion: database.windsorcli.dev/v1alpha1
+            kind: AppRole
+            current: status.conditions.exists(e, e.type == 'Ready' && e.status == 'True')
+        timeout: 10m
         interval: 5m
 
-  # flexibleserver driver: shared namespace and the FlexibleServer +
-  # FlexibleServerDatabase CRs — Azure twin of the rds entry above.
+  # azuredb driver: Azure twin of rds.
   - name: demo
     path: demo
-    when: demo.resources.database == true && database.postgres.driver == 'flexibleserver'
+    when: demo.resources.database == true && database.postgres.cloud.enabled == true && database_effective.cloud_driver == 'azuredb'
     dependsOn:
       - provisioning-resources
     resources:
       - components:
           - database
-          - database/flexibleserver
+          - database/azuredb
         substitutions:
-          # The demo reads the real terraform outputs directly; a
-          # third-party chart (no Flux substitution access) has to
-          # reconstruct the naming convention instead.
-          flexibleserver_subnet_id: "${terraform_output('network', 'flexibleserver_subnet_id') ?? ''}"
-          flexibleserver_private_dns_zone_id: "${terraform_output('database', 'private_dns_zone_id') ?? ''}"
-          flexibleserver_region: "${terraform_output('network', 'region') ?? ''}"
+          azuredb_region: "${terraform_output('network', 'region') ?? ''}"
+          database_instance_name: "${database_instance_name}"
         healthCheckExprs:
           - apiVersion: dbforpostgresql.azure.upbound.io/v1beta1
             kind: FlexibleServer
             current: status.conditions.exists(e, e.type == 'Ready' && e.status == 'True')
+          # FlexibleServerDatabase is the CR that actually creates the database.
+          - apiVersion: dbforpostgresql.azure.upbound.io/v1beta1
+            kind: FlexibleServerDatabase
+            current: status.conditions.exists(e, e.type == 'Ready' && e.status == 'True')
         # Gated on the FlexibleServer's own Ready condition, not the CR apply.
-        timeout: 30m
+        timeout: 45m
+        deleteTimeout: 60m
+        interval: 5m
+      - name: credentials
+        dependsOn:
+          - demo-resources
+        components:
+          - database/credentials
+        substitutions:
+          demo_database_name: "${demo_database_name}"
+          database_instance_name: "${database_instance_name}"
+        healthCheckExprs:
+          - apiVersion: database.windsorcli.dev/v1alpha1
+            kind: AppRole
+            current: status.conditions.exists(e, e.type == 'Ready' && e.status == 'True')
+        timeout: 10m
         interval: 5m
 
-  # cloudsql driver: shared namespace and the DatabaseInstance + User +
-  # Database CRs — GCP twin of the rds/flexibleserver entries above.
+  # cloudsql driver: GCP twin of rds/azuredb.
   - name: demo
     path: demo
-    when: demo.resources.database == true && database.postgres.driver == 'cloudsql'
+    when: demo.resources.database == true && database.postgres.cloud.enabled == true && database_effective.cloud_driver == 'cloudsql'
     dependsOn:
       - provisioning-resources
     resources:
@@ -116,88 +138,33 @@ flux:
           - database
           - database/cloudsql
         substitutions:
-          # The demo reads terraform outputs directly, unlike a
-          # third-party chart with no Flux substitution access.
-          cloudsql_network_id: "${terraform_output('network', 'network_id') ?? ''}"
-          cloudsql_kms_key_name: "${terraform_output('database', 'kms_key_name') ?? ''}"
           cloudsql_region: "${terraform_output('network', 'region') ?? ''}"
+          database_instance_name: "${database_instance_name}"
         healthCheckExprs:
           - apiVersion: sql.gcp.upbound.io/v1beta2
             kind: DatabaseInstance
             current: status.conditions.exists(e, e.type == 'Ready' && e.status == 'True')
-        # Gated on the DatabaseInstance's own Ready condition, not the CR
-        # apply. A db-f1-micro instance takes ~9m to go Ready.
-        timeout: 30m
+          # Database is the CR that actually creates the database.
+          - apiVersion: sql.gcp.upbound.io/v1beta1
+            kind: Database
+            current: status.conditions.exists(e, e.type == 'Ready' && e.status == 'True')
+        # Gated on the DatabaseInstance's own Ready condition, not the CR apply.
+        timeout: 45m
+        deleteTimeout: 60m
         interval: 5m
-
-  # Application credential for demo-db. Depends on demo-resources for
-  # namespace-before-RBAC ordering.
-  - name: demo-app-role
-    path: provisioning
-    when: demo.resources.database == true && database.postgres.driver == 'rds'
-    dependsOn:
-      - demo-resources
-    resources:
-      - components:
-          - crossplane/aws-rds/app-role
+      - name: credentials
+        dependsOn:
+          - demo-resources
+        components:
+          - database/credentials
         substitutions:
-          pg_instance_name: demo-db
-          pg_database_name: "${demo_database_name}"
-          pg_target_namespace: demo-database
-          # Ownership already covers everything the demo needs; no extra
-          # grants to layer on.
-          pg_grant_sql: ""
+          demo_database_name: "${demo_database_name}"
+          database_instance_name: "${database_instance_name}"
         healthCheckExprs:
-          # Gated on the Job's Complete condition, not its apply.
-          - apiVersion: batch/v1
-            kind: Job
-            current: status.conditions.exists(e, e.type == 'Complete' && e.status == 'True')
-        timeout: 5m
-        interval: 5m
-
-  # Application credential for demo-db — Azure twin of the rds entry above.
-  - name: demo-app-role
-    path: provisioning
-    when: demo.resources.database == true && database.postgres.driver == 'flexibleserver'
-    dependsOn:
-      - demo-resources
-    resources:
-      - components:
-          - crossplane/azure-postgres/app-role
-        substitutions:
-          pg_instance_name: demo-db
-          pg_database_name: "${demo_database_name}"
-          pg_target_namespace: demo-database
-          pg_grant_sql: ""
-        healthCheckExprs:
-          # Gated on the Job's Complete condition, not its apply.
-          - apiVersion: batch/v1
-            kind: Job
-            current: status.conditions.exists(e, e.type == 'Complete' && e.status == 'True')
-        timeout: 5m
-        interval: 5m
-
-  # Application credential for demo-db — GCP twin of the rds/flexibleserver
-  # entries above.
-  - name: demo-app-role
-    path: provisioning
-    when: demo.resources.database == true && database.postgres.driver == 'cloudsql'
-    dependsOn:
-      - demo-resources
-    resources:
-      - components:
-          - crossplane/gcp-cloudsql/app-role
-        substitutions:
-          pg_instance_name: demo-db
-          pg_database_name: "${demo_database_name}"
-          pg_target_namespace: demo-database
-          pg_grant_sql: ""
-        healthCheckExprs:
-          # Gated on the Job's Complete condition, not its apply.
-          - apiVersion: batch/v1
-            kind: Job
-            current: status.conditions.exists(e, e.type == 'Complete' && e.status == 'True')
-        timeout: 5m
+          - apiVersion: database.windsorcli.dev/v1alpha1
+            kind: AppRole
+            current: status.conditions.exists(e, e.type == 'Ready' && e.status == 'True')
+        timeout: 10m
         interval: 5m
 
   # static and bookinfo carry no database dependency.

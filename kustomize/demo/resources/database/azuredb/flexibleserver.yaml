@@ -1,0 +1,22 @@
+---
+# resourceGroupName, delegatedSubnetId, privateDnsZoneId, and providerConfigRef
+# all come from the database add-on's own Kyverno policies.
+apiVersion: dbforpostgresql.azure.upbound.io/v1beta1
+kind: FlexibleServer
+metadata:
+  name: ${database_instance_name}
+spec:
+  deletionPolicy: Delete
+  forProvider:
+    # Must match the delegated subnet's own region (network/azure-vnet).
+    location: ${azuredb_region}
+    version: "16"
+    skuName: B_Standard_B1ms
+    storageMb: 32768
+    administratorLogin: demo
+    administratorPasswordSecretRef:
+      name: ${database_instance_name}-admin-credentials
+      namespace: system-database
+      key: password
+    autoGeneratePassword: true
+    publicNetworkAccessEnabled: false

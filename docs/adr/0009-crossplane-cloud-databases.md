@@ -1,20 +1,18 @@
 ---
 title: "ADR-0009: Crossplane — application-requested cloud databases"
-description: Adds database.postgres.driver: rds, installing Crossplane and provider-aws-rds so a Helm chart installed on top of core can request a cloud-managed Postgres database without the customer authoring their own blueprint. Scopes core#2515 down to the grounded case; no cross-cloud abstraction, no general-purpose Crossplane surface.
+description: "Adds database.postgres.driver: rds, installing Crossplane and provider-aws-rds so a Helm chart installed on top of core can request a cloud-managed Postgres database without the customer authoring their own blueprint. Scopes core#2515 down to the grounded case; no cross-cloud abstraction, no general-purpose Crossplane surface."
 ---
-
-# ADR-0009: Crossplane — application-requested cloud databases
 
 ## Status
 
-Proposed. Formalizes [core#2515](https://github.com/windsorcli/core/issues/2515), scoped to a single concrete need.
+Accepted — shipped in v0.7.0 ([#2599](https://github.com/windsorcli/core/pull/2599)). Formalizes [core#2515](https://github.com/windsorcli/core/issues/2515), scoped to a single concrete need.
 
 ## Context
 
 Core's provisioning model is Terraform: infrastructure is decided by the
 platform operator at blueprint-compose time (`schema.yaml`/facets) and
 applied by `windsor apply`, before any workload is installed. A customer
-needs something this model can't produce — their application's Helm chart,
+needs something this model can't produce. Their application's Helm chart,
 installed *after* `windsor apply` on top of an already-running core
 cluster, requires a real cloud-managed database as an application
 dependency. They cannot be required to author their own Windsor blueprint
@@ -25,19 +23,20 @@ no hook for a workload deciding, at its own install time, that it needs a
 cloud resource.
 
 Crossplane extends the Kubernetes API with CRDs a controller reconciles
-against a cloud provider — the same operator-plus-CRD pattern core already
-uses for CloudNativePG and External Secrets Operator, except the CRD here
-represents a cloud resource instead of an in-cluster one. core#2515 asks
-for Crossplane broadly — any `Provider`/`Composition`/`CompositeResourceDefinition`
-as a general blueprint capability. This ADR scopes that down to what's
-actually grounded: one application-level dependency, a cloud-managed
-Postgres database, installed the same way core already installs CNPG.
+against a cloud provider. This is the same operator-plus-CRD pattern core
+already uses for CloudNativePG and External Secrets Operator, except the
+CRD here represents a cloud resource instead of an in-cluster one.
+core#2515 asks for Crossplane broadly: any
+`Provider`/`Composition`/`CompositeResourceDefinition` as a general
+blueprint capability. This ADR scopes that down to what's actually
+grounded: one application-level dependency, a cloud-managed Postgres
+database, installed just as core already installs CNPG.
 
-`kustomize/database` today has only an `install/` tier for CloudNativePG —
-core installs the operator; nothing in the repo creates the `Cluster` CR.
+`kustomize/database` today has only an `install/` tier for CloudNativePG.
+Core installs the operator; nothing in the repo creates the `Cluster` CR.
 That's left entirely to whatever consumes it. The customer's Crossplane
-need is the same posture: install the controller, let the chart create the
-resource.
+need follows the same pattern: install the controller, let the chart
+create the resource.
 
 ## Decision
 
@@ -52,62 +51,62 @@ database:
 
 Reuses the existing `database.postgres` capability rather than introducing
 a top-level `crossplane` key. `enabled` gates the capability; `driver`
-selects which controller fulfills the chart's database CR — exactly the
+selects which controller fulfills the chart's database CR, exactly the
 role it already plays for `cloudnativepg`.
 
 ### 2. `kustomize/provisioning/` — its own domain, named for the capability
 
 Every existing kustomize domain is a capability noun with the vendor tool
 nested under `install/` (`pki/install/cert-manager`,
-`policy/install/kyverno`, `csi/install/{longhorn,openebs,...}`) — never
-the vendor name as the domain itself, even when there's only one tool
-today (`policy/install/kyverno`, not `kyverno/install/kyverno`). Crossplane
-follows the same shape: `provisioning/install/crossplane` for the Helm
-release. The namespace is `system-provisioning`, matching every other
-domain's `system-<domain>` convention (`system-pki`, not
+`policy/install/kyverno`, `csi/install/{longhorn,openebs,...}`). The
+vendor name never becomes the domain itself, even when there's only one
+tool today (`policy/install/kyverno`, not `kyverno/install/kyverno`).
+Crossplane follows the same pattern: `provisioning/install/crossplane`
+for the Helm release. The namespace is `system-provisioning`, matching
+every other domain's `system-<domain>` convention (`system-pki`, not
 `system-cert-manager`). Crossplane is a general-purpose engine, not a
-database concept — nesting its install under `kustomize/database/` would
-misname what it is. `database.postgres.driver == 'rds'` is still what
-turns it on: the `provisioning` `flux:` system entry lives in
+database concept, so nesting its install under `kustomize/database/`
+would misname what it is. `database.postgres.driver == 'rds'` is still
+what turns it on: the `provisioning` `flux:` system entry lives in
 `addon-database.yaml` and targets `kustomize/provisioning/`, the same
-cross-domain-entry-in-a-driving-facet shape that facet's `observability`
+cross-domain-entry-in-a-driving-facet pattern that facet's `observability`
 entry already uses to target `kustomize/observability/`.
 
 Crossplane's own core CRDs (`Provider`, `DeploymentRuntimeConfig`,
-`Composition`, ...) are vendored under `kustomize/crds/crossplane-2.4.0`
-— ~20 files from `crossplane/crossplane`'s `cluster/crds/`, the same
+`Composition`, ...) are vendored under `kustomize/crds/crossplane-2.4.0`:
+~20 files from `crossplane/crossplane`'s `cluster/crds/`, the same
 `urls:` mode `sources.yaml` already uses for Keycloak's 4 files. This
-isn't the usual Helm-never-upgrades-CRDs justification (Crossplane's own
+isn't the usual Helm-never-upgrades-CRDs justification. Crossplane's own
 chart applies these itself via an init container at every start,
 regardless of what's vendored, so the vendored copy is never the sole
-authority the way cert-manager's is) — it exists purely so `install:` can
+authority the way cert-manager's is. It exists purely so `install:` can
 create `Provider`/`DeploymentRuntimeConfig` CRs without racing that init
 container on first apply. With that race gone, `install:` carries the
 HelmRelease and, in `install/crossplane/aws-rds`, the `Provider` CR that
 requests `provider-aws-rds` plus the `DeploymentRuntimeConfig` it
-references — ordinary CRs of already-registered kinds, no different from
-any other resource an already-installed operator's chart happens to
-create.
+references. These are ordinary CRs of already-registered kinds, no
+different from any other resource an already-installed operator's chart
+happens to create.
 
-`provider-aws-rds`'s *own* CRDs are a second, genuinely separate gap:
-they don't exist until Crossplane's package manager finishes pulling the
+`provider-aws-rds`'s *own* CRDs are a second, genuinely separate gap.
+They don't exist until Crossplane's package manager finishes pulling the
 package the `Provider` CR requested, and that package isn't vendored (no
-static release asset to pin the way Crossplane's own CRDs are — the
+static release asset to pin the way Crossplane's own CRDs are; the
 `Provider` CR's `spec.package` reference is the update surface instead).
 `install:` carries `healthCheckExprs` on that `Provider` reporting
 Healthy/Installed, and Crossplane only sets Installed=True once its CRDs
-are registered — so `resources/crossplane/aws-rds` (the `ProviderConfig`,
+are registered. So `resources/crossplane/aws-rds` (the `ProviderConfig`,
 plus a Kyverno `ClusterPolicy` with no such dependency of its own) is safe
 the moment `install:` reports Ready, no explicit `dependsOn` needed beyond
 the system's own implicit install-before-resources edge.
 `install/crossplane/aws-rds` and `resources/crossplane/aws-rds` share the
 same leaf name on purpose, the way `csi/install/longhorn` and
-`csi/resources/longhorn` already do — same provider, split by lifecycle
+`csi/resources/longhorn` already do: same provider, split by lifecycle
 stage, not two different things.
 
-Core creates the `ProviderConfig`, named `default` — the field's own
-default, so the chart's `Instance` CR needs no `providerConfigRef` at all,
-closing the CNPG analogy exactly: the chart supplies only the database
+Core creates the `ProviderConfig`, named `default` (the field's own
+default), so the chart's `Instance` CR needs no `providerConfigRef` at all.
+This closes the CNPG analogy exactly: the chart supplies only the database
 definition. The customer's chart cannot safely create the `ProviderConfig`
 itself, since it binds to a privileged IAM role.
 
@@ -124,23 +123,24 @@ core's own add-ons. It splits into three pieces, each living where its
 own reason to change actually points:
 
 **`network/aws-vpc`** gains `aws_db_subnet_group.main`, spanning the
-isolated (zero-egress, no NAT route) subnets — created unconditionally,
-the same way the isolated subnet tier itself already is, regardless of
-whether `database.postgres.driver` is even `rds`. It's the most neutral
-of the three: a pure networking construct, naturally shared across every
-database in a context rather than created per-instance, with no engine or
-encryption opinion of its own.
+isolated (zero-egress, no NAT route) subnets. It's created
+unconditionally, matching the isolated subnet tier itself, regardless of
+whether `database.postgres.driver` is even `rds`. It's the
+most neutral of the three: a pure networking construct, naturally shared
+across every database in a context rather than created per-instance,
+with no engine or encryption opinion of its own.
 
 **`terraform/database/aws-rds`**, a new top-level layer, owns the KMS key
-RDS storage encryption uses. Named for the capability, not the mechanism
-— encryption is a property of the data, independent of whether Crossplane
-or (someday) Terraform itself creates the actual RDS instance. A
-Terraform-native database mode, decided at blueprint-compose time instead
-of by a customer's chart, is a real future shape and a fundamentally
-different mechanism from this ADR's — but it would *extend* this same
-layer (add the instance resource, still keyed by the same encryption
-story) rather than need a new one, so the name was never reserved against
-a collision, it just never described an engine to begin with.
+RDS storage encryption uses. It's named for the capability, not the
+mechanism: encryption is a property of the data, independent of whether
+Crossplane or (someday) Terraform itself creates the actual RDS instance.
+A Terraform-native database mode, decided at blueprint-compose time
+instead of by a customer's chart, is a real future direction and a
+fundamentally different mechanism from this ADR's. But it would *extend*
+this same layer (add the instance resource, still keyed by the same
+encryption story) rather than need a new one, so the name was never
+reserved against a collision; it just never described an engine to begin
+with.
 
 **`terraform/provisioning/crossplane-iam`**, also a new top-level layer,
 owns the IAM role, policy, and Pod Identity association Crossplane's
@@ -148,22 +148,23 @@ owns the IAM role, policy, and Pod Identity association Crossplane's
 engine-specific: Pod Identity exists only because a Crossplane provider
 pod needs credentials to call AWS on the cluster's behalf, a need no
 Terraform-native mode would share (`windsor apply`'s own credentials
-would create that instance directly, no in-cluster pod involved). Named
-`provisioning` to match `kustomize/provisioning/`'s own top-level name for
-the identical reason — this is Crossplane's own wiring, not a database
-concept. It keeps the `for_each`-over-a-`resources`-set catalog shape a
-single, un-split module used to have: a second Crossplane-managed AWS
-resource type (S3, say) means one new catalog entry here, a genuinely
-repeated shape IAM policies share and KMS keys don't.
+would create that instance directly, no in-cluster pod involved). It's
+named `provisioning` to match `kustomize/provisioning/`'s own top-level
+name for the identical reason: this is Crossplane's own wiring, not a
+database concept. It keeps the `for_each`-over-a-`resources`-set catalog
+pattern a single, un-split module used to have: a second
+Crossplane-managed AWS resource type (S3, say) means one new catalog
+entry here, a genuinely repeated pattern IAM policies share and KMS keys
+don't.
 
 Both new layers are top-level, not nested under `cluster/aws-eks/` the
-way an earlier version of this design put them — matching precedent this
-ADR previously undersold. `pki/ca` and `dns/zone/route53` are both already
-addon-scoped top-level Terraform layers, gated by their own `when:` the
-same way `database`/`crossplane-iam` are gated on
-`database.postgres.driver == 'rds'`; a Pod Identity association being
+way an earlier version of this design put them, matching precedent this
+ADR previously undersold. `pki/ca` and `dns/zone/route53` are both
+already addon-scoped top-level Terraform layers, gated by their own
+`when:`, mirroring how `database`/`crossplane-iam` are gated on
+`database.postgres.driver == 'rds'`. A Pod Identity association being
 EKS-cluster-scoped was never actually a reason it had to live *inside*
-the cluster module, only that it needs the cluster's outputs — the same
+the cluster module, only that it needs the cluster's outputs: the same
 relationship `dns-zone`'s `zone_id` already has to `cluster`, just with
 the dependency direction reversed (`crossplane-iam` depends on `cluster`
 and `database`'s outputs, not the other way around).
@@ -171,49 +172,49 @@ and `database`'s outputs, not the other way around).
 `crossplane-iam`'s policy is scoped to RDS instance lifecycle actions
 (`CreateDBInstance`, `ModifyDBInstance`, `DeleteDBInstance`, tagging,
 snapshotting) within the shared subnet group and the cluster's existing
-VPC — no VPC, subnet, or security-group creation rights, out of
-Crossplane's reach. `CreateDBInstance` also needs an explicit `Allow` on
-the `subgrp:*` ARN the instance references, not just the `db:*` ARN it
-creates — AWS authorizes the action against every resource it touches,
-not only the one being created. Found live: an `Instance` create failed
-with an `AccessDenied` naming the DB subnet group ARN specifically, not
-the instance ARN the policy already covered.
+VPC. It has no VPC, subnet, or security-group creation rights; those stay
+out of Crossplane's reach. `CreateDBInstance` also needs an explicit
+`Allow` on the `subgrp:*` ARN the instance references, not just the
+`db:*` ARN it creates: AWS authorizes the action against every resource
+it touches, not only the one being created. Found live: an `Instance`
+create failed with an `AccessDenied` naming the DB subnet group ARN
+specifically, not the instance ARN the policy already covered.
 
 The policy also allows `iam:CreateServiceLinkedRole`, scoped to
 `AWSServiceRoleForRDS` with a condition on `iam:AWSServiceName`, matching
-[AWS's own documented policy for it](https://docs.aws.amazon.com/AmazonRDS/latest/UserGuide/UsingWithRDS.IAM.ServiceLinkedRoles.html)
-— every AWS account needs this service-linked role to exist once before
+[AWS's own documented policy for it](https://docs.aws.amazon.com/AmazonRDS/latest/UserGuide/UsingWithRDS.IAM.ServiceLinkedRoles.html).
+Every AWS account needs this service-linked role to exist once before
 any RDS instance can ever be created in it, and this role has no other
 IAM permissions to self-bootstrap it otherwise. Found live: `demo-db`'s
 first create attempt (once the subnet-group ARN fix above landed) failed
 with `InvalidParameterValue: ... permission to create service linked
-role` — `aws-test`'s first RDS instance in this account.
+role`, `aws-test`'s first RDS instance in this account.
 
 The policy also allows `kms:DescribeKey` and `kms:CreateGrant` (the
 latter conditioned on `kms:GrantIsForAWSResource`) against whichever KMS
-key ARN `database/aws-rds` resolves — even an AWS-managed key needs the
+key ARN `database/aws-rds` resolves. Even an AWS-managed key needs the
 calling role's own IAM grant to use it, since its key policy delegates
 back to identity-based policy rather than allowing every principal
 outright. Found live: `demo-db`'s create attempt (once the
 service-linked-role fix above landed) failed with
-`KMSKeyNotAccessibleFault` naming the key `[null]` — leaving `kmsKeyId`
-unset on the `Instance` CR and relying on `storageEncrypted: true` to
-imply the default key doesn't satisfy this IAM policy's scoped grant, even
-though AWS resolves the same default key either way.
+`KMSKeyNotAccessibleFault` naming the key `[null]`. Leaving `kmsKeyId`
+unset on the `Instance` CR and relying on `storageEncrypted: true`
+implies the default key, but that doesn't satisfy this IAM policy's
+scoped grant, even though AWS resolves the same default key either way.
 
 `database/aws-rds` resolves that ARN with the same precedence
 `secrets_encryption_kms_key_id`/`ebs_volume_kms_key_id` already use in
 `cluster/aws-eks`: an explicit `kms_key_arn`
-(`database.postgres.encryption.kms_key_arn` in schema — BYOK, for a
-key the customer already manages) wins if set; otherwise a dedicated
+(`database.postgres.encryption.kms_key_arn` in schema, for BYOK against a
+key the customer already manages) wins if set. Otherwise a dedicated
 `aws_kms_key.rds` is created, one per context, shared across every
-database rather than one per resource or per instance — AWS's own
+database rather than one per resource or per instance. AWS's own
 guidance is to key per use-case, not key per resource, and
 rotation/revocation/audit trail are exactly what the AWS-managed default
 key can't give a customer. `ephemeral == true` (CI, throwaway test
 contexts) skips the dedicated key in favor of the AWS-managed default
 (`alias/aws/rds`, looked up via `data.aws_kms_key.rds_default`), the same
-posture `manage_log_group` already uses for the control-plane log group —
+posture `manage_log_group` already uses for the control-plane log group:
 a short-lived context's data has no lifetime for a CMK's rotation/audit
 story to matter for.
 
@@ -221,48 +222,48 @@ story to matter for.
 permissions: `secretsmanager:CreateSecret` and `secretsmanager:TagResource`
 (scoped to `secret:rds!*`, the fixed prefix RDS-managed secrets always
 use), plus `kms:DescribeKey` against the account's `aws/secretsmanager`
-key — required per
+key. This is required per
 [AWS's own documented permissions for this integration](https://docs.aws.amazon.com/AmazonRDS/latest/UserGuide/rds-secrets-manager.html#rds-secrets-manager-permissions)
 regardless of which key ends up encrypting the secret, since the
 `Instance` CR doesn't set `masterUserSecretKmsKeyId` and RDS defaults to
 that key. Found live: once the storage-encryption KMS grant above was in
 place, `demo-db` hit the exact same `KMSKeyNotAccessibleFault` error
-shape again — a second, different KMS key this time, for a completely
+again, for a second, different KMS key this time, for a completely
 separate purpose RDS's error message doesn't distinguish from the first.
 
 **Naming convention is the documented contract for a third-party chart,
 not for the demo.** `dbSubnetGroupName` and `kmsKeyId` both have to be
-values a *third-party* chart — installed separately from core's own
-blueprint — can supply itself. That chart has no access to Flux's
+values a *third-party* chart, installed separately from core's own
+blueprint, can supply itself. That chart has no access to Flux's
 `postBuild.substitute`; that mechanism only resolves inside Windsor's own
 blueprint-compiled Kustomizations. So the documented contract is a
 deterministic name, not a `terraform_output` pass-through: the subnet
-group is always named `<context_id>-rds`, and the dedicated CMK (the
-self-managed path only — AWS-managed keys can't take a custom alias, per
+group is always named `rds-<context_id>`, and the dedicated CMK (the
+self-managed path only; AWS-managed keys can't take a custom alias, per
 [AWS's own docs](https://docs.aws.amazon.com/kms/latest/developerguide/alias-authorization.html))
 gets a matching `alias/<context_id>-rds` alias. The ephemeral path
-references `alias/aws/rds` directly — already a fixed AWS name, not one
+references `alias/aws/rds` directly, already a fixed AWS name, not one
 Windsor invents. BYOK isn't coverable by an alias at all: aliasing a key
 the operator owns would need `kms:CreateAlias`/`kms:DeleteAlias`
-permission on it, which core has no business assuming — the operator who
+permission on it, which core has no business assuming. The operator who
 set `database.postgres.encryption.kms_key_arn` already knows that ARN and
 hands it to their chart some other way.
 
-The demo itself doesn't use this convention — it's Windsor's own tooling,
+The demo itself doesn't use this convention. It's Windsor's own tooling,
 with real Flux substitution access a third-party chart lacks, so it reads
 `terraform_output('network', 'db_subnet_group_name')` and
 `terraform_output('database', 'kms_key_arn')` directly. That's strictly
 better for the demo specifically: no risk of drifting from whatever
-`network`/`database` actually name things if that logic ever changes, and
-it covers BYOK correctly too, since the module's own precedence already
-resolves to the right ARN regardless of path — the alias convention above
-can't. The naming-convention paragraph above stays the reference for
-what a real chart has to do; the demo simply isn't bound by the same
-constraint that makes it necessary.
+`network`/`database` actually name things if that logic ever changes,
+and it covers BYOK correctly too, since the module's own precedence
+already resolves to the right ARN regardless of path (the alias
+convention above can't). The naming-convention paragraph above stays the
+reference for what a real chart has to do; the demo simply isn't bound
+by the same constraint that makes it necessary.
 
 `crossplane-iam`'s trust policy also carries an
 `aws:SourceAccount`/`aws:SourceArn` condition scoping it to this
-cluster's own Pod Identity Agent — a hardening step the other 7 Pod
+cluster's own Pod Identity Agent, a hardening step the other 7 Pod
 Identity roles in `cluster/aws-eks/main.tf` don't have yet
 ([core#2584](https://github.com/windsorcli/core/issues/2584)).
 
@@ -276,13 +277,13 @@ created — not an arbitrary instance elsewhere in the same AWS account.
 
 The chart's `Instance` CR never has to set that tag itself. The
 `resources/crossplane/aws-rds` kustomize component (§2) bundles a Kyverno
-`ClusterPolicy` — `crossplane-rds-tag` — that force-sets
+`ClusterPolicy`, `crossplane-rds-tag`, that force-sets
 `windsorcli.dev/cluster` on every `Instance` admission via
 `patchStrategicMerge`, overwriting whatever value, if any, the chart
-submitted. `cluster_name` reaches the policy the same way `aws-lb-controller`
+submitted. `cluster_name` reaches the policy just as `aws-lb-controller`
 already gets `clusterName`: a Flux `substitutions:` entry sourced from
-`terraform_output('cluster', 'cluster_name')`. `failurePolicy: Ignore` — if
-the webhook is unreachable the create still goes through, and IAM's own
+`terraform_output('cluster', 'cluster_name')`. With `failurePolicy: Ignore`,
+if the webhook is unreachable the create still goes through, but IAM's own
 condition is the backstop that rejects a wrongly- or untagged instance
 either way, so there's no window where a missing mutation becomes a
 security hole.
@@ -297,9 +298,9 @@ so Terraform's association has a known name to target.
 ### 4. The chart creates Crossplane's native resource directly, no core abstraction
 
 No core-authored claim CRD or XRD. The chart creates `provider-aws-rds`'s
-own managed resource (`rds.aws.upbound.io/v1beta3 Instance`) directly — the
-same posture as CNPG's `Cluster`. `driver: rds` names an AWS-specific shape
-on purpose; there's no cross-cloud abstraction to preserve, matching
+own managed resource (`rds.aws.upbound.io/v1beta3 Instance`) directly,
+the same posture as CNPG's `Cluster`. `driver: rds` names an AWS-specific
+type on purpose; there's no cross-cloud abstraction to preserve, matching
 `cloudnativepg`, which doesn't abstract over a second engine either.
 
 ### 5. Azure is a known fast-follow, not designed here
@@ -312,7 +313,7 @@ Workload Identity in place of Pod Identity) and isn't decided by this ADR.
 
 `network/aws-vpc`'s default security group denies all traffic
 (`ingress = []`), so an `Instance` with no explicit `vpcSecurityGroupIds`
-is unreachable from any pod — found by inspection, not live, while
+is unreachable from any pod. Found by inspection, not live, while
 designing the credential path below: nothing had actually verified an
 application could reach the database at all. `database/aws-rds` creates
 a dedicated security group allowing Postgres (5432) from
@@ -320,14 +321,14 @@ a dedicated security group allowing Postgres (5432) from
 whole VPC CIDR. That security group is attached directly to every node's
 primary ENI by EKS itself, so it scopes correctly regardless of CNI
 driver (AWS VPC CNI or Cilium) without needing per-pod security groups
-(an AWS VPC CNI-only feature — Cilium can't do it, so it isn't a
+(an AWS VPC CNI-only feature; Cilium can't do it, so it isn't a
 CNI-portable answer here). It's tighter than the VPC CIDR without adding
 any new moving parts: no per-namespace or per-pod security-group
-mechanism exists at the AWS networking layer at all — that boundary has
+mechanism exists at the AWS networking layer at all. That boundary has
 to be enforced by the database's own authentication instead (§7).
 
-Maintenance and developer access follows the same shape this repo
-already uses for everything else — no VPN or bastion host. A temporary
+Maintenance and developer access follows the same pattern this repo
+already uses for everything else: no VPN or bastion host. A temporary
 pod with a Postgres client, started inside the cluster
 (`kubectl run ... --image=postgres:16-alpine -- sleep infinity`, then
 `kubectl exec`), already sits inside the allowed security group and
@@ -335,39 +336,39 @@ needs no new AWS infrastructure. `kubectl port-forward` to that pod
 extends the same access to a developer's local client without a private
 network path from their machine to the VPC at all. A Client VPN or SSM
 Session Manager port-forwarding setup is a reasonable upgrade if there's
-ever a need for persistent private network access for other reasons —
+ever a need for persistent private network access for other reasons, but
 it isn't justified for this alone.
 
 ### 7. Application credentials, not the admin secret
 
-`manageMasterUserPassword: true` generates the RDS master user — full
-superuser privileges, DDL and GRANT included — and AWS's API design means
-even Terraform's own `aws_db_instance` resource can't read its plaintext;
-only the calling principal's own IAM can, via
+`manageMasterUserPassword: true` generates the RDS master user (full
+superuser privileges, DDL and GRANT included), and AWS's API design means
+even Terraform's own `aws_db_instance` resource can't read its plaintext.
+Only the calling principal's own IAM can, via
 `secretsmanager:GetSecretValue`. Handing that credential straight to a
 consuming application, even in a genuinely 1:1 microservice-to-database
 pattern, throws away CNPG's own convention this ADR otherwise mirrors:
 CNPG never gives an app its superuser secret, only a separate,
 database-scoped one. A compromised app with the master credential can do
-far more than exfiltrate its own data — alter the schema, drop tables,
-grant itself new privileges that outlive the original compromise. 1:1
-ownership narrows *whose* data is at risk, not *how much* an app's own
-vulnerability can do once it has admin rights.
+far more than exfiltrate its own data: it can alter the schema, drop
+tables, or grant itself new privileges that outlive the original
+compromise. 1:1 ownership narrows *whose* data is at risk, not *how much*
+an app's own vulnerability can do once it has admin rights.
 
 No existing mechanism in this repo bridges an AWS-generated runtime
 secret into Kubernetes. External Secrets Operator is the standard tool
 for exactly that, but isn't merged to `main` (only on the unmerged
-`feat/secrets-store-openbao` branch) — checked directly rather than
+`feat/secrets-store-openbao` branch), checked directly rather than
 assumed. Rather than wait on it, or bring in a second Crossplane provider
 (`provider-sql`) that would still need the same runtime-secret bridge for
 its own `ProviderConfig`, this ADR adds a purpose-built CronJob:
 
 - **`database/aws-rds`** gains a fourth IAM role, `secret_reader`, scoped
-  to `secretsmanager:GetSecretValue` on `secret:rds!*` — read-only,
-  engine-agnostic like the KMS key and security group (any database,
-  however created, needs this same step; it isn't a Crossplane concept).
-  Its Pod Identity association targets a *fixed* identity,
-  `system-provisioning/rds-secret-reader`, not one per consumer — the job
+  to `secretsmanager:GetSecretValue` on `secret:rds!*`. It's read-only and
+  engine-agnostic like the KMS key and security group: any database,
+  however created, needs this same step, and it isn't a Crossplane
+  concept. Its Pod Identity association targets a *fixed* identity,
+  `system-provisioning/rds-secret-reader`, not one per consumer. The job
   always runs there regardless of which application namespace it
   publishes into, since cross-namespace publication is a Kubernetes RBAC
   question, not an AWS IAM one.
@@ -400,39 +401,40 @@ its own `ProviderConfig`, this ADR adds a purpose-built CronJob:
   semicolon-separated: Flux
   substitution is literal text replacement on the rendered manifest, so a
   multi-line value would corrupt the surrounding YAML block scalar.
-  `kustomize/demo/resources/database/rds/` opts into it the same way any
-  chart would, via `option-demo.yaml`'s own `provisioning` entry —
-  closing the CNPG-parity gap this ADR set out to match: a chart gets a
-  scoped credential without hand-rolling the machinery, the same way
-  CNPG's operator hands it one for free.
+  `kustomize/demo/resources/database/rds/` opts into it the way any
+  chart would, via `option-demo.yaml`'s own `provisioning` entry, closing
+  the CNPG-parity gap this ADR set out to match: a chart gets a scoped
+  credential without hand-rolling the machinery, matching how CNPG's
+  operator hands it one for free.
 - **The consuming namespace opts in via RBAC**, not core reaching into it
-  uninvited: the component's own `ClusterRole`/`ClusterRoleBinding`
-  (`Instance` is cluster-scoped — `rds.aws.upbound.io` has no namespaced
-  kinds — so reading the one named `Instance` needs cluster scope, still
-  bounded by `resourceNames` to that single object) plus a `Role`/`RoleBinding`
-  in the target namespace, both parameterized by `pg_instance_name`.
+  uninvited. The component's own `ClusterRole`/`ClusterRoleBinding`
+  (`Instance` is cluster-scoped since `rds.aws.upbound.io` has no
+  namespaced kinds, so reading the one named `Instance` needs cluster
+  scope, still bounded by `resourceNames` to that single object) plus a
+  `Role`/`RoleBinding` in the target namespace, both parameterized by
+  `pg_instance_name`.
 - **The CronJob** runs in `system-provisioning` on a 5-minute schedule,
-  in three steps: an init container checks the `Instance` for Ready and,
-  if it isn't yet, exits the tick clean; once Ready, it reads
+  in three steps. An init container checks the `Instance` for Ready and,
+  if it isn't yet, exits the tick clean. Once Ready, it reads
   `masterUserSecret[0].secretArn` and `address` and resolves the admin
   credential from Secrets Manager, reusing whatever password is already
   published rather than generating a new one when the role already
   exists (an env-var-based DSN doesn't see a rotated `Secret` until its
   pod restarts, so rotating on every tick silently broke every consumer
-  reading it — found live, fixed here). A second init container connects
+  reading it, found live, fixed here). A second init container connects
   with `psql` as the admin user and idempotently (`IF NOT EXISTS` /
   `ALTER ROLE`, safe to rerun) creates the role, then runs the chart's
-  own `pg_grant_sql` — no DDL, no other database, no superuser, unless
-  the chart's own grants ask for it; the main container publishes the
+  own `pg_grant_sql`: no DDL, no other database, no superuser, unless
+  the chart's own grants ask for it. The main container publishes the
   password as `<pg_instance_name>-app-credentials`, which the
-  application consumes with an ordinary `secretKeyRef`, the same shape
+  application consumes with an ordinary `secretKeyRef`, the same pattern
   CNPG's own generated secret already has. Images (`alpine/k8s`,
   `postgres:16-alpine`) are digest-pinned per this repo's own
-  convention; chosen specifically because both bundle a real shell
-  (`bash`) and the exact tools needed (`kubectl`+`aws`+`jq`, `psql`) —
+  convention, chosen specifically because both bundle a real shell
+  (`bash`) and the exact tools needed (`kubectl`+`aws`+`jq`, `psql`).
   `rancher/kubectl`, considered first, is a scratch image with no shell
   at all and can't run a wait loop.
-- `Instance.spec.forProvider.dbName` was unset before this — found while
+- `Instance.spec.forProvider.dbName` was unset before this. Found while
   designing the app role's own `GRANT ... ON DATABASE demo`: with no
   `dbName`, Postgres RDS creates no user database beyond the built-in
   `postgres`, so there was nothing to scope the app role's grants to at
@@ -442,15 +444,15 @@ its own `ProviderConfig`, this ADR adds a purpose-built CronJob:
 stronger alternative worth naming: an application authenticates with a
 short-lived token derived from its own Pod Identity role instead of a
 password at all, no secret to rotate or leak. Not adopted here because it
-changes the application's own connection code (most AWS SDKs support the
+changes the application's own connection code. Most AWS SDKs support the
 token flow natively, but it's not a drop-in for something expecting a
-plain password), where this job's approach needs nothing from the
-application beyond reading a `Secret` the same way CNPG's app secret
+plain password, where this job's approach needs nothing from the
+application beyond reading a `Secret`, matching how CNPG's app secret
 already works. Worth adopting per-application once that's viable, not a
 blocking prerequisite for this ADR.
 
 **A `CronJob`, not a one-shot `Job`.** A `Job`'s pod template is
-immutable and doesn't re-run on its own, which meant `demo-db` being
+immutable and doesn't re-run on its own. This meant `demo-db` being
 deleted and recreated (as it was live, for the `dbName` fix below)
 required manually deleting the Job so Flux (with
 `kustomize.toolkit.fluxcd.io/force: enabled`) could recreate it. A
@@ -459,88 +461,88 @@ required manually deleting the Job so Flux (with
 role already exists with the grants it needs, exits clean, and its
 `jobTemplate` is an ordinary mutable field, so the force annotation is
 no longer needed either. This does not cover rotating the role's
-password on a schedule — only the admin credential rotates, via AWS —
-and for good reason: a `Secret` consumed via `secretKeyRef` env var
-doesn't propagate to a running pod without a restart, so rotating on a
-schedule would silently break every consumer between rotation and
-their next restart. The CronJob itself reuses whatever password is
-already published rather than generating a fresh one on every tick, for
-the same reason (found live — see Consequences). Real rotation needs a
+password on a schedule; only the admin credential rotates, via AWS, and
+for good reason. A `Secret` consumed via `secretKeyRef` env var doesn't
+propagate to a running pod without a restart, so rotating on a schedule
+would silently break every consumer between rotation and their next
+restart. The CronJob itself reuses whatever password is already
+published rather than generating a fresh one on every tick, for the
+same reason (found live, see Consequences). Real rotation needs a
 `Reloader`-style companion watching for `Secret` changes and restarting
-consumers, which is deliberately out of scope here — this ADR proves
-the CNPG-parity pattern works, not a rotation platform.
+consumers, which is deliberately out of scope here: this ADR proves the
+CNPG-parity pattern works, not a rotation platform.
 
 ### 8. Observability matches CNPG's own dashboard, not CloudWatch
 
 CNPG's Grafana dashboard (`kustomize/observability/resources/grafana/dashboards/cloudnativepg`)
-is ordinary PromQL against metrics CNPG's operator exposes natively — it
+is ordinary PromQL against metrics CNPG's operator exposes natively: it
 embeds `prometheus-community/postgres_exporter`'s own collector logic and
 Prometheus scrapes it via the `Cluster`'s `PodMonitor`. RDS has no
 in-cluster metrics endpoint at all; everything lives in CloudWatch. Two
-genuinely different ways to close that gap: point Grafana's native
+genuinely different ways close that gap: point Grafana's native
 `cloudwatch` datasource (or a CloudWatch-to-Prometheus bridge like
 `yet-another-cloudwatch-exporter`) at AWS directly, or run
 `postgres_exporter` itself in-cluster against `demo-db`, the same tool
-CNPG already embeds. The second is what's built here — it's the one that
-actually produces a *consistent* dashboard, not just *a* dashboard: same
-exporter, same metric vocabulary (connections, replication, cache hit
-ratio, per-table stats), same `ConfigMap`+sidecar delivery, wired into
-`addon-database.yaml`'s existing `observability` entry the same way
-CNPG's is, gated on the opposite `driver` value. CloudWatch-sourced
+CNPG already embeds. The second is what's built here. It produces one
+dashboard vocabulary shared with CNPG's own: the same exporter, the same
+metric vocabulary (connections, replication, cache hit ratio, per-table
+stats), and the same `ConfigMap`+sidecar delivery. It wires into
+`addon-database.yaml`'s existing `observability` entry, gated on the
+opposite `driver` value. CloudWatch-sourced
 infra metrics (CPU, IOPS, storage) that Postgres itself can't see are a
-real complement, not addressed here — the same kind of scoped-out,
+real complement, not addressed here: the same kind of scoped-out,
 named fast-follow as Azure in §5.
 
 Unlike §7's application credential, monitoring isn't chart-specific at
-all — it's not just that every `Instance` wants the same `pg_monitor`
-role, it's that the exporter has no reason to live in the *consuming*
-chart's namespace either. `app-role`'s `Secret` has to sit in the app's
-namespace because the app's own Deployment mounts it there via
-`secretKeyRef`; the exporter has no such consumer — Prometheus discovers
-`PodMonitor`s cluster-wide (`podMonitorNamespaceSelector: {}`) regardless
-of which namespace the exporter pod lives in. Once that's true, nothing
-about monitoring needs a chart to opt in at all: everything it needs —
-the instance name, the database name — already lives on the `Instance`
+all. Every `Instance` wants the same `pg_monitor` role, and beyond that,
+the exporter has no reason to live in the *consuming* chart's namespace
+either. `app-role`'s `Secret` has to sit in the app's namespace because
+the app's own Deployment mounts it there via `secretKeyRef`; the exporter
+has no such consumer, since Prometheus discovers `PodMonitor`s
+cluster-wide (`podMonitorNamespaceSelector: {}`) regardless of which
+namespace the exporter pod lives in. Once that's true, nothing about
+monitoring needs a chart to opt in at all: everything it needs, the
+instance name and the database name, already lives on the `Instance`
 object itself. So this isn't wired per-chart with Flux substitutions the
-way `app-role` is; it's a Kyverno `generate` `ClusterPolicy` that reacts
+way `app-role` is. It's a Kyverno `generate` `ClusterPolicy` that reacts
 to *any* `rds.aws.upbound.io Instance`, in any namespace, created by any
 chart, and materializes the role-provisioning `CronJob` and the
 `postgres_exporter` `Deployment`/`Service`/`PodMonitor` into
-`system-provisioning` automatically — deriving `pg_instance_name` from
+`system-provisioning` automatically, deriving `pg_instance_name` from
 `{{request.object.metadata.name}}` and `pg_database_name` from
 `{{request.object.spec.forProvider.dbName}}`. No chart opt-in, no
-substitutions to remember; create an `Instance` anywhere and monitoring
-exists, the closest this gets to CNPG's own `enablePodMonitor: true`
-given `provider-aws-rds` (a generic Terraform-bridged CRUD layer, not an
-operator that owns anything inside the database it provisions) has no
-equivalent field of its own to hang that off of. `background: true` on
-each policy means an `Instance` that existed before the policy was
-installed still gets monitoring — Kyverno backfills it, not just new
+substitutions to remember: create an `Instance` anywhere and monitoring
+exists. This is the closest this gets to CNPG's own `enablePodMonitor:
+true`, given `provider-aws-rds` (a generic Terraform-bridged CRUD layer,
+not an operator that owns anything inside the database it provisions)
+has no equivalent field of its own to hang that off of. `background: true`
+on each policy means an `Instance` that existed before the policy was
+installed still gets monitoring: Kyverno backfills it, not just new
 creates.
 
 Splitting the generated resources by concern mirrors the file split
-`app-role` and the old per-chart component already had: one policy
+`app-role` and the old per-chart component already had. One policy
 (`monitoring-rbac-policy.yaml`) generates the `ClusterRole`/`Role` pair
 scoping `rds-secret-reader` to the one named `Instance` and its one
-`Secret`, resourceNames-scoped exactly as before; a second
+`Secret`, resourceNames-scoped exactly as before. A second
 (`monitoring-cronjob-policy.yaml`) generates the `CronJob`, the same
 idempotent create-or-reuse-password script `app-role`'s already
 established, unchanged apart from where its substitutions now come
-from; a third (`monitoring-exporter-policy.yaml`, kept in its own
-gated component — see below) generates the exporter itself. Landing all
-three in `system-provisioning` — the identity's own home namespace —
+from. A third (`monitoring-exporter-policy.yaml`, kept in its own
+gated component, see below) generates the exporter itself. Landing all
+three in `system-provisioning`, the identity's own home namespace,
 also simplifies the RBAC: no more per-instance `ClusterRole` *and*
 namespaced `Role` split across two namespaces, just two objects, both
 in the one namespace everything already runs in.
 
 Kyverno's `background-controller` and `admission-controller` only
-generate or read resource kinds they've been explicitly granted —
-by default neither can touch `ClusterRole`, `CronJob`, `Deployment`, or
+generate or read resource kinds they've been explicitly granted. By
+default neither can touch `ClusterRole`, `CronJob`, `Deployment`, or
 `PodMonitor` at all, confirmed live: applying the first version of
 these policies without the extra grant failed at Kyverno's own admission
 webhook, not silently. `kyverno-background-controller-rbac.yaml` adds
 two `ClusterRole`s labeled `rbac.kyverno.io/aggregate-to-background-controller`
-and `rbac.kyverno.io/aggregate-to-admission-controller` — the extension
+and `rbac.kyverno.io/aggregate-to-admission-controller`, the extension
 point Kyverno's own chart ships for exactly this, aggregating
 automatically into `kyverno:background-controller` and
 `kyverno:admission-controller` with no Helm values to touch.
@@ -548,15 +550,15 @@ automatically into `kyverno:background-controller` and
 The exporter's own policy lives in a separate `monitoring-exporter`
 component, gated on `telemetry.metrics.enabled` (default `true`),
 because `PodMonitor` (`monitoring.coreos.com/v1`) only exists once the
-metrics pipeline vendors prometheus-operator's CRDs — a real correctness
-issue, not a style choice: a policy that unconditionally tries to
-`generate` a kind the cluster hasn't registered fails, it doesn't no-op.
-The RBAC and `CronJob` policies don't reference that CRD at all, so they
-stay unconditional on `driver: rds` alone — the monitor role and its
-`Secret` are still useful (manual `psql` access, say) even with no
-Prometheus to scrape it. `observability.enabled` never gates any of
-this: it's the flag for the *whole* `addon-observability.yaml` facet —
-Grafana, Quickwit, fluentd — none of which the exporter depends on,
+metrics pipeline vendors prometheus-operator's CRDs. This is a real
+correctness issue, not a style choice: a policy that unconditionally
+tries to `generate` a kind the cluster hasn't registered fails, it
+doesn't no-op. The RBAC and `CronJob` policies don't reference that CRD
+at all, so they stay unconditional on `driver: rds` alone; the monitor
+role and its `Secret` are still useful (manual `psql` access, say) even
+with no Prometheus to scrape it. `observability.enabled` never gates any
+of this: it's the flag for the *whole* `addon-observability.yaml` facet
+(Grafana, Quickwit, fluentd), none of which the exporter depends on,
 where `telemetry.metrics.enabled` is specifically "does Prometheus
 exist to scrape this."
 
@@ -567,39 +569,40 @@ it's meaningless and churns on every pod restart.
 `kustomize/telemetry/resources/prometheus/alerts/postgres-exporter`
 adds a `PrometheusRule` alongside the dashboard, matching the existing
 `prometheus/alerts/database` (CNPG) precedent and wired into
-`platform-base.yaml`'s shared `alert_components` the same way — on
+`platform-base.yaml`'s shared `alert_components`, mirroring how CNPG's
+alerts are wired in. It's on
 `driver: rds` alone, not `observability.enabled`, since alerts should
-fire whether or not anyone's looking at a dashboard. Adapted by hand from
-`postgres_exporter`'s own `postgres_mixin/alerts/postgres.libsonnet`
+fire whether or not anyone's looking at a dashboard. It's adapted by
+hand from `postgres_exporter`'s own `postgres_mixin/alerts/postgres.libsonnet`
 rather than vendored verbatim: its jsonnet templates assume a
 multi-cluster grouping this repo doesn't have, and two of its alerts
 (replication slot usage, unvacuumed tables) reference metrics this
-exporter's default collectors don't expose — confirmed against the live
-`/metrics` output, not assumed. Ported with `promtool`-tested rules
+exporter's default collectors don't expose, confirmed against the live
+`/metrics` output, not assumed. It's ported with `promtool`-tested rules
 (`prometheus-rule.test.yaml`, this repo's existing convention for
 hand-curated alerts) covering every alert, both firing and clear.
 
 Two corrections landed on the way to what's described above, both worth
-naming rather than silently absorbing into the final shape. First: an
-early pass gated the exporter on `observability.enabled` — matching the
+naming rather than silently absorbing into the final result. First, an
+early pass gated the exporter on `observability.enabled`, matching the
 dashboard's own gate rather than the alerts'. That left a real gap:
 `observability.enabled: false` with `telemetry.metrics.enabled: true`
 (a normal alerting-without-Grafana setup) got a `PrometheusRule` with
 nothing feeding it, since `observability.enabled` gates the unrelated
-Grafana/Quickwit/fluentd facet, not Prometheus. Second, and larger: the
-exporter was originally wired the same way `app-role` is — a component a
+Grafana/Quickwit/fluentd facet, not Prometheus. Second, and larger, the
+exporter was originally wired the way `app-role` is: a component a
 chart opts into with substitutions, initially including a
 `pg_target_namespace` copied from `app-role` without asking whether
-monitoring actually needed one. It didn't; that's what motivated
+monitoring actually needed one. It didn't. That's what motivated
 replacing per-chart opt-in with the Kyverno `generate` policies
-described above. CNPG doesn't have either seam — its metrics ride the
+described above. CNPG doesn't have either seam: its metrics ride the
 existing `Cluster` pod at no extra cost and need no separate wiring at
-all — which is exactly the parity gap this section closes.
+all, which is exactly the parity gap this section closes.
 
 ## Consequences
 
 - `Provider.spec.package` is digest-pinned
-  (`provider-aws-rds:v2.7.1@sha256:...`), not just tagged — confirmed live
+  (`provider-aws-rds:v2.7.1@sha256:...`), not just tagged. Confirmed live
   that `ProviderRevision.spec.image` propagates this reference verbatim
   into the provider's runtime Deployment, so the digest satisfies
   `require-image-digest` with no policy exemption needed. Found live: the
@@ -607,33 +610,34 @@ all — which is exactly the parity gap this section closes.
   blocked by a Kyverno admission denial on the provider's own runtime
   Deployment for lacking a digest. `provider-family-aws` (an automatic
   dependency of `provider-aws-rds`) hit the same denial and isn't
-  reachable through a `Provider` CR of ours to pin directly — resolved by
+  reachable through a `Provider` CR of ours to pin directly. Resolved by
   declaring it explicitly, also digest-pinned, with
   `skipDependencyResolution: true` on `provider-aws-rds` so Crossplane
   doesn't auto-resolve its own unpinned copy.
 - `network/aws-vpc`'s DB subnet group is the first real consumer of the
-  isolated (zero-egress) subnet tier — it existed, unused, before this
+  isolated (zero-egress) subnet tier: it existed, unused, before this
   ADR. Created unconditionally alongside the subnets themselves, on every
-  AWS context regardless of `database.postgres.driver`, the same way the
-  subnets already are — not gated the way the KMS key and IAM/Pod-Identity
-  wiring are, since it costs nothing idle and a subnet group with no
-  databases pointed at it is inert.
-- `system-provisioning` stays at PSA `baseline`, matching `system-database`
-  — `restricted` (which `system-pki-trust` proves this repo does adopt
-  per-namespace when the workload supports it) was tried and reverted.
+  AWS context regardless of `database.postgres.driver`, matching the
+  subnets themselves. It's not gated the way the KMS key and
+  IAM/Pod-Identity wiring are, since it costs nothing idle and a subnet
+  group with no databases pointed at it is inert.
+- `system-provisioning` stays at PSA `baseline`, matching `system-database`.
+  This repo tried `restricted` here and reverted it, even though
+  `system-pki-trust` proves it adopts `restricted` per-namespace
+  elsewhere, when the workload supports it.
   Crossplane's own chart carries the extra `securityContext` fields
   (`capabilities.drop: [ALL]`, `seccompProfile: RuntimeDefault`)
-  `restricted` needs beyond its defaults — verified with `kustomize
+  `restricted` needs beyond its defaults, verified with `kustomize
   build`, kept even at `baseline` since it doesn't hurt. The provider pod
   (`provider-aws-rds`) doesn't have the equivalent: its
   `DeploymentRuntimeConfig.spec.deploymentTemplate.spec` reuses
   `apps/v1 DeploymentSpec` verbatim, which requires `selector`, and
   Crossplane assigns that provider pod's real labels dynamically
-  per-revision — a hand-written `selector` isn't safely determinable
+  per-revision. A hand-written `selector` isn't safely determinable
   without deeper visibility into Crossplane's own labeling. Caught by a
   live cluster's dry-run validation, not `kustomize build`. `restricted`
   for this namespace is a real follow-up, not decided here.
-- The customer's chart is coupled to `provider-aws-rds`'s own CR shape.
+- The customer's chart is coupled to `provider-aws-rds`'s own CR structure.
   Its API stability becomes something core's `Provider` package pin
   governs, the same exposure CNPG's `Cluster` CR already carries.
 - `kustomize/provisioning/install/crossplane` installs the engine once,
@@ -643,15 +647,15 @@ all — which is exactly the parity gap this section closes.
   `resources/crossplane/<provider>` pair alongside `aws-rds` — the domain
   is already structured for that, it just isn't built yet.
 - `crossplane-iam`'s catalog stays a plain `for_each` over its own
-  `resources` set even after moving to a top-level layer — unlike every
-  *other* addon's Pod Identity role in `cluster/aws-eks/main.tf`
+  `resources` set even after moving to a top-level layer. This differs
+  from every *other* addon's Pod Identity role in `cluster/aws-eks/main.tf`
   (cert-manager, aws-lb-controller, cluster-autoscaler, Karpenter), which
   stay flat, one block each, since none of those are a family of similar
   resources expected to grow the way Crossplane's provider pods are. The
   `database/aws-rds` KMS key, by contrast, dropped the equivalent
-  catalog/`for_each` indirection entirely once it moved out — it's one
-  key, not a family, so the abstraction wasn't earning its keep there,
-  only for the IAM piece.
+  catalog/`for_each` indirection entirely once it moved out. It's one
+  key, not a family, so the abstraction earned its keep only for the IAM
+  piece.
 - This split moved five resources that already existed live in
   `aws-test`'s `cluster` state (the IAM role/policy/attachment, the Pod
   Identity association, the DB subnet group) into two different state
@@ -720,7 +724,7 @@ all — which is exactly the parity gap this section closes.
   `secret ... unchanged` and the exporter stayed connected across it.
 - `§7`'s `app-role` component (chart-supplied `pg_grant_sql`, generalized
   from what was originally demo-only CronJob/RBAC) has been re-verified
-  live the same way `postgres-exporter`'s extraction was: the old
+  live the way `postgres-exporter`'s extraction was: the old
   demo-owned RBAC/CronJob pruned cleanly, the parameterized version came
   up under the new name in `provisioning-resources`, a manually
   triggered tick ran the chart's own `pg_grant_sql` correctly
@@ -743,11 +747,11 @@ all — which is exactly the parity gap this section closes.
   and every one `inactive` against the real, healthy `demo-db` — no
   false positives against live data.
 - The bullets above describe the `crossplane/aws-rds/postgres-exporter`
-  *component* — a chart-authored opt-in, since superseded by the
+  *component*, a chart-authored opt-in, since superseded by the
   Kyverno `generate` policies §8 now describes. That component no
-  longer exists; the CronJob/RBAC content these bullets verified
+  longer exists. The CronJob/RBAC content these bullets verified
   carried forward into the `generate` policies largely unchanged, and
-  was re-verified again in that shape: applying the policies live
+  was re-verified again in that form: applying the policies live
   correctly failed at Kyverno's own admission webhook until the
   `background-controller`/`admission-controller` RBAC aggregation was
   added, and once added, a background scan against the already-existing
@@ -788,22 +792,22 @@ CRDs (§2) removed the actual race that motivated keeping `Provider` out of
 the one CR (`ProviderConfig`) whose CRD genuinely isn't available yet.
 
 **A nested submodule under `cluster/aws-eks/modules/`, not a top-level
-layer.** This ADR's first version put all of RDS's support infra —
-IAM/Pod-Identity, the KMS key, the DB subnet group — in
+layer.** This ADR's first version put all of RDS's support infra
+(IAM/Pod-Identity, the KMS key, the DB subnet group) in
 `cluster/aws-eks/modules/crossplane-iam` and `main.tf` directly, on the
 reasoning that no existing layer was addon-scoped and a Pod Identity
 association is inherently EKS-cluster-scoped. Both turned out wrong on
 inspection: `pki/ca` and `dns/zone/route53` already are addon-scoped
 top-level layers, and being EKS-cluster-scoped only meant Pod Identity
 needed the cluster's *outputs*, not that it had to live inside the
-cluster's own module — the same relationship `dns-zone` already has to
-`cluster`. Superseded by §3's three-way split once that was clear.
+cluster's own module. That's the same relationship `dns-zone` already
+has to `cluster`. Superseded by §3's three-way split once that was clear.
 
 **Every Pod Identity role in `cluster/aws-eks/main.tf` stays a flat,
 individually-hardcoded block, including Crossplane's.** Matches the
 existing style for cert-manager, aws-lb-controller, cluster-autoscaler,
 and Karpenter's substrate exactly. Rejected once it was clear Crossplane's
-IAM is a genuinely different shape from those: a family of near-identical
+IAM is a genuinely different pattern from those: a family of near-identical
 resource types expected to grow (RDS today, S3/SQS/etc. plausible next),
 not a fixed, closed set core ships permanently. `crossplane-iam` earns its
 abstraction from that growth expectation, not from `modules/machine`'s

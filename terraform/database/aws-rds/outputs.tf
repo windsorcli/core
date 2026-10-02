@@ -4,9 +4,9 @@
 
 # Precedence: an explicitly supplied key, then the dedicated CMK this
 # module creates, then the account's AWS-managed default key.
-output "kms_key_arn" {
+output "key_id" {
   description = "KMS key ARN for RDS storage encryption"
-  value = var.kms_key_arn != "" ? var.kms_key_arn : (
+  value = var.key_id != "" ? var.key_id : (
     length(aws_kms_key.rds) > 0 ? aws_kms_key.rds[0].arn : data.aws_kms_key.rds_default[0].arn
   )
 }
@@ -21,9 +21,4 @@ output "kms_key_alias" {
 output "security_group_id" {
   description = "Security group ID with Postgres ingress restricted to this cluster's node security group. Reference from an Instance CR's vpcSecurityGroupIds."
   value       = aws_security_group.rds.id
-}
-
-output "secret_reader_role_arn" {
-  description = "IAM role ARN a bootstrap job in system-provisioning/rds-secret-reader assumes via Pod Identity to read RDS-managed master password secrets."
-  value       = aws_iam_role.secret_reader.arn
 }

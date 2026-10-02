@@ -144,6 +144,28 @@ cases:
             system_node_pool:
               node_count: 2
 
+  # Ephemeral contexts disable node auto-repair: it can race a node pool's
+  # own deletion and stall teardown on short-lived clusters that recreate
+  # routinely (CI, integration testing).
+  - name: ephemeral context disables node pool auto-repair
+    values:
+      platform: gcp
+      gcp:
+        project_id: windsor-test
+      ephemeral: true
+      gateway:
+        enabled: false
+    expect:
+      terraform:
+        - name: cluster
+          path: cluster/gcp-gke
+          inputs:
+            system_node_pool:
+              auto_repair: "false"
+            pools:
+              general:
+                auto_repair: "false"
+
   # cluster.driver defaults to gke for platform == 'gcp' (platform-base.yaml).
   - name: cluster.driver defaults to gke
     values:
@@ -177,6 +199,7 @@ cases:
               general:
                 class: general
                 count: 1
+                auto_repair: "true"
 
   - name: cluster.pools wires through to gcp-gke module
     values:
@@ -214,105 +237,6 @@ cases:
         - name: gitops
           path: gitops/flux
           destroy: false
-
-  # cloudsql driver wires database/gcp-cloudsql and crossplane-identity-gcp —
-  # GCP twin of the AWS rds / Azure flexibleserver tests.
-  - name: cloudsql driver wires the database and crossplane-identity-gcp stacks
-    values:
-      platform: gcp
-      gcp:
-        project_id: windsor-test
-      gateway:
-        enabled: false
-      database:
-        postgres:
-          enabled: true
-          driver: cloudsql
-    terraformOutputs:
-      network:
-        region: us-east1
-        network_id: projects/windsor-test/global/networks/vpc-test
-      cluster:
-        cluster_name: cluster-test
-    expect:
-      terraform:
-        - name: database
-          path: database/gcp-cloudsql
-          dependsOn:
-            - network
-            - cluster
-          inputs:
-            project_id: windsor-test
-            region: us-east1
-            network_id: projects/windsor-test/global/networks/vpc-test
-            manage_encryption_key: true
-        - name: crossplane-identity-gcp
-          path: provisioning/crossplane-identity-gcp
-          dependsOn:
-            - network
-            - cluster
-            - database
-          inputs:
-            project_id: windsor-test
-            cluster_name: cluster-test
-            resources:
-              - postgres
-
-  # ephemeral contexts skip the dedicated KMS key in favor of Cloud SQL's
-  # platform-managed encryption.
-  - name: ephemeral cloudsql context skips the dedicated encryption key
-    values:
-      platform: gcp
-      ephemeral: true
-      gcp:
-        project_id: windsor-test
-      gateway:
-        enabled: false
-      database:
-        postgres:
-          enabled: true
-          driver: cloudsql
-    expect:
-      terraform:
-        - name: database
-          path: database/gcp-cloudsql
-          inputs:
-            manage_encryption_key: false
-
-  # database.postgres.encryption.kms_key_name threads a caller-supplied key
-  # straight through, bypassing the dedicated key ring entirely.
-  - name: cloudsql driver with a supplied kms_key_name passes it through
-    values:
-      platform: gcp
-      gcp:
-        project_id: windsor-test
-      gateway:
-        enabled: false
-      database:
-        postgres:
-          enabled: true
-          driver: cloudsql
-          encryption:
-            kms_key_name: projects/windsor-test/locations/us-central1/keyRings/byok/cryptoKeys/postgres
-    expect:
-      terraform:
-        - name: database
-          path: database/gcp-cloudsql
-          inputs:
-            kms_key_name: projects/windsor-test/locations/us-central1/keyRings/byok/cryptoKeys/postgres
-
-  # database disabled (default cloudnativepg driver) renders neither stack.
-  - name: no cloudsql driver excludes the database and crossplane-identity-gcp stacks
-    values:
-      platform: gcp
-      gcp:
-        project_id: windsor-test
-      gateway:
-        enabled: false
-    exclude:
-      terraform:
-        - name: database
-        - name: crossplane-identity-gcp
 
   # ACME off by default — no public domain configured. pki-resources still
   # renders so the gateway cert always has a working ClusterIssuer (just-works
@@ -520,4 +444,91 @@ cases:
         driver: envoy
       dns:
         public_domain: example.com
+    expectError: true
+
+  # Default (public) access: the gateway install-merge entry's when: fires
+  # (envoy + loadbalancer mode) but the ternary has nothing to select, so
+  # gcp-internal-lb must not appear — the empty string it evaluates to is
+  # pruned during composition, matching Azure's identical public-path case.
+  - name: gateway with envoy on GCP does not add gcp-internal-lb component by default
+    values:
+      platform: gcp
+      gcp:
+        project_id: windsor-test
+      gateway:
+        enabled: true
+        driver: envoy
+    exclude:
+      flux:
+        - name: gateway
+          install:
+            components:
+              - envoy/loadbalancer/gcp-internal-lb
+
+  # gateway.access=private threads through the GCP facet's gateway install
+  # merge, conditionally including gcp-internal-lb (GKE's CCM makes any
+  # Service:LoadBalancer public by default; the annotation is what flips it).
+  # dns.private_domain is required — without it the LB scheme stays public
+  # so the gateway doesn't end up internal-only with no DNS pointing at it.
+  - name: gateway.access=private flips the GKE LB to internal
+    values:
+      platform: gcp
+      gcp:
+        project_id: windsor-test
+      gateway:
+        enabled: true
+        driver: envoy
+        access: private
+      dns:
+        private_domain: internal.example.com
+    expect:
+      flux:
+        - name: gateway
+          install:
+            components:
+              - envoy/loadbalancer/gcp-internal-lb
+
+  # Private mode: gateway.access=private flips the DNS path away from the
+  # public zone and onto the VPC-private Cloud DNS zone the network module
+  # creates from dns.private_domain. external-dns is still rendered, pointed
+  # at the private domain — no zone_id_filter needed, domainFilters already
+  # scopes it. Cert issuer falls to private-issuer/selfsigned (ACME can't
+  # validate against a VPC-only zone).
+  - name: private mode targets external-dns at the private Cloud DNS zone
+    values:
+      platform: gcp
+      gcp:
+        project_id: windsor-test
+      gateway:
+        enabled: true
+        driver: envoy
+        access: private
+      dns:
+        private_domain: internal.example.com
+    expect:
+      flux:
+        - name: dns
+          install:
+            components:
+              - external-dns
+              - external-dns/providers/google
+              - external-dns/sources/gateway-httproute
+            substitutions:
+              external_domain: internal.example.com
+        - name: pki
+          resources:
+            - components:
+                - private-issuer/selfsigned
+
+  # option-gateway.yaml's own requires: rejects access: private without a
+  # private domain, platform-agnostically — nothing GCP-specific to guard.
+  - name: gateway.access private without a private domain fails composition
+    values:
+      platform: gcp
+      gcp:
+        project_id: windsor-test
+      gateway:
+        enabled: true
+        driver: envoy
+        access: private
     expectError: true

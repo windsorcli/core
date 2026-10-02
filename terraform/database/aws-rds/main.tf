@@ -7,7 +7,7 @@ terraform {
   required_providers {
     aws = {
       source  = "hashicorp/aws"
-      version = "6.63.0"
+      version = "6.66.0"
     }
   }
 }
@@ -30,10 +30,15 @@ provider "aws" {
 
 data "aws_caller_identity" "current" {}
 
+locals {
+  # Non-null placeholder for destroy: AWS rejects a null element inside ingress.security_groups outright.
+  cluster_security_group_id = var.operation == "destroy" ? coalesce(var.cluster_security_group_id, "sg-00000000000000000") : var.cluster_security_group_id
+}
+
 # Account's default RDS encryption key, used when manage_encryption_key is
 # false and no key ARN is supplied.
 data "aws_kms_key" "rds_default" {
-  count  = var.manage_encryption_key || var.kms_key_arn != "" ? 0 : 1
+  count  = var.manage_encryption_key || var.key_id != "" ? 0 : 1
   key_id = "alias/aws/rds"
 }
 
@@ -44,7 +49,7 @@ data "aws_kms_key" "rds_default" {
 # Encryption key for RDS storage in this context, shared across every
 # database, not created per instance.
 resource "aws_kms_key" "rds" {
-  count                   = var.manage_encryption_key && var.kms_key_arn == "" ? 1 : 0
+  count                   = var.manage_encryption_key && var.key_id == "" ? 1 : 0
   description             = "KMS key for RDS storage encryption in context ${var.context_id}"
   deletion_window_in_days = var.kms_key_deletion_window_in_days
   enable_key_rotation     = true
@@ -106,82 +111,11 @@ resource "aws_security_group" "rds" {
     from_port       = 5432
     to_port         = 5432
     protocol        = "tcp"
-    security_groups = [var.cluster_security_group_id]
+    security_groups = [local.cluster_security_group_id]
     description     = "Postgres from the cluster nodes"
   }
 
   tags = {
     Name = "${var.context_id}-rds"
   }
-}
-
-#-----------------------------------------------------------------------------------------------------------------------
-# Secret Reader Role
-#-----------------------------------------------------------------------------------------------------------------------
-
-# Read-only access to the RDS-managed master password, for a bootstrap
-# job that provisions a scoped, least-privilege application credential
-# from it — never the master credential itself.
-resource "aws_iam_role" "secret_reader" {
-  name = "${var.context_id}-rds-secret-reader"
-
-  assume_role_policy = jsonencode({
-    Version = "2012-10-17"
-    Statement = [
-      {
-        Action = ["sts:AssumeRole", "sts:TagSession"]
-        Effect = "Allow"
-        Principal = {
-          Service = "pods.eks.amazonaws.com"
-        }
-        Condition = {
-          StringEquals = {
-            "aws:SourceAccount" = data.aws_caller_identity.current.account_id
-          }
-          ArnEquals = {
-            "aws:SourceArn" = var.cluster_arn
-          }
-        }
-      }
-    ]
-  })
-
-  tags = {
-    Name = "${var.context_id}-rds-secret-reader"
-  }
-}
-
-resource "aws_iam_policy" "secret_reader" {
-  name        = "${var.context_id}-rds-secret-reader"
-  description = "Read-only access to RDS-managed master password secrets, for provisioning scoped application credentials"
-
-  policy = jsonencode({
-    Version = "2012-10-17"
-    Statement = [
-      {
-        Effect   = "Allow"
-        Action   = "secretsmanager:GetSecretValue"
-        Resource = "arn:aws:secretsmanager:*:${data.aws_caller_identity.current.account_id}:secret:rds!*"
-      }
-    ]
-  })
-
-  tags = {
-    Name = "${var.context_id}-rds-secret-reader"
-  }
-}
-
-resource "aws_iam_role_policy_attachment" "secret_reader" {
-  policy_arn = aws_iam_policy.secret_reader.arn
-  role       = aws_iam_role.secret_reader.name
-}
-
-# Fixed (namespace, service_account) pair, not per-consumer — the
-# bootstrap job runs once in system-provisioning regardless of which
-# app namespace it publishes the resulting credential into.
-resource "aws_eks_pod_identity_association" "secret_reader" {
-  cluster_name    = var.cluster_name
-  namespace       = "system-provisioning"
-  service_account = "rds-secret-reader"
-  role_arn        = aws_iam_role.secret_reader.arn
 }

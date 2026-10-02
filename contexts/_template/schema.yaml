@@ -644,7 +644,7 @@ properties:
             description: Force or disable Grafana SSO; inferred on when identity is enabled
           client_secret:
             type: string
-            description: Client secret (supports ${secret(...)}); required for identity.driver oidc, generated for keycloak
+            description: Client secret for an external oidc provider (supports ${secret(...)}). Unset registers Grafana as a public PKCE client.
           role_attribute_path:
             type: string
             description: Grafana role mapping as a JMESPath over token claims
@@ -753,7 +753,9 @@ properties:
           (cloud VPCs, incus bridges, docker bridges, hyperv NodePort
           NetNat) or attaches to an existing one at this address (metal,
           vSphere, hyperv with net_adapter). Override when the default
-          conflicts with existing routes on the host.
+          conflicts with existing routes on the host. On gcp, 172.16.0.0/12 is
+          reserved for the cluster's pod and Service ranges, the control
+          plane, and Cloud SQL's private service range.
       gateway:
         type: string
         pattern: "^([0-9]{1,3}\\.){3}[0-9]{1,3}$"
@@ -1053,15 +1055,15 @@ properties:
       public_domain:
         $ref: '#/$defs/dnsHostname'
         description: >
-          Publicly-routable DNS zone for the deployment. On AWS, setting
-          this provisions a public Route53 hosted zone in the same
-          account, the cert-manager IAM role + Pod Identity binding for
-          DNS-01 challenges, and an ACME ClusterIssuer that issues real
-          Let's Encrypt certificates for the gateway. The operator must
-          delegate this domain at their registrar to the name servers
-          the dns-zone module outputs. Leave unset for selfsigned-only
-          (just-works) mode. Lowercase DNS labels separated by dots; no
-          scheme, port, or trailing dot.
+          Publicly-routable DNS zone for the deployment. Provisions a
+          public DNS zone on the active platform (Route53, Azure DNS,
+          Cloud DNS, or Hetzner DNS), the cert-manager identity binding
+          for DNS-01 challenges, and an ACME ClusterIssuer that issues
+          real Let's Encrypt certificates for the gateway. The operator
+          must delegate this domain at their registrar to the name
+          servers the dns-zone module outputs. Leave unset for
+          selfsigned-only (just-works) mode. Lowercase DNS labels
+          separated by dots; no scheme, port, or trailing dot.
       private_domain:
         $ref: '#/$defs/dnsHostname'
         description: Private DNS zone (e.g. in-cluster CoreDNS, workstation resolver). Lowercase DNS labels separated by dots.
@@ -1362,9 +1364,6 @@ properties:
                 type: string
                 description: Admin password for the Keycloak console and, in dev, the SSO admin user (supports ${secret(...)} refs); unset means a dev default, or the operator's temporary admin elsewhere
             additionalProperties: false
-          grafana_client_secret:
-            type: string
-            description: Grafana's pinned OIDC client secret (supports ${secret(...)} refs). Unset means a dev default.
         additionalProperties: false
     additionalProperties: false
 
@@ -1376,28 +1375,32 @@ properties:
         properties:
           enabled:
             type: boolean
-            description: Enable PostgreSQL database service
-          driver:
-            type: string
-            enum:
-              - cloudnativepg
-              - rds
-              - flexibleserver
-              - cloudsql
-            default: cloudnativepg
-            description: PostgreSQL database driver
-          encryption:
+            description: Enable the in-cluster CloudNativePG Postgres service
+          cloud:
             type: object
             properties:
-              kms_key_arn:
+              enabled:
+                type: boolean
+                default: false
+                description: Also expose a cloud-managed Postgres instance for application charts to request
+              driver:
                 type: string
-                description: Existing AWS KMS key ARN for RDS storage encryption. Omit to let Windsor manage its own key.
-              key_vault_key_id:
-                type: string
-                description: Existing Azure Key Vault key ID for Flexible Server storage encryption. Omit to let Windsor manage its own key.
-              kms_key_name:
-                type: string
-                description: Existing GCP KMS CryptoKey resource name for Cloud SQL storage encryption. Omit to let Windsor manage its own key.
+                enum:
+                  - rds
+                  - azuredb
+                  - cloudsql
+                description: Cloud Postgres driver. Defaults from platform when cloud.enabled.
+              encryption:
+                type: object
+                properties:
+                  managed:
+                    type: boolean
+                    default: false
+                    description: Create a dedicated customer-managed key instead of the driver's platform-managed default.
+                  key_id:
+                    type: string
+                    description: Existing encryption key identifier for the active driver, overriding managed. Format is driver-dependent (an ARN for rds, a Key Vault key ID for azuredb, a CryptoKey resource name for cloudsql).
+                additionalProperties: false
             additionalProperties: false
         additionalProperties: false
     additionalProperties: false
@@ -1593,34 +1596,14 @@ allOf:
             driver:
               const: talos
 
-  # database.postgres.driver: rds installs Crossplane's provider-aws-rds,
-  # wired to AWS credentials by the aws-eks Terraform module's Pod Identity
-  # association — AWS-only.
+  # platform: aws restricts database.postgres.cloud.driver to rds.
   - if:
-      properties:
-        database:
-          type: object
-          properties:
-            postgres:
-              type: object
-              properties:
-                driver:
-                  const: rds
-              required:
-                - driver
-          required:
-            - postgres
-      required:
-        - database
-    then:
       properties:
         platform:
           const: aws
-
-  # database.postgres.driver: flexibleserver installs Crossplane's
-  # provider-azure-dbforpostgresql, wired to Azure credentials by the
-  # azure-aks Terraform module's Workload Identity federation — Azure-only.
-  - if:
+      required:
+        - platform
+    then:
       properties:
         database:
           type: object
@@ -1628,25 +1611,20 @@ allOf:
             postgres:
               type: object
               properties:
-                driver:
-                  const: flexibleserver
-              required:
-                - driver
-          required:
-            - postgres
-      required:
-        - database
-    then:
+                cloud:
+                  type: object
+                  properties:
+                    driver:
+                      const: rds
+
+  # platform: azure restricts database.postgres.cloud.driver to azuredb.
+  - if:
       properties:
         platform:
           const: azure
       required:
         - platform
-
-  # database.postgres.driver: cloudsql installs Crossplane's
-  # provider-gcp-sql, wired to GCP credentials by the gcp-gke Terraform
-  # module's Workload Identity Federation — GCP-only.
-  - if:
+    then:
       properties:
         database:
           type: object
@@ -1654,17 +1632,54 @@ allOf:
             postgres:
               type: object
               properties:
-                driver:
-                  const: cloudsql
-              required:
-                - driver
-          required:
-            - postgres
-      required:
-        - database
-    then:
+                cloud:
+                  type: object
+                  properties:
+                    driver:
+                      const: azuredb
+
+  # platform: gcp restricts database.postgres.cloud.driver to cloudsql.
+  - if:
       properties:
         platform:
           const: gcp
       required:
         - platform
+    then:
+      properties:
+        database:
+          type: object
+          properties:
+            postgres:
+              type: object
+              properties:
+                cloud:
+                  type: object
+                  properties:
+                    driver:
+                      const: cloudsql
+
+  # Any other platform cannot serve a cloud-managed Postgres.
+  - if:
+      properties:
+        platform:
+          not:
+            enum:
+              - aws
+              - azure
+              - gcp
+      required:
+        - platform
+    then:
+      properties:
+        database:
+          type: object
+          properties:
+            postgres:
+              type: object
+              properties:
+                cloud:
+                  type: object
+                  properties:
+                    enabled:
+                      const: false

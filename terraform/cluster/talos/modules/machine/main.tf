@@ -66,7 +66,7 @@ data "talos_machine_configuration" "this" {
 # Apply the machine configuration to the node. Skipped when the config is
 # delivered out-of-band (CIDATA seed on hyperv) — re-applying would
 # regenerate without the per-node network patch (lives in
-# cluster/talos/config) and wipe the static IP back to DHCP.
+# compute/hyperv) and wipe the static IP back to DHCP.
 resource "talos_machine_configuration_apply" "this" {
   count = var.skip_machine_config_apply ? 0 : 1
 

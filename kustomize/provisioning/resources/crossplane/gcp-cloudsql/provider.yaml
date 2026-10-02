@@ -1,0 +1,12 @@
+---
+apiVersion: pkg.crossplane.io/v1
+kind: Provider
+metadata:
+  name: provider-gcp-sql
+spec:
+  # renovate: datasource=docker depName=xpkg.upbound.io/upbound/provider-gcp-sql package=xpkg.upbound.io/upbound/provider-gcp-sql
+  package: xpkg.upbound.io/upbound/provider-gcp-sql:v3.0.4@sha256:ee7a0969bf1435e6df88f54998fefa364877b126f1d98ac1b1633998b841e35c
+  # provider-family-gcp.yaml installs the dependency explicitly, pinned too.
+  skipDependencyResolution: true
+  runtimeConfigRef:
+    name: provider-gcp-sql

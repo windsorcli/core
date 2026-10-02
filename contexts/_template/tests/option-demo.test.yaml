@@ -49,13 +49,10 @@ cases:
               components:
                 - database
                 - database/cloudnativepg
+              substitutions:
+                demo_database_name: demo
 
-  # rds driver: creates an Instance CR. Depends on provisioning-resources
-  # for its ProviderConfig, not just provisioning-install.
-  # dbSubnetGroupName/kmsKeyId read the real terraform outputs directly.
-  # A third-party chart uses the documented naming convention instead.
-  # app-role is its own Kustomization, dependent on demo-resources for
-  # namespace-before-RBAC ordering.
+  # rds driver: creates an Instance CR. Kyverno defaults its network/KMS fields.
   - name: demo mode with rds driver creates demo rds instance
     values:
       platform: aws
@@ -70,14 +67,10 @@ cases:
         enabled: false
       database:
         postgres:
-          enabled: true
-          driver: rds
-    terraformOutputs:
-      network:
-        db_subnet_group_name: test-rds
-      database:
-        kms_key_arn: arn:aws:kms:us-west-2:123456789012:key/abcd1234-5678-90ab-cdef-1234567890ab
-        security_group_id: sg-0abcd1234
+          enabled: false
+          cloud:
+            enabled: true
+            driver: rds
     expect:
       flux:
         - name: demo
@@ -85,45 +78,38 @@ cases:
           dependsOn:
             - provisioning-resources
           resources:
-            - timeout: 30m
+            - timeout: 45m
+              deleteTimeout: 60m
               interval: 5m
               components:
                 - database
                 - database/rds
               substitutions:
                 aws_region: us-west-2
-                db_subnet_group_name: test-rds
-                kms_key_arn: arn:aws:kms:us-west-2:123456789012:key/abcd1234-5678-90ab-cdef-1234567890ab
-                rds_security_group_id: sg-0abcd1234
-                demo_db_name: demo
+                demo_database_name: demo
+                database_instance_name: demo-db
               healthCheckExprs:
                 - apiVersion: rds.aws.upbound.io/v1beta3
                   kind: Instance
                   current: status.conditions.exists(e, e.type == 'Ready' && e.status == 'True')
-        - name: demo-app-role
-          path: provisioning
-          dependsOn:
-            - demo-resources
-          resources:
-            - timeout: 5m
+            - name: credentials
+              dependsOn:
+                - demo-resources
+              timeout: 10m
               interval: 5m
               components:
-                - crossplane/aws-rds/app-role
+                - database/credentials
               substitutions:
-                pg_instance_name: demo-db
-                pg_database_name: demo
-                pg_target_namespace: demo-database
-                pg_grant_sql: ""
+                demo_database_name: demo
+                database_instance_name: demo-db
               healthCheckExprs:
-                - apiVersion: batch/v1
-                  kind: Job
-                  current: status.conditions.exists(e, e.type == 'Complete' && e.status == 'True')
-    exclude:
-      flux:
-        - name: database
+                - apiVersion: database.windsorcli.dev/v1alpha1
+                  kind: AppRole
+                  current: status.conditions.exists(e, e.type == 'Ready' && e.status == 'True')
 
-  - name: demo mode with flexibleserver driver creates demo flexibleserver instance
+  - name: demo mode with azuredb driver creates demo azuredb instance
     values:
+      id: test1
       platform: azure
       dev: true
       demo:
@@ -134,14 +120,13 @@ cases:
         enabled: false
       database:
         postgres:
-          enabled: true
-          driver: flexibleserver
+          enabled: false
+          cloud:
+            enabled: true
+            driver: azuredb
     terraformOutputs:
       network:
-        flexibleserver_subnet_id: /subscriptions/sub/resourceGroups/rg/providers/Microsoft.Network/virtualNetworks/vnet-test/subnets/flexibleserver-test
         region: eastus2
-      database:
-        private_dns_zone_id: /subscriptions/sub/resourceGroups/test-postgres/providers/Microsoft.Network/privateDnsZones/test.postgres.database.azure.com
     expect:
       flux:
         - name: demo
@@ -149,40 +134,39 @@ cases:
           dependsOn:
             - provisioning-resources
           resources:
-            - timeout: 30m
+            - timeout: 45m
+              deleteTimeout: 60m
               interval: 5m
               components:
                 - database
-                - database/flexibleserver
+                - database/azuredb
               substitutions:
-                flexibleserver_subnet_id: /subscriptions/sub/resourceGroups/rg/providers/Microsoft.Network/virtualNetworks/vnet-test/subnets/flexibleserver-test
-                flexibleserver_private_dns_zone_id: /subscriptions/sub/resourceGroups/test-postgres/providers/Microsoft.Network/privateDnsZones/test.postgres.database.azure.com
-                flexibleserver_region: eastus2
+                azuredb_region: eastus2
+                database_instance_name: demo-db-test1
               healthCheckExprs:
                 - apiVersion: dbforpostgresql.azure.upbound.io/v1beta1
                   kind: FlexibleServer
                   current: status.conditions.exists(e, e.type == 'Ready' && e.status == 'True')
-        - name: demo-app-role
-          path: provisioning
-          dependsOn:
-            - demo-resources
-          resources:
-            - timeout: 5m
+                - apiVersion: dbforpostgresql.azure.upbound.io/v1beta1
+                  kind: FlexibleServerDatabase
+                  current: status.conditions.exists(e, e.type == 'Ready' && e.status == 'True')
+            - name: credentials
+              dependsOn:
+                - demo-resources
+              timeout: 10m
               interval: 5m
               components:
-                - crossplane/azure-postgres/app-role
+                - database/credentials
               substitutions:
-                pg_instance_name: demo-db
-                pg_database_name: demo
-                pg_target_namespace: demo-database
-                pg_grant_sql: ""
-    exclude:
-      flux:
-        - name: database
+                demo_database_name: demo
+                database_instance_name: demo-db-test1
+              healthCheckExprs:
+                - apiVersion: database.windsorcli.dev/v1alpha1
+                  kind: AppRole
+                  current: status.conditions.exists(e, e.type == 'Ready' && e.status == 'True')
 
   # cloudsql driver: creates a DatabaseInstance + User + Database CR trio.
-  # GCP twin of the rds/flexibleserver cases above. network_id/kms_key_name
-  # read the real terraform outputs directly, matching that convention.
+  # GCP twin of the rds/azuredb cases above; Kyverno defaults its fields too.
   - name: demo mode with cloudsql driver creates demo cloudsql instance
     values:
       platform: gcp
@@ -197,14 +181,13 @@ cases:
         enabled: false
       database:
         postgres:
-          enabled: true
-          driver: cloudsql
+          enabled: false
+          cloud:
+            enabled: true
+            driver: cloudsql
     terraformOutputs:
       network:
-        network_id: projects/windsor-test/global/networks/vpc-test
         region: us-central1
-      database:
-        kms_key_name: projects/windsor-test/locations/us-central1/keyRings/cloudsql-test/cryptoKeys/cloudsql-test
     expect:
       flux:
         - name: demo
@@ -212,64 +195,39 @@ cases:
           dependsOn:
             - provisioning-resources
           resources:
-            - timeout: 30m
+            - timeout: 45m
+              deleteTimeout: 60m
               interval: 5m
               components:
                 - database
                 - database/cloudsql
               substitutions:
-                cloudsql_network_id: projects/windsor-test/global/networks/vpc-test
-                cloudsql_kms_key_name: projects/windsor-test/locations/us-central1/keyRings/cloudsql-test/cryptoKeys/cloudsql-test
                 cloudsql_region: us-central1
+                database_instance_name: demo-db
               healthCheckExprs:
                 - apiVersion: sql.gcp.upbound.io/v1beta2
                   kind: DatabaseInstance
                   current: status.conditions.exists(e, e.type == 'Ready' && e.status == 'True')
-        - name: demo-app-role
-          path: provisioning
-          dependsOn:
-            - demo-resources
-          resources:
-            - timeout: 5m
+                - apiVersion: sql.gcp.upbound.io/v1beta1
+                  kind: Database
+                  current: status.conditions.exists(e, e.type == 'Ready' && e.status == 'True')
+            - name: credentials
+              dependsOn:
+                - demo-resources
+              timeout: 10m
               interval: 5m
               components:
-                - crossplane/gcp-cloudsql/app-role
+                - database/credentials
               substitutions:
-                pg_instance_name: demo-db
-                pg_database_name: demo
-                pg_target_namespace: demo-database
-                pg_grant_sql: ""
-    exclude:
-      flux:
-        - name: database
+                demo_database_name: demo
+                database_instance_name: demo-db
+              healthCheckExprs:
+                - apiVersion: database.windsorcli.dev/v1alpha1
+                  kind: AppRole
+                  current: status.conditions.exists(e, e.type == 'Ready' && e.status == 'True')
 
-  # cloudsql's admin credential Secret is declared here (the instance name is
-  # demo-specific) but the terraform component itself lives in
-  # platform-gcp.yaml — confirms the two facets' inputs merge into one call.
-  - name: demo mode with cloudsql driver merges admin_credentials into the shared database component
-    values:
-      platform: gcp
-      gcp:
-        project_id: windsor-test
-      demo:
-        enabled: true
-        resources:
-          database: true
-      gateway:
-        enabled: false
-      database:
-        postgres:
-          enabled: true
-          driver: cloudsql
-    expect:
-      terraform:
-        - name: database
-          path: database/gcp-cloudsql
-          inputs:
-            project_id: windsor-test
-            admin_credentials:
-              demo-db:
-                username: demo
+  # database.postgres.cloud.encryption.managed/key_id no longer touch the
+  # demo — the CMK lands via the Kyverno policy tested in addon-database.test.yaml.
 
   # static + bookinfo apps carry no database dependency, and demo is a
   # resources-only system, so no demo-install tier is emitted.

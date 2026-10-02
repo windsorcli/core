@@ -27,9 +27,9 @@ output "isolated_subnet_ids" {
   value       = azurerm_subnet.isolated[*].id
 }
 
-output "flexibleserver_subnet_id" {
+output "azuredb_subnet_id" {
   description = "ID of the subnet delegated to Microsoft.DBforPostgreSQL/flexibleServers"
-  value       = azurerm_subnet.flexibleserver.id
+  value       = azurerm_subnet.azuredb.id
 }
 
 output "private_zone_id" {

@@ -33,30 +33,20 @@ config:
       admin_password: >-
         ${(identity.keycloak.admin.password ?? '') != '' ? identity.keycloak.admin.password :
         (dev == true ? 'admin-password' : '')}
-      # Grafana's pinned OIDC client secret.
-      grafana_client_secret: >-
-        ${(identity.keycloak.grafana_client_secret ?? '') != '' ? identity.keycloak.grafana_client_secret :
-        (dev == true ? 'grafana-oidc-dev-secret' : '')}
       # Non-empty only when the hosted server's issuer is actually reachable
       # (gateway enabled). requires: paths only test presence, not booleans, so
       # consumers needing browser/apiserver access to the issuer check this
       # instead of gateway.enabled directly.
       gateway_reachable: "${(identity.driver ?? 'keycloak') == 'keycloak' && gateway.enabled == true ? 'yes' : ''}"
 
-  # The hosted server needs PostgreSQL, so the keycloak driver turns database on
+  # The hosted server needs CloudNativePG, so the keycloak driver turns it on
   # by default (on unless explicitly disabled). The oidc driver hosts nothing,
-  # so it leaves the database setting untouched.
+  # so it leaves the database setting untouched. Unrelated to
+  # database.postgres.cloud, which an app chart opts into independently.
   - name: database
     value:
       postgres:
         enabled: "${(identity.driver ?? 'keycloak') == 'keycloak' ? (database.postgres.enabled != false) : (database.postgres.enabled ?? false)}"
-        driver: "${database.postgres.driver ?? 'cloudnativepg'}"
-
-requires:
-  - when: (identity.driver ?? 'keycloak') == 'keycloak' && observability.enabled == true && observability.grafana.sso != false && dev != true
-    paths:
-      - identity.keycloak.grafana_client_secret
-    message: Grafana SSO against the hosted Keycloak needs a pinned client secret outside dev mode — set identity.keycloak.grafana_client_secret.
 
 # Keycloak's CRDs are vendored (kustomize/crds/keycloak-26.7.0), owned by the crds:
 # layer, not the operator. Only the hosted keycloak driver needs them.
@@ -125,7 +115,7 @@ flux:
           # default is not augmented, so it builds at boot (startOptimized false).
           # Custom images must be digest-pinned (system-identity is policy-managed).
           # renovate: datasource=docker depName=keycloak/keycloak package=quay.io/keycloak/keycloak
-          keycloak_image: "${(identity.keycloak.image ?? '') == '' ? 'quay.io/keycloak/keycloak:26.7.1@sha256:f1f1f01e472c8a78df40d8f2a49a925274eda4d3d80d5f6edbb5c880ee3c01c6' : identity.keycloak.image}"
+          keycloak_image: "${(identity.keycloak.image ?? '') == '' ? 'quay.io/keycloak/keycloak:26.7.4@sha256:82a77884f3af238beab1e7afd63b5f530e1b5c0590bd7aa60b40a40463e29b2c' : identity.keycloak.image}"
           keycloak_start_optimized: "${(identity.keycloak.image ?? '') == '' ? 'false' : 'true'}"
 
   # Gateway route — waits for the shared Gateway to exist. Without a gateway, reach
@@ -169,14 +159,6 @@ flux:
           grafana_redirect_uri: "${(grafana_effective.url ?? '') + '/login/generic_oauth'}"
           # Dev SSO admin user password.
           dev_admin_password: "${identity_effective.admin_password ?? ''}"
-
-  # Grafana's client secret, referenced by the realm import via spec.placeholders.
-  - name: identity
-    when: (identity.driver ?? 'keycloak') == 'keycloak' && observability.enabled == true && observability.grafana.sso != false
-    secrets:
-      grafana-oidc-client-secret:
-        data:
-          clientSecret: ${identity_effective.grafana_client_secret}
 
   # Bootstrap admin, supplied case.
   - name: identity

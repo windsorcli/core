@@ -2,178 +2,259 @@ kind: Facet
 apiVersion: blueprints.windsorcli.dev/v1alpha1
 metadata:
   name: database
-  description: PostgreSQL database service — in-cluster via CloudNativePG, or a cloud-managed instance via Crossplane
+  description: PostgreSQL database service — in-cluster via CloudNativePG, and/or a cloud-managed instance via Crossplane
 
-when: database.postgres.enabled == true
-
-# Crossplane's own CRDs, vendored (kustomize/crds/crossplane-2.4.0), for
-# the rds/flexibleserver/cloudsql drivers.
-crds:
-  # renovate: datasource=github-releases depName=crossplane/crossplane package=crossplane/crossplane
-  - "${(database.postgres.driver == 'rds' || database.postgres.driver == 'flexibleserver' || database.postgres.driver == 'cloudsql') ? 'crossplane-2.4.0' : ''}"
+when: database.postgres.enabled == true || database.postgres.cloud.enabled == true
 
 # =============================================================================
-# Flux systems — CloudNativePG operator
+# Config — derived values consumed by this facet
+# =============================================================================
+# database_effective.cloud_driver: each cloud platform serves exactly one
+# cloud Postgres driver, so it defaults from platform; an explicit
+# database.postgres.cloud.driver overrides it.
+config:
+  - name: database_effective
+    when: platform == 'aws'
+    value:
+      cloud_driver: rds
+  - name: database_effective
+    when: platform == 'azure'
+    value:
+      cloud_driver: azuredb
+  - name: database_effective
+    when: platform == 'gcp'
+    value:
+      cloud_driver: cloudsql
+  - name: database_effective
+    when: (database.postgres.cloud.driver ?? '') != ''
+    value:
+      cloud_driver: "${database.postgres.cloud.driver}"
+
+# database_effective.dedicated_encryption_key: whether a driver's Kyverno
+# policy has a real key to default onto a chart's resource.
+  - name: database_effective
+    when: database.postgres.cloud.encryption.managed == true && ephemeral != true
+    value:
+      dedicated_encryption_key: true
+  - name: database_effective
+    when: (database.postgres.cloud.encryption.key_id ?? '') != ''
+    value:
+      dedicated_encryption_key: true
+
+# =============================================================================
+# Terraform — driver-specific cloud infrastructure and Crossplane identity.
+# network/cluster come from the active platform's own terraform: block.
+# =============================================================================
+terraform:
+
+  # KMS key and security group for RDS storage.
+  - name: database
+    path: database/aws-rds
+    when: "database.postgres.cloud.enabled == true && database_effective.cloud_driver == 'rds'"
+    dependsOn:
+      - network
+      - cluster
+    inputs:
+      # Opt-in, and never for ephemeral contexts.
+      manage_encryption_key: ${(database.postgres.cloud.encryption.managed ?? false) && !(ephemeral ?? false)}
+      key_id: "${database.postgres.cloud.encryption.key_id ?? ''}"
+      vpc_id: ${terraform_output('network', 'vpc_id')}
+      # Scopes RDS ingress to this cluster's own nodes, not the whole VPC CIDR.
+      cluster_security_group_id: ${terraform_output('cluster', 'cluster_security_group_id')}
+
+  # IAM role, policy, and Pod Identity association for Crossplane's AWS
+  # provider pods.
+  - name: crossplane-identity
+    path: provisioning/crossplane-identity/aws
+    when: "database.postgres.cloud.enabled == true && database_effective.cloud_driver == 'rds'"
+    dependsOn:
+      - network
+      - cluster
+      - database
+    inputs:
+      cluster_name: ${terraform_output('cluster', 'cluster_name')}
+      cluster_arn: ${terraform_output('cluster', 'cluster_arn')}
+      cluster_tag: ${terraform_output('cluster', 'cluster_name')}
+      db_subnet_group_name: ${terraform_output('network', 'db_subnet_group_name')}
+      kms_key_arn: ${terraform_output('database', 'key_id')}
+      resources:
+        - rds
+
+  # Resource group, private DNS zone, NSG, and optional customer-managed
+  # key for Flexible Server.
+  - name: database
+    path: database/azure-postgres
+    when: "database.postgres.cloud.enabled == true && database_effective.cloud_driver == 'azuredb'"
+    dependsOn:
+      - network
+      - cluster
+    inputs:
+      # Derived from network's own output: Flexible Server must colocate
+      # with its delegated subnet.
+      region: ${terraform_output('network', 'region')}
+      vnet_id: ${terraform_output('network', 'vnet_id')}
+      azuredb_subnet_id: ${terraform_output('network', 'azuredb_subnet_id')}
+      # Scopes Postgres ingress to this cluster's own node subnets rather
+      # than the whole VNet.
+      allowed_subnet_cidrs: ${terraform_output('network', 'private_subnet_cidrs')}
+      # Opt-in, and never for ephemeral contexts.
+      manage_encryption_key: ${(database.postgres.cloud.encryption.managed ?? false) && !(ephemeral ?? false)}
+      key_id: "${database.postgres.cloud.encryption.key_id ?? ''}"
+
+  # Workload Identity and RBAC for Crossplane's Azure provider pods.
+  - name: crossplane-identity
+    path: provisioning/crossplane-identity/azure
+    when: "database.postgres.cloud.enabled == true && database_effective.cloud_driver == 'azuredb'"
+    dependsOn:
+      - network
+      - cluster
+      - database
+    inputs:
+      region: ${terraform_output('network', 'region')}
+      resource_group_name: ${terraform_output('cluster', 'resource_group_name')}
+      cluster_name: ${terraform_output('cluster', 'cluster_name')}
+      oidc_issuer_url: ${terraform_output('cluster', 'cluster_oidc_issuer_url')}
+      postgres_resource_group_id: ${terraform_output('database', 'resource_group_id')}
+      resources:
+        - postgres
+
+  # Private service connection and KMS key for Cloud SQL. Shared across
+  # every database in a context.
+  - name: database
+    path: database/gcp-cloudsql
+    when: "database.postgres.cloud.enabled == true && database_effective.cloud_driver == 'cloudsql'"
+    dependsOn:
+      - network
+      - cluster
+    inputs:
+      project_id: ${gcp.project_id}
+      region: ${terraform_output('network', 'region')}
+      network_id: ${terraform_output('network', 'network_id')}
+      # Opt-in, and never for ephemeral contexts.
+      manage_encryption_key: ${(database.postgres.cloud.encryption.managed ?? false) && !(ephemeral ?? false)}
+      key_id: "${database.postgres.cloud.encryption.key_id ?? ''}"
+
+  # Workload Identity for Crossplane's provider-gcp-sql pod.
+  - name: crossplane-identity
+    path: provisioning/crossplane-identity/gcp
+    when: "database.postgres.cloud.enabled == true && database_effective.cloud_driver == 'cloudsql'"
+    dependsOn:
+      - network
+      - cluster
+      - database
+    inputs:
+      project_id: ${gcp.project_id}
+      cluster_name: ${terraform_output('cluster', 'cluster_name')}
+      resources:
+        - postgres
+
+# =============================================================================
+# Flux systems
 # =============================================================================
 flux:
 
-  # CloudNativePG operator. Depends on csi for WAL/data PVCs and telemetry so
-  # kube-prometheus-stack's admission webhook is up before its own PodMonitor
-  # lands; `ha` topology adds anti-affinity and PDBs. Install-only — manages
-  # Cluster CRs, creates none.
+  # CloudNativePG operator. cloud.enabled alone (no CNPG) still needs this
+  # entry to exist so Crossplane's resources tier has an install tier to
+  # depend on, hence the facet-wide when: rather than a per-entry one here.
   - name: database
-    when: database.postgres.driver == 'cloudnativepg'
     dependsOn:
-      - csi
-      - "${telemetry.metrics.enabled || telemetry.logs.enabled ? 'telemetry' : ''}"
+      - "${database.postgres.enabled == true ? 'csi-install' : ''}"
+      - "${database.postgres.enabled == true && (telemetry.metrics.enabled || telemetry.logs.enabled) ? 'telemetry' : ''}"
     install:
       components:
-        - cloudnativepg
-        - cloudnativepg/prometheus
-        - "${database.postgres.driver == 'cloudnativepg' && topology == 'ha' ? 'cloudnativepg/ha' : ''}"
+        - "${database.postgres.enabled == true ? 'cloudnativepg' : ''}"
+        - "${database.postgres.enabled == true ? 'cloudnativepg/prometheus' : ''}"
+        - "${database.postgres.enabled == true && topology == 'ha' ? 'cloudnativepg/ha' : ''}"
       timeout: 15m
       interval: 10m
-
-  # Grafana dashboard — only when observability is active. Matches the
-  # active driver: CloudNativePG's own metrics, or postgres_exporter for
-  # rds/flexibleserver (see kustomize/demo/resources/database/rds for a
-  # worked example of deploying it against a chart's own Instance).
-  - name: observability
-    when: (database.postgres.driver == 'cloudnativepg' || database.postgres.driver == 'rds' || database.postgres.driver == 'flexibleserver' || database.postgres.driver == 'cloudsql') && observability.enabled == true
     resources:
-      - components:
-          - "${database.postgres.driver == 'cloudnativepg' ? 'grafana/dashboards/cloudnativepg' : ''}"
-          - "${(database.postgres.driver == 'rds' || database.postgres.driver == 'flexibleserver' || database.postgres.driver == 'cloudsql') ? 'grafana/dashboards/postgres-exporter' : ''}"
-
-  # Crossplane engine (kustomize/provisioning) — a chart creates the
-  # Instance CR; core only installs the engine and wires AWS credentials.
-  # The Provider CR lives in provisioning-providers below so destroy tears
-  # it down while the engine is still running to clear its finalizer.
-  - name: provisioning
-    when: database.postgres.driver == 'rds'
-    install:
-      components:
-        - crossplane
-      timeout: 15m
-      interval: 5m
-    resources:
-      # Waits for Healthy/Installed so ProviderConfig's CRD exists.
-      - dependsOn:
-          - provisioning-providers-install
+      # Depends on provisioning-resources: gated on the Provider's own
+      # Healthy/Installed conditions.
+      - when: database.postgres.cloud.enabled == true && database_effective.cloud_driver == 'rds'
+        dependsOn:
+          - provisioning-resources
         components:
-          - crossplane/aws-rds
-          - "${(telemetry.metrics.enabled ?? true) ? 'crossplane/aws-rds/monitoring-exporter' : ''}"
+          - crossplane/postgres/aws-rds
         substitutions:
           cluster_name: "${terraform_output('cluster', 'cluster_name') ?? ''}"
           context_id: ${id}
+          db_subnet_group_name: "${terraform_output('network', 'db_subnet_group_name') ?? ''}"
+          kms_key_arn: "${terraform_output('database', 'key_id') ?? ''}"
+          rds_security_group_id: "${terraform_output('database', 'security_group_id') ?? ''}"
         timeout: 5m
         interval: 5m
-
-  # provider-aws-rds's Provider CR + DeploymentRuntimeConfig, a system of
-  # its own so destroy can remove it before provisioning-install. Left in
-  # place, its package-manager finalizer only clears while the Crossplane
-  # engine pod is still running. Crossplane's own CRDs are vendored
-  # (crds: above), so these are as safe here as the HelmRelease.
-  - name: provisioning-providers
-    path: provisioning
-    when: database.postgres.driver == 'rds'
-    dependsOn:
-      - provisioning
-    install:
-      components:
-        - crossplane/aws-rds
-      healthCheckExprs:
-        - apiVersion: pkg.crossplane.io/v1
-          kind: Provider
-          current: status.conditions.exists(e, e.type == 'Healthy' && e.status == 'True') && status.conditions.exists(e, e.type == 'Installed' && e.status == 'True')
-      timeout: 15m
-      interval: 5m
-
-  # Crossplane engine (kustomize/provisioning) — Azure twin of the rds
-  # entry above. A chart creates the FlexibleServer CR. Core only
-  # installs the engine and wires Azure Workload Identity credentials.
-  - name: provisioning
-    when: database.postgres.driver == 'flexibleserver'
-    install:
-      components:
-        - crossplane
-      timeout: 15m
-      interval: 5m
-    resources:
-      # Waits for Healthy/Installed so ProviderConfig's CRD exists.
-      - dependsOn:
-          - provisioning-providers-install
+      - when: database.postgres.cloud.enabled == true && database_effective.cloud_driver == 'azuredb'
+        dependsOn:
+          - provisioning-resources
         components:
-          - crossplane/azure-postgres
-          - "${(telemetry.metrics.enabled ?? true) ? 'crossplane/azure-postgres/monitoring-exporter' : ''}"
+          - crossplane/postgres/azure-postgres
+          - "${database_effective.dedicated_encryption_key == true ? 'crossplane/postgres/azure-postgres/encryption-key' : ''}"
         substitutions:
-          crossplane_azure_client_id: "${terraform_output('crossplane-identity-azure', 'client_ids')['postgres'] ?? ''}"
-          crossplane_azure_tenant_id: "${terraform_output('crossplane-identity-azure', 'tenant_id') ?? ''}"
+          crossplane_azure_client_id: "${terraform_output('crossplane-identity', 'client_ids')['postgres'] ?? ''}"
+          crossplane_azure_tenant_id: "${terraform_output('crossplane-identity', 'tenant_id') ?? ''}"
           crossplane_azure_subscription_id: "${terraform_output('network', 'subscription_id') ?? ''}"
-          flexibleserver_resource_group_name: "${terraform_output('database', 'resource_group_name') ?? ''}"
+          azuredb_resource_group_name: "${terraform_output('database', 'resource_group_name') ?? ''}"
+          azuredb_subnet_id: "${terraform_output('network', 'azuredb_subnet_id') ?? ''}"
+          azuredb_private_dns_zone_id: "${terraform_output('database', 'private_dns_zone_id') ?? ''}"
+          azuredb_kms_key_id: "${terraform_output('database', 'key_id') ?? ''}"
+          azuredb_cmk_identity_id: "${terraform_output('database', 'azuredb_cmk_identity_id') ?? ''}"
           context_id: ${id}
         timeout: 5m
         interval: 5m
-
-  # provider-azure-dbforpostgresql's Provider CR + DeploymentRuntimeConfig,
-  # a system of its own so destroy can remove it before
-  # provisioning-install. Left in place, its package-manager finalizer
-  # only clears while the Crossplane engine pod is still running.
-  # Crossplane's own CRDs are vendored (crds: above), so these are as
-  # safe here as the HelmRelease.
-  - name: provisioning-providers
-    path: provisioning
-    when: database.postgres.driver == 'flexibleserver'
-    dependsOn:
-      - provisioning
-    install:
-      components:
-        - crossplane/azure-postgres
-      healthCheckExprs:
-        - apiVersion: pkg.crossplane.io/v1
-          kind: Provider
-          current: status.conditions.exists(e, e.type == 'Healthy' && e.status == 'True') && status.conditions.exists(e, e.type == 'Installed' && e.status == 'True')
-      timeout: 15m
-      interval: 5m
-      substitutions:
-        crossplane_azure_client_id: "${terraform_output('crossplane-identity-azure', 'client_ids')['postgres'] ?? ''}"
-        crossplane_azure_tenant_id: "${terraform_output('crossplane-identity-azure', 'tenant_id') ?? ''}"
-
-  # Installs the Crossplane engine and wires GCP Workload Identity.
-  - name: provisioning
-    when: database.postgres.driver == 'cloudsql'
-    install:
-      components:
-        - crossplane
-      timeout: 15m
-      interval: 5m
-    resources:
-      # Waits for Healthy/Installed so ProviderConfig's CRD exists.
-      - dependsOn:
-          - provisioning-providers-install
+      - when: database.postgres.cloud.enabled == true && database_effective.cloud_driver == 'cloudsql'
+        dependsOn:
+          - provisioning-resources
         components:
-          - crossplane/gcp-cloudsql
-          - "${(telemetry.metrics.enabled ?? true) ? 'crossplane/gcp-cloudsql/monitoring-exporter' : ''}"
+          - crossplane/postgres/gcp-cloudsql
+          - "${database_effective.dedicated_encryption_key == true ? 'crossplane/postgres/gcp-cloudsql/encryption-key' : ''}"
         substitutions:
           crossplane_gcp_project_id: "${gcp.project_id ?? ''}"
           context_id: ${id}
+          cloudsql_network_id: "${terraform_output('network', 'network_id') ?? ''}"
+          cloudsql_kms_key_name: "${terraform_output('database', 'key_id') ?? ''}"
         timeout: 5m
         interval: 5m
 
-  # provider-gcp-sql's Provider CR and DeploymentRuntimeConfig.
-  - name: provisioning-providers
-    path: provisioning
-    when: database.postgres.driver == 'cloudsql'
-    dependsOn:
-      - provisioning
+  # Grafana dashboard(s) matching whichever capabilities are active. CNPG
+  # and cloud aren't mutually exclusive, so both can render at once.
+  - name: observability
+    when: (database.postgres.enabled == true || database.postgres.cloud.enabled == true) && observability.enabled == true
+    resources:
+      - components:
+          - "${database.postgres.enabled == true ? 'grafana/dashboards/cloudnativepg' : ''}"
+          - "${database.postgres.cloud.enabled == true ? 'grafana/dashboards/postgres-exporter' : ''}"
+
+  # Resources tier depends on install: destroy clears the driver's
+  # provider before the Crossplane engine its finalizer needs running.
+  - name: provisioning
+    when: database.postgres.cloud.enabled == true
     install:
       components:
-        - crossplane/gcp-cloudsql
-      healthCheckExprs:
-        - apiVersion: pkg.crossplane.io/v1
-          kind: Provider
-          current: status.conditions.exists(e, e.type == 'Healthy' && e.status == 'True') && status.conditions.exists(e, e.type == 'Installed' && e.status == 'True')
+        - crossplane
       timeout: 15m
       interval: 5m
-      substitutions:
-        crossplane_gcp_service_account_email: "${terraform_output('crossplane-identity-gcp', 'service_account_emails')['postgres'] ?? ''}"
+    resources:
+      - components:
+          - "${database_effective.cloud_driver == 'rds' ? 'crossplane/aws-rds' : ''}"
+          - "${database_effective.cloud_driver == 'azuredb' ? 'crossplane/azure-postgres' : ''}"
+          - "${database_effective.cloud_driver == 'cloudsql' ? 'crossplane/gcp-cloudsql' : ''}"
+          - crossplane/provider-sql
+          - crossplane/function-python
+          - crossplane/app-role
+          - "${(telemetry.metrics.enabled ?? true) ? 'crossplane/postgres-monitor' : ''}"
+        healthCheckExprs:
+          - apiVersion: pkg.crossplane.io/v1
+            kind: Provider
+            current: status.conditions.exists(e, e.type == 'Healthy' && e.status == 'True') && status.conditions.exists(e, e.type == 'Installed' && e.status == 'True')
+          - apiVersion: pkg.crossplane.io/v1
+            kind: Function
+            current: status.conditions.exists(e, e.type == 'Healthy' && e.status == 'True') && status.conditions.exists(e, e.type == 'Installed' && e.status == 'True')
+          - apiVersion: apiextensions.crossplane.io/v2
+            kind: CompositeResourceDefinition
+            current: status.conditions.exists(e, e.type == 'Established' && e.status == 'True')
+        timeout: 15m
+        interval: 5m
+        substitutions:
+          crossplane_azure_client_id: "${database_effective.cloud_driver == 'azuredb' ? (terraform_output('crossplane-identity', 'client_ids')['postgres'] ?? '') : ''}"
+          crossplane_azure_tenant_id: "${database_effective.cloud_driver == 'azuredb' ? (terraform_output('crossplane-identity', 'tenant_id') ?? '') : ''}"
+          crossplane_gcp_service_account_email: "${database_effective.cloud_driver == 'cloudsql' ? (terraform_output('crossplane-identity', 'service_account_emails')['postgres'] ?? '') : ''}"

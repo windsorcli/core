@@ -1,0 +1,10 @@
+---
+# provider-aws-rds's own dependency, digest-pinned explicitly: its
+# skipDependencyResolution: true skips Crossplane's own resolution.
+apiVersion: pkg.crossplane.io/v1
+kind: Provider
+metadata:
+  name: provider-family-aws
+spec:
+  # renovate: datasource=docker depName=xpkg.upbound.io/upbound/provider-family-aws package=xpkg.upbound.io/upbound/provider-family-aws
+  package: xpkg.upbound.io/upbound/provider-family-aws:v2.7.2@sha256:508f400dce65e6e9c8f15df8da0f977653e87a109ebd8c3ccdfcc57d699d6c35

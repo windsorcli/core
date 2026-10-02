@@ -32,43 +32,46 @@ locals {
 
   instances = [
     for k, v in hyperv_vm.instances : {
-      name     = v.name
-      hostname = v.name
-      ipv4     = local.instance_ips[k]
-      ipv6     = local.instance_ipv6s[k]
-      status   = try(v.state.current, null)
-      type     = "virtual-machine"
-      image    = local.instances_by_name[k].image
-      role     = local.instance_roles[k]
+      name        = v.name
+      hostname    = v.name
+      ipv4        = local.instance_ips[k]
+      ipv6        = local.instance_ipv6s[k]
+      status      = try(v.state.current, null)
+      type        = "virtual-machine"
+      image       = local.instances_by_name[k].image
+      role        = local.instance_roles[k]
+      instance_id = v.vm_id
     }
   ]
 
   controlplanes = [
     for k, v in hyperv_vm.instances : {
-      hostname = v.name
-      endpoint = local.instance_ips[k] != null ? "${local.instance_ips[k]}:50000" : null
-      node     = local.instance_ips[k]
-      name     = v.name
-      ipv4     = local.instance_ips[k]
-      ipv6     = local.instance_ipv6s[k]
-      status   = try(v.state.current, null)
-      type     = "virtual-machine"
-      image    = local.instances_by_name[k].image
+      hostname    = v.name
+      endpoint    = local.instance_ips[k] != null ? "${local.instance_ips[k]}:50000" : null
+      node        = local.instance_ips[k]
+      name        = v.name
+      ipv4        = local.instance_ips[k]
+      ipv6        = local.instance_ipv6s[k]
+      status      = try(v.state.current, null)
+      type        = "virtual-machine"
+      image       = local.instances_by_name[k].image
+      instance_id = v.vm_id
     }
     if local.instance_roles[k] == "controlplane" && local.instance_ips[k] != null
   ]
 
   workers = [
     for k, v in hyperv_vm.instances : {
-      hostname = v.name
-      endpoint = local.instance_ips[k] != null ? "${local.instance_ips[k]}:50000" : null
-      node     = local.instance_ips[k]
-      name     = v.name
-      ipv4     = local.instance_ips[k]
-      ipv6     = local.instance_ipv6s[k]
-      status   = try(v.state.current, null)
-      type     = "virtual-machine"
-      image    = local.instances_by_name[k].image
+      hostname    = v.name
+      endpoint    = local.instance_ips[k] != null ? "${local.instance_ips[k]}:50000" : null
+      node        = local.instance_ips[k]
+      name        = v.name
+      ipv4        = local.instance_ips[k]
+      ipv6        = local.instance_ipv6s[k]
+      status      = try(v.state.current, null)
+      type        = "virtual-machine"
+      image       = local.instances_by_name[k].image
+      instance_id = v.vm_id
     }
     if local.instance_roles[k] == "worker" && local.instance_ips[k] != null
   ]
@@ -116,4 +119,16 @@ output "tcp_port_forwards" {
 output "udp_port_forwards" {
   description = "Map of installed UDP NAT port forwards keyed by bench-side external_port"
   value       = { for k, r in hyperv_nat_static_mapping.udp : k => r.id }
+}
+
+output "machine_secrets" {
+  description = "Talos cluster identity. Pass to cluster/talos as var.machine_secrets so it shares the same cluster CA."
+  value       = length(talos_machine_secrets.this) > 0 ? talos_machine_secrets.this[0].machine_secrets : null
+  sensitive   = true
+}
+
+output "client_configuration" {
+  description = "Talos client configuration (CA cert + admin cert/key). Pass to cluster/talos as var.client_configuration."
+  value       = length(talos_machine_secrets.this) > 0 ? talos_machine_secrets.this[0].client_configuration : null
+  sensitive   = true
 }

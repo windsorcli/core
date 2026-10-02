@@ -46,12 +46,12 @@ run "minimal_configuration" {
   }
 
   assert {
-    condition     = azurerm_subnet.flexibleserver.address_prefixes[0] == "10.0.60.0/24"
+    condition     = azurerm_subnet.azuredb.address_prefixes[0] == "10.0.60.0/24"
     error_message = "Flexible Server delegated subnet should default to 10.0.60.0/24"
   }
 
   assert {
-    condition     = azurerm_subnet.flexibleserver.delegation[0].service_delegation[0].name == "Microsoft.DBforPostgreSQL/flexibleServers"
+    condition     = azurerm_subnet.azuredb.delegation[0].service_delegation[0].name == "Microsoft.DBforPostgreSQL/flexibleServers"
     error_message = "Flexible Server subnet should delegate to Microsoft.DBforPostgreSQL/flexibleServers"
   }
 
@@ -319,7 +319,7 @@ run "automatic_subnet_creation" {
   }
 
   assert {
-    condition     = azurerm_subnet.flexibleserver.address_prefixes[0] == "10.0.60.0/24"
+    condition     = azurerm_subnet.azuredb.address_prefixes[0] == "10.0.60.0/24"
     error_message = "Flexible Server subnet stays a single subnet regardless of vnet_zones"
   }
 
@@ -377,4 +377,29 @@ run "multiple_invalid_inputs" {
   expect_failures = [
     var.vnet_subnets,
   ]
+}
+
+# Verifies a caller-supplied var.tags entry can't override the module's own
+# WindsorContextID/Name values.
+run "var_tags_cannot_override_windsor_context_id_or_name" {
+  command = plan
+
+  variables {
+    context_id = "test"
+    name       = "windsor-vnet"
+    tags = {
+      WindsorContextID = "not-the-real-context"
+      Name             = "not-the-real-name"
+    }
+  }
+
+  assert {
+    condition     = azurerm_resource_group.main.tags["WindsorContextID"] == "test"
+    error_message = "A caller-supplied WindsorContextID in var.tags must not override the module's own value"
+  }
+
+  assert {
+    condition     = azurerm_resource_group.main.tags["Name"] == azurerm_resource_group.main.name
+    error_message = "A caller-supplied Name in var.tags must not override the resource's own Name tag"
+  }
 }

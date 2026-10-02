@@ -227,8 +227,8 @@ config:
         - prometheus/alerts/flux
         - "${gateway.enabled == true && gateway.driver == 'envoy' ? 'prometheus/alerts/envoy' : ''}"
         - "${(identity.driver ?? 'keycloak') == 'keycloak' && identity.enabled == true ? 'prometheus/alerts/identity' : ''}"
-        - "${(database.postgres.driver ?? 'cloudnativepg') == 'cloudnativepg' && database.postgres.enabled == true ? 'prometheus/alerts/database' : ''}"
-        - "${(database.postgres.driver == 'rds' || database.postgres.driver == 'flexibleserver') && database.postgres.enabled == true ? 'prometheus/alerts/postgres-exporter' : ''}"
+        - "${database.postgres.enabled == true ? 'prometheus/alerts/database' : ''}"
+        - "${database.postgres.cloud.enabled == true && (database_effective.cloud_driver == 'rds' || database_effective.cloud_driver == 'azuredb') ? 'prometheus/alerts/postgres-exporter' : ''}"
 
   # No logs pipeline → nothing to aggregate.
   - name: telemetry
@@ -264,9 +264,9 @@ substitutions:
 # Every kustomization auto-depends on this layer.
 crds:
   # renovate: datasource=github-releases depName=cert-manager/cert-manager package=cert-manager/cert-manager
-  - cert-manager-1.21.1
+  - cert-manager-1.21.2
   # renovate: datasource=github-releases depName=prometheus-operator/prometheus-operator package=prometheus-operator/prometheus-operator
-  - "${telemetry.metrics.enabled ? 'prometheus-operator-0.93.1' : ''}"
+  - "${telemetry.metrics.enabled ? 'prometheus-operator-0.94.0' : ''}"
   # renovate: datasource=helm depName=fluent-operator package=fluent-operator helmRepo=https://fluent.github.io/helm-charts
   - "${telemetry.logs.enabled ? 'fluent-operator-4.3.0' : ''}"
 
@@ -320,18 +320,16 @@ flux:
       interval: 5m
     resources:
       - components:
+          - kyverno
           - "${(policies.resource_limits_requests ?? 'enabled') != 'disabled' ? 'kyverno/resource-limits-requests' : ''}"
           - "${(policies.require_image_digest ?? 'enabled') != 'disabled' ? 'kyverno/require-image-digest' : ''}"
           - "${(policies.external_dns_ttl ?? 'enabled') != 'disabled' ? 'kyverno/external-dns-ttl' : ''}"
         healthChecks:
-          - apiVersion: admissionregistration.k8s.io/v1
-            kind: ValidatingWebhookConfiguration
-            name: kyverno-resource-validating-webhook-cfg
-        healthCheckExprs:
-          - apiVersion: admissionregistration.k8s.io/v1
-            kind: ValidatingWebhookConfiguration
-            current: webhooks.size() > 0 && webhooks.all(w, has(w.clientConfig.caBundle) && size(w.clientConfig.caBundle) > 0 && has(w.rules) && size(w.rules) > 0)
-        timeout: 5m
+          - apiVersion: batch/v1
+            kind: Job
+            name: kyverno-webhook-probe
+            namespace: system-policy
+        timeout: 8m
         interval: 5m
         retryInterval: 1m
 
@@ -354,6 +352,8 @@ flux:
           - "${lb_effective.driver == 'metallb' ? lb_effective.driver + '/' + (network.loadbalancer_mode ?? 'arp') : ''}"
         substitutions:
           loadbalancer_ip_range: "${network.loadbalancer_ips.start + '-' + network.loadbalancer_ips.end}"
+        timeout: 5m
+        interval: 5m
 
   # csi-install before telemetry-install: Prometheus's PVC needs a live storage
   # driver, both to bind on install and to release its finalizer on destroy.
@@ -506,3 +506,16 @@ flux:
           external_domain: ${gateway_effective.external_domain}
         timeout: 5m
         interval: 5m
+
+# =============================================================================
+# Messages — post-run notes printed on bootstrap
+# =============================================================================
+messages:
+  - when: (dns.public_domain ?? '') != '' && len(terraform_output('dns-zone', 'name_servers') ?? []) > 0
+    text: |-
+      Public DNS zone created for ${dns.public_domain}. Delegate it at your
+      domain registrar by adding these as NS records:
+
+        ${join(terraform_output('dns-zone', 'name_servers') ?? [], ', ')}
+
+      Certificate issuance won't succeed until delegation propagates.

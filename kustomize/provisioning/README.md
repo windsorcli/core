@@ -1,6 +1,7 @@
 ---
 title: Provisioning add-on
-description: Crossplane, provider-aws-rds, and provider-azure-dbforpostgresql for application-requested cloud databases.
+description: Crossplane, provider-aws-rds, provider-azure-dbforpostgresql, and provider-gcp-sql for application-requested cloud databases.
+stack_backing: Cloud resource provisioning via Crossplane
 ---
 
 # Provisioning
@@ -9,7 +10,7 @@ A Kubernetes-native API for cloud-managed resources, installed so a Helm
 chart running on top of core can request one without the customer
 authoring their own Windsor blueprint. Today this covers a single
 capability — a cloud-managed Postgres database, gated on
-`database.postgres.driver == 'rds'` (AWS) or `== 'flexibleserver'` (Azure)
+`database.postgres.driver == 'rds'` (AWS) or `== 'azuredb'` (Azure)
 (see [kustomize/database](../database/README.md)) — implemented with
 Crossplane and `provider-aws-rds` or `provider-azure-dbforpostgresql`,
 installed the same way `pki` installs cert-manager or `policy` installs
@@ -32,16 +33,15 @@ RuntimeDefault`) — enough to satisfy `restricted`, verified with
 `selector` matching pod template labels Crossplane assigns dynamically
 per revision, so a correct override isn't safely hand-writable without
 deeper visibility into Crossplane's own labeling — confirmed against a
-live cluster, not just `kustomize build`. `restricted` for this namespace
-is a real follow-up, not decided here. `provider-azure-dbforpostgresql`'s
-own runtime pod carries the same unresolved constraint; it hasn't been
-checked against a live cluster yet.
+live cluster, not just `kustomize build`. `system-provisioning` therefore
+runs at `baseline`, not `restricted`, until that override is worked out.
+`provider-azure-dbforpostgresql`'s own runtime pod carries the same
+unresolved constraint; it hasn't been checked against a live cluster yet.
 
 ## Architecture
 
 ```mermaid
 flowchart LR
-  crds[(crds: crossplane-2.4.0)]
   flux[Flux helm-controller]
 
   subgraph install[install: system-provisioning]
@@ -57,9 +57,9 @@ flowchart LR
 
   subgraph res[resources: system-provisioning]
     aws_pc[ProviderConfig default<br/>PodIdentity]
-    aws_kyverno[Kyverno<br/>crossplane-rds-tag]
+    aws_kyverno[Kyverno<br/>crossplane-instance-tag]
     azure_pc[ProviderConfig default<br/>OIDCTokenFile]
-    azure_kyverno[Kyverno<br/>crossplane-flexibleserver-rg]
+    azure_kyverno[Kyverno<br/>crossplane-azuredb-rg]
   end
 
   irsa[(EKS Pod Identity<br/>role: crossplane_rds)]
@@ -74,7 +74,6 @@ flowchart LR
   aws[(AWS RDS)]
   azure[(Azure Flexible Server)]
 
-  crds ==> flux
   flux ==> operator_hr --> operator_pod
   flux ==> aws_provider_cr & aws_drc & azure_provider_cr & azure_drc
   operator_pod -.installs.-> aws_provider_cr & azure_provider_cr
@@ -104,11 +103,12 @@ The `provisioning` `flux:` system entry that turns this on lives in
 shape that facet's `observability` entry already uses to target
 `kustomize/observability/`. `install:` carries the HelmRelease plus the
 `Provider` and `DeploymentRuntimeConfig` CRs — safe there because
-Crossplane's own CRDs are vendored under `kustomize/crds/crossplane-2.4.0`,
-ahead of `install:`, the same as any other operator's CRDs. `resources:`
-carries the `ProviderConfig` and the Kyverno policy: neither provider's own
-CRD is registered until Crossplane's package manager finishes installing
-it, which is exactly what `install:`'s `healthCheckExprs` on the
+Crossplane's chart applies its own core CRDs via an init container on
+every install and upgrade, so the HelmRelease can't go Ready before they
+exist. `resources:` carries the `ProviderConfig` and the Kyverno policy:
+neither provider's own CRD is registered until Crossplane's package
+manager finishes installing it, which is exactly what `install:`'s
+`healthCheckExprs` on the
 `Provider`'s Healthy/Installed condition waits for — no explicit
 `dependsOn` needed, the ordinary install-before-resources edge already
 guarantees it. `install/crossplane/aws-rds` and
@@ -116,13 +116,13 @@ guarantees it. `install/crossplane/aws-rds` and
 the same leaf name on purpose, matching `csi/install/longhorn` and
 `csi/resources/longhorn` — same provider, split by lifecycle stage.
 
-RDS's master password lives in AWS Secrets Manager, reachable only through
-a dedicated `rds-secret-reader` IAM role and Pod Identity association.
-Flexible Server needs none of that: Crossplane's own
-`administratorPasswordSecretRef` + `autoGeneratePassword: true` writes the
-admin password straight into a Kubernetes `Secret`, so
-`flexibleserver-bootstrap` (the Azure equivalent identity) is a plain
-ServiceAccount with no cloud credential of its own.
+Every driver's admin password lands in a Kubernetes `Secret` in
+`system-database`: RDS/Flexible Server generate it via their own
+`passwordSecretRef`/`administratorPasswordSecretRef` field, Cloud SQL via
+`gcp-admin-password`'s `WatchOperation`, which also applies it onto the
+instance's own admin `User` — `provider-gcp-sql` has no such field of its
+own. `database-credentials`'s Composition reads it to issue each chart's
+own connection credential.
 
 ## Consuming from a chart
 
@@ -148,14 +148,14 @@ spec:
 `providerConfigRef` is omitted — `default` is the field's own default, and
 that's the name of the `ProviderConfig` this add-on creates. No
 `windsorcli.dev/cluster` tag either: `resources/crossplane/aws-rds`
-bundles a Kyverno `ClusterPolicy` that force-sets it on every `Instance`
+bundles a Kyverno `MutatingPolicy` that force-sets it on every `Instance`
 admission, overwriting whatever value (if any) the chart submitted. The
 `crossplane_rds` IAM role's policy conditions `CreateDBInstance` on that
 request tag and `ModifyDBInstance`/`DeleteDBInstance` on the same resource
 tag, so the role can't touch an RDS instance it didn't create — the chart
 author never needs to know this tag exists.
 
-Azure (`database.postgres.driver == 'flexibleserver'`):
+Azure (`database.postgres.driver == 'azuredb'`):
 
 ```yaml
 apiVersion: dbforpostgresql.azure.upbound.io/v1beta1
@@ -189,34 +189,69 @@ spec:
 The database is a separate CR from the server — `FlexibleServer` carries
 no `dbName` field the way `rds.aws.upbound.io` `Instance` does.
 `resourceGroupName` is likewise omitted; `resources/crossplane/azure-postgres`
-bundles a Kyverno `ClusterPolicy` that force-sets it on every
+bundles a Kyverno `MutatingPolicy` that force-sets it on every
 `FlexibleServer` admission to the context's dedicated postgres resource
 group, the same overwrite-on-admission posture as the AWS tag policy.
-`crossplane-identity-azure`'s custom role is scoped to that resource
+`crossplane-identity/azure`'s custom role is scoped to that resource
 group, so the identity can't touch a server it didn't create.
 
 <!-- BEGIN_KUSTOMIZE_DOCS -->
 
 ## Components
 
-| Component | Enable when | Effect |
-|---|---|---|
-| `crossplane` | `database.postgres.driver == 'rds'` OR `database.postgres.driver == 'flexibleserver'` OR `database.postgres.driver == 'cloudsql'` | Helm release of Crossplane in `system-provisioning`. |
-| `crossplane/aws-rds` | `database.postgres.driver == 'rds'` | In `install:`: digest-pinned `Provider` CRs for `provider-aws-rds` (`skipDependencyResolution: true`) and its `provider-family-aws` dependency, plus a `DeploymentRuntimeConfig` that fixes the provider pod's ServiceAccount name to `provider-aws-rds` so the `provisioning/crossplane-iam` Terraform module's Pod Identity association can target it. In `resources:`, once the Provider reports Healthy/Installed: the `default` `ProviderConfig` (credentials source `PodIdentity`, so a consuming `Instance` CR needs no `providerConfigRef`), a Kyverno `ClusterPolicy` that force-sets the `windsorcli.dev/cluster` tag on every `Instance`, the `rds-secret-reader` ServiceAccount `app-role` (below) and the monitoring `ClusterPolicy`s use to provision scoped credentials from the RDS-managed master password, a static `Role`/`RoleBinding` granting it access to every monitor-credentials `Secret` in `system-provisioning`, and two `generate` `ClusterPolicy`s that automatically provision `pg_monitor` monitoring (the role, plus the per-Instance `ClusterRole`/`ClusterRoleBinding` letting `rds-secret-reader` read that Instance's status) for every `Instance` in the cluster — no chart opt-in, matching CNPG's own free monitoring. A `ClusterRole` pair aggregates into Kyverno's `background-controller`/`admission-controller`, the RBAC those `generate` rules need. The `postgres_exporter` Deployment/Service/PodMonitor itself is the separate `monitoring-exporter` component below. |
-| `crossplane/aws-rds/app-role` | a chart opts in — see `kustomize/demo/resources/database/rds` for the worked example | Reusable application-credential provisioning for any `provider-aws-rds` `Instance` — the role owns its database, matching CNPG's own default `app` user, so a chart can migrate its own schema without its own CronJob. A `ClusterRole`/`Role` opting `rds-secret-reader` into the named `Instance` and an app `Secret`, a one-shot `Job` that runs the provisioning script immediately on apply, and a `CronJob` running the identical script every 5 minutes for ongoing self-healing. Both idempotently create `<pg_database_name>_app`, transfer database ownership to it, and run the chart's optional `pg_grant_sql` for anything ownership doesn't cover, publishing `<pg_instance_name>-app-credentials` — never the master credential itself. Requires `pg_instance_name`, `pg_database_name`, and `pg_target_namespace`; `pg_grant_sql` (one line — Flux substitution is literal text, so a multi-line value would corrupt the Job/CronJob's YAML) is optional, from the consuming facet. |
-| `crossplane/aws-rds/monitoring-exporter` | `database.postgres.driver == 'rds'` AND `telemetry.metrics.enabled` (default true) | A `generate` `ClusterPolicy` that automatically provisions a `postgres_exporter` Deployment/Service/PodMonitor in `system-provisioning` for every `Instance` in the cluster, scraping the `pg_monitor` role `crossplane/aws-rds`'s own generate policies provision. Split from `crossplane/aws-rds` because `PodMonitor` (`monitoring.coreos.com/v1`) only exists once the metrics pipeline vendors prometheus-operator's CRDs. |
-| `crossplane/azure-postgres` | `database.postgres.driver == 'flexibleserver'` | Azure twin of `crossplane/aws-rds`. In `install:`: digest-pinned `Provider` CRs for `provider-azure-dbforpostgresql` (`skipDependencyResolution: true`) and its `provider-family-azure` dependency, plus a `DeploymentRuntimeConfig` that fixes the provider pod's ServiceAccount name to `provider-azure-dbforpostgresql` and wires AKS Workload Identity (client-id/tenant-id annotations, the `azure.workload.identity/use` label on both the ServiceAccount and the pod) so the `provisioning/crossplane-identity-azure` Terraform module's federated credential can target it. In `resources:`, once the Provider reports Healthy/Installed: the `default` `ProviderConfig` (credentials source `OIDCTokenFile`, so a consuming `FlexibleServer` CR needs no `providerConfigRef`), a Kyverno `ClusterPolicy` that force-sets `resourceGroupName` on every `FlexibleServer` to the context's dedicated postgres resource group, the `flexibleserver-bootstrap` ServiceAccount `app-role` (below) and the monitoring `ClusterPolicy`s use to provision scoped credentials from the admin credential Secret Crossplane itself generates (no cloud secret-store bootstrap needed, unlike RDS), a static `Role`/`RoleBinding` granting it access to every admin/monitor-credentials `Secret` in `system-provisioning`, and two `generate` `ClusterPolicy`s that automatically provision `pg_monitor` monitoring (the role, plus the per-server `ClusterRole`/`ClusterRoleBinding` letting `flexibleserver-bootstrap` read that server's status) for every `FlexibleServer` in the cluster — no chart opt-in, matching CNPG's own free monitoring. A `ClusterRole` pair aggregates into Kyverno's `background-controller`/`admission-controller`, the RBAC those `generate` rules need. The `postgres_exporter` Deployment/Service/PodMonitor itself is the separate `monitoring-exporter` component below. |
-| `crossplane/azure-postgres/app-role` | a chart opts in — see `kustomize/demo/resources/database/flexibleserver` for the worked example | Reusable application-credential provisioning for any `provider-azure-dbforpostgresql` `FlexibleServer` — the role owns its database, matching CNPG's own default `app` user, so a chart can migrate its own schema without its own CronJob. A `ClusterRole`/`Role` opting `flexibleserver-bootstrap` into the named `FlexibleServer` and an app `Secret`, a one-shot `Job` that runs the provisioning script immediately on apply, and a `CronJob` running the identical script every 5 minutes for ongoing self-healing. Both idempotently create `<pg_database_name>_app`, transfer database ownership to it, and run the chart's optional `pg_grant_sql` for anything ownership doesn't cover, publishing `<pg_instance_name>-app-credentials` — never the admin credential itself. Requires `pg_instance_name`, `pg_database_name`, and `pg_target_namespace`; `pg_grant_sql` (one line — Flux substitution is literal text, so a multi-line value would corrupt the Job/CronJob's YAML) is optional, from the consuming facet. |
-| `crossplane/azure-postgres/monitoring-exporter` | `database.postgres.driver == 'flexibleserver'` AND `telemetry.metrics.enabled` (default true) | A `generate` `ClusterPolicy` that automatically provisions a `postgres_exporter` Deployment/Service/PodMonitor in `system-provisioning` for every `FlexibleServer` in the cluster, scraping the `pg_monitor` role `crossplane/azure-postgres`'s own generate policies provision. Split from `crossplane/azure-postgres` because `PodMonitor` (`monitoring.coreos.com/v1`) only exists once the metrics pipeline vendors prometheus-operator's CRDs. |
-| `crossplane/gcp-cloudsql` | `database.postgres.driver == 'cloudsql'` | GCP twin of `crossplane/aws-rds`. In `install:`: digest-pinned `Provider` CRs for `provider-gcp-sql` (`skipDependencyResolution: true`) and its `provider-family-gcp` dependency, plus a `DeploymentRuntimeConfig` that wires GKE Workload Identity (the `iam.gke.io/gcp-service-account` annotation on the provider ServiceAccount) so the `provisioning/crossplane-identity-gcp` Terraform module's Workload Identity binding can target it. In `resources:`, once the Provider reports Healthy/Installed: the `default` `ProviderConfig` (credentials source `InjectedIdentity`, so a consuming `DatabaseInstance` CR needs no `providerConfigRef`), a Kyverno `ClusterPolicy` that force-sets `project` on every `DatabaseInstance` to the context's GCP project, the `cloudsql-bootstrap` ServiceAccount `app-role` (below) and the monitoring `ClusterPolicy`s use to provision scoped credentials from the admin credential Secret Terraform generates (Cloud SQL's own `User` CR has no auto-generate mechanism for Postgres, unlike RDS/Flexible Server), a static `Role`/`RoleBinding` granting it access to every admin/monitor-credentials `Secret` in `system-provisioning`, and two `generate` `ClusterPolicy`s that automatically provision `pg_monitor` monitoring (the role, plus the per-instance `ClusterRole`/`ClusterRoleBinding` letting `cloudsql-bootstrap` read that instance's status) for every `DatabaseInstance` in the cluster — no chart opt-in, matching CNPG's own free monitoring. A `ClusterRole` pair aggregates into Kyverno's `background-controller`/`admission-controller`, the RBAC those `generate` rules need. The `postgres_exporter` Deployment/Service/PodMonitor itself is the separate `monitoring-exporter` component below. |
-| `crossplane/gcp-cloudsql/app-role` | a chart opts in — see `kustomize/demo/resources/database/cloudsql` for the worked example | Reusable application-credential provisioning for any `provider-gcp-sql` `DatabaseInstance` — the role owns its database, matching CNPG's own default `app` user, so a chart can migrate its own schema without its own CronJob. A `ClusterRole`/`Role` opting `cloudsql-bootstrap` into the named `DatabaseInstance` and an app `Secret`, a one-shot `Job` that runs the provisioning script immediately on apply, and a `CronJob` running the identical script every 5 minutes for ongoing self-healing. Both idempotently create `<pg_database_name>_app`, transfer database ownership to it, and run the chart's optional `pg_grant_sql` for anything ownership doesn't cover, publishing `<pg_instance_name>-app-credentials` — never the admin credential itself. Requires `pg_instance_name`, `pg_database_name`, and `pg_target_namespace`; `pg_grant_sql` (one line — Flux substitution is literal text, so a multi-line value would corrupt the Job/CronJob's YAML) is optional, from the consuming facet. |
-| `crossplane/gcp-cloudsql/monitoring-exporter` | `database.postgres.driver == 'cloudsql'` AND `telemetry.metrics.enabled` (default true) | A `generate` `ClusterPolicy` that automatically provisions a `postgres_exporter` Deployment/Service/PodMonitor in `system-provisioning` for every `DatabaseInstance` in the cluster, scraping the `pg_monitor` role `crossplane/gcp-cloudsql`'s own generate policies provision. Split from `crossplane/gcp-cloudsql` because `PodMonitor` (`monitoring.coreos.com/v1`) only exists once the metrics pipeline vendors prometheus-operator's CRDs. |
+### `crossplane`
+
+_Enabled when `database.postgres.cloud.enabled == true`._
+
+Helm release of Crossplane in `system-provisioning`. Generic engine mechanics only — a driver's own database-specific consumption of it (ProviderConfig, monitoring, app-role) lives in `kustomize/database` instead, in `system-database`.
+
+### `crossplane/provider-sql`
+
+_Enabled when `database.postgres.cloud.enabled == true`._
+
+Digest-pinned `Provider` CR for `crossplane-contrib/provider-sql` plus a `DeploymentRuntimeConfig` setting its resource requests/limits. Installed once per context alongside whichever cloud provider is active — its `Role`/`Database`/`Grant` CRDs speak the Postgres wire protocol, not a cloud API, so the same install serves every driver.
+
+### `crossplane/function-python`
+
+_Enabled when `database.postgres.cloud.enabled == true`._
+
+Digest-pinned `Function` CR for `crossplane-contrib/function-python` plus a `DeploymentRuntimeConfig` setting its resource requests/limits. Runs every `WatchOperation` in this domain, which requires Crossplane's `--enable-operations` alpha flag, set on this component's own `helm-release.yaml`.
+
+### `crossplane/app-role`
+
+_Enabled when `database.postgres.cloud.enabled == true`._
+
+The `AppRole` XRD and its Composition — the CNPG app-user equivalent. A chart creates one namespaced `AppRole` naming an instance and a database, and gets a login `Role` owning that database plus a `<name>-credentials` Secret in its own namespace. Deliberately narrow: a role needing role membership, a privilege subset, or `CREATEDB` authors provider-sql's own `Role`/`Grant` against the instance's `ClusterProviderConfig` instead.
+
+### `crossplane/postgres-monitor`
+
+_Enabled when `telemetry.metrics.enabled` (default true)._
+
+A `WatchOperation` watching every `ClusterProviderConfig` cluster-wide — driver-agnostic, since by the time one exists every cloud difference is already resolved — ensures a `PostgresMonitor` XR per server. Its Composition builds the `<server-name>-monitor` `Role` and its `pg_monitor` `Grant` in `system-database`, then once that `Role` is `Ready`, a `postgres_exporter` Deployment/Service/PodMonitor reading its connection Secret. Composing none of them once the server's `deletionTimestamp` is set prunes them while the database is still reachable.
+
+### `crossplane/aws-rds`
+
+_Enabled when `database.postgres.cloud.enabled == true` AND `database.postgres.cloud.driver == 'rds'`._
+
+Digest-pinned `Provider` CRs for `provider-aws-rds` (`skipDependencyResolution: true`) and its `provider-family-aws` dependency, plus a `DeploymentRuntimeConfig` that fixes the provider pod's ServiceAccount name to `provider-aws-rds` so the `provisioning/crossplane-identity/aws` Terraform module's Pod Identity association can target it. Also carries a `WatchOperation` watching every `rds.aws.upbound.io` `Instance` cluster-wide: ensures one `ClusterProviderConfig` named after the instance and the `<server-name>-connection` Secret in `system-database` it reads, both owned by the instance for garbage collection. A chart's own `Role`/`Grant` reference the `ClusterProviderConfig` by the instance's name.
+
+### `crossplane/azure-postgres`
+
+_Enabled when `database.postgres.cloud.enabled == true` AND `database.postgres.cloud.driver == 'azuredb'`._
+
+Azure twin of `crossplane/aws-rds`. Digest-pinned `Provider` CRs for `provider-azure-dbforpostgresql` (`skipDependencyResolution: true`) and its `provider-family-azure` dependency, plus a `DeploymentRuntimeConfig` that fixes the provider pod's ServiceAccount name to `provider-azure-dbforpostgresql` and wires AKS Workload Identity (client-id/tenant-id annotations, the `azure.workload.identity/use` label on both the ServiceAccount and the pod) so the `provisioning/crossplane-identity/azure` Terraform module's federated credential can target it. Also carries the `WatchOperation` ensuring `FlexibleServer`'s `ClusterProviderConfig` and connection Secret, same as `crossplane/aws-rds`.
+
+### `crossplane/gcp-cloudsql`
+
+_Enabled when `database.postgres.cloud.enabled == true` AND `database.postgres.cloud.driver == 'cloudsql'`._
+
+GCP twin of `crossplane/aws-rds`. Digest-pinned `Provider` CRs for `provider-gcp-sql` (`skipDependencyResolution: true`) and its `provider-family-gcp` dependency, plus a `DeploymentRuntimeConfig` that wires GKE Workload Identity (the `iam.gke.io/gcp-service-account` annotation on the provider ServiceAccount) so the `provisioning/crossplane-identity/gcp` Terraform module's Workload Identity binding can target it. Its `WatchOperation` does one thing more than `crossplane/aws-rds`'s: `provider-gcp-sql` has no auto-generate-password field, so it first ensures `<server-name>-admin-credentials` and an admin `User` CR applying it, before building the `ClusterProviderConfig` and connection Secret.
 
 <!-- END_KUSTOMIZE_DOCS -->
 
 ## See also
 
 - [contexts/_template/facets/addon-database.yaml](../../contexts/_template/facets/addon-database.yaml) for the `provisioning` `flux:` system entries.
-- [terraform/cluster/aws-eks](../../terraform/cluster/aws-eks/), [terraform/database/aws-rds](../../terraform/database/aws-rds/), [terraform/provisioning/crossplane-iam](../../terraform/provisioning/crossplane-iam/) for the AWS IAM role, Pod Identity association, and DB subnet group.
-- [terraform/database/azure-postgres](../../terraform/database/azure-postgres/), [terraform/provisioning/crossplane-identity-azure](../../terraform/provisioning/crossplane-identity-azure/) for the Azure resource group, private DNS zone, and Workload Identity federation.
+- [terraform/cluster/aws-eks](../../terraform/cluster/aws-eks/), [terraform/database/aws-rds](../../terraform/database/aws-rds/), [terraform/provisioning/crossplane-identity/aws](../../terraform/provisioning/crossplane-identity/aws/) for the AWS IAM role, Pod Identity association, and DB subnet group.
+- [terraform/database/azure-postgres](../../terraform/database/azure-postgres/), [terraform/provisioning/crossplane-identity/azure](../../terraform/provisioning/crossplane-identity/azure/) for the Azure resource group, private DNS zone, and Workload Identity federation.
 - Related add-ons: [database](../database/) (the `database.postgres.driver` gate).

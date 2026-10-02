@@ -1,0 +1,41 @@
+---
+apiVersion: policies.kyverno.io/v1
+kind: MutatingPolicy
+metadata:
+  name: crossplane-azuredb-network
+  annotations:
+    policies.kyverno.io/title: Crossplane Flexible Server network defaults
+    policies.kyverno.io/category: Azure
+    policies.kyverno.io/severity: medium
+    policies.kyverno.io/subject: FlexibleServer
+    policies.kyverno.io/description: >-
+      Defaults delegatedSubnetId and privateDnsZoneId on every Crossplane
+      dbforpostgresql.azure.upbound.io FlexibleServer that doesn't already
+      set them, so a third-party chart with no Terraform or Flux
+      substitution access can create a working FlexibleServer without
+      knowing this cluster's networking. A chart that sets its own value
+      keeps it.
+spec:
+  # Fail closed: no backstop catches a FlexibleServer left with no
+  # delegated subnet or private DNS zone.
+  failurePolicy: Fail
+  matchConstraints:
+    resourceRules:
+      # CREATE only: both fields force a new FlexibleServer if changed, so
+      # there is nothing to default on UPDATE.
+      - apiGroups: [dbforpostgresql.azure.upbound.io]
+        apiVersions: [v1beta1, v1beta2]
+        operations: [CREATE]
+        resources: [flexibleservers]
+  mutations:
+    - patchType: ApplyConfiguration
+      applyConfiguration:
+        expression: >
+          Object{
+            spec: Object.spec{
+              forProvider: Object.spec.forProvider{
+                delegatedSubnetId: object.spec.forProvider.?delegatedSubnetId.hasValue() ? object.spec.forProvider.delegatedSubnetId : "${azuredb_subnet_id}",
+                privateDnsZoneId: object.spec.forProvider.?privateDnsZoneId.hasValue() ? object.spec.forProvider.privateDnsZoneId : "${azuredb_private_dns_zone_id}"
+              }
+            }
+          }

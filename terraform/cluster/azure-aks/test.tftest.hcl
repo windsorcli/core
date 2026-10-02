@@ -471,6 +471,38 @@ run "config_file_created" {
   }
 }
 
+run "os_type_selects_windows_interpreter" {
+  command = plan
+
+  variables {
+    context_id   = "test"
+    name         = "windsor-aks"
+    cluster_name = "test-cluster"
+    context_path = "/tmp"
+    os_type      = "windows"
+  }
+
+  assert {
+    condition     = null_resource.kubeconfig[0].triggers.os_type == "windows"
+    error_message = "os_type trigger should carry the input value through to the kubeconfig provisioner"
+  }
+}
+
+# Rejects any os_type outside the two values the Windsor CLI ever injects.
+run "invalid_os_type_rejected" {
+  command = plan
+  expect_failures = [
+    var.os_type,
+  ]
+  variables {
+    context_id   = "test"
+    name         = "windsor-aks"
+    cluster_name = "test-cluster"
+    context_path = "/tmp"
+    os_type      = "plan9"
+  }
+}
+
 run "network_configuration" {
   command = plan
 
@@ -1135,5 +1167,54 @@ run "volume_snapshots_disabled" {
   assert {
     condition     = contains(azurerm_role_definition.aks_kubelet_vmss_disk_manager.permissions[0].actions, "Microsoft.Compute/disks/read")
     error_message = "Core disk permissions should still be included when enable_volume_snapshots is false"
+  }
+}
+
+# Verifies a destroy operation relaxes the private_subnet_ids validation and
+# substitutes a placeholder subnet ID, so a plan can still be produced once
+# network/azure-vnet is gone. Only a create-mode plan is exercised here:
+# terraform test's plan_options.mode does not support "destroy", so whether
+# the for_each key change correctly resolves against real prior state during
+# an actual destroy remains unverified by this suite.
+run "destroy_operation_relaxes_sibling_input_validation" {
+  command = plan
+
+  variables {
+    context_id         = "test"
+    name               = "windsor-aks"
+    kubernetes_version = "1.34"
+    operation          = "destroy"
+    private_subnet_ids = null
+  }
+
+  assert {
+    condition     = length(azurerm_role_assignment.subnet_network_contributor_cp) == 1
+    error_message = "The placeholder subnet ID should fan out to exactly one role assignment"
+  }
+}
+
+# Verifies a caller-supplied var.tags entry can't override the module's own
+# WindsorContextID/Name values.
+run "var_tags_cannot_override_windsor_context_id_or_name" {
+  command = plan
+
+  variables {
+    context_id         = "test"
+    name               = "windsor-aks"
+    kubernetes_version = "1.34"
+    tags = {
+      WindsorContextID = "not-the-real-context"
+      Name             = "not-the-real-name"
+    }
+  }
+
+  assert {
+    condition     = azurerm_resource_group.aks.tags["WindsorContextID"] == "test"
+    error_message = "A caller-supplied WindsorContextID in var.tags must not override the module's own value"
+  }
+
+  assert {
+    condition     = azurerm_resource_group.aks.tags["Name"] == azurerm_resource_group.aks.name
+    error_message = "A caller-supplied Name in var.tags must not override the resource's own Name tag"
   }
 }

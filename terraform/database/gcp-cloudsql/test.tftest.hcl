@@ -1,7 +1,5 @@
 mock_provider "google" {}
 mock_provider "google-beta" {}
-mock_provider "random" {}
-mock_provider "kubernetes" {}
 
 # Verifies the private service connection and default CMK creation with no
 # optional variables set.
@@ -33,11 +31,6 @@ run "minimal_configuration" {
     condition     = length(google_kms_crypto_key_iam_member.cloudsql) == 1
     error_message = "Cloud SQL's service agent should be granted encrypt/decrypt on the key"
   }
-
-  assert {
-    condition     = length(kubernetes_secret_v1.admin_credentials) == 0
-    error_message = "No admin credential Secrets should be created with an empty admin_credentials map"
-  }
 }
 
 # manage_encryption_key = false skips the dedicated key entirely (ephemeral
@@ -63,53 +56,21 @@ run "manage_encryption_key_false_skips_kms" {
   }
 }
 
-# An explicit kms_key_name wins over the dedicated key this module would
+# An explicit key_id wins over the dedicated key this module would
 # otherwise create.
-run "explicit_kms_key_name_skips_dedicated_key" {
-  command = plan
-
-  variables {
-    context_id   = "test"
-    project_id   = "test-project"
-    network_id   = "projects/test-project/global/networks/network-test"
-    kms_key_name = "projects/test-project/locations/us-central1/keyRings/existing/cryptoKeys/existing"
-  }
-
-  assert {
-    condition     = length(google_kms_crypto_key.cloudsql) == 0
-    error_message = "No dedicated KMS key should be created when kms_key_name is explicitly set"
-  }
-}
-
-# Each entry in admin_credentials generates its own password and Secret,
-# named by the fixed <key>-admin-credentials convention.
-run "admin_credentials_generates_secret_per_instance" {
+run "explicit_key_id_skips_dedicated_key" {
   command = plan
 
   variables {
     context_id = "test"
     project_id = "test-project"
     network_id = "projects/test-project/global/networks/network-test"
-    admin_credentials = {
-      demo-db = {
-        username = "demo"
-      }
-    }
+    key_id     = "projects/test-project/locations/us-central1/keyRings/existing/cryptoKeys/existing"
   }
 
   assert {
-    condition     = kubernetes_secret_v1.admin_credentials["demo-db"].metadata[0].name == "demo-db-admin-credentials"
-    error_message = "Admin credential Secret should follow the fixed <instance>-admin-credentials naming convention"
-  }
-
-  assert {
-    condition     = kubernetes_secret_v1.admin_credentials["demo-db"].metadata[0].namespace == "system-provisioning"
-    error_message = "Admin credential Secret should land in system-provisioning"
-  }
-
-  assert {
-    condition     = kubernetes_secret_v1.admin_credentials["demo-db"].data["username"] == "demo"
-    error_message = "Admin credential Secret should carry the configured username"
+    condition     = length(google_kms_crypto_key.cloudsql) == 0
+    error_message = "No dedicated KMS key should be created when key_id is explicitly set"
   }
 }
 
@@ -123,5 +84,31 @@ run "missing_project_id" {
     context_id = "test"
     project_id = ""
     network_id = "projects/test-project/global/networks/network-test"
+  }
+}
+
+# Verifies network_id is required during a normal apply.
+run "network_id_required" {
+  command = plan
+
+  variables {
+    context_id = "test"
+    project_id = "test-project"
+    network_id = null
+  }
+
+  expect_failures = [var.network_id]
+}
+
+# Verifies a destroy operation relaxes the network_id validation, so a plan
+# can still be produced once network/gcp-vpc is gone.
+run "destroy_operation_relaxes_sibling_input_validation" {
+  command = plan
+
+  variables {
+    context_id = "test"
+    project_id = "test-project"
+    operation  = "destroy"
+    network_id = null
   }
 }

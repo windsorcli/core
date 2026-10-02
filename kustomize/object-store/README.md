@@ -1,18 +1,15 @@
 ---
-title: Object-store add-on
+title: Object-store
 description: MinIO Operator for in-cluster S3-compatible object storage.
+stack_backing: S3-compatible storage
 ---
 
-# Object-store
+In-cluster S3-compatible storage. The add-on installs the MinIO Operator.
+The Operator reconciles Tenant CRs but creates none on its own — see
+Recipes for the reference Tenant.
 
-In-cluster S3-compatible storage. The add-on installs the MinIO Operator
-only. It manages Tenant custom resources, but doesn't create one
-automatically. Provisioning an actual MinIO cluster is a separate step
-(see Recipes below).
-
-The default driver is `minio`. The schema is set up to accept additional
-drivers (cloud-managed S3, Ceph, etc.) as future `object-store` `flux:`
-entries gated on `object_store.driver`.
+The default driver is `minio`. The schema accepts additional drivers as
+further `object-store` `flux:` entries gated on `object_store.driver`.
 
 ## Architecture
 
@@ -57,8 +54,7 @@ flux:
       timeout: 10m
 ```
 
-Installs the Operator. No MinIO cluster runs until a Tenant CR is
-created.
+No MinIO cluster runs until a Tenant CR is created.
 
 ### Add the reference single-pool Tenant
 
@@ -85,9 +81,11 @@ on the completed Job, not the Secret.
 
 ## Components
 
-| Component | Enable when | Effect |
-|---|---|---|
-| `minio` | `object_store.driver == 'minio'` | Helm release of the MinIO Operator (`operator` chart) in `system-object-store`. Installs only the Operator (CRDs + Deployment); does not create any MinIO Tenant by itself. Operator runs as `uid 1000`, baseline PSA-compatible. |
+### `minio`
+
+_Enabled when `object_store.driver == 'minio'`._
+
+Helm release of the MinIO Operator (`operator` chart) in `system-object-store`. Installs only the Operator (CRDs + Deployment); does not create any MinIO Tenant by itself. Operator runs as `uid 1000`, baseline PSA-compatible.
 
 ## Dependencies
 

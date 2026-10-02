@@ -90,6 +90,21 @@ run "minimal_configuration" {
     condition     = length(google_compute_firewall.iap_ingress) == 1
     error_message = "IAP ingress firewall rule should be created by default"
   }
+
+  assert {
+    condition     = null_resource.remove_orphaned_firewalls.triggers.network_name == "network-test"
+    error_message = "Orphaned-firewall cleanup should target the network's own name"
+  }
+
+  assert {
+    condition     = null_resource.remove_orphaned_firewalls.triggers.os_type == "unix"
+    error_message = "os_type should default to unix when the CLI does not inject it"
+  }
+
+  assert {
+    condition     = null_resource.remove_orphaned_firewalls.triggers.exclude_filter == "AND NOT (name:network-test-allow-internal OR name:network-test-allow-health-checks OR name:network-test-allow-iap-ingress)"
+    error_message = "Orphaned-firewall cleanup should exclude every rule this module manages itself"
+  }
 }
 
 # Tests a full configuration with all optional variables explicitly set.
@@ -214,5 +229,91 @@ run "missing_context_id" {
   ]
   variables {
     context_id = ""
+  }
+}
+
+run "os_type_selects_windows_interpreter" {
+  command = plan
+
+  variables {
+    context_id = "test"
+    os_type    = "windows"
+  }
+
+  assert {
+    condition     = null_resource.remove_orphaned_firewalls.triggers.os_type == "windows"
+    error_message = "os_type trigger should carry the input value through to destroy time"
+  }
+}
+
+# Rejects any os_type outside the two values the Windsor CLI ever injects.
+run "invalid_os_type_rejected" {
+  command = plan
+  expect_failures = [
+    var.os_type,
+  ]
+  variables {
+    context_id = "test"
+    os_type    = "plan9"
+  }
+}
+
+run "minimal_configuration_skips_private_zone" {
+  command = plan
+
+  variables {
+    context_id = "test"
+  }
+
+  assert {
+    condition     = length(google_dns_managed_zone.private) == 0
+    error_message = "Private DNS zone should not be created when domain_name is unset"
+  }
+}
+
+# The platform-gcp facet passes ${dns.private_domain ?? ""} (empty string,
+# not null) when private_domain is unset, so the count guard must reject
+# both null and "" — otherwise Terraform tries to create a zone with an
+# empty dns_name and Cloud DNS rejects it.
+run "empty_domain_name_skips_private_zone" {
+  command = plan
+
+  variables {
+    context_id  = "test"
+    domain_name = ""
+  }
+
+  assert {
+    condition     = length(google_dns_managed_zone.private) == 0
+    error_message = "Private DNS zone should not be created when domain_name is empty string"
+  }
+}
+
+run "private_dns_zone" {
+  command = plan
+
+  variables {
+    context_id  = "test"
+    domain_name = "internal.example.com"
+  }
+
+  assert {
+    condition     = length(google_dns_managed_zone.private) == 1
+    error_message = "Private DNS zone should be created when domain_name is set"
+  }
+
+  assert {
+    condition     = google_dns_managed_zone.private[0].dns_name == "internal.example.com."
+    error_message = "Private DNS zone dns_name should match domain_name input, dot-terminated"
+  }
+
+  assert {
+    condition     = google_dns_managed_zone.private[0].visibility == "private"
+    error_message = "Zone visibility should be private"
+  }
+
+  assert {
+    condition     = length(google_dns_managed_zone.private[0].private_visibility_config) == 1
+    error_message = "private_visibility_config should be set to link the zone to the VPC"
   }
 }

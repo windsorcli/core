@@ -41,7 +41,7 @@ runs:
       uses: azure/setup-kubectl@829323503d1be3d00ca8346e5391ca0b07a9ab0d # v5.1.0
       with:
         # renovate: datasource=github-releases depName=kubectl package=kubernetes/kubectl
-        version: v1.34.1
+        version: v1.37.1
 
     - name: Install yq
       if: contains(format(',{0},', inputs.tools), ',yq,')
@@ -69,7 +69,7 @@ runs:
       shell: bash
       env:
         # renovate: datasource=github-releases depName=prometheus/prometheus package=prometheus/prometheus
-        PROMETHEUS_VERSION: v3.14.0
+        PROMETHEUS_VERSION: v3.15.0
       run: |
         cd "$(mktemp -d)"
         base="https://github.com/prometheus/prometheus/releases/download/${PROMETHEUS_VERSION}"
@@ -88,7 +88,7 @@ runs:
       shell: bash
       env:
         # renovate: datasource=github-releases depName=flux package=fluxcd/flux2
-        FLUX_VERSION: v2.9.5
+        FLUX_VERSION: v2.9.6
       run: |
         cd "$(mktemp -d)"
         base="https://github.com/fluxcd/flux2/releases/download/${FLUX_VERSION}"
@@ -126,7 +126,7 @@ runs:
       shell: bash
       env:
         # renovate: datasource=github-releases depName=helm package=helm/helm
-        HELM_VERSION: v4.2.4
+        HELM_VERSION: v4.3.0
       run: |
         cd "$(mktemp -d)"
         asset="helm-${HELM_VERSION}-linux-amd64.tar.gz"
@@ -144,7 +144,7 @@ runs:
       shell: bash
       env:
         # renovate: datasource=github-releases depName=troubleshoot package=replicatedhq/troubleshoot
-        SUPPORT_BUNDLE_VERSION: v0.134.0
+        SUPPORT_BUNDLE_VERSION: v0.134.1
       run: |
         cd "$(mktemp -d)"
         base="https://github.com/replicatedhq/troubleshoot/releases/download/${SUPPORT_BUNDLE_VERSION}"

@@ -1,0 +1,19 @@
+---
+# Pins the provider-aws-rds pod's ServiceAccount name: Terraform's Pod
+# Identity association targets this same name.
+apiVersion: pkg.crossplane.io/v1beta1
+kind: DeploymentRuntimeConfig
+metadata:
+  name: provider-aws-rds
+spec:
+  serviceAccountTemplate:
+    metadata:
+      name: provider-aws-rds
+  deploymentTemplate:
+    spec:
+      selector: {}
+      template:
+        spec:
+          priorityClassName: windsorcli-platform-critical
+          containers:
+            - name: package-runtime

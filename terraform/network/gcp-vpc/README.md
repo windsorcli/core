@@ -1,9 +1,7 @@
 ---
-title: network/gcp-vpc
+title: GCP VPC
 description: VPC, subnets, and firewall rules for GKE.
 ---
-
-# network/gcp-vpc
 
 A custom-mode VPC network with public, private, and isolated subnet tiers.
 GCP subnets are regional, not zonal, so one subnet per tier already spans
@@ -20,13 +18,15 @@ VPCs deny all ingress by default.
 | Name | Version |
 |------|---------|
 | <a name="requirement_terraform"></a> [terraform](#requirement\_terraform) | >= 1.12.2 |
-| <a name="requirement_google"></a> [google](#requirement\_google) | 8.1.0 |
+| <a name="requirement_google"></a> [google](#requirement\_google) | 8.2.0 |
+| <a name="requirement_null"></a> [null](#requirement\_null) | ~> 3.2 |
 
 ## Providers
 
 | Name | Version |
 |------|---------|
-| <a name="provider_google"></a> [google](#provider\_google) | 8.1.0 |
+| <a name="provider_google"></a> [google](#provider\_google) | 8.2.0 |
+| <a name="provider_null"></a> [null](#provider\_null) | 3.3.2 |
 
 ## Modules
 
@@ -36,16 +36,18 @@ No modules.
 
 | Name | Type |
 |------|------|
-| [google_compute_firewall.health_checks](https://registry.terraform.io/providers/hashicorp/google/8.1.0/docs/resources/compute_firewall) | resource |
-| [google_compute_firewall.iap_ingress](https://registry.terraform.io/providers/hashicorp/google/8.1.0/docs/resources/compute_firewall) | resource |
-| [google_compute_firewall.internal](https://registry.terraform.io/providers/hashicorp/google/8.1.0/docs/resources/compute_firewall) | resource |
-| [google_compute_network.this](https://registry.terraform.io/providers/hashicorp/google/8.1.0/docs/resources/compute_network) | resource |
-| [google_compute_router.this](https://registry.terraform.io/providers/hashicorp/google/8.1.0/docs/resources/compute_router) | resource |
-| [google_compute_router_nat.this](https://registry.terraform.io/providers/hashicorp/google/8.1.0/docs/resources/compute_router_nat) | resource |
-| [google_compute_subnetwork.isolated](https://registry.terraform.io/providers/hashicorp/google/8.1.0/docs/resources/compute_subnetwork) | resource |
-| [google_compute_subnetwork.private](https://registry.terraform.io/providers/hashicorp/google/8.1.0/docs/resources/compute_subnetwork) | resource |
-| [google_compute_subnetwork.public](https://registry.terraform.io/providers/hashicorp/google/8.1.0/docs/resources/compute_subnetwork) | resource |
-| [google_compute_zones.available](https://registry.terraform.io/providers/hashicorp/google/8.1.0/docs/data-sources/compute_zones) | data source |
+| [google_compute_firewall.health_checks](https://registry.terraform.io/providers/hashicorp/google/8.2.0/docs/resources/compute_firewall) | resource |
+| [google_compute_firewall.iap_ingress](https://registry.terraform.io/providers/hashicorp/google/8.2.0/docs/resources/compute_firewall) | resource |
+| [google_compute_firewall.internal](https://registry.terraform.io/providers/hashicorp/google/8.2.0/docs/resources/compute_firewall) | resource |
+| [google_compute_network.this](https://registry.terraform.io/providers/hashicorp/google/8.2.0/docs/resources/compute_network) | resource |
+| [google_compute_router.this](https://registry.terraform.io/providers/hashicorp/google/8.2.0/docs/resources/compute_router) | resource |
+| [google_compute_router_nat.this](https://registry.terraform.io/providers/hashicorp/google/8.2.0/docs/resources/compute_router_nat) | resource |
+| [google_compute_subnetwork.isolated](https://registry.terraform.io/providers/hashicorp/google/8.2.0/docs/resources/compute_subnetwork) | resource |
+| [google_compute_subnetwork.private](https://registry.terraform.io/providers/hashicorp/google/8.2.0/docs/resources/compute_subnetwork) | resource |
+| [google_compute_subnetwork.public](https://registry.terraform.io/providers/hashicorp/google/8.2.0/docs/resources/compute_subnetwork) | resource |
+| [google_dns_managed_zone.private](https://registry.terraform.io/providers/hashicorp/google/8.2.0/docs/resources/dns_managed_zone) | resource |
+| [null_resource.remove_orphaned_firewalls](https://registry.terraform.io/providers/hashicorp/null/latest/docs/resources/resource) | resource |
+| [google_compute_zones.available](https://registry.terraform.io/providers/hashicorp/google/8.2.0/docs/data-sources/compute_zones) | data source |
 
 ## Inputs
 
@@ -53,12 +55,14 @@ No modules.
 |------|-------------|------|---------|:--------:|
 | <a name="input_cidr_block"></a> [cidr\_block](#input\_cidr\_block) | CIDR block the subnet tiers are carved from | `string` | `"10.0.0.0/16"` | no |
 | <a name="input_context_id"></a> [context\_id](#input\_context\_id) | Context ID for the resources | `string` | n/a | yes |
+| <a name="input_domain_name"></a> [domain\_name](#input\_domain\_name) | The domain name for the VPC-linked private DNS zone. When unset, no private zone is created. Changing this value on an existing zone destroys it, and every record in it, before creating the replacement. | `string` | `null` | no |
 | <a name="input_enable_flow_logs"></a> [enable\_flow\_logs](#input\_enable\_flow\_logs) | Enable VPC Flow Logs on every subnet | `bool` | `true` | no |
 | <a name="input_enable_iap_ingress"></a> [enable\_iap\_ingress](#input\_enable\_iap\_ingress) | Allow SSH/RDP ingress from Identity-Aware Proxy's fixed range | `bool` | `true` | no |
 | <a name="input_enable_nat"></a> [enable\_nat](#input\_enable\_nat) | Create a Cloud Router and Cloud NAT for the private subnet's outbound access | `bool` | `true` | no |
 | <a name="input_isolated_subnet_cidr"></a> [isolated\_subnet\_cidr](#input\_isolated\_subnet\_cidr) | CIDR range for the isolated subnet. If not provided, a default range is derived from cidr\_block | `string` | `""` | no |
 | <a name="input_name"></a> [name](#input\_name) | Name prefix for the VPC network | `string` | `"network"` | no |
 | <a name="input_network_name"></a> [network\_name](#input\_network\_name) | Name of the VPC network. If not provided, a default name will be generated | `string` | `""` | no |
+| <a name="input_os_type"></a> [os\_type](#input\_os\_type) | Host OS running Terraform. Windsor CLI >= v0.9.0 injects this as TF\_VAR\_os\_type; older CLIs leave it at the unix default | `string` | `"unix"` | no |
 | <a name="input_private_subnet_cidr"></a> [private\_subnet\_cidr](#input\_private\_subnet\_cidr) | CIDR range for the private subnet. If not provided, a default range is derived from cidr\_block | `string` | `""` | no |
 | <a name="input_public_subnet_cidr"></a> [public\_subnet\_cidr](#input\_public\_subnet\_cidr) | CIDR range for the public subnet. If not provided, a default range is derived from cidr\_block | `string` | `""` | no |
 | <a name="input_region"></a> [region](#input\_region) | GCP region for the network and its subnets | `string` | `"us-central1"` | no |
@@ -73,6 +77,8 @@ No modules.
 | <a name="output_network_id"></a> [network\_id](#output\_network\_id) | The ID of the VPC network |
 | <a name="output_network_name"></a> [network\_name](#output\_network\_name) | The name of the VPC network |
 | <a name="output_private_subnet_id"></a> [private\_subnet\_id](#output\_private\_subnet\_id) | ID of the private subnet |
+| <a name="output_private_zone_id"></a> [private\_zone\_id](#output\_private\_zone\_id) | ID of the VPC-linked private DNS zone created from var.domain\_name. Null when no domain\_name was supplied. |
+| <a name="output_private_zone_name"></a> [private\_zone\_name](#output\_private\_zone\_name) | Name of the VPC-linked private DNS zone. Null when no domain\_name was supplied. |
 | <a name="output_public_subnet_id"></a> [public\_subnet\_id](#output\_public\_subnet\_id) | ID of the public subnet |
 | <a name="output_region"></a> [region](#output\_region) | GCP region the network and its subnets are created in |
 <!-- END_TF_DOCS -->

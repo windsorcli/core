@@ -8,7 +8,7 @@ variable "kubernetes_version" {
   description = "The kubernetes version to deploy."
   type        = string
   # renovate: datasource=github-releases depName=kubernetes package=kubernetes/kubernetes
-  default = "1.36.4"
+  default = "1.37.1"
   validation {
     condition     = can(regex("^1\\.\\d+\\.\\d+$", var.kubernetes_version))
     error_message = "The Kubernetes version should be in semantic version format like '1.30.3'."
@@ -19,19 +19,19 @@ variable "talos_version" {
   description = "The talos version to deploy. Must match the node image tag (e.g. 1.12.1 for ghcr.io/siderolabs/talos:v1.12.1)."
   type        = string
   # renovate: datasource=github-releases depName=talos package=siderolabs/talos
-  default = "1.13.9"
+  default = "1.14.2"
   validation {
     condition     = can(regex("^\\d+\\.\\d+\\.\\d+$", var.talos_version))
     error_message = "The Talos version should be in semantic version format like '1.7.6'."
   }
 }
 
-# Pre-generated cluster identity from an upstream cluster/talos-secrets module.
+# Pre-generated cluster identity from an upstream module.
 # When BOTH are null (default — incus/metal/docker/aws/azure callers): cluster/talos
 # generates secrets locally via talos_machine_secrets and applies per-node configs
 # over the maintenance-mode Talos API. When BOTH are supplied (hyperv path): the
-# secrets came from cluster/talos-secrets (which also feeds cluster/talos/config to
-# wrap signed configs into CIDATA seed ISOs). cluster/talos then skips
+# secrets came from compute/hyperv, which also signs and wraps per-node configs
+# into CIDATA seed ISOs. cluster/talos then skips
 # talos_machine_configuration_apply because the configs are already on the nodes
 # via CIDATA, and goes straight to talos_machine_bootstrap + health checks.
 variable "machine_secrets" {

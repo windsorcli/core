@@ -3,8 +3,6 @@ title: "ADR-0005: secrets_store — self-hosted OpenBao, or an external Vault-AP
 description: "Closes core#2285. A top-level secrets_store capability with two drivers: openbao (self-hosted, single-cluster) and external (points a ClusterSecretStore at a Vault-API-compatible instance this cluster doesn't own — the shape a downstream fleet cluster needs to read from Windsor Manager's shared OpenBao). PKI is explicitly out of scope; that's fleet-only work."
 ---
 
-# ADR-0005: secrets_store — self-hosted OpenBao, or an external Vault-API-compatible store
-
 ## Status
 
 Proposed. Formalizes [core#2285](https://github.com/windsorcli/core/issues/2285),

@@ -35,6 +35,16 @@ variable "network_name" {
   default     = ""
 }
 
+variable "os_type" {
+  description = "Host OS running Terraform. Windsor CLI >= v0.9.0 injects this as TF_VAR_os_type; older CLIs leave it at the unix default"
+  type        = string
+  default     = "unix"
+  validation {
+    condition     = contains(["windows", "unix"], var.os_type)
+    error_message = "os_type must be \"windows\" or \"unix\"."
+  }
+}
+
 #---------------------------------------------------------------------------------------------------
 # Subnets
 #---------------------------------------------------------------------------------------------------
@@ -83,4 +93,10 @@ variable "enable_flow_logs" {
   description = "Enable VPC Flow Logs on every subnet"
   type        = bool
   default     = true
+}
+
+variable "domain_name" {
+  description = "The domain name for the VPC-linked private DNS zone. When unset, no private zone is created. Changing this value on an existing zone destroys it, and every record in it, before creating the replacement."
+  type        = string
+  default     = null
 }

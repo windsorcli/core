@@ -17,6 +17,16 @@ variable "context_id" {
   }
 }
 
+variable "os_type" {
+  description = "Host OS running Terraform. Windsor CLI >= v0.9.0 injects this as TF_VAR_os_type; older CLIs leave it at the unix default"
+  type        = string
+  default     = "unix"
+  validation {
+    condition     = contains(["windows", "unix"], var.os_type)
+    error_message = "os_type must be \"windows\" or \"unix\"."
+  }
+}
+
 variable "name" {
   description = "Name prefix for the GKE cluster"
   type        = string
@@ -53,6 +63,12 @@ variable "node_locations" {
   }
 }
 
+variable "operation" {
+  description = "Windsor-supplied operation context: \"apply\" or \"destroy\". Relaxes validation on inputs wired from sibling components, whose values are irrelevant to a delete."
+  type        = string
+  default     = "apply"
+}
+
 #---------------------------------------------------------------------------------------------------
 # Networking
 #---------------------------------------------------------------------------------------------------
@@ -60,8 +76,9 @@ variable "node_locations" {
 variable "network_id" {
   description = "ID of the VPC network the cluster attaches to. Pipe network/gcp-vpc's network_id output."
   type        = string
+  default     = null
   validation {
-    condition     = var.network_id != null && var.network_id != ""
+    condition     = var.operation == "destroy" || (var.network_id != null && var.network_id != "")
     error_message = "network_id is required; pipe network/gcp-vpc's network_id output."
   }
 }
@@ -69,8 +86,9 @@ variable "network_id" {
 variable "subnetwork_id" {
   description = "ID of the private subnet nodes attach to. Pipe network/gcp-vpc's private_subnet_id output."
   type        = string
+  default     = null
   validation {
-    condition     = var.subnetwork_id != null && var.subnetwork_id != ""
+    condition     = var.operation == "destroy" || (var.subnetwork_id != null && var.subnetwork_id != "")
     error_message = "subnetwork_id is required; pipe network/gcp-vpc's private_subnet_id output."
   }
 }
@@ -79,6 +97,18 @@ variable "master_ipv4_cidr_block" {
   description = "A /28 CIDR block for the private control plane's internal address, disjoint from every subnet in the VPC"
   type        = string
   default     = "172.16.0.0/28"
+}
+
+variable "pod_ipv4_cidr_block" {
+  description = "CIDR block for the cluster's pod range. Must not overlap any other range in the VPC."
+  type        = string
+  default     = "172.20.0.0/14"
+}
+
+variable "service_ipv4_cidr_block" {
+  description = "CIDR block for the cluster's Service range. Must not overlap any other range in the VPC."
+  type        = string
+  default     = "172.24.0.0/20"
 }
 
 variable "authorized_networks" {
@@ -114,6 +144,7 @@ variable "system_node_pool" {
     autoscaling_enabled = optional(bool, false)
     min_count           = optional(number, 1)
     max_count           = optional(number, 3)
+    auto_repair         = optional(bool, true)
   })
   default = {}
 
@@ -174,6 +205,7 @@ variable "pools" {
       value  = optional(string)
       effect = string
     })), [])
+    auto_repair = optional(bool, true)
   }))
   default = {}
 

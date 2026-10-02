@@ -1,9 +1,7 @@
 ---
-title: workstation/docker
+title: Docker
 description: Local-host Docker network + registry.
 ---
-
-# workstation/docker
 
 Local-host runtime backing `windsor apply` on developer machines. Stands up
 the Docker network, optional local OCI registry, and volumes the cluster
@@ -16,13 +14,13 @@ with Docker Desktop or Colima.
 | Name | Version |
 |------|---------|
 | <a name="requirement_terraform"></a> [terraform](#requirement\_terraform) | >= 1.12.2 |
-| <a name="requirement_docker"></a> [docker](#requirement\_docker) | 4.5.0 |
+| <a name="requirement_docker"></a> [docker](#requirement\_docker) | 4.6.0 |
 
 ## Providers
 
 | Name | Version |
 |------|---------|
-| <a name="provider_docker"></a> [docker](#provider\_docker) | 4.5.0 |
+| <a name="provider_docker"></a> [docker](#provider\_docker) | 4.6.0 |
 
 ## Modules
 
@@ -32,13 +30,13 @@ No modules.
 
 | Name | Type |
 |------|------|
-| [docker_container.dns](https://registry.terraform.io/providers/kreuzwerker/docker/4.5.0/docs/resources/container) | resource |
-| [docker_container.git](https://registry.terraform.io/providers/kreuzwerker/docker/4.5.0/docs/resources/container) | resource |
-| [docker_container.registry](https://registry.terraform.io/providers/kreuzwerker/docker/4.5.0/docs/resources/container) | resource |
-| [docker_image.coredns](https://registry.terraform.io/providers/kreuzwerker/docker/4.5.0/docs/resources/image) | resource |
-| [docker_image.git_livereload](https://registry.terraform.io/providers/kreuzwerker/docker/4.5.0/docs/resources/image) | resource |
-| [docker_image.registry](https://registry.terraform.io/providers/kreuzwerker/docker/4.5.0/docs/resources/image) | resource |
-| [docker_network.main](https://registry.terraform.io/providers/kreuzwerker/docker/4.5.0/docs/resources/network) | resource |
+| [docker_container.dns](https://registry.terraform.io/providers/kreuzwerker/docker/4.6.0/docs/resources/container) | resource |
+| [docker_container.git](https://registry.terraform.io/providers/kreuzwerker/docker/4.6.0/docs/resources/container) | resource |
+| [docker_container.registry](https://registry.terraform.io/providers/kreuzwerker/docker/4.6.0/docs/resources/container) | resource |
+| [docker_image.coredns](https://registry.terraform.io/providers/kreuzwerker/docker/4.6.0/docs/resources/image) | resource |
+| [docker_image.git_livereload](https://registry.terraform.io/providers/kreuzwerker/docker/4.6.0/docs/resources/image) | resource |
+| [docker_image.registry](https://registry.terraform.io/providers/kreuzwerker/docker/4.6.0/docs/resources/image) | resource |
+| [docker_network.main](https://registry.terraform.io/providers/kreuzwerker/docker/4.6.0/docs/resources/network) | resource |
 
 ## Inputs
 

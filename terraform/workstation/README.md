@@ -1,9 +1,8 @@
 ---
 title: Workstation
 description: Local-host networking, registry, and DNS for developer clusters.
+stack_backing: local host
 ---
-
-# Workstation
 
 The workstation category has two drivers that provision the host-side
 substrate for local clusters. `docker` creates a Docker network with
@@ -13,12 +12,11 @@ is selected by `platform`. The workstation pass runs before
 `compute`, so the compute drivers have a network to attach Talos
 nodes to.
 
-`workstation.runtime` is the switch that turns the workstation stack
-on. With it unset, no workstation module runs even on a local
-platform. Hyper-V, bare metal (`platform: metal`), and managed
-clouds don't use the workstation layer either: Hyper-V manages its
-NetNat inside the compute module, `metal` expects an existing
-network, and AWS / Azure have no local workstation concept.
+Windsor runs the workstation stack only when `workstation.runtime` is
+set. Hyper-V, bare metal (`platform: metal`), and managed clouds never
+use the workstation layer. Hyper-V manages its NetNat inside the
+compute module. `metal` expects an existing network, and AWS and Azure
+have no local workstation layer at all.
 
 ## Recipes
 
@@ -45,9 +43,10 @@ workstation:
 The module provisions a Docker bridge network sized from
 `network.cidr_block`, a CoreDNS container that resolves the local
 registry hostnames, and one container per upstream registry the
-context mirrors. `workstation.runtime: colima` is the lighter macOS
-path, plain `docker` is the Linux engine path, and `docker-desktop`
-is the Docker Desktop path on macOS or Windows.
+context mirrors. `workstation.runtime: colima` is the lighter macOS path, `docker` targets
+a Linux engine directly, and `docker-desktop` runs on macOS or Windows
+but forces flannel CNI — Cilium has no working transport over the
+desktop loopback.
 
 ### Incus (Linux host)
 
@@ -87,11 +86,10 @@ home or corporate network uses that range, the workstation bridge
 will route incorrectly. Pick a different /16 in private space before
 the first apply.
 
-If local registry pulls fail from inside the cluster, the workstation
-provisions registry instances by hostname and a CoreDNS that resolves
-them. Pulls failing with DNS errors usually mean the cluster nodes
-can't reach `workstation.dns.address`. Pulls failing with HTTP errors
-usually mean the registry containers aren't running.
+The workstation provisions registry instances by hostname and a CoreDNS
+that resolves them. Pulls failing with DNS errors usually mean the
+cluster nodes can't reach `workstation.dns.address`. Pulls failing with
+HTTP errors usually mean the registry containers aren't running.
 
 Destroying the workstation while the cluster is still running tears
 down the network that compute attached to. Always run
@@ -112,8 +110,15 @@ address.
 Incus VMs run as full KVM instances. The bridge doesn't isolate the
 LAN from the VMs unless the host firewall rules are added explicitly.
 
+<!-- BEGIN_TERRAFORM_MODULES -->
+
+## Modules
+
+- [docker](docker/) — Local-host Docker network + registry.
+- [incus](incus/) — Local-host Incus bridge + registry.
+<!-- END_TERRAFORM_MODULES -->
+
 ## See also
 
-- [docker/](docker/) and [incus/](incus/) for the per-driver Terraform reference.
 - [../compute/](../compute/) for the compute drivers that attach to the workstation network.
 - [../network/](../network/) for `network.cidr_block`, which is the shared knob for both layers.

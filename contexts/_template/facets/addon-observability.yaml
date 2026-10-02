@@ -32,11 +32,6 @@ requires:
     paths:
       - identity.enabled
     message: Grafana SSO authenticates against the cluster identity provider — enable identity.
-  # oidc driver: the client secret must be supplied.
-  - when: identity.enabled == true && observability.grafana.sso != false && (identity.driver ?? 'keycloak') == 'oidc'
-    paths:
-      - observability.grafana.client_secret
-    message: External OIDC needs Grafana's client secret from your provider. Set observability.grafana.client_secret (a ${secret(...)} ref).
   # The hosted Keycloak's issuer is a gateway URL — without a gateway, the browser
   # redirect Grafana's login sends the user to can never resolve.
   - when: identity.enabled == true && observability.grafana.sso != false && (identity.driver ?? 'keycloak') == 'keycloak'
@@ -87,6 +82,8 @@ flux:
         # is enabled (opt out with grafana.sso: false); provider-agnostic — label,
         # issuer, and endpoints come from identity.
         - "${identity.enabled == true && observability.grafana.sso != false ? 'grafana/oidc' : ''}"
+        # External oidc provider that issued a client secret for Grafana.
+        - "${identity.enabled == true && observability.grafana.sso != false && (identity.driver ?? 'keycloak') == 'oidc' && (observability.grafana.client_secret ?? '') != '' ? 'grafana/oidc/client-secret' : ''}"
       substitutions:
         external_domain: "${(dns.public_domain ?? '') == '' ? (dns.private_domain ?? '') : dns.public_domain}"
         grafana_root_url: "${grafana_effective.url}"
@@ -124,21 +121,13 @@ flux:
           date_interval_hour: "${time_format == '12h' ? 'MMM DD hh:mm a' : 'MM/DD HH:mm'}"
           date_interval_day: "${time_format == '12h' ? 'MMM DD' : 'MM/DD'}"
 
-  # Grafana's OIDC client secret, external oidc driver.
+  # Grafana's OIDC client secret, external oidc driver with a supplied secret.
   - name: observability
-    when: identity.enabled == true && observability.grafana.sso != false && (identity.driver ?? 'keycloak') == 'oidc'
+    when: identity.enabled == true && observability.grafana.sso != false && (identity.driver ?? 'keycloak') == 'oidc' && (observability.grafana.client_secret ?? '') != ''
     secrets:
       grafana-oidc-client:
         data:
           clientSecret: ${observability.grafana.client_secret}
-
-  # Grafana's OIDC client secret, hosted keycloak driver.
-  - name: observability
-    when: identity.enabled == true && observability.grafana.sso != false && (identity.driver ?? 'keycloak') == 'keycloak'
-    secrets:
-      grafana-oidc-client:
-        data:
-          clientSecret: ${identity_effective.grafana_client_secret}
 
   # Gateway route + Envoy-specific dashboards when the cluster has a Gateway.
   # Waits for gateway-resources so the Gateway exists before the HTTPRoute applies.
@@ -171,7 +160,7 @@ flux:
   - name: observability
     when: observability.logs_driver == 'quickwit'
     dependsOn:
-      - csi
+      - csi-install
     install:
       timeout: 20m
       interval: 5m
@@ -195,7 +184,7 @@ flux:
   - name: observability
     when: observability.logs_driver == 'elasticsearch' && gateway.enabled == true
     dependsOn:
-      - csi
+      - csi-install
     install:
       timeout: 20m
       interval: 5m
@@ -225,12 +214,12 @@ messages:
       Single sign-on is on: clicking Grafana goes straight to the login.
       Sign in with either seeded user (they work for every SSO app):
 
-        ┌──────────┬─────────────────┬────────────┐
-        │ username │ password        │ role       │
-        ├──────────┼─────────────────┼────────────┤
-        │ admin    │ admin-password  │ full admin │
-        │ viewer   │ viewer-password │ read-only  │
-        └──────────┴─────────────────┴────────────┘
+        ┌────────────┬─────────────────┬────────────┐
+        │ username   │ password        │ role       │
+        ├────────────┼─────────────────┼────────────┤
+        │ dev-admin  │ admin-password  │ full admin │
+        │ dev-viewer │ viewer-password │ read-only  │
+        └────────────┴─────────────────┴────────────┘
 
       The gateway cert is self-signed. Trust the local CA, or click through
       the browser warning on your first visit.

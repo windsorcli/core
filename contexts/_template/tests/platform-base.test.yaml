@@ -39,15 +39,6 @@ cases:
           install:
             components:
               - kyverno
-            healthChecks:
-              - apiVersion: helm.toolkit.fluxcd.io/v2
-                kind: HelmRelease
-                name: kyverno
-                namespace: system-policy
-              - apiVersion: apps/v1
-                kind: Deployment
-                name: kyverno-admission-controller
-                namespace: system-policy
             timeout: 30m
             interval: 5m
           resources:
@@ -55,7 +46,13 @@ cases:
                 - kyverno/resource-limits-requests
                 - kyverno/require-image-digest
                 - kyverno/external-dns-ttl
-              timeout: 5m
+                - kyverno
+              healthChecks:
+                - apiVersion: batch/v1
+                  kind: Job
+                  name: kyverno-webhook-probe
+                  namespace: system-policy
+              timeout: 8m
               interval: 5m
         - name: telemetry
           install:
@@ -111,9 +108,9 @@ cases:
                 - fluentd/prometheus
       crds:
         # renovate: datasource=github-releases depName=cert-manager/cert-manager package=cert-manager/cert-manager
-        - cert-manager-1.21.1
+        - cert-manager-1.21.2
         # renovate: datasource=github-releases depName=prometheus-operator/prometheus-operator package=prometheus-operator/prometheus-operator
-        - prometheus-operator-0.93.1
+        - prometheus-operator-0.94.0
         # renovate: datasource=helm depName=fluent-operator package=fluent-operator helmRepo=https://fluent.github.io/helm-charts
         - fluent-operator-4.3.0
 
@@ -295,10 +292,18 @@ cases:
       flux:
         - name: policy
           resources:
-            - components: []
-              timeout: 5m
+            - components:
+                - kyverno
+              timeout: 8m
               interval: 5m
               retryInterval: 1m
+    exclude:
+      flux:
+        - name: policy
+          resources:
+            - components:
+                - kyverno/resource-limits-requests
+                - kyverno/require-image-digest
 
   # Kyverno reports-controller opt-in layers in the kyverno/reports component.
   - name: policies.reporting enabled adds kyverno/reports component
@@ -441,14 +446,14 @@ cases:
               - cert-manager
       crds:
         # renovate: datasource=github-releases depName=cert-manager/cert-manager package=cert-manager/cert-manager
-        - cert-manager-1.21.1
+        - cert-manager-1.21.2
     exclude:
       flux:
         - name: telemetry
         - name: observability
       crds:
         # renovate: datasource=github-releases depName=prometheus-operator/prometheus-operator package=prometheus-operator/prometheus-operator
-        - prometheus-operator-0.93.1
+        - prometheus-operator-0.94.0
         # renovate: datasource=helm depName=fluent-operator package=fluent-operator helmRepo=https://fluent.github.io/helm-charts
         - fluent-operator-4.3.0
 
@@ -741,13 +746,13 @@ cases:
                 - fluentd/filters/otel
       crds:
         # renovate: datasource=github-releases depName=cert-manager/cert-manager package=cert-manager/cert-manager
-        - cert-manager-1.21.1
+        - cert-manager-1.21.2
         # renovate: datasource=helm depName=fluent-operator package=fluent-operator helmRepo=https://fluent.github.io/helm-charts
         - fluent-operator-4.3.0
     exclude:
       crds:
         # renovate: datasource=github-releases depName=prometheus-operator/prometheus-operator package=prometheus-operator/prometheus-operator
-        - prometheus-operator-0.93.1
+        - prometheus-operator-0.94.0
 
   # Both telemetry pipelines off means telemetry-install itself doesn't compose. Observability
   # has no dependency on it (a plain ordering nicety that bought nothing — external-dns-style
@@ -854,8 +859,8 @@ cases:
             - components:
                 - prometheus/alerts/database
 
-  # rds driver adds prometheus/alerts/postgres-exporter instead,
-  # gated on driver alone, not observability.enabled.
+  # A cloud driver adds prometheus/alerts/postgres-exporter instead,
+  # gated on cloud.driver alone, not observability.enabled.
   - name: rds database enabled adds the postgres-exporter alert component
     values:
       platform: aws
@@ -865,8 +870,9 @@ cases:
         enabled: false
       database:
         postgres:
-          enabled: true
-          driver: rds
+          cloud:
+            enabled: true
+            driver: rds
     expect:
       flux:
         - name: telemetry
@@ -880,15 +886,16 @@ cases:
             - components:
                 - prometheus/alerts/database
 
-  - name: flexibleserver database enabled adds the postgres-exporter alert component
+  - name: azuredb database enabled adds the postgres-exporter alert component
     values:
       platform: azure
       gateway:
         enabled: false
       database:
         postgres:
-          enabled: true
-          driver: flexibleserver
+          cloud:
+            enabled: true
+            driver: azuredb
     expect:
       flux:
         - name: telemetry
@@ -972,3 +979,41 @@ cases:
       flux:
         - name: telemetry
           dependsOn: []
+
+  # Regression (core#2804).
+  - name: dns.public_domain prints a registrar delegation message with the zone's name servers
+    values:
+      platform: aws
+      aws:
+        region: us-west-2
+      gateway:
+        enabled: false
+      dns:
+        public_domain: example.com
+      email: ops@example.com
+    terraformOutputs:
+      dns-zone:
+        name_servers:
+          - ns-1.awsdns-01.com
+          - ns-2.awsdns-02.org
+    expect:
+      messages:
+        - text: |-
+            Public DNS zone created for example.com. Delegate it at your
+            domain registrar by adding these as NS records:
+
+              ns-1.awsdns-01.com, ns-2.awsdns-02.org
+
+            Certificate issuance won't succeed until delegation propagates.
+
+  # No message without a public domain to delegate.
+  - name: no delegation message without dns.public_domain
+    values:
+      platform: metal
+      gateway:
+        enabled: false
+      network: *default-network
+      cluster: *default-cluster
+    exclude:
+      messages:
+        - text: Public DNS zone created

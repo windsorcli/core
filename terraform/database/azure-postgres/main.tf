@@ -7,7 +7,7 @@ terraform {
   required_providers {
     azurerm = {
       source  = "hashicorp/azurerm"
-      version = "~> 5.4.0"
+      version = "~> 5.7.0"
     }
   }
 }
@@ -27,16 +27,51 @@ provider "azurerm" {
 data "azurerm_client_config" "current" {}
 
 #-----------------------------------------------------------------------------------------------------------------------
+# Locals
+#-----------------------------------------------------------------------------------------------------------------------
+
+locals {
+  tags = merge(var.tags, {
+    WindsorContextID = var.context_id
+  })
+
+  resource_group_name         = "postgres-${var.context_id}"
+  private_dns_zone_name       = "${var.context_id}.postgres.database.azure.com"
+  private_dns_zone_link_name  = "postgres-${var.context_id}-link"
+  network_security_group_name = "azuredb-${var.context_id}"
+  key_vault_name              = replace("pg-${var.context_id}", "-", "")
+  cmk_identity_name           = "azuredb-cmk-${var.context_id}"
+}
+
+#-----------------------------------------------------------------------------------------------------------------------
+# Destroy-Safe Sibling Inputs
+#-----------------------------------------------------------------------------------------------------------------------
+
+locals {
+  # A syntactically valid but non-existent Azure resource ID: azurerm's
+  # client-side ID parser rejects an arbitrary placeholder string outright.
+  destroy_placeholder_vnet_id   = "/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/destroy-placeholder/providers/Microsoft.Network/virtualNetworks/destroy-placeholder"
+  destroy_placeholder_subnet_id = "${local.destroy_placeholder_vnet_id}/subnets/destroy-placeholder"
+
+  # Non-null placeholder used only when operation is destroy and the sibling value is unavailable.
+  vnet_id = var.operation == "destroy" ? coalesce(var.vnet_id, local.destroy_placeholder_vnet_id) : var.vnet_id
+  # Non-null placeholder used only when operation is destroy and the sibling value is unavailable.
+  azuredb_subnet_id = var.operation == "destroy" ? coalesce(var.azuredb_subnet_id, local.destroy_placeholder_subnet_id) : var.azuredb_subnet_id
+}
+
+#-----------------------------------------------------------------------------------------------------------------------
 # Resource Group
 #-----------------------------------------------------------------------------------------------------------------------
 
 # Dedicated resource group for every Flexible Server in this context.
-# crossplane-identity-azure's role assignment scopes to it, Azure's
-# replacement for AWS's per-resource tag condition.
+# provisioning/crossplane-identity/azure's role assignment scopes to it,
+# Azure's replacement for AWS's per-resource tag condition.
 resource "azurerm_resource_group" "postgres" {
-  name     = "postgres-${var.context_id}"
+  name     = local.resource_group_name
   location = var.region
-  tags     = var.tags
+  tags = merge(local.tags, {
+    Name = local.resource_group_name
+  })
 }
 
 #-----------------------------------------------------------------------------------------------------------------------
@@ -47,17 +82,21 @@ resource "azurerm_resource_group" "postgres" {
 # zone for name resolution. Unlike RDS's DB subnet group, Flexible Server
 # refuses to provision without one.
 resource "azurerm_private_dns_zone" "postgres" {
-  name                = "${var.context_id}.postgres.database.azure.com"
+  name                = local.private_dns_zone_name
   resource_group_name = azurerm_resource_group.postgres.name
-  tags                = var.tags
+  tags = merge(local.tags, {
+    Name = local.private_dns_zone_name
+  })
 }
 
 resource "azurerm_private_dns_zone_virtual_network_link" "postgres" {
-  name                 = "postgres-${var.context_id}-link"
+  name                 = local.private_dns_zone_link_name
   private_dns_zone_id  = azurerm_private_dns_zone.postgres.id
-  virtual_network_id   = var.vnet_id
+  virtual_network_id   = local.vnet_id
   registration_enabled = false
-  tags                 = var.tags
+  tags = merge(local.tags, {
+    Name = local.private_dns_zone_link_name
+  })
 }
 
 #-----------------------------------------------------------------------------------------------------------------------
@@ -68,11 +107,13 @@ resource "azurerm_private_dns_zone_virtual_network_link" "postgres" {
 # AllowVnetInBound rule (priority 65000) permits any port from the whole
 # VNet. The explicit deny below overrides it for anything this NSG
 # doesn't allow first.
-resource "azurerm_network_security_group" "flexibleserver" {
-  name                = "flexibleserver-${var.context_id}"
+resource "azurerm_network_security_group" "azuredb" {
+  name                = local.network_security_group_name
   location            = azurerm_resource_group.postgres.location
   resource_group_name = azurerm_resource_group.postgres.name
-  tags                = var.tags
+  tags = merge(local.tags, {
+    Name = local.network_security_group_name
+  })
 
   security_rule {
     name                       = "AllowPostgresFromClusterNodes"
@@ -99,9 +140,9 @@ resource "azurerm_network_security_group" "flexibleserver" {
   }
 }
 
-resource "azurerm_subnet_network_security_group_association" "flexibleserver" {
-  subnet_id                 = var.flexibleserver_subnet_id
-  network_security_group_id = azurerm_network_security_group.flexibleserver.id
+resource "azurerm_subnet_network_security_group_association" "azuredb" {
+  subnet_id                 = local.azuredb_subnet_id
+  network_security_group_id = azurerm_network_security_group.azuredb.id
 }
 
 #-----------------------------------------------------------------------------------------------------------------------
@@ -115,8 +156,8 @@ resource "azurerm_subnet_network_security_group_association" "flexibleserver" {
 # no dedicated-key step for encryption at rest.
 resource "azurerm_key_vault" "postgres" {
   # checkov:skip=CKV2_AZURE_32: We are using a public cluster for testing, there is no need for private endpoints.
-  count                      = var.manage_encryption_key && var.key_vault_key_id == "" ? 1 : 0
-  name                       = replace("pg-${var.context_id}", "-", "")
+  count                      = var.manage_encryption_key && var.key_id == "" ? 1 : 0
+  name                       = local.key_vault_name
   location                   = azurerm_resource_group.postgres.location
   resource_group_name        = azurerm_resource_group.postgres.name
   tenant_id                  = data.azurerm_client_config.current.tenant_id
@@ -134,7 +175,9 @@ resource "azurerm_key_vault" "postgres" {
     default_action = var.network_acls_default_action
     bypass         = "AzureServices"
   }
-  tags = var.tags
+  tags = merge(local.tags, {
+    Name = local.key_vault_name
+  })
 }
 
 resource "time_static" "postgres_key_expiry" {}
@@ -170,19 +213,21 @@ resource "azurerm_role_assignment" "key_vault_admin" {
 }
 
 # Flexible Server's CMK access uses its own resource identity, not
-# Crossplane's. crossplane-identity-azure only authenticates the pod that
-# calls the ARM API to create the server.
-resource "azurerm_user_assigned_identity" "flexibleserver_cmk" {
+# Crossplane's. provisioning/crossplane-identity/azure only authenticates
+# the pod that calls the ARM API to create the server.
+resource "azurerm_user_assigned_identity" "azuredb_cmk" {
   count               = length(azurerm_key_vault.postgres)
-  name                = "flexibleserver-cmk-${var.context_id}"
+  name                = local.cmk_identity_name
   resource_group_name = azurerm_resource_group.postgres.name
   location            = azurerm_resource_group.postgres.location
-  tags                = var.tags
+  tags = merge(local.tags, {
+    Name = local.cmk_identity_name
+  })
 }
 
-resource "azurerm_role_assignment" "flexibleserver_cmk" {
+resource "azurerm_role_assignment" "azuredb_cmk" {
   count                = length(azurerm_key_vault.postgres)
   scope                = azurerm_key_vault.postgres[0].id
   role_definition_name = "Key Vault Crypto Service Encryption User"
-  principal_id         = azurerm_user_assigned_identity.flexibleserver_cmk[0].principal_id
+  principal_id         = azurerm_user_assigned_identity.azuredb_cmk[0].principal_id
 }

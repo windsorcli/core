@@ -10,7 +10,11 @@ terraform {
   required_providers {
     google = {
       source  = "hashicorp/google"
-      version = "8.2.0"
+      version = "8.4.0"
+    }
+    null = {
+      source  = "hashicorp/null"
+      version = "~> 3.2"
     }
   }
 }
@@ -33,6 +37,37 @@ locals {
 resource "google_compute_network" "this" {
   name                    = local.network_name
   auto_create_subnetworks = false
+}
+
+# Deletes any firewall rule still referencing this network before destroy,
+# excluding the ones this module manages itself. GKE's LoadBalancer
+# health-check firewall outlives a torn-down cluster.
+resource "null_resource" "remove_orphaned_firewalls" {
+  depends_on = [
+    google_compute_network.this,
+    google_compute_firewall.internal,
+    google_compute_firewall.health_checks,
+    google_compute_firewall.iap_ingress,
+  ]
+
+  triggers = {
+    network_name = local.network_name
+    os_type      = var.os_type
+    # gcloud's filter grammar can't chain multiple "AND NOT name:x" clauses;
+    # negating one OR-group works.
+    exclude_filter = "AND NOT (name:${local.network_name}-allow-internal OR name:${local.network_name}-allow-health-checks OR name:${local.network_name}-allow-iap-ingress)"
+  }
+
+  provisioner "local-exec" {
+    when        = destroy
+    on_failure  = continue
+    interpreter = self.triggers.os_type == "windows" ? ["PowerShell", "-Command"] : ["/bin/sh", "-c"]
+    command = self.triggers.os_type == "windows" ? (
+      "gcloud compute firewall-rules list --project=$env:GOOGLE_CLOUD_PROJECT --filter=\"network:${self.triggers.network_name} ${self.triggers.exclude_filter}\" --format=\"value(name)\" | ForEach-Object { gcloud compute firewall-rules delete $_ --project=$env:GOOGLE_CLOUD_PROJECT --quiet }"
+      ) : (
+      "gcloud compute firewall-rules list --project=\"$GOOGLE_CLOUD_PROJECT\" --filter=\"network:${self.triggers.network_name} ${self.triggers.exclude_filter}\" --format=\"value(name)\" | xargs -I{} gcloud compute firewall-rules delete {} --project=\"$GOOGLE_CLOUD_PROJECT\" --quiet"
+    )
+  }
 }
 
 #---------------------------------------------------------------------------------------------------
@@ -179,4 +214,30 @@ resource "google_compute_router_nat" "this" {
     name                    = google_compute_subnetwork.private.id
     source_ip_ranges_to_nat = ["ALL_IP_RANGES"]
   }
+}
+
+#---------------------------------------------------------------------------------------------------
+# Private DNS Zone
+# VPC-attached private zone, optional. Records here (e.g. external-dns
+# A/CNAME/TXT entries) only resolve from inside the VPC. Linked to the VPC
+# so resources in the network resolve names in the zone without per-VM agent setup.
+#---------------------------------------------------------------------------------------------------
+
+resource "google_dns_managed_zone" "private" {
+  count       = var.domain_name != null && var.domain_name != "" ? 1 : 0
+  name        = "${local.network_name}-private"
+  dns_name    = "${var.domain_name}."
+  description = "Private DNS zone for ${var.domain_name} (windsor context ${var.context_id})"
+  visibility  = "private"
+
+  private_visibility_config {
+    networks {
+      network_url = google_compute_network.this.self_link
+    }
+  }
+
+  # Records in this zone are only meaningful while the VPC exists, and
+  # external-dns may not finish reconciling deletions before the cluster API
+  # goes down on teardown. force_destroy lets the zone delete cleanly.
+  force_destroy = true
 }

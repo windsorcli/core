@@ -1,13 +1,16 @@
 ---
 title: DNS
 description: Public DNS zones for ACME certificates and external-dns.
+stack_name: DNS
+stack_backing: public zones
 ---
 
 # DNS
 
-The dns category has two drivers under `dns/zone/`. `route53`
-provisions a public Route53 hosted zone on AWS, and `azure-dns`
-provisions a public DNS zone on Azure. The driver is selected by
+The dns category has four drivers under `dns/zone/`: `route53`
+provisions a public Route53 hosted zone on AWS, `azure-dns` a public
+DNS zone on Azure, `gcp-dns` a public Cloud DNS managed zone on GCP,
+and `hetzner` a public zone on Hetzner DNS. The driver is selected by
 `platform`, and the zone module only runs when `dns.public_domain` is
 set. With no public domain, the cluster falls back to self-signed
 certificates and no external zone is created.
@@ -92,6 +95,83 @@ The module provisions an Azure DNS public zone in the resource group.
 Workload Identity is configured on the AKS cluster for cert-manager
 and external-dns to write records into this zone.
 
+### Google Cloud DNS
+
+```mermaid
+flowchart LR
+  registrar[Domain registrar<br/>NS delegation]
+  cm[cert-manager]
+  ed[external-dns]
+
+  subgraph gcp[GCP project]
+    zone[Cloud DNS managed zone]
+    gsa[Google Service Accounts<br/>roles/dns.admin, dns.reader]
+    wi[Workload Identity binding]
+  end
+
+  registrar -.delegates.-> zone
+  cm -.via Workload ID.-> wi
+  ed -.via Workload ID.-> wi
+  wi -.binds.-> gsa
+  gsa -.writes records.-> zone
+```
+
+```yaml
+platform: gcp
+gcp:
+  project_id: my-gcp-project
+dns:
+  public_domain: example.windsorcli.dev
+```
+
+The module provisions a public Cloud DNS managed zone in the project.
+The cluster module provisions dedicated Google Service Accounts for
+cert-manager and external-dns, each scoped to the zone via
+`roles/dns.admin`/`roles/dns.reader`, and bound to their Kubernetes
+service accounts through GKE Workload Identity.
+
+After the apply, delegate the parent domain at your registrar to the
+name servers in the module output (`name_servers`).
+
+### Hetzner DNS
+
+```mermaid
+flowchart LR
+  registrar[Domain registrar<br/>NS delegation]
+  parent[Parent zone in the<br/>same Hetzner account]
+  cm[cert-manager]
+  ed[external-dns]
+
+  subgraph hetzner[Hetzner DNS]
+    zone[Hetzner DNS zone]
+    token[hcloud API token<br/>Kubernetes Secret]
+  end
+
+  registrar -.delegates.-> zone
+  parent -.automated NS delegation.-> zone
+  cm -.reads token from.-> token
+  ed -.reads token from.-> token
+  token -.writes records.-> zone
+```
+
+```yaml
+platform: hetzner
+dns:
+  public_domain: example.windsorcli.dev
+```
+
+The module provisions a public Hetzner DNS zone. Unlike the other
+three drivers, there's no cloud IAM or Workload Identity binding: the
+same `hetzner.token` API token used for the compute/network stack is
+written as a Kubernetes Secret that cert-manager's ACME solver and
+external-dns's Hetzner webhook provider both read.
+
+Set `hetzner.dns_parent_zone` to a zone already in the same Hetzner
+account to skip the registrar step entirely — the module creates the
+NS delegation record in the parent zone automatically. Otherwise,
+delegate the parent domain at your registrar to the name servers in
+the module output (`name_servers`), the same as the other drivers.
+
 ### Self-signed (no public domain)
 
 ```yaml
@@ -142,9 +222,19 @@ Self-signed mode generates a root CA inside the cluster. Trust that
 CA manually on developer machines rather than disabling TLS
 verification.
 
+<!-- BEGIN_TERRAFORM_MODULES -->
+
+## Modules
+
+- [zone/azure-dns](zone/azure-dns/) — DNS zone on Azure DNS.
+- [zone/gcp-dns](zone/gcp-dns/) — DNS zone on Google Cloud DNS.
+- [zone/hetzner](zone/hetzner/) — Creates a primary Hetzner DNS zone via the official hcloud provider.
+- [zone/route53](zone/route53/) — Public DNS zone on AWS Route53.
+<!-- END_TERRAFORM_MODULES -->
+
 ## See also
 
-- [zone/route53/](zone/route53/) and [zone/azure-dns/](zone/azure-dns/) for the per-driver Terraform reference.
+- [zone/route53/](zone/route53/), [zone/azure-dns/](zone/azure-dns/), [zone/gcp-dns/](zone/gcp-dns/), and [zone/hetzner/](zone/hetzner/) for the per-driver Terraform reference.
 - [../cluster/](../cluster/) for the cluster module that provisions the identity binding (IAM Pod Identity, Workload Identity).
 - [../../kustomize/pki/](../../kustomize/pki/) for cert-manager and the ClusterIssuers.
 - [../../kustomize/dns/](../../kustomize/dns/) for the external-dns reconciler.
