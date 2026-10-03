@@ -19,7 +19,7 @@ spec:
     image:
       repository: kubevip/kube-vip-cloud-provider
       # renovate: datasource=docker depName=kubevip/kube-vip-cloud-provider package=kubevip/kube-vip-cloud-provider
-      tag: v0.0.12@sha256:f8f4e3401f7637dd55faefb35571e731a477f65d5c3f062aef73dfd31a8da596
+      tag: v0.0.13@sha256:b8b6a5180e678b410e2c5dba86b87fa8099ada16e2f067d83f04e749f8ea54ab
     cm:
       data:
         range-global: ${loadbalancer_ip_range}
