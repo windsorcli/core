@@ -505,3 +505,55 @@ cases:
       kustomize:
         - name: lb-install
         - name: lb-resources
+
+  # Colima uses the Talos 1.13 pin.
+  - name: colima pins the Talos version below 1.14
+    values:
+      platform: docker
+      workstation:
+        runtime: colima
+      dns: *default-dns
+      gateway:
+        enabled: false
+      network: *default-network
+      cluster: *default-cluster
+    terraformOutputs: *default-terraform-outputs
+    expect:
+      terraform:
+        - name: compute
+          path: compute/docker
+          inputs:
+            cluster_nodes:
+              controlplanes:
+                image: ghcr.io/siderolabs/talos:v1.13.11
+        - name: cluster
+          path: cluster/talos
+          inputs:
+            talos_version: "1.13.11"
+            kubernetes_version: "1.36.5"
+
+  # Other container hosts use the default Talos version.
+  - name: Docker Desktop uses the default Talos version
+    values:
+      platform: docker
+      workstation:
+        runtime: docker-desktop
+      dns: *default-dns
+      gateway:
+        enabled: false
+      network: *default-network
+      cluster: *default-cluster
+    terraformOutputs: *default-terraform-outputs
+    expect:
+      terraform:
+        - name: compute
+          path: compute/docker
+          inputs:
+            cluster_nodes:
+              controlplanes:
+                image: ghcr.io/siderolabs/talos:v1.14.2
+        - name: cluster
+          path: cluster/talos
+          inputs:
+            talos_version: "1.14.2"
+            kubernetes_version: null

@@ -62,6 +62,7 @@ terraform:
       cluster_endpoint: "${cluster.endpoint ?? cluster_endpoint_fallback.endpoint}"
       cluster_name: talos
       talos_version: ${talos.talos_version}
+      kubernetes_version: ${talos.kubernetes_version ?? null}
 
       # With compute output: pass nodes through; docker-desktop adds a certSANs
       # patch. Without it (bootstrap-from-host): rewrite endpoint/node to

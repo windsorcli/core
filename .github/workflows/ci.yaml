@@ -207,7 +207,7 @@ jobs:
           git fetch origin main
           # A Talos version bump requires a full rebuild; skip upgrade mode for it.
           TALOS_VERSION_FILE=contexts/_template/facets/config-talos.yaml
-          talos_version_of() { git show "$1:$TALOS_VERSION_FILE" 2>/dev/null | sed -n 's/^ *talos_version: *"\(.*\)"$/\1/p'; }
+          talos_version_of() { git show "$1:$TALOS_VERSION_FILE" 2>/dev/null | sed -n 's/^ *talos_version: *"\(.*\)"$/\1/p' | head -1; }
           base_talos=$(talos_version_of origin/main)
           head_talos=$(talos_version_of HEAD)
           if [ -n "$base_talos" ] && [ -n "$head_talos" ] && [ "$base_talos" != "$head_talos" ]; then
