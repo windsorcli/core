@@ -18,13 +18,13 @@ config:
     value:
       dashboards: "${observability.dashboards ?? 'grafana'}"
 
-  # Grafana URL — always the internal gateway (docker-desktop: :8444, else :443).
+  # Grafana URL — always the internal gateway (docker-desktop: :8443, else :443).
   # Grafana is an operational surface; it binds to internal, never external.
   - name: grafana_effective
     value:
       url: >-
         ${'https://grafana.' + (dns.private_domain ?? '') +
-        (workstation.runtime == 'docker-desktop' ? ':8444' : '')}
+        (workstation.runtime == 'docker-desktop' ? ':8443' : '')}
 
 requires:
   # Explicitly enabling Grafana SSO needs a cluster identity provider to authenticate against.
