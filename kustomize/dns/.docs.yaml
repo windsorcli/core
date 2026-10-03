@@ -53,7 +53,7 @@ components:
     description: "Adds `gateway-httproute` to external-dns's `sources` list so the Gateway API's `HTTPRoute` hostnames are published. Requires the Gateway API CRDs to be present (hence the `gateway-install` dependency)."
   coredns:
     enable_when: "`dns.private.enabled: true`"
-    description: "Helm release of `coredns` in `system-dns`. In-cluster private DNS server. The default plugin chain serves cluster.local and forwards everything else upstream."
+    description: "Helm release of `coredns` in `system-dns`. In-cluster private DNS server. Serves only `dns.private_domain` and refuses every other name."
     variants:
       etcd:
         enable_when: "`dns.private.enabled: true`"
