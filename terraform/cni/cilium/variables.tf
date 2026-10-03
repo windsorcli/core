@@ -20,13 +20,13 @@ variable "cluster_endpoint" {
 }
 
 variable "kube_proxy_replacement" {
-  description = "Replace kube-proxy with Cilium's eBPF implementation. Requires cluster_endpoint to be set. Recommended for Talos and EKS."
+  description = "Replace kube-proxy with Cilium's eBPF implementation. Requires cluster_endpoint to be set. Recommended for Talos."
   type        = bool
   default     = true
 }
 
 variable "ipam_mode" {
-  description = "Cilium IPAM mode. 'kubernetes' uses node CIDR ranges (default, works for Talos and standard EKS). 'eni' uses AWS ENI-based allocation for EKS native networking."
+  description = "Cilium IPAM mode. 'kubernetes' uses node CIDR ranges (default, works for Talos). 'eni' uses AWS ENI-based allocation for EKS native networking."
   type        = string
   default     = "kubernetes"
   validation {
