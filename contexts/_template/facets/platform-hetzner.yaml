@@ -260,7 +260,15 @@ terraform:
       controlplane_disks: ${talos_common.controlplane_disks}
       worker_disks: ${talos_common.worker_disks}
       common_config_patches: ${talos_common.common_config_patches}
-      controlplane_config_patches: "${talos_common.oidc_ca_file_patch ?? ''}"
+      # Single-node removes the control-plane LB exclusion label so the Hetzner LB has a target.
+      controlplane_config_patches: >-
+        ${let lb = topology == 'single-node'
+            ? 'machine:\n  nodeLabels:\n    node.kubernetes.io/exclude-from-external-load-balancers:\n      $patch: delete'
+            : '';
+          let oidc = talos_common.oidc_ca_file_patch ?? '';
+          lb == ''
+            ? oidc
+            : (oidc == '' ? lb : lb + '\n' + trimPrefix(oidc, 'machine:\n'))}
       worker_config_patches: "${talos_common.worker_config_patches ?? ''}"
       controlplane_volumes: ${talos_common.controlplane_volumes ?? []}
       worker_volumes: ${talos_common.worker_volumes ?? []}
