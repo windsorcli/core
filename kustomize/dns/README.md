@@ -161,7 +161,7 @@ In both cases `loadbalancer_start_ip` must fall inside
 | Name | Required when | Effect |
 |---|---|---|
 | `external_domain` | `external-dns` (public instance) is enabled | Domain filter for the public external-dns instance. Always `dns.public_domain` -- this instance only ever exists when a public domain is set. |
-| `internal_domain` | `external-dns-internal` is enabled | Domain filter for the internal external-dns instance. Always `dns.private_domain` -- this instance only ever exists when a private domain is set. |
+| `internal_domain` | `external-dns-internal` or `external-dns/providers/google/internal-zone` is enabled | Domain filter for the private zone: the internal external-dns instance on AWS and Azure, or an extra entry in the single instance's filters on GCP. Always `dns.private_domain`. |
 | `zone_type` | platform is AWS, public instance | Always `public` on the public external-dns instance. Combined with `zone_id_filter` to lock the controller onto the public Route53 zone. |
 | `zone_type_internal` | platform is AWS, internal instance | Always `private` on the internal external-dns instance (`external-dns-internal`). |
 | `zone_id_filter` | platform is AWS or Azure, public instance | Public hosted-zone ID to constrain the public external-dns instance to. AWS: `terraform_output('dns-zone', 'zone_id')`. Azure has no zone-id-filter equivalent (the provider already scopes to azure.json's resourceGroup). |
@@ -209,6 +209,12 @@ Patches the `external-dns` HelmRelease for the Azure provider (always `azure`, t
 _Enabled when platform is GCP AND `dns.public_domain` is set._
 
 Patches the external-dns HelmRelease for the Google provider: `provider.name: google`, `--google-project=${google_project_id}`, GKE Workload Identity binding via `${external_dns_service_account_email}`.
+
+### `external-dns/providers/google/internal-zone`
+
+_Enabled when platform is GCP AND both `dns.public_domain` and `dns.private_domain` are set._
+
+Appends `${internal_domain}` to the `external-dns` domain filters so one instance publishes records for both the public and the private Cloud DNS zone. GCP has no separate internal instance, since Cloud DNS serves both zone visibilities through the same API.
 
 ### `external-dns/providers/coredns`
 

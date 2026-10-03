@@ -1,0 +1,3 @@
+- op: add
+  path: /spec/values/domainFilters/-
+  value: ${internal_domain}

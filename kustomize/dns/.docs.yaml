@@ -8,8 +8,8 @@ substitutions:
     required_when: "`external-dns` (public instance) is enabled"
     description: "Domain filter for the public external-dns instance. Always `dns.public_domain` -- this instance only ever exists when a public domain is set."
   internal_domain:
-    required_when: "`external-dns-internal` is enabled"
-    description: "Domain filter for the internal external-dns instance. Always `dns.private_domain` -- this instance only ever exists when a private domain is set."
+    required_when: "`external-dns-internal` or `external-dns/providers/google/internal-zone` is enabled"
+    description: "Domain filter for the private zone: the internal external-dns instance on AWS and Azure, or an extra entry in the single instance's filters on GCP. Always `dns.private_domain`."
   zone_type:
     required_when: "platform is AWS, public instance"
     description: "Always `public` on the public external-dns instance. Combined with `zone_id_filter` to lock the controller onto the public Route53 zone."
@@ -57,6 +57,9 @@ components:
   external-dns/providers/google:
     enable_when: "platform is GCP AND `dns.public_domain` is set"
     description: "Patches the external-dns HelmRelease for the Google provider: `provider.name: google`, `--google-project=${google_project_id}`, GKE Workload Identity binding via `${external_dns_service_account_email}`."
+  external-dns/providers/google/internal-zone:
+    enable_when: "platform is GCP AND both `dns.public_domain` and `dns.private_domain` are set"
+    description: "Appends `${internal_domain}` to the `external-dns` domain filters so one instance publishes records for both the public and the private Cloud DNS zone. GCP has no separate internal instance, since Cloud DNS serves both zone visibilities through the same API."
   external-dns/providers/coredns:
     enable_when: "`dns.private.enabled: true` (provides private DNS via in-cluster coredns)"
     description: "Patches the external-dns HelmRelease for the CoreDNS provider, writing records into the in-cluster coredns etcd backend instead of a cloud DNS zone."

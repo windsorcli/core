@@ -176,21 +176,25 @@ flux:
   # (dns.private_domain → the VPC-linked zone). Workload Identity is
   # wired by the cluster module. Cloud DNS's own API serves both zone
   # visibilities identically, so unlike AWS/Azure this needs no separate
-  # provider variant or zone-ID filter — domainFilters plus google_project_id
-  # already scope external-dns to the right zone.
+  # instance or zone-ID filter. domainFilters plus google_project_id scope
+  # external-dns to the right zones, and both domains join one filter list.
   - name: dns
     when: "(dns.public_domain ?? '') != '' || (dns.private_domain ?? '') != ''"
     install:
       components:
         - external-dns
         - external-dns/providers/google
+        - >-
+          ${(dns.public_domain ?? '') != '' && (dns.private_domain ?? '') != '' ?
+          'external-dns/providers/google/internal-zone' : ''}
         - "${gateway.enabled == true ? 'external-dns/sources/gateway-httproute' : ''}"
       timeout: 5m
       interval: 5m
       substitutions:
-        # One instance serves one domain: the public one when set, else the
-        # private one.
+        # The public domain when set, else the private one. With both set, the
+        # private domain joins the filter list through internal_domain.
         external_domain: "${(dns.public_domain ?? '') != '' ? dns.public_domain : (dns.private_domain ?? '')}"
+        internal_domain: "${dns.private_domain ?? ''}"
         google_project_id: "${gcp.project_id}"
         external_dns_service_account_email: "${terraform_output('cluster', 'external_dns_service_account_email') ?? ''}"
         # Context id in TXT records so multiple external-dns instances in a

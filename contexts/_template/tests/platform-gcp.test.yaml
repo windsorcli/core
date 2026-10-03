@@ -517,3 +517,29 @@ cases:
           resources:
             - components:
                 - private-issuer/selfsigned
+
+  # Both domains: one external-dns instance publishes to both Cloud DNS zones,
+  # with the private domain joining the filter list.
+  - name: both domains add the private domain to the single external-dns instance
+    values:
+      platform: gcp
+      gcp:
+        project_id: windsor-test
+      gateway:
+        enabled: true
+        driver: envoy
+      dns:
+        public_domain: example.com
+        private_domain: internal.example.com
+      email: ops@example.com
+    expect:
+      flux:
+        - name: dns
+          install:
+            components:
+              - external-dns
+              - external-dns/providers/google
+              - external-dns/providers/google/internal-zone
+            substitutions:
+              external_domain: example.com
+              internal_domain: internal.example.com
