@@ -218,7 +218,7 @@ Adds `gateway-httproute` to external-dns's `sources` list so the Gateway API's `
 
 _Enabled when `dns.private.enabled: true`._
 
-Helm release of `coredns` in `system-dns`. In-cluster private DNS server. The default plugin chain serves cluster.local and forwards everything else upstream.
+Helm release of `coredns` in `system-dns`. In-cluster private DNS server. Serves only `dns.private_domain` and refuses every other name.
 
 | Variant | Enabled when | Effect |
 |---|---|---|
