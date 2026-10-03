@@ -5,7 +5,7 @@ mock_provider "docker" {
   mock_resource "docker_container" {}
 }
 
-# Minimal: required variables only; defaults for runtime, network, private_domain_name, compose_project. only required variables (project_root, context); defaults for runtime, network, private_domain_name, compose_project.
+# Minimal: required variables only; defaults for runtime, network, domain_name, compose_project. only required variables (project_root, context); defaults for runtime, network, domain_name, compose_project.
 # Asserts network name, colima runtime (no port publish), webhook/loadbalancer derivation, sequential IPs (dns=2, git=3), container names.
 run "minimal_configuration" {
   command = plan
@@ -37,8 +37,8 @@ run "minimal_configuration" {
   }
 
   assert {
-    condition     = local.private_domain_name == "test"
-    error_message = "private_domain_name should default to context when not set"
+    condition     = local.domain_name == "test"
+    error_message = "domain_name should default to context when not set"
   }
 
   assert {
@@ -58,7 +58,7 @@ run "minimal_configuration" {
 
   assert {
     condition     = docker_container.dns[0].name == "dns.test"
-    error_message = "DNS container name should use private_domain_name (dns.test when private_domain_name defaults to context)"
+    error_message = "DNS container name should use domain_name (dns.test when domain_name defaults to context)"
   }
 
   assert {
@@ -77,19 +77,19 @@ run "minimal_configuration" {
   }
 }
 
-# Full: all optional variables set; asserts custom network, private_domain_name, compose_project, custom registries, sequential IPs, runtime logic.
+# Full: all optional variables set; asserts custom network, domain_name, compose_project, custom registries, sequential IPs, runtime logic.
 run "full_configuration" {
   command = plan
 
   variables {
-    project_root        = "/home/user/repo"
-    context             = "dev"
-    private_domain_name = "local.dev"
-    runtime             = "docker-desktop"
-    network_name        = "windsor-dev"
-    network_cidr        = "10.20.0.0/16"
-    enable_dns          = true
-    enable_git          = true
+    project_root = "/home/user/repo"
+    context      = "dev"
+    domain_name  = "local.dev"
+    runtime      = "docker-desktop"
+    network_name = "windsor-dev"
+    network_cidr = "10.20.0.0/16"
+    enable_dns   = true
+    enable_git   = true
     registries = {
       "gcr.io"  = { remote = "https://gcr.io" }
       "ghcr.io" = { remote = "https://ghcr.io" }
@@ -107,8 +107,8 @@ run "full_configuration" {
   }
 
   assert {
-    condition     = local.private_domain_name == "local.dev"
-    error_message = "private_domain_name should override context when set"
+    condition     = local.domain_name == "local.dev"
+    error_message = "domain_name should override context when set"
   }
 
   assert {
@@ -148,7 +148,7 @@ run "full_configuration" {
 
   assert {
     condition     = docker_container.dns[0].name == "dns.local.dev" && docker_container.git[0].name == "git.local.dev"
-    error_message = "Container names should use private_domain_name when set (dns.local.dev, git.local.dev)"
+    error_message = "Container names should use domain_name when set (dns.local.dev, git.local.dev)"
   }
 
   assert {
@@ -320,5 +320,42 @@ run "invalid_runtime" {
     project_root = "/tmp/windsor-test"
     context      = "test"
     runtime      = "invalid"
+  }
+}
+
+# Extra zones: private and public domains that differ from domain_name join the Corefile as separate zones.
+run "extra_domain_zones" {
+  command = plan
+
+  variables {
+    project_root        = "/home/user/repo"
+    context             = "dev"
+    domain_name         = "test"
+    private_domain_name = "private.test"
+    public_domain_name  = "public.test"
+    enable_dns          = true
+  }
+
+  assert {
+    condition     = join(",", local.extra_domain_names) == "private.test,public.test"
+    error_message = "Private and public domains should become extra zones"
+  }
+}
+
+# A private or public domain equal to domain_name adds no extra zone.
+run "extra_domain_zones_skip_domain_name" {
+  command = plan
+
+  variables {
+    project_root        = "/home/user/repo"
+    context             = "dev"
+    domain_name         = "test"
+    private_domain_name = "test"
+    enable_dns          = true
+  }
+
+  assert {
+    condition     = length(local.extra_domain_names) == 0
+    error_message = "A domain equal to domain_name should add no extra zone"
   }
 }

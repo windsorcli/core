@@ -10,13 +10,13 @@ ${context}:53 {
     loop
     forward . ${dns_forward_target}
 }
-%{ if public_domain_name != "" ~}
-${public_domain_name}:53 {
+%{ for domain in extra_domain_names ~}
+${domain}:53 {
     reload
     loop
     forward . ${dns_forward_target}
 }
-%{ endif ~}
+%{ endfor ~}
 .:53 {
     reload
     loop

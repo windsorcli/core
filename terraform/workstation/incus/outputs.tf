@@ -31,9 +31,9 @@ output "dns_ip" {
   value       = local.dns_ip
 }
 
-output "private_domain_name" {
-  description = "Private domain used for the DNS zone and hostnames (dns.<name>, git.<name>, and so on). Equal to var.private_domain_name when set, otherwise the context name."
-  value       = local.private_domain_name
+output "domain_name" {
+  description = "Workstation domain used for the DNS zone and hostnames (dns.<name>, git.<name>, and so on). Equal to var.domain_name when set, otherwise the context name."
+  value       = local.domain_name
 }
 
 output "corefile_path" {
