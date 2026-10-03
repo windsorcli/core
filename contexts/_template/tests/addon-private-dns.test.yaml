@@ -227,3 +227,23 @@ cases:
         private:
           enabled: true
     expectError: true
+
+  # A public domain also joins the in-cluster DNS: CoreDNS serves the zone and
+  # external-dns publishes records for routes on the external gateway.
+  - name: public domain adds the public zone to the private DNS add-on
+    values:
+      platform: metal
+      dev: true
+      dns:
+        public_domain: public.example.com
+      network: *default-network
+      cluster: *default-cluster
+    expect:
+      flux:
+        - name: dns
+          install:
+            components:
+              - coredns/public-zone
+              - external-dns/providers/coredns/public-zone
+            substitutions:
+              public_domain: public.example.com

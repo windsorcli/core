@@ -160,7 +160,7 @@ In both cases `loadbalancer_start_ip` must fall inside
 
 | Name | Required when | Effect |
 |---|---|---|
-| `public_domain` | `external-dns` with a public-zone provider is enabled | Domain filter for the public zone. Always `dns.public_domain`; this filter only exists when a public domain is set. |
+| `public_domain` | `external-dns` with a public-zone provider, or a `public-zone` component, is enabled | Domain filter for the public zone. Always `dns.public_domain`; this filter only exists when a public domain is set. |
 | `private_domain` | `external-dns-internal`, the `coredns` provider, `coredns`, or `external-dns/providers/google/private-zone` is enabled | Domain filter for the private zone, and the zone CoreDNS serves. Always `dns.private_domain`. |
 | `zone_type` | platform is AWS, public instance | Always `public` on the public external-dns instance. Combined with `zone_id_filter` to lock the controller onto the public Route53 zone. |
 | `zone_type_internal` | platform is AWS, internal instance | Always `private` on the internal external-dns instance (`external-dns-internal`). |
@@ -221,6 +221,18 @@ Adds `${public_domain}` to the `external-dns` domain filters so the single insta
 _Enabled when platform is GCP AND `dns.private_domain` is set._
 
 Adds `${private_domain}` to the `external-dns` domain filters so the single instance also publishes records for the private Cloud DNS zone. GCP has no separate internal instance, since Cloud DNS serves both zone visibilities through the same API.
+
+### `external-dns/providers/coredns/public-zone`
+
+_Enabled when `dns.private.enabled: true` AND `dns.public_domain` is set._
+
+Adds `${public_domain}` to the `external-dns` domain filters so records for routes on the external gateway are written into the in-cluster coredns etcd backend alongside the private zone.
+
+### `coredns/public-zone`
+
+_Enabled when `dns.private.enabled: true` AND `dns.public_domain` is set._
+
+Adds a `${public_domain}` zone to the in-cluster coredns server block, so a local or metal cluster answers for the public domain as well as the private one.
 
 ### `external-dns/providers/coredns`
 

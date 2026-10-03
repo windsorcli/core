@@ -5,7 +5,7 @@
 
 substitutions:
   public_domain:
-    required_when: "`external-dns` with a public-zone provider is enabled"
+    required_when: "`external-dns` with a public-zone provider, or a `public-zone` component, is enabled"
     description: "Domain filter for the public zone. Always `dns.public_domain`; this filter only exists when a public domain is set."
   private_domain:
     required_when: "`external-dns-internal`, the `coredns` provider, `coredns`, or `external-dns/providers/google/private-zone` is enabled"
@@ -64,6 +64,12 @@ components:
   external-dns/providers/google/private-zone:
     enable_when: "platform is GCP AND `dns.private_domain` is set"
     description: "Adds `${private_domain}` to the `external-dns` domain filters so the single instance also publishes records for the private Cloud DNS zone. GCP has no separate internal instance, since Cloud DNS serves both zone visibilities through the same API."
+  external-dns/providers/coredns/public-zone:
+    enable_when: "`dns.private.enabled: true` AND `dns.public_domain` is set"
+    description: "Adds `${public_domain}` to the `external-dns` domain filters so records for routes on the external gateway are written into the in-cluster coredns etcd backend alongside the private zone."
+  coredns/public-zone:
+    enable_when: "`dns.private.enabled: true` AND `dns.public_domain` is set"
+    description: "Adds a `${public_domain}` zone to the in-cluster coredns server block, so a local or metal cluster answers for the public domain as well as the private one."
   external-dns/providers/coredns:
     enable_when: "`dns.private.enabled: true` (provides private DNS via in-cluster coredns)"
     description: "Patches the external-dns HelmRelease for the CoreDNS provider, writing records into the in-cluster coredns etcd backend instead of a cloud DNS zone."
