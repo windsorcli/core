@@ -40,6 +40,10 @@ spec:
       value: "?sslmode=verify-full&sslfactory=org.postgresql.ssl.DefaultJavaSSLFactory"
   hostname:
     hostname: ${keycloak_hostname}
+    # Admin console on its own hostname, bound to the internal gateway only —
+    # Keycloak's documented hardening pattern (hostname v2's hostname.admin)
+    # for keeping the management surface off the public login domain.
+    admin: ${keycloak_admin_hostname}
   http:
     httpEnabled: true
   proxy:

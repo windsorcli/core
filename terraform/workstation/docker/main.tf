@@ -91,6 +91,7 @@ locals {
     dns_forward_target       = local.dns_forward_target
     use_localhost_networking = local.use_localhost_networking
     host_answer_port         = local.dns_host_answer_port
+    public_domain_name       = var.public_domain_name != null ? var.public_domain_name : ""
   }) : ""
 }
 

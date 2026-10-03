@@ -1,0 +1,30 @@
+---
+# NodePort service for this gateway. Ports differ per gateway (external:
+# 30080/30443, internal: 30081/30444 -- see gateway_nodeport_http/https
+# substitutions) so both can coexist on the same node set.
+apiVersion: gateway.envoyproxy.io/v1alpha1
+kind: EnvoyProxy
+metadata:
+  name: ${gateway_name}
+  namespace: system-gateway
+spec:
+  provider:
+    kubernetes:
+      envoyService:
+        patch:
+          type: JSONMerge
+          value:
+            spec:
+              type: NodePort
+              externalTrafficPolicy: Cluster
+              ports:
+                - name: http-80
+                  protocol: TCP
+                  port: 80
+                  targetPort: 10080
+                  nodePort: ${gateway_nodeport_http}
+                - name: https-443
+                  protocol: TCP
+                  port: 443
+                  targetPort: 10443
+                  nodePort: ${gateway_nodeport_https}

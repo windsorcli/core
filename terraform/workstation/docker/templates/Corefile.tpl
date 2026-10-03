@@ -26,6 +26,23 @@ ${context}:53 {
     forward . ${dns_forward_target}
 }
 %{ endif ~}
+%{ if public_domain_name != "" ~}
+%{ if use_localhost_networking ~}
+${public_domain_name}:${host_answer_port} {
+    template IN A {
+        match "^.*\.${public_domain_name}\.$"
+        answer "{{ .Name }} 60 IN A 127.0.0.1"
+    }
+    reload
+    loop
+}
+%{ endif ~}
+${public_domain_name}:53 {
+    reload
+    loop
+    forward . ${dns_forward_target}
+}
+%{ endif ~}
 .:53 {
     reload
     loop

@@ -1,0 +1,13 @@
+---
+# Pins this gateway's Cilium LBIPAM address to a specific pool IP. Only
+# included when the relevant loadbalancer_ips field is explicitly set;
+# otherwise Cilium auto-assigns from the pool.
+apiVersion: gateway.networking.k8s.io/v1
+kind: Gateway
+metadata:
+  name: ${gateway_name}
+  namespace: system-gateway
+spec:
+  infrastructure:
+    annotations:
+      lbipam.cilium.io/ips: ${gateway_loadbalancer_ip}

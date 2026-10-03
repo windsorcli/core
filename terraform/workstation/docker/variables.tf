@@ -18,6 +18,12 @@ variable "domain_name" {
   default     = null
 }
 
+variable "public_domain_name" {
+  description = "Second domain the local Corefile resolves, forwarded to the same dns_forward_target as domain_name. Lets a local cluster rehearse both the external and internal gateway (e.g. public.test alongside domain_name's private.test). Unset skips the second zone block."
+  type        = string
+  default     = null
+}
+
 variable "runtime" {
   description = "Docker host runtime: docker-desktop (localhost-only networking), colima/docker/linux (advanced networking). 'colima' and 'docker' are aliases for 'linux'. Standardized with compute/docker."
   type        = string

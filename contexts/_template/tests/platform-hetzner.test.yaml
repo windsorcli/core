@@ -391,13 +391,14 @@ cases:
             parent_zone_name: example.org
       flux:
         - name: gateway
-          dependsOn:
-            - lb-install
-          install:
-            components:
-              - envoy/loadbalancer/hcloud-lb
-            substitutions:
-              hcloud_location: fsn1
+          resources:
+            - name: external
+              dependsOn:
+                - lb-install
+              components:
+                - envoy/loadbalancer/hcloud-lb
+              substitutions:
+                hcloud_location: fsn1
         - name: pki
           resources:
             - components:
@@ -429,7 +430,6 @@ cases:
       gateway:
         enabled: true
         driver: envoy
-        access: private
       network: *default-network
     terraformOutputs: *default-terraform-outputs
     expect:

@@ -257,7 +257,7 @@ cases:
         - name: demo-install
 
   # bookinfo's HTTPRoute is a separate resources entry, gated on gateway.enabled
-  # and waiting for gateway-resources since it parents to the Gateway object
+  # and waiting for gateway-resources-internal since it parents to the Gateway object
   # created there.
   - name: bookinfo route uses HTTPRoute when gateway enabled
     values:
@@ -279,11 +279,11 @@ cases:
           path: demo
           resources:
             - dependsOn:
-                - gateway-resources
+                - gateway-resources-internal
               components:
                 - bookinfo/gateway
               substitutions:
-                external_domain: demo.example.com
+                internal_domain: demo.example.com
 
   # Edge case: Demo disabled excludes demo database
   - name: excludes demo database when demo disabled

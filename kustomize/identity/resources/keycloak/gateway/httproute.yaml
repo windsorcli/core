@@ -1,7 +1,10 @@
 ---
-# Routes keycloak.${external_domain} through the shared external Gateway to the
-# operator-managed `keycloak-service` (HTTP 8080; TLS terminates at the gateway).
-# external-dns picks up the hostname from this route automatically.
+# Routes keycloak.${external_domain} to the operator-managed `keycloak-service`
+# (HTTP 8080; TLS terminates at the gateway). Login/account UI, not the admin
+# console (see ../gateway-admin) — attaches to whichever gateway actually
+# exists for it: external when a public domain is set, internal otherwise
+# (keycloak_gateway_name mirrors external_domain's own public/private
+# fallback). external-dns picks up the hostname from this route automatically.
 apiVersion: gateway.networking.k8s.io/v1
 kind: HTTPRoute
 metadata:
@@ -11,7 +14,7 @@ spec:
   parentRefs:
     # web-https only; plain HTTP is 301-redirected by the gateway's https-redirect.
     - kind: Gateway
-      name: external
+      name: ${keycloak_gateway_name}
       namespace: system-gateway
       sectionName: web-https
   hostnames:

@@ -1,0 +1,22 @@
+---
+# Hetzner-specific annotations on the Envoy Gateway's data-plane Service.
+# hcloud cloud-controller-manager reads these to provision a Hetzner Cloud
+# Load Balancer for the type=LoadBalancer Service. Stacks on top of
+# loadbalancer/patches/envoy-proxy.yaml.
+apiVersion: gateway.envoyproxy.io/v1alpha1
+kind: EnvoyProxy
+metadata:
+  name: ${gateway_name}
+  namespace: system-gateway
+spec:
+  provider:
+    kubernetes:
+      envoyService:
+        patch:
+          type: StrategicMerge
+          value:
+            metadata:
+              annotations:
+                load-balancer.hetzner.cloud/location: ${hcloud_location:-fsn1}
+                load-balancer.hetzner.cloud/use-private-ip: "false"
+                load-balancer.hetzner.cloud/uses-proxyprotocol: "false"

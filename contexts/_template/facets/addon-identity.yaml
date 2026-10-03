@@ -111,6 +111,11 @@ flux:
             ((dns.public_domain ?? '') == '' ? (dns.private_domain ?? '') : dns.public_domain) +
             (workstation.runtime == 'docker-desktop' ? ':8443' : '')) :
             identity.keycloak.hostname}
+          # Admin console — always the internal gateway's domain, never the
+          # public login domain (see kustomize/identity/resources/keycloak/gateway-admin).
+          keycloak_admin_hostname: >-
+            ${'https://keycloak-admin.' + (dns.private_domain ?? '') +
+            (workstation.runtime == 'docker-desktop' ? ':8444' : '')}
           # A user-supplied image is assumed pre-built, so start optimized. The stock
           # default is not augmented, so it builds at boot (startOptimized false).
           # Custom images must be digest-pinned (system-identity is policy-managed).
@@ -118,19 +123,26 @@ flux:
           keycloak_image: "${(identity.keycloak.image ?? '') == '' ? 'quay.io/keycloak/keycloak:26.7.4@sha256:82a77884f3af238beab1e7afd63b5f530e1b5c0590bd7aa60b40a40463e29b2c' : identity.keycloak.image}"
           keycloak_start_optimized: "${(identity.keycloak.image ?? '') == '' ? 'false' : 'true'}"
 
-  # Gateway route — waits for the shared Gateway to exist. Without a gateway, reach
-  # Keycloak by port-forwarding the keycloak-service Service in system-identity.
+  # Gateway route — waits for the gateways to exist. Login/account UI binds to
+  # the external gateway when a public domain is set, otherwise the internal
+  # one. The admin console always binds to the internal gateway
+  # (keycloak/gateway-admin). Without a gateway, reach Keycloak by
+  # port-forwarding the keycloak-service Service in system-identity.
   - name: identity
-    when: (identity.driver ?? 'keycloak') == 'keycloak' && gateway.enabled == true
+    when: (identity.driver ?? 'keycloak') == 'keycloak' && gateway.enabled == true && ((dns.public_domain ?? '') != '' || gateway_effective.internal == true)
     resources:
       - dependsOn:
-          - gateway-resources
+          - "${(dns.public_domain ?? '') != '' ? 'gateway-resources-external' : ''}"
+          - "${gateway_effective.internal == true ? 'gateway-resources-internal' : ''}"
         components:
           - keycloak/gateway
+          - "${gateway_effective.internal == true ? 'keycloak/gateway-admin' : ''}"
         timeout: 10m
         interval: 5m
         substitutions:
           external_domain: "${(dns.public_domain ?? '') == '' ? (dns.private_domain ?? '') : dns.public_domain}"
+          keycloak_gateway_name: "${(dns.public_domain ?? '') != '' ? 'external' : 'internal'}"
+          internal_domain: "${dns.private_domain ?? ''}"
 
   # Platform realm — the security baseline and RBAC anchor core owns, plus the OIDC
   # clients for enabled consumers. A one-shot KeycloakRealmImport; the operator

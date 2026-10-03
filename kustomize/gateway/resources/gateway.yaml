@@ -1,7 +1,7 @@
 apiVersion: gateway.networking.k8s.io/v1
 kind: Gateway
 metadata:
-  name: external
+  name: ${gateway_name}
   namespace: system-gateway
 spec:
   gatewayClassName: ${gateway_class_name}
@@ -21,7 +21,7 @@ spec:
         mode: Terminate
         certificateRefs:
           - kind: Secret
-            name: external-web-tls
+            name: ${gateway_name}-web-tls
       allowedRoutes:
         namespaces:
           from: All
