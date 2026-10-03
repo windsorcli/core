@@ -1,11 +1,13 @@
 ---
 title: Gateway
-description: Gateway API implementation (Envoy Gateway or Cilium) and the cluster's external Gateway.
+description: Gateway API implementation (Envoy Gateway or Cilium) and the cluster's external and internal Gateways.
 stack_backing: Ingress traffic
 ---
 
-The cluster's external traffic entrypoint, via the Kubernetes Gateway
-API. Two driver options.
+The cluster's traffic entrypoints, via the Kubernetes Gateway API. Two
+Gateways can exist: `external`, provisioned when `dns.public_domain` is
+set, and `internal`, provisioned when `dns.private_domain` is set
+(workstation and dev mode default it to `test`). Two driver options.
 
 Envoy Gateway is the default: a dedicated control-plane and data-plane
 Envoy stack installed by Helm. It is heavier than Cilium's built-in path
@@ -24,17 +26,21 @@ the Gateway API CRDs and the controller workloads before the
 `Gateway` CR that targets them. `install` ships the Gateway API CRDs
 plus the operator Helm release (envoy) or just the GatewayClass
 (cilium); LB-mode patches and Prometheus monitor go here. `resources`
-ships the `external` `Gateway` CR (named via the `system-gateway`
-namespace) plus per-feature patches (catch-all 404, DNS listeners,
-fixed LB address, Flux webhook), and implicitly depends on `install`
-(compiled name: `gateway-install` / `gateway-resources`).
+ships one named variant per Gateway (`gateway-resources-external`,
+`gateway-resources-internal`), each rendering the `Gateway`, its
+certificate, and its `EnvoyProxy` from the same files through the
+`${gateway_name}` substitution, plus per-feature patches (catch-all
+404, DNS listeners, fixed LB address, Flux webhook). Utility surfaces
+(CoreDNS listeners, the Flux webhook) bind to `internal` only. The tier
+implicitly depends on `install` (compiled name: `gateway-install`).
 
 ## Recipes
 
-The `external` Gateway listens on HTTPS (and HTTP for redirect) with a
-cert issued by one of the pki add-on's ClusterIssuers. external-dns
-publishes its hostname, and — for the LoadBalancer modes — the LB
-controller assigns its external IP.
+Each Gateway listens on HTTPS (and HTTP for redirect) with a cert
+issued by one of the pki add-on's ClusterIssuers: the public issuer for
+`external`, `private` for `internal`. external-dns publishes its
+hostname, and for the LoadBalancer modes the LB controller assigns its
+IP. The diagrams show one Gateway.
 
 ### Envoy + LoadBalancer (cloud default)
 
@@ -44,7 +50,7 @@ flowchart LR
 
   subgraph systemgateway[system-gateway]
     op[Envoy Gateway operator]
-    gw[Gateway external<br/>HTTPS + default-404]
+    gw[Gateway<br/>HTTPS + default-404]
     routes[HTTPRoutes from apps]
     svc[Service type=LoadBalancer]
     envoy[Envoy data-plane]
@@ -73,17 +79,26 @@ the cloud LB and external-dns publishes its hostname.
 ```yaml
 flux:
   - name: gateway
-    dependsOn: [pki-install, lb-install]
     install:
-      components: [envoy, envoy/loadbalancer, envoy/prometheus]
+      components: [envoy, envoy/prometheus]
     resources:
-      - dependsOn: [dns]
-        components: [envoy/default-404, lb-address, flux-webhook]
+      - name: internal
+        dependsOn: [pki-resources, lb-install]
+        components:
+          - envoy/proxy
+          - envoy/loadbalancer
+          - envoy/loadbalancer/fixed-ip
+          - envoy/parameters
+          - envoy/default-404
+          - lb-address
+          - flux-webhook
         substitutions:
+          gateway_name: internal
           gateway_class_name: envoy
+          gateway_domain: example.internal
+          gateway_cert_issuer: private
+          gateway_loadbalancer_ip: 10.5.1.10
           gateway_dns_target: 10.5.1.10
-          external_domain: example.com
-          loadbalancer_start_ip: 10.5.1.10
 ```
 
 The data-plane Service is exposed through the LB controller.
@@ -96,7 +111,7 @@ flowchart LR
 
   subgraph systemgateway[system-gateway]
     op[Envoy Gateway operator]
-    gw[Gateway external<br/>HTTPS]
+    gw[Gateway<br/>HTTPS]
     routes[HTTPRoutes from apps]
     svc[Service type=NodePort]
     envoy[Envoy data-plane]
@@ -116,14 +131,17 @@ flowchart LR
 ```yaml
 flux:
   - name: gateway
-    dependsOn: [pki-install]
     install:
-      components:
-        - envoy
-        - envoy/nodeport
-        - envoy/nodeport/dns
-        - envoy/nodeport/flux-webhook
-        - envoy/prometheus
+      components: [envoy, envoy/prometheus]
+    resources:
+      - name: internal
+        dependsOn: [pki-resources]
+        components:
+          - envoy/proxy
+          - envoy/nodeport
+          - envoy/nodeport/dns
+          - envoy/nodeport/flux-webhook
+          - envoy/parameters
 ```
 
 NodePort skips the LB controller and forwards via host ports. The
@@ -138,7 +156,7 @@ flowchart LR
 
   subgraph systemgateway[system-gateway]
     op[Envoy Gateway operator]
-    gw[Gateway external<br/>HTTPS]
+    gw[Gateway<br/>HTTPS]
     routes[HTTPRoutes from apps]
     svc[Service type=LoadBalancer<br/>+ NLB annotations]
     envoy[Envoy data-plane pods]
@@ -161,11 +179,15 @@ flowchart LR
 flux:
   - name: gateway
     install:
-      components:
-        - envoy
-        - envoy/loadbalancer
-        - envoy/loadbalancer/aws-nlb
-        - envoy/prometheus
+      components: [envoy, envoy/prometheus]
+    resources:
+      - name: external
+        dependsOn: [pki-resources, lb-install]
+        components:
+          - envoy/proxy
+          - envoy/loadbalancer
+          - envoy/loadbalancer/aws-nlb
+          - envoy/parameters
 ```
 
 The aws-nlb overlay adds AWS LB Controller annotations so the
@@ -180,7 +202,7 @@ flowchart LR
 
   subgraph systemgateway[system-gateway]
     gc[GatewayClass cilium]
-    gw[Gateway external<br/>HTTPS · LBIPAM-shared IP]
+    gw[Gateway<br/>HTTPS · LBIPAM-shared IP]
     routes[HTTPRoutes from apps]
   end
 
@@ -206,13 +228,16 @@ the path, one hop shorter than the Envoy recipes.
 ```yaml
 flux:
   - name: gateway
-    dependsOn: [pki-install]
     install:
       components: [cilium]
     resources:
-      - components: [cilium]
+      - name: internal
+        dependsOn: [pki-resources, cni-install]
+        components: [cilium, cilium/fixed-ip]
         substitutions:
-          loadbalancer_start_ip: 10.5.1.10
+          gateway_name: internal
+          gateway_class_name: cilium
+          gateway_loadbalancer_ip: 10.5.1.10
 ```
 
 <!-- BEGIN_KUSTOMIZE_DOCS -->
