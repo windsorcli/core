@@ -437,6 +437,12 @@ flux:
     resources:
       - components:
           - "${(pki.enabled ?? false) != true ? 'private-issuer/selfsigned' : ''}"
+          # Cloud platforms add their own public issuer. Everywhere else a
+          # public domain needs the selfsigned one for the external gateway.
+          - >-
+            ${(dns.public_domain ?? '') != '' &&
+            !(platform in ['aws', 'azure', 'gcp', 'hetzner']) ?
+            'public-issuer/selfsigned' : ''}
         timeout: 5m
         interval: 5m
 
@@ -513,7 +519,10 @@ flux:
 # Messages — post-run notes printed on bootstrap
 # =============================================================================
 messages:
-  - when: (dns.public_domain ?? '') != '' && len(terraform_output('dns-zone', 'name_servers') ?? []) > 0
+  # Only the cloud platforms provision a dns-zone to delegate.
+  - when: >-
+      (dns.public_domain ?? '') != '' && platform in ['aws', 'azure', 'gcp', 'hetzner'] &&
+      len(terraform_output('dns-zone', 'name_servers') ?? []) > 0
     text: |-
       Public DNS zone created for ${dns.public_domain}. Delegate it at your
       domain registrar by adding these as NS records:

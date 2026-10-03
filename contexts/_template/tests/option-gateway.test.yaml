@@ -864,3 +864,25 @@ cases:
             - name: external
               components:
                 - cilium/fixed-ip
+
+  # A public domain on a platform without cloud DNS keeps the selfsigned public
+  # issuer, since ACME needs a cloud zone.
+  - name: public domain on metal uses the selfsigned public issuer
+    values:
+      platform: metal
+      dns:
+        public_domain: example.com
+        private_domain: example.internal
+      network: *default-network
+      cluster: *default-cluster
+    expect:
+      flux:
+        - name: gateway
+          resources:
+            - name: external
+              substitutions:
+                gateway_cert_issuer: public-selfsigned
+        - name: pki
+          resources:
+            - components:
+                - public-issuer/selfsigned

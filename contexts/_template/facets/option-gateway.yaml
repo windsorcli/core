@@ -8,12 +8,16 @@ metadata:
 # Config — derived values consumed by this facet
 # =============================================================================
 # cert_effective.public_issuer: selfsigned and ACME public issuers are distinct
-# ClusterIssuers — flipping the name forces cert-manager to reissue.
+# ClusterIssuers — flipping the name forces cert-manager to reissue. ACME needs
+# a cloud DNS zone, so every other platform keeps the selfsigned public issuer.
 config:
 
   - name: cert_effective
     value:
-      public_issuer: "${(dns.public_domain ?? '') != '' ? 'public-acme' : 'public-selfsigned'}"
+      public_issuer: >-
+        ${(dns.public_domain ?? '') != '' &&
+        platform in ['aws', 'azure', 'gcp', 'hetzner'] ?
+        'public-acme' : 'public-selfsigned'}
 
   # A gateway is provisioned only when its domain is set, so no fallback ladder
   # is needed. The internal gateway's issuer is always `private`: a VPC-only
