@@ -65,6 +65,17 @@ config:
               validSubnets:
                 - "${network.cidr_block ?? '10.5.0.0/16'}"
 
+  # Single-node removes the control-plane LB exclusion label so the Hetzner LB has a target.
+  - name: talos_common
+    when: topology == 'single-node'
+    value:
+      controlplane_patch:
+        machine:
+          nodeLabels:
+            node.kubernetes.io/exclude-from-external-load-balancers:
+              $patch: delete
+      controlplane_config_patches: "${string(talos_common.controlplane_patch)}"
+
   # vCPU/memory (GB) by Hetzner instance type. Hetzner sizes nodes via
   # instance_type, not cluster.controlplanes.cpu/memory, so this map feeds the
   # existing Flux-concurrency formula the real control-plane size. Unknown types
@@ -260,7 +271,13 @@ terraform:
       controlplane_disks: ${talos_common.controlplane_disks}
       worker_disks: ${talos_common.worker_disks}
       common_config_patches: ${talos_common.common_config_patches}
-      controlplane_config_patches: "${talos_common.oidc_ca_file_patch ?? ''}"
+      # The oidc patch drops its "machine:" header to nest under the control-plane patch's header.
+      controlplane_config_patches: >-
+        ${let cp = talos_common.controlplane_config_patches ?? '';
+          let oidc = talos_common.oidc_ca_file_patch ?? '';
+          cp == ''
+            ? oidc
+            : (oidc == '' ? cp : cp + '\n' + trimPrefix(oidc, 'machine:\n'))}
       worker_config_patches: "${talos_common.worker_config_patches ?? ''}"
       controlplane_volumes: ${talos_common.controlplane_volumes ?? []}
       worker_volumes: ${talos_common.worker_volumes ?? []}
