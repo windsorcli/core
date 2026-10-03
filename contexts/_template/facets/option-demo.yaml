@@ -187,4 +187,4 @@ flux:
         components:
           - bookinfo/gateway
         substitutions:
-          internal_domain: ${gateway_effective.internal_domain}
+          private_domain: ${dns.private_domain}

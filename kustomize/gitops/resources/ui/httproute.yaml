@@ -12,7 +12,7 @@ spec:
       namespace: system-gateway
       sectionName: web-https
   hostnames:
-    - flux.${internal_domain}
+    - flux.${private_domain}
   rules:
     - backendRefs:
         - kind: Service

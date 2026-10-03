@@ -21,7 +21,7 @@ terraform {
 # =============================================================================
 
 locals {
-  domain_name           = coalesce(var.domain_name, var.context)
+  private_domain_name   = coalesce(var.private_domain_name, var.context)
   git_repo_name         = basename(var.project_root)
   compose_project       = "workstation-windsor-${var.context}"
   network_name_resolved = coalesce(var.network_name, "windsor-${var.context}")
@@ -81,12 +81,12 @@ locals {
   # Corefile hosts: only rendered in advanced-networking mode (CIDR-derived IPs); localhost
   # mode answers the whole zone via a wildcard template instead (see Corefile.tpl).
   corefile_host_entries = concat(
-    var.enable_dns ? ["${local.dns_ip} dns.${local.domain_name}"] : [],
-    [for k in local.registry_keys_sorted : "${local.registry_ips[k]} ${local.registry_host_prefix[k]}.${local.domain_name}"],
-    var.enable_git ? ["${local.git_ip} git.${local.domain_name}"] : []
+    var.enable_dns ? ["${local.dns_ip} dns.${local.private_domain_name}"] : [],
+    [for k in local.registry_keys_sorted : "${local.registry_ips[k]} ${local.registry_host_prefix[k]}.${local.private_domain_name}"],
+    var.enable_git ? ["${local.git_ip} git.${local.private_domain_name}"] : []
   )
   corefile_content = var.enable_dns ? templatefile("${path.module}/templates/Corefile.tpl", {
-    context                  = local.domain_name
+    context                  = local.private_domain_name
     host_entries             = local.corefile_host_entries
     dns_forward_target       = local.dns_forward_target
     use_localhost_networking = local.use_localhost_networking
@@ -154,7 +154,7 @@ resource "docker_image" "git_livereload" {
 
 resource "docker_container" "dns" {
   count   = var.enable_dns ? 1 : 0
-  name    = "dns.${local.domain_name}"
+  name    = "dns.${local.private_domain_name}"
   image   = docker_image.coredns[0].image_id
   command = ["-conf", "/etc/coredns/Corefile"]
   restart = "always"
@@ -219,7 +219,7 @@ resource "docker_image" "registry" {
 
 resource "docker_container" "registry" {
   for_each = local.registries
-  name     = "${local.registry_host_prefix[each.key]}.${local.domain_name}"
+  name     = "${local.registry_host_prefix[each.key]}.${local.private_domain_name}"
   image    = docker_image.registry[0].image_id
   restart  = "always"
   dynamic "labels" {
@@ -273,7 +273,7 @@ resource "docker_container" "registry" {
 
 resource "docker_container" "git" {
   count = var.enable_git ? 1 : 0
-  name  = "git.${local.domain_name}"
+  name  = "git.${local.private_domain_name}"
   image = docker_image.git_livereload[0].image_id
   env = concat(
     [

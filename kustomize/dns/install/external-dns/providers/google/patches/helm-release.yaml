@@ -11,8 +11,6 @@ spec:
     policy: sync
     registry: txt
     txtOwnerId: ${txt_owner_id}
-    domainFilters:
-      - ${external_domain:-test}
     extraArgs:
       - --google-project=${google_project_id}
     serviceAccount:

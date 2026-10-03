@@ -20,7 +20,7 @@ spec:
     # Flux's postBuild via the values-dns ConfigMap the CLI generates.
     txtOwnerId: ${txt_owner_id}
     domainFilters:
-      - ${internal_domain:-test}
+      - ${private_domain:-test}
     # Azure (Public + Private) DNS rejects '*' in TXT relative names, so the
     # registry's TXT record for a wildcard endpoint (e.g. a-*.example.com)
     # fails to write with HTTP 400. Replace '*' with 'any' in TXT names so the

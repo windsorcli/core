@@ -505,7 +505,7 @@ flux:
           - ui
           - "${gateway.driver == 'cilium' ? 'ui/cilium' : ''}"
         substitutions:
-          internal_domain: ${gateway_effective.internal_domain}
+          private_domain: ${dns.private_domain}
         timeout: 5m
         interval: 5m
 

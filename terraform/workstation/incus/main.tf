@@ -48,7 +48,7 @@ provider "incus" {
 # =============================================================================
 
 locals {
-  domain_name           = coalesce(var.domain_name, var.context)
+  private_domain_name   = coalesce(var.private_domain_name, var.context)
   git_repo_name         = basename(var.project_root)
   network_name_resolved = coalesce(var.network_name, "windsor-${var.context}")
   compose_project       = "workstation-windsor-${var.context}"
@@ -82,19 +82,19 @@ locals {
       : k
     )
   }
-  registry_hostname = { for k in local.registry_keys_sorted : k => "${local.registry_hostname_base[k]}.${local.domain_name}" }
+  registry_hostname = { for k in local.registry_keys_sorted : k => "${local.registry_hostname_base[k]}.${local.private_domain_name}" }
   service_ips = merge(
     { dns = local.dns_ip, git = local.git_ip },
     local.registry_ips
   )
   dns_forward_target = coalesce(var.dns_forward_target, local.loadbalancer_start_ip)
   corefile_host_entries = concat(
-    var.enable_dns ? ["${local.dns_ip} dns.${local.domain_name}"] : [],
+    var.enable_dns ? ["${local.dns_ip} dns.${local.private_domain_name}"] : [],
     [for k in local.registry_keys_sorted : "${local.registry_ips[k]} ${local.registry_hostname[k]}"],
-    var.enable_git ? ["${local.git_ip} git.${local.domain_name}"] : []
+    var.enable_git ? ["${local.git_ip} git.${local.private_domain_name}"] : []
   )
   corefile_content = var.enable_dns ? templatefile("${path.module}/templates/Corefile.tpl", {
-    context            = local.domain_name
+    context            = local.private_domain_name
     host_entries       = local.corefile_host_entries
     dns_forward_target = local.dns_forward_target
     public_domain_name = var.public_domain_name != null ? var.public_domain_name : ""
@@ -136,7 +136,7 @@ resource "local_file" "corefile" {
 
 resource "incus_instance" "dns" {
   count = var.enable_dns ? 1 : 0
-  name  = replace("dns.${local.domain_name}", ".", "-")
+  name  = replace("dns.${local.private_domain_name}", ".", "-")
   type  = "container"
   # renovate: datasource=docker depName=registry.k8s.io/coredns/coredns package=registry.k8s.io/coredns/coredns
   image = "registryk8s:coredns/coredns:v1.14.7"
@@ -228,7 +228,7 @@ resource "incus_instance" "registry" {
 resource "incus_instance" "git" {
   count      = var.enable_git ? 1 : 0
   depends_on = [incus_network.main]
-  name       = replace("git.${local.domain_name}", ".", "-")
+  name       = replace("git.${local.private_domain_name}", ".", "-")
   type       = "container"
   # renovate: datasource=github-releases depName=windsorcli/git-livereload
   image = "ghcr:windsorcli/git-livereload:v0.2.2"

@@ -15,10 +15,9 @@ config:
     value:
       public_issuer: "${(dns.public_domain ?? '') != '' ? 'public-acme' : 'public-selfsigned'}"
 
-  # gateway_effective.external_domain / internal_domain: cert SANs and route
-  # hostname suffixes. A gateway is provisioned only when its domain is set, so
-  # no fallback ladder is needed. The internal gateway's issuer is always
-  # `private`: a VPC-only zone can't validate ACME DNS-01.
+  # A gateway is provisioned only when its domain is set, so no fallback ladder
+  # is needed. The internal gateway's issuer is always `private`: a VPC-only
+  # zone can't validate ACME DNS-01.
   #
   # internal_ip / external_ip: pool addresses for pool-based load balancers.
   # The internal gateway takes the pool start and the external gateway the next
@@ -27,8 +26,6 @@ config:
   # balancer assigns one.
   - name: gateway_effective
     value:
-      external_domain: "${dns.public_domain ?? ''}"
-      internal_domain: "${dns.private_domain ?? ''}"
       cert_issuer: "${cert_effective.public_issuer}"
       internal_ip: "${network.loadbalancer_ips.start ?? ''}"
       external_ip: "${network.loadbalancer_ips.start ?? ''}"
@@ -124,7 +121,7 @@ flux:
         substitutions:
           gateway_name: external
           gateway_class_name: ${gateway.driver}
-          gateway_domain: "${gateway_effective.external_domain}"
+          gateway_domain: "${dns.public_domain ?? ''}"
           gateway_cert_issuer: "${gateway_effective.cert_issuer}"
           gateway_lb_scheme: internet-facing
           gateway_loadbalancer_ip: >-
@@ -178,7 +175,7 @@ flux:
         substitutions:
           gateway_name: internal
           gateway_class_name: ${gateway.driver}
-          gateway_domain: "${gateway_effective.internal_domain}"
+          gateway_domain: "${dns.private_domain ?? ''}"
           gateway_cert_issuer: private
           gateway_lb_scheme: internal
           gateway_loadbalancer_ip: >-

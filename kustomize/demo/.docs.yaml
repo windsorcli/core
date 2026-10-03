@@ -4,9 +4,9 @@
 # or dependencies change.
 
 substitutions:
-  external_domain:
+  private_domain:
     required_when: "`demo.resources.bookinfo: true` AND `gateway.enabled: true`"
-    description: "Hostname suffix for the bookinfo HTTPRoute (`bookinfo.${external_domain}`). Passed by the facet itself, from `gateway_effective.external_domain`."
+    description: "Hostname suffix for the bookinfo HTTPRoute (`bookinfo.${private_domain}`). Always `dns.private_domain`, since the route binds to the internal gateway."
   REGISTRY_URL:
     required_when: "`demo.resources.static: true`"
     description: "Image registry hosting the demo static-site container image (`${REGISTRY_URL}/demo:1.0.6`). No fallback; the static workload's pod will fail to pull if the variable is not set at the Flux Kustomization level."
@@ -47,7 +47,7 @@ components:
     description: "Pulls the upstream Istio bookinfo sample at tag `1.22.8` into `demo-bookinfo` (PSA `restricted`) and applies SecurityContext patches to the four Deployments (productpage, details, ratings, reviews) so the upstream manifests satisfy the namespace's PSA."
   bookinfo/gateway:
     enable_when: "`demo.resources.bookinfo: true` AND `gateway.enabled: true`"
-    description: "HTTPRoute exposing productpage at `bookinfo.${external_domain}` through the cluster Gateway. Skipped on clusters without Gateway API."
+    description: "HTTPRoute exposing productpage at `bookinfo.${private_domain}` through the internal gateway. Skipped on clusters without Gateway API."
 
 dependencies:
   database:

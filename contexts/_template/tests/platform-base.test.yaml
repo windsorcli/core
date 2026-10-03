@@ -240,7 +240,7 @@ cases:
               components:
                 - kibana/gateway
               substitutions:
-                internal_domain: elk.example.com
+                private_domain: elk.example.com
 
   # Edge case: None driver disables log aggregation
   - name: none driver disables log aggregation

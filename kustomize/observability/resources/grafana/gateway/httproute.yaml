@@ -12,7 +12,7 @@ spec:
       namespace: system-gateway
       sectionName: web-https
   hostnames:
-    - grafana.${internal_domain}
+    - grafana.${private_domain}
   rules:
     - backendRefs:
         - kind: Service

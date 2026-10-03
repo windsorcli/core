@@ -41,9 +41,9 @@ output "dns_internal_ip" {
   value       = local.dns_ip
 }
 
-output "domain_name" {
-  description = "Domain name used for DNS zone and hostnames (dns.domain_name, git.domain_name, etc.). Equal to var.domain_name when set, otherwise var.context."
-  value       = local.domain_name
+output "private_domain_name" {
+  description = "Private domain used for the DNS zone and hostnames (dns.<name>, git.<name>, and so on). Equal to var.private_domain_name when set, otherwise the context name."
+  value       = local.private_domain_name
 }
 
 output "corefile_path" {
@@ -77,13 +77,13 @@ output "containers" {
 }
 
 output "registries" {
-  description = "Registry config with computed hostname per entry. Merges var.registries with hostname (e.g. gcr.domain_name) for cluster Talos mirrors and other consumers."
+  description = "Registry config with computed hostname per entry. Merges var.registries with hostname (e.g. gcr.private_domain_name) for cluster Talos mirrors and other consumers."
   value = {
     for k in keys(local.registries) : k => {
       remote   = try(local.registries[k].remote, null)
       local    = try(trimprefix(trimprefix(local.registries[k].local, "https://"), "http://"), null)
       hostport = try(local.registries[k].hostport, null)
-      hostname = "${local.registry_host_prefix[k]}.${local.domain_name}"
+      hostname = "${local.registry_host_prefix[k]}.${local.private_domain_name}"
     }
   }
 }

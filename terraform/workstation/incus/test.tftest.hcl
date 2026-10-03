@@ -8,7 +8,7 @@ mock_provider "local" {
   mock_resource "local_file" {}
 }
 
-# Minimal: required variables only; defaults for network, domain_name. Asserts network name, webhook/loadbalancer derivation, sequential IPs (dns=2, git=3), instance names.
+# Minimal: required variables only; defaults for network, private_domain_name. Asserts network name, webhook/loadbalancer derivation, sequential IPs (dns=2, git=3), instance names.
 run "minimal_configuration" {
   command = plan
 
@@ -33,8 +33,8 @@ run "minimal_configuration" {
   }
 
   assert {
-    condition     = local.domain_name == "test"
-    error_message = "domain_name should default to context when not set"
+    condition     = local.private_domain_name == "test"
+    error_message = "private_domain_name should default to context when not set"
   }
 
   assert {
@@ -54,7 +54,7 @@ run "minimal_configuration" {
 
   assert {
     condition     = incus_instance.dns[0].name == "dns-test"
-    error_message = "DNS instance name should use domain_name (dns.test when domain_name defaults to context)"
+    error_message = "DNS instance name should use private_domain_name (dns.test when private_domain_name defaults to context)"
   }
 
   assert {
@@ -63,18 +63,18 @@ run "minimal_configuration" {
   }
 }
 
-# Full: all optional variables set; asserts custom network, domain_name, compose_project, custom registries, sequential IPs.
+# Full: all optional variables set; asserts custom network, private_domain_name, compose_project, custom registries, sequential IPs.
 run "full_configuration" {
   command = plan
 
   variables {
-    project_root = "/home/user/repo"
-    context      = "dev"
-    domain_name  = "local.dev"
-    network_name = "windsor-dev"
-    network_cidr = "10.20.0.0/16"
-    enable_dns   = true
-    enable_git   = true
+    project_root        = "/home/user/repo"
+    context             = "dev"
+    private_domain_name = "local.dev"
+    network_name        = "windsor-dev"
+    network_cidr        = "10.20.0.0/16"
+    enable_dns          = true
+    enable_git          = true
     registries = {
       "gcr.io"  = { remote = "https://gcr.io" }
       "ghcr.io" = { remote = "https://ghcr.io" }
@@ -87,8 +87,8 @@ run "full_configuration" {
   }
 
   assert {
-    condition     = local.domain_name == "local.dev"
-    error_message = "domain_name should override context when set"
+    condition     = local.private_domain_name == "local.dev"
+    error_message = "private_domain_name should override context when set"
   }
 
   assert {

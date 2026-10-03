@@ -295,7 +295,7 @@ cases:
               - external-dns/providers/route53
               - external-dns/sources/gateway-httproute
             substitutions:
-              external_domain: example.com
+              public_domain: example.com
               zone_type: public
               zone_id_filter: Z1ABCDEF12345
 
@@ -715,7 +715,7 @@ cases:
               - external-dns
               - external-dns/providers/route53
             substitutions:
-              external_domain: example.com
+              public_domain: example.com
               zone_type: public
               zone_id_filter: Z1ABCDEF12345
 
@@ -750,7 +750,7 @@ cases:
               # Gateway is enabled here, so the HTTPRoute source is layered on.
               - external-dns-internal/sources/gateway-httproute
             substitutions:
-              internal_domain: internal.example.com
+              private_domain: internal.example.com
               zone_type_internal: private
               zone_id_filter_internal: Z9PRIVATEZONE
         # Cert issuer is always `private` for the internal gateway (selfsigned)

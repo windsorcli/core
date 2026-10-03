@@ -362,7 +362,7 @@ flux:
       timeout: 5m
       interval: 5m
       substitutions:
-        external_domain: "${dns.public_domain ?? ''}"
+        public_domain: "${dns.public_domain ?? ''}"
         txt_owner_id: "${id}"
 
   # Multi-namespace system — pki-install creates both system-pki and

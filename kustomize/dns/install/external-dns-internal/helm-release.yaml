@@ -33,4 +33,4 @@ spec:
     sources:
       - ingress
     domainFilters:
-      - "${internal_domain:-test}"
+      - "${private_domain:-test}"

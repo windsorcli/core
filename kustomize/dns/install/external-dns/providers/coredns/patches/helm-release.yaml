@@ -44,3 +44,6 @@
     name: etcd-tls
     mountPath: /etc/external-dns/tls
     readOnly: true
+- op: add
+  path: /spec/values/domainFilters/-
+  value: ${private_domain:-test}

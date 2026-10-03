@@ -11,7 +11,7 @@ spec:
       namespace: system-gateway
       sectionName: web-https
   hostnames:
-    - bookinfo.${internal_domain}
+    - bookinfo.${private_domain}
   rules:
     - backendRefs:
         - kind: Service

@@ -6,8 +6,8 @@ stack_backing: Cluster single sign-on
 
 The cluster identity provider (SSO). `identity.driver: keycloak` (default) hosts
 Keycloak in-cluster — the operator plus a single `Keycloak` server backed by its
-own CloudNativePG database, reachable at `keycloak.${external_domain}` through the
-shared gateway. `identity.driver: oidc` hosts nothing and points consumers at an
+own CloudNativePG database, reachable at `keycloak.${keycloak_domain}` through the
+gateway. `identity.driver: oidc` hosts nothing and points consumers at an
 external issuer (`identity.oidc.issuer`).
 
 Either way, `identity` exposes an effective issuer and realm that SSO consumers
@@ -82,7 +82,7 @@ identity:
 The operator honors `bootstrapAdmin` only at initial cluster creation, so this
 seeds the first admin — it does not rotate an existing one.
 
-Open `https://keycloak.${external_domain}` and sign in. On docker-desktop the
+Open `https://keycloak.${keycloak_domain}` and sign in. On docker-desktop the
 gateway is forwarded to a non-standard host port (e.g.
 `https://keycloak.<domain>:8443`); Keycloak resolves its own scheme/port from the
 request, so links stay on that port.
@@ -335,7 +335,7 @@ Dev-only `ClusterRoleBinding` mapping the `platform-admins` group to `cluster-ad
 
 _Enabled when `gateway.enabled == true`._
 
-HTTPRoute publishing `keycloak.${external_domain}` through the shared external Gateway to the operator-managed `keycloak-service`.
+HTTPRoute publishing `keycloak.${keycloak_domain}` through the external gateway when a public domain is set, otherwise the internal one to the operator-managed `keycloak-service`.
 
 ### `keycloak/cilium`
 

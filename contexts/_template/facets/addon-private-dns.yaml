@@ -63,7 +63,7 @@ flux:
         # watch HTTPRoute resources whose CRDs aren't installed.
         - "${gateway.enabled == true ? 'external-dns/sources/gateway-httproute' : ''}"
       substitutions:
-        external_domain: ${dns.private_domain}
+        private_domain: ${dns.private_domain}
         loadbalancer_start_ip: ${network.loadbalancer_ips.start}
       timeout: 20m
       interval: 5m

@@ -339,7 +339,7 @@ cases:
               - external-dns/providers/google
               - external-dns/sources/gateway-httproute
             substitutions:
-              external_domain: example.com
+              public_domain: example.com
               google_project_id: windsor-test
               external_dns_service_account_email: external-dns@windsor-test.iam.gserviceaccount.com
 
@@ -372,7 +372,7 @@ cases:
               - external-dns
               - external-dns/providers/google
             substitutions:
-              external_domain: example.com
+              public_domain: example.com
               google_project_id: windsor-test
               external_dns_service_account_email: external-dns@windsor-test.iam.gserviceaccount.com
 
@@ -512,7 +512,7 @@ cases:
               - external-dns/providers/google
               - external-dns/sources/gateway-httproute
             substitutions:
-              external_domain: internal.example.com
+              private_domain: internal.example.com
         - name: pki
           resources:
             - components:
@@ -539,7 +539,8 @@ cases:
             components:
               - external-dns
               - external-dns/providers/google
-              - external-dns/providers/google/internal-zone
+              - external-dns/providers/google/public-zone
+              - external-dns/providers/google/private-zone
             substitutions:
-              external_domain: example.com
-              internal_domain: internal.example.com
+              public_domain: example.com
+              private_domain: internal.example.com

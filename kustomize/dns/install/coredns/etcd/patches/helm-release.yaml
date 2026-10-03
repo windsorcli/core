@@ -16,7 +16,7 @@ spec:
         readOnly: true
     servers:
       - zones:
-          - zone: ${external_domain}
+          - zone: ${private_domain}
             use_tcp: true
         port: 53
         plugins:

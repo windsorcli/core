@@ -283,7 +283,7 @@ cases:
               components:
                 - bookinfo/gateway
               substitutions:
-                internal_domain: demo.example.com
+                private_domain: demo.example.com
 
   # Edge case: Demo disabled excludes demo database
   - name: excludes demo database when demo disabled

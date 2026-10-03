@@ -85,7 +85,7 @@ flux:
         # External oidc provider that issued a client secret for Grafana.
         - "${identity.enabled == true && observability.grafana.sso != false && (identity.driver ?? 'keycloak') == 'oidc' && (observability.grafana.client_secret ?? '') != '' ? 'grafana/oidc/client-secret' : ''}"
       substitutions:
-        internal_domain: "${dns.private_domain ?? ''}"
+        private_domain: "${dns.private_domain ?? ''}"
         grafana_root_url: "${grafana_effective.url}"
         # generic_oauth inputs — the provider label and endpoints come from identity (one
         # place, both drivers); endpoints default to the issuer's standard OIDC path, with
@@ -140,7 +140,7 @@ flux:
           - grafana/gateway
           - "${gateway.driver == 'envoy' ? 'grafana/dashboards/envoy' : ''}"
         substitutions:
-          internal_domain: "${dns.private_domain ?? ''}"
+          private_domain: "${dns.private_domain ?? ''}"
 
   # =============================================================================
   # Log storage drivers — one block fires per logs_driver value
@@ -200,7 +200,7 @@ flux:
         components:
           - kibana/gateway
         substitutions:
-          internal_domain: "${dns.private_domain ?? ''}"
+          private_domain: "${dns.private_domain ?? ''}"
 
 # =============================================================================
 # Messages — post-run notes printed on bootstrap

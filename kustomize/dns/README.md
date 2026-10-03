@@ -56,7 +56,7 @@ flowchart LR
       - external-dns/providers/route53
       - external-dns/sources/gateway-httproute
     substitutions:
-      external_domain: example.com
+      public_domain: example.com
       zone_type: public
       zone_id_filter: <terraform_output('dns-zone', 'zone_id')>
       aws_region: us-east-1
@@ -92,7 +92,7 @@ flowchart LR
       - external-dns/providers/azure
       - external-dns/sources/gateway-httproute
     substitutions:
-      external_domain: example.com
+      public_domain: example.com
       zone_id_filter: <terraform_output('dns-zone', 'zone_id')>
       txt_owner_id: my-cluster
 ```
@@ -134,7 +134,7 @@ flowchart LR
       - coredns/loadbalancer
       - coredns/cilium
     substitutions:
-      external_domain: example.local
+      private_domain: example.local
       txt_owner_id: my-cluster
       loadbalancer_start_ip: 10.5.1.10
 ```
@@ -160,8 +160,8 @@ In both cases `loadbalancer_start_ip` must fall inside
 
 | Name | Required when | Effect |
 |---|---|---|
-| `external_domain` | `external-dns` (public instance) is enabled | Domain filter for the public external-dns instance. Always `dns.public_domain` -- this instance only ever exists when a public domain is set. |
-| `internal_domain` | `external-dns-internal` or `external-dns/providers/google/internal-zone` is enabled | Domain filter for the private zone: the internal external-dns instance on AWS and Azure, or an extra entry in the single instance's filters on GCP. Always `dns.private_domain`. |
+| `public_domain` | `external-dns` with a public-zone provider is enabled | Domain filter for the public zone. Always `dns.public_domain`; this filter only exists when a public domain is set. |
+| `private_domain` | `external-dns-internal`, the `coredns` provider, `coredns`, or `external-dns/providers/google/private-zone` is enabled | Domain filter for the private zone, and the zone CoreDNS serves. Always `dns.private_domain`. |
 | `zone_type` | platform is AWS, public instance | Always `public` on the public external-dns instance. Combined with `zone_id_filter` to lock the controller onto the public Route53 zone. |
 | `zone_type_internal` | platform is AWS, internal instance | Always `private` on the internal external-dns instance (`external-dns-internal`). |
 | `zone_id_filter` | platform is AWS or Azure, public instance | Public hosted-zone ID to constrain the public external-dns instance to. AWS: `terraform_output('dns-zone', 'zone_id')`. Azure has no zone-id-filter equivalent (the provider already scopes to azure.json's resourceGroup). |
@@ -184,7 +184,7 @@ Helm release of `external-dns` in `system-dns`, serving the public zone only. Wa
 
 _Enabled when `dns.private_domain` set._
 
-Independent `external-dns-internal` HelmRelease serving the private zone only, feeding the internal gateway's hostnames. Same chart and values as `external-dns` with a distinct HelmRelease name and substitution keys (`internal_domain`, `zone_type_internal`, `zone_id_filter_internal`) so both instances can be configured independently in one blueprint.
+Independent `external-dns-internal` HelmRelease serving the private zone only, feeding the internal gateway's hostnames. Same chart and values as `external-dns` with a distinct HelmRelease name and substitution keys (`private_domain`, `zone_type_internal`, `zone_id_filter_internal`) so both instances can be configured independently in one blueprint.
 
 ### `external-dns/ha`
 
@@ -210,11 +210,17 @@ _Enabled when platform is GCP AND `dns.public_domain` is set._
 
 Patches the external-dns HelmRelease for the Google provider: `provider.name: google`, `--google-project=${google_project_id}`, GKE Workload Identity binding via `${external_dns_service_account_email}`.
 
-### `external-dns/providers/google/internal-zone`
+### `external-dns/providers/google/public-zone`
 
-_Enabled when platform is GCP AND both `dns.public_domain` and `dns.private_domain` are set._
+_Enabled when platform is GCP AND `dns.public_domain` is set._
 
-Appends `${internal_domain}` to the `external-dns` domain filters so one instance publishes records for both the public and the private Cloud DNS zone. GCP has no separate internal instance, since Cloud DNS serves both zone visibilities through the same API.
+Adds `${public_domain}` to the `external-dns` domain filters so the single instance publishes records for the public Cloud DNS zone.
+
+### `external-dns/providers/google/private-zone`
+
+_Enabled when platform is GCP AND `dns.private_domain` is set._
+
+Adds `${private_domain}` to the `external-dns` domain filters so the single instance also publishes records for the private Cloud DNS zone. GCP has no separate internal instance, since Cloud DNS serves both zone visibilities through the same API.
 
 ### `external-dns/providers/coredns`
 

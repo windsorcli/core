@@ -12,7 +12,7 @@ spec:
       namespace: system-gateway
       sectionName: web-https
   hostnames:
-    - kibana.${internal_domain}
+    - kibana.${private_domain}
   rules:
     - backendRefs:
         - kind: Service

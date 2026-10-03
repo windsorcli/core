@@ -141,9 +141,9 @@ flux:
         timeout: 10m
         interval: 5m
         substitutions:
-          external_domain: "${(dns.public_domain ?? '') == '' ? (dns.private_domain ?? '') : dns.public_domain}"
+          keycloak_domain: "${(dns.public_domain ?? '') == '' ? (dns.private_domain ?? '') : dns.public_domain}"
           keycloak_gateway_name: "${(dns.public_domain ?? '') != '' ? 'external' : 'internal'}"
-          internal_domain: "${dns.private_domain ?? ''}"
+          private_domain: "${dns.private_domain ?? ''}"
 
   # Platform realm — the security baseline and RBAC anchor core owns, plus the OIDC
   # clients for enabled consumers. A one-shot KeycloakRealmImport; the operator

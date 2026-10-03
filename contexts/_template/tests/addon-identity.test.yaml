@@ -67,8 +67,8 @@ cases:
                 - keycloak/gateway
                 - keycloak/gateway-admin
               substitutions:
-                external_domain: example.local
-                internal_domain: example.local
+                keycloak_domain: example.local
+                private_domain: example.local
                 keycloak_gateway_name: internal
             - components:
                 - keycloak/realm

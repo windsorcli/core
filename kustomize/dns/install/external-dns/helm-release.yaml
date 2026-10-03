@@ -49,5 +49,4 @@ spec:
     policy: upsert-only
     sources:
       - ingress
-    domainFilters:
-      - "${external_domain:-test}"
+    domainFilters: []

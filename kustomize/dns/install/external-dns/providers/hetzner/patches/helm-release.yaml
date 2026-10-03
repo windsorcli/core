@@ -30,7 +30,7 @@ spec:
     # clobber each other's records; the context id is unique per cluster.
     txtOwnerId: ${txt_owner_id}
     domainFilters:
-      - ${external_domain:-test}
+      - ${public_domain:-test}
     serviceAccount:
       create: true
       name: external-dns

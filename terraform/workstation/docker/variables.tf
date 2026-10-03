@@ -8,18 +8,18 @@ variable "project_root" {
 }
 
 variable "context" {
-  description = "Windsor context name (e.g. local, test). Used for compose_project and labels; container names use domain_name (which defaults to context). Universal variable provided by the environment."
+  description = "Windsor context name (e.g. local, test). Used for compose_project and labels; container names use private_domain_name (which defaults to context). Universal variable provided by the environment."
   type        = string
 }
 
-variable "domain_name" {
-  description = "Domain name used for DNS zone and hostnames in the Corefile (e.g. dns.domain_name, git.domain_name). Defaults to context when not set."
+variable "private_domain_name" {
+  description = "Private domain the workstation serves: the local DNS zone, plus the hostnames in the Corefile (dns.<name>, git.<name>) and container names. Defaults to context when not set."
   type        = string
   default     = null
 }
 
 variable "public_domain_name" {
-  description = "Second domain the local Corefile resolves, forwarded to the same dns_forward_target as domain_name. Lets a local cluster rehearse both the external and internal gateway (e.g. public.test alongside domain_name's private.test). Unset skips the second zone block."
+  description = "Public domain the local Corefile also resolves, forwarded to the same dns_forward_target as private_domain_name. Lets a local cluster rehearse both the external and internal gateway (for example public.test beside private.test). Unset skips the second zone block."
   type        = string
   default     = null
 }

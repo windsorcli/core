@@ -21,7 +21,7 @@ spec:
     # repo ever created — silently broke fresh deploys.)
     txtOwnerId: ${txt_owner_id}
     domainFilters:
-      - ${internal_domain:-test}
+      - ${private_domain:-test}
     extraArgs:
       # Lock the controller to a specific hosted zone ID. Belt-and-braces
       # alongside zoneType: a same-named public+private zone pair could

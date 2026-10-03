@@ -184,17 +184,14 @@ flux:
       components:
         - external-dns
         - external-dns/providers/google
-        - >-
-          ${(dns.public_domain ?? '') != '' && (dns.private_domain ?? '') != '' ?
-          'external-dns/providers/google/internal-zone' : ''}
+        - "${(dns.public_domain ?? '') != '' ? 'external-dns/providers/google/public-zone' : ''}"
+        - "${(dns.private_domain ?? '') != '' ? 'external-dns/providers/google/private-zone' : ''}"
         - "${gateway.enabled == true ? 'external-dns/sources/gateway-httproute' : ''}"
       timeout: 5m
       interval: 5m
       substitutions:
-        # The public domain when set, else the private one. With both set, the
-        # private domain joins the filter list through internal_domain.
-        external_domain: "${(dns.public_domain ?? '') != '' ? dns.public_domain : (dns.private_domain ?? '')}"
-        internal_domain: "${dns.private_domain ?? ''}"
+        public_domain: "${dns.public_domain ?? ''}"
+        private_domain: "${dns.private_domain ?? ''}"
         google_project_id: "${gcp.project_id}"
         external_dns_service_account_email: "${terraform_output('cluster', 'external_dns_service_account_email') ?? ''}"
         # Context id in TXT records so multiple external-dns instances in a

@@ -413,7 +413,7 @@ cases:
               - external-dns/providers/hetzner
               - external-dns/sources/gateway-httproute
             substitutions:
-              external_domain: example.com
+              public_domain: example.com
               txt_owner_id: htz1
 
   # Private gateway: private selfsigned issuer. Hetzner DNS is public-only, so

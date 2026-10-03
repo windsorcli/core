@@ -274,7 +274,7 @@ flux:
       timeout: 5m
       interval: 5m
       substitutions:
-        external_domain: "${dns.public_domain ?? ''}"
+        public_domain: "${dns.public_domain ?? ''}"
         zone_type: public
         zone_id_filter: "${terraform_output('dns-zone', 'zone_id') ?? ''}"
         aws_region: "${aws.region ?? 'us-east-1'}"
@@ -292,7 +292,7 @@ flux:
       timeout: 5m
       interval: 5m
       substitutions:
-        internal_domain: "${dns.private_domain ?? ''}"
+        private_domain: "${dns.private_domain ?? ''}"
         zone_type_internal: private
         zone_id_filter_internal: "${terraform_output('network', 'private_zone_id') ?? ''}"
         aws_region: "${aws.region ?? 'us-east-1'}"
