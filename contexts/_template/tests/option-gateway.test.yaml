@@ -812,3 +812,55 @@ cases:
         - name: gateway
           resources:
             - <<: *gateway-resources-envoy
+
+  # Both domains set: the internal gateway takes the pool start and the external
+  # gateway takes the next address.
+  - name: both gateways split the load balancer pool start and the next address
+    values:
+      platform: metal
+      dns:
+        public_domain: example.com
+        private_domain: example.internal
+      network: *default-network
+      cluster: *default-cluster
+    expect:
+      flux:
+        - name: gateway
+          resources:
+            - name: external
+              substitutions:
+                gateway_loadbalancer_ip: "10.5.1.11"
+            - name: internal
+              substitutions:
+                gateway_loadbalancer_ip: "10.5.1.10"
+
+  # A pool start ending in .255 has no next address in the same octet, so the
+  # external gateway gets no fixed address and the load balancer assigns one.
+  - name: pool start ending in 255 leaves the external gateway address unpinned
+    values:
+      platform: metal
+      dns:
+        public_domain: example.com
+        private_domain: example.internal
+      network:
+        cidr_block: 10.5.0.0/16
+        loadbalancer_driver: kube-vip
+        loadbalancer_mode: arp
+        loadbalancer_ips:
+          start: "10.5.1.255"
+          end: "10.5.2.100"
+      cluster: *default-cluster
+    expect:
+      flux:
+        - name: gateway
+          resources:
+            - name: internal
+              substitutions:
+                gateway_loadbalancer_ip: "10.5.1.255"
+    exclude:
+      flux:
+        - name: gateway
+          resources:
+            - name: external
+              components:
+                - cilium/fixed-ip

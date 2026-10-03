@@ -788,7 +788,7 @@ properties:
         properties:
           start:
             $ref: '#/$defs/ipv4'
-            description: Load balancer IP pool start (IPv4 dotted-quad; each octet 0-255). The internal gateway takes this address and the external gateway takes the next one when both exist.
+            description: Load balancer IP pool start (IPv4 dotted-quad; each octet 0-255). The internal gateway takes this address and the external gateway takes the next one when both exist. Leave a free address above it, since a start ending in .255 leaves the external gateway unassigned.
           end:
             $ref: '#/$defs/ipv4'
             description: Load balancer IP pool end (IPv4 dotted-quad; each octet 0-255).
