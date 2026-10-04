@@ -724,8 +724,8 @@ cases:
           resources:
             - name: internal
 
-  # dns.domain alone provisions the internal gateway only, with the private issuer.
-  - name: aws with only dns.domain provisions the internal gateway with a private issuer
+  # dns.private_domain alone provisions the internal gateway only, with the private issuer.
+  - name: aws with only dns.private_domain provisions the internal gateway with a private issuer
     values:
       platform: aws
       aws:
@@ -734,7 +734,7 @@ cases:
         enabled: true
         driver: envoy
       dns:
-        domain: example.com
+        private_domain: example.com
       network: *default-network
       cluster: *default-cluster
     expect:
