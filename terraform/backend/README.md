@@ -22,8 +22,13 @@ No backend module runs. Terraform state lives next to each stack in
 the context's local state directory. Use this for single-operator dev
 clusters and CI runs that don't share state across machines.
 
-The backend stack runs first in every cloud context. The downstream
-stacks (`network`, `cluster`, `dns-zone`) all depend on it.
+The backend stack runs first in every cloud context, and the downstream
+stacks (`network`, `cluster`, `dns-zone`) depend on it.
+
+To reuse existing state storage, set a `terraform.backend.type` other than
+the platform's own, or supply `s3.bucket`, `azurerm.storage_account_name`,
+or `gcs.bucket`. The backend stack is then skipped and Windsor applies
+against the configured backend.
 
 The bootstrap pass runs each backend module with a local state file,
 which provisions the bucket or Storage Account. Subsequent

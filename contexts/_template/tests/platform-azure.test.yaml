@@ -494,3 +494,17 @@ cases:
             - name: internal
               components:
                 - envoy/nodeport
+
+  - name: existing storage account skips the managed backend component
+    values:
+      platform: azure
+      terraform:
+        backend:
+          type: azurerm
+          azurerm:
+            storage_account_name: existingstate
+      gateway:
+        enabled: false
+    exclude:
+      terraform:
+        - name: backend

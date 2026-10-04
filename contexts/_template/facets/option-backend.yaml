@@ -1,0 +1,9 @@
+kind: Facet
+apiVersion: blueprints.windsorcli.dev/v1alpha1
+metadata:
+  name: backend
+  description: "Managed Terraform state backend for cloud platforms"
+
+when: backend_effective.managed == true
+
+backend: backend

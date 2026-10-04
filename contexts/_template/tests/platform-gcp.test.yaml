@@ -569,3 +569,19 @@ cases:
               substitutions:
                 external_dns_name: external-dns-private
                 external_dns_domain: internal.example.com
+
+  - name: existing gcs bucket skips the managed backend component
+    values:
+      platform: gcp
+      gcp:
+        project_id: windsor-test
+      terraform:
+        backend:
+          type: gcs
+          gcs:
+            bucket: my-existing-state
+      gateway:
+        enabled: false
+    exclude:
+      terraform:
+        - name: backend

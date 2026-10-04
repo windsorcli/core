@@ -19,6 +19,16 @@ config:
   - name: platform
     value: "${platform ?? 'none'}"
 
+  # Whether core provisions the state backend: the platform's own backend type
+  # with no existing bucket or storage account supplied.
+  - name: backend_effective
+    value:
+      managed: >-
+        ${platform == 'aws' ? ((terraform.backend.type ?? 's3') == 's3' && (terraform.backend.s3.bucket ?? '') == '')
+        : (platform == 'azure' ? ((terraform.backend.type ?? 'azurerm') == 'azurerm' && (terraform.backend.azurerm.storage_account_name ?? '') == '')
+        : (platform == 'gcp' ? ((terraform.backend.type ?? 'gcs') == 'gcs' && (terraform.backend.gcs.bucket ?? '') == '')
+        : false))}
+
   # Normalize workstation.runtime so equality checks are safe when unset.
   - name: workstation
     value:
