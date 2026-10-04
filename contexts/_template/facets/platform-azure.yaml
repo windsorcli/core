@@ -6,10 +6,6 @@ metadata:
 
 when: platform == 'azure'
 
-# Remote state lives in the Azure Storage account from the `backend` component
-# (which itself uses local state); downstream components point their backend at it.
-backend: backend
-
 # =============================================================================
 # Requires
 # =============================================================================
@@ -52,6 +48,7 @@ terraform:
   # across contexts in one subscription.
   - name: backend
     path: backend/azurerm
+    when: backend_effective.managed == true
 
   # VNet at the requested CIDR; AKS attaches to a private subnet. domain_name is
   # the VNet-linked private DNS zone (dns.private_domain; the public zone lives
@@ -59,7 +56,7 @@ terraform:
   - name: network
     path: network/azure-vnet
     dependsOn:
-      - backend
+      - "${backend_effective.managed == true ? 'backend' : ''}"
     inputs:
       region: ${azure.region ?? 'eastus'}
       vnet_cidr: ${network.cidr_block}
@@ -72,7 +69,7 @@ terraform:
     path: dns/zone/azure-dns
     when: "(dns.public_domain ?? '') != ''"
     dependsOn:
-      - backend
+      - "${backend_effective.managed == true ? 'backend' : ''}"
     inputs:
       domain_name: ${dns.public_domain}
 

@@ -6,10 +6,6 @@ metadata:
 
 when: platform == 'gcp'
 
-# Remote state lives in the GCS bucket the `backend` component provisions;
-# `backend` itself uses local state, downstream components point at the bucket.
-backend: backend
-
 # =============================================================================
 # Requires
 # =============================================================================
@@ -58,12 +54,13 @@ terraform:
   # contexts in one project.
   - name: backend
     path: backend/gcs
+    when: backend_effective.managed == true
 
   # VPC at the requested CIDR; GKE attaches to the private subnet.
   - name: network
     path: network/gcp-vpc
     dependsOn:
-      - backend
+      - "${backend_effective.managed == true ? 'backend' : ''}"
     inputs:
       region: ${gcp.region ?? 'us-central1'}
       cidr_block: ${network.cidr_block}
@@ -75,7 +72,7 @@ terraform:
     path: dns/zone/gcp-dns
     when: "(dns.public_domain ?? '') != ''"
     dependsOn:
-      - backend
+      - "${backend_effective.managed == true ? 'backend' : ''}"
     inputs:
       project_id: ${gcp.project_id}
       domain_name: ${dns.public_domain}

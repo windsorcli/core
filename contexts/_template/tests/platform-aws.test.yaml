@@ -838,3 +838,37 @@ cases:
       dns:
         public_domain: example.com
     expectError: true
+
+  - name: existing s3 bucket skips the managed backend component
+    values:
+      platform: aws
+      aws:
+        region: us-west-2
+      terraform:
+        backend:
+          type: s3
+          s3:
+            bucket: my-existing-state
+      gateway:
+        enabled: false
+    exclude:
+      terraform:
+        - name: backend
+    expect:
+      terraform:
+        - name: network
+          path: network/aws-vpc
+
+  - name: local backend type skips the managed backend component
+    values:
+      platform: aws
+      aws:
+        region: us-west-2
+      terraform:
+        backend:
+          type: local
+      gateway:
+        enabled: false
+    exclude:
+      terraform:
+        - name: backend
