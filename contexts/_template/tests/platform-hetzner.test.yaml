@@ -135,6 +135,61 @@ cases:
           inputs:
             operator_replicas: 2
 
+  # Single-node removes the control-plane LB exclusion label so the hcloud LB
+  # has the node as a target.
+  - name: single-node leaves the control plane eligible for external load balancers
+    values:
+      platform: hetzner
+      hetzner: *default-hetzner
+      cluster:
+        workers:
+          count: 0
+      gateway:
+        enabled: false
+      network: *default-network
+    terraformOutputs: *default-terraform-outputs
+    expect:
+      terraform:
+        - name: cluster
+          path: cluster/talos
+          inputs:
+            controlplane_config_patches: |-
+              machine:
+                nodeLabels:
+                  node.kubernetes.io/exclude-from-external-load-balancers:
+                    $patch: delete
+
+  # The oidc-ca-file patch nests under the label patch's machine key.
+  - name: single-node with oidc and pki merges both control-plane patches
+    values:
+      platform: hetzner
+      hetzner: *default-hetzner
+      cluster:
+        workers:
+          count: 0
+        oidc:
+          enabled: true
+          issuer_url: https://keycloak.example.com/realms/windsor
+          client_id: kubernetes
+      pki:
+        enabled: true
+      gateway:
+        enabled: false
+      network: *default-network
+    terraformOutputs:
+      <<: *default-terraform-outputs
+      pki:
+        cert: |-
+          -----BEGIN CERTIFICATE-----
+          FAKECERT
+          -----END CERTIFICATE-----
+    expect:
+      terraform:
+        - name: cluster
+          path: cluster/talos
+          inputs:
+            controlplane_config_patches: "machine:\n  nodeLabels:\n    node.kubernetes.io/exclude-from-external-load-balancers:\n      $patch: delete\n  files:\n  - op: create\n    path: /var/kubernetes/oidc-ca.crt\n    permissions: 420\n    content: |\n      \n        -----BEGIN CERTIFICATE-----\n        FAKECERT\n        -----END CERTIFICATE-----"
+
   # Flux controller concurrency scales above the floor of 4 for a large control
   # plane: cpx62 (16 vCPU/32 GB) → 8, and its server_type flows to compute.
   - name: control-plane instance type drives flux concurrency and server_type
