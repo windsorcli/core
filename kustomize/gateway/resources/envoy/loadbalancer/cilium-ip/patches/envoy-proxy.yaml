@@ -1,6 +1,5 @@
 ---
-# Cilium LBIPAM assigns addresses in creation order, so each gateway pins its
-# own through the Service annotation instead of loadBalancerIP.
+# Pins the Service address with the Cilium LBIPAM annotation.
 apiVersion: gateway.envoyproxy.io/v1alpha1
 kind: EnvoyProxy
 metadata:

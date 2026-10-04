@@ -410,11 +410,15 @@ cases:
           install:
             components:
               - external-dns
-              - external-dns/providers/hetzner
-              - external-dns/sources/gateway-httproute
-            substitutions:
-              public_domain: example.com
-              txt_owner_id: htz1
+          resources:
+            - name: public
+              components:
+                - external-dns/providers/hetzner
+                - external-dns/sources/gateway-httproute
+              substitutions:
+                external_dns_name: external-dns-public
+                external_dns_domain: example.com
+                txt_owner_id: htz1
 
   # Private gateway: private selfsigned issuer. Hetzner DNS is public-only, so
   # private access relies on self-hosted private DNS (CoreDNS) for the private zone;
@@ -439,9 +443,10 @@ cases:
             - components:
                 - private-issuer/selfsigned
         - name: dns
-          install:
-            components:
-              - external-dns/providers/coredns
+          resources:
+            - name: private
+              components:
+                - external-dns/providers/coredns
 
   # Defaults: with only the token set, the facet defaults the region to ash/us-east.
   - name: facet defaults region to ash/us-east when region fields are unset

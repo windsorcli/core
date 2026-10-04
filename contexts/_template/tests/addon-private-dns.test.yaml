@@ -39,6 +39,10 @@ cases:
           dependsOn:
             - pki-resources
             - cni-install
+          resources:
+            - name: private
+              components:
+                - external-dns/providers/coredns
           install:
             components:
               - coredns
@@ -47,7 +51,6 @@ cases:
               - coredns/loadbalancer
               - coredns/cilium
               - external-dns
-              - external-dns/providers/coredns
 
   # Full: Test all options with Docker Desktop (envoy gateway — docker-desktop default).
   - name: full config creates CoreDNS on Docker Desktop
@@ -74,6 +77,10 @@ cases:
             - pki-resources
             - gateway-install
             - policy-resources
+          resources:
+            - name: private
+              components:
+                - external-dns/providers/coredns
           install:
             components:
               - coredns
@@ -81,7 +88,6 @@ cases:
               - coredns/prometheus
               - coredns/gateway
               - external-dns
-              - external-dns/providers/coredns
 
   # Docker platform + docker-desktop + dev: gateway defaults to envoy (no cilium CNI on docker-desktop),
   # so dns depends on gateway-install (not cni) and gets coredns/gateway instead of coredns/loadbalancer.
@@ -109,6 +115,10 @@ cases:
             - pki-resources
             - gateway-install
             - policy-resources
+          resources:
+            - name: private
+              components:
+                - external-dns/providers/coredns
           install:
             components:
               - coredns
@@ -116,7 +126,6 @@ cases:
               - coredns/prometheus
               - coredns/gateway
               - external-dns
-              - external-dns/providers/coredns
     exclude:
       flux:
         - name: cni
@@ -140,6 +149,10 @@ cases:
           dependsOn:
             - pki-resources
             - cni-install
+          resources:
+            - name: private
+              components:
+                - external-dns/providers/coredns
           install:
             components:
               - coredns
@@ -148,7 +161,6 @@ cases:
               - coredns/loadbalancer
               - coredns/cilium
               - external-dns
-              - external-dns/providers/coredns
 
   # Edge: Envoy gateway path includes coredns/gateway for DNS routing through
   # the gateway, and external-dns/gateway-httproute so external-dns watches
@@ -170,6 +182,11 @@ cases:
         - name: dns
           dependsOn:
             - pki-resources
+          resources:
+            - name: private
+              components:
+                - external-dns/providers/coredns
+                - external-dns/sources/gateway-httproute
           install:
             components:
               - coredns
@@ -177,8 +194,6 @@ cases:
               - coredns/prometheus
               - coredns/gateway
               - external-dns
-              - external-dns/providers/coredns
-              - external-dns/sources/gateway-httproute
 
   # Edge: Gateway disabled with non-cilium CNI — dns must not depend on gateway-install (it doesn't exist).
   - name: private dns with gateway disabled does not depend on gateway-install
@@ -228,8 +243,7 @@ cases:
           enabled: true
     expectError: true
 
-  # A public domain also joins the in-cluster DNS: CoreDNS serves the zone and
-  # external-dns publishes records for routes on the external gateway.
+  # A public domain adds the public zone to the in-cluster DNS.
   - name: public domain adds the public zone to the private DNS add-on
     values:
       platform: metal
@@ -244,6 +258,15 @@ cases:
           install:
             components:
               - coredns/public-zone
-              - external-dns/providers/coredns/public-zone
             substitutions:
               public_domain: public.example.com
+          resources:
+            - name: public
+              components:
+                - external-dns/providers/coredns
+              substitutions:
+                external_dns_name: external-dns-public
+                external_dns_domain: public.example.com
+            - name: private
+              substitutions:
+                external_dns_name: external-dns-private

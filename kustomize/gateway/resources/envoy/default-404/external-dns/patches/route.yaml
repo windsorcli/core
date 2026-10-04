@@ -1,10 +1,6 @@
 ---
-# external-dns hostname annotation for the catch-all 404 HTTPRoute. The route
-# has no spec.hostnames, so external-dns can't infer records from it -- the
-# annotation tells the controller to register apex + wildcard against the
-# Gateway's IP. Only attached when this gateway's own DNS zone is configured
-# (otherwise external-dns isn't running for it and the substitution would
-# render a malformed ",*." value).
+# external-dns hostname annotation for the catch-all 404 route, which has no spec.hostnames.
+# It registers the apex and a wildcard against the gateway address.
 apiVersion: gateway.networking.k8s.io/v1
 kind: HTTPRoute
 metadata:

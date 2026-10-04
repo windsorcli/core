@@ -1,12 +1,6 @@
 ---
-# Self-contained per-gateway data-plane config, referenced from the Gateway
-# via spec.infrastructure.parametersRef (see envoy/parameters). Carries the
-# digest-pinned envoyDeployment patch (Kyverno requires pinned images); the
-# loadbalancer/nodeport and cloud components layer the envoyService config in.
-# The EnvoyGateway helm config keeps no default envoyProxy patch, so this
-# resource fully owns the proxy config with no cross-tier merge. Lives in the
-# resources tier (not install) so it rides the same external/internal
-# resources-variant substitution pass as the Gateway it configures.
+# Self-contained per-gateway data-plane config, referenced from the Gateway through
+# spec.infrastructure.parametersRef. Carries the digest-pinned proxy image Kyverno requires.
 apiVersion: gateway.envoyproxy.io/v1alpha1
 kind: EnvoyProxy
 metadata:

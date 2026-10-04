@@ -58,15 +58,32 @@ flux:
         - "${gateway.driver == 'cilium' ? 'coredns/cilium' : ''}"
         - "${gateway.driver == 'envoy' && gateway.enabled == true ? 'coredns/gateway' : ''}"
         - external-dns
-        - external-dns/providers/coredns
-        - "${(dns.public_domain ?? '') != '' ? 'external-dns/providers/coredns/public-zone' : ''}"
-        # Gateway API HTTPRoute source — pulled in only when the cluster has a
-        # Gateway controller. external-dns crashes on startup if it's told to
-        # watch HTTPRoute resources whose CRDs aren't installed.
-        - "${gateway.enabled == true ? 'external-dns/sources/gateway-httproute' : ''}"
       substitutions:
         private_domain: ${dns.private_domain}
         public_domain: "${dns.public_domain ?? ''}"
         loadbalancer_start_ip: ${network.loadbalancer_ips.start}
       timeout: 20m
       interval: 5m
+    # One external-dns instance per zone, writing to the coredns etcd backend.
+    resources:
+      - name: public
+        when: (dns.public_domain ?? '') != ''
+        components:
+          - external-dns
+          - external-dns/providers/coredns
+          - "${gateway.enabled == true ? 'external-dns/sources/gateway-httproute' : ''}"
+        substitutions:
+          external_dns_name: external-dns-public
+          external_dns_domain: "${dns.public_domain ?? ''}"
+        timeout: 5m
+        interval: 5m
+      - name: private
+        components:
+          - external-dns
+          - external-dns/providers/coredns
+          - "${gateway.enabled == true ? 'external-dns/sources/gateway-httproute' : ''}"
+        substitutions:
+          external_dns_name: external-dns-private
+          external_dns_domain: ${dns.private_domain}
+        timeout: 5m
+        interval: 5m

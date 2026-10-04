@@ -23,9 +23,7 @@ spec:
             set:
               - name: Cache-Control
                 value: no-store
-        # Envoy Gateway extension: returns the static 404 body defined in
-        # the HTTPRouteFilter resource (shared across both gateways). Short-
-        # circuits -- no upstream call.
+        # Envoy Gateway extension: returns the static 404 body from the HTTPRouteFilter.
         - type: ExtensionRef
           extensionRef:
             group: gateway.envoyproxy.io

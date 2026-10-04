@@ -337,11 +337,17 @@ cases:
             components:
               - external-dns
               - external-dns/providers/google
-              - external-dns/sources/gateway-httproute
             substitutions:
-              public_domain: example.com
-              google_project_id: windsor-test
               external_dns_service_account_email: external-dns@windsor-test.iam.gserviceaccount.com
+          resources:
+            - name: public
+              components:
+                - external-dns/providers/google
+                - external-dns/sources/gateway-httproute
+              substitutions:
+                external_dns_name: external-dns-public
+                external_dns_domain: example.com
+                google_project_id: windsor-test
 
   # Gateway disabled: the dns Kustomization still ships (public_domain alone
   # is enough to want Cloud DNS record management for ingress hostnames),
@@ -372,9 +378,15 @@ cases:
               - external-dns
               - external-dns/providers/google
             substitutions:
-              public_domain: example.com
-              google_project_id: windsor-test
               external_dns_service_account_email: external-dns@windsor-test.iam.gserviceaccount.com
+          resources:
+            - name: public
+              components:
+                - external-dns/providers/google
+              substitutions:
+                external_dns_name: external-dns-public
+                external_dns_domain: example.com
+                google_project_id: windsor-test
 
   # Dev mode flips the ACME server to Let's Encrypt staging to avoid burning
   # Let's Encrypt prod rate limits during iteration. database.postgres
@@ -446,9 +458,7 @@ cases:
         public_domain: example.com
     expectError: true
 
-  # Public only: no private domain, so no internal gateway variant and no
-  # internal-LB component. GKE's CCM makes the external gateway's Service public
-  # by default, so nothing is added for it.
+  # Public only: no internal gateway variant and no internal-LB component.
   - name: gateway with envoy on GCP does not add the internal LB component without a private domain
     values:
       platform: gcp
@@ -468,9 +478,7 @@ cases:
               components:
                 - envoy/loadbalancer/gcp
 
-  # The internal gateway threads through the GCP facet's gateway resources
-  # merge, including envoy/loadbalancer/gcp (GKE's CCM makes any
-  # Service:LoadBalancer public by default; the annotation flips it).
+  # The internal gateway merges envoy/loadbalancer/gcp for the internal load balancer.
   - name: internal gateway flips the GKE LB to internal
     values:
       platform: gcp
@@ -489,10 +497,7 @@ cases:
               components:
                 - envoy/loadbalancer/gcp
 
-  # Private domain: external-dns is still rendered, pointed at the private
-  # domain. No zone_id_filter is needed, domainFilters already scopes it. The
-  # internal gateway's certificate uses the private issuer, since ACME can't
-  # validate against a VPC-only zone.
+  # Private domain: external-dns serves the private zone, and the internal gateway uses the private issuer.
   - name: private domain targets external-dns at the private Cloud DNS zone
     values:
       platform: gcp
@@ -510,17 +515,21 @@ cases:
             components:
               - external-dns
               - external-dns/providers/google
-              - external-dns/sources/gateway-httproute
-            substitutions:
-              private_domain: internal.example.com
+          resources:
+            - name: private
+              components:
+                - external-dns/providers/google
+                - external-dns/sources/gateway-httproute
+              substitutions:
+                external_dns_name: external-dns-private
+                external_dns_domain: internal.example.com
         - name: pki
           resources:
             - components:
                 - private-issuer/selfsigned
 
-  # Both domains: one external-dns instance publishes to both Cloud DNS zones,
-  # with the private domain joining the filter list.
-  - name: both domains add the private domain to the single external-dns instance
+  # Both domains: one external-dns instance per zone.
+  - name: both domains run one external-dns instance per zone
     values:
       platform: gcp
       gcp:
@@ -539,8 +548,12 @@ cases:
             components:
               - external-dns
               - external-dns/providers/google
-              - external-dns/providers/google/public-zone
-              - external-dns/providers/google/private-zone
-            substitutions:
-              public_domain: example.com
-              private_domain: internal.example.com
+          resources:
+            - name: public
+              substitutions:
+                external_dns_name: external-dns-public
+                external_dns_domain: example.com
+            - name: private
+              substitutions:
+                external_dns_name: external-dns-private
+                external_dns_domain: internal.example.com

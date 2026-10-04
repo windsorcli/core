@@ -7,11 +7,8 @@ metadata:
 when: identity.enabled == true
 
 config:
-  # The OIDC contract every consumer reads: the effective issuer (derived for the
-  # hosted keycloak driver, taken as-is for an external oidc issuer) and the realm.
-  # keycloak can't infer the external gateway port, so the derived issuer bakes it
-  # in (docker-desktop :8443 internal or :8444 external host-forward;
-  # loadbalancer/cloud :443).
+  # The OIDC contract every consumer reads: the effective issuer and the realm.
+  # The derived issuer bakes in the gateway port (docker-desktop :8443 or :8444, else :443).
   - name: identity_effective
     value:
       realm: "${identity.keycloak.realm ?? 'platform'}"
@@ -112,8 +109,7 @@ flux:
             ((dns.public_domain ?? '') == '' ? (dns.private_domain ?? '') : dns.public_domain) +
             (workstation.runtime == 'docker-desktop' ? ((dns.public_domain ?? '') == '' ? ':8443' : ':8444') : '')) :
             identity.keycloak.hostname}
-          # Admin console — always the internal gateway's domain, never the
-          # public login domain (see kustomize/identity/resources/keycloak/gateway-admin).
+          # Admin console on the internal gateway's domain.
           keycloak_admin_hostname: >-
             ${'https://keycloak-admin.' + (dns.private_domain ?? '') +
             (workstation.runtime == 'docker-desktop' ? ':8443' : '')}
@@ -124,11 +120,8 @@ flux:
           keycloak_image: "${(identity.keycloak.image ?? '') == '' ? 'quay.io/keycloak/keycloak:26.7.4@sha256:82a77884f3af238beab1e7afd63b5f530e1b5c0590bd7aa60b40a40463e29b2c' : identity.keycloak.image}"
           keycloak_start_optimized: "${(identity.keycloak.image ?? '') == '' ? 'false' : 'true'}"
 
-  # Gateway route — waits for the gateways to exist. Login/account UI binds to
-  # the external gateway when a public domain is set, otherwise the internal
-  # one. The admin console always binds to the internal gateway
-  # (keycloak/gateway-admin). Without a gateway, reach Keycloak by
-  # port-forwarding the keycloak-service Service in system-identity.
+  # Login binds to the external gateway when a public domain is set, else the internal one.
+  # The admin console binds to the internal gateway.
   - name: identity
     when: (identity.driver ?? 'keycloak') == 'keycloak' && gateway.enabled == true && ((dns.public_domain ?? '') != '' || gateway_effective.internal == true)
     resources:

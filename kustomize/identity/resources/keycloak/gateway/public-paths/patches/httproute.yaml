@@ -1,6 +1,4 @@
-# Limits the login route on the external gateway to the paths an OIDC client
-# and a browser login need, so the admin console and the master realm stay off
-# the public hostname. Unmatched paths get the gateway's 404.
+# Limits the external login route to the paths a login needs, so the admin console and the master realm stay off the public hostname.
 - op: add
   path: /spec/rules/0/matches
   value:

@@ -35,8 +35,7 @@ config:
       metrics_server_enabled: false
 
   # issuer_component selects the public ClusterIssuer variant (last match wins):
-  # selfsigned floor → ACME (clouddns) with a public domain.
-  # The internal gateway uses the `private` issuer platform-base ships.
+  # selfsigned floor, then ACME (clouddns) once a public domain is set.
   - name: pki_effective
     value:
       issuer_component: public-issuer/selfsigned
@@ -170,38 +169,47 @@ flux:
           acme_dns_zone: "${dns.public_domain ?? ''}"
           acme_dns_zone_project: "${gcp.project_id}"
 
-  # DNS — external-dns + Cloud DNS record automation. external-dns writes
-  # A/CNAME records from annotated Ingress/HTTPRoute resources. Two modes:
-  # public (dns.public_domain → dns-zone stack) and private
-  # (dns.private_domain → the VPC-linked zone). Workload Identity is
-  # wired by the cluster module. Cloud DNS's own API serves both zone
-  # visibilities identically, so unlike AWS/Azure this needs no separate
-  # instance or zone-ID filter. domainFilters plus google_project_id scope
-  # external-dns to the right zones, and both domains join one filter list.
+  # DNS: external-dns writes A/CNAME records from Ingress/HTTPRoute into Cloud DNS, one instance per zone.
+  # Workload Identity comes from the cluster module. Cloud DNS serves both zone kinds the same way, so no zone-ID filter.
   - name: dns
     when: "(dns.public_domain ?? '') != '' || (dns.private_domain ?? '') != ''"
     install:
       components:
         - external-dns
         - external-dns/providers/google
-        - "${(dns.public_domain ?? '') != '' ? 'external-dns/providers/google/public-zone' : ''}"
-        - "${(dns.private_domain ?? '') != '' ? 'external-dns/providers/google/private-zone' : ''}"
-        - "${gateway.enabled == true ? 'external-dns/sources/gateway-httproute' : ''}"
       timeout: 5m
       interval: 5m
       substitutions:
-        public_domain: "${dns.public_domain ?? ''}"
-        private_domain: "${dns.private_domain ?? ''}"
-        google_project_id: "${gcp.project_id}"
         external_dns_service_account_email: "${terraform_output('cluster', 'external_dns_service_account_email') ?? ''}"
-        # Context id in TXT records so multiple external-dns instances in a
-        # zone don't clobber each other.
-        txt_owner_id: "${id}"
+    resources:
+      - name: public
+        when: (dns.public_domain ?? '') != ''
+        components:
+          - external-dns
+          - external-dns/providers/google
+          - "${gateway.enabled == true ? 'external-dns/sources/gateway-httproute' : ''}"
+        substitutions:
+          external_dns_name: external-dns-public
+          external_dns_domain: "${dns.public_domain ?? ''}"
+          google_project_id: "${gcp.project_id}"
+          txt_owner_id: "${id}"
+        timeout: 5m
+        interval: 5m
+      - name: private
+        when: (dns.private_domain ?? '') != ''
+        components:
+          - external-dns
+          - external-dns/providers/google
+          - "${gateway.enabled == true ? 'external-dns/sources/gateway-httproute' : ''}"
+        substitutions:
+          external_dns_name: external-dns-private
+          external_dns_domain: "${dns.private_domain ?? ''}"
+          google_project_id: "${gcp.project_id}"
+          txt_owner_id: "${id}"
+        timeout: 5m
+        interval: 5m
 
-  # Merges into option-gateway's per-gateway resources. GKE's CCM gives any
-  # Service: LoadBalancer a public LB by default, so only the internal gateway
-  # needs the internal annotation (a bool-like token that wouldn't survive
-  # substitution, so component inclusion is the toggle).
+  # Merges into option-gateway's internal variant for the internal load balancer.
   - name: gateway
     when: "gateway.enabled == true && gateway.driver == 'envoy' && lb_effective.mode == 'loadbalancer' && (dns.private_domain ?? '') != ''"
     resources:

@@ -175,9 +175,7 @@ flux:
           - "${demo.resources.static == true ? 'static' : ''}"
           - "${demo.resources.bookinfo == true ? 'bookinfo' : ''}"
 
-  # Bookinfo's productpage route, bound to the internal gateway. Waits for
-  # gateway-resources-internal since the HTTPRoute parents to the Gateway
-  # object created there.
+  # Bookinfo route on the internal gateway.
   - name: demo
     path: demo
     when: demo.resources.bookinfo == true && gateway.enabled == true && gateway_effective.internal == true

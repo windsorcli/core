@@ -7,9 +7,8 @@ metadata:
 # =============================================================================
 # Config — derived values consumed by this facet
 # =============================================================================
-# cert_effective.public_issuer: selfsigned and ACME public issuers are distinct
-# ClusterIssuers — flipping the name forces cert-manager to reissue. ACME needs
-# a cloud DNS zone, so every other platform keeps the selfsigned public issuer.
+# selfsigned and ACME public issuers are distinct ClusterIssuers, so flipping the name reissues.
+# ACME needs a cloud DNS zone, so other platforms keep the selfsigned public issuer.
 config:
 
   - name: cert_effective
@@ -19,25 +18,15 @@ config:
         platform in ['aws', 'azure', 'gcp', 'hetzner'] ?
         'public-acme' : 'public-selfsigned'}
 
-  # A gateway is provisioned only when its domain is set, so no fallback ladder
-  # is needed. The internal gateway's issuer is always `private`: a VPC-only
-  # zone can't validate ACME DNS-01.
-  #
-  # internal_ip / external_ip: pool addresses for pool-based load balancers.
-  # The internal gateway takes the pool start and the external gateway the next
-  # address when both exist, so a single gateway always keeps the start. A pool
-  # start ending in .255 leaves the external address empty, and the load
-  # balancer assigns one.
+  # Pool addresses: the internal gateway takes the pool start, the external gateway the next one.
   - name: gateway_effective
     value:
       cert_issuer: "${cert_effective.public_issuer}"
-      # Cilium hands out the pool addresses when it is the CNI and no cloud LB
-      # controller owns them, so each gateway pins its own.
+      # Cilium assigns the pool addresses when it is the CNI and no cloud LB controller does.
       cilium_lb: "${cluster.cni.driver == 'cilium' && lb_effective.controller_required != true}"
       internal_ip: "${network.loadbalancer_ips.start ?? ''}"
       external_ip: "${network.loadbalancer_ips.start ?? ''}"
-      # The internal gateway is provisioned from dns.private_domain. Hetzner is
-      # public only, so it never gets one.
+      # Hetzner is public only and gets no internal gateway.
       internal: "${(dns.private_domain ?? '') != '' && platform != 'hetzner'}"
   - name: gateway_effective
     when: >-
@@ -65,22 +54,11 @@ crds:
 # =============================================================================
 # gateway.driver selects 'envoy' or 'cilium'. Downstream facets dependsOn the
 # canonical names gateway-install / gateway-resources regardless of driver.
-#
-# Two gateways, each provisioned from its own domain: 'external' when
-# dns.public_domain is set, 'internal' when dns.private_domain is set.
-# Neither, one, or both may exist on a cluster. A route's audience is the
-# gateway it attaches to.
-#
-# Per-gateway data-plane config (EnvoyProxy plus its load balancer and nodeport
-# patches) lives in the resources tier. Install is one Kustomization per
-# system, so it can't carry two independently substituted copies of the same
-# file the way resources' named variants can. Every resources component takes
-# ${gateway_name} instead of duplicating a tree per gateway.
+# Two optional gateways: external from dns.public_domain, internal from dns.private_domain.
+# Resources components take ${gateway_name}, so both gateways share one tree.
 flux:
 
-  # install: the Gateway API controller. Envoy installs Envoy Gateway and its
-  # metrics. Cilium only installs the GatewayClass, since option-cni owns the
-  # Cilium HelmRelease and the Gateway API CRDs come from the crds layer.
+  # Envoy installs Envoy Gateway; Cilium installs only the GatewayClass.
   - name: gateway
     when: gateway.enabled == true
     # dependsOn telemetry-install: keeps destroy order in sync with
@@ -93,20 +71,14 @@ flux:
         - "${gateway.driver == 'envoy' ? 'envoy/prometheus' : ''}"
       timeout: 10m
       interval: 5m
-    # resources: one variant per gateway, each carrying its own substitutions.
     resources:
-      # external: provisioned only when dns.public_domain is set. Waits on
-      # pki-resources, not pki-install: the gateway certificate is issued by
-      # the ClusterIssuer that tier creates, so gating on cert-manager alone
-      # admits this kustomization into a health check no issuer can satisfy.
+      # external: provisioned when dns.public_domain is set.
       - name: external
         when: (dns.public_domain ?? '') != ''
         dependsOn:
           - pki-resources
         components:
-          # cilium LBIPAM patch, skipped when a cloud LB controller owns the IP
-          # (hetzner CCM); the plain Gateway Service is then filled by the
-          # cloud LB instead of Cilium LBIPAM.
+          # Cilium LBIPAM patch, skipped when a cloud LB controller owns the address.
           - "${gateway.driver == 'cilium' && lb_effective.controller_required != true ? 'cilium' : ''}"
           - >-
             ${gateway.driver == 'cilium' && lb_effective.controller_required != true &&
@@ -139,8 +111,7 @@ flux:
             ${(lb_effective.enabled == true || gateway_effective.cilium_lb == true) ?
             gateway_effective.external_ip : ''}
           gateway_dns_target: "${lb_effective.enabled == true ? gateway_effective.external_ip : ''}"
-          # HTTPS port the https-redirect 301 targets: docker-desktop forwards
-          # the gateway to a host port, cloud and LB use the standard :443.
+          # docker-desktop forwards to a host port; everywhere else uses :443.
           gateway_redirect_port: "${workstation.runtime == 'docker-desktop' ? '8444' : '443'}"
           gateway_nodeport_http: 30081
           gateway_nodeport_https: 30444
@@ -149,11 +120,7 @@ flux:
         timeout: 10m
         interval: 5m
 
-      # internal resources: provisioned only when dns.private_domain is set,
-      # except on Hetzner, which is public only. Workstation and dev mode
-      # default the domain to 'test', so local clusters get an internal gateway
-      # with no configuration. Every utility surface (CoreDNS listeners, Flux
-      # webhook) binds here.
+      # internal: provisioned when dns.private_domain is set, except on Hetzner.
       - name: internal
         when: gateway_effective.internal == true
         dependsOn:

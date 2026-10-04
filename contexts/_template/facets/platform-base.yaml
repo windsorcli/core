@@ -437,8 +437,7 @@ flux:
     resources:
       - components:
           - "${(pki.enabled ?? false) != true ? 'private-issuer/selfsigned' : ''}"
-          # Cloud platforms add their own public issuer. Everywhere else a
-          # public domain needs the selfsigned one for the external gateway.
+          # Cloud platforms add their own public issuer.
           - >-
             ${(dns.public_domain ?? '') != '' &&
             !(platform in ['aws', 'azure', 'gcp', 'hetzner']) ?
@@ -485,8 +484,7 @@ flux:
     resources:
       - components:
           - webhook
-          # The webhook route binds to the internal gateway (operational
-          # surface), so it needs dns.private_domain set, not just gateway.enabled.
+          # The webhook route binds to the internal gateway.
           - "${gateway.enabled == true && gateway_effective.internal == true ? 'webhook/gateway' : ''}"
           - "${gateway.enabled == true && gateway_effective.internal == true && gateway.driver == 'cilium' ? 'webhook/gateway/cilium' : ''}"
         substitutions:

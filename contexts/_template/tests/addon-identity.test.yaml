@@ -652,8 +652,7 @@ cases:
             - components:
                 - grafana/dashboards/identity
 
-  # A public domain puts Keycloak login on the external gateway, limited to the
-  # login paths, and the admin console on the internal gateway.
+  # A public domain puts Keycloak login on the external gateway and admin on the internal one.
   - name: public domain limits the external Keycloak route to the login paths
     values:
       platform: metal

@@ -28,9 +28,7 @@ x-defaults:
   # dependsOn; the composer wires only dependency-less roots to the `crds` layer,
   # and gateway-install/gateway-resources are not roots.
 
-  # Shared assertion: gateway install tier with envoy. Per-gateway data-plane
-  # config (EnvoyProxy, loadbalancer/nodeport annotations) lives in the
-  # resources tier now, not install — see gateway-resources-envoy-lb/np below.
+  # Shared assertion: gateway install tier with envoy.
   gateway-install-envoy: &gateway-install-envoy
     components:
       - envoy
@@ -47,9 +45,7 @@ x-defaults:
     timeout: 10m
     interval: 5m
 
-  # Shared assertion: external gateway resources variant, envoy + loadbalancer
-  # mode. The Gateway cert is issued by the ClusterIssuer pki-resources creates,
-  # so the variant carries that dep.
+  # Shared assertion: external gateway resources variant, envoy + loadbalancer mode.
   gateway-resources-envoy: &gateway-resources-envoy
     name: external
     dependsOn:
@@ -67,8 +63,7 @@ x-defaults:
     timeout: 10m
     interval: 5m
 
-  # Internal gateway (loadbalancer mode), plus the utility components
-  # (flux-webhook, and dns with private DNS) that only ever bind to internal.
+  # Shared assertion: internal gateway variant, with the utility components.
   gateway-resources-envoy-internal: &gateway-resources-envoy-internal
     name: internal
     dependsOn:
@@ -110,9 +105,7 @@ x-defaults:
     interval: 5m
 
 cases:
-  # Minimal: zero-config on metal defaults to cilium CNI → cilium gateway.
-  # dns.private_domain: test stands in for dev-mode's default so the internal
-  # gateway (the only one reachable with no dns.public_domain) is provisioned.
+  # Zero config on metal: the cilium gateway, with dns.private_domain standing in for the dev default.
   - name: zero config on metal defaults to cilium gateway
     values:
       platform: metal
@@ -690,10 +683,7 @@ cases:
               timeout: 10m
               interval: 5m
 
-  # Cert issuer + gateway_domain defaults: the internal gateway's issuer is
-  # always `private` (never ACME-eligible — a VPC-only/local zone can't
-  # validate DNS-01) and gateway_domain comes straight from dns.private_domain.
-  # Regression guard for the cert-issuer abstraction in option-gateway.
+  # The internal gateway's issuer is always `private`, and gateway_domain is dns.private_domain.
   - name: non-ACME platform defaults gateway_cert_issuer to private and uses private_domain
     values:
       platform: metal
@@ -714,10 +704,7 @@ cases:
                 gateway_cert_issuer: private
                 gateway_domain: cluster.local
 
-  # No domain set at all: neither gateway is provisioned. This
-  # replaced the old single-gateway "<id>.local" selfsigned floor — a
-  # cluster with no dns.public_domain and no dns.private_domain now has no
-  # ingress, cert, or LB of any kind.
+  # No domain set: neither gateway is provisioned.
   - name: aws with no domain provisions no gateway at all
     values:
       platform: aws
@@ -737,10 +724,7 @@ cases:
           resources:
             - name: internal
 
-  # dns.domain set (no explicit public/private) flows into dns.private_domain
-  # (platform-base's dns config falls back private_domain -> domain), so this
-  # provisions the internal gateway only, with a private (not public-ACME)
-  # issuer -- dns.domain alone never makes a gateway internet-facing.
+  # dns.domain alone provisions the internal gateway only, with the private issuer.
   - name: aws with only dns.domain provisions the internal gateway with a private issuer
     values:
       platform: aws
@@ -793,9 +777,7 @@ cases:
       flux:
         - name: gitops
 
-  # Regression (#2311): dns.public_domain enables dns without shipping dns-install on
-  # metal/incus. The gateway resources tier must depend only on pki-resources, or composition
-  # dangles on a dns-install that was never contributed.
+  # The gateway resources tier depends only on pki-resources, since dns-install may not exist.
   - name: gateway resources omit dns-install when dns is enabled on a provider-less platform
     values:
       platform: metal
@@ -813,8 +795,7 @@ cases:
           resources:
             - <<: *gateway-resources-envoy
 
-  # Both domains set: the internal gateway takes the pool start and the external
-  # gateway takes the next address.
+  # Both domains: the internal gateway takes the pool start, the external one the next address.
   - name: both gateways split the load balancer pool start and the next address
     values:
       platform: metal
@@ -834,8 +815,7 @@ cases:
               substitutions:
                 gateway_loadbalancer_ip: "10.5.1.10"
 
-  # A pool start ending in .255 has no next address in the same octet, so the
-  # external gateway gets no fixed address and the load balancer assigns one.
+  # A pool start ending in .255 leaves the external address to the load balancer.
   - name: pool start ending in 255 leaves the external gateway address unpinned
     values:
       platform: metal
@@ -865,8 +845,7 @@ cases:
               components:
                 - cilium/fixed-ip
 
-  # A public domain on a platform without cloud DNS keeps the selfsigned public
-  # issuer, since ACME needs a cloud zone.
+  # A public domain on a platform without cloud DNS keeps the selfsigned public issuer.
   - name: public domain on metal uses the selfsigned public issuer
     values:
       platform: metal
@@ -887,9 +866,7 @@ cases:
             - components:
                 - public-issuer/selfsigned
 
-  # Envoy on a Cilium cluster: Cilium LBIPAM hands out the addresses, so each
-  # gateway pins its own through the Service annotation. The internal gateway
-  # keeps the pool start.
+  # Envoy on Cilium: each gateway pins its address, and the internal gateway keeps the pool start.
   - name: envoy gateways pin their addresses under Cilium LBIPAM
     values:
       platform: metal

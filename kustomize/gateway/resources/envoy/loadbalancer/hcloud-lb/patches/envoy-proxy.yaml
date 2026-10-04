@@ -1,8 +1,5 @@
 ---
-# Hetzner-specific annotations on the Envoy Gateway's data-plane Service.
-# hcloud cloud-controller-manager reads these to provision a Hetzner Cloud
-# Load Balancer for the type=LoadBalancer Service. Stacks on top of
-# loadbalancer/patches/envoy-proxy.yaml.
+# Annotations for hcloud-ccm to provision a Hetzner Cloud Load Balancer.
 apiVersion: gateway.envoyproxy.io/v1alpha1
 kind: EnvoyProxy
 metadata:

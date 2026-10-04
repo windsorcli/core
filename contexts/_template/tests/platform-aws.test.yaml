@@ -268,13 +268,7 @@ cases:
                 acme_hosted_zone_id: Z1ABCDEF12345
         - name: gateway
           resources:
-            # envoy/default-404/external-dns is the AWS-only patch that adds
-            # the external-dns hostname annotation to the catch-all 404 route.
-            # Gated on dns.public_domain so it doesn't render on platforms
-            # without external-dns running (where the substitution would
-            # produce a malformed ",*." value). No dns.private_domain here,
-            # so only the external variant renders (no internal gateway,
-            # no flux-webhook).
+            # Only the external variant renders without dns.private_domain.
             - name: external
               components:
                 - envoy/default-404
@@ -292,12 +286,17 @@ cases:
           install:
             components:
               - external-dns
-              - external-dns/providers/route53
-              - external-dns/sources/gateway-httproute
-            substitutions:
-              public_domain: example.com
-              zone_type: public
-              zone_id_filter: Z1ABCDEF12345
+          resources:
+            - name: public
+              components:
+                - external-dns
+                - external-dns/providers/route53
+                - external-dns/sources/gateway-httproute
+              substitutions:
+                external_dns_name: external-dns-public
+                external_dns_domain: example.com
+                external_dns_zone_type: public
+                external_dns_zone_id_filter: Z1ABCDEF12345
 
   # Dev mode flips the ACME server to Let's Encrypt staging to avoid
   # burning Let's Encrypt prod rate limits during iteration.
@@ -580,12 +579,7 @@ cases:
             timeout: 5m
             interval: 5m
 
-  # When gateway is enabled on AWS with a public domain, the external
-  # gateway's envoy data-plane Service gets NLB annotations layered on by
-  # merging envoy/loadbalancer/aws-nlb into that resources variant. This is
-  # an additive merge with option-gateway's own resources entries —
-  # option-gateway emits the platform-agnostic components, this AWS facet
-  # appends the AWS-specific patch.
+  # NLB annotations from envoy/loadbalancer/aws-nlb merge into the external variant.
   - name: gateway with envoy on AWS adds NLB annotations component
     values:
       platform: aws
@@ -611,10 +605,7 @@ cases:
                 - envoy/loadbalancer
                 - envoy/loadbalancer/aws-nlb
 
-  # The internal gateway's NLB is always internal scheme (no ternary needed —
-  # unlike external, internal never faces the internet). gateway.access is
-  # deprecated and has no effect; dns.private_domain alone provisions the
-  # internal gateway and its always-internal NLB.
+  # The internal gateway's NLB is always the internal scheme.
   - name: internal gateway NLB is always internal scheme on AWS
     values:
       platform: aws
@@ -713,11 +704,16 @@ cases:
           install:
             components:
               - external-dns
-              - external-dns/providers/route53
-            substitutions:
-              public_domain: example.com
-              zone_type: public
-              zone_id_filter: Z1ABCDEF12345
+          resources:
+            - name: public
+              components:
+                - external-dns
+                - external-dns/providers/route53
+              substitutions:
+                external_dns_name: external-dns-public
+                external_dns_domain: example.com
+                external_dns_zone_type: public
+                external_dns_zone_id_filter: Z1ABCDEF12345
 
   # Private mode: gateway.access=private flips the DNS path away from the
   # public zone and onto the VPC-private Route53 zone the network module
@@ -745,18 +741,20 @@ cases:
             - policy-resources
           install:
             components:
-              - external-dns-internal
-              - external-dns-internal/providers/route53
-              # Gateway is enabled here, so the HTTPRoute source is layered on.
-              - external-dns-internal/sources/gateway-httproute
-            substitutions:
-              private_domain: internal.example.com
-              zone_type_internal: private
-              zone_id_filter_internal: Z9PRIVATEZONE
-        # Cert issuer is always `private` for the internal gateway (selfsigned)
-        # — ACME DNS-01 can't validate against a VPC-only zone. The 404
-        # hostname annotation patch is added too, asserting the internal
-        # variant's option-gateway conditional fires alongside everything else.
+              - external-dns
+          resources:
+            - name: private
+              components:
+                - external-dns
+                - external-dns/providers/route53
+                # Gateway is enabled here, so the HTTPRoute source is layered on.
+                - external-dns/sources/gateway-httproute
+              substitutions:
+                external_dns_name: external-dns-private
+                external_dns_domain: internal.example.com
+                external_dns_zone_type: private
+                external_dns_zone_id_filter: Z9PRIVATEZONE
+        # The internal gateway's issuer is `private`, and the 404 hostname annotation is added.
         - name: gateway
           resources:
             - name: internal

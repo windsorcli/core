@@ -1,7 +1,5 @@
 ---
-# Flips the AKS Standard LB to internal. Only included for the internal
-# gateway (AKS's CCM gives any Service:LoadBalancer a public LB by default,
-# so external needs no extra annotation).
+# Internal load balancer annotation, applied to the internal gateway only.
 apiVersion: gateway.envoyproxy.io/v1alpha1
 kind: EnvoyProxy
 metadata:

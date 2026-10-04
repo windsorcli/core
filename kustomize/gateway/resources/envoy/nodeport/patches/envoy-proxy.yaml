@@ -1,7 +1,5 @@
 ---
-# NodePort service for this gateway. Ports differ per gateway (external:
-# 30080/30443, internal: 30081/30444 -- see gateway_nodeport_http/https
-# substitutions) so both can coexist on the same node set.
+# NodePort Service for this gateway, with ports from gateway_nodeport_http and gateway_nodeport_https.
 apiVersion: gateway.envoyproxy.io/v1alpha1
 kind: EnvoyProxy
 metadata:

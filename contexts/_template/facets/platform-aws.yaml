@@ -30,8 +30,7 @@ requires:
 config:
 
   # issuer_component selects the public ClusterIssuer variant (last match wins):
-  # selfsigned floor → ACME/route53 with a public domain.
-  # The internal gateway uses the `private` issuer platform-base ships.
+  # selfsigned floor, then ACME/route53 once a public domain is set.
   - name: pki_effective
     value:
       issuer_component: public-issuer/selfsigned
@@ -255,45 +254,44 @@ flux:
       substitutions:
         single_storage_type: ${cluster.storage.single_storage_type ?? "gp3"}
 
-  # DNS — external-dns + Route53 record automation. Anchored on the shared `dns`
-  # Kustomization so it composes with addon-private-dns. external-dns writes
-  # A/CNAME records from annotated Ingress/HTTPRoute resources. Two independent
-  # instances, one per zone: public (dns.public_domain → dns-zone stack, feeds
-  # the external gateway) and internal (dns.private_domain → the VPC zone,
-  # feeds the internal gateway) — both can run at once. IAM wired by the
-  # cluster module (create_external_dns_role, Pod Identity in system-dns).
+  # DNS: external-dns writes A/CNAME records from Ingress/HTTPRoute resources, one instance per zone.
+  # IAM comes from the cluster module (create_external_dns_role, Pod Identity in system-dns).
   - name: dns
-    when: "(dns.public_domain ?? '') != ''"
+    when: "(dns.public_domain ?? '') != '' || (dns.private_domain ?? '') != ''"
     install:
       components:
         - external-dns
-        - external-dns/providers/route53
-        # HTTPRoute source only when the gateway runs; else external-dns crashes
-        # at startup without the HTTPRoute CRDs.
-        - "${gateway.enabled == true ? 'external-dns/sources/gateway-httproute' : ''}"
       timeout: 5m
       interval: 5m
-      substitutions:
-        public_domain: "${dns.public_domain ?? ''}"
-        zone_type: public
-        zone_id_filter: "${terraform_output('dns-zone', 'zone_id') ?? ''}"
-        aws_region: "${aws.region ?? 'us-east-1'}"
-        # Owner ID stamped into TXT records so external-dns instances sharing a
-        # zone don't clobber each other; the context id is unique per cluster.
-        txt_owner_id: "${id}"
-
-  - name: dns
-    when: "(dns.private_domain ?? '') != ''"
-    install:
-      components:
-        - external-dns-internal
-        - external-dns-internal/providers/route53
-        - "${gateway.enabled == true ? 'external-dns-internal/sources/gateway-httproute' : ''}"
-      timeout: 5m
-      interval: 5m
-      substitutions:
-        private_domain: "${dns.private_domain ?? ''}"
-        zone_type_internal: private
-        zone_id_filter_internal: "${terraform_output('network', 'private_zone_id') ?? ''}"
-        aws_region: "${aws.region ?? 'us-east-1'}"
-        txt_owner_id: "${id}"
+    # One instance per zone. The HTTPRoute source needs the gateway CRDs.
+    resources:
+      - name: public
+        when: (dns.public_domain ?? '') != ''
+        components:
+          - external-dns
+          - external-dns/providers/route53
+          - "${gateway.enabled == true ? 'external-dns/sources/gateway-httproute' : ''}"
+        substitutions:
+          external_dns_name: external-dns-public
+          external_dns_domain: "${dns.public_domain ?? ''}"
+          external_dns_zone_type: public
+          external_dns_zone_id_filter: "${terraform_output('dns-zone', 'zone_id') ?? ''}"
+          aws_region: "${aws.region ?? 'us-east-1'}"
+          txt_owner_id: "${id}"
+        timeout: 5m
+        interval: 5m
+      - name: private
+        when: (dns.private_domain ?? '') != ''
+        components:
+          - external-dns
+          - external-dns/providers/route53
+          - "${gateway.enabled == true ? 'external-dns/sources/gateway-httproute' : ''}"
+        substitutions:
+          external_dns_name: external-dns-private
+          external_dns_domain: "${dns.private_domain ?? ''}"
+          external_dns_zone_type: private
+          external_dns_zone_id_filter: "${terraform_output('network', 'private_zone_id') ?? ''}"
+          aws_region: "${aws.region ?? 'us-east-1'}"
+          txt_owner_id: "${id}"
+        timeout: 5m
+        interval: 5m

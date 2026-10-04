@@ -18,8 +18,7 @@ config:
     value:
       dashboards: "${observability.dashboards ?? 'grafana'}"
 
-  # Grafana URL — always the internal gateway (docker-desktop: :8443, else :443).
-  # Grafana is an operational surface; it binds to internal, never external.
+  # Grafana URL on the internal gateway (docker-desktop :8443, else :443).
   - name: grafana_effective
     value:
       url: >-
@@ -179,8 +178,7 @@ flux:
           - "${observability.dashboards == 'grafana' ? 'grafana/dashboards/logs/quickwit' : ''}"
           - "${observability.dashboards == 'grafana' ? 'grafana/dashboards/quickwit' : ''}"
 
-  # Elasticsearch + Kibana. Gated on gateway.enabled and dns.private_domain
-  # (Kibana needs an HTTPRoute on the internal gateway to be reachable).
+  # Elasticsearch + Kibana, gated on the internal gateway.
   # Install waits for csi (ES data PVCs).
   - name: observability
     when: observability.logs_driver == 'elasticsearch' && gateway.enabled == true && gateway_effective.internal == true
