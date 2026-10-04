@@ -1039,7 +1039,7 @@ properties:
       domain:
         $ref: '#/$defs/dnsHostname'
         deprecated: true
-        description: Deprecated. Use dns.public_domain. Maps to public_domain when that is unset, and is the fallback for private_domain.
+        description: Deprecated. Use dns.private_domain. Fallback for private_domain when that is unset; never sets public_domain.
       public_domain:
         $ref: '#/$defs/dnsHostname'
         description: >
