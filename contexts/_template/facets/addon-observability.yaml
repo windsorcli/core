@@ -26,6 +26,11 @@ config:
         (workstation.runtime == 'docker-desktop' ? ':8443' : '')}
 
 requires:
+  # Grafana and Kibana hostnames are built from a DNS domain.
+  - when: (dns.public_domain ?? '') == '' && (dns.private_domain ?? '') == ''
+    paths:
+      - dns.private_domain
+    message: Observability needs a DNS domain for its Grafana and Kibana hostnames; set dns.public_domain or dns.private_domain.
   # Explicitly enabling Grafana SSO needs a cluster identity provider to authenticate against.
   - when: observability.grafana.sso == true
     paths:
