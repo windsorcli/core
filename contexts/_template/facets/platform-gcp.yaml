@@ -176,14 +176,21 @@ flux:
     install:
       components:
         - external-dns
-        - external-dns/providers/google
       timeout: 5m
       interval: 5m
-      substitutions:
-        external_dns_service_account_email: "${terraform_output('cluster', 'external_dns_service_account_email') ?? ''}"
     resources:
+      - name: account
+        components:
+          - service-account
+          - service-account/providers/google
+        substitutions:
+          external_dns_service_account_email: "${terraform_output('cluster', 'external_dns_service_account_email') ?? ''}"
+        timeout: 5m
+        interval: 5m
       - name: public
         when: (dns.public_domain ?? '') != ''
+        dependsOn:
+          - dns-resources-account
         components:
           - external-dns
           - external-dns/providers/google
@@ -197,6 +204,8 @@ flux:
         interval: 5m
       - name: private
         when: (dns.private_domain ?? '') != ''
+        dependsOn:
+          - dns-resources-account
         components:
           - external-dns
           - external-dns/providers/google

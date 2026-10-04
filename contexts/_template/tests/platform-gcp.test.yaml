@@ -336,10 +336,13 @@ cases:
           install:
             components:
               - external-dns
-              - external-dns/providers/google
-            substitutions:
-              external_dns_service_account_email: external-dns@windsor-test.iam.gserviceaccount.com
           resources:
+            - name: account
+              components:
+                - service-account
+                - service-account/providers/google
+              substitutions:
+                external_dns_service_account_email: external-dns@windsor-test.iam.gserviceaccount.com
             - name: public
               components:
                 - external-dns/providers/google
@@ -376,10 +379,13 @@ cases:
           install:
             components:
               - external-dns
-              - external-dns/providers/google
-            substitutions:
-              external_dns_service_account_email: external-dns@windsor-test.iam.gserviceaccount.com
           resources:
+            - name: account
+              components:
+                - service-account
+                - service-account/providers/google
+              substitutions:
+                external_dns_service_account_email: external-dns@windsor-test.iam.gserviceaccount.com
             - name: public
               components:
                 - external-dns/providers/google
@@ -514,8 +520,11 @@ cases:
           install:
             components:
               - external-dns
-              - external-dns/providers/google
           resources:
+            - name: account
+              components:
+                - service-account
+                - service-account/providers/google
             - name: private
               components:
                 - external-dns/providers/google
@@ -547,8 +556,11 @@ cases:
           install:
             components:
               - external-dns
-              - external-dns/providers/google
           resources:
+            - name: account
+              components:
+                - service-account
+                - service-account/providers/google
             - name: public
               substitutions:
                 external_dns_name: external-dns-public

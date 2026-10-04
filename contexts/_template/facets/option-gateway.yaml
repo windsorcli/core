@@ -87,7 +87,8 @@ flux:
           - "${gateway.driver == 'envoy' ? 'envoy/' + lb_effective.mode : ''}"
           - >-
             ${gateway.driver == 'envoy' && lb_effective.mode == 'loadbalancer' &&
-            lb_effective.enabled == true ? 'envoy/loadbalancer/fixed-ip' : ''}
+            lb_effective.enabled == true && (gateway_effective.external_ip ?? '') != '' ?
+            'envoy/loadbalancer/fixed-ip' : ''}
           - >-
             ${gateway.driver == 'envoy' && lb_effective.mode == 'loadbalancer' &&
             gateway_effective.cilium_lb == true && (gateway_effective.external_ip ?? '') != '' ?
@@ -100,7 +101,9 @@ flux:
           # Catch-all 404 (Envoy directResponse) for unmatched HTTPRoutes; envoy-only.
           - "${gateway.driver != 'cilium' ? 'envoy/default-404' : ''}"
           - "${gateway.driver != 'cilium' ? 'envoy/default-404/external-dns' : ''}"
-          - "${lb_effective.enabled == true ? 'lb-address' : ''}"
+          - >-
+            ${lb_effective.enabled == true && (gateway_effective.external_ip ?? '') != '' ?
+            'lb-address' : ''}
         substitutions:
           gateway_name: external
           gateway_class_name: ${gateway.driver}
@@ -134,7 +137,8 @@ flux:
           - "${gateway.driver == 'envoy' ? 'envoy/' + lb_effective.mode : ''}"
           - >-
             ${gateway.driver == 'envoy' && lb_effective.mode == 'loadbalancer' &&
-            lb_effective.enabled == true ? 'envoy/loadbalancer/fixed-ip' : ''}
+            lb_effective.enabled == true && (gateway_effective.internal_ip ?? '') != '' ?
+            'envoy/loadbalancer/fixed-ip' : ''}
           - >-
             ${gateway.driver == 'envoy' && lb_effective.mode == 'loadbalancer' &&
             gateway_effective.cilium_lb == true && (gateway_effective.internal_ip ?? '') != '' ?
@@ -152,7 +156,9 @@ flux:
           - "${gateway.driver != 'cilium' ? 'envoy/default-404' : ''}"
           - "${gateway.driver != 'cilium' ? 'envoy/default-404/external-dns' : ''}"
           - "${gateway.driver != 'cilium' && (dns.private.enabled ?? (dev == true)) == true ? 'dns' : ''}"
-          - "${lb_effective.enabled == true ? 'lb-address' : ''}"
+          - >-
+            ${lb_effective.enabled == true && (gateway_effective.internal_ip ?? '') != '' ?
+            'lb-address' : ''}
           - "${(gitops.mode ?? 'push') == 'push' ? 'flux-webhook' : ''}"
         substitutions:
           gateway_name: internal

@@ -24,9 +24,9 @@ selections.
 ## Recipes
 
 `external-dns` runs everywhere DNS publication is needed and watches
-Gateway / HTTPRoute resources. The install tier holds the HelmRepository
-and the one ServiceAccount every instance shares, and the resources tier
-runs one instance per zone as a named variant (`public`, `private`). The
+Gateway / HTTPRoute resources. The install tier holds the HelmRepository. The resources tier holds the
+one ServiceAccount every instance shares (the `account` variant) and runs
+one instance per zone as a named variant (`public`, `private`). The
 provider component selects where each instance writes records. coredns and
 etcd only run when private DNS is opted in.
 
@@ -56,7 +56,10 @@ flowchart LR
   install:
     components: [external-dns]
   resources:
+    - name: account
+      components: [service-account]
     - name: public
+      dependsOn: [dns-resources-account]
       components:
         - external-dns
         - external-dns/providers/route53
@@ -94,14 +97,17 @@ flowchart LR
 - name: dns
   dependsOn: [policy-resources, gateway-install]
   install:
-    components:
-      - external-dns
-      - external-dns/providers/azure
-    substitutions:
-      external_dns_client_id: <terraform_output('cluster', 'external_dns_client_id')>
-      external_dns_tenant_id: <terraform_output('cluster', 'tenant_id')>
+    components: [external-dns]
   resources:
+    - name: account
+      components:
+        - service-account
+        - service-account/providers/azure
+      substitutions:
+        external_dns_client_id: <terraform_output('cluster', 'external_dns_client_id')>
+        external_dns_tenant_id: <terraform_output('cluster', 'tenant_id')>
     - name: public
+      dependsOn: [dns-resources-account]
       components:
         - external-dns
         - external-dns/providers/azure
@@ -155,7 +161,10 @@ flowchart LR
       private_domain: example.local
       loadbalancer_start_ip: 10.5.1.10
   resources:
+    - name: account
+      components: [service-account]
     - name: private
+      dependsOn: [dns-resources-account]
       components:
         - external-dns
         - external-dns/providers/coredns
@@ -194,11 +203,11 @@ In both cases `loadbalancer_start_ip` must fall inside
 | `external_dns_azure_provider` | `resources/external-dns/providers/azure` is enabled | Azure provider of the instance: `azure` for the public zone, `azure-private-dns` for the VNet-linked private zone. |
 | `external_dns_subscription_id` | `resources/external-dns/providers/azure` is enabled | Azure subscription holding the instance's DNS zone. Public: `terraform_output('dns-zone', 'subscription_id')`. Private: `terraform_output('network', 'subscription_id')`. |
 | `external_dns_resource_group` | `resources/external-dns/providers/azure` is enabled | Azure resource group holding the instance's DNS zone. Public: `terraform_output('dns-zone', 'resource_group_name')`. Private: `terraform_output('network', 'resource_group_name')`. |
-| `external_dns_tenant_id` | `external-dns/providers/azure` or `resources/external-dns/providers/azure` is enabled | Azure AD tenant for the external-dns workload identity. Sourced from `terraform_output('cluster', 'tenant_id')`. |
-| `external_dns_client_id` | `external-dns/providers/azure` is enabled | Client ID of the external-dns managed identity, set on the shared ServiceAccount. Sourced from `terraform_output('cluster', 'external_dns_client_id')`. |
+| `external_dns_tenant_id` | `service-account/providers/azure` or `resources/external-dns/providers/azure` is enabled | Azure AD tenant for the external-dns workload identity. Sourced from `terraform_output('cluster', 'tenant_id')`. |
+| `external_dns_client_id` | `service-account/providers/azure` is enabled | Client ID of the external-dns managed identity, set on the shared ServiceAccount. Sourced from `terraform_output('cluster', 'external_dns_client_id')`. |
 | `aws_region` | `resources/external-dns/providers/route53` is enabled | AWS region for external-dns's Route53 API calls. Sourced from top-level `aws.region`. |
 | `google_project_id` | `resources/external-dns/providers/google` is enabled | GCP project external-dns's Cloud DNS API calls run against. Sourced from `gcp.project_id`. |
-| `external_dns_service_account_email` | `external-dns/providers/google` is enabled | Email of the external-dns Google Service Account, set on the shared ServiceAccount. Sourced from `terraform_output('cluster', 'external_dns_service_account_email')`. |
+| `external_dns_service_account_email` | `service-account/providers/google` is enabled | Email of the external-dns Google Service Account, set on the shared ServiceAccount. Sourced from `terraform_output('cluster', 'external_dns_service_account_email')`. |
 | `txt_owner_id` | a `resources/external-dns` instance uses a registry-backed provider | Unique TXT-record owner ID for external-dns's registry. Keeps multiple external-dns instances in the same zone from clobbering each other's records. Threaded via Flux postBuild from the `values-dns` ConfigMap the CLI generates. |
 | `loadbalancer_start_ip` | `coredns/loadbalancer` is enabled (private-DNS LB Service) | External IP for the coredns Service when private DNS is exposed via the gateway LB. Sourced from `network.loadbalancer_ips.start`. |
 
@@ -208,15 +217,21 @@ In both cases `loadbalancer_start_ip` must fall inside
 
 _Enabled when `dns.public_domain` or `dns.private_domain` is set._
 
-The `external-dns` HelmRepository and the shared `external-dns` ServiceAccount in `system-dns`. Every instance uses that one ServiceAccount, so the cloud identity bindings (AWS Pod Identity, the Azure federated credential, the GKE Workload Identity binding) cover the public and the private instance alike.
+The `external-dns` HelmRepository in `system-dns`, shared by every instance.
 
-### `external-dns/providers/azure`
+### `service-account`
+
+_Enabled when the `account` variant, present whenever an external-dns instance is._
+
+The shared `external-dns` ServiceAccount in `system-dns`. Every instance runs under it, so the cloud identity bindings (AWS Pod Identity, the Azure federated credential, the GKE Workload Identity binding) cover the public and the private instance alike. It lives in the resources tier so that on an in-place upgrade it applies after the install tier has removed the old HelmRelease, whose uninstall deletes a ServiceAccount of the same name.
+
+### `service-account/providers/azure`
 
 _Enabled when platform is Azure._
 
 Adds the workload identity label and the client and tenant ID annotations to the shared ServiceAccount.
 
-### `external-dns/providers/google`
+### `service-account/providers/google`
 
 _Enabled when platform is GCP._
 

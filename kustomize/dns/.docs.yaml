@@ -32,10 +32,10 @@ substitutions:
     required_when: "`resources/external-dns/providers/azure` is enabled"
     description: "Azure resource group holding the instance's DNS zone. Public: `terraform_output('dns-zone', 'resource_group_name')`. Private: `terraform_output('network', 'resource_group_name')`."
   external_dns_tenant_id:
-    required_when: "`external-dns/providers/azure` or `resources/external-dns/providers/azure` is enabled"
+    required_when: "`service-account/providers/azure` or `resources/external-dns/providers/azure` is enabled"
     description: "Azure AD tenant for the external-dns workload identity. Sourced from `terraform_output('cluster', 'tenant_id')`."
   external_dns_client_id:
-    required_when: "`external-dns/providers/azure` is enabled"
+    required_when: "`service-account/providers/azure` is enabled"
     description: "Client ID of the external-dns managed identity, set on the shared ServiceAccount. Sourced from `terraform_output('cluster', 'external_dns_client_id')`."
   aws_region:
     required_when: "`resources/external-dns/providers/route53` is enabled"
@@ -44,7 +44,7 @@ substitutions:
     required_when: "`resources/external-dns/providers/google` is enabled"
     description: "GCP project external-dns's Cloud DNS API calls run against. Sourced from `gcp.project_id`."
   external_dns_service_account_email:
-    required_when: "`external-dns/providers/google` is enabled"
+    required_when: "`service-account/providers/google` is enabled"
     description: "Email of the external-dns Google Service Account, set on the shared ServiceAccount. Sourced from `terraform_output('cluster', 'external_dns_service_account_email')`."
   txt_owner_id:
     required_when: "a `resources/external-dns` instance uses a registry-backed provider"
@@ -57,13 +57,17 @@ components:
   external-dns:
     facet: dns-install
     enable_when: "`dns.public_domain` or `dns.private_domain` is set"
-    description: "The `external-dns` HelmRepository and the shared `external-dns` ServiceAccount in `system-dns`. Every instance uses that one ServiceAccount, so the cloud identity bindings (AWS Pod Identity, the Azure federated credential, the GKE Workload Identity binding) cover the public and the private instance alike."
-  external-dns/providers/azure:
-    facet: dns-install
+    description: "The `external-dns` HelmRepository in `system-dns`, shared by every instance."
+  service-account:
+    facet: dns-resources
+    enable_when: "the `account` variant, present whenever an external-dns instance is"
+    description: "The shared `external-dns` ServiceAccount in `system-dns`. Every instance runs under it, so the cloud identity bindings (AWS Pod Identity, the Azure federated credential, the GKE Workload Identity binding) cover the public and the private instance alike. It lives in the resources tier so that on an in-place upgrade it applies after the install tier has removed the old HelmRelease, whose uninstall deletes a ServiceAccount of the same name."
+  service-account/providers/azure:
+    facet: dns-resources
     enable_when: "platform is Azure"
     description: "Adds the workload identity label and the client and tenant ID annotations to the shared ServiceAccount."
-  external-dns/providers/google:
-    facet: dns-install
+  service-account/providers/google:
+    facet: dns-resources
     enable_when: "platform is GCP"
     description: "Adds the `iam.gke.io/gcp-service-account` annotation to the shared ServiceAccount."
   resources/external-dns:

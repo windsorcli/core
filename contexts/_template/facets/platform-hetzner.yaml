@@ -376,7 +376,14 @@ flux:
       timeout: 5m
       interval: 5m
     resources:
+      - name: account
+        components:
+          - service-account
+        timeout: 5m
+        interval: 5m
       - name: public
+        dependsOn:
+          - dns-resources-account
         components:
           - external-dns
           - external-dns/providers/hetzner

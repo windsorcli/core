@@ -316,11 +316,14 @@ cases:
           install:
             components:
               - external-dns
-              - external-dns/providers/azure
-            substitutions:
-              external_dns_client_id: 22222222-bbbb-bbbb-bbbb-222222222222
-              external_dns_tenant_id: 33333333-cccc-cccc-cccc-333333333333
           resources:
+            - name: account
+              components:
+                - service-account
+                - service-account/providers/azure
+              substitutions:
+                external_dns_client_id: 22222222-bbbb-bbbb-bbbb-222222222222
+                external_dns_tenant_id: 33333333-cccc-cccc-cccc-333333333333
             - name: public
               components:
                 - external-dns/providers/azure
@@ -431,8 +434,11 @@ cases:
           install:
             components:
               - external-dns
-              - external-dns/providers/azure
           resources:
+            - name: account
+              components:
+                - service-account
+                - service-account/providers/azure
             - name: private
               components:
                 - external-dns/providers/azure

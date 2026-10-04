@@ -188,15 +188,22 @@ flux:
     install:
       components:
         - external-dns
-        - external-dns/providers/azure
       timeout: 5m
       interval: 5m
-      substitutions:
-        external_dns_client_id: "${terraform_output('cluster', 'external_dns_client_id') ?? ''}"
-        external_dns_tenant_id: "${terraform_output('cluster', 'tenant_id') ?? ''}"
     resources:
+      - name: account
+        components:
+          - service-account
+          - service-account/providers/azure
+        substitutions:
+          external_dns_client_id: "${terraform_output('cluster', 'external_dns_client_id') ?? ''}"
+          external_dns_tenant_id: "${terraform_output('cluster', 'tenant_id') ?? ''}"
+        timeout: 5m
+        interval: 5m
       - name: public
         when: (dns.public_domain ?? '') != ''
+        dependsOn:
+          - dns-resources-account
         components:
           - external-dns
           - external-dns/providers/azure
@@ -213,6 +220,8 @@ flux:
         interval: 5m
       - name: private
         when: (dns.private_domain ?? '') != ''
+        dependsOn:
+          - dns-resources-account
         components:
           - external-dns
           - external-dns/providers/azure

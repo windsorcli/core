@@ -66,8 +66,15 @@ flux:
       interval: 5m
     # One external-dns instance per zone, writing to the coredns etcd backend.
     resources:
+      - name: account
+        components:
+          - service-account
+        timeout: 5m
+        interval: 5m
       - name: public
         when: (dns.public_domain ?? '') != ''
+        dependsOn:
+          - dns-resources-account
         components:
           - external-dns
           - external-dns/providers/coredns
@@ -78,6 +85,8 @@ flux:
         timeout: 5m
         interval: 5m
       - name: private
+        dependsOn:
+          - dns-resources-account
         components:
           - external-dns
           - external-dns/providers/coredns

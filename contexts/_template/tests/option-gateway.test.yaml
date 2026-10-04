@@ -891,3 +891,43 @@ cases:
                 - envoy/loadbalancer/cilium-ip
               substitutions:
                 gateway_loadbalancer_ip: "10.5.1.10"
+
+  # With a pool-based load balancer and a pool start ending in .255, the external
+  # gateway gets neither a pinned address nor an lb-address patch.
+  - name: pool start ending in 255 skips the external address patches on a pool-based load balancer
+    values:
+      platform: metal
+      gateway:
+        driver: envoy
+      dns:
+        public_domain: example.com
+        private_domain: example.internal
+      network:
+        cidr_block: 10.5.0.0/16
+        loadbalancer_driver: kube-vip
+        loadbalancer_mode: arp
+        loadbalancer_ips:
+          start: "10.5.1.255"
+          end: "10.5.2.100"
+      cluster:
+        <<: *default-cluster
+        cni:
+          driver: flannel
+    expect:
+      flux:
+        - name: gateway
+          resources:
+            - name: internal
+              components:
+                - envoy/loadbalancer/fixed-ip
+                - lb-address
+              substitutions:
+                gateway_loadbalancer_ip: "10.5.1.255"
+    exclude:
+      flux:
+        - name: gateway
+          resources:
+            - name: external
+              components:
+                - envoy/loadbalancer/fixed-ip
+                - lb-address

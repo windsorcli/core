@@ -265,8 +265,15 @@ flux:
       interval: 5m
     # One instance per zone. The HTTPRoute source needs the gateway CRDs.
     resources:
+      - name: account
+        components:
+          - service-account
+        timeout: 5m
+        interval: 5m
       - name: public
         when: (dns.public_domain ?? '') != ''
+        dependsOn:
+          - dns-resources-account
         components:
           - external-dns
           - external-dns/providers/route53
@@ -282,6 +289,8 @@ flux:
         interval: 5m
       - name: private
         when: (dns.private_domain ?? '') != ''
+        dependsOn:
+          - dns-resources-account
         components:
           - external-dns
           - external-dns/providers/route53
