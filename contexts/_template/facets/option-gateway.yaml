@@ -31,6 +31,9 @@ config:
   - name: gateway_effective
     value:
       cert_issuer: "${cert_effective.public_issuer}"
+      # Cilium hands out the pool addresses when it is the CNI and no cloud LB
+      # controller owns them, so each gateway pins its own.
+      cilium_lb: "${cluster.cni.driver == 'cilium' && lb_effective.controller_required != true}"
       internal_ip: "${network.loadbalancer_ips.start ?? ''}"
       external_ip: "${network.loadbalancer_ips.start ?? ''}"
       # The internal gateway is provisioned from dns.private_domain. Hetzner is
@@ -114,6 +117,10 @@ flux:
             ${gateway.driver == 'envoy' && lb_effective.mode == 'loadbalancer' &&
             lb_effective.enabled == true ? 'envoy/loadbalancer/fixed-ip' : ''}
           - >-
+            ${gateway.driver == 'envoy' && lb_effective.mode == 'loadbalancer' &&
+            gateway_effective.cilium_lb == true && (gateway_effective.external_ip ?? '') != '' ?
+            'envoy/loadbalancer/cilium-ip' : ''}
+          - >-
             ${gateway.driver == 'envoy' && lb_effective.mode == 'nodeport' &&
             workstation.runtime == 'docker-desktop' ? 'envoy/nodeport/docker-desktop' : ''}
           # Points the Gateway at its EnvoyProxy (envoy-only data-plane Service config).
@@ -129,8 +136,8 @@ flux:
           gateway_cert_issuer: "${gateway_effective.cert_issuer}"
           gateway_lb_scheme: internet-facing
           gateway_loadbalancer_ip: >-
-            ${(lb_effective.enabled == true || (gateway.driver == 'cilium' &&
-            lb_effective.controller_required != true)) ? gateway_effective.external_ip : ''}
+            ${(lb_effective.enabled == true || gateway_effective.cilium_lb == true) ?
+            gateway_effective.external_ip : ''}
           gateway_dns_target: "${lb_effective.enabled == true ? gateway_effective.external_ip : ''}"
           # HTTPS port the https-redirect 301 targets: docker-desktop forwards
           # the gateway to a host port, cloud and LB use the standard :443.
@@ -162,6 +169,10 @@ flux:
             ${gateway.driver == 'envoy' && lb_effective.mode == 'loadbalancer' &&
             lb_effective.enabled == true ? 'envoy/loadbalancer/fixed-ip' : ''}
           - >-
+            ${gateway.driver == 'envoy' && lb_effective.mode == 'loadbalancer' &&
+            gateway_effective.cilium_lb == true && (gateway_effective.internal_ip ?? '') != '' ?
+            'envoy/loadbalancer/cilium-ip' : ''}
+          - >-
             ${gateway.driver == 'envoy' && lb_effective.mode == 'nodeport' &&
             (dns.private.enabled ?? (dev == true)) == true ? 'envoy/nodeport/dns' : ''}
           - >-
@@ -183,8 +194,8 @@ flux:
           gateway_cert_issuer: private
           gateway_lb_scheme: internal
           gateway_loadbalancer_ip: >-
-            ${(lb_effective.enabled == true || (gateway.driver == 'cilium' &&
-            lb_effective.controller_required != true)) ? gateway_effective.internal_ip : ''}
+            ${(lb_effective.enabled == true || gateway_effective.cilium_lb == true) ?
+            gateway_effective.internal_ip : ''}
           gateway_dns_target: "${lb_effective.enabled == true ? gateway_effective.internal_ip : ''}"
           gateway_redirect_port: "${workstation.runtime == 'docker-desktop' ? '8443' : '443'}"
           gateway_nodeport_http: 30080

@@ -886,3 +886,31 @@ cases:
           resources:
             - components:
                 - public-issuer/selfsigned
+
+  # Envoy on a Cilium cluster: Cilium LBIPAM hands out the addresses, so each
+  # gateway pins its own through the Service annotation. The internal gateway
+  # keeps the pool start.
+  - name: envoy gateways pin their addresses under Cilium LBIPAM
+    values:
+      platform: metal
+      gateway:
+        driver: envoy
+      dns:
+        public_domain: example.com
+        private_domain: example.internal
+      network: *default-network
+      cluster: *default-cluster
+    expect:
+      flux:
+        - name: gateway
+          resources:
+            - name: external
+              components:
+                - envoy/loadbalancer/cilium-ip
+              substitutions:
+                gateway_loadbalancer_ip: "10.5.1.11"
+            - name: internal
+              components:
+                - envoy/loadbalancer/cilium-ip
+              substitutions:
+                gateway_loadbalancer_ip: "10.5.1.10"

@@ -296,6 +296,12 @@ _Enabled when envoy driver AND `lb_effective.mode == 'loadbalancer'` AND this ga
 
 Requests a specific address from the local LB pool via `loadBalancerIP`. Must not apply on cloud platforms, where the LB controller auto-assigns and this field would be meaningless or rejected (issue #2259).
 
+### `envoy/loadbalancer/cilium-ip`
+
+_Enabled when envoy driver AND `lb_effective.mode == 'loadbalancer'` AND Cilium provides the pool addresses._
+
+Pins this gateway's data-plane Service to its pool address with the `lbipam.cilium.io/ips` annotation. Cilium LBIPAM assigns addresses in creation order, so without it the internal gateway can miss the pool start that the workstation's DNS forward target expects.
+
 ### `envoy/loadbalancer/aws-nlb`
 
 _Enabled when envoy driver AND platform is AWS AND `lb_effective.mode == 'loadbalancer'`._

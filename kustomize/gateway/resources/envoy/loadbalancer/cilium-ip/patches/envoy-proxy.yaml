@@ -1,0 +1,18 @@
+---
+# Cilium LBIPAM assigns addresses in creation order, so each gateway pins its
+# own through the Service annotation instead of loadBalancerIP.
+apiVersion: gateway.envoyproxy.io/v1alpha1
+kind: EnvoyProxy
+metadata:
+  name: ${gateway_name}
+  namespace: system-gateway
+spec:
+  provider:
+    kubernetes:
+      envoyService:
+        patch:
+          type: StrategicMerge
+          value:
+            metadata:
+              annotations:
+                lbipam.cilium.io/ips: ${gateway_loadbalancer_ip}
