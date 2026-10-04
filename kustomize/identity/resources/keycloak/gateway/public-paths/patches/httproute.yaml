@@ -1,0 +1,15 @@
+# Limits the login route on the external gateway to the paths an OIDC client
+# and a browser login need, so the admin console and the master realm stay off
+# the public hostname. Unmatched paths get the gateway's 404.
+- op: add
+  path: /spec/rules/0/matches
+  value:
+    - path:
+        type: PathPrefix
+        value: /realms/${keycloak_realm}
+    - path:
+        type: PathPrefix
+        value: /resources/
+    - path:
+        type: PathPrefix
+        value: /.well-known/

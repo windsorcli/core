@@ -337,6 +337,18 @@ _Enabled when `gateway.enabled == true`._
 
 HTTPRoute publishing `keycloak.${keycloak_domain}` through the external gateway when a public domain is set, otherwise the internal one to the operator-managed `keycloak-service`.
 
+### `keycloak/gateway/public-paths`
+
+_Enabled when `dns.public_domain` is set._
+
+Limits the login route on the external gateway to `/realms/${keycloak_realm}`, `/resources/` and `/.well-known/`, so the admin console and the master realm stay off the public hostname. Unmatched paths get the gateway's 404.
+
+### `keycloak/gateway-admin`
+
+_Enabled when the internal gateway exists._
+
+HTTPRoute publishing `keycloak-admin.${private_domain}` through the internal gateway, so the admin console is reachable only on the private network.
+
 ### `keycloak/cilium`
 
 _Enabled when `gateway.driver == 'cilium'`._

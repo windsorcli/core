@@ -137,6 +137,8 @@ flux:
           - "${gateway_effective.internal == true ? 'gateway-resources-internal' : ''}"
         components:
           - keycloak/gateway
+          # Login on the external gateway exposes only the paths a login needs.
+          - "${(dns.public_domain ?? '') != '' ? 'keycloak/gateway/public-paths' : ''}"
           - "${gateway_effective.internal == true ? 'keycloak/gateway-admin' : ''}"
         timeout: 10m
         interval: 5m
@@ -144,6 +146,7 @@ flux:
           keycloak_domain: "${(dns.public_domain ?? '') == '' ? (dns.private_domain ?? '') : dns.public_domain}"
           keycloak_gateway_name: "${(dns.public_domain ?? '') != '' ? 'external' : 'internal'}"
           private_domain: "${dns.private_domain ?? ''}"
+          keycloak_realm: "${identity.keycloak.realm ?? 'platform'}"
 
   # Platform realm — the security baseline and RBAC anchor core owns, plus the OIDC
   # clients for enabled consumers. A one-shot KeycloakRealmImport; the operator

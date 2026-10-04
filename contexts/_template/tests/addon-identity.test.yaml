@@ -651,3 +651,34 @@ cases:
           resources:
             - components:
                 - grafana/dashboards/identity
+
+  # A public domain puts Keycloak login on the external gateway, limited to the
+  # login paths, and the admin console on the internal gateway.
+  - name: public domain limits the external Keycloak route to the login paths
+    values:
+      platform: metal
+      dev: true
+      identity:
+        enabled: true
+        driver: keycloak
+      dns:
+        public_domain: public.example.com
+        private_domain: private.example.com
+      network: *default-network
+      cluster: *default-cluster
+    expect:
+      flux:
+        - name: identity
+          resources:
+            - dependsOn:
+                - gateway-resources-external
+                - gateway-resources-internal
+              components:
+                - keycloak/gateway
+                - keycloak/gateway/public-paths
+                - keycloak/gateway-admin
+              substitutions:
+                keycloak_domain: public.example.com
+                keycloak_gateway_name: external
+                keycloak_realm: platform
+                private_domain: private.example.com
