@@ -53,7 +53,7 @@ flowchart LR
       - grafana/prometheus
     timeout: 15m
     substitutions:
-      external_domain: example.com
+      private_domain: example.com
   resources:
     - components:
         - grafana/dashboards/node
@@ -142,7 +142,7 @@ flowchart LR
       components:
         - kibana/gateway
       substitutions:
-        external_domain: example.com
+        private_domain: example.com
 ```
 
 For teams already standardized on Elasticsearch: fluentd ships to ES
@@ -154,7 +154,7 @@ and Kibana is exposed through the cluster Gateway.
 
 | Name | Required when | Effect |
 |---|---|---|
-| `external_domain` | `grafana/gateway` or `kibana/gateway` is enabled | Hostname suffix for the Grafana / Kibana HTTPRoute. Resolves to `dns.public_domain` when set, otherwise `dns.private_domain`. |
+| `private_domain` | `grafana/gateway` or `kibana/gateway` is enabled | Hostname suffix for the Grafana / Kibana HTTPRoute. Always `dns.private_domain`, since both bind to the internal gateway. |
 | `timezone` | `grafana` is enabled | Grafana display timezone. Sourced from the top-level `timezone` config; defaults to `utc` when unset. |
 | `date_full` | `grafana` is enabled | Grafana full date format. Derived from `time_format` (`12h` switches to 12-hour clock); falls back to `YYYY-MM-DD HH:mm:ss`. |
 | `date_interval_second` | `grafana` is enabled | Grafana second-granularity timestamp format on time series; tracks `time_format`. |
@@ -174,7 +174,7 @@ Helm release of the Grafana chart in `system-observability`. Provides the Grafan
 |---|---|---|
 | `prometheus` | `observability.dashboards == 'grafana'` | Patches the grafana HelmRelease with the Prometheus datasource URL. Pure HelmRelease patch (install tier); the prometheus-internals dashboards ship separately under `grafana/dashboards/` in the resources tier. |
 | `dashboards/*` | varies per dashboard | Per-topic dashboard ConfigMaps loaded by the Grafana sidecar. Always-on: `node`, `kubernetes`, `flux`, `cert-manager`, `fluent-bit`, `fluentd`. Conditional: `cloudnativepg` (when CNPG is the database driver), `postgres-exporter` (when rds is the database driver), `identity` (when identity.driver=keycloak), `longhorn` (when csi=longhorn), `cilium` (when cni=cilium), `envoy` (when gateway.driver=envoy), `logs/quickwit` and `quickwit` (when logs_driver=quickwit). Each ships as a separate component path. |
-| `gateway` | `observability.dashboards == 'grafana'` AND `gateway.enabled: true` | HTTPRoute exposing Grafana at `grafana.${external_domain}` through the cluster Gateway. Skipped on clusters without Gateway API. |
+| `gateway` | `observability.dashboards == 'grafana'` AND `gateway.enabled: true` | HTTPRoute exposing Grafana at `grafana.${private_domain}` through the internal gateway. Skipped on clusters without Gateway API. |
 | `dev` | `dev == true` | Patches the grafana HelmRelease to disable persistence and lower resource requests. Used by dev contexts to keep the footprint small. |
 | `quickwit` | `observability.dashboards == 'grafana'` AND `logs_driver == 'quickwit'` | Adds the Quickwit datasource to Grafana so logs-explore dashboards can query the quickwit indexer. Pure HelmRelease patch (install tier); the logs dashboard ships separately as `grafana/dashboards/logs/quickwit` in the resources tier. |
 
@@ -239,7 +239,7 @@ Helm release of the Kibana chart, wired to the elasticsearch service.
 
 | Variant | Enabled when | Effect |
 |---|---|---|
-| `gateway` | `observability.logs_driver == 'elasticsearch'` AND `gateway.enabled: true` | HTTPRoute exposing Kibana at `kibana.${external_domain}` through the cluster Gateway. |
+| `gateway` | `observability.logs_driver == 'elasticsearch'` AND `gateway.enabled: true` | HTTPRoute exposing Kibana at `kibana.${private_domain}` through the internal gateway. |
 
 ## Dependencies
 
@@ -249,7 +249,7 @@ Helm release of the Kibana chart, wired to the elasticsearch service.
 | `telemetry-resources` | any `logs_driver` is selected | Provides the shared resources (FluentBit / FluentD operator CRDs, ClusterFlow base) the log-driver outputs attach to. |
 | `csi` | `logs_driver == 'quickwit'` OR `logs_driver == 'elasticsearch'` | Quickwit's staging PVC and Elasticsearch's data PVCs both need a working default StorageClass. |
 | `gateway-resources` | `logs_driver == 'elasticsearch'` (always) OR `grafana/gateway` is enabled | HTTPRoutes need the cluster Gateway to be Programmed first. |
-| `dns` | `dns.enabled: true` AND `observability.dashboards == 'grafana'` | External DNS records for `grafana.${external_domain}` and `kibana.${external_domain}` are managed by the dns add-on; without it, hostnames don't resolve. |
+| `dns` | `dns.enabled: true` AND `observability.dashboards == 'grafana'` | External DNS records for `grafana.${private_domain}` and `kibana.${private_domain}` are managed by the dns add-on; without it, hostnames don't resolve. |
 
 <!-- END_KUSTOMIZE_DOCS -->
 

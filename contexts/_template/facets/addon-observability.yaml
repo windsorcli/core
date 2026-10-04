@@ -18,12 +18,11 @@ config:
     value:
       dashboards: "${observability.dashboards ?? 'grafana'}"
 
-  # External Grafana URL (docker-desktop: :8443, else :443).
+  # Grafana URL on the internal gateway (docker-desktop :8443, else :443).
   - name: grafana_effective
     value:
       url: >-
-        ${'https://grafana.' +
-        ((dns.public_domain ?? '') == '' ? (dns.private_domain ?? '') : dns.public_domain) +
+        ${'https://grafana.' + (dns.private_domain ?? '') +
         (workstation.runtime == 'docker-desktop' ? ':8443' : '')}
 
 requires:
@@ -85,7 +84,7 @@ flux:
         # External oidc provider that issued a client secret for Grafana.
         - "${identity.enabled == true && observability.grafana.sso != false && (identity.driver ?? 'keycloak') == 'oidc' && (observability.grafana.client_secret ?? '') != '' ? 'grafana/oidc/client-secret' : ''}"
       substitutions:
-        external_domain: "${(dns.public_domain ?? '') == '' ? (dns.private_domain ?? '') : dns.public_domain}"
+        private_domain: "${dns.private_domain ?? ''}"
         grafana_root_url: "${grafana_effective.url}"
         # generic_oauth inputs — the provider label and endpoints come from identity (one
         # place, both drivers); endpoints default to the issuer's standard OIDC path, with
@@ -132,15 +131,15 @@ flux:
   # Gateway route + Envoy-specific dashboards when the cluster has a Gateway.
   # Waits for gateway-resources so the Gateway exists before the HTTPRoute applies.
   - name: observability
-    when: observability.dashboards == 'grafana' && gateway.enabled == true
+    when: observability.dashboards == 'grafana' && gateway.enabled == true && gateway_effective.internal == true
     resources:
       - dependsOn:
-          - gateway-resources
+          - gateway-resources-internal
         components:
           - grafana/gateway
           - "${gateway.driver == 'envoy' ? 'grafana/dashboards/envoy' : ''}"
         substitutions:
-          external_domain: "${(dns.public_domain ?? '') == '' ? (dns.private_domain ?? '') : dns.public_domain}"
+          private_domain: "${dns.private_domain ?? ''}"
 
   # =============================================================================
   # Log storage drivers — one block fires per logs_driver value
@@ -179,10 +178,10 @@ flux:
           - "${observability.dashboards == 'grafana' ? 'grafana/dashboards/logs/quickwit' : ''}"
           - "${observability.dashboards == 'grafana' ? 'grafana/dashboards/quickwit' : ''}"
 
-  # Elasticsearch + Kibana. Gated on gateway.enabled (Kibana needs an HTTPRoute
-  # to be reachable). Install waits for csi (ES data PVCs).
+  # Elasticsearch + Kibana, gated on the internal gateway.
+  # Install waits for csi (ES data PVCs).
   - name: observability
-    when: observability.logs_driver == 'elasticsearch' && gateway.enabled == true
+    when: observability.logs_driver == 'elasticsearch' && gateway.enabled == true && gateway_effective.internal == true
     dependsOn:
       - csi-install
     install:
@@ -193,13 +192,13 @@ flux:
         - kibana
     resources:
       - dependsOn:
-          - gateway-resources
+          - gateway-resources-internal
         timeout: 10m
         interval: 5m
         components:
           - kibana/gateway
         substitutions:
-          external_domain: "${(dns.public_domain ?? '') == '' ? (dns.private_domain ?? '') : dns.public_domain}"
+          private_domain: "${dns.private_domain ?? ''}"
 
 # =============================================================================
 # Messages — post-run notes printed on bootstrap

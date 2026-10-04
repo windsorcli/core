@@ -1,0 +1,5 @@
+- op: add
+  path: /spec/values/servers/0/zones/-
+  value:
+    zone: ${public_domain}
+    use_tcp: true

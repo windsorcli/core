@@ -28,24 +28,10 @@ x-defaults:
   # dependsOn; the composer wires only dependency-less roots to the `crds` layer,
   # and gateway-install/gateway-resources are not roots.
 
-  # Shared assertion: gateway install tier with envoy loadbalancer. No
-  # fixed-ip here: *default-cluster leaves cni.driver unset, which defaults
-  # to cilium on talos, so lb_effective.enabled is false even though
-  # *default-network sets loadbalancer_driver (cilium has its own L2/BGP LB,
-  # kube-vip's pool goes unused). See the incus fixture for the enabled case.
-  gateway-install-envoy-lb: &gateway-install-envoy-lb
+  # Shared assertion: gateway install tier with envoy.
+  gateway-install-envoy: &gateway-install-envoy
     components:
       - envoy
-      - envoy/loadbalancer
-      - envoy/prometheus
-    timeout: 10m
-    interval: 5m
-
-  # Shared assertion: gateway install tier with envoy nodeport
-  gateway-install-envoy-np: &gateway-install-envoy-np
-    components:
-      - envoy
-      - envoy/nodeport
       - envoy/prometheus
     timeout: 10m
     interval: 5m
@@ -59,31 +45,72 @@ x-defaults:
     timeout: 10m
     interval: 5m
 
-  # Shared assertion: gateway resources tier. The Gateway cert is issued by the
-  # ClusterIssuer pki-resources creates, so the resources tier carries that dep.
+  # Shared assertion: external gateway resources variant, envoy + loadbalancer mode.
   gateway-resources-envoy: &gateway-resources-envoy
+    name: external
     dependsOn:
       - pki-resources
+    components:
+      - envoy/base
+      - envoy/loadbalancer
+      - envoy/parameters
+      - envoy/default-404
+      - envoy/default-404/external-dns
     substitutions:
+      gateway_name: external
       gateway_class_name: envoy
+      gateway_lb_scheme: internet-facing
+    timeout: 10m
+    interval: 5m
+
+  # Shared assertion: internal gateway variant, with the utility components.
+  gateway-resources-envoy-internal: &gateway-resources-envoy-internal
+    name: internal
+    dependsOn:
+      - pki-resources
+    components:
+      - envoy/base
+      - envoy/loadbalancer
+      - envoy/parameters
+      - envoy/default-404
+      - envoy/default-404/external-dns
+      - flux-webhook
+    substitutions:
+      gateway_name: internal
+      gateway_class_name: envoy
+      gateway_cert_issuer: private
     timeout: 10m
     interval: 5m
 
   gateway-resources-cilium: &gateway-resources-cilium
+    name: external
     dependsOn:
       - pki-resources
       - cni-install
     substitutions:
       gateway_class_name: cilium
-      loadbalancer_start_ip: "10.5.1.10"
+      gateway_loadbalancer_ip: "10.5.1.10"
+    timeout: 10m
+    interval: 5m
+
+  # Internal variant: the single-gateway case takes the pool start.
+  gateway-resources-cilium-internal: &gateway-resources-cilium-internal
+    name: internal
+    dependsOn:
+      - pki-resources
+      - cni-install
+    substitutions:
+      gateway_class_name: cilium
     timeout: 10m
     interval: 5m
 
 cases:
-  # Minimal: zero-config on metal defaults to cilium CNI → cilium gateway
+  # Zero config on metal: the cilium gateway, with dns.private_domain standing in for the dev default.
   - name: zero config on metal defaults to cilium gateway
     values:
       platform: metal
+      dns:
+        private_domain: test
       network: *default-network
       cluster: *default-cluster
     expect:
@@ -92,7 +119,7 @@ cases:
           install:
             <<: *gateway-install-cilium
           resources:
-            - <<: *gateway-resources-cilium
+            - <<: *gateway-resources-cilium-internal
       crds:
         # renovate: datasource=github-releases depName=kubernetes-sigs/gateway-api package=kubernetes-sigs/gateway-api
         - gateway-api-experimental-1.6.2
@@ -105,6 +132,8 @@ cases:
   - name: Docker Desktop uses nodeport gateway
     values:
       platform: docker
+      dns:
+        private_domain: test
       gateway:
         enabled: true
         driver: envoy
@@ -126,16 +155,18 @@ cases:
       flux:
         - name: gateway
           install:
-            components:
-              - envoy
-              - envoy/nodeport
-              - envoy/nodeport/docker-desktop
-              - envoy/prometheus
-            timeout: 10m
-            interval: 5m
+            <<: *gateway-install-envoy
           resources:
-            # docker-desktop reaches HTTPS on host :8443, so the redirect targets it.
-            - substitutions:
+            - name: internal
+              components:
+                - envoy/base
+                - envoy/nodeport
+                - envoy/parameters
+                - envoy/default-404
+                - envoy/default-404/external-dns
+                - flux-webhook
+              # docker-desktop reaches HTTPS on host :8443 (internal nodeport), so the redirect targets it.
+              substitutions:
                 gateway_class_name: envoy
                 gateway_redirect_port: "8443"
 
@@ -175,6 +206,8 @@ cases:
   - name: platform docker with runtime colima uses gateway loadbalancer
     values:
       platform: docker
+      dns:
+        private_domain: test
       gateway:
         enabled: true
         driver: envoy
@@ -196,14 +229,16 @@ cases:
       flux:
         - name: gateway
           install:
-            <<: *gateway-install-envoy-lb
+            <<: *gateway-install-envoy
           resources:
-            - <<: *gateway-resources-envoy
+            - <<: *gateway-resources-envoy-internal
 
   # Envoy driver
   - name: envoy driver deploys gateway-install with envoy and gateway-resources
     values:
       platform: metal
+      dns:
+        private_domain: test
       gateway:
         enabled: true
         driver: envoy
@@ -215,9 +250,9 @@ cases:
           dependsOn:
             - telemetry-install
           install:
-            <<: *gateway-install-envoy-lb
+            <<: *gateway-install-envoy
           resources:
-            - <<: *gateway-resources-envoy
+            - <<: *gateway-resources-envoy-internal
       crds:
         # renovate: datasource=github-releases depName=kubernetes-sigs/gateway-api package=kubernetes-sigs/gateway-api
         - gateway-api-experimental-1.6.2
@@ -228,6 +263,8 @@ cases:
   - name: envoy on Docker Desktop uses nodeport variant
     values:
       platform: docker
+      dns:
+        private_domain: test
       gateway:
         enabled: true
         driver: envoy
@@ -249,9 +286,16 @@ cases:
       flux:
         - name: gateway
           install:
-            <<: *gateway-install-envoy-np
+            <<: *gateway-install-envoy
           resources:
-            - <<: *gateway-resources-envoy
+            - name: internal
+              components:
+                - envoy/base
+                - envoy/nodeport
+                - envoy/parameters
+                - envoy/default-404
+                - envoy/default-404/external-dns
+                - flux-webhook
 
   # Explicit gateway.service_type: NodePort works on any platform (e.g. a bare
   # metal single-node cluster with no cluster LB). Network omits
@@ -260,6 +304,8 @@ cases:
   - name: explicit gateway.service_type NodePort selects nodeport variant on metal with no LB
     values:
       platform: metal
+      dns:
+        private_domain: test
       gateway:
         enabled: true
         driver: envoy
@@ -271,9 +317,16 @@ cases:
       flux:
         - name: gateway
           install:
-            <<: *gateway-install-envoy-np
+            <<: *gateway-install-envoy
           resources:
-            - <<: *gateway-resources-envoy
+            - name: internal
+              components:
+                - envoy/base
+                - envoy/nodeport
+                - envoy/parameters
+                - envoy/default-404
+                - envoy/default-404/external-dns
+                - flux-webhook
 
   # NodePort must suppress lb_effective.enabled even when loadbalancer_driver
   # is configured: a NodePort service will never get a LoadBalancer IP, so
@@ -283,6 +336,8 @@ cases:
   - name: explicit NodePort suppresses lb-address even when loadbalancer_driver is set
     values:
       platform: metal
+      dns:
+        private_domain: test
       gateway:
         enabled: true
         driver: envoy
@@ -296,9 +351,10 @@ cases:
       flux:
         - name: gateway
           install:
-            <<: *gateway-install-envoy-np
+            <<: *gateway-install-envoy
           resources:
-            - components:
+            - name: internal
+              components:
                 - flux-webhook
               substitutions:
                 gateway_class_name: envoy
@@ -308,6 +364,8 @@ cases:
   - name: explicit gateway.service_type LoadBalancer overrides docker-desktop default
     values:
       platform: docker
+      dns:
+        private_domain: test
       gateway:
         enabled: true
         driver: envoy
@@ -330,14 +388,16 @@ cases:
       flux:
         - name: gateway
           install:
-            <<: *gateway-install-envoy-lb
+            <<: *gateway-install-envoy
           resources:
-            - <<: *gateway-resources-envoy
+            - <<: *gateway-resources-envoy-internal
 
   # Backward compatibility: ingress alias still works
   - name: legacy ingress alias maps envoy-gateway to envoy
     values:
       platform: metal
+      dns:
+        private_domain: test
       ingress:
         enabled: true
         driver: envoy-gateway
@@ -347,9 +407,9 @@ cases:
       flux:
         - name: gateway
           install:
-            <<: *gateway-install-envoy-lb
+            <<: *gateway-install-envoy
           resources:
-            - <<: *gateway-resources-envoy
+            - <<: *gateway-resources-envoy-internal
       crds:
         # renovate: datasource=github-releases depName=kubernetes-sigs/gateway-api package=kubernetes-sigs/gateway-api
         - gateway-api-experimental-1.6.2
@@ -359,6 +419,8 @@ cases:
   - name: legacy ingress alias maps nginx to envoy
     values:
       platform: metal
+      dns:
+        private_domain: test
       ingress:
         enabled: true
         driver: nginx
@@ -368,9 +430,9 @@ cases:
       flux:
         - name: gateway
           install:
-            <<: *gateway-install-envoy-lb
+            <<: *gateway-install-envoy
           resources:
-            - <<: *gateway-resources-envoy
+            - <<: *gateway-resources-envoy-internal
 
   # Gateway disabled
   - name: excludes gateway when disabled
@@ -420,6 +482,8 @@ cases:
   - name: envoy driver includes webhook/gateway in gitops component
     values:
       platform: metal
+      dns:
+        private_domain: test
       gateway:
         enabled: true
         driver: envoy
@@ -430,7 +494,7 @@ cases:
         - name: gitops
           path: gitops
           dependsOn:
-            - gateway-resources
+            - gateway-resources-internal
           resources:
             - components:
                 - webhook
@@ -450,12 +514,14 @@ cases:
       flux:
         - name: gateway
           install:
-            <<: *gateway-install-envoy-lb
+            <<: *gateway-install-envoy
 
   # Cilium driver — GatewayClass only; controller is part of Cilium CNI DaemonSet
   - name: cilium driver deploys gateway-install with cilium and gateway-resources
     values:
       platform: metal
+      dns:
+        private_domain: test
       gateway:
         enabled: true
         driver: cilium
@@ -467,11 +533,13 @@ cases:
           install:
             <<: *gateway-install-cilium
           resources:
-            - <<: *gateway-resources-cilium
+            - <<: *gateway-resources-cilium-internal
 
   - name: cilium driver includes webhook/gateway and webhook/gateway/cilium in gitops component
     values:
       platform: metal
+      dns:
+        private_domain: test
       gateway:
         enabled: true
         driver: cilium
@@ -482,7 +550,7 @@ cases:
         - name: gitops
           path: gitops
           dependsOn:
-            - gateway-resources
+            - gateway-resources-internal
           resources:
             - components:
                 - webhook
@@ -496,6 +564,8 @@ cases:
   - name: web_ui enabled adds ui component to gitops-resources on envoy
     values:
       platform: metal
+      dns:
+        private_domain: test
       gateway:
         enabled: true
         driver: envoy
@@ -508,7 +578,7 @@ cases:
         - name: gitops
           path: gitops
           dependsOn:
-            - gateway-resources
+            - gateway-resources-internal
           resources:
             - timeout: 5m
               interval: 5m
@@ -524,6 +594,8 @@ cases:
   - name: web_ui enabled on cilium adds ui/cilium to gitops-resources
     values:
       platform: metal
+      dns:
+        private_domain: test
       gateway:
         enabled: true
         driver: cilium
@@ -546,6 +618,8 @@ cases:
   - name: web_ui defaults off so gitops-resources has no ui component
     values:
       platform: metal
+      dns:
+        private_domain: test
       gateway:
         enabled: true
         driver: envoy
@@ -564,6 +638,8 @@ cases:
   - name: local envoy gateway-resources includes lb-address when loadbalancer IP configured
     values:
       platform: metal
+      dns:
+        public_domain: test
       gateway:
         enabled: true
         driver: envoy
@@ -576,20 +652,24 @@ cases:
       flux:
         - name: gateway
           resources:
-            - components:
+            - name: external
+              components:
                 - lb-address
               substitutions:
                 gateway_class_name: envoy
-                loadbalancer_start_ip: "10.5.1.10"
+                gateway_loadbalancer_ip: "10.5.1.10"
 
   # AWS uses a cloud-managed LB (lb_effective.enabled == false) and is not cilium,
-  # so loadbalancer_start_ip and gateway_dns_target both evaluate to "" and are
+  # so gateway_loadbalancer_ip and gateway_dns_target both evaluate to "" and are
   # omitted from output. Only gateway_class_name remains.
   - name: aws envoy gateway-resources omits loadbalancer substitutions
     values:
       platform: aws
       aws:
         region: us-west-2
+      email: ops@example.com
+      dns:
+        public_domain: example.com
       gateway:
         enabled: true
         driver: envoy
@@ -597,17 +677,13 @@ cases:
       flux:
         - name: gateway
           resources:
-            - substitutions:
+            - name: external
+              substitutions:
                 gateway_class_name: envoy
               timeout: 10m
               interval: 5m
 
-  # Cert issuer + external_domain defaults: on platforms without ACME
-  # wiring (no acme_effective.enabled), gateway_cert_issuer must default
-  # to `private` and external_domain must come from dns.private_domain
-  # (the platform-base `dns` config block resolves the effective value
-  # from private_domain → domain → "test" in dev). Regression guard for
-  # the cert-issuer abstraction in option-gateway.
+  # The internal gateway's issuer is always `private`, and gateway_domain is dns.private_domain.
   - name: non-ACME platform defaults gateway_cert_issuer to private and uses private_domain
     values:
       platform: metal
@@ -622,17 +698,14 @@ cases:
       flux:
         - name: gateway
           resources:
-            - substitutions:
+            - name: internal
+              substitutions:
                 gateway_class_name: envoy
                 gateway_cert_issuer: private
-                external_domain: cluster.local
+                gateway_domain: cluster.local
 
-  # No domain set on a cloud platform is the "just works" selfsigned path
-  # (the cheap default deploy). external_domain must still render a valid
-  # cert SAN, not the literal "null" cert-manager rejects, and the issuer
-  # degrades to public-selfsigned. Regression guard for the gateway cert
-  # SAN fallback chain (… → dns.domain → '<id>.local').
-  - name: aws with no domain renders a valid selfsigned cert SAN
+  # No domain set: neither gateway is provisioned.
+  - name: aws with no domain provisions no gateway at all
     values:
       platform: aws
       aws:
@@ -642,19 +715,17 @@ cases:
         driver: envoy
       network: *default-network
       cluster: *default-cluster
-    expect:
+    exclude:
       flux:
         - name: gateway
           resources:
-            - substitutions:
-                gateway_class_name: envoy
-                gateway_cert_issuer: public-selfsigned
-                external_domain: windsor.local
+            - name: external
+        - name: gateway
+          resources:
+            - name: internal
 
-  # dns.domain set (no public/private) exercises the intermediate branch of
-  # the fallback chain (… → dns.domain → '<id>.local'): external_domain
-  # resolves to dns.domain, and the issuer still degrades to public-selfsigned.
-  - name: aws with only dns.domain renders that domain as selfsigned cert SAN
+  # dns.private_domain alone provisions the internal gateway only, with the private issuer.
+  - name: aws with only dns.private_domain provisions the internal gateway with a private issuer
     values:
       platform: aws
       aws:
@@ -663,19 +734,25 @@ cases:
         enabled: true
         driver: envoy
       dns:
-        domain: example.com
+        private_domain: example.com
       network: *default-network
       cluster: *default-cluster
     expect:
       flux:
         - name: gateway
           resources:
-            - substitutions:
+            - name: internal
+              substitutions:
                 gateway_class_name: envoy
-                gateway_cert_issuer: public-selfsigned
-                external_domain: example.com
+                gateway_cert_issuer: private
+                gateway_domain: example.com
                 # No docker-desktop host-forward: redirect targets the standard :443.
                 gateway_redirect_port: "443"
+    exclude:
+      flux:
+        - name: gateway
+          resources:
+            - name: external
 
   # gitops.mode=pull drops the Flux Receiver kustomize entirely and propagates
   # mode=pull to the gitops/flux terraform module (which then skips
@@ -700,23 +777,7 @@ cases:
       flux:
         - name: gitops
 
-  # Requires: private gateway without dns.private_domain silently falls back
-  # to the public branch (cert, DNS, LB scheme), so option-gateway fails at
-  # config-load instead.
-  - name: gateway access private without dns.private_domain fails composition
-    values:
-      platform: metal
-      gateway:
-        enabled: true
-        driver: envoy
-        access: private
-      network: *default-network
-      cluster: *default-cluster
-    expectError: true
-
-  # Regression (#2311): dns.public_domain enables dns without shipping dns-install on
-  # metal/incus. The gateway resources tier must depend only on pki-resources, or composition
-  # dangles on a dns-install that was never contributed.
+  # The gateway resources tier depends only on pki-resources, since dns-install may not exist.
   - name: gateway resources omit dns-install when dns is enabled on a provider-less platform
     values:
       platform: metal
@@ -733,3 +794,164 @@ cases:
         - name: gateway
           resources:
             - <<: *gateway-resources-envoy
+
+  # The deprecated dns.domain is the private domain only; it never provisions the external gateway.
+  - name: deprecated dns.domain provisions only the internal gateway
+    values:
+      platform: metal
+      dns:
+        domain: example.com
+      gateway:
+        enabled: true
+        driver: envoy
+      network: *default-network
+      cluster: *default-cluster
+    expect:
+      flux:
+        - name: gateway
+          resources:
+            - name: internal
+              substitutions:
+                gateway_domain: example.com
+    exclude:
+      flux:
+        - name: gateway
+          resources:
+            - name: external
+
+  # Both domains: the internal gateway takes the pool start, the external one the next address.
+  - name: both gateways split the load balancer pool start and the next address
+    values:
+      platform: metal
+      dns:
+        public_domain: example.com
+        private_domain: example.internal
+      network: *default-network
+      cluster: *default-cluster
+    expect:
+      flux:
+        - name: gateway
+          resources:
+            - name: external
+              substitutions:
+                gateway_loadbalancer_ip: "10.5.1.11"
+            - name: internal
+              substitutions:
+                gateway_loadbalancer_ip: "10.5.1.10"
+
+  # A pool start ending in .255 leaves the external address to the load balancer.
+  - name: pool start ending in 255 leaves the external gateway address unpinned
+    values:
+      platform: metal
+      dns:
+        public_domain: example.com
+        private_domain: example.internal
+      network:
+        cidr_block: 10.5.0.0/16
+        loadbalancer_driver: kube-vip
+        loadbalancer_mode: arp
+        loadbalancer_ips:
+          start: "10.5.1.255"
+          end: "10.5.2.100"
+      cluster: *default-cluster
+    expect:
+      flux:
+        - name: gateway
+          resources:
+            - name: internal
+              substitutions:
+                gateway_loadbalancer_ip: "10.5.1.255"
+    exclude:
+      flux:
+        - name: gateway
+          resources:
+            - name: external
+              components:
+                - cilium/fixed-ip
+
+  # A public domain on a platform without cloud DNS keeps the selfsigned public issuer.
+  - name: public domain on metal uses the selfsigned public issuer
+    values:
+      platform: metal
+      dns:
+        public_domain: example.com
+        private_domain: example.internal
+      network: *default-network
+      cluster: *default-cluster
+    expect:
+      flux:
+        - name: gateway
+          resources:
+            - name: external
+              substitutions:
+                gateway_cert_issuer: public-selfsigned
+        - name: pki
+          resources:
+            - components:
+                - public-issuer/selfsigned
+
+  # Envoy on Cilium: each gateway pins its address, and the internal gateway keeps the pool start.
+  - name: envoy gateways pin their addresses under Cilium LBIPAM
+    values:
+      platform: metal
+      gateway:
+        driver: envoy
+      dns:
+        public_domain: example.com
+        private_domain: example.internal
+      network: *default-network
+      cluster: *default-cluster
+    expect:
+      flux:
+        - name: gateway
+          resources:
+            - name: external
+              components:
+                - envoy/loadbalancer/cilium-ip
+              substitutions:
+                gateway_loadbalancer_ip: "10.5.1.11"
+            - name: internal
+              components:
+                - envoy/loadbalancer/cilium-ip
+              substitutions:
+                gateway_loadbalancer_ip: "10.5.1.10"
+
+  # With a pool-based load balancer and a pool start ending in .255, the external
+  # gateway gets neither a pinned address nor an lb-address patch.
+  - name: pool start ending in 255 skips the external address patches on a pool-based load balancer
+    values:
+      platform: metal
+      gateway:
+        driver: envoy
+      dns:
+        public_domain: example.com
+        private_domain: example.internal
+      network:
+        cidr_block: 10.5.0.0/16
+        loadbalancer_driver: kube-vip
+        loadbalancer_mode: arp
+        loadbalancer_ips:
+          start: "10.5.1.255"
+          end: "10.5.2.100"
+      cluster:
+        <<: *default-cluster
+        cni:
+          driver: flannel
+    expect:
+      flux:
+        - name: gateway
+          resources:
+            - name: internal
+              components:
+                - envoy/loadbalancer/fixed-ip
+                - lb-address
+              substitutions:
+                gateway_loadbalancer_ip: "10.5.1.255"
+    exclude:
+      flux:
+        - name: gateway
+          resources:
+            - name: external
+              components:
+                - envoy/loadbalancer/fixed-ip
+                - lb-address

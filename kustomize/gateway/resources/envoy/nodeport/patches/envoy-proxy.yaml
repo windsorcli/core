@@ -1,0 +1,28 @@
+---
+# NodePort Service for this gateway, with ports from gateway_nodeport_http and gateway_nodeport_https.
+apiVersion: gateway.envoyproxy.io/v1alpha1
+kind: EnvoyProxy
+metadata:
+  name: ${gateway_name}
+  namespace: system-gateway
+spec:
+  provider:
+    kubernetes:
+      envoyService:
+        patch:
+          type: JSONMerge
+          value:
+            spec:
+              type: NodePort
+              externalTrafficPolicy: Cluster
+              ports:
+                - name: http-80
+                  protocol: TCP
+                  port: 80
+                  targetPort: 10080
+                  nodePort: ${gateway_nodeport_http}
+                - name: https-443
+                  protocol: TCP
+                  port: 443
+                  targetPort: 10443
+                  nodePort: ${gateway_nodeport_https}

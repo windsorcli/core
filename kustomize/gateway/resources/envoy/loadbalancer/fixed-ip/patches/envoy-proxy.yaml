@@ -1,0 +1,16 @@
+---
+# Requests a specific address from the local LB pool. Cloud LB controllers auto-assign and must not set it.
+apiVersion: gateway.envoyproxy.io/v1alpha1
+kind: EnvoyProxy
+metadata:
+  name: ${gateway_name}
+  namespace: system-gateway
+spec:
+  provider:
+    kubernetes:
+      envoyService:
+        patch:
+          type: StrategicMerge
+          value:
+            spec:
+              loadBalancerIP: ${gateway_loadbalancer_ip}

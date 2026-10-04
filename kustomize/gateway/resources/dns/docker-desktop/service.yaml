@@ -16,7 +16,7 @@ spec:
   selector:
     app.kubernetes.io/name: envoy
     app.kubernetes.io/managed-by: envoy-gateway
-    gateway.envoyproxy.io/owning-gateway-name: external
+    gateway.envoyproxy.io/owning-gateway-name: internal
     gateway.envoyproxy.io/owning-gateway-namespace: system-gateway
   ports:
     - name: http-80

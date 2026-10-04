@@ -298,13 +298,14 @@ cases:
                 cert_manager_tenant_id: 33333333-cccc-cccc-cccc-333333333333
         - name: gateway
           resources:
-            - components:
+            # Only the external variant renders without dns.private_domain.
+            - name: external
+              components:
                 - envoy/default-404
                 - envoy/default-404/external-dns
-                - flux-webhook
               substitutions:
                 gateway_cert_issuer: public-acme
-                external_domain: example.com
+                gateway_domain: example.com
         # Gateway-on + public-domain path: external-dns layers the
         # gateway-httproute source on top of the azure provider. HTTPRoute CRDs
         # come from the crds layer, so no gateway-install dep. Locks the
@@ -315,15 +316,24 @@ cases:
           install:
             components:
               - external-dns
-              - external-dns/providers/azure
-              - external-dns/sources/gateway-httproute
-            substitutions:
-              external_domain: example.com
-              zone_id_filter: /subscriptions/12345678-1234-9876-4563-123456789012/resourceGroups/rg-dns/providers/Microsoft.Network/dnszones/example.com
-              external_dns_client_id: 22222222-bbbb-bbbb-bbbb-222222222222
-              external_dns_tenant_id: 33333333-cccc-cccc-cccc-333333333333
-              external_dns_dns_zone_subscription_id: 12345678-1234-9876-4563-123456789012
-              external_dns_dns_zone_resource_group: rg-dns
+          resources:
+            - name: account
+              components:
+                - service-account
+                - service-account/providers/azure
+              substitutions:
+                external_dns_client_id: 22222222-bbbb-bbbb-bbbb-222222222222
+                external_dns_tenant_id: 33333333-cccc-cccc-cccc-333333333333
+            - name: public
+              components:
+                - external-dns/providers/azure
+                - external-dns/sources/gateway-httproute
+              substitutions:
+                external_dns_name: external-dns-public
+                external_dns_domain: example.com
+                external_dns_azure_provider: azure
+                external_dns_subscription_id: 12345678-1234-9876-4563-123456789012
+                external_dns_resource_group: rg-dns
 
   # Dev mode flips the ACME server to Let's Encrypt staging to avoid
   # burning Let's Encrypt prod rate limits during iteration.
@@ -365,22 +375,19 @@ cases:
           install:
             components:
               - envoy
-              - envoy/loadbalancer
               - envoy/prometheus
+          resources:
+            - name: external
+              components:
+                - envoy/loadbalancer
 
-  # Private mode flips the AKS Standard LB to internal so the gateway only
-  # exposes a private subnet IP. Same gating as the AWS aws-nlb internal
-  # toggle (requires dns.private_domain, otherwise the rest of the private
-  # cascade no-ops and the gateway runs as public). public_domain is also
-  # set here to exercise the public+private overlap; the private-only path
-  # is covered by the case below.
-  - name: gateway.access=private flips the Azure LB to internal
+  # The internal gateway always gets the AKS internal load balancer annotation.
+  - name: internal gateway flips the Azure LB to internal automatically
     values:
       platform: azure
       gateway:
         enabled: true
         driver: envoy
-        access: private
       dns:
         public_domain: example.com
         private_domain: internal.example.com
@@ -391,9 +398,15 @@ cases:
           install:
             components:
               - envoy
-              - envoy/loadbalancer
-              - envoy/loadbalancer/azure-lb-internal
               - envoy/prometheus
+          resources:
+            - name: external
+              components:
+                - envoy/loadbalancer
+            - name: internal
+              components:
+                - envoy/loadbalancer
+                - envoy/loadbalancer/azure
 
   # Private-only mode: dns.private_domain set, no public_domain. The dns-zone
   # stack is never registered, so every dns-zone terraform_output must be
@@ -406,7 +419,6 @@ cases:
       gateway:
         enabled: true
         driver: envoy
-        access: private
       dns:
         private_domain: internal.example.com
     terraformOutputs:
@@ -422,14 +434,21 @@ cases:
           install:
             components:
               - external-dns
-              - external-dns/providers/azure
-              - external-dns/sources/gateway-httproute
-            substitutions:
-              external_domain: internal.example.com
-              external_dns_azure_provider: azure-private-dns
-              zone_id_filter: /subscriptions/sub-123/resourceGroups/rg-net/providers/Microsoft.Network/privateDnsZones/internal.example.com
-              external_dns_dns_zone_subscription_id: sub-123
-              external_dns_dns_zone_resource_group: rg-net
+          resources:
+            - name: account
+              components:
+                - service-account
+                - service-account/providers/azure
+            - name: private
+              components:
+                - external-dns/providers/azure
+                - external-dns/sources/gateway-httproute
+              substitutions:
+                external_dns_name: external-dns-private
+                external_dns_domain: internal.example.com
+                external_dns_azure_provider: azure-private-dns
+                external_dns_subscription_id: sub-123
+                external_dns_resource_group: rg-net
         # Private mode falls to the selfsigned issuer; its acme_* dns-zone
         # substitutions resolve to empty without touching the unregistered
         # dns-zone component.
@@ -454,12 +473,12 @@ cases:
             components:
               - cilium
 
-  # Negative branch: NodePort service_type means no LoadBalancer Service,
-  # so the internal-LB annotation has nothing to attach to. The
-  # azure-lb-internal component must NOT merge into the nodeport gateway install.
+  # envoy/loadbalancer/azure does not merge into nodeport gateways.
   - name: gateway with envoy and NodePort service_type on Azure does not add azure-lb-internal component
     values:
       platform: azure
+      dns:
+        private_domain: test
       gateway:
         enabled: true
         driver: envoy
@@ -470,6 +489,8 @@ cases:
           install:
             components:
               - envoy
-              - envoy/nodeport
               - envoy/prometheus
-
+          resources:
+            - name: internal
+              components:
+                - envoy/nodeport

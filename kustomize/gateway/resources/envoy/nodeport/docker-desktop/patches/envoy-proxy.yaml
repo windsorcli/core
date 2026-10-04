@@ -1,0 +1,15 @@
+# Adds this gateway's host-published ports to the data-plane Service so in-cluster callers can reach them.
+- op: add
+  path: /spec/provider/kubernetes/envoyService/patch/value/spec/ports/-
+  value:
+    name: https-${gateway_host_https_port}
+    protocol: TCP
+    port: ${gateway_host_https_port}
+    targetPort: 10443
+- op: add
+  path: /spec/provider/kubernetes/envoyService/patch/value/spec/ports/-
+  value:
+    name: http-${gateway_host_http_port}
+    protocol: TCP
+    port: ${gateway_host_http_port}
+    targetPort: 10080

@@ -13,8 +13,7 @@ CRs that depend on it. `install` installs cert-manager (trust-manager
 is added when the private-CA addon is enabled), plus optional patches
 that enable Prometheus scraping, Azure workload identity, and
 single-node leader-election tweaks. `resources` applies one or more
-ClusterIssuers depending on the cluster's DNS and gateway-access
-posture, and implicitly depends on `install` (compiled name:
+ClusterIssuers depending on whether a public domain is set, and implicitly depends on `install` (compiled name:
 `pki-install` / `pki-resources`); the ACME and private-CA variants
 also depend on `policy-resources` for the private-CA inject policy.
 

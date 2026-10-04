@@ -4,9 +4,9 @@
 # or dependencies change.
 
 substitutions:
-  external_domain:
+  private_domain:
     required_when: "`grafana/gateway` or `kibana/gateway` is enabled"
-    description: "Hostname suffix for the Grafana / Kibana HTTPRoute. Resolves to `dns.public_domain` when set, otherwise `dns.private_domain`."
+    description: "Hostname suffix for the Grafana / Kibana HTTPRoute. Always `dns.private_domain`, since both bind to the internal gateway."
   timezone:
     required_when: "`grafana` is enabled"
     description: "Grafana display timezone. Sourced from the top-level `timezone` config; defaults to `utc` when unset."
@@ -39,7 +39,7 @@ components:
         description: "Per-topic dashboard ConfigMaps loaded by the Grafana sidecar. Always-on: `node`, `kubernetes`, `flux`, `cert-manager`, `fluent-bit`, `fluentd`. Conditional: `cloudnativepg` (when CNPG is the database driver), `postgres-exporter` (when rds is the database driver), `identity` (when identity.driver=keycloak), `longhorn` (when csi=longhorn), `cilium` (when cni=cilium), `envoy` (when gateway.driver=envoy), `logs/quickwit` and `quickwit` (when logs_driver=quickwit). Each ships as a separate component path."
       gateway:
         enable_when: "`observability.dashboards == 'grafana'` AND `gateway.enabled: true`"
-        description: "HTTPRoute exposing Grafana at `grafana.${external_domain}` through the cluster Gateway. Skipped on clusters without Gateway API."
+        description: "HTTPRoute exposing Grafana at `grafana.${private_domain}` through the internal gateway. Skipped on clusters without Gateway API."
       dev:
         enable_when: "`dev == true`"
         description: "Patches the grafana HelmRelease to disable persistence and lower resource requests. Used by dev contexts to keep the footprint small."
@@ -83,7 +83,7 @@ components:
     variants:
       gateway:
         enable_when: "`observability.logs_driver == 'elasticsearch'` AND `gateway.enabled: true`"
-        description: "HTTPRoute exposing Kibana at `kibana.${external_domain}` through the cluster Gateway."
+        description: "HTTPRoute exposing Kibana at `kibana.${private_domain}` through the internal gateway."
 
 dependencies:
   telemetry-install:
@@ -100,4 +100,4 @@ dependencies:
     reason: "HTTPRoutes need the cluster Gateway to be Programmed first."
   dns:
     required_when: "`dns.enabled: true` AND `observability.dashboards == 'grafana'`"
-    reason: "External DNS records for `grafana.${external_domain}` and `kibana.${external_domain}` are managed by the dns add-on; without it, hostnames don't resolve."
+    reason: "External DNS records for `grafana.${private_domain}` and `kibana.${private_domain}` are managed by the dns add-on; without it, hostnames don't resolve."

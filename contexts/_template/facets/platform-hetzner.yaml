@@ -169,8 +169,7 @@ config:
   # cloud node lifecycle (topology labels) is not managed; not needed here.
 
   # issuer_component selects the public ClusterIssuer variant (last match wins):
-  # selfsigned floor → ACME/hetzner with a public domain → none in private mode,
-  # where the gateway cert uses the `private` issuer platform-base ships.
+  # selfsigned floor, then ACME/hetzner once a public domain is set.
   - name: pki_effective
     value:
       issuer_component: public-issuer/selfsigned
@@ -178,10 +177,6 @@ config:
     when: (dns.public_domain ?? '') != ''
     value:
       issuer_component: public-issuer/acme/hetzner
-  - name: pki_effective
-    when: gateway.access == 'private' && (dns.private_domain ?? '') != ''
-    value:
-      issuer_component: ""
 
   # Derivable only from compute output; empty string otherwise, so the caller
   # falls back to an explicit cluster.endpoint.
@@ -318,14 +313,15 @@ flux:
   # by hcloud-ccm. Ordering the controller to tear down after the Service
   # avoids stuck finalizers on destroy.
   - name: gateway
-    when: "gateway.enabled == true && gateway.driver == 'envoy' && lb_effective.mode == 'loadbalancer'"
-    dependsOn:
-      - lb-install
-    install:
-      components:
-        - envoy/loadbalancer/hcloud-lb
-      substitutions:
-        hcloud_location: "${hetzner.location ?? 'ash'}"
+    when: "gateway.enabled == true && gateway.driver == 'envoy' && lb_effective.mode == 'loadbalancer' && (dns.public_domain ?? '') != ''"
+    resources:
+      - name: external
+        dependsOn:
+          - lb-install
+        components:
+          - envoy/loadbalancer/hcloud-lb
+        substitutions:
+          hcloud_location: "${hetzner.location ?? 'ash'}"
 
   # hcloud cloud-controller-manager — Cloud LB provisioning. windsor materializes
   # the `hcloud` Secret (token + network id) into system-lb from the secrets: block.
@@ -377,13 +373,27 @@ flux:
     install:
       components:
         - external-dns
-        - external-dns/providers/hetzner
-        - "${gateway.enabled == true ? 'external-dns/sources/gateway-httproute' : ''}"
       timeout: 5m
       interval: 5m
-      substitutions:
-        external_domain: "${dns.public_domain ?? ''}"
-        txt_owner_id: "${id}"
+    resources:
+      - name: account
+        components:
+          - service-account
+        timeout: 5m
+        interval: 5m
+      - name: public
+        dependsOn:
+          - dns-resources-account
+        components:
+          - external-dns
+          - external-dns/providers/hetzner
+          - "${gateway.enabled == true ? 'external-dns/sources/gateway-httproute' : ''}"
+        substitutions:
+          external_dns_name: external-dns-public
+          external_dns_domain: "${dns.public_domain ?? ''}"
+          txt_owner_id: "${id}"
+        timeout: 5m
+        interval: 5m
 
   # Multi-namespace system — pki-install creates both system-pki and
   # system-pki-trust, so the target is named explicitly. cert-manager's ACME
