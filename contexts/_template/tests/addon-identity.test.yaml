@@ -30,7 +30,7 @@ cases:
     values:
       platform: metal
       dns:
-        domain: example.local
+        private_domain: example.local
       gateway:
         enabled: true
       network: *default-network
@@ -175,7 +175,7 @@ cases:
     values:
       platform: docker
       dns:
-        domain: example.local
+        private_domain: example.local
       gateway:
         enabled: true
         driver: envoy
