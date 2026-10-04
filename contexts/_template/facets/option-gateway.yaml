@@ -111,7 +111,7 @@ flux:
           - >-
             ${gateway.driver == 'cilium' && lb_effective.controller_required != true &&
             (gateway_effective.external_ip ?? '') != '' ? 'cilium/fixed-ip' : ''}
-          - "${gateway.driver != 'cilium' ? 'envoy/proxy' : ''}"
+          - "${gateway.driver != 'cilium' ? 'envoy/base' : ''}"
           - "${gateway.driver == 'envoy' ? 'envoy/' + lb_effective.mode : ''}"
           - >-
             ${gateway.driver == 'envoy' && lb_effective.mode == 'loadbalancer' &&
@@ -163,7 +163,7 @@ flux:
           - >-
             ${gateway.driver == 'cilium' && lb_effective.controller_required != true &&
             (gateway_effective.internal_ip ?? '') != '' ? 'cilium/fixed-ip' : ''}
-          - "${gateway.driver != 'cilium' ? 'envoy/proxy' : ''}"
+          - "${gateway.driver != 'cilium' ? 'envoy/base' : ''}"
           - "${gateway.driver == 'envoy' ? 'envoy/' + lb_effective.mode : ''}"
           - >-
             ${gateway.driver == 'envoy' && lb_effective.mode == 'loadbalancer' &&

@@ -55,7 +55,7 @@ x-defaults:
     dependsOn:
       - pki-resources
     components:
-      - envoy/proxy
+      - envoy/base
       - envoy/loadbalancer
       - envoy/parameters
       - envoy/default-404
@@ -74,7 +74,7 @@ x-defaults:
     dependsOn:
       - pki-resources
     components:
-      - envoy/proxy
+      - envoy/base
       - envoy/loadbalancer
       - envoy/parameters
       - envoy/default-404
@@ -166,7 +166,7 @@ cases:
           resources:
             - name: internal
               components:
-                - envoy/proxy
+                - envoy/base
                 - envoy/nodeport
                 - envoy/parameters
                 - envoy/default-404
@@ -297,7 +297,7 @@ cases:
           resources:
             - name: internal
               components:
-                - envoy/proxy
+                - envoy/base
                 - envoy/nodeport
                 - envoy/parameters
                 - envoy/default-404
@@ -328,7 +328,7 @@ cases:
           resources:
             - name: internal
               components:
-                - envoy/proxy
+                - envoy/base
                 - envoy/nodeport
                 - envoy/parameters
                 - envoy/default-404

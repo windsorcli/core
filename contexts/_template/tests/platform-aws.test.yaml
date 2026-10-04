@@ -124,7 +124,7 @@ cases:
           resources:
             - name: internal
               components:
-                - envoy/proxy
+                - envoy/base
                 - envoy/loadbalancer
                 - envoy/parameters
                 - envoy/default-404

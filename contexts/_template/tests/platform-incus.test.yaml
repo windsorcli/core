@@ -206,7 +206,7 @@ cases:
           resources:
             - name: internal
               components:
-                - envoy/proxy
+                - envoy/base
                 - envoy/loadbalancer
                 - envoy/loadbalancer/fixed-ip
                 - envoy/parameters
