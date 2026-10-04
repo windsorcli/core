@@ -795,6 +795,25 @@ cases:
           resources:
             - <<: *gateway-resources-envoy
 
+  # The deprecated dns.domain maps to public_domain when that is unset.
+  - name: deprecated dns.domain provisions the external gateway as the public domain
+    values:
+      platform: metal
+      dns:
+        domain: example.com
+      gateway:
+        enabled: true
+        driver: envoy
+      network: *default-network
+      cluster: *default-cluster
+    expect:
+      flux:
+        - name: gateway
+          resources:
+            - name: external
+              substitutions:
+                gateway_domain: example.com
+
   # Both domains: the internal gateway takes the pool start, the external one the next address.
   - name: both gateways split the load balancer pool start and the next address
     values:

@@ -1038,7 +1038,8 @@ properties:
     properties:
       domain:
         $ref: '#/$defs/dnsHostname'
-        description: Base domain; used as fallback when public_domain or private_domain are not set. Lowercase DNS labels separated by dots (RFC 1123); no scheme, port, or trailing dot.
+        deprecated: true
+        description: Deprecated. Use dns.public_domain. Maps to public_domain when that is unset, and is the fallback for private_domain.
       public_domain:
         $ref: '#/$defs/dnsHostname'
         description: >

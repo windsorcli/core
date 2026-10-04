@@ -144,15 +144,13 @@ config:
     value:
       controller_required: "${platform == 'aws' || platform == 'hetzner' || lb_effective.enabled == true}"
 
-  # DNS domains. domain: user-facing root. public_domain: publicly-routable
-  # pattern (external-dns, ACME SAN) — explicit only, never from `domain`, so
-  # configuring a domain doesn't silently activate ACME. private_domain:
-  # in-cluster records (CoreDNS). dev:true defaults domain/private_domain to
-  # 'test'; public_domain stays empty (no real public DNS).
+  # DNS domains. public_domain: publicly-routable zone (external-dns, ACME SAN),
+  # falling back to the deprecated dns.domain. private_domain: in-cluster
+  # records (CoreDNS). dev:true defaults domain/private_domain to 'test'.
   - name: dns
     value:
       domain: "${dns.domain ?? (dev == true ? 'test' : '')}"
-      public_domain: "${dns.public_domain ?? ''}"
+      public_domain: "${dns.public_domain ?? dns.domain ?? ''}"
       private_domain: "${dns.private_domain ?? dns.domain ?? (dev == true ? 'test' : '')}"
       enabled: "${(dns.private.enabled ?? false) == true || (dns.public_domain ?? '') != '' || (dns.private_domain ?? '') != ''}"
 
