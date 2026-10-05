@@ -532,8 +532,8 @@ cases:
             talos_version: "1.13.11"
             kubernetes_version: "1.36.5"
 
-  # Other container hosts use the default Talos version.
-  - name: Docker Desktop uses the default Talos version
+  # docker and docker-desktop pin Talos below 1.14.
+  - name: Docker Desktop pins Talos below 1.14
     values:
       platform: docker
       workstation:
@@ -551,9 +551,9 @@ cases:
           inputs:
             cluster_nodes:
               controlplanes:
-                image: ghcr.io/siderolabs/talos:v1.14.2
+                image: ghcr.io/siderolabs/talos:v1.13.9
         - name: cluster
           path: cluster/talos
           inputs:
-            talos_version: "1.14.2"
-            kubernetes_version: null
+            talos_version: "1.13.9"
+            kubernetes_version: "1.36.5"

@@ -19,6 +19,10 @@ terraform {
       source  = "siderolabs/talos"
       version = "0.11.0"
     }
+    time = {
+      source  = "hashicorp/time"
+      version = "~> 0.13"
+    }
   }
 }
 
@@ -178,15 +182,15 @@ locals {
     )
   }
 
-  # Second DVD slot. Derived from destination_dir + hostname for cluster nodes
-  # with a static IPv4. Keyed on role/ipv4 (plan-stable) rather than machineconfigs
+  # Second DVD slot. Derived from destination_dir + hostname for cluster nodes,
+  # static IPv4 or DHCP. Keyed on role (plan-stable) rather than machineconfigs
   # presence (which is unknown at plan time due to talos_machine_secrets dependency).
   instance_cidata_paths = {
     for k, v in local.instances_by_name : k => (
       var.destination_dir != ""
       && (v.role == "controlplane" || v.role == "worker")
-      && v.ipv4 != null
-      ? "${var.destination_dir}/${k}-cidata.iso"
+      && (v.ipv4 != null || var.network_dhcp)
+      ? "${var.destination_dir}/${k}${var.name_suffix}-cidata.iso"
       : null
     )
   }
@@ -204,57 +208,79 @@ locals {
 
   controlplane_nodes = {
     for k, v in local.instances_by_name : k => v
-    if v.role == "controlplane" && v.ipv4 != null
+    if v.role == "controlplane" && (v.ipv4 != null || var.network_dhcp)
   }
 
   worker_nodes = {
     for k, v in local.instances_by_name : k => v
-    if v.role == "worker" && v.ipv4 != null
+    if v.role == "worker" && (v.ipv4 != null || var.network_dhcp)
   }
 
+  # Empty cluster_endpoint skips the CIDATA machineconfig bake (DHCP), leaving
+  # the apply to cluster/talos once leases exist.
+  bake_machineconfig = var.cluster_endpoint != ""
+
   network_prefix_length = var.network_cidr != null ? tonumber(split("/", var.network_cidr)[1]) : 24
+
+  dhcp_network_patch = yamlencode({
+    machine = {
+      network = merge(
+        {
+          interfaces = [{
+            deviceSelector = { physical = true }
+            dhcp           = true
+          }]
+        },
+        length(var.network_nameservers) > 0 ? { nameservers = var.network_nameservers } : {}
+      )
+    }
+  })
 
   # hostname is not set: Talos derives machine.network.hostname from CIDATA
   # meta-data and rejects an explicit override.
   controlplane_network_patches = {
-    for k, v in local.controlplane_nodes : k => yamlencode({
-      machine = {
-        network = {
-          interfaces = [{
-            # Matches by hardware property, not name -- Hyper-V synthetic
-            # NICs are named inconsistently across Talos versions.
-            deviceSelector = { physical = true }
-            # Required or a DHCP lease overrides the static address.
-            dhcp      = false
-            addresses = ["${v.ipv4}/${local.network_prefix_length}"]
-            routes = [{
-              network = "0.0.0.0/0"
-              gateway = var.network_gateway
+    for k, v in local.controlplane_nodes : k => (
+      var.network_dhcp ? local.dhcp_network_patch : yamlencode({
+        machine = {
+          network = {
+            interfaces = [{
+              # Matches by hardware property, not name -- Hyper-V synthetic
+              # NICs are named inconsistently across Talos versions.
+              deviceSelector = { physical = true }
+              # Required or a DHCP lease overrides the static address.
+              dhcp      = false
+              addresses = ["${v.ipv4}/${local.network_prefix_length}"]
+              routes = [{
+                network = "0.0.0.0/0"
+                gateway = var.network_gateway
+              }]
             }]
-          }]
-          nameservers = var.network_nameservers
+            nameservers = var.network_nameservers
+          }
         }
-      }
-    })
+      })
+    )
   }
 
   worker_network_patches = {
-    for k, v in local.worker_nodes : k => yamlencode({
-      machine = {
-        network = {
-          interfaces = [{
-            deviceSelector = { physical = true }
-            dhcp           = false
-            addresses      = ["${v.ipv4}/${local.network_prefix_length}"]
-            routes = [{
-              network = "0.0.0.0/0"
-              gateway = var.network_gateway
+    for k, v in local.worker_nodes : k => (
+      var.network_dhcp ? local.dhcp_network_patch : yamlencode({
+        machine = {
+          network = {
+            interfaces = [{
+              deviceSelector = { physical = true }
+              dhcp           = false
+              addresses      = ["${v.ipv4}/${local.network_prefix_length}"]
+              routes = [{
+                network = "0.0.0.0/0"
+                gateway = var.network_gateway
+              }]
             }]
-          }]
-          nameservers = var.network_nameservers
+            nameservers = var.network_nameservers
+          }
         }
-      }
-    })
+      })
+    )
   }
 }
 
@@ -264,7 +290,7 @@ resource "talos_machine_secrets" "this" {
 }
 
 data "talos_machine_configuration" "controlplane" {
-  for_each = local.has_cluster_nodes ? local.controlplane_nodes : {}
+  for_each = local.bake_machineconfig ? local.controlplane_nodes : {}
 
   cluster_name       = var.cluster_name
   cluster_endpoint   = var.cluster_endpoint
@@ -281,7 +307,7 @@ data "talos_machine_configuration" "controlplane" {
 }
 
 data "talos_machine_configuration" "worker" {
-  for_each = local.has_cluster_nodes ? local.worker_nodes : {}
+  for_each = local.bake_machineconfig ? local.worker_nodes : {}
 
   cluster_name       = var.cluster_name
   cluster_endpoint   = var.cluster_endpoint
@@ -318,12 +344,13 @@ locals {
 # section above, co-locating CIDATA management with the VM lifecycle.
 
 locals {
-  # Nodes that get a CIDATA ISO: controlplane/worker nodes with a static IPv4.
+  # Nodes that get a CIDATA ISO: controlplane/worker nodes with a static IPv4,
+  # or any controlplane/worker node when network_dhcp is set.
   # Keyed by instance name (always known from var.instances) so for_each is plan-stable.
   cidata_nodes = {
     for k, v in local.instances_by_name : k => v
     if(v.role == "controlplane" || v.role == "worker")
-    && v.ipv4 != null
+    && (v.ipv4 != null || var.network_dhcp)
   }
 }
 
@@ -332,7 +359,7 @@ data "hyperv_iso_volume" "cidata" {
 
   volume_label = "CIDATA"
 
-  files = {
+  files = merge({
     "meta-data" = yamlencode({
       "instance-id"    = each.key
       "local-hostname" = each.key
@@ -340,23 +367,34 @@ data "hyperv_iso_volume" "cidata" {
 
     # version: 2 must lead the file — cloud-init v2 parser activates on the
     # first line. match.name glob (default e*) covers both eth0 and enX0.
-    "network-config" = format(
+    "network-config" = var.network_dhcp ? format(
+      "version: 2\nethernets:\n  primary:\n    match:\n      name: \"%s\"\n    dhcp4: true\n%s",
+      var.network_interface,
+      length(var.network_nameservers) > 0
+      ? "    nameservers:\n      addresses:\n${join("\n", [for ns in var.network_nameservers : "        - ${ns}"])}\n"
+      : ""
+      ) : format(
       "version: 2\nethernets:\n  primary:\n    match:\n      name: \"%s\"\n    addresses:\n      - %s\n    gateway4: %s\n    nameservers:\n      addresses:\n%s\n",
       var.network_interface,
       "${each.value.ipv4}/${local.network_prefix_length}",
       var.network_gateway,
       join("\n", [for ns in var.network_nameservers : "        - ${ns}"])
     )
-
+    }, local.bake_machineconfig ? {
     "user-data" = local.machineconfigs[each.key]
-  }
+  } : {})
 }
 
 resource "hyperv_image_file" "cidata" {
   for_each = var.destination_dir != "" ? local.cidata_nodes : {}
 
-  destination_path = "${var.destination_dir}/${each.key}-cidata.iso"
+  destination_path = "${var.destination_dir}/${each.key}${var.name_suffix}-cidata.iso"
   content_base64   = data.hyperv_iso_volume.cidata[each.key].content_base64
+
+  # Hyper-V holds an exclusive handle on a mounted ISO; the VM lives in the
+  # same state, so Terraform cannot order a rebuild against it on its own.
+  replace_while_mounted = true
+  force_destroy         = true
 }
 
 # =============================================================================
@@ -371,7 +409,7 @@ resource "hyperv_vhd" "instance_root" {
   for_each = local.instances_by_name
 
   path = each.value.root_disk_path != null ? each.value.root_disk_path : (
-    "${local.default_vhd_dir}\\${each.value.name}.vhdx"
+    "${local.default_vhd_dir}\\${each.value.name}${var.name_suffix}.vhdx"
   )
 
   vhd_type = each.value.image != null && each.value.image != "" ? "differencing" : "dynamic"
@@ -407,7 +445,7 @@ resource "hyperv_vhd" "instance_root" {
 resource "hyperv_vm" "instances" {
   for_each = local.instances_by_name
 
-  name                 = each.value.name
+  name                 = "${each.value.name}${var.name_suffix}"
   generation           = each.value.generation
   secure_boot          = each.value.generation == 2 ? each.value.secure_boot : null
   secure_boot_template = each.value.generation == 2 && each.value.secure_boot ? each.value.secure_boot_template : null
@@ -487,4 +525,38 @@ resource "hyperv_vm" "instances" {
   # paths (not resource-instance refs), so add explicit deps to ensure they
   # exist on the host before the VM is registered.
   depends_on = [hyperv_virtual_switch.main, hyperv_image_file.images, hyperv_image_file.cidata]
+}
+
+# =============================================================================
+# Guest IP Wait
+# =============================================================================
+
+locals {
+  # A duration with no non-zero digit is zero, whatever unit it is written in.
+  guest_ipv4_wait = length(regexall("[1-9]", var.guest_ipv4_timeout)) > 0
+
+  wait_for_guest_ipv4 = {
+    for k, v in local.instances_by_name : k => v
+    if v.ipv4 == null && v.desired_state == "Running" && local.guest_ipv4_wait
+  }
+}
+
+# Create-only pause so the following IP read is not the empty create-time snapshot.
+resource "time_sleep" "guest_ipv4" {
+  for_each = local.wait_for_guest_ipv4
+
+  create_duration = var.guest_ipv4_timeout
+  triggers = {
+    vm_id = hyperv_vm.instances[each.key].id
+  }
+
+  depends_on = [hyperv_vm.instances]
+}
+
+# Live KVP addresses after the wait. The empty substr defers the read until apply.
+data "hyperv_vm_state" "guest" {
+  for_each = local.wait_for_guest_ipv4
+
+  name       = "${hyperv_vm.instances[each.key].name}${substr(time_sleep.guest_ipv4[each.key].id, 0, 0)}"
+  depends_on = [time_sleep.guest_ipv4]
 }
