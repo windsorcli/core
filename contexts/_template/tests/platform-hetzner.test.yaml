@@ -475,34 +475,6 @@ cases:
                 external_dns_domain: example.com
                 txt_owner_id: htz1
 
-  # Private gateway: private selfsigned issuer. Hetzner DNS is public-only, so
-  # private access relies on self-hosted private DNS (CoreDNS) for the private zone;
-  # the Hetzner external-dns provider does not render.
-  - name: private gateway uses private selfsigned issuer via self-hosted private DNS
-    values:
-      platform: hetzner
-      hetzner: *default-hetzner
-      dns:
-        private_domain: internal.example.com
-        private:
-          enabled: true
-      gateway:
-        enabled: true
-        driver: envoy
-      network: *default-network
-    terraformOutputs: *default-terraform-outputs
-    expect:
-      flux:
-        - name: pki
-          resources:
-            - components:
-                - private-issuer/selfsigned
-        - name: dns
-          resources:
-            - name: private
-              components:
-                - external-dns/providers/coredns
-
   # Defaults: with only the token set, the facet defaults the region to ash/us-east.
   - name: facet defaults region to ash/us-east when region fields are unset
     values:
@@ -553,6 +525,49 @@ cases:
           inputs:
             location: ash
             network_zone: us-east
+
+  - name: dns.private_domain fails composition
+    values:
+      platform: hetzner
+      hetzner:
+        token: test-token
+      dns:
+        private_domain: example.internal
+      network: *default-network
+    terraformOutputs: *default-terraform-outputs
+    expectError: true
+
+  - name: dev mode does not trip the private domain rejection
+    values:
+      platform: hetzner
+      dev: true
+      hetzner:
+        token: test-token
+      gateway:
+        enabled: false
+      network: *default-network
+    terraformOutputs: *default-terraform-outputs
+    expect:
+      terraform:
+        - name: compute
+          path: compute/hcloud
+
+  - name: dev mode with an explicit private domain still composes
+    values:
+      platform: hetzner
+      dev: true
+      hetzner:
+        token: test-token
+      dns:
+        private_domain: example.internal
+      gateway:
+        enabled: false
+      network: *default-network
+    terraformOutputs: *default-terraform-outputs
+    expect:
+      terraform:
+        - name: compute
+          path: compute/hcloud
 
   - name: cilium gateway gets the hcloud load balancer annotations
     values:
