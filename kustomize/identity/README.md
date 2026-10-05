@@ -1,7 +1,6 @@
 ---
 title: Identity
 description: Cluster identity provider (SSO) — hosted Keycloak or an external OIDC issuer.
-stack_backing: Cluster single sign-on
 ---
 
 The cluster identity provider (SSO). `identity.driver: keycloak` (default) hosts
@@ -285,7 +284,6 @@ client re-imports the realm.
 - **Images.** `system-identity` is policy-managed (Kyverno `require-image-digest`); the
   operator, server, and Postgres images are all digest-pinned.
 
-<!-- BEGIN_KUSTOMIZE_DOCS -->
 
 ## Components
 
@@ -375,7 +373,6 @@ JSON6902 patch enabling Keycloak's own server and user-event metrics (`metrics-e
 | `identity-resources-database` | `identity.driver == 'keycloak'` | The `Keycloak` server CR waits for the CloudNativePG `Cluster` to report Ready; a server started without a database exits 1 and repeats its whole Quarkus build on restart. |
 | `gateway-resources` | `gateway.enabled == true` | The shared Gateway must exist before the Keycloak HTTPRoute attaches to it. |
 
-<!-- END_KUSTOMIZE_DOCS -->
 
 ## See also
 

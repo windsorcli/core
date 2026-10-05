@@ -1,7 +1,6 @@
 ---
 title: Object-store
 description: MinIO Operator for in-cluster S3-compatible object storage.
-stack_backing: S3-compatible storage
 ---
 
 In-cluster S3-compatible storage. The add-on installs the MinIO Operator.
@@ -77,7 +76,6 @@ companion `generate-minio-root-creds` Job populates the
 first apply. The Secret persists across reconciles because the TTL is
 on the completed Job, not the Secret.
 
-<!-- BEGIN_KUSTOMIZE_DOCS -->
 
 ## Components
 
@@ -93,7 +91,6 @@ Helm release of the MinIO Operator (`operator` chart) in `system-object-store`. 
 |---|---|---|
 | `csi` | always | MinIO Tenants need PVCs (the default StorageClass) for their pool storage. Without csi the operator runs but no Tenant CR can come up. |
 
-<!-- END_KUSTOMIZE_DOCS -->
 
 ## See also
 

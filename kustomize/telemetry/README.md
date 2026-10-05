@@ -1,7 +1,6 @@
 ---
 title: Telemetry
 description: kube-prometheus-stack and FluentBit for cluster-level metrics and log collection.
-stack_backing: Metrics & logs
 ---
 
 The cluster's metrics and log-collection layer. Prometheus scrapes
@@ -21,8 +20,8 @@ CRs, and implicitly depends on `install` (compiled name:
 `prometheus`, `prometheus/flux`, and `fluentbit` each name a component
 in both tiers.
 The same literal name points at the Helm release in `telemetry/install/`
-and at the consuming CR set in `telemetry/resources/`. The descriptor
-below disambiguates with `install/` and `resources/` prefixes. Facet
+and at the consuming CR set in `telemetry/resources/`. The tables
+below disambiguate with `install/` and `resources/` prefixes. Facet
 authors still write the bare names (`components: [prometheus]`), and
 the prefix resolves from the tier.
 
@@ -126,7 +125,6 @@ addon-observability facet declares `strategy: replace` on its own
 install tier's `prometheus` and `prometheus/flux` components stay.
 `fluentbit` is removed and `filebeat` is added.
 
-<!-- BEGIN_KUSTOMIZE_DOCS -->
 
 ## Components — `telemetry-install`
 
@@ -196,7 +194,6 @@ _Enabled when `telemetry.logs.enabled: true`._
 | Add-on | Required when | Reason |
 |---|---|---|
 
-<!-- END_KUSTOMIZE_DOCS -->
 
 ## See also
 
