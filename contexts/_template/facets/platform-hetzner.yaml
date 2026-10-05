@@ -24,6 +24,10 @@ requires:
     paths:
       - email
     message: Public DNS requires an operator email for TLS certificate registration.
+  - when: (dns.private_domain ?? '') != '' && dev != true
+    paths:
+      - hetzner_no_private_domain
+    message: Hetzner has no private DNS and no internal gateway; unset dns.private_domain and use dns.public_domain.
   - when: (hetzner.location ?? 'ash') in ['ash', 'hil']
     paths:
       - hetzner_us_instance_type_ok
@@ -150,6 +154,10 @@ config:
       - ccx43
       - ccx53
       - ccx63
+  # Blank when dns.private_domain is set outside dev mode; the requires block above reads it to fail with a message.
+  - name: hetzner_no_private_domain
+    when: (dns.private_domain ?? '') == '' || dev == true
+    value: ok
   # 'ok' when both pools' types are US-orderable, blank otherwise. Only computed
   # for US locations; the requires block above reads it to fail with a message.
   - name: hetzner_us_instance_type_ok
@@ -359,11 +367,7 @@ flux:
       timeout: 5m
       interval: 5m
 
-  # DNS — external-dns via the Hetzner webhook provider. Anchored on the shared
-  # `dns` Kustomization so it composes with addon-private-dns. Public mode only
-  # (Hetzner DNS is a public authoritative service; there is no private-zone
-  # equivalent, so gateway.access=private falls back to selfsigned/private PKI
-  # without external-dns).
+  # DNS — external-dns via the Hetzner webhook provider, public zone only.
   - name: dns
     when: "(dns.public_domain ?? '') != ''"
     secrets:
