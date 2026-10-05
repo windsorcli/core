@@ -1,7 +1,6 @@
 ---
 title: CNI add-on
 description: Cilium as the cluster CNI, bootstrapped via Terraform and adopted by Flux.
-stack_backing: Cluster networking (CNI)
 ---
 
 # CNI
@@ -116,7 +115,6 @@ Removing this add-on does not restore kube-proxy.
 Hubble TLS certificates rotate via an in-cluster CronJob, so
 cert-manager is not required for Hubble.
 
-<!-- BEGIN_KUSTOMIZE_DOCS -->
 
 ## Substitutions
 
@@ -173,7 +171,6 @@ Enables `l2announcements` and creates `CiliumLoadBalancerIPPool/default` with th
 | `policy-resources` | `policies.enabled: true` or `gateway.driver: cilium` | Re-rolls Cilium pods after Kyverno's mutation policies are live. When `cilium/gateway` is active, also provides the Kyverno CRDs the LBIPAM sharing MutatingPolicy depends on. |
 | `telemetry-install` | `telemetry.metrics.enabled: true` or `telemetry.logs.enabled: true` | The `cilium/prometheus` ServiceMonitor and the Hubble ServiceMonitor target Prometheus from telemetry. |
 
-<!-- END_KUSTOMIZE_DOCS -->
 
 ## See also
 

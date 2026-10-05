@@ -1,7 +1,6 @@
 ---
 title: Demo add-on
 description: Sample applications (PostgreSQL cluster, static website, Istio bookinfo) for blueprint validation.
-stack_backing: Sample workloads for blueprint validation
 ---
 
 # Demo
@@ -117,7 +116,6 @@ AWS-only). The Instance CR creates one `db.t4g.micro` Postgres instance
 against the `<cluster-name>-crossplane-rds` DB subnet group Terraform
 provisions.
 
-<!-- BEGIN_KUSTOMIZE_DOCS -->
 
 ## Substitutions
 
@@ -193,7 +191,6 @@ HTTPRoute exposing productpage at `bookinfo.${private_domain}` through the inter
 | `provisioning` | `demo.resources.database: true` AND `database.postgres.cloud.enabled: true` | Crossplane's provider must finish installing before the `demo-db` CR's CRD is registered. Wired as a conditional `dependsOn` in the facet. |
 | `gateway-resources` | `bookinfo/gateway` is enabled | The HTTPRoute needs the cluster Gateway to be Programmed first. Wired as a conditional `dependsOn` in the facet. |
 
-<!-- END_KUSTOMIZE_DOCS -->
 
 ## See also
 

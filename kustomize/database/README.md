@@ -1,7 +1,6 @@
 ---
 title: Database add-on
 description: CloudNativePG operator for in-cluster PostgreSQL, plus the driver-specific resources (ProviderConfig, monitoring, app-role) for RDS, Azure Database for PostgreSQL, and Cloud SQL.
-stack_backing: In-cluster and cloud-managed PostgreSQL
 ---
 
 # Database
@@ -94,7 +93,6 @@ The `cloudnativepg/prometheus` component adds
 database-install kustomization waits for telemetry-install to be ready
 before reconciling.
 
-<!-- BEGIN_KUSTOMIZE_DOCS -->
 
 ## Components
 
@@ -158,7 +156,6 @@ GCP twin of `crossplane/postgres/azure-postgres/encryption-key`, defaulting `enc
 |---|---|---|
 | `csi` | always | PostgreSQL `Cluster` CRs request PVCs for data storage; the default StorageClass must exist before the operator can bring a Cluster up. |
 
-<!-- END_KUSTOMIZE_DOCS -->
 
 ## See also
 

@@ -99,8 +99,8 @@ jobs:
       - name: Validate vendored CRDs
         run: task crds:check
 
-      # Fail if a kustomize add-on's README docs have drifted from .docs.yaml.
-      - name: Validate kustomize add-on docs
+      # Fail if the kustomize/README.md index has drifted from add-on README frontmatter.
+      - name: Validate kustomize README index
         if: ${{ github.event_name == 'pull_request' && !startsWith(github.head_ref, 'renovate/') }}
         run: task docs:kustomize:check
 

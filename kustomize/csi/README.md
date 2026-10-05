@@ -2,7 +2,6 @@
 title: CSI
 description: Persistent storage drivers and StorageClasses. AWS EBS, Azure Disk, OpenEBS host-path, and Longhorn distributed.
 stack_name: CSI
-stack_backing: Persistent storage
 ---
 
 The cluster's persistent-volume layer. Four drivers ship in this add-on,
@@ -146,7 +145,6 @@ flux:
 `longhorn/prometheus` adds a ServiceMonitor for Longhorn's own metrics,
 gated on `telemetry-install`.
 
-<!-- BEGIN_KUSTOMIZE_DOCS -->
 
 ## Substitutions
 
@@ -200,7 +198,6 @@ Helm release of Longhorn in `system-csi`, plus a StorageClass `single` (default 
 | `cni` | always (added by `option-cni`) | CSI's `node-driver-registrar` sees transient loopback connectivity drops during eBPF init and crash-loops without this ordering. |
 | `telemetry-install` | longhorn driver AND (`telemetry.metrics.enabled: true` OR `telemetry.logs.enabled: true`) | The `longhorn/prometheus` ServiceMonitor needs Prometheus to be live. |
 
-<!-- END_KUSTOMIZE_DOCS -->
 
 ## See also
 

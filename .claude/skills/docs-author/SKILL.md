@@ -1,6 +1,6 @@
 ---
 name: docs-author
-description: Author and maintain reference Markdown for the core Windsor blueprint for ingestion into windsorcli.github.io. Use when writing docs under docs/, Terraform module reference, Kustomize stack operator guides (README per stack), or compatibility matrices.
+description: Author and maintain docs for the core Windsor blueprint: Catalog guides under docs/guides, Terraform module reference, Kustomize add-on READMEs, and compatibility matrices. Use when writing or changing any of them.
 ---
 
 # Core blueprint docs author
@@ -24,6 +24,7 @@ description: Author and maintain reference Markdown for the core Windsor bluepri
 ## Frontmatter (Markdown)
 
 - `title` (required), `description` (**required for per-module READMEs** — the umbrella generator pulls from it; missing descriptions fail CI).
+- `stack_backing` appears only on terraform category READMEs (see Umbrella indices).
 - Optional: `sidebar_order` (number) — sidebar position for a guide, or for a
   vendor category's `index.md` (see below). Lower sorts first; guides without
   it fall back to alphabetical by title, after any that have it set.
@@ -46,37 +47,9 @@ Keep the Reference list to `terraform/`/`kustomize/` paths only. General bluepri
 
 **Vendor sub-guides.** When a schema key has more than one driver — `database.postgres.driver: cloudnativepg | rds | azuredb | cloudsql`, `identity.driver: keycloak | oidc` — split the guide into `docs/guides/<key>/<vendor>.md`, one file per enum value, filename matching the schema value verbatim (`azuredb.md`, not `flexibleserver.md`). The site groups these into one expandable sidebar entry per key automatically: its label is the directory name, sentence-cased, unless a `docs/guides/<key>/index.md` sits alongside the vendor pages, in which case that file's `title`, `description`, and `sidebar_order` take over, and its own prose renders as a real landing page linked from the category name (the vendor list still expands the same way). Adding `index.md` is optional; only do it when the category needs its own intro or an explicit sidebar position. A category with none still works exactly as before. A driver with nothing to reference (an external service Windsor installs nothing for, e.g. `identity/oidc.md`) still gets a `## Reference` section: say so in a sentence and link whatever real wiring does exist (`identity/oidc.md` links the observability add-on it writes a secret into), rather than omitting the section.
 
-## Blueprint tier diagrams
-
-The dependency diagram in `docs/index.md` is one stack of tiers: the Kustomize tiers on top of the Terraform tiers, with the foundation at the bottom. A component depends only on components in its own tier or below, and arrows point down to what a tier needs first. Use Mermaid `block-beta`, not a flowchart; a flowchart with every dependency edge becomes a tangle.
-
-```
-block-beta
-  columns 3
-
-  half0["Infrastructure · Terraform"]:3
-  tier2["Cluster"] t_cluster["cluster"] space:1
-  arrow2<[" "]>(down):3
-  tier1["Foundation"] t_network["network"] t_dns["dns-zone"]
-
-  style half0 fill:#6B35B0 !important,stroke:#B488FF !important,stroke-width:2px !important,color:#fff !important
-  style tier2 fill:#6B35B0 !important,stroke:#B488FF !important,stroke-width:2px !important,color:#fff !important
-  style t_cluster fill:#B488FF30 !important,stroke:#B488FF !important,stroke-width:2px !important
-  style arrow2 fill:#B488FF !important,stroke:#B488FF !important
-```
-
-- `columns` is one more than the chips per row. Two chips per row keeps the diagram narrow enough to render at the site's full 14px label size; wider grids are scaled down and the text shrinks. A tier with more chips continues on the next row, led by a bare `space`.
-- Every row is padded to the full width with `space:N`. Without the padding the next row flows into the same line.
-- Each arrow spans the full row, which centres it: `arrowN<[" "]>(down):<columns>`.
-- A banner row (`half0[...]:<columns>`) names each engine.
-- Style every cell with `style`. The site's theme overrides plain inline fills, so each property needs `!important`. Label bars use the dark solid colour with white text (the site keeps an explicit `color` on a node and applies its theme text colour to the rest), chips use the bright colour at about 20% fill with a solid stroke, and arrows use the bright colour.
-- Colours (solid, bright): Terraform `#6B35B0` and `#B488FF`, Kustomize `#2B59C3` and `#6BA0FF`.
-- Keep tier names and chip names to 19 characters or fewer; the longest text sets every cell's width.
-- Do not use `classDef` pastel fills. The site forces its own label colour, and a pastel fill makes it unreadable in dark mode.
-
 ## Umbrella indices (`kustomize/README.md`, `terraform/README.md`)
 
-Both umbrella READMEs carry a `<!-- BEGIN_INDEX -->` / `<!-- END_INDEX -->` region populated by `scripts/umbrella-index.sh <root>`. The generator is bundled into the existing per-layer doc tasks: `task docs:kustomize` runs the kustomize index after the add-on tables, `task docs:terraform` runs the terraform index after terraform-docs. CI catches drift via `task docs:kustomize:check` and `task docs:terraform:check` — there is no standalone umbrella task. The generator walks each per-module README (kustomize 1-level-deep; terraform any depth, skipping `.terraform/`), pulls the frontmatter `description:`, and emits a `| path | purpose |` table; missing `description:` fields fail the build.
+Both umbrella READMEs carry a `<!-- BEGIN_INDEX -->` / `<!-- END_INDEX -->` region populated by `scripts/umbrella-index.sh <root>`. `task docs:kustomize` regenerates the kustomize index and `task docs:terraform` regenerates the terraform index after terraform-docs. CI catches drift via `task docs:kustomize:check` and `task docs:terraform:check`; there is no standalone umbrella task. The generator walks each per-module README (kustomize 1-level-deep; terraform any depth, skipping `.terraform/`), pulls the frontmatter `description:`, and emits a `| path | purpose |` table; missing `description:` fields fail the build. A terraform category README (`terraform/<name>/README.md`) declares `stack_backing:` in its frontmatter, which is how `scripts/terraform-module-index.sh` finds it.
 
 The umbrellas exist purely as **reference indices** for browsing this repo on GitHub. Don't put system overviews, decision matrices, or architecture diagrams in them — that content belongs in a Catalog guide on the site instead.
 
@@ -87,7 +60,7 @@ The umbrellas exist purely as **reference indices** for browsing this repo on Gi
 
 ## Kustomize add-on README (per `kustomize/<add-on>/`)
 
-Each add-on gets one `kustomize/<add-on>/README.md` plus one `kustomize/<add-on>/.docs.yaml` descriptor. The README is hand-authored; the Substitutions / Components / Dependencies tables are generated from the descriptor by `scripts/kustomize-docs.sh` (wired through `task docs:kustomize`) and live between `<!-- BEGIN_KUSTOMIZE_DOCS -->` / `<!-- END_KUSTOMIZE_DOCS -->` markers. CI runs `task docs:kustomize:check` to fail on drift.
+Each add-on gets one hand-authored `kustomize/<add-on>/README.md`, with `title` and `description` frontmatter. Nothing generates its contents. Update the Substitutions, Components, and Dependencies tables by hand when the add-on changes.
 
 Fixed section order (target ~120 lines):
 
@@ -97,56 +70,23 @@ Fixed section order (target ~120 lines):
 ## Recipes            terse YAML per variant, one-line header per recipe
 ## Operations         bulleted "if X then Y" failure modes
 ## Security           2-4 bullets (PSA, capabilities, secret handling)
-<!-- BEGIN_KUSTOMIZE_DOCS -->
-generated tables                                  # never hand-edit
-<!-- END_KUSTOMIZE_DOCS -->
+## Substitutions      table: name, required when, description
+## Components         one `### name` subsection per component, with its enable condition
+## Dependencies       table: add-on, required when, reason
 ## See also           cross-links
 ```
 
+Keep table cells to one line; Markdown tables don't render multi-line cells without `<br/>`.
+
 Diagram conventions: architecture (static structure), not flow. One diagram per add-on showing the sane-default config; variants live in Recipes, not in extra diagrams. LR direction, namespace subgraphs always shown, nodes labeled by kind (`HelmRelease cilium`, not `cilium`), no color.
 
-`.docs.yaml` shape (kept single-line — Markdown tables don't render multi-line cells without `<br/>`):
-
-```yaml
-substitutions:
-  <name>:
-    required_when: <string>         # default "always"
-    description: "<single line>"
-
-components:
-  <name>:
-    enable_when: <string>           # default "always"
-    description: "<single line>"
-
-dependencies:
-  <add-on>:
-    required_when: <string>         # default "always"
-    reason: "<single line>"
-```
-
-Reference: [kustomize/cni/](../../../kustomize/cni/) is the single-facet pilot — copy its `README.md` + `.docs.yaml` pair as a template when authoring a new add-on. Align with `.claude/skills/kustomize-author/SKILL.md` for the underlying Kustomize layout.
+Reference: [kustomize/cni/](../../../kustomize/cni/) is the single-facet pilot; copy its `README.md` as a template when authoring a new add-on. Align with `.claude/skills/kustomize-author/SKILL.md` for the underlying Kustomize layout.
 
 ### Multi-facet add-ons (`base+resources` split)
 
-Some add-ons split into two Kustomization paths so Flux reconciles CRDs / Helm releases (`<addon>/base`) before the resource CRs that depend on them (`<addon>/resources`). Facets are named `<addon>-base` and `<addon>-resources`; the latter `dependsOn` the former. Active examples: `policy`, `pki`, `telemetry`, `gateway`, `lb`.
+Some add-ons split into two Kustomization paths so Flux reconciles CRDs and Helm releases (`<addon>/base`) before the resource CRs that depend on them (`<addon>/resources`). Facets are named `<addon>-base` and `<addon>-resources`; the latter `dependsOn` the former. Active examples: `policy`, `pki`, `telemetry`, `gateway`, `lb`.
 
-`.docs.yaml` adds a top-level `facets:` list and tags each component with its `facet:`:
-
-```yaml
-facets:
-  - <addon>-base
-  - <addon>-resources
-
-components:
-  <name>:
-    facet: <addon>-base
-    enable_when: <string>
-    description: "<single line>"
-```
-
-`scripts/kustomize-docs.sh` renders one `## Components — <facet>` sub-table per facet in declared order. The safety check fails closed on components missing `facet:` or referencing a facet not in the list.
-
-Collision rule: when the same literal name is wired in both facets (e.g. `prometheus` lives in `telemetry-base` as the Helm release and in `telemetry-resources` as ServiceMonitors), use path-prefixed keys in `.docs.yaml` — `base/prometheus`, `resources/prometheus`. Operators still write the bare name in their facets; the path resolves from the facet's `path:`. Call this out in the README intro whenever prefixes appear.
+Give each facet its own `## Components — <facet>` section. When the same literal name is wired in both facets (`prometheus` is the Helm release in `telemetry-base` and the ServiceMonitors in `telemetry-resources`), prefix the headings with `base/` and `resources/`, and say so in the README intro. Operators still write the bare name in their facets; the path resolves from the facet's `path:`.
 
 Reference: [kustomize/policy/](../../../kustomize/policy/) is the simplest multi-facet pilot; [kustomize/telemetry/](../../../kustomize/telemetry/) shows the collision-prefix case.
 

@@ -141,15 +141,13 @@ tasks:
           fi
 
   docs:kustomize:
-    desc: Generate the Substitutions/Components/Dependencies tables inside every kustomize/<add-on>/README.md from its .docs.yaml descriptor, plus the kustomize/README.md umbrella index
+    desc: Generate the kustomize/README.md umbrella index from add-on README frontmatter
     cmds:
-      - scripts/kustomize-docs.sh --all
       - scripts/umbrella-index.sh kustomize
 
   docs:kustomize:check:
     desc: Fail if docs:kustomize would produce drift (CI use)
     cmds:
-      - scripts/kustomize-docs.sh --check
       - scripts/umbrella-index.sh --check kustomize
 
   docs:no-future-work:

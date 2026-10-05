@@ -1,7 +1,6 @@
 ---
 title: Gateway
 description: Gateway API implementation (Envoy Gateway or Cilium) and the cluster's external and internal Gateways.
-stack_backing: Ingress traffic
 ---
 
 The cluster's traffic entrypoints, via the Kubernetes Gateway API. Two
@@ -240,7 +239,6 @@ flux:
           gateway_loadbalancer_ip: 10.5.1.10
 ```
 
-<!-- BEGIN_KUSTOMIZE_DOCS -->
 
 ## Substitutions
 
@@ -407,7 +405,6 @@ Adds an HTTP listener on port 9292 to the internal Gateway for the Flux notifica
 | `dns` | `dns.enabled: true` | external-dns must be reconciling so each gateway's hostname is published when it comes up. |
 | `cni` | `gateway.driver == 'cilium'` (declared by option-gateway as a cross-stack merge into option-cni) | Cilium's Gateway controller needs the Gateway API CRDs from gateway-install before its operator starts watching. |
 
-<!-- END_KUSTOMIZE_DOCS -->
 
 ## See also
 

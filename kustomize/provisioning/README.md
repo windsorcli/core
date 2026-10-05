@@ -1,7 +1,6 @@
 ---
 title: Provisioning add-on
 description: Crossplane, provider-aws-rds, provider-azure-dbforpostgresql, and provider-gcp-sql for application-requested cloud databases.
-stack_backing: Cloud resource provisioning via Crossplane
 ---
 
 # Provisioning
@@ -195,7 +194,6 @@ group, the same overwrite-on-admission posture as the AWS tag policy.
 `crossplane-identity/azure`'s custom role is scoped to that resource
 group, so the identity can't touch a server it didn't create.
 
-<!-- BEGIN_KUSTOMIZE_DOCS -->
 
 ## Components
 
@@ -247,7 +245,6 @@ _Enabled when `database.postgres.cloud.enabled == true` AND `database.postgres.c
 
 GCP twin of `crossplane/aws-rds`. Digest-pinned `Provider` CRs for `provider-gcp-sql` (`skipDependencyResolution: true`) and its `provider-family-gcp` dependency, plus a `DeploymentRuntimeConfig` that wires GKE Workload Identity (the `iam.gke.io/gcp-service-account` annotation on the provider ServiceAccount) so the `provisioning/crossplane-identity/gcp` Terraform module's Workload Identity binding can target it. Its `WatchOperation` does one thing more than `crossplane/aws-rds`'s: `provider-gcp-sql` has no auto-generate-password field, so it first ensures `<server-name>-admin-credentials` and an admin `User` CR applying it, before building the `ClusterProviderConfig` and connection Secret.
 
-<!-- END_KUSTOMIZE_DOCS -->
 
 ## See also
 
