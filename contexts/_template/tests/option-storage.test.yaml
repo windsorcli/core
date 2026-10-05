@@ -88,6 +88,8 @@ cases:
   # disabling telemetry entirely must not affect composition.
   - name: longhorn dashboard patch composes with telemetry fully disabled
     values:
+      dns:
+        private_domain: example.test
       platform: metal
       gateway:
         enabled: false

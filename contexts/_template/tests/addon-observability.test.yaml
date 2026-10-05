@@ -358,6 +358,8 @@ cases:
   # Edge: trace log level; grafana dashboards appear without a route (gateway disabled), stdout output included.
   - name: trace log level creates stdout pipeline without log filter
     values:
+      dns:
+        private_domain: example.test
       platform: metal
       gateway:
         enabled: false
@@ -391,6 +393,8 @@ cases:
   # telemetry keeps its default fluentbit components; elasticsearch/kibana not deployed.
   - name: elasticsearch with gateway disabled skips filebeat and ELK stack
     values:
+      dns:
+        private_domain: example.test
       platform: metal
       gateway:
         enabled: false
@@ -451,3 +455,26 @@ cases:
         - name: observability
           dependsOn:
             - telemetry-install
+
+  - name: observability without a dns domain fails composition
+    values:
+      platform: hetzner
+      hetzner:
+        token: test-token
+      observability:
+        enabled: true
+    expectError: true
+
+  - name: observability with a public domain composes
+    values:
+      platform: hetzner
+      hetzner:
+        token: test-token
+      email: ops@example.com
+      dns:
+        public_domain: example.com
+      observability:
+        enabled: true
+    expect:
+      flux:
+        - name: observability

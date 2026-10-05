@@ -117,6 +117,8 @@ cases:
   # Full: observability addon enabled; addon wins for same-name observability (grafana + fluentd/outputs/stdout)
   - name: full config with explicit fluentd driver and observability enabled
     values:
+      dns:
+        private_domain: example.test
       platform: metal
       gateway:
         enabled: false
@@ -761,6 +763,8 @@ cases:
   # its HelmRelease-level dependsOn on kube-prometheus-stack are only real when metrics is on.
   - name: observability with both telemetry pipelines disabled still composes
     values:
+      dns:
+        private_domain: example.test
       platform: metal
       gateway:
         enabled: false
@@ -787,6 +791,8 @@ cases:
   # opt-out is respected (no prometheus in telemetry's own components).
   - name: observability with only metrics disabled still composes
     values:
+      dns:
+        private_domain: example.test
       platform: metal
       gateway:
         enabled: false
