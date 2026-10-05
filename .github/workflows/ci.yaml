@@ -205,9 +205,13 @@ jobs:
             exit 1
           fi
           git fetch origin main
-          # A Talos version bump requires a full rebuild; skip upgrade mode for it.
-          TALOS_VERSION_FILE=contexts/_template/facets/config-talos.yaml
-          talos_version_of() { git show "$1:$TALOS_VERSION_FILE" 2>/dev/null | sed -n 's/^ *talos_version: *"\(.*\)"$/\1/p' | head -1; }
+          # Docker pin if present, else the shared pin: a bump rebuilds the node.
+          quoted_talos() { git show "$1:$2" 2>/dev/null | sed -n 's/^ *talos_version: *"\(.*\)"$/\1/p' | head -1; }
+          talos_version_of() {
+            pin=$(quoted_talos "$1" contexts/_template/facets/platform-docker.yaml)
+            if [ -n "$pin" ]; then echo "$pin"; return; fi
+            quoted_talos "$1" contexts/_template/facets/config-talos.yaml
+          }
           base_talos=$(talos_version_of origin/main)
           head_talos=$(talos_version_of HEAD)
           if [ -n "$base_talos" ] && [ -n "$head_talos" ] && [ "$base_talos" != "$head_talos" ]; then
@@ -419,7 +423,8 @@ jobs:
         if: always() && steps.infra_diff.outputs.skip != 'true'
         run: |
           PHASE_TAG="${{ steps.phase.outputs.phase }}"
-          support-bundle --interactive=false --output=support-bundles/bundle-${{ matrix.mode }}-${PHASE_TAG:-unknown}-${{ github.workflow }}-${{ github.run_id }}-${{ github.run_number }} .github/support-bundle.yaml
+          support-bundle --interactive=false --output=support-bundles/bundle-${{ matrix.mode }}-${PHASE_TAG:-unknown}-${{ github.workflow }}-${{ github.run_id }}-${{ github.run_number }} .github/support-bundle.yaml \
+            || echo "::warning::support-bundle collection failed; cluster API may be unreachable"
 
       - name: Upload support bundle
         if: always() && steps.infra_diff.outputs.skip != 'true'
