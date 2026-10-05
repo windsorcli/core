@@ -324,6 +324,12 @@ _Enabled when envoy driver AND platform is Hetzner._
 
 Hetzner-specific annotations so hcloud cloud-controller-manager provisions a Hetzner Cloud Load Balancer for the type=LoadBalancer Service.
 
+### `cilium/loadbalancer/hcloud-lb`
+
+_Enabled when cilium driver AND platform is Hetzner._
+
+Sets the hcloud cloud-controller-manager annotations on the Gateway's `spec.infrastructure`, so the Service Cilium creates gets a Hetzner Cloud Load Balancer.
+
 ### `envoy/nodeport`
 
 _Enabled when envoy driver AND `lb_effective.mode == 'nodeport'`._
