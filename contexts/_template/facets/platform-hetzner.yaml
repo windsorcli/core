@@ -313,21 +313,21 @@ flux:
           acme_email: "${email ?? ''}"
           acme_dns_zone: "${dns.public_domain ?? ''}"
 
-  # Gateway install merge. Adds the hcloud Cloud LB annotations to the Envoy
-  # data-plane Service when the gateway runs in loadbalancer mode. hcloud CCM
+  # Gateway install merge. Adds the hcloud Cloud LB annotations to the Gateway
+  # Service (Envoy data plane or Cilium) in loadbalancer mode. hcloud CCM
   # provisions a Hetzner Cloud Load Balancer for the type=LoadBalancer Service.
   #
   # dependsOn lb-install: the Service these annotations create is finalized
   # by hcloud-ccm. Ordering the controller to tear down after the Service
   # avoids stuck finalizers on destroy.
   - name: gateway
-    when: "gateway.enabled == true && gateway.driver == 'envoy' && lb_effective.mode == 'loadbalancer' && (dns.public_domain ?? '') != ''"
+    when: "gateway.enabled == true && lb_effective.mode == 'loadbalancer' && (dns.public_domain ?? '') != ''"
     resources:
       - name: external
         dependsOn:
           - lb-install
         components:
-          - envoy/loadbalancer/hcloud-lb
+          - "${gateway.driver == 'cilium' ? 'cilium/loadbalancer/hcloud-lb' : 'envoy/loadbalancer/hcloud-lb'}"
         substitutions:
           hcloud_location: "${hetzner.location ?? 'ash'}"
 

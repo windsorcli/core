@@ -14,11 +14,11 @@ terraform {
   required_providers {
     hcloud = {
       source  = "hetznercloud/hcloud"
-      version = "1.68.0"
+      version = "1.70.0"
     }
     imager = {
       source  = "hcloud-talos/imager"
-      version = "1.0.24"
+      version = "1.0.25"
     }
   }
 }

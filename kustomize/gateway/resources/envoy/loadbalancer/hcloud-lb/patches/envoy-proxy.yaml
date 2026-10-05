@@ -15,5 +15,5 @@ spec:
             metadata:
               annotations:
                 load-balancer.hetzner.cloud/location: ${hcloud_location:-fsn1}
-                load-balancer.hetzner.cloud/use-private-ip: "false"
+                load-balancer.hetzner.cloud/use-private-ip: "true"
                 load-balancer.hetzner.cloud/uses-proxyprotocol: "false"

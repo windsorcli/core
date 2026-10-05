@@ -551,3 +551,30 @@ cases:
       terraform:
         - name: compute
           path: compute/hcloud
+
+  - name: cilium gateway gets the hcloud load balancer annotations
+    values:
+      platform: hetzner
+      email: ops@example.com
+      dns:
+        public_domain: example.com
+      hetzner:
+        token: test-token
+        location: fsn1
+        network_zone: eu-central
+      gateway:
+        enabled: true
+        driver: cilium
+      network: *default-network
+    terraformOutputs: *default-terraform-outputs
+    expect:
+      flux:
+        - name: gateway
+          resources:
+            - name: external
+              dependsOn:
+                - lb-install
+              components:
+                - cilium/loadbalancer/hcloud-lb
+              substitutions:
+                hcloud_location: fsn1
