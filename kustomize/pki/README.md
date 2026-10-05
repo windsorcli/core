@@ -2,7 +2,6 @@
 title: PKI
 description: cert-manager, trust-manager, and the cluster's ClusterIssuers (selfsigned, private CA, ACME).
 stack_name: PKI
-stack_backing: TLS certificates
 ---
 
 The cluster's certificate-issuance layer. cert-manager's CRDs are
@@ -187,7 +186,6 @@ controller's monotonic baseline does not, which trips cert-manager's
 values). The restart resets the baseline. It stops recurring once the
 host stays awake long enough for the VM's clock sync to converge.
 
-<!-- BEGIN_KUSTOMIZE_DOCS -->
 
 ## Substitutions
 
@@ -294,7 +292,6 @@ ClusterIssuer `public-acme` using the ACME DNS-01 solver against Cloud DNS. Auth
 | `policy-resources` | `policies.enabled: true` | pki-install depends on Kyverno baseline policies being active before cert-manager pods are admitted into `system-pki`. pki-resources depends on `policy-resources` so the private-CA inject policy (when private_ca is on) doesn't apply before Kyverno itself is reconciling. |
 | `telemetry-install` | `cert-manager/prometheus` is enabled | The ServiceMonitor added by `cert-manager/prometheus` needs Prometheus to be live to scrape. |
 
-<!-- END_KUSTOMIZE_DOCS -->
 
 ## See also
 

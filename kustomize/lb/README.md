@@ -2,7 +2,6 @@
 title: LB
 description: LoadBalancer Service implementation (AWS LB Controller, MetalLB, or kube-vip) for non-managed clusters.
 stack_name: LB
-stack_backing: Load balancing
 ---
 
 The cluster's LoadBalancer-Service provider, gated on
@@ -144,7 +143,6 @@ HelmRelease rather than shipping as a separate CR, so it builds in
 `install` alongside the HelmRelease; `resources` is empty for this
 driver.
 
-<!-- BEGIN_KUSTOMIZE_DOCS -->
 
 ## Substitutions
 
@@ -199,7 +197,6 @@ Deprecated alias for `metallb-arp` (same L2Advertisement mechanism). Removed in 
 |---|---|---|
 | `policy-resources` | `policies.enabled: true` | lb-install depends on Kyverno's baseline policies being active before LB controller pods (which run privileged in `system-lb`) are admitted. |
 
-<!-- END_KUSTOMIZE_DOCS -->
 
 ## See also
 

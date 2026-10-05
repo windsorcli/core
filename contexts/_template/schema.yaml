@@ -784,13 +784,13 @@ properties:
         type: boolean
         default: false
         description: >
-          When true, Hyper-V guests take IPv4 from DHCP instead of static
-          addresses (cluster.*.nodes or cidrhost offsets). CIDATA uses dhcp4;
-          compute omits ipv4 and surfaces leased IPs from integration services.
-          cluster.endpoint is optional and otherwise derived from the first
-          control-plane output, except with the cilium CNI, which needs a fixed
-          endpoint. Unset or false keeps static addressing. NodePort NAT still
-          uses static guest IPs.
+          When true, Hyper-V and vSphere guests take IPv4 from DHCP instead of
+          static addresses (cluster.*.nodes or cidrhost offsets). Hyper-V CIDATA
+          uses dhcp4; compute omits ipv4 and surfaces leased IPs from
+          integration services (Hyper-V) or vmtoolsd (vSphere). cluster.endpoint
+          is optional and otherwise derived from the first control-plane output,
+          except with the cilium CNI, which needs a fixed endpoint. Unset or
+          false keeps static addressing. NodePort NAT still uses static guest IPs.
       ntp_servers:
         type: array
         items:
@@ -863,9 +863,9 @@ properties:
           nodes:
             <<: *nodesSchema
             description: >
-              Named control plane node configurations. On Hyper-V, node/endpoint
-              IPv4 is the guest NIC address unless network.dhcp is true;
-              network.cidr_block and network.gateway stay the shared LAN.
+              Named control plane node configurations. On Hyper-V and vSphere,
+              node/endpoint IPv4 is the guest NIC address unless network.dhcp is
+              true; network.cidr_block and network.gateway stay the shared LAN.
               Hyper-V names guests by pool position (controlplane, or
               controlplane-N when count > 1) and ignores hostname, which keys
               the VM, its disk and its seed ISO.
@@ -884,9 +884,10 @@ properties:
           nodes:
             <<: *nodesSchema
             description: >
-              Named worker node configurations. On Hyper-V, node/endpoint IPv4
-              is the guest NIC address unless network.dhcp is true, and hostname
-              is ignored the same way it is for control planes.
+              Named worker node configurations. On Hyper-V and vSphere,
+              node/endpoint IPv4 is the guest NIC address unless network.dhcp is
+              true. On Hyper-V, hostname is ignored the same way it is for
+              control planes.
           volumes:
             type: array
             items:

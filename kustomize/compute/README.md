@@ -1,7 +1,6 @@
 ---
 title: Compute
 description: Node-lifecycle controllers for elastic clusters (EKS cluster-autoscaler).
-stack_backing: Node autoscaling
 ---
 
 Controllers that manage cluster compute capacity. Today this is the
@@ -61,7 +60,6 @@ Each pool's bounds come from `cluster.pools[*].autoscaling` (default on,
 min 1 / max 3 for every class except system). The autoscaler stays within
 those bounds; raising a pool's ceiling is an in-place re-apply.
 
-<!-- BEGIN_KUSTOMIZE_DOCS -->
 
 ## Substitutions
 
@@ -84,7 +82,6 @@ Helm release of the Kubernetes cluster-autoscaler in `system-compute`. Watches f
 |---|---|---|
 | `policy-resources` | `policies.enabled: true` | compute depends on Kyverno's baseline policies being active before the autoscaler pod (in the `system-compute` system namespace) is admitted. |
 
-<!-- END_KUSTOMIZE_DOCS -->
 
 ## See also
 

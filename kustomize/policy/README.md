@@ -1,7 +1,6 @@
 ---
 title: Policy add-on
 description: Kyverno admission controller and the cluster's baseline policies.
-stack_backing: Cluster-wide admission policy
 ---
 
 # Policy
@@ -114,7 +113,6 @@ Set `policies.cleanup: enabled`. The blueprint ships no
 `CleanupPolicy` CRs out of the box, so enable this only if you intend
 to add your own.
 
-<!-- BEGIN_KUSTOMIZE_DOCS -->
 
 ## Substitutions
 
@@ -168,7 +166,6 @@ _Enabled when always._
 
 RBAC and a Job that retries a dry-run Pod create until Kyverno's admission webhook actually answers (allowed or denied), gating `policy-resources`' Ready condition. Kyverno's own readiness probe only validates its TLS certificate, not webhook reachability, so object status reports ready minutes before real admission calls succeed; this issues one instead.
 
-<!-- END_KUSTOMIZE_DOCS -->
 
 ## See also
 

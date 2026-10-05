@@ -2,7 +2,6 @@
 title: DNS
 description: external-dns for hostname publication and (opt-in) coredns for in-cluster private DNS.
 stack_name: DNS
-stack_backing: Automatic DNS records
 ---
 
 Two halves, both gated independently.
@@ -188,7 +187,6 @@ or an upstream resolver that forwards `*.<dns.private_domain>` query it.
 In both cases `loadbalancer_start_ip` must fall inside
 `network.loadbalancer_ips` and be reachable from those resolvers.
 
-<!-- BEGIN_KUSTOMIZE_DOCS -->
 
 ## Substitutions
 
@@ -309,7 +307,6 @@ Helm release of `coredns` in `system-dns`. In-cluster private DNS server. Serves
 | `policy-resources` | `workstation.runtime == 'docker-desktop'` | docker-desktop runs Kyverno in restricted-PSA mode for system-dns; the baseline policies need to be reconciling before coredns pods are admitted. |
 | `cni` | `dns.private.enabled: true` AND `gateway.driver == 'cilium'` | The `coredns/cilium` and `coredns/loadbalancer` components rely on Cilium's L2 IP-sharing infrastructure being live. |
 
-<!-- END_KUSTOMIZE_DOCS -->
 
 ## See also
 

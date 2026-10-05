@@ -1,7 +1,6 @@
 ---
 title: Observability
 description: Grafana dashboards and the cluster's log store (stdout, Quickwit, or Elasticsearch + Kibana).
-stack_backing: Metrics dashboards
 ---
 
 The dashboards-and-logs layer. Its two halves, dashboards and the log
@@ -148,7 +147,6 @@ flowchart LR
 For teams already standardized on Elasticsearch: fluentd ships to ES
 and Kibana is exposed through the cluster Gateway.
 
-<!-- BEGIN_KUSTOMIZE_DOCS -->
 
 ## Substitutions
 
@@ -251,7 +249,6 @@ Helm release of the Kibana chart, wired to the elasticsearch service.
 | `gateway-resources` | `logs_driver == 'elasticsearch'` (always) OR `grafana/gateway` is enabled | HTTPRoutes need the cluster Gateway to be Programmed first. |
 | `dns` | `dns.enabled: true` AND `observability.dashboards == 'grafana'` | External DNS records for `grafana.${private_domain}` and `kibana.${private_domain}` are managed by the dns add-on; without it, hostnames don't resolve. |
 
-<!-- END_KUSTOMIZE_DOCS -->
 
 ## See also
 
