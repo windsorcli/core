@@ -90,6 +90,8 @@ cases:
     values:
       platform: aws
       aws: *default-aws
+      dns:
+        private_domain: test
       gateway:
         enabled: true
         driver: envoy
@@ -116,10 +118,18 @@ cases:
           install:
             components:
               - envoy
-              - envoy/loadbalancer
               - envoy/prometheus
             timeout: 10m
             interval: 5m
+          resources:
+            - name: internal
+              components:
+                - envoy/base
+                - envoy/loadbalancer
+                - envoy/parameters
+                - envoy/default-404
+                - envoy/default-404/external-dns
+                - flux-webhook
         - name: csi
           dependsOn:
             - policy-resources
@@ -258,18 +268,14 @@ cases:
                 acme_hosted_zone_id: Z1ABCDEF12345
         - name: gateway
           resources:
-            # envoy/default-404/external-dns is the AWS-only patch that adds
-            # the external-dns hostname annotation to the catch-all 404 route.
-            # Gated on dns.public_domain so it doesn't render on platforms
-            # without external-dns running (where the substitution would
-            # produce a malformed ",*." value).
-            - components:
+            # Only the external variant renders without dns.private_domain.
+            - name: external
+              components:
                 - envoy/default-404
                 - envoy/default-404/external-dns
-                - flux-webhook
               substitutions:
                 gateway_cert_issuer: public-acme
-                external_domain: example.com
+                gateway_domain: example.com
         # Gateway-on + public-domain path: external-dns layers the
         # gateway-httproute source on top of the route53 provider. HTTPRoute
         # CRDs come from the crds layer, so no gateway-install dep. Locks the
@@ -280,12 +286,17 @@ cases:
           install:
             components:
               - external-dns
-              - external-dns/providers/route53
-              - external-dns/sources/gateway-httproute
-            substitutions:
-              external_domain: example.com
-              zone_type: public
-              zone_id_filter: Z1ABCDEF12345
+          resources:
+            - name: public
+              components:
+                - external-dns
+                - external-dns/providers/route53
+                - external-dns/sources/gateway-httproute
+              substitutions:
+                external_dns_name: external-dns-public
+                external_dns_domain: example.com
+                external_dns_zone_type: public
+                external_dns_zone_id_filter: Z1ABCDEF12345
 
   # Dev mode flips the ACME server to Let's Encrypt staging to avoid
   # burning Let's Encrypt prod rate limits during iteration.
@@ -568,59 +579,52 @@ cases:
             timeout: 5m
             interval: 5m
 
-  # When gateway is enabled on AWS, the envoy data-plane Service gets NLB
-  # annotations layered on by adding envoy/loadbalancer/aws-nlb to the
-  # gateway install component list. This is an additive merge with option-
-  # gateway's gateway install entry — option-gateway emits the platform-
-  # agnostic components, this AWS facet appends the AWS-specific patch.
+  # NLB annotations from envoy/loadbalancer/aws-nlb merge into the external variant.
   - name: gateway with envoy on AWS adds NLB annotations component
     values:
       platform: aws
       aws: *default-aws
+      email: ops@example.com
+      dns:
+        public_domain: example.com
       gateway:
         enabled: true
         driver: envoy
     expect:
       flux:
         - name: gateway
-          dependsOn:
-            - lb-install
           install:
             components:
               - envoy
-              - envoy/loadbalancer
               - envoy/prometheus
-              - envoy/loadbalancer/aws-nlb
+          resources:
+            - name: external
+              dependsOn:
+                - lb-install
+              components:
+                - envoy/loadbalancer
+                - envoy/loadbalancer/aws-nlb
 
-  # gateway.access=private threads through the AWS facet's gateway install
-  # merge as the lb_scheme substitution, which the aws-nlb patch consumes
-  # to flip aws-load-balancer-scheme to `internal`. Required for clusters
-  # in private VPCs (no public subnets) where AWS rejects internet-facing
-  # NLB creation. The platform-agnostic `public`/`private` values keep
-  # AWS-specific terms (internet-facing) inside the AWS facet.
-  #
-  # dns.private_domain is required — it's what the rest of the private-mode
-  # cascade gates on (cert issuer, external-dns target). Without it the
-  # NLB scheme stays public so the gateway doesn't end up internal-only
-  # with no DNS pointing at it.
-  - name: gateway.access=private flips the AWS NLB to internal
+  # The internal gateway's NLB is always the internal scheme.
+  - name: internal gateway NLB is always internal scheme on AWS
     values:
       platform: aws
       aws: *default-aws
       gateway:
         enabled: true
         driver: envoy
-        access: private
       dns:
         private_domain: internal.example.com
     expect:
       flux:
         - name: gateway
-          install:
-            components:
-              - envoy/loadbalancer/aws-nlb
-            substitutions:
-              lb_scheme: internal
+          resources:
+            - name: internal
+              components:
+                - envoy/loadbalancer
+                - envoy/loadbalancer/aws-nlb
+              substitutions:
+                gateway_lb_scheme: internal
 
   # Negative branch: Cilium provides its own gateway implementation
   # (no Envoy data-plane Service to annotate). The aws-nlb component
@@ -641,11 +645,13 @@ cases:
 
   # Negative branch: NodePort service_type on AWS (e.g. small/edge clusters
   # without a public LB) — aws-nlb annotations are LoadBalancer-only and
-  # must NOT merge into the nodeport gateway install.
+  # must NOT merge into the nodeport gateway install/resources.
   - name: gateway with envoy and NodePort service_type on AWS does not add aws-nlb component
     values:
       platform: aws
       aws: *default-aws
+      dns:
+        private_domain: test
       gateway:
         enabled: true
         driver: envoy
@@ -656,8 +662,11 @@ cases:
           install:
             components:
               - envoy
-              - envoy/nodeport
               - envoy/prometheus
+          resources:
+            - name: internal
+              components:
+                - envoy/nodeport
 
   # External-DNS deploys when dns.public_domain is set. Anchored on the
   # shared `dns` Kustomization (same canonical name addon-private-dns uses)
@@ -695,11 +704,16 @@ cases:
           install:
             components:
               - external-dns
-              - external-dns/providers/route53
-            substitutions:
-              external_domain: example.com
-              zone_type: public
-              zone_id_filter: Z1ABCDEF12345
+          resources:
+            - name: public
+              components:
+                - external-dns
+                - external-dns/providers/route53
+              substitutions:
+                external_dns_name: external-dns-public
+                external_dns_domain: example.com
+                external_dns_zone_type: public
+                external_dns_zone_id_filter: Z1ABCDEF12345
 
   # Private mode: gateway.access=private flips the DNS path away from the
   # public zone and onto the VPC-private Route53 zone the network module
@@ -715,7 +729,6 @@ cases:
       gateway:
         enabled: true
         driver: envoy
-        access: private
       dns:
         private_domain: internal.example.com
     terraformOutputs:
@@ -729,27 +742,29 @@ cases:
           install:
             components:
               - external-dns
-              - external-dns/providers/route53
-              # Gateway is enabled here, so the HTTPRoute source is layered on.
-              - external-dns/sources/gateway-httproute
-            substitutions:
-              external_domain: internal.example.com
-              zone_type: private
-              zone_id_filter: Z9PRIVATEZONE
-        # Cert issuer falls to `private` (selfsigned) — ACME DNS-01 can't
-        # validate against a VPC-only zone, and the gateway's external_domain
-        # follows access=private onto the private domain. The 404 hostname
-        # annotation patch is added too, asserting the private branch of
-        # the option-gateway conditional fires alongside everything else.
+          resources:
+            - name: private
+              components:
+                - external-dns
+                - external-dns/providers/route53
+                # Gateway is enabled here, so the HTTPRoute source is layered on.
+                - external-dns/sources/gateway-httproute
+              substitutions:
+                external_dns_name: external-dns-private
+                external_dns_domain: internal.example.com
+                external_dns_zone_type: private
+                external_dns_zone_id_filter: Z9PRIVATEZONE
+        # The internal gateway's issuer is `private`, and the 404 hostname annotation is added.
         - name: gateway
           resources:
-            - components:
+            - name: internal
+              components:
                 - envoy/default-404
                 - envoy/default-404/external-dns
               substitutions:
                 gateway_cert_issuer: private
-                external_domain: internal.example.com
-        # Private mode swaps pki-resources from public-issuer/* to
+                gateway_domain: internal.example.com
+        # Internal gateway always gets pki-resources' private-issuer/selfsigned,
         # private-issuer/selfsigned, which creates a ClusterIssuer named
         # `private` — what the gateway cert above references. Without this
         # the cert would reference a non-existent issuer.
@@ -823,3 +838,37 @@ cases:
       dns:
         public_domain: example.com
     expectError: true
+
+  - name: existing s3 bucket skips the managed backend component
+    values:
+      platform: aws
+      aws:
+        region: us-west-2
+      terraform:
+        backend:
+          type: s3
+          s3:
+            bucket: my-existing-state
+      gateway:
+        enabled: false
+    exclude:
+      terraform:
+        - name: backend
+    expect:
+      terraform:
+        - name: network
+          path: network/aws-vpc
+
+  - name: local backend type skips the managed backend component
+    values:
+      platform: aws
+      aws:
+        region: us-west-2
+      terraform:
+        backend:
+          type: local
+      gateway:
+        enabled: false
+    exclude:
+      terraform:
+        - name: backend

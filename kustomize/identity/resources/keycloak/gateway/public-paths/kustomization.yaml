@@ -1,0 +1,9 @@
+apiVersion: kustomize.config.k8s.io/v1alpha1
+kind: Component
+patches:
+  - path: patches/httproute.yaml
+    target:
+      group: gateway.networking.k8s.io
+      kind: HTTPRoute
+      name: ^keycloak$
+      namespace: system-identity

@@ -322,3 +322,40 @@ run "invalid_runtime" {
     runtime      = "invalid"
   }
 }
+
+# Extra zones: private and public domains that differ from domain_name join the Corefile as separate zones.
+run "extra_domain_zones" {
+  command = plan
+
+  variables {
+    project_root        = "/home/user/repo"
+    context             = "dev"
+    domain_name         = "test"
+    private_domain_name = "private.test"
+    public_domain_name  = "public.test"
+    enable_dns          = true
+  }
+
+  assert {
+    condition     = join(",", local.extra_domain_names) == "private.test,public.test"
+    error_message = "Private and public domains should become extra zones"
+  }
+}
+
+# A private or public domain equal to domain_name adds no extra zone.
+run "extra_domain_zones_skip_domain_name" {
+  command = plan
+
+  variables {
+    project_root        = "/home/user/repo"
+    context             = "dev"
+    domain_name         = "test"
+    private_domain_name = "test"
+    enable_dns          = true
+  }
+
+  assert {
+    condition     = length(local.extra_domain_names) == 0
+    error_message = "A domain equal to domain_name should add no extra zone"
+  }
+}

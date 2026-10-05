@@ -5,12 +5,12 @@ metadata:
   namespace: system-cni
 spec:
   values:
-    # Enable Cilium's built-in Gateway API controller.
-    # The Gateway API CRDs are vendored in the shared crds layer
-    # (kustomize/crds/gateway-api-experimental-1.5.1) and ordered ahead of cni
-    # via the facet `crds:` dependency, so they exist before cilium-operator
-    # starts its Gateway controller.
+    # Gateway API CRDs come from the crds layer, ordered ahead of cni.
     gatewayAPI:
       enabled: true
       enableAlpn: true
       enableAppProtocol: true
+
+    # Per-node Envoy that serves gateway traffic.
+    envoy:
+      enabled: true

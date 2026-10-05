@@ -166,7 +166,9 @@ terraform:
     path: workstation/docker
     inputs:
       runtime: 'docker-desktop'
-      domain_name: ${dns.private_domain}
+      domain_name: "${(dns.domain ?? '') != '' ? dns.domain : dns.private_domain}"
+      private_domain_name: ${dns.private_domain}
+      public_domain_name: ${dns.public_domain ?? ''}
       network_name: windsor-${context}
       network_cidr: ${network.cidr_block}
       dns_forward_target: "${cidrhost(network.cidr_block, 10) + \":30053\"}"
@@ -188,7 +190,9 @@ terraform:
     inputs:
       runtime: >-
         ${workstation.runtime == "docker" ? "linux" : (workstation.runtime ?? "linux")}
-      domain_name: ${dns.private_domain}
+      domain_name: "${(dns.domain ?? '') != '' ? dns.domain : dns.private_domain}"
+      private_domain_name: ${dns.private_domain}
+      public_domain_name: ${dns.public_domain ?? ''}
       network_name: windsor-${context}
       network_cidr: ${network.cidr_block}
       dns_forward_target: ${network.loadbalancer_ips.start}
@@ -207,7 +211,9 @@ terraform:
     when: "platform == 'incus'"
     path: workstation/incus
     inputs:
-      domain_name: ${dns.private_domain}
+      domain_name: "${(dns.domain ?? '') != '' ? dns.domain : dns.private_domain}"
+      private_domain_name: ${dns.private_domain}
+      public_domain_name: ${dns.public_domain ?? ''}
       network_name: "${(workstation.runtime ?? '') == 'colima' ? 'incusbr0' : ''}"
       create_network: "${(workstation.runtime ?? '') != 'colima'}"
       network_cidr: ${network.cidr_block}
@@ -302,14 +308,14 @@ terraform:
           image: ${cluster.controlplanes.image ?? talos.docker_image}
           cpu: ${cluster_resources_effective.controlplanes.cpu}
           memory: ${cluster_resources_effective.controlplanes.memory}
-          hostports: "${workstation.runtime == \"docker-desktop\" ? (cluster.controlplanes.hostports ?? [\"8080:30080/tcp\", \"8443:30443/tcp\"]) : []}"
+          hostports: "${workstation.runtime == \"docker-desktop\" ? (cluster.controlplanes.hostports ?? [\"8080:30080/tcp\", \"8443:30443/tcp\", \"8081:30081/tcp\", \"8444:30444/tcp\"]) : []}"
           volumes: ${cluster.controlplanes.volumes ?? []}
         workers:
           count: ${cluster.workers.count ?? 0}
           image: ${cluster.workers.image ?? talos.docker_image}
           cpu: ${cluster_resources_effective.workers.cpu}
           memory: ${cluster_resources_effective.workers.memory}
-          hostports: "${workstation.runtime == \"docker-desktop\" ? (cluster.workers.hostports ?? [\"8080:30080/tcp\", \"8443:30443/tcp\"]) : []}"
+          hostports: "${workstation.runtime == \"docker-desktop\" ? (cluster.workers.hostports ?? [\"8080:30080/tcp\", \"8443:30443/tcp\", \"8081:30081/tcp\", \"8444:30444/tcp\"]) : []}"
           volumes: ${cluster.workers.volumes ?? []}
 
   # cluster — Talos bootstrap/apply
@@ -366,9 +372,10 @@ terraform:
 flux:
 
   - name: gateway
-    when: "platform == 'docker' && workstation.runtime == 'docker-desktop' && gateway.enabled == true && (dns.private.enabled ?? (dev == true)) == true"
+    when: "platform == 'docker' && workstation.runtime == 'docker-desktop' && gateway.enabled == true && (dns.private.enabled ?? (dev == true)) == true && (dns.private_domain ?? '') != ''"
     resources:
-      - components:
+      - name: internal
+        components:
           - "${gateway.driver != 'cilium' ? 'dns/docker-desktop' : ''}"
         substitutions:
           gateway_dns_target: "10.96.0.53"

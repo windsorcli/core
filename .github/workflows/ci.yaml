@@ -205,12 +205,9 @@ jobs:
             exit 1
           fi
           git fetch origin main
-          # A Talos version bump replaces the docker control plane (the version is
-          # the node image) and container mode has no in-place upgrade, so the
-          # cluster must be rebuilt. Fresh mode covers that. Keyed to the one
-          # field that sets the version so it can't mask other upgrade breakage.
-          TALOS_VERSION_FILE=contexts/_template/facets/platform-docker.yaml
-          talos_version_of() { git show "$1:$TALOS_VERSION_FILE" 2>/dev/null | sed -n 's/^ *talos_version: *"\(.*\)"$/\1/p'; }
+          # A Talos version bump requires a full rebuild; skip upgrade mode for it.
+          TALOS_VERSION_FILE=contexts/_template/facets/config-talos.yaml
+          talos_version_of() { git show "$1:$TALOS_VERSION_FILE" 2>/dev/null | sed -n 's/^ *talos_version: *"\(.*\)"$/\1/p' | head -1; }
           base_talos=$(talos_version_of origin/main)
           head_talos=$(talos_version_of HEAD)
           if [ -n "$base_talos" ] && [ -n "$head_talos" ] && [ "$base_talos" != "$head_talos" ]; then
@@ -468,7 +465,7 @@ jobs:
 
       - name: Investigate failure with Claude
         if: always() && steps.seed.outcome == 'success' && steps.phase.outputs.phase != 'none' && steps.phase.outputs.phase != 'baseline' && github.event_name == 'pull_request' && github.event.action == 'opened'
-        uses: anthropics/claude-code-action@fd1c128679612beff4ca259c78021c506e8aa7a7 # v1.0.237
+        uses: anthropics/claude-code-action@cab360f6565aa35a51d6ce9e43f1f4287c0a32ea # v1.0.241
         env:
           RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
           RUN_ID: ${{ github.run_id }}

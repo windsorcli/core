@@ -1,0 +1,13 @@
+# Limits the external login route to the paths a login needs, so the admin console and the master realm stay off the public hostname.
+- op: add
+  path: /spec/rules/0/matches
+  value:
+    - path:
+        type: PathPrefix
+        value: /realms/${keycloak_realm}
+    - path:
+        type: PathPrefix
+        value: /resources/
+    - path:
+        type: PathPrefix
+        value: /.well-known/

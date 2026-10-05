@@ -336,12 +336,21 @@ cases:
           install:
             components:
               - external-dns
-              - external-dns/providers/google
-              - external-dns/sources/gateway-httproute
-            substitutions:
-              external_domain: example.com
-              google_project_id: windsor-test
-              external_dns_service_account_email: external-dns@windsor-test.iam.gserviceaccount.com
+          resources:
+            - name: account
+              components:
+                - service-account
+                - service-account/providers/google
+              substitutions:
+                external_dns_service_account_email: external-dns@windsor-test.iam.gserviceaccount.com
+            - name: public
+              components:
+                - external-dns/providers/google
+                - external-dns/sources/gateway-httproute
+              substitutions:
+                external_dns_name: external-dns-public
+                external_dns_domain: example.com
+                google_project_id: windsor-test
 
   # Gateway disabled: the dns Kustomization still ships (public_domain alone
   # is enough to want Cloud DNS record management for ingress hostnames),
@@ -370,11 +379,20 @@ cases:
           install:
             components:
               - external-dns
-              - external-dns/providers/google
-            substitutions:
-              external_domain: example.com
-              google_project_id: windsor-test
-              external_dns_service_account_email: external-dns@windsor-test.iam.gserviceaccount.com
+          resources:
+            - name: account
+              components:
+                - service-account
+                - service-account/providers/google
+              substitutions:
+                external_dns_service_account_email: external-dns@windsor-test.iam.gserviceaccount.com
+            - name: public
+              components:
+                - external-dns/providers/google
+              substitutions:
+                external_dns_name: external-dns-public
+                external_dns_domain: example.com
+                google_project_id: windsor-test
 
   # Dev mode flips the ACME server to Let's Encrypt staging to avoid burning
   # Let's Encrypt prod rate limits during iteration. database.postgres
@@ -446,11 +464,8 @@ cases:
         public_domain: example.com
     expectError: true
 
-  # Default (public) access: the gateway install-merge entry's when: fires
-  # (envoy + loadbalancer mode) but the ternary has nothing to select, so
-  # gcp-internal-lb must not appear — the empty string it evaluates to is
-  # pruned during composition, matching Azure's identical public-path case.
-  - name: gateway with envoy on GCP does not add gcp-internal-lb component by default
+  # Public only: no internal gateway variant and no internal-LB component.
+  - name: gateway with envoy on GCP does not add the internal LB component without a private domain
     values:
       platform: gcp
       gcp:
@@ -458,19 +473,19 @@ cases:
       gateway:
         enabled: true
         driver: envoy
+      dns:
+        public_domain: example.com
+      email: ops@example.com
     exclude:
       flux:
         - name: gateway
-          install:
-            components:
-              - envoy/loadbalancer/gcp-internal-lb
+          resources:
+            - name: internal
+              components:
+                - envoy/loadbalancer/gcp
 
-  # gateway.access=private threads through the GCP facet's gateway install
-  # merge, conditionally including gcp-internal-lb (GKE's CCM makes any
-  # Service:LoadBalancer public by default; the annotation is what flips it).
-  # dns.private_domain is required — without it the LB scheme stays public
-  # so the gateway doesn't end up internal-only with no DNS pointing at it.
-  - name: gateway.access=private flips the GKE LB to internal
+  # The internal gateway merges envoy/loadbalancer/gcp for the internal load balancer.
+  - name: internal gateway flips the GKE LB to internal
     values:
       platform: gcp
       gcp:
@@ -478,23 +493,18 @@ cases:
       gateway:
         enabled: true
         driver: envoy
-        access: private
       dns:
         private_domain: internal.example.com
     expect:
       flux:
         - name: gateway
-          install:
-            components:
-              - envoy/loadbalancer/gcp-internal-lb
+          resources:
+            - name: internal
+              components:
+                - envoy/loadbalancer/gcp
 
-  # Private mode: gateway.access=private flips the DNS path away from the
-  # public zone and onto the VPC-private Cloud DNS zone the network module
-  # creates from dns.private_domain. external-dns is still rendered, pointed
-  # at the private domain — no zone_id_filter needed, domainFilters already
-  # scopes it. Cert issuer falls to private-issuer/selfsigned (ACME can't
-  # validate against a VPC-only zone).
-  - name: private mode targets external-dns at the private Cloud DNS zone
+  # Private domain: external-dns serves the private zone, and the internal gateway uses the private issuer.
+  - name: private domain targets external-dns at the private Cloud DNS zone
     values:
       platform: gcp
       gcp:
@@ -502,7 +512,6 @@ cases:
       gateway:
         enabled: true
         driver: envoy
-        access: private
       dns:
         private_domain: internal.example.com
     expect:
@@ -511,18 +520,25 @@ cases:
           install:
             components:
               - external-dns
-              - external-dns/providers/google
-              - external-dns/sources/gateway-httproute
-            substitutions:
-              external_domain: internal.example.com
+          resources:
+            - name: account
+              components:
+                - service-account
+                - service-account/providers/google
+            - name: private
+              components:
+                - external-dns/providers/google
+                - external-dns/sources/gateway-httproute
+              substitutions:
+                external_dns_name: external-dns-private
+                external_dns_domain: internal.example.com
         - name: pki
           resources:
             - components:
                 - private-issuer/selfsigned
 
-  # option-gateway.yaml's own requires: rejects access: private without a
-  # private domain, platform-agnostically — nothing GCP-specific to guard.
-  - name: gateway.access private without a private domain fails composition
+  # Both domains: one external-dns instance per zone.
+  - name: both domains run one external-dns instance per zone
     values:
       platform: gcp
       gcp:
@@ -530,5 +546,42 @@ cases:
       gateway:
         enabled: true
         driver: envoy
-        access: private
-    expectError: true
+      dns:
+        public_domain: example.com
+        private_domain: internal.example.com
+      email: ops@example.com
+    expect:
+      flux:
+        - name: dns
+          install:
+            components:
+              - external-dns
+          resources:
+            - name: account
+              components:
+                - service-account
+                - service-account/providers/google
+            - name: public
+              substitutions:
+                external_dns_name: external-dns-public
+                external_dns_domain: example.com
+            - name: private
+              substitutions:
+                external_dns_name: external-dns-private
+                external_dns_domain: internal.example.com
+
+  - name: existing gcs bucket skips the managed backend component
+    values:
+      platform: gcp
+      gcp:
+        project_id: windsor-test
+      terraform:
+        backend:
+          type: gcs
+          gcs:
+            bucket: my-existing-state
+      gateway:
+        enabled: false
+    exclude:
+      terraform:
+        - name: backend

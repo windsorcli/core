@@ -1,0 +1,17 @@
+---
+# Pins the Service address with the Cilium LBIPAM annotation.
+apiVersion: gateway.envoyproxy.io/v1alpha1
+kind: EnvoyProxy
+metadata:
+  name: ${gateway_name}
+  namespace: system-gateway
+spec:
+  provider:
+    kubernetes:
+      envoyService:
+        patch:
+          type: StrategicMerge
+          value:
+            metadata:
+              annotations:
+                lbipam.cilium.io/ips: ${gateway_loadbalancer_ip}

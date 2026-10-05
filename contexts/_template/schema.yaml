@@ -804,7 +804,7 @@ properties:
         properties:
           start:
             $ref: '#/$defs/ipv4'
-            description: Load balancer IP pool start (IPv4 dotted-quad; each octet 0-255).
+            description: Load balancer IP pool start (IPv4 dotted-quad; each octet 0-255). The internal gateway takes this address and the external gateway takes the next one when both exist. Leave a free address above it, since a start ending in .255 leaves the external gateway unassigned.
           end:
             $ref: '#/$defs/ipv4'
             description: Load balancer IP pool end (IPv4 dotted-quad; each octet 0-255).
@@ -1058,7 +1058,8 @@ properties:
     properties:
       domain:
         $ref: '#/$defs/dnsHostname'
-        description: Base domain; used as fallback when public_domain or private_domain are not set. Lowercase DNS labels separated by dots (RFC 1123); no scheme, port, or trailing dot.
+        deprecated: true
+        description: Deprecated. Use dns.private_domain. Fallback for private_domain when that is unset; never sets public_domain.
       public_domain:
         $ref: '#/$defs/dnsHostname'
         description: >
@@ -1164,12 +1165,6 @@ properties:
           - LoadBalancer
           - NodePort
         description: Kubernetes Service type used to expose the gateway. When unset, defaults to LoadBalancer except on docker-desktop, which is forced to NodePort. Set to NodePort to expose the gateway on any driver without a cluster LB (e.g. single-node Talos VMs).
-      access:
-        type: string
-        enum:
-          - public
-          - private
-        description: Whether the gateway is reachable from the public internet (public, default) or only from inside the VPC/network (private). Flipping this to `private` cascades through the gateway's adjacent infrastructure — load balancer scheme, the DNS zone external-dns publishes to, and the cert-manager issuer — so the whole gateway stack stays coherent. Requires `dns.private_domain` to be set; otherwise the private path is a no-op and the gateway runs as public.
       publish_ports:
         type: object
         propertyNames:

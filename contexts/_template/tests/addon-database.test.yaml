@@ -49,6 +49,8 @@ cases:
   # Full: database with HA and observability.
   - name: full config creates database with HA and observability integration
     values:
+      dns:
+        private_domain: example.test
       platform: metal
       network: *default-network
       cluster: *default-cluster
@@ -121,6 +123,8 @@ cases:
   # disabling telemetry entirely must not affect composition.
   - name: cloudnativepg dashboard patch composes with telemetry fully disabled
     values:
+      dns:
+        private_domain: example.test
       platform: metal
       network: *default-network
       cluster: *default-cluster
@@ -364,6 +368,8 @@ cases:
   # dashboard, not the cloudnativepg one — the two are mutually exclusive.
   - name: rds driver with observability enables postgres-exporter dashboard
     values:
+      dns:
+        private_domain: example.test
       platform: aws
       aws:
         region: us-west-2
@@ -387,6 +393,8 @@ cases:
   # dashboard, not the cloudnativepg one — GCP twin of the rds case above.
   - name: cloudsql driver with observability enables postgres-exporter dashboard
     values:
+      dns:
+        private_domain: example.test
       platform: gcp
       gcp:
         project_id: windsor-test
@@ -410,6 +418,8 @@ cases:
   # exclusive — a context can run both at once, and both dashboards render.
   - name: cnpg and rds cloud driver together render both dashboards
     values:
+      dns:
+        private_domain: example.test
       platform: aws
       aws:
         region: us-west-2

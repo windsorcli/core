@@ -2,21 +2,21 @@
 # Manual edits may be lost in future updates.
 
 provider "registry.terraform.io/hcloud-talos/imager" {
-  version     = "1.0.23"
-  constraints = "1.0.23"
+  version     = "1.0.24"
+  constraints = "1.0.24"
   hashes = [
-    "h1:5bwPJu9U4Nn/6ni9y9UJ87O44TisoCHXvplDtuM+pFM=",
-    "h1:OYIGO0KXo42afLZ/e59hf6LUkSkCtzf6JzyDqROLjhg=",
-    "h1:PX0p0KgvywoRsYa1L0U6veQF8cnidmssmXR4DnF4gSI=",
-    "h1:lxO6YBAuzESdr9Yc+SozU7FObYrII3NSaqutuEjv9j0=",
-    "h1:tlmsVmxKkGB3tRxrqQ1NFTJEL/2t2O6T3Rq6SQBABWk=",
-    "h1:y4nrZB9uC2xN+fJfV2+Q6yc4n2zheNFT6RFCz54l6yY=",
-    "zh:28a9221407bebce3b4679aee8b02000fdbd63519f43f03356cce9673c30c5e81",
-    "zh:3f0df8a6becb578e2fcc02108805a56a64af1d375f0c6a69fa4f8953d1ad1015",
-    "zh:5f20c1b77b574cf7a83815abace6769e71de5046ffedca30334bee18ebc586f7",
-    "zh:720f60de08ddd5013cd0e665ece32061b2b547b274ac57f8a7be3952f529d876",
-    "zh:7246e90eef3f672a2ff8a311187c8f1bb26f4010f74b3a69bdaaeb409a30ddb2",
-    "zh:c55530a6b73417b4f99c1f81e4def392fe3987c1df06d3cb07d128129055c1e2",
+    "h1:Ar19aIoP+q/3F1FQT3UmvlYfZmABqQrsaSyG0/3+9w4=",
+    "h1:KqUWuvfUHzkKZiETUERfBj0qWYPLy1rO07758J/FxWU=",
+    "h1:Ol1suasqma335poR34Wk+bj12wsFHOsXs98waN6dEMs=",
+    "h1:Y0W9arIwvIJDjUSYi4wXV6j71zpRuoszIelxoX2N6DA=",
+    "h1:YcOAUuB4m6vmVzh2nkpDxEkbz+F6ozudpc/q0NxHryM=",
+    "h1:iWmb11CcTEmYlxAGx1mnwS++F14mMoPHR2WgM6BbdGM=",
+    "zh:1385958de759881b343d5c79549e5bfb1d2ebbae32f524d8388597ea7358bded",
+    "zh:290519c9b69d05b4e170ae924d7507127406db7da658d58ce44cf4dbd4e0a3bd",
+    "zh:537fa1d9a516e346a49218eea470d3627f8c9c38f5835cc940affe74d7fb3cd0",
+    "zh:c476611b84e6328a9cb5f7b9c04ea1bbff45561f9124f86cbf3c02e9b27d8a26",
+    "zh:c6a7a6d28b8e9851e791f159df8395384b7574c71e991c00a74be6aa5b4eb8d9",
+    "zh:dfbe24ce8875172501eb0962882bb09f81ee5e3cd1ed59317a2db7f8e02a250d",
   ]
 }
 

@@ -1,0 +1,56 @@
+---
+apiVersion: helm.toolkit.fluxcd.io/v2
+kind: HelmRelease
+metadata:
+  name: ${external_dns_name}
+  namespace: system-dns
+spec:
+  interval: 5m
+  timeout: 10m
+  dependsOn: []
+  install:
+    remediation:
+      retries: 5
+  upgrade:
+    remediation:
+      retries: 5
+  chart:
+    spec:
+      chart: external-dns
+      # renovate: datasource=helm depName=external-dns package=external-dns helmRepo=https://kubernetes-sigs.github.io/external-dns/
+      version: 1.23.0
+      sourceRef: 
+        kind: HelmRepository
+        name: external-dns
+  values:
+    priorityClassName: windsorcli-platform-critical
+    tolerations:
+      - key: CriticalAddonsOnly
+        operator: Exists
+        effect: NoSchedule
+    affinity:
+      nodeAffinity:
+        preferredDuringSchedulingIgnoredDuringExecution:
+          - weight: 100
+            preference:
+              matchExpressions:
+                - key: windsorcli.dev/pool-class
+                  operator: In
+                  values:
+                    - system
+    image:
+      # renovate: datasource=docker depName=registry.k8s.io/external-dns/external-dns package=registry.k8s.io/external-dns/external-dns
+      tag: v0.23.0@sha256:1854499e2b08cee47c40a08e356bff20dcb192dbcfde8378fc3f900f12cad5a3
+    env: []
+    extraVolumes: []
+    extraVolumeMounts: []
+    triggerLoopOnEvent: true
+    # policy has no chart default from v1.22.0. upsert-only matches the prior default.
+    policy: upsert-only
+    sources:
+      - ingress
+    domainFilters:
+      - ${external_dns_domain:-test}
+    serviceAccount:
+      create: false
+      name: external-dns

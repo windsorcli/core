@@ -150,7 +150,7 @@ config:
   #
   # vSphere deployments in industrial facilities are typically LAN-only with
   # no public DNS. The gateway cert (kustomize/gateway/resources/certificate.yaml)
-  # substitutes external_domain into spec.dnsNames; if empty cert-manager rejects
+  # substitutes gateway_domain into spec.dnsNames; if empty cert-manager rejects
   # the Certificate as invalid. Default private_domain to '<id>.local' so the
   # cert validates out of the box. Operators can override via dns.domain or
   # dns.private_domain.

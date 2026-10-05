@@ -123,7 +123,7 @@ provisions.
 
 | Name | Required when | Effect |
 |---|---|---|
-| `external_domain` | `demo.resources.bookinfo: true` AND `gateway.enabled: true` | Hostname suffix for the bookinfo HTTPRoute (`bookinfo.${external_domain}`). Passed by the facet itself, from `gateway_effective.external_domain`. |
+| `private_domain` | `demo.resources.bookinfo: true` AND `gateway.enabled: true` | Hostname suffix for the bookinfo HTTPRoute (`bookinfo.${private_domain}`). Always `dns.private_domain`, since the route binds to the internal gateway. |
 | `REGISTRY_URL` | `demo.resources.static: true` | Image registry hosting the demo static-site container image (`${REGISTRY_URL}/demo:1.0.6`). No fallback; the static workload's pod will fail to pull if the variable is not set at the Flux Kustomization level. |
 | `aws_region` | `demo.resources.database: true` AND `database.postgres.cloud.enabled: true` AND `database.postgres.cloud.driver == 'rds'` | AWS region for the `demo-db` Instance, from `aws.region`. Passed by the facet itself. |
 | `demo_database_name` | `demo.resources.database: true` AND `database.postgres.cloud.enabled: true` | Fixed value `demo`, from the facet's own `demo_database_name` config. Sets RDS's `dbName` directly, and names the database the demo `AppRole` owns. Passed by the facet itself. |
@@ -183,7 +183,7 @@ Pulls the upstream Istio bookinfo sample at tag `1.22.8` into `demo-bookinfo` (P
 
 _Enabled when `demo.resources.bookinfo: true` AND `gateway.enabled: true`._
 
-HTTPRoute exposing productpage at `bookinfo.${external_domain}` through the cluster Gateway. Skipped on clusters without Gateway API.
+HTTPRoute exposing productpage at `bookinfo.${private_domain}` through the internal gateway. Skipped on clusters without Gateway API.
 
 ## Dependencies
 

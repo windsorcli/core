@@ -48,7 +48,7 @@ runs:
       shell: bash
       env:
         # renovate: datasource=github-releases depName=yq package=mikefarah/yq
-        YQ_VERSION: v4.53.6
+        YQ_VERSION: v4.54.1
       run: |
         cd "$(mktemp -d)"
         base="https://github.com/mikefarah/yq/releases/download/${YQ_VERSION}"
@@ -88,7 +88,7 @@ runs:
       shell: bash
       env:
         # renovate: datasource=github-releases depName=flux package=fluxcd/flux2
-        FLUX_VERSION: v2.9.5
+        FLUX_VERSION: v2.9.6
       run: |
         cd "$(mktemp -d)"
         base="https://github.com/fluxcd/flux2/releases/download/${FLUX_VERSION}"

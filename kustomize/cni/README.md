@@ -152,7 +152,7 @@ Enables `gatewayAPI` on Cilium and ships a Kyverno MutatingPolicy that injects L
 
 _Enabled when `telemetry.metrics.enabled: true`._
 
-Enables Prometheus on the operator and agent and creates a ServiceMonitor for each.
+Enables Prometheus on the operator, agent, and `cilium-envoy` and creates a ServiceMonitor for each.
 
 ### `cilium/hubble`
 
@@ -164,7 +164,7 @@ Hubble metrics (dns, drop, port-distribution, tcp, flow, icmp, http), Hubble Rel
 
 _Enabled when platform is Talos._
 
-Enables `l2announcements` and `externalIPs` and creates `CiliumLoadBalancerIPPool/default` with the configured IP range plus `CiliumL2AnnouncementPolicy/default` matching `^eth[0-9]+` and `^ens[0-9]+` interfaces. Replaces kube-vip and MetalLB on Talos.
+Enables `l2announcements` and creates `CiliumLoadBalancerIPPool/default` with the configured IP range plus `CiliumL2AnnouncementPolicy/default` announcing on all interfaces. Replaces kube-vip and MetalLB on Talos.
 
 ## Dependencies
 

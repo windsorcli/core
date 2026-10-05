@@ -1,0 +1,25 @@
+---
+# Self-contained per-gateway data-plane config, referenced from the Gateway through
+# spec.infrastructure.parametersRef. Carries the digest-pinned proxy image Kyverno requires.
+apiVersion: gateway.envoyproxy.io/v1alpha1
+kind: EnvoyProxy
+metadata:
+  name: ${gateway_name}
+  namespace: system-gateway
+spec:
+  provider:
+    type: Kubernetes
+    kubernetes:
+      # Enforce digest pinning on the generated Envoy proxy workload to satisfy Kyverno policy.
+      envoyDeployment:
+        patch:
+          type: StrategicMerge
+          value:
+            spec:
+              template:
+                spec:
+                  priorityClassName: windsorcli-platform-critical
+                  containers:
+                    # renovate: datasource=docker depName=docker.io/envoyproxy/envoy package=docker.io/envoyproxy/envoy
+                    - name: envoy
+                      image: docker.io/envoyproxy/envoy:distroless-v1.37.1@sha256:4d9226b9fd4d1449887de7cde785beb24b12e47d6e79021dec3c79e362609432

@@ -15,3 +15,8 @@ spec:
       enabled: true
       serviceMonitor:
         enabled: true
+
+    envoy:
+      prometheus:
+        serviceMonitor:
+          enabled: true

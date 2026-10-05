@@ -200,16 +200,23 @@ cases:
           install:
             components:
               - envoy
-              - envoy/loadbalancer
-              - envoy/loadbalancer/fixed-ip
               - envoy/prometheus
-            substitutions:
-              loadbalancer_start_ip: "10.10.1.10"
             timeout: 10m
             interval: 5m
           resources:
-            - components:
+            - name: internal
+              components:
+                - envoy/base
+                - envoy/loadbalancer
+                - envoy/loadbalancer/fixed-ip
+                - envoy/parameters
+                - envoy/default-404
+                - envoy/default-404/external-dns
+                - lb-address
                 - dns
+                - flux-webhook
+              substitutions:
+                gateway_loadbalancer_ip: "10.10.1.10"
               timeout: 10m
               interval: 5m
         - name: csi
@@ -265,6 +272,22 @@ cases:
               - prometheus
               - prometheus/flux
               - fluentbit
+
+  # Incus nodes are VMs, so Colima keeps the default Talos version.
+  - name: colima-incus uses the default Talos version
+    values:
+      platform: incus
+      workstation:
+        runtime: colima
+      network: *default-network
+      cluster: *default-cluster
+    terraformOutputs: *default-terraform-outputs
+    expect:
+      terraform:
+        - name: cluster
+          path: cluster/talos
+          inputs:
+            talos_version: "1.14.2"
 
   # colima-incus: defaults to flannel CNI (no cilium overhead; used for storage driver testing)
   - name: colima-incus defaults to flannel CNI and kube-vip lb

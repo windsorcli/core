@@ -10,6 +10,13 @@ ${context}:53 {
     loop
     forward . ${dns_forward_target}
 }
+%{ for domain in extra_domain_names ~}
+${domain}:53 {
+    reload
+    loop
+    forward . ${dns_forward_target}
+}
+%{ endfor ~}
 .:53 {
     reload
     loop

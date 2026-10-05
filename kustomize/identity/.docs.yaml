@@ -27,7 +27,13 @@ components:
     description: "Dev-only `ClusterRoleBinding` mapping the `platform-admins` group to `cluster-admin`, so the seeded `dev-admin` user can do something after logging in via kubectl OIDC. Never applied outside dev."
   keycloak/gateway:
     enable_when: "`gateway.enabled == true`"
-    description: "HTTPRoute publishing `keycloak.${external_domain}` through the shared external Gateway to the operator-managed `keycloak-service`."
+    description: "HTTPRoute publishing `keycloak.${keycloak_domain}` through the external gateway when a public domain is set, otherwise the internal one to the operator-managed `keycloak-service`."
+  keycloak/gateway/public-paths:
+    enable_when: "`dns.public_domain` is set"
+    description: "Limits the login route on the external gateway to `/realms/${keycloak_realm}`, `/resources/` and `/.well-known/`, so the admin console and the master realm stay off the public hostname. Unmatched paths get the gateway's 404."
+  keycloak/gateway-admin:
+    enable_when: "the internal gateway exists"
+    description: "HTTPRoute publishing `keycloak-admin.${private_domain}` through the internal gateway, so the admin console is reachable only on the private network."
   keycloak/cilium:
     enable_when: "`gateway.driver == 'cilium'`"
     description: "CiliumNetworkPolicy restricting Keycloak ingress to the gateway proxy. Cilium-enforced, so gated on the Cilium gateway driver."

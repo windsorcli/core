@@ -45,7 +45,13 @@ flux:
   - name: gateway
     when: gateway.enabled == true && gateway.driver == 'cilium'
     resources:
-      - dependsOn:
+      - name: external
+        when: (dns.public_domain ?? '') != ''
+        dependsOn:
+          - cni-install
+      - name: internal
+        when: gateway_effective.internal == true
+        dependsOn:
           - cni-install
 
   # ---------------------------------------------------------------------------

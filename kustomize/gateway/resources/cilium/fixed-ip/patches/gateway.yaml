@@ -1,0 +1,11 @@
+---
+# Pins this gateway's Cilium LBIPAM address.
+apiVersion: gateway.networking.k8s.io/v1
+kind: Gateway
+metadata:
+  name: ${gateway_name}
+  namespace: system-gateway
+spec:
+  infrastructure:
+    annotations:
+      lbipam.cilium.io/ips: ${gateway_loadbalancer_ip}

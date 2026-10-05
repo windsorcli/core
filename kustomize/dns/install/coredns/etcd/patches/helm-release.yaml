@@ -16,7 +16,7 @@ spec:
         readOnly: true
     servers:
       - zones:
-          - zone: .
+          - zone: ${private_domain}
             use_tcp: true
         port: 53
         plugins:
@@ -29,14 +29,10 @@ spec:
               path /skydns
               endpoint etcd.system-dns.svc.cluster.local:2379
               tls /etc/etcd/tls/tls.crt /etc/etcd/tls/tls.key /etc/etcd/tls/ca.crt
-              fallthrough
-          - name: forward
-            parameters: . 1.1.1.1 8.8.8.8
           - name: ready
           - name: prometheus
             parameters: 0.0.0.0:9153
           - name: cache
             parameters: 30
-          - name: loop
           - name: reload
           - name: loadbalance

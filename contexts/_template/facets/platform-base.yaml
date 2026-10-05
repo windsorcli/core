@@ -19,6 +19,16 @@ config:
   - name: platform
     value: "${platform ?? 'none'}"
 
+  # Whether core provisions the state backend: the platform's own backend type
+  # with no existing bucket or storage account supplied.
+  - name: backend_effective
+    value:
+      managed: >-
+        ${platform == 'aws' ? ((terraform.backend.type ?? 's3') == 's3' && (terraform.backend.s3.bucket ?? '') == '')
+        : (platform == 'azure' ? ((terraform.backend.type ?? 'azurerm') == 'azurerm' && (terraform.backend.azurerm.storage_account_name ?? '') == '')
+        : (platform == 'gcp' ? ((terraform.backend.type ?? 'gcs') == 'gcs' && (terraform.backend.gcs.bucket ?? '') == '')
+        : false))}
+
   # Normalize workstation.runtime so equality checks are safe when unset.
   - name: workstation
     value:
@@ -144,17 +154,15 @@ config:
     value:
       controller_required: "${platform == 'aws' || platform == 'hetzner' || lb_effective.enabled == true}"
 
-  # DNS domains. domain: user-facing root. public_domain: publicly-routable
-  # pattern (external-dns, ACME SAN) — explicit only, never from `domain`, so
-  # configuring a domain doesn't silently activate ACME. private_domain:
-  # in-cluster records (CoreDNS). dev:true defaults domain/private_domain to
-  # 'test'; public_domain stays empty (no real public DNS).
+  # DNS domains. public_domain: publicly-routable zone (external-dns, ACME SAN),
+  # set only by dns.public_domain. private_domain: in-cluster records (CoreDNS),
+  # falling back to the deprecated dns.domain. dev:true defaults domain/private_domain to 'test'.
   - name: dns
     value:
       domain: "${dns.domain ?? (dev == true ? 'test' : '')}"
       public_domain: "${dns.public_domain ?? ''}"
       private_domain: "${dns.private_domain ?? dns.domain ?? (dev == true ? 'test' : '')}"
-      enabled: "${(dns.private.enabled ?? false) == true || (dns.public_domain ?? '') != '' || (gateway.access == 'private' && (dns.private_domain ?? '') != '')}"
+      enabled: "${(dns.private.enabled ?? false) == true || (dns.public_domain ?? '') != '' || (dns.private_domain ?? '') != ''}"
 
   # Cluster provisioning flags. cluster_provisioned: a cluster should exist —
   # on docker only when a workstation runtime is set (bare `platform: docker`
@@ -437,6 +445,11 @@ flux:
     resources:
       - components:
           - "${(pki.enabled ?? false) != true ? 'private-issuer/selfsigned' : ''}"
+          # Cloud platforms add their own public issuer.
+          - >-
+            ${(dns.public_domain ?? '') != '' &&
+            !(platform in ['aws', 'azure', 'gcp', 'hetzner']) ?
+            'public-issuer/selfsigned' : ''}
         timeout: 5m
         interval: 5m
 
@@ -475,12 +488,13 @@ flux:
     path: gitops
     when: (gitops.mode ?? 'push') == 'push'
     dependsOn:
-      - "${gateway.enabled == true ? 'gateway-resources' : ''}"
+      - "${gateway.enabled == true && gateway_effective.internal == true ? 'gateway-resources-internal' : ''}"
     resources:
       - components:
           - webhook
-          - "${gateway.enabled == true ? 'webhook/gateway' : ''}"
-          - "${gateway.enabled == true && gateway.driver == 'cilium' ? 'webhook/gateway/cilium' : ''}"
+          # The webhook route binds to the internal gateway.
+          - "${gateway.enabled == true && gateway_effective.internal == true ? 'webhook/gateway' : ''}"
+          - "${gateway.enabled == true && gateway_effective.internal == true && gateway.driver == 'cilium' ? 'webhook/gateway/cilium' : ''}"
         substitutions:
           git_repository_name: ${gitops.repository.name ?? "local"}
         timeout: 5m
@@ -495,15 +509,15 @@ flux:
   # there), not gateway-install.
   - name: gitops
     path: gitops
-    when: gateway.enabled == true && (gitops.web_ui ?? false) == true
+    when: gateway.enabled == true && (gitops.web_ui ?? false) == true && gateway_effective.internal == true
     dependsOn:
-      - gateway-resources
+      - gateway-resources-internal
     resources:
       - components:
           - ui
           - "${gateway.driver == 'cilium' ? 'ui/cilium' : ''}"
         substitutions:
-          external_domain: ${gateway_effective.external_domain}
+          private_domain: ${dns.private_domain}
         timeout: 5m
         interval: 5m
 
@@ -511,7 +525,10 @@ flux:
 # Messages — post-run notes printed on bootstrap
 # =============================================================================
 messages:
-  - when: (dns.public_domain ?? '') != '' && len(terraform_output('dns-zone', 'name_servers') ?? []) > 0
+  # Only the cloud platforms provision a dns-zone to delegate.
+  - when: >-
+      (dns.public_domain ?? '') != '' && platform in ['aws', 'azure', 'gcp', 'hetzner'] &&
+      len(terraform_output('dns-zone', 'name_servers') ?? []) > 0
     text: |-
       Public DNS zone created for ${dns.public_domain}. Delegate it at your
       domain registrar by adding these as NS records:

@@ -30,7 +30,7 @@ cases:
     values:
       platform: metal
       dns:
-        domain: example.local
+        private_domain: example.local
       gateway:
         enabled: true
       network: *default-network
@@ -62,11 +62,14 @@ cases:
                 keycloak_image: quay.io/keycloak/keycloak:26.7.4@sha256:82a77884f3af238beab1e7afd63b5f530e1b5c0590bd7aa60b40a40463e29b2c
                 keycloak_start_optimized: "false"
             - dependsOn:
-                - gateway-resources
+                - gateway-resources-internal
               components:
                 - keycloak/gateway
+                - keycloak/gateway-admin
               substitutions:
-                external_domain: example.local
+                keycloak_domain: example.local
+                private_domain: example.local
+                keycloak_gateway_name: internal
             - components:
                 - keycloak/realm
               substitutions:
@@ -172,7 +175,7 @@ cases:
     values:
       platform: docker
       dns:
-        domain: example.local
+        private_domain: example.local
       gateway:
         enabled: true
         driver: envoy
@@ -648,3 +651,33 @@ cases:
           resources:
             - components:
                 - grafana/dashboards/identity
+
+  # A public domain puts Keycloak login on the external gateway and admin on the internal one.
+  - name: public domain limits the external Keycloak route to the login paths
+    values:
+      platform: metal
+      dev: true
+      identity:
+        enabled: true
+        driver: keycloak
+      dns:
+        public_domain: public.example.com
+        private_domain: private.example.com
+      network: *default-network
+      cluster: *default-cluster
+    expect:
+      flux:
+        - name: identity
+          resources:
+            - dependsOn:
+                - gateway-resources-external
+                - gateway-resources-internal
+              components:
+                - keycloak/gateway
+                - keycloak/gateway/public-paths
+                - keycloak/gateway-admin
+              substitutions:
+                keycloak_domain: public.example.com
+                keycloak_gateway_name: external
+                keycloak_realm: platform
+                private_domain: private.example.com

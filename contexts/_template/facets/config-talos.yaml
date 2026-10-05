@@ -306,3 +306,10 @@ config:
     value:
       # renovate: datasource=github-releases depName=talos package=siderolabs/talos
       talos_version: "1.14.2"
+
+  - name: talos
+    when: platform == 'docker' && workstation.runtime == 'colima'
+    value:
+      # Remove once Colima's VM image is Ubuntu 26.04 or newer.
+      talos_version: "1.13.11"
+      kubernetes_version: "1.36.5"

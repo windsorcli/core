@@ -2,4 +2,4 @@
   path: /spec/addresses
   value:
     - type: IPAddress
-      value: ${loadbalancer_start_ip}
+      value: ${gateway_loadbalancer_ip}

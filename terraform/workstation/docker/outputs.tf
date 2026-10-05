@@ -42,7 +42,7 @@ output "dns_internal_ip" {
 }
 
 output "domain_name" {
-  description = "Domain name used for DNS zone and hostnames (dns.domain_name, git.domain_name, etc.). Equal to var.domain_name when set, otherwise var.context."
+  description = "Workstation domain used for the DNS zone and hostnames (dns.<name>, git.<name>, and so on). Equal to var.domain_name when set, otherwise the context name."
   value       = local.domain_name
 }
 
