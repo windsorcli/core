@@ -258,6 +258,7 @@
     }
   ],
   "platformAutomerge": true,
+  "rebaseWhen": "conflicted",
   "addLabels": [
     "dependencies"
   ],
