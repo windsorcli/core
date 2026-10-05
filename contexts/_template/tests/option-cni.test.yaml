@@ -403,9 +403,13 @@ cases:
               - cilium/prometheus
               - cilium/hubble
               - cilium/l2
-            substitutions:
-              loadbalancer_start_ip: "10.5.1.10"
-              loadbalancer_end_ip: "10.5.1.100"
+        - name: cni
+          resources:
+            - components:
+                - cilium/l2
+              substitutions:
+                loadbalancer_start_ip: "10.5.1.10"
+                loadbalancer_end_ip: "10.5.1.100"
 
   # Cilium: gitops terraform depends on cni when cilium is selected.
   - name: cilium driver makes gitops terraform depend on cni
