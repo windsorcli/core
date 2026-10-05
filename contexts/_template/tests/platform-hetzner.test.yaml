@@ -566,6 +566,7 @@ cases:
         network_zone: eu-central
       gateway:
         enabled: true
+        driver: cilium
       network: *default-network
     terraformOutputs: *default-terraform-outputs
     expect:
