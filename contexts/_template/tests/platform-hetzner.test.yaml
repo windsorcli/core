@@ -552,6 +552,23 @@ cases:
         - name: compute
           path: compute/hcloud
 
+  - name: dev mode with an explicit private domain still composes
+    values:
+      platform: hetzner
+      dev: true
+      hetzner:
+        token: test-token
+      dns:
+        private_domain: example.internal
+      gateway:
+        enabled: false
+      network: *default-network
+    terraformOutputs: *default-terraform-outputs
+    expect:
+      terraform:
+        - name: compute
+          path: compute/hcloud
+
   - name: cilium gateway gets the hcloud load balancer annotations
     values:
       platform: hetzner
