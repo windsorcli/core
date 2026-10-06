@@ -5,7 +5,7 @@ kind: Component
 # A NamespaceTransformer (not the plain `namespace:` field) is used because only it,
 # with setRoleBindingSubjects: allServiceAccounts, rewrites the ClusterRoleBinding SA
 # subject namespace too — without which the operator loses its cluster permissions.
-# Keycloak CRDs are vendored under kustomize/crds/keycloak-26.7.0 and applied via the
+# Keycloak CRDs are vendored under kustomize/crds/keycloak-26.8.0 and applied via the
 # facet `crds:` layer, so they are not listed here.
 resources:
   - operator.yaml

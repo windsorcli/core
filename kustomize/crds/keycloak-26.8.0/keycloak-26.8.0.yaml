@@ -3715,6 +3715,11 @@ spec:
                                   type: "string"
                               type: "object"
                             type: "array"
+                          schedulingGroup:
+                            properties:
+                              podGroupName:
+                                type: "string"
+                            type: "object"
                           securityContext:
                             properties:
                               appArmorProfile:
@@ -4401,6 +4406,10 @@ spec:
                                                 type: "integer"
                                               signerName:
                                                 type: "string"
+                                              userAnnotations:
+                                                additionalProperties:
+                                                  type: "string"
+                                                type: "object"
                                             type: "object"
                                           secret:
                                             properties:
@@ -8704,6 +8713,11 @@ spec:
                                   type: "string"
                               type: "object"
                             type: "array"
+                          schedulingGroup:
+                            properties:
+                              podGroupName:
+                                type: "string"
+                            type: "object"
                           securityContext:
                             properties:
                               appArmorProfile:
@@ -9390,6 +9404,10 @@ spec:
                                                 type: "integer"
                                               signerName:
                                                 type: "string"
+                                              userAnnotations:
+                                                additionalProperties:
+                                                  type: "string"
+                                                type: "object"
                                             type: "object"
                                           secret:
                                             properties:
@@ -12338,8 +12356,17 @@ spec:
                           type: "string"
                         linkOnly:
                           type: "boolean"
-                        organizationId:
-                          type: "string"
+                        organizationLinks:
+                          items:
+                            properties:
+                              autoMembership:
+                                type: "boolean"
+                              membershipType:
+                                type: "string"
+                              organizationId:
+                                type: "string"
+                            type: "object"
+                          type: "array"
                         postBrokerLoginFlowAlias:
                           type: "string"
                         providerId:
@@ -12768,6 +12795,10 @@ spec:
                         domains:
                           items:
                             properties:
+                              autoRedirect:
+                                type: "boolean"
+                              identityProviderAlias:
+                                type: "string"
                               name:
                                 type: "string"
                               verified:
@@ -13210,8 +13241,17 @@ spec:
                                 type: "string"
                               linkOnly:
                                 type: "boolean"
-                              organizationId:
-                                type: "string"
+                              organizationLinks:
+                                items:
+                                  properties:
+                                    autoMembership:
+                                      type: "boolean"
+                                    membershipType:
+                                      type: "string"
+                                    organizationId:
+                                      type: "string"
+                                  type: "object"
+                                type: "array"
                               postBrokerLoginFlowAlias:
                                 type: "string"
                               providerId:
@@ -16524,8 +16564,17 @@ spec:
                           type: "string"
                         linkOnly:
                           type: "boolean"
-                        organizationId:
-                          type: "string"
+                        organizationLinks:
+                          items:
+                            properties:
+                              autoMembership:
+                                type: "boolean"
+                              membershipType:
+                                type: "string"
+                              organizationId:
+                                type: "string"
+                            type: "object"
+                          type: "array"
                         postBrokerLoginFlowAlias:
                           type: "string"
                         providerId:
@@ -16954,6 +17003,10 @@ spec:
                         domains:
                           items:
                             properties:
+                              autoRedirect:
+                                type: "boolean"
+                              identityProviderAlias:
+                                type: "string"
                               name:
                                 type: "string"
                               verified:
@@ -17396,8 +17449,17 @@ spec:
                                 type: "string"
                               linkOnly:
                                 type: "boolean"
-                              organizationId:
-                                type: "string"
+                              organizationLinks:
+                                items:
+                                  properties:
+                                    autoMembership:
+                                      type: "boolean"
+                                    membershipType:
+                                      type: "string"
+                                    organizationId:
+                                      type: "string"
+                                  type: "object"
+                                type: "array"
                               postBrokerLoginFlowAlias:
                                 type: "string"
                               providerId:

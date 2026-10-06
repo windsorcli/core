@@ -46,11 +46,11 @@ config:
       postgres:
         enabled: "${(identity.driver ?? 'keycloak') == 'keycloak' ? (database.postgres.enabled != false) : (database.postgres.enabled ?? false)}"
 
-# Keycloak's CRDs are vendored (kustomize/crds/keycloak-26.7.0), owned by the crds:
+# Keycloak's CRDs are vendored (kustomize/crds/keycloak-26.8.0), owned by the crds:
 # layer, not the operator. Only the hosted keycloak driver needs them.
 crds:
   # renovate: datasource=github-releases depName=keycloak/keycloak-k8s-resources package=keycloak/keycloak-k8s-resources
-  - "${(identity.driver ?? 'keycloak') == 'keycloak' ? 'keycloak-26.7.0' : ''}"
+  - "${(identity.driver ?? 'keycloak') == 'keycloak' ? 'keycloak-26.8.0' : ''}"
 
 # =============================================================================
 # Flux systems — hosted Keycloak (driver: keycloak). The oidc driver hosts none

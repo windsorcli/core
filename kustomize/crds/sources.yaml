@@ -61,7 +61,7 @@ vendors:
 
   - name: keycloak
     # renovate: datasource=github-releases depName=keycloak/keycloak-k8s-resources package=keycloak/keycloak-k8s-resources
-    version: 26.7.0
+    version: 26.8.0
     urls:
       - https://raw.githubusercontent.com/keycloak/keycloak-k8s-resources/${version}/kubernetes/keycloaks.k8s.keycloak.org-v1.yml
       - https://raw.githubusercontent.com/keycloak/keycloak-k8s-resources/${version}/kubernetes/keycloakrealmimports.k8s.keycloak.org-v1.yml
@@ -75,6 +75,6 @@ manifests:
     # The Keycloak operator has no first-party Helm chart; vendor its Deployment/RBAC
     # from the same keycloak-k8s-resources release as the CRDs above (kept in lockstep).
     # renovate: datasource=github-releases depName=keycloak/keycloak-k8s-resources package=keycloak/keycloak-k8s-resources
-    version: 26.7.0
+    version: 26.8.0
     url: https://raw.githubusercontent.com/keycloak/keycloak-k8s-resources/${version}/kubernetes/kubernetes.yml
     dest: kustomize/identity/install/keycloak-operator/operator.yaml
