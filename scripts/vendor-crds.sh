@@ -66,19 +66,24 @@ generate_crds() {
   fi
 
   if [ -n "$helm_chart" ]; then
-    local repo mode
+    local repo mode chart_ref
     repo=$(yq ".vendors[$i].helm.repo" "$MANIFEST")
     mode=$(yq ".vendors[$i].helm.mode // \"crds\"" "$MANIFEST")
+    if [[ "$repo" == oci://* ]]; then
+      chart_ref=("$repo/$helm_chart")
+    else
+      chart_ref=("$helm_chart" --repo "$repo")
+    fi
 
     if [ "$mode" = "crds" ]; then
-      helm show crds "$helm_chart" --repo "$repo" --version "$version"
+      helm show crds "${chart_ref[@]}" --version "$version"
     else
       local set_args=()
       while IFS= read -r s; do
         [ -n "$s" ] && set_args+=(--set "$s")
       done < <(yq ".vendors[$i].helm.set // [] | .[]" "$MANIFEST")
       # ${arr[@]+...} guards empty-array expansion under bash 3.2 + set -u.
-      helm template crds "$helm_chart" --repo "$repo" --version "$version" --include-crds \
+      helm template crds "${chart_ref[@]}" --version "$version" --include-crds \
         ${set_args[@]+"${set_args[@]}"} \
         | yq 'select(.kind == "CustomResourceDefinition")
               | del(.metadata.labels."app.kubernetes.io/managed-by")

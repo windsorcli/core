@@ -287,7 +287,7 @@ crds:
   - cert-manager-1.21.2
   # renovate: datasource=github-releases depName=prometheus-operator/prometheus-operator package=prometheus-operator/prometheus-operator
   - "${telemetry.metrics.enabled ? 'prometheus-operator-0.94.1' : ''}"
-  # renovate: datasource=helm depName=fluent-operator package=fluent-operator helmRepo=https://fluent.github.io/helm-charts
+  # renovate: datasource=docker depName=ghcr.io/fluent/helm-charts/fluent-operator package=ghcr.io/fluent/helm-charts/fluent-operator
   - "${telemetry.logs.enabled ? 'fluent-operator-4.3.0' : ''}"
 
 # =============================================================================

@@ -7,4 +7,5 @@ metadata:
 spec:
   interval: 10m
   timeout: 5m
-  url: https://openebs.github.io/openebs
+  type: oci
+  url: oci://ghcr.io/openebs/charts

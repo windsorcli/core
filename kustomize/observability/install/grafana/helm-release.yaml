@@ -18,7 +18,7 @@ spec:
   chart:
     spec:
       chart: grafana
-      # renovate: datasource=helm depName=grafana package=grafana helmRepo=https://grafana.github.io/helm-charts
+      # renovate: datasource=docker depName=ghcr.io/grafana-community/helm-charts/grafana package=ghcr.io/grafana-community/helm-charts/grafana
       version: 10.5.15
       sourceRef:
         kind: HelmRepository

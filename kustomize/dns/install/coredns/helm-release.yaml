@@ -20,7 +20,7 @@ spec:
   chart:
     spec:
       chart: coredns
-      # renovate: datasource=helm depName=coredns package=coredns helmRepo=https://coredns.github.io/helm
+      # renovate: datasource=docker depName=ghcr.io/coredns/charts/coredns package=ghcr.io/coredns/charts/coredns
       version: 1.48.2
       sourceRef: 
         kind: HelmRepository
