@@ -60,7 +60,7 @@ credentials via `GOVC_URL` (`https://$VSPHERE_SERVER`), `GOVC_USERNAME`,
 | Name | Version |
 |------|---------|
 | <a name="provider_talos"></a> [talos](#provider\_talos) | 0.11.0 |
-| <a name="provider_vsphere"></a> [vsphere](#provider\_vsphere) | 2.17.0 |
+| <a name="provider_vsphere"></a> [vsphere](#provider\_vsphere) | 2.17.1 |
 
 ## Modules
 
