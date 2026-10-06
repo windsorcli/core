@@ -96,6 +96,8 @@ resource "google_container_cluster" "this" {
   datapath_provider           = "ADVANCED_DATAPATH"
   enable_intranode_visibility = true
 
+  min_master_version = var.kubernetes_version
+
   release_channel {
     channel = var.release_channel
   }

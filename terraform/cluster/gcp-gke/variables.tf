@@ -121,6 +121,17 @@ variable "authorized_networks" {
 # Cluster
 #---------------------------------------------------------------------------------------------------
 
+variable "kubernetes_version" {
+  description = "Minimum Kubernetes version for the control plane, such as '1.36'. Must be available in the release channel. Null leaves the channel default."
+  type        = string
+  default     = "1.36"
+  nullable    = true
+  validation {
+    condition     = var.kubernetes_version == null || can(regex("^1\\.\\d+(\\.\\d+(-gke\\.\\d+)?)?$", var.kubernetes_version))
+    error_message = "kubernetes_version must look like '1.36' or '1.36.2-gke.2064000'."
+  }
+}
+
 variable "release_channel" {
   description = "GKE release channel: RAPID, REGULAR, or STABLE"
   type        = string

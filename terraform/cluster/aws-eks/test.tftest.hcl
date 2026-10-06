@@ -629,7 +629,7 @@ run "pools_drive_node_groups_when_set" {
 
   variables {
     context_id         = "test"
-    kubernetes_version = "1.34"
+    kubernetes_version = "1.36"
     pools = {
       system = {
         class = "system"
@@ -694,7 +694,7 @@ run "pools_system_taint_not_duplicated" {
 
   variables {
     context_id         = "test"
-    kubernetes_version = "1.34"
+    kubernetes_version = "1.36"
     pools = {
       system = {
         class = "system"
@@ -721,7 +721,7 @@ run "pools_autoscale_general_by_default" {
 
   variables {
     context_id         = "test"
-    kubernetes_version = "1.34"
+    kubernetes_version = "1.36"
     pools = {
       general = {
         class = "general"
@@ -749,7 +749,7 @@ run "system_node_group_always_created" {
 
   variables {
     context_id         = "test"
-    kubernetes_version = "1.34"
+    kubernetes_version = "1.36"
     pools = {
       general = {
         class = "general"
@@ -794,7 +794,7 @@ run "system_node_pool_autoscaling_gets_discovery_tags" {
 
   variables {
     context_id         = "test"
-    kubernetes_version = "1.34"
+    kubernetes_version = "1.36"
     pools = {
       general = {
         class = "general"
@@ -836,7 +836,7 @@ run "system_node_pool_partial_override_keeps_other_defaults" {
 
   variables {
     context_id         = "test"
-    kubernetes_version = "1.34"
+    kubernetes_version = "1.36"
     system_node_pool = {
       desired_size = 2
     }
@@ -865,7 +865,7 @@ run "explicit_system_pool_overrides_the_builtin" {
 
   variables {
     context_id         = "test"
-    kubernetes_version = "1.34"
+    kubernetes_version = "1.36"
     pools = {
       system = {
         class          = "system"
@@ -901,7 +901,7 @@ run "pools_autoscaling_explicit_override" {
 
   variables {
     context_id         = "test"
-    kubernetes_version = "1.34"
+    kubernetes_version = "1.36"
     pools = {
       sys = {
         class = "system"
@@ -939,7 +939,7 @@ run "cluster_autoscaler_role_enabled_by_default" {
 
   variables {
     context_id         = "test"
-    kubernetes_version = "1.34"
+    kubernetes_version = "1.36"
   }
 
   assert {
@@ -1021,7 +1021,7 @@ run "pool_instance_types_override_class_default" {
 
   variables {
     context_id         = "test"
-    kubernetes_version = "1.34"
+    kubernetes_version = "1.36"
     pools = {
       gpu = {
         class          = "gpu"
@@ -1105,7 +1105,7 @@ run "pool_empty_instance_types_falls_back_to_class_default" {
 
   variables {
     context_id         = "test"
-    kubernetes_version = "1.34"
+    kubernetes_version = "1.36"
     pools = {
       empty = {
         class          = "general"
