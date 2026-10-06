@@ -27,7 +27,7 @@ vendors:
 
   - name: envoy-gateway
     # renovate: datasource=github-releases depName=envoyproxy/gateway package=envoyproxy/gateway
-    version: 1.9.1
+    version: 1.9.2
     url: https://github.com/envoyproxy/gateway/releases/download/v${version}/envoy-gateway-crds.yaml
 
   - name: cert-manager
@@ -42,7 +42,7 @@ vendors:
 
   - name: aws-load-balancer-controller
     # renovate: datasource=helm depName=aws-load-balancer-controller package=aws-load-balancer-controller helmRepo=https://aws.github.io/eks-charts
-    version: 3.5.0
+    version: 3.6.0
     helm:
       repo: https://aws.github.io/eks-charts
       chart: aws-load-balancer-controller
@@ -61,7 +61,7 @@ vendors:
 
   - name: keycloak
     # renovate: datasource=github-releases depName=keycloak/keycloak-k8s-resources package=keycloak/keycloak-k8s-resources
-    version: 26.7.0
+    version: 26.8.0
     urls:
       - https://raw.githubusercontent.com/keycloak/keycloak-k8s-resources/${version}/kubernetes/keycloaks.k8s.keycloak.org-v1.yml
       - https://raw.githubusercontent.com/keycloak/keycloak-k8s-resources/${version}/kubernetes/keycloakrealmimports.k8s.keycloak.org-v1.yml
@@ -75,6 +75,6 @@ manifests:
     # The Keycloak operator has no first-party Helm chart; vendor its Deployment/RBAC
     # from the same keycloak-k8s-resources release as the CRDs above (kept in lockstep).
     # renovate: datasource=github-releases depName=keycloak/keycloak-k8s-resources package=keycloak/keycloak-k8s-resources
-    version: 26.7.0
+    version: 26.8.0
     url: https://raw.githubusercontent.com/keycloak/keycloak-k8s-resources/${version}/kubernetes/kubernetes.yml
     dest: kustomize/identity/install/keycloak-operator/operator.yaml

@@ -5,7 +5,7 @@ kind: Component
 # A NamespaceTransformer (not the plain `namespace:` field) is used because only it,
 # with setRoleBindingSubjects: allServiceAccounts, rewrites the ClusterRoleBinding SA
 # subject namespace too — without which the operator loses its cluster permissions.
-# Keycloak CRDs are vendored under kustomize/crds/keycloak-26.7.0 and applied via the
+# Keycloak CRDs are vendored under kustomize/crds/keycloak-26.8.0 and applied via the
 # facet `crds:` layer, so they are not listed here.
 resources:
   - operator.yaml
@@ -24,7 +24,7 @@ patches:
       - op: replace
         path: /spec/template/spec/containers/0/image
         # renovate: datasource=docker depName=keycloak/keycloak-operator package=quay.io/keycloak/keycloak-operator
-        value: quay.io/keycloak/keycloak-operator:26.7.4@sha256:06a13deb391960cabf7eb0580442962326c2d163bb7887acbf0dcfeb11a1b2f4
+        value: quay.io/keycloak/keycloak-operator:26.8.0@sha256:3e7c09e685865f45c753aedb5eef8bed9f5f0af37b76ef568ae920bae6d4f2d5
   # Keyed by env name (not index) so it survives upstream env reordering on a bump.
   - patch: |
       apiVersion: apps/v1
@@ -39,7 +39,7 @@ patches:
                 env:
                   - name: RELATED_IMAGE_KEYCLOAK
                     # renovate: datasource=docker depName=keycloak/keycloak package=quay.io/keycloak/keycloak
-                    value: quay.io/keycloak/keycloak:26.7.4@sha256:82a77884f3af238beab1e7afd63b5f530e1b5c0590bd7aa60b40a40463e29b2c
+                    value: quay.io/keycloak/keycloak:26.8.0@sha256:b0f60d489d51c5d113390bdf5461d4c06e6051be026c05549f2e1e10ec352bcc
   # Pull policy and startup probe budget for the operator container.
   - patch: |
       apiVersion: apps/v1

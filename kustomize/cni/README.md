@@ -51,11 +51,14 @@ flux:
       components: [cilium, cilium/talos, cilium/prometheus, cilium/hubble, cilium/l2]
       substitutions:
         k8s_service_host: 10.5.0.10
-        loadbalancer_start_ip: 10.5.1.10
-        loadbalancer_end_ip: 10.5.1.30
         cluster_name: local
         operator_replicas: "2"
       timeout: 15m
+    resources:
+      - components: [cilium/l2]
+        substitutions:
+          loadbalancer_start_ip: 10.5.1.10
+          loadbalancer_end_ip: 10.5.1.30
 ```
 
 ### Talos with Cilium as the gateway driver
@@ -123,8 +126,8 @@ cert-manager is not required for Hubble.
 | `k8s_service_host` | always | API server hostname Cilium reaches before its eBPF service rules are active. On Talos resolves to a fixed offset from the cluster CIDR; on EKS parsed from the cluster Terraform output. User-facing knob is `cluster.endpoint`. |
 | `cluster_name` | always | Cilium cluster identity stamped onto Hubble flows, metrics, and (if enabled) ClusterMesh routing. Sourced from the Windsor context name (top-level `id` in `values.yaml`). |
 | `operator_replicas` | always | 1 on single-node clusters (avoids pending pods + Lease churn), 2 otherwise. Set from `topology`. |
-| `loadbalancer_start_ip` | `cilium/l2` is enabled (Talos) | Start of the LBIPAM IP pool. Stamped onto `CiliumLoadBalancerIPPool/default`. |
-| `loadbalancer_end_ip` | `cilium/l2` is enabled (Talos) | End of the LBIPAM IP pool. |
+| `loadbalancer_start_ip` | `cilium/l2` is enabled (Talos), resources tier | Start of the LBIPAM IP pool. Stamped onto `CiliumLoadBalancerIPPool/default`. |
+| `loadbalancer_end_ip` | `cilium/l2` is enabled (Talos), resources tier | End of the LBIPAM IP pool. |
 
 ## Components
 
@@ -162,7 +165,7 @@ Hubble metrics (dns, drop, port-distribution, tcp, flow, icmp, http), Hubble Rel
 
 _Enabled when platform is Talos._
 
-Enables `l2announcements` and creates `CiliumLoadBalancerIPPool/default` with the configured IP range plus `CiliumL2AnnouncementPolicy/default` announcing on all interfaces. Replaces kube-vip and MetalLB on Talos.
+Present in both tiers under the same name. The install tier enables `l2announcements` on the HelmRelease. The resources tier (`cni-resources`) creates `CiliumLoadBalancerIPPool/default` with the configured IP range and `CiliumL2AnnouncementPolicy/default` announcing on all interfaces, after the chart has installed their CRDs. Replaces kube-vip and MetalLB on Talos.
 
 ## Dependencies
 

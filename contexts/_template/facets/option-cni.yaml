@@ -83,12 +83,23 @@ flux:
         - "${lb_effective.controller_required == true ? '' : 'cilium/l2'}"
       substitutions:
         k8s_service_host: ${talos_common.k8s_service_host}
-        loadbalancer_start_ip: ${network.loadbalancer_ips.start}
-        loadbalancer_end_ip: ${network.loadbalancer_ips.end}
         cluster_name: ${context}
         operator_replicas: "${topology == 'single-node' ? 1 : 2}"
       timeout: 15m
       interval: 5m
+
+  # LBIPAM pool and L2 announcement policy; their CRDs come from the chart, so
+  # they apply after the install tier.
+  - name: cni
+    when: talos_enabled && lb_effective.controller_required != true
+    resources:
+      - components:
+          - cilium/l2
+        substitutions:
+          loadbalancer_start_ip: ${network.loadbalancer_ips.start}
+          loadbalancer_end_ip: ${network.loadbalancer_ips.end}
+        timeout: 5m
+        interval: 5m
 
   # EKS: no Talos-specific settings, no L2 component (EKS has its own LB).
   # k8s_service_host is parsed from the EKS cluster_endpoint terraform output.
