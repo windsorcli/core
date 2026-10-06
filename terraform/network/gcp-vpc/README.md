@@ -18,14 +18,14 @@ VPCs deny all ingress by default.
 | Name | Version |
 |------|---------|
 | <a name="requirement_terraform"></a> [terraform](#requirement\_terraform) | >= 1.12.2 |
-| <a name="requirement_google"></a> [google](#requirement\_google) | 8.2.0 |
+| <a name="requirement_google"></a> [google](#requirement\_google) | 8.5.0 |
 | <a name="requirement_null"></a> [null](#requirement\_null) | ~> 3.2 |
 
 ## Providers
 
 | Name | Version |
 |------|---------|
-| <a name="provider_google"></a> [google](#provider\_google) | 8.2.0 |
+| <a name="provider_google"></a> [google](#provider\_google) | 8.5.0 |
 | <a name="provider_null"></a> [null](#provider\_null) | 3.3.2 |
 
 ## Modules
@@ -36,18 +36,18 @@ No modules.
 
 | Name | Type |
 |------|------|
-| [google_compute_firewall.health_checks](https://registry.terraform.io/providers/hashicorp/google/8.2.0/docs/resources/compute_firewall) | resource |
-| [google_compute_firewall.iap_ingress](https://registry.terraform.io/providers/hashicorp/google/8.2.0/docs/resources/compute_firewall) | resource |
-| [google_compute_firewall.internal](https://registry.terraform.io/providers/hashicorp/google/8.2.0/docs/resources/compute_firewall) | resource |
-| [google_compute_network.this](https://registry.terraform.io/providers/hashicorp/google/8.2.0/docs/resources/compute_network) | resource |
-| [google_compute_router.this](https://registry.terraform.io/providers/hashicorp/google/8.2.0/docs/resources/compute_router) | resource |
-| [google_compute_router_nat.this](https://registry.terraform.io/providers/hashicorp/google/8.2.0/docs/resources/compute_router_nat) | resource |
-| [google_compute_subnetwork.isolated](https://registry.terraform.io/providers/hashicorp/google/8.2.0/docs/resources/compute_subnetwork) | resource |
-| [google_compute_subnetwork.private](https://registry.terraform.io/providers/hashicorp/google/8.2.0/docs/resources/compute_subnetwork) | resource |
-| [google_compute_subnetwork.public](https://registry.terraform.io/providers/hashicorp/google/8.2.0/docs/resources/compute_subnetwork) | resource |
-| [google_dns_managed_zone.private](https://registry.terraform.io/providers/hashicorp/google/8.2.0/docs/resources/dns_managed_zone) | resource |
+| [google_compute_firewall.health_checks](https://registry.terraform.io/providers/hashicorp/google/8.5.0/docs/resources/compute_firewall) | resource |
+| [google_compute_firewall.iap_ingress](https://registry.terraform.io/providers/hashicorp/google/8.5.0/docs/resources/compute_firewall) | resource |
+| [google_compute_firewall.internal](https://registry.terraform.io/providers/hashicorp/google/8.5.0/docs/resources/compute_firewall) | resource |
+| [google_compute_network.this](https://registry.terraform.io/providers/hashicorp/google/8.5.0/docs/resources/compute_network) | resource |
+| [google_compute_router.this](https://registry.terraform.io/providers/hashicorp/google/8.5.0/docs/resources/compute_router) | resource |
+| [google_compute_router_nat.this](https://registry.terraform.io/providers/hashicorp/google/8.5.0/docs/resources/compute_router_nat) | resource |
+| [google_compute_subnetwork.isolated](https://registry.terraform.io/providers/hashicorp/google/8.5.0/docs/resources/compute_subnetwork) | resource |
+| [google_compute_subnetwork.private](https://registry.terraform.io/providers/hashicorp/google/8.5.0/docs/resources/compute_subnetwork) | resource |
+| [google_compute_subnetwork.public](https://registry.terraform.io/providers/hashicorp/google/8.5.0/docs/resources/compute_subnetwork) | resource |
+| [google_dns_managed_zone.private](https://registry.terraform.io/providers/hashicorp/google/8.5.0/docs/resources/dns_managed_zone) | resource |
 | [null_resource.remove_orphaned_firewalls](https://registry.terraform.io/providers/hashicorp/null/latest/docs/resources/resource) | resource |
-| [google_compute_zones.available](https://registry.terraform.io/providers/hashicorp/google/8.2.0/docs/data-sources/compute_zones) | data source |
+| [google_compute_zones.available](https://registry.terraform.io/providers/hashicorp/google/8.5.0/docs/data-sources/compute_zones) | data source |
 
 ## Inputs
 

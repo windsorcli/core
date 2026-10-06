@@ -15,14 +15,14 @@ Docker-on-Mac can't expose (e.g. nested KVM, real iSCSI). Pairs with the
 | Name | Version |
 |------|---------|
 | <a name="requirement_terraform"></a> [terraform](#requirement\_terraform) | >= 1.12.2 |
-| <a name="requirement_incus"></a> [incus](#requirement\_incus) | ~> 1.1.0 |
+| <a name="requirement_incus"></a> [incus](#requirement\_incus) | ~> 1.2.0 |
 | <a name="requirement_null"></a> [null](#requirement\_null) | ~> 3.2 |
 
 ## Providers
 
 | Name | Version |
 |------|---------|
-| <a name="provider_incus"></a> [incus](#provider\_incus) | 1.1.1 |
+| <a name="provider_incus"></a> [incus](#provider\_incus) | 1.2.0 |
 | <a name="provider_terraform"></a> [terraform](#provider\_terraform) | n/a |
 
 ## Modules
