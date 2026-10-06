@@ -556,9 +556,9 @@ cases:
           inputs:
             cluster_nodes:
               controlplanes:
-                image: ghcr.io/siderolabs/talos:v1.13.9
+                image: ghcr.io/siderolabs/talos:v1.13.11
         - name: cluster
           path: cluster/talos
           inputs:
-            talos_version: "1.13.9"
+            talos_version: "1.13.11"
             kubernetes_version: "1.36.5"
