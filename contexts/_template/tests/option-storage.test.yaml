@@ -251,6 +251,35 @@ cases:
               local_volume_path: /var/mnt/local
               local_volume_quota: "false"
 
+  # cluster.storage.quota reaches the mayastor install, which ships the same local classes
+  - name: cluster.storage.quota is passed to the mayastor substitution
+    values:
+      platform: metal
+      gateway:
+        enabled: false
+      network: *default-network
+      cluster:
+        driver: talos
+        controlplanes:
+          nodes:
+            controlplane-1: *cp1-node
+        workers:
+          volumes:
+            - /var/mnt/local
+        storage:
+          driver: mayastor
+          quota: true
+    expect:
+      flux:
+        - <<: *csi-base
+          install:
+            components:
+              - openebs
+              - openebs/mayastor
+            substitutions:
+              local_volume_path: /var/mnt/local
+              local_volume_quota: "true"
+
   # Longhorn single-node: schedulable CP with no workers gets CP toleration component
   - name: longhorn single-node with schedulable CP adds single-node component
     values:
