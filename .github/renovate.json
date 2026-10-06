@@ -91,14 +91,14 @@
     {
       "matchPackageNames": ["windsorcli/k8s-versions"],
       "matchDepNames": ["aks-kubernetes"],
-      "extractVersion": "^aks-kubernetes-(?<version>\\d+\\.\\d+\\.\\d+)$",
-      "versioning": "semver"
+      "extractVersion": "^aks-kubernetes-(?<version>\\d+\\.\\d+)$",
+      "versioning": "loose"
     },
     {
       "matchPackageNames": ["windsorcli/k8s-versions"],
       "matchDepNames": ["eks-kubernetes"],
-      "extractVersion": "^eks-kubernetes-(?<version>\\d+\\.\\d+\\.\\d+)$",
-      "versioning": "semver"
+      "extractVersion": "^eks-kubernetes-(?<version>\\d+\\.\\d+)$",
+      "versioning": "loose"
     },
     {
       "description": "Pin Docker image digests in Helm release values",
