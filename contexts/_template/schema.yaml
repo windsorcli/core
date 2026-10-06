@@ -998,8 +998,7 @@ properties:
             description: Base path for directory-based storage. POSIX absolute path. Must be in the volumes list of every pool that can schedule pods using this storage (controlplanes.volumes when schedulable, workers.volumes).
           quota:
             type: boolean
-            default: false
-            description: Enforce each PVC's requested size on openebs directory-based volumes with XFS project quotas. local_base_path must be on an XFS filesystem. Talos only.
+            description: Enforce each PVC's requested size on openebs directory-based volumes with XFS project quotas. Defaults to true except on the docker platform. local_base_path must be on an XFS filesystem. Talos only.
           driver:
             type: string
             enum:

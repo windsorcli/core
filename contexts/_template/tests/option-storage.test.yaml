@@ -54,7 +54,7 @@ cases:
               - openebs/dynamic-localpv
             substitutions:
               local_volume_path: /var/mnt/local
-              local_volume_quota: "false"
+              local_volume_quota: "true"
 
   # Full: longhorn with HA, custom volume path, workers
   - name: full longhorn config with HA and custom volume path
@@ -145,7 +145,7 @@ cases:
               - openebs/dynamic-localpv
             substitutions:
               local_volume_path: /var/mnt/local
-              local_volume_quota: "false"
+              local_volume_quota: "true"
 
   # Custom local_base_path is passed as substitution
   - name: custom local_base_path is passed to CSI substitution
@@ -173,7 +173,7 @@ cases:
               - openebs/dynamic-localpv
             substitutions:
               local_volume_path: /mnt/data
-              local_volume_quota: "false"
+              local_volume_quota: "true"
 
   # cluster.storage.quota turns on XFS project quotas for the local classes
   - name: cluster.storage.quota is passed to CSI substitution
@@ -202,6 +202,54 @@ cases:
             substitutions:
               local_volume_path: /var/mnt/local
               local_volume_quota: "true"
+
+  # Quota is on by default except on the docker platform
+  - name: quota defaults to off on the docker platform
+    values:
+      platform: docker
+      gateway:
+        enabled: false
+      network: *default-network
+      cluster:
+        driver: talos
+        controlplanes:
+          nodes:
+            controlplane-1: *cp1-node
+    expect:
+      flux:
+        - <<: *csi-base
+          install:
+            components:
+              - openebs
+              - openebs/dynamic-localpv
+            substitutions:
+              local_volume_path: /var/mnt/local
+              local_volume_quota: "false"
+
+  # An explicit cluster.storage.quota overrides the platform default
+  - name: cluster.storage.quota false overrides the default
+    values:
+      platform: metal
+      gateway:
+        enabled: false
+      network: *default-network
+      cluster:
+        driver: talos
+        controlplanes:
+          nodes:
+            controlplane-1: *cp1-node
+        storage:
+          quota: false
+    expect:
+      flux:
+        - <<: *csi-base
+          install:
+            components:
+              - openebs
+              - openebs/dynamic-localpv
+            substitutions:
+              local_volume_path: /var/mnt/local
+              local_volume_quota: "false"
 
   # Longhorn single-node: schedulable CP with no workers gets CP toleration component
   - name: longhorn single-node with schedulable CP adds single-node component
