@@ -109,6 +109,193 @@ cases:
             substitutions:
               k8s_service_host: "10.5.0.10"
 
+  # Gateway NodePorts are in the baseline for each gateway that exists.
+  - name: NodePort with a private domain forwards the internal gateway ports
+    values:
+      platform: hyperv
+      gateway:
+        service_type: NodePort
+      dns:
+        private_domain: test
+      network: *default-network
+      cluster:
+        driver: talos
+        endpoint: https://192.168.3.77:6443
+        controlplanes:
+          count: 1
+          nodes:
+            controlplane-1:
+              hostname: controlplane-1
+              endpoint: 192.168.3.77:40000
+              node: 192.168.3.77
+        workers:
+          count: 0
+    terraformOutputs:
+      compute:
+        controlplanes: []
+        workers: []
+    expect:
+      terraform:
+        - name: compute
+          path: compute/hyperv
+          inputs:
+            port_forwards:
+              "6443": 6443
+              "30292": 30292
+              "30080": 30080
+              "30443": 30443
+              "40000": 50000
+
+  - name: NodePort with public and private domains forwards both gateways
+    values:
+      platform: hyperv
+      gateway:
+        service_type: NodePort
+      dns:
+        private_domain: test
+        public_domain: example.com
+      network: *default-network
+      cluster:
+        driver: talos
+        endpoint: https://192.168.3.77:6443
+        controlplanes:
+          count: 1
+          nodes:
+            controlplane-1:
+              hostname: controlplane-1
+              endpoint: 192.168.3.77:40000
+              node: 192.168.3.77
+        workers:
+          count: 0
+    terraformOutputs:
+      compute:
+        controlplanes: []
+        workers: []
+    expect:
+      terraform:
+        - name: compute
+          path: compute/hyperv
+          inputs:
+            port_forwards:
+              "6443": 6443
+              "30292": 30292
+              "30080": 30080
+              "30443": 30443
+              "30081": 30081
+              "30444": 30444
+              "40000": 50000
+
+  - name: NodePort with the gateway disabled forwards no gateway ports
+    values:
+      platform: hyperv
+      gateway:
+        enabled: false
+        service_type: NodePort
+      dns:
+        private_domain: test
+      network: *default-network
+      cluster:
+        driver: talos
+        endpoint: https://192.168.3.77:6443
+        controlplanes:
+          count: 1
+          nodes:
+            controlplane-1:
+              hostname: controlplane-1
+              endpoint: 192.168.3.77:40000
+              node: 192.168.3.77
+        workers:
+          count: 0
+    terraformOutputs:
+      compute:
+        controlplanes: []
+        workers: []
+    expect:
+      terraform:
+        - name: compute
+          path: compute/hyperv
+          inputs:
+            port_forwards:
+              "6443": 6443
+              "30292": 30292
+              "40000": 50000
+
+  - name: LoadBalancer gateway forwards no ports
+    values:
+      platform: hyperv
+      gateway:
+        enabled: true
+        service_type: LoadBalancer
+      dns:
+        private_domain: test
+        public_domain: example.com
+      network:
+        cidr_block: 10.20.0.0/24
+        loadbalancer_driver: metallb
+        loadbalancer_mode: arp
+        loadbalancer_ips:
+          start: "10.20.0.100"
+          end: "10.20.0.110"
+      cluster:
+        driver: talos
+        cni:
+          driver: flannel
+        controlplanes:
+          count: 1
+          nodes:
+            controlplane-1:
+              endpoint: 10.20.0.10:50000
+              node: 10.20.0.10
+              hostname: controlplane-1
+        workers:
+          count: 0
+    terraformOutputs: *default-terraform-outputs
+    expect:
+      terraform:
+        - name: compute
+          path: compute/hyperv
+          inputs:
+            port_forwards: {}
+
+  # hyperv.force_management_os_migration reaches the compute module.
+  - name: force_management_os_migration is passed to compute
+    values:
+      platform: hyperv
+      gateway:
+        enabled: false
+      network: *default-network
+      hyperv:
+        net_adapter:
+          - "Ethernet 3"
+        force_management_os_migration: true
+      cluster: *default-cluster
+    terraformOutputs: *default-terraform-outputs
+    expect:
+      terraform:
+        - name: compute
+          path: compute/hyperv
+          inputs:
+            switch_type: External
+            force_management_os_migration: true
+
+  - name: force_management_os_migration defaults to false
+    values:
+      platform: hyperv
+      gateway:
+        enabled: false
+      network: *default-network
+      hyperv:
+        net_adapter:
+          - "Ethernet 3"
+      cluster: *default-cluster
+    terraformOutputs: *default-terraform-outputs
+    expect:
+      terraform:
+        - name: compute
+          path: compute/hyperv
+          inputs:
+            force_management_os_migration: false
+
   # External switch when net_adapter is set (the L2-routable path that lets
   # MetalLB / Cilium L2 announcements reach the bench's LAN).
   - name: net_adapter implies External switch

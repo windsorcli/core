@@ -138,7 +138,9 @@ config:
   # overrides so each Talos API forward lands at its node. Gateway / k8s-API
   # forwards stay single-target (cp-1); apiserver replication handles the rest.
   # tcp_forwards: 6443→6443; 30053→30053 (only when private/dev DNS active);
-  # 30292→30292 (only when gitops.mode=push); 40000+i / 40100+i → 50000 per node.
+  # 30292→30292 (only when gitops.mode=push); 40000+i / 40100+i → 50000 per node;
+  # 30080/30443 (internal gateway, private_domain) and 30081/30444 (external
+  # gateway, public_domain) when the envoy gateway is enabled.
   # 30053 / 30292 gate on the same signals as the matching option-gateway
   # nodeport patches, keeping forward and Service NodePort in sync.
   - name: nat_effective
@@ -149,6 +151,8 @@ config:
           [["6443", 6443]],
           (dns.private.enabled ?? (dev == true)) == true ? [["30053", 30053]] : [],
           (gitops.mode ?? "push") == "push" ? [["30292", 30292]] : [],
+          gateway.enabled == true && (gateway.driver ?? "envoy") == "envoy" && (dns.private_domain ?? "") != "" ? [["30080", 30080], ["30443", 30443]] : [],
+          gateway.enabled == true && (gateway.driver ?? "envoy") == "envoy" && (dns.public_domain ?? "") != "" ? [["30081", 30081], ["30444", 30444]] : [],
           map(
             concat(hyperv_controlplanes.for_cluster, hyperv_workers.for_cluster),
             [split(get(#, "endpoint"), ":")[1], 50000]
@@ -371,6 +375,7 @@ terraform:
       create_network: ${gateway.service_type == 'NodePort' || (hyperv.switch_name ?? '') == ''}
       switch_type: ${hyperv_effective.switch_type}
       net_adapter_names: ${hyperv_effective.net_adapter}
+      force_management_os_migration: ${hyperv.force_management_os_migration ?? false}
       # NAT-only inputs — null otherwise (compute ignores them when not NAT).
       nat_name: "${hyperv_effective.switch_type == 'NAT' ? hyperv_effective.nat_name : null}"
       nat_internal_address_prefix: "${hyperv_effective.switch_type == 'NAT' ? hyperv_effective.nat_internal_prefix : null}"

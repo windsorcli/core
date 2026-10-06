@@ -365,6 +365,13 @@ properties:
           bench LAN). Unset uses Internal (host-only); flipped to NAT
           automatically when gateway.service_type=NodePort. Ignored when
           switch_name is set.
+      force_management_os_migration:
+        type: boolean
+        default: false
+        description: >
+          Lets windsor destroy an External switch that shares the host NIC. The
+          host IP migrates back to the NIC and the host connection can drop.
+          Takes effect once applied, so set it before the destroy.
       base_dir:
         type: string
         pattern: '^[A-Za-z]:[\\/].*$'

@@ -42,14 +42,15 @@ locals {
 resource "hyperv_virtual_switch" "main" {
   count = var.create_network ? 1 : 0
 
-  name                        = local.network_name
-  switch_type                 = var.switch_type
-  notes                       = var.network_description
-  net_adapter_names           = var.switch_type == "External" ? var.net_adapter_names : null
-  allow_management_os         = var.switch_type == "External" ? var.allow_management_os : null
-  nat_name                    = var.switch_type == "NAT" ? var.nat_name : null
-  nat_internal_address_prefix = var.switch_type == "NAT" ? var.nat_internal_address_prefix : null
-  nat_host_address            = var.switch_type == "NAT" ? var.nat_host_address : null
+  name                          = local.network_name
+  switch_type                   = var.switch_type
+  notes                         = var.network_description
+  net_adapter_names             = var.switch_type == "External" ? var.net_adapter_names : null
+  allow_management_os           = var.switch_type == "External" ? var.allow_management_os : null
+  force_management_os_migration = var.switch_type == "External" ? var.force_management_os_migration : null
+  nat_name                      = var.switch_type == "NAT" ? var.nat_name : null
+  nat_internal_address_prefix   = var.switch_type == "NAT" ? var.nat_internal_address_prefix : null
+  nat_host_address              = var.switch_type == "NAT" ? var.nat_host_address : null
 }
 
 # =============================================================================
