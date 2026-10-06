@@ -38,7 +38,8 @@ cycles through this module and `database/gcp-cloudsql`:
 ```bash
 for ROLE in roles/editor roles/resourcemanager.projectIamAdmin \
   roles/iam.serviceAccountAdmin roles/cloudkms.admin \
-  roles/servicenetworking.networksAdmin roles/container.admin; do
+  roles/servicenetworking.networksAdmin roles/container.admin \
+  roles/dns.admin; do
   gcloud projects add-iam-policy-binding <project-id> \
     --member="serviceAccount:<identity>" --role="$ROLE"
 done
@@ -55,6 +56,10 @@ done
   `container.clusterRoleBindings.create`, none of which
   `roles/editor` grants. This is a GKE-specific guard against RBAC
   privilege escalation, on top of standard Kubernetes RBAC.
+- `roles/dns.admin` — setting the IAM policy on a Cloud DNS managed zone
+  needs `dns.managedZones.setIamPolicy`, which neither `roles/editor` nor
+  `roles/resourcemanager.projectIamAdmin` grants. The cert-manager and
+  external-dns zone bindings need it.
 - `roles/resourcemanager.projectIamAdmin`, `roles/iam.serviceAccountAdmin` —
   the IAM bindings `provisioning/crossplane-identity/gcp` creates.
 
