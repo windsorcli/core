@@ -45,6 +45,21 @@ x-defaults:
 
 cases:
   # Minimal: Test default behavior with minimal required fields
+  # No cluster.controlplanes.nodes: composition must not index an empty node map
+  - name: composes with no controlplane nodes declared
+    values:
+      platform: incus
+      gateway:
+        enabled: false
+      network: *default-network
+      cluster:
+        driver: talos
+    terraformOutputs: *default-terraform-outputs
+    expect:
+      terraform:
+        - name: compute
+          path: compute/incus
+
   - name: minimal config creates compute and cluster terraform chain with defaults
     values:
       platform: incus

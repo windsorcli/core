@@ -265,7 +265,7 @@ terraform:
             memory: ${string(cluster_resources_effective.controlplanes.memory) + "GB"}
           disks: ${talos_common.controlplane_disks}
           config:
-            user.hostname: ${values(cluster.controlplanes.nodes)[0].hostname ?? "controlplane-1"}
+            user.hostname: "${len(cluster.controlplanes.nodes ?? {}) > 0 ? (values(cluster.controlplanes.nodes)[0].hostname ?? 'controlplane-1') : 'controlplane-1'}"
             environment.TALOSSKU: ${string(cluster_resources_effective.controlplanes.cpu) + "CPU-" + string(cluster_resources_effective.controlplanes.memory * 1024) + "RAM"}
             raw.qemu: -boot order=c,menu=off
         - name: worker
