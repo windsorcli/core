@@ -40,7 +40,7 @@ locals {
 # a bootstrap re-run instead of disappearing until Flux's next reconcile.
 
 resource "helm_release" "cilium" {
-  repository   = "https://helm.cilium.io"
+  repository   = "oci://quay.io/cilium/charts"
   chart        = "cilium"
   name         = "cilium"
   reuse_values = true
