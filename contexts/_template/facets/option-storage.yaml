@@ -104,6 +104,7 @@ flux:
         - openebs/dynamic-localpv
       substitutions:
         local_volume_path: ${talos_common.csi_local_volume_path}
+        local_volume_quota: "${string(cluster.storage.quota ?? false)}"
       timeout: 20m
       interval: 5m
 
@@ -140,6 +141,7 @@ flux:
         # worker threshold, 2 cores once workers are double it or more.
         mayastor_io_engine_cpu: "${string(int(2 - talos_common.worker_factor + 0.5))}"
         local_volume_path: ${talos_common.csi_local_volume_path}
+        local_volume_quota: "${string(cluster.storage.quota ?? false)}"
         mayastor_agent_core_tag: "${get(mayastor_images.tags, 'agent_core') ?? ''}"
         mayastor_agent_ha_cluster_tag: "${get(mayastor_images.tags, 'agent_ha_cluster') ?? ''}"
         mayastor_agent_ha_node_tag: "${get(mayastor_images.tags, 'agent_ha_node') ?? ''}"

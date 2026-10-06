@@ -225,6 +225,7 @@ cases:
               - openebs/dynamic-localpv
             substitutions:
               local_volume_path: /var/mnt/local
+              local_volume_quota: "false"
     exclude:
       kustomize:
         - name: lb-install
@@ -409,6 +410,7 @@ cases:
               - openebs/dynamic-localpv
             substitutions:
               local_volume_path: /mnt/data
+              local_volume_quota: "false"
 
   # Workerless single-node: the controlplane runs everything itself, so memory gets the
   # larger baseline; cpu stays flat since it can't scale without knowing host capacity.
