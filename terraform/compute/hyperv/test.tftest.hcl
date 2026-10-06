@@ -104,6 +104,54 @@ run "external_switch" {
   }
 }
 
+# The destroy acknowledgement defaults to false and passes through on External switches.
+run "external_switch_force_management_os_migration_default" {
+  command = plan
+
+  variables {
+    context_id        = "test"
+    switch_type       = "External"
+    net_adapter_names = ["Ethernet"]
+  }
+
+  assert {
+    condition     = hyperv_virtual_switch.main[0].force_management_os_migration == false
+    error_message = "force_management_os_migration should default to false"
+  }
+}
+
+run "external_switch_force_management_os_migration_set" {
+  command = plan
+
+  variables {
+    context_id                    = "test"
+    switch_type                   = "External"
+    net_adapter_names             = ["Ethernet"]
+    force_management_os_migration = true
+  }
+
+  assert {
+    condition     = hyperv_virtual_switch.main[0].force_management_os_migration == true
+    error_message = "force_management_os_migration should pass through to the External switch"
+  }
+}
+
+# Non-External switches leave the acknowledgement unset.
+run "internal_switch_ignores_force_management_os_migration" {
+  command = plan
+
+  variables {
+    context_id                    = "test"
+    switch_type                   = "Internal"
+    force_management_os_migration = true
+  }
+
+  assert {
+    condition     = hyperv_virtual_switch.main[0].force_management_os_migration == null
+    error_message = "force_management_os_migration should be null on non-External switches"
+  }
+}
+
 # Image-file URL mode: provider downloads the VHDX and verifies SHA-256.
 # Expanded instances reference the image by map key, which becomes the
 # differencing-VHD parent path.

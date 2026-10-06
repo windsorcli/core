@@ -49,6 +49,12 @@ variable "allow_management_os" {
   default     = true
 }
 
+variable "force_management_os_migration" {
+  description = "Acknowledges that destroying an External switch with allow_management_os migrates the host IP back to the NIC and can drop the host connection. Required for the provider to destroy such a switch"
+  type        = bool
+  default     = false
+}
+
 variable "nat_name" {
   description = "Name of the NetNat instance paired with the switch. Required when switch_type=NAT; rejected otherwise"
   type        = string
