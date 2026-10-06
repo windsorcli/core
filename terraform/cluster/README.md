@@ -181,7 +181,6 @@ worth reconsidering for anything multi-tenant.
 - [azure-aks](azure-aks/) — Managed Kubernetes control plane on Azure.
 - [gcp-gke](gcp-gke/) — Managed Kubernetes control plane on GCP.
 - [talos](talos/) — Self-hosted Kubernetes control plane via the Talos API.
-- [talos/config](talos/config/) — Per-node Talos machine config + CIDATA seeds.
 - [talos/extensions](talos/extensions/) — Talos image build with system extensions.
 <!-- END_TERRAFORM_MODULES -->
 

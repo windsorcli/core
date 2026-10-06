@@ -7,13 +7,13 @@ terraform {
   required_providers {
     google = {
       source  = "hashicorp/google"
-      version = "8.4.0"
+      version = "8.5.0"
     }
     # google_project_service_identity has no GA counterpart yet; every other
     # resource in this module stays on the google provider.
     google-beta = {
       source  = "hashicorp/google-beta"
-      version = "8.4.0"
+      version = "8.5.0"
     }
   }
 }

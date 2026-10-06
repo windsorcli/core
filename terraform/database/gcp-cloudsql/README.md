@@ -19,15 +19,15 @@ so this module provisions its own copy rather than waiting on one.
 | Name | Version |
 |------|---------|
 | <a name="requirement_terraform"></a> [terraform](#requirement\_terraform) | >= 1.12.2 |
-| <a name="requirement_google"></a> [google](#requirement\_google) | 8.2.0 |
-| <a name="requirement_google-beta"></a> [google-beta](#requirement\_google-beta) | 8.2.0 |
+| <a name="requirement_google"></a> [google](#requirement\_google) | 8.5.0 |
+| <a name="requirement_google-beta"></a> [google-beta](#requirement\_google-beta) | 8.5.0 |
 
 ## Providers
 
 | Name | Version |
 |------|---------|
-| <a name="provider_google"></a> [google](#provider\_google) | 8.2.0 |
-| <a name="provider_google-beta"></a> [google-beta](#provider\_google-beta) | 8.2.0 |
+| <a name="provider_google"></a> [google](#provider\_google) | 8.5.0 |
+| <a name="provider_google-beta"></a> [google-beta](#provider\_google-beta) | 8.5.0 |
 
 ## Modules
 
@@ -37,12 +37,12 @@ No modules.
 
 | Name | Type |
 |------|------|
-| [google-beta_google_project_service_identity.cloudsql](https://registry.terraform.io/providers/hashicorp/google-beta/8.2.0/docs/resources/google_project_service_identity) | resource |
-| [google_compute_global_address.private_service_connection](https://registry.terraform.io/providers/hashicorp/google/8.2.0/docs/resources/compute_global_address) | resource |
-| [google_kms_crypto_key.cloudsql](https://registry.terraform.io/providers/hashicorp/google/8.2.0/docs/resources/kms_crypto_key) | resource |
-| [google_kms_crypto_key_iam_member.cloudsql](https://registry.terraform.io/providers/hashicorp/google/8.2.0/docs/resources/kms_crypto_key_iam_member) | resource |
-| [google_kms_key_ring.cloudsql](https://registry.terraform.io/providers/hashicorp/google/8.2.0/docs/resources/kms_key_ring) | resource |
-| [google_service_networking_connection.cloudsql](https://registry.terraform.io/providers/hashicorp/google/8.2.0/docs/resources/service_networking_connection) | resource |
+| [google-beta_google_project_service_identity.cloudsql](https://registry.terraform.io/providers/hashicorp/google-beta/8.5.0/docs/resources/google_project_service_identity) | resource |
+| [google_compute_global_address.private_service_connection](https://registry.terraform.io/providers/hashicorp/google/8.5.0/docs/resources/compute_global_address) | resource |
+| [google_kms_crypto_key.cloudsql](https://registry.terraform.io/providers/hashicorp/google/8.5.0/docs/resources/kms_crypto_key) | resource |
+| [google_kms_crypto_key_iam_member.cloudsql](https://registry.terraform.io/providers/hashicorp/google/8.5.0/docs/resources/kms_crypto_key_iam_member) | resource |
+| [google_kms_key_ring.cloudsql](https://registry.terraform.io/providers/hashicorp/google/8.5.0/docs/resources/kms_key_ring) | resource |
+| [google_service_networking_connection.cloudsql](https://registry.terraform.io/providers/hashicorp/google/8.5.0/docs/resources/service_networking_connection) | resource |
 
 ## Inputs
 

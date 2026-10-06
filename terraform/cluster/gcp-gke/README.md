@@ -38,7 +38,8 @@ cycles through this module and `database/gcp-cloudsql`:
 ```bash
 for ROLE in roles/editor roles/resourcemanager.projectIamAdmin \
   roles/iam.serviceAccountAdmin roles/cloudkms.admin \
-  roles/servicenetworking.networksAdmin roles/container.admin; do
+  roles/servicenetworking.networksAdmin roles/container.admin \
+  roles/dns.admin; do
   gcloud projects add-iam-policy-binding <project-id> \
     --member="serviceAccount:<identity>" --role="$ROLE"
 done
@@ -55,6 +56,10 @@ done
   `container.clusterRoleBindings.create`, none of which
   `roles/editor` grants. This is a GKE-specific guard against RBAC
   privilege escalation, on top of standard Kubernetes RBAC.
+- `roles/dns.admin` — setting the IAM policy on a Cloud DNS managed zone
+  needs `dns.managedZones.setIamPolicy`, which neither `roles/editor` nor
+  `roles/resourcemanager.projectIamAdmin` grants. The cert-manager and
+  external-dns zone bindings need it.
 - `roles/resourcemanager.projectIamAdmin`, `roles/iam.serviceAccountAdmin` —
   the IAM bindings `provisioning/crossplane-identity/gcp` creates.
 
@@ -71,7 +76,7 @@ gcloud components install gke-gcloud-auth-plugin
 | Name | Version |
 |------|---------|
 | <a name="requirement_terraform"></a> [terraform](#requirement\_terraform) | >= 1.12.2 |
-| <a name="requirement_google"></a> [google](#requirement\_google) | 8.4.0 |
+| <a name="requirement_google"></a> [google](#requirement\_google) | 8.5.0 |
 | <a name="requirement_null"></a> [null](#requirement\_null) | ~> 3.2 |
 | <a name="requirement_time"></a> [time](#requirement\_time) | ~> 0.13 |
 
@@ -79,7 +84,7 @@ gcloud components install gke-gcloud-auth-plugin
 
 | Name | Version |
 |------|---------|
-| <a name="provider_google"></a> [google](#provider\_google) | 8.4.0 |
+| <a name="provider_google"></a> [google](#provider\_google) | 8.5.0 |
 | <a name="provider_null"></a> [null](#provider\_null) | 3.3.2 |
 | <a name="provider_time"></a> [time](#provider\_time) | 0.14.2 |
 
@@ -91,17 +96,17 @@ No modules.
 
 | Name | Type |
 |------|------|
-| [google_container_cluster.this](https://registry.terraform.io/providers/hashicorp/google/8.4.0/docs/resources/container_cluster) | resource |
-| [google_container_node_pool.pools](https://registry.terraform.io/providers/hashicorp/google/8.4.0/docs/resources/container_node_pool) | resource |
-| [google_container_node_pool.system](https://registry.terraform.io/providers/hashicorp/google/8.4.0/docs/resources/container_node_pool) | resource |
-| [google_dns_managed_zone_iam_member.cert_manager_dns](https://registry.terraform.io/providers/hashicorp/google/8.4.0/docs/resources/dns_managed_zone_iam_member) | resource |
-| [google_dns_managed_zone_iam_member.external_dns_dns](https://registry.terraform.io/providers/hashicorp/google/8.4.0/docs/resources/dns_managed_zone_iam_member) | resource |
-| [google_project_iam_member.cert_manager_dns_list](https://registry.terraform.io/providers/hashicorp/google/8.4.0/docs/resources/project_iam_member) | resource |
-| [google_project_iam_member.external_dns_dns_list](https://registry.terraform.io/providers/hashicorp/google/8.4.0/docs/resources/project_iam_member) | resource |
-| [google_service_account.cert_manager](https://registry.terraform.io/providers/hashicorp/google/8.4.0/docs/resources/service_account) | resource |
-| [google_service_account.external_dns](https://registry.terraform.io/providers/hashicorp/google/8.4.0/docs/resources/service_account) | resource |
-| [google_service_account_iam_member.cert_manager_workload_identity](https://registry.terraform.io/providers/hashicorp/google/8.4.0/docs/resources/service_account_iam_member) | resource |
-| [google_service_account_iam_member.external_dns_workload_identity](https://registry.terraform.io/providers/hashicorp/google/8.4.0/docs/resources/service_account_iam_member) | resource |
+| [google_container_cluster.this](https://registry.terraform.io/providers/hashicorp/google/8.5.0/docs/resources/container_cluster) | resource |
+| [google_container_node_pool.pools](https://registry.terraform.io/providers/hashicorp/google/8.5.0/docs/resources/container_node_pool) | resource |
+| [google_container_node_pool.system](https://registry.terraform.io/providers/hashicorp/google/8.5.0/docs/resources/container_node_pool) | resource |
+| [google_dns_managed_zone_iam_member.cert_manager_dns](https://registry.terraform.io/providers/hashicorp/google/8.5.0/docs/resources/dns_managed_zone_iam_member) | resource |
+| [google_dns_managed_zone_iam_member.external_dns_dns](https://registry.terraform.io/providers/hashicorp/google/8.5.0/docs/resources/dns_managed_zone_iam_member) | resource |
+| [google_project_iam_member.cert_manager_dns_list](https://registry.terraform.io/providers/hashicorp/google/8.5.0/docs/resources/project_iam_member) | resource |
+| [google_project_iam_member.external_dns_dns_list](https://registry.terraform.io/providers/hashicorp/google/8.5.0/docs/resources/project_iam_member) | resource |
+| [google_service_account.cert_manager](https://registry.terraform.io/providers/hashicorp/google/8.5.0/docs/resources/service_account) | resource |
+| [google_service_account.external_dns](https://registry.terraform.io/providers/hashicorp/google/8.5.0/docs/resources/service_account) | resource |
+| [google_service_account_iam_member.cert_manager_workload_identity](https://registry.terraform.io/providers/hashicorp/google/8.5.0/docs/resources/service_account_iam_member) | resource |
+| [google_service_account_iam_member.external_dns_workload_identity](https://registry.terraform.io/providers/hashicorp/google/8.5.0/docs/resources/service_account_iam_member) | resource |
 | [null_resource.kubeconfig](https://registry.terraform.io/providers/hashicorp/null/latest/docs/resources/resource) | resource |
 | [time_sleep.post_delete_firewall_buffer](https://registry.terraform.io/providers/hashicorp/time/latest/docs/resources/sleep) | resource |
 
