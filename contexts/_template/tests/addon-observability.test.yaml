@@ -52,6 +52,7 @@ cases:
               oidc_auth_url: https://keycloak.example.local/realms/platform/protocol/openid-connect/auth
               oidc_token_url: http://keycloak-service.system-identity:8080/realms/platform/protocol/openid-connect/token
               grafana_root_url: https://grafana.example.local
+              oidc_role_attribute_path: "contains(groups[*], '/platform-admins') && 'Admin' || 'Viewer'"
 
   # External OIDC issuer (identity driver oidc): the effective issuer flows straight
   # through to Grafana's generic_oauth; the external client secret is supplied.

@@ -141,7 +141,7 @@ It ships a security baseline: `sslRequired: external`, brute-force detection, a
 `length(12) and notUsername and notEmail` password policy, and short access-token
 plus bounded SSO-session lifetimes.
 
-It also creates a `platform-admins` group mapped to the realm-management
+It also creates the admin group (`identity.admin_group`, default `platform-admins`) mapped to the realm-management
 `realm-admin` role, the one place to grant realm administration. Core creates
 the group; its members are deployment-specific and are not managed in git.
 
