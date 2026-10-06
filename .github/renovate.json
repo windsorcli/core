@@ -35,6 +35,12 @@
       "allowedVersions": "<1.14"
     },
     {
+      "description": "Provider 0.12.0 generates Talos 1.14 documents that conflict with the v1alpha1 patches in core",
+      "matchDatasources": ["terraform-provider"],
+      "matchPackageNames": ["siderolabs/talos"],
+      "allowedVersions": "<0.12"
+    },
+    {
       "matchDatasources": ["terraform-provider"],
       "automerge": true,
       "automergeType": "pr",
