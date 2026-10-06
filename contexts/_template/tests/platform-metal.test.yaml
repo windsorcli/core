@@ -138,6 +138,7 @@ cases:
               - openebs/dynamic-localpv
             substitutions:
               local_volume_path: /var/mnt/local
+              local_volume_quota: "true"
     exclude:
       kustomize:
         - name: lb-install
@@ -264,6 +265,7 @@ cases:
               - openebs/dynamic-localpv
             substitutions:
               local_volume_path: /mnt/data
+              local_volume_quota: "true"
 
   # Edge case: longhorn storage driver passes Talos extensions via cluster-extensions step.
   # Also asserts the controlplanes/workers inputs come from the user-supplied node map
