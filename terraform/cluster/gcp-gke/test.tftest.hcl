@@ -227,6 +227,7 @@ run "full_configuration" {
     cluster_name           = "custom-cluster"
     region                 = "us-east1"
     release_channel        = "STABLE"
+    kubernetes_version     = "1.35"
     master_ipv4_cidr_block = "172.20.0.0/28"
     authorized_networks    = ["10.0.0.0/8"]
   }
@@ -244,6 +245,11 @@ run "full_configuration" {
   assert {
     condition     = google_container_cluster.this.release_channel[0].channel == "STABLE"
     error_message = "Release channel should match input"
+  }
+
+  assert {
+    condition     = google_container_cluster.this.min_master_version == "1.35"
+    error_message = "Minimum master version should match input"
   }
 
   assert {
@@ -620,5 +626,40 @@ run "destroy_operation_relaxes_sibling_input_validation" {
     network_id     = null
     subnetwork_id  = null
     node_locations = ["us-central1-a"]
+  }
+}
+
+# Tests that the control plane minimum version defaults to 1.36.
+run "default_kubernetes_version" {
+  command = plan
+
+  variables {
+    context_id             = "test"
+    project_id             = "test-project"
+    network_id             = "projects/test-project/global/networks/network-test"
+    subnetwork_id          = "projects/test-project/regions/us-east1/subnetworks/private-test"
+    node_locations         = ["us-east1-b"]
+    master_ipv4_cidr_block = "172.20.0.0/28"
+  }
+
+  assert {
+    condition     = google_container_cluster.this.min_master_version == "1.36"
+    error_message = "Minimum master version should default to 1.36"
+  }
+}
+
+# Tests that a malformed kubernetes_version is rejected.
+run "invalid_kubernetes_version" {
+  command = plan
+  expect_failures = [
+    var.kubernetes_version,
+  ]
+  variables {
+    context_id         = "test"
+    project_id         = "test-project"
+    network_id         = "projects/test-project/global/networks/network-test"
+    subnetwork_id      = "projects/test-project/regions/us-east1/subnetworks/private-test"
+    node_locations     = ["us-east1-b"]
+    kubernetes_version = "v1.36"
   }
 }

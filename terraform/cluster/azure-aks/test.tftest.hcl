@@ -33,7 +33,7 @@ run "minimal_configuration" {
   variables {
     context_id         = "test"
     name               = "windsor-aks"
-    kubernetes_version = "1.34"
+    kubernetes_version = "1.36"
   }
 
   assert {
@@ -190,7 +190,7 @@ run "default_node_pool_partial_override_keeps_other_defaults" {
   variables {
     context_id         = "test"
     name               = "windsor-aks"
-    kubernetes_version = "1.34"
+    kubernetes_version = "1.36"
     default_node_pool = {
       node_count = 2
     }
@@ -222,7 +222,7 @@ run "full_configuration" {
     name                      = "windsor-aks"
     cluster_name              = "test-cluster"
     resource_group_name       = "test-rg"
-    kubernetes_version        = "1.34"
+    kubernetes_version        = "1.36"
     oidc_issuer_enabled       = true
     workload_identity_enabled = true
     availability_zones        = ["1", "2", "3"]
@@ -444,7 +444,7 @@ run "private_cluster" {
     name                    = "windsor-aks"
     cluster_name            = "test-cluster"
     private_cluster_enabled = true
-    kubernetes_version      = "1.34"
+    kubernetes_version      = "1.36"
   }
 
   assert {
@@ -532,7 +532,7 @@ run "authorized_ip_ranges" {
     context_id           = "test"
     name                 = "windsor-aks"
     cluster_name         = "test-cluster"
-    kubernetes_version   = "1.34"
+    kubernetes_version   = "1.36"
     authorized_ip_ranges = ["10.0.0.0/8", "192.168.0.0/16"]
   }
 
@@ -562,7 +562,7 @@ run "azure_rbac_with_admin_object_ids" {
     context_id             = "test"
     name                   = "windsor-aks"
     cluster_name           = "test-cluster"
-    kubernetes_version     = "1.34"
+    kubernetes_version     = "1.36"
     local_account_disabled = true
     admin_object_ids       = ["33333333-3333-3333-3333-333333333333", "44444444-4444-4444-4444-444444444444"]
   }
@@ -629,7 +629,7 @@ run "disk_encryption_with_provided_key" {
   variables {
     context_id              = "test"
     name                    = "windsor-aks"
-    kubernetes_version      = "1.34"
+    kubernetes_version      = "1.36"
     disk_encryption_enabled = true
     key_vault_key_id        = "https://test-kv.vault.azure.net/keys/test-key/abc123"
   }
@@ -661,7 +661,7 @@ run "workload_identity_defaults" {
   variables {
     context_id         = "test"
     name               = "windsor-aks"
-    kubernetes_version = "1.34"
+    kubernetes_version = "1.36"
   }
 
   assert {
@@ -701,7 +701,7 @@ run "cert_manager_workload_identity" {
   variables {
     context_id                   = "test"
     name                         = "windsor-aks"
-    kubernetes_version           = "1.34"
+    kubernetes_version           = "1.36"
     create_cert_manager_identity = true
     cert_manager_dns_zone_ids = [
       "/subscriptions/12345678-1234-9876-4563-123456789012/resourceGroups/rg-dns-test/providers/Microsoft.Network/dnszones/example.com",
@@ -744,7 +744,7 @@ run "external_dns_identity_disabled" {
   variables {
     context_id                   = "test"
     name                         = "windsor-aks"
-    kubernetes_version           = "1.34"
+    kubernetes_version           = "1.36"
     create_external_dns_identity = false
   }
 
@@ -776,7 +776,7 @@ run "external_dns_role_per_zone_type" {
   variables {
     context_id         = "test"
     name               = "windsor-aks"
-    kubernetes_version = "1.34"
+    kubernetes_version = "1.36"
     external_dns_dns_zone_ids = [
       "/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/rg-public/providers/Microsoft.Network/dnszones/public.example.com",
       "/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/rg-private/providers/Microsoft.Network/privateDnsZones/private.example.com",
@@ -817,7 +817,7 @@ run "pools_empty_falls_back_to_general_pool" {
   variables {
     context_id         = "test"
     name               = "windsor-aks"
-    kubernetes_version = "1.34"
+    kubernetes_version = "1.36"
   }
 
   assert {
@@ -837,7 +837,7 @@ run "pools_resolves_class_to_vm_size" {
   variables {
     context_id         = "test"
     name               = "windsor-aks"
-    kubernetes_version = "1.34"
+    kubernetes_version = "1.36"
     pools = {
       app = { class = "general", count = 2 }
       cpu = { class = "compute", count = 1 }
@@ -888,7 +888,7 @@ run "pools_autoscaling_class_defaults_and_override" {
   variables {
     context_id         = "test"
     name               = "windsor-aks"
-    kubernetes_version = "1.34"
+    kubernetes_version = "1.36"
     pools = {
       sys = { class = "system", count = 2 }
       gen = {
@@ -954,7 +954,7 @@ run "pools_system_taint_not_duplicated" {
   variables {
     context_id         = "test"
     name               = "windsor-aks"
-    kubernetes_version = "1.34"
+    kubernetes_version = "1.36"
     pools = {
       sys = {
         class = "system"
@@ -1045,7 +1045,7 @@ run "pools_explicit_instance_types_and_lifecycle" {
   variables {
     context_id         = "test"
     name               = "windsor-aks"
-    kubernetes_version = "1.34"
+    kubernetes_version = "1.36"
     pools = {
       batch = {
         class          = "general"
@@ -1110,7 +1110,7 @@ run "pools_invalid_class_rejected" {
   variables {
     context_id         = "test"
     name               = "windsor-aks"
-    kubernetes_version = "1.34"
+    kubernetes_version = "1.36"
     pools = {
       bogus = { class = "bogus", count = 1 }
     }
@@ -1128,7 +1128,7 @@ run "pools_invalid_name_rejected" {
   variables {
     context_id         = "test"
     name               = "windsor-aks"
-    kubernetes_version = "1.34"
+    kubernetes_version = "1.36"
     pools = {
       "extra-system" = { class = "system", count = 1 }
     }
@@ -1145,7 +1145,7 @@ run "volume_snapshots_disabled" {
   variables {
     context_id              = "test"
     name                    = "windsor-aks"
-    kubernetes_version      = "1.34"
+    kubernetes_version      = "1.36"
     enable_volume_snapshots = false
   }
 
@@ -1182,7 +1182,7 @@ run "destroy_operation_relaxes_sibling_input_validation" {
   variables {
     context_id         = "test"
     name               = "windsor-aks"
-    kubernetes_version = "1.34"
+    kubernetes_version = "1.36"
     operation          = "destroy"
     private_subnet_ids = null
   }
@@ -1201,7 +1201,7 @@ run "var_tags_cannot_override_windsor_context_id_or_name" {
   variables {
     context_id         = "test"
     name               = "windsor-aks"
-    kubernetes_version = "1.34"
+    kubernetes_version = "1.36"
     tags = {
       WindsorContextID = "not-the-real-context"
       Name             = "not-the-real-name"

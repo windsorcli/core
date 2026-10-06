@@ -71,7 +71,7 @@ gcloud components install gke-gcloud-auth-plugin
 | Name | Version |
 |------|---------|
 | <a name="requirement_terraform"></a> [terraform](#requirement\_terraform) | >= 1.12.2 |
-| <a name="requirement_google"></a> [google](#requirement\_google) | 8.2.0 |
+| <a name="requirement_google"></a> [google](#requirement\_google) | 8.4.0 |
 | <a name="requirement_null"></a> [null](#requirement\_null) | ~> 3.2 |
 | <a name="requirement_time"></a> [time](#requirement\_time) | ~> 0.13 |
 
@@ -79,7 +79,7 @@ gcloud components install gke-gcloud-auth-plugin
 
 | Name | Version |
 |------|---------|
-| <a name="provider_google"></a> [google](#provider\_google) | 8.2.0 |
+| <a name="provider_google"></a> [google](#provider\_google) | 8.4.0 |
 | <a name="provider_null"></a> [null](#provider\_null) | 3.3.2 |
 | <a name="provider_time"></a> [time](#provider\_time) | 0.14.2 |
 
@@ -91,17 +91,17 @@ No modules.
 
 | Name | Type |
 |------|------|
-| [google_container_cluster.this](https://registry.terraform.io/providers/hashicorp/google/8.2.0/docs/resources/container_cluster) | resource |
-| [google_container_node_pool.pools](https://registry.terraform.io/providers/hashicorp/google/8.2.0/docs/resources/container_node_pool) | resource |
-| [google_container_node_pool.system](https://registry.terraform.io/providers/hashicorp/google/8.2.0/docs/resources/container_node_pool) | resource |
-| [google_dns_managed_zone_iam_member.cert_manager_dns](https://registry.terraform.io/providers/hashicorp/google/8.2.0/docs/resources/dns_managed_zone_iam_member) | resource |
-| [google_dns_managed_zone_iam_member.external_dns_dns](https://registry.terraform.io/providers/hashicorp/google/8.2.0/docs/resources/dns_managed_zone_iam_member) | resource |
-| [google_project_iam_member.cert_manager_dns_list](https://registry.terraform.io/providers/hashicorp/google/8.2.0/docs/resources/project_iam_member) | resource |
-| [google_project_iam_member.external_dns_dns_list](https://registry.terraform.io/providers/hashicorp/google/8.2.0/docs/resources/project_iam_member) | resource |
-| [google_service_account.cert_manager](https://registry.terraform.io/providers/hashicorp/google/8.2.0/docs/resources/service_account) | resource |
-| [google_service_account.external_dns](https://registry.terraform.io/providers/hashicorp/google/8.2.0/docs/resources/service_account) | resource |
-| [google_service_account_iam_member.cert_manager_workload_identity](https://registry.terraform.io/providers/hashicorp/google/8.2.0/docs/resources/service_account_iam_member) | resource |
-| [google_service_account_iam_member.external_dns_workload_identity](https://registry.terraform.io/providers/hashicorp/google/8.2.0/docs/resources/service_account_iam_member) | resource |
+| [google_container_cluster.this](https://registry.terraform.io/providers/hashicorp/google/8.4.0/docs/resources/container_cluster) | resource |
+| [google_container_node_pool.pools](https://registry.terraform.io/providers/hashicorp/google/8.4.0/docs/resources/container_node_pool) | resource |
+| [google_container_node_pool.system](https://registry.terraform.io/providers/hashicorp/google/8.4.0/docs/resources/container_node_pool) | resource |
+| [google_dns_managed_zone_iam_member.cert_manager_dns](https://registry.terraform.io/providers/hashicorp/google/8.4.0/docs/resources/dns_managed_zone_iam_member) | resource |
+| [google_dns_managed_zone_iam_member.external_dns_dns](https://registry.terraform.io/providers/hashicorp/google/8.4.0/docs/resources/dns_managed_zone_iam_member) | resource |
+| [google_project_iam_member.cert_manager_dns_list](https://registry.terraform.io/providers/hashicorp/google/8.4.0/docs/resources/project_iam_member) | resource |
+| [google_project_iam_member.external_dns_dns_list](https://registry.terraform.io/providers/hashicorp/google/8.4.0/docs/resources/project_iam_member) | resource |
+| [google_service_account.cert_manager](https://registry.terraform.io/providers/hashicorp/google/8.4.0/docs/resources/service_account) | resource |
+| [google_service_account.external_dns](https://registry.terraform.io/providers/hashicorp/google/8.4.0/docs/resources/service_account) | resource |
+| [google_service_account_iam_member.cert_manager_workload_identity](https://registry.terraform.io/providers/hashicorp/google/8.4.0/docs/resources/service_account_iam_member) | resource |
+| [google_service_account_iam_member.external_dns_workload_identity](https://registry.terraform.io/providers/hashicorp/google/8.4.0/docs/resources/service_account_iam_member) | resource |
 | [null_resource.kubeconfig](https://registry.terraform.io/providers/hashicorp/null/latest/docs/resources/resource) | resource |
 | [time_sleep.post_delete_firewall_buffer](https://registry.terraform.io/providers/hashicorp/time/latest/docs/resources/sleep) | resource |
 
@@ -118,6 +118,7 @@ No modules.
 | <a name="input_create_cert_manager_identity"></a> [create\_cert\_manager\_identity](#input\_create\_cert\_manager\_identity) | Whether to provision a Google Service Account, Workload Identity binding, and roles/dns.admin grants for cert-manager's cloudDNS ACME DNS-01 solver. Enable when cert-manager will issue ACME certificates against a Cloud DNS zone. | `bool` | `false` | no |
 | <a name="input_create_external_dns_identity"></a> [create\_external\_dns\_identity](#input\_create\_external\_dns\_identity) | Whether to provision a Google Service Account, Workload Identity binding, and roles/dns.admin grants for external-dns. Enable when external-dns will publish records to a Cloud DNS zone. | `bool` | `true` | no |
 | <a name="input_external_dns_dns_zone_names"></a> [external\_dns\_dns\_zone\_names](#input\_external\_dns\_dns\_zone\_names) | Names of the Cloud DNS managed zones external-dns is allowed to manage records in. The roles/dns.admin grant is scoped to these zones — leave empty when create\_external\_dns\_identity is false. | `list(string)` | `[]` | no |
+| <a name="input_kubernetes_version"></a> [kubernetes\_version](#input\_kubernetes\_version) | Minimum Kubernetes version for the control plane, such as '1.36'. Must be available in the release channel. Null leaves the channel default. | `string` | `"1.36"` | no |
 | <a name="input_master_ipv4_cidr_block"></a> [master\_ipv4\_cidr\_block](#input\_master\_ipv4\_cidr\_block) | A /28 CIDR block for the private control plane's internal address, disjoint from every subnet in the VPC | `string` | `"172.16.0.0/28"` | no |
 | <a name="input_name"></a> [name](#input\_name) | Name prefix for the GKE cluster | `string` | `"cluster"` | no |
 | <a name="input_network_id"></a> [network\_id](#input\_network\_id) | ID of the VPC network the cluster attaches to. Pipe network/gcp-vpc's network\_id output. | `string` | `null` | no |
