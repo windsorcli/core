@@ -81,7 +81,7 @@ cases:
               - cloudnativepg/prometheus
       crds:
         # renovate: datasource=github-releases depName=keycloak/keycloak-k8s-resources package=keycloak/keycloak-k8s-resources
-        - keycloak-26.7.0
+        - keycloak-26.8.0
 
   # No gateway needed to install — Keycloak still comes up (port-forward
   # keycloak-service to reach it), just without the gateway route.
@@ -545,7 +545,7 @@ cases:
         - name: identity
       crds:
         # renovate: datasource=github-releases depName=keycloak/keycloak-k8s-resources package=keycloak/keycloak-k8s-resources
-        - keycloak-26.7.0
+        - keycloak-26.8.0
 
   # Disabled: no identity system and no Keycloak CRDs.
   - name: excludes identity when disabled
@@ -565,7 +565,7 @@ cases:
         - name: identity
       crds:
         # renovate: datasource=github-releases depName=keycloak/keycloak-k8s-resources package=keycloak/keycloak-k8s-resources
-        - keycloak-26.7.0
+        - keycloak-26.8.0
 
   # Metrics enabled (default): keycloak/prometheus overlay wires the operator's
   # own ServiceMonitor + Keycloak's server/user-event metrics. The ServiceMonitor
