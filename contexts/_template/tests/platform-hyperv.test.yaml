@@ -220,6 +220,43 @@ cases:
               "30292": 30292
               "40000": 50000
 
+  - name: LoadBalancer gateway forwards no ports
+    values:
+      platform: hyperv
+      gateway:
+        enabled: true
+        service_type: LoadBalancer
+      dns:
+        private_domain: test
+        public_domain: example.com
+      network:
+        cidr_block: 10.20.0.0/24
+        loadbalancer_driver: metallb
+        loadbalancer_mode: arp
+        loadbalancer_ips:
+          start: "10.20.0.100"
+          end: "10.20.0.110"
+      cluster:
+        driver: talos
+        cni:
+          driver: flannel
+        controlplanes:
+          count: 1
+          nodes:
+            controlplane-1:
+              endpoint: 10.20.0.10:50000
+              node: 10.20.0.10
+              hostname: controlplane-1
+        workers:
+          count: 0
+    terraformOutputs: *default-terraform-outputs
+    expect:
+      terraform:
+        - name: compute
+          path: compute/hyperv
+          inputs:
+            port_forwards: {}
+
   # hyperv.force_management_os_migration reaches the compute module.
   - name: force_management_os_migration is passed to compute
     values:
