@@ -595,3 +595,35 @@ cases:
                 - cilium/loadbalancer/hcloud-lb
               substitutions:
                 hcloud_location: fsn1
+
+  # pki.public_issuer: selfsigned keeps the public domain but issues no ACME
+  # certificate, so no operator email is required.
+  - name: public_issuer selfsigned on hetzner skips ACME and the email requirement
+    values:
+      id: htz1
+      platform: hetzner
+      dns:
+        public_domain: example.com
+      hetzner:
+        token: test-token
+        location: fsn1
+        network_zone: eu-central
+        dns_parent_zone: example.org
+      gateway:
+        enabled: true
+        driver: envoy
+      network: *default-network
+      pki:
+        public_issuer: selfsigned
+    terraformOutputs: *default-terraform-outputs
+    expect:
+      flux:
+        - name: pki
+          resources:
+            - components:
+                - public-issuer/selfsigned
+        - name: gateway
+          resources:
+            - name: external
+              substitutions:
+                gateway_cert_issuer: public-selfsigned

@@ -13,7 +13,8 @@ requires:
   - paths:
       - gcp.project_id
     message: The GCP provider needs a project ID for every API call.
-  - when: (dns.public_domain ?? '') != ''
+  - when: >-
+      (dns.public_domain ?? '') != '' && (pki.public_issuer ?? 'acme') != 'selfsigned'
     paths:
       - email
     message: Public DNS requires an operator email for TLS certificate registration.
@@ -31,12 +32,13 @@ config:
       metrics_server_enabled: false
 
   # issuer_component selects the public ClusterIssuer variant (last match wins):
-  # selfsigned floor, then ACME (clouddns) once a public domain is set.
+  # selfsigned floor, then ACME (clouddns) once a public domain is set and pki.public_issuer is not selfsigned.
   - name: pki_effective
     value:
       issuer_component: public-issuer/selfsigned
   - name: pki_effective
-    when: (dns.public_domain ?? '') != ''
+    when: >-
+      (dns.public_domain ?? '') != '' && (pki.public_issuer ?? 'acme') != 'selfsigned'
     value:
       issuer_component: public-issuer/acme/clouddns
 

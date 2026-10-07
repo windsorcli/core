@@ -1023,3 +1023,15 @@ cases:
     exclude:
       messages:
         - text: Public DNS zone created
+
+  # acme issues certificates for dns.public_domain, so it fails without one.
+  - name: public_issuer acme without a public domain fails composition
+    values:
+      platform: metal
+      gateway:
+        enabled: false
+      network: *default-network
+      cluster: *default-cluster
+      pki:
+        public_issuer: acme
+    expectError: true
