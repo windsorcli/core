@@ -1335,6 +1335,10 @@ properties:
         type: string
         default: SSO
         description: Login button label consumers show (e.g. "Sign in with <name>")
+      admin_group:
+        type: string
+        default: platform-admins
+        description: Group whose members are administrators in every SSO consumer (Grafana Admin, cluster-admin in dev). The hosted Keycloak creates it.
       oidc:
         type: object
         description: External OIDC provider settings (driver oidc)
