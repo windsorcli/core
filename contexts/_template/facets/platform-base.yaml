@@ -533,7 +533,7 @@ flux:
 messages:
   # Only the cloud platforms provision a dns-zone to delegate.
   - when: >-
-      (dns.public_domain ?? '') != '' && (pki.public_issuer ?? 'acme') != 'selfsigned' &&
+      (dns.public_domain ?? '') != '' &&
       platform in ['aws', 'azure', 'gcp', 'hetzner'] &&
       len(terraform_output('dns-zone', 'name_servers') ?? []) > 0
     text: |-
@@ -542,4 +542,8 @@ messages:
 
         ${join(terraform_output('dns-zone', 'name_servers') ?? [], ', ')}
 
-      Certificate issuance won't succeed until delegation propagates.
+  - when: >-
+      (dns.public_domain ?? '') != '' && (pki.public_issuer ?? 'acme') != 'selfsigned' &&
+      platform in ['aws', 'azure', 'gcp', 'hetzner'] &&
+      len(terraform_output('dns-zone', 'name_servers') ?? []) > 0
+    text: Certificate issuance won't succeed until delegation propagates.

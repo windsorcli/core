@@ -1009,8 +1009,34 @@ cases:
             domain registrar by adding these as NS records:
 
               ns-1.awsdns-01.com, ns-2.awsdns-02.org
+        - text: Certificate issuance won't succeed until delegation propagates.
 
-            Certificate issuance won't succeed until delegation propagates.
+  - name: selfsigned public_issuer prints the delegation message without the certificate note
+    values:
+      platform: aws
+      aws:
+        region: us-west-2
+      gateway:
+        enabled: false
+      dns:
+        public_domain: example.com
+      pki:
+        public_issuer: selfsigned
+    terraformOutputs:
+      dns-zone:
+        name_servers:
+          - ns-1.awsdns-01.com
+          - ns-2.awsdns-02.org
+    expect:
+      messages:
+        - text: |-
+            Public DNS zone created for example.com. Delegate it at your
+            domain registrar by adding these as NS records:
+
+              ns-1.awsdns-01.com, ns-2.awsdns-02.org
+    exclude:
+      messages:
+        - text: Certificate issuance won't succeed until delegation propagates.
 
   # No message without a public domain to delegate.
   - name: no delegation message without dns.public_domain
