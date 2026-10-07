@@ -283,7 +283,50 @@ cases:
               components:
                 - bookinfo/gateway
               substitutions:
-                private_domain: demo.example.com
+                bookinfo_gateway: internal
+                bookinfo_domain: demo.example.com
+
+  # Hetzner has no internal gateway, so the route attaches to the external one.
+  - name: bookinfo route uses the external gateway when there is no internal one
+    values:
+      platform: hetzner
+      demo:
+        enabled: true
+        resources:
+          bookinfo: true
+      gateway:
+        enabled: true
+      dns:
+        public_domain: demo.example.com
+      email: ops@example.com
+      hetzner:
+        token: test-token
+        location: fsn1
+        network_zone: eu-central
+      network:
+        cidr_block: 10.5.0.0/16
+    terraformOutputs:
+      compute:
+        controlplanes:
+          - endpoint: 10.5.0.10:6443
+            node: 10.5.0.10
+            hostname: controlplane-1
+        workers: []
+    expect:
+      flux:
+        - name: demo
+          path: demo
+          resources:
+            - dependsOn:
+                - gateway-resources-external
+              components:
+                - bookinfo/gateway
+              substitutions:
+                bookinfo_gateway: external
+                bookinfo_domain: demo.example.com
+    exclude:
+      kustomize:
+        - name: gateway-resources-internal
 
   # Edge case: Demo disabled excludes demo database
   - name: excludes demo database when demo disabled
