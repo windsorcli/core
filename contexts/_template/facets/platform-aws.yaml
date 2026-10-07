@@ -16,7 +16,7 @@ requires:
       - aws.region
     message: The AWS provider needs a region for every API call.
   - when: >-
-      (dns.public_domain ?? '') != '' && (pki.public_issuer ?? 'acme') != 'selfsigned'
+      dns_zone_effective.enabled == true && (pki.public_issuer ?? 'acme') != 'selfsigned'
     paths:
       - email
     message: Public DNS requires an operator email for TLS certificate registration.
@@ -33,7 +33,7 @@ config:
       issuer_component: public-issuer/selfsigned
   - name: pki_effective
     when: >-
-      (dns.public_domain ?? '') != '' && (pki.public_issuer ?? 'acme') != 'selfsigned'
+      dns_zone_effective.enabled == true && (pki.public_issuer ?? 'acme') != 'selfsigned'
     value:
       issuer_component: public-issuer/acme/route53
 
@@ -76,11 +76,11 @@ terraform:
       # one NAT per AZ. The subnet footprint stays multi-AZ either way.
       single_nat_gateway: "${topology != 'ha'}"
 
-  # Public Route53 zone when dns.public_domain is set. Own stack so its
+  # Public Route53 zone when dns_zone_effective is enabled. Own stack so its
   # lifecycle (and NS delegation) is independent of the cluster's.
   - name: dns-zone
     path: dns/zone/route53
-    when: "(dns.public_domain ?? '') != ''"
+    when: "dns_zone_effective.enabled == true"
     dependsOn:
       - "${backend_effective.managed == true ? 'backend' : ''}"
     inputs:
@@ -107,8 +107,8 @@ terraform:
       system_node_pool:
         desired_size: "${topology == 'ha' ? 2 : 1}"
       manage_log_group: ${!(ephemeral ?? false)}
-      create_cert_manager_role: "${(dns.public_domain ?? '') != ''}"
-      cert_manager_hosted_zone_ids: "${(dns.public_domain ?? '') != '' ? [terraform_output('dns-zone', 'zone_id')] : []}"
+      create_cert_manager_role: "${dns_zone_effective.enabled == true}"
+      cert_manager_hosted_zone_ids: "${dns_zone_effective.enabled == true ? [terraform_output('dns-zone', 'zone_id')] : []}"
       # Portable user pools alongside the module's always-on system pool;
       # defaults to one general pool. Declaring cluster.pools replaces this.
       pools: >-
@@ -118,7 +118,7 @@ terraform:
   # zone_id resolves before the cert-manager policy renders — else it falls
   # back to the wildcard hostedzone/* scope.
   - name: cluster
-    when: "(dns.public_domain ?? '') != ''"
+    when: "dns_zone_effective.enabled == true"
     dependsOn:
       - dns-zone
 
@@ -186,7 +186,7 @@ flux:
           acme_email: "${email ?? ''}"
           acme_dns_zone: "${dns.public_domain ?? ''}"
           acme_region: "${aws.region ?? 'us-east-1'}"
-          acme_hosted_zone_id: "${(dns.public_domain ?? '') != '' ? (terraform_output('dns-zone', 'zone_id') ?? '') : ''}"
+          acme_hosted_zone_id: "${dns_zone_effective.enabled == true ? (terraform_output('dns-zone', 'zone_id') ?? '') : ''}"
 
   # Gateway install merge. Adds envoy/loadbalancer/aws-nlb (NLB annotations)
   # when Envoy runs in loadbalancer mode. Provisions an NLB, not an ALB: Envoy
@@ -256,7 +256,7 @@ flux:
   # DNS: external-dns writes A/CNAME records from Ingress/HTTPRoute resources, one instance per zone.
   # IAM comes from the cluster module (create_external_dns_role, Pod Identity in system-dns).
   - name: dns
-    when: "(dns.public_domain ?? '') != '' || (dns.private_domain ?? '') != ''"
+    when: "dns_zone_effective.enabled == true || (dns.private_domain ?? '') != ''"
     install:
       components:
         - external-dns
@@ -270,7 +270,7 @@ flux:
         timeout: 5m
         interval: 5m
       - name: public
-        when: (dns.public_domain ?? '') != ''
+        when: dns_zone_effective.enabled == true
         dependsOn:
           - dns-resources-account
         components:

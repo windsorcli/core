@@ -21,7 +21,7 @@ requires:
       - hetzner.token
     message: Set a Hetzner Cloud API token via hetzner.token or the HCLOUD_TOKEN environment variable.
   - when: >-
-      (dns.public_domain ?? '') != '' && (pki.public_issuer ?? 'acme') != 'selfsigned'
+      dns_zone_effective.enabled == true && (pki.public_issuer ?? 'acme') != 'selfsigned'
     paths:
       - email
     message: Public DNS requires an operator email for TLS certificate registration.
@@ -184,7 +184,7 @@ config:
       issuer_component: public-issuer/selfsigned
   - name: pki_effective
     when: >-
-      (dns.public_domain ?? '') != '' && (pki.public_issuer ?? 'acme') != 'selfsigned'
+      dns_zone_effective.enabled == true && (pki.public_issuer ?? 'acme') != 'selfsigned'
     value:
       issuer_component: public-issuer/acme/hetzner
 
@@ -254,7 +254,7 @@ terraform:
   # DNS is part of the Cloud API, so it uses the same token.
   - name: dns-zone
     path: dns/zone/hetzner
-    when: "(dns.public_domain ?? '') != ''"
+    when: "dns_zone_effective.enabled == true"
     inputs:
       hcloud_token: ${hetzner.token}
       domain_name: ${dns.public_domain}
@@ -371,7 +371,7 @@ flux:
 
   # DNS — external-dns via the Hetzner webhook provider, public zone only.
   - name: dns
-    when: "(dns.public_domain ?? '') != ''"
+    when: "dns_zone_effective.enabled == true"
     secrets:
       hetzner-dns:
         data:
@@ -405,7 +405,7 @@ flux:
   # system-pki-trust, so the target is named explicitly. cert-manager's ACME
   # DNS-01 solver reads the Hetzner token from system-pki (public TLS only).
   - name: pki
-    when: "(dns.public_domain ?? '') != ''"
+    when: "dns_zone_effective.enabled == true"
     secrets:
       hetzner-dns:
         namespaces: [system-pki]

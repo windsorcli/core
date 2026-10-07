@@ -900,3 +900,48 @@ cases:
             - name: external
               substitutions:
                 gateway_cert_issuer: public-selfsigned
+
+  # dns.public_zone: false keeps the public domain as a hostname with no zone,
+  # external-dns or DNS secret.
+  - name: public_zone false on aws skips the zone and external-dns
+    values:
+      platform: aws
+      aws: *default-aws
+      gateway:
+        enabled: true
+        driver: envoy
+      dns:
+        public_domain: example.com
+        public_zone: false
+      pki:
+        public_issuer: selfsigned
+    expect:
+      flux:
+        - name: pki
+          resources:
+            - components:
+                - public-issuer/selfsigned
+        - name: gateway
+          resources:
+            - name: external
+              substitutions:
+                gateway_cert_issuer: public-selfsigned
+    exclude:
+      terraform:
+        - name: dns-zone
+      flux:
+        - name: dns
+
+  - name: public_zone false with acme on aws fails composition
+    values:
+      platform: aws
+      aws: *default-aws
+      gateway:
+        enabled: true
+        driver: envoy
+      dns:
+        public_domain: example.com
+        public_zone: false
+      pki:
+        public_issuer: acme
+    expectError: true

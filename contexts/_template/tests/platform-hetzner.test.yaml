@@ -627,3 +627,58 @@ cases:
             - name: external
               substitutions:
                 gateway_cert_issuer: public-selfsigned
+
+  # dns.public_zone: false keeps the public domain as a hostname with no zone,
+  # external-dns or DNS secret.
+  - name: public_zone false on hetzner skips the zone and external-dns
+    values:
+      id: htz1
+      platform: hetzner
+      hetzner:
+        token: test-token
+        location: fsn1
+        network_zone: eu-central
+      gateway:
+        enabled: true
+        driver: envoy
+      dns:
+        public_domain: example.com
+        public_zone: false
+      network: *default-network
+      pki:
+        public_issuer: selfsigned
+    expect:
+      flux:
+        - name: pki
+          resources:
+            - components:
+                - public-issuer/selfsigned
+        - name: gateway
+          resources:
+            - name: external
+              substitutions:
+                gateway_cert_issuer: public-selfsigned
+    exclude:
+      terraform:
+        - name: dns-zone
+      flux:
+        - name: dns
+
+  - name: public_zone false with acme on hetzner fails composition
+    values:
+      id: htz1
+      platform: hetzner
+      hetzner:
+        token: test-token
+        location: fsn1
+        network_zone: eu-central
+      gateway:
+        enabled: true
+        driver: envoy
+      dns:
+        public_domain: example.com
+        public_zone: false
+      network: *default-network
+      pki:
+        public_issuer: acme
+    expectError: true
