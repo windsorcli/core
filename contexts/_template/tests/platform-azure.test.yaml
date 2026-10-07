@@ -508,3 +508,36 @@ cases:
     exclude:
       terraform:
         - name: backend
+
+  # pki.public_issuer: selfsigned keeps the public domain but issues no ACME
+  # certificate, so no operator email is required.
+  - name: public_issuer selfsigned on azure skips ACME and the email requirement
+    values:
+      platform: azure
+      gateway:
+        enabled: true
+        driver: envoy
+      dns:
+        public_domain: example.com
+      pki:
+        public_issuer: selfsigned
+    terraformOutputs:
+      dns-zone:
+        zone_id: /subscriptions/12345678-1234-9876-4563-123456789012/resourceGroups/rg-dns/providers/Microsoft.Network/dnszones/example.com
+        resource_group_name: rg-dns
+        subscription_id: 12345678-1234-9876-4563-123456789012
+      cluster:
+        cert_manager_client_id: 11111111-aaaa-aaaa-aaaa-111111111111
+        external_dns_client_id: 22222222-bbbb-bbbb-bbbb-222222222222
+        tenant_id: 33333333-cccc-cccc-cccc-333333333333
+    expect:
+      flux:
+        - name: pki
+          resources:
+            - components:
+                - public-issuer/selfsigned
+        - name: gateway
+          resources:
+            - name: external
+              substitutions:
+                gateway_cert_issuer: public-selfsigned

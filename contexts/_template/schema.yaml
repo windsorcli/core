@@ -1102,6 +1102,12 @@ properties:
       enabled:
         type: boolean
         description: Enable private certificate authority with trust-manager
+      public_issuer:
+        type: string
+        enum:
+          - acme
+          - selfsigned
+        description: Issuer for the external gateway certificate. Unset uses acme when dns.public_domain is set on aws, azure, gcp or hetzner, and selfsigned otherwise. acme requires dns.public_domain.
       private_ca:
         type: object
         properties:

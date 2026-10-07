@@ -872,3 +872,31 @@ cases:
     exclude:
       terraform:
         - name: backend
+
+  # pki.public_issuer: selfsigned keeps the public domain but issues no ACME
+  # certificate, so no operator email is required.
+  - name: public_issuer selfsigned on aws skips ACME and the email requirement
+    values:
+      platform: aws
+      aws: *default-aws
+      gateway:
+        enabled: true
+        driver: envoy
+      dns:
+        public_domain: example.com
+      pki:
+        public_issuer: selfsigned
+    terraformOutputs:
+      dns-zone:
+        zone_id: Z1ABCDEF12345
+    expect:
+      flux:
+        - name: pki
+          resources:
+            - components:
+                - public-issuer/selfsigned
+        - name: gateway
+          resources:
+            - name: external
+              substitutions:
+                gateway_cert_issuer: public-selfsigned

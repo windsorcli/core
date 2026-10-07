@@ -7,6 +7,12 @@ metadata:
 # Skip the facet when no platform is selected (the "none" scaffolding context).
 when: (platform ?? 'none') != 'none'
 
+requires:
+  - when: (pki.public_issuer ?? '') == 'acme'
+    paths:
+      - dns.public_domain
+    message: pki.public_issuer acme issues certificates for dns.public_domain; set it or use selfsigned.
+
 # =============================================================================
 # Config — effective values
 # =============================================================================
@@ -527,7 +533,8 @@ flux:
 messages:
   # Only the cloud platforms provision a dns-zone to delegate.
   - when: >-
-      (dns.public_domain ?? '') != '' && platform in ['aws', 'azure', 'gcp', 'hetzner'] &&
+      (dns.public_domain ?? '') != '' &&
+      platform in ['aws', 'azure', 'gcp', 'hetzner'] &&
       len(terraform_output('dns-zone', 'name_servers') ?? []) > 0
     text: |-
       Public DNS zone created for ${dns.public_domain}. Delegate it at your
@@ -535,4 +542,8 @@ messages:
 
         ${join(terraform_output('dns-zone', 'name_servers') ?? [], ', ')}
 
-      Certificate issuance won't succeed until delegation propagates.
+  - when: >-
+      (dns.public_domain ?? '') != '' && (pki.public_issuer ?? 'acme') != 'selfsigned' &&
+      platform in ['aws', 'azure', 'gcp', 'hetzner'] &&
+      len(terraform_output('dns-zone', 'name_servers') ?? []) > 0
+    text: Certificate issuance won't succeed until delegation propagates.
