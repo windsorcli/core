@@ -101,6 +101,7 @@ As with Keycloak, OIDC only authenticates users. Outside dev you grant permissio
 | `identity.enabled` | boolean | `false` | Enable the cluster identity provider. |
 | `identity.driver` | string | `keycloak` | Set to `oidc` for an external issuer. |
 | `identity.display_name` | string | `SSO` | Login button label consumers show, such as "Sign in with \<name\>". |
+| `identity.admin_group` | string | `platform-admins` | Group claim value that Grafana maps to its Admin role. Your provider MUST emit it. |
 | `identity.oidc.issuer` | string | none | External OIDC issuer base URL. Set this for the driver. |
 | `identity.oidc.auth_url` | string | issuer plus `/protocol/openid-connect/auth` | Authorization endpoint. |
 | `identity.oidc.token_url` | string | issuer plus `/protocol/openid-connect/token` | Token endpoint. |

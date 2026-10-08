@@ -33,7 +33,7 @@ With `dev: true`, Core seeds these accounts so SSO works without any setup. None
 | Account | Username | Password | Access |
 |---|---|---|---|
 | Keycloak console | `admin` | `admin-password` | Keycloak console admin |
-| SSO admin | `dev-admin` | `admin-password` | Member of `platform-admins`: Grafana Admin, and `cluster-admin` when kubectl OIDC is on |
+| SSO admin | `dev-admin` | `admin-password` | Member of the admin group (`platform-admins` by default): Grafana Admin, and `cluster-admin` when kubectl OIDC is on |
 | SSO viewer | `dev-viewer` | `viewer-password` | Grafana Viewer, no Kubernetes permissions |
 
 The console admin and `dev-admin` share a password. Setting `identity.keycloak.admin.password` changes both.
@@ -189,6 +189,7 @@ Keycloak connects to Postgres with `sslmode=verify-full` against CloudNativePG's
 | `identity.enabled` | boolean | `false` | Enable the cluster identity provider. |
 | `identity.driver` | string | `keycloak` | `keycloak` hosts one in the cluster. `oidc` uses an [external issuer](oidc.md). |
 | `identity.display_name` | string | `SSO` | Login button label consumers show, such as "Sign in with \<name\>". |
+| `identity.admin_group` | string | `platform-admins` | Group whose members are administrators in every consumer. Core creates it in the realm. |
 | `identity.keycloak.realm` | string | `platform` | Realm consumers target; also the issuer path. |
 | `identity.keycloak.hostname` | string | derived | External hostname or base URL. Defaults to `keycloak.<domain>`. |
 | `identity.keycloak.image` | string | stock image | Pre-built optimized server image, pinned by digest. |

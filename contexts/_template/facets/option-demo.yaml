@@ -185,4 +185,20 @@ flux:
         components:
           - bookinfo/gateway
         substitutions:
-          private_domain: ${dns.private_domain}
+          bookinfo_gateway: internal
+          bookinfo_domain: ${dns.private_domain}
+
+  # Bookinfo route on the external gateway when there is no internal one.
+  - name: demo
+    path: demo
+    when: >-
+      demo.resources.bookinfo == true && gateway.enabled == true &&
+      gateway_effective.internal != true && (dns.public_domain ?? '') != ''
+    resources:
+      - dependsOn:
+          - gateway-resources-external
+        components:
+          - bookinfo/gateway
+        substitutions:
+          bookinfo_gateway: external
+          bookinfo_domain: ${dns.public_domain}

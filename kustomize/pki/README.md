@@ -263,25 +263,25 @@ Full private CA: the CA cert/key (generated or BYO, from `terraform_output('pki'
 
 ### `public-issuer/selfsigned`
 
-_Enabled when `dns.public_domain` is unset (default)._
+_Enabled when `dns.public_domain` is unset (default), or when `pki.public_issuer` is `selfsigned`._
 
-ClusterIssuer `public-selfsigned`. Bootstraps a working gateway cert immediately; flip to `acme/*` by setting `dns.public_domain` and cert-manager reissues into the same Secret.
+ClusterIssuer `public-selfsigned`. Bootstraps a working gateway cert immediately; flip to `acme/*` by setting `dns.public_domain` (and leaving `pki.public_issuer` unset or `acme`) and cert-manager reissues into the same Secret.
 
 ### `public-issuer/acme/route53`
 
-_Enabled when platform is AWS AND `dns.public_domain` is set._
+_Enabled when platform is AWS AND `dns.public_domain` is set AND `pki.public_issuer` is not `selfsigned`._
 
 ClusterIssuer `public-acme` using the ACME DNS-01 solver against Route53. Auth is via the Pod Identity binding provisioned by the cluster Terraform module.
 
 ### `public-issuer/acme/azuredns`
 
-_Enabled when platform is Azure AND `dns.public_domain` is set._
+_Enabled when platform is Azure AND `dns.public_domain` is set AND `pki.public_issuer` is not `selfsigned`._
 
 ClusterIssuer `public-acme` using the ACME DNS-01 solver against Azure DNS. Auth is via the federated workload identity (see `cert-manager/azure-workload-identity`).
 
 ### `public-issuer/acme/clouddns`
 
-_Enabled when platform is GCP AND `dns.public_domain` is set._
+_Enabled when platform is GCP AND `dns.public_domain` is set AND `pki.public_issuer` is not `selfsigned`._
 
 ClusterIssuer `public-acme` using the ACME DNS-01 solver against Cloud DNS. Auth is via the GKE Workload Identity binding (see `cert-manager/gcp-workload-identity`).
 

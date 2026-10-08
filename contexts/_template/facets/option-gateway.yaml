@@ -15,6 +15,7 @@ config:
     value:
       public_issuer: >-
         ${(dns.public_domain ?? '') != '' &&
+        (pki.public_issuer ?? 'acme') != 'selfsigned' &&
         platform in ['aws', 'azure', 'gcp', 'hetzner'] ?
         'public-acme' : 'public-selfsigned'}
 
