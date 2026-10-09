@@ -48,7 +48,7 @@ config:
       url: "${'https://factory.talos.dev/image/' + proxmox_effective.talos_schematic_id + '/v' + talos.talos_version + '/nocloud-' + proxmox_effective.arch + '.qcow2'}"
       file_name: "${'talos-v' + talos.talos_version + '-' + proxmox_effective.talos_schematic_id[0:8] + '-' + proxmox_effective.arch + proxmox_effective.name_suffix + '.qcow2'}"
 
-  # Guest IPv4 per control plane: cluster.controlplanes.nodes, else cidrhost offset 10. VM ID from vm_id_start.
+  # Guest IPv4 (cluster.controlplanes.nodes, else cidrhost offset 10) and VM ID per control plane.
   - name: proxmox_controlplanes
     value:
       nodes: >-
@@ -62,7 +62,7 @@ config:
           ["vm_id", proxmox_effective.vm_id_start == null ? null : proxmox_effective.vm_id_start + # - 1]
         ]))}
 
-  # Guest IPv4 per worker: cluster.workers.nodes, else cidrhost offset 20. VM ID from vm_id_start + 10.
+  # Guest IPv4 (cluster.workers.nodes, else cidrhost offset 20) and VM ID per worker.
   - name: proxmox_workers
     value:
       nodes: >-
