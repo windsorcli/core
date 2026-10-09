@@ -152,7 +152,7 @@ config:
 
   # True when an in-cluster LB controller (lb-install) is required: aws always
   # (aws-lb-controller), hetzner always (hcloud cloud-controller-manager),
-  # metal/incus/docker/hyperv when lb_effective.enabled, azure never. Consumers
+  # metal/incus/docker/hyperv/proxmox when lb_effective.enabled, azure never. Consumers
   # dependsOn this so reverse-topo destroy keeps the controller alive to lift its
   # finalizers before its Kustomization is torn down. Keep in sync if a new
   # platform facet creates an lb-install.

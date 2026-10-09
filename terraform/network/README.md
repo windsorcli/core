@@ -9,7 +9,7 @@ public and private subnets, an Internet Gateway, and per-AZ NAT
 Gateways. `azure-vnet` builds a VNet with public, private, and
 isolated subnets along with a NAT Gateway for private egress. The
 driver is selected by `platform`. Local platforms (`docker`,
-`hyperv`, `incus`, and `metal`) don't use this layer; their compute
+`hyperv`, `incus`, `proxmox`, and `metal`) don't use this layer; their compute
 driver creates networking directly on the host (bridges, NAT,
 NodePort forwards). Both paths read `network.cidr_block`.
 
@@ -92,7 +92,7 @@ block exhausts quickly.
 ### Local (no terraform/network module)
 
 ```yaml
-platform: hyperv    # or docker, incus, metal
+platform: hyperv    # or docker, incus, proxmox, metal
 network:
   cidr_block: 10.5.0.0/16
 ```
