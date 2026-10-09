@@ -33,7 +33,8 @@ The module reads nothing from the node inventory beyond the names it is given.
 The following must already exist:
 
 - a node named as passed in `node_name`;
-- a datastore for VM disks (`datastore_id`, default `local-lvm`);
+- a datastore for VM disks (`datastore_id`, default `local-lvm`). A directory
+  datastore such as `local` also works once it allows the `images` content type;
 - an image datastore with the `import` content type enabled (`image_datastore_id`,
   default `local`). Proxmox VE 8.4 or later supports it. Enable it with
   `pvesm set local --content iso,vztmpl,backup,import`;
@@ -41,6 +42,31 @@ The following must already exist:
   that `network_cidr` describes.
 
 The node must reach `factory.talos.dev` over HTTPS to download the image.
+
+## API token privileges
+
+Grant the token's user a role on `/` with these privileges. This set was verified
+on Proxmox VE 9.2 with `bpg/proxmox` 0.116 through create, refresh, and destroy:
+
+```text
+Datastore.Allocate Datastore.AllocateSpace Datastore.AllocateTemplate
+Sys.Audit Sys.Modify SDN.Use
+VM.Allocate VM.Audit VM.PowerMgmt VM.GuestAgent.Audit
+VM.Config.CPU VM.Config.Disk VM.Config.HWType VM.Config.Memory
+VM.Config.Network VM.Config.Options
+```
+
+`Datastore.Allocate` deletes the downloaded image on destroy. `VM.GuestAgent.Audit`
+reads the guest agent's addresses, which DHCP instances need. `Sys.Audit` and
+`Sys.Modify` gate the URL metadata query that precedes each image download. For
+example:
+
+```bash
+pveum role add WindsorProvisioner --privs "Datastore.Allocate,Datastore.AllocateSpace,Datastore.AllocateTemplate,Sys.Audit,Sys.Modify,SDN.Use,VM.Allocate,VM.Audit,VM.PowerMgmt,VM.GuestAgent.Audit,VM.Config.CPU,VM.Config.Disk,VM.Config.HWType,VM.Config.Memory,VM.Config.Network,VM.Config.Options"
+pveum user add windsor@pve
+pveum acl modify / --users windsor@pve --roles WindsorProvisioner
+pveum user token add windsor@pve terraform --privsep 0
+```
 
 ## Image and boot
 

@@ -96,11 +96,13 @@ once:
 - A Linux bridge (`vmbr0` by default) on the LAN that `network.cidr_block`
   describes, with free addresses for the nodes and the load-balancer pool.
 - Outbound HTTPS from the node to `factory.talos.dev`.
-- An API token. The starting privilege set, to confirm on a live host, is
-  `VM.Allocate`, `VM.Config.*`, `VM.PowerMgmt`, `VM.Audit`,
-  `VM.GuestAgent.Audit` (`VM.Monitor` on 8.x), `Datastore.AllocateSpace`,
-  `Datastore.AllocateTemplate`, `Datastore.Audit`, `Sys.Audit`,
-  `Sys.Modify`, and `SDN.Use`.
+- An API token whose role on `/` holds `Datastore.Allocate`,
+  `Datastore.AllocateSpace`, `Datastore.AllocateTemplate`, `Sys.Audit`,
+  `Sys.Modify`, `SDN.Use`, `VM.Allocate`, `VM.Audit`, `VM.PowerMgmt`,
+  `VM.GuestAgent.Audit`, `VM.Config.CPU`, `VM.Config.Disk`,
+  `VM.Config.HWType`, `VM.Config.Memory`, `VM.Config.Network`, and
+  `VM.Config.Options`. The lab verified this set on Proxmox VE 9.2. On
+  8.x, `VM.Monitor` replaces `VM.GuestAgent.Audit`.
 
 The Talos schematic is `ce4c980550dd2ab1b17bbf2b08801c7eb59418eafe8f279833297925d67c7515`,
 which holds `siderolabs/qemu-guest-agent` only. Recompute it when the
@@ -154,35 +156,143 @@ installs the CLI from `main`, so the CLI change merges first.
 Docker-hosted Proxmox VE and API simulators can't boot VMs, so they test
 little beyond request formats. Apple Silicon M3 or later on macOS 15 or
 later supports nested virtualization, and Proxmox VE publishes arm64
-packages, so a real lab fits on a Mac:
+packages, so a real lab fits on a Mac. The lab below ran on Apple silicon
+with Lima 2.2.1 and Proxmox VE 9.2.10.
 
-1. `limactl create --name pve --vm-type vz --set '.nestedVirtualization=true' --cpus 8 --memory 24 --disk 120 template://debian-13`,
+1. Create and start the VM:
+   `limactl create --name pve --vm-type vz --set '.nestedVirtualization=true' --cpus 8 --memory 16 --disk 80 template:debian-13`,
    then `limactl start pve`. Check that `/dev/kvm` exists in the guest.
-2. In the guest, add `deb http://download.proxmox.com/debian/pve trixie
-   pve-no-subscription`, install `proxmox-ve`, and create `vmbr0` on a
-   private subnet with NAT to the uplink.
-3. Enable `import` on `local` and create a token with
-   `pveum user token add root@pam windsor --privsep 0`.
-4. Run Windsor inside the guest, so the Talos VMs on `vmbr0` are directly
-   reachable. Use `platform: proxmox`, `proxmox.arch: arm64`, a `/24` on
-   `vmbr0`, an explicit `network.loadbalancer_ips` pool, and the
-   `PROXMOX_VE_*` variables pointing at `https://127.0.0.1:8006/`.
-5. `windsor up --wait`, check that the nodes come up at their static
-   addresses and Flux reconciles, then `windsor destroy`.
+2. In the guest, set `manage_etc_hosts: false` for cloud-init and map the
+   hostname to the bridge address (`10.10.0.1 lima-pve`) in `/etc/hosts`.
+   Add the `pve-no-subscription` repository for `trixie` with
+   `proxmox-archive-keyring-trixie.gpg`, then
+   `apt install proxmox-ve postfix open-iscsi chrony`.
+3. Keep booting the Debian cloud kernel, which exposes `/dev/kvm` under
+   Apple's hypervisor:
+   `grub-set-default "Advanced options for Proxmox VE GNU/Linux>Proxmox VE GNU/Linux, with Linux $(uname -r)"`.
+4. Leave `eth0` to netplan so Lima keeps its uplink. Define only `vmbr0`
+   in `/etc/network/interfaces` (`address 10.10.0.1/24`,
+   `bridge-ports none`, and a `MASQUERADE` rule for `10.10.0.0/24` out
+   `eth0` in `post-up`), set `net.ipv4.ip_forward = 1`, then
+   `mkdir -p /run/network && systemctl start networking`.
+5. `pvesm set local --content iso,vztmpl,backup,import,images,snippets`.
+   The lab has no LVM thin pool, so `proxmox.datastore: local`.
+6. Create the role, user, and token from the host prerequisites above.
+7. Clone the blueprint into the guest and serve it to Flux over git smart
+   HTTP on `10.10.0.1`, for example with `git http-backend` behind a small
+   HTTP server. Point the context at it in `contexts/<ctx>/blueprint.yaml`
+   with `repository.url` and `repository.ref.branch`, so nothing is pushed.
+8. Run Windsor inside the guest, where the Talos VMs on `vmbr0` are
+   directly reachable. The context sets `platform: proxmox`,
+   `proxmox.node: lima-pve`, `proxmox.arch: arm64`,
+   `proxmox.datastore: local`, `network.cidr_block: 10.10.0.0/24`,
+   `network.gateway: 10.10.0.1`, an explicit `network.loadbalancer_ips`
+   pool, and one control plane with 6 CPUs and 12 GiB. The context `.env`
+   holds `PROXMOX_VE_ENDPOINT=https://127.0.0.1:8006/`,
+   `PROXMOX_VE_INSECURE=true`, and `PROXMOX_VE_API_TOKEN`.
+9. Set `policies.enabled: false` and `gateway.enabled: false`, which the
+   nested node can't carry. Then `windsor bootstrap <ctx> --yes`, check
+   the node and Flux, and `windsor destroy --confirm=<ctx>`.
 
-The lab covers the Proxmox API, image download and import, cloud-init
-networking, the guest agent, the Talos apply, and bootstrap. It doesn't
-cover amd64 firmware and CPU types, multi-node Proxmox clusters, shared
-storage, or production VLANs. The real-host phase covers those.
+Stop the lab with `limactl stop pve` and restart it with
+`limactl start pve`. After a restart, run
+`sudo mkdir -p /run/network && sudo systemctl restart networking` in the
+guest if `vmbr0` is missing. Delete it with `limactl delete pve`.
+
+### What the lab proved
+
+Every step ran with the restricted token, not `root@pam`.
+
+- **Plan.** The `compute/proxmox` plan shows one `proxmox_download_file`
+  and one VM with the `virt` machine, OVMF, the `host` CPU, a SCSI
+  cloud-init drive, and `10.10.0.10/24` on `vmbr0`.
+- **Image import.** `download-url` landed
+  `local:import/talos-v1.14.2-ce4c9805-arm64-<id>.qcow2` in 18 seconds,
+  and the VM imported it as `scsi0`.
+- **Boot and static IP.** Talos booted the nocloud image into
+  maintenance mode at `10.10.0.10/24` with the gateway route from the
+  Proxmox cloud-init drive. Talos reports `platform: nocloud`, the
+  `qemu-guest-agent` extension, and schematic `ce4c9805`. Proxmox's
+  guest agent query returns the same address on `eth0`.
+- **Talos apply and bootstrap.** `cluster/talos` applied the config over
+  the maintenance API and bootstrapped etcd. The applied config holds the
+  per-node static address patch and
+  `install.image: factory.talos.dev/nocloud-installer/ce4c9805…:v1.14.2`.
+- **Node and Flux.** The node reached `Ready` on Kubernetes v1.37.1.
+  Flux pulled the blueprint from the lab git server, and the cilium,
+  openebs, kyverno, and metrics-server HelmReleases reconciled. With
+  `policies.enabled: false` and `gateway.enabled: false`,
+  `windsor apply --wait` brought all 11 kustomizations and every
+  HelmRelease to Ready, and an OpenEBS volume bound and took writes.
+- **Idempotence.** `windsor plan` on the running cluster reports no
+  changes for `compute/proxmox`, `cluster/talos`, `cni/cilium`, and
+  `gitops/flux`.
+- **Destroy.** `windsor destroy` removed the kustomizations, the cluster,
+  the VM with its disks, and the downloaded image in one pass. The node
+  had no VMs and no `images` or `import` volumes afterwards. An earlier
+  token without `Datastore.Allocate` left the image behind with a 403.
+- **DHCP.** With a dnsmasq pool on `vmbr0` and no `ipv4`, the module
+  waited for the guest agent and emitted the leased address in
+  `controlplanes`, with an empty `config_patches`.
+- **Privileges.** Dropping each privilege in turn and running apply,
+  agent read, plan, and destroy showed that every privilege in the set
+  above is required. `Datastore.Audit`, `VM.Config.CDROM`, and
+  `VM.Config.Cloudinit` were not needed to create, refresh, or destroy.
+  `VM.GuestAgent.Audit` is needed only by DHCP instances.
+
+### What the lab can't cover
+
+- amd64 specifics: SeaBIOS, the `q35` machine, the `x86-64-v2-AES` CPU
+  type, the IDE cloud-init drive, and the `nocloud-amd64` image.
+- Multi-node Proxmox clusters, shared or Ceph storage, and LVM-thin
+  `local-lvm` disks.
+- Tagged VLANs on a trunk to a real switch, and a LAN DHCP server.
+- Performance and the full stack. Nested arm64 virtualization starves
+  the Talos node for CPU. With Kyverno enabled, API requests time out and
+  the stack never converges, so the lab ran without policy and gateway.
+- Upgrades through `windsor upgrade node`, and three control planes.
 
 ## Real-host validation
 
-1. Record `pveversion` and confirm the prerequisites above.
-2. Run `windsor plan` on a throwaway context and read it before applying.
-3. Apply a single control plane, then three control planes and a worker.
-4. Exercise `network.dhcp: true`, then `windsor destroy`.
-5. Upgrade one node with `windsor upgrade node` and the nocloud installer
-   image. Confirm the guest agent and the static address survive.
+Run this on the operator's amd64 Proxmox VE node with a throwaway
+context. Use addresses on the node's LAN that nothing else holds.
+
+1. On the node, record `pveversion`. For Proxmox VE before 8.4, stop: the
+   `import` content type is missing.
+2. `pvesm status` and `pvesm config <image datastore>`. Enable `import`
+   on the image datastore. If the VM datastore is a directory store,
+   enable `images` on it too.
+3. `curl -sSI https://factory.talos.dev` from the node gets an HTTP response.
+4. Create the role, user, and token from the host prerequisites. On 8.x
+   swap `VM.GuestAgent.Audit` for `VM.Monitor`.
+5. Reserve the control-plane address (`cidrhost` offset 10), worker
+   addresses (offset 20 and up), and a load-balancer pool, all on the
+   bridge's LAN.
+6. Use a windsor CLI release that includes the proxmox platform.
+7. `windsor init <ctx> --platform proxmox`, then set `proxmox.node`,
+   `proxmox.bridge`, `proxmox.datastore`, `network.cidr_block`,
+   `network.gateway`, `network.nameservers`, `network.loadbalancer_ips`,
+   and `cluster.controlplanes.count: 1`. Put the `PROXMOX_VE_*` variables
+   in the context `.env`. Set `repository.url` in
+   `contexts/<ctx>/blueprint.yaml` to a git remote the cluster can reach.
+8. `windsor plan terraform compute` with `terraform.backend.type: local`
+   set for that run only, and read the plan: `q35`, `seabios`,
+   `x86-64-v2-AES`, `ide2` cloud-init, the static address, and the
+   `nocloud-amd64.qcow2` URL. Restore `type: kubernetes` afterwards.
+9. `windsor bootstrap <ctx> --yes`. Verify with
+   `talosctl -n <ip> get addresses`, `talosctl -n <ip> get extensions`,
+   `qm agent <vmid> network-get-interfaces`, `kubectl get nodes`, and
+   `flux get kustomizations -A`.
+10. `windsor plan` reports no changes for every Terraform component.
+11. `windsor destroy --confirm=<ctx>`, then confirm `qm list` and
+    `pvesm list <image datastore> --content import` hold nothing from the
+    context.
+12. Repeat with `cluster.controlplanes.count: 3` and
+    `cluster.workers.count: 1`, then with `network.dhcp: true` and a set
+    `cluster.endpoint`.
+13. Upgrade one node with `windsor upgrade node` to the next Talos patch.
+    Confirm the node keeps its static address, `qemu-guest-agent`, and
+    `platform: nocloud`.
 
 ## What this plan doesn't cover
 
@@ -216,3 +326,17 @@ same trap by keeping connection settings env-only.
 
 The bpg provider removes `proxmox_virtual_environment_vm` at v1.0. The
 module then needs a `moved` block to the replacement resource.
+
+`windsor plan` on a context that has never been bootstrapped fails to
+initialize the `kubernetes` state backend, because the cluster that
+holds it doesn't exist yet. This affects every platform with that
+backend. Plan a fresh context with `terraform.backend.type: local` set
+for that run only.
+
+Turning telemetry off breaks Cilium platforms, Proxmox included. With
+`telemetry.metrics.enabled: false`, the `cilium/hubble` component still
+enables the Hubble `ServiceMonitor`, but the prometheus-operator CRDs are
+not installed, so `cni-install` fails. With `telemetry.logs.enabled:
+false`, `option-cni.yaml` still adds the Cilium Grafana dashboards to
+`observability-resources`, whose `system-observability` namespace then
+never exists.
