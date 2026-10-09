@@ -14,17 +14,20 @@ node's machineconfig over the Talos API. Pairs with the `cluster/talos` module.
 
 The `bpg/proxmox` provider authenticates via environment variables, not Terraform
 inputs. They do not appear in the Inputs table below and must be present in the
-environment when running `plan`/`apply`:
+environment when running `plan`/`apply`. Set a username and password, or an API
+token:
 
 | Variable | Required | Description |
 |----------|:--------:|-------------|
 | `PROXMOX_VE_ENDPOINT` | yes | API URL, e.g. `https://pve.example.lan:8006/` |
-| `PROXMOX_VE_API_TOKEN` | yes | API token, `user@realm!tokenid=secret` |
+| `PROXMOX_VE_USERNAME` | with password | Proxmox user, e.g. `windsor@pve` |
+| `PROXMOX_VE_PASSWORD` | with username | That user's password |
+| `PROXMOX_VE_API_TOKEN` | instead of username and password | API token, `user@realm!tokenid=secret` |
 | `PROXMOX_VE_INSECURE` | no | `true` to skip TLS verification (self-signed node certificate) |
 
 Under the Windsor CLI, set `PROXMOX_VE_ENDPOINT` and `PROXMOX_VE_INSECURE` in the
-context `environment:` block, and the token from a secret reference or the
-context's `.env` file. Outside the CLI, export them directly before invoking
+context `environment:` block, and the password or token from a secret reference or
+the context's `.env` file. Outside the CLI, export them directly before invoking
 Terraform. The module needs no SSH access to the node.
 
 ## Host prerequisites
@@ -36,37 +39,63 @@ The following must already exist:
 - a datastore for VM disks (`datastore_id`, default `local-lvm`). A directory
   datastore such as `local` also works once it allows the `images` content type;
 - an image datastore with the `import` content type enabled (`image_datastore_id`,
-  default `local`). Proxmox VE 8.4 or later supports it. Enable it with
-  `pvesm set local --content iso,vztmpl,backup,import`;
+  default `local`). Proxmox VE 8.4 or later supports it. On a shared node, give
+  Windsor its own directory datastore, e.g.
+  `pvesm add dir windsor-images --path /var/lib/windsor-images --content import`;
 - a Linux bridge for the VM NICs (`network_bridge`, default `vmbr0`), on the LAN
-  that `network_cidr` describes.
+  that `network_cidr` describes;
+- the resource pool named in `pool_id`, if set: `pveum pool add windsor`.
 
 The node must reach `factory.talos.dev` over HTTPS to download the image.
 
-## API token privileges
+## Permissions
 
-Grant the token's user a role on `/` with these privileges. This set was verified
-on Proxmox VE 9.2 with `bpg/proxmox` 0.116 through create, refresh, and destroy:
+Grant the Windsor user one role per ACL path. Nothing is granted on `/`, so the
+user cannot see, stop, change, or delete guests outside the pool, or files outside
+the image datastore. Verified on Proxmox VE 9.2 with `bpg/proxmox` 0.116 through
+create, refresh, and destroy:
 
-```text
-Datastore.Allocate Datastore.AllocateSpace Datastore.AllocateTemplate
-Sys.Audit Sys.Modify SDN.Use
-VM.Allocate VM.Audit VM.PowerMgmt VM.GuestAgent.Audit
-VM.Config.CPU VM.Config.Disk VM.Config.HWType VM.Config.Memory
-VM.Config.Network VM.Config.Options
-```
+| Path | Privileges |
+|------|------------|
+| `/pool/<pool_id>` | `Pool.Audit VM.Allocate VM.Audit VM.PowerMgmt VM.Config.CPU VM.Config.Disk VM.Config.HWType VM.Config.Memory VM.Config.Network VM.Config.Options` |
+| `/storage/<datastore_id>` | `Datastore.AllocateSpace Datastore.Audit` |
+| `/storage/<image_datastore_id>` | `Datastore.Allocate Datastore.AllocateSpace Datastore.AllocateTemplate Datastore.Audit` |
+| `/sdn/zones/localnetwork/<network_bridge>` | `SDN.Use` |
+| `/nodes/<node_name>` | `Sys.AccessNetwork` |
 
-`Datastore.Allocate` deletes the downloaded image on destroy. `VM.GuestAgent.Audit`
-reads the guest agent's addresses, which DHCP instances need. `Sys.Audit` and
-`Sys.Modify` gate the URL metadata query that precedes each image download. For
-example:
+DHCP instances also need the guest agent read on the pool: `VM.GuestAgent.Audit`
+on Proxmox VE 9, `VM.Monitor` on 8.4. A tagged NIC needs `SDN.Use` on
+`/sdn/zones/localnetwork/<network_bridge>/<vlan_id>` as well. `Datastore.Allocate`
+deletes the downloaded image on destroy and lets the user delete any file in that
+datastore, so keep other files out of it. `Sys.AccessNetwork` gates the URL
+metadata query and the `download-url` call. `Pool.Audit` lets the provider read the
+VMs' pool back, without which every plan shows a `pool_id` change.
 
 ```bash
-pveum role add WindsorProvisioner --privs "Datastore.Allocate,Datastore.AllocateSpace,Datastore.AllocateTemplate,Sys.Audit,Sys.Modify,SDN.Use,VM.Allocate,VM.Audit,VM.PowerMgmt,VM.GuestAgent.Audit,VM.Config.CPU,VM.Config.Disk,VM.Config.HWType,VM.Config.Memory,VM.Config.Network,VM.Config.Options"
-pveum user add windsor@pve
-pveum acl modify / --users windsor@pve --roles WindsorProvisioner
-pveum user token add windsor@pve terraform --privsep 0
+pveum role add WindsorVM --privs "Pool.Audit,VM.Allocate,VM.Audit,VM.PowerMgmt,VM.Config.CPU,VM.Config.Disk,VM.Config.HWType,VM.Config.Memory,VM.Config.Network,VM.Config.Options"
+pveum role add WindsorDisk --privs "Datastore.AllocateSpace,Datastore.Audit"
+pveum role add WindsorImage --privs "Datastore.Allocate,Datastore.AllocateSpace,Datastore.AllocateTemplate,Datastore.Audit"
+pveum role add WindsorNet --privs "SDN.Use"
+pveum role add WindsorNode --privs "Sys.AccessNetwork"
+pveum user add windsor@pve --password '<password>'
+pveum acl modify /pool/windsor --users windsor@pve --roles WindsorVM
+pveum acl modify /storage/local-lvm --users windsor@pve --roles WindsorDisk
+pveum acl modify /storage/windsor-images --users windsor@pve --roles WindsorImage
+pveum acl modify /sdn/zones/localnetwork/vmbr0 --users windsor@pve --roles WindsorNet
+pveum acl modify /nodes/pve --users windsor@pve --roles WindsorNode
 ```
+
+For a token instead of a password, add `pveum user token add windsor@pve terraform --privsep 0`.
+
+## Shared nodes
+
+Destroy removes only what this module's state holds. The image download fails
+rather than replacing a same-named file it did not create. A pinned `vm_id` fails
+at plan time when a visible VM with another name holds it. Destroy deletes only the
+disks a VM references, not unreferenced `vm-<id>-disk-*` volumes. `bpg/proxmox`
+0.116 adopts an existing VM when a pinned `vm_id` collides with one the user cannot
+see, so scope the user to `pool_id` as above: the takeover then fails with a 403
+and the other VM is untouched.
 
 ## Image and boot
 
@@ -110,6 +139,7 @@ No modules.
 |------|------|
 | [proxmox_download_file.images](https://registry.terraform.io/providers/bpg/proxmox/latest/docs/resources/download_file) | resource |
 | [proxmox_virtual_environment_vm.instances](https://registry.terraform.io/providers/bpg/proxmox/latest/docs/resources/virtual_environment_vm) | resource |
+| [proxmox_virtual_environment_vms.existing](https://registry.terraform.io/providers/bpg/proxmox/latest/docs/data-sources/virtual_environment_vms) | data source |
 
 ## Inputs
 
@@ -131,6 +161,7 @@ No modules.
 | <a name="input_network_gateway"></a> [network\_gateway](#input\_network\_gateway) | IPv4 default gateway written to static guests. | `string` | `null` | no |
 | <a name="input_network_nameservers"></a> [network\_nameservers](#input\_network\_nameservers) | DNS resolvers written to guests. | `list(string)` | `[]` | no |
 | <a name="input_node_name"></a> [node\_name](#input\_node\_name) | Proxmox VE node that hosts the VMs (e.g. 'pve'). | `string` | n/a | yes |
+| <a name="input_pool_id"></a> [pool\_id](#input\_pool\_id) | Resource pool the VMs join. Null leaves them outside any pool. | `string` | `null` | no |
 | <a name="input_vlan_id"></a> [vlan\_id](#input\_vlan\_id) | VLAN tag for the VM NIC. Null leaves the NIC untagged. | `number` | `null` | no |
 
 ## Outputs

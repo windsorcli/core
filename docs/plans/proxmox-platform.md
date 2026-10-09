@@ -63,10 +63,11 @@ platform-specific installer keeps both the qemu-guest-agent extension and
 the nocloud platform across upgrades.
 
 **Credentials are env-only.** The provider reads `PROXMOX_VE_ENDPOINT`,
-`PROXMOX_VE_API_TOKEN`, and `PROXMOX_VE_INSECURE`. Operators set them in
-the context's `environment:` block, with the token from a secret
-reference or the context `.env` file, as for Hyper-V. The CLI gets no
-typed `proxmox` block and no env printer.
+`PROXMOX_VE_INSECURE`, and either `PROXMOX_VE_USERNAME` with
+`PROXMOX_VE_PASSWORD` or `PROXMOX_VE_API_TOKEN`. Operators set them in
+the context's `environment:` block, with the password or token from a
+secret reference or the context `.env` file, as for Hyper-V. The CLI
+gets no typed `proxmox` block and no env printer.
 
 **CNI: Cilium.** The platform-base default stays, as on vSphere. A flat
 Proxmox bridge supports L2 load-balancer announcements. Flannel with
@@ -91,18 +92,16 @@ once:
 
 - Proxmox VE 8.4 or later, for the `import` content type. 9.x is the
   target.
-- An image datastore with `import` enabled:
-  `pvesm set local --content iso,vztmpl,backup,import`.
+- An image datastore with `import` enabled. On a node with other
+  guests, a dedicated one:
+  `pvesm add dir windsor-images --path /var/lib/windsor-images --content import`.
 - A Linux bridge (`vmbr0` by default) on the LAN that `network.cidr_block`
   describes, with free addresses for the nodes and the load-balancer pool.
 - Outbound HTTPS from the node to `factory.talos.dev`.
-- An API token whose role on `/` holds `Datastore.Allocate`,
-  `Datastore.AllocateSpace`, `Datastore.AllocateTemplate`, `Sys.Audit`,
-  `Sys.Modify`, `SDN.Use`, `VM.Allocate`, `VM.Audit`, `VM.PowerMgmt`,
-  `VM.GuestAgent.Audit`, `VM.Config.CPU`, `VM.Config.Disk`,
-  `VM.Config.HWType`, `VM.Config.Memory`, `VM.Config.Network`, and
-  `VM.Config.Options`. The lab verified this set on Proxmox VE 9.2. On
-  8.x, `VM.Monitor` replaces `VM.GuestAgent.Audit`.
+- A resource pool and a Proxmox user whose roles are scoped to that pool,
+  the two datastores, the bridge, and `Sys.AccessNetwork` on the node.
+  [Using a shared Proxmox host safely](#using-a-shared-proxmox-host-safely)
+  lists the commands.
 
 The Talos schematic is `ce4c980550dd2ab1b17bbf2b08801c7eb59418eafe8f279833297925d67c7515`,
 which holds `siderolabs/qemu-guest-agent` only. Recompute it when the
@@ -177,7 +176,8 @@ with Lima 2.2.1 and Proxmox VE 9.2.10.
    `mkdir -p /run/network && systemctl start networking`.
 5. `pvesm set local --content iso,vztmpl,backup,import,images,snippets`.
    The lab has no LVM thin pool, so `proxmox.datastore: local`.
-6. Create the role, user, and token from the host prerequisites above.
+6. Create the pool, image datastore, roles, and user from
+   [Using a shared Proxmox host safely](#using-a-shared-proxmox-host-safely).
 7. Clone the blueprint into the guest and serve it to Flux over git smart
    HTTP on `10.10.0.1`, for example with `git http-backend` behind a small
    HTTP server. Point the context at it in `contexts/<ctx>/blueprint.yaml`
@@ -188,8 +188,9 @@ with Lima 2.2.1 and Proxmox VE 9.2.10.
    `proxmox.datastore: local`, `network.cidr_block: 10.10.0.0/24`,
    `network.gateway: 10.10.0.1`, an explicit `network.loadbalancer_ips`
    pool, and one control plane with 6 CPUs and 12 GiB. The context `.env`
-   holds `PROXMOX_VE_ENDPOINT=https://127.0.0.1:8006/`,
-   `PROXMOX_VE_INSECURE=true`, and `PROXMOX_VE_API_TOKEN`.
+   holds `PROXMOX_VE_ENDPOINT=https://127.0.0.1:8006/` and
+   `PROXMOX_VE_INSECURE=true`, and the shell exports
+   `PROXMOX_VE_USERNAME` and `PROXMOX_VE_PASSWORD`.
 9. Set `policies.enabled: false` and `gateway.enabled: false`, which the
    nested node can't carry. Then `windsor bootstrap <ctx> --yes`, check
    the node and Flux, and `windsor destroy --confirm=<ctx>`.
@@ -201,7 +202,9 @@ guest if `vmbr0` is missing. Delete it with `limactl delete pve`.
 
 ### What the lab proved
 
-Every step ran with the restricted token, not `root@pam`.
+The first lab run used a token with a role on `/`, not `root@pam`.
+[What the shared-host lab proved](#what-the-shared-host-lab-proved)
+covers the pool-scoped user.
 
 - **Plan.** The `compute/proxmox` plan shows one `proxmox_download_file`
   and one VM with the `virt` machine, OVMF, the `host` CPU, a SCSI
@@ -234,11 +237,13 @@ Every step ran with the restricted token, not `root@pam`.
 - **DHCP.** With a dnsmasq pool on `vmbr0` and no `ipv4`, the module
   waited for the guest agent and emitted the leased address in
   `controlplanes`, with an empty `config_patches`.
-- **Privileges.** Dropping each privilege in turn and running apply,
-  agent read, plan, and destroy showed that every privilege in the set
-  above is required. `Datastore.Audit`, `VM.Config.CDROM`, and
+- **Privileges.** Dropping each privilege in turn from that role on `/`
+  and running apply, agent read, plan, and destroy showed which ones
+  Windsor needs. `Datastore.Audit`, `VM.Config.CDROM`, and
   `VM.Config.Cloudinit` were not needed to create, refresh, or destroy.
-  `VM.GuestAgent.Audit` is needed only by DHCP instances.
+  `VM.GuestAgent.Audit` is needed only by DHCP instances. The scoped
+  roles in [Prepare the node](#prepare-the-node) split that set by ACL
+  path and replace `Sys.Audit` and `Sys.Modify` with `Sys.AccessNetwork`.
 
 ### What the lab can't cover
 
@@ -263,14 +268,15 @@ context. Use addresses on the node's LAN that nothing else holds.
    on the image datastore. If the VM datastore is a directory store,
    enable `images` on it too.
 3. `curl -sSI https://factory.talos.dev` from the node gets an HTTP response.
-4. Create the role, user, and token from the host prerequisites. On 8.x
-   swap `VM.GuestAgent.Audit` for `VM.Monitor`.
+4. Follow [Using a shared Proxmox host safely](#using-a-shared-proxmox-host-safely)
+   for the pool, image datastore, user, roles, VM ID range, and addresses.
 5. Reserve the control-plane address (`cidrhost` offset 10), worker
    addresses (offset 20 and up), and a load-balancer pool, all on the
    bridge's LAN.
 6. Use a windsor CLI release that includes the proxmox platform.
 7. `windsor init <ctx> --platform proxmox`, then set `proxmox.node`,
-   `proxmox.bridge`, `proxmox.datastore`, `network.cidr_block`,
+   `proxmox.bridge`, `proxmox.datastore`, `proxmox.image_datastore`,
+   `proxmox.pool`, `proxmox.vm_id_start`, `network.cidr_block`,
    `network.gateway`, `network.nameservers`, `network.loadbalancer_ips`,
    and `cluster.controlplanes.count: 1`. Put the `PROXMOX_VE_*` variables
    in the context `.env`. Set `repository.url` in
@@ -293,6 +299,188 @@ context. Use addresses on the node's LAN that nothing else holds.
 13. Upgrade one node with `windsor upgrade node` to the next Talos patch.
     Confirm the node keeps its static address, `qemu-guest-agent`, and
     `platform: nocloud`.
+
+## Using a shared Proxmox host safely
+
+A Windsor run on a node that already holds other guests creates only its
+own VMs and one image file, and destroy removes only what the
+`compute/proxmox` state holds. Three guards in the module back this up,
+and a pool-scoped Proxmox user enforces it on the node:
+
+- The image file name carries the Talos version, schematic, architecture,
+  and context id, e.g. `talos-v1.14.2-ce4c9805-amd64-<id>.qcow2`. When a
+  file with that name already exists, the download fails with "File
+  already exists in the datastore" instead of adopting or replacing it.
+- With `proxmox.vm_id_start` set, `compute/proxmox` lists the guests the
+  user can see and fails the plan when one of them holds a planned ID
+  under another name. A pool-scoped user sees only the pool, so the
+  `/cluster/nextid` check below covers the other guests. Without
+  `vm_id_start`, Proxmox hands out the next free ID.
+- Destroy deletes each VM with the disks it references and leaves any
+  unreferenced `vm-<id>-disk-*` volumes alone.
+- The user has no rights on `/`. It cannot see, stop, change, or delete
+  guests outside the Windsor pool, or files outside Windsor's image
+  datastore, and every such call returns 403.
+
+### Prepare the node
+
+Run these once as `root` on the node. Replace `pve`, `local-lvm`, and
+`vmbr0` with the node name, VM datastore, and bridge Windsor will use.
+
+```bash
+pveum pool add windsor --comment "Windsor-managed VMs"
+mkdir -p /var/lib/windsor-images
+pvesm add dir windsor-images --path /var/lib/windsor-images --content import
+
+pveum role add WindsorVM --privs "Pool.Audit,VM.Allocate,VM.Audit,VM.PowerMgmt,VM.Config.CPU,VM.Config.Disk,VM.Config.HWType,VM.Config.Memory,VM.Config.Network,VM.Config.Options"
+pveum role add WindsorDisk --privs "Datastore.AllocateSpace,Datastore.Audit"
+pveum role add WindsorImage --privs "Datastore.Allocate,Datastore.AllocateSpace,Datastore.AllocateTemplate,Datastore.Audit"
+pveum role add WindsorNet --privs "SDN.Use"
+pveum role add WindsorNode --privs "Sys.AccessNetwork"
+
+pveum user add windsor@pve --comment "Windsor provisioner"
+pveum passwd windsor@pve
+
+pveum acl modify /pool/windsor --users windsor@pve --roles WindsorVM
+pveum acl modify /storage/local-lvm --users windsor@pve --roles WindsorDisk
+pveum acl modify /storage/windsor-images --users windsor@pve --roles WindsorImage
+pveum acl modify /sdn/zones/localnetwork/vmbr0 --users windsor@pve --roles WindsorNet
+pveum acl modify /nodes/pve --users windsor@pve --roles WindsorNode
+```
+
+| ACL path | Role | Why |
+|----------|------|-----|
+| `/pool/windsor` | `WindsorVM` | Create VMs into the pool, read its membership, then configure, power, and delete them |
+| `/storage/<VM datastore>` | `WindsorDisk` | Allocate VM, EFI, and cloud-init disks, without deleting other volumes |
+| `/storage/windsor-images` | `WindsorImage` | Download the Talos image and delete it on destroy |
+| `/sdn/zones/localnetwork/<bridge>` | `WindsorNet` | Attach NICs to the bridge |
+| `/nodes/<node>` | `WindsorNode` | Query and download the image URL |
+
+The roles are the same on Proxmox VE 8.4 and 9.x. Two additions apply
+only in some setups:
+
+- `network.dhcp: true` reads leases through the guest agent. Add
+  `VM.GuestAgent.Audit` to `WindsorVM` on 9.x, or `VM.Monitor` on 8.4.
+- `proxmox.vlan_id` needs `SDN.Use` on
+  `/sdn/zones/localnetwork/<bridge>/<vlan_id>` as well.
+
+`Datastore.Allocate` on `windsor-images` lets the user delete any file
+there, so keep that datastore for Windsor alone. On the VM datastore the
+user holds only `Datastore.AllocateSpace` and `Datastore.Audit`, so it
+cannot delete other guests' disks, ISOs, or backups.
+
+Authenticate with the password:
+
+```bash
+PROXMOX_VE_ENDPOINT=https://<node address>:8006/
+PROXMOX_VE_USERNAME=windsor@pve
+PROXMOX_VE_PASSWORD=<password>
+PROXMOX_VE_INSECURE=true
+```
+
+To use an API token instead, create one that inherits the user's ACLs
+and set `PROXMOX_VE_API_TOKEN=windsor@pve!terraform=<secret>` in place of
+the username and password:
+
+```bash
+pveum user token add windsor@pve terraform --privsep 0
+```
+
+### Choose a VM ID range and addresses
+
+`proxmox.vm_id_start` pins Windsor's VM IDs. Control plane N takes
+`vm_id_start + N - 1` and worker N takes `vm_id_start + 9 + N`, so a
+start of 10000 gives control planes 10000 to 10002 and workers from
+10010. Pick a start whose next 20 IDs are free on the whole cluster.
+`/cluster/nextid` checks every guest, including ones the Windsor user
+can't see, and prints the ID back when it's free:
+
+```bash
+for id in $(seq 10000 10019); do pvesh get /cluster/nextid --vmid "$id" || echo "taken: $id"; done
+pvesm list local-lvm | grep -E 'vm-100[0-1][0-9]-' || echo "no leftover disks"
+```
+
+Leaving `vm_id_start` unset lets Proxmox hand out the lowest free ID,
+which never collides but mixes Windsor's VMs in with the rest.
+
+Node addresses come from `cluster.*.nodes`, or `cidrhost` offsets 10 and
+up for control planes and 20 and up for workers. `network.loadbalancer_ips`
+needs its own free range. Before choosing them, check that nothing
+answers and nothing is configured there:
+
+```bash
+grep -h '^ipconfig' /etc/pve/qemu-server/*.conf /etc/pve/lxc/*.conf 2>/dev/null
+ip neigh show dev vmbr0
+ping -c1 -W1 <address>
+```
+
+Keep the node addresses and the load-balancer range outside the LAN's
+DHCP pool.
+
+### Read the plan before applying
+
+Plan the compute step of a fresh context with
+`terraform.backend.type: local` set for that run only, then restore
+`kubernetes`:
+
+```bash
+windsor plan terraform compute
+```
+
+The plan must show only creates: one `proxmox_download_file` whose
+`file_name` ends in the context id and lands in `windsor-images`, and
+one `proxmox_virtual_environment_vm` per node with `pool_id = "windsor"`,
+the expected `vm_id`, `node_name`, datastore, bridge, and `ipv4`. Stop on
+any `-` or `-/+` line, or on a plan error about a taken `vm_id`.
+
+On a running cluster, `windsor plan` must report no changes for
+`compute/proxmox`. `windsor destroy` prints a destroy plan before asking
+for the context name. Its `compute/proxmox` block must list only the
+image and the VMs from that state.
+
+### What the shared-host lab proved
+
+The lab ran Proxmox VE 9.2.10 with decoy VMs 100 (running) and 101
+(stopped), decoy files on `local` (an import image and an ISO), and two
+images named like Windsor's in `windsor-images`: the id-less name and
+another context's name.
+
+- **Apply, plan, and destroy as the scoped user.** With `windsor@pve`
+  authenticated by password and exactly the roles above,
+  `windsor bootstrap` created VM 10000 in pool `windsor` and the image
+  `windsor-images:import/talos-v1.14.2-ce4c9805-arm64-<id>.qcow2`, and all
+  11 kustomizations reached Ready. `windsor plan` then reported no
+  changes. The destroy plan's `compute/proxmox` block listed only that
+  image and VM 10000. After destroy, every decoy VM config and decoy file
+  checksum matched the snapshot taken before the run.
+- **Denied outside the grant.** While the cluster ran, the same user got
+  403 reading, starting, stopping, reconfiguring, or deleting the decoy
+  VMs. It also got 403 moving a decoy into the pool, creating a VM outside
+  the pool, deleting the decoy files or a decoy VM's disk on `local`,
+  downloading into `local`, editing datacenter options, adding a storage,
+  and adding an ACL. A token with `--privsep 0` got the same answers.
+- **Image name collision.** With a file of the planned name already in
+  `windsor-images`, the apply failed with "File already exists in the
+  datastore". Nothing entered state, and destroy left the file in place.
+- **Pinned VM ID collision.** An admin token running the module without
+  the guard, with `vm_id` set to a decoy's ID, took that VM over. It
+  grew the decoy's disk to 10 GiB and started it, and destroy then deleted
+  it. With the guard, the same plan failed. As the pool-scoped user, the
+  takeover stopped with a 403 on the decoy's disk and left the decoy
+  untouched, but the decoy's ID stayed in state until
+  `terraform state rm`.
+- **Picked VM IDs.** Without `vm_id_start`, Proxmox gave Windsor ID 102,
+  skipping decoys 100 and 101.
+- **Privileges.** `Pool.Audit` is needed, or every plan shows a `pool_id`
+  change. `Sys.AccessNetwork` on the node replaces `Sys.Audit` and
+  `Sys.Modify` on `/`. VM tags need `VM.Config.Options` on `/vms/<id>` at
+  create time regardless of the pool, so `compute/proxmox` sets none.
+
+Proxmox VE 8.4.1 ships pve-manager 8.4.1, qemu-server 8.3.12,
+pve-storage 8.3.6, and pve-access-control 8.2.2. Their source runs the
+same permission checks for each call above. `VM.Monitor` stands in for
+`VM.GuestAgent.Audit` there. The lab didn't run 8.4, amd64, or LVM-thin
+storage.
 
 ## What this plan doesn't cover
 
@@ -323,6 +511,14 @@ module.
 The windsor-docs vSphere page puts `vsphere.server` and `vsphere.user` in
 values, which this schema's `vsphere` block rejects. Proxmox avoids the
 same trap by keeping connection settings env-only.
+
+`bpg/proxmox` 0.116 adopts an existing VM when a pinned `vm_id` is
+taken. Proxmox answers the create with HTTP 500, the provider retries it
+as transient, and the retry treats "already exists" as success. The
+provider then rewrites that VM's disks, and destroy deletes it. The
+module's plan-time guard catches IDs the user can see, and the pool ACL
+turns the rest into a 403. The fix belongs upstream: don't retry a 500
+whose message says the VM already exists.
 
 The bpg provider removes `proxmox_virtual_environment_vm` at v1.0. The
 module then needs a `moved` block to the replacement resource.

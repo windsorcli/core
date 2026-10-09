@@ -216,10 +216,11 @@ host. The credentials live in the context's `environment:` block and
 should come from a secrets manager via `windsor exec`, not from a
 plaintext file.
 
-The Proxmox driver needs an API token with VM and datastore
-privileges on the node. Keep the token in a secrets manager and
-reference it from the context's `environment:` block, not from a
-plaintext file.
+The Proxmox driver needs a Proxmox user, by password or API token,
+whose roles are scoped to a Windsor resource pool, the VM and image
+datastores, the bridge, and `Sys.AccessNetwork` on the node. Keep the
+password or token in a secrets manager and reference it from the
+context's `environment:` block, not from a plaintext file.
 
 Incus VMs run as full KVM instances with host-isolated kernels. Talos
 machine secrets are generated per cluster and never leave the
