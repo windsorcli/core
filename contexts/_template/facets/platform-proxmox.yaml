@@ -36,6 +36,8 @@ config:
       arch: "${proxmox.arch ?? 'amd64'}"
       cpu_type: ${proxmox.cpu_type ?? null}
       bios: "${proxmox.bios ?? 'seabios'}"
+      pool: ${proxmox.pool ?? null}
+      vm_id_start: ${proxmox.vm_id_start ?? null}
       name_suffix: "${(id ?? '') != '' ? '-' + id : ''}"
       talos_schematic_id: "ce4c980550dd2ab1b17bbf2b08801c7eb59418eafe8f279833297925d67c7515"
       dhcp: ${network.dhcp == true}
@@ -46,7 +48,7 @@ config:
       url: "${'https://factory.talos.dev/image/' + proxmox_effective.talos_schematic_id + '/v' + talos.talos_version + '/nocloud-' + proxmox_effective.arch + '.qcow2'}"
       file_name: "${'talos-v' + talos.talos_version + '-' + proxmox_effective.talos_schematic_id[0:8] + '-' + proxmox_effective.arch + proxmox_effective.name_suffix + '.qcow2'}"
 
-  # Guest IPv4 per control plane: cluster.controlplanes.nodes, else cidrhost offset 10.
+  # Guest IPv4 per control plane: cluster.controlplanes.nodes, else cidrhost offset 10. VM ID from vm_id_start.
   - name: proxmox_controlplanes
     value:
       nodes: >-
@@ -56,10 +58,11 @@ config:
             : (get(cluster.controlplanes.nodes ?? {}, "controlplane-" + string(#)) != null
             ? (get(cluster.controlplanes.nodes ?? {}, "controlplane-" + string(#)).node
                ?? split(get(cluster.controlplanes.nodes ?? {}, "controlplane-" + string(#)).endpoint, ":")[0])
-            : cidrhost(network.cidr_block ?? '10.5.0.0/16', 9 + #))]
+            : cidrhost(network.cidr_block ?? '10.5.0.0/16', 9 + #))],
+          ["vm_id", proxmox_effective.vm_id_start == null ? null : proxmox_effective.vm_id_start + # - 1]
         ]))}
 
-  # Guest IPv4 per worker: cluster.workers.nodes, else cidrhost offset 20.
+  # Guest IPv4 per worker: cluster.workers.nodes, else cidrhost offset 20. VM ID from vm_id_start + 10.
   - name: proxmox_workers
     value:
       nodes: >-
@@ -69,7 +72,8 @@ config:
             : (get(cluster.workers.nodes ?? {}, "worker-" + string(#)) != null
             ? (get(cluster.workers.nodes ?? {}, "worker-" + string(#)).node
                ?? split(get(cluster.workers.nodes ?? {}, "worker-" + string(#)).endpoint, ":")[0])
-            : cidrhost(network.cidr_block ?? '10.5.0.0/16', 19 + #))]
+            : cidrhost(network.cidr_block ?? '10.5.0.0/16', 19 + #))],
+          ["vm_id", proxmox_effective.vm_id_start == null ? null : proxmox_effective.vm_id_start + 9 + #]
         ]))}
 
   # First control-plane IPv4 for Cilium kube-proxy-replacement.
@@ -155,6 +159,7 @@ terraform:
       cpu_type: ${proxmox_effective.cpu_type}
       bios: "${proxmox_effective.bios}"
       name_suffix: "${proxmox_effective.name_suffix}"
+      pool_id: ${proxmox_effective.pool}
       network_cidr: ${network.cidr_block ?? '10.5.0.0/16'}
       network_gateway: ${network_effective.gateway}
       network_nameservers: ${network.nameservers ?? []}
@@ -168,6 +173,7 @@ terraform:
             ["image", "talos"],
             ["count", 1],
             ["ipv4", get(#, "ipv4")],
+            ["vm_id", get(#, "vm_id")],
             ["cpu", cluster_resources_effective.controlplanes.cpu],
             ["memory", cluster_resources_effective.controlplanes.memory],
             ["root_disk_size", cluster.controlplanes.root_disk_size ?? 30],
@@ -179,6 +185,7 @@ terraform:
             ["image", "talos"],
             ["count", 1],
             ["ipv4", get(#, "ipv4")],
+            ["vm_id", get(#, "vm_id")],
             ["cpu", cluster_resources_effective.workers.cpu],
             ["memory", cluster_resources_effective.workers.memory],
             ["root_disk_size", cluster.workers.root_disk_size ?? 50],

@@ -36,6 +36,12 @@ variable "image_datastore_id" {
   default     = "local"
 }
 
+variable "pool_id" {
+  description = "Resource pool the VMs join. Null leaves them outside any pool."
+  type        = string
+  default     = null
+}
+
 variable "network_bridge" {
   description = "Linux bridge the VM NIC attaches to (e.g. 'vmbr0')."
   type        = string
@@ -165,5 +171,12 @@ variable "instances" {
   validation {
     condition     = alltrue([for inst in var.instances : inst.root_disk_size >= 10])
     error_message = "instances: root_disk_size must be at least 10 GiB."
+  }
+
+  validation {
+    condition = alltrue([
+      for inst in var.instances : inst.vm_id == null || (inst.vm_id >= 100 && inst.vm_id + inst.count - 1 <= 999999999)
+    ])
+    error_message = "instances: vm_id through vm_id + count - 1 must stay within 100 to 999999999."
   }
 }

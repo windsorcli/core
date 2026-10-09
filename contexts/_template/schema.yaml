@@ -476,6 +476,18 @@ properties:
           - ovmf
         default: seabios
         description: Firmware for amd64 VMs. ovmf adds an EFI disk. arm64 VMs always use ovmf.
+      pool:
+        type: string
+        pattern: "^[A-Za-z0-9_-]+$"
+        description: Existing resource pool the VMs join. Unset leaves them outside any pool.
+      vm_id_start:
+        type: integer
+        minimum: 100
+        maximum: 999999000
+        description: >-
+          First VM ID of a free range. Control plane N takes vm_id_start + N - 1
+          and worker N takes vm_id_start + 9 + N. Unset lets Proxmox pick the
+          next free ID.
     description: Proxmox VE infrastructure configuration
 
   # Free-form env vars injected by `windsor exec` and into terraform applies.

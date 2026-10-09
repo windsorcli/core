@@ -70,6 +70,53 @@ run "image_download" {
     condition     = proxmox_download_file.images["talos"].upload_timeout == 1800
     error_message = "upload_timeout must default to 1800 seconds"
   }
+
+  assert {
+    condition     = proxmox_download_file.images["talos"].overwrite_unmanaged == false
+    error_message = "images must fail rather than replace a same-named file Terraform does not manage"
+  }
+}
+
+# Shared-host guards: no pool by default, and destroy removes only disks the VM references.
+run "shared_host_defaults" {
+  command = plan
+
+  variables {
+    instances = [{ name = "controlplane", role = "controlplane", image = "talos", ipv4 = "10.5.0.10" }]
+  }
+
+  assert {
+    condition     = proxmox_virtual_environment_vm.instances["controlplane"].pool_id == null
+    error_message = "pool_id must default to null"
+  }
+
+  assert {
+    condition     = proxmox_virtual_environment_vm.instances["controlplane"].delete_unreferenced_disks_on_destroy == false
+    error_message = "destroy must not delete unreferenced disks that share the VM's ID"
+  }
+
+  assert {
+    condition     = local.instances_by_name["controlplane"].vm_id == null
+    error_message = "vm_id must be left to Proxmox when unset"
+  }
+}
+
+# Pool: every VM joins pool_id.
+run "pool_membership" {
+  command = plan
+
+  variables {
+    pool_id = "windsor"
+    instances = [
+      { name = "controlplane", role = "controlplane", image = "talos", ipv4 = "10.5.0.10" },
+      { name = "worker", role = "worker", image = "talos", ipv4 = "10.5.0.20" },
+    ]
+  }
+
+  assert {
+    condition     = alltrue([for vm in proxmox_virtual_environment_vm.instances : vm.pool_id == "windsor"])
+    error_message = "every VM must join pool_id"
+  }
 }
 
 # Static controlplane: sizing, platform defaults, cloud-init network, and disk import.
@@ -487,6 +534,17 @@ run "rejects_small_root_disk" {
 
   variables {
     instances = [{ name = "controlplane", role = "controlplane", image = "talos", ipv4 = "10.5.0.10", root_disk_size = 8 }]
+  }
+
+  expect_failures = [var.instances]
+}
+
+# A vm_id below the Proxmox minimum is rejected.
+run "rejects_low_vm_id" {
+  command = plan
+
+  variables {
+    instances = [{ name = "controlplane", role = "controlplane", image = "talos", ipv4 = "10.5.0.10", vm_id = 99 }]
   }
 
   expect_failures = [var.instances]

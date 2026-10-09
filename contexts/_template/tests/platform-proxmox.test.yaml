@@ -291,6 +291,66 @@ cases:
               talos:
                 file_name: talos-v1.14.2-ce4c9805-amd64-lab.qcow2
 
+  # A pool and a VM ID range place Windsor's VMs on a shared host.
+  - name: proxmox pool and vm_id_start flow through to compute
+    values:
+      platform: proxmox
+      gateway:
+        enabled: false
+      network: *default-network
+      cluster:
+        driver: talos
+        controlplanes:
+          count: 3
+        workers:
+          count: 2
+      proxmox:
+        node: pve
+        pool: windsor
+        vm_id_start: 9000
+    expect:
+      terraform:
+        - name: compute
+          inputs:
+            pool_id: windsor
+            instances:
+              - name: controlplane-1
+                vm_id: 9000
+              - name: controlplane-2
+                vm_id: 9001
+              - name: controlplane-3
+                vm_id: 9002
+              - name: worker-1
+                vm_id: 9010
+              - name: worker-2
+                vm_id: 9011
+
+  # Schema: a VM ID start below the Proxmox minimum fails validation.
+  - name: proxmox vm_id_start below 100 fails validation
+    values:
+      platform: proxmox
+      gateway:
+        enabled: false
+      network: *default-network
+      cluster: *default-cluster
+      proxmox:
+        node: pve
+        vm_id_start: 99
+    expectError: true
+
+  # Schema: a pool name with characters Proxmox rejects fails validation.
+  - name: proxmox invalid pool name fails validation
+    values:
+      platform: proxmox
+      gateway:
+        enabled: false
+      network: *default-network
+      cluster: *default-cluster
+      proxmox:
+        node: pve
+        pool: "windsor/pool"
+    expectError: true
+
   # The install image is the nocloud installer for the qemu-guest-agent schematic.
   - name: proxmox install image is the nocloud installer for the schematic
     values:

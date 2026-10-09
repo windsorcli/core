@@ -39,13 +39,14 @@ locals {
 resource "proxmox_download_file" "images" {
   for_each = var.images
 
-  node_name      = var.node_name
-  datastore_id   = var.image_datastore_id
-  content_type   = "import"
-  url            = each.value.url
-  file_name      = each.value.file_name
-  overwrite      = false
-  upload_timeout = each.value.upload_timeout
+  node_name           = var.node_name
+  datastore_id        = var.image_datastore_id
+  content_type        = "import"
+  url                 = each.value.url
+  file_name           = each.value.file_name
+  overwrite           = false
+  overwrite_unmanaged = false
+  upload_timeout      = each.value.upload_timeout
 }
 
 # =============================================================================
@@ -96,15 +97,17 @@ resource "proxmox_virtual_environment_vm" "instances" {
   name        = "${each.value.name}${var.name_suffix}"
   node_name   = var.node_name
   vm_id       = each.value.vm_id
+  pool_id     = var.pool_id
   description = each.value.notes
   tags        = compact(["windsor", local.context_effective, each.value.role])
 
-  machine         = local.machine
-  bios            = local.bios
-  scsi_hardware   = "virtio-scsi-pci"
-  on_boot         = true
-  started         = true
-  stop_on_destroy = true
+  machine                              = local.machine
+  bios                                 = local.bios
+  scsi_hardware                        = "virtio-scsi-pci"
+  on_boot                              = true
+  started                              = true
+  stop_on_destroy                      = true
+  delete_unreferenced_disks_on_destroy = false
 
   cpu {
     cores = each.value.cpu
