@@ -90,6 +90,18 @@ locals {
 # Compute Resources
 # =============================================================================
 
+# The proxmox_virtual_environment_vms lists the guests the caller can see when any instance pins a vm_id.
+data "proxmox_virtual_environment_vms" "existing" {
+  count = anytrue([for inst in local.expanded_instances : inst.vm_id != null]) ? 1 : 0
+}
+
+locals {
+  # Visible guests keyed by VM ID, used to refuse a pinned vm_id that belongs to another VM.
+  existing_vms_by_id = {
+    for vm in try(data.proxmox_virtual_environment_vms.existing[0].vms, []) : tostring(vm.vm_id) => vm
+  }
+}
+
 # The proxmox_virtual_environment_vm boots the imported Talos disk with a Proxmox cloud-init drive holding the node's network config.
 resource "proxmox_virtual_environment_vm" "instances" {
   for_each = local.instances_by_name
@@ -179,6 +191,14 @@ resource "proxmox_virtual_environment_vm" "instances" {
 
   lifecycle {
     ignore_changes = [disk[0].import_from]
+
+    precondition {
+      condition = each.value.vm_id == null || !contains(keys(local.existing_vms_by_id), tostring(each.value.vm_id)) || (
+        local.existing_vms_by_id[tostring(each.value.vm_id)].name == "${each.value.name}${var.name_suffix}"
+        && contains(coalesce(local.existing_vms_by_id[tostring(each.value.vm_id)].tags, []), "windsor")
+      )
+      error_message = "vm_id ${coalesce(each.value.vm_id, 0)} belongs to an existing VM that is not ${each.value.name}${var.name_suffix}. Choose a free VM ID range."
+    }
   }
 }
 

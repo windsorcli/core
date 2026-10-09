@@ -1,4 +1,9 @@
 mock_provider "proxmox" {
+  mock_data "proxmox_virtual_environment_vms" {
+    defaults = {
+      vms = []
+    }
+  }
   mock_resource "proxmox_download_file" {
     defaults = {
       id = "local:import/talos.qcow2"
@@ -548,4 +553,58 @@ run "rejects_low_vm_id" {
   }
 
   expect_failures = [var.instances]
+}
+
+# A pinned vm_id held by a VM the module did not create is refused at plan time.
+run "rejects_vm_id_held_by_another_vm" {
+  command = plan
+
+  variables {
+    instances = [{ name = "controlplane", role = "controlplane", image = "talos", ipv4 = "10.5.0.10", vm_id = 100 }]
+  }
+
+  override_data {
+    target = data.proxmox_virtual_environment_vms.existing[0]
+    values = {
+      vms = [{ vm_id = 100, name = "unrelated", node_name = "pve", tags = ["prod"], status = "running", template = false }]
+    }
+  }
+
+  expect_failures = [proxmox_virtual_environment_vm.instances]
+}
+
+# A pinned vm_id already held by this module's own VM plans cleanly.
+run "accepts_vm_id_held_by_own_vm" {
+  command = plan
+
+  variables {
+    name_suffix = "-test"
+    instances   = [{ name = "controlplane", role = "controlplane", image = "talos", ipv4 = "10.5.0.10", vm_id = 100 }]
+  }
+
+  override_data {
+    target = data.proxmox_virtual_environment_vms.existing[0]
+    values = {
+      vms = [{ vm_id = 100, name = "controlplane-test", node_name = "pve", tags = ["controlplane", "test", "windsor"], status = "running", template = false }]
+    }
+  }
+
+  assert {
+    condition     = proxmox_virtual_environment_vm.instances["controlplane"].vm_id == 100
+    error_message = "the module's own VM must keep its pinned vm_id"
+  }
+}
+
+# Without a pinned vm_id the module skips the guest listing.
+run "skips_guest_listing_without_vm_id" {
+  command = plan
+
+  variables {
+    instances = [{ name = "controlplane", role = "controlplane", image = "talos", ipv4 = "10.5.0.10" }]
+  }
+
+  assert {
+    condition     = length(data.proxmox_virtual_environment_vms.existing) == 0
+    error_message = "no guest listing expected when no instance pins vm_id"
+  }
 }
