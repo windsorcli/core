@@ -40,11 +40,11 @@ locals {
 # a bootstrap re-run instead of disappearing until Flux's next reconcile.
 
 resource "helm_release" "cilium" {
-  repository   = "https://helm.cilium.io"
+  repository   = "oci://quay.io/cilium/charts"
   chart        = "cilium"
   name         = "cilium"
   reuse_values = true
-  # renovate: datasource=helm depName=cilium package=cilium helmRepo=https://helm.cilium.io
+  # renovate: datasource=docker depName=quay.io/cilium/charts/cilium package=quay.io/cilium/charts/cilium
   version   = var.cilium_version
   namespace = "kube-system"
   wait      = true

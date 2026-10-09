@@ -1,7 +1,7 @@
 variable "cilium_version" {
   description = "Version of the Cilium Helm chart to install."
   type        = string
-  # renovate: datasource=helm depName=cilium package=cilium helmRepo=https://helm.cilium.io
+  # renovate: datasource=docker depName=quay.io/cilium/charts/cilium package=quay.io/cilium/charts/cilium
   default = "1.20.2"
   validation {
     condition     = can(regex("^[0-9]+\\.[0-9]+\\.[0-9]+$", var.cilium_version))
