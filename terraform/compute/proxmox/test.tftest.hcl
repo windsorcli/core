@@ -233,8 +233,8 @@ run "static_controlplane" {
   }
 
   assert {
-    condition     = tolist(proxmox_virtual_environment_vm.instances["controlplane"].tags) == tolist(["windsor", "test", "controlplane"])
-    error_message = "tags must carry windsor, the context id, and the role"
+    condition     = proxmox_virtual_environment_vm.instances["controlplane"].tags == null
+    error_message = "VMs must carry no tags, which a pool-scoped user cannot set at create time"
   }
 }
 
@@ -566,7 +566,7 @@ run "rejects_vm_id_held_by_another_vm" {
   override_data {
     target = data.proxmox_virtual_environment_vms.existing[0]
     values = {
-      vms = [{ vm_id = 100, name = "unrelated", node_name = "pve", tags = ["prod"], status = "running", template = false }]
+      vms = [{ vm_id = 100, name = "unrelated", node_name = "pve", status = "running", template = false }]
     }
   }
 
@@ -585,7 +585,7 @@ run "accepts_vm_id_held_by_own_vm" {
   override_data {
     target = data.proxmox_virtual_environment_vms.existing[0]
     values = {
-      vms = [{ vm_id = 100, name = "controlplane-test", node_name = "pve", tags = ["controlplane", "test", "windsor"], status = "running", template = false }]
+      vms = [{ vm_id = 100, name = "controlplane-test", node_name = "pve", status = "running", template = false }]
     }
   }
 

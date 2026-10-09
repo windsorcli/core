@@ -19,8 +19,6 @@ terraform {
 # =============================================================================
 
 locals {
-  context_effective = var.context_id != "" ? var.context_id : var.context
-
   # arm64 guests run on the virt machine with UEFI and a SCSI cloud-init drive.
   is_arm64             = var.arch == "arm64"
   machine              = local.is_arm64 ? "virt" : "q35"
@@ -111,7 +109,6 @@ resource "proxmox_virtual_environment_vm" "instances" {
   vm_id       = each.value.vm_id
   pool_id     = var.pool_id
   description = each.value.notes
-  tags        = compact(["windsor", local.context_effective, each.value.role])
 
   machine                              = local.machine
   bios                                 = local.bios
@@ -193,9 +190,8 @@ resource "proxmox_virtual_environment_vm" "instances" {
     ignore_changes = [disk[0].import_from]
 
     precondition {
-      condition = each.value.vm_id == null || !contains(keys(local.existing_vms_by_id), tostring(each.value.vm_id)) || (
-        local.existing_vms_by_id[tostring(each.value.vm_id)].name == "${each.value.name}${var.name_suffix}"
-        && contains(coalesce(local.existing_vms_by_id[tostring(each.value.vm_id)].tags, []), "windsor")
+      condition = each.value.vm_id == null || (
+        try(local.existing_vms_by_id[tostring(each.value.vm_id)].name, "${each.value.name}${var.name_suffix}") == "${each.value.name}${var.name_suffix}"
       )
       error_message = "vm_id ${coalesce(each.value.vm_id, 0)} belongs to an existing VM that is not ${each.value.name}${var.name_suffix}. Choose a free VM ID range."
     }
