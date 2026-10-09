@@ -1083,6 +1083,10 @@ properties:
           servers the dns-zone module outputs. Leave unset for
           selfsigned-only (just-works) mode. Lowercase DNS labels
           separated by dots; no scheme, port, or trailing dot.
+      public_zone:
+        type: boolean
+        default: true
+        description: Provision the managed public DNS zone, external-dns and DNS-01 identity for dns.public_domain. Set false when the domain is only a hostname label.
       private_domain:
         $ref: '#/$defs/dnsHostname'
         description: Private DNS zone (e.g. in-cluster CoreDNS, workstation resolver). Lowercase DNS labels separated by dots.
@@ -1102,6 +1106,12 @@ properties:
       enabled:
         type: boolean
         description: Enable private certificate authority with trust-manager
+      public_issuer:
+        type: string
+        enum:
+          - acme
+          - selfsigned
+        description: Issuer for the external gateway certificate. Unset uses acme when dns.public_domain is set and dns.public_zone is not false on aws, azure, gcp or hetzner, and selfsigned otherwise. acme requires dns.public_domain and dns.public_zone.
       private_ca:
         type: object
         properties:
@@ -1335,6 +1345,10 @@ properties:
         type: string
         default: SSO
         description: Login button label consumers show (e.g. "Sign in with <name>")
+      admin_group:
+        type: string
+        default: platform-admins
+        description: Group whose members are administrators in every SSO consumer (Grafana Admin, cluster-admin in dev). The hosted Keycloak creates it.
       oidc:
         type: object
         description: External OIDC provider settings (driver oidc)
@@ -1441,6 +1455,26 @@ additionalProperties: false
 # time instead of at terraform/cluster apply time.
 #
 allOf:
+  # ACME DNS-01 validates through the managed public zone.
+  - if:
+      properties:
+        pki:
+          type: object
+          properties:
+            public_issuer:
+              const: acme
+          required:
+            - public_issuer
+      required:
+        - pki
+    then:
+      properties:
+        dns:
+          type: object
+          properties:
+            public_zone:
+              const: true
+
   # An external identity provider (driver: oidc) hosts nothing, so it must be
   # told where to authenticate — the issuer URL is the only usable contract.
   - if:

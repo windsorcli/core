@@ -19,7 +19,7 @@ spec:
     spec:
       chart: openebs
       # renovate: datasource=helm depName=openebs package=openebs helmRepo=https://openebs.github.io/openebs
-      version: 4.6.1
+      version: 4.6.2
       sourceRef:
         kind: HelmRepository
         name: openebs
@@ -41,7 +41,7 @@ spec:
       zfsPlugin:
         image:
           # renovate: datasource=docker depName=openebs/zfs-driver package=openebs/zfs-driver
-          tag: 2.11.1@sha256:16f1a74bb2495c78f9652be5d7cd6e869cb212c9decd42cac63e6566b07fa5f2
+          tag: 2.11.2@sha256:0234692bb4a48b3e70d0bc25f3327ca2b6f1c93d57a066eea755a5c0d94bfb2d
     lvm-localpv:
       enabled: false
       lvmPlugin:

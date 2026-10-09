@@ -585,3 +585,82 @@ cases:
     exclude:
       terraform:
         - name: backend
+
+  # pki.public_issuer: selfsigned keeps the public domain but issues no ACME
+  # certificate, so no operator email is required.
+  - name: public_issuer selfsigned on gcp skips ACME and the email requirement
+    values:
+      platform: gcp
+      gcp:
+        project_id: windsor-test
+      gateway:
+        enabled: true
+        driver: envoy
+      dns:
+        public_domain: example.com
+      pki:
+        public_issuer: selfsigned
+    terraformOutputs:
+      dns-zone:
+        zone_name: dns-windsor-test
+      cluster:
+        cert_manager_service_account_email: cert-manager@windsor-test.iam.gserviceaccount.com
+        external_dns_service_account_email: external-dns@windsor-test.iam.gserviceaccount.com
+    expect:
+      flux:
+        - name: pki
+          resources:
+            - components:
+                - public-issuer/selfsigned
+        - name: gateway
+          resources:
+            - name: external
+              substitutions:
+                gateway_cert_issuer: public-selfsigned
+
+  # dns.public_zone: false keeps the public domain as a hostname with no zone,
+  # external-dns or DNS secret.
+  - name: public_zone false on gcp skips the zone and external-dns
+    values:
+      platform: gcp
+      gcp:
+        project_id: windsor-test
+      gateway:
+        enabled: true
+        driver: envoy
+      dns:
+        public_domain: example.com
+        public_zone: false
+      pki:
+        public_issuer: selfsigned
+    expect:
+      flux:
+        - name: pki
+          resources:
+            - components:
+                - public-issuer/selfsigned
+        - name: gateway
+          resources:
+            - name: external
+              substitutions:
+                gateway_cert_issuer: public-selfsigned
+    exclude:
+      terraform:
+        - name: dns-zone
+      flux:
+        - name: dns
+
+  - name: public_zone false with acme on gcp fails composition
+    values:
+      platform: gcp
+      gcp:
+        project_id: windsor-test
+      gateway:
+        enabled: true
+        driver: envoy
+      dns:
+        public_domain: example.com
+        public_zone: false
+      pki:
+        public_issuer: acme
+    expectError: true

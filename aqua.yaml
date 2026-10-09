@@ -9,29 +9,29 @@
 #   - all
 registries:
   - type: standard
-    ref: v4.572.0 # renovate: depName=aquaproj/aqua-registry
+    ref: v4.573.0 # renovate: depName=aquaproj/aqua-registry
 packages:
   # Pinned to the 1.12 line for OpenTofu compatibility; see required_version "~> 1.12".
   - name: hashicorp/terraform@v1.12.2
   - name: prometheus/prometheus@v3.15.0
   - name: siderolabs/talos@v1.14.2
-  - name: siderolabs/omni/omnictl@v1.12.3
-  - name: siderolabs/omni/omni@v1.12.3
+  - name: siderolabs/omni/omnictl@v1.12.4
+  - name: siderolabs/omni/omni@v1.12.4
   - name: kubernetes/kubectl@v1.37.1
   - name: go-task/task@v3.54.0
   - name: golang/go@go1.27.1
   - name: docker/cli@v27.4.1
   - name: docker/compose@v5.6.0
-  - name: aws/aws-cli@2.37.9
+  - name: aws/aws-cli@2.37.10
   - name: helm/helm@v4.3.0
   - name: fluxcd/flux2@v2.9.6
-  - name: hashicorp/vault@v2.1.1
+  - name: hashicorp/vault@v2.1.2
   - name: derailed/k9s@v0.51.0
   - name: getsops/sops@v3.13.3
   - name: 1password/cli@v2.30.3
-  - name: evilmartians/lefthook@v2.1.17
+  - name: evilmartians/lefthook@v2.2.1
   - name: mikefarah/yq@v4.54.1
-  - name: bridgecrewio/checkov@3.3.23
+  - name: bridgecrewio/checkov@3.3.26
   - name: kubernetes-sigs/krew@v0.5.0
   - name: Azure/kubelogin@v0.2.20
   - name: twistedpair/google-cloud-sdk@562.0.0
