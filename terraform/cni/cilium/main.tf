@@ -44,7 +44,7 @@ resource "helm_release" "cilium" {
   chart        = "cilium"
   name         = "cilium"
   reuse_values = true
-  # renovate: datasource=helm depName=cilium package=cilium helmRepo=https://helm.cilium.io
+  # renovate: datasource=docker depName=quay.io/cilium/charts/cilium package=quay.io/cilium/charts/cilium
   version   = var.cilium_version
   namespace = "kube-system"
   wait      = true
