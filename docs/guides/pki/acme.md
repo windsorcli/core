@@ -3,7 +3,7 @@ title: ACME
 description: Let's Encrypt certificates for the gateway through DNS-01 challenges against the public DNS zone.
 ---
 
-With `dns.public_domain` set, the gateway certificate comes from Let's Encrypt. The certificate is a wildcard, and Let's Encrypt issues wildcards only through DNS-01, where cert-manager proves ownership by writing a challenge record into the [public zone](../dns/public.md). No inbound port 80 is needed.
+With `dns.public_domain` set, the `external` gateway certificate comes from Let's Encrypt on AWS, Azure, GCP, and Hetzner. The certificate is a wildcard, and Let's Encrypt issues wildcards only through DNS-01, where cert-manager proves ownership by writing a challenge record into the [public zone](../dns/public.md). No inbound port 80 is needed.
 
 ## Turn it on
 
@@ -13,7 +13,11 @@ dns:
 email: ops@example.com
 ```
 
-Core creates the `public-acme` issuer and moves the gateway certificate to it. Let's Encrypt can validate only after the domain is [delegated](../dns/public.md#delegate-the-domain) to the zone.
+Core creates the `public-acme` issuer and issues the `external` gateway certificate from it. Let's Encrypt can validate only after the domain is [delegated](../dns/public.md#delegate-the-domain) to the zone.
+
+## Keep the zone, skip the certificate
+
+Set `pki.public_issuer: selfsigned` to create the public zone and external-dns without requesting a Let's Encrypt certificate. The `external` gateway then uses `public-selfsigned`, and no `email` is required. Leaving `pki.public_issuer` unset keeps ACME whenever `dns.public_domain` is set, unless [`dns.public_zone`](../dns/public.md#use-a-domain-without-a-zone) is `false`.
 
 ## Solvers
 
@@ -30,9 +34,9 @@ On AWS, Azure, and GCP the cluster Terraform component creates the identity, wit
 
 Dev mode uses the Let's Encrypt staging server, which has generous rate limits but issues certificates that browsers do not trust. Every other context uses production.
 
-## Private gateways
+## Internal gateway
 
-DNS-01 cannot validate a zone that exists only inside a VPC, so a private gateway uses the `private` issuer even when `dns.public_domain` is set. The full selection table is on the [PKI](index.md#issuers) page.
+DNS-01 cannot validate a zone that exists only inside a VPC, so the `internal` gateway uses the `private` issuer even when `dns.public_domain` is set. The full selection table is on the [PKI](index.md#issuers) page.
 
 ## Under the hood
 
