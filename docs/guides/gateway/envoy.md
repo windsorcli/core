@@ -12,35 +12,35 @@ gateway:
   driver: envoy
 ```
 
-Core installs the Envoy Gateway operator in `system-gateway`, along with the `external` Gateway, which uses the `envoy` GatewayClass. The operator creates an Envoy Deployment and a Service for it. The Gateway API and Envoy Gateway CRDs come from the vendored CRD layer.
+Core installs the Envoy Gateway operator in `system-gateway`, along with an `external` Gateway when `dns.public_domain` is set and an `internal` Gateway when `dns.private_domain` is set. Both use the `envoy` GatewayClass. The operator creates an Envoy Deployment and a Service for each. The Gateway API and Envoy Gateway CRDs come from the vendored CRD layer.
 
 ## Unmatched requests
 
 Any HTTPS request that matches no `HTTPRoute` gets a `404` page from the proxy, sent with `Cache-Control: no-store` so browsers do not cache it after the hostname gets a real route. Plain HTTP never gets this far, because the HTTP listener redirects it to HTTPS.
 
-With a public domain or a private gateway, external-dns also publishes the apex and a wildcard record (`example.com` and `*.example.com`) pointing at the gateway. A hostname with no route therefore resolves and lands on the 404.
+external-dns also publishes the apex and a wildcard record (`example.com` and `*.example.com`) for each Gateway's own zone, pointing at that Gateway. A hostname with no route therefore resolves and lands on the 404.
 
 ## Data plane Service
 
-The Gateway references an `EnvoyProxy` named `external` that configures the proxy. It pins the Envoy image by digest, which the cluster's Kyverno policy requires, and sets the platform-critical priority class. The Service type follows `gateway.service_type`:
+Each Gateway references an `EnvoyProxy` of the same name that configures its proxy. It pins the Envoy image by digest, which the cluster's Kyverno policy requires, and sets the platform-critical priority class. The Service type follows `gateway.service_type`:
 
 | Environment | Service | Added |
 |---|---|---|
-| AWS | `LoadBalancer` | NLB annotations with `target-type: ip`, which send traffic straight to the Envoy pods with the client address preserved, plus cross-zone balancing. The scheme is `internet-facing`, or `internal` with `gateway.access: private`. |
-| Azure with `gateway.access: private` | `LoadBalancer` | The internal load balancer annotation. |
-| GCP with `gateway.access: private` | `LoadBalancer` | The internal load balancer annotation (`networking.gke.io/load-balancer-type: Internal`). |
-| Hetzner | `LoadBalancer` | Annotations for a Hetzner Cloud load balancer in `hetzner.location` (default `ash`) that targets the nodes' public IPs. |
-| Local with MetalLB or kube-vip | `LoadBalancer` | A fixed address, the first in `network.loadbalancer_ips`. |
-| Azure or GCP, public | `LoadBalancer` | None. The cloud controller assigns an address. |
+| AWS | `LoadBalancer` | NLB annotations with `target-type: ip`, which send traffic straight to the Envoy pods with the client address preserved, plus cross-zone balancing. The scheme is `internet-facing` for `external` and `internal` for `internal`. |
+| Azure, `internal` | `LoadBalancer` | The internal load balancer annotation. |
+| GCP, `internal` | `LoadBalancer` | The internal load balancer annotation (`networking.gke.io/load-balancer-type: Internal`). |
+| Hetzner, `external` | `LoadBalancer` | Annotations for a Hetzner Cloud load balancer in `hetzner.location` (default `ash`) that targets the nodes' private IPs. |
+| Local with MetalLB or kube-vip | `LoadBalancer` | A fixed address from `network.loadbalancer_ips`: `start` for `internal`, the next address for `external` when both exist. |
+| Azure or GCP, `external` | `LoadBalancer` | None. The cloud controller assigns an address. |
 | docker-desktop, or `service_type: NodePort` | `NodePort` | Extra node ports, listed below. |
 
-On `NodePort` the Service listens on `30080` for HTTP and `30443` for HTTPS. With `dns.private.enabled` it also exposes UDP and TCP port 53 on `30053`, and with `gitops.mode: push` (the default) the Flux webhook on `30292`. `gateway.publish_ports` maps host ports to these node ports.
+On `NodePort` the `internal` Service listens on `30080` for HTTP and `30443` for HTTPS, and the `external` Service on `30081` and `30444`. With `dns.private.enabled` the `internal` Service also exposes UDP and TCP port 53 on `30053`, and with `gitops.mode: push` (the default) the Flux webhook on `30292`. `gateway.publish_ports` maps host ports to these node ports.
 
-docker-desktop publishes the proxy on host ports `8443` and `8080`. The Service carries matching ports without node ports. A pod can then reach a hostname on the same port a browser uses.
+docker-desktop publishes `internal` on host ports `8443` and `8080`, and `external` on `8444` and `8081`. The Service carries matching ports without node ports. A pod can then reach a hostname on the same port a browser uses.
 
 ## Private DNS
 
-`dns.private.enabled` adds UDP and TCP listeners on port 53 to the Gateway and routes them to CoreDNS. On docker-desktop, a second Service at the fixed address `10.96.0.53` selects the same Envoy pods. external-dns points the workstation domain at that address, so a pod that resolves `grafana.test` reaches a listener on the right port. The zone itself is covered under [Private zones](../dns/private.md).
+`dns.private.enabled` adds UDP and TCP listeners on port 53 to the `internal` Gateway and routes them to CoreDNS. On docker-desktop, a second Service at the fixed address `10.96.0.53` selects the same `internal` Envoy pods. external-dns points the workstation domain at that address, so a pod that resolves `grafana.test` reaches a listener on the right port. The zone itself is covered under [Private zones](../dns/private.md).
 
 ## Monitoring
 
@@ -56,8 +56,8 @@ flowchart LR
 
   subgraph systemgateway[system-gateway]
     operator[Envoy Gateway operator]
-    gateway[Gateway external]
-    proxy_cr[EnvoyProxy external]
+    gateway[Gateway external or internal]
+    proxy_cr[EnvoyProxy per Gateway]
     envoy[Envoy Deployment]
     svc[Service]
   end

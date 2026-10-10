@@ -1,6 +1,6 @@
 ---
 title: DNS
-description: DNS records for gateway hostnames, from a public cloud zone through external-dns or a private zone served by in-cluster CoreDNS.
+description: DNS records for gateway hostnames, from a public cloud zone, a private cloud zone, or in-cluster CoreDNS, written by external-dns.
 sidebar_order: 4
 ---
 
@@ -16,37 +16,39 @@ dns:
 
 | Setting | What Core does |
 |---|---|
-| [`dns.public_domain`](public.md) | Creates a public zone on AWS, Azure, GCP, or Hetzner and runs external-dns against it. Also turns on [ACME certificates](../pki/acme.md). |
+| [`dns.public_domain`](public.md) | Creates a public zone on AWS, Azure, GCP, or Hetzner, runs external-dns against it, and provisions the `external` gateway. Also turns on [ACME certificates](../pki/acme.md). |
+| [`dns.public_zone`](public.md#use-a-domain-without-a-zone) | When `false`, keeps `dns.public_domain` as a hostname and skips the zone, external-dns, and the DNS-01 identity. |
+| [`dns.private_domain`](public.md#private-zones) | Provisions the `internal` gateway. On AWS, Azure, and GCP, records go to a private zone attached to your VPC or network. |
 | [`dns.private.enabled`](private.md) | Runs CoreDNS in the cluster and points external-dns at it. |
-| `gateway.access: private` | Publishes to a private zone in your VPC or network. See [Private gateway zones](public.md#private-gateway-zones). |
 
-## Which domain names the gateway
+## Domains and gateways
 
-Hostnames are built from a single domain, the first one set of `dns.public_domain`, `dns.private_domain`, and `dns.domain`. A private gateway always uses `dns.private_domain`. Dev mode defaults `dns.domain` and `dns.private_domain` to `test` and turns `dns.private.enabled` on.
+Each domain provisions one [gateway](../gateway/index.md): `external` for `dns.public_domain` and `internal` for `dns.private_domain`. Hostnames on a gateway are built from that gateway's own domain. The two domains MUST differ. Dev mode defaults `dns.private_domain` to `test` and turns `dns.private.enabled` on. `dns.domain` is deprecated and only serves as a fallback for `dns.private_domain`.
 
-Only an explicit `dns.public_domain` creates a public zone. A domain set through `dns.domain` for local use never starts a public zone or public certificate requests.
+Only an explicit `dns.public_domain` creates a public zone, so a local cluster never starts a public zone or public certificate requests.
 
 ## What external-dns publishes
 
-Each hostname on an attached `HTTPRoute` gets an `A` or `CNAME` record pointing at the gateway address. external-dns marks the records it creates with TXT records that carry the context id, and it leaves the rest of the zone alone. On the Envoy driver, with a public domain or a private gateway, it also publishes the apex and a wildcard record. An unrouted hostname then reaches the catch-all `404`.
+external-dns runs one instance per zone, `external-dns-public` and `external-dns-private`, each limited to its own domain. Each hostname on an attached `HTTPRoute` gets an `A` or `CNAME` record pointing at the address of the gateway it attaches to. external-dns marks the records it creates with TXT records that carry the context id, and it leaves the rest of the zone alone. On the Envoy driver it also publishes, for each gateway's own zone, the apex and a wildcard record. An unrouted hostname then reaches the catch-all `404`.
 
-external-dns runs in `system-dns`, and only when a zone exists for it to write to: a public domain, a private gateway, or the private CoreDNS zone.
+Both instances run in `system-dns` and share one ServiceAccount, so the cloud identity covers both. An instance exists only when its zone does.
 
 ## Requirements
 
 Windsor rejects these combinations when it validates the configuration:
 
 - `dns.private.enabled` needs `dns.private_domain`.
-- `gateway.access: private` needs `dns.private_domain`.
-- `dns.public_domain` needs `email`, the ACME account contact.
+- `dns.private_domain` is rejected on Hetzner outside dev mode, since Hetzner has no private DNS.
+- `dns.public_domain` needs `email`, the ACME account contact, unless `pki.public_issuer` is `selfsigned` or `dns.public_zone` is `false`.
+- `pki.public_issuer: acme` is rejected with `dns.public_zone: false`.
 
 ## Configuration
 
 | Key | Type | Default | Description |
 |-----|------|---------|-------------|
-| `dns.domain` | string | `test` in dev | Base domain, used when the public and private domains are unset. |
 | `dns.public_domain` | string | none | Public zone to create, and the domain for ACME certificates. |
-| `dns.private_domain` | string | `dns.domain` | Domain CoreDNS answers for, or the zone behind a private gateway. |
+| `dns.public_zone` | boolean | `true` | Create the public zone, external-dns, and the DNS-01 identity for `dns.public_domain`. |
+| `dns.private_domain` | string | `test` in dev | Domain for the `internal` gateway: the CoreDNS zone, or the VPC-attached private zone. |
 | `dns.private.enabled` | boolean | `true` in dev | Run CoreDNS for the private zone. |
 
 ## Reference

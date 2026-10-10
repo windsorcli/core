@@ -17,17 +17,17 @@ gateway:
 
 `gateway.driver` defaults to `cilium` when Cilium is the CNI and to [`envoy`](envoy.md) otherwise. AWS and docker-desktop always default to `envoy`. See [CNI defaults](../cni/index.md#defaults) for which clusters use Cilium.
 
-Core creates a `cilium` GatewayClass and the `external` Gateway in `system-gateway`. The Cilium release belongs to the [CNI add-on](../cni/cilium.md), which turns on Gateway API support when this driver is selected. The Gateway API CRDs are applied before the Cilium operator starts.
+Core creates a `cilium` GatewayClass and the `external` and `internal` Gateways in `system-gateway`, each when its domain is set. The Cilium release belongs to the [CNI add-on](../cni/cilium.md), which turns on Gateway API support when this driver is selected. The Gateway API CRDs are applied before the Cilium operator starts.
 
 ## Addresses
 
-Cilium's LB IPAM gives the Gateway's Service the first address in `network.loadbalancer_ips` and announces it over L2 from one node at a time. Cilium picks that node first come first serve, so announcement load can be uneven, and it does not work with `externalTrafficPolicy: Local`. The address is shareable across namespaces, so other Services can reuse it on different ports. The Gateway waits for the Cilium CNI install. That puts the sharing policy in place before the Service exists.
+Cilium's LB IPAM gives the `internal` Gateway's Service the first address in `network.loadbalancer_ips` and the `external` Gateway the next one. A single Gateway takes the first. Cilium announces each address over L2 from one node at a time. Cilium picks that node first come first serve, so announcement load can be uneven, and it does not work with `externalTrafficPolicy: Local`. Each address is shareable across namespaces, so other Services can reuse it on different ports. The Gateway waits for the Cilium CNI install. That puts the sharing policy in place before the Service exists.
 
-On Hetzner the cloud controller fills the Service instead, and the LB IPAM annotations are left off.
+On Hetzner the cloud controller fills the Service of the `external` Gateway instead, and the LB IPAM annotations are left off.
 
 ## Private DNS
 
-`dns.private.enabled` gives CoreDNS its own `LoadBalancer` Service on port 53, which shares the gateway's address through LB IPAM. The zone itself is covered under [Private zones](../dns/private.md).
+`dns.private.enabled` gives CoreDNS its own `LoadBalancer` Service on port 53, which shares the `internal` gateway's address through LB IPAM. The zone itself is covered under [Private zones](../dns/private.md).
 
 ## What differs from Envoy
 

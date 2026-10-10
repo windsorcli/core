@@ -14,15 +14,15 @@ dns:
     enabled: true
 ```
 
-Core installs CoreDNS and an etcd StatefulSet in `system-dns` and points external-dns at them. external-dns writes records into etcd as routes appear, and CoreDNS answers for everything under `dns.private_domain` from those records. Both reach etcd over mutual TLS, with certificates from the `private` [cluster issuer](../pki/index.md). With `topology: ha`, CoreDNS runs several replicas. Dev mode turns all of this on with the domain `test`.
+Core installs CoreDNS and an etcd StatefulSet in `system-dns` and points external-dns at them. external-dns writes records into etcd as routes appear, and CoreDNS answers for everything under `dns.private_domain` from those records. With `dns.public_domain` also set, it answers for that domain too, so a local or metal cluster resolves public hostnames to its own gateway addresses. Both reach etcd over mutual TLS, with certificates from the `private` [cluster issuer](../pki/index.md). With `topology: ha`, CoreDNS runs several replicas. Dev mode turns all of this on with the domain `test`. `dns.private.enabled` needs `dns.private_domain`.
 
 ## Reach it
 
-CoreDNS listens on port 53, and the gateway driver determines how clients reach it.
+CoreDNS listens on port 53, and the gateway driver determines how clients reach it. Port 53 is a utility surface, so it binds to the `internal` gateway only.
 
 | `gateway.driver` | Port 53 exposed through |
 |---|---|
-| [`envoy`](../gateway/envoy.md#private-dns) | UDP and TCP routes on the `external` Gateway. On NodePort clusters, a node port. |
+| [`envoy`](../gateway/envoy.md#private-dns) | UDP and TCP routes on the `internal` Gateway. On NodePort clusters, node port `30053`. |
 | [`cilium`](../gateway/cilium.md#private-dns) | A `LoadBalancer` Service that shares the gateway address through LB IPAM. |
 
 The address must fall inside `network.loadbalancer_ips`. On a local cluster, the workstation's stub resolver forwards the private domain to it. On metal the address is routable on the LAN. LAN clients can query it directly, or an upstream resolver can forward `*.<dns.private_domain>` to it.
