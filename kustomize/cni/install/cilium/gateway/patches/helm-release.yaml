@@ -12,7 +12,7 @@ spec:
       enableAppProtocol: true
       # The gateway layer owns the cilium GatewayClass.
       gatewayClass:
-        create: "false"
+        create: false
 
     # Per-node Envoy that serves gateway traffic.
     envoy:
