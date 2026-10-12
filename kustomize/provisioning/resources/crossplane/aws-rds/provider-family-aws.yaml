@@ -7,4 +7,4 @@ metadata:
   name: provider-family-aws
 spec:
   # renovate: datasource=docker depName=xpkg.upbound.io/upbound/provider-family-aws package=xpkg.upbound.io/upbound/provider-family-aws
-  package: xpkg.upbound.io/upbound/provider-family-aws:v2.7.2@sha256:508f400dce65e6e9c8f15df8da0f977653e87a109ebd8c3ccdfcc57d699d6c35
+  package: xpkg.upbound.io/upbound/provider-family-aws:v2.9.0@sha256:5457f69a027d65ecdcd1bfdd3fe1c1be9863e3548198173aea9da71bf7068062
