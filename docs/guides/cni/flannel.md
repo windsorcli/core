@@ -13,7 +13,7 @@ cluster:
     driver: flannel
 ```
 
-docker-desktop defaults to Flannel because Cilium cannot bootstrap through the localhost tunnel that reaches the API server. Incus with Colima, which exists to test storage drivers, uses it with kube-vip because Cilium's eBPF skews the results. Any other Talos cluster can opt in with the setting above.
+docker-desktop defaults to Flannel because Cilium cannot bootstrap through the localhost tunnel that reaches the API server. Incus with Colima also uses it, with kube-vip, because that platform tests storage drivers and Cilium's eBPF would skew the results. Hyper-V defaults to it as well. Any other Talos cluster can opt in with the setting above.
 
 ## Load balancer addresses
 

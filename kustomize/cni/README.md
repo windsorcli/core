@@ -46,7 +46,6 @@ Cilium workloads deploy into `kube-system` per upstream convention.
 ```yaml
 flux:
   - name: cni
-    dependsOn: [policy-resources, telemetry-install]
     install:
       components: [cilium, cilium/talos, cilium/prometheus, cilium/hubble, cilium/l2]
       substitutions:
@@ -64,13 +63,11 @@ flux:
 
 ### Talos with Cilium as the gateway driver
 
-Adds `cilium/gateway`. The `gateway-install` dependency is contributed by
-`option-gateway` so the Gateway API CRDs exist before cilium-operator
-starts.
+Adds `cilium/gateway` and `cilium/gateway/lbipam`. `option-cni` also
+makes each gateway resources variant wait on `cni-install`.
 
 ```yaml
-components: [cilium, cilium/talos, cilium/gateway, cilium/prometheus, cilium/hubble, cilium/l2]
-dependsOn:  [policy-resources, telemetry-install, gateway-install]
+components: [cilium, cilium/talos, cilium/gateway, cilium/gateway/lbipam, cilium/prometheus, cilium/hubble, cilium/l2]
 ```
 
 ### EKS
@@ -97,7 +94,7 @@ CRDs are installed.
 
 If the Cilium gateway Service has no LB IP, verify the
 `cilium-gateway-lbipam-sharing` MutatingPolicy is `Ready` and the
-`cilium-lbipam-config` ConfigMap in `system-gateway` exists.
+`cilium-lbipam-config-<gateway>` ConfigMap in `system-gateway` exists.
 
 If `HelmRelease/cilium` reports `no matches for kind
 CiliumLoadBalancerIPPool`, the Cilium chart installs those CRDs and
@@ -149,7 +146,13 @@ Replaces full privileged mode with explicit Linux capabilities (CHOWN, NET_ADMIN
 
 _Enabled when `gateway.driver: cilium`._
 
-Enables `gatewayAPI` on Cilium and ships a Kyverno MutatingPolicy that injects LBIPAM sharing annotations onto Cilium-owned Gateway services. Fixes a create-then-patch race in cilium-operator that would otherwise prevent IP sharing on first reconcile.
+Enables `gatewayAPI` on the Cilium HelmRelease.
+
+### `cilium/gateway/lbipam`
+
+_Enabled when `gateway.driver: cilium` AND no cloud LB controller (Hetzner's hcloud CCM) owns Service IPs._
+
+Ships the `cilium-gateway-lbipam-sharing` Kyverno MutatingPolicy. It stamps LBIPAM IP and sharing annotations onto each Cilium gateway Service at creation, reading the IP from the gateway add-on's `cilium-lbipam-config-<gateway>` ConfigMap.
 
 ### `cilium/prometheus`
 
@@ -165,7 +168,7 @@ Hubble metrics (dns, drop, port-distribution, tcp, flow, icmp, http), Hubble Rel
 
 ### `cilium/l2`
 
-_Enabled when platform is Talos._
+_Enabled when platform is Talos AND no cloud LB controller (Hetzner's hcloud CCM) owns Service IPs._
 
 Present in both tiers under the same name. The install tier enables `l2announcements` on the HelmRelease. The resources tier (`cni-resources`) creates `CiliumL2AnnouncementPolicy/default` announcing on all interfaces, after the chart has installed its CRD. Replaces kube-vip and MetalLB on Talos.
 
@@ -177,8 +180,7 @@ Present in both tiers under the same name. The install tier enables `l2announcem
 
 | Add-on | Required when | Reason |
 |---|---|---|
-| `policy-resources` | `policies.enabled: true` or `gateway.driver: cilium` | Re-rolls Cilium pods after Kyverno's mutation policies are live. When `cilium/gateway` is active, also provides the Kyverno CRDs the LBIPAM sharing MutatingPolicy depends on. |
-| `telemetry-install` | `telemetry.metrics.enabled: true` or `telemetry.logs.enabled: true` | The `cilium/prometheus` ServiceMonitor and the Hubble ServiceMonitor target Prometheus from telemetry. |
+| `policy-resources` | `policies.enabled` (default `true`) | Global dependency of every add-on. Provides the Kyverno CRDs the `cilium/gateway/lbipam` MutatingPolicy needs. |
 
 
 ## See also

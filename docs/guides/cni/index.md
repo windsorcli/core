@@ -23,10 +23,11 @@ cluster:
 |---|---|
 | Talos on docker-desktop | `flannel` |
 | Talos on Incus with Colima | `flannel` |
+| Talos on Hyper-V | `flannel` |
 | Any other Talos cluster | `cilium` |
 | EKS, AKS, and GKE | Not set. The cloud's managed CNI runs, and Core installs none. |
 
-An explicit `cluster.cni.driver` wins on Talos. Because the driver changes the Talos machine config, set it before the first apply. The Cilium add-on is built for Talos. EKS can opt in with the same setting, but that path is untested. AKS and GKE keep their managed CNIs, and GKE's Dataplane V2 is already Google's managed Cilium.
+On Talos an explicit `cluster.cni.driver` overrides the default. Set it before the first apply, since it changes the Talos machine config. The Cilium add-on targets Talos. EKS can opt in with the same setting, but that path is untested. AKS and GKE keep their managed CNIs, and GKE's Dataplane V2 is already Google's managed Cilium.
 
 ## What depends on the driver
 
@@ -36,9 +37,10 @@ An explicit `cluster.cni.driver` wins on Talos. Because the driver changes the T
 | LoadBalancer addresses | Cilium announces them over L2 from `network.loadbalancer_ips`, with no extra controller. | Needs MetalLB or kube-vip, set with `network.loadbalancer_driver`. See [kustomize/lb](../../../kustomize/lb). |
 | Default [gateway](../gateway/index.md) driver | `cilium` | `envoy` |
 | NetworkPolicy | Cilium enforces it. | Flannel does not enforce it. |
-| Observability | Hubble, Cilium metrics, and a Cilium dashboard. | Not installed. |
+| Pod traffic encryption | Cilium supports WireGuard encryption between nodes. Core does not turn it on yet. | Not available. |
+| Observability | Hubble, Cilium metrics, and Cilium and Hubble dashboards. | Not installed. |
 
-Two add-ons wait for the Cilium install. The Cilium gateway waits so its Service gets an address, and the CSI storage driver waits because it can crash-loop if it starts while Cilium's eBPF programs are still loading.
+Three add-ons wait for the Cilium install. The Cilium gateway waits so its Service gets an address, and private DNS waits too when the gateway driver is `cilium`. The CSI storage driver can crash-loop if it starts while Cilium's eBPF programs are loading.
 
 ## Configuration
 
@@ -47,7 +49,7 @@ Two add-ons wait for the Cilium install. The Cilium gateway waits so its Service
 | `cluster.cni.driver` | string | by cluster | `cilium` or `flannel`. |
 | `network.loadbalancer_ips.start` | string | derived | First address of the load balancer pool. |
 | `network.loadbalancer_ips.end` | string | derived | Last address of the load balancer pool. |
-| `network.loadbalancer_driver` | string | none | `metallb`, `kube-vip`, or `none`. Used with Flannel. Ignored with Cilium. |
+| `network.loadbalancer_driver` | string | `kube-vip` on Incus with Colima, otherwise none | `metallb`, `kube-vip`, or `none`. Used with Flannel. Ignored with Cilium. |
 | `topology` | string | derived | `single-node` runs one Cilium operator. Everything else runs two. |
 | `telemetry.metrics.enabled` | boolean | `true` | Scrape Cilium and Hubble metrics with Prometheus. |
 

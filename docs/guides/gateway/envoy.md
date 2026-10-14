@@ -3,7 +3,7 @@ title: Envoy Gateway
 description: Envoy Gateway as the cluster gateway driver, with a dedicated Envoy data plane in system-gateway.
 ---
 
-Envoy Gateway is the default driver on AWS, on docker-desktop, and on any cluster that does not use the [Cilium CNI](../cni/cilium.md). It runs its own controller and a dedicated Envoy proxy per Gateway, and costs more resources than the [Cilium](cilium.md) driver, which reuses the Envoy that Cilium already runs on each node. In return you get Envoy's route extensions: `HTTPRouteFilter`, external authorization, and response rewrites.
+Envoy Gateway is the default driver on AWS, on docker-desktop, and on any cluster without the [Cilium CNI](../cni/cilium.md). It runs its own controller and an Envoy proxy per Gateway. [Choosing a driver](index.md#choosing-a-driver) compares it with the [Cilium](cilium.md) driver.
 
 ## Turn it on
 
@@ -22,7 +22,7 @@ external-dns also publishes the apex and a wildcard record (`example.com` and `*
 
 ## Data plane Service
 
-Each Gateway references an `EnvoyProxy` of the same name that configures its proxy. It pins the Envoy image by digest, which the cluster's Kyverno policy requires, and sets the platform-critical priority class. The Service type follows `gateway.service_type`:
+Each Gateway references an `EnvoyProxy` of the same name that configures its proxy. The Service type follows `gateway.service_type`:
 
 | Environment | Service | Added |
 |---|---|---|
@@ -31,6 +31,7 @@ Each Gateway references an `EnvoyProxy` of the same name that configures its pro
 | GCP, `internal` | `LoadBalancer` | The internal load balancer annotation (`networking.gke.io/load-balancer-type: Internal`). |
 | Hetzner, `external` | `LoadBalancer` | Annotations for a Hetzner Cloud load balancer in `hetzner.location` (default `ash`) that targets the nodes' private IPs. |
 | Local with MetalLB or kube-vip | `LoadBalancer` | A fixed address from `network.loadbalancer_ips`: `start` for `internal`, the next address for `external` when both exist. |
+| Local with the Cilium CNI | `LoadBalancer` | The same addresses, requested from Cilium LB IPAM through the `lbipam.cilium.io/ips` annotation. |
 | Azure or GCP, `external` | `LoadBalancer` | None. The cloud controller assigns an address. |
 | docker-desktop, or `service_type: NodePort` | `NodePort` | Extra node ports, listed below. |
 
@@ -40,30 +41,36 @@ docker-desktop publishes `internal` on host ports `8443` and `8080`, and `extern
 
 ## Private DNS
 
-`dns.private.enabled` adds UDP and TCP listeners on port 53 to the `internal` Gateway and routes them to CoreDNS. On docker-desktop, a second Service at the fixed address `10.96.0.53` selects the same `internal` Envoy pods. external-dns points the workstation domain at that address, so a pod that resolves `grafana.test` reaches a listener on the right port. The zone itself is covered under [Private zones](../dns/private.md).
+`dns.private.enabled` adds UDP and TCP listeners on port 53 to the `internal` Gateway and routes them to CoreDNS. On docker-desktop, pods reach `internal` hostnames on the same ports a browser uses, such as `https://grafana.test:8443`. The zone itself is covered under [Private zones](../dns/private.md).
 
 ## Monitoring
 
-With `telemetry.metrics.enabled`, Prometheus scrapes the proxies through a PodMonitor and the operator through a ServiceMonitor. The operator installs after the telemetry stack. `observability.enabled` adds an Envoy dashboard.
+With `telemetry.metrics.enabled`, Prometheus scrapes the proxies through a PodMonitor and the operator through a ServiceMonitor, and the operator installs after the telemetry stack. Alert rules fire on proxy liveness, empty or unhealthy upstreams, 5xx error rates, TLS errors and certificate expiry, and failed config pushes from the operator. When the `internal` Gateway exists, `observability.enabled` adds the Envoy Gateway and Envoy proxy dashboards to Grafana.
 
 ## Under the hood
 
 ```mermaid
 flowchart LR
   client[Browser or client]
-  routes[HTTPRoutes from apps]
-  cert[Certificate<br/>pki ClusterIssuer]
 
-  subgraph systemgateway[system-gateway]
-    operator[Envoy Gateway operator]
-    gateway[Gateway external or internal]
-    proxy_cr[EnvoyProxy per Gateway]
-    envoy[Envoy Deployment]
-    svc[Service]
+  subgraph network[Network]
+    lb[Load balancer or node port]
+
+    subgraph cluster[Kubernetes cluster]
+      routes[HTTPRoutes from apps]
+      cert[Certificate<br/>pki ClusterIssuer]
+
+      subgraph systemgateway[system-gateway]
+        operator[Envoy Gateway operator]
+        gateway[Gateway external or internal]
+        proxy_cr[EnvoyProxy per Gateway]
+        envoy[Envoy Deployment]
+        svc[Service]
+      end
+
+      apps[App Services]
+    end
   end
-
-  lb[Load balancer or node port]
-  apps[App Services]
 
   operator -->|programs| envoy
   gateway -->|parametersRef| proxy_cr
@@ -79,7 +86,7 @@ flowchart LR
   class cert,operator,gateway,proxy_cr,envoy,svc k8s
 ```
 
-TLS ends at Envoy, using a certificate from one of the [cluster issuers](../pki/index.md). The Gateway waits for the `pki` resources tier so the issuer exists when the certificate is requested. Each Gateway has its own `EnvoyProxy`, and there is no controller-wide default.
+TLS ends at Envoy, using a certificate from one of the [cluster issuers](../pki/index.md). The Gateway waits for the `pki` resources tier so the issuer exists when the certificate is requested.
 
 ## Reference
 

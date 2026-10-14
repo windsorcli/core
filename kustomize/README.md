@@ -24,7 +24,7 @@ composition. Links from there land here.
 | [dns](dns/) | external-dns for hostname publication and (opt-in) coredns for in-cluster private DNS. |
 | [gateway](gateway/) | Gateway API implementation (Envoy Gateway or Cilium) and the cluster's external and internal Gateways. |
 | [identity](identity/) | Cluster identity provider (SSO) — hosted Keycloak or an external OIDC issuer. |
-| [lb](lb/) | LoadBalancer Service implementation (AWS LB Controller, MetalLB, or kube-vip) for non-managed clusters. |
+| [lb](lb/) | LoadBalancer Service implementation (AWS LB Controller, Hetzner cloud controller, MetalLB, or kube-vip). |
 | [object-store](object-store/) | MinIO Operator for in-cluster S3-compatible object storage. |
 | [observability](observability/) | Grafana dashboards and the cluster's log store (stdout, Quickwit, or Elasticsearch + Kibana). |
 | [pki](pki/) | cert-manager, trust-manager, and the cluster's ClusterIssuers (selfsigned, private CA, ACME). |
