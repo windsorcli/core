@@ -2,5 +2,8 @@ apiVersion: gateway.networking.k8s.io/v1
 kind: GatewayClass
 metadata:
   name: cilium
+  annotations:
+    # Stops a Cilium Helm upgrade from deleting a class its older release rendered.
+    helm.sh/resource-policy: keep
 spec:
   controllerName: io.cilium/gateway-controller
