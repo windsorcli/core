@@ -170,7 +170,6 @@ spec:
               rsp.desired.resources["monitor-role"].resource.update(build_monitor_role(server_name))
               role_ready = is_ready(req, "monitor-role")
               if role_ready:
-                  # ready is a protobuf enum. Python True is rejected with TypeError.
                   rsp.desired.resources["monitor-role"].ready = fnv1.READY_TRUE
 
               # Withheld until the Role exists in Postgres: provider-sql would

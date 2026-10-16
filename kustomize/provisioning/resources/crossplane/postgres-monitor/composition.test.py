@@ -2,8 +2,7 @@
 
 Run via scripts/test-composition-functions.sh, which extracts the script's
 text into a real .py file and points COMPOSITION_SCRIPT at it. Builder
-functions are exercised directly. compose() is exercised with fakes where
-it assigns Resource.ready, because that field is a protobuf enum.
+functions are exercised directly, and compose() runs against stubbed SDK types.
 """
 
 import importlib.util
@@ -26,7 +25,7 @@ def _stub_crossplane_sdk():
     run_function_pb2_mod = types.SimpleNamespace(
         RunFunctionRequest=object,
         RunFunctionResponse=object,
-        READY_TRUE=1,
+        READY_TRUE="READY_TRUE",
     )
 
     crossplane_mod.function = function_mod

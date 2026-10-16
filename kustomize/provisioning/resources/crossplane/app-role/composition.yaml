@@ -114,8 +114,6 @@ spec:
               )
               role_ready = is_ready(req, "role")
               if role_ready:
-                  # ready is a protobuf enum. Python True is rejected with
-                  # TypeError, which aborts compose before the grants are written.
                   rsp.desired.resources["role"].ready = fnv1.READY_TRUE
 
               # Withheld until the Role exists in Postgres: provider-sql would

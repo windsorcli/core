@@ -26,7 +26,7 @@ def _stub_crossplane_sdk():
     run_function_pb2_mod = types.SimpleNamespace(
         RunFunctionRequest=object,
         RunFunctionResponse=object,
-        READY_TRUE=1,
+        READY_TRUE="READY_TRUE",
     )
 
     crossplane_mod.function = function_mod
