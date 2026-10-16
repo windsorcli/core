@@ -173,6 +173,7 @@ properties:
       - docker
       - hyperv
       - vsphere
+      - proxmox
     default: none
     description: Infrastructure platform. Selects the platform facet (cluster driver defaults, policy, PKI, telemetry, ingress, storage).
 
@@ -432,6 +433,62 @@ properties:
           Required when the datacenter has more than one host; leave unset
           only for single-host datacenters.
     description: VMware vSphere infrastructure configuration
+
+  # Proxmox VE configuration, read only when platform == 'proxmox'.
+  proxmox:
+    type: object
+    additionalProperties: false
+    properties:
+      node:
+        type: string
+        description: Proxmox VE node that hosts the Talos VMs (e.g. "pve"). Required.
+      datastore:
+        type: string
+        default: local-lvm
+        description: Datastore for VM disks, EFI disks, and cloud-init drives.
+      image_datastore:
+        type: string
+        default: local
+        description: Datastore that receives the Talos disk image. It must allow the import content type (Proxmox VE 8.4 or later).
+      bridge:
+        type: string
+        default: vmbr0
+        description: Linux bridge the VM NICs attach to. network.cidr_block describes the LAN behind it.
+      vlan_id:
+        type: integer
+        minimum: 1
+        maximum: 4094
+        description: VLAN tag for the VM NICs. Unset leaves them untagged.
+      arch:
+        type: string
+        enum:
+          - amd64
+          - arm64
+        default: amd64
+        description: Node architecture. arm64 selects the nocloud-arm64 image, the virt machine, OVMF firmware, and the host CPU type.
+      cpu_type:
+        type: string
+        description: QEMU CPU type. Unset selects x86-64-v2-AES on amd64 and host on arm64. Talos needs x86-64-v2 or newer on amd64.
+      bios:
+        type: string
+        enum:
+          - seabios
+          - ovmf
+        default: seabios
+        description: Firmware for amd64 VMs. ovmf adds an EFI disk. arm64 VMs always use ovmf.
+      pool:
+        type: string
+        pattern: "^[A-Za-z0-9_-]+$"
+        description: Existing resource pool the VMs join. Unset leaves them outside any pool.
+      vm_id_start:
+        type: integer
+        minimum: 100
+        maximum: 999999000
+        description: >-
+          First VM ID of a free range. Control plane N takes vm_id_start + N - 1
+          and worker N takes vm_id_start + 9 + N. Unset lets Proxmox pick the
+          next free ID.
+    description: Proxmox VE infrastructure configuration
 
   # Free-form env vars injected by `windsor exec` and into terraform applies.
   # Keyed by env-var name; values are strings (quote numerics in YAML).
@@ -765,7 +822,7 @@ properties:
           Cluster network CIDR. Windsor either creates this network
           (cloud VPCs, incus bridges, docker bridges, hyperv NodePort
           NetNat) or attaches to an existing one at this address (metal,
-          vSphere, hyperv with net_adapter). Override when the default
+          vSphere, Proxmox, hyperv with net_adapter). Override when the default
           conflicts with existing routes on the host. On gcp, 172.16.0.0/12
           is reserved for the cluster's pod and Service ranges, the control
           plane, and Cloud SQL's private service range.
@@ -775,7 +832,8 @@ properties:
         description: >
           IPv4 default-route gateway for the cluster network. Required for
           platforms that deliver static network config to the guest (Hyper-V
-          CIDATA, vSphere guestinfo). Defaults to cidrhost(cidr_block, 1).
+          CIDATA, vSphere guestinfo, Proxmox cloud-init). Defaults to
+          cidrhost(cidr_block, 1).
           Set explicitly when the router is not the first usable host (for
           example a /22 plant LAN shared by more than one cluster).
       nameservers:
@@ -791,10 +849,11 @@ properties:
         type: boolean
         default: false
         description: >
-          When true, Hyper-V and vSphere guests take IPv4 from DHCP instead of
-          static addresses (cluster.*.nodes or cidrhost offsets). Hyper-V CIDATA
-          uses dhcp4; compute omits ipv4 and surfaces leased IPs from
-          integration services (Hyper-V) or vmtoolsd (vSphere). cluster.endpoint
+          When true, Hyper-V, vSphere, and Proxmox guests take IPv4 from DHCP
+          instead of static addresses (cluster.*.nodes or cidrhost offsets).
+          Hyper-V CIDATA uses dhcp4; compute omits ipv4 and surfaces leased IPs
+          from integration services (Hyper-V), vmtoolsd (vSphere), or
+          qemu-guest-agent (Proxmox). cluster.endpoint
           is optional and otherwise derived from the first control-plane output,
           except with the cilium CNI, which needs a fixed endpoint. Unset or
           false keeps static addressing. NodePort NAT still uses static guest IPs.
@@ -870,9 +929,9 @@ properties:
           nodes:
             <<: *nodesSchema
             description: >
-              Named control plane node configurations. On Hyper-V and vSphere,
-              node/endpoint IPv4 is the guest NIC address unless network.dhcp is
-              true; network.cidr_block and network.gateway stay the shared LAN.
+              Named control plane node configurations. On Hyper-V, vSphere, and
+              Proxmox, node/endpoint IPv4 is the guest NIC address unless
+              network.dhcp is true; network.cidr_block and network.gateway stay the shared LAN.
               Hyper-V names guests by pool position (controlplane, or
               controlplane-N when count > 1) and ignores hostname, which keys
               the VM, its disk and its seed ISO.
@@ -891,7 +950,7 @@ properties:
           nodes:
             <<: *nodesSchema
             description: >
-              Named worker node configurations. On Hyper-V and vSphere,
+              Named worker node configurations. On Hyper-V, vSphere, and Proxmox,
               node/endpoint IPv4 is the guest NIC address unless network.dhcp is
               true. On Hyper-V, hostname is ignored the same way it is for
               control planes.

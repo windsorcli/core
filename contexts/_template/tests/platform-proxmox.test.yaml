@@ -1,0 +1,649 @@
+# platform-proxmox.yaml facet tests
+# Tests the Proxmox VE compute platform with Talos cluster infrastructure.
+
+x-defaults:
+  network: &default-network
+    cidr_block: 10.10.0.0/24
+    loadbalancer_ips:
+      start: "10.10.0.100"
+      end: "10.10.0.110"
+
+  cluster: &default-cluster
+    driver: talos
+    controlplanes:
+      count: 1
+    workers:
+      count: 0
+
+  proxmox: &default-proxmox
+    node: pve
+
+  terraform-outputs: &default-terraform-outputs
+    compute:
+      controlplanes:
+        - endpoint: 10.10.0.10:50000
+          node: 10.10.0.10
+          hostname: controlplane
+          instance_id: "100"
+          config_patches: "machine: {}"
+      workers: []
+
+cases:
+  # Minimal: only proxmox.node set. Verifies the compute → cluster → gitops chain and the module defaults.
+  - name: proxmox minimal config creates compute cluster and gitops steps
+    values:
+      platform: proxmox
+      gateway:
+        enabled: false
+      network: *default-network
+      cluster: *default-cluster
+      proxmox: *default-proxmox
+    expect:
+      terraform:
+        - name: compute
+          path: compute/proxmox
+          inputs:
+            node_name: pve
+            datastore_id: local-lvm
+            image_datastore_id: local
+            network_bridge: vmbr0
+            arch: amd64
+            bios: seabios
+            network_cidr: 10.10.0.0/24
+            network_gateway: 10.10.0.1
+            network_nameservers:
+              - "1.1.1.1"
+              - "8.8.8.8"
+            images:
+              talos:
+                url: https://factory.talos.dev/image/ce4c980550dd2ab1b17bbf2b08801c7eb59418eafe8f279833297925d67c7515/v1.14.2/nocloud-amd64.qcow2
+                file_name: talos-v1.14.2-ce4c9805-amd64.qcow2
+            instances:
+              - name: controlplane
+                role: controlplane
+                image: talos
+                count: 1
+                ipv4: 10.10.0.10
+                root_disk_size: 30
+                notes: Talos control plane node
+        - name: cluster
+          path: cluster/talos
+          dependsOn:
+            - compute
+          parallelism: 1
+          inputs:
+            cluster_name: talos
+            cluster_endpoint: https://10.10.0.10:6443
+        - name: gitops
+          path: gitops/flux
+          dependsOn:
+            - cluster
+          destroy: false
+
+  # Explicit cluster.endpoint wins over the first control-plane address.
+  - name: proxmox explicit cluster endpoint flows through to cluster step
+    values:
+      platform: proxmox
+      gateway:
+        enabled: false
+      network: *default-network
+      cluster:
+        driver: talos
+        endpoint: https://10.10.0.5:6443
+        controlplanes:
+          count: 1
+        workers:
+          count: 0
+      proxmox: *default-proxmox
+    expect:
+      terraform:
+        - name: cluster
+          inputs:
+            cluster_endpoint: https://10.10.0.5:6443
+
+  # The cluster step takes compute's node list, including its per-node patches and instance ids.
+  - name: proxmox cluster step consumes compute output
+    values:
+      platform: proxmox
+      gateway:
+        enabled: false
+      network: *default-network
+      cluster: *default-cluster
+      proxmox: *default-proxmox
+    terraformOutputs: *default-terraform-outputs
+    expect:
+      terraform:
+        - name: cluster
+          inputs:
+            controlplanes:
+              - endpoint: 10.10.0.10:50000
+                node: 10.10.0.10
+                hostname: controlplane
+                instance_id: "100"
+                config_patches: "machine: {}"
+            workers: []
+
+  # Workers get cidrhost offset 20 and pool position names.
+  - name: proxmox workers get cidrhost offset 20 and pool names
+    values:
+      platform: proxmox
+      gateway:
+        enabled: false
+      network: *default-network
+      cluster:
+        driver: talos
+        controlplanes:
+          count: 1
+        workers:
+          count: 2
+      proxmox: *default-proxmox
+    expect:
+      terraform:
+        - name: compute
+          inputs:
+            instances:
+              - name: controlplane
+                role: controlplane
+                ipv4: 10.10.0.10
+              - name: worker-1
+                role: worker
+                ipv4: 10.10.0.20
+                root_disk_size: 50
+                notes: Talos worker node
+              - name: worker-2
+                role: worker
+                ipv4: 10.10.0.21
+
+  # Declared node IPs on a shared LAN override the cidrhost offsets.
+  - name: proxmox declared node IPs override cidrhost offsets
+    values:
+      platform: proxmox
+      gateway:
+        enabled: false
+      network: *default-network
+      cluster:
+        driver: talos
+        controlplanes:
+          count: 3
+          nodes:
+            controlplane-1:
+              node: 10.10.0.51
+              endpoint: 10.10.0.51:50000
+            controlplane-2:
+              node: 10.10.0.52
+              endpoint: 10.10.0.52:50000
+            controlplane-3:
+              node: 10.10.0.53
+              endpoint: 10.10.0.53:50000
+        workers:
+          count: 0
+      proxmox: *default-proxmox
+    expect:
+      terraform:
+        - name: compute
+          inputs:
+            instances:
+              - name: controlplane-1
+                ipv4: 10.10.0.51
+              - name: controlplane-2
+                ipv4: 10.10.0.52
+              - name: controlplane-3
+                ipv4: 10.10.0.53
+        - name: cluster
+          inputs:
+            cluster_endpoint: https://10.10.0.51:6443
+
+  # A sparse nodes map keeps declared IPs and falls back to cidrhost for the rest.
+  - name: proxmox sparse nodes map falls back to cidrhost
+    values:
+      platform: proxmox
+      gateway:
+        enabled: false
+      network: *default-network
+      cluster:
+        driver: talos
+        controlplanes:
+          count: 1
+        workers:
+          count: 2
+          nodes:
+            worker-2:
+              node: 10.10.0.99
+              endpoint: 10.10.0.99:50000
+      proxmox: *default-proxmox
+    expect:
+      terraform:
+        - name: compute
+          inputs:
+            instances:
+              - name: controlplane
+                ipv4: 10.10.0.10
+              - name: worker-1
+                ipv4: 10.10.0.20
+              - name: worker-2
+                ipv4: 10.10.0.99
+
+  # Optional proxmox keys flow through to the compute inputs.
+  - name: proxmox optional settings flow through to compute inputs
+    values:
+      platform: proxmox
+      gateway:
+        enabled: false
+      network: *default-network
+      cluster: *default-cluster
+      proxmox:
+        node: pve2
+        datastore: ceph-vm
+        image_datastore: cephfs
+        bridge: vmbr1
+        vlan_id: 30
+        cpu_type: host
+        bios: ovmf
+    expect:
+      terraform:
+        - name: compute
+          inputs:
+            node_name: pve2
+            datastore_id: ceph-vm
+            image_datastore_id: cephfs
+            network_bridge: vmbr1
+            vlan_id: 30
+            cpu_type: host
+            bios: ovmf
+
+  # arm64 selects the nocloud-arm64 image and passes the architecture to the module.
+  - name: proxmox arm64 selects the arm64 image
+    values:
+      platform: proxmox
+      gateway:
+        enabled: false
+      network: *default-network
+      cluster: *default-cluster
+      proxmox:
+        node: pve
+        arch: arm64
+    expect:
+      terraform:
+        - name: compute
+          inputs:
+            arch: arm64
+            images:
+              talos:
+                url: https://factory.talos.dev/image/ce4c980550dd2ab1b17bbf2b08801c7eb59418eafe8f279833297925d67c7515/v1.14.2/nocloud-arm64.qcow2
+                file_name: talos-v1.14.2-ce4c9805-arm64.qcow2
+
+  # The context id suffixes VM names and the image file so contexts can share one node.
+  - name: proxmox context id suffixes vm names and the image file
+    values:
+      platform: proxmox
+      id: lab
+      gateway:
+        enabled: false
+      network: *default-network
+      cluster: *default-cluster
+      proxmox: *default-proxmox
+    expect:
+      terraform:
+        - name: compute
+          inputs:
+            name_suffix: "-lab"
+            images:
+              talos:
+                file_name: talos-v1.14.2-ce4c9805-amd64-lab.qcow2
+
+  # A pool and a VM ID range place Windsor's VMs on a shared host.
+  - name: proxmox pool and vm_id_start flow through to compute
+    values:
+      platform: proxmox
+      gateway:
+        enabled: false
+      network: *default-network
+      cluster:
+        driver: talos
+        controlplanes:
+          count: 3
+        workers:
+          count: 2
+      proxmox:
+        node: pve
+        pool: windsor
+        vm_id_start: 9000
+    expect:
+      terraform:
+        - name: compute
+          inputs:
+            pool_id: windsor
+            instances:
+              - name: controlplane-1
+                vm_id: 9000
+              - name: controlplane-2
+                vm_id: 9001
+              - name: controlplane-3
+                vm_id: 9002
+              - name: worker-1
+                vm_id: 9010
+              - name: worker-2
+                vm_id: 9011
+
+  # Schema: a VM ID start below the Proxmox minimum fails validation.
+  - name: proxmox vm_id_start below 100 fails validation
+    values:
+      platform: proxmox
+      gateway:
+        enabled: false
+      network: *default-network
+      cluster: *default-cluster
+      proxmox:
+        node: pve
+        vm_id_start: 99
+    expectError: true
+
+  # Schema: a pool name with characters Proxmox rejects fails validation.
+  - name: proxmox invalid pool name fails validation
+    values:
+      platform: proxmox
+      gateway:
+        enabled: false
+      network: *default-network
+      cluster: *default-cluster
+      proxmox:
+        node: pve
+        pool: "windsor/pool"
+    expectError: true
+
+  # The install image is the nocloud installer for the qemu-guest-agent schematic.
+  - name: proxmox install image is the nocloud installer for the schematic
+    values:
+      platform: proxmox
+      gateway:
+        enabled: false
+      network: *default-network
+      cluster: *default-cluster
+      proxmox: *default-proxmox
+    expect:
+      config:
+        talos_common:
+          common_patch:
+            machine:
+              install:
+                image: factory.talos.dev/nocloud-installer/ce4c980550dd2ab1b17bbf2b08801c7eb59418eafe8f279833297925d67c7515:v1.14.2
+
+  # DHCP with flannel: no static ipv4, and the API URL comes from compute's agent-reported address.
+  - name: proxmox dhcp with flannel derives the endpoint from compute output
+    values:
+      platform: proxmox
+      gateway:
+        enabled: false
+      network:
+        cidr_block: 10.10.0.0/24
+        dhcp: true
+        loadbalancer_ips:
+          start: "10.10.0.100"
+          end: "10.10.0.110"
+      cluster:
+        driver: talos
+        cni:
+          driver: flannel
+        controlplanes:
+          count: 1
+        workers:
+          count: 0
+      proxmox: *default-proxmox
+    terraformOutputs:
+      compute:
+        controlplanes:
+          - endpoint: 10.10.0.77:50000
+            node: 10.10.0.77
+            hostname: controlplane
+        workers: []
+    expect:
+      terraform:
+        - name: compute
+          inputs:
+            instances:
+              - name: controlplane
+                ipv4: null
+        - name: cluster
+          inputs:
+            cluster_endpoint: https://10.10.0.77:6443
+
+  # DHCP ignores declared node IPs.
+  - name: proxmox dhcp ignores declared node IPs
+    values:
+      platform: proxmox
+      gateway:
+        enabled: false
+      network:
+        cidr_block: 10.10.0.0/24
+        dhcp: true
+        loadbalancer_ips:
+          start: "10.10.0.100"
+          end: "10.10.0.110"
+      cluster:
+        driver: talos
+        endpoint: https://10.10.0.5:6443
+        controlplanes:
+          count: 1
+          nodes:
+            controlplane-1:
+              node: 10.10.0.51
+              endpoint: 10.10.0.51:50000
+        workers:
+          count: 0
+      proxmox: *default-proxmox
+    terraformOutputs:
+      compute:
+        controlplanes: []
+        workers: []
+    expect:
+      terraform:
+        - name: compute
+          inputs:
+            instances:
+              - name: controlplane
+                ipv4: null
+        - name: cluster
+          inputs:
+            cluster_endpoint: https://10.10.0.5:6443
+            controlplanes: []
+
+  # DHCP with Cilium composes once cluster.endpoint is fixed.
+  - name: proxmox dhcp with cilium and an explicit endpoint composes
+    values:
+      platform: proxmox
+      gateway:
+        enabled: false
+      network:
+        cidr_block: 10.10.0.0/24
+        dhcp: true
+        loadbalancer_ips:
+          start: "10.10.0.100"
+          end: "10.10.0.110"
+      cluster:
+        driver: talos
+        endpoint: https://10.10.0.5:6443
+        controlplanes:
+          count: 1
+        workers:
+          count: 0
+      proxmox: *default-proxmox
+    expect:
+      terraform:
+        - name: cluster
+          inputs:
+            cluster_endpoint: https://10.10.0.5:6443
+
+  # pki.enabled makes the cluster step wait for the pki/ca step.
+  - name: proxmox pki enabled orders the cluster step after pki
+    values:
+      platform: proxmox
+      gateway:
+        enabled: false
+      network: *default-network
+      cluster: *default-cluster
+      proxmox: *default-proxmox
+      pki:
+        enabled: true
+    expect:
+      terraform:
+        - name: cluster
+          dependsOn:
+            - compute
+            - pki
+
+  # kube-vip lands as the in-cluster LB when the CNI is flannel.
+  - name: proxmox kube-vip lb install lands with flannel CNI
+    values:
+      platform: proxmox
+      gateway:
+        enabled: false
+      network:
+        cidr_block: 10.10.0.0/24
+        loadbalancer_driver: kube-vip
+        loadbalancer_mode: arp
+        loadbalancer_ips:
+          start: "10.10.0.100"
+          end: "10.10.0.110"
+      cluster:
+        driver: talos
+        cni:
+          driver: flannel
+        controlplanes:
+          count: 1
+        workers:
+          count: 0
+      proxmox: *default-proxmox
+    expect:
+      flux:
+        - name: lb
+          install:
+            components:
+              - kube-vip
+              - kube-vip/arp
+            substitutions:
+              loadbalancer_ip_range: 10.10.0.100-10.10.0.110
+
+  # Gateway and nameservers default from cidr_block for static guests.
+  - name: proxmox network gateway and nameservers default from cidr_block
+    values:
+      platform: proxmox
+      gateway:
+        enabled: false
+      network: *default-network
+      cluster: *default-cluster
+      proxmox: *default-proxmox
+    expect:
+      config:
+        network_effective:
+          gateway: 10.10.0.1
+        network:
+          nameservers:
+            - "1.1.1.1"
+            - "8.8.8.8"
+
+  # An explicit network.gateway wins over the cidr_block default.
+  - name: proxmox explicit network gateway flows to compute
+    values:
+      platform: proxmox
+      gateway:
+        enabled: false
+      network:
+        cidr_block: 10.10.0.0/24
+        gateway: 10.10.0.254
+        nameservers:
+          - 10.10.0.2
+        loadbalancer_ips:
+          start: "10.10.0.100"
+          end: "10.10.0.110"
+      cluster: *default-cluster
+      proxmox: *default-proxmox
+    expect:
+      terraform:
+        - name: compute
+          inputs:
+            network_gateway: 10.10.0.254
+            network_nameservers:
+              - 10.10.0.2
+
+  # dns.private_domain defaults to '<id>.local' when no dns.domain is set.
+  - name: proxmox dns.private_domain defaults to id.local
+    values:
+      platform: proxmox
+      id: example
+      gateway:
+        enabled: false
+      network: *default-network
+      cluster: *default-cluster
+      proxmox: *default-proxmox
+    expect:
+      config:
+        dns:
+          private_domain: example.local
+
+  # dns.private_domain falls back to dns.domain.
+  - name: proxmox dns.private_domain falls back to dns.domain
+    values:
+      platform: proxmox
+      gateway:
+        enabled: false
+      network: *default-network
+      cluster: *default-cluster
+      proxmox: *default-proxmox
+      dns:
+        domain: lab.example.com
+    expect:
+      config:
+        dns:
+          private_domain: lab.example.com
+
+  # Requires: missing proxmox.node fails composition.
+  - name: proxmox missing node fails composition
+    values:
+      platform: proxmox
+      gateway:
+        enabled: false
+      network: *default-network
+      cluster: *default-cluster
+    expectError: true
+
+  # Requires: DHCP with Cilium and no cluster.endpoint fails composition.
+  - name: proxmox dhcp with cilium and no endpoint fails composition
+    values:
+      platform: proxmox
+      gateway:
+        enabled: false
+      network:
+        cidr_block: 10.10.0.0/24
+        dhcp: true
+        loadbalancer_ips:
+          start: "10.10.0.100"
+          end: "10.10.0.110"
+      cluster: *default-cluster
+      proxmox: *default-proxmox
+    expectError: true
+
+  # Schema: an unknown proxmox key fails validation.
+  - name: proxmox unknown key fails validation
+    values:
+      platform: proxmox
+      gateway:
+        enabled: false
+      network: *default-network
+      cluster: *default-cluster
+      proxmox:
+        node: pve
+        server: pve.example.lan
+    expectError: true
+
+  # Schema: an out-of-range VLAN tag fails validation.
+  - name: proxmox out-of-range vlan fails validation
+    values:
+      platform: proxmox
+      gateway:
+        enabled: false
+      network: *default-network
+      cluster: *default-cluster
+      proxmox:
+        node: pve
+        vlan_id: 4095
+    expectError: true
