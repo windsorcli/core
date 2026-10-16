@@ -31,11 +31,43 @@ description: Author and maintain docs for the core Windsor blueprint: Catalog gu
 
 ## Voice
 
-- **Reference only:** imperative, tables for inputs/vars, no marketing copy.
+The two kinds of docs here use different registers.
+
+**Reference (per-module and per-add-on READMEs):** imperative, tables for inputs/vars, no marketing copy.
+
+**Catalog guides (`docs/guides/`):** write like a technical book, not a reference manual.
+
+- **Problem, example, mechanism, rule.** Open a section with what the operator can't do without the setting, in one or two sentences tied to a real scenario. Show the smallest real `values.yaml` or manifest that does it. Walk through what the blueprint does with the parts that matter. Then state the general rule.
+- **Paragraphs carry the explanation.** Topic sentence first, each paragraph building on the last. A table or list is for lookup material only, such as the default driver per platform; it never stands in for how its rows relate.
+- **Define each term once, at first use, in *italics*.** Never use a key, resource, or namespace before the guide introduces it.
+- **A category reads in order.** A category's `index.md` introduces its shared terms and its running example; vendor pages reuse the same names and values (`my-app`, `my-app-db`) and link back to the index for the terms they assume.
+- **Introduce every listing with a full sentence** that names what it shows, not a bare colon or "the following." Afterward, explain the lines that matter by naming the key. Never "the manifest above."
+- **"You" for the reader; no authorial "we."**
+
+**Both:**
+
 - Link generic blueprint concepts to `https://www.windsorcli.dev/docs/blueprints/...` (schema, sharing, facets).
 - Load the `technical-writing` skill before drafting or editing any prose here; it's the baseline AI-tell catalog this section only adds to.
 - Never write "shape" for structure, layout, format, schema, or signature. Name the real one.
 - Avoid em dashes. Trading one for a colon or semicolon in the same spot isn't a fix; it keeps the same clause-stitching and just swaps the punctuation. Restructure instead: split the sentence, reorder the clause, or cut what wasn't carrying weight. The only em dashes that stay are `[Page — Section]` link labels and text inside code fences.
+- Never reference an ADR from a guide, README, or skill. ADRs are cleared after each release; restate the rule or behavior itself.
+
+### Callouts
+
+Put an aside that would interrupt the explanation in a GitHub alert. GitHub renders alerts natively, the site renders them in Catalog guides, and raw markdown shows a blockquote.
+
+```markdown
+> [!WARNING]
+> Deleting the `Instance` resource deletes the RDS instance it manages.
+```
+
+- `NOTE`: context the reader can skip without going wrong.
+- `TIP`: a faster way to do what the text just described.
+- `IMPORTANT`: a requirement the step depends on.
+- `WARNING`: destroys data or breaks a running cluster.
+- `CAUTION`: cannot be undone.
+
+The `[!TYPE]` marker sits alone on the first line. One point per callout, never two back to back, and rarely more than two or three on a page.
 
 ## Catalog guides (`docs/guides/`)
 
