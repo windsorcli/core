@@ -132,7 +132,9 @@ jobs:
       pull-requests: write
       issues: write
       id-token: write
+    needs: resolve-threads
     if: >-
+      !cancelled() &&
       github.event_name == 'issue_comment' &&
       github.event.issue.pull_request &&
       contains(github.event.comment.body, '/review') &&
@@ -247,19 +249,23 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 10
     if: >-
-      github.event_name == 'pull_request' &&
+      (github.event_name == 'pull_request' &&
       github.event.pull_request.head.repo.full_name == github.repository &&
       github.event.action == 'synchronize' &&
       github.event.pull_request.user.type != 'Bot' &&
       !contains(github.event.pull_request.labels.*.name, 'dependencies') &&
-      !github.event.pull_request.draft
+      !github.event.pull_request.draft) ||
+      (github.event_name == 'issue_comment' &&
+      github.event.issue.pull_request &&
+      contains(github.event.comment.body, '/review') &&
+      contains(fromJSON('["OWNER", "MEMBER", "COLLABORATOR"]'), github.event.comment.author_association))
     steps:
       - name: Check for unresolved bot threads
         id: check
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           GH_REPO: ${{ github.repository }}
-          PR_NUMBER: ${{ github.event.pull_request.number }}
+          PR_NUMBER: ${{ github.event.pull_request.number || github.event.issue.number }}
         run: |
           OWNER="${GH_REPO%/*}"
           REPO="${GH_REPO#*/}"
@@ -286,6 +292,7 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         if: steps.check.outputs.count != '0'
         with:
+          ref: ${{ github.event_name == 'issue_comment' && format('refs/pull/{0}/head', github.event.issue.number) || '' }}
           fetch-depth: 1
       - name: Stage the resolver from main
         if: steps.check.outputs.count != '0'
@@ -295,7 +302,7 @@ jobs:
       - uses: anthropics/claude-code-action@374f254f5efaf968abfe15d399fd90972e8138b9 # v1.0.251
         if: steps.check.outputs.count != '0'
         env:
-          PR_NUMBER: ${{ github.event.pull_request.number }}
+          PR_NUMBER: ${{ github.event.pull_request.number || github.event.issue.number }}
           GH_REPO: ${{ github.repository }}
         with:
           anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
@@ -320,7 +327,7 @@ jobs:
                       }
                     }
                   }
-                }' -F owner="${{ github.repository_owner }}" -F repo="${{ github.event.repository.name }}" -F num="${{ github.event.pull_request.number }}"
+                }' -F owner="${{ github.repository_owner }}" -F repo="${{ github.event.repository.name }}" -F num="${{ github.event.pull_request.number || github.event.issue.number }}"
 
             2. For each unresolved thread authored by the bot (login ending
                in `[bot]`, `github-actions`, or `claude`):
