@@ -5,7 +5,7 @@ metadata:
   name: provider-aws-rds
 spec:
   # renovate: datasource=docker depName=xpkg.upbound.io/upbound/provider-aws-rds package=xpkg.upbound.io/upbound/provider-aws-rds
-  package: xpkg.upbound.io/upbound/provider-aws-rds:v2.9.0@sha256:9fa7a94af86a6ce04f9cefedd33f8934b02a158a9bb296bd8eb87732c2559c80
+  package: xpkg.upbound.io/upbound/provider-aws-rds:v2.9.1@sha256:77c4b0f5b9a674226042bcd411ad50df4b9ac55bb22393cd9f01127caffdf519
   # provider-family-aws.yaml installs the dependency explicitly, pinned too.
   skipDependencyResolution: true
   runtimeConfigRef:
