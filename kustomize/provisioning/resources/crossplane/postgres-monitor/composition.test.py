@@ -1,10 +1,8 @@
 """Unit tests for postgres-monitor/composition.yaml's embedded script.
 
 Run via scripts/test-composition-functions.sh, which extracts the script's
-text into a real .py file and points COMPOSITION_SCRIPT at it. Only the
-pure builder functions are exercised here; compose() itself touches the
-Crossplane SDK's protobuf types and is covered by live reconciliation
-instead.
+text into a real .py file and points COMPOSITION_SCRIPT at it. Builder
+functions are exercised directly, and compose() runs against stubbed SDK types.
 """
 
 import importlib.util
@@ -27,6 +25,7 @@ def _stub_crossplane_sdk():
     run_function_pb2_mod = types.SimpleNamespace(
         RunFunctionRequest=object,
         RunFunctionResponse=object,
+        READY_TRUE="READY_TRUE",
     )
 
     crossplane_mod.function = function_mod
@@ -146,6 +145,67 @@ class BuildExporterServiceTests(unittest.TestCase):
         service = composition.build_exporter_service("demo-db-monitor")
         self.assertEqual(
             service["spec"]["selector"], {"app": "demo-db-monitor-exporter"}
+        )
+
+
+class ComposeReadyTests(unittest.TestCase):
+    def test_marks_ready_resources_with_the_proto_enum(self):
+        class Observed:
+            def __init__(self):
+                self.resource = {}
+
+        class Desired:
+            def __init__(self):
+                self.resource = {}
+                self.ready = None
+
+        observed = {
+            "monitor-role": Observed(),
+            "monitor-grant": Observed(),
+        }
+        desired = {
+            name: Desired()
+            for name in (
+                "monitor-role",
+                "monitor-grant",
+                "exporter-deployment",
+                "exporter-service",
+                "exporter-podmonitor",
+            )
+        }
+        req = types.SimpleNamespace(
+            observed=types.SimpleNamespace(
+                composite=types.SimpleNamespace(
+                    resource={
+                        "spec": {
+                            "serverName": "demo-db",
+                            "serverApiVersion": "sql.gcp.upbound.io/v1beta2",
+                            "serverKind": "DatabaseInstance",
+                        },
+                    }
+                ),
+                resources=observed,
+            )
+        )
+        rsp = types.SimpleNamespace(
+            desired=types.SimpleNamespace(resources=desired)
+        )
+        composition.resource.struct_to_dict = lambda value: value
+        composition.resource.get_condition = lambda obj, name: types.SimpleNamespace(
+            status="True"
+        )
+        composition.request.get_required_resource = lambda req, name: {
+            "metadata": {}
+        }
+        composition.response.require_resources = lambda *args, **kwargs: None
+
+        composition.compose(req, rsp)
+
+        self.assertEqual(desired["monitor-role"].ready, composition.fnv1.READY_TRUE)
+        self.assertEqual(desired["monitor-grant"].ready, composition.fnv1.READY_TRUE)
+        self.assertEqual(
+            desired["monitor-grant"].resource["spec"]["forProvider"]["memberOf"],
+            "pg_monitor",
         )
 
 
