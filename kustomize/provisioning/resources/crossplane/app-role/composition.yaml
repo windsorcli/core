@@ -114,7 +114,9 @@ spec:
               )
               role_ready = is_ready(req, "role")
               if role_ready:
-                  rsp.desired.resources["role"].ready = True
+                  # ready is a protobuf enum. Python True is rejected with
+                  # TypeError, which aborts compose before the grants are written.
+                  rsp.desired.resources["role"].ready = fnv1.READY_TRUE
 
               # Withheld until the Role exists in Postgres: provider-sql would
               # otherwise reconcile the Grant against a role that isn't there yet.
@@ -123,13 +125,13 @@ spec:
                       build_grant(role_name, namespace, instance_name, database_name)
                   )
                   if is_ready(req, "grant"):
-                      rsp.desired.resources["grant"].ready = True
+                      rsp.desired.resources["grant"].ready = fnv1.READY_TRUE
 
                   rsp.desired.resources["schema-grant"].resource.update(
                       build_schema_grant(role_name, namespace, instance_name, database_name)
                   )
                   if is_ready(req, "schema-grant"):
-                      rsp.desired.resources["schema-grant"].ready = True
+                      rsp.desired.resources["schema-grant"].ready = fnv1.READY_TRUE
 
               # rsp.desired.composite.resource is the same kind of Struct wrapper.
               if "status" not in rsp.desired.composite.resource:
