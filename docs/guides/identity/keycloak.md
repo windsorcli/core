@@ -16,7 +16,7 @@ identity:
 
 Keycloak stores its data in Postgres, so `identity.enabled` also turns on `database.postgres.enabled` unless you set it to `false` explicitly. Setting it to `false` leaves Keycloak without a database. See [CloudNativePG](../database/cloudnativepg.md).
 
-The server is published at `keycloak.<domain>` through the shared gateway, where `<domain>` is `dns.public_domain`, or `dns.private_domain` if no public domain is set. On docker-desktop the URL includes port `:8443`, because that is where the gateway is forwarded. To use a different URL, such as a plain NodePort or a fixed production hostname, set it directly:
+Login is published at `keycloak.<domain>`, where `<domain>` is `dns.public_domain`, or `dns.private_domain` if no public domain is set. It binds to the `external` gateway when one exists and to `internal` otherwise, and the `external` route exposes only the paths a login needs. The admin console is published at `keycloak-admin.<dns.private_domain>` on the `internal` gateway only. On docker-desktop the URL includes the gateway's host port, `:8443` for `internal` and `:8444` for `external`. To use a different URL, such as a plain NodePort or a fixed production hostname, set it directly:
 
 ```yaml
 identity:
