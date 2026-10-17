@@ -140,13 +140,24 @@ jobs:
       contains(github.event.comment.body, '/review') &&
       contains(fromJSON('["OWNER", "MEMBER", "COLLABORATOR"]'), github.event.comment.author_association)
     steps:
+      # Reviews only a head commit pushed before the /review comment.
       - name: Get PR details
         id: pr
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_REPO: ${{ github.repository }}
+          PR_NUMBER: ${{ github.event.issue.number }}
+          COMMENTED_AT: ${{ github.event.comment.created_at }}
         run: |
-          PR_JSON=$(gh api repos/${{ github.repository }}/pulls/${{ github.event.issue.number }})
-          echo "head_sha=$(echo "$PR_JSON" | jq -r .head.sha)" >> "$GITHUB_OUTPUT"
+          PR_JSON=$(gh api "repos/$GH_REPO/pulls/$PR_NUMBER")
+          HEAD_SHA=$(echo "$PR_JSON" | jq -r .head.sha)
+          PUSHED_AT=$(gh api "repos/$GH_REPO/actions/runs?head_sha=$HEAD_SHA&event=pull_request" \
+            --jq '[.workflow_runs[].created_at] | min // empty')
+          if [ -z "$PUSHED_AT" ] || [[ "$PUSHED_AT" > "$COMMENTED_AT" ]]; then
+            echo "::error::Head $HEAD_SHA has no push recorded before the /review comment. Comment /review again to review it."
+            exit 1
+          fi
+          echo "head_sha=$HEAD_SHA" >> "$GITHUB_OUTPUT"
           echo "base_ref=$(echo "$PR_JSON" | jq -r .base.ref)" >> "$GITHUB_OUTPUT"
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -154,6 +165,14 @@ jobs:
           # head branch name only exists in the fork.
           ref: refs/pull/${{ github.event.issue.number }}/head
           fetch-depth: 0
+      - name: Verify checked-out head
+        env:
+          HEAD_SHA: ${{ steps.pr.outputs.head_sha }}
+        run: |
+          if [ "$(git rev-parse HEAD)" != "$HEAD_SHA" ]; then
+            echo "::error::PR head moved after the /review comment. Comment /review again to review it."
+            exit 1
+          fi
       - name: Fetch base ref
         run: git fetch --depth=1 origin ${{ steps.pr.outputs.base_ref }}
       - uses: anthropics/claude-code-action@374f254f5efaf968abfe15d399fd90972e8138b9 # v1.0.251
@@ -260,6 +279,24 @@ jobs:
       contains(github.event.comment.body, '/review') &&
       contains(fromJSON('["OWNER", "MEMBER", "COLLABORATOR"]'), github.event.comment.author_association))
     steps:
+      # Resolves only against a head commit pushed before the /review comment.
+      - name: Pin PR head
+        id: pr
+        if: github.event_name == 'issue_comment'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_REPO: ${{ github.repository }}
+          PR_NUMBER: ${{ github.event.issue.number }}
+          COMMENTED_AT: ${{ github.event.comment.created_at }}
+        run: |
+          HEAD_SHA=$(gh api "repos/$GH_REPO/pulls/$PR_NUMBER" --jq .head.sha)
+          PUSHED_AT=$(gh api "repos/$GH_REPO/actions/runs?head_sha=$HEAD_SHA&event=pull_request" \
+            --jq '[.workflow_runs[].created_at] | min // empty')
+          if [ -z "$PUSHED_AT" ] || [[ "$PUSHED_AT" > "$COMMENTED_AT" ]]; then
+            echo "::error::Head $HEAD_SHA has no push recorded before the /review comment. Comment /review again to review it."
+            exit 1
+          fi
+          echo "head_sha=$HEAD_SHA" >> "$GITHUB_OUTPUT"
       - name: Check for unresolved bot threads
         id: check
         env:
@@ -294,6 +331,15 @@ jobs:
         with:
           ref: ${{ github.event_name == 'issue_comment' && format('refs/pull/{0}/head', github.event.issue.number) || '' }}
           fetch-depth: 1
+      - name: Verify checked-out head
+        if: steps.check.outputs.count != '0' && github.event_name == 'issue_comment'
+        env:
+          HEAD_SHA: ${{ steps.pr.outputs.head_sha }}
+        run: |
+          if [ "$(git rev-parse HEAD)" != "$HEAD_SHA" ]; then
+            echo "::error::PR head moved after the /review comment. Comment /review again to review it."
+            exit 1
+          fi
       - name: Stage the resolver from main
         if: steps.check.outputs.count != '0'
         run: |
