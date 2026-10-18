@@ -64,6 +64,7 @@ flux:
           demo_database_name: "${demo_database_name}"
           database_instance_name: "${database_instance_name}"
           aws_region: "${aws.region ?? ''}"
+          demo_database_instance_type: "${demo.database.instance_type ?? 'db.t4g.micro'}"
         healthCheckExprs:
           # Gated on the Instance's own Ready condition, not the CR apply.
           - apiVersion: rds.aws.upbound.io/v1beta3
@@ -99,6 +100,7 @@ flux:
           - database/azuredb
         substitutions:
           azuredb_region: "${terraform_output('network', 'region') ?? ''}"
+          demo_database_instance_type: "${demo.database.instance_type ?? 'B_Standard_B1ms'}"
           database_instance_name: "${database_instance_name}"
         healthCheckExprs:
           - apiVersion: dbforpostgresql.azure.upbound.io/v1beta1
@@ -139,6 +141,7 @@ flux:
           - database/cloudsql
         substitutions:
           cloudsql_region: "${terraform_output('network', 'region') ?? ''}"
+          demo_database_instance_type: "${demo.database.instance_type ?? 'db-f1-micro'}"
           database_instance_name: "${database_instance_name}"
         healthCheckExprs:
           - apiVersion: sql.gcp.upbound.io/v1beta2
