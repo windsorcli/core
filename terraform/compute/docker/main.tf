@@ -31,20 +31,33 @@ locals {
   runtime                  = (var.runtime == "colima" || var.runtime == "docker") ? "linux" : var.runtime
   use_localhost_networking = local.runtime == "docker-desktop"
 
+  # Talos paths persisted as named volumes, without the /etc and /usr/libexec overlays on 1.14+.
+  _talos_version_parts = var.cluster_nodes == null ? null : (
+    var.cluster_nodes.version == null ? null : split(".", trimprefix(var.cluster_nodes.version, "v"))
+  )
+  talos_etc_overlay = local._talos_version_parts == null ? false : (
+    tonumber(local._talos_version_parts[0]) > 1 || (tonumber(local._talos_version_parts[0]) == 1 && tonumber(local._talos_version_parts[1]) >= 14)
+  )
+  talos_volume_specs = concat(
+    [
+      { name = "system_state", path = "/system/state" },
+      { name = "var", path = "/var" },
+    ],
+    local.talos_etc_overlay ? [] : [
+      { name = "etc_cni", path = "/etc/cni" },
+      { name = "etc_kubernetes", path = "/etc/kubernetes" },
+      { name = "usr_libexec_kubernetes", path = "/usr/libexec/kubernetes" },
+    ],
+    [{ name = "opt", path = "/opt" }]
+  )
+
   # Node shape: per-distribution (talos, future k3s) container definition:
   # ports, volume_specs, env_sku_key, privileged, security_opt, tmpfs.
   node_shapes = {
     talos = {
       controlplane = {
-        ports = ["50000:50000/tcp", "6443:6443/tcp"]
-        volume_specs = [
-          { name = "system_state", path = "/system/state" },
-          { name = "var", path = "/var" },
-          { name = "etc_cni", path = "/etc/cni" },
-          { name = "etc_kubernetes", path = "/etc/kubernetes" },
-          { name = "usr_libexec_kubernetes", path = "/usr/libexec/kubernetes" },
-          { name = "opt", path = "/opt" }
-        ]
+        ports        = ["50000:50000/tcp", "6443:6443/tcp"]
+        volume_specs = local.talos_volume_specs
         env_sku_key  = "TALOSSKU"
         privileged   = true
         read_only    = true
@@ -52,15 +65,8 @@ locals {
         tmpfs        = { "/run" = "", "/system" = "", "/tmp" = "" }
       }
       worker = {
-        ports = []
-        volume_specs = [
-          { name = "system_state", path = "/system/state" },
-          { name = "var", path = "/var" },
-          { name = "etc_cni", path = "/etc/cni" },
-          { name = "etc_kubernetes", path = "/etc/kubernetes" },
-          { name = "usr_libexec_kubernetes", path = "/usr/libexec/kubernetes" },
-          { name = "opt", path = "/opt" }
-        ]
+        ports        = []
+        volume_specs = local.talos_volume_specs
         env_sku_key  = "TALOSSKU"
         privileged   = true
         read_only    = true

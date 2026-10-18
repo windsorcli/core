@@ -303,6 +303,7 @@ terraform:
       compose_project: ${terraform_output("workstation", "compose_project")}
       dns_servers: "${workstation.runtime == \"docker-desktop\" ? [terraform_output(\"workstation\", \"dns_internal_ip\")] : null}"
       cluster_nodes:
+        version: ${talos.talos_version}
         controlplanes:
           count: ${cluster.controlplanes.count ?? 1}
           image: ${cluster.controlplanes.image ?? talos.docker_image}
