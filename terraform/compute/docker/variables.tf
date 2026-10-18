@@ -103,8 +103,8 @@ variable "cluster_nodes" {
   }
 
   validation {
-    condition     = var.cluster_nodes == null ? true : (var.cluster_nodes.version == null ? true : can(regex("^v?[0-9]+\\.[0-9]+", var.cluster_nodes.version)))
-    error_message = "cluster_nodes.version must start with MAJOR.MINOR (e.g. \"1.14.2\")."
+    condition     = var.cluster_nodes == null ? true : (var.cluster_nodes.version == null ? true : can(regex("^v?[0-9]+\\.[0-9]+(\\.[0-9]+([-+].*)?)?$", var.cluster_nodes.version)))
+    error_message = "cluster_nodes.version must be MAJOR.MINOR or MAJOR.MINOR.PATCH, optionally v-prefixed (e.g. \"1.14.2\")."
   }
 }
 

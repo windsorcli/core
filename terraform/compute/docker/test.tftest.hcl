@@ -389,6 +389,42 @@ run "invalid_version" {
   }
 }
 
+run "invalid_version_suffix" {
+  command         = plan
+  expect_failures = [var.cluster_nodes]
+
+  variables {
+    context        = "test"
+    network_cidr   = "10.5.0.0/16"
+    create_network = true
+    cluster_nodes = {
+      version       = "1.14abc"
+      controlplanes = { count = 1, image = "ghcr.io/siderolabs/talos:v1.14.2" }
+      workers       = { count = 0, image = "ghcr.io/siderolabs/talos:v1.14.2" }
+    }
+  }
+}
+
+run "prerelease_version_accepted" {
+  command = plan
+
+  variables {
+    context        = "test"
+    network_cidr   = "10.5.0.0/16"
+    create_network = true
+    cluster_nodes = {
+      version       = "v1.14.0-beta.0"
+      controlplanes = { count = 1, image = "ghcr.io/siderolabs/talos:v1.14.0-beta.0" }
+      workers       = { count = 0, image = "ghcr.io/siderolabs/talos:v1.14.0-beta.0" }
+    }
+  }
+
+  assert {
+    condition     = length(docker_container.containers["controlplane-1"].volumes) == 3
+    error_message = "A 1.14 pre-release must use the Talos 1.14+ volumes"
+  }
+}
+
 run "invalid_distribution" {
   command         = plan
   expect_failures = [var.cluster_nodes]
