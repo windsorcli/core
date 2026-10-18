@@ -208,8 +208,7 @@ run "no_config_files" {
 
 }
 
-# Verifies instance_id flows through to the machine module so replace_triggered_by
-# can react when the underlying compute instance (e.g. a docker_container) is recreated.
+# Verifies instance_id flows through to each node's machine module.
 run "instance_id_propagates" {
   command = plan
 

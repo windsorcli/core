@@ -54,8 +54,7 @@ locals {
   ]
 
   # Controlplanes for cluster/talos (hostname, endpoint, node; role == "controlplane"). Endpoint host-reachable when docker-desktop.
-  # instance_id is the container's id; it changes whenever the container is replaced (e.g. cpus/memory force a
-  # recreate), so cluster/talos can key config re-apply and re-bootstrap off it instead of missing the change.
+  # instance_id is the container's id, which changes whenever the container is replaced.
   controlplanes = [
     for k, v in docker_container.containers : {
       hostname    = local.instance_hostnames[k]
