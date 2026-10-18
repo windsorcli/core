@@ -11,7 +11,7 @@ spec:
     region: ${aws_region}
     engine: postgres
     engineVersion: "16"
-    instanceClass: db.t4g.micro
+    instanceClass: ${demo_database_instance_type}
     allocatedStorage: 20
     dbName: ${demo_database_name}
     username: demo

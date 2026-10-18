@@ -15,6 +15,6 @@ spec:
       # Enterprise unlocks db-f1-micro; Enterprise Plus (the default)
       # rejects it.
       edition: ENTERPRISE
-      tier: db-f1-micro
+      tier: ${demo_database_instance_type}
       ipConfiguration:
         ipv4Enabled: false
