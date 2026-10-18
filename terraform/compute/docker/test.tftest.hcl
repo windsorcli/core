@@ -304,6 +304,91 @@ run "runtime_docker_accepted" {
 }
 
 # Negative: invalid cluster_nodes.distribution rejected.
+# Talos 1.14+ mounts only /system/state, /var and /opt.
+run "talos_114_volumes" {
+  command = plan
+
+  variables {
+    context        = "test"
+    network_cidr   = "10.5.0.0/16"
+    create_network = true
+    cluster_nodes = {
+      version       = "1.14.2"
+      controlplanes = { count = 1, image = "ghcr.io/siderolabs/talos:v1.14.2" }
+      workers       = { count = 1, image = "ghcr.io/siderolabs/talos:v1.14.2" }
+    }
+  }
+
+  assert {
+    condition = alltrue([
+      for name in ["controlplane-1", "worker-1"] :
+      toset([for v in docker_container.containers[name].volumes : v.container_path]) == toset(["/system/state", "/var", "/opt"])
+    ])
+    error_message = "Talos 1.14+ nodes must mount only /system/state, /var and /opt"
+  }
+
+  assert {
+    condition     = !contains(keys(docker_volume.named), "controlplane_1_etc_kubernetes")
+    error_message = "Talos 1.14+ must not create an /etc/kubernetes volume"
+  }
+}
+
+# Talos below 1.14, or no version, keeps the /etc/cni, /etc/kubernetes and /usr/libexec/kubernetes volumes.
+run "talos_pre_114_volumes" {
+  command = plan
+
+  variables {
+    context        = "test"
+    network_cidr   = "10.5.0.0/16"
+    create_network = true
+    cluster_nodes = {
+      version       = "v1.13.11"
+      controlplanes = { count = 1, image = "ghcr.io/siderolabs/talos:v1.13.11" }
+      workers       = { count = 0, image = "ghcr.io/siderolabs/talos:v1.13.11" }
+    }
+  }
+
+  assert {
+    condition     = toset([for v in docker_container.containers["controlplane-1"].volumes : v.container_path]) == toset(["/system/state", "/var", "/etc/cni", "/etc/kubernetes", "/usr/libexec/kubernetes", "/opt"])
+    error_message = "Talos < 1.14 nodes must mount all six persisted paths"
+  }
+}
+
+run "talos_unset_version_volumes" {
+  command = plan
+
+  variables {
+    context        = "test"
+    network_cidr   = "10.5.0.0/16"
+    create_network = true
+    cluster_nodes = {
+      controlplanes = { count = 1, image = "ghcr.io/siderolabs/talos:v1.13.11" }
+      workers       = { count = 0, image = "ghcr.io/siderolabs/talos:v1.13.11" }
+    }
+  }
+
+  assert {
+    condition     = length(docker_container.containers["controlplane-1"].volumes) == 6
+    error_message = "An unset version must keep the Talos < 1.14 volumes"
+  }
+}
+
+run "invalid_version" {
+  command         = plan
+  expect_failures = [var.cluster_nodes]
+
+  variables {
+    context        = "test"
+    network_cidr   = "10.5.0.0/16"
+    create_network = true
+    cluster_nodes = {
+      version       = "latest"
+      controlplanes = { count = 1, image = "ghcr.io/siderolabs/talos:v1.14.2" }
+      workers       = { count = 0, image = "ghcr.io/siderolabs/talos:v1.14.2" }
+    }
+  }
+}
+
 run "invalid_distribution" {
   command         = plan
   expect_failures = [var.cluster_nodes]

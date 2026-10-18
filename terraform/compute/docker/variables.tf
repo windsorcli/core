@@ -77,6 +77,7 @@ variable "cluster_nodes" {
   description = "Declare controlplanes and workers by count and image. Module expands to N+M containers; shape (ports, volumes, env) is chosen by distribution. hostports: first controlplane gets controlplanes.hostports when no workers, else first worker gets workers.hostports."
   type = object({
     distribution = optional(string, "talos")
+    version      = optional(string) # Distribution version (e.g. "1.14.2"); unset uses the Talos < 1.14 volume layout.
     controlplanes = object({
       count     = number
       image     = string
@@ -99,6 +100,11 @@ variable "cluster_nodes" {
   validation {
     condition     = var.cluster_nodes == null ? true : contains(["talos"], var.cluster_nodes.distribution)
     error_message = "cluster_nodes.distribution must be \"talos\" (k3s etc. reserved for future use)."
+  }
+
+  validation {
+    condition     = var.cluster_nodes == null ? true : (var.cluster_nodes.version == null ? true : can(regex("^v?[0-9]+\\.[0-9]+", var.cluster_nodes.version)))
+    error_message = "cluster_nodes.version must start with MAJOR.MINOR (e.g. \"1.14.2\")."
   }
 }
 

@@ -531,6 +531,7 @@ cases:
           path: compute/docker
           inputs:
             cluster_nodes:
+              version: "1.13.11"
               controlplanes:
                 image: ghcr.io/siderolabs/talos:v1.13.11
         - name: cluster
@@ -557,6 +558,7 @@ cases:
           path: compute/docker
           inputs:
             cluster_nodes:
+              version: "1.13.11"
               controlplanes:
                 image: ghcr.io/siderolabs/talos:v1.13.11
         - name: cluster
