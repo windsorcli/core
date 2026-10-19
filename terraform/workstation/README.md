@@ -13,7 +13,7 @@ is selected by `platform`. The workstation pass runs before
 nodes to.
 
 Windsor runs the workstation stack only when `workstation.runtime` is
-set. Hyper-V, bare metal (`platform: metal`), and managed clouds never
+set. Hyper-V, Proxmox, bare metal (`platform: metal`), and managed clouds never
 use the workstation layer. Hyper-V manages its NetNat inside the
 compute module. `metal` expects an existing network, and AWS and Azure
 have no local workstation layer at all.

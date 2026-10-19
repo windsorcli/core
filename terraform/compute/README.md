@@ -1,14 +1,14 @@
 ---
 title: Compute
-description: Local Talos compute substrate across Docker, Hyper-V, and Incus.
-stack_backing: Docker · Hyper-V · Incus · Hetzner
+description: Talos compute substrate across Docker, Hyper-V, Incus, and Proxmox VE.
+stack_backing: Docker · Hyper-V · Incus · Proxmox · Hetzner
 ---
 
 The compute category has three drivers that provision Talos nodes on
 local hardware. `docker` runs nodes as containers and is the default
 on macOS and Linux dev machines. `hyperv` runs them as VMs on a
-Windows host. `incus` runs them as VMs on Linux. The driver is
-selected by `platform`. Managed-cloud platforms (`aws`, `azure`) and
+Windows host. `incus` runs them as VMs on Linux. `proxmox` runs them
+as VMs on a Proxmox VE node. The driver is selected by `platform`. Managed-cloud platforms (`aws`, `azure`) and
 bare-metal (`metal`) don't use a compute module: EKS and AKS
 provision their own nodes, and `metal` expects nodes that already
 exist.
@@ -16,7 +16,7 @@ exist.
 Compute always runs before the `cluster/talos` module, which then
 reaches the provisioned nodes through the Talos API. Node sizing
 (count, CPU, memory, disks) comes from `cluster.controlplanes` and
-`cluster.workers` and is the same across all three drivers.
+`cluster.workers` and is the same across the drivers.
 
 ## Recipes
 
@@ -95,6 +95,50 @@ NAT switch (private to the host) and a Windows NetNat rule forwards
 the host's port 6443 to the control plane VM, so `cluster.endpoint`
 can reach the apiserver from outside the host.
 
+### Proxmox VE
+
+```mermaid
+flowchart LR
+  prov[terraform-provider-proxmox]
+
+  subgraph node[Proxmox VE node]
+    img[proxmox_download_file<br/>Talos nocloud image]
+    cp[talos-controlplane<br/>VM]
+    w[talos-worker<br/>VM]
+  end
+
+  prov --> img
+  prov --> cp
+  prov --> w
+  img -.import_from.-> cp
+  img -.import_from.-> w
+```
+
+```yaml
+platform: proxmox
+proxmox:
+  node: pve
+network:
+  cidr_block: 192.168.10.0/24
+  loadbalancer_ips:
+    start: 192.168.10.100
+    end: 192.168.10.120
+cluster:
+  driver: talos
+  controlplanes:
+    count: 1
+  workers:
+    count: 1
+```
+
+The module provisions Talos VMs on one Proxmox VE node through its
+API, authenticated by the `PROXMOX_VE_*` variables in the context's
+`environment:` block. The node downloads the Talos nocloud image into
+its import storage, and each VM imports it as the root disk. A
+Proxmox cloud-init drive gives each node its static address on the
+bridge, and `cluster/talos` then applies the machineconfig over the
+Talos API.
+
 ### Incus (Linux host)
 
 ```mermaid
@@ -144,6 +188,14 @@ that the SSH host key isn't in the operator's `~/.ssh/known_hosts`.
 The provider refuses unknown hosts, and the failure surfaces during
 `terraform plan`.
 
+When the Proxmox image download fails with a content type error, the
+image datastore doesn't allow `import`. Enable it with `pvesm set
+<datastore> --content iso,vztmpl,backup,import`.
+
+On a `/24` `network.cidr_block`, set `network.loadbalancer_ips`
+explicitly. The default pool sits at host offsets 266 to 356, outside
+a `/24`, and composition fails.
+
 If you intend to use Longhorn, the default `root_disk_size` is too
 small. Longhorn needs a dedicated disk via `cluster.workers.disks`;
 the root disk is for the OS only.
@@ -164,6 +216,12 @@ host. The credentials live in the context's `environment:` block and
 should come from a secrets manager via `windsor exec`, not from a
 plaintext file.
 
+The Proxmox driver needs a Proxmox user, by password or API token,
+whose roles are scoped to a Windsor resource pool, the VM and image
+datastores, the bridge, and `Sys.AccessNetwork` on the node. Keep the
+password or token in a secrets manager and reference it from the
+context's `environment:` block, not from a plaintext file.
+
 Incus VMs run as full KVM instances with host-isolated kernels. Talos
 machine secrets are generated per cluster and never leave the
 operator's workstation in cleartext.
@@ -176,6 +234,7 @@ operator's workstation in cleartext.
 - [hcloud](hcloud/) — Provisions Talos Linux nodes on Hetzner Cloud.
 - [hyperv](hyperv/) — Talos VMs on Hyper-V (Windows host).
 - [incus](incus/) — Talos VMs on Incus.
+- [proxmox](proxmox/) — Talos VMs on Proxmox VE.
 - [vsphere](vsphere/) — Talos VMs on VMware vSphere.
 <!-- END_TERRAFORM_MODULES -->
 

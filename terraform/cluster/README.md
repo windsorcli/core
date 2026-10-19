@@ -36,7 +36,7 @@ flowchart LR
 ```
 
 ```yaml
-platform: metal     # or hyperv, incus, docker
+platform: metal     # or hyperv, proxmox, incus, docker
 topology: single-node
 cluster:
   driver: talos
@@ -51,7 +51,7 @@ cluster:
 ```
 
 The Talos API installs Kubernetes onto compute that's already up, so
-the matching compute driver (`docker`, `hyperv`, or `incus`) needs to
+the matching compute driver (`docker`, `hyperv`, `proxmox`, or `incus`) needs to
 provision nodes first. The `cluster/talos` module then reaches those
 nodes through the Talos API and writes the kubeconfig. Setting
 `cluster.cni.driver` to `cilium` runs the Cilium bootstrap module
