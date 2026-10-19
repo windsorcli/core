@@ -29,11 +29,12 @@ layer. Links from there land here.
 | [cluster/talos/extensions](cluster/talos/extensions/) | Talos image build with system extensions. |
 | [cni](cni/) | Out-of-band Cilium bootstrap for Talos clusters before Flux. |
 | [cni/cilium](cni/cilium/) | Out-of-band Cilium bootstrap for Talos clusters. |
-| [compute](compute/) | Local Talos compute substrate across Docker, Hyper-V, and Incus. |
+| [compute](compute/) | Talos compute substrate across Docker, Hyper-V, Incus, and Proxmox VE. |
 | [compute/docker](compute/docker/) | Talos containers on Docker. |
 | [compute/hcloud](compute/hcloud/) | Provisions Talos Linux nodes on Hetzner Cloud. |
 | [compute/hyperv](compute/hyperv/) | Talos VMs on Hyper-V (Windows host). |
 | [compute/incus](compute/incus/) | Talos VMs on Incus. |
+| [compute/proxmox](compute/proxmox/) | Talos VMs on Proxmox VE. |
 | [compute/vsphere](compute/vsphere/) | Talos VMs on VMware vSphere. |
 | [database](database/) | Cloud-managed database infrastructure for application-requested Postgres. |
 | [database/aws-rds](database/aws-rds/) | KMS encryption key for RDS storage, shared across every database in a context. |

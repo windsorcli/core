@@ -41,7 +41,7 @@ flowchart LR
 ```
 
 ```yaml
-platform: metal     # or hyperv, incus, docker
+platform: metal     # or hyperv, proxmox, incus, docker
 cluster:
   driver: talos
   cni:

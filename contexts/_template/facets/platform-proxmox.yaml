@@ -1,0 +1,216 @@
+kind: Facet
+apiVersion: blueprints.windsorcli.dev/v1alpha1
+metadata:
+  name: proxmox
+  description: Proxmox VE compute platform infrastructure
+
+# Talos on Proxmox VE, with credentials read from PROXMOX_VE_* env vars.
+when: "platform == 'proxmox' && cluster.driver == 'talos'"
+
+# Remote state lives in the local Talos cluster (Kubernetes backend).
+backend: cluster
+
+requires:
+  - paths:
+      - proxmox.node
+    message: Proxmox VE node name is required (e.g. "pve").
+
+# =============================================================================
+# Proxmox-specific Talos values
+# =============================================================================
+config:
+
+  # Image Factory schematic ce4c9805 holds siderolabs/qemu-guest-agent only.
+  - name: proxmox_effective
+    value:
+      node: "${proxmox.node}"
+      datastore: "${proxmox.datastore ?? 'local-lvm'}"
+      image_datastore: "${proxmox.image_datastore ?? 'local'}"
+      bridge: "${proxmox.bridge ?? 'vmbr0'}"
+      vlan_id: ${proxmox.vlan_id ?? null}
+      arch: "${proxmox.arch ?? 'amd64'}"
+      cpu_type: ${proxmox.cpu_type ?? null}
+      bios: "${proxmox.bios ?? 'seabios'}"
+      pool: ${proxmox.pool ?? null}
+      vm_id_start: ${proxmox.vm_id_start ?? null}
+      name_suffix: "${(id ?? '') != '' ? '-' + id : ''}"
+      talos_schematic_id: "ce4c980550dd2ab1b17bbf2b08801c7eb59418eafe8f279833297925d67c7515"
+      dhcp: ${network.dhcp == true}
+
+  # Talos nocloud image URL and a per-context file name in import storage.
+  - name: proxmox_image
+    value:
+      url: "${'https://factory.talos.dev/image/' + proxmox_effective.talos_schematic_id + '/v' + talos.talos_version + '/nocloud-' + proxmox_effective.arch + '.qcow2'}"
+      file_name: "${'talos-v' + talos.talos_version + '-' + proxmox_effective.talos_schematic_id[0:8] + '-' + proxmox_effective.arch + proxmox_effective.name_suffix + '.qcow2'}"
+
+  # Guest IPv4 (cluster.controlplanes.nodes, else cidrhost offset 10) and VM ID per control plane.
+  - name: proxmox_controlplanes
+    value:
+      nodes: >-
+        ${map(1..int(cluster.controlplanes.count ?? 1), fromPairs([
+          ["name", int(cluster.controlplanes.count ?? 1) > 1 ? "controlplane-" + string(#) : "controlplane"],
+          ["ipv4", proxmox_effective.dhcp ? null
+            : (get(cluster.controlplanes.nodes ?? {}, "controlplane-" + string(#)) != null
+            ? (get(cluster.controlplanes.nodes ?? {}, "controlplane-" + string(#)).node
+               ?? split(get(cluster.controlplanes.nodes ?? {}, "controlplane-" + string(#)).endpoint, ":")[0])
+            : cidrhost(network.cidr_block ?? '10.5.0.0/16', 9 + #))],
+          ["vm_id", proxmox_effective.vm_id_start == null ? null : proxmox_effective.vm_id_start + # - 1]
+        ]))}
+
+  # Guest IPv4 (cluster.workers.nodes, else cidrhost offset 20) and VM ID per worker.
+  - name: proxmox_workers
+    value:
+      nodes: >-
+        ${(cluster.workers.count ?? 0) == 0 ? [] : map(1..int(cluster.workers.count), fromPairs([
+          ["name", int(cluster.workers.count) > 1 ? "worker-" + string(#) : "worker"],
+          ["ipv4", proxmox_effective.dhcp ? null
+            : (get(cluster.workers.nodes ?? {}, "worker-" + string(#)) != null
+            ? (get(cluster.workers.nodes ?? {}, "worker-" + string(#)).node
+               ?? split(get(cluster.workers.nodes ?? {}, "worker-" + string(#)).endpoint, ":")[0])
+            : cidrhost(network.cidr_block ?? '10.5.0.0/16', 19 + #))],
+          ["vm_id", proxmox_effective.vm_id_start == null ? null : proxmox_effective.vm_id_start + 9 + #]
+        ]))}
+
+  # Installs and upgrades use the nocloud installer for the qemu-guest-agent schematic.
+  - name: talos_common
+    value:
+      common_patch:
+        machine:
+          install:
+            image: "${'factory.talos.dev/nocloud-installer/' + proxmox_effective.talos_schematic_id + ':v' + talos.talos_version}"
+
+  # Default gateway for static guests, read as network_effective.gateway.
+  - name: network_effective
+    value:
+      gateway: "${network.gateway ?? cidrhost(network.cidr_block ?? '10.5.0.0/16', 1)}"
+  - name: network
+    when: len(network.nameservers ?? []) == 0 && network.dhcp != true
+    value:
+      nameservers: ['1.1.1.1', '8.8.8.8']
+
+  # API endpoint from the first control plane in compute's output, empty until it reports one.
+  - name: cluster_endpoint_fallback
+    value:
+      endpoint: >-
+        ${
+          len(terraform_output("compute", "controlplanes") ?? []) > 0
+          && terraform_output("compute", "controlplanes")[0].endpoint != null
+            ? "https://" + split(terraform_output("compute", "controlplanes")[0].endpoint, ":")[0] + ":6443"
+            : ""
+        }
+
+  # Node targets for post-cluster steps (e.g. cluster/talos/extensions).
+  - name: talos_node_targets
+    value:
+      controlplanes: >-
+        ${map(
+          len(terraform_output("compute", "controlplanes") ?? []) > 0
+            ? terraform_output("compute", "controlplanes")
+            : (proxmox_effective.dhcp ? [] : values(cluster.controlplanes.nodes ?? {})),
+          fromPairs(filter(toPairs(#), get(#, 0) == "node" || get(#, 0) == "endpoint")))}
+      workers: >-
+        ${map(
+          len(terraform_output("compute", "workers") ?? []) > 0
+            ? terraform_output("compute", "workers")
+            : (proxmox_effective.dhcp ? []
+              : ((cluster.workers.count ?? 0) > 0 ? values(cluster.workers.nodes ?? {}) : [])),
+          fromPairs(filter(toPairs(#), get(#, 0) == "node" || get(#, 0) == "endpoint")))}
+
+  # dns.private_domain falls back to dns.domain, then to '<id>.local'.
+  - name: dns
+    when: (dns.private_domain ?? '') == '' && (dns.domain ?? '') != ''
+    value:
+      private_domain: "${dns.domain}"
+  - name: dns
+    when: (dns.private_domain ?? '') == '' && (dns.domain ?? '') == ''
+    value:
+      private_domain: "${(id ?? 'windsor') + '.local'}"
+
+# =============================================================================
+# Terraform chain: compute, cluster, gitops
+# =============================================================================
+terraform:
+
+  # Talos nocloud VMs with each node's network config on a cloud-init drive.
+  - name: compute
+    path: compute/proxmox
+    inputs:
+      node_name: "${proxmox_effective.node}"
+      datastore_id: "${proxmox_effective.datastore}"
+      image_datastore_id: "${proxmox_effective.image_datastore}"
+      network_bridge: "${proxmox_effective.bridge}"
+      vlan_id: ${proxmox_effective.vlan_id}
+      arch: "${proxmox_effective.arch}"
+      cpu_type: ${proxmox_effective.cpu_type}
+      bios: "${proxmox_effective.bios}"
+      name_suffix: "${proxmox_effective.name_suffix}"
+      pool_id: ${proxmox_effective.pool}
+      network_cidr: ${network.cidr_block ?? '10.5.0.0/16'}
+      network_gateway: ${network_effective.gateway}
+      network_nameservers: ${network.nameservers ?? []}
+      images:
+        talos: ${proxmox_image}
+      instances: >-
+        ${concat(
+          map(proxmox_controlplanes.nodes, fromPairs([
+            ["name", get(#, "name")],
+            ["role", "controlplane"],
+            ["image", "talos"],
+            ["count", 1],
+            ["ipv4", get(#, "ipv4")],
+            ["vm_id", get(#, "vm_id")],
+            ["cpu", cluster_resources_effective.controlplanes.cpu],
+            ["memory", cluster_resources_effective.controlplanes.memory],
+            ["root_disk_size", cluster.controlplanes.root_disk_size ?? 30],
+            ["notes", "Talos control plane node"]
+          ])),
+          map(proxmox_workers.nodes, fromPairs([
+            ["name", get(#, "name")],
+            ["role", "worker"],
+            ["image", "talos"],
+            ["count", 1],
+            ["ipv4", get(#, "ipv4")],
+            ["vm_id", get(#, "vm_id")],
+            ["cpu", cluster_resources_effective.workers.cpu],
+            ["memory", cluster_resources_effective.workers.memory],
+            ["root_disk_size", cluster.workers.root_disk_size ?? 50],
+            ["notes", "Talos worker node"]
+          ]))
+        )}
+
+  # Talos generates the cluster identity and applies each machineconfig over the maintenance-mode API.
+  - name: cluster
+    path: cluster/talos
+    dependsOn:
+      - compute
+      - "${pki.enabled == true ? 'pki' : ''}"
+    parallelism: 1
+    inputs:
+      cluster_endpoint: "${(cluster.endpoint ?? '') != '' ? cluster.endpoint : (proxmox_effective.dhcp ? cluster_endpoint_fallback.endpoint : ('https://' + proxmox_controlplanes.nodes[0].ipv4 + ':6443'))}"
+      cluster_name: talos
+      talos_version: ${talos.talos_version}
+      controlplanes: >-
+        ${len(terraform_output("compute", "controlplanes") ?? []) > 0
+          ? terraform_output("compute", "controlplanes")
+          : (proxmox_effective.dhcp ? [] : values(cluster.controlplanes.nodes ?? {}))}
+      workers: >-
+        ${len(terraform_output("compute", "workers") ?? []) > 0
+          ? terraform_output("compute", "workers")
+          : (proxmox_effective.dhcp ? [] : ((cluster.workers.count ?? 0) > 0
+            ? values(cluster.workers.nodes ?? {}) : []))}
+      controlplane_disks: ${talos_common.controlplane_disks}
+      worker_disks: ${talos_common.worker_disks}
+      common_config_patches: ${talos_common.common_config_patches}
+      controlplane_config_patches: "${talos_common.oidc_ca_file_patch ?? ''}"
+      worker_config_patches: "${talos_common.worker_config_patches ?? ''}"
+      controlplane_volumes: ${talos_common.controlplane_volumes ?? []}
+      worker_volumes: ${talos_common.worker_volumes ?? []}
+
+  # Flux, skipped on destroy.
+  - name: gitops
+    path: gitops/flux
+    dependsOn:
+      - cluster
+    inputs:
+      concurrency: ${max(4, min(floor(cluster_resources_effective.controlplanes.cpu / 2), floor(cluster_resources_effective.controlplanes.memory / 2), 10))}
+    destroy: false
