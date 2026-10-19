@@ -14,6 +14,10 @@ requires:
   - paths:
       - proxmox.node
     message: Proxmox VE node name is required (e.g. "pve").
+  - when: network.dhcp == true && (cluster.controlplanes.count ?? 1) > 1
+    paths:
+      - cluster.endpoint
+    message: Several DHCP control planes share the API address in cluster.endpoint; pick one outside the DHCP scope.
 
 # =============================================================================
 # Proxmox-specific Talos values

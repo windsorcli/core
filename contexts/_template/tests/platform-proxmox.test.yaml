@@ -632,6 +632,48 @@ cases:
               k8s_service_host: localhost
               k8s_service_port: "7445"
 
+  - name: proxmox dhcp with several control planes requires cluster.endpoint
+    values:
+      platform: proxmox
+      gateway:
+        enabled: false
+      network:
+        cidr_block: 10.10.0.0/24
+        dhcp: true
+        loadbalancer_ips:
+          start: "10.10.0.100"
+          end: "10.10.0.110"
+      cluster:
+        driver: talos
+        controlplanes:
+          count: 3
+      proxmox: *default-proxmox
+    expectError: true
+
+  - name: proxmox dhcp with several control planes and cluster.endpoint composes
+    values:
+      platform: proxmox
+      gateway:
+        enabled: false
+      network:
+        cidr_block: 10.10.0.0/24
+        dhcp: true
+        loadbalancer_ips:
+          start: "10.10.0.100"
+          end: "10.10.0.110"
+      cluster:
+        driver: talos
+        endpoint: https://10.10.0.5:6443
+        controlplanes:
+          count: 3
+      proxmox: *default-proxmox
+    expect:
+      terraform:
+        - name: cluster
+          path: cluster/talos
+          inputs:
+            cluster_endpoint: https://10.10.0.5:6443
+
   # Schema: an unknown proxmox key fails validation.
   - name: proxmox unknown key fails validation
     values:
