@@ -9,18 +9,28 @@ variable "cilium_version" {
   }
 }
 
-variable "cluster_endpoint" {
-  description = "Kubernetes API server endpoint (https://host:port). Required when kube_proxy_replacement is true so Cilium can reach the API server before eBPF service rules are active."
+variable "k8s_service_host" {
+  description = "API server host Cilium reaches before its eBPF service rules are active. Required when kube_proxy_replacement is true."
   type        = string
   default     = ""
   validation {
-    condition     = var.cluster_endpoint == "" || can(regex("^https://", var.cluster_endpoint))
-    error_message = "cluster_endpoint must be empty or start with 'https://'."
+    condition     = can(regex("^[A-Za-z0-9.-]*$", var.k8s_service_host))
+    error_message = "k8s_service_host must be a hostname or IPv4 address, without scheme or port."
+  }
+}
+
+variable "k8s_service_port" {
+  description = "API server port for k8s_service_host."
+  type        = number
+  default     = 6443
+  validation {
+    condition     = var.k8s_service_port >= 1 && var.k8s_service_port <= 65535
+    error_message = "k8s_service_port must be between 1 and 65535."
   }
 }
 
 variable "kube_proxy_replacement" {
-  description = "Replace kube-proxy with Cilium's eBPF implementation. Requires cluster_endpoint to be set. Recommended for Talos."
+  description = "Replace kube-proxy with Cilium's eBPF implementation. Requires k8s_service_host to be set. Recommended for Talos."
   type        = bool
   default     = true
 }

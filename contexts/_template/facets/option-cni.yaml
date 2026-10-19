@@ -22,7 +22,8 @@ terraform:
       - cluster
     inputs:
       # Talos KubePrism, the node-local API load balancer.
-      cluster_endpoint: https://localhost:7445
+      k8s_service_host: localhost
+      k8s_service_port: 7445
       # Talos forbids privileged pods and mounts cgroups at init — both required
       # for Cilium on Talos.
       privileged: false

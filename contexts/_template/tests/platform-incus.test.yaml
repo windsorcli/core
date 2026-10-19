@@ -85,7 +85,8 @@ cases:
           dependsOn:
             - cluster
           inputs:
-            cluster_endpoint: https://localhost:7445
+            k8s_service_host: localhost
+            k8s_service_port: 7445
             privileged: false
             cgroup_auto_mount: false
         - name: gitops
@@ -380,7 +381,8 @@ cases:
         - name: cni
           path: cni/cilium
           inputs:
-            cluster_endpoint: https://localhost:7445
+            k8s_service_host: localhost
+            k8s_service_port: 7445
       flux:
         - name: cni
           install:
