@@ -856,13 +856,10 @@ properties:
         type: boolean
         default: false
         description: >
-          When true, Hyper-V, vSphere, and Proxmox guests take IPv4 from DHCP
-          instead of static addresses (cluster.*.nodes or cidrhost offsets).
-          Hyper-V CIDATA uses dhcp4; compute omits ipv4 and surfaces leased IPs
-          from integration services (Hyper-V), vmtoolsd (vSphere), or
-          qemu-guest-agent (Proxmox). cluster.endpoint is optional and otherwise
-          derived from the first control-plane output. Unset or false keeps
-          static addressing. NodePort NAT still uses static guest IPs.
+          When true, Hyper-V, vSphere, and Proxmox guests take IPv4 from DHCP and
+          compute reports the leased addresses. More than one control plane
+          requires cluster.endpoint, which MUST sit outside the DHCP scope;
+          control planes SHOULD hold DHCP reservations. Hyper-V NodePort keeps static guest IPs.
       ntp_servers:
         type: array
         items:

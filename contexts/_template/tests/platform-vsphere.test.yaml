@@ -542,6 +542,42 @@ cases:
           inputs:
             cluster_endpoint: https://talos.plant.local:6443
 
+  - name: dhcp with several control planes requires cluster.endpoint
+    values:
+      platform: vsphere
+      gateway:
+        enabled: false
+      network:
+        cidr_block: 10.41.0.0/22
+        dhcp: true
+      cluster:
+        driver: talos
+        controlplanes:
+          count: 3
+      vsphere: *default-vsphere
+    expectError: true
+
+  - name: dhcp with several control planes and cluster.endpoint composes
+    values:
+      platform: vsphere
+      gateway:
+        enabled: false
+      network:
+        cidr_block: 10.41.0.0/22
+        dhcp: true
+      cluster:
+        driver: talos
+        endpoint: https://10.41.0.5:6443
+        controlplanes:
+          count: 3
+      vsphere: *default-vsphere
+    expect:
+      terraform:
+        - name: cluster
+          path: cluster/talos
+          inputs:
+            cluster_endpoint: https://10.41.0.5:6443
+
   # DHCP ignores declared node IPs for guest addressing.
   - name: dhcp ignores declared node IPs
     values:

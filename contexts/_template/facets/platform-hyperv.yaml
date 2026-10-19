@@ -10,6 +10,12 @@ when: "platform == 'hyperv' && cluster.driver == 'talos'"
 # Remote state lives in the local Talos cluster (Kubernetes backend).
 backend: cluster
 
+requires:
+  - when: network.dhcp == true && (cluster.controlplanes.count ?? 1) > 1
+    paths:
+      - cluster.endpoint
+    message: Several DHCP control planes share the API address in cluster.endpoint; pick one outside the DHCP scope.
+
 # =============================================================================
 # Config — Hyper-V-specific Talos values
 # =============================================================================
