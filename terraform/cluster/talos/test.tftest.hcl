@@ -36,12 +36,12 @@ run "minimal_configuration" {
     error_message = "No additional controlplanes should be created in minimal config"
   }
   assert {
-    condition     = yamldecode(local.kubelet_serving_cert_approver_patch).cluster.inlineManifests[0].name == "kubelet-serving-cert-approver"
-    error_message = "kubelet-serving-cert-approver inlineManifest should be enabled by default"
+    condition     = yamldecode(local.kubelet_csr_approver_patch).cluster.inlineManifests[0].name == "kubelet-csr-approver"
+    error_message = "kubelet-csr-approver inlineManifest should be enabled by default"
   }
   assert {
-    condition     = strcontains(yamldecode(local.kubelet_serving_cert_approver_patch).cluster.inlineManifests[0].contents, "kind: Deployment")
-    error_message = "kubelet-serving-cert-approver inlineManifest should carry the vendored manifest"
+    condition     = strcontains(yamldecode(local.kubelet_csr_approver_patch).cluster.inlineManifests[0].contents, "kind: Deployment")
+    error_message = "kubelet-csr-approver inlineManifest should carry the vendored manifest"
   }
 }
 
@@ -50,29 +50,29 @@ run "full_configuration" {
   command = plan
 
   variables {
-    cluster_name                         = "test-cluster"
-    cluster_endpoint                     = "https://test.example.com:6443"
-    kubernetes_version                   = "1.34.1"
-    talos_version                        = "1.10.1"
-    common_config_patches                = <<-EOT
+    cluster_name                = "test-cluster"
+    cluster_endpoint            = "https://test.example.com:6443"
+    kubernetes_version          = "1.34.1"
+    talos_version               = "1.10.1"
+    common_config_patches       = <<-EOT
       machine:
         network:
           nameservers:
             - 8.8.8.8
     EOT
-    controlplane_config_patches          = <<-EOT
+    controlplane_config_patches = <<-EOT
       machine:
         controlplane:
           extraArgs:
             - "--enable-admission-plugins=NodeRestriction"
     EOT
-    worker_config_patches                = <<-EOT
+    worker_config_patches       = <<-EOT
       machine:
         kubelet:
           extraArgs:
             - "--max-pods=110"
     EOT
-    enable_kubelet_serving_cert_approver = false
+    enable_kubelet_csr_approver = false
     controlplanes = [
       {
         hostname = "cp1"
@@ -110,8 +110,8 @@ run "full_configuration" {
     error_message = "No additional controlplanes should be created in this config"
   }
   assert {
-    condition     = local.kubelet_serving_cert_approver_patch == ""
-    error_message = "kubelet-serving-cert-approver inlineManifest should be omitted when disabled"
+    condition     = local.kubelet_csr_approver_patch == ""
+    error_message = "kubelet-csr-approver inlineManifest should be omitted when disabled"
   }
   assert {
     condition     = length(module.workers) == 1

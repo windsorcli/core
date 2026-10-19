@@ -99,8 +99,8 @@ variable "vip_interface" {
   }
 }
 
-variable "enable_kubelet_serving_cert_approver" {
-  description = "Apply the vendored kubelet-serving-cert-approver manifest to control planes as a Talos inlineManifest. Pairs with the kubelet rotate-server-certificates flag."
+variable "enable_kubelet_csr_approver" {
+  description = "Apply the vendored kubelet-csr-approver manifest to control planes as a Talos inlineManifest. Pairs with the kubelet rotate-server-certificates flag."
   type        = bool
   default     = true
 }
