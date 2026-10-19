@@ -12,8 +12,8 @@ provisions a public Route53 hosted zone on AWS, `azure-dns` a public
 DNS zone on Azure, `gcp-dns` a public Cloud DNS managed zone on GCP,
 and `hetzner` a public zone on Hetzner DNS. The driver is selected by
 `platform`, and the zone module only runs when `dns.public_domain` is
-set. With no public domain, the cluster falls back to self-signed
-certificates and no external zone is created.
+set and `dns.public_zone` is not `false`. Without a zone, the cluster
+falls back to self-signed certificates.
 
 Zones are provisioned in their own Terraform stack so they have an
 independent lifecycle. Tearing down the cluster doesn't drag the zone
@@ -31,8 +31,11 @@ binding for both consumers on the matching cloud.
 ```mermaid
 flowchart LR
   registrar[Domain registrar<br/>NS delegation]
-  cm[cert-manager]
-  ed[external-dns]
+
+  subgraph cluster[Kubernetes cluster]
+    cm[cert-manager]
+    ed[external-dns]
+  end
 
   subgraph aws[AWS account]
     zone[Route53 hosted zone]
@@ -69,8 +72,11 @@ but doesn't block.
 ```mermaid
 flowchart LR
   registrar[Domain registrar<br/>NS delegation]
-  cm[cert-manager]
-  ed[external-dns]
+
+  subgraph cluster[Kubernetes cluster]
+    cm[cert-manager]
+    ed[external-dns]
+  end
 
   subgraph azure[Azure resource group]
     zone[Azure DNS zone]
@@ -100,8 +106,11 @@ and external-dns to write records into this zone.
 ```mermaid
 flowchart LR
   registrar[Domain registrar<br/>NS delegation]
-  cm[cert-manager]
-  ed[external-dns]
+
+  subgraph cluster[Kubernetes cluster]
+    cm[cert-manager]
+    ed[external-dns]
+  end
 
   subgraph gcp[GCP project]
     zone[Cloud DNS managed zone]
@@ -126,9 +135,9 @@ dns:
 
 The module provisions a public Cloud DNS managed zone in the project.
 The cluster module provisions dedicated Google Service Accounts for
-cert-manager and external-dns, each scoped to the zone via
-`roles/dns.admin`/`roles/dns.reader`, and bound to their Kubernetes
-service accounts through GKE Workload Identity.
+cert-manager and external-dns, each granted `roles/dns.admin` on the
+zone and bound to their Kubernetes service accounts through GKE
+Workload Identity.
 
 After the apply, delegate the parent domain at your registrar to the
 name servers in the module output (`name_servers`).
@@ -139,8 +148,11 @@ name servers in the module output (`name_servers`).
 flowchart LR
   registrar[Domain registrar<br/>NS delegation]
   parent[Parent zone in the<br/>same Hetzner account]
-  cm[cert-manager]
-  ed[external-dns]
+
+  subgraph cluster[Kubernetes cluster]
+    cm[cert-manager]
+    ed[external-dns]
+  end
 
   subgraph hetzner[Hetzner DNS]
     zone[Hetzner DNS zone]
@@ -192,10 +204,9 @@ delegation at the registrar hasn't propagated yet. Run
 until that returns the zone's name servers, cert-manager can't write
 the DNS-01 record where ACME expects to read it.
 
-When external-dns logs `AccessDenied` on AWS, the cluster's
-cert-manager IAM role is scoped to a single zone ID. If the zone was
-re-created out-of-band (different ID), the role's resource ARN no
-longer matches. Re-apply the cluster module to refresh the binding.
+On AWS, cert-manager's IAM role names the zone ID in its resource ARN.
+If the zone is re-created out of band with a new ID, DNS-01 challenges
+fail with `AccessDenied` until you re-apply the cluster module.
 
 Destroying a Route53 zone with active records fails, because Route53
 refuses to delete a zone that still contains record sets.
@@ -203,24 +214,26 @@ refuses to delete a zone that still contains record sets.
 external-dns has cleaned up. Drain the cluster first, then destroy
 the zone.
 
-`dns.private_domain` doesn't trigger a separate zone module. It's
-consumed by the network module's VPC-scoped private Route53 zone on
-AWS, and by in-cluster CoreDNS. There's no `dns/zone/private/*`
-module.
+`dns.private_domain` doesn't trigger a separate zone module. The
+network module creates the VPC- or VNet-linked private zone on AWS,
+Azure, and GCP, and in-cluster CoreDNS serves it elsewhere. There's no
+`dns/zone/private/*` module.
 
 ## Security
 
-The IAM role on EKS and the Workload Identity binding on AKS are both
-scoped to the single zone provisioned by this module. A compromised
-cert-manager or external-dns can't write into unrelated zones in the
-same account.
+On AKS and GKE, the cert-manager and external-dns identities can write
+only to the zones they're granted: this module's public zone, plus the
+private zone for external-dns when `dns.private_domain` is set. On
+EKS, the cert-manager role is scoped to this zone, but the
+external-dns policy allows record changes in every hosted zone in the
+account.
 
 The zone module exports name servers but no credentials. Delegation
 is an out-of-band operation the operator does at their registrar.
 
-Self-signed mode generates a root CA inside the cluster. Trust that
-CA manually on developer machines rather than disabling TLS
-verification.
+Self-signed mode has no root CA. The `public-selfsigned` ClusterIssuer
+signs each certificate with its own key. A private CA exists only with
+`pki.enabled: true`, generated by the `pki/ca` Terraform module.
 
 <!-- BEGIN_TERRAFORM_MODULES -->
 

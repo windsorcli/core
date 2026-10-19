@@ -8,19 +8,18 @@ The cluster's certificate-issuance layer. cert-manager's CRDs are
 vendored under `kustomize/crds/` and applied ahead of the stack via
 the facet `crds:` section. The add-on is a `flux:` system entry
 (`pki`) so Flux can reconcile the controller before the ClusterIssuer
-CRs that depend on it. `install` installs cert-manager and trust-manager,
-plus optional patches
-that enable Prometheus scraping, Azure workload identity, and
-single-node leader-election tweaks. `resources` applies one or more
-ClusterIssuers depending on whether a public domain is set, and implicitly depends on `install` (compiled name:
-`pki-install` / `pki-resources`); the ACME and private-CA variants
-also depend on `policy-resources` for the private-CA inject policy.
+CRs that depend on it. `install` installs cert-manager and trust-manager, plus optional patches
+that enable Prometheus scraping, HA replicas, cloud workload identity,
+and single-node leader-election tweaks. `resources` applies the
+ClusterIssuers and implicitly depends on `install` (compiled name:
+`pki-install` / `pki-resources`).
 
-The ClusterIssuers this add-on can ship are named consistently across
-platforms so downstream `Certificate` resources can reference a stable
-name (`private`, `public-selfsigned`, `public-acme`). Switching between selfsigned and ACME is a
-substitution flip, not a Certificate spec change. cert-manager
-reissues into the same Secret.
+The ClusterIssuers keep the same names on every platform, so
+downstream `Certificate` resources reference a stable name: `private`
+for internal certificates, and `public-selfsigned` or `public-acme` for
+the external gateway. Switching between selfsigned and ACME changes
+only the issuer substitution, and cert-manager reissues into the same
+Secret.
 
 ## Recipes
 
@@ -52,8 +51,7 @@ flux:
       components: [cert-manager]
       timeout: 20m
     resources:
-      - dependsOn: [policy-resources]
-        components: [public-issuer/selfsigned]
+      - components: [public-issuer/selfsigned]
         timeout: 5m
 ```
 
@@ -81,12 +79,12 @@ flowchart LR
 flux:
   - name: pki
     resources:
-      - dependsOn: [policy-resources]
-        components: [public-issuer/acme/route53]
+      - components: [public-issuer/acme/route53]
         substitutions:
           acme_server: https://acme-v02.api.letsencrypt.org/directory
           acme_email: you@example.com
           acme_dns_zone: example.com
+          acme_region: us-east-1
           acme_hosted_zone_id: <from terraform_output('dns-zone', 'zone_id')>
 ```
 
@@ -119,8 +117,7 @@ flux:
         cert_manager_client_id: <terraform_output('cluster', 'cert_manager_client_id')>
         cert_manager_tenant_id: <terraform_output('cluster', 'tenant_id')>
     resources:
-      - dependsOn: [policy-resources]
-        components: [public-issuer/acme/azuredns]
+      - components: [public-issuer/acme/azuredns]
         substitutions:
           acme_server: https://acme-v02.api.letsencrypt.org/directory
           acme_email: you@example.com
@@ -138,46 +135,65 @@ Every cluster runs this recipe.
 
 ```mermaid
 flowchart LR
-  tf[pki/ca Terraform<br/>generated or BYO CA]
+  tf[Terraform pki/ca]
 
   subgraph systempki[system-pki]
-    cm[cert-manager]
+    cm[HelmRelease cert-manager]
     keypair[Secret private-ca-keypair]
-    ca[ClusterIssuer private]
   end
 
   subgraph systempkitrust[system-pki-trust]
-    tm[trust-manager]
-    trust[Secret private-ca-trust-cert]
+    tm[HelmRelease trust-manager]
+    trustcert[Secret private-ca-trust-cert]
   end
 
-  bundle[ConfigMap private-ca]
-  workloads[Workload Pods]
+  issuer[ClusterIssuer private]
+  bundle[Bundle private-ca]
+  policy[MutatingPolicy inject-private-ca]
 
-  tf -.cert + key.-> keypair
-  tf -.cert.-> trust
-  keypair --> ca
-  cm -.reconciles.-> ca
-  tm -.reads.-> trust
-  tm -.materializes.-> bundle
-  bundle -.injected.-> workloads
+  subgraph workloadns["workload namespace (use-custom-ca: true)"]
+    cmap[ConfigMap private-ca]
+    pod[Pod]
+  end
+
+  tf -.cert and key.-> keypair
+  tf -.cert.-> trustcert
+  cm -.reconciles.-> issuer
+  issuer -.signs with.-> keypair
+  tm -.reconciles.-> bundle
+  bundle -.reads.-> trustcert
+  bundle -.writes.-> cmap
+  policy -.adds volume.-> pod
+  pod -.mounts.-> cmap
 ```
 
 ```yaml
 flux:
   - name: pki
+    secrets:
+      private-ca-keypair:
+        namespaces: [system-pki]
+        data:
+          tls.crt: <terraform_output('pki', 'cert')>
+          tls.key: <terraform_output('pki', 'key')>
+      private-ca-trust-cert:
+        namespaces: [system-pki-trust]
+        data:
+          tls.crt: <terraform_output('pki', 'cert')>
     install:
       components: [cert-manager, trust-manager]
     resources:
-      - dependsOn: [policy-resources]
-        components: [private-issuer/ca]
+      - components: [private-issuer/ca, private-issuer/ca/kyverno-inject]
 ```
 
-The `private` ClusterIssuer signs every workload certificate with the CA
-from the `pki/ca` Terraform step, which generates one unless `pki.ca.cert`
-and `.key` supply it. trust-manager publishes the CA certificate as the
-`private-ca` ConfigMap, and a Kyverno policy mounts it into Pods labeled
-`use-custom-ca: "true"`.
+The `pki/ca` Terraform module generates the CA, or passes through
+`pki.ca.cert` and `pki.ca.key` when both are set. The
+facet's `secrets:` block writes the keypair into `system-pki`, where
+ClusterIssuer `private` signs against it, and the cert alone into
+`system-pki-trust`. trust-manager's `Bundle private-ca` merges that
+cert with the default CAs into a `private-ca` ConfigMap in every
+namespace labeled `use-custom-ca: "true"`. The Kyverno policy mounts
+the ConfigMap into Pods carrying the same label.
 
 ## Operations
 
@@ -201,6 +217,7 @@ host stays awake long enough for the VM's clock sync to converge.
 | `acme_server` | any `public-issuer/acme/*` component is enabled | ACME directory URL. Resolves to `acme-staging-v02.api.letsencrypt.org` in dev, `acme-v02.api.letsencrypt.org` otherwise. |
 | `acme_email` | any `public-issuer/acme/*` component is enabled | Contact email Let's Encrypt registers against the ACME account. Sourced from top-level `email`. |
 | `acme_dns_zone` | any `public-issuer/acme/*` component is enabled | FQDN of the DNS zone cert-manager writes DNS-01 challenges into. Sourced from `dns.public_domain`. |
+| `acme_region` | `public-issuer/acme/route53` is enabled | AWS region for the Route53 DNS-01 solver. Sourced from `aws.region`. |
 | `acme_hosted_zone_id` | `public-issuer/acme/route53` is enabled | Route53 hosted zone ID. Threaded via deferred `terraform_output('dns-zone', 'zone_id')` so the ACME ClusterIssuer reissues automatically when the dns-zone stack first applies. |
 | `acme_dns_zone_resource_group` | `public-issuer/acme/azuredns` is enabled | Azure resource group holding the public DNS zone. Sourced from `terraform_output('dns-zone', 'resource_group_name')`. |
 | `acme_dns_zone_subscription_id` | `public-issuer/acme/azuredns` is enabled | Azure subscription ID for the public DNS zone. Sourced from `terraform_output('dns-zone', 'subscription_id')`. |
@@ -221,15 +238,21 @@ _Enabled when single-node topology._
 
 Patches the cert-manager HelmRelease to disable leader election on the controller (single replica has nothing to elect against).
 
+### `cert-manager/ha`
+
+_Enabled when `topology == 'ha'`._
+
+Patches the cert-manager HelmRelease to run 2 replicas each of the controller, webhook, and cainjector, with preferred pod anti-affinity across nodes.
+
 ### `cert-manager/azure-workload-identity`
 
-_Enabled when platform is Azure AND `dns.public_domain` is set._
+_Enabled when platform is Azure AND `dns.public_domain` is set AND `dns.public_zone` is not `false`._
 
 Patches the cert-manager Deployment to attach the AKS federated workload identity used by the DNS-01 ACME solver against Azure DNS. Reads `cert_manager_client_id` and `cert_manager_tenant_id`.
 
 ### `cert-manager/gcp-workload-identity`
 
-_Enabled when platform is GCP AND `dns.public_domain` is set._
+_Enabled when platform is GCP AND `dns.public_domain` is set AND `dns.public_zone` is not `false`._
 
 Annotates the cert-manager ServiceAccount with the GKE Workload Identity binding used by the DNS-01 ACME solver against Cloud DNS. Reads `cert_manager_service_account_email`.
 
@@ -257,42 +280,48 @@ The cluster's internal trust anchor, issuing the etcd and private-gateway certif
 
 | Variant | Enabled when | Effect |
 |---|---|---|
-| `ca` | always | Full private CA: the CA cert/key (generated or BYO, from `terraform_output('pki', ...)`) populate the `private-ca-keypair` Secret (`system-pki` only) cert-manager's `ca`-type `ClusterIssuer` (`private`) signs against, and the cert alone populates the `private-ca-trust-cert` Secret (`system-pki-trust` only, no private key) trust-manager's `Bundle` reads from — both via the facet's `secrets:` block (never rendered in the Kustomization spec, and never through a Flux substitution — a substituted multi-line PEM value loses its line breaks). A Kyverno mutation policy injects the resulting trust bundle into workload Pods. |
+| `ca` | always | ClusterIssuer `private` signing against the `private-ca-keypair` Secret in `system-pki`, plus `Bundle private-ca` reading the cert-only `private-ca-trust-cert` Secret in `system-pki-trust`. The facet's `secrets:` block fills both from `terraform_output('pki', ...)`. |
+| `ca/kyverno-inject` | `policies.enabled` is not `false` | Kyverno MutatingPolicy `inject-private-ca` that mounts the `private-ca` ConfigMap into Pods labeled `use-custom-ca: "true"`. |
 
 ### `public-issuer`
 
-Issuers for the external gateway certificate. One variant is active at a time.
+ClusterIssuers for the external gateway certificate, named `public-selfsigned` or `public-acme`.
 
 ### `public-issuer/selfsigned`
 
-_Enabled when `dns.public_domain` is unset (default), or when `pki.public_issuer` is `selfsigned`._
+_Enabled on AWS, Azure, GCP, and Hetzner when no `acme/*` variant is enabled; on other platforms when `dns.public_domain` is set; always when `dev: true`._
 
-ClusterIssuer `public-selfsigned`. Bootstraps a working gateway cert immediately; flip to `acme/*` by setting `dns.public_domain` (and leaving `pki.public_issuer` unset or `acme`) and cert-manager reissues into the same Secret.
+ClusterIssuer `public-selfsigned`. Bootstraps a working gateway cert immediately. Setting `dns.public_domain` with `dns.public_zone` and `pki.public_issuer` left at their defaults switches a cloud platform to `acme/*`, and cert-manager reissues into the same Secret.
 
 ### `public-issuer/acme/route53`
 
-_Enabled when platform is AWS AND `dns.public_domain` is set AND `pki.public_issuer` is not `selfsigned`._
+_Enabled when platform is AWS AND `dns.public_domain` is set AND `dns.public_zone` is not `false` AND `pki.public_issuer` is not `selfsigned`._
 
 ClusterIssuer `public-acme` using the ACME DNS-01 solver against Route53. Auth is via the Pod Identity binding provisioned by the cluster Terraform module.
 
 ### `public-issuer/acme/azuredns`
 
-_Enabled when platform is Azure AND `dns.public_domain` is set AND `pki.public_issuer` is not `selfsigned`._
+_Enabled when platform is Azure AND `dns.public_domain` is set AND `dns.public_zone` is not `false` AND `pki.public_issuer` is not `selfsigned`._
 
 ClusterIssuer `public-acme` using the ACME DNS-01 solver against Azure DNS. Auth is via the federated workload identity (see `cert-manager/azure-workload-identity`).
 
 ### `public-issuer/acme/clouddns`
 
-_Enabled when platform is GCP AND `dns.public_domain` is set AND `pki.public_issuer` is not `selfsigned`._
+_Enabled when platform is GCP AND `dns.public_domain` is set AND `dns.public_zone` is not `false` AND `pki.public_issuer` is not `selfsigned`._
 
 ClusterIssuer `public-acme` using the ACME DNS-01 solver against Cloud DNS. Auth is via the GKE Workload Identity binding (see `cert-manager/gcp-workload-identity`).
+
+### `public-issuer/acme/hetzner`
+
+_Enabled when platform is Hetzner AND `dns.public_domain` is set AND `dns.public_zone` is not `false` AND `pki.public_issuer` is not `selfsigned`._
+
+ClusterIssuer `public-acme` using the ACME DNS-01 solver against Hetzner DNS. Installs the `cert-manager-webhook-hetzner` HelmRelease in `system-pki`, which reads the API token from the `hetzner-dns` Secret.
 
 ## Dependencies
 
 | Add-on | Required when | Reason |
 |---|---|---|
-| `policy-resources` | `policies.enabled: true` | pki-install depends on Kyverno baseline policies being active before cert-manager pods are admitted into `system-pki`. pki-resources depends on `policy-resources` so the private-CA inject policy doesn't apply before Kyverno itself is reconciling. |
-| `telemetry-install` | `cert-manager/prometheus` is enabled | The ServiceMonitor added by `cert-manager/prometheus` needs Prometheus to be live to scrape. |
+| `telemetry-install` | `telemetry.metrics.enabled` or `telemetry.logs.enabled` is true | The ServiceMonitor added by `cert-manager/prometheus` needs Prometheus to be live to scrape. |
 
 
 ## See also

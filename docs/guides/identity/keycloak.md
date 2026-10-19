@@ -3,20 +3,29 @@ title: Keycloak
 description: Hosted Keycloak as the cluster identity provider, running in-cluster with its own Postgres database.
 ---
 
-Keycloak is the default identity provider. When identity is enabled, Core runs Keycloak in the cluster, and Grafana, kubectl, and other add-ons with SSO support sign in through it.
+Keycloak is the default identity provider. When identity is enabled, Core runs Keycloak in the cluster, and Grafana, kubectl, and other add-ons with SSO support sign in through it. This page assumes the terms *identity provider*, *consumer*, *client*, and *realm* from the [Identity](index.md) overview, and its examples use that page's `example.com` context.
 
 ## Turn it on
+
+A cluster without an identity provider has nothing for its consumers to sign in through. The smallest `values.yaml` that runs one is a single key:
 
 ```yaml
 identity:
   enabled: true
 ```
 
-`identity.driver` defaults to `keycloak`. Core installs the Keycloak operator, a `Keycloak` server and a dedicated CloudNativePG `Cluster` named `keycloak-db`, all in the `system-identity` namespace. The operator's CRDs come from the vendored `keycloak-26.7.0` CRD layer.
+`identity.driver` defaults to `keycloak`, so this is enough. Core installs the Keycloak operator, a `Keycloak` server and a dedicated CloudNativePG `Cluster` named `keycloak-db`, all in the `system-identity` namespace. The operator's CRDs come from the vendored `keycloak-26.8.0` CRD layer.
 
-Keycloak stores its data in Postgres, so `identity.enabled` also turns on `database.postgres.enabled` unless you set it to `false` explicitly. Setting it to `false` leaves Keycloak without a database. See [CloudNativePG](../database/cloudnativepg.md).
+Keycloak stores its data in Postgres, so `identity.enabled` also turns on `database.postgres.enabled` unless you set it to `false` explicitly. [CloudNativePG](../database/cloudnativepg.md) describes that database add-on.
 
-Login is published at `keycloak.<domain>`, where `<domain>` is `dns.public_domain`, or `dns.private_domain` if no public domain is set. It binds to the `external` gateway when one exists and to `internal` otherwise, and the `external` route exposes only the paths a login needs. The admin console is published at `keycloak-admin.<dns.private_domain>` on the `internal` gateway only. On docker-desktop the URL includes the gateway's host port, `:8443` for `internal` and `:8444` for `external`. To use a different URL, such as a plain NodePort or a fixed production hostname, set it directly:
+> [!WARNING]
+> Setting `database.postgres.enabled: false` alongside `identity.enabled` leaves Keycloak without a database.
+
+## Where Keycloak is published
+
+Users reach the login page through the gateway. Core publishes it at `keycloak.<domain>`, where `<domain>` is `dns.public_domain`, or `dns.private_domain` if no public domain is set; in the example context that is `keycloak.example.com`. The login binds to the `external` gateway when one exists and to `internal` otherwise, and the `external` route exposes only the paths a login needs. The admin console is published at `keycloak-admin.<dns.private_domain>`, here `keycloak-admin.example.internal`, on the `internal` gateway only. On docker-desktop the URL includes the gateway's host port, `:8443` for `internal` and `:8444` for `external`.
+
+A plain NodePort or a fixed production hostname needs a URL the derivation can't produce. Set it directly with `identity.keycloak.hostname`:
 
 ```yaml
 identity:
@@ -28,7 +37,7 @@ Without a gateway the server still runs, but nothing outside the cluster can rea
 
 ## Dev mode logins
 
-With `dev: true`, Core seeds these accounts so SSO works without any setup. None of them exist outside dev.
+A fresh realm has no users, so SSO has nobody to sign in. With `dev: true`, Core seeds the accounts in the table below so SSO works without any setup. None of them exist outside dev.
 
 | Account | Username | Password | Access |
 |---|---|---|---|
@@ -40,7 +49,7 @@ The console admin and `dev-admin` share a password. Setting `identity.keycloak.a
 
 ## Admin console
 
-In dev mode the console login is in [Dev mode logins](#dev-mode-logins). Outside dev, the operator generates a temporary admin on first boot and stores it in the `keycloak-initial-admin` secret:
+Configuring Keycloak by hand, such as adding users, needs an admin login. In dev mode it is the console account in [Dev mode logins](#dev-mode-logins). Outside dev, the operator generates a temporary admin on first boot and stores it in the `keycloak-initial-admin` secret. These commands read its username and password:
 
 ```sh
 windsor exec -- kubectl -n system-identity get secret keycloak-initial-admin \
@@ -49,7 +58,7 @@ windsor exec -- kubectl -n system-identity get secret keycloak-initial-admin \
   -o jsonpath='{.data.password}' | base64 -d
 ```
 
-To set a known admin in any environment, provide the credentials:
+To set a known admin in any environment, provide the credentials under `identity.keycloak.admin`:
 
 ```yaml
 identity:
@@ -59,13 +68,14 @@ identity:
       password: ${secret("MyVault", "keycloak-admin", "password")}
 ```
 
-The operator applies this only when it first creates the server. Changing it later does not rotate the existing admin.
+> [!IMPORTANT]
+> The operator applies `identity.keycloak.admin` only when it first creates the server. Changing it later does not rotate the existing admin.
 
 ## Platform realm
 
-Core imports a `platform` realm, so applications stay out of `master`. The realm enforces TLS for external requests, brute-force detection, and a password policy of at least 12 characters that cannot match the username or email. Access tokens last 5 minutes, and SSO sessions expire after 30 minutes idle or 10 hours total.
+Core imports a `platform` realm for consumers, so applications stay out of Keycloak's `master` realm. The realm enforces TLS for external requests, brute-force detection, and a password policy of at least 12 characters that cannot match the username or email. Access tokens last 5 minutes, and SSO sessions expire after 30 minutes idle or 10 hours total.
 
-The realm also has a `platform-admins` group mapped to the realm-management `realm-admin` role. Core creates the group but not its members; add them in the console. Rename the realm with `identity.keycloak.realm`:
+The realm also has a `platform-admins` group mapped to the realm-management `realm-admin` role. Core creates the group but not its members; add them in the console. In dev mode the realm also has the two sign-in users from [Dev mode logins](#dev-mode-logins). To give the realm another name, set `identity.keycloak.realm`:
 
 ```yaml
 identity:
@@ -73,13 +83,11 @@ identity:
     realm: corp
 ```
 
-The import runs once. Later changes happen in the console, or by recreating the `KeycloakRealmImport`, not through Git. Adding a consumer that needs a new client, such as turning on Grafana SSO after the fact, re-imports the realm.
-
-In dev mode the realm also has two sign-in users. See [Dev mode logins](#dev-mode-logins).
+The import runs once. Later changes happen in the console, or by recreating the `KeycloakRealmImport`, and Git changes to the realm are not applied. One exception: adding a consumer that needs a new client, such as turning on Grafana SSO after the fact, re-imports the realm.
 
 ## Grafana single sign-on
 
-Once identity is enabled, Grafana signs in through Keycloak with no further configuration:
+Grafana's local login is one more set of credentials to manage. Once identity is enabled, Grafana signs in through Keycloak with no further configuration:
 
 ```yaml
 identity:
@@ -88,9 +96,7 @@ observability:
   enabled: true
 ```
 
-Opening Grafana sends the browser to Keycloak to log in, then back to Grafana. Set `observability.grafana.sso: false` to keep Grafana's local login instead.
-
-Core registers the `grafana` client in the platform realm for you. It is a public client that uses PKCE, which checks each login without a shared secret, so there is nothing to create or store. Grafana redirects the browser to Keycloak's public URL, so the gateway must be enabled.
+Opening Grafana sends the browser to Keycloak to log in, then back to Grafana. Core registers the `grafana` client in the platform realm for you. It is a public PKCE client, so there is no secret to create or store. Grafana redirects the browser to Keycloak's public URL, so the gateway MUST be enabled. Set `observability.grafana.sso: false` to keep Grafana's local login instead.
 
 ### Who gets which role
 
@@ -98,7 +104,7 @@ Grafana takes a user's role from their Keycloak groups. Members of `platform-adm
 
 In dev mode `dev-admin` is already in the group and `dev-viewer` is not, and Grafana skips its login page and goes straight to Keycloak.
 
-To use a different group, set `observability.grafana.role_attribute_path`. Group names in the token include a leading slash:
+To map roles from a different group, set `observability.grafana.role_attribute_path`. Group names in the token include a leading slash:
 
 ```yaml
 observability:
@@ -108,7 +114,7 @@ observability:
 
 ## kubectl single sign-on
 
-`cluster.oidc.enabled: true` makes the Kubernetes API server accept Keycloak tokens. It patches the Talos machine config with `--oidc-*` flags, so it only works on Talos clusters. That is every platform except AWS, Azure, and GCP unless you override `cluster.driver`.
+kubectl can sign in through Keycloak as well. Setting `cluster.oidc.enabled: true` makes the Kubernetes API server accept Keycloak tokens:
 
 ```yaml
 identity:
@@ -118,29 +124,32 @@ cluster:
     enabled: true
 ```
 
-Core fills in `issuer_url` and `client_id` from the platform realm and registers a public `kubernetes` client that uses PKCE. The client accepts redirects to `http://localhost:8000` and `http://localhost:18000`, so a kubectl plugin such as `kubelogin` works with its default settings. The API server also trusts the cluster CA when it verifies tokens. `cluster.oidc.username_claim` (default `sub`) and `cluster.oidc.groups_claim` (default `groups`) change which token claims Kubernetes uses.
+The setting patches the Talos machine config with `--oidc-*` flags. Core fills in `issuer_url` and `client_id` from the platform realm and registers a public `kubernetes` PKCE client. The client accepts redirects to `http://localhost:8000` and `http://localhost:18000`, so a kubectl plugin such as `kubelogin` works with its default settings. The API server also trusts the cluster CA when it verifies tokens. `cluster.oidc.username_claim` (default `sub`) and `cluster.oidc.groups_claim` (default `groups`) change which token claims Kubernetes uses.
 
-The API server fetches the issuer's keys itself, so the gateway must be enabled. Otherwise set `cluster.oidc.issuer_url` explicitly.
+The API server fetches the issuer's keys itself, so the gateway MUST be enabled. Otherwise set `cluster.oidc.issuer_url` explicitly.
 
-OIDC only authenticates users. It grants no permissions, so outside dev you bind `platform-admins`, or another claim, to a `ClusterRoleBinding` yourself. In dev mode Core binds `platform-admins` to `cluster-admin`, so `dev-admin` can do something after logging in.
+OIDC only authenticates users and grants no permissions. Outside dev you bind `platform-admins`, or another claim, to a `ClusterRoleBinding` yourself. In dev mode Core binds `platform-admins` to `cluster-admin`, so `dev-admin` can do something after logging in.
 
-On EKS and AKS the setting does nothing and nothing warns about it. Those control planes accept no API server flags, and their platform facets never read `cluster.oidc`. Use the cloud's own mechanism there, such as EKS access entries or Microsoft Entra. Hosted Keycloak and Grafana SSO work on every platform.
+> [!IMPORTANT]
+> kubectl single sign-on works only on Talos clusters. That is every platform except AWS, Azure, and GCP unless you override `cluster.driver`.
+
+On EKS, AKS, and GKE the setting does nothing and nothing warns about it. Those control planes accept no API server flags, and their platform facets never read `cluster.oidc`. Use the cloud's own mechanism there, such as EKS access entries or Microsoft Entra. Hosted Keycloak and Grafana SSO work on every platform.
 
 ## Server image
 
-By default the stock Keycloak image runs its build step every time a pod starts. For faster startup, build an optimized image with `kc.sh build --db=postgres`, push it to your registry, and reference it by digest:
+By default the stock Keycloak image runs its build step every time a pod starts. For faster startup, build an optimized image with `kc.sh build --db=postgres`, push it to your registry, and reference it by digest in `identity.keycloak.image`:
 
 ```yaml
 identity:
   keycloak:
-    image: registry.example.com/keycloak-optimized:26.7.0@sha256:<digest>
+    image: registry.example.com/keycloak-optimized:26.8.0@sha256:<digest>
 ```
 
-A custom image is assumed to be pre-built, so the operator starts it with `--optimized`. It must be pinned by digest, because `system-identity` is policy-managed and rejects tags alone.
+Core assumes a custom image is pre-built, so the operator starts it with `--optimized`. The image MUST be pinned by digest, because `system-identity` is policy-managed and rejects tags alone.
 
 ## High availability
 
-With `topology: ha`, Keycloak runs two replicas clustered through Infinispan, and the database grows from one Postgres instance to three with automatic failover. Both use hard pod anti-affinity, so the cluster needs at least two schedulable nodes for Keycloak and three for the database. Other topologies run one of each.
+Under any topology other than `ha`, Keycloak and its database each run as a single instance. With `topology: ha`, Keycloak runs two replicas clustered through Infinispan, and the database grows from one Postgres instance to three with automatic failover. Both use hard pod anti-affinity, so the cluster needs at least two schedulable nodes for Keycloak and three for the database.
 
 ## Monitoring
 
@@ -148,7 +157,7 @@ When `telemetry.metrics.enabled` is true (the default), Keycloak exposes server 
 
 ## Under the hood
 
-Keycloak has no first-party Helm chart. Core vendors the operator's Deployment and RBAC unchanged, and the matching CRDs come in through the CRD layer from the same upstream release.
+Keycloak has no first-party Helm chart. Core vendors the operator's Deployment and RBAC unchanged, and the matching CRDs come in through the CRD layer from the same upstream release. The diagram below shows how Flux, the operator, the server, and its database fit together in `system-identity`, and how users reach the server through the gateway.
 
 ```mermaid
 flowchart LR
@@ -180,9 +189,11 @@ flowchart LR
 
 TLS ends at the gateway. Keycloak serves plain HTTP inside the cluster and reads the proxy's forwarded headers for the external scheme and host. The gateway redirects plain HTTP to HTTPS, and with the Cilium gateway driver a network policy limits Keycloak's ingress to the gateway proxy.
 
-Keycloak connects to Postgres with `sslmode=verify-full` against CloudNativePG's generated CA. Grafana and kubectl are public PKCE clients, so there are no client secrets to keep out of Git. A public client cannot prove the Grafana server's identity to Keycloak; the PKCE verifier ties each authorization code to the login that requested it. Every image in `system-identity` is pinned by digest.
+Keycloak connects to Postgres with `sslmode=verify-full` against CloudNativePG's generated CA. Grafana and kubectl are public PKCE clients, so there are no client secrets to keep out of Git. A public client cannot prove the Grafana server's identity to Keycloak. Instead, the PKCE verifier ties each authorization code to the login that requested it.
 
 ## Configuration
+
+The table below lists the `identity` keys this driver reads, with their defaults.
 
 | Key | Type | Default | Description |
 |-----|------|---------|-------------|

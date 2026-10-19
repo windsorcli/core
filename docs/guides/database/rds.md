@@ -3,9 +3,11 @@ title: AWS RDS
 description: AWS RDS as the cloud Postgres option, provisioned through Crossplane.
 ---
 
-RDS is the default cloud driver when `platform: aws`. When enabled, the Crossplane operator and `provider-aws-rds` are installed in the `system-provisioning` namespace.
+On AWS, you can give `my-app` a managed RDS Postgres database without leaving Kubernetes: you declare the database as a resource in the cluster, and Crossplane creates it in your AWS account. RDS is the default cloud driver when `platform: aws`. This page assumes the terms from the [Database](index.md) overview.
 
 ## Turn it on
+
+You turn on cloud Postgres in `values.yaml`:
 
 ```yaml
 database:
@@ -14,9 +16,11 @@ database:
       enabled: true
 ```
 
-`cloud.driver` defaults to `rds` on AWS.
+`cloud.driver` defaults to `rds` on AWS, so you don't set it. When enabled, the Crossplane operator and `provider-aws-rds` are installed in the `system-provisioning` namespace.
 
-To launch an RDS database, use the following [Instance](https://marketplace.upbound.io/providers/upbound/provider-aws-rds/v2.7.2/resources/rds.aws.upbound.io/Instance/v1beta3) manifest:
+## Launch a database
+
+The provider creates an RDS database for each *`Instance`* resource you apply. This [Instance](https://marketplace.upbound.io/providers/upbound/provider-aws-rds/v2.7.2/resources/rds.aws.upbound.io/Instance/v1beta3) manifest creates `my-app-db`:
 
 ```yaml
 apiVersion: rds.aws.upbound.io/v1beta3
@@ -50,17 +54,24 @@ spec:
     #   WindsorContextID: a1b2c3d4
 ```
 
-At admission, a Kyverno policy adds the `windsorcli.dev/cluster: <cluster-name>` tag and fills in `region`, `dbSubnetGroupName`, `vpcSecurityGroupIds`, and `kmsKeyId` for you. The Crossplane IAM role is scoped to only work with databases that include this tag.
+`dbName` creates the `myapp` database on the instance. `autoGeneratePassword` and `passwordSecretRef` have the provider generate the admin password and store it in `my-app-db-admin-credentials` in `system-database`. `deletionProtection` and `finalSnapshotIdentifier` guard the database against deletion, as described in [Deletion](#deletion).
+
+The commented lines are fields you leave out. At admission, a Kyverno policy adds the `windsorcli.dev/cluster: <cluster-name>` tag and fills in `region`, `dbSubnetGroupName`, `vpcSecurityGroupIds`, and `kmsKeyId` for you. The tag also limits what Crossplane can touch, because its IAM role is scoped to only work with databases that include it.
+
+To give `my-app` its own database user, create an [`AppRole`](index.md#application-roles) with `instanceName: my-app-db`.
 
 ## Deletion
 
-Deleting an `Instance` deletes the RDS database. That is the Crossplane default, `spec.deletionPolicy: Delete`. Set `deletionPolicy: Orphan` to leave the database in AWS when the resource is removed.
+An `Instance` owns the database it created, and Crossplane's default `spec.deletionPolicy` is `Delete`. Set `deletionPolicy: Orphan` to leave the database in AWS when the resource is removed.
 
-RDS adds its own checks. `deletionProtection: true` blocks deletion until you turn it off. Unless `skipFinalSnapshot: true` is set, deletion also takes a final snapshot and needs a `finalSnapshotIdentifier`. Keep both protections for databases you can't recreate. For throwaway environments set `deletionProtection: false` and `skipFinalSnapshot: true`, as the demo does.
+> [!WARNING]
+> Deleting an `Instance` deletes the RDS database unless `deletionPolicy` is `Orphan`.
+
+RDS adds its own checks. `deletionProtection: true` blocks deletion until you turn it off. Unless `skipFinalSnapshot: true` is set, deletion also takes a final snapshot and needs a `finalSnapshotIdentifier`. Keep both protections for databases you can't recreate. For throwaway environments leave `deletionProtection` off, its default, and set `skipFinalSnapshot: true`, as the demo does.
 
 ## Encryption at rest
 
-RDS storage is always encrypted, by default with the AWS-managed key. You may provide your own KMS key, or allow the blueprint to manage one for you.
+RDS storage is always encrypted, by default with the AWS-managed key. You may provide your own KMS key, or allow the blueprint to manage one for you, with the `encryption` keys shown here:
 
 ```yaml
 database:
@@ -71,11 +82,11 @@ database:
         # key_id: arn:aws:kms:us-east-1:111122223333:key/...   # use an existing key; overrides managed
 ```
 
-`managed` has no effect when `ephemeral: true`
+`managed: true` has the blueprint create a dedicated KMS key. `key_id` names an existing key and overrides `managed`. `managed` has no effect when the context sets `ephemeral: true`.
 
 ## Under the hood
 
-Terraform creates the KMS key if `managed` is set, a security group open only to the cluster's nodes, and the IAM role and Pod Identity association for the Crossplane provider. Kustomize installs Crossplane and the provider.
+Terraform creates the KMS key if `managed` is set, a security group open only to the cluster's nodes, and the IAM role and Pod Identity association for the Crossplane provider. Kustomize installs Crossplane and the provider. The provider then reconciles each `Instance` into an RDS database, as this diagram shows:
 
 ```mermaid
 flowchart LR

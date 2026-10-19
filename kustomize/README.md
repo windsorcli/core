@@ -19,11 +19,11 @@ composition. Links from there land here.
 | [cni](cni/) | Cilium as the cluster CNI, bootstrapped via Terraform and adopted by Flux. |
 | [compute](compute/) | Node-lifecycle controllers for elastic clusters (EKS cluster-autoscaler). |
 | [csi](csi/) | Persistent storage drivers and StorageClasses. AWS EBS, Azure Disk, OpenEBS host-path, and Longhorn distributed. |
-| [database](database/) | CloudNativePG operator for in-cluster PostgreSQL, plus the driver-specific resources (ProviderConfig, monitoring, app-role) for RDS, Azure Database for PostgreSQL, and Cloud SQL. |
+| [database](database/) | CloudNativePG operator for in-cluster PostgreSQL, plus the Crossplane ProviderConfig and Kyverno policies for RDS, Azure Database for PostgreSQL, and Cloud SQL. |
 | [demo](demo/) | Sample applications (PostgreSQL cluster, static website, Istio bookinfo) for blueprint validation. |
 | [dns](dns/) | external-dns for hostname publication and (opt-in) coredns for in-cluster private DNS. |
 | [gateway](gateway/) | Gateway API implementation (Envoy Gateway or Cilium) and the cluster's external and internal Gateways. |
-| [identity](identity/) | Cluster identity provider (SSO) — hosted Keycloak or an external OIDC issuer. |
+| [identity](identity/) | Cluster identity provider (SSO), either hosted Keycloak or an external OIDC issuer. |
 | [lb](lb/) | LoadBalancer Service implementation (AWS LB Controller, Hetzner cloud controller, MetalLB, or kube-vip). |
 | [object-store](object-store/) | MinIO Operator for in-cluster S3-compatible object storage. |
 | [observability](observability/) | Grafana dashboards and the cluster's log store (stdout, Quickwit, or Elasticsearch + Kibana). |

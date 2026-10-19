@@ -3,9 +3,11 @@ title: Flannel
 description: Talos's built-in Flannel CNI, used where Cilium cannot run. Core installs nothing for it.
 ---
 
-Flannel is Talos's built-in CNI. With `cluster.cni.driver: flannel`, Core installs no CNI add-on and leaves Flannel and kube-proxy as Talos configured them.
+Flannel is Talos's built-in [CNI](index.md). With `cluster.cni.driver: flannel`, Core installs no CNI add-on and leaves Flannel and kube-proxy as Talos configured them. The [CNI overview](index.md) defines the terms this page assumes.
 
 ## Turn it on
+
+Flannel is already the default on three Talos platforms, explained below and listed under [Defaults](index.md#defaults). Any other Talos cluster can opt in with this `values.yaml`.
 
 ```yaml
 cluster:
@@ -13,11 +15,11 @@ cluster:
     driver: flannel
 ```
 
-docker-desktop defaults to Flannel because Cilium cannot bootstrap through the localhost tunnel that reaches the API server. Incus with Colima also uses it, with kube-vip, because that platform tests storage drivers and Cilium's eBPF would skew the results. Hyper-V defaults to it as well. Any other Talos cluster can opt in with the setting above.
+docker-desktop defaults to Flannel because Cilium cannot bootstrap through the localhost tunnel that reaches the API server. Incus with Colima also uses it, with kube-vip, because that platform tests storage drivers and Cilium's eBPF would skew the results. Hyper-V defaults to it as well.
 
 ## Load balancer addresses
 
-Flannel has no load balancer of its own. To give `LoadBalancer` Services an address, set a driver:
+Flannel has no load balancer of its own, so a `LoadBalancer` Service for `my-app` gets no address until you add one. You pick it with `network.loadbalancer_driver` and give it a pool, as in this example using MetalLB.
 
 ```yaml
 network:
@@ -27,7 +29,10 @@ network:
     end: 10.5.1.30
 ```
 
-docker-desktop has no routable node network. It skips the load balancer and exposes the gateway on a node port, as described under [Service exposure](../gateway/index.md#service-exposure).
+The `loadbalancer_driver` key accepts `metallb` or `kube-vip`, and `loadbalancer_ips` sets the range that driver hands out.
+
+> [!NOTE]
+> docker-desktop has no routable node network. It skips the load balancer and exposes the gateway on a node port, as described under [Service exposure](../gateway/index.md#service-exposure).
 
 ## Gateway
 

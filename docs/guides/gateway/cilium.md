@@ -3,9 +3,11 @@ title: Cilium Gateway
 description: Cilium's Gateway API controller as the cluster gateway driver, served by the Envoy that Cilium runs on every node.
 ---
 
-The `cilium` driver uses the Gateway API controller built into Cilium, so it needs the [Cilium CNI](../cni/cilium.md) (`cluster.cni.driver: cilium`). The cilium-operator turns `Gateway` and `HTTPRoute` resources into Envoy configuration, and the `cilium-envoy` pod that Cilium runs on every node serves the traffic. Core installs no separate gateway controller or proxy Deployment. [Choosing a driver](index.md#choosing-a-driver) compares it with [Envoy Gateway](envoy.md).
+A cluster that already runs the [Cilium CNI](../cni/cilium.md) has an Envoy on every node and a Gateway API controller built in. The `cilium` driver serves the `external` and `internal` Gateways from the [Gateway](index.md) guide with those parts, so Core installs no separate gateway controller or proxy Deployment. The cilium-operator turns `Gateway` and `HTTPRoute` resources into Envoy configuration, and the `cilium-envoy` pod that Cilium runs on every node serves the traffic. [Choosing a driver](index.md#choosing-a-driver) compares this driver with [Envoy Gateway](envoy.md).
 
 ## Turn it on
+
+The driver needs Cilium as the CNI, so a `values.yaml` that selects it sets both keys:
 
 ```yaml
 cluster:
@@ -15,25 +17,34 @@ gateway:
   driver: cilium
 ```
 
-`gateway.driver` defaults to `cilium` when Cilium is the CNI and to [`envoy`](envoy.md) otherwise. AWS and docker-desktop always default to `envoy`. See [CNI defaults](../cni/index.md#defaults) for which clusters use Cilium.
+`cluster.cni.driver: cilium` is the requirement. Where Cilium is already the CNI, `gateway.driver` defaults to `cilium` and you can leave both keys out. On other clusters it defaults to [`envoy`](envoy.md), and AWS and docker-desktop always default to `envoy`. See [CNI defaults](../cni/index.md#defaults) for which clusters use Cilium.
 
-Core creates a `cilium` GatewayClass and the `external` and `internal` Gateways in `system-gateway`, each when its domain is set. The Cilium release belongs to the [CNI add-on](../cni/cilium.md), which turns on Gateway API support when this driver is selected. The Gateway API CRDs are applied before the Cilium operator starts.
+With the driver selected, Core creates a `cilium` GatewayClass and the `external` and `internal` Gateways in `system-gateway`, each when its domain is set. The Cilium release belongs to the [CNI add-on](../cni/cilium.md), which turns on Gateway API support when this driver is selected. The Gateway API CRDs are applied before the Cilium operator starts.
 
 ## Addresses
 
-Cilium's LB IPAM gives the `internal` Gateway's Service the first address in `network.loadbalancer_ips` and the `external` Gateway the next one. A single Gateway takes the first. One node at a time announces each address over L2, whichever claimed it first, so announcement load can be uneven. L2 announcements do not work with `externalTrafficPolicy: Local`. Services in any namespace can share a Gateway's address on other ports. The Gateway waits for the Cilium CNI install, so the sharing policy exists before the Service does.
+Each Gateway gets a `LoadBalancer` Service, and on clusters without a cloud load balancer that Service needs an address from somewhere. Cilium's *LB IPAM* hands it one from `network.loadbalancer_ips`: the first address goes to the `internal` Gateway and the next one to `external`. A single Gateway takes the first.
+
+Clients find the address through L2 announcements. One node at a time announces each address, whichever claimed it first, so announcement load can be uneven across nodes.
+
+> [!IMPORTANT]
+> L2 announcements do not work with `externalTrafficPolicy: Local`.
+
+Services in any namespace can share a Gateway's address on other ports. The Gateway waits for the Cilium CNI install, so the sharing policy exists before the Service does.
 
 On Hetzner the cloud controller fills the Service of the `external` Gateway instead, and the LB IPAM annotations are left off.
 
 ## Private DNS
 
-`dns.private.enabled` gives CoreDNS its own `LoadBalancer` Service on port 53, which shares the `internal` gateway's address through LB IPAM. The zone itself is covered under [Private zones](../dns/private.md).
+With `dns.private.driver: coredns`, clients query the private zone on the same address as the `internal` Gateway. CoreDNS gets its own `LoadBalancer` Service on port 53, which shares the `internal` gateway's address through LB IPAM. [Private zones](../dns/private.md#coredns) covers the zone itself.
 
 ## Monitoring
 
-The gateway adds no monitors of its own. With `telemetry.metrics.enabled` (the default), the [CNI add-on](../cni/cilium.md#monitoring) has Prometheus scrape `cilium-envoy` along with the agent and operator. With `observability.enabled`, the Cilium dashboard's proxy panels show L7 redirects and response times. The gateway alert rules and Envoy Gateway dashboards install only for the [`envoy`](envoy.md#monitoring) driver.
+The `cilium` driver adds no monitors of its own. With `telemetry.metrics.enabled` (the default), the [CNI add-on](../cni/cilium.md#monitoring) has Prometheus scrape `cilium-envoy` along with the agent and operator. With `observability.enabled`, the Cilium dashboard's proxy panels show L7 redirects and response times. The gateway alert rules and Envoy Gateway dashboards install only for the [`envoy`](envoy.md#monitoring) driver.
 
 ## Under the hood
+
+The diagram below shows how a Gateway in `system-gateway` becomes Envoy configuration on the nodes, and the path a request takes to an app.
 
 ```mermaid
 flowchart LR

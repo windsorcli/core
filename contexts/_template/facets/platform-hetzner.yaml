@@ -28,7 +28,7 @@ requires:
   - when: (dns.private_domain ?? '') != '' && dev != true
     paths:
       - hetzner_no_private_domain
-    message: Hetzner has no private DNS and no internal gateway; unset dns.private_domain and use dns.public_domain.
+    message: Hetzner is public only and gets no internal gateway. Unset dns.private_domain and use dns.public_domain.
   - when: (hetzner.location ?? 'ash') in ['ash', 'hil']
     paths:
       - hetzner_us_instance_type_ok

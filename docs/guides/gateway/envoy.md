@@ -3,26 +3,28 @@ title: Envoy Gateway
 description: Envoy Gateway as the cluster gateway driver, with a dedicated Envoy data plane in system-gateway.
 ---
 
-Envoy Gateway is the default driver on AWS, on docker-desktop, and on any cluster without the [Cilium CNI](../cni/cilium.md). It runs its own controller and an Envoy proxy per Gateway. [Choosing a driver](index.md#choosing-a-driver) compares it with the [Cilium](cilium.md) driver.
+Envoy Gateway is the default driver on AWS, on docker-desktop, and on any cluster without the [Cilium CNI](../cni/cilium.md). It runs its own controller and an Envoy proxy per Gateway, so it works on any cluster regardless of the CNI. This page assumes the `external` and `internal` Gateways and the `my-app` route from the [Gateway](index.md) guide. [Choosing a driver](index.md#choosing-a-driver) compares Envoy Gateway with the [Cilium](cilium.md) driver.
 
 ## Turn it on
+
+Where Envoy Gateway is not already the default, select it in `values.yaml`:
 
 ```yaml
 gateway:
   driver: envoy
 ```
 
-Core installs the Envoy Gateway operator in `system-gateway`, along with an `external` Gateway when `dns.public_domain` is set and an `internal` Gateway when `dns.private_domain` is set. Both use the `envoy` GatewayClass. The operator creates an Envoy Deployment and a Service for each. The Gateway API and Envoy Gateway CRDs come from the vendored CRD layer.
+Core installs the Envoy Gateway operator in `system-gateway`. It adds an `external` Gateway when `dns.public_domain` is set and an `internal` Gateway when `dns.private_domain` is set, both using the `envoy` GatewayClass. For each Gateway the operator creates an Envoy Deployment and a Service. The Gateway API and Envoy Gateway CRDs come from the vendored CRD layer.
 
 ## Unmatched requests
 
-Any HTTPS request that matches no `HTTPRoute` gets a `404` page from the proxy, sent with `Cache-Control: no-store` so browsers do not cache it after the hostname gets a real route. Plain HTTP never gets this far, because the HTTP listener redirects it to HTTPS.
+A request for a hostname that no route claims, such as `typo.example.com`, still reaches the gateway. Envoy Gateway answers any such HTTPS request with a `404` page from the proxy. The page is sent with `Cache-Control: no-store`, so browsers do not cache it after the hostname gets a real route. Only HTTPS requests reach this point, because the HTTP listener redirects plain HTTP to HTTPS first.
 
-external-dns also publishes the apex and a wildcard record (`example.com` and `*.example.com`) for each Gateway's own zone, pointing at that Gateway. A hostname with no route therefore resolves and lands on the 404.
+Such a hostname resolves because external-dns publishes the apex and a wildcard record (`example.com` and `*.example.com`) for each Gateway's own zone, pointing at that Gateway. A hostname with no route therefore lands on the 404.
 
 ## Data plane Service
 
-Each Gateway references an `EnvoyProxy` of the same name that configures its proxy. The Service type follows `gateway.service_type`:
+Each Gateway references an `EnvoyProxy` of the same name, and that resource configures the Gateway's proxy, including the Service in front of the Envoy pods. The Service type follows `gateway.service_type`, and Core adds platform-specific settings to it. The table below lists what each environment gets.
 
 | Environment | Service | Added |
 |---|---|---|
@@ -35,19 +37,21 @@ Each Gateway references an `EnvoyProxy` of the same name that configures its pro
 | Azure or GCP, `external` | `LoadBalancer` | None. The cloud controller assigns an address. |
 | docker-desktop, or `service_type: NodePort` | `NodePort` | Extra node ports, listed below. |
 
-On `NodePort` the `internal` Service listens on `30080` for HTTP and `30443` for HTTPS, and the `external` Service on `30081` and `30444`. With `dns.private.enabled` the `internal` Service also exposes UDP and TCP port 53 on `30053`, and with `gitops.mode: push` (the default) the Flux webhook on `30292`. `gateway.publish_ports` maps host ports to these node ports.
+On `NodePort` the `internal` Service listens on `30080` for HTTP and `30443` for HTTPS, and the `external` Service on `30081` and `30444`. The `internal` Service can carry two more ports. With the `coredns` private DNS driver it exposes UDP and TCP port 53 on `30053`, and with `gitops.mode: push` (the default) it exposes the Flux webhook on `30292`. `gateway.publish_ports` maps host ports to these node ports.
 
-docker-desktop publishes `internal` on host ports `8443` and `8080`, and `external` on `8444` and `8081`. The Service carries matching ports without node ports. A pod can then reach a hostname on the same port a browser uses.
+docker-desktop publishes `internal` on host ports `8443` and `8080`, and `external` on `8444` and `8081`. The Service carries matching ports without node ports, so a pod can reach a hostname on the same port a browser uses.
 
 ## Private DNS
 
-`dns.private.enabled` adds UDP and TCP listeners on port 53 to the `internal` Gateway and routes them to CoreDNS. On docker-desktop, pods reach `internal` hostnames on the same ports a browser uses, such as `https://grafana.test:8443`. The zone itself is covered under [Private zones](../dns/private.md).
+With `dns.private.driver: coredns`, the private zone is served by CoreDNS in the cluster. Core adds UDP and TCP listeners on port 53 to the `internal` Gateway and routes them to CoreDNS. On docker-desktop, pods reach `internal` hostnames on the same ports a browser uses, such as `https://grafana.test:8443`. [Private zones](../dns/private.md#coredns) covers the zone itself.
 
 ## Monitoring
 
 With `telemetry.metrics.enabled`, Prometheus scrapes the proxies through a PodMonitor and the operator through a ServiceMonitor, and the operator installs after the telemetry stack. Alert rules fire on proxy liveness, empty or unhealthy upstreams, 5xx error rates, TLS errors and certificate expiry, and failed config pushes from the operator. When the `internal` Gateway exists, `observability.enabled` adds the Envoy Gateway and Envoy proxy dashboards to Grafana.
 
 ## Under the hood
+
+The diagram below shows the resources in `system-gateway` and the path a request takes from the load balancer to an app.
 
 ```mermaid
 flowchart LR
@@ -86,7 +90,7 @@ flowchart LR
   class cert,operator,gateway,proxy_cr,envoy,svc k8s
 ```
 
-TLS ends at Envoy, using a certificate from one of the [cluster issuers](../pki/index.md). The Gateway waits for the `pki` resources tier so the issuer exists when the certificate is requested.
+The Gateway points at its `EnvoyProxy` through `parametersRef`, and the operator programs the Envoy Deployment. TLS ends at Envoy, using a certificate from one of the [cluster issuers](../pki/index.md). The Gateway waits for the `pki` resources tier so the issuer exists when the certificate is requested.
 
 ## Reference
 

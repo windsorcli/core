@@ -1064,3 +1064,41 @@ cases:
       pki:
         public_issuer: acme
     expectError: true
+
+  - name: matching public and private domains fail composition
+    values:
+      platform: metal
+      gateway:
+        enabled: false
+      network: *default-network
+      cluster: *default-cluster
+      dns:
+        public_domain: example.com
+        private_domain: example.com
+    expectError: true
+
+  - name: public domain matching the deprecated dns.domain fails composition
+    values:
+      platform: metal
+      gateway:
+        enabled: false
+      network: *default-network
+      cluster: *default-cluster
+      dns:
+        public_domain: example.com
+        domain: example.com
+    expectError: true
+
+  - name: distinct public and private domains compose
+    values:
+      platform: metal
+      gateway:
+        enabled: false
+      network: *default-network
+      cluster: *default-cluster
+      dns:
+        public_domain: example.com
+        private_domain: example.internal
+    exclude:
+      messages:
+        - text: must differ

@@ -4,7 +4,9 @@ description: Pod networking with Cilium on Talos clusters, Flannel where Cilium 
 sidebar_order: 6
 ---
 
-The CNI gives pods their network. On Talos clusters the core blueprint installs [Cilium](cilium.md), which also replaces kube-proxy, announces load balancer addresses, and can serve as the [gateway](../gateway/cilium.md). [Flannel](flannel.md) is the alternative where Cilium does not fit. The following config can be placed in a context's `values.yaml` file to choose.
+A pod in namespace `my-app` can't reach another pod, or be reached by a Service, until something gives it a network. That something is the *CNI*, the Container Network Interface plugin that assigns pod addresses and routes traffic between nodes. Every other networking feature in the core blueprint, from `LoadBalancer` addresses to the [gateway](../gateway/index.md) that serves `my-app.example.com`, sits on top of it.
+
+On Talos clusters the core blueprint installs [Cilium](cilium.md). Besides pod networking, Cilium replaces *kube-proxy*, the Kubernetes component that routes Service traffic, and it announces load balancer addresses and can serve as the [gateway](../gateway/cilium.md). [Flannel](flannel.md), Talos's built-in CNI, is the alternative where Cilium does not fit. You choose between them with `cluster.cni.driver` in a context's `values.yaml`, which this minimal example sets to Cilium.
 
 ```yaml
 cluster:
@@ -12,12 +14,16 @@ cluster:
     driver: cilium   # cilium or flannel
 ```
 
+The two values do very different amounts of work. This table summarizes what Core does for each.
+
 | `cluster.cni.driver` | What Core does |
 |---|---|
 | [`cilium`](cilium.md) | Disables Talos's built-in Flannel and kube-proxy, installs Cilium with Terraform, and hands it to Flux. |
 | [`flannel`](flannel.md) | Installs nothing. Talos's built-in Flannel and kube-proxy stay in place. |
 
 ## Defaults
+
+Most clusters never set `cluster.cni.driver`, because Core picks a driver from the platform. Local and Hyper-V Talos clusters get Flannel, other Talos clusters get Cilium, and the managed clouds keep their own CNI. The defaults per cluster are listed here.
 
 | Cluster | `cluster.cni.driver` default |
 |---|---|
@@ -27,9 +33,16 @@ cluster:
 | Any other Talos cluster | `cilium` |
 | EKS, AKS, and GKE | Not set. The cloud's managed CNI runs, and Core installs none. |
 
-On Talos an explicit `cluster.cni.driver` overrides the default. Set it before the first apply, since it changes the Talos machine config. The Cilium add-on targets Talos. EKS can opt in with the same setting, but that path is untested. AKS and GKE keep their managed CNIs, and GKE's Dataplane V2 is already Google's managed Cilium.
+On Talos an explicit `cluster.cni.driver` overrides the default.
+
+> [!IMPORTANT]
+> Set `cluster.cni.driver` before the first apply. It changes the Talos machine config.
+
+The Cilium add-on targets Talos. EKS can opt in with the same setting, but that path is untested. AKS and GKE keep their managed CNIs, and GKE's Dataplane V2 is already Google's managed Cilium.
 
 ## What depends on the driver
+
+The driver decides more than pod networking. Suppose `my-app` exposes a `LoadBalancer` Service. With Cilium, the Service gets an address from `network.loadbalancer_ips` with no extra controller. With Flannel, nothing hands out that address until you pick a separate load balancer with `network.loadbalancer_driver`. The same split runs through service routing, the default gateway, policy enforcement, encryption, and observability, as this table shows.
 
 | Area | With `cilium` | With `flannel` |
 |---|---|---|
@@ -40,9 +53,11 @@ On Talos an explicit `cluster.cni.driver` overrides the default. Set it before t
 | Pod traffic encryption | Cilium supports WireGuard encryption between nodes. Core does not turn it on yet. | Not available. |
 | Observability | Hubble, Cilium metrics, and Cilium and Hubble dashboards. | Not installed. |
 
-Three add-ons wait for the Cilium install. The Cilium gateway waits so its Service gets an address, and private DNS waits too when the gateway driver is `cilium`. The CSI storage driver can crash-loop if it starts while Cilium's eBPF programs are loading.
+With Cilium, three add-ons also wait for the Cilium install to finish. The Cilium gateway waits so its Service gets an address, and private DNS waits too when the gateway driver is `cilium`. The CSI storage driver waits because it can crash-loop if it starts while Cilium's eBPF programs are loading.
 
 ## Configuration
+
+The keys below are the whole CNI surface in `values.yaml`. The vendor pages explain each in context.
 
 | Key | Type | Default | Description |
 |-----|------|---------|-------------|

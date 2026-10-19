@@ -3,16 +3,21 @@ title: Private CA
 description: A private root CA, generated or supplied, with trust-manager distributing it to workloads that opt in.
 ---
 
-`pki.enabled` puts a real root CA behind the `private` issuer, in place of a self-signed certificate per request. Everything that issuer signs, such as the gateway certificate on a local cluster, then chains to one root that you trust once. [ACME](acme.md) certificates are unaffected.
+Without a CA, the `private` issuer signs a self-signed certificate per request, so a client that calls `my-app.example.internal` has to trust each certificate on its own. `pki.enabled` backs the `private` issuer with a root CA instead. Everything that issuer signs, such as the gateway certificate on a local cluster, then chains to one root that you trust once. [ACME](acme.md) certificates are unaffected. This page assumes the issuer terms from [PKI](index.md).
 
 ## Turn it on
+
+This `values.yaml` turns on the private CA.
 
 ```yaml
 pki:
   enabled: true
 ```
 
-Dev mode enables it. Before the cluster is built, a Terraform component generates an ECDSA P-256 root named `Private CA`, valid for 10 years. Core loads it into the cluster as two Secrets, and the key exists only in `system-pki`:
+> [!NOTE]
+> Dev mode enables the private CA without this setting.
+
+Before the cluster is built, a Terraform component generates an ECDSA P-256 root named `Private CA`, valid for 10 years. Core loads it into the cluster as two Secrets, split so that the key exists only in `system-pki`. This table lists both.
 
 | Secret | Namespace | Holds |
 |---|---|---|
@@ -21,7 +26,7 @@ Dev mode enables it. Before the cluster is built, a Terraform component generate
 
 ## Bring your own CA
 
-To use an existing root, set both halves. Windsor rejects a configuration with only one of them:
+An organization that already runs a root can have the `private` issuer sign with it. This `values.yaml` reads both halves of an existing root from a secret store.
 
 ```yaml
 pki:
@@ -31,13 +36,17 @@ pki:
     key: ${secret("MyVault", "root-ca", "key")}
 ```
 
+`pki.private_ca.cert` holds the PEM root certificate and `pki.private_ca.key` holds its private key. You MUST set both; Windsor rejects a configuration with only one of them.
+
 ## Rotation
 
 A generated root is valid for 10 years and does not renew. To replace it, change `validity_period_hours` on the `pki/ca` component in your blueprint and run `windsor apply`. A root you supply follows your own rotation process.
 
 ## Trust the CA in workloads
 
-trust-manager builds a `Bundle` named `private-ca` from the system trust roots plus the private CA, and writes it to a ConfigMap in each namespace labeled `use-custom-ca: "true"` and in no other. A pod gets the bundle when it carries the same label:
+A pod in `my-app` that calls a service signed by the private CA has to find that CA in its trust store. trust-manager provides it. It builds a *`Bundle`* named `private-ca` from the system trust roots plus the private CA, and writes it to a ConfigMap in each namespace labeled `use-custom-ca: "true"` and in no other. A pod gets the bundle when it carries the same label.
+
+This manifest labels both the `my-app` namespace and a pod in it.
 
 ```yaml
 apiVersion: v1
@@ -56,13 +65,16 @@ metadata:
     use-custom-ca: "true"
 ```
 
-When `policies.enabled` is true (the default), a Kyverno policy mounts the bundle at `/usr/local/share/ca-certificates/ca.crt` and sets `SSL_CERT_FILE` and `REQUESTS_CA_BUNDLE` in each container of a labeled pod.
+The namespace label makes trust-manager write the `private-ca` ConfigMap into `my-app`. The pod label is what the Kyverno policy matches. When `policies.enabled` is true (the default), that policy mounts the bundle at `/usr/local/share/ca-certificates/ca.crt` and sets `SSL_CERT_FILE` and `REQUESTS_CA_BUNDLE` in each container of a labeled pod.
 
-Label the namespace and the pod together. A labeled pod in an unlabeled namespace has no ConfigMap to mount and stays in `ContainerCreating`. The policy also fails closed: labeled pods are rejected while Kyverno is unavailable.
+Label both the namespace and the pod. A labeled pod in an unlabeled namespace has no ConfigMap to mount and stays in `ContainerCreating`.
+
+> [!WARNING]
+> The policy fails closed. Kubernetes rejects labeled pods while Kyverno is unavailable.
 
 ## Trust the CA on a workstation
 
-Browsers reject certificates from a private CA until its root is in the system trust store. Read the root from the cluster:
+Browsers reject certificates from a private CA until its root is in the system trust store. This command reads the root from the cluster so you can add it there.
 
 ```sh
 windsor exec -- kubectl -n system-pki-trust get secret private-ca-trust-cert \
@@ -74,6 +86,8 @@ windsor exec -- kubectl -n system-pki-trust get secret private-ca-trust-cert \
 With `cluster.oidc.enabled` and `pki.enabled`, the Talos API server also trusts this CA when it verifies tokens from a Keycloak that serves a private certificate. See [kubectl single sign-on](../identity/keycloak.md#kubectl-single-sign-on). Because the CA is generated before the cluster exists, the trust is there at first boot.
 
 ## Under the hood
+
+This diagram shows where the Terraform-generated root goes and how it reaches labeled pods.
 
 ```mermaid
 flowchart LR

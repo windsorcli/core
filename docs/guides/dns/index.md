@@ -4,52 +4,59 @@ description: DNS records for gateway hostnames, from a public cloud zone, a priv
 sidebar_order: 4
 ---
 
-Every hostname on the [gateway](../gateway/index.md) gets a DNS record from external-dns, which watches the Gateway and its `HTTPRoute` resources. The zone you configure decides where the records go: a [public zone](public.md) at your cloud provider for internet-facing names, or [CoreDNS](private.md) in the cluster for a private one. The following config can be placed in a context's `values.yaml` file to set either.
+An `HTTPRoute` for `my-app.example.com` on the [gateway](../gateway/index.md) serves nothing until a DNS record points that name at the gateway's address. Core writes those records with *external-dns*, a controller that watches routes and publishes a record for each hostname. The records land in a *zone*, the set of records a DNS service answers for under one domain. A *public zone* lives in your cloud provider's DNS service and anyone can resolve it. A *private zone* resolves only inside your network, either attached to your cloud network or served by CoreDNS in the cluster.
+
+The running example in this category gives `my-app` a public hostname under `example.com` and a private one under `example.internal`. It sets both domains in a context's `values.yaml` and keeps the private zone in the cloud:
 
 ```yaml
 dns:
-  public_domain: example.com       # public zone at the cloud provider
-  private_domain: internal.test    # private zone
+  public_domain: example.com
+  private_domain: example.internal
   private:
-    enabled: true                  # serve the private zone from CoreDNS
+    driver: cloud
 ```
 
-| Setting | What Core does |
-|---|---|
-| [`dns.public_domain`](public.md) | Creates a public zone on AWS, Azure, GCP, or Hetzner, runs external-dns against it, and provisions the `external` gateway. Also turns on [ACME certificates](../pki/acme.md). |
-| [`dns.public_zone`](public.md#use-a-domain-without-a-zone) | When `false`, keeps `dns.public_domain` as a hostname and skips the zone, external-dns, and the DNS-01 identity. |
-| [`dns.private_domain`](public.md#private-zones) | Provisions the `internal` gateway. On AWS, Azure, and GCP, records go to a private zone attached to your VPC or network. |
-| [`dns.private.enabled`](private.md) | Runs CoreDNS in the cluster and points external-dns at it. |
+`dns.public_domain` makes Core create a [public zone](public.md) on AWS, Azure, GCP, or Hetzner, run external-dns against it, and provision the `external` gateway. The same key turns on [ACME certificates](../pki/acme.md). Setting [`dns.public_zone`](public.md#use-a-domain-without-a-zone) to `false` keeps `dns.public_domain` as a hostname and skips the zone, external-dns, and the DNS-01 identity. `dns.private_domain` provisions the `internal` gateway and its [private zone](private.md). `dns.private.driver` picks where that private zone lives, a cloud private zone attached to your network or CoreDNS in the cluster; [Drivers](private.md#drivers) lists the choices and their platform defaults.
 
 ## Domains and gateways
 
-Each domain provisions one [gateway](../gateway/index.md): `external` for `dns.public_domain` and `internal` for `dns.private_domain`. Hostnames on a gateway are built from that gateway's own domain. The two domains MUST differ. Dev mode defaults `dns.private_domain` to `test` and turns `dns.private.enabled` on. `dns.domain` is deprecated and only serves as a fallback for `dns.private_domain`.
+Each domain provisions one [gateway](../gateway/index.md): `external` for `dns.public_domain` and `internal` for `dns.private_domain`. The two domains MUST differ.
 
-Only an explicit `dns.public_domain` creates a public zone, so a local cluster never starts a public zone or public certificate requests.
+Nothing defaults `dns.public_domain`. Core creates a public zone only when you set it, and only on AWS, Azure, GCP, or Hetzner. `dns.private_domain` has defaults on some platforms. Outside dev mode, Hyper-V and vSphere default it to `<id>.local`. `dns.domain` is deprecated, and Windsor reads it only as a fallback for `dns.private_domain`.
+
+> [!NOTE]
+> Dev mode defaults `dns.private_domain` to `test`.
 
 ## What external-dns publishes
 
-external-dns runs one instance per zone, `external-dns-public` and `external-dns-private`, each limited to its own domain. Each hostname on an attached `HTTPRoute` gets an `A` or `CNAME` record pointing at the address of the gateway it attaches to. external-dns marks the records it creates with TXT records that carry the context id, and it leaves the rest of the zone alone. On the Envoy driver it also publishes, for each gateway's own zone, the apex and a wildcard record. An unrouted hostname then reaches the catch-all `404`.
+external-dns runs one instance per zone, `external-dns-public` and `external-dns-private`, and limits each to its own domain. Each instance reads `HTTPRoute` and `Ingress` resources and gives each hostname an `A` or `CNAME` record pointing at the gateway the route attaches to. The [`my-app` route](../gateway/index.md#hostnames) attaches to `external`, so `external-dns-public` publishes `my-app.example.com`. With the Envoy driver it also publishes the apex and a wildcard record for each gateway's domain, so an unrouted hostname reaches the catch-all `404`.
 
-Both instances run in `system-dns` and share one ServiceAccount, so the cloud identity covers both. An instance exists only when its zone does.
+In a cloud zone, external-dns marks the records it owns with TXT records that carry the context `id`. It deletes a record when its route goes away and leaves records it does not own alone. On AWS each instance is also pinned to its zone's ID. Both instances run in `system-dns` and share one ServiceAccount, so one cloud identity covers both.
+
+A Kyverno policy sets a 300-second TTL on routes in `system-*` namespaces and in namespaces labeled `policy.windsorcli.dev/managed: "true"`. A route that sets `external-dns.alpha.kubernetes.io/ttl` itself keeps its own value.
 
 ## Requirements
 
 Windsor rejects these combinations when it validates the configuration:
 
-- `dns.private.enabled` needs `dns.private_domain`.
-- `dns.private_domain` is rejected on Hetzner outside dev mode, since Hetzner has no private DNS.
-- `dns.public_domain` needs `email`, the ACME account contact, unless `pki.public_issuer` is `selfsigned` or `dns.public_zone` is `false`.
+- `dns.private.driver` other than `none` needs `dns.private_domain`.
+- `dns.private.driver: cloud` is rejected outside AWS, Azure, and GCP.
+- `dns.public_domain` and `dns.private_domain` are rejected when they match.
+- `dns.private_domain` is rejected on Hetzner outside dev mode, since Hetzner gets no `internal` gateway.
+- On AWS, Azure, GCP, and Hetzner, `dns.public_domain` needs `email`, the ACME account contact, unless `pki.public_issuer` is `selfsigned` or `dns.public_zone` is `false`.
 - `pki.public_issuer: acme` is rejected with `dns.public_zone: false`.
 
 ## Configuration
+
+The DNS keys and their defaults are listed below.
 
 | Key | Type | Default | Description |
 |-----|------|---------|-------------|
 | `dns.public_domain` | string | none | Public zone to create, and the domain for ACME certificates. |
 | `dns.public_zone` | boolean | `true` | Create the public zone, external-dns, and the DNS-01 identity for `dns.public_domain`. |
-| `dns.private_domain` | string | `test` in dev | Domain for the `internal` gateway: the CoreDNS zone, or the VPC-attached private zone. |
-| `dns.private.enabled` | boolean | `true` in dev | Run CoreDNS for the private zone. |
+| `dns.private_domain` | string | `test` in dev, `<id>.local` on Hyper-V and vSphere | Domain for the `internal` gateway: the CoreDNS zone, or the VPC-attached private zone. |
+| `dns.private.driver` | string | by platform | `cloud`, `coredns`, or `none`. See [Drivers](private.md#drivers). |
+| `policies.external_dns_ttl` | string | `enabled` | `disabled` turns off the default TTL policy. |
 
 ## Reference
 
