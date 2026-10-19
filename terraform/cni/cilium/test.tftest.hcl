@@ -25,8 +25,8 @@ run "minimal_configuration" {
   }
 
   assert {
-    condition     = helm_release.cilium.repository == "https://helm.cilium.io"
-    error_message = "Repository should be the official Cilium Helm repo"
+    condition     = helm_release.cilium.repository == "oci://quay.io/cilium/charts"
+    error_message = "Repository should be the official Cilium OCI chart registry"
   }
 
   assert {
