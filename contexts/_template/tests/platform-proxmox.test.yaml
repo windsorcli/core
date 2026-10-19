@@ -447,7 +447,7 @@ cases:
             cluster_endpoint: https://10.10.0.5:6443
             controlplanes: []
 
-  # DHCP with Cilium composes once cluster.endpoint is fixed.
+  # DHCP with an explicit cluster.endpoint passes it to the cluster step.
   - name: proxmox dhcp with cilium and an explicit endpoint composes
     values:
       platform: proxmox
@@ -606,8 +606,8 @@ cases:
       cluster: *default-cluster
     expectError: true
 
-  # Requires: DHCP with Cilium and no cluster.endpoint fails composition.
-  - name: proxmox dhcp with cilium and no endpoint fails composition
+  # Cilium reaches the API through KubePrism, so DHCP guests need no fixed endpoint.
+  - name: proxmox dhcp with cilium and no endpoint composes
     values:
       platform: proxmox
       gateway:
@@ -620,7 +620,13 @@ cases:
           end: "10.10.0.110"
       cluster: *default-cluster
       proxmox: *default-proxmox
-    expectError: true
+    expect:
+      flux:
+        - name: cni
+          install:
+            substitutions:
+              k8s_service_host: localhost
+              k8s_service_port: "7445"
 
   # Schema: an unknown proxmox key fails validation.
   - name: proxmox unknown key fails validation

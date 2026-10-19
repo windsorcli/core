@@ -45,7 +45,8 @@ cases:
           dependsOn:
             - cluster
           inputs:
-            cluster_endpoint: https://10.5.0.10:6443
+            k8s_service_host: localhost
+            k8s_service_port: 7445
       flux:
         - <<: *cni-install
           install:
@@ -56,7 +57,7 @@ cases:
               - cilium/hubble
               - cilium/l2
             substitutions:
-              k8s_service_host: "10.5.0.10"
+              k8s_service_host: localhost
 
   # gcp uses GKE Dataplane V2 (Google's managed Cilium integration), wired
   # inline on cluster/gcp-gke — cluster.cni.driver stays empty, same as
@@ -121,7 +122,8 @@ cases:
           dependsOn:
             - cluster
           inputs:
-            cluster_endpoint: https://10.5.0.10:6443
+            k8s_service_host: localhost
+            k8s_service_port: 7445
             privileged: false
             cgroup_auto_mount: false
             operator_replicas: 1
@@ -135,7 +137,7 @@ cases:
               - cilium/hubble
               - cilium/l2
             substitutions:
-              k8s_service_host: "10.5.0.10"
+              k8s_service_host: localhost
               operator_replicas: "1"
 
   # Workstation layouts (docker/colima) don't declare cluster.controlplanes.nodes
@@ -283,7 +285,7 @@ cases:
               - cilium/hubble
               - cilium/l2
             substitutions:
-              k8s_service_host: "10.5.0.10"
+              k8s_service_host: localhost
               operator_replicas: "2"
 
   # Cilium + Gateway: adds cilium/gateway component and gateway-install dep (CRDs before cilium-operator).
@@ -309,7 +311,7 @@ cases:
               - cilium/hubble
               - cilium/l2
             substitutions:
-              k8s_service_host: "10.5.0.10"
+              k8s_service_host: localhost
 
   # Cilium: Talos cluster terraform receives the CNI patch merged into common_config_patches.
   - name: cilium driver merges cni patch into common_config_patches for cluster/talos terraform

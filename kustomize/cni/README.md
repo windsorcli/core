@@ -50,7 +50,8 @@ flux:
     install:
       components: [cilium, cilium/talos, cilium/prometheus, cilium/hubble, cilium/l2]
       substitutions:
-        k8s_service_host: 10.5.0.10
+        k8s_service_host: localhost
+        k8s_service_port: "7445"
         cluster_name: local
         operator_replicas: "2"
       timeout: 15m
@@ -123,7 +124,8 @@ cert-manager is not required for Hubble.
 
 | Name | Required when | Effect |
 |---|---|---|
-| `k8s_service_host` | always | API server hostname Cilium reaches before its eBPF service rules are active. On Talos resolves to a fixed offset from the cluster CIDR; on EKS parsed from the cluster Terraform output. User-facing knob is `cluster.endpoint`. |
+| `k8s_service_host` | always | API server hostname Cilium reaches before its eBPF service rules are active. `localhost` on Talos, where KubePrism serves the API on every node; on EKS parsed from the cluster Terraform output. |
+| `k8s_service_port` | optional | API server port for `k8s_service_host`. `7445` (KubePrism) on Talos; defaults to `6443`. |
 | `cluster_name` | always | Cilium cluster identity stamped onto Hubble flows, metrics, and (if enabled) ClusterMesh routing. Sourced from the Windsor context name (top-level `id` in `values.yaml`). |
 | `operator_replicas` | always | 1 on single-node clusters (avoids pending pods + Lease churn), 2 otherwise. Set from `topology`. |
 | `loadbalancer_start_ip` | `cilium/l2` is enabled (Talos), resources tier | Start of the LBIPAM IP pool. Stamped onto `CiliumLoadBalancerIPPool/default`. |

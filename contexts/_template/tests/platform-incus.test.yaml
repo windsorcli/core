@@ -85,7 +85,8 @@ cases:
           dependsOn:
             - cluster
           inputs:
-            cluster_endpoint: https://10.5.0.10:6443
+            k8s_service_host: localhost
+            k8s_service_port: 7445
             privileged: false
             cgroup_auto_mount: false
         - name: gitops
@@ -106,7 +107,7 @@ cases:
               - cilium/talos
               - cilium/l2
             substitutions:
-              k8s_service_host: "10.5.0.10"
+              k8s_service_host: localhost
         - name: cni
           resources:
             - components:
@@ -359,11 +360,9 @@ cases:
       flux:
         - name: csi
 
-  # Regression (#2315): a bridged LAN puts the controlplane at a DHCP-reserved
-  # address, not the CIDR offset 10 the compute module assigns. An explicit
-  # cluster.endpoint must drive k8s_service_host, or kube-proxy-replacement
-  # Cilium never reaches the real API server.
-  - name: explicit cluster.endpoint on a bridged network drives k8s_service_host
+  # A bridged LAN puts the controlplane at a DHCP-reserved address; Cilium
+  # still reaches the API through KubePrism rather than cluster.endpoint.
+  - name: explicit cluster.endpoint on a bridged network keeps cilium on KubePrism
     values:
       platform: incus
       gateway:
@@ -378,29 +377,18 @@ cases:
         workers: *default-workers
     terraformOutputs: *default-terraform-outputs
     expect:
+      terraform:
+        - name: cni
+          path: cni/cilium
+          inputs:
+            k8s_service_host: localhost
+            k8s_service_port: 7445
       flux:
         - name: cni
           install:
             substitutions:
-              k8s_service_host: "192.168.2.160"
-
-  # Without an explicit endpoint, the CIDR-offset-10 fallback still applies
-  # (already covered by the minimal-config case above; asserted again here
-  # to pin it directly against this fix rather than incidentally).
-  - name: no cluster.endpoint falls back to CIDR offset 10 for k8s_service_host
-    values:
-      platform: incus
-      gateway:
-        enabled: false
-      network: *default-network
-      cluster: *default-cluster
-    terraformOutputs: *default-terraform-outputs
-    expect:
-      flux:
-        - name: cni
-          install:
-            substitutions:
-              k8s_service_host: "10.5.0.10"
+              k8s_service_host: localhost
+              k8s_service_port: "7445"
 
   # Regression (#2319): kexec doesn't reliably register as an offline transition
   # on Incus's nested virtualization, leaving Talos extension upgrades stuck

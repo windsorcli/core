@@ -13,18 +13,6 @@ terraform {
 }
 
 #-----------------------------------------------------------------------------------------------------------------------
-# Locals
-#-----------------------------------------------------------------------------------------------------------------------
-
-locals {
-  # Extract host and port from cluster_endpoint (https://host:port) when kube-proxy replacement
-  # is enabled. k8sServiceHost/k8sServicePort let Cilium reach the API server directly before
-  # eBPF service rules are active.
-  k8s_service_host = var.kube_proxy_replacement ? regex("https://([^/:]+)", var.cluster_endpoint)[0] : ""
-  k8s_service_port = var.kube_proxy_replacement ? try(tonumber(regex("https://[^:]+:([0-9]+)", var.cluster_endpoint)[0]), 6443) : 0
-}
-
-#-----------------------------------------------------------------------------------------------------------------------
 # Cilium Bootstrap
 #-----------------------------------------------------------------------------------------------------------------------
 # Cilium is installed here (before Flux) so that pod networking is available when the GitOps
@@ -89,8 +77,8 @@ resource "helm_release" "cilium" {
     # server before its own eBPF service proxy is active.
     var.kube_proxy_replacement ? {
       kubeProxyReplacement = true
-      k8sServiceHost       = local.k8s_service_host
-      k8sServicePort       = local.k8s_service_port
+      k8sServiceHost       = var.k8s_service_host
+      k8sServicePort       = var.k8s_service_port
       } : {
       kubeProxyReplacement = null
       k8sServiceHost       = null

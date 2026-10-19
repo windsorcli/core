@@ -6,7 +6,7 @@ run "minimal_configuration" {
   command = plan
 
   variables {
-    cluster_endpoint = "https://10.5.0.10:6443"
+    k8s_service_host = "10.5.0.10"
   }
 
   assert {
@@ -56,12 +56,12 @@ run "minimal_configuration" {
 
   assert {
     condition     = yamldecode(helm_release.cilium.values[0]).k8sServiceHost == "10.5.0.10"
-    error_message = "k8sServiceHost should be parsed from cluster_endpoint"
+    error_message = "k8sServiceHost should reflect the k8s_service_host input"
   }
 
   assert {
     condition     = yamldecode(helm_release.cilium.values[0]).k8sServicePort == 6443
-    error_message = "k8sServicePort should be parsed from cluster_endpoint"
+    error_message = "k8sServicePort should default to 6443"
   }
 
   assert {
@@ -96,7 +96,7 @@ run "privileged_false_sets_explicit_capabilities" {
   command = plan
 
   variables {
-    cluster_endpoint = "https://10.5.0.10:6443"
+    k8s_service_host = "10.5.0.10"
     privileged       = false
   }
 
@@ -122,7 +122,7 @@ run "cgroup_auto_mount_false_configures_host_mount" {
   command = plan
 
   variables {
-    cluster_endpoint  = "https://10.5.0.10:6443"
+    k8s_service_host  = "10.5.0.10"
     cgroup_auto_mount = false
   }
 
@@ -167,7 +167,7 @@ run "ipam_mode_eni" {
   command = plan
 
   variables {
-    cluster_endpoint = "https://10.5.0.10:6443"
+    k8s_service_host = "10.5.0.10"
     ipam_mode        = "eni"
   }
 
@@ -177,22 +177,23 @@ run "ipam_mode_eni" {
   }
 }
 
-# Verifies cluster_endpoint parsing handles non-default ports and hostnames.
-run "cluster_endpoint_parsing" {
+# Verifies a hostname and non-default port pass through to the release values.
+run "k8s_service_host_and_port" {
   command = plan
 
   variables {
-    cluster_endpoint = "https://api.cluster.example.com:8443"
+    k8s_service_host = "localhost"
+    k8s_service_port = 7445
   }
 
   assert {
-    condition     = yamldecode(helm_release.cilium.values[0]).k8sServiceHost == "api.cluster.example.com"
-    error_message = "Hostname should be parsed from cluster_endpoint"
+    condition     = yamldecode(helm_release.cilium.values[0]).k8sServiceHost == "localhost"
+    error_message = "k8sServiceHost should reflect the k8s_service_host input"
   }
 
   assert {
-    condition     = yamldecode(helm_release.cilium.values[0]).k8sServicePort == 8443
-    error_message = "Port should be parsed from cluster_endpoint"
+    condition     = yamldecode(helm_release.cilium.values[0]).k8sServicePort == 7445
+    error_message = "k8sServicePort should reflect the k8s_service_port input"
   }
 }
 
@@ -203,7 +204,7 @@ run "custom_cilium_version" {
   command = plan
 
   variables {
-    cluster_endpoint = "https://10.5.0.10:6443"
+    k8s_service_host = "10.5.0.10"
     cilium_version   = "1.17.2"
   }
 
@@ -219,7 +220,7 @@ run "operator_replicas_one_passes_through" {
   command = plan
 
   variables {
-    cluster_endpoint  = "https://10.5.0.10:6443"
+    k8s_service_host  = "10.5.0.10"
     operator_replicas = 1
   }
 
@@ -229,21 +230,24 @@ run "operator_replicas_one_passes_through" {
   }
 }
 
-# Verifies input validation rejects malformed cilium_version, non-https
-# cluster_endpoint, unsupported ipam_mode, and out-of-range operator_replicas.
+# Verifies input validation rejects malformed cilium_version, a URL as
+# k8s_service_host, an out-of-range k8s_service_port, unsupported ipam_mode,
+# and out-of-range operator_replicas.
 run "invalid_inputs_fail_validation" {
   command = plan
 
   variables {
-    cilium_version    = "1.16"            # missing patch
-    cluster_endpoint  = "http://insecure" # not https
-    ipam_mode         = "custom"          # not in allowed list
-    operator_replicas = 99                # out of range
+    cilium_version    = "1.16"             # missing patch
+    k8s_service_host  = "https://api:6443" # URL, not a host
+    k8s_service_port  = 0                  # out of range
+    ipam_mode         = "custom"           # not in allowed list
+    operator_replicas = 99                 # out of range
   }
 
   expect_failures = [
     var.cilium_version,
-    var.cluster_endpoint,
+    var.k8s_service_host,
+    var.k8s_service_port,
     var.ipam_mode,
     var.operator_replicas,
   ]

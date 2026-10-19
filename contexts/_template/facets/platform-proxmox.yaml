@@ -14,11 +14,6 @@ requires:
   - paths:
       - proxmox.node
     message: Proxmox VE node name is required (e.g. "pve").
-  # Cilium's kube-proxy replacement needs the API address at render time.
-  - when: network.dhcp == true && (cluster.cni.driver ?? 'cilium') == 'cilium'
-    paths:
-      - cluster.endpoint
-    message: Cilium on DHCP guests needs a fixed API endpoint for k8sServiceHost.
 
 # =============================================================================
 # Proxmox-specific Talos values
@@ -75,16 +70,6 @@ config:
             : cidrhost(network.cidr_block ?? '10.5.0.0/16', 19 + #))],
           ["vm_id", proxmox_effective.vm_id_start == null ? null : proxmox_effective.vm_id_start + 9 + #]
         ]))}
-
-  # First control-plane IPv4 for Cilium kube-proxy-replacement.
-  - name: talos_common
-    value:
-      k8s_service_host: >-
-        ${(cluster.endpoint ?? '') != ''
-          ? split(split(cluster.endpoint, '://')[1], ':')[0]
-          : (len(terraform_output("compute", "controlplanes") ?? []) > 0
-            ? split(terraform_output("compute", "controlplanes")[0].endpoint, ':')[0]
-            : (proxmox_effective.dhcp ? '' : proxmox_controlplanes.nodes[0].ipv4))}
 
   # Installs and upgrades use the nocloud installer for the qemu-guest-agent schematic.
   - name: talos_common

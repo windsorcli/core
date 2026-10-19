@@ -10,14 +10,6 @@ when: "platform == 'hyperv' && cluster.driver == 'talos'"
 # Remote state lives in the local Talos cluster (Kubernetes backend).
 backend: cluster
 
-requires:
-  # Cilium's kube-proxy replacement needs the API address at render time, which
-  # a DHCP lease cannot supply.
-  - when: network.dhcp == true && gateway.service_type != 'NodePort' && (cluster.cni.driver ?? 'flannel') == 'cilium'
-    paths:
-      - cluster.endpoint
-    message: Cilium on DHCP guests needs a fixed API endpoint for k8sServiceHost.
-
 # =============================================================================
 # Config — Hyper-V-specific Talos values
 # =============================================================================
@@ -273,18 +265,6 @@ config:
             ["notes", "Talos worker node"]
           ]))
         )}
-
-  # First control-plane IPv4 for Cilium kube-proxy-replacement.
-  - name: talos_common
-    value:
-      k8s_service_host: >-
-        ${gateway.service_type == 'NodePort'
-          ? cidrhost(network.cidr_block ?? '10.5.0.0/16', 10)
-          : ((cluster.endpoint ?? '') != ''
-            ? split(split(cluster.endpoint, '://')[1], ':')[0]
-            : (len(terraform_output("compute", "controlplanes") ?? []) > 0
-              ? split(terraform_output("compute", "controlplanes")[0].endpoint, ':')[0]
-              : (hyperv_effective.dhcp ? '' : hyperv_controlplanes.nodes[0].ipv4)))}
 
   # Talos installs from the stock installer unless told otherwise, dropping the
   # schematic's hv_kvp_daemon once the node boots from disk.

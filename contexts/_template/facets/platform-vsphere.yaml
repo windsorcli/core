@@ -101,16 +101,6 @@ config:
             : cidrhost(network.cidr_block ?? '10.5.0.0/16', 19 + #))]
         ]))}
 
-  # First control-plane IPv4 for Cilium kube-proxy-replacement.
-  - name: talos_common
-    value:
-      k8s_service_host: >-
-        ${(cluster.endpoint ?? '') != ''
-          ? split(split(cluster.endpoint, '://')[1], ':')[0]
-          : (len(terraform_output("compute", "controlplanes") ?? []) > 0
-            ? split(terraform_output("compute", "controlplanes")[0].endpoint, ':')[0]
-            : (vsphere_effective.dhcp ? '' : vsphere_controlplanes.nodes[0].ipv4))}
-
   # ---------------------------------------------------------------------------
   # Network gateway and nameservers — delivered to each node via guestinfo
   # ---------------------------------------------------------------------------

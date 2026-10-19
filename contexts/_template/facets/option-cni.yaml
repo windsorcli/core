@@ -21,7 +21,9 @@ terraform:
     dependsOn:
       - cluster
     inputs:
-      cluster_endpoint: "${cluster.endpoint ?? cluster_endpoint_fallback.endpoint}"
+      # Talos KubePrism, the node-local API load balancer.
+      k8s_service_host: localhost
+      k8s_service_port: 7445
       # Talos forbids privileged pods and mounts cgroups at init — both required
       # for Cilium on Talos.
       privileged: false
@@ -64,7 +66,7 @@ flux:
   #
 
   # Talos: cilium/talos applies Talos-specific security context + cgroup
-  # settings. k8s_service_host comes from talos_common (cidrhost offset 10).
+  # settings. Cilium reaches the API through KubePrism on localhost:7445.
   # cilium/l2 (LBIPAM + L2 announcements) is skipped when a cloud LB controller
   # owns LoadBalancer Services (hetzner CCM): cloud networks aren't a flat L2
   # domain, so ARP-announced pool IPs never route.
@@ -82,7 +84,8 @@ flux:
         - cilium/hubble
         - "${lb_effective.controller_required == true ? '' : 'cilium/l2'}"
       substitutions:
-        k8s_service_host: ${talos_common.k8s_service_host}
+        k8s_service_host: localhost
+        k8s_service_port: "7445"
         cluster_name: ${context}
         operator_replicas: "${topology == 'single-node' ? 1 : 2}"
       timeout: 15m
