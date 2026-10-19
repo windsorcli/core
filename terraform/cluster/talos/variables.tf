@@ -99,6 +99,12 @@ variable "vip_interface" {
   }
 }
 
+variable "enable_kubelet_serving_cert_approver" {
+  description = "Apply the vendored kubelet-serving-cert-approver manifest to control planes as a Talos inlineManifest. Pairs with the kubelet rotate-server-certificates flag."
+  type        = bool
+  default     = true
+}
+
 variable "controlplanes" {
   description = "A list of machine configuration details for control planes."
   type = list(object({

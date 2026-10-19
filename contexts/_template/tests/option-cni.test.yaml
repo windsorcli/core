@@ -243,8 +243,6 @@ cases:
             common_config_patches: |-
               cluster:
                 allowSchedulingOnControlPlanes: false
-                extraManifests:
-                - https://raw.githubusercontent.com/alex1989hu/kubelet-serving-cert-approver/v0.8.7/deploy/standalone-install.yaml
                 network:
                   cni:
                     name: none
@@ -348,8 +346,6 @@ cases:
             common_config_patches: |-
               cluster:
                 allowSchedulingOnControlPlanes: true
-                extraManifests:
-                - https://raw.githubusercontent.com/alex1989hu/kubelet-serving-cert-approver/v0.8.7/deploy/standalone-install.yaml
                 network:
                   cni:
                     name: none
