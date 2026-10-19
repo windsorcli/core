@@ -150,6 +150,59 @@ run "controlplane_from_ova" {
   }
 }
 
+# An endpoint IP no control plane uses bakes into the control planes as the shared VIP
+run "controlplane_vip_baked" {
+  command = plan
+
+  variables {
+    talos_version    = "1.12.6"
+    cluster_endpoint = "https://10.5.0.5:6443"
+    controlplane_vip = true
+    images = {
+      talos = {
+        url = "https://factory.talos.dev/image/903b2da78f99adef03cbbd4df6714563823f63218508800751560d3bc3557e40/v1.10.3/vmware-amd64.ova"
+      }
+    }
+    instances = [
+      { name = "controlplane", role = "controlplane", count = 2, image = "talos", ipv4 = "10.5.0.10" },
+    ]
+  }
+
+  assert {
+    condition     = local.vip == "10.5.0.5"
+    error_message = "VIP should be the cluster_endpoint host"
+  }
+
+  assert {
+    condition     = alltrue([for k, v in data.talos_machine_configuration.controlplane : contains(v.config_patches, local.vip_patch)])
+    error_message = "Every control-plane machineconfig should carry the VIP patch"
+  }
+}
+
+# An endpoint that is a control-plane IP bakes no VIP
+run "controlplane_vip_skipped_for_node_ip" {
+  command = plan
+
+  variables {
+    talos_version    = "1.12.6"
+    cluster_endpoint = "https://10.5.0.11:6443"
+    controlplane_vip = true
+    images = {
+      talos = {
+        url = "https://factory.talos.dev/image/903b2da78f99adef03cbbd4df6714563823f63218508800751560d3bc3557e40/v1.10.3/vmware-amd64.ova"
+      }
+    }
+    instances = [
+      { name = "controlplane", role = "controlplane", count = 2, image = "talos", ipv4 = "10.5.0.10" },
+    ]
+  }
+
+  assert {
+    condition     = local.vip == "" && local.vip_patch == ""
+    error_message = "No VIP should be baked for a control-plane IP"
+  }
+}
+
 # Worker role: guestinfo is delivered to the VM.
 run "worker_role" {
   command = plan

@@ -119,6 +119,7 @@ cases:
           path: compute/vsphere
           inputs:
             cluster_endpoint: https://10.10.0.10:6443
+            controlplane_vip: true
 
   # Cluster endpoint fallback: once vmtoolsd reports guest IPs, the compute
   # output controlplanes[0].endpoint (host:50000) is split to extract just the

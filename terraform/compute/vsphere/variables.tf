@@ -68,6 +68,12 @@ variable "cluster_endpoint" {
   }
 }
 
+variable "controlplane_vip" {
+  description = "When true and the cluster_endpoint host is an IPv4 address no control plane uses, bake that address into the control planes as the shared VIP."
+  type        = bool
+  default     = false
+}
+
 variable "talos_version" {
   description = "Pinned Talos version (semver, no v-prefix). Required when instances include controlplane or worker roles."
   type        = string

@@ -89,6 +89,16 @@ variable "cluster_endpoint" {
   }
 }
 
+variable "vip_interface" {
+  description = "Talos machine.network.interfaces entry, without vip, that carries the control-plane VIP. When set and the cluster_endpoint host is an IPv4 address no control plane uses, that address becomes the shared VIP."
+  type        = any
+  default     = null
+  validation {
+    condition     = var.vip_interface == null || can(var.vip_interface.deviceSelector) || can(var.vip_interface.interface)
+    error_message = "vip_interface must set deviceSelector or interface."
+  }
+}
+
 variable "controlplanes" {
   description = "A list of machine configuration details for control planes."
   type = list(object({

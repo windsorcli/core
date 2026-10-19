@@ -80,6 +80,12 @@ locals {
 
   cluster_endpoint = var.cluster_endpoint != "" ? var.cluster_endpoint : (length(var.controlplanes) > 0 ? "https://${split(":", var.controlplanes[0].endpoint)[0]}:6443" : "")
 
+  # Shared control-plane VIP: the cluster_endpoint host when it is an IPv4 address no control plane uses.
+  cluster_endpoint_host = try(regex("^https://([^:/]+)", local.cluster_endpoint)[0], "")
+  controlplane_hosts    = flatten([for cp in var.controlplanes : [cp.node, regex("^(?:[a-z]+://)?([^:/]+)", cp.endpoint)[0]]])
+  vip                   = var.vip_interface != null && can(cidrhost("${local.cluster_endpoint_host}/32", 0)) && !contains(local.controlplane_hosts, local.cluster_endpoint_host) ? local.cluster_endpoint_host : ""
+  vip_patch             = local.vip != "" ? yamlencode({ machine = { network = { interfaces = [merge(var.vip_interface, { vip = { ip = local.vip } })] } } }) : ""
+
   # Callers that deliver the machineconfig out of band (hyperv CIDATA) skip the
   # apply, which would otherwise wipe the per-node static IP back to DHCP.
   skip_machine_config_apply = var.skip_machine_config_apply != null ? var.skip_machine_config_apply : var.machine_secrets != null
@@ -148,6 +154,7 @@ module "controlplane_bootstrap" {
   config_patches = [for p in compact(concat([
     var.common_config_patches,
     var.controlplane_config_patches,
+    local.vip_patch,
     local.controlplane_extra_mounts_patch,
     lookup(var.controlplanes[0], "config_patches", []),
   ], local.controlplane_block_docs[0])) : p if p != "null"]
@@ -179,6 +186,7 @@ module "controlplanes" {
   config_patches = [for p in compact(concat([
     var.common_config_patches,
     var.controlplane_config_patches,
+    local.vip_patch,
     local.controlplane_extra_mounts_patch,
     lookup(var.controlplanes[count.index + 1], "config_patches", []),
   ], local.controlplane_block_docs[count.index + 1])) : p if p != "null"]

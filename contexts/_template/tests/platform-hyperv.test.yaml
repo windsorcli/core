@@ -98,6 +98,7 @@ cases:
           inputs:
             network_cidr: 10.5.0.0/16
             cluster_endpoint: https://10.5.0.10:6443
+            controlplane_vip: true
 
   # Gateway NodePorts are in the baseline for each gateway that exists.
   - name: NodePort with a private domain forwards the internal gateway ports
@@ -448,6 +449,7 @@ cases:
           path: compute/hyperv
           inputs:
             switch_type: NAT
+            controlplane_vip: false
             instances:
               - name: controlplane-1
                 ipv4: 10.20.0.10

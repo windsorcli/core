@@ -80,6 +80,10 @@ cases:
           inputs:
             cluster_endpoint: https://10.5.0.10:6443
             cluster_name: talos
+            vip_interface:
+              deviceSelector:
+                physical: true
+              dhcp: true
         - name: cni
           path: cni/cilium
           dependsOn:

@@ -223,6 +223,13 @@ locals {
 
   network_prefix_length = var.network_cidr != null ? tonumber(split("/", var.network_cidr)[1]) : 24
 
+  # Shared control-plane VIP: the cluster_endpoint host when it is an IPv4 address no control plane uses.
+  cluster_endpoint_host = try(regex("^https://([^:/]+)", var.cluster_endpoint)[0], "")
+  vip                   = var.controlplane_vip && can(cidrhost("${local.cluster_endpoint_host}/32", 0)) && !contains([for v in local.controlplane_nodes : v.ipv4 if v.ipv4 != null], local.cluster_endpoint_host) ? local.cluster_endpoint_host : ""
+  vip_patch = local.vip != "" ? yamlencode({
+    machine = { network = { interfaces = [{ deviceSelector = { physical = true }, vip = { ip = local.vip } }] } }
+  }) : ""
+
   dhcp_network_patch = yamlencode({
     machine = {
       network = merge(
@@ -304,6 +311,7 @@ data "talos_machine_configuration" "controlplane" {
     var.common_config_patches,
     var.controlplane_config_patches,
     local.controlplane_network_patches[each.key],
+    local.vip_patch,
   ])
 }
 
