@@ -74,8 +74,7 @@ locals {
 locals {
   network_prefix = tonumber(split("/", var.network_cidr)[1])
   # Netnum 0 keeps the node subnet aligned to the network base, so private IPs
-  # land at cidrhost(network_cidr, N) — the offset the platform facet reuses for
-  # a stable Cilium k8sServiceHost (control plane at .10).
+  # land at cidrhost(network_cidr, N).
   node_subnet_cidr = local.network_prefix >= 24 ? var.network_cidr : cidrsubnet(var.network_cidr, 24 - local.network_prefix, 0)
   network_name     = "network-${var.context_id}"
 }

@@ -72,11 +72,8 @@ cases:
   # An unset cidr_block must still compose. The schema default does not reach
   # facet expressions, so every read carries its own fallback; a site that
   # misses one fails composition with "cidrhost() ... got <nil>". Assert the
-  # bootstrap-critical derivations alongside network_cidr: cluster_endpoint and
-  # k8s_service_host both come from cidrhost(cidr, 10), so a regressed fallback
-  # at either site would crash or resolve wrong here. cilium is set so
-  # k8s_service_host surfaces as a cni substitution (hyperv defaults to flannel,
-  # which composes no cni system); the cidr fallbacks are CNI-independent.
+  # bootstrap-critical cluster_endpoint alongside network_cidr, since it comes
+  # from cidrhost(cidr, 10).
   - name: unset cidr_block composes from the per-usage default
     values:
       platform: hyperv
@@ -90,8 +87,6 @@ cases:
           count: 1
         workers:
           count: 0
-        cni:
-          driver: cilium
     terraformOutputs:
       compute:
         controlplanes: []
@@ -103,11 +98,6 @@ cases:
           inputs:
             network_cidr: 10.5.0.0/16
             cluster_endpoint: https://10.5.0.10:6443
-      flux:
-        - name: cni
-          install:
-            substitutions:
-              k8s_service_host: "10.5.0.10"
 
   # Gateway NodePorts are in the baseline for each gateway that exists.
   - name: NodePort with a private domain forwards the internal gateway ports
@@ -852,8 +842,6 @@ cases:
             hostname: worker
     expect:
       config:
-        talos_common:
-          k8s_service_host: "10.41.0.30"
         hyperv_controlplanes:
           nodes:
             - name: controlplane
@@ -906,8 +894,6 @@ cases:
             hostname: worker
     expect:
       config:
-        talos_common:
-          k8s_service_host: "10.10.0.10"
         hyperv_controlplanes:
           nodes:
             - name: controlplane
@@ -963,8 +949,6 @@ cases:
       config:
         hyperv_effective:
           dhcp: true
-        talos_common:
-          k8s_service_host: talos.plant.local
         hyperv_controlplanes:
           nodes:
             - name: controlplane
@@ -1027,8 +1011,6 @@ cases:
         workers: []
     expect:
       config:
-        talos_common:
-          k8s_service_host: "10.41.3.50"
         hyperv_controlplanes:
           nodes:
             - name: controlplane
@@ -1072,8 +1054,6 @@ cases:
         workers: []
     expect:
       config:
-        talos_common:
-          k8s_service_host: "10.41.0.80"
         cluster_endpoint_fallback:
           endpoint: https://10.41.0.80:6443
       terraform:
@@ -1157,8 +1137,8 @@ cases:
               install:
                 image: "factory.talos.dev/installer/a1f179c391c4f2dafe593c0a3d3fe95ce74e526c6e2e3120d46f230a2d24907b:v1.14.2"
 
-  # Cilium renders k8sServiceHost at plan time, which a lease cannot supply.
-  - name: dhcp with cilium and no endpoint fails composition
+  # Cilium reaches the API through KubePrism, so DHCP guests need no fixed endpoint.
+  - name: dhcp with cilium and no endpoint composes
     values:
       platform: hyperv
       gateway:
@@ -1181,4 +1161,10 @@ cases:
       compute:
         controlplanes: []
         workers: []
-    expectError: true
+    expect:
+      flux:
+        - name: cni
+          install:
+            substitutions:
+              k8s_service_host: localhost
+              k8s_service_port: "7445"

@@ -49,7 +49,7 @@ cases:
           dependsOn:
             - cluster
           inputs:
-            cluster_endpoint: https://10.5.0.10:6443
+            cluster_endpoint: https://localhost:7445
             privileged: false
             cgroup_auto_mount: false
         - name: gitops
@@ -121,7 +121,7 @@ cases:
               - cilium/talos
               - cilium/l2
             substitutions:
-              k8s_service_host: "10.5.0.10"
+              k8s_service_host: localhost
         - name: cni
           resources:
             - components:

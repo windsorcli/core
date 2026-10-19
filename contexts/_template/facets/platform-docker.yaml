@@ -25,11 +25,6 @@ config:
       talos_version: "1.13.11"
       kubernetes_version: "1.36.5"
 
-  # Controlplane at CIDR offset 10; offsets 2–9 reserved for workstation services.
-  - name: talos_common
-    value:
-      k8s_service_host: "${cidrhost(network.cidr_block, 10)}"
-
   # Node targets for post-cluster steps (e.g. extensions), from compute outputs.
   - name: talos_node_targets
     value:

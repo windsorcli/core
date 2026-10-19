@@ -802,9 +802,8 @@ properties:
           static addresses (cluster.*.nodes or cidrhost offsets). Hyper-V CIDATA
           uses dhcp4; compute omits ipv4 and surfaces leased IPs from
           integration services (Hyper-V) or vmtoolsd (vSphere). cluster.endpoint
-          is optional and otherwise derived from the first control-plane output,
-          except with the cilium CNI, which needs a fixed endpoint. Unset or
-          false keeps static addressing. NodePort NAT still uses static guest IPs.
+          is optional and otherwise derived from the first control-plane output.
+          Unset or false keeps static addressing. NodePort NAT still uses static guest IPs.
       ntp_servers:
         type: array
         items:

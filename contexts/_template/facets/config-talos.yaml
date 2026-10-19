@@ -95,11 +95,6 @@ config:
 
       extensions: "${get(talos_common.csi_extensions, talos_common.storage_driver) ?? []}"
 
-      # First controlplane IP, used as k8sServiceHost for Cilium's kube-proxy
-      # replacement (incus/docker override with cidrhost). The len() guard keeps
-      # this safe to evaluate while platform-metal defers metal-without-nodes.
-      k8s_service_host: "${len(cluster.controlplanes.nodes ?? {}) > 0 ? split(values(cluster.controlplanes.nodes)[0].endpoint, ':')[0] : ''}"
-
   # Reservation tapers linearly from full at the threshold to zero at 2x it,
   # driven by whichever axis (cpu/memory) is proportionally smaller.
   - name: talos_common

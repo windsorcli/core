@@ -114,9 +114,6 @@ cases:
       vsphere: *default-vsphere
     terraformOutputs: *default-terraform-outputs
     expect:
-      config:
-        talos_common:
-          k8s_service_host: "10.10.0.10"
       terraform:
         - name: compute
           path: compute/vsphere
@@ -294,8 +291,6 @@ cases:
       config:
         network_effective:
           gateway: 10.41.3.1
-        talos_common:
-          k8s_service_host: "10.41.0.30"
         vsphere_controlplanes:
           nodes:
             - name: controlplane
@@ -359,8 +354,6 @@ cases:
         workers: []
     expect:
       config:
-        talos_common:
-          k8s_service_host: "10.41.0.30"
         vsphere_controlplanes:
           nodes:
             - name: controlplane-1
@@ -412,8 +405,6 @@ cases:
             hostname: worker
     expect:
       config:
-        talos_common:
-          k8s_service_host: "10.10.0.10"
         vsphere_controlplanes:
           nodes:
             - name: controlplane
@@ -468,8 +459,6 @@ cases:
         workers: []
     expect:
       config:
-        talos_common:
-          k8s_service_host: "10.41.0.10"
         vsphere_controlplanes:
           nodes:
             - name: controlplane-1
@@ -525,8 +514,6 @@ cases:
       config:
         vsphere_effective:
           dhcp: true
-        talos_common:
-          k8s_service_host: talos.plant.local
         vsphere_controlplanes:
           nodes:
             - name: controlplane
@@ -588,8 +575,6 @@ cases:
         workers: []
     expect:
       config:
-        talos_common:
-          k8s_service_host: "10.41.3.50"
         vsphere_controlplanes:
           nodes:
             - name: controlplane
@@ -637,8 +622,6 @@ cases:
       config:
         vsphere_effective:
           dhcp: true
-        talos_common:
-          k8s_service_host: "10.41.0.80"
         vsphere_controlplanes:
           nodes:
             - name: controlplane
