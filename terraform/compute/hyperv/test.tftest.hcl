@@ -798,6 +798,74 @@ run "dhcp_without_endpoint_skips_machineconfig" {
   }
 }
 
+# An endpoint IP no control plane uses bakes into the control planes as the shared VIP
+run "controlplane_vip_baked" {
+  command = plan
+
+  variables {
+    context_id       = "test"
+    cluster_name     = "talos"
+    cluster_endpoint = "https://10.5.0.5:6443"
+    controlplane_vip = true
+    talos_version    = "1.12.6"
+    destination_dir  = "C:/hyperv/images"
+    network_gateway  = "10.5.0.1"
+    network_cidr     = "10.5.0.0/16"
+    instances = [
+      {
+        name  = "controlplane"
+        role  = "controlplane"
+        count = 1
+        ipv4  = "10.5.0.10"
+      },
+    ]
+  }
+
+  assert {
+    condition     = local.vip == "10.5.0.5"
+    error_message = "VIP should be the cluster_endpoint host"
+  }
+
+  assert {
+    condition     = contains(data.talos_machine_configuration.controlplane["controlplane"].config_patches, local.vip_patch)
+    error_message = "Control-plane machineconfig should carry the VIP patch"
+  }
+
+  assert {
+    condition     = yamldecode(local.vip_patch).machine.network.interfaces[0].vip.ip == "10.5.0.5"
+    error_message = "VIP patch should set the interface vip"
+  }
+}
+
+# Without controlplane_vip, or with an endpoint that is a control-plane IP, no VIP is baked
+run "controlplane_vip_skipped" {
+  command = plan
+
+  variables {
+    context_id       = "test"
+    cluster_name     = "talos"
+    cluster_endpoint = "https://10.5.0.10:6443"
+    controlplane_vip = true
+    talos_version    = "1.12.6"
+    destination_dir  = "C:/hyperv/images"
+    network_gateway  = "10.5.0.1"
+    network_cidr     = "10.5.0.0/16"
+    instances = [
+      {
+        name  = "controlplane"
+        role  = "controlplane"
+        count = 1
+        ipv4  = "10.5.0.10"
+      },
+    ]
+  }
+
+  assert {
+    condition     = local.vip == "" && local.vip_patch == ""
+    error_message = "No VIP should be baked for a control-plane IP"
+  }
+}
+
 # Overlap validation: extra_port_forwards must not reuse an external port
 # already in port_forwards. The platform-hyperv facet builds port_forwards
 # (k8s/Talos APIs, gateway NodePorts) and layers operator-supplied

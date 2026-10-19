@@ -179,6 +179,87 @@ run "multi_node_configuration" {
   }
 }
 
+# Verifies that an endpoint IP no control plane uses becomes the shared VIP on the given interface
+run "vip_inferred_from_endpoint" {
+  command = plan
+
+  variables {
+    cluster_endpoint = "https://10.0.0.5:6443"
+    vip_interface = {
+      deviceSelector = { physical = true }
+      dhcp           = true
+    }
+    controlplanes = [
+      { endpoint = "10.0.0.10:50000", node = "10.0.0.10" },
+      { endpoint = "10.0.0.11:50000", node = "10.0.0.11" },
+    ]
+  }
+
+  assert {
+    condition     = local.vip == "10.0.0.5"
+    error_message = "VIP should be the cluster_endpoint host"
+  }
+  assert {
+    condition     = yamldecode(local.vip_patch).machine.network.interfaces[0].vip.ip == "10.0.0.5"
+    error_message = "VIP patch should set the interface vip"
+  }
+  assert {
+    condition     = yamldecode(local.vip_patch).machine.network.interfaces[0].deviceSelector.physical == true
+    error_message = "VIP patch should keep the interface deviceSelector"
+  }
+  assert {
+    condition     = yamldecode(local.vip_patch).machine.network.interfaces[0].dhcp == true
+    error_message = "VIP patch should keep the interface dhcp setting"
+  }
+}
+
+# Verifies that no VIP is configured when the endpoint is a control-plane address
+run "vip_skipped_for_controlplane_ip" {
+  command = plan
+
+  variables {
+    cluster_endpoint = "https://10.0.0.10:6443"
+    vip_interface    = { deviceSelector = { physical = true } }
+    controlplanes    = [{ endpoint = "10.0.0.10:50000", node = "10.0.0.10" }]
+  }
+
+  assert {
+    condition     = local.vip == "" && local.vip_patch == ""
+    error_message = "No VIP should be configured for a control-plane IP"
+  }
+}
+
+# Verifies that no VIP is configured without vip_interface
+run "vip_skipped_without_interface_or_ip" {
+  command = plan
+
+  variables {
+    cluster_endpoint = "https://10.0.0.5:6443"
+    controlplanes    = [{ endpoint = "10.0.0.10:50000", node = "10.0.0.10" }]
+  }
+
+  assert {
+    condition     = local.vip == ""
+    error_message = "No VIP should be configured without vip_interface"
+  }
+}
+
+# Verifies that no VIP is configured for a hostname endpoint
+run "vip_skipped_for_hostname" {
+  command = plan
+
+  variables {
+    cluster_endpoint = "https://api.example.com:6443"
+    vip_interface    = { deviceSelector = { physical = true } }
+    controlplanes    = [{ endpoint = "10.0.0.10:50000", node = "10.0.0.10" }]
+  }
+
+  assert {
+    condition     = local.vip == ""
+    error_message = "No VIP should be configured for a hostname endpoint"
+  }
+}
+
 # Verifies that no configuration files are generated when context_path is empty,
 # preventing unnecessary file creation in the root directory
 run "no_config_files" {

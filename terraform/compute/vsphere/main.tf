@@ -126,6 +126,13 @@ locals {
     for k, v in local.instances_by_name : k => v
     if v.role == "worker"
   }
+
+  # Shared control-plane VIP: the cluster_endpoint host when it is an IPv4 address no control plane uses.
+  cluster_endpoint_host = try(regex("^https://([^:/]+)", var.cluster_endpoint)[0], "")
+  vip                   = var.controlplane_vip && can(cidrhost("${local.cluster_endpoint_host}/32", 0)) && !contains([for v in local.controlplane_nodes : v.ipv4 if v.ipv4 != null], local.cluster_endpoint_host) ? local.cluster_endpoint_host : ""
+  vip_patch = local.vip != "" ? yamlencode({
+    machine = { network = { interfaces = [{ deviceSelector = { physical = true }, vip = { ip = local.vip } }] } }
+  }) : ""
 }
 
 resource "talos_machine_secrets" "this" {
@@ -147,6 +154,7 @@ data "talos_machine_configuration" "controlplane" {
     var.common_config_patches,
     var.controlplane_config_patches,
     lookup(var.per_node_config_patches, each.key, null),
+    local.vip_patch,
   ])
 }
 

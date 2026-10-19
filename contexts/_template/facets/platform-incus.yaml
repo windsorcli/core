@@ -125,6 +125,11 @@ terraform:
     parallelism: 1
     inputs:
       cluster_endpoint: "${cluster.endpoint ?? cluster_endpoint_fallback.endpoint}"
+      # Incus guests take their addresses from static DHCP leases.
+      vip_interface:
+        deviceSelector:
+          physical: true
+        dhcp: true
       cluster_name: talos
       talos_version: ${talos.talos_version}
       controlplanes: ${terraform_output("compute", "controlplanes") ?? values(cluster.controlplanes.nodes)}

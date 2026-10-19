@@ -376,6 +376,7 @@ terraform:
       network_cidr: ${network.cidr_block ?? '10.5.0.0/16'}
       cluster_name: talos
       cluster_endpoint: "${(cluster.endpoint ?? '') != '' ? cluster.endpoint : (hyperv_effective.dhcp ? '' : ('https://' + (gateway.service_type == 'NodePort' ? cidrhost(network.cidr_block ?? '10.5.0.0/16', 10) : hyperv_controlplanes.nodes[0].ipv4) + ':6443'))}"
+      controlplane_vip: ${gateway.service_type != 'NodePort'}
       talos_version: ${talos.talos_version}
       common_config_patches: ${talos_common.common_config_patches}
       controlplane_config_patches: "${talos_common.oidc_ca_file_patch ?? ''}"

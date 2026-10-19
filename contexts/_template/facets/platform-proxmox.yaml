@@ -187,6 +187,10 @@ terraform:
     parallelism: 1
     inputs:
       cluster_endpoint: "${(cluster.endpoint ?? '') != '' ? cluster.endpoint : (proxmox_effective.dhcp ? cluster_endpoint_fallback.endpoint : ('https://' + proxmox_controlplanes.nodes[0].ipv4 + ':6443'))}"
+      vip_interface:
+        deviceSelector:
+          physical: true
+        dhcp: ${proxmox_effective.dhcp}
       cluster_name: talos
       talos_version: ${talos.talos_version}
       controlplanes: >-

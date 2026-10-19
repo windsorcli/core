@@ -100,6 +100,10 @@ cases:
         - name: cluster
           inputs:
             cluster_endpoint: https://10.10.0.5:6443
+            vip_interface:
+              deviceSelector:
+                physical: true
+              dhcp: false
 
   # The cluster step takes compute's node list, including its per-node patches and instance ids.
   - name: proxmox cluster step consumes compute output
