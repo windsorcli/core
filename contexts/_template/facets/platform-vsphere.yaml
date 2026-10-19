@@ -32,6 +32,10 @@ requires:
   - paths:
       - vsphere.network
     message: vSphere port group name is required (e.g. "VM Network" or "vlan-prod-100").
+  - when: network.dhcp == true && (cluster.controlplanes.count ?? 1) > 1
+    paths:
+      - cluster.endpoint
+    message: Several DHCP control planes share the API address in cluster.endpoint; pick one outside the DHCP scope.
 
 # =============================================================================
 # Config — vSphere-specific Talos values

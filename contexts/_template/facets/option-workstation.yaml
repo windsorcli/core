@@ -337,6 +337,11 @@ terraform:
             ? "https://" + split(terraform_output("compute", "controlplanes")[0].endpoint, ":")[0] + ":6443"
             : ""
         )}
+      # Incus guests take their addresses from static DHCP leases.
+      vip_interface:
+        deviceSelector:
+          physical: true
+        dhcp: true
       cluster_name: talos
       talos_version: ${talos.talos_version}
       controlplanes: >-

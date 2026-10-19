@@ -1069,6 +1069,40 @@ cases:
             cluster_endpoint: https://10.41.0.80:6443
             skip_machine_config_apply: false
 
+  - name: dhcp with several control planes requires cluster.endpoint
+    values:
+      platform: hyperv
+      gateway:
+        enabled: false
+      network:
+        cidr_block: 10.41.0.0/22
+        dhcp: true
+      cluster:
+        driver: talos
+        controlplanes:
+          count: 3
+    expectError: true
+
+  - name: dhcp with several control planes and cluster.endpoint composes
+    values:
+      platform: hyperv
+      gateway:
+        enabled: false
+      network:
+        cidr_block: 10.41.0.0/22
+        dhcp: true
+      cluster:
+        driver: talos
+        endpoint: https://10.41.0.5:6443
+        controlplanes:
+          count: 3
+    expect:
+      terraform:
+        - name: cluster
+          path: cluster/talos
+          inputs:
+            cluster_endpoint: https://10.41.0.5:6443
+
   # Without id, host object names stay bare so an upgrade doesn't rename VMs.
   - name: no id leaves host object names unsuffixed
     values:

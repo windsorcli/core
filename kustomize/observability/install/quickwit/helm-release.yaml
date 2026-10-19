@@ -26,7 +26,7 @@ spec:
   values:
     image:
       # renovate: datasource=docker depName=quickwit/quickwit package=quickwit/quickwit
-      tag: v0.9.1@sha256:3e0f079eb57dd5563f36a457e9a7a2963ff882316d6c77e3180ac3c59767a68f
+      tag: v0.9.2@sha256:1c249c579063830be4666523c4d95289683f98c5a584de8e67a8be3361fe1f72
     environment:
       # Disable ANSI color codes in log output
       NO_COLOR: "1"
