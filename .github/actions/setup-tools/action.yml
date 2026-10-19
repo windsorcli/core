@@ -126,7 +126,7 @@ runs:
       shell: bash
       env:
         # renovate: datasource=github-releases depName=helm package=helm/helm
-        HELM_VERSION: v4.3.0
+        HELM_VERSION: v4.3.1
       run: |
         cd "$(mktemp -d)"
         asset="helm-${HELM_VERSION}-linux-amd64.tar.gz"

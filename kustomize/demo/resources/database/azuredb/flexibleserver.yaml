@@ -11,7 +11,7 @@ spec:
     # Must match the delegated subnet's own region (network/azure-vnet).
     location: ${azuredb_region}
     version: "16"
-    skuName: B_Standard_B1ms
+    skuName: ${demo_database_instance_type}
     storageMb: 32768
     administratorLogin: demo
     administratorPasswordSecretRef:

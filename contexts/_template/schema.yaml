@@ -574,6 +574,13 @@ properties:
             default: false
             description: Enable Istio bookinfo demo application
         additionalProperties: false
+      database:
+        type: object
+        properties:
+          instance_type:
+            type: string
+            description: Demo database instance size. Format is driver-dependent (an RDS instance class, an Azure Flexible Server SKU, a Cloud SQL tier).
+        additionalProperties: false
     additionalProperties: false
 
   # Timezone

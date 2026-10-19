@@ -26,6 +26,7 @@ def _stub_crossplane_sdk():
     run_function_pb2_mod = types.SimpleNamespace(
         RunFunctionRequest=object,
         RunFunctionResponse=object,
+        READY_TRUE=1,
     )
 
     crossplane_mod.function = function_mod
@@ -126,6 +127,63 @@ class BuildSchemaGrantTests(unittest.TestCase):
             "demo-app", "demo-database", "demo-db", "demo"
         )
         self.assertEqual(grant["metadata"]["name"], "demo-app-schema")
+
+
+class ComposeReadyTests(unittest.TestCase):
+    def test_marks_ready_resources_with_the_proto_enum(self):
+        class Observed:
+            def __init__(self):
+                self.resource = {}
+
+        class Desired:
+            def __init__(self):
+                self.resource = {}
+                self.ready = None
+
+        observed = {
+            "role": Observed(),
+            "grant": Observed(),
+            "schema-grant": Observed(),
+        }
+        desired = {
+            "role": Desired(),
+            "grant": Desired(),
+            "schema-grant": Desired(),
+        }
+        req = types.SimpleNamespace(
+            observed=types.SimpleNamespace(
+                composite=types.SimpleNamespace(
+                    resource={
+                        "metadata": {"name": "demo-app", "namespace": "demo"},
+                        "spec": {
+                            "instanceName": "demo-db",
+                            "databaseName": "demo",
+                        },
+                    }
+                ),
+                resources=observed,
+            )
+        )
+        rsp = types.SimpleNamespace(
+            desired=types.SimpleNamespace(
+                resources=desired,
+                composite=types.SimpleNamespace(resource={}),
+            )
+        )
+        composition.resource.struct_to_dict = lambda value: value
+        composition.resource.get_condition = lambda obj, name: types.SimpleNamespace(
+            status="True"
+        )
+
+        composition.compose(req, rsp)
+
+        self.assertEqual(desired["role"].ready, composition.fnv1.READY_TRUE)
+        self.assertEqual(desired["grant"].ready, composition.fnv1.READY_TRUE)
+        self.assertEqual(desired["schema-grant"].ready, composition.fnv1.READY_TRUE)
+        self.assertEqual(
+            desired["schema-grant"].resource["spec"]["forProvider"]["schema"],
+            "public",
+        )
 
 
 class BuildStatusTests(unittest.TestCase):
