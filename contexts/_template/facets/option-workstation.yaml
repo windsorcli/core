@@ -111,19 +111,12 @@ config:
                 memory: ${talos_common.docker_worker_gap.memory}
 
   # Colima-on-Incus is a storage-driver test rig; force flannel (Cilium's eBPF
-  # skews tests) and pair with kube-vip so LoadBalancer services still get an IP.
+  # skews tests).
   - name: cluster
     when: platform == 'incus' && workstation.runtime == 'colima'
     value:
       cni:
         driver: "${cluster.cni.driver ?? 'flannel'}"
-
-  - name: lb_effective
-    when: platform == 'incus' && workstation.runtime == 'colima'
-    value:
-      enabled: "${(network.loadbalancer_driver ?? 'kube-vip') != 'none'}"
-      driver: "${network.loadbalancer_driver ?? 'kube-vip'}"
-      mode: loadbalancer
 
 # =============================================================================
 # Terraform — workstation services, compute, cluster

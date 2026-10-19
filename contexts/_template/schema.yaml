@@ -881,10 +881,13 @@ properties:
       loadbalancer_driver:
         type: string
         enum:
+          - cilium
           - metallb
           - kube-vip
           - none
-        description: In-cluster load balancer driver. none disables lb-install where it would otherwise default on.
+        description: >
+          Load balancer for LoadBalancer Services. Defaults to cilium with the Cilium CNI and kube-vip
+          otherwise, on by default on metal, vsphere, hyperv, incus, and proxmox. none turns it off.
       loadbalancer_mode:
         type: string
         enum:

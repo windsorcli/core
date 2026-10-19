@@ -23,8 +23,8 @@ config:
   - name: gateway_effective
     value:
       cert_issuer: "${cert_effective.public_issuer}"
-      # Cilium assigns the pool addresses when it is the CNI and no cloud LB controller does.
-      cilium_lb: "${cluster.cni.driver == 'cilium' && lb_effective.controller_required != true}"
+      # Cilium assigns the pool addresses when it is the LB driver and no cloud LB controller does.
+      cilium_lb: "${lb_effective.driver == 'cilium' && lb_effective.controller_required != true}"
       internal_ip: "${network.loadbalancer_ips.start ?? ''}"
       external_ip: "${network.loadbalancer_ips.start ?? ''}"
       # Hetzner is public only and gets no internal gateway.

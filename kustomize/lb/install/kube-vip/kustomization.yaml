@@ -3,5 +3,4 @@ kind: Component
 resources:
   - helm-repository.yaml
   - helm-release.yaml
-  - cloud-provider-helm-release.yaml
 

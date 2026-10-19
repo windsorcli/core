@@ -151,7 +151,7 @@ driver.
 | `cluster_name` | `aws-lb-controller` is enabled | AWS-side cluster name (LBC tag). Sourced from `terraform_output('cluster', 'cluster_name')`. No fallback — LBC tags every AWS resource it owns with this and filters reconciliation by it, so a generic default would let a second cluster in the same account race the tags. |
 | `vpc_id` | `aws-lb-controller` is enabled | VPC ID the LBC operates against. Sourced from `terraform_output('network', 'vpc_id')`. |
 | `aws_region` | `aws-lb-controller` is enabled | AWS region for LBC API calls. Sourced from top-level `aws.region`. |
-| `loadbalancer_ip_range` | `metallb/*` or `kube-vip` component is enabled | IP range the driver advertises (CIDR-style `start-end`). Read by MetalLB's `IPAddressPool` (in `resources`) and by kube-vip's cloud-provider HelmRelease directly (in `install`). Sourced from `network.loadbalancer_ips.start + '-' + network.loadbalancer_ips.end`. |
+| `loadbalancer_ip_range` | `metallb/*` or `kube-vip/cloud-provider` component is enabled | IP range the driver advertises (CIDR-style `start-end`). Read by MetalLB's `IPAddressPool` (in `resources`) and by the kube-vip cloud-provider HelmRelease directly (in `install`). Sourced from `network.loadbalancer_ips.start + '-' + network.loadbalancer_ips.end`. |
 
 ## Components — `lb-install`
 
@@ -169,13 +169,15 @@ Helm release of MetalLB in `system-lb`. Installs the controller and speaker Daem
 
 ### `kube-vip`
 
-_Enabled when `lb_effective.driver == 'kube-vip'` (Talos clusters)._
+_Enabled when `lb_effective.driver == 'kube-vip'`, the default with the flannel CNI on metal, vsphere, hyperv, incus, and proxmox._
 
-Helm release of the kube-vip cloud-provider in `system-lb`. Provides VIP-based LoadBalancer Services for Talos clusters where MetalLB is not used; pairs with `kube-vip/arp` for L2 advertisement.
+Helm release of kube-vip in `system-lb`. Announces the addresses of LoadBalancer Services; pairs with `kube-vip/arp` for L2 advertisement.
 
 | Variant | Enabled when | Effect |
 |---|---|---|
-| `arp` | kube-vip driver AND `network.loadbalancer_mode == 'arp'` (default) | Patches the kube-vip cloud-provider HelmRelease to enable ARP-based VIP advertisement (Layer 2). |
+| `arp` | kube-vip driver AND `network.loadbalancer_mode == 'arp'` (default) | Patches the kube-vip HelmRelease to enable ARP-based VIP advertisement (Layer 2). |
+| `single-node` | kube-vip driver AND `topology == 'single-node'` | Turns off kube-vip's Service leader election. |
+| `cloud-provider` | kube-vip driver AND `network.loadbalancer_ips` is set | Helm release of the kube-vip cloud-provider, which assigns addresses from `${loadbalancer_ip_range}` to Services that do not pin one. |
 
 ## Components — `lb-resources`
 
