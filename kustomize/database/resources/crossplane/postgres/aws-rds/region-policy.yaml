@@ -25,4 +25,4 @@ spec:
     - expression: >-
         object.spec.forProvider.?region.orValue("${aws_region}") == "${aws_region}"
       messageExpression: >-
-        "spec.forProvider.region must be ${aws_region}, the cluster's region; got " + object.spec.forProvider.region
+        "spec.forProvider.region must be ${aws_region}, the cluster's region; got " + object.spec.forProvider.?region.orValue("unset")
