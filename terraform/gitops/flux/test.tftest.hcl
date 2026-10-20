@@ -434,6 +434,111 @@ run "readiness_gate_waits_on_fluxinstance" {
   }
 }
 
+# Verifies the chart and image locations default to upstream.
+run "upstream_locations_by_default" {
+  command = plan
+
+  assert {
+    condition     = helm_release.flux_operator.repository == "oci://ghcr.io/controlplaneio-fluxcd/charts" && helm_release.flux_instance.repository == "oci://ghcr.io/controlplaneio-fluxcd/charts"
+    error_message = "Both Flux charts should default to the upstream controlplaneio-fluxcd OCI repository"
+  }
+
+  assert {
+    condition     = yamldecode(helm_release.flux_operator.values[0]).image.repository == "ghcr.io/controlplaneio-fluxcd/flux-operator"
+    error_message = "flux-operator image should default to ghcr.io/controlplaneio-fluxcd/flux-operator"
+  }
+
+  assert {
+    condition     = yamldecode(helm_release.flux_instance.values[0]).instance.distribution.registry == "ghcr.io/fluxcd"
+    error_message = "Flux controllers should default to ghcr.io/fluxcd"
+  }
+
+  assert {
+    condition     = startswith(kubernetes_job_v1.flux_ready_gate.spec[0].template[0].spec[0].container[0].image, "alpine/k8s:")
+    error_message = "readiness gate should default to the pinned alpine/k8s image"
+  }
+}
+
+# Verifies every chart and image location follows its input so a mirror
+# registry can serve the whole Flux bootstrap.
+run "mirror_locations" {
+  command = plan
+
+  variables {
+    chart_repository          = "oci://registry.example.com/charts"
+    operator_image_repository = "registry.example.com/controlplaneio-fluxcd/flux-operator"
+    distribution_registry     = "registry.example.com/fluxcd"
+    distribution_artifact     = "oci://registry.example.com/controlplaneio-fluxcd/flux-operator-manifests:latest"
+    ready_gate_image          = "registry.example.com/alpine/k8s:1.37.0"
+  }
+
+  assert {
+    condition     = helm_release.flux_operator.repository == "oci://registry.example.com/charts" && helm_release.flux_instance.repository == "oci://registry.example.com/charts"
+    error_message = "Both Flux charts should be read from chart_repository"
+  }
+
+  assert {
+    condition     = yamldecode(helm_release.flux_operator.values[0]).image.repository == "registry.example.com/controlplaneio-fluxcd/flux-operator"
+    error_message = "flux-operator image should follow operator_image_repository"
+  }
+
+  assert {
+    condition     = yamldecode(helm_release.flux_instance.values[0]).instance.distribution.registry == "registry.example.com/fluxcd"
+    error_message = "Flux controller registry should follow distribution_registry"
+  }
+
+  assert {
+    condition     = yamldecode(helm_release.flux_instance.values[0]).instance.distribution.artifact == "oci://registry.example.com/controlplaneio-fluxcd/flux-operator-manifests:latest"
+    error_message = "Flux distribution artifact should follow distribution_artifact"
+  }
+
+  assert {
+    condition     = kubernetes_job_v1.flux_ready_gate.spec[0].template[0].spec[0].container[0].image == "registry.example.com/alpine/k8s:1.37.0"
+    error_message = "readiness gate image should follow ready_gate_image"
+  }
+}
+
+# Verifies a null location falls back to the upstream default (facets pass null when unset).
+run "null_locations_fall_back_to_defaults" {
+  command = plan
+
+  variables {
+    chart_repository      = null
+    distribution_registry = null
+  }
+
+  assert {
+    condition     = helm_release.flux_operator.repository == "oci://ghcr.io/controlplaneio-fluxcd/charts"
+    error_message = "A null chart_repository should fall back to the upstream default"
+  }
+
+  assert {
+    condition     = yamldecode(helm_release.flux_instance.values[0]).instance.distribution.registry == "ghcr.io/fluxcd"
+    error_message = "A null distribution_registry should fall back to the upstream default"
+  }
+}
+
+# Verifies malformed chart and image locations are rejected.
+run "invalid_locations_rejected" {
+  command = plan
+
+  variables {
+    chart_repository          = "https://ghcr.io/controlplaneio-fluxcd/charts" # not OCI
+    operator_image_repository = "ghcr.io/"                                     # trailing slash, no path
+    distribution_registry     = "https://ghcr.io/fluxcd"                       # scheme
+    distribution_artifact     = "ghcr.io/controlplaneio-fluxcd/manifests"      # not OCI
+    ready_gate_image          = "docker://alpine/k8s"                          # scheme
+  }
+
+  expect_failures = [
+    var.chart_repository,
+    var.operator_image_repository,
+    var.distribution_registry,
+    var.distribution_artifact,
+    var.ready_gate_image,
+  ]
+}
+
 # Verifies version input validation rules are enforced for both version inputs.
 run "multiple_invalid_inputs" {
   command = plan

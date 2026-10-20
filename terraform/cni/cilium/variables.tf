@@ -9,6 +9,28 @@ variable "cilium_version" {
   }
 }
 
+variable "chart_repository" {
+  description = "Helm repository the Cilium chart is read from. Accepts an oci:// registry address such as oci://registry.example.com/charts or a web address such as https://helm.cilium.io. The chart name stays cilium."
+  type        = string
+  default     = "oci://quay.io/cilium/charts"
+  nullable    = false
+  validation {
+    condition     = can(regex("^(https?://|oci://).+", var.chart_repository))
+    error_message = "chart_repository must start with 'oci://', 'https://', or 'http://'."
+  }
+}
+
+variable "image_registry" {
+  description = "Registry path the Cilium images are pulled from, without a scheme or trailing slash (e.g. registry.example.com/cilium). The agent, operator, envoy, and certgen images are read from <image_registry>/<image>."
+  type        = string
+  default     = "quay.io/cilium"
+  nullable    = false
+  validation {
+    condition     = can(regex("^[a-z0-9]([a-z0-9.-]*[a-z0-9])?(:[0-9]+)?(/[a-z0-9._-]+)*$", var.image_registry))
+    error_message = "image_registry must be a registry host with an optional port and path, with no scheme or trailing slash."
+  }
+}
+
 variable "k8s_service_host" {
   description = "API server host Cilium reaches before its eBPF service rules are active. Required when kube_proxy_replacement is true."
   type        = string

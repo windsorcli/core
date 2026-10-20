@@ -28,6 +28,67 @@ variable "flux_version" {
   }
 }
 
+variable "chart_repository" {
+  description = "OCI repository the flux-operator and flux-instance Helm charts are read from (e.g. oci://registry.example.com/charts)."
+  type        = string
+  default     = "oci://ghcr.io/controlplaneio-fluxcd/charts"
+  nullable    = false
+
+  validation {
+    condition     = can(regex("^oci://.+", var.chart_repository))
+    error_message = "chart_repository must start with 'oci://'."
+  }
+}
+
+variable "operator_image_repository" {
+  description = "Image repository for the flux-operator, without a tag (e.g. registry.example.com/controlplaneio-fluxcd/flux-operator). The chart supplies the tag."
+  type        = string
+  default     = "ghcr.io/controlplaneio-fluxcd/flux-operator"
+  nullable    = false
+
+  validation {
+    condition     = can(regex("^[a-z0-9]([a-z0-9.-]*[a-z0-9])?(:[0-9]+)?(/[a-z0-9._-]+)+$", var.operator_image_repository))
+    error_message = "operator_image_repository must be a registry host with an optional port and an image path, with no scheme, tag, or trailing slash."
+  }
+}
+
+variable "distribution_registry" {
+  description = "Registry the Flux controller images are pulled from (FluxInstance spec.distribution.registry), e.g. registry.example.com/fluxcd."
+  type        = string
+  default     = "ghcr.io/fluxcd"
+  nullable    = false
+
+  validation {
+    condition     = can(regex("^[a-z0-9]([a-z0-9.-]*[a-z0-9])?(:[0-9]+)?(/[a-z0-9._-]+)*$", var.distribution_registry))
+    error_message = "distribution_registry must be a registry host with an optional port and path, with no scheme or trailing slash."
+  }
+}
+
+variable "distribution_artifact" {
+  description = "OCI artifact the flux-operator reads the Flux distribution manifests from (FluxInstance spec.distribution.artifact)."
+  type        = string
+  default     = "oci://ghcr.io/controlplaneio-fluxcd/flux-operator-manifests:latest"
+  nullable    = false
+
+  validation {
+    condition     = can(regex("^oci://.+", var.distribution_artifact))
+    error_message = "distribution_artifact must start with 'oci://'."
+  }
+}
+
+variable "ready_gate_image" {
+  description = "Image for the Job that waits for the FluxInstance to report Ready. It must provide kubectl and sh."
+  type        = string
+  # renovate: datasource=docker depName=kubectl package=alpine/k8s
+  default  = "alpine/k8s:1.37.0@sha256:b421c2e9419edb98db39b6ab641669f4db7bb2acf354f22450c6b7e7176d1ff4"
+  nullable = false
+
+  validation {
+    condition     = length(trimspace(var.ready_gate_image)) > 0 && !can(regex("://", var.ready_gate_image))
+    error_message = "ready_gate_image must be an image reference with no scheme."
+  }
+}
+
 variable "ssh_private_key" {
   description = "The private key to use for SSH authentication"
   type        = string

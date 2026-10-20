@@ -28,7 +28,7 @@ terraform {
 # a bootstrap re-run instead of disappearing until Flux's next reconcile.
 
 resource "helm_release" "cilium" {
-  repository   = "oci://quay.io/cilium/charts"
+  repository   = var.chart_repository
   chart        = "cilium"
   name         = "cilium"
   reuse_values = true
@@ -56,6 +56,26 @@ resource "helm_release" "cilium" {
       # (single-node → 1, everything else → 2); see var.operator_replicas.
       operator = {
         replicas = var.operator_replicas
+        # The chart appends a cloud suffix (e.g. -generic) to this repository.
+        image = {
+          repository = "${var.image_registry}/operator"
+        }
+      }
+
+      # Image repositories follow var.image_registry so a mirror registry can serve every
+      # image the bootstrap install pulls. Tags and digests stay chart-pinned.
+      image = {
+        repository = "${var.image_registry}/cilium"
+      }
+      envoy = {
+        image = {
+          repository = "${var.image_registry}/cilium-envoy"
+        }
+      }
+      certgen = {
+        image = {
+          repository = "${var.image_registry}/certgen"
+        }
       }
 
       # ztunnel encryption is unused (encryption.type stays at its ipsec default); the

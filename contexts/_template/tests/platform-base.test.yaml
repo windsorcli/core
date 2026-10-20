@@ -1060,3 +1060,38 @@ cases:
       pki:
         public_issuer: acme
     expectError: true
+
+  # Mirror registry: every gitops chart and image location reaches the
+  # gitops terraform component so the Flux bootstrap pulls nothing upstream.
+  - name: gitops mirror locations pass to the gitops terraform component
+    values:
+      platform: metal
+      gateway:
+        enabled: false
+      network: *default-network
+      cluster: *default-cluster
+      gitops:
+        chart_repository: oci://registry.example.com/charts
+        operator_image_repository: registry.example.com/controlplaneio-fluxcd/flux-operator
+        distribution_registry: registry.example.com/fluxcd
+        distribution_artifact: oci://registry.example.com/controlplaneio-fluxcd/flux-operator-manifests:latest
+        ready_gate_image: registry.example.com/alpine/k8s:1.37.0
+    expect:
+      terraform:
+        - name: gitops
+          path: gitops/flux
+          inputs:
+            chart_repository: oci://registry.example.com/charts
+            operator_image_repository: registry.example.com/controlplaneio-fluxcd/flux-operator
+            distribution_registry: registry.example.com/fluxcd
+            distribution_artifact: oci://registry.example.com/controlplaneio-fluxcd/flux-operator-manifests:latest
+            ready_gate_image: registry.example.com/alpine/k8s:1.37.0
+
+  - name: gitops.chart_repository must be an OCI address
+    values:
+      platform: metal
+      network: *default-network
+      cluster: *default-cluster
+      gitops:
+        chart_repository: https://ghcr.io/controlplaneio-fluxcd/charts
+    expectError: true

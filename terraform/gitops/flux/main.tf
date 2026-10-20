@@ -234,20 +234,25 @@ resource "kubernetes_priority_class_v1" "platform_critical" {
 
 # The operator installs the Flux CRDs and controllers and owns the FluxInstance CRD.
 resource "helm_release" "flux_operator" {
-  repository       = "oci://ghcr.io/controlplaneio-fluxcd/charts"
+  repository       = var.chart_repository
   chart            = "flux-operator"
   name             = "flux-operator"
   version          = var.flux_operator_version
   namespace        = kubernetes_namespace_v1.flux_system.metadata[0].name
   create_namespace = false
   wait             = true
+  values = [yamlencode({
+    image = {
+      repository = var.operator_image_repository
+    }
+  })]
 }
 
 # The FluxInstance declares which controllers to run and how to tune them. The
 # sync block is intentionally omitted: the windsor CLI creates the root
 # GitRepository and Kustomizations, so the operator manages controllers only.
 resource "helm_release" "flux_instance" {
-  repository       = "oci://ghcr.io/controlplaneio-fluxcd/charts"
+  repository       = var.chart_repository
   chart            = "flux-instance"
   name             = "flux"
   version          = var.flux_operator_version
@@ -259,7 +264,8 @@ resource "helm_release" "flux_instance" {
     instance = {
       distribution = {
         version  = var.flux_version
-        registry = "ghcr.io/fluxcd"
+        registry = var.distribution_registry
+        artifact = var.distribution_artifact
       }
       components = local.flux_components
       cluster = {
@@ -280,11 +286,6 @@ resource "helm_release" "flux_instance" {
 #-----------------------------------------------------------------------------------------------------------------------
 # Wait for Flux to be ready
 #-----------------------------------------------------------------------------------------------------------------------
-
-locals {
-  # renovate: datasource=docker depName=kubectl package=alpine/k8s
-  ready_gate_image = "alpine/k8s:1.37.0@sha256:b421c2e9419edb98db39b6ab641669f4db7bb2acf354f22450c6b7e7176d1ff4"
-}
 
 # The ServiceAccount the readiness gate Job runs as.
 resource "kubernetes_service_account_v1" "flux_ready_gate" {
@@ -355,7 +356,7 @@ resource "kubernetes_job_v1" "flux_ready_gate" {
         }
         container {
           name  = "wait"
-          image = local.ready_gate_image
+          image = var.ready_gate_image
           command = ["/bin/sh", "-c", <<-EOT
             set -e
             i=1

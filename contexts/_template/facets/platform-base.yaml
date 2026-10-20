@@ -334,6 +334,12 @@ terraform:
       # topology: ha runs a standby replica of each default controller so
       # one survives a single system node loss.
       replicas: "${topology == 'ha' ? 2 : 1}"
+      # Mirror overrides; unset falls back to the module's upstream defaults.
+      chart_repository: ${gitops.chart_repository ?? null}
+      operator_image_repository: ${gitops.operator_image_repository ?? null}
+      distribution_registry: ${gitops.distribution_registry ?? null}
+      distribution_artifact: ${gitops.distribution_artifact ?? null}
+      ready_gate_image: ${gitops.ready_gate_image ?? null}
 
   # Root CA for the private-CA add-on and Talos apiserver OIDC trust. Runs
   # ahead of cluster/talos so the cert is available for the first machine

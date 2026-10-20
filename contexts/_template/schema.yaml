@@ -1097,6 +1097,20 @@ properties:
               CNI driver. flannel is the Talos built-in default and requires no extra bootstrap.
               cilium bootstraps Cilium via terraform/cni/cilium before Flux starts (disables
               flannel and kube-proxy in Talos machine config) and manages it via Flux GitOps.
+          chart_repository:
+            type: string
+            pattern: '^(https?|oci)://\S+$'
+            description: >
+              Helm repository the terraform/cni/cilium bootstrap reads the Cilium chart from, such as
+              a mirror registry (oci://registry.example.com/charts). The chart name stays cilium.
+              Defaults to oci://quay.io/cilium/charts.
+          image_registry:
+            type: string
+            pattern: '^[a-z0-9]([a-z0-9.-]*[a-z0-9])?(:[0-9]+)?(/[a-z0-9._-]+)*$'
+            description: >
+              Registry path the terraform/cni/cilium bootstrap pulls the Cilium images from, with no
+              scheme or trailing slash (e.g. registry.example.com/cilium). Images are read from
+              <image_registry>/<image>. Defaults to quay.io/cilium.
         additionalProperties: false
       oidc:
         type: object
@@ -1235,6 +1249,26 @@ properties:
         type: integer
         minimum: 1
         description: Override the CPU/memory-derived Flux controller --concurrent value. For constrained hosts (e.g. CI runners) where the control-plane container's quota is a small slice of the whole host, not just of a roomy dev machine.
+      chart_repository:
+        type: string
+        pattern: '^oci://\S+$'
+        description: OCI repository the terraform/gitops/flux bootstrap reads the flux-operator and flux-instance charts from, such as a mirror registry (oci://registry.example.com/charts). Defaults to oci://ghcr.io/controlplaneio-fluxcd/charts.
+      operator_image_repository:
+        type: string
+        pattern: '^[a-z0-9]([a-z0-9.-]*[a-z0-9])?(:[0-9]+)?(/[a-z0-9._-]+)+$'
+        description: Image repository for the flux-operator, with no scheme or tag (e.g. registry.example.com/controlplaneio-fluxcd/flux-operator). Defaults to ghcr.io/controlplaneio-fluxcd/flux-operator.
+      distribution_registry:
+        type: string
+        pattern: '^[a-z0-9]([a-z0-9.-]*[a-z0-9])?(:[0-9]+)?(/[a-z0-9._-]+)*$'
+        description: Registry the Flux controller images are pulled from (FluxInstance spec.distribution.registry), e.g. registry.example.com/fluxcd. Defaults to ghcr.io/fluxcd.
+      distribution_artifact:
+        type: string
+        pattern: '^oci://\S+$'
+        description: OCI artifact the flux-operator reads the Flux distribution manifests from (FluxInstance spec.distribution.artifact). Defaults to oci://ghcr.io/controlplaneio-fluxcd/flux-operator-manifests:latest.
+      ready_gate_image:
+        type: string
+        pattern: '^[^:/\s]+(?:[:/][^\s]*)?$'
+        description: Image for the Job that waits for Flux to report Ready during bootstrap. It must provide kubectl and sh. Defaults to a pinned alpine/k8s image.
     additionalProperties: false
 
   # Gateway configuration
