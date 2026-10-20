@@ -313,6 +313,13 @@ data "talos_machine_configuration" "controlplane" {
     local.controlplane_network_patches[each.key],
     local.vip_patch,
   ])
+
+  lifecycle {
+    precondition {
+      condition     = !var.controlplane_vip || local.vip != ""
+      error_message = "controlplane_vip needs a cluster_endpoint host that is an IPv4 address no control plane uses."
+    }
+  }
 }
 
 data "talos_machine_configuration" "worker" {

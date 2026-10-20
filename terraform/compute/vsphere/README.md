@@ -93,7 +93,7 @@ No modules.
 | <a name="input_context"></a> [context](#input\_context) | The windsor context id for this deployment. Typically set implicitly via TF\_VAR\_context; no need to pass in facet inputs. | `string` | `""` | no |
 | <a name="input_context_id"></a> [context\_id](#input\_context\_id) | The windsor context id for this deployment. Alias for var.context. Typically set implicitly via TF\_VAR\_context; no need to pass in facet inputs. | `string` | `""` | no |
 | <a name="input_controlplane_config_patches"></a> [controlplane\_config\_patches](#input\_controlplane\_config\_patches) | Controlplane-only Talos machine config patch (YAML string). | `string` | `""` | no |
-| <a name="input_controlplane_vip"></a> [controlplane\_vip](#input\_controlplane\_vip) | When true and the cluster\_endpoint host is an IPv4 address no control plane uses, bake that address into the control planes as the shared VIP. | `bool` | `false` | no |
+| <a name="input_controlplane_vip"></a> [controlplane\_vip](#input\_controlplane\_vip) | When true, bake the cluster\_endpoint host into the control planes as the shared VIP. The host MUST be an IPv4 address no control plane uses. | `bool` | `false` | no |
 | <a name="input_datacenter"></a> [datacenter](#input\_datacenter) | vSphere datacenter name (exact match as shown in the vCenter inventory) | `string` | n/a | yes |
 | <a name="input_datastore"></a> [datastore](#input\_datastore) | Datastore or datastore cluster name where VM disks are placed | `string` | n/a | yes |
 | <a name="input_folder"></a> [folder](#input\_folder) | VM folder path relative to the datacenter VM folder root. Empty string places VMs at the datacenter root | `string` | `""` | no |

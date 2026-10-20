@@ -57,6 +57,10 @@ resource "terraform_data" "endpoint_check" {
       condition     = local.cluster_endpoint != "" && can(regex("^https://", local.cluster_endpoint))
       error_message = "cluster_endpoint could not be derived: set cluster.endpoint or ensure compute is applied so controlplanes have endpoints."
     }
+    precondition {
+      condition     = var.vip_interface == null || local.vip != ""
+      error_message = "vip_interface needs a cluster_endpoint host that is an IPv4 address no control plane uses."
+    }
   }
   input = local.cluster_endpoint
 }
@@ -80,7 +84,7 @@ locals {
 
   cluster_endpoint = var.cluster_endpoint != "" ? var.cluster_endpoint : (length(var.controlplanes) > 0 ? "https://${split(":", var.controlplanes[0].endpoint)[0]}:6443" : "")
 
-  # Shared control-plane VIP: the cluster_endpoint host when it is an IPv4 address no control plane uses.
+  # Shared control-plane VIP: the cluster_endpoint host when vip_interface is set and no control plane uses it.
   cluster_endpoint_host = try(regex("^https://([^:/]+)", local.cluster_endpoint)[0], "")
   controlplane_hosts    = flatten([for cp in var.controlplanes : [cp.node, regex("^(?:[a-z]+://)?([^:/]+)", cp.endpoint)[0]]])
   vip                   = var.vip_interface != null && can(cidrhost("${local.cluster_endpoint_host}/32", 0)) && !contains(local.controlplane_hosts, local.cluster_endpoint_host) ? local.cluster_endpoint_host : ""
