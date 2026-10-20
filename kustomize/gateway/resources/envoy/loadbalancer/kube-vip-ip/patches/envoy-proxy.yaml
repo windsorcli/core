@@ -1,5 +1,5 @@
 ---
-# Requests a specific address from the local LB pool. Cloud LB controllers auto-assign and must not set it.
+# Pins the Service address with the kube-vip annotation.
 apiVersion: gateway.envoyproxy.io/v1alpha1
 kind: EnvoyProxy
 metadata:
@@ -12,5 +12,6 @@ spec:
         patch:
           type: StrategicMerge
           value:
-            spec:
-              loadBalancerIP: ${gateway_loadbalancer_ip}
+            metadata:
+              annotations:
+                kube-vip.io/loadbalancerIPs: ${gateway_loadbalancer_ip}

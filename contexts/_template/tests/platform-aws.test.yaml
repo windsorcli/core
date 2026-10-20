@@ -606,6 +606,20 @@ cases:
                 - envoy/loadbalancer/aws-nlb
 
   # The internal gateway's NLB is always the internal scheme.
+  - name: a gateway address on AWS fails composition
+    values:
+      platform: aws
+      aws: *default-aws
+      email: ops@example.com
+      dns:
+        public_domain: example.com
+      gateway:
+        enabled: true
+        driver: envoy
+        external:
+          ip: 10.0.0.50
+    expectError: true
+
   - name: internal gateway NLB is always internal scheme on AWS
     values:
       platform: aws

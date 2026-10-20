@@ -1253,10 +1253,49 @@ properties:
         description: Gateway driver
       service_type:
         type: string
+        deprecated: true
         enum:
           - LoadBalancer
           - NodePort
-        description: Kubernetes Service type used to expose the gateway. When unset, defaults to LoadBalancer except on docker-desktop, which is forced to NodePort. Set to NodePort to expose the gateway on any driver without a cluster LB (e.g. single-node Talos VMs).
+        description: Deprecated. Use gateway.external.service_type and gateway.internal.service_type. Sets both gateways' Service type when they leave it unset.
+      external:
+        type: object
+        description: Exposure of the external gateway.
+        properties:
+          service_type:
+            type: string
+            enum:
+              - LoadBalancer
+              - NodePort
+            description: Kubernetes Service type for the external gateway. Defaults to gateway.service_type, else LoadBalancer, except NodePort on docker-desktop.
+          ip:
+            $ref: '#/$defs/ipv4'
+            description: Address of a LoadBalancer gateway. Not allowed with NodePort or on aws, azure, gcp, and hetzner.
+          node_port:
+            type: integer
+            minimum: 30000
+            maximum: 32767
+            description: HTTPS node port of a NodePort gateway, default 30444. The HTTP node port is 30081.
+        additionalProperties: false
+      internal:
+        type: object
+        description: Exposure of the internal gateway.
+        properties:
+          service_type:
+            type: string
+            enum:
+              - LoadBalancer
+              - NodePort
+            description: Kubernetes Service type for the internal gateway. Defaults to gateway.service_type, else LoadBalancer, except NodePort on docker-desktop.
+          ip:
+            $ref: '#/$defs/ipv4'
+            description: Address of a LoadBalancer gateway. Not allowed with NodePort or on aws, azure, gcp, and hetzner.
+          node_port:
+            type: integer
+            minimum: 30000
+            maximum: 32767
+            description: HTTPS node port of a NodePort gateway, default 30443. The HTTP node port is 30080.
+        additionalProperties: false
       publish_ports:
         type: object
         propertyNames:
