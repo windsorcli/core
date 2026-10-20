@@ -266,10 +266,7 @@ cases:
           dependsOn:
             - compute
           inputs:
-            vip_interface:
-              deviceSelector:
-                physical: true
-              dhcp: true
+            vip_interface: null
             common_config_patches: |-
               cluster:
                 allowSchedulingOnControlPlanes: false

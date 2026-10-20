@@ -209,7 +209,7 @@ terraform:
       host_system: "${vsphere_effective.host_system}"
       cluster_name: talos
       cluster_endpoint: "${(cluster.endpoint ?? '') != '' ? cluster.endpoint : (vsphere_effective.dhcp ? '' : ('https://' + vsphere_controlplanes.nodes[0].ipv4 + ':6443'))}"
-      controlplane_vip: true
+      controlplane_vip: ${cluster.vip == true}
       talos_version: ${talos.talos_version}
       common_config_patches: ${talos_common.common_config_patches}
       per_node_config_patches: >-

@@ -20,6 +20,14 @@ requires:
     paths:
       - lb_effective.driver_supported
     message: With cluster.cni.driver cilium, set network.loadbalancer_driver to cilium or none.
+  - when: cluster.vip == true
+    paths:
+      - cluster.endpoint
+    message: cluster.vip makes the host in cluster.endpoint the Talos VIP; set cluster.endpoint.
+  - when: cluster.vip == true && !(platform in ['incus', 'proxmox', 'vsphere', 'hyperv'])
+    paths:
+      - cluster_effective.unsupported
+    message: cluster.vip is supported on incus, proxmox, vsphere, and hyperv.
   - when: lb_effective.driver == 'metallb'
     paths:
       - network.loadbalancer_ips.start

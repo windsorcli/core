@@ -331,10 +331,7 @@ terraform:
             : ""
         )}
       # Incus guests take their addresses from static DHCP leases.
-      vip_interface:
-        deviceSelector:
-          physical: true
-        dhcp: true
+      vip_interface: "${cluster.vip == true ? {deviceSelector: {physical: true}, dhcp: true} : null}"
       cluster_name: talos
       talos_version: ${talos.talos_version}
       controlplanes: >-

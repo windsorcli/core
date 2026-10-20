@@ -213,8 +213,8 @@ run "vip_inferred_from_endpoint" {
   }
 }
 
-# Verifies that no VIP is configured when the endpoint is a control-plane address
-run "vip_skipped_for_controlplane_ip" {
+# Verifies that vip_interface with an endpoint that is a control-plane address fails the plan
+run "vip_rejects_controlplane_ip" {
   command = plan
 
   variables {
@@ -223,10 +223,7 @@ run "vip_skipped_for_controlplane_ip" {
     controlplanes    = [{ endpoint = "10.0.0.10:50000", node = "10.0.0.10" }]
   }
 
-  assert {
-    condition     = local.vip == "" && local.vip_patch == ""
-    error_message = "No VIP should be configured for a control-plane IP"
-  }
+  expect_failures = [terraform_data.endpoint_check]
 }
 
 # Verifies that no VIP is configured without vip_interface
@@ -244,8 +241,8 @@ run "vip_skipped_without_interface_or_ip" {
   }
 }
 
-# Verifies that no VIP is configured for a hostname endpoint
-run "vip_skipped_for_hostname" {
+# Verifies that vip_interface with a hostname endpoint fails the plan
+run "vip_rejects_hostname" {
   command = plan
 
   variables {
@@ -254,10 +251,7 @@ run "vip_skipped_for_hostname" {
     controlplanes    = [{ endpoint = "10.0.0.10:50000", node = "10.0.0.10" }]
   }
 
-  assert {
-    condition     = local.vip == ""
-    error_message = "No VIP should be configured for a hostname endpoint"
-  }
+  expect_failures = [terraform_data.endpoint_check]
 }
 
 # Verifies that no configuration files are generated when context_path is empty,

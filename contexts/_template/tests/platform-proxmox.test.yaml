@@ -81,6 +81,31 @@ cases:
           destroy: false
 
   # Explicit cluster.endpoint wins over the first control-plane address.
+  - name: proxmox cluster.vip passes the VIP interface to the cluster step
+    values:
+      platform: proxmox
+      gateway:
+        enabled: false
+      network: *default-network
+      cluster:
+        vip: true
+        driver: talos
+        endpoint: https://10.10.0.5:6443
+        controlplanes:
+          count: 1
+        workers:
+          count: 0
+      proxmox: *default-proxmox
+    expect:
+      terraform:
+        - name: cluster
+          inputs:
+            cluster_endpoint: https://10.10.0.5:6443
+            vip_interface:
+              deviceSelector:
+                physical: true
+              dhcp: false
+
   - name: proxmox explicit cluster endpoint flows through to cluster step
     values:
       platform: proxmox
@@ -100,10 +125,7 @@ cases:
         - name: cluster
           inputs:
             cluster_endpoint: https://10.10.0.5:6443
-            vip_interface:
-              deviceSelector:
-                physical: true
-              dhcp: false
+            vip_interface: null
 
   # The cluster step takes compute's node list, including its per-node patches and instance ids.
   - name: proxmox cluster step consumes compute output

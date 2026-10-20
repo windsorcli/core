@@ -379,6 +379,18 @@ cases:
           driver: flannel
     expectError: true
 
+  - name: cluster.vip on metal fails composition
+    values:
+      platform: metal
+      gateway:
+        enabled: false
+      network: *default-network
+      cluster:
+        <<: *default-cluster
+        endpoint: https://10.5.0.5:6443
+        vip: true
+    expectError: true
+
   # Requires: metal has no compute layer, so the operator must declare the
   # controlplane nodes that windsor talks to.
   - name: metal without controlplane nodes fails composition
