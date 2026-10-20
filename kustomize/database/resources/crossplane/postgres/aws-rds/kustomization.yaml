@@ -1,9 +1,10 @@
 apiVersion: kustomize.config.k8s.io/v1alpha1
 kind: Component
 
-# RDS's own ProviderConfig, tagging policy, and network defaults.
+# RDS's own ProviderConfig, tagging policy, network defaults, and region check.
 
 resources:
   - provider-config.yaml
   - tag-policy.yaml
   - network-policy.yaml
+  - region-policy.yaml

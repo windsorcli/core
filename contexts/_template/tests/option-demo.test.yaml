@@ -84,7 +84,6 @@ cases:
                 - database
                 - database/rds
               substitutions:
-                aws_region: us-west-2
                 demo_database_instance_type: db.t4g.micro
                 demo_database_name: demo
                 database_instance_name: demo-db

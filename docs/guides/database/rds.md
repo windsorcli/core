@@ -25,7 +25,6 @@ metadata:
   name: my-app-db
 spec:
   forProvider:
-    region: us-east-1
     engine: postgres
     engineVersion: "16"
     instanceClass: db.t4g.micro
@@ -42,6 +41,7 @@ spec:
     deletionProtection: true
     finalSnapshotIdentifier: my-app-db-final
     # Injected automatically at admission:
+    # region: us-east-1
     # dbSubnetGroupName: rds-a1b2c3d4
     # vpcSecurityGroupIds: [sg-0123456789abcdef0]
     # kmsKeyId: arn:aws:kms:us-east-1:111122223333:key/1234abcd-12ab-34cd-56ef-1234567890ab
@@ -50,7 +50,7 @@ spec:
     #   WindsorContextID: a1b2c3d4
 ```
 
-At admission, a Kyverno policy adds the `windsorcli.dev/cluster: <cluster-name>` tag and fills in `dbSubnetGroupName`, `vpcSecurityGroupIds`, and `kmsKeyId` for you. The Crossplane IAM role is scoped to only work with databases that include this tag.
+At admission, a Kyverno policy adds the `windsorcli.dev/cluster: <cluster-name>` tag and fills in `region`, `dbSubnetGroupName`, `vpcSecurityGroupIds`, and `kmsKeyId` for you. The Crossplane IAM role is scoped to only work with databases that include this tag. An `Instance` that sets a `region` other than the cluster's `aws.region` is rejected, since the injected subnet group, security group, and key exist only in that region.
 
 ## Deletion
 
