@@ -12,10 +12,14 @@ requires:
     paths:
       - dns.public_domain
     message: pki.public_issuer acme issues certificates for dns.public_domain; set it or use selfsigned.
-  - when: (network.loadbalancer_driver ?? '') != ''
+  - when: lb_effective.driver == 'cilium' && cluster.cni.driver != 'cilium'
     paths:
       - lb_effective.driver_supported
-    message: network.loadbalancer_driver cilium needs the Cilium CNI, and the Cilium CNI takes only cilium or none.
+    message: network.loadbalancer_driver cilium needs cluster.cni.driver cilium.
+  - when: cluster.cni.driver == 'cilium' && (lb_effective.driver == 'kube-vip' || lb_effective.driver == 'metallb')
+    paths:
+      - lb_effective.driver_supported
+    message: With cluster.cni.driver cilium, set network.loadbalancer_driver to cilium or none.
   - when: lb_effective.driver == 'metallb'
     paths:
       - network.loadbalancer_ips.start
