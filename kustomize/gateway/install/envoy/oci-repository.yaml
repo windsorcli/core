@@ -1,0 +1,16 @@
+---
+apiVersion: source.toolkit.fluxcd.io/v1
+kind: OCIRepository
+metadata:
+  name: envoy-gateway
+  namespace: system-gateway
+spec:
+  interval: 10m
+  timeout: 3m
+  url: oci://docker.io/envoyproxy/gateway-helm
+  ref:
+    # renovate: datasource=docker depName=envoyproxy/gateway-helm package=envoyproxy/gateway-helm
+    tag: 1.9.2
+  layerSelector:
+    mediaType: application/vnd.cncf.helm.chart.content.v1.tar+gzip
+    operation: copy

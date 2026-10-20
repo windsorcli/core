@@ -1,0 +1,16 @@
+---
+apiVersion: source.toolkit.fluxcd.io/v1
+kind: OCIRepository
+metadata:
+  name: cilium
+  namespace: system-cni
+spec:
+  interval: 10m
+  timeout: 5m
+  url: oci://quay.io/cilium/charts/cilium
+  ref:
+    # renovate: datasource=docker depName=quay.io/cilium/charts/cilium package=quay.io/cilium/charts/cilium
+    tag: 1.20.3
+  layerSelector:
+    mediaType: application/vnd.cncf.helm.chart.content.v1.tar+gzip
+    operation: copy

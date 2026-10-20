@@ -1,0 +1,16 @@
+---
+apiVersion: source.toolkit.fluxcd.io/v1
+kind: OCIRepository
+metadata:
+  name: ingress-nginx-controller
+  namespace: system-ingress
+spec:
+  interval: 10m
+  timeout: 3m
+  url: oci://registry.k8s.io/ingress-nginx/charts/ingress-nginx
+  ref:
+    # renovate: datasource=docker depName=registry.k8s.io/ingress-nginx/charts/ingress-nginx package=registry.k8s.io/ingress-nginx/charts/ingress-nginx
+    tag: v4.15.1
+  layerSelector:
+    mediaType: application/vnd.cncf.helm.chart.content.v1.tar+gzip
+    operation: copy

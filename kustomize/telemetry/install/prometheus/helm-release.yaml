@@ -14,14 +14,9 @@ spec:
   upgrade:
     remediation:
       retries: 5
-  chart:
-    spec:
-      chart: kube-prometheus-stack
-      # renovate: datasource=docker depName=ghcr.io/prometheus-community/charts/kube-prometheus-stack package=ghcr.io/prometheus-community/charts/kube-prometheus-stack
-      version: 88.6.5
-      sourceRef:
-        kind: HelmRepository
-        name: prometheus-community
+  chartRef:
+    kind: OCIRepository
+    name: kube-prometheus-stack
   values:
     crds:
       enabled: false
