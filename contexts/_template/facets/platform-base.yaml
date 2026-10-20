@@ -12,6 +12,19 @@ requires:
     paths:
       - dns.public_domain
     message: pki.public_issuer acme issues certificates for dns.public_domain; set it or use selfsigned.
+  - when: lb_effective.driver == 'cilium' && cluster.cni.driver != 'cilium'
+    paths:
+      - lb_effective.driver_supported
+    message: network.loadbalancer_driver cilium needs cluster.cni.driver cilium.
+  - when: cluster.cni.driver == 'cilium' && (lb_effective.driver == 'kube-vip' || lb_effective.driver == 'metallb')
+    paths:
+      - lb_effective.driver_supported
+    message: With cluster.cni.driver cilium, set network.loadbalancer_driver to cilium or none.
+  - when: lb_effective.driver == 'metallb'
+    paths:
+      - network.loadbalancer_ips.start
+      - network.loadbalancer_ips.end
+    message: MetalLB assigns LoadBalancer addresses only from network.loadbalancer_ips.
 
 # =============================================================================
 # Config — effective values
@@ -119,14 +132,20 @@ config:
               ? 'envoy'
               : (cluster.cni.driver == 'cilium' ? 'cilium' : 'envoy'))}
 
-  # Load balancer. In-cluster LB needed only when the CNI lacks one (Cilium has
-  # built-in L2/BGP) and loadbalancer_driver is set. Cloud platforms use managed
-  # LBs and leave it unset → false.
+  # Service load balancer driver, defaulted from the CNI.
   - name: lb_effective
     value:
-      enabled: "${cluster.cni.driver != 'cilium' && (network.loadbalancer_driver ?? '') != ''}"
-      driver: "${network.loadbalancer_driver ?? 'kube-vip'}"
+      driver: "${network.loadbalancer_driver ?? (cluster.cni.driver == 'cilium' ? 'cilium' : 'kube-vip')}"
       mode: loadbalancer
+
+  # enabled: kube-vip or MetalLB runs, by default on platforms without a managed load balancer.
+  - name: lb_effective
+    value:
+      enabled: >-
+        ${(lb_effective.driver == 'kube-vip' || lb_effective.driver == 'metallb') &&
+        ((network.loadbalancer_driver ?? '') != '' || platform == 'metal' || platform == 'vsphere' ||
+        platform == 'hyperv' || platform == 'incus' || platform == 'proxmox')}
+      driver_supported: "${lb_effective.driver == 'none' || (lb_effective.driver == 'cilium') == (cluster.cni.driver == 'cilium') ? 'yes' : ''}"
 
   # Docker Desktop has no routable node network, so LoadBalancer Services are
   # unreachable — force enabled=false and switch the gateway to NodePort.
@@ -353,9 +372,7 @@ flux:
         interval: 5m
         retryInterval: 1m
 
-  # In-cluster LB (kube-vip/metallb) whenever the CNI doesn't already provide one and
-  # a driver is set. docker-desktop has no routable node network for LoadBalancer
-  # Services, so it's excluded regardless of driver.
+  # kube-vip or MetalLB, excluded on docker-desktop, which has no routable node network.
   - name: lb
     when: lb_effective.enabled && workstation.runtime != 'docker-desktop'
     install:
@@ -363,8 +380,9 @@ flux:
         - ${lb_effective.driver}
         - "${lb_effective.driver == 'kube-vip' ? lb_effective.driver + '/' + (network.loadbalancer_mode ?? 'arp') : ''}"
         - "${lb_effective.driver == 'kube-vip' && topology == 'single-node' ? 'kube-vip/single-node' : ''}"
+        - "${lb_effective.driver == 'kube-vip' && (network.loadbalancer_ips.start ?? '') != '' ? 'kube-vip/cloud-provider' : ''}"
       substitutions:
-        loadbalancer_ip_range: "${network.loadbalancer_ips.start + '-' + network.loadbalancer_ips.end}"
+        loadbalancer_ip_range: "${(network.loadbalancer_ips.start ?? '') != '' ? network.loadbalancer_ips.start + '-' + network.loadbalancer_ips.end : ''}"
       timeout: 5m
       interval: 5m
     resources:

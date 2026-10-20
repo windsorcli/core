@@ -8,7 +8,6 @@
 x-defaults:
   network: &default-network
     cidr_block: 10.5.0.0/16
-    loadbalancer_driver: kube-vip
     loadbalancer_mode: arp
     loadbalancer_ips:
       start: "10.5.1.10"
@@ -319,6 +318,66 @@ cases:
     exclude:
       terraform:
         - name: cluster-extensions
+
+  - name: flannel defaults the load balancer to kube-vip with the cloud provider
+    values:
+      platform: metal
+      gateway:
+        enabled: false
+      network: *default-network
+      cluster:
+        <<: *default-cluster
+        cni:
+          driver: flannel
+    expect:
+      flux:
+        - name: lb
+          install:
+            components:
+              - kube-vip
+              - kube-vip/arp
+              - kube-vip/cloud-provider
+            substitutions:
+              loadbalancer_ip_range: 10.5.1.10-10.5.1.100
+
+  - name: cilium with the none load balancer driver skips the l2 pool
+    values:
+      platform: metal
+      gateway:
+        enabled: false
+      network:
+        <<: *default-network
+        loadbalancer_driver: none
+      cluster: *default-cluster
+    exclude:
+      kustomize:
+        - name: cni-resources
+        - name: lb-install
+
+  - name: cilium with the kube-vip load balancer driver fails composition
+    values:
+      platform: metal
+      gateway:
+        enabled: false
+      network:
+        <<: *default-network
+        loadbalancer_driver: kube-vip
+      cluster: *default-cluster
+    expectError: true
+
+  - name: flannel with the cilium load balancer driver fails composition
+    values:
+      platform: metal
+      gateway:
+        enabled: false
+      network:
+        <<: *default-network
+        loadbalancer_driver: cilium
+      cluster:
+        <<: *default-cluster
+        cni:
+          driver: flannel
+    expectError: true
 
   # Requires: metal has no compute layer, so the operator must declare the
   # controlplane nodes that windsor talks to.
