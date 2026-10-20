@@ -6,7 +6,6 @@
 x-defaults:
   network: &default-network
     cidr_block: 10.5.0.0/16
-    loadbalancer_driver: kube-vip
     loadbalancer_mode: arp
     loadbalancer_ips:
       start: "10.5.1.10"
@@ -161,7 +160,9 @@ cases:
       dns: *default-dns
       gateway:
         enabled: false
-      network: *default-network
+      network:
+        <<: *default-network
+        loadbalancer_driver: kube-vip
       cluster:
         driver: talos
         cni:
@@ -265,10 +266,7 @@ cases:
           dependsOn:
             - compute
           inputs:
-            vip_interface:
-              deviceSelector:
-                physical: true
-              dhcp: true
+            vip_interface: null
             common_config_patches: |-
               cluster:
                 allowSchedulingOnControlPlanes: false
@@ -285,6 +283,29 @@ cases:
           path: gitops/flux
           inputs:
             concurrency: 2
+
+  - name: colima incus defaults to flannel with the kube-vip load balancer
+    values:
+      platform: incus
+      workstation:
+        runtime: colima
+      dns: *default-dns
+      gateway:
+        enabled: false
+      network: *default-network
+      cluster:
+        driver: talos
+    expect:
+      flux:
+        - name: lb
+          install:
+            components:
+              - kube-vip
+              - kube-vip/arp
+              - kube-vip/cloud-provider
+    exclude:
+      kustomize:
+        - name: cni-install
 
   # Regression: colima-incus with no worker nodes configured resolves cluster.workers.nodes to an
   # empty map, not null — `!= null` alone doesn't guard the values(...)[0] index, so composition must

@@ -103,6 +103,26 @@ cases:
           inputs:
             cluster_endpoint: https://10.10.0.10:6443
 
+  - name: cluster.vip bakes the VIP into the control planes
+    values:
+      platform: vsphere
+      gateway:
+        enabled: false
+      network: *default-network
+      cluster:
+        <<: *default-cluster
+        endpoint: https://10.10.0.5:6443
+        vip: true
+      vsphere: *default-vsphere
+    terraformOutputs: *default-terraform-outputs
+    expect:
+      terraform:
+        - name: compute
+          path: compute/vsphere
+          inputs:
+            cluster_endpoint: https://10.10.0.5:6443
+            controlplane_vip: true
+
   # Compute cluster_endpoint uses the first control-plane IPv4 when unset.
   - name: compute cluster_endpoint defaults to first control-plane IP when not set
     values:
@@ -119,7 +139,7 @@ cases:
           path: compute/vsphere
           inputs:
             cluster_endpoint: https://10.10.0.10:6443
-            controlplane_vip: true
+            controlplane_vip: false
 
   # Cluster endpoint fallback: once vmtoolsd reports guest IPs, the compute
   # output controlplanes[0].endpoint (host:50000) is split to extract just the

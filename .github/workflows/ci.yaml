@@ -138,7 +138,7 @@ jobs:
           output_file_path: console,results.sarif
 
       - name: Upload SARIF file
-        uses: github/codeql-action/upload-sarif@24c54180a607b1449ed407dd24f251e4e9147c8d # v4.38.3
+        uses: github/codeql-action/upload-sarif@6f2ac81f5cd81fe351a197ba0b00d91d03cd2aee # v4.39.0
         with:
           sarif_file: results.sarif
 
@@ -279,7 +279,7 @@ jobs:
         id: baseline_up
         if: matrix.mode == 'upgrade' && steps.infra_diff.outputs.skip != 'true'
         timeout-minutes: 20
-        run: windsor up --verbose --wait
+        run: windsor up --verbose
 
       - name: Baseline — HelmRelease health check
         id: baseline_health
@@ -326,7 +326,7 @@ jobs:
         id: windsor_up
         if: matrix.mode == 'fresh' && steps.infra_diff.outputs.skip != 'true'
         timeout-minutes: 20
-        run: windsor up --verbose --wait
+        run: windsor up --verbose
 
       - name: Windsor Apply (prune)
         id: windsor_apply_prune
@@ -334,7 +334,7 @@ jobs:
         # May reboot the Talos node on a version bump.
         # --prune cleans up orphaned Kustomizations from the baseline.
         timeout-minutes: 20
-        run: windsor apply --prune --verbose --wait
+        run: windsor apply --prune --verbose
 
       - name: HEAD — Wait for GitRepository revision bump
         id: gitrepo_bump
@@ -453,7 +453,7 @@ jobs:
 
       - name: Investigate failure with Claude
         if: always() && steps.seed.outcome == 'success' && steps.phase.outputs.phase != 'none' && steps.phase.outputs.phase != 'baseline' && github.event_name == 'pull_request' && github.event.action == 'opened'
-        uses: anthropics/claude-code-action@db77d4d3c98f3f6380e7cd45ffba2342a3dbde3c # v1.0.254
+        uses: anthropics/claude-code-action@e4a6faad497d33dbc7144135c75e41f82f0bf6c0 # v1.0.255
         env:
           RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
           RUN_ID: ${{ github.run_id }}

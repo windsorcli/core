@@ -12,6 +12,27 @@ requires:
     paths:
       - dns.public_domain
     message: pki.public_issuer acme issues certificates for dns.public_domain; set it or use selfsigned.
+  - when: lb_effective.driver == 'cilium' && cluster.cni.driver != 'cilium'
+    paths:
+      - lb_effective.driver_supported
+    message: network.loadbalancer_driver cilium needs cluster.cni.driver cilium.
+  - when: cluster.cni.driver == 'cilium' && (lb_effective.driver == 'kube-vip' || lb_effective.driver == 'metallb')
+    paths:
+      - lb_effective.driver_supported
+    message: With cluster.cni.driver cilium, set network.loadbalancer_driver to cilium or none.
+  - when: cluster.vip == true
+    paths:
+      - cluster.endpoint
+    message: cluster.vip makes the host in cluster.endpoint the Talos VIP; set cluster.endpoint.
+  - when: cluster.vip == true && !(platform in ['incus', 'proxmox', 'vsphere', 'hyperv'])
+    paths:
+      - cluster_effective.unsupported
+    message: cluster.vip is supported on incus, proxmox, vsphere, and hyperv.
+  - when: lb_effective.driver == 'metallb'
+    paths:
+      - network.loadbalancer_ips.start
+      - network.loadbalancer_ips.end
+    message: MetalLB assigns LoadBalancer addresses only from network.loadbalancer_ips.
 
 # =============================================================================
 # Config — effective values
@@ -119,36 +140,53 @@ config:
               ? 'envoy'
               : (cluster.cni.driver == 'cilium' ? 'cilium' : 'envoy'))}
 
-  # Load balancer. In-cluster LB needed only when the CNI lacks one (Cilium has
-  # built-in L2/BGP) and loadbalancer_driver is set. Cloud platforms use managed
-  # LBs and leave it unset → false.
+  # Service load balancer driver, defaulted from the CNI.
   - name: lb_effective
     value:
-      enabled: "${cluster.cni.driver != 'cilium' && (network.loadbalancer_driver ?? '') != ''}"
-      driver: "${network.loadbalancer_driver ?? 'kube-vip'}"
+      driver: "${network.loadbalancer_driver ?? (cluster.cni.driver == 'cilium' ? 'cilium' : 'kube-vip')}"
       mode: loadbalancer
 
-  # Docker Desktop has no routable node network, so LoadBalancer Services are
-  # unreachable — force enabled=false and switch the gateway to NodePort.
+  # enabled: kube-vip or MetalLB runs, by default on platforms without a managed load balancer.
+  - name: lb_effective
+    value:
+      enabled: >-
+        ${(lb_effective.driver == 'kube-vip' || lb_effective.driver == 'metallb') &&
+        ((network.loadbalancer_driver ?? '') != '' || platform == 'metal' || platform == 'vsphere' ||
+        platform == 'hyperv' || platform == 'incus' || platform == 'proxmox')}
+      driver_supported: "${lb_effective.driver == 'none' || (lb_effective.driver == 'cilium') == (cluster.cni.driver == 'cilium') ? 'yes' : ''}"
+
+  # Docker Desktop has no routable node network, so LoadBalancer Services are unreachable.
   - name: lb_effective
     when: workstation.runtime == 'docker-desktop'
     value:
       enabled: false
-      mode: nodeport
 
-  # Explicit gateway.service_type wins over auto-detect. NodePort also forces
-  # enabled=false: a NodePort service never gets a LoadBalancer IP, so the
-  # lb-address patch would reconcile against an IP that never materializes.
+  # Service type and node ports per gateway, falling back to the deprecated gateway.service_type.
+  - name: gateway_exposure
+    value:
+      external: "${gateway.external.service_type ?? gateway.service_type ?? (workstation.runtime == 'docker-desktop' ? 'NodePort' : 'LoadBalancer')}"
+      internal: "${gateway.internal.service_type ?? gateway.service_type ?? (workstation.runtime == 'docker-desktop' ? 'NodePort' : 'LoadBalancer')}"
+      external_node_port: ${gateway.external.node_port ?? 30444}
+      internal_node_port: ${gateway.internal.node_port ?? 30443}
+      external_http_node_port: 30081
+      internal_http_node_port: 30080
+
+  # nodeport: both gateways are NodePort.
+  - name: gateway_exposure
+    value:
+      nodeport: ${gateway_exposure.external == 'NodePort' && gateway_exposure.internal == 'NodePort'}
+
   - name: lb_effective
-    when: gateway.service_type == 'NodePort'
+    value:
+      mode: "${gateway_exposure.nodeport ? 'nodeport' : 'loadbalancer'}"
+
+  # Two NodePort gateways leave the in-cluster LB with no gateway address to serve.
+  - name: lb_effective
+    when: >-
+      (gateway.external.service_type ?? gateway.service_type ?? 'LoadBalancer') == 'NodePort' &&
+      (gateway.internal.service_type ?? gateway.service_type ?? 'LoadBalancer') == 'NodePort'
     value:
       enabled: false
-      mode: nodeport
-
-  - name: lb_effective
-    when: gateway.service_type == 'LoadBalancer'
-    value:
-      mode: loadbalancer
 
   # True when an in-cluster LB controller (lb-install) is required: aws always
   # (aws-lb-controller), hetzner always (hcloud cloud-controller-manager),
@@ -353,9 +391,7 @@ flux:
         interval: 5m
         retryInterval: 1m
 
-  # In-cluster LB (kube-vip/metallb) whenever the CNI doesn't already provide one and
-  # a driver is set. docker-desktop has no routable node network for LoadBalancer
-  # Services, so it's excluded regardless of driver.
+  # kube-vip or MetalLB, excluded on docker-desktop, which has no routable node network.
   - name: lb
     when: lb_effective.enabled && workstation.runtime != 'docker-desktop'
     install:
@@ -363,8 +399,9 @@ flux:
         - ${lb_effective.driver}
         - "${lb_effective.driver == 'kube-vip' ? lb_effective.driver + '/' + (network.loadbalancer_mode ?? 'arp') : ''}"
         - "${lb_effective.driver == 'kube-vip' && topology == 'single-node' ? 'kube-vip/single-node' : ''}"
+        - "${lb_effective.driver == 'kube-vip' && (network.loadbalancer_ips.start ?? '') != '' ? 'kube-vip/cloud-provider' : ''}"
       substitutions:
-        loadbalancer_ip_range: "${network.loadbalancer_ips.start + '-' + network.loadbalancer_ips.end}"
+        loadbalancer_ip_range: "${(network.loadbalancer_ips.start ?? '') != '' ? network.loadbalancer_ips.start + '-' + network.loadbalancer_ips.end : ''}"
       timeout: 5m
       interval: 5m
     resources:

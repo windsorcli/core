@@ -79,10 +79,10 @@ flux:
         - "${(gateway.enabled == true && gateway.driver == 'cilium') ? 'cilium/gateway' : ''}"
         # LBIPAM sharing policy — L2 environments only; a cloud LB controller
         # (hetzner CCM) fills the plain Gateway Service instead.
-        - "${(gateway.enabled == true && gateway.driver == 'cilium' && lb_effective.controller_required != true) ? 'cilium/gateway/lbipam' : ''}"
+        - "${(gateway.enabled == true && gateway.driver == 'cilium' && lb_effective.driver == 'cilium' && lb_effective.controller_required != true) ? 'cilium/gateway/lbipam' : ''}"
         - "${telemetry.metrics.enabled ? 'cilium/prometheus' : ''}"
         - cilium/hubble
-        - "${lb_effective.controller_required == true ? '' : 'cilium/l2'}"
+        - "${lb_effective.driver == 'cilium' && lb_effective.controller_required != true ? 'cilium/l2' : ''}"
       substitutions:
         k8s_service_host: localhost
         k8s_service_port: "7445"
@@ -94,7 +94,7 @@ flux:
   # LBIPAM pool and L2 announcement policy; their CRDs come from the chart, so
   # they apply after the install tier.
   - name: cni
-    when: talos_enabled && lb_effective.controller_required != true
+    when: talos_enabled && lb_effective.driver == 'cilium' && lb_effective.controller_required != true
     resources:
       - components:
           - cilium/l2
@@ -114,7 +114,7 @@ flux:
         - "${(gateway.enabled == true && gateway.driver == 'cilium') ? 'cilium/gateway' : ''}"
         # LBIPAM sharing policy — L2 environments only; a cloud LB controller
         # (hetzner CCM) fills the plain Gateway Service instead.
-        - "${(gateway.enabled == true && gateway.driver == 'cilium' && lb_effective.controller_required != true) ? 'cilium/gateway/lbipam' : ''}"
+        - "${(gateway.enabled == true && gateway.driver == 'cilium' && lb_effective.driver == 'cilium' && lb_effective.controller_required != true) ? 'cilium/gateway/lbipam' : ''}"
         - "${telemetry.metrics.enabled ? 'cilium/prometheus' : ''}"
         - cilium/hubble
       substitutions:

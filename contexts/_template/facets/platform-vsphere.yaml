@@ -209,7 +209,7 @@ terraform:
       host_system: "${vsphere_effective.host_system}"
       cluster_name: talos
       cluster_endpoint: "${(cluster.endpoint ?? '') != '' ? cluster.endpoint : (vsphere_effective.dhcp ? '' : ('https://' + vsphere_controlplanes.nodes[0].ipv4 + ':6443'))}"
-      controlplane_vip: true
+      controlplane_vip: ${cluster.vip == true}
       talos_version: ${talos.talos_version}
       common_config_patches: ${talos_common.common_config_patches}
       per_node_config_patches: >-
@@ -323,11 +323,7 @@ terraform:
 # Flux systems — PKI + load balancer
 # =============================================================================
 #
-# vSphere VMs have real routed IPs, so in-cluster LB announcements work when
-# a loadbalancer_driver is configured. kube-vip (ARP mode) is the recommended
-# choice for industrial plant networks — it needs no switch config, just a
-# reserved IP range from the same subnet as the nodes. MetalLB ARP is also
-# supported.
+# vSphere VMs have real routed IPs, so in-cluster LB announcements work.
 #
 flux:
 
@@ -345,8 +341,9 @@ flux:
       components:
         - ${lb_effective.driver}
         - "${lb_effective.driver == 'kube-vip' ? lb_effective.driver + '/' + (network.loadbalancer_mode ?? 'arp') : ''}"
+        - "${lb_effective.driver == 'kube-vip' && (network.loadbalancer_ips.start ?? '') != '' ? 'kube-vip/cloud-provider' : ''}"
       substitutions:
-        loadbalancer_ip_range: "${network.loadbalancer_ips.start + '-' + network.loadbalancer_ips.end}"
+        loadbalancer_ip_range: "${(network.loadbalancer_ips.start ?? '') != '' ? network.loadbalancer_ips.start + '-' + network.loadbalancer_ips.end : ''}"
       timeout: 5m
       interval: 5m
     resources:

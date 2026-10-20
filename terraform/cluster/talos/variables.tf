@@ -90,7 +90,7 @@ variable "cluster_endpoint" {
 }
 
 variable "vip_interface" {
-  description = "Talos machine.network.interfaces entry, without vip, that carries the control-plane VIP. When set and the cluster_endpoint host is an IPv4 address no control plane uses, that address becomes the shared VIP."
+  description = "Talos machine.network.interfaces entry, without vip, that carries the control-plane VIP. When set, the cluster_endpoint host becomes the shared VIP and MUST be an IPv4 address no control plane uses."
   type        = any
   default     = null
   validation {

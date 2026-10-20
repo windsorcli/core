@@ -5,7 +5,6 @@
 x-defaults:
   network: &default-network
     cidr_block: 10.5.0.0/16
-    loadbalancer_driver: kube-vip
     loadbalancer_mode: arp
     loadbalancer_ips:
       start: "10.5.1.10"
@@ -848,7 +847,6 @@ cases:
         private_domain: example.internal
       network:
         cidr_block: 10.5.0.0/16
-        loadbalancer_driver: kube-vip
         loadbalancer_mode: arp
         loadbalancer_ips:
           start: "10.5.1.255"
@@ -916,6 +914,165 @@ cases:
               substitutions:
                 gateway_loadbalancer_ip: "10.5.1.10"
 
+  - name: per-gateway exposure pins the external address and puts the internal gateway on a node port
+    values:
+      platform: metal
+      gateway:
+        driver: envoy
+        external:
+          service_type: LoadBalancer
+          ip: 10.5.1.50
+        internal:
+          service_type: NodePort
+          node_port: 30500
+      dns:
+        public_domain: example.com
+        private_domain: example.internal
+      network: *default-network
+      cluster:
+        <<: *default-cluster
+        cni:
+          driver: flannel
+    expect:
+      flux:
+        - name: gateway
+          resources:
+            - name: external
+              components:
+                - envoy/loadbalancer
+                - envoy/loadbalancer/kube-vip-ip
+                - lb-address
+              substitutions:
+                gateway_loadbalancer_ip: 10.5.1.50
+                gateway_dns_target: 10.5.1.50
+            - name: internal
+              components:
+                - envoy/nodeport
+              substitutions:
+                gateway_loadbalancer_ip: ""
+                gateway_dns_target: ""
+                gateway_nodeport_https: "30500"
+    exclude:
+      flux:
+        - name: gateway
+          resources:
+            - name: internal
+              components:
+                - envoy/loadbalancer
+                - envoy/loadbalancer/kube-vip-ip
+                - lb-address
+
+  - name: two NodePort gateways turn off the in-cluster load balancer
+    values:
+      platform: metal
+      gateway:
+        driver: envoy
+        external:
+          service_type: NodePort
+        internal:
+          service_type: NodePort
+      dns:
+        public_domain: example.com
+        private_domain: example.internal
+      network: *default-network
+      cluster:
+        <<: *default-cluster
+        cni:
+          driver: flannel
+    expect:
+      flux:
+        - name: gateway
+          resources:
+            - name: external
+              components:
+                - envoy/nodeport
+              substitutions:
+                gateway_nodeport_https: "30444"
+            - name: internal
+              components:
+                - envoy/nodeport
+              substitutions:
+                gateway_nodeport_https: "30443"
+    exclude:
+      kustomize:
+        - name: lb-install
+
+  - name: an address on a NodePort gateway fails composition
+    values:
+      platform: metal
+      gateway:
+        driver: envoy
+        internal:
+          service_type: NodePort
+          ip: 10.5.1.50
+      dns:
+        public_domain: example.com
+        private_domain: example.internal
+      network: *default-network
+      cluster:
+        <<: *default-cluster
+        cni:
+          driver: flannel
+    expectError: true
+
+  - name: a node port on a LoadBalancer gateway fails composition
+    values:
+      platform: metal
+      gateway:
+        driver: envoy
+        external:
+          service_type: LoadBalancer
+          node_port: 30500
+      dns:
+        public_domain: example.com
+        private_domain: example.internal
+      network: *default-network
+      cluster:
+        <<: *default-cluster
+        cni:
+          driver: flannel
+    expectError: true
+
+  - name: two gateways on one address fail composition
+    values:
+      platform: metal
+      gateway:
+        driver: envoy
+        external:
+          ip: 10.5.1.50
+        internal:
+          ip: 10.5.1.50
+      dns:
+        public_domain: example.com
+        private_domain: example.internal
+      network: *default-network
+      cluster:
+        <<: *default-cluster
+        cni:
+          driver: flannel
+    expectError: true
+
+  - name: two NodePort gateways on one node port fail composition
+    values:
+      platform: metal
+      gateway:
+        driver: envoy
+        external:
+          service_type: NodePort
+          node_port: 30500
+        internal:
+          service_type: NodePort
+          node_port: 30500
+      dns:
+        public_domain: example.com
+        private_domain: example.internal
+      network: *default-network
+      cluster:
+        <<: *default-cluster
+        cni:
+          driver: flannel
+    expectError: true
+
   # With a pool-based load balancer and a pool start ending in .255, the external
   # gateway gets neither a pinned address nor an lb-address patch.
   - name: pool start ending in 255 skips the external address patches on a pool-based load balancer
@@ -943,7 +1100,7 @@ cases:
           resources:
             - name: internal
               components:
-                - envoy/loadbalancer/fixed-ip
+                - envoy/loadbalancer/kube-vip-ip
                 - lb-address
               substitutions:
                 gateway_loadbalancer_ip: "10.5.1.255"
@@ -953,5 +1110,5 @@ cases:
           resources:
             - name: external
               components:
-                - envoy/loadbalancer/fixed-ip
+                - envoy/loadbalancer/kube-vip-ip
                 - lb-address

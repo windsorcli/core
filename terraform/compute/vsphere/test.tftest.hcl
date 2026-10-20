@@ -179,8 +179,8 @@ run "controlplane_vip_baked" {
   }
 }
 
-# An endpoint that is a control-plane IP bakes no VIP
-run "controlplane_vip_skipped_for_node_ip" {
+# controlplane_vip with an endpoint that is a control-plane IP fails the plan
+run "controlplane_vip_rejects_node_ip" {
   command = plan
 
   variables {
@@ -197,10 +197,7 @@ run "controlplane_vip_skipped_for_node_ip" {
     ]
   }
 
-  assert {
-    condition     = local.vip == "" && local.vip_patch == ""
-    error_message = "No VIP should be baked for a control-plane IP"
-  }
+  expect_failures = [data.talos_machine_configuration.controlplane]
 }
 
 # Worker role: guestinfo is delivered to the VM.

@@ -7,7 +7,6 @@
 x-defaults:
   network: &default-network
     cidr_block: 10.5.0.0/16
-    loadbalancer_driver: kube-vip
     loadbalancer_mode: arp
     loadbalancer_ips:
       start: "10.5.1.10"
@@ -60,6 +59,93 @@ cases:
         - name: compute
           path: compute/incus
 
+  - name: cluster.vip passes the VIP interface to the cluster step
+    values:
+      platform: incus
+      gateway:
+        enabled: false
+      network: *default-network
+      cluster:
+        <<: *default-cluster
+        endpoint: https://10.5.0.5:6443
+        vip: true
+    terraformOutputs: *default-terraform-outputs
+    expect:
+      terraform:
+        - name: compute
+          path: compute/incus
+        - name: cluster
+          path: cluster/talos
+          dependsOn:
+            - compute
+          parallelism: 1
+          inputs:
+            cluster_endpoint: https://10.5.0.5:6443
+            cluster_name: talos
+            vip_interface:
+              deviceSelector:
+                physical: true
+              dhcp: true
+        - name: cni
+          path: cni/cilium
+          dependsOn:
+            - cluster
+          inputs:
+            k8s_service_host: localhost
+            k8s_service_port: 7445
+            privileged: false
+            cgroup_auto_mount: false
+        - name: gitops
+          path: gitops/flux
+          dependsOn:
+            - cluster
+            - cni
+          destroy: false
+          inputs:
+            concurrency: 2
+      flux:
+        - name: cni
+          dependsOn:
+            - policy-resources
+          install:
+            components:
+              - cilium
+              - cilium/talos
+              - cilium/l2
+            substitutions:
+              k8s_service_host: localhost
+        - name: cni
+          resources:
+            - components:
+                - cilium/l2
+              substitutions:
+                loadbalancer_start_ip: "10.5.1.10"
+                loadbalancer_end_ip: "10.5.1.100"
+        - name: csi
+          dependsOn:
+            - policy-resources
+          install:
+            components:
+              - openebs
+              - openebs/dynamic-localpv
+    exclude:
+      kustomize:
+        - name: lb-install
+        - name: lb-resources
+
+
+  - name: cluster.vip without cluster.endpoint fails composition
+    values:
+      platform: incus
+      gateway:
+        enabled: false
+      network: *default-network
+      cluster:
+        <<: *default-cluster
+        vip: true
+    terraformOutputs: *default-terraform-outputs
+    expectError: true
+
   - name: minimal config creates compute and cluster terraform chain with defaults
     values:
       platform: incus
@@ -80,10 +166,7 @@ cases:
           inputs:
             cluster_endpoint: https://10.5.0.10:6443
             cluster_name: talos
-            vip_interface:
-              deviceSelector:
-                physical: true
-              dhcp: true
+            vip_interface: null
         - name: cni
           path: cni/cilium
           dependsOn:
@@ -233,7 +316,7 @@ cases:
               components:
                 - envoy/base
                 - envoy/loadbalancer
-                - envoy/loadbalancer/fixed-ip
+                - envoy/loadbalancer/metallb-ip
                 - envoy/parameters
                 - envoy/default-404
                 - envoy/default-404/external-dns

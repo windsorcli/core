@@ -86,7 +86,7 @@ flux:
         components:
           - envoy/proxy
           - envoy/loadbalancer
-          - envoy/loadbalancer/fixed-ip
+          - envoy/loadbalancer/kube-vip-ip
           - envoy/parameters
           - envoy/default-404
           - lb-address
@@ -252,7 +252,7 @@ flux:
 | `gateway_loadbalancer_ip` | `lb-address` or `cilium/fixed-ip` is composed | Fixed IP this gateway advertises. Used in the cilium variant's `lbipam.cilium.io/ips` annotation and in the envoy variant's `spec.addresses` / `loadBalancerIP` patches. External: `network.loadbalancer_ips.start`. Internal: `.internal_start`, only set when the operator explicitly configures it -- otherwise the driver auto-assigns. |
 | `gateway_lb_scheme` | AWS platform, `envoy/loadbalancer/aws-nlb` is composed | `internet-facing` for external, `internal` for internal -- the internal gateway is never internet-facing, so this needs no ternary. |
 | `gateway_redirect_port` | `gateway-resources-external` or `gateway-resources-internal` is composed | HTTPS port the `https-redirect` route's 301 targets. `443` for cloud/LB; docker-desktop's NodePort host-forward otherwise (`8443` internal, `8444` external). |
-| `gateway_nodeport_http / gateway_nodeport_https` | `lb_effective.mode == 'nodeport'` | NodePort numbers for this gateway's data-plane Service. External: 30080/30443. Internal: 30081/30444 -- distinct so both can coexist on the same node set. |
+| `gateway_nodeport_http / gateway_nodeport_https` | this gateway's service type is `NodePort` | NodePort numbers for this gateway's data-plane Service. Internal: 30080 and `gateway.internal.node_port` (default 30443). External: 30081 and `gateway.external.node_port` (default 30444). |
 
 ## Components — `gateway-install`
 
@@ -284,19 +284,19 @@ Named so it sorts ahead of every other `envoy/*` component, which patch the `Env
 
 ### `envoy/loadbalancer`
 
-_Enabled when envoy driver AND `lb_effective.mode == 'loadbalancer'`._
+_Enabled when envoy driver AND this gateway's service type is `LoadBalancer`._
 
-Patches this gateway's `EnvoyProxy` so the data-plane Service is `type: LoadBalancer`, with no fixed IP -- correct for cloud LB controllers, which auto-assign. Cloud-specific annotation patches (aws-nlb / azure) and the fixed-ip component merge on top.
+Patches this gateway's `EnvoyProxy` so the data-plane Service is `type: LoadBalancer`, with no fixed IP -- correct for cloud LB controllers, which auto-assign. Cloud-specific annotation patches (aws-nlb / azure) and the address-pinning components merge on top.
 
-### `envoy/loadbalancer/fixed-ip`
+### `envoy/loadbalancer/kube-vip-ip` and `envoy/loadbalancer/metallb-ip`
 
-_Enabled when envoy driver AND `lb_effective.mode == 'loadbalancer'` AND this gateway's `loadbalancer_ips` field is set (a local, fixed-pool LB controller -- MetalLB/kube-vip -- is actually running)._
+_Enabled when envoy driver AND this gateway's service type is `LoadBalancer` AND kube-vip or MetalLB runs AND the gateway has an address._
 
-Requests a specific address from the local LB pool via `loadBalancerIP`. Must not apply on cloud platforms, where the LB controller auto-assigns and this field would be meaningless or rejected (issue #2259).
+Pins this gateway's data-plane Service to its address with the driver's annotation, `kube-vip.io/loadbalancerIPs` or `metallb.io/loadBalancerIPs`. The address is `gateway.<name>.ip`, else the pool address. Cloud platforms never apply these, since their LB controller assigns the address.
 
 ### `envoy/loadbalancer/cilium-ip`
 
-_Enabled when envoy driver AND `lb_effective.mode == 'loadbalancer'` AND Cilium provides the pool addresses._
+_Enabled when envoy driver AND this gateway's service type is `LoadBalancer` AND Cilium provides the pool addresses._
 
 Pins this gateway's data-plane Service to its pool address with the `lbipam.cilium.io/ips` annotation. Cilium LBIPAM assigns addresses in creation order, so without it the internal gateway can miss the pool start that the workstation's DNS forward target expects.
 
@@ -332,9 +332,9 @@ Sets the hcloud cloud-controller-manager annotations on the Gateway's `spec.infr
 
 ### `envoy/nodeport`
 
-_Enabled when envoy driver AND `lb_effective.mode == 'nodeport'`._
+_Enabled when envoy driver AND this gateway's service type is `NodePort`._
 
-Patches this gateway's `EnvoyProxy` so the data-plane Service is `type: NodePort` (internal: 30080/30443, external: 30081/30444). Used on local clusters where no LoadBalancer provider exists.
+Patches this gateway's `EnvoyProxy` so the data-plane Service is `type: NodePort` on the ports from `gateway_nodeport_http` and `gateway_nodeport_https`. Used on single-node clusters, behind an upstream load balancer, and on local clusters with no LoadBalancer provider.
 
 ### `envoy/nodeport/docker-desktop`
 

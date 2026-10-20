@@ -10,7 +10,7 @@ spec:
   url: oci://ghcr.io/coredns/charts/coredns
   ref:
     # renovate: datasource=docker depName=ghcr.io/coredns/charts/coredns package=ghcr.io/coredns/charts/coredns
-    tag: 1.48.2
+    tag: 1.49.0
   layerSelector:
     mediaType: application/vnd.cncf.helm.chart.content.v1.tar+gzip
     operation: copy

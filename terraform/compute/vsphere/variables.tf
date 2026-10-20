@@ -69,7 +69,7 @@ variable "cluster_endpoint" {
 }
 
 variable "controlplane_vip" {
-  description = "When true and the cluster_endpoint host is an IPv4 address no control plane uses, bake that address into the control planes as the shared VIP."
+  description = "When true, bake the cluster_endpoint host into the control planes as the shared VIP. The host MUST be an IPv4 address no control plane uses."
   type        = bool
   default     = false
 }
