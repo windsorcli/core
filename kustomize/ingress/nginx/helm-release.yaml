@@ -15,9 +15,14 @@ spec:
   upgrade:
     remediation:
       retries: 5
-  chartRef:
-    kind: OCIRepository
-    name: ingress-nginx-controller
+  chart:
+    spec:
+      chart: ingress-nginx
+      # renovate: datasource=docker depName=registry.k8s.io/ingress-nginx/charts/ingress-nginx package=registry.k8s.io/ingress-nginx/charts/ingress-nginx
+      version: v4.15.1
+      sourceRef:
+        kind: HelmRepository
+        name: ingress-nginx
   values:
     controller:
       image:

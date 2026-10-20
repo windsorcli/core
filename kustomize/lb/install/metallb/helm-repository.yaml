@@ -1,0 +1,11 @@
+---
+apiVersion: source.toolkit.fluxcd.io/v1
+kind: HelmRepository
+metadata:
+  name: metallb
+  namespace: system-lb
+spec:
+  interval: 10m
+  timeout: 3m
+  type: oci
+  url: oci://quay.io/metallb/chart

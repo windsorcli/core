@@ -14,9 +14,14 @@ spec:
   upgrade:
     remediation:
       retries: 5
-  chartRef:
-    kind: OCIRepository
-    name: metallb
+  chart:
+    spec:
+      chart: metallb
+      # renovate: datasource=docker depName=quay.io/metallb/chart/metallb package=quay.io/metallb/chart/metallb
+      version: 0.16.1
+      sourceRef:
+        kind: HelmRepository
+        name: metallb
   values:
     controller:
       priorityClassName: windsorcli-platform-critical

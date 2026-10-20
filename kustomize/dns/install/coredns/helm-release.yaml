@@ -17,9 +17,14 @@ spec:
   upgrade:
     remediation:
       retries: 5
-  chartRef:
-    kind: OCIRepository
-    name: coredns
+  chart:
+    spec:
+      chart: coredns
+      # renovate: datasource=docker depName=ghcr.io/coredns/charts/coredns package=ghcr.io/coredns/charts/coredns
+      version: 1.49.0
+      sourceRef: 
+        kind: HelmRepository
+        name: coredns
   values:
     priorityClassName: windsorcli-platform-critical
     tolerations:

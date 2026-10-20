@@ -15,9 +15,14 @@ spec:
   upgrade:
     remediation:
       retries: 5
-  chartRef:
-    kind: OCIRepository
-    name: cert-manager
+  chart:
+    spec:
+      chart: cert-manager
+      # renovate: datasource=docker depName=quay.io/jetstack/charts/cert-manager package=quay.io/jetstack/charts/cert-manager
+      version: v1.21.2
+      sourceRef: 
+        kind: HelmRepository
+        name: jetstack
   values:
     global:
       priorityClassName: windsorcli-platform-critical

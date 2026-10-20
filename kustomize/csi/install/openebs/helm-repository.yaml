@@ -1,0 +1,11 @@
+---
+apiVersion: source.toolkit.fluxcd.io/v1
+kind: HelmRepository
+metadata:
+  name: openebs
+  namespace: system-csi
+spec:
+  interval: 10m
+  timeout: 5m
+  type: oci
+  url: oci://ghcr.io/openebs/charts

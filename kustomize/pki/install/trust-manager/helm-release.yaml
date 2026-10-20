@@ -16,9 +16,14 @@ spec:
   dependsOn:
     - name: cert-manager
       namespace: system-pki
-  chartRef:
-    kind: OCIRepository
-    name: trust-manager
+  chart:
+    spec:
+      chart: trust-manager
+      # renovate: datasource=docker depName=quay.io/jetstack/charts/trust-manager package=quay.io/jetstack/charts/trust-manager
+      version: v0.25.0
+      sourceRef: 
+        kind: HelmRepository
+        name: jetstack
   values:
     image:
       # renovate: datasource=docker depName=quay.io/jetstack/trust-manager package=quay.io/jetstack/trust-manager
