@@ -225,7 +225,7 @@ covers the pool-scoped user.
   Flux pulled the blueprint from the lab git server, and the cilium,
   openebs, kyverno, and metrics-server HelmReleases reconciled. With
   `policies.enabled: false` and `gateway.enabled: false`,
-  `windsor apply --wait` brought all 11 kustomizations and every
+  `windsor apply` brought all 11 kustomizations and every
   HelmRelease to Ready, and an OpenEBS volume bound and took writes.
 - **Idempotence.** `windsor plan` on the running cluster reports no
   changes for `compute/proxmox`, `cluster/talos`, `cni/cilium`, and
