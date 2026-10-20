@@ -143,37 +143,44 @@ config:
           ["endpoint", hyperv_effective.bench_ip + ":" + string(40099 + #)]
         ]))}
 
-  # Forward map: bench listen port → in-VM port, with per-port target_ip
-  # overrides so each Talos API forward lands at its node. Gateway / k8s-API
-  # forwards stay single-target (cp-1); apiserver replication handles the rest.
-  # tcp_forwards: 6443→6443; 30053→30053 (only when private/dev DNS active);
-  # 30292→30292 (only when gitops.mode=push); 40000+i / 40100+i → 50000 per node;
-  # 30080 and the HTTPS node port (internal gateway, private_domain), and 30081
-  # and the HTTPS node port (external gateway, public_domain) when the envoy gateway is enabled.
-  # 30053 / 30292 gate on the same signals as the matching option-gateway
-  # nodeport patches, keeping forward and Service NodePort in sync.
+  # Inputs to the NAT forward maps: the VMs, and the in-cluster ports published as-is.
   - name: nat_effective
-    when: (gateway.external.service_type ?? gateway.service_type ?? 'LoadBalancer') == 'NodePort' && (gateway.internal.service_type ?? gateway.service_type ?? 'LoadBalancer') == 'NodePort'
+    when: >-
+      (gateway.external.service_type ?? gateway.service_type ?? 'LoadBalancer') == 'NodePort' &&
+      (gateway.internal.service_type ?? gateway.service_type ?? 'LoadBalancer') == 'NodePort'
+    value:
+      nodes: ${concat(hyperv_controlplanes.for_cluster, hyperv_workers.for_cluster)}
+      dns: ${(dns.private.enabled ?? (dev == true)) == true}
+      # Each envoy gateway's HTTP and HTTPS node ports, when its domain is set.
+      internal_ports: >-
+        ${gateway.enabled == true && (gateway.driver ?? "envoy") == "envoy" &&
+        (dns.private_domain ?? "") != "" ?
+        [gateway_exposure.internal_http_node_port, gateway_exposure.internal_node_port] : []}
+      external_ports: >-
+        ${gateway.enabled == true && (gateway.driver ?? "envoy") == "envoy" &&
+        (dns.public_domain ?? "") != "" ?
+        [gateway_exposure.external_http_node_port, gateway_exposure.external_node_port] : []}
+
+  # Bench listen port to in-VM port. Each node's Talos API forward targets that node.
+  - name: nat_effective
+    when: >-
+      (gateway.external.service_type ?? gateway.service_type ?? 'LoadBalancer') == 'NodePort' &&
+      (gateway.internal.service_type ?? gateway.service_type ?? 'LoadBalancer') == 'NodePort'
     value:
       tcp_forwards: >-
         ${fromPairs(concat(
-          [["6443", 6443]],
-          (dns.private.enabled ?? (dev == true)) == true ? [["30053", 30053]] : [],
-          (gitops.mode ?? "push") == "push" ? [["30292", 30292]] : [],
-          gateway.enabled == true && (gateway.driver ?? "envoy") == "envoy" && (dns.private_domain ?? "") != "" ? [["30080", 30080], [string((gateway.internal.node_port ?? 30443)), (gateway.internal.node_port ?? 30443)]] : [],
-          gateway.enabled == true && (gateway.driver ?? "envoy") == "envoy" && (dns.public_domain ?? "") != "" ? [["30081", 30081], [string((gateway.external.node_port ?? 30444)), (gateway.external.node_port ?? 30444)]] : [],
-          map(
-            concat(hyperv_controlplanes.for_cluster, hyperv_workers.for_cluster),
-            [split(get(#, "endpoint"), ":")[1], 50000]
-          )
+          map(concat(
+            [6443],
+            nat_effective.dns ? [30053] : [],
+            (gitops.mode ?? "push") == "push" ? [30292] : [],
+            nat_effective.internal_ports,
+            nat_effective.external_ports
+          ), [string(#), #]),
+          map(nat_effective.nodes, [split(get(#, "endpoint"), ":")[1], 50000])
         ))}
-      udp_forwards: >-
-        ${(dns.private.enabled ?? (dev == true)) == true ? {"30053": 30053} : {}}
+      udp_forwards: "${nat_effective.dns ? {'30053': 30053} : {}}"
       talos_api_targets: >-
-        ${fromPairs(map(
-          concat(hyperv_controlplanes.for_cluster, hyperv_workers.for_cluster),
-          [split(get(#, "endpoint"), ":")[1], get(#, "node")]
-        ))}
+        ${fromPairs(map(nat_effective.nodes, [split(get(#, "endpoint"), ":")[1], get(#, "node")]))}
 
   # Flat compute instance list, one entry per VM (count=1). Needed because
   # cidata_iso_path is per-VM, so the module's count expansion (shared ISO)

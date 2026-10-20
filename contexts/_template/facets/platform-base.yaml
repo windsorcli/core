@@ -161,13 +161,15 @@ config:
     value:
       enabled: false
 
-  # Service type and HTTPS node port per gateway, falling back to the deprecated gateway.service_type.
+  # Service type and node ports per gateway, falling back to the deprecated gateway.service_type.
   - name: gateway_exposure
     value:
       external: "${gateway.external.service_type ?? gateway.service_type ?? (workstation.runtime == 'docker-desktop' ? 'NodePort' : 'LoadBalancer')}"
       internal: "${gateway.internal.service_type ?? gateway.service_type ?? (workstation.runtime == 'docker-desktop' ? 'NodePort' : 'LoadBalancer')}"
       external_node_port: ${gateway.external.node_port ?? 30444}
       internal_node_port: ${gateway.internal.node_port ?? 30443}
+      external_http_node_port: 30081
+      internal_http_node_port: 30080
 
   # nodeport: both gateways are NodePort.
   - name: gateway_exposure

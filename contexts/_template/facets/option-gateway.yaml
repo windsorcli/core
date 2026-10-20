@@ -151,7 +151,7 @@ flux:
           gateway_dns_target: "${lb_effective.enabled == true && gateway_effective.external_mode == 'loadbalancer' ? gateway_effective.external_ip : ''}"
           # docker-desktop forwards to a host port; everywhere else uses :443.
           gateway_redirect_port: "${workstation.runtime == 'docker-desktop' ? '8444' : '443'}"
-          gateway_nodeport_http: 30081
+          gateway_nodeport_http: ${gateway_exposure.external_http_node_port}
           gateway_nodeport_https: ${gateway_exposure.external_node_port}
           gateway_host_http_port: 8081
           gateway_host_https_port: 8444
@@ -206,7 +206,7 @@ flux:
             gateway_effective.internal_ip : ''}
           gateway_dns_target: "${lb_effective.enabled == true && gateway_effective.internal_mode == 'loadbalancer' ? gateway_effective.internal_ip : ''}"
           gateway_redirect_port: "${workstation.runtime == 'docker-desktop' ? '8443' : '443'}"
-          gateway_nodeport_http: 30080
+          gateway_nodeport_http: ${gateway_exposure.internal_http_node_port}
           gateway_nodeport_https: ${gateway_exposure.internal_node_port}
           gateway_host_http_port: 8080
           gateway_host_https_port: 8443
