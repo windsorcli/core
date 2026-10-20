@@ -279,7 +279,7 @@ jobs:
         id: baseline_up
         if: matrix.mode == 'upgrade' && steps.infra_diff.outputs.skip != 'true'
         timeout-minutes: 20
-        run: windsor up --verbose --wait
+        run: windsor up --verbose
 
       - name: Baseline — HelmRelease health check
         id: baseline_health
@@ -326,7 +326,7 @@ jobs:
         id: windsor_up
         if: matrix.mode == 'fresh' && steps.infra_diff.outputs.skip != 'true'
         timeout-minutes: 20
-        run: windsor up --verbose --wait
+        run: windsor up --verbose
 
       - name: Windsor Apply (prune)
         id: windsor_apply_prune
@@ -334,7 +334,7 @@ jobs:
         # May reboot the Talos node on a version bump.
         # --prune cleans up orphaned Kustomizations from the baseline.
         timeout-minutes: 20
-        run: windsor apply --prune --verbose --wait
+        run: windsor apply --prune --verbose
 
       - name: HEAD — Wait for GitRepository revision bump
         id: gitrepo_bump
