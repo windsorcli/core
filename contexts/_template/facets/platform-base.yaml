@@ -155,27 +155,38 @@ config:
         platform == 'hyperv' || platform == 'incus' || platform == 'proxmox')}
       driver_supported: "${lb_effective.driver == 'none' || (lb_effective.driver == 'cilium') == (cluster.cni.driver == 'cilium') ? 'yes' : ''}"
 
-  # Docker Desktop has no routable node network, so LoadBalancer Services are
-  # unreachable — force enabled=false and switch the gateway to NodePort.
+  # Docker Desktop has no routable node network, so LoadBalancer Services are unreachable.
   - name: lb_effective
     when: workstation.runtime == 'docker-desktop'
     value:
       enabled: false
-      mode: nodeport
 
-  # Explicit gateway.service_type wins over auto-detect. NodePort also forces
-  # enabled=false: a NodePort service never gets a LoadBalancer IP, so the
-  # lb-address patch would reconcile against an IP that never materializes.
+  # Service type and node ports per gateway, falling back to the deprecated gateway.service_type.
+  - name: gateway_exposure
+    value:
+      external: "${gateway.external.service_type ?? gateway.service_type ?? (workstation.runtime == 'docker-desktop' ? 'NodePort' : 'LoadBalancer')}"
+      internal: "${gateway.internal.service_type ?? gateway.service_type ?? (workstation.runtime == 'docker-desktop' ? 'NodePort' : 'LoadBalancer')}"
+      external_node_port: ${gateway.external.node_port ?? 30444}
+      internal_node_port: ${gateway.internal.node_port ?? 30443}
+      external_http_node_port: 30081
+      internal_http_node_port: 30080
+
+  # nodeport: both gateways are NodePort.
+  - name: gateway_exposure
+    value:
+      nodeport: ${gateway_exposure.external == 'NodePort' && gateway_exposure.internal == 'NodePort'}
+
   - name: lb_effective
-    when: gateway.service_type == 'NodePort'
+    value:
+      mode: "${gateway_exposure.nodeport ? 'nodeport' : 'loadbalancer'}"
+
+  # Two NodePort gateways leave the in-cluster LB with no gateway address to serve.
+  - name: lb_effective
+    when: >-
+      (gateway.external.service_type ?? gateway.service_type ?? 'LoadBalancer') == 'NodePort' &&
+      (gateway.internal.service_type ?? gateway.service_type ?? 'LoadBalancer') == 'NodePort'
     value:
       enabled: false
-      mode: nodeport
-
-  - name: lb_effective
-    when: gateway.service_type == 'LoadBalancer'
-    value:
-      mode: loadbalancer
 
   # True when an in-cluster LB controller (lb-install) is required: aws always
   # (aws-lb-controller), hetzner always (hcloud cloud-controller-manager),

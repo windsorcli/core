@@ -316,7 +316,7 @@ cases:
               components:
                 - envoy/base
                 - envoy/loadbalancer
-                - envoy/loadbalancer/fixed-ip
+                - envoy/loadbalancer/metallb-ip
                 - envoy/parameters
                 - envoy/default-404
                 - envoy/default-404/external-dns
