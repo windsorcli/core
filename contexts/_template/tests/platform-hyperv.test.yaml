@@ -9,8 +9,8 @@ x-defaults:
   network: &default-network
     cidr_block: 10.20.0.0/24
     loadbalancer_ips:
-      start: "10.20.0.100"
-      end: "10.20.0.110"
+      start: "10.20.0.110"
+      end: "10.20.0.120"
 
   cluster: &default-cluster
     driver: talos
@@ -323,6 +323,10 @@ cases:
     values:
       platform: hyperv
       gateway:
+        internal:
+          ip: "10.20.0.100"
+        external:
+          ip: "10.20.0.101"
         enabled: true
         service_type: LoadBalancer
       dns:
@@ -333,8 +337,8 @@ cases:
         loadbalancer_driver: metallb
         loadbalancer_mode: arp
         loadbalancer_ips:
-          start: "10.20.0.100"
-          end: "10.20.0.110"
+          start: "10.20.0.110"
+          end: "10.20.0.120"
       cluster:
         driver: talos
         cni:
@@ -496,8 +500,8 @@ cases:
         loadbalancer_driver: metallb
         loadbalancer_mode: arp
         loadbalancer_ips:
-          start: "10.20.0.100"
-          end: "10.20.0.110"
+          start: "10.20.0.110"
+          end: "10.20.0.120"
       cluster:
         driver: talos
         cni:
@@ -522,7 +526,7 @@ cases:
             - components:
                 - metallb/arp
               substitutions:
-                loadbalancer_ip_range: 10.20.0.100-10.20.0.110
+                loadbalancer_ip_range: 10.20.0.110-10.20.0.120
 
   # NodePort single-VM (1 cp, 0 workers). The simplest NodePort topology:
   # one Talos API forward (40000 → cp-1), no workers in the lists, no
@@ -655,8 +659,8 @@ cases:
       network:
         cidr_block: "10.99.0.0/24"
         loadbalancer_ips:
-          start: "10.99.0.100"
-          end: "10.99.0.110"
+          start: "10.99.0.110"
+          end: "10.99.0.120"
       cluster:
         driver: talos
         endpoint: https://192.168.3.77:6443
@@ -810,6 +814,8 @@ cases:
     values:
       platform: hyperv
       gateway:
+        internal:
+          ip: "10.20.0.100"
         enabled: true
         driver: envoy
       dns:
@@ -829,6 +835,8 @@ cases:
     values:
       platform: hyperv
       gateway:
+        internal:
+          ip: "10.20.0.100"
         enabled: true
         driver: envoy
       dns:
@@ -849,6 +857,8 @@ cases:
     values:
       platform: hyperv
       gateway:
+        internal:
+          ip: "10.20.0.100"
         enabled: true
         driver: envoy
       network: *default-network
@@ -883,8 +893,8 @@ cases:
         cidr_block: 10.20.0.0/24
         dhcp: true
         loadbalancer_ips:
-          start: "10.20.0.100"
-          end: "10.20.0.110"
+          start: "10.20.0.110"
+          end: "10.20.0.120"
       cluster:
         driver: talos
         endpoint: https://192.168.3.77:6443
@@ -984,8 +994,8 @@ cases:
       network:
         cidr_block: 10.10.0.0/24
         loadbalancer_ips:
-          start: "10.10.0.100"
-          end: "10.10.0.110"
+          start: "10.10.0.110"
+          end: "10.10.0.120"
       cluster:
         driver: talos
         controlplanes:
