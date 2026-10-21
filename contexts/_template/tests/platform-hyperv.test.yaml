@@ -113,6 +113,26 @@ cases:
           count: 0
     expectError: true
 
+  - name: cluster.vip with both per-gateway NodePort fails composition
+    values:
+      platform: hyperv
+      gateway:
+        external:
+          service_type: NodePort
+        internal:
+          service_type: NodePort
+      network:
+        nameservers: ['1.1.1.1']
+      cluster:
+        driver: talos
+        endpoint: https://192.168.3.77:6443
+        vip: true
+        controlplanes:
+          count: 1
+        workers:
+          count: 0
+    expectError: true
+
   # An unset cidr_block must still compose. The schema default does not reach
   # facet expressions, so every read carries its own fallback; a site that
   # misses one fails composition with "cidrhost() ... got <nil>". Assert the
@@ -218,6 +238,50 @@ cases:
               "30443": 30443
               "30081": 30081
               "30444": 30444
+              "40000": 50000
+
+  - name: per-gateway NodePort forwards the configured node ports
+    values:
+      platform: hyperv
+      gateway:
+        external:
+          service_type: NodePort
+          node_port: 30600
+        internal:
+          service_type: NodePort
+          node_port: 30500
+      dns:
+        private_domain: test
+        public_domain: example.com
+      network: *default-network
+      cluster:
+        driver: talos
+        endpoint: https://192.168.3.77:6443
+        controlplanes:
+          count: 1
+          nodes:
+            controlplane-1:
+              hostname: controlplane-1
+              endpoint: 192.168.3.77:40000
+              node: 192.168.3.77
+        workers:
+          count: 0
+    terraformOutputs:
+      compute:
+        controlplanes: []
+        workers: []
+    expect:
+      terraform:
+        - name: compute
+          path: compute/hyperv
+          inputs:
+            port_forwards:
+              "6443": 6443
+              "30292": 30292
+              "30080": 30080
+              "30500": 30500
+              "30081": 30081
+              "30600": 30600
               "40000": 50000
 
   - name: NodePort with the gateway disabled forwards no gateway ports

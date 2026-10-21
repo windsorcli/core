@@ -63,7 +63,6 @@ flux:
         substitutions:
           demo_database_name: "${demo_database_name}"
           database_instance_name: "${database_instance_name}"
-          aws_region: "${aws.region ?? ''}"
           demo_database_instance_type: "${demo.database.instance_type ?? 'db.t4g.micro'}"
         healthCheckExprs:
           # Gated on the Instance's own Ready condition, not the CR apply.

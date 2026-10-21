@@ -176,6 +176,7 @@ flux:
         components:
           - crossplane/postgres/aws-rds
         substitutions:
+          aws_region: "${aws.region ?? ''}"
           cluster_name: "${terraform_output('cluster', 'cluster_name') ?? ''}"
           context_id: ${id}
           db_subnet_group_name: "${terraform_output('network', 'db_subnet_group_name') ?? ''}"
