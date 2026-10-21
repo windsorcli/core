@@ -7,4 +7,5 @@ metadata:
 spec:
   interval: 10m
   timeout: 3m
-  url: https://fluent.github.io/helm-charts
+  type: ${helm_repository_type:=default}
+  url: ${helm_repository_prefix:=https://}fluent.github.io/helm-charts

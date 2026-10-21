@@ -1064,3 +1064,33 @@ cases:
       pki:
         public_issuer: acme
     expectError: true
+
+  # Unset mirror keeps every HelmRepository on its upstream URL.
+  - name: helm repositories use upstream urls without a mirror
+    values:
+      platform: metal
+      gateway:
+        enabled: false
+      network: *default-network
+      cluster: *default-cluster
+    expect:
+      substitutions:
+        helm_repository_type: default
+        helm_repository_prefix: https://
+        helm_oci_repository_prefix: oci://
+
+  # A mirror points every HelmRepository at oci://<mirror>/<upstream host and path>.
+  - name: helm repository mirror switches every repository to oci
+    values:
+      platform: metal
+      gateway:
+        enabled: false
+      network: *default-network
+      cluster: *default-cluster
+      gitops:
+        helm_repository_mirror: package.copia.io/copia
+    expect:
+      substitutions:
+        helm_repository_type: oci
+        helm_repository_prefix: oci://package.copia.io/copia/
+        helm_oci_repository_prefix: oci://package.copia.io/copia/

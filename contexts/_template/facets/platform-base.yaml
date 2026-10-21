@@ -304,6 +304,11 @@ substitutions:
   # FQDN suffix for externally-reachable resources on cloud platforms.
   public_domain: ${dns.public_domain}
 
+  # HelmRepository type and URL prefixes, pointed at gitops.helm_repository_mirror when set.
+  helm_repository_type: "${(gitops.helm_repository_mirror ?? '') == '' ? 'default' : 'oci'}"
+  helm_repository_prefix: "${(gitops.helm_repository_mirror ?? '') == '' ? 'https://' : 'oci://' + gitops.helm_repository_mirror + '/'}"
+  helm_oci_repository_prefix: "${(gitops.helm_repository_mirror ?? '') == '' ? 'oci://' : 'oci://' + gitops.helm_repository_mirror + '/'}"
+
 # =============================================================================
 # CRDs — vendored, applied ahead of the controller
 # =============================================================================

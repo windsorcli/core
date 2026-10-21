@@ -8,4 +8,4 @@ spec:
   interval: 10m
   timeout: 5m
   type: oci
-  url: oci://quay.io/cilium/charts
+  url: ${helm_oci_repository_prefix:=oci://}quay.io/cilium/charts
