@@ -50,7 +50,7 @@ spec:
     #   WindsorContextID: a1b2c3d4
 ```
 
-At admission, a Kyverno policy adds the `windsorcli.dev/cluster: <cluster-name>` tag and fills in `region`, `dbSubnetGroupName`, `vpcSecurityGroupIds`, and `kmsKeyId` for you. The Crossplane IAM role is scoped to only work with databases that include this tag. An `Instance` that sets a `region` other than the cluster's `aws.region` is rejected, since the injected subnet group, security group, and key exist only in that region.
+At admission, a Kyverno policy adds the `windsorcli.dev/cluster: <cluster-name>` tag and fills in `region`, `dbSubnetGroupName`, `vpcSecurityGroupIds`, and `kmsKeyId` for you. The Crossplane IAM role is scoped to only work with databases that include this tag.
 
 ## Deletion
 
