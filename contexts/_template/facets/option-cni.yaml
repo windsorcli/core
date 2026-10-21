@@ -30,9 +30,6 @@ terraform:
       cgroup_auto_mount: false
       # Match the Flux HelmRelease's replicas so `windsor up` re-runs don't flap.
       operator_replicas: "${topology == 'single-node' ? 1 : 2}"
-      # Mirror overrides; unset falls back to the module's upstream defaults.
-      chart_repository: ${cluster.cni.chart_repository ?? null}
-      image_registry: ${cluster.cni.image_registry ?? null}
   
   - name: gitops
     when: "talos_provisioned"

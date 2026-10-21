@@ -139,39 +139,6 @@ cases:
               k8s_service_host: localhost
               operator_replicas: "1"
 
-  # Mirror registry: cluster.cni.chart_repository and image_registry reach the
-  # cni terraform component so the bootstrap pulls nothing from quay.io.
-  - name: cluster.cni chart_repository and image_registry pass to the cni terraform component
-    values:
-      platform: metal
-      gateway:
-        enabled: false
-      network: *default-network
-      cluster:
-        <<: *default-cluster
-        cni:
-          driver: cilium
-          chart_repository: oci://registry.example.com/charts
-          image_registry: registry.example.com/cilium
-    expect:
-      terraform:
-        - name: cni
-          path: cni/cilium
-          inputs:
-            chart_repository: oci://registry.example.com/charts
-            image_registry: registry.example.com/cilium
-
-  - name: cluster.cni.chart_repository without a scheme is rejected
-    values:
-      platform: metal
-      network: *default-network
-      cluster:
-        <<: *default-cluster
-        cni:
-          driver: cilium
-          chart_repository: registry.example.com/charts
-    expectError: true
-
   # Workstation layouts (docker/colima) don't declare cluster.controlplanes.nodes
   # — terraform provisions them — so the node list is empty at compose time. The
   # controlplane count floors at 1, so 1 cp + 0 workers resolves single-node →
