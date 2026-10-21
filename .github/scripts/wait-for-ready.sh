@@ -1,8 +1,8 @@
 #!/bin/bash
 
 # Waits for every HelmRelease to reach Ready=True once, dropping each from
-# the poll set as it converges. Kustomization readiness is windsor's own
-# `--wait` flag; this covers HelmReleases nested in a Kustomization whose
+# the poll set as it converges. Windsor itself waits on Kustomization
+# readiness; this covers HelmReleases nested in a Kustomization whose
 # own health checks don't include them.
 #
 # Usage: wait-for-ready.sh [timeout_seconds] [poll_interval_seconds]

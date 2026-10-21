@@ -9,10 +9,9 @@
 x-defaults:
   network: &default-network
     cidr_block: 10.5.0.0/16
-    loadbalancer_driver: kube-vip
     loadbalancer_mode: arp
     loadbalancer_ips:
-      start: "10.5.1.10"
+      start: "10.5.1.20"
       end: "10.5.1.100"
 
   dns: &default-dns
@@ -215,7 +214,7 @@ cases:
             - components:
                 - cilium/l2
               substitutions:
-                loadbalancer_start_ip: "10.5.1.10"
+                loadbalancer_start_ip: "10.5.1.20"
                 loadbalancer_end_ip: "10.5.1.100"
         - name: csi
           dependsOn:
@@ -305,7 +304,9 @@ cases:
       gateway:
         enabled: true
         driver: envoy
-      network: *default-network
+      network:
+        <<: *default-network
+        loadbalancer_driver: kube-vip
       cluster:
         driver: talos
         cni:
@@ -397,7 +398,7 @@ cases:
               - kube-vip
               - kube-vip/arp
             substitutions:
-              loadbalancer_ip_range: 10.5.1.10-10.5.1.100
+              loadbalancer_ip_range: 10.5.1.20-10.5.1.100
             timeout: 5m
             interval: 5m
         - name: csi

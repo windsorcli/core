@@ -158,7 +158,7 @@ flowchart LR
       - coredns/cilium
     substitutions:
       private_domain: example.local
-      loadbalancer_start_ip: 10.5.1.10
+      dns_loadbalancer_ip: 10.5.1.10
   resources:
     - name: account
       components: [service-account]
@@ -184,8 +184,8 @@ differ in who queries that IP. On a local cluster it sits on the
 workstation's bridge network and the workstation points its stub
 resolver at it. On metal it is a routable LAN address, so LAN clients
 or an upstream resolver that forwards `*.<dns.private_domain>` query it.
-In both cases `loadbalancer_start_ip` must fall inside
-`network.loadbalancer_ips` and be reachable from those resolvers.
+In both cases coredns shares the internal gateway's address,
+`gateway.internal.ip`, which those resolvers MUST be able to reach.
 
 
 ## Substitutions
@@ -207,7 +207,7 @@ In both cases `loadbalancer_start_ip` must fall inside
 | `google_project_id` | `resources/external-dns/providers/google` is enabled | GCP project external-dns's Cloud DNS API calls run against. Sourced from `gcp.project_id`. |
 | `external_dns_service_account_email` | `service-account/providers/google` is enabled | Email of the external-dns Google Service Account, set on the shared ServiceAccount. Sourced from `terraform_output('cluster', 'external_dns_service_account_email')`. |
 | `txt_owner_id` | a `resources/external-dns` instance uses a registry-backed provider | Unique TXT-record owner ID for external-dns's registry. Keeps multiple external-dns instances in the same zone from clobbering each other's records. Threaded via Flux postBuild from the `values-dns` ConfigMap the CLI generates. |
-| `loadbalancer_start_ip` | `coredns/loadbalancer` is enabled (private-DNS LB Service) | External IP for the coredns Service when private DNS is exposed via the gateway LB. Sourced from `network.loadbalancer_ips.start`. |
+| `dns_loadbalancer_ip` | `coredns/cilium` is enabled | External IP for the coredns Service, shared with the internal gateway. Sourced from `gateway.internal.ip`. |
 
 ## Components
 
@@ -294,7 +294,7 @@ Helm release of `coredns` in `system-dns`. In-cluster private DNS server. Serves
 | `etcd` | `dns.private.enabled: true` | etcd StatefulSet for coredns to use as a persistent backend for the `etcd` plugin. mTLS between coredns and etcd peers, certs issued by the `private` ClusterIssuer. |
 | `prometheus` | `dns.private.enabled: true` AND `telemetry.metrics.enabled: true` | Enables the chart's metrics Service and ServiceMonitor so this coredns instance is scraped by kube-prometheus-stack. The unfiltered `prometheus/alerts/coredns` rules then cover it automatically alongside the cluster's built-in CoreDNS. |
 | `ha` | `dns.private.enabled: true` AND `topology == 'ha'` | Patches the coredns HelmRelease for HA (multi-replica + leader election). |
-| `loadbalancer` | `dns.private.enabled: true` AND `gateway.driver == 'cilium'` | Adds a `Service type=LoadBalancer` for coredns at `${loadbalancer_start_ip}` so the cluster's private DNS is reachable from outside the cluster (workstation pointing at the bench IP). |
+| `loadbalancer` | `dns.private.enabled: true` AND `gateway.driver == 'cilium'` | Adds a `Service type=LoadBalancer` for coredns at `${dns_loadbalancer_ip}` so the cluster's private DNS is reachable from outside the cluster (workstation pointing at the bench IP). |
 | `cilium` | `dns.private.enabled: true` AND `gateway.driver == 'cilium'` | Cilium-specific patches on coredns (typically LB-sharing annotations matching the Cilium gateway's IP pool). |
 | `gateway` | `dns.private.enabled: true` AND `gateway.enabled: true` | Wires a Gateway API listener / route so coredns is reachable through the cluster Gateway (UDP/TCP 53). |
 

@@ -5,10 +5,9 @@
 x-defaults:
   network: &default-network
     cidr_block: 10.5.0.0/16
-    loadbalancer_driver: kube-vip
     loadbalancer_mode: arp
     loadbalancer_ips:
-      start: "10.5.1.10"
+      start: "10.5.1.20"
       end: "10.5.1.100"
 
   cluster: &default-cluster
@@ -28,6 +27,9 @@ cases:
   # Minimal: dev mode enables database addon.
   - name: minimal config creates database with defaults via dev mode
     values:
+      gateway:
+        internal:
+          ip: "10.5.1.10"
       platform: metal
       dev: true
       network: *default-network
@@ -49,6 +51,9 @@ cases:
   # Full: database with HA and observability.
   - name: full config creates database with HA and observability integration
     values:
+      gateway:
+        internal:
+          ip: "10.5.1.10"
       dns:
         private_domain: example.test
       platform: metal
@@ -123,6 +128,9 @@ cases:
   # disabling telemetry entirely must not affect composition.
   - name: cloudnativepg dashboard patch composes with telemetry fully disabled
     values:
+      gateway:
+        internal:
+          ip: "10.5.1.10"
       dns:
         private_domain: example.test
       platform: metal
@@ -228,6 +236,8 @@ cases:
                 - provisioning-resources
               components:
                 - crossplane/postgres/aws-rds
+              substitutions:
+                aws_region: us-west-2
 
   # telemetry.metrics.enabled gates the monitor Role and the exporter it feeds,
   # both from the same WatchOperation.

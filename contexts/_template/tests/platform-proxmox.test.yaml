@@ -5,8 +5,8 @@ x-defaults:
   network: &default-network
     cidr_block: 10.10.0.0/24
     loadbalancer_ips:
-      start: "10.10.0.100"
-      end: "10.10.0.110"
+      start: "10.10.0.110"
+      end: "10.10.0.120"
 
   cluster: &default-cluster
     driver: talos
@@ -81,6 +81,31 @@ cases:
           destroy: false
 
   # Explicit cluster.endpoint wins over the first control-plane address.
+  - name: proxmox cluster.vip passes the VIP interface to the cluster step
+    values:
+      platform: proxmox
+      gateway:
+        enabled: false
+      network: *default-network
+      cluster:
+        vip: true
+        driver: talos
+        endpoint: https://10.10.0.5:6443
+        controlplanes:
+          count: 1
+        workers:
+          count: 0
+      proxmox: *default-proxmox
+    expect:
+      terraform:
+        - name: cluster
+          inputs:
+            cluster_endpoint: https://10.10.0.5:6443
+            vip_interface:
+              deviceSelector:
+                physical: true
+              dhcp: false
+
   - name: proxmox explicit cluster endpoint flows through to cluster step
     values:
       platform: proxmox
@@ -100,10 +125,7 @@ cases:
         - name: cluster
           inputs:
             cluster_endpoint: https://10.10.0.5:6443
-            vip_interface:
-              deviceSelector:
-                physical: true
-              dhcp: false
+            vip_interface: null
 
   # The cluster step takes compute's node list, including its per-node patches and instance ids.
   - name: proxmox cluster step consumes compute output
@@ -382,8 +404,8 @@ cases:
         cidr_block: 10.10.0.0/24
         dhcp: true
         loadbalancer_ips:
-          start: "10.10.0.100"
-          end: "10.10.0.110"
+          start: "10.10.0.110"
+          end: "10.10.0.120"
       cluster:
         driver: talos
         cni:
@@ -421,8 +443,8 @@ cases:
         cidr_block: 10.10.0.0/24
         dhcp: true
         loadbalancer_ips:
-          start: "10.10.0.100"
-          end: "10.10.0.110"
+          start: "10.10.0.110"
+          end: "10.10.0.120"
       cluster:
         driver: talos
         endpoint: https://10.10.0.5:6443
@@ -461,8 +483,8 @@ cases:
         cidr_block: 10.10.0.0/24
         dhcp: true
         loadbalancer_ips:
-          start: "10.10.0.100"
-          end: "10.10.0.110"
+          start: "10.10.0.110"
+          end: "10.10.0.120"
       cluster:
         driver: talos
         endpoint: https://10.10.0.5:6443
@@ -506,8 +528,8 @@ cases:
         loadbalancer_driver: kube-vip
         loadbalancer_mode: arp
         loadbalancer_ips:
-          start: "10.10.0.100"
-          end: "10.10.0.110"
+          start: "10.10.0.110"
+          end: "10.10.0.120"
       cluster:
         driver: talos
         cni:
@@ -525,7 +547,7 @@ cases:
               - kube-vip
               - kube-vip/arp
             substitutions:
-              loadbalancer_ip_range: 10.10.0.100-10.10.0.110
+              loadbalancer_ip_range: 10.10.0.110-10.10.0.120
 
   # Gateway and nameservers default from cidr_block for static guests.
   - name: proxmox network gateway and nameservers default from cidr_block
@@ -557,8 +579,8 @@ cases:
         nameservers:
           - 10.10.0.2
         loadbalancer_ips:
-          start: "10.10.0.100"
-          end: "10.10.0.110"
+          start: "10.10.0.110"
+          end: "10.10.0.120"
       cluster: *default-cluster
       proxmox: *default-proxmox
     expect:
@@ -620,8 +642,8 @@ cases:
         cidr_block: 10.10.0.0/24
         dhcp: true
         loadbalancer_ips:
-          start: "10.10.0.100"
-          end: "10.10.0.110"
+          start: "10.10.0.110"
+          end: "10.10.0.120"
       cluster: *default-cluster
       proxmox: *default-proxmox
     expect:
@@ -641,8 +663,8 @@ cases:
         cidr_block: 10.10.0.0/24
         dhcp: true
         loadbalancer_ips:
-          start: "10.10.0.100"
-          end: "10.10.0.110"
+          start: "10.10.0.110"
+          end: "10.10.0.120"
       cluster:
         driver: talos
         controlplanes:
@@ -659,8 +681,8 @@ cases:
         cidr_block: 10.10.0.0/24
         dhcp: true
         loadbalancer_ips:
-          start: "10.10.0.100"
-          end: "10.10.0.110"
+          start: "10.10.0.110"
+          end: "10.10.0.120"
       cluster:
         driver: talos
         endpoint: https://10.10.0.5:6443

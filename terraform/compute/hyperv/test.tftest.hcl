@@ -837,8 +837,8 @@ run "controlplane_vip_baked" {
   }
 }
 
-# Without controlplane_vip, or with an endpoint that is a control-plane IP, no VIP is baked
-run "controlplane_vip_skipped" {
+# controlplane_vip with an endpoint that is a control-plane IP fails the plan
+run "controlplane_vip_rejects_node_ip" {
   command = plan
 
   variables {
@@ -860,10 +860,7 @@ run "controlplane_vip_skipped" {
     ]
   }
 
-  assert {
-    condition     = local.vip == "" && local.vip_patch == ""
-    error_message = "No VIP should be baked for a control-plane IP"
-  }
+  expect_failures = [data.talos_machine_configuration.controlplane]
 }
 
 # Overlap validation: extra_port_forwards must not reuse an external port

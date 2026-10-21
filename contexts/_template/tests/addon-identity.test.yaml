@@ -5,10 +5,9 @@
 x-defaults:
   network: &default-network
     cidr_block: 10.5.0.0/16
-    loadbalancer_driver: kube-vip
     loadbalancer_mode: arp
     loadbalancer_ips:
-      start: "10.5.1.10"
+      start: "10.5.1.20"
       end: "10.5.1.100"
 
   cluster: &default-cluster
@@ -32,6 +31,8 @@ cases:
       dns:
         private_domain: example.local
       gateway:
+        internal:
+          ip: "10.5.1.10"
         enabled: true
       network: *default-network
       cluster: *default-cluster
@@ -132,6 +133,8 @@ cases:
       dns:
         domain: example.local
       gateway:
+        internal:
+          ip: "10.5.1.10"
         enabled: true
       network: *default-network
       cluster: *default-cluster
@@ -156,6 +159,8 @@ cases:
       dns:
         domain: example.local
       gateway:
+        internal:
+          ip: "10.5.1.10"
         enabled: true
       network: *default-network
       cluster: *default-cluster
@@ -213,6 +218,8 @@ cases:
       dns:
         domain: example.local
       gateway:
+        internal:
+          ip: "10.5.1.10"
         enabled: true
       topology: ha
       network: *default-network
@@ -238,6 +245,8 @@ cases:
       dns:
         domain: example.local
       gateway:
+        internal:
+          ip: "10.5.1.10"
         enabled: true
         driver: cilium
       network: *default-network
@@ -287,6 +296,8 @@ cases:
       dns:
         domain: example.local
       gateway:
+        internal:
+          ip: "10.5.1.10"
         enabled: true
       network: *default-network
       cluster: *default-cluster
@@ -311,6 +322,8 @@ cases:
       dns:
         domain: example.local
       gateway:
+        internal:
+          ip: "10.5.1.10"
         enabled: true
       network: *default-network
       cluster: *default-cluster
@@ -336,6 +349,8 @@ cases:
       dns:
         domain: example.local
       gateway:
+        internal:
+          ip: "10.5.1.10"
         enabled: true
       network: *default-network
       cluster: *default-cluster
@@ -365,6 +380,8 @@ cases:
       dns:
         domain: example.local
       gateway:
+        internal:
+          ip: "10.5.1.10"
         enabled: true
       network: *default-network
       cluster: *default-cluster
@@ -413,6 +430,8 @@ cases:
       dns:
         domain: example.local
       gateway:
+        internal:
+          ip: "10.5.1.10"
         enabled: true
       network: *default-network
       cluster: *default-cluster
@@ -441,6 +460,8 @@ cases:
       dns:
         domain: example.local
       gateway:
+        internal:
+          ip: "10.5.1.10"
         enabled: true
       network: *default-network
       cluster:
@@ -466,6 +487,8 @@ cases:
       dns:
         domain: example.local
       gateway:
+        internal:
+          ip: "10.5.1.10"
         enabled: true
       network: *default-network
       cluster:
@@ -489,6 +512,8 @@ cases:
       dns:
         domain: example.local
       gateway:
+        internal:
+          ip: "10.5.1.10"
         enabled: true
       network: *default-network
       cluster:
@@ -512,6 +537,8 @@ cases:
       dns:
         domain: example.local
       gateway:
+        internal:
+          ip: "10.5.1.10"
         enabled: true
       network: *default-network
       cluster:
@@ -536,6 +563,8 @@ cases:
       dns:
         domain: example.local
       gateway:
+        internal:
+          ip: "10.5.1.10"
         enabled: true
       network: *default-network
       cluster: *default-cluster
@@ -580,6 +609,8 @@ cases:
       dns:
         domain: example.local
       gateway:
+        internal:
+          ip: "10.5.1.10"
         enabled: true
       network: *default-network
       cluster: *default-cluster
@@ -601,6 +632,8 @@ cases:
       dns:
         domain: example.local
       gateway:
+        internal:
+          ip: "10.5.1.10"
         enabled: true
       network: *default-network
       cluster: *default-cluster
@@ -623,6 +656,8 @@ cases:
       dns:
         domain: example.local
       gateway:
+        internal:
+          ip: "10.5.1.10"
         enabled: true
       network: *default-network
       cluster: *default-cluster
@@ -644,6 +679,8 @@ cases:
       dns:
         domain: example.local
       gateway:
+        internal:
+          ip: "10.5.1.10"
         enabled: true
       network: *default-network
       cluster: *default-cluster
@@ -659,6 +696,11 @@ cases:
   # A public domain puts Keycloak login on the external gateway and admin on the internal one.
   - name: public domain limits the external Keycloak route to the login paths
     values:
+      gateway:
+        internal:
+          ip: "10.5.1.10"
+        external:
+          ip: "10.5.1.11"
       platform: metal
       dev: true
       identity:
@@ -693,6 +735,8 @@ cases:
       dns:
         domain: example.local
       gateway:
+        internal:
+          ip: "10.5.1.10"
         enabled: true
       network: *default-network
       cluster: *default-cluster

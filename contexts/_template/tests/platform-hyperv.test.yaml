@@ -9,8 +9,8 @@ x-defaults:
   network: &default-network
     cidr_block: 10.20.0.0/24
     loadbalancer_ips:
-      start: "10.20.0.100"
-      end: "10.20.0.110"
+      start: "10.20.0.110"
+      end: "10.20.0.120"
 
   cluster: &default-cluster
     driver: talos
@@ -69,6 +69,70 @@ cases:
             - cluster
           destroy: false
 
+  - name: cluster.vip bakes the VIP into the control planes
+    values:
+      platform: hyperv
+      gateway:
+        enabled: false
+      network:
+        nameservers: ['1.1.1.1']
+      cluster:
+        driver: talos
+        endpoint: https://10.5.0.5:6443
+        vip: true
+        controlplanes:
+          count: 1
+        workers:
+          count: 0
+    terraformOutputs:
+      compute:
+        controlplanes: []
+        workers: []
+    expect:
+      terraform:
+        - name: compute
+          path: compute/hyperv
+          inputs:
+            cluster_endpoint: https://10.5.0.5:6443
+            controlplane_vip: true
+
+  - name: cluster.vip in NodePort mode fails composition
+    values:
+      platform: hyperv
+      gateway:
+        service_type: NodePort
+      network:
+        nameservers: ['1.1.1.1']
+      cluster:
+        driver: talos
+        endpoint: https://192.168.3.77:6443
+        vip: true
+        controlplanes:
+          count: 1
+        workers:
+          count: 0
+    expectError: true
+
+  - name: cluster.vip with both per-gateway NodePort fails composition
+    values:
+      platform: hyperv
+      gateway:
+        external:
+          service_type: NodePort
+        internal:
+          service_type: NodePort
+      network:
+        nameservers: ['1.1.1.1']
+      cluster:
+        driver: talos
+        endpoint: https://192.168.3.77:6443
+        vip: true
+        controlplanes:
+          count: 1
+        workers:
+          count: 0
+    expectError: true
+
   # An unset cidr_block must still compose. The schema default does not reach
   # facet expressions, so every read carries its own fallback; a site that
   # misses one fails composition with "cidrhost() ... got <nil>". Assert the
@@ -98,7 +162,7 @@ cases:
           inputs:
             network_cidr: 10.5.0.0/16
             cluster_endpoint: https://10.5.0.10:6443
-            controlplane_vip: true
+            controlplane_vip: false
 
   # Gateway NodePorts are in the baseline for each gateway that exists.
   - name: NodePort with a private domain forwards the internal gateway ports
@@ -176,6 +240,50 @@ cases:
               "30444": 30444
               "40000": 50000
 
+  - name: per-gateway NodePort forwards the configured node ports
+    values:
+      platform: hyperv
+      gateway:
+        external:
+          service_type: NodePort
+          node_port: 30600
+        internal:
+          service_type: NodePort
+          node_port: 30500
+      dns:
+        private_domain: test
+        public_domain: example.com
+      network: *default-network
+      cluster:
+        driver: talos
+        endpoint: https://192.168.3.77:6443
+        controlplanes:
+          count: 1
+          nodes:
+            controlplane-1:
+              hostname: controlplane-1
+              endpoint: 192.168.3.77:40000
+              node: 192.168.3.77
+        workers:
+          count: 0
+    terraformOutputs:
+      compute:
+        controlplanes: []
+        workers: []
+    expect:
+      terraform:
+        - name: compute
+          path: compute/hyperv
+          inputs:
+            port_forwards:
+              "6443": 6443
+              "30292": 30292
+              "30080": 30080
+              "30500": 30500
+              "30081": 30081
+              "30600": 30600
+              "40000": 50000
+
   - name: NodePort with the gateway disabled forwards no gateway ports
     values:
       platform: hyperv
@@ -215,6 +323,10 @@ cases:
     values:
       platform: hyperv
       gateway:
+        internal:
+          ip: "10.20.0.100"
+        external:
+          ip: "10.20.0.101"
         enabled: true
         service_type: LoadBalancer
       dns:
@@ -225,8 +337,8 @@ cases:
         loadbalancer_driver: metallb
         loadbalancer_mode: arp
         loadbalancer_ips:
-          start: "10.20.0.100"
-          end: "10.20.0.110"
+          start: "10.20.0.110"
+          end: "10.20.0.120"
       cluster:
         driver: talos
         cni:
@@ -388,8 +500,8 @@ cases:
         loadbalancer_driver: metallb
         loadbalancer_mode: arp
         loadbalancer_ips:
-          start: "10.20.0.100"
-          end: "10.20.0.110"
+          start: "10.20.0.110"
+          end: "10.20.0.120"
       cluster:
         driver: talos
         cni:
@@ -414,7 +526,7 @@ cases:
             - components:
                 - metallb/arp
               substitutions:
-                loadbalancer_ip_range: 10.20.0.100-10.20.0.110
+                loadbalancer_ip_range: 10.20.0.110-10.20.0.120
 
   # NodePort single-VM (1 cp, 0 workers). The simplest NodePort topology:
   # one Talos API forward (40000 → cp-1), no workers in the lists, no
@@ -547,8 +659,8 @@ cases:
       network:
         cidr_block: "10.99.0.0/24"
         loadbalancer_ips:
-          start: "10.99.0.100"
-          end: "10.99.0.110"
+          start: "10.99.0.110"
+          end: "10.99.0.120"
       cluster:
         driver: talos
         endpoint: https://192.168.3.77:6443
@@ -702,6 +814,8 @@ cases:
     values:
       platform: hyperv
       gateway:
+        internal:
+          ip: "10.20.0.100"
         enabled: true
         driver: envoy
       dns:
@@ -721,6 +835,8 @@ cases:
     values:
       platform: hyperv
       gateway:
+        internal:
+          ip: "10.20.0.100"
         enabled: true
         driver: envoy
       dns:
@@ -741,6 +857,8 @@ cases:
     values:
       platform: hyperv
       gateway:
+        internal:
+          ip: "10.20.0.100"
         enabled: true
         driver: envoy
       network: *default-network
@@ -775,8 +893,8 @@ cases:
         cidr_block: 10.20.0.0/24
         dhcp: true
         loadbalancer_ips:
-          start: "10.20.0.100"
-          end: "10.20.0.110"
+          start: "10.20.0.110"
+          end: "10.20.0.120"
       cluster:
         driver: talos
         endpoint: https://192.168.3.77:6443
@@ -876,8 +994,8 @@ cases:
       network:
         cidr_block: 10.10.0.0/24
         loadbalancer_ips:
-          start: "10.10.0.100"
-          end: "10.10.0.110"
+          start: "10.10.0.110"
+          end: "10.10.0.120"
       cluster:
         driver: talos
         controlplanes:

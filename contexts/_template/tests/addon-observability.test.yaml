@@ -5,10 +5,9 @@
 x-defaults:
   network: &default-network
     cidr_block: 10.5.0.0/16
-    loadbalancer_driver: kube-vip
     loadbalancer_mode: arp
     loadbalancer_ips:
-      start: "10.5.1.10"
+      start: "10.5.1.20"
       end: "10.5.1.100"
 
   cluster: &default-cluster
@@ -31,6 +30,8 @@ cases:
       dns:
         domain: example.local
       gateway:
+        internal:
+          ip: "10.5.1.10"
         enabled: true
       network: *default-network
       cluster: *default-cluster
@@ -60,6 +61,8 @@ cases:
       dns:
         domain: example.local
       gateway:
+        internal:
+          ip: "10.5.1.10"
         enabled: true
       network: *default-network
       cluster: *default-cluster
@@ -83,6 +86,8 @@ cases:
       dns:
         domain: example.local
       gateway:
+        internal:
+          ip: "10.5.1.10"
         enabled: true
       network: *default-network
       cluster: *default-cluster
@@ -110,6 +115,8 @@ cases:
       dns:
         domain: example.local
       gateway:
+        internal:
+          ip: "10.5.1.10"
         enabled: true
       network: *default-network
       cluster: *default-cluster
@@ -138,6 +145,9 @@ cases:
   # Metal defaults to cilium gateway driver, cilium dashboard included.
   - name: minimal config creates observability with defaults via dev mode
     values:
+      gateway:
+        internal:
+          ip: "10.5.1.10"
       platform: metal
       dev: true
       dns:
@@ -187,6 +197,8 @@ cases:
       dns:
         domain: example.local
       gateway:
+        internal:
+          ip: "10.5.1.10"
         enabled: true
       network: *default-network
       cluster: *default-cluster
@@ -219,6 +231,8 @@ cases:
       time_format: 24h
       log_level: warn
       gateway:
+        internal:
+          ip: "10.5.1.10"
         enabled: true
         driver: envoy
       network: *default-network
@@ -264,6 +278,9 @@ cases:
   # Full: quickwit driver; addon wins (last-wins), addon contributes quickwit + fluentd output only
   - name: full config with quickwit driver creates storage pipeline with PVC and dashboards
     values:
+      gateway:
+        internal:
+          ip: "10.5.1.10"
       platform: metal
       dns:
         domain: quickwit.example.com
@@ -306,6 +323,8 @@ cases:
       dns:
         domain: elk.example.com
       gateway:
+        internal:
+          ip: "10.5.1.10"
         enabled: true
         driver: envoy
       network: *default-network
@@ -437,6 +456,8 @@ cases:
     values:
       platform: metal
       gateway:
+        internal:
+          ip: "10.5.1.10"
         enabled: true
         driver: envoy
       dns:
@@ -464,6 +485,11 @@ cases:
   # never contributed and blueprint load fails.
   - name: observability omits dns-install dependency when dns is enabled on a provider-less platform
     values:
+      gateway:
+        internal:
+          ip: "10.5.1.10"
+        external:
+          ip: "10.5.1.11"
       platform: metal
       dns:
         domain: example.com

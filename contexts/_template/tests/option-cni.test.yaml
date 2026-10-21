@@ -5,10 +5,9 @@
 x-defaults:
   network: &default-network
     cidr_block: 10.5.0.0/16
-    loadbalancer_driver: kube-vip
     loadbalancer_mode: arp
     loadbalancer_ips:
-      start: "10.5.1.10"
+      start: "10.5.1.20"
       end: "10.5.1.100"
 
   cluster: &default-cluster
@@ -364,6 +363,8 @@ cases:
       dns:
         private_domain: test
       gateway:
+        internal:
+          ip: "10.5.1.10"
         enabled: true
         driver: cilium
       network: *default-network
@@ -386,7 +387,6 @@ cases:
         enabled: false
       network:
         cidr_block: 10.5.0.0/16
-        loadbalancer_driver: kube-vip
         loadbalancer_mode: arp
       cluster: *default-cluster
     terraformOutputs:
@@ -406,7 +406,7 @@ cases:
             - components:
                 - cilium/l2
               substitutions:
-                loadbalancer_start_ip: "10.5.1.10"
+                loadbalancer_start_ip: "10.5.1.12"
                 loadbalancer_end_ip: "10.5.1.100"
 
   # Cilium: gitops terraform depends on cni when cilium is selected.

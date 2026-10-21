@@ -5,10 +5,9 @@
 x-defaults:
   network: &default-network
     cidr_block: 10.5.0.0/16
-    loadbalancer_driver: kube-vip
     loadbalancer_mode: arp
     loadbalancer_ips:
-      start: "10.5.1.10"
+      start: "10.5.1.20"
       end: "10.5.1.100"
 
   cluster: &default-cluster
@@ -28,6 +27,9 @@ cases:
   # Minimal: dev mode enables private-ca addon. Intended: addon pki install tier (trust-manager) overrides provider. See docs/cli-bugs.md if this fails.
   - name: minimal config creates private CA with defaults via dev mode
     values:
+      gateway:
+        internal:
+          ip: "10.5.1.10"
       platform: metal
       dev: true
       network: *default-network
