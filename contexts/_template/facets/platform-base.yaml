@@ -248,16 +248,6 @@ config:
     when: (network.cidr_block ?? '') == ''
     value:
       cidr_block: '10.5.0.0/16'
-  - name: network
-    when: (network.loadbalancer_ips.start ?? '') == ''
-    value:
-      loadbalancer_ips:
-        start: "${cidrhost(network.cidr_block ?? '10.5.0.0/16', 266)}"
-  - name: network
-    when: (network.loadbalancer_ips.end ?? '') == ''
-    value:
-      loadbalancer_ips:
-        end: "${cidrhost(network.cidr_block ?? '10.5.0.0/16', 356)}"
 
   # Telemetry driver. metrics/logs: independent gates, both default on.
   # observability forces both on. logs.driver: 'fluentd' (default),
@@ -407,8 +397,18 @@ flux:
     resources:
       - components:
           - "${lb_effective.driver == 'metallb' ? lb_effective.driver + '/' + (network.loadbalancer_mode ?? 'arp') : ''}"
+          - >-
+            ${lb_effective.driver == 'metallb' && gateway.enabled == true && gateway_effective.internal == true &&
+            gateway_effective.internal_mode == 'loadbalancer' && (gateway_effective.internal_ip ?? '') != '' ?
+            'metallb/' + (network.loadbalancer_mode ?? 'arp') + '/internal-gateway' : ''}
+          - >-
+            ${lb_effective.driver == 'metallb' && gateway.enabled == true && (dns.public_domain ?? '') != '' &&
+            gateway_effective.external_mode == 'loadbalancer' && (gateway_effective.external_ip ?? '') != '' ?
+            'metallb/' + (network.loadbalancer_mode ?? 'arp') + '/external-gateway' : ''}
         substitutions:
-          loadbalancer_ip_range: "${network.loadbalancer_ips.start + '-' + network.loadbalancer_ips.end}"
+          loadbalancer_ip_range: "${(network.loadbalancer_ips.start ?? '') != '' ? network.loadbalancer_ips.start + '-' + network.loadbalancer_ips.end : ''}"
+          gateway_internal_ip: "${gateway_effective.internal_ip ?? ''}"
+          gateway_external_ip: "${gateway_effective.external_ip ?? ''}"
         timeout: 5m
         interval: 5m
 

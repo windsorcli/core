@@ -21,8 +21,8 @@ packages:
   - name: go-task/task@v3.54.0
   - name: golang/go@go1.27.3
   - name: docker/cli@v27.4.1
-  - name: docker/compose@v5.6.0
-  - name: aws/aws-cli@2.38.2
+  - name: docker/compose@v5.6.1
+  - name: aws/aws-cli@2.38.3
   - name: helm/helm@v4.3.1
   - name: fluxcd/flux2@v2.9.6
   - name: hashicorp/vault@v2.2.0
@@ -31,7 +31,7 @@ packages:
   - name: 1password/cli@v2.30.3
   - name: evilmartians/lefthook@v2.2.2
   - name: mikefarah/yq@v4.54.1
-  - name: bridgecrewio/checkov@3.3.29
+  - name: bridgecrewio/checkov@3.3.30
   - name: kubernetes-sigs/krew@v0.5.0
   - name: Azure/kubelogin@v0.2.21
   - name: twistedpair/google-cloud-sdk@562.0.0

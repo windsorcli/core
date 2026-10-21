@@ -98,9 +98,10 @@ flux:
     resources:
       - components:
           - cilium/l2
+          - "${(network.loadbalancer_ips.start ?? '') != '' ? 'cilium/l2/pool' : ''}"
         substitutions:
-          loadbalancer_start_ip: ${network.loadbalancer_ips.start}
-          loadbalancer_end_ip: ${network.loadbalancer_ips.end}
+          loadbalancer_start_ip: "${network.loadbalancer_ips.start ?? ''}"
+          loadbalancer_end_ip: "${network.loadbalancer_ips.end ?? ''}"
         timeout: 5m
         interval: 5m
 

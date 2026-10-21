@@ -7,7 +7,7 @@ x-defaults:
     cidr_block: 10.5.0.0/16
     loadbalancer_mode: arp
     loadbalancer_ips:
-      start: "10.5.1.10"
+      start: "10.5.1.20"
       end: "10.5.1.100"
 
   cluster: &default-cluster
@@ -84,7 +84,6 @@ cases:
                 - database
                 - database/rds
               substitutions:
-                aws_region: us-west-2
                 demo_database_instance_type: db.t4g.micro
                 demo_database_name: demo
                 database_instance_name: demo-db
@@ -331,6 +330,8 @@ cases:
         resources:
           bookinfo: true
       gateway:
+        internal:
+          ip: "10.5.1.10"
         enabled: true
       dns:
         domain: demo.example.com
