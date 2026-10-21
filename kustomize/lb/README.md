@@ -100,14 +100,16 @@ flux:
     install:
       components: [metallb]
     resources:
-      - components: [metallb/arp]
+      - components: [metallb/arp, metallb/arp/internal-gateway]
         substitutions:
-          loadbalancer_ip_range: 10.5.1.10-10.5.1.30
+          loadbalancer_ip_range: 10.5.1.20-10.5.1.30
+          gateway_internal_ip: 10.5.1.10
 ```
 
-The speaker DaemonSet ARP- or BGP-advertises IPs from the configured
-pool on the cluster's L2 subnet. ARP advertisement is the default;
-the pool range comes from `network.loadbalancer_ips.{start,end}`.
+The speaker DaemonSet ARP-advertises IPs from the configured pools on
+the cluster's L2 subnet. The range comes from
+`network.loadbalancer_ips.{start,end}`, and each gateway gets its own
+pool holding `gateway.<name>.ip`.
 
 ### Talos (kube-vip)
 
@@ -134,8 +136,6 @@ flux:
     dependsOn: [policy-resources]
     install:
       components: [kube-vip, kube-vip/arp]
-      substitutions:
-        loadbalancer_ip_range: 10.5.1.10-10.5.1.30
 ```
 
 kube-vip's advertisement mode (`kube-vip/arp`) patches its own
@@ -152,6 +152,8 @@ driver.
 | `vpc_id` | `aws-lb-controller` is enabled | VPC ID the LBC operates against. Sourced from `terraform_output('network', 'vpc_id')`. |
 | `aws_region` | `aws-lb-controller` is enabled | AWS region for LBC API calls. Sourced from top-level `aws.region`. |
 | `loadbalancer_ip_range` | `metallb/*` or `kube-vip/cloud-provider` component is enabled | IP range the driver advertises (CIDR-style `start-end`). Read by MetalLB's `IPAddressPool` (in `resources`) and by the kube-vip cloud-provider HelmRelease directly (in `install`). Sourced from `network.loadbalancer_ips.start + '-' + network.loadbalancer_ips.end`. |
+| `gateway_internal_ip` | `metallb/arp/internal-gateway` is enabled | Address of the internal gateway's pool. Sourced from `gateway.internal.ip`. |
+| `gateway_external_ip` | `metallb/arp/external-gateway` is enabled | Address of the external gateway's pool. Sourced from `gateway.external.ip`. |
 
 ## Components — `lb-install`
 
@@ -186,6 +188,11 @@ Helm release of kube-vip in `system-lb`. Announces the addresses of LoadBalancer
 _Enabled when metallb driver AND `network.loadbalancer_mode == 'arp'` (default)._
 
 MetalLB `IPAddressPool` (range = `${loadbalancer_ip_range}`) plus an `L2Advertisement` selecting it. Use this for flat L2 networks where speakers can ARP-respond on the cluster subnet.
+
+| Variant | Enabled when | Effect |
+|---|---|---|
+| `internal-gateway` | metallb driver AND the internal gateway is a LoadBalancer with `gateway.internal.ip` | `IPAddressPool/gateway-internal` holding only that address, with `autoAssign: false`, plus an `L2Advertisement` selecting it. |
+| `external-gateway` | metallb driver AND the external gateway is a LoadBalancer with `gateway.external.ip` | `IPAddressPool/gateway-external`, the same for the external gateway. |
 
 ### `metallb-layer2`
 

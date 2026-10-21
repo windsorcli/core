@@ -1,0 +1,10 @@
+# Holds only the internal gateway's address, assigned on request.
+apiVersion: metallb.io/v1beta1
+kind: IPAddressPool
+metadata:
+  name: gateway-internal
+  namespace: system-lb
+spec:
+  addresses:
+  - ${gateway_internal_ip}/32
+  autoAssign: false

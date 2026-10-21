@@ -7,6 +7,6 @@ spec:
   values:
     service:
       annotations:
-        lbipam.cilium.io/ips: ${loadbalancer_start_ip}
+        lbipam.cilium.io/ips: ${dns_loadbalancer_ip}
         lbipam.cilium.io/sharing-key: internal
         lbipam.cilium.io/sharing-cross-namespace: "*"

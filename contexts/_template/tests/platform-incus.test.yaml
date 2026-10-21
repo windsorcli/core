@@ -9,7 +9,7 @@ x-defaults:
     cidr_block: 10.5.0.0/16
     loadbalancer_mode: arp
     loadbalancer_ips:
-      start: "10.5.1.10"
+      start: "10.5.1.20"
       end: "10.5.1.100"
 
   cluster: &default-cluster
@@ -119,7 +119,7 @@ cases:
             - components:
                 - cilium/l2
               substitutions:
-                loadbalancer_start_ip: "10.5.1.10"
+                loadbalancer_start_ip: "10.5.1.20"
                 loadbalancer_end_ip: "10.5.1.100"
         - name: csi
           dependsOn:
@@ -200,7 +200,7 @@ cases:
             - components:
                 - cilium/l2
               substitutions:
-                loadbalancer_start_ip: "10.5.1.10"
+                loadbalancer_start_ip: "10.5.1.20"
                 loadbalancer_end_ip: "10.5.1.100"
         - name: csi
           dependsOn:
@@ -223,6 +223,8 @@ cases:
         private:
           enabled: true
       gateway:
+        internal:
+          ip: "10.10.1.10"
         enabled: true
         driver: envoy
       network:
@@ -230,7 +232,7 @@ cases:
         loadbalancer_driver: metallb
         loadbalancer_mode: arp
         loadbalancer_ips:
-          start: "10.10.1.10"
+          start: "10.10.1.20"
           end: "10.10.1.100"
       cluster:
         driver: talos
@@ -301,7 +303,7 @@ cases:
             - components:
                 - metallb/arp
               substitutions:
-                loadbalancer_ip_range: 10.10.1.10-10.10.1.100
+                loadbalancer_ip_range: 10.10.1.20-10.10.1.100
               timeout: 5m
               interval: 5m
         - name: gateway
