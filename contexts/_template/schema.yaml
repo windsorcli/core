@@ -873,10 +873,10 @@ properties:
         properties:
           start:
             $ref: '#/$defs/ipv4'
-            description: Load balancer IP pool start (IPv4 dotted-quad; each octet 0-255). The internal gateway takes this address and the external gateway takes the next one when both exist. Leave a free address above it, since a start ending in .255 leaves the external gateway unassigned.
+            description: Start of the address range for LoadBalancer Services that do not pin an IP (IPv4 dotted-quad). The range MUST NOT include a gateway.<name>.ip.
           end:
             $ref: '#/$defs/ipv4'
-            description: Load balancer IP pool end (IPv4 dotted-quad; each octet 0-255).
+            description: End of the address range for LoadBalancer Services that do not pin an IP (IPv4 dotted-quad).
         additionalProperties: false
       loadbalancer_driver:
         type: string
@@ -1270,7 +1270,7 @@ properties:
             description: Kubernetes Service type for the external gateway. Defaults to gateway.service_type, else LoadBalancer, except NodePort on docker-desktop.
           ip:
             $ref: '#/$defs/ipv4'
-            description: Address of a LoadBalancer gateway. Not allowed with NodePort or on aws, azure, gcp, and hetzner.
+            description: Address of a LoadBalancer gateway, required on metal, vsphere, hyperv, incus, and proxmox. Not allowed with NodePort or on aws, azure, gcp, and hetzner.
           node_port:
             type: integer
             minimum: 30000
@@ -1289,7 +1289,7 @@ properties:
             description: Kubernetes Service type for the internal gateway. Defaults to gateway.service_type, else LoadBalancer, except NodePort on docker-desktop.
           ip:
             $ref: '#/$defs/ipv4'
-            description: Address of a LoadBalancer gateway. Not allowed with NodePort or on aws, azure, gcp, and hetzner.
+            description: Address of a LoadBalancer gateway, required on metal, vsphere, hyperv, incus, and proxmox. Not allowed with NodePort or on aws, azure, gcp, and hetzner.
           node_port:
             type: integer
             minimum: 30000

@@ -9,7 +9,7 @@ x-defaults:
     cidr_block: 10.5.0.0/16
     loadbalancer_mode: arp
     loadbalancer_ips:
-      start: "10.5.1.10"
+      start: "10.5.1.20"
       end: "10.5.1.100"
 
   cluster: &default-cluster
@@ -99,6 +99,8 @@ cases:
       dns:
         domain: example.local
       gateway:
+        internal:
+          ip: "10.5.1.10"
         enabled: true
         driver: envoy
       network: *default-network
@@ -153,6 +155,8 @@ cases:
       dns:
         domain: example.local
       gateway:
+        internal:
+          ip: "10.5.1.10"
         enabled: true
         driver: envoy
       network: *default-network

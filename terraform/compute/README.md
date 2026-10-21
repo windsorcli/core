@@ -120,9 +120,9 @@ proxmox:
   node: pve
 network:
   cidr_block: 192.168.10.0/24
-  loadbalancer_ips:
-    start: 192.168.10.100
-    end: 192.168.10.120
+gateway:
+  internal:
+    ip: 192.168.10.100
 cluster:
   driver: talos
   controlplanes:
@@ -192,9 +192,8 @@ When the Proxmox image download fails with a content type error, the
 image datastore doesn't allow `import`. Enable it with `pvesm set
 <datastore> --content iso,vztmpl,backup,import`.
 
-On a `/24` `network.cidr_block`, set `network.loadbalancer_ips`
-explicitly. The default pool sits at host offsets 266 to 356, outside
-a `/24`, and composition fails.
+A LoadBalancer gateway needs an address on the bridge in
+`gateway.<name>.ip`, outside the DHCP scope and the node addresses.
 
 If you intend to use Longhorn, the default `root_disk_size` is too
 small. Longhorn needs a dedicated disk via `cluster.workers.disks`;

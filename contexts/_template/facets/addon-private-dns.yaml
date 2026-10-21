@@ -61,7 +61,7 @@ flux:
       substitutions:
         private_domain: ${dns.private_domain}
         public_domain: "${dns.public_domain ?? ''}"
-        loadbalancer_start_ip: ${network.loadbalancer_ips.start}
+        dns_loadbalancer_ip: "${gateway_effective.internal_ip ?? ''}"
       timeout: 20m
       interval: 5m
     # One external-dns instance per zone, writing to the coredns etcd backend.

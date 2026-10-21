@@ -10,7 +10,7 @@ x-defaults:
     cidr_block: 10.5.0.0/16
     loadbalancer_mode: arp
     loadbalancer_ips:
-      start: "10.5.1.10"
+      start: "10.5.1.20"
       end: "10.5.1.100"
 
   cluster: &default-cluster
@@ -127,7 +127,7 @@ cases:
             - components:
                 - cilium/l2
               substitutions:
-                loadbalancer_start_ip: "10.5.1.10"
+                loadbalancer_start_ip: "10.5.1.20"
                 loadbalancer_end_ip: "10.5.1.100"
         - name: csi
           dependsOn:
@@ -338,7 +338,7 @@ cases:
               - kube-vip/arp
               - kube-vip/cloud-provider
             substitutions:
-              loadbalancer_ip_range: 10.5.1.10-10.5.1.100
+              loadbalancer_ip_range: 10.5.1.20-10.5.1.100
 
   - name: cilium with the none load balancer driver skips the l2 pool
     values:

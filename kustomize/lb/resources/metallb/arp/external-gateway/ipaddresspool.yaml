@@ -1,0 +1,10 @@
+# Holds only the external gateway's address, assigned on request.
+apiVersion: metallb.io/v1beta1
+kind: IPAddressPool
+metadata:
+  name: gateway-external
+  namespace: system-lb
+spec:
+  addresses:
+  - ${gateway_external_ip}/32
+  autoAssign: false
