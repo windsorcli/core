@@ -56,7 +56,7 @@ flux:
         operator_replicas: "2"
       timeout: 15m
     resources:
-      - components: [cilium/l2]
+      - components: [cilium/l2, cilium/l2/pool]
         substitutions:
           loadbalancer_start_ip: 10.5.1.10
           loadbalancer_end_ip: 10.5.1.30
@@ -128,8 +128,8 @@ cert-manager is not required for Hubble.
 | `k8s_service_port` | optional | API server port for `k8s_service_host`. `7445` (KubePrism) on Talos; defaults to `6443`. |
 | `cluster_name` | always | Cilium cluster identity stamped onto Hubble flows, metrics, and (if enabled) ClusterMesh routing. Sourced from the Windsor context name (top-level `id` in `values.yaml`). |
 | `operator_replicas` | always | 1 on single-node clusters (avoids pending pods + Lease churn), 2 otherwise. Set from `topology`. |
-| `loadbalancer_start_ip` | `cilium/l2` is enabled (Talos), resources tier | Start of the LBIPAM IP pool. Stamped onto `CiliumLoadBalancerIPPool/default`. |
-| `loadbalancer_end_ip` | `cilium/l2` is enabled (Talos), resources tier | End of the LBIPAM IP pool. |
+| `loadbalancer_start_ip` | `cilium/l2/pool` is enabled | Start of the LBIPAM IP pool. Stamped onto `CiliumLoadBalancerIPPool/default`. |
+| `loadbalancer_end_ip` | `cilium/l2/pool` is enabled | End of the LBIPAM IP pool. |
 
 ## Components
 
@@ -167,7 +167,11 @@ Hubble metrics (dns, drop, port-distribution, tcp, flow, icmp, http), Hubble Rel
 
 _Enabled when platform is Talos._
 
-Present in both tiers under the same name. The install tier enables `l2announcements` on the HelmRelease. The resources tier (`cni-resources`) creates `CiliumLoadBalancerIPPool/default` with the configured IP range and `CiliumL2AnnouncementPolicy/default` announcing on all interfaces, after the chart has installed their CRDs. Replaces kube-vip and MetalLB on Talos.
+Present in both tiers under the same name. The install tier enables `l2announcements` on the HelmRelease. The resources tier (`cni-resources`) creates `CiliumL2AnnouncementPolicy/default` announcing on all interfaces, after the chart has installed its CRD. Replaces kube-vip and MetalLB on Talos.
+
+| Variant | Enabled when | Effect |
+|---|---|---|
+| `pool` | `network.loadbalancer_ips` is set | `CiliumLoadBalancerIPPool/default` with the configured range, for Services that do not pin an IP. Each gateway's address lives in its own pool from the gateway add-on. |
 
 ## Dependencies
 

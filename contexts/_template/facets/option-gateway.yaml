@@ -24,6 +24,25 @@ requires:
     paths:
       - gateway_effective.unsupported
     message: The cloud load balancer assigns the gateway address; remove gateway.<name>.ip.
+  - when: >-
+      gateway.enabled == true && platform in ['metal', 'vsphere', 'hyperv', 'incus', 'proxmox'] &&
+      (((dns.public_domain ?? '') != '' && gateway_exposure.external == 'LoadBalancer' && (gateway.external.ip ?? '') == '') ||
+      (gateway_effective.internal == true && gateway_exposure.internal == 'LoadBalancer' && (gateway.internal.ip ?? '') == ''))
+    paths:
+      - gateway_effective.unsupported
+    message: On metal, vsphere, hyperv, incus, and proxmox, a LoadBalancer gateway needs gateway.<name>.ip.
+  - when: >-
+      gateway.enabled == true &&
+      (network.loadbalancer_ips.start ?? '') != '' && (network.loadbalancer_ips.end ?? '') != '' &&
+      ((gateway.internal.ip ?? '') != '' || (gateway.external.ip ?? '') != '') &&
+      (let start = reduce(split(network.loadbalancer_ips.start, '.'), #acc * 256 + int(#), 0);
+      let end = reduce(split(network.loadbalancer_ips.end, '.'), #acc * 256 + int(#), 0);
+      let internal = (gateway.internal.ip ?? '') != '' ? reduce(split(gateway.internal.ip, '.'), #acc * 256 + int(#), 0) : -1;
+      let external = (gateway.external.ip ?? '') != '' ? reduce(split(gateway.external.ip, '.'), #acc * 256 + int(#), 0) : -1;
+      (internal >= start && internal <= end) || (external >= start && external <= end))
+    paths:
+      - gateway_effective.unsupported
+    message: gateway.<name>.ip MUST sit outside network.loadbalancer_ips.
   - when: (gateway.external.ip ?? '') != '' && gateway.external.ip == (gateway.internal.ip ?? '')
     paths:
       - gateway_effective.unsupported
@@ -50,28 +69,17 @@ config:
         platform in ['aws', 'azure', 'gcp', 'hetzner'] ?
         'public-acme' : 'public-selfsigned'}
 
-  # Gateway addresses: gateway.<name>.ip, else the pool start, with the external gateway on the next pool address.
   - name: gateway_effective
     value:
       cert_issuer: "${cert_effective.public_issuer}"
       # Cilium assigns the pool addresses when it is the LB driver and no cloud LB controller does.
       cilium_lb: "${lb_effective.driver == 'cilium' && lb_effective.controller_required != true}"
-      internal_ip: "${gateway.internal.ip ?? network.loadbalancer_ips.start ?? ''}"
-      external_ip: "${gateway.external.ip ?? network.loadbalancer_ips.start ?? ''}"
+      internal_ip: "${gateway.internal.ip ?? ''}"
+      external_ip: "${gateway.external.ip ?? ''}"
       internal_mode: "${gateway_exposure.internal == 'NodePort' ? 'nodeport' : 'loadbalancer'}"
       external_mode: "${gateway_exposure.external == 'NodePort' ? 'nodeport' : 'loadbalancer'}"
       # Hetzner is public only and gets no internal gateway.
       internal: "${(dns.private_domain ?? '') != '' && platform != 'hetzner'}"
-  - name: gateway_effective
-    when: >-
-      (gateway.external.ip ?? '') == '' &&
-      (dns.public_domain ?? '') != '' && (dns.private_domain ?? '') != '' &&
-      (network.loadbalancer_ips.start ?? '') != ''
-    value:
-      external_ip: >-
-        ${let octets = split(network.loadbalancer_ips.start, '.');
-        int(octets[3]) < 255 ?
-        join(octets[0:3], '.') + '.' + string(int(octets[3]) + 1) : ''}
 
 # =============================================================================
 # CRDs — vendored, applied ahead of the controller
@@ -129,6 +137,9 @@ flux:
             gateway_effective.cilium_lb == true && (gateway_effective.external_ip ?? '') != '' ?
             'envoy/loadbalancer/cilium-ip' : ''}
           - >-
+            ${gateway_effective.cilium_lb == true && gateway_effective.external_mode == 'loadbalancer' &&
+            (gateway_effective.external_ip ?? '') != '' ? 'cilium-pool' : ''}
+          - >-
             ${gateway.driver == 'envoy' && gateway_effective.external_mode == 'nodeport' &&
             workstation.runtime == 'docker-desktop' ? 'envoy/nodeport/docker-desktop' : ''}
           # Points the Gateway at its EnvoyProxy (envoy-only data-plane Service config).
@@ -178,6 +189,9 @@ flux:
             ${gateway.driver == 'envoy' && gateway_effective.internal_mode == 'loadbalancer' &&
             gateway_effective.cilium_lb == true && (gateway_effective.internal_ip ?? '') != '' ?
             'envoy/loadbalancer/cilium-ip' : ''}
+          - >-
+            ${gateway_effective.cilium_lb == true && gateway_effective.internal_mode == 'loadbalancer' &&
+            (gateway_effective.internal_ip ?? '') != '' ? 'cilium-pool' : ''}
           - >-
             ${gateway.driver == 'envoy' && gateway_effective.internal_mode == 'nodeport' &&
             (dns.private.enabled ?? (dev == true)) == true ? 'envoy/nodeport/dns' : ''}

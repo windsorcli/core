@@ -7,7 +7,7 @@ x-defaults:
     cidr_block: 10.5.0.0/16
     loadbalancer_mode: arp
     loadbalancer_ips:
-      start: "10.5.1.10"
+      start: "10.5.1.20"
       end: "10.5.1.100"
 
   cluster: &default-cluster
@@ -107,6 +107,9 @@ cases:
   # Zero config on metal: the cilium gateway, with dns.private_domain standing in for the dev default.
   - name: zero config on metal defaults to cilium gateway
     values:
+      gateway:
+        internal:
+          ip: "10.5.1.10"
       platform: metal
       dns:
         private_domain: test
@@ -239,6 +242,8 @@ cases:
       dns:
         private_domain: test
       gateway:
+        internal:
+          ip: "10.5.1.10"
         enabled: true
         driver: envoy
       network: *default-network
@@ -394,6 +399,9 @@ cases:
   # Backward compatibility: ingress alias still works
   - name: legacy ingress alias maps envoy-gateway to envoy
     values:
+      gateway:
+        internal:
+          ip: "10.5.1.10"
       platform: metal
       dns:
         private_domain: test
@@ -417,6 +425,9 @@ cases:
 
   - name: legacy ingress alias maps nginx to envoy
     values:
+      gateway:
+        internal:
+          ip: "10.5.1.10"
       platform: metal
       dns:
         private_domain: test
@@ -484,6 +495,8 @@ cases:
       dns:
         private_domain: test
       gateway:
+        internal:
+          ip: "10.5.1.10"
         enabled: true
         driver: envoy
       network: *default-network
@@ -505,6 +518,8 @@ cases:
       platform: metal
       dev: true
       gateway:
+        internal:
+          ip: "10.5.1.10"
         enabled: true
         driver: envoy
       network: *default-network
@@ -522,6 +537,8 @@ cases:
       dns:
         private_domain: test
       gateway:
+        internal:
+          ip: "10.5.1.10"
         enabled: true
         driver: cilium
       network: *default-network
@@ -540,6 +557,8 @@ cases:
       dns:
         private_domain: test
       gateway:
+        internal:
+          ip: "10.5.1.10"
         enabled: true
         driver: cilium
       network: *default-network
@@ -566,6 +585,8 @@ cases:
       dns:
         private_domain: test
       gateway:
+        internal:
+          ip: "10.5.1.10"
         enabled: true
         driver: envoy
       gitops:
@@ -596,6 +617,8 @@ cases:
       dns:
         private_domain: test
       gateway:
+        internal:
+          ip: "10.5.1.10"
         enabled: true
         driver: cilium
       gitops:
@@ -620,6 +643,8 @@ cases:
       dns:
         private_domain: test
       gateway:
+        internal:
+          ip: "10.5.1.10"
         enabled: true
         driver: envoy
       network: *default-network
@@ -640,6 +665,10 @@ cases:
       dns:
         public_domain: test
       gateway:
+        internal:
+          ip: "10.5.1.10"
+        external:
+          ip: "10.5.1.11"
         enabled: true
         driver: envoy
       network: *default-network
@@ -656,7 +685,7 @@ cases:
                 - lb-address
               substitutions:
                 gateway_class_name: envoy
-                gateway_loadbalancer_ip: "10.5.1.10"
+                gateway_loadbalancer_ip: "10.5.1.11"
 
   # AWS uses a cloud-managed LB (lb_effective.enabled == false) and is not cilium,
   # so gateway_loadbalancer_ip and gateway_dns_target both evaluate to "" and are
@@ -687,6 +716,8 @@ cases:
     values:
       platform: metal
       gateway:
+        internal:
+          ip: "10.5.1.10"
         enabled: true
         driver: envoy
       dns:
@@ -784,6 +815,10 @@ cases:
         domain: example.com
         public_domain: example.com
       gateway:
+        internal:
+          ip: "10.5.1.10"
+        external:
+          ip: "10.5.1.11"
         enabled: true
         driver: envoy
       network: *default-network
@@ -801,6 +836,8 @@ cases:
       dns:
         domain: example.com
       gateway:
+        internal:
+          ip: "10.5.1.10"
         enabled: true
         driver: envoy
       network: *default-network
@@ -821,6 +858,11 @@ cases:
   # Both domains: the internal gateway takes the pool start, the external one the next address.
   - name: both gateways split the load balancer pool start and the next address
     values:
+      gateway:
+        internal:
+          ip: "10.5.1.10"
+        external:
+          ip: "10.5.1.11"
       platform: metal
       dns:
         public_domain: example.com
@@ -838,38 +880,14 @@ cases:
               substitutions:
                 gateway_loadbalancer_ip: "10.5.1.10"
 
-  # A pool start ending in .255 leaves the external address to the load balancer.
-  - name: pool start ending in 255 leaves the external gateway address unpinned
-    values:
-      platform: metal
-      dns:
-        public_domain: example.com
-        private_domain: example.internal
-      network:
-        cidr_block: 10.5.0.0/16
-        loadbalancer_mode: arp
-        loadbalancer_ips:
-          start: "10.5.1.255"
-          end: "10.5.2.100"
-      cluster: *default-cluster
-    expect:
-      flux:
-        - name: gateway
-          resources:
-            - name: internal
-              substitutions:
-                gateway_loadbalancer_ip: "10.5.1.255"
-    exclude:
-      flux:
-        - name: gateway
-          resources:
-            - name: external
-              components:
-                - cilium/fixed-ip
-
   # A public domain on a platform without cloud DNS keeps the selfsigned public issuer.
   - name: public domain on metal uses the selfsigned public issuer
     values:
+      gateway:
+        internal:
+          ip: "10.5.1.10"
+        external:
+          ip: "10.5.1.11"
       platform: metal
       dns:
         public_domain: example.com
@@ -893,6 +911,10 @@ cases:
     values:
       platform: metal
       gateway:
+        internal:
+          ip: "10.5.1.10"
+        external:
+          ip: "10.5.1.11"
         driver: envoy
       dns:
         public_domain: example.com
@@ -921,7 +943,7 @@ cases:
         driver: envoy
         external:
           service_type: LoadBalancer
-          ip: 10.5.1.50
+          ip: 10.5.1.200
         internal:
           service_type: NodePort
           node_port: 30500
@@ -943,8 +965,8 @@ cases:
                 - envoy/loadbalancer/kube-vip-ip
                 - lb-address
               substitutions:
-                gateway_loadbalancer_ip: 10.5.1.50
-                gateway_dns_target: 10.5.1.50
+                gateway_loadbalancer_ip: 10.5.1.200
+                gateway_dns_target: 10.5.1.200
             - name: internal
               components:
                 - envoy/nodeport
@@ -1073,42 +1095,130 @@ cases:
           driver: flannel
     expectError: true
 
-  # With a pool-based load balancer and a pool start ending in .255, the external
-  # gateway gets neither a pinned address nor an lb-address patch.
-  - name: pool start ending in 255 skips the external address patches on a pool-based load balancer
+  - name: on-prem LoadBalancer gateway without ip fails composition
     values:
       platform: metal
-      gateway:
-        driver: envoy
       dns:
-        public_domain: example.com
         private_domain: example.internal
       network:
         cidr_block: 10.5.0.0/16
-        loadbalancer_driver: kube-vip
-        loadbalancer_mode: arp
-        loadbalancer_ips:
-          start: "10.5.1.255"
-          end: "10.5.2.100"
-      cluster:
-        <<: *default-cluster
-        cni:
-          driver: flannel
+      cluster: *default-cluster
+    expectError: true
+
+  - name: cilium gateway pins its ip through its own pool without a range
+    values:
+      platform: metal
+      dns:
+        private_domain: example.internal
+      gateway:
+        internal:
+          ip: "10.5.1.10"
+      network:
+        cidr_block: 10.5.0.0/16
+      cluster: *default-cluster
     expect:
       flux:
         - name: gateway
           resources:
             - name: internal
               components:
-                - envoy/loadbalancer/kube-vip-ip
-                - lb-address
+                - cilium/fixed-ip
+                - cilium-pool
               substitutions:
-                gateway_loadbalancer_ip: "10.5.1.255"
+                gateway_loadbalancer_ip: "10.5.1.10"
+        - name: cni
+          resources:
+            - components:
+                - cilium/l2
     exclude:
+      flux:
+        - name: cni
+          resources:
+            - components:
+                - cilium/l2/pool
+
+  - name: metallb gets a pool per gateway ip
+    values:
+      platform: metal
+      dns:
+        public_domain: example.com
+        private_domain: example.internal
+      gateway:
+        driver: envoy
+        internal:
+          ip: "10.5.1.10"
+        external:
+          ip: "10.5.1.11"
+      network:
+        cidr_block: 10.5.0.0/16
+        loadbalancer_driver: metallb
+        loadbalancer_ips:
+          start: "10.5.1.20"
+          end: "10.5.1.100"
+      cluster:
+        <<: *default-cluster
+        cni:
+          driver: flannel
+    expect:
+      flux:
+        - name: lb
+          resources:
+            - components:
+                - metallb/arp
+                - metallb/arp/internal-gateway
+                - metallb/arp/external-gateway
+              substitutions:
+                loadbalancer_ip_range: 10.5.1.20-10.5.1.100
+                gateway_internal_ip: "10.5.1.10"
+                gateway_external_ip: "10.5.1.11"
+
+  - name: gateway ip inside the loadbalancer range fails composition
+    values:
+      platform: metal
+      dns:
+        private_domain: example.internal
+      gateway:
+        internal:
+          ip: "10.5.1.50"
+      network: *default-network
+      cluster: *default-cluster
+    expectError: true
+
+  - name: gateway ip on the range end fails composition
+    values:
+      platform: metal
+      dns:
+        public_domain: example.com
+        private_domain: example.internal
+      gateway:
+        internal:
+          ip: "10.5.1.10"
+        external:
+          ip: "10.5.1.100"
+      network: *default-network
+      cluster: *default-cluster
+    expectError: true
+
+  - name: gateway ips just outside the loadbalancer range compose
+    values:
+      platform: metal
+      dns:
+        public_domain: example.com
+        private_domain: example.internal
+      gateway:
+        internal:
+          ip: "10.5.1.19"
+        external:
+          ip: "10.5.1.101"
+      network: *default-network
+      cluster: *default-cluster
+    expect:
       flux:
         - name: gateway
           resources:
+            - name: internal
+              substitutions:
+                gateway_loadbalancer_ip: "10.5.1.19"
             - name: external
-              components:
-                - envoy/loadbalancer/kube-vip-ip
-                - lb-address
+              substitutions:
+                gateway_loadbalancer_ip: "10.5.1.101"

@@ -7,7 +7,7 @@ x-defaults:
     cidr_block: 10.5.0.0/16
     loadbalancer_mode: arp
     loadbalancer_ips:
-      start: "10.5.1.10"
+      start: "10.5.1.20"
       end: "10.5.1.100"
 
   cluster: &default-cluster
@@ -28,6 +28,9 @@ cases:
   # Metal defaults to Cilium CNI → gateway driver is cilium → dns depends on cni for LBIPAM.
   - name: minimal config creates CoreDNS with defaults via dev mode
     values:
+      gateway:
+        internal:
+          ip: "10.5.1.10"
       platform: metal
       dev: true
       network: *default-network
@@ -138,6 +141,8 @@ cases:
         private:
           enabled: true
       gateway:
+        internal:
+          ip: "10.5.1.10"
         enabled: true
         driver: cilium
       network: *default-network
@@ -172,6 +177,8 @@ cases:
         private:
           enabled: true
       gateway:
+        internal:
+          ip: "10.5.1.10"
         enabled: true
         driver: envoy
       network: *default-network
@@ -245,6 +252,11 @@ cases:
   # A public domain adds the public zone to the in-cluster DNS.
   - name: public domain adds the public zone to the private DNS add-on
     values:
+      gateway:
+        internal:
+          ip: "10.5.1.10"
+        external:
+          ip: "10.5.1.11"
       platform: metal
       dev: true
       dns:

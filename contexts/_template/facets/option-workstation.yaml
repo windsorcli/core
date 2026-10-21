@@ -19,6 +19,32 @@ config:
       runtime: "${workstation.runtime ?? ''}"
       arch: "${workstation.arch ?? 'amd64'}"
 
+  # Gateway addresses and LB pool on the workstation network, which Windsor creates.
+  - name: gateway
+    when: >-
+      workstation.runtime != 'docker-desktop' && (gateway.internal.ip ?? '') == '' &&
+      (gateway.internal.service_type ?? gateway.service_type ?? 'LoadBalancer') == 'LoadBalancer'
+    value:
+      internal:
+        ip: "${cidrhost(network.cidr_block ?? '10.5.0.0/16', 266)}"
+  - name: gateway
+    when: >-
+      workstation.runtime != 'docker-desktop' && (gateway.external.ip ?? '') == '' &&
+      (gateway.external.service_type ?? gateway.service_type ?? 'LoadBalancer') == 'LoadBalancer'
+    value:
+      external:
+        ip: "${cidrhost(network.cidr_block ?? '10.5.0.0/16', 267)}"
+  - name: network
+    when: (network.loadbalancer_ips.start ?? '') == ''
+    value:
+      loadbalancer_ips:
+        start: "${cidrhost(network.cidr_block ?? '10.5.0.0/16', 268)}"
+  - name: network
+    when: (network.loadbalancer_ips.end ?? '') == ''
+    value:
+      loadbalancer_ips:
+        end: "${cidrhost(network.cidr_block ?? '10.5.0.0/16', 356)}"
+
   # Talos image references; only used when the workstation stack runs.
   - name: talos
     value:
@@ -188,12 +214,12 @@ terraform:
       public_domain_name: ${dns.public_domain ?? ''}
       network_name: windsor-${context}
       network_cidr: ${network.cidr_block}
-      dns_forward_target: ${network.loadbalancer_ips.start}
-      webhook_host: ${network.loadbalancer_ips.start}
+      dns_forward_target: "${gateway.internal.ip ?? ''}"
+      webhook_host: "${gateway.internal.ip ?? ''}"
       webhook_port: "${gateway.enabled == true ? 80 : 9292}"
       webhook_enabled: "${(workstation.git.livereload ?? false) && ((gitops.mode ?? 'push') == 'push')}"
       webhook_token: "${(workstation.git.livereload ?? false) ? (gitops.webhook.token ?? 'abcdef123456') : ''}"
-      primary_node_ip: ${network.loadbalancer_ips.start}
+      primary_node_ip: "${gateway.internal.ip ?? ''}"
       enable_dns: ${workstation.services.dns ?? true}
       enable_git: ${workstation.services.git ?? true}
       registries: ${workstation_registries.registries ?? {}}
@@ -210,12 +236,12 @@ terraform:
       network_name: "${(workstation.runtime ?? '') == 'colima' ? 'incusbr0' : ''}"
       create_network: "${(workstation.runtime ?? '') != 'colima'}"
       network_cidr: ${network.cidr_block}
-      loadbalancer_start_ip: ${network.loadbalancer_ips.start}
-      dns_forward_target: ${network.loadbalancer_ips.start}
-      webhook_host: ${network.loadbalancer_ips.start}
+      loadbalancer_start_ip: "${gateway.internal.ip ?? ''}"
+      dns_forward_target: "${gateway.internal.ip ?? ''}"
+      webhook_host: "${gateway.internal.ip ?? ''}"
       webhook_port: 9292
       webhook_enabled: "${(workstation.git.livereload ?? false) && ((gitops.mode ?? 'push') == 'push')}"
-      primary_node_ip: ${network.loadbalancer_ips.start}
+      primary_node_ip: "${gateway.internal.ip ?? ''}"
       enable_dns: ${workstation.services.dns ?? true}
       enable_git: ${workstation.services.git ?? true}
       registries: ${workstation_registries.registries ?? {}}
