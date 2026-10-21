@@ -18,7 +18,7 @@ spec:
   chart:
     spec:
       chart: openebs
-      # renovate: datasource=helm depName=openebs package=openebs helmRepo=https://openebs.github.io/openebs
+      # renovate: datasource=docker depName=ghcr.io/openebs/charts/openebs package=ghcr.io/openebs/charts/openebs
       version: 4.6.2
       sourceRef:
         kind: HelmRepository
