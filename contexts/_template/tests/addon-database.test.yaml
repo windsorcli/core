@@ -227,6 +227,8 @@ cases:
                 - provisioning-resources
               components:
                 - crossplane/postgres/aws-rds
+              substitutions:
+                aws_region: us-west-2
 
   # telemetry.metrics.enabled gates the monitor Role and the exporter it feeds,
   # both from the same WatchOperation.
