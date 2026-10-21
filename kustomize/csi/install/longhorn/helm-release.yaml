@@ -24,7 +24,8 @@ spec:
       version: 1.13.0
       sourceRef:
         kind: HelmRepository
-        name: longhorn
+        name: ${helm_mirror_name:=longhorn}
+        namespace: ${helm_mirror_namespace:=system-csi}
   values:
     image:
       longhorn:

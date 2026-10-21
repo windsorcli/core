@@ -1,6 +1,8 @@
 apiVersion: source.toolkit.fluxcd.io/v1
 kind: HelmRepository
 metadata:
+  annotations:
+    kustomize.toolkit.fluxcd.io/ssa: ${helm_repository_ssa:=Override}
   name: elastic-filebeat
   namespace: system-telemetry
 spec:

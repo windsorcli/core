@@ -304,6 +304,12 @@ substitutions:
   # FQDN suffix for externally-reachable resources on cloud platforms.
   public_domain: ${dns.public_domain}
 
+  # HelmRelease source override and upstream HelmRepository skip, set when gitops.helm_repository_mirror is set.
+  helm_repository_mirror: "${gitops.helm_repository_mirror ?? ''}"
+  helm_mirror_name: "${(gitops.helm_repository_mirror ?? '') == '' ? '' : 'helm-mirror'}"
+  helm_mirror_namespace: "${(gitops.helm_repository_mirror ?? '') == '' ? '' : 'system-gitops'}"
+  helm_repository_ssa: "${(gitops.helm_repository_mirror ?? '') == '' ? 'Override' : 'Ignore'}"
+
 # =============================================================================
 # CRDs — vendored, applied ahead of the controller
 # =============================================================================
@@ -567,6 +573,16 @@ flux:
           - "${gateway.driver == 'cilium' ? 'ui/cilium' : ''}"
         substitutions:
           private_domain: ${dns.private_domain}
+        timeout: 5m
+        interval: 5m
+
+  # Single OCI HelmRepository every HelmRelease sources from when a mirror is set.
+  - name: helm-mirror
+    path: gitops
+    when: (gitops.helm_repository_mirror ?? '') != ''
+    resources:
+      - components:
+          - helm-mirror
         timeout: 5m
         interval: 5m
 

@@ -19,7 +19,8 @@ spec:
       version: 0.11.2
       sourceRef:
         kind: HelmRepository
-        name: kube-vip
+        name: ${helm_mirror_name:=kube-vip}
+        namespace: ${helm_mirror_namespace:=system-lb}
   values:
     priorityClassName: windsorcli-platform-critical
     # DaemonSet: only the taint toleration applies. The chart's own

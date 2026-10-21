@@ -22,7 +22,8 @@ spec:
       version: 1.21.2
       sourceRef: 
         kind: HelmRepository
-        name: jetstack
+        name: ${helm_mirror_name:=jetstack}
+        namespace: ${helm_mirror_namespace:=system-pki}
   values:
     global:
       priorityClassName: windsorcli-platform-critical

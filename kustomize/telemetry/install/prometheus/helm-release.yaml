@@ -21,7 +21,8 @@ spec:
       version: 88.6.5
       sourceRef:
         kind: HelmRepository
-        name: prometheus-community
+        name: ${helm_mirror_name:=prometheus-community}
+        namespace: ${helm_mirror_namespace:=system-telemetry}
   values:
     crds:
       enabled: false

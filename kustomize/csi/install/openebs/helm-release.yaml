@@ -22,7 +22,8 @@ spec:
       version: 4.6.2
       sourceRef:
         kind: HelmRepository
-        name: openebs
+        name: ${helm_mirror_name:=openebs}
+        namespace: ${helm_mirror_namespace:=system-csi}
   values:
     localpv-provisioner:
       enabled: false

@@ -20,7 +20,8 @@ spec:
       version: 4.3.0
       sourceRef:
         kind: HelmRepository
-        name: fluent
+        name: ${helm_mirror_name:=fluent}
+        namespace: ${helm_mirror_namespace:=system-telemetry}
   values:
     operator:
       image:

@@ -30,7 +30,8 @@ spec:
       version: 1.20.3
       sourceRef:
         kind: HelmRepository
-        name: cilium
+        name: ${helm_mirror_name:=cilium}
+        namespace: ${helm_mirror_namespace:=system-cni}
   values:
     # Cluster identity surfaces in Hubble flows, metrics, and (if enabled later) ClusterMesh
     # routing. Sourced from the Windsor context name — generic, not Cilium-specific.

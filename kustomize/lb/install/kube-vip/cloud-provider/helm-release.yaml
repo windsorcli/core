@@ -14,7 +14,8 @@ spec:
       version: 0.2.10
       sourceRef:
         kind: HelmRepository
-        name: kube-vip
+        name: ${helm_mirror_name:=kube-vip}
+        namespace: ${helm_mirror_namespace:=system-lb}
   values:
     image:
       repository: kubevip/kube-vip-cloud-provider
