@@ -275,8 +275,6 @@ cases:
                     auto-compaction-retention: "1000"
                     max-snapshots: "3"
                     max-wals: "3"
-                extraManifests:
-                - https://raw.githubusercontent.com/alex1989hu/kubelet-serving-cert-approver/v0.8.7/deploy/standalone-install.yaml
                 network:
                   cni:
                     name: none

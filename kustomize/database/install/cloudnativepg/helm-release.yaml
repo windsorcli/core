@@ -18,7 +18,7 @@ spec:
   chart:
     spec:
       chart: cloudnative-pg
-      # renovate: datasource=helm depName=cloudnative-pg package=cloudnative-pg helmRepo=https://cloudnative-pg.github.io/charts
+      # renovate: datasource=docker depName=ghcr.io/cloudnative-pg/charts/cloudnative-pg package=ghcr.io/cloudnative-pg/charts/cloudnative-pg
       version: "0.29.1"
       sourceRef:
         kind: HelmRepository

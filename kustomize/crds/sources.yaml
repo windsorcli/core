@@ -49,10 +49,10 @@ vendors:
       mode: crds
 
   - name: fluent-operator
-    # renovate: datasource=helm depName=fluent-operator package=fluent-operator helmRepo=https://fluent.github.io/helm-charts
+    # renovate: datasource=docker depName=ghcr.io/fluent/helm-charts/fluent-operator package=ghcr.io/fluent/helm-charts/fluent-operator
     version: 4.3.0
     helm:
-      repo: https://fluent.github.io/helm-charts
+      repo: oci://ghcr.io/fluent/helm-charts
       chart: fluent-operator
       mode: template
       set:
@@ -78,3 +78,15 @@ manifests:
     version: 26.8.0
     url: https://raw.githubusercontent.com/keycloak/keycloak-k8s-resources/${version}/kubernetes/kubernetes.yml
     dest: kustomize/identity/install/keycloak-operator/operator.yaml
+
+  - name: kubelet-csr-approver
+    # renovate: datasource=helm depName=kubelet-csr-approver package=kubelet-csr-approver helmRepo=https://postfinance.github.io/kubelet-csr-approver
+    version: 1.2.15
+    helm:
+      repo: https://postfinance.github.io/kubelet-csr-approver
+      chart: kubelet-csr-approver
+      namespace: kube-system
+      set:
+        - providerRegex=^.+$
+        - bypassDnsResolution=true
+    dest: terraform/cluster/talos/manifests/kubelet-csr-approver.yaml

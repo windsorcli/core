@@ -53,8 +53,6 @@ cases:
             common_config_patches: |-
               cluster:
                 allowSchedulingOnControlPlanes: false
-                extraManifests:
-                - https://raw.githubusercontent.com/alex1989hu/kubelet-serving-cert-approver/v0.8.7/deploy/standalone-install.yaml
               machine:
                 kubelet:
                   extraArgs:
@@ -86,8 +84,6 @@ cases:
                     oidc-groups-claim: groups
                     oidc-issuer-url: https://keycloak.example.com/realms/windsor
                     oidc-username-claim: sub
-                extraManifests:
-                - https://raw.githubusercontent.com/alex1989hu/kubelet-serving-cert-approver/v0.8.7/deploy/standalone-install.yaml
               machine:
                 kubelet:
                   extraArgs:
@@ -124,8 +120,6 @@ cases:
                     oidc-groups-claim: groups
                     oidc-issuer-url: https://keycloak.example.local/realms/platform
                     oidc-username-claim: sub
-                extraManifests:
-                - https://raw.githubusercontent.com/alex1989hu/kubelet-serving-cert-approver/v0.8.7/deploy/standalone-install.yaml
               machine:
                 kubelet:
                   extraArgs:
@@ -182,8 +176,6 @@ cases:
                     oidc-groups-claim: groups
                     oidc-issuer-url: https://sso.corp/realms/other
                     oidc-username-claim: sub
-                extraManifests:
-                - https://raw.githubusercontent.com/alex1989hu/kubelet-serving-cert-approver/v0.8.7/deploy/standalone-install.yaml
               machine:
                 kubelet:
                   extraArgs:
@@ -228,8 +220,6 @@ cases:
                   - hostPath: /var/kubernetes/oidc-ca.crt
                     mountPath: /etc/kubernetes/oidc-ca.crt
                     readonly: true
-                extraManifests:
-                - https://raw.githubusercontent.com/alex1989hu/kubelet-serving-cert-approver/v0.8.7/deploy/standalone-install.yaml
               machine:
                 kubelet:
                   extraArgs:
@@ -270,8 +260,6 @@ cases:
                     requests:
                       cpu: 100m
                       memory: 128Mi
-                extraManifests:
-                - https://raw.githubusercontent.com/alex1989hu/kubelet-serving-cert-approver/v0.8.7/deploy/standalone-install.yaml
                 scheduler:
                   resources:
                     requests:
@@ -320,8 +308,6 @@ cases:
                     requests:
                       cpu: 100m
                       memory: 128Mi
-                extraManifests:
-                - https://raw.githubusercontent.com/alex1989hu/kubelet-serving-cert-approver/v0.8.7/deploy/standalone-install.yaml
                 scheduler:
                   resources:
                     requests:
@@ -370,8 +356,6 @@ cases:
                     requests:
                       cpu: 50m
                       memory: 64Mi
-                extraManifests:
-                - https://raw.githubusercontent.com/alex1989hu/kubelet-serving-cert-approver/v0.8.7/deploy/standalone-install.yaml
                 scheduler:
                   resources:
                     requests:
@@ -453,8 +437,6 @@ cases:
                     requests:
                       cpu: 100m
                       memory: 128Mi
-                extraManifests:
-                - https://raw.githubusercontent.com/alex1989hu/kubelet-serving-cert-approver/v0.8.7/deploy/standalone-install.yaml
                 scheduler:
                   resources:
                     requests:
@@ -562,8 +544,6 @@ cases:
             common_config_patches: |-
               cluster:
                 allowSchedulingOnControlPlanes: false
-                extraManifests:
-                - https://raw.githubusercontent.com/alex1989hu/kubelet-serving-cert-approver/v0.8.7/deploy/standalone-install.yaml
               machine:
                 kubelet:
                   extraArgs:
@@ -614,8 +594,6 @@ cases:
                     requests:
                       cpu: 50m
                       memory: 64Mi
-                extraManifests:
-                - https://raw.githubusercontent.com/alex1989hu/kubelet-serving-cert-approver/v0.8.7/deploy/standalone-install.yaml
                 scheduler:
                   resources:
                     requests:
@@ -658,8 +636,6 @@ cases:
                     oidc-groups-claim: roles
                     oidc-issuer-url: https://keycloak.example.com/realms/windsor
                     oidc-username-claim: email
-                extraManifests:
-                - https://raw.githubusercontent.com/alex1989hu/kubelet-serving-cert-approver/v0.8.7/deploy/standalone-install.yaml
               machine:
                 kubelet:
                   extraArgs:
@@ -684,8 +660,6 @@ cases:
             common_config_patches: |-
               cluster:
                 allowSchedulingOnControlPlanes: false
-                extraManifests:
-                - https://raw.githubusercontent.com/alex1989hu/kubelet-serving-cert-approver/v0.8.7/deploy/standalone-install.yaml
               machine:
                 kubelet:
                   extraArgs:
@@ -710,8 +684,6 @@ cases:
             common_config_patches: |-
               cluster:
                 allowSchedulingOnControlPlanes: false
-                extraManifests:
-                - https://raw.githubusercontent.com/alex1989hu/kubelet-serving-cert-approver/v0.8.7/deploy/standalone-install.yaml
               machine:
                 kubelet:
                   extraArgs:

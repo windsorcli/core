@@ -7,5 +7,5 @@ metadata:
 spec:
   interval: 10m
   timeout: 5m
-  type: ${helm_repository_type:=default}
-  url: ${helm_repository_prefix:=https://}openebs.github.io/openebs
+  type: oci
+  url: ${helm_oci_repository_prefix:=oci://}ghcr.io/openebs/charts

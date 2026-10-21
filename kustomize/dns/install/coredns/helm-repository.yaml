@@ -7,5 +7,5 @@ metadata:
 spec:
   interval: 10m
   timeout: 3m
-  type: ${helm_repository_type:=default}
-  url: ${helm_repository_prefix:=https://}coredns.github.io/helm
+  type: oci
+  url: ${helm_oci_repository_prefix:=oci://}ghcr.io/coredns/charts
