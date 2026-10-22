@@ -230,6 +230,66 @@ run "operator_replicas_one_passes_through" {
   }
 }
 
+# Verifies the chart repository and image registry inputs reach the release, and
+# that the defaults point at upstream quay.io.
+run "default_image_registry" {
+  command = plan
+
+  variables {
+    k8s_service_host = "10.5.0.10"
+  }
+
+  assert {
+    condition     = yamldecode(helm_release.cilium.values[0]).image.repository == "quay.io/cilium/cilium"
+    error_message = "Agent image should default to quay.io/cilium/cilium"
+  }
+
+  assert {
+    condition     = yamldecode(helm_release.cilium.values[0]).operator.image.repository == "quay.io/cilium/operator"
+    error_message = "Operator image should default to quay.io/cilium/operator"
+  }
+}
+
+run "custom_chart_repository_and_image_registry" {
+  command = plan
+
+  variables {
+    k8s_service_host = "10.5.0.10"
+    chart_repository = "oci://registry.example.com/charts"
+    image_registry   = "registry.example.com:5000/mirror/cilium"
+  }
+
+  assert {
+    condition     = helm_release.cilium.repository == "oci://registry.example.com/charts"
+    error_message = "Repository should reflect the chart_repository input"
+  }
+
+  assert {
+    condition     = helm_release.cilium.chart == "cilium"
+    error_message = "Chart name should stay 'cilium' with a custom repository"
+  }
+
+  assert {
+    condition     = yamldecode(helm_release.cilium.values[0]).image.repository == "registry.example.com:5000/mirror/cilium/cilium"
+    error_message = "Agent image should be read from image_registry"
+  }
+
+  assert {
+    condition     = yamldecode(helm_release.cilium.values[0]).operator.image.repository == "registry.example.com:5000/mirror/cilium/operator"
+    error_message = "Operator image should be read from image_registry"
+  }
+
+  assert {
+    condition     = yamldecode(helm_release.cilium.values[0]).envoy.image.repository == "registry.example.com:5000/mirror/cilium/cilium-envoy"
+    error_message = "Envoy image should be read from image_registry"
+  }
+
+  assert {
+    condition     = yamldecode(helm_release.cilium.values[0]).certgen.image.repository == "registry.example.com:5000/mirror/cilium/certgen"
+    error_message = "certgen image should be read from image_registry"
+  }
+}
+
 # Verifies input validation rejects malformed cilium_version, a URL as
 # k8s_service_host, an out-of-range k8s_service_port, unsupported ipam_mode,
 # and out-of-range operator_replicas.
@@ -242,6 +302,8 @@ run "invalid_inputs_fail_validation" {
     k8s_service_port  = 0                  # out of range
     ipam_mode         = "custom"           # not in allowed list
     operator_replicas = 99                 # out of range
+    chart_repository  = "quay.io/cilium"   # no scheme
+    image_registry    = "https://quay.io/" # scheme and trailing slash
   }
 
   expect_failures = [
@@ -250,5 +312,7 @@ run "invalid_inputs_fail_validation" {
     var.k8s_service_port,
     var.ipam_mode,
     var.operator_replicas,
+    var.chart_repository,
+    var.image_registry,
   ]
 }
