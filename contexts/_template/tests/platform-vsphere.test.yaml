@@ -741,34 +741,7 @@ cases:
             substitutions:
               loadbalancer_ip_range: 10.10.0.110-10.10.0.120
 
-  # pki.enabled swaps the `private` ClusterIssuer from platform-base's selfsigned
-  # variant to addon-private-ca's CA-backed one. Both carry the name `private`, so
-  # exactly one must render; two would collide in the same kustomization.
-  - name: pki enabled uses the ca issuer and not the selfsigned one
-    values:
-      platform: vsphere
-      gateway:
-        enabled: false
-      network: *default-network
-      cluster: *default-cluster
-      vsphere: *default-vsphere
-      pki:
-        enabled: true
-    terraformOutputs: *default-terraform-outputs
-    expect:
-      flux:
-        - name: pki
-          resources:
-            - components:
-                - private-issuer/ca
-    exclude:
-      flux:
-        - name: pki
-          resources:
-            - components:
-                - private-issuer/selfsigned
-
-  - name: pki-resources selfsigned issuer present by default
+  - name: pki-resources cluster CA issuer present by default
     values:
       platform: vsphere
       gateway:
@@ -785,7 +758,7 @@ cases:
         - name: pki
           resources:
             - components:
-                - private-issuer/selfsigned
+                - private-issuer/ca
 
   # Requires: missing vsphere.datacenter fails composition.
   - name: missing vsphere.datacenter fails composition

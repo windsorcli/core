@@ -272,7 +272,7 @@ config:
   # literal text (this pattern, also used by docker's certSANs patch)
   # doesn't hit that path.
   - name: talos_common
-    when: cluster.oidc.enabled == true && pki.enabled == true
+    when: cluster.oidc.enabled == true
     value:
       common_patch:
         cluster:

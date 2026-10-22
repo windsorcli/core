@@ -92,7 +92,7 @@ cases:
             interval: 5m
           resources:
             - components:
-                - private-issuer/selfsigned
+                - private-issuer/ca
               timeout: 5m
               interval: 5m
         - name: observability

@@ -4,7 +4,6 @@ resources: []
 # No resources or components by default — facets that need a ClusterIssuer
 # add a self-contained subcomponent:
 #   - private-issuer/ca             full private CA (trust-manager-distributed)   → ClusterIssuer/private
-#   - private-issuer/selfsigned     private selfsigned (dev / fallback)           → ClusterIssuer/private
 #   - public-issuer/acme/route53    ACME public (Let's Encrypt + Route53 DNS-01)  → ClusterIssuer/public-acme
 #   - public-issuer/acme/azuredns   ACME public (Let's Encrypt + Azure DNS-01)    → ClusterIssuer/public-acme
 #   - public-issuer/selfsigned      public selfsigned (dev / pre-ACME bootstrap)  → ClusterIssuer/public-selfsigned

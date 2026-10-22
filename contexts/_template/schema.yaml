@@ -1176,15 +1176,17 @@ properties:
     properties:
       enabled:
         type: boolean
-        description: Enable private certificate authority with trust-manager
+        deprecated: true
+        description: Deprecated and ignored. The cluster CA and trust-manager are always installed.
       public_issuer:
         type: string
         enum:
           - acme
           - selfsigned
         description: Issuer for the external gateway certificate. Unset uses acme when dns.public_domain is set and dns.public_zone is not false on aws, azure, gcp or hetzner, and selfsigned otherwise. acme requires dns.public_domain and dns.public_zone.
-      private_ca:
+      ca:
         type: object
+        description: Cluster CA that signs workload certificates and backs the trust bundle.
         properties:
           cert:
             type: string
@@ -1194,6 +1196,20 @@ properties:
             type: string
             sensitive: true
             description: PEM-encoded CA private key. Supply alongside cert to bring your own; leave both unset to generate one via Terraform.
+        additionalProperties: false
+      private_ca:
+        type: object
+        deprecated: true
+        description: Deprecated. Use pki.ca. Fallback for pki.ca when that is unset.
+        properties:
+          cert:
+            type: string
+            sensitive: true
+            description: Deprecated. Use pki.ca.cert.
+          key:
+            type: string
+            sensitive: true
+            description: Deprecated. Use pki.ca.key.
         additionalProperties: false
     additionalProperties: false
 

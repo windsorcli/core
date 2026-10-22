@@ -370,7 +370,7 @@ terraform:
   - name: compute
     path: compute/hyperv
     dependsOn:
-      - "${pki.enabled == true ? 'pki' : ''}"
+      - pki
     inputs:
       network_name: "${hyperv_effective.nat == true ? '' : (hyperv.switch_name ?? '')}"
       create_network: ${hyperv_effective.nat == true || (hyperv.switch_name ?? '') == ''}

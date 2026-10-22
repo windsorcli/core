@@ -336,15 +336,12 @@ terraform:
       # one survives a single system node loss.
       replicas: "${topology == 'ha' ? 2 : 1}"
 
-  # Root CA for the private-CA add-on and Talos apiserver OIDC trust. Runs
-  # ahead of cluster/talos so the cert is available for the first machine
-  # config apply, not just a post-hoc reconfigure.
+  # Cluster CA for workload certificates and Talos apiserver OIDC trust, ahead of cluster/talos.
   - name: pki
-    when: pki.enabled == true
     path: pki/ca
     inputs:
-      cert: ${pki.private_ca.cert ?? ''}
-      key: ${pki.private_ca.key ?? ''}
+      cert: ${pki.ca.cert ?? pki.private_ca.cert ?? ''}
+      key: ${pki.ca.key ?? pki.private_ca.key ?? ''}
 
 # =============================================================================
 # Flux systems — policy, telemetry, pki (install/resources tier split)
@@ -475,12 +472,6 @@ flux:
 
   # Depends on telemetry-install so cert-manager's ServiceMonitor has a
   # working Prometheus target from the moment it's created.
-  #
-  # resources ships ClusterIssuer `private`, the cluster's internal trust anchor:
-  # the etcd certificates name it directly and the gateway certificate resolves
-  # to it whenever there's no public issuer. It exists on every cluster so no
-  # consumer has to test for it. addon-private-ca supplies the CA-backed variant
-  # under the same name when pki.enabled, so this one stands down.
   - name: pki
     dependsOn:
       - "${telemetry.metrics.enabled || telemetry.logs.enabled ? 'telemetry-install' : ''}"
@@ -493,7 +484,6 @@ flux:
       interval: 5m
     resources:
       - components:
-          - "${(pki.enabled ?? false) != true ? 'private-issuer/selfsigned' : ''}"
           # Cloud platforms add their own public issuer.
           - >-
             ${(dns.public_domain ?? '') != '' &&

@@ -38,7 +38,7 @@ cases:
       flux:
         - name: pki
           install:
-            timeout: 10m
+            timeout: 20m
             interval: 5m
             components:
               - trust-manager
@@ -60,7 +60,7 @@ cases:
       flux:
         - name: pki
           install:
-            timeout: 10m
+            timeout: 20m
             interval: 5m
             components:
               - trust-manager
@@ -121,13 +121,65 @@ cases:
       network: *default-network
       cluster: *default-cluster
       pki:
-        enabled: true
+        ca:
+          cert: "-----BEGIN CERTIFICATE-----\nFAKE\n-----END CERTIFICATE-----"
+    expectError: true
+
+  - name: key without cert fails composition
+    values:
+      platform: metal
+      network: *default-network
+      cluster: *default-cluster
+      pki:
+        ca:
+          key: "-----BEGIN PRIVATE KEY-----\nFAKE\n-----END PRIVATE KEY-----"
+    expectError: true
+
+  # pki.private_ca is the deprecated fallback for pki.ca.
+  - name: deprecated private_ca cert without key fails composition
+    values:
+      platform: metal
+      network: *default-network
+      cluster: *default-cluster
+      pki:
         private_ca:
           cert: "-----BEGIN CERTIFICATE-----\nFAKE\n-----END CERTIFICATE-----"
     expectError: true
 
-  # Edge case: pki disabled
-  - name: excludes private CA when pki disabled
+  - name: pki.ca passes the BYO CA to the pki terraform step
+    values:
+      platform: metal
+      network: *default-network
+      cluster: *default-cluster
+      pki:
+        ca:
+          cert: CERT
+          key: KEY
+    expect:
+      terraform:
+        - name: pki
+          inputs:
+            cert: CERT
+            key: KEY
+
+  - name: deprecated private_ca passes the BYO CA to the pki terraform step
+    values:
+      platform: metal
+      network: *default-network
+      cluster: *default-cluster
+      pki:
+        private_ca:
+          cert: CERT
+          key: KEY
+    expect:
+      terraform:
+        - name: pki
+          inputs:
+            cert: CERT
+            key: KEY
+
+  # pki.enabled is deprecated and ignored.
+  - name: pki disabled still creates the cluster CA
     values:
       platform: metal
       gateway:
@@ -136,7 +188,9 @@ cases:
       cluster: *default-cluster
       pki:
         enabled: false
-    exclude:
+    expect:
+      terraform:
+        - name: pki
       kustomize:
         - name: pki-resources
           components:

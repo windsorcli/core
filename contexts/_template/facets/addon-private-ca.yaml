@@ -2,15 +2,16 @@ kind: Facet
 apiVersion: blueprints.windsorcli.dev/v1alpha1
 metadata:
   name: private-ca
-  description: Private Certificate Authority with trust-manager integration
-
-when: pki.enabled == true
+  description: Cluster Certificate Authority with trust-manager integration
 
 requires:
-  - when: (pki.private_ca.cert ?? '') != '' || (pki.private_ca.key ?? '') != ''
+  - when: (pki.ca.cert ?? pki.private_ca.cert ?? '') != '' && (pki.ca.key ?? pki.private_ca.key ?? '') == ''
     paths:
-      - pki.private_ca.cert
-      - pki.private_ca.key
+      - pki.ca.key
+    message: Bringing your own CA needs both the certificate and private key.
+  - when: (pki.ca.key ?? pki.private_ca.key ?? '') != '' && (pki.ca.cert ?? pki.private_ca.cert ?? '') == ''
+    paths:
+      - pki.ca.cert
     message: Bringing your own CA needs both the certificate and private key.
 
 # =============================================================================
@@ -18,8 +19,8 @@ requires:
 # =============================================================================
 #
 # Layers trust-manager (install) and the private-issuer/ca ClusterIssuer
-# (resources) onto the pki tiers from platform-base. The issuer becomes the
-# default for workload certificates. The CA cert/key come from the pki/ca
+# (resources) onto the pki tiers from platform-base. The issuer signs every
+# workload certificate. The CA cert/key come from the pki/ca
 # terraform step (generated or BYO), no in-cluster minting or sync job
 # involved. Placed via `secrets:` (never rendered in the Kustomization
 # spec), not a plain Flux substitution: a substituted multi-line PEM value
@@ -50,8 +51,6 @@ flux:
     install:
       components:
         - trust-manager
-      timeout: 10m
-      interval: 5m
     resources:
       - timeout: 5m
         interval: 5m
