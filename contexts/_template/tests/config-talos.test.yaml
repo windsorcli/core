@@ -80,10 +80,15 @@ cases:
                 allowSchedulingOnControlPlanes: false
                 apiServer:
                   extraArgs:
+                    oidc-ca-file: /etc/kubernetes/oidc-ca.crt
                     oidc-client-id: kubernetes
                     oidc-groups-claim: groups
                     oidc-issuer-url: https://keycloak.example.com/realms/windsor
                     oidc-username-claim: sub
+                  extraVolumes:
+                  - hostPath: /var/kubernetes/oidc-ca.crt
+                    mountPath: /etc/kubernetes/oidc-ca.crt
+                    readonly: true
               machine:
                 kubelet:
                   extraArgs:
@@ -116,10 +121,15 @@ cases:
                 allowSchedulingOnControlPlanes: false
                 apiServer:
                   extraArgs:
+                    oidc-ca-file: /etc/kubernetes/oidc-ca.crt
                     oidc-client-id: kubernetes
                     oidc-groups-claim: groups
                     oidc-issuer-url: https://keycloak.example.local/realms/platform
                     oidc-username-claim: sub
+                  extraVolumes:
+                  - hostPath: /var/kubernetes/oidc-ca.crt
+                    mountPath: /etc/kubernetes/oidc-ca.crt
+                    readonly: true
               machine:
                 kubelet:
                   extraArgs:
@@ -172,16 +182,21 @@ cases:
                 allowSchedulingOnControlPlanes: false
                 apiServer:
                   extraArgs:
+                    oidc-ca-file: /etc/kubernetes/oidc-ca.crt
                     oidc-client-id: other-client
                     oidc-groups-claim: groups
                     oidc-issuer-url: https://sso.corp/realms/other
                     oidc-username-claim: sub
+                  extraVolumes:
+                  - hostPath: /var/kubernetes/oidc-ca.crt
+                    mountPath: /etc/kubernetes/oidc-ca.crt
+                    readonly: true
               machine:
                 kubelet:
                   extraArgs:
                     rotate-server-certificates: "true"
 
-  - name: oidc enabled with pki enabled adds oidc-ca-file from the pki terraform output
+  - name: oidc enabled adds oidc-ca-file from the pki terraform output
     values:
       platform: metal
       gateway:
@@ -193,8 +208,6 @@ cases:
           enabled: true
           issuer_url: https://keycloak.example.com/realms/windsor
           client_id: kubernetes
-      pki:
-        enabled: true
     terraformOutputs:
       pki:
         cert: |-
@@ -632,10 +645,15 @@ cases:
                 allowSchedulingOnControlPlanes: false
                 apiServer:
                   extraArgs:
+                    oidc-ca-file: /etc/kubernetes/oidc-ca.crt
                     oidc-client-id: kubernetes
                     oidc-groups-claim: roles
                     oidc-issuer-url: https://keycloak.example.com/realms/windsor
                     oidc-username-claim: email
+                  extraVolumes:
+                  - hostPath: /var/kubernetes/oidc-ca.crt
+                    mountPath: /etc/kubernetes/oidc-ca.crt
+                    readonly: true
               machine:
                 kubelet:
                   extraArgs:

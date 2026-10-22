@@ -26,15 +26,15 @@ terraform:
 # =============================================================================
 # Flux systems — pki install overlay
 # =============================================================================
-# Single-node leader-election toggles per chart; trust-manager only when pki
-# is enabled, openebs only on that driver, database only when enabled.
+# Single-node leader-election toggles per chart; openebs only on that driver,
+# database only when enabled.
 flux:
 
   - name: pki
     install:
       components:
         - cert-manager/single-node
-        - "${pki.enabled == true ? 'trust-manager/single-node' : ''}"
+        - trust-manager/single-node
 
   # openebs only; longhorn has its own single-node component in option-storage.
   - name: csi

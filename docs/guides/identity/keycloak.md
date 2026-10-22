@@ -118,7 +118,7 @@ cluster:
     enabled: true
 ```
 
-Core fills in `issuer_url` and `client_id` from the platform realm and registers a public `kubernetes` client that uses PKCE. The client accepts redirects to `http://localhost:8000` and `http://localhost:18000`, so a kubectl plugin such as `kubelogin` works with its default settings. If `pki.enabled` is true, the API server also trusts the cluster's private CA when it verifies tokens. `cluster.oidc.username_claim` (default `sub`) and `cluster.oidc.groups_claim` (default `groups`) change which token claims Kubernetes uses.
+Core fills in `issuer_url` and `client_id` from the platform realm and registers a public `kubernetes` client that uses PKCE. The client accepts redirects to `http://localhost:8000` and `http://localhost:18000`, so a kubectl plugin such as `kubelogin` works with its default settings. The API server also trusts the cluster CA when it verifies tokens. `cluster.oidc.username_claim` (default `sub`) and `cluster.oidc.groups_claim` (default `groups`) change which token claims Kubernetes uses.
 
 The API server fetches the issuer's keys itself, so the gateway must be enabled. Otherwise set `cluster.oidc.issuer_url` explicitly.
 

@@ -282,6 +282,7 @@ terraform:
     path: cluster/talos
     dependsOn:
       - compute
+      - pki
     parallelism: 1
     inputs:
       cluster_endpoint: "${(cluster.endpoint ?? '') != '' ? cluster.endpoint : cluster_endpoint_fallback.endpoint}"
