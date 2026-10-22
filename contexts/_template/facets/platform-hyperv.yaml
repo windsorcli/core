@@ -150,7 +150,6 @@ config:
       (gateway.internal.service_type ?? gateway.service_type ?? 'LoadBalancer') == 'NodePort'
     value:
       nodes: ${concat(hyperv_controlplanes.for_cluster, hyperv_workers.for_cluster)}
-      dns: ${(dns.private.enabled ?? (dev == true)) == true}
       # Each envoy gateway's HTTP and HTTPS node ports, when its domain is set.
       internal_ports: >-
         ${gateway.enabled == true && (gateway.driver ?? "envoy") == "envoy" &&
@@ -171,14 +170,12 @@ config:
         ${fromPairs(concat(
           map(concat(
             [6443],
-            nat_effective.dns ? [30053] : [],
             (gitops.mode ?? "push") == "push" ? [30292] : [],
             nat_effective.internal_ports,
             nat_effective.external_ports
           ), [string(#), #]),
           map(nat_effective.nodes, [split(get(#, "endpoint"), ":")[1], 50000])
         ))}
-      udp_forwards: "${nat_effective.dns ? {'30053': 30053} : {}}"
       talos_api_targets: >-
         ${fromPairs(map(nat_effective.nodes, [split(get(#, "endpoint"), ":")[1], get(#, "node")]))}
 
@@ -388,7 +385,6 @@ terraform:
       # gateway NodePorts); gateway.publish_ports layers operator-pinned ports.
       port_forwards: "${hyperv_effective.nat == true ? nat_effective.tcp_forwards : {}}"
       extra_port_forwards: "${hyperv_effective.nat == true ? (gateway.publish_ports ?? {}) : {}}"
-      udp_port_forwards: "${hyperv_effective.nat == true ? nat_effective.udp_forwards : {}}"
       # Default target = cp-1; per-port overrides redirect each Talos API
       # forward (40000+i) to its own node.
       port_forward_target_ip: "${hyperv_effective.nat == true ? cidrhost(hyperv_effective.nat_internal_prefix, 10) : null}"

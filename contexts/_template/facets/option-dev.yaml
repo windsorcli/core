@@ -20,7 +20,10 @@ config:
   - name: dns
     value:
       private:
-        enabled: ${dns.private.enabled != false}
+        # Defaults off on a NodePort internal gateway outside a workstation context.
+        enabled: >-
+          ${dns.private.enabled ?? ((gateway.enabled ?? true) == false || (workstation.runtime ?? '') != '' ||
+          (gateway.internal.service_type ?? gateway.service_type ?? 'LoadBalancer') != 'NodePort')}
   - name: observability
     value:
       enabled: ${observability.enabled != false}
