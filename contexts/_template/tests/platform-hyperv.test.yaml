@@ -531,8 +531,7 @@ cases:
   # NodePort single-VM (1 cp, 0 workers). The simplest NodePort topology:
   # one Talos API forward (40000 → cp-1), no workers in the lists, no
   # extra entries in the per-port target_overrides map. 30292 (Flux webhook)
-  # is in the baseline because gitops.mode defaults to "push"; 30053 is NOT
-  # because private-dns is off and dev=false.
+  # is in the baseline because gitops.mode defaults to "push".
   - name: NodePort single-VM lands cp on bench 40000
     values:
       platform: hyperv
@@ -691,11 +690,7 @@ cases:
               "40000": 10.99.0.10
               "40100": 10.99.0.20
 
-  # NodePort + private DNS: 30053 (DNS) appears in tcp_forwards and
-  # 30053 also in udp_forwards (DNS needs both protocols). 30292 still in
-  # because gitops.mode defaults to push. Mirrors the gating on the
-  # envoy/nodeport/dns kustomize component in option-gateway.
-  - name: NodePort with private DNS adds 30053 forwards
+  - name: NodePort with private DNS fails composition
     values:
       platform: hyperv
       dns:
@@ -717,34 +712,36 @@ cases:
               node: 192.168.3.77
         workers:
           count: 0
+    expectError: true
+
+  - name: dev mode on NodePort leaves private DNS off
+    values:
+      platform: hyperv
+      dev: true
+      dns:
+        private_domain: test
+      gateway:
+        service_type: NodePort
+      network: *default-network
+      cluster:
+        driver: talos
+        endpoint: https://192.168.3.77:6443
+        controlplanes:
+          count: 1
+          nodes:
+            controlplane-1:
+              hostname: controlplane-1
+              endpoint: 192.168.3.77:40000
+              node: 192.168.3.77
+        workers:
+          count: 0
     terraformOutputs:
       compute:
         controlplanes: []
         workers: []
-    expect:
-      terraform:
-        - name: compute
-          path: compute/hyperv
-          inputs:
-            port_forwards:
-              "6443": 6443
-              "30053": 30053
-              "30292": 30292
-              "40000": 50000
-            udp_port_forwards:
-              "30053": 30053
+    exclude:
       flux:
-        - name: gateway
-          install:
-            components:
-              - envoy
-              - envoy/prometheus
-          resources:
-            - name: internal
-              components:
-                - envoy/nodeport
-                - envoy/nodeport/dns
-                - envoy/nodeport/flux-webhook
+        - name: dns
 
   # NodePort + gitops.mode=pull: 30292 (Flux webhook) drops out of the
   # baseline forwards and the envoy/nodeport/flux-webhook component drops
