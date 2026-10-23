@@ -25,6 +25,8 @@ Flux needs pod networking to run, so Cilium has to exist before Flux does. Terra
 
 The two tools split the configuration. Terraform sets only the baseline: IPAM mode, kube-proxy replacement, operator replicas, and the Talos capabilities. Flux owns everything else, including Hubble, the gateway, and L2.
 
+Cilium reaches the Kubernetes API through Talos *KubePrism*, a local load balancer at `localhost:7445` on every node that spreads requests across the control planes. Cilium therefore keeps working when one control plane is down, and it needs no fixed API address.
+
 Operator replicas are the one value both tools must agree on. The operator runs two replicas, or one on a single-node cluster, where two would contend for the same host port. Terraform and Flux both read the count from `topology`.
 
 This diagram shows the handoff from Terraform to Flux and the workloads the HelmRelease manages.
@@ -57,16 +59,20 @@ flowchart LR
 
 ## Load balancer addresses
 
-A `LoadBalancer` Service for `my-app` stays pending until something assigns it an address. With Cilium you give it a pool in `values.yaml` and no other controller is needed. This example reserves 21 addresses.
+A `LoadBalancer` Service stays pending until something assigns it an address. Cilium LB IPAM does that with no other controller, and it announces each address over L2 on every network interface. For each address, one node at a time answers, whichever claimed it first.
+
+Each [gateway](../gateway/index.md#service-exposure) gets a pool holding only its `gateway.<name>.ip`. A `LoadBalancer` Service for `my-app` that pins no address needs a range, as in this example.
 
 ```yaml
 network:
   loadbalancer_ips:
-    start: 10.5.1.10
-    end: 10.5.1.30
+    start: 10.5.1.20
+    end: 10.5.1.40
 ```
 
-Cilium hands out addresses from `network.loadbalancer_ips` and announces them over L2 on every network interface. For each address, one node at a time answers, whichever claimed it first. Cilium takes the place of MetalLB and kube-vip, so `network.loadbalancer_driver` has no effect.
+Gateway addresses MUST sit outside the range. Cilium assigns only from a pool, so without a range no other `LoadBalancer` Service gets an address.
+
+Cilium takes the place of MetalLB and kube-vip. On a Cilium cluster, `network.loadbalancer_driver` accepts only `cilium` or `none`, and `kube-vip` or `metallb` fails validation.
 
 > [!NOTE]
 > Hetzner's cloud network is not a flat L2 network. On Hetzner, Core leaves out the L2 component and the Hetzner cloud controller assigns addresses.
@@ -109,8 +115,9 @@ The keys below are the ones that affect Cilium.
 | Key | Type | Default | Description |
 |-----|------|---------|-------------|
 | `cluster.cni.driver` | string | `cilium` on Talos | Set to `cilium`. See [CNI](index.md#defaults). |
-| `network.loadbalancer_ips.start` | string | derived | First address of the load balancer pool. |
-| `network.loadbalancer_ips.end` | string | derived | Last address of the load balancer pool. |
+| `network.loadbalancer_driver` | string | `cilium` | `cilium` or `none` on a Cilium cluster. |
+| `network.loadbalancer_ips.start` | string | none outside workstation contexts | First address for `LoadBalancer` Services that do not pin one. |
+| `network.loadbalancer_ips.end` | string | none outside workstation contexts | Last address of that range. |
 | `topology` | string | derived | `single-node` runs one operator, otherwise two. |
 | `telemetry.metrics.enabled` | boolean | `true` | Scrape Cilium and Hubble metrics. |
 

@@ -42,12 +42,12 @@ The Cilium add-on targets Talos. EKS can opt in with the same setting, but that 
 
 ## What depends on the driver
 
-The driver decides more than pod networking. Suppose `my-app` exposes a `LoadBalancer` Service. With Cilium, the Service gets an address from `network.loadbalancer_ips` with no extra controller. With Flannel, nothing hands out that address until you pick a separate load balancer with `network.loadbalancer_driver`. The same split runs through service routing, the default gateway, policy enforcement, encryption, and observability, as this table shows.
+The driver decides more than pod networking. Suppose `my-app` exposes a `LoadBalancer` Service. With Cilium, Cilium itself assigns and announces the address. With Flannel, a separate load balancer does, kube-vip by default. The same split runs through service routing, the default gateway, policy enforcement, encryption, and observability, as this table shows.
 
 | Area | With `cilium` | With `flannel` |
 |---|---|---|
 | Service routing | Cilium replaces kube-proxy. | kube-proxy runs. |
-| LoadBalancer addresses | Cilium announces them over L2 from `network.loadbalancer_ips`, with no extra controller. | Needs MetalLB or kube-vip, set with `network.loadbalancer_driver`. See [kustomize/lb](../../../kustomize/lb). |
+| LoadBalancer addresses | Cilium LB IPAM assigns them and announces them over L2, with no extra controller. | kube-vip on metal, vSphere, Hyper-V, Incus, and Proxmox, or MetalLB with `network.loadbalancer_driver: metallb`. See [kustomize/lb](../../../kustomize/lb). |
 | Default [gateway](../gateway/index.md) driver | `cilium` | `envoy` |
 | NetworkPolicy | Cilium enforces it. | Flannel does not enforce it. |
 | Pod traffic encryption | Cilium supports WireGuard encryption between nodes. Core does not turn it on yet. | Not available. |
@@ -62,9 +62,9 @@ The keys below are the whole CNI surface in `values.yaml`. The vendor pages expl
 | Key | Type | Default | Description |
 |-----|------|---------|-------------|
 | `cluster.cni.driver` | string | by cluster | `cilium` or `flannel`. |
-| `network.loadbalancer_ips.start` | string | derived | First address of the load balancer pool. |
-| `network.loadbalancer_ips.end` | string | derived | Last address of the load balancer pool. |
-| `network.loadbalancer_driver` | string | `kube-vip` on Incus with Colima, otherwise none | `metallb`, `kube-vip`, or `none`. Used with Flannel. Ignored with Cilium. |
+| `network.loadbalancer_driver` | string | `cilium` with Cilium, `kube-vip` otherwise | `cilium`, `kube-vip`, `metallb`, or `none`. Cilium clusters accept only `cilium` or `none`. |
+| `network.loadbalancer_ips.start` | string | none outside workstation contexts | First address for `LoadBalancer` Services that do not pin one. |
+| `network.loadbalancer_ips.end` | string | none outside workstation contexts | Last address of that range. |
 | `topology` | string | derived | `single-node` runs one Cilium operator. Everything else runs two. |
 | `telemetry.metrics.enabled` | boolean | `true` | Scrape Cilium and Hubble metrics with Prometheus. |
 

@@ -24,7 +24,7 @@ Such a hostname resolves because external-dns publishes the apex and a wildcard 
 
 ## Data plane Service
 
-Each Gateway references an `EnvoyProxy` of the same name, and that resource configures the Gateway's proxy, including the Service in front of the Envoy pods. The Service type follows `gateway.service_type`, and Core adds platform-specific settings to it. The table below lists what each environment gets.
+Each Gateway references an `EnvoyProxy` of the same name, and that resource configures the Gateway's proxy, including the Service in front of the Envoy pods. The Service type follows the Gateway's `gateway.<name>.service_type`, and Core adds platform-specific settings to it. The table below lists what each environment gets.
 
 | Environment | Service | Added |
 |---|---|---|
@@ -32,18 +32,18 @@ Each Gateway references an `EnvoyProxy` of the same name, and that resource conf
 | Azure, `internal` | `LoadBalancer` | The internal load balancer annotation. |
 | GCP, `internal` | `LoadBalancer` | The internal load balancer annotation (`networking.gke.io/load-balancer-type: Internal`). |
 | Hetzner, `external` | `LoadBalancer` | Annotations for a Hetzner Cloud load balancer in `hetzner.location` (default `ash`) that targets the nodes' private IPs. |
-| Local with MetalLB or kube-vip | `LoadBalancer` | A fixed address from `network.loadbalancer_ips`: `start` for `internal`, the next address for `external` when both exist. |
-| Local with the Cilium CNI | `LoadBalancer` | The same addresses, requested from Cilium LB IPAM through the `lbipam.cilium.io/ips` annotation. |
+| metal, vSphere, Hyper-V, Incus, or Proxmox with kube-vip or MetalLB | `LoadBalancer` | The Gateway's `gateway.<name>.ip`, pinned through `kube-vip.io/loadbalancerIPs` or `metallb.io/loadBalancerIPs`. |
+| The same platforms with the Cilium CNI | `LoadBalancer` | The Gateway's `gateway.<name>.ip`, pinned through `lbipam.cilium.io/ips`. |
 | Azure or GCP, `external` | `LoadBalancer` | None. The cloud controller assigns an address. |
-| docker-desktop, or `service_type: NodePort` | `NodePort` | Extra node ports, listed below. |
+| docker-desktop, or `gateway.<name>.service_type: NodePort` | `NodePort` | Extra node ports, listed below. |
 
-On `NodePort` the `internal` Service listens on `30080` for HTTP and `30443` for HTTPS, and the `external` Service on `30081` and `30444`. The `internal` Service can carry two more ports. With the `coredns` private DNS driver it exposes UDP and TCP port 53 on `30053`, and with `gitops.mode: push` (the default) it exposes the Flux webhook on `30292`. `gateway.publish_ports` maps host ports to these node ports.
+On `NodePort` the `internal` Service listens on `30080` for HTTP and `gateway.internal.node_port` (default `30443`) for HTTPS, and the `external` Service on `30081` and `gateway.external.node_port` (default `30444`). The `internal` Service can carry two more ports. With private DNS in a workstation context it exposes UDP and TCP port 53 on `30053`, and with `gitops.mode: push` (the default) it exposes the Flux webhook on `30292`. `gateway.publish_ports` maps host ports to these node ports.
 
 docker-desktop publishes `internal` on host ports `8443` and `8080`, and `external` on `8444` and `8081`. The Service carries matching ports without node ports, so a pod can reach a hostname on the same port a browser uses.
 
 ## Private DNS
 
-With `dns.private.driver: coredns`, the private zone is served by CoreDNS in the cluster. Core adds UDP and TCP listeners on port 53 to the `internal` Gateway and routes them to CoreDNS. On docker-desktop, pods reach `internal` hostnames on the same ports a browser uses, such as `https://grafana.test:8443`. [Private zones](../dns/private.md#coredns) covers the zone itself.
+With `dns.private.enabled`, the private zone is served by CoreDNS in the cluster. Core adds UDP and TCP listeners on port 53 to the `internal` Gateway and routes them to CoreDNS, so the zone answers at `gateway.internal.ip`. On docker-desktop, pods reach `internal` hostnames on the same ports a browser uses, such as `https://grafana.test:8443`. [Private zones](../dns/private.md#coredns) covers the zone itself.
 
 ## Monitoring
 

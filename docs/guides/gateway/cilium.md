@@ -23,7 +23,7 @@ With the driver selected, Core creates a `cilium` GatewayClass and the `external
 
 ## Addresses
 
-Each Gateway gets a `LoadBalancer` Service, and on clusters without a cloud load balancer that Service needs an address from somewhere. Cilium's *LB IPAM* hands it one from `network.loadbalancer_ips`: the first address goes to the `internal` Gateway and the next one to `external`. A single Gateway takes the first.
+Each Gateway gets a `LoadBalancer` Service, and on clusters without a cloud load balancer that Service needs an address. Each Gateway names its own in `gateway.<name>.ip`. Core gives Cilium's *LB IPAM* a pool holding only that address and pins the Service to it through the `lbipam.cilium.io/ips` annotation. The address MUST sit outside `network.loadbalancer_ips`, which serves other Services.
 
 Clients find the address through L2 announcements. One node at a time announces each address, whichever claimed it first, so announcement load can be uneven across nodes.
 
@@ -36,7 +36,7 @@ On Hetzner the cloud controller fills the Service of the `external` Gateway inst
 
 ## Private DNS
 
-With `dns.private.driver: coredns`, clients query the private zone on the same address as the `internal` Gateway. CoreDNS gets its own `LoadBalancer` Service on port 53, which shares the `internal` gateway's address through LB IPAM. [Private zones](../dns/private.md#coredns) covers the zone itself.
+With `dns.private.enabled`, clients query the private zone on the same address as the `internal` Gateway. CoreDNS gets its own `LoadBalancer` Service on port 53, which shares the `internal` gateway's address through LB IPAM. [Private zones](../dns/private.md#coredns) covers the zone itself.
 
 ## Monitoring
 
@@ -53,7 +53,8 @@ flowchart LR
   subgraph cluster[Kubernetes cluster]
     routes[HTTPRoutes from apps]
     cert[Certificate<br/>pki ClusterIssuer]
-    pool[CiliumLoadBalancerIPPool<br/>CiliumL2AnnouncementPolicy]
+    pool[CiliumLoadBalancerIPPool gateway-name<br/>holding gateway.name.ip]
+    l2[CiliumL2AnnouncementPolicy]
 
     subgraph systemgateway[system-gateway]
       gateway[Gateway external or internal]
@@ -76,13 +77,14 @@ flowchart LR
   operator -->|CiliumEnvoyConfig| agent
   agent -->|configures| envoy
   pool -->|address| svc
-  client -->|HTTPS| svc
+  l2 -->|announces| svc
+  client -->|HTTPS to gateway.name.ip| svc
   svc -->|redirected by agent| envoy
   envoy -->|HTTP| apps
   classDef app fill:#2E7D3233,stroke:#2E7D32
   classDef k8s fill:#326CE533,stroke:#326CE5
   class client,routes,apps app
-  class cert,pool,gateway,svc,operator,agent,envoy k8s
+  class cert,pool,l2,gateway,svc,operator,agent,envoy k8s
 ```
 
 The cilium-operator translates each Gateway and its routes into a `CiliumEnvoyConfig` and creates a `LoadBalancer` Service for the Gateway. Traffic to that Service's address arrives at whichever node announces it, and the cilium-agent there redirects it to the node's `cilium-envoy`. TLS ends at Envoy, using a certificate from one of the [cluster issuers](../pki/index.md). The Gateway waits for the `pki` resources tier so the issuer exists when the certificate is requested.

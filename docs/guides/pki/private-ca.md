@@ -1,23 +1,13 @@
 ---
-title: Private CA
-description: A private root CA, generated or supplied, with trust-manager distributing it to workloads that opt in.
+title: Cluster CA
+description: The cluster's root CA, generated or supplied, with trust-manager distributing it to workloads that opt in.
 ---
 
-Without a CA, the `private` issuer signs a self-signed certificate per request, so a client that calls `my-app.example.internal` has to trust each certificate on its own. `pki.enabled` backs the `private` issuer with a root CA instead. Everything that issuer signs, such as the gateway certificate on a local cluster, then chains to one root that you trust once. [ACME](acme.md) certificates are unaffected. This page assumes the issuer terms from [PKI](index.md).
+Every cluster runs a root CA behind the `private` issuer. Everything that issuer signs, such as the `internal` gateway certificate for `my-app.example.internal` and the certificates between CoreDNS and its etcd, chains to that one root, so a client trusts it once. [ACME](acme.md) certificates are unaffected. This page assumes the issuer terms from [PKI](index.md).
 
-## Turn it on
+## How it starts
 
-This `values.yaml` turns on the private CA.
-
-```yaml
-pki:
-  enabled: true
-```
-
-> [!NOTE]
-> Dev mode enables the private CA without this setting.
-
-Before the cluster is built, a Terraform component generates an ECDSA P-256 root named `Private CA`, valid for 10 years. Core loads it into the cluster as two Secrets, split so that the key exists only in `system-pki`. This table lists both.
+The cluster CA needs no setting. Before the cluster is built, a Terraform component generates an ECDSA P-256 root named `Private CA`, valid for 10 years. Core loads it into the cluster as two Secrets, split so that the key exists only in `system-pki`. This table lists both.
 
 | Secret | Namespace | Holds |
 |---|---|---|
@@ -30,13 +20,12 @@ An organization that already runs a root can have the `private` issuer sign with
 
 ```yaml
 pki:
-  enabled: true
-  private_ca:
+  ca:
     cert: ${secret("MyVault", "root-ca", "cert")}
     key: ${secret("MyVault", "root-ca", "key")}
 ```
 
-`pki.private_ca.cert` holds the PEM root certificate and `pki.private_ca.key` holds its private key. You MUST set both; Windsor rejects a configuration with only one of them.
+`pki.ca.cert` holds the PEM CA certificate and `pki.ca.key` holds its private key. You MUST set both; Windsor rejects a configuration with only one of them. The deprecated `pki.private_ca` still works when `pki.ca` is unset.
 
 ## Rotation
 
@@ -44,7 +33,7 @@ A generated root is valid for 10 years and does not renew. To replace it, change
 
 ## Trust the CA in workloads
 
-A pod in `my-app` that calls a service signed by the private CA has to find that CA in its trust store. trust-manager provides it. It builds a *`Bundle`* named `private-ca` from the system trust roots plus the private CA, and writes it to a ConfigMap in each namespace labeled `use-custom-ca: "true"` and in no other. A pod gets the bundle when it carries the same label.
+A pod in `my-app` that calls a service signed by the cluster CA has to find that CA in its trust store. trust-manager provides it. It builds a *`Bundle`* named `private-ca` from the system trust roots plus the cluster CA, and writes it to a ConfigMap in each namespace labeled `use-custom-ca: "true"` and in no other. A pod gets the bundle when it carries the same label.
 
 This manifest labels both the `my-app` namespace and a pod in it.
 
@@ -74,7 +63,7 @@ Label both the namespace and the pod. A labeled pod in an unlabeled namespace ha
 
 ## Trust the CA on a workstation
 
-Browsers reject certificates from a private CA until its root is in the system trust store. This command reads the root from the cluster so you can add it there.
+Browsers reject certificates from the cluster CA until its root is in the system trust store. This command reads the root from the cluster so you can add it there.
 
 ```sh
 windsor exec -- kubectl -n system-pki-trust get secret private-ca-trust-cert \
@@ -83,7 +72,7 @@ windsor exec -- kubectl -n system-pki-trust get secret private-ca-trust-cert \
 
 ## Talos API server
 
-With `cluster.oidc.enabled` and `pki.enabled`, the Talos API server also trusts this CA when it verifies tokens from a Keycloak that serves a private certificate. See [kubectl single sign-on](../identity/keycloak.md#kubectl-single-sign-on). Because the CA is generated before the cluster exists, the trust is there at first boot.
+With `cluster.oidc.enabled`, the Talos API server also trusts this CA when it verifies tokens from a Keycloak that serves a private certificate. See [kubectl single sign-on](../identity/keycloak.md#kubectl-single-sign-on). Because the CA is generated before the cluster exists, the trust is there at first boot.
 
 ## Under the hood
 

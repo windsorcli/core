@@ -117,7 +117,7 @@ flowchart LR
   client((Client / workstation))
 
   subgraph cluster[Kubernetes cluster]
-    node[(Node host ports<br/>+ NodePorts: DNS 30053, Flux webhook 30292)]
+    node[(Node host ports<br/>+ NodePorts: Flux webhook 30292,<br/>DNS 30053 in workstation contexts)]
 
     subgraph systemgateway[system-gateway]
       op[Envoy Gateway operator]
@@ -309,11 +309,11 @@ Patches this gateway's `EnvoyProxy` so the data-plane Service is `type: LoadBala
 
 _Enabled when envoy driver AND this gateway's service type is `LoadBalancer` AND kube-vip or MetalLB runs AND `gateway.<name>.ip` is set._
 
-Pins this gateway's data-plane Service to its address with the driver's annotation, `kube-vip.io/loadbalancerIPs` or `metallb.io/loadBalancerIPs`. The address is `gateway.<name>.ip`, else the pool address. Cloud platforms never apply these, since their LB controller assigns the address.
+Pins this gateway's data-plane Service to its address with the driver's annotation, `kube-vip.io/loadbalancerIPs` or `metallb.io/loadBalancerIPs`. The address is `gateway.<name>.ip`. Cloud platforms never apply these, since their LB controller assigns the address.
 
 ### `envoy/loadbalancer/cilium-ip`
 
-_Enabled when envoy driver AND this gateway's service type is `LoadBalancer` AND Cilium provides the pool addresses._
+_Enabled when envoy driver AND this gateway's service type is `LoadBalancer` AND Cilium LB IPAM assigns addresses AND `gateway.<name>.ip` is set._
 
 Pins this gateway's data-plane Service to `gateway.<name>.ip` with the `lbipam.cilium.io/ips` annotation.
 
@@ -363,7 +363,7 @@ Adds ClusterIP-reachable entries for this gateway's host-published ports (`gatew
 
 _Enabled when envoy/nodeport AND internal gateway AND `dns.private.enabled` (default `true` in dev mode)._
 
-Opens NodePort 30053 for the cluster's private DNS resolver (UDP/TCP 53). Lets a workstation point at the host's IP for `*.<dns.private_domain>` resolution. Internal-only, since DNS is a utility surface.
+Opens NodePort 30053 for the cluster's private DNS resolver (UDP/TCP 53). Lets a workstation point at the host's IP for `*.<dns.private_domain>` resolution. Only workstation contexts compose it, since private DNS elsewhere needs a `LoadBalancer` internal gateway.
 
 ### `envoy/nodeport/flux-webhook`
 

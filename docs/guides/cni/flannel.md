@@ -19,17 +19,16 @@ docker-desktop defaults to Flannel because Cilium cannot bootstrap through the l
 
 ## Load balancer addresses
 
-Flannel has no load balancer of its own, so a `LoadBalancer` Service for `my-app` gets no address until you add one. You pick it with `network.loadbalancer_driver` and give it a pool, as in this example using MetalLB.
+Flannel has no load balancer of its own. On metal, vSphere, Hyper-V, Incus, and Proxmox, Core runs kube-vip, which announces each [gateway](../gateway/index.md#service-exposure) at its `gateway.<name>.ip`. A `LoadBalancer` Service for `my-app` that pins no address needs a range to draw from, as in this example.
 
 ```yaml
 network:
-  loadbalancer_driver: metallb   # or kube-vip
   loadbalancer_ips:
-    start: 10.5.1.10
-    end: 10.5.1.30
+    start: 10.5.1.20
+    end: 10.5.1.40
 ```
 
-The `loadbalancer_driver` key accepts `metallb` or `kube-vip`, and `loadbalancer_ips` sets the range that driver hands out.
+With the range set, Core adds the kube-vip cloud provider, which hands out its addresses. Without it, each Service MUST pin its own address with the `kube-vip.io/loadbalancerIPs` annotation. `network.loadbalancer_driver: metallb` swaps kube-vip for MetalLB, which requires the range. Gateway addresses MUST sit outside it.
 
 > [!NOTE]
 > docker-desktop has no routable node network. It skips the load balancer and exposes the gateway on a node port, as described under [Service exposure](../gateway/index.md#service-exposure).

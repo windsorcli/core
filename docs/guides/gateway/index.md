@@ -90,12 +90,29 @@ With only a public domain there are no `internal` routes, so you must reach priv
 
 ## Service exposure
 
-A Gateway still needs an address that clients can reach. `gateway.service_type` sets how traffic gets to the proxy behind each Gateway, and every platform has a default. The table below lists the two values.
+A Gateway still needs an address that clients can reach. Each Gateway sets how traffic gets to its proxy with `gateway.<name>.service_type`, where `<name>` is `external` or `internal`, and each type takes one setting of its own. This example puts `external` on a fixed address and leaves `internal` on a node port behind a load balancer the site already runs:
 
-| `gateway.service_type` | Default on                            | Reached through                                                                                      |
-| ---------------------- | ------------------------------------- | ---------------------------------------------------------------------------------------------------- |
-| `LoadBalancer`         | Every platform except docker-desktop. | A cloud load balancer, or an address from `network.loadbalancer_ips`.                                |
-| `NodePort`             | docker-desktop.                       | A node port in the 30000-32767 range. Set it elsewhere to skip the load balancer, as on single-node Talos VMs. |
+```yaml
+gateway:
+  external:
+    service_type: LoadBalancer
+    ip: 10.30.0.20
+  internal:
+    service_type: NodePort
+    node_port: 30443
+```
+
+The table below lists what each type needs.
+
+| `service_type` | Platforms | Setting | Reached through |
+| -------------- | --------- | ------- | --------------- |
+| `LoadBalancer` | AWS, Azure, GCP, Hetzner | none | A cloud load balancer. |
+| `LoadBalancer` | metal, vSphere, Hyper-V, Incus, Proxmox | `ip`, required | `gateway.<name>.ip`, announced on the nodes' network. |
+| `NodePort` | any | `node_port`, optional | A node port in the 30000-32767 range. |
+
+`service_type` defaults to `LoadBalancer` everywhere except docker-desktop, which uses `NodePort`. On the platforms without a cloud load balancer there is no default address, so a `LoadBalancer` Gateway MUST set `ip`. Workstation contexts are the exception: Windsor creates their network and assigns both Gateway addresses itself.
+
+The older `gateway.service_type` still applies to both Gateways when neither sets its own, but it is deprecated.
 
 ### Load balancers
 
@@ -108,26 +125,31 @@ On clouds each Gateway gets its own load balancer. The table below lists the loa
 | GCP      | Internal load balancer     | Public load balancer              |
 | Hetzner  | Not provisioned            | Hetzner Cloud load balancer       |
 
-Clusters without a cloud load balancer hand out addresses from a pool through MetalLB, kube-vip, or Cilium LB IPAM. These give `internal` the address `network.loadbalancer_ips.start`. When both Gateways exist, `external` takes the next address. A single Gateway always takes `start`.
+Elsewhere an in-cluster load balancer pins each Gateway to its `ip` and announces it over L2. The [CNI](../cni/index.md#what-depends-on-the-driver) picks which one: Cilium LB IPAM on Cilium clusters, and kube-vip otherwise. `network.loadbalancer_driver: metallb` swaps kube-vip for MetalLB.
+
+`network.loadbalancer_ips` is a separate, optional range for other `LoadBalancer` Services. Gateway addresses MUST sit outside it, and Windsor rejects a configuration where they overlap.
 
 ### Node ports
 
-With `NodePort`, each Gateway gets its own fixed ports. The table below lists them, along with the host ports docker-desktop forwards.
+With `NodePort`, each Gateway gets its own ports. `node_port` sets the HTTPS port, and the HTTP port is fixed. The table below lists them, along with the host ports docker-desktop forwards.
 
-|            | HTTP    | HTTPS   | docker-desktop host ports |
-| ---------- | ------- | ------- | ------------------------- |
-| `internal` | `30080` | `30443` | `8080`, `8443`            |
-| `external` | `30081` | `30444` | `8081`, `8444`            |
+|            | HTTP    | HTTPS (default) | docker-desktop host ports |
+| ---------- | ------- | --------------- | ------------------------- |
+| `internal` | `30080` | `30443`         | `8080`, `8443`            |
+| `external` | `30081` | `30444`         | `8081`, `8444`            |
 
-The private DNS port (`30053`) and the Flux webhook port (`30292`) belong to `internal` only.
+The Flux webhook port (`30292`) belongs to `internal` only.
 
-On Hyper-V with `NodePort`, the host forwards the Kubernetes API (`6443`), the Talos APIs, and each Gateway's node ports on the same port numbers. With the `envoy` driver that covers `30080` and `30443` for `internal` and `30081` and `30444` for `external`. The private DNS and Flux webhook ports are forwarded when enabled.
+On Hyper-V with both Gateways on `NodePort`, the VMs sit behind a NAT switch and the host forwards the Kubernetes API (`6443`), the Talos APIs, and each Gateway's node ports on the same port numbers. With the `envoy` driver that covers the HTTP and HTTPS ports of each Gateway whose domain is set. The Flux webhook port is forwarded with `gitops.mode: push`.
 
 Those forwards keep the node port numbers. `gateway.publish_ports` adds more forwards so a Gateway can also answer on `80` and `443`. This setting maps the standard ports to the `internal` Gateway:
 
 ```yaml
 gateway:
-  service_type: NodePort
+  external:
+    service_type: NodePort
+  internal:
+    service_type: NodePort
   publish_ports:
     "80": 30080
     "443": 30443
@@ -139,7 +161,7 @@ Keys are host ports, and values are node ports from the node port table. A key t
 
 A hostname needs a DNS record that points at its Gateway and a certificate that the client trusts. Core derives both from the domain settings.
 
-Setting `dns.public_domain` creates a public zone at your cloud provider and issues Let's Encrypt certificates for `external`. See [Public zones](../dns/public.md) and [ACME](../pki/acme.md). Setting `dns.private_domain` publishes `internal` records to a private zone. That zone is VPC-attached on AWS, Azure, and GCP. Elsewhere it is CoreDNS, as set by `dns.private.driver`. See [Private zones](../dns/private.md).
+Setting `dns.public_domain` creates a public zone at your cloud provider and issues Let's Encrypt certificates for `external`. See [Public zones](../dns/public.md) and [ACME](../pki/acme.md). Setting `dns.private_domain` publishes `internal` records to a private zone. That zone is VPC-attached on AWS, Azure, and GCP. Elsewhere it is CoreDNS in the cluster, turned on with `dns.private.enabled`. See [Private zones](../dns/private.md).
 
 An `external` Gateway gets its certificate from a self-signed issuer in two cases: when there is no cloud DNS zone, as on a local cluster, or when `pki.public_issuer` is `selfsigned`.
 
@@ -147,7 +169,7 @@ An `external` Gateway gets its certificate from a self-signed issuer in two case
 >
 > Browsers warn about a self-signed certificate.
 
-Some names cannot be delegated to a zone Core controls. Setting `dns.public_zone: false` keeps `dns.public_domain` as the Gateway's hostname without creating a zone. The `internal` certificate comes from the `private` issuer, which is the [private CA](../pki/private-ca.md) when `pki.enabled` is set. The [PKI](../pki/index.md#issuers) page lists the issuer for each configuration.
+Some names cannot be delegated to a zone Core controls. Setting `dns.public_zone: false` keeps `dns.public_domain` as the Gateway's hostname without creating a zone. The `internal` certificate comes from the `private` issuer, which signs with the [cluster CA](../pki/private-ca.md). The [PKI](../pki/index.md#issuers) page lists the issuer for each configuration.
 
 ## Requirements
 
@@ -157,6 +179,10 @@ Windsor rejects these combinations when it validates the configuration:
 - `dns.public_domain` and `dns.private_domain` are rejected when they match.
 - `dns.private_domain` is rejected on Hetzner outside dev mode.
 - `pki.public_issuer: acme` is rejected with `dns.public_zone: false`, since DNS-01 writes into the zone.
+- On metal, vSphere, Hyper-V, Incus, and Proxmox, a `LoadBalancer` Gateway needs `gateway.<name>.ip`, outside `network.loadbalancer_ips`.
+- `gateway.<name>.ip` is rejected on AWS, Azure, GCP, and Hetzner, and with `NodePort`. `gateway.<name>.node_port` is rejected with `LoadBalancer`.
+- The two Gateways need different addresses and different node ports.
+- [Private DNS](../dns/private.md#coredns) needs a `LoadBalancer` `internal` Gateway outside workstation contexts.
 - Grafana SSO and kubectl OIDC with the hosted Keycloak need the gateway enabled. See [Identity](../identity/index.md#requirements).
 
 A disabled gateway leaves services reachable only inside the cluster or through `kubectl port-forward`.
@@ -192,7 +218,7 @@ flowchart LR
   publiczone[(Public zone)]
   privatezone[(Private zone)]
 
-  client -->|HTTPS| proxy
+  client -->|HTTPS to the Gateway address| proxy
   proxy -->|HTTP| apps
   routes -->|attach| external
   routes -->|attach| internal
@@ -226,7 +252,10 @@ The table below lists every key this guide covers.
 | `dns.private_domain`    | string  | `test` in dev | Provisions the `internal` Gateway. `<id>.local` on Hyper-V and vSphere outside dev. |
 | `dns.public_zone`       | boolean | `true`        | When `false`, keeps `dns.public_domain` as a hostname with no zone.                 |
 | `pki.public_issuer`     | string  | by platform   | `acme` or `selfsigned` for the `external` certificate.                              |
-| `gateway.service_type`  | string  | by platform   | `LoadBalancer` or `NodePort`.                                                       |
+| `gateway.<name>.service_type` | string | by platform | `LoadBalancer` or `NodePort` for the `external` or `internal` Gateway.           |
+| `gateway.<name>.ip`     | string  | none          | Address of a `LoadBalancer` Gateway. Required on metal, vSphere, Hyper-V, Incus, and Proxmox. |
+| `gateway.<name>.node_port` | integer | `30443` / `30444` | HTTPS node port of a `NodePort` Gateway.                                    |
+| `gateway.service_type`  | string  | none          | Deprecated. Applies to both Gateways when neither sets its own.                     |
 | `gateway.publish_ports` | map     | none          | Host port to node port. Read only on Hyper-V with `NodePort`.                       |
 
 ## Reference
