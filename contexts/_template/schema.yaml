@@ -1251,6 +1251,10 @@ properties:
         type: integer
         minimum: 1
         description: Override the CPU/memory-derived Flux controller --concurrent value. For constrained hosts (e.g. CI runners) where the control-plane container's quota is a small slice of the whole host, not just of a roomy dev machine.
+      helm_repository_mirror:
+        type: string
+        pattern: '^[a-z0-9.-]+(:[0-9]+)?(/[A-Za-z0-9._-]+)*$'
+        description: OCI registry host and path (e.g. package.copia.io/copia) that serves every Helm chart. Each HelmRepository resolves to oci://<mirror>/<upstream host and path>, e.g. oci://package.copia.io/copia/coredns.github.io/helm. Unset pulls charts from their upstream repositories.
     additionalProperties: false
 
   # Gateway configuration

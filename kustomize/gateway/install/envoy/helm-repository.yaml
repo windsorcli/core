@@ -8,4 +8,4 @@ spec:
   interval: 10m
   timeout: 3m
   type: oci
-  url: oci://docker.io/envoyproxy
+  url: ${helm_oci_repository_prefix:=oci://}docker.io/envoyproxy

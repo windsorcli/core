@@ -8,4 +8,4 @@ spec:
   interval: 10m
   timeout: 3m
   type: oci
-  url: oci://registry.k8s.io/ingress-nginx/charts
+  url: ${helm_oci_repository_prefix:=oci://}registry.k8s.io/ingress-nginx/charts

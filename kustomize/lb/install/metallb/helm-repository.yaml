@@ -8,4 +8,4 @@ spec:
   interval: 10m
   timeout: 3m
   type: oci
-  url: oci://quay.io/metallb/chart
+  url: ${helm_oci_repository_prefix:=oci://}quay.io/metallb/chart

@@ -7,4 +7,5 @@ metadata:
 spec:
   interval: 10m
   timeout: 3m
-  url: https://aws.github.io/eks-charts
+  type: ${helm_repository_type:=default}
+  url: ${helm_repository_prefix:=https://}aws.github.io/eks-charts

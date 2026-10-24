@@ -7,4 +7,4 @@ spec:
   interval: 10m
   timeout: 5m
   type: oci
-  url: oci://ghcr.io/grafana-community/helm-charts
+  url: ${helm_oci_repository_prefix:=oci://}ghcr.io/grafana-community/helm-charts

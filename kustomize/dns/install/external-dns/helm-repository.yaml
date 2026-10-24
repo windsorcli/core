@@ -7,4 +7,5 @@ metadata:
 spec:
   interval: 10m
   timeout: 3m
-  url: https://kubernetes-sigs.github.io/external-dns/
+  type: ${helm_repository_type:=default}
+  url: ${helm_repository_prefix:=https://}kubernetes-sigs.github.io/external-dns
