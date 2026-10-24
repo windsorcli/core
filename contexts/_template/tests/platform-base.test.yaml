@@ -1064,3 +1064,42 @@ cases:
       pki:
         public_issuer: acme
     expectError: true
+
+  # Unset mirror keeps every HelmRelease on its own upstream HelmRepository.
+  - name: helm releases use their own repositories without a mirror
+    values:
+      platform: metal
+      gateway:
+        enabled: false
+      network: *default-network
+      cluster: *default-cluster
+    expect:
+      substitutions:
+        helm_repository_ssa: Override
+    exclude:
+      flux:
+        - name: helm-mirror
+
+  # A mirror adds the helm-mirror HelmRepository and skips every upstream HelmRepository.
+  - name: helm repository mirror routes every release through helm-mirror
+    values:
+      platform: metal
+      gateway:
+        enabled: false
+      network: *default-network
+      cluster: *default-cluster
+      gitops:
+        helm_repository_mirror: package.copia.io/copia
+    expect:
+      substitutions:
+        helm_repository_mirror: package.copia.io/copia
+        helm_mirror_name: helm-mirror
+        helm_mirror_namespace: system-gitops
+        helm_repository_ssa: Ignore
+      flux:
+        - name: helm-mirror
+          resources:
+            - components:
+                - helm-mirror
+              timeout: 5m
+              interval: 5m

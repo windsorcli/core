@@ -22,7 +22,8 @@ spec:
       version: 10.5.15
       sourceRef:
         kind: HelmRepository
-        name: grafana
+        name: ${helm_mirror_name:=grafana}
+        namespace: ${helm_mirror_namespace:=system-observability}
   values:
     grafana.ini:
       date_formats:

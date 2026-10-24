@@ -22,7 +22,8 @@ spec:
       version: 0.8.17
       sourceRef: 
         kind: HelmRepository
-        name: quickwit
+        name: ${helm_mirror_name:=quickwit}
+        namespace: ${helm_mirror_namespace:=system-observability}
   values:
     image:
       # renovate: datasource=docker depName=quickwit/quickwit package=quickwit/quickwit

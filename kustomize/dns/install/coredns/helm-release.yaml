@@ -24,7 +24,8 @@ spec:
       version: 1.49.0
       sourceRef: 
         kind: HelmRepository
-        name: coredns
+        name: ${helm_mirror_name:=coredns}
+        namespace: ${helm_mirror_namespace:=system-dns}
   values:
     priorityClassName: windsorcli-platform-critical
     tolerations:

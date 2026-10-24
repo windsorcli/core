@@ -21,7 +21,8 @@ spec:
       version: 7.1.1
       sourceRef:
         kind: HelmRepository
-        name: minio
+        name: ${helm_mirror_name:=minio}
+        namespace: ${helm_mirror_namespace:=system-object-store}
   values:
     operator:
       image:
