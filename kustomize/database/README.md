@@ -1,14 +1,15 @@
 ---
 title: Database add-on
-description: CloudNativePG operator for in-cluster PostgreSQL, plus the driver-specific resources (ProviderConfig, monitoring, app-role) for RDS, Azure Database for PostgreSQL, and Cloud SQL.
+description: CloudNativePG operator for in-cluster PostgreSQL, plus the Crossplane ProviderConfig and Kyverno policies for RDS, Azure Database for PostgreSQL, and Cloud SQL.
 ---
 
 # Database
 
-In-cluster PostgreSQL via the CloudNativePG operator. The add-on installs
-the operator only. Actual database clusters are created elsewhere as
-`postgresql.cnpg.io/v1` `Cluster` custom resources (see the demo add-on
-for a worked example).
+In-cluster PostgreSQL via the CloudNativePG operator, plus the per-driver
+Crossplane `ProviderConfig` and Kyverno policies for a cloud-managed
+instance. The add-on creates no database. A consuming chart creates a
+`postgresql.cnpg.io/v1` `Cluster` or a cloud instance CR (see the demo
+add-on for worked examples).
 
 `clusterWide: true` means the single operator instance reconciles
 `Cluster` CRs in any namespace, so application teams don't need their own
@@ -42,9 +43,10 @@ flowchart LR
   app ==> svc ==> sts
 ```
 
-The Operator is the only thing this add-on installs. Cluster CRs and their
-StatefulSets live in whatever namespace consumes the database. The demo
-add-on places one in `demo-database`.
+Cluster CRs and their StatefulSets live in whatever namespace consumes the
+database. The demo add-on places one in `demo-database`. The cloud driver
+resources under `crossplane/postgres/*` act on cloud instance CRs at
+admission; see Components.
 
 ## Recipes
 
@@ -74,7 +76,7 @@ flux:
       timeout: 15m
 ```
 
-### With observability dashboards
+### With Prometheus monitoring
 
 ```yaml
 flux:
@@ -90,8 +92,7 @@ flux:
 
 The `cloudnativepg/prometheus` component adds
 `dependsOn: kube-prometheus-stack` to the operator HelmRelease, so the
-database-install kustomization waits for telemetry-install to be ready
-before reconciling.
+operator installs after Prometheus is ready.
 
 
 ## Components
@@ -104,7 +105,7 @@ Helm release of CloudNativePG in `system-database`. `clusterWide: true` so the o
 
 ### `cloudnativepg/prometheus`
 
-_Enabled when `database.postgres.enabled == true` AND `observability.enabled: true`._
+_Enabled when `database.postgres.enabled == true`._
 
 Patches the operator HelmRelease to depend on `kube-prometheus-stack` (system-telemetry) and enable `monitoring.podMonitorEnabled: true` with `release: kube-prometheus-stack` discovery labels.
 
@@ -122,44 +123,46 @@ Patches the operator HelmRelease to append `--leader-elect=false` via `additiona
 
 ### `crossplane/postgres/aws-rds`
 
-_Enabled when `database.postgres.cloud.enabled == true` AND `database.postgres.cloud.driver == 'rds'`._
+_Enabled when `database.postgres.cloud.enabled == true` AND the cloud driver is `rds`. The cloud driver is `database.postgres.cloud.driver`, which defaults from the platform._
 
-RDS's own `default` `ProviderConfig` (credentials source `PodIdentity`, so a consuming `Instance` CR needs no `providerConfigRef`), and a Kyverno `MutatingPolicy` that force-sets the `windsorcli.dev/cluster` tag on every `Instance`. No chart opt-in, matching CNPG's own free monitoring. Requires `kustomize/provisioning`'s `Provider` to report Healthy/Installed first.
+RDS's `default` `ProviderConfig` (credentials source `PodIdentity`, so a consuming `Instance` CR needs no `providerConfigRef`) and two Kyverno `MutatingPolicy` resources acting on every `Instance`. `crossplane-instance-tag` force-sets the `windsorcli.dev/cluster` and `WindsorContextID` tags. `crossplane-instance-network` defaults `dbSubnetGroupName`, `kmsKeyId`, and `vpcSecurityGroupIds` when the `Instance` leaves them unset. Applies after `provisioning-resources`, which is Ready once the `Provider` reports Healthy and Installed.
 
 ### `crossplane/postgres/azure-postgres`
 
-_Enabled when `database.postgres.cloud.enabled == true` AND `database.postgres.cloud.driver == 'azuredb'`._
+_Enabled when `database.postgres.cloud.enabled == true` AND the cloud driver is `azuredb`._
 
-Azure twin of `crossplane/postgres/aws-rds`. The `default` `ProviderConfig` (credentials source `OIDCTokenFile`, so a consuming `FlexibleServer` CR needs no `providerConfigRef`), and a Kyverno `MutatingPolicy` that force-sets `resourceGroupName` on every `FlexibleServer` to the context's dedicated postgres resource group. No chart opt-in, matching CNPG's own free monitoring.
+Azure twin of `crossplane/postgres/aws-rds`. The `default` `ProviderConfig` (credentials source `OIDCTokenFile`, so a consuming `FlexibleServer` CR needs no `providerConfigRef`) and three Kyverno `MutatingPolicy` resources acting on every `FlexibleServer`. `crossplane-azuredb-rg` force-sets `resourceGroupName` to the context's dedicated postgres resource group. `crossplane-instance-tag` force-sets the `WindsorContextID` tag. `crossplane-azuredb-network` defaults `delegatedSubnetId` and `privateDnsZoneId` on create when unset.
 
 ### `crossplane/postgres/gcp-cloudsql`
 
-_Enabled when `database.postgres.cloud.enabled == true` AND `database.postgres.cloud.driver == 'cloudsql'`._
+_Enabled when `database.postgres.cloud.enabled == true` AND the cloud driver is `cloudsql`._
 
-GCP twin of `crossplane/postgres/aws-rds`. The `default` `ProviderConfig` (credentials source `InjectedIdentity`, so a consuming `DatabaseInstance` CR needs no `providerConfigRef`), and a Kyverno `MutatingPolicy` that force-sets `project` on every `DatabaseInstance` to the context's GCP project. No chart opt-in, matching CNPG's own free monitoring.
+GCP twin of `crossplane/postgres/aws-rds`. The `default` `ProviderConfig` (credentials source `InjectedIdentity`, so a consuming `DatabaseInstance` CR needs no `providerConfigRef`) and three Kyverno `MutatingPolicy` resources acting on every `DatabaseInstance`. `crossplane-cloudsql-project` force-sets `project` to the context's GCP project. `crossplane-instance-tag` force-sets the `windsor_context_id` label. `crossplane-cloudsql-network` defaults `settings.ipConfiguration.privateNetwork` when unset.
 
 ### `crossplane/postgres/azure-postgres/encryption-key`
 
-_Enabled when `database.postgres.cloud.enabled == true` AND `database.postgres.cloud.driver == 'azuredb'` AND (`database.postgres.cloud.encryption.managed: true` OR `database.postgres.cloud.encryption.key_id` set)._
+_Enabled when `database.postgres.cloud.enabled == true` AND the cloud driver is `azuredb` AND (`database.postgres.cloud.encryption.managed: true` with `ephemeral != true`, OR `database.postgres.cloud.encryption.key_id` set)._
 
-A Kyverno `MutatingPolicy` defaulting `identity` and `customerManagedKey` on every `FlexibleServer` that doesn't already set them, so a third-party chart gets an encrypted server with this context's own key with no knowledge of it. Only installed when a managed key actually exists for this context — an unconditional default would set an explicit empty key/identity rather than leaving them absent.
+A Kyverno `MutatingPolicy` that defaults `identity` and `customerManagedKey` to this context's key on every new `FlexibleServer` that leaves them unset.
 
 ### `crossplane/postgres/gcp-cloudsql/encryption-key`
 
-_Enabled when `database.postgres.cloud.enabled == true` AND `database.postgres.cloud.driver == 'cloudsql'` AND (`database.postgres.cloud.encryption.managed: true` OR `database.postgres.cloud.encryption.key_id` set)._
+_Enabled when `database.postgres.cloud.enabled == true` AND the cloud driver is `cloudsql` AND (`database.postgres.cloud.encryption.managed: true` with `ephemeral != true`, OR `database.postgres.cloud.encryption.key_id` set)._
 
-GCP twin of `crossplane/postgres/azure-postgres/encryption-key`, defaulting `encryptionKeyName` on every `DatabaseInstance`.
+GCP twin of `crossplane/postgres/azure-postgres/encryption-key`, defaulting `encryptionKeyName` on every new `DatabaseInstance`.
 
 ## Dependencies
 
 | Add-on | Required when | Reason |
 |---|---|---|
-| `csi` | always | PostgreSQL `Cluster` CRs request PVCs for data storage; the default StorageClass must exist before the operator can bring a Cluster up. |
+| `csi` | `database.postgres.enabled == true` | PostgreSQL `Cluster` CRs request PVCs for data storage; the default StorageClass must exist before the operator can bring a Cluster up. |
+| `telemetry` | `database.postgres.enabled == true` AND `telemetry.metrics.enabled` or `telemetry.logs.enabled` | The operator HelmRelease depends on `kube-prometheus-stack`. |
+| `provisioning` | `database.postgres.cloud.enabled == true` | The `ProviderConfig` and Kyverno policies need the CRDs the Crossplane `Provider` installs. |
 
 
 ## See also
 
 - [contexts/_template/facets/addon-database.yaml](../../contexts/_template/facets/addon-database.yaml) for the canonical wiring and Grafana dashboard patch.
 - [contexts/_template/facets/option-single-node.yaml](../../contexts/_template/facets/option-single-node.yaml) for the `cloudnativepg/single-node` patch wiring.
-- [kustomize/demo/database/](../demo/database/) for a worked example (a `Cluster` CR named `demo-cluster`).
+- [kustomize/demo/resources/database/](../demo/resources/database/) for a worked example (a `Cluster` CR named `demo-cluster`).
 - Related add-ons: [csi](../csi/), [observability](../observability/) (`grafana/dashboards/cloudnativepg`), [telemetry](../telemetry/).

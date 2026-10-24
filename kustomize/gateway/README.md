@@ -8,10 +8,12 @@ Gateways can exist: `external`, provisioned when `dns.public_domain` is
 set, and `internal`, provisioned when `dns.private_domain` is set
 (workstation and dev mode default it to `test`). Two driver options.
 
-Envoy Gateway is the default: a dedicated control-plane and data-plane
-Envoy stack installed by Helm. It is heavier than Cilium's built-in path
-and supports L7 features Cilium does not — `HTTPRouteFilter`, ext_authz,
-and response header and body rewrites. The catch-all 404 uses it.
+The default driver is `cilium` whenever Cilium is the CNI, and `envoy`
+on AWS, on docker-desktop, and everywhere else. Envoy Gateway is a
+dedicated control-plane and data-plane Envoy stack installed by Helm. It
+is heavier than Cilium's built-in path and supports L7 features Cilium
+lacks, such as `HTTPRouteFilter`, ext_authz, and response header and
+body rewrites. The catch-all 404 uses `HTTPRouteFilter`.
 
 The `cilium` driver uses Cilium's built-in Gateway API implementation. A
 single dataplane handles L3/L4 and L7, and LoadBalancer Services share
@@ -20,17 +22,18 @@ installs only the GatewayClass, the Cilium operator (owned by the `cni`
 add-on) is the controller, and the resources tier patches the Gateway
 with Cilium's LBIPAM annotations so multiple Gateways can share one IP.
 
-The add-on is a `flux:` system entry (`gateway`) so Flux can install
-the Gateway API CRDs and the controller workloads before the
-`Gateway` CR that targets them. `install` ships the Gateway API CRDs
-plus the operator Helm release (envoy) or just the GatewayClass
-(cilium); LB-mode patches and Prometheus monitor go here. `resources`
-ships one named variant per Gateway (`gateway-resources-external`,
-`gateway-resources-internal`), each rendering the `Gateway`, its
-certificate, and its `EnvoyProxy` from the same files through the
-`${gateway_name}` substitution, plus per-feature patches (catch-all
-404, DNS listeners, fixed LB address, Flux webhook). Utility surfaces
-(CoreDNS listeners, the Flux webhook) bind to `internal` only. The tier
+The add-on is a `flux:` system entry (`gateway`) so Flux installs the
+controller before the `Gateway` CR that targets it. The Gateway API
+CRDs, and Envoy Gateway's CRDs on the envoy driver, ship from the
+facet's `crds:` layer ahead of both tiers. `install` ships the Envoy
+Gateway Helm release and its Prometheus monitors (envoy), or only the
+GatewayClass (cilium). `resources` ships one named variant per Gateway
+(`gateway-resources-external`, `gateway-resources-internal`), each
+rendering the `Gateway`, its certificate, and its `EnvoyProxy` from the
+same files through the `${gateway_name}` substitution, plus per-feature
+patches (LB mode, catch-all 404, DNS listeners, fixed LB address, Flux
+webhook). Utility surfaces (CoreDNS listeners, the Flux webhook) bind
+to `internal` only. The tier
 implicitly depends on `install` (compiled name: `gateway-install`).
 
 ## Recipes
@@ -47,19 +50,24 @@ IP. The diagrams show one Gateway.
 flowchart LR
   client((Client))
 
-  subgraph systemgateway[system-gateway]
-    op[Envoy Gateway operator]
-    gw[Gateway<br/>HTTPS + default-404]
-    routes[HTTPRoutes from apps]
-    svc[Service type=LoadBalancer]
-    envoy[Envoy data-plane]
-  end
+  subgraph net[Cloud network]
+    cloudlb[(Cloud load balancer)]
 
-  cloudlb[(Cloud load balancer)]
-  lbctrl[(LB controller)]
-  cert[(pki Certificate)]
-  dns[(external-dns)]
-  app[App workloads]
+    subgraph cluster[Kubernetes cluster]
+      subgraph systemgateway[system-gateway]
+        op[Envoy Gateway operator]
+        gw[Gateway<br/>HTTPS + default-404]
+        routes[HTTPRoutes from apps]
+        svc[Service type=LoadBalancer]
+        envoy[Envoy data-plane]
+      end
+
+      lbctrl[(LB controller)]
+      cert[(pki Certificate)]
+      dns[(external-dns)]
+      app[App workloads]
+    end
+  end
 
   client ==> cloudlb ==> svc ==> envoy ==> app
   op -. provisions .-> svc & envoy
@@ -84,7 +92,7 @@ flux:
       - name: internal
         dependsOn: [pki-resources, lb-install]
         components:
-          - envoy/proxy
+          - envoy/base
           - envoy/loadbalancer
           - envoy/loadbalancer/kube-vip-ip
           - envoy/parameters
@@ -108,17 +116,20 @@ The data-plane Service is exposed through the LB controller.
 flowchart LR
   client((Client / workstation))
 
-  subgraph systemgateway[system-gateway]
-    op[Envoy Gateway operator]
-    gw[Gateway<br/>HTTPS]
-    routes[HTTPRoutes from apps]
-    svc[Service type=NodePort]
-    envoy[Envoy data-plane]
-  end
+  subgraph cluster[Kubernetes cluster]
+    node[(Node host ports<br/>+ NodePorts: Flux webhook 30292,<br/>DNS 30053 in workstation contexts)]
 
-  node[(Node host ports<br/>+ NodePorts: DNS 53, Flux webhook 9292)]
-  cert[(pki Certificate)]
-  app[App workloads]
+    subgraph systemgateway[system-gateway]
+      op[Envoy Gateway operator]
+      gw[Gateway<br/>HTTPS]
+      routes[HTTPRoutes from apps]
+      svc[Service type=NodePort]
+      envoy[Envoy data-plane]
+    end
+
+    cert[(pki Certificate)]
+    app[App workloads]
+  end
 
   client ==> node ==> svc ==> envoy ==> app
   op -. provisions .-> svc & envoy
@@ -136,7 +147,7 @@ flux:
       - name: internal
         dependsOn: [pki-resources]
         components:
-          - envoy/proxy
+          - envoy/base
           - envoy/nodeport
           - envoy/nodeport/dns
           - envoy/nodeport/flux-webhook
@@ -153,18 +164,23 @@ slots needed for in-cluster DNS and Flux push-mode webhooks.
 flowchart LR
   client((Client))
 
-  subgraph systemgateway[system-gateway]
-    op[Envoy Gateway operator]
-    gw[Gateway<br/>HTTPS]
-    routes[HTTPRoutes from apps]
-    svc[Service type=LoadBalancer<br/>+ NLB annotations]
-    envoy[Envoy data-plane pods]
-  end
+  subgraph vpc[VPC]
+    nlb[(AWS NLB<br/>target-type=ip)]
 
-  nlb[(AWS NLB<br/>target-type=ip)]
-  lbc[(AWS LB Controller)]
-  cert[(pki Certificate)]
-  app[App workloads]
+    subgraph cluster[Kubernetes cluster]
+      subgraph systemgateway[system-gateway]
+        op[Envoy Gateway operator]
+        gw[Gateway<br/>HTTPS]
+        routes[HTTPRoutes from apps]
+        svc[Service type=LoadBalancer<br/>+ NLB annotations]
+        envoy[Envoy data-plane pods]
+      end
+
+      lbc[(AWS LB Controller)]
+      cert[(pki Certificate)]
+      app[App workloads]
+    end
+  end
 
   client ==> nlb ==> envoy ==> app
   op -. provisions .-> svc & envoy
@@ -183,7 +199,7 @@ flux:
       - name: external
         dependsOn: [pki-resources, lb-install]
         components:
-          - envoy/proxy
+          - envoy/base
           - envoy/loadbalancer
           - envoy/loadbalancer/aws-nlb
           - envoy/parameters
@@ -199,18 +215,20 @@ traffic straight to the Envoy pods with source IP preserved.
 flowchart LR
   client((Client))
 
-  subgraph systemgateway[system-gateway]
-    gc[GatewayClass cilium]
-    gw[Gateway<br/>HTTPS · LBIPAM-shared IP]
-    routes[HTTPRoutes from apps]
-  end
+  subgraph cluster[Kubernetes cluster]
+    subgraph systemgateway[system-gateway]
+      gc[GatewayClass cilium]
+      gw[Gateway<br/>HTTPS · LBIPAM-shared IP]
+      routes[HTTPRoutes from apps]
+    end
 
-  subgraph kubesystem[kube-system]
-    cil[Cilium agents<br/>L3/L4 + L7 dataplane]
-  end
+    subgraph kubesystem[kube-system]
+      cil[Cilium agents<br/>L3/L4 + L7 dataplane]
+    end
 
-  cert[(pki Certificate)]
-  app[App workloads]
+    cert[(pki Certificate)]
+    app[App workloads]
+  end
 
   client ==> cil ==> app
   gw -. classOf .-> gc -. controller .-> cil
@@ -220,9 +238,8 @@ flowchart LR
   cert -. TLS .-> gw
 ```
 
-Cilium is already the cluster dataplane (it's the CNI), so it
-terminates and routes Gateway traffic directly — no Envoy Service in
-the path, one hop shorter than the Envoy recipes.
+Cilium is the CNI, so its agents terminate and route Gateway traffic
+directly. There is no Envoy Service in the path.
 
 ```yaml
 flux:
@@ -244,13 +261,13 @@ flux:
 
 | Name | Required when | Effect |
 |---|---|---|
-| `gateway_name` | `gateway-resources-external` or `gateway-resources-internal` is composed | `external` or `internal` -- the Gateway/EnvoyProxy/Certificate name this resources variant renders. Every resource and patch in the resources tier is parameterized by this one substitution, so both gateways share the same files. |
+| `gateway_name` | `gateway-resources-external` or `gateway-resources-internal` is composed | `external` or `internal`. Names the Gateway, EnvoyProxy, and Certificate this resources variant renders. |
 | `gateway_class_name` | always | Name of the `GatewayClass` the cluster Gateway references. Sourced from `gateway.driver` (`envoy` or `cilium`). |
-| `gateway_domain` | `gateway-resources-external` or `gateway-resources-internal` is composed | Cert SAN and DNS target domain for this gateway. `dns.public_domain` for external, `dns.private_domain` for internal -- no fallback ladder, since each variant only composes when its own domain is set. |
-| `gateway_cert_issuer` | `gateway-resources-external` or `gateway-resources-internal` is composed | TLS `ClusterIssuer` name. External: the public issuer (`public-acme` once `dns.public_domain` is set, guaranteed ACME-eligible). Internal: always `private` -- a VPC-only/local zone can't validate ACME DNS-01. |
-| `gateway_dns_target` | `dns` is enabled and gateway-resources/dns is composed | Hostname/IP that external-dns publishes as this gateway's target. Resolves to `gateway.<name>.ip` when `lb_effective.enabled`, empty otherwise. |
+| `gateway_domain` | `gateway-resources-external` or `gateway-resources-internal` is composed | Cert SAN and DNS target domain for this gateway. `dns.public_domain` for external, `dns.private_domain` for internal. |
+| `gateway_cert_issuer` | `gateway-resources-external` or `gateway-resources-internal` is composed | TLS `ClusterIssuer` name. External: `public-acme` on aws, azure, gcp, and hetzner unless `pki.public_issuer` is `selfsigned`, `public-selfsigned` otherwise. Internal: always `private`. |
+| `gateway_dns_target` | `dns` is enabled and gateway-resources/dns is composed | Hostname/IP that external-dns publishes as this gateway's target. Resolves to `gateway.<name>.ip` when kube-vip or MetalLB runs, `10.96.0.53` for the internal gateway with `dns/docker-desktop`, and empty otherwise. |
 | `gateway_loadbalancer_ip` | `lb-address` or `cilium/fixed-ip` is composed | Fixed IP this gateway advertises. Used in the cilium variant's `lbipam.cilium.io/ips` annotation, the `cilium-pool` block, and the envoy variant's `spec.addresses` patch. Sourced from `gateway.<name>.ip`. |
-| `gateway_lb_scheme` | AWS platform, `envoy/loadbalancer/aws-nlb` is composed | `internet-facing` for external, `internal` for internal -- the internal gateway is never internet-facing, so this needs no ternary. |
+| `gateway_lb_scheme` | AWS platform, `envoy/loadbalancer/aws-nlb` is composed | `internet-facing` for external, `internal` for internal. |
 | `gateway_redirect_port` | `gateway-resources-external` or `gateway-resources-internal` is composed | HTTPS port the `https-redirect` route's 301 targets. `443` for cloud/LB; docker-desktop's NodePort host-forward otherwise (`8443` internal, `8444` external). |
 | `gateway_nodeport_http / gateway_nodeport_https` | this gateway's service type is `NodePort` | NodePort numbers for this gateway's data-plane Service. Internal: 30080 and `gateway.internal.node_port` (default 30443). External: 30081 and `gateway.external.node_port` (default 30444). |
 
@@ -260,19 +277,19 @@ flux:
 
 _Enabled when `gateway.driver == 'envoy'`._
 
-Helm release of `envoy-gateway` in `system-gateway`. Installs the Envoy Gateway operator only (chart CRD install is skipped). Per-gateway data-plane config (`EnvoyProxy`, LB/nodeport annotations) lives in the resources tier, not here -- it's a custom resource the controller reconciles, and only the resources tier supports the external/internal named variants needed to configure two EnvoyProxy objects independently.
+Helm release of `envoy-gateway` in `system-gateway`. Installs the Envoy Gateway operator only (chart CRD install is skipped). Per-gateway data-plane config (`EnvoyProxy`, LB and NodePort annotations) is in the resources tier, one variant per gateway.
 
 ### `envoy/prometheus`
 
 _Enabled when envoy driver._
 
-Adds the Envoy Gateway operator's PodMonitor + the Envoy data-plane's ServiceMonitor.
+Adds a PodMonitor for the Envoy data-plane pods and a ServiceMonitor for the Envoy Gateway operator. The `envoy-gateway` HelmRelease waits for `kube-prometheus-stack`.
 
 ### `install/cilium`
 
 _Enabled when `gateway.driver == 'cilium'`._
 
-Installs the Gateway API CRDs and a `GatewayClass` referencing the `cilium` controller. The Cilium HelmRelease itself is owned by the `cni` add-on (see option-cni's `cilium/gateway` component). Operator references this as `components: [cilium]` under `gateway-install`.
+Installs a `GatewayClass` referencing the `cilium` controller. The Cilium HelmRelease itself is owned by the `cni` add-on (see option-cni's `cilium/gateway` component). Operator references this as `components: [cilium]` under `gateway-install`.
 
 ## Components — `gateway-resources`
 
@@ -280,23 +297,23 @@ Installs the Gateway API CRDs and a `GatewayClass` referencing the `cilium` cont
 
 _Enabled when envoy driver._
 
-Named so it sorts ahead of every other `envoy/*` component, which patch the `EnvoyProxy` it creates and apply in sorted order when several facets contribute to one gateway. The self-contained `EnvoyProxy` resource (`${gateway_name}`) referenced from the Gateway via `spec.infrastructure.parametersRef` (see `envoy/parameters`). Carries the digest-pinned proxy image (Kyverno requires pinned images); the loadbalancer/nodeport components layer the envoyService Service config in. The EnvoyGateway helm config keeps no default proxy patch, so this resource is authoritative.
+Named so it sorts ahead of every other `envoy/*` component, which patch the `EnvoyProxy` it creates and apply in sorted order when several facets contribute to one gateway. The self-contained `EnvoyProxy` resource (`${gateway_name}`) referenced from the Gateway via `spec.infrastructure.parametersRef` (see `envoy/parameters`). The loadbalancer and nodeport components layer the envoyService Service config in. The EnvoyGateway helm config keeps no default proxy patch, so this resource is authoritative.
 
 ### `envoy/loadbalancer`
 
 _Enabled when envoy driver AND this gateway's service type is `LoadBalancer`._
 
-Patches this gateway's `EnvoyProxy` so the data-plane Service is `type: LoadBalancer`, with no fixed IP -- correct for cloud LB controllers, which auto-assign. Cloud-specific annotation patches (aws-nlb / azure) and the address-pinning components merge on top.
+Patches this gateway's `EnvoyProxy` so the data-plane Service is `type: LoadBalancer`, with no fixed IP, so a cloud LB controller assigns one. Cloud-specific annotation patches (aws-nlb / azure) and the address-pinning components merge on top.
 
 ### `envoy/loadbalancer/kube-vip-ip` and `envoy/loadbalancer/metallb-ip`
 
-_Enabled when envoy driver AND this gateway's service type is `LoadBalancer` AND kube-vip or MetalLB runs AND the gateway has an address._
+_Enabled when envoy driver AND this gateway's service type is `LoadBalancer` AND kube-vip or MetalLB runs AND `gateway.<name>.ip` is set._
 
-Pins this gateway's data-plane Service to its address with the driver's annotation, `kube-vip.io/loadbalancerIPs` or `metallb.io/loadBalancerIPs`. The address is `gateway.<name>.ip`, else the pool address. Cloud platforms never apply these, since their LB controller assigns the address.
+Pins this gateway's data-plane Service to its address with the driver's annotation, `kube-vip.io/loadbalancerIPs` or `metallb.io/loadBalancerIPs`. The address is `gateway.<name>.ip`. Cloud platforms never apply these, since their LB controller assigns the address.
 
 ### `envoy/loadbalancer/cilium-ip`
 
-_Enabled when envoy driver AND this gateway's service type is `LoadBalancer` AND Cilium provides the pool addresses._
+_Enabled when envoy driver AND this gateway's service type is `LoadBalancer` AND Cilium LB IPAM assigns addresses AND `gateway.<name>.ip` is set._
 
 Pins this gateway's data-plane Service to `gateway.<name>.ip` with the `lbipam.cilium.io/ips` annotation.
 
@@ -310,7 +327,7 @@ Adds NLB annotations onto the Envoy data-plane Service so the AWS Load Balancer 
 
 _Enabled when envoy driver AND platform is Azure AND the internal gateway._
 
-Adds Azure ILB annotations so the Envoy data-plane Service provisions an internal load balancer (subnet-bound, no public IP). Always applied for internal -- AKS's CCM gives the external gateway a public LB by default, no annotation needed there.
+Adds Azure ILB annotations so the Envoy data-plane Service provisions an internal load balancer (subnet-bound, no public IP). Applied to the internal gateway only. The external gateway gets AKS's default public load balancer.
 
 ### `envoy/loadbalancer/gcp`
 
@@ -344,15 +361,15 @@ Adds ClusterIP-reachable entries for this gateway's host-published ports (`gatew
 
 ### `envoy/nodeport/dns`
 
-_Enabled when envoy/nodeport AND internal gateway._
+_Enabled when envoy/nodeport AND internal gateway AND `dns.private.enabled` (default `true` in dev mode)._
 
-Opens an additional NodePort for the cluster's private DNS resolver (UDP/TCP 53). Lets a workstation point at the host's IP for `*.<dns.private_domain>` resolution. Internal-only, since DNS is a utility surface.
+Opens NodePort 30053 for the cluster's private DNS resolver (UDP/TCP 53). Lets a workstation point at the host's IP for `*.<dns.private_domain>` resolution. Only workstation contexts compose it, since private DNS elsewhere needs a `LoadBalancer` internal gateway.
 
 ### `envoy/nodeport/flux-webhook`
 
 _Enabled when envoy/nodeport AND internal gateway AND `gitops.mode == 'push'`._
 
-Opens an additional NodePort for the Flux notification-controller webhook (port 9292). Internal-only, since the webhook receiver is a utility surface.
+Opens NodePort 30292 for the Flux notification-controller webhook (port 9292). Internal-only, since the webhook receiver is a utility surface.
 
 ### `resources/cilium`
 
@@ -386,19 +403,25 @@ Catch-all `HTTPRoute` (`default-404-${gateway_name}`) returning a 404 directResp
 
 ### `envoy/default-404/external-dns`
 
-_Enabled when envoy driver AND this gateway's own DNS zone exists._
+_Enabled when envoy driver._
 
 Adds the `external-dns.alpha.kubernetes.io/hostname` annotation to the 404 catch-all route so external-dns publishes the gateway hostname for the bare domain (not just per-app HTTPRoutes).
 
 ### `dns`
 
-_Enabled when internal gateway only._
+_Enabled when envoy driver AND internal gateway AND `dns.private.enabled` (default `true` in dev mode)._
 
-Patches the internal Gateway with `external-dns.alpha.kubernetes.io/target: ${gateway_dns_target}` and adds UDPRoute / TCPRoute listeners on port 53 for in-cluster DNS service exposure. Always internal -- CoreDNS is a utility surface, never internet-facing.
+Patches the internal Gateway with `external-dns.alpha.kubernetes.io/target: ${gateway_dns_target}` and adds UDP and TCP listeners on port 53 that accept `UDPRoute` and `TCPRoute` attachments for CoreDNS. CoreDNS is a utility surface, so only the internal gateway carries it.
+
+### `dns/docker-desktop`
+
+_Enabled when envoy driver AND internal gateway AND `workstation.runtime == 'docker-desktop'` AND `dns.private.enabled`._
+
+Adds a ClusterIP Service named `gateway` at the fixed address `10.96.0.53` that selects the internal gateway's Envoy pods on ports 80, 443, 8080, and 8443. The facet sets `gateway_dns_target` to that address, so external-dns publishes the internal gateway's hostnames as `A` records pointing at it. In-cluster callers then reach those hostnames on the same ports a browser uses. The target is a literal IP because CoreDNS's etcd backend cannot follow a CNAME into another zone. The address MUST fall inside the cluster's service CIDR, which is the Talos default `10.96.0.0/12`. The workstation resolves these hostnames through its own Corefile and does not use this record.
 
 ### `lb-address`
 
-_Enabled when `lb_effective.enabled: true` AND `gateway.<name>.ip` is set._
+_Enabled when kube-vip or MetalLB runs AND `gateway.<name>.ip` is set._
 
 Patches this Gateway's `spec.addresses` to pin a fixed IPAddress (`${gateway_loadbalancer_ip}`). Skipped when no LB is enabled (NodePort mode picks node IP at apply time).
 
@@ -406,16 +429,16 @@ Patches this Gateway's `spec.addresses` to pin a fixed IPAddress (`${gateway_loa
 
 _Enabled when internal gateway AND `gitops.mode == 'push'`._
 
-Adds an HTTP listener on port 9292 to the internal Gateway for the Flux notification-controller webhook. Paired with `envoy/nodeport/flux-webhook` on nodeport-mode clusters. Always internal -- the webhook receiver is a utility surface.
+Adds an HTTP listener on port 9292 to the internal Gateway for the Flux notification-controller webhook. Paired with `envoy/nodeport/flux-webhook` on nodeport-mode clusters. Applied to the internal gateway only.
 
 ## Dependencies
 
 | Add-on | Required when | Reason |
 |---|---|---|
-| `pki-install` | always | gateway-resources needs cert-manager CRDs reconciling so each Gateway's `Certificate` can be issued before the Gateway is admitted. |
-| `lb-install` | `lb_effective.controller_required: true` (e.g., metallb-driven clusters; AWS via aws-lb-controller) | The LB controller must be live so the data-plane Service can get an external IP. |
-| `dns` | `dns.enabled: true` | external-dns must be reconciling so each gateway's hostname is published when it comes up. |
-| `cni` | `gateway.driver == 'cilium'` (declared by option-gateway as a cross-stack merge into option-cni) | Cilium's Gateway controller needs the Gateway API CRDs from gateway-install before its operator starts watching. |
+| `pki-resources` | always | Each Gateway's `Certificate` needs its ClusterIssuer. |
+| `telemetry-install` | envoy driver AND `telemetry.metrics.enabled` | `gateway-install` waits for the Prometheus Operator CRDs its monitors use. |
+| `lb-install` | AWS with envoy driver, or Hetzner's external gateway | The cloud LB controller finalizes the data-plane Service and tears down after it. |
+| `cni-install` | `gateway.driver == 'cilium'` (declared by option-cni) | Each resources variant waits for Cilium and its LBIPAM sharing policy. |
 
 
 ## See also

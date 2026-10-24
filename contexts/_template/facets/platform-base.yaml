@@ -12,6 +12,10 @@ requires:
     paths:
       - dns.public_domain
     message: pki.public_issuer acme issues certificates for dns.public_domain; set it or use selfsigned.
+  - when: (dns.public_domain ?? '') != '' && dns.public_domain == (dns.private_domain ?? dns.domain ?? '')
+    paths:
+      - dns_domains_distinct
+    message: dns.public_domain and dns.private_domain must differ.
   - when: lb_effective.driver == 'cilium' && cluster.cni.driver != 'cilium'
     paths:
       - lb_effective.driver_supported
@@ -207,6 +211,11 @@ config:
       public_domain: "${dns.public_domain ?? ''}"
       private_domain: "${dns.private_domain ?? dns.domain ?? (dev == true ? 'test' : '')}"
       enabled: "${(dns.private.enabled ?? false) == true || (dns.public_domain ?? '') != '' || (dns.private_domain ?? '') != ''}"
+
+  # Blank when the public and private domains match; the requires block above reads it to fail.
+  - name: dns_domains_distinct
+    when: (dns.public_domain ?? '') == '' || dns.public_domain != (dns.private_domain ?? dns.domain ?? '')
+    value: ok
 
   # dns_zone_effective.enabled: platforms provision the public zone, external-dns
   # and the DNS-01 identity. dns.public_zone: false keeps public_domain as a hostname only.

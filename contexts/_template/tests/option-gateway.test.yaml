@@ -812,7 +812,7 @@ cases:
     values:
       platform: metal
       dns:
-        domain: example.com
+        domain: example.internal
         public_domain: example.com
       gateway:
         internal:

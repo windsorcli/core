@@ -7,9 +7,12 @@ stack_name: DNS
 Two halves, both gated independently.
 
 `external-dns` publishes Kubernetes Service / Gateway / HTTPRoute
-hostnames to a real DNS zone (Route53, Azure DNS, or in-cluster
-coredns). It's active whenever `dns.public_domain` or
-`dns.private_domain` is set.
+hostnames to a DNS zone in Route53, Azure DNS, Cloud DNS, Hetzner DNS,
+or the in-cluster coredns. On AWS, Azure, and GCP it runs when
+`dns.private_domain` is set, or when `dns.public_domain` is set and
+`dns.public_zone` is not `false`. Hetzner runs only the public
+instance, under the same public-zone condition. Every other platform
+runs it only with `dns.private.enabled: true`, writing into coredns.
 
 `coredns` is an in-cluster authoritative private DNS server with an
 etcd backend. It's active when `dns.private.enabled: true`,
@@ -34,14 +37,16 @@ etcd only run when private DNS is opted in.
 ```mermaid
 flowchart LR
   client((Client))
-
-  subgraph systemdns[system-dns]
-    edns[external-dns controller<br/>route53 provider]
-  end
-
-  gateways[Gateway / HTTPRoute<br/>hostnames]
   zone[(Route53 hosted zone)]
-  gw[(Cluster gateway)]
+
+  subgraph cluster[Kubernetes cluster]
+    subgraph systemdns[system-dns]
+      edns[external-dns controller<br/>route53 provider]
+    end
+
+    gateways[Gateway / HTTPRoute<br/>hostnames]
+    gw[(Cluster gateway)]
+  end
 
   edns -. watches .-> gateways
   edns -. publishes A / CNAME .-> zone
@@ -51,7 +56,6 @@ flowchart LR
 
 ```yaml
 - name: dns
-  dependsOn: [policy-resources, gateway-install]
   install:
     components: [external-dns]
   resources:
@@ -77,14 +81,16 @@ flowchart LR
 ```mermaid
 flowchart LR
   client((Client))
-
-  subgraph systemdns[system-dns]
-    edns[external-dns controller<br/>azure provider]
-  end
-
-  gateways[Gateway / HTTPRoute<br/>hostnames]
   zone[(Azure DNS zone)]
-  gw[(Cluster gateway)]
+
+  subgraph cluster[Kubernetes cluster]
+    subgraph systemdns[system-dns]
+      edns[external-dns controller<br/>azure provider]
+    end
+
+    gateways[Gateway / HTTPRoute<br/>hostnames]
+    gw[(Cluster gateway)]
+  end
 
   edns -. watches .-> gateways
   edns -. publishes A / CNAME .-> zone
@@ -94,7 +100,6 @@ flowchart LR
 
 ```yaml
 - name: dns
-  dependsOn: [policy-resources, gateway-install]
   install:
     components: [external-dns]
   resources:
@@ -125,17 +130,20 @@ flowchart LR
 
 ```mermaid
 flowchart LR
-  flux[Flux helm-controller]
-
-  subgraph systemdns[system-dns]
-    edns[external-dns<br/>coredns provider]
-    coredns[coredns]
-    etcd[etcd StatefulSet]
-    lb[Service type=LoadBalancer]
-  end
-
-  pki[(private ClusterIssuer)]
   resolver[(workstation / LAN resolver)]
+
+  subgraph cluster[Kubernetes cluster]
+    flux[Flux helm-controller]
+
+    subgraph systemdns[system-dns]
+      edns[external-dns<br/>coredns provider]
+      coredns[coredns]
+      etcd[etcd StatefulSet]
+      lb[Service type=LoadBalancer]
+    end
+
+    pki[(private ClusterIssuer)]
+  end
 
   flux ==> edns
   flux ==> coredns
@@ -148,7 +156,7 @@ flowchart LR
 
 ```yaml
 - name: dns
-  dependsOn: [pki-install]
+  dependsOn: [pki-resources, cni]
   install:
     components:
       - external-dns
@@ -213,7 +221,7 @@ In both cases coredns shares the internal gateway's address,
 
 ### `external-dns`
 
-_Enabled when `dns.public_domain` or `dns.private_domain` is set._
+_Enabled when any `resources/external-dns` instance is enabled._
 
 The `external-dns` HelmRepository in `system-dns`, shared by every instance.
 
@@ -237,7 +245,7 @@ Adds the `iam.gke.io/gcp-service-account` annotation to the shared ServiceAccoun
 
 ### `resources/external-dns`
 
-_Enabled when one named variant per zone: `public` when `dns.public_domain` is set, `private` when `dns.private_domain` is set._
+_Enabled as one named variant per zone: `public` when `dns.public_domain` is set (on AWS, Azure, GCP, and Hetzner only while `dns.public_zone` is not `false`), `private` when `dns.private_domain` is set (never on Hetzner)._
 
 The `external-dns` HelmRelease for one zone, named by `${external_dns_name}` and filtered to `${external_dns_domain}`. Watches Service / Ingress / Gateway / HTTPRoute resources and publishes their hostnames as DNS records. Runs under the shared ServiceAccount, with provider auth handled by the provider component.
 
@@ -287,24 +295,23 @@ Adds a `${public_domain}` zone to the in-cluster coredns server block, so a loca
 
 _Enabled when `dns.private.enabled: true`._
 
-Helm release of `coredns` in `system-dns`. In-cluster private DNS server. Serves only `dns.private_domain` and refuses every other name.
+Helm release of `coredns` in `system-dns`. In-cluster private DNS server. Serves `dns.private_domain`, plus `dns.public_domain` when `coredns/public-zone` is enabled.
 
 | Variant | Enabled when | Effect |
 |---|---|---|
 | `etcd` | `dns.private.enabled: true` | etcd StatefulSet for coredns to use as a persistent backend for the `etcd` plugin. mTLS between coredns and etcd peers, certs issued by the `private` ClusterIssuer. |
 | `prometheus` | `dns.private.enabled: true` AND `telemetry.metrics.enabled: true` | Enables the chart's metrics Service and ServiceMonitor so this coredns instance is scraped by kube-prometheus-stack. The unfiltered `prometheus/alerts/coredns` rules then cover it automatically alongside the cluster's built-in CoreDNS. |
-| `ha` | `dns.private.enabled: true` AND `topology == 'ha'` | Patches the coredns HelmRelease for HA (multi-replica + leader election). |
+| `ha` | `dns.private.enabled: true` AND `topology == 'ha'` | Patches the coredns HelmRelease to run 2 replicas with preferred pod anti-affinity across nodes. |
 | `loadbalancer` | `dns.private.enabled: true` AND `gateway.driver == 'cilium'` | Adds a `Service type=LoadBalancer` for coredns at `${dns_loadbalancer_ip}` so the cluster's private DNS is reachable from outside the cluster (workstation pointing at the bench IP). |
 | `cilium` | `dns.private.enabled: true` AND `gateway.driver == 'cilium'` | Cilium-specific patches on coredns (typically LB-sharing annotations matching the Cilium gateway's IP pool). |
-| `gateway` | `dns.private.enabled: true` AND `gateway.enabled: true` | Wires a Gateway API listener / route so coredns is reachable through the cluster Gateway (UDP/TCP 53). |
+| `gateway` | `dns.private.enabled: true` AND `gateway.enabled: true` AND `gateway.driver == 'envoy'` | Wires a Gateway API listener / route so coredns is reachable through the cluster Gateway (UDP/TCP 53). |
 
 ## Dependencies
 
 | Add-on | Required when | Reason |
 |---|---|---|
-| `pki-install` | `dns.private.enabled: true` | coredns's etcd peer / server certs are issued by the `private` ClusterIssuer; cert-manager must be reconciling first. |
-| `gateway-install` | `gateway.enabled: true` | external-dns with `sources: [gateway-httproute]` crash-loops on `no matches for kind HTTPRoute` if the Gateway API CRDs aren't installed yet. |
-| `policy-resources` | `workstation.runtime == 'docker-desktop'` | docker-desktop runs Kyverno in restricted-PSA mode for system-dns; the baseline policies need to be reconciling before coredns pods are admitted. |
+| `pki-resources` | `dns.private.enabled: true` | The `private` ClusterIssuer in pki-resources issues coredns's etcd peer and server certs. |
+| `gateway-install` | `dns.private.enabled: true` AND `gateway.enabled: true` AND `gateway.driver != 'cilium'` | `coredns/gateway` attaches TCPRoute and UDPRoute resources, whose CRDs gateway-install provides. |
 | `cni` | `dns.private.enabled: true` AND `gateway.driver == 'cilium'` | The `coredns/cilium` and `coredns/loadbalancer` components rely on Cilium's L2 IP-sharing infrastructure being live. |
 
 
