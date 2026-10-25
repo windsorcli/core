@@ -7,4 +7,5 @@ metadata:
 spec:
   interval: 10m
   timeout: 3m
-  url: https://charts.crossplane.io/stable
+  type: ${helm_repository_type:=default}
+  url: ${helm_repository_prefix:=https://}charts.crossplane.io/stable

@@ -8,4 +8,4 @@ spec:
   interval: 10m
   timeout: 3m
   type: oci
-  url: oci://ghcr.io/cloudnative-pg/charts
+  url: ${helm_oci_repository_prefix:=oci://}ghcr.io/cloudnative-pg/charts
