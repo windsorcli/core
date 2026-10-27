@@ -389,7 +389,7 @@ run "registry_mirrors_render_documents" {
       }
     ]
     registry_mirrors = {
-      "docker.io" = { endpoints = [{ url = "https://package.copia.io/v2/copia/docker.io", override_path = true }] }
+      "docker.io" = { endpoints = [{ url = "https://package.copia.io/v2/copia/docker.io", override_path = true }], skip_fallback = true }
       "ghcr.io"   = { endpoints = [{ url = "http://ghcr.test:5000" }] }
     }
   }
@@ -409,6 +409,47 @@ run "registry_mirrors_render_documents" {
   assert {
     condition     = !contains(keys(yamldecode(local.registry_mirror_docs[1]).endpoints[0]), "overridePath")
     error_message = "ghcr.io endpoint should omit overridePath"
+  }
+  assert {
+    condition     = yamldecode(local.registry_mirror_docs[0]).skipFallback == true
+    error_message = "docker.io should carry skipFallback"
+  }
+  assert {
+    condition     = !contains(keys(yamldecode(local.registry_mirror_docs[1])), "skipFallback")
+    error_message = "ghcr.io should omit skipFallback"
+  }
+}
+
+# Verifies that each registry credential renders as a RegistryAuthConfig document
+run "registry_auths_render_documents" {
+  command = plan
+
+  variables {
+    cluster_name     = "test-cluster"
+    cluster_endpoint = "https://test.example.com:6443"
+    controlplanes = [
+      {
+        hostname = "cp1"
+        endpoint = "https://cp1.example.com:6443"
+        node     = "192.168.1.10"
+      }
+    ]
+    registry_auths = {
+      "mirror.test:5000" = { username = "robot", password = "secret" }
+    }
+  }
+
+  assert {
+    condition     = length(local.registry_auth_docs) == 1
+    error_message = "One RegistryAuthConfig document should render per registry"
+  }
+  assert {
+    condition     = yamldecode(local.registry_auth_docs[0]).kind == "RegistryAuthConfig" && yamldecode(local.registry_auth_docs[0]).name == "mirror.test:5000"
+    error_message = "mirror.test:5000 should render as a RegistryAuthConfig document"
+  }
+  assert {
+    condition     = yamldecode(local.registry_auth_docs[0]).username == "robot" && yamldecode(local.registry_auth_docs[0]).password == "secret"
+    error_message = "RegistryAuthConfig should carry the username and password"
   }
 }
 
@@ -431,6 +472,10 @@ run "registry_mirrors_default_empty" {
   assert {
     condition     = length(local.registry_mirror_docs) == 0
     error_message = "No RegistryMirrorConfig documents should render without registry_mirrors"
+  }
+  assert {
+    condition     = length(local.registry_auth_docs) == 0
+    error_message = "No RegistryAuthConfig documents should render without registry_auths"
   }
 }
 

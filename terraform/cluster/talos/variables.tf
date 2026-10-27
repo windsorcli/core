@@ -227,6 +227,7 @@ variable "registry_mirrors" {
       url           = string
       override_path = optional(bool, false)
     }))
+    skip_fallback = optional(bool, false)
   }))
   default = {}
 
@@ -234,4 +235,14 @@ variable "registry_mirrors" {
     condition     = alltrue([for m in values(var.registry_mirrors) : length(m.endpoints) > 0 && alltrue([for e in m.endpoints : can(regex("^https?://", e.url))])])
     error_message = "Each registry mirror must list at least one endpoint, and every endpoint url must start with http:// or https://."
   }
+}
+
+variable "registry_auths" {
+  description = "Registry credentials keyed by mirror endpoint host (e.g. package.copia.io or mirror.test:5000). Each entry renders a RegistryAuthConfig document on every node."
+  type = map(object({
+    username = string
+    password = string
+  }))
+  default   = {}
+  sensitive = true
 }

@@ -106,7 +106,8 @@ cases:
       cluster:
         driver: talos
         endpoint: https://10.5.0.10:6443
-        registry_mirror: mirror.test
+        registry_mirror:
+          url: mirror.test
         controlplanes:
           count: 1
         workers:
@@ -125,38 +126,47 @@ cases:
                 endpoints:
                   - url: https://mirror.test/v2/docker.elastic.co
                     override_path: true
+                skip_fallback: false
               docker.io:
                 endpoints:
                   - url: https://mirror.test/v2/docker.io
                     override_path: true
+                skip_fallback: false
               gcr.io:
                 endpoints:
                   - url: https://mirror.test/v2/gcr.io
                     override_path: true
+                skip_fallback: false
               ghcr.io:
                 endpoints:
                   - url: https://mirror.test/v2/ghcr.io
                     override_path: true
+                skip_fallback: false
               quay.io:
                 endpoints:
                   - url: https://mirror.test/v2/quay.io
                     override_path: true
+                skip_fallback: false
               reg.kyverno.io:
                 endpoints:
                   - url: https://mirror.test/v2/reg.kyverno.io
                     override_path: true
+                skip_fallback: false
               registry.k8s.io:
                 endpoints:
                   - url: https://mirror.test/v2/registry.k8s.io
                     override_path: true
+                skip_fallback: false
               xpkg.crossplane.io:
                 endpoints:
                   - url: https://mirror.test/v2/xpkg.crossplane.io
                     override_path: true
+                skip_fallback: false
               xpkg.upbound.io:
                 endpoints:
                   - url: https://mirror.test/v2/xpkg.upbound.io
                     override_path: true
+                skip_fallback: false
         - name: cluster
           path: cluster/talos
           inputs:
@@ -165,38 +175,47 @@ cases:
                 endpoints:
                   - url: https://mirror.test/v2/docker.elastic.co
                     override_path: true
+                skip_fallback: false
               docker.io:
                 endpoints:
                   - url: https://mirror.test/v2/docker.io
                     override_path: true
+                skip_fallback: false
               gcr.io:
                 endpoints:
                   - url: https://mirror.test/v2/gcr.io
                     override_path: true
+                skip_fallback: false
               ghcr.io:
                 endpoints:
                   - url: https://mirror.test/v2/ghcr.io
                     override_path: true
+                skip_fallback: false
               quay.io:
                 endpoints:
                   - url: https://mirror.test/v2/quay.io
                     override_path: true
+                skip_fallback: false
               reg.kyverno.io:
                 endpoints:
                   - url: https://mirror.test/v2/reg.kyverno.io
                     override_path: true
+                skip_fallback: false
               registry.k8s.io:
                 endpoints:
                   - url: https://mirror.test/v2/registry.k8s.io
                     override_path: true
+                skip_fallback: false
               xpkg.crossplane.io:
                 endpoints:
                   - url: https://mirror.test/v2/xpkg.crossplane.io
                     override_path: true
+                skip_fallback: false
               xpkg.upbound.io:
                 endpoints:
                   - url: https://mirror.test/v2/xpkg.upbound.io
                     override_path: true
+                skip_fallback: false
 
   - name: cluster.vip in NodePort mode fails composition
     values:

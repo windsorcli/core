@@ -132,9 +132,14 @@ locals {
     if try(d.device, "") != "" || try(d.selector, "") != "" || try(d.size, null) != null
   ]]
 
-  registry_mirror_docs = [for name, m in var.registry_mirrors : yamlencode({
+  registry_mirror_docs = [for name, m in var.registry_mirrors : yamlencode(merge({
     apiVersion = "v1alpha1", kind = "RegistryMirrorConfig", name = name,
     endpoints  = [for e in m.endpoints : merge({ url = e.url }, e.override_path ? { overridePath = true } : {})]
+  }, m.skip_fallback ? { skipFallback = true } : {}))]
+
+  registry_auth_docs = [for name, a in var.registry_auths : yamlencode({
+    apiVersion = "v1alpha1", kind = "RegistryAuthConfig", name = name,
+    username   = a.username, password = a.password
   })]
 }
 
@@ -169,7 +174,7 @@ module "controlplane_bootstrap" {
     local.kubelet_csr_approver_patch,
     local.controlplane_extra_mounts_patch,
     lookup(var.controlplanes[0], "config_patches", []),
-  ], local.controlplane_block_docs[0], local.registry_mirror_docs)) : p if p != "null"]
+  ], local.controlplane_block_docs[0], local.registry_mirror_docs, local.registry_auth_docs)) : p if p != "null"]
 }
 
 module "controlplanes" {
@@ -202,7 +207,7 @@ module "controlplanes" {
     local.kubelet_csr_approver_patch,
     local.controlplane_extra_mounts_patch,
     lookup(var.controlplanes[count.index + 1], "config_patches", []),
-  ], local.controlplane_block_docs[count.index + 1], local.registry_mirror_docs)) : p if p != "null"]
+  ], local.controlplane_block_docs[count.index + 1], local.registry_mirror_docs, local.registry_auth_docs)) : p if p != "null"]
 }
 
 #-----------------------------------------------------------------------------------------------------------------------
@@ -236,7 +241,7 @@ module "workers" {
     var.worker_config_patches,
     local.worker_extra_mounts_patch,
     lookup(var.workers[count.index], "config_patches", []),
-  ], local.worker_block_docs[count.index], local.registry_mirror_docs)) : p if p != "null"]
+  ], local.worker_block_docs[count.index], local.registry_mirror_docs, local.registry_auth_docs)) : p if p != "null"]
 }
 
 #-----------------------------------------------------------------------------------------------------------------------

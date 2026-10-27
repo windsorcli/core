@@ -273,6 +273,7 @@ terraform:
       worker_disks: ${talos_common.worker_disks}
       common_config_patches: ${talos_common.common_config_patches}
       registry_mirrors: ${talos_common.registry_mirrors}
+      registry_auths: ${talos_common.registry_auths}
       # The oidc patch drops its "machine:" header to nest under the control-plane patch's header.
       controlplane_config_patches: >-
         ${let cp = talos_common.controlplane_config_patches ?? '';

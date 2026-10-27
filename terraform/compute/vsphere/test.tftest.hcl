@@ -179,8 +179,8 @@ run "controlplane_vip_baked" {
   }
 }
 
-# Registry mirrors bake into every machineconfig as RegistryMirrorConfig documents
-run "registry_mirrors_baked" {
+# Registry mirrors and credentials bake into every machineconfig as RegistryMirrorConfig and RegistryAuthConfig documents
+run "registry_mirrors_and_auths_baked" {
   command = plan
 
   variables {
@@ -198,6 +198,9 @@ run "registry_mirrors_baked" {
     registry_mirrors = {
       "docker.io" = { endpoints = [{ url = "https://package.copia.io/v2/copia/docker.io", override_path = true }] }
     }
+    registry_auths = {
+      "package.copia.io" = { username = "robot", password = "secret" }
+    }
   }
 
   assert {
@@ -211,6 +214,14 @@ run "registry_mirrors_baked" {
       [for k, v in data.talos_machine_configuration.worker : contains(v.config_patches, local.registry_mirror_docs[0])],
     ))
     error_message = "Every machineconfig should carry the RegistryMirrorConfig document"
+  }
+
+  assert {
+    condition = alltrue(concat(
+      [for k, v in data.talos_machine_configuration.controlplane : contains(v.config_patches, local.registry_auth_docs[0])],
+      [for k, v in data.talos_machine_configuration.worker : contains(v.config_patches, local.registry_auth_docs[0])],
+    ))
+    error_message = "Every machineconfig should carry the RegistryAuthConfig document"
   }
 }
 

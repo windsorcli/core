@@ -230,9 +230,14 @@ locals {
     machine = { network = { interfaces = [{ deviceSelector = { physical = true }, vip = { ip = local.vip } }] } }
   }) : ""
 
-  registry_mirror_docs = [for name, m in var.registry_mirrors : yamlencode({
+  registry_mirror_docs = [for name, m in var.registry_mirrors : yamlencode(merge({
     apiVersion = "v1alpha1", kind = "RegistryMirrorConfig", name = name,
     endpoints  = [for e in m.endpoints : merge({ url = e.url }, e.override_path ? { overridePath = true } : {})]
+  }, m.skip_fallback ? { skipFallback = true } : {}))]
+
+  registry_auth_docs = [for name, a in var.registry_auths : yamlencode({
+    apiVersion = "v1alpha1", kind = "RegistryAuthConfig", name = name,
+    username   = a.username, password = a.password
   })]
 
   dhcp_network_patch = yamlencode({
@@ -317,7 +322,7 @@ data "talos_machine_configuration" "controlplane" {
     var.controlplane_config_patches,
     local.controlplane_network_patches[each.key],
     local.vip_patch,
-  ]), local.registry_mirror_docs)
+  ]), local.registry_mirror_docs, local.registry_auth_docs)
 
   lifecycle {
     precondition {
@@ -341,7 +346,7 @@ data "talos_machine_configuration" "worker" {
     var.common_config_patches,
     var.worker_config_patches,
     local.worker_network_patches[each.key],
-  ]), local.registry_mirror_docs)
+  ]), local.registry_mirror_docs, local.registry_auth_docs)
 }
 
 locals {

@@ -253,7 +253,8 @@ cases:
       network: *default-network
       cluster:
         <<: *default-cluster
-        registry_mirror: package.copia.io/copia
+        registry_mirror:
+          url: package.copia.io/copia
     terraformOutputs:
       <<: *default-terraform-outputs
       workstation:
@@ -271,38 +272,47 @@ cases:
                 endpoints:
                   - url: https://package.copia.io/v2/copia/docker.elastic.co
                     override_path: true
+                skip_fallback: false
               docker.io:
                 endpoints:
                   - url: https://package.copia.io/v2/copia/docker.io
                     override_path: true
+                skip_fallback: false
               gcr.io:
                 endpoints:
                   - url: https://package.copia.io/v2/copia/gcr.io
                     override_path: true
+                skip_fallback: false
               ghcr.io:
                 endpoints:
                   - url: https://package.copia.io/v2/copia/ghcr.io
                     override_path: true
+                skip_fallback: false
               quay.io:
                 endpoints:
                   - url: https://package.copia.io/v2/copia/quay.io
                     override_path: true
+                skip_fallback: false
               reg.kyverno.io:
                 endpoints:
                   - url: https://package.copia.io/v2/copia/reg.kyverno.io
                     override_path: true
+                skip_fallback: false
               registry.k8s.io:
                 endpoints:
                   - url: https://package.copia.io/v2/copia/registry.k8s.io
                     override_path: true
+                skip_fallback: false
               xpkg.crossplane.io:
                 endpoints:
                   - url: https://package.copia.io/v2/copia/xpkg.crossplane.io
                     override_path: true
+                skip_fallback: false
               xpkg.upbound.io:
                 endpoints:
                   - url: https://package.copia.io/v2/copia/xpkg.upbound.io
                     override_path: true
+                skip_fallback: false
 
   # Incus with workstation enabled: option-workstation contributes workstation/incus, compute/incus, cluster/talos.
   # Asserts cluster common_config_patches (cert_rotation) and registry_mirrors; no certSANs.

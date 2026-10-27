@@ -116,6 +116,7 @@ variable "registry_mirrors" {
       url           = string
       override_path = optional(bool, false)
     }))
+    skip_fallback = optional(bool, false)
   }))
   default = {}
 
@@ -169,4 +170,14 @@ variable "instances" {
     ])
     error_message = "instances: ipv4 starting octet plus (count - 1) must not exceed 255"
   }
+}
+
+variable "registry_auths" {
+  description = "Registry credentials keyed by mirror endpoint host (e.g. package.copia.io or mirror.test:5000). Each entry renders a RegistryAuthConfig document in every baked machineconfig."
+  type = map(object({
+    username = string
+    password = string
+  }))
+  default   = {}
+  sensitive = true
 }

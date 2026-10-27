@@ -360,6 +360,7 @@ terraform:
       worker_disks: ${talos_common.worker_disks}
       common_config_patches: ${talos_common.common_config_patches}
       registry_mirrors: ${talos_common.registry_mirrors}
+      registry_auths: ${talos_common.registry_auths}
       controlplane_config_patches: "${talos_common.oidc_ca_file_patch ?? ''}"
       worker_config_patches: "${talos_common.worker_config_patches ?? ''}"
       controlplane_volumes: ${talos_common.controlplane_volumes ?? []}
