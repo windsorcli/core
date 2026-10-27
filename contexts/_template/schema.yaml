@@ -933,6 +933,12 @@ properties:
         type: string
         pattern: '^[a-z0-9.-]+(:[0-9]+)?(/[A-Za-z0-9._-]+)*$'
         description: OCI registry host and optional path (e.g. package.copia.io/copia) that serves every upstream image on Talos nodes. Each upstream registry resolves to https://<host>/v2/<path>/<upstream>, e.g. https://package.copia.io/v2/copia/docker.io. Unset pulls from upstream registries, or from the workstation pull-through caches when the workstation runs.
+      registry_mirror_upstreams:
+        type: array
+        items:
+          type: string
+          pattern: '^[a-z0-9-]+(\.[a-z0-9-]+)+$'
+        description: Upstream registry hosts redirected to cluster.registry_mirror. Replaces the default list (docker.elastic.co, docker.io, gcr.io, ghcr.io, quay.io, reg.kyverno.io, registry.k8s.io, xpkg.crossplane.io, xpkg.upbound.io). Registries not listed pull from upstream.
       controlplanes:
         type: object
         properties:

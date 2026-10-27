@@ -811,6 +811,33 @@ cases:
                   - url: https://mirror.test:5000/v2/xpkg.upbound.io
                     override_path: true
 
+  - name: cluster.registry_mirror_upstreams replaces the default upstream list
+    values:
+      platform: metal
+      gateway:
+        enabled: false
+      network: *default-network
+      cluster:
+        <<: *default-cluster
+        registry_mirror: package.copia.io/copia
+        registry_mirror_upstreams:
+          - docker.io
+          - registry.example.com
+    expect:
+      terraform:
+        - name: cluster
+          path: cluster/talos
+          inputs:
+            registry_mirrors:
+              docker.io:
+                endpoints:
+                  - url: https://package.copia.io/v2/copia/docker.io
+                    override_path: true
+              registry.example.com:
+                endpoints:
+                  - url: https://package.copia.io/v2/copia/registry.example.com
+                    override_path: true
+
   - name: no registry_mirror renders no registry mirrors
     values:
       platform: metal

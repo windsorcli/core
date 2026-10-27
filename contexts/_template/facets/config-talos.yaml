@@ -91,7 +91,7 @@ config:
 
       extensions: "${get(talos_common.csi_extensions, talos_common.storage_driver) ?? []}"
 
-      # Upstream registries redirected to cluster.registry_mirror.
+      # Default upstream registries redirected to cluster.registry_mirror.
       registry_mirror_upstreams:
         - docker.elastic.co
         - docker.io
@@ -109,7 +109,7 @@ config:
           let host = split(mirror, '/')[0];
           mirror == ''
             ? (talos_registry_mirrors.mirrors ?? {})
-            : fromPairs(map(talos_common.registry_mirror_upstreams, [#, { endpoints: [{ url: 'https://' + host + '/v2' + trimPrefix(mirror, host) + '/' + #, override_path: true }] }]))}
+            : fromPairs(map(cluster.registry_mirror_upstreams ?? talos_common.registry_mirror_upstreams, [#, { endpoints: [{ url: 'https://' + host + '/v2' + trimPrefix(mirror, host) + '/' + #, override_path: true }] }]))}
 
   # Reservation tapers linearly from full at the threshold to zero at 2x it,
   # driven by whichever axis (cpu/memory) is proportionally smaller.
