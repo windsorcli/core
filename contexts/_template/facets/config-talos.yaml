@@ -296,7 +296,7 @@ config:
   - name: talos
     value:
       # renovate: datasource=github-releases depName=talos package=siderolabs/talos
-      talos_version: "1.14.2"
+      talos_version: "1.14.5"
 
   - name: talos
     when: platform == 'docker' && workstation.runtime == 'colima'
