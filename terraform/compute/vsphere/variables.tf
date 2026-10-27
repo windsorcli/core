@@ -109,6 +109,22 @@ variable "worker_config_patches" {
   default     = ""
 }
 
+variable "registry_mirrors" {
+  description = "Registry mirrors keyed by registry host (e.g. docker.io, or * for all). Each entry renders a RegistryMirrorConfig document in every baked machineconfig."
+  type = map(object({
+    endpoints = list(object({
+      url           = string
+      override_path = optional(bool, false)
+    }))
+  }))
+  default = {}
+
+  validation {
+    condition     = alltrue([for m in values(var.registry_mirrors) : length(m.endpoints) > 0 && alltrue([for e in m.endpoints : can(regex("^https?://", e.url))])])
+    error_message = "Each registry mirror must list at least one endpoint, and every endpoint url must start with http:// or https://."
+  }
+}
+
 variable "per_node_config_patches" {
   description = "Per-node Talos machineconfig patches as YAML strings, keyed by VM name. Built by the facet from network topology (static IP, gateway, nameservers). Threaded into each node's talos_machine_configuration config_patches."
   type        = map(string)

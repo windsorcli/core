@@ -66,9 +66,8 @@ config:
           "registry.k8s.io": { "remote": "https://registry.k8s.io" }
         })}
 
-  # Map workstation TF output to Talos machine.registries.mirrors. Only entries
-  # with both `remote` and `hostname` are kept; `local` overrides the mirror key.
-  # config: {} stays empty — Talos rejects TLS config on our plain-HTTP mirrors.
+  # Map workstation TF output to Talos registry mirrors. Only entries with both
+  # `remote` and `hostname` are kept; `local` overrides the mirror key.
   - name: talos_registry_mirrors
     when: cluster.driver == 'talos' && (cluster.enabled ?? true)
     value:
@@ -79,23 +78,12 @@ config:
           ),
           [
             (get(get(#, 1), "local") != null && get(get(#, 1), "local") != "" ? get(get(#, 1), "local") : get(#, 0)),
-            { endpoints: ["http://" + get(get(#, 1), "hostname") + ":5000"] }
+            { endpoints: [{ url: "http://" + get(get(#, 1), "hostname") + ":5000" }] }
           ]
         ))}
-      config: {}
 
   # talos_common overrides — each block additively merges settings that
   # config-talos stringifies into the Talos machine patch.
-
-  # Inject registry mirrors (always, for any workstation runtime).
-  - name: talos_common
-    when: cluster.driver == 'talos' && (cluster.enabled ?? true)
-    value:
-      common_patch:
-        machine:
-          registries:
-            mirrors: ${talos_registry_mirrors.mirrors}
-            config: ${talos_registry_mirrors.config}
 
   # Docker only: schedule on control planes when no workers, else honor schedulable.
   - name: talos_common
@@ -371,6 +359,7 @@ terraform:
       controlplane_disks: ${talos_common.controlplane_disks}
       worker_disks: ${talos_common.worker_disks}
       common_config_patches: ${talos_common.common_config_patches}
+      registry_mirrors: ${talos_common.registry_mirrors}
       controlplane_config_patches: "${talos_common.oidc_ca_file_patch ?? ''}"
       worker_config_patches: "${talos_common.worker_config_patches ?? ''}"
       controlplane_volumes: ${talos_common.controlplane_volumes ?? []}

@@ -837,6 +837,51 @@ run "controlplane_vip_baked" {
   }
 }
 
+# Registry mirrors bake into every machineconfig as RegistryMirrorConfig documents
+run "registry_mirrors_baked" {
+  command = plan
+
+  variables {
+    context_id       = "test"
+    cluster_name     = "talos"
+    cluster_endpoint = "https://10.5.0.10:6443"
+    talos_version    = "1.12.6"
+    destination_dir  = "C:/hyperv/images"
+    network_gateway  = "10.5.0.1"
+    network_cidr     = "10.5.0.0/16"
+    instances = [
+      {
+        name  = "controlplane"
+        role  = "controlplane"
+        count = 1
+        ipv4  = "10.5.0.10"
+      },
+      {
+        name  = "worker"
+        role  = "worker"
+        count = 1
+        ipv4  = "10.5.0.20"
+      },
+    ]
+    registry_mirrors = {
+      "docker.io" = { endpoints = [{ url = "https://package.copia.io/v2/copia/docker.io", override_path = true }] }
+    }
+  }
+
+  assert {
+    condition     = yamldecode(local.registry_mirror_docs[0]).kind == "RegistryMirrorConfig" && yamldecode(local.registry_mirror_docs[0]).name == "docker.io"
+    error_message = "docker.io should render as a RegistryMirrorConfig document"
+  }
+
+  assert {
+    condition = alltrue(concat(
+      [for k, v in data.talos_machine_configuration.controlplane : contains(v.config_patches, local.registry_mirror_docs[0])],
+      [for k, v in data.talos_machine_configuration.worker : contains(v.config_patches, local.registry_mirror_docs[0])],
+    ))
+    error_message = "Every machineconfig should carry the RegistryMirrorConfig document"
+  }
+}
+
 # controlplane_vip with an endpoint that is a control-plane IP fails the plan
 run "controlplane_vip_rejects_node_ip" {
   command = plan

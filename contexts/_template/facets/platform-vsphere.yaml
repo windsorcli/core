@@ -212,6 +212,7 @@ terraform:
       controlplane_vip: ${cluster.vip == true}
       talos_version: ${talos.talos_version}
       common_config_patches: ${talos_common.common_config_patches}
+      registry_mirrors: ${talos_common.registry_mirrors}
       per_node_config_patches: >-
         ${fromPairs(concat(
           map(vsphere_controlplanes.nodes, [
@@ -303,6 +304,7 @@ terraform:
       controlplane_disks: ${talos_common.controlplane_disks}
       worker_disks: ${talos_common.worker_disks}
       common_config_patches: ${talos_common.common_config_patches}
+      registry_mirrors: ${talos_common.registry_mirrors}
       worker_config_patches: "${talos_common.worker_config_patches ?? ''}"
       controlplane_volumes: ${talos_common.controlplane_volumes ?? []}
       worker_volumes: ${talos_common.worker_volumes ?? []}

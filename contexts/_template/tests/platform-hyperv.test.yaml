@@ -96,6 +96,108 @@ cases:
             cluster_endpoint: https://10.5.0.5:6443
             controlplane_vip: true
 
+  - name: cluster.registry_mirror bakes into compute and reaches cluster
+    values:
+      platform: hyperv
+      gateway:
+        enabled: false
+      network:
+        nameservers: ['1.1.1.1']
+      cluster:
+        driver: talos
+        endpoint: https://10.5.0.10:6443
+        registry_mirror: mirror.test
+        controlplanes:
+          count: 1
+        workers:
+          count: 0
+    terraformOutputs:
+      compute:
+        controlplanes: []
+        workers: []
+    expect:
+      terraform:
+        - name: compute
+          path: compute/hyperv
+          inputs:
+            registry_mirrors:
+              docker.elastic.co:
+                endpoints:
+                  - url: https://mirror.test/v2/docker.elastic.co
+                    override_path: true
+              docker.io:
+                endpoints:
+                  - url: https://mirror.test/v2/docker.io
+                    override_path: true
+              gcr.io:
+                endpoints:
+                  - url: https://mirror.test/v2/gcr.io
+                    override_path: true
+              ghcr.io:
+                endpoints:
+                  - url: https://mirror.test/v2/ghcr.io
+                    override_path: true
+              quay.io:
+                endpoints:
+                  - url: https://mirror.test/v2/quay.io
+                    override_path: true
+              reg.kyverno.io:
+                endpoints:
+                  - url: https://mirror.test/v2/reg.kyverno.io
+                    override_path: true
+              registry.k8s.io:
+                endpoints:
+                  - url: https://mirror.test/v2/registry.k8s.io
+                    override_path: true
+              xpkg.crossplane.io:
+                endpoints:
+                  - url: https://mirror.test/v2/xpkg.crossplane.io
+                    override_path: true
+              xpkg.upbound.io:
+                endpoints:
+                  - url: https://mirror.test/v2/xpkg.upbound.io
+                    override_path: true
+        - name: cluster
+          path: cluster/talos
+          inputs:
+            registry_mirrors:
+              docker.elastic.co:
+                endpoints:
+                  - url: https://mirror.test/v2/docker.elastic.co
+                    override_path: true
+              docker.io:
+                endpoints:
+                  - url: https://mirror.test/v2/docker.io
+                    override_path: true
+              gcr.io:
+                endpoints:
+                  - url: https://mirror.test/v2/gcr.io
+                    override_path: true
+              ghcr.io:
+                endpoints:
+                  - url: https://mirror.test/v2/ghcr.io
+                    override_path: true
+              quay.io:
+                endpoints:
+                  - url: https://mirror.test/v2/quay.io
+                    override_path: true
+              reg.kyverno.io:
+                endpoints:
+                  - url: https://mirror.test/v2/reg.kyverno.io
+                    override_path: true
+              registry.k8s.io:
+                endpoints:
+                  - url: https://mirror.test/v2/registry.k8s.io
+                    override_path: true
+              xpkg.crossplane.io:
+                endpoints:
+                  - url: https://mirror.test/v2/xpkg.crossplane.io
+                    override_path: true
+              xpkg.upbound.io:
+                endpoints:
+                  - url: https://mirror.test/v2/xpkg.upbound.io
+                    override_path: true
+
   - name: cluster.vip in NodePort mode fails composition
     values:
       platform: hyperv

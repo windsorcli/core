@@ -230,6 +230,11 @@ locals {
     machine = { network = { interfaces = [{ deviceSelector = { physical = true }, vip = { ip = local.vip } }] } }
   }) : ""
 
+  registry_mirror_docs = [for name, m in var.registry_mirrors : yamlencode({
+    apiVersion = "v1alpha1", kind = "RegistryMirrorConfig", name = name,
+    endpoints  = [for e in m.endpoints : merge({ url = e.url }, e.override_path ? { overridePath = true } : {})]
+  })]
+
   dhcp_network_patch = yamlencode({
     machine = {
       network = merge(
@@ -307,12 +312,12 @@ data "talos_machine_configuration" "controlplane" {
   talos_version      = "v${var.talos_version}"
   kubernetes_version = var.kubernetes_version
 
-  config_patches = compact([
+  config_patches = concat(compact([
     var.common_config_patches,
     var.controlplane_config_patches,
     local.controlplane_network_patches[each.key],
     local.vip_patch,
-  ])
+  ]), local.registry_mirror_docs)
 
   lifecycle {
     precondition {
@@ -332,11 +337,11 @@ data "talos_machine_configuration" "worker" {
   talos_version      = "v${var.talos_version}"
   kubernetes_version = var.kubernetes_version
 
-  config_patches = compact([
+  config_patches = concat(compact([
     var.common_config_patches,
     var.worker_config_patches,
     local.worker_network_patches[each.key],
-  ])
+  ]), local.registry_mirror_docs)
 }
 
 locals {

@@ -373,3 +373,86 @@ run "multiple_invalid_inputs" {
     ]
   }
 }
+
+# Verifies that each registry mirror renders as a RegistryMirrorConfig document
+run "registry_mirrors_render_documents" {
+  command = plan
+
+  variables {
+    cluster_name     = "test-cluster"
+    cluster_endpoint = "https://test.example.com:6443"
+    controlplanes = [
+      {
+        hostname = "cp1"
+        endpoint = "https://cp1.example.com:6443"
+        node     = "192.168.1.10"
+      }
+    ]
+    registry_mirrors = {
+      "docker.io" = { endpoints = [{ url = "https://package.copia.io/v2/copia/docker.io", override_path = true }] }
+      "ghcr.io"   = { endpoints = [{ url = "http://ghcr.test:5000" }] }
+    }
+  }
+
+  assert {
+    condition     = length(local.registry_mirror_docs) == 2
+    error_message = "One RegistryMirrorConfig document should render per registry"
+  }
+  assert {
+    condition     = yamldecode(local.registry_mirror_docs[0]).kind == "RegistryMirrorConfig" && yamldecode(local.registry_mirror_docs[0]).name == "docker.io"
+    error_message = "docker.io should render as a RegistryMirrorConfig document"
+  }
+  assert {
+    condition     = yamldecode(local.registry_mirror_docs[0]).endpoints[0].url == "https://package.copia.io/v2/copia/docker.io" && yamldecode(local.registry_mirror_docs[0]).endpoints[0].overridePath == true
+    error_message = "docker.io endpoint should carry its url and overridePath"
+  }
+  assert {
+    condition     = !contains(keys(yamldecode(local.registry_mirror_docs[1]).endpoints[0]), "overridePath")
+    error_message = "ghcr.io endpoint should omit overridePath"
+  }
+}
+
+# Verifies that no RegistryMirrorConfig documents render by default
+run "registry_mirrors_default_empty" {
+  command = plan
+
+  variables {
+    cluster_name     = "test-cluster"
+    cluster_endpoint = "https://test.example.com:6443"
+    controlplanes = [
+      {
+        hostname = "cp1"
+        endpoint = "https://cp1.example.com:6443"
+        node     = "192.168.1.10"
+      }
+    ]
+  }
+
+  assert {
+    condition     = length(local.registry_mirror_docs) == 0
+    error_message = "No RegistryMirrorConfig documents should render without registry_mirrors"
+  }
+}
+
+# Verifies that a mirror without endpoints or with a schemeless url fails validation
+run "registry_mirrors_invalid" {
+  command = plan
+
+  variables {
+    cluster_name     = "test-cluster"
+    cluster_endpoint = "https://test.example.com:6443"
+    controlplanes = [
+      {
+        hostname = "cp1"
+        endpoint = "https://cp1.example.com:6443"
+        node     = "192.168.1.10"
+      }
+    ]
+    registry_mirrors = {
+      "docker.io" = { endpoints = [] }
+      "ghcr.io"   = { endpoints = [{ url = "ghcr.test:5000" }] }
+    }
+  }
+
+  expect_failures = [var.registry_mirrors]
+}

@@ -1,6 +1,6 @@
 # option-workstation.yaml facet tests
 # Tests workstation stack (workstation/docker or incus, compute, cluster/talos) when workstation.enabled.
-# Asserts cluster common_config_patches: cert_rotation (kubelet.extraArgs) and registries.mirrors
+# Asserts cluster common_config_patches (cert_rotation kubelet.extraArgs) and registry_mirrors
 # so changes to config-talos or option-workstation patch logic are caught.
 
 x-defaults:
@@ -84,9 +84,7 @@ cases:
                 kubelet:
                   extraArgs:
                     rotate-server-certificates: "true"
-                registries:
-                  config: {}
-                  mirrors: {}
+            registry_mirrors: {}
         - name: gitops
           path: gitops/flux
           destroy: false
@@ -208,8 +206,106 @@ cases:
           path: gitops/flux
           destroy: false
 
+  # Workstation registry outputs become plain-HTTP registry mirrors keyed by `local` when set.
+  - name: workstation registries become cluster registry mirrors
+    values:
+      platform: docker
+      workstation:
+        runtime: colima
+      dns: *default-dns
+      gateway:
+        enabled: false
+      network: *default-network
+      cluster: *default-cluster
+    terraformOutputs:
+      <<: *default-terraform-outputs
+      workstation:
+        registries:
+          ghcr.io:
+            remote: https://ghcr.io
+            hostname: ghcr.test
+          registry-1.docker.io:
+            remote: https://registry-1.docker.io
+            local: docker.io
+            hostname: registry-1.docker.test
+    expect:
+      terraform:
+        - name: cluster
+          path: cluster/talos
+          inputs:
+            registry_mirrors:
+              docker.io:
+                endpoints:
+                  - url: http://registry-1.docker.test:5000
+              ghcr.io:
+                endpoints:
+                  - url: http://ghcr.test:5000
+
+  # cluster.registry_mirror replaces the workstation caches.
+  - name: cluster registry_mirror overrides workstation registry mirrors
+    values:
+      platform: docker
+      workstation:
+        runtime: colima
+      dns: *default-dns
+      gateway:
+        enabled: false
+      network: *default-network
+      cluster:
+        <<: *default-cluster
+        registry_mirror: package.copia.io/copia
+    terraformOutputs:
+      <<: *default-terraform-outputs
+      workstation:
+        registries:
+          ghcr.io:
+            remote: https://ghcr.io
+            hostname: ghcr.test
+    expect:
+      terraform:
+        - name: cluster
+          path: cluster/talos
+          inputs:
+            registry_mirrors:
+              docker.elastic.co:
+                endpoints:
+                  - url: https://package.copia.io/v2/copia/docker.elastic.co
+                    override_path: true
+              docker.io:
+                endpoints:
+                  - url: https://package.copia.io/v2/copia/docker.io
+                    override_path: true
+              gcr.io:
+                endpoints:
+                  - url: https://package.copia.io/v2/copia/gcr.io
+                    override_path: true
+              ghcr.io:
+                endpoints:
+                  - url: https://package.copia.io/v2/copia/ghcr.io
+                    override_path: true
+              quay.io:
+                endpoints:
+                  - url: https://package.copia.io/v2/copia/quay.io
+                    override_path: true
+              reg.kyverno.io:
+                endpoints:
+                  - url: https://package.copia.io/v2/copia/reg.kyverno.io
+                    override_path: true
+              registry.k8s.io:
+                endpoints:
+                  - url: https://package.copia.io/v2/copia/registry.k8s.io
+                    override_path: true
+              xpkg.crossplane.io:
+                endpoints:
+                  - url: https://package.copia.io/v2/copia/xpkg.crossplane.io
+                    override_path: true
+              xpkg.upbound.io:
+                endpoints:
+                  - url: https://package.copia.io/v2/copia/xpkg.upbound.io
+                    override_path: true
+
   # Incus with workstation enabled: option-workstation contributes workstation/incus, compute/incus, cluster/talos.
-  # Asserts cluster common_config_patches: cert_rotation + registries.mirrors; no certSANs (incus path uses common_patch_with_registries only).
+  # Asserts cluster common_config_patches (cert_rotation) and registry_mirrors; no certSANs.
   - name: incus with workstation enabled creates workstation/incus compute cluster chain
     values:
       platform: incus
@@ -272,9 +368,7 @@ cases:
                 kubelet:
                   extraArgs:
                     rotate-server-certificates: "true"
-                registries:
-                  config: {}
-                  mirrors: {}
+            registry_mirrors: {}
         - name: gitops
           path: gitops/flux
           inputs:

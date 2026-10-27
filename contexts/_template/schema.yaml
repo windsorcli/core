@@ -929,6 +929,10 @@ properties:
         default:
           - "0.0.0.0/0"
         description: Source CIDRs allowed to reach the control-plane APIs (Kubernetes 6443, Talos 50000 where applicable). Platforms map it to the relevant control (hcloud firewall, EKS public access CIDRs, AKS authorized ranges) and ignore it where the firewall is out-of-band. Defaults to open; restrict to operator/CI ranges or a bastion in production.
+      registry_mirror:
+        type: string
+        pattern: '^[a-z0-9.-]+(:[0-9]+)?(/[A-Za-z0-9._-]+)*$'
+        description: OCI registry host and optional path (e.g. package.copia.io/copia) that serves every upstream image on Talos nodes. Each upstream registry resolves to https://<host>/v2/<path>/<upstream>, e.g. https://package.copia.io/v2/copia/docker.io. Unset pulls from upstream registries, or from the workstation pull-through caches when the workstation runs.
       controlplanes:
         type: object
         properties:
