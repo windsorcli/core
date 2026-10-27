@@ -952,7 +952,7 @@ properties:
             description: Password or token for the mirror. Set via a secret() reference, together with username.
           skip_fallback:
             type: boolean
-            description: Fail pulls the mirror cannot serve instead of falling back to the upstream registry. Defaults to false.
+            description: Disables fallback to the upstream registry when the mirror cannot serve an image. Defaults to false.
         required:
           - url
         additionalProperties: false
