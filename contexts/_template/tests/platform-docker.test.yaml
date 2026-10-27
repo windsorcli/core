@@ -231,8 +231,8 @@ cases:
         - name: lb-install
         - name: lb-resources
 
-  # Registry mirrors: when terraform_output("workstation", "registries") has hostname, common_config_patches must include non-empty mirrors. Colima: no certSANs.
-  - name: cluster common_config_patches includes registry mirrors when docker.registries have hostname
+  # Registry mirrors: when terraform_output("workstation", "registries") has hostname, cluster registry_mirrors carries the cache endpoint. Colima: no certSANs.
+  - name: cluster registry_mirrors includes workstation caches when docker.registries have hostname
     values:
       platform: docker
       workstation:
@@ -287,12 +287,10 @@ cases:
                 kubelet:
                   extraArgs:
                     rotate-server-certificates: "true"
-                registries:
-                  config: {}
-                  mirrors:
-                    gcr.io:
-                      endpoints:
-                      - http://gcr.test:5000
+            registry_mirrors:
+              gcr.io:
+                endpoints:
+                  - url: http://gcr.test:5000
 
   # Full: workstation path with fully populated cluster, ingress, volumes (flannel + kube-vip to exercise lb path)
   - name: full config creates workstation compute cluster chain with all options
