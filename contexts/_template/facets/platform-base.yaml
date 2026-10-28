@@ -46,8 +46,8 @@ config:
   - name: platform
     value: "${platform ?? 'none'}"
 
-  # Whether core provisions the state backend: the platform's own backend type
-  # with no existing bucket or storage account supplied.
+  # Whether core provisions the state backend: cloud storage (managed) or the
+  # Kubernetes state namespace (kubernetes).
   - name: backend_effective
     value:
       managed: >-
@@ -55,6 +55,7 @@ config:
         : (platform == 'azure' ? ((terraform.backend.type ?? 'azurerm') == 'azurerm' && (terraform.backend.azurerm.storage_account_name ?? '') == '')
         : (platform == 'gcp' ? ((terraform.backend.type ?? 'gcs') == 'gcs' && (terraform.backend.gcs.bucket ?? '') == '')
         : false))}
+      kubernetes: "${(terraform.backend.type ?? '') == 'kubernetes'}"
 
   # Normalize workstation.runtime so equality checks are safe when unset.
   - name: workstation
@@ -342,6 +343,17 @@ terraform:
     inputs:
       cert: ${pki.ca.cert ?? pki.private_ca.cert ?? ''}
       key: ${pki.ca.key ?? pki.private_ca.key ?? ''}
+
+  # Kubernetes backend state namespace, after the cluster that holds it.
+  - name: backend
+    path: backend/kubernetes
+    when: backend_effective.kubernetes == true
+    dependsOn:
+      - "${cluster_provisioned ? 'cluster' : ''}"
+    inputs:
+      namespace: ${terraform.backend.kubernetes.namespace}
+      config_path: "${terraform.backend.kubernetes.config_path ?? ''}"
+      config_context: "${terraform.backend.kubernetes.config_context ?? ''}"
 
 # =============================================================================
 # Flux systems — policy, telemetry, pki (install/resources tier split)

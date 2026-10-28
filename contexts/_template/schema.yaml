@@ -536,6 +536,11 @@ properties:
             description: S3 backend configuration (https://developer.hashicorp.com/terraform/language/backend/s3)
           kubernetes:
             type: object
+            properties:
+              namespace:
+                type: string
+                default: system-terraform
+                description: Namespace that holds the state Secrets
             additionalProperties: true
             description: Kubernetes backend configuration (https://developer.hashicorp.com/terraform/language/backend/kubernetes)
           azurerm:

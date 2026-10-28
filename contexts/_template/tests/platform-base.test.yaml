@@ -1064,3 +1064,107 @@ cases:
       pki:
         public_issuer: acme
     expectError: true
+
+  - name: kubernetes backend creates the default state namespace after the cluster
+    applySchemaDefaults: true
+    values:
+      platform: metal
+      gateway:
+        enabled: false
+      network: *default-network
+      cluster: *default-cluster
+      terraform:
+        backend:
+          type: kubernetes
+    expect:
+      terraform:
+        - name: backend
+          path: backend/kubernetes
+          dependsOn:
+            - cluster
+          inputs:
+            namespace: system-terraform
+
+  - name: kubernetes backend passes the namespace and cluster access through
+    values:
+      platform: metal
+      gateway:
+        enabled: false
+      network: *default-network
+      cluster: *default-cluster
+      terraform:
+        backend:
+          type: kubernetes
+          kubernetes:
+            namespace: tf-state
+            config_path: /tmp/state-kubeconfig
+            config_context: state
+    expect:
+      terraform:
+        - name: backend
+          path: backend/kubernetes
+          inputs:
+            namespace: tf-state
+            config_path: /tmp/state-kubeconfig
+            config_context: state
+
+  - name: kubernetes backend applies alone against an existing cluster
+    applySchemaDefaults: true
+    values:
+      platform: docker
+      workstation:
+        runtime: colima
+      gateway:
+        enabled: false
+      network: *default-network
+      cluster:
+        <<: *default-cluster
+        enabled: false
+      terraform:
+        backend:
+          type: kubernetes
+          kubernetes:
+            config_path: /tmp/state-kubeconfig
+    expect:
+      terraform:
+        - name: backend
+          path: backend/kubernetes
+          inputs:
+            namespace: system-terraform
+            config_path: /tmp/state-kubeconfig
+    exclude:
+      terraform:
+        - name: cluster
+
+  - name: kubernetes backend on aws creates the state namespace after eks
+    applySchemaDefaults: true
+    values:
+      platform: aws
+      aws:
+        region: us-east-1
+      terraform:
+        backend:
+          type: kubernetes
+    expect:
+      terraform:
+        - name: backend
+          path: backend/kubernetes
+          dependsOn:
+            - cluster
+
+  - name: other backend types skip the state namespace
+    applySchemaDefaults: true
+    values:
+      platform: metal
+      gateway:
+        enabled: false
+      network: *default-network
+      cluster: *default-cluster
+      terraform:
+        backend:
+          type: s3
+          s3:
+            bucket: existing-state
+    exclude:
+      terraform:
+        - name: backend
