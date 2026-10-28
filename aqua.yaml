@@ -17,7 +17,7 @@ packages:
   - name: siderolabs/talos@v1.14.5
   - name: siderolabs/omni/omnictl@v1.12.4
   - name: siderolabs/omni/omni@v1.12.4
-  - name: kubernetes/kubectl@v1.37.1
+  - name: kubernetes/kubectl@v1.37.2
   - name: go-task/task@v3.54.0
   - name: golang/go@go1.27.3
   - name: docker/cli@v27.4.1
