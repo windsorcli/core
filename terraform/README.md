@@ -16,9 +16,10 @@ layer. Links from there land here.
 
 | Path | Purpose |
 |---|---|
-| [backend](backend/) | Remote Terraform state for cloud contexts (S3, AzureRM, GCS). |
+| [backend](backend/) | Remote Terraform state (S3, AzureRM, GCS, Kubernetes). |
 | [backend/azurerm](backend/azurerm/) | Remote Terraform state on Azure Blob + native lease. |
 | [backend/gcs](backend/gcs/) | Remote Terraform state on Google Cloud Storage. |
+| [backend/kubernetes](backend/kubernetes/) | Namespace for Terraform state on the Kubernetes backend. |
 | [backend/s3](backend/s3/) | Remote Terraform state on S3 + DynamoDB lock. |
 | [cluster](cluster/) | Kubernetes control plane provisioning across Talos, EKS, and AKS. |
 | [cluster/aws-eks](cluster/aws-eks/) | Managed Kubernetes control plane on AWS. |

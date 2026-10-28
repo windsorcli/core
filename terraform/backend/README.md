@@ -1,14 +1,20 @@
 ---
 title: Backend
-description: Remote Terraform state for cloud contexts (S3, AzureRM, GCS).
-stack_backing: S3 · AzureRM · GCS
+description: Remote Terraform state (S3, AzureRM, GCS, Kubernetes).
+stack_backing: S3 · AzureRM · GCS · Kubernetes
 ---
 
 The backend category has one driver per cloud: `s3` (AWS), `azurerm`
 (Azure), and `gcs` (GCP), selected by `terraform.backend.type`. Each
-provisions its own storage plus a locking mechanism — see that
-driver's own page for its recipe, diagram, and inputs. The `local`,
-`kubernetes`, and `none` backend types don't run a Terraform module;
+provisions its own storage plus a locking mechanism. See that
+driver's own page for its recipe, diagram, and inputs.
+
+The `kubernetes` driver keeps state in Secrets in a cluster and only
+creates their namespace, `system-terraform` by default. It runs after
+the `cluster` component when Windsor creates the cluster, and alone
+against an existing cluster otherwise.
+
+The `local` and `none` backend types don't run a Terraform module;
 they're consumed directly by Terraform without provisioning anything:
 
 ```yaml
@@ -75,7 +81,10 @@ bucket is least-privilege by default — grant readers/writers
 explicitly via `terraform_state_principals` rather than relying on
 project-wide roles.
 
-None of the three modules makes the state object public. Bucket
+The `kubernetes` module stores state in Secrets, readable by anyone
+with Secret access in the namespace.
+
+None of the three cloud modules makes the state object public. Bucket
 policies on S3, Storage Account network rules on Azure, and bucket IAM
 on GCS all follow account/project defaults. In production, tighten
 each to private subnets or service endpoints.
@@ -86,6 +95,7 @@ each to private subnets or service endpoints.
 
 - [azurerm](azurerm/) — Remote Terraform state on Azure Blob + native lease.
 - [gcs](gcs/) — Remote Terraform state on Google Cloud Storage.
+- [kubernetes](kubernetes/) — Namespace for Terraform state on the Kubernetes backend.
 - [s3](s3/) — Remote Terraform state on S3 + DynamoDB lock.
 <!-- END_TERRAFORM_MODULES -->
 

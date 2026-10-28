@@ -8,11 +8,6 @@ metadata:
 # overlay, so this facet owns the full compute → cluster → gitops chain.
 when: "platform == 'hetzner' && cluster.driver == 'talos'"
 
-# Remote state lives in the Talos cluster (Kubernetes backend); the `cluster`
-# component uses local state since it creates the cluster. Hetzner Object Storage
-# is not used for state — it can't encrypt at rest through Terraform's s3 backend.
-backend: cluster
-
 # =============================================================================
 # Requires
 # =============================================================================
