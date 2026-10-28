@@ -1,6 +1,6 @@
 # option-workstation.yaml facet tests
 # Tests workstation stack (workstation/docker or incus, compute, cluster/talos) when workstation.enabled.
-# Asserts cluster common_config_patches: cert_rotation (extraManifests + kubelet.extraArgs) and registries.mirrors
+# Asserts cluster common_config_patches: cert_rotation (kubelet.extraArgs) and registries.mirrors
 # so changes to config-talos or option-workstation patch logic are caught.
 
 x-defaults:
@@ -72,8 +72,6 @@ cases:
                     auto-compaction-retention: "1000"
                     max-snapshots: "3"
                     max-wals: "3"
-                extraManifests:
-                - https://raw.githubusercontent.com/alex1989hu/kubelet-serving-cert-approver/v0.8.7/deploy/standalone-install.yaml
                 network:
                   cni:
                     name: none
@@ -270,8 +268,6 @@ cases:
             common_config_patches: |-
               cluster:
                 allowSchedulingOnControlPlanes: false
-                extraManifests:
-                - https://raw.githubusercontent.com/alex1989hu/kubelet-serving-cert-approver/v0.8.7/deploy/standalone-install.yaml
               machine:
                 kubelet:
                   extraArgs:

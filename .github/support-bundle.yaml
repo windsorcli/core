@@ -36,11 +36,6 @@ spec:
           maxAge: 24h
           maxLines: 10000
     - logs:
-        namespace: kubelet-serving-cert-approver
-        limits:
-          maxAge: 24h
-          maxLines: 10000
-    - logs:
         namespace: system-csi
         limits:
           maxAge: 24h

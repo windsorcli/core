@@ -249,6 +249,26 @@ cases:
           enabled: true
     expectError: true
 
+  # Port 53 cannot sit on a node port outside a workstation context.
+  - name: private dns with a NodePort internal gateway fails composition
+    values:
+      platform: metal
+      dns:
+        private_domain: example.local
+        private:
+          enabled: true
+      gateway:
+        enabled: true
+        driver: envoy
+        internal:
+          service_type: NodePort
+      network: *default-network
+      cluster:
+        <<: *default-cluster
+        cni:
+          driver: flannel
+    expectError: true
+
   # A public domain adds the public zone to the in-cluster DNS.
   - name: public domain adds the public zone to the private DNS add-on
     values:

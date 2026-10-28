@@ -8,4 +8,5 @@ metadata:
 spec:
   interval: 10m
   timeout: 5m
-  url: https://grafana.github.io/helm-charts
+  type: oci
+  url: oci://ghcr.io/grafana-community/helm-charts

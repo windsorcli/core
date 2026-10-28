@@ -17,7 +17,7 @@ spec:
   chart:
     spec:
       chart: metallb
-      # renovate: datasource=helm depName=metallb package=metallb helmRepo=https://metallb.github.io/metallb
+      # renovate: datasource=docker depName=quay.io/metallb/chart/metallb package=quay.io/metallb/chart/metallb
       version: 0.16.1
       sourceRef:
         kind: HelmRepository

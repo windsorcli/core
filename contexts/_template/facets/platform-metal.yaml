@@ -52,7 +52,7 @@ terraform:
     path: cluster/talos
     parallelism: 1
     dependsOn:
-      - "${pki.enabled == true ? 'pki' : ''}"
+      - pki
     inputs:
       cluster_endpoint: ${cluster.endpoint ?? ("https://" + split(values(cluster.controlplanes.nodes)[0].endpoint, ":")[0] + ":6443")}
       cluster_name: talos

@@ -37,7 +37,7 @@ and HelmRelease in the cluster, so do not run it by hand.
 |------|---------|
 | <a name="requirement_terraform"></a> [terraform](#requirement\_terraform) | >= 1.12.2 |
 | <a name="requirement_helm"></a> [helm](#requirement\_helm) | 3.3.0 |
-| <a name="requirement_kubernetes"></a> [kubernetes](#requirement\_kubernetes) | 3.2.1 |
+| <a name="requirement_kubernetes"></a> [kubernetes](#requirement\_kubernetes) | 3.3.0 |
 | <a name="requirement_random"></a> [random](#requirement\_random) | 3.9.1 |
 
 ## Providers
@@ -45,7 +45,7 @@ and HelmRelease in the cluster, so do not run it by hand.
 | Name | Version |
 |------|---------|
 | <a name="provider_helm"></a> [helm](#provider\_helm) | 3.3.0 |
-| <a name="provider_kubernetes"></a> [kubernetes](#provider\_kubernetes) | 3.2.1 |
+| <a name="provider_kubernetes"></a> [kubernetes](#provider\_kubernetes) | 3.3.0 |
 | <a name="provider_random"></a> [random](#provider\_random) | 3.9.1 |
 
 ## Modules
@@ -58,21 +58,24 @@ No modules.
 |------|------|
 | [helm_release.flux_instance](https://registry.terraform.io/providers/hashicorp/helm/3.3.0/docs/resources/release) | resource |
 | [helm_release.flux_operator](https://registry.terraform.io/providers/hashicorp/helm/3.3.0/docs/resources/release) | resource |
-| [kubernetes_job_v1.flux_ready_gate](https://registry.terraform.io/providers/hashicorp/kubernetes/3.2.1/docs/resources/job_v1) | resource |
-| [kubernetes_namespace_v1.flux_system](https://registry.terraform.io/providers/hashicorp/kubernetes/3.2.1/docs/resources/namespace_v1) | resource |
-| [kubernetes_priority_class_v1.platform_critical](https://registry.terraform.io/providers/hashicorp/kubernetes/3.2.1/docs/resources/priority_class_v1) | resource |
-| [kubernetes_role_binding_v1.flux_ready_gate](https://registry.terraform.io/providers/hashicorp/kubernetes/3.2.1/docs/resources/role_binding_v1) | resource |
-| [kubernetes_role_v1.flux_ready_gate](https://registry.terraform.io/providers/hashicorp/kubernetes/3.2.1/docs/resources/role_v1) | resource |
-| [kubernetes_secret_v1.git_auth](https://registry.terraform.io/providers/hashicorp/kubernetes/3.2.1/docs/resources/secret_v1) | resource |
-| [kubernetes_secret_v1.webhook_token](https://registry.terraform.io/providers/hashicorp/kubernetes/3.2.1/docs/resources/secret_v1) | resource |
-| [kubernetes_service_account_v1.flux_ready_gate](https://registry.terraform.io/providers/hashicorp/kubernetes/3.2.1/docs/resources/service_account_v1) | resource |
+| [kubernetes_job_v1.flux_ready_gate](https://registry.terraform.io/providers/hashicorp/kubernetes/3.3.0/docs/resources/job_v1) | resource |
+| [kubernetes_namespace_v1.flux_system](https://registry.terraform.io/providers/hashicorp/kubernetes/3.3.0/docs/resources/namespace_v1) | resource |
+| [kubernetes_priority_class_v1.platform_critical](https://registry.terraform.io/providers/hashicorp/kubernetes/3.3.0/docs/resources/priority_class_v1) | resource |
+| [kubernetes_role_binding_v1.flux_ready_gate](https://registry.terraform.io/providers/hashicorp/kubernetes/3.3.0/docs/resources/role_binding_v1) | resource |
+| [kubernetes_role_v1.flux_ready_gate](https://registry.terraform.io/providers/hashicorp/kubernetes/3.3.0/docs/resources/role_v1) | resource |
+| [kubernetes_secret_v1.git_auth](https://registry.terraform.io/providers/hashicorp/kubernetes/3.3.0/docs/resources/secret_v1) | resource |
+| [kubernetes_secret_v1.webhook_token](https://registry.terraform.io/providers/hashicorp/kubernetes/3.3.0/docs/resources/secret_v1) | resource |
+| [kubernetes_service_account_v1.flux_ready_gate](https://registry.terraform.io/providers/hashicorp/kubernetes/3.3.0/docs/resources/service_account_v1) | resource |
 | [random_password.webhook_token](https://registry.terraform.io/providers/hashicorp/random/3.9.1/docs/resources/password) | resource |
 
 ## Inputs
 
 | Name | Description | Type | Default | Required |
 |------|-------------|------|---------|:--------:|
+| <a name="input_chart_repository"></a> [chart\_repository](#input\_chart\_repository) | OCI repository the flux-operator and flux-instance Helm charts are read from (e.g. oci://registry.example.com/charts). | `string` | `"oci://ghcr.io/controlplaneio-fluxcd/charts"` | no |
 | <a name="input_concurrency"></a> [concurrency](#input\_concurrency) | Number of concurrent reconciliations per Flux controller | `number` | `2` | no |
+| <a name="input_distribution_artifact"></a> [distribution\_artifact](#input\_distribution\_artifact) | OCI artifact the flux-operator reads the Flux distribution manifests from (FluxInstance spec.distribution.artifact). | `string` | `"oci://ghcr.io/controlplaneio-fluxcd/flux-operator-manifests:latest"` | no |
+| <a name="input_distribution_registry"></a> [distribution\_registry](#input\_distribution\_registry) | Registry the Flux controller images are pulled from (FluxInstance spec.distribution.registry), e.g. registry.example.com/fluxcd. | `string` | `"ghcr.io/fluxcd"` | no |
 | <a name="input_flux_namespace"></a> [flux\_namespace](#input\_flux\_namespace) | The namespace in which Flux will be installed | `string` | `"system-gitops"` | no |
 | <a name="input_flux_operator_version"></a> [flux\_operator\_version](#input\_flux\_operator\_version) | The version of the flux-operator and flux-instance Helm charts to install | `string` | `"0.61.0"` | no |
 | <a name="input_flux_version"></a> [flux\_version](#input\_flux\_version) | The Flux distribution version the operator installs (FluxInstance spec.distribution.version) | `string` | `"2.9.6"` | no |
@@ -83,6 +86,8 @@ No modules.
 | <a name="input_image_reflection"></a> [image\_reflection](#input\_image\_reflection) | Enable the Flux image-reflector-controller. Only needed alongside image-automation-controller to scan image registries. | `bool` | `false` | no |
 | <a name="input_leader_election"></a> [leader\_election](#input\_leader\_election) | Enable leader election on Flux controllers. Disable on single-node clusters to eliminate lease-renewal traffic against etcd. | `bool` | `true` | no |
 | <a name="input_mode"></a> [mode](#input\_mode) | GitOps reconciliation mode. 'push' installs notification-controller and creates the webhook-token secret. 'pull' omits both. | `string` | `"push"` | no |
+| <a name="input_operator_image_repository"></a> [operator\_image\_repository](#input\_operator\_image\_repository) | Image repository for the flux-operator, without a tag (e.g. registry.example.com/controlplaneio-fluxcd/flux-operator). The chart supplies the tag. | `string` | `"ghcr.io/controlplaneio-fluxcd/flux-operator"` | no |
+| <a name="input_ready_gate_image"></a> [ready\_gate\_image](#input\_ready\_gate\_image) | Image for the Job that waits for the FluxInstance to report Ready. It must provide kubectl and sh. | `string` | `"alpine/k8s:1.37.0@sha256:b421c2e9419edb98db39b6ab641669f4db7bb2acf354f22450c6b7e7176d1ff4"` | no |
 | <a name="input_replicas"></a> [replicas](#input\_replicas) | Replica count for kustomize-controller, helm-controller, and notification-controller. source-controller stays pinned to 1 regardless of this value. Values above 1 require leader\_election. | `number` | `1` | no |
 | <a name="input_ssh_known_hosts"></a> [ssh\_known\_hosts](#input\_ssh\_known\_hosts) | The known hosts to use for SSH authentication | `string` | `""` | no |
 | <a name="input_ssh_private_key"></a> [ssh\_private\_key](#input\_ssh\_private\_key) | The private key to use for SSH authentication | `string` | `""` | no |

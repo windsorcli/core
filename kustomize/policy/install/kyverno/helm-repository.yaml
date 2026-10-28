@@ -9,4 +9,5 @@ metadata:
 spec:
   interval: 10m
   timeout: 3m
-  url: https://kyverno.github.io/kyverno
+  type: oci
+  url: oci://ghcr.io/kyverno/charts

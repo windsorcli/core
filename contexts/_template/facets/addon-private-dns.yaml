@@ -10,6 +10,13 @@ requires:
   - paths:
       - dns.private_domain
     message: Self-hosted private DNS serves and publishes records into this zone.
+  # Workstation contexts reach CoreDNS through the node port instead.
+  - when: >-
+      gateway.enabled == true && (workstation.runtime ?? '') == '' &&
+      gateway_exposure.internal == 'NodePort'
+    paths:
+      - gateway_effective.unsupported
+    message: Private DNS answers on port 53, which a NodePort cannot serve; set gateway.internal.service_type to LoadBalancer.
 
 # =============================================================================
 # Kustomize — CoreDNS + external-dns

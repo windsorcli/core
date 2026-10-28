@@ -17,8 +17,8 @@ spec:
   chart:
     spec:
       chart: kyverno
-      # renovate: datasource=helm depName=kyverno package=kyverno helmRepo=https://kyverno.github.io/kyverno/
-      version: 3.9.1
+      # renovate: datasource=docker depName=ghcr.io/kyverno/charts/kyverno package=ghcr.io/kyverno/charts/kyverno
+      version: 3.9.2
       sourceRef:
         kind: HelmRepository
         name: ${helm_mirror_name:=kyverno}

@@ -208,7 +208,7 @@ cases:
           resources:
             - components:
                 - public-issuer/acme/route53
-                - private-issuer/selfsigned
+                - private-issuer/ca
 
   # ACME path on (production): dns.public_domain triggers the standalone
   # dns-zone stack, the cert-manager IAM role on the cluster, the
@@ -778,14 +778,11 @@ cases:
               substitutions:
                 gateway_cert_issuer: private
                 gateway_domain: internal.example.com
-        # Internal gateway always gets pki-resources' private-issuer/selfsigned,
-        # private-issuer/selfsigned, which creates a ClusterIssuer named
-        # `private` — what the gateway cert above references. Without this
-        # the cert would reference a non-existent issuer.
+        # private-issuer/ca creates the `private` ClusterIssuer the gateway cert references.
         - name: pki
           resources:
             - components:
-                - private-issuer/selfsigned
+                - private-issuer/ca
 
   # Without a public domain (and no private mode), the dns Kustomization
   # has nothing to write to — domainFilters would fall back to the

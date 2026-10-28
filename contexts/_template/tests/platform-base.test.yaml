@@ -92,7 +92,7 @@ cases:
             interval: 5m
           resources:
             - components:
-                - private-issuer/selfsigned
+                - private-issuer/ca
               timeout: 5m
               interval: 5m
         - name: observability
@@ -110,7 +110,7 @@ cases:
         - cert-manager-1.21.2
         # renovate: datasource=github-releases depName=prometheus-operator/prometheus-operator package=prometheus-operator/prometheus-operator
         - prometheus-operator-0.94.1
-        # renovate: datasource=helm depName=fluent-operator package=fluent-operator helmRepo=https://fluent.github.io/helm-charts
+        # renovate: datasource=docker depName=ghcr.io/fluent/helm-charts/fluent-operator package=ghcr.io/fluent/helm-charts/fluent-operator
         - fluent-operator-4.3.0
 
   # Full: observability addon enabled; addon wins for same-name observability (grafana + fluentd/outputs/stdout)
@@ -457,7 +457,7 @@ cases:
       crds:
         # renovate: datasource=github-releases depName=prometheus-operator/prometheus-operator package=prometheus-operator/prometheus-operator
         - prometheus-operator-0.94.1
-        # renovate: datasource=helm depName=fluent-operator package=fluent-operator helmRepo=https://fluent.github.io/helm-charts
+        # renovate: datasource=docker depName=ghcr.io/fluent/helm-charts/fluent-operator package=ghcr.io/fluent/helm-charts/fluent-operator
         - fluent-operator-4.3.0
 
   # Metrics on, logs off: Prometheus stack deploys, fluent-bit and fluentd are
@@ -750,7 +750,7 @@ cases:
       crds:
         # renovate: datasource=github-releases depName=cert-manager/cert-manager package=cert-manager/cert-manager
         - cert-manager-1.21.2
-        # renovate: datasource=helm depName=fluent-operator package=fluent-operator helmRepo=https://fluent.github.io/helm-charts
+        # renovate: datasource=docker depName=ghcr.io/fluent/helm-charts/fluent-operator package=ghcr.io/fluent/helm-charts/fluent-operator
         - fluent-operator-4.3.0
     exclude:
       crds:

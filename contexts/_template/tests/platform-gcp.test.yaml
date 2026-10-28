@@ -535,7 +535,7 @@ cases:
         - name: pki
           resources:
             - components:
-                - private-issuer/selfsigned
+                - private-issuer/ca
 
   # Both domains: one external-dns instance per zone.
   - name: both domains run one external-dns instance per zone

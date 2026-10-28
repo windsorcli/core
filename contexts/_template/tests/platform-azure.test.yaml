@@ -455,7 +455,7 @@ cases:
         - name: pki
           resources:
             - components:
-                - private-issuer/selfsigned
+                - private-issuer/ca
 
   # Negative branch: Cilium provides its own gateway implementation, so
   # there's no Envoy data-plane Service to annotate. The azure-lb-internal

@@ -65,11 +65,8 @@ config:
       worker_threshold: { cpu: 4, memory: 8 }
       worker_max: { kubelet_cpu: 80, kubelet_memory: 1843 }
 
-      # Kubelet serving-cert rotation via a static (pre-Flux) manifest so certs
-      # rotate during bootstrap; the Talos default self-signed certs don't match node IPs.
+      # Kubelet serving-cert rotation.
       cert_rotation:
-        extra_manifests:
-          - "https://raw.githubusercontent.com/alex1989hu/kubelet-serving-cert-approver/v0.8.7/deploy/standalone-install.yaml"
         kubelet_extra_args:
           rotate-server-certificates: "true"
 
@@ -78,7 +75,6 @@ config:
       common_patch:
         cluster:
           allowSchedulingOnControlPlanes: ${talos_common.allowSchedulingOnControlPlanes}
-          extraManifests: ${talos_common.cert_rotation.extra_manifests}
         machine:
           kubelet:
             extraArgs: ${talos_common.cert_rotation.kubelet_extra_args}
@@ -276,7 +272,7 @@ config:
   # literal text (this pattern, also used by docker's certSANs patch)
   # doesn't hit that path.
   - name: talos_common
-    when: cluster.oidc.enabled == true && pki.enabled == true
+    when: cluster.oidc.enabled == true
     value:
       common_patch:
         cluster:

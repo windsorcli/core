@@ -9,4 +9,5 @@ metadata:
 spec:
   interval: 10m
   timeout: 3m
-  url: https://metallb.github.io/metallb
+  type: oci
+  url: oci://quay.io/metallb/chart
