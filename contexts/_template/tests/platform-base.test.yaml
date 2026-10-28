@@ -109,7 +109,7 @@ cases:
         # renovate: datasource=github-releases depName=cert-manager/cert-manager package=cert-manager/cert-manager
         - cert-manager-1.21.2
         # renovate: datasource=github-releases depName=prometheus-operator/prometheus-operator package=prometheus-operator/prometheus-operator
-        - prometheus-operator-0.94.1
+        - prometheus-operator-0.94.2
         # renovate: datasource=docker depName=ghcr.io/fluent/helm-charts/fluent-operator package=ghcr.io/fluent/helm-charts/fluent-operator
         - fluent-operator-4.3.0
 
@@ -456,7 +456,7 @@ cases:
         - name: observability
       crds:
         # renovate: datasource=github-releases depName=prometheus-operator/prometheus-operator package=prometheus-operator/prometheus-operator
-        - prometheus-operator-0.94.1
+        - prometheus-operator-0.94.2
         # renovate: datasource=docker depName=ghcr.io/fluent/helm-charts/fluent-operator package=ghcr.io/fluent/helm-charts/fluent-operator
         - fluent-operator-4.3.0
 
@@ -755,7 +755,7 @@ cases:
     exclude:
       crds:
         # renovate: datasource=github-releases depName=prometheus-operator/prometheus-operator package=prometheus-operator/prometheus-operator
-        - prometheus-operator-0.94.1
+        - prometheus-operator-0.94.2
 
   # Both telemetry pipelines off means telemetry-install itself doesn't compose. Observability
   # has no dependency on it (a plain ordering nicety that bought nothing — external-dns-style
