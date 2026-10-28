@@ -41,7 +41,7 @@ runs:
       uses: azure/setup-kubectl@bda439f5f36b99b262ebdcd3613869bddb064c8e # v5.2.0
       with:
         # renovate: datasource=github-releases depName=kubectl package=kubernetes/kubectl
-        version: v1.37.1
+        version: v1.37.2
 
     - name: Install yq
       if: contains(format(',{0},', inputs.tools), ',yq,')
