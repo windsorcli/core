@@ -934,6 +934,33 @@ properties:
         default:
           - "0.0.0.0/0"
         description: Source CIDRs allowed to reach the control-plane APIs (Kubernetes 6443, Talos 50000 where applicable). Platforms map it to the relevant control (hcloud firewall, EKS public access CIDRs, AKS authorized ranges) and ignore it where the firewall is out-of-band. Defaults to open; restrict to operator/CI ranges or a bastion in production.
+      registry_mirror:
+        type: object
+        description: OCI registry that serves upstream images to Talos nodes. Unset pulls from upstream registries, or from the workstation pull-through caches when the workstation runs.
+        properties:
+          url:
+            type: string
+            pattern: '^[a-z0-9.-]+(:[0-9]+)?(/[A-Za-z0-9._-]+)*$'
+            description: Registry host and optional path (e.g. package.copia.io/copia). Each upstream registry resolves to https://<host>/v2/<path>/<upstream>, e.g. https://package.copia.io/v2/copia/docker.io.
+          upstreams:
+            type: array
+            items:
+              type: string
+              pattern: '^[a-z0-9-]+(\.[a-z0-9-]+)+$'
+            description: Upstream registry hosts redirected to the mirror. Replaces the default list (docker.elastic.co, docker.io, gcr.io, ghcr.io, quay.io, reg.kyverno.io, registry.k8s.io, xpkg.crossplane.io, xpkg.upbound.io). Registries not listed pull from upstream.
+          username:
+            type: string
+            description: Username for the mirror. Set together with password.
+          password:
+            type: string
+            sensitive: true
+            description: Password or token for the mirror. Set via a secret() reference, together with username.
+          skip_fallback:
+            type: boolean
+            description: Disables fallback to the upstream registry when the mirror cannot serve an image. Defaults to false.
+        required:
+          - url
+        additionalProperties: false
       controlplanes:
         type: object
         properties:

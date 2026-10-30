@@ -16,6 +16,14 @@ requires:
     paths:
       - identity_effective.gateway_reachable
     message: kube-apiserver OIDC against the hosted Keycloak needs it reachable through the gateway — enable the gateway, or set cluster.oidc.issuer_url explicitly.
+  - when: (cluster.registry_mirror.username ?? '') != ''
+    paths:
+      - cluster.registry_mirror.password
+    message: cluster.registry_mirror.username needs cluster.registry_mirror.password.
+  - when: (cluster.registry_mirror.password ?? '') != ''
+    paths:
+      - cluster.registry_mirror.username
+    message: cluster.registry_mirror.password needs cluster.registry_mirror.username.
 
 # =============================================================================
 # Config — Talos machine patch + extension catalog
@@ -90,6 +98,36 @@ config:
           - siderolabs/nvme-cli
 
       extensions: "${get(talos_common.csi_extensions, talos_common.storage_driver) ?? []}"
+
+      # Default upstream registries redirected to cluster.registry_mirror.
+      registry_mirror_upstreams:
+        - docker.elastic.co
+        - docker.io
+        - gcr.io
+        - ghcr.io
+        - quay.io
+        - reg.kyverno.io
+        - registry.k8s.io
+        - xpkg.crossplane.io
+        - xpkg.upbound.io
+
+      # RegistryMirrorConfig entries: cluster.registry_mirror when set, else the workstation caches.
+      registry_mirrors: >-
+        ${let url = cluster.registry_mirror.url ?? '';
+          let host = split(url, '/')[0];
+          url == ''
+            ? (talos_registry_mirrors.mirrors ?? {})
+            : fromPairs(map(cluster.registry_mirror.upstreams ?? talos_common.registry_mirror_upstreams, [#, {
+                endpoints: [{ url: 'https://' + host + '/v2' + trimPrefix(url, host) + '/' + #, override_path: true }],
+                skip_fallback: cluster.registry_mirror.skip_fallback ?? false
+              }]))}
+
+      # RegistryAuthConfig entries keyed by the mirror host.
+      registry_auths: >-
+        ${let url = cluster.registry_mirror.url ?? '';
+          url == '' || (cluster.registry_mirror.username ?? '') == ''
+            ? {}
+            : fromPairs([[split(url, '/')[0], { username: cluster.registry_mirror.username, password: cluster.registry_mirror.password }]])}
 
   # Reservation tapers linearly from full at the threshold to zero at 2x it,
   # driven by whichever axis (cpu/memory) is proportionally smaller.

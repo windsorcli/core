@@ -219,3 +219,30 @@ variable "worker_disks" {
   default     = []
 }
 
+
+variable "registry_mirrors" {
+  description = "Registry mirrors keyed by registry host (e.g. docker.io, or * for all). Each entry renders a RegistryMirrorConfig document on every node."
+  type = map(object({
+    endpoints = list(object({
+      url           = string
+      override_path = optional(bool, false)
+    }))
+    skip_fallback = optional(bool, false)
+  }))
+  default = {}
+
+  validation {
+    condition     = alltrue([for m in values(var.registry_mirrors) : length(m.endpoints) > 0 && alltrue([for e in m.endpoints : can(regex("^https?://", e.url))])])
+    error_message = "Each registry mirror must list at least one endpoint, and every endpoint url must start with http:// or https://."
+  }
+}
+
+variable "registry_auths" {
+  description = "Registry credentials keyed by mirror endpoint host (e.g. package.copia.io or mirror.test:5000). Each entry renders a RegistryAuthConfig document on every node."
+  type = map(object({
+    username = string
+    password = string
+  }))
+  default   = {}
+  sensitive = true
+}

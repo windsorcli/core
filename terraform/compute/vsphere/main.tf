@@ -133,6 +133,16 @@ locals {
   vip_patch = local.vip != "" ? yamlencode({
     machine = { network = { interfaces = [{ deviceSelector = { physical = true }, vip = { ip = local.vip } }] } }
   }) : ""
+
+  registry_mirror_docs = [for name, m in var.registry_mirrors : yamlencode(merge({
+    apiVersion = "v1alpha1", kind = "RegistryMirrorConfig", name = name,
+    endpoints  = [for e in m.endpoints : merge({ url = e.url }, e.override_path ? { overridePath = true } : {})]
+  }, m.skip_fallback ? { skipFallback = true } : {}))]
+
+  registry_auth_docs = [for name, a in var.registry_auths : yamlencode({
+    apiVersion = "v1alpha1", kind = "RegistryAuthConfig", name = name,
+    username   = a.username, password = a.password
+  })]
 }
 
 resource "talos_machine_secrets" "this" {
@@ -150,12 +160,12 @@ data "talos_machine_configuration" "controlplane" {
   talos_version      = "v${var.talos_version}"
   kubernetes_version = var.kubernetes_version
 
-  config_patches = compact([
+  config_patches = concat(compact([
     var.common_config_patches,
     var.controlplane_config_patches,
     lookup(var.per_node_config_patches, each.key, null),
     local.vip_patch,
-  ])
+  ]), local.registry_mirror_docs, local.registry_auth_docs)
 
   lifecycle {
     precondition {
@@ -175,11 +185,11 @@ data "talos_machine_configuration" "worker" {
   talos_version      = "v${var.talos_version}"
   kubernetes_version = var.kubernetes_version
 
-  config_patches = compact([
+  config_patches = concat(compact([
     var.common_config_patches,
     var.worker_config_patches,
     lookup(var.per_node_config_patches, each.key, null),
-  ])
+  ]), local.registry_mirror_docs, local.registry_auth_docs)
 }
 
 locals {
