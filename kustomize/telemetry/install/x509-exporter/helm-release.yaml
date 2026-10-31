@@ -1,0 +1,53 @@
+apiVersion: helm.toolkit.fluxcd.io/v2
+kind: HelmRelease
+metadata:
+  name: x509-certificate-exporter
+  namespace: system-telemetry
+spec:
+  interval: 5m
+  timeout: 10m
+  install:
+    remediation:
+      retries: 5
+  upgrade:
+    remediation:
+      retries: 5
+  dependsOn:
+    - name: kube-prometheus-stack
+  chart:
+    spec:
+      chart: x509-certificate-exporter
+      # renovate: datasource=docker depName=quay.io/enix/charts/x509-certificate-exporter package=quay.io/enix/charts/x509-certificate-exporter
+      version: 4.2.3
+      sourceRef:
+        kind: HelmRepository
+        name: enix
+  values:
+    image:
+      # renovate: datasource=docker depName=quay.io/enix/x509-certificate-exporter package=quay.io/enix/x509-certificate-exporter
+      tag: 4.2.3@sha256:54663f4f49f849e43356747c08ed297772cfff9d150c637ab19d6835a63303b1
+    secretsExporter:
+      # ca.crt covers the cluster CA through every certificate the private issuer signs.
+      secretTypes:
+        - type: kubernetes.io/tls
+          key: tls.crt
+        - type: kubernetes.io/tls
+          key: ca.crt
+      tolerations:
+        - key: CriticalAddonsOnly
+          operator: Exists
+          effect: NoSchedule
+      affinity:
+        nodeAffinity:
+          preferredDuringSchedulingIgnoredDuringExecution:
+            - weight: 100
+              preference:
+                matchExpressions:
+                  - key: windsorcli.dev/pool-class
+                    operator: In
+                    values:
+                      - system
+    prometheusServiceMonitor:
+      create: true
+    prometheusRules:
+      create: false

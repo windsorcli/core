@@ -11,5 +11,6 @@ components:
   - prometheus
   - coredns
   - cert-manager
+  - x509
   - flux
   - envoy

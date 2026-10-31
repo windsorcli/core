@@ -58,6 +58,7 @@ cases:
             components:
               - prometheus
               - prometheus/flux
+              - x509-exporter
               - fluentbit
               - metrics-server
             timeout: 30m
@@ -70,6 +71,7 @@ cases:
                 - prometheus/alerts/prometheus
                 - prometheus/alerts/coredns
                 - prometheus/alerts/cert-manager
+                - prometheus/alerts/x509
                 - prometheus/alerts/flux
                 - fluentbit
                 - fluentbit/containerd
@@ -140,6 +142,7 @@ cases:
                 - prometheus/alerts/prometheus
                 - prometheus/alerts/coredns
                 - prometheus/alerts/cert-manager
+                - prometheus/alerts/x509
                 - prometheus/alerts/flux
                 - fluentbit
                 - fluentbit/containerd
@@ -226,6 +229,7 @@ cases:
                 - prometheus/alerts/prometheus
                 - prometheus/alerts/coredns
                 - prometheus/alerts/cert-manager
+                - prometheus/alerts/x509
                 - prometheus/alerts/flux
                 - prometheus/alerts/envoy
               timeout: 10m
@@ -267,6 +271,7 @@ cases:
                 - prometheus/alerts/prometheus
                 - prometheus/alerts/coredns
                 - prometheus/alerts/cert-manager
+                - prometheus/alerts/x509
                 - prometheus/alerts/flux
                 - fluentbit
                 - fluentbit/containerd
@@ -479,6 +484,7 @@ cases:
             components:
               - prometheus
               - prometheus/flux
+              - x509-exporter
               - metrics-server
           resources:
             - components:
@@ -488,6 +494,7 @@ cases:
                 - prometheus/alerts/prometheus
                 - prometheus/alerts/coredns
                 - prometheus/alerts/cert-manager
+                - prometheus/alerts/x509
                 - prometheus/alerts/flux
         - name: pki
           dependsOn:
@@ -584,6 +591,7 @@ cases:
                 - prometheus/alerts/prometheus
                 - prometheus/alerts/coredns
                 - prometheus/alerts/cert-manager
+                - prometheus/alerts/x509
                 - prometheus/alerts/flux
                 - prometheus/notifications/slack
                 - fluentbit
@@ -701,6 +709,7 @@ cases:
                 - prometheus/alerts/prometheus
                 - prometheus/alerts/coredns
                 - prometheus/alerts/cert-manager
+                - prometheus/alerts/x509
                 - prometheus/alerts/flux
                 - fluentbit
 
