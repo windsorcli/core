@@ -1202,6 +1202,11 @@ properties:
             sensitive: true
             description: PEM-encoded CA private key. Supply alongside cert to bring your own; leave both unset to generate one via Terraform.
         additionalProperties: false
+      trusted_cas:
+        type: array
+        items:
+          type: string
+        description: PEM-encoded root certificates added to the cluster trust bundle and the API server's OIDC CA file.
       private_ca:
         type: object
         deprecated: true

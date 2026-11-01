@@ -179,6 +179,11 @@ and `.key` supply it. trust-manager publishes the CA certificate as the
 `private-ca` ConfigMap, and a Kyverno policy mounts it into Pods labeled
 `use-custom-ca: "true"`.
 
+The `private-issuer/ca/trusted-cas` component adds the roots in
+`pki.trusted_cas` to the same bundle, read from the `pki-trusted-cas`
+Secret that the facet places in `system-pki-trust`. Use it when a corporate
+root signs the gateway certificate, a TLS-inspecting proxy, or a registry.
+
 ## Operations
 
 If `cert-manager-controller` restarts with `Last State: Terminated,

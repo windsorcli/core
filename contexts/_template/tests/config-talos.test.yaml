@@ -706,3 +706,34 @@ cases:
                 kubelet:
                   extraArgs:
                     rotate-server-certificates: "true"
+
+  - name: oidc with trusted_cas appends the roots to the OIDC CA file
+    values:
+      platform: metal
+      gateway:
+        enabled: false
+      network: *default-network
+      cluster:
+        <<: *default-cluster
+        oidc:
+          enabled: true
+          issuer_url: https://keycloak.example.com/realms/windsor
+          client_id: kubernetes
+      pki:
+        trusted_cas:
+          - |-
+            -----BEGIN CERTIFICATE-----
+            ROOTA
+            -----END CERTIFICATE-----
+    terraformOutputs:
+      pki:
+        cert: |-
+          -----BEGIN CERTIFICATE-----
+          FAKECERT
+          -----END CERTIFICATE-----
+    expect:
+      terraform:
+        - name: cluster
+          path: cluster/talos
+          inputs:
+            controlplane_config_patches: "machine:\n  files:\n  - op: create\n    path: /var/kubernetes/oidc-ca.crt\n    permissions: 420\n    content: |\n      \n        -----BEGIN CERTIFICATE-----\n        FAKECERT\n        -----END CERTIFICATE-----\n      \n        -----BEGIN CERTIFICATE-----\n        ROOTA\n        -----END CERTIFICATE-----"
