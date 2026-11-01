@@ -56,8 +56,8 @@ cases:
               - "8.8.8.8"
             images:
               talos:
-                url: https://factory.talos.dev/image/ce4c980550dd2ab1b17bbf2b08801c7eb59418eafe8f279833297925d67c7515/v1.14.2/nocloud-amd64.qcow2
-                file_name: talos-v1.14.2-ce4c9805-amd64.qcow2
+                url: https://factory.talos.dev/image/ce4c980550dd2ab1b17bbf2b08801c7eb59418eafe8f279833297925d67c7515/v1.14.5/nocloud-amd64.qcow2
+                file_name: talos-v1.14.5-ce4c9805-amd64.qcow2
             instances:
               - name: controlplane
                 role: controlplane
@@ -295,8 +295,8 @@ cases:
             arch: arm64
             images:
               talos:
-                url: https://factory.talos.dev/image/ce4c980550dd2ab1b17bbf2b08801c7eb59418eafe8f279833297925d67c7515/v1.14.2/nocloud-arm64.qcow2
-                file_name: talos-v1.14.2-ce4c9805-arm64.qcow2
+                url: https://factory.talos.dev/image/ce4c980550dd2ab1b17bbf2b08801c7eb59418eafe8f279833297925d67c7515/v1.14.5/nocloud-arm64.qcow2
+                file_name: talos-v1.14.5-ce4c9805-arm64.qcow2
 
   # The context id suffixes VM names and the image file so contexts can share one node.
   - name: proxmox context id suffixes vm names and the image file
@@ -315,7 +315,7 @@ cases:
             name_suffix: "-lab"
             images:
               talos:
-                file_name: talos-v1.14.2-ce4c9805-amd64-lab.qcow2
+                file_name: talos-v1.14.5-ce4c9805-amd64-lab.qcow2
 
   # A pool and a VM ID range place Windsor's VMs on a shared host.
   - name: proxmox pool and vm_id_start flow through to compute
@@ -392,7 +392,7 @@ cases:
           common_patch:
             machine:
               install:
-                image: factory.talos.dev/nocloud-installer/ce4c980550dd2ab1b17bbf2b08801c7eb59418eafe8f279833297925d67c7515:v1.14.2
+                image: factory.talos.dev/nocloud-installer/ce4c980550dd2ab1b17bbf2b08801c7eb59418eafe8f279833297925d67c7515:v1.14.5
 
   # DHCP with flannel: no static ipv4, and the API URL comes from compute's agent-reported address.
   - name: proxmox dhcp with flannel derives the endpoint from compute output

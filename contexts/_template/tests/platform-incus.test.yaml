@@ -397,7 +397,7 @@ cases:
         - name: cluster
           path: cluster/talos
           inputs:
-            talos_version: "1.14.2"
+            talos_version: "1.14.5"
 
   # colima-incus: defaults to flannel CNI (no cilium overhead; used for storage driver testing)
   - name: colima-incus defaults to flannel CNI and kube-vip lb
